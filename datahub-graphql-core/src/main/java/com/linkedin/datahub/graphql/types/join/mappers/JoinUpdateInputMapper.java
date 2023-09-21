@@ -93,8 +93,7 @@ public class JoinUpdateInputMapper
 
     if (inputProperties.getJoinFieldmapping() != null) {
       JoinFieldMappingInput joinFieldMapping = inputProperties.getJoinFieldmapping();
-      if (joinFieldMapping.getDetails() != null || (joinFieldMapping.getFieldMappings() != null
-              && joinFieldMapping.getFieldMappings().size() > 0)) {
+      if ((joinFieldMapping.getFieldMappings() != null && joinFieldMapping.getFieldMappings().size() > 0)) {
         JoinFieldMapping joinFieldMappingUnit = joinFieldMappingSettings(joinFieldMapping);
         joinProperties.setJoinFieldMapping(joinFieldMappingUnit);
       }
@@ -119,9 +118,6 @@ public class JoinUpdateInputMapper
 
   private static JoinFieldMapping joinFieldMappingSettings(JoinFieldMappingInput joinFieldMapping) {
     JoinFieldMapping joinFieldMappingUnit = new JoinFieldMapping();
-    if (joinFieldMapping.getDetails() != null) {
-      joinFieldMappingUnit.setDetails(joinFieldMapping.getDetails());
-    }
 
     if (joinFieldMapping.getFieldMappings() != null && joinFieldMapping.getFieldMappings().size() > 0) {
       com.linkedin.join.FieldMapArray fieldMapArray = new FieldMapArray();

@@ -182,11 +182,8 @@ export const JoinPreview = ({ joinData, baseEntityUrn, prePageType }: Props) => 
             </Row>
             {prePageType === 'Dataset' && (
                 <Row>
-                    <p className="all-content-heading">Join details</p>
-                    <div>
-                        <p className="all-content-info">{joinData?.properties?.joinFieldMapping?.details}</p>
-                        <p className="all-content-info">{joinData?.editableProperties?.description}</p>
-                    </div>
+                    <p className="all-content-heading">About Join</p>
+                    <p className="all-content-info">{joinData?.editableProperties?.description}</p>
                 </Row>
             )}
         </div>

@@ -45,7 +45,6 @@ export const CreateJoinModal = ({
     const table2Dataset = editJoin?.properties?.datasetB || table2?.dataset;
     const table2DatasetSchema = editJoin?.properties?.datasetB || table2Schema?.dataset;
 
-    // const [details, setDetails] = useState<string>(editJoin?.properties?.joinFieldMapping?.details || '');
     const [details, setDetails] = useState<string>(editJoin?.editableProperties?.description || '');
 
     const [joinName, setJoinName] = useState<string>(editJoin?.properties?.name || editJoin?.joinId || '');
@@ -109,7 +108,6 @@ export const CreateJoinModal = ({
                             createdBy: editJoin?.properties?.createdActor?.urn || user?.urn,
                             createdAt: editJoin?.properties?.createdTime || 0,
                             joinFieldmapping: {
-                                details: 'dummy TODO remove',
                                 fieldMappings: tableData.map((r) => {
                                     return {
                                         afield: r.field1Name,
@@ -133,7 +131,6 @@ export const CreateJoinModal = ({
                             datasetB: table2Dataset?.urn || '',
                             name: joinName,
                             joinFieldmapping: {
-                                details: 'dummy TODO remove',
                                 fieldMappings: tableData.map((r) => {
                                     return {
                                         afield: r.field1Name,

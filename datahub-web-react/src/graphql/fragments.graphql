@@ -1142,7 +1142,6 @@ fragment joinFieldMappingFields on JoinFieldMapping {
         afield
         bfield
     }
-    details
 }
 
 fragment joinEditablePropertiesFields on JoinEditableProperties {
