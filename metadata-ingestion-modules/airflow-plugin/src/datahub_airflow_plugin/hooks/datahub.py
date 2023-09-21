@@ -29,7 +29,7 @@ class DatahubRestHook(BaseHook):
 
     conn_name_attr = "datahub_rest_conn_id"
     default_conn_name = "datahub_rest_default"
-    conn_type = "datahub_rest"
+    conn_type = "datahub-rest"
     hook_name = "DataHub REST Server"
 
     def __init__(self, datahub_rest_conn_id: str = default_conn_name) -> None:
@@ -49,6 +49,15 @@ class DatahubRestHook(BaseHook):
                 "host": "Server Endpoint",
             },
         }
+
+    def test_connection(self) -> Tuple[bool, str]:
+        try:
+            emitter = self.make_emitter()
+            emitter.test_connection()
+        except Exception as e:
+            return False, str(e)
+
+        return True, "Successfully connected to DataHub."
 
     def _get_config(self) -> Tuple[str, Optional[str], Optional[int]]:
         conn: "Connection" = self.get_connection(self.datahub_rest_conn_id)
@@ -99,7 +108,7 @@ class DatahubKafkaHook(BaseHook):
 
     conn_name_attr = "datahub_kafka_conn_id"
     default_conn_name = "datahub_kafka_default"
-    conn_type = "datahub_kafka"
+    conn_type = "datahub-kafka"
     hook_name = "DataHub Kafka Sink"
 
     def __init__(self, datahub_kafka_conn_id: str = default_conn_name) -> None:
@@ -194,9 +203,15 @@ class DatahubGenericHook(BaseHook):
 
         # We need to figure out the underlying hook type. First check the
         # conn_type. If that fails, attempt to guess using the conn id name.
-        if conn.conn_type == DatahubRestHook.conn_type:
+        if (
+            conn.conn_type == DatahubRestHook.conn_type
+            or conn.conn_type == DatahubRestHook.conn_type.replace("-", "_")
+        ):
             return DatahubRestHook(self.datahub_conn_id)
-        elif conn.conn_type == DatahubKafkaHook.conn_type:
+        elif (
+            conn.conn_type == DatahubKafkaHook.conn_type
+            or conn.conn_type == DatahubKafkaHook.conn_type.replace("-", "_")
+        ):
             return DatahubKafkaHook(self.datahub_conn_id)
         elif "rest" in self.datahub_conn_id:
             return DatahubRestHook(self.datahub_conn_id)
