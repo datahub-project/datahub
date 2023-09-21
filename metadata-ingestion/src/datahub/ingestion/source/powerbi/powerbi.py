@@ -267,7 +267,7 @@ class Mapper:
 
             upstream_lineage_class: UpstreamLineageClass = UpstreamLineageClass(
                 upstreams=upstream,
-                fineGrainedLineages=cll_lineage if len(cll_lineage) > 0 else None,
+                fineGrainedLineages=cll_lineage or None,
             )
 
             logger.debug(f"Dataset urn = {ds_urn} and its lineage = {upstream_lineage}")

@@ -15,7 +15,7 @@ from datahub.ingestion.source.powerbi.dataplatform_instance_resolver import (
     AbstractDataPlatformInstanceResolver,
     create_dataplatform_instance_resolver,
 )
-from datahub.ingestion.source.powerbi.m_query import parser, tree_function
+from datahub.ingestion.source.powerbi.m_query import parser, resolver, tree_function
 from datahub.ingestion.source.powerbi.m_query.resolver import DataPlatformTable, Lineage
 
 M_QUERIES = [
@@ -719,13 +719,14 @@ def test_sqlglot_parser():
         }
     )
 
-    data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
+    lineage: List[resolver.Lineage] = parser.get_upstream_tables(
         table,
         reporter,
         ctx=ctx,
         config=config,
         platform_instance_resolver=platform_instance_resolver,
-    )[0].upstreams
+    )
+    data_platform_tables: List[DataPlatformTable] = lineage[0].upstreams
 
     assert len(data_platform_tables) == 2
     assert (
