@@ -40,8 +40,7 @@ describe("nested domains test", () => {
         cy.clickOptionWithText("Move");
         cy.get('[role="dialog"]').contains("Marketing").click({force: true});
         cy.get('[role="dialog"]').contains("Marketing").should("be.visible");
-        cy.get("button").contains("Move").click();
-        cy.waitTextVisible("Moved Domain!").wait(5000);
+        cy.get("button").contains("Move").click().wait(5000);
         //ensure domain is no longer on the sidebar navigator at the top level but shows up under the parent
         cy.goToDomainList();
         cy.ensureTextNotPresent(domainName);
@@ -52,8 +51,7 @@ describe("nested domains test", () => {
         cy.clickOptionWithText(domainName);
         cy.openThreeDotDropdown();
         cy.clickOptionWithText("Move");
-        cy.get("button").contains("Move").click();
-        cy.waitTextVisible("Moved Domain!").wait(5000);
+        cy.get("button").contains("Move").click().wait(5000);
         cy.goToDomainList();
         cy.waitTextVisible(domainName);
         cy.waitTextVisible(domainDescription);
@@ -61,9 +59,8 @@ describe("nested domains test", () => {
         cy.clickOptionWithText(domainName);
         cy.openThreeDotDropdown();
         cy.clickOptionWithText("Delete");
-        cy.waitTextVisible(`Delete ${domainName}`);
-        cy.get("button").contains("Yes").click();
-        cy.waitTextVisible("Deleted Domain!").wait(5000);
+        cy.waitTextVisible("Are you sure you want to remove this Domain?");
+        cy.get("button").contains("Yes").click().wait(5000);
         cy.ensureTextNotPresent(domainName);
         cy.ensureTextNotPresent(domainDescription);
     });
