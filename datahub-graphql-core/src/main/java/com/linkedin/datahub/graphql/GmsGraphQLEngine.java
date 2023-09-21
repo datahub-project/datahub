@@ -793,7 +793,7 @@ public class GmsGraphQLEngine {
                     this.viewsConfiguration,
                     this.featureFlags
                 ))
-            .dataFetcher("me", new MeResolver(this.systemEntityClient, featureFlags))
+            .dataFetcher("me", new MeResolver(this.entityClient, featureFlags))
             .dataFetcher("search", new SearchResolver(this.entityClient))
             .dataFetcher("searchAcrossEntities", new SearchAcrossEntitiesResolver(this.entityClient, this.viewService))
             .dataFetcher("scrollAcrossEntities", new ScrollAcrossEntitiesResolver(this.entityClient, this.viewService))
