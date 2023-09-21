@@ -1,0 +1,20 @@
+name: Markdown Link Check
+
+on:
+  push:
+    branches: [ main ]
+
+defaults:
+  run:
+    shell: pwsh
+
+jobs:
+  main:
+    name: Run Markdown Link Check
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: Markdown Link Check
+      uses: gaurav-nelson/github-action-markdown-link-check@v1
+      with:
+        use-quiet-mode: yes

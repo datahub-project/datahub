@@ -1,0 +1,44 @@
+# This workflow runs the Markdown Link Check log parser and is triggered when the above workflow completes
+name: Markdown Link Check log parser
+
+on:
+  workflow_run:
+    workflows: [
+      "Markdown Link Check"
+    ]
+    types:
+    - completed
+
+defaults:
+  run:
+    shell: pwsh
+
+jobs:
+  main:
+    name: Markdown Link Check log parser
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: Run markdown link check log parser
+      id: mlc-log-parser
+      uses: edumserrano/markdown-link-check-log-parser@v1
+      with:
+        run-id: '${{ github.event.workflow_run.id }}'
+        job-name: 'Run Markdown Link Check'
+        step-name: 'Markdown Link Check'
+        only-errors: 'false'
+        output: 'step, json, md'
+        json-filepath: './mlc-json-result.json'
+        markdown-filepath: './mlc-md-result.md'
+    - name: Create comment
+      uses: peter-evans/create-or-update-comment@v3
+      with:
+        issue-number: 1
+        body: |
+          $result = '${{ steps.mlc-log-parser.outputs.mlc-result }}' | ConvertFrom-Json
+          Write-Output "Total files checked: $($result.TotalFilesChecked)"
+          Write-Output "Total links checked: $($result.TotalLinksChecked)"
+          Write-Output "Has erros: $($result.HasErrors)"
+          $resultAsJsonIndented = ConvertTo-Json -Depth 4 $result
+          Write-Output $resultAsJsonIndented # outputs the markdown link check result as an indented JSON string
+        reactions: '+1'
