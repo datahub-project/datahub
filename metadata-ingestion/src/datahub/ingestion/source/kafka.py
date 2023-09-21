@@ -58,6 +58,7 @@ from datahub.metadata.schema_classes import (
     DataPlatformInstanceClass,
     DatasetPropertiesClass,
     KafkaSchemaClass,
+    OwnershipSourceTypeClass,
     SubTypesClass,
 )
 from datahub.utilities.mapping import Constants, OperationProcessor
@@ -196,7 +197,7 @@ class KafkaSource(StatefulIngestionSourceBase):
         self.meta_processor = OperationProcessor(
             self.source_config.meta_mapping,
             self.source_config.tag_prefix,
-            "SOURCE_CONTROL",
+            OwnershipSourceTypeClass.SERVICE,
             self.source_config.strip_user_ids_from_email,
             match_nested_props=True,
         )

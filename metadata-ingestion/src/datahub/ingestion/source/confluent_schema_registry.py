@@ -23,6 +23,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     SchemaField,
     SchemaMetadata,
 )
+from datahub.metadata.schema_classes import OwnershipSourceTypeClass
 from datahub.utilities.mapping import OperationProcessor
 
 logger = logging.getLogger(__name__)
@@ -64,7 +65,7 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
         self.field_meta_processor = OperationProcessor(
             self.source_config.field_meta_mapping,
             self.source_config.tag_prefix,
-            "SOURCE_CONTROL",
+            OwnershipSourceTypeClass.SERVICE,
             self.source_config.strip_user_ids_from_email,
             match_nested_props=True,
         )

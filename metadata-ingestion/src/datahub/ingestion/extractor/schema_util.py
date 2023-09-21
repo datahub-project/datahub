@@ -263,18 +263,12 @@ class AvroToMceSchemaConverter:
             converter: "AvroToMceSchemaConverter",
             description: Optional[str] = None,
             default_value: Optional[str] = None,
-            meta_mapping_processor: Optional[OperationProcessor] = None,
-            schema_tags_field: Optional[str] = None,
-            tag_prefix: Optional[str] = None,
         ):
             self._schema = schema
             self._actual_schema = actual_schema
             self._converter = converter
             self._description = description
             self._default_value = default_value
-            self._meta_mapping_processor = meta_mapping_processor
-            self._schema_tags_field = schema_tags_field
-            self._tag_prefix = tag_prefix
 
         def __enter__(self):
             type_annotation = self._converter._get_type_annotation(self._actual_schema)
@@ -337,13 +331,15 @@ class AvroToMceSchemaConverter:
 
                 # Parse meta_mapping
                 meta_aspects: Dict[str, Any] = {}
-                if self._meta_mapping_processor:
-                    meta_aspects = self._meta_mapping_processor.process(merged_props)
+                if self._converter._meta_mapping_processor:
+                    meta_aspects = self._converter._meta_mapping_processor.process(
+                        merged_props
+                    )
 
                 tags: List[str] = []
-                if self._schema_tags_field:
-                    for tag in merged_props.get(self._schema_tags_field, []):
-                        tags.append(self._tag_prefix + tag)
+                if self._converter._schema_tags_field:
+                    for tag in merged_props.get(self._converter._schema_tags_field, []):
+                        tags.append(self._converter._tag_prefix + tag)
 
                 meta_tags_aspect = meta_aspects.get(Constants.ADD_TAG_OPERATION)
                 if meta_tags_aspect:
@@ -462,9 +458,6 @@ class AvroToMceSchemaConverter:
             self,
             description,
             last_field_schema.default,
-            self._meta_mapping_processor,
-            self._schema_tags_field,
-            self._tag_prefix,
         ) as f_emit:
             yield from f_emit.emit()
 
@@ -492,9 +485,6 @@ class AvroToMceSchemaConverter:
             schema,
             actual_schema,
             self,
-            meta_mapping_processor=self._meta_mapping_processor,
-            schema_tags_field=self._schema_tags_field,
-            tag_prefix=self._tag_prefix,
         ) as fe_schema:
             if isinstance(
                 actual_schema,
@@ -528,9 +518,6 @@ class AvroToMceSchemaConverter:
             schema,
             schema,
             self,
-            meta_mapping_processor=self._meta_mapping_processor,
-            schema_tags_field=self._schema_tags_field,
-            tag_prefix=self._tag_prefix,
         ) as non_nested_emitter:
             yield from non_nested_emitter.emit()
 
