@@ -13,8 +13,8 @@ import sqlglot.errors
 import sqlglot.lineage
 import sqlglot.optimizer.qualify
 import sqlglot.optimizer.qualify_columns
-from mypy_extensions import TypedDict
 from pydantic import BaseModel
+from typing_extensions import TypedDict
 
 from datahub.emitter.mce_builder import (
     DEFAULT_ENV,
