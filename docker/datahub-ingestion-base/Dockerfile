@@ -31,7 +31,7 @@ RUN apt-get update && apt-get install -y \
     zip \
     unzip \
     ldap-utils \
-    openjdk-11-jre-headless \
+    openjdk-17-jre-headless \
     && python -m pip install --upgrade pip wheel setuptools==57.5.0 \
     && curl -Lk -o /root/librdkafka-${LIBRDKAFKA_VERSION}.tar.gz https://github.com/edenhill/librdkafka/archive/v${LIBRDKAFKA_VERSION}.tar.gz \
     &&  tar -xzf /root/librdkafka-${LIBRDKAFKA_VERSION}.tar.gz -C /root \
