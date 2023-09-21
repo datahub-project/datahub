@@ -1,4 +1,4 @@
-name: Markdown Link Check
+name: markdown-link-check
 
 on:
   pull_request:

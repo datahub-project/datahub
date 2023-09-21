@@ -1,11 +1,8 @@
-# This workflow runs the Markdown Link Check log parser and is triggered when the above workflow completes
-name: Markdown Link Check log parser
+name: markdown-lnk-check-comment
 
 on:
   workflow_run:
-    workflows: [
-      "Markdown Link Check"
-    ]
+    workflows: [ "markdown-link-check" ]
     types:
     - completed
 
