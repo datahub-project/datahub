@@ -1,8 +1,12 @@
 name: Markdown Link Check
 
 on:
+  pull_request:
+    branches:
+      - master
   push:
-    branches: [ main ]
+    branches:
+      - master
 
 defaults:
   run:
