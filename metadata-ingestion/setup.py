@@ -52,7 +52,6 @@ framework_common = {
     "jsonschema<=4.17.3; python_version < '3.8'",
     "jsonschema; python_version >= '3.8'",
     "ruamel.yaml",
-    "memray"
 }
 
 rest_common = {"requests", "requests_file"}
@@ -432,6 +431,10 @@ pytest_dep = "pytest>=6.2.2"
 deepdiff_dep = "deepdiff"
 test_api_requirements = {pytest_dep, deepdiff_dep, "PyYAML"}
 
+debug_requirements = {
+    "memray"
+}
+
 base_dev_requirements = {
     *base_requirements,
     *framework_common,
@@ -724,5 +727,6 @@ See the [DataHub docs](https://datahubproject.io/docs/metadata-ingestion).
         "dev": list(dev_requirements),
         "testing-utils": list(test_api_requirements),  # To import `datahub.testing`
         "integration-tests": list(full_test_dev_requirements),
+        "debug": list(debug_requirements),
     },
 )
