@@ -1,17 +1,36 @@
+import { aliasQuery, hasOperationName } from "../utils";
+
 const domainName = "CypressNestedDomain";
 const domainDescription = "CypressNestedDomainDescription";
 
 describe("nested domains test", () => {
+
+    beforeEach(() => {
+        cy.intercept("POST", "/api/v2/graphql", (req) => {
+          aliasQuery(req, "appConfig");
+        });
+      });
+    
+      const setDomainsFeatureFlag = (isOn) => {
+        cy.intercept("POST", "/api/v2/graphql", (req) => {
+          if (hasOperationName(req, "appConfig")) {
+            req.reply((res) => {
+              res.body.data.appConfig.featureFlags.nestedDomainsEnabled = isOn;
+            });
+          }
+        });
+      };
+
     it("create a domain, move under parent, remove domain", () => {
+        setDomainsFeatureFlag(true);
         //create a new domain without a parent
         cy.loginWithCredentials();
         cy.goToDomainList();
         cy.clickOptionWithText("New Domain");
         cy.waitTextVisible("Create New Domain");
-        cy.get('[data-testid="create-domain-name"]').type(domainName);
-        cy.get('#description').type(domainDescription);
-        cy.clickOptionWithTestId("create-domain-button");
-        cy.waitTextVisible("Created domain!");
+        cy.get('[data-testid="create-domain-name"]').click().type(domainName);
+        cy.get('#description').click().type(domainDescription);
+        cy.get('[data-testid="create-domain-button"]').click()
         cy.waitTextVisible(domainName);
         //ensure the new domain has no parent in the navigation sidebar
         cy.waitTextVisible(domainDescription);
