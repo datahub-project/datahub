@@ -6,8 +6,8 @@ import javax.annotation.Nonnull;
 
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import lombok.extern.slf4j.Slf4j;
-import org.elasticsearch.action.support.WriteRequest;
-import org.elasticsearch.client.RestHighLevelClient;
+import org.opensearch.action.support.WriteRequest;
+import org.opensearch.client.RestHighLevelClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
