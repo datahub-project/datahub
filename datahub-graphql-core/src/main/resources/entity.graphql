@@ -3783,6 +3783,11 @@ type CorpGroup implements Entity {
     Additional read only info about the group
     """
     info: CorpGroupInfo @deprecated
+
+    """
+    Whether or not this entity exists on DataHub
+    """
+    exists: Boolean
 }
 
 """

@@ -1288,7 +1288,8 @@ public class GmsGraphQLEngine {
      */
     private void configureCorpGroupResolvers(final RuntimeWiring.Builder builder) {
         builder.type("CorpGroup", typeWiring -> typeWiring
-            .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient)));
+            .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient))
+            .dataFetcher("exists", new EntityExistsResolver(entityService)));
         builder.type("CorpGroupInfo", typeWiring -> typeWiring
                 .dataFetcher("admins",
                     new LoadableTypeBatchResolver<>(corpUserType,
