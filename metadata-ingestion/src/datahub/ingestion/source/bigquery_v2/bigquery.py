@@ -285,9 +285,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         # Maps view ref -> actual sql
         self.view_definitions: FileBackedDict[str] = FileBackedDict()
 
-        self.sql_parser_schema_resolver = SchemaResolver(
-            platform=self.platform, env=self.config.env
-        )
+        self.sql_parser_schema_resolver = self._init_schema_resolver()
 
         self.add_config_to_report()
         atexit.register(cleanup, config)
@@ -445,6 +443,27 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 capable=False, failure_reason=f"{e}"
             )
             return test_report
+
+    def _init_schema_resolver(self) -> SchemaResolver:
+        schema_resolution_required = (
+            self.config.lineage_parse_view_ddl or self.config.lineage_use_sql_parser
+        )
+        schema_ingestion_enabled = (
+            self.config.include_views and self.config.include_tables
+        )
+
+        if schema_resolution_required and not schema_ingestion_enabled:
+            if self.ctx.graph:
+                return self.ctx.graph.initialize_schema_resolver_from_datahub(
+                    platform=self.platform,
+                    platform_instance=self.config.platform_instance,
+                    env=self.config.env,
+                )[0]
+            else:
+                logger.warning(
+                    "Failed to load schema info from DataHub as DataHubGraph is missing.",
+                )
+        return SchemaResolver(platform=self.platform, env=self.config.env)
 
     def get_dataplatform_instance_aspect(
         self, dataset_urn: str, project_id: str
