@@ -17,7 +17,7 @@
     "generate": "rm -rf genDocs genStatic && mkdir genDocs genStatic && yarn _generate-docs && mv docs/* genDocs/ && rmdir docs",
     "generate-rsync": "mkdir -p genDocs genStatic && yarn _generate-docs && rsync -v --checksum -r -h -i --delete docs/ genDocs && rm -rf docs",
     "lint": "prettier -w generateDocsDir.ts sidebars.js src/pages/index.js",
-    "lint-check": "prettier -l generateDocsDir.ts sidebars.js src/pages/index.js",
+    "lint-check": "prettier -l generateDocsDir.ts sidebars.js src/pages/index.js && find ./genDocs -name \\*.md -not -path \"./genDocs/python-sdk/models.md\" -print0 | xargs -0 -n1 markdown-link-check -p -q -c markdown-link-check-config.json",
     "lint-fix": "prettier --write generateDocsDir.ts sidebars.js src/pages/index.js"
   },
   "dependencies": {
@@ -37,6 +37,7 @@
     "docusaurus-graphql-plugin": "0.5.0",
     "docusaurus-plugin-sass": "^0.2.1",
     "dotenv": "^16.0.1",
+    "markdown-link-check": "^3.11.2",
     "markprompt": "^0.1.7",
     "react": "^18.2.0",
     "react-dom": "18.2.0",
