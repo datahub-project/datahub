@@ -655,7 +655,7 @@ def test_kafka_source_topic_meta_mappings(
             make_owner_urn("charles", OwnerType.USER),
             make_owner_urn("jdoe.last@gmail.com", OwnerType.USER),
         ],
-        "SOURCE_CONTROL",
+        "SERVICE",
     )
 
     tags_aspect = [
