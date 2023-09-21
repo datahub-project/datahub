@@ -6,8 +6,8 @@ To specify the group of files that form a dataset, use `path_specs` configuratio
 This ingestion source maps the following Source System Concepts to DataHub Concepts:
 
 | Source Concept                           | DataHub Concept                                                                            | Notes               |
-| ---------------------------------------- | ------------------------------------------------------------------------------------------ | ------------------- |
-| `"s3"`                                   | [Data Platform](https://datahubproject.io/docs/generated/metamodel/entities/dataPlatform/) |                     |
+| ---------------------------------------- |--------------------------------------------------------------------------------------------| ------------------- |
+| `"s3"`                                   | [Data Platform](https://datahubproject.io/docs/generated/metamodel/entities/dataplatform/) |                     |
 | s3 object / Folder containing s3 objects | [Dataset](https://datahubproject.io/docs/generated/metamodel/entities/dataset/)            |                     |
 | s3 bucket                                | [Container](https://datahubproject.io/docs/generated/metamodel/entities/container/)        | Subtype `S3 bucket` |
 | s3 folder                                | [Container](https://datahubproject.io/docs/generated/metamodel/entities/container/)        | Subtype `Folder`    |
