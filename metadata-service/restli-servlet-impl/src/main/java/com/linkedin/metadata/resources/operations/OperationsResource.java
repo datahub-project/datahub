@@ -35,7 +35,7 @@ import javax.annotation.Nullable;
 import javax.inject.Inject;
 import javax.inject.Named;
 import lombok.extern.slf4j.Slf4j;
-import org.elasticsearch.client.tasks.GetTaskResponse;
+import org.opensearch.client.tasks.GetTaskResponse;
 import org.json.JSONObject;
 
 import static com.linkedin.metadata.Constants.*;

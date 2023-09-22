@@ -31,7 +31,7 @@ dependencies {
   api externalDependency.datastaxOssCore
   api externalDependency.datastaxOssQueryBuilder
   api externalDependency.elasticSearchRest
-  api externalDependency.elasticSearchTransport
+  api externalDependency.elasticSearchJava
   implementation externalDependency.javatuples
   api externalDependency.javaxValidation
   runtimeOnly externalDependency.jna
@@ -64,6 +64,7 @@ dependencies {
   testImplementation externalDependency.testContainers
   testImplementation externalDependency.testContainersJunit
   testImplementation externalDependency.testContainersElasticsearch
+  testImplementation externalDependency.testContainersOpenSearch
   testImplementation externalDependency.testContainersCassandra
   testImplementation externalDependency.lombok
   testImplementation externalDependency.springBootTest
@@ -101,14 +102,20 @@ dependencies {
 }
 
 test {
-  // https://docs.gradle.org/current/userguide/performance.html
-  maxParallelForks = Runtime.runtime.availableProcessors().intdiv(2) ?: 1
+  doFirst {
+    // override, testng controlling parallelization
+    // increasing >1 will merely run all tests extra times
+    maxParallelForks = 1
+  }
+  useTestNG() {
+    suites 'src/test/resources/testng.xml'
+  }
   testLogging.showStandardStreams = true
   testLogging.exceptionFormat = 'full'
 }
 
 tasks.withType(Test) {
-    enableAssertions = false
+  enableAssertions = false
 }
 
 project.compileJava {
