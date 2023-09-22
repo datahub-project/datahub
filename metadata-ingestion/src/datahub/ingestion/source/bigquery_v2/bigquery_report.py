@@ -22,8 +22,8 @@ class BigQuerySchemaApiPerfReport(Report):
     list_projects: PerfTimer = field(default_factory=PerfTimer)
     list_datasets: PerfTimer = field(default_factory=PerfTimer)
     get_columns_for_dataset: PerfTimer = field(default_factory=PerfTimer)
-    get_tables_for_dataset = PerfTimer()
-    list_tables = PerfTimer()
+    get_tables_for_dataset: PerfTimer = field(default_factory=PerfTimer)
+    list_tables: PerfTimer = field(default_factory=PerfTimer)
     get_views_for_dataset: PerfTimer = field(default_factory=PerfTimer)
 
 
