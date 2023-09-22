@@ -1,6 +1,6 @@
 package com.linkedin.gms.factory.search;
 
-import com.linkedin.gms.factory.spring.YamlPropertySourceFactory;
+import com.linkedin.metadata.spring.YamlPropertySourceFactory;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;

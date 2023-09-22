@@ -1,7 +1,7 @@
 package com.linkedin.gms.factory.search;
 
 import com.linkedin.gms.factory.common.RestHighLevelClientFactory;
-import com.linkedin.gms.factory.spring.YamlPropertySourceFactory;
+import com.linkedin.metadata.spring.YamlPropertySourceFactory;
 import javax.annotation.Nonnull;
 
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
