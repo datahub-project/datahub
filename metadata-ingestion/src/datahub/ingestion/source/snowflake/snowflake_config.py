@@ -103,6 +103,14 @@ class SnowflakeV2Config(
         description="Populates view->view and table->view column lineage.",
     )
 
+    emit_last_updated_operation_from_ischema: bool = Field(
+        default=True,
+        description="Whether to emit operation aspect with table's last updated timestamp from information schema. "
+        "Note that exact query or operation type or actor can not be known from information schema hence they will be missing or "
+        "set to UNKNOWN. This is still useful to indicate freshness of table, given that snowflake account_usage views that are "
+        "used to ingest detailed operation history may have latency of upto 3 hours.",
+    )
+
     _check_role_grants_removed = pydantic_removed_field("check_role_grants")
     _provision_role_removed = pydantic_removed_field("provision_role")
 

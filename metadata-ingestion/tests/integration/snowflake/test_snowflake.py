@@ -210,6 +210,7 @@ def test_snowflake_private_link(pytestconfig, tmp_path, mock_time, mock_datahub_
                         include_technical_schema=True,
                         include_table_lineage=True,
                         include_column_lineage=False,
+                        emit_last_updated_operation_from_ischema=False,
                         include_views=False,
                         include_view_lineage=False,
                         include_usage_stats=False,

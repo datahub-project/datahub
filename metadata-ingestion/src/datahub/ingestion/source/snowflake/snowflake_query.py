@@ -302,8 +302,8 @@ class SnowflakeQuery:
     ) -> str:
         return f"""
         SELECT
-            -- access_history.query_id, -- only for debugging purposes
-            access_history.query_start_time AS "QUERY_START_TIME",
+            -- query_history.query_id, -- only for debugging purposes
+            query_history.start_time AS "QUERY_START_TIME",
             query_history.query_text AS "QUERY_TEXT",
             query_history.query_type AS "QUERY_TYPE",
             query_history.rows_inserted AS "ROWS_INSERTED",
@@ -314,7 +314,7 @@ class SnowflakeQuery:
             access_history.objects_modified AS "OBJECTS_MODIFIED",
             -- query_history.execution_status, -- not really necessary, but should equal "SUCCESS"
             -- query_history.warehouse_name,
-            access_history.user_name AS "USER_NAME",
+            query_history.user_name AS "USER_NAME",
             users.first_name AS "FIRST_NAME",
             users.last_name AS "LAST_NAME",
             users.display_name AS "DISPLAY_NAME",

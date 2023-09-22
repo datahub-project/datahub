@@ -11,6 +11,7 @@ from snowflake.connector import SnowflakeConnection
 
 from datahub.configuration.pattern_utils import is_schema_allowed
 from datahub.emitter.mce_builder import (
+    get_sys_time,
     make_data_platform_urn,
     make_dataset_urn,
     make_dataset_urn_with_platform_instance,
@@ -106,6 +107,8 @@ from datahub.ingestion.source_report.ingestion_stage import (
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
     GlobalTags,
+    Operation,
+    OperationType,
     Status,
     SubTypes,
     TagAssociation,
@@ -136,6 +139,7 @@ from datahub.utilities.file_backed_collections import FileBackedDict
 from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.registries.domain_registry import DomainRegistry
 from datahub.utilities.sqlglot_lineage import SchemaResolver
+from datahub.utilities.time import datetime_to_ts_millis
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -926,8 +930,12 @@ class SnowflakeV2Source(
                     )
 
     def fetch_foreign_keys_for_table(
-        self, table, schema_name, db_name, table_identifier
-    ):
+        self,
+        table: SnowflakeTable,
+        schema_name: str,
+        db_name: str,
+        table_identifier: str,
+    ) -> None:
         try:
             table.foreign_keys = self.get_fk_constraints_for_table(
                 table.name, schema_name, db_name
@@ -939,7 +947,13 @@ class SnowflakeV2Source(
             )
             self.report_warning("Failed to get foreign key for table", table_identifier)
 
-    def fetch_pk_for_table(self, table, schema_name, db_name, table_identifier):
+    def fetch_pk_for_table(
+        self,
+        table: SnowflakeTable,
+        schema_name: str,
+        db_name: str,
+        table_identifier: str,
+    ) -> None:
         try:
             table.pk = self.get_pk_constraints_for_table(
                 table.name, schema_name, db_name
@@ -951,7 +965,13 @@ class SnowflakeV2Source(
             )
             self.report_warning("Failed to get primary key for table", table_identifier)
 
-    def fetch_columns_for_table(self, table, schema_name, db_name, table_identifier):
+    def fetch_columns_for_table(
+        self,
+        table: SnowflakeTable,
+        schema_name: str,
+        db_name: str,
+        table_identifier: str,
+    ) -> None:
         try:
             table.columns = self.get_columns_for_table(table.name, schema_name, db_name)
             table.column_count = len(table.columns)
@@ -1114,6 +1134,16 @@ class SnowflakeV2Source(
                 entityUrn=dataset_urn, aspect=view_properties_aspect
             ).as_workunit()
 
+        if self.config.emit_last_updated_operation_from_ischema and table.last_altered:
+            operation_aspect = Operation(
+                timestampMillis=get_sys_time(),
+                operationType=OperationType.UNKNOWN,
+                lastUpdatedTimestamp=datetime_to_ts_millis(table.last_altered),
+            )
+            yield MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn, aspect=operation_aspect
+            ).as_workunit()
+
     def get_dataset_properties(
         self,
         table: Union[SnowflakeTable, SnowflakeView],
@@ -1122,12 +1152,12 @@ class SnowflakeV2Source(
     ) -> DatasetProperties:
         return DatasetProperties(
             name=table.name,
-            created=TimeStamp(time=int(table.created.timestamp() * 1000))
+            created=TimeStamp(time=datetime_to_ts_millis(table.created))
             if table.created is not None
             else None,
-            lastModified=TimeStamp(time=int(table.last_altered.timestamp() * 1000))
+            lastModified=TimeStamp(time=datetime_to_ts_millis(table.last_altered))
             if table.last_altered is not None
-            else TimeStamp(time=int(table.created.timestamp() * 1000))
+            else TimeStamp(time=datetime_to_ts_millis(table.created))
             if table.created is not None
             else None,
             description=table.comment,
@@ -1311,12 +1341,12 @@ class SnowflakeV2Source(
             if self.config.include_external_url
             else None,
             description=database.comment,
-            created=int(database.created.timestamp() * 1000)
+            created=datetime_to_ts_millis(database.created)
             if database.created is not None
             else None,
-            last_modified=int(database.last_altered.timestamp() * 1000)
+            last_modified=datetime_to_ts_millis(database.last_altered)
             if database.last_altered is not None
-            else int(database.created.timestamp() * 1000)
+            else datetime_to_ts_millis(database.created)
             if database.created is not None
             else None,
             tags=[self.snowflake_identifier(tag.identifier()) for tag in database.tags]
@@ -1356,12 +1386,12 @@ class SnowflakeV2Source(
             external_url=self.get_external_url_for_schema(schema.name, db_name)
             if self.config.include_external_url
             else None,
-            created=int(schema.created.timestamp() * 1000)
+            created=datetime_to_ts_millis(schema.created)
             if schema.created is not None
             else None,
-            last_modified=int(schema.last_altered.timestamp() * 1000)
+            last_modified=datetime_to_ts_millis(schema.last_altered)
             if schema.last_altered is not None
-            else int(schema.created.timestamp() * 1000)
+            else datetime_to_ts_millis(schema.created)
             if schema.created is not None
             else None,
             tags=[self.snowflake_identifier(tag.identifier()) for tag in schema.tags]
