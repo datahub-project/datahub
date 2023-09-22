@@ -29,7 +29,8 @@ import static org.testng.Assert.assertTrue;
 
 public class DataPlatformInstanceFieldResolverProviderTest {
 
-  public static final String DATA_PLATFORM_INSTANCE_URN = "urn:li:dataPlatformInstance:(urn:li:dataPlatform:s3,test-platform-instance)";
+  private static final String DATA_PLATFORM_INSTANCE_URN =
+      "urn:li:dataPlatformInstance:(urn:li:dataPlatform:s3,test-platform-instance)";
   private static final String RESOURCE_URN = "urn:li:dataset:(urn:li:dataPlatform:testPlatform,testDataset,PROD)";
   private static final ResourceSpec RESOURCE_SPEC = new ResourceSpec(DATASET_ENTITY_NAME, RESOURCE_URN);
 
