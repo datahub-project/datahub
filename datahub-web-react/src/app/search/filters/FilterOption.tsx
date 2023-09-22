@@ -15,12 +15,7 @@ import {
     TAGS_FILTER_NAME,
     TYPE_NAMES_FILTER_NAME,
 } from '../utils/constants';
-<<<<<<< HEAD
-import { isFilterOptionSelected, getFilterIconAndLabel, isAnyOptionSelected } from './utils';
-=======
-import { IconSpacer, Label } from './ActiveFilter';
 import { isFilterOptionSelected, getFilterIconAndLabel, isAnyOptionSelected, getParentEntities } from './utils';
->>>>>>> oss_master
 import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
 import ParentEntities from './ParentEntities';
 import { formatNumber } from '../../shared/formatNumber';
