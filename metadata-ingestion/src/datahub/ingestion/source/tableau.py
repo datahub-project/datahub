@@ -1354,6 +1354,31 @@ class TableauSource(StatefulIngestionSourceBase):
             else:
                 logger.debug(f"Browse path not set for Custom SQL table {csql_id}")
 
+            # Browse path V2
+            browse_paths_V2_path = []
+            if self.config.platform_instance:
+                platform_instance_urn = builder.make_dataplatform_instance_urn(
+                    self.platform, self.config.platform_instance
+                )
+                browse_paths_V2_path.append(
+                    BrowsePathEntryClass(
+                        id=platform_instance_urn, urn=platform_instance_urn
+                    )
+                )
+            if project:
+                browse_paths_V2_path.extend(
+                    [
+                        BrowsePathEntryClass(id=path)
+                        for path in project.strip("/").split("/")
+                    ]
+                )
+            if datasource.get(tableau_constant.WORKBOOK):
+                browse_paths_V2_path.append(
+                    BrowsePathEntryClass(id=datasource.get(tableau_constant.WORKBOOK).get(tableau_constant.NAME))
+                )
+            browse_paths_V2 = BrowsePathsV2Class(path=browse_paths_V2_path)
+            dataset_snapshot.aspects.append(browse_paths_V2)
+
             dataset_properties = DatasetPropertiesClass(
                 name=csql.get(tableau_constant.NAME),
                 description=csql.get(tableau_constant.DESCRIPTION),
@@ -1791,6 +1816,27 @@ class TableauSource(StatefulIngestionSourceBase):
                 ]
             )
             dataset_snapshot.aspects.append(browse_paths)
+
+        # Browse path V2
+        browse_paths_V2_path = []
+        if self.config.platform_instance:
+            platform_instance_urn = builder.make_dataplatform_instance_urn(
+                self.platform, self.config.platform_instance
+            )
+            browse_paths_V2_path.append(
+                BrowsePathEntryClass(
+                    id=platform_instance_urn, urn=platform_instance_urn
+                )
+            )
+        if browse_path:
+            browse_paths_V2_path.extend(
+                [
+                    BrowsePathEntryClass(id=path)
+                    for path in browse_path.strip("/").split("/")
+                ]
+            )
+        browse_paths_V2 = BrowsePathsV2Class(path=browse_paths_V2_path)
+        dataset_snapshot.aspects.append(browse_paths_V2)
 
         # Ownership
         owner = (
