@@ -29,8 +29,8 @@ class BigQuerySchemaApiPerfReport(Report):
 
 @dataclass
 class BigQueryAuditLogApiPerfReport(Report):
-    get_exported_log_entries = PerfTimer()
-    list_log_entries = PerfTimer()
+    get_exported_log_entries: PerfTimer = field(default_factory=PerfTimer)
+    list_log_entries: PerfTimer = field(default_factory=PerfTimer)
 
 
 @dataclass
