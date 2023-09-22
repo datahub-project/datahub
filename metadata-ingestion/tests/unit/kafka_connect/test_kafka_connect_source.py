@@ -1,9 +1,27 @@
 from typing import Any
 
-from datahub.ingestion.run.pipeline import Pipeline
+from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.sink.file import write_metadata_file
+from datahub.ingestion.source.kafka_connect import (
+    KafkaConnectSource,
+    KafkaConnectSourceConfig,
+)
 from tests.test_helpers import mce_helpers
 
-KAFKA_CONNECT_SERVER = "http://localhost:28083"
+
+def kafka_connect_source() -> KafkaConnectSource:
+    return KafkaConnectSource(
+        ctx=PipelineContext(run_id="kafka-connect-source-test"),
+        config=KafkaConnectSourceConfig(
+            platform_instance="connect-instance-1",
+            connect_uri="http://localhost:28083",
+            connector_patterns={
+                "allow": [
+                    "snowflake_sink1",
+                ]
+            },
+        ),
+    )
 
 
 def register_mock_api(request_mock: Any, override_data: dict = {}) -> None:
@@ -70,36 +88,16 @@ def test_kafka_connect_snowflake_sink_ingest(
 
     register_mock_api(request_mock=requests_mock, override_data=override_data)
 
-    pipeline = Pipeline.create(
-        {
-            "run_id": "kafka-connect-test",
-            "source": {
-                "type": "kafka-connect",
-                "config": {
-                    "platform_instance": "connect-instance-1",
-                    "connect_uri": KAFKA_CONNECT_SERVER,
-                    "connector_patterns": {
-                        "allow": [
-                            "snowflake_sink1",
-                        ]
-                    },
-                },
-            },
-            "sink": {
-                "type": "file",
-                "config": {
-                    "filename": f"{tmp_path}/kafka_connect_snowflake_sink_mces.json",
-                },
-            },
-        }
-    )
+    kafka_connect_source_instance = kafka_connect_source()
 
-    pipeline.run()
-    pipeline.raise_from_status()
-    golden_file = "kafka_connect_snowflake_sink_mces_golden.json"
+    mce_objects = [wu.metadata for wu in kafka_connect_source_instance.get_workunits()]
+    write_metadata_file(
+        tmp_path / "kafka_connect_snowflake_sink_mces.json", mce_objects
+    )
 
     mce_helpers.check_golden_file(
         pytestconfig,
         output_path=tmp_path / "kafka_connect_snowflake_sink_mces.json",
-        golden_path=f"{test_resources_dir}/{golden_file}",
+        golden_path=test_resources_dir
+        / "kafka_connect_snowflake_sink_mces_golden.json",
     )
