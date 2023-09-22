@@ -1,6 +1,6 @@
 package com.linkedin.gms.factory.entityregistry;
 
-import com.linkedin.gms.factory.spring.YamlPropertySourceFactory;
+import com.linkedin.metadata.spring.YamlPropertySourceFactory;
 import com.linkedin.metadata.models.registry.PluginEntityRegistryLoader;
 import java.io.FileNotFoundException;
 import java.net.MalformedURLException;

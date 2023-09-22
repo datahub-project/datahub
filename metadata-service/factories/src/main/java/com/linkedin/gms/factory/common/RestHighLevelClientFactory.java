@@ -1,7 +1,7 @@
 package com.linkedin.gms.factory.common;
 
 import com.linkedin.gms.factory.auth.AwsRequestSigningApacheInterceptor;
-import com.linkedin.gms.factory.spring.YamlPropertySourceFactory;
+import com.linkedin.metadata.spring.YamlPropertySourceFactory;
 import java.io.IOException;
 import javax.annotation.Nonnull;
 import javax.net.ssl.HostnameVerifier;

@@ -302,6 +302,7 @@ import com.linkedin.datahub.graphql.types.tag.TagType;
 import com.linkedin.datahub.graphql.types.test.TestType;
 import com.linkedin.datahub.graphql.types.view.DataHubViewType;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.config.DataHubConfiguration;
 import com.linkedin.metadata.config.IngestionConfiguration;
 import com.linkedin.metadata.config.TestsConfiguration;
@@ -364,6 +365,7 @@ import static graphql.scalars.ExtendedScalars.*;
 public class GmsGraphQLEngine {
 
     private final EntityClient entityClient;
+    private final SystemEntityClient systemEntityClient;
     private final GraphClient graphClient;
     private final UsageClient usageClient;
     private final SiblingGraphService siblingGraphService;
@@ -476,6 +478,7 @@ public class GmsGraphQLEngine {
         this.graphQLPlugins.forEach(plugin -> plugin.init(args));
 
         this.entityClient = args.entityClient;
+        this.systemEntityClient = args.systemEntityClient;
         this.graphClient = args.graphClient;
         this.usageClient = args.usageClient;
         this.siblingGraphService = args.siblingGraphService;
