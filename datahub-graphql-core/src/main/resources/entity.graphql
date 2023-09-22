@@ -435,6 +435,11 @@ type Mutation {
     createDomain(input: CreateDomainInput!): String
 
     """
+    Moves a domain to be parented under another domain.
+    """
+    moveDomain(input: MoveDomainInput!): Boolean
+
+    """
     Delete a Domain
     """
     deleteDomain(
@@ -7736,6 +7741,21 @@ input UpdateParentNodeInput {
 }
 
 """
+Input for updating the parent domain of a domain.
+"""
+input MoveDomainInput {
+    """
+    The new parent domain urn. If parentDomain is null, this will remove the parent from this entity
+    """
+    parentDomain: String
+
+    """
+    The primary key of the resource to update the parent domain for
+    """
+    resourceUrn: String!
+}
+
+"""
 Input for updating the name of an entity
 """
 input UpdateNameInput {
@@ -9585,14 +9605,30 @@ type Domain implements Entity {
     entities(input: DomainEntitiesInput): SearchResults
 
     """
+    Recursively get the lineage of parent domains for this entity
+    """
+    parentDomains: ParentDomainsResult
+
+    """
     Edges extending from this entity
     """
     relationships(input: RelationshipsInput!): EntityRelationshipsResult
 }
 
+"""
+All of the parent domains starting from a single Domain through all of its ancestors
+"""
+type ParentDomainsResult {
+    """
+    The number of parent domains bubbling up for this entity
+    """
+    count: Int!
 
-
-
+    """
+    A list of parent domains in order from direct parent, to parent's parent etc. If there are no parents, return an empty list
+    """
+    domains: [Entity!]!
+}
 
 """
 Properties about a domain
@@ -9652,6 +9688,11 @@ input CreateDomainInput {
   Optional description for the Domain
   """
   description: String
+
+  """
+  Optional parent domain urn for the domain
+  """
+  parentDomain: String
 }
 
 """
@@ -9672,6 +9713,11 @@ input ListDomainsInput {
   Optional search query
   """
   query: String
+
+  """
+  Optional parent domain
+  """
+  parentDomain: String
 }
 
 """

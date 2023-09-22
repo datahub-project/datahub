@@ -138,7 +138,7 @@ sqllineage_lib = {
 sqlglot_lib = {
     # Using an Acryl fork of sqlglot.
     # https://github.com/tobymao/sqlglot/compare/main...hsheth2:sqlglot:hsheth?expand=1
-    "acryl-sqlglot==18.0.2.dev15",
+    "acryl-sqlglot==18.5.2.dev45",
 }
 
 aws_common = {
@@ -643,7 +643,6 @@ entry_points = {
         "datahub = datahub.ingestion.reporting.datahub_ingestion_run_summary_provider:DatahubIngestionRunSummaryProvider",
         "file = datahub.ingestion.reporting.file_reporter:FileReporter",
     ],
-    "apache_airflow_provider": ["provider_info=datahub_provider:get_provider_info"],
 }
 
 
