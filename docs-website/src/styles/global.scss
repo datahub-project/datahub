@@ -55,8 +55,11 @@
   --ifm-menu-color-background-active: var(--ifm-color-primary-opaque);
 
   /* TOC */
-  --ifm-toc-padding-horizontal: 1rem;
   --ifm-toc-padding-vertical: 1.25rem;
+
+  .table-of-contents {
+    padding-left: 1.5rem;
+  }
 
   /* Breadcrumbs */
   --ifm-breadcrumb-item-background-active: var(--ifm-color-primary-opaque);
@@ -272,6 +275,9 @@ div[class^="announcementBar"] {
     }
   }
 
+  .theme-doc-sidebar-item-category-level-1 .menu__link {
+    font-weight: 400;
+  }
 
   .theme-doc-sidebar-item-category-level-1 .menu__link--active {
     font-weight: 600;
