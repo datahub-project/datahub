@@ -505,7 +505,6 @@ base_dev_requirements = {
             "nifi",
             "vertica",
             "mode",
-            "kafka-connect",
         ]
         if plugin
         for dependency in plugins[plugin]
