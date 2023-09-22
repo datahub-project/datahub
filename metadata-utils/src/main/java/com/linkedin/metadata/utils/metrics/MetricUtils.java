@@ -1,6 +1,7 @@
 package com.linkedin.metadata.utils.metrics;
 
 import com.codahale.metrics.Counter;
+import com.codahale.metrics.Gauge;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.Timer;
@@ -47,5 +48,9 @@ public class MetricUtils {
 
   public static Timer timer(String metricName) {
     return REGISTRY.timer(MetricRegistry.name(metricName));
+  }
+
+  public static <T extends Gauge<?>> T gauge(Class<?> clazz, String metricName, MetricRegistry.MetricSupplier<T> supplier) {
+    return REGISTRY.gauge(MetricRegistry.name(clazz, metricName), supplier);
   }
 }

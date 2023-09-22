@@ -3,12 +3,13 @@ package com.linkedin.metadata.resources.operations;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.util.Pair;
 import java.util.List;
-import junit.framework.TestCase;
 import mock.MockTimeseriesAspectService;
 import org.testng.annotations.Test;
 
+import static org.testng.AssertJUnit.*;
 
-public class OperationsResourceTest extends TestCase {
+
+public class OperationsResourceTest {
   private static final String TASK_ID = "taskId123";
 
 

@@ -81,6 +81,7 @@ import com.linkedin.datahub.graphql.generated.MLPrimaryKeyProperties;
 import com.linkedin.datahub.graphql.generated.Notebook;
 import com.linkedin.datahub.graphql.generated.Owner;
 import com.linkedin.datahub.graphql.generated.OwnershipTypeEntity;
+import com.linkedin.datahub.graphql.generated.ParentDomainsResult;
 import com.linkedin.datahub.graphql.generated.PolicyMatchCriterionValue;
 import com.linkedin.datahub.graphql.generated.QueryEntity;
 import com.linkedin.datahub.graphql.generated.QuerySubject;
@@ -124,6 +125,7 @@ import com.linkedin.datahub.graphql.resolvers.domain.CreateDomainResolver;
 import com.linkedin.datahub.graphql.resolvers.domain.DeleteDomainResolver;
 import com.linkedin.datahub.graphql.resolvers.domain.DomainEntitiesResolver;
 import com.linkedin.datahub.graphql.resolvers.domain.ListDomainsResolver;
+import com.linkedin.datahub.graphql.resolvers.domain.ParentDomainsResolver;
 import com.linkedin.datahub.graphql.resolvers.domain.SetDomainResolver;
 import com.linkedin.datahub.graphql.resolvers.domain.UnsetDomainResolver;
 import com.linkedin.datahub.graphql.resolvers.embed.UpdateEmbedResolver;
@@ -186,6 +188,7 @@ import com.linkedin.datahub.graphql.resolvers.mutate.BatchRemoveTermsResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.BatchSetDomainResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.BatchUpdateDeprecationResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.BatchUpdateSoftDeletedResolver;
+import com.linkedin.datahub.graphql.resolvers.mutate.MoveDomainResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.MutableTypeBatchResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.MutableTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.RemoveLinkResolver;
@@ -299,6 +302,7 @@ import com.linkedin.datahub.graphql.types.tag.TagType;
 import com.linkedin.datahub.graphql.types.test.TestType;
 import com.linkedin.datahub.graphql.types.view.DataHubViewType;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.config.DataHubConfiguration;
 import com.linkedin.metadata.config.IngestionConfiguration;
 import com.linkedin.metadata.config.TestsConfiguration;
@@ -361,6 +365,7 @@ import static graphql.scalars.ExtendedScalars.*;
 public class GmsGraphQLEngine {
 
     private final EntityClient entityClient;
+    private final SystemEntityClient systemEntityClient;
     private final GraphClient graphClient;
     private final UsageClient usageClient;
     private final SiblingGraphService siblingGraphService;
@@ -473,6 +478,7 @@ public class GmsGraphQLEngine {
         this.graphQLPlugins.forEach(plugin -> plugin.init(args));
 
         this.entityClient = args.entityClient;
+        this.systemEntityClient = args.systemEntityClient;
         this.graphClient = args.graphClient;
         this.usageClient = args.usageClient;
         this.siblingGraphService = args.siblingGraphService;
@@ -944,6 +950,7 @@ public class GmsGraphQLEngine {
             .dataFetcher("removeGroup", new RemoveGroupResolver(this.entityClient))
             .dataFetcher("updateUserStatus", new UpdateUserStatusResolver(this.entityClient))
             .dataFetcher("createDomain", new CreateDomainResolver(this.entityClient, this.entityService))
+            .dataFetcher("moveDomain", new MoveDomainResolver(this.entityService, this.entityClient))
             .dataFetcher("deleteDomain", new DeleteDomainResolver(entityClient))
             .dataFetcher("setDomain", new SetDomainResolver(this.entityClient, this.entityService))
             .dataFetcher("batchSetDomain", new BatchSetDomainResolver(this.entityService))
@@ -1028,6 +1035,13 @@ public class GmsGraphQLEngine {
             .type("BrowseResults", typeWiring -> typeWiring
                 .dataFetcher("entities", new EntityTypeBatchResolver(entityTypes,
                     (env) -> ((BrowseResults) env.getSource()).getEntities()))
+            )
+            .type("ParentDomainsResult", typeWiring -> typeWiring
+                .dataFetcher("domains", new EntityTypeBatchResolver(entityTypes,
+                    (env) -> {
+                        final ParentDomainsResult result = env.getSource();
+                        return result != null ? result.getDomains() : null;
+                    }))
             )
             .type("EntityRelationshipLegacy", typeWiring -> typeWiring
                 .dataFetcher("entity", new EntityTypeResolver(entityTypes,
@@ -1675,8 +1689,8 @@ public class GmsGraphQLEngine {
     private void configureDomainResolvers(final RuntimeWiring.Builder builder) {
         builder.type("Domain", typeWiring -> typeWiring
             .dataFetcher("entities", new DomainEntitiesResolver(this.entityClient))
-            .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient)
-            )
+            .dataFetcher("parentDomains", new ParentDomainsResolver(this.entityClient))
+            .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient))
         );
         builder.type("DomainAssociation", typeWiring -> typeWiring
             .dataFetcher("domain",
