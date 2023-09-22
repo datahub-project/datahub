@@ -7,6 +7,7 @@ import { useColorMode } from "@docusaurus/theme-common";
 import { QuestionCircleOutlined } from "@ant-design/icons";
 import styles from "./hero.module.scss";
 import CodeBlock from "@theme/CodeBlock";
+import CardCTAs from "../CardCTAs";
 
 const HeroAnnouncement = ({ message, linkUrl, linkText }) => (
   <div className={clsx("hero__alert alert alert--primary", styles.hero__alert)}>
@@ -47,6 +48,7 @@ const Hero = ({}) => {
             </Link>
           </div>
         </div>
+        <CardCTAs />
         <Image className="hero__image" img={require(`/img/diagrams/datahub-flow-diagram-${colorMode}.png`)} alt="DataHub Flow Diagram" />
         <div className={styles.quickstartContent}>
           <h1 className={styles.quickstartTitle}>Get Started Now</h1>
