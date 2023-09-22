@@ -49,7 +49,7 @@ dependencies {
     testImplementation externalDependency.mockito
     implementation externalDependency.awsMskIamAuth
 
-    testImplementation externalDependency.mockito
+    testImplementation externalDependency.testng
     testImplementation externalDependency.springBootTest
     testRuntimeOnly externalDependency.logbackClassic
     testImplementation project(':test-models')

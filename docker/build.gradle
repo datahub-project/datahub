@@ -38,6 +38,16 @@ task quickstart(type: Exec, dependsOn: ':metadata-ingestion:install') {
     // environment "ACTIONS_VERSION", 'alpine3.17-slim'
     // environment "DATAHUB_ACTIONS_IMAGE", 'nginx'
 
+    // Elastic
+    // environment "DATAHUB_SEARCH_IMAGE", 'elasticsearch'
+    // environment "DATAHUB_SEARCH_TAG", '7.10.1'
+
+    // OpenSearch
+    environment "DATAHUB_SEARCH_IMAGE", 'opensearchproject/opensearch'
+    environment "DATAHUB_SEARCH_TAG", '2.9.0'
+    environment "XPACK_SECURITY_ENABLED", 'plugins.security.disabled=true'
+    environment "USE_AWS_ELASTICSEARCH", 'true'
+
     def cmd = [
             'source ../metadata-ingestion/venv/bin/activate && ',
             'datahub docker quickstart',

@@ -26,6 +26,8 @@ public class RestoreIndices implements Upgrade {
   public static final String URN_LIKE_ARG_NAME = "URN_LIKE";
   public static final String URN_ARG_NAME = "URN";
 
+  public static final String STARTING_OFFSET_ARG_NAME = "startingOffset";
+
   private final List<UpgradeStep> _steps;
 
   public RestoreIndices(final Database server, final EntityService entityService,

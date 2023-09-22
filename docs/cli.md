@@ -547,7 +547,7 @@ Old Entities Migrated = {'urn:li:dataset:(urn:li:dataPlatform:hive,logging_event
 ### Using docker
 
 [![Docker Hub](https://img.shields.io/docker/pulls/acryldata/datahub-ingestion?style=plastic)](https://hub.docker.com/r/acryldata/datahub-ingestion)
-[![datahub-ingestion docker](https://github.com/acryldata/datahub/actions/workflows/docker-ingestion.yml/badge.svg)](https://github.com/acryldata/datahub/actions/workflows/docker-ingestion.yml)
+[![datahub-ingestion docker](https://github.com/acryldata/datahub/workflows/datahub-ingestion%20docker/badge.svg)](https://github.com/acryldata/datahub/actions/workflows/docker-ingestion.yml)
 
 If you don't want to install locally, you can alternatively run metadata ingestion within a Docker container.
 We have prebuilt images available on [Docker hub](https://hub.docker.com/r/acryldata/datahub-ingestion). All plugins will be installed and enabled automatically.

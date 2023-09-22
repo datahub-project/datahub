@@ -4,7 +4,7 @@ import com.datahub.authentication.Authentication;
 import com.datahub.authorization.DataHubAuthorizer;
 import com.linkedin.metadata.client.JavaEntityClient;
 import com.linkedin.gms.factory.entity.RestliEntityClientFactory;
-import com.linkedin.gms.factory.spring.YamlPropertySourceFactory;
+import com.linkedin.metadata.spring.YamlPropertySourceFactory;
 import javax.annotation.Nonnull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;

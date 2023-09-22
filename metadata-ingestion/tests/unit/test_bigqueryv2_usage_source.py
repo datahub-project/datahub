@@ -4,7 +4,6 @@ import os
 from freezegun import freeze_time
 
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import (
-    BQ_AUDIT_V2,
     BigqueryTableIdentifier,
     BigQueryTableRef,
 )
@@ -111,10 +110,12 @@ AND
     OR
     protoPayload.metadata.tableDataRead.reason = "JOB"
 )"""  # noqa: W293
-    source = BigQueryUsageExtractor(
-        config, BigQueryV2Report(), dataset_urn_builder=lambda _: ""
-    )
-    filter: str = source._generate_filter(BQ_AUDIT_V2)
+
+    corrected_start_time = config.start_time - config.max_query_duration
+    corrected_end_time = config.end_time + config.max_query_duration
+    filter: str = BigQueryUsageExtractor(
+        config, BigQueryV2Report(), lambda x: ""
+    )._generate_filter(corrected_start_time, corrected_end_time)
     assert filter == expected_filter
 
 

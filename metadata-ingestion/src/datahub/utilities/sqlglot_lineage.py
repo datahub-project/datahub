@@ -14,6 +14,7 @@ import sqlglot.lineage
 import sqlglot.optimizer.qualify
 import sqlglot.optimizer.qualify_columns
 from pydantic import BaseModel
+from typing_extensions import TypedDict
 
 from datahub.emitter.mce_builder import (
     DEFAULT_ENV,
@@ -34,6 +35,15 @@ Urn = str
 SchemaInfo = Dict[str, str]
 
 SQL_PARSE_RESULT_CACHE_SIZE = 1000
+
+
+class GraphQLSchemaField(TypedDict):
+    fieldPath: str
+    nativeDataType: str
+
+
+class GraphQLSchemaMetadata(TypedDict):
+    fields: List[GraphQLSchemaField]
 
 
 class QueryType(enum.Enum):
@@ -330,6 +340,12 @@ class SchemaResolver(Closeable):
     def add_raw_schema_info(self, urn: str, schema_info: SchemaInfo) -> None:
         self._save_to_cache(urn, schema_info)
 
+    def add_graphql_schema_metadata(
+        self, urn: str, schema_metadata: GraphQLSchemaMetadata
+    ) -> None:
+        schema_info = self.convert_graphql_schema_metadata_to_info(schema_metadata)
+        self._save_to_cache(urn, schema_info)
+
     def _save_to_cache(self, urn: str, schema_info: Optional[SchemaInfo]) -> None:
         self._schema_cache[urn] = schema_info
 
@@ -354,6 +370,24 @@ class SchemaResolver(Closeable):
             # TODO: We can't generate lineage to columns nested within structs yet.
             if "."
             not in DatasetUrn.get_simple_field_path_from_v2_field_path(col.fieldPath)
+        }
+
+    @classmethod
+    def convert_graphql_schema_metadata_to_info(
+        cls, schema: GraphQLSchemaMetadata
+    ) -> SchemaInfo:
+        return {
+            DatasetUrn.get_simple_field_path_from_v2_field_path(field["fieldPath"]): (
+                # The actual types are more of a "nice to have".
+                field["nativeDataType"]
+                or "str"
+            )
+            for field in schema["fields"]
+            # TODO: We can't generate lineage to columns nested within structs yet.
+            if "."
+            not in DatasetUrn.get_simple_field_path_from_v2_field_path(
+                field["fieldPath"]
+            )
         }
 
     # TODO add a method to load all from graphql

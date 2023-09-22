@@ -282,11 +282,13 @@ def deploy(
         "urn": urn,
         "name": name,
         "type": pipeline_config["source"]["type"],
-        "schedule": {"interval": schedule, "timezone": time_zone},
         "recipe": json.dumps(pipeline_config),
         "executorId": executor_id,
         "version": cli_version,
     }
+
+    if schedule is not None:
+        variables["schedule"] = {"interval": schedule, "timezone": time_zone}
 
     if urn:
         if not datahub_graph.exists(urn):
@@ -331,6 +333,7 @@ def deploy(
                 $version: String) {
 
                 createIngestionSource(input: {
+                    name: $name,
                     type: $type,
                     schedule: $schedule,
                     config: {

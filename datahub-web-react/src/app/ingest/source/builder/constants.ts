@@ -27,6 +27,7 @@ import powerbiLogo from '../../../../images/powerbilogo.png';
 import modeLogo from '../../../../images/modelogo.png';
 import databricksLogo from '../../../../images/databrickslogo.png';
 import verticaLogo from '../../../../images/verticalogo.png';
+import dynamodbLogo from '../../../../images/dynamodblogo.png';
 
 export const ATHENA = 'athena';
 export const ATHENA_URN = `urn:li:dataPlatform:${ATHENA}`;
@@ -43,6 +44,8 @@ export const DBT = 'dbt';
 export const DBT_URN = `urn:li:dataPlatform:${DBT}`;
 export const DRUID = 'druid';
 export const DRUID_URN = `urn:li:dataPlatform:${DRUID}`;
+export const DYNAMODB = 'dynamodb';
+export const DYNAMODB_URN = `urn:li:dataPlatform:${DYNAMODB}`;
 export const ELASTICSEARCH = 'elasticsearch';
 export const ELASTICSEARCH_URN = `urn:li:dataPlatform:${ELASTICSEARCH}`;
 export const FEAST = 'feast';
@@ -107,6 +110,7 @@ export const PLATFORM_URN_TO_LOGO = {
     [CLICKHOUSE_URN]: clickhouseLogo,
     [DBT_URN]: dbtLogo,
     [DRUID_URN]: druidLogo,
+    [DYNAMODB_URN]: dynamodbLogo,
     [ELASTICSEARCH_URN]: elasticsearchLogo,
     [FEAST_URN]: feastLogo,
     [GLUE_URN]: glueLogo,

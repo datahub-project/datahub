@@ -19,6 +19,7 @@ dependencies {
       exclude group: 'org.apache.avro'
   }
 
+  testImplementation externalDependency.testng
   testImplementation project(':test-models')
   testImplementation project(path: ':test-models', configuration: 'testDataTemplate')
 

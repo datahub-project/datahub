@@ -1,0 +1,31 @@
+{
+    "query_type": "SELECT",
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:hive,t1,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:hive,t2,PROD)"
+    ],
+    "out_tables": [],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": null,
+                "column": "a"
+            },
+            "upstreams": []
+        },
+        {
+            "downstream": {
+                "table": null,
+                "column": "b"
+            },
+            "upstreams": []
+        },
+        {
+            "downstream": {
+                "table": null,
+                "column": "c"
+            },
+            "upstreams": []
+        }
+    ]
+}

@@ -29,6 +29,8 @@ public class SendMAEStep implements UpgradeStep {
 
   private static final int DEFAULT_BATCH_SIZE = 1000;
   private static final long DEFAULT_BATCH_DELAY_MS = 250;
+
+  private static final int DEFAULT_STARTING_OFFSET = 0;
   private static final int DEFAULT_THREADS = 1;
 
   private final Database _server;
@@ -89,6 +91,7 @@ public class SendMAEStep implements UpgradeStep {
 
   private RestoreIndicesArgs getArgs(UpgradeContext context) {
     RestoreIndicesArgs result = new RestoreIndicesArgs();
+<<<<<<< HEAD
       result.batchSize = getBatchSize();
       context.report().addLine(String.format("batchSize is %d", result.batchSize));
       result.numThreads = getThreadCount();
@@ -117,6 +120,21 @@ public class SendMAEStep implements UpgradeStep {
       } else {
           context.report().addLine("No urnLike arg present");
       }
+=======
+    result.batchSize = getBatchSize(context.parsedArgs());
+    result.numThreads = getThreadCount(context.parsedArgs());
+    result.batchDelayMs = getBatchDelayMs(context.parsedArgs());
+    result.start = getStartingOffset(context.parsedArgs());
+    if (containsKey(context.parsedArgs(), RestoreIndices.ASPECT_NAME_ARG_NAME)) {
+      result.aspectName = context.parsedArgs().get(RestoreIndices.ASPECT_NAME_ARG_NAME).get();
+    }
+    if (containsKey(context.parsedArgs(), RestoreIndices.URN_ARG_NAME)) {
+      result.urn = context.parsedArgs().get(RestoreIndices.URN_ARG_NAME).get();
+    }
+    if (containsKey(context.parsedArgs(), RestoreIndices.URN_LIKE_ARG_NAME)) {
+      result.urnLike = context.parsedArgs().get(RestoreIndices.URN_LIKE_ARG_NAME).get();
+    }
+>>>>>>> oss_master
     return result;
   }
 
@@ -148,8 +166,13 @@ public class SendMAEStep implements UpgradeStep {
       long startTime = System.currentTimeMillis();
       final int rowCount = getRowCount(args);
       context.report().addLine(String.format("Found %s latest aspects in aspects table in %.2f minutes.",
+<<<<<<< HEAD
           rowCount, (float) (System.currentTimeMillis() - startTime) / 1000 / 60));
       int start = 0;
+=======
+              rowCount, (float) (System.currentTimeMillis() - startTime) / 1000 / 60));
+      int start = args.start;
+>>>>>>> oss_master
 
       List<Future<RestoreIndicesResult>> futures = new ArrayList<>();
       startTime = System.currentTimeMillis();
@@ -213,8 +236,21 @@ public class SendMAEStep implements UpgradeStep {
     return getInt(DEFAULT_BATCH_SIZE, RestoreIndices.BATCH_SIZE_ARG_NAME);
   }
 
+<<<<<<< HEAD
   private int getThreadCount() {
     return getInt(DEFAULT_THREADS, RestoreIndices.SQL_READER_POOL_SIZE);
+=======
+  private int getStartingOffset(final Map<String, Optional<String>> parsedArgs) {
+    return getInt(parsedArgs, DEFAULT_STARTING_OFFSET, RestoreIndices.STARTING_OFFSET_ARG_NAME);
+  }
+
+  private long getBatchDelayMs(final Map<String, Optional<String>> parsedArgs) {
+    long resolvedBatchDelayMs = DEFAULT_BATCH_DELAY_MS;
+    if (containsKey(parsedArgs, RestoreIndices.BATCH_DELAY_MS_ARG_NAME)) {
+      resolvedBatchDelayMs = Long.parseLong(parsedArgs.get(RestoreIndices.BATCH_DELAY_MS_ARG_NAME).get());
+    }
+    return resolvedBatchDelayMs;
+>>>>>>> oss_master
   }
 
   private int getInt(int defaultVal, String argKey) {

@@ -208,6 +208,16 @@ FROM snowflake_sample_data.tpch_sf100.orders
     )
 
 
+def test_select_ambiguous_column_no_schema():
+    assert_sql_result(
+        """
+        select A, B, C from t1 inner join t2 on t1.id = t2.id
+        """,
+        dialect="hive",
+        expected_file=RESOURCE_DIR / "test_select_ambiguous_column_no_schema.json",
+    )
+
+
 def test_merge_from_union():
     # TODO: We don't support merge statements yet, but the union should still get handled.
 

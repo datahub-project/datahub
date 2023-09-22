@@ -1,8 +1,11 @@
 package com.linkedin.gms.factory.entity;
 
+import com.datahub.authentication.Authentication;
+import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.client.JavaEntityClient;
 import com.linkedin.entity.client.RestliEntityClient;
 import com.linkedin.gms.factory.kafka.DataHubKafkaProducerFactory;
+import com.linkedin.metadata.client.SystemJavaEntityClient;
 import com.linkedin.metadata.entity.DeleteEntityService;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.event.EventProducer;
@@ -53,12 +56,8 @@ public class JavaEntityClientFactory {
   @Qualifier("kafkaEventProducer")
   private EventProducer _eventProducer;
 
-  @Autowired
-  @Qualifier("restliEntityClient")
-  private RestliEntityClient _restliEntityClient;
-
   @Bean("javaEntityClient")
-  public JavaEntityClient getJavaEntityClient() {
+  public JavaEntityClient getJavaEntityClient(@Qualifier("restliEntityClient") final RestliEntityClient restliEntityClient) {
     return new JavaEntityClient(
         _entityService,
         _deleteEntityService,
@@ -68,6 +67,24 @@ public class JavaEntityClientFactory {
         _lineageSearchService,
         _timeseriesAspectService,
         _eventProducer,
-        _restliEntityClient);
+        restliEntityClient);
+  }
+
+  @Bean("systemJavaEntityClient")
+  public SystemJavaEntityClient systemJavaEntityClient(@Qualifier("configurationProvider") final ConfigurationProvider configurationProvider,
+                                                       @Qualifier("systemAuthentication") final Authentication systemAuthentication,
+                                                       @Qualifier("systemRestliEntityClient") final RestliEntityClient restliEntityClient) {
+    return new SystemJavaEntityClient(
+            _entityService,
+            _deleteEntityService,
+            _entitySearchService,
+            _cachingEntitySearchService,
+            _searchService,
+            _lineageSearchService,
+            _timeseriesAspectService,
+            _eventProducer,
+            restliEntityClient,
+            systemAuthentication,
+            configurationProvider.getCache().getClient().getEntityClient());
   }
 }

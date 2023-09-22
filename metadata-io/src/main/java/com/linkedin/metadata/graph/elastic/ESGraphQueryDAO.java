@@ -45,15 +45,15 @@ import lombok.RequiredArgsConstructor;
 import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.tuple.Pair;
-import org.elasticsearch.action.search.SearchRequest;
-import org.elasticsearch.action.search.SearchResponse;
-import org.elasticsearch.client.RequestOptions;
-import org.elasticsearch.client.RestHighLevelClient;
-import org.elasticsearch.index.query.BoolQueryBuilder;
-import org.elasticsearch.index.query.QueryBuilder;
-import org.elasticsearch.index.query.QueryBuilders;
-import org.elasticsearch.search.SearchHit;
-import org.elasticsearch.search.builder.SearchSourceBuilder;
+import org.opensearch.action.search.SearchRequest;
+import org.opensearch.action.search.SearchResponse;
+import org.opensearch.client.RequestOptions;
+import org.opensearch.client.RestHighLevelClient;
+import org.opensearch.index.query.BoolQueryBuilder;
+import org.opensearch.index.query.QueryBuilder;
+import org.opensearch.index.query.QueryBuilders;
+import org.opensearch.search.SearchHit;
+import org.opensearch.search.builder.SearchSourceBuilder;
 
 import static com.linkedin.metadata.graph.elastic.ElasticSearchGraphService.INDEX_NAME;
 
@@ -288,6 +288,7 @@ public class ESGraphQueryDAO {
     return extractRelationships(entityUrnSet, response, validEdges, visitedEntities, numHops, existingPaths);
   }
   @VisibleForTesting
+<<<<<<< HEAD
   static QueryBuilder getLineageQuery(
       @Nonnull Map<String, List<Urn>> urnsPerEntityType,
       @Nonnull Map<String, List<EdgeInfo>> edgesPerEntityType,
@@ -319,6 +320,17 @@ public class ESGraphQueryDAO {
           "Empty time filter range provided: start time %s, end time: %s. Skipping application of time filters",
           startTimeMillis,
           endTimeMillis));
+=======
+  public static QueryBuilder getQueryForLineage(
+          @Nonnull List<Urn> urns,
+          @Nonnull List<EdgeInfo> lineageEdges,
+          @Nonnull GraphFilters graphFilters,
+          @Nullable Long startTimeMillis,
+          @Nullable Long endTimeMillis) {
+    BoolQueryBuilder query = QueryBuilders.boolQuery();
+    if (lineageEdges.isEmpty()) {
+      return query;
+>>>>>>> oss_master
     }
 
     return finalQuery;
@@ -373,10 +385,10 @@ public class ESGraphQueryDAO {
    *                 physically stored inside the Graph Store.
    */
   @VisibleForTesting
-  static void addEdgeToPaths(
-      @Nonnull final Map<Urn, UrnArrayArray> existingPaths,
-      @Nonnull final Urn parentUrn,
-      @Nonnull final Urn childUrn) {
+  public static void addEdgeToPaths(
+          @Nonnull final Map<Urn, UrnArrayArray> existingPaths,
+          @Nonnull final Urn parentUrn,
+          @Nonnull final Urn childUrn) {
     // Collect all full-paths to this child node. This is what will be returned.
     UrnArrayArray pathsToParent = existingPaths.get(parentUrn);
     if (pathsToParent != null && pathsToParent.size() > 0) {

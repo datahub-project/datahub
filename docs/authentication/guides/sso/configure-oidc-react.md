@@ -26,7 +26,7 @@ please see [this guide](../jaas.md) to mount a custom user.props file for a JAAS
 To configure OIDC in React, you will most often need to register yourself as a client with your identity provider (Google, Okta, etc). Each provider may
 have their own instructions. Provided below are links to examples for Okta, Google, Azure AD, & Keycloak.
 
-- [Registering an App in Okta](https://developer.okta.com/docs/guides/add-an-external-idp/apple/register-app-in-okta/)
+- [Registering an App in Okta](https://developer.okta.com/docs/guides/add-an-external-idp/openidconnect/main/)
 - [OpenID Connect in Google Identity](https://developers.google.com/identity/protocols/oauth2/openid-connect)
 - [OpenID Connect authentication with Azure Active Directory](https://docs.microsoft.com/en-us/azure/active-directory/fundamentals/auth-oidc)
 - [Keycloak - Securing Applications and Services Guide](https://www.keycloak.org/docs/latest/securing_apps/)

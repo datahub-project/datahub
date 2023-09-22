@@ -1,12 +1,13 @@
 package com.linkedin.datahub.graphql.utils;
 
 import com.linkedin.datahub.graphql.util.DateUtil;
-import junit.framework.TestCase;
 import org.joda.time.DateTime;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
-public class DateUtilTest extends TestCase {
+import static org.testng.AssertJUnit.assertEquals;
+
+public class DateUtilTest {
 
     private DateTime setTimeParts(int dayOfMonth, boolean zeroTime) {
         DateTime result = new DateTime()

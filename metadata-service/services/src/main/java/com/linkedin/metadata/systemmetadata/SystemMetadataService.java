@@ -8,7 +8,7 @@ import java.util.Map;
 import java.util.Optional;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import org.elasticsearch.client.tasks.GetTaskResponse;
+import org.opensearch.client.tasks.GetTaskResponse;
 
 
 public interface SystemMetadataService {

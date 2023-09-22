@@ -564,5 +564,15 @@
       "type": "OTHERS",
       "logoUrl": "/assets/platforms/teamslogo.png"
     }
+  },
+  {
+    "urn": "urn:li:dataPlatform:dynamodb",
+    "aspect": {
+      "datasetNameDelimiter": ".",
+      "name": "dynamodb",
+      "displayName": "DynamoDB",
+      "type": "KEY_VALUE_STORE",
+      "logoUrl": "/assets/platforms/dynamodblogo.png"
+    }
   }
 ]

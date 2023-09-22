@@ -22,7 +22,7 @@ public class EbeanAspectMigrationsDaoTest extends AspectMigrationsDaoTest<EbeanA
 
   @BeforeMethod
   public void setupTest() {
-    Database server = EbeanTestUtils.createTestServer();
+    Database server = EbeanTestUtils.createTestServer(EbeanAspectMigrationsDaoTest.class.getSimpleName());
     _mockProducer = mock(EventProducer.class);
     EbeanAspectDao dao = new EbeanAspectDao(server);
     dao.setConnectionValidated(true);

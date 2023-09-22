@@ -9,7 +9,7 @@ import com.linkedin.datahub.upgrade.system.elasticsearch.util.IndexUtils;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.shared.ElasticSearchIndexed;
 import lombok.extern.slf4j.Slf4j;
-import org.elasticsearch.client.RestHighLevelClient;
+import org.opensearch.client.RestHighLevelClient;
 
 import java.util.List;
 import java.util.function.Function;

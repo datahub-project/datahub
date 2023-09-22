@@ -17,6 +17,8 @@ import com.linkedin.metadata.config.kafka.KafkaConfiguration;
 import com.linkedin.metadata.config.events.EventSinksConfiguration;
 import com.linkedin.metadata.config.notification.NotificationConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
+import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
+import com.linkedin.metadata.spring.YamlPropertySourceFactory;
 import com.linkedin.metadata.config.telemetry.TelemetryConfiguration;
 import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
