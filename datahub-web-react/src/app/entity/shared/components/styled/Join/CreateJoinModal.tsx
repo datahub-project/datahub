@@ -88,9 +88,8 @@ export const CreateJoinModal = ({
     const onSubmit = async () => {
         const errors = validateJoin(joinName, tableData, editFlag, getSearchResultsJoins);
         if ((await errors).length > 0) {
-            const errorHtml = (await errors).join(`<br />`);
-            // eslint-disable-next-line react/no-danger
-            message.error({ content: <p dangerouslySetInnerHTML={{ __html: errorHtml }} /> });
+            const err = (await errors).join(`, `);
+            message.error(err);
             return;
         }
         if (editFlag) {
