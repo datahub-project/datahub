@@ -19,9 +19,9 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 @dataclass
 class BigQuerySchemaApiPerfReport(Report):
-    list_projects = PerfTimer()
-    list_datasets = PerfTimer()
-    get_columns_for_dataset = PerfTimer()
+    list_projects: PerfTimer = field(default_factory=PerfTimer)
+    list_datasets: PerfTimer = field(default_factory=PerfTimer)
+    get_columns_for_dataset: PerfTimer = field(default_factory=PerfTimer)
     get_tables_for_dataset = PerfTimer()
     list_tables = PerfTimer()
     get_views_for_dataset = PerfTimer()
