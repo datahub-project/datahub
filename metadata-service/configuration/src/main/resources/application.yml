@@ -278,6 +278,8 @@ bootstrap:
     enabled: ${BACKFILL_BROWSE_PATHS_V2:false} # Enables running the backfill of browsePathsV2 upgrade step. There are concerns about the load of this step so hiding it behind a flag. Deprecating in favor of running through SystemUpdate
   policies:
     file: ${BOOTSTRAP_POLICIES_FILE:classpath:boot/policies.json}
+    # eg for local file
+    # file: "file:///datahub/datahub-gms/resources/custom-policies.json"
 
 systemUpdate:
   initialBackOffMs: ${BOOTSTRAP_SYSTEM_UPDATE_INITIAL_BACK_OFF_MILLIS:5000}
