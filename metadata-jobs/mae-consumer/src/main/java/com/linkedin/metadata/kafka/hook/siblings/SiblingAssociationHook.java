@@ -1,6 +1,5 @@
 package com.linkedin.metadata.kafka.hook.siblings;
 
-import com.datahub.authentication.Authentication;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -13,9 +12,8 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.dataset.UpstreamArray;
 import com.linkedin.dataset.UpstreamLineage;
 import com.linkedin.entity.EntityResponse;
-import com.linkedin.entity.client.RestliEntityClient;
+import com.linkedin.entity.client.SystemRestliEntityClient;
 import com.linkedin.events.metadata.ChangeType;
-import com.linkedin.gms.factory.auth.SystemAuthenticationFactory;
 import com.linkedin.gms.factory.entity.RestliEntityClientFactory;
 import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
 import com.linkedin.gms.factory.search.EntitySearchServiceFactory;
@@ -60,7 +58,7 @@ import static com.linkedin.metadata.Constants.*;
 @Slf4j
 @Component
 @Singleton
-@Import({EntityRegistryFactory.class, RestliEntityClientFactory.class, EntitySearchServiceFactory.class, SystemAuthenticationFactory.class})
+@Import({EntityRegistryFactory.class, RestliEntityClientFactory.class, EntitySearchServiceFactory.class})
 public class SiblingAssociationHook implements MetadataChangeLogHook {
 
   public static final String SIBLING_ASSOCIATION_SYSTEM_ACTOR = "urn:li:corpuser:__datahub_system_sibling_hook";
@@ -73,23 +71,20 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
   public static final String SOURCE_SUBTYPE_V2 = "Source";
 
   private final EntityRegistry _entityRegistry;
-  private final RestliEntityClient _entityClient;
+  private final SystemRestliEntityClient _entityClient;
   private final EntitySearchService _searchService;
-  private final Authentication _systemAuthentication;
   private final boolean _isEnabled;
 
   @Autowired
   public SiblingAssociationHook(
       @Nonnull final EntityRegistry entityRegistry,
-      @Nonnull final RestliEntityClient entityClient,
+      @Nonnull final SystemRestliEntityClient entityClient,
       @Nonnull final EntitySearchService searchService,
-      @Nonnull final Authentication systemAuthentication,
       @Nonnull @Value("${siblings.enabled:true}") Boolean isEnabled
   ) {
     _entityRegistry = entityRegistry;
     _entityClient = entityClient;
     _searchService = searchService;
-    _systemAuthentication = systemAuthentication;
     _isEnabled = isEnabled;
   }
 
@@ -200,10 +195,19 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
       UpstreamLineage upstreamLineage = getUpstreamLineageFromEvent(event);
       if (upstreamLineage != null && upstreamLineage.hasUpstreams()) {
         UpstreamArray upstreams = upstreamLineage.getUpstreams();
-        if (
-            upstreams.size() == 1
-                && upstreams.get(0).getDataset().getPlatformEntity().getPlatformNameEntity().equals(DBT_PLATFORM_NAME)) {
-          setSiblingsAndSoftDeleteSibling(upstreams.get(0).getDataset(), sourceUrn);
+
+        // an entity can have merged lineage (eg. dbt + snowflake), but by default siblings are only between dbt <> non-dbt
+        UpstreamArray dbtUpstreams = new UpstreamArray(
+          upstreams.stream()
+          .filter(obj -> obj.getDataset().getPlatformEntity().getPlatformNameEntity().equals(DBT_PLATFORM_NAME))
+          .collect(Collectors.toList())
+        );
+        // We're assuming a data asset (eg. snowflake table) will only ever be downstream of 1 dbt model
+        if (dbtUpstreams.size() == 1) {
+          setSiblingsAndSoftDeleteSibling(dbtUpstreams.get(0).getDataset(), sourceUrn);
+        } else {
+          log.error("{} has an unexpected number of dbt upstreams: {}. Not adding any as siblings.", sourceUrn.toString(), dbtUpstreams.size());
+ 
         }
       }
     }
@@ -219,7 +223,7 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
         existingDbtSiblingAspect != null
             && existingSourceSiblingAspect != null
             && existingDbtSiblingAspect.getSiblings().contains(sourceUrn.toString())
-            && existingDbtSiblingAspect.getSiblings().contains(dbtUrn.toString())
+            && existingSourceSiblingAspect.getSiblings().contains(dbtUrn.toString())
     ) {
       // we have already connected them- we can abort here
       return;
@@ -242,9 +246,9 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
     dbtSiblingProposal.setEntityUrn(dbtUrn);
 
     try {
-      _entityClient.ingestProposal(dbtSiblingProposal, _systemAuthentication);
+      _entityClient.ingestProposal(dbtSiblingProposal, true);
     } catch (RemoteInvocationException e) {
-      log.error("Error while associating {} with {}: {}", dbtUrn.toString(), sourceUrn.toString(), e.toString());
+      log.error("Error while associating {} with {}: {}", dbtUrn, sourceUrn, e.toString());
       throw new RuntimeException("Error ingesting sibling proposal. Skipping processing.", e);
     }
 
@@ -265,9 +269,9 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
     List<Urn> filteredNewSiblingsArray =
         newSiblingsUrnArray.stream().filter(urn -> {
           try {
-            return _entityClient.exists(urn, _systemAuthentication);
+            return _entityClient.exists(urn);
           } catch (RemoteInvocationException e) {
-            log.error("Error while checking existence of {}: {}", urn.toString(), e.toString());
+            log.error("Error while checking existence of {}: {}", urn, e.toString());
             throw new RuntimeException("Error checking existence. Skipping processing.", e);
           }
         }).collect(Collectors.toList());
@@ -285,9 +289,9 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
     sourceSiblingProposal.setEntityUrn(sourceUrn);
 
     try {
-      _entityClient.ingestProposal(sourceSiblingProposal, _systemAuthentication);
+      _entityClient.ingestProposal(sourceSiblingProposal, true);
     } catch (RemoteInvocationException e) {
-      log.error("Error while associating {} with {}: {}", dbtUrn.toString(), sourceUrn.toString(), e.toString());
+      log.error("Error while associating {} with {}: {}", dbtUrn, sourceUrn, e.toString());
       throw new RuntimeException("Error ingesting sibling proposal. Skipping processing.", e);
     }
   }
@@ -397,11 +401,8 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
   ) {
     try {
       EntityResponse entityResponse = _entityClient.getV2(
-          DATASET_ENTITY_NAME,
           urn,
-          ImmutableSet.of(SUB_TYPES_ASPECT_NAME),
-          _systemAuthentication
-      );
+          ImmutableSet.of(SUB_TYPES_ASPECT_NAME));
 
       if (entityResponse != null && entityResponse.hasAspects() && entityResponse.getAspects().containsKey(Constants.SUB_TYPES_ASPECT_NAME)) {
         return new SubTypes(entityResponse.getAspects().get(Constants.SUB_TYPES_ASPECT_NAME).getValue().data());
@@ -418,10 +419,8 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
   ) {
     try {
       EntityResponse entityResponse = _entityClient.getV2(
-          DATASET_ENTITY_NAME,
           urn,
-          ImmutableSet.of(UPSTREAM_LINEAGE_ASPECT_NAME),
-          _systemAuthentication
+          ImmutableSet.of(UPSTREAM_LINEAGE_ASPECT_NAME)
       );
 
       if (entityResponse != null && entityResponse.hasAspects() && entityResponse.getAspects().containsKey(Constants.UPSTREAM_LINEAGE_ASPECT_NAME)) {
@@ -439,10 +438,8 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
   ) {
     try {
       EntityResponse entityResponse = _entityClient.getV2(
-          DATASET_ENTITY_NAME,
           urn,
-          ImmutableSet.of(SIBLINGS_ASPECT_NAME),
-          _systemAuthentication
+          ImmutableSet.of(SIBLINGS_ASPECT_NAME)
       );
 
       if (entityResponse != null && entityResponse.hasAspects() && entityResponse.getAspects().containsKey(Constants.SIBLINGS_ASPECT_NAME)) {

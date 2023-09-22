@@ -5,7 +5,7 @@ import com.github.fge.jsonpatch.JsonPatch;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
-import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.entity.EntityAspect;
 import com.linkedin.metadata.timeline.data.ChangeCategory;
 import com.linkedin.metadata.timeline.data.ChangeEvent;
@@ -19,16 +19,14 @@ import javax.annotation.Nonnull;
  */
 public abstract class EntityChangeEventGenerator<T extends RecordTemplate> {
   // TODO: Add a check for supported aspects
-  protected EntityClient _entityClient;
+  protected SystemEntityClient _entityClient;
   protected Authentication _authentication;
 
   public EntityChangeEventGenerator() {
   }
 
-  public EntityChangeEventGenerator(@Nonnull final EntityClient entityClient,
-      @Nonnull final Authentication authentication) {
+  public EntityChangeEventGenerator(@Nonnull final SystemEntityClient entityClient) {
     _entityClient = entityClient;
-    _authentication = authentication;
   }
 
   @Deprecated
