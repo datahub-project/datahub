@@ -1,6 +1,6 @@
+import re
 from functools import lru_cache
 from typing import List, Optional, cast
-import re
 
 from datahub.configuration.common import TransformerSemanticsConfigModel
 from datahub.emitter.mce_builder import Aspect
@@ -69,7 +69,7 @@ class ExtractOwnersFromTagsTransformer(DatasetTagsTransformer):
             tag_str = tag_urn.get_entity_id()[0]
             re_match = re.search(self.config.tag_prefix, tag_str)
             if re_match:
-                owner_str = tag_str[re_match.end():].strip()
+                owner_str = tag_str[re_match.end() :].strip()
                 owner_urn_str = self.get_owner_urn(owner_str)
                 if self.config.is_user:
                     owner_urn = str(CorpuserUrn.create_from_id(owner_urn_str))
