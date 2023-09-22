@@ -506,6 +506,7 @@ base_dev_requirements = {
             "nifi",
             "vertica",
             "mode",
+            "mlflow",
         ]
         if plugin
         for dependency in plugins[plugin]
