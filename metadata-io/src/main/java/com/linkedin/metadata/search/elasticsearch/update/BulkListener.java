@@ -2,11 +2,11 @@ package com.linkedin.metadata.search.elasticsearch.update;
 
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import lombok.extern.slf4j.Slf4j;
-import org.elasticsearch.action.DocWriteRequest;
-import org.elasticsearch.action.bulk.BulkProcessor;
-import org.elasticsearch.action.bulk.BulkRequest;
-import org.elasticsearch.action.bulk.BulkResponse;
-import org.elasticsearch.action.support.WriteRequest;
+import org.opensearch.action.DocWriteRequest;
+import org.opensearch.action.bulk.BulkProcessor;
+import org.opensearch.action.bulk.BulkRequest;
+import org.opensearch.action.bulk.BulkResponse;
+import org.opensearch.action.support.WriteRequest;
 
 import java.util.Arrays;
 import java.util.HashMap;
@@ -76,7 +76,7 @@ public class BulkListener implements BulkProcessor.Listener {
   public static String buildBulkRequestSummary(BulkRequest request) {
     return request.requests().stream().map(req -> String.format(
             "Failed to perform bulk request: index [%s], optype: [%s], type [%s], id [%s]",
-            req.index(), req.opType(), req.type(), req.id())
+            req.index(), req.opType(), req.opType(), req.id())
     ).collect(Collectors.joining(";"));
   }
 }

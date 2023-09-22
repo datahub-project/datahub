@@ -30,36 +30,36 @@ import javax.annotation.Nullable;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.http.client.config.RequestConfig;
-import org.elasticsearch.ElasticsearchException;
-import org.elasticsearch.action.admin.cluster.node.tasks.list.ListTasksRequest;
-import org.elasticsearch.action.admin.indices.alias.IndicesAliasesRequest;
-import org.elasticsearch.action.admin.indices.alias.IndicesAliasesRequest.AliasActions;
-import org.elasticsearch.action.admin.indices.alias.get.GetAliasesRequest;
-import org.elasticsearch.action.admin.indices.delete.DeleteIndexRequest;
-import org.elasticsearch.action.admin.indices.settings.get.GetSettingsRequest;
-import org.elasticsearch.action.search.SearchRequest;
-import org.elasticsearch.action.search.SearchResponse;
-import org.elasticsearch.client.GetAliasesResponse;
-import org.elasticsearch.client.RequestOptions;
-import org.elasticsearch.client.RestHighLevelClient;
-import org.elasticsearch.client.core.CountRequest;
-import org.elasticsearch.client.indices.CreateIndexRequest;
-import org.elasticsearch.client.indices.GetIndexRequest;
-import org.elasticsearch.client.indices.GetIndexResponse;
-import org.elasticsearch.client.indices.GetMappingsRequest;
-import org.elasticsearch.client.indices.PutMappingRequest;
-import org.elasticsearch.client.tasks.TaskSubmissionResponse;
-import org.elasticsearch.common.settings.Settings;
-import org.elasticsearch.common.unit.TimeValue;
-import org.elasticsearch.index.query.QueryBuilder;
-import org.elasticsearch.index.query.QueryBuilders;
-import org.elasticsearch.index.reindex.ReindexRequest;
-import org.elasticsearch.action.admin.indices.settings.put.UpdateSettingsRequest;
-import org.elasticsearch.search.SearchHit;
-import org.elasticsearch.search.builder.SearchSourceBuilder;
-import org.elasticsearch.search.sort.SortBuilders;
-import org.elasticsearch.search.sort.SortOrder;
-import org.elasticsearch.tasks.TaskInfo;
+import org.opensearch.OpenSearchException;
+import org.opensearch.action.admin.cluster.node.tasks.list.ListTasksRequest;
+import org.opensearch.action.admin.indices.alias.IndicesAliasesRequest;
+import org.opensearch.action.admin.indices.alias.IndicesAliasesRequest.AliasActions;
+import org.opensearch.action.admin.indices.alias.get.GetAliasesRequest;
+import org.opensearch.action.admin.indices.delete.DeleteIndexRequest;
+import org.opensearch.action.admin.indices.settings.get.GetSettingsRequest;
+import org.opensearch.action.search.SearchRequest;
+import org.opensearch.action.search.SearchResponse;
+import org.opensearch.client.GetAliasesResponse;
+import org.opensearch.client.RequestOptions;
+import org.opensearch.client.RestHighLevelClient;
+import org.opensearch.client.core.CountRequest;
+import org.opensearch.client.indices.CreateIndexRequest;
+import org.opensearch.client.indices.GetIndexRequest;
+import org.opensearch.client.indices.GetIndexResponse;
+import org.opensearch.client.indices.GetMappingsRequest;
+import org.opensearch.client.indices.PutMappingRequest;
+import org.opensearch.client.tasks.TaskSubmissionResponse;
+import org.opensearch.common.settings.Settings;
+import org.opensearch.common.unit.TimeValue;
+import org.opensearch.index.query.QueryBuilder;
+import org.opensearch.index.query.QueryBuilders;
+import org.opensearch.index.reindex.ReindexRequest;
+import org.opensearch.action.admin.indices.settings.put.UpdateSettingsRequest;
+import org.opensearch.search.SearchHit;
+import org.opensearch.search.builder.SearchSourceBuilder;
+import org.opensearch.search.sort.SortBuilders;
+import org.opensearch.search.sort.SortOrder;
+import org.opensearch.tasks.TaskInfo;
 
 
 @Slf4j
@@ -117,7 +117,7 @@ public class ESIndexBuilder {
     RetryConfig config = RetryConfig.custom()
             .maxAttempts(Math.max(1, numRetries))
             .waitDuration(Duration.ofSeconds(10))
-            .retryOnException(e -> e instanceof ElasticsearchException)
+            .retryOnException(e -> e instanceof OpenSearchException)
             .failAfterMaxAttempts(true)
             .build();
 
@@ -153,7 +153,8 @@ public class ESIndexBuilder {
     Settings currentSettings = _searchClient.indices()
             .getSettings(new GetSettingsRequest().indices(indexName), RequestOptions.DEFAULT)
             .getIndexToSettings()
-            .valuesIt()
+            .values()
+            .iterator()
             .next();
     builder.currentSettings(currentSettings);
 
@@ -170,6 +171,15 @@ public class ESIndexBuilder {
     return builder.build();
   }
 
+  /**
+   * Builds index with given name, mappings and settings
+   * Deprecated: Use the `buildIndex(ReindexConfig indexState) to enforce conventions via ReindexConfig class
+   * earlier in the process.
+   * @param indexName index name
+   * @param mappings ES mappings
+   * @param settings ES settings
+   * @throws IOException ES error
+   */
   @Deprecated
   public void buildIndex(String indexName, Map<String, Object> mappings, Map<String, Object> settings) throws IOException {
     buildIndex(buildReindexState(indexName, mappings, settings));
