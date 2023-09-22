@@ -17,6 +17,7 @@ from datahub.utilities.stats_collections import TopKDict, int_top_k_dict
 logger: logging.Logger = logging.getLogger(__name__)
 
 
+@dataclass
 class BigQuerySchemaApiPerfReport(Report):
     list_projects = PerfTimer()
     list_datasets = PerfTimer()
