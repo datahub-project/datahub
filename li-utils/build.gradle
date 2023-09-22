@@ -28,6 +28,7 @@ dependencies {
     testImplementation externalDependency.commonsIo
     testImplementation project(':test-models')
     testImplementation project(path: ':test-models', configuration: 'testDataTemplate')
+    testImplementation externalDependency.testngJava8
 }
 
 idea {

@@ -1,6 +1,6 @@
 package com.linkedin.gms.factory.common;
 
-import com.linkedin.gms.factory.spring.YamlPropertySourceFactory;
+import com.linkedin.metadata.spring.YamlPropertySourceFactory;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.ebean.config.ServerConfig;
 import io.ebean.datasource.DataSourceConfig;

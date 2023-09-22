@@ -1,6 +1,5 @@
 package com.linkedin.metadata.timeline.eventgenerator;
 
-import com.datahub.authentication.Authentication;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.dataprocess.DataProcessInstanceRelationships;
@@ -8,7 +7,7 @@ import com.linkedin.dataprocess.DataProcessInstanceRunEvent;
 import com.linkedin.dataprocess.DataProcessRunStatus;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
-import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.timeline.data.ChangeCategory;
 import com.linkedin.metadata.timeline.data.ChangeEvent;
 import com.linkedin.metadata.timeline.data.ChangeOperation;
@@ -27,9 +26,8 @@ public class DataProcessInstanceRunEventChangeEventGenerator
   private static final String COMPLETED_STATUS = "COMPLETED";
   private static final String STARTED_STATUS = "STARTED";
 
-  public DataProcessInstanceRunEventChangeEventGenerator(@Nonnull final EntityClient entityClient, @Nonnull final
-  Authentication authentication) {
-    super(entityClient, authentication);
+  public DataProcessInstanceRunEventChangeEventGenerator(@Nonnull final SystemEntityClient entityClient) {
+    super(entityClient);
   }
 
   @Override
@@ -108,8 +106,8 @@ public class DataProcessInstanceRunEventChangeEventGenerator
     EntityResponse entityResponse;
     try {
       entityUrn = Urn.createFromString(entityUrnString);
-      entityResponse = _entityClient.getV2(DATA_PROCESS_INSTANCE_ENTITY_NAME, entityUrn,
-          Collections.singleton(DATA_PROCESS_INSTANCE_RELATIONSHIPS_ASPECT_NAME), _authentication);
+      entityResponse = _entityClient.getV2(entityUrn,
+              Collections.singleton(DATA_PROCESS_INSTANCE_RELATIONSHIPS_ASPECT_NAME));
     } catch (Exception e) {
       return null;
     }
