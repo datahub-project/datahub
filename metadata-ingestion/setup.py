@@ -475,6 +475,7 @@ base_dev_requirements = {
             "elasticsearch",
             "feast" if sys.version_info >= (3, 8) else None,
             "iceberg" if sys.version_info >= (3, 8) else None,
+            "mlflow" if sys.version_info >= (3, 8) else None,
             "json-schema",
             "ldap",
             "looker",
@@ -506,7 +507,6 @@ base_dev_requirements = {
             "nifi",
             "vertica",
             "mode",
-            "mlflow",
         ]
         if plugin
         for dependency in plugins[plugin]
