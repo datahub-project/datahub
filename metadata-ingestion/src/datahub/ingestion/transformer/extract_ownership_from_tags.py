@@ -67,10 +67,9 @@ class ExtractOwnersFromTagsTransformer(DatasetTagsTransformer):
         for tag_class in tags:
             tag_urn = TagUrn.create_from_string(tag_class.tag)
             tag_str = tag_urn.get_entity_id()[0]
-            if re.match(self.config.tag_prefix, tag_str):
-                result = re.search(self.config.tag_prefix, tag_str)
-                print(result.span)
-                owner_str = tag_str[len(self.config.tag_prefix) :]
+            re_match = re.search(self.config.tag_prefix, tag_str)
+            if re_match:
+                owner_str = tag_str[re_match.end():].strip()
                 owner_urn_str = self.get_owner_urn(owner_str)
                 if self.config.is_user:
                     owner_urn = str(CorpuserUrn.create_from_id(owner_urn_str))
