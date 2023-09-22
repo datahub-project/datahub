@@ -117,13 +117,8 @@ services:
       - ${DATAHUB_MAPPED_ELASTIC_PORT:-9200}:9200
     env_file: elasticsearch/env/docker.env
     environment:
-<<<<<<< HEAD
-      - discovery.type=single-node
-      - xpack.security.enabled=false
-=======
     - discovery.type=single-node
     - ${XPACK_SECURITY_ENABLED:-xpack.security.enabled=false}
->>>>>>> oss_master
     deploy:
       resources:
         limits:
