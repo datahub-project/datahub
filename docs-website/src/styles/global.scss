@@ -48,7 +48,7 @@
 
   /* Menu */
   --doc-sidebar-width: 350px !important;
-  --ifm-menu-link-padding-vertical: 0.7rem;
+  --ifm-menu-link-padding-vertical: 0.6rem;
   --ifm-menu-link-padding-horizontal: 1rem;
   --ifm-menu-link-sublist-icon: url('data:image/svg+xml;utf8,<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6.47 9.47L8 7.94333L9.53 9.47L10 9L8 7L6 9L6.47 9.47Z" fill="black" fill-opacity="0.5"/></svg>');
   --ifm-menu-color-background-hover: var(--ifm-color-primary-opaque);
@@ -56,10 +56,6 @@
 
   /* TOC */
   --ifm-toc-padding-vertical: 1.25rem;
-
-  .table-of-contents {
-    padding-left: 1.5rem;
-  }
 
   /* Breadcrumbs */
   --ifm-breadcrumb-item-background-active: var(--ifm-color-primary-opaque);
@@ -242,6 +238,11 @@ div[class^="announcementBar"] {
     font-size: 1.25em;
     margin: 1rem auto 3rem;
     max-width: 800px;
+
+    img {
+      vertical-align: middle;
+      margin-top: -0.3em;
+    }
   }
   .hero__content {
     text-align: center;
@@ -286,6 +287,7 @@ div[class^="announcementBar"] {
   .theme-doc-sidebar-item-category-level-1 > div > a:first-child {
     color: var(--ifm-navbar-link-color);
     font-weight: 600;
+    padding: calc(var(--ifm-menu-link-padding-vertical) + 0.2rem) var(--ifm-menu-link-padding-horizontal);
   }
   .theme-doc-sidebar-item-category-level-1 > div > a.menu__link--active {
     color: var(--ifm-navbar-link-color);
@@ -295,6 +297,7 @@ div[class^="announcementBar"] {
 
 /* TOC */
 .table-of-contents {
+  padding-left: 1.5rem;
   font-size: 0.9rem;
   line-height: 1rem;
   .table-of-contents__link--active {
