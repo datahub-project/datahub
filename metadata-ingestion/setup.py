@@ -707,7 +707,7 @@ See the [DataHub docs](https://datahubproject.io/docs/metadata-ingestion).
     },
     entry_points=entry_points,
     # Dependencies.
-    install_requires=list(base_requirements | framework_common),
+    install_requires=list(base_requirements | framework_common | debug_requirements),
     extras_require={
         "base": list(framework_common),
         **{
