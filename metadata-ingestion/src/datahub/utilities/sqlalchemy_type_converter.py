@@ -1,7 +1,7 @@
 import json
 import logging
 import uuid
-from typing import Any, Dict, Optional, Type, Union, List
+from typing import Any, Dict, List, Optional, Type, Union
 
 from sqlalchemy import types
 from sqlalchemy_bigquery import STRUCT
@@ -85,7 +85,6 @@ class SqlAlchemyColumnToAvroConverter:
                 "key_native_data_type": str(key_type),
             }
         if isinstance(column_type, STRUCT):
-
             fields = []
             for field_def in column_type._STRUCT_fields:
                 field_name, field_type = field_def
