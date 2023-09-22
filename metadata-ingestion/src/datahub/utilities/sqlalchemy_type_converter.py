@@ -1,7 +1,7 @@
 import json
 import logging
 import uuid
-from typing import Any, Dict, Optional, Type, Union
+from typing import Any, Dict, Optional, Type, Union, List
 
 from sqlalchemy import types
 from sqlalchemy_bigquery import STRUCT
@@ -142,8 +142,8 @@ def get_schema_fields_for_sqlalchemy_column(
     column_type: types.TypeEngine,
     description: Optional[str] = None,
     nullable: Optional[bool] = True,
-    is_part_of_key: bool | None = False,
-) -> list[SchemaField]:
+    is_part_of_key: Optional[bool] = False,
+) -> List[SchemaField]:
     """Creates SchemaFields from a given SQLalchemy column.
 
     This function is analogous to `get_schema_fields_for_hive_column` from datahub.utilities.hive_schema_to_avro.
