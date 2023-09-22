@@ -35,7 +35,6 @@ transformers:
       tag_prefix: "dbt:techno-genie:"
       is_user: true
       email_domain: "coolcompany.com"
-      
 ```
 
 ## Mark Dataset Status
