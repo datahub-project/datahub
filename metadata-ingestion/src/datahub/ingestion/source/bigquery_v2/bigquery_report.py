@@ -1,5 +1,4 @@
 import collections
-import dataclasses
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -11,9 +10,24 @@ from datahub.ingestion.source.sql.sql_generic_profiler import ProfilingSqlReport
 from datahub.ingestion.source_report.ingestion_stage import IngestionStageReport
 from datahub.ingestion.source_report.time_window import BaseTimeWindowReport
 from datahub.utilities.lossy_collections import LossyDict, LossyList
+from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.stats_collections import TopKDict, int_top_k_dict
 
 logger: logging.Logger = logging.getLogger(__name__)
+
+
+class BigQuerySchemaApiPerfReport:
+    list_projects = PerfTimer()
+    list_datasets = PerfTimer()
+    get_columns_for_dataset = PerfTimer()
+    get_tables_for_dataset = PerfTimer()
+    list_tables = PerfTimer()
+    get_views_for_dataset = PerfTimer()
+
+
+class BigQueryAuditLogApiPerfReport:
+    get_exported_log_entries = PerfTimer()
+    list_log_entries = PerfTimer()
 
 
 @dataclass
@@ -31,8 +45,12 @@ class BigQueryV2Report(ProfilingSqlReport, IngestionStageReport, BaseTimeWindowR
     num_skipped_lineage_entries_other: TopKDict[str, int] = field(
         default_factory=int_top_k_dict
     )
-    num_total_log_entries: TopKDict[str, int] = field(default_factory=int_top_k_dict)
-    num_parsed_log_entries: TopKDict[str, int] = field(default_factory=int_top_k_dict)
+    num_lineage_total_log_entries: TopKDict[str, int] = field(
+        default_factory=int_top_k_dict
+    )
+    num_lineage_parsed_log_entries: TopKDict[str, int] = field(
+        default_factory=int_top_k_dict
+    )
     num_lineage_log_parse_failures: TopKDict[str, int] = field(
         default_factory=int_top_k_dict
     )
@@ -42,7 +60,14 @@ class BigQueryV2Report(ProfilingSqlReport, IngestionStageReport, BaseTimeWindowR
     lineage_mem_size: Dict[str, str] = field(default_factory=TopKDict)
     lineage_extraction_sec: Dict[str, float] = field(default_factory=TopKDict)
     usage_extraction_sec: Dict[str, float] = field(default_factory=TopKDict)
+    num_usage_total_log_entries: TopKDict[str, int] = field(
+        default_factory=int_top_k_dict
+    )
+    num_usage_parsed_log_entries: TopKDict[str, int] = field(
+        default_factory=int_top_k_dict
+    )
     usage_error_count: Dict[str, int] = field(default_factory=int_top_k_dict)
+
     num_usage_resources_dropped: int = 0
     num_usage_operations_dropped: int = 0
     operation_dropped: LossyList[str] = field(default_factory=LossyList)
@@ -53,15 +78,23 @@ class BigQueryV2Report(ProfilingSqlReport, IngestionStageReport, BaseTimeWindowR
     use_date_sharded_audit_log_tables: Optional[bool] = None
     log_page_size: Optional[pydantic.PositiveInt] = None
     use_exported_bigquery_audit_metadata: Optional[bool] = None
-    log_entry_start_time: Optional[str] = None
-    log_entry_end_time: Optional[str] = None
-    audit_start_time: Optional[str] = None
-    audit_end_time: Optional[str] = None
+    log_entry_start_time: Optional[datetime] = None
+    log_entry_end_time: Optional[datetime] = None
+    audit_start_time: Optional[datetime] = None
+    audit_end_time: Optional[datetime] = None
     upstream_lineage: LossyDict = field(default_factory=LossyDict)
     partition_info: Dict[str, str] = field(default_factory=TopKDict)
     profile_table_selection_criteria: Dict[str, str] = field(default_factory=TopKDict)
     selected_profile_tables: Dict[str, List[str]] = field(default_factory=TopKDict)
-    invalid_partition_ids: Dict[str, str] = field(default_factory=TopKDict)
+    profiling_skipped_invalid_partition_ids: Dict[str, str] = field(
+        default_factory=TopKDict
+    )
+    profiling_skipped_invalid_partition_type: Dict[str, str] = field(
+        default_factory=TopKDict
+    )
+    profiling_skipped_partition_profiling_disabled: List[str] = field(
+        default_factory=LossyList
+    )
     allow_pattern: Optional[str] = None
     deny_pattern: Optional[str] = None
     num_usage_workunits_emitted: int = 0
@@ -81,13 +114,17 @@ class BigQueryV2Report(ProfilingSqlReport, IngestionStageReport, BaseTimeWindowR
     num_view_definitions_failed_column_parsing: int = 0
     view_definitions_parsing_failures: LossyList[str] = field(default_factory=LossyList)
 
-    read_reasons_stat: Counter[str] = dataclasses.field(
-        default_factory=collections.Counter
-    )
-    operation_types_stat: Counter[str] = dataclasses.field(
-        default_factory=collections.Counter
-    )
+    read_reasons_stat: Counter[str] = field(default_factory=collections.Counter)
+    operation_types_stat: Counter[str] = field(default_factory=collections.Counter)
+
     usage_state_size: Optional[str] = None
+
+    schema_api_perf: BigQuerySchemaApiPerfReport = field(
+        default_factory=BigQuerySchemaApiPerfReport
+    )
+    audit_log_api_perf: BigQueryAuditLogApiPerfReport = field(
+        default_factory=BigQueryAuditLogApiPerfReport
+    )
 
     lineage_start_time: Optional[datetime] = None
     lineage_end_time: Optional[datetime] = None

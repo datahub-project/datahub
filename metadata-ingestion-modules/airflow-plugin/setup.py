@@ -80,7 +80,8 @@ dev_requirements = {
 
 
 entry_points = {
-    "airflow.plugins": "acryl-datahub-airflow-plugin = datahub_airflow_plugin.datahub_plugin:DatahubPlugin"
+    "airflow.plugins": "acryl-datahub-airflow-plugin = datahub_airflow_plugin.datahub_plugin:DatahubPlugin",
+    "apache_airflow_provider": ["provider_info=datahub_provider:get_provider_info"],
 }
 
 
@@ -121,6 +122,9 @@ setuptools.setup(
     # Package info.
     zip_safe=False,
     python_requires=">=3.7",
+    package_data={
+        "datahub_airflow_plugin": ["py.typed"],
+    },
     package_dir={"": "src"},
     packages=setuptools.find_namespace_packages(where="./src"),
     entry_points=entry_points,
