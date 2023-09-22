@@ -27,6 +27,7 @@ class BigQuerySchemaApiPerfReport(Report):
     get_views_for_dataset = PerfTimer()
 
 
+@dataclass
 class BigQueryAuditLogApiPerfReport(Report):
     get_exported_log_entries = PerfTimer()
     list_log_entries = PerfTimer()
