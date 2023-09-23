@@ -231,3 +231,51 @@ def test_operation_processor_advanced_matching_tags():
     tag_aspect: GlobalTagsClass = aspect_map["add_tag"]
     assert len(tag_aspect.tags) == 1
     assert tag_aspect.tags[0].tag == "urn:li:tag:case_4567"
+
+
+def test_operation_processor_matching_nested_props():
+    raw_props = {
+        "gdpr": {
+            "pii": True,
+        },
+    }
+    processor = OperationProcessor(
+        operation_defs={
+            "gdpr.pii": {
+                "match": True,
+                "operation": "add_tag",
+                "config": {"tag": "pii"},
+            },
+        },
+        owner_source_type="SOURCE_CONTROL",
+        match_nested_props=True,
+    )
+    aspect_map = processor.process(raw_props)
+    assert "add_tag" in aspect_map
+
+    tag_aspect: GlobalTagsClass = aspect_map["add_tag"]
+    assert len(tag_aspect.tags) == 1
+    assert tag_aspect.tags[0].tag == "urn:li:tag:pii"
+
+
+def test_operation_processor_matching_dot_props():
+    raw_props = {
+        "gdpr.pii": True,
+    }
+    processor = OperationProcessor(
+        operation_defs={
+            "gdpr.pii": {
+                "match": True,
+                "operation": "add_tag",
+                "config": {"tag": "pii"},
+            },
+        },
+        owner_source_type="SOURCE_CONTROL",
+        match_nested_props=True,
+    )
+    aspect_map = processor.process(raw_props)
+    assert "add_tag" in aspect_map
+
+    tag_aspect: GlobalTagsClass = aspect_map["add_tag"]
+    assert len(tag_aspect.tags) == 1
+    assert tag_aspect.tags[0].tag == "urn:li:tag:pii"
