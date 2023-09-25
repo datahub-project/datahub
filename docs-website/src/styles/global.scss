@@ -47,7 +47,6 @@
   --ifm-card-border-radius: calc(var(--ifm-global-radius) * 1.5);
 
   /* Menu */
-  --doc-sidebar-width: 350px !important;
   --ifm-menu-link-padding-vertical: 0.6rem;
   --ifm-menu-link-padding-horizontal: 1rem;
   --ifm-menu-link-sublist-icon: url('data:image/svg+xml;utf8,<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6.47 9.47L8 7.94333L9.53 9.47L10 9L8 7L6 9L6.47 9.47Z" fill="black" fill-opacity="0.5"/></svg>');
@@ -86,6 +85,10 @@ main {
 .markdown,
 main > h1 {
   margin-top: 1rem;
+}
+
+[class*="docItemCol"] {
+  padding: 0 2rem;
 }
 
 /* Custom Utility */
@@ -254,8 +257,6 @@ div[class^="announcementBar"] {
 /* Sidebar Menu */
 
 .menu .theme-doc-sidebar-menu {
-  padding: 1rem !important;
-
   ul li.saasOnly a.menu__link {
     &:after {
       content: "";
