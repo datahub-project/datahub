@@ -9,7 +9,7 @@ import io.ebean.Database;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import org.elasticsearch.client.RestHighLevelClient;
+import org.opensearch.client.RestHighLevelClient;
 
 
 public class NoCodeCleanupUpgrade implements Upgrade {
