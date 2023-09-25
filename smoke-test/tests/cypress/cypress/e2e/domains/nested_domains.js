@@ -56,11 +56,12 @@ describe("nested domains test", () => {
         cy.waitTextVisible(domainName);
         cy.waitTextVisible(domainDescription);
         //delete a domain
-        cy.clickOptionWithText(domainName);
+        cy.clickOptionWithText(domainName).wait(3000);
         cy.openThreeDotDropdown();
         cy.clickOptionWithText("Delete");
         cy.waitTextVisible("Are you sure you want to remove this Domain?");
-        cy.get("button").contains("Yes").click().wait(5000);
+        cy.get("button").contains("Yes").click();
+        cy.waitTextVisible("Deleted Domain!");
         cy.ensureTextNotPresent(domainName);
         cy.ensureTextNotPresent(domainDescription);
     });
