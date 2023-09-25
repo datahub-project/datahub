@@ -4,6 +4,7 @@ from typing import Any, Callable, Dict, Generator, List, Optional, Type, Union
 
 import avro.schema
 
+from datahub.emitter import mce_builder
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     ArrayTypeClass,
     BooleanTypeClass,
@@ -21,7 +22,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     TimeTypeClass,
     UnionTypeClass,
 )
-from datahub.metadata.schema_classes import GlobalTagsClass, TagAssociationClass
+from datahub.utilities.mapping import Constants, OperationProcessor
 
 """A helper file for Avro schema -> MCE schema transformations"""
 
@@ -98,7 +99,14 @@ class AvroToMceSchemaConverter:
         "uuid": StringTypeClass,
     }
 
-    def __init__(self, is_key_schema: bool, default_nullable: bool = False) -> None:
+    def __init__(
+        self,
+        is_key_schema: bool,
+        default_nullable: bool = False,
+        meta_mapping_processor: Optional[OperationProcessor] = None,
+        schema_tags_field: Optional[str] = None,
+        tag_prefix: Optional[str] = None,
+    ) -> None:
         # Tracks the prefix name stack for nested name generation.
         self._prefix_name_stack: PrefixNameStack = [self.version_string]
         # Tracks the fields on the current path.
@@ -112,6 +120,10 @@ class AvroToMceSchemaConverter:
         if is_key_schema:
             # Helps maintain backwards-compatibility. Annotation for any field that is part of key-schema.
             self._prefix_name_stack.append("[key=True]")
+        # Meta mapping
+        self._meta_mapping_processor = meta_mapping_processor
+        self._schema_tags_field = schema_tags_field
+        self._tag_prefix = tag_prefix
         # Map of avro schema type to the conversion handler
         self._avro_type_to_mce_converter_map: Dict[
             avro.schema.Schema,
@@ -317,7 +329,25 @@ class AvroToMceSchemaConverter:
                 merged_props.update(self._schema.other_props)
                 merged_props.update(schema.other_props)
 
-                tags = None
+                # Parse meta_mapping
+                meta_aspects: Dict[str, Any] = {}
+                if self._converter._meta_mapping_processor:
+                    meta_aspects = self._converter._meta_mapping_processor.process(
+                        merged_props
+                    )
+
+                tags: List[str] = []
+                if self._converter._schema_tags_field:
+                    for tag in merged_props.get(self._converter._schema_tags_field, []):
+                        tags.append(self._converter._tag_prefix + tag)
+
+                meta_tags_aspect = meta_aspects.get(Constants.ADD_TAG_OPERATION)
+                if meta_tags_aspect:
+                    tags += [
+                        tag_association.tag[len("urn:li:tag:") :]
+                        for tag_association in meta_tags_aspect.tags
+                    ]
+
                 if "deprecated" in merged_props:
                     description = (
                         f"<span style=\"color:red\">DEPRECATED: {merged_props['deprecated']}</span>\n"
@@ -325,9 +355,13 @@ class AvroToMceSchemaConverter:
                         if description
                         else ""
                     )
-                    tags = GlobalTagsClass(
-                        tags=[TagAssociationClass(tag="urn:li:tag:Deprecated")]
-                    )
+                    tags.append("Deprecated")
+
+                tags_aspect = None
+                if tags:
+                    tags_aspect = mce_builder.make_global_tag_aspect_with_tag_list(tags)
+
+                meta_terms_aspect = meta_aspects.get(Constants.ADD_TERM_OPERATION)
 
                 logical_type_name: Optional[str] = (
                     # logicalType nested inside type
@@ -349,7 +383,8 @@ class AvroToMceSchemaConverter:
                     recursive=False,
                     nullable=self._converter._is_nullable(schema),
                     isPartOfKey=self._converter._is_key_schema,
-                    globalTags=tags,
+                    globalTags=tags_aspect,
+                    glossaryTerms=meta_terms_aspect,
                     jsonProps=json.dumps(merged_props) if merged_props else None,
                 )
                 yield field
@@ -447,7 +482,9 @@ class AvroToMceSchemaConverter:
         actual_schema = self._get_underlying_type_if_option_as_union(schema, schema)
 
         with AvroToMceSchemaConverter.SchemaFieldEmissionContextManager(
-            schema, actual_schema, self
+            schema,
+            actual_schema,
+            self,
         ) as fe_schema:
             if isinstance(
                 actual_schema,
@@ -478,7 +515,9 @@ class AvroToMceSchemaConverter:
     ) -> Generator[SchemaField, None, None]:
         """Handles generation of MCE SchemaFields for non-nested AVRO types."""
         with AvroToMceSchemaConverter.SchemaFieldEmissionContextManager(
-            schema, schema, self
+            schema,
+            schema,
+            self,
         ) as non_nested_emitter:
             yield from non_nested_emitter.emit()
 
@@ -496,9 +535,12 @@ class AvroToMceSchemaConverter:
     @classmethod
     def to_mce_fields(
         cls,
-        avro_schema_string: str,
+        avro_schema: avro.schema.Schema,
         is_key_schema: bool,
         default_nullable: bool = False,
+        meta_mapping_processor: Optional[OperationProcessor] = None,
+        schema_tags_field: Optional[str] = None,
+        tag_prefix: Optional[str] = None,
     ) -> Generator[SchemaField, None, None]:
         """
         Converts a key or value type AVRO schema string to appropriate MCE SchemaFields.
@@ -506,8 +548,14 @@ class AvroToMceSchemaConverter:
         :param is_key_schema: True if it is a key-schema.
         :return: An MCE SchemaField generator.
         """
-        avro_schema = avro.schema.parse(avro_schema_string)
-        converter = cls(is_key_schema, default_nullable)
+        # avro_schema = avro.schema.parse(avro_schema)
+        converter = cls(
+            is_key_schema,
+            default_nullable,
+            meta_mapping_processor,
+            schema_tags_field,
+            tag_prefix,
+        )
         yield from converter._to_mce_fields(avro_schema)
 
 
@@ -516,28 +564,40 @@ class AvroToMceSchemaConverter:
 
 
 def avro_schema_to_mce_fields(
-    avro_schema_string: str,
+    avro_schema: Union[avro.schema.Schema, str],
     is_key_schema: bool = False,
     default_nullable: bool = False,
+    meta_mapping_processor: Optional[OperationProcessor] = None,
+    schema_tags_field: Optional[str] = None,
+    tag_prefix: Optional[str] = None,
     swallow_exceptions: bool = True,
 ) -> List[SchemaField]:
     """
     Converts an avro schema into schema fields compatible with MCE.
-    :param avro_schema_string: String representation of the AVRO schema.
+    :param avro_schema: AVRO schema, either as a string or as an avro.schema.Schema object.
     :param is_key_schema: True if it is a key-schema. Default is False (value-schema).
     :param swallow_exceptions: True if the caller wants exceptions to be suppressed
+    :param action_processor: Optional OperationProcessor to be used for meta mappings
     :return: The list of MCE compatible SchemaFields.
     """
 
     try:
+        if isinstance(avro_schema, str):
+            avro_schema = avro.schema.parse(avro_schema)
+
         return list(
             AvroToMceSchemaConverter.to_mce_fields(
-                avro_schema_string, is_key_schema, default_nullable
+                avro_schema,
+                is_key_schema,
+                default_nullable,
+                meta_mapping_processor,
+                schema_tags_field,
+                tag_prefix,
             )
         )
     except Exception:
         if swallow_exceptions:
-            logger.exception(f"Failed to parse {avro_schema_string} into mce fields.")
+            logger.exception(f"Failed to parse {avro_schema} into mce fields.")
             return []
         else:
             raise

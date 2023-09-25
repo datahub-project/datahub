@@ -231,6 +231,7 @@ def test_snowflake_shares_workunit_inbound_share(
         else:
             siblings_aspect = wu.get_aspect_of_type(Siblings)
             assert siblings_aspect is not None
+            assert not siblings_aspect.primary
             assert len(siblings_aspect.siblings) == 1
             assert siblings_aspect.siblings == [
                 wu.get_urn().replace("instance1.db1", "instance2.db1")
@@ -275,6 +276,7 @@ def test_snowflake_shares_workunit_outbound_share(
     for wu in wus:
         siblings_aspect = wu.get_aspect_of_type(Siblings)
         assert siblings_aspect is not None
+        assert siblings_aspect.primary
         assert len(siblings_aspect.siblings) == 2
         assert siblings_aspect.siblings == [
             wu.get_urn().replace("instance1.db2", "instance2.db2_from_share"),
@@ -336,13 +338,85 @@ def test_snowflake_shares_workunit_inbound_and_outbound_share(
             siblings_aspect = wu.get_aspect_of_type(Siblings)
             assert siblings_aspect is not None
             if "db1" in wu.get_urn():
+                assert not siblings_aspect.primary
                 assert len(siblings_aspect.siblings) == 1
                 assert siblings_aspect.siblings == [
                     wu.get_urn().replace("instance1.db1", "instance2.db1")
                 ]
             else:
+                assert siblings_aspect.primary
                 assert len(siblings_aspect.siblings) == 2
                 assert siblings_aspect.siblings == [
                     wu.get_urn().replace("instance1.db2", "instance2.db2_from_share"),
                     wu.get_urn().replace("instance1.db2", "instance3.db2"),
+                ]
+
+
+def test_snowflake_shares_workunit_inbound_and_outbound_share_no_platform_instance(
+    snowflake_databases: List[SnowflakeDatabase],
+) -> None:
+    config = SnowflakeV2Config(
+        account_id="abc12345",
+        shares={
+            "share1": SnowflakeShareConfig(
+                database="db1",
+                consumers=[
+                    DatabaseId(database="db1_from_share"),
+                    DatabaseId(database="db1_other"),
+                ],
+            ),
+            "share2": SnowflakeShareConfig(
+                database="db2_main",
+                consumers=[
+                    DatabaseId(database="db2"),
+                    DatabaseId(database="db2_other"),
+                ],
+            ),
+        },
+    )
+
+    report = SnowflakeV2Report()
+    shares_handler = SnowflakeSharesHandler(
+        config, report, lambda x: make_snowflake_urn(x)
+    )
+
+    assert sorted(config.outbounds().keys()) == ["db1", "db2_main"]
+    assert sorted(config.inbounds().keys()) == [
+        "db1_from_share",
+        "db1_other",
+        "db2",
+        "db2_other",
+    ]
+    wus = list(shares_handler.get_shares_workunits(snowflake_databases))
+
+    # 6 Sibling aspects for db1 tables
+    # 6 Sibling aspects and and 6 upstreamLineage for db2 tables
+    assert len(wus) == 18
+
+    for wu in wus:
+        assert isinstance(
+            wu.metadata, (MetadataChangeProposal, MetadataChangeProposalWrapper)
+        )
+        if wu.metadata.aspectName == "upstreamLineage":
+            upstream_aspect = wu.get_aspect_of_type(UpstreamLineage)
+            assert upstream_aspect is not None
+            assert len(upstream_aspect.upstreams) == 1
+            assert upstream_aspect.upstreams[0].dataset == wu.get_urn().replace(
+                "db2.", "db2_main."
+            )
+        else:
+            siblings_aspect = wu.get_aspect_of_type(Siblings)
+            assert siblings_aspect is not None
+            if "db1" in wu.get_urn():
+                assert siblings_aspect.primary
+                assert len(siblings_aspect.siblings) == 2
+                assert siblings_aspect.siblings == [
+                    wu.get_urn().replace("db1.", "db1_from_share."),
+                    wu.get_urn().replace("db1.", "db1_other."),
+                ]
+            else:
+                assert not siblings_aspect.primary
+                assert len(siblings_aspect.siblings) == 1
+                assert siblings_aspect.siblings == [
+                    wu.get_urn().replace("db2.", "db2_main.")
                 ]
