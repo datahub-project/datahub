@@ -93,10 +93,14 @@ class SnowflakeSharesHandler(SnowflakeCommonMixin):
         db_names = [db.name for db in databases]
         missing_dbs = [db for db in inbounds + outbounds if db not in db_names]
 
-        if missing_dbs:
+        if missing_dbs and self.config.platform_instance:
             self.report_warning(
                 "snowflake-shares",
                 f"Databases {missing_dbs} were not ingested. Siblings/Lineage will not be set for these.",
+            )
+        elif missing_dbs:
+            logger.debug(
+                f"Databases {missing_dbs} were not ingested in this recipe.",
             )
 
     def gen_siblings(
