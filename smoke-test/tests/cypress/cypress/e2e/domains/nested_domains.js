@@ -1,12 +1,9 @@
-import { aliasQuery, hasOperationName } from "../utils";
-
 const domainName = "CypressNestedDomain";
 const domainDescription = "CypressNestedDomainDescription";
 
 describe("nested domains test", () => {
 
     it("create a domain, move under parent, remove domain", () => {
-        setDomainsFeatureFlag(true);
         //create a new domain without a parent
         cy.loginWithCredentials();
         cy.goToDomainList();
