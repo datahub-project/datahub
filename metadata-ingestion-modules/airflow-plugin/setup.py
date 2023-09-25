@@ -13,6 +13,10 @@ def get_long_description():
     return pathlib.Path(os.path.join(root, "README.md")).read_text()
 
 
+_version = package_metadata["__version__"]
+_self_pin = f"=={_version}" if not _version.endswith("dev0") else ""
+
+
 rest_common = {"requests", "requests_file"}
 
 base_requirements = {
@@ -27,8 +31,12 @@ base_requirements = {
     "pydantic>=1.5.1",
     "apache-airflow >= 2.0.2",
     *rest_common,
-    f"acryl-datahub[sql-parser] == {package_metadata['__version__']}",
-    "openlineage-airflow==1.2.0",
+}
+
+plugin_v2_requirements = {
+    # The v2 plugin requires Python 3.8+.
+    f"acryl-datahub[sql-parser]{_self_pin}",
+    "openlineage-airflow==1.2.0; python_version >= '3.8'",
 }
 
 
@@ -89,7 +97,7 @@ entry_points = {
 setuptools.setup(
     # Package metadata.
     name=package_metadata["__package_name__"],
-    version=package_metadata["__version__"],
+    version=_version,
     url="https://datahubproject.io/",
     project_urls={
         "Documentation": "https://datahubproject.io/docs/",
@@ -133,11 +141,10 @@ setuptools.setup(
     install_requires=list(base_requirements),
     extras_require={
         "dev": list(dev_requirements),
-        "datahub-kafka": [
-            f"acryl-datahub[datahub-kafka] == {package_metadata['__version__']}"
-        ],
+        "datahub-kafka": [f"acryl-datahub[datahub-kafka]{_self_pin}"],
+        "plugin-v2": list(plugin_v2_requirements),
         "integration-tests": [
-            f"acryl-datahub[datahub-kafka] == {package_metadata['__version__']}",
+            f"acryl-datahub[datahub-kafka]{_self_pin}",
             # Extra requirements for Airflow.
             "apache-airflow[snowflake]>=2.0.2",  # snowflake is used in example dags
             # Because of https://github.com/snowflakedb/snowflake-sqlalchemy/issues/350 we need to restrict SQLAlchemy's max version.
