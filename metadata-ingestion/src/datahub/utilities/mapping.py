@@ -214,13 +214,18 @@ class OperationProcessor:
 
         if Constants.ADD_DOC_LINK_OPERATION in operation_map:
             try:
-                if (
-                    len(operation_map[Constants.ADD_DOC_LINK_OPERATION]) == 1
-                    and isinstance(operation_map[Constants.ADD_DOC_LINK_OPERATION], list)
+                if len(
+                    operation_map[Constants.ADD_DOC_LINK_OPERATION]
+                ) == 1 and isinstance(
+                    operation_map[Constants.ADD_DOC_LINK_OPERATION], list
                 ):
-                    docs_dict = cast(List[Dict], operation_map[Constants.ADD_DOC_LINK_OPERATION])[0]
-                    if 'description' not in docs_dict or 'link' not in docs_dict:
-                        raise Exception("Documentation_link meta_mapping config needs a description key and a link key")
+                    docs_dict = cast(
+                        List[Dict], operation_map[Constants.ADD_DOC_LINK_OPERATION]
+                    )[0]
+                    if "description" not in docs_dict or "link" not in docs_dict:
+                        raise Exception(
+                            "Documentation_link meta_mapping config needs a description key and a link key"
+                        )
 
                     now = int(time.time() * 1000)  # milliseconds since epoch
                     institutional_memory_element = InstitutionalMemoryMetadataClass(
@@ -240,9 +245,11 @@ class OperationProcessor:
                         Constants.ADD_DOC_LINK_OPERATION
                     ] = institutional_memory_aspect
                 else:
-                    raise Exception(f"Expected 1 item of type list for the documentation_link meta_mapping config,"
-                                    f" received type of {type(operation_map[Constants.ADD_DOC_LINK_OPERATION])}"
-                                    f", and size of {len(operation_map[Constants.ADD_DOC_LINK_OPERATION])}.")
+                    raise Exception(
+                        f"Expected 1 item of type list for the documentation_link meta_mapping config,"
+                        f" received type of {type(operation_map[Constants.ADD_DOC_LINK_OPERATION])}"
+                        f", and size of {len(operation_map[Constants.ADD_DOC_LINK_OPERATION])}."
+                    )
 
             except Exception as e:
                 logger.error(

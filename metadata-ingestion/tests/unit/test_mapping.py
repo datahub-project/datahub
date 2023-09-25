@@ -233,6 +233,7 @@ def test_operation_processor_advanced_matching_tags():
     assert len(tag_aspect.tags) == 1
     assert tag_aspect.tags[0].tag == "urn:li:tag:case_4567"
 
+
 def test_operation_processor_institutional_memory():
     raw_props = {
         "documentation_link": "test.com",
@@ -271,6 +272,7 @@ def test_operation_processor_institutional_memory_no_description():
     # we require a description, so this should stay empty
     aspect_map = processor.process(raw_props)
     assert aspect_map == {}
+
 
 def test_operation_processor_matching_nested_props():
     raw_props = {
