@@ -2,7 +2,7 @@ import contextlib
 import time
 import logging
 import re
-from typing import Any, Dict, List, Match, Optional, Union
+from typing import cast, Any, Dict, List, Match, Optional, Union
 
 from datahub.emitter import mce_builder
 from datahub.emitter.mce_builder import OwnerType
@@ -201,25 +201,36 @@ class OperationProcessor:
 
         if Constants.ADD_DOC_LINK_OPERATION in operation_map:
             try:
-                docs_dict = operation_map[Constants.ADD_DOC_LINK_OPERATION].pop()
+                if (
+                    len(operation_map[Constants.ADD_DOC_LINK_OPERATION]) == 1
+                    and isinstance(operation_map[Constants.ADD_DOC_LINK_OPERATION], list)
+                ):
+                    docs_dict = cast(List[Dict], operation_map[Constants.ADD_DOC_LINK_OPERATION])[0]
+                    if 'description' not in docs_dict or 'link' not in docs_dict:
+                        raise Exception("Documentation_link meta_mapping config needs a description key and a link key")
 
-                now = int(time.time() * 1000)  # milliseconds since epoch
-                institutional_memory_element = InstitutionalMemoryMetadataClass(
-                    url=docs_dict["link"],
-                    description=docs_dict["description"],
-                    createStamp=AuditStampClass(
-                        time=now, actor="urn:li:corpuser:ingestion"
-                    ),
-                )
+                    now = int(time.time() * 1000)  # milliseconds since epoch
+                    institutional_memory_element = InstitutionalMemoryMetadataClass(
+                        url=docs_dict["link"],
+                        description=docs_dict["description"],
+                        createStamp=AuditStampClass(
+                            time=now, actor="urn:li:corpuser:ingestion"
+                        ),
+                    )
 
-                # create a new institutional memory aspect
-                institutional_memory_aspect = InstitutionalMemoryClass(
-                    elements=[institutional_memory_element]
-                )
+                    # create a new institutional memory aspect
+                    institutional_memory_aspect = InstitutionalMemoryClass(
+                        elements=[institutional_memory_element]
+                    )
 
-                aspect_map[
-                    Constants.ADD_DOC_LINK_OPERATION
-                ] = institutional_memory_aspect
+                    aspect_map[
+                        Constants.ADD_DOC_LINK_OPERATION
+                    ] = institutional_memory_aspect
+                else:
+                    raise Exception(f"Expected 1 item of type list for the documentation_link meta_mapping config,"
+                                    f" received type of {type(operation_map[Constants.ADD_DOC_LINK_OPERATION])}"
+                                    f", and size of {len(operation_map[Constants.ADD_DOC_LINK_OPERATION])}.")
+
             except Exception as e:
                 logger.error(
                     f"Error while constructing aspect for documentation link and description : {e}"
