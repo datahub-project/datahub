@@ -405,7 +405,12 @@ mypy_stubs = {
     "types-pkg_resources",
     "types-six",
     "types-python-dateutil",
-    "types-requests>=2.28.11.6",
+    # We need to avoid 2.31.0.5 and 2.31.0.4 due to
+    # https://github.com/python/typeshed/issues/10764. Once that
+    # issue is resolved, we can remove the upper bound and change it
+    # to a != constraint.
+    # We have a PR up to fix the underlying issue: https://github.com/python/typeshed/pull/10776.
+    "types-requests>=2.28.11.6,<=2.31.0.3",
     "types-toml",
     "types-PyMySQL",
     "types-PyYAML",
