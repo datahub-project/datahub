@@ -5,6 +5,7 @@ dependencies {
   api project(':metadata-models')
   api spec.product.pegasus.dataAvro1_6
 
+  testImplementation externalDependency.testng
   testImplementation project(':test-models')
   testImplementation project(path: ':test-models', configuration: 'testDataTemplate')
 
