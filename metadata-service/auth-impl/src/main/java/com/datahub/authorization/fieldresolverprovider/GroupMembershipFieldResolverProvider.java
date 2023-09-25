@@ -2,8 +2,8 @@ package com.datahub.authorization.fieldresolverprovider;
 
 import com.datahub.authentication.Authentication;
 import com.datahub.authorization.FieldResolver;
-import com.datahub.authorization.ResourceFieldType;
-import com.datahub.authorization.ResourceSpec;
+import com.datahub.authorization.EntityFieldType;
+import com.datahub.authorization.EntitySpec;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -25,27 +25,27 @@ import static com.linkedin.metadata.Constants.NATIVE_GROUP_MEMBERSHIP_ASPECT_NAM
 
 
 /**
- * Provides field resolver for owners given resourceSpec
+ * Provides field resolver for owners given entitySpec
  */
 @Slf4j
 @RequiredArgsConstructor
-public class GroupMembershipFieldResolverProvider implements ResourceFieldResolverProvider {
+public class GroupMembershipFieldResolverProvider implements EntityFieldResolverProvider {
 
   private final EntityClient _entityClient;
   private final Authentication _systemAuthentication;
 
   @Override
-  public ResourceFieldType getFieldType() {
-    return ResourceFieldType.GROUP_MEMBERSHIP;
+  public EntityFieldType getFieldType() {
+    return EntityFieldType.GROUP_MEMBERSHIP;
   }
 
   @Override
-  public FieldResolver getFieldResolver(ResourceSpec resourceSpec) {
-    return FieldResolver.getResolverFromFunction(resourceSpec, this::getGroupMembership);
+  public FieldResolver getFieldResolver(EntitySpec entitySpec) {
+    return FieldResolver.getResolverFromFunction(entitySpec, this::getGroupMembership);
   }
 
-  private FieldResolver.FieldValue getGroupMembership(ResourceSpec resourceSpec) {
-    Urn entityUrn = UrnUtils.getUrn(resourceSpec.getResource());
+  private FieldResolver.FieldValue getGroupMembership(EntitySpec entitySpec) {
+    Urn entityUrn = UrnUtils.getUrn(entitySpec.getEntity());
     EnvelopedAspect groupMembershipAspect;
     EnvelopedAspect nativeGroupMembershipAspect;
     List<Urn> groups = new ArrayList<>();

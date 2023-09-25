@@ -2,7 +2,7 @@ package com.linkedin.datahub.graphql.resolvers.policy;
 
 import com.datahub.authorization.AuthorizerChain;
 import com.datahub.authorization.DataHubAuthorizer;
-import com.datahub.authorization.ResourceSpec;
+import com.datahub.authorization.EntitySpec;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.GetGrantedPrivilegesInput;
@@ -33,8 +33,8 @@ public class GetGrantedPrivilegesResolver implements DataFetcher<CompletableFutu
     if (!isAuthorized(context, actor)) {
       throw new AuthorizationException("Unauthorized to get privileges for the given author.");
     }
-    final Optional<ResourceSpec> resourceSpec = Optional.ofNullable(input.getResourceSpec())
-        .map(spec -> new ResourceSpec(EntityTypeMapper.getName(spec.getResourceType()), spec.getResourceUrn()));
+    final Optional<EntitySpec> resourceSpec = Optional.ofNullable(input.getResourceSpec())
+        .map(spec -> new EntitySpec(EntityTypeMapper.getName(spec.getResourceType()), spec.getResourceUrn()));
 
     if (context.getAuthorizer() instanceof AuthorizerChain) {
       DataHubAuthorizer dataHubAuthorizer = ((AuthorizerChain) context.getAuthorizer()).getDefaultAuthorizer();

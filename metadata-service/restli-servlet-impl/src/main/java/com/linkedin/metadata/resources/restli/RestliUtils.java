@@ -4,7 +4,7 @@ import com.datahub.authentication.Authentication;
 import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.ConjunctivePrivilegeGroup;
 import com.datahub.authorization.DisjunctivePrivilegeGroup;
-import com.datahub.authorization.ResourceSpec;
+import com.datahub.authorization.EntitySpec;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.metadata.authorization.PoliciesConfig;
@@ -82,13 +82,13 @@ public class RestliUtils {
   }
 
   public static boolean isAuthorized(@Nonnull Authentication authentication, @Nonnull Authorizer authorizer,
-      @Nonnull final List<PoliciesConfig.Privilege> privileges, @Nonnull final List<java.util.Optional<ResourceSpec>> resources) {
+      @Nonnull final List<PoliciesConfig.Privilege> privileges, @Nonnull final List<java.util.Optional<EntitySpec>> resources) {
     DisjunctivePrivilegeGroup orGroup = convertPrivilegeGroup(privileges);
     return AuthUtil.isAuthorizedForResources(authorizer, authentication.getActor().toUrnStr(), resources, orGroup);
   }
 
   public static boolean isAuthorized(@Nonnull Authentication authentication, @Nonnull Authorizer authorizer,
-      @Nonnull final List<PoliciesConfig.Privilege> privileges, @Nullable final ResourceSpec resource) {
+      @Nonnull final List<PoliciesConfig.Privilege> privileges, @Nullable final EntitySpec resource) {
     DisjunctivePrivilegeGroup orGroup = convertPrivilegeGroup(privileges);
     return AuthUtil.isAuthorized(authorizer, authentication.getActor().toUrnStr(), java.util.Optional.ofNullable(resource), orGroup);
   }

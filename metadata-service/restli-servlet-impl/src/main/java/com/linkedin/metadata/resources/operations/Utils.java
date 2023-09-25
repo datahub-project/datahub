@@ -2,7 +2,7 @@ package com.linkedin.metadata.resources.operations;
 
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
-import com.datahub.authorization.ResourceSpec;
+import com.datahub.authorization.EntitySpec;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
@@ -37,10 +37,10 @@ public class Utils {
       @Nonnull EntityService entityService
   ) {
     Authentication authentication = AuthenticationContext.getAuthentication();
-    ResourceSpec resourceSpec = null;
+    EntitySpec resourceSpec = null;
     if (StringUtils.isNotBlank(urn)) {
       Urn resource = UrnUtils.getUrn(urn);
-      resourceSpec = new ResourceSpec(resource.getEntityType(), resource.toString());
+      resourceSpec = new EntitySpec(resource.getEntityType(), resource.toString());
     }
     if (Boolean.parseBoolean(System.getenv(REST_API_AUTHORIZATION_ENABLED_ENV))
         && !isAuthorized(authentication, authorizer, ImmutableList.of(PoliciesConfig.RESTORE_INDICES_PRIVILEGE),

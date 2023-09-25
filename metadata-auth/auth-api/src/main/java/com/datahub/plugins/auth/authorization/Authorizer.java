@@ -4,7 +4,7 @@ import com.datahub.authorization.AuthorizationRequest;
 import com.datahub.authorization.AuthorizationResult;
 import com.datahub.authorization.AuthorizedActors;
 import com.datahub.authorization.AuthorizerContext;
-import com.datahub.authorization.ResourceSpec;
+import com.datahub.authorization.EntitySpec;
 import com.datahub.plugins.Plugin;
 import java.util.Map;
 import java.util.Optional;
@@ -32,5 +32,5 @@ public interface Authorizer extends Plugin {
    * Retrieves the current list of actors authorized to for a particular privilege against
    * an optional resource
    */
-  AuthorizedActors authorizedActors(final String privilege, final Optional<ResourceSpec> resourceSpec);
+  AuthorizedActors authorizedActors(final String privilege, final Optional<EntitySpec> resourceSpec);
 }

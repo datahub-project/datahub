@@ -5,7 +5,7 @@ import com.codahale.metrics.Timer;
 import com.datahub.authorization.AuthUtil;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.datahub.authorization.DisjunctivePrivilegeGroup;
-import com.datahub.authorization.ResourceSpec;
+import com.datahub.authorization.EntitySpec;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -27,7 +27,6 @@ import com.linkedin.metadata.entity.RollbackRunResult;
 import com.linkedin.metadata.entity.ebean.transactions.AspectsBatchImpl;
 import com.linkedin.metadata.entity.transactions.AspectsBatch;
 import com.linkedin.metadata.entity.validation.ValidationException;
-import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
@@ -309,11 +308,11 @@ public class MappingUtil {
 
   public static boolean authorizeProposals(List<com.linkedin.mxe.MetadataChangeProposal> proposals, EntityService entityService,
       Authorizer authorizer, String actorUrnStr, DisjunctivePrivilegeGroup orGroup) {
-    List<Optional<ResourceSpec>> resourceSpecs = proposals.stream()
+    List<Optional<EntitySpec>> resourceSpecs = proposals.stream()
         .map(proposal -> {
-            EntitySpec entitySpec = entityService.getEntityRegistry().getEntitySpec(proposal.getEntityType());
+            com.linkedin.metadata.models.EntitySpec entitySpec = entityService.getEntityRegistry().getEntitySpec(proposal.getEntityType());
             Urn entityUrn = EntityKeyUtils.getUrnFromProposal(proposal, entitySpec.getKeyAspectSpec());
-            return Optional.of(new ResourceSpec(proposal.getEntityType(), entityUrn.toString()));
+            return Optional.of(new EntitySpec(proposal.getEntityType(), entityUrn.toString()));
         })
         .collect(Collectors.toList());
     return AuthUtil.isAuthorizedForResources(authorizer, actorUrnStr, resourceSpecs, orGroup);
@@ -444,7 +443,7 @@ public class MappingUtil {
   }
 
   public static UpsertAspectRequest createStatusRemoval(Urn urn, EntityService entityService) {
-    EntitySpec entitySpec = entityService.getEntityRegistry().getEntitySpec(urn.getEntityType());
+    com.linkedin.metadata.models.EntitySpec entitySpec = entityService.getEntityRegistry().getEntitySpec(urn.getEntityType());
     if (entitySpec == null || !entitySpec.getAspectSpecMap().containsKey(STATUS_ASPECT_NAME)) {
       throw new IllegalArgumentException("Entity type is not valid for soft deletes: " + urn.getEntityType());
     }

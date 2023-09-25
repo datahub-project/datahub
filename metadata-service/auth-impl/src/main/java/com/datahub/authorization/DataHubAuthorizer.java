@@ -57,7 +57,7 @@ public class DataHubAuthorizer implements Authorizer {
   private final ScheduledExecutorService _refreshExecutorService = Executors.newScheduledThreadPool(1);
   private final PolicyRefreshRunnable _policyRefreshRunnable;
   private final PolicyEngine _policyEngine;
-  private ResourceSpecResolver _resourceSpecResolver;
+  private EntitySpecResolver _entitySpecResolver;
   private AuthorizationMode _mode;
 
   public static final String ALL = "ALL";
@@ -78,7 +78,7 @@ public class DataHubAuthorizer implements Authorizer {
   @Override
   public void init(@Nonnull Map<String, Object> authorizerConfig, @Nonnull AuthorizerContext ctx) {
     // Pass. No static config.
-    _resourceSpecResolver = Objects.requireNonNull(ctx.getResourceSpecResolver());
+    _entitySpecResolver = Objects.requireNonNull(ctx.getEntitySpecResolver());
   }
 
   public AuthorizationResult authorize(@Nonnull final AuthorizationRequest request) {
@@ -88,7 +88,7 @@ public class DataHubAuthorizer implements Authorizer {
       return new AuthorizationResult(request, AuthorizationResult.Type.ALLOW, null);
     }
 
-    Optional<ResolvedResourceSpec> resolvedResourceSpec = request.getResourceSpec().map(_resourceSpecResolver::resolve);
+    Optional<ResolvedEntitySpec> resolvedResourceSpec = request.getResourceSpec().map(_entitySpecResolver::resolve);
 
     // 1. Fetch the policies relevant to the requested privilege.
     final List<DataHubPolicyInfo> policiesToEvaluate = _policyCache.getOrDefault(request.getPrivilege(), new ArrayList<>());
@@ -104,17 +104,17 @@ public class DataHubAuthorizer implements Authorizer {
     return new AuthorizationResult(request, AuthorizationResult.Type.DENY,  null);
   }
 
-  public List<String> getGrantedPrivileges(final String actor, final Optional<ResourceSpec> resourceSpec) {
+  public List<String> getGrantedPrivileges(final String actor, final Optional<EntitySpec> resourceSpec) {
 
     // 1. Fetch all policies
     final List<DataHubPolicyInfo> policiesToEvaluate = _policyCache.getOrDefault(ALL, new ArrayList<>());
 
     Urn actorUrn = UrnUtils.getUrn(actor);
-    final ResolvedResourceSpec actorResolvedResourceSpec = _resourceSpecResolver.resolve(new ResourceSpec(actorUrn.getEntityType(), actor));
+    final ResolvedEntitySpec resolvedActorSpec = _entitySpecResolver.resolve(new EntitySpec(actorUrn.getEntityType(), actor));
 
-    Optional<ResolvedResourceSpec> resolvedResourceSpec = resourceSpec.map(_resourceSpecResolver::resolve);
+    Optional<ResolvedEntitySpec> resolvedResourceSpec = resourceSpec.map(_entitySpecResolver::resolve);
 
-    return _policyEngine.getGrantedPrivileges(policiesToEvaluate, actorResolvedResourceSpec, resolvedResourceSpec);
+    return _policyEngine.getGrantedPrivileges(policiesToEvaluate, resolvedActorSpec, resolvedResourceSpec);
   }
 
   /**
@@ -123,11 +123,11 @@ public class DataHubAuthorizer implements Authorizer {
    */
   public AuthorizedActors authorizedActors(
       final String privilege,
-      final Optional<ResourceSpec> resourceSpec) {
+      final Optional<EntitySpec> resourceSpec) {
     // Step 1: Find policies granting the privilege.
     final List<DataHubPolicyInfo> policiesToEvaluate = _policyCache.getOrDefault(privilege, new ArrayList<>());
 
-    Optional<ResolvedResourceSpec> resolvedResourceSpec = resourceSpec.map(_resourceSpecResolver::resolve);
+    Optional<ResolvedEntitySpec> resolvedResourceSpec = resourceSpec.map(_entitySpecResolver::resolve);
 
     final List<Urn> authorizedUsers = new ArrayList<>();
     final List<Urn> authorizedGroups = new ArrayList<>();
@@ -185,7 +185,7 @@ public class DataHubAuthorizer implements Authorizer {
   /**
    * Returns true if a policy grants the requested privilege for a given actor and resource.
    */
-  private boolean isRequestGranted(final DataHubPolicyInfo policy, final AuthorizationRequest request, final Optional<ResolvedResourceSpec> resourceSpec) {
+  private boolean isRequestGranted(final DataHubPolicyInfo policy, final AuthorizationRequest request, final Optional<ResolvedEntitySpec> resourceSpec) {
     if (AuthorizationMode.ALLOW_ALL.equals(mode())) {
       return true;
     }
@@ -195,11 +195,11 @@ public class DataHubAuthorizer implements Authorizer {
       return false;
     }
 
-    final ResolvedResourceSpec actorResolvedResourceSpec = _resourceSpecResolver.resolve(
-            new ResourceSpec(actorUrn.get().getEntityType(), request.getActorUrn()));
+    final ResolvedEntitySpec resolvedActorSpec = _entitySpecResolver.resolve(
+            new EntitySpec(actorUrn.get().getEntityType(), request.getActorUrn()));
     final PolicyEngine.PolicyEvaluationResult result = _policyEngine.evaluatePolicy(
         policy,
-        actorResolvedResourceSpec,
+        resolvedActorSpec,
         request.getPrivilege(),
         resourceSpec
     );

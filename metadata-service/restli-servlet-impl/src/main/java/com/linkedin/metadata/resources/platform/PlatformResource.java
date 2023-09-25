@@ -3,7 +3,7 @@ package com.linkedin.metadata.resources.platform;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.plugins.auth.authorization.Authorizer;
-import com.datahub.authorization.ResourceSpec;
+import com.datahub.authorization.EntitySpec;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.entity.Entity;
 import com.linkedin.metadata.authorization.PoliciesConfig;
@@ -54,7 +54,7 @@ public class PlatformResource extends CollectionResourceTaskTemplate<String, Ent
       @ActionParam("event") @Nonnull PlatformEvent event) {
     Authentication auth = AuthenticationContext.getAuthentication();
     if (Boolean.parseBoolean(System.getenv(REST_API_AUTHORIZATION_ENABLED_ENV))
-        && !isAuthorized(auth, _authorizer, ImmutableList.of(PoliciesConfig.PRODUCE_PLATFORM_EVENT_PRIVILEGE), (ResourceSpec) null)) {
+        && !isAuthorized(auth, _authorizer, ImmutableList.of(PoliciesConfig.PRODUCE_PLATFORM_EVENT_PRIVILEGE), (EntitySpec) null)) {
       throw new RestLiServiceException(HttpStatus.S_401_UNAUTHORIZED,
           "User is unauthorized to produce platform events.");
     }

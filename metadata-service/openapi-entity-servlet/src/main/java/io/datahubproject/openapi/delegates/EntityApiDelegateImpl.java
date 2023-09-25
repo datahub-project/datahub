@@ -33,8 +33,7 @@ import io.datahubproject.openapi.exception.UnauthorizedException;
 import io.datahubproject.openapi.util.OpenApiEntitiesUtil;
 import com.datahub.authorization.ConjunctivePrivilegeGroup;
 import com.datahub.authorization.DisjunctivePrivilegeGroup;
-import com.linkedin.metadata.models.EntitySpec;
-import com.datahub.authorization.ResourceSpec;
+import com.datahub.authorization.EntitySpec;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.google.common.collect.ImmutableList;
 import com.datahub.authorization.AuthUtil;
@@ -365,7 +364,7 @@ public class EntityApiDelegateImpl<I, O, S> {
                                     @Valid String scrollId, @Valid List<String> sort, @Valid SortOrder sortOrder, @Valid String query) {
 
         Authentication authentication = AuthenticationContext.getAuthentication();
-        EntitySpec entitySpec = OpenApiEntitiesUtil.responseClassToEntitySpec(_entityRegistry, _respClazz);
+        com.linkedin.metadata.models.EntitySpec entitySpec = OpenApiEntitiesUtil.responseClassToEntitySpec(_entityRegistry, _respClazz);
         checkScrollAuthorized(authentication, entitySpec);
 
         // TODO multi-field sort
@@ -398,12 +397,12 @@ public class EntityApiDelegateImpl<I, O, S> {
         return ResponseEntity.of(OpenApiEntitiesUtil.convertToScrollResponse(_scrollRespClazz, result.getScrollId(), entities));
     }
 
-    private void checkScrollAuthorized(Authentication authentication, EntitySpec entitySpec) {
+    private void checkScrollAuthorized(Authentication authentication, com.linkedin.metadata.models.EntitySpec entitySpec) {
         String actorUrnStr = authentication.getActor().toUrnStr();
         DisjunctivePrivilegeGroup orGroup = new DisjunctivePrivilegeGroup(ImmutableList.of(new ConjunctivePrivilegeGroup(
                 ImmutableList.of(PoliciesConfig.GET_ENTITY_PRIVILEGE.getType()))));
 
-        List<Optional<ResourceSpec>> resourceSpecs = List.of(Optional.of(new ResourceSpec(entitySpec.getName(), "")));
+        List<Optional<EntitySpec>> resourceSpecs = List.of(Optional.of(new EntitySpec(entitySpec.getName(), "")));
         if (_restApiAuthorizationEnabled && !AuthUtil.isAuthorizedForResources(_authorizationChain, actorUrnStr, resourceSpecs, orGroup)) {
             throw new UnauthorizedException(actorUrnStr + " is unauthorized to get entities.");
         }
