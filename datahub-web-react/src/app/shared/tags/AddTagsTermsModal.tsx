@@ -50,15 +50,15 @@ const StyleTag = styled(CustomTag)`
     line-height: 16px;
 `;
 
-export const BrowserWrapper = styled.div<{ isHidden: boolean }>`
+export const BrowserWrapper = styled.div<{ isHidden: boolean; width?: string; maxHeight?: number }>`
     background-color: white;
     border-radius: 5px;
     box-shadow: 0 3px 6px -4px rgb(0 0 0 / 12%), 0 6px 16px 0 rgb(0 0 0 / 8%), 0 9px 28px 8px rgb(0 0 0 / 5%);
-    max-height: 380px;
+    max-height: ${(props) => (props.maxHeight ? props.maxHeight : '380')}px;
     overflow: auto;
     position: absolute;
     transition: opacity 0.2s;
-    width: 480px;
+    width: ${(props) => (props.width ? props.width : '480px')};
     z-index: 1051;
     ${(props) =>
         props.isHidden &&

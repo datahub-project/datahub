@@ -6,6 +6,7 @@ import com.linkedin.metadata.models.SearchScoreFieldSpec;
 import com.linkedin.metadata.models.SearchableFieldSpec;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation.FieldType;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -45,6 +46,10 @@ public class MappingsBuilder {
   public static final String WORD_GRAMS_LENGTH_2 = "wordGrams2";
   public static final String WORD_GRAMS_LENGTH_3 = "wordGrams3";
   public static final String WORD_GRAMS_LENGTH_4 = "wordGrams4";
+
+  // Alias field mappings constants
+  public static final String ALIAS = "alias";
+  public static final String PATH = "path";
 
   private MappingsBuilder() {
   }
@@ -116,8 +121,7 @@ public class MappingsBuilder {
             String analyzerName = entry.getValue();
             subFields.put(fieldName, ImmutableMap.of(
                 TYPE, TEXT,
-                ANALYZER, analyzerName,
-                SEARCH_ANALYZER, analyzerName
+                ANALYZER, analyzerName
             ));
           }
         }
@@ -180,6 +184,7 @@ public class MappingsBuilder {
     searchableFieldSpec.getSearchableAnnotation()
         .getNumValuesFieldName()
         .ifPresent(fieldName -> mappings.put(fieldName, ImmutableMap.of(TYPE, LONG)));
+    mappings.putAll(getMappingsForFieldNameAliases(searchableFieldSpec));
 
     return mappings;
   }
@@ -188,5 +193,17 @@ public class MappingsBuilder {
       @Nonnull final SearchScoreFieldSpec searchScoreFieldSpec) {
     return ImmutableMap.of(searchScoreFieldSpec.getSearchScoreAnnotation().getFieldName(),
         ImmutableMap.of(TYPE, DOUBLE));
+  }
+
+  private static Map<String, Object> getMappingsForFieldNameAliases(@Nonnull final SearchableFieldSpec searchableFieldSpec) {
+    Map<String, Object> mappings = new HashMap<>();
+    List<String> fieldNameAliases = searchableFieldSpec.getSearchableAnnotation().getFieldNameAliases();
+    fieldNameAliases.forEach(alias -> {
+      Map<String, Object> aliasMappings = new HashMap<>();
+      aliasMappings.put(TYPE, ALIAS);
+      aliasMappings.put(PATH, searchableFieldSpec.getSearchableAnnotation().getFieldName());
+      mappings.put(alias, aliasMappings);
+    });
+    return mappings;
   }
 }

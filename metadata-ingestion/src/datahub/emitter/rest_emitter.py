@@ -31,13 +31,14 @@ _DEFAULT_READ_TIMEOUT_SEC = (
 )
 _DEFAULT_RETRY_STATUS_CODES = [  # Additional status codes to retry on
     429,
+    500,
     502,
     503,
     504,
 ]
 _DEFAULT_RETRY_METHODS = ["HEAD", "GET", "POST", "PUT", "DELETE", "OPTIONS", "TRACE"]
 _DEFAULT_RETRY_MAX_TIMES = int(
-    os.getenv("DATAHUB_REST_EMITTER_DEFAULT_RETRY_MAX_TIMES", "3")
+    os.getenv("DATAHUB_REST_EMITTER_DEFAULT_RETRY_MAX_TIMES", "4")
 )
 
 
@@ -119,11 +120,15 @@ class DataHubRestEmitter(Closeable):
             self._retry_max_times = retry_max_times
 
         try:
+            # Set raise_on_status to False to propagate errors:
+            # https://stackoverflow.com/questions/70189330/determine-status-code-from-python-retry-exception
+            # Must call `raise_for_status` after making a request, which we do
             retry_strategy = Retry(
                 total=self._retry_max_times,
                 status_forcelist=self._retry_status_codes,
                 backoff_factor=2,
                 allowed_methods=self._retry_methods,
+                raise_on_status=False,
             )
         except TypeError:
             # Prior to urllib3 1.26, the Retry class used `method_whitelist` instead of `allowed_methods`.
@@ -132,6 +137,7 @@ class DataHubRestEmitter(Closeable):
                 status_forcelist=self._retry_status_codes,
                 backoff_factor=2,
                 method_whitelist=self._retry_methods,
+                raise_on_status=False,
             )
 
         adapter = HTTPAdapter(

@@ -16,17 +16,21 @@ import java.util.Set;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
-import org.elasticsearch.client.RequestOptions;
+import org.opensearch.client.RequestOptions;
 import org.apache.commons.lang.StringUtils;
-import org.elasticsearch.common.unit.TimeValue;
-import org.elasticsearch.index.query.BoolQueryBuilder;
-import org.elasticsearch.index.query.QueryBuilder;
-import org.elasticsearch.index.query.QueryBuilders;
-import org.elasticsearch.search.builder.PointInTimeBuilder;
-import org.elasticsearch.search.builder.SearchSourceBuilder;
-import org.elasticsearch.search.sort.FieldSortBuilder;
-import org.elasticsearch.search.sort.ScoreSortBuilder;
-import org.elasticsearch.search.sort.SortOrder;
+import org.opensearch.common.unit.TimeValue;
+import org.opensearch.index.query.BoolQueryBuilder;
+import org.opensearch.index.query.QueryBuilder;
+import org.opensearch.index.query.QueryBuilders;
+import org.opensearch.search.builder.PointInTimeBuilder;
+import org.opensearch.search.builder.SearchSourceBuilder;
+import org.opensearch.search.sort.FieldSortBuilder;
+import org.opensearch.search.sort.ScoreSortBuilder;
+import org.opensearch.search.sort.SortOrder;
+import org.opensearch.search.suggest.SuggestBuilder;
+import org.opensearch.search.suggest.SuggestBuilders;
+import org.opensearch.search.suggest.SuggestionBuilder;
+import org.opensearch.search.suggest.term.TermSuggestionBuilder;
 
 import static com.linkedin.metadata.search.elasticsearch.query.request.SearchFieldConfig.KEYWORD_FIELDS;
 import static com.linkedin.metadata.search.elasticsearch.query.request.SearchFieldConfig.PATH_HIERARCHY_FIELDS;
@@ -45,6 +49,9 @@ public class ESUtils {
   public static final int MAX_RESULT_SIZE = 10000;
   public static final String OPAQUE_ID_HEADER = "X-Opaque-Id";
   public static final String HEADER_VALUE_DELIMITER = "|";
+  public static final String KEYWORD_TYPE = "keyword";
+  public static final String ENTITY_NAME_FIELD = "_entityName";
+  public static final String NAME_SUGGESTION = "nameSuggestion";
 
   // we use this to make sure we filter for editable & non-editable fields. Also expands out top-level properties
   // to field level properties
@@ -174,6 +181,8 @@ public class ESUtils {
    * If no sort criterion is provided then the default sorting criterion is chosen which is descending order of score
    * Furthermore to resolve conflicts, the results are further sorted by ascending order of urn
    * If the input sort criterion is urn itself, then no additional sort criterion is applied as there will be no conflicts.
+   * When sorting, set the unmappedType param to arbitrary "keyword" so we essentially ignore sorting where indices do not
+   * have the field we are sorting on.
    * </p>
    *
    * @param searchSourceBuilder {@link SearchSourceBuilder} that needs to be populated with sort order
@@ -187,11 +196,22 @@ public class ESUtils {
       final SortOrder esSortOrder =
           (sortCriterion.getOrder() == com.linkedin.metadata.query.filter.SortOrder.ASCENDING) ? SortOrder.ASC
               : SortOrder.DESC;
-      searchSourceBuilder.sort(new FieldSortBuilder(sortCriterion.getField()).order(esSortOrder));
+      searchSourceBuilder.sort(new FieldSortBuilder(sortCriterion.getField()).order(esSortOrder).unmappedType(KEYWORD_TYPE));
     }
     if (sortCriterion == null || !sortCriterion.getField().equals(DEFAULT_SEARCH_RESULTS_SORT_BY_FIELD)) {
       searchSourceBuilder.sort(new FieldSortBuilder(DEFAULT_SEARCH_RESULTS_SORT_BY_FIELD).order(SortOrder.ASC));
     }
+  }
+
+  /**
+   * Populates source field of search query with the suggestions query so that we get search suggestions back.
+   * Right now we are only supporting suggestions based on the virtual _entityName field alias.
+   */
+  public static void buildNameSuggestions(@Nonnull SearchSourceBuilder searchSourceBuilder, @Nullable String textInput) {
+    SuggestionBuilder<TermSuggestionBuilder> builder = SuggestBuilders.termSuggestion(ENTITY_NAME_FIELD).text(textInput);
+    SuggestBuilder suggestBuilder = new SuggestBuilder();
+    suggestBuilder.addSuggestion(NAME_SUGGESTION, builder);
+    searchSourceBuilder.suggest(suggestBuilder);
   }
 
   /**
@@ -241,11 +261,11 @@ public class ESUtils {
   }
 
   public static void setSearchAfter(SearchSourceBuilder searchSourceBuilder, @Nullable Object[] sort,
-      @Nullable String pitId, String keepAlive) {
+      @Nullable String pitId, @Nullable String keepAlive) {
     if (sort != null && sort.length > 0) {
       searchSourceBuilder.searchAfter(sort);
     }
-    if (StringUtils.isNotBlank(pitId)) {
+    if (StringUtils.isNotBlank(pitId) && keepAlive != null) {
       PointInTimeBuilder pointInTimeBuilder = new PointInTimeBuilder(pitId);
       pointInTimeBuilder.setKeepAlive(TimeValue.parseTimeValue(keepAlive, "keepAlive"));
       searchSourceBuilder.pointInTimeBuilder(pointInTimeBuilder);

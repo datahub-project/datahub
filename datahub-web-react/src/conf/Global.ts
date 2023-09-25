@@ -24,10 +24,12 @@ export enum PageRoutes {
     INGESTION = '/ingestion',
     SETTINGS = '/settings',
     DOMAINS = '/domains',
+    DOMAIN = '/domain',
     GLOSSARY = '/glossary',
     SETTINGS_VIEWS = '/settings/views',
     EMBED = '/embed',
     EMBED_LOOKUP = '/embed/lookup/:url',
+    SETTINGS_POSTS = '/settings/posts',
 }
 
 /**
