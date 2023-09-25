@@ -20,6 +20,7 @@ import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
 import com.linkedin.gms.factory.entity.RestliEntityClientFactory;
 import com.linkedin.gms.factory.recommendation.RecommendationServiceFactory;
+import com.linkedin.metadata.client.SystemJavaEntityClient;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.graph.GraphService;
@@ -64,6 +65,10 @@ public class GraphQLEngineFactory {
   @Autowired
   @Qualifier("javaEntityClient")
   private JavaEntityClient _entityClient;
+
+  @Autowired
+  @Qualifier("systemJavaEntityClient")
+  private SystemJavaEntityClient _systemEntityClient;
 
   @Autowired
   @Qualifier("graphClient")
@@ -170,6 +175,7 @@ public class GraphQLEngineFactory {
   protected GraphQLEngine getInstance() {
     GmsGraphQLEngineArgs args = new GmsGraphQLEngineArgs();
     args.setEntityClient(_entityClient);
+    args.setSystemEntityClient(_systemEntityClient);
     args.setGraphClient(_graphClient);
     args.setUsageClient(_usageClient);
     if (isAnalyticsEnabled) {
