@@ -142,6 +142,7 @@ setuptools.setup(
     extras_require={
         "dev": list(dev_requirements),
         "datahub-kafka": [f"acryl-datahub[datahub-kafka]{_self_pin}"],
+        "plugin-v1": [],
         "plugin-v2": list(plugin_v2_requirements),
         "integration-tests": [
             f"acryl-datahub[datahub-kafka]{_self_pin}",

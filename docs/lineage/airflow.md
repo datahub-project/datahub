@@ -77,14 +77,12 @@ The SQL-related extractors have been updated to use DataHub's SQL parser, which 
 The v1 plugin requires Airflow 2.1+ and Python 3.8+. If you're on older versions, it's still possible to use an older version of the plugin. See the [compatibility section](#compatibility) for more details.
 
 ```shell
-pip install acryl-datahub-airflow-plugin
+pip install acryl-datahub-airflow-plugin[plugin-v1]
+
+# The DataHub rest connection type is included by default.
+# To use the DataHub Kafka connection type, install the plugin with the kafka extras.
+pip install acryl-datahub-airflow-plugin[plugin-v1,datahub-kafka]
 ```
-
-:::note
-
-The [DataHub Rest](../../metadata-ingestion/sink_docs/datahub.md#datahub-rest) emitter is included in the plugin package by default. To use [DataHub Kafka](../../metadata-ingestion/sink_docs/datahub.md#datahub-kafka) install `pip install acryl-datahub-airflow-plugin[datahub-kafka]`.
-
-:::
 
 <!-- This plugin registers a task success/failure callback on every task with a cluster policy and emits DataHub events from that. This allows this plugin to be able to register both task success as well as failures compared to the older Airflow Lineage Backend which could only support emitting task success. -->
 
