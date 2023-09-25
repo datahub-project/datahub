@@ -5,22 +5,6 @@ const domainDescription = "CypressNestedDomainDescription";
 
 describe("nested domains test", () => {
 
-    beforeEach(() => {
-        cy.intercept("POST", "/api/v2/graphql", (req) => {
-          aliasQuery(req, "appConfig");
-        });
-      });
-    
-      const setDomainsFeatureFlag = (isOn) => {
-        cy.intercept("POST", "/api/v2/graphql", (req) => {
-          if (hasOperationName(req, "appConfig")) {
-            req.reply((res) => {
-              res.body.data.appConfig.featureFlags.nestedDomainsEnabled = isOn;
-            });
-          }
-        });
-      };
-
     it("create a domain, move under parent, remove domain", () => {
         setDomainsFeatureFlag(true);
         //create a new domain without a parent
