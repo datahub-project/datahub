@@ -76,6 +76,8 @@ The SQL-related extractors have been updated to use DataHub's SQL parser, which 
 
 The v1 plugin requires Airflow 2.1+ and Python 3.8+. If you're on older versions, it's still possible to use an older version of the plugin. See the [compatibility section](#compatibility) for more details.
 
+If you're using Airflow 2.3+, we recommend using the v2 plugin instead. If you need to use the v1 plugin with Airflow 2.3+, you must also set the environment variable `DATAHUB_AIRFLOW_PLUGIN_USE_V1_PLUGIN=true`.
+
 ```shell
 pip install acryl-datahub-airflow-plugin[plugin-v1]
 

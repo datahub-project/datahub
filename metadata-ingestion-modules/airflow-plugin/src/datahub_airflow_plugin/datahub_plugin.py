@@ -1,5 +1,7 @@
 import logging
 import os
+from types import ModuleType
+from typing import List
 
 from airflow.plugins_manager import AirflowPlugin
 
@@ -11,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 
 _USE_AIRFLOW_LISTENER_INTERFACE = IS_AIRFLOW_V23_PLUS and not os.getenv(
-    "DATAHUB_AIRFLOW_PLUGIN_USE_LEGACY_PLUGIN_POLICY", "false"
+    "DATAHUB_AIRFLOW_PLUGIN_USE_V1_PLUGIN", "false"
 ).lower() in ("true", "1")
 
 
@@ -23,7 +25,9 @@ class DatahubPlugin(AirflowPlugin):
             get_airflow_plugin_listener,
         )
 
-        listeners = list(filter(None, [get_airflow_plugin_listener()]))
+        listeners: List[ModuleType] = list(
+            filter(None, [get_airflow_plugin_listener()])
+        )
 
 
 if not _USE_AIRFLOW_LISTENER_INTERFACE:

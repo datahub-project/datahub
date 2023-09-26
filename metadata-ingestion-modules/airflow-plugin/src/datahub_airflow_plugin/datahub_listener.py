@@ -36,11 +36,20 @@ if TYPE_CHECKING:
     from airflow.models import DAG, DagRun, TaskInstance
     from sqlalchemy.orm import Session
 
+
 logger = logging.getLogger(__name__)
+_F = TypeVar("_F", bound=Callable[..., None])
 
 _airflow_listener_initialized = False
 _airflow_listener: Optional["DataHubListener"] = None
 _RUN_IN_THREAD = True
+
+if TYPE_CHECKING:
+    # On Airflow versions that don't have the listener API, we placate mypy
+    # by making hookimpl an identity function.
+
+    def hookimpl(f: _F) -> _F:  # type: ignore[misc] # noqa: F811
+        return f
 
 
 def get_airflow_plugin_listener() -> Optional["DataHubListener"]:
@@ -63,9 +72,6 @@ def get_airflow_plugin_listener() -> Optional["DataHubListener"]:
                 OpenLineagePlugin.listeners = []
 
     return _airflow_listener
-
-
-_F = TypeVar("_F", bound=Callable[..., None])
 
 
 def run_in_thread(f: _F) -> _F:
