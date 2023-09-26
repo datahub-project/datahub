@@ -112,9 +112,6 @@ class TrinoUsageSource(Source):
 
     #### Prerequsities
     1. You need to setup Event Logger which saves audit logs into a Postgres db and setup this db as a catalog in Trino
-    Here you can find more info about how to setup:
-    https://docs.starburst.io/354-e/security/event-logger.html#security-event-logger--page-root
-    https://docs.starburst.io/354-e/security/event-logger.html#analyzing-the-event-log
 
     2. Install starbust-trino-usage plugin
     Run pip install 'acryl-datahub[starburst-trino-usage]'.
@@ -162,11 +159,7 @@ class TrinoUsageSource(Source):
         results = engine.execute(query)
         events = []
         for row in results:
-            # minor type conversion
-            if hasattr(row, "_asdict"):
-                event_dict = row._asdict()
-            else:
-                event_dict = dict(row)
+            event_dict = row._asdict()
 
             # stripping extra spaces caused by above _asdict() conversion
             for k, v in event_dict.items():
@@ -282,6 +275,7 @@ class TrinoUsageSource(Source):
             self.config.top_n_queries,
             self.config.format_sql_queries,
             self.config.include_top_n_queries,
+            self.config.queries_character_limit,
         )
 
     def get_report(self) -> SourceReport:

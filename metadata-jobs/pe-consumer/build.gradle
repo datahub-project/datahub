@@ -9,21 +9,21 @@ configurations {
 
 dependencies {
   avro project(path: ':metadata-models', configuration: 'avroSchema')
-  compile project(':li-utils')
-  compile project(':metadata-events:mxe-avro-1.7')
-  compile project(':metadata-events:mxe-registration')
-  compile project(':metadata-events:mxe-utils-avro-1.7')
-  compile (project(':metadata-service:factories')) {
+  implementation project(':li-utils')
+  implementation project(':metadata-events:mxe-avro-1.7')
+  implementation project(':metadata-events:mxe-registration')
+  implementation project(':metadata-events:mxe-utils-avro-1.7')
+  implementation(project(':metadata-service:factories')) {
     exclude group: 'org.neo4j.test'
   }
-  compile externalDependency.springKafka
-  compile externalDependency.springActuator
+  implementation externalDependency.springKafka
+  implementation externalDependency.springActuator
   implementation externalDependency.slf4jApi
   compileOnly externalDependency.lombok
   annotationProcessor externalDependency.lombok
-  runtime externalDependency.logbackClassic
-  testCompile externalDependency.mockito
-  testRuntime externalDependency.logbackClassic
+  runtimeOnly externalDependency.logbackClassic
+  testImplementation externalDependency.mockito
+  testRuntimeOnly externalDependency.logbackClassic
 }
 
 task avroSchemaSources(type: Copy) {

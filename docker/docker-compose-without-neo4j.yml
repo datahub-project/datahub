@@ -27,6 +27,9 @@ services:
     hostname: actions
     image: ${DATAHUB_ACTIONS_IMAGE:-acryldata/datahub-actions}:${ACTIONS_VERSION:-head}
     env_file: datahub-actions/env/docker.env
+    environment:
+    - ACTIONS_EXTRA_PACKAGES=${ACTIONS_EXTRA_PACKAGES:-}
+    - ACTIONS_CONFIG=${ACTIONS_CONFIG:-}
     depends_on:
       datahub-gms:
         condition: service_healthy
@@ -63,8 +66,6 @@ services:
       dockerfile: docker/datahub-upgrade/Dockerfile
     env_file: datahub-upgrade/env/docker-without-neo4j.env
     depends_on:
-      mysql-setup:
-        condition: service_completed_successfully
       elasticsearch-setup:
         condition: service_completed_successfully
       kafka-setup:
@@ -80,6 +81,9 @@ services:
       context: ../
       dockerfile: docker/elasticsearch-setup/Dockerfile
     env_file: elasticsearch-setup/env/docker.env
+    environment:
+      - ELASTICSEARCH_USE_SSL=${ELASTICSEARCH_USE_SSL:-false}
+      - USE_AWS_ELASTICSEARCH=${USE_AWS_ELASTICSEARCH:-false}
     depends_on:
       elasticsearch:
         condition: service_healthy
@@ -103,13 +107,13 @@ services:
   elasticsearch:
     container_name: elasticsearch
     hostname: elasticsearch
-    image: elasticsearch:7.10.1
+    image: ${DATAHUB_SEARCH_IMAGE:-elasticsearch}:${DATAHUB_SEARCH_TAG:-7.10.1}
     ports:
     - ${DATAHUB_MAPPED_ELASTIC_PORT:-9200}:9200
     env_file: elasticsearch/env/docker.env
     environment:
     - discovery.type=single-node
-    - xpack.security.enabled=false
+    - ${XPACK_SECURITY_ENABLED:-xpack.security.enabled=false}
     deploy:
       resources:
         limits:

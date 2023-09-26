@@ -8,3 +8,9 @@ entities:
     keyAspect: chartKey
     aspects:
       - domains
+      - dataPlatformInstance
+  - name: dataPlatform
+    category: core
+    keyAspect: dataPlatformKey
+    aspects:
+      - dataPlatformInfo

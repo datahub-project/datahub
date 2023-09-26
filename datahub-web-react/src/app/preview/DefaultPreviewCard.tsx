@@ -14,10 +14,10 @@ import {
     CorpUser,
     Deprecation,
     Domain,
-    ParentNodesResult,
     EntityPath,
     DataProduct,
     Health,
+    Entity,
 } from '../../types.generated';
 import TagTermGroup from '../shared/tags/TagTermGroup';
 import { ANTD_GRAY } from '../entity/shared/constants';
@@ -34,6 +34,8 @@ import ExternalUrlButton from '../entity/shared/ExternalUrlButton';
 import EntityPaths from './EntityPaths/EntityPaths';
 import { DataProductLink } from '../shared/tags/DataProductLink';
 import { EntityHealth } from '../entity/shared/containers/profile/header/EntityHealth';
+import SearchTextHighlighter from '../search/matches/SearchTextHighlighter';
+import { getUniqueOwners } from './utils';
 
 const PreviewContainer = styled.div`
     display: flex;
@@ -172,6 +174,7 @@ interface Props {
     deprecation?: Deprecation | null;
     topUsers?: Array<CorpUser> | null;
     externalUrl?: string | null;
+    entityTitleSuffix?: React.ReactNode;
     subHeader?: React.ReactNode;
     snippet?: React.ReactNode;
     insights?: Array<SearchInsight> | null;
@@ -188,7 +191,7 @@ interface Props {
     // how the listed node is connected to the source node
     degree?: number;
     parentContainers?: ParentContainersResult | null;
-    parentNodes?: ParentNodesResult | null;
+    parentEntities?: Entity[] | null;
     previewType?: Maybe<PreviewType>;
     paths?: EntityPath[];
     health?: Health[];
@@ -224,10 +227,11 @@ export default function DefaultPreviewCard({
     titleSizePx,
     dataTestID,
     externalUrl,
+    entityTitleSuffix,
     onClick,
     degree,
     parentContainers,
-    parentNodes,
+    parentEntities,
     platforms,
     logoUrls,
     previewType,
@@ -260,6 +264,7 @@ export default function DefaultPreviewCard({
     };
 
     const shouldShowRightColumn = (topUsers && topUsers.length > 0) || (owners && owners.length > 0);
+    const uniqueOwners = getUniqueOwners(owners);
 
     return (
         <PreviewContainer data-testid={dataTestID} onMouseDown={onPreventMouseDown}>
@@ -275,7 +280,7 @@ export default function DefaultPreviewCard({
                         typeIcon={typeIcon}
                         entityType={type}
                         parentContainers={parentContainers?.containers}
-                        parentNodes={parentNodes?.nodes}
+                        parentEntities={parentEntities}
                         parentContainersRef={contentRef}
                         areContainersTruncated={isContentTruncated}
                     />
@@ -287,14 +292,14 @@ export default function DefaultPreviewCard({
                                 </CardEntityTitle>
                             ) : (
                                 <EntityTitle onClick={onClick} $titleSizePx={titleSizePx}>
-                                    {name || ' '}
+                                    <SearchTextHighlighter field="name" text={name || ''} />
                                 </EntityTitle>
                             )}
                         </Link>
                         {deprecation?.deprecated && (
                             <DeprecationPill deprecation={deprecation} urn="" showUndeprecate={false} />
                         )}
-                        {health && health.length > 0 && <EntityHealth baseUrl={url} health={health} />}
+                        {health && health.length > 0 ? <EntityHealth baseUrl={url} health={health} /> : null}
                         {externalUrl && (
                             <ExternalUrlButton
                                 externalUrl={externalUrl}
@@ -303,8 +308,8 @@ export default function DefaultPreviewCard({
                                 entityType={type}
                             />
                         )}
+                        {entityTitleSuffix}
                     </EntityTitleContainer>
-
                     {degree !== undefined && degree !== null && (
                         <Tooltip
                             title={`This entity is a ${getNumberWithOrdinal(degree)} degree connection to ${
@@ -335,6 +340,7 @@ export default function DefaultPreviewCard({
                                     </Typography.Link>
                                 ) : undefined
                             }
+                            customRender={(text) => <SearchTextHighlighter field="description" text={text} />}
                         >
                             {description}
                         </NoMarkdownViewer>
@@ -375,12 +381,14 @@ export default function DefaultPreviewCard({
                             </UserListContainer>
                         </>
                     )}
-                    {(topUsers?.length || 0) > 0 && (owners?.length || 0) > 0 && <UserListDivider type="vertical" />}
-                    {owners && owners?.length > 0 && (
+                    {(topUsers?.length || 0) > 0 && (uniqueOwners?.length || 0) > 0 && (
+                        <UserListDivider type="vertical" />
+                    )}
+                    {uniqueOwners && uniqueOwners?.length > 0 && (
                         <UserListContainer>
                             <UserListTitle strong>Owners</UserListTitle>
                             <div>
-                                <ExpandedActorGroup actors={owners.map((owner) => owner.owner)} max={2} />
+                                <ExpandedActorGroup actors={uniqueOwners.map((owner) => owner.owner)} max={2} />
                             </div>
                         </UserListContainer>
                     )}
