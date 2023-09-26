@@ -22,12 +22,8 @@ rest_common = {"requests", "requests_file"}
 base_requirements = {
     # Compatibility.
     "dataclasses>=0.6; python_version < '3.7'",
-    # Typing extension should be >=3.10.0.2 ideally but we can't restrict due to Airflow 2.0.2 dependency conflict
-    "typing_extensions>=3.7.4.3 ;  python_version < '3.8'",
-    "typing_extensions>=3.10.0.2,<4.6.0 ;  python_version >= '3.8'",
     "mypy_extensions>=0.4.3",
     # Actual dependencies.
-    "typing-inspect",
     "pydantic>=1.5.1",
     "apache-airflow >= 2.0.2",
     *rest_common,
@@ -54,8 +50,6 @@ mypy_stubs = {
     # versions 0.1.13 and 0.1.14 seem to have issues
     "types-click==0.1.12",
     "types-tabulate",
-    # avrogen package requires this
-    "types-pytz",
 }
 
 base_dev_requirements = {
