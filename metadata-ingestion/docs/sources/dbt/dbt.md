@@ -39,7 +39,7 @@ meta_mapping:
     config:
       separator: ","
   documentation_link:
-    match: "https?\:\/\/\w+((\:\d+)?\/\S*)?"
+    match: "(?:https?)?\:\/\/\w*[^#]*"
     operation: "add_doc_link"
     config:
       link: {{ $match }}

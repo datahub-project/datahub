@@ -236,12 +236,12 @@ def test_operation_processor_advanced_matching_tags():
 
 def test_operation_processor_institutional_memory():
     raw_props = {
-        "documentation_link": "test.com",
+        "documentation_link": "https://test.com/documentation#ignore-this",
     }
     processor = OperationProcessor(
         operation_defs={
             "documentation_link": {
-                "match": ".*",
+                "match": r"(?:https?)?\:\/\/\w*[^#]*",
                 "operation": "add_doc_link",
                 "config": {"link": "{{ $match }}", "description": "test"},
             },
@@ -252,18 +252,18 @@ def test_operation_processor_institutional_memory():
 
     doc_link_aspect: InstitutionalMemoryClass = aspect_map["add_doc_link"]
 
-    assert doc_link_aspect.elements[0].url == "test.com"
+    assert doc_link_aspect.elements[0].url == "https://test.com/documentation"
     assert doc_link_aspect.elements[0].description == "test"
 
 
 def test_operation_processor_institutional_memory_no_description():
     raw_props = {
-        "documentation_link": "test.com",
+        "documentation_link": "test.com/documentation#ignore-this",
     }
     processor = OperationProcessor(
         operation_defs={
             "documentation_link": {
-                "match": ".*",
+                "match": r"(?:https?)?\:\/\/\w*[^#]*",
                 "operation": "add_doc_link",
                 "config": {"link": "{{ $match }}"},
             },
