@@ -77,11 +77,11 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     NullTypeClass,
     NumberTypeClass,
     RecordTypeClass,
+    SchemaField,
+    SchemaFieldDataType,
     SchemaMetadata,
     StringTypeClass,
     TimeTypeClass,
-    SchemaField,
-    SchemaFieldDataType,
 )
 from datahub.metadata.schema_classes import (
     DataPlatformInstanceClass,
@@ -90,8 +90,8 @@ from datahub.metadata.schema_classes import (
     OperationClass,
     OperationTypeClass,
     OtherSchemaClass,
-    _Aspect,
     SchemaFieldDataTypeClass,
+    _Aspect,
 )
 from datahub.telemetry import stats, telemetry
 from datahub.utilities.perf_timer import PerfTimer
