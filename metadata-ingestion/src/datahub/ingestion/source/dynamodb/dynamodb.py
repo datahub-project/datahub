@@ -188,14 +188,15 @@ class DynamoDBSource(StatefulIngestionSourceBase):
 
             for table_name in self._list_tables(dynamodb_client):
                 if not self.config.table_pattern.allowed(table_name):
+                    logger.info(f"skipping table: {table_name}")
+                    self.report.report_dropped(table_name)
                     continue
+
+                logger.info(f"Processing table: {table_name}")
                 table_info = dynamodb_client.describe_table(TableName=table_name)[
                     "Table"
                 ]
                 account_id = table_info["TableArn"].split(":")[4]
-                if not self.config.table_pattern.allowed(table_name):
-                    self.report.report_dropped(table_name)
-                    continue
                 platform_instance = self.config.platform_instance or account_id
                 dataset_name = f"{region}.{table_name}"
                 dataset_urn = make_dataset_urn_with_platform_instance(
@@ -248,15 +249,21 @@ class DynamoDBSource(StatefulIngestionSourceBase):
         self,
         dynamodb_client: BaseClient,
     ) -> Iterable[str]:
-        last_evaluated_table_name: str
+        last_evaluated_table_name: str = None
         # Use a flag to simulate do-while loop in python
         first_loop = True
         try:
             while last_evaluated_table_name or first_loop:
-                first_loop = False
-                list_tables_response = dynamodb_client.list_tables(
-                    ExclusiveStartTableName=last_evaluated_table_name
+                list_tables_response = (
+                    dynamodb_client.list_tables(
+                        ExclusiveStartTableName=last_evaluated_table_name
+                    )
+                    if last_evaluated_table_name
+                    else dynamodb_client.list_tables()
                 )
+
+                first_loop = False
+
                 last_evaluated_table_name = list_tables_response.get(
                     "LastEvaluatedTableName"
                 )
