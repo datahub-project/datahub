@@ -157,7 +157,7 @@ class GEProfilingConfig(ConfigModel):
     )
     use_sampling: bool = Field(
         default=True,
-        description="Whether to profile column level stats on sample of table. Only BigQuery supports this. "
+        description="Whether to profile column level stats on sample of table. Only BigQuery and Snowflake support this. "
         "If enabled, profiling is done on rows sampled from table. Sampling is not done for smaller tables. ",
     )
 

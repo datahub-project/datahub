@@ -19,6 +19,7 @@ from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 from datahub.ingestion.source.sql.sql_generic import BaseTable, BaseView
 from datahub.ingestion.source.state.profiling_state_handler import ProfilingHandler
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import DatasetProfile
+from datahub.metadata.com.linkedin.pegasus2avro.timeseries import PartitionType
 from datahub.utilities.stats_collections import TopKDict, int_top_k_dict
 
 
@@ -112,7 +113,10 @@ class GenericProfiler:
             # but for table level we can use the rows_count from the table metadata
             # This way even though column statistics only reflects one partition data but the rows count
             # shows the proper count.
-            if profile.partitionSpec and profile.partitionSpec.partition:
+            if (
+                profile.partitionSpec
+                and profile.partitionSpec.type != PartitionType.FULL_TABLE
+            ):
                 profile.rowCount = request.table.rows_count
 
             dataset_urn = self.dataset_urn_builder(request.pretty_name)

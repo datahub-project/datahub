@@ -74,12 +74,21 @@ class SnowflakeProfiler(GenericProfiler, SnowflakeCommonMixin):
     def get_batch_kwargs(
         self, table: BaseTable, schema_name: str, db_name: str
     ) -> dict:
+        custom_sql = None
+        if (
+            not self.config.profiling.limit
+            and self.config.profiling.use_sampling
+            and table.rows_count
+            and table.rows_count > self.config.profiling.sample_size
+        ):
+            custom_sql = f'select * from "{db_name}"."{schema_name}"."{table.name}" TABLESAMPLE ({self.config.profiling.sample_size} rows)'
         return {
             **super().get_batch_kwargs(table, schema_name, db_name),
             # Lowercase/Mixedcase table names in Snowflake do not work by default.
             # We need to pass `use_quoted_name=True` for such tables as mentioned here -
             # https://github.com/great-expectations/great_expectations/pull/2023
             "use_quoted_name": (table.name != table.name.upper()),
+            "custom_sql": custom_sql,
         }
 
     def get_profiler_instance(
