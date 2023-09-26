@@ -186,22 +186,6 @@ class AthenaSource(SQLAlchemySource):
         # In Athena the schema is the database and database is not existing
         return []
 
-    def get_database_container_key(self, db_name: str, schema: str) -> ContainerKey:
-        # Because our overridden get_allowed_schemas method returns db_name as the schema name,
-        # the db_name and schema here will be the same. Hence, we just ignore the schema parameter.
-        # Based on community feedback, db_name only available if it is explicitly specified in the connection string.
-        # If it is not available then we should use schema as db_name
-
-        if not db_name:
-            db_name = schema
-
-        return gen_database_key(
-            db_name,
-            platform=self.platform,
-            platform_instance=self.config.platform_instance,
-            env=self.config.env,
-        )
-
     def gen_schema_containers(
         self,
         schema: str,
@@ -217,6 +201,22 @@ class AthenaSource(SQLAlchemySource):
             domain_registry=self.domain_registry,
             domain_config=self.config.domain,
             extra_properties=extra_properties,
+        )
+
+    def get_database_container_key(self, db_name: str, schema: str) -> ContainerKey:
+        # Because our overridden get_allowed_schemas method returns db_name as the schema name,
+        # the db_name and schema here will be the same. Hence, we just ignore the schema parameter.
+        # Based on community feedback, db_name only available if it is explicitly specified in the connection string.
+        # If it is not available then we should use schema as db_name
+
+        if not db_name:
+            db_name = schema
+
+        return gen_database_key(
+            db_name,
+            platform=self.platform,
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
         )
 
     def add_table_to_schema_container(
