@@ -69,6 +69,7 @@ base_dev_requirements = {
     "pytest-cov>=2.8.1",
     "tox",
     "deepdiff",
+    "tenacity",
     "requests-mock",
     "freezegun",
     "jsonpickle",
