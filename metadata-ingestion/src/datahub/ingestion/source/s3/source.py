@@ -77,10 +77,11 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     NullTypeClass,
     NumberTypeClass,
     RecordTypeClass,
-    SchemaFieldDataType,
     SchemaMetadata,
     StringTypeClass,
     TimeTypeClass,
+    SchemaField,
+    SchemaFieldDataType,
 )
 from datahub.metadata.schema_classes import (
     DataPlatformInstanceClass,
@@ -90,6 +91,7 @@ from datahub.metadata.schema_classes import (
     OperationTypeClass,
     OtherSchemaClass,
     _Aspect,
+    SchemaFieldDataTypeClass,
 )
 from datahub.telemetry import stats, telemetry
 from datahub.utilities.perf_timer import PerfTimer
@@ -452,7 +454,36 @@ class S3Source(StatefulIngestionSourceBase):
         logger.debug(f"Extracted fields in schema: {fields}")
         fields = sorted(fields, key=lambda f: f.fieldPath)
 
+        if self.source_config.add_partition_columns_to_schema:
+            self.add_partition_columns_to_schema(fields, path_spec, table_data)
+
         return fields
+
+    def add_partition_columns_to_schema(
+        self, path_spec: PathSpec, full_path: str, fields: List[SchemaField]
+    ):
+        is_fieldpath_v2 = False
+        for field in fields:
+            if field.fieldPath.startswith("[version=2.0]"):
+                is_fieldpath_v2 = True
+                break
+        vars = path_spec.get_named_vars(table_data.full_path)
+        if "partition_key" in vars:
+            for partition_key in vars["partition_key"].values():
+                fields.append(
+                    SchemaField(
+                        fieldPath=f"{partition_key}"
+                        if not is_fieldpath_v2
+                        else f"[version=2.0].[type=string].{partition_key}",
+                        nativeDataType="string",
+                        type=SchemaFieldType(StringTypeClass)
+                        if not is_fieldpath_v2
+                        else SchemaFieldDataTypeClass(type=StringTypeClass()),
+                        isPartitioningKey=True,
+                        nullable=True,
+                        recursive=False,
+                    )
+                )
 
     def get_table_profile(
         self, table_data: TableData, dataset_urn: str
