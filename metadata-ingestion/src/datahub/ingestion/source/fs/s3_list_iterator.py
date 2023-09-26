@@ -1,6 +1,6 @@
 from datahub.ingestion.source.fs import s3_fs
 from collections.abc import Iterator
-from datahub.ingestion.source.fs.fs_base import FileStatus
+from datahub.ingestion.source.fs.fs_base import FileInfo
 
 
 class S3ListIterator(Iterator):
@@ -16,7 +16,7 @@ class S3ListIterator(Iterator):
         self._token = ''
         self.fetch()
 
-    def __next__(self) -> FileStatus:
+    def __next__(self) -> FileInfo:
         try:
             return next(self._file_statuses)
         except StopIteration:
@@ -36,7 +36,7 @@ class S3ListIterator(Iterator):
         s3_fs.assert_ok_status(response)
 
         self._file_statuses = iter([
-            FileStatus(f"s3://{response['Name']}/{x['Key']}", x['Size'], is_file=True)
+            FileInfo(f"s3://{response['Name']}/{x['Key']}", x['Size'], is_file=True)
             for x in response.get('Contents', [])
         ])
         self._token = response.get('NextContinuationToken')

@@ -1,7 +1,7 @@
 import boto3
 import smart_open
 from dataclasses import dataclass
-from datahub.ingestion.source.fs.fs_base import FileSystem, FileStatus
+from datahub.ingestion.source.fs.fs_base import FileSystem, FileInfo
 from datahub.ingestion.source.fs.s3_list_iterator import S3ListIterator
 from urllib.parse import urlparse
 from typing import Iterable
@@ -28,32 +28,33 @@ class S3Path:
 
 class S3FileSystem(FileSystem):
 
-    _s3 = boto3.client('s3')
+    def __init__(self, **kwargs):
+        self.s3 = boto3.client('s3', **kwargs)
 
     @classmethod
-    def create_fs(cls):
-        return S3FileSystem()
+    def create(cls, **kwargs):
+        return S3FileSystem(**kwargs)
 
     def open(self, path: str, **kwargs):
-        transport_params = kwargs.update({'client': S3FileSystem._s3})
+        transport_params = kwargs.update({'client': self.s3})
         return smart_open.open(path, mode='rb', transport_params=transport_params)
 
-    def file_status(self, path: str) -> FileStatus:
+    def file_status(self, path: str) -> FileInfo:
         s3_path = parse_s3_path(path)
         try:
-            response = S3FileSystem._s3.get_object_attributes(
+            response = self.s3.get_object_attributes(
                 Bucket=s3_path.bucket,
                 Key=s3_path.key,
                 ObjectAttributes=['ObjectSize']
             )
             assert_ok_status(response)
-            return FileStatus(path, response['ObjectSize'], is_file=True)
+            return FileInfo(path, response['ObjectSize'], is_file=True)
         except Exception as e:
             if hasattr(e, 'response') and e.response['ResponseMetadata']['HTTPStatusCode'] == 404:
-                return FileStatus(path, 0, is_file=False)
+                return FileInfo(path, 0, is_file=False)
             else:
                 raise e
 
-    def list(self, path: str) -> Iterable[FileStatus]:
+    def list(self, path: str) -> Iterable[FileInfo]:
         s3_path = parse_s3_path(path)
-        return S3ListIterator(S3FileSystem._s3, s3_path.bucket, s3_path.key)
+        return S3ListIterator(self.s3, s3_path.bucket, s3_path.key)

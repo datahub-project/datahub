@@ -5,31 +5,31 @@ from abc import ABCMeta, abstractmethod
 
 
 @dataclass
-class FileStatus:
+class FileInfo:
     path: str
     size: int
     is_file: bool
 
     def __str__(self):
-        return f"FileStatus({self.path}, {self.size}, {self.is_file})"
+        return f"FileInfo({self.path}, {self.size}, {self.is_file})"
 
 
 class FileSystem(metaclass=ABCMeta):
 
     @classmethod
-    def create_fs(cls) -> "FileSystem":
-        raise NotImplementedError('File system implementations must implement "create_fs"')
+    def create(cls, **kwargs) -> "FileSystem":
+        raise NotImplementedError('File system implementations must implement "create"')
 
     @abstractmethod
     def open(self, path: str, **kwargs):
         pass
 
     @abstractmethod
-    def file_status(self, path: str) -> FileStatus:
+    def file_status(self, path: str) -> FileInfo:
         pass
 
     @abstractmethod
-    def list(self, path: str) -> Iterable[FileStatus]:
+    def list(self, path: str) -> Iterable[FileInfo]:
         pass
 
 

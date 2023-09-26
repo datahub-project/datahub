@@ -41,7 +41,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
 )
 from datahub.metadata.schema_classes import UsageAggregationClass
 
-from datahub.ingestion.source.fs.fs_base import FileStatus, get_path_schema
+from datahub.ingestion.source.fs.fs_base import FileInfo, get_path_schema
 from datahub.ingestion.source.fs.fs_registry import fs_registry
 
 logger = logging.getLogger(__name__)
@@ -185,11 +185,11 @@ class GenericFileSource(TestableSource):
         config = FileSourceConfig.parse_obj(config_dict)
         return cls(ctx, config)
 
-    def get_filenames(self) -> Iterable[FileStatus]:
+    def get_filenames(self) -> Iterable[FileInfo]:
         path_str = str(self.config.path)
         schema = get_path_schema(path_str)
         fs_class = fs_registry.get(schema)
-        fs = fs_class.create_fs()
+        fs = fs_class.create()
         for file_status in fs.list(path_str):
             if file_status.is_file and file_status.path.endswith(self.config.file_extension):
                 yield file_status
@@ -230,10 +230,10 @@ class GenericFileSource(TestableSource):
         self.close_if_possible(self.fp)
         super().close()
 
-    def _iterate_file(self, file_status: FileStatus) -> Iterable[Tuple[int, Any]]:
+    def _iterate_file(self, file_status: FileInfo) -> Iterable[Tuple[int, Any]]:
         schema = get_path_schema(file_status.path)
         fs_class = fs_registry.get(schema)
-        fs = fs_class.create_fs()
+        fs = fs_class.create()
         self.report.current_file_name = file_status.path
         self.report.current_file_size = file_status.size
         self.fp = fs.open(file_status.path)
@@ -267,7 +267,7 @@ class GenericFileSource(TestableSource):
     def iterate_mce_file(self, path: str) -> Iterator[MetadataChangeEvent]:
         schema = get_path_schema(path)
         fs_class = fs_registry.get(schema)
-        fs = fs_class.create_fs()
+        fs = fs_class.create()
         file_status = fs.file_status(path)
         for i, obj in self._iterate_file(file_status):
             mce: MetadataChangeEvent = MetadataChangeEvent.from_obj(obj)
@@ -275,7 +275,7 @@ class GenericFileSource(TestableSource):
 
     def iterate_generic_file(
         self,
-        file_status: FileStatus
+        file_status: FileInfo
     ) -> Iterator[
         Tuple[
             int,
