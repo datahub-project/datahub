@@ -2,6 +2,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Tuple, Un
 
 from airflow.exceptions import AirflowException
 from airflow.hooks.base import BaseHook
+from datahub.emitter.generic_emitter import Emitter
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeEvent,
@@ -227,7 +228,7 @@ class DatahubGenericHook(BaseHook):
                 f"DataHub cannot handle conn_type {conn.conn_type} in {conn}"
             )
 
-    def make_emitter(self) -> Union["DatahubRestEmitter", "DatahubKafkaEmitter"]:
+    def make_emitter(self) -> Emitter:
         return self.get_underlying_hook().make_emitter()
 
     def emit(

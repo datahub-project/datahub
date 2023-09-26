@@ -13,6 +13,7 @@ from requests.exceptions import HTTPError, RequestException
 
 from datahub.cli.cli_utils import get_system_auth
 from datahub.configuration.common import ConfigurationError, OperationalError
+from datahub.emitter.generic_emitter import Emitter
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.request_helper import make_curl_command
 from datahub.emitter.serialization_helper import pre_json_transform
@@ -45,7 +46,7 @@ _DEFAULT_RETRY_MAX_TIMES = int(
 )
 
 
-class DataHubRestEmitter(Closeable):
+class DataHubRestEmitter(Closeable, Emitter):
     _gms_server: str
     _token: Optional[str]
     _session: requests.Session
@@ -206,9 +207,6 @@ class DataHubRestEmitter(Closeable):
             MetadataChangeProposalWrapper,
             UsageAggregation,
         ],
-        # NOTE: This signature should have the exception be optional rather than
-        #      required. However, this would be a breaking change that may need
-        #      more careful consideration.
         callback: Optional[Callable[[Exception, str], None]] = None,
     ) -> Tuple[datetime.datetime, datetime.datetime]:
         start_time = datetime.datetime.now()

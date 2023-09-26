@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import TYPE_CHECKING, Dict, List, Optional, Set, Union, cast
+from typing import TYPE_CHECKING, Dict, List, Optional, Set, cast
 
 from airflow.configuration import conf
 from datahub.api.entities.datajob import DataFlow, DataJob
@@ -7,6 +7,7 @@ from datahub.api.entities.dataprocess.dataprocess_instance import (
     DataProcessInstance,
     InstanceRunResult,
 )
+from datahub.emitter.generic_emitter import Emitter
 from datahub.metadata.schema_classes import DataProcessTypeClass
 from datahub.utilities.urns.data_flow_urn import DataFlowUrn
 from datahub.utilities.urns.data_job_urn import DataJobUrn
@@ -18,8 +19,6 @@ assert AIRFLOW_PATCHED
 if TYPE_CHECKING:
     from airflow import DAG
     from airflow.models import DagRun, TaskInstance
-    from datahub.emitter.kafka_emitter import DatahubKafkaEmitter
-    from datahub.emitter.rest_emitter import DatahubRestEmitter
 
     from datahub_airflow_plugin._airflow_shims import Operator
 
@@ -289,7 +288,7 @@ class AirflowGenerator:
 
     @staticmethod
     def run_dataflow(
-        emitter: Union["DatahubRestEmitter", "DatahubKafkaEmitter"],
+        emitter: Emitter,
         cluster: str,
         dag_run: "DagRun",
         start_timestamp_millis: Optional[int] = None,
@@ -341,7 +340,7 @@ class AirflowGenerator:
 
     @staticmethod
     def complete_dataflow(
-        emitter: Union["DatahubRestEmitter", "DatahubKafkaEmitter"],
+        emitter: Emitter,
         cluster: str,
         dag_run: "DagRun",
         end_timestamp_millis: Optional[int] = None,
@@ -349,7 +348,7 @@ class AirflowGenerator:
     ) -> None:
         """
 
-        :param emitter: DatahubRestEmitter - the datahub rest emitter to emit the generated mcps
+        :param emitter: Emitter - the datahub emitter to emit the generated mcps
         :param cluster: str - name of the cluster
         :param dag_run: DagRun
         :param end_timestamp_millis: Optional[int] - the completion time in milliseconds if not set the current time will be used.
@@ -387,7 +386,7 @@ class AirflowGenerator:
 
     @staticmethod
     def run_datajob(
-        emitter: Union["DatahubRestEmitter", "DatahubKafkaEmitter"],
+        emitter: Emitter,
         cluster: str,
         ti: "TaskInstance",
         dag: "DAG",
@@ -461,7 +460,7 @@ class AirflowGenerator:
 
     @staticmethod
     def complete_datajob(
-        emitter: Union["DatahubRestEmitter", "DatahubKafkaEmitter"],
+        emitter: Emitter,
         cluster: str,
         ti: "TaskInstance",
         dag: "DAG",
@@ -472,7 +471,7 @@ class AirflowGenerator:
     ) -> DataProcessInstance:
         """
 
-        :param emitter: DatahubRestEmitter
+        :param emitter: Emitter - the datahub emitter to emit the generated mcps
         :param cluster: str
         :param ti: TaskInstance
         :param dag: DAG
