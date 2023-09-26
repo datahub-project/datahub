@@ -186,28 +186,6 @@ class AthenaSource(SQLAlchemySource):
         # In Athena the schema is the database and database is not existing
         return []
 
-    def gen_schema_containers(
-        self,
-        schema: str,
-        database: str,
-        extra_properties: Optional[Dict[str, Any]] = None,
-    ) -> Iterable[MetadataWorkUnit]:
-        database_container_key = gen_database_key(
-            database,
-            platform=self.platform,
-            platform_instance=self.config.platform_instance,
-            env=self.config.env,
-        )
-
-        yield from gen_database_container(
-            database=database,
-            database_container_key=database_container_key,
-            sub_types=[DatasetContainerSubTypes.DATABASE],
-            domain_registry=self.domain_registry,
-            domain_config=self.config.domain,
-            extra_properties=extra_properties,
-        )
-
     def get_database_container_key(self, db_name: str, schema: str) -> ContainerKey:
         # Because our overridden get_allowed_schemas method returns db_name as the schema name,
         # the db_name and schema here will be the same. Hence, we just ignore the schema parameter.
@@ -222,6 +200,23 @@ class AthenaSource(SQLAlchemySource):
             platform=self.platform,
             platform_instance=self.config.platform_instance,
             env=self.config.env,
+        )
+
+    def gen_schema_containers(
+        self,
+        schema: str,
+        database: str,
+        extra_properties: Optional[Dict[str, Any]] = None,
+    ) -> Iterable[MetadataWorkUnit]:
+        database_container_key = self.get_database_container_key(database, schema)
+
+        yield from gen_database_container(
+            database=database if database else schema,
+            database_container_key=database_container_key,
+            sub_types=[DatasetContainerSubTypes.DATABASE],
+            domain_registry=self.domain_registry,
+            domain_config=self.config.domain,
+            extra_properties=extra_properties,
         )
 
     def add_table_to_schema_container(
