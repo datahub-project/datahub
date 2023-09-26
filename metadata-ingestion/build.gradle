@@ -194,7 +194,9 @@ task docGen(type: Exec, dependsOn: [codegen, installDevTest, specGen]) {
   commandLine 'bash', '-c', "source ${venv_name}/bin/activate && ./scripts/docgen.sh"
 }
 
-
+task lineageDocGen(type: Exec, dependsOn: [codegen, installDevTest, specGen]) {
+  commandLine 'bash', '-c', "source ${venv_name}/bin/activate && ./scripts/docgen_lineage_capabilities.sh"
+}
 
 task cleanPythonCache(type: Exec) {
   commandLine 'bash', '-c',

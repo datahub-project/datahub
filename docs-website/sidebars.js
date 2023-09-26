@@ -426,7 +426,6 @@ module.exports = {
         "docs/features/dataset-usage-and-query-history",
         "docs/posts",
         "docs/sync-status",
-        "docs/lineage/lineage-feature-guide",
         {
           type: "doc",
           id: "docs/tests/metadata-tests",
