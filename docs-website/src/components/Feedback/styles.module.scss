@@ -37,11 +37,11 @@
 }
 
 .feedbackText {
+  font-family: var(--ifm-font-family-base);
   width: 100%;
   border: var(--ifm-hr-border-color) 1px solid;
   border-radius: 0.4rem;
   padding: 0.4rem;
-  font-family: "Manrope", sans-serif;
 }
 
 .feedbackButton {
