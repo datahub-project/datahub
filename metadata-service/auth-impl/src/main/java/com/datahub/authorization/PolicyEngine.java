@@ -248,12 +248,12 @@ public class PolicyEngine {
     }
 
     // 2. If the actor is in a matching "Group" in the actor filter, return true immediately.
-    if (isGroupMatch(resolvedActorSpec, actorFilter)) {
+    if (isGroupMatch(resolvedActorSpec, actorFilter, context)) {
       return true;
     }
 
     // 3. If the actor is the owner, either directly or indirectly via a group, return true immediately.
-    if (isOwnerMatch(resolvedActorSpec, actorFilter, resourceSpec)) {
+    if (isOwnerMatch(resolvedActorSpec, actorFilter, resourceSpec, context)) {
       return true;
     }
 
@@ -270,10 +270,11 @@ public class PolicyEngine {
 
   private boolean isGroupMatch(
       final ResolvedEntitySpec resolvedActorSpec,
-      final DataHubActorFilter actorFilter) {
+      final DataHubActorFilter actorFilter,
+      final PolicyEvaluationContext context) {
     // If the actor is in a matching "Group" in the actor filter, return true immediately.
     if (actorFilter.isAllGroups() || actorFilter.hasGroups()) {
-      final Set<String> groups = resolvedActorSpec.getGroupMembership();
+      final Set<String> groups = resolveGroups(resolvedActorSpec, context);
       return (actorFilter.isAllGroups() && !groups.isEmpty())
           || (actorFilter.hasGroups() && Objects.requireNonNull(actorFilter.getGroups())
           .stream().map(Urn::toString)
@@ -286,13 +287,14 @@ public class PolicyEngine {
   private boolean isOwnerMatch(
       final ResolvedEntitySpec resolvedActorSpec,
       final DataHubActorFilter actorFilter,
-      final Optional<ResolvedEntitySpec> requestResource) {
+      final Optional<ResolvedEntitySpec> requestResource,
+      final PolicyEvaluationContext context) {
     // If the policy does not apply to owners, or there is no resource to own, return false immediately.
     if (!actorFilter.isResourceOwners() || requestResource.isEmpty()) {
       return false;
     }
     List<Urn> ownershipTypes = actorFilter.getResourceOwnersTypes();
-    return isActorOwner(resolvedActorSpec, requestResource.get(), ownershipTypes);
+    return isActorOwner(resolvedActorSpec, requestResource.get(), ownershipTypes, context);
   }
 
   private Set<String> getOwnersForType(EntitySpec resourceSpec, List<Urn> ownershipTypes) {
@@ -319,12 +321,13 @@ public class PolicyEngine {
 
   private boolean isActorOwner(
       final ResolvedEntitySpec resolvedActorSpec,
-      ResolvedEntitySpec resourceSpec, List<Urn> ownershipTypes) {
+      ResolvedEntitySpec resourceSpec, List<Urn> ownershipTypes,
+      PolicyEvaluationContext context) {
     Set<String> owners = this.getOwnersForType(resourceSpec.getSpec(), ownershipTypes);
     if (isUserOwner(resolvedActorSpec, owners)) {
       return true;
     }
-    final Set<String> groups = resolvedActorSpec.getGroupMembership();
+    final Set<String> groups = resolveGroups(resolvedActorSpec, context);
 
     return isGroupOwner(groups, owners);
   }
@@ -387,11 +390,27 @@ public class PolicyEngine {
     return roles;
   }
 
+  private Set<String> resolveGroups(ResolvedEntitySpec resolvedActorSpec, PolicyEvaluationContext context) {
+    if (context.groups != null) {
+      return context.groups;
+    }
+
+    Set<String> groups = resolvedActorSpec.getGroupMembership();
+
+    context.setGroups(groups); // Cache the groups.
+    return groups;
+  }
+
   /**
    * Class used to store state across a single Policy evaluation.
    */
   static class PolicyEvaluationContext {
+    private Set<String> groups;
     private Set<Urn> roles;
+
+    public void setGroups(Set<String> groups) {
+      this.groups = groups;
+    }
 
     public void setRoles(Set<Urn> roles) {
       this.roles = roles;
