@@ -1,5 +1,5 @@
 import logging
-from dataclasses import field
+from dataclasses import dataclass, field
 from typing import Any, Counter, Dict, Iterable, List, Optional, Type, Union
 
 import boto3
@@ -85,6 +85,7 @@ class DynamoDBConfig(DatasetSourceConfigMixin, StatefulIngestionConfigBase):
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
 
 
+@dataclass
 class DynamoDBSourceReport(StaleEntityRemovalSourceReport):
     filtered: List[str] = field(default_factory=list)
 
@@ -187,18 +188,18 @@ class DynamoDBSource(StatefulIngestionSourceBase):
             )
 
             for table_name in self._list_tables(dynamodb_client):
-                if not self.config.table_pattern.allowed(table_name):
-                    logger.info(f"skipping table: {table_name}")
-                    self.report.report_dropped(table_name)
+                dataset_name = f"{region}.{table_name}"
+                if not self.config.table_pattern.allowed(dataset_name):
+                    logger.info(f"skipping table: {dataset_name}")
+                    self.report.report_dropped(dataset_name)
                     continue
 
-                logger.info(f"Processing table: {table_name}")
+                logger.info(f"Processing table: {dataset_name}")
                 table_info = dynamodb_client.describe_table(TableName=table_name)[
                     "Table"
                 ]
                 account_id = table_info["TableArn"].split(":")[4]
                 platform_instance = self.config.platform_instance or account_id
-                dataset_name = f"{region}.{table_name}"
                 dataset_urn = make_dataset_urn_with_platform_instance(
                     platform=self.platform,
                     platform_instance=platform_instance,
