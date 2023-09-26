@@ -1,4 +1,5 @@
 import logging
+import re
 import sys
 from typing import Any, Dict, List, cast
 from unittest import mock
@@ -1126,7 +1127,7 @@ def test_dataset_type_mapping_error(
     """
     register_mock_api(request_mock=requests_mock)
 
-    try:
+    with pytest.raises(Exception, match=r"dataset_type_mapping is deprecated"):
         Pipeline.create(
             {
                 "run_id": "powerbi-test",
@@ -1148,11 +1149,6 @@ def test_dataset_type_mapping_error(
                     },
                 },
             }
-        )
-    except Exception as e:
-        assert (
-            "dataset_type_mapping is deprecated. Use server_to_platform_instance only."
-            in str(e)
         )
 
 
@@ -1568,7 +1564,12 @@ def test_cll_extraction_flags(
     )
 
     default_conf: dict = default_source_config()
-    try:
+    pattern: str = re.escape(
+        "Enable all these flags in recipe: ['native_query_parsing', 'enable_advance_lineage_sql_construct', 'extract_lineage']"
+    )
+
+    with pytest.raises(Exception, match=pattern):
+
         Pipeline.create(
             {
                 "run_id": "powerbi-test",
@@ -1586,9 +1587,4 @@ def test_cll_extraction_flags(
                     },
                 },
             }
-        )
-    except Exception as e:
-        assert (
-            "Enable all these flags in recipe: ['native_query_parsing', 'enable_advance_lineage_sql_construct', 'extract_lineage']"
-            in str(e)
         )
