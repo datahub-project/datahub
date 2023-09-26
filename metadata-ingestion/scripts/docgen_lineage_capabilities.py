@@ -682,10 +682,10 @@ def generate(
             except Exception as e:
                 raise e
 
-    source_dir = "../../docs/generated"
+    source_dir = "../docs/generated/lineage"
     os.makedirs(source_dir, exist_ok=True)
-    doc_file = f"{source_dir}/lineage/lineage-feature-guide.md"
-    with open(doc_file, "w") as f:
+    doc_file = f"{source_dir}/lineage-feature-guide.md"
+    with open(doc_file, "w+") as f:
         f.write("import FeatureAvailability from '@site/src/components/FeatureAvailability';\n")
         f.write(f"# About DataHub Lineage\n")
         f.write("<FeatureAvailability/>\n")
