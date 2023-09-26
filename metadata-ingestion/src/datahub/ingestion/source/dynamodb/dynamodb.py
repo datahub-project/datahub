@@ -249,25 +249,10 @@ class DynamoDBSource(StatefulIngestionSourceBase):
         self,
         dynamodb_client: BaseClient,
     ) -> Iterable[str]:
-        last_evaluated_table_name: str = None
-        # Use a flag to simulate do-while loop in python
-        first_loop = True
+        # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dynamodb/paginator/ListTables.html
         try:
-            while last_evaluated_table_name or first_loop:
-                list_tables_response = (
-                    dynamodb_client.list_tables(
-                        ExclusiveStartTableName=last_evaluated_table_name
-                    )
-                    if last_evaluated_table_name
-                    else dynamodb_client.list_tables()
-                )
-
-                first_loop = False
-
-                last_evaluated_table_name = list_tables_response.get(
-                    "LastEvaluatedTableName"
-                )
-                table_names = list_tables_response.get("TableNames")
+            for page in dynamodb_client.get_paginator("list_tables").paginate():
+                table_names = page.get("TableNames")
                 if table_names:
                     yield from table_names
         except Exception as ex:
