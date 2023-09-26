@@ -1070,7 +1070,6 @@ class LookerView:
     def determine_view_file_path(
         cls, base_folder_path: str, absolute_file_path: str
     ) -> str:
-
         splits: List[str] = absolute_file_path.split(base_folder_path, 1)
         if len(splits) != 2:
             logger.debug(
@@ -1104,7 +1103,6 @@ class LookerView:
         populate_sql_logic_in_descriptions: bool = False,
         process_isolation_for_sql_parsing: bool = False,
     ) -> Optional["LookerView"]:
-
         view_name = looker_view["name"]
         logger.debug(f"Handling view {view_name} in model {model_name}")
         # The sql_table_name might be defined in another view and this view is extending that view,
@@ -2087,7 +2085,6 @@ class LookMLSource(StatefulIngestionSourceBase):
                 )
 
                 if looker_viewfile is not None:
-
                     for raw_view in looker_viewfile.views:
                         raw_view_name = raw_view["name"]
                         if LookerRefinementResolver.is_refinement(raw_view_name):

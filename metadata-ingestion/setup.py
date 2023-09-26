@@ -446,7 +446,7 @@ base_dev_requirements = {
     *s3_base,
     # This is pinned only to avoid spurious errors in CI.
     # We should make an effort to keep it up to date.
-    "black==22.12.0",
+    "black==23.9.1",
     "coverage>=5.1",
     "faker>=18.4.0",
     "flake8>=3.8.3",  # DEPRECATION: Once we drop Python 3.7, we can pin to 6.x.

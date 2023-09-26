@@ -52,7 +52,6 @@ def urn_creator(
     server: str,
     qualified_table_name: str,
 ) -> str:
-
     platform_detail: PlatformDetail = platform_instance_resolver.get_platform_instance(
         PowerBIPlatformDetail(
             data_platform_pair=data_platform_pair,
@@ -148,7 +147,6 @@ class AbstractDataPlatformTableCreator(ABC):
     def parse_custom_sql(
         self, query: str, server: str, database: Optional[str], schema: Optional[str]
     ) -> List[DataPlatformTable]:
-
         dataplatform_tables: List[DataPlatformTable] = []
 
         platform_detail: PlatformDetail = (

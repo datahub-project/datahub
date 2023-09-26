@@ -792,7 +792,6 @@ def test_tableau_unsupported_csql(mock_datahub_graph):
     )
 
     with mock.patch("datahub.ingestion.source.tableau.sqlglot_l") as sqlglot_lineage:
-
         sqlglot_lineage.create_lineage_sql_parsed_result.return_value = SqlParsingResult(  # type:ignore
             in_tables=[
                 "urn:li:dataset:(urn:li:dataPlatform:bigquery,my_bigquery_project.invent_dw.userdetail,PROD)"
