@@ -60,10 +60,15 @@ export const AssertionActionsBuilder = ({ urn, assertion, onSubmit, onCancel }: 
 
     return (
         <Container>
-            <AssertionActionsForm
-                state={{ onSuccess: builderState.actions?.onSuccess || [], onFailure: builderState.actions?.onFailure }}
-                updateState={(newState) => setBuilderState({ actions: newState })}
-            />
+            <div>
+                <AssertionActionsForm
+                    state={{
+                        onSuccess: builderState.actions?.onSuccess || [],
+                        onFailure: builderState.actions?.onFailure,
+                    }}
+                    updateState={(newState) => setBuilderState({ actions: newState })}
+                />
+            </div>
             <ControlsContainer>
                 <Button onClick={onCancel}>Cancel</Button>
                 <Button

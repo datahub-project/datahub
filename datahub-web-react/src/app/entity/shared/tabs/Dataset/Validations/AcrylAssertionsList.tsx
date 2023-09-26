@@ -6,6 +6,7 @@ import { useUpdateMonitorStatusMutation, useDeleteMonitorMutation } from '../../
 import { AssertionActionsBuilderModal } from './assertion/builder/AssertionActionsBuilderModal';
 import { AcrylAssertionsTable } from './AcrylAssertionsTable';
 import analytics, { EventType } from '../../../../../analytics';
+import { AssertionViewDetailsModal } from './assertion/builder/AssertionViewDetailsModal';
 
 type Props = {
     assertions: Array<Assertion>;
@@ -25,6 +26,7 @@ export const AcrylDatasetAssertionsList = ({ assertions, onDeletedAssertion, onU
 
     const [updateMonitorStatusMutation] = useUpdateMonitorStatusMutation();
     const [managingAssertion, setManagingAssertion] = useState<Assertion | undefined>(undefined);
+    const [viewingAssertionDetails, setViewingAssertionDetails] = useState<Assertion | undefined>(undefined);
 
     const deleteMonitor = async (urn: string) => {
         try {
@@ -82,6 +84,10 @@ export const AcrylDatasetAssertionsList = ({ assertions, onDeletedAssertion, onU
 
     const onManageAssertion = (urn: string) => {
         setManagingAssertion(assertions.find((assertion) => assertion.urn === urn));
+    };
+
+    const onViewAssertionDetails = (urn: string) => {
+        setViewingAssertionDetails(assertions.find((assertion) => assertion.urn === urn));
     };
 
     const onUpdateAssertion = (assertion: Assertion) => {
@@ -175,6 +181,7 @@ export const AcrylDatasetAssertionsList = ({ assertions, onDeletedAssertion, onU
                 assertions={assertions}
                 onManageAssertion={onManageAssertion}
                 onDeleteAssertion={onDeleteAssertion}
+                onViewAssertionDetails={onViewAssertionDetails}
                 onStartMonitor={onConfirmStartMonitor}
                 onStopMonitor={onStopMonitor}
             />
@@ -184,6 +191,12 @@ export const AcrylDatasetAssertionsList = ({ assertions, onDeletedAssertion, onU
                     assertion={managingAssertion}
                     onSubmit={onUpdateAssertion}
                     onCancel={() => setManagingAssertion(undefined)}
+                />
+            )}
+            {viewingAssertionDetails && (
+                <AssertionViewDetailsModal
+                    assertion={viewingAssertionDetails}
+                    onCancel={() => setViewingAssertionDetails(undefined)}
                 />
             )}
         </>

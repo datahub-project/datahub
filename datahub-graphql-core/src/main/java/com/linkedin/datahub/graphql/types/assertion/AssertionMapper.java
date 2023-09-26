@@ -24,6 +24,7 @@ import com.linkedin.datahub.graphql.generated.DatasetAssertionInfo;
 import com.linkedin.datahub.graphql.generated.DatasetAssertionScope;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.SchemaFieldRef;
+import com.linkedin.datahub.graphql.generated.SqlAssertionInfo;
 import com.linkedin.datahub.graphql.generated.VolumeAssertionInfo;
 import com.linkedin.datahub.graphql.types.common.mappers.DataPlatformInstanceAspectMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StringMapMapper;
@@ -88,9 +89,18 @@ public class AssertionMapper {
       VolumeAssertionInfo volumeAssertionInfo = VolumeAssertionMapper.mapVolumeAssertionInfo(gmsAssertionInfo.getVolumeAssertion());
       assertionInfo.setVolumeAssertion(volumeAssertionInfo);
     }
+    // SQL Assertions
+    if (gmsAssertionInfo.hasSqlAssertion()) {
+      SqlAssertionInfo sqlAssertionInfo = SqlAssertionMapper.mapSqlAssertionInfo(gmsAssertionInfo.getSqlAssertion());
+      assertionInfo.setSqlAssertion(sqlAssertionInfo);
+    }
     // Source Type
     if (gmsAssertionInfo.hasSource()) {
       assertionInfo.setSource(mapSource(gmsAssertionInfo.getSource()));
+    }
+    // Description
+    if (gmsAssertionInfo.hasDescription()) {
+      assertionInfo.setDescription(gmsAssertionInfo.getDescription());
     }
     return assertionInfo;
   }

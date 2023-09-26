@@ -17,6 +17,7 @@ class AssertionStdOperator(Enum):
     GREATER_THAN = "GREATER_THAN"
     GREATER_THAN_OR_EQUAL_TO = "GREATER_THAN_OR_EQUAL_TO"
     EQUAL_TO = "EQUAL_TO"
+    NOT_EQUAL_TO = "NOT_EQUAL_TO"
     LESS_THAN = "LESS_THAN"
     LESS_THAN_OR_EQUAL_TO = "LESS_THAN_OR_EQUAL_TO"
     BETWEEN = "BETWEEN"
@@ -38,6 +39,7 @@ class AssertionType(Enum):
     DATASET = "DATASET"
     FRESHNESS = "FRESHNESS"
     VOLUME = "VOLUME"
+    SQL = "SQL"
 
 
 class AssertionResultErrorType(Enum):
@@ -49,6 +51,7 @@ class AssertionResultErrorType(Enum):
     INVALID_PARAMETERS = "INVALID_PARAMETERS"
     INVALID_SOURCE_TYPE = "INVALID_SOURCE_TYPE"
     UNSUPPORTED_PLATFORM = "UNSUPPORTED_PLATFORM"
+    CUSTOM_SQL_ERROR = "CUSTOM_SQL_ERROR"
     UNKNOWN_ERROR = "UNKNOWN_ERROR"
 
 
@@ -65,6 +68,13 @@ class VolumeAssertionType(Enum):
     ROW_COUNT_CHANGE = "ROW_COUNT_CHANGE"
     INCREMENTING_SEGMENT_ROW_COUNT_TOTAL = "INCREMENTING_SEGMENT_ROW_COUNT_TOTAL"
     INCREMENTING_SEGMENT_ROW_COUNT_CHANGE = "INCREMENTING_SEGMENT_ROW_COUNT_CHANGE"
+
+
+class SQLAssertionType(Enum):
+    """Enumeration of SQL assertion types."""
+
+    METRIC = "METRIC"
+    METRIC_CHANGE = "METRIC_CHANGE"
 
 
 class FreshnessAssertionScheduleType(Enum):
@@ -168,6 +178,7 @@ class AssertionEvaluationParametersType(Enum):
 
     DATASET_FRESHNESS = "DATASET_FRESHNESS"
     DATASET_VOLUME = "DATASET_VOLUME"
+    DATASET_SQL = "DATASET_SQL"
 
 
 class FreshnessFieldKind(Enum):
@@ -196,6 +207,12 @@ class IncrementingSegmentFieldTransformerType(Enum):
     FLOOR = "FLOOR"
     CEILING = "CEILING"
     NATIVE = "NATIVE"
+
+
+class AssertionSourceType(Enum):
+    NATIVE = "NATIVE"
+    EXTERNAL = "EXTERNAL"
+    INFERRED = "INFERRED"
 
 
 class CronSchedule(PermissiveBaseModel):
@@ -423,6 +440,20 @@ class VolumeAssertion(PermissiveBaseModel):
     filter: Optional[DatasetFilter] = None
 
 
+class SQLAssertion(PermissiveBaseModel):
+    type: SQLAssertionType
+
+    statement: str
+
+    change_type: Optional[AssertionValueChangeType] = Field(alias="changeType")
+
+    # The operator GREATER_THAN, GREATER_THAN_OR_EQUAL_TO, EQUAL_TO, etc being applied to the assertion
+    operator: AssertionStdOperator
+
+    # The parameters provided as input to the operator.
+    parameters: AssertionStdParameters
+
+
 class AssertionEntity(PermissiveBaseModel):
     """A unique identifier for the assertee (e.g. dataset urn). This represents the unique coordinates inside the data platform"""
 
@@ -538,12 +569,25 @@ class Assertion(PermissiveBaseModel):
     # Volume Assertion Object
     volume_assertion: Optional[VolumeAssertion] = Field(alias="volumeAssertion")
 
+    # SQL Assertion Object
+    sql_assertion: Optional[SQLAssertion] = Field(alias="sqlAssertion")
+
+    source_type: Optional[AssertionSourceType] = Field(alias="sourceType")
+
     @root_validator(pre=True)
     def extract(cls, values: Dict[str, Any]) -> Dict[str, Any]:
         # Attempt to extract the entity field from the "relationships"
         # response object provided by the GraphQL API.
-        if "entity" not in values:
+        graphql_entity = None
+
+        if (
+            "relationships" in values
+            and "relationships" in values["relationships"]
+            and len(values["relationships"]["relationships"]) > 0
+        ):
             graphql_entity = values["relationships"]["relationships"][0]["entity"]
+
+        if "entity" not in values and graphql_entity:
             platform_urn = graphql_entity["platform"]["urn"]
             entity_urn = graphql_entity["urn"]
 
@@ -578,13 +622,19 @@ class Assertion(PermissiveBaseModel):
                 "qualified_name": qualified_name,
             }
 
-        if "connectionUrn" not in values:
-            graphql_entity = values["relationships"]["relationships"][0]["entity"]
+        if "connectionUrn" not in values and graphql_entity:
             platform_urn = graphql_entity["platform"]["urn"]
             values["connectionUrn"] = platform_urn
 
         if "info" in values and "type" in values["info"]:
             values["type"] = values["info"]["type"]
+
+        if (
+            "info" in values
+            and "source" in values["info"]
+            and "type" in values["info"]["source"]
+        ):
+            values["sourceType"] = values["info"]["source"]["type"]
 
         if (
             "freshnessAssertion" not in values
@@ -599,6 +649,13 @@ class Assertion(PermissiveBaseModel):
             and "volumeAssertion" in values["info"]
         ):
             values["volumeAssertion"] = values["info"]["volumeAssertion"]
+
+        if (
+            "sqlAssertion" not in values
+            and "info" in values
+            and "sqlAssertion" in values["info"]
+        ):
+            values["sqlAssertion"] = values["info"]["sqlAssertion"]
 
         return values
 
@@ -626,7 +683,7 @@ class AssertionEvaluationSpec(PermissiveBaseModel):
     schedule: CronSchedule
 
     # The parameters required to evaluate an assertion
-    parameters: Optional[AssertionEvaluationParameters] = None
+    parameters: AssertionEvaluationParameters
 
 
 class AssertionMonitor(PermissiveBaseModel):

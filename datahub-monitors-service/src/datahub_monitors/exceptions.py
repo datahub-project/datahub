@@ -6,7 +6,9 @@ from datahub_monitors.types import DatasetFreshnessSourceType, EntityEventType
 class AssertionResultException(Exception):
     """Base class for assertion result exceptions"""
 
-    pass
+    def __init__(self, message: str):
+        super().__init__(message)
+        self.message = message
 
 
 class InsufficientDataException(AssertionResultException):
@@ -59,3 +61,10 @@ class UnsupportedPlatformException(AssertionResultException):
     def __init__(self, message: str, platform_urn: str):
         super().__init__(message)
         self.platform_urn = platform_urn
+
+
+class CustomSQLErrorException(AssertionResultException):
+    """Raised when a custom SQL assertion is run and results are unsupported"""
+
+    def __init__(self, message: str):
+        super().__init__(message)

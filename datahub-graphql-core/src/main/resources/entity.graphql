@@ -7038,6 +7038,11 @@ enum AssertionResultErrorType {
     UNSUPPORTED_PLATFORM
 
     """
+    Error while executing a custom SQL assertion
+    """
+    CUSTOM_SQL_ERROR
+
+    """
     Unknown error
     """
     UNKNOWN_ERROR
@@ -7215,6 +7220,11 @@ enum AssertionStdOperator {
     EQUAL_TO
 
     """
+    Value being asserted is not equal to value
+    """
+    NOT_EQUAL_TO
+
+    """
     Value being asserted is not null
     """
     NOT_NULL
@@ -7340,6 +7350,10 @@ enum AssertionType {
     A Volume assertion
     """
     VOLUME
+    """
+    A raw SQL-statement based assertion
+    """
+    SQL
 }
 
 """
