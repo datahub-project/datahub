@@ -1,24 +1,21 @@
 import contextlib
-import time
 import logging
 import operator
 import re
+import time
 from functools import reduce
-from typing import cast, Any, Dict, List, Match, Optional, Union
+from typing import Any, Dict, List, Match, Optional, Union, cast
 
 from datahub.emitter import mce_builder
 from datahub.emitter.mce_builder import OwnerType
 from datahub.metadata.schema_classes import (
+    AuditStampClass,
+    InstitutionalMemoryClass,
+    InstitutionalMemoryMetadataClass,
     OwnerClass,
     OwnershipClass,
     OwnershipSourceClass,
     OwnershipTypeClass,
-)
-
-from datahub.metadata.schema_classes import (
-    AuditStampClass,
-    InstitutionalMemoryClass,
-    InstitutionalMemoryMetadataClass,
 )
 
 logger = logging.getLogger(__name__)
