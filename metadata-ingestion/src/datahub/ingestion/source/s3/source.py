@@ -455,7 +455,9 @@ class S3Source(StatefulIngestionSourceBase):
         fields = sorted(fields, key=lambda f: f.fieldPath)
 
         if self.source_config.add_partition_columns_to_schema:
-            self.add_partition_columns_to_schema(fields, path_spec, table_data)
+            self.add_partition_columns_to_schema(
+                fields=fields, path_spec=path_spec, table_data=table_data
+            )
 
         return fields
 
@@ -476,7 +478,7 @@ class S3Source(StatefulIngestionSourceBase):
                         if not is_fieldpath_v2
                         else f"[version=2.0].[type=string].{partition_key}",
                         nativeDataType="string",
-                        type=SchemaFieldType(StringTypeClass)
+                        type=SchemaFieldDataType(StringTypeClass)
                         if not is_fieldpath_v2
                         else SchemaFieldDataTypeClass(type=StringTypeClass()),
                         isPartitioningKey=True,
