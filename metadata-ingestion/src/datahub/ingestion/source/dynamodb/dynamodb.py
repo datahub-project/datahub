@@ -339,12 +339,15 @@ class DynamoDBSource(StatefulIngestionSourceBase):
         items = []
         response = dynamodb_client.batch_get_item(
             RequestItems={table_name: {"Keys": primary_key_list}}
-        ).get("Responses", None)
+        ).get("Responses")
         if response is None:
             logger.error(
                 f"failed to retrieve item from table {table_name} by the given key {primary_key_list}"
             )
             return
+        logger.info(
+            f"successfully retrieved {len(primary_key_list)} items based on supplied primary key list"
+        )
         items = response.get(table_name)
 
         self.construct_schema_from_items(items, schema)
