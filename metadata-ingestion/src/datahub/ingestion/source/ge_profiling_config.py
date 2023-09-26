@@ -162,7 +162,7 @@ class GEProfilingConfig(ConfigModel):
     )
 
     sample_size: int = Field(
-        default=1000,
+        default=10000,
         description="Number of rows to be sampled from table for column level profiling."
         "Applicable only if `use_sampling` is set to True.",
     )

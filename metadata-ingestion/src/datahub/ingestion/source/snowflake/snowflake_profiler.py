@@ -81,7 +81,12 @@ class SnowflakeProfiler(GenericProfiler, SnowflakeCommonMixin):
             and table.rows_count
             and table.rows_count > self.config.profiling.sample_size
         ):
-            custom_sql = f'select * from "{db_name}"."{schema_name}"."{table.name}" TABLESAMPLE ({self.config.profiling.sample_size} rows)'
+            # GX creates a temporary table from query if query is passed as batch kwargs.
+            # We are using fraction-based sampling here, instead of fixed-size sampling because
+            # Fixed-size sampling can be slower than equivalent fraction-based sampling
+            # as per https://docs.snowflake.com/en/sql-reference/constructs/sample#performance-considerations
+            sample_pc = 100 * self.config.profiling.sample_size / table.rows_count
+            custom_sql = f'select * from "{db_name}"."{schema_name}"."{table.name}" TABLESAMPLE ({sample_pc:.3f})'
         return {
             **super().get_batch_kwargs(table, schema_name, db_name),
             # Lowercase/Mixedcase table names in Snowflake do not work by default.
