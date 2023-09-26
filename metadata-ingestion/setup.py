@@ -36,10 +36,11 @@ framework_common = {
     "click-default-group",
     "PyYAML",
     "toml>=0.10.0",
-    "entrypoints",
+    # In Python 3.10+, importlib_metadata is included in the standard library.
+    "importlib_metadata>=4.0.0; python_version < '3.10'",
     "docker",
     "expandvars>=0.6.5",
-    "avro-gen3==0.7.10",
+    "avro-gen3==0.7.11",
     # "avro-gen3 @ git+https://github.com/acryldata/avro_gen@master#egg=avro-gen3",
     "avro>=1.10.2,<1.11",
     "python-dateutil>=2.8.0",
@@ -58,7 +59,8 @@ framework_common = {
     "requests_file",
     "jsonref",
     # jsonschema drops python 3.7 support in v4.18.0
-    "jsonschema<=4.17.3",
+    "jsonschema<=4.17.3; python_version < '3.8'",
+    "jsonschema; python_version >= '3.8'",
     "ruamel.yaml",
 }
 
@@ -112,7 +114,8 @@ kafka_protobuf = {
 
 sql_common = {
     # Required for all SQL sources.
-    "sqlalchemy>=1.3.24, <2",
+    # This is temporary lower bound that we're open to loosening/tightening as requirements show up
+    "sqlalchemy>=1.4.39, <2",
     # Required for SQL profiling.
     "great-expectations>=0.15.12, <=0.15.50",
     # scipy version restricted to reduce backtracking, used by great-expectations,
@@ -136,7 +139,7 @@ sqllineage_lib = {
 sqlglot_lib = {
     # Using an Acryl fork of sqlglot.
     # https://github.com/tobymao/sqlglot/compare/main...hsheth2:sqlglot:hsheth?expand=1
-    "acryl-sqlglot==16.7.6.dev6",
+    "acryl-sqlglot==18.5.2.dev45",
 }
 
 aws_common = {
@@ -172,13 +175,13 @@ bigquery_common = {
 }
 
 clickhouse_common = {
-    # Clickhouse 0.1.8 requires SQLAlchemy 1.3.x, while the newer versions
-    # allow SQLAlchemy 1.4.x.
-    "clickhouse-sqlalchemy>=0.1.8",
+    # Clickhouse 0.2.0 adds support for SQLAlchemy 1.4.x
+    "clickhouse-sqlalchemy>=0.2.0",
 }
 
 redshift_common = {
-    "sqlalchemy-redshift",
+    # Clickhouse 0.8.3 adds support for SQLAlchemy 1.4.x
+    "sqlalchemy-redshift>=0.8.3",
     "psycopg2-binary",
     "GeoAlchemy2",
     *sqllineage_lib,
@@ -188,13 +191,8 @@ redshift_common = {
 snowflake_common = {
     # Snowflake plugin utilizes sql common
     *sql_common,
-    # Required for all Snowflake sources.
-    # See https://github.com/snowflakedb/snowflake-sqlalchemy/issues/234 for why 1.2.5 is blocked.
-    "snowflake-sqlalchemy>=1.2.4, !=1.2.5",
-    # Because of https://github.com/snowflakedb/snowflake-sqlalchemy/issues/350 we need to restrict SQLAlchemy's max version.
-    # Eventually we should just require snowflake-sqlalchemy>=1.4.3, but I won't do that immediately
-    # because it may break Airflow users that need SQLAlchemy 1.3.x.
-    "SQLAlchemy<1.4.42",
+    # https://github.com/snowflakedb/snowflake-sqlalchemy/issues/350
+    "snowflake-sqlalchemy>=1.4.3",
     # See https://github.com/snowflakedb/snowflake-connector-python/pull/1348 for why 2.8.2 is blocked
     "snowflake-connector-python!=2.8.2",
     "pandas",
@@ -206,9 +204,7 @@ snowflake_common = {
 }
 
 trino = {
-    # Trino 0.317 broke compatibility with SQLAlchemy 1.3.24.
-    # See https://github.com/trinodb/trino-python-client/issues/250.
-    "trino[sqlalchemy]>=0.308, !=0.317",
+    "trino[sqlalchemy]>=0.308",
 }
 
 pyhive_common = {
@@ -229,8 +225,8 @@ microsoft_common = {"msal==1.22.0"}
 
 iceberg_common = {
     # Iceberg Python SDK
-    "acryl-iceberg-legacy==0.0.4",
-    "azure-identity==1.10.0",
+    "pyiceberg",
+    "pyarrow>=9.0.0, <13.0.0",
 }
 
 s3_base = {
@@ -283,8 +279,7 @@ plugins: Dict[str, Set[str]] = {
     },
     # Integrations.
     "airflow": {
-        "apache-airflow >= 2.0.2",
-        *rest_common,
+        f"acryl-datahub-airflow-plugin == {package_metadata['__version__']}",
     },
     "circuit-breaker": {
         "gql>=3.3.0",
@@ -304,7 +299,6 @@ plugins: Dict[str, Set[str]] = {
         # TODO: I doubt we need all three sql parsing libraries.
         *sqllineage_lib,
         *sqlglot_lib,
-        "sql_metadata",
         "sqlalchemy-bigquery>=1.4.1",
         "google-cloud-datacatalog-lineage==0.2.2",
     },
@@ -316,6 +310,7 @@ plugins: Dict[str, Set[str]] = {
     "dbt": {"requests"} | aws_common,
     "dbt-cloud": {"requests"},
     "druid": sql_common | {"pydruid>=0.6.2"},
+    "dynamodb": aws_common,
     # Starting with 7.14.0 python client is checking if it is connected to elasticsearch client. If its not it throws
     # UnsupportedProductError
     # https://www.elastic.co/guide/en/elasticsearch/client/python-api/current/release-notes.html#rn-7-14-0
@@ -410,7 +405,12 @@ mypy_stubs = {
     "types-pkg_resources",
     "types-six",
     "types-python-dateutil",
-    "types-requests>=2.28.11.6",
+    # We need to avoid 2.31.0.5 and 2.31.0.4 due to
+    # https://github.com/python/typeshed/issues/10764. Once that
+    # issue is resolved, we can remove the upper bound and change it
+    # to a != constraint.
+    # We have a PR up to fix the underlying issue: https://github.com/python/typeshed/pull/10776.
+    "types-requests>=2.28.11.6,<=2.31.0.3",
     "types-toml",
     "types-PyMySQL",
     "types-PyYAML",
@@ -431,7 +431,7 @@ mypy_stubs = {
     "types-termcolor>=1.0.0",
     "types-Deprecated",
     "types-protobuf>=4.21.0.1",
-    "types-tzlocal",
+    "sqlalchemy2-stubs",
 }
 
 
@@ -478,7 +478,7 @@ base_dev_requirements = {
             "druid",
             "elasticsearch",
             "feast" if sys.version_info >= (3, 8) else None,
-            "iceberg",
+            "iceberg" if sys.version_info >= (3, 8) else None,
             "json-schema",
             "ldap",
             "looker",
@@ -508,8 +508,9 @@ base_dev_requirements = {
             "salesforce",
             "unity-catalog",
             "nifi",
-            "vertica"
-            # airflow is added below
+            "vertica",
+            "mode",
+            "kafka-connect",
         ]
         if plugin
         for dependency in plugins[plugin]
@@ -518,9 +519,6 @@ base_dev_requirements = {
 
 dev_requirements = {
     *base_dev_requirements,
-    # Extra requirements for Airflow.
-    "apache-airflow[snowflake]>=2.0.2",  # snowflake is used in example dags
-    "virtualenv",  # needed by PythonVirtualenvOperator
 }
 
 full_test_dev_requirements = {
@@ -534,7 +532,7 @@ full_test_dev_requirements = {
             "druid",
             "hana",
             "hive",
-            "iceberg",
+            "iceberg" if sys.version_info >= (3, 8) else None,
             "kafka-connect",
             "ldap",
             "mongodb",
@@ -544,6 +542,7 @@ full_test_dev_requirements = {
             "redash",
             "vertica",
         ]
+        if plugin
         for dependency in plugins[plugin]
     ),
 }
@@ -565,6 +564,7 @@ entry_points = {
         "dbt = datahub.ingestion.source.dbt.dbt_core:DBTCoreSource",
         "dbt-cloud = datahub.ingestion.source.dbt.dbt_cloud:DBTCloudSource",
         "druid = datahub.ingestion.source.sql.druid:DruidSource",
+        "dynamodb = datahub.ingestion.source.dynamodb.dynamodb:DynamoDBSource",
         "elasticsearch = datahub.ingestion.source.elastic_search:ElasticsearchSource",
         "feast = datahub.ingestion.source.feast:FeastRepositorySource",
         "glue = datahub.ingestion.source.aws.glue:GlueSource",
@@ -649,7 +649,7 @@ entry_points = {
         "datahub = datahub.ingestion.reporting.datahub_ingestion_run_summary_provider:DatahubIngestionRunSummaryProvider",
         "file = datahub.ingestion.reporting.file_reporter:FileReporter",
     ],
-    "apache_airflow_provider": ["provider_info=datahub_provider:get_provider_info"],
+    "datahub.custom_packages": [],
 }
 
 
@@ -716,6 +716,7 @@ setuptools.setup(
                 ]
             )
         ),
+        "cloud": ["acryl-datahub-cloud"],
         "dev": list(dev_requirements),
         "testing-utils": list(test_api_requirements),  # To import `datahub.testing`
         "integration-tests": list(full_test_dev_requirements),
