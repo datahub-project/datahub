@@ -1,7 +1,7 @@
 # Defining environment
 ARG APP_ENV=full
 ARG BASE_IMAGE=acryldata/datahub-ingestion-base
-ARG DOCKER_VERSION=latest
+ARG DOCKER_VERSION=head
 
 FROM $BASE_IMAGE:$DOCKER_VERSION as base
 USER 0
