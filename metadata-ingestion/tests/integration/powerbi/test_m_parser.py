@@ -726,6 +726,7 @@ def test_sqlglot_parser():
         config=config,
         platform_instance_resolver=platform_instance_resolver,
     )
+
     data_platform_tables: List[DataPlatformTable] = lineage[0].upstreams
 
     assert len(data_platform_tables) == 2
@@ -737,3 +738,26 @@ def test_sqlglot_parser():
         data_platform_tables[1].urn
         == "urn:li:dataset:(urn:li:dataPlatform:snowflake,sales_deployment.operations_analytics.transformed_prod.v_sme_unit_targets,PROD)"
     )
+
+    expected_columns: List[str] = [
+        "client_director",
+        "tier",
+        'upper("manager")',
+        "team_type",
+        "date_target",
+        "monthid",
+        "target_team",
+        "seller_email",
+        "agent_key",
+        "sme_quota",
+        "revenue_quota",
+        "service_quota",
+        "bl_target",
+        "software_quota",
+    ]
+
+    actual_columns: List[str] = [
+        column_lineage.downstream.column for column_lineage in lineage[0].column_lineage
+    ]
+
+    assert expected_columns == actual_columns
