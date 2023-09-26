@@ -1,7 +1,7 @@
 package datahub.protobuf.model;
 
 import com.google.protobuf.DescriptorProtos.FileDescriptorSet;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.util.HashSet;

@@ -7,7 +7,7 @@ import com.linkedin.schema.StringType;
 import com.linkedin.schema.UnionType;
 import com.linkedin.util.Pair;
 import datahub.protobuf.ProtobufDataset;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.util.List;
