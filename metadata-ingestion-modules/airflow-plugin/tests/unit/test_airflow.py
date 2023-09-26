@@ -105,7 +105,7 @@ def test_datahub_rest_hook(mock_emitter):
 
         mock_emitter.assert_called_once_with(config.host, None, None)
         instance = mock_emitter.return_value
-        instance.emit_mce.assert_called_with(lineage_mce)
+        instance.emit.assert_called_with(lineage_mce)
 
 
 @mock.patch("datahub.emitter.rest_emitter.DatahubRestEmitter", autospec=True)
@@ -119,7 +119,7 @@ def test_datahub_rest_hook_with_timeout(mock_emitter):
 
         mock_emitter.assert_called_once_with(config.host, None, 5)
         instance = mock_emitter.return_value
-        instance.emit_mce.assert_called_with(lineage_mce)
+        instance.emit.assert_called_with(lineage_mce)
 
 
 @mock.patch("datahub.emitter.kafka_emitter.DatahubKafkaEmitter", autospec=True)
@@ -131,11 +131,11 @@ def test_datahub_kafka_hook(mock_emitter):
 
         mock_emitter.assert_called_once()
         instance = mock_emitter.return_value
-        instance.emit_mce_async.assert_called()
+        instance.emit.assert_called()
         instance.flush.assert_called_once()
 
 
-@mock.patch("datahub_provider.hooks.datahub.DatahubRestHook.emit_mces")
+@mock.patch("datahub_provider.hooks.datahub.DatahubRestHook.emit")
 def test_datahub_lineage_operator(mock_emit):
     with patch_airflow_connection(datahub_rest_connection_config) as config:
         assert config.conn_id

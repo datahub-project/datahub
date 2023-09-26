@@ -2,6 +2,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 
 from airflow.exceptions import AirflowException
 from airflow.hooks.base import BaseHook
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeEvent,
     MetadataChangeProposal,
@@ -80,17 +81,24 @@ class DatahubRestHook(BaseHook):
 
         return datahub.emitter.rest_emitter.DatahubRestEmitter(*self._get_config())
 
-    def emit_mces(self, mces: List[MetadataChangeEvent]) -> None:
+    def emit(
+        self,
+        items: List[
+            Union[
+                MetadataChangeEvent,
+                MetadataChangeProposal,
+                MetadataChangeProposalWrapper,
+            ]
+        ],
+    ) -> None:
         emitter = self.make_emitter()
 
-        for mce in mces:
-            emitter.emit_mce(mce)
+        for item in items:
+            emitter.emit(item)
 
-    def emit_mcps(self, mcps: List[MetadataChangeProposal]) -> None:
-        emitter = self.make_emitter()
-
-        for mce in mcps:
-            emitter.emit_mcp(mce)
+    # Retained for backwards compatibility.
+    emit_mces = emit
+    emit_mcps = emit
 
 
 class DatahubKafkaHook(BaseHook):
@@ -152,7 +160,16 @@ class DatahubKafkaHook(BaseHook):
         sink_config = self._get_config()
         return datahub.emitter.kafka_emitter.DatahubKafkaEmitter(sink_config)
 
-    def emit_mces(self, mces: List[MetadataChangeEvent]) -> None:
+    def emit(
+        self,
+        items: List[
+            Union[
+                MetadataChangeEvent,
+                MetadataChangeProposal,
+                MetadataChangeProposalWrapper,
+            ]
+        ],
+    ) -> None:
         emitter = self.make_emitter()
         errors = []
 
@@ -160,29 +177,17 @@ class DatahubKafkaHook(BaseHook):
             if exc:
                 errors.append(exc)
 
-        for mce in mces:
-            emitter.emit_mce_async(mce, callback)
+        for mce in items:
+            emitter.emit(mce, callback)
 
         emitter.flush()
 
         if errors:
-            raise AirflowException(f"failed to push some MCEs: {errors}")
+            raise AirflowException(f"failed to push some metadata: {errors}")
 
-    def emit_mcps(self, mcps: List[MetadataChangeProposal]) -> None:
-        emitter = self.make_emitter()
-        errors = []
-
-        def callback(exc, msg):
-            if exc:
-                errors.append(exc)
-
-        for mcp in mcps:
-            emitter.emit_mcp_async(mcp, callback)
-
-        emitter.flush()
-
-        if errors:
-            raise AirflowException(f"failed to push some MCPs: {errors}")
+    # Retained for backwards compatibility.
+    emit_mces = emit
+    emit_mcps = emit
 
 
 class DatahubGenericHook(BaseHook):
@@ -225,5 +230,17 @@ class DatahubGenericHook(BaseHook):
     def make_emitter(self) -> Union["DatahubRestEmitter", "DatahubKafkaEmitter"]:
         return self.get_underlying_hook().make_emitter()
 
-    def emit_mces(self, mces: List[MetadataChangeEvent]) -> None:
-        return self.get_underlying_hook().emit_mces(mces)
+    def emit(
+        self,
+        items: List[
+            Union[
+                MetadataChangeEvent,
+                MetadataChangeProposal,
+                MetadataChangeProposalWrapper,
+            ]
+        ],
+    ) -> None:
+        return self.get_underlying_hook().emit(items)
+
+    # Retained for backwards compatibility.
+    emit_mces = emit
