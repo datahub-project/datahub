@@ -31,7 +31,8 @@ public class DataPlatformInstanceFieldResolverProviderTest {
 
   private static final String DATA_PLATFORM_INSTANCE_URN =
       "urn:li:dataPlatformInstance:(urn:li:dataPlatform:s3,test-platform-instance)";
-  private static final String RESOURCE_URN = "urn:li:dataset:(urn:li:dataPlatform:testPlatform,testDataset,PROD)";
+  private static final String RESOURCE_URN =
+      "urn:li:dataset:(urn:li:dataPlatform:s3,test-platform-instance.testDataset,PROD)";
   private static final ResourceSpec RESOURCE_SPEC = new ResourceSpec(DATASET_ENTITY_NAME, RESOURCE_URN);
 
   @Mock
@@ -142,7 +143,7 @@ public class DataPlatformInstanceFieldResolverProviderTest {
         any(Urn.class),
         eq(Collections.singleton(DATA_PLATFORM_INSTANCE_ASPECT_NAME)),
         eq(systemAuthenticationMock)
-    )).thenThrow(new RemoteInvocationException());
+    )).thenReturn(entityResponseMock);
 
     var result = dataPlatformInstanceFieldResolverProvider.getFieldResolver(RESOURCE_SPEC);
 
