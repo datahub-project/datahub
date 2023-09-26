@@ -1,6 +1,6 @@
 package com.linkedin.gms.factory.dataproduct;
 
-import com.linkedin.gms.factory.spring.YamlPropertySourceFactory;
+import com.linkedin.metadata.spring.YamlPropertySourceFactory;
 import com.linkedin.metadata.client.JavaEntityClient;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.service.DataProductService;
