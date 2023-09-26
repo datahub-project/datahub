@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Tuple, Union
 
 from airflow.exceptions import AirflowException
 from airflow.hooks.base import BaseHook
@@ -83,7 +83,7 @@ class DatahubRestHook(BaseHook):
 
     def emit(
         self,
-        items: List[
+        items: Sequence[
             Union[
                 MetadataChangeEvent,
                 MetadataChangeProposal,
@@ -162,7 +162,7 @@ class DatahubKafkaHook(BaseHook):
 
     def emit(
         self,
-        items: List[
+        items: Sequence[
             Union[
                 MetadataChangeEvent,
                 MetadataChangeProposal,
@@ -232,7 +232,7 @@ class DatahubGenericHook(BaseHook):
 
     def emit(
         self,
-        items: List[
+        items: Sequence[
             Union[
                 MetadataChangeEvent,
                 MetadataChangeProposal,
