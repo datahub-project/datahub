@@ -1,6 +1,6 @@
 package com.linkedin.gms.factory.lineage;
 
-import com.linkedin.gms.factory.spring.YamlPropertySourceFactory;
+import com.linkedin.metadata.spring.YamlPropertySourceFactory;
 import com.linkedin.metadata.client.JavaEntityClient;
 import javax.annotation.Nonnull;
 

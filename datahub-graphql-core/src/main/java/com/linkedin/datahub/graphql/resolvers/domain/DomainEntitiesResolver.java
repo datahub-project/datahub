@@ -1,6 +1,5 @@
 package com.linkedin.datahub.graphql.resolvers.domain;
 
-import com.google.common.collect.ImmutableList;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.Domain;
 import com.linkedin.datahub.graphql.generated.DomainEntitiesInput;
@@ -67,17 +66,22 @@ public class DomainEntitiesResolver implements DataFetcher<CompletableFuture<Sea
 
       try {
 
+        final CriterionArray criteria = new CriterionArray();
         final Criterion filterCriterion =  new Criterion()
             .setField(DOMAINS_FIELD_NAME + ".keyword")
             .setCondition(Condition.EQUAL)
             .setValue(urn);
+        criteria.add(filterCriterion);
+        if (input.getFilters() != null) {
+          input.getFilters().forEach(filter -> {
+            criteria.add(new Criterion().setField(filter.getField()).setValue(filter.getValue()));
+          });
+        }
 
         return UrnSearchResultsMapper.map(_entityClient.searchAcrossEntities(
             SEARCHABLE_ENTITY_TYPES.stream().map(EntityTypeMapper::getName).collect(Collectors.toList()),
             query,
-            new Filter().setOr(new ConjunctiveCriterionArray(
-                new ConjunctiveCriterion().setAnd(new CriterionArray(ImmutableList.of(filterCriterion)))
-            )),
+            new Filter().setOr(new ConjunctiveCriterionArray(new ConjunctiveCriterion().setAnd(criteria))),
             start,
             count,
             null,

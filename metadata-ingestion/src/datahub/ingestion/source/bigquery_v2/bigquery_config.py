@@ -4,9 +4,11 @@ from datetime import timedelta
 from typing import Any, Dict, List, Optional
 
 import pydantic
-from pydantic import Field, PositiveInt, PrivateAttr, root_validator
+from google.cloud import bigquery
+from google.cloud.logging_v2.client import Client as GCPLoggingClient
+from pydantic import Field, PositiveInt, PrivateAttr, root_validator, validator
 
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 from datahub.ingestion.source.state.stateful_ingestion_base import (
@@ -35,7 +37,52 @@ class BigQueryUsageConfig(BaseUsageConfig):
     )
 
 
+class BigQueryConnectionConfig(ConfigModel):
+    credential: Optional[BigQueryCredential] = Field(
+        default=None, description="BigQuery credential informations"
+    )
+
+    _credentials_path: Optional[str] = PrivateAttr(None)
+
+    extra_client_options: Dict[str, Any] = Field(
+        default={},
+        description="Additional options to pass to google.cloud.logging_v2.client.Client.",
+    )
+
+    project_on_behalf: Optional[str] = Field(
+        default=None,
+        description="[Advanced] The BigQuery project in which queries are executed. Will be passed when creating a job. If not passed, falls back to the project associated with the service account.",
+    )
+
+    def __init__(self, **data: Any):
+        super().__init__(**data)
+
+        if self.credential:
+            self._credentials_path = self.credential.create_credential_temp_file()
+            logger.debug(
+                f"Creating temporary credential file at {self._credentials_path}"
+            )
+            os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = self._credentials_path
+
+    def get_bigquery_client(config) -> bigquery.Client:
+        client_options = config.extra_client_options
+        return bigquery.Client(config.project_on_behalf, **client_options)
+
+    def make_gcp_logging_client(
+        self, project_id: Optional[str] = None
+    ) -> GCPLoggingClient:
+        # See https://github.com/googleapis/google-cloud-python/issues/2674 for
+        # why we disable gRPC here.
+        client_options = self.extra_client_options.copy()
+        client_options["_use_grpc"] = False
+        if project_id is not None:
+            return GCPLoggingClient(**client_options, project=project_id)
+        else:
+            return GCPLoggingClient(**client_options)
+
+
 class BigQueryV2Config(
+    BigQueryConnectionConfig,
     BigQueryBaseConfig,
     SQLCommonConfig,
     StatefulUsageConfigMixin,
@@ -122,11 +169,6 @@ class BigQueryV2Config(
         ),
     )
 
-    project_on_behalf: Optional[str] = Field(
-        default=None,
-        description="[Advanced] The BigQuery project in which queries are executed. Will be passed when creating a job. If not passed, falls back to the project associated with the service account.",
-    )
-
     storage_project_id: None = Field(default=None, hidden_from_docs=True)
 
     lineage_use_sql_parser: bool = Field(
@@ -180,14 +222,8 @@ class BigQueryV2Config(
         default=1000,
         description="The number of log item will be queried per page for lineage collection",
     )
-    credential: Optional[BigQueryCredential] = Field(
-        description="BigQuery credential informations"
-    )
+
     # extra_client_options, include_table_lineage and max_query_duration are relevant only when computing the lineage.
-    extra_client_options: Dict[str, Any] = Field(
-        default={},
-        description="Additional options to pass to google.cloud.logging_v2.client.Client.",
-    )
     include_table_lineage: Optional[bool] = Field(
         default=True,
         description="Option to enable/disable lineage generation. Is enabled by default.",
@@ -209,7 +245,6 @@ class BigQueryV2Config(
         default=False,
         description="Whether to read date sharded tables or time partitioned tables when extracting usage from exported audit logs.",
     )
-    _credentials_path: Optional[str] = PrivateAttr(None)
 
     _cache_path: Optional[str] = PrivateAttr(None)
 
@@ -230,16 +265,6 @@ class BigQueryV2Config(
         description="Maximum number of entries for the in-memory caches of FileBacked data structures.",
     )
 
-    def __init__(self, **data: Any):
-        super().__init__(**data)
-
-        if self.credential:
-            self._credentials_path = self.credential.create_credential_temp_file()
-            logger.debug(
-                f"Creating temporary credential file at {self._credentials_path}"
-            )
-            os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = self._credentials_path
-
     @root_validator(pre=False)
     def profile_default_settings(cls, values: Dict) -> Dict:
         # Extra default SQLAlchemy option for better connection pooling and threading.
@@ -247,6 +272,17 @@ class BigQueryV2Config(
         values["options"].setdefault("max_overflow", values["profiling"].max_workers)
 
         return values
+
+    @validator("bigquery_audit_metadata_datasets")
+    def validate_bigquery_audit_metadata_datasets(
+        cls, v: Optional[List[str]], values: Dict
+    ) -> Optional[List[str]]:
+        if values.get("use_exported_bigquery_audit_metadata"):
+            assert (
+                v and len(v) > 0
+            ), "`bigquery_audit_metadata_datasets` should be set if using `use_exported_bigquery_audit_metadata: True`."
+
+        return v
 
     @root_validator(pre=False)
     def backward_compatibility_configs_set(cls, values: Dict) -> Dict:

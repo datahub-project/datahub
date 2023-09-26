@@ -9,12 +9,10 @@ import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.UsageQueryResult;
 import com.linkedin.datahub.graphql.types.usage.UsageQueryResultMapper;
 import com.linkedin.metadata.authorization.PoliciesConfig;
-import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.usage.UsageClient;
 import com.linkedin.usage.UsageTimeRange;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
-import java.net.URISyntaxException;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import lombok.extern.slf4j.Slf4j;
@@ -44,10 +42,10 @@ public class DatasetUsageStatsResolver implements DataFetcher<CompletableFuture<
       }
       try {
         com.linkedin.usage.UsageQueryResult
-            usageQueryResult = usageClient.getUsageStats(resourceUrn.toString(), range, context.getAuthentication());
+            usageQueryResult = usageClient.getUsageStats(resourceUrn.toString(), range);
         return UsageQueryResultMapper.map(usageQueryResult);
-      } catch (RemoteInvocationException | URISyntaxException e) {
-        throw new RuntimeException(String.format("Failed to load Usage Stats for resource %s", resourceUrn.toString()), e);
+      } catch (Exception e) {
+        throw new RuntimeException(String.format("Failed to load Usage Stats for resource %s", resourceUrn), e);
       }
     });
   }
