@@ -29,11 +29,26 @@ base_requirements = {
     *rest_common,
 }
 
-plugin_v2_requirements = {
-    # The v2 plugin requires Python 3.8+.
-    f"acryl-datahub[sql-parser]{_self_pin}",
-    "openlineage-airflow==1.2.0; python_version >= '3.8'",
+plugins = {
+    "datahub-rest": {
+        f"acryl-datahub[datahub-rest]{_self_pin}",
+    },
+    "datahub-kafka": {
+        f"acryl-datahub[datahub-kafka]{_self_pin}",
+    },
+    "datahub-file": {
+        f"acryl-datahub[sync-file-emitter]{_self_pin}",
+    },
+    "plugin-v1": set(),
+    "plugin-v2": {
+        # The v2 plugin requires Python 3.8+.
+        f"acryl-datahub[sql-parser]{_self_pin}",
+        "openlineage-airflow==1.2.0; python_version >= '3.8'",
+    },
 }
+
+# Include datahub-rest in the base requirements.
+base_requirements |= plugins["datahub-rest"]
 
 
 mypy_stubs = {
@@ -76,7 +91,16 @@ dev_requirements = {
     "build",
     "twine",
     "packaging",
-    f"acryl-datahub[sync-file-emitter,testing-utils]{_self_pin}",
+}
+
+integration_test_requirements = {
+    *dev_requirements,
+    *plugins["datahub-file"],
+    *plugins["datahub-kafka"],
+    f"acryl-datahub[testing-utils]{_self_pin}",
+    # Extra requirements for loading our test dags.
+    "apache-airflow[snowflake]>=2.0.2",
+    "virtualenv",  # needed by PythonVirtualenvOperator
 }
 
 
@@ -132,18 +156,8 @@ setuptools.setup(
     # Dependencies.
     install_requires=list(base_requirements),
     extras_require={
+        **{plugin: list(dependencies) for (plugin, dependencies) in plugins.items()},
         "dev": list(dev_requirements),
-        "datahub-kafka": [f"acryl-datahub[datahub-kafka]{_self_pin}"],
-        "datahub-file": [f"acryl-datahub[sync-file-emitter]{_self_pin}"],
-        "plugin-v1": [],
-        "plugin-v2": list(plugin_v2_requirements),
-        "integration-tests": [
-            f"acryl-datahub[datahub-kafka]{_self_pin}",
-            # Extra requirements for Airflow.
-            "apache-airflow[snowflake]>=2.0.2",  # snowflake is used in example dags
-            # Because of https://github.com/snowflakedb/snowflake-sqlalchemy/issues/350 we need to restrict SQLAlchemy's max version.
-            "SQLAlchemy<1.4.42",
-            "virtualenv",  # needed by PythonVirtualenvOperator
-        ],
+        "integration-tests": list(integration_test_requirements),
     },
 )

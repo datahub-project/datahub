@@ -228,9 +228,6 @@ class AirflowGenerator:
         job_property_bag: Dict[str, str] = {}
 
         allowed_task_keys = [
-            "_downstream_task_ids",
-            "_inlets",
-            "_outlets",
             "_task_type",
             "_task_module",
             "depends_on_past",
@@ -243,15 +240,20 @@ class AirflowGenerator:
             "trigger_rule",
             "wait_for_downstream",
             # In Airflow 2.3, _downstream_task_ids was renamed to downstream_task_ids
-            "downstream_task_ids",
+            ("downstream_task_ids", "_downstream_task_ids"),
             # In Airflow 2.4, _inlets and _outlets were removed in favor of non-private versions.
-            "inlets",
-            "outlets",
+            ("inlets", "_inlets"),
+            ("outlets", "_outlets"),
         ]
 
         for key in allowed_task_keys:
+            old_key = None
+            if isinstance(key, tuple):
+                key, old_key = key
             if hasattr(task, key):
                 job_property_bag[key] = repr(getattr(task, key))
+            elif old_key is not None and hasattr(task, old_key):
+                job_property_bag[key] = repr(getattr(task, old_key))
 
         datajob.properties = job_property_bag
         base_url = conf.get("webserver", "base_url")

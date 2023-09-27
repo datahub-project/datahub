@@ -15,10 +15,10 @@ The DataHub Airflow plugin supports:
 
 There's two actively supported implementations of the plugin, with different Airflow version support.
 
-| Approach  | Airflow Version | Notes                                       |
-| --------- | --------------- | ------------------------------------------- |
-| Plugin v2 | 2.3+            | Recommended. Requires Python 3.8+           |
-| Plugin v1 | 2.1+            | Supported. No automatic lineage extraction. |
+| Approach  | Airflow Version | Notes                                                                                   |
+| --------- | --------------- | --------------------------------------------------------------------------------------- |
+| Plugin v2 | 2.3+            | Recommended. Requires Python 3.8+                                                       |
+| Plugin v1 | 2.1+            | Supported. No automatic lineage extraction; will not extract lineage if the task fails. |
 
 If you're using Airflow older than 2.1, it's possible to use the v1 plugin with older versions of `acryl-datahub-airflow-plugin`. See the [compatibility section](#compatibility) for more details.
 
@@ -61,7 +61,7 @@ enabled = True  # default
 | capture_executions         | true                 | Extract task runs and success/failure statuses. This will show up in DataHub "Runs" tab. |
 | enable_extractors          | true                 | Enable automatic lineage extraction.                                                     |
 | disable_openlineage_plugin | true                 | Disable the OpenLineage plugin to avoid duplicative processing.                          |
-| log_level                  | no change            | [debug] Set the log level for the plugin.                                                |
+| log_level                  | _no change_          | [debug] Set the log level for the plugin.                                                |
 | debug_emitter              | false                | [debug] If true, the plugin will log the emitted events.                                 |
 
 ### Automatic lineage extraction

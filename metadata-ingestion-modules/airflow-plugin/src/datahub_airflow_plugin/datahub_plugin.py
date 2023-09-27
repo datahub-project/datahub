@@ -6,13 +6,13 @@ from typing import List
 from airflow.plugins_manager import AirflowPlugin
 
 from datahub_airflow_plugin._airflow_compat import AIRFLOW_PATCHED
-from datahub_airflow_plugin._airflow_shims import IS_AIRFLOW_V23_PLUS
+from datahub_airflow_plugin._airflow_shims import HAS_AIRFLOW_LISTENER_API
 
 assert AIRFLOW_PATCHED
 logger = logging.getLogger(__name__)
 
 
-_USE_AIRFLOW_LISTENER_INTERFACE = IS_AIRFLOW_V23_PLUS and not os.getenv(
+_USE_AIRFLOW_LISTENER_INTERFACE = HAS_AIRFLOW_LISTENER_API and not os.getenv(
     "DATAHUB_AIRFLOW_PLUGIN_USE_V1_PLUGIN", "false"
 ).lower() in ("true", "1")
 

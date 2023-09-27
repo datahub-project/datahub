@@ -6,11 +6,15 @@ import os
 import pathlib
 import signal
 import subprocess
-from typing import Iterator
+from typing import Iterator, Sequence
 
+import pytest
 import requests
 import tenacity
 from airflow.models.connection import Connection
+from datahub.testing.compare_metadata_json import assert_metadata_files_equal
+
+from datahub_airflow_plugin._airflow_shims import HAS_AIRFLOW_LISTENER_API
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +30,8 @@ class AirflowInstance:
 
     username: str
     password: str
+
+    metadata_file: pathlib.Path
 
     @property
     def airflow_url(self) -> str:
@@ -87,7 +93,7 @@ def _wait_for_dag_finish(airflow_instance: AirflowInstance, dag_id: str) -> None
 
 @contextlib.contextmanager
 def _run_airflow(
-    tmp_path: pathlib.Path, dags_folder: pathlib.Path
+    tmp_path: pathlib.Path, dags_folder: pathlib.Path, is_v1: bool
 ) -> Iterator[AirflowInstance]:
     airflow_home = tmp_path / "airflow_home"
     print(f"Using airflow home: {airflow_home}")
@@ -103,6 +109,7 @@ def _run_airflow(
         **os.environ,
         "AIRFLOW_HOME": str(airflow_home),
         "AIRFLOW__WEBSERVER__WEB_SERVER_PORT": str(airflow_port),
+        "AIRFLOW__WEBSERVER__BASE_URL": "http://airflow.example.com",
         # Point airflow to the DAGs folder.
         "AIRFLOW__CORE__LOAD_EXAMPLES": "False",
         "AIRFLOW__CORE__DAGS_FOLDER": str(dags_folder),
@@ -110,7 +117,7 @@ def _run_airflow(
         # Have the Airflow API use username/password authentication.
         "AIRFLOW__API__AUTH_BACKEND": "airflow.api.auth.backend.basic_auth",
         # Configure the datahub plugin and have it write the MCPs to a file.
-        "AIRFLOW__CORE__LAZY_LOAD_PLUGINS": "False",  # TODO: only do this for plugin v1
+        "AIRFLOW__CORE__LAZY_LOAD_PLUGINS": "False" if is_v1 else "True",
         "AIRFLOW__DATAHUB__CONN_ID": datahub_connection_name,
         f"AIRFLOW_CONN_{datahub_connection_name.upper()}": Connection(
             conn_id="datahub_file_default",
@@ -163,6 +170,7 @@ def _run_airflow(
             env_vars=environment,
             username=airflow_username,
             password=airflow_password,
+            metadata_file=meta_file,
         )
     finally:
         # Attempt a graceful shutdown.
@@ -175,7 +183,24 @@ def _run_airflow(
         airflow_process.wait(timeout=3)
 
 
-def test_airflow_plugin_v2(tmp_path: pathlib.Path) -> None:
+def check_golden_file(
+    pytestconfig: pytest.Config,
+    output_path: pathlib.Path,
+    golden_path: pathlib.Path,
+    ignore_paths: Sequence[str] = (),
+) -> None:
+    update_golden = pytestconfig.getoption("--update-golden-files")
+
+    assert_metadata_files_equal(
+        output_path=output_path,
+        golden_path=golden_path,
+        update_golden=update_golden,
+        copy_output=False,
+        ignore_paths=ignore_paths,
+    )
+
+
+def test_airflow_plugin(pytestconfig: pytest.Config, tmp_path: pathlib.Path) -> None:
     # This test:
     # - Configures the plugin.
     # - Starts a local airflow instance in a subprocess.
@@ -184,16 +209,22 @@ def test_airflow_plugin_v2(tmp_path: pathlib.Path) -> None:
     # - Checks that the metadata was emitted to DataHub.
 
     dags_folder = pathlib.Path(__file__).parent / "dags"
+    goldens_folder = pathlib.Path(__file__).parent / "goldens"
 
-    with _run_airflow(tmp_path, dags_folder=dags_folder) as airflow_instance:
-        dag_id = "simple_dag"
+    dag_id = "simple_dag"
+    is_v1 = not HAS_AIRFLOW_LISTENER_API
 
+    with _run_airflow(
+        tmp_path, dags_folder=dags_folder, is_v1=is_v1
+    ) as airflow_instance:
         print(f"Running DAG {dag_id}...")
         subprocess.check_call(
             [
                 "airflow",
                 "dags",
                 "trigger",
+                "--exec-date",
+                "2023-09-27T21:34:38+00:00",
                 "-r",
                 "manual_run_test",
                 dag_id,
@@ -204,6 +235,25 @@ def test_airflow_plugin_v2(tmp_path: pathlib.Path) -> None:
         print("Waiting for DAG to finish...")
         _wait_for_dag_finish(airflow_instance, dag_id)
 
-        breakpoint()
+    if is_v1:
+        golden_path = goldens_folder / f"v1_{dag_id}.json"
+    else:
+        golden_path = goldens_folder / f"v2_{dag_id}.json"
 
-        print("test finished and all good")
+    check_golden_file(
+        pytestconfig=pytestconfig,
+        output_path=airflow_instance.metadata_file,
+        golden_path=golden_path,
+        ignore_paths=[
+            # Timing-related items.
+            r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['start_date'\]",
+            r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['end_date'\]",
+            r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['duration'\]",
+            # Host-specific items.
+            r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['pid'\]",
+            r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['hostname'\]",
+            r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['unixname'\]",
+            # TODO: If we switched to Git urls, maybe we could get this to work consistently.
+            r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['fileloc'\]",
+        ],
+    )

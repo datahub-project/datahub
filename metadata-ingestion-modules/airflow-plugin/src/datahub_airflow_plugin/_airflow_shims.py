@@ -6,10 +6,6 @@ from airflow.models.baseoperator import BaseOperator
 
 from datahub_airflow_plugin._airflow_compat import AIRFLOW_PATCHED
 
-AIRFLOW_VERSION = packaging.version.parse(airflow.version.version)
-
-IS_AIRFLOW_V23_PLUS = AIRFLOW_VERSION >= packaging.version.parse("2.3.0.dev0")
-
 try:
     from airflow.models.mappedoperator import MappedOperator
     from airflow.models.operator import Operator
@@ -28,6 +24,9 @@ except ImportError:
     from airflow.sensors.external_task_sensor import ExternalTaskSensor  # type: ignore
 
 assert AIRFLOW_PATCHED
+
+AIRFLOW_VERSION = packaging.version.parse(airflow.version.version)
+HAS_AIRFLOW_LISTENER_API = AIRFLOW_VERSION >= packaging.version.parse("2.3.0.dev0")
 
 
 def get_task_inlets(operator: "Operator") -> List:
@@ -51,7 +50,7 @@ def get_task_outlets(operator: "Operator") -> List:
 
 __all__ = [
     "AIRFLOW_VERSION",
-    "IS_AIRFLOW_V23_PLUS",
+    "HAS_AIRFLOW_LISTENER_API",
     "Operator",
     "MappedOperator",
     "EmptyOperator",
