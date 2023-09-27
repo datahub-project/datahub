@@ -131,6 +131,18 @@ fragment subscriptionFields on DataHubSubscription {
                 ...platformFields
             }
         }
+        ... on GlossaryTerm {
+            name
+            properties {
+                description
+            }
+        }
+        ... on GlossaryNode {
+            properties {
+                name
+                description
+            }
+        }
     }
     subscriptionTypes
     entityChangeTypes {
