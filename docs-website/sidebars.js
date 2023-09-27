@@ -448,9 +448,7 @@ module.exports = {
           ],
         },
         {
-          Guides: [
-            "docs/features/feature-guides/ui-lineage",
-          ],
+          Guides: ["docs/features/feature-guides/ui-lineage"],
         },
       ],
     },
