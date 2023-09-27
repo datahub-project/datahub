@@ -130,6 +130,20 @@ export function extendColumnLineage(
                     });
                 });
             });
+            console.log('lineageVizConfig.type: ', lineageVizConfig.type);
+            console.log('fineGrainedLineage.downstreams: ', fineGrainedLineage.downstreams);
+            if (lineageVizConfig.type === EntityType.DataJob && !!fineGrainedLineage.upstreams?.length) {
+                fineGrainedLineage.downstreams?.forEach((downstream) => {
+                    const [downstreamEntityUrn, downstreamField] = breakFieldUrn(downstream);
+                    updateFineGrainedMap(
+                        fineGrainedMap,
+                        lineageVizConfig.urn,
+                        downstreamField,
+                        downstreamEntityUrn,
+                        downstreamField,
+                    );
+                });
+            }
         });
     }
 
