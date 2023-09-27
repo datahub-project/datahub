@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from hashlib import md5
 from typing import Any, List, Optional, Set, Tuple
 
+import avro.schema
 import jsonref
 from confluent_kafka.schema_registry.schema_registry_client import (
     RegisteredSchema,
@@ -22,6 +23,8 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     SchemaField,
     SchemaMetadata,
 )
+from datahub.metadata.schema_classes import OwnershipSourceTypeClass
+from datahub.utilities.mapping import OperationProcessor
 
 logger = logging.getLogger(__name__)
 
@@ -58,6 +61,14 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
             )
         except Exception as e:
             logger.warning(f"Failed to get subjects from schema registry: {e}")
+
+        self.field_meta_processor = OperationProcessor(
+            self.source_config.field_meta_mapping,
+            self.source_config.tag_prefix,
+            OwnershipSourceTypeClass.SERVICE,
+            self.source_config.strip_user_ids_from_email,
+            match_nested_props=True,
+        )
 
     @classmethod
     def create(
@@ -290,10 +301,19 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
         fields: List[SchemaField] = []
         if schema.schema_type == "AVRO":
             cleaned_str: str = self.get_schema_str_replace_confluent_ref_avro(schema)
+            avro_schema = avro.schema.parse(cleaned_str)
+
             # "value.id" or "value.[type=string]id"
             fields = schema_util.avro_schema_to_mce_fields(
-                cleaned_str, is_key_schema=is_key_schema
+                avro_schema,
+                is_key_schema=is_key_schema,
+                meta_mapping_processor=self.field_meta_processor
+                if self.source_config.enable_meta_mapping
+                else None,
+                schema_tags_field=self.source_config.schema_tags_field,
+                tag_prefix=self.source_config.tag_prefix,
             )
+
         elif schema.schema_type == "PROTOBUF":
             imported_schemas: List[
                 ProtobufSchema

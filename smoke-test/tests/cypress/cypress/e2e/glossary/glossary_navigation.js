@@ -20,8 +20,7 @@ describe("glossary sidebar navigation test", () => {
         cy.waitTextVisible("No documentation yet");
         cy.openThreeDotDropdown();
         cy.clickOptionWithText("Move");
-        cy.get('[role="dialog"] [data-icon="close-circle"]').click({force: true});
-        cy.get('[role="dialog"]').contains(glossaryTermGroup).click();
+        cy.get('[role="dialog"]').contains(glossaryTermGroup).click({force: true});
         cy.get('[role="dialog"]').contains(glossaryTermGroup).should("be.visible");
         cy.get("button").contains("Move").click();
         cy.waitTextVisible("Moved Glossary Term!");
@@ -33,8 +32,7 @@ describe("glossary sidebar navigation test", () => {
         cy.clickOptionWithText(glossaryTermGroup);
         cy.openThreeDotDropdown();
         cy.clickOptionWithText("Move");
-        cy.get('[role="dialog"] [data-icon="close-circle"]').click({force: true});
-        cy.get('[role="dialog"]').contains(glossaryParentGroup).click();
+        cy.get('[role="dialog"]').contains(glossaryParentGroup).click({force: true});
         cy.get('[role="dialog"]').contains(glossaryParentGroup).should("be.visible");
         cy.get("button").contains("Move").click();
         cy.waitTextVisible("Moved Term Group!");
