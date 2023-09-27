@@ -8,7 +8,6 @@
         "json": {
             "customProperties": {
                 "_access_control": "None",
-                "_default_view": "'grid'",
                 "catchup": "False",
                 "fileloc": "'/Users/hsheth/projects/datahub/metadata-ingestion-modules/airflow-plugin/tests/integration/dags/basic_iolets.py'",
                 "is_paused_upon_creation": "None",
