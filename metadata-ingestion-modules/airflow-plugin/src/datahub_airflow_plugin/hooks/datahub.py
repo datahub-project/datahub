@@ -220,8 +220,11 @@ class DatahubGenericHook(BaseHook):
             or conn.conn_type == DatahubKafkaHook.conn_type.replace("-", "_")
         ):
             return DatahubKafkaHook(self.datahub_conn_id)
-        elif conn.conn_type == SynchronizedFileEmitter.conn_type:
-            return SynchronizedFileEmitter(self.datahub_conn_id)
+        elif (
+            conn.conn_type == SynchronizedFileHook.conn_type
+            or conn.conn_type == SynchronizedFileHook.conn_type.replace("-", "_")
+        ):
+            return SynchronizedFileHook(self.datahub_conn_id)
         elif "rest" in self.datahub_conn_id:
             return DatahubRestHook(self.datahub_conn_id)
         elif "kafka" in self.datahub_conn_id:

@@ -43,3 +43,7 @@ class SynchronizedFileEmitter(Closeable, Emitter):
             metadata.append(item)
 
             write_metadata_file(self._filename, metadata)
+
+    def close(self) -> None:
+        # No-op.
+        pass
