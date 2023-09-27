@@ -32,7 +32,7 @@ If you're using Airflow older than 2.1, it's possible to use the v1 plugin with 
 The v2 plugin requires Airflow 2.3+ and Python 3.8+. If you don't meet these requirements, use the v1 plugin instead.
 
 ```sh
-pip install acryl-datahub-airflow-plugin[plugin-v2]
+pip install 'acryl-datahub-airflow-plugin[plugin-v2]'
 ```
 
 ### Configuration
@@ -47,8 +47,8 @@ No additional configuration is required to use the plugin. However, there are so
 
 ```ini title="airflow.cfg"
 [datahub]
-# Additional config here.
-#enabled = True  # default
+# Optional - additional config here.
+enabled = True  # default
 ```
 
 | Name                       | Default value        | Description                                                                              |
@@ -60,13 +60,13 @@ No additional configuration is required to use the plugin. However, there are so
 | capture_tags_info          | true                 | Extract DAG tags.                                                                        |
 | capture_executions         | true                 | Extract task runs and success/failure statuses. This will show up in DataHub "Runs" tab. |
 | enable_extractors          | true                 | Enable automatic lineage extraction.                                                     |
+| disable_openlineage_plugin | true                 | Disable the OpenLineage plugin to avoid duplicative processing.                          |
 | log_level                  | no change            | [debug] Set the log level for the plugin.                                                |
 | debug_emitter              | false                | [debug] If true, the plugin will log the emitted events.                                 |
-| disable_openlineage_plugin | true                 | Disable the OpenLineage plugin to avoid duplicative processing.                          |
 
 ### Automatic lineage extraction
 
-The v2 plugin uses Airflow's built-in [OpenLineage extractors](https://openlineage.io/docs/integrations/airflow/default-extractors) to extract lineage information.
+To automatically extract lineage information, the v2 plugin builds on top of Airflow's built-in [OpenLineage extractors](https://openlineage.io/docs/integrations/airflow/default-extractors).
 
 The SQL-related extractors have been updated to use DataHub's SQL parser, which is more robust than the built-in one and uses DataHub's metadata information to generate column-level lineage. We discussed the DataHub SQL parser, including why schema-aware parsing works better and how it performs on benchmarks, during the [June 2023 community town hall](https://youtu.be/1QVcUmRQK5E?si=U27zygR7Gi_KdkzE&t=2309).
 
@@ -79,11 +79,11 @@ The v1 plugin requires Airflow 2.1+ and Python 3.8+. If you're on older versions
 If you're using Airflow 2.3+, we recommend using the v2 plugin instead. If you need to use the v1 plugin with Airflow 2.3+, you must also set the environment variable `DATAHUB_AIRFLOW_PLUGIN_USE_V1_PLUGIN=true`.
 
 ```shell
-pip install acryl-datahub-airflow-plugin[plugin-v1]
+pip install 'acryl-datahub-airflow-plugin[plugin-v1]'
 
 # The DataHub rest connection type is included by default.
 # To use the DataHub Kafka connection type, install the plugin with the kafka extras.
-pip install acryl-datahub-airflow-plugin[plugin-v1,datahub-kafka]
+pip install 'acryl-datahub-airflow-plugin[plugin-v1,datahub-kafka]'
 ```
 
 <!-- This plugin registers a task success/failure callback on every task with a cluster policy and emits DataHub events from that. This allows this plugin to be able to register both task success as well as failures compared to the older Airflow Lineage Backend which could only support emitting task success. -->
@@ -117,7 +117,7 @@ If your config doesn't align with the default values, you can configure the plug
 ```ini title="airflow.cfg"
 [datahub]
 enabled = true
-conn_id = datahub_rest_default
+conn_id = datahub_rest_default  # or datahub_kafka_default
 # etc.
 ```
 
