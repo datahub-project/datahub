@@ -900,20 +900,9 @@ Lineage is used to capture data dependencies within an organization. It allows y
 
 You can view lineage under **Lineage** tab or **Lineage Visualization** screen.
 
-<table>
-  <tr>
-    <td>
-      <p align="center">
-        <img width="100%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/lineage/lineage-tab.png" />
-      </p>
-    </td>
-    <td>
-      <p align="center">
-        <img width="100%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/lineage/lineage-view.png" />
-      </p>
-    </td>
-  </tr>
-</table>
+<p align="center">
+<img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/lineage/lineage-tab.png" />
+</p>
 
 The UI shows the latest version of the lineage. The time picker can be used to filter out edges within the latest version to exclude those that were last updated outside of the time window. Selecting time windows in the patch will not show you historical lineages. It will only filter the view of the latest version of the lineage.
 
