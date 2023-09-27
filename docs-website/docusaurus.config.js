@@ -12,13 +12,11 @@ module.exports = {
   organizationName: "datahub-project", // Usually your GitHub org/user name.
   projectName: "datahub", // Usually your repo name.
   staticDirectories: ["static", "genStatic"],
-  stylesheets: [
-    "https://fonts.googleapis.com/css2?family=Manrope:wght@400;600&display=swap",
-  ],
+  stylesheets: ["https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700&display=swap"],
   noIndex: isSaas,
   customFields: {
     isSaas: isSaas,
-    markpromptProjectKey: process.env.DOCUSAURUS_MARKPROMPT_PROJECT_KEY || 'IeF3CUFCUQWuouZ8MP5Np9nES52QAtaA',
+    markpromptProjectKey: process.env.DOCUSAURUS_MARKPROMPT_PROJECT_KEY || "IeF3CUFCUQWuouZ8MP5Np9nES52QAtaA",
   },
   themeConfig: {
     ...(!isSaas && {
@@ -35,12 +33,8 @@ module.exports = {
       title: null,
       logo: {
         alt: "DataHub Logo",
-        src: `img/${
-          isSaas ? "acryl" : "datahub"
-        }-logo-color-light-horizontal.svg`,
-        srcDark: `img/${
-          isSaas ? "acryl" : "datahub"
-        }-logo-color-dark-horizontal.svg`,
+        src: `img/${isSaas ? "acryl" : "datahub"}-logo-color-light-horizontal.svg`,
+        srcDark: `img/${isSaas ? "acryl" : "datahub"}-logo-color-dark-horizontal.svg`,
       },
       items: [
         {
@@ -50,7 +44,8 @@ module.exports = {
           position: "right",
         },
         {
-          href: "/integrations",
+          to: "/integrations",
+          activeBasePath: "integrations",
           label: "Integrations",
           position: "right",
         },
@@ -70,8 +65,8 @@ module.exports = {
           position: "right",
         },
         {
-          type: 'docsVersionDropdown',
-          position: 'right',
+          type: "docsVersionDropdown",
+          position: "right",
           dropdownActiveClassDisabled: true,
         },
         {
@@ -201,9 +196,7 @@ module.exports = {
         blog: false,
         theme: {
           customCss: [
-            isSaas
-              ? require.resolve("./src/styles/acryl.scss")
-              : require.resolve("./src/styles/datahub.scss"),
+            isSaas ? require.resolve("./src/styles/acryl.scss") : require.resolve("./src/styles/datahub.scss"),
             require.resolve("./src/styles/global.scss"),
             require.resolve("./src/styles/sphinx.scss"),
             require.resolve("./src/styles/config-table.scss"),
@@ -217,10 +210,7 @@ module.exports = {
     ],
   ],
   plugins: [
-    [
-      "@docusaurus/plugin-ideal-image",
-      { quality: 100, sizes: [320, 640, 1280, 1440, 1600] },
-    ],
+    ["@docusaurus/plugin-ideal-image", { quality: 100, sizes: [320, 640, 1280, 1440, 1600] }],
     "docusaurus-plugin-sass",
     [
       "docusaurus-graphql-plugin",
