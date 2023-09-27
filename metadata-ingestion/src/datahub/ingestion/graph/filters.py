@@ -1,11 +1,26 @@
-from typing import Dict, List, Optional
+import enum
+from typing import Any, Dict, List, Optional
 
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataplatform_instance_urn,
 )
-from datahub.ingestion.graph.client import RemovedStatusFilter, SearchFilterRule
 from datahub.utilities.urns.urn import guess_entity_type
+
+SearchFilterRule = Dict[str, Any]
+
+
+class RemovedStatusFilter(enum.Enum):
+    """Filter for the status of entities during search."""
+
+    NOT_SOFT_DELETED = "NOT_SOFT_DELETED"
+    """Search only entities that have not been marked as deleted."""
+
+    ALL = "ALL"
+    """Search all entities, including deleted entities."""
+
+    ONLY_SOFT_DELETED = "ONLY_SOFT_DELETED"
+    """Search only soft-deleted entities."""
 
 
 def generate_filter(
@@ -14,7 +29,7 @@ def generate_filter(
     env: Optional[str],
     container: Optional[str],
     status: RemovedStatusFilter,
-    extraFilters: Optional[List[SearchFilterRule]],
+    extra_filters: Optional[List[SearchFilterRule]],
 ) -> List[Dict[str, List[SearchFilterRule]]]:
     and_filters: List[SearchFilterRule] = []
 
@@ -36,8 +51,8 @@ def generate_filter(
         and_filters.append(status_filter)
 
     # Extra filters.
-    if extraFilters:
-        and_filters += extraFilters
+    if extra_filters:
+        and_filters += extra_filters
 
     or_filters: List[Dict[str, List[SearchFilterRule]]] = [{"and": and_filters}]
 

@@ -20,7 +20,11 @@ from datahub.emitter.mce_builder import DEFAULT_ENV, Aspect
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.emitter.serialization_helper import post_json_transform
-from datahub.ingestion.graph.filters import generate_filter
+from datahub.ingestion.graph.filters import (
+    RemovedStatusFilter,
+    SearchFilterRule,
+    generate_filter,
+)
 from datahub.ingestion.source.state.checkpoint import Checkpoint
 from datahub.metadata.schema_classes import (
     ASPECT_NAME_MAP,
@@ -55,8 +59,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-SearchFilterRule = Dict[str, Any]
-
 
 class DatahubClientConfig(ConfigModel):
     """Configuration class for holding connectivity to datahub gms"""
@@ -75,19 +77,6 @@ class DatahubClientConfig(ConfigModel):
 # Alias for backwards compatibility.
 # DEPRECATION: Remove in v0.10.2.
 DataHubGraphConfig = DatahubClientConfig
-
-
-class RemovedStatusFilter(enum.Enum):
-    """Filter for the status of entities during search."""
-
-    NOT_SOFT_DELETED = "NOT_SOFT_DELETED"
-    """Search only entities that have not been marked as deleted."""
-
-    ALL = "ALL"
-    """Search all entities, including deleted entities."""
-
-    ONLY_SOFT_DELETED = "ONLY_SOFT_DELETED"
-    """Search only soft-deleted entities."""
 
 
 @dataclass
