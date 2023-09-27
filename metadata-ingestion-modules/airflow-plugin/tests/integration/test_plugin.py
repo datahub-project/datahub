@@ -141,21 +141,15 @@ def _run_airflow(
             print("Creating an extra test user...")
             subprocess.check_call(
                 [
-                    "airflow",
-                    "users",
-                    "create",
-                    "--username",
-                    "airflow",
-                    "--password",
-                    "airflow",
-                    "--firstname",
-                    "admin",
-                    "--lastname",
-                    "admin",
-                    "--role",
-                    "Admin",
-                    "--email",
-                    "airflow@example.com",
+                    # fmt: off
+                    "airflow", "users", "create",
+                    "--username", "airflow",
+                    "--password", "airflow",
+                    "--firstname", "admin",
+                    "--lastname", "admin",
+                    "--role", "Admin",
+                    "--email", "airflow@example.com",
+                    # fmt: on
                 ],
                 env=environment,
             )
@@ -200,7 +194,16 @@ def check_golden_file(
     )
 
 
-def test_airflow_plugin(pytestconfig: pytest.Config, tmp_path: pathlib.Path) -> None:
+@pytest.mark.parametrize(
+    ["dag_id", "is_v1"],
+    [
+        pytest.param("simple_dag", True),
+        pytest.param("basic_iolets", True),
+    ],
+)
+def test_airflow_plugin(
+    pytestconfig: pytest.Config, tmp_path: pathlib.Path, dag_id: str, is_v1: bool
+) -> None:
     # This test:
     # - Configures the plugin.
     # - Starts a local airflow instance in a subprocess.
@@ -208,11 +211,13 @@ def test_airflow_plugin(pytestconfig: pytest.Config, tmp_path: pathlib.Path) -> 
     # - Waits for the DAG to complete.
     # - Checks that the metadata was emitted to DataHub.
 
+    if not HAS_AIRFLOW_LISTENER_API and not is_v1:
+        pytest.skip("Cannot test plugin v2 without the Airflow plugin listener API")
+    if HAS_AIRFLOW_LISTENER_API and is_v1:
+        pytest.skip("Not testing plugin v1 on older Airflow versions")
+
     dags_folder = pathlib.Path(__file__).parent / "dags"
     goldens_folder = pathlib.Path(__file__).parent / "goldens"
-
-    dag_id = "simple_dag"
-    is_v1 = not HAS_AIRFLOW_LISTENER_API
 
     with _run_airflow(
         tmp_path, dags_folder=dags_folder, is_v1=is_v1
