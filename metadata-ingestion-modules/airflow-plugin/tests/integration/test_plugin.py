@@ -195,14 +195,20 @@ def check_golden_file(
 
 
 @pytest.mark.parametrize(
-    ["dag_id", "is_v1"],
+    ["golden_filename", "dag_id", "is_v1"],
     [
-        pytest.param("simple_dag", True),
-        pytest.param("basic_iolets", True),
+        pytest.param("v1_simple_dag.json", "simple_dag", True, id="v1_simple_dag"),
+        pytest.param(
+            "v1_basic_iolets.json", "basic_iolets", True, id="v1_basic_iolets"
+        ),
     ],
 )
 def test_airflow_plugin(
-    pytestconfig: pytest.Config, tmp_path: pathlib.Path, dag_id: str, is_v1: bool
+    pytestconfig: pytest.Config,
+    tmp_path: pathlib.Path,
+    golden_filename: str,
+    dag_id: str,
+    is_v1: bool,
 ) -> None:
     # This test:
     # - Configures the plugin.
@@ -218,6 +224,8 @@ def test_airflow_plugin(
 
     dags_folder = pathlib.Path(__file__).parent / "dags"
     goldens_folder = pathlib.Path(__file__).parent / "goldens"
+
+    golden_path = goldens_folder / f"{golden_filename}.json"
 
     with _run_airflow(
         tmp_path, dags_folder=dags_folder, is_v1=is_v1
@@ -239,11 +247,6 @@ def test_airflow_plugin(
 
         print("Waiting for DAG to finish...")
         _wait_for_dag_finish(airflow_instance, dag_id)
-
-    if is_v1:
-        golden_path = goldens_folder / f"v1_{dag_id}.json"
-    else:
-        golden_path = goldens_folder / f"v2_{dag_id}.json"
 
     check_golden_file(
         pytestconfig=pytestconfig,
