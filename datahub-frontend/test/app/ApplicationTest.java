@@ -173,9 +173,10 @@ public class ApplicationTest extends WithBrowser {
   @Test
   public void testAPI() throws ParseException {
     testHappyPathOidc();
+    int requestCount = _gmsServer.getRequestCount();
 
     browser.goTo("/api/v2/graphql/");
-    assertEquals(3, _gmsServer.getRequestCount());
+    assertEquals(++requestCount, _gmsServer.getRequestCount());
   }
 
   @Test

@@ -19,5 +19,7 @@ class CustomSessionCookieBaker @Inject() (
   cookieSigner: CookieSigner
 ) extends DefaultSessionCookieBaker(config, secretConfiguration, cookieSigner) {
   // Has to be a Scala class because it extends a trait with concrete implementations, Scala does compilation tricks
+
+  // Forces use of jwt encoding and disallows fallback to legacy url encoding
   override def decode(encodedData: String): Map[String, String] = jwtCodec.decode(encodedData)
 }
