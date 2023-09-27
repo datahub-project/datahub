@@ -8,6 +8,9 @@ from datahub_monitors.assertion.engine.engine import AssertionEngine
 from datahub_monitors.assertion.engine.evaluator.freshness_evaluator import (
     FreshnessAssertionEvaluator,
 )
+from datahub_monitors.assertion.engine.evaluator.sql_evaluator import (
+    SQLAssertionEvaluator,
+)
 from datahub_monitors.assertion.engine.evaluator.volume_evaluator import (
     VolumeAssertionEvaluator,
 )
@@ -32,47 +35,64 @@ logger = logging.getLogger(__name__)
 manager = None
 
 
+def create_assertion_graph() -> DataHubAssertionGraph:
+    """Create a DataHub client based on environment variables."""
+    DATAHUB_SERVER = (
+        f"{os.environ.get('DATAHUB_GMS_PROTOCOL', 'http')}://"
+        f"{os.environ.get('DATAHUB_GMS_HOST', 'localhost')}:{os.environ.get('DATAHUB_GMS_PORT', 8080)}"
+    )
+    return DataHubAssertionGraph(
+        DatahubClientConfig(
+            server=DATAHUB_SERVER,
+            # When token is not set, the client will automatically try to use
+            # DATAHUB_SYSTEM_CLIENT_ID and DATAHUB_SYSTEM_CLIENT_SECRET to authenticate.
+            token=None,
+        )
+    )
+
+
+def create_assertion_engine(graph: DataHubAssertionGraph) -> AssertionEngine:
+    # Create secret store for resolving recipe credentials
+    datahub_secret_store = DataHubSecretStore.create({"graph_client": graph})
+
+    # setup state provider
+    state_provider = DataHubMonitorStateProvider(graph)
+
+    # Create assertion evaluators
+    evaluators = [
+        FreshnessAssertionEvaluator(
+            DataHubIngestionSourceConnectionProvider(graph, [datahub_secret_store]),
+            state_provider,
+            SourceProvider(),
+        ),
+        VolumeAssertionEvaluator(
+            DataHubIngestionSourceConnectionProvider(graph, [datahub_secret_store]),
+            state_provider,
+            SourceProvider(),
+        ),
+        SQLAssertionEvaluator(
+            DataHubIngestionSourceConnectionProvider(graph, [datahub_secret_store]),
+            state_provider,
+            SourceProvider(),
+        ),
+    ]
+
+    # Create assertion engine
+    return AssertionEngine(
+        evaluators, result_handlers=[AssertionRunEventResultHandler(graph)]
+    )
+
+
 def start_async_monitors(config: MonitorFetcherConfig) -> None:
     try:
         # Create DataHub Client
-        DATAHUB_SERVER = f"{os.environ.get('DATAHUB_GMS_PROTOCOL', 'http')}://{os.environ.get('DATAHUB_GMS_HOST', 'localhost')}:{os.environ.get('DATAHUB_GMS_PORT', 8080)}"
-        graph = DataHubAssertionGraph(
-            DatahubClientConfig(
-                server=DATAHUB_SERVER,
-                # When token is not set, the client will automatically try to use
-                # DATAHUB_SYSTEM_CLIENT_ID and DATAHUB_SYSTEM_CLIENT_SECRET to authenticate.
-                token=None,
-            )
-        )
+        graph = create_assertion_graph()
 
         # Create a fetcher
         fetcher = MonitorFetcher(graph, config)
 
-        # Create secret store for resolving recipe credentials
-        datahub_secret_store = DataHubSecretStore.create({"graph_client": graph})
-
-        # Create assertion result handler
-        datahub_assertion_event_result_handler = AssertionRunEventResultHandler(graph)
-
-        # setup state provider
-        state_provider = DataHubMonitorStateProvider(graph)
-
-        # Create assertion evaluators
-        evaluators = [
-            FreshnessAssertionEvaluator(
-                DataHubIngestionSourceConnectionProvider(graph, [datahub_secret_store]),
-                state_provider,
-                SourceProvider(),
-            ),
-            VolumeAssertionEvaluator(
-                DataHubIngestionSourceConnectionProvider(graph, [datahub_secret_store]),
-                state_provider,
-                SourceProvider(),
-            ),
-        ]
-
         # Create assertion engine
-        engine = AssertionEngine(evaluators, [datahub_assertion_event_result_handler])
+        engine = create_assertion_engine(graph)
 
         # Create a scheduler
         scheduler = AssertionScheduler(engine, None, None, None)

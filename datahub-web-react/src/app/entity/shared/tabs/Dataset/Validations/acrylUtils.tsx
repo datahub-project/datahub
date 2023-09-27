@@ -125,10 +125,11 @@ export const ASSERTION_INFO = [
         name: 'Custom',
         description: 'Define & monitor your expectations using custom SQL rules',
         icon: <StyledConsoleSqlOutlined />,
-        type: null, // TODO
+        type: AssertionType.Sql,
         entityTypes: [EntityType.Dataset],
-        enabled: false,
+        enabled: true,
         visible: true,
+        requiresConnection: true,
     },
     {
         name: 'External',
@@ -267,8 +268,11 @@ export const getNextScheduleEvaluationTimeMs = (schedule: CronSchedule) => {
     }
 };
 
-export const getAssertionTypesForEntityType = (entityType: EntityType) => {
-    return ASSERTION_INFO.filter((type) => type.entityTypes.includes(entityType));
+export const getAssertionTypesForEntityType = (entityType: EntityType, connectionForEntityExists: boolean) => {
+    return ASSERTION_INFO.filter((type) => type.entityTypes.includes(entityType)).map((type) => ({
+        ...type,
+        enabled: type.enabled && (!type.requiresConnection || connectionForEntityExists),
+    }));
 };
 
 export const isMonitorActive = (monitor: Monitor) => {
@@ -295,10 +299,10 @@ export const getCronAsText = (interval: string) => {
     };
 };
 
-export const canManageAssertionMonitor = (monitor: Monitor, connectionForEntityExists: boolean) => {
+export const canManageAssertionMonitor = (monitor: any, connectionForEntityExists: boolean) => {
     if (connectionForEntityExists) return true;
 
-    const assertionParameters = monitor.info?.assertionMonitor?.assertions?.[0]?.parameters;
+    const assertionParameters = monitor?.info?.assertionMonitor?.assertions?.[0]?.parameters;
     return (
         assertionParameters?.datasetFreshnessParameters?.sourceType === DatasetFreshnessSourceType.DatahubOperation ||
         assertionParameters?.datasetVolumeParameters?.sourceType === DatasetVolumeSourceType.DatahubDatasetProfile

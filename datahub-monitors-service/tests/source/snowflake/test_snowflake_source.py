@@ -8,6 +8,7 @@ from datahub_monitors.connection.snowflake.snowflake_connection import (
     SnowflakeConnection,
 )
 from datahub_monitors.exceptions import (
+    CustomSQLErrorException,
     InvalidParametersException,
     InvalidSourceTypeException,
 )
@@ -196,6 +197,7 @@ TEST_NUM_ROWS_VIA_COUNT_WITH_FILTER_QUERY = """
         FROM test_db.public."test_table"
         WHERE foo = 'bar'
     """
+TEST_CUSTOM_SQL_STATEMENT = "SELECT SUM(num_items) FROM test_db.public.test_table;"
 
 
 class TestSnowflakeSource:
@@ -617,3 +619,37 @@ class TestSnowflakeSource:
             TEST_NUM_ROWS_VIA_COUNT_WITH_FILTER_QUERY,
         )
         assert result == 10
+
+    @patch.object(SnowflakeSource, "_execute_fetchall_query")
+    def test_get_single_value_failure_multiple_rows(
+        self, execute_query_mock: Mock
+    ) -> None:
+        execute_query_mock.return_value = [[10], [11]]
+
+        with pytest.raises(CustomSQLErrorException):
+            self.snowflake_source._execute_custom_sql(TEST_CUSTOM_SQL_STATEMENT)
+
+    @patch.object(SnowflakeSource, "_execute_fetchall_query")
+    def test_get_single_value_failure_multiple_values(
+        self, execute_query_mock: Mock
+    ) -> None:
+        execute_query_mock.return_value = [[10, 11]]
+
+        with pytest.raises(CustomSQLErrorException):
+            self.snowflake_source._execute_custom_sql(TEST_CUSTOM_SQL_STATEMENT)
+
+    @patch.object(SnowflakeSource, "_execute_fetchall_query")
+    def test_get_single_value_failure_invalid_value(
+        self, execute_query_mock: Mock
+    ) -> None:
+        execute_query_mock.return_value = [["not a float"]]
+
+        with pytest.raises(CustomSQLErrorException):
+            self.snowflake_source._execute_custom_sql(TEST_CUSTOM_SQL_STATEMENT)
+
+    @patch.object(SnowflakeSource, "_execute_fetchall_query")
+    def test_get_single_value_success(self, execute_query_mock: Mock) -> None:
+        execute_query_mock.return_value = [["100"]]
+
+        value = self.snowflake_source._execute_custom_sql(TEST_CUSTOM_SQL_STATEMENT)
+        assert value == 100.0

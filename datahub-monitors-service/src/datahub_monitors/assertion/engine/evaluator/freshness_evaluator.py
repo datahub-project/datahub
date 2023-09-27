@@ -204,15 +204,20 @@ class FreshnessAssertionEvaluator(AssertionEvaluator):
         [start_time, _] = window
         start_time = start_time - STATEFUL_ASSERTION_EVALUATION_BUFFER
 
-        if not context.monitor_urn:
+        if not context.monitor_urn and context.dry_run is False:
             raise InvalidParametersException(
                 message=f"_evaluate_high_watermark_assertion for {assertion.urn} requires a monitor_urn",
                 parameters={"source_params": source_params, "context": context},
             )
 
-        previous_state = self.state_provider.get_state(
-            context.monitor_urn, AssertionStateType.MONITOR_TIMESERIES_STATE
+        previous_state = (
+            self.state_provider.get_state(
+                context.monitor_urn, AssertionStateType.MONITOR_TIMESERIES_STATE
+            )
+            if context.dry_run is False and context.monitor_urn
+            else None
         )
+
         if (
             previous_state
             and previous_state.timestamp
@@ -270,17 +275,33 @@ class FreshnessAssertionEvaluator(AssertionEvaluator):
         """
         if previous_state is None:
             assertion_evaluation_result = AssertionEvaluationResult(
-                AssertionResultType.INIT, parameters=None
+                AssertionResultType.INIT, parameters={"row_count": current_row_count}
             )
         elif (
             last_state_change and last_state_change > start_time
         ) or current_evaluation_freshness is True:
             assertion_evaluation_result = AssertionEvaluationResult(
-                AssertionResultType.SUCCESS, parameters={"events": []}
+                AssertionResultType.SUCCESS,
+                parameters={
+                    "row_count": current_row_count,
+                    "prev_row_count": int(
+                        previous_state.properties.get("row_count", "0")
+                    )
+                    if previous_state
+                    else 0,
+                },
             )
         else:
             assertion_evaluation_result = AssertionEvaluationResult(
-                AssertionResultType.FAILURE, parameters=None
+                AssertionResultType.FAILURE,
+                parameters={
+                    "row_count": current_row_count,
+                    "prev_row_count": int(
+                        previous_state.properties.get("row_count", "0")
+                    )
+                    if previous_state
+                    else 0,
+                },
             )
 
         # we store the current state regardless of assertion success/failure
@@ -295,18 +316,19 @@ class FreshnessAssertionEvaluator(AssertionEvaluator):
                 else "0"
             )
 
-        self.state_provider.save_state(
-            context.monitor_urn,
-            AssertionState(
-                type=AssertionStateType.MONITOR_TIMESERIES_STATE,
-                timestamp=time_now,
-                properties={
-                    "field_value": current_field_value,
-                    "row_count": str(current_row_count),
-                    "last_state_change": last_state_change_str,
-                },
-            ),
-        )
+        if context.dry_run is False and context.monitor_urn:
+            self.state_provider.save_state(
+                context.monitor_urn,
+                AssertionState(
+                    type=AssertionStateType.MONITOR_TIMESERIES_STATE,
+                    timestamp=time_now,
+                    properties={
+                        "field_value": current_field_value,
+                        "row_count": str(current_row_count),
+                        "last_state_change": last_state_change_str,
+                    },
+                ),
+            )
 
         return assertion_evaluation_result
 

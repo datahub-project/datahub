@@ -3,8 +3,10 @@ package com.linkedin.gms.factory.monitor;
 import com.datahub.authentication.Authentication;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.gms.factory.auth.SystemAuthenticationFactory;
+import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.entity.RestliEntityClientFactory;
 import com.linkedin.gms.factory.spring.YamlPropertySourceFactory;
+import com.linkedin.metadata.config.MonitorServiceConfiguration;
 import com.linkedin.metadata.service.MonitorService;
 import javax.annotation.Nonnull;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,6 +23,9 @@ import org.springframework.context.annotation.Scope;
 @Import({SystemAuthenticationFactory.class, RestliEntityClientFactory.class})
 public class MonitorServiceFactory {
   @Autowired
+  private ConfigurationProvider _configProvider;
+
+  @Autowired
   @Qualifier("restliEntityClient")
   private EntityClient _entityClient;
 
@@ -32,6 +37,13 @@ public class MonitorServiceFactory {
   @Scope("singleton")
   @Nonnull
   protected MonitorService getInstance() throws Exception {
-    return new MonitorService(_entityClient, _authentication);
+    final MonitorServiceConfiguration config = _configProvider.getMonitorService();
+    return new MonitorService(
+      config.host,
+      config.port,
+      config.useSsl,
+      _entityClient,
+      _authentication
+    );
   }
 }

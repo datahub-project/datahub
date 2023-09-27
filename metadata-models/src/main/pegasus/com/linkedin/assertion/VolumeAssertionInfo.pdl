@@ -8,7 +8,7 @@ import com.linkedin.dataset.DatasetFilter
 */
 record VolumeAssertionInfo {
     /**
-     * The type of the freshness assertion being monitored.
+     * The type of the volume assertion being monitored.
      */
     @Searchable = {}
     type: enum VolumeAssertionType {

@@ -584,3 +584,32 @@ class TestVolumeEvaluator:
         )
         assert result.type == AssertionResultType.SUCCESS
         assert result.parameters == {"row_count": 999, "prev_row_count": "899"}
+
+    def test_evaluate_row_count_change_dry_run(self) -> None:
+        volume_assertion = VolumeAssertion(
+            type=VolumeAssertionType.ROW_COUNT_CHANGE,
+            row_count_change=RowCountChange(
+                type=AssertionValueChangeType.ABSOLUTE,
+                operator=AssertionStdOperator.EQUAL_TO,
+                parameters=AssertionStdParameters(
+                    value=AssertionStdParameter(value="10", type="NUMBER"),
+                ),
+            ),
+        )
+        self.assertion.volume_assertion = volume_assertion
+        self.context.monitor_urn = ""
+        self.context.dry_run = True
+
+        self.evaluator._evaluate_internal(
+            self.assertion, self.params, self.connection, self.context
+        )
+        source_mock = Mock(spec=Source)
+        self.source_provider.create_source_from_connection.return_value = source_mock
+        source_mock.get_row_count.return_value = 999
+
+        result = self.evaluator._evaluate_internal(
+            self.assertion, self.params, self.connection, self.context
+        )
+        assert result.type == AssertionResultType.INIT
+        assert self.state_provider.get_state.call_count == 0
+        assert self.state_provider.save_state.call_count == 0

@@ -422,3 +422,8 @@ integrationsService:
   host: ${DATAHUB_INTEGRATIONS_HOST:localhost}
   port: ${DATAHUB_INTEGRATIONS_PORT:9003}
   useSsl: ${DATAHUB_INTEGRATIONS_USE_SSL:false}
+
+monitorService:
+  host: ${DATAHUB_MONITORS_HOST:localhost}
+  port: ${DATAHUB_MONITORS_PORT:9004}
+  useSsl: ${DATAHUB_MONITORS_USE_SSL:false}
