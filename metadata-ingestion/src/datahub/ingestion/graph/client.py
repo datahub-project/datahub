@@ -162,11 +162,11 @@ class DataHubGraph(DatahubRestEmitter):
                 timeout_sec=emitter._read_timeout_sec,
                 retry_status_codes=emitter._retry_status_codes,
                 retry_max_times=emitter._retry_max_times,
+                extra_headers=emitter._session.headers,
+                disable_ssl_verification=emitter._session.verify is False,
                 # TODO: Support these headers.
-                # extra_headers=emitter._extra_headers,
                 # ca_certificate_path=emitter._ca_certificate_path,
                 # client_certificate_path=emitter._client_certificate_path,
-                # disable_ssl_verification=emitter._disable_ssl_verification,
             )
         )
 

@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import TYPE_CHECKING, Dict, List, Optional, Set, cast
+from typing import TYPE_CHECKING, Dict, List, Optional, Set, Tuple, Union, cast
 
 from airflow.configuration import conf
 from datahub.api.entities.datajob import DataFlow, DataJob
@@ -227,7 +227,7 @@ class AirflowGenerator:
 
         job_property_bag: Dict[str, str] = {}
 
-        allowed_task_keys = [
+        allowed_task_keys: List[Union[str, Tuple[str, ...]]] = [
             "_task_type",
             "_task_module",
             "depends_on_past",
@@ -247,13 +247,17 @@ class AirflowGenerator:
         ]
 
         for key in allowed_task_keys:
-            old_key = None
             if isinstance(key, tuple):
-                key, old_key = key
-            if hasattr(task, key):
-                job_property_bag[key] = repr(getattr(task, key))
-            elif old_key is not None and hasattr(task, old_key):
-                job_property_bag[key] = repr(getattr(task, old_key))
+                out_key: str = key[0]
+                try_keys = key
+            else:
+                out_key = key
+                try_keys = (key,)
+
+            for k in try_keys:
+                if hasattr(task, k):
+                    job_property_bag[out_key] = repr(getattr(task, k))
+                    break
 
         datajob.properties = job_property_bag
         base_url = conf.get("webserver", "base_url")

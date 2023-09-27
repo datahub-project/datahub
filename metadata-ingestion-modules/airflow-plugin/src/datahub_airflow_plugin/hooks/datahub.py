@@ -192,6 +192,39 @@ class DatahubKafkaHook(BaseHook):
     emit_mcps = emit
 
 
+class SynchronizedFileHook(BaseHook):
+    conn_type = "datahub-file"
+
+    def __init__(self, datahub_conn_id: str) -> None:
+        super().__init__()
+        self.datahub_conn_id = datahub_conn_id
+
+    def make_emitter(self) -> "SynchronizedFileEmitter":
+        from datahub.emitter.synchronized_file_emitter import SynchronizedFileEmitter
+
+        conn = self.get_connection(self.datahub_conn_id)
+        filename = conn.host
+        if not filename:
+            raise AirflowException("filename parameter is required")
+
+        return SynchronizedFileEmitter(filename=filename)
+
+    def emit(
+        self,
+        items: Sequence[
+            Union[
+                MetadataChangeEvent,
+                MetadataChangeProposal,
+                MetadataChangeProposalWrapper,
+            ]
+        ],
+    ) -> None:
+        emitter = self.make_emitter()
+
+        for item in items:
+            emitter.emit(item)
+
+
 class DatahubGenericHook(BaseHook):
     """
     Emits Metadata Change Events using either the DatahubRestHook or the
@@ -205,7 +238,9 @@ class DatahubGenericHook(BaseHook):
         super().__init__()
         self.datahub_conn_id = datahub_conn_id
 
-    def get_underlying_hook(self) -> Union[DatahubRestHook, DatahubKafkaHook]:
+    def get_underlying_hook(
+        self,
+    ) -> Union[DatahubRestHook, DatahubKafkaHook, SynchronizedFileHook]:
         conn = self.get_connection(self.datahub_conn_id)
 
         # We need to figure out the underlying hook type. First check the
@@ -251,18 +286,3 @@ class DatahubGenericHook(BaseHook):
 
     # Retained for backwards compatibility.
     emit_mces = emit
-
-
-class SynchronizedFileHook(BaseHook):
-    conn_type = "datahub-file"
-
-    def __init__(self, datahub_conn_id: str) -> None:
-        super().__init__()
-        self.datahub_conn_id = datahub_conn_id
-
-    def make_emitter(self) -> "SynchronizedFileEmitter":
-        from datahub.emitter.synchronized_file_emitter import SynchronizedFileEmitter
-
-        conn = self.get_connection(self.datahub_conn_id)
-
-        return SynchronizedFileEmitter(filename=conn.host)

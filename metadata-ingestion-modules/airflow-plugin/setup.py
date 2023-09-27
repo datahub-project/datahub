@@ -1,5 +1,6 @@
 import os
 import pathlib
+from typing import Dict, Set
 
 import setuptools
 
@@ -29,7 +30,7 @@ base_requirements = {
     *rest_common,
 }
 
-plugins = {
+plugins: Dict[str, Set[str]] = {
     "datahub-rest": {
         f"acryl-datahub[datahub-rest]{_self_pin}",
     },
@@ -48,7 +49,7 @@ plugins = {
 }
 
 # Include datahub-rest in the base requirements.
-base_requirements |= plugins["datahub-rest"]
+base_requirements.update(plugins["datahub-rest"])
 
 
 mypy_stubs = {
@@ -158,7 +159,7 @@ setuptools.setup(
     # Dependencies.
     install_requires=list(base_requirements),
     extras_require={
-        **{plugin: list(dependencies) for (plugin, dependencies) in plugins.items()},
+        **{plugin: list(dependencies) for plugin, dependencies in plugins.items()},
         "dev": list(dev_requirements),
         "integration-tests": list(integration_test_requirements),
     },

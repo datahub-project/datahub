@@ -1,5 +1,5 @@
 import pathlib
-from typing import Callable, Union
+from typing import Callable, Optional, Union
 
 import filelock
 
@@ -32,7 +32,7 @@ class SynchronizedFileEmitter(Closeable, Emitter):
         item: Union[
             MetadataChangeEvent, MetadataChangeProposal, MetadataChangeProposalWrapper
         ],
-        callback: Callable[[Exception, str], None] | None = None,
+        callback: Optional[Callable[[Exception, str], None]] = None,
     ) -> None:
         with self._lock:
             if self._filename.exists():
@@ -43,6 +43,10 @@ class SynchronizedFileEmitter(Closeable, Emitter):
             metadata.append(item)
 
             write_metadata_file(self._filename, metadata)
+
+    def flush(self) -> None:
+        # No-op.
+        pass
 
     def close(self) -> None:
         # No-op.
