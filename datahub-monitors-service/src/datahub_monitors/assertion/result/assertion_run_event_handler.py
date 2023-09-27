@@ -1,28 +1,18 @@
-import json
 import logging
 import time
-from typing import Dict, Optional
+from typing import Optional
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DataHubGraph
-from datahub.metadata.schema_classes import (
-    AssertionResultClass,
-    AssertionResultErrorClass,
-    AssertionResultTypeClass,
-    AssertionRunEventClass,
-    AssertionRunStatusClass,
-    SystemMetadataClass,
-)
+from datahub.metadata.schema_classes import SystemMetadataClass
 
 from datahub_monitors.assertion.result.handler import AssertionResultHandler
+from datahub_monitors.common.aspect_builder import build_assertion_run_event
 from datahub_monitors.types import (
     Assertion,
     AssertionEvaluationContext,
     AssertionEvaluationParameters,
     AssertionEvaluationResult,
-    AssertionEvaluationResultError,
-    AssertionResultType,
-    AssertionType,
 )
 
 logger = logging.getLogger(__name__)
@@ -34,83 +24,6 @@ class AssertionRunEventResultHandler(AssertionResultHandler):
     def __init__(self, graph: DataHubGraph):
         self.graph = graph
 
-    def _freshness_parameters_to_native_results(
-        self, parameters: dict
-    ) -> Optional[Dict[str, str]]:
-        results = {}
-        if "events" in parameters and parameters["events"] is not None:
-            # Serialize the first event.
-            events = parameters["events"]
-            if len(events) > 0:
-                # We found a matching events(s). Lets serialize them!
-                events_objs = [
-                    ({"type": event.event_type.name, "time": event.event_time})
-                    for event in events
-                ]
-                events_str = json.dumps(events_objs, separators=(",", ":"))
-                results["events"] = events_str
-        return results
-
-    def _volume_parameters_to_native_results(
-        self, parameters: dict
-    ) -> Optional[Dict[str, str]]:
-        results = {}
-        if "prev_row_count" in parameters and parameters["prev_row_count"] is not None:
-            results["Previous Row Count"] = parameters["prev_row_count"]
-        return results
-
-    def _extract_error(
-        self, error: AssertionEvaluationResultError
-    ) -> AssertionResultErrorClass:
-        return AssertionResultErrorClass(
-            type=error.type.value, properties=error.properties
-        )
-
-    def _extract_result(
-        self,
-        assertion: Assertion,
-        result: AssertionEvaluationResult,
-        context: AssertionEvaluationContext,
-    ) -> AssertionResultClass:
-        logger.info(
-            f"Attempting to produce Assertion Run Event for assertion run with urn {assertion.urn}. Result {result.type}"
-        )  # TODO - debug
-
-        parameters = result.parameters
-        error = None
-        native_results = None
-        row_count = None
-        if parameters is not None:
-            if assertion.type == AssertionType.FRESHNESS:
-                native_results = self._freshness_parameters_to_native_results(
-                    parameters
-                )
-            elif assertion.type == AssertionType.VOLUME:
-                native_results = self._volume_parameters_to_native_results(parameters)
-
-            if "row_count" in parameters:
-                row_count = parameters["row_count"]
-
-        if result.error is not None:
-            error = self._extract_error(result.error)
-
-        return AssertionResultClass(
-            AssertionResultTypeClass.SUCCESS
-            if result.type == AssertionResultType.SUCCESS
-            else AssertionResultTypeClass.FAILURE
-            if result.type == AssertionResultType.FAILURE
-            else AssertionResultTypeClass.INIT
-            if result.type == AssertionResultType.INIT
-            else AssertionResultTypeClass.ERROR,
-            row_count,
-            None,
-            None,
-            None,
-            native_results,
-            None,
-            error,
-        )
-
     def handle(
         self,
         assertion: Assertion,
@@ -120,21 +33,7 @@ class AssertionRunEventResultHandler(AssertionResultHandler):
     ) -> None:
         now_ms = int(time.time() * 1000)
         run_id = f"native-{assertion.urn}-{str(now_ms)}"
-        status = AssertionRunStatusClass.COMPLETE
-        event_result = self._extract_result(assertion, result, context)
-        run_event = AssertionRunEventClass(
-            now_ms,
-            f"{assertion.urn}-{str(now_ms)}",
-            assertion.entity.urn,
-            status,
-            assertion.urn,
-            event_result,
-            None,
-            None,
-            None,
-            None,
-            None,
-        )
+        run_event = build_assertion_run_event(assertion, result)
 
         mcpw = MetadataChangeProposalWrapper(
             entityUrn=assertion.urn,

@@ -1,5 +1,6 @@
 from datahub_monitors.exceptions import (
     AssertionResultException,
+    CustomSQLErrorException,
     InsufficientDataException,
     InvalidParametersException,
     InvalidSourceTypeException,
@@ -23,27 +24,31 @@ def extract_assertion_evaluation_result_error(
     if isinstance(error, InsufficientDataException):
         return AssertionEvaluationResultError(
             type=AssertionResultErrorType.INSUFFICIENT_DATA,
-            properties={},
+            properties={"message": error.message},
         )
     elif isinstance(error, InvalidParametersException):
         return AssertionEvaluationResultError(
             type=AssertionResultErrorType.INVALID_PARAMETERS,
-            properties={"parameters": error.parameters},
+            properties={"message": error.message, "parameters": error.parameters},
         )
     elif isinstance(error, InvalidSourceTypeException):
         return AssertionEvaluationResultError(
             type=AssertionResultErrorType.INVALID_SOURCE_TYPE,
-            properties={"source_type": error.source_type},
+            properties={"message": error.message, "source_type": error.source_type},
         )
     elif isinstance(error, SourceConnectionErrorException):
         return AssertionEvaluationResultError(
             type=AssertionResultErrorType.SOURCE_CONNECTION_ERROR,
-            properties={"connection_urn": error.connection_urn},
+            properties={
+                "message": error.message,
+                "connection_urn": error.connection_urn,
+            },
         )
     elif isinstance(error, SourceQueryFailedException):
         return AssertionEvaluationResultError(
             type=AssertionResultErrorType.SOURCE_QUERY_FAILED,
             properties={
+                "message": error.message,
                 "query": error.query,
                 "filter": error.filter if error.filter else "",
             },
@@ -51,6 +56,11 @@ def extract_assertion_evaluation_result_error(
     elif isinstance(error, UnsupportedPlatformException):
         return AssertionEvaluationResultError(
             type=AssertionResultErrorType.SOURCE_QUERY_FAILED,
-            properties={"platform_urn": error.platform_urn},
+            properties={"message": error.message, "platform_urn": error.platform_urn},
+        )
+    elif isinstance(error, CustomSQLErrorException):
+        return AssertionEvaluationResultError(
+            type=AssertionResultErrorType.CUSTOM_SQL_ERROR,
+            properties={"message": error.message},
         )
     raise Exception(f"Unknown error type {error}")

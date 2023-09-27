@@ -2,6 +2,7 @@ import { SelectTypeStep } from './steps/SelectTypeStep';
 import { ConfigureDatasetFreshnessAssertionStep } from './steps/ConfigureDatasetFreshnessAssertionStep';
 import { ConfigureActionsStep } from './steps/ConfigureActionsStep';
 import { ConfigureDatasetVolumeAssertionStep } from './steps/ConfigureDatasetVolumeAssertionStep';
+import { ConfigureDatasetSqlAssertionStep } from './steps/ConfigureDatasetSqlAssertionStep';
 import { AssertionType } from '../../../../../../../../types.generated';
 import { AssertionBuilderStep } from './types';
 
@@ -18,6 +19,8 @@ export const getAssertionsBuilderStepComponent = (currentStep: AssertionBuilderS
                     return ConfigureDatasetFreshnessAssertionStep;
                 case AssertionType.Volume:
                     return ConfigureDatasetVolumeAssertionStep;
+                case AssertionType.Sql:
+                    return ConfigureDatasetSqlAssertionStep;
                 default:
                     throw new Error(`Unsupported assertion type ${type}`);
             }

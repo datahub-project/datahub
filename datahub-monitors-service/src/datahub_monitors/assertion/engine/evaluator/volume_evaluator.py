@@ -1,6 +1,6 @@
 import logging
 import time
-from typing import Optional, Union
+from typing import Optional
 
 from datahub.metadata.schema_classes import DatasetProfileClass
 
@@ -25,10 +25,7 @@ from datahub_monitors.types import (
     AssertionEvaluationParametersType,
     AssertionEvaluationResult,
     AssertionResultType,
-    AssertionStdOperator,
-    AssertionStdParameters,
     AssertionType,
-    AssertionValueChangeType,
     DatasetVolumeAssertionParameters,
     DatasetVolumeSourceType,
     VolumeAssertion,
@@ -54,108 +51,6 @@ class VolumeAssertionEvaluator(AssertionEvaluator):
             ),
         )
 
-    def _compare_values(
-        self,
-        current_row_count: Union[int, float],
-        operator: AssertionStdOperator,
-        value: Optional[Union[int, float]],
-        min_value: Optional[Union[int, float]],
-        max_value: Optional[Union[int, float]],
-    ) -> bool:
-        if operator == AssertionStdOperator.BETWEEN:
-            if max_value is None or min_value is None:
-                raise InvalidParametersException(
-                    message="Failed to evaluate VOLUME Assertion (BETWEEN) both minValue and maxValue are required.",
-                    parameters={
-                        "operator": operator,
-                        "parameters": {
-                            "value": value,
-                            "min_value": min_value,
-                            "max_value": max_value,
-                        },
-                    },
-                )
-            return current_row_count >= min_value and current_row_count <= max_value
-        else:
-            if value is None:
-                raise InvalidParametersException(
-                    message=f"Failed to evaluate VOLUME Assertion. ({operator.name}) and no value supplied",
-                    parameters={
-                        "operator": operator,
-                        "parameters": {
-                            "value": value,
-                            "min_value": min_value,
-                            "max_value": max_value,
-                        },
-                    },
-                )
-
-            if operator == AssertionStdOperator.GREATER_THAN:
-                return current_row_count > value
-            if operator == AssertionStdOperator.GREATER_THAN_OR_EQUAL_TO:
-                return current_row_count >= value
-            if operator == AssertionStdOperator.EQUAL_TO:
-                return current_row_count == value
-            if operator == AssertionStdOperator.LESS_THAN:
-                return current_row_count < value
-            if operator == AssertionStdOperator.LESS_THAN_OR_EQUAL_TO:
-                return current_row_count <= value
-
-        raise InvalidParametersException(
-            message=f"Failed to evaluate VOLUME Assertion. Unsupported AssertionStdOperator {operator} provided.",
-            parameters={
-                "operator": operator,
-                "parameters": {
-                    "value": value,
-                    "min_value": min_value,
-                    "max_value": max_value,
-                },
-            },
-        )
-
-    def _evaluate_row_count_total(
-        self,
-        current_row_count: int,
-        operator: AssertionStdOperator,
-        parameters: AssertionStdParameters,
-    ) -> bool:
-        value = int(parameters.value.value) if parameters.value else None
-        min_value = int(parameters.min_value.value) if parameters.min_value else None
-        max_value = int(parameters.max_value.value) if parameters.max_value else None
-
-        return self._compare_values(
-            current_row_count, operator, value, min_value, max_value
-        )
-
-    def _evaluate_row_count_change(
-        self,
-        change_type: AssertionValueChangeType,
-        previous_row_count: int,
-        current_row_count: int,
-        operator: AssertionStdOperator,
-        parameters: AssertionStdParameters,
-    ) -> bool:
-        value = float(parameters.value.value) if parameters.value else None
-        max_value = float(parameters.max_value.value) if parameters.max_value else None
-        min_value = float(parameters.min_value.value) if parameters.min_value else None
-
-        if change_type == AssertionValueChangeType.ABSOLUTE:
-            new_value = previous_row_count + value if value else None
-            new_max_value = previous_row_count + max_value if max_value else None
-            new_min_value = previous_row_count + min_value if min_value else None
-        else:
-            new_value = previous_row_count * (1.0 + value / 100.0) if value else None
-            new_max_value = (
-                previous_row_count * (1.0 + max_value / 100.0) if max_value else None
-            )
-            new_min_value = (
-                previous_row_count * (1.0 + min_value / 100.0) if min_value else None
-            )
-
-        return self._compare_values(
-            current_row_count, operator, new_value, new_min_value, new_max_value
-        )
-
     def _evaluate_row_count_total_assertion(
         self,
         entity_urn: str,
@@ -163,7 +58,7 @@ class VolumeAssertionEvaluator(AssertionEvaluator):
         row_count: int,
     ) -> AssertionEvaluationResult:
         assert volume_assertion.row_count_total is not None
-        row_count_evaluation = self._evaluate_row_count_total(
+        row_count_evaluation = self._evaluate_value(
             row_count,
             volume_assertion.row_count_total.operator,
             volume_assertion.row_count_total.parameters,
@@ -186,24 +81,28 @@ class VolumeAssertionEvaluator(AssertionEvaluator):
     ) -> AssertionEvaluationResult:
         assert volume_assertion.row_count_change is not None
 
-        if not context.monitor_urn:
+        if not context.monitor_urn and context.dry_run is False:
             raise InvalidParametersException(
                 message=f"_evaluate_row_count_change_assertion for {entity_urn} requires a monitor_urn",
                 parameters={"context": context},
             )
 
-        previous_state = self.state_provider.get_state(
-            context.monitor_urn, AssertionStateType.MONITOR_TIMESERIES_STATE
+        previous_state = (
+            self.state_provider.get_state(
+                context.monitor_urn, AssertionStateType.MONITOR_TIMESERIES_STATE
+            )
+            if context.dry_run is False and context.monitor_urn
+            else None
         )
 
         if previous_state:
             prev_row_count = previous_state.properties.get("row_count", None)
             if prev_row_count is None:
                 assertion_evaluation_result = AssertionEvaluationResult(
-                    AssertionResultType.INIT, parameters=None
+                    AssertionResultType.INIT, parameters={"row_count": row_count}
                 )
             else:
-                row_count_evaluation = self._evaluate_row_count_change(
+                row_count_evaluation = self._evaluate_value_change(
                     volume_assertion.row_count_change.type,
                     int(prev_row_count),
                     row_count,
@@ -228,19 +127,20 @@ class VolumeAssertionEvaluator(AssertionEvaluator):
                     )
         else:
             assertion_evaluation_result = AssertionEvaluationResult(
-                AssertionResultType.INIT, parameters=None
+                AssertionResultType.INIT, parameters={"row_count": row_count}
             )
 
-        self.state_provider.save_state(
-            context.monitor_urn,
-            AssertionState(
-                type=AssertionStateType.MONITOR_TIMESERIES_STATE,
-                timestamp=int(time.time() * 1000),
-                properties={
-                    "row_count": str(row_count),
-                },
-            ),
-        )
+        if context.dry_run is False and context.monitor_urn:
+            self.state_provider.save_state(
+                context.monitor_urn,
+                AssertionState(
+                    type=AssertionStateType.MONITOR_TIMESERIES_STATE,
+                    timestamp=int(time.time() * 1000),
+                    properties={
+                        "row_count": str(row_count),
+                    },
+                ),
+            )
 
         return assertion_evaluation_result
 

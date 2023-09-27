@@ -58,7 +58,7 @@ class AssertionScheduler:
     def wrapped_evaluate(
         self,
         assertion: Assertion,
-        parameters: Optional[AssertionEvaluationParameters],
+        parameters: AssertionEvaluationParameters,
         context: AssertionEvaluationContext,
     ) -> None:
         try:
@@ -74,7 +74,7 @@ class AssertionScheduler:
     def submit_assertion(
         self,
         assertion: Assertion,
-        parameters: Optional[AssertionEvaluationParameters],
+        parameters: AssertionEvaluationParameters,
         context: AssertionEvaluationContext,
     ) -> None:
         """
@@ -91,7 +91,7 @@ class AssertionScheduler:
     def schedule_assertion(
         self,
         assertion: Assertion,
-        parameters: Optional[AssertionEvaluationParameters],
+        parameters: AssertionEvaluationParameters,
         schedule: CronSchedule,
         context: AssertionEvaluationContext,
     ) -> str:
@@ -147,7 +147,7 @@ class AssertionScheduler:
     def add_assertion(
         self,
         assertion: Assertion,
-        parameters: Optional[AssertionEvaluationParameters],
+        parameters: AssertionEvaluationParameters,
         schedule: CronSchedule,
         context: AssertionEvaluationContext,
     ) -> str:

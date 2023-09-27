@@ -66,8 +66,8 @@ export const getResultColor = (result: AssertionResultType) => {
 /**
  * Returns the display icon associated with an AssertionResultType
  */
-export const getResultIcon = (result: AssertionResultType) => {
-    const resultColor = getResultColor(result);
+export const getResultIcon = (result: AssertionResultType, color?: string) => {
+    const resultColor = color || getResultColor(result);
     switch (result) {
         case AssertionResultType.Success:
             return <CheckCircleOutlined style={{ color: resultColor }} />;
@@ -101,6 +101,8 @@ export const getResultErrorMessage = (result: AssertionResult) => {
             return 'Invalid source type selected.';
         case AssertionResultErrorType.UnsupportedPlatform:
             return 'Unsupported platform.';
+        case AssertionResultErrorType.CustomSqlError:
+            return 'Custom SQL returned an error.';
         default:
             return 'An unknown error occurred.';
     }

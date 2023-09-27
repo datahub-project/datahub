@@ -225,6 +225,11 @@ enum AssertionEvaluationParametersType {
   Parameters required to evaluate a Dataset Volume Assertion
   """
   DATASET_VOLUME
+
+  """
+  Parameters required to evaluate a Dataset SQL Assertion
+  """
+  DATASET_SQL
 }
 
 """

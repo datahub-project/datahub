@@ -155,7 +155,7 @@ class RedshiftSource(Source):
     def _get_dataset_last_updated_events(
         self, operation_params: SourceOperationParams
     ) -> List[EntityEvent]:
-        logger.warn(
+        logger.warning(
             "Attempted to fetch Redshift Table last updated time, but this is not currently supported for the Redshift connector. Returning no results.."
         )
         return []

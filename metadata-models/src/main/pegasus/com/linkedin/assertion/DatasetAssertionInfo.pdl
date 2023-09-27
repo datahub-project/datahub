@@ -31,11 +31,6 @@ record DatasetAssertionInfo {
       DATASET_ROWS
 
       /**
-      * This assertion applies to the storage size of the dataset
-      */
-      DATASET_STORAGE_SIZE
-
-      /**
       * This assertion applies to the schema of the dataset
       */
       DATASET_SCHEMA

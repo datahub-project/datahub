@@ -7,10 +7,13 @@ from datahub.ingestion.source.bigquery_v2.common import (
     BQ_DATETIME_FORMAT,
     _make_gcp_logging_client,
 )
+from google.api_core.exceptions import BadRequest, Forbidden, NotFound
+from tenacity import retry, stop_after_attempt, wait_exponential
 
 from datahub_monitors.assertion.engine.evaluator.filter_builder import FilterBuilder
 from datahub_monitors.connection.bigquery.bigquery_connection import BigQueryConnection
 from datahub_monitors.exceptions import (
+    CustomSQLErrorException,
     InvalidParametersException,
     SourceQueryFailedException,
 )
@@ -130,7 +133,7 @@ class BigQuerySource(Source):
         for entry in enumerate(entries):
             yield entry
 
-    def _execute_query(self, query: str) -> List[Any]:
+    def _execute_fetchall_query(self, query: str) -> List[Any]:
         try:
             return self.connection.get_client().query(query)
         except Exception as e:
@@ -200,7 +203,9 @@ class BigQuerySource(Source):
 
         logger.debug(query)
 
-        return self._build_information_schema_results(self._execute_query(query))
+        return self._build_information_schema_results(
+            self._execute_fetchall_query(query)
+        )
 
     # This is the ONLY approach which allows for partition spec definition.
     # TODO: Add support for partitioning.
@@ -251,7 +256,7 @@ class BigQuerySource(Source):
             ;"""
 
             return self._build_field_update_results(
-                [row[0] for row in self._execute_query(query)]
+                [row[0] for row in self._execute_fetchall_query(query)]
             )
 
         raise InvalidParametersException(
@@ -280,7 +285,7 @@ class BigQuerySource(Source):
             filter_sql,
             previous_value,
         )
-        rows = self._execute_query(get_value_query)
+        rows = self._execute_fetchall_query(get_value_query)
         current_field_value = None
         # TODO - find the right client method to get the first/single row instead of iterating here
         for row in rows:
@@ -308,7 +313,7 @@ class BigQuerySource(Source):
             filter_sql,
             current_field_value,
         )
-        rows = self._execute_query(get_count_query)
+        rows = self._execute_fetchall_query(get_count_query)
         current_row_count = 0
         for row in rows:
             current_row_count = row[0]
@@ -322,7 +327,7 @@ class BigQuerySource(Source):
             WHERE table_id='{database_params.table}';"""
 
         logger.debug(query)
-        rows = self._execute_query(query)
+        rows = self._execute_fetchall_query(query)
         current_row_count = 0
         for row in rows:
             current_row_count = int(row[0])
@@ -338,9 +343,42 @@ class BigQuerySource(Source):
         )
 
         logger.debug(query)
-        rows = self._execute_query(query)
+        rows = self._execute_fetchall_query(query)
         current_row_count = 0
         for row in rows:
             current_row_count = int(row[0])
 
         return current_row_count
+
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=2, min=4, max=10),
+        reraise=True,
+    )
+    def _execute_custom_sql(
+        self,
+        custom_sql: str,
+    ) -> float:
+        logger.debug(custom_sql)
+        rows = self._execute_fetchall_query(custom_sql)
+
+        try:
+            for row in rows:
+                if len(row) != 1:
+                    # this SQL should return ONE value only
+                    raise CustomSQLErrorException(
+                        f"Custom SQL returned {len(row)} values, expected one!"
+                    )
+
+                try:
+                    return float(row[0])
+                except (ValueError, TypeError):
+                    raise CustomSQLErrorException(
+                        f"Custom SQL returned non-numeric value '{row[0]}'"
+                    )
+        except (NotFound, Forbidden, BadRequest) as e:
+            # try/except here not around the _execute_fetchall_query because it seems the
+            # google client has lazy evaluation, so doesn't fail until the 'for row in rows:' line
+            raise CustomSQLErrorException(e.message)
+
+        raise CustomSQLErrorException("Custom SQL returned 0 rows, expected one!")

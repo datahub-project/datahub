@@ -5,6 +5,14 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.CronSchedule;
 import com.linkedin.data.template.StringArray;
+import com.linkedin.assertion.AssertionResult;
+import com.linkedin.assertion.AssertionResultType;
+import com.linkedin.assertion.AssertionStdOperator;
+import com.linkedin.assertion.AssertionStdParameter;
+import com.linkedin.assertion.AssertionStdParameterType;
+import com.linkedin.assertion.AssertionStdParameters;
+import com.linkedin.assertion.SqlAssertionInfo;
+import com.linkedin.assertion.SqlAssertionType;
 import com.linkedin.monitor.AssertionEvaluationParameters;
 import com.linkedin.monitor.AssertionEvaluationParametersType;
 import com.linkedin.monitor.AssertionEvaluationSpec;
@@ -17,6 +25,7 @@ import com.linkedin.monitor.MonitorInfo;
 import com.linkedin.monitor.MonitorMode;
 import com.linkedin.monitor.MonitorStatus;
 import com.linkedin.monitor.MonitorType;
+import com.linkedin.parseq.retry.backoff.BackoffPolicy;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.entity.Aspect;
@@ -27,9 +36,24 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
+import java.io.ByteArrayInputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.List;
+import org.apache.http.client.methods.CloseableHttpResponse;
+import org.apache.http.client.methods.HttpPost;
+import org.apache.http.message.BasicStatusLine;
+import org.apache.http.ProtocolVersion;
+import org.apache.http.entity.BasicHttpEntity;
+import org.apache.http.impl.client.CloseableHttpClient;
+
+import org.mockito.Mock;
 import org.mockito.Mockito;
+import org.mockito.ArgumentCaptor;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
+import lombok.extern.slf4j.Slf4j;
+
 import org.testcontainers.shaded.com.google.common.collect.ImmutableMap;
 import org.testng.Assert;
 import org.testng.annotations.Test;
@@ -37,20 +61,31 @@ import org.testng.annotations.Test;
 import static com.linkedin.metadata.Constants.*;
 
 
+@Slf4j
 public class MonitorServiceTest {
 
   private static final Urn TEST_MONITOR_URN = UrnUtils.getUrn("urn:li:monitor:test");
   private static final Urn TEST_NON_EXISTENT_MONITOR_URN = UrnUtils.getUrn("urn:li:monitor:test-non-existent");
   private static final Urn TEST_ASSERTION_URN = UrnUtils.getUrn("urn:li:assertion:test");
   private static final Urn TEST_ENTITY_URN = UrnUtils.getUrn("urn:li:dataset:test");
+  private static final Urn TEST_CONNECTION_URN = UrnUtils.getUrn("urn:li:dataPlatform:test");
+  private static final String TEST_SQL_STATEMENT = "SELECT COUNT(*) FROM test_db.public.test_table;";
+  private static final String TEST_HOST = "localhost";
+  private static final Integer TEST_PORT = 9004;
+
+  @Mock
+  private BackoffPolicy backoffPolicy; 
 
   @Test
   private void testGetMonitorInfo() throws Exception {
     final EntityClient mockClient = createMockEntityClient();
     final MonitorService service = new MonitorService(
+        TEST_HOST,
+        TEST_PORT,
+        false,
         mockClient,
-        Mockito.mock(Authentication.class));
-
+        Mockito.mock(Authentication.class)
+    );
     // Case 1: Info exists
     MonitorInfo info = service.getMonitorInfo(TEST_MONITOR_URN);
     Assert.assertEquals(info, mockMonitorInfo());
@@ -108,8 +143,12 @@ public class MonitorServiceTest {
     }).when(mockClient).batchIngestProposals(Mockito.anyList(), Mockito.any(Authentication.class), Mockito.eq(false));
 
     final MonitorService service = new MonitorService(
+        TEST_HOST,
+        TEST_PORT,
+        false,
         mockClient,
-        Mockito.mock(Authentication.class));
+        Mockito.mock(Authentication.class)
+    );
 
     // Test method
     Urn result = service.createAssertionMonitor(entityUrn, assertionUrn, schedule, parameters, null, Mockito.mock(Authentication.class));
@@ -136,8 +175,12 @@ public class MonitorServiceTest {
         );
 
     final MonitorService service = new MonitorService(
+        TEST_HOST,
+        TEST_PORT,
+        false,
         mockClient,
-        Mockito.mock(Authentication.class));
+        Mockito.mock(Authentication.class)
+    );
 
     // Method should throw because the assertion does not exist.
     Assert.assertThrows(
@@ -162,8 +205,12 @@ public class MonitorServiceTest {
         );
 
     final MonitorService service = new MonitorService(
+        TEST_HOST,
+        TEST_PORT,
+        false,
         mockClient,
-        Mockito.mock(Authentication.class));
+        Mockito.mock(Authentication.class)
+    );
 
     Mockito.when(mockClient.exists(Mockito.eq(assertionUrn), Mockito.any(Authentication.class))).thenReturn(true);
     Mockito.when(mockClient.exists(Mockito.eq(entityUrn), Mockito.any(Authentication.class))).thenReturn(false);
@@ -178,8 +225,12 @@ public class MonitorServiceTest {
   private void testUpsertMonitorMode() throws Exception {
     final EntityClient mockClient = createMockEntityClient();
     final MonitorService service = new MonitorService(
+        TEST_HOST,
+        TEST_PORT,
+        false,
         mockClient,
-        Mockito.mock(Authentication.class));
+        Mockito.mock(Authentication.class)
+    );
 
     // Case 1: Info exists
     Mockito.doAnswer(invocation -> {
@@ -285,5 +336,54 @@ public class MonitorServiceTest {
     );
     info.setStatus(new MonitorStatus().setMode(MonitorMode.ACTIVE));
     return info;
+  }
+
+  @Test
+  public void testSqlAssertionSuccess() throws Exception {
+    final EntityClient mockClient = Mockito.mock(EntityClient.class);
+    final CloseableHttpClient httpClient = Mockito.mock(CloseableHttpClient.class);
+    final MonitorService service = new MonitorService(
+        TEST_HOST,
+        TEST_PORT,
+        false,
+        mockClient,
+        Mockito.mock(Authentication.class),
+        httpClient,
+        backoffPolicy,
+        3
+    );
+
+    final SqlAssertionInfo sqlAssertionInfo = new SqlAssertionInfo()
+        .setType(SqlAssertionType.METRIC)
+        .setEntity(TEST_ENTITY_URN)
+        .setStatement(TEST_SQL_STATEMENT)
+        .setOperator(AssertionStdOperator.GREATER_THAN)
+        .setParameters(
+            new AssertionStdParameters()
+                .setValue(
+                    new AssertionStdParameter()
+                        .setValue("10")
+                        .setType(AssertionStdParameterType.NUMBER)
+                )
+        );
+
+    CloseableHttpResponse mockResponse = mock(CloseableHttpResponse.class);
+    when(mockResponse.getStatusLine()).thenReturn(new BasicStatusLine(new ProtocolVersion("HTTP", 1, 1), 200, "OK"));
+
+    String expectedJson = "{\"type\": \"SUCCESS\", \"rowCount\": null, \"missingCount\": null, \"unexpectedCount\": null, "
+                + "\"actualAggValue\": null, \"nativeResults\": {     \"Value\": \"200\" }, \"externalUrl\": null, \"error\": null}";
+    BasicHttpEntity entity = new BasicHttpEntity();
+    entity.setContent(new ByteArrayInputStream(expectedJson.getBytes(StandardCharsets.UTF_8)));
+    when(mockResponse.getEntity()).thenReturn(entity);
+    when(httpClient.execute(any(HttpPost.class))).thenReturn(mockResponse);
+
+    AssertionResult result = service.testSqlAssertion(TEST_ENTITY_URN, TEST_CONNECTION_URN, sqlAssertionInfo);
+
+    ArgumentCaptor<HttpPost> argument = ArgumentCaptor.forClass(HttpPost.class);
+    verify(httpClient, times(1)).execute(argument.capture());
+    HttpPost request = argument.getValue();
+
+    assertEquals("localhost:9004/assertions/evaluate_assertion", request.getURI().getAuthority() + request.getURI().getPath());
+    assertEquals(AssertionResultType.SUCCESS, result.getType());
   }
 }
