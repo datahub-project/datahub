@@ -52,7 +52,7 @@ mypy_stubs = {
     "types-tabulate",
 }
 
-base_dev_requirements = {
+dev_requirements = {
     *base_requirements,
     *mypy_stubs,
     "black==22.12.0",
@@ -76,10 +76,7 @@ base_dev_requirements = {
     "build",
     "twine",
     "packaging",
-}
-
-dev_requirements = {
-    *base_dev_requirements,
+    f"acryl-datahub[sync-file-emitter,testing-utils]{_self_pin}",
 }
 
 
@@ -137,6 +134,7 @@ setuptools.setup(
     extras_require={
         "dev": list(dev_requirements),
         "datahub-kafka": [f"acryl-datahub[datahub-kafka]{_self_pin}"],
+        "datahub-file": [f"acryl-datahub[sync-file-emitter]{_self_pin}"],
         "plugin-v1": [],
         "plugin-v2": list(plugin_v2_requirements),
         "integration-tests": [

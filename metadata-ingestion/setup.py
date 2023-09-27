@@ -270,6 +270,7 @@ plugins: Dict[str, Set[str]] = {
     # Sink plugins.
     "datahub-kafka": kafka_common,
     "datahub-rest": rest_common,
+    "sync-file-emitter": {"filelock"},
     "datahub-lite": {
         "duckdb",
         "fastapi",

@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Tuple, Union
+from typing import TYPE_CHECKING, Any, Dict, Optional, Sequence, Tuple, Union
 
 from airflow.exceptions import AirflowException
 from airflow.hooks.base import BaseHook
@@ -13,6 +13,7 @@ if TYPE_CHECKING:
     from airflow.models.connection import Connection
     from datahub.emitter.kafka_emitter import DatahubKafkaEmitter
     from datahub.emitter.rest_emitter import DatahubRestEmitter
+    from datahub.emitter.synchronized_file_emitter import SynchronizedFileEmitter
     from datahub.ingestion.sink.datahub_kafka import KafkaSinkConfig
 
 
@@ -219,6 +220,8 @@ class DatahubGenericHook(BaseHook):
             or conn.conn_type == DatahubKafkaHook.conn_type.replace("-", "_")
         ):
             return DatahubKafkaHook(self.datahub_conn_id)
+        elif conn.conn_type == SynchronizedFileEmitter.conn_type:
+            return SynchronizedFileEmitter(self.datahub_conn_id)
         elif "rest" in self.datahub_conn_id:
             return DatahubRestHook(self.datahub_conn_id)
         elif "kafka" in self.datahub_conn_id:
@@ -245,3 +248,18 @@ class DatahubGenericHook(BaseHook):
 
     # Retained for backwards compatibility.
     emit_mces = emit
+
+
+class SynchronizedFileHook(BaseHook):
+    conn_type = "datahub-file"
+
+    def __init__(self, datahub_conn_id: str) -> None:
+        super().__init__()
+        self.datahub_conn_id = datahub_conn_id
+
+    def make_emitter(self) -> "SynchronizedFileEmitter":
+        from datahub.emitter.synchronized_file_emitter import SynchronizedFileEmitter
+
+        conn = self.get_connection(self.datahub_conn_id)
+
+        return SynchronizedFileEmitter(filename=conn.host)
