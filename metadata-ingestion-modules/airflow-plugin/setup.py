@@ -100,6 +100,8 @@ integration_test_requirements = {
     f"acryl-datahub[testing-utils]{_self_pin}",
     # Extra requirements for loading our test dags.
     "apache-airflow[snowflake]>=2.0.2",
+    # https://github.com/snowflakedb/snowflake-sqlalchemy/issues/350
+    "snowflake-sqlalchemy>=1.4.3",
     "virtualenv",  # needed by PythonVirtualenvOperator
 }
 

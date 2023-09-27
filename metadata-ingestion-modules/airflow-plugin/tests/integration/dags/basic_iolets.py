@@ -1,13 +1,7 @@
-"""Lineage Backend
-
-An example DAG demonstrating the usage of DataHub's Airflow lineage backend.
-"""
-
-from datetime import datetime, timedelta
+from datetime import datetime
 
 from airflow import DAG
 from airflow.operators.bash import BashOperator
-from airflow.utils.dates import days_ago
 
 from datahub_airflow_plugin.entities import Dataset, Urn
 

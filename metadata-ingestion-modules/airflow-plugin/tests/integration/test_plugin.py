@@ -124,6 +124,23 @@ def _run_airflow(
             conn_type="datahub-file",
             host=str(meta_file),
         ).get_uri(),
+        # Configure fake credentials for the Snowflake connection.
+        "AIRFLOW_CONN_MY_SNOWFLAKE": Connection(
+            conn_id="my_snowflake",
+            conn_type="snowflake",
+            login="fake_username",
+            password="fake_password",
+            schema="DATAHUB_TEST_SCHEMA",
+            extra={
+                "account": "fake_account",
+                "database": "DATAHUB_TEST_DATABASE",
+                "warehouse": "fake_warehouse",
+                "role": "fake_role",
+                "insecure_mode": "true",
+            },
+        ).get_uri(),
+        # Convenience settings.
+        "SQLALCHEMY_SILENCE_UBER_WARNING": "1",
     }
 
     # Start airflow in a background subprocess.
@@ -194,20 +211,50 @@ def check_golden_file(
     )
 
 
+@dataclasses.dataclass
+class DagTestCase:
+    dag_id: str
+    success: bool = False
+
+    v2_only: bool = False
+
+
+test_cases = [
+    DagTestCase("simple_dag"),
+    DagTestCase("basic_iolets"),
+    DagTestCase("snowflake_operator", success=False, v2_only=True),
+]
+
+
 @pytest.mark.parametrize(
-    ["golden_filename", "dag_id", "is_v1"],
+    ["golden_filename", "test_case", "is_v1"],
     [
-        pytest.param("v1_simple_dag.json", "simple_dag", True, id="v1_simple_dag"),
-        pytest.param(
-            "v1_basic_iolets.json", "basic_iolets", True, id="v1_basic_iolets"
-        ),
+        *[
+            pytest.param(
+                f"v1_{test_case.dag_id}",
+                test_case,
+                True,
+                id=f"v1_{test_case.dag_id}",
+            )
+            for test_case in test_cases
+            if not test_case.v2_only
+        ],
+        *[
+            pytest.param(
+                f"v2_{test_case.dag_id}",
+                test_case,
+                False,
+                id=f"v2_{test_case.dag_id}",
+            )
+            for test_case in test_cases
+        ],
     ],
 )
 def test_airflow_plugin(
     pytestconfig: pytest.Config,
     tmp_path: pathlib.Path,
     golden_filename: str,
-    dag_id: str,
+    test_case: DagTestCase,
     is_v1: bool,
 ) -> None:
     # This test:
@@ -215,7 +262,7 @@ def test_airflow_plugin(
     # - Starts a local airflow instance in a subprocess.
     # - Runs a DAG that uses an operator supported by the extractor.
     # - Waits for the DAG to complete.
-    # - Checks that the metadata was emitted to DataHub.
+    # - Validates the metadata generated against a golden file.
 
     if not HAS_AIRFLOW_LISTENER_API and not is_v1:
         pytest.skip("Cannot test plugin v2 without the Airflow plugin listener API")
@@ -226,6 +273,7 @@ def test_airflow_plugin(
     goldens_folder = pathlib.Path(__file__).parent / "goldens"
 
     golden_path = goldens_folder / f"{golden_filename}.json"
+    dag_id = test_case.dag_id
 
     with _run_airflow(
         tmp_path, dags_folder=dags_folder, is_v1=is_v1

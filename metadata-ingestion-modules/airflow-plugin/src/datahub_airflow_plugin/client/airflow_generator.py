@@ -153,7 +153,7 @@ class AirflowGenerator:
         allowed_flow_keys = [
             "_access_control",
             "_concurrency",
-            "_default_view",
+            # "_default_view",
             "catchup",
             "fileloc",
             "is_paused_upon_creation",
@@ -415,16 +415,13 @@ class AirflowGenerator:
         job_property_bag["end_date"] = str(ti.end_date)
         job_property_bag["execution_date"] = str(ti.execution_date)
         job_property_bag["try_number"] = str(ti.try_number - 1)
-        job_property_bag["hostname"] = str(ti.hostname)
         job_property_bag["max_tries"] = str(ti.max_tries)
         # Not compatible with Airflow 1
         if hasattr(ti, "external_executor_id"):
             job_property_bag["external_executor_id"] = str(ti.external_executor_id)
-        job_property_bag["pid"] = str(ti.pid)
         job_property_bag["state"] = str(ti.state)
         job_property_bag["operator"] = str(ti.operator)
         job_property_bag["priority_weight"] = str(ti.priority_weight)
-        job_property_bag["unixname"] = str(ti.unixname)
         job_property_bag["log_url"] = ti.log_url
         dpi.properties.update(job_property_bag)
         dpi.url = ti.log_url
