@@ -960,7 +960,7 @@ class DataHubGraph(DatahubRestEmitter):
                 url=relationship_endpoint,
                 params={
                     "urn": entity_urn,
-                    "direction": direction,
+                    "direction": direction.value,
                     "relationshipTypes": relationship_types,
                     "start": start,
                 },
