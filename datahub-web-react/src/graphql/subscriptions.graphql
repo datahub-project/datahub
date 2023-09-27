@@ -67,13 +67,7 @@ fragment subscriptionFields on DataHubSubscription {
                 description
             }
             platform {
-                name
-                info {
-                    logoUrl
-                }
-                properties {
-                    logoUrl
-                }
+                ...platformFields
             }
         }
         ... on Dashboard {
@@ -84,6 +78,9 @@ fragment subscriptionFields on DataHubSubscription {
             editableProperties {
                 description
             }
+            platform {
+                ...platformFields
+            }
         }
         ... on Chart {
             tool
@@ -93,6 +90,45 @@ fragment subscriptionFields on DataHubSubscription {
             }
             editableProperties {
                 description
+            }
+            platform {
+                ...platformFields
+            }
+        }
+        ... on MLModel {
+            name
+            properties {
+                description
+            }
+            editableProperties {
+                description
+            }
+            platform {
+                ...platformFields
+            }
+        }
+        ... on DataFlow {
+            properties {
+                name
+                description
+            }
+            editableProperties {
+                description
+            }
+            platform {
+                ...platformFields
+            }
+        }
+        ... on MLFeatureTable {
+            name
+            properties {
+                description
+            }
+            editableProperties {
+                description
+            }
+            platform {
+                ...platformFields
             }
         }
     }
