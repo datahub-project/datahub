@@ -72,7 +72,9 @@ class NotReadyError(Exception):
     stop=tenacity.stop_after_delay(60),
     retry=tenacity.retry_if_exception_type(NotReadyError),
 )
-def _wait_for_dag_finish(airflow_instance: AirflowInstance, dag_id: str) -> None:
+def _wait_for_dag_finish(
+    airflow_instance: AirflowInstance, dag_id: str, require_success: bool
+) -> None:
     print("Checking if DAG is finished")
     res = airflow_instance.session.get(
         f"{airflow_instance.airflow_url}/api/v1/dags/{dag_id}/dagRuns", timeout=5
@@ -85,9 +87,11 @@ def _wait_for_dag_finish(airflow_instance: AirflowInstance, dag_id: str) -> None
 
     dag_run = dag_runs[0]
     if dag_run["state"] == "failed":
-        raise ValueError("DAG failed")
+        if require_success:
+            raise ValueError("DAG failed")
+        # else - success is not required, so we're done.
 
-    if dag_run["state"] != "success":
+    elif dag_run["state"] != "success":
         raise NotReadyError(f"DAG has not finished yet: {dag_run['state']}")
 
 
@@ -294,7 +298,9 @@ def test_airflow_plugin(
         )
 
         print("Waiting for DAG to finish...")
-        _wait_for_dag_finish(airflow_instance, dag_id)
+        _wait_for_dag_finish(
+            airflow_instance, dag_id, require_success=test_case.success
+        )
 
     check_golden_file(
         pytestconfig=pytestconfig,
