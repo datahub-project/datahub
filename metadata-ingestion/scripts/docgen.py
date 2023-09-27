@@ -906,6 +906,11 @@ You can view lineage under **Lineage** tab or **Lineage Visualization** screen.
 
 The UI shows the latest version of the lineage. The time picker can be used to filter out edges within the latest version to exclude those that were last updated outside of the time window. Selecting time windows in the patch will not show you historical lineages. It will only filter the view of the latest version of the lineage.
 
+<p align="center">
+<img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/lineage/lineage-view.png" />
+</p>
+
+
 :::tip The Lineage Tab is greyed out - why can’t I click on it?
 This means you have not yet ingested lineage metadata for that entity. Please ingest lineage to proceed.
 
@@ -921,7 +926,7 @@ For detailed instructions, refer to the [source documentation](https://datahubpr
 ### UI
 
 As of `v0.9.5`, DataHub supports the manual editing of lineage between entities. Data experts are free to add or remove upstream and downstream lineage edges in both the Lineage Visualization screen as well as the Lineage tab on entity pages. Use this feature to supplement automatic lineage extraction or establish important entity relationships in sources that do not support automatic extraction. Editing lineage by hand is supported for Datasets, Charts, Dashboards, and Data Jobs.
-Please refer to our [UI Guides on Lineage]() for more information.
+Please refer to our [UI Guides on Lineage](../../features/feature-guides/ui-lineage.md) for more information.
 
 :::caution Recommendation on UI-based lineage
 
@@ -942,8 +947,8 @@ Please refer to [API Guides on Lineage](../../api/tutorials/lineage.md) for more
 
 This is a summary of automatic lineage extraciton support in our data source. Please refer to the **Important Capabilities** table in the source documentation. Note that even if the source does not support automatic extraction, you can still add lineage manually using our API & SDKs.\n""")
 
-        f.write("\n| Source | Table-Level Lineage | Column-Level Lineage |\n")
-        f.write("| ---------- | ------ | ----- |\n")
+        f.write("\n| Source | Table-Level Lineage | Column-Level Lineage | Related Configs |\n")
+        f.write("| ---------- | ------ | ----- |----- |\n")
 
         for platform_id, platform_docs in sorted(
                 source_documentation.items(),
@@ -962,25 +967,32 @@ This is a summary of automatic lineage extraciton support in our data source. Pl
                     # We only need to show this if there are multiple modules.
                     platform_name = f"{platform_name} `{plugin}`"
 
-                if "capabilities" in plugin_docs and len(plugin_docs["capabilities"]):
-                    plugin_capabilities: List[CapabilitySetting] = plugin_docs[
-                        "capabilities"
-                    ]
-                    table_level_supported = "❌"
-                    column_level_supported = "❌"
+                # Initialize variables
+                table_level_supported = "❌"
+                column_level_supported = "❌"
+                config_names = ''
+
+                if "capabilities" in plugin_docs:
+                    plugin_capabilities = plugin_docs["capabilities"]
+
                     for cap_setting in plugin_capabilities:
-                        if get_capability_text(
-                                cap_setting.capability) == "Table-Level Lineage" and get_capability_supported_badge(
-                                cap_setting.supported) == "✅":
+                        capability_text = get_capability_text(cap_setting.capability)
+                        capability_supported = get_capability_supported_badge(cap_setting.supported)
+
+                        if capability_text == "Table-Level Lineage" and capability_supported == "✅":
                             table_level_supported = "✅"
 
-                        if get_capability_text(
-                                cap_setting.capability) == "Column-level Lineage" and get_capability_supported_badge(
-                                cap_setting.supported) == "✅":
+                        if capability_text == "Column-level Lineage" and capability_supported == "✅":
                             column_level_supported = "✅"
 
+                if not (table_level_supported == "❌" and column_level_supported == "❌"):
+                    if "config_schema" in plugin_docs:
+                        config_properties = json.loads(plugin_docs['config_schema']).get('properties', {})
+                        config_names = '<br />'.join(
+                            [f'- {property_name}' for property_name in config_properties if 'lineage' in property_name])
+
                 f.write(
-                    f"| [{platform_name}](../../generated/ingestion/sources/{platform_id}.md) | {table_level_supported} | {column_level_supported} |\n"
+                    f"| [{platform_name}](../../generated/ingestion/sources/{platform_id}.md) | {table_level_supported} | {column_level_supported} | {config_names}|\n"
                 )
 
         f.write("""
