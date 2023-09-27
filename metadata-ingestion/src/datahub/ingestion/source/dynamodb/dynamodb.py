@@ -79,7 +79,7 @@ class DynamoDBConfig(DatasetSourceConfigMixin, StatefulIngestionConfigBase):
 
     table_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
-        description="regex patterns for tables to filter in ingestion.",
+        description="Regex patterns for tables to filter in ingestion. The table name format is 'region.table'",
     )
     # Custom Stateful Ingestion settings
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
@@ -190,11 +190,11 @@ class DynamoDBSource(StatefulIngestionSourceBase):
             for table_name in self._list_tables(dynamodb_client):
                 dataset_name = f"{region}.{table_name}"
                 if not self.config.table_pattern.allowed(dataset_name):
-                    logger.info(f"skipping table: {dataset_name}")
+                    logger.debug(f"skipping table: {dataset_name}")
                     self.report.report_dropped(dataset_name)
                     continue
 
-                logger.info(f"Processing table: {dataset_name}")
+                logger.debug(f"Processing table: {dataset_name}")
                 table_info = dynamodb_client.describe_table(TableName=table_name)[
                     "Table"
                 ]
@@ -331,7 +331,7 @@ class DynamoDBSource(StatefulIngestionSourceBase):
                 f"failed to retrieve item from table {table_name} by the given key {primary_key_list}"
             )
             return
-        logger.info(
+        logger.debug(
             f"successfully retrieved {len(primary_key_list)} items based on supplied primary key list"
         )
         items = response.get(table_name)
