@@ -18,7 +18,8 @@ def get_long_description():
 
 
 base_requirements = {
-    "typing_extensions>=3.10.0.2",
+    # Typing extension should be >=3.10.0.2 ideally but we can't restrict due to a Airflow 2.1 dependency conflict.
+    "typing_extensions>=3.7.4.3",
     "mypy_extensions>=0.4.3",
     # Actual dependencies.
     "typing-inspect",

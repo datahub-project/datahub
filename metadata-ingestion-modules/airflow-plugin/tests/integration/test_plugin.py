@@ -14,6 +14,8 @@ from airflow.models.connection import Connection
 
 logger = logging.getLogger(__name__)
 
+IS_LOCAL = os.environ.get("CI", "false") == "false"
+
 
 @dataclasses.dataclass
 class AirflowInstance:
@@ -101,10 +103,14 @@ def _run_airflow(
         **os.environ,
         "AIRFLOW_HOME": str(airflow_home),
         "AIRFLOW__WEBSERVER__WEB_SERVER_PORT": str(airflow_port),
+        # Point airflow to the DAGs folder.
         "AIRFLOW__CORE__LOAD_EXAMPLES": "False",
         "AIRFLOW__CORE__DAGS_FOLDER": str(dags_folder),
         "AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION": "False",
-        # Have the datahub plugin write metadata to a file.
+        # Have the Airflow API use username/password authentication.
+        "AIRFLOW__API__AUTH_BACKEND": "airflow.api.auth.backend.basic_auth",
+        # Configure the datahub plugin and have it write the MCPs to a file.
+        "AIRFLOW__CORE__LAZY_LOAD_PLUGINS": "False",  # TODO: only do this for plugin v1
         "AIRFLOW__DATAHUB__CONN_ID": datahub_connection_name,
         f"AIRFLOW_CONN_{datahub_connection_name.upper()}": Connection(
             conn_id="datahub_file_default",
@@ -122,6 +128,30 @@ def _run_airflow(
     try:
         _wait_for_airflow_healthy(airflow_port)
         print("Airflow is ready!")
+
+        # Create an extra "airflow" user for easy testing.
+        if IS_LOCAL:
+            print("Creating an extra test user...")
+            subprocess.check_call(
+                [
+                    "airflow",
+                    "users",
+                    "create",
+                    "--username",
+                    "airflow",
+                    "--password",
+                    "airflow",
+                    "--firstname",
+                    "admin",
+                    "--lastname",
+                    "admin",
+                    "--role",
+                    "Admin",
+                    "--email",
+                    "airflow@example.com",
+                ],
+                env=environment,
+            )
 
         airflow_username = "admin"
         airflow_password = (airflow_home / "standalone_admin_password.txt").read_text()
@@ -153,14 +183,10 @@ def test_airflow_plugin_v2(tmp_path: pathlib.Path) -> None:
     # - Waits for the DAG to complete.
     # - Checks that the metadata was emitted to DataHub.
 
-    # TODO cleanup old running airflow instances
-
     dags_folder = pathlib.Path(__file__).parent / "dags"
 
     with _run_airflow(tmp_path, dags_folder=dags_folder) as airflow_instance:
         dag_id = "simple_dag"
-
-        breakpoint()
 
         print(f"Running DAG {dag_id}...")
         subprocess.check_call(
@@ -175,11 +201,9 @@ def test_airflow_plugin_v2(tmp_path: pathlib.Path) -> None:
             env=airflow_instance.env_vars,
         )
 
-        breakpoint()
-
         print("Waiting for DAG to finish...")
         _wait_for_dag_finish(airflow_instance, dag_id)
 
         breakpoint()
 
-        print("done")
+        print("test finished and all good")
