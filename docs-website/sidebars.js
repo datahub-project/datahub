@@ -426,6 +426,7 @@ module.exports = {
         "docs/features/dataset-usage-and-query-history",
         "docs/posts",
         "docs/sync-status",
+        "docs/generated/lineage/lineage-feature-guide",
         {
           type: "doc",
           id: "docs/tests/metadata-tests",
@@ -437,6 +438,11 @@ module.exports = {
             "docs/managed-datahub/observe/freshness-assertions",
             "docs/managed-datahub/observe/volume-assertions",
             "docs/managed-datahub/observe/custom-assertions",
+          ],
+        },
+        {
+          Guides: [
+            "docs/features/feature-guides/ui-lineage",
           ],
         },
       ],
