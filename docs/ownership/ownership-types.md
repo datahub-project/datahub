@@ -47,7 +47,7 @@ To manage a Custom Ownership type, first navigate to the DataHub Admin page:
 <p></p>
 
 <p align="center">
-    <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/e14d8cdc641dd69131bccc53909d7ffdc9d6aac5/imgs/ownership/manage-view.png" />
+    <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/ownership/manage-view.png" />
 </p>
     
 Then navigate to the `Ownership Types` tab under the `Management` section.
@@ -61,7 +61,7 @@ Inside the form, you can choose a name for your Ownership Type. You can also add
 Don't worry, this can be changed later.
     
 <p align="center">
-    <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/e14d8cdc641dd69131bccc53909d7ffdc9d6aac5/imgs/ownership/ownership-type-create.png" />
+    <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/ownership/ownership-type-create.png" />
 </p>
     
 Once you've chosen a name and a description, click 'Save' to create the new Ownership Type.
@@ -162,13 +162,13 @@ You can assign an owner with a custom ownership type to an entity either using t
 On an Entity's profile page, use the right sidebar to locate the Owners section. 
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/e14d8cdc641dd69131bccc53909d7ffdc9d6aac5/imgs/ownership/ownership-type-set-part1.png" />
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/ownership/ownership-type-set-part1.png" />
 </p>
 
 Click 'Add Owners', select the owner you want and then search for the Custom Ownership Type you'd like to add this asset to. When you're done, click 'Add'.
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/e14d8cdc641dd69131bccc53909d7ffdc9d6aac5/imgs/ownership/ownership-type-set-part2.png" />
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/ownership/ownership-type-set-part2.png" />
 </p>
 
 To remove ownership from an asset, click the 'x' icon on the Owner label.
