@@ -1,4 +1,6 @@
-from typing import Any, Callable, Optional, Protocol, Union
+from typing import Any, Callable, Optional, Union
+
+from typing_extensions import Protocol
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import (

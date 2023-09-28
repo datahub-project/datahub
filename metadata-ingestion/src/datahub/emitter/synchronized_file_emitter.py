@@ -44,6 +44,9 @@ class SynchronizedFileEmitter(Closeable, Emitter):
 
             write_metadata_file(self._filename, metadata)
 
+    def __repr__(self) -> str:
+        return f"SynchronizedFileEmitter('{self._filename}')"
+
     def flush(self) -> None:
         # No-op.
         pass

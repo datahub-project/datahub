@@ -181,10 +181,18 @@ def _run_airflow(
                 env=environment,
             )
 
+        # Sanity check that the plugin got loaded.
+        if not is_v1:
+            print("[debug] Listing loaded plugins")
+            subprocess.check_call(
+                ["airflow", "plugins", "-v"],
+                env=environment,
+            )
+
         airflow_username = "admin"
         airflow_password = (airflow_home / "standalone_admin_password.txt").read_text()
 
-        yield AirflowInstance(
+        airflow_instance = AirflowInstance(
             airflow_home=airflow_home,
             airflow_port=airflow_port,
             pid=airflow_process.pid,
@@ -193,6 +201,8 @@ def _run_airflow(
             password=airflow_password,
             metadata_file=meta_file,
         )
+
+        yield airflow_instance
     finally:
         # Attempt a graceful shutdown.
         print("Shutting down airflow...")
