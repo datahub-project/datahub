@@ -170,6 +170,9 @@ def _run_airflow(
         _wait_for_airflow_healthy(airflow_port)
         print("Airflow is ready!")
 
+        # Sleep for a few seconds to make sure the other Airflow processes are ready.
+        time.sleep(3)
+
         # Create an extra "airflow" user for easy testing.
         if IS_LOCAL:
             print("Creating an extra test user...")
