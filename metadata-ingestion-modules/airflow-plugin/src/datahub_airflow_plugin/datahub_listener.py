@@ -2,8 +2,8 @@ import copy
 import functools
 import logging
 import threading
-import types
-from typing import TYPE_CHECKING, Callable, Dict, List, Optional, TypeVar, cast
+import unittest.mock
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, TypeVar, cast
 
 import datahub.emitter.mce_builder as builder
 from datahub.api.entities.datajob import DataJob
@@ -22,6 +22,7 @@ from openlineage.airflow.utils import redact_with_exclusions
 from openlineage.client.serde import Serde
 
 from datahub_airflow_plugin._airflow_shims import (
+    HAS_AIRFLOW_DAG_LISTENER_API,
     Operator,
     get_task_inlets,
     get_task_outlets,
@@ -66,6 +67,32 @@ def get_airflow_plugin_listener() -> Optional["DataHubListener"]:
         if plugin_config.enabled:
             _airflow_listener = DataHubListener(config=plugin_config)
 
+            # On Airflow < 2.5, we monkeypatch the listener manager's
+            # add_listener method to skip the isinstance check.
+            # The DAG listener API was added at the same time as this method
+            # was fixed, so we're reusing the same check variable.
+            #
+            # Related Airflow change: https://github.com/apache/airflow/pull/27113.
+            if not HAS_AIRFLOW_DAG_LISTENER_API:
+                from airflow.listeners.listener import (
+                    ListenerManager,
+                    _listener_manager,
+                )
+
+                def add_listener(self: "ListenerManager", listener: Any) -> None:
+                    if self.pm.is_registered(listener):
+                        return
+                    self.pm.register(listener)
+
+                if _listener_manager:
+                    unittest.mock.patch.object(
+                        _listener_manager, "add_listener", add_listener
+                    )
+                else:
+                    unittest.mock.patch.object(
+                        ListenerManager, "add_listener", add_listener
+                    )
+
             if plugin_config.disable_openlineage_plugin:
                 # Deactivate the OpenLineagePlugin listener to avoid conflicts.
                 from openlineage.airflow.plugin import OpenLineagePlugin
@@ -98,10 +125,7 @@ def run_in_thread(f: _F) -> _F:
     return cast(_F, wrapper)
 
 
-# This inherits from types.ModuleType to avoid issues with Airflow's listener plugin loader.
-# It previously (v2.4.x and likely other versions too) would throw errors if it was not a module.
-# https://github.com/apache/airflow/blob/e99a518970b2d349a75b1647f6b738c8510fa40e/airflow/listeners/listener.py#L56
-class DataHubListener(types.ModuleType):
+class DataHubListener:
     __name__ = "DataHubListener"
 
     def __init__(self, config: DatahubLineageConfig):
@@ -121,6 +145,11 @@ class DataHubListener(types.ModuleType):
         self._datajob_holder: Dict[str, DataJob] = {}
 
         self.extractor_manager = ExtractorManager()
+
+        # This "inherits" from types.ModuleType to avoid issues with Airflow's listener plugin loader.
+        # It previously (v2.4.x and likely other versions too) would throw errors if it was not a module.
+        # https://github.com/apache/airflow/blob/e99a518970b2d349a75b1647f6b738c8510fa40e/airflow/listeners/listener.py#L56
+        # self.__class__ = types.ModuleType
 
     @property
     def emitter(self):
@@ -324,6 +353,13 @@ class DataHubListener(types.ModuleType):
         if task_instance.next_method is not None:  # type: ignore[attr-defined]
             return
 
+        # If we don't have the DAG listener API, we just pretend that
+        # the start of the task is the start of the DAG.
+        # This generates duplicate events, but it's better than not
+        # generating anything.
+        if not HAS_AIRFLOW_DAG_LISTENER_API:
+            self.on_dag_start(dagrun)
+
         datajob = AirflowGenerator.generate_datajob(
             cluster=self.config.cluster,
             task=task,
@@ -420,15 +456,7 @@ class DataHubListener(types.ModuleType):
         # TODO: Handle UP_FOR_RETRY state.
         self.on_task_instance_finish(task_instance, status=InstanceRunResult.FAILURE)
 
-    @hookimpl
-    @run_in_thread
-    def on_dag_run_running(self, dag_run: "DagRun", msg: str) -> None:
-        self._set_log_level()
-
-        logger.debug(
-            f"DataHub listener got notification about dag run start for {dag_run.dag_id}"
-        )
-
+    def on_dag_start(self, dag_run: "DagRun") -> None:
         dag = dag_run.dag
         if not dag:
             return
@@ -441,6 +469,19 @@ class DataHubListener(types.ModuleType):
         )
         dataflow.emit(self.emitter, callback=self._make_emit_callback())
 
-        self.emitter.flush()
+    if HAS_AIRFLOW_DAG_LISTENER_API:
+
+        @hookimpl
+        @run_in_thread
+        def on_dag_run_running(self, dag_run: "DagRun", msg: str) -> None:
+            self._set_log_level()
+
+            logger.debug(
+                f"DataHub listener got notification about dag run start for {dag_run.dag_id}"
+            )
+
+            self.on_dag_start(dag_run)
+
+            self.emitter.flush()
 
     # TODO: Add hooks for on_dag_run_success, on_dag_run_failed -> call AirflowGenerator.complete_dataflow

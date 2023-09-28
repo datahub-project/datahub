@@ -16,7 +16,10 @@ import tenacity
 from airflow.models.connection import Connection
 from datahub.testing.compare_metadata_json import assert_metadata_files_equal
 
-from datahub_airflow_plugin._airflow_shims import HAS_AIRFLOW_LISTENER_API
+from datahub_airflow_plugin._airflow_shims import (
+    HAS_AIRFLOW_DAG_LISTENER_API,
+    HAS_AIRFLOW_LISTENER_API,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -249,22 +252,36 @@ test_cases = [
 @pytest.mark.parametrize(
     ["golden_filename", "test_case", "is_v1"],
     [
+        # On Airflow <= 2.2, test plugin v1.
         *[
             pytest.param(
                 f"v1_{test_case.dag_id}",
                 test_case,
                 True,
                 id=f"v1_{test_case.dag_id}",
+                marks=pytest.mark.skipif(
+                    HAS_AIRFLOW_LISTENER_API,
+                    reason="Not testing plugin v1 on newer Airflow versions",
+                ),
             )
             for test_case in test_cases
             if not test_case.v2_only
         ],
         *[
             pytest.param(
-                f"v2_{test_case.dag_id}",
+                # On Airflow 2.3-2.4, test plugin v2 without dataFlows.
+                f"v2_{test_case.dag_id}"
+                if HAS_AIRFLOW_DAG_LISTENER_API
+                else f"v2_{test_case.dag_id}_no_dag_listener",
                 test_case,
                 False,
-                id=f"v2_{test_case.dag_id}",
+                id=f"v2_{test_case.dag_id}"
+                if HAS_AIRFLOW_DAG_LISTENER_API
+                else f"v2_{test_case.dag_id}_no_dag_listener",
+                marks=pytest.mark.skipif(
+                    not HAS_AIRFLOW_LISTENER_API,
+                    reason="Cannot test plugin v2 without the Airflow plugin listener API",
+                ),
             )
             for test_case in test_cases
         ],
@@ -283,11 +300,6 @@ def test_airflow_plugin(
     # - Runs a DAG that uses an operator supported by the extractor.
     # - Waits for the DAG to complete.
     # - Validates the metadata generated against a golden file.
-
-    if not HAS_AIRFLOW_LISTENER_API and not is_v1:
-        pytest.skip("Cannot test plugin v2 without the Airflow plugin listener API")
-    if HAS_AIRFLOW_LISTENER_API and is_v1:
-        pytest.skip("Not testing plugin v1 on older Airflow versions")
 
     dags_folder = pathlib.Path(__file__).parent / "dags"
     goldens_folder = pathlib.Path(__file__).parent / "goldens"
@@ -336,5 +348,6 @@ def test_airflow_plugin(
             r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['unixname'\]",
             # TODO: If we switched to Git urls, maybe we could get this to work consistently.
             r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['fileloc'\]",
+            r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['openlineage_.*'\]",
         ],
     )

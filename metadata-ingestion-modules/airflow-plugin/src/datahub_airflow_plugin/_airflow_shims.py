@@ -27,6 +27,7 @@ assert AIRFLOW_PATCHED
 
 AIRFLOW_VERSION = packaging.version.parse(airflow.version.version)
 HAS_AIRFLOW_LISTENER_API = AIRFLOW_VERSION >= packaging.version.parse("2.3.0.dev0")
+HAS_AIRFLOW_DAG_LISTENER_API = AIRFLOW_VERSION >= packaging.version.parse("2.5.0.dev0")
 
 
 def get_task_inlets(operator: "Operator") -> List:
