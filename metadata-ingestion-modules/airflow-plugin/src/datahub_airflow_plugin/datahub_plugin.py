@@ -1,8 +1,6 @@
 import contextlib
 import logging
 import os
-from types import ModuleType
-from typing import List
 
 from airflow.plugins_manager import AirflowPlugin
 
@@ -44,9 +42,7 @@ class DatahubPlugin(AirflowPlugin):
             get_airflow_plugin_listener,
         )
 
-        listeners: List[ModuleType] = list(
-            filter(None, [get_airflow_plugin_listener()])
-        )
+        listeners: list = list(filter(None, [get_airflow_plugin_listener()]))
 
 
 if not _USE_AIRFLOW_LISTENER_INTERFACE:

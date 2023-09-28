@@ -102,7 +102,11 @@ integration_test_requirements = {
     # Extra requirements for loading our test dags.
     "apache-airflow[snowflake]>=2.0.2",
     # https://github.com/snowflakedb/snowflake-sqlalchemy/issues/350
-    "snowflake-sqlalchemy>=1.4.3",
+    # Eventually we want to set this to "snowflake-sqlalchemy>=1.4.3".
+    # However, that doesn't work with older versions of Airflow. Instead
+    # of splitting this into integration-test-old and integration-test-new,
+    # adding a bound to SQLAlchemy was the simplest solution.
+    "sqlalchemy<1.4.42",
     "virtualenv",  # needed by PythonVirtualenvOperator
 }
 

@@ -15,10 +15,10 @@ The DataHub Airflow plugin supports:
 
 There's two actively supported implementations of the plugin, with different Airflow version support.
 
-| Approach  | Airflow Version | Notes                                                                                   |
-| --------- | --------------- | --------------------------------------------------------------------------------------- |
-| Plugin v2 | 2.3+            | Recommended. Requires Python 3.8+                                                       |
-| Plugin v1 | 2.1+            | Supported. No automatic lineage extraction; will not extract lineage if the task fails. |
+| Approach  | Airflow Version | Notes                                                                                  |
+| --------- | --------------- | -------------------------------------------------------------------------------------- |
+| Plugin v2 | 2.3+            | Recommended. Requires Python 3.8+                                                      |
+| Plugin v1 | 2.1+            | Supported. No automatic lineage extraction; may not extract lineage if the task fails. |
 
 If you're using Airflow older than 2.1, it's possible to use the v1 plugin with older versions of `acryl-datahub-airflow-plugin`. See the [compatibility section](#compatibility) for more details.
 
@@ -31,7 +31,7 @@ If you're using Airflow older than 2.1, it's possible to use the v1 plugin with 
 
 The v2 plugin requires Airflow 2.3+ and Python 3.8+. If you don't meet these requirements, use the v1 plugin instead.
 
-```sh
+```shell
 pip install 'acryl-datahub-airflow-plugin[plugin-v2]'
 ```
 
@@ -39,7 +39,7 @@ pip install 'acryl-datahub-airflow-plugin[plugin-v2]'
 
 Set up a DataHub connection in Airflow.
 
-```sh
+```shell
 airflow connections add  --conn-type 'datahub-rest' 'datahub_rest_default' --conn-host 'http://datahub-gms:8080' --conn-password '<optional datahub auth token>'
 ```
 

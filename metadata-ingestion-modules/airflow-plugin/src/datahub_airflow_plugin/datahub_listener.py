@@ -5,7 +5,6 @@ import threading
 from typing import TYPE_CHECKING, Callable, Dict, List, Optional, TypeVar, cast
 
 import datahub.emitter.mce_builder as builder
-from airflow.listeners import hookimpl
 from datahub.api.entities.datajob import DataJob
 from datahub.api.entities.dataprocess.dataprocess_instance import InstanceRunResult
 from datahub.emitter.rest_emitter import DatahubRestEmitter
@@ -36,20 +35,21 @@ if TYPE_CHECKING:
     from airflow.models import DAG, DagRun, TaskInstance
     from sqlalchemy.orm import Session
 
+    # To placate mypy on Airflow versions that don't have the listener API,
+    # we define a dummy hookimpl that's an identity function.
+    _F = TypeVar("_F", bound=Callable[..., None])
+
+    def hookimpl(f: _F) -> _F:  # type: ignore[misc] # noqa: F811
+        return f
+
+else:
+    from airflow.listeners import hookimpl
 
 logger = logging.getLogger(__name__)
-_F = TypeVar("_F", bound=Callable[..., None])
 
 _airflow_listener_initialized = False
 _airflow_listener: Optional["DataHubListener"] = None
 _RUN_IN_THREAD = True
-
-if TYPE_CHECKING:
-    # On Airflow versions that don't have the listener API, we placate mypy
-    # by making hookimpl an identity function.
-
-    def hookimpl(f: _F) -> _F:  # type: ignore[misc] # noqa: F811
-        return f
 
 
 def get_airflow_plugin_listener() -> Optional["DataHubListener"]:
