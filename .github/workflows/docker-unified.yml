@@ -39,7 +39,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
-      base_tag: {{ steps.tag.outputs.base_tag }}
+      base_tag: ${{ steps.tag.outputs.base_tag }}
       slim_tag: ${{ steps.tag.outputs.slim_tag }}
       unique_tag: ${{ steps.tag.outputs.unique_tag }}
       unique_base_tag: ${{ steps.tag.outputs.unique_base_tag }}
