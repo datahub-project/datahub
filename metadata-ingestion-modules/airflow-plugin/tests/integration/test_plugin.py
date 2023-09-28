@@ -207,14 +207,16 @@ def _run_airflow(
 
         yield airflow_instance
     finally:
-        # Attempt a graceful shutdown.
-        print("Shutting down airflow...")
-        airflow_process.send_signal(signal.SIGINT)
-        airflow_process.wait(timeout=30)
-
-        # If the graceful shutdown failed, kill the process.
-        airflow_process.kill()
-        airflow_process.wait(timeout=3)
+        try:
+            # Attempt a graceful shutdown.
+            print("Shutting down airflow...")
+            airflow_process.send_signal(signal.SIGINT)
+            airflow_process.wait(timeout=30)
+        except subprocess.TimeoutExpired:
+            # If the graceful shutdown failed, kill the process.
+            print("Hard shutting down airflow...")
+            airflow_process.kill()
+            airflow_process.wait(timeout=3)
 
 
 def check_golden_file(
@@ -331,7 +333,7 @@ def test_airflow_plugin(
         )
 
         print("Sleeping for a few seconds to let the plugin finish...")
-        time.sleep(5)
+        time.sleep(10)
 
     check_golden_file(
         pytestconfig=pytestconfig,
