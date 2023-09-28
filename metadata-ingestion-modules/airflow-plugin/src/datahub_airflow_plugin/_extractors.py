@@ -114,9 +114,10 @@ def _sql_extractor_extract(self: "SqlExtractor") -> TaskMetadata:
     # Prepare to run the SQL parser.
     graph = self.context.get(_DATAHUB_GRAPH_CONTEXT_KEY, None)
 
-    database = getattr(self.operator, "database", None)
-    if not database:
-        database = self._get_database()
+    default_database = getattr(self.operator, "database", None)
+    if not default_database:
+        default_database = self.database
+    default_schema = self.default_schema
 
     # TODO: Add better handling for sql being a list of statements.
     if isinstance(sql, list):
@@ -124,21 +125,24 @@ def _sql_extractor_extract(self: "SqlExtractor") -> TaskMetadata:
         sql = sql[0]
 
     # Run the SQL parser.
-    self.log.debug(
-        "Running the SQL parser (%s): %s",
-        "with graph client" if graph else "in offline mode",
-        sql,
-    )
     scheme = self.scheme
     platform = OL_SCHEME_TWEAKS.get(scheme, scheme)
+    self.log.debug(
+        "Running the SQL parser %s (platform=%s, default db=%s, schema=%s): %s",
+        "with graph client" if graph else "in offline mode",
+        platform,
+        default_database,
+        default_schema,
+        sql,
+    )
     sql_parsing_result: SqlParsingResult = create_lineage_sql_parsed_result(
         query=sql,
         graph=graph,
         platform=platform,
         platform_instance=None,
         env=builder.DEFAULT_ENV,
-        database=database,
-        schema=self.default_schema,
+        database=default_database,
+        schema=default_schema,
     )
     self.log.debug(f"Got sql lineage {sql_parsing_result}")
 

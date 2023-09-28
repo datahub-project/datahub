@@ -22,10 +22,13 @@ from datahub_airflow_plugin._airflow_shims import (
     HAS_AIRFLOW_STANDALONE_CMD,
 )
 
-logger = logging.getLogger(__name__)
-
 pytestmark = pytest.mark.integration
+
+logger = logging.getLogger(__name__)
 IS_LOCAL = os.environ.get("CI", "false") == "false"
+
+DAGS_FOLDER = pathlib.Path(__file__).parent / "dags"
+GOLDENS_FOLDER = pathlib.Path(__file__).parent / "goldens"
 
 
 @dataclasses.dataclass
@@ -310,14 +313,11 @@ def test_airflow_plugin(
     # - Waits for the DAG to complete.
     # - Validates the metadata generated against a golden file.
 
-    dags_folder = pathlib.Path(__file__).parent / "dags"
-    goldens_folder = pathlib.Path(__file__).parent / "goldens"
-
-    golden_path = goldens_folder / f"{golden_filename}.json"
+    golden_path = GOLDENS_FOLDER / f"{golden_filename}.json"
     dag_id = test_case.dag_id
 
     with _run_airflow(
-        tmp_path, dags_folder=dags_folder, is_v1=is_v1
+        tmp_path, dags_folder=DAGS_FOLDER, is_v1=is_v1
     ) as airflow_instance:
         print(f"Running DAG {dag_id}...")
         subprocess.check_call(
@@ -360,3 +360,16 @@ def test_airflow_plugin(
             r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['openlineage_.*'\]",
         ],
     )
+
+
+if __name__ == "__main__":
+    # When run directly, just set up a local airflow instance.
+    import tempfile
+
+    with _run_airflow(
+        tmp_path=pathlib.Path(tempfile.mkdtemp("airflow-plugin-test")),
+        dags_folder=DAGS_FOLDER,
+        is_v1=not HAS_AIRFLOW_LISTENER_API,
+    ) as airflow_instance:
+        input("Press enter to exit...")
+        print("quitting airflow")
