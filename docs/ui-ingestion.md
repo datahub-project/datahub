@@ -1,4 +1,4 @@
-# UI Ingestion Guide 
+# Ingestion
 
 ## Introduction 
 
