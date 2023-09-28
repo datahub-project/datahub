@@ -296,9 +296,10 @@ class DataHubListener(types.ModuleType):
 
         # This if statement mirrors the logic in https://github.com/OpenLineage/OpenLineage/pull/508.
         if not hasattr(task_instance, "task"):
+            # The type ignore is to placate mypy on Airflow 2.1.x.
             logger.warning(
                 f"No task set for task_id: {task_instance.task_id} - "
-                f"dag_id: {task_instance.dag_id} - run_id {task_instance.run_id}"
+                f"dag_id: {task_instance.dag_id} - run_id {task_instance.run_id}"  # type: ignore[attr-defined]
             )
             return
 
@@ -311,7 +312,8 @@ class DataHubListener(types.ModuleType):
         task_instance = copy.deepcopy(task_instance)
         task_instance.render_templates()
 
-        dagrun: "DagRun" = task_instance.dag_run
+        # The type ignore is to placate mypy on Airflow 2.1.x.
+        dagrun: "DagRun" = task_instance.dag_run  # type: ignore[attr-defined]
         task = task_instance.task
         dag: "DAG" = task.dag  # type: ignore[assignment]
 
@@ -319,7 +321,7 @@ class DataHubListener(types.ModuleType):
 
         # Handle async operators in Airflow 2.3 by skipping deferred state.
         # Inspired by https://github.com/OpenLineage/OpenLineage/pull/1601
-        if task_instance.next_method is not None:
+        if task_instance.next_method is not None:  # type: ignore[attr-defined]
             return
 
         datajob = AirflowGenerator.generate_datajob(
@@ -357,7 +359,7 @@ class DataHubListener(types.ModuleType):
     def on_task_instance_finish(
         self, task_instance: "TaskInstance", status: InstanceRunResult
     ) -> None:
-        dagrun: "DagRun" = task_instance.dag_run
+        dagrun: "DagRun" = task_instance.dag_run  # type: ignore[attr-defined]
         task = self._task_holder.get_task(task_instance) or task_instance.task
         dag: "DAG" = task.dag  # type: ignore[assignment]
 

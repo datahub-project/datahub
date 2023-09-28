@@ -149,6 +149,7 @@ def _run_airflow(
             },
         ).get_uri(),
         # Convenience settings.
+        "AIRFLOW__DATAHUB__LOG_LEVEL": "DEBUG",
         "SQLALCHEMY_SILENCE_UBER_WARNING": "1",
     }
 
