@@ -34,6 +34,11 @@ export type StepProps = {
     ingestionSources: SourceConfig[];
 };
 
+export type StringMapEntryInput = {
+    key: string;
+    value: string;
+};
+
 /**
  * The object represents the state of the Ingestion Source Builder form.
  */
@@ -91,5 +96,10 @@ export interface SourceBuilderState {
          * Advanced: Whether or not to run this ingestion source in debug mode
          */
         debugMode?: boolean | null;
+
+        /**
+         * Advanced:
+         */
+        extraArgs?: StringMapEntryInput[] | null;
     };
 }

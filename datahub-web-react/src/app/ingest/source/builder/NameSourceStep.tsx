@@ -55,6 +55,31 @@ export const NameSourceStep = ({ state, updateState, prev, submit }: StepProps) 
         updateState(newState);
     };
 
+    const setExtraEnvs = () => {
+        // const indxOfEnvVars: number = state.config?.extraArgs?.findIndex(
+        //    (entry) => entry.key === 'extra_env_vars',
+        // ) as number;
+        /* if (indxOfEnvVars > -1) {
+            //state.config?.extraArgs![indxOfEnvVars] = {key: "extra_env_vars", value: extraEnvs}
+        } else {
+            if (!state.config?.extraArgs) 
+                //state.config?.extraArgs = []
+            //state.config?.extraArgs?.push({key: "extra_env_vars", value: extraEnvs})
+        }
+        const newState: SourceBuilderState = {
+            ...state,
+            config: {
+                ...state.config,
+                extraArgs:state.config?.extraArgs,
+            },
+        };
+        updateState(newState); */
+    };
+
+    const setExtraDataHubPlugins = () => {};
+
+    const setExtraReqs = () => {};
+
     const onClickCreate = (shouldRun?: boolean) => {
         if (state.name !== undefined && state.name.length > 0) {
             submit(shouldRun);
@@ -114,6 +139,49 @@ export const NameSourceStep = ({ state, updateState, prev, submit }: StepProps) 
                             <Checkbox
                                 checked={state.config?.debugMode || false}
                                 onChange={(event) => setDebugMode(event.target.checked)}
+                            />
+                        </Form.Item>
+                        <Form.Item label={<Typography.Text strong>ExtraArgs</Typography.Text>}>
+                            <Typography.Paragraph>
+                                Advanced: Add specific environment variables to an ingestion execution
+                            </Typography.Paragraph>
+                            <Input
+                                data-testid="extra-args-input"
+                                placeholder='{"MY_CUSTOM_ENV": "my_custom_value2"}'
+                                value={
+                                    state.config?.extraArgs?.filter((entry) => entry.key === 'extra_env_vars')[0]
+                                        .value || ''
+                                }
+                                onChange={() => setExtraEnvs} // setExtraEnvs(event.target.value)}
+                            />
+                        </Form.Item>
+                        <Form.Item label={<Typography.Text strong>ExtraPipPlugins</Typography.Text>}>
+                            <Typography.Paragraph>
+                                Advanced: Add extra pip plugins for an ingestion execution
+                            </Typography.Paragraph>
+                            <Input
+                                data-testid="extra-pip-plugin-input"
+                                placeholder='["debug"]'
+                                value={
+                                    state.config?.extraArgs?.filter((entry) => entry.key === 'extra_pip_plugins')[0]
+                                        .value || ''
+                                }
+                                onChange={() => setExtraDataHubPlugins} // setExtraDataHubPlugins(event.target.value)}
+                            />
+                        </Form.Item>
+                        <Form.Item label={<Typography.Text strong>ExtraPipPlugins</Typography.Text>}>
+                            <Typography.Paragraph>
+                                Advanced: Add extra pip plugins for an ingestion execution
+                            </Typography.Paragraph>
+                            <Input
+                                data-testid="extra-pip-reqs-input"
+                                placeholder='["sqlparse==0.4.3"]'
+                                value={
+                                    state.config?.extraArgs?.filter(
+                                        (entry) => entry.key === 'extra_pip_requirements',
+                                    )[0].value || ''
+                                }
+                                onChange={() => setExtraReqs} // setExtraReqs(event.target.value)}
                             />
                         </Form.Item>
                     </Collapse.Panel>
