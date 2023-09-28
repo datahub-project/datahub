@@ -300,7 +300,7 @@ class DataHubListener:
         if not hasattr(task_instance, "task"):
             # The type ignore is to placate mypy on Airflow 2.1.x.
             logger.warning(
-                f"No task set for task_id: {task_instance.task_id} - "
+                f"No task set for task_id: {task_instance.task_id} - "  # type: ignore[attr-defined]
                 f"dag_id: {task_instance.dag_id} - run_id {task_instance.run_id}"  # type: ignore[attr-defined]
             )
             return
