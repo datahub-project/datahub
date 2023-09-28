@@ -104,11 +104,11 @@ task testSingle(dependsOn: [installDevTest]) {
   }
 }
 
-task test(type: Exec, dependsOn: installDevTest) {
+task testQuick(type: Exec, dependsOn: installDevTest) {
   inputs.files(project.fileTree(dir: "src/", include: "**/*.py"))
   inputs.files(project.fileTree(dir: "tests/"))
   commandLine 'bash', '-x', '-c',
-    "source ${venv_name}/bin/activate && pytest -vv --continue-on-collection-errors --junit-xml=junit.xml"
+    "source ${venv_name}/bin/activate && pytest  -vv --continue-on-collection-errors --junit-xml=junit.quick.xml"
 }
 
 
@@ -122,7 +122,7 @@ task buildWheel(type: Exec, dependsOn: [install, cleanPythonCache]) {
 
 build.dependsOn install
 check.dependsOn lint
-check.dependsOn test
+check.dependsOn testQuick
 
 clean {
   delete venv_name
