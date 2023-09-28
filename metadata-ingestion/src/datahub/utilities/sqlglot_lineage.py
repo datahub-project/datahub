@@ -276,6 +276,9 @@ class SchemaResolver(Closeable):
             shared_connection=shared_conn,
         )
 
+    def get_urns(self) -> Set[str]:
+        return set(self._schema_cache.keys())
+
     def get_urn_for_table(self, table: _TableName, lower: bool = False) -> str:
         # TODO: Validate that this is the correct 2/3 layer hierarchy for the platform.
 
@@ -389,8 +392,6 @@ class SchemaResolver(Closeable):
                 field["fieldPath"]
             )
         }
-
-    # TODO add a method to load all from graphql
 
     def close(self) -> None:
         self._schema_cache.close()
