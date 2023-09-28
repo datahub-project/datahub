@@ -2,8 +2,7 @@ import copy
 import functools
 import logging
 import threading
-import unittest.mock
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, TypeVar, cast
+from typing import TYPE_CHECKING, Callable, Dict, List, Optional, TypeVar, cast
 
 import datahub.emitter.mce_builder as builder
 from datahub.api.entities.datajob import DataJob
@@ -66,32 +65,6 @@ def get_airflow_plugin_listener() -> Optional["DataHubListener"]:
 
         if plugin_config.enabled:
             _airflow_listener = DataHubListener(config=plugin_config)
-
-            # On Airflow < 2.5, we monkeypatch the listener manager's
-            # add_listener method to skip the isinstance check.
-            # The DAG listener API was added at the same time as this method
-            # was fixed, so we're reusing the same check variable.
-            #
-            # Related Airflow change: https://github.com/apache/airflow/pull/27113.
-            if not HAS_AIRFLOW_DAG_LISTENER_API:
-                from airflow.listeners.listener import (
-                    ListenerManager,
-                    _listener_manager,
-                )
-
-                def add_listener(self: "ListenerManager", listener: Any) -> None:
-                    if self.pm.is_registered(listener):
-                        return
-                    self.pm.register(listener)
-
-                if _listener_manager:
-                    unittest.mock.patch.object(
-                        _listener_manager, "add_listener", add_listener
-                    )
-                else:
-                    unittest.mock.patch.object(
-                        ListenerManager, "add_listener", add_listener
-                    )
 
             if plugin_config.disable_openlineage_plugin:
                 # Deactivate the OpenLineagePlugin listener to avoid conflicts.
