@@ -31,13 +31,13 @@ from datahub_airflow_plugin._extractors import SQL_PARSING_RESULT_KEY, Extractor
 from datahub_airflow_plugin.client.airflow_generator import AirflowGenerator
 from datahub_airflow_plugin.entities import _Entity
 
+_F = TypeVar("_F", bound=Callable[..., None])
 if TYPE_CHECKING:
     from airflow.models import DAG, DagRun, TaskInstance
     from sqlalchemy.orm import Session
 
     # To placate mypy on Airflow versions that don't have the listener API,
     # we define a dummy hookimpl that's an identity function.
-    _F = TypeVar("_F", bound=Callable[..., None])
 
     def hookimpl(f: _F) -> _F:  # type: ignore[misc] # noqa: F811
         return f
