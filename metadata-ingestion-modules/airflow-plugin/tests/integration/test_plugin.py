@@ -4,8 +4,10 @@ import functools
 import logging
 import os
 import pathlib
+import random
 import signal
 import subprocess
+import time
 from typing import Iterator, Sequence
 
 import pytest
@@ -18,6 +20,7 @@ from datahub_airflow_plugin._airflow_shims import HAS_AIRFLOW_LISTENER_API
 
 logger = logging.getLogger(__name__)
 
+pytestmark = pytest.mark.integration
 IS_LOCAL = os.environ.get("CI", "false") == "false"
 
 
@@ -102,8 +105,10 @@ def _run_airflow(
     airflow_home = tmp_path / "airflow_home"
     print(f"Using airflow home: {airflow_home}")
 
-    # airflow_port = random.randint(10000, 12000)
-    airflow_port = 11792
+    if IS_LOCAL:
+        airflow_port = 11792
+    else:
+        airflow_port = random.randint(10000, 12000)
     print(f"Using airflow port: {airflow_port}")
 
     datahub_connection_name = "datahub_file_default"
@@ -301,6 +306,9 @@ def test_airflow_plugin(
         _wait_for_dag_finish(
             airflow_instance, dag_id, require_success=test_case.success
         )
+
+        print("Sleeping for a few seconds to let the plugin finish...")
+        time.sleep(5)
 
     check_golden_file(
         pytestconfig=pytestconfig,
