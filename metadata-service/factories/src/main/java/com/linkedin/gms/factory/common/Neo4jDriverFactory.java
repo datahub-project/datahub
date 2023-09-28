@@ -1,6 +1,6 @@
 package com.linkedin.gms.factory.common;
 
-import com.linkedin.gms.factory.spring.YamlPropertySourceFactory;
+import com.linkedin.metadata.spring.YamlPropertySourceFactory;
 import java.util.concurrent.TimeUnit;
 
 import org.neo4j.driver.AuthTokens;

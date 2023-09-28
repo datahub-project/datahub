@@ -5,11 +5,11 @@ import javax.annotation.Nonnull;
 
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import lombok.extern.slf4j.Slf4j;
-import org.elasticsearch.action.DocWriteRequest;
-import org.elasticsearch.action.delete.DeleteRequest;
-import org.elasticsearch.action.index.IndexRequest;
-import org.elasticsearch.action.update.UpdateRequest;
-import org.elasticsearch.common.xcontent.XContentType;
+import org.opensearch.action.DocWriteRequest;
+import org.opensearch.action.delete.DeleteRequest;
+import org.opensearch.action.index.IndexRequest;
+import org.opensearch.action.update.UpdateRequest;
+import org.opensearch.common.xcontent.XContentType;
 
 
 @Slf4j
