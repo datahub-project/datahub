@@ -25,7 +25,9 @@ except ImportError:
 
 assert AIRFLOW_PATCHED
 
+# Approach suggested by https://stackoverflow.com/a/11887885/5004662.
 AIRFLOW_VERSION = packaging.version.parse(airflow.version.version)
+HAS_AIRFLOW_STANDALONE_CMD = AIRFLOW_VERSION >= packaging.version.parse("2.2.0.dev0")
 HAS_AIRFLOW_LISTENER_API = AIRFLOW_VERSION >= packaging.version.parse("2.3.0.dev0")
 HAS_AIRFLOW_DAG_LISTENER_API = AIRFLOW_VERSION >= packaging.version.parse("2.5.0.dev0")
 

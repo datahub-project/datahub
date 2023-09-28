@@ -19,6 +19,7 @@ from datahub.testing.compare_metadata_json import assert_metadata_files_equal
 from datahub_airflow_plugin._airflow_shims import (
     HAS_AIRFLOW_DAG_LISTENER_API,
     HAS_AIRFLOW_LISTENER_API,
+    HAS_AIRFLOW_STANDALONE_CMD,
 )
 
 logger = logging.getLogger(__name__)
@@ -155,6 +156,9 @@ def _run_airflow(
         "AIRFLOW__DATAHUB__LOG_LEVEL": "DEBUG",
         "SQLALCHEMY_SILENCE_UBER_WARNING": "1",
     }
+
+    if not HAS_AIRFLOW_STANDALONE_CMD:
+        raise pytest.skip("Airflow standalone command is not available")
 
     # Start airflow in a background subprocess.
     airflow_process = subprocess.Popen(

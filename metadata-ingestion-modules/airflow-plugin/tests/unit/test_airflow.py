@@ -14,18 +14,21 @@ import packaging.version
 import pytest
 from airflow.lineage import apply_lineage, prepare_lineage
 from airflow.models import DAG, Connection, DagBag, DagRun, TaskInstance
-from datahub_provider import get_provider_info
-from datahub_provider._airflow_shims import AIRFLOW_PATCHED, EmptyOperator
-from datahub_provider.entities import Dataset, Urn
-from datahub_provider.hooks.datahub import DatahubKafkaHook, DatahubRestHook
-from datahub_provider.operators.datahub import DatahubEmitterOperator
+
+from datahub_airflow_plugin import get_provider_info
+from datahub_airflow_plugin._airflow_shims import (
+    AIRFLOW_PATCHED,
+    AIRFLOW_VERSION,
+    EmptyOperator,
+)
+from datahub_airflow_plugin.entities import Dataset, Urn
+from datahub_airflow_plugin.hooks.datahub import DatahubKafkaHook, DatahubRestHook
+from datahub_airflow_plugin.operators.datahub import DatahubEmitterOperator
 
 assert AIRFLOW_PATCHED
 
 # TODO: Remove default_view="tree" arg. Figure out why is default_view being picked as "grid" and how to fix it ?
 
-# Approach suggested by https://stackoverflow.com/a/11887885/5004662.
-AIRFLOW_VERSION = packaging.version.parse(airflow.version.version)
 
 lineage_mce = builder.make_lineage_mce(
     [
