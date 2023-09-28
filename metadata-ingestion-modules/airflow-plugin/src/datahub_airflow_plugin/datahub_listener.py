@@ -2,6 +2,7 @@ import copy
 import functools
 import logging
 import threading
+import types
 from typing import TYPE_CHECKING, Callable, Dict, List, Optional, TypeVar, cast
 
 import datahub.emitter.mce_builder as builder
@@ -97,7 +98,10 @@ def run_in_thread(f: _F) -> _F:
     return cast(_F, wrapper)
 
 
-class DataHubListener:
+# This inherits from types.ModuleType to avoid issues with Airflow's listener plugin loader.
+# It previously (v2.4.x and likely other versions too) would throw errors if it was not a module.
+# https://github.com/apache/airflow/blob/e99a518970b2d349a75b1647f6b738c8510fa40e/airflow/listeners/listener.py#L56
+class DataHubListener(types.ModuleType):
     __name__ = "DataHubListener"
 
     def __init__(self, config: DatahubLineageConfig):
