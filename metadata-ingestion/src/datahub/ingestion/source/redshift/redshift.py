@@ -881,6 +881,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
         self.lineage_extractor = RedshiftLineageExtractor(
             config=self.config,
             report=self.report,
+            context=self.ctx,
             redundant_run_skip_handler=self.redundant_lineage_run_skip_handler,
         )
 
