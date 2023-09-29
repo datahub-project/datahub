@@ -153,6 +153,9 @@ fragment subscriptionFields on DataHubSubscription {
             }
         }
         ... on Container {
+            properties {
+                name
+            }
             platform {
                 ...platformFields
             }
