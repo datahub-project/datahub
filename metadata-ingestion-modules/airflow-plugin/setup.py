@@ -108,6 +108,7 @@ integration_test_requirements = {
     # adding a bound to SQLAlchemy was the simplest solution.
     "sqlalchemy<1.4.42",
     "virtualenv",  # needed by PythonVirtualenvOperator
+    "apache-airflow-providers-sqlite",
 }
 
 
