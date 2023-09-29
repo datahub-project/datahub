@@ -212,18 +212,3 @@ class DataContract(ConfigModel):
             parsed_data_contract = DataContract.parse_obj(orig_dictionary)
             parsed_data_contract._original_yaml_dict = orig_dictionary
             return parsed_data_contract
-
-    """
-    @classmethod
-    def from_datahub(cls, graph: DataHubGraph, urn: str) -> "DataContract":
-        data_contract_properties: Optional[
-            DataContractPropertiesClass
-        ] = graph.get_aspect(urn, DataContractPropertiesClass)
-        if not data_contract_properties:
-            raise ValueError(f"Data Contract {urn} does not exist")
-
-        return DataContract(
-            id=urn,
-            entity=data_contract_properties.entity,
-        )
-    """

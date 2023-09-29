@@ -192,7 +192,6 @@ public class EntitySpecBuilder {
             Collections.emptyList(), Collections.emptyList(), Collections.emptyList(), aspectRecordSchema, aspectClass);
       }
 
-      log.debug("Processing aspect " + aspectRecordSchema.getFullName());
       final SchemaAnnotationProcessor.SchemaAnnotationProcessResult processedSearchResult =
           SchemaAnnotationProcessor.process(Collections.singletonList(_searchHandler), aspectRecordSchema,
               new SchemaAnnotationProcessor.AnnotationProcessOption());
