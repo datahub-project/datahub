@@ -107,6 +107,15 @@ fragment subscriptionFields on DataHubSubscription {
                 ...platformFields
             }
         }
+        ... on MLModelGroup {
+            name
+            platform {
+                name
+                info {
+                    logoUrl
+                }
+            }
+        }
         ... on DataFlow {
             properties {
                 name
@@ -142,6 +151,38 @@ fragment subscriptionFields on DataHubSubscription {
                 name
                 description
             }
+        }
+        ... on Container {
+            platform {
+                ...platformFields
+            }
+        }
+        ... on DataJob {
+            properties {
+                name
+                description
+                externalUrl
+            }
+            dataFlow {
+                platform {
+                    ...platformFields
+                }
+            }
+        }
+        ... on Domain {
+            urn
+            properties {
+                name
+            }
+        }
+        ... on DataProduct {
+            properties {
+                name
+                description
+            }
+        }
+        ... on MLPrimaryKey {
+            ...nonRecursiveMLPrimaryKey
         }
     }
     subscriptionTypes
