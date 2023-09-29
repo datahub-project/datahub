@@ -270,16 +270,6 @@ class BigQueryV2Config(
         description="Option to exclude empty projects from being ingested.",
     )
 
-    def __init__(self, **data: Any):
-        super().__init__(**data)
-
-        if self.credential:
-            self._credentials_path = self.credential.create_credential_temp_file()
-            logger.debug(
-                f"Creating temporary credential file at {self._credentials_path}"
-            )
-            os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = self._credentials_path
-
     @root_validator(pre=False)
     def profile_default_settings(cls, values: Dict) -> Dict:
         # Extra default SQLAlchemy option for better connection pooling and threading.
