@@ -907,21 +907,22 @@ def create_lineage_sql_parsed_result(
     schema: Optional[str] = None,
     graph: Optional[DataHubGraph] = None,
 ) -> SqlParsingResult:
+    needs_close = False
     try:
-        schema_resolver = (
-            graph._make_schema_resolver(
+        if graph:
+            schema_resolver = graph._make_schema_resolver(
                 platform=platform,
                 platform_instance=platform_instance,
                 env=env,
             )
-            if graph is not None
-            else SchemaResolver(
+        else:
+            needs_close = True
+            schema_resolver = SchemaResolver(
                 platform=platform,
                 platform_instance=platform_instance,
                 env=env,
                 graph=None,
             )
-        )
 
         return sqlglot_lineage(
             query,
@@ -938,3 +939,6 @@ def create_lineage_sql_parsed_result(
                 table_error=e,
             ),
         )
+    finally:
+        if needs_close:
+            schema_resolver.close()
