@@ -242,7 +242,7 @@ def _table_level_lineage(
         - modified
         # ignore CTEs created in this statement
         - {
-            _TableName(database=None, schema=None, table=cte.alias_or_name)
+            _TableName(database=None, db_schema=None, table=cte.alias_or_name)
             for cte in statement.find_all(sqlglot.exp.CTE)
         }
     )
