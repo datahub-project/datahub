@@ -71,7 +71,7 @@
                 "task_id": "'task_1'",
                 "trigger_rule": "'all_success'",
                 "wait_for_downstream": "False",
-                "downstream_task_ids": "{'run_another_data_task'}",
+                "downstream_task_ids": "['run_another_data_task']",
                 "inlets": "[]",
                 "outlets": "[]"
             },
@@ -476,7 +476,7 @@
                 "task_id": "'run_another_data_task'",
                 "trigger_rule": "'all_success'",
                 "wait_for_downstream": "False",
-                "downstream_task_ids": "set()",
+                "downstream_task_ids": "[]",
                 "inlets": "[]",
                 "outlets": "[]"
             },

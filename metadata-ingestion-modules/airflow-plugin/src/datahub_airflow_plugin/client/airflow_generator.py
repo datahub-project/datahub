@@ -91,7 +91,7 @@ class AirflowGenerator:
                 )
 
                 # if the task triggers the subdag, link it to this node in the subdag
-                if subdag_task_id in _task_downstream_task_ids(upstream_task):
+                if subdag_task_id in sorted(_task_downstream_task_ids(upstream_task)):
                     upstream_subdag_triggers.append(upstream_task_urn)
 
         # If the operator is an ExternalTaskSensor then we set the remote task as upstream.
@@ -256,7 +256,11 @@ class AirflowGenerator:
 
             for k in try_keys:
                 if hasattr(task, k):
-                    job_property_bag[out_key] = repr(getattr(task, k))
+                    v = getattr(task, k)
+                    if out_key == "downstream_task_ids":
+                        # Generate these in a consistent order.
+                        v = list(sorted(v))
+                    job_property_bag[out_key] = repr(v)
                     break
 
         datajob.properties = job_property_bag

@@ -89,7 +89,7 @@ def run_in_thread(f: _F) -> _F:
                 )
                 thread.start()
 
-                thread.join(timeout=15)
+                thread.join(timeout=30)
             else:
                 f(*args, **kwargs)
         except Exception as e:

@@ -70,7 +70,7 @@
                 "task_id": "'run_data_task'",
                 "trigger_rule": "'all_success'",
                 "wait_for_downstream": "False",
-                "downstream_task_ids": "set()",
+                "downstream_task_ids": "[]",
                 "inlets": "[]",
                 "outlets": "[]"
             },
