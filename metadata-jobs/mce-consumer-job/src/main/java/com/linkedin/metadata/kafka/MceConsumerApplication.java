@@ -1,8 +1,8 @@
 package com.linkedin.metadata.kafka;
 
 import com.linkedin.gms.factory.entity.RestliEntityClientFactory;
-import com.linkedin.gms.factory.spring.YamlPropertySourceFactory;
 import com.linkedin.gms.factory.telemetry.ScheduledAnalyticsFactory;
+import com.linkedin.metadata.spring.YamlPropertySourceFactory;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.actuate.autoconfigure.solr.SolrHealthContributorAutoConfiguration;
 import org.springframework.boot.autoconfigure.SpringBootApplication;

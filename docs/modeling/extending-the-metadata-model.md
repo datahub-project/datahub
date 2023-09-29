@@ -16,7 +16,6 @@ An important question that will arise once you've decided to extend the metadata
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/metadata-model-to-fork-or-not-to.png"/>
 </p>
 
-
 The green lines represent pathways that will lead to lesser friction for you to maintain your code long term. The red lines represent higher risk of conflicts in the future. We are working hard to move the majority of model extension use-cases to no-code / low-code pathways to ensure that you can extend the core metadata model without having to maintain a custom fork of DataHub.
 
 We will refer to the two options as the **open-source fork** and **custom repository** approaches in the rest of the document below.
@@ -24,7 +23,7 @@ We will refer to the two options as the **open-source fork** and **custom reposi
 ## This Guide
 
 This guide will outline what the experience of adding a new Entity should look like through a real example of adding the
-Dashboard Entity. If you want to extend an existing Entity, you can skip directly to [Step 3](#step_3).
+Dashboard Entity. If you want to extend an existing Entity, you can skip directly to [Step 3](#step-3-define-custom-aspects-or-attach-existing-aspects-to-your-entity).
 
 At a high level, an entity is made up of:
 
@@ -82,20 +81,21 @@ Because they are aspects, keys need to be annotated with an @Aspect annotation, 
 can be a part of.
 
 The key can also be annotated with the two index annotations: @Relationship and @Searchable. This instructs DataHub
-infra to use the fields in the key to create relationships and index fields for search. See [Step 3](#step_3) for more details on
+infra to use the fields in the key to create relationships and index fields for search. See [Step 3](#step-3-define-custom-aspects-or-attach-existing-aspects-to-your-entity) for more details on
 the annotation model.
 
 **Constraints**: Note that each field in a Key Aspect MUST be of String or Enum type.
 
 ### <a name="step_2"></a>Step 2: Create the new entity with its key aspect
 
-Define the entity within an `entity-registry.yml` file. Depending on your approach, the location of this file may vary. More on that in steps [4](#step_4) and [5](#step_5).
+Define the entity within an `entity-registry.yml` file. Depending on your approach, the location of this file may vary. More on that in steps [4](#step-4-choose-a-place-to-store-your-model-extension) and [5](#step-5-attaching-your-non-key-aspects-to-the-entity).
 
 Example:
+
 ```yaml
-  - name: dashboard
-    doc: A container of related data assets.
-    keyAspect: dashboardKey
+- name: dashboard
+  doc: A container of related data assets.
+  keyAspect: dashboardKey
 ```
 
 - name: The entity name/type, this will be present as a part of the Urn.
@@ -196,8 +196,8 @@ The Aspect has four key components: its properties, the @Aspect annotation, the 
   can be defined as PDL primitives, enums, records, or collections (
   see [pdl schema documentation](https://linkedin.github.io/rest.li/pdl_schema))
   references to other entities, of type Urn or optionally `<Entity>Urn`
-- **@Aspect annotation**: Declares record is an Aspect and includes it when serializing an entity. Unlike the following 
-  two annotations, @Aspect is applied to the entire record, rather than a specific field.  Note, you can mark an aspect 
+- **@Aspect annotation**: Declares record is an Aspect and includes it when serializing an entity. Unlike the following
+  two annotations, @Aspect is applied to the entire record, rather than a specific field. Note, you can mark an aspect
   as a timeseries aspect. Check out this [doc](metadata-model.md#timeseries-aspects) for details.
 - **@Searchable annotation**: This annotation can be applied to any primitive field or a map field to indicate that it
   should be indexed in Elasticsearch and can be searched on. For a complete guide on using the search annotation, see
@@ -205,18 +205,18 @@ The Aspect has four key components: its properties, the @Aspect annotation, the 
 - **@Relationship annotation**: These annotations create edges between the Entity’s Urn and the destination of the
   annotated field when the entities are ingested. @Relationship annotations must be applied to fields of type Urn. In
   the case of DashboardInfo, the `charts` field is an Array of Urns. The @Relationship annotation cannot be applied
-  directly to an array of Urns. That’s why you see the use of an Annotation override (`”/*”:) to apply the @Relationship
+  directly to an array of Urns. That’s why you see the use of an Annotation override (`"/*":`) to apply the @Relationship
   annotation to the Urn directly. Read more about overrides in the annotation docs further down on this page.
 
 After you create your Aspect, you need to attach to all the entities that it applies to.
 
 **Constraints**: Note that all aspects MUST be of type Record.
 
-### <a name="step_4"></a> Step 4: Choose a place to store your model extension
+### <a name="step_4"></a>Step 4: Choose a place to store your model extension
 
 At the beginning of this document, we walked you through a flow-chart that should help you decide whether you need to maintain a fork of the open source DataHub repo for your model extensions, or whether you can just use a model extension repository that can stay independent of the DataHub repo. Depending on what path you took, the place you store your aspect model files (the .pdl files) and the entity-registry files (the yaml file called `entity-registry.yaml` or `entity-registry.yml`) will vary.
 
-- Open source Fork: Aspect files go under [`metadata-models`](../../metadata-models) module in the main repo, entity registry goes into [`metadata-models/src/main/resources/entity-registry.yml`](../../metadata-models/src/main/resources/entity-registry.yml). Read on for more details in [Step 5](#step_5).
+- Open source Fork: Aspect files go under [`metadata-models`](../../metadata-models) module in the main repo, entity registry goes into [`metadata-models/src/main/resources/entity-registry.yml`](../../metadata-models/src/main/resources/entity-registry.yml). Read on for more details in [Step 5](#step-5-attaching-your-non-key-aspects-to-the-entity).
 - Custom repository: Read the [metadata-models-custom](../../metadata-models-custom/README.md) documentation to learn how to store and version your aspect models and registry.
 
 ### <a name="step_5"></a>Step 5: Attaching your non-key Aspect(s) to the Entity
@@ -231,7 +231,7 @@ entities:
    - keyAspect: dashBoardKey
    aspects:
      # the name of the aspect must be the same as that on the @Aspect annotation on the class
-     - dashboardInfo  
+     - dashboardInfo
 ```
 
 Previously, you were required to add all aspects for the entity into an Aspect union. You will see examples of this pattern throughout the code-base (e.g. `DatasetAspect`, `DashboardAspect` etc.). This is no longer required.
@@ -251,14 +251,39 @@ Then, run `./gradlew build` from the repository root to rebuild Datahub with acc
 Then, re-deploy metadata-service (gms), and mae-consumer and mce-consumer (optionally if you are running them unbundled). See [docker development](../../docker/README.md) for details on how
 to deploy during development. This will allow Datahub to read and write your new entity or extensions to existing entities, along with serving search and graph queries for that entity type.
 
-To emit proposals to ingest from the Datahub CLI tool, first install datahub cli
-locally [following the instructions here](../../metadata-ingestion/developing.md). `./gradlew build` generated the avro
-schemas your local ingestion cli tool uses earlier. After following the developing guide, you should be able to emit
-your new event using the local datahub cli.
+### <a name="step_7"></a>(Optional) Step 7: Use custom models with the Python SDK
 
-Now you are ready to start ingesting metadata for your new entity!
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
 
-### <a name="step_7"></a>(Optional) Step 7: Extend the DataHub frontend to view your entity in GraphQL & React
+<Tabs>
+<TabItem value="local" label="Local CLI" default>
+
+If you're purely using the custom models locally, you can use a local development-mode install of the DataHub CLI.
+
+Install the DataHub CLI locally by following the [developer instructions](../../metadata-ingestion/developing.md).
+The `./gradlew build` command already generated the avro schemas for your local ingestion cli tool to use.
+After following the developing guide, you should be able to emit your new event using the local DataHub CLI.
+
+</TabItem>
+<TabItem value="packaged" label="Custom Models Package">
+
+If you want to use your custom models beyond your local machine without forking DataHub, then you can generate a custom model package that can be installed from other places.
+
+This package should be installed alongside the base `acryl-datahub` package, and its metadata models will take precedence over the default ones.
+
+```bash
+cd metadata-ingestion
+../gradlew customPackageGenerate -Ppackage_name=my-company-datahub-models -Ppackage_version="0.0.1"
+```
+
+This will generate some Python build artifacts, which you can distribute within your team or publish to PyPI.
+The command output will contain additional details and exact CLI commands you can use.
+
+</TabItem>
+</Tabs>
+
+### <a name="step_8"></a>(Optional) Step 8: Extend the DataHub frontend to view your entity in GraphQL & React
 
 If you are extending an entity with additional aspects, and you can use the auto-render specifications to automatically render these aspects to your satisfaction, you do not need to write any custom code.
 
@@ -301,9 +326,9 @@ It takes the following parameters:
 - **autoRender**: boolean (optional) - defaults to false. When set to true, the aspect will automatically be displayed
   on entity pages in a tab using a default renderer. **_This is currently only supported for Charts, Dashboards, DataFlows, DataJobs, Datasets, Domains, and GlossaryTerms_**.
 - **renderSpec**: RenderSpec (optional) - config for autoRender aspects that controls how they are displayed. **_This is currently only supported for Charts, Dashboards, DataFlows, DataJobs, Datasets, Domains, and GlossaryTerms_**. Contains three fields:
-    - **displayType**: One of `tabular`, `properties`. Tabular should be used for a list of data elements, properties for a single data bag.
-    - **displayName**: How the aspect should be referred to in the UI. Determines the name of the tab on the entity page.
-    - **key**: For `tabular` aspects only. Specifies the key in which the array to render may be found.
+  - **displayType**: One of `tabular`, `properties`. Tabular should be used for a list of data elements, properties for a single data bag.
+  - **displayName**: How the aspect should be referred to in the UI. Determines the name of the tab on the entity page.
+  - **key**: For `tabular` aspects only. Specifies the key in which the array to render may be found.
 
 ##### Example
 
@@ -329,34 +354,34 @@ It takes the following parameters:
 
   Thus far, we have implemented 11 fieldTypes:
 
-    1. *KEYWORD* - Short text fields that only support exact matches, often used only for filtering
+  1. _KEYWORD_ - Short text fields that only support exact matches, often used only for filtering
 
-    2. *TEXT* - Text fields delimited by spaces/slashes/periods. Default field type for string variables.
+  2. _TEXT_ - Text fields delimited by spaces/slashes/periods. Default field type for string variables.
 
-    3. *TEXT_PARTIAL* - Text fields delimited by spaces/slashes/periods with partial matching support. Note, partial
-       matching is expensive, so this field type should not be applied to fields with long values (like description)
+  3. _TEXT_PARTIAL_ - Text fields delimited by spaces/slashes/periods with partial matching support. Note, partial
+     matching is expensive, so this field type should not be applied to fields with long values (like description)
 
-    4. *WORD_GRAM* - Text fields delimited by spaces, slashes, periods, dashes, or underscores with partial matching AND 
-       word gram support. That is, the text will be split by the delimiters and can be matched with delimited queries
-       matching two, three, or four length tokens in addition to single tokens. As with partial match, this type is 
-       expensive, so should not be applied to fields with long values such as description.
+  4. _WORD_GRAM_ - Text fields delimited by spaces, slashes, periods, dashes, or underscores with partial matching AND
+     word gram support. That is, the text will be split by the delimiters and can be matched with delimited queries
+     matching two, three, or four length tokens in addition to single tokens. As with partial match, this type is
+     expensive, so should not be applied to fields with long values such as description.
 
-    5. *BROWSE_PATH* - Field type for browse paths. Applies specific mappings for slash delimited paths.
+  5. _BROWSE_PATH_ - Field type for browse paths. Applies specific mappings for slash delimited paths.
 
-    6. *URN* - Urn fields where each sub-component inside the urn is indexed. For instance, for a data platform urn like
-       "urn:li:dataplatform:kafka", it will index the platform name "kafka" and ignore the common components
+  6. _URN_ - Urn fields where each sub-component inside the urn is indexed. For instance, for a data platform urn like
+     "urn:li:dataplatform:kafka", it will index the platform name "kafka" and ignore the common components
 
-    7. *URN_PARTIAL* - Urn fields where each sub-component inside the urn is indexed with partial matching support.
+  7. _URN_PARTIAL_ - Urn fields where each sub-component inside the urn is indexed with partial matching support.
 
-    8. *BOOLEAN* - Boolean fields used for filtering.
+  8. _BOOLEAN_ - Boolean fields used for filtering.
 
-    9. *COUNT* - Count fields used for filtering.
-  
-    10. *DATETIME* - Datetime fields used to represent timestamps.
+  9. _COUNT_ - Count fields used for filtering.
 
-    11. *OBJECT* - Each property in an object will become an extra column in Elasticsearch and can be referenced as 
-    `field.property` in queries. You should be careful to not use it on objects with many properties as it can cause a
-    mapping explosion in Elasticsearch.
+  10. _DATETIME_ - Datetime fields used to represent timestamps.
+
+  11. _OBJECT_ - Each property in an object will become an extra column in Elasticsearch and can be referenced as
+      `field.property` in queries. You should be careful to not use it on objects with many properties as it can cause a
+      mapping explosion in Elasticsearch.
 
 - **fieldName**: string (optional) - The name of the field in search index document. Defaults to the field name where
   the annotation resides.
@@ -401,13 +426,13 @@ Now, when Datahub ingests Dashboards, it will index the Dashboard’s title in E
 Dashboards, that query will be used to search on the title index and matching Dashboards will be returned.
 
 Note, when @Searchable annotation is applied to a map, it will convert it into a list with "key.toString()
-=value.toString()" as elements. This allows us to index map fields, while not increasing the number of columns indexed. 
+=value.toString()" as elements. This allows us to index map fields, while not increasing the number of columns indexed.
 This way, the keys can be queried by `aMapField:key1=value1`.
 
-You can change this behavior by specifying the fieldType as OBJECT in the @Searchable annotation. It will put each key 
-into a column in Elasticsearch instead of an array of serialized kay-value pairs. This way the query would look more 
+You can change this behavior by specifying the fieldType as OBJECT in the @Searchable annotation. It will put each key
+into a column in Elasticsearch instead of an array of serialized kay-value pairs. This way the query would look more
 like `aMapField.key1:value1`. As this method will increase the number of columns with each unique key - large maps can
-cause a mapping explosion in Elasticsearch. You should *not* use the object fieldType if you expect your maps to get 
+cause a mapping explosion in Elasticsearch. You should _not_ use the object fieldType if you expect your maps to get
 large.
 
 #### @Relationship

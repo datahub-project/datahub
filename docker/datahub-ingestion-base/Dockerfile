@@ -1,7 +1,7 @@
 ARG APP_ENV=full
 ARG BASE_IMAGE=base
 
-FROM golang:1-alpine3.17 AS binary
+FROM golang:1-alpine3.17 AS dockerize-binary
 
 ENV DOCKERIZE_VERSION v0.6.1
 WORKDIR /go/src/github.com/jwilder
@@ -41,7 +41,7 @@ RUN apt-get update && apt-get install -y -qq \
     && rm -rf /var/lib/apt/lists/* /var/cache/apk/*
 
 # compiled against newer golang for security fixes
-COPY --from=binary /go/bin/dockerize /usr/local/bin
+COPY --from=dockerize-binary /go/bin/dockerize /usr/local/bin
 
 COPY ./docker/datahub-ingestion-base/base-requirements.txt requirements.txt
 COPY ./docker/datahub-ingestion-base/entrypoint.sh /entrypoint.sh

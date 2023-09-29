@@ -62,6 +62,14 @@ task codegen(type: Exec, dependsOn: [environmentSetup, installPackage, ':metadat
   commandLine 'bash', '-c', "source ${venv_name}/bin/activate && ./scripts/codegen.sh"
 }
 
+task customPackageGenerate(type: Exec, dependsOn: [environmentSetup, installPackage, ':metadata-events:mxe-schemas:build']) {
+  def package_name = project.findProperty('package_name')
+  def package_version = project.findProperty('package_version')
+  commandLine 'bash', '-c',
+    "source ${venv_name}/bin/activate && " +
+    "./scripts/custom_package_codegen.sh '${package_name}' '${package_version}'"
+}
+
 task install(dependsOn: [installPackage, codegen])
 
 task installDev(type: Exec, dependsOn: [install]) {
@@ -71,7 +79,6 @@ task installDev(type: Exec, dependsOn: [install]) {
   commandLine 'bash', '-c',
     "source ${venv_name}/bin/activate && set -x && " +
     "${venv_name}/bin/pip install -e .[dev] ${extra_pip_requirements} && " +
-    "./scripts/install-sqlalchemy-stubs.sh && " +
     "touch ${sentinel_file}"
 }
 
@@ -82,7 +89,6 @@ task installAll(type: Exec, dependsOn: [install]) {
   commandLine 'bash', '-c',
     "source ${venv_name}/bin/activate && set -x && " +
     "${venv_name}/bin/pip install -e .[all] ${extra_pip_requirements} && " +
-    "./scripts/install-sqlalchemy-stubs.sh && " +
     "touch ${sentinel_file}"
 }
 
@@ -119,7 +125,6 @@ task lint(type: Exec, dependsOn: installDev) {
 task lintFix(type: Exec, dependsOn: installDev) {
   commandLine 'bash', '-c',
     "source ${venv_name}/bin/activate && set -x && " +
-    "./scripts/install-sqlalchemy-stubs.sh && " +
     "black src/ tests/ examples/ && " +
     "isort src/ tests/ examples/ && " +
     "flake8 src/ tests/ examples/ && " +
@@ -188,15 +193,15 @@ task specGen(type: Exec, dependsOn: [codegen, installDevTest]) {
 task docGen(type: Exec, dependsOn: [codegen, installDevTest, specGen]) {
   commandLine 'bash', '-c', "source ${venv_name}/bin/activate && ./scripts/docgen.sh"
 }
-task buildWheel(type: Exec, dependsOn: [install, codegen]) {
-  commandLine 'bash', '-c', "source ${venv_name}/bin/activate && " + 'pip install build && RELEASE_VERSION="\${RELEASE_VERSION:-0.0.0.dev1}" RELEASE_SKIP_TEST=1 RELEASE_SKIP_UPLOAD=1 ./scripts/release.sh'
-}
 
 
 
 task cleanPythonCache(type: Exec) {
   commandLine 'bash', '-c',
     "find src tests -type f -name '*.py[co]' -delete -o -type d -name __pycache__ -delete -o -type d -empty -delete"
+}
+task buildWheel(type: Exec, dependsOn: [install, codegen, cleanPythonCache]) {
+  commandLine 'bash', '-c', "source ${venv_name}/bin/activate && " + 'pip install build && RELEASE_VERSION="\${RELEASE_VERSION:-0.0.0.dev1}" RELEASE_SKIP_TEST=1 RELEASE_SKIP_UPLOAD=1 ./scripts/release.sh'
 }
 
 build.dependsOn install

@@ -114,7 +114,7 @@ const featureGuideContent = [
   },
   { title: "Tags", icon: <TagsTwoTone />, to: "docs/tags" },
   {
-    title: "UI-Based Ingestion",
+    title: "Ingestion",
     icon: <ApiTwoTone />,
     to: "docs/ui-ingestion",
   },
@@ -180,8 +180,8 @@ const quickLinkContent = [
   {
     title: "Developer Guides",
     icon: <CodeTwoTone />,
-    description: "Interact with DataHub programmatically ",
-    to: "/docs/cli",
+    description: "Interact with DataHub programmatically",
+    to: "/docs/api/datahub-apis",
   },
   {
     title: "Feature Guides",

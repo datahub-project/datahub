@@ -17,7 +17,7 @@ The figures below describe the high-level architecture of DataHub.
 
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/DataHub-Architecture.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/DataHub-Architecture.png"/>
 </p>
 
 

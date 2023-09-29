@@ -380,8 +380,10 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
   public Task<UsageQueryResult> queryRange(@ActionParam(PARAM_RESOURCE) @Nonnull String resource,
       @ActionParam(PARAM_DURATION) @Nonnull WindowDuration duration, @ActionParam(PARAM_RANGE) UsageTimeRange range) {
     Authentication auth = AuthenticationContext.getAuthentication();
+    Urn resourceUrn = UrnUtils.getUrn(resource);
     if (Boolean.parseBoolean(System.getenv(REST_API_AUTHORIZATION_ENABLED_ENV))
-        && !isAuthorized(auth, _authorizer, ImmutableList.of(PoliciesConfig.VIEW_DATASET_USAGE_PRIVILEGE), (ResourceSpec) null)) {
+        && !isAuthorized(auth, _authorizer, ImmutableList.of(PoliciesConfig.VIEW_DATASET_USAGE_PRIVILEGE),
+            new ResourceSpec(resourceUrn.getEntityType(), resourceUrn.toString()))) {
       throw new RestLiServiceException(HttpStatus.S_401_UNAUTHORIZED,
           "User is unauthorized to query usage.");
     }
