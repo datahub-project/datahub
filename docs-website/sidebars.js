@@ -81,6 +81,13 @@ module.exports = {
                 "docs/quick-ingestion-guides/powerbi/configuration",
               ],
             },
+            {
+              Looker: [
+                "docs/quick-ingestion-guides/looker/overview",
+                "docs/quick-ingestion-guides/looker/setup",
+                "docs/quick-ingestion-guides/looker/configuration",
+              ],
+            },
           ],
         },
         {
@@ -421,7 +428,6 @@ module.exports = {
         "docs/glossary/business-glossary",
         "docs/tags",
         "docs/ownership/ownership-types",
-        "docs/browse",
         "docs/authorization/access-policies-guide",
         "docs/features/dataset-usage-and-query-history",
         "docs/posts",
@@ -437,7 +443,7 @@ module.exports = {
           Observability: [
             "docs/managed-datahub/observe/freshness-assertions",
             "docs/managed-datahub/observe/volume-assertions",
-            "docs/managed-datahub/observe/custom-assertions",
+            "docs/managed-datahub/observe/custom-sql-assertions",
           ],
         },
       ],
