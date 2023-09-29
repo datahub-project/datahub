@@ -446,7 +446,7 @@ jobs:
           target: base
           images: |
             ${{ env.DATAHUB_INGESTION_BASE_IMAGE }}
-          tags: ${{ needs.setup.outputs.base_tag }}
+          tags: ${{ needs.setup.outputs.tag }}
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
           password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
           publish: ${{ needs.setup.outputs.publish }}
@@ -664,7 +664,7 @@ jobs:
             BASE_IMAGE=${{ env.DATAHUB_INGESTION_BASE_IMAGE }}
             DOCKER_VERSION=${{ steps.filter.outputs.datahub-ingestion-base == 'true' && needs.setup.outputs.unique_tag || 'head' }}
             RELEASE_VERSION=${{ needs.setup.outputs.python_release_version }}
-          tags: ${{ needs.setup.outputs.unique_tag }}
+          tags: ${{ needs.setup.outputs.tag }}
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
           password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
           publish: ${{ needs.setup.outputs.publish }}
