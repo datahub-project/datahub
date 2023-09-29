@@ -17,7 +17,7 @@
             },
             "externalUrl": "http://airflow.example.com/tree?dag_id=simple_dag",
             "name": "simple_dag",
-            "description": "None\n\n"
+            "description": "A simple DAG that runs a few fake data tasks."
         }
     }
 },

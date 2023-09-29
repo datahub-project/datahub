@@ -16,8 +16,7 @@
                 "timezone": "Timezone('UTC')"
             },
             "externalUrl": "http://airflow.example.com/tree?dag_id=basic_iolets",
-            "name": "basic_iolets",
-            "description": "None\n\n"
+            "name": "basic_iolets"
         }
     }
 },

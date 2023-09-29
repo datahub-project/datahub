@@ -10,6 +10,7 @@ with DAG(
     start_date=datetime(2023, 1, 1),
     schedule_interval=None,
     catchup=False,
+    description="A simple DAG that runs a few fake data tasks.",
 ) as dag:
     task1 = BashOperator(
         task_id="task_1",

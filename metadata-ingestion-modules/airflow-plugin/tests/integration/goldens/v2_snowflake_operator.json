@@ -16,8 +16,7 @@
                 "timezone": "Timezone('UTC')"
             },
             "externalUrl": "http://airflow.example.com/tree?dag_id=snowflake_operator",
-            "name": "snowflake_operator",
-            "description": "None\n\n"
+            "name": "snowflake_operator"
         }
     }
 },

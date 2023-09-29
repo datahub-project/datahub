@@ -143,7 +143,7 @@ class AirflowGenerator:
         """
         id = dag.dag_id
         orchestrator = "airflow"
-        description = f"{dag.description}\n\n{dag.doc_md or ''}"
+        description = "\n\n".join(filter(None, [dag.description, dag.doc_md])) or None
         data_flow = DataFlow(
             env=cluster, id=id, orchestrator=orchestrator, description=description
         )

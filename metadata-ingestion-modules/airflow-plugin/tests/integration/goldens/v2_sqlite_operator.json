@@ -16,8 +16,7 @@
                 "timezone": "Timezone('UTC')"
             },
             "externalUrl": "http://airflow.example.com/tree?dag_id=sqlite_operator",
-            "name": "sqlite_operator",
-            "description": "None\n\n"
+            "name": "sqlite_operator"
         }
     }
 },
