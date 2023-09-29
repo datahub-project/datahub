@@ -26,9 +26,9 @@ jobs:
       matrix:
         command:
           [
+            # metadata-ingestion and airflow-plugin each have dedicated build jobs
             "./gradlew build -x :metadata-ingestion:build -x :metadata-ingestion:check -x docs-website:build -x :metadata-integration:java:spark-lineage:test -x :metadata-io:test -x :metadata-ingestion-modules:airflow-plugin:build -x :metadata-ingestion-modules:airflow-plugin:check -x :datahub-frontend:build -x :datahub-web-react:build --parallel",
             "./gradlew :datahub-frontend:build :datahub-web-react:build --parallel",
-            "./gradlew :metadata-ingestion-modules:airflow-plugin:build --parallel"
           ]
         timezone:
           [
