@@ -231,6 +231,13 @@ def _table_level_lineage(
         # In some cases like "MERGE ... then INSERT (col1, col2) VALUES (col1, col2)",
         # the `this` on the INSERT part isn't a table.
         if isinstance(expr.this, sqlglot.exp.Table)
+    } | {
+        # For CREATE DDL statements, the table name is nested inside
+        # a Schema object.
+        _TableName.from_sqlglot_table(expr.this.this)
+        for expr in statement.find_all(sqlglot.exp.Create)
+        if isinstance(expr.this, sqlglot.exp.Schema)
+        and isinstance(expr.this.this, sqlglot.exp.Table)
     }
 
     tables = (
