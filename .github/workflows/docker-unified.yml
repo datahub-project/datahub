@@ -39,10 +39,8 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
-      base_tag: {{ steps.tag.outputs.base_tag }}
       slim_tag: ${{ steps.tag.outputs.slim_tag }}
       unique_tag: ${{ steps.tag.outputs.unique_tag }}
-      unique_base_tag: ${{ steps.tag.outputs.unique_base_tag }}
       unique_slim_tag: ${{ steps.tag.outputs.unique_slim_tag }}
       publish: ${{ steps.publish.outputs.publish }}
       python_release_version: ${{ steps.tag.outputs.python_release_version }}
@@ -54,10 +52,8 @@ jobs:
         run: |
           source .github/scripts/docker_helpers.sh
           echo "tag=$(get_tag)" >> $GITHUB_OUTPUT
-          echo "base_tag=$(get_tag)-base" >> $GITHUB_OUTPUT
           echo "slim_tag=$(get_tag)-slim" >> $GITHUB_OUTPUT
           echo "unique_tag=$(get_unique_tag)" >> $GITHUB_OUTPUT
-          echo "unique_base_tag=$(get_unique_tag)-base" >> $GITHUB_OUTPUT
           echo "unique_slim_tag=$(get_unique_tag)-slim" >> $GITHUB_OUTPUT
           echo "python_release_version=$(get_python_docker_release_v)" >> $GITHUB_OUTPUT
       - name: Check whether publishing enabled
@@ -459,7 +455,7 @@ jobs:
           platforms: linux/amd64,linux/arm64/v8
       - name: Compute DataHub Ingestion (Base) Tag
         id: tag
-        run: echo "tag=${{ steps.filter.outputs.datahub-ingestion-base == 'true' && needs.setup.outputs.unique_base_tag || 'head-base' }}" >> $GITHUB_OUTPUT
+        run: echo "tag=${{ steps.filter.outputs.datahub-ingestion-base == 'true' && needs.setup.outputs.unique_tag || 'head' }}" >> $GITHUB_OUTPUT
   datahub_ingestion_base_slim_build:
     name: Build and Push DataHub Ingestion (Base-Slim) Docker Image
     runs-on: ubuntu-latest
@@ -481,7 +477,7 @@ jobs:
         uses: ishworkh/docker-image-artifact-download@v1
         if: ${{ needs.setup.outputs.publish != 'true' &&  steps.filter.outputs.datahub-ingestion-base == 'true' }}
         with:
-          image: ${{ env.DATAHUB_INGESTION_BASE_IMAGE }}:${{ steps.filter.outputs.datahub-ingestion-base == 'true' && needs.setup.outputs.unique_base_tag || 'head-base' }}
+          image: ${{ env.DATAHUB_INGESTION_BASE_IMAGE }}:${{ steps.filter.outputs.datahub-ingestion-base == 'true' && needs.setup.outputs.unique_tag || 'head' }}
       - name: Build and push Base-Slim Image
         if: ${{ steps.filter.outputs.datahub-ingestion-base == 'true' }}
         uses: ./.github/actions/docker-custom-build-and-push
@@ -494,7 +490,7 @@ jobs:
           password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
           build-args: |
             APP_ENV=slim
-            BASE_IMAGE=${{ env.DATAHUB_INGESTION_BASE_IMAGE }}:${{ steps.filter.outputs.datahub-ingestion-base == 'true' && needs.setup.outputs.unique_base_tag || 'head-base' }}
+            BASE_IMAGE=${{ env.DATAHUB_INGESTION_BASE_IMAGE }}:${{ steps.filter.outputs.datahub-ingestion-base == 'true' && needs.setup.outputs.unique_tag || 'head' }}
           publish: ${{ needs.setup.outputs.publish }}
           context: .
           file: ./docker/datahub-ingestion-base/Dockerfile
