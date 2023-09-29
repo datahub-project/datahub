@@ -16,7 +16,11 @@ function get_tag {
 }
 
 function get_tag_slim {
-    echo $(echo ${GITHUB_REF} | sed -e "s,refs/heads/${MAIN_BRANCH}-slim,${MAIN_BRANCH_TAG}-slim\,${SHORT_SHA}-slim,g" -e 's,refs/tags/,,g' -e 's,refs/pull/\([0-9]*\).*,pr\1,g')
+    echo $(echo ${GITHUB_REF} | sed -e "s,refs/heads/${MAIN_BRANCH},${MAIN_BRANCH_TAG}\,${SHORT_SHA},g" -e 's,refs/tags/,,g' -e 's,refs/pull/\([0-9]*\).*,pr\1-slim,g')
+}
+
+function get_tag_full {
+    echo $(echo ${GITHUB_REF} | sed -e "s,refs/heads/${MAIN_BRANCH},${MAIN_BRANCH_TAG}\,${SHORT_SHA},g" -e 's,refs/tags/,,g' -e 's,refs/pull/\([0-9]*\).*,pr\1-full,g')
 }
 
 function get_python_docker_release_v {
@@ -28,5 +32,9 @@ function get_unique_tag {
 }
 
 function get_unique_tag_slim {
-    echo $(echo ${GITHUB_REF} | sed -e "s,refs/heads/${MAIN_BRANCH}-slim,${SHORT_SHA}-slim,g" -e 's,refs/tags/,,g' -e 's,refs/pull/\([0-9]*\).*,pr\1,g')
+    echo $(echo ${GITHUB_REF} | sed -e "s,refs/heads/${MAIN_BRANCH},${SHORT_SHA},g" -e 's,refs/tags/,,g' -e 's,refs/pull/\([0-9]*\).*,pr\1-slim,g')
+}
+
+function get_unique_tag_full {
+    echo $(echo ${GITHUB_REF} | sed -e "s,refs/heads/${MAIN_BRANCH},${SHORT_SHA},g" -e 's,refs/tags/,,g' -e 's,refs/pull/\([0-9]*\).*,pr\1-full,g')
 }

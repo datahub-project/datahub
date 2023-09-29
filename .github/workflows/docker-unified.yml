@@ -40,8 +40,10 @@ jobs:
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
       slim_tag: ${{ steps.tag.outputs.slim_tag }}
+      full_tag: ${{ steps.tag.outputs.full_tag }}
       unique_tag: ${{ steps.tag.outputs.unique_tag }}
       unique_slim_tag: ${{ steps.tag.outputs.unique_slim_tag }}
+      unique_full_tag: ${{ steps.tag.outputs.unique_full_tag }}
       publish: ${{ steps.publish.outputs.publish }}
       python_release_version: ${{ steps.tag.outputs.python_release_version }}
     steps:
@@ -53,8 +55,10 @@ jobs:
           source .github/scripts/docker_helpers.sh
           echo "tag=$(get_tag)" >> $GITHUB_OUTPUT
           echo "slim_tag=$(get_tag_slim)" >> $GITHUB_OUTPUT
+          echo "full_tag=$(get_tag_full)" >> $GITHUB_OUTPUT
           echo "unique_tag=$(get_unique_tag)" >> $GITHUB_OUTPUT
           echo "unique_slim_tag=$(get_unique_tag_slim)" >> $GITHUB_OUTPUT
+          echo "unique_full_tag=$(get_unique_tag_full)" >> $GITHUB_OUTPUT
           echo "python_release_version=$(get_python_docker_release_v)" >> $GITHUB_OUTPUT
       - name: Check whether publishing enabled
         id: publish
@@ -520,14 +524,14 @@ jobs:
         if: ${{ needs.setup.outputs.publish != 'true' &&  steps.filter.outputs.datahub-ingestion-base == 'true' }}
         with:
           image: ${{ env.DATAHUB_INGESTION_BASE_IMAGE }}:${{ steps.filter.outputs.datahub-ingestion-base == 'true' && needs.setup.outputs.unique_tag || 'head' }}
-      - name: Build and push Base-Full Image
+      - name: Build and push (Base-Full) Image
         if: ${{ steps.filter.outputs.datahub-ingestion-base == 'true' }}
         uses: ./.github/actions/docker-custom-build-and-push
         with:
           target: full-install
           images: |
             ${{ env.DATAHUB_INGESTION_BASE_IMAGE }}
-          tags: ${{ needs.setup.outputs.tag }}
+          tags: ${{ needs.setup.outputs.full_tag }}
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
           password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
           build-args: |
@@ -539,7 +543,7 @@ jobs:
           platforms: linux/amd64,linux/arm64/v8
       - name: Compute DataHub Ingestion (Base-Full) Tag
         id: tag
-        run: echo "tag=${{ steps.filter.outputs.datahub-ingestion-base == 'true' && needs.setup.outputs.unique_tag || 'head' }}" >> $GITHUB_OUTPUT
+        run: echo "tag=${{ steps.filter.outputs.datahub-ingestion-base == 'true' && needs.setup.outputs.unique_full_tag || 'head' }}" >> $GITHUB_OUTPUT
 
 
   datahub_ingestion_slim_build:
