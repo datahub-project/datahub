@@ -254,7 +254,7 @@ def check_golden_file(
 @dataclasses.dataclass
 class DagTestCase:
     dag_id: str
-    success: bool = False
+    success: bool = True
 
     v2_only: bool = False
 
@@ -263,6 +263,7 @@ test_cases = [
     DagTestCase("simple_dag"),
     DagTestCase("basic_iolets"),
     DagTestCase("snowflake_operator", success=False, v2_only=True),
+    DagTestCase("sqlite_operator", v2_only=True),
 ]
 
 
@@ -381,6 +382,6 @@ if __name__ == "__main__":
         dags_folder=DAGS_FOLDER,
         is_v1=not HAS_AIRFLOW_LISTENER_API,
     ) as airflow_instance:
-        input("Press enter to exit...")
+        # input("Press enter to exit...")
         breakpoint()
         print("quitting airflow")

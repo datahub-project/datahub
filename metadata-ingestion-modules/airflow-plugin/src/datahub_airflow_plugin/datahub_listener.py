@@ -213,7 +213,7 @@ class DataHubListener:
                 datajob.properties["datahub_sql_parser_error"] = str(
                     sql_parsing_result.debug_info.error
                 )
-            else:
+            if not sql_parsing_result.debug_info.table_error:
                 input_urns.extend(sql_parsing_result.in_tables)
                 output_urns.extend(sql_parsing_result.out_tables)
 

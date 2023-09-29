@@ -4,7 +4,6 @@ import unittest.mock
 from typing import TYPE_CHECKING, Optional
 
 import datahub.emitter.mce_builder as builder
-from airflow.providers.common.sql.operators.sql import SQLExecuteQueryOperator
 from datahub.ingestion.source.sql.sqlalchemy_uri_mapper import (
     get_platform_from_sqlalchemy_uri,
 )
@@ -17,7 +16,7 @@ from openlineage.airflow.extractors import ExtractorManager as OLExtractorManage
 from openlineage.airflow.extractors import TaskMetadata
 from openlineage.airflow.extractors.snowflake_extractor import SnowflakeExtractor
 from openlineage.airflow.extractors.sql_extractor import SqlExtractor
-from openlineage.airflow.utils import get_operator_class
+from openlineage.airflow.utils import get_operator_class, try_import_from_string
 from openlineage.client.facet import (
     ExtractionError,
     ExtractionErrorRunFacet,
@@ -109,6 +108,9 @@ class ExtractorManager(OLExtractorManager):
         # By adding this, we can use the generic extractor as a fallback for
         # any operator that inherits from SQLExecuteQueryOperator.
         clazz = get_operator_class(task)
+        SQLExecuteQueryOperator = try_import_from_string(
+            "airflow.providers.common.sql.operators.sql.SQLExecuteQueryOperator"
+        )
         if SQLExecuteQueryOperator and issubclass(clazz, SQLExecuteQueryOperator):
             self.task_to_extractor.extractors.setdefault(
                 clazz.__name__, GenericSqlExtractor
