@@ -101,7 +101,6 @@ export const CreateJoinModal = ({
                         datasetB: table2Dataset?.urn || '',
                         name: joinName,
                         joinFieldmapping: {
-                                details,
                             fieldMappings: tableData.map((r) => {
                                 return {
                                     afield: r.field1Name,
@@ -159,7 +158,6 @@ export const CreateJoinModal = ({
                         createdBy: editJoin?.properties?.createdActor?.urn || user?.urn,
                         createdAt: editJoin?.properties?.createdTime || 0,
                         joinFieldmapping: {
-                                details,
                             fieldMappings: tableData.map((r) => {
                                 return {
                                     afield: r.field1Name,
@@ -194,7 +192,7 @@ export const CreateJoinModal = ({
             });
     };
     const onSubmit = async () => {
-        const errors = validateJoin(joinName, tableData, editFlag, getSearchResultsJoins);
+        const errors = validateJoin(joinName, tableData, isEditing, getSearchResultsJoins);
         if ((await errors).length > 0) {
             const err = (await errors).join(`, `);
             message.error(err);
