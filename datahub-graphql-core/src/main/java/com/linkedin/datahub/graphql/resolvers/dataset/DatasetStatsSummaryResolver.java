@@ -114,7 +114,7 @@ public class DatasetStatsSummaryResolver implements DataFetcher<CompletableFutur
 
     // else compute usage features normally
     com.linkedin.usage.UsageQueryResult
-        usageQueryResult = usageClient.getUsageStats(resourceUrn.toString(), UsageTimeRange.MONTH, context.getAuthentication());
+        usageQueryResult = usageClient.getUsageStats(resourceUrn.toString(), UsageTimeRange.MONTH);
     result.setQueryCountLast30Days(usageQueryResult.getAggregations().getTotalSqlQueries());
     result.setUniqueUserCountLast30Days(usageQueryResult.getAggregations().getUniqueUserCount());
     if (usageQueryResult.getAggregations().hasUsers()) {

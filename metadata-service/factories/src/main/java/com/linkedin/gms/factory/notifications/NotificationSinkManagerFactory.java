@@ -12,7 +12,6 @@ import com.linkedin.gms.factory.auth.SystemAuthenticationFactory;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.connection.ConnectionServiceFactory;
 import com.linkedin.gms.factory.entity.RestliEntityClientFactory;
-import com.linkedin.gms.factory.spring.YamlPropertySourceFactory;
 import com.linkedin.metadata.config.notification.NotificationSinkConfiguration;
 import com.linkedin.metadata.connection.ConnectionService;
 import java.util.ArrayList;
@@ -21,6 +20,8 @@ import java.util.List;
 import java.util.Map;
 import javax.annotation.Nonnull;
 import javax.inject.Singleton;
+
+import com.linkedin.metadata.spring.YamlPropertySourceFactory;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;

@@ -3,7 +3,7 @@ package com.linkedin.gms.factory.recommendation.candidatesource;
 import com.linkedin.gms.factory.common.IndexConventionFactory;
 import com.linkedin.gms.factory.common.RestHighLevelClientFactory;
 import com.linkedin.gms.factory.entity.EntityServiceFactory;
-import com.linkedin.gms.factory.spring.YamlPropertySourceFactory;
+import com.linkedin.metadata.spring.YamlPropertySourceFactory;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.recommendation.candidatesource.MostPopularSource;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;

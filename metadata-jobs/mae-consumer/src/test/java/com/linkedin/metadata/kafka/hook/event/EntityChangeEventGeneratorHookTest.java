@@ -46,6 +46,7 @@ import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.SystemRestliEntityClient;
 import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.key.DatasetKey;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
@@ -102,7 +103,6 @@ public class EntityChangeEventGeneratorHookTest {
   private static final String TEST_DATA_JOB_URN = "urn:li:dataJob:job";
   private Urn actorUrn;
 
-<<<<<<< HEAD
   // SaaS only
   private static final String TEST_ACTION_REQUEST_URN = "urn:li:actionRequest:123";
   private static final String TEST_GLOSSARY_TERM_URN = "urn:li:glossaryTerm:123";
@@ -114,23 +114,17 @@ public class EntityChangeEventGeneratorHookTest {
   private static final String TEST_GLOSSARY_TERM_NAME = "PII";
   private static final String TEST_GLOSSARY_TERM_DESCRIPTION = "Personally Identifiable Information";
 
-  private RestliEntityClient _mockClient;
-=======
   private SystemRestliEntityClient _mockClient;
   private EntityService _mockEntityService;
->>>>>>> oss_master
+
   private EntityChangeEventGeneratorHook _entityChangeEventHook;
 
   @BeforeMethod
   public void setupTest() throws URISyntaxException {
     actorUrn = Urn.createFromString(TEST_ACTOR_URN);
-<<<<<<< HEAD
-    _mockAuthentication = Mockito.mock(Authentication.class);
-    _mockClient = Mockito.mock(RestliEntityClient.class);
-=======
     _mockClient = Mockito.mock(SystemRestliEntityClient.class);
     _mockEntityService = Mockito.mock(EntityService.class);
->>>>>>> oss_master
+
     EntityChangeEventGeneratorRegistry entityChangeEventGeneratorRegistry = createEntityChangeEventGeneratorRegistry();
     _entityChangeEventHook =
         new EntityChangeEventGeneratorHook(entityChangeEventGeneratorRegistry, _mockClient, createMockEntityRegistry(), true);
@@ -890,16 +884,12 @@ public class EntityChangeEventGeneratorHookTest {
     // Run change event generators
     registry.register(ASSERTION_RUN_EVENT_ASPECT_NAME, new AssertionRunEventChangeEventGenerator());
     registry.register(DATA_PROCESS_INSTANCE_RUN_EVENT_ASPECT_NAME,
-<<<<<<< HEAD
-        new DataProcessInstanceRunEventChangeEventGenerator(_mockClient, _mockAuthentication));
+        new DataProcessInstanceRunEventChangeEventGenerator(_mockClient));
 
     // Action Request change event generators
     registry.register(ACTION_REQUEST_STATUS_ASPECT_NAME, new ActionRequestStatusChangeEventGenerator());
     registry.register(ACTION_REQUEST_INFO_ASPECT_NAME, new ActionRequestInfoChangeEventGenerator());
 
-=======
-        new DataProcessInstanceRunEventChangeEventGenerator(_mockClient));
->>>>>>> oss_master
     return registry;
   }
 

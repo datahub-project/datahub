@@ -288,13 +288,12 @@ public class ESGraphQueryDAO {
     return extractRelationships(entityUrnSet, response, validEdges, visitedEntities, numHops, existingPaths);
   }
   @VisibleForTesting
-<<<<<<< HEAD
-  static QueryBuilder getLineageQuery(
-      @Nonnull Map<String, List<Urn>> urnsPerEntityType,
-      @Nonnull Map<String, List<EdgeInfo>> edgesPerEntityType,
-      @Nonnull GraphFilters graphFilters,
-      @Nullable Long startTimeMillis,
-      @Nullable Long endTimeMillis) {
+  public static QueryBuilder getLineageQuery(
+          @Nonnull Map<String, List<Urn>> urnsPerEntityType,
+          @Nonnull Map<String, List<EdgeInfo>> edgesPerEntityType,
+          @Nonnull GraphFilters graphFilters,
+          @Nullable Long startTimeMillis,
+          @Nullable Long endTimeMillis) {
     BoolQueryBuilder entityTypeQueries = QueryBuilders.boolQuery();
     // Get all relation types relevant to the set of urns to hop from
     urnsPerEntityType.forEach((entityType, urns) -> {
@@ -320,17 +319,6 @@ public class ESGraphQueryDAO {
           "Empty time filter range provided: start time %s, end time: %s. Skipping application of time filters",
           startTimeMillis,
           endTimeMillis));
-=======
-  public static QueryBuilder getQueryForLineage(
-          @Nonnull List<Urn> urns,
-          @Nonnull List<EdgeInfo> lineageEdges,
-          @Nonnull GraphFilters graphFilters,
-          @Nullable Long startTimeMillis,
-          @Nullable Long endTimeMillis) {
-    BoolQueryBuilder query = QueryBuilders.boolQuery();
-    if (lineageEdges.isEmpty()) {
-      return query;
->>>>>>> oss_master
     }
 
     return finalQuery;
@@ -338,10 +326,10 @@ public class ESGraphQueryDAO {
 
   // Get search query for given list of edges and source urns
   @VisibleForTesting
-  static QueryBuilder getLineageQueryForEntityType(
-      @Nonnull List<Urn> urns,
-      @Nonnull List<EdgeInfo> lineageEdges,
-      @Nonnull GraphFilters graphFilters) {
+  public static QueryBuilder getLineageQueryForEntityType(
+          @Nonnull List<Urn> urns,
+          @Nonnull List<EdgeInfo> lineageEdges,
+          @Nonnull GraphFilters graphFilters) {
     BoolQueryBuilder query = QueryBuilders.boolQuery();
     Map<RelationshipDirection, List<EdgeInfo>> edgesByDirection =
         lineageEdges.stream().collect(Collectors.groupingBy(EdgeInfo::getDirection));

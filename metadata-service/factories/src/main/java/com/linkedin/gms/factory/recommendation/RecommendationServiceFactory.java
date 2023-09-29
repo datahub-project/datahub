@@ -7,7 +7,7 @@ import com.linkedin.gms.factory.recommendation.candidatesource.RecentlyEditedCan
 import com.linkedin.gms.factory.recommendation.candidatesource.TopPlatformsCandidateSourceFactory;
 import com.linkedin.gms.factory.recommendation.candidatesource.TopTagsCandidateSourceFactory;
 import com.linkedin.gms.factory.recommendation.candidatesource.TopTermsCandidateSourceFactory;
-import com.linkedin.gms.factory.spring.YamlPropertySourceFactory;
+import com.linkedin.metadata.spring.YamlPropertySourceFactory;
 import com.linkedin.metadata.recommendation.RecommendationsService;
 import com.linkedin.metadata.recommendation.candidatesource.DomainsCandidateSource;
 import com.linkedin.metadata.recommendation.candidatesource.MostPopularSource;

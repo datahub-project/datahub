@@ -1,7 +1,7 @@
 package com.linkedin.metadata.kafka.config.notification;
 
 import com.google.common.collect.ImmutableList;
-import com.linkedin.gms.factory.spring.YamlPropertySourceFactory;
+import com.linkedin.metadata.spring.YamlPropertySourceFactory;
 import com.linkedin.metadata.kafka.hook.notification.NotificationGeneratorHook;
 import com.linkedin.metadata.kafka.hook.notification.change.EntityChangeNotificationGenerator;
 import com.linkedin.metadata.kafka.hook.notification.incident.IncidentNotificationGenerator;

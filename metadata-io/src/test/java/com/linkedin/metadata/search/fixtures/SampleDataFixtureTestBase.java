@@ -37,6 +37,8 @@ import org.opensearch.client.indices.AnalyzeRequest;
 import org.opensearch.client.indices.AnalyzeResponse;
 import org.opensearch.client.indices.GetMappingsRequest;
 import org.opensearch.client.indices.GetMappingsResponse;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.testng.annotations.Test;
 
@@ -974,7 +976,7 @@ abstract public class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
     @Test
     public void testEntityServiceScroll() throws IOException {
         // Find expected number of entities by doing a * search
-        SearchResult totalResult = search(searchService, "*");
+        SearchResult totalResult = search(getSearchService(), "*");
         int expectedTotal = totalResult.getNumEntities();
         final int batchSize = 1;
         int totalResults = 0;

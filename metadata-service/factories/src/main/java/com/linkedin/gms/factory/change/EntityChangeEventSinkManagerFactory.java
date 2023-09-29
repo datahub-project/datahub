@@ -1,7 +1,7 @@
 package com.linkedin.gms.factory.change;
 
 import com.linkedin.gms.factory.config.ConfigurationProvider;
-import com.linkedin.gms.factory.spring.YamlPropertySourceFactory;
+import com.linkedin.metadata.spring.YamlPropertySourceFactory;
 import com.linkedin.metadata.config.events.EntityChangeEventSinkConfiguration;
 import com.linkedin.metadata.event.change.EntityChangeEventSink;
 import com.linkedin.metadata.event.change.EntityChangeEventSinkConfig;
