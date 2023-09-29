@@ -14,8 +14,34 @@ import io.datahubproject.openapi.dto.UpsertAspectRequest;
 import io.datahubproject.openapi.dto.UrnResponseMap;
 import io.datahubproject.openapi.entities.EntitiesController;
 import com.datahub.authorization.AuthorizerChain;
-import io.datahubproject.openapi.generated.*;
 import io.datahubproject.openapi.exception.UnauthorizedException;
+import io.datahubproject.openapi.generated.BrowsePathsV2AspectRequestV2;
+import io.datahubproject.openapi.generated.BrowsePathsV2AspectResponseV2;
+import io.datahubproject.openapi.generated.ChartInfoAspectRequestV2;
+import io.datahubproject.openapi.generated.ChartInfoAspectResponseV2;
+import io.datahubproject.openapi.generated.DataProductPropertiesAspectRequestV2;
+import io.datahubproject.openapi.generated.DataProductPropertiesAspectResponseV2;
+import io.datahubproject.openapi.generated.DatasetPropertiesAspectRequestV2;
+import io.datahubproject.openapi.generated.DatasetPropertiesAspectResponseV2;
+import io.datahubproject.openapi.generated.DeprecationAspectRequestV2;
+import io.datahubproject.openapi.generated.DeprecationAspectResponseV2;
+import io.datahubproject.openapi.generated.DomainsAspectRequestV2;
+import io.datahubproject.openapi.generated.DomainsAspectResponseV2;
+import io.datahubproject.openapi.generated.EditableChartPropertiesAspectRequestV2;
+import io.datahubproject.openapi.generated.EditableChartPropertiesAspectResponseV2;
+import io.datahubproject.openapi.generated.EditableDatasetPropertiesAspectRequestV2;
+import io.datahubproject.openapi.generated.EditableDatasetPropertiesAspectResponseV2;
+import io.datahubproject.openapi.generated.GlobalTagsAspectRequestV2;
+import io.datahubproject.openapi.generated.GlobalTagsAspectResponseV2;
+import io.datahubproject.openapi.generated.GlossaryTermsAspectRequestV2;
+import io.datahubproject.openapi.generated.GlossaryTermsAspectResponseV2;
+import io.datahubproject.openapi.generated.InstitutionalMemoryAspectRequestV2;
+import io.datahubproject.openapi.generated.InstitutionalMemoryAspectResponseV2;
+import io.datahubproject.openapi.generated.OwnershipAspectRequestV2;
+import io.datahubproject.openapi.generated.OwnershipAspectResponseV2;
+import io.datahubproject.openapi.generated.SortOrder;
+import io.datahubproject.openapi.generated.StatusAspectRequestV2;
+import io.datahubproject.openapi.generated.StatusAspectResponseV2;
 import io.datahubproject.openapi.util.OpenApiEntitiesUtil;
 import com.datahub.authorization.ConjunctivePrivilegeGroup;
 import com.datahub.authorization.DisjunctivePrivilegeGroup;
@@ -403,7 +429,8 @@ public class EntityApiDelegateImpl<I, O, S> {
                 DatasetPropertiesAspectResponseV2.class);
     }
 
-    public ResponseEntity<EditableDatasetPropertiesAspectResponseV2> createEditableDatasetProperties(@Valid EditableDatasetPropertiesAspectRequestV2 body, String urn) {
+    public ResponseEntity<EditableDatasetPropertiesAspectResponseV2> createEditableDatasetProperties(
+            @Valid EditableDatasetPropertiesAspectRequestV2 body, String urn) {
         String methodName = walker.walk(frames -> frames
                 .findFirst()
                 .map(StackWalker.StackFrame::getMethodName)).get();
@@ -411,7 +438,8 @@ public class EntityApiDelegateImpl<I, O, S> {
                 EditableDatasetPropertiesAspectResponseV2.class);
     }
 
-    public ResponseEntity<InstitutionalMemoryAspectResponseV2> createInstitutionalMemory(@Valid InstitutionalMemoryAspectRequestV2 body, String urn) {
+    public ResponseEntity<InstitutionalMemoryAspectResponseV2> createInstitutionalMemory(
+            @Valid InstitutionalMemoryAspectRequestV2 body, String urn) {
         String methodName = walker.walk(frames -> frames
                 .findFirst()
                 .map(StackWalker.StackFrame::getMethodName)).get();
@@ -427,7 +455,8 @@ public class EntityApiDelegateImpl<I, O, S> {
                 ChartInfoAspectResponseV2.class);
     }
 
-    public ResponseEntity<EditableChartPropertiesAspectResponseV2> createEditableChartProperties(@Valid EditableChartPropertiesAspectRequestV2 body, String urn) {
+    public ResponseEntity<EditableChartPropertiesAspectResponseV2> createEditableChartProperties(
+            @Valid EditableChartPropertiesAspectRequestV2 body, String urn) {
         String methodName = walker.walk(frames -> frames
                 .findFirst()
                 .map(StackWalker.StackFrame::getMethodName)).get();
@@ -435,7 +464,8 @@ public class EntityApiDelegateImpl<I, O, S> {
                 EditableChartPropertiesAspectResponseV2.class);
     }
 
-    public ResponseEntity<DataProductPropertiesAspectResponseV2> createDataProductProperties(@Valid DataProductPropertiesAspectRequestV2 body, String urn) {
+    public ResponseEntity<DataProductPropertiesAspectResponseV2> createDataProductProperties(
+            @Valid DataProductPropertiesAspectRequestV2 body, String urn) {
         String methodName = walker.walk(frames -> frames
                 .findFirst()
                 .map(StackWalker.StackFrame::getMethodName)).get();
