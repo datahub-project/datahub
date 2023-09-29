@@ -16,11 +16,12 @@ type Props = {
     joinData: Join;
     baseEntityUrn?: any;
     prePageType?: string;
+    refetch: () => Promise<any>;
 };
 type EditableTableProps = Parameters<typeof Table>[0];
 type ColumnTypes = Exclude<EditableTableProps['columns'], undefined>;
 
-export const JoinPreview = ({ joinData, baseEntityUrn, prePageType }: Props) => {
+export const JoinPreview = ({ joinData, baseEntityUrn, prePageType, refetch }: Props) => {
     const entityRegistry = useEntityRegistry();
     const handleViewEntity = (entityType, urn) => {
         const entityUrl = entityRegistry.getEntityUrl(entityType, urn);
@@ -140,19 +141,22 @@ export const JoinPreview = ({ joinData, baseEntityUrn, prePageType }: Props) => 
                         setModalVisible(false);
                     }}
                     editJoin={joinData}
-                    editFlag
+                    isEditing
+                    refetch={refetch}
                 />
             )}
             <div className="preview-main-div">
                 <div>
-                    {prePageType === 'Dataset' && (
+                    {(prePageType === 'Dataset' || joinHeader !== joinData?.properties?.name) && (
                         <Row>
                             <p className="all-table-heading">{joinHeader}</p>
-                            <Button type="link" onClick={() => handleViewEntity(EntityType.Join, joinData?.urn)}>
-                                <div className="div-view">
-                                    View join <RightOutlined />{' '}
-                                </div>
-                            </Button>
+                            {prePageType === 'Dataset' && (
+                                <Button type="link" onClick={() => handleViewEntity(EntityType.Join, joinData?.urn)}>
+                                    <div className="div-view">
+                                        View join <RightOutlined />{' '}
+                                    </div>
+                                </Button>
+                            )}
                         </Row>
                     )}
                 </div>

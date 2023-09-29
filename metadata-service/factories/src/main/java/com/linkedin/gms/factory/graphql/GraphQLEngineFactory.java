@@ -30,6 +30,7 @@ import com.linkedin.metadata.secret.SecretService;
 import com.linkedin.metadata.service.DataProductService;
 import com.linkedin.metadata.service.OwnershipTypeService;
 import com.linkedin.metadata.service.QueryService;
+import com.linkedin.metadata.service.JoinService;
 import com.linkedin.metadata.service.SettingsService;
 import com.linkedin.metadata.service.ViewService;
 import com.linkedin.metadata.service.LineageService;
@@ -158,6 +159,10 @@ public class GraphQLEngineFactory {
   private QueryService _queryService;
 
   @Autowired
+  @Qualifier("joinService")
+  private JoinService _joinService;
+
+  @Autowired
   @Qualifier("dataProductService")
   private DataProductService _dataProductService;
 
@@ -203,6 +208,7 @@ public class GraphQLEngineFactory {
     args.setSettingsService(_settingsService);
     args.setLineageService(_lineageService);
     args.setQueryService(_queryService);
+    args.setJoinService(_joinService);
     args.setFeatureFlags(_configProvider.getFeatureFlags());
     args.setDataProductService(_dataProductService);
     return new GmsGraphQLEngine(

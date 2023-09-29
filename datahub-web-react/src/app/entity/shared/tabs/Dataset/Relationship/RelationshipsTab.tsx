@@ -1,4 +1,4 @@
-import { Button, Card, Divider, Input, Modal, Pagination } from 'antd';
+import { Button, Card, Divider, Empty, Input, Modal, Pagination } from 'antd';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 import { ExclamationCircleFilled, LoadingOutlined, PlusOutlined, SearchOutlined } from '@ant-design/icons';
@@ -16,6 +16,7 @@ import closeIcon from '../../../../../../images/close_dark.svg';
 import { CreateJoinModal } from '../../../components/styled/Join/CreateJoinModal';
 import { JoinPreview } from '../../../components/styled/Join/JoinPreview';
 import { SearchSelectModal } from '../../../components/styled/search/SearchSelectModal';
+import { ANTD_GRAY } from '../../../constants';
 
 const StyledPagination = styled(Pagination)`
     margin: 0px;
@@ -35,7 +36,10 @@ const ThinDivider = styled(Divider)`
     margin-left: -70px;
     margin-bottom: 0px;
 `;
-
+const NoJoins = styled(Empty)`
+    color: ${ANTD_GRAY[6]};
+    padding-top: 60px;
+`;
 export const RelationshipsTab = () => {
     const [pageSize, setPageSize] = useState(10);
     const [currentPage, setCurrentPage] = useState(0);
@@ -55,6 +59,7 @@ export const RelationshipsTab = () => {
         data: joins,
         loading: loadingJoin,
         error: errorJoin,
+        refetch,
     } = useGetSearchResultsQuery({
         variables: {
             input: {
@@ -104,6 +109,7 @@ export const RelationshipsTab = () => {
                                     joinData={record}
                                     baseEntityUrn={baseEntity?.dataset?.urn}
                                     prePageType="Dataset"
+                                    refetch={refetch}
                                 />
                                 <Divider className="thin-divider" />
                             </div>
@@ -114,7 +120,7 @@ export const RelationshipsTab = () => {
                 <>
                     {!loadingJoin && (
                         <div>
-                            <h5>No join available yet</h5>
+                            <NoJoins />
                         </div>
                     )}
                     {loadingJoin && (
@@ -213,6 +219,7 @@ export const RelationshipsTab = () => {
                     onCancel={() => {
                         setModalVisible(false);
                     }}
+                    refetch={refetch}
                 />
             )}
             <Card

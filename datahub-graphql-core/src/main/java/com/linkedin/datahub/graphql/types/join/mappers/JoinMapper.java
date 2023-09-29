@@ -53,16 +53,28 @@ public class JoinMapper implements ModelMapper<EntityResponse, Join> {
     MappingHelper<Join> mappingHelper = new MappingHelper<>(aspectMap, result);
     mappingHelper.mapToResult(JOIN_KEY_ASPECT_NAME, this::mapJoinKey);
     mappingHelper.mapToResult(JOIN_PROPERTIES_ASPECT_NAME, this::mapProperties);
-    mappingHelper.mapToResult(EDITABLE_JOIN_PROPERTIES_ASPECT_NAME, this::mapEditableProperties);
-    mappingHelper.mapToResult(INSTITUTIONAL_MEMORY_ASPECT_NAME, (join, dataMap) ->
-        join.setInstitutionalMemory(InstitutionalMemoryMapper.map(new InstitutionalMemory(dataMap), entityUrn)));
-    mappingHelper.mapToResult(OWNERSHIP_ASPECT_NAME, (join, dataMap) ->
-        join.setOwnership(OwnershipMapper.map(new Ownership(dataMap), entityUrn)));
-    mappingHelper.mapToResult(STATUS_ASPECT_NAME, (join, dataMap) ->
-        join.setStatus(StatusMapper.map(new Status(dataMap))));
-    mappingHelper.mapToResult(GLOBAL_TAGS_ASPECT_NAME, (join, dataMap) -> this.mapGlobalTags(join, dataMap, entityUrn));
-    mappingHelper.mapToResult(GLOSSARY_TERMS_ASPECT_NAME, (join, dataMap) ->
-        join.setGlossaryTerms(GlossaryTermsMapper.map(new GlossaryTerms(dataMap), entityUrn)));
+    if (aspectMap != null && aspectMap.containsKey(EDITABLE_JOIN_PROPERTIES_ASPECT_NAME)) {
+      mappingHelper.mapToResult(EDITABLE_JOIN_PROPERTIES_ASPECT_NAME, this::mapEditableProperties);
+    }
+    if (aspectMap != null && aspectMap.containsKey(INSTITUTIONAL_MEMORY_ASPECT_NAME)) {
+      mappingHelper.mapToResult(INSTITUTIONAL_MEMORY_ASPECT_NAME, (join, dataMap) ->
+              join.setInstitutionalMemory(InstitutionalMemoryMapper.map(new InstitutionalMemory(dataMap), entityUrn)));
+    }
+    if (aspectMap != null && aspectMap.containsKey(OWNERSHIP_ASPECT_NAME)) {
+      mappingHelper.mapToResult(OWNERSHIP_ASPECT_NAME, (join, dataMap) ->
+              join.setOwnership(OwnershipMapper.map(new Ownership(dataMap), entityUrn)));
+    }
+    if (aspectMap != null && aspectMap.containsKey(STATUS_ASPECT_NAME)) {
+      mappingHelper.mapToResult(STATUS_ASPECT_NAME, (join, dataMap) ->
+              join.setStatus(StatusMapper.map(new Status(dataMap))));
+    }
+    if (aspectMap != null && aspectMap.containsKey(GLOBAL_TAGS_ASPECT_NAME)) {
+      mappingHelper.mapToResult(GLOBAL_TAGS_ASPECT_NAME, (join, dataMap) -> this.mapGlobalTags(join, dataMap, entityUrn));
+    }
+    if (aspectMap != null && aspectMap.containsKey(GLOSSARY_TERMS_ASPECT_NAME)) {
+      mappingHelper.mapToResult(GLOSSARY_TERMS_ASPECT_NAME, (join, dataMap) ->
+              join.setGlossaryTerms(GlossaryTermsMapper.map(new GlossaryTerms(dataMap), entityUrn)));
+    }
     return mappingHelper.getResult();
   }
 

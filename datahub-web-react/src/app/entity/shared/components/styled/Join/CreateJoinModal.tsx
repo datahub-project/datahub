@@ -4,13 +4,14 @@ import TextArea from 'antd/lib/input/TextArea';
 import { PlusOutlined } from '@ant-design/icons';
 import arrow from '../../../../../../images/Arrow.svg';
 import './CreateJoinModal.less';
-import { Join, OwnershipType } from '../../../../../../types.generated';
+import { EntityType, Join, OwnerEntityType } from '../../../../../../types.generated';
 import { useCreateJoinMutation, useUpdateJoinMutation } from '../../../../../../graphql/join.generated';
 import { useUserContext } from '../../../../../context/useUserContext';
 import { EditableRow } from './EditableRow';
 import { EditableCell } from './EditableCell';
 import { checkDuplicateJoin, getDatasetName, JoinDataType, validateJoin } from './JoinUtils';
 import { useGetSearchResultsQuery } from '../../../../../../graphql/search.generated';
+import { useAddOwnerMutation } from '../../../../../../graphql/mutations.generated';
 
 type Props = {
     table1?: any;
@@ -21,7 +22,8 @@ type Props = {
     setModalVisible?: any;
     onCancel: () => void;
     editJoin?: Join;
-    editFlag?: boolean;
+    isEditing?: boolean;
+    refetch: () => Promise<any>;
 };
 
 type EditableTableProps = Parameters<typeof Table>[0];
@@ -36,17 +38,22 @@ export const CreateJoinModal = ({
     setModalVisible,
     onCancel,
     editJoin,
-    editFlag,
+    isEditing,
+    refetch,
 }: Props) => {
     const [form] = Form.useForm();
     const { user } = useUserContext();
+    const ownerEntityType =
+        user && user.type === EntityType.CorpGroup ? OwnerEntityType.CorpGroup : OwnerEntityType.CorpUser;
     const table1Dataset = editJoin?.properties?.datasetA || table1?.dataset;
     const table1DatasetSchema = editJoin?.properties?.datasetA || table1Schema;
     const table2Dataset = editJoin?.properties?.datasetB || table2?.dataset;
     const table2DatasetSchema = editJoin?.properties?.datasetB || table2Schema?.dataset;
 
     const [details, setDetails] = useState<string>(editJoin?.properties?.joinFieldMapping?.details || '');
-    const [joinName, setJoinName] = useState<string>(editJoin?.properties?.name || editJoin?.joinId || '');
+    const [joinName, setJoinName] = useState<string>(
+        editJoin?.editableProperties?.name || editJoin?.properties?.name || editJoin?.joinId || '',
+    );
     const [tableData, setTableData] = useState<JoinDataType[]>(
         editJoin?.properties?.joinFieldMapping?.fieldMappings?.map((item, index) => {
             return {
@@ -62,6 +69,7 @@ export const CreateJoinModal = ({
     const [count, setCount] = useState(editJoin?.properties?.joinFieldMapping?.fieldMappings?.length || 2);
     const [createMutation] = useCreateJoinMutation();
     const [updateMutation] = useUpdateJoinMutation();
+    const [addOwnerMutation] = useAddOwnerMutation();
     const { refetch: getSearchResultsJoins } = useGetSearchResultsQuery({
         skip: true,
     });
@@ -84,71 +92,121 @@ export const CreateJoinModal = ({
             closable: true,
         });
     };
+    const createJoin = () => {
+        createMutation({
+            variables: {
+                input: {
+                    properties: {
+                        dataSetA: table1Dataset?.urn || '',
+                        datasetB: table2Dataset?.urn || '',
+                        name: joinName,
+                        joinFieldmapping: {
+                            details,
+                            fieldMappings: tableData.map((r) => {
+                                return {
+                                    afield: r.field1Name,
+                                    bfield: r.field2Name,
+                                };
+                            }),
+                        },
+                        created: true,
+                    },
+                    editableProperties: {
+                        name: joinName,
+                        description: details,
+                    },
+                },
+            },
+        })
+            .then(({ data }) => {
+                message.loading({
+                    content: 'Create...',
+                    duration: 2,
+                });
+                setTimeout(() => {
+                    refetch();
+                    message.success({
+                        content: `Join created!`,
+                        duration: 2,
+                    });
+                }, 2000);
+                addOwnerMutation({
+                    variables: {
+                        input: {
+                            ownerUrn: user?.urn || '',
+                            resourceUrn: data?.createJoin?.urn || '',
+                            ownershipTypeUrn: 'urn:li:ownershipType:__system__technical_owner',
+                            ownerEntityType: ownerEntityType || EntityType,
+                        },
+                    },
+                });
+            })
+            .catch((e) => {
+                message.destroy();
+                message.error({ content: `Failed to create join: ${e.message || ''}`, duration: 3 });
+            });
+    };
+    const originalJoinName = editJoin?.properties?.name;
+    const updateJoin = () => {
+        updateMutation({
+            variables: {
+                urn: editJoin?.urn || '',
+                input: {
+                    properties: {
+                        dataSetA: table1Dataset?.urn || '',
+                        datasetB: table2Dataset?.urn || '',
+                        name: originalJoinName || '',
+                        createdBy: editJoin?.properties?.createdActor?.urn || user?.urn,
+                        createdAt: editJoin?.properties?.createdTime || 0,
+                        joinFieldmapping: {
+                            details,
+                            fieldMappings: tableData.map((r) => {
+                                return {
+                                    afield: r.field1Name,
+                                    bfield: r.field2Name,
+                                };
+                            }),
+                        },
+                    },
+                    editableProperties: {
+                        name: joinName,
+                        description: details,
+                    },
+                },
+            },
+        })
+            .then(() => {
+                message.loading({
+                    content: 'updating...',
+                    duration: 2,
+                });
+                setTimeout(() => {
+                    refetch();
+                    message.success({
+                        content: `Join updated!`,
+                        duration: 2,
+                    });
+                }, 2000);
+            })
+            .catch((e) => {
+                message.destroy();
+                message.error({ content: `Failed to update join: ${e.message || ''}`, duration: 3 });
+            });
+    };
     const onSubmit = async () => {
-        const errors = validateJoin(joinName, tableData, editFlag, getSearchResultsJoins);
+        const errors = validateJoin(joinName, tableData, isEditing, getSearchResultsJoins);
         if ((await errors).length > 0) {
             const errorHtml = (await errors).join(`<br />`);
             // eslint-disable-next-line react/no-danger
             message.error({ content: <p dangerouslySetInnerHTML={{ __html: errorHtml }} /> });
             return;
         }
-        if (editFlag) {
-            updateMutation({
-                variables: {
-                    urn: editJoin?.urn || '',
-                    input: {
-                        properties: {
-                            dataSetA: table1Dataset?.urn || '',
-                            datasetB: table2Dataset?.urn || '',
-                            name: joinName,
-                            createdBy: editJoin?.properties?.createdActor?.urn || user?.urn,
-                            createdAt: editJoin?.properties?.createdTime || 0,
-                            joinFieldmapping: {
-                                details,
-                                fieldMappings: tableData.map((r) => {
-                                    return {
-                                        afield: r.field1Name,
-                                        bfield: r.field2Name,
-                                    };
-                                }),
-                            },
-                        },
-                    },
-                },
-            });
+        if (isEditing) {
+            updateJoin();
         } else {
-            createMutation({
-                variables: {
-                    input: {
-                        properties: {
-                            dataSetA: table1Dataset?.urn || '',
-                            datasetB: table2Dataset?.urn || '',
-                            name: joinName,
-                            joinFieldmapping: {
-                                details,
-                                fieldMappings: tableData.map((r) => {
-                                    return {
-                                        afield: r.field1Name,
-                                        bfield: r.field2Name,
-                                    };
-                                }),
-                            },
-                            created: true,
-                        },
-                        ownership: {
-                            owners: [
-                                {
-                                    owner: user?.urn || '',
-                                    type: OwnershipType.TechnicalOwner,
-                                },
-                            ],
-                        },
-                    },
-                },
-            });
+            createJoin();
         }
         setModalVisible(false);
-        window.location.reload();
     };
 
     const table1NameBusiness = getDatasetName(table1Dataset);
@@ -296,7 +354,7 @@ export const CreateJoinModal = ({
                             {
                                 validator: (_, value) =>
                                     checkDuplicateJoin(getSearchResultsJoins, value?.trim()).then((result) => {
-                                        return result === true
+                                        return result === true && !isEditing
                                             ? Promise.reject(
                                                   new Error(
                                                       'This join name already exists. A unique name for each join is required.',
@@ -307,12 +365,7 @@ export const CreateJoinModal = ({
                             },
                         ]}
                     >
-                        <Input
-                            size="large"
-                            disabled={editFlag}
-                            className="join-name"
-                            onChange={(e) => setJoinName(e.target.value)}
-                        />
+                        <Input size="large" className="join-name" onChange={(e) => setJoinName(e.target.value)} />
                     </Form.Item>
                     <p className="all-content-heading">Fields</p>
                     <Table

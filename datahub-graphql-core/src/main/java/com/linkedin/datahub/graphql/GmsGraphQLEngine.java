@@ -324,6 +324,7 @@ import com.linkedin.metadata.service.OwnershipTypeService;
 import com.linkedin.metadata.service.QueryService;
 import com.linkedin.metadata.service.SettingsService;
 import com.linkedin.metadata.service.ViewService;
+import com.linkedin.metadata.service.JoinService;
 import com.linkedin.metadata.timeline.TimelineService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.version.GitVersion;
@@ -439,6 +440,7 @@ public class GmsGraphQLEngine {
     private final QueryType queryType;
     private final DataProductType dataProductType;
     private final OwnershipType ownershipType;
+    private final JoinService joinService;
 
     /**
      * A list of GraphQL Plugins that extend the core engine
@@ -503,6 +505,7 @@ public class GmsGraphQLEngine {
         this.settingsService = args.settingsService;
         this.lineageService = args.lineageService;
         this.queryService = args.queryService;
+        this.joinService = args.joinService;
         this.dataProductService = args.dataProductService;
 
         this.ingestionConfiguration = Objects.requireNonNull(args.ingestionConfiguration);
@@ -927,7 +930,7 @@ public class GmsGraphQLEngine {
             .dataFetcher("updateCorpUserProperties", new MutableTypeResolver<>(corpUserType))
             .dataFetcher("updateCorpGroupProperties", new MutableTypeResolver<>(corpGroupType))
             .dataFetcher("updateJoin", new UpdateJoinResolver(this.entityClient))
-            .dataFetcher("createJoin", new CreateJoinResolver(this.entityClient))
+            .dataFetcher("createJoin", new CreateJoinResolver(this.entityClient, this.joinService))
             .dataFetcher("addTag", new AddTagResolver(entityService))
             .dataFetcher("addTags", new AddTagsResolver(entityService))
             .dataFetcher("batchAddTags", new BatchAddTagsResolver(entityService))
