@@ -607,7 +607,7 @@ type Mutation {
     """
     createJoin(
         "Input required to create a new Join"
-        input: JoinUpdateInput!): Boolean
+        input: JoinUpdateInput!): Join
 
     """
     Update a Join
@@ -4621,18 +4621,6 @@ input JoinUpdateInput {
     Update to editable properties
     """
     editableProperties: JoinEditablePropertiesUpdate
-    """
-    Update to institutional memory, ie documentation
-    """
-    institutionalMemory: InstitutionalMemoryUpdate
-    """
-    Update to ownership
-    """
-    ownership: OwnershipUpdate
-    """
-    Update to tags
-    """
-    tags: GlobalTagsUpdate
 }
 
 """

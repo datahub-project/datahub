@@ -49,5 +49,9 @@ mutation updateJoin($urn: String!, $input: JoinUpdateInput!) {
 }
 
 mutation createJoin($input: JoinUpdateInput!) {
-    createJoin(input: $input)
+    createJoin(input: $input) {
+        urn
+        type
+        joinId
+    }
 }
