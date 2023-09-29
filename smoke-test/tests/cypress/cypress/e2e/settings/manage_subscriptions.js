@@ -39,6 +39,8 @@ describe("entity subscription test", () => {
       cy.get("#entity-profile-subscriptions").click();
       cy.waitTextVisible(`Subscribe to ${datasetName}`);
       cy.get(".ant-tree-checkbox").click({ multiple: true });
+      cy.get('[value="SUBSCRIPTION"]').click();
+      cy.get("#slackFormValue").type(test_id);
       cy.get("button").contains("Subscribe & Notify").click();
       cy.waitTextVisible("You are now subscribed to this entity.").wait(3000);
       //verify subscription in settings
@@ -64,6 +66,8 @@ describe("entity subscription test", () => {
       cy.get("#entity-profile-subscriptions").click();
       cy.waitTextVisible(`Subscribe to ${datasetName}`);
       cy.get(".ant-tree-checkbox").click({ multiple: true });
+      cy.get('[value="SUBSCRIPTION"]').click();
+      cy.get("#slackFormValue").type(test_id);
       cy.get("button").contains("Subscribe & Notify").click();
       cy.waitTextVisible("You are now subscribed to this entity.").wait(3000);
       cy.goToSubscriptionsSettings();
