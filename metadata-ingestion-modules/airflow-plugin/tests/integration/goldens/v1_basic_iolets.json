@@ -220,7 +220,7 @@
                 "task_id": "'run_data_task'",
                 "trigger_rule": "'all_success'",
                 "wait_for_downstream": "False",
-                "downstream_task_ids": "set()",
+                "downstream_task_ids": "[]",
                 "inlets": "[]",
                 "outlets": "[]"
             },
@@ -363,26 +363,23 @@
         "json": {
             "customProperties": {
                 "run_id": "manual_run_test",
-                "duration": "0.16349",
-                "start_date": "2023-09-27 22:07:50.874653+00:00",
-                "end_date": "2023-09-27 22:07:51.038143+00:00",
+                "duration": "0.176536",
+                "start_date": "2023-09-30 00:49:56.670239+00:00",
+                "end_date": "2023-09-30 00:49:56.846775+00:00",
                 "execution_date": "2023-09-27 21:34:38+00:00",
                 "try_number": "1",
-                "hostname": "1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.ip6.arpa",
                 "max_tries": "0",
                 "external_executor_id": "None",
-                "pid": "60941",
                 "state": "success",
                 "operator": "BashOperator",
                 "priority_weight": "1",
-                "unixname": "hsheth",
                 "log_url": "http://airflow.example.com/log?execution_date=2023-09-27T21%3A34%3A38%2B00%3A00&task_id=run_data_task&dag_id=basic_iolets"
             },
             "externalUrl": "http://airflow.example.com/log?execution_date=2023-09-27T21%3A34%3A38%2B00%3A00&task_id=run_data_task&dag_id=basic_iolets",
             "name": "basic_iolets_run_data_task_manual_run_test",
             "type": "BATCH_AD_HOC",
             "created": {
-                "time": 1695852470874,
+                "time": 1696034996670,
                 "actor": "urn:li:corpuser:datahub"
             }
         }
@@ -503,7 +500,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1695852470874,
+            "timestampMillis": 1696034996670,
             "partitionSpec": {
                 "type": "FULL_TABLE",
                 "partition": "FULL_TABLE_SNAPSHOT"
@@ -520,7 +517,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1695852471038,
+            "timestampMillis": 1696034996846,
             "partitionSpec": {
                 "type": "FULL_TABLE",
                 "partition": "FULL_TABLE_SNAPSHOT"
