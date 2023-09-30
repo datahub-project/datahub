@@ -1,3 +1,4 @@
+import logging
 import pathlib
 from typing import Callable, Optional, Union
 
@@ -12,6 +13,8 @@ from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeEvent,
     MetadataChangeProposal,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class SynchronizedFileEmitter(Closeable, Emitter):
@@ -40,6 +43,7 @@ class SynchronizedFileEmitter(Closeable, Emitter):
             else:
                 metadata = []
 
+            logger.debug("Emitting metadata: %s", item)
             metadata.append(item)
 
             write_metadata_file(self._filename, metadata)

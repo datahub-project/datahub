@@ -162,6 +162,7 @@ def _run_airflow(
         ).get_uri(),
         # Convenience settings.
         "AIRFLOW__DATAHUB__LOG_LEVEL": "DEBUG",
+        "AIRFLOW__DATAHUB__DEBUG_EMITTER": "True",
         "SQLALCHEMY_SILENCE_UBER_WARNING": "1",
     }
 
@@ -248,6 +249,7 @@ def check_golden_file(
         update_golden=update_golden,
         copy_output=False,
         ignore_paths=ignore_paths,
+        ignore_order=False,
     )
 
 

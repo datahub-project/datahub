@@ -51,6 +51,7 @@ logger = logging.getLogger(__name__)
 _airflow_listener_initialized = False
 _airflow_listener: Optional["DataHubListener"] = None
 _RUN_IN_THREAD = True
+_RUN_IN_THREAD_TIMEOUT = 30
 
 
 def get_airflow_plugin_listener() -> Optional["DataHubListener"]:
@@ -76,6 +77,8 @@ def get_airflow_plugin_listener() -> Optional["DataHubListener"]:
 
 
 def run_in_thread(f: _F) -> _F:
+    # This is also responsible for catching exceptions and logging them.
+
     @functools.wraps(f)
     def wrapper(*args, **kwargs):
         try:
@@ -89,7 +92,12 @@ def run_in_thread(f: _F) -> _F:
                 )
                 thread.start()
 
-                thread.join(timeout=30)
+                thread.join(timeout=_RUN_IN_THREAD_TIMEOUT)
+                if thread.is_alive():
+                    logger.warning(
+                        f"Thread for {f.__name__} is still running after {_RUN_IN_THREAD_TIMEOUT} seconds. "
+                        "Continuing without waiting for it to finish."
+                    )
             else:
                 f(*args, **kwargs)
         except Exception as e:
@@ -272,7 +280,9 @@ class DataHubListener:
             for k, v in original_datajob.properties.items():
                 datajob.properties.setdefault(k, v)
 
-        # TODO: Deduplicate inlets/outlets.
+        # Deduplicate inlets/outlets.
+        datajob.inlets = list(sorted(set(datajob.inlets)))
+        datajob.outlets = list(sorted(set(datajob.outlets)))
 
         # Write all other OL facets as DataHub properties.
         if task_metadata:
@@ -365,6 +375,10 @@ class DataHubListener:
 
         self.emitter.flush()
 
+        logger.debug(
+            f"DataHub listener finished processing notification about task instance start for {task_instance.task_id}"
+        )
+
     def on_task_instance_finish(
         self, task_instance: "TaskInstance", status: InstanceRunResult
     ) -> None:
@@ -412,8 +426,10 @@ class DataHubListener:
         logger.debug(
             f"DataHub listener got notification about task instance success for {task_instance.task_id}"
         )
-
         self.on_task_instance_finish(task_instance, status=InstanceRunResult.SUCCESS)
+        logger.debug(
+            f"DataHub listener finished processing task instance success for {task_instance.task_id}"
+        )
 
     @hookimpl
     @run_in_thread
@@ -428,6 +444,9 @@ class DataHubListener:
 
         # TODO: Handle UP_FOR_RETRY state.
         self.on_task_instance_finish(task_instance, status=InstanceRunResult.FAILURE)
+        logger.debug(
+            f"DataHub listener finished processing task instance failure for {task_instance.task_id}"
+        )
 
     def on_dag_start(self, dag_run: "DagRun") -> None:
         dag = dag_run.dag
