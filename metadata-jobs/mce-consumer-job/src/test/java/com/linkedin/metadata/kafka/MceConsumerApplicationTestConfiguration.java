@@ -8,6 +8,7 @@ import com.linkedin.metadata.graph.SiblingGraphService;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.restli.DefaultRestliClientFactory;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.EntityIndexBuilders;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.parseq.retry.backoff.ExponentialBackoff;
 import com.linkedin.restli.client.Client;
@@ -57,4 +58,7 @@ public class MceConsumerApplicationTestConfiguration {
 
     @MockBean
     protected SiblingGraphService siblingGraphService;
+
+    @MockBean
+    public EntityIndexBuilders entityIndexBuilders;
 }

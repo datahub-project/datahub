@@ -206,12 +206,7 @@ public class ESIndexBuilder {
       // no need to reindex and only new mappings or dynamic settings
 
       // Just update the additional mappings
-      if (indexState.isPureMappingsAddition()) {
-        log.info("Updating index {} mappings in place.", indexState.name());
-        PutMappingRequest request = new PutMappingRequest(indexState.name()).source(indexState.targetMappings());
-        _searchClient.indices().putMapping(request, RequestOptions.DEFAULT);
-        log.info("Updated index {} with new mappings", indexState.name());
-      }
+      applyMappings(indexState, true);
 
       if (indexState.requiresApplySettings()) {
         UpdateSettingsRequest request = new UpdateSettingsRequest(indexState.name());
@@ -230,6 +225,26 @@ public class ESIndexBuilder {
         reindex(indexState);
       } catch (Throwable e) {
         throw new RuntimeException(e);
+      }
+    }
+  }
+
+  /**
+   * Apply mappings changes if reindex is not required
+   * @param indexState the state of the current and target index settings/mappings
+   * @param suppressError during reindex logic this is not an error, for structured properties it is an error
+   * @throws IOException communication issues with ES
+   */
+  public void applyMappings(ReindexConfig indexState, boolean suppressError) throws IOException {
+    if (indexState.isPureMappingsAddition()) {
+      log.info("Updating index {} mappings in place.", indexState.name());
+      PutMappingRequest request = new PutMappingRequest(indexState.name()).source(indexState.targetMappings());
+      _searchClient.indices().putMapping(request, RequestOptions.DEFAULT);
+      log.info("Updated index {} with new mappings", indexState.name());
+    } else {
+      if (!suppressError) {
+        log.error("Attempted to apply invalid mappings. Current: {} Target: {}", indexState.currentMappings(),
+                indexState.targetMappings());
       }
     }
   }
