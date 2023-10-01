@@ -91,9 +91,9 @@
     "aspect": {
         "json": {
             "inputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,cloud.mydb.schema.tableC,PROD)",
                 "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableA,PROD)",
                 "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableB,DEV)",
-                "urn:li:dataset:(urn:li:dataPlatform:snowflake,cloud.mydb.schema.tableC,PROD)",
                 "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableC,PROD)"
             ],
             "outputDatasets": [
@@ -102,6 +102,17 @@
             ],
             "inputDatajobs": [],
             "fineGrainedLineages": []
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,cloud.mydb.schema.tableC,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
         }
     }
 },
@@ -119,17 +130,6 @@
 {
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableB,DEV)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,cloud.mydb.schema.tableC,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -215,7 +215,7 @@
             "customProperties": {
                 "run_id": "manual_run_test",
                 "duration": "None",
-                "start_date": "2023-09-28 06:15:41.234925+00:00",
+                "start_date": "2023-09-30 06:59:52.401211+00:00",
                 "end_date": "None",
                 "execution_date": "2023-09-27 21:34:38+00:00",
                 "try_number": "0",
@@ -230,7 +230,7 @@
             "name": "basic_iolets_run_data_task_manual_run_test",
             "type": "BATCH_AD_HOC",
             "created": {
-                "time": 1695881741234,
+                "time": 1696057192401,
                 "actor": "urn:li:corpuser:datahub"
             }
         }
@@ -256,9 +256,9 @@
     "aspect": {
         "json": {
             "inputs": [
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,cloud.mydb.schema.tableC,PROD)",
                 "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableA,PROD)",
                 "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableB,DEV)",
-                "urn:li:dataset:(urn:li:dataPlatform:snowflake,cloud.mydb.schema.tableC,PROD)",
                 "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableC,PROD)"
             ]
         }
@@ -280,6 +280,17 @@
 },
 {
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,cloud.mydb.schema.tableC,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableA,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
@@ -292,17 +303,6 @@
 {
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableB,DEV)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,cloud.mydb.schema.tableC,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -351,7 +351,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1695881741234,
+            "timestampMillis": 1696057192401,
             "partitionSpec": {
                 "type": "FULL_TABLE",
                 "partition": "FULL_TABLE_SNAPSHOT"
@@ -377,7 +377,7 @@
                 "task_id": "'run_data_task'",
                 "trigger_rule": "<TriggerRule.ALL_SUCCESS: 'all_success'>",
                 "wait_for_downstream": "False",
-                "downstream_task_ids": "set()",
+                "downstream_task_ids": "[]",
                 "inlets": "[Dataset(platform='snowflake', name='mydb.schema.tableA', env='PROD', platform_instance=None), Dataset(platform='snowflake', name='mydb.schema.tableB', env='DEV', platform_instance=None), Dataset(platform='snowflake', name='mydb.schema.tableC', env='PROD', platform_instance='cloud'), Urn(_urn='urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableC,PROD)')]",
                 "outlets": "[Dataset(platform='snowflake', name='mydb.schema.tableD', env='PROD', platform_instance=None), Dataset(platform='snowflake', name='mydb.schema.tableE', env='PROD', platform_instance=None)]",
                 "openlineage_run_facet_unknownSourceAttribute": "{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.2.0/integration/airflow\", \"_schemaURL\": \"https://raw.githubusercontent.com/OpenLineage/OpenLineage/main/spec/OpenLineage.json#/definitions/BaseFacet\", \"unknownItems\": [{\"name\": \"BashOperator\", \"properties\": {\"_BaseOperator__from_mapped\": false, \"_BaseOperator__init_kwargs\": {\"bash_command\": \"echo 'This is where you might run your data tooling.'\", \"dag\": \"<<non-serializable: DAG>>\", \"inlets\": [{\"env\": \"PROD\", \"name\": \"mydb.schema.tableA\", \"platform\": \"snowflake\"}, {\"env\": \"DEV\", \"name\": \"mydb.schema.tableB\", \"platform\": \"snowflake\"}, {\"env\": \"PROD\", \"name\": \"mydb.schema.tableC\", \"platform\": \"snowflake\", \"platform_instance\": \"cloud\"}, {\"_urn\": \"urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableC,PROD)\"}], \"outlets\": [{\"env\": \"PROD\", \"name\": \"mydb.schema.tableD\", \"platform\": \"snowflake\"}, {\"env\": \"PROD\", \"name\": \"mydb.schema.tableE\", \"platform\": \"snowflake\"}], \"task_id\": \"run_data_task\"}, \"_BaseOperator__instantiated\": true, \"_dag\": \"<<non-serializable: DAG>>\", \"_log\": \"<<non-serializable: Logger>>\", \"append_env\": false, \"bash_command\": \"echo 'This is where you might run your data tooling.'\", \"depends_on_past\": false, \"do_xcom_push\": true, \"downstream_task_ids\": [], \"email_on_failure\": true, \"email_on_retry\": true, \"executor_config\": {}, \"ignore_first_depends_on_past\": true, \"inlets\": [{\"env\": \"PROD\", \"name\": \"mydb.schema.tableA\", \"platform\": \"snowflake\"}, {\"env\": \"DEV\", \"name\": \"mydb.schema.tableB\", \"platform\": \"snowflake\"}, {\"env\": \"PROD\", \"name\": \"mydb.schema.tableC\", \"platform\": \"snowflake\", \"platform_instance\": \"cloud\"}, {\"_urn\": \"urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableC,PROD)\"}], \"outlets\": [{\"env\": \"PROD\", \"name\": \"mydb.schema.tableD\", \"platform\": \"snowflake\"}, {\"env\": \"PROD\", \"name\": \"mydb.schema.tableE\", \"platform\": \"snowflake\"}], \"output_encoding\": \"utf-8\", \"owner\": \"airflow\", \"params\": \"<<non-serializable: ParamsDict>>\", \"pool\": \"default_pool\", \"pool_slots\": 1, \"priority_weight\": 1, \"queue\": \"default\", \"retries\": 0, \"retry_delay\": \"<<non-serializable: timedelta>>\", \"retry_exponential_backoff\": false, \"skip_exit_code\": 99, \"start_date\": \"<<non-serializable: DateTime>>\", \"task_group\": \"<<non-serializable: TaskGroup>>\", \"task_id\": \"run_data_task\", \"trigger_rule\": \"all_success\", \"upstream_task_ids\": [], \"wait_for_downstream\": false, \"weight_rule\": \"downstream\"}, \"type\": \"operator\"}]}"
@@ -398,18 +398,12 @@
     "aspect": {
         "json": {
             "inputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,cloud.mydb.schema.tableC,PROD)",
                 "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableA,PROD)",
                 "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableB,DEV)",
-                "urn:li:dataset:(urn:li:dataPlatform:snowflake,cloud.mydb.schema.tableC,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableC,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableA,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableB,DEV)",
-                "urn:li:dataset:(urn:li:dataPlatform:snowflake,cloud.mydb.schema.tableC,PROD)",
                 "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableC,PROD)"
             ],
             "outputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableD,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableE,PROD)",
                 "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableD,PROD)",
                 "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableE,PROD)"
             ],
@@ -420,40 +414,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableA,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableB,DEV)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    }
-},
-{
-    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,cloud.mydb.schema.tableC,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableC,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -486,40 +447,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,cloud.mydb.schema.tableC,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    }
-},
-{
-    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableC,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableD,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableE,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -591,7 +519,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1695881741844,
+            "timestampMillis": 1696057192982,
             "partitionSpec": {
                 "type": "FULL_TABLE",
                 "partition": "FULL_TABLE_SNAPSHOT"
