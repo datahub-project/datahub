@@ -55,12 +55,6 @@
     <async-supported>true</async-supported>
   </servlet>
   <servlet>
-    <servlet-name>healthServlet</servlet-name>
-    <servlet-class>org.springframework.web.servlet.DispatcherServlet</servlet-class>
-    <load-on-startup>1</load-on-startup>
-    <async-supported>true</async-supported>
-  </servlet>
-  <servlet>
     <servlet-name>openapiServlet</servlet-name>
     <servlet-class>org.springframework.web.servlet.DispatcherServlet</servlet-class>
     <load-on-startup>1</load-on-startup>
@@ -95,7 +89,7 @@
     <url-pattern>/health</url-pattern>
   </servlet-mapping>
   <servlet-mapping>
-    <servlet-name>healthServlet</servlet-name>
+    <servlet-name>openapiServlet</servlet-name>
     <url-pattern>/health/*</url-pattern>
   </servlet-mapping>
   <servlet-mapping>
