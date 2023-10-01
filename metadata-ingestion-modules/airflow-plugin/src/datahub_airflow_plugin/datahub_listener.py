@@ -281,8 +281,8 @@ class DataHubListener:
                 datajob.properties.setdefault(k, v)
 
         # Deduplicate inlets/outlets.
-        datajob.inlets = list(sorted(set(datajob.inlets)))
-        datajob.outlets = list(sorted(set(datajob.outlets)))
+        datajob.inlets = list(sorted(set(datajob.inlets), key=lambda x: str(x)))
+        datajob.outlets = list(sorted(set(datajob.outlets), key=lambda x: str(x)))
 
         # Write all other OL facets as DataHub properties.
         if task_metadata:
