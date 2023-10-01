@@ -56,7 +56,7 @@ task quickstartSlim(type: Exec, dependsOn: ':metadata-ingestion:install') {
 
     environment "DATAHUB_TELEMETRY_ENABLED", "false"
     environment "DOCKER_COMPOSE_BASE", "file://${rootProject.projectDir}"
-    environment "DATAHUB_ACTIONS_IMAGE", "acryldata/datahub-ingestion"
+    environment "DATAHUB_ACTIONS_IMAGE", "heruko/datahub-ingestion"
     environment "ACTIONS_VERSION", "v${version}-slim"
     environment "ACTIONS_EXTRA_PACKAGES", 'acryl-datahub-actions[executor] acryl-datahub-actions'
     environment "ACTIONS_CONFIG", 'https://raw.githubusercontent.com/acryldata/datahub-actions/main/docker/config/executor.yaml'
