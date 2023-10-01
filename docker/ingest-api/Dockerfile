@@ -3,7 +3,7 @@ RUN apt-get update && apt-get install -y jq
 RUN apt update && apt install -y build-essential python3-dev
 
 # FROM tiangolo/uvicorn-gunicorn-fastapi:python3.8-slim as base
-FROM openjdk:8 as prod-build
+FROM openjdk:11 as prod-build
 COPY . /datahub-src
 RUN cd /datahub-src && ./gradlew :metadata-events:mxe-schemas:build
 
