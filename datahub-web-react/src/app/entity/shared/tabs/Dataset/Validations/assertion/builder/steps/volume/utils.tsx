@@ -27,7 +27,7 @@ export const VOLUME_SOURCE_TYPES: Record<DatasetVolumeSourceType, VolumeSourceTy
     [DatasetVolumeSourceType.DatahubDatasetProfile]: {
         label: 'DataHub Dataset Profile',
         description:
-            'Use the DataHub Dataset Profile to determine the table row count. Note that this relies on profiles being up-to-date when the assertions runs.',
+            'Use the DataHub Dataset Profile to determine the table row count. Note that this requires that dataset profiling statistics are up-to-date as of the assertion run time. Profiling settings for a given integration can be configured on the Ingestion page.',
     },
 };
 
