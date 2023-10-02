@@ -456,21 +456,21 @@ class S3Source(StatefulIngestionSourceBase):
 
         if self.source_config.add_partition_columns_to_schema:
             self.add_partition_columns_to_schema(
-                fields=fields, path_spec=path_spec, table_data=table_data
+                fields=fields, path_spec=path_spec, full_path=table_data.full_path
             )
 
         return fields
 
     def add_partition_columns_to_schema(
         self, path_spec: PathSpec, full_path: str, fields: List[SchemaField]
-    ):
+    ) -> None:
         is_fieldpath_v2 = False
         for field in fields:
             if field.fieldPath.startswith("[version=2.0]"):
                 is_fieldpath_v2 = True
                 break
-        vars = path_spec.get_named_vars(table_data.full_path)
-        if "partition_key" in vars:
+        vars = path_spec.get_named_vars(full_path)
+        if vars is not None and "partition_key" in vars:
             for partition_key in vars["partition_key"].values():
                 fields.append(
                     SchemaField(
@@ -478,7 +478,7 @@ class S3Source(StatefulIngestionSourceBase):
                         if not is_fieldpath_v2
                         else f"[version=2.0].[type=string].{partition_key}",
                         nativeDataType="string",
-                        type=SchemaFieldDataType(StringTypeClass)
+                        type=SchemaFieldDataType(StringTypeClass())
                         if not is_fieldpath_v2
                         else SchemaFieldDataTypeClass(type=StringTypeClass()),
                         isPartitioningKey=True,
