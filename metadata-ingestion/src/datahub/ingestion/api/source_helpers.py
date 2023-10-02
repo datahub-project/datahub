@@ -33,8 +33,9 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.telemetry import telemetry
 from datahub.utilities.urns.dataset_urn import DatasetUrn
+from datahub.utilities.urns.error import InvalidUrnError
 from datahub.utilities.urns.tag_urn import TagUrn
-from datahub.utilities.urns.urn import guess_entity_type
+from datahub.utilities.urns.urn import Urn, guess_entity_type
 from datahub.utilities.urns.urn_iter import list_urns
 
 if TYPE_CHECKING:
@@ -171,6 +172,35 @@ def auto_materialize_referenced_tags(
             entityUrn=urn,
             aspect=TagKeyClass(name=tag_urn.get_entity_id()[0]),
         ).as_workunit()
+
+
+def auto_lowercase_urns(
+    stream: Iterable[MetadataWorkUnit], enabled: bool = False
+) -> Iterable[MetadataWorkUnit]:
+    """Lowercase all dataset urns"""
+
+    if not enabled:
+        return stream
+
+    for wu in stream:
+        try:
+            urn = Urn.create_from_string(wu.metadata.entityUrn)
+            if urn.get_type() == DatasetUrn.ENTITY_TYPE:
+                dataset_urn = DatasetUrn.create_from_string(wu.metadata.entityUrn)
+                lowercased_urn = DatasetUrn.create_from_ids(
+                    dataset_urn.get_data_platform_urn().get_platform_name(),
+                    dataset_urn.get_dataset_name().lower(),
+                    dataset_urn.get_env(),
+                )
+                wu.metadata.entityUrn = str(lowercased_urn)
+                wu.id = wu.id.replace(
+                    dataset_urn.get_dataset_name(), lowercased_urn.get_dataset_name()
+                )
+                yield wu
+            else:
+                yield wu
+        except InvalidUrnError:
+            yield wu
 
 
 def auto_browse_path_v2(

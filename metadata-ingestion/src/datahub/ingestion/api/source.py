@@ -29,6 +29,7 @@ from datahub.ingestion.api.common import PipelineContext, RecordEnvelope, WorkUn
 from datahub.ingestion.api.report import Report
 from datahub.ingestion.api.source_helpers import (
     auto_browse_path_v2,
+    auto_lowercase_urns,
     auto_materialize_referenced_tags,
     auto_status_aspect,
     auto_workunit_reporter,
@@ -192,7 +193,17 @@ class Source(Closeable, metaclass=ABCMeta):
                 self.ctx.pipeline_config.flags.generate_browse_path_v2_dry_run
             )
 
+        auto_lowercase_urns: Optional[MetadataWorkUnitProcessor] = None
+        if (
+            self.ctx.pipeline_config
+            and self.ctx.pipeline_config.flags.auto_lowercase_urns
+        ):
+            auto_lowercase_urns = self._get_auto_lowercase_urn_processor(
+                enabled=self.ctx.pipeline_config.flags.auto_lowercase_urns
+            )
+
         return [
+            auto_lowercase_urns,
             auto_status_aspect,
             auto_materialize_referenced_tags,
             browse_path_processor,
@@ -237,6 +248,11 @@ class Source(Closeable, metaclass=ABCMeta):
 
     def close(self) -> None:
         pass
+
+    def _get_auto_lowercase_urn_processor(
+        self, enabled: bool
+    ) -> MetadataWorkUnitProcessor:
+        return partial(auto_lowercase_urns, enabled=enabled)
 
     def _get_browse_path_processor(self, dry_run: bool) -> MetadataWorkUnitProcessor:
         config = self.get_config()

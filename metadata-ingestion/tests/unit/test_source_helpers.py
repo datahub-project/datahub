@@ -16,6 +16,7 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.source_helpers import (
     auto_browse_path_v2,
     auto_empty_dataset_usage_statistics,
+    auto_lowercase_urns,
     auto_status_aspect,
     auto_workunit,
 )
@@ -273,6 +274,46 @@ def test_auto_browse_path_v2_legacy_browse_path(telemetry_ping_mock):
         == _make_browse_path_entries(["one", "two"])
     )
     assert paths["platform,dataset-2,PROD)"] == _make_browse_path_entries(["something"])
+
+
+def test_auto_lowercase_aspects():
+    mcws = [
+        MetadataChangeProposalWrapper(
+            entityUrn=make_dataset_urn(
+                "bigquery", "myProject.mySchema.myTable", "PROD"
+            ),
+            aspect=models.DatasetKeyClass(
+                "bigquery", "myProject.mySchema.myTable", "PROD"
+            ),
+        ).as_workunit(),
+        MetadataChangeProposalWrapper(
+            entityUrn="urn:li:container:008e111aa1d250dd52e0fd5d4b307b1a",
+            aspect=models.ContainerPropertiesClass(
+                name="test",
+            ),
+        ).as_workunit(),
+    ]
+    expected = [
+        *list(
+            auto_workunit(
+                [
+                    MetadataChangeProposalWrapper(
+                        entityUrn="urn:li:dataset:(urn:li:dataPlatform:bigquery,myproject.myschema.mytable,PROD)",
+                        aspect=models.DatasetKeyClass(
+                            "bigquery", "myProject.mySchema.myTable", "PROD"
+                        ),
+                    ),
+                    MetadataChangeProposalWrapper(
+                        entityUrn="urn:li:container:008e111aa1d250dd52e0fd5d4b307b1a",
+                        aspect=models.ContainerPropertiesClass(
+                            name="test",
+                        ),
+                    ),
+                ]
+            )
+        ),
+    ]
+    assert list(auto_lowercase_urns(mcws, True)) == expected
 
 
 @patch("datahub.ingestion.api.source_helpers.telemetry.telemetry_instance.ping")
