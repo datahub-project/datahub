@@ -16,8 +16,6 @@ docker {
     dockerfile file("${rootProject.projectDir}/docker/${docker_dir}/Dockerfile")
     files fileTree(rootProject.projectDir) {
         include "docker/${docker_dir}/*"
-    }.exclude {
-        i -> i.file.isHidden() || i.file == buildDir
     }
     tag("Debug", "${docker_registry}/${docker_repo}:debug")
 
@@ -26,7 +24,7 @@ docker {
     load(true)
     push(false)
 }
-tasks.getByName('docker').dependsOn('build')
+tasks.getByPath('docker').dependsOn('build')
 
 task mkdirBuildDocker {
     doFirst {
@@ -37,7 +35,7 @@ dockerClean.finalizedBy(mkdirBuildDocker)
 
 task cleanLocalDockerImages {
     doLast {
-        rootProject.ext.cleanLocalDockerImages(docker_registry, docker_repo, "${version}")
+        rootProject.ext.cleanLocalDockerImages(docker_registry, docker_repo, "v${version}".toString())
     }
 }
 dockerClean.finalizedBy(cleanLocalDockerImages)
