@@ -46,8 +46,8 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
   }
 
   @Override
-  public List<ReindexConfig> getReindexConfigs() {
-    return indexBuilders.getReindexConfigs();
+  public List<ReindexConfig> buildReindexConfigs() {
+    return indexBuilders.buildReindexConfigs();
   }
 
   @Override
