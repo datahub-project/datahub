@@ -15,7 +15,7 @@ class OracleSourceMockDataBase:
     """
 
     MOCK_DATA = {
-        "SELECT username FROM dba_users ORDER BY username": (["schema1"], ["schema2"]),
+        "SELECT username FROM all_users ORDER BY username": (["schema1"], ["schema2"]),
         "schema1": (["test1"], ["test2"]),
         "schema2": (["test3"], ["test4"]),
     }
