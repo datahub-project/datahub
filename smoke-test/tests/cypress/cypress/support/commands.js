@@ -92,7 +92,7 @@ Cypress.Commands.add("goToOwnershipTypesSettings", () => {
 
 Cypress.Commands.add("goToIntegrationsSettings", () => {
   cy.visit("/settings/integrations");
-  cy.waitTextVisible("Manage integrations");
+  cy.waitTextVisible("Manage integrations with third party tools");
 });
 
 Cypress.Commands.add("goToSubscriptionsSettings", () => {
