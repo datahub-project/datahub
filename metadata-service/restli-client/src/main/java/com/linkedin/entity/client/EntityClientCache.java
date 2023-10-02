@@ -21,7 +21,6 @@ import java.util.Set;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
 import static com.linkedin.metadata.utils.PegasusUtils.urnToEntityName;
@@ -44,8 +43,7 @@ public class EntityClientCache {
 
         if (config.isEnabled()) {
             Set<Key> keys = urns.stream()
-                    .flatMap(urn -> aspectNames.stream()
-                            .map(a -> Key.builder().urn(urn).aspectName(a).build()))
+                    .flatMap(urn -> aspectNames.stream().map(a -> Key.builder().urn(urn).aspectName(a).build()))
                     .collect(Collectors.toSet());
             Map<Key, EnvelopedAspect> envelopedAspects = cache.getAll(keys);
 
@@ -92,13 +90,13 @@ public class EntityClientCache {
                 Map<String, Set<Key>> keysByEntity = StreamSupport.stream(keys.spliterator(), true)
                         .collect(Collectors.groupingBy(Key::getEntityName, Collectors.toSet()));
 
-                Stream<Map.Entry<Key, EnvelopedAspect>> results = keysByEntity.entrySet().parallelStream()
+                Map<Key, EnvelopedAspect> results = keysByEntity.entrySet().parallelStream()
                         .flatMap(entry -> {
                             Set<Urn> urns = entry.getValue().stream()
                                     .map(Key::getUrn)
                                     .collect(Collectors.toSet());
                             Set<String> aspects = entry.getValue().stream()
-                                    .map(Key::getEntityName)
+                                    .map(Key::getAspectName)
                                     .collect(Collectors.toSet());
                             return loadFunction.apply(urns, aspects).entrySet().stream();
                         })
@@ -106,9 +104,9 @@ public class EntityClientCache {
                                 .map(envAspect -> {
                                     Key key = Key.builder().urn(resp.getKey()).aspectName(envAspect.getName()).build();
                                     return Map.entry(key, envAspect);
-                                }));
+                                })).collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 
-                return results.collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+                return results;
             };
 
             // ideally the cache time comes from caching headers from service, but configuration driven for now
