@@ -1,4 +1,5 @@
 import logging
+import traceback
 from datetime import datetime, timezone
 from typing import (
     TYPE_CHECKING,
@@ -18,7 +19,6 @@ from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.emitter.mce_builder import make_dataplatform_instance_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
     BrowsePathEntryClass,
     BrowsePathsClass,
@@ -34,10 +34,9 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.telemetry import telemetry
 from datahub.utilities.urns.dataset_urn import DatasetUrn
-from datahub.utilities.urns.error import InvalidUrnError
 from datahub.utilities.urns.tag_urn import TagUrn
-from datahub.utilities.urns.urn import Urn, guess_entity_type
-from datahub.utilities.urns.urn_iter import list_urns
+from datahub.utilities.urns.urn import guess_entity_type
+from datahub.utilities.urns.urn_iter import list_urns, lowercase_dataset_urns
 
 if TYPE_CHECKING:
     from datahub.ingestion.api.source import SourceReport
@@ -72,7 +71,6 @@ def auto_status_aspect(
     for wu in stream:
         urn = wu.get_urn()
         all_urns.add(urn)
-
         if not wu.is_primary_source:
             # If this is a non-primary source, we pretend like we've seen the status
             # aspect so that we don't try to emit a removal for it.
@@ -185,27 +183,15 @@ def auto_lowercase_urns(
 
     for wu in stream:
         try:
-            urn = Urn.create_from_string(wu.get_urn())
-            if urn.get_type() == DatasetUrn.ENTITY_TYPE:
-                dataset_urn = DatasetUrn.create_from_string(str(urn))
-                lowercased_urn = DatasetUrn.create_from_ids(
-                    dataset_urn.get_data_platform_urn().get_platform_name(),
-                    dataset_urn.get_dataset_name().lower(),
-                    dataset_urn.get_env(),
-                )
+            old_urn = wu.get_urn()
+            lowercase_dataset_urns(wu.metadata)
+            wu.id = wu.id.replace(old_urn, wu.get_urn())
 
-                if isinstance(wu.metadata, MetadataChangeEvent):
-                    wu.metadata.proposedSnapshot.urn = str(lowercased_urn)
-                else:
-                    wu.metadata.entityUrn = str(lowercased_urn)
-
-                wu.id = wu.id.replace(
-                    dataset_urn.get_dataset_name(), lowercased_urn.get_dataset_name()
-                )
-                yield wu
-            else:
-                yield wu
-        except InvalidUrnError:
+            yield wu
+        except Exception:
+            logger.warning(
+                f"Failed to lowercase urns for {wu} the exception was: {traceback.format_exc()}"
+            )
             yield wu
 
 
