@@ -17,15 +17,12 @@ import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
 import java.util.Collection;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import com.linkedin.datahub.graphql.generated.Join;
 import org.apache.commons.codec.digest.DigestUtils;
-import org.json.JSONObject;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
 
@@ -54,7 +51,9 @@ public class CreateJoinResolver implements DataFetcher<CompletableFuture<Join>> 
         }
         // The following sequence mimics datahub.emitter.mce_builder.datahub_guid
 
-        String joinKey =  "{\"DatasetA\":\""+lowDataset+"\",\"DatasetB\":\""+highDataset+"\",\"JoinName\":\""+joinName+"\"}";
+        String joinKey =
+            "{\"DatasetA\":\"" + lowDataset + "\",\"DatasetB\":\"" + highDataset + "\",\"JoinName\":\"" + joinName
+                + "\"}";
 
         byte[] mybytes = joinKey.getBytes(StandardCharsets.UTF_8);
 
