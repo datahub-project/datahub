@@ -4,7 +4,9 @@ import pydantic
 
 from datahub.configuration.common import ConfigModel, ConfigurationError
 
-_BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX: str = "((.+)[_$])?(\\d{8})$"
+_BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX: str = (
+    "(.+?)_?(\\d\\d\\d\\d(?:0[1-9]|1[0-2])(?:0[1-9]|[12][0-9]|3[01]))$"
+)
 
 
 class BigQueryBaseConfig(ConfigModel):

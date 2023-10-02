@@ -51,8 +51,8 @@ SELECT
   p.max_partition_id,
   p.active_billable_bytes,
   p.long_term_billable_bytes,
-  REGEXP_EXTRACT(t.table_name, r".*_(\\d+)$") as table_suffix,
-  REGEXP_REPLACE(t.table_name, r"_(\\d+)$", "") as table_base
+  REGEXP_EXTRACT(t.table_name, r".*(\\d\\d\\d\\d(?:0[1-9]|1[012])(?:0[1-9]|[12][0-9]|3[01]))$") as table_suffix,
+  REGEXP_REPLACE(t.table_name, r"(\\d\\d\\d\\d(?:0[1-9]|1[012])(?:0[1-9]|[12][0-9]|3[01]))$", "") as table_base
 
 FROM
   `{{project_id}}`.`{{dataset_name}}`.INFORMATION_SCHEMA.TABLES t
@@ -92,8 +92,8 @@ SELECT
   tos.OPTION_VALUE as comment,
   t.is_insertable_into,
   t.ddl,
-  REGEXP_EXTRACT(t.table_name, r".*_(\\d+)$") as table_suffix,
-  REGEXP_REPLACE(t.table_name, r"_(\\d+)$", "") as table_base
+  REGEXP_EXTRACT(t.table_name, r".*(\\d\\d\\d\\d(?:0[1-9]|1[012])(?:0[1-9]|[12][0-9]|3[01]))$") as table_suffix,
+  REGEXP_REPLACE(t.table_name, r"(\\d\\d\\d\\d(?:0[1-9]|1[012])(?:0[1-9]|[12][0-9]|3[01]))$", "") as table_base
 
 FROM
   `{{project_id}}`.`{{dataset_name}}`.INFORMATION_SCHEMA.TABLES t

@@ -20,7 +20,9 @@ BigQueryAuditMetadata = Any
 
 logger: logging.Logger = logging.getLogger(__name__)
 
-_BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX = "((.+)[_$])?(\\d{8})$"
+_BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX = (
+    "(.+?)_?(\\d\\d\\d\\d(?:0[1-9]|1[0-2])(?:0[1-9]|[12][0-9]|3[01]))$"
+)
 
 
 @dataclass(frozen=True, order=True)
@@ -59,8 +61,8 @@ class BigqueryTableIdentifier:
             re.IGNORECASE,
         )
         if match:
-            table_name = match.group(2)
-            shard = match.group(3)
+            table_name = match.group(1)
+            shard = match.group(2)
             return table_name, shard
         return table_name, None
 
