@@ -99,7 +99,7 @@ class OracleConfig(BasicSQLAlchemyConfig):
 
 class OracleInspectorObjectWrapper:
     """
-    Inspector class wrapper, which queries ALL_TABLES
+    Inspector class wrapper, which queries DBA_TABLES instead of ALL_TABLES
     """
 
     def __init__(self, inspector_instance: Inspector):
@@ -110,7 +110,7 @@ class OracleInspectorObjectWrapper:
 
     def get_schema_names(self) -> List[str]:
         logger.debug("OracleInspectorObjectWrapper is in used")
-        s = "SELECT username FROM all_users ORDER BY username"
+        s = "SELECT username FROM dba_users ORDER BY username"
         cursor = self._inspector_instance.bind.execute(s)
         return [
             self._inspector_instance.dialect.normalize_name(row[0])
@@ -132,7 +132,7 @@ class OracleInspectorObjectWrapper:
         if schema is None:
             schema = self._inspector_instance.dialect.default_schema_name
 
-        sql_str = "SELECT table_name FROM all_tables WHERE "
+        sql_str = "SELECT table_name FROM dba_tables WHERE "
         if self.exclude_tablespaces:
             tablespace_str = ", ".join([f"'{ts}'" for ts in self.exclude_tablespaces])
             sql_str += (
