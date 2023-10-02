@@ -291,7 +291,7 @@ subprojects {
     maxParallelForks = Runtime.runtime.availableProcessors().intdiv(2) ?: 1
 
     if (project.configurations.getByName("testImplementation").getDependencies()
-            .any{ it.getName() == "testng" }) {
+            .any{ it.getName().contains("testng") }) {
       useTestNG()
     }
   }
