@@ -59,7 +59,7 @@ class FlagsConfig(ConfigModel):
 
     auto_lowercase_urns: bool = Field(
         default=False,
-        description="Wether to Lowercase entity urns.",
+        description="Wether to lowercase dataset entity urns.",
     )
 
 
