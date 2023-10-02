@@ -18,6 +18,7 @@ from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.emitter.mce_builder import make_dataplatform_instance_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
     BrowsePathEntryClass,
     BrowsePathsClass,
@@ -184,15 +185,20 @@ def auto_lowercase_urns(
 
     for wu in stream:
         try:
-            urn = Urn.create_from_string(wu.metadata.entityUrn)
+            urn = Urn.create_from_string(wu.get_urn())
             if urn.get_type() == DatasetUrn.ENTITY_TYPE:
-                dataset_urn = DatasetUrn.create_from_string(wu.metadata.entityUrn)
+                dataset_urn = DatasetUrn.create_from_string(str(urn))
                 lowercased_urn = DatasetUrn.create_from_ids(
                     dataset_urn.get_data_platform_urn().get_platform_name(),
                     dataset_urn.get_dataset_name().lower(),
                     dataset_urn.get_env(),
                 )
-                wu.metadata.entityUrn = str(lowercased_urn)
+
+                if isinstance(wu.metadata, MetadataChangeEvent):
+                    wu.metadata.proposedSnapshot.urn = str(lowercased_urn)
+                else:
+                    wu.metadata.entityUrn = str(lowercased_urn)
+
                 wu.id = wu.id.replace(
                     dataset_urn.get_dataset_name(), lowercased_urn.get_dataset_name()
                 )
