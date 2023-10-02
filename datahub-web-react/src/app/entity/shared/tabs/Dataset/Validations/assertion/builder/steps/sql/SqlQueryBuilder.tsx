@@ -48,10 +48,10 @@ export const SqlQueryBuilder = ({ value, onChange, disabled }: Props) => {
 
     return (
         <Section>
-            <Typography.Title level={5}>Query</Typography.Title>
+            <Typography.Title level={5}>SQL Query</Typography.Title>
             <Typography.Paragraph type="secondary">
-                Define a query which returns <b>one row</b> containing <b>one numeric column</b>. The actual value will
-                be used to determine whether this assertion should fail.
+                Define a query which returns <b>one row</b> containing <b>one column</b> of numeric type. The column
+                value will be used to determine whether this assertion should pass or fail.
             </Typography.Paragraph>
             <StyledFormItem name="query" rules={[{ required: true, message: 'Required' }]}>
                 <Editor

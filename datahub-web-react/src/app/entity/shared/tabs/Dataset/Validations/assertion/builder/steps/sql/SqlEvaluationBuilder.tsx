@@ -56,7 +56,7 @@ export const SqlEvaluationBuilder = ({ value, onChange, disabled }: Props) => {
 
     return (
         <Section>
-            <Typography.Paragraph strong>Fail if query result</Typography.Paragraph>
+            <Typography.Title level={5}>Fail if resulting value</Typography.Title>
             <StyledSelect
                 defaultValue={SQL_OPERATION_OPTIONS[defaultOption]}
                 options={options}

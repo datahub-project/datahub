@@ -27,22 +27,22 @@ export enum SqlOperationOptionEnum {
 
 export const SQL_OPERATION_OPTIONS: Record<SqlOperationOptionEnum, SqlOperationOption> = {
     [SqlOperationOptionEnum.IS_EQUAL_TO]: {
-        label: 'Is Equal To',
+        label: 'Is equal to',
         type: SqlAssertionType.Metric,
         operator: AssertionStdOperator.NotEqualTo,
     },
     [SqlOperationOptionEnum.IS_NOT_EQUAL_TO]: {
-        label: 'Is Not Equal To',
+        label: 'Is not equal to',
         type: SqlAssertionType.Metric,
         operator: AssertionStdOperator.EqualTo,
     },
     [SqlOperationOptionEnum.IS_GREATER_THAN]: {
-        label: 'Is Greater Than',
+        label: 'Is greater than',
         type: SqlAssertionType.Metric,
         operator: AssertionStdOperator.LessThanOrEqualTo,
     },
     [SqlOperationOptionEnum.IS_LESS_THAN]: {
-        label: 'Is Less Than',
+        label: 'Is less than',
         type: SqlAssertionType.Metric,
         operator: AssertionStdOperator.GreaterThanOrEqualTo,
     },
@@ -52,13 +52,13 @@ export const SQL_OPERATION_OPTIONS: Record<SqlOperationOptionEnum, SqlOperationO
         operator: AssertionStdOperator.Between,
     },
     [SqlOperationOptionEnum.GROWTH_TOO_FAST]: {
-        label: 'Grows More Than',
+        label: 'Grows more than',
         type: SqlAssertionType.MetricChange,
         operator: AssertionStdOperator.LessThanOrEqualTo,
         changeType: AssertionValueChangeType.Absolute,
     },
     [SqlOperationOptionEnum.GROWTH_TOO_SLOW]: {
-        label: 'Grows Less Than',
+        label: 'Grows less than',
         type: SqlAssertionType.MetricChange,
         operator: AssertionStdOperator.GreaterThanOrEqualTo,
         changeType: AssertionValueChangeType.Absolute,
