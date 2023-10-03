@@ -103,6 +103,16 @@ export function getPopulatedColumnsByUrn(
                         });
                     }
                 });
+                fineGrainedLineage.downstreams?.forEach((downstreams) => {
+                    if (!fields.some((field) => field.fieldPath === downstreams.path)) {
+                        fields.push({
+                            fieldPath: downgradeV2FieldPath(downstreams.path) || '',
+                            nullable: false,
+                            recursive: false,
+                            type: SchemaFieldDataType.String,
+                        });
+                    }
+                });
             });
             populatedColumnsByUrn = { ...populatedColumnsByUrn, [urn]: fields };
         }
