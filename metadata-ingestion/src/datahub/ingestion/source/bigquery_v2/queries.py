@@ -43,14 +43,14 @@ SELECT
   t.creation_time as created,
   ts.last_modified_time as last_altered,
   tos.OPTION_VALUE as comment,
-  is_insertable_into,
-  ddl,
-  row_count,
-  size_bytes as bytes,
-  num_partitions,
-  max_partition_id,
-  active_billable_bytes,
-  long_term_billable_bytes,
+  t.is_insertable_into,
+  t.ddl,
+  ts.row_count,
+  ts.size_bytes as bytes,
+  p.num_partitions,
+  p.max_partition_id,
+  p.active_billable_bytes,
+  p.long_term_billable_bytes,
   REGEXP_EXTRACT(t.table_name, r".*_(\\d+)$") as table_suffix,
   REGEXP_REPLACE(t.table_name, r"_(\\d+)$", "") as table_base
 
@@ -90,8 +90,8 @@ SELECT
   t.table_type as table_type,
   t.creation_time as created,
   tos.OPTION_VALUE as comment,
-  is_insertable_into,
-  ddl,
+  t.is_insertable_into,
+  t.ddl,
   REGEXP_EXTRACT(t.table_name, r".*_(\\d+)$") as table_suffix,
   REGEXP_REPLACE(t.table_name, r"_(\\d+)$", "") as table_base
 
@@ -118,10 +118,10 @@ SELECT
   t.creation_time as created,
   ts.last_modified_time as last_altered,
   tos.OPTION_VALUE as comment,
-  is_insertable_into,
-  ddl as view_definition,
-  row_count,
-  size_bytes
+  t.is_insertable_into,
+  t.ddl as view_definition,
+  ts.row_count,
+  ts.size_bytes
 FROM
   `{{project_id}}`.`{{dataset_name}}`.INFORMATION_SCHEMA.TABLES t
   join `{{project_id}}`.`{{dataset_name}}`.__TABLES__ as ts on ts.table_id = t.TABLE_NAME
@@ -143,8 +143,8 @@ SELECT
   t.table_type as table_type,
   t.creation_time as created,
   tos.OPTION_VALUE as comment,
-  is_insertable_into,
-  ddl as view_definition
+  t.is_insertable_into,
+  t.ddl as view_definition
 FROM
   `{{project_id}}`.`{{dataset_name}}`.INFORMATION_SCHEMA.TABLES t
   left join `{{project_id}}`.`{{dataset_name}}`.INFORMATION_SCHEMA.TABLE_OPTIONS as tos on t.table_schema = tos.table_schema

@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Dict, Iterable, List, Optional, Type
 
+import avro.schema
 import confluent_kafka
 import confluent_kafka.admin
 import pydantic
@@ -18,6 +19,7 @@ from confluent_kafka.admin import (
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.kafka import KafkaConsumerConnectionConfig
 from datahub.configuration.source_common import DatasetSourceConfigMixin
+from datahub.emitter import mce_builder
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataplatform_instance_urn,
@@ -56,8 +58,10 @@ from datahub.metadata.schema_classes import (
     DataPlatformInstanceClass,
     DatasetPropertiesClass,
     KafkaSchemaClass,
+    OwnershipSourceTypeClass,
     SubTypesClass,
 )
+from datahub.utilities.mapping import Constants, OperationProcessor
 from datahub.utilities.registries.domain_registry import DomainRegistry
 
 logger = logging.getLogger(__name__)
@@ -88,6 +92,29 @@ class KafkaSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
     schema_registry_class: str = pydantic.Field(
         default="datahub.ingestion.source.confluent_schema_registry.ConfluentSchemaRegistry",
         description="The fully qualified implementation class(custom) that implements the KafkaSchemaRegistryBase interface.",
+    )
+    schema_tags_field = pydantic.Field(
+        default="tags",
+        description="The field name in the schema metadata that contains the tags to be added to the dataset.",
+    )
+    enable_meta_mapping = pydantic.Field(
+        default=True,
+        description="When enabled, applies the mappings that are defined through the meta_mapping directives.",
+    )
+    meta_mapping: Dict = pydantic.Field(
+        default={},
+        description="mapping rules that will be executed against top-level schema properties. Refer to the section below on meta automated mappings.",
+    )
+    field_meta_mapping: Dict = pydantic.Field(
+        default={},
+        description="mapping rules that will be executed against field-level schema properties. Refer to the section below on meta automated mappings.",
+    )
+    strip_user_ids_from_email: bool = pydantic.Field(
+        default=False,
+        description="Whether or not to strip email id while adding owners using meta mappings.",
+    )
+    tag_prefix: str = pydantic.Field(
+        default="", description="Prefix added to tags during ingestion."
     )
     ignore_warnings_on_schema_type: bool = pydantic.Field(
         default=False,
@@ -167,6 +194,14 @@ class KafkaSource(StatefulIngestionSourceBase):
                 graph=self.ctx.graph,
             )
 
+        self.meta_processor = OperationProcessor(
+            self.source_config.meta_mapping,
+            self.source_config.tag_prefix,
+            OwnershipSourceTypeClass.SERVICE,
+            self.source_config.strip_user_ids_from_email,
+            match_nested_props=True,
+        )
+
     def init_kafka_admin_client(self) -> None:
         try:
             # TODO: Do we require separate config than existing consumer_config ?
@@ -227,7 +262,6 @@ class KafkaSource(StatefulIngestionSourceBase):
         logger.debug(f"topic = {topic}")
 
         AVRO = "AVRO"
-        DOC_KEY = "doc"
 
         # 1. Create the default dataset snapshot for the topic.
         dataset_name = topic
@@ -261,8 +295,8 @@ class KafkaSource(StatefulIngestionSourceBase):
             topic, topic_detail, extra_topic_config
         )
 
-        # 4. Set dataset's description as top level doc, if topic schema type is avro
-        description = None
+        # 4. Set dataset's description, tags, ownership, etc, if topic schema type is avro
+        description: Optional[str] = None
         if (
             schema_metadata is not None
             and isinstance(schema_metadata.platformSchema, KafkaSchemaClass)
@@ -271,9 +305,41 @@ class KafkaSource(StatefulIngestionSourceBase):
             # Point to note:
             # In Kafka documentSchema and keySchema both contains "doc" field.
             # DataHub Dataset "description" field is mapped to documentSchema's "doc" field.
-            schema = json.loads(schema_metadata.platformSchema.documentSchema)
-            if isinstance(schema, dict):
-                description = schema.get(DOC_KEY)
+
+            avro_schema = avro.schema.parse(
+                schema_metadata.platformSchema.documentSchema
+            )
+            description = avro_schema.doc
+            # set the tags
+            all_tags: List[str] = []
+            for tag in avro_schema.other_props.get(
+                self.source_config.schema_tags_field, []
+            ):
+                all_tags.append(self.source_config.tag_prefix + tag)
+
+            if self.source_config.enable_meta_mapping:
+                meta_aspects = self.meta_processor.process(avro_schema.other_props)
+
+                meta_owners_aspects = meta_aspects.get(Constants.ADD_OWNER_OPERATION)
+                if meta_owners_aspects:
+                    dataset_snapshot.aspects.append(meta_owners_aspects)
+
+                meta_terms_aspect = meta_aspects.get(Constants.ADD_TERM_OPERATION)
+                if meta_terms_aspect:
+                    dataset_snapshot.aspects.append(meta_terms_aspect)
+
+                # Create the tags aspect
+                meta_tags_aspect = meta_aspects.get(Constants.ADD_TAG_OPERATION)
+                if meta_tags_aspect:
+                    all_tags += [
+                        tag_association.tag[len("urn:li:tag:") :]
+                        for tag_association in meta_tags_aspect.tags
+                    ]
+
+            if all_tags:
+                dataset_snapshot.aspects.append(
+                    mce_builder.make_global_tag_aspect_with_tag_list(all_tags)
+                )
 
         dataset_properties = DatasetPropertiesClass(
             name=topic, customProperties=custom_props, description=description

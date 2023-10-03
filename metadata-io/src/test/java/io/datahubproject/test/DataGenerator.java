@@ -12,11 +12,16 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.glossary.GlossaryTermInfo;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.config.PreProcessHooks;
+import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.EntityServiceImpl;
+import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.service.UpdateIndicesService;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import net.datafaker.Faker;
@@ -42,6 +47,8 @@ import java.util.stream.IntStream;
 import java.util.stream.LongStream;
 import java.util.stream.Stream;
 
+import static org.mockito.Mockito.mock;
+
 public class DataGenerator {
     private final static Faker FAKER = new Faker();
     private final EntityRegistry entityRegistry;
@@ -52,8 +59,19 @@ public class DataGenerator {
         this.entityRegistry = entityService.getEntityRegistry();
     }
 
+    public static DataGenerator build(EntityRegistry entityRegistry) {
+        EntityServiceImpl mockEntityServiceImpl = new EntityServiceImpl(mock(AspectDao.class),
+                mock(EventProducer.class), entityRegistry, false,
+                mock(UpdateIndicesService.class), mock(PreProcessHooks.class));
+        return new DataGenerator(mockEntityServiceImpl);
+    }
+
     public Stream<List<MetadataChangeProposal>> generateDatasets() {
         return generateMCPs("dataset", 10, List.of());
+    }
+
+    public List<MetadataChangeProposal> generateTags(long count) {
+        return generateMCPs("tag", count, List.of()).findFirst().get();
     }
 
     public Stream<List<MetadataChangeProposal>> generateMCPs(String entityName, long count, List<String> aspects) {
@@ -127,9 +145,7 @@ public class DataGenerator {
     public Map<String, BiFunction<RecordTemplate, Integer, List<MetadataChangeProposal>>> nestedRandomAspectGenerators = Map.of(
             "globalTags", (aspect, count) -> {
                 try {
-                    List<MetadataChangeProposal> tags = generateMCPs("tag", count, List.of())
-                            .map(mcps -> mcps.get(0))
-                            .collect(Collectors.toList());
+                    List<MetadataChangeProposal> tags = generateTags(count);
                     Method setTagsMethod = aspect.getClass().getMethod("setTags", TagAssociationArray.class);
                     TagAssociationArray tagAssociations = new TagAssociationArray();
                     tagAssociations.addAll(tags.stream().map(

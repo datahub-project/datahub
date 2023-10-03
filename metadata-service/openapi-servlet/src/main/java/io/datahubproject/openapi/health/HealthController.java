@@ -1,4 +1,4 @@
-package io.datahubproject.openapi;
+package io.datahubproject.openapi.health;
 
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;

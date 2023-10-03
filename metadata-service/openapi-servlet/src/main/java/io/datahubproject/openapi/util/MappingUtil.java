@@ -48,6 +48,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -91,10 +92,11 @@ public class MappingUtil {
 
   private static final String DISCRIMINATOR = "__type";
   private static final String PEGASUS_PACKAGE = "com.linkedin";
+  private static final String OPENAPI_PACKAGE = "io.datahubproject.openapi.generated";
   private static final ReflectionCache REFLECT_AVRO = ReflectionCache.builder()
           .basePackage("com.linkedin.pegasus2avro").build();
   private static final ReflectionCache REFLECT_OPENAPI = ReflectionCache.builder()
-          .basePackage("io.datahubproject.openapi.generated").build();
+          .basePackage(OPENAPI_PACKAGE).build();
 
   static {
     // Build a map from __type name to generated class
@@ -143,47 +145,106 @@ public class MappingUtil {
   }
 
   private static DataMap insertDiscriminator(@Nullable Class<?> parentClazz, DataMap dataMap) {
-    if (REFLECT_OPENAPI.lookupMethod(parentClazz, "get__type") != null) {
+    if (parentClazz != null && REFLECT_OPENAPI.lookupMethod(parentClazz, "get__type") != null) {
       dataMap.put(DISCRIMINATOR, parentClazz.getSimpleName());
     }
 
     Set<Map.Entry<String, DataMap>> requiresDiscriminator = dataMap.entrySet().stream()
             .filter(e -> e.getValue() instanceof DataMap)
-            .filter(e -> e.getKey().startsWith(PEGASUS_PACKAGE + "."))
+            .filter(e -> shouldCollapseClassToDiscriminator(e.getKey()))
             .map(e -> Map.entry(e.getKey(), (DataMap) e.getValue()))
             .collect(Collectors.toSet());
+    // DataMap doesn't support concurrent access
     requiresDiscriminator.forEach(e -> {
       dataMap.remove(e.getKey());
-      dataMap.put(DISCRIMINATOR, e.getKey().substring(e.getKey().lastIndexOf('.') + 1));
+      dataMap.put(DISCRIMINATOR, e.getKey().substring(e.getKey().lastIndexOf(".") + 1));
       dataMap.putAll(e.getValue());
     });
 
-    Set<Pair<String, DataMap>> recurse = dataMap.entrySet().stream()
-            .filter(e -> e.getValue() instanceof DataMap || e.getValue() instanceof DataList)
-            .flatMap(e -> {
-              if (e.getValue() instanceof DataList) {
-                return ((DataList) e.getValue()).stream()
-                        .filter(item -> item instanceof DataMap)
-                        .map(item -> Pair.of((String) null, (DataMap) item));
-              } else {
-                return Stream.of(Pair.of(e.getKey(), (DataMap) e.getValue()));
-              }
-            }).collect(Collectors.toSet());
+    // Look through all the nested classes for possible discriminator requirements
+    Set<Pair<List<String>, DataMap>> nestedDataMaps = getDataMapPaths(new LinkedList<>(), dataMap).collect(Collectors.toSet());
+    // DataMap doesn't support concurrent access
+    for (Pair<List<String>, DataMap> nestedDataMapPath : nestedDataMaps) {
+      List<String> nestedPath = nestedDataMapPath.getFirst();
+      DataMap nested = nestedDataMapPath.getSecond();
+      Class<?> nextClazz = parentClazz;
 
-    recurse.forEach(e -> {
-      if (e.getKey() != null) {
-        Class<?> getterClazz = null;
-        if (parentClazz != null) {
-          Method getMethod = REFLECT_OPENAPI.lookupMethod(parentClazz, "get" + toUpperFirst(e.getKey()));
-          getterClazz = getMethod.getReturnType();
+      if (nextClazz != null) {
+        // reconstruct type path from method path
+        for (String pathElem : nestedPath) {
+          // if not list element
+          if (!pathElem.startsWith("[") && !pathElem.contains(".")) {
+            String methodName = "get" + toUpperFirst(pathElem);
+            Method getMethod = REFLECT_OPENAPI.lookupMethod(nextClazz, methodName);
+            nextClazz = getMethod != null ? getMethod.getReturnType() : null;
+
+            if (nextClazz != null && "List".equals(nextClazz.getSimpleName())) {
+              String listElemClassName = getMethod.getGenericReturnType().getTypeName()
+                      .replace("java.util.List<", "")
+                      .replace(">", "");
+              try {
+                nextClazz = Class.forName(listElemClassName);
+              } catch (ClassNotFoundException ex) {
+                log.warn("Class lookup failed for {}", listElemClassName);
+                nextClazz = null;
+              }
+            }
+          }
         }
-        insertDiscriminator(getterClazz, e.getValue());
-      } else {
-        insertDiscriminator(null, e.getValue());
+
+        if ((nextClazz != parentClazz && shouldCheckTypeMethod(nextClazz))
+                || nested.keySet().stream().anyMatch(MappingUtil::shouldCollapseClassToDiscriminator)) {
+          insertDiscriminator(nextClazz, nested);
+        }
       }
-    });
+    }
 
     return dataMap;
+  }
+
+
+  /**
+   * Stream paths to DataMaps
+   * @param paths current path
+   * @param data current DataMap or DataList
+   * @return path to all nested DataMaps
+   */
+  private static Stream<Pair<List<String>, DataMap>> getDataMapPaths(List<String> paths, Object data) {
+    if (data instanceof DataMap) {
+      return ((DataMap) data).entrySet().stream()
+              .filter(e -> e.getValue() instanceof DataMap || e.getValue() instanceof DataList)
+              .flatMap(entry -> {
+                List<String> thisPath = new LinkedList<>(paths);
+                thisPath.add(entry.getKey());
+                if (entry.getValue() instanceof DataMap) {
+                  return Stream.concat(
+                          Stream.of(Pair.of(thisPath, (DataMap) entry.getValue())),
+                          getDataMapPaths(thisPath, entry.getValue())
+                  );
+                } else {
+                  // DataList
+                  return getDataMapPaths(thisPath, entry.getValue());
+                }
+              });
+    } else if (data instanceof DataList) {
+      DataList dataList = (DataList) data;
+      return IntStream.range(0, dataList.size())
+              .mapToObj(idx -> Pair.of(idx, dataList.get(idx)))
+              .filter(idxObject -> idxObject.getValue() instanceof DataMap || idxObject.getValue() instanceof DataList)
+              .flatMap(idxObject -> {
+                Object item = idxObject.getValue();
+                List<String> thisPath = new LinkedList<>(paths);
+                thisPath.add("[" + idxObject.getKey() + "]");
+                if (item instanceof DataMap) {
+                  return Stream.concat(Stream.of(Pair.of(thisPath, (DataMap) item)),
+                          getDataMapPaths(thisPath, item));
+                } else {
+                  // DataList
+                  return getDataMapPaths(thisPath, item);
+                }
+              });
+    }
+    return Stream.empty();
   }
 
   public static OneOfEnvelopedAspectValue mapAspectValue(String aspectName, Aspect aspect, ObjectMapper objectMapper) {
@@ -225,6 +286,14 @@ public class MappingUtil {
     char[] c = cls.getSimpleName().toCharArray();
     c[0] = Character.toLowerCase(c[0]);
     return new String(c);
+  }
+
+  private static boolean shouldCheckTypeMethod(@Nullable Class<?> parentClazz) {
+    return Optional.ofNullable(parentClazz).map(cls -> cls.getName().startsWith(OPENAPI_PACKAGE + ".")).orElse(false);
+  }
+
+  private static boolean shouldCollapseClassToDiscriminator(String className) {
+    return className.startsWith(PEGASUS_PACKAGE + ".");
   }
 
   private static Optional<String> shouldDiscriminate(String parentShortClass, String fieldName, ObjectNode node) {

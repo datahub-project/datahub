@@ -29,7 +29,7 @@ public class TimeseriesAspectIndexBuilders implements ElasticSearchIndexed {
 
   @Override
   public void reindexAll() {
-    for (ReindexConfig config : getReindexConfigs()) {
+    for (ReindexConfig config : buildReindexConfigs()) {
       try {
         _indexBuilder.buildIndex(config);
       } catch (IOException e) {
@@ -63,7 +63,7 @@ public class TimeseriesAspectIndexBuilders implements ElasticSearchIndexed {
   }
 
   @Override
-  public List<ReindexConfig> getReindexConfigs() {
+  public List<ReindexConfig> buildReindexConfigs() {
     return _entityRegistry.getEntitySpecs().values().stream()
             .flatMap(entitySpec -> entitySpec.getAspectSpecs().stream()
                     .map(aspectSpec -> Pair.of(entitySpec, aspectSpec)))
@@ -80,4 +80,5 @@ public class TimeseriesAspectIndexBuilders implements ElasticSearchIndexed {
               }
             }).collect(Collectors.toList());
   }
+
 }

@@ -420,7 +420,7 @@ cache:
       statsEnabled: ${CACHE_CLIENT_ENTITY_CLIENT_STATS_ENABLED:true}
       statsIntervalSeconds: ${CACHE_CLIENT_ENTITY_CLIENT_STATS_INTERVAL_SECONDS:120}
       defaultTTLSeconds: ${CACHE_CLIENT_ENTITY_CLIENT_TTL_SECONDS:0} # do not cache entity/aspects by default
-      maxBytes: ${CACHE_CLIENT_USAGE_ENTITY_MAX_BYTES:104857600} # 100MB
+      maxBytes: ${CACHE_CLIENT_ENTITY_CLIENT_MAX_BYTES:104857600} # 100MB
       entityAspectTTLSeconds:
         # cache user aspects for 20s
         corpuser:
@@ -450,3 +450,5 @@ monitorService:
   host: ${DATAHUB_MONITORS_HOST:localhost}
   port: ${DATAHUB_MONITORS_PORT:9004}
   useSsl: ${DATAHUB_MONITORS_USE_SSL:false}
+
+springdoc.api-docs.groups.enabled: true

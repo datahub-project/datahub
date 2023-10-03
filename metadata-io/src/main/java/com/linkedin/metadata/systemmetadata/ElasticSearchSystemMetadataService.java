@@ -205,7 +205,7 @@ public class ElasticSearchSystemMetadataService implements SystemMetadataService
   public void configure() {
     log.info("Setting up system metadata index");
     try {
-      for (ReindexConfig config : getReindexConfigs()) {
+      for (ReindexConfig config : buildReindexConfigs()) {
         _indexBuilder.buildIndex(config);
       }
     } catch (IOException ie) {
@@ -214,7 +214,7 @@ public class ElasticSearchSystemMetadataService implements SystemMetadataService
   }
 
   @Override
-  public List<ReindexConfig> getReindexConfigs() throws IOException {
+  public List<ReindexConfig> buildReindexConfigs() throws IOException {
     return List.of(_indexBuilder.buildReindexState(_indexConvention.getIndexName(INDEX_NAME),
             SystemMetadataMappingsBuilder.getMappings(), Collections.emptyMap()));
   }

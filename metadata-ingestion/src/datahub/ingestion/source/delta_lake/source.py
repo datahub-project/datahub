@@ -296,7 +296,8 @@ class DeltaLakeSource(Source):
                 "AWS_SECRET_ACCESS_KEY": creds.get("aws_secret_access_key") or "",
                 "AWS_SESSION_TOKEN": creds.get("aws_session_token") or "",
                 # Allow http connections, this is required for minio
-                "AWS_STORAGE_ALLOW_HTTP": "true",
+                "AWS_STORAGE_ALLOW_HTTP": "true",  # for delta-lake < 0.11.0
+                "AWS_ALLOW_HTTP": "true",  # for delta-lake >= 0.11.0
             }
             if aws_config.aws_region:
                 opts["AWS_REGION"] = aws_config.aws_region

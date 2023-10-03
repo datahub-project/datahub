@@ -130,3 +130,86 @@ message MessageWithMap {
   repeated Map1Entry map_1 = 1;
 }
 ```
+
+### Enriching DataHub metadata with automated meta mapping
+
+:::note
+Meta mapping is currently only available for Avro schemas
+:::
+
+Avro schemas are permitted to have additional attributes not defined by the specification as arbitrary metadata. A common pattern is to utilize this for business metadata. The Kafka source has the ability to transform this directly into DataHub Owners, Tags and Terms.
+
+#### Simple tags
+
+If you simply have a list of tags embedded into an Avro schema (either at the top-level or for an individual field), you can use the `schema_tags_field` config.
+
+Example Avro schema:
+
+```json
+{
+  "name": "sampleRecord",
+  "type": "record",
+  "tags": ["tag1", "tag2"],
+  "fields": [{
+    "name": "field_1",
+    "type": "string",
+    "tags": ["tag3", "tag4"]
+  }]
+}
+```
+
+The name of the field containing a list of tags can be configured with the `schema_tags_field` property:
+
+```yaml
+config:
+  schema_tags_field: tags
+```
+
+#### meta mapping
+
+You can also map specific Avro fields into Owners, Tags and Terms using meta
+mapping.
+
+Example Avro schema:
+
+```json
+{
+  "name": "sampleRecord",
+  "type": "record",
+  "owning_team": "@Data-Science",
+  "data_tier": "Bronze",
+  "fields": [{
+    "name": "field_1",
+    "type": "string",
+    "gdpr": {
+      "pii": true
+    }
+  }]
+}
+```
+
+This can be mapped to DataHub metadata with `meta_mapping` config:
+
+```yaml
+config:
+  meta_mapping:
+    owning_team:
+      match: "^@(.*)"
+      operation: "add_owner"
+      config:
+        owner_type: group
+    data_tier:
+      match: "Bronze|Silver|Gold"
+      operation: "add_term"
+      config:
+        term: "{{ $match }}"
+  field_meta_mapping:
+    gdpr.pii:
+      match: true
+      operation: "add_tag"
+      config:
+        tag: "pii"
+```
+
+The underlying implementation is similar to [dbt meta mapping](https://datahubproject.io/docs/generated/ingestion/sources/dbt#dbt-meta-automated-mappings), which has more detailed examples that can be used for reference.
+

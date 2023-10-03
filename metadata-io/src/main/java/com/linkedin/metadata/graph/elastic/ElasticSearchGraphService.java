@@ -318,7 +318,7 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
   public void configure() {
     log.info("Setting up elastic graph index");
     try {
-      for (ReindexConfig config : getReindexConfigs()) {
+      for (ReindexConfig config : buildReindexConfigs()) {
         _indexBuilder.buildIndex(config);
       }
     } catch (IOException e) {
@@ -327,7 +327,7 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
   }
 
   @Override
-  public List<ReindexConfig> getReindexConfigs() throws IOException {
+  public List<ReindexConfig> buildReindexConfigs() throws IOException {
     return List.of(_indexBuilder.buildReindexState(_indexConvention.getIndexName(INDEX_NAME),
             GraphRelationshipMappingsBuilder.getMappings(), Collections.emptyMap()));
   }

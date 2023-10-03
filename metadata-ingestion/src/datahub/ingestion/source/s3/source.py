@@ -7,6 +7,7 @@ import re
 import time
 from collections import OrderedDict
 from datetime import datetime
+from pathlib import PurePath
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 from more_itertools import peekable
@@ -819,7 +820,10 @@ class S3Source(StatefulIngestionSourceBase):
                 dirs.sort(key=functools.cmp_to_key(partitioned_folder_comparator))
 
                 for file in sorted(files):
-                    full_path = os.path.join(root, file)
+                    # We need to make sure the path is in posix style which is not true on windows
+                    full_path = PurePath(
+                        os.path.normpath(os.path.join(root, file))
+                    ).as_posix()
                     yield full_path, datetime.utcfromtimestamp(
                         os.path.getmtime(full_path)
                     ), os.path.getsize(full_path)

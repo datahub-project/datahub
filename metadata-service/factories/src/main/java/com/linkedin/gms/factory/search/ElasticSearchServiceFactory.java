@@ -56,6 +56,9 @@ public class ElasticSearchServiceFactory {
   private SettingsBuilder settingsBuilder;
 
   @Autowired
+  private EntityIndexBuilders entityIndexBuilders;
+
+  @Autowired
   private ConfigurationProvider configurationProvider;
 
   @Bean(name = "elasticSearchService")
@@ -72,9 +75,7 @@ public class ElasticSearchServiceFactory {
         new ESSearchDAO(entityRegistry, components.getSearchClient(), components.getIndexConvention(),
                 configurationProvider.getFeatureFlags().isPointInTimeCreationEnabled(),
                 elasticSearchConfiguration.getImplementation(), searchConfiguration, customSearchConfiguration);
-    return new ElasticSearchService(
-        new EntityIndexBuilders(components.getIndexBuilder(), entityRegistry, components.getIndexConvention(),
-            settingsBuilder), esSearchDAO,
+    return new ElasticSearchService(entityIndexBuilders, esSearchDAO,
         new ESBrowseDAO(entityRegistry, components.getSearchClient(), components.getIndexConvention(),
             searchConfiguration, customSearchConfiguration),
         new ESWriteDAO(entityRegistry, components.getSearchClient(), components.getIndexConvention(),

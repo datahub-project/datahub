@@ -54,7 +54,7 @@ public class OpenApiEntitiesUtil {
             if (aspectRequest != null) {
                 // i.e. GlobalTags
                 Method valueMethod = REFLECT.lookupMethod(aspectRequestClazz, "getValue");
-                Object aspect = valueMethod.invoke(aspectRequest);
+                Object aspect = valueMethod == null ? null : valueMethod.invoke(aspectRequest);
 
                 if (aspect != null) {
                     builder.aspect((OneOfGenericAspectValue) aspect);
@@ -82,13 +82,13 @@ public class OpenApiEntitiesUtil {
                         Method aspectMethod = REFLECT.lookupMethod(fromClazz, "get" + upperAspectName);
 
                         // i.e. GlobalTagsAspectRequestV2
-                        Object aspectRequest = aspectMethod.invoke(openapiEntity);
+                        Object aspectRequest = aspectMethod == null ? null : aspectMethod.invoke(openapiEntity);
                         if (aspectRequest != null) {
                             Class<?> aspectRequestClazz = REFLECT.lookupClass(upperAspectName + ASPECT_REQUEST_SUFFIX);
 
                             // i.e. GlobalTags
                             Method valueMethod = REFLECT.lookupMethod(aspectRequestClazz, "getValue");
-                            Object aspect = valueMethod.invoke(aspectRequest);
+                            Object aspect = valueMethod == null ? null : valueMethod.invoke(aspectRequest);
 
                             if (aspect != null) {
                                 builder.aspect((OneOfGenericAspectValue) aspect);
@@ -109,7 +109,7 @@ public class OpenApiEntitiesUtil {
         return convertEntity(urnResponseMap, entityClazz, withSystemMetadata).map(entity -> {
             try {
                 Method aspectMethod = REFLECT.lookupMethod(entityClazz, "get" + toUpperFirst(aspectName));
-                return aspectClazz.cast(aspectMethod.invoke(entity));
+                return aspectMethod == null ? null : aspectClazz.cast(aspectMethod.invoke(entity));
             } catch (IllegalAccessException | InvocationTargetException e) {
                 throw new RuntimeException(e);
             }

@@ -16,14 +16,17 @@ import com.linkedin.metadata.search.client.CachingEntitySearchService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 
 
 @Configuration
+@ConditionalOnExpression("'${entityClient.preferredImpl:java}'.equals('java')")
 @Import({DataHubKafkaProducerFactory.class})
 public class JavaEntityClientFactory {
+
   @Autowired
   @Qualifier("entityService")
   private EntityService _entityService;
@@ -74,7 +77,7 @@ public class JavaEntityClientFactory {
   public SystemJavaEntityClient systemJavaEntityClient(@Qualifier("configurationProvider") final ConfigurationProvider configurationProvider,
                                                        @Qualifier("systemAuthentication") final Authentication systemAuthentication,
                                                        @Qualifier("systemRestliEntityClient") final RestliEntityClient restliEntityClient) {
-    return new SystemJavaEntityClient(
+    SystemJavaEntityClient systemJavaEntityClient = new SystemJavaEntityClient(
             _entityService,
             _deleteEntityService,
             _entitySearchService,
@@ -86,5 +89,9 @@ public class JavaEntityClientFactory {
             restliEntityClient,
             systemAuthentication,
             configurationProvider.getCache().getClient().getEntityClient());
+
+    _entityService.setSystemEntityClient(systemJavaEntityClient);
+
+    return systemJavaEntityClient;
   }
 }

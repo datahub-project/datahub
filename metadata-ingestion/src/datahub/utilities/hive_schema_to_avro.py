@@ -269,7 +269,7 @@ def get_schema_fields_for_hive_column(
             hive_column_name=hive_column_name, hive_column_type=hive_column_type
         )
         schema_fields = avro_schema_to_mce_fields(
-            avro_schema_string=json.dumps(avro_schema_json),
+            avro_schema=json.dumps(avro_schema_json),
             default_nullable=default_nullable,
             swallow_exceptions=False,
         )
