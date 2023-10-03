@@ -1,6 +1,7 @@
 namespace com.linkedin.domain
 
 import com.linkedin.common.AuditStamp
+import com.linkedin.common.Urn
 
 /**
  * Information about a Domain
@@ -36,4 +37,18 @@ record DomainProperties {
      }
    }
    created: optional AuditStamp
+
+  /**
+   * Optional: Parent of the domain
+   */
+  @Relationship = {
+    "name": "IsPartOf",
+    "entityTypes": [ "domain" ],
+  }
+  @Searchable = {
+    "fieldName": "parentDomain",
+    "fieldType": "URN",
+    "hasValuesFieldName": "hasParentDomain"
+  }
+  parentDomain: optional Urn
 }

@@ -27,7 +27,7 @@ import javax.annotation.Nullable;
 import com.linkedin.metadata.shared.ElasticSearchIndexed;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.elasticsearch.action.search.SearchResponse;
+import org.opensearch.action.search.SearchResponse;
 
 
 @Slf4j
@@ -46,8 +46,8 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
   }
 
   @Override
-  public List<ReindexConfig> getReindexConfigs() {
-    return indexBuilders.getReindexConfigs();
+  public List<ReindexConfig> buildReindexConfigs() {
+    return indexBuilders.buildReindexConfigs();
   }
 
   @Override
