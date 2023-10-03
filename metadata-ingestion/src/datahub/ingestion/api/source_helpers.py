@@ -1,4 +1,5 @@
 import logging
+from copy import deepcopy
 from datetime import datetime, timezone
 from typing import (
     TYPE_CHECKING,
@@ -15,9 +16,10 @@ from typing import (
 )
 
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
-from datahub.emitter.mce_builder import make_dataplatform_instance_urn
+from datahub.emitter.mce_builder import make_dataplatform_instance_urn, set_aspect
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.schema_classes import (
     BrowsePathEntryClass,
     BrowsePathsClass,
@@ -30,7 +32,9 @@ from datahub.metadata.schema_classes import (
     StatusClass,
     TagKeyClass,
     TimeWindowSizeClass,
+    UpstreamLineageClass,
 )
+from datahub.specific.dataset import DatasetPatchBuilder
 from datahub.telemetry import telemetry
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 from datahub.utilities.urns.tag_urn import TagUrn
@@ -366,3 +370,79 @@ def _prepend_platform_instance(
         return [BrowsePathEntryClass(id=urn, urn=urn)] + entries
 
     return entries
+
+
+def auto_incremental_lineage(
+    graph: Optional[DataHubGraph],
+    incremental_lineage: bool,
+    include_column_level_lineage: bool,
+    stream: Iterable[MetadataWorkUnit],
+) -> Iterable[MetadataWorkUnit]:
+    if not incremental_lineage:
+        yield from stream
+        return  # early exit
+
+    for wu in stream:
+        lineage_aspect: Optional[UpstreamLineageClass] = wu.get_aspect_of_type(
+            UpstreamLineageClass
+        )
+        urn = wu.get_urn()
+        # TODO: use same systemMetadata as before
+
+        if lineage_aspect:
+            if isinstance(wu.metadata, MetadataChangeEventClass):
+                set_aspect(
+                    wu.metadata, None, UpstreamLineageClass
+                )  # we'll emit upstreamLineage separately below
+                yield wu
+
+            yield _lineage_wu_via_read_modify_write(
+                graph, urn, lineage_aspect
+            ) if include_column_level_lineage else _patch_lineage_wu_for_table_level_lineage(
+                urn, lineage_aspect
+            )
+        else:
+            yield wu
+
+
+def _patch_lineage_wu_for_table_level_lineage(
+    urn: str, aspect: UpstreamLineageClass
+) -> MetadataWorkUnit:
+    patch_builder = DatasetPatchBuilder(urn)
+    for upstream in aspect.upstreams:
+        patch_builder.add_upstream_lineage(upstream)
+    mcp = next(iter(patch_builder.build()))
+    return MetadataWorkUnit(
+        id=f"upstreamLineage-for-{urn}",
+        mcp_raw=mcp,
+    )
+
+
+def _lineage_wu_via_read_modify_write(
+    graph: Optional[DataHubGraph],
+    urn: str,
+    aspect: UpstreamLineageClass,
+) -> MetadataWorkUnit:
+    if graph is None:
+        raise ValueError(
+            "Failed to handle incremental lineage, DataHubGraph is missing. "
+            "Use `datahub-rest` sink OR provide `datahub-api` config in recipe. "
+        )
+    gms_aspect = graph.get_aspect(urn, UpstreamLineageClass)
+    if gms_aspect:
+        new_aspect = deepcopy(gms_aspect)
+        for table_upstream in aspect.upstreams:
+            if table_upstream not in gms_aspect.upstreams:
+                new_aspect.upstreams.append(table_upstream)
+
+        if aspect.fineGrainedLineages and new_aspect.fineGrainedLineages:
+            for column_upstream in aspect.fineGrainedLineages:
+                if column_upstream not in new_aspect.fineGrainedLineages:
+                    new_aspect.fineGrainedLineages.append(column_upstream)
+        else:
+            new_aspect.fineGrainedLineages = (
+                aspect.fineGrainedLineages or gms_aspect.fineGrainedLineages
+            )
+        new_aspect = aspect
+
+    return MetadataChangeProposalWrapper(entityUrn=urn, aspect=new_aspect).as_workunit()

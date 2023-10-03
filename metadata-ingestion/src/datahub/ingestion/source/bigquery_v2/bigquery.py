@@ -461,7 +461,8 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 )[0]
             else:
                 logger.warning(
-                    "Failed to load schema info from DataHub as DataHubGraph is missing.",
+                    "Failed to load schema info from DataHub as DataHubGraph is missing. "
+                    "Use `datahub-rest` sink OR provide `datahub-api` config in recipe. ",
                 )
         return SchemaResolver(platform=self.platform, env=self.config.env)
 
