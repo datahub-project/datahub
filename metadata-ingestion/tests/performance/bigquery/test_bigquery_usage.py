@@ -16,7 +16,7 @@ from datahub.ingestion.source.bigquery_v2.bigquery_config import (
 from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Report
 from datahub.ingestion.source.bigquery_v2.usage import BigQueryUsageExtractor
 from datahub.utilities.perf_timer import PerfTimer
-from tests.performance.bigquery import generate_events, ref_from_table
+from tests.performance.bigquery.bigquery_events import generate_events, ref_from_table
 from tests.performance.data_generation import (
     NormalDistribution,
     generate_data,
@@ -33,7 +33,7 @@ def run_test():
         num_views=2000,
         time_range=timedelta(days=7),
     )
-    all_tables = seed_metadata.tables + seed_metadata.views
+    all_tables = seed_metadata.all_tables
 
     config = BigQueryV2Config(
         start_time=seed_metadata.start_time,
