@@ -2,12 +2,14 @@ import { message } from 'antd';
 import analytics, { EventType } from '../../../../../../../analytics';
 import {
     useCreateFreshnessAssertionMutation,
+    useCreateSqlAssertionMutation,
     useCreateVolumeAssertionMutation,
 } from '../../../../../../../../graphql/assertion.generated';
 import { AssertionType, Monitor, Assertion } from '../../../../../../../../types.generated';
 import {
     builderStateToCreateAssertionMonitorVariables,
     builderStateToCreateFreshnessAssertionVariables,
+    builderStateToCreateSqlAssertionVariables,
     builderStateToCreateVolumeAssertionVariables,
 } from './utils';
 import { useCreateAssertionMonitorMutation } from '../../../../../../../../graphql/monitor.generated';
@@ -18,6 +20,7 @@ export const useCreateAssertionMonitor = (entityUrn, builderState, onCreate): ((
      */
     const [createFreshnessAssertionMutation] = useCreateFreshnessAssertionMutation();
     const [createVolumeAssertionMutation] = useCreateVolumeAssertionMutation();
+    const [createSqlAssertionMutation] = useCreateSqlAssertionMutation();
     const [createAssertionMonitorMutation] = useCreateAssertionMonitorMutation();
 
     /**
@@ -29,6 +32,8 @@ export const useCreateAssertionMonitor = (entityUrn, builderState, onCreate): ((
                 return createFreshnessAssertionMutation;
             case AssertionType.Volume:
                 return createVolumeAssertionMutation;
+            case AssertionType.Sql:
+                return createSqlAssertionMutation;
             default:
                 return null;
         }
@@ -43,6 +48,8 @@ export const useCreateAssertionMonitor = (entityUrn, builderState, onCreate): ((
                 return builderStateToCreateFreshnessAssertionVariables(builderState);
             case AssertionType.Volume:
                 return builderStateToCreateVolumeAssertionVariables(builderState);
+            case AssertionType.Sql:
+                return builderStateToCreateSqlAssertionVariables(builderState);
             default:
                 return null;
         }
@@ -94,7 +101,8 @@ export const useCreateAssertionMonitor = (entityUrn, builderState, onCreate): ((
             })
                 .then(({ data, errors }: any) => {
                     if (!errors) {
-                        const assertion = data?.createFreshnessAssertion || data?.createVolumeAssertion;
+                        const assertion =
+                            data?.createFreshnessAssertion || data?.createVolumeAssertion || data?.createSqlAssertion;
                         return createMonitor(assertion as Assertion);
                     }
                     throw new Error('Encountered errors while creating assertion');

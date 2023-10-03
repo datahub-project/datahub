@@ -16,6 +16,7 @@ import {
     AssertionStdParameters,
     AssertionValueChangeType,
     IncrementingSegmentSpecInput,
+    SqlAssertionType,
 } from '../../../../../../../../types.generated';
 import { BIGQUERY_URN, REDSHIFT_URN, SNOWFLAKE_URN } from '../../../../../../../ingest/source/builder/constants';
 import { AssertionMonitorBuilderState, AssertionActionsFormState, AssertionActionsBuilderState } from './types';
@@ -345,6 +346,33 @@ export const builderStateToUpdateVolumeAssertionVariables = (builderState: Asser
     };
 };
 
+export const builderStateToUpdateSqlAssertionVariables = (builderState: AssertionMonitorBuilderState) => {
+    return {
+        input: {
+            type: builderState.assertion?.sqlAssertion?.type as SqlAssertionType,
+            description: builderState.assertion?.description,
+            statement: builderState.assertion?.sqlAssertion?.statement,
+            changeType: builderState.assertion?.sqlAssertion?.changeType as AssertionValueChangeType,
+            operator: builderState.assertion?.sqlAssertion?.operator as AssertionStdOperator,
+            parameters:
+                builderState.assertion?.sqlAssertion?.operator === AssertionStdOperator.Between
+                    ? {
+                          minValue: builderState.assertion.sqlAssertion.parameters?.minValue,
+                          maxValue: builderState.assertion.sqlAssertion.parameters?.maxValue,
+                      }
+                    : {
+                          value: builderState.assertion?.sqlAssertion?.parameters?.value,
+                      },
+            actions: builderState.assertion?.actions
+                ? {
+                      onSuccess: builderState.assertion?.actions?.onSuccess || [],
+                      onFailure: builderState.assertion?.actions?.onFailure || [],
+                  }
+                : undefined,
+        },
+    };
+};
+
 export const builderStateToCreateAssertionMonitorVariables = (
     assertionUrn: string,
     builderState: AssertionMonitorBuilderState,
@@ -374,6 +402,15 @@ export const builderStateToCreateVolumeAssertionVariables = (builderState: Asser
         input: {
             entityUrn: builderState.entityUrn as string,
             ...builderStateToUpdateVolumeAssertionVariables(builderState).input,
+        },
+    };
+};
+
+export const builderStateToCreateSqlAssertionVariables = (builderState: AssertionMonitorBuilderState) => {
+    return {
+        input: {
+            entityUrn: builderState.entityUrn as string,
+            ...builderStateToUpdateSqlAssertionVariables(builderState).input,
         },
     };
 };

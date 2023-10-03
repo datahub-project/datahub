@@ -13,3 +13,8 @@ GRAPHQL_LIST_INGESTION_SOURCES_QUERY = (
 GRAPHQL_INGESTION_SOURCE_FOR_ENTITY_QUERY = (
     pathlib.Path(__file__).parent / "ingestion_source_for_entity.gql"
 ).read_text()
+
+
+GRAPHQL_GET_ASSERTION_QUERY = (
+    pathlib.Path(__file__).parent / "get_assertion.gql"
+).read_text()

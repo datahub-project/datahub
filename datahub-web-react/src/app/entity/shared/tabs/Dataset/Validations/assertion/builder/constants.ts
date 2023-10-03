@@ -1,11 +1,15 @@
 import {
     AssertionType,
+    AssertionEvaluationParametersType,
     DateInterval,
     EntityType,
     SchemaFieldDataType,
     FreshnessAssertionScheduleType,
     FreshnessAssertionType,
     VolumeAssertionType,
+    SqlAssertionType,
+    AssertionStdOperator,
+    AssertionStdParameterType,
 } from '../../../../../../../../types.generated';
 
 // Every 6 hours.
@@ -64,6 +68,31 @@ export const DEFAULT_DATASET_FRESHNESS_ASSERTION_STATE = {
 // Default assertion definition used when the selected type is Volume.
 export const DEFAULT_DATASET_VOLUME_ASSERTION_STATE = {
     type: VolumeAssertionType.RowCountTotal,
+};
+
+// Default assertion definition used when the selected type is SQL.
+export const DEFAULT_DATASET_SQL_ASSERTION_STATE = {
+    statement: '',
+    type: SqlAssertionType.Metric,
+    operator: AssertionStdOperator.NotEqualTo,
+    parameters: {
+        value: {
+            type: AssertionStdParameterType.Number,
+            value: '100',
+        },
+        minValue: {
+            type: AssertionStdParameterType.Number,
+            value: '100',
+        },
+        maxValue: {
+            type: AssertionStdParameterType.Number,
+            value: '500',
+        },
+    },
+};
+
+export const DEFAULT_DATASET_SQL_ASSERTION_PARAMETERS_STATE = {
+    type: AssertionEvaluationParametersType.DatasetSql,
 };
 
 // Default state used to initialize the Assertion Actions Builder.

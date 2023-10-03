@@ -35,7 +35,7 @@ export const VolumeParametersBuilder = (props: Props) => {
 
     return showParameters ? (
         <Form>
-            <Typography.Paragraph strong>{title}</Typography.Paragraph>
+            <Typography.Title level={5}>{title}</Typography.Title>
             {isRowCountChange ? <VolumeRowCountChangeBuilder {...props} /> : <VolumeRowCountTotalBuilder {...props} />}
         </Form>
     ) : null;

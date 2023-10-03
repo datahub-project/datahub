@@ -103,8 +103,10 @@ shadowJar {
   // we relocate namespaces manually, because we want to know exactly which libs we are exposing and why
   // we can move to automatic relocation using ConfigureShadowRelocation after we get to a good place on these first
   // acryl-main doesn't perform any re-locations. I don't exactly know why, but keeping this comment here for future readers
+  // jteoh: 9/26/23: Added the OSS relocates here to support Apple Metadata Lake use case, not sure why datahub-fork did not have them to start with.
   relocate 'org.springframework', 'io.acryl.shaded.org.springframework'
   relocate 'com.fasterxml.jackson', 'io.acryl.shaded.jackson'
+  relocate 'org.yaml', 'io.acryl.shaded.org.yaml' // Required for shading snakeyaml
   relocate 'net.jcip.annotations', 'io.acryl.shaded.annotations'
   relocate 'javassist', 'io.acryl.shaded.javassist'
   relocate 'edu.umd.cs.findbugs', 'io.acryl.shaded.findbugs'

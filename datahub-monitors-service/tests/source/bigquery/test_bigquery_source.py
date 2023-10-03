@@ -6,6 +6,7 @@ from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Confi
 
 from datahub_monitors.connection.bigquery.bigquery_connection import BigQueryConnection
 from datahub_monitors.exceptions import (
+    CustomSQLErrorException,
     InvalidParametersException,
     InvalidSourceTypeException,
 )
@@ -80,6 +81,7 @@ TEST_NUM_ROWS_VIA_COUNT_WITH_FILTER_QUERY = """
         FROM test_db.public.test_table
         WHERE foo = 'bar'
     """
+TEST_CUSTOM_SQL_STATEMENT = "SELECT SUM(num_items) FROM test_db.public.test_table;"
 
 
 class MockLogginEntry:
@@ -125,7 +127,7 @@ class TestBigQuerySource:
         build_mock.assert_called_once()
 
     @patch.object(BigQuerySource, "_build_information_schema_results")
-    @patch.object(BigQuerySource, "_execute_query")
+    @patch.object(BigQuerySource, "_execute_fetchall_query")
     def test_get_entity_events_information_schema_update(
         self, execute_query_mock: Mock, build_mock: Mock
     ) -> None:
@@ -141,7 +143,7 @@ class TestBigQuerySource:
         build_mock.assert_called_once()
 
     @patch.object(BigQuerySource, "_build_field_update_results")
-    @patch.object(BigQuerySource, "_execute_query")
+    @patch.object(BigQuerySource, "_execute_fetchall_query")
     def test_get_entity_events_field_update(
         self, execute_query_mock: Mock, build_mock: Mock
     ) -> None:
@@ -160,7 +162,7 @@ class TestBigQuerySource:
         execute_query_mock.assert_called_once_with(TEST_FIELD_UPDATE_QUERY)
         build_mock.assert_called_once()
 
-    @patch.object(BigQuerySource, "_execute_query")
+    @patch.object(BigQuerySource, "_execute_fetchall_query")
     def test_get_current_high_watermark_for_column(
         self, execute_query_mock: Mock
     ) -> None:
@@ -187,7 +189,7 @@ class TestBigQuerySource:
         assert row_count == TEST_END
         assert field_value == str(TEST_END)
 
-    @patch.object(BigQuerySource, "_execute_query")
+    @patch.object(BigQuerySource, "_execute_fetchall_query")
     def test_get_current_high_watermark_for_column_no_previous_value(
         self, execute_query_mock: Mock
     ) -> None:
@@ -217,7 +219,7 @@ class TestBigQuerySource:
         assert row_count == TEST_END
         assert field_value == str(TEST_END)
 
-    @patch.object(BigQuerySource, "_execute_query")
+    @patch.object(BigQuerySource, "_execute_fetchall_query")
     def test_get_current_high_watermark_for_column_no_previous_state(
         self, execute_query_mock: Mock
     ) -> None:
@@ -244,9 +246,9 @@ class TestBigQuerySource:
         assert row_count == 0
         assert field_value == ""
 
-    def test_execute_query(self) -> None:
+    def test_execute_fetchall_query(self) -> None:
         query = "SELECT * FROM TABLE;"
-        self.bigquery_source._execute_query(query)
+        self.bigquery_source._execute_fetchall_query(query)
         self.bigquery_connection_mock.get_client().query.assert_called_once_with(query)
 
     def test_get_entity_events_field_update_bad_column_type(self) -> None:
@@ -363,7 +365,7 @@ class TestBigQuerySource:
                 None,
             )
 
-    @patch.object(BigQuerySource, "_execute_query")
+    @patch.object(BigQuerySource, "_execute_fetchall_query")
     def test_get_num_rows_via_stats_table(self, execute_query_mock: Mock) -> None:
         execute_query_mock.return_value = [["10"]]
         db_params = DatabaseParams(
@@ -377,7 +379,7 @@ class TestBigQuerySource:
         )
         assert result == 10
 
-    @patch.object(BigQuerySource, "_execute_query")
+    @patch.object(BigQuerySource, "_execute_fetchall_query")
     def test_get_num_rows_via_count(self, execute_query_mock: Mock) -> None:
         execute_query_mock.return_value = [["10"]]
         db_params = DatabaseParams(
@@ -391,7 +393,7 @@ class TestBigQuerySource:
         )
         assert result == 10
 
-    @patch.object(BigQuerySource, "_execute_query")
+    @patch.object(BigQuerySource, "_execute_fetchall_query")
     def test_get_num_rows_via_count_with_filter(self, execute_query_mock: Mock) -> None:
         execute_query_mock.return_value = [["10"]]
         db_params = DatabaseParams(
@@ -404,3 +406,28 @@ class TestBigQuerySource:
             TEST_NUM_ROWS_VIA_COUNT_WITH_FILTER_QUERY,
         )
         assert result == 10
+
+    @patch.object(BigQuerySource, "_execute_fetchall_query")
+    def test_get_single_value_failure_multiple_values(
+        self, execute_query_mock: Mock
+    ) -> None:
+        execute_query_mock.return_value = [[10, 11]]
+
+        with pytest.raises(CustomSQLErrorException):
+            self.bigquery_source._execute_custom_sql(TEST_CUSTOM_SQL_STATEMENT)
+
+    @patch.object(BigQuerySource, "_execute_fetchall_query")
+    def test_get_single_value_failure_invalid_value(
+        self, execute_query_mock: Mock
+    ) -> None:
+        execute_query_mock.return_value = [["not a float"]]
+
+        with pytest.raises(CustomSQLErrorException):
+            self.bigquery_source._execute_custom_sql(TEST_CUSTOM_SQL_STATEMENT)
+
+    @patch.object(BigQuerySource, "_execute_fetchall_query")
+    def test_get_single_value_success(self, execute_query_mock: Mock) -> None:
+        execute_query_mock.return_value = [["100"]]
+
+        value = self.bigquery_source._execute_custom_sql(TEST_CUSTOM_SQL_STATEMENT)
+        assert value == 100.0

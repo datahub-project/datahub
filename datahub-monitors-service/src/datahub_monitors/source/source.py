@@ -1,6 +1,6 @@
 import logging
 from datetime import date, datetime, timezone
-from typing import List, Optional, Tuple, Union
+from typing import Any, List, Optional, Tuple, Union
 
 from datahub.utilities.urns.urn import Urn
 from tenacity import retry, stop_after_attempt, wait_exponential
@@ -9,6 +9,7 @@ from datahub_monitors.assertion.engine.evaluator.filter_builder import FilterBui
 from datahub_monitors.assertion.types import AssertionDatabaseParams
 from datahub_monitors.connection.connection import Connection
 from datahub_monitors.exceptions import (
+    CustomSQLErrorException,
     InvalidParametersException,
     InvalidSourceTypeException,
 )
@@ -33,6 +34,9 @@ class Source:
     def __init__(self, connection: Connection):
         self.connection = connection
 
+    def _execute_fetchall_query(self, query: str) -> List[Any]:
+        raise NotImplementedError()
+
     def _get_audit_log_operation_events(
         self, operation_params: SourceOperationParams, parameters: dict
     ) -> List[EntityEvent]:
@@ -54,6 +58,9 @@ class Source:
     def _get_num_rows_via_count(
         self, database_params: DatabaseParams, filter_sql: str
     ) -> int:
+        raise NotImplementedError()
+
+    def _get_single_value_from_custom_sql(self, custom_sql: str) -> Union[int, float]:
         raise NotImplementedError()
 
     def _get_supported_high_watermark_column_types(self) -> List[str]:
@@ -285,3 +292,44 @@ class Source:
     ) -> int:
         database_params = self._get_database_params(entity_urn, database_parameters)
         return self._get_row_count(database_params, volume_parameters, filter_params)
+
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=2, min=4, max=10),
+        reraise=True,
+    )
+    def _execute_custom_sql(
+        self,
+        custom_sql: str,
+    ) -> float:
+        logger.debug(custom_sql)
+        rows = self._execute_fetchall_query(custom_sql)
+
+        if len(rows) != 1:
+            # this SQL should return ONE row only
+            raise CustomSQLErrorException(
+                f"Custom SQL returned {len(rows)} rows, expected one!"
+            )
+
+        row = rows[0]
+        if len(row) != 1:
+            # this SQL should return ONE value only
+            raise CustomSQLErrorException(
+                f"Custom SQL returned {len(row)} values, expected one!"
+            )
+
+        try:
+            return float(row[0])
+        except (ValueError, TypeError):
+            raise CustomSQLErrorException(
+                f"Custom SQL returned non-numeric value '{row[0]}'"
+            )
+
+    def execute_custom_sql(
+        self,
+        entity_urn: str,
+        database_parameters: AssertionDatabaseParams,
+        custom_sql: str,
+    ) -> float:
+        # database_params = self._get_database_params(entity_urn, database_parameters)
+        return self._execute_custom_sql(custom_sql)

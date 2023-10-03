@@ -26,6 +26,11 @@ public class AssertionRunEventMapper
     return INSTANCE.apply(envelopedAspect);
   }
 
+  public static AssertionResult mapResult(
+      @Nonnull final com.linkedin.assertion.AssertionResult gmsResult) {
+    return INSTANCE.mapAssertionResult(gmsResult);
+  }
+
   @Override
   public com.linkedin.datahub.graphql.generated.AssertionRunEvent apply(
       @Nonnull final EnvelopedAspect envelopedAspect) {

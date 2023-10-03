@@ -5,7 +5,12 @@ import { AssertionTypeOption } from './AssertionTypeOption';
 import { AssertionBuilderStep, StepProps } from '../types';
 import { getAssertionTypesForEntityType } from '../../../acrylUtils';
 import { AssertionType, EntityType } from '../../../../../../../../../types.generated';
-import { DEFAULT_DATASET_FRESHNESS_ASSERTION_STATE, DEFAULT_DATASET_VOLUME_ASSERTION_STATE } from '../constants';
+import {
+    DEFAULT_DATASET_FRESHNESS_ASSERTION_STATE,
+    DEFAULT_DATASET_SQL_ASSERTION_PARAMETERS_STATE,
+    DEFAULT_DATASET_SQL_ASSERTION_STATE,
+    DEFAULT_DATASET_VOLUME_ASSERTION_STATE,
+} from '../constants';
 import { getDefaultDatasetFreshnessAssertionParametersState } from '../utils';
 import { getDefaultDatasetVolumeAssertionParametersState } from './volume/utils';
 import { useIngestionSourceForEntityQuery } from '../../../../../../../../../graphql/ingestion.generated';
@@ -41,12 +46,15 @@ const CancelButton = styled(Button)`
  * Step for selecting the type of assertion
  */
 export const SelectTypeStep = ({ state, updateState, goTo, cancel }: StepProps) => {
-    const filteredTypes = getAssertionTypesForEntityType(state.entityType as EntityType).filter((type) => type.visible);
     const { data: ingestionSourceData } = useIngestionSourceForEntityQuery({
         variables: { urn: state.entityUrn as string },
         fetchPolicy: 'cache-first',
     });
     const connectionForEntityExists = !!ingestionSourceData?.ingestionSourceForEntity?.urn;
+    const filteredTypes = getAssertionTypesForEntityType(
+        state.entityType as EntityType,
+        connectionForEntityExists,
+    ).filter((type) => type.visible);
 
     const selectAssertionType = (type: AssertionType) => {
         let newState = { ...state };
@@ -76,6 +84,15 @@ export const SelectTypeStep = ({ state, updateState, goTo, cancel }: StepProps) 
                     connectionForEntityExists,
                 ),
             };
+        } else if (type === AssertionType.Sql) {
+            newState = {
+                ...newState,
+                assertion: {
+                    type,
+                    sqlAssertion: DEFAULT_DATASET_SQL_ASSERTION_STATE,
+                },
+                parameters: DEFAULT_DATASET_SQL_ASSERTION_PARAMETERS_STATE,
+            };
         }
 
         updateState({
@@ -88,6 +105,9 @@ export const SelectTypeStep = ({ state, updateState, goTo, cancel }: StepProps) 
                 return;
             case AssertionType.Volume:
                 goTo(AssertionBuilderStep.CONFIGURE_ASSERTION, AssertionType.Volume);
+                return;
+            case AssertionType.Sql:
+                goTo(AssertionBuilderStep.CONFIGURE_ASSERTION, AssertionType.Sql);
                 return;
             default:
                 // Do nothing.

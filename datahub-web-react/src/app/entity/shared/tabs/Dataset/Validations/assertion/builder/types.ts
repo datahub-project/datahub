@@ -16,6 +16,7 @@ import {
     AssertionStdParameterType,
     AssertionValueChangeType,
     DatasetVolumeSourceType,
+    SqlAssertionType,
 } from '../../../../../../../../types.generated';
 
 /**
@@ -46,6 +47,11 @@ export interface AssertionMonitorBuilderState {
          * The type of the source itself, e.g. mysql, bigquery, bigquery-usage. Should match the recipe.
          */
         type?: AssertionType | null;
+
+        /**
+         * An optional human-readable description of the assertion
+         */
+        description?: string | null;
 
         /**
          * The schedule on which to execute the source (optional)
@@ -116,6 +122,81 @@ export interface AssertionMonitorBuilderState {
                 sql?: string | null;
             } | null;
         } | null;
+
+        /**
+         * SQL assertion configuration
+         */
+        sqlAssertion?: {
+            /**
+             * The type of the SQL assertion
+             */
+            type?: SqlAssertionType | null;
+
+            /**
+             * The SQL statement to execute
+             */
+            statement?: string | null;
+
+            /**
+             * The type of the value used to evaluate the assertion: a fixed absolute value or a relative percentage.
+             */
+            changeType?: AssertionValueChangeType | null;
+
+            /**
+             * The operator you'd like to apply to the result of the SQL query
+             */
+            operator?: AssertionStdOperator | null;
+
+            /**
+             * The parameters for the SQL assertion
+             */
+            parameters?: {
+                /**
+                 * The value parameter of an assertion
+                 */
+                value?: {
+                    /**
+                     * The parameter value
+                     */
+                    value?: string | null;
+
+                    /**
+                     * The type of the parameter
+                     */
+                    type?: AssertionStdParameterType | null;
+                } | null;
+
+                /**
+                 * The maxValue parameter of an assertion
+                 */
+                maxValue?: {
+                    /**
+                     * The parameter value
+                     */
+                    value?: string | null;
+
+                    /**
+                     * The type of the parameter
+                     */
+                    type?: AssertionStdParameterType | null;
+                } | null;
+
+                /**
+                 * The minValue parameter of an assertion
+                 */
+                minValue?: {
+                    /**
+                     * The parameter value
+                     */
+                    value?: string | null;
+
+                    /**
+                     * The type of the parameter
+                     */
+                    type?: AssertionStdParameterType | null;
+                } | null;
+            } | null;
+        };
 
         /**
          * Volume assertion configuration
