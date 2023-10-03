@@ -46,7 +46,7 @@ class BigqueryTableIdentifier:
     _BQ_SHARDED_TABLE_SUFFIX: str = "_yyyymmdd"
 
     @staticmethod
-    def get_table_and_shard(table_name: str) -> Tuple[str, Optional[str]]:
+    def get_table_and_shard(table_name: str) -> Tuple[Optional[str], Optional[str]]:
         """
         Args:
             table_name:
@@ -66,7 +66,7 @@ class BigqueryTableIdentifier:
             re.IGNORECASE,
         )
         if match:
-            shard = match[3]
+            shard: str = match[3]
             if shard:
                 if table_name.endswith(shard):
                     new_table_name = table_name[: -len(shard)]
@@ -76,7 +76,7 @@ class BigqueryTableIdentifier:
             )
             if new_table_name.endswith("."):
                 new_table_name = table_name
-            return new_table_name if new_table_name else None, shard
+            return (new_table_name, shard) if new_table_name else (None, shard)
         return new_table_name, None
 
     @classmethod
