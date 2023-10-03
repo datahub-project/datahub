@@ -126,6 +126,13 @@
         "recipe": "source:\n    type: mongodb\n    config:\n        # Coordinates\n        connect_uri: # Your MongoDB connect URI, e.g. \"mongodb://localhost\"\n\n        # Credentials\n        # Add secret in Secrets Tab with relevant names for each variable\n        username: \"${MONGO_USERNAME}\" # Your MongoDB username, e.g. admin\n        password: \"${MONGO_PASSWORD}\" # Your MongoDB password, e.g. password_01\n\n        # Options (recommended)\n        enableSchemaInference: True\n        useRandomSampling: True\n        maxSchemaSize: 300"
     },
     {
+        "urn": "urn:li:dataPlatform:dynamodb",
+        "name": "dynamodb",
+        "displayName": "DynamoDB",
+        "docsUrl": "https://datahubproject.io/docs/metadata-ingestion/",
+        "recipe": "source:\n    type: dynamodb\n    config:\n        platform_instance: \"AWS_ACCOUNT_ID\"\n        aws_access_key_id : '${AWS_ACCESS_KEY_ID}'\n        aws_secret_access_key : '${AWS_SECRET_ACCESS_KEY}'\n        # User could use the below option to provide a list of primary keys of a table in dynamodb format,\n        # those items from given primary keys will be included when we scan the table.\n        # For each table we can retrieve up to 16 MB of data, which can contain as many as 100 items.\n        # We'll enforce the the primary keys list size not to exceed 100\n        # The total items we'll try to retrieve in these two scenarios:\n        # 1. If user don't specify include_table_item: we'll retrieve up to 100 items\n        # 2. If user specifies include_table_item: we'll retrieve up to 100 items plus user specified items in\n        # the table, with a total not more than 200 items\n        # include_table_item:\n        #   table_name:\n        #     [\n        #       {\n        #         'partition_key_name': { 'attribute_type': 'attribute_value' },\n        #         'sort_key_name': { 'attribute_type': 'attribute_value' },\n        #       },\n        #     ]"
+    },
+    {
         "urn": "urn:li:dataPlatform:glue",
         "name": "glue",
         "displayName": "Glue",
@@ -173,6 +180,13 @@
         "displayName": "Metabase",
         "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/metabase/",
         "recipe": "source:\n  type: metabase\n  config:\n    # Coordinates\n    connect_uri:\n\n    # Credentials\n    username: root\n    password: example"
+    },
+    {
+        "urn": "urn:li:dataPlatform:mlflow",
+        "name": "mlflow",
+        "displayName": "MLflow",
+        "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/mlflow/",
+        "recipe": "source:\n  type: mlflow\n  config:\n    tracking_uri: tracking_uri"
     },
     {
         "urn": "urn:li:dataPlatform:mode",

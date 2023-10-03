@@ -37,8 +37,8 @@ describe("edit documentation and link to dataset", () => {
     cy.contains("Sample doc").trigger("mouseover", { force: true });
     cy.get('[data-icon="delete"]').click();
     cy.waitTextVisible("Link Removed");
-    cy.get("button").contains("Add Link").click();
-    cy.get("#addLinkForm_url").type(wrong_url);
+    cy.get("button").contains("Add Link").click().wait(1000);
+    cy.get('[role="dialog"] #addLinkForm_url').type(wrong_url);
     cy.waitTextVisible("This field must be a valid url.");
     cy.focused().clear();
     cy.waitTextVisible("A URL is required.");
@@ -54,9 +54,9 @@ describe("edit documentation and link to dataset", () => {
   it("open test domain page, remove and add dataset link", () => {
     cy.loginWithCredentials();
     cy.visit("/domain/urn:li:domain:marketing/Entities");
-    cy.get("[role='tab']").contains("Documentation").click();
-    cy.get("button").contains("Add Link").click();
-    cy.get("#addLinkForm_url").type(wrong_url);
+    cy.waitTextVisible("SampleCypressKafkaDataset");
+    cy.get("button").contains("Add Link").click().wait(1000);
+    cy.get('[role="dialog"] #addLinkForm_url').type(wrong_url);
     cy.waitTextVisible("This field must be a valid url.");
     cy.focused().clear();
     cy.waitTextVisible("A URL is required.");
@@ -66,6 +66,7 @@ describe("edit documentation and link to dataset", () => {
     cy.get('[role="dialog"] button').contains("Add").click();
     cy.waitTextVisible("Link Added");
     cy.get("[role='tab']").contains("Documentation").click();
+    cy.waitTextVisible("Edit");
     cy.get(`[href='${correct_url}']`).should("be.visible");
     cy.contains("Sample doc").trigger("mouseover", { force: true });
     cy.get('[data-icon="delete"]').click();

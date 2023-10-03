@@ -1092,7 +1092,7 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
 
         SystemMetadata metadata1 = AspectGenerationUtils.createSystemMetadata(1625792689, "run-123");
         SystemMetadata metadata2 = AspectGenerationUtils.createSystemMetadata(1635792689, "run-456");
-        SystemMetadata metadata3 = AspectGenerationUtils.createSystemMetadata(1635792689, "run-123");
+        SystemMetadata metadata3 = AspectGenerationUtils.createSystemMetadata(1635792689, "run-123", "run-456");
 
         List<UpsertBatchItem> items = List.of(
                 UpsertBatchItem.builder()
