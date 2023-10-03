@@ -44,7 +44,7 @@ class SqlAlchemyColumnToAvroConverter:
                 "native_data_type": str(column_type),
                 "_nullable": nullable,
             }
-        if type(column_type) == types.DECIMAL:
+        if isinstance(column_type, types.DECIMAL):
             return {
                 "type": "bytes",
                 "logicalType": "decimal",
@@ -53,14 +53,14 @@ class SqlAlchemyColumnToAvroConverter:
                 "native_data_type": str(column_type),
                 "_nullable": nullable,
             }
-        if type(column_type) == types.DATE:
+        if isinstance(column_type, types.DATE):
             return {
                 "type": "int",
                 "logicalType": "date",
                 "native_data_type": str(column_type),
                 "_nullable": nullable,
             }
-        if type(column_type) == types.TIMESTAMP:
+        if isinstance(column_type, types.TIMESTAMP):
             return {
                 "type": "long",
                 "logicalType": "timestamp-millis",
@@ -165,7 +165,7 @@ def get_schema_fields_for_sqlalchemy_column(
         )
         # retrieve schema field definitions from the above generated AVRO JSON structure
         schema_fields = avro_schema_to_mce_fields(
-            avro_schema_string=json.dumps(avro_schema_json),
+            avro_schema=json.dumps(avro_schema_json),
             default_nullable=nullable,
             swallow_exceptions=False,
         )
