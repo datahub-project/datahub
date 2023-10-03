@@ -196,16 +196,15 @@ class Source(Closeable, metaclass=ABCMeta):
                 self.ctx.pipeline_config.flags.generate_browse_path_v2_dry_run
             )
 
-        auto_lowercase_urns: Optional[MetadataWorkUnitProcessor] = None
-        if self.ctx.pipeline_config and self.ctx.pipeline_config.source.config:
-            auto_lowercase_urns = self._get_auto_lowercase_urn_processor(
-                enabled=self.ctx.pipeline_config.source.config.get(
-                    LOWER_CASE_URN_CONFIG_KEY, False
-                )
-            )
-
+        auto_lowercase_dataset_urns: Optional[MetadataWorkUnitProcessor] = None
+        if (
+            self.ctx.pipeline_config
+            and self.ctx.pipeline_config.source.config
+            and self.ctx.pipeline_config.source.config.get(LOWER_CASE_URN_CONFIG_KEY)
+        ):
+            auto_lowercase_dataset_urns = auto_lowercase_urns
         return [
-            auto_lowercase_urns,
+            auto_lowercase_dataset_urns,
             auto_status_aspect,
             auto_materialize_referenced_tags,
             browse_path_processor,
@@ -250,11 +249,6 @@ class Source(Closeable, metaclass=ABCMeta):
 
     def close(self) -> None:
         pass
-
-    def _get_auto_lowercase_urn_processor(
-        self, enabled: bool
-    ) -> MetadataWorkUnitProcessor:
-        return partial(auto_lowercase_urns, enabled=enabled)
 
     def _get_browse_path_processor(self, dry_run: bool) -> MetadataWorkUnitProcessor:
         config = self.get_config()

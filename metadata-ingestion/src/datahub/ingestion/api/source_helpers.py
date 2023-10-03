@@ -174,12 +174,9 @@ def auto_materialize_referenced_tags(
 
 
 def auto_lowercase_urns(
-    stream: Iterable[MetadataWorkUnit], enabled: bool = False
+    stream: Iterable[MetadataWorkUnit],
 ) -> Iterable[MetadataWorkUnit]:
     """Lowercase all dataset urns"""
-
-    if not enabled:
-        return stream
 
     for wu in stream:
         try:

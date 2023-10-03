@@ -342,7 +342,7 @@ def test_auto_lowercase_aspects():
             )
         ),
     ]
-    assert list(auto_lowercase_urns(mcws, True)) == expected
+    assert list(auto_lowercase_urns(mcws)) == expected
 
 
 @patch("datahub.ingestion.api.source_helpers.telemetry.telemetry_instance.ping")
