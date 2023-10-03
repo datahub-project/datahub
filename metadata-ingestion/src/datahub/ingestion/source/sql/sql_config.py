@@ -8,7 +8,10 @@ from pydantic import Field
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.pydantic_field_deprecation import pydantic_field_deprecated
-from datahub.configuration.source_common import DatasetSourceConfigMixin
+from datahub.configuration.source_common import (
+    DatasetSourceConfigMixin,
+    LowerCaseDatasetUrnConfigMixin,
+)
 from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
@@ -21,7 +24,11 @@ from datahub.ingestion.source_config.operation_config import is_profiling_enable
 logger: logging.Logger = logging.getLogger(__name__)
 
 
-class SQLCommonConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
+class SQLCommonConfig(
+    StatefulIngestionConfigBase,
+    DatasetSourceConfigMixin,
+    LowerCaseDatasetUrnConfigMixin,
+):
     options: dict = pydantic.Field(
         default_factory=dict,
         description="Any options specified here will be passed to [SQLAlchemy.create_engine](https://docs.sqlalchemy.org/en/14/core/engines.html#sqlalchemy.create_engine) as kwargs.",

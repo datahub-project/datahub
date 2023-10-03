@@ -54,6 +54,17 @@ class DatasetSourceConfigMixin(PlatformInstanceConfigMixin, EnvConfigMixin):
     """
 
 
+LOWER_CASE_URN_CONFIG_KEY = "convert_urns_to_lowercase"
+
+
+class LowerCaseDatasetUrnConfigMixin(ConfigModel):
+    convert_urns_to_lowercase2: bool = Field(
+        default=False,
+        alias=LOWER_CASE_URN_CONFIG_KEY,
+        description="Whether to convert dataset urns to lowercase.",
+    )
+
+
 class DatasetLineageProviderConfigBase(EnvConfigMixin):
     """
     Any non-Dataset source that produces lineage to Datasets should inherit this class.

@@ -22,7 +22,10 @@ from typing import (
 from pydantic import BaseModel
 
 from datahub.configuration.common import ConfigModel
-from datahub.configuration.source_common import PlatformInstanceConfigMixin
+from datahub.configuration.source_common import (
+    LOWER_CASE_URN_CONFIG_KEY,
+    PlatformInstanceConfigMixin,
+)
 from datahub.emitter.mcp_builder import mcps_from_mce
 from datahub.ingestion.api.closeable import Closeable
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope, WorkUnit
@@ -194,12 +197,11 @@ class Source(Closeable, metaclass=ABCMeta):
             )
 
         auto_lowercase_urns: Optional[MetadataWorkUnitProcessor] = None
-        if (
-            self.ctx.pipeline_config
-            and self.ctx.pipeline_config.flags.auto_lowercase_urns
-        ):
+        if self.ctx.pipeline_config and self.ctx.pipeline_config.source.config:
             auto_lowercase_urns = self._get_auto_lowercase_urn_processor(
-                enabled=self.ctx.pipeline_config.flags.auto_lowercase_urns
+                enabled=self.ctx.pipeline_config.source.config.get(
+                    LOWER_CASE_URN_CONFIG_KEY, False
+                )
             )
 
         return [
