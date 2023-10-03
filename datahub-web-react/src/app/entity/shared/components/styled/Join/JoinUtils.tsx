@@ -41,14 +41,14 @@ export const validateJoin = async (nameField: string, tableSchema: JoinDataType[
     const errors: string[] = [];
     const bDuplicateName = await checkDuplicateJoin(getSearchResultsJoins, nameField?.trim()).then((result) => result);
     if (nameField === '') {
-        errors.push('Join name is required.');
+        errors.push('Join name is required');
     }
     if (bDuplicateName && !editFlag) {
-        errors.push('This join name already exists. A unique name for each join is required.');
+        errors.push('This join name already exists. A unique name for each join is required');
     }
     const faultyRows = tableSchema.filter((item) => validateTableData(item) !== true);
     if (faultyRows.length > 0) {
-        errors.push('Fields should be selected');
+        errors.push('Please fill out or remove all empty Join fields');
     }
     return errors;
 };

@@ -50,7 +50,7 @@ export const CreateJoinModal = ({
     const table2Dataset = editJoin?.properties?.datasetB || table2?.dataset;
     const table2DatasetSchema = editJoin?.properties?.datasetB || table2Schema?.dataset;
 
-    const [details, setDetails] = useState<string>(editJoin?.properties?.joinFieldMapping?.details || '');
+    const [details, setDetails] = useState<string>(editJoin?.editableProperties?.description || '');
     const [joinName, setJoinName] = useState<string>(
         editJoin?.editableProperties?.name || editJoin?.properties?.name || editJoin?.joinId || '',
     );
@@ -101,7 +101,6 @@ export const CreateJoinModal = ({
                         datasetB: table2Dataset?.urn || '',
                         name: joinName,
                         joinFieldmapping: {
-                            details,
                             fieldMappings: tableData.map((r) => {
                                 return {
                                     afield: r.field1Name,
@@ -159,7 +158,6 @@ export const CreateJoinModal = ({
                         createdBy: editJoin?.properties?.createdActor?.urn || user?.urn,
                         createdAt: editJoin?.properties?.createdTime || 0,
                         joinFieldmapping: {
-                            details,
                             fieldMappings: tableData.map((r) => {
                                 return {
                                     afield: r.field1Name,
@@ -196,9 +194,8 @@ export const CreateJoinModal = ({
     const onSubmit = async () => {
         const errors = validateJoin(joinName, tableData, isEditing, getSearchResultsJoins);
         if ((await errors).length > 0) {
-            const errorHtml = (await errors).join(`<br />`);
-            // eslint-disable-next-line react/no-danger
-            message.error({ content: <p dangerouslySetInnerHTML={{ __html: errorHtml }} /> });
+            const err = (await errors).join(`, `);
+            message.error(err);
             return;
         }
         if (isEditing) {

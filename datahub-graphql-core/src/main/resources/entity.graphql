@@ -357,10 +357,6 @@ type JoinFieldMapping {
     The Array of FieldMap
     """
     fieldMappings: [FieldMap!]
-    """
-    Any transformation logic or notes pertaining to this specific join
-    """
-    details: String!
 }
 
 """
@@ -4669,10 +4665,6 @@ input JoinFieldMappingInput {
     Details about the Join
     """
     fieldMappings: [FieldMappingInput]
-    """
-    Details about the Join
-    """
-    details: String
 }
 """
 Details about the Join

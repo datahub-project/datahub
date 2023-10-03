@@ -119,7 +119,6 @@ public class JoinMapper implements ModelMapper<EntityResponse, Join> {
   }
   private com.linkedin.datahub.graphql.generated.JoinFieldMapping mapJoinFieldMappings(JoinProperties joinProperties) {
     return com.linkedin.datahub.graphql.generated.JoinFieldMapping.builder()
-        .setDetails(joinProperties.getJoinFieldMapping().getDetails())
         .setFieldMappings(joinProperties.getJoinFieldMapping()
             .getFieldMappings()
             .stream()

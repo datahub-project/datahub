@@ -184,8 +184,12 @@ export const JoinPreview = ({ joinData, baseEntityUrn, prePageType, refetch }: P
                     pagination={false}
                 />
             </Row>
-            <p className="all-content-heading">Join details</p>
-            <p className="all-content-info">{joinData?.properties?.joinFieldMapping?.details}</p>
+            {prePageType === 'Dataset' && (
+                <Row>
+                    <p className="all-content-heading">About Join</p>
+                    <p className="all-content-info">{joinData?.editableProperties?.description}</p>
+                </Row>
+            )}
         </div>
     );
 };
