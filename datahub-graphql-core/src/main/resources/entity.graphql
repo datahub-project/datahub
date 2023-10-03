@@ -357,10 +357,6 @@ type JoinFieldMapping {
     The Array of FieldMap
     """
     fieldMappings: [FieldMap!]
-    """
-    Any transformation logic or notes pertaining to this specific join
-    """
-    details: String!
 }
 
 """
@@ -611,7 +607,7 @@ type Mutation {
     """
     createJoin(
         "Input required to create a new Join"
-        input: JoinUpdateInput!): Boolean
+        input: JoinUpdateInput!): Join
 
     """
     Update a Join
@@ -4625,18 +4621,6 @@ input JoinUpdateInput {
     Update to editable properties
     """
     editableProperties: JoinEditablePropertiesUpdate
-    """
-    Update to institutional memory, ie documentation
-    """
-    institutionalMemory: InstitutionalMemoryUpdate
-    """
-    Update to ownership
-    """
-    ownership: OwnershipUpdate
-    """
-    Update to tags
-    """
-    tags: GlobalTagsUpdate
 }
 
 """
@@ -4681,10 +4665,6 @@ input JoinFieldMappingInput {
     Details about the Join
     """
     fieldMappings: [FieldMappingInput]
-    """
-    Details about the Join
-    """
-    details: String
 }
 """
 Details about the Join

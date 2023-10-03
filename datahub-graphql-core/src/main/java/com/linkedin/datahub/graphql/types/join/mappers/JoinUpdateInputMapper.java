@@ -1,8 +1,6 @@
 package com.linkedin.datahub.graphql.types.join.mappers;
 
-import com.linkedin.common.TagAssociationArray;
 import com.linkedin.common.AuditStamp;
-import com.linkedin.common.GlobalTags;
 import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.SetMode;
@@ -10,11 +8,8 @@ import com.linkedin.datahub.graphql.generated.JoinFieldMappingInput;
 import com.linkedin.datahub.graphql.generated.JoinUpdateInput;
 import com.linkedin.datahub.graphql.generated.JoinPropertiesInput;
 import com.linkedin.datahub.graphql.generated.JoinEditablePropertiesUpdate;
-import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryUpdateMapper;
-import com.linkedin.datahub.graphql.types.common.mappers.OwnershipUpdateMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.UpdateMappingHelper;
 import com.linkedin.datahub.graphql.types.mappers.InputModelMapper;
-import com.linkedin.datahub.graphql.types.tag.mappers.TagAssociationUpdateMapper;
 import com.linkedin.join.JoinFieldMapping;
 import com.linkedin.join.JoinProperties;
 import com.linkedin.join.EditableJoinProperties;
@@ -24,7 +19,6 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 
 import static com.linkedin.metadata.Constants.*;
@@ -51,28 +45,10 @@ public class JoinUpdateInputMapper
       com.linkedin.join.JoinProperties joinProperties = createJoinProperties(input.getProperties(), auditstamp);
       proposals.add(updateMappingHelper.aspectToProposal(joinProperties, JOIN_PROPERTIES_ASPECT_NAME));
     }
-      if (input.getOwnership() != null) {
-        proposals.add(updateMappingHelper.aspectToProposal(OwnershipUpdateMapper.map(input.getOwnership(), actor),
-            OWNERSHIP_ASPECT_NAME));
-      }
-
-      if (input.getInstitutionalMemory() != null) {
-        proposals.add(updateMappingHelper.aspectToProposal(InstitutionalMemoryUpdateMapper.map(input.getInstitutionalMemory()),
-            INSTITUTIONAL_MEMORY_ASPECT_NAME));
-      }
-
-      if (input.getTags() != null) {
-        final GlobalTags globalTags = new GlobalTags();
-        if (input.getTags() != null) {
-          globalTags.setTags(new TagAssociationArray(
-              input.getTags().getTags().stream().map(TagAssociationUpdateMapper::map).collect(Collectors.toList())));
-        }
-        proposals.add(updateMappingHelper.aspectToProposal(globalTags, GLOBAL_TAGS_ASPECT_NAME));
-      }
-      if (input.getEditableProperties() != null) {
-        final EditableJoinProperties editableJoinProperties = joinEditablePropsSettings(input.getEditableProperties());
-        proposals.add(updateMappingHelper.aspectToProposal(editableJoinProperties, EDITABLE_JOIN_PROPERTIES_ASPECT_NAME));
-      }
+    if (input.getEditableProperties() != null) {
+      final EditableJoinProperties editableJoinProperties = joinEditablePropsSettings(input.getEditableProperties());
+      proposals.add(updateMappingHelper.aspectToProposal(editableJoinProperties, EDITABLE_JOIN_PROPERTIES_ASPECT_NAME));
+    }
     return proposals;
   }
   private JoinProperties createJoinProperties(JoinPropertiesInput inputProperties, AuditStamp auditstamp) {
@@ -93,8 +69,7 @@ public class JoinUpdateInputMapper
 
     if (inputProperties.getJoinFieldmapping() != null) {
       JoinFieldMappingInput joinFieldMapping = inputProperties.getJoinFieldmapping();
-      if (joinFieldMapping.getDetails() != null || (joinFieldMapping.getFieldMappings() != null
-              && joinFieldMapping.getFieldMappings().size() > 0)) {
+      if ((joinFieldMapping.getFieldMappings() != null && joinFieldMapping.getFieldMappings().size() > 0)) {
         JoinFieldMapping joinFieldMappingUnit = joinFieldMappingSettings(joinFieldMapping);
         joinProperties.setJoinFieldMapping(joinFieldMappingUnit);
       }
@@ -119,9 +94,6 @@ public class JoinUpdateInputMapper
 
   private static JoinFieldMapping joinFieldMappingSettings(JoinFieldMappingInput joinFieldMapping) {
     JoinFieldMapping joinFieldMappingUnit = new JoinFieldMapping();
-    if (joinFieldMapping.getDetails() != null) {
-      joinFieldMappingUnit.setDetails(joinFieldMapping.getDetails());
-    }
 
     if (joinFieldMapping.getFieldMappings() != null && joinFieldMapping.getFieldMappings().size() > 0) {
       com.linkedin.join.FieldMapArray fieldMapArray = new FieldMapArray();

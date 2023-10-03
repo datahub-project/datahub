@@ -10,6 +10,7 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.datahub.graphql.generated.AutoCompleteResults;
 import com.linkedin.datahub.graphql.generated.BrowsePath;
 import com.linkedin.datahub.graphql.generated.BrowseResults;
@@ -36,7 +37,6 @@ import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.SearchResult;
 import graphql.execution.DataFetcherResult;
-import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -62,20 +62,19 @@ public class JoinType implements com.linkedin.datahub.graphql.types.EntityType<J
       INSTITUTIONAL_MEMORY_ASPECT_NAME,
       OWNERSHIP_ASPECT_NAME,
       STATUS_ASPECT_NAME,
-      CONTAINER_ASPECT_NAME,
       GLOBAL_TAGS_ASPECT_NAME,
-      GLOSSARY_TERMS_ASPECT_NAME,
-      BROWSE_PATHS_ASPECT_NAME
+      GLOSSARY_TERMS_ASPECT_NAME
   );
 
   private static final Set<String> FACET_FIELDS = ImmutableSet.of("name");
   private static final String ENTITY_NAME = "join";
 
   private final EntityClient _entityClient;
+  private final FeatureFlags _featureFlags;
 
-
-  public JoinType(final EntityClient entityClient)  {
+  public JoinType(final EntityClient entityClient, final FeatureFlags featureFlags)  {
     _entityClient = entityClient;
+    _featureFlags = featureFlags; // TODO: check if Join Feture is Enabled and throw error when called
   }
 
   @Override
@@ -142,16 +141,8 @@ public class JoinType implements com.linkedin.datahub.graphql.types.EntityType<J
   @Nonnull
   @Override
   public List<BrowsePath> browsePaths(@Nonnull String urn, @Nonnull QueryContext context) throws Exception {
-    final StringArray result = _entityClient.getBrowsePaths(getJoinUrn(urn), context.getAuthentication());
+    final StringArray result = _entityClient.getBrowsePaths(UrnUtils.getUrn(urn), context.getAuthentication());
     return BrowsePathsMapper.map(result);
-  }
-
-  private com.linkedin.common.urn.JoinUrn getJoinUrn(String urnStr) {
-    try {
-      return JoinUrn.createFromString(urnStr);
-    } catch (URISyntaxException e) {
-      throw new RuntimeException(String.format("Failed to retrieve data product with urn %s, invalid urn", urnStr));
-    }
   }
 
   @Override
@@ -171,25 +162,19 @@ public class JoinType implements com.linkedin.datahub.graphql.types.EntityType<J
     return AutoCompleteResultsMapper.map(result);
   }
 
-  public static boolean isAuthorizedToUpdateJoin(@Nonnull QueryContext context, JoinUrn resourceUrn, JoinUpdateInput updateInput) {
-    final ConjunctivePrivilegeGroup allPrivilegesGroup = new ConjunctivePrivilegeGroup(ImmutableList.of(
+  public static boolean canUpdateJoin(@Nonnull QueryContext context, JoinUrn resourceUrn, JoinUpdateInput updateInput) {
+    final ConjunctivePrivilegeGroup editPrivilegesGroup = new ConjunctivePrivilegeGroup(ImmutableList.of(
             PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType()
     ));
     List<String> specificPrivileges = new ArrayList<>();
-    if (updateInput.getOwnership() != null) {
-      specificPrivileges.add(PoliciesConfig.EDIT_ENTITY_OWNERS_PRIVILEGE.getType());
-    }
     if (updateInput.getEditableProperties() != null) {
       specificPrivileges.add(PoliciesConfig.EDIT_ENTITY_DOCS_PRIVILEGE.getType());
-    }
-    if (updateInput.getTags() != null) {
-      specificPrivileges.add(PoliciesConfig.EDIT_ENTITY_TAGS_PRIVILEGE.getType());
     }
     final ConjunctivePrivilegeGroup specificPrivilegeGroup = new ConjunctivePrivilegeGroup(specificPrivileges);
 
     // If you either have all entity privileges, or have the specific privileges required, you are authorized.
     DisjunctivePrivilegeGroup orPrivilegeGroups = new DisjunctivePrivilegeGroup(ImmutableList.of(
-            allPrivilegesGroup,
+            editPrivilegesGroup,
             specificPrivilegeGroup
     ));
     return AuthorizationUtils.isAuthorized(
@@ -199,9 +184,17 @@ public class JoinType implements com.linkedin.datahub.graphql.types.EntityType<J
             resourceUrn.toString(),
             orPrivilegeGroups);
   }
-  public static boolean isAuthorizedToCreateJoin(@Nonnull QueryContext context, Urn datasetAUrn, Urn datasetBUrn) {
-    final DisjunctivePrivilegeGroup orPrivilegeGroups = new DisjunctivePrivilegeGroup(ImmutableList.of(
-              new ConjunctivePrivilegeGroup(ImmutableList.of(PoliciesConfig.CREATE_JOIN_PRIVILEGE.getType()))
+  public static boolean canCreateJoin(@Nonnull QueryContext context, Urn datasetAUrn, Urn datasetBUrn) {
+    final ConjunctivePrivilegeGroup editPrivilegesGroup = new ConjunctivePrivilegeGroup(ImmutableList.of(
+            PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType()
+    ));
+    final ConjunctivePrivilegeGroup createPrivilegesGroup = new ConjunctivePrivilegeGroup(ImmutableList.of(
+            PoliciesConfig.CREATE_JOIN_PRIVILEGE.getType()
+    ));
+    // If you either have all entity privileges, or have the specific privileges required, you are authorized.
+    DisjunctivePrivilegeGroup orPrivilegeGroups = new DisjunctivePrivilegeGroup(ImmutableList.of(
+            editPrivilegesGroup,
+            createPrivilegesGroup
     ));
     boolean datasetAPrivilege = AuthorizationUtils.isAuthorized(
             context.getAuthorizer(),

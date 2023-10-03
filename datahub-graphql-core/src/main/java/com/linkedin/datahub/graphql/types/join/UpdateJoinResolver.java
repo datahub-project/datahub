@@ -31,7 +31,7 @@ public class UpdateJoinResolver implements DataFetcher<CompletableFuture<Boolean
         JoinUrn inputUrn = JoinUrn.createFromString(urn);
         QueryContext context = environment.getContext();
         final CorpuserUrn actor = CorpuserUrn.createFromString(context.getActorUrn());
-        if (!JoinType.isAuthorizedToUpdateJoin(context, inputUrn, input)) {
+        if (!JoinType.canUpdateJoin(context, inputUrn, input)) {
             throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
         }
         return CompletableFuture.supplyAsync(() -> {

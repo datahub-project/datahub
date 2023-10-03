@@ -2,12 +2,13 @@ import React from 'react';
 import { Divider } from 'antd';
 import './JoinTab.less';
 import { JoinPreview } from '../../components/styled/Join/JoinPreview';
-import { useEntityData } from '../../EntityContext';
+import { useEntityData, useRefetch } from '../../EntityContext';
 
 export const JoinTab = () => {
     const { entityData } = useEntityData();
+    const refetch = useRefetch();
     const joinView = (joinData?: any): JSX.Element => {
-        return <JoinPreview joinData={joinData} prePageType="Join" />;
+        return <JoinPreview joinData={joinData} prePageType="Join" refetch={refetch} />;
     };
     return (
         <>

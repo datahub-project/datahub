@@ -166,6 +166,8 @@ export const EntityProfile = <T, U>({
     hideBrowseBar,
     subHeader,
 }: Props<T, U>): JSX.Element => {
+    const { config } = useAppConfig();
+    const { joinFeatureEnabled } = config.featureFlags;
     const isLineageMode = useIsLineageMode();
     const isHideSiblingMode = useIsSeparateSiblingsMode();
     const entityRegistry = useEntityRegistry();
@@ -173,6 +175,19 @@ export const EntityProfile = <T, U>({
     const appConfig = useAppConfig();
     const isCompact = React.useContext(CompactContext);
     const tabsWithDefaults = tabs.map((tab) => ({ ...tab, display: { ...defaultTabDisplayConfig, ...tab.display } }));
+
+    if (joinFeatureEnabled) {
+        const relationIndex = tabsWithDefaults.findIndex((tab) => {
+            return tab.name === 'Relationships';
+        });
+        if (relationIndex >= 0) {
+            tabsWithDefaults[relationIndex] = {
+                ...tabsWithDefaults[relationIndex],
+                display: { ...defaultTabDisplayConfig },
+            };
+        }
+    }
+
     const sortedTabs = sortEntityProfileTabs(appConfig.config, entityType, tabsWithDefaults);
     const sideBarSectionsWithDefaults = sidebarSections.map((sidebarSection) => ({
         ...sidebarSection,

@@ -7,6 +7,7 @@ import editIcon from '../../../../../../images/editIconBlack.svg';
 import './JoinPreview.less';
 import { EntityType, Join } from '../../../../../../types.generated';
 import { CreateJoinModal } from './CreateJoinModal';
+import { getDatasetName } from './JoinUtils';
 
 type JoinRecord = {
     afield: string;
@@ -16,11 +17,11 @@ type Props = {
     joinData: Join;
     baseEntityUrn?: any;
     prePageType?: string;
+    refetch: () => Promise<any>;
 };
 type EditableTableProps = Parameters<typeof Table>[0];
 type ColumnTypes = Exclude<EditableTableProps['columns'], undefined>;
-
-export const JoinPreview = ({ joinData, baseEntityUrn, prePageType }: Props) => {
+export const JoinPreview = ({ joinData, baseEntityUrn, prePageType, refetch }: Props) => {
     const entityRegistry = useEntityRegistry();
     const handleViewEntity = (entityType, urn) => {
         const entityUrl = entityRegistry.getEntityUrl(entityType, urn);
@@ -28,10 +29,6 @@ export const JoinPreview = ({ joinData, baseEntityUrn, prePageType }: Props) => 
     };
     const [modalVisible, setModalVisible] = useState(false);
     const shuffleFlag = !(prePageType === 'Dataset' && baseEntityUrn === joinData?.properties?.datasetA?.urn);
-
-    function getDatasetName(datainput: any): string {
-        return datainput?.editableProperties?.name || datainput?.properties?.name || datainput?.name || datainput?.urn;
-    }
     const table1EditableName = shuffleFlag
         ? getDatasetName(joinData?.properties?.datasetB)
         : getDatasetName(joinData?.properties?.datasetA);
@@ -140,19 +137,22 @@ export const JoinPreview = ({ joinData, baseEntityUrn, prePageType }: Props) => 
                         setModalVisible(false);
                     }}
                     editJoin={joinData}
-                    editFlag
+                    isEditing
+                    refetch={refetch}
                 />
             )}
             <div className="preview-main-div">
                 <div>
-                    {prePageType === 'Dataset' && (
+                    {(prePageType === 'Dataset' || joinHeader !== joinData?.properties?.name) && (
                         <Row>
                             <p className="all-table-heading">{joinHeader}</p>
-                            <Button type="link" onClick={() => handleViewEntity(EntityType.Join, joinData?.urn)}>
-                                <div className="div-view">
-                                    View join <RightOutlined />{' '}
-                                </div>
-                            </Button>
+                            {prePageType === 'Dataset' && (
+                                <Button type="link" onClick={() => handleViewEntity(EntityType.Join, joinData?.urn)}>
+                                    <div className="div-view">
+                                        View join <RightOutlined />{' '}
+                                    </div>
+                                </Button>
+                            )}
                         </Row>
                     )}
                 </div>
@@ -180,8 +180,12 @@ export const JoinPreview = ({ joinData, baseEntityUrn, prePageType }: Props) => 
                     pagination={false}
                 />
             </Row>
-            <p className="all-content-heading">Join details</p>
-            <p className="all-content-info">{joinData?.properties?.joinFieldMapping?.details}</p>
+            {prePageType === 'Dataset' && (
+                <div>
+                    <p className="all-content-heading">Join details</p>
+                    <p className="all-content-info">{joinData?.editableProperties?.description}</p>
+                </div>
+            )}
         </div>
     );
 };

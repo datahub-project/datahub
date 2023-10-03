@@ -45,6 +45,7 @@ services:
     - SEARCH_SERVICE_ENABLE_CACHE=false
     - LINEAGE_SEARCH_CACHE_ENABLED=false
     - SHOW_BROWSE_V2=true
+    - JOIN_FEATURE_ENABLED=false
     volumes:
     - ./datahub-gms/start.sh:/datahub/datahub-gms/scripts/start.sh
     - ./datahub-gms/jetty.xml:/datahub/datahub-gms/scripts/jetty.xml

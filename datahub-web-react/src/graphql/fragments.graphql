@@ -973,8 +973,6 @@ fragment inputFieldsFields on InputFields {
     }
 }
 
-
-
 fragment browsePathV2Fields on BrowsePathV2 {
     path {
         name
@@ -1142,7 +1140,6 @@ fragment joinFieldMappingFields on JoinFieldMapping {
         afield
         bfield
     }
-    details
 }
 
 fragment joinEditablePropertiesFields on JoinEditableProperties {

@@ -12,13 +12,4 @@ record JoinFieldMapping {
    */
   fieldMappings: array[FieldMap]
 
-  /**
-   *  Any transformation logic or notes pertaining to this specific join
-   */
-  @Searchable = {
-    "fieldType": "TEXT_PARTIAL",
-    "enableAutocomplete": true,
-    "boostScore": 10.0
-  }
-  details: string
 }
