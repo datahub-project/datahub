@@ -182,13 +182,14 @@ export default function NotificationRecipientSection() {
                                         </UseDefaultText>
                                     </Radio>
                                 )}
-                                <Radio value={ChannelSelections.SUBSCRIPTION}>
+                                <Radio value={ChannelSelections.SUBSCRIPTION} data-testid="alternative-slack-radio">
                                     <Form form={form}>
                                         <StyledFormItem name="slackFormValue">
                                             <StyledInput
                                                 size="small"
                                                 ref={channelInputRef}
                                                 placeholder={slackInputPlaceholder}
+                                                data-testid="alternative-slack-member-id"
                                                 disabled={
                                                     !slack.enabled || !slackSinkEnabled || isSettingsChannelSelected
                                                 }

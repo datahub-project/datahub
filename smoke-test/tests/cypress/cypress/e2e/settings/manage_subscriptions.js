@@ -23,69 +23,77 @@ describe("entity subscription test", () => {
     };
 
     it("subscribe to entity, edit and remove subscription", () => {
-      //configure slack integration in settings
+      // Configure a slack integration in settings
       setSubscriptionsEnabledFlag(true);
       cy.loginWithCredentials();
       cy.goToIntegrationsSettings();
       cy.clickOptionWithText("Slack");
-      cy.waitTextVisible("Configure an integration with Slack");
       cy.clickOptionWithText("Bot Token");
-      cy.contains("Enter a Slack bot token").next().type(test_id);
-      cy.contains("Set a default channel.").next().type(test_id);
-      cy.get("button").contains("Connect to Slack").click();
+      cy.enterTextInTestId("bot-token-input", test_id);
+      cy.enterTextInTestId("default-channel-input", test_id);
+      cy.clickOptionWithTestId("connect-to-slack-button");
       cy.waitTextVisible("Updated Slack Settings!");
-      //subscribe to dataset
+
+      // Subscribe to dataset
       cy.goToDataset(datasetUrn, datasetName);
-      cy.get("#entity-profile-subscriptions").click();
+      cy.clickOptionWithTestId("subscription-dropdown");
+      cy.clickOptionWithText("Subscribe Me");
       cy.waitTextVisible(`Subscribe to ${datasetName}`);
       cy.get(".ant-tree-checkbox").click({ multiple: true });
-      cy.get('[value="SUBSCRIPTION"]').click();
-      cy.get("#slackFormValue").type(test_id);
-      cy.get("button").contains("Subscribe & Notify").click();
+      cy.clickOptionWithTestId("alternative-slack-radio");
+      cy.enterTextInTestId("alternative-slack-member-id", test_id);
+      cy.clickOptionWithTestId("subscribe-button");
       cy.waitTextVisible("You are now subscribed to this entity.").wait(3000);
-      //verify subscription in settings
+
+      // Verify subscription in settings
       cy.goToSubscriptionsSettings();
       cy.waitTextVisible(datasetName);
-      //edit subscription, verify changes applied successfully
-      cy.get("*[class^='EditSubscriptionColumn']").click();
+
+      // Edit subscription, verify that changes applied successfully
+      cy.get('[data-icon="edit"]').click();
       cy.waitTextVisible(`Subscribe to ${datasetName}`);
       cy.get(".ant-tree-checkbox").click({ multiple: true });
-      cy.get("button").contains("Update").click();
+      cy.clickOptionWithTestId("subscribe-button");
       cy.waitTextVisible("You have updated your subscription to this entity.").wait(3000);
-      //unsubscribe from the dataset page, verify changes applied successfully
+
+      // Unsubscribe from the dataset page, verify changes applied successfully
       cy.goToDataset(datasetUrn, datasetName);
-      cy.get("#entity-profile-subscriptions").click();
+      cy.clickOptionWithTestId("subscription-dropdown");
+      cy.clickOptionWithText("Manage My Subscription");
       cy.waitTextVisible(`Subscribe to ${datasetName}`);
-      cy.get("button").contains("Unsubscribe").click();
+      cy.clickOptionWithTestId("cancel-button");
       cy.waitTextVisible("You have unsubscribed from this entity.").wait(3000);
       cy.goToSubscriptionsSettings();
       cy.ensureTextNotPresent(datasetName);
       cy.waitTextVisible("You are not currently subscribed to any entities.");
-      //remove subscription from my subscriptions settings page
+
+      // Remove subscription from my subscriptions settings page
       cy.goToDataset(datasetUrn, datasetName);
-      cy.get("#entity-profile-subscriptions").click();
+      cy.clickOptionWithTestId("subscription-dropdown");
+      cy.clickOptionWithText("Subscribe Me");
       cy.waitTextVisible(`Subscribe to ${datasetName}`);
       cy.get(".ant-tree-checkbox").click({ multiple: true });
-      cy.get('[value="SUBSCRIPTION"]').click();
-      cy.get("#slackFormValue").type(test_id);
-      cy.get("button").contains("Subscribe & Notify").click();
+      cy.clickOptionWithTestId("alternative-slack-radio");
+      cy.enterTextInTestId("alternative-slack-member-id", test_id);
+      cy.clickOptionWithTestId("subscribe-button");
       cy.waitTextVisible("You are now subscribed to this entity.").wait(3000);
       cy.goToSubscriptionsSettings();
       cy.waitTextVisible(datasetName);
-      cy.get("*[class^='EditSubscriptionColumn']").click();
+      cy.get('[data-icon="edit"]').click();
       cy.waitTextVisible(`Subscribe to ${datasetName}`);
-      cy.get("button").contains("Unsubscribe").click();
+      cy.clickOptionWithTestId("cancel-button");
       cy.waitTextVisible("You have unsubscribed from this entity.").wait(5000);
       cy.ensureTextNotPresent(datasetName);
       cy.waitTextVisible("You are not currently subscribed to any entities.");
-      //remove slack integration in settings
+
+      // Remove slack integration in settings
       cy.goToIntegrationsSettings();
       cy.clickOptionWithText("Slack");
       cy.waitTextVisible("Configure an integration with Slack");
       cy.clickOptionWithText("Bot Token");
-      cy.contains("Enter a Slack bot token").next().clear();
-      cy.contains("Set a default channel.").next().clear();
-      cy.get("button").contains("Re-connect to Slack").click();
+      cy.get('[data-testid="bot-token-input"]').clear();
+      cy.get('[data-testid="default-channel-input"]').clear();
+      cy.clickOptionWithTestId("connect-to-slack-button");
       cy.waitTextVisible("Updated Slack Settings!");
     });
 });
