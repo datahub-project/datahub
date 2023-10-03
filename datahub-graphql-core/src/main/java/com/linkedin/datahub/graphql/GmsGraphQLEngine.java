@@ -815,6 +815,7 @@ public class GmsGraphQLEngine {
             .dataFetcher("glossaryNode", getResolver(glossaryNodeType))
             .dataFetcher("domain", getResolver((domainType)))
             .dataFetcher("dataPlatform", getResolver(dataPlatformType))
+            .dataFetcher("dataPlatformInstance", getResolver(dataPlatformInstanceType))
             .dataFetcher("mlFeatureTable", getResolver(mlFeatureTableType))
             .dataFetcher("mlFeature", getResolver(mlFeatureType))
             .dataFetcher("mlPrimaryKey", getResolver(mlPrimaryKeyType))
