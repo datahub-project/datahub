@@ -86,7 +86,7 @@ class BigqueryTableIdentifier:
 
         matches = BigQueryTableRef.SNAPSHOT_TABLE_REGEX.match(shortened_table_name)
         if matches:
-            shortened_table_name = matches.group(1)
+            shortened_table_name = matches.group(1).rsplit("_", 1)[0]
             logger.debug(
                 f"Found table snapshot. Using {shortened_table_name} as the table name."
             )
