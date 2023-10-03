@@ -68,7 +68,9 @@ class BigqueryTableIdentifier:
         if match:
             shard = match[3]
             if shard:
-                new_table_name = table_name.removesuffix(shard)
+                if table_name.endswith(shard):
+                    new_table_name = table_name[: -len(shard)]
+
             new_table_name = (
                 new_table_name.rstrip("_") if new_table_name else new_table_name
             )
