@@ -88,9 +88,9 @@ export function getPopulatedColumnsByUrn(
                 ),
             };
         } else if (fetchedEntity.type === EntityType.DataJob && fetchedEntity.fineGrainedLineages) {
-            // Add upstream fields from fineGrainedLineage onto DataJob to mimic upstream dataset fields.
-            // DataJobs will virtually "have" these fields so we can draw full column paths
-            // from upstream dataset fields to downstream dataset fields.
+            // Add upstream and downstream fields from fineGrainedLineage onto DataJob to mimic upstream
+            // and downstream dataset fields. DataJobs will virtually "have" these fields so we can draw
+            // full column paths from upstream dataset fields to downstream dataset fields.
             const fields: SchemaField[] = [];
             fetchedEntity.fineGrainedLineages.forEach((fineGrainedLineage) => {
                 fineGrainedLineage.upstreams?.forEach((upstream) => {
@@ -103,10 +103,10 @@ export function getPopulatedColumnsByUrn(
                         });
                     }
                 });
-                fineGrainedLineage.downstreams?.forEach((downstreams) => {
-                    if (!fields.some((field) => field.fieldPath === downstreams.path)) {
+                fineGrainedLineage.downstreams?.forEach((downstream) => {
+                    if (!fields.some((field) => field.fieldPath === downstream.path)) {
                         fields.push({
-                            fieldPath: downgradeV2FieldPath(downstreams.path) || '',
+                            fieldPath: downgradeV2FieldPath(downstream.path) || '',
                             nullable: false,
                             recursive: false,
                             type: SchemaFieldDataType.String,
