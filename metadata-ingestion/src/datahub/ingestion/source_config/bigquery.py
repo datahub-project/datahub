@@ -4,17 +4,16 @@ import pydantic
 
 from datahub.configuration.common import ConfigModel, ConfigurationError
 
+# Regexp for sharded tables.
+# A sharded table is a table that has a suffix of the form _yyyymmdd or yyyymmdd, where yyyymmdd is a date.
+# The regexp checks for valid dates in the suffix (e.g. 20200101, 20200229, 20201231) and if the date is not valid
+# then it is not a sharded table.
 _BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX: str = (
-    "((.+\D)[_$]?)?(\\d\\d\\d\\d(?:0[1-9]|1[0-2])(?:0[1-9]|[12][0-9]|3[01]))$"
+    "((.+\\D)[_$]?)?(\\d\\d\\d\\d(?:0[1-9]|1[0-2])(?:0[1-9]|[12][0-9]|3[01]))$"
 )
 
 
 class BigQueryBaseConfig(ConfigModel):
-    # Regexp for sharded tables.
-    # A sharded table is a table that has a suffix of the form _yyyymmdd or yyyymmdd, where yyyymmdd is a date.
-    # The regexp checks for valid dates in the suffix (e.g. 20200101, 20200229, 20201231) and if the date is not valid
-    # then it is not a sharded table.
-
     rate_limit: bool = pydantic.Field(
         default=False, description="Should we rate limit requests made to API."
     )
