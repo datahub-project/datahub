@@ -760,11 +760,14 @@ def test_gen_view_dataset_workunits(
         ("project.dataset.table_20231215", "project.dataset.table", "20231215"),
         ("project.dataset.table_2023", "project.dataset.table_2023", None),
         # incorrectly handled special case where dataset itself is a sharded table if full name is specified
-        ("project.dataset.20231215", "project.dataset.20231215", None),
+        ("project.dataset.20231215", "project.dataset.20231215", "20231215"),
+        ("project1.dataset2.20231215", "project1.dataset2.20231215", "20231215"),
         # Cases with Just the table name as input
         ("table", "table", None),
-        ("table20231215", "table20231215", None),
+        ("table20231215", "table", "20231215"),
         ("table_20231215", "table", "20231215"),
+        ("table2_20231215", "table2", "20231215"),
+        ("table220231215", "table220231215", None),
         ("table_1624046611000_name", "table_1624046611000_name", None),
         ("table_1624046611000", "table_1624046611000", None),
         # Special case where dataset itself is a sharded table
@@ -796,7 +799,6 @@ def test_get_table_and_shard_default(
         ("project.dataset.2023", "project.dataset.2023", None),
         # Cases with Just the table name as input
         ("table", "table", None),
-        ("table20231215", "table20231215", None),
         ("table_20231215", "table", "20231215"),
         ("table_2023", "table", "2023"),
         ("table_1624046611000_name", "table_1624046611000_name", None),
@@ -837,7 +839,7 @@ def test_get_table_and_shard_custom_shard_pattern(
             "project.dataset.table_1624046611000_name",
         ),
         ("project.dataset.table_1624046611000", "project.dataset.table_1624046611000"),
-        ("project.dataset.table20231215", "project.dataset.table20231215"),
+        ("project.dataset.table20231215", "project.dataset.table"),
         ("project.dataset.table_*", "project.dataset.table"),
         ("project.dataset.table_2023*", "project.dataset.table"),
         ("project.dataset.table_202301*", "project.dataset.table"),

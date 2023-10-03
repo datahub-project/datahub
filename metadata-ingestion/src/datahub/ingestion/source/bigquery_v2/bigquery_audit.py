@@ -25,7 +25,7 @@ logger: logging.Logger = logging.getLogger(__name__)
 # The regexp checks for valid dates in the suffix (e.g. 20200101, 20200229, 20201231) and if the date is not valid
 # then it is not a sharded table.
 _BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX = (
-    "(.+?)_?(\\d\\d\\d\\d(?:0[1-9]|1[0-2])(?:0[1-9]|[12][0-9]|3[01]))$"
+    "((.+\D)[_$]?)?(\\d\\d\\d\\d(?:0[1-9]|1[0-2])(?:0[1-9]|[12][0-9]|3[01]))$"
 )
 
 
@@ -59,16 +59,23 @@ class BigqueryTableIdentifier:
                 In case of non-sharded tables, returns (<table-id>, None)
                 In case of sharded tables, returns (<table-prefix>, shard)
         """
+        new_table_name = table_name
         match = re.match(
             BigqueryTableIdentifier._BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX,
             table_name,
             re.IGNORECASE,
         )
         if match:
-            table_name = match.group(1)
-            shard = match.group(2)
-            return table_name, shard
-        return table_name, None
+            shard = match[3]
+            if shard:
+                new_table_name = table_name.removesuffix(shard)
+            new_table_name = (
+                new_table_name.rstrip("_") if new_table_name else new_table_name
+            )
+            if new_table_name.endswith("."):
+                new_table_name = table_name
+            return new_table_name if new_table_name else None, shard
+        return new_table_name, None
 
     @classmethod
     def from_string_name(cls, table: str) -> "BigqueryTableIdentifier":
@@ -90,7 +97,7 @@ class BigqueryTableIdentifier:
 
         matches = BigQueryTableRef.SNAPSHOT_TABLE_REGEX.match(shortened_table_name)
         if matches:
-            shortened_table_name = matches.group(1).rsplit("_", 1)[0]
+            shortened_table_name = matches.group(1)
             logger.debug(
                 f"Found table snapshot. Using {shortened_table_name} as the table name."
             )
