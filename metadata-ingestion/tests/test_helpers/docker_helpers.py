@@ -73,3 +73,11 @@ def docker_compose_runner(
             yield docker_services
 
     return run
+
+
+def cleanup_image(image_name: str) -> None:
+    assert ":" not in image_name, "image_name should not contain a tag"
+
+    subprocess.run(
+        f"docker rmi $(docker image ls --filter 'reference={image_name}*' -q)"
+    )

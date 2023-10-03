@@ -1,4 +1,5 @@
 import logging
+import subprocess
 import time
 
 import pytest
@@ -7,7 +8,7 @@ from freezegun import freeze_time
 
 from datahub.ingestion.run.pipeline import Pipeline
 from tests.test_helpers import fs_helpers, mce_helpers
-from tests.test_helpers.docker_helpers import wait_for_port
+from tests.test_helpers.docker_helpers import cleanup_image, wait_for_port
 
 pytestmark = pytest.mark.integration_batch_2
 
@@ -49,6 +50,9 @@ def loaded_nifi(docker_compose_runner, test_resources_dir):
             timeout=60,
         )
         yield docker_services
+
+    # The nifi image is pretty large, so we remove it after the test.
+    cleanup_image("apache/nifi")
 
 
 @freeze_time(FROZEN_TIME)
