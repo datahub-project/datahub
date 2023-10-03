@@ -355,3 +355,5 @@ cache:
           status: 20
           corpUserCredentials: 20
           corpUserSettings: 20
+
+springdoc.api-docs.groups.enabled: true
