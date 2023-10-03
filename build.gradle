@@ -200,8 +200,8 @@ project.ext.externalDependency = [
     'springBootStarterValidation': "org.springframework.boot:spring-boot-starter-validation:$springBootVersion",
     'springKafka': 'org.springframework.kafka:spring-kafka:2.8.11',
     'springActuator': "org.springframework.boot:spring-boot-starter-actuator:$springBootVersion",
-    'swaggerAnnotations': 'io.swagger.core.v3:swagger-annotations:2.1.12',
-    'swaggerCli': 'io.swagger.codegen.v3:swagger-codegen-cli:3.0.41',
+    'swaggerAnnotations': 'io.swagger.core.v3:swagger-annotations:2.2.15',
+    'swaggerCli': 'io.swagger.codegen.v3:swagger-codegen-cli:3.0.46',
     'testngJava8': 'org.testng:testng:7.5.1',
     'testng': 'org.testng:testng:7.8.0',
     'testContainers': 'org.testcontainers:testcontainers:' + testContainersVersion,
@@ -291,7 +291,7 @@ subprojects {
     maxParallelForks = Runtime.runtime.availableProcessors().intdiv(2) ?: 1
 
     if (project.configurations.getByName("testImplementation").getDependencies()
-            .any{ it.getName() == "testng" }) {
+            .any{ it.getName().contains("testng") }) {
       useTestNG()
     }
   }
