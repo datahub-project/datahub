@@ -60,7 +60,7 @@ export const AccessTokenModal = ({ visible, onClose, accessToken, expiresInText 
             onCancel={onClose}
             footer={
                 <>
-                    <Button id="createTokenButton" onClick={onClose}>
+                    <Button id="createTokenButton" onClick={onClose} data-testid="close-button">
                         Close
                     </Button>
                 </>
@@ -81,7 +81,7 @@ export const AccessTokenModal = ({ visible, onClose, accessToken, expiresInText 
                 <ModalSectionHeader strong>Token</ModalSectionHeader>
                 <ModalSectionParagraph>{expiresInText}</ModalSectionParagraph>
                 <Typography.Paragraph copyable={{ text: accessToken }}>
-                    <pre>{accessToken}</pre>
+                    <pre data-testid="access-token">{accessToken}</pre>
                 </Typography.Paragraph>
             </ModalSection>
             <ModalSection>
