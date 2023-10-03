@@ -7,6 +7,7 @@ import editIcon from '../../../../../../images/editIconBlack.svg';
 import './JoinPreview.less';
 import { EntityType, Join } from '../../../../../../types.generated';
 import { CreateJoinModal } from './CreateJoinModal';
+import { getDatasetName } from './JoinUtils';
 
 type JoinRecord = {
     afield: string;
@@ -20,7 +21,6 @@ type Props = {
 };
 type EditableTableProps = Parameters<typeof Table>[0];
 type ColumnTypes = Exclude<EditableTableProps['columns'], undefined>;
-
 export const JoinPreview = ({ joinData, baseEntityUrn, prePageType, refetch }: Props) => {
     const entityRegistry = useEntityRegistry();
     const handleViewEntity = (entityType, urn) => {
@@ -29,10 +29,6 @@ export const JoinPreview = ({ joinData, baseEntityUrn, prePageType, refetch }: P
     };
     const [modalVisible, setModalVisible] = useState(false);
     const shuffleFlag = !(prePageType === 'Dataset' && baseEntityUrn === joinData?.properties?.datasetA?.urn);
-
-    function getDatasetName(datainput: any): string {
-        return datainput?.editableProperties?.name || datainput?.properties?.name || datainput?.name || datainput?.urn;
-    }
     const table1EditableName = shuffleFlag
         ? getDatasetName(joinData?.properties?.datasetB)
         : getDatasetName(joinData?.properties?.datasetA);
@@ -185,10 +181,10 @@ export const JoinPreview = ({ joinData, baseEntityUrn, prePageType, refetch }: P
                 />
             </Row>
             {prePageType === 'Dataset' && (
-                <Row>
-                    <p className="all-content-heading">About Join</p>
+                <div>
+                    <p className="all-content-heading">Join details</p>
                     <p className="all-content-info">{joinData?.editableProperties?.description}</p>
-                </Row>
+                </div>
             )}
         </div>
     );
