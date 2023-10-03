@@ -16,3 +16,15 @@ To deploy the service locally on your own (port 9004):
 Note that you should stop any running Docker containers for `datahub-monitors-service` before running this, or you'll 
 see port conflicts
 
+## Handling `The dependency name for acryl-datahub does not match the actual package's name: <something>`
+
+This is a known issue with poetry (and likely good motivation for moving away from poetry entirely).
+I've documented a workaround here https://github.com/python-poetry/poetry/issues/5070.
+
+## Updating lockfiles after a merge
+
+This command might take while - sometimes up to 10 minutes or so.
+
+```sh
+poetry lock --no-update
+```
