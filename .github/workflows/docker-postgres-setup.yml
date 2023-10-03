@@ -8,7 +8,7 @@ on:
       - ".github/workflows/docker-postgres-setup.yml"
   pull_request:
     branches:
-      - master
+      - '**'
     paths:
       - "docker/postgres-setup/**"
       - ".github/workflows/docker-postgres-setup.yml"

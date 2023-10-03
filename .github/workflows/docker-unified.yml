@@ -8,7 +8,7 @@ on:
       - "**.md"
   pull_request:
     branches:
-      - master
+      - '**'
     paths-ignore:
       - "docs/**"
       - "**.md"
@@ -718,19 +718,7 @@ jobs:
       fail-fast: false
       matrix:
         test_strategy: ["no_cypress", "cypress_suite1", "cypress_rest"]
-    needs:
-      [
-        setup,
-        gms_build,
-        frontend_build,
-        kafka_setup_build,
-        mysql_setup_build,
-        elasticsearch_setup_build,
-        mae_consumer_build,
-        mce_consumer_build,
-        datahub_upgrade_build,
-        datahub_ingestion_slim_build,
-      ]
+    needs: [setup, gms_build, frontend_build, kafka_setup_build, mysql_setup_build, elasticsearch_setup_build, mae_consumer_build, mce_consumer_build, datahub_upgrade_build, datahub_ingestion_slim_build]
     steps:
       - name: Disk Check
         run: df -h . && docker images

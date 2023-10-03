@@ -9,7 +9,7 @@ on:
       - "metadata-models/**"
   pull_request:
     branches:
-      - master
+      - '**'
     paths:
       - ".github/**"
       - "metadata-ingestion/**"
@@ -32,14 +32,7 @@ jobs:
     strategy:
       matrix:
         python-version: ["3.7", "3.10"]
-        command:
-          [
-            "lint",
-            "testQuick",
-            "testIntegration",
-            "testIntegrationBatch1",
-            "testSlowIntegration",
-          ]
+        command: ["lint", "testQuick", "testIntegration", "testIntegrationBatch1", "testSlowIntegration"]
         include:
           - python-version: "3.7"
           - python-version: "3.10"
