@@ -62,6 +62,9 @@ from datahub.ingestion.transformer.dataset_domain import (
 )
 from datahub.ingestion.transformer.dataset_transformer import DatasetTransformer
 from datahub.ingestion.transformer.extract_dataset_tags import ExtractDatasetTags
+from datahub.ingestion.transformer.extract_ownership_from_tags import (
+    ExtractOwnersFromTagsTransformer,
+)
 from datahub.ingestion.transformer.mark_dataset_status import MarkDatasetStatus
 from datahub.ingestion.transformer.remove_dataset_ownership import (
     SimpleRemoveDatasetOwnership,
@@ -72,6 +75,7 @@ from datahub.metadata.schema_classes import (
     GlobalTagsClass,
     MetadataChangeEventClass,
     OwnershipClass,
+    OwnershipTypeClass,
     StatusClass,
     TagAssociationClass,
 )
@@ -583,6 +587,91 @@ def test_mark_status_dataset(tmp_path):
             file=events_file,
         )
         == 1
+    )
+
+
+def test_extract_owners_from_tags():
+    def _test_owner(
+        tag: str,
+        config: Dict,
+        expected_owner: str,
+        expected_owner_type: Optional[str] = None,
+    ) -> None:
+        dataset = make_generic_dataset(
+            aspects=[
+                models.GlobalTagsClass(
+                    tags=[TagAssociationClass(tag=builder.make_tag_urn(tag))]
+                )
+            ]
+        )
+        transformer = ExtractOwnersFromTagsTransformer.create(
+            config,
+            PipelineContext(run_id="test"),
+        )
+        transformed = list(
+            transformer.transform(
+                [
+                    RecordEnvelope(dataset, metadata={}),
+                ]
+            )
+        )
+        owners_aspect = transformed[0].record.proposedSnapshot.aspects[0]
+        owners = owners_aspect.owners
+        owner = owners[0]
+        if expected_owner_type is not None:
+            assert owner.type == expected_owner_type
+        assert owner.owner == expected_owner
+
+    _test_owner(
+        tag="owner:foo",
+        config={
+            "tag_prefix": "owner:",
+        },
+        expected_owner="urn:li:corpuser:foo",
+    )
+    _test_owner(
+        tag="abcdef-owner:foo",
+        config={
+            "tag_prefix": ".*owner:",
+        },
+        expected_owner="urn:li:corpuser:foo",
+    )
+    _test_owner(
+        tag="owner:foo",
+        config={
+            "tag_prefix": "owner:",
+            "is_user": False,
+        },
+        expected_owner="urn:li:corpGroup:foo",
+    )
+    _test_owner(
+        tag="owner:foo",
+        config={
+            "tag_prefix": "owner:",
+            "email_domain": "example.com",
+        },
+        expected_owner="urn:li:corpuser:foo@example.com",
+    )
+    _test_owner(
+        tag="owner:foo",
+        config={
+            "tag_prefix": "owner:",
+            "email_domain": "example.com",
+            "owner_type": "TECHNICAL_OWNER",
+        },
+        expected_owner="urn:li:corpuser:foo@example.com",
+        expected_owner_type=OwnershipTypeClass.TECHNICAL_OWNER,
+    )
+    _test_owner(
+        tag="owner:foo",
+        config={
+            "tag_prefix": "owner:",
+            "email_domain": "example.com",
+            "owner_type": "AUTHOR",
+            "owner_type_urn": "urn:li:ownershipType:ad8557d6-dcb9-4d2a-83fc-b7d0d54f3e0f",
+        },
+        expected_owner="urn:li:corpuser:foo@example.com",
+        expected_owner_type=OwnershipTypeClass.CUSTOM,
     )
 
 
