@@ -353,6 +353,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 and self.config.profiling.pattern.allowed(
                     table.ref.qualified_table_name
                 )
+                and not table.is_view
             ):
                 self.tables[table.ref.qualified_table_name] = table
 
