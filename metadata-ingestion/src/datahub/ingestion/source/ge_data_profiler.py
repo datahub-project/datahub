@@ -348,7 +348,6 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
 
     @_run_with_query_combiner
     def _get_column_type(self, column_spec: _SingleColumnSpec, column: str) -> None:
-        # logger.info(f"{column} {self.dataset.columns} {self.dataset.columns[0]}")
         column_spec.type_ = BasicDatasetProfilerBase._get_column_type(
             self.dataset, column
         )
