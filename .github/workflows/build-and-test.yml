@@ -27,7 +27,7 @@ jobs:
         command:
           [
             # metadata-ingestion and airflow-plugin each have dedicated build jobs
-            "metadata_ingestion",
+            "except_metadata_ingestion",
             "frontend"
           ]
         timezone:
@@ -55,7 +55,7 @@ jobs:
           cache: pip
       - name: Gradle build (and test) for metadata ingestion
         # we only need the timezone runs for frontend tests
-        if: ${{  matrix.command == 'metadata_ingestion' && matrix.timezone == 'America/New_York' }}
+        if: ${{  matrix.command == 'except_metadata_ingestion' && matrix.timezone == 'America/New_York' }}
         run: |
           ./gradlew build -x :metadata-ingestion:build -x :metadata-ingestion:check -x docs-website:build -x :metadata-integration:java:spark-lineage:test -x :metadata-io:test -x :metadata-ingestion-modules:airflow-plugin:build -x :metadata-ingestion-modules:airflow-plugin:check -x :datahub-frontend:build -x :datahub-web-react:build --parallel
       - name: Gradle build (and test) for frontend
