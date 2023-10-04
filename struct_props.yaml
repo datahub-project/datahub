@@ -1,6 +1,6 @@
 - id: io.acryl.privacy.retentionTime
   # - urn: urn:li:structuredProperty:io.acryl.privacy.retentionTime # optional if id is provided
-  fully_qualified_name: io.acryl.privacy.retentionTime # required if urn is provided
+  qualified_name: io.acryl.privacy.retentionTime # required if urn is provided
   type: NUMBER
   cardinality: MULTIPLE
   display_name: Retention Time
@@ -43,6 +43,12 @@
 - id: io.acryl.dataManagement.certifier
   type: URN
   display_name: Person Certifying the asset
+  entity_types:
+    - dataset
+    - schemaField
+- id: io.acryl.projectNames
+  type: STRING
+  display_name: Project Names
   entity_types:
     - dataset
     - schemaField
