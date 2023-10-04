@@ -3,11 +3,13 @@ import logging
 import traceback
 from typing import Any, Callable, Iterable, List, Optional, Union
 
+import airflow
 from airflow.lineage import PIPELINE_OUTLETS
 from airflow.models.baseoperator import BaseOperator
 from airflow.utils.module_loading import import_string
 from cattr import structure
 from datahub.api.entities.dataprocess.dataprocess_instance import InstanceRunResult
+from datahub.telemetry import telemetry
 
 from datahub_airflow_plugin._airflow_shims import (
     MappedOperator,
@@ -317,6 +319,18 @@ def _patch_datahub_policy():
     from airflow.models.dagbag import settings
 
     _patch_policy(settings)
+
+    plugin_config = get_lineage_config()
+    telemetry.telemetry_instance.ping(
+        "airflow-plugin-init",
+        {
+            "airflow-version": airflow.__version__,
+            "datahub-airflow-plugin": "v1",
+            "capture_executions": plugin_config.capture_executions,
+            "capture_tags": plugin_config.capture_tags_info,
+            "capture_ownership": plugin_config.capture_ownership_info,
+        },
+    )
 
 
 _patch_datahub_policy()

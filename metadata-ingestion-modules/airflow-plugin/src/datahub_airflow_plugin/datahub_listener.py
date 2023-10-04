@@ -4,6 +4,7 @@ import logging
 import threading
 from typing import TYPE_CHECKING, Callable, Dict, List, Optional, TypeVar, cast
 
+import airflow
 import datahub.emitter.mce_builder as builder
 from datahub.api.entities.datajob import DataJob
 from datahub.api.entities.dataprocess.dataprocess_instance import InstanceRunResult
@@ -14,6 +15,7 @@ from datahub.metadata.schema_classes import (
     FineGrainedLineageDownstreamTypeClass,
     FineGrainedLineageUpstreamTypeClass,
 )
+from datahub.telemetry import telemetry
 from datahub.utilities.sqlglot_lineage import SqlParsingResult
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 from openlineage.airflow.listener import TaskHolder
@@ -73,6 +75,19 @@ def get_airflow_plugin_listener() -> Optional["DataHubListener"]:
 
                 OpenLineagePlugin.listeners = []
 
+            telemetry.telemetry_instance.ping(
+                "airflow-plugin-init",
+                {
+                    "airflow-version": airflow.__version__,
+                    "datahub-airflow-plugin": "v2",
+                    "datahub-airflow-plugin-dag-events": HAS_AIRFLOW_DAG_LISTENER_API,
+                    "capture_executions": plugin_config.capture_executions,
+                    "capture_tags": plugin_config.capture_tags_info,
+                    "capture_ownership": plugin_config.capture_ownership_info,
+                    "enable_extractors": plugin_config.enable_extractors,
+                    "disable_openlineage_plugin": plugin_config.disable_openlineage_plugin,
+                },
+            )
     return _airflow_listener
 
 
