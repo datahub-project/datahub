@@ -8,6 +8,7 @@ import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.ebean.PagedList;
 import io.ebean.Transaction;
 
+import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.sql.Timestamp;
@@ -102,6 +103,9 @@ public interface AspectDao {
 
     @Nonnull
     PagedList<EbeanAspectV2> getPagedAspects(final RestoreIndicesArgs args);
+
+    @Nonnull
+    Stream<EntityAspect> streamAspects(String entityName, String aspectName);
 
     int deleteUrn(@Nullable Transaction tx, @Nonnull final String urn);
 
