@@ -12,9 +12,7 @@ from databricks.sdk.service.catalog import ColumnTypeName
 from performance.data_generation import (
     Distribution,
     LomaxDistribution,
-    NormalDistribution,
     SeedMetadata,
-    generate_data,
 )
 from performance.data_model import ColumnType, Container, Table, View
 from performance.databricks.unity_proxy_mock import _convert_column_type
