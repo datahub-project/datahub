@@ -1,5 +1,5 @@
 import subprocess
-from typing import Any, Dict, List, cast
+from typing import Any, Dict, List, Optional, cast
 from unittest import mock
 
 import pytest
@@ -16,6 +16,7 @@ from tests.test_helpers.state_helpers import (
     validate_all_providers_have_committed_successfully,
 )
 
+pytestmark = pytest.mark.integration_batch_1
 FROZEN_TIME = "2021-10-25 13:00:00"
 GMS_PORT = 8080
 GMS_SERVER = f"http://localhost:{GMS_PORT}"
@@ -345,7 +346,6 @@ def loaded_kafka_connect(kafka_connect_runner):
 
 
 @freeze_time(FROZEN_TIME)
-@pytest.mark.integration_batch_1
 def test_kafka_connect_ingest(
     loaded_kafka_connect, pytestconfig, tmp_path, test_resources_dir
 ):
@@ -363,7 +363,6 @@ def test_kafka_connect_ingest(
 
 
 @freeze_time(FROZEN_TIME)
-@pytest.mark.integration_batch_1
 def test_kafka_connect_mongosourceconnect_ingest(
     loaded_kafka_connect, pytestconfig, tmp_path, test_resources_dir
 ):
@@ -381,7 +380,6 @@ def test_kafka_connect_mongosourceconnect_ingest(
 
 
 @freeze_time(FROZEN_TIME)
-@pytest.mark.integration_batch_1
 def test_kafka_connect_s3sink_ingest(
     loaded_kafka_connect, pytestconfig, tmp_path, test_resources_dir
 ):
@@ -399,7 +397,6 @@ def test_kafka_connect_s3sink_ingest(
 
 
 @freeze_time(FROZEN_TIME)
-@pytest.mark.integration_batch_1
 def test_kafka_connect_ingest_stateful(
     loaded_kafka_connect, pytestconfig, tmp_path, mock_datahub_graph, test_resources_dir
 ):
@@ -536,7 +533,7 @@ def test_kafka_connect_ingest_stateful(
     assert sorted(deleted_job_urns) == sorted(difference_job_urns)
 
 
-def register_mock_api(request_mock: Any, override_data: dict = {}) -> None:
+def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -> None:
     api_vs_response = {
         "http://localhost:28083": {
             "method": "GET",
@@ -549,7 +546,7 @@ def register_mock_api(request_mock: Any, override_data: dict = {}) -> None:
         },
     }
 
-    api_vs_response.update(override_data)
+    api_vs_response.update(override_data or {})
 
     for url in api_vs_response.keys():
         request_mock.register_uri(

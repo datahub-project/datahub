@@ -57,7 +57,7 @@ Define an [ingestion recipe](https://datahubproject.io/docs/metadata-ingestion/#
 source:
   type: "file"
   config:
-    filename: "./my-user.json"
+    path: "./my-user.json"
 
 # see https://datahubproject.io/docs/metadata-ingestion/sink_docs/datahub for complete documentation
 sink:
