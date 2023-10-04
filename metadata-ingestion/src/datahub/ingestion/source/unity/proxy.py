@@ -46,8 +46,6 @@ from datahub.ingestion.source.unity.report import UnityCatalogReport
 
 logger: logging.Logger = logging.getLogger(__name__)
 
-MAX_WORKERS = 100
-
 
 class TableInfoWithGeneration(TableInfo):
     generation: Optional[int] = None
