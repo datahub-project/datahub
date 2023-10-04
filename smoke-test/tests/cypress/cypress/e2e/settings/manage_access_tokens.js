@@ -24,13 +24,13 @@ describe("manage access tokens", () => {
       cy.loginWithCredentials();
       cy.goToAccessTokenSettings();
       cy.clickOptionWithTestId("add-token-button");
-      cy.enterTextInTestId("token-name", "Token Name" + test_id);
-      cy.enterTextInTestId("token-description", "Token Description" + test_id);
-      cy.clickOptionWithTestId("create-token-button");
+      cy.enterTextInTestId("create-access-token-name", "Token Name" + test_id);
+      cy.enterTextInTestId("create-access-token-description", "Token Description" + test_id);
+      cy.clickOptionWithTestId("create-access-token-button");
       cy.waitTextVisible("New Personal Access Token");
-      cy.get('[data-testid="access-token"]').should("be.visible");
-      cy.get('[data-testid="access-token"]').invoke('text').should('match', /^[a-zA-Z0-9-_]+\.[a-zA-Z0-9-_]+\.[a-zA-Z0-9-_]+$/);
-      cy.clickOptionWithTestId("close-button");
+      cy.get('[data-testid="access-token-value"]').should("be.visible");
+      cy.get('[data-testid="access-token-value"]').invoke('text').should('match', /^[a-zA-Z0-9-_]+\.[a-zA-Z0-9-_]+\.[a-zA-Z0-9-_]+$/);
+      cy.clickOptionWithTestId("access-token-modal-close-button");
       //revoke access token, verify token removed from ui
       cy.waitTextVisible("Token Name" + test_id);
       cy.waitTextVisible("Token Description" + test_id);
