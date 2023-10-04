@@ -4,12 +4,11 @@ from unittest.mock import Mock
 import pytest
 from sqlalchemy.engine.reflection import Inspector
 
-from datahub.ingestion.source.sql.sql_common import (
-    PipelineContext,
-    SQLAlchemySource,
+from datahub.ingestion.source.sql.sql_common import PipelineContext, SQLAlchemySource
+from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
+from datahub.ingestion.source.sql.sqlalchemy_uri_mapper import (
     get_platform_from_sqlalchemy_uri,
 )
-from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 
 
 class _TestSQLAlchemyConfig(SQLCommonConfig):
