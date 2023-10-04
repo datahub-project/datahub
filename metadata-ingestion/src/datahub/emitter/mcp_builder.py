@@ -8,6 +8,7 @@ from datahub.emitter.mce_builder import (
     make_container_urn,
     make_data_platform_urn,
     make_dataplatform_instance_urn,
+    make_dataset_urn_with_platform_instance,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -111,6 +112,17 @@ class FolderKey(ContainerKey):
 
 class BucketKey(ContainerKey):
     bucket_name: str
+
+
+class NotebookKey(DatahubKey):
+    notebook_id: int
+    platform: str
+    instance: Optional[str]
+
+    def as_urn(self) -> str:
+        return make_dataset_urn_with_platform_instance(
+            platform=self.platform, platform_instance=self.instance, name=self.guid()
+        )
 
 
 KeyType = TypeVar("KeyType", bound=ContainerKey)

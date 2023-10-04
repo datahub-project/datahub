@@ -85,7 +85,7 @@ source:
   type: "file"
   config:
     # path to json file
-    filename: "metadata-ingestion/examples/ownership/ownership_type.json"
+    path: "metadata-ingestion/examples/ownership/ownership_type.json"
 
 # see https://datahubproject.io/docs/metadata-ingestion/sink_docs/datahub for complete documentation
 sink:

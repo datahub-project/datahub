@@ -36,7 +36,9 @@ from datahub.cli.cli_utils import get_boolean_env_variable
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.emitter.serialization_helper import pre_json_transform
-from datahub.ingestion.source.sql.sql_common import get_platform_from_sqlalchemy_uri
+from datahub.ingestion.source.sql.sqlalchemy_uri_mapper import (
+    get_platform_from_sqlalchemy_uri,
+)
 from datahub.metadata.com.linkedin.pegasus2avro.assertion import (
     AssertionInfo,
     AssertionResult,
