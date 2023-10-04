@@ -1188,9 +1188,15 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         ):
             aspects.append(meta_aspects.get(Constants.ADD_TERM_OPERATION))
 
+        # add meta links aspect
+        meta_links_aspect = meta_aspects.get(Constants.ADD_DOC_LINK_OPERATION)
+        if meta_links_aspect and self.config.enable_meta_mapping:
+            aspects.append(meta_links_aspect)
+
         # add schema metadata aspect
         schema_metadata = self.get_schema_metadata(self.report, node, mce_platform)
         aspects.append(schema_metadata)
+
         return aspects
 
     def get_schema_metadata(
