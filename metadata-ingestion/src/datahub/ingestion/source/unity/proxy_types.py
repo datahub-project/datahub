@@ -175,7 +175,6 @@ class Table(CommonProperty):
     columns: List[Column]
     storage_location: Optional[str]
     data_source_format: Optional[DataSourceFormat]
-    comment: Optional[str]
     table_type: TableType
     owner: Optional[str]
     generation: Optional[int]
