@@ -16,7 +16,7 @@ import { EntityType, FacetFilterInput } from '../../types.generated';
 import analytics, { EventType } from '../analytics';
 import { HeaderLinks } from '../shared/admin/HeaderLinks';
 import { ANTD_GRAY } from '../entity/shared/constants';
-import { useAppConfig, useIsShowAcrylInfoEnabled } from '../useAppConfig';
+import { useAppConfig, useIsShowAcrylInfoEnabled, useIsShowSlackHelpButtonEnabled } from '../useAppConfig';
 import { DEFAULT_APP_CONFIG } from '../../appConfigContext';
 import { HOME_PAGE_SEARCH_BAR_ID } from '../onboarding/config/HomePageOnboardingConfig';
 import { useQuickFiltersContext } from '../../providers/QuickFiltersContext';
@@ -24,6 +24,7 @@ import { getAutoCompleteInputFromQuickFilter } from '../search/utils/filterUtils
 import { useUserContext } from '../context/useUserContext';
 import AcrylDemoBanner from './AcrylDemoBanner';
 import DemoButton from '../entity/shared/components/styled/DemoButton';
+import SlackButton from '../entity/shared/components/styled/SlackButton';
 
 const Background = styled.div`
     width: 100%;
@@ -150,6 +151,7 @@ export const HomePageHeader = () => {
     const [newSuggestionData, setNewSuggestionData] = useState<GetAutoCompleteMultipleResultsQuery | undefined>();
     const { selectedQuickFilter } = useQuickFiltersContext();
     const showAcrylInfo = useIsShowAcrylInfoEnabled();
+    const showSlackHelpButton = useIsShowSlackHelpButtonEnabled();
     const { user } = userContext;
     const viewUrn = userContext.localState?.selectedViewUrn;
     const viewsEnabled = appConfig.config?.viewsConfig?.enabled || false;
@@ -248,6 +250,7 @@ export const HomePageHeader = () => {
                         name={(user && entityRegistry.getDisplayName(EntityType.CorpUser, user)) || undefined}
                     />
                     {showAcrylInfo && <DemoButton />}
+                    {showSlackHelpButton && <SlackButton />}
                 </NavGroup>
             </Row>
             <HeaderContainer>
