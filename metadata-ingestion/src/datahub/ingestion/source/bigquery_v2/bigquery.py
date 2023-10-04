@@ -458,7 +458,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                     platform=self.platform,
                     platform_instance=self.config.platform_instance,
                     env=self.config.env,
-                )[0]
+                )
             else:
                 logger.warning(
                     "Failed to load schema info from DataHub as DataHubGraph is missing.",
@@ -600,9 +600,6 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         db_views: Dict[str, List[BigqueryView]] = {}
 
         project_id = bigquery_project.id
-
-        yield from self.gen_project_id_containers(project_id)
-
         try:
             bigquery_project.datasets = (
                 self.bigquery_data_dictionary.get_datasets_for_project_id(project_id)
@@ -619,10 +616,22 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             return None
 
         if len(bigquery_project.datasets) == 0:
-            logger.warning(
-                f"No dataset found in {project_id}. Either there are no datasets in this project or missing bigquery.datasets.get permission. You can assign predefined roles/bigquery.metadataViewer role to your service account."
+            more_info = (
+                "Either there are no datasets in this project or missing bigquery.datasets.get permission. "
+                "You can assign predefined roles/bigquery.metadataViewer role to your service account."
             )
+            if self.config.exclude_empty_projects:
+                self.report.report_dropped(project_id)
+                warning_message = f"Excluded project '{project_id}' since no were datasets found. {more_info}"
+            else:
+                yield from self.gen_project_id_containers(project_id)
+                warning_message = (
+                    f"No datasets found in project '{project_id}'. {more_info}"
+                )
+            logger.warning(warning_message)
             return
+
+        yield from self.gen_project_id_containers(project_id)
 
         self.report.num_project_datasets_to_scan[project_id] = len(
             bigquery_project.datasets

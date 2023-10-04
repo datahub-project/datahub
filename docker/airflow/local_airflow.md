@@ -1,6 +1,6 @@
 :::caution
 
-This feature is currently unmaintained. As of 0.10.0 the container described is not published alongside the DataHub CLI. If you'd like to use it, please reach out to us on the [community slack.](docs/slack.md)
+This guide is currently unmaintained. As of 0.10.0 the container described is not published alongside the DataHub CLI. If you'd like to use it, please reach out to us on the [community slack.](docs/slack.md)
 
 :::
 
