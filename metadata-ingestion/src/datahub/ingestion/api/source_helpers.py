@@ -1,5 +1,5 @@
+import copy
 import logging
-from copy import deepcopy
 from datetime import datetime, timezone
 from typing import (
     TYPE_CHECKING,
@@ -394,7 +394,8 @@ def auto_incremental_lineage(
                 set_aspect(
                     wu.metadata, None, UpstreamLineageClass
                 )  # we'll emit upstreamLineage separately below
-                yield wu
+                if len(wu.metadata.proposedSnapshot.aspects) > 0:
+                    yield wu
 
             yield _lineage_wu_via_read_modify_write(
                 graph, urn, lineage_aspect
@@ -430,19 +431,24 @@ def _lineage_wu_via_read_modify_write(
         )
     gms_aspect = graph.get_aspect(urn, UpstreamLineageClass)
     if gms_aspect:
-        new_aspect = deepcopy(gms_aspect)
+        new_aspect = copy.deepcopy(gms_aspect)
         for table_upstream in aspect.upstreams:
             if table_upstream not in gms_aspect.upstreams:
+                # TODO: keep unique entries only - update only timestamp if same entry
+                # unique key -> upstream.dataset
                 new_aspect.upstreams.append(table_upstream)
 
         if aspect.fineGrainedLineages and new_aspect.fineGrainedLineages:
             for column_upstream in aspect.fineGrainedLineages:
+                # TODO: keep unique entries only - update only timestamp if same entry
+                # unique key -> (fineGrainedLineage.upstreams, fineGrainedLineage.downstreams)
                 if column_upstream not in new_aspect.fineGrainedLineages:
                     new_aspect.fineGrainedLineages.append(column_upstream)
         else:
             new_aspect.fineGrainedLineages = (
                 aspect.fineGrainedLineages or gms_aspect.fineGrainedLineages
             )
+    else:
         new_aspect = aspect
 
     return MetadataChangeProposalWrapper(entityUrn=urn, aspect=new_aspect).as_workunit()
