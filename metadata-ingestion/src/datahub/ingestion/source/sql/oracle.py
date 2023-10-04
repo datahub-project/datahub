@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Iterable, List, NoReturn, Optional, Tuple, cast
+from typing import Any, Iterable, List, Dict, NoReturn, Optional, Tuple, cast
 from unittest.mock import patch
 import re
 
@@ -64,23 +64,12 @@ def class_usage_notification(cls, func):
     return _wrapper
 
 
-def inspector_wraper_usage_notificcation(dec):
-    def _decorator(cls):
-        for attr in cls.__dict__:
-            if not attr.startswith('__') and callable(getattr(cls, attr)):
-                setattr(cls, attr, dec(cls, getattr(cls, attr)))
-        return cls
-
-    return _decorator
-
-
 class OracleConfig(BasicSQLAlchemyConfig):
     # defaults
     scheme: str = Field(
         default="oracle+cx_oracle",
         description="Will be set automatically to default value.",
     )
-
     service_name: Optional[str] = Field(
         default=None, description="Oracle service name. If using, omit `database`."
     )
@@ -91,10 +80,11 @@ class OracleConfig(BasicSQLAlchemyConfig):
         default=False,
         description="Add oracle database name to urn, default urn is schema.table",
     )
-    # custom
+    #custom
     data_dictionary_mode: Optional[str] = Field(
         default='ALL',
-        description="The data dictionary views mode, to extract information about schema objects ('All' and 'DBA' views are supported). (https://docs.oracle.com/cd/E11882_01/nav/catalog_views.htm)"
+        description="The data dictionary views mode, to extract information about schema objects "
+        "('ALL' and 'DBA' views are supported). (https://docs.oracle.com/cd/E11882_01/nav/catalog_views.htm)"
     )
 
     @pydantic.validator("service_name")
@@ -132,7 +122,6 @@ class OracleConfig(BasicSQLAlchemyConfig):
             return regular
 
 
-@inspector_wraper_usage_notificcation(class_usage_notification)
 class OracleInspectorObjectWrapper:
     """
     Inspector class wrapper, which queries DBA_TABLES instead of ALL_TABLES
@@ -144,147 +133,6 @@ class OracleInspectorObjectWrapper:
         # tables that we don't want to ingest into the DataHub
         self.exclude_tablespaces: Tuple[str, str] = ("SYSTEM", "SYSAUX")
 
-    def has_table(self, table_name, schema=None):
-        schema = self._inspector_instance.dialect.denormalize_name(schema or self.default_schema_name)
-
-        if schema is None:
-            schema = self._inspector_instance.dialect.default_schema_name
-
-        cursor = self._inspector_instance.bind.execute(
-            sql.text("SELECT table_name FROM dba_tables "
-                     "WHERE table_name = CAST(:name AS VARCHAR2(128)) "
-                     "AND owner = CAST(:schema_name AS VARCHAR2(128))"
-                     ),
-            dict(
-                name=self._inspector_instance.dialect.denormalize_name(table_name),
-                schema_name=self._inspector_instance.dialect.denormalize_name(schema)
-            )
-        )
-
-        return cursor.first() is not None
-
-    def has_sequence(self, sequence_name, schema=None):
-        schema = self._inspector_instance.dialect.denormalize_name(schema or self.default_schema_name)
-
-        if schema is None:
-            schema = self._inspector_instance.dialect.default_schema_name
-
-        cursor = self._inspector_instance.bind.execute(
-            sql.text(
-                "SELECT sequence_name FROM dba_sequences "
-                "WHERE sequence_name = :name AND "
-                "sequence_owner = :schema_name"
-            ),
-            dict(
-                name=self._inspector_instance.dialect.denormalize_name(sequence_name),
-                schema_name=self._inspector_instance.dialect.denormalize_name(schema)
-            )
-        )
-
-        return cursor.first() is not None
-
-    def _resolve_synonym(
-            self,
-            desired_owner=None,
-            desired_synonym=None,
-            desired_table=None,
-    ):
-        """search for a local synonym matching the given desired owner/name.
-
-        if desired_owner is None, attempts to locate a distinct owner.
-
-        returns the actual name, owner, dblink name, and synonym name if
-        found.
-        """
-
-        q = (
-            "SELECT owner, table_owner, table_name, db_link, "
-            "synonym_name FROM dba_synonyms WHERE "
-        )
-        clauses = []
-        params = {}
-        if desired_synonym:
-            clauses.append(
-                "synonym_name = CAST(:synonym_name AS VARCHAR2(128))"
-            )
-            params["synonym_name"] = desired_synonym
-        if desired_owner:
-            clauses.append("owner = CAST(:desired_owner AS VARCHAR2(128))")
-            params["desired_owner"] = desired_owner
-        if desired_table:
-            clauses.append("table_name = CAST(:tname AS VARCHAR2(128))")
-            params["tname"] = desired_table
-
-        q += " AND ".join(clauses)
-
-        result = self._inspector_instance.bind.execution_options(future_result=True).execute(sql.text(q), params)
-
-        if desired_owner:
-            row = result.mappings().first()
-            if row:
-                return (
-                    row["table_name"],
-                    row["table_owner"],
-                    row["db_link"],
-                    row["synonym_name"],
-                )
-            else:
-                return None, None, None, None
-        else:
-            rows = result.mappings().all()
-            if len(rows) > 1:
-                raise AssertionError(
-                    "There are multiple tables visible to the schema, you "
-                    "must specify owner"
-                )
-            elif len(rows) == 1:
-                row = rows[0]
-                return (
-                    row["table_name"],
-                    row["table_owner"],
-                    row["db_link"],
-                    row["synonym_name"],
-                )
-            else:
-                return None, None, None, None
-
-    def _prepare_reflection_args(
-            self,
-            table_name,
-            schema=None,
-            resolve_synonyms=False,
-            dblink="",
-            **kw
-    ):
-
-        if resolve_synonyms:
-            actual_name, owner, dblink, synonym = self._resolve_synonym(
-                desired_owner=self._inspector_instance.dialect.denormalize_name(schema),
-                desired_synonym=self._inspector_instance.dialect.denormalize_name(table_name)
-            )
-        else:
-            actual_name, owner, dblink, synonym = None, None, None, None
-        if not actual_name:
-            actual_name = self._inspector_instance.dialect.denormalize_name(table_name)
-
-        if dblink:
-            # using user_db_links here since all_db_links appears
-            # to have more restricted permissions.
-            # https://docs.oracle.com/cd/B28359_01/server.111/b28310/ds_admin005.htm
-            # will need to hear from more users if we are doing
-            # the right thing here.  See [ticket:2619]
-            owner = self._inspector_instance.bind.scalar(
-                sql.text("SELECT username FROM user_db_links " "WHERE db_link=:link"),
-                dict(link=dblink)
-            )
-
-            dblink = "@" + dblink
-        elif not owner:
-            owner = self._inspector_instance.dialect.denormalize_name(
-                schema or self._inspector_instance.dialect.default_schema_name)
-
-        return actual_name, owner, dblink or "", synonym
-
     def get_schema_names(self) -> List[str]:
         cursor = self._inspector_instance.bind.execute(sql.text("SELECT username FROM dba_users ORDER BY username"))
 
@@ -295,7 +143,7 @@ class OracleInspectorObjectWrapper:
         ]
 
     def get_table_names(
-            self, schema: Optional[str] = None, order_by: Optional[str] = None
+            self, schema: Optional[str] = None
     ) -> List[str]:
         """
         skip order_by, we are not using order_by
@@ -322,31 +170,9 @@ class OracleInspectorObjectWrapper:
             for row in cursor
         ]
 
-    def get_temp_table_names(self, **kw):
-
-        schema = self._inspector_instance.dialect.denormalize_name(self._inspector_instance.dialect.default_schema_name)
-
-        sql_str = "SELECT table_name FROM dba_tables WHERE "
-        if self.exclude_tablespaces:
-            sql_str += (
-                    "nvl(tablespace_name, 'no tablespace') "
-                    "NOT IN (%s) AND "
-                    % (", ".join(["'%s'" % ts for ts in self.exclude_tablespaces]))
-            )
-        sql_str += (
-            "OWNER = :owner "
-            "AND IOT_NAME IS NULL "
-            "AND DURATION IS NOT NULL"
-        )
-
-        cursor = self._inspector_instance.bind.execute(sql.text(sql_str), dict(owner=schema))
-        return [
-            self._inspector_instance.dialect.normalize_name(row[0])
-            or _raise_err(ValueError(f"Invalid table name: {row[0]}"))
-            for row in cursor
-        ]
-
-    def get_view_names(self, schema=None, **kw):
+    def get_view_names(
+            self, schema: Optional[str] = None
+    ) -> List[str]:
 
         schema = self._inspector_instance.dialect.denormalize_name(schema or self.default_schema_name)
 
@@ -364,98 +190,16 @@ class OracleInspectorObjectWrapper:
             for row in cursor
         ]
 
-    def get_sequence_names(self, schema=None, **kw):
+    def get_columns(
+            self, table_name: str, schema: str = None, dblink: str = ''
+    ) -> List[dict]:
 
+        table_name = self._inspector_instance.dialect.denormalize_name(table_name)
         schema = self._inspector_instance.dialect.denormalize_name(schema or self.default_schema_name)
 
         if schema is None:
             schema = self._inspector_instance.dialect.default_schema_name
 
-        cursor = self._inspector_instance.bind.execute(
-            sql.text(
-                "SELECT sequence_name FROM dba_sequences "
-                "WHERE sequence_owner = :schema_name"
-            ),
-            dict(schema_name=self._inspector_instance.dialect.denormalize_name(schema))
-        )
-
-        return [
-            self._inspector_instance.dialect.normalize_name(row[0])
-            or _raise_err(ValueError(f"Invalid table name: {row[0]}"))
-            for row in cursor
-        ]
-
-    def get_table_options(self, table_name, schema=None, **kw):
-        options = {}
-
-        resolve_synonyms = kw.get("oracle_resolve_synonyms", False)
-        dblink = kw.get("dblink", "")
-        info_cache = kw.get("info_cache")
-
-        (table_name, schema, dblink, synonym) = self._prepare_reflection_args(
-            table_name,
-            schema,
-            resolve_synonyms,
-            dblink,
-            info_cache=info_cache,
-        )
-
-        params = {"table_name": table_name}
-
-        columns = ["table_name"]
-        if self._inspector_instance.dialect._supports_table_compression:
-            columns.append("compression")
-        if self._inspector_instance.dialect._supports_table_compress_for:
-            columns.append("compress_for")
-
-        text = (
-            "SELECT %(columns)s "
-            "FROM DBA_TABLES%(dblink)s "
-            "WHERE table_name = CAST(:table_name AS VARCHAR(128))"
-        )
-
-        if schema is not None:
-            params["owner"] = schema
-            text += " AND owner = CAST(:owner AS VARCHAR(128)) "
-        text = text % {"dblink": dblink, "columns": ", ".join(columns)}
-
-        result = self._inspector_instance.bind.execute(sql.text(text), params)
-
-        enabled = dict(DISABLED=False, ENABLED=True)
-
-        row = result.first()
-        if row:
-            if "compression" in row._fields and enabled.get(
-                    row.compression, False
-            ):
-                if "compress_for" in row._fields:
-                    options["oracle_compress"] = row.compress_for
-                else:
-                    options["oracle_compress"] = True
-
-        return options
-
-    def get_columns(self, table_name, schema=None, **kw):
-        """
-
-        kw arguments can be:
-
-            oracle_resolve_synonyms
-
-            dblink
-
-        """
-        resolve_synonyms = kw.get("oracle_resolve_synonyms", False)
-        dblink = kw.get("dblink", "")
-        info_cache = kw.get("info_cache")
-
-        (table_name, schema, dblink, synonym) = self._prepare_reflection_args(
-            table_name,
-            schema,
-            resolve_synonyms,
-            dblink,
-            info_cache=info_cache,
-        )
         columns = []
         if self._inspector_instance.dialect._supports_char_length:
             char_length_col = "char_length"
@@ -579,23 +323,9 @@ class OracleInspectorObjectWrapper:
         return columns
 
     def get_table_comment(
-            self,
-            table_name,
-            schema=None,
-            resolve_synonyms=False,
-            dblink="",
-            **kw
-    ):
-
-        info_cache = kw.get("info_cache")
-        (table_name, schema, dblink, synonym) = self._prepare_reflection_args(
-            table_name,
-            schema,
-            resolve_synonyms,
-            dblink,
-            info_cache=info_cache,
-        )
-
+            self, table_name: str, schema: str = None
+    ) -> Dict:
+        table_name = self._inspector_instance.dialect.denormalize_name(table_name)
         schema = self._inspector_instance.dialect.denormalize_name(schema or self.default_schema_name)
 
         if schema is None:
@@ -615,106 +345,9 @@ class OracleInspectorObjectWrapper:
 
         return {"text": c.scalar()}
 
-    def get_indexes(
-            self,
-            table_name,
-            schema=None,
-            resolve_synonyms=False,
-            dblink="",
-            **kw
-    ):
-        info_cache = kw.get("info_cache")
-        (table_name, schema, dblink, synonym) = self._prepare_reflection_args(
-            table_name,
-            schema,
-            resolve_synonyms,
-            dblink,
-            info_cache=info_cache,
-        )
-        indexes = []
-
-        params = {"table_name": table_name}
-        text = (
-            "SELECT a.index_name, a.column_name, "
-            "\nb.index_type, b.uniqueness, b.compression, b.prefix_length "
-            "\nFROM DBA_IND_COLUMNS%(dblink)s a, "
-            "\nDBA_INDEXES%(dblink)s b "
-            "\nWHERE "
-            "\na.index_name = b.index_name "
-            "\nAND a.table_owner = b.table_owner "
-            "\nAND a.table_name = b.table_name "
-            "\nAND a.table_name = CAST(:table_name AS VARCHAR(128))"
-        )
-
-        if schema is not None:
-            params["schema"] = schema
-            text += "AND a.table_owner = :schema "
-
-        text += "ORDER BY a.index_name, a.column_position"
-
-        text = text % {"dblink": dblink}
-
-        q = sql.text(text)
-        rp = self._inspector_instance.bind.execute(q, params)
-        last_index_name = None
-        pk_constraint = self.get_pk_constraint(
-            table_name,
-            schema,
-            resolve_synonyms=resolve_synonyms,
-            dblink=dblink,
-            info_cache=kw.get("info_cache"),
-        )
-
-        uniqueness = dict(NONUNIQUE=False, UNIQUE=True)
-        enabled = dict(DISABLED=False, ENABLED=True)
-
-        oracle_sys_col = re.compile(r"SYS_NC\d+\$", re.IGNORECASE)
-
-        index = None
-        for rset in rp:
-            index_name_normalized = self._inspector_instance.dialect.normalize_name(rset.index_name)
-
-            # skip primary key index.  This is refined as of
-            # [ticket:5421].  Note that ALL_INDEXES.GENERATED will by "Y"
-            # if the name of this index was generated by Oracle, however
-            # if a named primary key constraint was created then this flag
-            # is false.
-            if (
-                    pk_constraint
-                    and index_name_normalized == pk_constraint["name"]
-            ):
-                continue
-
-            if rset.index_name != last_index_name:
-                index = dict(
-                    name=index_name_normalized,
-                    column_names=[],
-                    dialect_options={},
-                )
-                indexes.append(index)
-            index["unique"] = uniqueness.get(rset.uniqueness, False)
-
-            if rset.index_type in ("BITMAP", "FUNCTION-BASED BITMAP"):
-                index["dialect_options"]["oracle_bitmap"] = True
-            if enabled.get(rset.compression, False):
-                index["dialect_options"][
-                    "oracle_compress"
-                ] = rset.prefix_length
-
-            # filter out Oracle SYS_NC names.  could also do an outer join
-            # to the all_tab_columns table and check for real col names there.
-            if not oracle_sys_col.match(rset.column_name):
-                index["column_names"].append(
-                    self._inspector_instance.dialect.normalize_name(rset.column_name)
-                )
-            last_index_name = rset.index_name
-
-        return indexes
-
     def _get_constraint_data(
-            self, table_name, schema=None, dblink="", **kw
-    ):
-
+            self, table_name: str, schema: str = None, dblink: str = ''
+    ) -> List[tuple]:
         params = {"table_name": table_name}
 
         text = (
@@ -754,26 +387,21 @@ class OracleInspectorObjectWrapper:
         constraint_data = rp.fetchall()
         return constraint_data
 
-    def get_pk_constraint(self, table_name, schema=None, **kw):
+    def get_pk_constraint(
+            self, table_name: str, schema: str = None, dblink: str = ''
+    ) -> Dict:
+        table_name = self._inspector_instance.dialect.denormalize_name(table_name)
+        schema = self._inspector_instance.dialect.denormalize_name(schema or self.default_schema_name)
 
-        resolve_synonyms = kw.get("oracle_resolve_synonyms", False)
-        dblink = kw.get("dblink", "")
-        info_cache = kw.get("info_cache")
+        if schema is None:
+            schema = self._inspector_instance.dialect.default_schema_name
 
-        (table_name, schema, dblink, synonym) = self._prepare_reflection_args(
-            table_name,
-            schema,
-            resolve_synonyms,
-            dblink,
-            info_cache=info_cache,
-        )
         pkeys = []
         constraint_name = None
         constraint_data = self._get_constraint_data(
             table_name,
             schema,
-            dblink,
-            info_cache=kw.get("info_cache"),
+            dblink
         )
 
         for row in constraint_data:
@@ -792,35 +420,22 @@ class OracleInspectorObjectWrapper:
 
         return {"constrained_columns": pkeys, "name": constraint_name}
 
-    def get_foreign_keys(self, connection, table_name, schema=None, **kw):
-        """
+    def get_foreign_keys(
+            self, table_name: str, schema: str = None, dblink: str = ''
+    ) -> List:
 
-        kw arguments can be:
+        table_name = self._inspector_instance.dialect.denormalize_name(table_name)
+        schema = self._inspector_instance.dialect.denormalize_name(schema or self.default_schema_name)
 
-            oracle_resolve_synonyms
-
-            dblink
-
-        """
+        if schema is None:
+            schema = self._inspector_instance.dialect.default_schema_name
 
         requested_schema = schema  # to check later on
-        resolve_synonyms = kw.get("oracle_resolve_synonyms", False)
-        dblink = kw.get("dblink", "")
-        info_cache = kw.get("info_cache")
-
-        (table_name, schema, dblink, synonym) = self._prepare_reflection_args(
-            table_name,
-            schema,
-            resolve_synonyms,
-            dblink,
-            info_cache=info_cache,
-        )
 
         constraint_data = self._get_constraint_data(
             table_name,
             schema,
-            dblink,
-            info_cache=kw.get("info_cache"),
+            dblink
         )
 
         def fkey_rec():
@@ -868,25 +483,7 @@ class OracleInspectorObjectWrapper:
                 )
 
                 if not rec["referred_table"]:
-                    if resolve_synonyms:
-                        (
-                            ref_remote_name,
-                            ref_remote_owner,
-                            ref_dblink,
-                            ref_synonym,
-                        ) = self._resolve_synonym(
-                            connection,
-                            desired_owner=self._inspector_instance.dialect.denormalize_name(remote_owner),
-                            desired_table=self._inspector_instance.dialect.denormalize_name(remote_table),
-                        )
-                        if ref_synonym:
-                            remote_table = self._inspector_instance.dialect.normalize_name(ref_synonym)
-                            remote_owner = self._inspector_instance.dialect.normalize_name(
-                                ref_remote_owner
-                            )
-
                     rec["referred_table"] = remote_table
-
                     if (
                             requested_schema is not None
                             or self._inspector_instance.dialect.denormalize_name(remote_owner) != schema
@@ -902,22 +499,13 @@ class OracleInspectorObjectWrapper:
         return list(fkeys.values())
 
     def get_view_definition(
-            self,
-            view_name,
-            schema=None,
-            resolve_synonyms=False,
-            dblink="",
-            **kw
-    ):
+            self, view_name: str, schema: str = None
+    ) -> str | None:
+        view_name = self._inspector_instance.dialect.denormalize_name(view_name)
+        schema = self._inspector_instance.dialect.denormalize_name(schema or self.default_schema_name)
 
-        info_cache = kw.get("info_cache")
-        (view_name, schema, dblink, synonym) = self._prepare_reflection_args(
-            view_name,
-            schema,
-            resolve_synonyms,
-            dblink,
-            info_cache=info_cache,
-        )
+        if schema is None:
+            schema = self._inspector_instance.dialect.default_schema_name
 
         params = {"view_name": view_name}
         text = "SELECT text FROM dba_views WHERE view_name=:view_name"
@@ -933,37 +521,6 @@ class OracleInspectorObjectWrapper:
             return rp
         else:
             return None
-
-    def get_check_constraints(
-            self, table_name, schema=None, include_all=False, **kw
-    ):
-
-        resolve_synonyms = kw.get("oracle_resolve_synonyms", False)
-        dblink = kw.get("dblink", "")
-        info_cache = kw.get("info_cache")
-
-        (table_name, schema, dblink, synonym) = self._prepare_reflection_args(
-            table_name,
-            schema,
-            resolve_synonyms,
-            dblink,
-            info_cache=info_cache,
-        )
-
-        constraint_data = self._get_constraint_data(
-            table_name,
-            schema,
-            dblink,
-            info_cache=kw.get("info_cache"),
-        )
-
-        check_constraints = filter(lambda x: x[1] == "C", constraint_data)
-
-        return [
-            {"name": self._inspector_instance.dialect.normalize_name(cons[0]), "sqltext": cons[8]}
-            for cons in check_constraints
-            if include_all or not re.match(r"..+?. IS NOT NULL$", cons[8])
-        ]
 
     def __getattr__(self, item: str) -> Any:
         # Map method call to wrapper class
@@ -1003,7 +560,9 @@ class OracleSource(SQLAlchemySource):
                 inspector.engine, "before_cursor_execute", before_cursor_execute
             )
             logger.info(f'Data dictionary mode is: "{self.config.data_dictionary_mode}".')
-            if self.config.data_dictionary_mode != OracleConfig.__fields__.get("data_dictionary_mode").default:
+            # Sqlalchemy inspector uses ALL_* tables as per oracle dialect implementation.
+            # OracleInspectorObjectWrapper provides alternate implementation using DBA_* tables.
+            if self.config.data_dictionary_mode != "ALL":
                 yield cast(Inspector, OracleInspectorObjectWrapper(inspector))
             # To silent the mypy lint error
             yield cast(Inspector, inspector)
