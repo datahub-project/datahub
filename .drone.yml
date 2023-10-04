@@ -1,0 +1,87 @@
+kind: pipeline
+name: default
+
+anchors:
+  build_frontend: &build_frontend
+    image: gradle:jdk11
+    commands:
+      - cd "/drone/src/$${ENVIRONMENT}"
+      - sed -i "s/<AMPLITUDE_API_KEY>/$AMPLITUDE_API_KEY/g" datahub-web-react/src/conf/analytics.ts
+      - cat datahub-web-react/src/conf/analytics.ts
+      - ./gradlew :datahub-frontend:dist -x test -x yarnTest -x yarnLint --parallel
+      - ls -la ./datahub-frontend/build/distributions/
+      - mv ./datahub-frontend/build/distributions/datahub-frontend-*.zip datahub-frontend.zip
+    depends_on:
+      - setup 
+
+  docker_build_config: &docker_build_config
+    image: plugins/ecr
+    environment:
+      ARTIFACTORY_PASSWORD:
+        from_secret: ARTIFACTORY_PASSWORD
+      ARTIFACTORY_USER:
+        from_secret: ARTIFACTORY_USER
+      GITHUB_TOKEN:
+        from_secret: GITHUB_TOKEN
+    settings:
+      create_repository: true
+      region: eu-west-1
+      assume_role: arn:aws:iam::131063299351:role/automation-drone
+      repository_policy: .ecr-repository-policy.json
+      repo: datahub-frontend 
+      custom_labels:
+      - "org.fundingcircle.image.manager=data-platform@fundingcircle.com"
+      cache_from:
+      - 131063299351.dkr.ecr.eu-west-1.amazonaws.com/datahub-frontend:${DRONE_BRANCH//\//-}
+      build_args_from_env:
+        - ARTIFACTORY_PASSWORD
+        - ARTIFACTORY_USER
+        - GITHUB_TOKEN
+
+  when_internal_branch: &when_internal_branch
+    when:
+      event: [push]
+      branch: [internal]
+
+steps:
+  - name: setup
+    image: ubuntu
+    commands:
+      - mv /drone/src/* /tmp/
+      - mkdir -p /drone/src/staging/ /drone/src/production/
+      - cp -r /tmp/* /drone/src/staging/
+      - cp -r /tmp/* /drone/src/production/
+
+  - name: build_frontend_staging
+    <<: *build_frontend
+    environment:
+      ENVIRONMENT: staging
+      AMPLITUDE_API_KEY: b46a366c22a2e7fb525ae99c14a693ec
+  
+  - name: build_frontend_production
+    <<: *build_frontend
+    environment:
+      ENVIRONMENT: production
+      AMPLITUDE_API_KEY: f0b9cf5c530426c3dbacb91e74f009a5
+
+  - name: docker_frontend_staging
+    <<: *docker_build_config
+    <<: *when_internal_branch
+    settings:
+      context: /drone/src/staging/
+      dockerfile: /drone/src/staging/docker/datahub-frontend/Dockerfile
+      tags:
+        - staging
+    depends_on:
+      - build_frontend_staging
+
+  - name: docker_frontend_production
+    <<: *docker_build_config
+    <<: *when_internal_branch
+    settings:
+      context: /drone/src/production/
+      dockerfile: /drone/src/production/docker/datahub-frontend/Dockerfile
+      tags:
+        - production 
+    depends_on:
+      - build_frontend_production
