@@ -78,6 +78,21 @@ def docker_compose_runner(
 def cleanup_image(image_name: str) -> None:
     assert ":" not in image_name, "image_name should not contain a tag"
 
+    images_proc = subprocess.run(
+        f"docker image ls --filter 'reference={image_name}*' -q",
+        shell=True,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+
+    if not images_proc.stdout:
+        logger.debug(f"No images to cleanup for {image_name}")
+        return
+
+    image_ids = images_proc.stdout.splitlines()
     subprocess.run(
-        f"docker rmi $(docker image ls --filter 'reference={image_name}*' -q)"
+        f"docker image rm {' '.join(image_ids)}",
+        shell=True,
+        check=True,
     )
