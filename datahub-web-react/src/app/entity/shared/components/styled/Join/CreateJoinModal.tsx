@@ -84,6 +84,21 @@ export const CreateJoinModal = ({
             className: 'cancel-modal',
             content: `Are you sure you want to exit?  The changes made to the join will not be applied.`,
             onOk() {
+                setJoinName(editJoin?.properties?.name || '');
+                setDetails(editJoin?.editableProperties?.description || '');
+                setTableData(
+                    editJoin?.properties?.joinFieldMapping?.fieldMappings?.map((item, index) => {
+                        return {
+                            key: index,
+                            field1Name: item.afield,
+                            field2Name: item.bfield,
+                        };
+                    }) || [
+                        { key: '0', field1Name: '', field2Name: '' },
+                        { key: '1', field1Name: '', field2Name: '' },
+                    ],
+                );
+                setCount(editJoin?.properties?.joinFieldMapping?.fieldMappings?.length || 2);
                 onCancel?.();
             },
             onCancel() {},
@@ -202,6 +217,13 @@ export const CreateJoinModal = ({
             updateJoin();
         } else {
             createJoin();
+            setJoinName('');
+            setDetails('');
+            setTableData([
+                { key: '0', field1Name: '', field2Name: '' },
+                { key: '1', field1Name: '', field2Name: '' },
+            ]);
+            setCount(2);
         }
         setModalVisible(false);
     };
