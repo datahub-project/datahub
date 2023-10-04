@@ -138,6 +138,23 @@ class DataHubGraph(DatahubRestEmitter):
             self.server_id = "missing"
             logger.debug(f"Failed to get server id due to {e}")
 
+    @classmethod
+    def from_emitter(cls, emitter: DatahubRestEmitter) -> "DataHubGraph":
+        return cls(
+            DatahubClientConfig(
+                server=emitter._gms_server,
+                token=emitter._token,
+                timeout_sec=emitter._read_timeout_sec,
+                retry_status_codes=emitter._retry_status_codes,
+                retry_max_times=emitter._retry_max_times,
+                extra_headers=emitter._session.headers,
+                disable_ssl_verification=emitter._session.verify is False,
+                # TODO: Support these headers.
+                # ca_certificate_path=emitter._ca_certificate_path,
+                # client_certificate_path=emitter._client_certificate_path,
+            )
+        )
+
     def _send_restli_request(self, method: str, url: str, **kwargs: Any) -> Dict:
         try:
             response = self._session.request(method, url, **kwargs)
