@@ -81,6 +81,7 @@ REDSHIFT = "redshift"
 DATABRICKS = "databricks"
 TRINO = "trino"
 
+# Type names for Databricks, to match Title Case types in sqlalchemy
 ProfilerTypeMapping.INT_TYPE_NAMES.append("Integer")
 ProfilerTypeMapping.INT_TYPE_NAMES.append("SmallInteger")
 ProfilerTypeMapping.INT_TYPE_NAMES.append("BigInteger")
