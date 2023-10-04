@@ -38,7 +38,7 @@ Follow these simple steps to understand the full dependency chain of your data e
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/impact-analysis-filter-dependencies.png"/>
 </p>
 
-4. Slice and dice the result list by Entity Type, Platfrom, Owner, and more to isolate the relevant dependencies
+4. Slice and dice the result list by Entity Type, Platform, Owner, and more to isolate the relevant dependencies
 
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/impact-analysis-apply-filters.png"/>
@@ -92,4 +92,4 @@ We currently limit the list of dependencies to 10,000 records; we suggest applyi
 
 ### Related Features
 
-* [DataHub Lineage](../lineage/lineage-feature-guide.md)
+* [DataHub Lineage](../generated/lineage/lineage-feature-guide.md)

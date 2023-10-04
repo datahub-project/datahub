@@ -20,6 +20,7 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
 )
 from tests.test_helpers import mce_helpers
 
+pytestmark = pytest.mark.slow
 FROZEN_TIME = "2022-02-03 07:00:00"
 
 

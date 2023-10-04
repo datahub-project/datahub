@@ -18,9 +18,7 @@ def get_long_description():
 
 
 base_requirements = {
-    # Typing extension should be >=3.10.0.2 ideally but we can't restrict due to Airflow 2.0.2 dependency conflict
-    "typing_extensions>=3.7.4.3 ;  python_version < '3.8'",
-    "typing_extensions>=3.10.0.2,<4.6.0 ;  python_version >= '3.8'",
+    "typing_extensions>=3.10.0.2",
     "mypy_extensions>=0.4.3",
     # Actual dependencies.
     "typing-inspect",
@@ -36,10 +34,11 @@ framework_common = {
     "click-default-group",
     "PyYAML",
     "toml>=0.10.0",
-    "entrypoints",
+    # In Python 3.10+, importlib_metadata is included in the standard library.
+    "importlib_metadata>=4.0.0; python_version < '3.10'",
     "docker",
     "expandvars>=0.6.5",
-    "avro-gen3==0.7.10",
+    "avro-gen3==0.7.11",
     # "avro-gen3 @ git+https://github.com/acryldata/avro_gen@master#egg=avro-gen3",
     "avro>=1.10.2,<1.11",
     "python-dateutil>=2.8.0",
@@ -138,7 +137,7 @@ sqllineage_lib = {
 sqlglot_lib = {
     # Using an Acryl fork of sqlglot.
     # https://github.com/tobymao/sqlglot/compare/main...hsheth2:sqlglot:hsheth?expand=1
-    "acryl-sqlglot==18.0.2.dev15",
+    "acryl-sqlglot==18.5.2.dev45",
 }
 
 aws_common = {
@@ -259,7 +258,7 @@ usage_common = {
 
 databricks = {
     # 0.1.11 appears to have authentication issues with azure databricks
-    "databricks-sdk>=0.1.1, <0.1.11",
+    "databricks-sdk>=0.1.1, != 0.1.11",
     "pyspark",
     "requests",
 }
@@ -345,6 +344,7 @@ plugins: Dict[str, Set[str]] = {
     "looker": looker_common,
     "lookml": looker_common,
     "metabase": {"requests"} | sqllineage_lib,
+    "mlflow": {"mlflow-skinny>=2.3.0"},
     "mode": {"requests", "tenacity>=8.0.1"} | sqllineage_lib,
     "mongodb": {"pymongo[srv]>=3.11", "packaging"},
     "mssql": sql_common | {"sqlalchemy-pytds>=0.3"},
@@ -404,7 +404,12 @@ mypy_stubs = {
     "types-pkg_resources",
     "types-six",
     "types-python-dateutil",
-    "types-requests>=2.28.11.6",
+    # We need to avoid 2.31.0.5 and 2.31.0.4 due to
+    # https://github.com/python/typeshed/issues/10764. Once that
+    # issue is resolved, we can remove the upper bound and change it
+    # to a != constraint.
+    # We have a PR up to fix the underlying issue: https://github.com/python/typeshed/pull/10776.
+    "types-requests>=2.28.11.6,<=2.31.0.3",
     "types-toml",
     "types-PyMySQL",
     "types-PyYAML",
@@ -425,7 +430,6 @@ mypy_stubs = {
     "types-termcolor>=1.0.0",
     "types-Deprecated",
     "types-protobuf>=4.21.0.1",
-    "types-tzlocal",
     "sqlalchemy2-stubs",
 }
 
@@ -466,6 +470,7 @@ base_dev_requirements = {
     *list(
         dependency
         for plugin in [
+            "athena",
             "bigquery",
             "clickhouse",
             "clickhouse-usage",
@@ -474,6 +479,7 @@ base_dev_requirements = {
             "elasticsearch",
             "feast" if sys.version_info >= (3, 8) else None,
             "iceberg" if sys.version_info >= (3, 8) else None,
+            "mlflow" if sys.version_info >= (3, 8) else None,
             "json-schema",
             "ldap",
             "looker",
@@ -487,6 +493,7 @@ base_dev_requirements = {
             "kafka",
             "datahub-rest",
             "datahub-lite",
+            "great-expectations",
             "presto",
             "redash",
             "redshift",
@@ -505,6 +512,7 @@ base_dev_requirements = {
             "nifi",
             "vertica",
             "mode",
+            "kafka-connect",
         ]
         if plugin
         for dependency in plugins[plugin]
@@ -524,6 +532,7 @@ full_test_dev_requirements = {
             "clickhouse",
             "delta-lake",
             "druid",
+            "feast" if sys.version_info >= (3, 8) else None,
             "hana",
             "hive",
             "iceberg" if sys.version_info >= (3, 8) else None,
@@ -573,6 +582,7 @@ entry_points = {
         "lookml = datahub.ingestion.source.looker.lookml_source:LookMLSource",
         "datahub-lineage-file = datahub.ingestion.source.metadata.lineage:LineageFileSource",
         "datahub-business-glossary = datahub.ingestion.source.metadata.business_glossary:BusinessGlossaryFileSource",
+        "mlflow = datahub.ingestion.source.mlflow:MLflowSource",
         "mode = datahub.ingestion.source.mode:ModeSource",
         "mongodb = datahub.ingestion.source.mongodb:MongoDBSource",
         "mssql = datahub.ingestion.source.sql.mssql:SQLServerSource",
@@ -627,6 +637,7 @@ entry_points = {
         "simple_add_dataset_properties = datahub.ingestion.transformer.add_dataset_properties:SimpleAddDatasetProperties",
         "pattern_add_dataset_schema_terms = datahub.ingestion.transformer.add_dataset_schema_terms:PatternAddDatasetSchemaTerms",
         "pattern_add_dataset_schema_tags = datahub.ingestion.transformer.add_dataset_schema_tags:PatternAddDatasetSchemaTags",
+        "extract_owners_from_tags = datahub.ingestion.transformer.extract_ownership_from_tags:ExtractOwnersFromTagsTransformer",
     ],
     "datahub.ingestion.sink.plugins": [
         "file = datahub.ingestion.sink.file:FileSink",
@@ -643,6 +654,7 @@ entry_points = {
         "datahub = datahub.ingestion.reporting.datahub_ingestion_run_summary_provider:DatahubIngestionRunSummaryProvider",
         "file = datahub.ingestion.reporting.file_reporter:FileReporter",
     ],
+    "datahub.custom_packages": [],
 }
 
 
@@ -709,6 +721,7 @@ setuptools.setup(
                 ]
             )
         ),
+        "cloud": ["acryl-datahub-cloud"],
         "dev": list(dev_requirements),
         "testing-utils": list(test_api_requirements),  # To import `datahub.testing`
         "integration-tests": list(full_test_dev_requirements),
