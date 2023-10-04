@@ -101,8 +101,8 @@ class SnowflakeV2Config(
     )
 
     include_view_column_lineage: bool = Field(
-        default=False,
-        description="Populates view->view and table->view column lineage.",
+        default=True,
+        description="Populates view->view and table->view column lineage using DataHub's sql parser.",
     )
 
     _check_role_grants_removed = pydantic_removed_field("check_role_grants")
