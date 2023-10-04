@@ -23,6 +23,7 @@ from databricks.sdk.service.sql import (
     QueryStatementType,
     QueryStatus,
 )
+from databricks.sdk.service.workspace import ObjectType
 
 import datahub
 from datahub.ingestion.source.unity.proxy_profiling import (
@@ -33,6 +34,7 @@ from datahub.ingestion.source.unity.proxy_types import (
     Catalog,
     Column,
     Metastore,
+    Notebook,
     Query,
     Schema,
     ServicePrincipal,
@@ -137,6 +139,21 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         for principal in self._workspace_client.service_principals.list():
             yield self._create_service_principal(principal)
 
+    def workspace_notebooks(self) -> Iterable[Notebook]:
+        for obj in self._workspace_client.workspace.list("/", recursive=True):
+            if obj.object_type == ObjectType.NOTEBOOK:
+                yield Notebook(
+                    id=obj.object_id,
+                    path=obj.path,
+                    language=obj.language,
+                    created_at=datetime.fromtimestamp(
+                        obj.created_at / 1000, tz=timezone.utc
+                    ),
+                    modified_at=datetime.fromtimestamp(
+                        obj.modified_at / 1000, tz=timezone.utc
+                    ),
+                )
+
     def query_history(
         self,
         start_time: datetime,
@@ -153,7 +170,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                     "start_time_ms": start_time.timestamp() * 1000,
                     "end_time_ms": end_time.timestamp() * 1000,
                 },
-                "statuses": [QueryStatus.FINISHED.value],
+                "statuses": [QueryStatus.FINISHED],
                 "statement_types": [typ.value for typ in ALLOWED_STATEMENT_TYPES],
             }
         )
@@ -196,61 +213,73 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                 method, path, body={**body, "page_token": response["next_page_token"]}
             )
 
-    def list_lineages_by_table(self, table_name: str) -> dict:
+    def list_lineages_by_table(
+        self, table_name: str, include_entity_lineage: bool
+    ) -> dict:
         """List table lineage by table name."""
         return self._workspace_client.api_client.do(
             method="GET",
-            path="/api/2.0/lineage-tracking/table-lineage/get",
-            body={"table_name": table_name},
+            path="/api/2.0/lineage-tracking/table-lineage",
+            body={
+                "table_name": table_name,
+                "include_entity_lineage": include_entity_lineage,
+            },
         )
 
     def list_lineages_by_column(self, table_name: str, column_name: str) -> dict:
         """List column lineage by table name and column name."""
         return self._workspace_client.api_client.do(
             "GET",
-            "/api/2.0/lineage-tracking/column-lineage/get",
+            "/api/2.0/lineage-tracking/column-lineage",
             body={"table_name": table_name, "column_name": column_name},
         )
 
-    def table_lineage(self, table: Table) -> None:
+    def table_lineage(self, table: Table, include_notebooks: bool) -> Optional[dict]:
         # Lineage endpoint doesn't exists on 2.1 version
         try:
             response: dict = self.list_lineages_by_table(
-                table_name=f"{table.schema.catalog.name}.{table.schema.name}.{table.name}"
+                table_name=table.ref.qualified_table_name,
+                include_entity_lineage=include_notebooks,
             )
-            table.upstreams = {
-                TableReference(
-                    table.schema.catalog.metastore.id,
-                    item["catalog_name"],
-                    item["schema_name"],
-                    item["name"],
-                ): {}
-                for item in response.get("upstream_tables", [])
-            }
+
+            for item in response.get("upstreams") or []:
+                if "tableInfo" in item:
+                    table_ref = TableReference.create_from_lineage(
+                        item["tableInfo"], table.schema.catalog.metastore.id
+                    )
+                    if table_ref:
+                        table.upstreams[table_ref] = {}
+                for notebook in item.get("notebookInfos") or []:
+                    table.upstream_notebooks.add(notebook["notebook_id"])
+
+            for item in response.get("downstreams") or []:
+                for notebook in item.get("notebookInfos") or []:
+                    table.downstream_notebooks.add(notebook["notebook_id"])
+
+            return response
         except Exception as e:
             logger.error(f"Error getting lineage: {e}")
+            return None
 
-    def get_column_lineage(self, table: Table) -> None:
+    def get_column_lineage(self, table: Table, include_notebooks: bool) -> None:
         try:
-            table_lineage_response: dict = self.list_lineages_by_table(
-                table_name=f"{table.schema.catalog.name}.{table.schema.name}.{table.name}"
+            table_lineage = self.table_lineage(
+                table, include_notebooks=include_notebooks
             )
-            if table_lineage_response:
+            if table_lineage:
                 for column in table.columns:
                     response: dict = self.list_lineages_by_column(
-                        table_name=f"{table.schema.catalog.name}.{table.schema.name}.{table.name}",
+                        table_name=table.ref.qualified_table_name,
                         column_name=column.name,
                     )
                     for item in response.get("upstream_cols", []):
-                        table_ref = TableReference(
-                            table.schema.catalog.metastore.id,
-                            item["catalog_name"],
-                            item["schema_name"],
-                            item["table_name"],
+                        table_ref = TableReference.create_from_lineage(
+                            item, table.schema.catalog.metastore.id
                         )
-                        table.upstreams.setdefault(table_ref, {}).setdefault(
-                            column.name, []
-                        ).append(item["name"])
+                        if table_ref:
+                            table.upstreams.setdefault(table_ref, {}).setdefault(
+                                column.name, []
+                            ).append(item["name"])
 
         except Exception as e:
             logger.error(f"Error getting lineage: {e}")
