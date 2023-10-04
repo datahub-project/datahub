@@ -33,17 +33,19 @@ public class EntityServiceFactory {
           TopicConventionFactory.TOPIC_CONVENTION_BEAN, "entityRegistry"})
   @Nonnull
   protected EntityService createInstance(
-      Producer<String, ? extends IndexedRecord> producer,
-      TopicConvention convention,
-      KafkaHealthChecker kafkaHealthChecker,
-      @Qualifier("entityAspectDao") AspectDao aspectDao,
-      EntityRegistry entityRegistry,
-      ConfigurationProvider configurationProvider,
-      UpdateIndicesService updateIndicesService) {
+          Producer<String, ? extends IndexedRecord> producer,
+          TopicConvention convention,
+          KafkaHealthChecker kafkaHealthChecker,
+          @Qualifier("entityAspectDao") AspectDao aspectDao,
+          EntityRegistry entityRegistry,
+          ConfigurationProvider configurationProvider,
+          UpdateIndicesService updateIndicesService) {
 
     final KafkaEventProducer eventProducer = new KafkaEventProducer(producer, convention, kafkaHealthChecker);
     FeatureFlags featureFlags = configurationProvider.getFeatureFlags();
-    return new EntityServiceImpl(aspectDao, eventProducer, entityRegistry,
+    EntityService entityService = new EntityServiceImpl(aspectDao, eventProducer, entityRegistry,
         featureFlags.isAlwaysEmitChangeLog(), updateIndicesService, featureFlags.getPreProcessHooks(), _ebeanMaxTransactionRetry);
+
+    return entityService;
   }
 }

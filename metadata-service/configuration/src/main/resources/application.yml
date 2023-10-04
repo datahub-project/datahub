@@ -339,7 +339,7 @@ cache:
       statsEnabled: ${CACHE_CLIENT_ENTITY_CLIENT_STATS_ENABLED:true}
       statsIntervalSeconds: ${CACHE_CLIENT_ENTITY_CLIENT_STATS_INTERVAL_SECONDS:120}
       defaultTTLSeconds: ${CACHE_CLIENT_ENTITY_CLIENT_TTL_SECONDS:0} # do not cache entity/aspects by default
-      maxBytes: ${CACHE_CLIENT_USAGE_ENTITY_MAX_BYTES:104857600} # 100MB
+      maxBytes: ${CACHE_CLIENT_ENTITY_CLIENT_MAX_BYTES:104857600} # 100MB
       entityAspectTTLSeconds:
         # cache user aspects for 20s
         corpuser:
@@ -351,3 +351,5 @@ cache:
           status: 20
           corpUserCredentials: 20
           corpUserSettings: 20
+
+springdoc.api-docs.groups.enabled: true

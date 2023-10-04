@@ -1,4 +1,4 @@
-from typing import Any, Dict, List
+from typing import Any, Dict
 
 import pytest
 from freezegun import freeze_time
@@ -45,14 +45,6 @@ def test_glossary_ingest(
 ):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/business-glossary"
 
-    # These paths change from one instance run of the clickhouse docker to the other,
-    # and the FROZEN_TIME does not apply to these.
-    ignore_paths: List[str] = [
-        r"root\[\d+\]\['proposedSnapshot'\].+\['aspects'\].+\['customProperties'\]\['metadata_modification_time'\]",
-        r"root\[\d+\]\['proposedSnapshot'\].+\['aspects'\].+\['customProperties'\]\['data_paths'\]",
-        r"root\[\d+\]\['proposedSnapshot'\].+\['aspects'\].+\['customProperties'\]\['metadata_path'\]",
-    ]
-
     output_mces_path: str = f"{tmp_path}/glossary_events.json"
     golden_mces_path: str = f"{test_resources_dir}/{golden_file}"
 
@@ -72,7 +64,6 @@ def test_glossary_ingest(
     # Verify the output.
     mce_helpers.check_golden_file(
         pytestconfig,
-        ignore_paths=ignore_paths,
         output_path=output_mces_path,
         golden_path=golden_mces_path,
     )
