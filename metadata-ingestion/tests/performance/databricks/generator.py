@@ -38,9 +38,10 @@ class DatabricksDataGenerator:
             db=None,
             uri_opts={"http_path": f"/sql/1.0/warehouses/{warehouse_id}"},
         )
-        self.engine = create_engine(
+        engine = create_engine(
             url, connect_args={"timeout": 600}, pool_size=MAX_WORKERS
         )
+        self.connection = engine.connect()
 
     def clear_data(self, seed_metadata: SeedMetadata) -> None:
         for container in seed_metadata.containers[0]:
@@ -122,7 +123,7 @@ class DatabricksDataGenerator:
 
     def _execute_sql(self, sql: str) -> None:
         print(sql)
-        self.engine.execute(sql)
+        self.connection.execute(sql)
 
 
 def _thread_pool_execute(desc: str, lst: List[T], fn: Callable[[T], None]) -> None:
