@@ -15,9 +15,6 @@
     io.acryl.privacy.retentionTime: 365
   structured_properties: # dataset level structured properties go here
     io.acryl.dataManagement.deprecationDate: "2023-01-01"
-    projectNames:
-      - Tracking
-      - DataHub
 - id: ClickEvent
   platform: events
   subtype: Topic

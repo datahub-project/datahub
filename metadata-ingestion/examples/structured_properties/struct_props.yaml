@@ -46,9 +46,3 @@
   entity_types:
     - dataset
     - schemaField
-- id: io.acryl.projectNames
-  type: STRING
-  display_name: Project Names
-  entity_types:
-    - dataset
-    - schemaField
