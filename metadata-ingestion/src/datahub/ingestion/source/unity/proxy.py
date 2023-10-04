@@ -234,12 +234,14 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             body={"table_name": table_name, "column_name": column_name},
         )
 
-    def table_lineage(self, table: Table, include_notebooks: bool) -> Optional[dict]:
+    def table_lineage(
+        self, table: Table, include_entity_lineage: bool
+    ) -> Optional[dict]:
         # Lineage endpoint doesn't exists on 2.1 version
         try:
             response: dict = self.list_lineages_by_table(
                 table_name=table.ref.qualified_table_name,
-                include_entity_lineage=include_notebooks,
+                include_entity_lineage=include_entity_lineage,
             )
 
             for item in response.get("upstreams") or []:
@@ -261,10 +263,10 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             logger.error(f"Error getting lineage: {e}")
             return None
 
-    def get_column_lineage(self, table: Table, include_notebooks: bool) -> None:
+    def get_column_lineage(self, table: Table, include_entity_lineage: bool) -> None:
         try:
             table_lineage = self.table_lineage(
-                table, include_notebooks=include_notebooks
+                table, include_entity_lineage=include_entity_lineage
             )
             if table_lineage:
                 for column in table.columns:

@@ -2,7 +2,7 @@ import logging
 import re
 import time
 from datetime import timedelta
-from typing import Dict, Iterable, List, Optional, Set
+from typing import Dict, Iterable, List, Optional, Set, Union
 from urllib.parse import urljoin
 
 from datahub.emitter.mce_builder import (
@@ -58,6 +58,7 @@ from datahub.ingestion.source.unity.proxy_types import (
     Column,
     Metastore,
     Notebook,
+    NotebookId,
     Schema,
     ServicePrincipal,
     Table,
@@ -197,14 +198,16 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         self.build_service_principal_map()
         if self.config.include_notebooks:
             self.report.report_ingestion_stage_start("Ingest notebooks")
-            self.build_notebook_map()
+            yield from self.process_notebooks()
 
         yield from self.process_metastores()
 
         if self.config.include_notebooks:
             self.report.report_ingestion_stage_start("Notebook lineage")
             for notebook in self.notebooks.values():
-                yield from self.process_notebook(notebook)
+                wu = self._gen_notebook_lineage(notebook)
+                if wu:
+                    yield wu
 
         if self.config.include_usage_statistics:
             self.report.report_ingestion_stage_start("Ingest usage")
@@ -242,19 +245,14 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 "service-principals", f"Unable to fetch service principals: {e}"
             )
 
-    def build_notebook_map(self) -> None:
+    def process_notebooks(self) -> Iterable[MetadataWorkUnit]:
         for notebook in self.unity_catalog_api_proxy.workspace_notebooks():
             self.notebooks[str(notebook.id)] = notebook
+            yield from self._gen_notebook_aspects(notebook)
 
-    def process_notebook(self, notebook: Notebook) -> Iterable[MetadataWorkUnit]:
-        dataset_urn = NotebookKey(
-            notebook_id=notebook.id,
-            platform=self.platform,
-            instance=self.config.platform_instance,
-        ).as_urn()
-
+    def _gen_notebook_aspects(self, notebook: Notebook) -> Iterable[MetadataWorkUnit]:
         mcps = MetadataChangeProposalWrapper.construct_many(
-            entityUrn=dataset_urn,
+            entityUrn=self.gen_notebook_urn(notebook),
             aspects=[
                 DatasetPropertiesClass(
                     name=notebook.path.rsplit("/", 1)[-1],
@@ -272,15 +270,6 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 ),
                 SubTypesClass(typeNames=[DatasetSubTypes.NOTEBOOK]),
                 BrowsePathsClass(paths=notebook.path.split("/")),
-                UpstreamLineageClass(
-                    upstreams=[
-                        UpstreamClass(
-                            dataset=self.gen_dataset_urn(upstream_ref),
-                            type=DatasetLineageTypeClass.COPY,
-                        )
-                        for upstream_ref in notebook.upstreams
-                    ]
-                )
                 # TODO: Add DPI aspect
             ],
         )
@@ -288,6 +277,23 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             yield mcp.as_workunit()
 
         self.report.notebooks.processed(notebook.path)
+
+    def _gen_notebook_lineage(self, notebook: Notebook) -> Optional[MetadataWorkUnit]:
+        if not notebook.upstreams:
+            return None
+
+        return MetadataChangeProposalWrapper(
+            entityUrn=self.gen_notebook_urn(notebook),
+            aspect=UpstreamLineageClass(
+                upstreams=[
+                    UpstreamClass(
+                        dataset=self.gen_dataset_urn(upstream_ref),
+                        type=DatasetLineageTypeClass.COPY,
+                    )
+                    for upstream_ref in notebook.upstreams
+                ]
+            ),
+        ).as_workunit()
 
     def process_metastores(self) -> Iterable[MetadataWorkUnit]:
         metastore = self.unity_catalog_api_proxy.assigned_metastore()
@@ -349,17 +355,15 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         ownership = self._create_table_ownership_aspect(table)
         data_platform_instance = self._create_data_platform_instance_aspect(table)
 
-        lineage: Optional[UpstreamLineageClass] = None
         if self.config.include_column_lineage:
             self.unity_catalog_api_proxy.get_column_lineage(
-                table, include_notebooks=self.config.include_notebooks
+                table, include_entity_lineage=self.config.include_notebooks
             )
-            lineage = self._generate_column_lineage_aspect(dataset_urn, table)
         elif self.config.include_table_lineage:
             self.unity_catalog_api_proxy.table_lineage(
-                table, include_notebooks=self.config.include_notebooks
+                table, include_entity_lineage=self.config.include_notebooks
             )
-            lineage = self._generate_lineage_aspect(dataset_urn, table)
+        lineage = self._generate_lineage_aspect(dataset_urn, table)
 
         if self.config.include_notebooks:
             for notebook_id in table.downstream_notebooks:
@@ -385,7 +389,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             )
         ]
 
-    def _generate_column_lineage_aspect(
+    def _generate_lineage_aspect(
         self, dataset_urn: str, table: Table
     ) -> Optional[UpstreamLineageClass]:
         upstreams: List[UpstreamClass] = []
@@ -395,6 +399,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         ):
             upstream_urn = self.gen_dataset_urn(upstream_ref)
 
+            # Should be empty if config.include_column_lineage is False
             finegrained_lineages.extend(
                 FineGrainedLineage(
                     upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
@@ -408,38 +413,28 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 for d_col, u_cols in sorted(downstream_to_upstream_cols.items())
             )
 
-            upstream_table = UpstreamClass(
-                upstream_urn,
-                DatasetLineageTypeClass.TRANSFORMED,
+            upstreams.append(
+                UpstreamClass(
+                    dataset=upstream_urn,
+                    type=DatasetLineageTypeClass.TRANSFORMED,
+                )
             )
-            upstreams.append(upstream_table)
+
+        for notebook in table.upstream_notebooks:
+            upstreams.append(
+                UpstreamClass(
+                    dataset=self.gen_notebook_urn(notebook),
+                    type=DatasetLineageTypeClass.TRANSFORMED,
+                )
+            )
 
         if upstreams:
             return UpstreamLineageClass(
-                upstreams=upstreams, fineGrainedLineages=finegrained_lineages
+                upstreams=upstreams,
+                fineGrainedLineages=finegrained_lineages
+                if self.config.include_column_lineage
+                else None,
             )
-        else:
-            return None
-
-    def _generate_lineage_aspect(
-        self, dataset_urn: str, table: Table
-    ) -> Optional[UpstreamLineageClass]:
-        upstreams: List[UpstreamClass] = []
-        for upstream in sorted(table.upstreams.keys()):
-            upstream_urn = make_dataset_urn_with_platform_instance(
-                self.platform,
-                f"{table.schema.catalog.metastore.id}.{upstream}",
-                self.platform_instance_name,
-            )
-
-            upstream_table = UpstreamClass(
-                upstream_urn,
-                DatasetLineageTypeClass.TRANSFORMED,
-            )
-            upstreams.append(upstream_table)
-
-        if upstreams:
-            return UpstreamLineageClass(upstreams=upstreams)
         else:
             return None
 
@@ -465,6 +460,14 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             platform_instance=self.platform_instance_name,
             name=str(table_ref),
         )
+
+    def gen_notebook_urn(self, notebook: Union[Notebook, NotebookId]) -> str:
+        notebook_id = notebook.id if isinstance(notebook, Notebook) else notebook
+        return NotebookKey(
+            notebook_id=notebook_id,
+            platform=self.platform,
+            instance=self.config.platform_instance,
+        ).as_urn()
 
     def gen_schema_containers(self, schema: Schema) -> Iterable[MetadataWorkUnit]:
         domain_urn = self._gen_domain_urn(f"{schema.catalog.name}.{schema.name}")
