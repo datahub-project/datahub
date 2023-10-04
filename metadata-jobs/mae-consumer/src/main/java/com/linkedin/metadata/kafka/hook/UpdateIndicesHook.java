@@ -24,7 +24,7 @@ import static com.linkedin.metadata.Constants.*;
     EntityRegistryFactory.class, SystemMetadataServiceFactory.class, SearchDocumentTransformerFactory.class})
 public class UpdateIndicesHook implements MetadataChangeLogHook {
 
-  private final UpdateIndicesService _updateIndicesService;
+  protected final UpdateIndicesService _updateIndicesService;
   private final boolean _isEnabled;
 
   public UpdateIndicesHook(
