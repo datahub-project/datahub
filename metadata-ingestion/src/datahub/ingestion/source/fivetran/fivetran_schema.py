@@ -3,7 +3,11 @@ import logging
 from dataclasses import dataclass
 from typing import List, Tuple
 
-from datahub.ingestion.source.fivetran.config import Constant, FivetranSourceConfig
+from datahub.ingestion.source.fivetran.config import (
+    Constant,
+    FivetranSourceConfig,
+    FivetranSourceReport,
+)
 from datahub.ingestion.source.fivetran.fivetran_query import FivetranLogQuery
 from datahub.ingestion.source.fivetran.log_destination import (
     LogDestination,
@@ -23,7 +27,7 @@ class Connector:
     destination_id: str
     source_tables: List[str]
     destination_tables: List[str]
-    job: "Job"
+    jobs: List["Job"]
     user: "User"
 
 
@@ -47,9 +51,12 @@ class User:
 
 
 class FivetranLogDataDictionary:
-    def __init__(self, config: FivetranSourceConfig) -> None:
+    def __init__(
+        self, config: FivetranSourceConfig, report: FivetranSourceReport
+    ) -> None:
         self.logger = logger
         self.config = config
+        self.report = report
         self.log_destination: LogDestination = self._get_fivetran_log_destination()
 
     def _get_fivetran_log_destination(self) -> LogDestination:
@@ -94,10 +101,16 @@ class FivetranLogDataDictionary:
         }
         for sync_id in sync_start_logs.keys():
             if sync_end_logs.get(sync_id) is None:
+                # If no sync-end event log for this sync id that means sync is still in progress
                 continue
+
             message_data = json.loads(sync_end_logs[sync_id][Constant.MESSAGE_DATA])
             if type(message_data) is str:
+                # Sometimes message_data contains json string inside string
+                # Ex: '"{\"status\":\"SUCCESSFUL\"}"'
+                # Hence, need to do json loads twice.
                 message_data = json.loads(message_data)
+
             jobs.append(
                 Job(
                     job_id=sync_id,
@@ -138,9 +151,16 @@ class FivetranLogDataDictionary:
             FivetranLogQuery.get_connectors_query()
         )
         for connector in connector_list:
+            if not self.config.connector_patterns.allowed(
+                connector[Constant.CONNECTOR_NAME]
+            ):
+                self.report.report_connectors_dropped(connector[Constant.CONNECTOR_ID])
+                continue
+
             source_tables, destination_tables = self._get_table_lineage(
                 connector[Constant.CONNECTOR_ID]
             )
+
             connectors.append(
                 Connector(
                     connector_id=connector[Constant.CONNECTOR_ID],
@@ -151,7 +171,7 @@ class FivetranLogDataDictionary:
                     destination_id=connector[Constant.DESTINATION_ID],
                     source_tables=source_tables,
                     destination_tables=destination_tables,
-                    job=self._get_jobs_list(connector[Constant.CONNECTOR_ID]),
+                    jobs=self._get_jobs_list(connector[Constant.CONNECTOR_ID]),
                     user=self._get_user_obj(connector[Constant.CONNECTING_USER_ID]),
                 )
             )

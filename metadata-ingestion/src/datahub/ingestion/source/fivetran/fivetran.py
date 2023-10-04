@@ -1,11 +1,11 @@
 import logging
-from typing import Iterable, List, Optional
+from typing import Dict, Iterable, List, Optional, Tuple
 
-# from datahub.api.entities.datajob import DataFlow, DataJob
-# from datahub.api.entities.dataprocess.dataprocess_instance import (
-#     DataProcessInstance,
-#     InstanceRunResult,
-# )
+from datahub.api.entities.datajob import DataFlow, DataJob
+from datahub.api.entities.dataprocess.dataprocess_instance import (
+    DataProcessInstance,
+    InstanceRunResult,
+)
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -18,15 +18,17 @@ from datahub.ingestion.api.decorators import (
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor, Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.fivetran.config import (
+    SUPPORTED_DATA_PLATFORM_MAPPING,
+    Constant,
     FivetranSourceConfig,
     FivetranSourceReport,
+    PlatformDetail,
 )
-
-# from datahub.utilities.urns.data_flow_urn import DataFlowUrn
-# from datahub.utilities.urns.dataset_urn import DatasetUrn
 from datahub.ingestion.source.fivetran.fivetran_schema import (
     Connector,
     FivetranLogDataDictionary,
+    Job,
+    User,
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
@@ -34,6 +36,8 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
+from datahub.utilities.urns.data_flow_urn import DataFlowUrn
+from datahub.utilities.urns.dataset_urn import DatasetUrn
 
 # Logger instance
 logger = logging.getLogger(__name__)
@@ -58,17 +62,164 @@ class FivetranSource(StatefulIngestionSourceBase):
         self.config = config
         self.report = FivetranSourceReport()
 
-        self.audit_log = FivetranLogDataDictionary(self.config)
+        self.audit_log = FivetranLogDataDictionary(self.config, self.report)
 
         # Create and register the stateful ingestion use-case handler.
         self.stale_entity_removal_handler = StaleEntityRemovalHandler.create(
             self, self.config, self.ctx
         )
 
-    def get_connector_workunit(
+    def _generate_iolet_dataset_urn_list(
+        self, connector: Connector
+    ) -> Tuple[List[DatasetUrn], List[DatasetUrn]]:
+        input_dataset_urn_list: List[DatasetUrn] = []
+        output_dataset_urn_list: List[DatasetUrn] = []
+
+        source_platform_detail: PlatformDetail = PlatformDetail()
+        destination_platform_detail: PlatformDetail = PlatformDetail()
+        # Get platform details for connector source
+        if connector.connector_id in self.config.sources_to_platform_instance.keys():
+            source_platform_detail = self.config.sources_to_platform_instance[
+                connector.connector_id
+            ]
+
+        # Get platform details for destination
+        if (
+            connector.destination_id
+            in self.config.destination_to_platform_instance.keys()
+        ):
+            destination_platform_detail = self.config.destination_to_platform_instance[
+                connector.destination_id
+            ]
+
+        if connector.connector_type in SUPPORTED_DATA_PLATFORM_MAPPING:
+            for table_name in connector.source_tables:
+                input_dataset_urn_list.append(
+                    DatasetUrn.create_from_ids(
+                        platform_id=SUPPORTED_DATA_PLATFORM_MAPPING[
+                            connector.connector_type
+                        ],
+                        table_name=table_name,
+                        env=source_platform_detail.env,
+                        platform_instance=source_platform_detail.platform_instance,
+                    )
+                )
+        else:
+            logger.debug(
+                f"Fivetran connector source type: {connector.connector_type} is not supported to mapped with Datahub dataset entity."
+            )
+
+        for table_name in connector.destination_tables:
+            output_dataset_urn_list.append(
+                DatasetUrn.create_from_ids(
+                    platform_id=self.config.fivetran_log_config.destination_platform,
+                    table_name=table_name,
+                    env=destination_platform_detail.env,
+                    platform_instance=destination_platform_detail.platform_instance,
+                )
+            )
+
+        return input_dataset_urn_list, output_dataset_urn_list
+
+    def _generate_dataflow_from_connector(self, connector: Connector) -> DataFlow:
+        return DataFlow(
+            orchestrator=Constant.ORCHESTRATOR,
+            id=connector.connector_id,
+            env=self.config.env,
+            name=connector.connector_name,
+            platform_instance=self.config.platform_instance,
+        )
+
+    def _generate_datajob_from_connector(self, connector: Connector) -> DataJob:
+        dataflow_urn = DataFlowUrn.create_from_ids(
+            orchestrator=Constant.ORCHESTRATOR,
+            flow_id=connector.connector_id,
+            env=self.config.env,
+            platform_instance=self.config.platform_instance,
+        )
+        datajob = DataJob(
+            id=connector.connector_id,
+            flow_urn=dataflow_urn,
+            name=connector.connector_name,
+        )
+
+        job_property_bag: Dict[str, str] = {}
+        allowed_connection_keys = [
+            Constant.PAUSED.lower(),
+            Constant.SYNC_FREQUENCY.lower(),
+            Constant.DESTINATION_ID.lower(),
+        ]
+        for key in allowed_connection_keys:
+            if hasattr(connector, key) and getattr(connector, key) is not None:
+                job_property_bag[key] = repr(getattr(connector, key))
+        datajob.properties = job_property_bag
+
+        # Map connector source and destination table with dataset entity
+        (
+            input_dataset_urn_list,
+            output_dataset_urn_list,
+        ) = self._generate_iolet_dataset_urn_list(connector=connector)
+        datajob.inlets.extend(input_dataset_urn_list)
+        datajob.outlets.extend(output_dataset_urn_list)
+
+        return datajob
+
+    def _generate_dpi_from_job(self, job: Job, datajob: DataJob) -> DataProcessInstance:
+        return DataProcessInstance.from_datajob(
+            datajob=datajob,
+            id=job.job_id,
+            clone_inlets=True,
+            clone_outlets=True,
+        )
+
+    def _get_dpi_workunit(
+        self, job: Job, dpi: DataProcessInstance
+    ) -> Iterable[MetadataWorkUnit]:
+        status_result_map: Dict[str, InstanceRunResult] = {
+            Constant.SUCCESSFUL: InstanceRunResult.SUCCESS,
+            Constant.FAILURE_WITH_TASK: InstanceRunResult.FAILURE,
+            Constant.CANCELED: InstanceRunResult.SKIPPED,
+        }
+        if job.status not in status_result_map:
+            logger.debug(
+                f"Status should be either SUCCESSFUL, FAILURE_WITH_TASK or CANCELED and it was "
+                f"{job.status}"
+            )
+            return []
+        result = status_result_map[job.status]
+        start_timestamp_millis = job.start_time * 1000
+        for mcp in dpi.generate_mcp(created_ts_millis=start_timestamp_millis):
+            yield mcp.as_workunit()
+        for mcp in dpi.start_event_mcp(start_timestamp_millis):
+            yield mcp.as_workunit()
+        for mcp in dpi.end_event_mcp(
+            end_timestamp_millis=job.end_time * 1000,
+            result=result,
+            result_type=Constant.ORCHESTRATOR,
+        ):
+            yield mcp.as_workunit()
+
+    def _get_connector_workunit(
         self, connector: Connector
     ) -> Iterable[MetadataWorkUnit]:
-        pass
+        self.report.report_connectors_scanned()
+        # Create dataflow entity with same name as connector name,
+        # Later soft delete this entity during ingestion
+        dataflow = self._generate_dataflow_from_connector(connector)
+        for mcp in dataflow.generate_mcp():
+            # return workunit to Datahub Ingestion framework
+            yield mcp.as_workunit()
+
+        # Map Fivetran's connector entity with Datahub's datajob entity
+        datajob = self._generate_datajob_from_connector(connector)
+        for mcp in datajob.generate_mcp():
+            # return workunit to Datahub Ingestion framework
+            yield mcp.as_workunit()
+
+        # Map Fivetran's job/sync history entity with Datahub's data process entity
+        for job in connector.jobs:
+            dpi = self._generate_dpi_from_job(job, datajob)
+            yield from self._get_dpi_workunit(job, dpi)
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> Source:
@@ -89,7 +240,7 @@ class FivetranSource(StatefulIngestionSourceBase):
         connectors = self.audit_log.get_connectors_list()
         for connector in connectors:
             logger.info(f"Processing connector id: {connector.connector_id}")
-            yield from self.get_connector_workunit(connector)
+            yield from self._get_connector_workunit(connector)
 
     def get_report(self) -> SourceReport:
         return self.report
