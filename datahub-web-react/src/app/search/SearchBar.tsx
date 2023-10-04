@@ -20,7 +20,6 @@ import RecommendedOption from './autoComplete/RecommendedOption';
 import SectionHeader, { EntityTypeLabel } from './autoComplete/SectionHeader';
 import { useUserContext } from '../context/useUserContext';
 import { navigateToSearchUrl } from './utils/navigateToSearchUrl';
-import { getQuickFilterDetails } from './autoComplete/quickFilters/utils';
 import ViewAllSearchItem from './ViewAllSearchItem';
 import { ViewSelect } from '../entity/view/select/ViewSelect';
 import { combineSiblingsInAutoComplete } from './utils/combineSiblingsInAutoComplete';
@@ -204,23 +203,16 @@ export const SearchBar = ({
     const { quickFilters, selectedQuickFilter, setSelectedQuickFilter } = useQuickFiltersContext();
 
     const autoCompleteQueryOptions = useMemo(() => {
-        const query = suggestions.length ? effectiveQuery : '';
-        const selectedQuickFilterLabel =
-            showQuickFilters && selectedQuickFilter
-                ? getQuickFilterDetails(selectedQuickFilter, entityRegistry).label
-                : '';
-        const text = query || selectedQuickFilterLabel;
-
-        if (!text) return [];
+        if (effectiveQuery === '') return [];
 
         return [
             {
-                value: `${EXACT_SEARCH_PREFIX}${text}`,
-                label: <ViewAllSearchItem searchTarget={text} />,
+                value: `${EXACT_SEARCH_PREFIX}${effectiveQuery}`,
+                label: <ViewAllSearchItem searchTarget={effectiveQuery} />,
                 type: EXACT_AUTOCOMPLETE_OPTION_TYPE,
             },
         ];
-    }, [showQuickFilters, suggestions.length, effectiveQuery, selectedQuickFilter, entityRegistry]);
+    }, [effectiveQuery]);
 
     const autoCompleteEntityOptions = useMemo(() => {
         return suggestions.map((suggestion: AutoCompleteResultForEntity) => {
