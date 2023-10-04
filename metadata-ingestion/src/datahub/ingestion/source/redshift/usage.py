@@ -34,6 +34,8 @@ from datahub.ingestion.source_report.ingestion_stage import (
 from datahub.metadata.schema_classes import OperationClass, OperationTypeClass
 from datahub.utilities.perf_timer import PerfTimer
 
+from datahub.utilities.sql_parser import DefaultSQLParser
+
 logger = logging.getLogger(__name__)
 
 REDSHIFT_DATETIME_FORMAT = "%Y-%m-%d %H:%M:%S"
@@ -437,7 +439,7 @@ class RedshiftUsageExtractor:
             agg_bucket.add_read_entry(
                 user_email,
                 event.text,
-                [],  # TODO: not currently supported by redshift; find column level changes
+                DefaultSQLParser(event.text).get_columns(),
                 user_email_pattern=self.config.user_email_pattern,
             )
         return datasets
