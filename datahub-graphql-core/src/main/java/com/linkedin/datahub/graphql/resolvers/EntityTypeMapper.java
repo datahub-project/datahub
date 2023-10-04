@@ -17,7 +17,6 @@ public class EntityTypeMapper {
       ImmutableMap.<EntityType, String>builder()
           .put(EntityType.DATASET, "dataset")
           .put(EntityType.ROLE, "role")
-          .put(EntityType.ASSERTION, Constants.ASSERTION_ENTITY_NAME)
           .put(EntityType.CORP_USER, "corpuser")
           .put(EntityType.CORP_GROUP, "corpGroup")
           .put(EntityType.DATA_PLATFORM, "dataPlatform")
