@@ -88,22 +88,21 @@ class UnityCatalogApiProxyMock:
     def tables(self, schema: Schema) -> Iterable[Table]:
         for table in self._schema_to_table[schema.name]:
             columns = []
-            if table.column_mapping:
-                for i, col_name in enumerate(table.columns):
-                    column = table.column_mapping[col_name]
-                    columns.append(
-                        Column(
-                            id=column.name,
-                            name=column.name,
-                            type_name=self._convert_column_type(column.type),
-                            type_text=column.type.value,
-                            nullable=column.nullable,
-                            position=i,
-                            comment=None,
-                            type_precision=0,
-                            type_scale=0,
-                        )
+            for i, col_name in enumerate(table.columns):
+                column = table.columns[col_name]
+                columns.append(
+                    Column(
+                        id=column.name,
+                        name=column.name,
+                        type_name=_convert_column_type(column.type),
+                        type_text=column.type.value,
+                        nullable=column.nullable,
+                        position=i,
+                        comment=None,
+                        type_precision=0,
+                        type_scale=0,
                     )
+                )
 
             yield Table(
                 id=f"{schema.id}.{table.name}",
@@ -145,7 +144,7 @@ class UnityCatalogApiProxyMock:
             yield Query(
                 query_id=str(i),
                 query_text=query.text,
-                statement_type=self._convert_statement_type(query.type),
+                statement_type=_convert_statement_type(query.type),
                 start_time=query.timestamp,
                 end_time=query.timestamp,
                 user_id=hash(query.actor),
@@ -160,24 +159,24 @@ class UnityCatalogApiProxyMock:
     def get_column_lineage(self, table: Table) -> None:
         pass
 
-    @staticmethod
-    def _convert_column_type(t: ColumnType) -> ColumnTypeName:
-        if t == ColumnType.INTEGER:
-            return ColumnTypeName.INT
-        elif t == ColumnType.FLOAT:
-            return ColumnTypeName.DOUBLE
-        elif t == ColumnType.STRING:
-            return ColumnTypeName.STRING
-        elif t == ColumnType.BOOLEAN:
-            return ColumnTypeName.BOOLEAN
-        elif t == ColumnType.DATETIME:
-            return ColumnTypeName.TIMESTAMP
-        else:
-            raise ValueError(f"Unknown column type: {t}")
 
-    @staticmethod
-    def _convert_statement_type(t: StatementType) -> QueryStatementType:
-        if t == "CUSTOM" or t == "UNKNOWN":
-            return QueryStatementType.OTHER
-        else:
-            return QueryStatementType[t]
+def _convert_column_type(t: ColumnType) -> ColumnTypeName:
+    if t == ColumnType.INTEGER:
+        return ColumnTypeName.INT
+    elif t == ColumnType.FLOAT:
+        return ColumnTypeName.DOUBLE
+    elif t == ColumnType.STRING:
+        return ColumnTypeName.STRING
+    elif t == ColumnType.BOOLEAN:
+        return ColumnTypeName.BOOLEAN
+    elif t == ColumnType.DATETIME:
+        return ColumnTypeName.TIMESTAMP
+    else:
+        raise ValueError(f"Unknown column type: {t}")
+
+
+def _convert_statement_type(t: StatementType) -> QueryStatementType:
+    if t == "CUSTOM" or t == "UNKNOWN":
+        return QueryStatementType.OTHER
+    else:
+        return QueryStatementType[t]
