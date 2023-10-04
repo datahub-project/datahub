@@ -7,7 +7,7 @@ import time
 from dataclasses import dataclass
 from datetime import datetime
 from json.decoder import JSONDecodeError
-from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Set, Tuple, Type
+from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Tuple, Type
 
 from avro.schema import RecordSchema
 from deprecated import deprecated
@@ -1010,14 +1010,13 @@ class DataHubGraph(DatahubRestEmitter):
 
     def initialize_schema_resolver_from_datahub(
         self, platform: str, platform_instance: Optional[str], env: str
-    ) -> Tuple["SchemaResolver", Set[str]]:
+    ) -> "SchemaResolver":
         logger.info("Initializing schema resolver")
         schema_resolver = self._make_schema_resolver(
             platform, platform_instance, env, include_graph=False
         )
 
         logger.info(f"Fetching schemas for platform {platform}, env {env}")
-        urns = []
         count = 0
         with PerfTimer() as timer:
             for urn, schema_info in self._bulk_fetch_schema_info_by_filter(
@@ -1026,7 +1025,6 @@ class DataHubGraph(DatahubRestEmitter):
                 env=env,
             ):
                 try:
-                    urns.append(urn)
                     schema_resolver.add_graphql_schema_metadata(urn, schema_info)
                     count += 1
                 except Exception:
@@ -1041,7 +1039,7 @@ class DataHubGraph(DatahubRestEmitter):
             )
 
         logger.info("Finished initializing schema resolver")
-        return schema_resolver, set(urns)
+        return schema_resolver
 
     def parse_sql_lineage(
         self,
