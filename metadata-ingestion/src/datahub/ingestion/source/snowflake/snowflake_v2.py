@@ -301,13 +301,10 @@ class SnowflakeV2Source(
         # Caches tables for a single database. Consider moving to disk or S3 when possible.
         self.db_tables: Dict[str, List[SnowflakeTable]] = {}
 
-        self.sql_parser_schema_resolver = SchemaResolver(
-            platform=self.platform,
-            platform_instance=self.config.platform_instance,
-            env=self.config.env,
-        )
         self.view_definitions: FileBackedDict[str] = FileBackedDict()
         self.add_config_to_report()
+
+        self.sql_parser_schema_resolver = self._init_schema_resolver()
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "Source":
@@ -493,6 +490,24 @@ class SnowflakeV2Source(
 
         return _report
 
+    def _init_schema_resolver(self) -> SchemaResolver:
+        if not self.config.include_technical_schema and self.config.parse_view_ddl:
+            if self.ctx.graph:
+                return self.ctx.graph.initialize_schema_resolver_from_datahub(
+                    platform=self.platform,
+                    platform_instance=self.config.platform_instance,
+                    env=self.config.env,
+                )
+            else:
+                logger.warning(
+                    "Failed to load schema info from DataHub as DataHubGraph is missing.",
+                )
+        return SchemaResolver(
+            platform=self.platform,
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
+        )
+
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
         return [
             *super().get_workunit_processors(),
@@ -543,15 +558,7 @@ class SnowflakeV2Source(
 
         self.connection.close()
 
-        lru_cache_functions: List[Callable] = [
-            self.data_dictionary.get_tables_for_database,
-            self.data_dictionary.get_views_for_database,
-            self.data_dictionary.get_columns_for_schema,
-            self.data_dictionary.get_pk_constraints_for_schema,
-            self.data_dictionary.get_fk_constraints_for_schema,
-        ]
-        for func in lru_cache_functions:
-            self.report.lru_cache_info[func.__name__] = func.cache_info()._asdict()  # type: ignore
+        self.report_cache_info()
 
         # TODO: The checkpoint state for stale entity detection can be committed here.
 
@@ -595,6 +602,17 @@ class SnowflakeV2Source(
             self.config.include_usage_stats or self.config.include_operational_stats
         ) and self.usage_extractor:
             yield from self.usage_extractor.get_usage_workunits(discovered_datasets)
+
+    def report_cache_info(self):
+        lru_cache_functions: List[Callable] = [
+            self.data_dictionary.get_tables_for_database,
+            self.data_dictionary.get_views_for_database,
+            self.data_dictionary.get_columns_for_schema,
+            self.data_dictionary.get_pk_constraints_for_schema,
+            self.data_dictionary.get_fk_constraints_for_schema,
+        ]
+        for func in lru_cache_functions:
+            self.report.lru_cache_info[func.__name__] = func.cache_info()._asdict()  # type: ignore
 
     def report_warehouse_failure(self):
         if self.config.warehouse is not None:
@@ -761,7 +779,7 @@ class SnowflakeV2Source(
             )
             self.db_tables[schema_name] = tables
 
-            if self.config.include_technical_schema or self.config.parse_view_ddl:
+            if self.config.include_technical_schema:
                 for table in tables:
                     yield from self._process_table(table, schema_name, db_name)
 
@@ -773,7 +791,7 @@ class SnowflakeV2Source(
                     if view.view_definition:
                         self.view_definitions[key] = view.view_definition
 
-            if self.config.include_technical_schema or self.config.parse_view_ddl:
+            if self.config.include_technical_schema:
                 for view in views:
                     yield from self._process_view(view, schema_name, db_name)
 
@@ -889,8 +907,6 @@ class SnowflakeV2Source(
                     yield from self._process_tag(tag)
 
             yield from self.gen_dataset_workunits(table, schema_name, db_name)
-        elif self.config.parse_view_ddl:
-            self.gen_schema_metadata(table, schema_name, db_name)
 
     def fetch_sample_data_for_classification(
         self, table: SnowflakeTable, schema_name: str, db_name: str, dataset_name: str
@@ -1001,8 +1017,6 @@ class SnowflakeV2Source(
                     yield from self._process_tag(tag)
 
             yield from self.gen_dataset_workunits(view, schema_name, db_name)
-        elif self.config.parse_view_ddl:
-            self.gen_schema_metadata(view, schema_name, db_name)
 
     def _process_tag(self, tag: SnowflakeTag) -> Iterable[MetadataWorkUnit]:
         tag_identifier = tag.identifier()
@@ -1165,7 +1179,7 @@ class SnowflakeV2Source(
 
         foreign_keys: Optional[List[ForeignKeyConstraint]] = None
         if isinstance(table, SnowflakeTable) and len(table.foreign_keys) > 0:
-            foreign_keys = self.build_foreign_keys(table, dataset_urn, foreign_keys)
+            foreign_keys = self.build_foreign_keys(table, dataset_urn)
 
         schema_metadata = SchemaMetadata(
             schemaName=dataset_name,
@@ -1211,7 +1225,9 @@ class SnowflakeV2Source(
 
         return schema_metadata
 
-    def build_foreign_keys(self, table, dataset_urn, foreign_keys):
+    def build_foreign_keys(
+        self, table: SnowflakeTable, dataset_urn: str
+    ) -> List[ForeignKeyConstraint]:
         foreign_keys = []
         for fk in table.foreign_keys:
             foreign_dataset = make_dataset_urn(
@@ -1428,7 +1444,7 @@ class SnowflakeV2Source(
         # Access to table but none of its constraints - is this possible ?
         return constraints.get(table_name, [])
 
-    def add_config_to_report(self):
+    def add_config_to_report(self) -> None:
         self.report.cleaned_account_id = self.config.get_account()
         self.report.ignore_start_time_lineage = self.config.ignore_start_time_lineage
         self.report.upstream_lineage_in_report = self.config.upstream_lineage_in_report
@@ -1481,7 +1497,9 @@ class SnowflakeV2Source(
     # that would be expensive, hence not done. To compensale for possibility
     # of some null values in collected sample, we fetch extra (20% more)
     # rows than configured sample_size.
-    def get_sample_values_for_table(self, table_name, schema_name, db_name):
+    def get_sample_values_for_table(
+        self, table_name: str, schema_name: str, db_name: str
+    ) -> pd.DataFrame:
         # Create a cursor object.
         logger.debug(
             f"Collecting sample values for table {db_name}.{schema_name}.{table_name}"
@@ -1562,7 +1580,7 @@ class SnowflakeV2Source(
             )
             return None
 
-    def is_standard_edition(self):
+    def is_standard_edition(self) -> bool:
         try:
             self.query(SnowflakeQuery.show_tags())
             return False
@@ -1571,7 +1589,7 @@ class SnowflakeV2Source(
                 return True
             raise
 
-    def _snowflake_clear_ocsp_cache(self):
+    def _snowflake_clear_ocsp_cache(self) -> None:
         # Because of some issues with the Snowflake Python connector, we wipe the OCSP cache.
         #
         # Why is this necessary:

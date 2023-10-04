@@ -10,15 +10,15 @@ This plugin extracts the following:
 
 This ingestion source maps the following Source System Concepts to DataHub Concepts:
 
-| Source Concept              | DataHub Concept                                               | Notes                                                                       |
-| --------------------------- | ------------------------------------------------------------- | --------------------------------------------------------------------------- |
-| `"kafka-connect"`                 | [Data Platform](https://datahubproject.io/docs/generated/metamodel/entities/dataPlatform/)     |                                                                             |
-| [Connector](https://kafka.apache.org/documentation/#connect_connectorsandtasks)         | [DataFlow](https://datahubproject.io/docs/generated/metamodel/entities/dataflow/)                | |
-| Kafka Topic         | [Dataset](https://datahubproject.io/docs/generated/metamodel/entities/dataset/)                | |
+| Source Concept              | DataHub Concept                                                                            | Notes                                                                       |
+| --------------------------- |--------------------------------------------------------------------------------------------| --------------------------------------------------------------------------- |
+| `"kafka-connect"`                 | [Data Platform](https://datahubproject.io/docs/generated/metamodel/entities/dataplatform/) |                                                                             |
+| [Connector](https://kafka.apache.org/documentation/#connect_connectorsandtasks)         | [DataFlow](https://datahubproject.io/docs/generated/metamodel/entities/dataflow/)          | |
+| Kafka Topic         | [Dataset](https://datahubproject.io/docs/generated/metamodel/entities/dataset/)            | |
 
 ## Current limitations
 
 Works only for
 
 - Source connectors: JDBC, Debezium, Mongo and Generic connectors with user-defined lineage graph
-- Sink connectors: BigQuery
+- Sink connectors: BigQuery, Confluent S3, Snowflake

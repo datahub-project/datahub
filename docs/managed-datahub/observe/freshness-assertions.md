@@ -125,7 +125,7 @@ Change Source types vary by the platform, but generally fall into these categori
   - **DataHub Operation**: A DataHub "Operation" aspect contains timeseries information used to describe changes made to an entity. Using this
     option avoids contacting your data platform, and instead uses the DataHub Operation metadata to evaluate Freshness Assertions.
     This relies on Operations being reported to DataHub, either via ingestion or via use of the DataHub APIs (see [Report Operation via API](#reporting-operations-via-api)).
-    Note if you have not configured an ingestion source through DataHub, then this may be the only option available.
+    Note if you have not configured an ingestion source through DataHub, then this may be the only option available. By default, any operation type found will be considered a valid change. Use the **Operation Types** dropdown when selecting this option to specify which operation types should be considered valid changes. You may choose from one of DataHub's standard Operation Types, or specify a "Custom" Operation Type by typing in the name of the Operation Type.
 
   Using either of the column value approaches (**Last Modified Column** or **High Watermark Column**) to determine whether a Table has changed can be useful because it can be customized to determine whether specific types of important changes have been made to a given Table.
   Because it does not involve system warehouse tables, it is also easily portable across Data Warehouse and Data Lake providers. 

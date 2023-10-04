@@ -171,6 +171,8 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
       .setReadOnlyModeEnabled(_featureFlags.isReadOnlyModeEnabled())
       .setShowBrowseV2(_featureFlags.isShowBrowseV2())
       .setShowAcrylInfo(_featureFlags.isShowAcrylInfo())
+      .setShowAccessManagement(_featureFlags.isShowAccessManagement())
+      .setNestedDomainsEnabled(_featureFlags.isNestedDomainsEnabled())
       .build();
 
     appConfig.setFeatureFlags(featureFlagsConfig);

@@ -127,9 +127,14 @@ class UnityCatalogSourceConfig(
         description='Attach domains to catalogs, schemas or tables during ingestion using regex patterns. Domain key can be a guid like *urn:li:domain:ec428203-ce86-4db3-985d-5a8ee6df32ba* or a string like "Marketing".) If you provide strings, then datahub will attempt to resolve this name to a guid, and will error out if this fails. There can be multiple domain keys specified.',
     )
 
-    include_table_lineage: Optional[bool] = pydantic.Field(
+    include_table_lineage: bool = pydantic.Field(
         default=True,
         description="Option to enable/disable lineage generation.",
+    )
+
+    include_notebooks: bool = pydantic.Field(
+        default=False,
+        description="Ingest notebooks, represented as DataHub datasets.",
     )
 
     include_ownership: bool = pydantic.Field(
@@ -141,7 +146,7 @@ class UnityCatalogSourceConfig(
         "include_table_ownership", "include_ownership"
     )
 
-    include_column_lineage: Optional[bool] = pydantic.Field(
+    include_column_lineage: bool = pydantic.Field(
         default=True,
         description="Option to enable/disable lineage generation. Currently we have to call a rest call per column to get column level lineage due to the Databrick api which can slow down ingestion. ",
     )

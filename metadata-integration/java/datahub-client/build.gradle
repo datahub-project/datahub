@@ -49,6 +49,7 @@ dependencies {
   annotationProcessor externalDependency.lombok
   // VisibleForTesting
   compileOnly externalDependency.guava
+  testImplementation externalDependency.testngJava8
   testImplementation externalDependency.mockito
   testImplementation externalDependency.mockServer
   testImplementation externalDependency.mockServerClient
@@ -56,7 +57,7 @@ dependencies {
   testImplementation externalDependency.httpAsyncClient
   testRuntimeOnly externalDependency.logbackClassic
 
-  swaggerCodegen 'io.swagger.codegen.v3:swagger-codegen-cli:3.0.33'
+  swaggerCodegen externalDependency.swaggerCli
 }
 
 task copyAvroSchemas {

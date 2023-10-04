@@ -19,7 +19,7 @@ const GuideList = ({ title, content, seeMoreLink }) =>
   content?.length > 0 ? (
     <div style={{ padding: "2vh 0" }}>
       <div className="container">
-        <h2 style={{ fontWeight: "normal" }}>{title}</h2>
+        <h2>{title}</h2>
         <div className="row row--no-gutters">
           {content.map((props, idx) => (
             <ListItem key={idx} {...props} />

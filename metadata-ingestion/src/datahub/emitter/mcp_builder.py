@@ -2,7 +2,6 @@ import hashlib
 import json
 from typing import Any, Dict, Iterable, List, Optional, TypeVar
 
-from deprecated import deprecated
 from pydantic.fields import Field
 from pydantic.main import BaseModel
 
@@ -10,6 +9,7 @@ from datahub.emitter.mce_builder import (
     make_container_urn,
     make_data_platform_urn,
     make_dataplatform_instance_urn,
+    make_dataset_urn_with_platform_instance,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -30,7 +30,6 @@ from datahub.metadata.schema_classes import (
     StatusClass,
     SubTypesClass,
     TagAssociationClass,
-    _Aspect,
 )
 
 
@@ -127,6 +126,17 @@ class BucketKey(ContainerKey):
     bucket_name: str
 
 
+class NotebookKey(DatahubKey):
+    notebook_id: int
+    platform: str
+    instance: Optional[str]
+
+    def as_urn(self) -> str:
+        return make_dataset_urn_with_platform_instance(
+            platform=self.platform, platform_instance=self.instance, name=self.guid()
+        )
+
+
 class DatahubKeyJSONEncoder(json.JSONEncoder):
     # overload method default
     def default(self, obj: Any) -> Any:
@@ -174,23 +184,6 @@ def add_tags_to_entity_wu(
             tags=[TagAssociationClass(f"urn:li:tag:{tag}") for tag in tags]
         ),
     ).as_workunit()
-
-
-@deprecated("use MetadataChangeProposalWrapper(...).as_workunit() instead")
-def wrap_aspect_as_workunit(
-    entityName: str,
-    entityUrn: str,
-    aspectName: str,
-    aspect: _Aspect,
-) -> MetadataWorkUnit:
-    wu = MetadataWorkUnit(
-        id=f"{aspectName}-for-{entityUrn}",
-        mcp=MetadataChangeProposalWrapper(
-            entityUrn=entityUrn,
-            aspect=aspect,
-        ),
-    )
-    return wu
 
 
 def gen_containers(

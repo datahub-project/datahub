@@ -12,3 +12,8 @@ export function useIsShowAcrylInfoEnabled() {
     const appConfig = useAppConfig();
     return appConfig.config.featureFlags.showAcrylInfo;
 }
+
+export function useIsNestedDomainsEnabled() {
+    const appConfig = useAppConfig();
+    return appConfig.config.featureFlags.nestedDomainsEnabled;
+}

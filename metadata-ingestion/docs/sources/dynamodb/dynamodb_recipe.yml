@@ -1,0 +1,25 @@
+source:
+  type: dynamodb
+  config:
+    platform_instance: "AWS_ACCOUNT_ID"
+    aws_access_key_id: "${AWS_ACCESS_KEY_ID}"
+    aws_secret_access_key: "${AWS_SECRET_ACCESS_KEY}"
+    # User could use the below option to provide a list of primary keys of a table in dynamodb format,
+    # those items from given primary keys will be included when we scan the table.
+    # For each table we can retrieve up to 16 MB of data, which can contain as many as 100 items.
+    # We'll enforce the the primary keys list size not to exceed 100
+    # The total items we'll try to retrieve in these two scenarios:
+    # 1. If user don't specify include_table_item: we'll retrieve up to 100 items
+    # 2. If user specifies include_table_item: we'll retrieve up to 100 items plus user specified items in
+    # the table, with a total not more than 200 items
+    # include_table_item:
+    #   table_name:
+    #     [
+    #       {
+    #         "partition_key_name": { "attribute_type": "attribute_value" },
+    #         "sort_key_name": { "attribute_type": "attribute_value" },
+    #       },
+    #     ]
+
+sink:
+  # sink configs

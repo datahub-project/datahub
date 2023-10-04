@@ -100,7 +100,7 @@ eksctl create iamserviceaccount \
 Install the TargetGroupBinding custom resource definition by running the following.
 
 ```
-kubectl apply -k "github.com/aws/eks-charts/stable/aws-load-balancer-controller//crds?ref=master"
+kubectl apply -k "github.com/aws/eks-charts/stable/aws-load-balancer-controller/crds?ref=master"
 ```
 
 Add the helm chart repository containing the latest version of the ALB controller.
