@@ -1,3 +1,4 @@
+import logging
 import os
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Optional
@@ -21,6 +22,8 @@ from datahub.ingestion.source_config.operation_config import (
     OperationConfig,
     is_profiling_enabled,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class UnityCatalogProfilerConfig(ConfigModel):
@@ -203,3 +206,15 @@ class UnityCatalogSourceConfig(
                 "Workspace URL must start with http scheme. e.g. https://my-workspace.cloud.databricks.com"
             )
         return workspace_url
+
+    @pydantic.validator("include_metastore")
+    def include_metastore_warning(self, v: bool) -> bool:
+        if v:
+            msg = (
+                "include_metastore is enabled."
+                " This is not recommended and will be disabled by default in the future, which is a breaking change."
+                " All databricks urns will change if you re-ingest with this disabled."
+                " We recommend soft deleting all databricks data and re-ingesting with include_metastore set to False."
+            )
+            logger.warning(msg)
+        return v
