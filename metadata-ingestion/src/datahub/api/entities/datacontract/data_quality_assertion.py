@@ -48,35 +48,6 @@ class CustomSQLAssertion(IdConfigMixin, ConfigModel):
         )
 
 
-"""
-    def foo():
-        def _gen_column_range_assertion(config: dict) -> DatasetAssertionInfoClass:
-            return DatasetAssertionInfoClass(
-                dataset=self.entity,
-                fields=[
-                    builder.make_schema_field_urn(
-                        self.entity, str(config.get("column"))
-                    )
-                ],
-                operator=AssertionStdOperatorClass.BETWEEN,
-                aggregation=AssertionStdAggregationClass.IDENTITY,
-                scope=DatasetAssertionScopeClass.DATASET_COLUMN,
-                parameters=AssertionStdParametersClass(
-                    minValue=AssertionStdParameterClass(
-                        value=str(config.get("min")),
-                        type=AssertionStdParameterTypeClass.NUMBER,
-                    ),
-                    maxValue=AssertionStdParameterClass(
-                        value=str(config.get("max")),
-                        type=AssertionStdParameterTypeClass.NUMBER,
-                    ),
-                ),
-            )
-
-        dq_type_map = {"column_range": _gen_column_range_assertion}
-"""
-
-
 class ColumnUniqueAssertion(IdConfigMixin, ConfigModel):
     type: Literal["unique"]
 

@@ -208,7 +208,6 @@ class DataContract(ConfigModel):
         with open(file) as fp:
             yaml = YAML(typ="rt")  # default, if not specfied, is 'rt' (round-trip)
             orig_dictionary = yaml.load(fp)
-            # breakpoint()
             parsed_data_contract = DataContract.parse_obj(orig_dictionary)
             parsed_data_contract._original_yaml_dict = orig_dictionary
             return parsed_data_contract
