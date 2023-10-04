@@ -445,6 +445,17 @@ type FeatureFlagsConfig {
   Whether Join Tables Feature should be shown.
   """
   joinFeatureEnabled: Boolean!
+
+  """
+  Whether we should show AccessManagement tab in the datahub UI.
+  """
+  showAccessManagement: Boolean!
+
+  """
+  Enables the nested Domains feature that allows users to have sub-Domains.
+  If this is off, Domains appear "flat" again.
+  """
+  nestedDomainsEnabled: Boolean!
 }
 
 """

@@ -100,6 +100,7 @@ entities:
       - dataProcessInstanceRelationships
       - dataProcessInstanceRunEvent
   - name: chart
+    category: core
     keyAspect: chartKey
     aspects:
       - chartInfo
@@ -183,6 +184,7 @@ entities:
       - origin
   - name: domain
     doc: A data domain within an organization.
+    category: core
     keyAspect: domainKey
     aspects:
       - domainProperties
@@ -190,6 +192,7 @@ entities:
       - ownership
   - name: container
     doc: A container of related data assets.
+    category: core
     keyAspect: containerKey
     aspects:
       - containerProperties
@@ -206,6 +209,7 @@ entities:
       - domains
       - browsePathsV2
   - name: tag
+    category: core
     keyAspect: tagKey
     aspects:
       - tagProperties
@@ -213,6 +217,7 @@ entities:
       - deprecation
       - status
   - name: glossaryTerm
+    category: core
     keyAspect: glossaryTermKey
     aspects:
       - glossaryTermInfo
@@ -225,6 +230,7 @@ entities:
       - status
       - browsePaths
   - name: glossaryNode
+    category: core
     keyAspect: glossaryNodeKey
     aspects:
       - glossaryNodeInfo

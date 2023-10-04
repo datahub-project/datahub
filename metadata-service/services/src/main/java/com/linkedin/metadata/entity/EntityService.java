@@ -9,6 +9,7 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.entity.Entity;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
@@ -34,6 +35,14 @@ import javax.annotation.Nullable;
 
 
 public interface EntityService {
+
+  /**
+   * Just whether the entity/aspect exists
+   * @param urn urn for the entity
+   * @param aspectName aspect for the entity
+   * @return exists or not
+   */
+  Boolean exists(Urn urn, String aspectName);
 
   /**
    * Retrieves the latest aspects corresponding to a batch of {@link Urn}s based on a provided
@@ -206,7 +215,7 @@ public interface EntityService {
       @Nonnull final List<SystemMetadata> systemMetadata);
 
   @Deprecated
-  void ingestEntity(Entity entity, AuditStamp auditStamp);
+  SystemMetadata ingestEntity(Entity entity, AuditStamp auditStamp);
 
   @Deprecated
   void ingestEntity(@Nonnull Entity entity, @Nonnull AuditStamp auditStamp,
@@ -289,4 +298,11 @@ public interface EntityService {
    */
   @Nonnull
   BrowsePathsV2 buildDefaultBrowsePathV2(final @Nonnull Urn urn, boolean useContainerPaths) throws URISyntaxException;
+
+  /**
+   * Allow internal use of the system entity client. Solves recursive dependencies between the EntityService
+   * and the SystemJavaEntityClient
+   * @param systemEntityClient system entity client
+   */
+  void setSystemEntityClient(SystemEntityClient systemEntityClient);
 }

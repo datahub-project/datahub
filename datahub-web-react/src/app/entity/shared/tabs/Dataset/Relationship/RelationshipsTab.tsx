@@ -100,7 +100,7 @@ export const RelationshipsTab = () => {
 
     const contentListNoTitle: Record<string, React.ReactNode> = {
         joinsTab:
-            joinData.length > 0 ? (
+            joinData.length > 0 && !loadingJoin ? (
                 joinData.map((record) => {
                     return (
                         <>
