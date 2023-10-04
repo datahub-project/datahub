@@ -1,14 +1,11 @@
 import logging
 import os
-from typing import Iterable, Tuple
 from unittest.mock import patch
 
 import humanfriendly
 import psutil
-from performance.databricks.unity_proxy_mock import UnityCatalogApiProxyMock
 
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.unity.config import UnityCatalogSourceConfig
 from datahub.ingestion.source.unity.source import UnityCatalogSource
 from datahub.utilities.perf_timer import PerfTimer
@@ -17,6 +14,8 @@ from tests.performance.data_generation import (
     generate_data,
     generate_queries,
 )
+from tests.performance.databricks.unity_proxy_mock import UnityCatalogApiProxyMock
+from tests.performance.helpers import workunit_sink
 
 
 def run_test():
@@ -63,21 +62,6 @@ def run_test():
         f"Peak Memory Used: {humanfriendly.format_size(peak_memory_usage - pre_mem_usage)}"
     )
     print(source.report.aspects)
-
-
-def workunit_sink(workunits: Iterable[MetadataWorkUnit]) -> Tuple[int, int]:
-    peak_memory_usage = psutil.Process(os.getpid()).memory_info().rss
-    i: int = 0
-    for i, wu in enumerate(workunits):
-        if i % 10_000 == 0:
-            peak_memory_usage = max(
-                peak_memory_usage, psutil.Process(os.getpid()).memory_info().rss
-            )
-    peak_memory_usage = max(
-        peak_memory_usage, psutil.Process(os.getpid()).memory_info().rss
-    )
-
-    return i, peak_memory_usage
 
 
 if __name__ == "__main__":

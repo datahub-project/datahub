@@ -1,13 +1,10 @@
 import uuid
 from collections import defaultdict
 from datetime import datetime, timezone
-from typing import Iterable
+from typing import Dict, Iterable, List
 
 from databricks.sdk.service.catalog import ColumnTypeName
 from databricks.sdk.service.sql import QueryStatementType
-from performance import data_model
-from performance.data_generation import SeedMetadata
-from performance.data_model import ColumnType, StatementType
 
 from datahub.ingestion.source.unity.proxy_types import (
     Catalog,
@@ -20,6 +17,9 @@ from datahub.ingestion.source.unity.proxy_types import (
     Table,
     TableType,
 )
+from tests.performance import data_model
+from tests.performance.data_generation import SeedMetadata
+from tests.performance.data_model import ColumnType, StatementType
 
 
 class UnityCatalogApiProxyMock:
@@ -35,7 +35,9 @@ class UnityCatalogApiProxyMock:
         self.queries = queries
         self.num_service_principals = num_service_principals
         self.warehouse_id = "invalid-warehouse-id"
-        self._schema_to_table = defaultdict(list)  # Cache for performance
+
+        # Cache for performance
+        self._schema_to_table: Dict[str, List[data_model.Table]] = defaultdict(list)
         for table in seed_metadata.all_tables:
             self._schema_to_table[table.container.name].append(table)
 
@@ -57,7 +59,7 @@ class UnityCatalogApiProxyMock:
 
     def catalogs(self, metastore: Metastore) -> Iterable[Catalog]:
         for container in self.seed_metadata.containers[1]:
-            if metastore.name != container.parent.name:
+            if not container.parent or metastore.name != container.parent.name:
                 continue
 
             yield Catalog(
@@ -72,7 +74,7 @@ class UnityCatalogApiProxyMock:
     def schemas(self, catalog: Catalog) -> Iterable[Schema]:
         for container in self.seed_metadata.containers[2]:
             # Assumes all catalog names are unique
-            if catalog.name != container.parent.name:
+            if not container.parent or catalog.name != container.parent.name:
                 continue
 
             yield Schema(
@@ -86,21 +88,22 @@ class UnityCatalogApiProxyMock:
     def tables(self, schema: Schema) -> Iterable[Table]:
         for table in self._schema_to_table[schema.name]:
             columns = []
-            for i, col_name in enumerate(table.columns):
-                column = table.column_mapping[col_name]
-                columns.append(
-                    Column(
-                        id=column.name,
-                        name=column.name,
-                        type_name=self._convert_column_type(column.type),
-                        type_text=column.type.value,
-                        nullable=column.nullable,
-                        position=i,
-                        comment=None,
-                        type_precision=0,
-                        type_scale=0,
+            if table.column_mapping:
+                for i, col_name in enumerate(table.columns):
+                    column = table.column_mapping[col_name]
+                    columns.append(
+                        Column(
+                            id=column.name,
+                            name=column.name,
+                            type_name=self._convert_column_type(column.type),
+                            type_text=column.type.value,
+                            nullable=column.nullable,
+                            position=i,
+                            comment=None,
+                            type_precision=0,
+                            type_scale=0,
+                        )
                     )
-                )
 
             yield Table(
                 id=f"{schema.id}.{table.name}",
