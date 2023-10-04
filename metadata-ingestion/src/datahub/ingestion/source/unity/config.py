@@ -139,9 +139,14 @@ class UnityCatalogSourceConfig(
         description="Regex patterns for tables to filter in ingestion. Specify regex to match the entire table name in `catalog.schema.table` format. e.g. to match all tables starting with customer in Customer catalog and public schema, use the regex `Customer\\.public\\.customer.*`.",
     )
 
-    include_table_lineage: Optional[bool] = pydantic.Field(
+    include_table_lineage: bool = pydantic.Field(
         default=True,
         description="Option to enable/disable lineage generation.",
+    )
+
+    include_notebooks: bool = pydantic.Field(
+        default=False,
+        description="Ingest notebooks, represented as DataHub datasets.",
     )
 
     include_ownership: bool = pydantic.Field(
@@ -153,7 +158,7 @@ class UnityCatalogSourceConfig(
         "include_table_ownership", "include_ownership"
     )
 
-    include_column_lineage: Optional[bool] = pydantic.Field(
+    include_column_lineage: bool = pydantic.Field(
         default=True,
         description="Option to enable/disable lineage generation. Currently we have to call a rest call per column to get column level lineage due to the Databrick api which can slow down ingestion. ",
     )

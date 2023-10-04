@@ -1,23 +1,26 @@
-from dataclasses import dataclass, field
 from typing import Tuple
+
+from dataclasses import dataclass, field
 
 from datahub.ingestion.api.report import EntityFilterReport
 from datahub.ingestion.source.sql.sql_generic_profiler import ProfilingSqlReport
+from datahub.ingestion.source_report.ingestion_stage import IngestionStageReport
 from datahub.utilities.lossy_collections import LossyDict, LossyList
 
 
 @dataclass
-class UnityCatalogReport(ProfilingSqlReport):
+class UnityCatalogReport(IngestionStageReport, ProfilingSqlReport):
     metastores: EntityFilterReport = EntityFilterReport.field(type="metastore")
     catalogs: EntityFilterReport = EntityFilterReport.field(type="catalog")
     schemas: EntityFilterReport = EntityFilterReport.field(type="schema")
     tables: EntityFilterReport = EntityFilterReport.field(type="table/view")
     table_profiles: EntityFilterReport = EntityFilterReport.field(type="table profile")
+    notebooks: EntityFilterReport = EntityFilterReport.field(type="notebook")
 
     num_queries: int = 0
     num_queries_dropped_parse_failure: int = 0
-    num_queries_dropped_missing_table: int = 0  # Can be due to pattern filter
-    num_queries_dropped_duplicate_table: int = 0
+    num_queries_missing_table: int = 0  # Can be due to pattern filter
+    num_queries_duplicate_table: int = 0
     num_queries_parsed_by_spark_plan: int = 0
 
     # Distinguish from Operations emitted for created / updated timestamps
