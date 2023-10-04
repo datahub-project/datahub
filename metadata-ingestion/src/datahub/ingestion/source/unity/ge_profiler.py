@@ -1,10 +1,11 @@
 import logging
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Callable, Iterable, List, Optional, cast
 
 from sqlalchemy import create_engine
-from sqlalchemy.engine import Engine
+from sqlalchemy.engine import Connection
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -33,13 +34,15 @@ class UnityCatalogSQLGenericTable(BaseTable):
         self.last_altered = table.updated_at
         self.column_count = len(table.columns)
         self.ref = table.ref
+        self.size_in_bytes = None
+        self.rows_count = None
+        self.ddl = None
 
 
 @dataclass
 class UnityCatalogProfilerRequest(GEProfilerRequest):
-    ref: TableReference
+    table: UnityCatalogSQLGenericTable
     profile_table_level_only: bool = False
-    size_in_bytes: Optional[int] = None
 
 
 class UnityCatalogGEProfiler(GenericProfiler):
@@ -68,12 +71,22 @@ class UnityCatalogGEProfiler(GenericProfiler):
 
         url = self.config.get_sql_alchemy_url()
         engine = create_engine(url, **self.config.options)
+        conn = engine.connect()
 
         profile_requests = []
-        for table in tables:
-            profile_request = self.get_unity_profile_request(
-                UnityCatalogSQLGenericTable(table), engine=engine
-            )
+        with ThreadPoolExecutor(
+            max_workers=self.profiling_config.max_workers
+        ) as executor:
+            futures = [
+                executor.submit(
+                    self.get_unity_profile_request,
+                    UnityCatalogSQLGenericTable(table),
+                    conn,
+                )
+                for table in tables
+            ]
+        for future in futures:
+            profile_request = future.result()
             if profile_request is not None:
                 profile_requests.append(profile_request)
 
@@ -91,7 +104,8 @@ class UnityCatalogGEProfiler(GenericProfiler):
                 continue
 
             request = cast(UnityCatalogProfilerRequest, request)
-            dataset_urn = self.dataset_urn_builder(request.ref)
+            profile.sizeInBytes = request.table.size_in_bytes
+            dataset_urn = self.dataset_urn_builder(request.table.ref)
 
             # We don't add to the profiler state if we only do table level profiling as it always happens
             if self.state_handler and not request.profile_table_level_only:
@@ -104,20 +118,24 @@ class UnityCatalogGEProfiler(GenericProfiler):
             ).as_workunit()
 
     def get_unity_profile_request(
-        self, table: UnityCatalogSQLGenericTable, engine: Engine
+        self, table: UnityCatalogSQLGenericTable, conn: Connection
     ) -> Optional[UnityCatalogProfilerRequest]:
         skip_profiling = False
         profile_table_level_only = self.profiling_config.profile_table_level_only
 
         dataset_name = table.ref.qualified_table_name
-        size_in_bytes = _get_dataset_size_in_bytes(table, engine)
-        if size_in_bytes is None:
+        try:
+            table.size_in_bytes = _get_dataset_size_in_bytes(table, conn)
+        except Exception as e:
+            logger.warning(f"Failed to get table size for {dataset_name}: {e}")
+
+        if table.size_in_bytes is None:
             self.report.num_profile_missing_size_in_bytes += 1
         if not self.is_dataset_eligible_for_profiling(
             dataset_name,
-            size_in_bytes=size_in_bytes,
+            size_in_bytes=table.size_in_bytes,
             last_altered=table.last_altered,
-            rows_count=None,
+            rows_count=0,  # Can't get row count ahead of time
         ):
             # Profile only table level if dataset is filtered from profiling
             # due to size limits alone
@@ -142,19 +160,21 @@ class UnityCatalogGEProfiler(GenericProfiler):
         self.report.report_entity_profiled(dataset_name)
         logger.debug(f"Preparing profiling request for {dataset_name}")
         return UnityCatalogProfilerRequest(
-            ref=table.ref,
+            table=table,
             pretty_name=dataset_name,
             batch_kwargs=dict(schema=table.ref.schema, table=table.name),
             profile_table_level_only=profile_table_level_only,
-            size_in_bytes=size_in_bytes,
         )
 
 
 def _get_dataset_size_in_bytes(
-    table: UnityCatalogSQLGenericTable, engine: Engine
+    table: UnityCatalogSQLGenericTable, conn: Connection
 ) -> Optional[int]:
-    name = engine.dialect.identifier_preparer.quote(table.ref.qualified_table_name)
-    row = engine.execute(f"DESCRIBE DETAIL {name}").fetchone()
+    name = ".".join(
+        conn.dialect.identifier_preparer.quote(c)
+        for c in [table.ref.catalog, table.ref.schema, table.ref.table]
+    )
+    row = conn.execute(f"DESCRIBE DETAIL {name}").fetchone()
     if row is None:
         return None
     else:

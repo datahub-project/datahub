@@ -27,6 +27,7 @@ from typing import (
 
 import sqlalchemy as sa
 import sqlalchemy.sql.compiler
+from great_expectations.core.profiler_types_mapping import ProfilerTypeMapping
 from great_expectations.core.util import convert_to_json_serializable
 from great_expectations.data_context import AbstractDataContext, BaseDataContext
 from great_expectations.data_context.types.base import (
@@ -77,7 +78,24 @@ MYSQL = "mysql"
 SNOWFLAKE = "snowflake"
 BIGQUERY = "bigquery"
 REDSHIFT = "redshift"
+DATABRICKS = "databricks"
 TRINO = "trino"
+
+ProfilerTypeMapping.INT_TYPE_NAMES.append("Integer")
+ProfilerTypeMapping.INT_TYPE_NAMES.append("SmallInteger")
+ProfilerTypeMapping.INT_TYPE_NAMES.append("BigInteger")
+ProfilerTypeMapping.FLOAT_TYPE_NAMES.append("Float")
+ProfilerTypeMapping.FLOAT_TYPE_NAMES.append("Numeric")
+ProfilerTypeMapping.STRING_TYPE_NAMES.append("String")
+ProfilerTypeMapping.STRING_TYPE_NAMES.append("Text")
+ProfilerTypeMapping.STRING_TYPE_NAMES.append("Unicode")
+ProfilerTypeMapping.STRING_TYPE_NAMES.append("UnicodeText")
+ProfilerTypeMapping.BOOLEAN_TYPE_NAMES.append("Boolean")
+ProfilerTypeMapping.DATETIME_TYPE_NAMES.append("Date")
+ProfilerTypeMapping.DATETIME_TYPE_NAMES.append("DateTime")
+ProfilerTypeMapping.DATETIME_TYPE_NAMES.append("Time")
+ProfilerTypeMapping.DATETIME_TYPE_NAMES.append("Interval")
+ProfilerTypeMapping.BINARY_TYPE_NAMES.append("LargeBinary")
 
 # The reason for this wacky structure is quite fun. GE basically assumes that
 # the config structures were generated directly from YML and further assumes that
@@ -329,6 +347,7 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
 
     @_run_with_query_combiner
     def _get_column_type(self, column_spec: _SingleColumnSpec, column: str) -> None:
+        # logger.info(f"{column} {self.dataset.columns} {self.dataset.columns[0]}")
         column_spec.type_ = BasicDatasetProfilerBase._get_column_type(
             self.dataset, column
         )
@@ -664,6 +683,9 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                         column_profile.uniqueProportion = min(
                             1, unique_count / non_null_count
                         )
+
+            if not profile.rowCount:
+                continue
 
             self._get_dataset_column_sample_values(column_profile, column)
 
@@ -1121,7 +1143,7 @@ class DatahubGEProfiler:
             },
         )
 
-        if platform == BIGQUERY:
+        if platform == BIGQUERY or platform == DATABRICKS:
             # This is done as GE makes the name as DATASET.TABLE
             # but we want it to be PROJECT.DATASET.TABLE instead for multi-project setups
             name_parts = pretty_name.split(".")

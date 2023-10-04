@@ -261,7 +261,7 @@ databricks = {
     "databricks-sdk>=0.1.1, != 0.1.11",
     "pyspark",
     "requests",
-    "databricks-sql-connector",
+    "databricks-sql-connector>=2.8.0",  # Only added in 2.4.0, bug fixes since
 }
 
 mysql = sql_common | {"pymysql>=1.0.2"}
