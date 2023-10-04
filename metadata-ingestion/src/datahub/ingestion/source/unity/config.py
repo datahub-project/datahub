@@ -208,7 +208,7 @@ class UnityCatalogSourceConfig(
         return workspace_url
 
     @pydantic.validator("include_metastore")
-    def include_metastore_warning(self, v: bool) -> bool:
+    def include_metastore_warning(cls, v: bool) -> bool:
         if v:
             msg = (
                 "include_metastore is enabled."
