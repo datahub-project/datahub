@@ -6,7 +6,7 @@ import { useHistory } from 'react-router';
 import { AutoCompleteResultForEntity, EntityType, FacetFilterInput, ScenarioType } from '../../types.generated';
 import EntityRegistry from '../entity/EntityRegistry';
 import filterSearchQuery from './utils/filterSearchQuery';
-import { ANTD_GRAY, ANTD_GRAY_V2 } from '../entity/shared/constants';
+import { ANTD_GRAY, ANTD_GRAY_V2, REDESIGN_COLORS } from '../entity/shared/constants';
 import { getEntityPath } from '../entity/shared/containers/profile/utils';
 import { EXACT_SEARCH_PREFIX } from './utils/constants';
 import { useListRecommendationsQuery } from '../../graphql/recommendations.generated';
@@ -39,13 +39,14 @@ const StyledSearchBar = styled(Input)`
     &&& {
         border-radius: 70px;
         height: 40px;
-        font-size: 20px;
+        font-size: 14px;
         color: ${ANTD_GRAY[7]};
         background-color: ${ANTD_GRAY_V2[2]};
-    }
-    > .ant-input {
-        font-size: 14px;
-        background-color: ${ANTD_GRAY_V2[2]};
+        border: 2px solid transparent;
+
+        &:focus-within {
+            border: 1.5px solid ${REDESIGN_COLORS.BLUE};
+        }
     }
     > .ant-input::placeholder {
         color: ${ANTD_GRAY_V2[10]};
@@ -296,6 +297,22 @@ export const SearchBar = ({
         }
     }
 
+    const searchInputRef = useRef(null);
+
+    useEffect(() => {
+        const handleKeyDown = (event) => {
+            // Support command-k to select the search bar.
+            // 75 is the keyCode for 'k'
+            if ((event.metaKey || event.ctrlKey) && event.keyCode === 75) {
+                (searchInputRef?.current as any)?.focus();
+            }
+        };
+        document.addEventListener('keydown', handleKeyDown);
+        return () => {
+            document.removeEventListener('keydown', handleKeyDown);
+        };
+    }, []);
+
     return (
         <AutoCompleteContainer style={style} ref={searchBarWrapperRef}>
             <StyledAutoComplete
@@ -399,6 +416,7 @@ export const SearchBar = ({
                             />
                         </>
                     }
+                    ref={searchInputRef}
                 />
             </StyledAutoComplete>
         </AutoCompleteContainer>
