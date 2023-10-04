@@ -278,6 +278,14 @@ class DBTCommonConfig(
         description="When enabled, converts column URNs to lowercase to ensure cross-platform compatibility. "
         "If `target_platform` is Snowflake, the default is True.",
     )
+    use_compiled_code: bool = Field(
+        default=False,
+        description="When enabled, uses the compiled dbt code instead of the raw dbt node definition.",
+    )
+    test_warnings_are_errors: bool = Field(
+        default=False,
+        description="When enabled, dbt test warnings will be treated as failures.",
+    )
 
     @validator("target_platform")
     def validate_target_platform_value(cls, target_platform: str) -> str:
@@ -807,7 +815,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                         mce_builder.make_schema_field_urn(upstream_urn, column_name)
                     ],
                     nativeType=node.name,
-                    logic=node.compiled_code if node.compiled_code else node.raw_code,
+                    logic=node.compiled_code or node.raw_code,
                     aggregation=AssertionStdAggregationClass._NATIVE_,
                     nativeParameters=string_map(kw_args),
                 ),
@@ -821,7 +829,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     dataset=upstream_urn,
                     scope=DatasetAssertionScopeClass.DATASET_ROWS,
                     operator=AssertionStdOperatorClass._NATIVE_,
-                    logic=node.compiled_code if node.compiled_code else node.raw_code,
+                    logic=node.compiled_code or node.raw_code,
                     nativeType=node.name,
                     aggregation=AssertionStdAggregationClass._NATIVE_,
                     nativeParameters=string_map(kw_args),
@@ -852,6 +860,10 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             result=AssertionResultClass(
                 type=AssertionResultTypeClass.SUCCESS
                 if test_result.status == "pass"
+                or (
+                    not self.config.test_warnings_are_errors
+                    and test_result.status == "warn"
+                )
                 else AssertionResultTypeClass.FAILURE,
                 nativeResults=test_result.native_results,
             ),
@@ -1003,8 +1015,8 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     aspects.append(upstream_lineage_class)
 
                 # add view properties aspect
-                if node.raw_code and node.language == "sql":
-                    view_prop_aspect = self._create_view_properties_aspect(node)
+                view_prop_aspect = self._create_view_properties_aspect(node)
+                if view_prop_aspect:
                     aspects.append(view_prop_aspect)
 
                 # emit subtype mcp
@@ -1129,14 +1141,21 @@ class DBTSourceBase(StatefulIngestionSourceBase):
     def get_external_url(self, node: DBTNode) -> Optional[str]:
         pass
 
-    def _create_view_properties_aspect(self, node: DBTNode) -> ViewPropertiesClass:
+    def _create_view_properties_aspect(
+        self, node: DBTNode
+    ) -> Optional[ViewPropertiesClass]:
+        view_logic = (
+            node.compiled_code if self.config.use_compiled_code else node.raw_code
+        )
+
+        if node.language != "sql" or not view_logic:
+            return None
+
         materialized = node.materialization in {"table", "incremental", "snapshot"}
-        # this function is only called when raw sql is present. assert is added to satisfy lint checks
-        assert node.raw_code is not None
         view_properties = ViewPropertiesClass(
             materialized=materialized,
             viewLanguage="SQL",
-            viewLogic=node.raw_code,
+            viewLogic=view_logic,
         )
         return view_properties
 
