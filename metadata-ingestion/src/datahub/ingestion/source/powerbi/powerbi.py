@@ -264,7 +264,6 @@ class Mapper:
                 )
 
         if len(upstream) > 0:
-
             upstream_lineage_class: UpstreamLineageClass = UpstreamLineageClass(
                 upstreams=upstream,
                 fineGrainedLineages=cll_lineage or None,
@@ -1138,6 +1137,10 @@ class Mapper:
 @capability(
     SourceCapability.OWNERSHIP,
     "Disabled by default, configured using `extract_ownership`",
+)
+@capability(
+    SourceCapability.LINEAGE_COARSE,
+    "Enabled by default, configured using `extract_lineage`.",
 )
 @capability(
     SourceCapability.LINEAGE_FINE,

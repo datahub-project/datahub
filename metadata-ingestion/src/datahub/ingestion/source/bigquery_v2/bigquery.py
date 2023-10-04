@@ -154,6 +154,7 @@ def cleanup(config: BigQueryV2Config) -> None:
 )
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
 @capability(SourceCapability.LINEAGE_COARSE, "Optionally enabled via configuration")
+@capability(SourceCapability.LINEAGE_FINE, "Optionally enabled via configuration")
 @capability(
     SourceCapability.USAGE_STATS,
     "Enabled by default, can be disabled via configuration `include_usage_statistics`",
