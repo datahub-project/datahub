@@ -29,7 +29,7 @@ asttokens==2.2.1
 async-timeout==4.0.2
 asynch==0.2.2
 attrs==23.1.0
-avro==1.10.2
+avro==1.11.3
 avro-gen3==0.7.10
 azure-core==1.26.4
 azure-identity==1.10.0
