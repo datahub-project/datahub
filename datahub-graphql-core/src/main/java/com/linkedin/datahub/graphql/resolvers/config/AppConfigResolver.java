@@ -172,6 +172,8 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
       .setShowBrowseV2(_featureFlags.isShowBrowseV2())
       .setShowAcrylInfo(_featureFlags.isShowAcrylInfo())
       .setJoinFeatureEnabled(_featureFlags.isJoinFeatureEnabled())
+      .setShowAccessManagement(_featureFlags.isShowAccessManagement())
+      .setNestedDomainsEnabled(_featureFlags.isNestedDomainsEnabled())
       .build();
 
     appConfig.setFeatureFlags(featureFlagsConfig);

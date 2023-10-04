@@ -1,7 +1,7 @@
 package com.linkedin.gms.factory.telemetry;
 
 import com.datahub.telemetry.TrackingService;
-import com.linkedin.gms.factory.spring.YamlPropertySourceFactory;
+import com.linkedin.metadata.spring.YamlPropertySourceFactory;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.secret.SecretService;
 import com.linkedin.metadata.version.GitVersion;

@@ -266,7 +266,7 @@ A Metadata Change Event represents a request to change multiple aspects for the 
 It leverages a deprecated concept of `Snapshot`, which is a strongly-typed list of aspects for the same
 entity. 
 
-A MCE is a "proposal" for a set of metadata changes, as opposed to [MAE](#metadata-audit-event), which is conveying a committed change.
+A MCE is a "proposal" for a set of metadata changes, as opposed to [MAE](#metadata-audit-event-mae), which is conveying a committed change.
 Consequently, only successfully accepted and processed MCEs will lead to the emission of a corresponding MAE / MCLs.
 
 ### Emission

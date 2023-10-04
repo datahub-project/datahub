@@ -26,20 +26,29 @@ import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.elasticsearch.action.search.SearchRequest;
-import org.elasticsearch.action.search.SearchResponse;
-import org.elasticsearch.client.Request;
-import org.elasticsearch.client.RequestOptions;
-import org.elasticsearch.client.Response;
-import org.elasticsearch.client.RestHighLevelClient;
-import org.elasticsearch.client.core.CountRequest;
+import org.opensearch.action.search.SearchRequest;
+import org.opensearch.action.search.SearchResponse;
+import org.opensearch.client.Request;
+import org.opensearch.client.RequestOptions;
+import org.opensearch.client.Response;
+import org.opensearch.client.RestHighLevelClient;
+import org.opensearch.client.core.CountRequest;
+import org.opensearch.common.settings.Settings;
+import org.opensearch.common.xcontent.LoggingDeprecationHandler;
+import org.opensearch.core.xcontent.NamedXContentRegistry;
+import org.opensearch.core.xcontent.XContentParser;
+import org.opensearch.common.xcontent.XContentType;
+import org.opensearch.search.SearchModule;
+import org.opensearch.search.builder.SearchSourceBuilder;
 
 import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.models.registry.template.util.TemplateUtil.*;
@@ -52,6 +61,11 @@ import static com.linkedin.metadata.utils.SearchUtil.*;
 @Slf4j
 @RequiredArgsConstructor
 public class ESSearchDAO {
+  private static final NamedXContentRegistry X_CONTENT_REGISTRY;
+  static {
+    SearchModule searchModule = new SearchModule(Settings.EMPTY, Collections.emptyList());
+    X_CONTENT_REGISTRY = new NamedXContentRegistry(searchModule.getNamedXContents());
+  }
 
   private final EntityRegistry entityRegistry;
   private final RestHighLevelClient client;
@@ -123,7 +137,7 @@ public class ESSearchDAO {
   }
 
   @VisibleForTesting
-  SearchResult transformIndexIntoEntityName(SearchResult result) {
+  public SearchResult transformIndexIntoEntityName(SearchResult result) {
     return result.setMetadata(result.getMetadata().setAggregations(transformIndexIntoEntityName(result.getMetadata().getAggregations())));
   }
   private ScrollResult transformIndexIntoEntityName(ScrollResult result) {
@@ -285,7 +299,7 @@ public class ESSearchDAO {
    */
   @Nonnull
   public ScrollResult scroll(@Nonnull List<String> entities, @Nonnull String input, @Nullable Filter postFilters,
-      @Nullable SortCriterion sortCriterion, @Nullable String scrollId, @Nonnull String keepAlive, int size, SearchFlags searchFlags) {
+      @Nullable SortCriterion sortCriterion, @Nullable String scrollId, @Nullable String keepAlive, int size, SearchFlags searchFlags) {
     final String finalInput = input.isEmpty() ? "*" : input;
     String[] indexArray = entities.stream()
         .map(indexConvention::getEntityIndexName)
@@ -302,11 +316,11 @@ public class ESSearchDAO {
       if (supportsPointInTime()) {
         if (System.currentTimeMillis() + 10000 <= searchAfterWrapper.getExpirationTime()) {
           pitId = searchAfterWrapper.getPitId();
-        } else {
+        } else if (keepAlive != null) {
           pitId = createPointInTime(indexArray, keepAlive);
         }
       }
-    } else if (supportsPointInTime()) {
+    } else if (supportsPointInTime() && keepAlive != null) {
       pitId = createPointInTime(indexArray, keepAlive);
     }
 
@@ -324,6 +338,23 @@ public class ESSearchDAO {
     scrollRequestTimer.stop();
     // Step 2: execute the query and extract results, validated against document model as well
     return executeAndExtract(entitySpecs, searchRequest, transformedFilters, scrollId, keepAlive, size);
+  }
+
+  public Optional<SearchResponse> raw(@Nonnull String indexName, @Nullable String jsonQuery) {
+    return Optional.ofNullable(jsonQuery).map(json -> {
+      try {
+        XContentParser parser = XContentType.JSON.xContent().createParser(X_CONTENT_REGISTRY,
+                LoggingDeprecationHandler.INSTANCE, json);
+        SearchSourceBuilder searchSourceBuilder = SearchSourceBuilder.fromXContent(parser);
+
+        SearchRequest searchRequest = new SearchRequest(indexConvention.getIndexName(indexName));
+        searchRequest.source(searchSourceBuilder);
+
+        return client.search(searchRequest, RequestOptions.DEFAULT);
+      } catch (IOException e) {
+        throw new RuntimeException(e);
+      }
+    });
   }
 
   private boolean supportsPointInTime() {

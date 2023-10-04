@@ -28,6 +28,7 @@ dependencies {
     testImplementation externalDependency.commonsIo
     testImplementation project(':test-models')
     testImplementation project(path: ':test-models', configuration: 'testDataTemplate')
+    testImplementation externalDependency.testngJava8
 }
 
 idea {
@@ -36,5 +37,5 @@ idea {
     }
 }
 
-// Need to compile backing java definitions with the data template.
+// Need to compile backing java parameterDefinitions with the data template.
 sourceSets.mainGeneratedDataTemplate.java.srcDirs('src/main/javaPegasus/')
