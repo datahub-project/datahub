@@ -97,9 +97,20 @@ class UnityCatalogSourceConfig(
         description="Name of the workspace. Default to deployment name present in workspace_url",
     )
 
-    ingest_data_platform_instance_aspect: Optional[bool] = pydantic.Field(
-        default=False,
-        description="Option to enable/disable ingestion of the data platform instance aspect. The default data platform instance id for a dataset is workspace_name",
+    include_metastore: bool = pydantic.Field(
+        default=True,
+        description=(
+            "Whether to ingest the workspace's metastore as a container and include it in all urns."
+            " Changing this will affect the urns of all entities in the workspace."
+            " This will be disabled by default in the future,"
+            " so it is recommended to set this to False for new ingestions."
+            " If you have an existing unity catalog ingestion, we recommend deleting existing data"
+            " via the cli: `datahub delete --platform databricks` and re-ingesting."
+        ),
+    )
+
+    _ingest_data_platform_instance_aspect_removed = pydantic_removed_field(
+        "ingest_data_platform_instance_aspect"
     )
 
     _only_ingest_assigned_metastore_removed = pydantic_removed_field(
@@ -122,6 +133,16 @@ class UnityCatalogSourceConfig(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns for tables to filter in ingestion. Specify regex to match the entire table name in `catalog.schema.table` format. e.g. to match all tables starting with customer in Customer catalog and public schema, use the regex `Customer\\.public\\.customer.*`.",
     )
+
+    notebook_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description=(
+            "Regex patterns for notebooks to filter in ingestion, based on notebook *path*."
+            " Specify regex to match the entire notebook path in `/<dir>/.../<name>` format."
+            " e.g. to match all notebooks in the root Shared directory, use the regex `/Shared/.*`."
+        ),
+    )
+
     domain: Dict[str, AllowDenyPattern] = Field(
         default=dict(),
         description='Attach domains to catalogs, schemas or tables during ingestion using regex patterns. Domain key can be a guid like *urn:li:domain:ec428203-ce86-4db3-985d-5a8ee6df32ba* or a string like "Marketing".) If you provide strings, then datahub will attempt to resolve this name to a guid, and will error out if this fails. There can be multiple domain keys specified.',

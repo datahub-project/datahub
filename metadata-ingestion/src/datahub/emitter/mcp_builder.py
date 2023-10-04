@@ -106,7 +106,15 @@ class MetastoreKey(ContainerKey):
     metastore: str
 
 
-class CatalogKey(MetastoreKey):
+class CatalogKeyWithMetastore(MetastoreKey):
+    catalog: str
+
+
+class UnitySchemaKeyWithMetastore(CatalogKeyWithMetastore):
+    unity_schema: str
+
+
+class CatalogKey(ContainerKey):
     catalog: str
 
 
