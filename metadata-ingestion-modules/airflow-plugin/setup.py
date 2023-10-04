@@ -107,6 +107,9 @@ integration_test_requirements = {
     # of splitting this into integration-test-old and integration-test-new,
     # adding a bound to SQLAlchemy was the simplest solution.
     "sqlalchemy<1.4.42",
+    # To avoid https://github.com/snowflakedb/snowflake-connector-python/issues/1188,
+    # we need https://github.com/snowflakedb/snowflake-connector-python/pull/1193
+    "snowflake-connector-python>=2.7.10",
     "virtualenv",  # needed by PythonVirtualenvOperator
     "apache-airflow-providers-sqlite",
 }

@@ -79,7 +79,7 @@ class NotReadyError(Exception):
 @tenacity.retry(
     reraise=True,
     wait=tenacity.wait_fixed(1),
-    stop=tenacity.stop_after_delay(60),
+    stop=tenacity.stop_after_delay(90),
     retry=tenacity.retry_if_exception_type(NotReadyError),
 )
 def _wait_for_dag_finish(
