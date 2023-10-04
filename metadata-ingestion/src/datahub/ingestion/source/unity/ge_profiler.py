@@ -1,5 +1,5 @@
 import logging
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Callable, Iterable, List, Optional, cast
@@ -85,10 +85,18 @@ class UnityCatalogGEProfiler(GenericProfiler):
                 )
                 for table in tables
             ]
-        for future in futures:
-            profile_request = future.result()
-            if profile_request is not None:
-                profile_requests.append(profile_request)
+
+            try:
+                for i, completed in enumerate(
+                    as_completed(futures, timeout=self.profiling_config.max_wait_secs)
+                ):
+                    profile_request = completed.result()
+                    if profile_request is not None:
+                        profile_requests.append(profile_request)
+                    if i > 0 and i % 100 == 0:
+                        logger.info(f"Finished table-level profiling for {i} tables")
+            except TimeoutError:
+                logger.warning("Timed out waiting to complete table-level profiling.")
 
         if len(profile_requests) == 0:
             return

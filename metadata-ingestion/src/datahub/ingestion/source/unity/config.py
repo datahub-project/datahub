@@ -96,6 +96,11 @@ class UnityCatalogAnalyzeProfilerConfig(UnityCatalogConfig):
 class UnityCatalogGEProfilerConfig(UnityCatalogConfig, GEProfilingConfig):
     method: Literal["ge"] = "ge"
 
+    max_wait_secs: Optional[int] = Field(
+        default=None,
+        description="Maximum time to wait for a table to be profiled.",
+    )
+
 
 class UnityCatalogSourceConfig(
     SQLCommonConfig,
