@@ -1,7 +1,6 @@
 import logging
 import re
 import time
-from datetime import timedelta
 from typing import Dict, Iterable, List, Optional, Set, Union
 from urllib.parse import urljoin
 
