@@ -62,7 +62,7 @@ public class OnBootApplicationListener {
   public Runnable isSchemaRegistryAPIServletReady() {
     return () -> {
         final HttpGet request = new HttpGet(provider.getKafka().getSchemaRegistry().getUrl());
-        int timeouts = 30;
+        int timeouts = 60;
         boolean openAPIServeletReady = false;
         while (!openAPIServeletReady && timeouts > 0) {
           try {
@@ -79,7 +79,7 @@ public class OnBootApplicationListener {
           timeouts--;
         }
         if (!openAPIServeletReady) {
-          log.error("Failed to bootstrap DataHub, OpenAPI servlet was not ready after 30 seconds");
+          log.error("Failed to bootstrap DataHub, OpenAPI servlet was not ready after {} seconds", timeouts);
           System.exit(1);
         } else {
         _bootstrapManager.start();
