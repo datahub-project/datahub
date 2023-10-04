@@ -1,6 +1,7 @@
 import logging
 import re
 import time
+from concurrent.futures import ThreadPoolExecutor, wait
 from datetime import timedelta
 from typing import Dict, Iterable, List, Optional, Set, Union
 from urllib.parse import urljoin
@@ -367,15 +368,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         ownership = self._create_table_ownership_aspect(table)
         data_platform_instance = self._create_data_platform_instance_aspect()
 
-        if self.config.include_column_lineage:
-            self.unity_catalog_api_proxy.get_column_lineage(
-                table, include_entity_lineage=self.config.include_notebooks
-            )
-        elif self.config.include_table_lineage:
-            self.unity_catalog_api_proxy.table_lineage(
-                table, include_entity_lineage=self.config.include_notebooks
-            )
-        lineage = self._generate_lineage_aspect(dataset_urn, table)
+        lineage = self.ingest_lineage(table)
 
         if self.config.include_notebooks:
             for notebook_id in table.downstream_notebooks:
@@ -400,6 +393,28 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 ],
             )
         ]
+
+    def ingest_lineage(self, table: Table) -> Optional[MetadataWorkUnit]:
+        if self.config.include_table_lineage:
+            self.unity_catalog_api_proxy.table_lineage(
+                table, include_entity_lineage=self.config.include_notebooks
+            )
+
+        if self.config.include_column_lineage and table.upstreams:
+            if len(table.columns) > self.config.column_lineage_column_limit:
+                self.report.num_column_lineage_skipped_column_count += 1
+
+            with ThreadPoolExecutor(
+                max_workers=self.config.lineage_max_workers
+            ) as executor:
+                for column in table.columns[: self.config.column_lineage_column_limit]:
+                    executor.submit(
+                        self.unity_catalog_api_proxy.get_column_lineage,
+                        table,
+                        column.name,
+                    )
+
+        return self._generate_lineage_aspect(self.gen_dataset_urn(table.ref), table)
 
     def _generate_lineage_aspect(
         self, dataset_urn: str, table: Table
