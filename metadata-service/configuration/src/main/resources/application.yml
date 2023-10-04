@@ -300,6 +300,7 @@ featureFlags:
   preProcessHooks:
     uiEnabled: ${PRE_PROCESS_HOOKS_UI_ENABLED:true} # Circumvents Kafka for processing index updates for UI changes sourced from GraphQL to avoid processing delays
   showAcrylInfo: ${SHOW_ACRYL_INFO:false} # Show different CTAs within DataHub around moving to Managed DataHub. Set to true for the demo site.
+  showSlackHelpButton: ${SHOW_SLACK_HELP_BUTTON:true} # Show the Slack help button that redirects to slack.datahubproject.io. Default to true for OSS.
   nestedDomainsEnabled: ${NESTED_DOMAINS_ENABLED:true} # Enables the nested Domains feature that allows users to have sub-Domains. If this is off, Domains appear "flat" again
 
 entityChangeEvents:
