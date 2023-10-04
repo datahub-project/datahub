@@ -265,6 +265,11 @@ class BigQueryV2Config(
         description="Maximum number of entries for the in-memory caches of FileBacked data structures.",
     )
 
+    exclude_empty_projects: bool = Field(
+        default=False,
+        description="Option to exclude empty projects from being ingested.",
+    )
+
     @root_validator(pre=False)
     def profile_default_settings(cls, values: Dict) -> Dict:
         # Extra default SQLAlchemy option for better connection pooling and threading.
