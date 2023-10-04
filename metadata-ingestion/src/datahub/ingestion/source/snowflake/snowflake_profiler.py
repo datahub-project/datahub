@@ -87,8 +87,7 @@ class SnowflakeProfiler(GenericProfiler, SnowflakeCommonMixin):
 
         for request, profile in self.generate_profiles(
             table_profile_requests,
-            self.config.profiling.max_workers,
-            database.name,
+            max_workers=self.config.profiling.max_workers,
             platform=self.platform,
             profiler_args=self.get_profile_args(),
         ):

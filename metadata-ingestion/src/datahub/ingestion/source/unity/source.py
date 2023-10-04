@@ -1,7 +1,6 @@
 import logging
 import re
 import time
-from datetime import timedelta
 from typing import Dict, Iterable, List, Optional, Set
 from urllib.parse import urljoin
 
@@ -47,9 +46,14 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
-from datahub.ingestion.source.unity.config import UnityCatalogSourceConfig
+from datahub.ingestion.source.unity.analyze_profiler import UnityCatalogAnalyzeProfiler
+from datahub.ingestion.source.unity.config import (
+    UnityCatalogAnalyzeProfilerConfig,
+    UnityCatalogGEProfilerConfig,
+    UnityCatalogSourceConfig,
+)
 from datahub.ingestion.source.unity.connection_test import UnityCatalogConnectionTest
-from datahub.ingestion.source.unity.profiler import UnityCatalogProfiler
+from datahub.ingestion.source.unity.ge_profiler import UnityCatalogGEProfiler
 from datahub.ingestion.source.unity.proxy import UnityCatalogApiProxy
 from datahub.ingestion.source.unity.proxy_types import (
     DATA_TYPE_REGISTRY,
@@ -88,6 +92,7 @@ from datahub.metadata.schema_classes import (
     UpstreamClass,
     UpstreamLineageClass,
 )
+from datahub.utilities.file_backed_collections import FileBackedDict
 from datahub.utilities.hive_schema_to_avro import get_schema_fields_for_hive_column
 from datahub.utilities.registries.domain_registry import DomainRegistry
 
@@ -158,6 +163,9 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         self.table_refs: Set[TableReference] = set()
         self.view_refs: Set[TableReference] = set()
 
+        # Global map of tables, for profiling
+        self.tables: FileBackedDict[Table] = FileBackedDict()
+
     @staticmethod
     def test_connection(config_dict: dict) -> TestConnectionReport:
         return UnityCatalogConnectionTest(config_dict).get_connection_test()
@@ -204,15 +212,23 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
 
         if self.config.is_profiling_enabled():
             assert wait_on_warehouse
-            timeout = timedelta(seconds=self.config.profiling.max_wait_secs)
-            wait_on_warehouse.result(timeout)
-            profiling_extractor = UnityCatalogProfiler(
-                self.config.profiling,
-                self.report,
-                self.unity_catalog_api_proxy,
-                self.gen_dataset_urn,
-            )
-            yield from profiling_extractor.get_workunits(self.table_refs)
+            wait_on_warehouse.result()
+            if isinstance(self.config.profiling, UnityCatalogAnalyzeProfilerConfig):
+                yield from UnityCatalogAnalyzeProfiler(
+                    self.config.profiling,
+                    self.report,
+                    self.unity_catalog_api_proxy,
+                    self.gen_dataset_urn,
+                ).get_workunits(self.table_refs)
+            elif isinstance(self.config.profiling, UnityCatalogGEProfilerConfig):
+                yield from UnityCatalogGEProfiler(
+                    sql_common_config=self.config,
+                    profiling_config=self.config.profiling,
+                    report=self.report,
+                    dataset_urn_builder=self.gen_dataset_urn,
+                ).get_workunits(list(self.tables.values()))
+            else:
+                raise ValueError("Unknown profiling config method")
 
     def build_service_principal_map(self) -> None:
         try:
@@ -257,6 +273,15 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             if not self.config.table_pattern.allowed(table.ref.qualified_table_name):
                 self.report.tables.dropped(table.id, f"table ({table.table_type})")
                 continue
+
+            if (
+                self.config.is_profiling_enabled()
+                and self.config.is_ge_profiling()
+                and self.config.profiling.pattern.allowed(
+                    table.ref.qualified_table_name
+                )
+            ):
+                self.tables[table.ref.qualified_table_name] = table
 
             if table.is_view:
                 self.view_refs.add(table.ref)

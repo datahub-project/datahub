@@ -2,14 +2,12 @@ from dataclasses import dataclass, field
 from typing import Tuple
 
 from datahub.ingestion.api.report import EntityFilterReport
-from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalSourceReport,
-)
+from datahub.ingestion.source.sql.sql_generic_profiler import ProfilingSqlReport
 from datahub.utilities.lossy_collections import LossyDict, LossyList
 
 
 @dataclass
-class UnityCatalogReport(StaleEntityRemovalSourceReport):
+class UnityCatalogReport(ProfilingSqlReport):
     metastores: EntityFilterReport = EntityFilterReport.field(type="metastore")
     catalogs: EntityFilterReport = EntityFilterReport.field(type="catalog")
     schemas: EntityFilterReport = EntityFilterReport.field(type="schema")
@@ -30,5 +28,6 @@ class UnityCatalogReport(StaleEntityRemovalSourceReport):
     profile_table_errors: LossyDict[str, LossyList[Tuple[str, str]]] = field(
         default_factory=LossyDict
     )
+    num_profile_missing_size_in_bytes: int = 0
     num_profile_failed_unsupported_column_type: int = 0
     num_profile_failed_int_casts: int = 0

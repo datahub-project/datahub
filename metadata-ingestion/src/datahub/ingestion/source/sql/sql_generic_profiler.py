@@ -67,7 +67,6 @@ class GenericProfiler:
         self,
         requests: List[TableProfilerRequest],
         max_workers: int,
-        db_name: Optional[str] = None,
         platform: Optional[str] = None,
         profiler_args: Optional[Dict] = None,
     ) -> Iterable[Tuple[GEProfilerRequest, Optional[DatasetProfileClass]]]:
@@ -92,7 +91,7 @@ class GenericProfiler:
             return
 
         # Otherwise, if column level profiling is enabled, use  GE profiler.
-        ge_profiler = self.get_profiler_instance(db_name)
+        ge_profiler = self.get_profiler_instance()
         yield from ge_profiler.generate_profiles(
             ge_profile_requests, max_workers, platform, profiler_args
         )
@@ -108,9 +107,7 @@ class GenericProfiler:
             inspector = inspect(conn)
             yield inspector
 
-    def get_profiler_instance(
-        self, db_name: Optional[str] = None
-    ) -> "DatahubGEProfiler":
+    def get_profiler_instance(self) -> "DatahubGEProfiler":
         logger.debug(f"Getting profiler instance from {self.platform}")
         url = self.config.get_sql_alchemy_url()
 

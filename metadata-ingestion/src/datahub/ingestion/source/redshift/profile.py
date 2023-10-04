@@ -74,8 +74,7 @@ class RedshiftProfiler(GenericProfiler):
             table_profile_requests = cast(List[TableProfilerRequest], profile_requests)
             for request, profile in self.generate_profiles(
                 table_profile_requests,
-                self.config.profiling.max_workers,
-                db,
+                max_workers=self.config.profiling.max_workers,
                 platform=self.platform,
                 profiler_args=self.get_profile_args(),
             ):
