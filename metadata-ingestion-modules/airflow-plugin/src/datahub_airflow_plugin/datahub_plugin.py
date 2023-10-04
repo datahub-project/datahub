@@ -18,6 +18,15 @@ _USE_AIRFLOW_LISTENER_INTERFACE = HAS_AIRFLOW_LISTENER_API and not os.getenv(
     "DATAHUB_AIRFLOW_PLUGIN_USE_V1_PLUGIN", "false"
 ).lower() in ("true", "1")
 
+if _USE_AIRFLOW_LISTENER_INTERFACE:
+    try:
+        from openlineage.airflow.utils import try_import_from_string  # noqa: F401
+    except ImportError:
+        # If v2 plugin dependencies are not installed, we fall back to v1.
+        logger.debug("Falling back to v1 plugin due to missing dependencies.")
+        _USE_AIRFLOW_LISTENER_INTERFACE = False
+
+
 with contextlib.suppress(Exception):
     if not os.getenv("DATAHUB_AIRFLOW_PLUGIN_SKIP_FORK_PATCH", "false").lower() in (
         "true",

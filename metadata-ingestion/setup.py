@@ -1,4 +1,3 @@
-import os
 import sys
 from typing import Dict, Set
 
@@ -7,14 +6,6 @@ import setuptools
 package_metadata: dict = {}
 with open("./src/datahub/__init__.py") as fp:
     exec(fp.read(), package_metadata)
-
-
-def get_long_description():
-    root = os.path.dirname(__file__)
-    with open(os.path.join(root, "README.md")) as f:
-        description = f.read()
-
-    return description
 
 
 base_requirements = {
@@ -668,7 +659,12 @@ setuptools.setup(
     },
     license="Apache License 2.0",
     description="A CLI to work with DataHub metadata",
-    long_description=get_long_description(),
+    long_description="""\
+The `acryl-datahub` package contains a CLI and SDK for interacting with DataHub,
+as well as an integration framework for pulling/pushing metadata from external systems.
+
+See the [DataHub docs](https://datahubproject.io/docs/metadata-ingestion).
+""",
     long_description_content_type="text/markdown",
     classifiers=[
         "Development Status :: 5 - Production/Stable",

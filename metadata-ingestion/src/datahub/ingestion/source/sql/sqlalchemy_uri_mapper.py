@@ -5,9 +5,7 @@ from typing import Callable, Dict, Optional, Tuple
 def _platform_alchemy_uri_tester_gen(
     platform: str, opt_starts_with: Optional[str] = None
 ) -> Tuple[str, Callable[[str], bool]]:
-    return platform, lambda x: x.startswith(
-        platform if not opt_starts_with else opt_starts_with
-    )
+    return platform, lambda x: x.startswith(opt_starts_with or platform)
 
 
 PLATFORM_TO_SQLALCHEMY_URI_TESTER_MAP: Dict[str, Callable[[str], bool]] = OrderedDict(
