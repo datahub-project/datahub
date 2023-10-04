@@ -18,8 +18,8 @@ from datahub.configuration.common import (
     ConfigurationError,
     LineageConfig,
 )
-from datahub.configuration.pydantic_field_deprecation import pydantic_field_deprecated
 from datahub.configuration.source_common import DatasetSourceConfigMixin
+from datahub.configuration.validate_field_deprecation import pydantic_field_deprecated
 from datahub.emitter import mce_builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
@@ -214,7 +214,9 @@ class DBTCommonConfig(
         default=False,
         description="Use model identifier instead of model name if defined (if not, default to model name).",
     )
-    _deprecate_use_identifiers = pydantic_field_deprecated("use_identifiers")
+    _deprecate_use_identifiers = pydantic_field_deprecated(
+        "use_identifiers", warn_if_value_is_not=False
+    )
 
     entities_enabled: DBTEntitiesEnabled = Field(
         DBTEntitiesEnabled(),
