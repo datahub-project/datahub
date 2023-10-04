@@ -3,19 +3,17 @@
 This file documents any backwards-incompatible changes in DataHub and assists people when migrating to a new version.
 
 ## Next
-- #8943 - There is a new config param, `include_metastore`, that provides the option of not ingesting
-the Unity Catalog metastore associated with your Databricks workspace. We recommend setting this to `false`.
-However, if you have previously ingested from unity catalog, setting this to `false` is a breaking change; see that section for details.
 
 ### Breaking Changes
 
 - #8810 - Removed support for SQLAlchemy 1.3.x. Only SQLAlchemy 1.4.x is supported now.
 - #8853 - The Airflow plugin no longer supports Airflow 2.0.x or Python 3.7. See the docs for more details.
 - #8853 - Introduced the Airflow plugin v2. If you're using Airflow 2.3+, the v2 plugin will be enabled by default, and so you'll need to switch your requirements to include `pip install 'acryl-datahub-airflow-plugin[plugin-v2]'`. To continue using the v1 plugin, set the `DATAHUB_AIRFLOW_PLUGIN_USE_V1_PLUGIN` environment variable to `true`.
-- #8943 All Unity Catalog urns are changed if a new config param, `include_metastore`, is set to `false`.
-This is set to `true` by default at the moment, but this default will be changed in the future.
-To handle the change in urns, we recommend soft deleting all databricks data via the DataHub CLI: `datahub delete --platform databricks --soft`,
-and then re-ingesting from unity catalog with `include_metastore: false`.
+- #8943 The Unity Catalog ingestion source has a new option `include_metastore`, which will cause all urns to be changed when disabled.
+This is currently enabled by default to preserve compatibility, but will be disabled by default and then removed in the future.
+If stateful ingestion is enabled, simply setting `include_metastore: false` will perform all required cleanup.
+Otherwise, we recommend soft deleting all databricks data via the DataHub CLI:
+`datahub delete --platform databricks --soft` and then reingesting with `include_metastore: false`.
 
 ### Potential Downtime
 
