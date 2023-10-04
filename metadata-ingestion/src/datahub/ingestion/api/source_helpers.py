@@ -1,5 +1,4 @@
 import logging
-import traceback
 from datetime import datetime, timezone
 from typing import (
     TYPE_CHECKING,
@@ -185,10 +184,8 @@ def auto_lowercase_urns(
             wu.id = wu.id.replace(old_urn, wu.get_urn())
 
             yield wu
-        except Exception:
-            logger.warning(
-                f"Failed to lowercase urns for {wu} the exception was: {traceback.format_exc()}"
-            )
+        except Exception as e:
+            logger.warning(f"Failed to lowercase urns for {wu}: {e}", exc_info=True)
             yield wu
 
 

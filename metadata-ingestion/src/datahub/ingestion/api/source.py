@@ -197,6 +197,9 @@ class Source(Closeable, metaclass=ABCMeta):
         if (
             self.ctx.pipeline_config
             and self.ctx.pipeline_config.source.config
+            and hasattr(
+                self.ctx.pipeline_config.source.config, "convert_urns_to_lowercase"
+            )
             and self.ctx.pipeline_config.source.config.convert_urns_to_lowercase
         ):
             auto_lowercase_dataset_urns = auto_lowercase_urns

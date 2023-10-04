@@ -57,11 +57,6 @@ class FlagsConfig(ConfigModel):
         ),
     )
 
-    auto_lowercase_urns: bool = Field(
-        default=False,
-        description="Whether to lowercase dataset entity urns.",
-    )
-
 
 class PipelineConfig(ConfigModel):
     # Once support for discriminated unions gets merged into Pydantic, we can
