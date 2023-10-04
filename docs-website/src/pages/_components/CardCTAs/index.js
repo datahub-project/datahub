@@ -8,17 +8,17 @@ const cardsContent = [
   {
     label: "Data Mesh",
     title: "Data Products, Delivered",
-    url: "https://www.acryldata.io/blog/data-products-in-datahub-everything-you-need-to-know",
+    url: "https://www.acryldata.io/blog/data-products-in-datahub-everything-you-need-to-know?utm_source=datahub&utm_medium=referral&utm_content=blog",
   },
   {
     label: "Data Contracts",
     title: "End-to-end Reliability in Data",
-    url: "https://www.acryldata.io/blog/data-contracts-in-datahub-combining-verifiability-with-holistic-data-management",
+    url: "https://www.acryldata.io/blog/data-contracts-in-datahub-combining-verifiability-with-holistic-data-management?utm_source=datahub&utm_medium=referral&utm_content=blog",
   },
   {
     label: "Shift Left",
     title: "Developer-friendly Data Governance",
-    url: "https://www.acryldata.io/blog/the-3-must-haves-of-metadata-management-part-2",
+    url: "https://www.acryldata.io/blog/the-3-must-haves-of-metadata-management-part-2?utm_source=datahub&utm_medium=referral&utm_content=blog",
   },
 ];
 

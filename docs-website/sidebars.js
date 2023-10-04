@@ -428,12 +428,11 @@ module.exports = {
         "docs/glossary/business-glossary",
         "docs/tags",
         "docs/ownership/ownership-types",
-        "docs/browse",
         "docs/authorization/access-policies-guide",
         "docs/features/dataset-usage-and-query-history",
         "docs/posts",
         "docs/sync-status",
-        "docs/lineage/lineage-feature-guide",
+        "docs/generated/lineage/lineage-feature-guide",
         {
           type: "doc",
           id: "docs/tests/metadata-tests",
@@ -446,6 +445,9 @@ module.exports = {
             "docs/managed-datahub/observe/volume-assertions",
             "docs/managed-datahub/observe/custom-sql-assertions",
           ],
+        },
+        {
+          Guides: ["docs/features/feature-guides/ui-lineage"],
         },
       ],
     },
