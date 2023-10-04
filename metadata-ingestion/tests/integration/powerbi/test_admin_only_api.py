@@ -2,8 +2,8 @@ import logging
 import sys
 from typing import Any, Dict
 from unittest import mock
-import pytest
 
+import pytest
 from freezegun import freeze_time
 
 from datahub.ingestion.run.pipeline import Pipeline
