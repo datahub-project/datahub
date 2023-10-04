@@ -1179,8 +1179,6 @@ class TableauSource(StatefulIngestionSourceBase):
     def get_upstream_fields_from_custom_sql(
         self, datasource: dict, datasource_urn: str
     ) -> List[FineGrainedLineage]:
-        fine_grained_lineages: List[FineGrainedLineage] = []
-
         parsed_result = self.parse_custom_sql(
             datasource=datasource,
             datasource_urn=datasource_urn,
@@ -1194,13 +1192,20 @@ class TableauSource(StatefulIngestionSourceBase):
             logger.info(
                 f"Failed to extract column level lineage from datasource {datasource_urn}"
             )
-            return fine_grained_lineages
+            return []
+        if parsed_result.debug_info.error:
+            logger.info(
+                f"Failed to extract column level lineage from datasource {datasource_urn}: {parsed_result.debug_info.error}"
+            )
+            return []
 
         cll: List[ColumnLineageInfo] = (
             parsed_result.column_lineage
             if parsed_result.column_lineage is not None
             else []
         )
+
+        fine_grained_lineages: List[FineGrainedLineage] = []
         for cll_info in cll:
             downstream = (
                 [
