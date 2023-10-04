@@ -10,7 +10,7 @@ ext {
     docker_repo = 'datahub-ingestion'
     docker_dir = 'datahub-ingestion'
 
-    revision = 0 // increment to trigger rebuild
+    revision = 2 // increment to trigger rebuild
 }
 
 dependencies {
