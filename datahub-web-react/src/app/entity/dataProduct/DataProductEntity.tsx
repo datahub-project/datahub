@@ -51,7 +51,7 @@ export class DataProductEntity implements Entity<DataProduct> {
 
     isSearchEnabled = () => true;
 
-    isBrowseEnabled = () => false;
+    isBrowseEnabled = () => true;
 
     isLineageEnabled = () => false;
 

@@ -1,4 +1,3 @@
-import os
 import sys
 from typing import Dict, Set
 
@@ -9,16 +8,9 @@ with open("./src/datahub/__init__.py") as fp:
     exec(fp.read(), package_metadata)
 
 
-def get_long_description():
-    root = os.path.dirname(__file__)
-    with open(os.path.join(root, "README.md")) as f:
-        description = f.read()
-
-    return description
-
-
 base_requirements = {
-    "typing_extensions>=3.10.0.2",
+    # Typing extension should be >=3.10.0.2 ideally but we can't restrict due to a Airflow 2.1 dependency conflict.
+    "typing_extensions>=3.7.4.3",
     "mypy_extensions>=0.4.3",
     # Actual dependencies.
     "typing-inspect",
@@ -270,6 +262,7 @@ plugins: Dict[str, Set[str]] = {
     # Sink plugins.
     "datahub-kafka": kafka_common,
     "datahub-rest": rest_common,
+    "sync-file-emitter": {"filelock"},
     "datahub-lite": {
         "duckdb",
         "fastapi",
@@ -470,6 +463,7 @@ base_dev_requirements = {
     *list(
         dependency
         for plugin in [
+            "athena",
             "bigquery",
             "clickhouse",
             "clickhouse-usage",
@@ -492,6 +486,7 @@ base_dev_requirements = {
             "kafka",
             "datahub-rest",
             "datahub-lite",
+            "great-expectations",
             "presto",
             "redash",
             "redshift",
@@ -530,6 +525,7 @@ full_test_dev_requirements = {
             "clickhouse",
             "delta-lake",
             "druid",
+            "feast" if sys.version_info >= (3, 8) else None,
             "hana",
             "hive",
             "iceberg" if sys.version_info >= (3, 8) else None,
@@ -634,6 +630,7 @@ entry_points = {
         "simple_add_dataset_properties = datahub.ingestion.transformer.add_dataset_properties:SimpleAddDatasetProperties",
         "pattern_add_dataset_schema_terms = datahub.ingestion.transformer.add_dataset_schema_terms:PatternAddDatasetSchemaTerms",
         "pattern_add_dataset_schema_tags = datahub.ingestion.transformer.add_dataset_schema_tags:PatternAddDatasetSchemaTags",
+        "extract_owners_from_tags = datahub.ingestion.transformer.extract_ownership_from_tags:ExtractOwnersFromTagsTransformer",
     ],
     "datahub.ingestion.sink.plugins": [
         "file = datahub.ingestion.sink.file:FileSink",
@@ -666,7 +663,12 @@ setuptools.setup(
     },
     license="Apache License 2.0",
     description="A CLI to work with DataHub metadata",
-    long_description=get_long_description(),
+    long_description="""\
+The `acryl-datahub` package contains a CLI and SDK for interacting with DataHub,
+as well as an integration framework for pulling/pushing metadata from external systems.
+
+See the [DataHub docs](https://datahubproject.io/docs/metadata-ingestion).
+""",
     long_description_content_type="text/markdown",
     classifiers=[
         "Development Status :: 5 - Production/Stable",
