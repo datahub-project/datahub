@@ -15,15 +15,15 @@ from datahub.emitter.mce_builder import (
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import (
+    CatalogKey,
     CatalogKeyWithMetastore,
     ContainerKey,
+    MetastoreKey,
     NotebookKey,
+    UnitySchemaKey,
     UnitySchemaKeyWithMetastore,
     add_dataset_to_container,
     gen_containers,
-    MetastoreKey,
-    UnitySchemaKey,
-    CatalogKey,
 )
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -129,7 +129,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
     config: UnityCatalogSourceConfig
     unity_catalog_api_proxy: UnityCatalogApiProxy
     platform: str = "databricks"
-    platform_instance_name: str
+    platform_instance_name: Optional[str]
 
     def get_report(self) -> UnityCatalogReport:
         return self.report
@@ -148,14 +148,13 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         self.external_url_base = urljoin(self.config.workspace_url, "/explore/data")
 
         # Determine the platform_instance_name
+        self.platform_instance_name = self.config.platform_instance
         if self.config.include_metastore:
             self.platform_instance_name = (
                 config.workspace_name
                 if config.workspace_name is not None
                 else config.workspace_url.split("//")[1].split(".")[0]
             )
-        else:
-            self.platform_instance_name = self.config.platform_instance
 
         if self.config.domain:
             self.domain_registry = DomainRegistry(
@@ -310,7 +309,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             metastore = self.unity_catalog_api_proxy.assigned_metastore()
             yield from self.gen_metastore_containers(metastore)
         yield from self.process_catalogs(metastore)
-        if self.config.include_metastore:
+        if metastore and self.config.include_metastore:
             self.report.metastores.processed(metastore.id)
 
     def process_catalogs(
@@ -523,7 +522,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             sub_types=[DatasetContainerSubTypes.CATALOG],
             domain_urn=domain_urn,
             parent_container_key=self.gen_metastore_key(catalog.metastore)
-            if self.config.include_metastore
+            if self.config.include_metastore and catalog.metastore
             else None,
             description=catalog.comment,
             owner_urn=self.get_owner_urn(catalog.owner),
@@ -532,6 +531,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
 
     def gen_schema_key(self, schema: Schema) -> ContainerKey:
         if self.config.include_metastore:
+            assert schema.catalog.metastore
             return UnitySchemaKeyWithMetastore(
                 unity_schema=schema.name,
                 platform=self.platform,
@@ -556,6 +556,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
 
     def gen_catalog_key(self, catalog: Catalog) -> ContainerKey:
         if self.config.include_metastore:
+            assert catalog.metastore
             return CatalogKeyWithMetastore(
                 catalog=catalog.name,
                 metastore=catalog.metastore.name,
