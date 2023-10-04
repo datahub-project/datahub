@@ -1,6 +1,6 @@
 - id: io.acryl.privacy.retentionTime
   # - urn: urn:li:structuredProperty:io.acryl.privacy.retentionTime # optional if id is provided
-  qualified_name: io.acryl.privacy.retentionTime # required if urn is provided
+  fully_qualified_name: io.acryl.privacy.retentionTime # required if urn is provided
   type: NUMBER
   cardinality: MULTIPLE
   display_name: Retention Time
@@ -30,11 +30,8 @@
     - dataJob
     - schemaField
 - id: io.acryl.dataManagement.steward
-  type: urn
-  type_qualifier:
-    entity_types: # only user and group urns are allowed
-      - corpuser
-      - corpGroup
+  type: URN
+    - corpGroup
   display_name: Steward
   entity_types:
     - dataset
@@ -43,6 +40,24 @@
 - id: io.acryl.dataManagement.certifier
   type: URN
   display_name: Person Certifying the asset
+  entity_types:
+    - dataset
+    - schemaField
+- id: io.acryl.dataManagement.team
+  type: STRING
+  display_name: Management team
+  entity_types:
+    - dataset
+    - schemaField
+- id: project_name
+  type: STRING
+  display_name: Project name
+  entity_types:
+    - dataset
+    - schemaField
+- id: namespace
+  type: STRING
+  display_name: Namespace
   entity_types:
     - dataset
     - schemaField

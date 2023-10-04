@@ -9,12 +9,13 @@
       - id: ip
       - urn: urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,user.clicks,PROD),ip)
         structured_properties: # structured properties for schema fields/columns go here
-          io.acryl.dataManagement.certifier: urn:li:corpuser:john.doe@example.com
-          io.acryl.dataManagement.replicationSLA: 90
+          # io.acryl.dataManagement.replicationSLA: 90
+          project_name: Tracking
   properties:
     io.acryl.privacy.retentionTime: 365
   structured_properties: # dataset level structured properties go here
     io.acryl.dataManagement.deprecationDate: "2023-01-01"
+    io.acryl.dataManagement.certifier: urn:li:corpuser:john.doe@example.com
 - id: ClickEvent
   platform: events
   subtype: Topic
@@ -24,8 +25,6 @@
   properties:
     project_name: Tracking
     namespace: org.acryl.tracking
-    version: 1.0.0
-    retention: 30
   schema:
     file: examples/structured_properties/click_event.avsc
   downstreams:
@@ -37,3 +36,5 @@
       - id: user_id
         structured_properties:
           io.acryl.dataManagement.deprecationDate: "2023-01-01"
+  properties:
+    io.acryl.dataManagement.team: Analytics
