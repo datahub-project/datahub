@@ -38,13 +38,6 @@
   dependencies:
     "@analytics/type-utils" "^0.6.2"
 
-"@analytics/google-analytics-v3@^0.6.1":
-  version "0.6.1"
-  resolved "https://registry.yarnpkg.com/@analytics/google-analytics-v3/-/google-analytics-v3-0.6.1.tgz#8145bf548929cebd41af964f050577b186516fda"
-  integrity sha512-CE0oBPK30TegytLS505t1ixesznO4Nx6VD9X8GjJC+bgqwQ1HdCbuILZcOnhVVpH9UyHDYWCgaAbJ0eGim3dVA==
-  dependencies:
-    universal-analytics "^0.4.20"
-
 "@analytics/google-analytics@^1.0.7":
   version "1.0.7"
   resolved "https://registry.yarnpkg.com/@analytics/google-analytics/-/google-analytics-1.0.7.tgz#256658c841af707aabdcfb35858971676115d1ce"
