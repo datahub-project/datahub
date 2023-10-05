@@ -94,18 +94,15 @@ class MockLogginEntry:
 class TestBigQuerySource:
     def setup_method(self) -> None:
         self.bigquery_connection_mock = Mock(spec=BigQueryConnection)
-        self.bigquery_connection_mock.config = BigQueryV2Config()
+        self.bigquery_connection_mock.config = Mock(spec=BigQueryV2Config)
         self.bigquery_source = BigQuerySource(self.bigquery_connection_mock)
 
-    @patch(
-        "datahub_monitors.source.bigquery.bigquery._make_gcp_logging_client",
-        return_value=None,
-    )
     @patch.object(BigQuerySource, "_build_audit_log_results")
     @patch.object(BigQuerySource, "_extract_audit_logs_for_table")
     def test_get_entity_events_audit_log(
-        self, extract_audit_logs_mock: Mock, build_mock: Mock, gcp_mock: Mock
+        self, extract_audit_logs_mock: Mock, build_mock: Mock
     ) -> None:
+        self.bigquery_connection_mock.config.make_gcp_logging_client.return_value = None
         self.bigquery_source.get_entity_events(
             TEST_ENTITY_URN,
             EntityEventType.AUDIT_LOG_OPERATION,
