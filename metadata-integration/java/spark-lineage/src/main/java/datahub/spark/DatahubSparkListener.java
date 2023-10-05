@@ -77,14 +77,40 @@ public class DatahubSparkListener extends SparkListener {
     private final SparkContext ctx;
     private final LogicalPlan plan;
 
+    private String grepSqlStartJsonSparkCompatible(SparkListenerEvent sqlStart) {
+      String result = null;
+      try {
+          Class<?> c = Class.forName(JsonProtocol.class.getName());
+          Method spark_method = null;
+          //spark ge 3.4.x
+          spark_method = c.getDeclaredMethod("sparkEventToJsonString", org.apache.spark.scheduler.SparkListenerEvent.class);
+          //spark lt 3.4.x
+          if (spark_method == null) {
+            spark_method = c.getDeclaredMethod("sparkEventToJson", org.apache.spark.scheduler.SparkListenerEvent.class);
+          }
+
+          if (spark_method != null) {
+              result = JsonMethods$.MODULE$.compact((JsonAST.JValue) spark_method.invoke(null, sqlStart));
+          }
+
+          if (spark_method == null)
+          {
+            throw new NullPointerException("The method 'sparkEventToJsonString' or 'sparkEventToJson' not found!");
+          }
+      } catch (Exception e) {
+        log.error(e.toString());
+      }
+
+      return result;
+    }
+
     public SqlStartTask(SparkListenerSQLExecutionStart sqlStart, LogicalPlan plan, SparkContext ctx) {
       this.sqlStart = sqlStart;
       this.plan = plan;
       this.ctx = ctx;
 
       String jsonPlan = (plan != null) ? plan.toJSON() : null;
-      String sqlStartJson =
-          (sqlStart != null) ? JsonMethods$.MODULE$.compact(JsonProtocol.sparkEventToJson(sqlStart)) : null;
+      String sqlStartJson = (sqlStart != null) ? grepSqlStartJsonSparkCompatible(sqlStart) : null;
       log.debug("SqlStartTask with parameters: sqlStart: {}, plan: {}, ctx: {}", sqlStartJson, jsonPlan, ctx);
     }
 
