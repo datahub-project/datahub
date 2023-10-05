@@ -137,9 +137,10 @@ public class ElasticSearchTimeseriesAspectService implements TimeseriesAspectSer
   }
 
   @Override
-  public List<ReindexConfig> getReindexConfigs() {
-    return _indexBuilders.getReindexConfigs();
+  public List<ReindexConfig> buildReindexConfigs() {
+    return _indexBuilders.buildReindexConfigs();
   }
+
   public String reindexAsync(String index, @Nullable QueryBuilder filterQuery, BatchWriteOperationsOptions options)
       throws Exception {
     return _indexBuilders.reindexAsync(index, filterQuery, options);

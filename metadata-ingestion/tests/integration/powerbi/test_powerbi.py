@@ -1,4 +1,5 @@
 import logging
+import re
 import sys
 from typing import Any, Dict, List, cast
 from unittest import mock
@@ -20,6 +21,7 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
 )
 from tests.test_helpers import mce_helpers
 
+pytestmark = pytest.mark.integration_batch_2
 FROZEN_TIME = "2022-02-03 07:00:00"
 
 
@@ -1126,7 +1128,7 @@ def test_dataset_type_mapping_error(
     """
     register_mock_api(request_mock=requests_mock)
 
-    try:
+    with pytest.raises(Exception, match=r"dataset_type_mapping is deprecated"):
         Pipeline.create(
             {
                 "run_id": "powerbi-test",
@@ -1148,11 +1150,6 @@ def test_dataset_type_mapping_error(
                     },
                 },
             }
-        )
-    except Exception as e:
-        assert (
-            "dataset_type_mapping is deprecated. Use server_to_platform_instance only."
-            in str(e)
         )
 
 
@@ -1505,3 +1502,90 @@ def test_independent_datasets_extraction(
         output_path=tmp_path / "powerbi_independent_mces.json",
         golden_path=f"{test_resources_dir}/{golden_file}",
     )
+
+
+@freeze_time(FROZEN_TIME)
+@mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
+def test_cll_extraction(mock_msal, pytestconfig, tmp_path, mock_time, requests_mock):
+
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
+
+    register_mock_api(
+        request_mock=requests_mock,
+    )
+
+    default_conf: dict = default_source_config()
+
+    del default_conf[
+        "dataset_type_mapping"
+    ]  # delete this key so that connector set it to default (all dataplatform)
+
+    pipeline = Pipeline.create(
+        {
+            "run_id": "powerbi-test",
+            "source": {
+                "type": "powerbi",
+                "config": {
+                    **default_conf,
+                    "extract_lineage": True,
+                    "extract_column_level_lineage": True,
+                    "enable_advance_lineage_sql_construct": True,
+                    "native_query_parsing": True,
+                    "extract_independent_datasets": True,
+                },
+            },
+            "sink": {
+                "type": "file",
+                "config": {
+                    "filename": f"{tmp_path}/powerbi_cll_mces.json",
+                },
+            },
+        }
+    )
+
+    pipeline.run()
+    pipeline.raise_from_status()
+    golden_file = "golden_test_cll.json"
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=tmp_path / "powerbi_cll_mces.json",
+        golden_path=f"{test_resources_dir}/{golden_file}",
+    )
+
+
+@freeze_time(FROZEN_TIME)
+@mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
+def test_cll_extraction_flags(
+    mock_msal, pytestconfig, tmp_path, mock_time, requests_mock
+):
+
+    register_mock_api(
+        request_mock=requests_mock,
+    )
+
+    default_conf: dict = default_source_config()
+    pattern: str = re.escape(
+        "Enable all these flags in recipe: ['native_query_parsing', 'enable_advance_lineage_sql_construct', 'extract_lineage']"
+    )
+
+    with pytest.raises(Exception, match=pattern):
+
+        Pipeline.create(
+            {
+                "run_id": "powerbi-test",
+                "source": {
+                    "type": "powerbi",
+                    "config": {
+                        **default_conf,
+                        "extract_column_level_lineage": True,
+                    },
+                },
+                "sink": {
+                    "type": "file",
+                    "config": {
+                        "filename": f"{tmp_path}/powerbi_cll_mces.json",
+                    },
+                },
+            }
+        )

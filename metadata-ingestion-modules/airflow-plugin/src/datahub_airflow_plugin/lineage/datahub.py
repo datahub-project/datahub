@@ -4,8 +4,8 @@ from typing import TYPE_CHECKING, Dict, List, Optional
 from airflow.configuration import conf
 from airflow.lineage.backend import LineageBackend
 
-from datahub_airflow_plugin._lineage_core import (
-    DatahubBasicLineageConfig,
+from datahub_airflow_plugin.lineage._lineage_core import (
+    DatahubLineageConfig,
     send_lineage_to_datahub,
 )
 
@@ -13,14 +13,7 @@ if TYPE_CHECKING:
     from airflow.models.baseoperator import BaseOperator
 
 
-class DatahubLineageConfig(DatahubBasicLineageConfig):
-    # If set to true, most runtime errors in the lineage backend will be
-    # suppressed and will not cause the overall task to fail. Note that
-    # configuration issues will still throw exceptions.
-    graceful_exceptions: bool = True
-
-
-def get_lineage_config() -> DatahubLineageConfig:
+def get_lineage_backend_config() -> DatahubLineageConfig:
     """Load the lineage config from airflow.cfg."""
 
     # The kwargs pattern is also used for secret backends.
@@ -51,8 +44,7 @@ class DatahubLineageBackend(LineageBackend):
         datahub_kwargs = {
             "datahub_conn_id": "datahub_rest_default",
             "capture_ownership_info": true,
-            "capture_tags_info": true,
-            "graceful_exceptions": true }
+            "capture_tags_info": true }
         # The above indentation is important!
     """
 
@@ -61,7 +53,7 @@ class DatahubLineageBackend(LineageBackend):
 
         # By attempting to get and parse the config, we can detect configuration errors
         # ahead of time. The init method is only called in Airflow 2.x.
-        _ = get_lineage_config()
+        _ = get_lineage_backend_config()
 
     # With Airflow 2.0, this can be an instance method. However, with Airflow 1.10.x, this
     # method is used statically, even though LineageBackend declares it as an instance variable.
@@ -72,7 +64,7 @@ class DatahubLineageBackend(LineageBackend):
         outlets: Optional[List] = None,  # unused
         context: Optional[Dict] = None,
     ) -> None:
-        config = get_lineage_config()
+        config = get_lineage_backend_config()
         if not config.enabled:
             return
 
@@ -82,10 +74,4 @@ class DatahubLineageBackend(LineageBackend):
                 config, operator, operator.inlets, operator.outlets, context
             )
         except Exception as e:
-            if config.graceful_exceptions:
-                operator.log.error(e)
-                operator.log.info(
-                    "Suppressing error because graceful_exceptions is set"
-                )
-            else:
-                raise
+            operator.log.error(e)
