@@ -1,0 +1,20 @@
+namespace com.linkedin.common
+
+/**
+ * Represents a single external reference in an entity's ExternalReferences.
+ * This is a newer version of ExternalReference that includes anchor text.
+ */
+record ExternalReferenceEntry {
+  /**
+   * Overlay text for the externalUrl.
+   */
+  externalUrlAnchorText: string
+
+  /**
+   * URL where the reference exists.
+   */
+  @Searchable = {
+    "fieldType": "KEYWORD"
+  }
+  externalUrl: Url
+}

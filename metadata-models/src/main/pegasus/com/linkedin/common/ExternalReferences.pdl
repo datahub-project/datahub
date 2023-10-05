@@ -1,0 +1,11 @@
+namespace com.linkedin.common
+
+/**
+ * A list of references to external platforms.
+ */
+@Aspect = {
+  "name": "externalUrls"
+}
+record ExternalReferences {
+  entries: array[ExternalReferenceEntry]
+}
