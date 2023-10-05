@@ -18,7 +18,7 @@ logging.getLogger("py4j").setLevel(logging.ERROR)
 logger: logging.Logger = logging.getLogger(__name__)
 
 SUPPORTED_FILE_TYPES: List[str] = ["csv", "tsv", "json", "parquet", "avro"]
-SUPPORTED_COMPRESSIONS: List[str] = ["gz", "bz2"]
+SUPPORTED_COMPRESSIONS: List[str] = ["gz", "gzip", "bz2"]
 
 
 class PathSpec(ConfigModel):
