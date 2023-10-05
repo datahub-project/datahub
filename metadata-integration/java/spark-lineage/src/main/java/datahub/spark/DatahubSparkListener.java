@@ -50,6 +50,7 @@ import scala.collection.JavaConversions;
 import scala.runtime.AbstractFunction1;
 import scala.runtime.AbstractPartialFunction;
 import java.lang.reflect.Method;
+import org.json4s.JsonAST;
 
 
 @Slf4j
