@@ -50,18 +50,17 @@ const config: any = {
 
 
 1. Open `datahub-web-react/src/conf/analytics.ts`
-2. Uncomment the `googleAnalytics` field within the `config` object for GA3 and `googleAnalyticsV4` if you want to use GA4.
-3. Replace the sample `trackingId` or `measurementIds` with the one provided by Google Analytics.
+2. Uncomment the `googleAnalytics` field within the `config`.
+3. Replace the sample `measurementIds` with the one provided by Google Analytics.
 4. Rebuild & redeploy `datahub-frontend-react` to start tracking.
 
-> NOTE: It is possible to use both versions of GA.
 
-Example for GA3:
+Example:
 
 ```typescript
 const config: any = {
     googleAnalytics: {
-        trackingId: 'UA-24123123-01',
+        measurementIds: ['G-ATV123'],
     },
 };
 ```

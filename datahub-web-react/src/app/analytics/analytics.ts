@@ -24,7 +24,6 @@ export function getMergedTrackingOptions(options?: any) {
             mixpanel: isThirdPartyLoggingEnabled,
             amplitude: isThirdPartyLoggingEnabled,
             googleAnalytics: isThirdPartyLoggingEnabled,
-            googleAnalyticsV3: isThirdPartyLoggingEnabled,
         },
     };
 }
