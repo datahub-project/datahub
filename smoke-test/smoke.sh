@@ -28,8 +28,10 @@ source ./set-cypress-creds.sh
 if [[ -z "${TEST_STRATEGY}" ]]; then
     pytest -rP --durations=20 -vv --continue-on-collection-errors --junit-xml=junit.smoke.xml
 else
-    if [ "$TEST_STRATEGY" == "no_cypress" ]; then
-        pytest -rP --durations=20 -vv --continue-on-collection-errors --junit-xml=junit.smoke_non_cypress.xml -k 'not test_run_cypress'
+    if [ "$TEST_STRATEGY" == "no_cypress_smoke_batch_1" ]; then
+        pytest -rP --durations=20 -vv --continue-on-collection-errors --junit-xml=junit.smoke_non_cypress.xml -k 'not test_run_cypress' -m 'smoke_batch_1'
+    elif [ "$TEST_STRATEGY" == "no_cypress_smoke_rest" ]; then
+        pytest -rP --durations=20 -vv --continue-on-collection-errors --junit-xml=junit.smoke_non_cypress.xml -k 'not test_run_cypress' -m 'not smoke_batch_1'
     else
         pytest -rP --durations=20 -vv --continue-on-collection-errors --junit-xml=junit.smoke_cypress_${TEST_STRATEGY}.xml tests/cypress/integration_test.py
     fi

@@ -717,7 +717,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        test_strategy: ["no_cypress", "cypress_suite1", "cypress_rest"]
+        test_strategy: [
+          "no_cypress_smoke_batch_1",
+          "no_cypress_smoke_rest",
+          "cypress_suite1", 
+          "cypress_rest"
+        ]
     needs:
       [
         setup,

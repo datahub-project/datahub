@@ -21,6 +21,8 @@ from tests.utils import (
     get_root_urn,
 )
 
+pytestmark = pytest.mark.smoke_batch_1
+
 bootstrap_sample_data = "../metadata-ingestion/examples/mce_files/bootstrap_mce.json"
 usage_sample_data = (
     "./test_resources/bigquery_usages_golden.json"
