@@ -1,10 +1,16 @@
 from typing import Any, List
 
 from datahub_monitors.fetcher.types import MonitorFetcherConfig, MonitorFetcherMode
+from datahub_monitors.types import MonitorMode
 
 
 def build_filters(config: MonitorFetcherConfig) -> List[Any]:
     or_filters: List[Any] = []
+    active_filter = {
+        "field": "mode",
+        "values": [MonitorMode.ACTIVE.value],
+        "condition": "EQUAL",
+    }
 
     if config.executor_ids is not None:
         # If a specific set of executor ids was configured, then always use them
@@ -15,7 +21,8 @@ def build_filters(config: MonitorFetcherConfig) -> List[Any]:
                         "field": "executorId",
                         "condition": "EQUALS",
                         "values": config.executor_ids,
-                    }
+                    },
+                    active_filter,
                 ]
             }
         )
@@ -26,7 +33,12 @@ def build_filters(config: MonitorFetcherConfig) -> List[Any]:
         # Note that in the future, we may need dynamic monitor assignment to avoid
         # overloading a single node.
         or_filters.append(
-            {"and": [{"field": "executorId", "condition": "EXISTS", "negated": True}]}
+            {
+                "and": [
+                    {"field": "executorId", "condition": "EXISTS", "negated": True},
+                    active_filter,
+                ]
+            }
         )
 
     return or_filters
