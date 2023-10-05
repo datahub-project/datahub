@@ -1,11 +1,11 @@
 """Convenience functions for creating MCEs"""
+import hashlib
 import json
 import logging
 import os
 import re
 import time
 from enum import Enum
-from hashlib import md5
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -21,7 +21,6 @@ from typing import (
 import typing_inspect
 
 from datahub.configuration.source_common import DEFAULT_ENV as DEFAULT_ENV_CONFIGURATION
-from datahub.emitter.serialization_helper import pre_json_transform
 from datahub.metadata.schema_classes import (
     AssertionKeyClass,
     AuditStampClass,
@@ -159,11 +158,24 @@ def container_urn_to_key(guid: str) -> Optional[ContainerKeyClass]:
     return None
 
 
+class _DatahubKeyJSONEncoder(json.JSONEncoder):
+    # overload method default
+    def default(self, obj: Any) -> Any:
+        if hasattr(obj, "guid"):
+            return obj.guid()
+        # Call the default method for other types
+        return json.JSONEncoder.default(self, obj)
+
+
 def datahub_guid(obj: dict) -> str:
-    obj_str = json.dumps(
-        pre_json_transform(obj), separators=(",", ":"), sort_keys=True
-    ).encode("utf-8")
-    return md5(obj_str).hexdigest()
+    json_key = json.dumps(
+        obj,
+        separators=(",", ":"),
+        sort_keys=True,
+        cls=_DatahubKeyJSONEncoder,
+    )
+    md5_hash = hashlib.md5(json_key.encode("utf-8"))
+    return str(md5_hash.hexdigest())
 
 
 def make_assertion_urn(assertion_id: str) -> str:
