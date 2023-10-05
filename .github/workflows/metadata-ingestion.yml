@@ -9,7 +9,7 @@ on:
       - "metadata-models/**"
   pull_request:
     branches:
-      - master
+      - "**"
     paths:
       - ".github/**"
       - "metadata-ingestion/**"
