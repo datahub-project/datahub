@@ -26,9 +26,8 @@ from datahub.ingestion.source.dbt.dbt_common import (
     DBTNode,
     DBTSourceBase,
     DBTSourceReport,
-    DBTTest,
-    DBTTestResult,
 )
+from datahub.ingestion.source.dbt.dbt_tests import DBTTest, DBTTestResult
 
 logger = logging.getLogger(__name__)
 
