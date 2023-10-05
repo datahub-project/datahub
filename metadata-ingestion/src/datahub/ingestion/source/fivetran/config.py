@@ -4,6 +4,7 @@ from typing import Dict, List, Optional
 
 import pydantic
 from pydantic import Field
+from pydantic.class_validators import root_validator
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.source_common import DEFAULT_ENV, DatasetSourceConfigMixin
@@ -26,29 +27,24 @@ class Constant:
 
     ORCHESTRATOR = "fivetran"
     # table column name
-    SOURCE_SCHEMA_NAME = "SOURCE_SCHEMA_NAME"
-    SOURCE_TABLE_NAME = "SOURCE_TABLE_NAME"
-    DESTINATION_SCHEMA_NAME = "DESTINATION_SCHEMA_NAME"
-    DESTINATION_TABLE_NAME = "DESTINATION_TABLE_NAME"
-    SYNC_ID = "SYNC_ID"
-    MESSAGE_DATA = "MESSAGE_DATA"
-    TIME_STAMP = "TIME_STAMP"
+    SOURCE_SCHEMA_NAME = "source_schema_name"
+    SOURCE_TABLE_NAME = "source_table_name"
+    DESTINATION_SCHEMA_NAME = "destination_schema_name"
+    DESTINATION_TABLE_NAME = "destination_table_name"
+    SYNC_ID = "sync_id"
+    MESSAGE_DATA = "message_data"
+    TIME_STAMP = "time_stamp"
     STATUS = "status"
-    USER_ID = "USER_ID"
-    GIVEN_NAME = "GIVEN_NAME"
-    FAMILY_NAME = "FAMILY_NAME"
-    EMAIL = "EMAIL"
-    EMAIL_DISABLED = "EMAIL_DISABLED"
-    VERIFIED = "VERIFIED"
-    CREATED_AT = "CREATED_AT"
-    CONNECTOR_ID = "CONNECTOR_ID"
-    CONNECTOR_NAME = "CONNECTOR_NAME"
-    CONNECTOR_TYPE_ID = "CONNECTOR_TYPE_ID"
-    PAUSED = "PAUSED"
-    SYNC_FREQUENCY = "SYNC_FREQUENCY"
-    DESTINATION_ID = "DESTINATION_ID"
-    CONNECTING_USER_ID = "CONNECTING_USER_ID"
-
+    USER_ID = "user_id"
+    GIVEN_NAME = "given_name"
+    FAMILY_NAME = "family_name"
+    CONNECTOR_ID = "connector_id"
+    CONNECTOR_NAME = "connector_name"
+    CONNECTOR_TYPE_ID = "connector_type_id"
+    PAUSED = "paused"
+    SYNC_FREQUENCY = "sync_frequency"
+    DESTINATION_ID = "destination_id"
+    CONNECTING_USER_ID = "connecting_user_id"
     # Job status constants
     SUCCESSFUL = "SUCCESSFUL"
     FAILURE_WITH_TASK = "FAILURE_WITH_TASK"
@@ -63,23 +59,33 @@ SUPPORTED_DATA_PLATFORM_MAPPING = {
 
 
 class SnowflakeDestinationConfig(BaseSnowflakeConfig):
-    database: str = Field(
-        default=None, description="The fivetran connector log database."
-    )
-    log_schema: Optional[str] = Field(
-        default="FIVETRAN_LOG", description="The fivetran connector log schema."
-    )
+    database: str = Field(description="The fivetran connector log database.")
+    log_schema: str = Field(description="The fivetran connector log schema.")
 
 
 class FivetranLogConfig(ConfigModel):
     destination_platform: str = pydantic.Field(
-        default=None,
+        default="snowflake",
         description="The destination platform where fivetran connector log tables are dumped.",
     )
     snowflake_destination_config: Optional[SnowflakeDestinationConfig] = pydantic.Field(
         default=None,
         description="If destination platform is 'snowflake', provide snowflake configuration.",
     )
+
+    @root_validator(pre=True)
+    def validate_destination_platfrom_and_config(cls, values: Dict) -> Dict:
+        destination_platform = values["destination_platform"]
+        if destination_platform == "snowflake":
+            if "snowflake_destination_config" not in values:
+                raise ValueError(
+                    "If destination platform is 'snowflake', user must provide snowflake destination configuration in the recipe."
+                )
+        else:
+            raise ValueError(
+                f"Destination platform '{destination_platform}' is not yet supported."
+            )
+        return values
 
 
 @dataclass
@@ -120,10 +126,10 @@ class FivetranSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin
     # Fivetran connector all sources to platform instance mapping
     sources_to_platform_instance: Dict[str, PlatformDetail] = pydantic.Field(
         default={},
-        description="A mapping of connector all sources to Data platform instance. Provide connector id as key.",
+        description="A mapping of the connector's all sources to platform instance. Use connector id as key.",
     )
     # Fivetran destination to platform instance mapping
     destination_to_platform_instance: Dict[str, PlatformDetail] = pydantic.Field(
         default={},
-        description="A mapping of fivetran destination to Data platform instance. Provide destination id as key.",
+        description="A mapping of destination to platform instance. Use destination id as key.",
     )

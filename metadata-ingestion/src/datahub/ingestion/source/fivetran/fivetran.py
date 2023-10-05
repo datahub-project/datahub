@@ -24,11 +24,10 @@ from datahub.ingestion.source.fivetran.config import (
     FivetranSourceReport,
     PlatformDetail,
 )
-from datahub.ingestion.source.fivetran.fivetran_schema import (
+from datahub.ingestion.source.fivetran.data_classes import (
     Connector,
     FivetranLogDataDictionary,
     Job,
-    User,
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
@@ -141,13 +140,14 @@ class FivetranSource(StatefulIngestionSourceBase):
             id=connector.connector_id,
             flow_urn=dataflow_urn,
             name=connector.connector_name,
+            owners={connector.user_name},
         )
 
         job_property_bag: Dict[str, str] = {}
         allowed_connection_keys = [
-            Constant.PAUSED.lower(),
-            Constant.SYNC_FREQUENCY.lower(),
-            Constant.DESTINATION_ID.lower(),
+            Constant.PAUSED,
+            Constant.SYNC_FREQUENCY,
+            Constant.DESTINATION_ID,
         ]
         for key in allowed_connection_keys:
             if hasattr(connector, key) and getattr(connector, key) is not None:
@@ -203,17 +203,14 @@ class FivetranSource(StatefulIngestionSourceBase):
         self, connector: Connector
     ) -> Iterable[MetadataWorkUnit]:
         self.report.report_connectors_scanned()
-        # Create dataflow entity with same name as connector name,
-        # Later soft delete this entity during ingestion
+        # Create dataflow entity with same name as connector name
         dataflow = self._generate_dataflow_from_connector(connector)
         for mcp in dataflow.generate_mcp():
-            # return workunit to Datahub Ingestion framework
             yield mcp.as_workunit()
 
         # Map Fivetran's connector entity with Datahub's datajob entity
         datajob = self._generate_datajob_from_connector(connector)
         for mcp in datajob.generate_mcp():
-            # return workunit to Datahub Ingestion framework
             yield mcp.as_workunit()
 
         # Map Fivetran's job/sync history entity with Datahub's data process entity

@@ -1,7 +1,9 @@
 import json
 import logging
 from dataclasses import dataclass
-from typing import List, Tuple
+from typing import Any, Dict, List, Tuple
+
+from sqlalchemy import create_engine
 
 from datahub.ingestion.source.fivetran.config import (
     Constant,
@@ -9,10 +11,6 @@ from datahub.ingestion.source.fivetran.config import (
     FivetranSourceReport,
 )
 from datahub.ingestion.source.fivetran.fivetran_query import FivetranLogQuery
-from datahub.ingestion.source.fivetran.log_destination import (
-    LogDestination,
-    SnowflakeDestination,
-)
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -25,10 +23,10 @@ class Connector:
     paused: bool
     sync_frequency: int
     destination_id: str
+    user_name: str
     source_tables: List[str]
     destination_tables: List[str]
     jobs: List["Job"]
-    user: "User"
 
 
 @dataclass
@@ -39,17 +37,6 @@ class Job:
     status: str
 
 
-@dataclass
-class User:
-    user_id: str
-    given_name: str
-    family_name: str
-    email: str
-    email_disabled: bool
-    verified: bool
-    created_at: int
-
-
 class FivetranLogDataDictionary:
     def __init__(
         self, config: FivetranSourceConfig, report: FivetranSourceReport
@@ -57,21 +44,35 @@ class FivetranLogDataDictionary:
         self.logger = logger
         self.config = config
         self.report = report
-        self.log_destination: LogDestination = self._get_fivetran_log_destination()
+        self.engine = self._get_log_destination_engine()
 
-    def _get_fivetran_log_destination(self) -> LogDestination:
+    def _get_log_destination_engine(self) -> Any:
         destination_platform = self.config.fivetran_log_config.destination_platform
+        engine = None
         if destination_platform == "snowflake":
-            return SnowflakeDestination(
+            snowflake_destination_config = (
                 self.config.fivetran_log_config.snowflake_destination_config
             )
-        else:
-            raise ValueError(
-                f"Destination platform '{destination_platform}' is not yet supported."
-            )
+            if snowflake_destination_config is not None:
+                engine = create_engine(
+                    snowflake_destination_config.get_sql_alchemy_url(),
+                    **snowflake_destination_config.get_options(),
+                )
+                engine.execute(
+                    FivetranLogQuery.use_schema(
+                        snowflake_destination_config.database,
+                        snowflake_destination_config.log_schema,
+                    )
+                )
+        return engine
+
+    def _query(self, query: str) -> List[Dict]:
+        logger.debug("Query : {}".format(query))
+        resp = self.engine.execute(query)
+        return [row for row in resp]
 
     def _get_table_lineage(self, connector_id: str) -> Tuple[List[str], List[str]]:
-        table_lineage = self.log_destination.query(
+        table_lineage = self._query(
             FivetranLogQuery.get_table_lineage_query(connector_id=connector_id)
         )
         source_tables: List[str] = []
@@ -89,13 +90,13 @@ class FivetranLogDataDictionary:
         jobs: List[Job] = []
         sync_start_logs = {
             row[Constant.SYNC_ID]: row
-            for row in self.log_destination.query(
+            for row in self._query(
                 FivetranLogQuery.get_sync_start_logs_query(connector_id=connector_id)
             )
         }
         sync_end_logs = {
             row[Constant.SYNC_ID]: row
-            for row in self.log_destination.query(
+            for row in self._query(
                 FivetranLogQuery.get_sync_end_logs_query(connector_id=connector_id)
             )
         }
@@ -125,31 +126,15 @@ class FivetranLogDataDictionary:
             )
         return jobs
 
-    def _get_user_obj(self, user_id: str) -> User:
-        user_details = self.log_destination.query(
-            FivetranLogQuery.get_user_query(user_id=user_id)
-        )[0]
-        return User(
-            user_id=user_details[Constant.USER_ID],
-            given_name=user_details[Constant.GIVEN_NAME],
-            family_name=user_details[Constant.FAMILY_NAME],
-            email=user_details[Constant.EMAIL],
-            email_disabled=user_details[Constant.EMAIL_DISABLED],
-            verified=user_details[Constant.VERIFIED],
-            created_at=round(user_details[Constant.CREATED_AT].timestamp()),
+    def _get_user_name(self, user_id: str) -> str:
+        user_details = self._query(FivetranLogQuery.get_user_query(user_id=user_id))[0]
+        return (
+            f"{user_details[Constant.GIVEN_NAME]} {user_details[Constant.FAMILY_NAME]}"
         )
 
     def get_connectors_list(self) -> List[Connector]:
-        self.log_destination.query(
-            FivetranLogQuery.use_schema(
-                self.log_destination.get_database(), self.log_destination.get_schema()
-            )
-        )
-
         connectors: List[Connector] = []
-        connector_list = self.log_destination.query(
-            FivetranLogQuery.get_connectors_query()
-        )
+        connector_list = self._query(FivetranLogQuery.get_connectors_query())
         for connector in connector_list:
             if not self.config.connector_patterns.allowed(
                 connector[Constant.CONNECTOR_NAME]
@@ -169,10 +154,12 @@ class FivetranLogDataDictionary:
                     paused=connector[Constant.PAUSED],
                     sync_frequency=connector[Constant.SYNC_FREQUENCY],
                     destination_id=connector[Constant.DESTINATION_ID],
+                    user_name=self._get_user_name(
+                        connector[Constant.CONNECTING_USER_ID]
+                    ),
                     source_tables=source_tables,
                     destination_tables=destination_tables,
                     jobs=self._get_jobs_list(connector[Constant.CONNECTOR_ID]),
-                    user=self._get_user_obj(connector[Constant.CONNECTING_USER_ID]),
                 )
             )
         return connectors

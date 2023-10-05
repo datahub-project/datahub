@@ -21,11 +21,7 @@ class FivetranLogQuery:
         return f"""
         SELECT id as "USER_ID",
         given_name as "GIVEN_NAME",
-        family_name as "FAMILY_NAME",
-        email as "EMAIL",
-        email_disabled as "EMAIL_DISABLED",
-        verified as "VERIFIED",
-        created_at as "CREATED_AT"
+        family_name as "FAMILY_NAME"
         FROM USER
         WHERE id = '{user_id}'"""
 
