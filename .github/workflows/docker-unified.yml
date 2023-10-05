@@ -8,7 +8,7 @@ on:
       - "**.md"
   pull_request:
     branches:
-      - '**'
+      - "**"
     paths-ignore:
       - "docs/**"
       - "**.md"
@@ -545,7 +545,6 @@ jobs:
         id: tag
         run: echo "tag=${{ steps.filter.outputs.datahub-ingestion-base == 'true' && needs.setup.outputs.unique_full_tag || 'head' }}" >> $GITHUB_OUTPUT
 
-
   datahub_ingestion_slim_build:
     name: Build and Push DataHub Ingestion Docker Images
     runs-on: ubuntu-latest
@@ -718,7 +717,19 @@ jobs:
       fail-fast: false
       matrix:
         test_strategy: ["no_cypress", "cypress_suite1", "cypress_rest"]
-    needs: [setup, gms_build, frontend_build, kafka_setup_build, mysql_setup_build, elasticsearch_setup_build, mae_consumer_build, mce_consumer_build, datahub_upgrade_build, datahub_ingestion_slim_build]
+    needs:
+      [
+        setup,
+        gms_build,
+        frontend_build,
+        kafka_setup_build,
+        mysql_setup_build,
+        elasticsearch_setup_build,
+        mae_consumer_build,
+        mce_consumer_build,
+        datahub_upgrade_build,
+        datahub_ingestion_slim_build,
+      ]
     steps:
       - name: Disk Check
         run: df -h . && docker images
@@ -797,8 +808,8 @@ jobs:
           DATAHUB_VERSION: ${{ needs.setup.outputs.unique_tag }}
           DATAHUB_ACTIONS_IMAGE: ${{ env.DATAHUB_INGESTION_IMAGE }}
           ACTIONS_VERSION: ${{ needs.datahub_ingestion_slim_build.outputs.tag }}
-          ACTIONS_EXTRA_PACKAGES: 'acryl-datahub-actions[executor]==0.0.13 acryl-datahub-actions==0.0.13 acryl-datahub==0.10.5'
-          ACTIONS_CONFIG: 'https://raw.githubusercontent.com/acryldata/datahub-actions/main/docker/config/executor.yaml'
+          ACTIONS_EXTRA_PACKAGES: "acryl-datahub-actions[executor]==0.0.13 acryl-datahub-actions==0.0.13 acryl-datahub==0.10.5"
+          ACTIONS_CONFIG: "https://raw.githubusercontent.com/acryldata/datahub-actions/main/docker/config/executor.yaml"
         run: |
           ./smoke-test/run-quickstart.sh
       - name: sleep 60s

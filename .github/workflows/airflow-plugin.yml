@@ -10,7 +10,7 @@ on:
       - "metadata-models/**"
   pull_request:
     branches:
-      - '**'
+      - "**"
     paths:
       - ".github/**"
       - "metadata-ingestion-modules/airflow-plugin/**"

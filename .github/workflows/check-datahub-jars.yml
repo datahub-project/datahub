@@ -10,7 +10,7 @@ on:
       - "**.md"
   pull_request:
     branches:
-      - '**'
+      - "**"
     paths-ignore:
       - "docker/**"
       - "docs/**"

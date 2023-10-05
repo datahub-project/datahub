@@ -10,7 +10,7 @@ on:
       - ".github/workflows/code-checks.yml"
   pull_request:
     branches:
-      - '**'
+      - "**"
     paths:
       - "metadata-io/**"
       - "datahub-web-react/**"
@@ -20,7 +20,6 @@ on:
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
-
 
 jobs:
   code_check:
