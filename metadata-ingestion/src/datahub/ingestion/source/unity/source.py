@@ -672,15 +672,19 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             )
         return None
 
-    def _create_data_platform_instance_aspect(self) -> DataPlatformInstanceClass:
-        return DataPlatformInstanceClass(
-            platform=make_data_platform_urn(self.platform),
-            instance=make_dataplatform_instance_urn(
-                self.platform, self.platform_instance_name
+    def _create_data_platform_instance_aspect(
+        self,
+    ) -> Optional[DataPlatformInstanceClass]:
+        if self.config.ingest_data_platform_instance_aspect:
+            return DataPlatformInstanceClass(
+                platform=make_data_platform_urn(self.platform),
+                instance=make_dataplatform_instance_urn(
+                    self.platform, self.platform_instance_name
+                )
+                if self.platform_instance_name
+                else None,
             )
-            if self.platform_instance_name
-            else None,
-        )
+        return None
 
     def _create_table_sub_type_aspect(self, table: Table) -> SubTypesClass:
         return SubTypesClass(

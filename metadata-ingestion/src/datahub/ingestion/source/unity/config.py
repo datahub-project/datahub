@@ -114,8 +114,12 @@ class UnityCatalogSourceConfig(
         ),
     )
 
-    _ingest_data_platform_instance_aspect_removed = pydantic_removed_field(
-        "ingest_data_platform_instance_aspect"
+    ingest_data_platform_instance_aspect: Optional[bool] = pydantic.Field(
+        default=False,
+        description=(
+            "Option to enable/disable ingestion of the data platform instance aspect."
+            " The default data platform instance id for a dataset is workspace_name"
+        ),
     )
 
     _only_ingest_assigned_metastore_removed = pydantic_removed_field(
