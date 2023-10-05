@@ -206,9 +206,10 @@ pyhive_common = {
     # - 0.6.14 uses pure-sasl instead of sasl so it builds on Python 3.11
     "acryl-pyhive[hive_pure_sasl]==0.6.14",
     # As per https://github.com/datahub-project/datahub/issues/8405
-    # and https://github.com/dropbox/PyHive/issues/417, new versions
-    # of thrift break PyHive's hive+http transport.
-    "thrift<0.14.0",
+    # and https://github.com/dropbox/PyHive/issues/417, version 0.15.0
+    # of thrift broke PyHive's hive+http transport.
+    # Fixed by https://github.com/apache/thrift/pull/2491 in version 0.17.0.
+    "thrift>=0.17.0",
 }
 
 microsoft_common = {"msal==1.22.0"}
