@@ -49,6 +49,7 @@ import org.json4s.jackson.JsonMethods$;
 import scala.collection.JavaConversions;
 import scala.runtime.AbstractFunction1;
 import scala.runtime.AbstractPartialFunction;
+import java.lang.reflect.Method;
 
 
 @Slf4j
