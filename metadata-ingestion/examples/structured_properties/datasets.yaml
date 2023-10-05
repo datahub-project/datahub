@@ -5,12 +5,12 @@
   subtype: Table
   schema:
     file: examples/structured_properties/click_event.avsc
-    fields:
-      - id: ip
-      - urn: urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,user.clicks,PROD),ip)
-        structured_properties: # structured properties for schema fields/columns go here
-          # io.acryl.dataManagement.replicationSLA: 90
-          project_name: Tracking
+    # fields:
+    #   - id: ip
+    #     urn: urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,user.clicks,PROD),ip)
+    #     structured_properties: # structured properties for schema fields/columns go here
+    #       io.acryl.dataManagement.replicationSLA: 90
+    #       projectName: Tracking
   properties:
     io.acryl.privacy.retentionTime: 365
   structured_properties: # dataset level structured properties go here
@@ -22,8 +22,8 @@
   description: |
     This is a sample event that is generated when a user clicks on a link.
     Do not use this event for any purpose other than testing.
-  properties:
-    project_name: Tracking
+  structured_properties:
+    projectName: Tracking
     namespace: org.acryl.tracking
   schema:
     file: examples/structured_properties/click_event.avsc
@@ -36,5 +36,5 @@
       - id: user_id
         structured_properties:
           io.acryl.dataManagement.deprecationDate: "2023-01-01"
-  properties:
+  structured_properties:
     io.acryl.dataManagement.team: Analytics

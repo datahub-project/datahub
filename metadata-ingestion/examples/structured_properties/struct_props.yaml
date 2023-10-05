@@ -1,19 +1,19 @@
 - id: io.acryl.privacy.retentionTime
   # - urn: urn:li:structuredProperty:io.acryl.privacy.retentionTime # optional if id is provided
-  fully_qualified_name: io.acryl.privacy.retentionTime # required if urn is provided
+  qualified_name: io.acryl.privacy.retentionTime # required if urn is provided
   type: NUMBER
   cardinality: MULTIPLE
   display_name: Retention Time
   entity_types:
-    - dataset # or urn:li:logicalEntity:metamodel.datahub.dataset
+    - dataset
     - dataflow
   description: "Retention Time is used to figure out how long to retain records in a dataset"
   allowed_values:
-    - value: 30 days
+    - value: 30
       description: 30 days, usually reserved for datasets that are ephemeral and contain pii
-    - value: 3 months
+    - value: 90
       description: Use this for datasets that drive monthly reporting but contain pii
-    - value: 2 yrs
+    - value: 365
       description: Use this for non-sensitive data that can be retained for longer
 - id: io.acryl.dataManagement.replicationSLA
   type: NUMBER
@@ -22,6 +22,7 @@
   entity_types:
     - dataset
 - id: io.acryl.dataManagement.deprecationDate
+  qualified_name: io.acryl.dataManagement.deprecationDate
   type: DATE
   display_name: Deprecation Date
   entity_types:
@@ -38,6 +39,7 @@
     - dataFlow
     - dataJob
 - id: io.acryl.dataManagement.certifier
+  qualified_name: io.acryl.dataManagement.certifier
   type: URN
   display_name: Person Certifying the asset
   entity_types:
@@ -49,7 +51,7 @@
   entity_types:
     - dataset
     - schemaField
-- id: project_name
+- id: projectName
   type: STRING
   display_name: Project name
   entity_types:
