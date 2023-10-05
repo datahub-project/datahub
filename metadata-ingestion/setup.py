@@ -1,4 +1,3 @@
-import os
 import sys
 from typing import Dict, Set
 
@@ -9,16 +8,9 @@ with open("./src/datahub/__init__.py") as fp:
     exec(fp.read(), package_metadata)
 
 
-def get_long_description():
-    root = os.path.dirname(__file__)
-    with open(os.path.join(root, "README.md")) as f:
-        description = f.read()
-
-    return description
-
-
 base_requirements = {
-    "typing_extensions>=3.10.0.2",
+    # Typing extension should be >=3.10.0.2 ideally but we can't restrict due to a Airflow 2.1 dependency conflict.
+    "typing_extensions>=3.7.4.3",
     "mypy_extensions>=0.4.3",
     # Actual dependencies.
     "typing-inspect",
@@ -258,7 +250,7 @@ usage_common = {
 
 databricks = {
     # 0.1.11 appears to have authentication issues with azure databricks
-    "databricks-sdk>=0.1.1, != 0.1.11",
+    "databricks-sdk>=0.9.0",
     "pyspark",
     "requests",
 }
@@ -270,6 +262,7 @@ plugins: Dict[str, Set[str]] = {
     # Sink plugins.
     "datahub-kafka": kafka_common,
     "datahub-rest": rest_common,
+    "sync-file-emitter": {"filelock"},
     "datahub-lite": {
         "duckdb",
         "fastapi",
@@ -670,7 +663,12 @@ setuptools.setup(
     },
     license="Apache License 2.0",
     description="A CLI to work with DataHub metadata",
-    long_description=get_long_description(),
+    long_description="""\
+The `acryl-datahub` package contains a CLI and SDK for interacting with DataHub,
+as well as an integration framework for pulling/pushing metadata from external systems.
+
+See the [DataHub docs](https://datahubproject.io/docs/metadata-ingestion).
+""",
     long_description_content_type="text/markdown",
     classifiers=[
         "Development Status :: 5 - Production/Stable",

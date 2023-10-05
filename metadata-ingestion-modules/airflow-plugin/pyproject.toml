@@ -12,6 +12,7 @@ include = '\.pyi?$'
 
 [tool.isort]
 indent = '    '
+known_future_library = ['__future__', 'datahub.utilities._markupsafe_compat', 'datahub_provider._airflow_compat']
 profile = 'black'
 sections = 'FUTURE,STDLIB,THIRDPARTY,FIRSTPARTY,LOCALFOLDER'
 

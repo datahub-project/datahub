@@ -701,18 +701,22 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             assertion_urn = mce_builder.make_assertion_urn(
                 mce_builder.datahub_guid(
                     {
-                        "platform": DBT_PLATFORM,
-                        "name": node.dbt_name,
-                        "instance": self.config.platform_instance,
-                        **(
-                            # Ideally we'd include the env unconditionally. However, we started out
-                            # not including env in the guid, so we need to maintain backwards compatibility
-                            # with existing PROD assertions.
-                            {"env": self.config.env}
-                            if self.config.env != mce_builder.DEFAULT_ENV
-                            and self.config.include_env_in_assertion_guid
-                            else {}
-                        ),
+                        k: v
+                        for k, v in {
+                            "platform": DBT_PLATFORM,
+                            "name": node.dbt_name,
+                            "instance": self.config.platform_instance,
+                            **(
+                                # Ideally we'd include the env unconditionally. However, we started out
+                                # not including env in the guid, so we need to maintain backwards compatibility
+                                # with existing PROD assertions.
+                                {"env": self.config.env}
+                                if self.config.env != mce_builder.DEFAULT_ENV
+                                and self.config.include_env_in_assertion_guid
+                                else {}
+                            ),
+                        }.items()
+                        if v is not None
                     }
                 )
             )
@@ -1188,9 +1192,15 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         ):
             aspects.append(meta_aspects.get(Constants.ADD_TERM_OPERATION))
 
+        # add meta links aspect
+        meta_links_aspect = meta_aspects.get(Constants.ADD_DOC_LINK_OPERATION)
+        if meta_links_aspect and self.config.enable_meta_mapping:
+            aspects.append(meta_links_aspect)
+
         # add schema metadata aspect
         schema_metadata = self.get_schema_metadata(self.report, node, mce_platform)
         aspects.append(schema_metadata)
+
         return aspects
 
     def get_schema_metadata(
