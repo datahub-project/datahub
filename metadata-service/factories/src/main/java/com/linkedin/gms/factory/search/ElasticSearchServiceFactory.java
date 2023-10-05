@@ -1,13 +1,13 @@
 package com.linkedin.gms.factory.search;
 
+import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
+import com.linkedin.metadata.config.search.SearchConfiguration;
+import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
-import com.linkedin.gms.factory.spring.YamlPropertySourceFactory;
-import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
-import com.linkedin.metadata.config.search.SearchConfiguration;
-import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
+import com.linkedin.metadata.spring.YamlPropertySourceFactory;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.EntityIndexBuilders;
@@ -48,6 +48,9 @@ public class ElasticSearchServiceFactory {
   private SettingsBuilder settingsBuilder;
 
   @Autowired
+  private EntityIndexBuilders entityIndexBuilders;
+
+  @Autowired
   private ConfigurationProvider configurationProvider;
 
   @Bean(name = "elasticSearchService")
@@ -64,9 +67,7 @@ public class ElasticSearchServiceFactory {
         new ESSearchDAO(entityRegistry, components.getSearchClient(), components.getIndexConvention(),
                 configurationProvider.getFeatureFlags().isPointInTimeCreationEnabled(),
                 elasticSearchConfiguration.getImplementation(), searchConfiguration, customSearchConfiguration);
-    return new ElasticSearchService(
-        new EntityIndexBuilders(components.getIndexBuilder(), entityRegistry, components.getIndexConvention(),
-            settingsBuilder), esSearchDAO,
+    return new ElasticSearchService(entityIndexBuilders, esSearchDAO,
         new ESBrowseDAO(entityRegistry, components.getSearchClient(), components.getIndexConvention(),
             searchConfiguration, customSearchConfiguration),
         new ESWriteDAO(entityRegistry, components.getSearchClient(), components.getIndexConvention(),

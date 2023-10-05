@@ -1,13 +1,16 @@
 apply plugin: 'java'
 
 dependencies {
-  compile project(':metadata-io')
-  compile externalDependency.httpClient
-  compile externalDependency.servletApi
-  compile externalDependency.gson
-  compile externalDependency.jacksonDataBind
-  compile externalDependency.springWebMVC
+  implementation project(':metadata-io')
+  implementation project(':datahub-graphql-core')
+  implementation project(':entity-registry')
+  implementation project(':metadata-service:factories')
+
+  implementation externalDependency.httpClient
+  implementation externalDependency.servletApi
+  implementation externalDependency.gson
+  implementation externalDependency.jacksonDataBind
+  implementation externalDependency.springWebMVC
+  compileOnly externalDependency.lombok
   annotationProcessor externalDependency.lombok
-  compile project(':entity-registry')
-  compile project(':metadata-service:factories')
 }

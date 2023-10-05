@@ -5,6 +5,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.DataMap;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.generated.DataProduct;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.SearchAcrossEntitiesInput;
 import com.linkedin.datahub.graphql.generated.SearchResults;
@@ -50,7 +51,9 @@ public class ListDataProductAssetsResolver implements DataFetcher<CompletableFut
   @Override
   public CompletableFuture<SearchResults> get(DataFetchingEnvironment environment) {
     final QueryContext context = environment.getContext();
-    final Urn dataProductUrn = UrnUtils.getUrn(environment.getArgument("urn"));
+    // get urn from either input or source (in the case of "entities" field)
+    final String urn = environment.getArgument("urn") != null ? environment.getArgument("urn") : ((DataProduct) environment.getSource()).getUrn();
+    final Urn dataProductUrn = UrnUtils.getUrn(urn);
     final SearchAcrossEntitiesInput input =
         bindArgument(environment.getArgument("input"), SearchAcrossEntitiesInput.class);
 
@@ -123,6 +126,7 @@ public class ListDataProductAssetsResolver implements DataFetcher<CompletableFut
             start,
             count,
             searchFlags,
+            null,
             ResolverUtils.getAuthentication(environment)));
       } catch (Exception e) {
         log.error(

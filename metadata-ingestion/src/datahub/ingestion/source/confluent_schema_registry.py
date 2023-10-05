@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from hashlib import md5
 from typing import Any, List, Optional, Set, Tuple
 
+import avro.schema
 import jsonref
 from confluent_kafka.schema_registry.schema_registry_client import (
     RegisteredSchema,
@@ -22,6 +23,8 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     SchemaField,
     SchemaMetadata,
 )
+from datahub.metadata.schema_classes import OwnershipSourceTypeClass
+from datahub.utilities.mapping import OperationProcessor
 
 logger = logging.getLogger(__name__)
 
@@ -58,6 +61,14 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
             )
         except Exception as e:
             logger.warning(f"Failed to get subjects from schema registry: {e}")
+
+        self.field_meta_processor = OperationProcessor(
+            self.source_config.field_meta_mapping,
+            self.source_config.tag_prefix,
+            OwnershipSourceTypeClass.SERVICE,
+            self.source_config.strip_user_ids_from_email,
+            match_nested_props=True,
+        )
 
     @classmethod
     def create(
@@ -113,7 +124,7 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
             schema_seen = set()
         schema_str = self._compact_schema(schema.schema_str)
         for schema_ref in schema.references:
-            ref_subject = schema_ref["subject"]
+            ref_subject = schema_ref.subject
             if ref_subject in schema_seen:
                 continue
 
@@ -132,7 +143,7 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
             # Replace only external type references with the reference schema recursively.
             # NOTE: The type pattern is dependent on _compact_schema.
             avro_type_kwd = '"type"'
-            ref_name = schema_ref["name"]
+            ref_name = schema_ref.name
             # Try by name first
             pattern_to_replace = f'{avro_type_kwd}:"{ref_name}"'
             if pattern_to_replace not in schema_str:
@@ -164,7 +175,7 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
 
         schema_ref: SchemaReference
         for schema_ref in schema.references:
-            ref_subject: str = schema_ref["subject"]
+            ref_subject: str = schema_ref.subject
             if ref_subject in schema_seen:
                 continue
             reference_schema: RegisteredSchema = (
@@ -173,7 +184,7 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
             schema_seen.add(ref_subject)
             all_schemas.append(
                 ProtobufSchema(
-                    name=schema_ref["name"], content=reference_schema.schema.schema_str
+                    name=schema_ref.name, content=reference_schema.schema.schema_str
                 )
             )
         return all_schemas
@@ -192,19 +203,19 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
 
         schema_ref: SchemaReference
         for schema_ref in schema.references:
-            ref_subject: str = schema_ref["subject"]
+            ref_subject: str = schema_ref.subject
             if ref_subject in schema_seen:
                 continue
             reference_schema: RegisteredSchema = (
                 self.schema_registry_client.get_version(
-                    subject_name=ref_subject, version=schema_ref["version"]
+                    subject_name=ref_subject, version=schema_ref.version
                 )
             )
             schema_seen.add(ref_subject)
             all_schemas.extend(
                 self.get_schemas_from_confluent_ref_json(
                     reference_schema.schema,
-                    name=schema_ref["name"],
+                    name=schema_ref.name,
                     subject=ref_subject,
                     schema_seen=schema_seen,
                 )
@@ -290,10 +301,19 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
         fields: List[SchemaField] = []
         if schema.schema_type == "AVRO":
             cleaned_str: str = self.get_schema_str_replace_confluent_ref_avro(schema)
+            avro_schema = avro.schema.parse(cleaned_str)
+
             # "value.id" or "value.[type=string]id"
             fields = schema_util.avro_schema_to_mce_fields(
-                cleaned_str, is_key_schema=is_key_schema
+                avro_schema,
+                is_key_schema=is_key_schema,
+                meta_mapping_processor=self.field_meta_processor
+                if self.source_config.enable_meta_mapping
+                else None,
+                schema_tags_field=self.source_config.schema_tags_field,
+                tag_prefix=self.source_config.tag_prefix,
             )
+
         elif schema.schema_type == "PROTOBUF":
             imported_schemas: List[
                 ProtobufSchema

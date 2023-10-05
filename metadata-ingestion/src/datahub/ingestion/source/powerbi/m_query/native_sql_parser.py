@@ -1,11 +1,15 @@
 import logging
-from typing import List
+from typing import List, Optional
 
 import sqlparse
 
+import datahub.utilities.sqlglot_lineage as sqlglot_l
+from datahub.ingestion.api.common import PipelineContext
+from datahub.utilities.sqlglot_lineage import SqlParsingResult
+
 SPECIAL_CHARACTERS = ["#(lf)", "(lf)"]
 
-logger = logging.getLogger()
+logger = logging.getLogger(__name__)
 
 
 def remove_special_characters(native_query: str) -> str:
@@ -17,7 +21,7 @@ def remove_special_characters(native_query: str) -> str:
 
 def get_tables(native_query: str) -> List[str]:
     native_query = remove_special_characters(native_query)
-    logger.debug(f"Processing query = {native_query}")
+    logger.debug(f"Processing native query = {native_query}")
     tables: List[str] = []
     parsed = sqlparse.parse(native_query)[0]
     tokens: List[sqlparse.sql.Token] = list(parsed.tokens)
@@ -45,3 +49,30 @@ def get_tables(native_query: str) -> List[str]:
         from_index = from_index + 1
 
     return tables
+
+
+def parse_custom_sql(
+    ctx: PipelineContext,
+    query: str,
+    schema: Optional[str],
+    database: Optional[str],
+    platform: str,
+    env: str,
+    platform_instance: Optional[str],
+) -> Optional["SqlParsingResult"]:
+
+    logger.debug("Using sqlglot_lineage to parse custom sql")
+
+    sql_query = remove_special_characters(query)
+
+    logger.debug(f"Processing native query = {sql_query}")
+
+    return sqlglot_l.create_lineage_sql_parsed_result(
+        query=sql_query,
+        schema=schema,
+        database=database,
+        platform=platform,
+        platform_instance=platform_instance,
+        env=env,
+        graph=ctx.graph,
+    )

@@ -88,15 +88,25 @@ export function getPopulatedColumnsByUrn(
                 ),
             };
         } else if (fetchedEntity.type === EntityType.DataJob && fetchedEntity.fineGrainedLineages) {
-            // Add upstream fields from fineGrainedLineage onto DataJob to mimic upstream dataset fields.
-            // DataJobs will virtually "have" these fields so we can draw full column paths
-            // from upstream dataset fields to downstream dataset fields.
+            // Add upstream and downstream fields from fineGrainedLineage onto DataJob to mimic upstream
+            // and downstream dataset fields. DataJobs will virtually "have" these fields so we can draw
+            // full column paths from upstream dataset fields to downstream dataset fields.
             const fields: SchemaField[] = [];
             fetchedEntity.fineGrainedLineages.forEach((fineGrainedLineage) => {
                 fineGrainedLineage.upstreams?.forEach((upstream) => {
                     if (!fields.some((field) => field.fieldPath === upstream.path)) {
                         fields.push({
                             fieldPath: downgradeV2FieldPath(upstream.path) || '',
+                            nullable: false,
+                            recursive: false,
+                            type: SchemaFieldDataType.String,
+                        });
+                    }
+                });
+                fineGrainedLineage.downstreams?.forEach((downstream) => {
+                    if (!fields.some((field) => field.fieldPath === downstream.path)) {
+                        fields.push({
+                            fieldPath: downgradeV2FieldPath(downstream.path) || '',
                             nullable: false,
                             recursive: false,
                             type: SchemaFieldDataType.String,
@@ -138,7 +148,10 @@ export function filterColumns(
     node: { x: number; y: number; data: Omit<NodeData, 'children'> },
     setColumnsByUrn: (value: React.SetStateAction<Record<string, SchemaField[]>>) => void,
 ) {
-    const filteredFields = node.data.schemaMetadata?.fields.filter((field) => field.fieldPath.includes(filterText));
+    const formattedFilterText = filterText.toLocaleLowerCase();
+    const filteredFields = node.data.schemaMetadata?.fields.filter((field) =>
+        field.fieldPath.toLocaleLowerCase().includes(formattedFilterText),
+    );
     if (filteredFields) {
         setColumnsByUrn((colsByUrn) => ({
             ...colsByUrn,

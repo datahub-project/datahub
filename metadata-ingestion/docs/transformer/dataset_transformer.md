@@ -7,13 +7,35 @@ The below table shows transformer which can transform aspects of entity [Dataset
 | Dataset Aspect      | Transformer                                                                                                                                                                                                       |                                                                                               
 |---------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `status`            | - [Mark Dataset status](#mark-dataset-status)                                                                                                                                                                     |
-| `ownership`         | - [Simple Add Dataset ownership](#simple-add-dataset-ownership)<br/> - [Pattern Add Dataset ownership](#pattern-add-dataset-ownership)<br/> - [Simple Remove Dataset Ownership](#simple-remove-dataset-ownership) |
+| `ownership`         | - [Simple Add Dataset ownership](#simple-add-dataset-ownership)<br/> - [Pattern Add Dataset ownership](#pattern-add-dataset-ownership)<br/> - [Simple Remove Dataset Ownership](#simple-remove-dataset-ownership)<br/> - [Extract Ownership from Tags](#extract-ownership-from-tags) |
 | `globalTags`        | - [Simple Add Dataset globalTags ](#simple-add-dataset-globaltags)<br/> - [Pattern Add Dataset globalTags](#pattern-add-dataset-globaltags)<br/> - [Add Dataset globalTags](#add-dataset-globaltags)              |
 | `browsePaths`       | - [Set Dataset browsePath](#set-dataset-browsepath)                                                                                                                                                               |
 | `glossaryTerms`     | - [Simple Add Dataset glossaryTerms ](#simple-add-dataset-glossaryterms)<br/> - [Pattern Add Dataset glossaryTerms](#pattern-add-dataset-glossaryterms)                                                           |
 | `schemaMetadata`    | - [Pattern Add Dataset Schema Field glossaryTerms](#pattern-add-dataset-schema-field-glossaryterms)<br/> - [Pattern Add Dataset Schema Field globalTags](#pattern-add-dataset-schema-field-globaltags)            |
 | `datasetProperties` | - [Simple Add Dataset datasetProperties](#simple-add-dataset-datasetproperties)<br/> - [Add Dataset datasetProperties](#add-dataset-datasetproperties)                                                            |
 | `domains`           | - [Simple Add Dataset domains](#simple-add-dataset-domains)<br/> - [Pattern Add Dataset domains](#pattern-add-dataset-domains)                                                                                      | 
+
+## Extract Ownership from Tags
+### Config Details
+| Field                       | Required | Type    | Default       | Description                                 |
+|-----------------------------|----------|---------|---------------|---------------------------------------------|
+| `semantics`                 |          | enum    | `OVERWRITE`   | Whether to OVERWRITE or PATCH the entity present on DataHub GMS. |
+| `tag_prefix`                |          | str     |               | Regex to use for tags to match against. Supports Regex to match a prefix which is used to remove content. Rest of string is considered owner ID for creating owner URN. |
+| `is_user`                 |          | bool    | `true`   | Whether should be consider a user or not. If `false` then considered a group. |
+| `email_domain` |          | str    |    | If set then this is appended to create owner URN. |
+| `owner_type` |          | str    |  `TECHNICAL_OWNER`   | Ownership type. |
+| `owner_type_urn` |          | str    |  `None`   | Set to a custom ownership type's URN if using custom ownership. |
+
+Matches against a tag prefix and considers string in tags after that prefix as owner to create ownership.
+
+```yaml
+transformers:
+  - type: "extract_ownership_from_tags"
+    config:
+      tag_prefix: "dbt:techno-genie:"
+      is_user: true
+      email_domain: "coolcompany.com"
+```
 
 ## Mark Dataset Status
 ### Config Details
@@ -175,6 +197,34 @@ transformers:
 The main use case of `simple_remove_dataset_ownership` is to remove incorrect owners present in the source. You can use it along with the [Simple Add Dataset ownership](#simple-add-dataset-ownership) to remove wrong owners and add the correct ones.
 
 Note that whatever owners you send via `simple_remove_dataset_ownership` will overwrite the owners present in the UI.
+## Extract Dataset globalTags
+### Config Details
+| Field                       | Required | Type         | Default       | Description                                                      |
+|-----------------------------|----------|--------------|---------------|------------------------------------------------------------------|
+| `extract_tags_from`         | ✅       | string       |  `urn`             | Which field to extract tag from. Currently only `urn` is supported.  |
+| `extract_tags_regex`        | ✅       | string       |  `.*`             | Regex to use to extract tag.|
+| `replace_existing`          |          | boolean      | `false`       | Whether to remove owners from entity sent by ingestion source.   |
+| `semantics`                 |          | enum         | `OVERWRITE`   | Whether to OVERWRITE or PATCH the entity present on DataHub GMS. |
+
+Let’s suppose we’d like to add a dataset tags based on part of urn. To do so, we can use the `extract_dataset_tags` transformer that’s included in the ingestion framework.
+
+The config, which we’d append to our ingestion recipe YAML, would look like this:
+
+  ```yaml
+  transformers:
+    - type: "extract_dataset_tags"
+      config:
+        extract_tags_from: "urn"
+        extract_tags_regex: ".([^._]*)_"
+  ```
+
+So if we have input URNs like 
+- `urn:li:dataset:(urn:li:dataPlatform:kafka,clusterid.USA-ops-team_table1,PROD)`
+- `urn:li:dataset:(urn:li:dataPlatform:kafka,clusterid.Canada-marketing_table1,PROD)`
+
+a tag called `USA-ops-team` and `Canada-marketing` will be added to them respectively. This is helpful in case you are using prefixes in your datasets to segregate different things. Now you can turn that segregation into a tag on your dataset in DataHub for further use.
+
+
 ## Simple Add Dataset globalTags
 ### Config Details
 | Field                       | Required | Type         | Default       | Description                                                      |
@@ -881,7 +931,7 @@ in both of the cases domain should be provisioned on DataHub GMS
 - Add domains, however replace existing domains sent by ingestion source
 ```yaml
     transformers:
-      - type: "pattern_add_dataset_ownership"
+      - type: "pattern_add_dataset_domain"
         config:
           replace_existing: true  # false is default behaviour
           domain_pattern:
@@ -892,7 +942,7 @@ in both of the cases domain should be provisioned on DataHub GMS
 - Add domains, however overwrite the domains available for the dataset on DataHub GMS
 ```yaml
       transformers:
-        - type: "pattern_add_dataset_ownership"
+        - type: "pattern_add_dataset_domain"
           config:
             semantics: OVERWRITE  # OVERWRITE is default behaviour 
             domain_pattern:
@@ -903,7 +953,7 @@ in both of the cases domain should be provisioned on DataHub GMS
 - Add domains, however keep the domains available for the dataset on DataHub GMS
 ```yaml
       transformers:
-        - type: "pattern_add_dataset_ownership"
+        - type: "pattern_add_dataset_domain"
           config:
             semantics: PATCH
             domain_pattern:

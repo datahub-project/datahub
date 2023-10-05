@@ -17,6 +17,7 @@ import com.linkedin.identity.CorpGroupEditableInfo;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.EntityUtils;
 import com.linkedin.ml.metadata.EditableMLFeatureProperties;
 import com.linkedin.ml.metadata.EditableMLFeatureTableProperties;
 import com.linkedin.ml.metadata.EditableMLModelGroupProperties;
@@ -40,8 +41,6 @@ public class DescriptionUtils {
 
   private DescriptionUtils() { }
 
-  public static final String EDITABLE_SCHEMA_METADATA = "editableSchemaMetadata";
-
   public static void updateFieldDescription(
       String newDescription,
       Urn resourceUrn,
@@ -50,13 +49,13 @@ public class DescriptionUtils {
       EntityService entityService
   ) {
       EditableSchemaMetadata editableSchemaMetadata =
-          (EditableSchemaMetadata) getAspectFromEntity(
-              resourceUrn.toString(), EDITABLE_SCHEMA_METADATA, entityService, new EditableSchemaMetadata());
+          (EditableSchemaMetadata) EntityUtils.getAspectFromEntity(
+              resourceUrn.toString(), Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME, entityService, new EditableSchemaMetadata());
       EditableSchemaFieldInfo editableFieldInfo = getFieldInfoFromSchema(editableSchemaMetadata, fieldPath);
 
       editableFieldInfo.setDescription(newDescription);
 
-      persistAspect(resourceUrn, EDITABLE_SCHEMA_METADATA, editableSchemaMetadata, actor, entityService);
+      persistAspect(resourceUrn, Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME, editableSchemaMetadata, actor, entityService);
   }
 
   public static void updateContainerDescription(
@@ -66,7 +65,7 @@ public class DescriptionUtils {
       EntityService entityService
   ) {
     EditableContainerProperties containerProperties =
-        (EditableContainerProperties) getAspectFromEntity(
+        (EditableContainerProperties) EntityUtils.getAspectFromEntity(
             resourceUrn.toString(), Constants.CONTAINER_EDITABLE_PROPERTIES_ASPECT_NAME, entityService, new EditableContainerProperties());
     containerProperties.setDescription(newDescription);
     persistAspect(resourceUrn, Constants.CONTAINER_EDITABLE_PROPERTIES_ASPECT_NAME, containerProperties, actor, entityService);
@@ -79,7 +78,7 @@ public class DescriptionUtils {
       EntityService entityService
   ) {
     DomainProperties domainProperties =
-        (DomainProperties) getAspectFromEntity(
+        (DomainProperties) EntityUtils.getAspectFromEntity(
             resourceUrn.toString(), Constants.DOMAIN_PROPERTIES_ASPECT_NAME, entityService, null);
     if (domainProperties == null) {
       // If there are no properties for the domain already, then we should throw since the properties model also requires a name.
@@ -96,7 +95,7 @@ public class DescriptionUtils {
       EntityService entityService
   ) {
     TagProperties tagProperties =
-        (TagProperties) getAspectFromEntity(
+        (TagProperties) EntityUtils.getAspectFromEntity(
             resourceUrn.toString(), Constants.TAG_PROPERTIES_ASPECT_NAME, entityService, null);
     if (tagProperties == null) {
       // If there are no properties for the tag already, then we should throw since the properties model also requires a name.
@@ -113,7 +112,7 @@ public class DescriptionUtils {
       EntityService entityService
   ) {
     CorpGroupEditableInfo corpGroupEditableInfo =
-        (CorpGroupEditableInfo) getAspectFromEntity(
+        (CorpGroupEditableInfo) EntityUtils.getAspectFromEntity(
             resourceUrn.toString(), Constants.CORP_GROUP_EDITABLE_INFO_ASPECT_NAME, entityService, new CorpGroupEditableInfo());
     if (corpGroupEditableInfo != null) {
       corpGroupEditableInfo.setDescription(newDescription);
@@ -127,7 +126,7 @@ public class DescriptionUtils {
       Urn actor,
       EntityService entityService
   ) {
-    GlossaryTermInfo glossaryTermInfo = (GlossaryTermInfo) getAspectFromEntity(
+    GlossaryTermInfo glossaryTermInfo = (GlossaryTermInfo) EntityUtils.getAspectFromEntity(
         resourceUrn.toString(), Constants.GLOSSARY_TERM_INFO_ASPECT_NAME, entityService, null);
     if (glossaryTermInfo == null) {
       // If there are no properties for the term already, then we should throw since the properties model also requires a name.
@@ -143,7 +142,7 @@ public class DescriptionUtils {
       Urn actor,
       EntityService entityService
   ) {
-    GlossaryNodeInfo glossaryNodeInfo = (GlossaryNodeInfo) getAspectFromEntity(
+    GlossaryNodeInfo glossaryNodeInfo = (GlossaryNodeInfo) EntityUtils.getAspectFromEntity(
         resourceUrn.toString(), Constants.GLOSSARY_NODE_INFO_ASPECT_NAME, entityService, null);
     if (glossaryNodeInfo == null) {
       throw new IllegalArgumentException("Glossary Node does not exist");
@@ -157,7 +156,7 @@ public class DescriptionUtils {
       Urn resourceUrn,
       Urn actor,
       EntityService entityService) {
-    EditableNotebookProperties notebookProperties = (EditableNotebookProperties) getAspectFromEntity(
+    EditableNotebookProperties notebookProperties = (EditableNotebookProperties) EntityUtils.getAspectFromEntity(
         resourceUrn.toString(), Constants.EDITABLE_NOTEBOOK_PROPERTIES_ASPECT_NAME, entityService, null);
     if (notebookProperties != null) {
       notebookProperties.setDescription(newDescription);
@@ -293,7 +292,7 @@ public class DescriptionUtils {
       Urn resourceUrn,
       Urn actor,
       EntityService entityService) {
-    EditableMLModelProperties editableProperties = (EditableMLModelProperties) getAspectFromEntity(
+    EditableMLModelProperties editableProperties = (EditableMLModelProperties) EntityUtils.getAspectFromEntity(
         resourceUrn.toString(), Constants.ML_MODEL_EDITABLE_PROPERTIES_ASPECT_NAME, entityService, new EditableMLModelProperties());
     if (editableProperties != null) {
       editableProperties.setDescription(newDescription);
@@ -306,7 +305,7 @@ public class DescriptionUtils {
       Urn resourceUrn,
       Urn actor,
       EntityService entityService) {
-    EditableMLModelGroupProperties editableProperties = (EditableMLModelGroupProperties) getAspectFromEntity(
+    EditableMLModelGroupProperties editableProperties = (EditableMLModelGroupProperties) EntityUtils.getAspectFromEntity(
         resourceUrn.toString(), Constants.ML_MODEL_GROUP_EDITABLE_PROPERTIES_ASPECT_NAME, entityService, new EditableMLModelGroupProperties());
     if (editableProperties != null) {
       editableProperties.setDescription(newDescription);
@@ -318,7 +317,7 @@ public class DescriptionUtils {
       Urn resourceUrn,
       Urn actor,
       EntityService entityService) {
-    EditableMLFeatureProperties editableProperties = (EditableMLFeatureProperties) getAspectFromEntity(
+    EditableMLFeatureProperties editableProperties = (EditableMLFeatureProperties) EntityUtils.getAspectFromEntity(
         resourceUrn.toString(), Constants.ML_FEATURE_EDITABLE_PROPERTIES_ASPECT_NAME, entityService, new EditableMLFeatureProperties());
     if (editableProperties != null) {
       editableProperties.setDescription(newDescription);
@@ -331,7 +330,7 @@ public class DescriptionUtils {
       Urn resourceUrn,
       Urn actor,
       EntityService entityService) {
-    EditableMLFeatureTableProperties editableProperties = (EditableMLFeatureTableProperties) getAspectFromEntity(
+    EditableMLFeatureTableProperties editableProperties = (EditableMLFeatureTableProperties) EntityUtils.getAspectFromEntity(
         resourceUrn.toString(), Constants.ML_FEATURE_TABLE_EDITABLE_PROPERTIES_ASPECT_NAME, entityService, new EditableMLFeatureTableProperties());
     if (editableProperties != null) {
       editableProperties.setDescription(newDescription);
@@ -344,7 +343,7 @@ public class DescriptionUtils {
       Urn resourceUrn,
       Urn actor,
       EntityService entityService) {
-    EditableMLPrimaryKeyProperties editableProperties = (EditableMLPrimaryKeyProperties) getAspectFromEntity(
+    EditableMLPrimaryKeyProperties editableProperties = (EditableMLPrimaryKeyProperties) EntityUtils.getAspectFromEntity(
         resourceUrn.toString(), Constants.ML_PRIMARY_KEY_EDITABLE_PROPERTIES_ASPECT_NAME, entityService, new EditableMLPrimaryKeyProperties());
     if (editableProperties != null) {
       editableProperties.setDescription(newDescription);
@@ -357,7 +356,7 @@ public class DescriptionUtils {
       Urn resourceUrn,
       Urn actor,
       EntityService entityService) {
-    DataProductProperties properties = (DataProductProperties) getAspectFromEntity(
+    DataProductProperties properties = (DataProductProperties) EntityUtils.getAspectFromEntity(
         resourceUrn.toString(), Constants.DATA_PRODUCT_PROPERTIES_ASPECT_NAME, entityService, new DataProductProperties());
     if (properties != null) {
       properties.setDescription(newDescription);

@@ -17,12 +17,20 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulProfilingConfigMixin,
 )
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
+from datahub.ingestion.source_config.operation_config import (
+    OperationConfig,
+    is_profiling_enabled,
+)
 
 
 class UnityCatalogProfilerConfig(ConfigModel):
     # TODO: Reduce duplicate code with DataLakeProfilerConfig, GEProfilingConfig, SQLAlchemyConfig
     enabled: bool = Field(
         default=False, description="Whether profiling should be done."
+    )
+    operation_config: OperationConfig = Field(
+        default_factory=OperationConfig,
+        description="Experimental feature. To specify operation configs.",
     )
 
     warehouse_id: Optional[str] = Field(
@@ -89,6 +97,11 @@ class UnityCatalogSourceConfig(
         description="Name of the workspace. Default to deployment name present in workspace_url",
     )
 
+    ingest_data_platform_instance_aspect: Optional[bool] = pydantic.Field(
+        default=False,
+        description="Option to enable/disable ingestion of the data platform instance aspect. The default data platform instance id for a dataset is workspace_name",
+    )
+
     _only_ingest_assigned_metastore_removed = pydantic_removed_field(
         "only_ingest_assigned_metastore"
     )
@@ -114,9 +127,14 @@ class UnityCatalogSourceConfig(
         description='Attach domains to catalogs, schemas or tables during ingestion using regex patterns. Domain key can be a guid like *urn:li:domain:ec428203-ce86-4db3-985d-5a8ee6df32ba* or a string like "Marketing".) If you provide strings, then datahub will attempt to resolve this name to a guid, and will error out if this fails. There can be multiple domain keys specified.',
     )
 
-    include_table_lineage: Optional[bool] = pydantic.Field(
+    include_table_lineage: bool = pydantic.Field(
         default=True,
         description="Option to enable/disable lineage generation.",
+    )
+
+    include_notebooks: bool = pydantic.Field(
+        default=False,
+        description="Ingest notebooks, represented as DataHub datasets.",
     )
 
     include_ownership: bool = pydantic.Field(
@@ -128,7 +146,7 @@ class UnityCatalogSourceConfig(
         "include_table_ownership", "include_ownership"
     )
 
-    include_column_lineage: Optional[bool] = pydantic.Field(
+    include_column_lineage: bool = pydantic.Field(
         default=True,
         description="Option to enable/disable lineage generation. Currently we have to call a rest call per column to get column level lineage due to the Databrick api which can slow down ingestion. ",
     )
@@ -141,6 +159,11 @@ class UnityCatalogSourceConfig(
     profiling: UnityCatalogProfilerConfig = Field(
         default=UnityCatalogProfilerConfig(), description="Data profiling configuration"
     )
+
+    def is_profiling_enabled(self) -> bool:
+        return self.profiling.enabled and is_profiling_enabled(
+            self.profiling.operation_config
+        )
 
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = pydantic.Field(
         default=None, description="Unity Catalog Stateful Ingestion Config."

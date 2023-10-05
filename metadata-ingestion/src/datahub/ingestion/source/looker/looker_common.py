@@ -7,10 +7,26 @@ import re
 from dataclasses import dataclass, field as dataclasses_field
 from enum import Enum
 from functools import lru_cache
-from typing import TYPE_CHECKING, Dict, Iterable, List, Optional, Set, Tuple, Union
+from typing import (
+    TYPE_CHECKING,
+    Dict,
+    Iterable,
+    List,
+    Optional,
+    Sequence,
+    Set,
+    Tuple,
+    Union,
+    cast,
+)
 
 from looker_sdk.error import SDKError
-from looker_sdk.sdk.api40.models import LookmlModelExploreField, User, WriteQuery
+from looker_sdk.sdk.api40.models import (
+    LookmlModelExplore,
+    LookmlModelExploreField,
+    User,
+    WriteQuery,
+)
 from pydantic.class_validators import validator
 
 import datahub.emitter.mce_builder as builder
@@ -23,6 +39,7 @@ from datahub.ingestion.source.looker.looker_config import (
     LookerCommonConfig,
     LookerDashboardSourceConfig,
     NamingPatternMapping,
+    ViewNamingPatternMapping,
 )
 from datahub.ingestion.source.looker.looker_constant import IMPORTED_PROJECTS
 from datahub.ingestion.source.looker.looker_lib_wrapper import LookerAPI
@@ -34,6 +51,7 @@ from datahub.ingestion.source.sql.sql_types import (
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
 )
+from datahub.metadata.com.linkedin.pegasus2avro.common import AuditStamp
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     DatasetLineageTypeClass,
     FineGrainedLineageDownstreamType,
@@ -76,6 +94,8 @@ from datahub.metadata.schema_classes import (
 from datahub.utilities.lossy_collections import LossyList, LossySet
 from datahub.utilities.url_util import remove_port_from_url
 
+CORPUSER_DATAHUB = "urn:li:corpuser:datahub"
+
 if TYPE_CHECKING:
     from datahub.ingestion.source.looker.lookml_source import (
         LookerViewFileLoader,
@@ -90,14 +110,16 @@ class LookerViewId:
     project_name: str
     model_name: str
     view_name: str
+    file_path: str
 
-    def get_mapping(self, config: LookerCommonConfig) -> NamingPatternMapping:
-        return NamingPatternMapping(
+    def get_mapping(self, config: LookerCommonConfig) -> ViewNamingPatternMapping:
+        return ViewNamingPatternMapping(
             platform=config.platform_name,
             env=config.env.lower(),
             project=self.project_name,
             model=self.model_name,
             name=self.view_name,
+            file_path=self.file_path,
         )
 
     @validator("view_name")
@@ -106,10 +128,35 @@ class LookerViewId:
         v = v.replace('"', "").replace("`", "")
         return v
 
+    def preprocess_file_path(self, file_path: str) -> str:
+        new_file_path: str = str(file_path)
+
+        str_to_remove: List[str] = [
+            "\\.view\\.lkml$",  # escape the . using \
+        ]
+
+        for pattern in str_to_remove:
+            new_file_path = re.sub(pattern, "", new_file_path)
+
+        str_to_replace: Dict[str, str] = {
+            f"^imported_projects/{re.escape(self.project_name)}/": "",  # escape any special regex character present in project-name
+            "/": ".",  # / is not urn friendly
+        }
+
+        for pattern in str_to_replace:
+            new_file_path = re.sub(pattern, str_to_replace[pattern], new_file_path)
+
+        logger.debug(f"Original file path {file_path}")
+        logger.debug(f"After preprocessing file path {new_file_path}")
+
+        return new_file_path
+
     def get_urn(self, config: LookerCommonConfig) -> str:
-        dataset_name = config.view_naming_pattern.replace_variables(
-            self.get_mapping(config)
-        )
+        n_mapping: ViewNamingPatternMapping = self.get_mapping(config)
+
+        n_mapping.file_path = self.preprocess_file_path(n_mapping.file_path)
+
+        dataset_name = config.view_naming_pattern.replace_variables(n_mapping)
 
         return builder.make_dataset_urn_with_platform_instance(
             platform=config.platform_name,
@@ -130,6 +177,10 @@ class ViewFieldType(Enum):
     DIMENSION_GROUP = "Dimension Group"
     MEASURE = "Measure"
     UNKNOWN = "Unknown"
+
+
+class ViewFieldValue(Enum):
+    NOT_AVAILABLE = "NotAvailable"
 
 
 @dataclass
@@ -156,6 +207,69 @@ def create_view_project_map(view_fields: List[ViewField]) -> Dict[str, str]:
             view_project_map[view_field.view_name] = view_field.project_name
 
     return view_project_map
+
+
+def get_view_file_path(
+    lkml_fields: List[LookmlModelExploreField], view_name: str
+) -> Optional[str]:
+    """
+    Search for the view file path on field, if found then return the file path
+    """
+    logger.debug("Entered")
+
+    for field in lkml_fields:
+        if field.view == view_name:
+            # This path is relative to git clone directory
+            logger.debug(f"Found view({view_name}) file-path {field.source_file}")
+            return field.source_file
+
+    logger.debug(f"Failed to find view({view_name}) file-path")
+
+    return None
+
+
+def create_upstream_views_file_path_map(
+    view_names: Set[str], lkml_fields: List[LookmlModelExploreField]
+) -> Dict[str, Optional[str]]:
+    """
+    Create a map of view-name v/s view file path, so that later we can fetch view's file path via view-name
+    """
+
+    upstream_views_file_path: Dict[str, Optional[str]] = {}
+
+    for view_name in view_names:
+        file_path: Optional[str] = get_view_file_path(
+            lkml_fields=lkml_fields, view_name=view_name
+        )
+
+        upstream_views_file_path[view_name] = file_path
+
+    return upstream_views_file_path
+
+
+def explore_field_set_to_lkml_fields(
+    explore: LookmlModelExplore,
+) -> List[LookmlModelExploreField]:
+    """
+    explore.fields has three variables i.e. dimensions, measures, parameters of same type i.e. LookmlModelExploreField.
+    This method creating a list by adding all field instance to lkml_fields
+    """
+    lkml_fields: List[LookmlModelExploreField] = []
+
+    if explore.fields is None:
+        logger.debug(f"Explore({explore.name}) doesn't have any field")
+        return lkml_fields
+
+    def empty_list(
+        fields: Optional[Sequence[LookmlModelExploreField]],
+    ) -> List[LookmlModelExploreField]:
+        return list(fields) if fields is not None else []
+
+    lkml_fields.extend(empty_list(explore.fields.dimensions))
+    lkml_fields.extend(empty_list(explore.fields.measures))
+    lkml_fields.extend(empty_list(explore.fields.parameters))
+
+    return lkml_fields
 
 
 class LookerUtil:
@@ -454,6 +568,9 @@ class LookerExplore:
     upstream_views: Optional[
         List[ProjectInclude]
     ] = None  # captures the view name(s) this explore is derived from
+    upstream_views_file_path: Dict[str, Optional[str]] = dataclasses_field(
+        default_factory=dict
+    )  # view_name is key and file_path is value. A single file may contains multiple views
     joins: Optional[List[str]] = None
     fields: Optional[List[ViewField]] = None  # the fields exposed in this explore
     source_file: Optional[str] = None
@@ -555,6 +672,9 @@ class LookerExplore:
             description=dict.get("description"),
             upstream_views=upstream_views,
             joins=joins,
+            # This method is getting called from lookml_source's get_internal_workunits method
+            # & upstream_views_file_path is not in use in that code flow
+            upstream_views_file_path={},
         )
 
     @classmethod  # noqa: C901
@@ -571,6 +691,10 @@ class LookerExplore:
         try:
             explore = client.lookml_model_explore(model, explore_name)
             views: Set[str] = set()
+
+            lkml_fields: List[
+                LookmlModelExploreField
+            ] = explore_field_set_to_lkml_fields(explore)
 
             if explore.view_name is not None and explore.view_name != explore.name:
                 # explore is not named after a view and is instead using a from field, which is modeled as view_name.
@@ -682,6 +806,15 @@ class LookerExplore:
             if view_project_map:
                 logger.debug(f"views and their projects: {view_project_map}")
 
+            upstream_views_file_path: Dict[
+                str, Optional[str]
+            ] = create_upstream_views_file_path_map(
+                lkml_fields=lkml_fields,
+                view_names=views,
+            )
+            if upstream_views_file_path:
+                logger.debug(f"views and their file-paths: {upstream_views_file_path}")
+
             return cls(
                 name=explore_name,
                 model_name=model,
@@ -696,6 +829,7 @@ class LookerExplore:
                     )
                     for view_name in views
                 ),
+                upstream_views_file_path=upstream_views_file_path,
                 source_file=explore.source_file,
             )
         except SDKError as e:
@@ -786,19 +920,32 @@ class LookerExplore:
         if self.upstream_views is not None:
             assert self.project_name is not None
             upstreams = []
+            observed_lineage_ts = datetime.datetime.now(tz=datetime.timezone.utc)
             for view_ref in sorted(self.upstream_views):
+                # set file_path to ViewFieldType.UNKNOWN if file_path is not available to keep backward compatibility
+                # if we raise error on file_path equal to None then existing test-cases will fail as mock data doesn't have required attributes.
+                file_path: str = (
+                    cast(str, self.upstream_views_file_path[view_ref.include])
+                    if self.upstream_views_file_path[view_ref.include] is not None
+                    else ViewFieldValue.NOT_AVAILABLE.value
+                )
                 view_urn = LookerViewId(
                     project_name=view_ref.project
                     if view_ref.project != _BASE_PROJECT_NAME
                     else self.project_name,
                     model_name=self.model_name,
                     view_name=view_ref.include,
+                    file_path=file_path,
                 ).get_urn(config)
 
                 upstreams.append(
                     UpstreamClass(
                         dataset=view_urn,
                         type=DatasetLineageTypeClass.VIEW,
+                        auditStamp=AuditStamp(
+                            time=int(observed_lineage_ts.timestamp() * 1000),
+                            actor=CORPUSER_DATAHUB,
+                        ),
                     )
                 )
                 view_name_to_urn_map[view_ref.include] = view_urn

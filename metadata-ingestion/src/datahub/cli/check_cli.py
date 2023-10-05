@@ -61,7 +61,8 @@ def metadata_file(json_file: str, rewrite: bool, unpack_mces: bool) -> None:
                         "type": "file",
                         "config": {"filename": out_file.name},
                     },
-                }
+                },
+                no_default_report=True,
             )
 
             pipeline.run()
@@ -130,7 +131,7 @@ def plugins(verbose: bool) -> None:
     """List the enabled ingestion plugins."""
 
     click.secho("Sources:", bold=True)
-    click.echo(source_registry.summary(verbose=verbose))
+    click.echo(source_registry.summary(verbose=verbose, col_width=25))
     click.echo()
     click.secho("Sinks:", bold=True)
     click.echo(sink_registry.summary(verbose=verbose))

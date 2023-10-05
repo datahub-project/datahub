@@ -100,10 +100,9 @@ Currently, there are various models in GMS:
 1. [Urn](https://github.com/datahub-project/datahub/blob/master/li-utils/src/main/pegasus/com/linkedin/common/DatasetUrn.pdl) - Structs composing primary keys
 2. [Root] [Snapshots](https://github.com/datahub-project/datahub/blob/master/metadata-models/src/main/pegasus/com/linkedin/metadata/snapshot/Snapshot.pdl) - Container of aspects
 3. [Aspects](https://github.com/datahub-project/datahub/blob/master/metadata-models/src/main/pegasus/com/linkedin/metadata/aspect/DashboardAspect.pdl) - Optional container of fields
-4. [Values](https://github.com/datahub-project/datahub/blob/master/gms/api/src/main/pegasus/com/linkedin/dataset/Dataset.pdl), [Keys](https://github.com/datahub-project/datahub/blob/master/gms/api/src/main/pegasus/com/linkedin/dataset/DatasetKey.pdl) - Model returned by GMS [Rest.li](http://rest.li) API (public facing)
-5. [Entities](https://github.com/datahub-project/datahub/blob/master/metadata-models/src/main/pegasus/com/linkedin/metadata/entity/DatasetEntity.pdl) - Records with fields derived from the URN. Used only in graph / relationships
-6. [Relationships](https://github.com/datahub-project/datahub/blob/master/metadata-models/src/main/pegasus/com/linkedin/metadata/relationship/Relationship.pdl) - Edges between 2 entities with optional edge properties
-7. [Search Documents](https://github.com/datahub-project/datahub/blob/master/metadata-models/src/main/pegasus/com/linkedin/metadata/search/ChartDocument.pdl) - Flat documents for indexing within Elastic index
+4. [Keys](https://github.com/datahub-project/datahub/blob/master/metadata-models/src/main/pegasus/com/linkedin/metadata/key/DatasetKey.pdl) - Model returned by GMS [Rest.li](http://rest.li) API (public facing)
+5. [Relationships](https://github.com/datahub-project/datahub/blob/master/metadata-models/src/main/pegasus/com/linkedin/common/EntityRelationship.pdl) - Edges between 2 entities with optional edge properties
+6. Search Documents - Flat documents for indexing within Elastic index
   - And corresponding index [mappings.json](https://github.com/datahub-project/datahub/blob/master/gms/impl/src/main/resources/index/chart/mappings.json), [settings.json](https://github.com/datahub-project/datahub/blob/master/gms/impl/src/main/resources/index/chart/settings.json)
 
 Various components of GMS depend on / make assumptions about these model types:
@@ -159,11 +158,19 @@ along with simplifying the number of raw data models that need defined, includin
 
 From an architectural PoV, we will move from a before that looks something like this:
 
-![no-code-before](../imgs/no-code-before.png)
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/no-code-before.png"/>
+</p>
+
 
 to an after that looks like this
 
-![no-code-after](../imgs/no-code-after.png)
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/no-code-after.png"/>
+</p>
+
 
 That is, a move away from patterns of strong-typing-everywhere to a more generic + flexible world. 
 
@@ -211,7 +218,7 @@ record ServiceKey {
   * Name of the service
   */
   @Searchable = {
-    "fieldType": "TEXT_PARTIAL",
+    "fieldType": "WORD_GRAM",
     "enableAutocomplete": true
   }
   name: string

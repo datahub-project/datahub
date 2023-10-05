@@ -1,16 +1,15 @@
 buildscript {
   ext.junitJupiterVersion = '5.6.1'
   // Releases: https://github.com/linkedin/rest.li/blob/master/CHANGELOG.md
-  ext.pegasusVersion = '29.22.16'
+  ext.pegasusVersion = '29.45.0'
   ext.mavenVersion = '3.6.3'
-  ext.springVersion = '5.3.27'
-  ext.springBootVersion = '2.7.11'
+  ext.springVersion = '5.3.29'
+  ext.springBootVersion = '2.7.14'
   ext.openTelemetryVersion = '1.18.0'
   ext.neo4jVersion = '4.4.9'
   ext.testContainersVersion = '1.17.4'
-  ext.elasticsearchVersion = '7.10.2'
-  // TODO: Change to final release version once it's out ETA Mid-April
-  ext.jacksonVersion = '2.15.0-rc2'
+  ext.elasticsearchVersion = '2.9.0' // ES 7.10, Opensearch 1.x, 2.x
+  ext.jacksonVersion = '2.15.2'
   ext.jettyVersion = '9.4.46.v20220331'
   ext.playVersion = '2.8.18'
   ext.log4jVersion = '2.19.0'
@@ -18,6 +17,8 @@ buildscript {
   ext.logbackClassic = '1.2.12'
   ext.hadoop3Version = '3.3.5'
   ext.kafkaVersion = '2.3.0'
+  ext.hazelcastVersion = '5.3.1'
+  ext.ebeanVersion = '12.16.1'
 
   ext.docker_registry = 'linkedin'
 
@@ -29,16 +30,16 @@ buildscript {
     classpath 'io.acryl.gradle.plugin:gradle-avro-plugin:0.8.1'
     classpath 'org.springframework.boot:spring-boot-gradle-plugin:' + springBootVersion
     classpath "io.codearte.gradle.nexus:gradle-nexus-staging-plugin:0.30.0"
-    classpath "com.palantir.gradle.gitversion:gradle-git-version:0.12.3"
-    classpath "org.gradle.playframework:gradle-playframework:0.12"
-    classpath "gradle.plugin.org.hidetake:gradle-swagger-generator-plugin:2.18.1"
+    classpath "com.palantir.gradle.gitversion:gradle-git-version:3.0.0"
+    classpath "org.gradle.playframework:gradle-playframework:0.14"
+    classpath "gradle.plugin.org.hidetake:gradle-swagger-generator-plugin:2.19.1"
   }
 }
 
 plugins {
   id 'com.gorylenko.gradle-git-properties' version '2.4.0-rc2'
   id 'com.github.johnrengelman.shadow' version '6.1.0'
-  id "com.palantir.docker" version "0.34.0"
+  id 'com.palantir.docker' version '0.35.0'
   // https://blog.ltgt.net/javax-jakarta-mess-and-gradle-solution/
   // TODO id "org.gradlex.java-ecosystem-capabilities" version "1.0"
 }
@@ -86,24 +87,25 @@ project.ext.externalDependency = [
     'dgraph4j' : 'io.dgraph:dgraph4j:21.03.1',
     'dropwizardMetricsCore': 'io.dropwizard.metrics:metrics-core:4.2.3',
     'dropwizardMetricsJmx': 'io.dropwizard.metrics:metrics-jmx:4.2.3',
-    'ebean': 'io.ebean:ebean:11.33.3',
-    'ebeanAgent': 'io.ebean:ebean-agent:11.27.1',
-    'elasticSearchRest': 'org.elasticsearch.client:elasticsearch-rest-high-level-client:' + elasticsearchVersion,
-    'elasticSearchTransport': 'org.elasticsearch.client:transport:' + elasticsearchVersion,
+    'ebean': 'io.ebean:ebean:' + ebeanVersion,
+    'ebeanAgent': 'io.ebean:ebean-agent:' + ebeanVersion,
+    'ebeanDdl': 'io.ebean:ebean-ddl-generator:' + ebeanVersion,
+    'elasticSearchRest': 'org.opensearch.client:opensearch-rest-high-level-client:' + elasticsearchVersion,
+    'elasticSearchJava': 'org.opensearch.client:opensearch-java:2.6.0',
     'findbugsAnnotations': 'com.google.code.findbugs:annotations:3.0.1',
     'graphqlJava': 'com.graphql-java:graphql-java:19.5',
     'graphqlJavaScalars': 'com.graphql-java:graphql-java-extended-scalars:19.1',
     'gson': 'com.google.code.gson:gson:2.8.9',
     'guice': 'com.google.inject:guice:4.2.3',
-    'guava': 'com.google.guava:guava:27.0.1-jre',
-    'h2': 'com.h2database:h2:2.1.214',
+    'guava': 'com.google.guava:guava:32.1.2-jre',
+    'h2': 'com.h2database:h2:2.2.224',
     'hadoopCommon':'org.apache.hadoop:hadoop-common:2.7.2',
     'hadoopMapreduceClient':'org.apache.hadoop:hadoop-mapreduce-client-core:2.7.2',
     "hadoopClient": "org.apache.hadoop:hadoop-client:$hadoop3Version",
     "hadoopCommon3":"org.apache.hadoop:hadoop-common:$hadoop3Version",
-    'hazelcast':'com.hazelcast:hazelcast:5.2.3',
-    'hazelcastSpring':'com.hazelcast:hazelcast-spring:5.2.1',
-    'hazelcastTest':'com.hazelcast:hazelcast:5.2.1:tests',
+    'hazelcast':"com.hazelcast:hazelcast:$hazelcastVersion",
+    'hazelcastSpring':"com.hazelcast:hazelcast-spring:$hazelcastVersion",
+    'hazelcastTest':"com.hazelcast:hazelcast:$hazelcastVersion:tests",
     'hibernateCore': 'org.hibernate:hibernate-core:5.2.16.Final',
     'httpClient': 'org.apache.httpcomponents:httpclient:4.5.9',
     'httpAsyncClient': 'org.apache.httpcomponents:httpasyncclient:4.1.5',
@@ -129,6 +131,7 @@ project.ext.externalDependency = [
     'jsonSimple': 'com.googlecode.json-simple:json-simple:1.1.1',
     'jsonSmart': 'net.minidev:json-smart:2.4.9',
     'json': 'org.json:json:20230227',
+    'junit': 'junit:junit:4.13.2',
     'junitJupiterApi': "org.junit.jupiter:junit-jupiter-api:$junitJupiterVersion",
     'junitJupiterParams': "org.junit.jupiter:junit-jupiter-params:$junitJupiterVersion",
     'junitJupiterEngine': "org.junit.jupiter:junit-jupiter-engine:$junitJupiterVersion",
@@ -136,13 +139,14 @@ project.ext.externalDependency = [
     'kafkaAvroSerde': 'io.confluent:kafka-streams-avro-serde:5.5.1',
     'kafkaAvroSerializer': 'io.confluent:kafka-avro-serializer:5.1.4',
     'kafkaClients': "org.apache.kafka:kafka-clients:$kafkaVersion",
+    'snappy': 'org.xerial.snappy:snappy-java:1.1.10.3',
     'logbackClassic': "ch.qos.logback:logback-classic:$logbackClassic",
     'slf4jApi': "org.slf4j:slf4j-api:$slf4jVersion",
     'log4jCore': "org.apache.logging.log4j:log4j-core:$log4jVersion",
     'log4jApi': "org.apache.logging.log4j:log4j-api:$log4jVersion",
     'log4j12Api': "org.slf4j:log4j-over-slf4j:$slf4jVersion",
     'log4j2Api': "org.apache.logging.log4j:log4j-to-slf4j:$log4jVersion",
-    'lombok': 'org.projectlombok:lombok:1.18.12',
+    'lombok': 'org.projectlombok:lombok:1.18.16',
     'mariadbConnector': 'org.mariadb.jdbc:mariadb-java-client:2.6.0',
     'mavenArtifact': "org.apache.maven:maven-artifact:$mavenVersion",
     'mixpanel': 'com.mixpanel:mixpanel-java:1.4.4',
@@ -183,7 +187,7 @@ project.ext.externalDependency = [
     'springBeans': "org.springframework:spring-beans:$springVersion",
     'springContext': "org.springframework:spring-context:$springVersion",
     'springCore': "org.springframework:spring-core:$springVersion",
-    'springDocUI': 'org.springdoc:springdoc-openapi-ui:1.6.7',
+    'springDocUI': 'org.springdoc:springdoc-openapi-ui:1.6.14',
     'springJdbc': "org.springframework:spring-jdbc:$springVersion",
     'springWeb': "org.springframework:spring-web:$springVersion",
     'springWebMVC': "org.springframework:spring-webmvc:$springVersion",
@@ -193,16 +197,20 @@ project.ext.externalDependency = [
     'springBootStarterWeb': "org.springframework.boot:spring-boot-starter-web:$springBootVersion",
     'springBootStarterJetty': "org.springframework.boot:spring-boot-starter-jetty:$springBootVersion",
     'springBootStarterCache': "org.springframework.boot:spring-boot-starter-cache:$springBootVersion",
+    'springBootStarterValidation': "org.springframework.boot:spring-boot-starter-validation:$springBootVersion",
     'springKafka': 'org.springframework.kafka:spring-kafka:2.8.11',
     'springActuator': "org.springframework.boot:spring-boot-starter-actuator:$springBootVersion",
-    'swaggerAnnotations': 'io.swagger.core.v3:swagger-annotations:2.1.12',
-    'testng': 'org.testng:testng:7.3.0',
+    'swaggerAnnotations': 'io.swagger.core.v3:swagger-annotations:2.2.15',
+    'swaggerCli': 'io.swagger.codegen.v3:swagger-codegen-cli:3.0.46',
+    'testngJava8': 'org.testng:testng:7.5.1',
+    'testng': 'org.testng:testng:7.8.0',
     'testContainers': 'org.testcontainers:testcontainers:' + testContainersVersion,
     'testContainersJunit': 'org.testcontainers:junit-jupiter:' + testContainersVersion,
     'testContainersPostgresql':'org.testcontainers:postgresql:' + testContainersVersion,
     'testContainersElasticsearch': 'org.testcontainers:elasticsearch:' + testContainersVersion,
     'testContainersCassandra': 'org.testcontainers:cassandra:' + testContainersVersion,
     'testContainersKafka': 'org.testcontainers:kafka:' + testContainersVersion,
+    'testContainersOpenSearch': 'org.opensearch:opensearch-testcontainers:2.0.0',
     'typesafeConfig':'com.typesafe:config:1.4.1',
     'wiremock':'com.github.tomakehurst:wiremock:2.10.0',
     'zookeeper': 'org.apache.zookeeper:zookeeper:3.4.14',
@@ -237,7 +245,7 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
 
 subprojects {
 
-  apply plugin: 'maven'
+  apply plugin: 'maven-publish'
   apply plugin: 'com.gorylenko.gradle-git-properties'
 
   gitProperties {
@@ -251,7 +259,6 @@ subprojects {
 
   plugins.withType(JavaPlugin) {
     dependencies {
-      testCompile externalDependency.testng
       constraints {
         implementation('io.netty:netty-all:4.1.86.Final')
         implementation('org.apache.commons:commons-compress:1.21')
@@ -259,12 +266,6 @@ subprojects {
         implementation('org.hibernate:hibernate-validator:6.0.20.Final')
         implementation("com.fasterxml.jackson.core:jackson-databind:$jacksonVersion")
         implementation("com.fasterxml.jackson.core:jackson-dataformat-cbor:$jacksonVersion")
-      }
-    }
-
-    tasks.withType(Test) {
-      if (!name.startsWith('integ')) {
-        useTestNG()
       }
     }
 
@@ -285,6 +286,13 @@ subprojects {
   tasks.withType(Test).configureEach {
     javaLauncher = javaToolchains.launcherFor {
       languageVersion = JavaLanguageVersion.of(11)
+    }
+    // https://docs.gradle.org/current/userguide/performance.html
+    maxParallelForks = Runtime.runtime.availableProcessors().intdiv(2) ?: 1
+
+    if (project.configurations.getByName("testImplementation").getDependencies()
+            .any{ it.getName().contains("testng") }) {
+      useTestNG()
     }
   }
 

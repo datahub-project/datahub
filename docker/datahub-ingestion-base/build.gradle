@@ -9,17 +9,22 @@ ext {
     docker_registry = rootProject.ext.docker_registry == 'linkedin' ? 'acryldata' : docker_registry
     docker_repo = 'datahub-ingestion-base'
     docker_dir = 'datahub-ingestion-base'
+
+    revision = 2 // increment to trigger rebuild
 }
 
 docker {
-    name "${docker_registry}/${docker_repo}:v${version}"
-    version "v${version}"
+    name "${docker_registry}/${docker_repo}:v${version}-slim"
+    version "v${version}-slim"
     dockerfile file("${rootProject.projectDir}/docker/${docker_dir}/Dockerfile")
     files fileTree(rootProject.projectDir) {
         include "docker/${docker_dir}/*"
+    }.exclude {
+        i -> i.file.isHidden() || i.file == buildDir
     }
+    buildArgs([APP_ENV: 'slim'])
 }
-tasks.getByPath('docker').dependsOn('build')
+tasks.getByName('docker').dependsOn('build')
 
 task mkdirBuildDocker {
     doFirst {
@@ -27,10 +32,11 @@ task mkdirBuildDocker {
     }
 }
 dockerClean.finalizedBy(mkdirBuildDocker)
+dockerClean.dependsOn([':docker:datahub-ingestion:dockerClean'])
 
 task cleanLocalDockerImages {
     doLast {
-        rootProject.ext.cleanLocalDockerImages(docker_registry, docker_repo, "v${version}".toString())
+        rootProject.ext.cleanLocalDockerImages(docker_registry, docker_repo, "${version}")
     }
 }
 dockerClean.finalizedBy(cleanLocalDockerImages)

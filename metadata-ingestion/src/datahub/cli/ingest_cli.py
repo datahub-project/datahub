@@ -4,6 +4,7 @@ import json
 import logging
 import os
 import sys
+import textwrap
 from datetime import datetime
 from typing import Optional
 
@@ -21,6 +22,7 @@ from datahub.cli.cli_utils import (
     post_rollback_endpoint,
 )
 from datahub.configuration.config_loader import load_config_file
+from datahub.ingestion.graph.client import get_default_graph
 from datahub.ingestion.run.connection import ConnectionManager
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.telemetry import telemetry
@@ -198,6 +200,157 @@ def run(
     # don't raise SystemExit if there's no error
 
 
+@ingest.command()
+@upgrade.check_upgrade
+@telemetry.with_telemetry()
+@click.option(
+    "-n",
+    "--name",
+    type=str,
+    help="Recipe Name",
+    required=True,
+)
+@click.option(
+    "-c",
+    "--config",
+    type=click.Path(dir_okay=False),
+    help="Config file in .toml or .yaml format.",
+    required=True,
+)
+@click.option(
+    "--urn",
+    type=str,
+    help="Urn of recipe to update",
+    required=False,
+)
+@click.option(
+    "--executor-id",
+    type=str,
+    default="default",
+    help="Executor id to route execution requests to. Do not use this unless you have configured a custom executor.",
+    required=False,
+)
+@click.option(
+    "--cli-version",
+    type=str,
+    help="Provide a custom CLI version to use for ingestion. By default will use server default.",
+    required=False,
+    default=None,
+)
+@click.option(
+    "--schedule",
+    type=str,
+    help="Cron definition for schedule. If none is provided, ingestion recipe will not be scheduled",
+    required=False,
+    default=None,
+)
+@click.option(
+    "--time-zone",
+    type=str,
+    help="Timezone for the schedule in 'America/New_York' format. Uses UTC by default.",
+    required=False,
+    default="UTC",
+)
+def deploy(
+    name: str,
+    config: str,
+    urn: Optional[str],
+    executor_id: str,
+    cli_version: Optional[str],
+    schedule: Optional[str],
+    time_zone: str,
+) -> None:
+    """
+    Deploy an ingestion recipe to your DataHub instance.
+
+    The urn of the ingestion source will be based on the name parameter in the format:
+    urn:li:dataHubIngestionSource:<name>
+    """
+
+    datahub_graph = get_default_graph()
+
+    pipeline_config = load_config_file(
+        config,
+        allow_stdin=True,
+        resolve_env_vars=False,
+    )
+
+    variables: dict = {
+        "urn": urn,
+        "name": name,
+        "type": pipeline_config["source"]["type"],
+        "recipe": json.dumps(pipeline_config),
+        "executorId": executor_id,
+        "version": cli_version,
+    }
+
+    if schedule is not None:
+        variables["schedule"] = {"interval": schedule, "timezone": time_zone}
+
+    if urn:
+        if not datahub_graph.exists(urn):
+            logger.error(f"Could not find recipe for provided urn: {urn}")
+            exit()
+        logger.info("Found recipe URN, will update recipe.")
+
+        graphql_query: str = textwrap.dedent(
+            """
+            mutation updateIngestionSource(
+                $urn: String!,
+                $name: String!,
+                $type: String!,
+                $schedule: UpdateIngestionSourceScheduleInput,
+                $recipe: String!,
+                $executorId: String!
+                $version: String) {
+
+                updateIngestionSource(urn: $urn, input: {
+                    name: $name,
+                    type: $type,
+                    schedule: $schedule,
+                    config: {
+                        recipe: $recipe,
+                        executorId: $executorId,
+                        version: $version,
+                    }
+                })
+            }
+            """
+        )
+    else:
+        logger.info("No URN specified recipe urn, will create a new recipe.")
+        graphql_query = textwrap.dedent(
+            """
+            mutation createIngestionSource(
+                $name: String!,
+                $type: String!,
+                $schedule: UpdateIngestionSourceScheduleInput,
+                $recipe: String!,
+                $executorId: String!,
+                $version: String) {
+
+                createIngestionSource(input: {
+                    name: $name,
+                    type: $type,
+                    schedule: $schedule,
+                    config: {
+                        recipe: $recipe,
+                        executorId: $executorId,
+                        version: $version,
+                    }
+                })
+            }
+            """
+        )
+
+    response = datahub_graph.execute_graphql(graphql_query, variables=variables)
+
+    click.echo(
+        f"✅ Successfully wrote data ingestion source metadata for recipe {name}:"
+    )
+    click.echo(response)
+
+
 def _test_source_connection(report_to: Optional[str], pipeline_config: dict) -> None:
     connection_report = None
     try:
@@ -253,7 +406,7 @@ def mcps(path: str) -> None:
         },
     }
 
-    pipeline = Pipeline.create(recipe)
+    pipeline = Pipeline.create(recipe, no_default_report=True)
     pipeline.run()
     ret = pipeline.pretty_print_summary()
     sys.exit(ret)

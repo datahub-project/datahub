@@ -7,19 +7,19 @@ import lombok.Getter;
 import lombok.NonNull;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
-import org.elasticsearch.action.DocWriteRequest;
-import org.elasticsearch.action.bulk.BackoffPolicy;
-import org.elasticsearch.action.bulk.BulkProcessor;
-import org.elasticsearch.action.bulk.BulkResponse;
-import org.elasticsearch.action.support.WriteRequest;
-import org.elasticsearch.client.RequestOptions;
-import org.elasticsearch.client.RestHighLevelClient;
-import org.elasticsearch.client.tasks.TaskSubmissionResponse;
-import org.elasticsearch.common.Nullable;
-import org.elasticsearch.common.unit.TimeValue;
-import org.elasticsearch.index.query.QueryBuilder;
-import org.elasticsearch.index.reindex.BulkByScrollResponse;
-import org.elasticsearch.index.reindex.DeleteByQueryRequest;
+import org.opensearch.action.DocWriteRequest;
+import org.opensearch.action.bulk.BackoffPolicy;
+import org.opensearch.action.bulk.BulkProcessor;
+import org.opensearch.action.bulk.BulkResponse;
+import org.opensearch.action.support.WriteRequest;
+import org.opensearch.client.RequestOptions;
+import org.opensearch.client.RestHighLevelClient;
+import org.opensearch.client.tasks.TaskSubmissionResponse;
+import org.opensearch.common.Nullable;
+import org.opensearch.common.unit.TimeValue;
+import org.opensearch.index.query.QueryBuilder;
+import org.opensearch.index.reindex.BulkByScrollResponse;
+import org.opensearch.index.reindex.DeleteByQueryRequest;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -47,6 +47,9 @@ public class ESBulkProcessor implements Closeable {
     @NonNull
     private Boolean async = false;
     @Builder.Default
+    @NonNull
+    private Boolean batchDelete = false;
+    @Builder.Default
     private Integer bulkRequestsLimit = 500;
     @Builder.Default
     private Integer bulkFlushPeriod = 1;
@@ -62,12 +65,13 @@ public class ESBulkProcessor implements Closeable {
     @Getter(AccessLevel.NONE)
     private final BulkProcessor bulkProcessor;
 
-    private ESBulkProcessor(@NonNull RestHighLevelClient searchClient, @NonNull Boolean async, Integer bulkRequestsLimit,
-                            Integer bulkFlushPeriod, Integer numRetries, Long retryInterval,
+    private ESBulkProcessor(@NonNull RestHighLevelClient searchClient, @NonNull Boolean async, @NonNull Boolean batchDelete,
+                            Integer bulkRequestsLimit, Integer bulkFlushPeriod, Integer numRetries, Long retryInterval,
                             TimeValue defaultTimeout, WriteRequest.RefreshPolicy writeRequestRefreshPolicy,
                             BulkProcessor ignored) {
         this.searchClient = searchClient;
         this.async = async;
+        this.batchDelete = batchDelete;
         this.bulkRequestsLimit = bulkRequestsLimit;
         this.bulkFlushPeriod = bulkFlushPeriod;
         this.numRetries = numRetries;
@@ -103,8 +107,10 @@ public class ESBulkProcessor implements Closeable {
         deleteByQueryRequest.indices(indices);
 
         try {
-            // flush pending writes
-            bulkProcessor.flush();
+            if (!batchDelete) {
+                // flush pending writes
+                bulkProcessor.flush();
+            }
             // perform delete after local flush
             final BulkByScrollResponse deleteResponse = searchClient.deleteByQuery(deleteByQueryRequest, RequestOptions.DEFAULT);
             MetricUtils.counter(this.getClass(), ES_WRITES_METRIC).inc(deleteResponse.getTotal());

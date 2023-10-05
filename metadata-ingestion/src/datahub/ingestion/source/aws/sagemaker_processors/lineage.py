@@ -9,10 +9,10 @@ from datahub.ingestion.source.aws.sagemaker_processors.common import (
 if TYPE_CHECKING:
     from mypy_boto3_sagemaker import SageMakerClient
     from mypy_boto3_sagemaker.type_defs import (
-        ActionSummaryOutputTypeDef,
-        ArtifactSummaryOutputTypeDef,
-        AssociationSummaryOutputTypeDef,
-        ContextSummaryOutputTypeDef,
+        ActionSummaryTypeDef,
+        ArtifactSummaryTypeDef,
+        AssociationSummaryTypeDef,
+        ContextSummaryTypeDef,
     )
 
 
@@ -49,7 +49,7 @@ class LineageProcessor:
     nodes: Dict[str, Dict[str, Any]] = field(default_factory=dict)
     lineage_info: LineageInfo = field(default_factory=LineageInfo)
 
-    def get_all_actions(self) -> List["ActionSummaryOutputTypeDef"]:
+    def get_all_actions(self) -> List["ActionSummaryTypeDef"]:
         """
         List all actions in SageMaker.
         """
@@ -63,7 +63,7 @@ class LineageProcessor:
 
         return actions
 
-    def get_all_artifacts(self) -> List["ArtifactSummaryOutputTypeDef"]:
+    def get_all_artifacts(self) -> List["ArtifactSummaryTypeDef"]:
         """
         List all artifacts in SageMaker.
         """
@@ -77,7 +77,7 @@ class LineageProcessor:
 
         return artifacts
 
-    def get_all_contexts(self) -> List["ContextSummaryOutputTypeDef"]:
+    def get_all_contexts(self) -> List["ContextSummaryTypeDef"]:
         """
         List all contexts in SageMaker.
         """
@@ -91,9 +91,7 @@ class LineageProcessor:
 
         return contexts
 
-    def get_incoming_edges(
-        self, node_arn: str
-    ) -> List["AssociationSummaryOutputTypeDef"]:
+    def get_incoming_edges(self, node_arn: str) -> List["AssociationSummaryTypeDef"]:
         """
         Get all incoming edges for a node in the lineage graph.
         """
@@ -107,9 +105,7 @@ class LineageProcessor:
 
         return edges
 
-    def get_outgoing_edges(
-        self, node_arn: str
-    ) -> List["AssociationSummaryOutputTypeDef"]:
+    def get_outgoing_edges(self, node_arn: str) -> List["AssociationSummaryTypeDef"]:
         """
         Get all outgoing edges for a node in the lineage graph.
         """

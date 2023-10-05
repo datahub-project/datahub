@@ -25,7 +25,6 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.source import Source, SourceReport
-from datahub.ingestion.api.source_helpers import auto_workunit_reporter
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
     AuditStamp,
@@ -747,7 +746,7 @@ class ModeSource(Source):
                     # respect Retry-After
                     sleep_time = error_response.headers.get("retry-after")
                     if sleep_time is not None:
-                        time.sleep(sleep_time)
+                        time.sleep(float(sleep_time))
                     raise HTTPError429
 
                 raise http_error
@@ -796,9 +795,6 @@ class ModeSource(Source):
     def create(cls, config_dict: dict, ctx: PipelineContext) -> Source:
         config = ModeConfig.parse_obj(config_dict)
         return cls(ctx, config)
-
-    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        return auto_workunit_reporter(self.report, self.get_workunits_internal())
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         yield from self.emit_dashboard_mces()

@@ -426,7 +426,7 @@ def detect_quickstart_arch(arch: Optional[str]) -> Architectures:
     return quickstart_arch
 
 
-@docker.command()
+@docker.command()  # noqa: C901
 @click.option(
     "--version",
     type=str,
@@ -588,7 +588,7 @@ def detect_quickstart_arch(arch: Optional[str]) -> Architectures:
         "arch",
     ]
 )
-def quickstart(
+def quickstart(  # noqa: C901
     version: Optional[str],
     build_locally: bool,
     pull_images: bool,
@@ -755,14 +755,21 @@ def quickstart(
             up_attempts += 1
 
             logger.debug(f"Executing docker compose up command, attempt #{up_attempts}")
+            up_process = subprocess.Popen(
+                base_command + ["up", "-d", "--remove-orphans"],
+                env=_docker_subprocess_env(),
+            )
             try:
-                subprocess.run(
-                    base_command + ["up", "-d", "--remove-orphans"],
-                    env=_docker_subprocess_env(),
-                    timeout=_QUICKSTART_UP_TIMEOUT.total_seconds(),
-                )
+                up_process.wait(timeout=_QUICKSTART_UP_TIMEOUT.total_seconds())
             except subprocess.TimeoutExpired:
-                logger.debug("docker compose up timed out, will retry")
+                logger.debug("docker compose up timed out, sending SIGTERM")
+                up_process.terminate()
+                try:
+                    up_process.wait(timeout=3)
+                except subprocess.TimeoutExpired:
+                    logger.debug("docker compose up still running, sending SIGKILL")
+                    up_process.kill()
+                    up_process.wait()
 
         # Check docker health every few seconds.
         status = check_docker_quickstart()
@@ -893,6 +900,7 @@ def download_compose_files(
             tmp_file.write(quickstart_download_response.content)
             logger.debug(f"Copied to {path}")
     if kafka_setup:
+        base_url = get_docker_compose_base_url(compose_git_ref)
         kafka_setup_github_file = f"{base_url}/{KAFKA_SETUP_QUICKSTART_COMPOSE_FILE}"
 
         default_kafka_compose_file = (
@@ -985,7 +993,7 @@ def ingest_sample_data(path: Optional[str], token: Optional[str]) -> None:
     if token is not None:
         recipe["sink"]["config"]["token"] = token
 
-    pipeline = Pipeline.create(recipe)
+    pipeline = Pipeline.create(recipe, no_default_report=True)
     pipeline.run()
     ret = pipeline.pretty_print_summary()
     sys.exit(ret)

@@ -5,7 +5,6 @@ import {
     BarChartOutlined,
     BookOutlined,
     SettingOutlined,
-    FolderOutlined,
     SolutionOutlined,
     DownOutlined,
 } from '@ant-design/icons';
@@ -16,6 +15,7 @@ import { ANTD_GRAY } from '../../entity/shared/constants';
 import { HOME_PAGE_INGESTION_ID } from '../../onboarding/config/HomePageOnboardingConfig';
 import { useUpdateEducationStepIdsAllowlist } from '../../onboarding/useUpdateEducationStepIdsAllowlist';
 import { useUserContext } from '../../context/useUserContext';
+import DomainIcon from '../../domain/DomainIcon';
 
 const LinkWrapper = styled.span`
     margin-right: 0px;
@@ -93,20 +93,6 @@ export function HeaderLinks(props: Props) {
                     </Link>
                 </LinkWrapper>
             )}
-            {showIngestion && (
-                <LinkWrapper>
-                    <Link to="/ingestion">
-                        <Button id={HOME_PAGE_INGESTION_ID} type="text">
-                            <Tooltip title="Connect DataHub to your organization's data sources">
-                                <NavTitleContainer>
-                                    <ApiOutlined />
-                                    <NavTitleText>Ingestion</NavTitleText>
-                                </NavTitleContainer>
-                            </Tooltip>
-                        </Button>
-                    </Link>
-                </LinkWrapper>
-            )}
             <Dropdown
                 trigger={['click']}
                 overlay={
@@ -124,7 +110,12 @@ export function HeaderLinks(props: Props) {
                             <MenuItem key="1">
                                 <Link to="/domains">
                                     <NavTitleContainer>
-                                        <FolderOutlined style={{ fontSize: '14px', fontWeight: 'bold' }} />
+                                        <DomainIcon
+                                            style={{
+                                                fontSize: 14,
+                                                fontWeight: 'bold',
+                                            }}
+                                        />
                                         <NavTitleText>Domains</NavTitleText>
                                     </NavTitleContainer>
                                     <NavTitleDescription>Manage related groups of data assets</NavTitleDescription>
@@ -140,6 +131,20 @@ export function HeaderLinks(props: Props) {
                     </Button>
                 </LinkWrapper>
             </Dropdown>
+            {showIngestion && (
+                <LinkWrapper>
+                    <Link to="/ingestion">
+                        <Button id={HOME_PAGE_INGESTION_ID} type="text">
+                            <Tooltip title="Connect DataHub to your organization's data sources">
+                                <NavTitleContainer>
+                                    <ApiOutlined />
+                                    <NavTitleText>Ingestion</NavTitleText>
+                                </NavTitleContainer>
+                            </Tooltip>
+                        </Button>
+                    </Link>
+                </LinkWrapper>
+            )}
             {showSettings && (
                 <LinkWrapper style={{ marginRight: 12 }}>
                     <Link to="/settings">

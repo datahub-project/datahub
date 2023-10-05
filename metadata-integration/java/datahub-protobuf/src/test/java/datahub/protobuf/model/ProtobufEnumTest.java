@@ -5,7 +5,7 @@ import com.google.protobuf.DescriptorProtos.EnumDescriptorProto;
 import com.google.protobuf.DescriptorProtos.FileDescriptorProto;
 import com.linkedin.schema.EnumType;
 import com.linkedin.schema.SchemaFieldDataType;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Set;

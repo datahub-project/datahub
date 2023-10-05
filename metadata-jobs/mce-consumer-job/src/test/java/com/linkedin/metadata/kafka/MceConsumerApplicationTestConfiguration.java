@@ -8,10 +8,11 @@ import com.linkedin.metadata.graph.SiblingGraphService;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.restli.DefaultRestliClientFactory;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.EntityIndexBuilders;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.parseq.retry.backoff.ExponentialBackoff;
 import com.linkedin.restli.client.Client;
-import io.ebean.EbeanServer;
+import io.ebean.Database;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.test.mock.mockito.MockBean;
@@ -33,7 +34,7 @@ public class MceConsumerApplicationTestConfiguration {
     public KafkaHealthChecker kafkaHealthChecker;
 
     @MockBean
-    public EntityService entityService;
+    public EntityService _entityService;
 
     @Bean("restliEntityClient")
     @Primary
@@ -44,7 +45,7 @@ public class MceConsumerApplicationTestConfiguration {
     }
 
     @MockBean
-    public EbeanServer ebeanServer;
+    public Database ebeanServer;
 
     @MockBean
     protected TimeseriesAspectService timeseriesAspectService;
@@ -57,4 +58,7 @@ public class MceConsumerApplicationTestConfiguration {
 
     @MockBean
     protected SiblingGraphService siblingGraphService;
+
+    @MockBean
+    public EntityIndexBuilders entityIndexBuilders;
 }

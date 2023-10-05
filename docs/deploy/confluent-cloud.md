@@ -16,6 +16,11 @@ First, you'll need to create following new topics in the [Confluent Control Cent
 6. (Deprecated) **MetadataChangeEvent_v4**: Metadata change proposal messages
 7. (Deprecated) **MetadataAuditEvent_v4**: Metadata change log messages
 8. (Deprecated) **FailedMetadataChangeEvent_v4**: Failed to process #1 event
+9. **MetadataGraphEvent_v4**:
+10. **MetadataGraphEvent_v4**:
+11. **PlatformEvent_v1**
+12. **DataHubUpgradeHistory_v1**: Notifies the end of DataHub Upgrade job so dependants can act accordingly (_eg_, startup).
+    Note this topic requires special configuration: **Infinite retention**. Also, 1 partition is enough for the occasional traffic.
 
 The first five are the most important, and are explained in more depth in [MCP/MCL](../advanced/mcp-mcl.md). The final topics are
 those which are deprecated but still used under certain circumstances. It is likely that in the future they will be completely 
@@ -24,7 +29,11 @@ decommissioned.
 To create the topics, navigate to your **Cluster** and click "Create Topic". Feel free to tweak the default topic configurations to
 match your preferences.
 
-![CreateTopic](../imgs/confluent-create-topic.png)
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/confluent-create-topic.png"/>
+</p>
+
 
 ## Step 2: Configure DataHub Container to use Confluent Cloud Topics
 
@@ -140,12 +149,20 @@ and another for the user info used for connecting to the schema registry. You'll
 select "Clients" -> "Configure new Java Client". You should see a page like the following:
 
 
-![Config](../imgs/confluent-cloud-config.png)
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/confluent-cloud-config.png"/>
+</p>
+
 
 You'll want to generate both a Kafka Cluster API Key & a Schema Registry key. Once you do so,you should see the config
 automatically populate with your new secrets:
 
-![Config](../imgs/confluent-cloud-config-2.png)
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/confluent-cloud-config-2.png"/>
+</p>
+
 
 You'll need to copy the values of `sasl.jaas.config` and `basic.auth.user.info`
 for the next step.

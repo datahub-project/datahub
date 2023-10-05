@@ -5,8 +5,8 @@ import pydantic
 from pydantic.fields import Field
 
 from datahub.configuration.common import AllowDenyPattern
-from datahub.configuration.pydantic_field_deprecation import pydantic_field_deprecated
 from datahub.configuration.source_common import DatasetSourceConfigMixin
+from datahub.configuration.validate_field_deprecation import pydantic_field_deprecated
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
 from datahub.ingestion.source.data_lake_common.config import PathSpecsConfigMixin
@@ -18,6 +18,7 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
 )
+from datahub.ingestion.source_config.operation_config import is_profiling_enabled
 
 # hide annoying debug errors from py4j
 logging.getLogger("py4j").setLevel(logging.ERROR)
@@ -65,6 +66,11 @@ class DataLakeSourceConfig(
         default="4g", description="Max amount of memory to grant Spark."
     )
 
+    spark_config: Dict[str, Any] = Field(
+        description='Spark configuration properties to set on the SparkSession. Put config property names into quotes. For example: \'"spark.executor.memory": "2g"\'',
+        default={},
+    )
+
     max_rows: int = Field(
         default=100,
         description="Maximum number of rows to use when inferring schemas for TSV and CSV files.",
@@ -83,6 +89,11 @@ class DataLakeSourceConfig(
     _rename_path_spec_to_plural = pydantic_renamed_field(
         "path_spec", "path_specs", lambda path_spec: [path_spec]
     )
+
+    def is_profiling_enabled(self) -> bool:
+        return self.profiling.enabled and is_profiling_enabled(
+            self.profiling.operation_config
+        )
 
     @pydantic.validator("path_specs", always=True)
     def check_path_specs_and_infer_platform(

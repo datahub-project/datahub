@@ -7,7 +7,6 @@ import pathlib
 from collections import defaultdict
 from typing import Dict, List, Optional, Set, Tuple, Union
 
-import pydantic
 import pydantic.dataclasses
 import sqlglot
 import sqlglot.errors
@@ -15,6 +14,7 @@ import sqlglot.lineage
 import sqlglot.optimizer.qualify
 import sqlglot.optimizer.qualify_columns
 from pydantic import BaseModel
+from typing_extensions import TypedDict
 
 from datahub.emitter.mce_builder import (
     DEFAULT_ENV,
@@ -23,7 +23,7 @@ from datahub.emitter.mce_builder import (
 from datahub.ingestion.api.closeable import Closeable
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import BigqueryTableIdentifier
-from datahub.metadata.schema_classes import SchemaMetadataClass
+from datahub.metadata.schema_classes import OperationTypeClass, SchemaMetadataClass
 from datahub.utilities.file_backed_collections import ConnectionWrapper, FileBackedDict
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 
@@ -33,6 +33,17 @@ Urn = str
 
 # A lightweight table schema: column -> type mapping.
 SchemaInfo = Dict[str, str]
+
+SQL_PARSE_RESULT_CACHE_SIZE = 1000
+
+
+class GraphQLSchemaField(TypedDict):
+    fieldPath: str
+    nativeDataType: str
+
+
+class GraphQLSchemaMetadata(TypedDict):
+    fields: List[GraphQLSchemaField]
 
 
 class QueryType(enum.Enum):
@@ -44,6 +55,22 @@ class QueryType(enum.Enum):
     MERGE = "MERGE"
 
     UNKNOWN = "UNKNOWN"
+
+    def to_operation_type(self) -> Optional[str]:
+        if self == QueryType.CREATE:
+            return OperationTypeClass.CREATE
+        elif self == QueryType.INSERT:
+            return OperationTypeClass.INSERT
+        elif self == QueryType.UPDATE:
+            return OperationTypeClass.UPDATE
+        elif self == QueryType.DELETE:
+            return OperationTypeClass.DELETE
+        elif self == QueryType.MERGE:
+            return OperationTypeClass.UPDATE
+        elif self == QueryType.SELECT:
+            return None
+        else:
+            return OperationTypeClass.UNKNOWN
 
 
 def get_query_type_of_sql(expression: sqlglot.exp.Expression) -> QueryType:
@@ -204,6 +231,13 @@ def _table_level_lineage(
         # In some cases like "MERGE ... then INSERT (col1, col2) VALUES (col1, col2)",
         # the `this` on the INSERT part isn't a table.
         if isinstance(expr.this, sqlglot.exp.Table)
+    } | {
+        # For CREATE DDL statements, the table name is nested inside
+        # a Schema object.
+        _TableName.from_sqlglot_table(expr.this.this)
+        for expr in statement.find_all(sqlglot.exp.Create)
+        if isinstance(expr.this, sqlglot.exp.Schema)
+        and isinstance(expr.this.this, sqlglot.exp.Table)
     }
 
     tables = (
@@ -215,7 +249,7 @@ def _table_level_lineage(
         - modified
         # ignore CTEs created in this statement
         - {
-            _TableName(database=None, schema=None, table=cte.alias_or_name)
+            _TableName(database=None, db_schema=None, table=cte.alias_or_name)
             for cte in statement.find_all(sqlglot.exp.CTE)
         }
     )
@@ -248,6 +282,9 @@ class SchemaResolver(Closeable):
         self._schema_cache: FileBackedDict[Optional[SchemaInfo]] = FileBackedDict(
             shared_connection=shared_conn,
         )
+
+    def get_urns(self) -> Set[str]:
+        return set(self._schema_cache.keys())
 
     def get_urn_for_table(self, table: _TableName, lower: bool = False) -> str:
         # TODO: Validate that this is the correct 2/3 layer hierarchy for the platform.
@@ -313,6 +350,12 @@ class SchemaResolver(Closeable):
     def add_raw_schema_info(self, urn: str, schema_info: SchemaInfo) -> None:
         self._save_to_cache(urn, schema_info)
 
+    def add_graphql_schema_metadata(
+        self, urn: str, schema_metadata: GraphQLSchemaMetadata
+    ) -> None:
+        schema_info = self.convert_graphql_schema_metadata_to_info(schema_metadata)
+        self._save_to_cache(urn, schema_info)
+
     def _save_to_cache(self, urn: str, schema_info: Optional[SchemaInfo]) -> None:
         self._schema_cache[urn] = schema_info
 
@@ -328,7 +371,7 @@ class SchemaResolver(Closeable):
         cls, schema_metadata: SchemaMetadataClass
     ) -> SchemaInfo:
         return {
-            DatasetUrn._get_simple_field_path_from_v2_field_path(col.fieldPath): (
+            DatasetUrn.get_simple_field_path_from_v2_field_path(col.fieldPath): (
                 # The actual types are more of a "nice to have".
                 col.nativeDataType
                 or "str"
@@ -336,10 +379,26 @@ class SchemaResolver(Closeable):
             for col in schema_metadata.fields
             # TODO: We can't generate lineage to columns nested within structs yet.
             if "."
-            not in DatasetUrn._get_simple_field_path_from_v2_field_path(col.fieldPath)
+            not in DatasetUrn.get_simple_field_path_from_v2_field_path(col.fieldPath)
         }
 
-    # TODO add a method to load all from graphql
+    @classmethod
+    def convert_graphql_schema_metadata_to_info(
+        cls, schema: GraphQLSchemaMetadata
+    ) -> SchemaInfo:
+        return {
+            DatasetUrn.get_simple_field_path_from_v2_field_path(field["fieldPath"]): (
+                # The actual types are more of a "nice to have".
+                field["nativeDataType"]
+                or "str"
+            )
+            for field in schema["fields"]
+            # TODO: We can't generate lineage to columns nested within structs yet.
+            if "."
+            not in DatasetUrn.get_simple_field_path_from_v2_field_path(
+                field["fieldPath"]
+            )
+        }
 
     def close(self) -> None:
         self._schema_cache.close()
@@ -442,6 +501,19 @@ def _column_level_lineage(  # noqa: C901
         #     statement.sql(pretty=True, dialect=dialect),
         # )
 
+    def _schema_aware_fuzzy_column_resolve(
+        table: Optional[_TableName], sqlglot_column: str
+    ) -> str:
+        default_col_name = (
+            sqlglot_column.lower() if use_case_insensitive_cols else sqlglot_column
+        )
+        if table:
+            return table_schema_normalized_mapping[table].get(
+                sqlglot_column, default_col_name
+            )
+        else:
+            return default_col_name
+
     # Optimize the statement + qualify column references.
     logger.debug(
         "Prior to qualification sql %s", statement.sql(pretty=True, dialect=dialect)
@@ -523,10 +595,8 @@ def _column_level_lineage(  # noqa: C901
                     normalized_col = sqlglot.parse_one(node.name).this.name
                     if node.subfield:
                         normalized_col = f"{normalized_col}.{node.subfield}"
-                    col = table_schema_normalized_mapping[table_ref].get(
-                        normalized_col, normalized_col
-                    )
 
+                    col = _schema_aware_fuzzy_column_resolve(table_ref, normalized_col)
                     direct_col_upstreams.add(_ColumnRef(table=table_ref, column=col))
                 else:
                     # This branch doesn't matter. For example, a count(*) column would go here, and
@@ -540,6 +610,9 @@ def _column_level_lineage(  # noqa: C901
                 # This is a bit jank since we're relying on sqlglot internals, but it seems to be
                 # the best way to do it.
                 output_col = original_col_expression.this.sql(dialect=dialect)
+
+            output_col = _schema_aware_fuzzy_column_resolve(output_table, output_col)
+
             if not direct_col_upstreams:
                 logger.debug(f'  "{output_col}" has no upstreams')
             column_lineage.append(
@@ -623,16 +696,21 @@ def _translate_internal_column_lineage(
     )
 
 
+def _get_dialect(platform: str) -> str:
+    # TODO: convert datahub platform names to sqlglot dialect
+    if platform == "presto-on-hive":
+        return "hive"
+    else:
+        return platform
+
+
 def _sqlglot_lineage_inner(
     sql: str,
     schema_resolver: SchemaResolver,
     default_db: Optional[str] = None,
     default_schema: Optional[str] = None,
 ) -> SqlParsingResult:
-    # TODO: convert datahub platform names to sqlglot dialect
-    # TODO: Pull the platform name from the schema resolver?
-    dialect = schema_resolver.platform
-
+    dialect = _get_dialect(schema_resolver.platform)
     if dialect == "snowflake":
         # in snowflake, table identifiers must be uppercased to match sqlglot's behavior.
         if default_db:
@@ -677,10 +755,7 @@ def _sqlglot_lineage_inner(
     # Fetch schema info for the relevant tables.
     table_name_urn_mapping: Dict[_TableName, str] = {}
     table_name_schema_mapping: Dict[_TableName, SchemaInfo] = {}
-    for table, is_input in itertools.chain(
-        [(table, True) for table in tables],
-        [(table, False) for table in modified],
-    ):
+    for table in itertools.chain(tables, modified):
         # For select statements, qualification will be a no-op. For other statements, this
         # is where the qualification actually happens.
         qualified_table = table.qualified(
@@ -690,19 +765,21 @@ def _sqlglot_lineage_inner(
         urn, schema_info = schema_resolver.resolve_table(qualified_table)
 
         table_name_urn_mapping[qualified_table] = urn
-        if is_input and schema_info:
+        if schema_info:
             table_name_schema_mapping[qualified_table] = schema_info
 
         # Also include the original, non-qualified table name in the urn mapping.
         table_name_urn_mapping[table] = urn
 
+    total_tables_discovered = len(tables) + len(modified)
+    total_schemas_resolved = len(table_name_schema_mapping)
     debug_info = SqlParsingDebugInfo(
-        confidence=0.9 if len(tables) == len(table_name_schema_mapping)
+        confidence=0.9 if total_tables_discovered == total_schemas_resolved
         # If we're missing any schema info, our confidence will be in the 0.2-0.5 range depending
         # on how many tables we were able to resolve.
-        else 0.2 + 0.3 * len(table_name_schema_mapping) / len(tables),
-        tables_discovered=len(tables),
-        table_schemas_resolved=len(table_name_schema_mapping),
+        else 0.2 + 0.3 * total_schemas_resolved / total_tables_discovered,
+        tables_discovered=total_tables_discovered,
+        table_schemas_resolved=total_schemas_resolved,
     )
     logger.debug(
         f"Resolved {len(table_name_schema_mapping)} of {len(tables)} table schemas"
@@ -755,12 +832,62 @@ def _sqlglot_lineage_inner(
     )
 
 
+@functools.lru_cache(maxsize=SQL_PARSE_RESULT_CACHE_SIZE)
 def sqlglot_lineage(
     sql: str,
     schema_resolver: SchemaResolver,
     default_db: Optional[str] = None,
     default_schema: Optional[str] = None,
 ) -> SqlParsingResult:
+    """Parse a SQL statement and generate lineage information.
+
+    This is a schema-aware lineage generator, meaning that it will use the
+    schema information for the tables involved to generate lineage information
+    for the columns involved. The schema_resolver is responsible for providing
+    the table schema information. In most cases, the DataHubGraph can be used
+    to construct a schema_resolver that will fetch schemas from DataHub.
+
+    The parser supports most types of DML statements (SELECT, INSERT, UPDATE,
+    DELETE, MERGE) as well as CREATE TABLE AS SELECT (CTAS) statements. It
+    does not support DDL statements (CREATE TABLE, ALTER TABLE, etc.).
+
+    The table-level lineage tends to be fairly reliable, while column-level
+    can be brittle with respect to missing schema information and complex
+    SQL logic like UNNESTs.
+
+    The SQL dialect is inferred from the schema_resolver's platform. The
+    set of supported dialects is the same as sqlglot's. See their
+    `documentation <https://sqlglot.com/sqlglot/dialects/dialect.html#Dialects>`_
+    for the full list.
+
+    The default_db and default_schema parameters are used to resolve unqualified
+    table names. For example, the statement "SELECT * FROM my_table" would be
+    converted to "SELECT * FROM default_db.default_schema.my_table".
+
+    Args:
+        sql: The SQL statement to parse. This should be a single statement, not
+            a multi-statement string.
+        schema_resolver: The schema resolver to use for resolving table schemas.
+        default_db: The default database to use for unqualified table names.
+        default_schema: The default schema to use for unqualified table names.
+
+    Returns:
+        A SqlParsingResult object containing the parsed lineage information.
+
+        The in_tables and out_tables fields contain the input and output tables
+        for the statement, respectively. These are represented as urns.
+        The out_tables field will be empty for SELECT statements.
+
+        The column_lineage field contains the column-level lineage information
+        for the statement. This is a list of ColumnLineageInfo objects, each
+        representing the lineage for a single output column. The downstream
+        field contains the output column, and the upstreams field contains the
+        (urn, column) pairs for the input columns.
+
+        The debug_info field contains debug information about the parsing. If
+        table_error or column_error are set, then the parsing failed and the
+        other fields may be incomplete.
+    """
     try:
         return _sqlglot_lineage_inner(
             sql=sql,
@@ -777,3 +904,49 @@ def sqlglot_lineage(
                 table_error=e,
             ),
         )
+
+
+def create_lineage_sql_parsed_result(
+    query: str,
+    database: Optional[str],
+    platform: str,
+    platform_instance: Optional[str],
+    env: str,
+    schema: Optional[str] = None,
+    graph: Optional[DataHubGraph] = None,
+) -> SqlParsingResult:
+    needs_close = False
+    try:
+        if graph:
+            schema_resolver = graph._make_schema_resolver(
+                platform=platform,
+                platform_instance=platform_instance,
+                env=env,
+            )
+        else:
+            needs_close = True
+            schema_resolver = SchemaResolver(
+                platform=platform,
+                platform_instance=platform_instance,
+                env=env,
+                graph=None,
+            )
+
+        return sqlglot_lineage(
+            query,
+            schema_resolver=schema_resolver,
+            default_db=database,
+            default_schema=schema,
+        )
+    except Exception as e:
+        return SqlParsingResult(
+            in_tables=[],
+            out_tables=[],
+            column_lineage=None,
+            debug_info=SqlParsingDebugInfo(
+                table_error=e,
+            ),
+        )
+    finally:
+        if needs_close:
+            schema_resolver.close()

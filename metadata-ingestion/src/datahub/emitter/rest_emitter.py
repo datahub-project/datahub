@@ -4,7 +4,7 @@ import json
 import logging
 import os
 from json.decoder import JSONDecodeError
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple, Union
 
 import requests
 from deprecated import deprecated
@@ -13,6 +13,7 @@ from requests.exceptions import HTTPError, RequestException
 
 from datahub.cli.cli_utils import get_system_auth
 from datahub.configuration.common import ConfigurationError, OperationalError
+from datahub.emitter.generic_emitter import Emitter
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.request_helper import make_curl_command
 from datahub.emitter.serialization_helper import pre_json_transform
@@ -23,6 +24,9 @@ from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
 )
 from datahub.metadata.com.linkedin.pegasus2avro.usage import UsageAggregation
 
+if TYPE_CHECKING:
+    from datahub.ingestion.graph.client import DataHubGraph
+
 logger = logging.getLogger(__name__)
 
 _DEFAULT_CONNECT_TIMEOUT_SEC = 30  # 30 seconds should be plenty to connect
@@ -31,17 +35,18 @@ _DEFAULT_READ_TIMEOUT_SEC = (
 )
 _DEFAULT_RETRY_STATUS_CODES = [  # Additional status codes to retry on
     429,
+    500,
     502,
     503,
     504,
 ]
 _DEFAULT_RETRY_METHODS = ["HEAD", "GET", "POST", "PUT", "DELETE", "OPTIONS", "TRACE"]
 _DEFAULT_RETRY_MAX_TIMES = int(
-    os.getenv("DATAHUB_REST_EMITTER_DEFAULT_RETRY_MAX_TIMES", "3")
+    os.getenv("DATAHUB_REST_EMITTER_DEFAULT_RETRY_MAX_TIMES", "4")
 )
 
 
-class DataHubRestEmitter(Closeable):
+class DataHubRestEmitter(Closeable, Emitter):
     _gms_server: str
     _token: Optional[str]
     _session: requests.Session
@@ -62,6 +67,7 @@ class DataHubRestEmitter(Closeable):
         retry_max_times: Optional[int] = None,
         extra_headers: Optional[Dict[str, str]] = None,
         ca_certificate_path: Optional[str] = None,
+        client_certificate_path: Optional[str] = None,
         disable_ssl_verification: bool = False,
     ):
         if not gms_server:
@@ -88,8 +94,11 @@ class DataHubRestEmitter(Closeable):
         if extra_headers:
             self._session.headers.update(extra_headers)
 
+        if client_certificate_path:
+            self._session.cert = client_certificate_path
+
         if ca_certificate_path:
-            self._session.cert = ca_certificate_path
+            self._session.verify = ca_certificate_path
 
         if disable_ssl_verification:
             self._session.verify = False
@@ -115,11 +124,15 @@ class DataHubRestEmitter(Closeable):
             self._retry_max_times = retry_max_times
 
         try:
+            # Set raise_on_status to False to propagate errors:
+            # https://stackoverflow.com/questions/70189330/determine-status-code-from-python-retry-exception
+            # Must call `raise_for_status` after making a request, which we do
             retry_strategy = Retry(
                 total=self._retry_max_times,
                 status_forcelist=self._retry_status_codes,
                 backoff_factor=2,
                 allowed_methods=self._retry_methods,
+                raise_on_status=False,
             )
         except TypeError:
             # Prior to urllib3 1.26, the Retry class used `method_whitelist` instead of `allowed_methods`.
@@ -128,6 +141,7 @@ class DataHubRestEmitter(Closeable):
                 status_forcelist=self._retry_status_codes,
                 backoff_factor=2,
                 method_whitelist=self._retry_methods,
+                raise_on_status=False,
             )
 
         adapter = HTTPAdapter(
@@ -180,6 +194,11 @@ class DataHubRestEmitter(Closeable):
             message += "\nPlease check your configuration and make sure you are talking to the DataHub GMS (usually <datahub-gms-host>:8080) or Frontend GMS API (usually <frontend>:9002/api/gms)."
             raise ConfigurationError(message)
 
+    def to_graph(self) -> "DataHubGraph":
+        from datahub.ingestion.graph.client import DataHubGraph
+
+        return DataHubGraph.from_emitter(self)
+
     def emit(
         self,
         item: Union[
@@ -188,9 +207,6 @@ class DataHubRestEmitter(Closeable):
             MetadataChangeProposalWrapper,
             UsageAggregation,
         ],
-        # NOTE: This signature should have the exception be optional rather than
-        #      required. However, this would be a breaking change that may need
-        #      more careful consideration.
         callback: Optional[Callable[[Exception, str], None]] = None,
     ) -> Tuple[datetime.datetime, datetime.datetime]:
         start_time = datetime.datetime.now()

@@ -10,15 +10,18 @@ import clickhouse_sqlalchemy.types as custom_types
 import pydantic
 from clickhouse_sqlalchemy.drivers import base
 from clickhouse_sqlalchemy.drivers.base import ClickHouseDialect
+from pydantic.class_validators import root_validator
 from pydantic.fields import Field
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import reflection
+from sqlalchemy.engine.url import make_url
 from sqlalchemy.sql import sqltypes
 from sqlalchemy.types import BOOLEAN, DATE, DATETIME, INTEGER
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.source_common import DatasetLineageProviderConfigBase
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
+from datahub.configuration.validate_field_deprecation import pydantic_field_deprecated
 from datahub.emitter import mce_builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.decorators import (
@@ -31,12 +34,14 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sql.sql_common import (
-    SQLAlchemySource,
     SqlWorkUnit,
     logger,
     register_custom_type,
 )
-from datahub.ingestion.source.sql.sql_config import BasicSQLAlchemyConfig
+from datahub.ingestion.source.sql.two_tier_sql_source import (
+    TwoTierSQLAlchemyConfig,
+    TwoTierSQLAlchemySource,
+)
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import UpstreamLineage
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
@@ -118,7 +123,7 @@ class LineageItem:
 
 
 class ClickHouseConfig(
-    BasicSQLAlchemyConfig, BaseTimeWindowConfig, DatasetLineageProviderConfigBase
+    TwoTierSQLAlchemyConfig, BaseTimeWindowConfig, DatasetLineageProviderConfigBase
 ):
     # defaults
     host_port = Field(default="localhost:8123", description="ClickHouse host URL.")
@@ -126,22 +131,66 @@ class ClickHouseConfig(
     password: pydantic.SecretStr = Field(
         default=pydantic.SecretStr(""), description="password"
     )
-
     secure: Optional[bool] = Field(default=None, description="")
     protocol: Optional[str] = Field(default=None, description="")
+    _deprecate_secure = pydantic_field_deprecated("secure")
+    _deprecate_protocol = pydantic_field_deprecated("protocol")
 
+    uri_opts: Dict[str, str] = Field(
+        default={},
+        description="The part of the URI and it's used to provide additional configuration options or parameters for the database connection.",
+    )
     include_table_lineage: Optional[bool] = Field(
         default=True, description="Whether table lineage should be ingested."
     )
     include_materialized_views: Optional[bool] = Field(default=True, description="")
 
-    def get_sql_alchemy_url(self, database=None):
-        uri_opts = None
-        if self.scheme == "clickhouse+native" and self.secure:
-            uri_opts = {"secure": "true"}
-        elif self.scheme != "clickhouse+native" and self.protocol:
-            uri_opts = {"protocol": self.protocol}
-        return super().get_sql_alchemy_url(uri_opts=uri_opts)
+    def get_sql_alchemy_url(self, current_db=None):
+        url = make_url(
+            super().get_sql_alchemy_url(uri_opts=self.uri_opts, current_db=current_db)
+        )
+        if url.drivername == "clickhouse+native" and url.query.get("protocol"):
+            logger.debug(f"driver = {url.drivername}, query = {url.query}")
+            raise Exception(
+                "You cannot use a schema clickhouse+native and clickhouse+http at the same time"
+            )
+
+        # We can setup clickhouse ingestion in sqlalchemy_uri form and config form.
+        # Why we need to update database in uri at all?
+        # Because we get database from sqlalchemy inspector and inspector we form from url inherited from
+        # TwoTierSQLAlchemySource and SQLAlchemySource
+        if self.sqlalchemy_uri and current_db:
+            url = url.set(database=current_db)
+
+        return str(url)
+
+    # pre = True because we want to take some decision before pydantic initialize the configuration to default values
+    @root_validator(pre=True)
+    def projects_backward_compatibility(cls, values: Dict) -> Dict:
+        secure = values.get("secure")
+        protocol = values.get("protocol")
+        uri_opts = values.get("uri_opts")
+        if (secure or protocol) and not uri_opts:
+            logger.warning(
+                "uri_opts is not set but protocol or secure option is set."
+                " secure and  protocol options is deprecated, please use "
+                "uri_opts instead."
+            )
+            logger.info(
+                "Initializing uri_opts from deprecated secure or protocol options"
+            )
+            values["uri_opts"] = {}
+            if secure:
+                values["uri_opts"]["secure"] = secure
+            if protocol:
+                values["uri_opts"]["protocol"] = protocol
+            logger.debug(f"uri_opts: {uri_opts}")
+        elif (secure or protocol) and uri_opts:
+            raise ValueError(
+                "secure and protocol options is deprecated. Please use uri_opts only."
+            )
+
+        return values
 
 
 PROPERTIES_COLUMNS = (
@@ -330,7 +379,7 @@ clickhouse_datetime_format = "%Y-%m-%d %H:%M:%S"
 @support_status(SupportStatus.CERTIFIED)
 @capability(SourceCapability.DELETION_DETECTION, "Enabled via stateful ingestion")
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
-class ClickHouseSource(SQLAlchemySource):
+class ClickHouseSource(TwoTierSQLAlchemySource):
     """
     This plugin extracts the following:
 

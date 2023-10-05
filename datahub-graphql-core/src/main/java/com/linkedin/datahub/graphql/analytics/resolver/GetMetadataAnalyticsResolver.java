@@ -78,7 +78,7 @@ public final class GetMetadataAnalyticsResolver implements DataFetcher<List<Anal
     }
 
     SearchResult searchResult = _entityClient.searchAcrossEntities(entities, query, filter, 0, 0,
-        null, authentication);
+        null, null, authentication);
 
     List<AggregationMetadata> aggregationMetadataList = searchResult.getMetadata().getAggregations();
 

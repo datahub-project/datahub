@@ -2,11 +2,12 @@ import logging
 import re
 import time
 from datetime import timedelta
-from typing import Dict, Iterable, List, Optional, Set
+from typing import Dict, Iterable, List, Optional, Set, Union
 from urllib.parse import urljoin
 
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
+    make_dataplatform_instance_urn,
     make_dataset_urn_with_platform_instance,
     make_domain_urn,
     make_schema_field_urn,
@@ -15,8 +16,9 @@ from datahub.emitter.mce_builder import (
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import (
     CatalogKey,
+    ContainerKey,
     MetastoreKey,
-    PlatformKey,
+    NotebookKey,
     UnitySchemaKey,
     add_dataset_to_container,
     gen_containers,
@@ -55,6 +57,8 @@ from datahub.ingestion.source.unity.proxy_types import (
     Catalog,
     Column,
     Metastore,
+    Notebook,
+    NotebookId,
     Schema,
     ServicePrincipal,
     Table,
@@ -68,6 +72,8 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     ViewProperties,
 )
 from datahub.metadata.schema_classes import (
+    BrowsePathsClass,
+    DataPlatformInstanceClass,
     DatasetLineageTypeClass,
     DatasetPropertiesClass,
     DomainsClass,
@@ -86,6 +92,7 @@ from datahub.metadata.schema_classes import (
     UpstreamClass,
     UpstreamLineageClass,
 )
+from datahub.utilities.file_backed_collections import FileBackedDict
 from datahub.utilities.hive_schema_to_avro import get_schema_fields_for_hive_column
 from datahub.utilities.registries.domain_registry import DomainRegistry
 
@@ -155,6 +162,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         # Global set of table refs
         self.table_refs: Set[TableReference] = set()
         self.view_refs: Set[TableReference] = set()
+        self.notebooks: FileBackedDict[Notebook] = FileBackedDict()
 
     @staticmethod
     def test_connection(config_dict: dict) -> TestConnectionReport:
@@ -174,8 +182,9 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
+        self.report.report_ingestion_stage_start("Start warehouse")
         wait_on_warehouse = None
-        if self.config.profiling.enabled:
+        if self.config.is_profiling_enabled():
             # Can take several minutes, so start now and wait later
             wait_on_warehouse = self.unity_catalog_api_proxy.start_warehouse()
             if wait_on_warehouse is None:
@@ -185,10 +194,23 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 )
                 return
 
+        self.report.report_ingestion_stage_start("Ingest service principals")
         self.build_service_principal_map()
+        if self.config.include_notebooks:
+            self.report.report_ingestion_stage_start("Ingest notebooks")
+            yield from self.process_notebooks()
+
         yield from self.process_metastores()
 
+        if self.config.include_notebooks:
+            self.report.report_ingestion_stage_start("Notebook lineage")
+            for notebook in self.notebooks.values():
+                wu = self._gen_notebook_lineage(notebook)
+                if wu:
+                    yield wu
+
         if self.config.include_usage_statistics:
+            self.report.report_ingestion_stage_start("Ingest usage")
             usage_extractor = UnityCatalogUsageExtractor(
                 config=self.config,
                 report=self.report,
@@ -200,7 +222,8 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 self.table_refs | self.view_refs
             )
 
-        if self.config.profiling.enabled:
+        if self.config.is_profiling_enabled():
+            self.report.report_ingestion_stage_start("Wait on warehouse")
             assert wait_on_warehouse
             timeout = timedelta(seconds=self.config.profiling.max_wait_secs)
             wait_on_warehouse.result(timeout)
@@ -210,6 +233,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 self.unity_catalog_api_proxy,
                 self.gen_dataset_urn,
             )
+            self.report.report_ingestion_stage_start("Profiling")
             yield from profiling_extractor.get_workunits(self.table_refs)
 
     def build_service_principal_map(self) -> None:
@@ -220,6 +244,56 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             self.report.report_warning(
                 "service-principals", f"Unable to fetch service principals: {e}"
             )
+
+    def process_notebooks(self) -> Iterable[MetadataWorkUnit]:
+        for notebook in self.unity_catalog_api_proxy.workspace_notebooks():
+            self.notebooks[str(notebook.id)] = notebook
+            yield from self._gen_notebook_aspects(notebook)
+
+    def _gen_notebook_aspects(self, notebook: Notebook) -> Iterable[MetadataWorkUnit]:
+        mcps = MetadataChangeProposalWrapper.construct_many(
+            entityUrn=self.gen_notebook_urn(notebook),
+            aspects=[
+                DatasetPropertiesClass(
+                    name=notebook.path.rsplit("/", 1)[-1],
+                    customProperties={
+                        "path": notebook.path,
+                        "language": notebook.language.value,
+                    },
+                    externalUrl=urljoin(
+                        self.config.workspace_url, f"#notebook/{notebook.id}"
+                    ),
+                    created=TimeStampClass(int(notebook.created_at.timestamp() * 1000)),
+                    lastModified=TimeStampClass(
+                        int(notebook.modified_at.timestamp() * 1000)
+                    ),
+                ),
+                SubTypesClass(typeNames=[DatasetSubTypes.NOTEBOOK]),
+                BrowsePathsClass(paths=notebook.path.split("/")),
+                # TODO: Add DPI aspect
+            ],
+        )
+        for mcp in mcps:
+            yield mcp.as_workunit()
+
+        self.report.notebooks.processed(notebook.path)
+
+    def _gen_notebook_lineage(self, notebook: Notebook) -> Optional[MetadataWorkUnit]:
+        if not notebook.upstreams:
+            return None
+
+        return MetadataChangeProposalWrapper(
+            entityUrn=self.gen_notebook_urn(notebook),
+            aspect=UpstreamLineageClass(
+                upstreams=[
+                    UpstreamClass(
+                        dataset=self.gen_dataset_urn(upstream_ref),
+                        type=DatasetLineageTypeClass.COPY,
+                    )
+                    for upstream_ref in notebook.upstreams
+                ]
+            ),
+        ).as_workunit()
 
     def process_metastores(self) -> Iterable[MetadataWorkUnit]:
         metastore = self.unity_catalog_api_proxy.assigned_metastore()
@@ -245,6 +319,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 self.report.schemas.dropped(schema.id)
                 continue
 
+            self.report.report_ingestion_stage_start(f"Ingest schema {schema.id}")
             yield from self.gen_schema_containers(schema)
             yield from self.process_tables(schema)
 
@@ -278,14 +353,23 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         operation = self._create_table_operation_aspect(table)
         domain = self._get_domain_aspect(dataset_name=table.ref.qualified_table_name)
         ownership = self._create_table_ownership_aspect(table)
+        data_platform_instance = self._create_data_platform_instance_aspect(table)
 
-        lineage: Optional[UpstreamLineageClass] = None
         if self.config.include_column_lineage:
-            self.unity_catalog_api_proxy.get_column_lineage(table)
-            lineage = self._generate_column_lineage_aspect(dataset_urn, table)
+            self.unity_catalog_api_proxy.get_column_lineage(
+                table, include_entity_lineage=self.config.include_notebooks
+            )
         elif self.config.include_table_lineage:
-            self.unity_catalog_api_proxy.table_lineage(table)
-            lineage = self._generate_lineage_aspect(dataset_urn, table)
+            self.unity_catalog_api_proxy.table_lineage(
+                table, include_entity_lineage=self.config.include_notebooks
+            )
+        lineage = self._generate_lineage_aspect(dataset_urn, table)
+
+        if self.config.include_notebooks:
+            for notebook_id in table.downstream_notebooks:
+                self.notebooks[str(notebook_id)] = Notebook.add_upstream(
+                    table.ref, self.notebooks[str(notebook_id)]
+                )
 
         yield from [
             mcp.as_workunit()
@@ -299,12 +383,13 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                     operation,
                     domain,
                     ownership,
+                    data_platform_instance,
                     lineage,
                 ],
             )
         ]
 
-    def _generate_column_lineage_aspect(
+    def _generate_lineage_aspect(
         self, dataset_urn: str, table: Table
     ) -> Optional[UpstreamLineageClass]:
         upstreams: List[UpstreamClass] = []
@@ -314,6 +399,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         ):
             upstream_urn = self.gen_dataset_urn(upstream_ref)
 
+            # Should be empty if config.include_column_lineage is False
             finegrained_lineages.extend(
                 FineGrainedLineage(
                     upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
@@ -327,38 +413,28 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 for d_col, u_cols in sorted(downstream_to_upstream_cols.items())
             )
 
-            upstream_table = UpstreamClass(
-                upstream_urn,
-                DatasetLineageTypeClass.TRANSFORMED,
+            upstreams.append(
+                UpstreamClass(
+                    dataset=upstream_urn,
+                    type=DatasetLineageTypeClass.TRANSFORMED,
+                )
             )
-            upstreams.append(upstream_table)
+
+        for notebook in table.upstream_notebooks:
+            upstreams.append(
+                UpstreamClass(
+                    dataset=self.gen_notebook_urn(notebook),
+                    type=DatasetLineageTypeClass.TRANSFORMED,
+                )
+            )
 
         if upstreams:
             return UpstreamLineageClass(
-                upstreams=upstreams, fineGrainedLineages=finegrained_lineages
+                upstreams=upstreams,
+                fineGrainedLineages=finegrained_lineages
+                if self.config.include_column_lineage
+                else None,
             )
-        else:
-            return None
-
-    def _generate_lineage_aspect(
-        self, dataset_urn: str, table: Table
-    ) -> Optional[UpstreamLineageClass]:
-        upstreams: List[UpstreamClass] = []
-        for upstream in sorted(table.upstreams.keys()):
-            upstream_urn = make_dataset_urn_with_platform_instance(
-                self.platform,
-                f"{table.schema.catalog.metastore.id}.{upstream}",
-                self.platform_instance_name,
-            )
-
-            upstream_table = UpstreamClass(
-                upstream_urn,
-                DatasetLineageTypeClass.TRANSFORMED,
-            )
-            upstreams.append(upstream_table)
-
-        if upstreams:
-            return UpstreamLineageClass(upstreams=upstreams)
         else:
             return None
 
@@ -384,6 +460,14 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             platform_instance=self.platform_instance_name,
             name=str(table_ref),
         )
+
+    def gen_notebook_urn(self, notebook: Union[Notebook, NotebookId]) -> str:
+        notebook_id = notebook.id if isinstance(notebook, Notebook) else notebook
+        return NotebookKey(
+            notebook_id=notebook_id,
+            platform=self.platform,
+            instance=self.config.platform_instance,
+        ).as_urn()
 
     def gen_schema_containers(self, schema: Schema) -> Iterable[MetadataWorkUnit]:
         domain_urn = self._gen_domain_urn(f"{schema.catalog.name}.{schema.name}")
@@ -432,7 +516,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             external_url=f"{self.external_url_base}/{catalog.name}",
         )
 
-    def gen_schema_key(self, schema: Schema) -> PlatformKey:
+    def gen_schema_key(self, schema: Schema) -> ContainerKey:
         return UnitySchemaKey(
             unity_schema=schema.name,
             platform=self.platform,
@@ -555,6 +639,19 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                         type=OwnershipTypeClass.DATAOWNER,
                     )
                 ]
+            )
+        return None
+
+    def _create_data_platform_instance_aspect(
+        self, table: Table
+    ) -> Optional[DataPlatformInstanceClass]:
+        # Only ingest the DPI aspect if the flag is true
+        if self.config.ingest_data_platform_instance_aspect:
+            return DataPlatformInstanceClass(
+                platform=make_data_platform_urn(self.platform),
+                instance=make_dataplatform_instance_urn(
+                    self.platform, self.platform_instance_name
+                ),
             )
         return None
 

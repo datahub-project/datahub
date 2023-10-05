@@ -57,7 +57,7 @@ public class DataFlowMapper implements ModelMapper<EntityResponse, DataFlow> {
         Urn entityUrn = entityResponse.getUrn();
 
         EnvelopedAspectMap aspectMap = entityResponse.getAspects();
-        Long lastIngested = SystemMetadataUtils.getLastIngested(aspectMap);
+        Long lastIngested = SystemMetadataUtils.getLastIngestedTime(aspectMap);
         result.setLastIngested(lastIngested);
 
         MappingHelper<DataFlow> mappingHelper = new MappingHelper<>(aspectMap, result);

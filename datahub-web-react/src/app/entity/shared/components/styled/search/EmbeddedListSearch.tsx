@@ -1,8 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
 import { ApolloError } from '@apollo/client';
-import { FacetFilterInput, FacetMetadata, SearchAcrossEntitiesInput } from '../../../../../../types.generated';
-import { UnionType } from '../../../../../search/utils/constants';
+import {
+    EntityType,
+    FacetFilterInput,
+    FacetMetadata,
+    SearchAcrossEntitiesInput,
+} from '../../../../../../types.generated';
+import { DEGREE_FILTER_NAME, UnionType } from '../../../../../search/utils/constants';
 import { SearchCfg } from '../../../../../../conf';
 import { EmbeddedListSearchResults } from './EmbeddedListSearchResults';
 import EmbeddedListSearchHeader from './EmbeddedListSearchHeader';
@@ -20,6 +25,9 @@ import {
     DownloadSearchResults,
 } from '../../../../../search/utils/types';
 import { useEntityContext } from '../../../EntityContext';
+import { EntityActionProps } from './EntitySearchResults';
+import { useUserContext } from '../../../../../context/useUserContext';
+import analytics, { EventType } from '../../../../../analytics';
 
 const Container = styled.div`
     display: flex;
@@ -64,6 +72,7 @@ export const removeFixedFiltersFromFacets = (fixedFilters: FilterSet, facets: Fa
 
 type Props = {
     query: string;
+    entityTypes?: EntityType[];
     page: number;
     unionType: UnionType;
     filters: FacetFilterInput[];
@@ -71,6 +80,7 @@ type Props = {
     onChangeFilters: (filters) => void;
     onChangePage: (page) => void;
     onChangeUnionType: (unionType: UnionType) => void;
+    onTotalChanged?: (newTotal: number) => void;
     emptySearchQuery?: string | null;
     fixedFilters?: FilterSet;
     fixedQuery?: string | null;
@@ -79,6 +89,7 @@ type Props = {
     defaultFilters?: Array<FacetFilterInput>;
     searchBarStyle?: any;
     searchBarInputStyle?: any;
+    entityAction?: React.FC<EntityActionProps>;
     skipCache?: boolean;
     useGetSearchResults?: (params: GetSearchResultsParams) => {
         data: SearchResultsInterface | undefined | null;
@@ -94,10 +105,12 @@ type Props = {
     };
     shouldRefetch?: boolean;
     resetShouldRefetch?: () => void;
+    applyView?: boolean;
 };
 
 export const EmbeddedListSearch = ({
     query,
+    entityTypes,
     filters,
     page,
     unionType,
@@ -105,6 +118,7 @@ export const EmbeddedListSearch = ({
     onChangeFilters,
     onChangePage,
     onChangeUnionType,
+    onTotalChanged,
     emptySearchQuery,
     fixedFilters,
     fixedQuery,
@@ -113,11 +127,13 @@ export const EmbeddedListSearch = ({
     defaultFilters,
     searchBarStyle,
     searchBarInputStyle,
+    entityAction,
     skipCache,
     useGetSearchResults = useWrappedSearchResults,
     useGetDownloadSearchResults = useDownloadScrollAcrossEntitiesSearchResults,
     shouldRefetch,
     resetShouldRefetch,
+    applyView = false,
 }: Props) => {
     const { shouldRefetchEmbeddedListSearch, setShouldRefetchEmbeddedListSearch } = useEntityContext();
     // Adjust query based on props
@@ -143,7 +159,7 @@ export const EmbeddedListSearch = ({
     const { refetch: refetchForDownload } = useGetDownloadSearchResults({
         variables: {
             input: {
-                types: [],
+                types: entityTypes || [],
                 query,
                 count: SearchCfg.RESULTS_PER_PAGE,
                 orFilters: generateOrFilters(unionType, filters),
@@ -153,12 +169,16 @@ export const EmbeddedListSearch = ({
         skip: true,
     });
 
+    const userContext = useUserContext();
+    const selectedViewUrn = userContext.localState?.selectedViewUrn;
+
     let searchInput: SearchAcrossEntitiesInput = {
-        types: [],
+        types: entityTypes || [],
         query: finalQuery,
         start: (page - 1) * numResultsPerPage,
         count: numResultsPerPage,
         orFilters: finalFilters,
+        viewUrn: applyView ? selectedViewUrn : undefined,
     };
     if (skipCache) {
         searchInput = { ...searchInput, searchFlags: { skipCache: true } };
@@ -187,6 +207,12 @@ export const EmbeddedListSearch = ({
             setShouldRefetchEmbeddedListSearch?.(false);
         }
     });
+
+    useEffect(() => {
+        if (data?.total !== undefined && onTotalChanged) {
+            onTotalChanged(data?.total);
+        }
+    }, [data?.total, onTotalChanged]);
 
     const searchResultEntities =
         data?.searchResults?.map((result) => ({ urn: result.entity.urn, type: result.entity.type })) || [];
@@ -226,7 +252,7 @@ export const EmbeddedListSearch = ({
     }, [isSelectMode]);
 
     useEffect(() => {
-        if (defaultFilters) {
+        if (defaultFilters && filters.length === 0) {
             onChangeFilters(defaultFilters);
         }
         // only want to run once on page load
@@ -240,6 +266,20 @@ export const EmbeddedListSearch = ({
      */
     const finalFacets =
         (fixedFilters && removeFixedFiltersFromFacets(fixedFilters, data?.facets || [])) || data?.facets;
+
+    // used for logging impact anlaysis events
+    const degreeFilter = filters.find((filter) => filter.field === DEGREE_FILTER_NAME);
+
+    // we already have some lineage logging through Tab events, but this adds additional context, particularly degree
+    if (!loading && (degreeFilter?.values?.length || 0) > 0) {
+        analytics.event({
+            type: EventType.SearchAcrossLineageResultsViewEvent,
+            query,
+            page,
+            total: data?.total || 0,
+            maxDegree: degreeFilter?.values?.sort()?.reverse()[0] || '1',
+        });
+    }
 
     return (
         <Container>
@@ -276,6 +316,8 @@ export const EmbeddedListSearch = ({
                 isSelectMode={isSelectMode}
                 selectedEntities={selectedEntities}
                 setSelectedEntities={setSelectedEntities}
+                entityAction={entityAction}
+                applyView={applyView}
             />
         </Container>
     );
