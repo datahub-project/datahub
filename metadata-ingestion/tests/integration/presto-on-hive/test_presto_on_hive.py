@@ -10,6 +10,7 @@ from datahub.ingestion.run.pipeline import Pipeline
 from tests.test_helpers import fs_helpers, mce_helpers
 from tests.test_helpers.docker_helpers import wait_for_port
 
+pytestmark = pytest.mark.integration_batch_1
 FROZEN_TIME = "2021-09-23 12:00:00"
 
 data_platform = "presto-on-hive"
@@ -51,7 +52,6 @@ def loaded_presto_on_hive(presto_on_hive_runner):
 
 
 @freeze_time(FROZEN_TIME)
-@pytest.mark.integration_batch_1
 @pytest.mark.parametrize(
     "mode,use_catalog_subtype,use_dataset_pascalcase_subtype,include_catalog_name_in_ids,simplify_nested_field_paths,"
     "test_suffix",
@@ -137,7 +137,6 @@ def test_presto_on_hive_ingest(
 
 
 @freeze_time(FROZEN_TIME)
-@pytest.mark.integration_batch_1
 def test_presto_on_hive_instance_ingest(
     loaded_presto_on_hive, test_resources_dir, pytestconfig, tmp_path, mock_time
 ):

@@ -32,7 +32,14 @@ jobs:
     strategy:
       matrix:
         python-version: ["3.7", "3.10"]
-        command: ["lint", "testQuick", "testIntegration", "testIntegrationBatch1", "testSlowIntegration"]
+        command:
+          [
+            "lint",
+            "testQuick",
+            "testIntegrationBatch0",
+            "testIntegrationBatch1",
+            "testIntegrationBatch2",
+          ]
         include:
           - python-version: "3.7"
           - python-version: "3.10"
@@ -49,9 +56,14 @@ jobs:
         run: ./gradlew :metadata-ingestion:installPackageOnly
       - name: Run metadata-ingestion tests
         run: ./gradlew :metadata-ingestion:${{ matrix.command }}
-      - name: pip freeze show list installed
+      - name: Debug info
         if: always()
-        run: source metadata-ingestion/venv/bin/activate && pip freeze
+        run: |
+          source metadata-ingestion/venv/bin/activate && pip freeze
+          set -x
+          df -hl
+          docker image ls
+          docker system df
       - uses: actions/upload-artifact@v3
         if: ${{ always() && matrix.command != 'lint' }}
         with:
