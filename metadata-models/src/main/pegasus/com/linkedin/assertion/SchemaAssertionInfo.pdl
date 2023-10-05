@@ -1,0 +1,29 @@
+namespace com.linkedin.assertion
+
+import com.linkedin.common.Urn
+import com.linkedin.schema.SchemaMetadata
+
+/**
+* Attributes that are applicable to schema assertions
+**/
+record SchemaAssertionInfo {
+    /**
+    * The entity targeted by the assertion
+    */
+    @Searchable = {
+      "fieldType": "URN"
+    }
+    @Relationship = {
+      "name": "Asserts",
+      "entityTypes": [ "dataset", "dataJob" ]
+    }
+    entity: Urn
+
+    /**
+     * A definition of the expected structure for the asset
+     *
+     * Note that many of the fields of this model, especially those related to metadata (tags, terms)
+     * will go unused in this context.
+     */
+     schema: SchemaMetadata
+}

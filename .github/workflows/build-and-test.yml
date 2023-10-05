@@ -27,8 +27,8 @@ jobs:
         command:
           [
             # metadata-ingestion and airflow-plugin each have dedicated build jobs
-            "./gradlew build -x :metadata-ingestion:build -x :metadata-ingestion:check -x docs-website:build -x :metadata-integration:java:spark-lineage:test -x :metadata-io:test -x :metadata-ingestion-modules:airflow-plugin:build -x :metadata-ingestion-modules:airflow-plugin:check -x :datahub-frontend:build -x :datahub-web-react:build --parallel",
-            "./gradlew :datahub-frontend:build :datahub-web-react:build --parallel",
+            "except_metadata_ingestion",
+            "frontend"
           ]
         timezone:
           [
@@ -53,9 +53,15 @@ jobs:
         with:
           python-version: "3.10"
           cache: pip
-      - name: Gradle build (and test)
+      - name: Gradle build (and test) for metadata ingestion
+        # we only need the timezone runs for frontend tests
+        if: ${{  matrix.command == 'except_metadata_ingestion' && matrix.timezone == 'America/New_York' }}
         run: |
-          ${{ matrix.command }}
+          ./gradlew build -x :metadata-ingestion:build -x :metadata-ingestion:check -x docs-website:build -x :metadata-integration:java:spark-lineage:test -x :metadata-io:test -x :metadata-ingestion-modules:airflow-plugin:build -x :metadata-ingestion-modules:airflow-plugin:check -x :datahub-frontend:build -x :datahub-web-react:build --parallel
+      - name: Gradle build (and test) for frontend
+        if: ${{  matrix.command == 'frontend' }}
+        run: |
+          ./gradlew :datahub-frontend:build :datahub-web-react:build --parallel
         env:
           NODE_OPTIONS: "--max-old-space-size=3072"
       - uses: actions/upload-artifact@v3

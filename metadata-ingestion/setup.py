@@ -250,7 +250,7 @@ usage_common = {
 
 databricks = {
     # 0.1.11 appears to have authentication issues with azure databricks
-    "databricks-sdk>=0.1.1, != 0.1.11",
+    "databricks-sdk>=0.9.0",
     "pyspark",
     "requests",
 }
