@@ -414,7 +414,7 @@ def _patch_lineage_wu_for_table_level_lineage(
         patch_builder.add_upstream_lineage(upstream)
     mcp = next(iter(patch_builder.build()))
     return MetadataWorkUnit(
-        id=f"upstreamLineage-for-{urn}",
+        id=f"{urn}-upstreamLineage",
         mcp_raw=mcp,
     )
 
