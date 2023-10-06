@@ -1,7 +1,7 @@
 import logging
 import re
 import time
-from concurrent.futures import ThreadPoolExecutor, wait
+from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
 from typing import Dict, Iterable, List, Optional, Set, Union
 from urllib.parse import urljoin
@@ -394,7 +394,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             )
         ]
 
-    def ingest_lineage(self, table: Table) -> Optional[MetadataWorkUnit]:
+    def ingest_lineage(self, table: Table) -> Optional[UpstreamLineageClass]:
         if self.config.include_table_lineage:
             self.unity_catalog_api_proxy.table_lineage(
                 table, include_entity_lineage=self.config.include_notebooks

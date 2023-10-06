@@ -3,7 +3,6 @@ Manage the communication with DataBricks Server and provide equivalent dataclass
 """
 import dataclasses
 import logging
-from concurrent.futures import ThreadPoolExecutor, wait
 from datetime import datetime, timezone
 from typing import Any, Dict, Iterable, List, Optional, Union
 from unittest.mock import patch
