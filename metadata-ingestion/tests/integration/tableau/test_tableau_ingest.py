@@ -757,7 +757,7 @@ def test_tableau_no_verify():
 
 
 @freeze_time(FROZEN_TIME)
-@pytest.mark.slow_unit
+@pytest.mark.integration_batch_2
 def test_tableau_signout_timeout(pytestconfig, tmp_path, mock_datahub_graph):
     enable_logging()
     output_file_name: str = "tableau_signout_timeout_mces.json"
