@@ -406,7 +406,7 @@ def auto_incremental_lineage(
             yield wu
 
 
-def _patch_lineage_wu_for_table_level_lineage(
+def _convert_upstream_lineage_to_patch(
     urn: str, aspect: UpstreamLineageClass
 ) -> MetadataWorkUnit:
     patch_builder = DatasetPatchBuilder(urn)
