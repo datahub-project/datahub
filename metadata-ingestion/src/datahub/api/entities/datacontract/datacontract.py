@@ -54,7 +54,7 @@ class DataContract(ConfigModel):
     freshness: Optional[FreshnessAssertion] = pydantic.Field(default=None)
 
     # TODO: Add a validator to ensure that ids are unique
-    data_quality: Optional[List[DataQualityAssertion]] = None
+    data_quality: Optional[List[DataQualityAssertion]] = pydantic.Field(default=None)
 
     _original_yaml_dict: Optional[dict] = None
 

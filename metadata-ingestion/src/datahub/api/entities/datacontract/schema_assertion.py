@@ -6,6 +6,7 @@ from typing import List, Union
 import pydantic
 from typing_extensions import Literal
 
+from datahub.api.entities.datacontract.assertion import BaseAssertion
 from datahub.configuration.common import ConfigModel
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.extractor.json_schema_util import get_schema_metadata
@@ -19,7 +20,7 @@ from datahub.metadata.schema_classes import (
 )
 
 
-class JsonSchemaContract(ConfigModel):
+class JsonSchemaContract(BaseAssertion):
     type: Literal["json-schema"]
 
     json_schema: dict = pydantic.Field(alias="json-schema")
@@ -36,7 +37,7 @@ class JsonSchemaContract(ConfigModel):
         )
 
 
-class FieldListSchemaContract(ConfigModel, arbitrary_types_allowed=True):
+class FieldListSchemaContract(BaseAssertion, arbitrary_types_allowed=True):
     type: Literal["field-list"]
 
     fields: List[SchemaFieldClass]
@@ -67,15 +68,11 @@ class SchemaAssertion(ConfigModel):
     def generate_mcp(
         self, assertion_urn: str, entity_urn: str
     ) -> List[MetadataChangeProposalWrapper]:
-        schema_metadata = self.__root__._schema_metadata
-
-        assertionInfo = AssertionInfoClass(
+        aspect = AssertionInfoClass(
             type=AssertionTypeClass.DATA_SCHEMA,
             schemaAssertion=SchemaAssertionInfoClass(
-                entity=entity_urn, schema=schema_metadata
+                entity=entity_urn, schema=self.__root__._schema_metadata
             ),
         )
 
-        return [
-            MetadataChangeProposalWrapper(entityUrn=assertion_urn, aspect=assertionInfo)
-        ]
+        return [MetadataChangeProposalWrapper(entityUrn=assertion_urn, aspect=aspect)]
