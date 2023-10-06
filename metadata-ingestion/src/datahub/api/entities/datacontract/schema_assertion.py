@@ -71,7 +71,9 @@ class SchemaAssertion(ConfigModel):
         aspect = AssertionInfoClass(
             type=AssertionTypeClass.DATA_SCHEMA,
             schemaAssertion=SchemaAssertionInfoClass(
-                entity=entity_urn, schema=self.__root__._schema_metadata
+                entity=entity_urn,
+                schema=self.__root__._schema_metadata,
+                description=self.__root__.description,
             ),
         )
 

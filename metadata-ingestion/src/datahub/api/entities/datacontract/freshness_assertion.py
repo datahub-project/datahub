@@ -77,5 +77,6 @@ class FreshnessAssertion(ConfigModel):
                 type=FreshnessAssertionTypeClass.DATASET_CHANGE,
                 schedule=self.__root__.generate_freshness_assertion_schedule(),
             ),
+            description=self.__root__.description,
         )
         return [MetadataChangeProposalWrapper(entityUrn=assertion_urn, aspect=aspect)]
