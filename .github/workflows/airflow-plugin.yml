@@ -10,7 +10,7 @@ on:
       - "metadata-models/**"
   pull_request:
     branches:
-      - master
+      - "**"
     paths:
       - ".github/**"
       - "metadata-ingestion-modules/airflow-plugin/**"
@@ -32,16 +32,21 @@ jobs:
     strategy:
       matrix:
         include:
-          - python-version: "3.7"
-            extraPythonRequirement: "apache-airflow~=2.1.0"
-          - python-version: "3.7"
-            extraPythonRequirement: "apache-airflow~=2.2.0"
+          - python-version: "3.8"
+            extra_pip_requirements: "apache-airflow~=2.1.4"
+            extra_pip_extras: plugin-v1
+          - python-version: "3.8"
+            extra_pip_requirements: "apache-airflow~=2.2.4"
+            extra_pip_extras: plugin-v1
           - python-version: "3.10"
-            extraPythonRequirement: "apache-airflow~=2.4.0"
+            extra_pip_requirements: "apache-airflow~=2.4.0"
+            extra_pip_extras: plugin-v2
           - python-version: "3.10"
-            extraPythonRequirement: "apache-airflow~=2.6.0"
+            extra_pip_requirements: "apache-airflow~=2.6.0"
+            extra_pip_extras: plugin-v2
           - python-version: "3.10"
-            extraPythonRequirement: "apache-airflow>2.6.0"
+            extra_pip_requirements: "apache-airflow>=2.7.0"
+            extra_pip_extras: plugin-v2
       fail-fast: false
     steps:
       - uses: actions/checkout@v3
@@ -51,13 +56,13 @@ jobs:
           cache: "pip"
       - name: Install dependencies
         run: ./metadata-ingestion/scripts/install_deps.sh
-      - name: Install airflow package and test  (extras ${{ matrix.extraPythonRequirement }})
-        run: ./gradlew -Pextra_pip_requirements='${{ matrix.extraPythonRequirement }}' :metadata-ingestion-modules:airflow-plugin:lint :metadata-ingestion-modules:airflow-plugin:testQuick
+      - name: Install airflow package and test (extras ${{ matrix.extra_pip_requirements }})
+        run: ./gradlew -Pextra_pip_requirements='${{ matrix.extra_pip_requirements }}' -Pextra_pip_extras='${{ matrix.extra_pip_extras }}' :metadata-ingestion-modules:airflow-plugin:lint :metadata-ingestion-modules:airflow-plugin:testQuick
       - name: pip freeze show list installed
         if: always()
         run: source metadata-ingestion-modules/airflow-plugin/venv/bin/activate && pip freeze
       - uses: actions/upload-artifact@v3
-        if: ${{ always() && matrix.python-version == '3.10' && matrix.extraPythonRequirement == 'apache-airflow>2.6.0' }}
+        if: ${{ always() && matrix.python-version == '3.10' && matrix.extra_pip_requirements == 'apache-airflow>=2.7.0' }}
         with:
           name: Test Results (Airflow Plugin ${{ matrix.python-version}})
           path: |
