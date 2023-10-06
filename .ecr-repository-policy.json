@@ -1,0 +1,22 @@
+{
+    "Version": "2012-10-17",
+    "Statement": [
+      {
+        "Sid": "ECR Repository Policy",
+        "Effect": "Allow",
+        "Principal": {
+          "AWS": "*"
+        },
+        "Action": [
+          "ecr:BatchCheckLayerAvailability",
+          "ecr:BatchGetImage",
+          "ecr:GetDownloadUrlForLayer"
+        ],
+        "Condition": {
+          "StringEquals": {
+            "aws:PrincipalOrgID": "o-t9bcvmrskg"
+          }
+        }
+      }
+    ]
+  }

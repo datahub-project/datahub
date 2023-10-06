@@ -23,4 +23,5 @@ public class TelemetryConfiguration {
      * Whether or not server telemetry should be enabled
      */
     public boolean enabledServer;
+
 }
