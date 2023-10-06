@@ -130,9 +130,7 @@ def test_cll():
     lineage_extractor = RedshiftLineageExtractor(
         config, report, PipelineContext(run_id="foo")
     )
-    _, cll = lineage_extractor._get_sources_from_query(
-        db_name="db", query=test_query
-    )
+    _, cll = lineage_extractor._get_sources_from_query(db_name="db", query=test_query)
 
     assert cll == [
         ColumnLineageInfo(
@@ -146,7 +144,7 @@ def test_cll():
             logic=None,
         ),
         ColumnLineageInfo(
-            downstream=DownstreamColumnRef(table=None, column='c'),
+            downstream=DownstreamColumnRef(table=None, column="c"),
             upstreams=[],
             logic=None,
         ),

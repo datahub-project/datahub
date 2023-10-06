@@ -161,7 +161,7 @@ class RedshiftLineageExtractor:
                 urn=table_urn,
             )
             sources.append(source)
-        
+
         return sources, parsed_result.column_lineage
 
     def _build_s3_path_from_row(self, filename: str) -> str:
@@ -529,6 +529,8 @@ class RedshiftLineageExtractor:
                     upstreams=upstreams,
                 )
             )
+
+        logger.debug(f"Created fine_grained_lineage for {dataset_urn}")
 
         return fine_grained_lineages
 
