@@ -35,6 +35,7 @@ from datahub.metadata.schema_classes import (
     MetadataChangeEventClass,
     MetadataChangeProposalClass,
     StatusClass,
+    SystemMetadataClass,
     TagKeyClass,
     TimeWindowSizeClass,
     UpstreamClass,
@@ -393,7 +394,6 @@ def auto_incremental_lineage(
             UpstreamLineageClass
         )
         urn = wu.get_urn()
-        # TODO: use same systemMetadata as before
 
         if lineage_aspect:
             if isinstance(wu.metadata, MetadataChangeEventClass):
@@ -404,31 +404,31 @@ def auto_incremental_lineage(
                     yield wu
 
             yield _lineage_wu_via_read_modify_write(
-                graph, urn, lineage_aspect
+                graph, urn, lineage_aspect, wu.get_system_metadata()
             ) if include_column_level_lineage else _convert_upstream_lineage_to_patch(
-                urn, lineage_aspect
+                urn, lineage_aspect, wu.get_system_metadata()
             )
         else:
             yield wu
 
 
 def _convert_upstream_lineage_to_patch(
-    urn: str, aspect: UpstreamLineageClass
+    urn: str,
+    aspect: UpstreamLineageClass,
+    system_metadata: Optional[SystemMetadataClass],
 ) -> MetadataWorkUnit:
-    patch_builder = DatasetPatchBuilder(urn)
+    patch_builder = DatasetPatchBuilder(urn, system_metadata)
     for upstream in aspect.upstreams:
         patch_builder.add_upstream_lineage(upstream)
     mcp = next(iter(patch_builder.build()))
-    return MetadataWorkUnit(
-        id=f"{urn}-upstreamLineage",
-        mcp_raw=mcp,
-    )
+    return MetadataWorkUnit(id=f"{urn}-upstreamLineage", mcp_raw=mcp)
 
 
 def _lineage_wu_via_read_modify_write(
     graph: Optional[DataHubGraph],
     urn: str,
     aspect: UpstreamLineageClass,
+    system_metadata: Optional[SystemMetadataClass],
 ) -> MetadataWorkUnit:
     if graph is None:
         raise ValueError(
@@ -441,7 +441,9 @@ def _lineage_wu_via_read_modify_write(
     else:
         new_aspect = aspect
 
-    return MetadataChangeProposalWrapper(entityUrn=urn, aspect=new_aspect).as_workunit()
+    return MetadataChangeProposalWrapper(
+        entityUrn=urn, aspect=new_aspect, systemMetadata=system_metadata
+    ).as_workunit()
 
 
 def _merge_upstream_lineage(

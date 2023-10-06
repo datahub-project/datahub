@@ -9,6 +9,7 @@ from datahub.ingestion.sink.file import write_metadata_file
 from tests.test_helpers import mce_helpers
 
 platform = "platform"
+system_metadata = models.SystemMetadataClass(lastObserved=1643871600000, runId="run-id")
 
 
 def make_lineage_aspect(
@@ -70,7 +71,9 @@ def test_incremental_table_lineage(tmp_path, pytestconfig):
         incremental_lineage=True,
         include_column_level_lineage=False,
         stream=[
-            MetadataChangeProposalWrapper(entityUrn=urn, aspect=aspect).as_workunit()
+            MetadataChangeProposalWrapper(
+                entityUrn=urn, aspect=aspect, systemMetadata=system_metadata
+            ).as_workunit()
         ],
     )
 
@@ -86,9 +89,7 @@ def test_incremental_table_lineage(tmp_path, pytestconfig):
 def test_incremental_column_lineage_no_gms_aspect(tmp_path, pytestconfig):
     test_resources_dir = pytestconfig.rootpath / "tests/unit/api/source_helpers"
     test_file = tmp_path / "incremental_cll_no_gms_aspect.json"
-    golden_file = (
-        test_resources_dir / "incremental_cll_no_gms_aspect_golden.json"
-    )
+    golden_file = test_resources_dir / "incremental_cll_no_gms_aspect_golden.json"
 
     urn = make_dataset_urn(platform, "dataset1")
     aspect = make_lineage_aspect(
@@ -108,7 +109,9 @@ def test_incremental_column_lineage_no_gms_aspect(tmp_path, pytestconfig):
         incremental_lineage=True,
         include_column_level_lineage=True,
         stream=[
-            MetadataChangeProposalWrapper(entityUrn=urn, aspect=aspect).as_workunit()
+            MetadataChangeProposalWrapper(
+                entityUrn=urn, aspect=aspect, systemMetadata=system_metadata
+            ).as_workunit()
         ],
     )
 
@@ -124,9 +127,7 @@ def test_incremental_column_lineage_no_gms_aspect(tmp_path, pytestconfig):
 def test_incremental_column_lineage_same_gms_aspect(tmp_path, pytestconfig):
     test_resources_dir = pytestconfig.rootpath / "tests/unit/api/source_helpers"
     test_file = tmp_path / "incremental_cll_same_gms_aspect.json"
-    golden_file = (
-        test_resources_dir / "incremental_cll_same_gms_aspect_golden.json"
-    )
+    golden_file = test_resources_dir / "incremental_cll_same_gms_aspect_golden.json"
 
     urn = make_dataset_urn(platform, "dataset1")
     aspect = make_lineage_aspect(
@@ -153,7 +154,9 @@ def test_incremental_column_lineage_same_gms_aspect(tmp_path, pytestconfig):
         incremental_lineage=True,
         include_column_level_lineage=True,
         stream=[
-            MetadataChangeProposalWrapper(entityUrn=urn, aspect=aspect).as_workunit()
+            MetadataChangeProposalWrapper(
+                entityUrn=urn, aspect=aspect, systemMetadata=system_metadata
+            ).as_workunit()
         ],
     )
 
@@ -170,12 +173,9 @@ def test_incremental_column_lineage_less_upstreams_in_gms_aspect(
     tmp_path, pytestconfig
 ):
     test_resources_dir = pytestconfig.rootpath / "tests/unit/api/source_helpers"
-    test_file = (
-        tmp_path / "incremental_cll_less_upstreams_in_gms_aspect.json"
-    )
+    test_file = tmp_path / "incremental_cll_less_upstreams_in_gms_aspect.json"
     golden_file = (
-        test_resources_dir
-        / "incremental_cll_less_upstreams_in_gms_aspect_golden.json"
+        test_resources_dir / "incremental_cll_less_upstreams_in_gms_aspect_golden.json"
     )
 
     urn = make_dataset_urn(platform, "dataset1")
@@ -201,7 +201,9 @@ def test_incremental_column_lineage_less_upstreams_in_gms_aspect(
         incremental_lineage=True,
         include_column_level_lineage=True,
         stream=[
-            MetadataChangeProposalWrapper(entityUrn=urn, aspect=aspect).as_workunit()
+            MetadataChangeProposalWrapper(
+                entityUrn=urn, aspect=aspect, systemMetadata=system_metadata
+            ).as_workunit()
         ],
     )
 
@@ -218,12 +220,9 @@ def test_incremental_column_lineage_more_upstreams_in_gms_aspect(
     tmp_path, pytestconfig
 ):
     test_resources_dir = pytestconfig.rootpath / "tests/unit/api/source_helpers"
-    test_file = (
-        tmp_path / "incremental_cll_more_upstreams_in_gms_aspect.json"
-    )
+    test_file = tmp_path / "incremental_cll_more_upstreams_in_gms_aspect.json"
     golden_file = (
-        test_resources_dir
-        / "incremental_cll_more_upstreams_in_gms_aspect_golden.json"
+        test_resources_dir / "incremental_cll_more_upstreams_in_gms_aspect_golden.json"
     )
 
     urn = make_dataset_urn(platform, "dataset1")
@@ -252,7 +251,9 @@ def test_incremental_column_lineage_more_upstreams_in_gms_aspect(
         incremental_lineage=True,
         include_column_level_lineage=True,
         stream=[
-            MetadataChangeProposalWrapper(entityUrn=urn, aspect=aspect).as_workunit()
+            MetadataChangeProposalWrapper(
+                entityUrn=urn, aspect=aspect, systemMetadata=system_metadata
+            ).as_workunit()
         ],
     )
 
@@ -269,9 +270,7 @@ def test_incremental_column_lineage_same_upstream_updated_audit_stamp(
     tmp_path, pytestconfig
 ):
     test_resources_dir = pytestconfig.rootpath / "tests/unit/api/source_helpers"
-    test_file = (
-        tmp_path / "incremental_cll_same_gms_aspect_updated_audit_stamp.json"
-    )
+    test_file = tmp_path / "incremental_cll_same_gms_aspect_updated_audit_stamp.json"
     golden_file = (
         test_resources_dir
         / "incremental_cll_same_gms_aspect_updated_audit_stamp_golden.json"
@@ -304,7 +303,9 @@ def test_incremental_column_lineage_same_upstream_updated_audit_stamp(
         incremental_lineage=True,
         include_column_level_lineage=True,
         stream=[
-            MetadataChangeProposalWrapper(entityUrn=urn, aspect=aspect).as_workunit()
+            MetadataChangeProposalWrapper(
+                entityUrn=urn, aspect=aspect, systemMetadata=system_metadata
+            ).as_workunit()
         ],
     )
 

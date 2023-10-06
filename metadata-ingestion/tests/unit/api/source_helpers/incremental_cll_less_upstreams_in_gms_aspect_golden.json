@@ -96,6 +96,11 @@
                 }
             ]
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "run-id",
+        "lastRunId": "no-run-id-provided"
     }
 }
 ]
