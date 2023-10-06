@@ -198,10 +198,21 @@ class Source(Closeable, metaclass=ABCMeta):
             self.ctx.pipeline_config
             and self.ctx.pipeline_config.source
             and self.ctx.pipeline_config.source.config
-            and hasattr(
-                self.ctx.pipeline_config.source.config, "convert_urns_to_lowercase"
+            and (
+                (
+                    hasattr(
+                        self.ctx.pipeline_config.source.config,
+                        "convert_urns_to_lowercase",
+                    )
+                    and self.ctx.pipeline_config.source.config.convert_urns_to_lowercase
+                )
+                or (
+                    hasattr(self.ctx.pipeline_config.source.config, "get")
+                    and self.ctx.pipeline_config.source.config.get(
+                        "convert_urns_to_lowercase"
+                    )
+                )
             )
-            and self.ctx.pipeline_config.source.config.convert_urns_to_lowercase
         ):
             auto_lowercase_dataset_urns = auto_lowercase_urns
         return [

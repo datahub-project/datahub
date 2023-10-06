@@ -7,7 +7,6 @@ import pydantic
 from pydantic import Field
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
-from datahub.configuration.pydantic_field_deprecation import pydantic_field_deprecated
 from datahub.configuration.source_common import (
     DatasetSourceConfigMixin,
     LowerCaseDatasetUrnConfigMixin,
