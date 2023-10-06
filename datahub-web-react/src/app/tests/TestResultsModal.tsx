@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
 import { Modal, Tabs } from 'antd';
-import { EmbeddedListSearchSection } from '../entity/shared/components/styled/search/EmbeddedListSearchSection';
 import { UnionType } from '../search/utils/constants';
-import { TestResultType } from '../../types.generated';
+import { FacetFilterInput, TestResultType } from '../../types.generated';
+import { EmbeddedListSearch } from '../entity/shared/components/styled/search/EmbeddedListSearch';
 
 const Container = styled.div`
     display: flex;
@@ -43,6 +43,26 @@ export default function TestResultsModal({
     onClose,
 }: Props) {
     const [resultType, setResultType] = useState(defaultActive);
+
+    // Component state
+    const [query, setQuery] = useState<string>('');
+    const [page, setPage] = useState(1);
+    const [unionType, setUnionType] = useState(UnionType.AND);
+
+    const [filters, setFilters] = useState<Array<FacetFilterInput>>([]);
+
+    const onChangeQuery = (q: string) => {
+        setQuery(q);
+    };
+
+    const onChangeFilters = (newFilters: Array<FacetFilterInput>) => {
+        setFilters(newFilters);
+    };
+
+    const onChangePage = (newPage: number) => {
+        setPage(newPage);
+    };
+
     return (
         <StyledModal
             visible
@@ -66,8 +86,15 @@ export default function TestResultsModal({
                     <Tabs.TabPane tab={`Passing (${passingCount})`} key={TestResultType.Success} />
                     <Tabs.TabPane tab={`Failing (${failingCount})`} key={TestResultType.Failure} />
                 </Tabs>
-                <EmbeddedListSearchSection
-                    defaultShowFilters
+                <EmbeddedListSearch
+                    query={query}
+                    filters={filters}
+                    page={page}
+                    unionType={unionType}
+                    onChangeQuery={onChangeQuery}
+                    onChangeFilters={onChangeFilters}
+                    onChangePage={onChangePage}
+                    onChangeUnionType={setUnionType}
                     fixedFilters={{
                         unionType: UnionType.AND,
                         filters: [
@@ -77,6 +104,8 @@ export default function TestResultsModal({
                             },
                         ],
                     }}
+                    placeholderText="Search test results..."
+                    defaultShowFilters
                 />
             </Container>
         </StyledModal>

@@ -1,5 +1,5 @@
 grafana:
-  uri: ${GRAFANA_URI:https://grafana.admin.acryl.io}
+  uri: ${GRAFANA_URI:https://grafana-customers.admin.acryl.io}
   token: ${GRAFANA_TOKEN:}
   namespace: ${GRAFANA_NAMESPACE:none}
   datasource: ${GRAFANA_DATASOURCE:uber-query}

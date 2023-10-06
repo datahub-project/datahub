@@ -131,7 +131,7 @@ export default function SubscribeButtons() {
                     }}
                     icon={
                         <ArrowDownWrapper>
-                            <ArrowDown />
+                            <ArrowDown data-testid="subscription-dropdown" />
                         </ArrowDownWrapper>
                     }
                     buttonsRender={([leftButton, rightButton]) => [

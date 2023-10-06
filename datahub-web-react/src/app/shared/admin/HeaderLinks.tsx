@@ -152,6 +152,17 @@ export function HeaderLinks(props: Props) {
                                 <NavTitleDescription>View and modify your data dictionary</NavTitleDescription>
                             </Link>
                         </MenuItem>
+                        {showDomains && (
+                            <MenuItem key="1">
+                                <Link to="/domains">
+                                    <NavTitleContainer>
+                                        <FolderOutlined style={{ fontSize: '14px', fontWeight: 'bold' }} />
+                                        <NavTitleText>Domains</NavTitleText>
+                                    </NavTitleContainer>
+                                    <NavTitleDescription>Manage related groups of data assets</NavTitleDescription>
+                                </Link>
+                            </MenuItem>
+                        )}
                         {showTests && (
                             <MenuItem key="2">
                                 <Link to="/tests">
@@ -162,22 +173,6 @@ export function HeaderLinks(props: Props) {
                                     <NavTitleDescription>
                                         Monitor policies & automate actions across data assets
                                     </NavTitleDescription>
-                                </Link>
-                            </MenuItem>
-                        )}
-                        {showDomains && (
-                            <MenuItem key="1">
-                                <Link to="/domains">
-                                    <NavTitleContainer>
-                                        <DomainIcon
-                                            style={{
-                                                fontSize: 14,
-                                                fontWeight: 'bold',
-                                            }}
-                                        />
-                                        <NavTitleText>Domains</NavTitleText>
-                                    </NavTitleContainer>
-                                    <NavTitleDescription>Manage related groups of data assets</NavTitleDescription>
                                 </Link>
                             </MenuItem>
                         )}

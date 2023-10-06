@@ -170,7 +170,12 @@ def test_fetch_freshness_assertion() -> None:
                                 "field": "executorId",
                                 "condition": "EXISTS",
                                 "negated": True,
-                            }
+                            },
+                            {
+                                "field": "mode",
+                                "values": ["ACTIVE"],
+                                "condition": "EQUAL",
+                            },
                         ]
                     }
                 ],
@@ -322,7 +327,12 @@ def test_fetch_volume_assertion() -> None:
                                 "field": "executorId",
                                 "condition": "EXISTS",
                                 "negated": True,
-                            }
+                            },
+                            {
+                                "field": "mode",
+                                "values": ["ACTIVE"],
+                                "condition": "EQUAL",
+                            },
                         ]
                     }
                 ],
@@ -462,7 +472,12 @@ def test_fetch_sql_assertion() -> None:
                                 "field": "executorId",
                                 "condition": "EXISTS",
                                 "negated": True,
-                            }
+                            },
+                            {
+                                "field": "mode",
+                                "values": ["ACTIVE"],
+                                "condition": "EQUAL",
+                            },
                         ]
                     }
                 ],
