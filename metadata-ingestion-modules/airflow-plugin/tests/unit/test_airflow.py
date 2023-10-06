@@ -14,18 +14,21 @@ import packaging.version
 import pytest
 from airflow.lineage import apply_lineage, prepare_lineage
 from airflow.models import DAG, Connection, DagBag, DagRun, TaskInstance
-from datahub_provider import get_provider_info
-from datahub_provider._airflow_shims import AIRFLOW_PATCHED, EmptyOperator
-from datahub_provider.entities import Dataset, Urn
-from datahub_provider.hooks.datahub import DatahubKafkaHook, DatahubRestHook
-from datahub_provider.operators.datahub import DatahubEmitterOperator
+
+from datahub_airflow_plugin import get_provider_info
+from datahub_airflow_plugin._airflow_shims import (
+    AIRFLOW_PATCHED,
+    AIRFLOW_VERSION,
+    EmptyOperator,
+)
+from datahub_airflow_plugin.entities import Dataset, Urn
+from datahub_airflow_plugin.hooks.datahub import DatahubKafkaHook, DatahubRestHook
+from datahub_airflow_plugin.operators.datahub import DatahubEmitterOperator
 
 assert AIRFLOW_PATCHED
 
 # TODO: Remove default_view="tree" arg. Figure out why is default_view being picked as "grid" and how to fix it ?
 
-# Approach suggested by https://stackoverflow.com/a/11887885/5004662.
-AIRFLOW_VERSION = packaging.version.parse(airflow.version.version)
 
 lineage_mce = builder.make_lineage_mce(
     [
@@ -105,7 +108,7 @@ def test_datahub_rest_hook(mock_emitter):
 
         mock_emitter.assert_called_once_with(config.host, None, None)
         instance = mock_emitter.return_value
-        instance.emit_mce.assert_called_with(lineage_mce)
+        instance.emit.assert_called_with(lineage_mce)
 
 
 @mock.patch("datahub.emitter.rest_emitter.DatahubRestEmitter", autospec=True)
@@ -119,7 +122,7 @@ def test_datahub_rest_hook_with_timeout(mock_emitter):
 
         mock_emitter.assert_called_once_with(config.host, None, 5)
         instance = mock_emitter.return_value
-        instance.emit_mce.assert_called_with(lineage_mce)
+        instance.emit.assert_called_with(lineage_mce)
 
 
 @mock.patch("datahub.emitter.kafka_emitter.DatahubKafkaEmitter", autospec=True)
@@ -131,11 +134,11 @@ def test_datahub_kafka_hook(mock_emitter):
 
         mock_emitter.assert_called_once()
         instance = mock_emitter.return_value
-        instance.emit_mce_async.assert_called()
+        instance.emit.assert_called()
         instance.flush.assert_called_once()
 
 
-@mock.patch("datahub_provider.hooks.datahub.DatahubRestHook.emit_mces")
+@mock.patch("datahub_provider.hooks.datahub.DatahubRestHook.emit")
 def test_datahub_lineage_operator(mock_emit):
     with patch_airflow_connection(datahub_rest_connection_config) as config:
         assert config.conn_id

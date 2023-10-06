@@ -15,8 +15,11 @@ from datahub.ingestion.source.powerbi.dataplatform_instance_resolver import (
     AbstractDataPlatformInstanceResolver,
     create_dataplatform_instance_resolver,
 )
-from datahub.ingestion.source.powerbi.m_query import parser, tree_function
-from datahub.ingestion.source.powerbi.m_query.resolver import DataPlatformTable
+from datahub.ingestion.source.powerbi.m_query import parser, resolver, tree_function
+from datahub.ingestion.source.powerbi.m_query.resolver import DataPlatformTable, Lineage
+from datahub.utilities.sqlglot_lineage import ColumnLineageInfo, DownstreamColumnRef
+
+pytestmark = pytest.mark.integration_batch_2
 
 M_QUERIES = [
     'let\n    Source = Snowflake.Databases("bu10758.ap-unknown-2.fakecomputing.com","PBI_TEST_WAREHOUSE_PROD",[Role="PBI_TEST_MEMBER"]),\n    PBI_TEST_Database = Source{[Name="PBI_TEST",Kind="Database"]}[Data],\n    TEST_Schema = PBI_TEST_Database{[Name="TEST",Kind="Schema"]}[Data],\n    TESTTABLE_Table = TEST_Schema{[Name="TESTTABLE",Kind="Table"]}[Data]\nin\n    TESTTABLE_Table',
@@ -66,6 +69,15 @@ def get_default_instances(
     )
 
     return PipelineContext(run_id="fake"), config, platform_instance_resolver
+
+
+def combine_upstreams_from_lineage(lineage: List[Lineage]) -> List[DataPlatformTable]:
+    data_platforms: List[DataPlatformTable] = []
+
+    for item in lineage:
+        data_platforms.extend(item.upstreams)
+
+    return data_platforms
 
 
 @pytest.mark.integration
@@ -180,7 +192,7 @@ def test_snowflake_regular_case():
         ctx=ctx,
         config=config,
         platform_instance_resolver=platform_instance_resolver,
-    )
+    )[0].upstreams
 
     assert len(data_platform_tables) == 1
     assert (
@@ -210,7 +222,7 @@ def test_postgres_regular_case():
         ctx=ctx,
         config=config,
         platform_instance_resolver=platform_instance_resolver,
-    )
+    )[0].upstreams
 
     assert len(data_platform_tables) == 1
     assert (
@@ -240,7 +252,7 @@ def test_databricks_regular_case():
         ctx=ctx,
         config=config,
         platform_instance_resolver=platform_instance_resolver,
-    )
+    )[0].upstreams
 
     assert len(data_platform_tables) == 1
     assert (
@@ -270,7 +282,7 @@ def test_oracle_regular_case():
         ctx=ctx,
         config=config,
         platform_instance_resolver=platform_instance_resolver,
-    )
+    )[0].upstreams
 
     assert len(data_platform_tables) == 1
     assert (
@@ -300,7 +312,7 @@ def test_mssql_regular_case():
         ctx=ctx,
         config=config,
         platform_instance_resolver=platform_instance_resolver,
-    )
+    )[0].upstreams
 
     assert len(data_platform_tables) == 1
     assert (
@@ -346,7 +358,7 @@ def test_mssql_with_query():
             ctx=ctx,
             config=config,
             platform_instance_resolver=platform_instance_resolver,
-        )
+        )[0].upstreams
 
         assert len(data_platform_tables) == 1
         assert data_platform_tables[0].urn == expected_tables[index]
@@ -386,7 +398,7 @@ def test_snowflake_native_query():
             ctx=ctx,
             config=config,
             platform_instance_resolver=platform_instance_resolver,
-        )
+        )[0].upstreams
 
         assert len(data_platform_tables) == 1
         assert data_platform_tables[0].urn == expected_tables[index]
@@ -408,7 +420,7 @@ def test_google_bigquery_1():
         ctx=ctx,
         config=config,
         platform_instance_resolver=platform_instance_resolver,
-    )
+    )[0].upstreams
 
     assert len(data_platform_tables) == 1
     assert (
@@ -440,7 +452,7 @@ def test_google_bigquery_2():
         ctx=ctx,
         config=config,
         platform_instance_resolver=platform_instance_resolver,
-    )
+    )[0].upstreams
 
     assert len(data_platform_tables) == 1
     assert (
@@ -470,7 +482,7 @@ def test_for_each_expression_1():
         ctx=ctx,
         config=config,
         platform_instance_resolver=platform_instance_resolver,
-    )
+    )[0].upstreams
 
     assert len(data_platform_tables) == 1
     assert (
@@ -499,7 +511,7 @@ def test_for_each_expression_2():
         ctx=ctx,
         config=config,
         platform_instance_resolver=platform_instance_resolver,
-    )
+    )[0].upstreams
 
     assert len(data_platform_tables) == 1
     assert (
@@ -521,15 +533,15 @@ def test_native_query_disabled():
     reporter = PowerBiDashboardSourceReport()
 
     ctx, config, platform_instance_resolver = get_default_instances()
-    config.native_query_parsing = False
-    data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
+    config.native_query_parsing = False  # Disable native query parsing
+    lineage: List[Lineage] = parser.get_upstream_tables(
         table,
         reporter,
         ctx=ctx,
         config=config,
         platform_instance_resolver=platform_instance_resolver,
     )
-    assert len(data_platform_tables) == 0
+    assert len(lineage) == 0
 
 
 @pytest.mark.integration
@@ -546,12 +558,14 @@ def test_multi_source_table():
 
     ctx, config, platform_instance_resolver = get_default_instances()
 
-    data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
-        table,
-        reporter,
-        ctx=ctx,
-        config=config,
-        platform_instance_resolver=platform_instance_resolver,
+    data_platform_tables: List[DataPlatformTable] = combine_upstreams_from_lineage(
+        parser.get_upstream_tables(
+            table,
+            reporter,
+            ctx=ctx,
+            config=config,
+            platform_instance_resolver=platform_instance_resolver,
+        )
     )
 
     assert len(data_platform_tables) == 2
@@ -579,12 +593,14 @@ def test_table_combine():
 
     ctx, config, platform_instance_resolver = get_default_instances()
 
-    data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
-        table,
-        reporter,
-        ctx=ctx,
-        config=config,
-        platform_instance_resolver=platform_instance_resolver,
+    data_platform_tables: List[DataPlatformTable] = combine_upstreams_from_lineage(
+        parser.get_upstream_tables(
+            table,
+            reporter,
+            ctx=ctx,
+            config=config,
+            platform_instance_resolver=platform_instance_resolver,
+        )
     )
 
     assert len(data_platform_tables) == 2
@@ -622,7 +638,7 @@ def test_expression_is_none():
 
     ctx, config, platform_instance_resolver = get_default_instances()
 
-    data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
+    lineage: List[Lineage] = parser.get_upstream_tables(
         table,
         reporter,
         ctx=ctx,
@@ -630,7 +646,7 @@ def test_expression_is_none():
         platform_instance_resolver=platform_instance_resolver,
     )
 
-    assert len(data_platform_tables) == 0
+    assert len(lineage) == 0
 
 
 def test_redshift_regular_case():
@@ -649,7 +665,7 @@ def test_redshift_regular_case():
         ctx=ctx,
         config=config,
         platform_instance_resolver=platform_instance_resolver,
-    )
+    )[0].upstreams
 
     assert len(data_platform_tables) == 1
     assert (
@@ -676,7 +692,7 @@ def test_redshift_native_query():
         ctx=ctx,
         config=config,
         platform_instance_resolver=platform_instance_resolver,
-    )
+    )[0].upstreams
 
     assert len(data_platform_tables) == 1
     assert (
@@ -706,13 +722,15 @@ def test_sqlglot_parser():
         }
     )
 
-    data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
+    lineage: List[resolver.Lineage] = parser.get_upstream_tables(
         table,
         reporter,
         ctx=ctx,
         config=config,
         platform_instance_resolver=platform_instance_resolver,
     )
+
+    data_platform_tables: List[DataPlatformTable] = lineage[0].upstreams
 
     assert len(data_platform_tables) == 2
     assert (
@@ -723,3 +741,76 @@ def test_sqlglot_parser():
         data_platform_tables[1].urn
         == "urn:li:dataset:(urn:li:dataPlatform:snowflake,sales_deployment.operations_analytics.transformed_prod.v_sme_unit_targets,PROD)"
     )
+
+    assert lineage[0].column_lineage == [
+        ColumnLineageInfo(
+            downstream=DownstreamColumnRef(table=None, column="client_director"),
+            upstreams=[],
+            logic=None,
+        ),
+        ColumnLineageInfo(
+            downstream=DownstreamColumnRef(table=None, column="tier"),
+            upstreams=[],
+            logic=None,
+        ),
+        ColumnLineageInfo(
+            downstream=DownstreamColumnRef(table=None, column='upper("manager")'),
+            upstreams=[],
+            logic=None,
+        ),
+        ColumnLineageInfo(
+            downstream=DownstreamColumnRef(table=None, column="team_type"),
+            upstreams=[],
+            logic=None,
+        ),
+        ColumnLineageInfo(
+            downstream=DownstreamColumnRef(table=None, column="date_target"),
+            upstreams=[],
+            logic=None,
+        ),
+        ColumnLineageInfo(
+            downstream=DownstreamColumnRef(table=None, column="monthid"),
+            upstreams=[],
+            logic=None,
+        ),
+        ColumnLineageInfo(
+            downstream=DownstreamColumnRef(table=None, column="target_team"),
+            upstreams=[],
+            logic=None,
+        ),
+        ColumnLineageInfo(
+            downstream=DownstreamColumnRef(table=None, column="seller_email"),
+            upstreams=[],
+            logic=None,
+        ),
+        ColumnLineageInfo(
+            downstream=DownstreamColumnRef(table=None, column="agent_key"),
+            upstreams=[],
+            logic=None,
+        ),
+        ColumnLineageInfo(
+            downstream=DownstreamColumnRef(table=None, column="sme_quota"),
+            upstreams=[],
+            logic=None,
+        ),
+        ColumnLineageInfo(
+            downstream=DownstreamColumnRef(table=None, column="revenue_quota"),
+            upstreams=[],
+            logic=None,
+        ),
+        ColumnLineageInfo(
+            downstream=DownstreamColumnRef(table=None, column="service_quota"),
+            upstreams=[],
+            logic=None,
+        ),
+        ColumnLineageInfo(
+            downstream=DownstreamColumnRef(table=None, column="bl_target"),
+            upstreams=[],
+            logic=None,
+        ),
+        ColumnLineageInfo(
+            downstream=DownstreamColumnRef(table=None, column="software_quota"),
+            upstreams=[],
+            logic=None,
+        ),
+    ]

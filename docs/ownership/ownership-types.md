@@ -7,7 +7,7 @@ import TabItem from '@theme/TabItem';
 <FeatureAvailability/>
 
 **🤝 Version compatibility**
-> Open Source DataHub: **0.10.3** | Acryl: **0.2.8**
+> Open Source DataHub: **0.10.4** | Acryl: **0.2.8**
 
 ## What are Custom Ownership Types?
 Custom Ownership Types are an improvement on the way to establish ownership relationships between users and the data assets they manage within DataHub.
@@ -85,7 +85,7 @@ source:
   type: "file"
   config:
     # path to json file
-    filename: "metadata-ingestion/examples/ownership/ownership_type.json"
+    path: "metadata-ingestion/examples/ownership/ownership_type.json"
 
 # see https://datahubproject.io/docs/metadata-ingestion/sink_docs/datahub for complete documentation
 sink:

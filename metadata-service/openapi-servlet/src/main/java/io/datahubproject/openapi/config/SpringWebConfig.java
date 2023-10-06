@@ -5,6 +5,9 @@ import io.swagger.v3.oas.annotations.OpenAPIDefinition;
 import io.swagger.v3.oas.annotations.info.Info;
 import io.swagger.v3.oas.annotations.servers.Server;
 import java.util.List;
+
+import org.springdoc.core.GroupedOpenApi;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.format.FormatterRegistry;
 import org.springframework.http.converter.ByteArrayHttpMessageConverter;
@@ -33,5 +36,27 @@ public class SpringWebConfig implements WebMvcConfigurer {
   @Override
   public void addFormatters(FormatterRegistry registry) {
     registry.addConverter(new StringToChangeCategoryConverter());
+  }
+
+  @Bean
+  public GroupedOpenApi defaultOpenApiGroup() {
+    return GroupedOpenApi.builder()
+            .group("default")
+            .packagesToExclude(
+                    "io.datahubproject.openapi.operations",
+                    "com.datahub.health",
+                    "io.datahubproject.openapi.health"
+            ).build();
+  }
+
+  @Bean
+  public GroupedOpenApi operationsOpenApiGroup() {
+    return GroupedOpenApi.builder()
+            .group("operations")
+            .packagesToScan(
+                    "io.datahubproject.openapi.operations",
+                    "com.datahub.health",
+                    "io.datahubproject.openapi.health"
+            ).build();
   }
 }
