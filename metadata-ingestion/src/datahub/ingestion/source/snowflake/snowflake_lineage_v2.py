@@ -363,9 +363,17 @@ class SnowflakeLineageExtractor(
         for column_lineage in result.column_lineage or []:
             out_column = column_lineage.downstream.column
             for upstream_column_info in column_lineage.upstreams:
-                upstream_table_name = DatasetUrn.create_from_string(
+                upstream_table_id = DatasetUrn.create_from_string(
                     upstream_column_info.table
                 ).get_dataset_name()
+                if self.config.platform_instance and upstream_table_id.startswith(
+                    f"{self.config.platform_instance}."
+                ):
+                    upstream_table_name = upstream_table_id[
+                        len(f"{self.config.platform_instance}.") :
+                    ]
+                else:
+                    upstream_table_name = upstream_table_id
                 fine_lineage[out_column].add(
                     SnowflakeColumnId(
                         columnName=upstream_column_info.column,
