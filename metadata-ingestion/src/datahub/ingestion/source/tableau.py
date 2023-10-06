@@ -37,11 +37,11 @@ from datahub.configuration.common import (
     ConfigModel,
     ConfigurationError,
 )
-from datahub.configuration.pydantic_field_deprecation import pydantic_field_deprecated
 from datahub.configuration.source_common import (
     DatasetLineageProviderConfigBase,
     DatasetSourceConfigMixin,
 )
+from datahub.configuration.validate_field_deprecation import pydantic_field_deprecated
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import (
     ContainerKey,
