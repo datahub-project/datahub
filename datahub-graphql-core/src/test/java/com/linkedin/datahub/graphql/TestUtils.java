@@ -8,6 +8,7 @@ import com.datahub.authorization.AuthorizationResult;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.schema.annotation.PathSpecBasedSchemaAnnotationVisitor;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ebean.transactions.AspectsBatchImpl;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
@@ -21,6 +22,8 @@ import java.util.List;
 public class TestUtils {
 
   public static EntityService getMockEntityService() {
+    PathSpecBasedSchemaAnnotationVisitor.class.getClassLoader()
+        .setClassAssertionStatus(PathSpecBasedSchemaAnnotationVisitor.class.getName(), false);
     EntityRegistry registry = new ConfigEntityRegistry(TestUtils.class.getResourceAsStream("/test-entity-registry.yaml"));
     EntityService mockEntityService = Mockito.mock(EntityService.class);
     Mockito.when(mockEntityService.getEntityRegistry()).thenReturn(registry);
