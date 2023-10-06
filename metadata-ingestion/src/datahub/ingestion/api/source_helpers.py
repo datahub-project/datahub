@@ -16,7 +16,11 @@ from typing import (
 )
 
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
-from datahub.emitter.mce_builder import make_dataplatform_instance_urn, set_aspect
+from datahub.emitter.mce_builder import (
+    datahub_guid,
+    make_dataplatform_instance_urn,
+    set_aspect,
+)
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DataHubGraph
@@ -27,11 +31,13 @@ from datahub.metadata.schema_classes import (
     ChangeTypeClass,
     ContainerClass,
     DatasetUsageStatisticsClass,
+    FineGrainedLineageClass,
     MetadataChangeEventClass,
     MetadataChangeProposalClass,
     StatusClass,
     TagKeyClass,
     TimeWindowSizeClass,
+    UpstreamClass,
     UpstreamLineageClass,
 )
 from datahub.specific.dataset import DatasetPatchBuilder
@@ -399,7 +405,7 @@ def auto_incremental_lineage(
 
             yield _lineage_wu_via_read_modify_write(
                 graph, urn, lineage_aspect
-            ) if include_column_level_lineage else _patch_lineage_wu_for_table_level_lineage(
+            ) if include_column_level_lineage else _convert_upstream_lineage_to_patch(
                 urn, lineage_aspect
             )
         else:
@@ -431,24 +437,65 @@ def _lineage_wu_via_read_modify_write(
         )
     gms_aspect = graph.get_aspect(urn, UpstreamLineageClass)
     if gms_aspect:
-        new_aspect = copy.deepcopy(gms_aspect)
-        for table_upstream in aspect.upstreams:
-            if table_upstream not in gms_aspect.upstreams:
-                # TODO: keep unique entries only - update only timestamp if same entry
-                # unique key -> upstream.dataset
-                new_aspect.upstreams.append(table_upstream)
-
-        if aspect.fineGrainedLineages and new_aspect.fineGrainedLineages:
-            for column_upstream in aspect.fineGrainedLineages:
-                # TODO: keep unique entries only - update only timestamp if same entry
-                # unique key -> (fineGrainedLineage.upstreams, fineGrainedLineage.downstreams)
-                if column_upstream not in new_aspect.fineGrainedLineages:
-                    new_aspect.fineGrainedLineages.append(column_upstream)
-        else:
-            new_aspect.fineGrainedLineages = (
-                aspect.fineGrainedLineages or gms_aspect.fineGrainedLineages
-            )
+        new_aspect = _merge_upstream_lineage(aspect, gms_aspect)
     else:
         new_aspect = aspect
 
     return MetadataChangeProposalWrapper(entityUrn=urn, aspect=new_aspect).as_workunit()
+
+
+def _merge_upstream_lineage(
+    new_aspect: UpstreamLineageClass, gms_aspect: UpstreamLineageClass
+) -> UpstreamLineageClass:
+    merged_aspect = copy.deepcopy(gms_aspect)
+
+    upstreams_map: Dict[str, UpstreamClass] = {
+        upstream.dataset: upstream for upstream in merged_aspect.upstreams
+    }
+
+    upstreams_updated = False
+    fine_upstreams_updated = False
+
+    for table_upstream in new_aspect.upstreams:
+        if table_upstream.dataset not in upstreams_map or (
+            table_upstream.auditStamp.time
+            > upstreams_map[table_upstream.dataset].auditStamp.time
+        ):
+            upstreams_map[table_upstream.dataset] = table_upstream
+            upstreams_updated = True
+
+    if upstreams_updated:
+        merged_aspect.upstreams = list(upstreams_map.values())
+
+    if new_aspect.fineGrainedLineages and merged_aspect.fineGrainedLineages:
+        fine_upstreams_map: Dict[str, FineGrainedLineageClass] = {
+            get_fine_grained_lineage_key(fine_upstream): fine_upstream
+            for fine_upstream in merged_aspect.fineGrainedLineages
+        }
+        for column_upstream in new_aspect.fineGrainedLineages:
+            column_upstream_key = get_fine_grained_lineage_key(column_upstream)
+            if column_upstream_key not in fine_upstreams_map or (
+                column_upstream.confidenceScore
+                > fine_upstreams_map[column_upstream_key].confidenceScore
+            ):
+                fine_upstreams_map[column_upstream_key] = column_upstream
+                fine_upstreams_updated = True
+
+        if fine_upstreams_updated:
+            merged_aspect.fineGrainedLineages = list(fine_upstreams_map.values())
+    else:
+        merged_aspect.fineGrainedLineages = (
+            new_aspect.fineGrainedLineages or gms_aspect.fineGrainedLineages
+        )
+
+    return merged_aspect
+
+
+def get_fine_grained_lineage_key(fine_upstream: FineGrainedLineageClass) -> str:
+    return datahub_guid(
+        {
+            "upstreams": sorted(fine_upstream.upstreams or []),
+            "downstreams": sorted(fine_upstream.downstreams or []),
+            "transformOperation": fine_upstream.transformOperation,
+        }
+    )
