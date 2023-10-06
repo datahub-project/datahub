@@ -10,11 +10,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeEvent,
     MetadataChangeProposal,
 )
-from datahub.metadata.schema_classes import (
-    SystemMetadataClass,
-    UsageAggregationClass,
-    _Aspect,
-)
+from datahub.metadata.schema_classes import UsageAggregationClass, _Aspect
 
 logger = logging.getLogger(__name__)
 
@@ -96,14 +92,6 @@ class MetadataWorkUnit(WorkUnit):
         else:
             assert self.metadata.entityUrn
             return self.metadata.entityUrn
-
-    def get_system_metadata(self) -> Optional[SystemMetadataClass]:
-        if isinstance(self.metadata, MetadataChangeEvent):
-            return self.metadata.system_metadata
-        elif isinstance(self.metadata, MetadataChangeProposalWrapper) or isinstance(
-            self.metadata, MetadataChangeProposal
-        ):
-            return self.metadata.systemMetadata
 
     def get_aspect_of_type(self, aspect_cls: Type[T_Aspect]) -> Optional[T_Aspect]:
         aspects: list

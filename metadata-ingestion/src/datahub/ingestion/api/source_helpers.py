@@ -404,9 +404,9 @@ def auto_incremental_lineage(
                     yield wu
 
             yield _lineage_wu_via_read_modify_write(
-                graph, urn, lineage_aspect, wu.get_system_metadata()
+                graph, urn, lineage_aspect, wu.metadata.systemMetadata
             ) if include_column_level_lineage else _convert_upstream_lineage_to_patch(
-                urn, lineage_aspect, wu.get_system_metadata()
+                urn, lineage_aspect, wu.metadata.systemMetadata
             )
         else:
             yield wu
