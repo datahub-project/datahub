@@ -139,7 +139,7 @@ public class SlackNotificationSink implements NotificationSink {
     if (cfg.getStaticConfig().getOrDefault(PROXY_URL_CONFIG_NAME, null) != null) {
       slackConfig.setProxyUrl((String) cfg.getStaticConfig().get(PROXY_URL_CONFIG_NAME));
     }
-    this.slack = Slack.getInstance();
+    this.slack = Slack.getInstance(slackConfig);
     this.settingsProvider = cfg.getSettingsProvider();
     this.identityProvider = cfg.getIdentityProvider();
     this.secretProvider = cfg.getSecretProvider();
