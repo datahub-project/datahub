@@ -8,7 +8,12 @@
         {
             "downstream": {
                 "table": null,
-                "column": "col1"
+                "column": "col1",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                }
             },
             "upstreams": [
                 {
@@ -20,7 +25,12 @@
         {
             "downstream": {
                 "table": null,
-                "column": "col2"
+                "column": "col2",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                }
             },
             "upstreams": [
                 {

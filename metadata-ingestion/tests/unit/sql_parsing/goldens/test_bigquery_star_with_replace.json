@@ -10,7 +10,12 @@
         {
             "downstream": {
                 "table": "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-project.my-dataset.test_table,PROD)",
-                "column": "col1"
+                "column": "col1",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                }
             },
             "upstreams": [
                 {
@@ -22,7 +27,12 @@
         {
             "downstream": {
                 "table": "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-project.my-dataset.test_table,PROD)",
-                "column": "col2"
+                "column": "col2",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                }
             },
             "upstreams": [
                 {
@@ -34,7 +44,12 @@
         {
             "downstream": {
                 "table": "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-project.my-dataset.test_table,PROD)",
-                "column": "something"
+                "column": "something",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                }
             },
             "upstreams": [
                 {

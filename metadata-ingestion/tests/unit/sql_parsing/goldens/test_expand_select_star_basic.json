@@ -8,7 +8,12 @@
         {
             "downstream": {
                 "table": null,
-                "column": "total_agg"
+                "column": "total_agg",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                }
             },
             "upstreams": [
                 {
@@ -20,7 +25,12 @@
         {
             "downstream": {
                 "table": null,
-                "column": "orderkey"
+                "column": "orderkey",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                }
             },
             "upstreams": [
                 {
@@ -32,7 +42,12 @@
         {
             "downstream": {
                 "table": null,
-                "column": "custkey"
+                "column": "custkey",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                }
             },
             "upstreams": [
                 {
@@ -44,7 +59,12 @@
         {
             "downstream": {
                 "table": null,
-                "column": "orderstatus"
+                "column": "orderstatus",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                }
             },
             "upstreams": [
                 {
@@ -56,7 +76,12 @@
         {
             "downstream": {
                 "table": null,
-                "column": "totalprice"
+                "column": "totalprice",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                }
             },
             "upstreams": [
                 {
@@ -68,7 +93,12 @@
         {
             "downstream": {
                 "table": null,
-                "column": "orderdate"
+                "column": "orderdate",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.DateType": {}
+                    }
+                }
             },
             "upstreams": [
                 {
@@ -80,7 +110,12 @@
         {
             "downstream": {
                 "table": null,
-                "column": "orderpriority"
+                "column": "orderpriority",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                }
             },
             "upstreams": [
                 {
@@ -92,7 +127,12 @@
         {
             "downstream": {
                 "table": null,
-                "column": "clerk"
+                "column": "clerk",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                }
             },
             "upstreams": [
                 {
@@ -104,7 +144,12 @@
         {
             "downstream": {
                 "table": null,
-                "column": "shippriority"
+                "column": "shippriority",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                }
             },
             "upstreams": [
                 {
@@ -116,7 +161,12 @@
         {
             "downstream": {
                 "table": null,
-                "column": "comment"
+                "column": "comment",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                }
             },
             "upstreams": [
                 {
