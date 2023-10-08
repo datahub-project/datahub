@@ -10,7 +10,7 @@ on:
       - "metadata-io/**"
   pull_request:
     branches:
-      - master
+      - "**"
     paths:
       - "**/*.gradle"
       - "li-utils/**"

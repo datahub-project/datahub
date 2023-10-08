@@ -62,6 +62,9 @@ public class DatahubSparkListener extends SparkListener {
   public static final String PIPELINE_KEY = "metadata.pipeline";
   public static final String PIPELINE_PLATFORM_INSTANCE_KEY = PIPELINE_KEY + ".platformInstance";
 
+  public static final String MW_PIPELINE_NAME = "mars.pipelineName";
+  public static final String MW_SPARK_IP_IS_IN_FLOW_URN = "mars.sparkIpInFlowURN";
+
   public static final String COALESCE_KEY = "coalesce_jobs";
 
   private final Map<String, AppStartEvent> appDetails = new ConcurrentHashMap<>();
@@ -83,20 +86,19 @@ public class DatahubSparkListener extends SparkListener {
       String result = null;
       try {
           Class<?> c = Class.forName(JsonProtocol.class.getName());
-          Method spark_method = null;
+          Method sparkMethod = null;
           //spark ge 3.4.x
-          spark_method = c.getDeclaredMethod("sparkEventToJsonString", org.apache.spark.scheduler.SparkListenerEvent.class);
+          sparkMethod = c.getDeclaredMethod("sparkEventToJsonString", org.apache.spark.scheduler.SparkListenerEvent.class);
           //spark lt 3.4.x
-          if (spark_method == null) {
-            spark_method = c.getDeclaredMethod("sparkEventToJson", org.apache.spark.scheduler.SparkListenerEvent.class);
+          if (sparkMethod == null) {
+            sparkMethod = c.getDeclaredMethod("sparkEventToJson", org.apache.spark.scheduler.SparkListenerEvent.class);
           }
 
-          if (spark_method != null) {
-              result = JsonMethods$.MODULE$.compact((JsonAST.JValue) spark_method.invoke(null, sqlStart));
+          if (sparkMethod != null) {
+            result = JsonMethods$.MODULE$.compact((JsonAST.JValue) sparkMethod.invoke(null, sqlStart));
           }
 
-          if (spark_method == null)
-          {
+          if (sparkMethod == null) {
             throw new NullPointerException("The method 'sparkEventToJsonString' or 'sparkEventToJson' not found!");
           }
       } catch (Exception e) {
@@ -245,7 +247,7 @@ public class DatahubSparkListener extends SparkListener {
           if (start == null) {
             log.error("Application end event received, but start event missing for appId " + sc.applicationId());
           } else {
-            AppEndEvent evt = new AppEndEvent(LineageUtils.getMaster(sc), getPipelineName(sc), sc.applicationId(),
+            AppEndEvent evt = new AppEndEvent(getMaster(sc), getPipelineName(sc), sc.applicationId(),
                 applicationEnd.time(), start);
 
             McpEmitter emitter = appEmitters.get(sc.applicationId());
@@ -315,7 +317,7 @@ public class DatahubSparkListener extends SparkListener {
                   + sqlEnd.executionId());
         } else if (start.getDatasetLineage() != null) {
           SQLQueryExecEndEvent evt =
-              new SQLQueryExecEndEvent(LineageUtils.getMaster(sc), sc.appName(), sc.applicationId(), sqlEnd.time(),
+              new SQLQueryExecEndEvent(getMaster(sc), sc.appName(), sc.applicationId(), sqlEnd.time(),
                   sqlEnd.executionId(), start);
           McpEmitter emitter = appEmitters.get(sc.applicationId());
           if (emitter != null) {
@@ -337,7 +339,7 @@ public class DatahubSparkListener extends SparkListener {
       Config pipelineConfig = datahubConf.hasPath(PIPELINE_KEY) ? datahubConf.getConfig(PIPELINE_KEY)
           : com.typesafe.config.ConfigFactory.empty();
       AppStartEvent evt =
-          new AppStartEvent(LineageUtils.getMaster(ctx), getPipelineName(ctx), appId, ctx.startTime(), ctx.sparkUser(),
+          new AppStartEvent(this.getMaster(ctx), getPipelineName(ctx), appId, ctx.startTime(), ctx.sparkUser(),
               pipelineConfig);
 
       appEmitters.computeIfAbsent(appId,
@@ -351,17 +353,28 @@ public class DatahubSparkListener extends SparkListener {
 
   private String getPipelineName(SparkContext cx) {
     Config datahubConfig = appConfig.computeIfAbsent(cx.applicationId(), s -> LineageUtils.parseSparkConfig());
-    String name = "";
-    if (datahubConfig.hasPath(DATABRICKS_CLUSTER_KEY)) {
-      name = datahubConfig.getString(DATABRICKS_CLUSTER_KEY) + "_" + cx.applicationId();
-    }
-    name = cx.appName();
-    // TODO: appending of platform instance needs to be done at central location
-    // like adding constructor to dataflowurl
-    if (datahubConfig.hasPath(PIPELINE_PLATFORM_INSTANCE_KEY)) {
-      name = datahubConfig.getString(PIPELINE_PLATFORM_INSTANCE_KEY) + "." + name;
+    String name = cx.appName();
+
+    if (datahubConfig.hasPath(MW_PIPELINE_NAME)) {
+      name = datahubConfig.getString(MW_PIPELINE_NAME);
+    } else {
+      if (datahubConfig.hasPath(DATABRICKS_CLUSTER_KEY)) {
+        name = datahubConfig.getString(DATABRICKS_CLUSTER_KEY) + "_" + cx.applicationId();
+      }
+      name = cx.appName();
+      // TODO: appending of platform instance needs to be done at central location
+      // like adding constructor to dataflowurl
+      if (datahubConfig.hasPath(PIPELINE_PLATFORM_INSTANCE_KEY)) {
+        name = datahubConfig.getString(PIPELINE_PLATFORM_INSTANCE_KEY) + "." + name;
+      }
     }
     return name;
+  }
+
+  public String getMaster(SparkContext cx) {
+    Config datahubConfig = appConfig.computeIfAbsent(cx.applicationId(), s -> LineageUtils.parseSparkConfig());
+
+    return datahubConfig.hasPath(MW_SPARK_IP_IS_IN_FLOW_URN) && datahubConfig.getBoolean(MW_SPARK_IP_IS_IN_FLOW_URN) ? "" : LineageUtils.getMaster(cx);
   }
 
   private void processExecution(SparkListenerSQLExecutionStart sqlStart) {
