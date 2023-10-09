@@ -1,10 +1,13 @@
-from typing import List
+from typing import List, Optional
 from unittest.mock import MagicMock
+
+import pytest
 
 import datahub.metadata.schema_classes as models
 from datahub.emitter.mce_builder import make_dataset_urn, make_schema_field_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.source_helpers import auto_incremental_lineage
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.sink.file import write_metadata_file
 from tests.test_helpers import mce_helpers
 
@@ -53,18 +56,34 @@ def make_lineage_aspect(
     )
 
 
+def base_table_lineage_aspect() -> models.UpstreamLineageClass:
+    return make_lineage_aspect(
+        "dataset1",
+        upstreams=[
+            make_dataset_urn(platform, name) for name in ["upstream1", "upstream2"]
+        ],
+    )
+
+
+def base_cll_aspect(timestamp: int = 0) -> models.UpstreamLineageClass:
+    return make_lineage_aspect(
+        "dataset1",
+        upstreams=[
+            make_dataset_urn(platform, name) for name in ["upstream1", "upstream2"]
+        ],
+        timestamp=timestamp,
+        columns=["col_a", "col_b", "col_c"],
+        include_cll=True,
+    )
+
+
 def test_incremental_table_lineage(tmp_path, pytestconfig):
     test_resources_dir = pytestconfig.rootpath / "tests/unit/api/source_helpers"
     test_file = tmp_path / "incremental_table_lineage.json"
     golden_file = test_resources_dir / "incremental_table_lineage_golden.json"
 
     urn = make_dataset_urn(platform, "dataset1")
-    aspect = make_lineage_aspect(
-        "dataset1",
-        upstreams=[
-            make_dataset_urn(platform, name) for name in ["upstream1", "upstream2"]
-        ],
-    )
+    aspect = base_table_lineage_aspect()
 
     processed_wus = auto_incremental_lineage(
         graph=None,
@@ -86,23 +105,43 @@ def test_incremental_table_lineage(tmp_path, pytestconfig):
     )
 
 
-def test_incremental_column_lineage_no_gms_aspect(tmp_path, pytestconfig):
-    test_resources_dir = pytestconfig.rootpath / "tests/unit/api/source_helpers"
-    test_file = tmp_path / "incremental_cll_no_gms_aspect.json"
-    golden_file = test_resources_dir / "incremental_cll_no_gms_aspect_golden.json"
-
-    urn = make_dataset_urn(platform, "dataset1")
-    aspect = make_lineage_aspect(
-        "dataset1",
-        upstreams=[
-            make_dataset_urn(platform, name) for name in ["upstream1", "upstream2"]
+@pytest.mark.parametrize(
+    "gms_aspect,current_aspect,output_aspect",
+    [
+        # emitting CLL upstreamLineage over table level upstreamLineage
+        [
+            base_table_lineage_aspect(),
+            base_cll_aspect(),
+            base_cll_aspect(),
         ],
-        columns=["col_a", "col_b", "col_c"],
-        include_cll=True,
-    )
-
+        # emitting upstreamLineage for the first time
+        [
+            None,
+            base_cll_aspect(),
+            base_cll_aspect(),
+        ],
+        # emitting CLL upstreamLineage over same CLL upstreamLineage
+        [
+            base_cll_aspect(),
+            base_cll_aspect(),
+            base_cll_aspect(),
+        ],
+        # emitting CLL upstreamLineage over same CLL upstreamLineage but with earlier timestamp
+        [
+            base_cll_aspect(),  # default timestamp is 0
+            base_cll_aspect(timestamp=1643871600000),
+            base_cll_aspect(timestamp=1643871600000),
+        ],
+    ],
+)
+def test_incremental_column_level_lineage(
+    gms_aspect: Optional[models.UpstreamLineageClass],
+    current_aspect: models.UpstreamLineageClass,
+    output_aspect: models.UpstreamLineageClass,
+) -> None:
     mock_graph = MagicMock()
-    mock_graph.get_aspect.return_value = None
+    mock_graph.get_aspect.return_value = gms_aspect
+    dataset_urn = make_dataset_urn(platform, "dataset1")
 
     processed_wus = auto_incremental_lineage(
         graph=mock_graph,
@@ -110,63 +149,16 @@ def test_incremental_column_lineage_no_gms_aspect(tmp_path, pytestconfig):
         include_column_level_lineage=True,
         stream=[
             MetadataChangeProposalWrapper(
-                entityUrn=urn, aspect=aspect, systemMetadata=system_metadata
+                entityUrn=dataset_urn,
+                aspect=current_aspect,
+                systemMetadata=system_metadata,
             ).as_workunit()
         ],
     )
 
-    write_metadata_file(
-        test_file,
-        [wu.metadata for wu in processed_wus],
-    )
-    mce_helpers.check_golden_file(
-        pytestconfig=pytestconfig, output_path=test_file, golden_path=golden_file
-    )
-
-
-def test_incremental_column_lineage_same_gms_aspect(tmp_path, pytestconfig):
-    test_resources_dir = pytestconfig.rootpath / "tests/unit/api/source_helpers"
-    test_file = tmp_path / "incremental_cll_same_gms_aspect.json"
-    golden_file = test_resources_dir / "incremental_cll_same_gms_aspect_golden.json"
-
-    urn = make_dataset_urn(platform, "dataset1")
-    aspect = make_lineage_aspect(
-        "dataset1",
-        upstreams=[
-            make_dataset_urn(platform, name) for name in ["upstream1", "upstream2"]
-        ],
-        columns=["col_a", "col_b", "col_c"],
-        include_cll=True,
-    )
-
-    mock_graph = MagicMock()
-    mock_graph.get_aspect.return_value = make_lineage_aspect(
-        "dataset1",
-        upstreams=[
-            make_dataset_urn(platform, name) for name in ["upstream1", "upstream2"]
-        ],
-        columns=["col_a", "col_b", "col_c"],
-        include_cll=True,
-    )
-
-    processed_wus = auto_incremental_lineage(
-        graph=mock_graph,
-        incremental_lineage=True,
-        include_column_level_lineage=True,
-        stream=[
-            MetadataChangeProposalWrapper(
-                entityUrn=urn, aspect=aspect, systemMetadata=system_metadata
-            ).as_workunit()
-        ],
-    )
-
-    write_metadata_file(
-        test_file,
-        [wu.metadata for wu in processed_wus],
-    )
-    mce_helpers.check_golden_file(
-        pytestconfig=pytestconfig, output_path=test_file, golden_path=golden_file
-    )
+    wu: MetadataWorkUnit = next(iter(processed_wus))
+    aspect = wu.get_aspect_of_type(models.UpstreamLineageClass)
+    assert aspect == output_aspect
 
 
 def test_incremental_column_lineage_less_upstreams_in_gms_aspect(
@@ -179,14 +171,7 @@ def test_incremental_column_lineage_less_upstreams_in_gms_aspect(
     )
 
     urn = make_dataset_urn(platform, "dataset1")
-    aspect = make_lineage_aspect(
-        "dataset1",
-        upstreams=[
-            make_dataset_urn(platform, name) for name in ["upstream1", "upstream2"]
-        ],
-        columns=["col_a", "col_b", "col_c"],
-        include_cll=True,
-    )
+    aspect = base_cll_aspect()
 
     mock_graph = MagicMock()
     mock_graph.get_aspect.return_value = make_lineage_aspect(
@@ -226,14 +211,7 @@ def test_incremental_column_lineage_more_upstreams_in_gms_aspect(
     )
 
     urn = make_dataset_urn(platform, "dataset1")
-    aspect = make_lineage_aspect(
-        "dataset1",
-        upstreams=[
-            make_dataset_urn(platform, name) for name in ["upstream1", "upstream2"]
-        ],
-        columns=["col_a", "col_b", "col_c"],
-        include_cll=True,
-    )
+    aspect = base_cll_aspect()
 
     mock_graph = MagicMock()
     mock_graph.get_aspect.return_value = make_lineage_aspect(
@@ -242,58 +220,6 @@ def test_incremental_column_lineage_more_upstreams_in_gms_aspect(
             make_dataset_urn(platform, name)
             for name in ["upstream1", "upstream2", "upstream3"]
         ],
-        columns=["col_a", "col_b", "col_c"],
-        include_cll=True,
-    )
-
-    processed_wus = auto_incremental_lineage(
-        graph=mock_graph,
-        incremental_lineage=True,
-        include_column_level_lineage=True,
-        stream=[
-            MetadataChangeProposalWrapper(
-                entityUrn=urn, aspect=aspect, systemMetadata=system_metadata
-            ).as_workunit()
-        ],
-    )
-
-    write_metadata_file(
-        test_file,
-        [wu.metadata for wu in processed_wus],
-    )
-    mce_helpers.check_golden_file(
-        pytestconfig=pytestconfig, output_path=test_file, golden_path=golden_file
-    )
-
-
-def test_incremental_column_lineage_same_upstream_updated_audit_stamp(
-    tmp_path, pytestconfig
-):
-    test_resources_dir = pytestconfig.rootpath / "tests/unit/api/source_helpers"
-    test_file = tmp_path / "incremental_cll_same_gms_aspect_updated_audit_stamp.json"
-    golden_file = (
-        test_resources_dir
-        / "incremental_cll_same_gms_aspect_updated_audit_stamp_golden.json"
-    )
-
-    urn = make_dataset_urn(platform, "dataset1")
-    aspect = make_lineage_aspect(
-        "dataset1",
-        upstreams=[
-            make_dataset_urn(platform, name) for name in ["upstream1", "upstream2"]
-        ],
-        timestamp=1643871600000,
-        columns=["col_a", "col_b", "col_c"],
-        include_cll=True,
-    )
-
-    mock_graph = MagicMock()
-    mock_graph.get_aspect.return_value = make_lineage_aspect(
-        "dataset1",
-        upstreams=[
-            make_dataset_urn(platform, name) for name in ["upstream1", "upstream2"]
-        ],
-        timestamp=0,
         columns=["col_a", "col_b", "col_c"],
         include_cll=True,
     )

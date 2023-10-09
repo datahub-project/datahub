@@ -476,6 +476,7 @@ def _merge_upstream_lineage(
         }
         for column_upstream in new_aspect.fineGrainedLineages:
             column_upstream_key = get_fine_grained_lineage_key(column_upstream)
+
             if column_upstream_key not in fine_upstreams_map or (
                 column_upstream.confidenceScore
                 > fine_upstreams_map[column_upstream_key].confidenceScore
