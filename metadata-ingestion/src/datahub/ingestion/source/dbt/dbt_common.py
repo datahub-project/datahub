@@ -280,6 +280,10 @@ class DBTCommonConfig(
         default=False,
         description="When enabled, dbt test warnings will be treated as failures.",
     )
+    infer_dbt_schemas: bool = Field(
+        default=True,
+        description="When enabled, schemas will be inferred from the dbt node definition.",
+    )
 
     @validator("target_platform")
     def validate_target_platform_value(cls, target_platform: str) -> str:
@@ -548,7 +552,6 @@ def get_column_type(
 @support_status(SupportStatus.CERTIFIED)
 @capability(SourceCapability.DELETION_DETECTION, "Enabled via stateful ingestion")
 @capability(SourceCapability.LINEAGE_COARSE, "Enabled by default")
-@capability(SourceCapability.USAGE_STATS, "", supported=False)
 class DBTSourceBase(StatefulIngestionSourceBase):
     def __init__(self, config: DBTCommonConfig, ctx: PipelineContext, platform: str):
         super().__init__(config, ctx)
@@ -981,6 +984,8 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             "SOURCE_CONTROL",
             self.config.strip_user_ids_from_email,
         )
+
+        # TODO if infer_dbt_schemas, load from saved schemas too
 
         canonical_schema: List[SchemaField] = []
         for column in node.columns:

@@ -299,8 +299,8 @@ plugins: Dict[str, Set[str]] = {
     "datahub-lineage-file": set(),
     "datahub-business-glossary": set(),
     "delta-lake": {*data_lake_profiling, *delta_lake},
-    "dbt": {"requests"} | aws_common,
-    "dbt-cloud": {"requests"},
+    "dbt": {"requests"} | sqlglot_lib | aws_common,
+    "dbt-cloud": {"requests"} | sqlglot_lib,
     "druid": sql_common | {"pydruid>=0.6.2"},
     "dynamodb": aws_common,
     # Starting with 7.14.0 python client is checking if it is connected to elasticsearch client. If its not it throws
