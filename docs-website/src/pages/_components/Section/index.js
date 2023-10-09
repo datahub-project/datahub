@@ -18,7 +18,7 @@ const PromoSection = () => (
       <img src={useBaseUrl("/img/acryl-logo-white-mark.svg")} />
       <h2>Managed DataHub</h2>
       <p>Acryl Data delivers an easy to consume DataHub platform for the enterprise</p>
-      <a href="https://www.acryldata.io/datahub-beta" target="_blank" className="button button--primary button--lg">
+      <a href="https://www.acryldata.io/datahub-sign-up?utm_source=datahub&utm_medium=referral&utm_campaign=acryl_signup" target="_blank" className="button button--primary button--lg">
         Sign up for Managed DataHub →
       </a>
     </div>
