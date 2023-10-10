@@ -73,8 +73,8 @@ class SchemaAssertion(ConfigModel):
             schemaAssertion=SchemaAssertionInfoClass(
                 entity=entity_urn,
                 schema=self.__root__._schema_metadata,
-                description=self.__root__.description,
             ),
+            description=self.__root__.description,
         )
 
         return [MetadataChangeProposalWrapper(entityUrn=assertion_urn, aspect=aspect)]
