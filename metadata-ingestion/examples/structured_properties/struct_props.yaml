@@ -1,11 +1,11 @@
 - id: io.acryl.privacy.retentionTime
   # - urn: urn:li:structuredProperty:io.acryl.privacy.retentionTime # optional if id is provided
   qualified_name: io.acryl.privacy.retentionTime # required if urn is provided
-  type: NUMBER
+  type: number
   cardinality: MULTIPLE
   display_name: Retention Time
   entity_types:
-    - dataset
+    - dataset # or urn:li:entityType:datahub.dataset
     - dataflow
   description: "Retention Time is used to figure out how long to retain records in a dataset"
   allowed_values:
@@ -16,14 +16,13 @@
     - value: 365
       description: Use this for non-sensitive data that can be retained for longer
 - id: io.acryl.dataManagement.replicationSLA
-  type: NUMBER
+  type: number
   display_name: Replication SLA
   description: "SLA for how long data can be delayed before replicating to the destination cluster"
   entity_types:
     - dataset
 - id: io.acryl.dataManagement.deprecationDate
-  qualified_name: io.acryl.dataManagement.deprecationDate
-  type: DATE
+  type: date
   display_name: Deprecation Date
   entity_types:
     - dataset
@@ -31,34 +30,42 @@
     - dataJob
     - schemaField
 - id: io.acryl.dataManagement.steward
-  type: URN
-    - corpGroup
+  type: urn
+  type_qualifier:
+    entity_types: # only user and group urns are allowed
+      - corpuser
+      - corpGroup
   display_name: Steward
   entity_types:
     - dataset
     - dataFlow
     - dataJob
 - id: io.acryl.dataManagement.certifier
-  qualified_name: io.acryl.dataManagement.certifier
-  type: URN
+  type: urn
   display_name: Person Certifying the asset
   entity_types:
     - dataset
     - schemaField
 - id: io.acryl.dataManagement.team
-  type: STRING
+  type: string
   display_name: Management team
   entity_types:
     - dataset
     - schemaField
-- id: projectName
-  type: STRING
-  display_name: Project name
+- id: projectNames
+  type: string
+  cardinality: MULTIPLE
+  display_name: Project names
   entity_types:
     - dataset
     - schemaField
+  allowed_values:
+    - value: Tracking
+      description: test value 1 for project
+    - value: DataHub
+      description: test value 2 for project
 - id: namespace
-  type: STRING
+  type: string
   display_name: Namespace
   entity_types:
     - dataset
