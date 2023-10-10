@@ -373,6 +373,7 @@ plugins: Dict[str, Set[str]] = {
     # FIXME: I don't think tableau uses sqllineage anymore so we should be able
     # to remove that dependency.
     "tableau": {"tableauserverclient>=0.17.0"} | sqllineage_lib | sqlglot_lib,
+    "teradata": sql_common | {"teradatasqlalchemy>=17.20.0.0"},
     "trino": sql_common | trino,
     "starburst-trino-usage": sql_common | usage_common | trino,
     "nifi": {"requests", "packaging", "requests-gssapi"},
@@ -495,6 +496,7 @@ base_dev_requirements = {
             "s3",
             "snowflake",
             "tableau",
+            "teradata",
             "trino",
             "hive",
             "starburst-trino-usage",
@@ -593,6 +595,7 @@ entry_points = {
         "tableau = datahub.ingestion.source.tableau:TableauSource",
         "openapi = datahub.ingestion.source.openapi:OpenApiSource",
         "metabase = datahub.ingestion.source.metabase:MetabaseSource",
+        "teradata = datahub.ingestion.source.sql.teradata:TeradataSource",
         "trino = datahub.ingestion.source.sql.trino:TrinoSource",
         "starburst-trino-usage = datahub.ingestion.source.usage.starburst_trino_usage:TrinoUsageSource",
         "nifi = datahub.ingestion.source.nifi:NifiSource",
