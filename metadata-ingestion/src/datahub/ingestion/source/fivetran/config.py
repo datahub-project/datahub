@@ -126,10 +126,10 @@ class FivetranSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin
     # Fivetran connector all sources to platform instance mapping
     sources_to_platform_instance: Dict[str, PlatformDetail] = pydantic.Field(
         default={},
-        description="A mapping of the connector's all sources to platform instance. Use connector id as key.",
+        description="A mapping of the connector's all sources dataset to platform instance. Use connector id as key.",
     )
     # Fivetran destination to platform instance mapping
     destination_to_platform_instance: Dict[str, PlatformDetail] = pydantic.Field(
         default={},
-        description="A mapping of destination to platform instance. Use destination id as key.",
+        description="A mapping of destination dataset to platform instance. Use destination id as key.",
     )
