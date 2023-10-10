@@ -65,6 +65,17 @@ public class ESUtils {
   public static final String TOKEN_COUNT_FIELD_TYPE = "token_count";
   // End of field types
 
+  public static Set<SearchableAnnotation.FieldType> FIELD_TYPES_STORED_AS_KEYWORD = Set.of(
+      SearchableAnnotation.FieldType.KEYWORD,
+        SearchableAnnotation.FieldType.TEXT,
+        SearchableAnnotation.FieldType.TEXT_PARTIAL,
+        SearchableAnnotation.FieldType.WORD_GRAM);
+  public static Set<SearchableAnnotation.FieldType> FIELD_TYPES_STORED_AS_TEXT = Set.of(
+      SearchableAnnotation.FieldType.BROWSE_PATH,
+      SearchableAnnotation.FieldType.BROWSE_PATH_V2,
+      SearchableAnnotation.FieldType.URN,
+      SearchableAnnotation.FieldType.URN_PARTIAL);
+
   public static final String ENTITY_NAME_FIELD = "_entityName";
   public static final String NAME_SUGGESTION = "nameSuggestion";
 
@@ -204,15 +215,9 @@ public class ESUtils {
   }
 
   public static String getElasticTypeForFieldType(SearchableAnnotation.FieldType fieldType) {
-    if (fieldType == SearchableAnnotation.FieldType.KEYWORD
-        || fieldType == SearchableAnnotation.FieldType.TEXT
-        || fieldType == SearchableAnnotation.FieldType.TEXT_PARTIAL
-        || fieldType == SearchableAnnotation.FieldType.WORD_GRAM) {
+    if (FIELD_TYPES_STORED_AS_KEYWORD.contains(fieldType)) {
       return KEYWORD_FIELD_TYPE;
-    } else if (fieldType == SearchableAnnotation.FieldType.BROWSE_PATH
-        || fieldType == SearchableAnnotation.FieldType.BROWSE_PATH_V2
-        || fieldType == SearchableAnnotation.FieldType.URN
-        || fieldType == SearchableAnnotation.FieldType.URN_PARTIAL) {
+    } else if (FIELD_TYPES_STORED_AS_TEXT.contains(fieldType)) {
       return TEXT_FIELD_TYPE;
     } else if (fieldType == SearchableAnnotation.FieldType.BOOLEAN) {
       return BOOLEAN_FIELD_TYPE;
