@@ -25,6 +25,8 @@ import org.apache.spark.sql.SparkSession;
 import scala.Option;
 import scala.runtime.AbstractFunction0;
 import scala.runtime.AbstractFunction1;
+import com.google.common.hash.Hashing;
+import java.nio.charset.Charset;
 
 @Slf4j
 public class LineageUtils {
@@ -93,22 +95,25 @@ public class LineageUtils {
 
   /* This is for generating urn from a hash of the plan */
 
-  /*
-   * public static String scrubPlan(String plan) { String s =
-   * plan.replaceAll("#[0-9]*", ""); s =
-   * s.replaceAll("JdbcRelationProvider@[0-9a-zA-Z]*,", "JdbcRelationProvider,");
-   * s = s.replaceAll("InMemoryFileIndex@[0-9a-zA-Z]*,", "InMemoryFileIndex,"); s
-   * = s.replaceAll("Created Time:[^\n]+\n", ""); s =
-   * s.replaceAll("Last Access:[^\n]+\n", ""); s = s.replaceAll("Owner:[^\n]+\n",
-   * ""); s = s.replaceAll("Statistics:[^\n]+\n", ""); s =
-   * s.replaceAll("Table Properties:[^\n]+\n", ""); //
-   * System.out.println("CLEAN: " + s); return s; }
-   * 
-   * public static void setPathReplacer(Function<String, String> replacer) {
-   * PATH_REPLACER = replacer; }
-   * 
-   * public static String hash(String s) { s = PATH_REPLACER.apply(s);
-   * log.debug("PATH REPLACED " + s); return Hashing.md5().hashString(s,
-   * Charset.forName("US-ASCII")).toString(); }
-   */
+  public static String scrubPlan(String plan) {
+    String s = plan.replaceAll("#[0-9]*", "");
+    s = s.replaceAll("JdbcRelationProvider@[0-9a-zA-Z]*,", "JdbcRelationProvider,");
+    s = s.replaceAll("InMemoryFileIndex@[0-9a-zA-Z]*,", "InMemoryFileIndex,");
+    s = s.replaceAll("Created Time:[^\n]+\n", "");
+    s = s.replaceAll("Last Access:[^\n]+\n", "");
+    s = s.replaceAll("Owner:[^\n]+\n", "");
+    s = s.replaceAll("Statistics:[^\n]+\n", "");
+    s = s.replaceAll("Table Properties:[^\n]+\n", ""); //
+    // System.out.println("CLEAN: " + s);
+    return s;
+  }
+
+  // public static void setPathReplacer(Function<String, String> replacer) {
+  // PATH_REPLACER = replacer;
+  // }
+
+  public static String hash(String s) {
+    // String replaced = s.replaceAll("\\", "").replaceAll("/", "");
+    return Hashing.md5().hashString(s, Charset.forName("US-ASCII")).toString();
+  }
 }

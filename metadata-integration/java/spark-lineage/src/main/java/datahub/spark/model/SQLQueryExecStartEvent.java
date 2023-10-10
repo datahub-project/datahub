@@ -16,62 +16,65 @@ import java.util.Set;
 import java.util.TreeSet;
 import lombok.Getter;
 import lombok.ToString;
-
+import java.util.stream.Collectors;
+import com.google.common.base.Joiner;
 
 @ToString
 @Getter
 public class SQLQueryExecStartEvent extends LineageEvent {
   private final long sqlQueryExecId;
   private final DatasetLineage datasetLineage;
+  private final boolean useHashUrn;
 
   public SQLQueryExecStartEvent(String master, String appName, String appId, long time, long sqlQueryExecId,
-      DatasetLineage datasetLineage) {
+      DatasetLineage datasetLineage, boolean useHashUrn) {
     super(master, appName, appId, time);
     this.sqlQueryExecId = sqlQueryExecId;
     this.datasetLineage = datasetLineage;
+    this.useHashUrn = useHashUrn;
   }
 
   @Override
   public List<MetadataChangeProposalWrapper> asMetadataEvents() {
     DataJobUrn jobUrn = jobUrn();
-    MetadataChangeProposalWrapper mcpJobIO =
-        MetadataChangeProposalWrapper.create(b -> b.entityType("dataJob").entityUrn(jobUrn).upsert().aspect(jobIO()));
+    MetadataChangeProposalWrapper mcpJobIO = MetadataChangeProposalWrapper
+        .create(b -> b.entityType("dataJob").entityUrn(jobUrn).upsert().aspect(jobIO()));
 
     DataJobInfo jobInfo = jobInfo();
     jobInfo.setCustomProperties(customProps());
     jobInfo.setStatus(JobStatus.IN_PROGRESS);
 
-    MetadataChangeProposalWrapper mcpJobInfo =
-        MetadataChangeProposalWrapper.create(b -> b.entityType("dataJob").entityUrn(jobUrn).upsert().aspect(jobInfo));
+    MetadataChangeProposalWrapper mcpJobInfo = MetadataChangeProposalWrapper
+        .create(b -> b.entityType("dataJob").entityUrn(jobUrn).upsert().aspect(jobInfo));
 
     return Arrays.asList(mcpJobIO, mcpJobInfo);
   }
 
-  DataJobInfo jobInfo() {
+  public DataJobInfo jobInfo() {
     return new DataJobInfo().setName(datasetLineage.getCallSiteShort()).setType(DataJobInfo.Type.create("sparkJob"));
   }
 
-  DataJobUrn jobUrn() {
+  public DataJobUrn jobUrn() {
     /* This is for generating urn from a hash of the plan */
-    /*
-     * Set<String> sourceUrns = datasetLineage.getSources() .parallelStream() .map(x
-     * -> x.urn().toString()) .collect(Collectors.toSet()); sourceUrns = new
-     * TreeSet<>(sourceUrns); //sort for consistency
-     *
-     * String sinkUrn = datasetLineage.getSink().urn().toString(); String plan =
-     * LineageUtils.scrubPlan(datasetLineage.getPlan()); String id =
-     * Joiner.on(",").join(sinkUrn, sourceUrns, plan);
-     *
-     * return new DataJobUrn(flowUrn(), "planHash_" + LineageUtils.hash(id));
-     */
-    return new DataJobUrn(flowUrn(), "QueryExecId_" + sqlQueryExecId);
+    if (this.useHashUrn) {
+      Set<String> sourceUrns = datasetLineage.getSources().parallelStream().map(x -> x.urn().toString())
+          .collect(Collectors.toSet());
+      sourceUrns = new TreeSet<>(sourceUrns); // sort for consistency
+
+      String sinkUrn = datasetLineage.getSink().urn().toString();
+      String plan = LineageUtils.scrubPlan(datasetLineage.getPlan());
+      String id = Joiner.on(",").join(sinkUrn, sourceUrns, plan);
+      return new DataJobUrn(flowUrn(), "planHash_" + LineageUtils.hash(id));
+    } else {
+      return new DataJobUrn(flowUrn(), "QueryExecId_" + sqlQueryExecId);
+    }
   }
 
-  DataFlowUrn flowUrn() {
+  public DataFlowUrn flowUrn() {
     return LineageUtils.flowUrn(getMaster(), getAppName());
   }
 
-  StringMap customProps() {
+  public StringMap customProps() {
     StringMap customProps = new StringMap();
     customProps.put("startedAt", timeStr());
     customProps.put("description", datasetLineage.getCallSiteShort());
