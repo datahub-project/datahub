@@ -23,6 +23,8 @@ import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.query.filter.SortCriterion;
+import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.search.AggregationMetadata;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.ScrollResult;
@@ -31,6 +33,7 @@ import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchService;
 
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchFieldConfig;
+import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.r2.RemoteInvocationException;
 import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestHighLevelClient;
@@ -38,6 +41,9 @@ import org.elasticsearch.client.indices.AnalyzeRequest;
 import org.elasticsearch.client.indices.AnalyzeResponse;
 import org.elasticsearch.client.indices.GetMappingsRequest;
 import org.elasticsearch.client.indices.GetMappingsResponse;
+import org.elasticsearch.search.builder.SearchSourceBuilder;
+import org.elasticsearch.search.sort.FieldSortBuilder;
+import org.elasticsearch.search.sort.SortBuilder;
 import org.junit.Assert;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -180,6 +186,48 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
                     assertEquals(test.analyzer(), expectedAnalyzer,
                             String.format("Expected search analyzer to match for field `%s`", test.fieldName()));
                 }
+            }
+        }
+    }
+
+    @Test
+    public void testGetSortOrder() {
+        String dateFieldName = "lastOperationTime";
+        List<String> entityNamesToTestSearch = List.of("dataset", "chart", "corpgroup");
+        List<EntitySpec> entitySpecs = entityNamesToTestSearch.stream().map(
+            name -> entityRegistry.getEntitySpec(name))
+            .collect(Collectors.toList());
+        SearchSourceBuilder builder = new SearchSourceBuilder();
+        SortCriterion sortCriterion = new SortCriterion().setOrder(SortOrder.DESCENDING).setField(dateFieldName);
+        ESUtils.buildSortOrder(builder, sortCriterion, entitySpecs);
+        List<SortBuilder<?>> sorts = builder.sorts();
+        assertEquals(sorts.size(), 2); // sort by last modified and then by urn
+        for (SortBuilder sort : sorts) {
+            assertTrue(sort instanceof FieldSortBuilder);
+            FieldSortBuilder fieldSortBuilder = (FieldSortBuilder) sort;
+            if (fieldSortBuilder.getFieldName().equals(dateFieldName)) {
+                assertEquals(fieldSortBuilder.order(), org.elasticsearch.search.sort.SortOrder.DESC);
+                assertEquals(fieldSortBuilder.unmappedType(), "date");
+            } else {
+                assertEquals(fieldSortBuilder.getFieldName(), "urn");
+            }
+        }
+
+        // Test alias field
+        String entityNameField = "_entityName";
+        SearchSourceBuilder nameBuilder = new SearchSourceBuilder();
+        SortCriterion nameCriterion = new SortCriterion().setOrder(SortOrder.ASCENDING).setField(entityNameField);
+        ESUtils.buildSortOrder(nameBuilder, nameCriterion, entitySpecs);
+        sorts = nameBuilder.sorts();
+        assertEquals(sorts.size(), 2);
+        for (SortBuilder sort : sorts) {
+            assertTrue(sort instanceof FieldSortBuilder);
+            FieldSortBuilder fieldSortBuilder = (FieldSortBuilder) sort;
+            if (fieldSortBuilder.getFieldName().equals(entityNameField)) {
+                assertEquals(fieldSortBuilder.order(), org.elasticsearch.search.sort.SortOrder.ASC);
+                assertEquals(fieldSortBuilder.unmappedType(), "keyword");
+            } else {
+                assertEquals(fieldSortBuilder.getFieldName(), "urn");
             }
         }
     }
@@ -1481,6 +1529,16 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
         assertEquals(result.getEntities().get(0).getEntity().toString(),
             "urn:li:dataset:(urn:li:dataPlatform:testOnly," + "important_units" + ",PROD)",
             "Expected table with column name exact match first");
+    }
+
+    @Test
+    public void testSortOrdering() {
+        String query = "unit_data";
+        SortCriterion criterion = new SortCriterion().setOrder(SortOrder.ASCENDING).setField("lastOperationTime");
+        SearchResult result = searchService.searchAcrossEntities(SEARCHABLE_ENTITIES, query, null, criterion, 0,
+            100, new SearchFlags().setFulltext(true).setSkipCache(true), null);
+        assertTrue(result.getEntities().size() > 2,
+            String.format("%s - Expected search results to have at least two results", query));
     }
 
     private Stream<AnalyzeResponse.AnalyzeToken> getTokens(AnalyzeRequest request) throws IOException {
