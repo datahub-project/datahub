@@ -64,6 +64,7 @@ public class DatahubSparkListener extends SparkListener {
   public static final String MW_PIPELINE_NAME = "mars.pipelineName";
   public static final String MW_SPARK_IP_IS_IN_FLOW_URN = "mars.sparkIpInFlowURN";
   public static final String MW_USE_FLOW_HASH_URN = "mars.useJobHashInFlowURN";
+  public static final String MW_JOB_NAME = "mars.jobName";
 
   public static final String COALESCE_KEY = "coalesce_jobs";
 
@@ -138,7 +139,7 @@ public class DatahubSparkListener extends SparkListener {
       appSqlDetails.get(ctx.applicationId())
           .put(sqlStart.executionId(),
               new SQLQueryExecStartEvent(getMaster(ctx), getPipelineName(ctx), ctx.applicationId(),
-                  sqlStart.time(), sqlStart.executionId(), null, useHashUrn(ctx)));
+                  sqlStart.time(), sqlStart.executionId(), null, useHashUrn(ctx), jobName(ctx)));
       log.debug("PLAN for execution id: " + getPipelineName(ctx) + ":" + sqlStart.executionId() + "\n");
       log.debug(plan.toString());
 
@@ -196,7 +197,7 @@ public class DatahubSparkListener extends SparkListener {
       }
 
       SQLQueryExecStartEvent evt = new SQLQueryExecStartEvent(getMaster(ctx), getPipelineName(ctx), ctx.applicationId(),
-          sqlStart.time(), sqlStart.executionId(), lineage, useHashUrn(ctx));
+          sqlStart.time(), sqlStart.executionId(), lineage, useHashUrn(ctx), jobName(ctx));
 
       appSqlDetails.get(ctx.applicationId()).put(sqlStart.executionId(), evt);
 
@@ -380,6 +381,12 @@ public class DatahubSparkListener extends SparkListener {
   public boolean useHashUrn(SparkContext cx) {
     Config datahubConfig = appConfig.computeIfAbsent(cx.applicationId(), s -> LineageUtils.parseSparkConfig());
     return datahubConfig.hasPath(MW_USE_FLOW_HASH_URN) && datahubConfig.getBoolean(MW_USE_FLOW_HASH_URN);
+  }
+
+  public String jobName(SparkContext cx) {
+    Config datahubConfig = appConfig.computeIfAbsent(cx.applicationId(), s -> LineageUtils.parseSparkConfig());
+    return datahubConfig.hasPath(MW_JOB_NAME)
+        && !(datahubConfig.getString(MW_JOB_NAME).equals("")) ? datahubConfig.getString(MW_JOB_NAME) : "";
   }
 
   private void processExecution(SparkListenerSQLExecutionStart sqlStart) {

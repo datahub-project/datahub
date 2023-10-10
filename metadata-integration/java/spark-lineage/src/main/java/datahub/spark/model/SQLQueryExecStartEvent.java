@@ -25,13 +25,16 @@ public class SQLQueryExecStartEvent extends LineageEvent {
   private final long sqlQueryExecId;
   private final DatasetLineage datasetLineage;
   private final boolean useHashUrn;
+  private final String jobName;
 
   public SQLQueryExecStartEvent(String master, String appName, String appId, long time, long sqlQueryExecId,
-      DatasetLineage datasetLineage, boolean useHashUrn) {
+      DatasetLineage datasetLineage, boolean useHashUrn, String jobName) {
     super(master, appName, appId, time);
     this.sqlQueryExecId = sqlQueryExecId;
     this.datasetLineage = datasetLineage;
     this.useHashUrn = useHashUrn;
+    this.jobName = jobName;
+
   }
 
   @Override
@@ -51,7 +54,11 @@ public class SQLQueryExecStartEvent extends LineageEvent {
   }
 
   public DataJobInfo jobInfo() {
-    return new DataJobInfo().setName(datasetLineage.getCallSiteShort()).setType(DataJobInfo.Type.create("sparkJob"));
+    return new DataJobInfo()
+        .setName(
+            this.jobName.equals("") ? datasetLineage.getCallSiteShort()
+                : this.jobName + "_" + Long.toString(sqlQueryExecId))
+        .setType(DataJobInfo.Type.create("sparkJob"));
   }
 
   public DataJobUrn jobUrn() {
