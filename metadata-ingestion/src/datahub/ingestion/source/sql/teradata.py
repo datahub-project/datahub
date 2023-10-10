@@ -5,6 +5,7 @@ import teradatasqlalchemy  # noqa: F401
 import teradatasqlalchemy.types as custom_types
 from pydantic.fields import Field
 
+from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -55,14 +56,9 @@ class TeradataConfig(BaseTeradataConfig):
     include_view_lineage = Field(
         default=False, description="Include table lineage for views"
     )
-
-    include_catalog_name = Field(
-        default=True, description="Include catalog name in dataset urns"
-    )
-
-    catalog = Field(
-        default="dbc",
-        description="Catalog name to use for catalog-qualified table names",
+    database_pattern = Field(
+        default=AllowDenyPattern(deny=["dbc"]),
+        description="Regex patterns for databases to filter in ingestion.",
     )
 
 
