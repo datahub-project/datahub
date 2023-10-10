@@ -50,43 +50,40 @@ module.exports = {
           position: "right",
         },
         {
-          to: "https://demo.datahubproject.io/",
-          label: "Demo",
-          position: "right",
-        },
-        {
-          href: "https://blog.datahubproject.io/",
-          label: "Blog",
-          position: "right",
-        },
-        {
-          href: "https://feature-requests.datahubproject.io/roadmap",
-          label: "Roadmap",
-          position: "right",
+          type: 'dropdown',
+          label: 'Resources',
+          position: 'right',
+          items: [
+            {
+              to: "https://demo.datahubproject.io/",
+              label: "Demo",
+            },
+            {
+              to: "https://blog.datahubproject.io/",
+              label: "Blog",
+            },
+            {
+              to: "https://feature-requests.datahubproject.io/roadmap",
+              label: "Roadmap",
+            },
+            {
+              to: "https://slack.datahubproject.io",
+              label: "Slack",
+            },
+            {
+              to: "https://github.com/datahub-project/datahub",
+              label: "Github",
+            },
+            {
+              to: "https://www.youtube.com/channel/UC3qFQC5IiwR5fvWEqi_tJ5w",
+              label: "Youtube",
+            },
+          ],
         },
         {
           type: "docsVersionDropdown",
-          position: "right",
+          position: "left",
           dropdownActiveClassDisabled: true,
-        },
-        {
-          href: "https://slack.datahubproject.io",
-          "aria-label": "Slack",
-          position: "right",
-          className: "item__icon item__slack",
-        },
-        {
-          href: "https://github.com/datahub-project/datahub",
-          "aria-label": "GitHub",
-          position: "right",
-          className: "item__icon item__github",
-        },
-
-        {
-          href: "https://www.youtube.com/channel/UC3qFQC5IiwR5fvWEqi_tJ5w",
-          "aria-label": "YouTube",
-          position: "right",
-          className: "item__icon item__youtube",
         },
       ],
     },

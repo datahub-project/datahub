@@ -149,7 +149,6 @@ div[class^="announcementBar"] {
     display: inherit;
   }
   .navbar__item {
-    display: none;
   }
 }
 
@@ -157,7 +156,17 @@ div[class^="announcementBar"] {
   .navbar__logo {
     height: 3rem;
   }
+
+  .navbar__link {
+     align-items: center;
+     margin: 0 1rem 0;
+     padding: 0;
+  }
+  .navbar__link--active {
+    border-bottom: 2px solid var(--ifm-navbar-link-hover-color);
+  }
   .navbar__item {
+    padding: 0.25rem 0;
     svg[class*="iconExternalLink"] {
       display: none;
     }
