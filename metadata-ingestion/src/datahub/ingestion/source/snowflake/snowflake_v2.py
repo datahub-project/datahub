@@ -27,6 +27,7 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
+from datahub.ingestion.api.incremental_lineage_helper import auto_incremental_lineage
 from datahub.ingestion.api.source import (
     CapabilityReport,
     MetadataWorkUnitProcessor,
@@ -36,7 +37,6 @@ from datahub.ingestion.api.source import (
     TestableSource,
     TestConnectionReport,
 )
-from datahub.ingestion.api.source_helpers import auto_incremental_lineage
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.glossary.classification_mixin import ClassificationHandler
 from datahub.ingestion.source.common.subtypes import (
@@ -517,8 +517,6 @@ class SnowflakeV2Source(
                 auto_incremental_lineage,
                 self.ctx.graph,
                 self.config.incremental_lineage,
-                self.config.include_column_lineage
-                or self.config.include_view_column_lineage,
             ),
             StaleEntityRemovalHandler.create(
                 self, self.config, self.ctx
