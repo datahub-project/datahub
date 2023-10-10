@@ -2,8 +2,8 @@ import os
 
 import pytest
 
-from tests.utils import wait_for_healthcheck_util, get_frontend_session
 from tests.test_result_msg import send_message
+from tests.utils import get_frontend_session, wait_for_healthcheck_util
 
 # Disable telemetry
 os.environ["DATAHUB_TELEMETRY_ENABLED"] = "false"
@@ -28,5 +28,5 @@ def test_healthchecks(wait_for_healthchecks):
 
 
 def pytest_sessionfinish(session, exitstatus):
-    """ whole test run finishes. """
+    """whole test run finishes."""
     send_message(exitstatus)

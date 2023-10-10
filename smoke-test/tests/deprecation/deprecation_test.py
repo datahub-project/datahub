@@ -1,10 +1,7 @@
 import pytest
-from tests.utils import (
-    delete_urns_from_file,
-    get_frontend_url,
-    ingest_file_via_rest,
-    get_root_urn,
-)
+
+from tests.utils import (delete_urns_from_file, get_frontend_url, get_root_urn,
+                         ingest_file_via_rest)
 
 
 @pytest.fixture(scope="module", autouse=True)

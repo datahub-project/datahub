@@ -2,25 +2,17 @@ import time
 import uuid
 from typing import Dict, Optional, Type
 
-from datahub.emitter.mce_builder import (
-    make_tag_urn,
-    make_term_urn,
-    make_user_urn,
-)
+from datahub.emitter.mce_builder import (make_tag_urn, make_term_urn,
+                                         make_user_urn)
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_patch_builder import MetadataPatchProposal
 from datahub.ingestion.graph.client import DataHubGraph, DataHubGraphConfig
-from datahub.metadata.schema_classes import (
-    AuditStampClass,
-    GlobalTagsClass,
-    GlossaryTermAssociationClass,
-    GlossaryTermsClass,
-    OwnerClass,
-    OwnershipClass,
-    OwnershipTypeClass,
-    TagAssociationClass,
-    _Aspect,
-)
+from datahub.metadata.schema_classes import (AuditStampClass, GlobalTagsClass,
+                                             GlossaryTermAssociationClass,
+                                             GlossaryTermsClass, OwnerClass,
+                                             OwnershipClass,
+                                             OwnershipTypeClass,
+                                             TagAssociationClass, _Aspect)
 
 
 def helper_test_entity_terms_patch(
@@ -34,18 +26,14 @@ def helper_test_entity_terms_patch(
 
     term_urn = make_term_urn(term=f"testTerm-{uuid.uuid4()}")
 
-    term_association = GlossaryTermAssociationClass(
-        urn=term_urn, context="test"
-    )
+    term_association = GlossaryTermAssociationClass(urn=term_urn, context="test")
     global_terms = GlossaryTermsClass(
         terms=[term_association],
         auditStamp=AuditStampClass(
             time=int(time.time() * 1000.0), actor=make_user_urn("tester")
         ),
     )
-    mcpw = MetadataChangeProposalWrapper(
-        entityUrn=test_entity_urn, aspect=global_terms
-    )
+    mcpw = MetadataChangeProposalWrapper(entityUrn=test_entity_urn, aspect=global_terms)
 
     with DataHubGraph(DataHubGraphConfig()) as graph:
         graph.emit_mcp(mcpw)
@@ -88,9 +76,7 @@ def helper_test_dataset_tags_patch(
 
     tag_association = TagAssociationClass(tag=tag_urn, context="test")
     global_tags = GlobalTagsClass(tags=[tag_association])
-    mcpw = MetadataChangeProposalWrapper(
-        entityUrn=test_entity_urn, aspect=global_tags
-    )
+    mcpw = MetadataChangeProposalWrapper(entityUrn=test_entity_urn, aspect=global_tags)
 
     with DataHubGraph(DataHubGraphConfig()) as graph:
         graph.emit_mcp(mcpw)
@@ -153,15 +139,11 @@ def helper_test_ownership_patch(
         assert owner.owners[0].owner == make_user_urn("jdoe")
 
         for patch_mcp in (
-            patch_builder_class(test_entity_urn)
-            .add_owner(owner_to_add)
-            .build()
+            patch_builder_class(test_entity_urn).add_owner(owner_to_add).build()
         ):
             graph.emit_mcp(patch_mcp)
 
-        owner = graph.get_aspect(
-            entity_urn=test_entity_urn, aspect_type=OwnershipClass
-        )
+        owner = graph.get_aspect(entity_urn=test_entity_urn, aspect_type=OwnershipClass)
         assert len(owner.owners) == 2
 
         for patch_mcp in (
@@ -171,9 +153,7 @@ def helper_test_ownership_patch(
         ):
             graph.emit_mcp(patch_mcp)
 
-        owner = graph.get_aspect(
-            entity_urn=test_entity_urn, aspect_type=OwnershipClass
-        )
+        owner = graph.get_aspect(entity_urn=test_entity_urn, aspect_type=OwnershipClass)
         assert len(owner.owners) == 1
         assert owner.owners[0].owner == make_user_urn("jdoe")
 
@@ -199,9 +179,7 @@ def helper_test_custom_properties_patch(
     orig_aspect = base_aspect
     assert hasattr(orig_aspect, "customProperties")
     orig_aspect.customProperties = base_property_map
-    mcpw = MetadataChangeProposalWrapper(
-        entityUrn=test_entity_urn, aspect=orig_aspect
-    )
+    mcpw = MetadataChangeProposalWrapper(entityUrn=test_entity_urn, aspect=orig_aspect)
 
     with DataHubGraph(DataHubGraphConfig()) as graph:
         graph.emit(mcpw)
