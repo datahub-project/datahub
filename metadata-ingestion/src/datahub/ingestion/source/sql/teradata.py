@@ -66,7 +66,9 @@ class TeradataConfig(BaseTeradataConfig):
 @config_class(TeradataConfig)
 @support_status(SupportStatus.TESTING)
 @capability(SourceCapability.DOMAINS, "Enabled by default")
+@capability(SourceCapability.CONTAINERS, "Enabled by default")
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
+@capability(SourceCapability.DELETION_DETECTION, "Optionally enabled via configuration")
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
 class TeradataSource(TwoTierSQLAlchemySource):
     """
