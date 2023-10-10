@@ -1,5 +1,7 @@
 import pytest
-from tests.utils import delete_urns_from_file, get_frontend_url, ingest_file_via_rest, wait_for_healthcheck_util
+
+from tests.utils import (delete_urns_from_file, get_frontend_url,
+                         ingest_file_via_rest, wait_for_healthcheck_util)
 
 
 @pytest.fixture(scope="module", autouse=True)
