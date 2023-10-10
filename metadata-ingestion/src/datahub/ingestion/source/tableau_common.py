@@ -603,6 +603,11 @@ class TableauUpstreamReference:
             database, schema, table = parsed_full_name
         elif parsed_full_name and len(parsed_full_name) == 2:
             schema, table = parsed_full_name
+        else:
+            logger.debug(
+                f"Upstream urn generation ({t_id}):"
+                f"  Did not parse full name {t_full_name}: unexpected number of values",
+            )
 
         if not schema and default_schema_map and database in default_schema_map:
             schema = default_schema_map[database]
