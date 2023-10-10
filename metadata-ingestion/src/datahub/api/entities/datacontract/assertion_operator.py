@@ -1,6 +1,6 @@
-from typing import Literal, Optional, Union
+from typing import Optional, Union
 
-from typing_extensions import Protocol
+from typing_extensions import Literal, Protocol
 
 from datahub.configuration import ConfigModel
 from datahub.metadata.schema_classes import (
