@@ -53,9 +53,6 @@ class BaseTeradataConfig(TwoTierSQLAlchemyConfig):
 
 
 class TeradataConfig(BaseTeradataConfig):
-    include_view_lineage = Field(
-        default=False, description="Include table lineage for views"
-    )
     database_pattern = Field(
         default=AllowDenyPattern(deny=["dbc"]),
         description="Regex patterns for databases to filter in ingestion.",
