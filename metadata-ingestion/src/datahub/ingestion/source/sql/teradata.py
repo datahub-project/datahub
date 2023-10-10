@@ -1,11 +1,8 @@
 import logging
-from typing import Optional, Any
 
 # This import verifies that the dependencies are available.
 import teradatasqlalchemy  # noqa: F401
 import teradatasqlalchemy.types as custom_types
-
-from pydantic import BaseModel
 from pydantic.fields import Field
 
 from datahub.ingestion.api.common import PipelineContext
@@ -17,12 +14,10 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.source.sql.sql_common import (
-    register_custom_type,
-)
+from datahub.ingestion.source.sql.sql_common import register_custom_type
 from datahub.ingestion.source.sql.two_tier_sql_source import (
-    TwoTierSQLAlchemySource,
     TwoTierSQLAlchemyConfig,
+    TwoTierSQLAlchemySource,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     BytesTypeClass,
