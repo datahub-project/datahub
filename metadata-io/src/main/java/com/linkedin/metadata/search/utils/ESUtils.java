@@ -65,12 +65,12 @@ public class ESUtils {
   public static final String TOKEN_COUNT_FIELD_TYPE = "token_count";
   // End of field types
 
-  public static Set<SearchableAnnotation.FieldType> FIELD_TYPES_STORED_AS_KEYWORD = Set.of(
+  public static final Set<SearchableAnnotation.FieldType> FIELD_TYPES_STORED_AS_KEYWORD = Set.of(
       SearchableAnnotation.FieldType.KEYWORD,
         SearchableAnnotation.FieldType.TEXT,
         SearchableAnnotation.FieldType.TEXT_PARTIAL,
         SearchableAnnotation.FieldType.WORD_GRAM);
-  public static Set<SearchableAnnotation.FieldType> FIELD_TYPES_STORED_AS_TEXT = Set.of(
+  public static final Set<SearchableAnnotation.FieldType> FIELD_TYPES_STORED_AS_TEXT = Set.of(
       SearchableAnnotation.FieldType.BROWSE_PATH,
       SearchableAnnotation.FieldType.BROWSE_PATH_V2,
       SearchableAnnotation.FieldType.URN,
