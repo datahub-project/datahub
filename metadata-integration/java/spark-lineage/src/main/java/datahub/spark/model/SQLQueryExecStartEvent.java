@@ -69,8 +69,8 @@ public class SQLQueryExecStartEvent extends LineageEvent {
       sourceUrns = new TreeSet<>(sourceUrns); // sort for consistency
 
       String sinkUrn = datasetLineage.getSink().urn().toString();
-      String plan = LineageUtils.scrubPlan(datasetLineage.getPlan());
-      String id = Joiner.on(",").join(sinkUrn, sourceUrns, plan);
+      // String plan = LineageUtils.scrubPlan(datasetLineage.getPlan());
+      String id = Joiner.on(",").join(sinkUrn, sourceUrns/*, plan*/);
       return new DataJobUrn(flowUrn(), "planHash_" + LineageUtils.hash(id));
     } else {
       return new DataJobUrn(flowUrn(), "QueryExecId_" + sqlQueryExecId);
