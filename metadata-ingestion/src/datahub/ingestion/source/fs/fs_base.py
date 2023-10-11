@@ -1,7 +1,7 @@
-from dataclasses import dataclass
-from typing import Iterable
-from urllib import parse
 from abc import ABCMeta, abstractmethod
+from dataclasses import dataclass
+from typing import Any, Iterable
+from urllib import parse
 
 
 @dataclass
@@ -15,13 +15,12 @@ class FileInfo:
 
 
 class FileSystem(metaclass=ABCMeta):
-
     @classmethod
-    def create(cls, **kwargs) -> "FileSystem":
+    def create(cls, **kwargs: Any) -> "FileSystem":
         raise NotImplementedError('File system implementations must implement "create"')
 
     @abstractmethod
-    def open(self, path: str, **kwargs):
+    def open(self, path: str, **kwargs: Any) -> Any:
         pass
 
     @abstractmethod
@@ -33,7 +32,7 @@ class FileSystem(metaclass=ABCMeta):
         pass
 
 
-def get_path_schema(path: str):
+def get_path_schema(path: str) -> str:
     scheme = parse.urlparse(path).scheme
     if scheme == "":
         scheme = "file"

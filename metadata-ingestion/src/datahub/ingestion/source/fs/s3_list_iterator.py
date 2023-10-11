@@ -1,5 +1,7 @@
-from datahub.ingestion.source.fs import s3_fs
 from collections.abc import Iterator
+from typing import Any
+
+from datahub.ingestion.source.fs import s3_fs
 from datahub.ingestion.source.fs.fs_base import FileInfo
 
 
@@ -7,13 +9,15 @@ class S3ListIterator(Iterator):
 
     MAX_KEYS = 1000
 
-    def __init__(self, s3_client, bucket: str, prefix: str, max_keys=MAX_KEYS):
+    def __init__(
+        self, s3_client: Any, bucket: str, prefix: str, max_keys: int = MAX_KEYS
+    ) -> None:
         self._s3 = s3_client
         self._bucket = bucket
         self._prefix = prefix
         self._max_keys = max_keys
-        self._file_statuses = iter([])
-        self._token = ''
+        self._file_statuses: Iterator = iter([])
+        self._token = ""
         self.fetch()
 
     def __next__(self) -> FileInfo:
@@ -35,8 +39,10 @@ class S3ListIterator(Iterator):
 
         s3_fs.assert_ok_status(response)
 
-        self._file_statuses = iter([
-            FileInfo(f"s3://{response['Name']}/{x['Key']}", x['Size'], is_file=True)
-            for x in response.get('Contents', [])
-        ])
-        self._token = response.get('NextContinuationToken')
+        self._file_statuses = iter(
+            [
+                FileInfo(f"s3://{response['Name']}/{x['Key']}", x["Size"], is_file=True)
+                for x in response.get("Contents", [])
+            ]
+        )
+        self._token = response.get("NextContinuationToken")

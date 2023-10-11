@@ -1,18 +1,19 @@
-from datahub.ingestion.source.fs.fs_base import FileSystem, FileInfo
-from typing import Iterable
 import os
 import pathlib
+from typing import Any, Iterable
+
 import smart_open
+
+from datahub.ingestion.source.fs.fs_base import FileInfo, FileSystem
 
 
 class LocalFileSystem(FileSystem):
-
     @classmethod
     def create(cls, **kwargs):
         return LocalFileSystem()
 
-    def open(self, path: str, **kwargs):
-        return smart_open.open(path, mode='rb', transport_params=kwargs)
+    def open(self, path: str, **kwargs: Any) -> Any:
+        return smart_open.open(path, mode="rb", transport_params=kwargs)
 
     def list(self, path: str) -> Iterable[FileInfo]:
         p = pathlib.Path(path)

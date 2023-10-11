@@ -6,16 +6,13 @@ import pathlib
 from dataclasses import dataclass, field
 from enum import auto
 from functools import partial
-from io import BufferedReader
 from typing import Any, Iterable, Iterator, List, Optional, Tuple, Union
-from urllib import parse
 
 import ijson
-import requests
 from pydantic import validator
 from pydantic.fields import Field
 
-from datahub.configuration.common import ConfigEnum, ConfigModel, ConfigurationError
+from datahub.configuration.common import ConfigEnum, ConfigModel
 from datahub.configuration.validate_field_deprecation import pydantic_field_deprecated
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -35,14 +32,13 @@ from datahub.ingestion.api.source import (
 )
 from datahub.ingestion.api.source_helpers import auto_workunit_reporter
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.fs.fs_base import FileInfo, get_path_schema
+from datahub.ingestion.source.fs.fs_registry import fs_registry
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeEvent,
     MetadataChangeProposal,
 )
 from datahub.metadata.schema_classes import UsageAggregationClass
-
-from datahub.ingestion.source.fs.fs_base import FileInfo, get_path_schema
-from datahub.ingestion.source.fs.fs_registry import fs_registry
 
 logger = logging.getLogger(__name__)
 
@@ -178,7 +174,7 @@ class GenericFileSource(TestableSource):
         self.ctx = ctx
         self.config = config
         self.report = FileSourceReport()
-        self.fp = None
+        self.fp: Any = None
 
     @classmethod
     def create(cls, config_dict, ctx):
@@ -191,7 +187,9 @@ class GenericFileSource(TestableSource):
         fs_class = fs_registry.get(schema)
         fs = fs_class.create()
         for file_status in fs.list(path_str):
-            if file_status.is_file and file_status.path.endswith(self.config.file_extension):
+            if file_status.is_file and file_status.path.endswith(
+                self.config.file_extension
+            ):
                 yield file_status
 
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
@@ -274,8 +272,7 @@ class GenericFileSource(TestableSource):
             yield mce
 
     def iterate_generic_file(
-        self,
-        file_status: FileInfo
+        self, file_status: FileInfo
     ) -> Iterator[
         Tuple[
             int,
@@ -333,7 +330,7 @@ class GenericFileSource(TestableSource):
 
     @staticmethod
     def close_if_possible(stream):
-        if hasattr(stream, 'close') and callable(stream.close):
+        if hasattr(stream, "close") and callable(stream.close):
             stream.close()
 
 
