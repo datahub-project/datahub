@@ -15,7 +15,7 @@ import { Message } from '../../shared/Message';
 import TabToolbar from '../../entity/shared/components/styled/TabToolbar';
 import { IngestionSourceBuilderModal } from './builder/IngestionSourceBuilderModal';
 import { addToListIngestionSourcesCache, CLI_EXECUTOR_ID, removeFromListIngestionSourcesCache } from './utils';
-import { DEFAULT_EXECUTOR_ID, SourceBuilderState } from './builder/types';
+import { DEFAULT_EXECUTOR_ID, SourceBuilderState, StringMapEntryInput } from './builder/types';
 import { IngestionSource, UpdateIngestionSourceInput } from '../../../types.generated';
 import { SearchBar } from '../../search/SearchBar';
 import { useEntityRegistry } from '../../useEntityRegistry';
@@ -173,6 +173,11 @@ export const IngestionSourceList = () => {
         setFocusSourceUrn(undefined);
     };
 
+    const sanitizeExtraArgs = (extraArgs): StringMapEntryInput[] => {
+        if (extraArgs === null || extraArgs === undefined) return [];
+        return extraArgs.map((entry) => ({ key: entry.key, value: entry.value }));
+    };
+
     const createOrUpdateIngestionSource = (
         input: UpdateIngestionSourceInput,
         resetState: () => void,
@@ -180,7 +185,21 @@ export const IngestionSourceList = () => {
     ) => {
         if (focusSourceUrn) {
             // Update:
-            updateIngestionSource({ variables: { urn: focusSourceUrn as string, input } })
+            let sanitizedInput: UpdateIngestionSourceInput = input;
+            if (sanitizedInput.config) {
+                sanitizedInput = {
+                    ...input,
+                    config: {
+                        ...input.config,
+                        // This is needed to ensure that graphQL __typename properties are not passed to the
+                        // updateIngestionSource GraphQL call which would fail otherwise as it is not an expected
+                        // input type.
+                        extraArgs: sanitizeExtraArgs(input.config?.extraArgs),
+                    },
+                };
+            }
+            console.log(`[updateIngestionSource] ${JSON.stringify(sanitizedInput)}`);
+            updateIngestionSource({ variables: { urn: focusSourceUrn as string, input: sanitizedInput } })
                 .then(() => {
                     analytics.event({
                         type: EventType.UpdateIngestionSourceEvent,

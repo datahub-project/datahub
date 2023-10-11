@@ -59,13 +59,8 @@ export const NameSourceStep = ({ state, updateState, prev, submit }: StepProps) 
         updateState(newState);
     };
 
-    const sanitiveExtraArgs = (extraArgs: StringMapEntryInput[] | null | undefined): StringMapEntryInput[] => {
-        if (extraArgs === null || extraArgs === undefined) return [];
-        return extraArgs.map((object) => ({ key: object.key, value: object.value }));
-    };
-
     const retrieveExtraEnvs = () => {
-        const extraArgs: StringMapEntryInput[] = sanitiveExtraArgs(state.config?.extraArgs);
+        const extraArgs: StringMapEntryInput[] = state.config?.extraArgs ? state.config?.extraArgs : [];
         const index: number = extraArgs.findIndex((entry) => entry.key === ExtraEnvKey) as number;
         if (index > -1) {
             return extraArgs[index].value;
@@ -74,7 +69,7 @@ export const NameSourceStep = ({ state, updateState, prev, submit }: StepProps) 
     };
 
     const setExtraEnvs = (envs: string) => {
-        let extraArgs: StringMapEntryInput[] = sanitiveExtraArgs(state.config?.extraArgs);
+        let extraArgs: StringMapEntryInput[] = state.config?.extraArgs ? state.config?.extraArgs : [];
         const indxOfEnvVars: number = extraArgs.findIndex((entry) => entry.key === ExtraEnvKey) as number;
         const value = { key: ExtraEnvKey, value: envs };
         if (indxOfEnvVars > -1) {
@@ -93,7 +88,7 @@ export const NameSourceStep = ({ state, updateState, prev, submit }: StepProps) 
     };
 
     const retrieveExtraDataHubPlugins = () => {
-        const extraArgs: StringMapEntryInput[] = sanitiveExtraArgs(state.config?.extraArgs);
+        const extraArgs: StringMapEntryInput[] = state.config?.extraArgs ? state.config?.extraArgs : [];
         const index: number = extraArgs.findIndex((entry) => entry.key === ExtraPluginKey) as number;
         if (index > -1) {
             return extraArgs[index].value;
@@ -102,7 +97,7 @@ export const NameSourceStep = ({ state, updateState, prev, submit }: StepProps) 
     };
 
     const setExtraDataHubPlugins = (plugins: string) => {
-        let extraArgs: StringMapEntryInput[] = sanitiveExtraArgs(state.config?.extraArgs);
+        let extraArgs: StringMapEntryInput[] = state.config?.extraArgs ? state.config?.extraArgs : [];
         const indxOfPlugins: number = extraArgs.findIndex((entry) => entry.key === ExtraPluginKey) as number;
         const value = { key: ExtraPluginKey, value: plugins };
         if (indxOfPlugins > -1) {
@@ -121,7 +116,7 @@ export const NameSourceStep = ({ state, updateState, prev, submit }: StepProps) 
     };
 
     const retrieveExtraReqs = () => {
-        const extraArgs: StringMapEntryInput[] = sanitiveExtraArgs(state.config?.extraArgs);
+        const extraArgs: StringMapEntryInput[] = state.config?.extraArgs ? state.config?.extraArgs : [];
         const index: number = extraArgs.findIndex((entry) => entry.key === ExtraReqKey) as number;
         if (index > -1) {
             return extraArgs[index].value;
@@ -130,7 +125,7 @@ export const NameSourceStep = ({ state, updateState, prev, submit }: StepProps) 
     };
 
     const setExtraReqs = (reqs: string) => {
-        let extraArgs: StringMapEntryInput[] = sanitiveExtraArgs(state.config?.extraArgs);
+        let extraArgs: StringMapEntryInput[] = state.config?.extraArgs ? state.config?.extraArgs : [];
         const indxOfReqs: number = extraArgs.findIndex((entry) => entry.key === ExtraReqKey) as number;
         const value = { key: ExtraReqKey, value: reqs };
         if (indxOfReqs > -1) {
