@@ -287,7 +287,7 @@ class DBTCommonConfig(
         description="When enabled, dbt test warnings will be treated as failures.",
     )
     infer_dbt_schemas: bool = Field(
-        default=True,
+        default=False,
         description="When enabled, schemas will be inferred from the dbt node definition.",
     )
     include_column_lineage: bool = Field(
@@ -622,6 +622,7 @@ def get_column_type(
 @support_status(SupportStatus.CERTIFIED)
 @capability(SourceCapability.DELETION_DETECTION, "Enabled via stateful ingestion")
 @capability(SourceCapability.LINEAGE_COARSE, "Enabled by default")
+@capability(SourceCapability.LINEAGE_FINE, "Enabled using `include_column_lineage`")
 class DBTSourceBase(StatefulIngestionSourceBase):
     def __init__(self, config: DBTCommonConfig, ctx: PipelineContext, platform: str):
         super().__init__(config, ctx)
