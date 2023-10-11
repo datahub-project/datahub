@@ -10,6 +10,8 @@ source:
     #  allow:
     #    - "demo_user"
     #  ignoreCase: true
+    include_table_lineage: true
+    include_usage_statistics: true
     stateful_ingestion:
       enabled: true
 sink:
