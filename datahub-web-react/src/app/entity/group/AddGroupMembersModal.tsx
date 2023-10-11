@@ -141,7 +141,11 @@ export const AddGroupMembersModal = ({ urn, visible, onCloseModal, onSubmit }: P
                     <Button onClick={onModalClose} type="text">
                         Cancel
                     </Button>
-                    <Button disabled={selectedMembers.length === 0} onClick={onAdd}>
+                    <Button
+                        disabled={selectedMembers.length === 0}
+                        onClick={onAdd}
+                        data-testid="modal-add-member-button"
+                    >
                         Add
                     </Button>
                 </>
@@ -150,6 +154,7 @@ export const AddGroupMembersModal = ({ urn, visible, onCloseModal, onSubmit }: P
             <Form component={false}>
                 <Form.Item>
                     <SelectInput
+                        data-testid="search-for-users-input"
                         labelInValue
                         autoFocus
                         defaultOpen

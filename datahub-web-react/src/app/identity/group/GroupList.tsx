@@ -77,7 +77,7 @@ export const GroupList = () => {
             <GroupContainer>
                 <TabToolbar>
                     <Button id={GROUPS_CREATE_GROUP_ID} type="text" onClick={() => setIsCreatingGroup(true)}>
-                        <UsergroupAddOutlined /> Create group
+                        <UsergroupAddOutlined data-testid="create-group-button" /> Create group
                     </Button>
                     <SearchBar
                         initialQuery={query || ''}
