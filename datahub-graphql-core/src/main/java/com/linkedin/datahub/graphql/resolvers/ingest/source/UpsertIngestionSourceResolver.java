@@ -1,7 +1,6 @@
 package com.linkedin.datahub.graphql.resolvers.ingest.source;
 
 import com.linkedin.common.urn.Urn;
-//import com.linkedin.data.DataMap;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
@@ -12,7 +11,6 @@ import com.linkedin.datahub.graphql.generated.UpdateIngestionSourceConfigInput;
 import com.linkedin.datahub.graphql.generated.UpdateIngestionSourceInput;
 import com.linkedin.datahub.graphql.generated.UpdateIngestionSourceScheduleInput;
 import com.linkedin.datahub.graphql.resolvers.ingest.IngestionAuthUtils;
-//import com.linkedin.datahub.graphql.types.LoadableType;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.ingestion.DataHubIngestionSourceConfig;
 import com.linkedin.ingestion.DataHubIngestionSourceInfo;

@@ -1,7 +1,7 @@
 import { Button, Checkbox, Collapse, Form, Input, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { SourceBuilderState, StepProps } from './types';
+import { SourceBuilderState, StepProps, StringMapEntryInput } from './types';
 
 const ControlsContainer = styled.div`
     display: flex;
@@ -12,6 +12,10 @@ const ControlsContainer = styled.div`
 const SaveButton = styled(Button)`
     margin-right: 15px;
 `;
+
+const ExtraEnvKey = 'extra_env_vars';
+const ExtraReqKey = 'extra_pip_requirements';
+const ExtraPluginKey = 'extra_pip_plugins';
 
 export const NameSourceStep = ({ state, updateState, prev, submit }: StepProps) => {
     const setName = (stagedName: string) => {
@@ -55,30 +59,77 @@ export const NameSourceStep = ({ state, updateState, prev, submit }: StepProps) 
         updateState(newState);
     };
 
-    const setExtraEnvs = () => {
-        // const indxOfEnvVars: number = state.config?.extraArgs?.findIndex(
-        //    (entry) => entry.key === 'extra_env_vars',
-        // ) as number;
-        /* if (indxOfEnvVars > -1) {
-            //state.config?.extraArgs![indxOfEnvVars] = {key: "extra_env_vars", value: extraEnvs}
+    const retrieveExtraEnvs = () => {
+        const extraArgs: StringMapEntryInput[] = state.config?.extraArgs ? state.config?.extraArgs : [];
+        const indxOfEnvVars: number = extraArgs.findIndex((entry) => entry.key === ExtraEnvKey) as number;
+        if (indxOfEnvVars > -1) {
+            return extraArgs[indxOfEnvVars].value;
+        }
+        return '';
+    };
+
+    const setExtraEnvs = (envs: string) => {
+        const extraArgs: StringMapEntryInput[] = state.config?.extraArgs ? state.config?.extraArgs : [];
+        const indxOfEnvVars: number = extraArgs.findIndex((entry) => entry.key === ExtraEnvKey) as number;
+        const value: StringMapEntryInput = { key: ExtraEnvKey, value: envs };
+        if (indxOfEnvVars > -1) {
+            extraArgs[indxOfEnvVars] = value;
         } else {
-            if (!state.config?.extraArgs) 
-                //state.config?.extraArgs = []
-            //state.config?.extraArgs?.push({key: "extra_env_vars", value: extraEnvs})
+            extraArgs.push(value);
         }
         const newState: SourceBuilderState = {
             ...state,
             config: {
                 ...state.config,
-                extraArgs:state.config?.extraArgs,
+                extraArgs,
             },
         };
-        updateState(newState); */
+        console.log('[setExtraEnvs] updated state: ');
+        console.log(newState);
+        updateState(newState);
     };
 
-    const setExtraDataHubPlugins = () => {};
+    const setExtraDataHubPlugins = (plugins: string) => {
+        const extraArgs: StringMapEntryInput[] = state.config?.extraArgs ? state.config?.extraArgs : [];
+        const indxOfPlugins: number = extraArgs.findIndex((entry) => entry.key === ExtraPluginKey) as number;
+        const value: StringMapEntryInput = { key: ExtraPluginKey, value: plugins };
+        if (indxOfPlugins > -1) {
+            extraArgs[indxOfPlugins] = value;
+        } else {
+            extraArgs.push(value);
+        }
+        const newState: SourceBuilderState = {
+            ...state,
+            config: {
+                ...state.config,
+                extraArgs,
+            },
+        };
+        console.log('[setExtraDataHubPlugins] updated state: ');
+        console.log(newState);
+        updateState(newState);
+    };
 
-    const setExtraReqs = () => {};
+    const setExtraReqs = (reqs: string) => {
+        const extraArgs: StringMapEntryInput[] = state.config?.extraArgs ? state.config?.extraArgs : [];
+        const indxOfReqs: number = extraArgs.findIndex((entry) => entry.key === ExtraReqKey) as number;
+        const value: StringMapEntryInput = { key: ExtraReqKey, value: reqs };
+        if (indxOfReqs > -1) {
+            extraArgs[indxOfReqs] = value;
+        } else {
+            extraArgs.push(value);
+        }
+        const newState: SourceBuilderState = {
+            ...state,
+            config: {
+                ...state.config,
+                extraArgs,
+            },
+        };
+        console.log('[setExtraReqs] updated state: ');
+        console.log(newState);
+        updateState(newState);
+    };
 
     const onClickCreate = (shouldRun?: boolean) => {
         if (state.name !== undefined && state.name.length > 0) {
@@ -141,47 +192,50 @@ export const NameSourceStep = ({ state, updateState, prev, submit }: StepProps) 
                                 onChange={(event) => setDebugMode(event.target.checked)}
                             />
                         </Form.Item>
-                        <Form.Item label={<Typography.Text strong>ExtraArgs</Typography.Text>}>
+                        <Form.Item label={<Typography.Text strong>Extra Enviroment Variables</Typography.Text>}>
                             <Typography.Paragraph>
-                                Advanced: Add specific environment variables to an ingestion execution
+                                Advanced: Set extra environment variables to an ingestion execution
                             </Typography.Paragraph>
                             <Input
                                 data-testid="extra-args-input"
                                 placeholder='{"MY_CUSTOM_ENV": "my_custom_value2"}'
-                                value={
-                                    state.config?.extraArgs?.filter((entry) => entry.key === 'extra_env_vars')[0]
-                                        .value || ''
-                                }
-                                onChange={() => setExtraEnvs} // setExtraEnvs(event.target.value)}
+                                value={retrieveExtraEnvs()}
+                                onChange={(event) => setExtraEnvs(event.target.value)}
                             />
                         </Form.Item>
-                        <Form.Item label={<Typography.Text strong>ExtraPipPlugins</Typography.Text>}>
+                        <Form.Item label={<Typography.Text strong>Extra DataHub plugins</Typography.Text>}>
                             <Typography.Paragraph>
-                                Advanced: Add extra pip plugins for an ingestion execution
+                                Advanced: Set extra DataHub plugins for an ingestion execution
                             </Typography.Paragraph>
                             <Input
                                 data-testid="extra-pip-plugin-input"
                                 placeholder='["debug"]'
                                 value={
-                                    state.config?.extraArgs?.filter((entry) => entry.key === 'extra_pip_plugins')[0]
-                                        .value || ''
+                                    (state.config?.extraArgs?.findIndex(
+                                        (entry) => entry.key === ExtraPluginKey,
+                                    ) as number) > -1
+                                        ? state.config?.extraArgs?.filter((entry) => entry.key === ExtraPluginKey)[0]
+                                              .value
+                                        : ''
                                 }
-                                onChange={() => setExtraDataHubPlugins} // setExtraDataHubPlugins(event.target.value)}
+                                onChange={(event) => setExtraDataHubPlugins(event.target.value)}
                             />
                         </Form.Item>
-                        <Form.Item label={<Typography.Text strong>ExtraPipPlugins</Typography.Text>}>
+                        <Form.Item label={<Typography.Text strong>Extra Pip Libraries</Typography.Text>}>
                             <Typography.Paragraph>
-                                Advanced: Add extra pip plugins for an ingestion execution
+                                Advanced: Add extra pip libraries for an ingestion execution
                             </Typography.Paragraph>
                             <Input
                                 data-testid="extra-pip-reqs-input"
                                 placeholder='["sqlparse==0.4.3"]'
                                 value={
-                                    state.config?.extraArgs?.filter(
-                                        (entry) => entry.key === 'extra_pip_requirements',
-                                    )[0].value || ''
+                                    (state.config?.extraArgs?.findIndex(
+                                        (entry) => entry.key === ExtraReqKey,
+                                    ) as number) > -1
+                                        ? state.config?.extraArgs?.filter((entry) => entry.key === ExtraReqKey)[0].value
+                                        : ''
                                 }
-                                onChange={() => setExtraReqs} // setExtraReqs(event.target.value)}
+                                onChange={(event) => setExtraReqs(event.target.value)}
                             />
                         </Form.Item>
                     </Collapse.Panel>

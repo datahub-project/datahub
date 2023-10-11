@@ -180,6 +180,8 @@ export const IngestionSourceList = () => {
     ) => {
         if (focusSourceUrn) {
             // Update:
+            console.log('YO');
+            console.log(input);
             updateIngestionSource({ variables: { urn: focusSourceUrn as string, input } })
                 .then(() => {
                     analytics.event({
@@ -294,6 +296,7 @@ export const IngestionSourceList = () => {
                             (recipeBuilderState.config?.executorId as string)) ||
                         DEFAULT_EXECUTOR_ID,
                     debugMode: recipeBuilderState.config?.debugMode || false,
+                    extraArgs: recipeBuilderState.config?.extraArgs || [],
                 },
                 schedule: recipeBuilderState.schedule && {
                     interval: recipeBuilderState.schedule?.interval as string,

@@ -35,7 +35,14 @@ export type StepProps = {
 };
 
 export type StringMapEntryInput = {
+    /**
+     * The key of the map entry
+     */
     key: string;
+
+    /**
+     * The value fo the map entry
+     */
     value: string;
 };
 
@@ -98,7 +105,7 @@ export interface SourceBuilderState {
         debugMode?: boolean | null;
 
         /**
-         * Advanced:
+         * Advanced: Extra arguments for the ingestion run.
          */
         extraArgs?: StringMapEntryInput[] | null;
     };
