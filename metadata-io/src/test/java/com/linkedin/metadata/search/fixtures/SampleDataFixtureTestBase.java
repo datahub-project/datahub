@@ -40,6 +40,9 @@ import org.opensearch.client.indices.AnalyzeRequest;
 import org.opensearch.client.indices.AnalyzeResponse;
 import org.opensearch.client.indices.GetMappingsRequest;
 import org.opensearch.client.indices.GetMappingsResponse;
+import org.opensearch.search.builder.SearchSourceBuilder;
+import org.opensearch.search.sort.FieldSortBuilder;
+import org.opensearch.search.sort.SortBuilder;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
@@ -60,11 +63,7 @@ import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DATA_JOB_ENTITY_NAME;
 import static com.linkedin.metadata.search.elasticsearch.query.request.SearchQueryBuilder.STRUCTURED_QUERY_PREFIX;
 import static com.linkedin.metadata.utils.SearchUtil.AGGREGATION_SEPARATOR_CHAR;
-import static io.datahubproject.test.search.SearchTestUtils.autocomplete;
-import static io.datahubproject.test.search.SearchTestUtils.scroll;
-import static io.datahubproject.test.search.SearchTestUtils.search;
-import static io.datahubproject.test.search.SearchTestUtils.searchAcrossEntities;
-import static io.datahubproject.test.search.SearchTestUtils.searchStructured;
+import static io.datahubproject.test.search.SearchTestUtils.*;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
@@ -190,7 +189,7 @@ abstract public class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
         String dateFieldName = "lastOperationTime";
         List<String> entityNamesToTestSearch = List.of("dataset", "chart", "corpgroup");
         List<EntitySpec> entitySpecs = entityNamesToTestSearch.stream().map(
-            name -> entityRegistry.getEntitySpec(name))
+            name -> getEntityRegistry().getEntitySpec(name))
             .collect(Collectors.toList());
         SearchSourceBuilder builder = new SearchSourceBuilder();
         SortCriterion sortCriterion = new SortCriterion().setOrder(SortOrder.DESCENDING).setField(dateFieldName);
@@ -201,7 +200,7 @@ abstract public class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
             assertTrue(sort instanceof FieldSortBuilder);
             FieldSortBuilder fieldSortBuilder = (FieldSortBuilder) sort;
             if (fieldSortBuilder.getFieldName().equals(dateFieldName)) {
-                assertEquals(fieldSortBuilder.order(), org.elasticsearch.search.sort.SortOrder.DESC);
+                assertEquals(fieldSortBuilder.order(), org.opensearch.search.sort.SortOrder.DESC);
                 assertEquals(fieldSortBuilder.unmappedType(), "date");
             } else {
                 assertEquals(fieldSortBuilder.getFieldName(), "urn");
@@ -219,7 +218,7 @@ abstract public class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
             assertTrue(sort instanceof FieldSortBuilder);
             FieldSortBuilder fieldSortBuilder = (FieldSortBuilder) sort;
             if (fieldSortBuilder.getFieldName().equals(entityNameField)) {
-                assertEquals(fieldSortBuilder.order(), org.elasticsearch.search.sort.SortOrder.ASC);
+                assertEquals(fieldSortBuilder.order(), org.opensearch.search.sort.SortOrder.ASC);
                 assertEquals(fieldSortBuilder.unmappedType(), "keyword");
             } else {
                 assertEquals(fieldSortBuilder.getFieldName(), "urn");
@@ -1530,7 +1529,7 @@ abstract public class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
     public void testSortOrdering() {
         String query = "unit_data";
         SortCriterion criterion = new SortCriterion().setOrder(SortOrder.ASCENDING).setField("lastOperationTime");
-        SearchResult result = searchService.searchAcrossEntities(SEARCHABLE_ENTITIES, query, null, criterion, 0,
+        SearchResult result = getSearchService().searchAcrossEntities(SEARCHABLE_ENTITIES, query, null, criterion, 0,
             100, new SearchFlags().setFulltext(true).setSkipCache(true), null);
         assertTrue(result.getEntities().size() > 2,
             String.format("%s - Expected search results to have at least two results", query));
