@@ -113,15 +113,13 @@ public class BootstrapManagerFactory {
   @Value("${bootstrap.backfillBrowsePathsV2.enabled}")
   private Boolean _backfillBrowsePathsV2Enabled;
 
-<<<<<<< HEAD
   // Saas-only
   @Autowired
   @Qualifier("ingestMetadataTestsStep")
   private IngestMetadataTestsStep _ingestMetadataTestsStep;
-=======
+
   @Value("${bootstrap.policies.file}")
   private Resource _policiesResource;
->>>>>>> oss_master
 
   @Bean(name = "bootstrapManager")
   @Scope("singleton")
