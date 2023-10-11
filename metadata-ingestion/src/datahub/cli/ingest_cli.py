@@ -4,14 +4,12 @@ import json
 import logging
 import os
 import sys
-import memray
 import textwrap
 from datetime import datetime
 from typing import Optional
 
 import click
 import click_spinner
-import tzlocal
 from click_default_group import DefaultGroup
 from tabulate import tabulate
 
