@@ -21,6 +21,7 @@ from datahub.cli.get_cli import get
 from datahub.cli.ingest_cli import ingest
 from datahub.cli.migrate import migrate
 from datahub.cli.put_cli import put
+from datahub.cli.specific.datacontract_cli import datacontract
 from datahub.cli.specific.dataproduct_cli import dataproduct
 from datahub.cli.specific.group_cli import group
 from datahub.cli.specific.user_cli import user
@@ -158,6 +159,7 @@ datahub.add_command(timeline)
 datahub.add_command(user)
 datahub.add_command(group)
 datahub.add_command(dataproduct)
+datahub.add_command(datacontract)
 
 try:
     from datahub.cli.lite_cli import lite

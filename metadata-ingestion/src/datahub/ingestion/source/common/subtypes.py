@@ -16,6 +16,9 @@ class DatasetSubTypes(str, Enum):
     SALESFORCE_STANDARD_OBJECT = "Object"
     POWERBI_DATASET_TABLE = "PowerBI Dataset Table"
 
+    # TODO: Create separate entity...
+    NOTEBOOK = "Notebook"
+
 
 class DatasetContainerSubTypes(str, Enum):
     # Generic SubTypes
