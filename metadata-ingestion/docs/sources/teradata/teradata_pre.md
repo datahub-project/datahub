@@ -13,6 +13,16 @@
     GRANT SELECT ON DBC.IndicesV TO datahub;
     GRANT SELECT ON dbc.TableTextV TO datahub;
     GRANT SELECT ON dbc.TablesV TO datahub;
+    GRANT SELECT ON dbc.dbqlogtbl TO datahub; -- if lineage or usage extraction is enabled
     ```
    
     If you want to run profiling, you need to grant select permission on all the tables you want to profile.
+
+3. If linege or usage extraction is enabled, please, check if query logging is enabled and it is set to size which
+will fit for your queries (the default query text size Teradata captures is max 200 chars)
+   An example how you can set it for all users:
+    ```sql
+    REPLACE QUERY LOGGING LIMIT SQLTEXT=2000 ON ALL;
+    ```
+   See more here about query logging:
+      [https://docs.teradata.com/r/Teradata-VantageCloud-Lake/Database-Reference/Database-Administration/Tracking-Query-Behavior-with-Database-Query-Logging-Operational-DBAs]()
