@@ -39,3 +39,5 @@ INSERT INTO metadata_aspect_v2
 SELECT * FROM temp_metadata_aspect_v2
 WHERE NOT EXISTS (SELECT * from metadata_aspect_v2);
 DROP TABLE temp_metadata_aspect_v2;
+
+DROP TABLE IF EXISTS metadata_index;

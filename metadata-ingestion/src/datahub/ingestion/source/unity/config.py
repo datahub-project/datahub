@@ -181,6 +181,17 @@ class UnityCatalogSourceConfig(
         description="Option to enable/disable lineage generation. Currently we have to call a rest call per column to get column level lineage due to the Databrick api which can slow down ingestion. ",
     )
 
+    column_lineage_column_limit: int = pydantic.Field(
+        default=300,
+        description="Limit the number of columns to get column level lineage. ",
+    )
+
+    lineage_max_workers: int = pydantic.Field(
+        default=5 * (os.cpu_count() or 4),
+        description="Number of worker threads to use for column lineage thread pool executor. Set to 1 to disable.",
+        hidden_from_docs=True,
+    )
+
     include_usage_statistics: bool = Field(
         default=True,
         description="Generate usage statistics.",
