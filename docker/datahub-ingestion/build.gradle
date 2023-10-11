@@ -33,6 +33,7 @@ docker {
                 i.file == project(':metadata-ingestion-modules').buildDir
     }
     buildArgs([DOCKER_VERSION: version,
+               BASE_IMAGE: "${docker_registry}/${docker_repo}-base",
                RELEASE_VERSION: version.replace('-SNAPSHOT', '').replace('v', '').replace('-slim', '')])
 }
 tasks.getByName('docker').dependsOn(['build',

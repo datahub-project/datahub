@@ -126,6 +126,7 @@ public class TestSparkJobsLineage {
         .respond(HttpResponse.response().withStatusCode(200));
   }
 
+  @BeforeClass
   public static void init() {
     mockServer = startClientAndServer(GMS_PORT);
     resetBaseExpectations();
@@ -190,8 +191,12 @@ public class TestSparkJobsLineage {
 
   @AfterClass
   public static void tearDown() throws Exception {
-    spark.stop();
-    mockServer.stop();
+    if (spark != null) {
+      spark.stop();
+    }
+    if (mockServer != null) {
+      mockServer.stop();
+    }
   }
 
   private static void check(List<DatasetLineage> expected, List<DatasetLineage> actual) {
