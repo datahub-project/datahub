@@ -31,7 +31,7 @@ sink:
 
 flags:
   generate_memory_profiles: "<path to folder where dumps will be written to>"
-````
+```
 
 Once the ingestion run starts a binary file will be created and appended to during the execution of the ingestion. 
 
