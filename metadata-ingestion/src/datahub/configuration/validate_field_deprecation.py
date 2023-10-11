@@ -1,20 +1,28 @@
 import warnings
-from typing import Optional, Type
+from typing import Any, Optional, Type
 
 import pydantic
 
 from datahub.configuration.common import ConfigurationWarning
 from datahub.utilities.global_warning_util import add_global_warning
 
+_unset = object()
 
-def pydantic_field_deprecated(field: str, message: Optional[str] = None) -> classmethod:
+
+def pydantic_field_deprecated(
+    field: str,
+    warn_if_value_is_not: Any = _unset,
+    message: Optional[str] = None,
+) -> classmethod:
     if message:
         output = message
     else:
         output = f"{field} is deprecated and will be removed in a future release. Please remove it from your config."
 
     def _validate_deprecated(cls: Type, values: dict) -> dict:
-        if field in values:
+        if field in values and (
+            warn_if_value_is_not is _unset or values[field] != warn_if_value_is_not
+        ):
             add_global_warning(output)
             warnings.warn(output, ConfigurationWarning, stacklevel=2)
         return values

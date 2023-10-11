@@ -18,8 +18,8 @@ from datahub.configuration.common import (
     ConfigurationError,
     LineageConfig,
 )
-from datahub.configuration.pydantic_field_deprecation import pydantic_field_deprecated
 from datahub.configuration.source_common import DatasetSourceConfigMixin
+from datahub.configuration.validate_field_deprecation import pydantic_field_deprecated
 from datahub.emitter import mce_builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
@@ -214,7 +214,9 @@ class DBTCommonConfig(
         default=False,
         description="Use model identifier instead of model name if defined (if not, default to model name).",
     )
-    _deprecate_use_identifiers = pydantic_field_deprecated("use_identifiers")
+    _deprecate_use_identifiers = pydantic_field_deprecated(
+        "use_identifiers", warn_if_value_is_not=False
+    )
 
     entities_enabled: DBTEntitiesEnabled = Field(
         DBTEntitiesEnabled(),
@@ -277,6 +279,14 @@ class DBTCommonConfig(
         default=False,
         description="When enabled, converts column URNs to lowercase to ensure cross-platform compatibility. "
         "If `target_platform` is Snowflake, the default is True.",
+    )
+    use_compiled_code: bool = Field(
+        default=False,
+        description="When enabled, uses the compiled dbt code instead of the raw dbt node definition.",
+    )
+    test_warnings_are_errors: bool = Field(
+        default=False,
+        description="When enabled, dbt test warnings will be treated as failures.",
     )
 
     @validator("target_platform")
@@ -701,18 +711,22 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             assertion_urn = mce_builder.make_assertion_urn(
                 mce_builder.datahub_guid(
                     {
-                        "platform": DBT_PLATFORM,
-                        "name": node.dbt_name,
-                        "instance": self.config.platform_instance,
-                        **(
-                            # Ideally we'd include the env unconditionally. However, we started out
-                            # not including env in the guid, so we need to maintain backwards compatibility
-                            # with existing PROD assertions.
-                            {"env": self.config.env}
-                            if self.config.env != mce_builder.DEFAULT_ENV
-                            and self.config.include_env_in_assertion_guid
-                            else {}
-                        ),
+                        k: v
+                        for k, v in {
+                            "platform": DBT_PLATFORM,
+                            "name": node.dbt_name,
+                            "instance": self.config.platform_instance,
+                            **(
+                                # Ideally we'd include the env unconditionally. However, we started out
+                                # not including env in the guid, so we need to maintain backwards compatibility
+                                # with existing PROD assertions.
+                                {"env": self.config.env}
+                                if self.config.env != mce_builder.DEFAULT_ENV
+                                and self.config.include_env_in_assertion_guid
+                                else {}
+                            ),
+                        }.items()
+                        if v is not None
                     }
                 )
             )
@@ -807,7 +821,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                         mce_builder.make_schema_field_urn(upstream_urn, column_name)
                     ],
                     nativeType=node.name,
-                    logic=node.compiled_code if node.compiled_code else node.raw_code,
+                    logic=node.compiled_code or node.raw_code,
                     aggregation=AssertionStdAggregationClass._NATIVE_,
                     nativeParameters=string_map(kw_args),
                 ),
@@ -821,7 +835,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     dataset=upstream_urn,
                     scope=DatasetAssertionScopeClass.DATASET_ROWS,
                     operator=AssertionStdOperatorClass._NATIVE_,
-                    logic=node.compiled_code if node.compiled_code else node.raw_code,
+                    logic=node.compiled_code or node.raw_code,
                     nativeType=node.name,
                     aggregation=AssertionStdAggregationClass._NATIVE_,
                     nativeParameters=string_map(kw_args),
@@ -852,6 +866,10 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             result=AssertionResultClass(
                 type=AssertionResultTypeClass.SUCCESS
                 if test_result.status == "pass"
+                or (
+                    not self.config.test_warnings_are_errors
+                    and test_result.status == "warn"
+                )
                 else AssertionResultTypeClass.FAILURE,
                 nativeResults=test_result.native_results,
             ),
@@ -1003,8 +1021,8 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     aspects.append(upstream_lineage_class)
 
                 # add view properties aspect
-                if node.raw_code and node.language == "sql":
-                    view_prop_aspect = self._create_view_properties_aspect(node)
+                view_prop_aspect = self._create_view_properties_aspect(node)
+                if view_prop_aspect:
                     aspects.append(view_prop_aspect)
 
                 # emit subtype mcp
@@ -1129,14 +1147,21 @@ class DBTSourceBase(StatefulIngestionSourceBase):
     def get_external_url(self, node: DBTNode) -> Optional[str]:
         pass
 
-    def _create_view_properties_aspect(self, node: DBTNode) -> ViewPropertiesClass:
+    def _create_view_properties_aspect(
+        self, node: DBTNode
+    ) -> Optional[ViewPropertiesClass]:
+        view_logic = (
+            node.compiled_code if self.config.use_compiled_code else node.raw_code
+        )
+
+        if node.language != "sql" or not view_logic:
+            return None
+
         materialized = node.materialization in {"table", "incremental", "snapshot"}
-        # this function is only called when raw sql is present. assert is added to satisfy lint checks
-        assert node.raw_code is not None
         view_properties = ViewPropertiesClass(
             materialized=materialized,
             viewLanguage="SQL",
-            viewLogic=node.raw_code,
+            viewLogic=view_logic,
         )
         return view_properties
 
@@ -1188,9 +1213,15 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         ):
             aspects.append(meta_aspects.get(Constants.ADD_TERM_OPERATION))
 
+        # add meta links aspect
+        meta_links_aspect = meta_aspects.get(Constants.ADD_DOC_LINK_OPERATION)
+        if meta_links_aspect and self.config.enable_meta_mapping:
+            aspects.append(meta_links_aspect)
+
         # add schema metadata aspect
         schema_metadata = self.get_schema_metadata(self.report, node, mce_platform)
         aspects.append(schema_metadata)
+
         return aspects
 
     def get_schema_metadata(

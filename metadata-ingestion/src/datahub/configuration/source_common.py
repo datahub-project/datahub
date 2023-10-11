@@ -4,7 +4,7 @@ from pydantic import validator
 from pydantic.fields import Field
 
 from datahub.configuration.common import ConfigModel, ConfigurationError
-from datahub.configuration.pydantic_field_deprecation import pydantic_field_deprecated
+from datahub.configuration.validate_field_deprecation import pydantic_field_deprecated
 from datahub.metadata.schema_classes import FabricTypeClass
 
 DEFAULT_ENV = FabricTypeClass.PROD

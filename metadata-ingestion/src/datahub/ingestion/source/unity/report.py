@@ -18,6 +18,8 @@ class UnityCatalogReport(IngestionStageReport, StaleEntityRemovalSourceReport):
     table_profiles: EntityFilterReport = EntityFilterReport.field(type="table profile")
     notebooks: EntityFilterReport = EntityFilterReport.field(type="notebook")
 
+    num_column_lineage_skipped_column_count: int = 0
+
     num_queries: int = 0
     num_queries_dropped_parse_failure: int = 0
     num_queries_missing_table: int = 0  # Can be due to pattern filter
