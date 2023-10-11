@@ -38,12 +38,12 @@ Once the ingestion run starts a binary file will be created and appended to duri
 These files follow the pattern `file-<ingestion-run-urn>.bin` for a unique identification.
 Once the ingestion has finished you can use `memray` to analyze the memory dump in a flamegraph view using:
 
-`$ memray flamegraph file-None-file-2023_09_18-21_38_43.bin`
+```$ memray flamegraph file-None-file-2023_09_18-21_38_43.bin```
 
 This will generate an interactive HTML file for analysis:
 
 <p align="center">
-    <img width="70%" src="https://github.com/datahub-project/static-assets/blob/ps-memray-example/imgs/metadata-ingestion/memray-example.png?raw=true"/>
+    <img width="70%" src="https://github.com/datahub-project/static-assets/blob/main/imgs/metadata-ingestion/memray-example.png?raw=true"/>
 </p>
 
 

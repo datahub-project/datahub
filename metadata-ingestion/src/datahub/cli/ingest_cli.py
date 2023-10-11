@@ -130,15 +130,7 @@ def run(
         logger.info("Starting metadata ingestion")
         with click_spinner.spinner(disable=no_spinner):
             try:
-                if pipeline.config.flags.generate_memory_profiles:
-                    import memray
-
-                    with memray.Tracker(
-                        f"{pipeline.config.flags.generate_memory_profiles}/{pipeline.config.run_id}.bin"
-                    ):
-                        pipeline.run()
-                else:
-                    pipeline.run()
+                pipeline.run()
             except Exception as e:
                 logger.info(
                     f"Source ({pipeline.config.source.type}) report:\n{pipeline.source.get_report().as_string()}"
