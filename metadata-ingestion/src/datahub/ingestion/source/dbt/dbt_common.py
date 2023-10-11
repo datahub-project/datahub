@@ -1,3 +1,4 @@
+import itertools
 import logging
 import re
 from abc import abstractmethod
@@ -102,7 +103,9 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.specific.dataset import DatasetPatchBuilder
 from datahub.utilities.mapping import Constants, OperationProcessor
+from datahub.utilities.sqlglot_lineage import SchemaResolver, sqlglot_lineage
 from datahub.utilities.time import datetime_to_ts_millis
+from datahub.utilities.topological_sort import topological_sort
 
 logger = logging.getLogger(__name__)
 DBT_PLATFORM = "dbt"
@@ -351,6 +354,8 @@ class DBTColumn:
     meta: Dict[str, Any] = field(default_factory=dict)
     tags: List[str] = field(default_factory=list)
 
+    datahub_data_type: Optional[SchemaFieldDataType] = None
+
 
 @dataclass
 class DBTNode:
@@ -415,6 +420,34 @@ class DBTNode:
             platform_instance=data_platform_instance,
             env=env,
         )
+
+    @property
+    def exists_in_target_platform(self):
+        return not (self.materialization == "ephemeral" or self.node_type == "test")
+
+    def merge_schema_fields(self, schema_fields: List[SchemaField]) -> None:
+        """
+        Merges the schema fields into the DBTNode.
+
+        This will prefer the dbt columns info over the schema metadata info.
+        """
+
+        if self.columns:
+            # If we already have columns, don't overwrite them.
+            # TODO maybe we should augment them instead?
+            return
+
+        self.columns = [
+            DBTColumn(
+                name=schema_field.fieldPath,
+                comment="",
+                description="",
+                index=i,
+                data_type=schema_field.nativeDataType,
+                datahub_data_type=schema_field.type,
+            )
+            for i, schema_field in enumerate(schema_fields)
+        ]
 
 
 def get_custom_properties(node: DBTNode) -> Dict[str, str]:
@@ -649,23 +682,23 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
-        if self.config.write_semantics == "PATCH" and not self.ctx.graph:
-            raise ConfigurationError(
-                "With PATCH semantics, dbt source requires a datahub_api to connect to. "
-                "Consider using the datahub-rest sink or provide a datahub_api: configuration on your ingestion recipe."
-            )
+        if self.config.write_semantics == "PATCH":
+            self.ctx.require_graph("Using dbt with write_semantics=PATCH")
+        if self.config.infer_dbt_schemas:
+            self.ctx.require_graph("Using dbt with infer_dbt_schemas=True")
 
         all_nodes, additional_custom_props = self.load_nodes()
 
         all_nodes_map = {node.dbt_name: node for node in all_nodes}
-        nodes = self.filter_nodes(all_nodes)
-
         additional_custom_props_filtered = {
             key: value
             for key, value in additional_custom_props.items()
             if value is not None
         }
 
+        inferred_schemas = self._infer_schemas_and_update_cll(all_nodes_map)
+
+        nodes = self._filter_nodes(all_nodes)
         non_test_nodes = [
             dataset_node for dataset_node in nodes if dataset_node.node_type != "test"
         ]
@@ -693,7 +726,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             all_nodes_map,
         )
 
-    def filter_nodes(self, all_nodes: List[DBTNode]) -> List[DBTNode]:
+    def _filter_nodes(self, all_nodes: List[DBTNode]) -> List[DBTNode]:
         nodes = []
         for node in all_nodes:
             key = node.dbt_name
@@ -704,6 +737,99 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             nodes.append(node)
 
         return nodes
+
+    def _infer_schemas_and_update_cll(
+        self, all_nodes_map: Dict[str, DBTNode]
+    ) -> Dict[str, SchemaMetadata]:
+        if not self.config.infer_dbt_schemas:
+            return {}
+
+        graph = self.ctx.require_graph("Using dbt with infer_dbt_schemas")
+
+        # TODO: maybe write these to the nodes directly?
+        schemas: Dict[str, SchemaMetadata] = {}
+        schema_resolver = SchemaResolver(
+            platform=self.config.target_platform,
+            platform_instance=self.config.target_platform_instance,
+            env=self.config.env,
+        )
+
+        # TODO maintain bidict of dbt node name <-> target platform urn
+
+        # TODO: only process non-test nodes here
+
+        # Iterate over the dbt nodes in topological order.
+        # This ensures that we process upstream nodes before downstream nodes.
+        for dbt_name in topological_sort(
+            list(all_nodes_map.keys()),
+            edges=list(
+                itertools.chain.from_iterable(
+                    [(upstream, node.dbt_name) for upstream in node.upstream_nodes]
+                    for node in all_nodes_map.values()
+                )
+            ),
+        ):
+            node = all_nodes_map[dbt_name]
+
+            dbt_node_urn = node.get_urn(
+                DBT_PLATFORM, self.config.env, self.config.platform_instance
+            )
+            if node.exists_in_target_platform:
+                target_node_urn = node.get_urn(
+                    self.config.target_platform,
+                    self.config.env,
+                    self.config.target_platform_instance,
+                )
+            else:
+                target_node_urn = None
+
+            # Fetch the schema from the graph if possible.
+            schema_fields: Optional[List[SchemaField]] = None
+            if target_node_urn:
+                schema_metadata = graph.get_aspect(target_node_urn, SchemaMetadata)
+                if schema_metadata:
+                    schema_fields = schema_metadata.fields
+
+            # Run sql parser to infer the schema + generate column lineage.
+            sql_result = None
+            if node.compiled_code:
+                sql_result = sqlglot_lineage(
+                    node.compiled_code, schema_resolver=schema_resolver
+                )
+
+            # TODO when saving the lineage info, drop transitive deps
+
+            # If we didn't fetch the schema from the graph, use the inferred schema.
+            if not schema_fields and sql_result and sql_result.column_lineage:
+                schema_fields = [
+                    SchemaField(
+                        fieldPath=column_lineage.downstream.column,
+                        type=column_lineage.downstream.column_type
+                        or SchemaFieldDataType(type=NullTypeClass()),
+                        nativeDataType="",
+                    )
+                    for column_lineage in sql_result.column_lineage
+                ]
+
+            # Merge the schema fields into the dbt node.
+            if schema_fields:
+                node.merge_schema_fields(schema_fields)
+
+            # Add the node to the schema resolver, so that CLL works for
+            # downstream nodes.
+            if target_node_urn and node.columns:
+                schema_resolver.add_raw_schema_info(
+                    target_node_urn,
+                    {
+                        # TODO: This raw type logic is a bit hacky.
+                        column.name: str(column.datahub_data_type.type)
+                        if column.datahub_data_type
+                        else column.data_type
+                        for column in node.columns
+                    },
+                )
+
+        return schemas
 
     def create_platform_mces(
         self,
@@ -784,7 +910,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             else:
                 # We are creating empty node for platform and only add lineage/keyaspect.
                 aspects = []
-                if node.materialization == "ephemeral" or node.node_type == "test":
+                if not node.exists_in_target_platform:
                     continue
 
                 # This code block is run when we are generating entities of platform type.
@@ -1034,7 +1160,8 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             field = SchemaField(
                 fieldPath=field_name,
                 nativeDataType=column.data_type,
-                type=get_column_type(
+                type=column.datahub_data_type
+                or get_column_type(
                     report, node.dbt_name, column.data_type, node.dbt_adapter
                 ),
                 description=description,
