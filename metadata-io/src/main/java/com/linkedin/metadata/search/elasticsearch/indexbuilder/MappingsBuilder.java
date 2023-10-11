@@ -178,14 +178,14 @@ public class MappingsBuilder {
           String fieldName = entry.getKey();
           String analyzerName = entry.getValue();
           subFields.put(fieldName, ImmutableMap.of(
-                  TYPE, TEXT,
+                  TYPE, ESUtils.TEXT_FIELD_TYPE,
                   ANALYZER, analyzerName
           ));
         }
       }
     }
     subFields.put(DELIMITED, ImmutableMap.of(
-            TYPE, TEXT,
+            TYPE, ESUtils.TEXT_FIELD_TYPE,
             ANALYZER, TEXT_ANALYZER,
             SEARCH_ANALYZER, TEXT_SEARCH_ANALYZER,
             SEARCH_QUOTE_ANALYZER, CUSTOM_QUOTE_ANALYZER));
