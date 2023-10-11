@@ -4,6 +4,7 @@ import os
 import os.path
 import platform
 from dataclasses import dataclass
+from functools import partial
 from typing import Callable, Dict, Iterable, List, Optional, Union
 
 import pandas as pd
@@ -26,6 +27,7 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
+from datahub.ingestion.api.incremental_lineage_helper import auto_incremental_lineage
 from datahub.ingestion.api.source import (
     CapabilityReport,
     MetadataWorkUnitProcessor,
@@ -511,6 +513,11 @@ class SnowflakeV2Source(
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
         return [
             *super().get_workunit_processors(),
+            partial(
+                auto_incremental_lineage,
+                self.ctx.graph,
+                self.config.incremental_lineage,
+            ),
             StaleEntityRemovalHandler.create(
                 self, self.config, self.ctx
             ).workunit_processor,

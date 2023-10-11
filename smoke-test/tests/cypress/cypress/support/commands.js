@@ -84,6 +84,12 @@ Cypress.Commands.add("goToOwnershipTypesSettings", () => {
   cy.waitTextVisible("Manage Ownership");
 });
 
+Cypress.Commands.add("goToAccessTokenSettings", () => {
+  cy.visit("/settings/tokens");
+  cy.waitTextVisible("Manage Access Tokens");
+  cy.wait(3000);
+});
+
 Cypress.Commands.add("goToIngestionPage", () => {
   cy.visit("/ingestion");
   cy.waitTextVisible("Manage Ingestion");

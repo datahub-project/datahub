@@ -13,13 +13,73 @@ record AssertionInfo includes CustomProperties, ExternalReference {
     /**
     * Type of assertion. Assertion types can evolve to span Datasets, Flows (Pipelines), Models, Features etc.
     */
+    @Searchable = { }
     type: enum AssertionType {
-      // A single-dataset assertion. When this is the value, the datasetAssertion field will be populated.
+      /**
+       * A single-dataset assertion. When this is the value, the datasetAssertion field will be populated.
+       */
       DATASET
+
+      /**
+       * A freshness assertion, or an assertion which indicates when a particular operation should occur
+       * to an asset.
+       */
+      FRESHNESS
+
+      /**
+       * A volume assertion, or an assertion which indicates how much data should be available for a
+       * particular asset.
+       */
+      VOLUME
+
+      /**
+       * A raw SQL-statement based assertion
+       */
+      SQL
+
+      /**
+       * A schema or structural assertion.
+       *
+       * Would have named this SCHEMA but the codegen for PDL does not allow this (reserved word).
+       */
+      DATA_SCHEMA
     }
 
     /**
-    * Dataset Assertion information when type is DATASET
+    * A Dataset Assertion definition. This field is populated when the type is DATASET.
     */
     datasetAssertion: optional DatasetAssertionInfo
+
+    /**
+    * An Freshness Assertion definition. This field is populated when the type is FRESHNESS.
+    */
+    freshnessAssertion: optional FreshnessAssertionInfo
+
+    /**
+    * An Volume Assertion definition. This field is populated when the type is VOLUME.
+    */
+    volumeAssertion: optional VolumeAssertionInfo
+
+    /**
+    * A SQL Assertion definition. This field is populated when the type is SQL.
+    */
+    sqlAssertion: optional SqlAssertionInfo
+
+    /**
+    * An schema Assertion definition. This field is populated when the type is DATA_SCHEMA
+    */
+    schemaAssertion: optional SchemaAssertionInfo
+
+    /**
+    * The source or origin of the Assertion definition.
+    *
+    * If the source type of the Assertion is EXTERNAL, it is expected to have a corresponding dataPlatformInstance aspect detailing
+    * the platform where it was ingested from.
+    */
+    source: optional AssertionSource
+
+    /**
+    * An optional human-readable description of the assertion
+    */
+    description: optional string
 }

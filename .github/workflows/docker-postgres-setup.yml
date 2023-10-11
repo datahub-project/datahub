@@ -8,7 +8,7 @@ on:
       - ".github/workflows/docker-postgres-setup.yml"
   pull_request:
     branches:
-      - master
+      - "**"
     paths:
       - "docker/postgres-setup/**"
       - ".github/workflows/docker-postgres-setup.yml"
@@ -61,4 +61,3 @@ jobs:
           context: .
           file: ./docker/postgres-setup/Dockerfile
           platforms: linux/amd64,linux/arm64
-
