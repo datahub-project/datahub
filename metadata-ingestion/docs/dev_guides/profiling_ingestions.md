@@ -22,7 +22,7 @@ pip install 'acryl-datahub[debug]'
 This will install [memray](https://github.com/bloomberg/memray) in your python environment.
 
 Add a flag to your ingestion recipe to generate a memray memory dump of your ingestion:
-````yaml
+```yaml
 source:
   ...
 
