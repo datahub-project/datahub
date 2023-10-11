@@ -150,7 +150,9 @@ def ingest_cleanup_data():
     delete_urns(get_time_lineage_urns())
     # acryl-main-data is for data specific to tests in the acryl-main-branch to avoid merge conflicts with OSS
     delete_urns_from_file(f"{CYPRESS_TEST_DATA_DIR}/{ACRYL_MAIN_TEST_DATA_FILENAME}")
-    delete_urns_from_file(f"{CYPRESS_TEST_DATA_DIR}/{ACRYL_MAIN_INCIDENT_DATA_FILENAME}")
+    delete_urns_from_file(
+        f"{CYPRESS_TEST_DATA_DIR}/{ACRYL_MAIN_INCIDENT_DATA_FILENAME}"
+    )
     print_now()
     print("deleting onboarding data file")
     if os.path.exists(f"{CYPRESS_TEST_DATA_DIR}/{TEST_ONBOARDING_DATA_FILENAME}"):

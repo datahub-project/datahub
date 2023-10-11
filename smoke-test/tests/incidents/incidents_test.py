@@ -1,7 +1,9 @@
-import pytest
 import time
 
-from tests.utils import delete_urns_from_file, get_frontend_url, get_gms_url, ingest_file_via_rest
+import pytest
+
+from tests.utils import (delete_urns_from_file, get_frontend_url, get_gms_url,
+                         ingest_file_via_rest)
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -12,13 +14,18 @@ def ingest_cleanup_data(request):
     print("removing incidents test data")
     delete_urns_from_file("tests/incidents/data.json")
 
+
 @pytest.mark.dependency()
 def test_healthchecks(wait_for_healthchecks):
     # Call to wait_for_healthchecks fixture will do the actual functionality.
     pass
 
-TEST_DATASET_URN = "urn:li:dataset:(urn:li:dataPlatform:kafka,incidents-sample-dataset,PROD)"
+
+TEST_DATASET_URN = (
+    "urn:li:dataset:(urn:li:dataPlatform:kafka,incidents-sample-dataset,PROD)"
+)
 TEST_INCIDENT_URN = "urn:li:incident:test"
+
 
 @pytest.mark.dependency(depends=["test_healthchecks"])
 def test_list_dataset_incidents(frontend_session):
@@ -69,9 +76,7 @@ def test_list_dataset_incidents(frontend_session):
               }\n
             }\n
         }""",
-        "variables": {
-          "urn": TEST_DATASET_URN
-        }
+        "variables": {"urn": TEST_DATASET_URN},
     }
 
     response = frontend_session.post(
@@ -84,43 +89,42 @@ def test_list_dataset_incidents(frontend_session):
     assert "errors" not in res_data
     assert res_data["data"]
     assert res_data["data"]["dataset"]["incidents"] == {
-     'start': 0,
-     'count': 10,
-     'total': 1,
-     'incidents': [
-        {
-          "urn": TEST_INCIDENT_URN,
-          "type": "INCIDENT",
-          "incidentType": "OPERATIONAL",
-          "title": "test title",
-          "description": "test description",
-          "status": {
-            "state": "ACTIVE",
-            "message": None,
-            "lastUpdated": {
-              "time": 0,
-              "actor": "urn:li:corpuser:admin"
+        "start": 0,
+        "count": 10,
+        "total": 1,
+        "incidents": [
+            {
+                "urn": TEST_INCIDENT_URN,
+                "type": "INCIDENT",
+                "incidentType": "OPERATIONAL",
+                "title": "test title",
+                "description": "test description",
+                "status": {
+                    "state": "ACTIVE",
+                    "message": None,
+                    "lastUpdated": {"time": 0, "actor": "urn:li:corpuser:admin"},
+                },
+                "source": {
+                    "type": "ASSERTION_FAILURE",
+                    "source": {
+                        "urn": "urn:li:assertion:assertion-test",
+                        "info": {"type": "DATASET"},
+                    },
+                },
+                "entity": {"urn": TEST_DATASET_URN},
+                "created": {"time": 0, "actor": "urn:li:corpuser:admin"},
             }
-          },
-          "source": {
-            "type": "ASSERTION_FAILURE",
-            "source": {
-              "urn": "urn:li:assertion:assertion-test",
-              "info": {
-                "type": "DATASET"
-              }
-            }
-          },
-          "entity": { "urn": TEST_DATASET_URN },
-          "created": {
-            "time": 0,
-            "actor": "urn:li:corpuser:admin"
-          }
-        }
-     ]
+        ],
     }
 
-@pytest.mark.dependency(depends=["test_healthchecks", "test_list_dataset_incidents", "test_search_all_incidents"])
+
+@pytest.mark.dependency(
+    depends=[
+        "test_healthchecks",
+        "test_list_dataset_incidents",
+        "test_search_all_incidents",
+    ]
+)
 def test_raise_resolve_incident(frontend_session):
 
     # Raise new incident
@@ -129,14 +133,14 @@ def test_raise_resolve_incident(frontend_session):
             raiseIncident(input: $input)
         }""",
         "variables": {
-          "input": {
-              "type": "OPERATIONAL",
-              "title": "test title 2",
-              "description": "test description 2",
-              "resourceUrn": TEST_DATASET_URN,
-              "priority": 0
-          }
-        }
+            "input": {
+                "type": "OPERATIONAL",
+                "title": "test title 2",
+                "description": "test description 2",
+                "resourceUrn": TEST_DATASET_URN,
+                "priority": 0,
+            }
+        },
     }
 
     response = frontend_session.post(
@@ -158,12 +162,12 @@ def test_raise_resolve_incident(frontend_session):
             updateIncidentStatus(urn: $urn, input: $input)
         }""",
         "variables": {
-          "urn": new_incident_urn,
-          "input": {
-              "state": "RESOLVED",
-              "message": "test message 2",
-          }
-        }
+            "urn": new_incident_urn,
+            "input": {
+                "state": "RESOLVED",
+                "message": "test message 2",
+            },
+        },
     }
 
     response = frontend_session.post(
@@ -214,9 +218,7 @@ def test_raise_resolve_incident(frontend_session):
               }\n
             }\n
         }""",
-        "variables": {
-          "urn": TEST_DATASET_URN
-        }
+        "variables": {"urn": TEST_DATASET_URN},
     }
 
     response = frontend_session.post(
@@ -232,7 +234,9 @@ def test_raise_resolve_incident(frontend_session):
 
     # Find the new incident and do the comparison.
     active_incidents = res_data["data"]["dataset"]["incidents"]["incidents"]
-    filtered_incidents = list(filter(lambda incident: incident["urn"] == new_incident_urn, active_incidents))
+    filtered_incidents = list(
+        filter(lambda incident: incident["urn"] == new_incident_urn, active_incidents)
+    )
     assert len(filtered_incidents) == 1
     new_incident = filtered_incidents[0]
     assert new_incident["title"] == "test title 2"
@@ -240,9 +244,7 @@ def test_raise_resolve_incident(frontend_session):
     assert new_incident["status"]["state"] == "RESOLVED"
     assert new_incident["priority"] == 0
 
-    delete_json = {
-      "urn": new_incident_urn
-    }
+    delete_json = {"urn": new_incident_urn}
 
     # Cleanup: Delete the incident
     response = frontend_session.post(

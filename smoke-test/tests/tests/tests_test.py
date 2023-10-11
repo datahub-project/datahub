@@ -32,9 +32,11 @@ def test_healthchecks(wait_for_healthchecks):
 test_name = "test name"
 test_category = "test category"
 test_description = "test description"
-test_definition_json = "{\"on\":{\"types\":[\"dataset\"]},\"rules\":{\"or\":[{" \
-                       "\"query\":\"editableDatasetProperties.description\",\"operation\":\"exists\"}," \
-                       "{\"query\":\"datasetProperties.description\",\"operation\":\"exists\"}]}} "
+test_definition_json = (
+    '{"on":{"types":["dataset"]},"rules":{"or":[{'
+    '"query":"editableDatasetProperties.description","operation":"exists"},'
+    '{"query":"datasetProperties.description","operation":"exists"}]}} '
+)
 
 
 def create_test(frontend_session, test_id):
@@ -45,16 +47,14 @@ def create_test(frontend_session, test_id):
             createTest(input: $input)
         }""",
         "variables": {
-          "input": {
-              "id": test_id,
-              "name": test_name,
-              "category": test_category,
-              "description": test_description,
-              "definition": {
-                "json": test_definition_json
-              }
-          }
-        }
+            "input": {
+                "id": test_id,
+                "name": test_name,
+                "category": test_category,
+                "description": test_description,
+                "definition": {"json": test_definition_json},
+            }
+        },
     }
 
     response = frontend_session.post(
@@ -118,17 +118,12 @@ def test_create_test(frontend_session, wait_for_healthchecks):
     assert res_data
     assert res_data["data"]
     assert res_data["data"]["test"] == {
-      "urn": test_urn,
-      "name": test_name,
-      "category": test_category,
-      "description": test_description,
-      "definition": {
-        "json": test_definition_json
-      },
-      "results": {
-        "passingCount": 0,
-        "failingCount": 0
-      }
+        "urn": test_urn,
+        "name": test_name,
+        "category": test_category,
+        "description": test_description,
+        "definition": {"json": test_definition_json},
+        "results": {"passingCount": 0, "failingCount": 0},
     }
     assert "errors" not in res_data
 
@@ -148,7 +143,7 @@ def test_create_test(frontend_session, wait_for_healthchecks):
 
 @pytest.mark.dependency(depends=["test_healthchecks", "test_create_test"])
 def test_update_test(frontend_session, wait_for_healthchecks):
-    test_urn = create_test(frontend_session,  "test-update-id")
+    test_urn = create_test(frontend_session, "test-update-id")
     test_name = "new name"
     test_category = "new category"
     test_description = "new description"
@@ -160,16 +155,14 @@ def test_update_test(frontend_session, wait_for_healthchecks):
             updateTest(urn: $urn, input: $input)
         }""",
         "variables": {
-          "urn": test_urn,
-          "input": {
-              "name": test_name,
-              "category": test_category,
-              "description": test_description,
-              "definition": {
-                "json": test_definition_json
-              }
-          }
-        }
+            "urn": test_urn,
+            "input": {
+                "name": test_name,
+                "category": test_category,
+                "description": test_description,
+                "definition": {"json": test_definition_json},
+            },
+        },
     }
 
     response = frontend_session.post(
@@ -211,17 +204,14 @@ def test_update_test(frontend_session, wait_for_healthchecks):
     assert res_data
     assert res_data["data"]
     assert res_data["data"]["test"] == {
-      "urn": test_urn,
-      "name": test_name,
-      "category": test_category,
-      "description": test_description,
-      "definition": {
-        "json": test_definition_json,
-      },
-      "results": {
-        "passingCount": 0,
-        "failingCount": 0
-      }
+        "urn": test_urn,
+        "name": test_name,
+        "category": test_category,
+        "description": test_description,
+        "definition": {
+            "json": test_definition_json,
+        },
+        "results": {"passingCount": 0, "failingCount": 0},
     }
     assert "errors" not in res_data
 
