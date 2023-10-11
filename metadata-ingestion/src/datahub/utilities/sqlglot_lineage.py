@@ -28,7 +28,6 @@ from datahub.metadata.schema_classes import (
     ArrayTypeClass,
     BooleanTypeClass,
     DateTypeClass,
-    NullTypeClass,
     NumberTypeClass,
     OperationTypeClass,
     SchemaFieldDataTypeClass,
