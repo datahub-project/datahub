@@ -15,7 +15,8 @@
                     "type": {
                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                     }
-                }
+                },
+                "native_column_type": "DOUBLE"
             },
             "upstreams": [
                 {
@@ -32,7 +33,8 @@
                     "type": {
                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                     }
-                }
+                },
+                "native_column_type": "DOUBLE"
             },
             "upstreams": [
                 {
@@ -49,7 +51,8 @@
                     "type": {
                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                     }
-                }
+                },
+                "native_column_type": "FLOAT"
             },
             "upstreams": [
                 {
@@ -66,7 +69,8 @@
                     "type": {
                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                     }
-                }
+                },
+                "native_column_type": "FLOAT"
             },
             "upstreams": [
                 {

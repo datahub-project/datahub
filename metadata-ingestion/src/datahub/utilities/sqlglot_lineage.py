@@ -176,13 +176,14 @@ class ColumnRef(_ParserBaseModel):
 class _DownstreamColumnRef(_ParserBaseModel):
     table: Optional[_TableName]
     column: str
-    column_type: Optional[sqlglot.exp.DataType.Type]
+    column_type: Optional[sqlglot.exp.DataType]
 
 
 class DownstreamColumnRef(_ParserBaseModel):
     table: Optional[Urn]
     column: str
     column_type: Optional[SchemaFieldDataTypeClass]
+    native_column_type: Optional[str]
 
 
 class _ColumnLineageInfo(_ParserBaseModel):
@@ -648,7 +649,7 @@ def _column_level_lineage(  # noqa: C901
             # Guess the output column type.
             output_col_type = None
             if original_col_expression.type:
-                output_col_type = original_col_expression.type.this
+                output_col_type = original_col_expression.type
 
             if not direct_col_upstreams:
                 logger.debug(f'  "{output_col}" has no upstreams')
@@ -760,9 +761,14 @@ def _translate_internal_column_lineage(
             table=downstream_urn,
             column=raw_column_lineage.downstream.column,
             column_type=_translate_sqlglot_type(
-                raw_column_lineage.downstream.column_type
+                raw_column_lineage.downstream.column_type.this
             )
             if raw_column_lineage.downstream.column_type
+            else None,
+            native_column_type=raw_column_lineage.downstream.column_type.sql()
+            if raw_column_lineage.downstream.column_type
+            and raw_column_lineage.downstream.column_type.this
+            != sqlglot.exp.DataType.Type.UNKNOWN
             else None,
         ),
         upstreams=[

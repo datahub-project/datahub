@@ -16,7 +16,8 @@
                     "type": {
                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                     }
-                }
+                },
+                "native_column_type": "DECIMAL(38, 0)"
             },
             "upstreams": [
                 {
@@ -33,7 +34,8 @@
                     "type": {
                         "com.linkedin.pegasus2avro.schema.StringType": {}
                     }
-                }
+                },
+                "native_column_type": "VARCHAR(16777216)"
             },
             "upstreams": [
                 {
@@ -50,7 +52,8 @@
                     "type": {
                         "com.linkedin.pegasus2avro.schema.DateType": {}
                     }
-                }
+                },
+                "native_column_type": "DATE"
             },
             "upstreams": [
                 {
@@ -67,7 +70,8 @@
                     "type": {
                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                     }
-                }
+                },
+                "native_column_type": "DECIMAL"
             },
             "upstreams": [
                 {
@@ -84,7 +88,8 @@
                     "type": {
                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                     }
-                }
+                },
+                "native_column_type": "BIGINT"
             },
             "upstreams": [
                 {
@@ -101,7 +106,8 @@
                     "type": {
                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                     }
-                }
+                },
+                "native_column_type": "DECIMAL"
             },
             "upstreams": [
                 {

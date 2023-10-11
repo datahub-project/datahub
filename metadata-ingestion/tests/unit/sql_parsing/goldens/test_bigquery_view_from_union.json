@@ -16,7 +16,8 @@
                     "type": {
                         "com.linkedin.pegasus2avro.schema.StringType": {}
                     }
-                }
+                },
+                "native_column_type": "TEXT"
             },
             "upstreams": [
                 {
@@ -37,7 +38,8 @@
                     "type": {
                         "com.linkedin.pegasus2avro.schema.StringType": {}
                     }
-                }
+                },
+                "native_column_type": "TEXT"
             },
             "upstreams": [
                 {

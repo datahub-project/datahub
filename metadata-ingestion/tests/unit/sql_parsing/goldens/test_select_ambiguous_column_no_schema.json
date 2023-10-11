@@ -10,7 +10,8 @@
             "downstream": {
                 "table": null,
                 "column": "a",
-                "column_type": null
+                "column_type": null,
+                "native_column_type": null
             },
             "upstreams": []
         },
@@ -18,7 +19,8 @@
             "downstream": {
                 "table": null,
                 "column": "b",
-                "column_type": null
+                "column_type": null,
+                "native_column_type": null
             },
             "upstreams": []
         },
@@ -26,7 +28,8 @@
             "downstream": {
                 "table": null,
                 "column": "c",
-                "column_type": null
+                "column_type": null,
+                "native_column_type": null
             },
             "upstreams": []
         }

@@ -13,7 +13,8 @@
                     "type": {
                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                     }
-                }
+                },
+                "native_column_type": "DECIMAL"
             },
             "upstreams": [
                 {
@@ -26,7 +27,8 @@
             "downstream": {
                 "table": null,
                 "column": "id",
-                "column_type": null
+                "column_type": null,
+                "native_column_type": null
             },
             "upstreams": [
                 {
@@ -39,7 +41,8 @@
             "downstream": {
                 "table": null,
                 "column": "min_metric",
-                "column_type": null
+                "column_type": null,
+                "native_column_type": null
             },
             "upstreams": [
                 {

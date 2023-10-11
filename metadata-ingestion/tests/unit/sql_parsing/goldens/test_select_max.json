@@ -9,7 +9,8 @@
             "downstream": {
                 "table": null,
                 "column": "max_col",
-                "column_type": null
+                "column_type": null,
+                "native_column_type": null
             },
             "upstreams": [
                 {
