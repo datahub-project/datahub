@@ -226,6 +226,11 @@ type Query {
     listOwnershipTypes(
         "Input required for listing custom ownership types"
         input: ListOwnershipTypesInput!): ListOwnershipTypesResult!
+
+    """
+    Fetch a Data Platform Instance by primary key (urn)
+    """
+    dataPlatformInstance(urn: String!): DataPlatformInstance
 }
 
 """

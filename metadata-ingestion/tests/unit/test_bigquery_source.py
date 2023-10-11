@@ -3,13 +3,14 @@ import logging
 import os
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
-from typing import Any, Dict, Optional, cast
+from typing import Any, Dict, List, Optional, cast
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 from google.api_core.exceptions import GoogleAPICallError
 from google.cloud.bigquery.table import Row, TableListItem
 
+from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.bigquery_v2.bigquery import BigqueryV2Source
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import (
@@ -17,9 +18,13 @@ from datahub.ingestion.source.bigquery_v2.bigquery_audit import (
     BigqueryTableIdentifier,
     BigQueryTableRef,
 )
-from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
+from datahub.ingestion.source.bigquery_v2.bigquery_config import (
+    BigQueryConnectionConfig,
+    BigQueryV2Config,
+)
 from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Report
 from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
+    BigqueryDataset,
     BigqueryProject,
     BigQuerySchemaApi,
     BigqueryView,
@@ -854,3 +859,47 @@ def test_get_table_name(full_table_name: str, datahub_full_table_name: str) -> N
             BigqueryTableIdentifier.from_string_name(full_table_name).get_table_name()
             == datahub_full_table_name
         )
+
+
+def test_default_config_for_excluding_projects_and_datasets():
+    config = BigQueryV2Config.parse_obj({})
+    assert config.exclude_empty_projects is False
+    config = BigQueryV2Config.parse_obj({"exclude_empty_projects": True})
+    assert config.exclude_empty_projects
+
+
+@patch.object(BigQueryConnectionConfig, "get_bigquery_client", new=lambda self: None)
+@patch.object(BigQuerySchemaApi, "get_datasets_for_project_id")
+def test_excluding_empty_projects_from_ingestion(
+    get_datasets_for_project_id_mock,
+):
+    project_id_with_datasets = "project-id-with-datasets"
+    project_id_without_datasets = "project-id-without-datasets"
+
+    def get_datasets_for_project_id_side_effect(
+        project_id: str,
+    ) -> List[BigqueryDataset]:
+        return (
+            []
+            if project_id == project_id_without_datasets
+            else [BigqueryDataset("some-dataset")]
+        )
+
+    get_datasets_for_project_id_mock.side_effect = (
+        get_datasets_for_project_id_side_effect
+    )
+
+    base_config = {
+        "project_ids": [project_id_with_datasets, project_id_without_datasets],
+        "schema_pattern": AllowDenyPattern(deny=[".*"]),
+        "include_usage_statistics": False,
+        "include_table_lineage": False,
+    }
+
+    config = BigQueryV2Config.parse_obj(base_config)
+    source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test-1"))
+    assert len({wu.metadata.entityUrn for wu in source.get_workunits()}) == 2  # type: ignore
+
+    config = BigQueryV2Config.parse_obj({**base_config, "exclude_empty_projects": True})
+    source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test-2"))
+    assert len({wu.metadata.entityUrn for wu in source.get_workunits()}) == 1  # type: ignore

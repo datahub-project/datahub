@@ -1,6 +1,7 @@
 import json
 import sys
 import tempfile
+import time
 from typing import Any, Dict, Iterable, List
 
 import yaml
@@ -8,7 +9,7 @@ from click.testing import CliRunner, Result
 from datahub.api.entities.corpgroup.corpgroup import CorpGroup
 from datahub.entrypoints import datahub
 from datahub.ingestion.graph.client import DataHubGraph, get_default_graph
-import time
+
 import requests_wrapper as requests
 from tests.utils import wait_for_writes_to_sync
 

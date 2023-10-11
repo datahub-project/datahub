@@ -2,13 +2,11 @@ import logging
 import os
 import random
 from datetime import timedelta
-from typing import Iterable, Tuple
 
 import humanfriendly
 import psutil
 
 from datahub.emitter.mce_builder import make_dataset_urn
-from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.bigquery_v2.bigquery_config import (
     BigQueryUsageConfig,
     BigQueryV2Config,
@@ -16,12 +14,13 @@ from datahub.ingestion.source.bigquery_v2.bigquery_config import (
 from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Report
 from datahub.ingestion.source.bigquery_v2.usage import BigQueryUsageExtractor
 from datahub.utilities.perf_timer import PerfTimer
-from tests.performance.bigquery import generate_events, ref_from_table
+from tests.performance.bigquery.bigquery_events import generate_events, ref_from_table
 from tests.performance.data_generation import (
     NormalDistribution,
     generate_data,
     generate_queries,
 )
+from tests.performance.helpers import workunit_sink
 
 
 def run_test():
@@ -33,7 +32,7 @@ def run_test():
         num_views=2000,
         time_range=timedelta(days=7),
     )
-    all_tables = seed_metadata.tables + seed_metadata.views
+    all_tables = seed_metadata.all_tables
 
     config = BigQueryV2Config(
         start_time=seed_metadata.start_time,
@@ -86,21 +85,6 @@ def run_test():
     )
     print(f"Disk Used: {report.usage_state_size}")
     print(f"Hash collisions: {report.num_usage_query_hash_collisions}")
-
-
-def workunit_sink(workunits: Iterable[MetadataWorkUnit]) -> Tuple[int, int]:
-    peak_memory_usage = psutil.Process(os.getpid()).memory_info().rss
-    i: int = 0
-    for i, wu in enumerate(workunits):
-        if i % 10_000 == 0:
-            peak_memory_usage = max(
-                peak_memory_usage, psutil.Process(os.getpid()).memory_info().rss
-            )
-    peak_memory_usage = max(
-        peak_memory_usage, psutil.Process(os.getpid()).memory_info().rss
-    )
-
-    return i, peak_memory_usage
 
 
 if __name__ == "__main__":

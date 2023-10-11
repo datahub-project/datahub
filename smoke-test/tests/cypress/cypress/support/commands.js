@@ -99,6 +99,13 @@ Cypress.Commands.add("goToSubscriptionsSettings", () => {
   cy.visit("/settings/personal-subscriptions");
   cy.waitTextVisible("My Subscriptions");
 });
+
+Cypress.Commands.add("goToAccessTokenSettings", () => {
+  cy.visit("/settings/tokens");
+  cy.waitTextVisible("Manage Access Tokens");
+  cy.wait(3000);
+});
+
 Cypress.Commands.add("goToIngestionPage", () => {
   cy.visit("/ingestion");
   cy.waitTextVisible("Manage Ingestion");

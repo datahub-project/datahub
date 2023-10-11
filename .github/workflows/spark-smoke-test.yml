@@ -12,7 +12,7 @@ on:
       - ".github/workflows/spark-smoke-test.yml"
   pull_request:
     branches:
-      - master
+      - "**"
     paths:
       - "metadata_models/**"
       - "metadata-integration/java/datahub-client/**"

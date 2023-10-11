@@ -11,8 +11,7 @@ on:
       - "metadata-io/**"
   pull_request:
     branches:
-      - master
-      - acryl-main
+      - "**"
     paths:
       - "**/*.gradle"
       - "li-utils/**"

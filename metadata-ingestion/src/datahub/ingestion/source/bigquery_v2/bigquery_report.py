@@ -122,6 +122,8 @@ class BigQueryV2Report(ProfilingSqlReport, IngestionStageReport, BaseTimeWindowR
 
     usage_state_size: Optional[str] = None
 
+    exclude_empty_projects: Optional[bool] = None
+
     schema_api_perf: BigQuerySchemaApiPerfReport = field(
         default_factory=BigQuerySchemaApiPerfReport
     )

@@ -7,7 +7,7 @@ import time
 from dataclasses import dataclass
 from datetime import datetime
 from json.decoder import JSONDecodeError
-from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Set, Tuple, Type
+from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Tuple, Type
 
 from avro.schema import RecordSchema
 from deprecated import deprecated
@@ -149,6 +149,23 @@ class DataHubGraph(DatahubRestEmitter):
         if not base_url:
             raise ValueError("baseUrl not found in server config")
         return base_url
+
+    @classmethod
+    def from_emitter(cls, emitter: DatahubRestEmitter) -> "DataHubGraph":
+        return cls(
+            DatahubClientConfig(
+                server=emitter._gms_server,
+                token=emitter._token,
+                timeout_sec=emitter._read_timeout_sec,
+                retry_status_codes=emitter._retry_status_codes,
+                retry_max_times=emitter._retry_max_times,
+                extra_headers=emitter._session.headers,
+                disable_ssl_verification=emitter._session.verify is False,
+                # TODO: Support these headers.
+                # ca_certificate_path=emitter._ca_certificate_path,
+                # client_certificate_path=emitter._client_certificate_path,
+            )
+        )
 
     def _send_restli_request(self, method: str, url: str, **kwargs: Any) -> Dict:
         try:
@@ -817,7 +834,7 @@ class DataHubGraph(DatahubRestEmitter):
                 url=relationship_endpoint,
                 params={
                     "urn": entity_urn,
-                    "direction": direction,
+                    "direction": direction.value,
                     "relationshipTypes": relationship_types,
                     "start": start,
                 },
@@ -1005,14 +1022,13 @@ class DataHubGraph(DatahubRestEmitter):
 
     def initialize_schema_resolver_from_datahub(
         self, platform: str, platform_instance: Optional[str], env: str
-    ) -> Tuple["SchemaResolver", Set[str]]:
+    ) -> "SchemaResolver":
         logger.info("Initializing schema resolver")
         schema_resolver = self._make_schema_resolver(
             platform, platform_instance, env, include_graph=False
         )
 
         logger.info(f"Fetching schemas for platform {platform}, env {env}")
-        urns = []
         count = 0
         with PerfTimer() as timer:
             for urn, schema_info in self._bulk_fetch_schema_info_by_filter(
@@ -1021,7 +1037,6 @@ class DataHubGraph(DatahubRestEmitter):
                 env=env,
             ):
                 try:
-                    urns.append(urn)
                     schema_resolver.add_graphql_schema_metadata(urn, schema_info)
                     count += 1
                 except Exception:
@@ -1036,7 +1051,7 @@ class DataHubGraph(DatahubRestEmitter):
             )
 
         logger.info("Finished initializing schema resolver")
-        return schema_resolver, set(urns)
+        return schema_resolver
 
     def parse_sql_lineage(
         self,

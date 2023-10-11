@@ -2,12 +2,16 @@ import contextlib
 import logging
 import operator
 import re
+import time
 from functools import reduce
-from typing import Any, Dict, List, Match, Optional, Union
+from typing import Any, Dict, List, Match, Optional, Union, cast
 
 from datahub.emitter import mce_builder
 from datahub.emitter.mce_builder import OwnerType
 from datahub.metadata.schema_classes import (
+    AuditStampClass,
+    InstitutionalMemoryClass,
+    InstitutionalMemoryMetadataClass,
     OwnerClass,
     OwnershipClass,
     OwnershipSourceClass,
@@ -39,6 +43,7 @@ def _insert_match_value(original_value: str, match_value: str) -> str:
 
 
 class Constants:
+    ADD_DOC_LINK_OPERATION = "add_doc_link"
     ADD_TAG_OPERATION = "add_tag"
     ADD_TERM_OPERATION = "add_term"
     ADD_TERMS_OPERATION = "add_terms"
@@ -47,6 +52,8 @@ class Constants:
     OPERATION_CONFIG = "config"
     TAG = "tag"
     TERM = "term"
+    DOC_LINK = "link"
+    DOC_DESCRIPTION = "description"
     OWNER_TYPE = "owner_type"
     OWNER_CATEGORY = "owner_category"
     MATCH = "match"
@@ -163,7 +170,6 @@ class OperationProcessor:
                             )
                             operations_value_list.append(operation)  # type: ignore
                             operations_map[operation_type] = operations_value_list
-
             aspect_map = self.convert_to_aspects(operations_map)
         except Exception as e:
             logger.error(f"Error while processing operation defs over raw_props: {e}")
@@ -173,6 +179,7 @@ class OperationProcessor:
         self, operation_map: Dict[str, Union[set, list]]
     ) -> Dict[str, Any]:
         aspect_map: Dict[str, Any] = {}
+
         if Constants.ADD_TAG_OPERATION in operation_map:
             tag_aspect = mce_builder.make_global_tag_aspect_with_tag_list(
                 sorted(operation_map[Constants.ADD_TAG_OPERATION])
@@ -195,11 +202,57 @@ class OperationProcessor:
                 ]
             )
             aspect_map[Constants.ADD_OWNER_OPERATION] = owner_aspect
+
         if Constants.ADD_TERM_OPERATION in operation_map:
             term_aspect = mce_builder.make_glossary_terms_aspect_from_urn_list(
                 sorted(operation_map[Constants.ADD_TERM_OPERATION])
             )
             aspect_map[Constants.ADD_TERM_OPERATION] = term_aspect
+
+        if Constants.ADD_DOC_LINK_OPERATION in operation_map:
+            try:
+                if len(
+                    operation_map[Constants.ADD_DOC_LINK_OPERATION]
+                ) == 1 and isinstance(
+                    operation_map[Constants.ADD_DOC_LINK_OPERATION], list
+                ):
+                    docs_dict = cast(
+                        List[Dict], operation_map[Constants.ADD_DOC_LINK_OPERATION]
+                    )[0]
+                    if "description" not in docs_dict or "link" not in docs_dict:
+                        raise Exception(
+                            "Documentation_link meta_mapping config needs a description key and a link key"
+                        )
+
+                    now = int(time.time() * 1000)  # milliseconds since epoch
+                    institutional_memory_element = InstitutionalMemoryMetadataClass(
+                        url=docs_dict["link"],
+                        description=docs_dict["description"],
+                        createStamp=AuditStampClass(
+                            time=now, actor="urn:li:corpuser:ingestion"
+                        ),
+                    )
+
+                    # create a new institutional memory aspect
+                    institutional_memory_aspect = InstitutionalMemoryClass(
+                        elements=[institutional_memory_element]
+                    )
+
+                    aspect_map[
+                        Constants.ADD_DOC_LINK_OPERATION
+                    ] = institutional_memory_aspect
+                else:
+                    raise Exception(
+                        f"Expected 1 item of type list for the documentation_link meta_mapping config,"
+                        f" received type of {type(operation_map[Constants.ADD_DOC_LINK_OPERATION])}"
+                        f", and size of {len(operation_map[Constants.ADD_DOC_LINK_OPERATION])}."
+                    )
+
+            except Exception as e:
+                logger.error(
+                    f"Error while constructing aspect for documentation link and description : {e}"
+                )
+
         return aspect_map
 
     def get_operation_value(
@@ -248,6 +301,16 @@ class OperationProcessor:
             term = operation_config[Constants.TERM]
             term = _insert_match_value(term, _get_best_match(match, "term"))
             return mce_builder.make_term_urn(term)
+        elif (
+            operation_type == Constants.ADD_DOC_LINK_OPERATION
+            and operation_config[Constants.DOC_LINK]
+            and operation_config[Constants.DOC_DESCRIPTION]
+        ):
+            link = operation_config[Constants.DOC_LINK]
+            link = _insert_match_value(link, _get_best_match(match, "link"))
+            description = operation_config[Constants.DOC_DESCRIPTION]
+            return {"link": link, "description": description}
+
         elif operation_type == Constants.ADD_TERMS_OPERATION:
             separator = operation_config.get(Constants.SEPARATOR, ",")
             captured_terms = match.group(0)

@@ -1,11 +1,10 @@
 from datetime import datetime
 from typing import TYPE_CHECKING, Dict, List
 
-import datahub.emitter.mce_builder as builder
 from datahub.api.entities.dataprocess.dataprocess_instance import InstanceRunResult
-from datahub.configuration.common import ConfigModel
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 
+from datahub_airflow_plugin._config import DatahubLineageConfig
 from datahub_airflow_plugin.client.airflow_generator import AirflowGenerator
 from datahub_airflow_plugin.entities import _Entity
 
@@ -15,39 +14,14 @@ if TYPE_CHECKING:
     from airflow.models.taskinstance import TaskInstance
 
     from datahub_airflow_plugin._airflow_shims import Operator
-    from datahub_airflow_plugin.hooks.datahub import DatahubGenericHook
 
 
 def _entities_to_urn_list(iolets: List[_Entity]) -> List[DatasetUrn]:
     return [DatasetUrn.create_from_string(let.urn) for let in iolets]
 
 
-class DatahubBasicLineageConfig(ConfigModel):
-    enabled: bool = True
-
-    # DataHub hook connection ID.
-    datahub_conn_id: str
-
-    # Cluster to associate with the pipelines and tasks. Defaults to "prod".
-    cluster: str = builder.DEFAULT_FLOW_CLUSTER
-
-    # If true, the owners field of the DAG will be capture as a DataHub corpuser.
-    capture_ownership_info: bool = True
-
-    # If true, the tags field of the DAG will be captured as DataHub tags.
-    capture_tags_info: bool = True
-
-    capture_executions: bool = False
-
-    def make_emitter_hook(self) -> "DatahubGenericHook":
-        # This is necessary to avoid issues with circular imports.
-        from datahub_airflow_plugin.hooks.datahub import DatahubGenericHook
-
-        return DatahubGenericHook(self.datahub_conn_id)
-
-
 def send_lineage_to_datahub(
-    config: DatahubBasicLineageConfig,
+    config: DatahubLineageConfig,
     operator: "Operator",
     inlets: List[_Entity],
     outlets: List[_Entity],

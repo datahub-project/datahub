@@ -1,41 +1,30 @@
 import datetime
-from datahub.emitter.mce_builder import (
-    make_data_platform_urn,
-    make_dataset_urn,
-    make_data_job_urn_with_flow,
-    make_data_flow_urn,
-)
+from typing import List
+
+from datahub.emitter.mce_builder import (make_data_flow_urn,
+                                         make_data_job_urn_with_flow,
+                                         make_data_platform_urn,
+                                         make_dataset_urn)
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import UpstreamLineage
-from datahub.metadata.schema_classes import (
-    AuditStampClass,
-    ChangeTypeClass,
-    DatasetLineageTypeClass,
-    DatasetPropertiesClass,
-    DataFlowInfoClass,
-    DataJobInputOutputClass,
-    DataJobInfoClass,
-    EdgeClass,
-    MySqlDDLClass,
-    SchemaFieldClass,
-    SchemaMetadataClass,
-    UpstreamClass,
-)
-from typing import List
+from datahub.metadata.schema_classes import (AuditStampClass, ChangeTypeClass,
+                                             DataFlowInfoClass,
+                                             DataJobInfoClass,
+                                             DataJobInputOutputClass,
+                                             DatasetLineageTypeClass,
+                                             DatasetPropertiesClass, EdgeClass,
+                                             MySqlDDLClass, SchemaFieldClass,
+                                             SchemaMetadataClass,
+                                             UpstreamClass)
 
-from tests.setup.lineage.constants import (
-    DATASET_ENTITY_TYPE,
-    DATA_JOB_ENTITY_TYPE,
-    DATA_FLOW_ENTITY_TYPE,
-    DATA_FLOW_INFO_ASPECT_NAME,
-    DATA_JOB_INFO_ASPECT_NAME,
-    DATA_JOB_INPUT_OUTPUT_ASPECT_NAME,
-)
-from tests.setup.lineage.helper_classes import (
-    Dataset,
-    Pipeline,
-)
+from tests.setup.lineage.constants import (DATA_FLOW_ENTITY_TYPE,
+                                           DATA_FLOW_INFO_ASPECT_NAME,
+                                           DATA_JOB_ENTITY_TYPE,
+                                           DATA_JOB_INFO_ASPECT_NAME,
+                                           DATA_JOB_INPUT_OUTPUT_ASPECT_NAME,
+                                           DATASET_ENTITY_TYPE)
+from tests.setup.lineage.helper_classes import Dataset, Pipeline
 
 
 def create_node(dataset: Dataset) -> List[MetadataChangeProposalWrapper]:
@@ -85,10 +74,10 @@ def create_node(dataset: Dataset) -> List[MetadataChangeProposalWrapper]:
 
 
 def create_edge(
-        source_urn: str,
-        destination_urn: str,
-        created_timestamp_millis: int,
-        updated_timestamp_millis: int,
+    source_urn: str,
+    destination_urn: str,
+    created_timestamp_millis: int,
+    updated_timestamp_millis: int,
 ) -> EdgeClass:
     created_audit_stamp: AuditStampClass = AuditStampClass(
         time=created_timestamp_millis, actor="urn:li:corpuser:unknown"
@@ -105,7 +94,7 @@ def create_edge(
 
 
 def create_nodes_and_edges(
-        airflow_dag: Pipeline,
+    airflow_dag: Pipeline,
 ) -> List[MetadataChangeProposalWrapper]:
     mcps = []
     data_flow_urn = make_data_flow_urn(
@@ -160,9 +149,9 @@ def create_nodes_and_edges(
 
 
 def create_upstream_edge(
-        upstream_entity_urn: str,
-        created_timestamp_millis: int,
-        updated_timestamp_millis: int,
+    upstream_entity_urn: str,
+    created_timestamp_millis: int,
+    updated_timestamp_millis: int,
 ):
     created_audit_stamp: AuditStampClass = AuditStampClass(
         time=created_timestamp_millis, actor="urn:li:corpuser:unknown"
@@ -180,11 +169,11 @@ def create_upstream_edge(
 
 
 def create_upstream_mcp(
-        entity_type: str,
-        entity_urn: str,
-        upstreams: List[UpstreamClass],
-        timestamp_millis: int,
-        run_id: str = "",
+    entity_type: str,
+    entity_urn: str,
+    upstreams: List[UpstreamClass],
+    timestamp_millis: int,
+    run_id: str = "",
 ) -> MetadataChangeProposalWrapper:
     print(f"Creating upstreamLineage aspect for {entity_urn}")
     timestamp_millis: int = int(datetime.datetime.now().timestamp() * 1000)
@@ -203,7 +192,7 @@ def create_upstream_mcp(
 
 
 def emit_mcps(
-        emitter: DatahubRestEmitter, mcps: List[MetadataChangeProposalWrapper]
+    emitter: DatahubRestEmitter, mcps: List[MetadataChangeProposalWrapper]
 ) -> None:
     for mcp in mcps:
         emitter.emit_mcp(mcp)

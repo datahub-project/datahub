@@ -3,7 +3,7 @@ name: documentation
 on:
   pull_request:
     branches:
-      - acryl-main
+      - "**"
   push:
     branches:
       - acryl-main

@@ -274,6 +274,21 @@ WHERE orderdate = '1992-01-01'
     )
 
 
+def test_create_table_ddl():
+    assert_sql_result(
+        """
+CREATE TABLE IF NOT EXISTS costs (
+    id INTEGER PRIMARY KEY,
+    month TEXT NOT NULL,
+    total_cost REAL NOT NULL,
+    area REAL NOT NULL
+)
+""",
+        dialect="sqlite",
+        expected_file=RESOURCE_DIR / "test_create_table_ddl.json",
+    )
+
+
 def test_snowflake_column_normalization():
     # Technically speaking this is incorrect since the column names are different and both quoted.
 

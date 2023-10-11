@@ -52,6 +52,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Scope;
+import org.springframework.core.io.Resource;
 
 
 @Configuration
@@ -112,10 +113,15 @@ public class BootstrapManagerFactory {
   @Value("${bootstrap.backfillBrowsePathsV2.enabled}")
   private Boolean _backfillBrowsePathsV2Enabled;
 
+<<<<<<< HEAD
   // Saas-only
   @Autowired
   @Qualifier("ingestMetadataTestsStep")
   private IngestMetadataTestsStep _ingestMetadataTestsStep;
+=======
+  @Value("${bootstrap.policies.file}")
+  private Resource _policiesResource;
+>>>>>>> oss_master
 
   @Bean(name = "bootstrapManager")
   @Scope("singleton")
@@ -123,7 +129,7 @@ public class BootstrapManagerFactory {
   protected BootstrapManager createInstance() {
     final IngestRootUserStep ingestRootUserStep = new IngestRootUserStep(_entityService);
     final IngestPoliciesStep ingestPoliciesStep =
-        new IngestPoliciesStep(_entityRegistry, _entityService, _entitySearchService, _searchDocumentTransformer);
+        new IngestPoliciesStep(_entityRegistry, _entityService, _entitySearchService, _searchDocumentTransformer, _policiesResource);
     final IngestRolesStep ingestRolesStep = new IngestRolesStep(_entityService, _entityRegistry);
     final IngestDataPlatformsStep ingestDataPlatformsStep = new IngestDataPlatformsStep(_entityService);
     final IngestDataPlatformInstancesStep ingestDataPlatformInstancesStep =

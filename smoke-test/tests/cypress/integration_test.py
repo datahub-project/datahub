@@ -1,18 +1,16 @@
-from typing import Set, List
-
 import datetime
-import pytest
-import subprocess
 import os
+import subprocess
+from typing import List, Set
 
-from tests.utils import (
-    create_datahub_step_state_aspects,
-    get_admin_username,
-    ingest_file_via_rest,
-    delete_urns_from_file,
-    delete_urns,
-)
-from tests.setup.lineage.ingest_time_lineage import ingest_time_lineage, get_time_lineage_urns
+import pytest
+
+from tests.setup.lineage.ingest_time_lineage import (get_time_lineage_urns,
+                                                     ingest_time_lineage)
+from tests.utils import (create_datahub_step_state_aspects, delete_urns,
+                         delete_urns_from_file, get_admin_username,
+                         ingest_file_via_rest)
+
 CYPRESS_TEST_DATA_DIR = "tests/cypress"
 
 TEST_DATA_FILENAME = "data.json"

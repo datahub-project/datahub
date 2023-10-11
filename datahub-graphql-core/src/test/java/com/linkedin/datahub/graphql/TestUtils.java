@@ -23,7 +23,7 @@ public class TestUtils {
 
   public static EntityService getMockEntityService() {
     PathSpecBasedSchemaAnnotationVisitor.class.getClassLoader()
-            .setClassAssertionStatus(PathSpecBasedSchemaAnnotationVisitor.class.getName(), false);
+        .setClassAssertionStatus(PathSpecBasedSchemaAnnotationVisitor.class.getName(), false);
     EntityRegistry registry = new ConfigEntityRegistry(TestUtils.class.getResourceAsStream("/test-entity-registry.yaml"));
     EntityService mockEntityService = Mockito.mock(EntityService.class);
     Mockito.when(mockEntityService.getEntityRegistry()).thenReturn(registry);
