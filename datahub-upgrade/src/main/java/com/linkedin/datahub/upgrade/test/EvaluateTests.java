@@ -6,6 +6,7 @@ import com.linkedin.datahub.upgrade.Upgrade;
 import com.linkedin.datahub.upgrade.UpgradeCleanupStep;
 import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.test.TestEngine;
 import java.util.ArrayList;
@@ -23,7 +24,7 @@ public class EvaluateTests implements Upgrade {
   private final List<UpgradeStep> _steps;
 
   public EvaluateTests(
-      final EntityClient entityClient,
+      final SystemEntityClient entityClient,
       final EntitySearchService entitySearchService,
       final TestEngine testEngine,
       final Authentication systemAuthentication) {

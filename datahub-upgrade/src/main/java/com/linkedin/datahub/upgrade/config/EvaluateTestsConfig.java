@@ -2,8 +2,7 @@ package com.linkedin.datahub.upgrade.config;
 
 import com.datahub.authentication.Authentication;
 import com.linkedin.datahub.upgrade.test.EvaluateTests;
-import com.linkedin.entity.client.EntityClient;
-import com.linkedin.entity.client.RestliEntityClient;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.test.TestEngine;
 import javax.annotation.Nonnull;
@@ -20,10 +19,10 @@ public class EvaluateTestsConfig {
   ApplicationContext applicationContext;
 
   @Bean(name = "evaluateTests")
-  @DependsOn({"entitySearchService", "testEngine", "restliEntityClient", "systemAuthentication"})
+  @DependsOn({"entitySearchService", "testEngine", "systemRestliEntityClient", "systemAuthentication"})
   @Nonnull
   public EvaluateTests createInstance() {
-    final EntityClient entityClient = applicationContext.getBean(RestliEntityClient.class);
+    final SystemEntityClient entityClient = applicationContext.getBean("systemRestliEntityClient", SystemEntityClient.class);
     final EntitySearchService entitySearchService = applicationContext.getBean(EntitySearchService.class);
     final TestEngine testEngine = applicationContext.getBean(TestEngine.class);
     final Authentication systemAuthentication = applicationContext.getBean(Authentication.class);
