@@ -132,6 +132,10 @@ class RedshiftConfig(
         description="Whether `schema_pattern` is matched against fully qualified schema name `<database>.<schema>`.",
     )
 
+    extract_column_level_lineage: bool = Field(
+        default=True, description="Whether to extract column level lineage."
+    )
+
     @root_validator(pre=True)
     def check_email_is_set_on_usage(cls, values):
         if values.get("include_usage_statistics"):
