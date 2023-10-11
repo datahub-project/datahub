@@ -180,8 +180,6 @@ export const IngestionSourceList = () => {
     ) => {
         if (focusSourceUrn) {
             // Update:
-            console.log('YO');
-            console.log(input);
             updateIngestionSource({ variables: { urn: focusSourceUrn as string, input } })
                 .then(() => {
                     analytics.event({

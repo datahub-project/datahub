@@ -59,23 +59,28 @@ export const NameSourceStep = ({ state, updateState, prev, submit }: StepProps) 
         updateState(newState);
     };
 
+    const sanitiveExtraArgs = (extraArgs: StringMapEntryInput[] | null | undefined): StringMapEntryInput[] => {
+        if (extraArgs === null || extraArgs === undefined) return [];
+        return extraArgs.map((object) => ({ key: object.key, value: object.value }));
+    };
+
     const retrieveExtraEnvs = () => {
-        const extraArgs: StringMapEntryInput[] = state.config?.extraArgs ? state.config?.extraArgs : [];
-        const indxOfEnvVars: number = extraArgs.findIndex((entry) => entry.key === ExtraEnvKey) as number;
-        if (indxOfEnvVars > -1) {
-            return extraArgs[indxOfEnvVars].value;
+        const extraArgs: StringMapEntryInput[] = sanitiveExtraArgs(state.config?.extraArgs);
+        const index: number = extraArgs.findIndex((entry) => entry.key === ExtraEnvKey) as number;
+        if (index > -1) {
+            return extraArgs[index].value;
         }
         return '';
     };
 
     const setExtraEnvs = (envs: string) => {
-        const extraArgs: StringMapEntryInput[] = state.config?.extraArgs ? state.config?.extraArgs : [];
+        let extraArgs: StringMapEntryInput[] = sanitiveExtraArgs(state.config?.extraArgs);
         const indxOfEnvVars: number = extraArgs.findIndex((entry) => entry.key === ExtraEnvKey) as number;
-        const value: StringMapEntryInput = { key: ExtraEnvKey, value: envs };
+        const value = { key: ExtraEnvKey, value: envs };
         if (indxOfEnvVars > -1) {
             extraArgs[indxOfEnvVars] = value;
         } else {
-            extraArgs.push(value);
+            extraArgs = [...extraArgs, value];
         }
         const newState: SourceBuilderState = {
             ...state,
@@ -84,19 +89,26 @@ export const NameSourceStep = ({ state, updateState, prev, submit }: StepProps) 
                 extraArgs,
             },
         };
-        console.log('[setExtraEnvs] updated state: ');
-        console.log(newState);
         updateState(newState);
+    };
+
+    const retrieveExtraDataHubPlugins = () => {
+        const extraArgs: StringMapEntryInput[] = sanitiveExtraArgs(state.config?.extraArgs);
+        const index: number = extraArgs.findIndex((entry) => entry.key === ExtraPluginKey) as number;
+        if (index > -1) {
+            return extraArgs[index].value;
+        }
+        return '';
     };
 
     const setExtraDataHubPlugins = (plugins: string) => {
-        const extraArgs: StringMapEntryInput[] = state.config?.extraArgs ? state.config?.extraArgs : [];
+        let extraArgs: StringMapEntryInput[] = sanitiveExtraArgs(state.config?.extraArgs);
         const indxOfPlugins: number = extraArgs.findIndex((entry) => entry.key === ExtraPluginKey) as number;
-        const value: StringMapEntryInput = { key: ExtraPluginKey, value: plugins };
+        const value = { key: ExtraPluginKey, value: plugins };
         if (indxOfPlugins > -1) {
             extraArgs[indxOfPlugins] = value;
         } else {
-            extraArgs.push(value);
+            extraArgs = [...extraArgs, value];
         }
         const newState: SourceBuilderState = {
             ...state,
@@ -105,19 +117,26 @@ export const NameSourceStep = ({ state, updateState, prev, submit }: StepProps) 
                 extraArgs,
             },
         };
-        console.log('[setExtraDataHubPlugins] updated state: ');
-        console.log(newState);
         updateState(newState);
     };
 
+    const retrieveExtraReqs = () => {
+        const extraArgs: StringMapEntryInput[] = sanitiveExtraArgs(state.config?.extraArgs);
+        const index: number = extraArgs.findIndex((entry) => entry.key === ExtraReqKey) as number;
+        if (index > -1) {
+            return extraArgs[index].value;
+        }
+        return '';
+    };
+
     const setExtraReqs = (reqs: string) => {
-        const extraArgs: StringMapEntryInput[] = state.config?.extraArgs ? state.config?.extraArgs : [];
+        let extraArgs: StringMapEntryInput[] = sanitiveExtraArgs(state.config?.extraArgs);
         const indxOfReqs: number = extraArgs.findIndex((entry) => entry.key === ExtraReqKey) as number;
-        const value: StringMapEntryInput = { key: ExtraReqKey, value: reqs };
+        const value = { key: ExtraReqKey, value: reqs };
         if (indxOfReqs > -1) {
             extraArgs[indxOfReqs] = value;
         } else {
-            extraArgs.push(value);
+            extraArgs = [...extraArgs, value];
         }
         const newState: SourceBuilderState = {
             ...state,
@@ -126,8 +145,6 @@ export const NameSourceStep = ({ state, updateState, prev, submit }: StepProps) 
                 extraArgs,
             },
         };
-        console.log('[setExtraReqs] updated state: ');
-        console.log(newState);
         updateState(newState);
     };
 
@@ -210,14 +227,7 @@ export const NameSourceStep = ({ state, updateState, prev, submit }: StepProps) 
                             <Input
                                 data-testid="extra-pip-plugin-input"
                                 placeholder='["debug"]'
-                                value={
-                                    (state.config?.extraArgs?.findIndex(
-                                        (entry) => entry.key === ExtraPluginKey,
-                                    ) as number) > -1
-                                        ? state.config?.extraArgs?.filter((entry) => entry.key === ExtraPluginKey)[0]
-                                              .value
-                                        : ''
-                                }
+                                value={retrieveExtraDataHubPlugins()}
                                 onChange={(event) => setExtraDataHubPlugins(event.target.value)}
                             />
                         </Form.Item>
@@ -228,13 +238,7 @@ export const NameSourceStep = ({ state, updateState, prev, submit }: StepProps) 
                             <Input
                                 data-testid="extra-pip-reqs-input"
                                 placeholder='["sqlparse==0.4.3"]'
-                                value={
-                                    (state.config?.extraArgs?.findIndex(
-                                        (entry) => entry.key === ExtraReqKey,
-                                    ) as number) > -1
-                                        ? state.config?.extraArgs?.filter((entry) => entry.key === ExtraReqKey)[0].value
-                                        : ''
-                                }
+                                value={retrieveExtraReqs()}
                                 onChange={(event) => setExtraReqs(event.target.value)}
                             />
                         </Form.Item>
