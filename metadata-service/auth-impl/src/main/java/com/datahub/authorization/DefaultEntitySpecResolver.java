@@ -1,5 +1,6 @@
 package com.datahub.authorization;
 
+import com.datahub.authorization.fieldresolverprovider.DataPlatformInstanceFieldResolverProvider;
 import com.datahub.authorization.fieldresolverprovider.EntityTypeFieldResolverProvider;
 import com.datahub.authorization.fieldresolverprovider.OwnerFieldResolverProvider;
 import com.datahub.authentication.Authentication;
@@ -22,6 +23,7 @@ public class DefaultEntitySpecResolver implements EntitySpecResolver {
         ImmutableList.of(new EntityTypeFieldResolverProvider(), new EntityUrnFieldResolverProvider(),
             new DomainFieldResolverProvider(entityClient, systemAuthentication),
             new OwnerFieldResolverProvider(entityClient, systemAuthentication),
+            new DataPlatformInstanceFieldResolverProvider(entityClient, systemAuthentication),
             new GroupMembershipFieldResolverProvider(entityClient, systemAuthentication));
   }
 

@@ -3,6 +3,7 @@ package com.datahub.authorization;
 import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
+import javax.annotation.Nullable;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.ToString;
@@ -34,6 +35,22 @@ public class ResolvedEntitySpec {
       return Collections.emptySet();
     }
     return fieldResolvers.get(EntityFieldType.OWNER).getFieldValuesFuture().join().getValues();
+  }
+
+  /**
+   * Fetch the platform instance for a Resolved Resource Spec
+   * @return a Platform Instance or null if one does not exist.
+   */
+  @Nullable
+  public String getDataPlatformInstance() {
+    if (!fieldResolvers.containsKey(EntityFieldType.DATA_PLATFORM_INSTANCE)) {
+      return null;
+    }
+    Set<String> dataPlatformInstance = fieldResolvers.get(EntityFieldType.DATA_PLATFORM_INSTANCE).getFieldValuesFuture().join().getValues();
+    if (dataPlatformInstance.size() > 0) {
+      return dataPlatformInstance.stream().findFirst().get();
+    }
+    return null;
   }
 
   /**
