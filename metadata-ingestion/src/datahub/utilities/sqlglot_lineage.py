@@ -184,6 +184,16 @@ class DownstreamColumnRef(_ParserBaseModel):
     column_type: Optional[SchemaFieldDataTypeClass]
     native_column_type: Optional[str]
 
+    @pydantic.validator("column_type", pre=True)
+    def _load_column_type(
+        cls, v: Optional[Union[dict, SchemaFieldDataTypeClass]]
+    ) -> Optional[SchemaFieldDataTypeClass]:
+        if v is None:
+            return None
+        if isinstance(v, SchemaFieldDataTypeClass):
+            return v
+        return SchemaFieldDataTypeClass.from_obj(v)
+
 
 class _ColumnLineageInfo(_ParserBaseModel):
     downstream: _DownstreamColumnRef
