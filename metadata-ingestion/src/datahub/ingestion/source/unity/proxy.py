@@ -233,9 +233,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             body={"table_name": table_name, "column_name": column_name},
         )
 
-    def table_lineage(
-        self, table: Table, include_entity_lineage: bool
-    ) -> Optional[dict]:
+    def table_lineage(self, table: Table, include_entity_lineage: bool) -> None:
         # Lineage endpoint doesn't exists on 2.1 version
         try:
             response: dict = self.list_lineages_by_table(
@@ -256,34 +254,30 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             for item in response.get("downstreams") or []:
                 for notebook in item.get("notebookInfos") or []:
                     table.downstream_notebooks.add(notebook["notebook_id"])
-
-            return response
         except Exception as e:
-            logger.error(f"Error getting lineage: {e}")
-            return None
-
-    def get_column_lineage(self, table: Table, include_entity_lineage: bool) -> None:
-        try:
-            table_lineage = self.table_lineage(
-                table, include_entity_lineage=include_entity_lineage
+            logger.warning(
+                f"Error getting lineage on table {table.ref}: {e}", exc_info=True
             )
-            if table_lineage:
-                for column in table.columns:
-                    response: dict = self.list_lineages_by_column(
-                        table_name=table.ref.qualified_table_name,
-                        column_name=column.name,
-                    )
-                    for item in response.get("upstream_cols", []):
-                        table_ref = TableReference.create_from_lineage(
-                            item, table.schema.catalog.metastore
-                        )
-                        if table_ref:
-                            table.upstreams.setdefault(table_ref, {}).setdefault(
-                                column.name, []
-                            ).append(item["name"])
 
+    def get_column_lineage(self, table: Table, column_name: str) -> None:
+        try:
+            response: dict = self.list_lineages_by_column(
+                table_name=table.ref.qualified_table_name,
+                column_name=column_name,
+            )
+            for item in response.get("upstream_cols") or []:
+                table_ref = TableReference.create_from_lineage(
+                    item, table.schema.catalog.metastore
+                )
+                if table_ref:
+                    table.upstreams.setdefault(table_ref, {}).setdefault(
+                        column_name, []
+                    ).append(item["name"])
         except Exception as e:
-            logger.error(f"Error getting lineage: {e}")
+            logger.warning(
+                f"Error getting column lineage on table {table.ref}, column {column_name}: {e}",
+                exc_info=True,
+            )
 
     @staticmethod
     def _escape_sequence(value: str) -> str:
