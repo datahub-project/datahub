@@ -474,6 +474,11 @@ class Mapper:
                 dataset.tags,
             )
 
+        dataset.workspace_key = workspace.get_workspace_key(
+            platform_name=self.__config.platform_name,
+            platform_instance=self.__config.platform_instance,
+            workspace_id_as_urn_part=self.__config.workspace_id_as_urn_part,
+        )
         self.processed_datasets.add(dataset)
 
         return dataset_mcps
@@ -760,7 +765,7 @@ class Mapper:
         container_work_units = gen_containers(
             container_key=dataset_key,
             name=dataset.name if dataset.name else dataset.id,
-            parent_container_key=self.workspace_key,
+            parent_container_key=dataset.workspace_key,
             sub_types=[BIContainerSubTypes.POWERBI_DATASET],
         )
         return container_work_units
