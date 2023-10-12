@@ -353,91 +353,86 @@ class Pipeline:
         return False
 
     def run(self) -> None:
-        # TODO: refactor memray code as needed.
-        if self.config.flags.generate_memory_profiles:
-            import memray
+        with contextlib.ExitStack() as stack:
+            if self.config.flags.generate_memory_profiles:
+                import memray
+                stack.enter_context(memray.Tracker(
+                    f"{self.config.flags.generate_memory_profiles}/{self.config.run_id}.bin"
+                ))
 
-            with memray.Tracker(
-                f"{self.config.flags.generate_memory_profiles}/{self.config.run_id}.bin"
-            ):
-                self._run()
-        else:
-            self._run()
-
-    def _run(self) -> None:
-        self.final_status = "unknown"
-        self._notify_reporters_on_ingestion_start()
-        callback = None
-        try:
-            callback = (
-                LoggingCallback()
-                if not self.config.failure_log.enabled
-                else DeadLetterQueueCallback(
-                    self.ctx, self.config.failure_log.log_config
+            self.final_status = "unknown"
+            self._notify_reporters_on_ingestion_start()
+            callback = None
+            try:
+                callback = (
+                    LoggingCallback()
+                    if not self.config.failure_log.enabled
+                    else DeadLetterQueueCallback(
+                        self.ctx, self.config.failure_log.log_config
+                    )
                 )
-            )
-            for wu in itertools.islice(
-                self.source.get_workunits(),
-                self.preview_workunits if self.preview_mode else None,
-            ):
-                try:
-                    if self._time_to_print():
-                        self.pretty_print_summary(currently_running=True)
-                except Exception as e:
-                    logger.warning(f"Failed to print summary {e}")
-
-                if not self.dry_run:
-                    self.sink.handle_work_unit_start(wu)
-                try:
-                    record_envelopes = self.extractor.get_records(wu)
-                    for record_envelope in self.transform(record_envelopes):
-                        if not self.dry_run:
-                            self.sink.write_record_async(record_envelope, callback)
-
-                except RuntimeError:
-                    raise
-                except SystemExit:
-                    raise
-                except Exception as e:
-                    logger.error(
-                        "Failed to process some records. Continuing.",
-                        exc_info=e,
-                    )
-                    # TODO: Transformer errors should cause the pipeline to fail.
-
-                self.extractor.close()
-                if not self.dry_run:
-                    self.sink.handle_work_unit_end(wu)
-            self.source.close()
-            # no more data is coming, we need to let the transformers produce any additional records if they are holding on to state
-            for record_envelope in self.transform(
-                [
-                    RecordEnvelope(
-                        record=EndOfStream(),
-                        metadata={"workunit_id": "end-of-stream"},
-                    )
-                ]
-            ):
-                if not self.dry_run and not isinstance(
-                    record_envelope.record, EndOfStream
+                for wu in itertools.islice(
+                    self.source.get_workunits(),
+                    self.preview_workunits if self.preview_mode else None,
                 ):
-                    # TODO: propagate EndOfStream and other control events to sinks, to allow them to flush etc.
-                    self.sink.write_record_async(record_envelope, callback)
+                    try:
+                        if self._time_to_print():
+                            self.pretty_print_summary(currently_running=True)
+                    except Exception as e:
+                        logger.warning(f"Failed to print summary {e}")
 
-            self.sink.close()
-            self.process_commits()
-            self.final_status = "completed"
-        except (SystemExit, RuntimeError, KeyboardInterrupt) as e:
-            self.final_status = "cancelled"
-            logger.error("Caught error", exc_info=e)
-            raise
-        finally:
-            clear_global_warnings()
+                    if not self.dry_run:
+                        self.sink.handle_work_unit_start(wu)
+                    try:
+                        record_envelopes = self.extractor.get_records(wu)
+                        for record_envelope in self.transform(record_envelopes):
+                            if not self.dry_run:
+                                self.sink.write_record_async(record_envelope, callback)
 
-            if callback and hasattr(callback, "close"):
-                callback.close()  # type: ignore
+                    except RuntimeError:
+                        raise
+                    except SystemExit:
+                        raise
+                    except Exception as e:
+                        logger.error(
+                            "Failed to process some records. Continuing.",
+                            exc_info=e,
+                        )
+                        # TODO: Transformer errors should cause the pipeline to fail.
 
-            self._notify_reporters_on_ingestion_completion()
+                    self.extractor.close()
+                    if not self.dry_run:
+                        self.sink.handle_work_unit_end(wu)
+                self.source.close()
+                # no more data is coming, we need to let the transformers produce any additional records if they are holding on to state
+                for record_envelope in self.transform(
+                    [
+                        RecordEnvelope(
+                            record=EndOfStream(),
+                            metadata={"workunit_id": "end-of-stream"},
+                        )
+                    ]
+                ):
+                    if not self.dry_run and not isinstance(
+                        record_envelope.record, EndOfStream
+                    ):
+                        # TODO: propagate EndOfStream and other control events to sinks, to allow them to flush etc.
+                        self.sink.write_record_async(record_envelope, callback)
+
+                self.sink.close()
+                self.process_commits()
+                self.final_status = "completed"
+            except (SystemExit, RuntimeError, KeyboardInterrupt) as e:
+                self.final_status = "cancelled"
+                logger.error("Caught error", exc_info=e)
+                raise
+            finally:
+                clear_global_warnings()
+
+                if callback and hasattr(callback, "close"):
+                    callback.close()  # type: ignore
+
+                self._notify_reporters_on_ingestion_completion()
 
     def transform(self, records: Iterable[RecordEnvelope]) -> Iterable[RecordEnvelope]:
         """
