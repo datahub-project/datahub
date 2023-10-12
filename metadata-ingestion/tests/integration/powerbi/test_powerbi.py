@@ -1040,6 +1040,7 @@ def test_workspace_container(
                 "config": {
                     **default_source_config(),
                     "extract_workspaces_to_containers": True,
+                    "extract_datasets_to_containers": True,
                     "extract_reports": True,
                 },
             },
