@@ -448,6 +448,7 @@ def _column_level_lineage(  # noqa: C901
         # Our snowflake source lowercases column identifiers, so we are forced
         # to do fuzzy (case-insensitive) resolution instead of exact resolution.
         "snowflake",
+        "teradata",
     }
 
     sqlglot_db_schema = sqlglot.MappingSchema(

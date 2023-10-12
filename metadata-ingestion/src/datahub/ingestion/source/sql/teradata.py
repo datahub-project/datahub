@@ -1,6 +1,6 @@
 import logging
 from dataclasses import dataclass
-from typing import Iterable, Union, Optional, Set
+from typing import Iterable, Optional, Set, Union
 
 # This import verifies that the dependencies are available.
 import teradatasqlalchemy  # noqa: F401
@@ -23,7 +23,7 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DataHubGraph
-from datahub.ingestion.source.sql.sql_common import register_custom_type, SqlWorkUnit
+from datahub.ingestion.source.sql.sql_common import SqlWorkUnit, register_custom_type
 from datahub.ingestion.source.sql.sql_generic_profiler import ProfilingSqlReport
 from datahub.ingestion.source.sql.two_tier_sql_source import (
     TwoTierSQLAlchemyConfig,
@@ -36,7 +36,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     BytesTypeClass,
     TimeTypeClass,
 )
-from datahub.utilities.sqlglot_lineage import sqlglot_lineage, SchemaResolver
+from datahub.utilities.sqlglot_lineage import SchemaResolver, sqlglot_lineage
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -113,6 +113,7 @@ class TeradataConfig(BaseTeradataConfig, BaseTimeWindowConfig):
 @capability(SourceCapability.DELETION_DETECTION, "Optionally enabled via configuration")
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
 @capability(SourceCapability.LINEAGE_COARSE, "Optionally enabled via configuration")
+@capability(SourceCapability.LINEAGE_FINE, "Optionally enabled via configuration")
 @capability(SourceCapability.USAGE_STATS, "Optionally enabled via configuration")
 class TeradataSource(TwoTierSQLAlchemySource):
     """
