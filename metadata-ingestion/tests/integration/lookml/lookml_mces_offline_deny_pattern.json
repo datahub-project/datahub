@@ -585,20 +585,6 @@
             "urn": "urn:li:tag:Dimension",
             "aspects": [
                 {
-                    "com.linkedin.pegasus2avro.common.Ownership": {
-                        "owners": [
-                            {
-                                "owner": "urn:li:corpuser:datahub",
-                                "type": "DATAOWNER"
-                            }
-                        ],
-                        "lastModified": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
-                        }
-                    }
-                },
-                {
                     "com.linkedin.pegasus2avro.tag.TagProperties": {
                         "name": "Dimension",
                         "description": "A tag that is applied to all dimension fields."
@@ -618,20 +604,6 @@
             "urn": "urn:li:tag:Temporal",
             "aspects": [
                 {
-                    "com.linkedin.pegasus2avro.common.Ownership": {
-                        "owners": [
-                            {
-                                "owner": "urn:li:corpuser:datahub",
-                                "type": "DATAOWNER"
-                            }
-                        ],
-                        "lastModified": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
-                        }
-                    }
-                },
-                {
                     "com.linkedin.pegasus2avro.tag.TagProperties": {
                         "name": "Temporal",
                         "description": "A tag that is applied to all time-based (temporal) fields such as timestamps or durations."
@@ -650,20 +622,6 @@
         "com.linkedin.pegasus2avro.metadata.snapshot.TagSnapshot": {
             "urn": "urn:li:tag:Measure",
             "aspects": [
-                {
-                    "com.linkedin.pegasus2avro.common.Ownership": {
-                        "owners": [
-                            {
-                                "owner": "urn:li:corpuser:datahub",
-                                "type": "DATAOWNER"
-                            }
-                        ],
-                        "lastModified": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
-                        }
-                    }
-                },
                 {
                     "com.linkedin.pegasus2avro.tag.TagProperties": {
                         "name": "Measure",
