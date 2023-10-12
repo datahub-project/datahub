@@ -17,7 +17,6 @@ from datahub.ingestion.source.powerbi.dataplatform_instance_resolver import (
 )
 from datahub.ingestion.source.powerbi.m_query import parser, resolver, tree_function
 from datahub.ingestion.source.powerbi.m_query.resolver import DataPlatformTable, Lineage
-from datahub.utilities.sqlglot_lineage import ColumnLineageInfo, DownstreamColumnRef
 
 pytestmark = pytest.mark.integration_batch_2
 
