@@ -10,7 +10,13 @@
         {
             "downstream": {
                 "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_sample_data.tpch_sf1.orders_normalized,PROD)",
-                "column": "Total_Agg"
+                "column": "Total_Agg",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                },
+                "native_column_type": "DOUBLE"
             },
             "upstreams": [
                 {
@@ -22,7 +28,13 @@
         {
             "downstream": {
                 "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_sample_data.tpch_sf1.orders_normalized,PROD)",
-                "column": "total_avg"
+                "column": "total_avg",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                },
+                "native_column_type": "DOUBLE"
             },
             "upstreams": [
                 {
@@ -34,7 +46,13 @@
         {
             "downstream": {
                 "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_sample_data.tpch_sf1.orders_normalized,PROD)",
-                "column": "TOTAL_MIN"
+                "column": "TOTAL_MIN",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                },
+                "native_column_type": "FLOAT"
             },
             "upstreams": [
                 {
@@ -46,7 +64,13 @@
         {
             "downstream": {
                 "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_sample_data.tpch_sf1.orders_normalized,PROD)",
-                "column": "total_max"
+                "column": "total_max",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                },
+                "native_column_type": "FLOAT"
             },
             "upstreams": [
                 {

@@ -5,12 +5,13 @@ import itertools
 import logging
 import pathlib
 from collections import defaultdict
-from typing import Dict, List, Optional, Set, Tuple, Union
+from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
 import pydantic.dataclasses
 import sqlglot
 import sqlglot.errors
 import sqlglot.lineage
+import sqlglot.optimizer.annotate_types
 import sqlglot.optimizer.qualify
 import sqlglot.optimizer.qualify_columns
 from pydantic import BaseModel
@@ -23,7 +24,17 @@ from datahub.emitter.mce_builder import (
 from datahub.ingestion.api.closeable import Closeable
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import BigqueryTableIdentifier
-from datahub.metadata.schema_classes import OperationTypeClass, SchemaMetadataClass
+from datahub.metadata.schema_classes import (
+    ArrayTypeClass,
+    BooleanTypeClass,
+    DateTypeClass,
+    NumberTypeClass,
+    OperationTypeClass,
+    SchemaFieldDataTypeClass,
+    SchemaMetadataClass,
+    StringTypeClass,
+    TimeTypeClass,
+)
 from datahub.utilities.file_backed_collections import ConnectionWrapper, FileBackedDict
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 
@@ -90,8 +101,18 @@ def get_query_type_of_sql(expression: sqlglot.exp.Expression) -> QueryType:
     return QueryType.UNKNOWN
 
 
+class _ParserBaseModel(
+    BaseModel,
+    arbitrary_types_allowed=True,
+    json_encoders={
+        SchemaFieldDataTypeClass: lambda v: v.to_obj(),
+    },
+):
+    pass
+
+
 @functools.total_ordering
-class _FrozenModel(BaseModel, frozen=True):
+class _FrozenModel(_ParserBaseModel, frozen=True):
     def __lt__(self, other: "_FrozenModel") -> bool:
         for field in self.__fields__:
             self_v = getattr(self, field)
@@ -146,29 +167,42 @@ class _ColumnRef(_FrozenModel):
     column: str
 
 
-class ColumnRef(BaseModel):
+class ColumnRef(_ParserBaseModel):
     table: Urn
     column: str
 
 
-class _DownstreamColumnRef(BaseModel):
+class _DownstreamColumnRef(_ParserBaseModel):
     table: Optional[_TableName]
     column: str
+    column_type: Optional[sqlglot.exp.DataType]
 
 
-class DownstreamColumnRef(BaseModel):
+class DownstreamColumnRef(_ParserBaseModel):
     table: Optional[Urn]
     column: str
+    column_type: Optional[SchemaFieldDataTypeClass]
+    native_column_type: Optional[str]
+
+    @pydantic.validator("column_type", pre=True)
+    def _load_column_type(
+        cls, v: Optional[Union[dict, SchemaFieldDataTypeClass]]
+    ) -> Optional[SchemaFieldDataTypeClass]:
+        if v is None:
+            return None
+        if isinstance(v, SchemaFieldDataTypeClass):
+            return v
+        return SchemaFieldDataTypeClass.from_obj(v)
 
 
-class _ColumnLineageInfo(BaseModel):
+class _ColumnLineageInfo(_ParserBaseModel):
     downstream: _DownstreamColumnRef
     upstreams: List[_ColumnRef]
 
     logic: Optional[str]
 
 
-class ColumnLineageInfo(BaseModel):
+class ColumnLineageInfo(_ParserBaseModel):
     downstream: DownstreamColumnRef
     upstreams: List[ColumnRef]
 
@@ -176,7 +210,7 @@ class ColumnLineageInfo(BaseModel):
     logic: Optional[str] = pydantic.Field(default=None, exclude=True)
 
 
-class SqlParsingDebugInfo(BaseModel, arbitrary_types_allowed=True):
+class SqlParsingDebugInfo(_ParserBaseModel):
     confidence: float = 0.0
 
     tables_discovered: int = 0
@@ -190,7 +224,7 @@ class SqlParsingDebugInfo(BaseModel, arbitrary_types_allowed=True):
         return self.table_error or self.column_error
 
 
-class SqlParsingResult(BaseModel):
+class SqlParsingResult(_ParserBaseModel):
     query_type: QueryType = QueryType.UNKNOWN
 
     in_tables: List[Urn]
@@ -541,6 +575,15 @@ def _column_level_lineage(  # noqa: C901
         ) from e
     logger.debug("Qualified sql %s", statement.sql(pretty=True, dialect=dialect))
 
+    # Try to figure out the types of the output columns.
+    try:
+        statement = sqlglot.optimizer.annotate_types.annotate_types(
+            statement, schema=sqlglot_db_schema
+        )
+    except sqlglot.errors.OptimizeError as e:
+        # This is not a fatal error, so we can continue.
+        logger.debug("sqlglot failed to annotate types: %s", e)
+
     column_lineage = []
 
     try:
@@ -553,7 +596,6 @@ def _column_level_lineage(  # noqa: C901
         logger.debug("output columns: %s", [col[0] for col in output_columns])
         output_col: str
         for output_col, original_col_expression in output_columns:
-            # print(f"output column: {output_col}")
             if output_col == "*":
                 # If schema information is available, the * will be expanded to the actual columns.
                 # Otherwise, we can't process it.
@@ -613,12 +655,19 @@ def _column_level_lineage(  # noqa: C901
 
             output_col = _schema_aware_fuzzy_column_resolve(output_table, output_col)
 
+            # Guess the output column type.
+            output_col_type = None
+            if original_col_expression.type:
+                output_col_type = original_col_expression.type
+
             if not direct_col_upstreams:
                 logger.debug(f'  "{output_col}" has no upstreams')
             column_lineage.append(
                 _ColumnLineageInfo(
                     downstream=_DownstreamColumnRef(
-                        table=output_table, column=output_col
+                        table=output_table,
+                        column=output_col,
+                        column_type=output_col_type,
                     ),
                     upstreams=sorted(direct_col_upstreams),
                     # logic=column_logic.sql(pretty=True, dialect=dialect),
@@ -673,6 +722,42 @@ def _try_extract_select(
     return statement
 
 
+def _translate_sqlglot_type(
+    sqlglot_type: sqlglot.exp.DataType.Type,
+) -> Optional[SchemaFieldDataTypeClass]:
+    TypeClass: Any
+    if sqlglot_type in sqlglot.exp.DataType.TEXT_TYPES:
+        TypeClass = StringTypeClass
+    elif sqlglot_type in sqlglot.exp.DataType.NUMERIC_TYPES or sqlglot_type in {
+        sqlglot.exp.DataType.Type.DECIMAL,
+    }:
+        TypeClass = NumberTypeClass
+    elif sqlglot_type in {
+        sqlglot.exp.DataType.Type.BOOLEAN,
+        sqlglot.exp.DataType.Type.BIT,
+    }:
+        TypeClass = BooleanTypeClass
+    elif sqlglot_type in {
+        sqlglot.exp.DataType.Type.DATE,
+    }:
+        TypeClass = DateTypeClass
+    elif sqlglot_type in sqlglot.exp.DataType.TEMPORAL_TYPES:
+        TypeClass = TimeTypeClass
+    elif sqlglot_type in {
+        sqlglot.exp.DataType.Type.ARRAY,
+    }:
+        TypeClass = ArrayTypeClass
+    elif sqlglot_type in {
+        sqlglot.exp.DataType.Type.UNKNOWN,
+    }:
+        return None
+    else:
+        logger.debug("Unknown sqlglot type: %s", sqlglot_type)
+        return None
+
+    return SchemaFieldDataTypeClass(type=TypeClass())
+
+
 def _translate_internal_column_lineage(
     table_name_urn_mapping: Dict[_TableName, str],
     raw_column_lineage: _ColumnLineageInfo,
@@ -684,6 +769,16 @@ def _translate_internal_column_lineage(
         downstream=DownstreamColumnRef(
             table=downstream_urn,
             column=raw_column_lineage.downstream.column,
+            column_type=_translate_sqlglot_type(
+                raw_column_lineage.downstream.column_type.this
+            )
+            if raw_column_lineage.downstream.column_type
+            else None,
+            native_column_type=raw_column_lineage.downstream.column_type.sql()
+            if raw_column_lineage.downstream.column_type
+            and raw_column_lineage.downstream.column_type.this
+            != sqlglot.exp.DataType.Type.UNKNOWN
+            else None,
         ),
         upstreams=[
             ColumnRef(
