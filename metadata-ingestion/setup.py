@@ -174,7 +174,6 @@ redshift_common = {
     "sqlalchemy-redshift>=0.8.3",
     "psycopg2-binary",
     "GeoAlchemy2",
-    *sqllineage_lib,
     *path_spec_common,
 }
 
@@ -354,9 +353,9 @@ plugins: Dict[str, Set[str]] = {
     | {"psycopg2-binary", "pymysql>=1.0.2"},
     "pulsar": {"requests"},
     "redash": {"redash-toolbelt", "sql-metadata"} | sqllineage_lib,
-    "redshift": sql_common | redshift_common | usage_common | {"redshift-connector"},
-    "redshift-legacy": sql_common | redshift_common,
-    "redshift-usage-legacy": sql_common | usage_common | redshift_common,
+    "redshift": sql_common | redshift_common | {"redshift-connector"} | sqlglot_lib,
+    "redshift-legacy": sql_common | redshift_common | sqlglot_lib,
+    "redshift-usage-legacy": sql_common | redshift_common | sqlglot_lib,
     "s3": {*s3_base, *data_lake_profiling},
     "gcs": {*s3_base, *data_lake_profiling},
     "sagemaker": aws_common,
