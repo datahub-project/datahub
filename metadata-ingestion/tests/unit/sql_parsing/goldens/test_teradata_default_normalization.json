@@ -11,7 +11,8 @@
         {
             "downstream": {
                 "table": "urn:li:dataset:(urn:li:dataPlatform:teradata,myteradata.demo_user.test_lineage2,PROD)",
-                "column": "PatientId"
+                "column": "PatientId",
+                "native_column_type": "INTEGER()"
             },
             "upstreams": [
                 {
@@ -23,7 +24,8 @@
         {
             "downstream": {
                 "table": "urn:li:dataset:(urn:li:dataPlatform:teradata,myteradata.demo_user.test_lineage2,PROD)",
-                "column": "BMI"
+                "column": "BMI",
+                "native_column_type": "FLOAT()"
             },
             "upstreams": [
                 {
