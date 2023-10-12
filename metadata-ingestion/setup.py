@@ -107,14 +107,14 @@ sql_common = {
     # This is temporary lower bound that we're open to loosening/tightening as requirements show up
     "sqlalchemy>=1.4.39, <2",
     # Required for SQL profiling.
-    "great-expectations>=0.15.12, <=0.15.50",
+    "great-expectations>=0.17.21, <=0.17.21",
     # scipy version restricted to reduce backtracking, used by great-expectations,
     "scipy>=1.7.2",
     # GE added handling for higher version of jinja2
     # https://github.com/great-expectations/great_expectations/pull/5382/files
     # datahub does not depend on traitlets directly but great expectations does.
     # https://github.com/ipython/traitlets/issues/741
-    "traitlets<5.2.2",
+    "traitlets==5.11.2",
     "greenlet",
 }
 
