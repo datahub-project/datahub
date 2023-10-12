@@ -81,12 +81,13 @@ export function ViewTypeColumn({ viewType }: ViewTypeColumnProps) {
 
 type ActionColumnProps = {
     record: any;
+    isOwnedByUser: boolean;
 };
 
-export function ActionsColumn({ record }: ActionColumnProps) {
+export function ActionsColumn({ record, isOwnedByUser }: ActionColumnProps) {
     return (
         <ActionButtonsContainer>
-            <ViewDropdownMenu view={record} visible />
+            <ViewDropdownMenu view={record} isOwnedByUser={isOwnedByUser} visible />
         </ActionButtonsContainer>
     );
 }
