@@ -18,21 +18,27 @@
         {
             "downstream": {
                 "table": "urn:li:dataset:(urn:li:dataPlatform:hive,query72,PROD)",
-                "column": "i_item_desc"
+                "column": "i_item_desc",
+                "column_type": null,
+                "native_column_type": null
             },
             "upstreams": []
         },
         {
             "downstream": {
                 "table": "urn:li:dataset:(urn:li:dataPlatform:hive,query72,PROD)",
-                "column": "w_warehouse_name"
+                "column": "w_warehouse_name",
+                "column_type": null,
+                "native_column_type": null
             },
             "upstreams": []
         },
         {
             "downstream": {
                 "table": "urn:li:dataset:(urn:li:dataPlatform:hive,query72,PROD)",
-                "column": "d_week_seq"
+                "column": "d_week_seq",
+                "column_type": null,
+                "native_column_type": null
             },
             "upstreams": [
                 {
@@ -44,7 +50,13 @@
         {
             "downstream": {
                 "table": "urn:li:dataset:(urn:li:dataPlatform:hive,query72,PROD)",
-                "column": "no_promo"
+                "column": "no_promo",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                },
+                "native_column_type": "BIGINT"
             },
             "upstreams": [
                 {
@@ -56,7 +68,13 @@
         {
             "downstream": {
                 "table": "urn:li:dataset:(urn:li:dataPlatform:hive,query72,PROD)",
-                "column": "promo"
+                "column": "promo",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                },
+                "native_column_type": "BIGINT"
             },
             "upstreams": [
                 {
@@ -68,7 +86,13 @@
         {
             "downstream": {
                 "table": "urn:li:dataset:(urn:li:dataPlatform:hive,query72,PROD)",
-                "column": "total_cnt"
+                "column": "total_cnt",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                },
+                "native_column_type": "BIGINT"
             },
             "upstreams": []
         }
