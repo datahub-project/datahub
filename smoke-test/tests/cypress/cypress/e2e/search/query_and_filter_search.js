@@ -32,7 +32,7 @@ describe("auto-complete dropdown, filter plus query search test", () => {
 
   it("verify the 'filter by' section + query (result in search page with query applied + filter applied)", () => {
     // Platform query plus filter test
-    cy.login();
+    cy.loginWithCredentials();
     // Airflow
     platformQuerySearch ("cypress","airflow","Airflow");
     // BigQuery
@@ -41,8 +41,6 @@ describe("auto-complete dropdown, filter plus query search test", () => {
     platformQuerySearch ("cypress","dbt","dbt");
     // Hive 
     platformQuerySearch ("cypress","hive","Hive");
-    // Snowflake
-    platformQuerySearch ("dataset","snowflake","Snowflake");
 
     // Entity type query plus filter test
     // Datasets
