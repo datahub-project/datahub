@@ -23,6 +23,7 @@ from datahub.metadata.schema_classes import (AssertionInfoClass,
                                              PartitionSpecClass,
                                              PartitionTypeClass)
 
+import requests_wrapper as requests
 from tests.utils import (delete_urns_from_file, get_frontend_url, get_gms_url,
                          get_sleep_info, ingest_file_via_rest,
                          wait_for_healthcheck_util)
