@@ -356,9 +356,12 @@ class Pipeline:
         with contextlib.ExitStack() as stack:
             if self.config.flags.generate_memory_profiles:
                 import memray
-                stack.enter_context(memray.Tracker(
-                    f"{self.config.flags.generate_memory_profiles}/{self.config.run_id}.bin"
-                ))
+
+                stack.enter_context(
+                    memray.Tracker(
+                        f"{self.config.flags.generate_memory_profiles}/{self.config.run_id}.bin"
+                    )
+                )
 
             self.final_status = "unknown"
             self._notify_reporters_on_ingestion_start()
