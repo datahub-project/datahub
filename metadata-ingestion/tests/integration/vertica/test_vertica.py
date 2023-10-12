@@ -1,5 +1,4 @@
 import subprocess
-import time
 from typing import List, Optional
 
 import pytest
@@ -17,13 +16,12 @@ def test_resources_dir(pytestconfig):
     return pytestconfig.rootpath / "tests/integration/vertica"
 
 
-def is_vertica_responsive(
-    container_name: str, port: int, hostname: Optional[str]
-) -> bool:
-    if hostname:
-        cmd = f"docker logs {container_name} 2>&1 | grep 'Vertica is now running' "
-    ret = subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL)
-
+def is_vertica_responsive(container_name: str) -> bool:
+    cmd = f"docker logs {container_name} 2>&1 | grep 'Vertica is now running' "
+    ret = subprocess.run(
+        cmd,
+        shell=True,
+    )
     return ret.returncode == 0
 
 
@@ -37,9 +35,7 @@ def vertica_runner(docker_compose_runner, test_resources_dir):
             "vertica-ce",
             5433,
             timeout=120,
-            checker=lambda: is_vertica_responsive(
-                "vertica-ce", 5433, hostname="vertica-ce"
-            ),
+            checker=lambda: is_vertica_responsive("vertica-ce"),
         )
 
         commands = """
@@ -56,7 +52,7 @@ def vertica_runner(docker_compose_runner, test_resources_dir):
 
 # Test needs more work to be done , currently it is working fine.
 @freeze_time(FROZEN_TIME)
-#@pytest.mark.skip("Failing in CI, cmd failing with exit code 1")
+# @pytest.mark.skip("Failing in CI, cmd failing with exit code 1")
 @pytest.mark.integration
 def test_vertica_ingest_with_db(vertica_runner, pytestconfig, tmp_path):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/vertica"
