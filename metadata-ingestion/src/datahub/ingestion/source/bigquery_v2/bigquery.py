@@ -1057,6 +1057,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                         ):
                             field.description = col.comment
                             schema_fields[idx] = field
+                            break
             else:
                 tags = []
                 if col.is_partition_column:
