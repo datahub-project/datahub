@@ -2,12 +2,11 @@
 
 This example demonstrates how to emit lineage to DataHub within an Airflow DAG.
 """
-
 from datetime import timedelta
 
 import datahub.emitter.mce_builder as builder
 from airflow import DAG
-from airflow.providers.snowflake.operators.snowflake import SnowflakeOperator
+from airflow.operators.bash import BashOperator
 from airflow.utils.dates import days_ago
 
 from datahub_airflow_plugin.operators.datahub import DatahubEmitterOperator
@@ -33,23 +32,10 @@ with DAG(
     catchup=False,
     default_view="tree",
 ) as dag:
-    # This example shows a SnowflakeOperator followed by a lineage emission. However, the
-    # same DatahubEmitterOperator can be used to emit lineage in any context.
-
-    sql = """CREATE OR REPLACE TABLE `mydb.schema.tableC` AS
-            WITH some_table AS (
-              SELECT * FROM `mydb.schema.tableA`
-            ),
-            some_other_table AS (
-              SELECT id, some_column FROM `mydb.schema.tableB`
-            )
-            SELECT * FROM some_table
-            LEFT JOIN some_other_table ON some_table.unique_id=some_other_table.id"""
-    transformation_task = SnowflakeOperator(
-        task_id="snowflake_transformation",
+    transformation_task = BashOperator(
+        task_id="transformation_task",
         dag=dag,
-        snowflake_conn_id="snowflake_default",
-        sql=sql,
+        bash_command="echo 'This is where you might run your data tooling.'",
     )
 
     emit_lineage_task = DatahubEmitterOperator(

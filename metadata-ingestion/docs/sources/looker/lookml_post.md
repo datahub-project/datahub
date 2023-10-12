@@ -2,11 +2,11 @@
 
 :::note
 
-The integration can use an SQL parser to try to parse the tables the views depends on. 
+The integration can use an SQL parser to try to parse the tables the views depends on.
 
 :::
 
-This parsing is disabled by default, but can be enabled by setting `parse_table_names_from_sql: True`.  The default parser is based on the [`sqllineage`](https://pypi.org/project/sqllineage/) package.
+This parsing is disabled by default, but can be enabled by setting `parse_table_names_from_sql: True`. The default parser is based on the [`sqllineage`](https://pypi.org/project/sqllineage/) package.
 As this package doesn't officially support all the SQL dialects that Looker supports, the result might not be correct. You can, however, implement a custom parser and take it into use by setting the `sql_parser` configuration value. A custom SQL parser must inherit from `datahub.utilities.sql_parser.SQLParser`
 and must be made available to Datahub by ,for example, installing it. The configuration then needs to be set to `module_name.ClassName` of the parser.
 
@@ -15,12 +15,14 @@ and must be made available to Datahub by ,for example, installing it. The config
 Looker projects support organization as multiple git repos, with [remote includes that can refer to projects that are stored in a different repo](https://cloud.google.com/looker/docs/importing-projects#include_files_from_an_imported_project). If your Looker implementation uses multi-project setup, you can configure the LookML source to pull in metadata from your remote projects as well.
 
 If you are using local or remote dependencies, you will see include directives in your lookml files that look like this:
+
 ```
 include: "//e_flights/views/users.view.lkml"
 include: "//e_commerce/public/orders.view.lkml"
 ```
 
 Also, you will see projects that are being referred to listed in your `manifest.lkml` file. Something like this:
+
 ```
 project_name: this_project
 
@@ -34,9 +36,9 @@ remote_dependency: ga_360_block {
 }
 ```
 
-
 To ingest Looker repositories that are including files defined in other projects, you will need to use the `project_dependencies` directive within the configuration section.
 Consider the following scenario:
+
 - Your primary project refers to a remote project called `my_remote_project`
 - The remote project is homed in the GitHub repo `my_org/my_remote_project`
 - You have provisioned a GitHub deploy key and stored the credential in the environment variable (or UI secret), `${MY_REMOTE_PROJECT_DEPLOY_KEY}`
@@ -71,6 +73,23 @@ source:
 
 :::note
 
-This is not the same as ingesting the remote project as a primary Looker project because DataHub will not be processing the model files that might live in the remote project. If you want to additionally include the views accessible via the models in the remote project, create a second recipe where your remote project is the primary project. 
+This is not the same as ingesting the remote project as a primary Looker project because DataHub will not be processing the model files that might live in the remote project. If you want to additionally include the views accessible via the models in the remote project, create a second recipe where your remote project is the primary project.
 
 :::
+
+### Debugging LookML Parsing Errors
+
+If you see messages like `my_file.view.lkml': "failed to load view file: Unable to find a matching expression for '<literal>' on line 5"` in the failure logs, it indicates a parsing error for the LookML file.
+
+The first thing to check is that the Looker IDE can validate the file without issues. You can check this by clicking this "Validate LookML" button in the IDE when in development mode.
+
+If that's not the issue, it might be because DataHub's parser, which is based on the [joshtemple/lkml](https://github.com/joshtemple/lkml) library, is slightly more strict than the official Looker parser.
+Note that there's currently only one known discrepancy between the two parsers, and it's related to using [multiple colon characters](https://github.com/joshtemple/lkml/issues/82) when defining parameters.
+
+To check if DataHub can parse your LookML file syntax, you can use the `lkml` CLI tool. If this raises an exception, DataHub will fail to parse the file.
+
+```sh
+pip install lkml
+
+lkml path/to/my_file.view.lkml
+```

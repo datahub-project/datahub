@@ -12,7 +12,7 @@ import com.mixpanel.mixpanelapi.MixpanelAPI;
 import java.io.IOException;
 import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
-import org.elasticsearch.client.RestHighLevelClient;
+import org.opensearch.client.RestHighLevelClient;
 import org.joda.time.DateTime;
 import org.json.JSONObject;
 import org.springframework.scheduling.annotation.Scheduled;

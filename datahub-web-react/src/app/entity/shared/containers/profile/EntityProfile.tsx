@@ -47,6 +47,7 @@ import {
 import { useAppConfig } from '../../../../useAppConfig';
 import { useSubscriptionsEnabled } from '../../../../settings/personal/notifications/utils';
 import { ENTITY_PROFILE_SUBSCRIPTION_ID } from '../../../../onboarding/config/EntityProfileOnboardingConfig';
+import { useUpdateDomainEntityDataOnChange } from '../../../../domain/utils';
 
 type Props<T, U> = {
     urn: string;
@@ -218,6 +219,7 @@ export const EntityProfile = <T, U>({
         useGetDataForProfile({ urn, entityType, useEntityQuery, getOverrideProperties });
 
     useUpdateGlossaryEntityDataOnChange(entityData, entityType);
+    useUpdateDomainEntityDataOnChange(entityData, entityType);
 
     const maybeUpdateEntity = useUpdateQuery?.({
         onCompleted: () => refetch(),

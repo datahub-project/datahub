@@ -3,7 +3,8 @@ import json
 import pytest
 import tenacity
 
-from tests.utils import get_frontend_url, get_sleep_info, wait_for_healthcheck_util
+from tests.utils import (get_frontend_url, get_sleep_info,
+                         wait_for_healthcheck_util)
 
 sleep_sec, sleep_times = get_sleep_info()
 

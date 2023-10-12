@@ -14,6 +14,7 @@ import sqlglot.lineage
 import sqlglot.optimizer.qualify
 import sqlglot.optimizer.qualify_columns
 from pydantic import BaseModel
+from typing_extensions import TypedDict
 
 from datahub.emitter.mce_builder import (
     DEFAULT_ENV,
@@ -34,6 +35,15 @@ Urn = str
 SchemaInfo = Dict[str, str]
 
 SQL_PARSE_RESULT_CACHE_SIZE = 1000
+
+
+class GraphQLSchemaField(TypedDict):
+    fieldPath: str
+    nativeDataType: str
+
+
+class GraphQLSchemaMetadata(TypedDict):
+    fields: List[GraphQLSchemaField]
 
 
 class QueryType(enum.Enum):
@@ -221,6 +231,13 @@ def _table_level_lineage(
         # In some cases like "MERGE ... then INSERT (col1, col2) VALUES (col1, col2)",
         # the `this` on the INSERT part isn't a table.
         if isinstance(expr.this, sqlglot.exp.Table)
+    } | {
+        # For CREATE DDL statements, the table name is nested inside
+        # a Schema object.
+        _TableName.from_sqlglot_table(expr.this.this)
+        for expr in statement.find_all(sqlglot.exp.Create)
+        if isinstance(expr.this, sqlglot.exp.Schema)
+        and isinstance(expr.this.this, sqlglot.exp.Table)
     }
 
     tables = (
@@ -232,7 +249,7 @@ def _table_level_lineage(
         - modified
         # ignore CTEs created in this statement
         - {
-            _TableName(database=None, schema=None, table=cte.alias_or_name)
+            _TableName(database=None, db_schema=None, table=cte.alias_or_name)
             for cte in statement.find_all(sqlglot.exp.CTE)
         }
     )
@@ -265,6 +282,9 @@ class SchemaResolver(Closeable):
         self._schema_cache: FileBackedDict[Optional[SchemaInfo]] = FileBackedDict(
             shared_connection=shared_conn,
         )
+
+    def get_urns(self) -> Set[str]:
+        return set(self._schema_cache.keys())
 
     def get_urn_for_table(self, table: _TableName, lower: bool = False) -> str:
         # TODO: Validate that this is the correct 2/3 layer hierarchy for the platform.
@@ -330,6 +350,12 @@ class SchemaResolver(Closeable):
     def add_raw_schema_info(self, urn: str, schema_info: SchemaInfo) -> None:
         self._save_to_cache(urn, schema_info)
 
+    def add_graphql_schema_metadata(
+        self, urn: str, schema_metadata: GraphQLSchemaMetadata
+    ) -> None:
+        schema_info = self.convert_graphql_schema_metadata_to_info(schema_metadata)
+        self._save_to_cache(urn, schema_info)
+
     def _save_to_cache(self, urn: str, schema_info: Optional[SchemaInfo]) -> None:
         self._schema_cache[urn] = schema_info
 
@@ -356,7 +382,23 @@ class SchemaResolver(Closeable):
             not in DatasetUrn.get_simple_field_path_from_v2_field_path(col.fieldPath)
         }
 
-    # TODO add a method to load all from graphql
+    @classmethod
+    def convert_graphql_schema_metadata_to_info(
+        cls, schema: GraphQLSchemaMetadata
+    ) -> SchemaInfo:
+        return {
+            DatasetUrn.get_simple_field_path_from_v2_field_path(field["fieldPath"]): (
+                # The actual types are more of a "nice to have".
+                field["nativeDataType"]
+                or "str"
+            )
+            for field in schema["fields"]
+            # TODO: We can't generate lineage to columns nested within structs yet.
+            if "."
+            not in DatasetUrn.get_simple_field_path_from_v2_field_path(
+                field["fieldPath"]
+            )
+        }
 
     def close(self) -> None:
         self._schema_cache.close()
@@ -872,32 +914,39 @@ def create_lineage_sql_parsed_result(
     env: str,
     schema: Optional[str] = None,
     graph: Optional[DataHubGraph] = None,
-) -> Optional["SqlParsingResult"]:
-    parsed_result: Optional["SqlParsingResult"] = None
+) -> SqlParsingResult:
+    needs_close = False
     try:
-        schema_resolver = (
-            graph._make_schema_resolver(
+        if graph:
+            schema_resolver = graph._make_schema_resolver(
                 platform=platform,
                 platform_instance=platform_instance,
                 env=env,
             )
-            if graph is not None
-            else SchemaResolver(
+        else:
+            needs_close = True
+            schema_resolver = SchemaResolver(
                 platform=platform,
                 platform_instance=platform_instance,
                 env=env,
                 graph=None,
             )
-        )
 
-        parsed_result = sqlglot_lineage(
+        return sqlglot_lineage(
             query,
             schema_resolver=schema_resolver,
             default_db=database,
             default_schema=schema,
         )
     except Exception as e:
-        logger.debug(f"Fail to prase query {query}", exc_info=e)
-        logger.warning("Fail to parse custom SQL")
-
-    return parsed_result
+        return SqlParsingResult(
+            in_tables=[],
+            out_tables=[],
+            column_lineage=None,
+            debug_info=SqlParsingDebugInfo(
+                table_error=e,
+            ),
+        )
+    finally:
+        if needs_close:
+            schema_resolver.close()

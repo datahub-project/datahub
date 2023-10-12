@@ -10,6 +10,13 @@ ext {
 if (!project.hasProperty("extra_pip_requirements")) {
     ext.extra_pip_requirements = ""
 }
+if (!project.hasProperty("extra_pip_extras")) {
+    ext.extra_pip_extras = "plugin-v2"
+}
+// If extra_pip_extras is non-empty, we need to add a comma to the beginning of the string.
+if (extra_pip_extras != "") {
+    ext.extra_pip_extras = "," + extra_pip_extras
+}
 
 def pip_install_command = "${venv_name}/bin/pip install -e ../../metadata-ingestion"
 
@@ -36,7 +43,7 @@ task installPackage(type: Exec, dependsOn: [environmentSetup, ':metadata-ingesti
   // and https://github.com/datahub-project/datahub/pull/8435.
   commandLine 'bash', '-x', '-c',
     "${pip_install_command} install 'Cython<3.0' 'PyYAML<6' --no-build-isolation && " +
-    "${pip_install_command} -e . ${extra_pip_requirements} &&" +
+    "${pip_install_command} -e .[ignore${extra_pip_extras}] ${extra_pip_requirements} &&" +
     "touch ${sentinel_file}"
 }
 
@@ -47,7 +54,7 @@ task installDev(type: Exec, dependsOn: [install]) {
   inputs.file file('setup.py')
   outputs.file("${sentinel_file}")
   commandLine 'bash', '-x', '-c',
-    "${pip_install_command} -e .[dev]  ${extra_pip_requirements} && " +
+    "${pip_install_command} -e .[dev${extra_pip_extras}] ${extra_pip_requirements} && " +
     "touch ${sentinel_file}"
 }
 
@@ -79,7 +86,8 @@ task installDevTest(type: Exec, dependsOn: [installDev]) {
   outputs.dir("${venv_name}")
   outputs.file("${sentinel_file}")
   commandLine 'bash', '-x', '-c',
-    "${pip_install_command} -e .[dev,integration-tests] && touch ${sentinel_file}"
+    "${pip_install_command} -e .[dev,integration-tests${extra_pip_extras}] ${extra_pip_requirements} && " +
+    "touch ${sentinel_file}"
 }
 
 def testFile = hasProperty('testFile') ? testFile : 'unknown'
@@ -97,26 +105,19 @@ task testSingle(dependsOn: [installDevTest]) {
 }
 
 task testQuick(type: Exec, dependsOn: installDevTest) {
-  // We can't enforce the coverage requirements if we run a subset of the tests.
   inputs.files(project.fileTree(dir: "src/", include: "**/*.py"))
   inputs.files(project.fileTree(dir: "tests/"))
-  outputs.dir("${venv_name}")
   commandLine 'bash', '-x', '-c',
-    "source ${venv_name}/bin/activate && pytest -vv --continue-on-collection-errors --junit-xml=junit.quick.xml"
+    "source ${venv_name}/bin/activate && pytest  -vv --continue-on-collection-errors --junit-xml=junit.quick.xml"
 }
 
-
-task testFull(type: Exec, dependsOn: [testQuick, installDevTest]) {
-  commandLine 'bash', '-x', '-c',
-    "source ${venv_name}/bin/activate && pytest -m 'not slow_integration' -vv --continue-on-collection-errors --junit-xml=junit.full.xml"
-}
-task buildWheel(type: Exec, dependsOn: [install]) {
-  commandLine 'bash', '-c', "source ${venv_name}/bin/activate && " + 'pip install build && RELEASE_VERSION="\${RELEASE_VERSION:-0.0.0.dev1}" RELEASE_SKIP_TEST=1 RELEASE_SKIP_UPLOAD=1 ./scripts/release.sh'
-}
 
 task cleanPythonCache(type: Exec) {
   commandLine 'bash', '-c',
     "find src -type f -name '*.py[co]' -delete -o -type d -name __pycache__ -delete -o -type d -empty -delete"
+}
+task buildWheel(type: Exec, dependsOn: [install, cleanPythonCache]) {
+  commandLine 'bash', '-c', "source ${venv_name}/bin/activate && " + 'pip install build && RELEASE_VERSION="\${RELEASE_VERSION:-0.0.0.dev1}" RELEASE_SKIP_TEST=1 RELEASE_SKIP_UPLOAD=1 ./scripts/release.sh'
 }
 
 build.dependsOn install

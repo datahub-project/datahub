@@ -1,36 +1,32 @@
 import json
-import urllib
 import time
+import urllib
+
 import pytest
-import requests_wrapper as requests
 import tenacity
 from datahub.emitter.mce_builder import make_dataset_urn, make_schema_field_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope
 from datahub.ingestion.api.sink import NoopWriteCallback
 from datahub.ingestion.sink.file import FileSink, FileSinkConfig
-from datahub.metadata.com.linkedin.pegasus2avro.assertion import AssertionStdAggregation
-from datahub.metadata.schema_classes import (
-    AssertionInfoClass,
-    AssertionResultClass,
-    AssertionResultTypeClass,
-    AssertionRunEventClass,
-    AssertionRunStatusClass,
-    AssertionStdOperatorClass,
-    AssertionTypeClass,
-    DatasetAssertionInfoClass,
-    DatasetAssertionScopeClass,
-    PartitionSpecClass,
-    PartitionTypeClass,
-)
-from tests.utils import (
-    delete_urns_from_file,
-    get_frontend_url,
-    get_gms_url,
-    ingest_file_via_rest,
-    wait_for_healthcheck_util,
-    get_sleep_info,
-)
+from datahub.metadata.com.linkedin.pegasus2avro.assertion import \
+    AssertionStdAggregation
+from datahub.metadata.schema_classes import (AssertionInfoClass,
+                                             AssertionResultClass,
+                                             AssertionResultTypeClass,
+                                             AssertionRunEventClass,
+                                             AssertionRunStatusClass,
+                                             AssertionStdOperatorClass,
+                                             AssertionTypeClass,
+                                             DatasetAssertionInfoClass,
+                                             DatasetAssertionScopeClass,
+                                             PartitionSpecClass,
+                                             PartitionTypeClass)
+
+import requests_wrapper as requests
+from tests.utils import (delete_urns_from_file, get_frontend_url, get_gms_url,
+                         get_sleep_info, ingest_file_via_rest,
+                         wait_for_healthcheck_util)
 
 restli_default_headers = {
     "X-RestLi-Protocol-Version": "2.0.0",
@@ -41,13 +37,14 @@ sleep_sec, sleep_times = get_sleep_info()
 TEST_ASSERTION_URN = "urn:li:assertion:2d3b06a6e77e1f24adc9860a05ea089b"
 TEST_DATASET_URN = make_dataset_urn(platform="postgres", name="foo")
 RUN_EVENT_TIMESTAMPS = [
-   1643794280350,
-   1643794280352,
-   1643794280354,
-   1643880726872,
-   1643880726874,
-   1643880726875,
+    1643794280350,
+    1643794280352,
+    1643794280354,
+    1643880726872,
+    1643880726874,
+    1643880726875,
 ]
+
 
 def create_test_data(test_file):
     assertion_urn = TEST_ASSERTION_URN
@@ -417,9 +414,7 @@ def test_list_dataset_assertions(frontend_session):
               }\n
             }\n
         }""",
-        "variables": {
-          "urn": TEST_DATASET_URN
-        }
+        "variables": {"urn": TEST_DATASET_URN},
     }
 
     response = frontend_session.post(
@@ -432,52 +427,46 @@ def test_list_dataset_assertions(frontend_session):
     assert "errors" not in res_data
     assert res_data["data"]
     assert res_data["data"]["dataset"]["assertions"] == {
-     'start': 0,
-     'count': 1,
-     'total': 1,
-     'assertions': [
-        {
-          "urn": TEST_ASSERTION_URN,
-          "type": "ASSERTION",
-          "info": {
-           "type": "DATASET",
-           "datasetAssertion": {
-             "datasetUrn": TEST_DATASET_URN,
-             "scope": "DATASET_COLUMN",
-             "aggregation": "IDENTITY",
-             "operator": "LESS_THAN"
-           }
-          },
-          "runEvents": {
-           "total": 3,
-           "failed": 1,
-           "succeeded": 2,
-           "runEvents": [
+        "start": 0,
+        "count": 1,
+        "total": 1,
+        "assertions": [
             {
-               "timestampMillis": RUN_EVENT_TIMESTAMPS[5],
-               "status": "COMPLETE",
-               "result": {
-                 "type": "SUCCESS"
-               }
-             },
-            {
-               "timestampMillis": RUN_EVENT_TIMESTAMPS[4],
-               "status": "COMPLETE",
-               "result": {
-                 "type": "FAILURE"
-               }
-             },
-             {
-                "timestampMillis": RUN_EVENT_TIMESTAMPS[3],
-                "status": "COMPLETE",
-                "result": {
-                  "type": "SUCCESS"
-                }
-              }
-           ]
-          }
-        }
-     ]
+                "urn": TEST_ASSERTION_URN,
+                "type": "ASSERTION",
+                "info": {
+                    "type": "DATASET",
+                    "datasetAssertion": {
+                        "datasetUrn": TEST_DATASET_URN,
+                        "scope": "DATASET_COLUMN",
+                        "aggregation": "IDENTITY",
+                        "operator": "LESS_THAN",
+                    },
+                },
+                "runEvents": {
+                    "total": 3,
+                    "failed": 1,
+                    "succeeded": 2,
+                    "runEvents": [
+                        {
+                            "timestampMillis": RUN_EVENT_TIMESTAMPS[5],
+                            "status": "COMPLETE",
+                            "result": {"type": "SUCCESS"},
+                        },
+                        {
+                            "timestampMillis": RUN_EVENT_TIMESTAMPS[4],
+                            "status": "COMPLETE",
+                            "result": {"type": "FAILURE"},
+                        },
+                        {
+                            "timestampMillis": RUN_EVENT_TIMESTAMPS[3],
+                            "status": "COMPLETE",
+                            "result": {"type": "SUCCESS"},
+                        },
+                    ],
+                },
+            }
+        ],
     }
 
 
@@ -545,43 +534,37 @@ def test_search_all_assertions(frontend_session):
     )
 
     assert res_data["data"]["searchAcrossEntities"]["searchResults"][0]["entity"] == {
-      "urn": TEST_ASSERTION_URN,
-      "type": "ASSERTION",
-      "info": {
-       "type": "DATASET",
-       "datasetAssertion": {
-         "datasetUrn": TEST_DATASET_URN,
-         "scope": "DATASET_COLUMN",
-         "aggregation": "IDENTITY",
-         "operator": "LESS_THAN"
-       }
-      },
-      "runEvents": {
-       "total": 3,
-       "failed": 1,
-       "succeeded": 2,
-       "runEvents": [
-        {
-           "timestampMillis": RUN_EVENT_TIMESTAMPS[5],
-           "status": "COMPLETE",
-           "result": {
-             "type": "SUCCESS"
-           }
-         },
-        {
-           "timestampMillis": RUN_EVENT_TIMESTAMPS[4],
-           "status": "COMPLETE",
-           "result": {
-             "type": "FAILURE"
-           }
-         },
-         {
-            "timestampMillis": RUN_EVENT_TIMESTAMPS[3],
-            "status": "COMPLETE",
-            "result": {
-              "type": "SUCCESS"
-            }
-          }
-       ]
-      }
+        "urn": TEST_ASSERTION_URN,
+        "type": "ASSERTION",
+        "info": {
+            "type": "DATASET",
+            "datasetAssertion": {
+                "datasetUrn": TEST_DATASET_URN,
+                "scope": "DATASET_COLUMN",
+                "aggregation": "IDENTITY",
+                "operator": "LESS_THAN",
+            },
+        },
+        "runEvents": {
+            "total": 3,
+            "failed": 1,
+            "succeeded": 2,
+            "runEvents": [
+                {
+                    "timestampMillis": RUN_EVENT_TIMESTAMPS[5],
+                    "status": "COMPLETE",
+                    "result": {"type": "SUCCESS"},
+                },
+                {
+                    "timestampMillis": RUN_EVENT_TIMESTAMPS[4],
+                    "status": "COMPLETE",
+                    "result": {"type": "FAILURE"},
+                },
+                {
+                    "timestampMillis": RUN_EVENT_TIMESTAMPS[3],
+                    "status": "COMPLETE",
+                    "result": {"type": "SUCCESS"},
+                },
+            ],
+        },
     }

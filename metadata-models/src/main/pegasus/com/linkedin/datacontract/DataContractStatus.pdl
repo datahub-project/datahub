@@ -1,0 +1,27 @@
+namespace com.linkedin.datacontract
+
+import com.linkedin.common.Urn
+import com.linkedin.common.CustomProperties
+
+/**
+ * Information about the status of a data contract
+ */
+@Aspect = {
+  "name": "dataContractStatus"
+}
+record DataContractStatus includes CustomProperties {
+  /**
+   * The latest state of the data contract
+   */
+   @Searchable = {}
+   state: enum DataContractState {
+    /**
+    * The data contract is active.
+    */
+    ACTIVE
+    /**
+    * The data contract is pending implementation.
+    */
+    PENDING
+   }
+}

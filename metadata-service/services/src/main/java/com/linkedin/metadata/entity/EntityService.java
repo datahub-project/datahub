@@ -9,6 +9,7 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.entity.Entity;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
@@ -297,4 +298,11 @@ public interface EntityService {
    */
   @Nonnull
   BrowsePathsV2 buildDefaultBrowsePathV2(final @Nonnull Urn urn, boolean useContainerPaths) throws URISyntaxException;
+
+  /**
+   * Allow internal use of the system entity client. Solves recursive dependencies between the EntityService
+   * and the SystemJavaEntityClient
+   * @param systemEntityClient system entity client
+   */
+  void setSystemEntityClient(SystemEntityClient systemEntityClient);
 }

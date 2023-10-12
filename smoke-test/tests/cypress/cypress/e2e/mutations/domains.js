@@ -1,14 +1,32 @@
+import { aliasQuery, hasOperationName } from "../utils";
+
 const test_domain_id = Math.floor(Math.random() * 100000);
 const test_domain = `CypressDomainTest ${test_domain_id}`
 const test_domain_urn = `urn:li:domain:${test_domain_id}`
 
 
 describe("add remove domain", () => {
+    beforeEach(() => {
+        cy.intercept("POST", "/api/v2/graphql", (req) => {
+          aliasQuery(req, "appConfig");
+        });
+      });
+    
+      const setDomainsFeatureFlag = (isOn) => {
+        cy.intercept("POST", "/api/v2/graphql", (req) => {
+          if (hasOperationName(req, "appConfig")) {
+            req.reply((res) => {
+              res.body.data.appConfig.featureFlags.nestedDomainsEnabled = isOn;
+            });
+          }
+        });
+      };
+
     it("create domain", () => {
         cy.loginWithCredentials();
         cy.goToDomainList();
         cy.clickOptionWithText("New Domain");
-        cy.waitTextVisible("Create new Domain");
+        cy.waitTextVisible("Create New Domain");
         cy.get('[data-testid="create-domain-name"]').click().type(test_domain)
         cy.clickOptionWithText('Advanced')
         cy.get('[data-testid="create-domain-id"]').click().type(test_domain_id)
@@ -17,6 +35,7 @@ describe("add remove domain", () => {
     })
 
     it("add entities to domain", () => {
+        setDomainsFeatureFlag(false);
         cy.loginWithCredentials();
         cy.goToDomainList();
         cy.clickOptionWithText(test_domain);
@@ -32,6 +51,7 @@ describe("add remove domain", () => {
     })
 
     it("remove entity from domain", () => {
+        setDomainsFeatureFlag(false);
         cy.loginWithCredentials();
         cy.goToDomainList();
         cy.removeDomainFromDataset(
@@ -42,6 +62,7 @@ describe("add remove domain", () => {
     })
 
     it("delete a domain and ensure dangling reference is deleted on entities", () => {
+        setDomainsFeatureFlag(false);
         cy.loginWithCredentials();
         cy.goToDomainList();
         cy.get('[data-testid="dropdown-menu-' + test_domain_urn + '"]').click();

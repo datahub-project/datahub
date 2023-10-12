@@ -36,6 +36,7 @@ cd metadata-ingestion-modules/airflow-plugin
 source venv/bin/activate
 datahub version  # should print "DataHub CLI version: unavailable (installed in develop mode)"
 ```
+
 ### Common setup issues
 
 Common issues (click to expand):
@@ -111,6 +112,7 @@ mypy src/ tests/
 ```
 
 or you can run from root of the repository
+
 ```shell
 ./gradlew :metadata-ingestion:lintFix
 ```
@@ -178,13 +180,10 @@ pip install -e '.[integration-tests]'
 pytest -vv
 
 # Run unit tests.
-pytest -m 'not integration and not slow_integration'
+pytest -m 'not integration'
 
 # Run Docker-based integration tests.
 pytest -m 'integration'
-
-# Run Docker-based slow integration tests.
-pytest -m 'slow_integration'
 
 # You can also run these steps via the gradle build:
 ../gradlew :metadata-ingestion:lint

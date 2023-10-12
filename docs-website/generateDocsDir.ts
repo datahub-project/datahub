@@ -66,7 +66,7 @@ function list_markdown_files(): string[] {
     .trim()
     .split("\n");
   let all_generated_markdown_files = execSync(
-    "cd .. && ls docs/generated/**/**/*.md"
+    "cd .. && ls docs/generated/**/**/*.md && ls docs/generated/**/*.md"
   )
     .toString()
     .trim()

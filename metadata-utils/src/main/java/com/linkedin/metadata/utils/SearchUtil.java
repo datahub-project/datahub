@@ -18,8 +18,8 @@ import java.util.stream.Collectors;
 
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import lombok.extern.slf4j.Slf4j;
-import org.elasticsearch.index.query.BoolQueryBuilder;
-import org.elasticsearch.index.query.QueryBuilders;
+import org.opensearch.index.query.BoolQueryBuilder;
+import org.opensearch.index.query.QueryBuilders;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;

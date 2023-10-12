@@ -304,7 +304,12 @@ fragment entityPreview on Entity {
         urn
         properties {
             name
+            description
         }
+        parentDomains {
+            ...parentDomainsFields
+        }
+        ...domainEntitiesFields
     }
     ... on Container {
         ...entityContainer

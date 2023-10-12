@@ -1,3 +1,4 @@
+import { PageRoutes } from '../../conf/Global';
 import { useDeleteAssertionMutation } from '../../graphql/assertion.generated';
 import { useDeleteDataProductMutation } from '../../graphql/dataProduct.generated';
 import { useDeleteDomainMutation } from '../../graphql/domain.generated';
@@ -18,10 +19,11 @@ export const getEntityProfileDeleteRedirectPath = (type: EntityType, entityData:
     switch (type) {
         case EntityType.CorpGroup:
         case EntityType.CorpUser:
-        case EntityType.Domain:
         case EntityType.Tag:
             // Return Home.
             return '/';
+        case EntityType.Domain:
+            return `${PageRoutes.DOMAINS}`;
         case EntityType.GlossaryNode:
         case EntityType.GlossaryTerm:
             // Return to glossary page.

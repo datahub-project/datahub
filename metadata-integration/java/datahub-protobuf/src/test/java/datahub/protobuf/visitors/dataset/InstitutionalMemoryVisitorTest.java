@@ -2,7 +2,7 @@ package datahub.protobuf.visitors.dataset;
 
 import com.linkedin.common.InstitutionalMemoryMetadata;
 import com.linkedin.common.url.Url;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.util.List;

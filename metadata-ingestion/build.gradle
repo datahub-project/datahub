@@ -12,7 +12,7 @@ if (!project.hasProperty("extra_pip_requirements")) {
 }
 
 def get_coverage_arg(test_name) {
-  return "--cov-report term --cov-report xml:coverage_${test_name}.xml "
+  return "--cov-report xml:coverage_${test_name}.xml "
 }
 
 task checkPythonVersion(type: Exec) {
@@ -62,6 +62,14 @@ task codegen(type: Exec, dependsOn: [environmentSetup, installPackage, ':metadat
   commandLine 'bash', '-c', "source ${venv_name}/bin/activate && ./scripts/codegen.sh"
 }
 
+task customPackageGenerate(type: Exec, dependsOn: [environmentSetup, installPackage, ':metadata-events:mxe-schemas:build']) {
+  def package_name = project.findProperty('package_name')
+  def package_version = project.findProperty('package_version')
+  commandLine 'bash', '-c',
+    "source ${venv_name}/bin/activate && " +
+    "./scripts/custom_package_codegen.sh '${package_name}' '${package_version}'"
+}
+
 task install(dependsOn: [installPackage, codegen])
 
 task installDev(type: Exec, dependsOn: [install]) {
@@ -71,7 +79,6 @@ task installDev(type: Exec, dependsOn: [install]) {
   commandLine 'bash', '-c',
     "source ${venv_name}/bin/activate && set -x && " +
     "${venv_name}/bin/pip install -e .[dev] ${extra_pip_requirements} && " +
-    "./scripts/install-sqlalchemy-stubs.sh && " +
     "touch ${sentinel_file}"
 }
 
@@ -82,7 +89,6 @@ task installAll(type: Exec, dependsOn: [install]) {
   commandLine 'bash', '-c',
     "source ${venv_name}/bin/activate && set -x && " +
     "${venv_name}/bin/pip install -e .[all] ${extra_pip_requirements} && " +
-    "./scripts/install-sqlalchemy-stubs.sh && " +
     "touch ${sentinel_file}"
 }
 
@@ -119,7 +125,6 @@ task lint(type: Exec, dependsOn: installDev) {
 task lintFix(type: Exec, dependsOn: installDev) {
   commandLine 'bash', '-c',
     "source ${venv_name}/bin/activate && set -x && " +
-    "./scripts/install-sqlalchemy-stubs.sh && " +
     "black src/ tests/ examples/ && " +
     "isort src/ tests/ examples/ && " +
     "flake8 src/ tests/ examples/ && " +
@@ -133,7 +138,7 @@ task testQuick(type: Exec, dependsOn: [installDev, ':metadata-models:generateJso
   outputs.dir("${venv_name}")
   def cvg_arg = get_coverage_arg("quick")
   commandLine 'bash', '-c',
-    "source ${venv_name}/bin/activate && pytest ${cvg_arg} --durations=20 -m 'not integration and not integration_batch_1 and not slow_integration' -vv --continue-on-collection-errors --junit-xml=junit.quick.xml"
+    "source ${venv_name}/bin/activate && pytest ${cvg_arg} tests/unit --durations=20 -m 'not integration' -vv --continue-on-collection-errors --junit-xml=junit.quick.xml"
 }
 
 task installDevTest(type: Exec, dependsOn: [install]) {
@@ -159,27 +164,25 @@ task testSingle(dependsOn: [installDevTest]) {
   }
 }
 
-task testIntegration(type: Exec, dependsOn: [installDevTest]) {
-  def cvg_arg = get_coverage_arg("int")
+task testIntegrationBatch0(type: Exec, dependsOn: [installDevTest]) {
+  def cvg_arg = get_coverage_arg("intBatch0")
   commandLine 'bash', '-c',
-    "source ${venv_name}/bin/activate && pytest ${cvg_arg} --durations=50 -m 'integration' -vv --continue-on-collection-errors --junit-xml=junit.integration.xml"
+    "source ${venv_name}/bin/activate && pytest ${cvg_arg} --durations=50 -m 'integration_batch_0' -vv --continue-on-collection-errors --junit-xml=junit.integrationbatch0.xml"
 }
-
 task testIntegrationBatch1(type: Exec, dependsOn: [installDevTest]) {
   def cvg_arg = get_coverage_arg("intBatch1")
   commandLine 'bash', '-c',
     "source ${venv_name}/bin/activate && pytest ${cvg_arg} --durations=50 -m 'integration_batch_1' -vv --continue-on-collection-errors --junit-xml=junit.integrationbatch1.xml"
 }
+task testIntegrationBatch2(type: Exec, dependsOn: [installDevTest]) {
+  def cvg_arg = get_coverage_arg("intBatch2")
+  commandLine 'bash', '-c',
+    "source ${venv_name}/bin/activate && pytest ${cvg_arg} --durations=20 -m 'integration_batch_2' -vv --continue-on-collection-errors --junit-xml=junit.integrationbatch2.xml"
+}
 
 task testFull(type: Exec, dependsOn: [installDevTest]) {
   commandLine 'bash', '-c',
     "source ${venv_name}/bin/activate && pytest --durations=50 -vv --continue-on-collection-errors --junit-xml=junit.full.xml"
-}
-
-task testSlowIntegration(type: Exec, dependsOn: [installDevTest]) {
-  def cvg_arg = get_coverage_arg("intSlow")
-  commandLine 'bash', '-c',
-    "source ${venv_name}/bin/activate && pytest ${cvg_arg} --durations=20 -m 'slow_integration' -vv --continue-on-collection-errors --junit-xml=junit.slow.integration.xml"
 }
 
 task specGen(type: Exec, dependsOn: [codegen, installDevTest]) {
@@ -188,15 +191,15 @@ task specGen(type: Exec, dependsOn: [codegen, installDevTest]) {
 task docGen(type: Exec, dependsOn: [codegen, installDevTest, specGen]) {
   commandLine 'bash', '-c', "source ${venv_name}/bin/activate && ./scripts/docgen.sh"
 }
-task buildWheel(type: Exec, dependsOn: [install, codegen]) {
-  commandLine 'bash', '-c', "source ${venv_name}/bin/activate && " + 'pip install build && RELEASE_VERSION="\${RELEASE_VERSION:-0.0.0.dev1}" RELEASE_SKIP_TEST=1 RELEASE_SKIP_UPLOAD=1 ./scripts/release.sh'
-}
 
 
 
 task cleanPythonCache(type: Exec) {
   commandLine 'bash', '-c',
     "find src tests -type f -name '*.py[co]' -delete -o -type d -name __pycache__ -delete -o -type d -empty -delete"
+}
+task buildWheel(type: Exec, dependsOn: [install, codegen, cleanPythonCache]) {
+  commandLine 'bash', '-c', "source ${venv_name}/bin/activate && " + 'pip install build && RELEASE_VERSION="\${RELEASE_VERSION:-0.0.0.dev1}" RELEASE_SKIP_TEST=1 RELEASE_SKIP_UPLOAD=1 ./scripts/release.sh'
 }
 
 build.dependsOn install

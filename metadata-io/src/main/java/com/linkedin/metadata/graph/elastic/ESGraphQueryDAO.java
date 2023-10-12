@@ -45,15 +45,15 @@ import lombok.RequiredArgsConstructor;
 import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.tuple.Pair;
-import org.elasticsearch.action.search.SearchRequest;
-import org.elasticsearch.action.search.SearchResponse;
-import org.elasticsearch.client.RequestOptions;
-import org.elasticsearch.client.RestHighLevelClient;
-import org.elasticsearch.index.query.BoolQueryBuilder;
-import org.elasticsearch.index.query.QueryBuilder;
-import org.elasticsearch.index.query.QueryBuilders;
-import org.elasticsearch.search.SearchHit;
-import org.elasticsearch.search.builder.SearchSourceBuilder;
+import org.opensearch.action.search.SearchRequest;
+import org.opensearch.action.search.SearchResponse;
+import org.opensearch.client.RequestOptions;
+import org.opensearch.client.RestHighLevelClient;
+import org.opensearch.index.query.BoolQueryBuilder;
+import org.opensearch.index.query.QueryBuilder;
+import org.opensearch.index.query.QueryBuilders;
+import org.opensearch.search.SearchHit;
+import org.opensearch.search.builder.SearchSourceBuilder;
 
 import static com.linkedin.metadata.graph.elastic.ElasticSearchGraphService.INDEX_NAME;
 
@@ -288,12 +288,12 @@ public class ESGraphQueryDAO {
     return extractRelationships(entityUrnSet, response, validEdges, visitedEntities, numHops, existingPaths);
   }
   @VisibleForTesting
-  static QueryBuilder getLineageQuery(
-      @Nonnull Map<String, List<Urn>> urnsPerEntityType,
-      @Nonnull Map<String, List<EdgeInfo>> edgesPerEntityType,
-      @Nonnull GraphFilters graphFilters,
-      @Nullable Long startTimeMillis,
-      @Nullable Long endTimeMillis) {
+  public static QueryBuilder getLineageQuery(
+          @Nonnull Map<String, List<Urn>> urnsPerEntityType,
+          @Nonnull Map<String, List<EdgeInfo>> edgesPerEntityType,
+          @Nonnull GraphFilters graphFilters,
+          @Nullable Long startTimeMillis,
+          @Nullable Long endTimeMillis) {
     BoolQueryBuilder entityTypeQueries = QueryBuilders.boolQuery();
     // Get all relation types relevant to the set of urns to hop from
     urnsPerEntityType.forEach((entityType, urns) -> {
@@ -326,10 +326,10 @@ public class ESGraphQueryDAO {
 
   // Get search query for given list of edges and source urns
   @VisibleForTesting
-  static QueryBuilder getLineageQueryForEntityType(
-      @Nonnull List<Urn> urns,
-      @Nonnull List<EdgeInfo> lineageEdges,
-      @Nonnull GraphFilters graphFilters) {
+  public static QueryBuilder getLineageQueryForEntityType(
+          @Nonnull List<Urn> urns,
+          @Nonnull List<EdgeInfo> lineageEdges,
+          @Nonnull GraphFilters graphFilters) {
     BoolQueryBuilder query = QueryBuilders.boolQuery();
     Map<RelationshipDirection, List<EdgeInfo>> edgesByDirection =
         lineageEdges.stream().collect(Collectors.groupingBy(EdgeInfo::getDirection));
@@ -373,10 +373,10 @@ public class ESGraphQueryDAO {
    *                 physically stored inside the Graph Store.
    */
   @VisibleForTesting
-  static void addEdgeToPaths(
-      @Nonnull final Map<Urn, UrnArrayArray> existingPaths,
-      @Nonnull final Urn parentUrn,
-      @Nonnull final Urn childUrn) {
+  public static void addEdgeToPaths(
+          @Nonnull final Map<Urn, UrnArrayArray> existingPaths,
+          @Nonnull final Urn parentUrn,
+          @Nonnull final Urn childUrn) {
     // Collect all full-paths to this child node. This is what will be returned.
     UrnArrayArray pathsToParent = existingPaths.get(parentUrn);
     if (pathsToParent != null && pathsToParent.size() > 0) {

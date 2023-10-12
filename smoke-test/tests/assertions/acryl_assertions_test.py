@@ -1,19 +1,16 @@
 import json
-import urllib
 import time
-import pytest
-import requests_wrapper as requests
-import tenacity
-from datahub.emitter.mce_builder import make_dataset_urn, make_data_job_urn, make_schema_field_urn
+import urllib
 
-from tests.utils import (
-    delete_urns_from_file,
-    get_frontend_url,
-    get_gms_url,
-    ingest_file_via_rest,
-    wait_for_healthcheck_util,
-    get_sleep_info,
-)
+import pytest
+import tenacity
+from datahub.emitter.mce_builder import (make_data_job_urn, make_dataset_urn,
+                                         make_schema_field_urn)
+
+import requests_wrapper as requests
+from tests.utils import (delete_urns_from_file, get_frontend_url, get_gms_url,
+                         get_sleep_info, ingest_file_via_rest,
+                         wait_for_healthcheck_util)
 
 restli_default_headers = {
     "X-RestLi-Protocol-Version": "2.0.0",
@@ -21,6 +18,7 @@ restli_default_headers = {
 sleep_sec, sleep_times = get_sleep_info()
 
 TEST_DATASET_URN = make_dataset_urn(platform="postgres", name="foo")
+
 
 @pytest.fixture(scope="session")
 def wait_for_healthchecks():
@@ -36,7 +34,7 @@ def test_healthchecks(wait_for_healthchecks):
 
 @pytest.mark.dependency(depends=["test_healthchecks"])
 def test_create_update_delete_dataset_assertion(frontend_session):
-  pass
+    pass
 
 
 @pytest.mark.dependency(depends=["test_healthchecks"])
@@ -50,23 +48,16 @@ def test_create_update_delete_freshness_assertion(frontend_session):
         }""",
         "variables": {
             "input": {
-              "entityUrn": TEST_DATASET_URN,
-              "type": "DATASET_CHANGE",
-              "schedule": {
-                "type": "CRON",
-                "cron": {
-                  "cron": "* * * * *",
-                  "timezone": "America / Los Angeles"
-                }
-              },
-              "actions": {
-                "onSuccess": [
-                  { "type": "RESOLVE_INCIDENT" }
-                ],
-                "onFailure": [
-                  { "type": "RAISE_INCIDENT" }
-                ]
-              }
+                "entityUrn": TEST_DATASET_URN,
+                "type": "DATASET_CHANGE",
+                "schedule": {
+                    "type": "CRON",
+                    "cron": {"cron": "* * * * *", "timezone": "America / Los Angeles"},
+                },
+                "actions": {
+                    "onSuccess": [{"type": "RESOLVE_INCIDENT"}],
+                    "onFailure": [{"type": "RAISE_INCIDENT"}],
+                },
             }
         },
     }
@@ -91,22 +82,15 @@ def test_create_update_delete_freshness_assertion(frontend_session):
         "variables": {
             "urn": assertion_urn,
             "input": {
-              "schedule": {
-                "type": "FIXED_INTERVAL",
-                "fixedInterval": {
-                  "unit": "DAY",
-                  "multiple": 2
-                }
-              },
-              "actions": {
-                "onSuccess": [
-                  { "type": "RESOLVE_INCIDENT" }
-                ],
-                "onFailure": [
-                  { "type": "RAISE_INCIDENT" }
-                ]
-              }
-            }
+                "schedule": {
+                    "type": "FIXED_INTERVAL",
+                    "fixedInterval": {"unit": "DAY", "multiple": 2},
+                },
+                "actions": {
+                    "onSuccess": [{"type": "RESOLVE_INCIDENT"}],
+                    "onFailure": [{"type": "RAISE_INCIDENT"}],
+                },
+            },
         },
     }
 
@@ -125,9 +109,7 @@ def test_create_update_delete_freshness_assertion(frontend_session):
         "query": """mutation deleteAssertion($urn: String!) {\n
             deleteAssertion(urn: $urn)
         },""",
-        "variables": {
-          "urn": assertion_urn
-        }
+        "variables": {"urn": assertion_urn},
     }
 
     response = frontend_session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)

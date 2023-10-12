@@ -7,6 +7,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.schema.DataSchema;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.SearchScoreFieldSpec;
@@ -21,6 +22,7 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 import lombok.RequiredArgsConstructor;
+import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 
 import javax.annotation.Nonnull;
@@ -30,6 +32,7 @@ import javax.annotation.Nonnull;
  * Class that provides a utility function that transforms the snapshot object into a search document
  */
 @Slf4j
+@Setter
 @RequiredArgsConstructor
 public class SearchDocumentTransformer {
 
@@ -41,6 +44,8 @@ public class SearchDocumentTransformer {
 
   // Maximum customProperties value length
   private final int maxValueLength;
+
+  private SystemEntityClient entityClient;
 
    private static final String BROWSE_PATH_V2_DELIMITER = "␟";
 
@@ -72,14 +77,18 @@ public class SearchDocumentTransformer {
         FieldExtractor.extractFields(aspect, aspectSpec.getSearchableFieldSpecs(), maxValueLength);
     final Map<SearchScoreFieldSpec, List<Object>> extractedSearchScoreFields =
         FieldExtractor.extractFields(aspect, aspectSpec.getSearchScoreFieldSpecs(), maxValueLength);
-    if (extractedSearchableFields.isEmpty() && extractedSearchScoreFields.isEmpty()) {
-      return Optional.empty();
+
+    Optional<String> result = Optional.empty();
+
+    if (!extractedSearchableFields.isEmpty() || !extractedSearchScoreFields.isEmpty()) {
+      final ObjectNode searchDocument = JsonNodeFactory.instance.objectNode();
+      searchDocument.put("urn", urn.toString());
+      extractedSearchableFields.forEach((key, values) -> setSearchableValue(key, values, searchDocument, forDelete));
+      extractedSearchScoreFields.forEach((key, values) -> setSearchScoreValue(key, values, searchDocument, forDelete));
+      result = Optional.of(searchDocument.toString());
     }
-    final ObjectNode searchDocument = JsonNodeFactory.instance.objectNode();
-    searchDocument.put("urn", urn.toString());
-    extractedSearchableFields.forEach((key, values) -> setSearchableValue(key, values, searchDocument, forDelete));
-    extractedSearchScoreFields.forEach((key, values) -> setSearchScoreValue(key, values, searchDocument, forDelete));
-    return Optional.of(searchDocument.toString());
+
+    return result;
   }
 
   public void setSearchableValue(final SearchableFieldSpec fieldSpec, final List<Object> fieldValues,

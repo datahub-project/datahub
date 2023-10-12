@@ -58,6 +58,7 @@ describe("create, edit and remove metadata test", () => {
         cy.clickOptionWithText("Run Test");
         cy.waitTextVisible("Passed");
         cy.get('[role="dialog"] [data-testid="search-input"]').clear().type("hive");
+        cy.clickOptionWithText("View all results");
         cy.waitTextVisible("SampleCypressHiveDataset");
         cy.clickOptionWithText("Run Test");
         cy.waitTextVisible("Not selected");

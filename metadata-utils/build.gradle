@@ -26,6 +26,7 @@ dependencies {
 
   testImplementation project(':test-models')
   testImplementation project(path: ':test-models', configuration: 'testDataTemplate')
+  testImplementation externalDependency.testng
 
   constraints {
       implementation(externalDependency.log4jCore) {

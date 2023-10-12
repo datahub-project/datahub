@@ -3,10 +3,7 @@ from datetime import datetime
 from typing import Any, Iterable, List, Optional
 
 import pytz
-from datahub.ingestion.source.bigquery_v2.common import (
-    BQ_DATETIME_FORMAT,
-    _make_gcp_logging_client,
-)
+from datahub.ingestion.source.bigquery_v2.common import BQ_DATETIME_FORMAT
 from google.api_core.exceptions import BadRequest, Forbidden, NotFound
 from tenacity import retry, stop_after_attempt, wait_exponential
 
@@ -173,9 +170,10 @@ class BigQuerySource(Source):
         # TODO: Make this class a singleton.
         # TODO: Do we need to support external audit logs?
 
-        logging_client = _make_gcp_logging_client(
-            operation_params.project, self.connection.config.extra_client_options
+        logging_client = self.connection.config.make_gcp_logging_client(
+            operation_params.project
         )
+
         entries = self._extract_audit_logs_for_table(
             logging_client,
             operation_params.project,

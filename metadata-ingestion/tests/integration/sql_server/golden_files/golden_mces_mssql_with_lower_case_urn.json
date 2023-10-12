@@ -1753,6 +1753,18 @@
                                 "isPartOfKey": true
                             },
                             {
+                                "fieldPath": "SomeId",
+                                "nullable": false,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "UNIQUEIDENTIFIER()",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
                                 "fieldPath": "Name",
                                 "nullable": true,
                                 "type": {

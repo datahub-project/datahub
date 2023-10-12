@@ -35,24 +35,24 @@ import javax.annotation.Nullable;
 
 import com.linkedin.metadata.search.utils.ESUtils;
 import lombok.extern.slf4j.Slf4j;
-import org.elasticsearch.common.lucene.search.function.CombineFunction;
-import org.elasticsearch.common.lucene.search.function.FieldValueFactorFunction;
-import org.elasticsearch.common.lucene.search.function.FunctionScoreQuery;
-import org.elasticsearch.common.settings.Settings;
-import org.elasticsearch.common.xcontent.LoggingDeprecationHandler;
-import org.elasticsearch.common.xcontent.NamedXContentRegistry;
-import org.elasticsearch.common.xcontent.XContentParser;
-import org.elasticsearch.common.xcontent.XContentType;
-import org.elasticsearch.index.query.BoolQueryBuilder;
-import org.elasticsearch.index.query.Operator;
-import org.elasticsearch.index.query.QueryBuilder;
-import org.elasticsearch.index.query.QueryBuilders;
-import org.elasticsearch.index.query.QueryStringQueryBuilder;
-import org.elasticsearch.index.query.SimpleQueryStringBuilder;
-import org.elasticsearch.index.query.functionscore.FieldValueFactorFunctionBuilder;
-import org.elasticsearch.index.query.functionscore.FunctionScoreQueryBuilder;
-import org.elasticsearch.index.query.functionscore.ScoreFunctionBuilders;
-import org.elasticsearch.search.SearchModule;
+import org.opensearch.common.lucene.search.function.CombineFunction;
+import org.opensearch.common.lucene.search.function.FieldValueFactorFunction;
+import org.opensearch.common.lucene.search.function.FunctionScoreQuery;
+import org.opensearch.common.settings.Settings;
+import org.opensearch.common.xcontent.LoggingDeprecationHandler;
+import org.opensearch.core.xcontent.NamedXContentRegistry;
+import org.opensearch.common.xcontent.XContentType;
+import org.opensearch.core.xcontent.XContentParser;
+import org.opensearch.index.query.BoolQueryBuilder;
+import org.opensearch.index.query.Operator;
+import org.opensearch.index.query.QueryBuilder;
+import org.opensearch.index.query.QueryBuilders;
+import org.opensearch.index.query.QueryStringQueryBuilder;
+import org.opensearch.index.query.SimpleQueryStringBuilder;
+import org.opensearch.index.query.functionscore.FieldValueFactorFunctionBuilder;
+import org.opensearch.index.query.functionscore.FunctionScoreQueryBuilder;
+import org.opensearch.index.query.functionscore.ScoreFunctionBuilders;
+import org.opensearch.search.SearchModule;
 
 import static com.linkedin.metadata.models.SearchableFieldSpecExtractor.PRIMARY_URN_SEARCH_PROPERTIES;
 import static com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder.*;
@@ -69,7 +69,7 @@ public class SearchQueryBuilder {
   }
   private static final NamedXContentRegistry X_CONTENT_REGISTRY;
   static {
-    SearchModule searchModule = new SearchModule(Settings.EMPTY, false, Collections.emptyList());
+    SearchModule searchModule = new SearchModule(Settings.EMPTY, Collections.emptyList());
     X_CONTENT_REGISTRY = new NamedXContentRegistry(searchModule.getNamedXContents());
   }
 
@@ -135,7 +135,7 @@ public class SearchQueryBuilder {
    * @return A set of SearchFieldConfigs containing the searchable fields from the input entities.
    */
   @VisibleForTesting
-  Set<SearchFieldConfig> getStandardFields(@Nonnull Collection<EntitySpec> entitySpecs) {
+  public Set<SearchFieldConfig> getStandardFields(@Nonnull Collection<EntitySpec> entitySpecs) {
     Set<SearchFieldConfig> fields = new HashSet<>();
     // Always present
     final float urnBoost = Float.parseFloat((String) PRIMARY_URN_SEARCH_PROPERTIES.get("boostScore"));
@@ -168,7 +168,7 @@ public class SearchQueryBuilder {
   }
 
   @VisibleForTesting
-  Set<SearchFieldConfig> getFieldsFromEntitySpec(EntitySpec entitySpec) {
+  public Set<SearchFieldConfig> getFieldsFromEntitySpec(EntitySpec entitySpec) {
     Set<SearchFieldConfig> fields = new HashSet<>();
     List<SearchableFieldSpec> searchableFieldSpecs = entitySpec.getSearchableFieldSpecs();
     for (SearchableFieldSpec fieldSpec : searchableFieldSpecs) {

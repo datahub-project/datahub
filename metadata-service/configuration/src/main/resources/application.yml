@@ -344,6 +344,13 @@ bootstrap:
     enabled: ${UPGRADE_DEFAULT_BROWSE_PATHS_ENABLED:false} # enable to run the upgrade to migrate legacy default browse paths to new ones
   backfillBrowsePathsV2:
     enabled: ${BACKFILL_BROWSE_PATHS_V2:false} # Enables running the backfill of browsePathsV2 upgrade step. There are concerns about the load of this step so hiding it behind a flag. Deprecating in favor of running through SystemUpdate
+  policies:
+    file: ${BOOTSTRAP_POLICIES_FILE:classpath:boot/policies.json}
+    # eg for local file
+    # file: "file:///datahub/datahub-gms/resources/custom-policies.json"
+  servlets:
+    waitTimeout: ${BOOTSTRAP_SERVLETS_WAITTIMEOUT:60} # Total waiting time in seconds for servlets to initialize
+
 
 sentry:
   enabled: ${SENTRY_ENABLED:false}
@@ -377,6 +384,7 @@ featureFlags:
   preProcessHooks:
     uiEnabled: ${PRE_PROCESS_HOOKS_UI_ENABLED:true} # Circumvents Kafka for processing index updates for UI changes sourced from GraphQL to avoid processing delays
   showAcrylInfo: ${SHOW_ACRYL_INFO:false} # Show different CTAs within DataHub around moving to Managed DataHub. Set to true for the demo site.
+  nestedDomainsEnabled: ${NESTED_DOMAINS_ENABLED:true} # Enables the nested Domains feature that allows users to have sub-Domains. If this is off, Domains appear "flat" again
 
 entityChangeEvents:
   enabled: ${ENABLE_ENTITY_CHANGE_EVENTS_HOOK:true}
@@ -407,6 +415,30 @@ cache:
       evictionPolicy: ${CACHE_SEARCH_LINEAGE_EXPIRATION_POLICY:SIZE_AND_TTL} # One of NEVER, TTL, MAX_SIZE, SIZE_AND_TTL ->
         # NEVER will ignore max size and ttl configurations, TTL will only apply TTL and ignore size,
         # MAX_SIZE will ignore TTL and apply size, SIZE_AND_TTL will apply both ttl and size
+  client:
+    usageClient:
+      enabled: ${CACHE_CLIENT_USAGE_CLIENT_ENABLED:true}
+      statsEnabled: ${CACHE_CLIENT_USAGE_CLIENT_STATS_ENABLED:true}
+      statsIntervalSeconds: ${CACHE_CLIENT_USAGE_CLIENT_STATS_INTERVAL_SECONDS:120}
+      defaultTTLSeconds: ${CACHE_CLIENT_USAGE_CLIENT_TTL_SECONDS:86400} # 1 day
+      maxBytes: ${CACHE_CLIENT_USAGE_CLIENT_MAX_BYTES:52428800} # 50MB
+    entityClient:
+      enabled: ${CACHE_CLIENT_ENTITY_CLIENT_ENABLED:true}
+      statsEnabled: ${CACHE_CLIENT_ENTITY_CLIENT_STATS_ENABLED:true}
+      statsIntervalSeconds: ${CACHE_CLIENT_ENTITY_CLIENT_STATS_INTERVAL_SECONDS:120}
+      defaultTTLSeconds: ${CACHE_CLIENT_ENTITY_CLIENT_TTL_SECONDS:0} # do not cache entity/aspects by default
+      maxBytes: ${CACHE_CLIENT_ENTITY_CLIENT_MAX_BYTES:104857600} # 100MB
+      entityAspectTTLSeconds:
+        # cache user aspects for 20s
+        corpuser:
+          corpUserKey: 20
+          corpUserInfo: 20
+          corpUserEditableInfo: 20
+          corpUserStatus: 20
+          globalTags: 20
+          status: 20
+          corpUserCredentials: 20
+          corpUserSettings: 20
 
 chromeExtension:
   enabled: ${CHROME_EXTENSION_ENABLED:true}
@@ -421,8 +453,9 @@ integrationsService:
   host: ${DATAHUB_INTEGRATIONS_HOST:localhost}
   port: ${DATAHUB_INTEGRATIONS_PORT:9003}
   useSsl: ${DATAHUB_INTEGRATIONS_USE_SSL:false}
-
 monitorService:
   host: ${DATAHUB_MONITORS_HOST:localhost}
   port: ${DATAHUB_MONITORS_PORT:9004}
   useSsl: ${DATAHUB_MONITORS_USE_SSL:false}
+
+springdoc.api-docs.groups.enabled: true

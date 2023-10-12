@@ -51,7 +51,8 @@ dependencies {
   compileOnly externalDependency.lombok
   annotationProcessor externalDependency.lombok
   // VisibleForTesting
-  testImplementation externalDependency.guava
+  compileOnly externalDependency.guava
+  testImplementation externalDependency.testngJava8
   testImplementation externalDependency.mockito
   testImplementation externalDependency.mockServer
   testImplementation externalDependency.mockServerClient

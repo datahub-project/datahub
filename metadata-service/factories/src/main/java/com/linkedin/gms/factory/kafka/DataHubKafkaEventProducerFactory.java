@@ -1,7 +1,7 @@
 package com.linkedin.gms.factory.kafka;
 
 import com.linkedin.gms.factory.common.TopicConventionFactory;
-import com.linkedin.gms.factory.spring.YamlPropertySourceFactory;
+import com.linkedin.metadata.spring.YamlPropertySourceFactory;
 import com.linkedin.metadata.dao.producer.KafkaEventProducer;
 import com.linkedin.metadata.dao.producer.KafkaHealthChecker;
 import com.linkedin.mxe.TopicConvention;

@@ -1,10 +1,11 @@
 package com.linkedin.metadata.boot.factories;
 
 import com.linkedin.gms.factory.entity.EntityServiceFactory;
-import com.linkedin.gms.factory.spring.YamlPropertySourceFactory;
 import com.linkedin.metadata.boot.steps.IngestMetadataTestsStep;
 import com.linkedin.metadata.entity.EntityService;
 import javax.annotation.Nonnull;
+
+import com.linkedin.metadata.spring.YamlPropertySourceFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;

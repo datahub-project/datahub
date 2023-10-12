@@ -3,7 +3,7 @@ package controllers;
 import auth.CookieConfigs;
 import client.AuthServiceClient;
 import com.datahub.authentication.Authentication;
-import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.SystemEntityClient;
 import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.List;
@@ -45,7 +45,7 @@ public class SsoCallbackController extends CallbackController {
   public SsoCallbackController(
       @Nonnull SsoManager ssoManager,
       @Nonnull Authentication systemAuthentication,
-      @Nonnull EntityClient entityClient,
+      @Nonnull SystemEntityClient entityClient,
       @Nonnull AuthServiceClient authClient,
       @Nonnull Config config,
       @Nonnull com.typesafe.config.Config configs) {
@@ -86,7 +86,7 @@ public class SsoCallbackController extends CallbackController {
     private final OidcCallbackLogic _oidcCallbackLogic;
 
     SsoCallbackLogic(final SsoManager ssoManager, final Authentication systemAuthentication,
-        final EntityClient entityClient, final AuthServiceClient authClient, final CookieConfigs cookieConfigs) {
+        final SystemEntityClient entityClient, final AuthServiceClient authClient, final CookieConfigs cookieConfigs) {
       _oidcCallbackLogic = new OidcCallbackLogic(ssoManager, systemAuthentication, entityClient, authClient, cookieConfigs);
     }
 
