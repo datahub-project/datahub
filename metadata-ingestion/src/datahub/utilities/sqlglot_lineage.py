@@ -241,9 +241,9 @@ class SqlParsingResult(_ParserBaseModel):
     )
 
 
-def _parse_statement(sql: str, dialect: str) -> sqlglot.Expression:
-    statement = sqlglot.parse_one(
-        sql, read=dialect, error_level=sqlglot.ErrorLevel.RAISE
+def _parse_statement(sql: sqlglot.exp.ExpOrStr, dialect: str) -> sqlglot.Expression:
+    statement: sqlglot.Expression = sqlglot.maybe_parse(
+        sql, dialect=dialect, error_level=sqlglot.ErrorLevel.RAISE
     )
     return statement
 
@@ -766,6 +766,7 @@ def _translate_sqlglot_type(
 def _translate_internal_column_lineage(
     table_name_urn_mapping: Dict[_TableName, str],
     raw_column_lineage: _ColumnLineageInfo,
+    dialect: str,
 ) -> ColumnLineageInfo:
     downstream_urn = None
     if raw_column_lineage.downstream.table:
@@ -779,7 +780,9 @@ def _translate_internal_column_lineage(
             )
             if raw_column_lineage.downstream.column_type
             else None,
-            native_column_type=raw_column_lineage.downstream.column_type.sql()
+            native_column_type=raw_column_lineage.downstream.column_type.sql(
+                dialect=dialect
+            )
             if raw_column_lineage.downstream.column_type
             and raw_column_lineage.downstream.column_type.this
             != sqlglot.exp.DataType.Type.UNKNOWN
@@ -805,7 +808,7 @@ def _get_dialect(platform: str) -> str:
 
 
 def _sqlglot_lineage_inner(
-    sql: str,
+    sql: sqlglot.exp.ExpOrStr,
     schema_resolver: SchemaResolver,
     default_db: Optional[str] = None,
     default_schema: Optional[str] = None,
@@ -918,7 +921,7 @@ def _sqlglot_lineage_inner(
     if column_lineage:
         column_lineage_urns = [
             _translate_internal_column_lineage(
-                table_name_urn_mapping, internal_col_lineage
+                table_name_urn_mapping, internal_col_lineage, dialect=dialect
             )
             for internal_col_lineage in column_lineage
         ]
