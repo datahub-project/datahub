@@ -608,6 +608,27 @@ group by 1,2,3
     )
 
 
+def test_snowflake_column_cast():
+    assert_sql_result(
+        """
+SELECT
+    o.o_orderkey::NUMBER(20,0) as orderkey,
+    CAST(o.o_totalprice AS INT) as total_cast_int,
+    CAST(o.o_totalprice AS NUMBER(16,4)) as total_cast_float
+FROM snowflake_sample_data.tpch_sf1.orders o
+LIMIT 10
+""",
+        dialect="snowflake",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_sample_data.tpch_sf1.orders,PROD)": {
+                "orderkey": "NUMBER(38,0)",
+                "totalprice": "NUMBER(12,2)",
+            },
+        },
+        expected_file=RESOURCE_DIR / "test_snowflake_column_cast.json",
+    )
+
+
 # TODO: Add a test for setting platform_instance or env
 
 

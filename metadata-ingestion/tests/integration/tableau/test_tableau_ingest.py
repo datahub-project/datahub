@@ -20,7 +20,7 @@ from datahub.ingestion.run.pipeline import Pipeline, PipelineContext
 from datahub.ingestion.source.tableau import TableauConfig, TableauSource
 from datahub.ingestion.source.tableau_common import (
     TableauLineageOverrides,
-    make_table_urn,
+    TableauUpstreamReference,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     DatasetLineageType,
@@ -546,13 +546,13 @@ def test_lineage_overrides():
     enable_logging()
     # Simple - specify platform instance to presto table
     assert (
-        make_table_urn(
-            DEFAULT_ENV,
+        TableauUpstreamReference(
             "presto_catalog",
-            "presto",
             "test-schema",
-            "presto_catalog.test-schema.test-table",
-            platform_instance_map={"presto": "my_presto_instance"},
+            "test-table",
+            "presto",
+        ).make_dataset_urn(
+            env=DEFAULT_ENV, platform_instance_map={"presto": "my_presto_instance"}
         )
         == "urn:li:dataset:(urn:li:dataPlatform:presto,my_presto_instance.presto_catalog.test-schema.test-table,PROD)"
     )
@@ -560,12 +560,13 @@ def test_lineage_overrides():
     # Transform presto urn to hive urn
     # resulting platform instance for hive = mapped platform instance + presto_catalog
     assert (
-        make_table_urn(
-            DEFAULT_ENV,
+        TableauUpstreamReference(
             "presto_catalog",
-            "presto",
             "test-schema",
-            "presto_catalog.test-schema.test-table",
+            "test-table",
+            "presto",
+        ).make_dataset_urn(
+            env=DEFAULT_ENV,
             platform_instance_map={"presto": "my_instance"},
             lineage_overrides=TableauLineageOverrides(
                 platform_override_map={"presto": "hive"},
@@ -574,14 +575,15 @@ def test_lineage_overrides():
         == "urn:li:dataset:(urn:li:dataPlatform:hive,my_instance.presto_catalog.test-schema.test-table,PROD)"
     )
 
-    # tranform hive urn to presto urn
+    # transform hive urn to presto urn
     assert (
-        make_table_urn(
-            DEFAULT_ENV,
-            "",
-            "hive",
+        TableauUpstreamReference(
+            None,
             "test-schema",
-            "test-schema.test-table",
+            "test-table",
+            "hive",
+        ).make_dataset_urn(
+            env=DEFAULT_ENV,
             platform_instance_map={"hive": "my_presto_instance.presto_catalog"},
             lineage_overrides=TableauLineageOverrides(
                 platform_override_map={"hive": "presto"},
