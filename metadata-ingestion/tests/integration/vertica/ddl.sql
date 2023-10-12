@@ -1,5 +1,4 @@
-\set AUTOCOMMIT on
-ALTER USER dbadmin IDENTIFIED BY 'abc123';
+
 
 -- Create a Top-k projection
 CREATE TABLE readings (meter_id INT, reading_date TIMESTAMP, reading_value FLOAT);

@@ -44,14 +44,12 @@ def vertica_runner(docker_compose_runner, test_resources_dir):
 
         commands = """
                     docker cp tests/integration/vertica/ddl.sql vertica-ce:/home/dbadmin/ &&
-                    docker exec vertica-ce sh -c "/opt/vertica/bin/vsql -w abc123 -f /home/dbadmin/ddl.sql
+                    docker exec vertica-ce sh -c "/opt/vertica/bin/vsql -w abc123 -f /home/dbadmin/ddl.sql"
                 """
 
         ret = subprocess.run(commands, shell=True, stdout=subprocess.DEVNULL)
-        # waiting for vertica to create default table and system table and ml models
-        time.sleep(60)
 
-        assert ret.returncode >= 1
+        assert ret.returncode == 0
 
         yield docker_services
 
