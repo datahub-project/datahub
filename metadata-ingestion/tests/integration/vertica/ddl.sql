@@ -37,4 +37,13 @@ SELECT tokenize(phrase) OVER () FROM phrases;
 CREATE TEMPORARY TABLE sampletemp (a int, b int) ON COMMIT PRESERVE ROWS;
 INSERT INTO sampletemp VALUES(1,2);
 
+-- Create partition key
+ALTER TABLE store.store_orders_fact PARTITION BY date_ordered::DATE GROUP BY DATE_TRUNC('month', (date_ordered)::DATE);
+SELECT PARTITION_TABLE('store.store_orders_fact');
+-- CREATE PROJECTION ytd_orders AS SELECT * FROM store.store_orders_fact ORDER BY date_ordered
+--     ON PARTITION RANGE BETWEEN date_trunc('year',now())::date AND NULL;
+
+
+
+
 SELECT start_refresh();
