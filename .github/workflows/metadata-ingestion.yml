@@ -3,7 +3,6 @@ on:
   push:
     branches:
       - master
-      - pluginv2
     paths:
       - ".github/workflows/metadata-ingestion.yml"
       - "metadata-ingestion/**"
