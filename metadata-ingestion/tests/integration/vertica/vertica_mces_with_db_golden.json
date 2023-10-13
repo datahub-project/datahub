@@ -256,7 +256,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2023-10-12 13:03:48.295182+00:00",
+                            "create_time": "2023-10-13 09:58:53.440575+00:00",
                             "table_size": "0 KB"
                         },
                         "name": "clicks",
@@ -432,8 +432,8 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2023-10-12 13:03:20.463797+00:00",
-                            "table_size": "2170467 KB"
+                            "create_time": "2023-10-13 09:58:25.214127+00:00",
+                            "table_size": "2119 KB"
                         },
                         "name": "customer_dimension",
                         "description": "References the properties of a native table in Vertica.             Vertica physically stores table data in projections, which are collections of table columns.             Projections store data in a format that optimizes query execution.             In order to query or perform any operation on a Vertica table, the table must have one or more projections associated with it. ",
@@ -842,8 +842,8 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2023-10-12 13:03:20.473948+00:00",
-                            "table_size": "142153 KB"
+                            "create_time": "2023-10-13 09:58:25.223824+00:00",
+                            "table_size": "138 KB"
                         },
                         "name": "date_dimension",
                         "description": "References the properties of a native table in Vertica.             Vertica physically stores table data in projections, which are collections of table columns.             Projections store data in a format that optimizes query execution.             In order to query or perform any operation on a Vertica table, the table must have one or more projections associated with it. ",
@@ -1252,8 +1252,8 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2023-10-12 13:03:20.480250+00:00",
-                            "table_size": "335609 KB"
+                            "create_time": "2023-10-13 09:58:25.230119+00:00",
+                            "table_size": "327 KB"
                         },
                         "name": "employee_dimension",
                         "description": "References the properties of a native table in Vertica.             Vertica physically stores table data in projections, which are collections of table columns.             Projections store data in a format that optimizes query execution.             In order to query or perform any operation on a Vertica table, the table must have one or more projections associated with it. ",
@@ -1623,8 +1623,8 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2023-10-12 13:03:20.489367+00:00",
-                            "table_size": "2626263 KB"
+                            "create_time": "2023-10-13 09:58:25.239216+00:00",
+                            "table_size": "2564 KB"
                         },
                         "name": "inventory_fact",
                         "description": "References the properties of a native table in Vertica.             Vertica physically stores table data in projections, which are collections of table columns.             Projections store data in a format that optimizes query execution.             In order to query or perform any operation on a Vertica table, the table must have one or more projections associated with it. ",
@@ -1838,8 +1838,8 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2023-10-12 13:03:48.402973+00:00",
-                            "table_size": "108 KB"
+                            "create_time": "2023-10-13 09:58:53.548117+00:00",
+                            "table_size": "0 KB"
                         },
                         "name": "phrases",
                         "description": "References the properties of a native table in Vertica.             Vertica physically stores table data in projections, which are collections of table columns.             Projections store data in a format that optimizes query execution.             In order to query or perform any operation on a Vertica table, the table must have one or more projections associated with it. ",
@@ -1988,8 +1988,8 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2023-10-12 13:03:20.467400+00:00",
-                            "table_size": "20308 KB"
+                            "create_time": "2023-10-13 09:58:25.217482+00:00",
+                            "table_size": "19 KB"
                         },
                         "name": "product_dimension",
                         "description": "References the properties of a native table in Vertica.             Vertica physically stores table data in projections, which are collections of table columns.             Projections store data in a format that optimizes query execution.             In order to query or perform any operation on a Vertica table, the table must have one or more projections associated with it. ",
@@ -2398,8 +2398,8 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2023-10-12 13:03:20.470721+00:00",
-                            "table_size": "3249 KB"
+                            "create_time": "2023-10-13 09:58:25.220681+00:00",
+                            "table_size": "3 KB"
                         },
                         "name": "promotion_dimension",
                         "description": "References the properties of a native table in Vertica.             Vertica physically stores table data in projections, which are collections of table columns.             Projections store data in a format that optimizes query execution.             In order to query or perform any operation on a Vertica table, the table must have one or more projections associated with it. ",
@@ -2691,7 +2691,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2023-10-12 13:03:48.284128+00:00",
+                            "create_time": "2023-10-13 09:58:53.427611+00:00",
                             "table_size": "0 KB"
                         },
                         "name": "readings",
@@ -2867,7 +2867,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2023-10-12 13:03:48.480925+00:00",
+                            "create_time": "2023-10-13 09:58:53.611674+00:00",
                             "table_size": "0 KB"
                         },
                         "name": "sampletemp",
@@ -3030,8 +3030,8 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2023-10-12 13:03:20.483331+00:00",
-                            "table_size": "1061 KB"
+                            "create_time": "2023-10-13 09:58:25.233193+00:00",
+                            "table_size": "1 KB"
                         },
                         "name": "shipping_dimension",
                         "description": "References the properties of a native table in Vertica.             Vertica physically stores table data in projections, which are collections of table columns.             Projections store data in a format that optimizes query execution.             In order to query or perform any operation on a Vertica table, the table must have one or more projections associated with it. ",
@@ -3219,8 +3219,8 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2023-10-12 13:03:20.477095+00:00",
-                            "table_size": "1945 KB"
+                            "create_time": "2023-10-13 09:58:25.227029+00:00",
+                            "table_size": "1 KB"
                         },
                         "name": "vendor_dimension",
                         "description": "References the properties of a native table in Vertica.             Vertica physically stores table data in projections, which are collections of table columns.             Projections store data in a format that optimizes query execution.             In order to query or perform any operation on a Vertica table, the table must have one or more projections associated with it. ",
@@ -3460,7 +3460,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2023-10-12 13:03:47.475519+00:00",
+                            "create_time": "2023-10-13 09:58:52.726628+00:00",
                             "table_size": "0 KB"
                         },
                         "name": "vmart_load_success",
@@ -3610,8 +3610,8 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2023-10-12 13:03:20.486294+00:00",
-                            "table_size": "2442 KB"
+                            "create_time": "2023-10-13 09:58:25.236214+00:00",
+                            "table_size": "2 KB"
                         },
                         "name": "warehouse_dimension",
                         "description": "References the properties of a native table in Vertica.             Vertica physically stores table data in projections, which are collections of table columns.             Projections store data in a format that optimizes query execution.             In order to query or perform any operation on a Vertica table, the table must have one or more projections associated with it. ",
@@ -3825,7 +3825,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2023-10-12 13:03:48.308704+00:00",
+                            "create_time": "2023-10-13 09:58:53.453442+00:00",
                             "table_size": "0 KB",
                             "view_definition": "SELECT sum(customer_dimension.annual_income) AS SUM, customer_dimension.customer_state FROM public.customer_dimension WHERE (customer_dimension.customer_key IN (SELECT store_sales_fact.customer_key FROM store.store_sales_fact)) GROUP BY customer_dimension.customer_state ORDER BY customer_dimension.customer_state",
                             "is_view": "True"
@@ -7949,8 +7949,8 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2023-10-12 13:03:20.496350+00:00",
-                            "table_size": "2610 KB"
+                            "create_time": "2023-10-13 09:58:25.245908+00:00",
+                            "table_size": "2 KB"
                         },
                         "name": "store_dimension",
                         "description": "References the properties of a native table in Vertica.             Vertica physically stores table data in projections, which are collections of table columns.             Projections store data in a format that optimizes query execution.             In order to query or perform any operation on a Vertica table, the table must have one or more projections associated with it. ",
@@ -8320,8 +8320,8 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2023-10-12 13:03:20.507134+00:00",
-                            "table_size": "7735112 KB"
+                            "create_time": "2023-10-13 09:58:25.256225+00:00",
+                            "table_size": "8646 KB"
                         },
                         "name": "store_orders_fact",
                         "description": "References the properties of a native table in Vertica.             Vertica physically stores table data in projections, which are collections of table columns.             Projections store data in a format that optimizes query execution.             In order to query or perform any operation on a Vertica table, the table must have one or more projections associated with it. ",
@@ -8704,8 +8704,8 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2023-10-12 13:03:20.499637+00:00",
-                            "table_size": "230462296 KB"
+                            "create_time": "2023-10-13 09:58:25.249061+00:00",
+                            "table_size": "225060 KB"
                         },
                         "name": "store_sales_fact",
                         "description": "References the properties of a native table in Vertica.             Vertica physically stores table data in projections, which are collections of table columns.             Projections store data in a format that optimizes query execution.             In order to query or perform any operation on a Vertica table, the table must have one or more projections associated with it. ",
@@ -9853,13 +9853,13 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "ROS_Count": "264",
+                            "ROS_Count": "1",
                             "Projection_Type": "is_super_projection",
                             "Is_Segmented": "True",
                             "Segmentation_key": "hash(store_orders_fact.product_key, store_orders_fact.product_version, store_orders_fact.store_key, store_orders_fact.vendor_key, store_orders_fact.employee_key, store_orders_fact.order_number, store_orders_fact.date_ordered, store_orders_fact.date_shipped)",
-                            "Projection_size": "7553 KB",
-                            "Partition_Key": "2014-06-04",
-                            "Number_Of_Partitions": "2640",
+                            "Projection_size": "8646 KB",
+                            "Partition_Key": "Not Available",
+                            "Number_Of_Partitions": "0",
                             "Projection_Cached": "False"
                         },
                         "name": "store_orders_fact_super",
@@ -10380,8 +10380,8 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2023-10-12 13:03:20.517563+00:00",
-                            "table_size": "6440 KB"
+                            "create_time": "2023-10-13 09:58:25.266090+00:00",
+                            "table_size": "6 KB"
                         },
                         "name": "call_center_dimension",
                         "description": "References the properties of a native table in Vertica.             Vertica physically stores table data in projections, which are collections of table columns.             Projections store data in a format that optimizes query execution.             In order to query or perform any operation on a Vertica table, the table must have one or more projections associated with it. ",
@@ -10673,8 +10673,8 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2023-10-12 13:03:20.514200+00:00",
-                            "table_size": "10091 KB"
+                            "create_time": "2023-10-13 09:58:25.263050+00:00",
+                            "table_size": "9 KB"
                         },
                         "name": "online_page_dimension",
                         "description": "References the properties of a native table in Vertica.             Vertica physically stores table data in projections, which are collections of table columns.             Projections store data in a format that optimizes query execution.             In order to query or perform any operation on a Vertica table, the table must have one or more projections associated with it. ",
@@ -10888,8 +10888,8 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2023-10-12 13:03:20.520842+00:00",
-                            "table_size": "186733513 KB"
+                            "create_time": "2023-10-13 09:58:25.269135+00:00",
+                            "table_size": "182356 KB"
                         },
                         "name": "online_sales_fact",
                         "description": "References the properties of a native table in Vertica.             Vertica physically stores table data in projections, which are collections of table columns.             Projections store data in a format that optimizes query execution.             In order to query or perform any operation on a Vertica table, the table must have one or more projections associated with it. ",
