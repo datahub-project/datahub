@@ -144,10 +144,10 @@ def test_bigquery_table_sanitasitation():
     assert new_table_ref.dataset == "dataset-4567"
 
     table_ref = BigQueryTableRef(
-        BigqueryTableIdentifier("project-1234", "dataset-4567", "foo_20222110")
+        BigqueryTableIdentifier("project-1234", "dataset-4567", "foo_20221210")
     )
     new_table_identifier = table_ref.table_identifier
-    assert new_table_identifier.table == "foo_20222110"
+    assert new_table_identifier.table == "foo_20221210"
     assert new_table_identifier.is_sharded_table()
     assert new_table_identifier.get_table_display_name() == "foo"
     assert new_table_identifier.project_id == "project-1234"
