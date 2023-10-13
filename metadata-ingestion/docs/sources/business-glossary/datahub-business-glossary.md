@@ -64,7 +64,9 @@ Example **GlossaryTerm**:
   knowledge_links:                                                          # (optional) a list of **KnowledgeCard** related to this term. These appear as links on the glossary node's page
     - url: "https://en.wikipedia.org/wiki/Address"
       label: Wiki link
-  domain: "urn:li:domain:Logistics"                                            # (optional) domain name or domain urn
+  domain: "urn:li:domain:Logistics"                                         # (optional) domain name or domain urn
+  related_entities:                                                         # (optional) a list of urns for related entities
+    - "urn:li:dataset:related_dataset"
 ```
 
 To see how these all work together, check out this comprehensive example business glossary file below:

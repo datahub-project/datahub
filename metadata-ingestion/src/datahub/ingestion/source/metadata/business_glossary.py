@@ -58,6 +58,7 @@ class GlossaryTermConfig(ConfigModel):
     custom_properties: Optional[Dict[str, str]]
     knowledge_links: Optional[List[KnowledgeCard]]
     domain: Optional[str]
+    related_entities: Optional[List[str]]
 
     # Private fields.
     _urn: str
@@ -235,6 +236,22 @@ def make_domain_mcp(
     term_urn: str, domain_aspect: models.DomainsClass
 ) -> MetadataChangeProposalWrapper:
     return MetadataChangeProposalWrapper(entityUrn=term_urn, aspect=domain_aspect)
+
+
+def make_glossary_term_association_mcp(
+    term_urn: str, related_entity_urn: str
+) -> MetadataChangeProposalWrapper:
+    glossary_term_aspect = models.GlossaryTermsClass(
+        terms=[models.GlossaryTermAssociationClass(urn=term_urn)],
+        auditStamp=models.AuditStampClass(
+            time=int(time.time() * 1000.0),
+            actor="urn:li:corpuser:datahub",
+            message="ingestion bot",
+        ),
+    )
+    return MetadataChangeProposalWrapper(
+        entityUrn=related_entity_urn, aspect=glossary_term_aspect
+    )
 
 
 def get_mces_from_node(
@@ -417,6 +434,10 @@ def get_mces_from_term(
         yield make_domain_mcp(
             term_urn, get_domain_class(ctx.graph, [glossaryTerm.domain])
         )
+
+    if glossaryTerm.related_entities is not None:
+        for related_entity_urn in glossaryTerm.related_entities:
+            yield make_glossary_term_association_mcp(term_urn, related_entity_urn)
 
     term_snapshot: models.GlossaryTermSnapshotClass = models.GlossaryTermSnapshotClass(
         urn=term_urn,

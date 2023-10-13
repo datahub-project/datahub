@@ -764,5 +764,44 @@
         "lastObserved": 1586847600000,
         "runId": "datahub-business-glossary-2020_04_14-07_00_00"
     }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:abc",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "datahub-business-glossary-2020_04_14-07_00_00"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:abc",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryTerms",
+    "aspect": {
+        "json": {
+            "auditStamp": {
+                "actor": "urn:li:corpuser:datahub",
+                "message": "ingestion bot",
+                "time": 1586847600000
+            },
+            "terms": [
+                {
+                    "urn": "urn:li:glossaryTerm:4faf1eed790370f65942f2998a7993d6"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "datahub-business-glossary-2020_04_14-07_00_00"
+    }
 }
 ]

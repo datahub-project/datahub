@@ -72,3 +72,5 @@ nodes:
     terms:
       - name: CSAT %
         description: Customer Satisfaction Score
+        related_entities:
+          - "urn:li:dataset:abc"
