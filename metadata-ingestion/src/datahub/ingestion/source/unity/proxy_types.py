@@ -1,8 +1,10 @@
 # Supported types are available at
 # https://api-docs.databricks.com/rest/latest/unity-catalog-api-specification-2-1.html?_ga=2.151019001.1795147704.1666247755-2119235717.1666247755
+import dataclasses
+import logging
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Dict, List, Optional
+from typing import Dict, FrozenSet, List, Optional, Set
 
 from databricks.sdk.service.catalog import (
     CatalogType,
@@ -11,6 +13,7 @@ from databricks.sdk.service.catalog import (
     TableType,
 )
 from databricks.sdk.service.sql import QueryStatementType
+from databricks.sdk.service.workspace import Language
 
 from datahub.metadata.schema_classes import (
     ArrayTypeClass,
@@ -25,6 +28,8 @@ from datahub.metadata.schema_classes import (
     StringTypeClass,
     TimeTypeClass,
 )
+
+logger = logging.getLogger(__name__)
 
 DATA_TYPE_REGISTRY: dict = {
     ColumnTypeName.BOOLEAN: BooleanTypeClass,
@@ -66,6 +71,9 @@ OPERATION_STATEMENT_TYPES = {
 ALLOWED_STATEMENT_TYPES = {*OPERATION_STATEMENT_TYPES.keys(), QueryStatementType.SELECT}
 
 
+NotebookId = int
+
+
 @dataclass
 class CommonProperty:
     id: str
@@ -84,7 +92,7 @@ class Metastore(CommonProperty):
 
 @dataclass
 class Catalog(CommonProperty):
-    metastore: Metastore
+    metastore: Optional[Metastore]
     owner: Optional[str]
     type: CatalogType
 
@@ -122,7 +130,7 @@ class ServicePrincipal:
 
 @dataclass(frozen=True, order=True)
 class TableReference:
-    metastore: str
+    metastore: Optional[str]
     catalog: str
     schema: str
     table: str
@@ -130,14 +138,34 @@ class TableReference:
     @classmethod
     def create(cls, table: "Table") -> "TableReference":
         return cls(
-            table.schema.catalog.metastore.id,
+            table.schema.catalog.metastore.id
+            if table.schema.catalog.metastore
+            else None,
             table.schema.catalog.name,
             table.schema.name,
             table.name,
         )
 
+    @classmethod
+    def create_from_lineage(
+        cls, d: dict, metastore: Optional[Metastore]
+    ) -> Optional["TableReference"]:
+        try:
+            return cls(
+                metastore.id if metastore else None,
+                d["catalog_name"],
+                d["schema_name"],
+                d.get("table_name", d["name"]),  # column vs table query output
+            )
+        except Exception as e:
+            logger.warning(f"Failed to create TableReference from {d}: {e}")
+            return None
+
     def __str__(self) -> str:
-        return f"{self.metastore}.{self.catalog}.{self.schema}.{self.table}"
+        if self.metastore:
+            return f"{self.metastore}.{self.catalog}.{self.schema}.{self.table}"
+        else:
+            return self.qualified_table_name
 
     @property
     def qualified_table_name(self) -> str:
@@ -154,7 +182,6 @@ class Table(CommonProperty):
     columns: List[Column]
     storage_location: Optional[str]
     data_source_format: Optional[DataSourceFormat]
-    comment: Optional[str]
     table_type: TableType
     owner: Optional[str]
     generation: Optional[int]
@@ -166,6 +193,8 @@ class Table(CommonProperty):
     view_definition: Optional[str]
     properties: Dict[str, str]
     upstreams: Dict[TableReference, Dict[str, List[str]]] = field(default_factory=dict)
+    upstream_notebooks: Set[NotebookId] = field(default_factory=set)
+    downstream_notebooks: Set[NotebookId] = field(default_factory=set)
 
     ref: TableReference = field(init=False)
 
@@ -227,4 +256,24 @@ class ColumnProfile:
                 self.min is not None,
                 self.max is not None,
             )
+        )
+
+
+@dataclass
+class Notebook:
+    id: NotebookId
+    path: str
+    language: Language
+    created_at: datetime
+    modified_at: datetime
+
+    upstreams: FrozenSet[TableReference] = field(default_factory=frozenset)
+
+    @classmethod
+    def add_upstream(cls, upstream: TableReference, notebook: "Notebook") -> "Notebook":
+        return cls(
+            **{  # type: ignore
+                **dataclasses.asdict(notebook),
+                "upstreams": frozenset([*notebook.upstreams, upstream]),
+            }
         )
