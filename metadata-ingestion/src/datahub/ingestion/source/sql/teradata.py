@@ -230,6 +230,7 @@ class TeradataSource(TwoTierSQLAlchemySource):
             logger.debug(
                 f"Error parsing table lineage, {result.debug_info.table_error}"
             )
+            self.report.num_table_parse_failures += 1
         else:
             yield from self.builder.process_sql_parsing_result(
                 result,
