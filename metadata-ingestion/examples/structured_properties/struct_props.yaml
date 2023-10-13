@@ -6,7 +6,7 @@
   display_name: Retention Time
   entity_types:
     - dataset # or urn:li:entityType:datahub.dataset
-    - dataflow
+    - dataFlow
   description: "Retention Time is used to figure out how long to retain records in a dataset"
   allowed_values:
     - value: 30
@@ -28,7 +28,6 @@
     - dataset
     - dataFlow
     - dataJob
-    - schemaField
 - id: io.acryl.dataManagement.steward
   type: urn
   type_qualifier:
@@ -45,20 +44,20 @@
   display_name: Person Certifying the asset
   entity_types:
     - dataset
-    - schemaField
+    - dataJob
 - id: io.acryl.dataManagement.team
   type: string
   display_name: Management team
   entity_types:
     - dataset
-    - schemaField
+    - dataJob
 - id: projectNames
   type: string
   cardinality: MULTIPLE
   display_name: Project names
   entity_types:
     - dataset
-    - schemaField
+    - dataJob
   allowed_values:
     - value: Tracking
       description: test value 1 for project
@@ -69,4 +68,4 @@
   display_name: Namespace
   entity_types:
     - dataset
-    - schemaField
+    - dataJob
