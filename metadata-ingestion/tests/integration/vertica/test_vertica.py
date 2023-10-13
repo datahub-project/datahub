@@ -70,6 +70,7 @@ def test_vertica_ingest_with_db(vertica_runner, pytestconfig, tmp_path):
         r"root\[\d+\]\['proposedSnapshot'\].+\['aspects'\].+\['customProperties'\]\['ROS_Count'\]",
         r"root\[\d+\]\['aspect'\].+\['customProperties'\]\['cluster_size'\]",
         r"root\[\d+\]\['aspect'\].+\['customProperties'\]\['udx_language'\]",
+        r"root\[\d+\]\['aspect'\].+\['json'\]\['rowCount'\]",
     ]
     # Verify the output.
     mce_helpers.check_golden_file(
