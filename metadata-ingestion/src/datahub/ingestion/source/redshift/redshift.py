@@ -26,13 +26,13 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
+from datahub.ingestion.api.incremental_lineage_helper import auto_incremental_lineage
 from datahub.ingestion.api.source import (
     CapabilityReport,
     MetadataWorkUnitProcessor,
     TestableSource,
     TestConnectionReport,
 )
-from datahub.ingestion.api.source_helpers import auto_incremental_lineage
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
@@ -375,7 +375,6 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                 auto_incremental_lineage,
                 self.ctx.graph,
                 self.config.incremental_lineage,
-                self.config.extract_column_level_lineage,
             ),
             StaleEntityRemovalHandler.create(
                 self, self.config, self.ctx
@@ -950,7 +949,9 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                 )
                 if lineage_info:
                     yield from gen_lineage(
-                        dataset_urn, lineage_info, self.config.incremental_lineage
+                        dataset_urn,
+                        lineage_info,
+                        False,  # incremental lineage generation is taken care by auto_incremental_lineage
                     )
 
         for schema in self.db_views[database]:
@@ -964,7 +965,9 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                 )
                 if lineage_info:
                     yield from gen_lineage(
-                        dataset_urn, lineage_info, self.config.incremental_lineage
+                        dataset_urn,
+                        lineage_info,
+                        False,  # incremental lineage generation is taken care by auto_incremental_lineage
                     )
 
     def add_config_to_report(self):
