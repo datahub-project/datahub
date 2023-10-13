@@ -630,3 +630,45 @@ LIMIT 10
 
 
 # TODO: Add a test for setting platform_instance or env
+
+
+def test_teradata_default_normalization():
+    assert_sql_result(
+        """
+create table demo_user.test_lineage2 as
+ (
+    select
+        ppd.PatientId,
+        ppf.bmi
+    from
+        demo_user.pima_patient_features ppf
+    join demo_user.pima_patient_diagnoses ppd on
+        ppd.PatientId = ppf.PatientId
+ ) with data;
+""",
+        dialect="teradata",
+        default_schema="dbc",
+        platform_instance="myteradata",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:teradata,myteradata.demo_user.pima_patient_diagnoses,PROD)": {
+                "HasDiabetes": "INTEGER()",
+                "PatientId": "INTEGER()",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:teradata,myteradata.demo_user.pima_patient_features,PROD)": {
+                "Age": "INTEGER()",
+                "BMI": "FLOAT()",
+                "BloodP": "INTEGER()",
+                "DiPedFunc": "FLOAT()",
+                "NumTimesPrg": "INTEGER()",
+                "PatientId": "INTEGER()",
+                "PlGlcConc": "INTEGER()",
+                "SkinThick": "INTEGER()",
+                "TwoHourSerIns": "INTEGER()",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:teradata,myteradata.demo_user.test_lineage2,PROD)": {
+                "BMI": "FLOAT()",
+                "PatientId": "INTEGER()",
+            },
+        },
+        expected_file=RESOURCE_DIR / "test_teradata_default_normalization.json",
+    )
