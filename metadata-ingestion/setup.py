@@ -433,7 +433,7 @@ deepdiff_dep = "deepdiff"
 test_api_requirements = {pytest_dep, deepdiff_dep, "PyYAML"}
 
 debug_requirements = {
-    "memray"
+    "memray",
 }
 
 base_dev_requirements = {
@@ -667,6 +667,7 @@ setuptools.setup(
         "Documentation": "https://datahubproject.io/docs/",
         "Source": "https://github.com/datahub-project/datahub",
         "Changelog": "https://github.com/datahub-project/datahub/releases",
+        "Releases": "https://github.com/acryldata/datahub/releases",
     },
     license="Apache License 2.0",
     description="A CLI to work with DataHub metadata",
