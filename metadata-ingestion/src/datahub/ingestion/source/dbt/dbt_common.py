@@ -855,6 +855,10 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     )
                     for column_lineage_info in sql_result.column_lineage
                     for upstream_column in column_lineage_info.upstreams
+                    # Only include the CLL if the table in in the upstream list.
+                    if target_platform_urn_to_dbt_name.get(upstream_column.table)
+                    and target_platform_urn_to_dbt_name[upstream_column.table]
+                    in node.upstream_nodes
                 ]
 
             # If we didn't fetch the schema from the graph, use the inferred schema.
