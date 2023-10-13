@@ -38,7 +38,6 @@ framework_common = {
     "progressbar2",
     "termcolor>=1.0.0",
     "psutil>=5.8.0",
-    "ratelimiter",
     "Deprecated",
     "humanfriendly",
     "packaging",
