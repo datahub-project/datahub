@@ -34,8 +34,8 @@ SELECT tokenize(phrase) OVER () FROM phrases;
 
 -- Create a temp table
 
-CREATE TEMPORARY TABLE sampletemp (a int, b int) ON COMMIT PRESERVE ROWS;
-INSERT INTO sampletemp VALUES(1,2);
+-- CREATE TEMPORARY TABLE sampletemp (a int, b int) ON COMMIT PRESERVE ROWS;
+-- INSERT INTO sampletemp VALUES(1,2);
 
 -- Create partition key
 -- ALTER TABLE store.store_orders_fact PARTITION BY date_ordered::DATE GROUP BY DATE_TRUNC('month', (date_ordered)::DATE);
