@@ -125,7 +125,7 @@ googleapis-common-protos==1.59.0
 gql==3.4.1
 graphql-core==3.2.3
 graphviz==0.20.1
-great-expectations==0.15.50
+great-expectations==0.17.21
 greenlet==2.0.2
 grpc-google-iam-v1==0.12.6
 grpcio==1.54.2
