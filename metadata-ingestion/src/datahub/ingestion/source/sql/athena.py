@@ -26,7 +26,10 @@ from datahub.ingestion.api.decorators import (
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws.s3_util import make_s3_urn
 from datahub.ingestion.source.common.subtypes import DatasetContainerSubTypes
-from datahub.ingestion.source.sql.sql_common import SQLAlchemySource, register_custom_type
+from datahub.ingestion.source.sql.sql_common import (
+    SQLAlchemySource,
+    register_custom_type,
+)
 from datahub.ingestion.source.sql.sql_config import SQLCommonConfig, make_sqlalchemy_uri
 from datahub.ingestion.source.sql.sql_types import MapType
 from datahub.ingestion.source.sql.sql_utils import (
