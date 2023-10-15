@@ -854,6 +854,8 @@ def _get_dialect(platform: str) -> str:
     # TODO: convert datahub platform names to sqlglot dialect
     if platform == "presto-on-hive":
         return "hive"
+    if platform == "mssql":
+        return "tsql"
     else:
         return platform
 
