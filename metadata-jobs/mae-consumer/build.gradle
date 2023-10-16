@@ -45,6 +45,8 @@ dependencies {
     annotationProcessor externalDependency.lombok
 
     runtimeOnly externalDependency.logbackClassic
+    runtimeOnly externalDependency.logbackJackson
+    runtimeOnly externalDependency.logbackJsonClassic
 
     testImplementation externalDependency.mockito
     implementation externalDependency.awsMskIamAuth
@@ -52,6 +54,8 @@ dependencies {
     testImplementation externalDependency.testng
     testImplementation externalDependency.springBootTest
     testRuntimeOnly externalDependency.logbackClassic
+    testRuntimeOnly externalDependency.logbackJackson
+    testRuntimeOnly externalDependency.logbackJsonClassic
     testImplementation project(':test-models')
 }
 
