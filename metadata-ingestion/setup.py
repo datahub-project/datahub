@@ -38,7 +38,6 @@ framework_common = {
     "progressbar2",
     "termcolor>=1.0.0",
     "psutil>=5.8.0",
-    "ratelimiter",
     "Deprecated",
     "humanfriendly",
     "packaging",
@@ -373,7 +372,10 @@ plugins: Dict[str, Set[str]] = {
     # FIXME: I don't think tableau uses sqllineage anymore so we should be able
     # to remove that dependency.
     "tableau": {"tableauserverclient>=0.17.0"} | sqllineage_lib | sqlglot_lib,
-    "teradata": sql_common | {"teradatasqlalchemy>=17.20.0.0"},
+    "teradata": sql_common
+    | usage_common
+    | sqlglot_lib
+    | {"teradatasqlalchemy>=17.20.0.0"},
     "trino": sql_common | trino,
     "starburst-trino-usage": sql_common | usage_common | trino,
     "nifi": {"requests", "packaging", "requests-gssapi"},
@@ -432,9 +434,7 @@ pytest_dep = "pytest>=6.2.2"
 deepdiff_dep = "deepdiff"
 test_api_requirements = {pytest_dep, deepdiff_dep, "PyYAML"}
 
-debug_requirements = {
-    "memray"
-}
+debug_requirements = {"memray"}
 
 base_dev_requirements = {
     *base_requirements,
