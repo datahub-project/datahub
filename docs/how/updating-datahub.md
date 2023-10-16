@@ -4,6 +4,8 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ## Next
 
+- #9010 - In Redshift source's config `incremental_lineage` is set default to off.
+
 ### Breaking Changes
 
 - #8810 - Removed support for SQLAlchemy 1.3.x. Only SQLAlchemy 1.4.x is supported now.

@@ -951,7 +951,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                     yield from gen_lineage(
                         dataset_urn,
                         lineage_info,
-                        False,  # incremental lineage generation is taken care by auto_incremental_lineage
+                        incremental_lineage=False,  # incremental lineage generation is taken care by auto_incremental_lineage
                     )
 
         for schema in self.db_views[database]:
