@@ -3,7 +3,6 @@ import {
     ClockCircleOutlined,
     CloseCircleOutlined,
     ExclamationCircleOutlined,
-    InfoCircleOutlined,
     LoadingOutlined,
     StopOutlined,
     WarningOutlined,
@@ -43,7 +42,6 @@ export function getPlaceholderRecipe(ingestionSources: SourceConfig[], type?: st
 
 export const RUNNING = 'RUNNING';
 export const SUCCESS = 'SUCCESS';
-export const FLAGGED = 'FLAGGED';
 export const WARNING = 'WARNING';
 export const FAILURE = 'FAILURE';
 export const CONNECTION_FAILURE = 'CONNECTION_FAILURE';
@@ -62,7 +60,6 @@ export const getExecutionRequestStatusIcon = (status: string) => {
     return (
         (status === RUNNING && LoadingOutlined) ||
         (status === SUCCESS && CheckCircleOutlined) ||
-        (status === FLAGGED && InfoCircleOutlined) ||
         (status === WARNING && ExclamationCircleOutlined) ||
         (status === FAILURE && CloseCircleOutlined) ||
         (status === CONNECTION_FAILURE && CloseCircleOutlined) ||
@@ -79,7 +76,6 @@ export const getExecutionRequestStatusDisplayText = (status: string) => {
     return (
         (status === RUNNING && 'Running') ||
         (status === SUCCESS && 'Succeeded') ||
-        (status === FLAGGED && 'Completed') ||
         (status === WARNING && 'Completed') ||
         (status === FAILURE && 'Failed') ||
         (status === CONNECTION_FAILURE && 'Connection Failed') ||
@@ -98,8 +94,6 @@ export const getExecutionRequestSummaryText = (status: string) => {
             return 'Ingestion is running...';
         case SUCCESS:
             return 'Ingestion succeeded with no errors or suspected missing data.';
-        case FLAGGED:
-            return 'Ingestion succeeded, but some data is suspected missing.';
         case WARNING:
             return 'Ingestion completed with minor or intermittent errors.';
         case FAILURE:
@@ -123,7 +117,6 @@ export const getExecutionRequestStatusDisplayColor = (status: string) => {
     return (
         (status === RUNNING && REDESIGN_COLORS.BLUE) ||
         (status === SUCCESS && 'green') ||
-        (status === FLAGGED && 'goldenrod') ||
         (status === WARNING && 'orangered') ||
         (status === FAILURE && 'red') ||
         (status === CONNECTION_FAILURE && 'crimson') ||
