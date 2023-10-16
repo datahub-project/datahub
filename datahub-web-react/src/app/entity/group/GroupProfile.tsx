@@ -14,6 +14,7 @@ import { ErrorSection } from '../../shared/error/ErrorSection';
 import { ManageActorNotifications } from '../../settings/personal/notifications/ManageActorNotifications';
 import { ManageActorSubscriptions } from '../../settings/personal/subscriptions/ManageActorSubscriptions';
 import { useEntityRegistry } from '../../useEntityRegistry';
+import NonExistentEntityPage from '../shared/entity/NonExistentEntityPage';
 
 const messageStyle = { marginTop: '10%' };
 
@@ -129,6 +130,9 @@ export default function GroupProfile() {
         urn,
     };
 
+    if (data?.corpGroup?.exists === false) {
+        return <NonExistentEntityPage />;
+    }
     return (
         <>
             {error && <ErrorSection />}

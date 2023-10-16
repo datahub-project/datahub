@@ -20,7 +20,13 @@ BigQueryAuditMetadata = Any
 
 logger: logging.Logger = logging.getLogger(__name__)
 
-_BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX = "((.+)[_$])?(\\d{8})$"
+# Regexp for sharded tables.
+# A sharded table is a table that has a suffix of the form _yyyymmdd or yyyymmdd, where yyyymmdd is a date.
+# The regexp checks for valid dates in the suffix (e.g. 20200101, 20200229, 20201231) and if the date is not valid
+# then it is not a sharded table.
+_BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX = (
+    "((.+\\D)[_$]?)?(\\d\\d\\d\\d(?:0[1-9]|1[0-2])(?:0[1-9]|[12][0-9]|3[01]))$"
+)
 
 
 @dataclass(frozen=True, order=True)
@@ -40,7 +46,7 @@ class BigqueryTableIdentifier:
     _BQ_SHARDED_TABLE_SUFFIX: str = "_yyyymmdd"
 
     @staticmethod
-    def get_table_and_shard(table_name: str) -> Tuple[str, Optional[str]]:
+    def get_table_and_shard(table_name: str) -> Tuple[Optional[str], Optional[str]]:
         """
         Args:
             table_name:
@@ -53,16 +59,25 @@ class BigqueryTableIdentifier:
                 In case of non-sharded tables, returns (<table-id>, None)
                 In case of sharded tables, returns (<table-prefix>, shard)
         """
+        new_table_name = table_name
         match = re.match(
             BigqueryTableIdentifier._BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX,
             table_name,
             re.IGNORECASE,
         )
         if match:
-            table_name = match.group(2)
-            shard = match.group(3)
-            return table_name, shard
-        return table_name, None
+            shard: str = match[3]
+            if shard:
+                if table_name.endswith(shard):
+                    new_table_name = table_name[: -len(shard)]
+
+            new_table_name = (
+                new_table_name.rstrip("_") if new_table_name else new_table_name
+            )
+            if new_table_name.endswith("."):
+                new_table_name = table_name
+            return (new_table_name, shard) if new_table_name else (None, shard)
+        return new_table_name, None
 
     @classmethod
     def from_string_name(cls, table: str) -> "BigqueryTableIdentifier":
