@@ -4,7 +4,7 @@ import com.datahub.authorization.AuthorizationRequest;
 import com.datahub.authorization.AuthorizationResult;
 import com.datahub.authorization.AuthorizedActors;
 import com.datahub.authorization.AuthorizerContext;
-import com.datahub.authorization.ResourceSpec;
+import com.datahub.authorization.EntitySpec;
 import com.datahub.plugins.PluginConstant;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import java.io.BufferedReader;
@@ -74,7 +74,7 @@ public class TestAuthorizer implements Authorizer {
   }
 
   @Override
-  public AuthorizedActors authorizedActors(String privilege, Optional<ResourceSpec> resourceSpec) {
+  public AuthorizedActors authorizedActors(String privilege, Optional<EntitySpec> resourceSpec) {
     return new AuthorizedActors("ALL", null, null, true, true);
   }
 }
