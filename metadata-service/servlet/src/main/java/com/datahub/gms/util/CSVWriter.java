@@ -2,8 +2,8 @@ package com.datahub.gms.util;
 
 
 import lombok.Builder;
-import org.elasticsearch.index.query.functionscore.FieldValueFactorFunctionBuilder;
-import org.elasticsearch.index.query.functionscore.WeightBuilder;
+import org.opensearch.index.query.functionscore.FieldValueFactorFunctionBuilder;
+import org.opensearch.index.query.functionscore.WeightBuilder;
 
 import java.io.PrintWriter;
 import java.util.stream.Collectors;

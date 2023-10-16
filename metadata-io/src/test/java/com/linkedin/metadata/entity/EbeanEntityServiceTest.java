@@ -22,7 +22,7 @@ import com.linkedin.metadata.service.UpdateIndicesService;
 import com.linkedin.metadata.utils.PegasusUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
-import io.datahub.test.DataGenerator;
+import io.datahubproject.test.DataGenerator;
 import io.ebean.Database;
 import io.ebean.Transaction;
 import io.ebean.TxScope;
@@ -61,7 +61,8 @@ public class EbeanEntityServiceTest extends EntityServiceTest<EbeanAspectDao, Eb
 
   @BeforeMethod
   public void setupTest() {
-    Database server = EbeanTestUtils.createTestServer();
+    Database server = EbeanTestUtils.createTestServer(EbeanEntityServiceTest.class.getSimpleName());
+
     _mockProducer = mock(EventProducer.class);
     _aspectDao = new EbeanAspectDao(server);
 
@@ -239,6 +240,7 @@ public class EbeanEntityServiceTest extends EntityServiceTest<EbeanAspectDao, Eb
     System.out.println("done");
   }
 
+
   @Test
   public void dataGeneratorThreadingTest() {
     DataGenerator dataGenerator = new DataGenerator(_entityServiceImpl);
@@ -262,7 +264,7 @@ public class EbeanEntityServiceTest extends EntityServiceTest<EbeanAspectDao, Eb
    * This test is designed to detect multi-threading persistence exceptions like duplicate key,
    * exceptions that exceed retry limits or unnecessary versions.
    */
-  @Test
+  @Test // ensure same thread as h2
   public void multiThreadingTest() {
     DataGenerator dataGenerator = new DataGenerator(_entityServiceImpl);
     Database server = ((EbeanAspectDao) _entityServiceImpl._aspectDao).getServer();

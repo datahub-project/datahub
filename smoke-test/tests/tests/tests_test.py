@@ -1,8 +1,12 @@
 import pytest
 import tenacity
-from tests.utils import delete_urns_from_file, get_frontend_url, ingest_file_via_rest, wait_for_healthcheck_util, get_sleep_info
+
+from tests.utils import (delete_urns_from_file, get_frontend_url,
+                         get_sleep_info, ingest_file_via_rest,
+                         wait_for_healthcheck_util)
 
 sleep_sec, sleep_times = get_sleep_info()
+
 
 @pytest.fixture(scope="module", autouse=True)
 def ingest_cleanup_data(request):
@@ -17,6 +21,7 @@ def ingest_cleanup_data(request):
 def wait_for_healthchecks():
     wait_for_healthcheck_util()
     yield
+
 
 @pytest.mark.dependency()
 def test_healthchecks(wait_for_healthchecks):

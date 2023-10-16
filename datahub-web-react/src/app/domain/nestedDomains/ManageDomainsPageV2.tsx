@@ -17,6 +17,7 @@ const PageWrapper = styled.div`
     flex: 1;
     display: flex;
     flex-direction: column;
+    overflow: hidden;
 `;
 
 const Header = styled.div`
@@ -41,7 +42,12 @@ export default function ManageDomainsPageV2() {
             <OnboardingTour stepIds={[DOMAINS_INTRO_ID, DOMAINS_CREATE_DOMAIN_ID]} />
             <Header>
                 <DomainsTitle />
-                <Button type="primary" id={DOMAINS_CREATE_DOMAIN_ID} onClick={() => setIsCreatingDomain(true)}>
+                <Button
+                    type="primary"
+                    id={DOMAINS_CREATE_DOMAIN_ID}
+                    onClick={() => setIsCreatingDomain(true)}
+                    data-testid="domains-new-domain-button"
+                >
                     <PlusOutlined /> New Domain
                 </Button>
             </Header>

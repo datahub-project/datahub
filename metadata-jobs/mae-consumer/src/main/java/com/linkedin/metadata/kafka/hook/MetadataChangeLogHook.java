@@ -29,4 +29,12 @@ public interface MetadataChangeLogHook {
    * Invoke the hook when a MetadataChangeLog is received
    */
   void invoke(@Nonnull MetadataChangeLog log) throws Exception;
+
+  /**
+   * Controls hook execution ordering
+   * @return order to execute
+   */
+  default int executionOrder() {
+    return 100;
+  }
 }

@@ -1,6 +1,7 @@
 package io.datahubproject.openapi.delegates;
 
 import com.linkedin.data.schema.annotation.PathSpecBasedSchemaAnnotationVisitor;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import io.datahubproject.openapi.config.OpenAPIEntityTestConfiguration;
 import io.datahubproject.openapi.config.SpringWebConfig;
 import io.datahubproject.openapi.generated.BrowsePathEntry;
@@ -31,24 +32,30 @@ import io.datahubproject.openapi.generated.TagAssociation;
 import io.datahubproject.openapi.generated.controller.ChartApiController;
 import io.datahubproject.openapi.generated.controller.DatasetApiController;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
+import org.springframework.test.web.servlet.result.MockMvcResultMatchers;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
 import java.util.List;
 
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNotNull;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.testng.Assert.*;
 
 
 @SpringBootTest(classes = {SpringWebConfig.class})
 @ComponentScan(basePackages = {"io.datahubproject.openapi.generated.controller"})
 @Import({OpenAPIEntityTestConfiguration.class})
+@AutoConfigureMockMvc
 public class EntityApiDelegateImplTest extends AbstractTestNGSpringContextTests {
     @BeforeTest
     public void disableAssert() {
@@ -60,11 +67,18 @@ public class EntityApiDelegateImplTest extends AbstractTestNGSpringContextTests 
     private ChartApiController chartApiController;
     @Autowired
     private DatasetApiController datasetApiController;
+    @Autowired
+    private EntityRegistry entityRegistry;
+    @Autowired
+    private MockMvc mockMvc;
 
     @Test
     public void initTest() {
         assertNotNull(chartApiController);
         assertNotNull(datasetApiController);
+
+        assertTrue(entityRegistry.getEntitySpec("dataset").getAspectSpecMap().containsKey("customDataQualityRules"),
+                "Failed to load custom model from custom registry");
     }
 
     @Test
@@ -199,5 +213,41 @@ public class EntityApiDelegateImplTest extends AbstractTestNGSpringContextTests 
         assertEquals(datasetApiController.deleteGlossaryTerms(testUrn).getStatusCode(), HttpStatus.OK);
         assertEquals(datasetApiController.getGlossaryTerms(testUrn, false).getStatusCode(), HttpStatus.NOT_FOUND);
         assertEquals(datasetApiController.headGlossaryTerms(testUrn).getStatusCode(), HttpStatus.NOT_FOUND);
+    }
+
+
+    /**
+     * The purpose of this test is to ensure no errors when a custom aspect is encountered,
+     * not that the custom aspect is processed. The missing piece to support custom
+     * aspects is the openapi generated classes for the custom aspects and related request/responses.
+     */
+    @Test
+    public void customModelTest() throws Exception {
+        String expectedUrn = "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)";
+
+        //CHECKSTYLE:OFF
+        String body = "[\n" +
+                "    {\n" +
+                "        \"urn\": \"" + expectedUrn + "\",\n" +
+                "        \"customDataQualityRules\": [\n" +
+                "            {\n" +
+                "                \"field\": \"my_event_data\",\n" +
+                "                \"isFieldLevel\": false,\n" +
+                "                \"type\": \"isNull\",\n" +
+                "                \"checkDefinition\": \"n/a\",\n" +
+                "                \"url\": \"https://github.com/datahub-project/datahub/blob/master/checks/nonNull.sql\"\n" +
+                "            }\n" +
+                "        ]\n" +
+                "    }\n" +
+                "]";
+        //CHECKSTYLE:ON
+
+        mockMvc.perform(MockMvcRequestBuilders
+                        .post("/v2/entity/dataset")
+                        .content(body)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().is2xxSuccessful())
+                .andExpect(MockMvcResultMatchers.jsonPath("$.[0].urn").value(expectedUrn));
     }
 }

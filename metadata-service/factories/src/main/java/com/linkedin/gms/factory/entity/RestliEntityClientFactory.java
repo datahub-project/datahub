@@ -1,10 +1,14 @@
 package com.linkedin.gms.factory.entity;
 
+import com.datahub.authentication.Authentication;
 import com.linkedin.entity.client.RestliEntityClient;
-import com.linkedin.gms.factory.spring.YamlPropertySourceFactory;
+import com.linkedin.entity.client.SystemRestliEntityClient;
+import com.linkedin.gms.factory.config.ConfigurationProvider;
+import com.linkedin.metadata.spring.YamlPropertySourceFactory;
 import com.linkedin.metadata.restli.DefaultRestliClientFactory;
 import com.linkedin.parseq.retry.backoff.ExponentialBackoff;
 import com.linkedin.restli.client.Client;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -47,5 +51,18 @@ public class RestliEntityClientFactory {
       restClient = DefaultRestliClientFactory.getRestLiClient(gmsHost, gmsPort, gmsUseSSL, gmsSslProtocol);
     }
     return new RestliEntityClient(restClient, new ExponentialBackoff(retryInterval), numRetries);
+  }
+
+  @Bean("systemRestliEntityClient")
+  public SystemRestliEntityClient systemRestliEntityClient(@Qualifier("configurationProvider") final ConfigurationProvider configurationProvider,
+                                                           @Qualifier("systemAuthentication") final Authentication systemAuthentication) {
+    final Client restClient;
+    if (gmsUri != null) {
+      restClient = DefaultRestliClientFactory.getRestLiClient(URI.create(gmsUri), gmsSslProtocol);
+    } else {
+      restClient = DefaultRestliClientFactory.getRestLiClient(gmsHost, gmsPort, gmsUseSSL, gmsSslProtocol);
+    }
+    return new SystemRestliEntityClient(restClient, new ExponentialBackoff(retryInterval), numRetries,
+            systemAuthentication, configurationProvider.getCache().getClient().getEntityClient());
   }
 }

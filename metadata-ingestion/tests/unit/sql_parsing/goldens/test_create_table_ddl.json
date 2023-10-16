@@ -1,0 +1,8 @@
+{
+    "query_type": "CREATE",
+    "in_tables": [],
+    "out_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:sqlite,costs,PROD)"
+    ],
+    "column_lineage": null
+}

@@ -7,7 +7,7 @@ import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.AuthorizationResult;
 import com.datahub.authorization.AuthorizerChain;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
-import org.elasticsearch.action.search.SearchResponse;
+import org.opensearch.action.search.SearchResponse;
 import org.mockito.Mockito;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;

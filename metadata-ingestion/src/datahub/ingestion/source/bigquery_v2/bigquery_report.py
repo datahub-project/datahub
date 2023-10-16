@@ -6,6 +6,7 @@ from typing import Counter, Dict, List, Optional
 
 import pydantic
 
+from datahub.ingestion.api.report import Report
 from datahub.ingestion.source.sql.sql_generic_profiler import ProfilingSqlReport
 from datahub.ingestion.source_report.ingestion_stage import IngestionStageReport
 from datahub.ingestion.source_report.time_window import BaseTimeWindowReport
@@ -16,18 +17,20 @@ from datahub.utilities.stats_collections import TopKDict, int_top_k_dict
 logger: logging.Logger = logging.getLogger(__name__)
 
 
-class BigQuerySchemaApiPerfReport:
-    list_projects = PerfTimer()
-    list_datasets = PerfTimer()
-    get_columns_for_dataset = PerfTimer()
-    get_tables_for_dataset = PerfTimer()
-    list_tables = PerfTimer()
-    get_views_for_dataset = PerfTimer()
+@dataclass
+class BigQuerySchemaApiPerfReport(Report):
+    list_projects: PerfTimer = field(default_factory=PerfTimer)
+    list_datasets: PerfTimer = field(default_factory=PerfTimer)
+    get_columns_for_dataset: PerfTimer = field(default_factory=PerfTimer)
+    get_tables_for_dataset: PerfTimer = field(default_factory=PerfTimer)
+    list_tables: PerfTimer = field(default_factory=PerfTimer)
+    get_views_for_dataset: PerfTimer = field(default_factory=PerfTimer)
 
 
-class BigQueryAuditLogApiPerfReport:
-    get_exported_log_entries = PerfTimer()
-    list_log_entries = PerfTimer()
+@dataclass
+class BigQueryAuditLogApiPerfReport(Report):
+    get_exported_log_entries: PerfTimer = field(default_factory=PerfTimer)
+    list_log_entries: PerfTimer = field(default_factory=PerfTimer)
 
 
 @dataclass
@@ -118,6 +121,8 @@ class BigQueryV2Report(ProfilingSqlReport, IngestionStageReport, BaseTimeWindowR
     operation_types_stat: Counter[str] = field(default_factory=collections.Counter)
 
     usage_state_size: Optional[str] = None
+
+    exclude_empty_projects: Optional[bool] = None
 
     schema_api_perf: BigQuerySchemaApiPerfReport = field(
         default_factory=BigQuerySchemaApiPerfReport
