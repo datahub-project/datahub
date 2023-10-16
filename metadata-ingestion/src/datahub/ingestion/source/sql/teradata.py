@@ -108,7 +108,7 @@ class TeradataConfig(BaseTeradataConfig, BaseTimeWindowConfig):
     )
 
     use_file_backed_cache: bool = Field(
-        default=False,
+        default=True,
         description="Whether to use a file backed cache for the view definitions.",
     )
 
@@ -258,11 +258,7 @@ class TeradataSource(TwoTierSQLAlchemySource):
             if schema_metadata:
                 self.schema_resolver.add_schema_metadata(urn, schema_metadata)
             view_properties = wu.get_aspect_of_type(ViewPropertiesClass)
-            if (
-                view_properties
-                and self.config.include_view_lineage
-                and self._view_definition_cache is not None
-            ):
+            if view_properties and self.config.include_view_lineage:
                 self._view_definition_cache[urn] = view_properties.viewLogic
             yield wu
 
