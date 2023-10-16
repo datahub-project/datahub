@@ -18,7 +18,7 @@
    
     If you want to run profiling, you need to grant select permission on all the tables you want to profile.
 
-3. If linege or usage extraction is enabled, please, check if query logging is enabled and it is set to size which
+3. If lineage or usage extraction is enabled, please, check if query logging is enabled and it is set to size which
 will fit for your queries (the default query text size Teradata captures is max 200 chars)
    An example how you can set it for all users:
     ```sql
