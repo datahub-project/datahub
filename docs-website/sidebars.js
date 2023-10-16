@@ -140,6 +140,7 @@ module.exports = {
             "metadata-ingestion/docs/dev_guides/classification",
             "metadata-ingestion/docs/dev_guides/add_stateful_ingestion_to_source",
             "metadata-ingestion/docs/dev_guides/sql_profiles",
+            "metadata-ingestion/docs/dev_guides/profiling_ingestions",
           ],
         },
       ],
@@ -607,6 +608,7 @@ module.exports = {
         },
         {
           "Managed DataHub Release History": [
+            "docs/managed-datahub/release-notes/v_0_2_12",
             "docs/managed-datahub/release-notes/v_0_2_11",
             "docs/managed-datahub/release-notes/v_0_2_10",
             "docs/managed-datahub/release-notes/v_0_2_9",

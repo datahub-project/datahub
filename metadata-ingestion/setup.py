@@ -38,7 +38,6 @@ framework_common = {
     "progressbar2",
     "termcolor>=1.0.0",
     "psutil>=5.8.0",
-    "ratelimiter",
     "Deprecated",
     "humanfriendly",
     "packaging",
@@ -354,7 +353,7 @@ plugins: Dict[str, Set[str]] = {
     | {"psycopg2-binary", "pymysql>=1.0.2"},
     "pulsar": {"requests"},
     "redash": {"redash-toolbelt", "sql-metadata"} | sqllineage_lib,
-    "redshift": sql_common | redshift_common | usage_common | {"redshift-connector"},
+    "redshift": sql_common | redshift_common | usage_common | sqlglot_lib | {"redshift-connector"},
     "redshift-legacy": sql_common | redshift_common,
     "redshift-usage-legacy": sql_common | usage_common | redshift_common,
     "s3": {*s3_base, *data_lake_profiling},
@@ -373,6 +372,10 @@ plugins: Dict[str, Set[str]] = {
     # FIXME: I don't think tableau uses sqllineage anymore so we should be able
     # to remove that dependency.
     "tableau": {"tableauserverclient>=0.17.0"} | sqllineage_lib | sqlglot_lib,
+    "teradata": sql_common
+    | usage_common
+    | sqlglot_lib
+    | {"teradatasqlalchemy>=17.20.0.0"},
     "trino": sql_common | trino,
     "starburst-trino-usage": sql_common | usage_common | trino,
     "nifi": {"requests", "packaging", "requests-gssapi"},
@@ -430,6 +433,8 @@ mypy_stubs = {
 pytest_dep = "pytest>=6.2.2"
 deepdiff_dep = "deepdiff"
 test_api_requirements = {pytest_dep, deepdiff_dep, "PyYAML"}
+
+debug_requirements = {"memray"}
 
 base_dev_requirements = {
     *base_requirements,
@@ -495,6 +500,7 @@ base_dev_requirements = {
             "s3",
             "snowflake",
             "tableau",
+            "teradata",
             "trino",
             "hive",
             "starburst-trino-usage",
@@ -593,6 +599,7 @@ entry_points = {
         "tableau = datahub.ingestion.source.tableau:TableauSource",
         "openapi = datahub.ingestion.source.openapi:OpenApiSource",
         "metabase = datahub.ingestion.source.metabase:MetabaseSource",
+        "teradata = datahub.ingestion.source.sql.teradata:TeradataSource",
         "trino = datahub.ingestion.source.sql.trino:TrinoSource",
         "starburst-trino-usage = datahub.ingestion.source.usage.starburst_trino_usage:TrinoUsageSource",
         "nifi = datahub.ingestion.source.nifi:NifiSource",
@@ -723,5 +730,6 @@ See the [DataHub docs](https://datahubproject.io/docs/metadata-ingestion).
         "dev": list(dev_requirements),
         "testing-utils": list(test_api_requirements),  # To import `datahub.testing`
         "integration-tests": list(full_test_dev_requirements),
+        "debug": list(debug_requirements),
     },
 )

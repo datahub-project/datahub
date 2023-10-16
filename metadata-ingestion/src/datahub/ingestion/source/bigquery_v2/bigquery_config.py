@@ -206,11 +206,6 @@ class BigQueryV2Config(
         description="This flag enables the data lineage extraction from Data Lineage API exposed by Google Data Catalog. NOTE: This extractor can't build views lineage. It's recommended to enable the view's DDL parsing. Read the docs to have more information about: https://cloud.google.com/data-catalog/docs/concepts/about-data-lineage",
     )
 
-    convert_urns_to_lowercase: bool = Field(
-        default=False,
-        description="Convert urns to lowercase.",
-    )
-
     enable_legacy_sharded_table_support: bool = Field(
         default=True,
         description="Use the legacy sharded table urn suffix added.",
