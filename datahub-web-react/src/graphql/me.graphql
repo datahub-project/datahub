@@ -11,6 +11,7 @@ query getMe {
                 lastName
                 fullName
                 email
+                departmentName
             }
             editableProperties {
                 displayName

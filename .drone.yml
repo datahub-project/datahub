@@ -64,6 +64,17 @@ steps:
       ENVIRONMENT: production
       AMPLITUDE_API_KEY: f0b9cf5c530426c3dbacb91e74f009a5
 
+  # Push the staging image, tagged with the branch name. Useful for testing the image in fc-datahub.
+  - name: docker_frontend_development
+    <<: *docker_build_config
+    settings:
+      context : /drone/src/staging/
+      dockerfile: /drone/src/staging/docker/datahub-frontend/Dockerfile
+      tags:
+        - ${DRONE_BRANCH//\//-}
+    depends_on:
+      - build_frontend_staging
+
   - name: docker_frontend_staging
     <<: *docker_build_config
     <<: *when_internal_branch
