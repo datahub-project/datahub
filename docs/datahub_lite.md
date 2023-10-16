@@ -89,7 +89,7 @@ sink:
     forward_to:
       type: datahub-rest
       config:
-          server: "http://datahub-gms:8080"
+        server: "http://datahub-gms:8080"
 ```
 
 :::note
