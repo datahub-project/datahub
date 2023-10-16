@@ -51,7 +51,7 @@ class FivetranLogDataDictionary:
         engine = None
         if destination_platform == "snowflake":
             snowflake_destination_config = (
-                self.config.fivetran_log_config.snowflake_destination_config
+                self.config.fivetran_log_config.destination_config
             )
             if snowflake_destination_config is not None:
                 engine = create_engine(

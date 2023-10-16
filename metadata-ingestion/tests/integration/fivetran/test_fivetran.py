@@ -6,7 +6,7 @@ import pytest
 from freezegun import freeze_time
 
 from datahub.ingestion.run.pipeline import Pipeline
-from datahub.ingestion.source.fivetran.config import SnowflakeDestinationConfig
+from datahub.ingestion.source.fivetran.config import DestinationConfig
 from datahub.ingestion.source.fivetran.fivetran_query import FivetranLogQuery
 from tests.test_helpers import mce_helpers
 
@@ -122,7 +122,7 @@ def test_fivetran_basic(pytestconfig, tmp_path):
                     "config": {
                         "fivetran_log_config": {
                             "destination_platform": "snowflake",
-                            "snowflake_destination_config": {
+                            "destination_config": {
                                 "account_id": "TESTID",
                                 "warehouse": "TEST_WH",
                                 "username": "test",
@@ -166,7 +166,7 @@ def test_fivetran_basic(pytestconfig, tmp_path):
 
 @freeze_time(FROZEN_TIME)
 def test_fivetran_snowflake_destination_config(pytestconfig, tmp_path):
-    snowflake_dest = SnowflakeDestinationConfig(
+    snowflake_dest = DestinationConfig(
         account_id="TESTID",
         warehouse="TEST_WH",
         username="test",

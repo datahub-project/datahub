@@ -58,7 +58,7 @@ SUPPORTED_DATA_PLATFORM_MAPPING = {
 }
 
 
-class SnowflakeDestinationConfig(BaseSnowflakeConfig):
+class DestinationConfig(BaseSnowflakeConfig):
     database: str = Field(description="The fivetran connector log database.")
     log_schema: str = Field(description="The fivetran connector log schema.")
 
@@ -68,7 +68,7 @@ class FivetranLogConfig(ConfigModel):
         default="snowflake",
         description="The destination platform where fivetran connector log tables are dumped.",
     )
-    snowflake_destination_config: Optional[SnowflakeDestinationConfig] = pydantic.Field(
+    destination_config: Optional[DestinationConfig] = pydantic.Field(
         default=None,
         description="If destination platform is 'snowflake', provide snowflake configuration.",
     )
@@ -77,7 +77,7 @@ class FivetranLogConfig(ConfigModel):
     def validate_destination_platfrom_and_config(cls, values: Dict) -> Dict:
         destination_platform = values["destination_platform"]
         if destination_platform == "snowflake":
-            if "snowflake_destination_config" not in values:
+            if "destination_config" not in values:
                 raise ValueError(
                     "If destination platform is 'snowflake', user must provide snowflake destination configuration in the recipe."
                 )
