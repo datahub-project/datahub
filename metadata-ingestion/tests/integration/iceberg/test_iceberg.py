@@ -8,22 +8,31 @@ from freezegun import freeze_time
 
 from tests.test_helpers import mce_helpers
 from tests.test_helpers.click_helpers import run_datahub_cmd
-from tests.test_helpers.docker_helpers import wait_for_port
+from tests.test_helpers.docker_helpers import cleanup_image, wait_for_port
 from tests.test_helpers.state_helpers import (
     get_current_checkpoint_from_pipeline,
     run_and_get_pipeline,
     validate_all_providers_have_committed_successfully,
 )
 
+pytestmark = [
+    pytest.mark.integration_batch_1,
+    # Skip tests if not on Python 3.8 or higher.
+    pytest.mark.skipif(
+        sys.version_info < (3, 8), reason="Requires python 3.8 or higher"
+    ),
+]
 FROZEN_TIME = "2020-04-14 07:00:00"
 GMS_PORT = 8080
 GMS_SERVER = f"http://localhost:{GMS_PORT}"
 
 
-@pytest.fixture(autouse=True)
-def skip_tests_if_python_before_3_8():
-    if sys.version_info < (3, 8):
-        pytest.skip("Requires python 3.8 or higher")
+@pytest.fixture(autouse=True, scope="module")
+def remove_docker_image():
+    yield
+
+    # The tabulario/spark-iceberg image is pretty large, so we remove it after the test.
+    cleanup_image("tabulario/spark-iceberg")
 
 
 def spark_submit(file_path: str, args: str = "") -> None:
@@ -36,7 +45,6 @@ def spark_submit(file_path: str, args: str = "") -> None:
 
 
 @freeze_time(FROZEN_TIME)
-@pytest.mark.integration
 def test_iceberg_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/iceberg/"
 
@@ -69,7 +77,6 @@ def test_iceberg_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time
 
 
 @freeze_time(FROZEN_TIME)
-@pytest.mark.integration
 def test_iceberg_stateful_ingest(
     docker_compose_runner, pytestconfig, tmp_path, mock_time, mock_datahub_graph
 ):
@@ -189,7 +196,6 @@ def test_iceberg_stateful_ingest(
 
 
 @freeze_time(FROZEN_TIME)
-@pytest.mark.integration
 def test_iceberg_profiling(docker_compose_runner, pytestconfig, tmp_path, mock_time):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/iceberg/"
 

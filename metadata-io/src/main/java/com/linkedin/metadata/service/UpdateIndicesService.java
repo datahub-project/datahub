@@ -12,6 +12,7 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.dataset.FineGrainedLineage;
 import com.linkedin.dataset.UpstreamLineage;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.graph.Edge;
@@ -28,6 +29,7 @@ import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.search.EntitySearchService;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.EntityIndexBuilders;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.search.utils.SearchUtils;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
@@ -39,6 +41,8 @@ import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
+
+import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
 import java.util.ArrayList;
@@ -68,6 +72,7 @@ public class UpdateIndicesService {
   private final SystemMetadataService _systemMetadataService;
   private final EntityRegistry _entityRegistry;
   private final SearchDocumentTransformer _searchDocumentTransformer;
+  private final EntityIndexBuilders _entityIndexBuilders;
 
   @Value("${featureFlags.graphServiceDiffModeEnabled:true}")
   private boolean _graphDiffMode;
@@ -90,25 +95,31 @@ public class UpdateIndicesService {
   }
 
   public UpdateIndicesService(
-      GraphService graphService,
-      EntitySearchService entitySearchService,
-      TimeseriesAspectService timeseriesAspectService,
-      SystemMetadataService systemMetadataService,
-      EntityRegistry entityRegistry,
-      SearchDocumentTransformer searchDocumentTransformer) {
+          GraphService graphService,
+          EntitySearchService entitySearchService,
+          TimeseriesAspectService timeseriesAspectService,
+          SystemMetadataService systemMetadataService,
+          EntityRegistry entityRegistry,
+          SearchDocumentTransformer searchDocumentTransformer,
+          EntityIndexBuilders entityIndexBuilders) {
     _graphService = graphService;
     _entitySearchService = entitySearchService;
     _timeseriesAspectService = timeseriesAspectService;
     _systemMetadataService = systemMetadataService;
     _entityRegistry = entityRegistry;
     _searchDocumentTransformer = searchDocumentTransformer;
+    _entityIndexBuilders = entityIndexBuilders;
   }
 
   public void handleChangeEvent(@Nonnull final MetadataChangeLog event) {
-    if (UPDATE_CHANGE_TYPES.contains(event.getChangeType())) {
-      handleUpdateChangeEvent(event);
-    } else if (event.getChangeType() == ChangeType.DELETE) {
-      handleDeleteChangeEvent(event);
+    try {
+      if (UPDATE_CHANGE_TYPES.contains(event.getChangeType())) {
+        handleUpdateChangeEvent(event);
+      } else if (event.getChangeType() == ChangeType.DELETE) {
+        handleDeleteChangeEvent(event);
+      }
+    } catch (IOException e) {
+      throw new RuntimeException(e);
     }
   }
 
@@ -123,7 +134,7 @@ public class UpdateIndicesService {
    *
    * @param event the change event to be processed.
    */
-  public void handleUpdateChangeEvent(@Nonnull final MetadataChangeLog event) {
+  public void handleUpdateChangeEvent(@Nonnull final MetadataChangeLog event) throws IOException {
 
     final EntitySpec entitySpec = getEventEntitySpec(event);
     final Urn urn = EntityKeyUtils.getUrnFromLog(event, entitySpec.getKeyAspectSpec());
@@ -212,7 +223,7 @@ public class UpdateIndicesService {
     if (!aspectSpec.isTimeseries()) {
       deleteSystemMetadata(urn, aspectSpec, isDeletingKey);
       deleteGraphData(urn, aspectSpec, aspect, isDeletingKey, event);
-      deleteSearchData(urn, entitySpec.getName(), aspectSpec, aspect, isDeletingKey);
+      deleteSearchData(_entitySearchService, urn, entitySpec.getName(), aspectSpec, aspect, isDeletingKey);
     }
   }
 
@@ -405,7 +416,8 @@ public class UpdateIndicesService {
   /**
    * Process snapshot and update search index
    */
-  private void updateSearchService(String entityName, Urn urn, AspectSpec aspectSpec, RecordTemplate aspect,
+  private void updateSearchService(String entityName, Urn urn,
+                                   AspectSpec aspectSpec, RecordTemplate aspect,
       @Nullable SystemMetadata systemMetadata, @Nullable RecordTemplate previousAspect) {
     Optional<String> searchDocument;
     Optional<String> previousSearchDocument = Optional.empty();
@@ -513,7 +525,8 @@ public class UpdateIndicesService {
     }
   }
 
-  private void deleteSearchData(Urn urn, String entityName, AspectSpec aspectSpec, RecordTemplate aspect, Boolean isKeyAspect) {
+  private void deleteSearchData(EntitySearchService entitySearchService, Urn urn, String entityName,
+                                AspectSpec aspectSpec, RecordTemplate aspect, Boolean isKeyAspect) {
     String docId;
     try {
       docId = URLEncoder.encode(urn.toString(), "UTF-8");
@@ -550,5 +563,14 @@ public class UpdateIndicesService {
           String.format("Failed to retrieve Entity Spec for entity with name %s. Cannot update indices for MCL.",
               event.getEntityType()));
     }
+  }
+
+  /**
+   * Allow internal use of the system entity client. Solves recursive dependencies between the UpdateIndicesService
+   * and the SystemJavaEntityClient
+   * @param systemEntityClient system entity client
+   */
+  public void setSystemEntityClient(SystemEntityClient systemEntityClient) {
+    _searchDocumentTransformer.setEntityClient(systemEntityClient);
   }
 }

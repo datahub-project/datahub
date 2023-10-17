@@ -77,7 +77,7 @@ datahub put platform --name MyCustomDataPlatform --display_name "My Custom Data 
 source:
   type: "file"
   config:
-    filename: "./my-custom-data-platform.json"
+    path: "./my-custom-data-platform.json"
 
 # see https://datahubproject.io/docs/metadata-ingestion/sink_docs/datahub for complete documentation
 sink:

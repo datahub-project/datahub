@@ -1,20 +1,12 @@
-import dataclasses
 import logging
-from datetime import datetime
-from typing import Callable, Dict, Iterable, List, Optional, cast
+from typing import Callable, Dict, Iterable, List, Optional
 
 from snowflake.sqlalchemy import snowdialect
 from sqlalchemy import create_engine, inspect
 from sqlalchemy.sql import sqltypes
 
-from datahub.configuration.pattern_utils import is_schema_allowed
-from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.ge_data_profiler import (
-    DatahubGEProfiler,
-    GEProfilerRequest,
-)
+from datahub.ingestion.source.ge_data_profiler import DatahubGEProfiler
 from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
 from datahub.ingestion.source.snowflake.snowflake_query import SnowflakeQuery
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
@@ -23,22 +15,14 @@ from datahub.ingestion.source.snowflake.snowflake_schema import (
     SnowflakeTable,
 )
 from datahub.ingestion.source.snowflake.snowflake_utils import SnowflakeCommonMixin
-from datahub.ingestion.source.sql.sql_generic_profiler import (
-    GenericProfiler,
-    TableProfilerRequest,
-)
+from datahub.ingestion.source.sql.sql_generic import BaseTable
+from datahub.ingestion.source.sql.sql_generic_profiler import GenericProfiler
 from datahub.ingestion.source.state.profiling_state_handler import ProfilingHandler
 
 snowdialect.ischema_names["GEOGRAPHY"] = sqltypes.NullType
 snowdialect.ischema_names["GEOMETRY"] = sqltypes.NullType
 
 logger = logging.getLogger(__name__)
-
-
-@dataclasses.dataclass
-class SnowflakeProfilerRequest(GEProfilerRequest):
-    table: SnowflakeTable
-    profile_table_level_only: bool = False
 
 
 class SnowflakeProfiler(GenericProfiler, SnowflakeCommonMixin):
@@ -65,101 +49,52 @@ class SnowflakeProfiler(GenericProfiler, SnowflakeCommonMixin):
 
         profile_requests = []
         for schema in database.schemas:
-            if not is_schema_allowed(
-                self.config.schema_pattern,
-                schema.name,
-                database.name,
-                self.config.match_fully_qualified_names,
-            ):
-                continue
-
             for table in db_tables[schema.name]:
-                profile_request = self.get_snowflake_profile_request(
+                profile_request = self.get_profile_request(
                     table, schema.name, database.name
                 )
                 if profile_request is not None:
+                    self.report.report_entity_profiled(profile_request.pretty_name)
                     profile_requests.append(profile_request)
 
         if len(profile_requests) == 0:
             return
 
-        table_profile_requests = cast(List[TableProfilerRequest], profile_requests)
-
-        for request, profile in self.generate_profiles(
-            table_profile_requests,
+        yield from self.generate_profile_workunits(
+            profile_requests,
             self.config.profiling.max_workers,
             database.name,
             platform=self.platform,
             profiler_args=self.get_profile_args(),
-        ):
-            if profile is None:
-                continue
-            profile.sizeInBytes = cast(
-                SnowflakeProfilerRequest, request
-            ).table.size_in_bytes
-            dataset_name = request.pretty_name
-            dataset_urn = make_dataset_urn_with_platform_instance(
-                self.platform,
-                dataset_name,
-                self.config.platform_instance,
-                self.config.env,
-            )
-
-            # We don't add to the profiler state if we only do table level profiling as it always happens
-            if self.state_handler:
-                self.state_handler.add_to_state(
-                    dataset_urn, int(datetime.now().timestamp() * 1000)
-                )
-
-            yield MetadataChangeProposalWrapper(
-                entityUrn=dataset_urn, aspect=profile
-            ).as_workunit()
-
-    def get_snowflake_profile_request(
-        self,
-        table: SnowflakeTable,
-        schema_name: str,
-        db_name: str,
-    ) -> Optional[SnowflakeProfilerRequest]:
-        skip_profiling = False
-        profile_table_level_only = self.config.profiling.profile_table_level_only
-        dataset_name = self.get_dataset_identifier(table.name, schema_name, db_name)
-        if not self.is_dataset_eligible_for_profiling(
-            dataset_name, table.last_altered, table.size_in_bytes, table.rows_count
-        ):
-            # Profile only table level if dataset is filtered from profiling
-            # due to size limits alone
-            if self.is_dataset_eligible_for_profiling(
-                dataset_name, table.last_altered, 0, 0
-            ):
-                profile_table_level_only = True
-            else:
-                skip_profiling = True
-
-        if len(table.columns) == 0:
-            skip_profiling = True
-
-        if skip_profiling:
-            if self.config.profiling.report_dropped_profiles:
-                self.report.report_dropped(f"profile of {dataset_name}")
-            return None
-
-        self.report.report_entity_profiled(dataset_name)
-        logger.debug(f"Preparing profiling request for {dataset_name}")
-        profile_request = SnowflakeProfilerRequest(
-            pretty_name=dataset_name,
-            batch_kwargs=dict(
-                schema=schema_name,
-                table=table.name,
-                # Lowercase/Mixedcase table names in Snowflake do not work by default.
-                # We need to pass `use_quoted_name=True` for such tables as mentioned here -
-                # https://github.com/great-expectations/great_expectations/pull/2023
-                use_quoted_name=(table.name != table.name.upper()),
-            ),
-            table=table,
-            profile_table_level_only=profile_table_level_only,
         )
-        return profile_request
+
+    def get_dataset_name(self, table_name: str, schema_name: str, db_name: str) -> str:
+        return self.get_dataset_identifier(table_name, schema_name, db_name)
+
+    def get_batch_kwargs(
+        self, table: BaseTable, schema_name: str, db_name: str
+    ) -> dict:
+        custom_sql = None
+        if (
+            not self.config.profiling.limit
+            and self.config.profiling.use_sampling
+            and table.rows_count
+            and table.rows_count > self.config.profiling.sample_size
+        ):
+            # GX creates a temporary table from query if query is passed as batch kwargs.
+            # We are using fraction-based sampling here, instead of fixed-size sampling because
+            # Fixed-size sampling can be slower than equivalent fraction-based sampling
+            # as per https://docs.snowflake.com/en/sql-reference/constructs/sample#performance-considerations
+            sample_pc = 100 * self.config.profiling.sample_size / table.rows_count
+            custom_sql = f'select * from "{db_name}"."{schema_name}"."{table.name}" TABLESAMPLE ({sample_pc:.8f})'
+        return {
+            **super().get_batch_kwargs(table, schema_name, db_name),
+            # Lowercase/Mixedcase table names in Snowflake do not work by default.
+            # We need to pass `use_quoted_name=True` for such tables as mentioned here -
+            # https://github.com/great-expectations/great_expectations/pull/2023
+            "use_quoted_name": (table.name != table.name.upper()),
+            "custom_sql": custom_sql,
+        }
 
     def get_profiler_instance(
         self, db_name: Optional[str] = None

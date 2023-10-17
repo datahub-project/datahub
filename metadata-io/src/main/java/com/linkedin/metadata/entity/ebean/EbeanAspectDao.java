@@ -42,6 +42,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
@@ -431,6 +432,18 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
             .setFirstRow(args.start)
             .setMaxRows(args.batchSize)
             .findPagedList();
+  }
+
+  @Override
+  @Nonnull
+  public Stream<EntityAspect> streamAspects(String entityName, String aspectName) {
+    ExpressionList<EbeanAspectV2> exp = _server.find(EbeanAspectV2.class)
+        .select(EbeanAspectV2.ALL_COLUMNS)
+        .where()
+        .eq(EbeanAspectV2.VERSION_COLUMN, ASPECT_LATEST_VERSION)
+        .eq(EbeanAspectV2.ASPECT_COLUMN, aspectName)
+        .like(EbeanAspectV2.URN_COLUMN, "urn:li:" + entityName + ":%");
+    return exp.query().findStream().map(EbeanAspectV2::toEntityAspect);
   }
 
   @Override

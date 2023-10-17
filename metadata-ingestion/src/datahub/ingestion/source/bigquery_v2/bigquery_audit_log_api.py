@@ -4,7 +4,6 @@ from typing import Callable, Iterable, List, Optional
 
 from google.cloud import bigquery
 from google.cloud.logging_v2.client import Client as GCPLoggingClient
-from ratelimiter import RateLimiter
 
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import (
     AuditLogEntry,
@@ -17,6 +16,7 @@ from datahub.ingestion.source.bigquery_v2.common import (
     BQ_DATE_SHARD_FORMAT,
     BQ_DATETIME_FORMAT,
 )
+from datahub.utilities.ratelimiter import RateLimiter
 
 logger: logging.Logger = logging.getLogger(__name__)
 
