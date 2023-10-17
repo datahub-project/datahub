@@ -35,7 +35,7 @@ from datahub.telemetry import telemetry
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 from datahub.utilities.urns.tag_urn import TagUrn
 from datahub.utilities.urns.urn import guess_entity_type
-from datahub.utilities.urns.urn_iter import list_urns
+from datahub.utilities.urns.urn_iter import list_urns, lowercase_dataset_urns
 
 if TYPE_CHECKING:
     from datahub.ingestion.api.source import SourceReport
@@ -70,7 +70,6 @@ def auto_status_aspect(
     for wu in stream:
         urn = wu.get_urn()
         all_urns.add(urn)
-
         if not wu.is_primary_source:
             # If this is a non-primary source, we pretend like we've seen the status
             # aspect so that we don't try to emit a removal for it.
@@ -171,6 +170,23 @@ def auto_materialize_referenced_tags(
             entityUrn=urn,
             aspect=TagKeyClass(name=tag_urn.get_entity_id()[0]),
         ).as_workunit()
+
+
+def auto_lowercase_urns(
+    stream: Iterable[MetadataWorkUnit],
+) -> Iterable[MetadataWorkUnit]:
+    """Lowercase all dataset urns"""
+
+    for wu in stream:
+        try:
+            old_urn = wu.get_urn()
+            lowercase_dataset_urns(wu.metadata)
+            wu.id = wu.id.replace(old_urn, wu.get_urn())
+
+            yield wu
+        except Exception as e:
+            logger.warning(f"Failed to lowercase urns for {wu}: {e}", exc_info=True)
+            yield wu
 
 
 def auto_browse_path_v2(

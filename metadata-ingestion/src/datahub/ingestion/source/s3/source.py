@@ -10,6 +10,7 @@ from datetime import datetime
 from pathlib import PurePath
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
+import smart_open.compression as so_compression
 from more_itertools import peekable
 from pyspark.conf import SparkConf
 from pyspark.sql import SparkSession
@@ -121,6 +122,9 @@ _field_type_mapping = {
     StructType: RecordTypeClass,
 }
 PAGE_SIZE = 1000
+
+# Hack to support the .gzip extension with smart_open.
+so_compression.register_compressor(".gzip", so_compression._COMPRESSOR_REGISTRY[".gz"])
 
 
 def get_column_type(
@@ -409,7 +413,9 @@ class S3Source(StatefulIngestionSourceBase):
                 table_data.full_path, "rb", transport_params={"client": s3_client}
             )
         else:
-            file = open(table_data.full_path, "rb")
+            # We still use smart_open here to take advantage of the compression
+            # capabilities of smart_open.
+            file = smart_open(table_data.full_path, "rb")
 
         fields = []
 
