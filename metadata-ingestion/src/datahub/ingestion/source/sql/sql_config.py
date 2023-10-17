@@ -1,7 +1,6 @@
 import logging
 from abc import abstractmethod
 from typing import Any, Dict, Optional
-from urllib.parse import quote_plus
 
 import pydantic
 from pydantic import Field
@@ -166,7 +165,15 @@ def make_sqlalchemy_uri(
     db: Optional[str],
     uri_opts: Optional[Dict[str, Any]] = None,
 ) -> str:
-    host, port = at.rsplit(":", 1)
+    host: Optional[str] = None
+    port: Optional[int] = None
+    if at:
+        host, port_str = at.rsplit(":", 1)
+        try:
+            port = int(port_str)
+        except ValueError:
+            host = at
+
     return str(
         URL.create(
             drivername=scheme,
@@ -175,6 +182,6 @@ def make_sqlalchemy_uri(
             host=host,
             port=port,
             database=db,
-            query=uri_opts,
+            query=uri_opts or {},
         )
     )
