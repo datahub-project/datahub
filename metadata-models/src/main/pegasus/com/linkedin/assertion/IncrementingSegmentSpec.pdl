@@ -1,0 +1,33 @@
+namespace com.linkedin.assertion
+
+import com.linkedin.schema.SchemaFieldSpec
+
+/**
+* Core attributes required to identify an incrementing segment in a table. This type is mainly useful
+* for tables that constantly increase with new rows being added on a particular cadence (e.g. fact or event tables)
+*
+* An incrementing segment represents a logical chunk of data which is INSERTED
+* into a dataset on a regular interval, along with the presence of a constantly-incrementing column
+* value such as an event time, date partition, or last modified column.
+*
+* An incrementing segment is principally identified by 2 key attributes combined:
+*
+*  1. A field or column that represents the incrementing value. New rows that are inserted will be identified using this column.
+*     Note that the value of this column may not by itself represent the "bucket" or the "segment" in which the row falls.
+*
+*  2. [Optional] An transformer function that may be applied to the selected column value in order
+*     to obtain the final "segment identifier" or "bucket identifier". Rows that have the same value after applying the transformation
+*     will be grouped into the same segment, using which the final value (e.g. row count) will be determined.
+*/
+record IncrementingSegmentSpec {
+  /**
+  * The field to use to generate segments. It must be constantly incrementing as new rows are inserted.
+  */
+  field: SchemaFieldSpec
+
+  /**
+  * Optional transformer function to apply to the field in order to obtain the final segment or bucket identifier.
+  * If not provided, then no operator will be applied to the field. (identity function)
+  */
+  transformer: optional IncrementingSegmentFieldTransformer
+}
