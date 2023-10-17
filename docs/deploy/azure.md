@@ -195,10 +195,7 @@ kubectl get ingress
 
 You should see a result like this:
 
-<img width="536" alt="Screenshot 2023-08-02 at 6 02 32 PM" src="https://github.com/smahes34_uhg/DataHub-Doc/assets/135673944/7a68ab54-fe72-4fae-b03d-34f9486df2bd">
-
-
-
+![frontend-image](https://github.com/Saketh-Mahesh/azure-docs-images/blob/main/frontend-status.png?raw=true)
 
 ## Use PostgresSQL for the storage layer
 Configure a PostgreSQL database in the same virtual network as the Kubernetes cluster or implement virtual network peering to connect both networks. Once the database is provisioned, you should be able to see the following page under the Connect tab on the left side. 
@@ -207,7 +204,7 @@ Configure a PostgreSQL database in the same virtual network as the Kubernetes cl
 Note: PostgreSQL Database MUST be deployed in same location as AKS/resource group (eastus, centralus, etc.)
 Take a note of the connection details:
 
-<img width="1220" alt="Screenshot 2023-08-01 at 10 04 27 PM (1)" src="https://github.com/smahes34_uhg/DataHub-Doc/assets/135673944/66cb1206-d6db-4a72-97eb-1bfa0f2a0fbd">
+![postgres-info](https://github.com/Saketh-Mahesh/azure-docs-images/blob/main/postgres-info.png?raw=true)
 
 
 
