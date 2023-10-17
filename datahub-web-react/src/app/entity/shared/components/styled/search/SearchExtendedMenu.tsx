@@ -75,7 +75,7 @@ export default function SearchExtendedMenu({
                 totalResults={totalResults}
             />
             <Dropdown overlay={menu} trigger={['click']}>
-                <MenuIcon data-testid="tree-dot-menu" />
+                <MenuIcon data-testid="three-dot-menu" />
             </Dropdown>
         </>
     );

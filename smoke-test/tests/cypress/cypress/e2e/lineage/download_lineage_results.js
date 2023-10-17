@@ -19,7 +19,7 @@ const third_degree_plus = [
     "urn:li:dataset:(urn:li:dataPlatform:hive,fct_cypress_users_deleted,PROD)"
 ];
 const downloadCsvFile = (filename) => {
-    cy.get('[data-testid="tree-dot-menu"]').click();
+    cy.get('[data-testid="three-dot-menu"]').click();
     cy.get('[data-testid="download-as-csv-menu-item"]').click();
     cy.get('[data-testid="download-as-csv-input"]').clear().type(filename);
     cy.get('[data-testid="csv-modal-download-button"]').click().wait(5000);
