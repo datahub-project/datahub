@@ -168,11 +168,12 @@ def make_sqlalchemy_uri(
     host: Optional[str] = None
     port: Optional[int] = None
     if at:
-        host, port_str = at.rsplit(":", 1)
         try:
+            host, port_str = at.rsplit(":", 1)
             port = int(port_str)
         except ValueError:
             host = at
+            port = None
 
     return str(
         URL.create(
