@@ -245,7 +245,6 @@ public class SearchRequestHandler {
     if (!finalSearchFlags.isSkipHighlighting()) {
       searchSourceBuilder.highlighter(getHighlights());
     }
-    ESUtils.buildSortOrder(searchSourceBuilder, sortCriterion);
     ESUtils.buildSortOrder(searchSourceBuilder, sortCriterion, _entitySpecs);
     searchRequest.source(searchSourceBuilder);
     log.debug("Search request is: " + searchRequest);
