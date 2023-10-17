@@ -33,6 +33,7 @@ from datahub.ingestion.source.unity.proxy_types import (
     ALLOWED_STATEMENT_TYPES,
     Catalog,
     Column,
+    ExternalTableReference,
     Metastore,
     Notebook,
     Query,
@@ -248,6 +249,13 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                     )
                     if table_ref:
                         table.upstreams[table_ref] = {}
+                elif "fileInfo" in item:
+                    external_ref = ExternalTableReference.create_from_lineage(
+                        item["fileInfo"]
+                    )
+                    if external_ref:
+                        table.external_upstreams.add(external_ref)
+
                 for notebook in item.get("notebookInfos") or []:
                     table.upstream_notebooks.add(notebook["notebook_id"])
 
