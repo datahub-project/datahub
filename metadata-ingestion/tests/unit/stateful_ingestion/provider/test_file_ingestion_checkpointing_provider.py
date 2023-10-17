@@ -58,12 +58,12 @@ def test_file_ingestion_checkpointing_provider(tmp_path):
     }
 
     # 3. Perform the commit
-    # NOTE: This will commit the state to the in-memory mcps_emitted because of the monkey-patching.
+    # NOTE: This will commit the state to the pytest temp path json file.
     provider.commit()
     assert provider.committed
 
     # 4. Get last committed state. This must match what has been committed earlier.
-    # NOTE: This will retrieve from in-memory mcps_emitted because of the monkey-patching.
+    # NOTE: This will retrieve from pytest temp path json file.
     job1_last_state = provider.get_latest_checkpoint(pipeline_name, job_names[0])
     job2_last_state = provider.get_latest_checkpoint(pipeline_name, job_names[1])
 

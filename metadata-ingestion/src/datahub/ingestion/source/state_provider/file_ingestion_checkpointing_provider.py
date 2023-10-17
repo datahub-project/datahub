@@ -1,7 +1,7 @@
 import logging
 import pathlib
 from datetime import datetime
-from typing import Any, Dict, Optional, cast
+from typing import Any, Dict, List, Optional, cast
 
 from datahub.configuration.common import ConfigurationError
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -93,41 +93,26 @@ class FileIngestionCheckpointingProvider(IngestionCheckpointingProviderBase):
             logger.warning(f"No state available to commit for {self.name}")
             return None
 
+        checkpoint_workunits: List[MetadataChangeProposalWrapper] = []
         for job_name, checkpoint in self.state_to_commit.items():
             # Emit the ingestion state for each job
             logger.debug(
                 f"Committing ingestion checkpoint for pipeline:'{checkpoint.pipelineName}', "
                 f"job:'{job_name}'"
             )
-
             datajob_urn = self.get_data_job_urn(
                 self.orchestrator_name,
                 checkpoint.pipelineName,
                 job_name,
             )
-
-            if not self.committed:
-                checkpoint_workunit = MetadataChangeProposalWrapper(
+            checkpoint_workunits.append(
+                MetadataChangeProposalWrapper(
                     entityUrn=datajob_urn,
                     aspect=checkpoint,
                 )
-                write_metadata_file(pathlib.Path(self.filename), [checkpoint_workunit])
-                self.committed = True
-            else:
-                existing_checkpoint_workunits = [
-                    obj for obj in read_metadata_file(pathlib.Path(self.filename))
-                ]
-                existing_checkpoint_workunits.append(
-                    MetadataChangeProposalWrapper(
-                        entityUrn=datajob_urn,
-                        aspect=checkpoint,
-                    )
-                )
-                write_metadata_file(
-                    pathlib.Path(self.filename), existing_checkpoint_workunits
-                )
-
-            logger.debug(
-                f"Committed ingestion checkpoint for pipeline:'{checkpoint.pipelineName}', "
-                f"job:'{job_name}'"
             )
+        write_metadata_file(pathlib.Path(self.filename), checkpoint_workunits)
+        self.committed = True
+        logger.debug(
+            f"Committed all ingestion checkpoints for pipeline:'{checkpoint.pipelineName}'"
+        )
