@@ -14,6 +14,8 @@ import io.ebean.ExpressionList;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
@@ -29,6 +31,8 @@ public class SendMAEStep implements UpgradeStep {
 
   private static final int DEFAULT_BATCH_SIZE = 1000;
   private static final long DEFAULT_BATCH_DELAY_MS = 250;
+
+  private static final int DEFAULT_STARTING_OFFSET = 0;
   private static final int DEFAULT_THREADS = 1;
 
   private final Database _server;
@@ -89,29 +93,31 @@ public class SendMAEStep implements UpgradeStep {
 
   private RestoreIndicesArgs getArgs(UpgradeContext context) {
     RestoreIndicesArgs result = new RestoreIndicesArgs();
-      result.batchSize = getBatchSize();
+    result.batchSize = getBatchSize(context.parsedArgs());
       context.report().addLine(String.format("batchSize is %d", result.batchSize));
-      result.numThreads = getThreadCount();
-      context.report().addLine(String.format("numThreads is %d", result.numThreads));
-      String aspectName = System.getenv(RestoreIndices.ASPECT_NAME_ARG_NAME);
-      if (aspectName != null) {
-          result.aspectName = aspectName;
+    result.numThreads = getThreadCount(context.parsedArgs());
+    context.report().addLine(String.format("numThreads is %d", result.numThreads));
+    result.batchDelayMs = getBatchDelayMs(context.parsedArgs());
+    result.start = getStartingOffset(context.parsedArgs());
+
+      if (containsKey(context.parsedArgs(), RestoreIndices.ASPECT_NAME_ARG_NAME)) {
+        result.aspectName = context.parsedArgs().get(RestoreIndices.ASPECT_NAME_ARG_NAME).get();
           context.report().addLine(String.format("aspect is %s", result.aspectName));
           context.report().addLine(String.format("Found aspectName arg as %s", result.aspectName));
       } else {
           context.report().addLine("No aspectName arg present");
       }
-      String urn = System.getenv(RestoreIndices.URN_ARG_NAME);
-      if (urn != null) {
-          result.urn = urn;
+
+      if (containsKey(context.parsedArgs(), RestoreIndices.URN_ARG_NAME)) {
+        result.urn = context.parsedArgs().get(RestoreIndices.URN_ARG_NAME).get();
           context.report().addLine(String.format("urn is %s", result.urn));
           context.report().addLine(String.format("Found urn arg as %s", result.urn));
       } else {
           context.report().addLine("No urn arg present");
       }
-      String urnLike = System.getenv(RestoreIndices.URN_LIKE_ARG_NAME);
-      if (urnLike != null) {
-          result.urnLike = urnLike;
+
+      if (containsKey(context.parsedArgs(), RestoreIndices.URN_LIKE_ARG_NAME)) {
+        result.urnLike = context.parsedArgs().get(RestoreIndices.URN_LIKE_ARG_NAME).get();
           context.report().addLine(String.format("urnLike is %s", result.urnLike));
           context.report().addLine(String.format("Found urn like arg as %s", result.urnLike));
       } else {
@@ -122,9 +128,9 @@ public class SendMAEStep implements UpgradeStep {
 
   private int getRowCount(RestoreIndicesArgs args) {
     ExpressionList<EbeanAspectV2> countExp =
-        _server.find(EbeanAspectV2.class)
-            .where()
-            .eq(EbeanAspectV2.VERSION_COLUMN, ASPECT_LATEST_VERSION);
+            _server.find(EbeanAspectV2.class)
+                    .where()
+                    .eq(EbeanAspectV2.VERSION_COLUMN, ASPECT_LATEST_VERSION);
     if (args.aspectName != null) {
       countExp = countExp.eq(EbeanAspectV2.ASPECT_COLUMN, args.aspectName);
     }
@@ -148,13 +154,11 @@ public class SendMAEStep implements UpgradeStep {
       long startTime = System.currentTimeMillis();
       final int rowCount = getRowCount(args);
       context.report().addLine(String.format("Found %s latest aspects in aspects table in %.2f minutes.",
-          rowCount, (float) (System.currentTimeMillis() - startTime) / 1000 / 60));
-      int start = 0;
+              rowCount, (float) (System.currentTimeMillis() - startTime) / 1000 / 60));
+      int start = args.start;
 
       List<Future<RestoreIndicesResult>> futures = new ArrayList<>();
       startTime = System.currentTimeMillis();
-
-      // Submit all jobs to fixed thread pool
       while (start < rowCount) {
         args = args.clone();
         args.start = start;
@@ -167,16 +171,16 @@ public class SendMAEStep implements UpgradeStep {
           reportStats(context, finalJobResult, tmpResult, rowCount, startTime);
         }
       }
+      executor.shutdown();
       if (finalJobResult.rowsMigrated != rowCount) {
         float percentFailed = 0.0f;
         if (rowCount > 0) {
           percentFailed = (float) (rowCount - finalJobResult.rowsMigrated) * 100 / rowCount;
         }
         context.report().addLine(String.format(
-            "Failed to send MAEs for %d rows (%.2f%% of total).",
-            rowCount - finalJobResult.rowsMigrated, percentFailed));
+                "Failed to send MAEs for %d rows (%.2f%% of total).",
+                rowCount - finalJobResult.rowsMigrated, percentFailed));
       }
-      executor.shutdown();
       return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.SUCCEEDED);
     };
   }
@@ -203,30 +207,41 @@ public class SendMAEStep implements UpgradeStep {
     }
     float totalTimeComplete = timeSoFarMinutes + estimatedTimeMinutesComplete;
     context.report().addLine(String.format(
-        "Successfully sent MAEs for %s/%s rows (%.2f%% of total). %s rows ignored (%.2f%% of total)",
-        finalResult.rowsMigrated, rowCount, percentSent, finalResult.ignored, percentIgnored));
+            "Successfully sent MAEs for %s/%s rows (%.2f%% of total). %s rows ignored (%.2f%% of total)",
+            finalResult.rowsMigrated, rowCount, percentSent, finalResult.ignored, percentIgnored));
     context.report().addLine(String.format("%.2f mins taken. %.2f est. mins to completion. Total mins est. = %.2f.",
-        timeSoFarMinutes, estimatedTimeMinutesComplete, totalTimeComplete));
+            timeSoFarMinutes, estimatedTimeMinutesComplete, totalTimeComplete));
   }
 
-  private int getBatchSize() {
-    return getInt(DEFAULT_BATCH_SIZE, RestoreIndices.BATCH_SIZE_ARG_NAME);
+  private int getBatchSize(final Map<String, Optional<String>> parsedArgs) {
+    return getInt(parsedArgs, DEFAULT_BATCH_SIZE, RestoreIndices.BATCH_SIZE_ARG_NAME);
   }
 
-  private int getThreadCount() {
-    return getInt(DEFAULT_THREADS, RestoreIndices.SQL_READER_POOL_SIZE);
+  private int getStartingOffset(final Map<String, Optional<String>> parsedArgs) {
+    return getInt(parsedArgs, DEFAULT_STARTING_OFFSET, RestoreIndices.STARTING_OFFSET_ARG_NAME);
   }
 
-  private int getInt(int defaultVal, String argKey) {
+  private long getBatchDelayMs(final Map<String, Optional<String>> parsedArgs) {
+    long resolvedBatchDelayMs = DEFAULT_BATCH_DELAY_MS;
+    if (containsKey(parsedArgs, RestoreIndices.BATCH_DELAY_MS_ARG_NAME)) {
+      resolvedBatchDelayMs = Long.parseLong(parsedArgs.get(RestoreIndices.BATCH_DELAY_MS_ARG_NAME).get());
+    }
+    return resolvedBatchDelayMs;
+  }
+
+  private int getThreadCount(final Map<String, Optional<String>> parsedArgs) {
+    return getInt(parsedArgs, DEFAULT_THREADS, RestoreIndices.NUM_THREADS_ARG_NAME);
+  }
+
+  private int getInt(final Map<String, Optional<String>> parsedArgs, int defaultVal, String argKey) {
     int result = defaultVal;
-    String envVal = System.getenv(argKey);
-    if (envVal != null) {
-      try {
-        result = Integer.parseInt(envVal);
-      } catch (NumberFormatException e) {
-        log.warn("Unable to parse {}, defaulting to {}", argKey, defaultVal);
-      }
+    if (containsKey(parsedArgs, argKey)) {
+      result = Integer.parseInt(parsedArgs.get(argKey).get());
     }
     return result;
+  }
+
+  public static boolean containsKey(final Map<String, Optional<String>> parsedArgs, String key) {
+    return parsedArgs.containsKey(key) && parsedArgs.get(key).isPresent();
   }
 }

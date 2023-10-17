@@ -130,6 +130,36 @@ public class CreateAssertionMonitorResolverTest {
               ))
       );
 
+  private static final CreateAssertionMonitorInput TEST_SQL_INPUT = new CreateAssertionMonitorInput(
+      TEST_ENTITY_URN.toString(),
+      TEST_ASSERTION_URN.toString(),
+      new CronScheduleInput("1 * * * *", "America/Los_Angeles"),
+      new AssertionEvaluationParametersInput(
+          AssertionEvaluationParametersType.DATASET_SQL,
+          null,
+          null
+      ),
+      TEST_EXECUTOR_ID
+  );
+
+  private static final MonitorInfo TEST_MONITOR_INFO_SQL = new MonitorInfo()
+      .setType(MonitorType.ASSERTION)
+      .setStatus(new MonitorStatus().setMode(MonitorMode.ACTIVE))
+      .setExecutorId(TEST_EXECUTOR_ID)
+      .setAssertionMonitor(
+          new AssertionMonitor()
+              .setAssertions(new AssertionEvaluationSpecArray(
+                  ImmutableList.of(
+                      new AssertionEvaluationSpec()
+                          .setAssertion(TEST_ASSERTION_URN)
+                          .setSchedule(new CronSchedule().setCron("1 * * * *").setTimezone("America/Los_Angeles"))
+                          .setParameters(new AssertionEvaluationParameters()
+                              .setType(com.linkedin.monitor.AssertionEvaluationParametersType.DATASET_SQL)
+                          )
+                  )
+              ))
+      );
+
   @Test
   public void testGetSuccessFreshnessAssertion() throws Exception {
     // Create resolver
@@ -181,6 +211,36 @@ public class CreateAssertionMonitorResolverTest {
 
     // Validate that we created the assertion
     AssertionEvaluationSpec evaluationSpec = TEST_MONITOR_INFO_VOLUME.getAssertionMonitor().getAssertions().get(0);
+    Mockito.verify(mockService, Mockito.times(1)).createAssertionMonitor(
+        Mockito.eq(TEST_ENTITY_URN),
+        Mockito.eq(evaluationSpec.getAssertion()),
+        Mockito.eq(evaluationSpec.getSchedule()),
+        Mockito.eq(evaluationSpec.getParameters()),
+        Mockito.eq(TEST_EXECUTOR_ID),
+        Mockito.any(Authentication.class));
+  }
+
+  @Test
+  public void testGetSuccessSqlAssertion() throws Exception {
+    // Create resolver
+    MonitorService mockService = initMockService(TEST_MONITOR_INFO_SQL);
+    CreateAssertionMonitorResolver resolver = new CreateAssertionMonitorResolver(mockService);
+
+    // Execute resolver
+    QueryContext mockContext = getMockAllowContext();
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(TEST_SQL_INPUT);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    Monitor monitor = resolver.get(mockEnv).get();
+
+    // Don't validate each field since we have mapper tests already.
+    assertNotNull(monitor);
+    assertEquals(monitor.getUrn(), TEST_MONITOR_URN.toString());
+    assertEquals(monitor.getEntity().getUrn(), TEST_ENTITY_URN.toString());
+
+    // Validate that we created the assertion
+    AssertionEvaluationSpec evaluationSpec = TEST_MONITOR_INFO_SQL.getAssertionMonitor().getAssertions().get(0);
     Mockito.verify(mockService, Mockito.times(1)).createAssertionMonitor(
         Mockito.eq(TEST_ENTITY_URN),
         Mockito.eq(evaluationSpec.getAssertion()),

@@ -145,28 +145,31 @@ For example, the following resource filter will apply the policy to datasets, ch
 
 ```json
 {
-  "resource": {
-    "criteria": [
-      {
-        "field": "resource_type",
-        "values": [
-          "dataset",
-          "chart",
-          "dashboard"
-        ],
-        "condition": "EQUALS"
-      },
-      {
-        "field": "domain",
-        "values": [
-          "urn:li:domain:domain1"
-        ],
-        "condition": "EQUALS"
+    "resources": {
+      "filter": {
+        "criteria": [
+          {
+            "field": "RESOURCE_TYPE",
+            "condition": "EQUALS",
+            "values": [
+              "dataset",
+              "chart",
+              "dashboard"
+            ]
+          },
+          {
+            "field": "DOMAIN",
+            "values": [
+              "urn:li:domain:domain1"
+            ],
+            "condition": "EQUALS"
+          }
+        ]
       }
-    ]
-  }
+    }
 }
 ```
+Where `resources` is inside the `info` aspect of a Policy.
 
 Supported fields are as follows
 

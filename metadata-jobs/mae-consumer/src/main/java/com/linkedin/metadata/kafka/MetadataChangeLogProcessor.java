@@ -18,6 +18,8 @@ import com.linkedin.metadata.kafka.hook.test.MetadataTestHook;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.Topics;
+
+import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 import lombok.Getter;
@@ -55,7 +57,10 @@ public class MetadataChangeLogProcessor {
 
   @Autowired
   public MetadataChangeLogProcessor(List<MetadataChangeLogHook> metadataChangeLogHooks) {
-    this.hooks = metadataChangeLogHooks.stream().filter(MetadataChangeLogHook::isEnabled).collect(Collectors.toList());
+    this.hooks = metadataChangeLogHooks.stream()
+            .filter(MetadataChangeLogHook::isEnabled)
+            .sorted(Comparator.comparing(MetadataChangeLogHook::executionOrder))
+            .collect(Collectors.toList());
     this.hooks.forEach(MetadataChangeLogHook::init);
   }
 

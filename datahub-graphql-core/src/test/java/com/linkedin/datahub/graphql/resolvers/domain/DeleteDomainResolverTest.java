@@ -4,6 +4,7 @@ import com.datahub.authentication.Authentication;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.search.SearchResult;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.concurrent.CompletionException;
 import org.mockito.Mockito;
@@ -28,12 +29,38 @@ public class DeleteDomainResolverTest {
     Mockito.when(mockEnv.getArgument(Mockito.eq("urn"))).thenReturn(TEST_URN);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
+    // Domain has 0 child domains
+    Mockito.when(mockClient.filter(Mockito.eq("domain"), Mockito.any(), Mockito.any(), Mockito.eq(0), Mockito.eq(1), Mockito.any()))
+        .thenReturn(new SearchResult().setNumEntities(0));
+
     assertTrue(resolver.get(mockEnv).get());
 
     Mockito.verify(mockClient, Mockito.times(1)).deleteEntity(
         Mockito.eq(Urn.createFromString(TEST_URN)),
         Mockito.any(Authentication.class)
     );
+  }
+
+  @Test
+  public void testDeleteWithChildDomains() throws Exception {
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    DeleteDomainResolver resolver = new DeleteDomainResolver(mockClient);
+
+    // Execute resolver
+    QueryContext mockContext = getMockAllowContext();
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("urn"))).thenReturn(TEST_URN);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    // Domain has child domains
+    Mockito.when(mockClient.filter(Mockito.eq("domain"), Mockito.any(), Mockito.any(), Mockito.eq(0), Mockito.eq(1), Mockito.any()))
+        .thenReturn(new SearchResult().setNumEntities(1));
+
+    assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
+
+    Mockito.verify(mockClient, Mockito.times(0)).deleteEntity(
+        Mockito.any(),
+        Mockito.any(Authentication.class));
   }
 
   @Test

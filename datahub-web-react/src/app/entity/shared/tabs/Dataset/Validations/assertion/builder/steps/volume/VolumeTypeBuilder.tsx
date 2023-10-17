@@ -61,10 +61,8 @@ export const VolumeTypeBuilder = ({ onChange, segment }: Props) => {
 
     return (
         <Container>
-            <Typography.Title level={5}>Condition Type</Typography.Title>
-            <Typography.Paragraph type="secondary">
-                Select the scenario in which this assertion should fail
-            </Typography.Paragraph>
+            <Typography.Title level={5}>Row Count Condition</Typography.Title>
+            <Typography.Paragraph type="secondary">Select when this assertion should fail</Typography.Paragraph>
             <Form.Item name="volume-type" rules={[{ required: true, message: 'Please select an option' }]}>
                 <StyledSelect
                     placeholder="Select condition type"

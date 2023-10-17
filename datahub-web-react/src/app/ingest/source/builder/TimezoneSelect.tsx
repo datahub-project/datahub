@@ -5,6 +5,7 @@ import moment from 'moment-timezone';
 type Props = {
     value: string;
     onChange: (newTimezone: string) => void;
+    disabled?: boolean;
 };
 
 export const TimezoneSelect = ({ value, onChange, ...props }: Props) => {

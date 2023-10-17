@@ -9,7 +9,7 @@ WORKDIR /go/src/github.com/jwilder/dockerize
 RUN go install github.com/jwilder/dockerize@$DOCKERIZE_VERSION
 
 
-FROM python:3.10 as base
+FROM acryldata/datahub-ingestion-base:head as base
 COPY --from=binary /go/bin/dockerize /usr/local/bin
 
 FROM eclipse-temurin:11 as prod-build
@@ -65,8 +65,8 @@ ENV EXTRA_UVICORN_ARGS="--reload --reload-dir /datahub-src/datahub-integrations-
 
 FROM ${APP_ENV}-install as final
 
-RUN addgroup --system datahub && adduser --system datahub --ingroup datahub
 USER datahub
 WORKDIR /datahub-src/datahub-integrations-service
 HEALTHCHECK --start-period=2m --retries=4 CMD curl --fail http://localhost:9003/ping || exit 1
+ENTRYPOINT []
 CMD dockerize -wait ${DATAHUB_GMS_PROTOCOL:-http}://$DATAHUB_GMS_HOST:$DATAHUB_GMS_PORT/health -timeout 240s /start_datahub_integrations_service.sh

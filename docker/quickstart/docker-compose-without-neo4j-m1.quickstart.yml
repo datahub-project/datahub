@@ -161,8 +161,9 @@ services:
           memory: 1G
     environment:
     - discovery.type=single-node
-    - xpack.security.enabled=false
+    - ${XPACK_SECURITY_ENABLED:-xpack.security.enabled=false}
     - ES_JAVA_OPTS=-Xms256m -Xmx512m -Dlog4j2.formatMsgNoLookups=true
+    - OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m -Dlog4j2.formatMsgNoLookups=true
     healthcheck:
       interval: 1s
       retries: 3
@@ -170,7 +171,7 @@ services:
       test: curl -sS --fail http://elasticsearch:$${DATAHUB_MAPPED_ELASTIC_PORT:-9200}/_cluster/health?wait_for_status=yellow&timeout=0s
       timeout: 5s
     hostname: elasticsearch
-    image: elasticsearch:7.10.1
+    image: ${DATAHUB_SEARCH_IMAGE:-elasticsearch}:${DATAHUB_SEARCH_TAG:-7.10.1}
     ports:
     - ${DATAHUB_MAPPED_ELASTIC_PORT:-9200}:9200
     volumes:
@@ -181,6 +182,8 @@ services:
       elasticsearch:
         condition: service_healthy
     environment:
+    - ELASTICSEARCH_USE_SSL=${ELASTICSEARCH_USE_SSL:-false}
+    - USE_AWS_ELASTICSEARCH=${USE_AWS_ELASTICSEARCH:-false}
     - ELASTICSEARCH_HOST=elasticsearch
     - ELASTICSEARCH_PORT=9200
     - ELASTICSEARCH_PROTOCOL=http

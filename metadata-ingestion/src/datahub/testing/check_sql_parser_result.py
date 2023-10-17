@@ -70,11 +70,14 @@ def assert_sql_result(
     sql: str,
     *,
     dialect: str,
+    platform_instance: Optional[str] = None,
     expected_file: pathlib.Path,
     schemas: Optional[Dict[str, SchemaInfo]] = None,
     **kwargs: Any,
 ) -> None:
-    schema_resolver = SchemaResolver(platform=dialect)
+    schema_resolver = SchemaResolver(
+        platform=dialect, platform_instance=platform_instance
+    )
     if schemas:
         for urn, schema in schemas.items():
             schema_resolver.add_raw_schema_info(urn, schema)

@@ -1,5 +1,4 @@
 from abc import ABC, abstractmethod
-from typing import Optional
 
 from datahub_monitors.types import (
     Assertion,
@@ -16,7 +15,7 @@ class AssertionResultHandler(ABC):
     def handle(
         self,
         assertion: Assertion,
-        parameters: Optional[AssertionEvaluationParameters],
+        parameters: AssertionEvaluationParameters,
         result: AssertionEvaluationResult,
         context: AssertionEvaluationContext,
     ) -> None:

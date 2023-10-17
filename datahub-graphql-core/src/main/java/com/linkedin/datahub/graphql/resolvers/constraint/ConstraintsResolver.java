@@ -1,6 +1,6 @@
 package com.linkedin.datahub.graphql.resolvers.constraint;
 
-import com.datahub.authorization.ResourceSpec;
+import com.datahub.authorization.EntitySpec;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.constraint.ConstraintInfo;
@@ -60,7 +60,7 @@ public class ConstraintsResolver implements DataFetcher<CompletableFuture<List<C
 
         return CompletableFuture.supplyAsync(() -> {
             try {
-                ResourceSpec spec = new ResourceSpec(Urn.createFromString(urn).getEntityType(), urn);
+                EntitySpec spec = new EntitySpec(Urn.createFromString(urn).getEntityType(), urn);
 
                 final ListResult constraintList = ConstraintCache.getCachedConstraints(_entityClient, context);
 

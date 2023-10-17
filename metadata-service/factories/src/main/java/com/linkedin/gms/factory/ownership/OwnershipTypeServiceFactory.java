@@ -1,7 +1,7 @@
 package com.linkedin.gms.factory.ownership;
 
 import com.datahub.authentication.Authentication;
-import com.linkedin.gms.factory.spring.YamlPropertySourceFactory;
+import com.linkedin.metadata.spring.YamlPropertySourceFactory;
 import com.linkedin.metadata.client.JavaEntityClient;
 import com.linkedin.metadata.service.OwnershipTypeService;
 import javax.annotation.Nonnull;

@@ -18,9 +18,9 @@ public class AuthorizerContext {
   private final Map<String, Object> contextMap;
 
   /**
-   * A utility for resolving a {@link ResourceSpec} to resolved resource field values.
+   * A utility for resolving an {@link EntitySpec} to resolved entity field values.
    */
-  private ResourceSpecResolver resourceSpecResolver;
+  private EntitySpecResolver entitySpecResolver;
 
   /**
    *

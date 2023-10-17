@@ -14,6 +14,7 @@ import com.linkedin.datahub.graphql.analytics.service.AnalyticsService;
 import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.config.ChromeExtensionConfiguration;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.config.DataHubConfiguration;
 import com.linkedin.metadata.config.IngestionConfiguration;
 import com.linkedin.metadata.config.TestsConfiguration;
@@ -47,6 +48,7 @@ import lombok.Data;
 @Data
 public class GmsGraphQLEngineArgs {
     EntityClient entityClient;
+    SystemEntityClient systemEntityClient;
     GraphClient graphClient;
     UsageClient usageClient;
     AnalyticsService analyticsService;

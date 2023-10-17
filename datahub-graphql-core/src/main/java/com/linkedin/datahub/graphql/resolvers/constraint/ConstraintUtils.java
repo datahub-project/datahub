@@ -2,7 +2,7 @@ package com.linkedin.datahub.graphql.resolvers.constraint;
 
 import com.datahub.authorization.ConjunctivePrivilegeGroup;
 import com.datahub.authorization.DisjunctivePrivilegeGroup;
-import com.datahub.authorization.ResourceSpec;
+import com.datahub.authorization.EntitySpec;
 
 import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
@@ -42,13 +42,11 @@ import static com.linkedin.metadata.Constants.*;
 @Slf4j
 public class ConstraintUtils {
   public static final String GLOSSARY_TERMS_ASPECT = "glossaryTerms";
-  public static final String GLOSSARY_TERM_INFO_ASPECT = "glossaryTermInfo";
-  public static final String GLOSSARY_NODE_INFO_ASPECT = "glossaryNodeInfo";
 
   private ConstraintUtils() { }
 
   @SneakyThrows
-  private static Pair<Boolean, String> isEntityConstraintSatisfied(@Nonnull String urn, @Nonnull ResourceSpec spec,
+  private static Pair<Boolean, String> isEntityConstraintSatisfied(@Nonnull String urn, @Nonnull EntitySpec spec,
       @Nonnull ConstraintInfo constraintInfo, @Nonnull final EntityService entityService,
       @Nonnull final EntityClient entityClient, @Nonnull final Authentication authentication) {
     Objects.requireNonNull(urn, "Urn provided to check constraint is null");
@@ -72,7 +70,7 @@ public class ConstraintUtils {
    */
   public static boolean isResourceMatch(
       final @Nullable DataHubResourceFilter resourceFilter,
-      final @Nonnull  ResourceSpec resourceSpec
+      final @Nonnull  EntitySpec resourceSpec
   ) {
     if (resourceFilter == null) {
       // No resource filter defined on the constraint. That means the constraint applies to all resources
@@ -84,7 +82,7 @@ public class ConstraintUtils {
 
     final boolean resourceIdentityMatch =
         resourceFilter.isAllResources() || (resourceFilter.hasResources() && Objects.requireNonNull(
-            resourceFilter.getResources()).stream().anyMatch(resource -> resource.equals(resourceSpec.getResource())));
+            resourceFilter.getResources()).stream().anyMatch(resource -> resource.equals(resourceSpec.getEntity())));
 
     // If the resource's type and identity match, then the resource matches the constraint.
     return resourceTypesMatch && resourceIdentityMatch;
@@ -249,7 +247,7 @@ public class ConstraintUtils {
       return isGlossaryNodeInNodesAncestry(candidateParentNode, requiredParentNode, entityClient, authentication);
   }
 
-  public static Constraint mapConstraintInfoToConstraint(@Nonnull String urn, @Nonnull ResourceSpec spec,
+  public static Constraint mapConstraintInfoToConstraint(@Nonnull String urn, @Nonnull EntitySpec spec,
       @Nonnull ConstraintInfo constraintInfo, @Nonnull final EntityService entityService,
       @Nonnull final EntityClient entityClient, @Nonnull final Authentication authentication) {
     Constraint constraint = new Constraint();

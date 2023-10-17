@@ -82,7 +82,7 @@ public class AuthorizerChain implements Authorizer {
   }
 
   @Override
-  public AuthorizedActors authorizedActors(String privilege, Optional<ResourceSpec> resourceSpec) {
+  public AuthorizedActors authorizedActors(String privilege, Optional<EntitySpec> resourceSpec) {
     if (this.authorizers.isEmpty()) {
       return null;
     }

@@ -15,7 +15,7 @@ import com.linkedin.schema.SchemaFieldDataType;
 import com.linkedin.schema.StringType;
 import com.linkedin.util.Pair;
 import datahub.protobuf.ProtobufDataset;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.net.URISyntaxException;

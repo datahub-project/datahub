@@ -61,7 +61,7 @@ jobs:
           java-version: 11
       - uses: actions/setup-python@v4
         with:
-          python-version: "3.7"
+          python-version: "3.10"
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v1
         with:
@@ -70,6 +70,8 @@ jobs:
       - name: Get CodeArtifact Auth Token
         run: |
           echo "CODEARTIFACT_AUTH_TOKEN=$(aws codeartifact get-authorization-token --domain acryl --domain-owner 795586375822 --query authorizationToken --output text)" >> $GITHUB_ENV
+      - name: checkout upstream repo
+        run: |
           git remote add upstream https://github.com/datahub-project/datahub.git
           git fetch upstream --tags --force
       - name: publish datahub-client jar snapshot

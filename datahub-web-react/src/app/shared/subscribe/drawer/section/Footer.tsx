@@ -40,10 +40,10 @@ export default function Footer({ isSubscribed, canManageSubscription, onCancelOr
 
     return (
         <FooterContainer>
-            <FooterButton danger={isSubscribed} onClick={onCancelOrUnsubscribe}>
+            <FooterButton danger={isSubscribed} onClick={onCancelOrUnsubscribe} data-testid="cancel-button">
                 {isSubscribed ? 'Unsubscribe' : 'Cancel'}
             </FooterButton>
-            <FooterButton type="primary" onClick={onUpdate} disabled={!canSubmit}>
+            <FooterButton type="primary" onClick={onUpdate} disabled={!canSubmit} data-testid="subscribe-button">
                 {isSubscribed ? 'Update' : subscribeText}
             </FooterButton>
         </FooterContainer>

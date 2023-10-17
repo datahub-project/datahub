@@ -30,3 +30,9 @@ We use [pip-tools](https://github.com/jazzband/pip-tools) (`pip-compile` and `pi
 pip-sync requirements.txt requirements-dev.txt
 pip install -e .
 ```
+
+## Updating lockfiles after a merge
+
+```sh
+./scripts/lockfile.sh
+```

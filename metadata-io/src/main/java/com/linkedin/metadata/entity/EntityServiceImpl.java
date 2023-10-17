@@ -8,6 +8,7 @@ import com.linkedin.data.template.SetMode;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.data.template.UnionTemplate;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.config.PreProcessHooks;
 import com.datahub.util.RecordUtils;
 import com.datahub.util.exception.ModelConversionException;
@@ -94,6 +95,7 @@ import javax.persistence.EntityNotFoundException;
 
 import io.ebean.Transaction;
 import io.opentelemetry.extension.annotations.WithSpan;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
 import static com.linkedin.metadata.Constants.*;
@@ -145,10 +147,10 @@ public class EntityServiceImpl implements EntityService {
   private final Map<String, Set<String>> _entityToValidAspects;
   private RetentionService _retentionService;
   private final Boolean _alwaysEmitChangeLog;
+  @Getter
   private final UpdateIndicesService _updateIndicesService;
   private final PreProcessHooks _preProcessHooks;
   protected static final int MAX_KEYS_PER_QUERY = 500;
-
 
   private final Integer ebeanMaxTransactionRetry;
 
@@ -179,6 +181,11 @@ public class EntityServiceImpl implements EntityService {
     _updateIndicesService = updateIndicesService;
     _preProcessHooks = preProcessHooks;
     ebeanMaxTransactionRetry = retry != null ? retry : DEFAULT_MAX_TRANSACTION_RETRY;
+  }
+
+  @Override
+  public void setSystemEntityClient(SystemEntityClient systemEntityClient) {
+    this._updateIndicesService.setSystemEntityClient(systemEntityClient);
   }
 
   /**

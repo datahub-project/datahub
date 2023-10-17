@@ -8,7 +8,13 @@
         {
             "downstream": {
                 "table": null,
-                "column": "total_price_category"
+                "column": "total_price_category",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                },
+                "native_column_type": "VARCHAR"
             },
             "upstreams": [
                 {
@@ -20,7 +26,13 @@
         {
             "downstream": {
                 "table": null,
-                "column": "total_price_success"
+                "column": "total_price_success",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                },
+                "native_column_type": "FLOAT"
             },
             "upstreams": [
                 {

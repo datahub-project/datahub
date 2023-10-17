@@ -3,7 +3,7 @@ package com.linkedin.gms.factory.integration;
 import com.datahub.authentication.Authentication;
 import com.linkedin.gms.factory.auth.SystemAuthenticationFactory;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
-import com.linkedin.gms.factory.spring.YamlPropertySourceFactory;
+import com.linkedin.metadata.spring.YamlPropertySourceFactory;
 import com.linkedin.metadata.config.IntegrationsServiceConfiguration;
 import com.linkedin.metadata.integration.IntegrationsService;
 import javax.annotation.Nonnull;

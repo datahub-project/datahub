@@ -9,8 +9,8 @@ and uses DataHub S3 Data Lake integration source under the hood. Refer section [
 This ingestion source maps the following Source System Concepts to DataHub Concepts:
 
 | Source Concept                             | DataHub Concept                                                                            | Notes                |
-| ------------------------------------------ | ------------------------------------------------------------------------------------------ | -------------------- |
-| `"Google Cloud Storage"`                   | [Data Platform](https://datahubproject.io/docs/generated/metamodel/entities/dataPlatform/) |                      |
+| ------------------------------------------ |--------------------------------------------------------------------------------------------| -------------------- |
+| `"Google Cloud Storage"`                   | [Data Platform](https://datahubproject.io/docs/generated/metamodel/entities/dataplatform/) |                      |
 | GCS object / Folder containing GCS objects | [Dataset](https://datahubproject.io/docs/generated/metamodel/entities/dataset/)            |                      |
 | GCS bucket                                 | [Container](https://datahubproject.io/docs/generated/metamodel/entities/container/)        | Subtype `GCS bucket` |
 | GCS folder                                 | [Container](https://datahubproject.io/docs/generated/metamodel/entities/container/)        | Subtype `Folder`     |

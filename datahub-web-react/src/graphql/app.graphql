@@ -71,6 +71,7 @@ query appConfig {
             datasetHealthDashboardEnabled
             showAcrylInfo
             showAccessManagement
+            nestedDomainsEnabled
         }
         chromeExtensionConfig {
             enabled

@@ -2,7 +2,7 @@ package com.datahub.authentication.proposal;
 
 import com.datahub.authentication.Authentication;
 import com.datahub.authorization.AuthorizedActors;
-import com.datahub.authorization.ResourceSpec;
+import com.datahub.authorization.EntitySpec;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.linkedin.actionrequest.ActionRequestInfo;
 import com.linkedin.actionrequest.ActionRequestParams;
@@ -131,7 +131,7 @@ public class ProposalService {
 
     List<Urn> assignedUsers;
     List<Urn> assignedGroups;
-    ResourceSpec spec = new ResourceSpec(resourceUrn.getEntityType(), resourceUrn.toString());
+    EntitySpec spec = new EntitySpec(resourceUrn.getEntityType(), resourceUrn.toString());
 
     if (resourceUrn.getEntityType().equals(GLOSSARY_TERM_ENTITY_NAME) || resourceUrn.getEntityType().equals(GLOSSARY_NODE_ENTITY_NAME)) {
       Pair<List<Urn>, List<Urn>> assignedUsersAndGroups =

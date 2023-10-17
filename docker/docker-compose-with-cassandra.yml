@@ -96,6 +96,9 @@ services:
       context: ../
       dockerfile: docker/elasticsearch-setup/Dockerfile
     env_file: elasticsearch-setup/env/docker.env
+    environment:
+      - ELASTICSEARCH_USE_SSL=${ELASTICSEARCH_USE_SSL:-false}
+      - USE_AWS_ELASTICSEARCH=${USE_AWS_ELASTICSEARCH:-false}
     depends_on:
       elasticsearch:
         condition: service_healthy
@@ -117,13 +120,13 @@ services:
   elasticsearch:
     container_name: elasticsearch
     hostname: elasticsearch
-    image: elasticsearch:7.10.1
+    image: ${DATAHUB_SEARCH_IMAGE:-elasticsearch}:${DATAHUB_SEARCH_TAG:-7.10.1}
     ports:
       - 9200:9200
     env_file: elasticsearch/env/docker.env
     environment:
       - discovery.type=single-node
-      - xpack.security.enabled=false
+      - ${XPACK_SECURITY_ENABLED:-xpack.security.enabled=false}
     healthcheck:
       test: curl -sS --fail http://elasticsearch:9200/_cluster/health?wait_for_status=yellow&timeout=0s
       start_period: 5s

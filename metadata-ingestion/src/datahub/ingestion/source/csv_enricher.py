@@ -129,11 +129,9 @@ class CSVEnricherSource(Source):
         # Map from entity urn to a list of SubResourceRow.
         self.editable_schema_metadata_map: Dict[str, List[SubResourceRow]] = {}
         self.should_overwrite: bool = self.config.write_semantics == "OVERRIDE"
-        if not self.should_overwrite and not self.ctx.graph:
-            raise ConfigurationError(
-                "With PATCH semantics, the csv-enricher source requires a datahub_api to connect to. "
-                "Consider using the datahub-rest sink or provide a datahub_api: configuration on your ingestion recipe."
-            )
+
+        if not self.should_overwrite:
+            self.ctx.require_graph(operation="The csv-enricher's PATCH semantics flag")
 
     def get_resource_glossary_terms_work_unit(
         self,

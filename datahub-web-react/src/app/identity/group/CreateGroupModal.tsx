@@ -75,7 +75,12 @@ export default function CreateGroupModal({ onClose, onCreate }: Props) {
                     <Button onClick={onClose} type="text">
                         Cancel
                     </Button>
-                    <Button id="createGroupButton" onClick={onCreateGroup} disabled={createButtonEnabled}>
+                    <Button
+                        id="createGroupButton"
+                        data-testid="modal-create-group-button"
+                        onClick={onCreateGroup}
+                        disabled={createButtonEnabled}
+                    >
                         Create
                     </Button>
                 </>
@@ -104,6 +109,7 @@ export default function CreateGroupModal({ onClose, onCreate }: Props) {
                         hasFeedback
                     >
                         <Input
+                            data-testid="modal-group-name-input"
                             placeholder="A name for your group"
                             value={stagedName}
                             onChange={(event) => setStagedName(event.target.value)}
@@ -114,6 +120,7 @@ export default function CreateGroupModal({ onClose, onCreate }: Props) {
                     <Typography.Paragraph>An optional description for your new group.</Typography.Paragraph>
                     <Form.Item name="description" rules={[{ whitespace: true }, { min: 1, max: 500 }]} hasFeedback>
                         <Input
+                            data-testid="modal-group-description-input"
                             placeholder="A description for your group"
                             value={stagedDescription}
                             onChange={(event) => setStagedDescription(event.target.value)}
@@ -130,6 +137,7 @@ export default function CreateGroupModal({ onClose, onCreate }: Props) {
                                 creation.
                             </Typography.Paragraph>
                             <Form.Item
+                                data-testid="group-id-input"
                                 name="groupId"
                                 rules={[
                                     () => ({

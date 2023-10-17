@@ -15,7 +15,6 @@ import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import graphql.schema.DataFetchingEnvironment;
-import junit.framework.TestCase;
 import org.testng.annotations.Test;
 import org.mockito.Mockito;
 
@@ -24,9 +23,10 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
+import static org.testng.AssertJUnit.assertEquals;
 
 
-public class ResolverUtilsTest extends TestCase {
+public class ResolverUtilsTest {
 
   @Test
   public void testCriterionFromFilter() throws Exception {

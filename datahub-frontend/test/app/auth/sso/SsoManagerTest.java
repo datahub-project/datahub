@@ -11,12 +11,12 @@ import org.apache.http.client.methods.HttpPost;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.json.JSONObject;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import static auth.AuthUtils.*;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
-import static org.testng.Assert.*;
 
 
 public class SsoManagerTest {
@@ -37,7 +37,7 @@ public class SsoManagerTest {
 
   private JSONObject _jsonResponse;
 
-  @BeforeMethod
+  @BeforeEach
   public void setup() throws Exception {
     _jsonResponse = new JSONObject();
     _jsonResponse.put(BASE_URL, BASE_URL_VALUE);
@@ -122,6 +122,9 @@ public class SsoManagerTest {
     assertTrue(_ssoManager.getSsoProvider() instanceof OidcProvider);
   }
 
+  /*
+    Appears to be testing missing base url
+   */
   @Test
   public void testParseConfigsMissingSsoValue() {
     com.typesafe.config.Config configs = mock(com.typesafe.config.Config.class);

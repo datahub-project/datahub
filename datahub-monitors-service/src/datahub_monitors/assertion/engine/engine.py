@@ -30,7 +30,7 @@ class AssertionEngine:
     def evaluate(
         self,
         assertion: Assertion,
-        parameters: Optional[AssertionEvaluationParameters],
+        parameters: AssertionEvaluationParameters,
         context: AssertionEvaluationContext,
     ) -> AssertionEvaluationResult:
         """

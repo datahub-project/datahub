@@ -19,4 +19,5 @@ public class FeatureFlags {
   private PreProcessHooks preProcessHooks;
   private boolean showAcrylInfo = false;
   private boolean showAccessManagement = false;
+  private boolean nestedDomainsEnabled = false;
 }

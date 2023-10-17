@@ -31,7 +31,7 @@ const ThinDivider = styled(Divider)`
     margin-bottom: 16px;
 `;
 
-const ResultWrapper = styled.div<{ showUpdatedStyles: boolean }>`
+export const ResultWrapper = styled.div<{ showUpdatedStyles: boolean }>`
     ${(props) =>
         props.showUpdatedStyles &&
         `    
@@ -39,7 +39,6 @@ const ResultWrapper = styled.div<{ showUpdatedStyles: boolean }>`
         border-radius: 5px;
         margin: 0 auto 8px auto;
         padding: 8px 16px;
-        max-width: 1200px;
         border-bottom: 1px solid ${ANTD_GRAY[5]};
     `}
 `;

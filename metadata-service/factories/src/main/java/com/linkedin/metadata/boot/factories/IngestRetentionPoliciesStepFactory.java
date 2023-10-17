@@ -1,7 +1,7 @@
 package com.linkedin.metadata.boot.factories;
 
 import com.linkedin.gms.factory.entity.RetentionServiceFactory;
-import com.linkedin.gms.factory.spring.YamlPropertySourceFactory;
+import com.linkedin.metadata.spring.YamlPropertySourceFactory;
 import com.linkedin.metadata.boot.steps.IngestRetentionPoliciesStep;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.RetentionService;

@@ -27,6 +27,9 @@ dependencies {
     implementation externalDependency.log4j2Api
     compileOnly externalDependency.lombok
     implementation externalDependency.logbackClassic
+    implementation externalDependency.logbackJackson
+    implementation externalDependency.logbackJsonClassic
+    implementation externalDependency.janino
     implementation externalDependency.sentry
     implementation externalDependency.sentryLogback
 

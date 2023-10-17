@@ -5,7 +5,7 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.gms.factory.auth.SystemAuthenticationFactory;
 import com.linkedin.gms.factory.entity.RestliEntityClientFactory;
 import com.linkedin.gms.factory.secret.SecretServiceFactory;
-import com.linkedin.gms.factory.spring.YamlPropertySourceFactory;
+import com.linkedin.metadata.spring.YamlPropertySourceFactory;
 import com.datahub.notification.provider.SecretProvider;
 import com.linkedin.metadata.secret.SecretService;
 import javax.annotation.Nonnull;

@@ -18,6 +18,7 @@ from datahub_monitors.types import (
     FreshnessAssertionScheduleType,
     FreshnessAssertionType,
     MonitorType,
+    SQLAssertionType,
     VolumeAssertionType,
 )
 
@@ -169,7 +170,12 @@ def test_fetch_freshness_assertion() -> None:
                                 "field": "executorId",
                                 "condition": "EXISTS",
                                 "negated": True,
-                            }
+                            },
+                            {
+                                "field": "mode",
+                                "values": ["ACTIVE"],
+                                "condition": "EQUAL",
+                            },
                         ]
                     }
                 ],
@@ -321,7 +327,157 @@ def test_fetch_volume_assertion() -> None:
                                 "field": "executorId",
                                 "condition": "EXISTS",
                                 "negated": True,
-                            }
+                            },
+                            {
+                                "field": "mode",
+                                "values": ["ACTIVE"],
+                                "condition": "EQUAL",
+                            },
+                        ]
+                    }
+                ],
+            }
+        },
+    )
+
+
+def test_fetch_sql_assertion() -> None:
+    # Create a mock DataHubGraph object
+    graph = Mock(spec=DataHubGraph)
+
+    # Configure the mock object to return a specific result when its execute_graphql method is called
+    graph.execute_graphql.return_value = {
+        "searchAcrossEntities": {
+            "searchResults": [
+                {
+                    "entity": {
+                        "urn": "urn:li:monitor:test",
+                        "type": "MONITOR",
+                        "info": {
+                            "type": "ASSERTION",
+                            "assertionMonitor": {
+                                "assertions": [
+                                    {
+                                        "assertion": {
+                                            "urn": "urn:li:assertion:test3",
+                                            "info": {
+                                                "type": "SQL",
+                                                "sqlAssertion": {
+                                                    "type": "METRIC",
+                                                    "statement": "SELECT AVG(total) FROM purchases;",
+                                                    "changeType": "ABSOLUTE",
+                                                    "operator": "GREATER_THAN",
+                                                    "parameters": {
+                                                        "value": {
+                                                            "value": "1000",
+                                                            "type": "NUMBER",
+                                                        }
+                                                    },
+                                                },
+                                                "source": {"type": "NATIVE"},
+                                            },
+                                            "relationships": {
+                                                "relationships": [
+                                                    {
+                                                        "entity": {
+                                                            "urn": "urn:li:dataset:test",
+                                                            "type": "DATASET",
+                                                            "properties": {
+                                                                "name": "test_table",
+                                                                "qualifiedName": "test_db.public.test_table",
+                                                            },
+                                                            "platform": {
+                                                                "urn": "urn:li:dataPlatform:snowflake"
+                                                            },
+                                                        }
+                                                    }
+                                                ]
+                                            },
+                                        },
+                                        "schedule": {
+                                            "cron": "0 * * * *",
+                                            "timezone": "America/Los_Angeles",
+                                        },
+                                        "parameters": {"type": "DATASET_SQL"},
+                                    }
+                                ]
+                            },
+                            "status": {"mode": "ACTIVE"},
+                        },
+                    }
+                }
+            ]
+        },
+        "error": None,
+    }
+
+    graph.execute_graphql.side_effect = (
+        lambda *args, **kwargs: graph.execute_graphql.return_value
+    )
+
+    # Create the MonitorFetcher with the mock graph
+    fetcher = MonitorFetcher(
+        graph=graph,
+        config=MonitorFetcherConfig(mode=MonitorFetcherMode.DEFAULT, executor_ids=None),
+    )
+
+    # Call the fetch_monitors method
+    monitors = fetcher.fetch_monitors()
+
+    # Verify that the fetch_assertions method returns the expected result
+    assert len(monitors) == 1
+    assert monitors[0].type == MonitorType.ASSERTION
+    assert (
+        monitors[0].assertion_monitor.assertions[0].assertion.type == AssertionType.SQL
+    )
+    assert (
+        monitors[0].assertion_monitor.assertions[0].assertion.sql_assertion.type
+        == SQLAssertionType.METRIC
+    )
+    assert (
+        monitors[0].assertion_monitor.assertions[0].assertion.sql_assertion.statement
+        == "SELECT AVG(total) FROM purchases;"
+    )
+    assert (
+        monitors[0].assertion_monitor.assertions[0].assertion.sql_assertion.operator
+        == AssertionStdOperator.GREATER_THAN
+    )
+    assert (
+        monitors[0]
+        .assertion_monitor.assertions[0]
+        .assertion.sql_assertion.parameters.value.value
+        == "1000"
+    )
+    assert (
+        monitors[0]
+        .assertion_monitor.assertions[0]
+        .assertion.sql_assertion.parameters.value.type
+        == AssertionStdParameterType.NUMBER
+    )
+
+    # Verify that the execute_graphql method was called
+    graph.execute_graphql.assert_called_with(
+        GRAPHQL_LIST_MONITORS_QUERY,
+        variables={
+            "input": {
+                "types": ["MONITOR"],
+                "start": 0,
+                "count": LIST_MONITORS_BATCH_SIZE,
+                "query": "*",
+                "searchFlags": {"skipCache": True},
+                "orFilters": [
+                    {
+                        "and": [
+                            {
+                                "field": "executorId",
+                                "condition": "EXISTS",
+                                "negated": True,
+                            },
+                            {
+                                "field": "mode",
+                                "values": ["ACTIVE"],
+                                "condition": "EQUAL",
+                            },
                         ]
                     }
                 ],

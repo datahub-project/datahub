@@ -17,6 +17,7 @@ fragment assertionDetails on Assertion {
     }
     info {
         type
+        description
         datasetAssertion {
             scope
             aggregation
@@ -62,6 +63,15 @@ fragment assertionDetails on Assertion {
             filter {
                 type
                 sql
+            }
+        }
+        sqlAssertion {
+            type
+            statement
+            changeType
+            operator
+            parameters {
+                ...assertionStdParametersDetails
             }
         }
         volumeAssertion {
@@ -144,6 +154,26 @@ fragment assertionStdParametersDetails on AssertionStdParameters {
     }
 }
 
+fragment assertionResultDetails on AssertionResult {
+    type
+    actualAggValue
+    rowCount
+    missingCount
+    unexpectedCount
+    externalUrl
+    nativeResults {
+        key
+        value
+    }
+    error {
+        type
+        properties {
+            key
+            value
+        }
+    }
+}
+
 fragment assertionRunEventDetails on AssertionRunEvent {
     timestampMillis
     assertionUrn
@@ -153,23 +183,7 @@ fragment assertionRunEventDetails on AssertionRunEvent {
         value
     }
     result {
-        type
-        actualAggValue
-        rowCount
-        missingCount
-        unexpectedCount
-        externalUrl
-        nativeResults {
-            key
-            value
-        }
-        error {
-            type
-            properties {
-                key
-                value
-            }
-        }
+        ...assertionResultDetails
     }
 }
 
@@ -205,6 +219,12 @@ mutation createVolumeAssertion($input: CreateVolumeAssertionInput!) {
     }
 }
 
+mutation createSqlAssertion($input: CreateSqlAssertionInput!) {
+    createSqlAssertion(input: $input) {
+        ...assertionDetails
+    }
+}
+
 mutation updateFreshnessAssertion($urn: String!, $input: UpdateFreshnessAssertionInput!) {
     updateFreshnessAssertion(urn: $urn, input: $input) {
         ...assertionDetails
@@ -214,5 +234,11 @@ mutation updateFreshnessAssertion($urn: String!, $input: UpdateFreshnessAssertio
 mutation updateAssertionActions($urn: String!, $input: AssertionActionsInput!) {
     updateAssertionActions(urn: $urn, input: $input) {
         ...assertionDetails
+    }
+}
+
+mutation testAssertion($input: TestAssertionInput!) {
+    testAssertion(input: $input) {
+        ...assertionResultDetails
     }
 }

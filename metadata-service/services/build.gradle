@@ -19,6 +19,8 @@ dependencies {
     implementation externalDependency.slf4jApi
     implementation externalDependency.swaggerAnnotations
     runtimeOnly externalDependency.logbackClassic
+    runtimeOnly externalDependency.logbackJackson
+    runtimeOnly externalDependency.logbackJsonClassic
     compileOnly externalDependency.lombok
     implementation externalDependency.commonsCollections
     implementation externalDependency.javatuples
@@ -63,8 +65,6 @@ dependencies {
 }
 
 test {
-    // https://docs.gradle.org/current/userguide/performance.html
-    maxParallelForks = Runtime.runtime.availableProcessors().intdiv(2) ?: 1
     testLogging.showStandardStreams = true
     testLogging.exceptionFormat = 'full'
 }
