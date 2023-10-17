@@ -1,6 +1,6 @@
 package com.linkedin.datahub.graphql.resolvers.load;
 
-import com.datahub.authorization.ResourceSpec;
+import com.datahub.authorization.EntitySpec;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.generated.Entity;
@@ -79,7 +79,7 @@ public class TimeSeriesAspectResolver implements DataFetcher<CompletableFuture<L
   private boolean isAuthorized(QueryContext context, String urn) {
     if (_entityName.equals(Constants.DATASET_ENTITY_NAME) && _aspectName.equals(
         Constants.DATASET_PROFILE_ASPECT_NAME)) {
-      return AuthorizationUtils.isAuthorized(context, Optional.of(new ResourceSpec(_entityName, urn)),
+      return AuthorizationUtils.isAuthorized(context, Optional.of(new EntitySpec(_entityName, urn)),
           PoliciesConfig.VIEW_DATASET_PROFILE_PRIVILEGE);
     }
     return true;

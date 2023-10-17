@@ -608,4 +608,67 @@ group by 1,2,3
     )
 
 
+def test_snowflake_column_cast():
+    assert_sql_result(
+        """
+SELECT
+    o.o_orderkey::NUMBER(20,0) as orderkey,
+    CAST(o.o_totalprice AS INT) as total_cast_int,
+    CAST(o.o_totalprice AS NUMBER(16,4)) as total_cast_float
+FROM snowflake_sample_data.tpch_sf1.orders o
+LIMIT 10
+""",
+        dialect="snowflake",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_sample_data.tpch_sf1.orders,PROD)": {
+                "orderkey": "NUMBER(38,0)",
+                "totalprice": "NUMBER(12,2)",
+            },
+        },
+        expected_file=RESOURCE_DIR / "test_snowflake_column_cast.json",
+    )
+
+
 # TODO: Add a test for setting platform_instance or env
+
+
+def test_teradata_default_normalization():
+    assert_sql_result(
+        """
+create table demo_user.test_lineage2 as
+ (
+    select
+        ppd.PatientId,
+        ppf.bmi
+    from
+        demo_user.pima_patient_features ppf
+    join demo_user.pima_patient_diagnoses ppd on
+        ppd.PatientId = ppf.PatientId
+ ) with data;
+""",
+        dialect="teradata",
+        default_schema="dbc",
+        platform_instance="myteradata",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:teradata,myteradata.demo_user.pima_patient_diagnoses,PROD)": {
+                "HasDiabetes": "INTEGER()",
+                "PatientId": "INTEGER()",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:teradata,myteradata.demo_user.pima_patient_features,PROD)": {
+                "Age": "INTEGER()",
+                "BMI": "FLOAT()",
+                "BloodP": "INTEGER()",
+                "DiPedFunc": "FLOAT()",
+                "NumTimesPrg": "INTEGER()",
+                "PatientId": "INTEGER()",
+                "PlGlcConc": "INTEGER()",
+                "SkinThick": "INTEGER()",
+                "TwoHourSerIns": "INTEGER()",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:teradata,myteradata.demo_user.test_lineage2,PROD)": {
+                "BMI": "FLOAT()",
+                "PatientId": "INTEGER()",
+            },
+        },
+        expected_file=RESOURCE_DIR / "test_teradata_default_normalization.json",
+    )

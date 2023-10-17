@@ -5,7 +5,7 @@ import com.datahub.authorization.AuthorizedActors;
 import com.datahub.authorization.ConjunctivePrivilegeGroup;
 import com.datahub.authorization.DisjunctivePrivilegeGroup;
 import com.datahub.plugins.auth.authorization.Authorizer;
-import com.datahub.authorization.ResourceSpec;
+import com.datahub.authorization.EntitySpec;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.actionrequest.ActionRequestInfo;
 import com.linkedin.actionrequest.ActionRequestParams;
@@ -225,7 +225,7 @@ public class ProposalUtils {
       SubResourceType subResourceType, EntityService entityService, Authorizer dataHubAuthorizer) {
     AuthorizedActors actors;
 
-    ResourceSpec spec = new ResourceSpec(targetUrn.getEntityType(), targetUrn.toString());
+    EntitySpec spec = new EntitySpec(targetUrn.getEntityType(), targetUrn.toString());
     if (subResource != null && subResource.length() > 0) {
       actors = dataHubAuthorizer.authorizedActors(PoliciesConfig.MANAGE_DATASET_COL_TAGS_PRIVILEGE.getType(),
           Optional.of(spec));
@@ -303,13 +303,13 @@ public class ProposalUtils {
     AuthorizedActors actors;
 
     if (subResource != null && subResource.length() > 0) {
-      ResourceSpec spec = new ResourceSpec(targetUrn.getEntityType(), targetUrn.toString());
+      EntitySpec spec = new EntitySpec(targetUrn.getEntityType(), targetUrn.toString());
       actors = dataHubAuthorizer.authorizedActors(PoliciesConfig.MANAGE_DATASET_COL_GLOSSARY_TERMS_PRIVILEGE.getType(),
           Optional.of(spec));
 
       addTermToSchemaProposalsAspect(creator, termUrn, targetUrn, subResource, entityService);
     } else {
-      ResourceSpec spec = new ResourceSpec(targetUrn.getEntityType(), targetUrn.toString());
+      EntitySpec spec = new EntitySpec(targetUrn.getEntityType(), targetUrn.toString());
       actors = dataHubAuthorizer.authorizedActors(
           PoliciesConfig.MANAGE_ENTITY_GLOSSARY_TERMS_PRIVILEGE.getType(),
           Optional.of(spec)

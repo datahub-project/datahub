@@ -9,14 +9,26 @@
         {
             "downstream": {
                 "table": null,
-                "column": "label"
+                "column": "label",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                },
+                "native_column_type": "VARCHAR"
             },
             "upstreams": []
         },
         {
             "downstream": {
                 "table": null,
-                "column": "total_agg"
+                "column": "total_agg",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                },
+                "native_column_type": "DOUBLE"
             },
             "upstreams": [
                 {
