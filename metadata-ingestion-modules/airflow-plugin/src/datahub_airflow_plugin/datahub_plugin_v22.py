@@ -23,6 +23,7 @@ from datahub_airflow_plugin.lineage.datahub import DatahubLineageConfig
 
 TASK_ON_FAILURE_CALLBACK = "on_failure_callback"
 TASK_ON_SUCCESS_CALLBACK = "on_success_callback"
+TASK_ON_RETRY_CALLBACK = "on_retry_callback"
 
 
 def get_task_inlets_advanced(task: BaseOperator, context: Any) -> Iterable[Any]:
@@ -259,6 +260,26 @@ def _wrap_on_success_callback(on_success_callback):
     return custom_on_success_callback
 
 
+def _wrap_on_retry_callback(on_retry_callback):
+    def custom_on_retry_callback(context):
+        config = get_lineage_config()
+        if config.enabled:
+            context["_datahub_config"] = config
+            try:
+                datahub_task_status_callback(context, status=InstanceRunResult.UP_FOR_RETRY)
+            except Exception as e:
+                if not config.graceful_exceptions:
+                    raise e
+                else:
+                    print(f"Exception: {traceback.format_exc()}")
+
+        # Call original policy
+        if on_retry_callback:
+            on_retry_callback(context)
+
+    return custom_on_retry_callback
+
+
 def task_policy(task: Union[BaseOperator, MappedOperator]) -> None:
     task.log.debug(f"Setting task policy for Dag: {task.dag_id} Task: {task.task_id}")
     # task.add_inlets(["auto"])
@@ -274,7 +295,10 @@ def task_policy(task: Union[BaseOperator, MappedOperator]) -> None:
         on_success_callback_prop: property = getattr(
             MappedOperator, TASK_ON_SUCCESS_CALLBACK
         )
-        if not on_failure_callback_prop.fset or not on_success_callback_prop.fset:
+        on_retry_callback_prop: property = getattr(
+            MappedOperator, TASK_ON_RETRY_CALLBACK
+        )
+        if not on_failure_callback_prop.fset or not on_success_callback_prop.fset or not on_retry_callback_prop.fset:
             task.log.debug(
                 "Using MappedOperator's partial_kwargs instead of callback properties"
             )
@@ -284,10 +308,14 @@ def task_policy(task: Union[BaseOperator, MappedOperator]) -> None:
             task.partial_kwargs[TASK_ON_SUCCESS_CALLBACK] = _wrap_on_success_callback(
                 task.on_success_callback
             )
+            task.partial_kwargs[TASK_ON_RETRY_CALLBACK] = _wrap_on_retry_callback(
+                task.on_retry_callback
+            )
             return
 
     task.on_failure_callback = _wrap_on_failure_callback(task.on_failure_callback)  # type: ignore
     task.on_success_callback = _wrap_on_success_callback(task.on_success_callback)  # type: ignore
+    task.on_retry_callback = _wrap_on_retry_callback(task.on_retry_callback)  # type: ignore
     # task.pre_execute = _wrap_pre_execution(task.pre_execute)
 
 
