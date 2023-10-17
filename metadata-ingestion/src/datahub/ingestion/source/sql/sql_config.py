@@ -5,6 +5,7 @@ from urllib.parse import quote_plus
 
 import pydantic
 from pydantic import Field
+from sqlalchemy.engine import URL
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.source_common import (
@@ -125,7 +126,11 @@ class SQLAlchemyConnectionConfig(ConfigModel):
     # Duplicate of SQLCommonConfig.options
     options: dict = pydantic.Field(
         default_factory=dict,
-        description="Any options specified here will be passed to [SQLAlchemy.create_engine](https://docs.sqlalchemy.org/en/14/core/engines.html#sqlalchemy.create_engine) as kwargs.",
+        description=(
+            "Any options specified here will be passed to "
+            "[SQLAlchemy.create_engine](https://docs.sqlalchemy.org/en/14/core/engines.html#sqlalchemy.create_engine) as kwargs."
+            " To set connection arguments in the URL, specify them under `connect_args`."
+        ),
     )
 
     _database_alias_deprecation = pydantic_field_deprecated(
@@ -161,21 +166,15 @@ def make_sqlalchemy_uri(
     db: Optional[str],
     uri_opts: Optional[Dict[str, Any]] = None,
 ) -> str:
-    url = f"{scheme}://"
-    if username is not None:
-        url += f"{quote_plus(username)}"
-        if password is not None:
-            url += f":{quote_plus(password)}"
-        url += "@"
-    if at is not None:
-        url += f"{at}"
-    if db is not None:
-        url += f"/{db}"
-    if uri_opts is not None:
-        if db is None:
-            url += "/"
-        params = "&".join(
-            f"{key}={quote_plus(value)}" for (key, value) in uri_opts.items() if value
+    host, port = at.rsplit(":", 1)
+    return str(
+        URL.create(
+            drivername=scheme,
+            username=username,
+            password=password,
+            host=host,
+            port=port,
+            database=db,
+            query=uri_opts,
         )
-        url = f"{url}?{params}"
-    return url
+    )
