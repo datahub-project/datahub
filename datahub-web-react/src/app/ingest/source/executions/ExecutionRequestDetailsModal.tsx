@@ -134,14 +134,14 @@ export const ExecutionDetailsModal = ({ urn, visible, onClose }: Props) => {
     const recipeJson = data?.executionRequest?.input.arguments?.find((arg) => arg.key === 'recipe')?.value;
     let recipeYaml: string;
     try {
-        recipeYaml = recipeJson && YAML.stringify(JSON.parse(recipeJson), 8, 2);
+        recipeYaml = recipeJson && YAML.stringify(JSON.parse(recipeJson), 8, 2).trim();
     } catch (e) {
         recipeYaml = '';
     }
-    const recipe = showExpandedRecipe ? recipeYaml : recipeYaml?.split('\n').slice(0, 10).join('\n');
+    const recipe = showExpandedRecipe ? recipeYaml : recipeYaml?.split('\n').slice(0, 1).join('\n');
 
     const areLogsExpandable = output.length > 100;
-    const isRecipeExpandable = recipeYaml?.length > 100;
+    const isRecipeExpandable = recipeYaml?.includes('\n');
 
     return (
         <Modal
