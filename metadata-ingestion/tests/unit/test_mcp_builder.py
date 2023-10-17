@@ -1,5 +1,4 @@
 import datahub.emitter.mcp_builder as builder
-from datahub.emitter.mce_builder import datahub_guid
 
 
 def test_guid_generator():
@@ -80,7 +79,7 @@ def test_guid_generators():
     key = builder.SchemaKey(
         database="test", schema="Test", platform="mysql", instance="TestInstance"
     )
-    guid_datahub = datahub_guid(key.dict(by_alias=True))
+    guid_datahub = key.guid()
 
     guid = key.guid()
     assert guid == guid_datahub

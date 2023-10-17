@@ -40,6 +40,7 @@ def assert_metadata_files_equal(
     update_golden: bool,
     copy_output: bool,
     ignore_paths: Sequence[str] = (),
+    ignore_order: bool = True,
 ) -> None:
     golden_exists = os.path.isfile(golden_path)
 
@@ -65,7 +66,7 @@ def assert_metadata_files_equal(
             write_metadata_file(pathlib.Path(temp.name), golden_metadata)
             golden = load_json_file(temp.name)
 
-    diff = diff_metadata_json(output, golden, ignore_paths)
+    diff = diff_metadata_json(output, golden, ignore_paths, ignore_order=ignore_order)
     if diff and update_golden:
         if isinstance(diff, MCPDiff):
             diff.apply_delta(golden)
@@ -91,16 +92,19 @@ def diff_metadata_json(
     output: MetadataJson,
     golden: MetadataJson,
     ignore_paths: Sequence[str] = (),
+    ignore_order: bool = True,
 ) -> Union[DeepDiff, MCPDiff]:
     ignore_paths = (*ignore_paths, *default_exclude_paths, r"root\[\d+].delta_info")
     try:
-        golden_map = get_aspects_by_urn(golden)
-        output_map = get_aspects_by_urn(output)
-        return MCPDiff.create(
-            golden=golden_map,
-            output=output_map,
-            ignore_paths=ignore_paths,
-        )
+        if ignore_order:
+            golden_map = get_aspects_by_urn(golden)
+            output_map = get_aspects_by_urn(output)
+            return MCPDiff.create(
+                golden=golden_map,
+                output=output_map,
+                ignore_paths=ignore_paths,
+            )
+        # if ignore_order is False, always use DeepDiff
     except CannotCompareMCPs as e:
         logger.info(f"{e}, falling back to MCE diff")
     except AssertionError as e:
@@ -111,5 +115,5 @@ def diff_metadata_json(
         golden,
         output,
         exclude_regex_paths=ignore_paths,
-        ignore_order=True,
+        ignore_order=ignore_order,
     )

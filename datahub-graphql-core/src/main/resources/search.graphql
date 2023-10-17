@@ -458,6 +458,26 @@ enum FilterOperator {
   Represents the relation: The field exists. If the field is an array, the field is either not present or empty.
   """
   EXISTS
+
+  """
+  Represent the relation greater than, e.g. ownerCount > 5
+  """
+  GREATER_THAN
+
+  """
+   Represent the relation greater than or equal to, e.g. ownerCount >= 5
+  """
+  GREATER_THAN_OR_EQUAL_TO
+
+  """
+  Represent the relation less than, e.g. ownerCount < 3
+  """
+  LESS_THAN
+
+  """
+  Represent the relation less than or equal to, e.g. ownerCount <= 3
+  """
+  LESS_THAN_OR_EQUAL_TO
 }
 
 """

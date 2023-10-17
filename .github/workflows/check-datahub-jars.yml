@@ -10,7 +10,7 @@ on:
       - "**.md"
   pull_request:
     branches:
-      - master
+      - "**"
     paths-ignore:
       - "docker/**"
       - "docs/**"
@@ -28,12 +28,7 @@ jobs:
       max-parallel: 1
       fail-fast: false
       matrix:
-        command:
-          [
-            "datahub-client",
-            "datahub-protobuf",
-            "spark-lineage"
-          ]
+        command: ["datahub-client", "datahub-protobuf", "spark-lineage"]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
