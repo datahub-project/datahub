@@ -3,7 +3,7 @@ package com.linkedin.datahub.graphql.authorization;
 import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.ConjunctivePrivilegeGroup;
 import com.datahub.authorization.DisjunctivePrivilegeGroup;
-import com.datahub.authorization.ResourceSpec;
+import com.datahub.authorization.EntitySpec;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.AuditStamp;
@@ -89,8 +89,7 @@ public class AuthorizationUtils {
   }
 
   public static boolean canDeleteEntity(@Nonnull Urn entityUrn, @Nonnull QueryContext context) {
-    return isAuthorized(context, Optional.of(new ResourceSpec(entityUrn.getEntityType(), entityUrn.toString())),
-        PoliciesConfig.DELETE_ENTITY_PRIVILEGE);
+    return isAuthorized(context, Optional.of(new EntitySpec(entityUrn.getEntityType(), entityUrn.toString())), PoliciesConfig.DELETE_ENTITY_PRIVILEGE);
   }
 
   public static boolean canManageUserCredentials(@Nonnull QueryContext context) {
@@ -194,7 +193,7 @@ public class AuthorizationUtils {
 
   public static boolean isAuthorized(
       @Nonnull QueryContext context,
-      @Nonnull Optional<ResourceSpec> resourceSpec,
+      @Nonnull Optional<EntitySpec> resourceSpec,
       @Nonnull PoliciesConfig.Privilege privilege) {
     final Authorizer authorizer = context.getAuthorizer();
     final String actor = context.getActorUrn();
@@ -218,7 +217,7 @@ public class AuthorizationUtils {
       @Nonnull String resource,
       @Nonnull DisjunctivePrivilegeGroup privilegeGroup
   ) {
-    final ResourceSpec resourceSpec = new ResourceSpec(resourceType, resource);
+    final EntitySpec resourceSpec = new EntitySpec(resourceType, resource);
     return AuthUtil.isAuthorized(authorizer, actor, Optional.of(resourceSpec), privilegeGroup);
   }
 

@@ -482,6 +482,11 @@ def _column_level_lineage(  # noqa: C901
         # Our snowflake source lowercases column identifiers, so we are forced
         # to do fuzzy (case-insensitive) resolution instead of exact resolution.
         "snowflake",
+        # Teradata column names are case-insensitive.
+        # A name, even when enclosed in double quotation marks, is not case sensitive. For example, CUSTOMER and Customer are the same.
+        # See more below:
+        # https://documentation.sas.com/doc/en/pgmsascdc/9.4_3.5/acreldb/n0ejgx4895bofnn14rlguktfx5r3.htm
+        "teradata",
     }
 
     sqlglot_db_schema = sqlglot.MappingSchema(

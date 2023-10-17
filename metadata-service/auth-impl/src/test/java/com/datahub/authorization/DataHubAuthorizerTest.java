@@ -158,7 +158,7 @@ public class DataHubAuthorizerTest {
 
     // Validate that the System Actor is authorized, even if there is no policy.
 
-    ResourceSpec resourceSpec = new ResourceSpec("dataset", "urn:li:dataset:test");
+    EntitySpec resourceSpec = new EntitySpec("dataset", "urn:li:dataset:test");
 
     AuthorizationRequest request = new AuthorizationRequest(
         new Actor(ActorType.USER, DATAHUB_SYSTEM_CLIENT_ID).toUrnStr(),
@@ -172,7 +172,7 @@ public class DataHubAuthorizerTest {
   @Test
   public void testAuthorizeGranted() throws Exception {
 
-    ResourceSpec resourceSpec = new ResourceSpec("dataset", "urn:li:dataset:test");
+    EntitySpec resourceSpec = new EntitySpec("dataset", "urn:li:dataset:test");
 
     AuthorizationRequest request = new AuthorizationRequest(
         "urn:li:corpuser:test",
@@ -186,7 +186,7 @@ public class DataHubAuthorizerTest {
   @Test
   public void testAuthorizeNotGranted() throws Exception {
 
-    ResourceSpec resourceSpec = new ResourceSpec("dataset", "urn:li:dataset:test");
+    EntitySpec resourceSpec = new EntitySpec("dataset", "urn:li:dataset:test");
 
     // Policy for this privilege is inactive.
     AuthorizationRequest request = new AuthorizationRequest(
@@ -203,7 +203,7 @@ public class DataHubAuthorizerTest {
 
     _dataHubAuthorizer.setMode(DataHubAuthorizer.AuthorizationMode.ALLOW_ALL);
 
-    ResourceSpec resourceSpec = new ResourceSpec("dataset", "urn:li:dataset:test");
+    EntitySpec resourceSpec = new EntitySpec("dataset", "urn:li:dataset:test");
 
     // Policy for this privilege is inactive.
     AuthorizationRequest request = new AuthorizationRequest(
@@ -219,7 +219,7 @@ public class DataHubAuthorizerTest {
   public void testInvalidateCache() throws Exception {
 
     // First make sure that the default policies are as expected.
-    ResourceSpec resourceSpec = new ResourceSpec("dataset", "urn:li:dataset:test");
+    EntitySpec resourceSpec = new EntitySpec("dataset", "urn:li:dataset:test");
 
     AuthorizationRequest request = new AuthorizationRequest(
         "urn:li:corpuser:test",
@@ -250,7 +250,7 @@ public class DataHubAuthorizerTest {
   public void testAuthorizedActorsActivePolicy() throws Exception {
     final AuthorizedActors actors =
         _dataHubAuthorizer.authorizedActors("EDIT_ENTITY_TAGS", // Should be inside the active policy.
-            Optional.of(new ResourceSpec("dataset", "urn:li:dataset:1")));
+            Optional.of(new EntitySpec("dataset", "urn:li:dataset:1")));
 
     assertTrue(actors.isAllUsers());
     assertTrue(actors.isAllGroups());
@@ -272,7 +272,7 @@ public class DataHubAuthorizerTest {
 
   @Test
   public void testAuthorizationOnDomainWithPrivilegeIsAllowed() {
-    ResourceSpec resourceSpec = new ResourceSpec("dataset", "urn:li:dataset:test");
+    EntitySpec resourceSpec = new EntitySpec("dataset", "urn:li:dataset:test");
 
     AuthorizationRequest request = new AuthorizationRequest(
         "urn:li:corpuser:test",
@@ -285,7 +285,7 @@ public class DataHubAuthorizerTest {
 
   @Test
   public void testAuthorizationOnDomainWithParentPrivilegeIsAllowed() {
-    ResourceSpec resourceSpec = new ResourceSpec("dataset", "urn:li:dataset:test");
+    EntitySpec resourceSpec = new EntitySpec("dataset", "urn:li:dataset:test");
 
     AuthorizationRequest request = new AuthorizationRequest(
         "urn:li:corpuser:test",
@@ -298,7 +298,7 @@ public class DataHubAuthorizerTest {
 
   @Test
   public void testAuthorizationOnDomainWithoutPrivilegeIsDenied() {
-    ResourceSpec resourceSpec = new ResourceSpec("dataset", "urn:li:dataset:test");
+    EntitySpec resourceSpec = new EntitySpec("dataset", "urn:li:dataset:test");
 
     AuthorizationRequest request = new AuthorizationRequest(
         "urn:li:corpuser:test",
@@ -334,7 +334,7 @@ public class DataHubAuthorizerTest {
     resourceFilter.setType("dataset");
 
     if (domain != null) {
-      resourceFilter.setFilter(FilterUtils.newFilter(ImmutableMap.of(ResourceFieldType.DOMAIN, Collections.singletonList(domain.toString()))));
+      resourceFilter.setFilter(FilterUtils.newFilter(ImmutableMap.of(EntityFieldType.DOMAIN, Collections.singletonList(domain.toString()))));
     }
 
     dataHubPolicyInfo.setResources(resourceFilter);
@@ -398,6 +398,6 @@ public class DataHubAuthorizerTest {
   }
 
   private AuthorizerContext createAuthorizerContext(final Authentication systemAuthentication, final EntityClient entityClient) {
-    return new AuthorizerContext(Collections.emptyMap(), new DefaultResourceSpecResolver(systemAuthentication, entityClient));
+    return new AuthorizerContext(Collections.emptyMap(), new DefaultEntitySpecResolver(systemAuthentication, entityClient));
   }
 }
