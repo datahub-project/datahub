@@ -98,6 +98,10 @@ query getIngestionExecutionRequest($urn: String!) {
             source {
                 type
             }
+            arguments {
+                key
+                value
+            }
         }
         result {
             status
