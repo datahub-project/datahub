@@ -3,7 +3,7 @@ import logging
 import re
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, ClassVar, Dict, List, Optional, Pattern, Set, Tuple, Union
+from typing import Any, ClassVar, Dict, List, Optional, Pattern, Tuple, Union
 
 from dateutil import parser
 
@@ -34,8 +34,6 @@ class BigqueryTableIdentifier:
     project_id: str
     dataset: str
     table: str
-
-    invalid_chars: ClassVar[Set[str]] = {"$", "@"}
 
     # Note: this regex may get overwritten by the sharded_table_pattern config.
     # The class-level constant, however, will not be overwritten.
@@ -105,18 +103,7 @@ class BigqueryTableIdentifier:
             )
 
         table_name, _ = self.get_table_and_shard(shortened_table_name)
-        if not table_name:
-            table_name = self.dataset
-
-        # Handle exceptions
-        invalid_chars_in_table_name: List[str] = [
-            c for c in self.invalid_chars if c in table_name
-        ]
-        if invalid_chars_in_table_name:
-            raise ValueError(
-                f"Cannot handle {self.raw_table_name()} - poorly formatted table name, contains {invalid_chars_in_table_name}"
-            )
-        return table_name
+        return table_name or self.dataset
 
     def get_table_name(self) -> str:
         """
