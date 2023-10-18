@@ -230,9 +230,7 @@ class AvroToMceSchemaConverter:
         return name_or_fullname.rsplit(".", maxsplit=1)[-1]
 
     @staticmethod
-    def _get_simple_native_type(
-        schema: Union[avro.schema.Schema, avro.schema.Field]
-    ) -> str:
+    def _get_simple_native_type(schema: SchemaOrField) -> str:
         if isinstance(schema, (avro.schema.RecordSchema, avro.schema.Field)):
             # For Records, fields, always return the name.
             return AvroToMceSchemaConverter._strip_namespace(schema.name)
