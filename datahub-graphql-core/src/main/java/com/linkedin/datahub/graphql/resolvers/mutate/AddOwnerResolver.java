@@ -2,14 +2,11 @@ package com.linkedin.datahub.graphql.resolvers.mutate;
 
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.CorpuserUrn;
-
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.AddOwnerInput;
-import com.linkedin.datahub.graphql.generated.OwnerEntityType;
 import com.linkedin.datahub.graphql.generated.OwnerInput;
-import com.linkedin.datahub.graphql.generated.OwnershipType;
 import com.linkedin.datahub.graphql.generated.ResourceRefInput;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.OwnerUtils;
 import com.linkedin.metadata.entity.EntityService;
@@ -20,7 +17,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
-import static com.linkedin.datahub.graphql.resolvers.mutate.util.OwnerUtils.*;
 
 
 @Slf4j
@@ -37,10 +33,10 @@ public class AddOwnerResolver implements DataFetcher<CompletableFuture<Boolean>>
     OwnerInput.Builder ownerInputBuilder = OwnerInput.builder();
     ownerInputBuilder.setOwnerUrn(input.getOwnerUrn());
     ownerInputBuilder.setOwnerEntityType(input.getOwnerEntityType());
-    if(input.getType() != null) {
+    if (input.getType() != null) {
       ownerInputBuilder.setType(input.getType());
     }
-    if(input.getOwnershipTypeUrn() != null) {
+    if (input.getOwnershipTypeUrn() != null) {
       ownerInputBuilder.setOwnershipTypeUrn(input.getOwnershipTypeUrn());
     }
 
