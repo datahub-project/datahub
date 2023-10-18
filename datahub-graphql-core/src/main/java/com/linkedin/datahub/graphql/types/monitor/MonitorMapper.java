@@ -9,6 +9,8 @@ import com.linkedin.datahub.graphql.generated.AssertionMonitor;
 import com.linkedin.datahub.graphql.generated.AuditLogSpec;
 import com.linkedin.datahub.graphql.generated.CronSchedule;
 import com.linkedin.datahub.graphql.generated.DataHubOperationSpec;
+import com.linkedin.datahub.graphql.generated.DatasetFieldAssertionParameters;
+import com.linkedin.datahub.graphql.generated.DatasetFieldAssertionSourceType;
 import com.linkedin.datahub.graphql.generated.DatasetFreshnessAssertionParameters;
 import com.linkedin.datahub.graphql.generated.DatasetFreshnessSourceType;
 import com.linkedin.datahub.graphql.generated.DatasetVolumeAssertionParameters;
@@ -113,6 +115,10 @@ public class MonitorMapper {
       assertionEvaluationParameters.setDatasetVolumeParameters(mapDatasetVolumeAssertionParameters(
           backendAssertionEvaluationParameters.getDatasetVolumeParameters()));
     }
+    if (backendAssertionEvaluationParameters.getDatasetFieldParameters() != null) {
+      assertionEvaluationParameters.setDatasetFieldParameters(mapDatasetFieldAssertionParameters(
+          backendAssertionEvaluationParameters.getDatasetFieldParameters()));
+    }
     return assertionEvaluationParameters;
   }
 
@@ -139,6 +145,18 @@ public class MonitorMapper {
     datasetVolumeAssertionParameters.setSourceType(
         DatasetVolumeSourceType.valueOf(backendDatasetVolumeAssertionParameters.getSourceType().name()));
     return datasetVolumeAssertionParameters;
+  }
+
+  private static DatasetFieldAssertionParameters mapDatasetFieldAssertionParameters(
+      com.linkedin.monitor.DatasetFieldAssertionParameters backendDatasetFieldAssertionParameters) {
+    final DatasetFieldAssertionParameters datasetFieldAssertionParameters = new DatasetFieldAssertionParameters();
+    datasetFieldAssertionParameters.setSourceType(
+        DatasetFieldAssertionSourceType.valueOf(backendDatasetFieldAssertionParameters.getSourceType().name()));
+    if (backendDatasetFieldAssertionParameters.hasChangedRowsField()) {
+      datasetFieldAssertionParameters
+          .setChangedRowsField(mapFreshnessFieldSpec(backendDatasetFieldAssertionParameters.getChangedRowsField()));
+    }
+    return datasetFieldAssertionParameters;
   }
 
   private static FreshnessFieldSpec mapFreshnessFieldSpec(com.linkedin.assertion.FreshnessFieldSpec backendFreshnessFieldSpec) {

@@ -7,10 +7,13 @@ from datahub_monitors.types import (
     AssertionEvaluationParametersType,
     AssertionType,
     AuditLogSpec,
+    DatasetFieldAssertionParameters,
+    DatasetFieldSourceType,
     DatasetFreshnessAssertionParameters,
     DatasetFreshnessSourceType,
     DatasetVolumeAssertionParameters,
     DatasetVolumeSourceType,
+    FieldAssertion,
     FreshnessAssertion,
     FreshnessFieldKind,
     SQLAssertion,
@@ -19,6 +22,13 @@ from datahub_monitors.types import (
 
 
 class SchemaFieldSpecSchema(BaseModel):
+    path: str
+    type: str
+    native_type: str = Field(alias="nativeType")
+    kind: Optional[FreshnessFieldKind]
+
+
+class FreshnessFieldSpecSchema(BaseModel):
     path: str
     type: str
     native_type: str = Field(alias="nativeType")
@@ -58,18 +68,29 @@ class VolumeAssertionParametersSchema(BaseModel):
         return DatasetVolumeAssertionParameters(sourceType=self.source_type)
 
 
+class FieldAssertionParametersSchema(BaseModel):
+    source_type: DatasetFieldSourceType = Field(alias="sourceType")
+
+    changed_rows_field: Optional[FreshnessFieldSpecSchema] = Field(
+        alias="changedRowsField"
+    )
+
+    def to_internal_params(self) -> DatasetFieldAssertionParameters:
+        return DatasetFieldAssertionParameters(
+            sourceType=self.source_type, changedRowsField=self.changed_rows_field
+        )
+
+
 class AssertionInfoSchema(BaseModel):
     freshness_assertion: Optional[FreshnessAssertion] = Field(
         alias="freshnessAssertion"
     )
     volume_assertion: Optional[VolumeAssertion] = Field(alias="volumeAssertion")
     sql_assertion: Optional[SQLAssertion] = Field(alias="sqlAssertion")
+    field_assertion: Optional[FieldAssertion] = Field(alias="fieldAssertion")
 
 
 class AssertionEvaluationParametersSchema(BaseModel):
-    # The type of the parameters"""
-    type: AssertionEvaluationParametersType
-
     # Dataset FRESHNESS Parameters. Present if the type is DATASET_FRESHNESS
     dataset_freshness_parameters: Optional[FreshnessAssertionParametersSchema] = Field(
         alias="datasetFreshnessParameters"
@@ -80,6 +101,42 @@ class AssertionEvaluationParametersSchema(BaseModel):
         alias="datasetVolumeParameters"
     )
 
+    # Dataset FIELD Parameters. Present if the type is DATASET_FIELD
+    dataset_field_parameters: Optional[FieldAssertionParametersSchema] = Field(
+        alias="datasetFieldParameters"
+    )
+
+    # The type of the parameters"""
+    type: AssertionEvaluationParametersType
+
+    @validator("type", always=True)
+    def validate_type(
+        cls, type: AssertionEvaluationParametersType, values: dict
+    ) -> AssertionEvaluationParametersType:
+        if (
+            type == AssertionEvaluationParametersType.DATASET_FRESHNESS
+            and values.get("dataset_freshness_parameters") is None
+        ):
+            raise ValueError(
+                f"datasetFreshnessParameters is required when type is {AssertionEvaluationParametersType.DATASET_FRESHNESS.value}"
+            )
+        if (
+            type == AssertionEvaluationParametersType.DATASET_VOLUME
+            and values.get("dataset_volume_parameters") is None
+        ):
+            raise ValueError(
+                f"datasetVolumeParameters is required when type is {AssertionEvaluationParametersType.DATASET_VOLUME.value}"
+            )
+        if (
+            type == AssertionEvaluationParametersType.DATASET_FIELD
+            and values.get("dataset_field_parameters") is None
+        ):
+            raise ValueError(
+                f"datasetFieldParameters is required when type is {AssertionEvaluationParametersType.DATASET_FIELD.value}"
+            )
+
+        return type
+
     def to_internal_params(self) -> AssertionEvaluationParameters:
         return AssertionEvaluationParameters(
             type=self.type,
@@ -88,6 +145,9 @@ class AssertionEvaluationParametersSchema(BaseModel):
             else None,
             dataset_volume_parameters=self.dataset_volume_parameters.to_internal_params()
             if self.dataset_volume_parameters
+            else None,
+            dataset_field_parameters=self.dataset_field_parameters.to_internal_params()
+            if self.dataset_field_parameters
             else None,
         )
 

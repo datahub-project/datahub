@@ -14,6 +14,7 @@ import {
     DatasetAssertionInfo,
     FreshnessAssertionInfo,
     VolumeAssertionInfo,
+    FieldAssertionInfo,
 } from '../../../../../../types.generated';
 import { getResultColor, getResultIcon, getResultText } from './assertionUtils';
 import { FreshnessAssertionDescription } from './FreshnessAssertionDescription';
@@ -24,6 +25,7 @@ import { AssertionPlatformAvatar } from './AssertionPlatformAvatar';
 import { AssertionActionsMenu } from './AssertionActionsMenu';
 import { VolumeAssertionDescription } from './VolumeAssertionDescription';
 import { SqlAssertionDescription } from './SqlAssertionDescription';
+import { FieldAssertionDescription } from './FieldAssertionDescription';
 
 const DetailsContainer = styled.div`
     display: flex;
@@ -117,6 +119,9 @@ export function DetailsColumn({
                     assertionInfo={assertionInfo}
                     onViewAssertionDetails={onViewAssertionDetails}
                 />
+            )}
+            {assertionType === AssertionType.Field && (
+                <FieldAssertionDescription assertionInfo={assertionInfo.fieldAssertion as FieldAssertionInfo} />
             )}
             {isInferred && (
                 <InferredAssertionPopover>

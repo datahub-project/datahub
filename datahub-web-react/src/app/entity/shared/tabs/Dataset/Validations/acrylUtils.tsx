@@ -116,10 +116,11 @@ export const ASSERTION_INFO = [
         name: 'Column',
         description: 'Define & monitor your expectations about the values in a column',
         icon: <StyledProjectOutlined />,
-        type: null, // TODO
+        type: AssertionType.Field,
         entityTypes: [EntityType.Dataset],
-        enabled: false,
+        enabled: true,
         visible: true,
+        requiresConnection: true,
     },
     {
         name: 'Custom',

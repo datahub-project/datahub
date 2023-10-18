@@ -7,8 +7,8 @@ import {
     DatasetFreshnessSourceType,
     FreshnessAssertionScheduleType,
     FreshnessFieldSpec,
+    SchemaField,
 } from '../../../../../../../../../../types.generated';
-import { FieldValueSourceBuilder } from './FieldValueSourceBuilder';
 import { useGetDatasetSchemaQuery } from '../../../../../../../../../../graphql/dataset.generated';
 import { ANTD_GRAY } from '../../../../../../../constants';
 import {
@@ -16,9 +16,11 @@ import {
     getFreshnessSourceOptions,
     getFreshnessSourceOptionPlatformDescription,
     getDefaultFreshnessSourceOption,
+    isStructField,
 } from '../../utils';
 import { useChangeSourceOptionIf } from '../../hooks';
 import { useIngestionSourceForEntityQuery } from '../../../../../../../../../../graphql/ingestion.generated';
+import { AssertionDatasetFieldBuilder } from '../AssertionDatasetFieldBuilder';
 
 const Form = styled.div``;
 
@@ -111,7 +113,10 @@ export const DatasetFreshnessSourceBuilder = ({ entityUrn, platformUrn, schedule
      */
     const eligibleFields =
         data?.dataset?.schemaMetadata?.fields?.filter(
-            (f) => selectedSourceOption?.field?.dataTypes?.has(f.type) && f.nativeDataType,
+            (f) =>
+                selectedSourceOption?.field?.dataTypes?.has(f.type) &&
+                f.nativeDataType &&
+                !isStructField(f as SchemaField),
         ) || [];
     const eligibleFieldSpecs = eligibleFields.map((f) => ({
         path: f.fieldPath,
@@ -135,7 +140,8 @@ export const DatasetFreshnessSourceBuilder = ({ entityUrn, platformUrn, schedule
         }
     };
 
-    const updateFieldSpec = (newSpec: Partial<FreshnessFieldSpec>) => {
+    const updateFieldSpec = (newPath: string) => {
+        const newSpec = eligibleFieldSpecs.filter((spec) => spec.path === newPath)[0];
         onChange({
             ...value,
             field: {
@@ -190,7 +196,12 @@ export const DatasetFreshnessSourceBuilder = ({ entityUrn, platformUrn, schedule
                 </>
             )}
             {sourceType === DatasetFreshnessSourceType.FieldValue && (
-                <FieldValueSourceBuilder fields={eligibleFieldSpecs} value={field} onChange={updateFieldSpec} />
+                <AssertionDatasetFieldBuilder
+                    name="column"
+                    fields={eligibleFieldSpecs}
+                    onChange={updateFieldSpec}
+                    width="340px"
+                />
             )}
         </Form>
     );

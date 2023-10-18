@@ -81,14 +81,6 @@ public class VolumeAssertionMapper extends AssertionMapper {
         return result;
     }
 
-    private static com.linkedin.datahub.graphql.generated.SchemaFieldSpec mapSchemaFieldSpec(final com.linkedin.schema.SchemaFieldSpec gmsField) {
-        final com.linkedin.datahub.graphql.generated.SchemaFieldSpec result = new com.linkedin.datahub.graphql.generated.SchemaFieldSpec();
-        result.setPath(gmsField.getPath());
-        result.setType(gmsField.getType());
-        result.setNativeType(gmsField.getNativeType());
-        return result;
-    }
-
     private static com.linkedin.datahub.graphql.generated.IncrementingSegmentFieldTransformer mapIncrementingSegmentFieldTransformer(
             final com.linkedin.assertion.IncrementingSegmentFieldTransformer gmsTransformer) {
         final com.linkedin.datahub.graphql.generated.IncrementingSegmentFieldTransformer result =

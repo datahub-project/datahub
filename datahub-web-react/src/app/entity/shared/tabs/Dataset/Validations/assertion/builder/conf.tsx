@@ -5,6 +5,7 @@ import { ConfigureDatasetVolumeAssertionStep } from './steps/ConfigureDatasetVol
 import { ConfigureDatasetSqlAssertionStep } from './steps/ConfigureDatasetSqlAssertionStep';
 import { AssertionType } from '../../../../../../../../types.generated';
 import { AssertionBuilderStep } from './types';
+import { ConfigureDatasetFieldAssertionStep } from './steps/ConfigureDatasetFieldAssertionStep';
 
 /**
  * Mapping from the step type to the component implementing that step.
@@ -21,6 +22,8 @@ export const getAssertionsBuilderStepComponent = (currentStep: AssertionBuilderS
                     return ConfigureDatasetVolumeAssertionStep;
                 case AssertionType.Sql:
                     return ConfigureDatasetSqlAssertionStep;
+                case AssertionType.Field:
+                    return ConfigureDatasetFieldAssertionStep;
                 default:
                     throw new Error(`Unsupported assertion type ${type}`);
             }

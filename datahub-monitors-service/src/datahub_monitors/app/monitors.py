@@ -5,6 +5,9 @@ from datahub.ingestion.graph.client import DatahubClientConfig
 from datahub.secret.datahub_secret_store import DataHubSecretStore
 
 from datahub_monitors.assertion.engine.engine import AssertionEngine
+from datahub_monitors.assertion.engine.evaluator.field_evaluator import (
+    FieldAssertionEvaluator,
+)
 from datahub_monitors.assertion.engine.evaluator.freshness_evaluator import (
     FreshnessAssertionEvaluator,
 )
@@ -71,6 +74,11 @@ def create_assertion_engine(graph: DataHubAssertionGraph) -> AssertionEngine:
             SourceProvider(),
         ),
         SQLAssertionEvaluator(
+            DataHubIngestionSourceConnectionProvider(graph, [datahub_secret_store]),
+            state_provider,
+            SourceProvider(),
+        ),
+        FieldAssertionEvaluator(
             DataHubIngestionSourceConnectionProvider(graph, [datahub_secret_store]),
             state_provider,
             SourceProvider(),

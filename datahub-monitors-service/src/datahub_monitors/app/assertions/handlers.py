@@ -1,3 +1,5 @@
+from typing import Optional
+
 import fastapi
 
 from datahub_monitors.app.schemas import (
@@ -41,6 +43,8 @@ def _evaluate_assertion(
 def handle_post_evaluate_assertion(
     assertion_input: EvaluateAssertionInputSchema,
     engine: AssertionEngine,
+    table_name: Optional[str],
+    qualified_name: Optional[str],
 ) -> AssertionResultSchema:
     # Setup the test assertion
     entity = AssertionEntity(
@@ -48,6 +52,8 @@ def handle_post_evaluate_assertion(
         platformUrn=assertion_input.connectionUrn,  # this makes the assumption that connectionUrn coming from the front-end is the same as the platformUrn
         platformInstance=None,
         subTypes=None,
+        table_name=table_name,
+        qualified_name=qualified_name,
     )
     assertion = Assertion(
         urn="urn:li:assertion:test",
@@ -57,6 +63,7 @@ def handle_post_evaluate_assertion(
         freshnessAssertion=assertion_input.assertion.freshness_assertion,
         volumeAssertion=assertion_input.assertion.volume_assertion,
         sqlAssertion=assertion_input.assertion.sql_assertion,
+        fieldAssertion=assertion_input.assertion.field_assertion,
     )
 
     return _evaluate_assertion(

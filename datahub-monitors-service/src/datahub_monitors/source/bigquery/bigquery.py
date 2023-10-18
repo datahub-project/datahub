@@ -1,6 +1,6 @@
 import logging
 from datetime import datetime
-from typing import Any, Iterable, List, Optional
+from typing import Any, Iterable, List, Optional, Union
 
 import pytz
 from datahub.ingestion.source.bigquery_v2.common import BQ_DATETIME_FORMAT
@@ -20,7 +20,15 @@ from datahub_monitors.source.bigquery.time_utils import (
 )
 from datahub_monitors.source.source import Source
 from datahub_monitors.source.types import DatabaseParams, SourceOperationParams
-from datahub_monitors.types import EntityEvent, EntityEventType
+from datahub_monitors.types import (
+    AssertionStdOperator,
+    AssertionStdParameters,
+    EntityEvent,
+    EntityEventType,
+    FieldTransform,
+    FreshnessFieldSpec,
+    SchemaFieldSpec,
+)
 
 from ..utils.sql import (
     setup_high_watermark_field_value_query,
@@ -68,6 +76,14 @@ class BigQuerySource(Source):
             if "user_name" in parameters and parameters["user_name"] is not None:
                 return parameters["user_name"].lower()
         return None
+
+    def _get_database_string(
+        self, params: Union[DatabaseParams, SourceOperationParams]
+    ) -> str:
+        return f"{params.project}.{params.dataset}.{params.table}"
+
+    def _convert_value_for_comparison(self, column_value: str, column_type: str) -> str:
+        return convert_value_for_comparison(column_value, column_type)
 
     def _generate_filter(
         self,
@@ -246,7 +262,7 @@ class BigQuerySource(Source):
             # Compares using UTC date.
             query = f"""
                 SELECT {date_column} as last_altered_date
-                FROM {operation_params.project}.{operation_params.dataset}.{operation_params.table}
+                FROM {self._get_database_string(operation_params)}
                 WHERE {date_column} >= ({start_datetime})
                 AND {date_column} <= ({end_datetime})
                 {f"AND {filter_sql}" if filter_sql else ''}
@@ -265,6 +281,9 @@ class BigQuerySource(Source):
     def _get_supported_high_watermark_column_types(self) -> List[str]:
         return SUPPORTED_HIGH_WATERMARK_COLUMN_TYPES
 
+    def _get_supported_high_watermark_date_and_time_types(self) -> List[str]:
+        return HIGH_WATERMARK_DATE_AND_TIME_TYPES
+
     def _get_high_watermark_field_value(
         self,
         column_name: str,
@@ -274,12 +293,15 @@ class BigQuerySource(Source):
         previous_value: Optional[str],
     ) -> Optional[str]:
         # if this is a date or timestamp we need to convert
-        if column_type in HIGH_WATERMARK_DATE_AND_TIME_TYPES and previous_value:
+        if (
+            column_type in self._get_supported_high_watermark_date_and_time_types()
+            and previous_value
+        ):
             previous_value = convert_value_for_comparison(previous_value, column_type)
 
         get_value_query = setup_high_watermark_field_value_query(
             column_name,
-            f"{operation_params.database}.{operation_params.schema}.{operation_params.table}",
+            self._get_database_string(operation_params),
             filter_sql,
             previous_value,
         )
@@ -300,14 +322,17 @@ class BigQuerySource(Source):
         current_field_value: str,
     ) -> int:
         # if this is a date or timestamp we need to convert
-        if column_type in HIGH_WATERMARK_DATE_AND_TIME_TYPES and current_field_value:
+        if (
+            column_type in self._get_supported_high_watermark_date_and_time_types()
+            and current_field_value
+        ):
             current_field_value = convert_value_for_comparison(
                 current_field_value, column_type
             )
 
         get_count_query = setup_high_watermark_row_count_query(
             column_name,
-            f"{operation_params.database}.{operation_params.schema}.{operation_params.table}",
+            self._get_database_string(operation_params),
             filter_sql,
             current_field_value,
         )
@@ -336,7 +361,7 @@ class BigQuerySource(Source):
         self, database_params: DatabaseParams, filter_sql: str
     ) -> int:
         query = setup_row_count_query(
-            f"{database_params.project}.{database_params.dataset}.{database_params.table}",
+            self._get_database_string(database_params),
             filter_sql,
         )
 
@@ -380,3 +405,55 @@ class BigQuerySource(Source):
             raise CustomSQLErrorException(e.message)
 
         raise CustomSQLErrorException("Custom SQL returned 0 rows, expected one!")
+
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=2, min=4, max=10),
+        reraise=True,
+    )
+    def _get_field_values_count(
+        self,
+        database_params: DatabaseParams,
+        field: SchemaFieldSpec,
+        operator: AssertionStdOperator,
+        parameters: Optional[AssertionStdParameters],
+        exclude_nulls: bool,
+        transform: Optional[FieldTransform],
+        filter_sql: Optional[str],
+        prev_changed_rows_value: Optional[str],
+        changed_rows_field: Optional[FreshnessFieldSpec],
+    ) -> int:
+        query = self._build_field_values_query(
+            database_params,
+            field,
+            operator,
+            parameters,
+            exclude_nulls,
+            transform,
+            filter_sql,
+            prev_changed_rows_value,
+            changed_rows_field,
+        )
+        rows = self._execute_fetchall_query(query)
+
+        try:
+            for row in rows:
+                if len(row) != 1:
+                    raise CustomSQLErrorException(
+                        f"Field Values query returned {len(row)} rows, expected one!"
+                    )
+
+                try:
+                    return int(row[0])
+                except (ValueError, TypeError):
+                    raise CustomSQLErrorException(
+                        f"Field Values query returned non-numeric value '{row[0]}'"
+                    )
+        except (NotFound, Forbidden, BadRequest) as e:
+            # try/except here not around the _execute_fetchall_query because it seems the
+            # google client has lazy evaluation, so doesn't fail until the 'for row in rows:' line
+            raise CustomSQLErrorException(e.message)
+
+        raise CustomSQLErrorException(
+            "Field Values query returned 0 rows, expected one!"
+        )

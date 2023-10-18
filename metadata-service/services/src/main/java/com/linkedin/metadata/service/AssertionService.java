@@ -12,6 +12,7 @@ import com.linkedin.assertion.AssertionStdParameters;
 import com.linkedin.assertion.AssertionType;
 import com.linkedin.assertion.DatasetAssertionInfo;
 import com.linkedin.assertion.DatasetAssertionScope;
+import com.linkedin.assertion.FieldAssertionInfo;
 import com.linkedin.assertion.FreshnessAssertionInfo;
 import com.linkedin.assertion.FreshnessAssertionSchedule;
 import com.linkedin.assertion.FreshnessAssertionType;
@@ -315,6 +316,45 @@ public class AssertionService extends BaseService {
       return assertionUrn;
     } catch (Exception e) {
       throw new RuntimeException(String.format("Failed to create new SQL Assertion for entity with urn %s", entityUrn), e);
+    }
+  }
+
+  /**
+   * Creates a new Field Assertion for native execution by DataHub.
+   * Assumes that the caller has already performed the required authorization.
+   */
+  @Nonnull
+  public Urn createFieldAssertion(
+      @Nonnull final Urn entityUrn,
+      @Nonnull final FieldAssertionInfo info,
+      @Nullable final AssertionActions actions,
+      @Nonnull final Authentication authentication) {
+    Objects.requireNonNull(entityUrn, "entityUrn must not be null");
+    Objects.requireNonNull(info, "info must not be null");
+    Objects.requireNonNull(authentication, "authentication must not be null");
+
+    final Urn assertionUrn = generateAssertionUrn();
+
+    final AssertionInfo assertion = new AssertionInfo();
+    assertion.setFieldAssertion(info);
+    assertion.setType(AssertionType.FIELD);
+    assertion.setSource(getNativeAssertionSource());
+
+    final List<MetadataChangeProposal> aspects = new ArrayList<>();
+    aspects.add(AspectUtils.buildMetadataChangeProposal(assertionUrn, Constants.ASSERTION_INFO_ASPECT_NAME, assertion));
+    if (actions != null) {
+      aspects.add(AspectUtils.buildMetadataChangeProposal(assertionUrn, Constants.ASSERTION_ACTIONS_ASPECT_NAME, actions));
+    }
+
+    try {
+      this.entityClient.batchIngestProposals(
+          aspects,
+          authentication,
+          false
+      );
+      return assertionUrn;
+    } catch (Exception e) {
+      throw new RuntimeException(String.format("Failed to create new Field Assertion for entity with urn %s", entityUrn), e);
     }
   }
 

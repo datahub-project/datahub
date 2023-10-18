@@ -13,6 +13,8 @@ import com.linkedin.datahub.graphql.generated.AssertionEvaluationParametersType;
 import com.linkedin.datahub.graphql.generated.AuditLogSpecInput;
 import com.linkedin.datahub.graphql.generated.CreateAssertionMonitorInput;
 import com.linkedin.datahub.graphql.generated.CronScheduleInput;
+import com.linkedin.datahub.graphql.generated.DatasetFieldAssertionParametersInput;
+import com.linkedin.datahub.graphql.generated.DatasetFieldAssertionSourceType;
 import com.linkedin.datahub.graphql.generated.DatasetFreshnessAssertionParametersInput;
 import com.linkedin.datahub.graphql.generated.DatasetFreshnessSourceType;
 import com.linkedin.datahub.graphql.generated.DatasetVolumeAssertionParametersInput;
@@ -31,6 +33,7 @@ import com.linkedin.monitor.AssertionEvaluationSpec;
 import com.linkedin.monitor.AssertionEvaluationSpecArray;
 import com.linkedin.monitor.AssertionMonitor;
 import com.linkedin.monitor.AuditLogSpec;
+import com.linkedin.monitor.DatasetFieldAssertionParameters;
 import com.linkedin.monitor.DatasetFreshnessAssertionParameters;
 import com.linkedin.monitor.DatasetVolumeAssertionParameters;
 import com.linkedin.monitor.MonitorInfo;
@@ -70,6 +73,7 @@ public class CreateAssertionMonitorResolverTest {
               new AuditLogSpecInput(ImmutableList.of("INSERT"), "testUser"),
               null
           ),
+          null,
           null
       ),
       TEST_EXECUTOR_ID
@@ -104,7 +108,8 @@ public class CreateAssertionMonitorResolverTest {
       new AssertionEvaluationParametersInput(
           AssertionEvaluationParametersType.DATASET_VOLUME,
           null,
-          new DatasetVolumeAssertionParametersInput(DatasetVolumeSourceType.DATAHUB_DATASET_PROFILE)
+          new DatasetVolumeAssertionParametersInput(DatasetVolumeSourceType.DATAHUB_DATASET_PROFILE),
+          null
       ),
       TEST_EXECUTOR_ID
   );
@@ -137,6 +142,7 @@ public class CreateAssertionMonitorResolverTest {
       new AssertionEvaluationParametersInput(
           AssertionEvaluationParametersType.DATASET_SQL,
           null,
+          null,
           null
       ),
       TEST_EXECUTOR_ID
@@ -155,6 +161,40 @@ public class CreateAssertionMonitorResolverTest {
                           .setSchedule(new CronSchedule().setCron("1 * * * *").setTimezone("America/Los_Angeles"))
                           .setParameters(new AssertionEvaluationParameters()
                               .setType(com.linkedin.monitor.AssertionEvaluationParametersType.DATASET_SQL)
+                          )
+                  )
+              ))
+      );
+
+  private static final CreateAssertionMonitorInput TEST_FIELD_INPUT = new CreateAssertionMonitorInput(
+      TEST_ENTITY_URN.toString(),
+      TEST_ASSERTION_URN.toString(),
+      new CronScheduleInput("1 * * * *", "America/Los_Angeles"),
+      new AssertionEvaluationParametersInput(
+          AssertionEvaluationParametersType.DATASET_FIELD,
+          null,
+          null,
+          new DatasetFieldAssertionParametersInput(DatasetFieldAssertionSourceType.ALL_ROWS_QUERY, null)
+      ),
+      TEST_EXECUTOR_ID
+  );
+
+  private static final MonitorInfo TEST_MONITOR_INFO_FIELD = new MonitorInfo()
+      .setType(MonitorType.ASSERTION)
+      .setStatus(new MonitorStatus().setMode(MonitorMode.ACTIVE))
+      .setExecutorId(TEST_EXECUTOR_ID)
+      .setAssertionMonitor(
+          new AssertionMonitor()
+              .setAssertions(new AssertionEvaluationSpecArray(
+                  ImmutableList.of(
+                      new AssertionEvaluationSpec()
+                          .setAssertion(TEST_ASSERTION_URN)
+                          .setSchedule(new CronSchedule().setCron("1 * * * *").setTimezone("America/Los_Angeles"))
+                          .setParameters(new AssertionEvaluationParameters()
+                              .setType(com.linkedin.monitor.AssertionEvaluationParametersType.DATASET_FIELD)
+                              .setDatasetFieldParameters(new DatasetFieldAssertionParameters()
+                                  .setSourceType(com.linkedin.monitor.DatasetFieldAssertionSourceType.ALL_ROWS_QUERY)
+                              )
                           )
                   )
               ))
@@ -241,6 +281,36 @@ public class CreateAssertionMonitorResolverTest {
 
     // Validate that we created the assertion
     AssertionEvaluationSpec evaluationSpec = TEST_MONITOR_INFO_SQL.getAssertionMonitor().getAssertions().get(0);
+    Mockito.verify(mockService, Mockito.times(1)).createAssertionMonitor(
+        Mockito.eq(TEST_ENTITY_URN),
+        Mockito.eq(evaluationSpec.getAssertion()),
+        Mockito.eq(evaluationSpec.getSchedule()),
+        Mockito.eq(evaluationSpec.getParameters()),
+        Mockito.eq(TEST_EXECUTOR_ID),
+        Mockito.any(Authentication.class));
+  }
+
+  @Test
+  public void testGetSuccessFieldAssertion() throws Exception {
+    // Create resolver
+    MonitorService mockService = initMockService(TEST_MONITOR_INFO_VOLUME);
+    CreateAssertionMonitorResolver resolver = new CreateAssertionMonitorResolver(mockService);
+
+    // Execute resolver
+    QueryContext mockContext = getMockAllowContext();
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(TEST_FIELD_INPUT);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    Monitor monitor = resolver.get(mockEnv).get();
+
+    // Don't validate each field since we have mapper tests already.
+    assertNotNull(monitor);
+    assertEquals(monitor.getUrn(), TEST_MONITOR_URN.toString());
+    assertEquals(monitor.getEntity().getUrn(), TEST_ENTITY_URN.toString());
+
+    // Validate that we created the assertion
+    AssertionEvaluationSpec evaluationSpec = TEST_MONITOR_INFO_FIELD.getAssertionMonitor().getAssertions().get(0);
     Mockito.verify(mockService, Mockito.times(1)).createAssertionMonitor(
         Mockito.eq(TEST_ENTITY_URN),
         Mockito.eq(evaluationSpec.getAssertion()),

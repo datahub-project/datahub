@@ -57,6 +57,8 @@ def build_assertion_result(
             native_results = _volume_parameters_to_native_results(parameters)
         elif assertion.type == AssertionType.SQL:
             native_results = _sql_parameters_to_native_results(parameters)
+        elif assertion.type == AssertionType.FIELD:
+            native_results = _field_parameters_to_native_results(parameters)
 
         if "row_count" in parameters:
             row_count = parameters["row_count"]
@@ -120,4 +122,13 @@ def _sql_parameters_to_native_results(parameters: dict) -> Optional[Dict[str, st
         and parameters["prev_metric_value"] is not None
     ):
         results["Previous Value"] = parameters["prev_metric_value"]
+    return results
+
+
+def _field_parameters_to_native_results(parameters: dict) -> Optional[Dict[str, str]]:
+    results = {}
+    if "values_count" in parameters and parameters["values_count"] is not None:
+        results["Invalid Rows"] = parameters["values_count"]
+    if "threshold_value" in parameters and parameters["threshold_value"] is not None:
+        results["Threshold Value"] = parameters["threshold_value"]
     return results

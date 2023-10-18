@@ -1,0 +1,9 @@
+query getDataset($datasetUrn: String!) {
+  dataset(urn: $datasetUrn) {
+    urn
+    properties {
+      name
+      qualifiedName
+    }
+  }
+}

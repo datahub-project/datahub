@@ -8,7 +8,10 @@ from datahub_monitors.app.monitors import (
 )
 from datahub_monitors.assertion.engine.engine import AssertionEngine
 from datahub_monitors.graph import DataHubAssertionGraph
-from datahub_monitors.graphql.query import GRAPHQL_GET_ASSERTION_QUERY
+from datahub_monitors.graphql.query import (
+    GRAPHQL_GET_ASSERTION_QUERY,
+    GRAPHQL_GET_DATASET_QUERY,
+)
 from datahub_monitors.types import Assertion
 
 from .assertions.handlers import (
@@ -41,10 +44,31 @@ def evaluate_assertion(
     assertion_input: EvaluateAssertionInputSchema,
 ) -> AssertionResultSchema:
     # setup the data sources, and dependencies for handler.
-    _, engine = _evaluation_dependency_setup()
+    graph, engine = _evaluation_dependency_setup()
+
+    result = graph.execute_graphql(
+        GRAPHQL_GET_DATASET_QUERY,
+        variables={"datasetUrn": assertion_input.entityUrn},
+    )
+    table_name = None
+    qualified_name = None
+
+    if dataset := result.get("dataset", None):
+        table_name = (
+            dataset["properties"]["name"]
+            if "properties" in dataset and "name" in dataset["properties"]
+            else None
+        )
+        qualified_name = (
+            dataset["properties"]["qualifiedName"]
+            if "properties" in dataset and "qualifiedName" in dataset["properties"]
+            else None
+        )
 
     # call API handler
-    return handle_post_evaluate_assertion(assertion_input, engine)
+    return handle_post_evaluate_assertion(
+        assertion_input, engine, table_name, qualified_name
+    )
 
 
 @internal_router.post("/evaluate_assertion_urn")

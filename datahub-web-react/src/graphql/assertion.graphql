@@ -74,6 +74,44 @@ fragment assertionDetails on Assertion {
                 ...assertionStdParametersDetails
             }
         }
+        fieldAssertion {
+            type
+            filter {
+                type
+                sql
+            }
+            fieldValuesAssertion {
+                field {
+                    path
+                    type
+                    nativeType
+                }
+                transform {
+                    type
+                }
+                operator
+                parameters {
+                    ...assertionStdParametersDetails
+                }
+                failThreshold {
+                    type
+                    value
+                }
+                excludeNulls
+            }
+            fieldMetricAssertion {
+                field {
+                    path
+                    type
+                    nativeType
+                }
+                metric
+                operator
+                parameters {
+                    ...assertionStdParametersDetails
+                }
+            }
+        }
         volumeAssertion {
             type
             filter {
@@ -221,6 +259,12 @@ mutation createVolumeAssertion($input: CreateVolumeAssertionInput!) {
 
 mutation createSqlAssertion($input: CreateSqlAssertionInput!) {
     createSqlAssertion(input: $input) {
+        ...assertionDetails
+    }
+}
+
+mutation createFieldAssertion($input: CreateFieldAssertionInput!) {
+    createFieldAssertion(input: $input) {
         ...assertionDetails
     }
 }

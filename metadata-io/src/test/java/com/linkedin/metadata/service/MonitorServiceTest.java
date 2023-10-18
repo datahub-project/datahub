@@ -5,12 +5,18 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.CronSchedule;
 import com.linkedin.data.template.StringArray;
+import com.linkedin.dataset.DatasetFilter;
+import com.linkedin.dataset.DatasetFilterType;
 import com.linkedin.assertion.AssertionResult;
 import com.linkedin.assertion.AssertionResultType;
 import com.linkedin.assertion.AssertionStdOperator;
 import com.linkedin.assertion.AssertionStdParameter;
 import com.linkedin.assertion.AssertionStdParameterType;
 import com.linkedin.assertion.AssertionStdParameters;
+import com.linkedin.assertion.FieldAssertionInfo;
+import com.linkedin.assertion.FieldAssertionType;
+import com.linkedin.assertion.FieldMetricAssertion;
+import com.linkedin.assertion.FieldMetricType;
 import com.linkedin.assertion.SqlAssertionInfo;
 import com.linkedin.assertion.SqlAssertionType;
 import com.linkedin.monitor.AssertionEvaluationParameters;
@@ -19,6 +25,8 @@ import com.linkedin.monitor.AssertionEvaluationSpec;
 import com.linkedin.monitor.AssertionEvaluationSpecArray;
 import com.linkedin.monitor.AssertionMonitor;
 import com.linkedin.monitor.AuditLogSpec;
+import com.linkedin.monitor.DatasetFieldAssertionParameters;
+import com.linkedin.monitor.DatasetFieldAssertionSourceType;
 import com.linkedin.monitor.DatasetFreshnessAssertionParameters;
 import com.linkedin.monitor.DatasetFreshnessSourceType;
 import com.linkedin.monitor.MonitorInfo;
@@ -26,6 +34,7 @@ import com.linkedin.monitor.MonitorMode;
 import com.linkedin.monitor.MonitorStatus;
 import com.linkedin.monitor.MonitorType;
 import com.linkedin.parseq.retry.backoff.BackoffPolicy;
+import com.linkedin.schema.SchemaFieldSpec;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.entity.Aspect;
@@ -51,6 +60,7 @@ import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.ArgumentCaptor;
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 import lombok.extern.slf4j.Slf4j;
 
@@ -378,6 +388,76 @@ public class MonitorServiceTest {
     when(httpClient.execute(any(HttpPost.class))).thenReturn(mockResponse);
 
     AssertionResult result = service.testSqlAssertion(TEST_ENTITY_URN, TEST_CONNECTION_URN, sqlAssertionInfo);
+
+    ArgumentCaptor<HttpPost> argument = ArgumentCaptor.forClass(HttpPost.class);
+    verify(httpClient, times(1)).execute(argument.capture());
+    HttpPost request = argument.getValue();
+
+    assertEquals("localhost:9004/assertions/evaluate_assertion", request.getURI().getAuthority() + request.getURI().getPath());
+    assertEquals(AssertionResultType.SUCCESS, result.getType());
+  }
+
+  @Test
+  public void testFieldAssertionSuccess() throws Exception {
+    final EntityClient mockClient = Mockito.mock(EntityClient.class);
+    final CloseableHttpClient httpClient = Mockito.mock(CloseableHttpClient.class);
+    final MonitorService service = new MonitorService(
+        TEST_HOST,
+        TEST_PORT,
+        false,
+        mockClient,
+        Mockito.mock(Authentication.class),
+        httpClient,
+        backoffPolicy,
+        3
+    );
+
+    final FieldAssertionInfo fieldAssertionInfo = new FieldAssertionInfo()
+        .setType(FieldAssertionType.FIELD_METRIC)
+        .setEntity(TEST_ENTITY_URN)
+        .setFilter(
+            new DatasetFilter()
+                .setType(DatasetFilterType.SQL)
+                .setSql("some_condition = True")
+        )
+        .setFieldMetricAssertion(
+            new FieldMetricAssertion()
+                .setField(
+                    new SchemaFieldSpec()
+                        .setPath("test_field")
+                        .setType("INTEGER")
+                        .setNativeType("INTEGER")
+                )
+                .setMetric(FieldMetricType.UNIQUE_COUNT)
+                .setOperator(AssertionStdOperator.GREATER_THAN)
+                .setParameters(
+                    new AssertionStdParameters()
+                        .setValue(
+                            new AssertionStdParameter()
+                                .setValue("10")
+                                .setType(AssertionStdParameterType.NUMBER)
+                        )
+                )
+        );
+    
+    final AssertionEvaluationParameters fieldParameters = new AssertionEvaluationParameters()
+        .setType(AssertionEvaluationParametersType.DATASET_FIELD)
+        .setDatasetFieldParameters(new DatasetFieldAssertionParameters()
+            .setSourceType(DatasetFieldAssertionSourceType.ALL_ROWS_QUERY)
+        );
+
+    CloseableHttpResponse mockResponse = mock(CloseableHttpResponse.class);
+    when(mockResponse.getStatusLine()).thenReturn(new BasicStatusLine(new ProtocolVersion("HTTP", 1, 1), 200, "OK"));
+
+    String expectedJson = "{\"type\": \"SUCCESS\", \"rowCount\": null, \"missingCount\": null, \"unexpectedCount\": null, "
+                + "\"actualAggValue\": null, \"nativeResults\": {     \"Value\": \"200\" }, \"externalUrl\": null, \"error\": null}";
+    BasicHttpEntity entity = new BasicHttpEntity();
+    entity.setContent(new ByteArrayInputStream(expectedJson.getBytes(StandardCharsets.UTF_8)));
+    when(mockResponse.getEntity()).thenReturn(entity);
+    when(httpClient.execute(any(HttpPost.class))).thenReturn(mockResponse);
+
+    AssertionResult result = service.testFieldAssertion(TEST_ENTITY_URN, TEST_CONNECTION_URN, fieldAssertionInfo,
+            fieldParameters);
 
     ArgumentCaptor<HttpPost> argument = ArgumentCaptor.forClass(HttpPost.class);
     verify(httpClient, times(1)).execute(argument.capture());

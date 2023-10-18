@@ -49,6 +49,8 @@ class TestEvaluateAssertionHandler:
         resp = handle_post_evaluate_assertion(
             self.input_data,
             self.engine_mock,
+            None,
+            None,
         )
         assert resp.type == "SUCCESS"
 
@@ -59,5 +61,7 @@ class TestEvaluateAssertionHandler:
         resp = handle_post_evaluate_assertion(
             self.input_data,
             self.engine_mock,
+            None,
+            None,
         )
         assert resp.type == "FAILURE"

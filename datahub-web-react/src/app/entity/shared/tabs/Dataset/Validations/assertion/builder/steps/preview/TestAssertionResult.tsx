@@ -12,7 +12,7 @@ export const TestAssertionResult = ({ result }: Props) => {
     if (result.type === AssertionResultType.Init) {
         return (
             <Typography.Text>
-                No errors were found in your query, but we cannot test it out at this time, as more information is
+                No errors were found with your assertion, but we cannot test it out at this time, as more information is
                 required to evaluate this assertion
             </Typography.Text>
         );

@@ -7240,6 +7240,11 @@ enum AssertionStdOperator {
     NOT_EQUAL_TO
 
     """
+    Value being asserted is null
+    """
+    NULL
+
+    """
     Value being asserted is not null
     """
     NOT_NULL
@@ -7273,6 +7278,16 @@ enum AssertionStdOperator {
     Value being asserted is not in one of the array values.
     """
     NOT_IN
+
+    """
+    Value being asserted is true
+    """
+    IS_TRUE
+
+    """
+    Value being asserted is false
+    """
+    IS_FALSE
 
     """
     Other
@@ -7320,10 +7335,29 @@ type AssertionStdParameter {
 The type of an AssertionStdParameter
 """
 enum AssertionStdParameterType {
+  """
+  A string value
+  """
   STRING
+
+  """
+  A numeric value
+  """
   NUMBER
+
+  """
+  A list of values. When used, the value should be formatted as a serialized JSON array.
+  """
   LIST
+
+  """
+  A set of values. When used, the value should be formatted as a serialized JSON array.
+  """
   SET
+
+  """
+  A value of unknown type
+  """
   UNKNOWN
 }
 
@@ -7369,6 +7403,10 @@ enum AssertionType {
     A raw SQL-statement based assertion
     """
     SQL
+    """
+    A Field assertion
+    """
+    FIELD
 }
 
 """

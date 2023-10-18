@@ -9,18 +9,26 @@ from datahub_monitors.assertion.engine.evaluator.filter_builder import FilterBui
 from datahub_monitors.assertion.types import AssertionDatabaseParams
 from datahub_monitors.connection.connection import Connection
 from datahub_monitors.exceptions import (
+    AssertionResultException,
     CustomSQLErrorException,
     InvalidParametersException,
     InvalidSourceTypeException,
 )
 from datahub_monitors.types import (
+    AssertionStdOperator,
+    AssertionStdParameters,
+    DatasetFilter,
     DatasetVolumeAssertionParameters,
     DatasetVolumeSourceType,
     EntityEvent,
     EntityEventType,
+    FieldTransform,
+    FreshnessFieldSpec,
+    SchemaFieldSpec,
 )
 
 from .types import DatabaseParams, SourceOperationParams
+from .utils.sql import setup_field_values_query
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +43,14 @@ class Source:
         self.connection = connection
 
     def _execute_fetchall_query(self, query: str) -> List[Any]:
+        raise NotImplementedError()
+
+    def _get_database_string(
+        self, params: Union[DatabaseParams, SourceOperationParams]
+    ) -> str:
+        raise NotImplementedError()
+
+    def _convert_value_for_comparison(self, column_value: str, column_type: str) -> str:
         raise NotImplementedError()
 
     def _get_audit_log_operation_events(
@@ -64,6 +80,9 @@ class Source:
         raise NotImplementedError()
 
     def _get_supported_high_watermark_column_types(self) -> List[str]:
+        raise NotImplementedError()
+
+    def _get_supported_high_watermark_date_and_time_types(self) -> List[str]:
         raise NotImplementedError()
 
     def _get_high_watermark_field_value(
@@ -333,3 +352,120 @@ class Source:
     ) -> float:
         # database_params = self._get_database_params(entity_urn, database_parameters)
         return self._execute_custom_sql(custom_sql)
+
+    def _build_field_values_query(
+        self,
+        database_params: DatabaseParams,
+        field: SchemaFieldSpec,
+        operator: AssertionStdOperator,
+        parameters: Optional[AssertionStdParameters],
+        exclude_nulls: bool,
+        transform: Optional[FieldTransform],
+        filter_sql: Optional[str],
+        prev_high_watermark_value: Optional[str],
+        changed_rows_field: Optional[FreshnessFieldSpec],
+    ) -> str:
+        last_checked = None
+        if changed_rows_field and prev_high_watermark_value:
+            if (
+                not changed_rows_field.native_type
+                or changed_rows_field.native_type.upper()
+                not in self._get_supported_high_watermark_column_types()
+            ):
+                raise AssertionResultException(
+                    message=f"Unsupported high watermark column type {changed_rows_field.native_type} provided. Failing assertion evaluation!",
+                )
+
+            if (
+                changed_rows_field.native_type
+                in self._get_supported_high_watermark_date_and_time_types()
+                and prev_high_watermark_value
+            ):
+                prev_high_watermark_value = self._convert_value_for_comparison(
+                    prev_high_watermark_value, changed_rows_field.native_type
+                )
+
+            last_checked = f"{changed_rows_field.path} >= {prev_high_watermark_value}"
+
+        return setup_field_values_query(
+            self._get_database_string(database_params),
+            self.source_name,
+            field,
+            operator,
+            parameters,
+            exclude_nulls,
+            filter_sql,
+            transform,
+            last_checked,
+        )
+
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=2, min=4, max=10),
+        reraise=True,
+    )
+    def _get_field_values_count(
+        self,
+        database_params: DatabaseParams,
+        field: SchemaFieldSpec,
+        operator: AssertionStdOperator,
+        parameters: Optional[AssertionStdParameters],
+        exclude_nulls: bool,
+        transform: Optional[FieldTransform],
+        filter_sql: Optional[str],
+        prev_high_watermark_value: Optional[str],
+        changed_rows_field: Optional[FreshnessFieldSpec],
+    ) -> int:
+        query = self._build_field_values_query(
+            database_params,
+            field,
+            operator,
+            parameters,
+            exclude_nulls,
+            transform,
+            filter_sql,
+            prev_high_watermark_value,
+            changed_rows_field,
+        )
+        rows = self._execute_fetchall_query(query)
+
+        if len(rows) != 1:
+            raise CustomSQLErrorException(
+                f"Field Values query returned {len(rows)} rows, expected one!"
+            )
+
+        row = rows[0]
+        try:
+            return int(row[0])
+        except (ValueError, TypeError):
+            raise CustomSQLErrorException(
+                f"Field Values query returned non-numeric value '{row[0]}'"
+            )
+
+    def get_field_values_count(
+        self,
+        entity_urn: str,
+        database_parameters: AssertionDatabaseParams,
+        field: SchemaFieldSpec,
+        operator: AssertionStdOperator,
+        parameters: Optional[AssertionStdParameters],
+        exclude_nulls: bool,
+        transform: Optional[FieldTransform],
+        filter: Optional[DatasetFilter],
+        prev_high_watermark_value: Optional[str],
+        changed_rows_field: Optional[FreshnessFieldSpec],
+    ) -> int:
+        database_params = self._get_database_params(entity_urn, database_parameters)
+        filter_sql = FilterBuilder(filter.__dict__).get_sql() if filter else None
+
+        return self._get_field_values_count(
+            database_params,
+            field,
+            operator,
+            parameters,
+            exclude_nulls,
+            transform,
+            filter_sql,
+            prev_high_watermark_value,
+            changed_rows_field,
+        )

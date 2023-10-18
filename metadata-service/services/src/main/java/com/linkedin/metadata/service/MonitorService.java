@@ -1,17 +1,10 @@
 package com.linkedin.metadata.service;
 
 import com.datahub.authentication.Authentication;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.assertion.AssertionResult;
-import com.linkedin.assertion.AssertionResultError;
-import com.linkedin.assertion.AssertionResultErrorType;
-import com.linkedin.assertion.AssertionResultType;
-import com.linkedin.assertion.AssertionStdParameter;
-import com.linkedin.assertion.AssertionStdParameters;
+import com.linkedin.assertion.FieldAssertionInfo;
 import com.linkedin.assertion.SqlAssertionInfo;
 import com.linkedin.common.CronSchedule;
 import com.linkedin.common.urn.Urn;
@@ -20,6 +13,7 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.key.MonitorKey;
+import com.linkedin.metadata.service.util.MonitorServiceUtils;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.monitor.AssertionEvaluationParameters;
 import com.linkedin.monitor.AssertionEvaluationSpec;
@@ -37,7 +31,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import javax.annotation.Nonnull;
@@ -52,7 +45,6 @@ import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.util.EntityUtils;
-import com.linkedin.data.template.StringMap;
 
 
 @Slf4j
@@ -276,104 +268,6 @@ public class MonitorService extends BaseService {
     return EntityKeyUtils.convertEntityKeyToUrn(key, Constants.MONITOR_ENTITY_NAME);
   }
 
-  private static String buildTestSqlAssertionBodyJson(
-      @Nonnull final String type,
-      @Nonnull final String asserteeUrn,
-      @Nonnull final String connectionUrn,
-      @Nonnull final SqlAssertionInfo sqlAssertionInfo
-  ) throws Exception {
-    final ObjectMapper objectMapper = new ObjectMapper();
-    final ObjectNode objectNode = objectMapper.createObjectNode();
-    final ObjectNode assertionNode = objectMapper.createObjectNode();
-    final ObjectNode sqlAssertionNode = objectMapper.createObjectNode();
-    final ObjectNode sqlParamNode = objectMapper.createObjectNode();
-    final ObjectNode paramNode = objectMapper.createObjectNode();
-
-    final AssertionStdParameters parameters = sqlAssertionInfo.getParameters();
-    if (parameters.hasValue()) {
-      final AssertionStdParameter value = parameters.getValue();
-      final ObjectNode valueNode = objectMapper.createObjectNode();
-      valueNode.put("type", value.getType().toString());
-      valueNode.put("value", value.getValue());
-      sqlParamNode.put("value", valueNode);
-    }
-    if (parameters.hasMaxValue()) {
-      final AssertionStdParameter maxValue = parameters.getMaxValue();
-      final ObjectNode maxValueNode = objectMapper.createObjectNode();
-      maxValueNode.put("type", maxValue.getType().toString());
-      maxValueNode.put("value", maxValue.getValue());
-      sqlParamNode.put("maxValue", maxValueNode);
-    }
-    if (parameters.hasMinValue()) {
-      final AssertionStdParameter minValue = parameters.getMinValue();
-      final ObjectNode minValueNode = objectMapper.createObjectNode();
-      minValueNode.put("type", minValue.getType().toString());
-      minValueNode.put("value", minValue.getValue());
-      sqlParamNode.put("minValue", minValueNode);
-    }
-
-    sqlAssertionNode.put("type", sqlAssertionInfo.getType().toString());
-    sqlAssertionNode.put("statement", sqlAssertionInfo.getStatement());
-    if (sqlAssertionInfo.hasChangeType()) {
-      sqlAssertionNode.put("changeType", sqlAssertionInfo.getChangeType().toString());
-    }
-    sqlAssertionNode.put("operator", sqlAssertionInfo.getOperator().toString());
-    sqlAssertionNode.put("parameters", sqlParamNode);
-    assertionNode.put("sqlAssertion", sqlAssertionNode);
-
-    paramNode.put("type", "DATASET_SQL");
-
-    objectNode.put("type", type);
-    objectNode.put("connectionUrn", connectionUrn);
-    objectNode.put("entityUrn", asserteeUrn);
-    objectNode.put("assertion", assertionNode);
-    objectNode.put("parameters", paramNode);
-
-    return objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(objectNode);
-  }
-
-  private static AssertionResult buildTestAssertionResult(@Nonnull final String jsonStr) {
-    ObjectMapper mapper = new ObjectMapper();
-    try {
-      ObjectNode json = (ObjectNode) mapper.readTree(jsonStr);
-      final AssertionResult assertionResult = new AssertionResult();
-
-      assertionResult.setType(AssertionResultType.valueOf(json.get("type").asText()));
-      if (json.has("rowCount") && !json.get("rowCount").isNull()) {
-        assertionResult.setRowCount(json.get("rowCount").asLong());
-      }
-      if (json.has("missingCount") && !json.get("missingCount").isNull()) {
-        assertionResult.setMissingCount(json.get("missingCount").asLong());
-      }
-      if (json.has("unexpectedCount") && !json.get("unexpectedCount").isNull()) {
-        assertionResult.setUnexpectedCount(json.get("unexpectedCount").asLong());
-      }
-      if (json.has("actualAggValue") && !json.get("actualAggValue").isNull()) {
-        assertionResult.setActualAggValue(Float.valueOf(json.get("actualAggValue").asText()));
-      }
-      if (json.has("externalUrl") && !json.get("externalUrl").isNull()) {
-        assertionResult.setExternalUrl(json.get("externalUrl").asText());
-      }
-      if (json.has("nativeResults") && !json.get("nativeResults").isNull()) {
-        Map<String, String> properties = mapper.convertValue(json.get("nativeResults"), new TypeReference<Map<String, String>>() { });
-        assertionResult.setNativeResults(new StringMap(properties));
-      }
-      if (json.has("error") && !json.get("error").isNull()) {
-        final AssertionResultError assertionResultError = new AssertionResultError();
-        assertionResultError.setType(AssertionResultErrorType.valueOf(json.get("error").get("type").asText()));
-        if (json.get("error").has("properties") && !json.get("error").get("properties").isNull()) {
-          Map<String, String> properties = mapper.convertValue(json.get("error").get("properties"), new TypeReference<Map<String, String>>() { });
-          assertionResultError.setProperties(new StringMap(properties));
-        }
-        assertionResult.setError(assertionResultError);
-      }
-
-      return assertionResult;
-    } catch (Exception e) {
-      throw new IllegalArgumentException("Failed to parse JSON received from the Monitors service! %s");
-    }
-  }
-
   private CloseableHttpResponse executeRequest(@Nonnull final HttpUriRequest request) throws Exception {
     int attemptCount = 0;
     while (attemptCount < this.retryCount) {
@@ -421,7 +315,7 @@ public class MonitorService extends BaseService {
 
       if (response.getStatusLine().getStatusCode() == HttpStatus.SC_OK && entity != null) {
         final String jsonStr = EntityUtils.toString(entity);
-        return buildTestAssertionResult(jsonStr);
+        return MonitorServiceUtils.buildTestAssertionResult(jsonStr);
       }
       // Otherwise, something went wrong!
       log.error(
@@ -436,7 +330,7 @@ public class MonitorService extends BaseService {
           response.close();
         }
       } catch (Exception e) {
-        log.error("Failed to close http response to Montiors service.", e);
+        log.error("Failed to close http response to Monitors service.", e);
       }
     }
   }
@@ -451,7 +345,7 @@ public class MonitorService extends BaseService {
     Objects.requireNonNull(sqlAssertionInfo, "sqlAssertionInfo must not be null");
 
     try {
-      final String jsonBody = buildTestSqlAssertionBodyJson(
+      final String jsonBody = MonitorServiceUtils.buildTestSqlAssertionBodyJson(
         "SQL",
         asserteeUrn.toString(),
         connectionUrn.toString(),
@@ -459,7 +353,33 @@ public class MonitorService extends BaseService {
       );
       return testAssertion(jsonBody);
     } catch (Exception e) {
-      log.error("Failed to test assertion.", e);
+      log.error("Failed to test SQL assertion.", e);
+      return null;
+    }
+  }
+
+  @Nonnull
+  public AssertionResult testFieldAssertion(
+      @Nonnull final Urn asserteeUrn,
+      @Nonnull final Urn connectionUrn,
+      @Nonnull final FieldAssertionInfo fieldAssertionInfo,
+      @Nonnull final AssertionEvaluationParameters parameters) {
+    Objects.requireNonNull(asserteeUrn, "asserteeUrn must not be null");
+    Objects.requireNonNull(connectionUrn, "connectionUrn must not be null");
+    Objects.requireNonNull(fieldAssertionInfo, "fieldAssertionInfo must not be null");
+    Objects.requireNonNull(parameters, "parameters must not be null");
+
+    try {
+      final String jsonBody = MonitorServiceUtils.buildTestFieldAssertionBodyJson(
+        "FIELD",
+        asserteeUrn.toString(),
+        connectionUrn.toString(),
+        fieldAssertionInfo,
+        parameters
+      );
+      return testAssertion(jsonBody);
+    } catch (Exception e) {
+      log.error("Failed to test FIELD assertion.", e);
       return null;
     }
   }

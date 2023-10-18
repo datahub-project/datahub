@@ -119,6 +119,8 @@ public class AssertionUtils {
         return info.getVolumeAssertion().getEntity();
       case SQL:
         return info.getSqlAssertion().getEntity();
+      case FIELD:
+        return info.getFieldAssertion().getEntity();
       default:
         throw new RuntimeException(String.format("Unsupported Assertion Type %s provided", info.getType()));
     }
@@ -131,6 +133,11 @@ public class AssertionUtils {
           return input.getSqlTestInput().getEntityUrn();
         }
         throw new RuntimeException("SQL Test Input is required for SQL Assertion");
+      case FIELD:
+        if (input.getFieldTestInput() != null) {
+          return input.getFieldTestInput().getEntityUrn();
+        }
+        throw new RuntimeException("Field Test Input is required for Field Assertion");
       default:
         throw new RuntimeException(String.format("Unsupported Assertion Type %s provided", input.getType()));
     }

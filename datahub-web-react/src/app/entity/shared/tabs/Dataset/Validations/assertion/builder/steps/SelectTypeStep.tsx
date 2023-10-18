@@ -6,6 +6,8 @@ import { AssertionBuilderStep, StepProps } from '../types';
 import { getAssertionTypesForEntityType } from '../../../acrylUtils';
 import { AssertionType, EntityType } from '../../../../../../../../../types.generated';
 import {
+    DEFAULT_DATASET_FIELD_ASSERTION_PARAMETERS_STATE,
+    DEFAULT_DATASET_FIELD_ASSERTION_STATE,
     DEFAULT_DATASET_FRESHNESS_ASSERTION_STATE,
     DEFAULT_DATASET_SQL_ASSERTION_PARAMETERS_STATE,
     DEFAULT_DATASET_SQL_ASSERTION_STATE,
@@ -93,6 +95,15 @@ export const SelectTypeStep = ({ state, updateState, goTo, cancel }: StepProps) 
                 },
                 parameters: DEFAULT_DATASET_SQL_ASSERTION_PARAMETERS_STATE,
             };
+        } else if (type === AssertionType.Field) {
+            newState = {
+                ...newState,
+                assertion: {
+                    type,
+                    fieldAssertion: DEFAULT_DATASET_FIELD_ASSERTION_STATE,
+                },
+                parameters: DEFAULT_DATASET_FIELD_ASSERTION_PARAMETERS_STATE,
+            };
         }
 
         updateState({
@@ -108,6 +119,9 @@ export const SelectTypeStep = ({ state, updateState, goTo, cancel }: StepProps) 
                 return;
             case AssertionType.Sql:
                 goTo(AssertionBuilderStep.CONFIGURE_ASSERTION, AssertionType.Sql);
+                return;
+            case AssertionType.Field:
+                goTo(AssertionBuilderStep.CONFIGURE_ASSERTION, AssertionType.Field);
                 return;
             default:
                 // Do nothing.

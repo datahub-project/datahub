@@ -230,6 +230,11 @@ enum AssertionEvaluationParametersType {
   Parameters required to evaluate a Dataset SQL Assertion
   """
   DATASET_SQL
+
+  """
+  Parameters required to evaluate a Dataset Field (Column) Assertion
+  """
+  DATASET_FIELD
 }
 
 """
@@ -250,6 +255,11 @@ type AssertionEvaluationParameters {
   The parameters required to evaluate a dataset volume assertion. Present if type is DATASET_VOLUME.
   """
   datasetVolumeParameters: DatasetVolumeAssertionParameters
+
+  """
+  The parameters required to evaluate a dataset field assertion. Present if type is DATASET_FIELD.
+  """
+  datasetFieldParameters: DatasetFieldAssertionParameters
 }
 
 """
@@ -447,6 +457,11 @@ input AssertionEvaluationParametersInput {
     The parameters required to evaluate a dataset volume assertion. Present if type is DATASET_VOLUME.
     """
     datasetVolumeParameters: DatasetVolumeAssertionParametersInput
+
+    """
+    The parameters required to evaluate a dataset field assertion. Present if type is DATASET_FIELD.
+    """
+    datasetFieldParameters: DatasetFieldAssertionParametersInput
 }
 
 """
@@ -636,3 +651,55 @@ type DataHubOperationSpec {
   customOperationTypes: [String!]
 }
 
+"""
+The source of the information used to evaluate a column values or metric assertion
+"""
+enum DatasetFieldAssertionSourceType {
+  """
+  Issue a query to the table to obtain the metric or values across all rows.
+  """
+  ALL_ROWS_QUERY
+
+  """
+  Issue a query to the table to obtain the metric values across only the rows which have changed since the previous evaluation.
+  """
+  CHANGED_ROWS_QUERY
+
+  """
+  Determine the metric value using the DataHub dataset profile.
+  Only applicable for Column Metric assertions, not Column Value assertions.
+  """
+  DATAHUB_DATASET_PROFILE
+}
+
+"""
+Information about the parameters required to evaluate a field / column assertion
+"""
+type DatasetFieldAssertionParameters {
+  """
+  The source of the information used to evaluate a column values or metric assertion
+  """
+  sourceType: DatasetFieldAssertionSourceType!
+
+  """
+  A field that can be used to filter for the fresh rows since the previous assertion evaluation.
+  This should be present when sourceType is CHANGED_ROWS_QUERY.
+  """
+  changedRowsField: FreshnessFieldSpec
+}
+
+"""
+Input for the parameters required to evaluate a dataset field assertion. Present if type is DATASET_FIELD.
+"""
+input DatasetFieldAssertionParametersInput {
+  """
+  The source of the information used to evaluate a column values or metric assertion
+  """
+  sourceType: DatasetFieldAssertionSourceType!
+
+  """
+  A field that can be used to filter for the fresh rows since the previous assertion evaluation.
+  This should be present when sourceType is CHANGED_ROWS_QUERY.
+  """
+  changedRowsField: FreshnessFieldSpecInput
+}

@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import React from 'react';
 import { Button, Typography } from 'antd';
 import styled from 'styled-components';

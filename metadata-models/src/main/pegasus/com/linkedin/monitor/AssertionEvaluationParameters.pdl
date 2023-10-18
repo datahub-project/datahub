@@ -22,6 +22,11 @@ record AssertionEvaluationParameters {
          * Parameters required to evaluate a Dataset SQL Assertion
          */
         DATASET_SQL
+
+        /**
+         * Parameters required to evaluate a Dataset Field (Column) Assertion
+         */
+        DATASET_FIELD
     }
 
     /**
@@ -33,4 +38,9 @@ record AssertionEvaluationParameters {
     * Parameters required to evaluate a Dataset Volume Assertion. Present if type is DATASET_VOLUME.
     */
     datasetVolumeParameters: optional DatasetVolumeAssertionParameters
+
+    /**
+    * Parameters required to evaluate a Dataset Field (Column) Assertion. Present if type is DATASET_FIELD.
+    */
+    datasetFieldParameters: optional DatasetFieldAssertionParameters
 }

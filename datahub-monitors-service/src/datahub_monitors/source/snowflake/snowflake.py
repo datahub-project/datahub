@@ -1,5 +1,5 @@
 import logging
-from typing import Any, List, Optional
+from typing import Any, List, Optional, Union
 
 from datahub_monitors.assertion.engine.evaluator.filter_builder import FilterBuilder
 from datahub_monitors.connection.snowflake.snowflake_connection import (
@@ -68,6 +68,14 @@ class SnowflakeSource(Source):
             if "user_name" in parameters and parameters["user_name"] is not None:
                 return parameters["user_name"].lower()
         return None
+
+    def _get_database_string(
+        self, params: Union[DatabaseParams, SourceOperationParams]
+    ) -> str:
+        return f'{params.catalog}.{params.schema}."{params.table}"'
+
+    def _convert_value_for_comparison(self, column_value: str, column_type: str) -> str:
+        return convert_value_for_comparison(column_value, column_type)
 
     def _execute_fetchall_query(self, query: str) -> List[Any]:
         try:
@@ -238,7 +246,7 @@ class SnowflakeSource(Source):
             # The goal is to basically extract the high watermark for the column identified here.
             query = f"""
                 SELECT {date_column} as last_altered_date
-                FROM {operation_params.catalog}.{operation_params.schema}."{operation_params.table}"
+                FROM {self._get_database_string(operation_params)}
                 WHERE {date_column} >= ({start_datetime})
                 AND {date_column} <= ({end_datetime})
                 {f"AND {filter_sql}" if filter_sql else ''}
@@ -259,6 +267,9 @@ class SnowflakeSource(Source):
     def _get_supported_high_watermark_column_types(self) -> List[str]:
         return SUPPORTED_HIGH_WATERMARK_COLUMN_TYPES
 
+    def _get_supported_high_watermark_date_and_time_types(self) -> List[str]:
+        return HIGH_WATERMARK_DATE_AND_TIME_TYPES
+
     def _get_high_watermark_field_value(
         self,
         column_name: str,
@@ -268,12 +279,15 @@ class SnowflakeSource(Source):
         previous_value: Optional[str],
     ) -> Optional[str]:
         # if this is a date or timestamp we need to convert
-        if column_type in HIGH_WATERMARK_DATE_AND_TIME_TYPES and previous_value:
+        if (
+            column_type in self._get_supported_high_watermark_date_and_time_types()
+            and previous_value
+        ):
             previous_value = convert_value_for_comparison(previous_value, column_type)
 
         get_value_query = setup_high_watermark_field_value_query(
             column_name,
-            f'{operation_params.database}.{operation_params.schema}."{operation_params.table}"',
+            self._get_database_string(operation_params),
             filter_sql,
             previous_value,
         )
@@ -289,14 +303,17 @@ class SnowflakeSource(Source):
         current_field_value: str,
     ) -> int:
         # if this is a date or timestamp we need to convert
-        if column_type in HIGH_WATERMARK_DATE_AND_TIME_TYPES and current_field_value:
+        if (
+            column_type in self._get_supported_high_watermark_date_and_time_types()
+            and current_field_value
+        ):
             current_field_value = convert_value_for_comparison(
                 current_field_value, column_type
             )
 
         get_count_query = setup_high_watermark_row_count_query(
             column_name,
-            f'{operation_params.database}.{operation_params.schema}."{operation_params.table}"',
+            self._get_database_string(operation_params),
             filter_sql,
             current_field_value,
         )
@@ -319,7 +336,7 @@ class SnowflakeSource(Source):
         self, database_params: DatabaseParams, filter_sql: str
     ) -> int:
         query = setup_row_count_query(
-            f'{database_params.database}.{database_params.schema}."{database_params.table}"',
+            self._get_database_string(database_params),
             filter_sql,
         )
 

@@ -1,36 +1,16 @@
 package com.linkedin.datahub.graphql.resolvers.monitor;
 
-import com.linkedin.common.CronSchedule;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
-import com.linkedin.data.template.SetMode;
-import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
-import com.linkedin.datahub.graphql.generated.AssertionEvaluationParametersInput;
-import com.linkedin.datahub.graphql.generated.AuditLogSpecInput;
 import com.linkedin.datahub.graphql.generated.CreateAssertionMonitorInput;
-import com.linkedin.datahub.graphql.generated.CronScheduleInput;
-import com.linkedin.datahub.graphql.generated.DataHubOperationSpecInput;
-import com.linkedin.datahub.graphql.generated.DatasetFreshnessAssertionParametersInput;
-import com.linkedin.datahub.graphql.generated.DatasetVolumeAssertionParametersInput;
-import com.linkedin.datahub.graphql.generated.FreshnessFieldSpecInput;
 import com.linkedin.datahub.graphql.generated.Monitor;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.types.monitor.MonitorMapper;
 import com.linkedin.metadata.service.MonitorService;
-import com.linkedin.monitor.AssertionEvaluationParameters;
-import com.linkedin.monitor.AssertionEvaluationParametersType;
-import com.linkedin.monitor.AuditLogSpec;
-import com.linkedin.monitor.DataHubOperationSpec;
-import com.linkedin.monitor.DatasetFreshnessAssertionParameters;
-import com.linkedin.monitor.DatasetFreshnessSourceType;
-import com.linkedin.assertion.FreshnessFieldKind;
-import com.linkedin.assertion.FreshnessFieldSpec;
-import com.linkedin.monitor.DatasetVolumeAssertionParameters;
-import com.linkedin.monitor.DatasetVolumeSourceType;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.Objects;
@@ -83,112 +63,5 @@ public class CreateAssertionMonitorResolver implements DataFetcher<CompletableFu
       }
       throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
     });
-  }
-
-  private CronSchedule createCronSchedule(@Nonnull final CronScheduleInput input) {
-    final CronSchedule result = new CronSchedule();
-    result.setCron(input.getCron());
-    result.setTimezone(input.getTimezone());
-    return result;
-  }
-
-  private AssertionEvaluationParameters createAssertionEvaluationParameters(@Nonnull final AssertionEvaluationParametersInput input) {
-    final AssertionEvaluationParameters result = new AssertionEvaluationParameters();
-    result.setType(AssertionEvaluationParametersType.valueOf(input.getType().toString()));
-
-    if (AssertionEvaluationParametersType.DATASET_FRESHNESS.equals(result.getType())) {
-      if (input.getDatasetFreshnessParameters() != null) {
-        result.setDatasetFreshnessParameters(createDatasetFreshnessParameters(input.getDatasetFreshnessParameters()));
-      } else {
-        throw new DataHubGraphQLException(
-            "Invalid input. Dataset Freshness Parameters are required when type is DATASET_FRESHNESS.",
-            DataHubGraphQLErrorCode.BAD_REQUEST);
-      }
-    }
-    if (AssertionEvaluationParametersType.DATASET_VOLUME.equals(result.getType())) {
-      if (input.getDatasetVolumeParameters() != null) {
-        result.setDatasetVolumeParameters(createDatasetVolumeParameters(input.getDatasetVolumeParameters()));
-      } else {
-        throw new DataHubGraphQLException(
-            "Invalid input. Dataset Volume Parameters are required when type is DATASET_VOLUME.",
-            DataHubGraphQLErrorCode.BAD_REQUEST);
-      }
-    }
-
-    return result;
-  }
-
-  private DatasetFreshnessAssertionParameters createDatasetFreshnessParameters(@Nonnull final DatasetFreshnessAssertionParametersInput input) {
-    final DatasetFreshnessAssertionParameters result = new DatasetFreshnessAssertionParameters();
-    result.setSourceType(DatasetFreshnessSourceType.valueOf(input.getSourceType().toString()));
-    if (DatasetFreshnessSourceType.AUDIT_LOG.equals(result.getSourceType())) {
-      if (input.getAuditLog() != null) {
-        result.setAuditLog(createAuditLogSpec(input.getAuditLog()));
-      } else {
-        throw new DataHubGraphQLException(
-            "Invalid input. Audit Log info is required if type FRESHNESS source type is AUDIT_LOG.",
-            DataHubGraphQLErrorCode.BAD_REQUEST);
-      }
-    }
-    if (DatasetFreshnessSourceType.FIELD_VALUE.equals(result.getSourceType())) {
-      if (input.getField() != null) {
-        result.setField(createFreshnessFieldSpec(input.getField()));
-      } else {
-        throw new DataHubGraphQLException(
-            "Invalid input. Field info is required if type FRESHNESS source type is FIELD_VALUE.",
-            DataHubGraphQLErrorCode.BAD_REQUEST);
-      }
-    }
-    if (DatasetFreshnessSourceType.DATAHUB_OPERATION.equals(result.getSourceType())) {
-      if (input.getDataHubOperation() != null) {
-        result.setDataHubOperation(createDataHubOperationSpec(input.getDataHubOperation()));
-      }
-    }
-    return result;
-   }
-
-  private DatasetVolumeAssertionParameters createDatasetVolumeParameters(@Nonnull final DatasetVolumeAssertionParametersInput input) {
-    final DatasetVolumeAssertionParameters result = new DatasetVolumeAssertionParameters();
-    result.setSourceType(DatasetVolumeSourceType.valueOf(input.getSourceType().toString()));
-    return result;
-  }
-
-  private AuditLogSpec createAuditLogSpec(@Nonnull final AuditLogSpecInput input) {
-    final AuditLogSpec result = new AuditLogSpec();
-    if (input.getOperationTypes() != null) {
-      result.setOperationTypes(new StringArray(input.getOperationTypes()));
-    }
-    if (input.getUserName() != null) {
-      result.setUserName(input.getUserName());
-    }
-    return result;
-  }
-
-  private FreshnessFieldSpec createFreshnessFieldSpec(@Nonnull final FreshnessFieldSpecInput input) {
-    final FreshnessFieldSpec result = new FreshnessFieldSpec();
-    result.setType(input.getType());
-    result.setNativeType(input.getNativeType(), SetMode.IGNORE_NULL);
-    result.setPath(input.getPath(), SetMode.IGNORE_NULL);
-
-    if (input.getKind() != null) {
-        result.setKind(FreshnessFieldKind.valueOf(input.getKind().toString()));
-    } else {
-        throw new DataHubGraphQLException(
-            "Invalid input. Freshness Field Kind info is required if type Freshness source type is FIELD_VALUE.",
-            DataHubGraphQLErrorCode.BAD_REQUEST);
-    }
-  
-    return result;
-  }
-
-  private DataHubOperationSpec createDataHubOperationSpec(@Nonnull final DataHubOperationSpecInput input) {
-    final DataHubOperationSpec result = new DataHubOperationSpec();
-    if (input.getOperationTypes() != null) {
-      result.setOperationTypes(new StringArray(input.getOperationTypes()));
-    }
-    if (input.getCustomOperationTypes() != null) {
-      result.setCustomOperationTypes(new StringArray(input.getCustomOperationTypes()));
-    }
-    return result;
   }
 }

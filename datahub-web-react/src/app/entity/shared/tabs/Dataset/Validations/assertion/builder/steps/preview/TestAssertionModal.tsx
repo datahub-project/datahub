@@ -57,7 +57,7 @@ export const TestAssertionModal = ({ visible, handleClose, input }: Props) => {
             {data?.testAssertion && (
                 <div>
                     {[AssertionResultType.Success, AssertionResultType.Failure].includes(data.testAssertion.type) && (
-                        <Typography.Paragraph>The query has successfully ran.</Typography.Paragraph>
+                        <Typography.Paragraph>This query ran successfully.</Typography.Paragraph>
                     )}
                     <Row>
                         <AssertionStatusTag assertionResultType={data.testAssertion.type} />
