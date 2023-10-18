@@ -242,7 +242,9 @@ public class SearchRequestHandler {
     BoolQueryBuilder filterQuery = getFilterQuery(filter);
     searchSourceBuilder.query(QueryBuilders.boolQuery().must(getQuery(input, finalSearchFlags.isFulltext())).filter(filterQuery));
     _aggregationQueryBuilder.getAggregations().forEach(searchSourceBuilder::aggregation);
-    searchSourceBuilder.highlighter(getHighlights());
+    if (!finalSearchFlags.isSkipHighlighting()) {
+      searchSourceBuilder.highlighter(_highlights);
+    }
     ESUtils.buildSortOrder(searchSourceBuilder, sortCriterion);
     searchRequest.source(searchSourceBuilder);
     log.debug("Search request is: " + searchRequest);
