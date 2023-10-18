@@ -144,26 +144,26 @@ div[class^="announcementBar"] {
 
 /** Navbar */
 
-@media only screen and (max-width: 1050px) {
-  .navbar__toggle {
-    display: inherit;
-  }
-  .navbar__item {
-  }
-}
-
 .navbar {
   .navbar__logo {
     height: 3rem;
   }
 
   .navbar__link {
-     align-items: center;
-     margin: 0 1rem 0;
-     padding: 0;
+    align-items: center;
+    margin: 0 1rem 0;
+    padding: 0;
+    border-bottom: 2px solid transparent;
   }
+
+  .dropdown > .navbar__link:after {
+    top: -1px;
+    border-width: 0.3em 0.3em 0;
+    margin-left: 0.4em;
+  }
+
   .navbar__link--active {
-    border-bottom: 2px solid var(--ifm-navbar-link-hover-color);
+    border-bottom-color: var(--ifm-navbar-link-hover-color);
   }
   .navbar__item {
     padding: 0.25rem 0;
