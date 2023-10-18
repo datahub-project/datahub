@@ -202,7 +202,7 @@ public class SearchRequestHandler {
     if (!finalSearchFlags.isSkipHighlighting()) {
       searchSourceBuilder.highlighter(_highlights);
     }
-    ESUtils.buildSortOrder(searchSourceBuilder, sortCriterion);
+    ESUtils.buildSortOrder(searchSourceBuilder, sortCriterion, _entitySpecs);
 
     if (finalSearchFlags.isGetSuggestions()) {
       ESUtils.buildNameSuggestions(searchSourceBuilder, input);
@@ -243,7 +243,7 @@ public class SearchRequestHandler {
     searchSourceBuilder.query(QueryBuilders.boolQuery().must(getQuery(input, finalSearchFlags.isFulltext())).filter(filterQuery));
     _aggregationQueryBuilder.getAggregations().forEach(searchSourceBuilder::aggregation);
     searchSourceBuilder.highlighter(getHighlights());
-    ESUtils.buildSortOrder(searchSourceBuilder, sortCriterion);
+    ESUtils.buildSortOrder(searchSourceBuilder, sortCriterion, _entitySpecs);
     searchRequest.source(searchSourceBuilder);
     log.debug("Search request is: " + searchRequest);
     searchRequest.indicesOptions(null);
@@ -270,7 +270,7 @@ public class SearchRequestHandler {
     final SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
     searchSourceBuilder.query(filterQuery);
     searchSourceBuilder.from(from).size(size);
-    ESUtils.buildSortOrder(searchSourceBuilder, sortCriterion);
+    ESUtils.buildSortOrder(searchSourceBuilder, sortCriterion, _entitySpecs);
     searchRequest.source(searchSourceBuilder);
 
     return searchRequest;
@@ -301,7 +301,7 @@ public class SearchRequestHandler {
     searchSourceBuilder.size(size);
 
     ESUtils.setSearchAfter(searchSourceBuilder, sort, pitId, keepAlive);
-    ESUtils.buildSortOrder(searchSourceBuilder, sortCriterion);
+    ESUtils.buildSortOrder(searchSourceBuilder, sortCriterion, _entitySpecs);
     searchRequest.source(searchSourceBuilder);
 
     return searchRequest;
