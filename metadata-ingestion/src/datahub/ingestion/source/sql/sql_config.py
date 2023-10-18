@@ -174,6 +174,8 @@ def make_sqlalchemy_uri(
         except ValueError:
             host = at
             port = None
+    if uri_opts:
+        uri_opts = {k: v for k, v in uri_opts.items() if v is not None}
 
     return str(
         URL.create(
