@@ -10,7 +10,6 @@ from src.datahub.ingestion.source.aws.s3_util import make_s3_urn
 FROZEN_TIME = "2020-04-14 07:00:00"
 
 
-@pytest.mark.integration
 def test_athena_config_query_location_old_plus_new_value_not_allowed():
     from datahub.ingestion.source.sql.athena import AthenaConfig
 
@@ -25,7 +24,6 @@ def test_athena_config_query_location_old_plus_new_value_not_allowed():
         )
 
 
-@pytest.mark.integration
 def test_athena_config_staging_dir_is_set_as_query_result():
     from datahub.ingestion.source.sql.athena import AthenaConfig
 
@@ -48,7 +46,6 @@ def test_athena_config_staging_dir_is_set_as_query_result():
     assert config.json() == expected_config.json()
 
 
-@pytest.mark.integration
 def test_athena_uri():
     from datahub.ingestion.source.sql.athena import AthenaConfig
 
@@ -59,9 +56,12 @@ def test_athena_uri():
             "work_group": "test-workgroup",
         }
     )
-    assert (
-        config.get_sql_alchemy_url()
-        == "awsathena+rest://@athena.us-west-1.amazonaws.com:443/?s3_staging_dir=s3%3A%2F%2Fquery-result-location%2F&work_group=test-workgroup&catalog_name=awsdatacatalog&duration_seconds=3600"
+    assert config.get_sql_alchemy_url() == (
+        "awsathena+rest://@athena.us-west-1.amazonaws.com:443"
+        "?catalog_name=awsdatacatalog"
+        "&duration_seconds=3600"
+        "&s3_staging_dir=s3%3A%2F%2Fquery-result-location%2F"
+        "&work_group=test-workgroup"
     )
 
 
