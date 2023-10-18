@@ -2,6 +2,9 @@ package com.linkedin.metadata.search.utils;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.linkedin.metadata.models.EntitySpec;
+import com.linkedin.metadata.models.SearchableFieldSpec;
+import com.linkedin.metadata.models.annotation.SearchableAnnotation;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.Criterion;
@@ -49,7 +52,28 @@ public class ESUtils {
   public static final int MAX_RESULT_SIZE = 10000;
   public static final String OPAQUE_ID_HEADER = "X-Opaque-Id";
   public static final String HEADER_VALUE_DELIMITER = "|";
-  public static final String KEYWORD_TYPE = "keyword";
+
+  // Field types
+  public static final String KEYWORD_FIELD_TYPE = "keyword";
+  public static final String BOOLEAN_FIELD_TYPE = "boolean";
+  public static final String DATE_FIELD_TYPE = "date";
+  public static final String DOUBLE_FIELD_TYPE = "double";
+  public static final String LONG_FIELD_TYPE = "long";
+  public static final String OBJECT_FIELD_TYPE = "object";
+  public static final String TEXT_FIELD_TYPE = "text";
+  public static final String TOKEN_COUNT_FIELD_TYPE = "token_count";
+  // End of field types
+
+  public static final Set<SearchableAnnotation.FieldType> FIELD_TYPES_STORED_AS_KEYWORD = Set.of(
+      SearchableAnnotation.FieldType.KEYWORD,
+      SearchableAnnotation.FieldType.TEXT,
+      SearchableAnnotation.FieldType.TEXT_PARTIAL,
+      SearchableAnnotation.FieldType.WORD_GRAM);
+  public static final Set<SearchableAnnotation.FieldType> FIELD_TYPES_STORED_AS_TEXT = Set.of(
+      SearchableAnnotation.FieldType.BROWSE_PATH,
+      SearchableAnnotation.FieldType.BROWSE_PATH_V2,
+      SearchableAnnotation.FieldType.URN,
+      SearchableAnnotation.FieldType.URN_PARTIAL);
   public static final String ENTITY_NAME_FIELD = "_entityName";
   public static final String NAME_SUGGESTION = "nameSuggestion";
 
@@ -174,6 +198,25 @@ public class ESUtils {
     return getQueryBuilderFromCriterionForSingleField(criterion, isTimeseries);
   }
 
+  public static String getElasticTypeForFieldType(SearchableAnnotation.FieldType fieldType) {
+    if (FIELD_TYPES_STORED_AS_KEYWORD.contains(fieldType)) {
+      return KEYWORD_FIELD_TYPE;
+    } else if (FIELD_TYPES_STORED_AS_TEXT.contains(fieldType)) {
+      return TEXT_FIELD_TYPE;
+    } else if (fieldType == SearchableAnnotation.FieldType.BOOLEAN) {
+      return BOOLEAN_FIELD_TYPE;
+    } else if (fieldType == SearchableAnnotation.FieldType.COUNT) {
+      return LONG_FIELD_TYPE;
+    } else if (fieldType == SearchableAnnotation.FieldType.DATETIME) {
+      return DATE_FIELD_TYPE;
+    } else if (fieldType == SearchableAnnotation.FieldType.OBJECT) {
+      return OBJECT_FIELD_TYPE;
+    } else {
+      log.warn("FieldType {} has no mappings implemented", fieldType);
+      return null;
+    }
+  }
+
   /**
    * Populates source field of search query with the sort order as per the criterion provided.
    *
@@ -189,14 +232,39 @@ public class ESUtils {
    * @param sortCriterion {@link SortCriterion} to be applied to the search results
    */
   public static void buildSortOrder(@Nonnull SearchSourceBuilder searchSourceBuilder,
-      @Nullable SortCriterion sortCriterion) {
+      @Nullable SortCriterion sortCriterion, List<EntitySpec> entitySpecs) {
     if (sortCriterion == null) {
       searchSourceBuilder.sort(new ScoreSortBuilder().order(SortOrder.DESC));
     } else {
+      Optional<SearchableAnnotation.FieldType> fieldTypeForDefault = Optional.empty();
+      for (EntitySpec entitySpec : entitySpecs) {
+        List<SearchableFieldSpec> fieldSpecs = entitySpec.getSearchableFieldSpecs();
+        for (SearchableFieldSpec fieldSpec : fieldSpecs) {
+          SearchableAnnotation annotation = fieldSpec.getSearchableAnnotation();
+          if (annotation.getFieldName().equals(sortCriterion.getField())
+              || annotation.getFieldNameAliases().contains(sortCriterion.getField())) {
+            fieldTypeForDefault = Optional.of(fieldSpec.getSearchableAnnotation().getFieldType());
+            break;
+          }
+        }
+        if (fieldTypeForDefault.isPresent()) {
+          break;
+        }
+      }
+      if (fieldTypeForDefault.isEmpty()) {
+        log.warn("Sort criterion field " + sortCriterion.getField() + " was not found in any entity spec to be searched");
+      }
       final SortOrder esSortOrder =
           (sortCriterion.getOrder() == com.linkedin.metadata.query.filter.SortOrder.ASCENDING) ? SortOrder.ASC
               : SortOrder.DESC;
-      searchSourceBuilder.sort(new FieldSortBuilder(sortCriterion.getField()).order(esSortOrder).unmappedType(KEYWORD_TYPE));
+      FieldSortBuilder sortBuilder = new FieldSortBuilder(sortCriterion.getField()).order(esSortOrder);
+      if (fieldTypeForDefault.isPresent()) {
+        String esFieldtype = getElasticTypeForFieldType(fieldTypeForDefault.get());
+        if (esFieldtype != null) {
+          sortBuilder.unmappedType(esFieldtype);
+        }
+      }
+      searchSourceBuilder.sort(sortBuilder);
     }
     if (sortCriterion == null || !sortCriterion.getField().equals(DEFAULT_SEARCH_RESULTS_SORT_BY_FIELD)) {
       searchSourceBuilder.sort(new FieldSortBuilder(DEFAULT_SEARCH_RESULTS_SORT_BY_FIELD).order(SortOrder.ASC));
