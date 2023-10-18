@@ -369,7 +369,7 @@ tzlocal==5.1
 uc-micro-py==1.0.2
 ujson==5.8.0
 unicodecsv==0.14.1
-urllib3==1.26.17
+urllib3==1.26.18
 uvicorn==0.23.2
 uvloop==0.17.0
 vertica-python==1.3.5
