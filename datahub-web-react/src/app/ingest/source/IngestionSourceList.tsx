@@ -173,7 +173,7 @@ export const IngestionSourceList = () => {
         setFocusSourceUrn(undefined);
     };
 
-    const sanitizeExtraArgs = (extraArgs): StringMapEntryInput[] => {
+    const formatExtraArgs = (extraArgs): StringMapEntryInput[] => {
         if (extraArgs === null || extraArgs === undefined) return [];
         return extraArgs.map((entry) => ({ key: entry.key, value: entry.value }));
     };
@@ -185,21 +185,7 @@ export const IngestionSourceList = () => {
     ) => {
         if (focusSourceUrn) {
             // Update:
-            let sanitizedInput: UpdateIngestionSourceInput = input;
-            if (sanitizedInput.config) {
-                sanitizedInput = {
-                    ...input,
-                    config: {
-                        ...input.config,
-                        // This is needed to ensure that graphQL __typename properties are not passed to the
-                        // updateIngestionSource GraphQL call which would fail otherwise as it is not an expected
-                        // input type.
-                        extraArgs: sanitizeExtraArgs(input.config?.extraArgs),
-                    },
-                };
-            }
-            console.log(`[updateIngestionSource] ${JSON.stringify(sanitizedInput)}`);
-            updateIngestionSource({ variables: { urn: focusSourceUrn as string, input: sanitizedInput } })
+            updateIngestionSource({ variables: { urn: focusSourceUrn as string, input } })
                 .then(() => {
                     analytics.event({
                         type: EventType.UpdateIngestionSourceEvent,
@@ -313,7 +299,7 @@ export const IngestionSourceList = () => {
                             (recipeBuilderState.config?.executorId as string)) ||
                         DEFAULT_EXECUTOR_ID,
                     debugMode: recipeBuilderState.config?.debugMode || false,
-                    extraArgs: recipeBuilderState.config?.extraArgs || [],
+                    extraArgs: formatExtraArgs(recipeBuilderState.config?.extraArgs || []),
                 },
                 schedule: recipeBuilderState.schedule && {
                     interval: recipeBuilderState.schedule?.interval as string,
