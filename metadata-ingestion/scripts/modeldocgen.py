@@ -351,7 +351,7 @@ def generate_stitched_record(
             field_objects = []
             for f in entity_fields:
                 field = avro.schema.Field(
-                    type=f["type"],
+                    type_=f["type"],
                     name=f["name"],
                     has_default=False,
                 )
