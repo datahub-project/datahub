@@ -29,4 +29,6 @@ public class AuthenticationConfiguration {
    * The lifespan of a UI session token.
    */
   private long sessionTokenDurationMs;
+
+  private TokenServiceConfiguration tokenService;
 }

@@ -408,6 +408,7 @@ fragment downloadScrollAcrossLineageResult on ScrollAcrossLineageResults {
     count
     total
     searchResults {
+        degree
         entity {
             ...downloadSearchResults
         }

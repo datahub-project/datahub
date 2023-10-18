@@ -3,6 +3,7 @@ import gzip
 import logging
 import pathlib
 import pickle
+import shutil
 import sqlite3
 import tempfile
 from dataclasses import dataclass, field
@@ -56,15 +57,15 @@ class ConnectionWrapper:
     conn: sqlite3.Connection
     filename: pathlib.Path
 
-    _temp_directory: Optional[tempfile.TemporaryDirectory]
+    _temp_directory: Optional[str]
 
     def __init__(self, filename: Optional[pathlib.Path] = None):
         self._temp_directory = None
 
         # Warning: If filename is provided, the file will not be automatically cleaned up.
         if not filename:
-            self._temp_directory = tempfile.TemporaryDirectory()
-            filename = pathlib.Path(self._temp_directory.name) / _DEFAULT_FILE_NAME
+            self._temp_directory = tempfile.mkdtemp()
+            filename = pathlib.Path(self._temp_directory) / _DEFAULT_FILE_NAME
 
         self.conn = sqlite3.connect(filename, isolation_level=None)
         self.conn.row_factory = sqlite3.Row
@@ -101,7 +102,8 @@ class ConnectionWrapper:
     def close(self) -> None:
         self.conn.close()
         if self._temp_directory:
-            self._temp_directory.cleanup()
+            shutil.rmtree(self._temp_directory)
+            self._temp_directory = None
 
     def __enter__(self) -> "ConnectionWrapper":
         return self

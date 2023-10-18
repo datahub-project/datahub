@@ -166,6 +166,14 @@ class UnityCatalogSourceConfig(
         description="Option to enable/disable lineage generation.",
     )
 
+    include_external_lineage: bool = pydantic.Field(
+        default=True,
+        description=(
+            "Option to enable/disable lineage generation for external tables."
+            " Only external S3 tables are supported at the moment."
+        ),
+    )
+
     include_notebooks: bool = pydantic.Field(
         default=False,
         description="Ingest notebooks, represented as DataHub datasets.",
