@@ -55,6 +55,7 @@ export const DEFAULT_APP_CONFIG = {
         datasetHealthDashboardEnabled: false,
         showAcrylInfo: false,
         showAccessManagement: false,
+        nestedDomainsEnabled: true,
     },
     chromeExtensionConfig: {
         enabled: false,

@@ -8,7 +8,13 @@
         {
             "downstream": {
                 "table": null,
-                "column": "COUNT(`fact_complaint_snapshot`.`etl_data_dt_id`)"
+                "column": "COUNT(`fact_complaint_snapshot`.`etl_data_dt_id`)",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                },
+                "native_column_type": "BIGINT"
             },
             "upstreams": [
                 {

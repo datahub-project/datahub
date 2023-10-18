@@ -4,8 +4,9 @@ import com.datahub.authentication.AuthenticationConfiguration;
 import com.datahub.authorization.AuthorizationConfiguration;
 import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.metadata.config.ChromeExtensionConfiguration;
-import com.linkedin.gms.factory.spring.YamlPropertySourceFactory;
+import com.linkedin.metadata.spring.YamlPropertySourceFactory;
 import com.linkedin.metadata.config.IntegrationsServiceConfiguration;
+import com.linkedin.metadata.config.MonitorServiceConfiguration;
 import com.linkedin.metadata.config.cache.CacheConfiguration;
 import com.linkedin.metadata.config.DataHubConfiguration;
 import com.linkedin.metadata.config.IngestionConfiguration;
@@ -108,4 +109,9 @@ public class ConfigurationProvider {
    * Configuration for the integrations service.
    */
   private IntegrationsServiceConfiguration integrationsService;
+
+  /**
+   * Configuration for the monitor service.
+   */
+  private MonitorServiceConfiguration monitorService;
 }

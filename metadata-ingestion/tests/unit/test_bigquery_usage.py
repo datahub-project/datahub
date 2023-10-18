@@ -35,7 +35,7 @@ from datahub.metadata.schema_classes import (
     TimeWindowSizeClass,
 )
 from datahub.testing.compare_metadata_json import diff_metadata_json
-from tests.performance.bigquery import generate_events, ref_from_table
+from tests.performance.bigquery.bigquery_events import generate_events, ref_from_table
 from tests.performance.data_generation import generate_data, generate_queries
 from tests.performance.data_model import Container, FieldAccess, Query, Table, View
 
@@ -45,14 +45,15 @@ ACTOR_1, ACTOR_1_URN = "a@acryl.io", "urn:li:corpuser:a"
 ACTOR_2, ACTOR_2_URN = "b@acryl.io", "urn:li:corpuser:b"
 DATABASE_1 = Container("database_1")
 DATABASE_2 = Container("database_2")
-TABLE_1 = Table("table_1", DATABASE_1, ["id", "name", "age"])
-TABLE_2 = Table("table_2", DATABASE_1, ["id", "table_1_id", "value"])
+TABLE_1 = Table("table_1", DATABASE_1, ["id", "name", "age"], None)
+TABLE_2 = Table("table_2", DATABASE_1, ["id", "table_1_id", "value"], None)
 VIEW_1 = View(
     name="view_1",
     container=DATABASE_1,
     columns=["id", "name", "total"],
     definition="VIEW DEFINITION 1",
     parents=[TABLE_1, TABLE_2],
+    column_mapping=None,
 )
 ALL_TABLES = [TABLE_1, TABLE_2, VIEW_1]
 

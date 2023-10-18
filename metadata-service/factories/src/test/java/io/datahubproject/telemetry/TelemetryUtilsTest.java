@@ -7,8 +7,8 @@ import org.mockito.Mockito;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import static org.junit.Assert.*;
 import static org.mockito.ArgumentMatchers.*;
+import static org.testng.AssertJUnit.assertEquals;
 
 
 public class TelemetryUtilsTest {

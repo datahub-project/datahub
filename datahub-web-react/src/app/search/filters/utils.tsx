@@ -14,10 +14,12 @@ import {
     AggregationMetadata,
     DataPlatform,
     DataPlatformInstance,
+    Domain,
     Entity,
     EntityType,
     FacetFilterInput,
     FacetMetadata,
+    GlossaryTerm,
 } from '../../../types.generated';
 import { IconStyleType } from '../../entity/Entity';
 import {
@@ -330,4 +332,17 @@ export function canCreateViewFromFilters(activeFilters: FacetFilterInput[]) {
         }
     }
     return true;
+}
+
+export function getParentEntities(entity: Entity): Entity[] | null {
+    if (!entity) {
+        return null;
+    }
+    if (entity.type === EntityType.GlossaryTerm) {
+        return (entity as GlossaryTerm).parentNodes?.nodes || [];
+    }
+    if (entity.type === EntityType.Domain) {
+        return (entity as Domain).parentDomains?.domains || [];
+    }
+    return null;
 }

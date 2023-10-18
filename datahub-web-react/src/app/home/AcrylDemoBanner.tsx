@@ -46,7 +46,7 @@ export default function AcrylDemoBanner() {
                 <TextContent>
                     DataHub is already the industry&apos;s #1 Open Source Data Catalog.{' '}
                     <StyledLink
-                        href="https://www.acryldata.io/datahub-sign-up"
+                        href="https://www.acryldata.io/datahub-sign-up?utm_source=datahub&utm_medium=referral&utm_campaign=acryl_signup"
                         target="_blank"
                         rel="noopener noreferrer"
                     >

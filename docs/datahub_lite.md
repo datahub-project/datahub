@@ -7,7 +7,6 @@ import TabItem from '@theme/TabItem';
 
 DataHub Lite is a lightweight embeddable version of DataHub with no external dependencies. It is intended to enable local developer tooling use-cases such as simple access to metadata for scripts and other tools.
 DataHub Lite is compatible with the DataHub metadata format and all the ingestion connectors that DataHub supports.
-It was built as a reaction to [recap](https://github.com/recap-cloud/recap) to prove that a similar lightweight system could be built within DataHub quite easily.
 Currently DataHub Lite uses DuckDB under the covers as its default storage layer, but that might change in the future.
 
 ## Features

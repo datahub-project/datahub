@@ -1,0 +1,83 @@
+namespace com.linkedin.assertion
+
+import com.linkedin.schema.SchemaFieldSpec
+
+/**
+* Attributes defining a field values assertion, which asserts that the values for a field / column
+* of a dataset / table matches a set of expectations.
+*
+* In other words, this type of assertion acts as a semantic constraint applied to fields for a specific column.
+*
+* TODO: We should display the "failed row count" to the user if the column fails the verification rules.
+* TODO: Determine whether we need an "operator" that can be applied to the field.
+*/
+record FieldValuesAssertion {
+    /**
+    * The field under evaluation
+    */
+    @Searchable = {
+      "/path": {
+        "fieldName": "fieldPath"
+      }
+    }
+    field: SchemaFieldSpec
+
+    /**
+    * An optional transform to apply to field values
+    * before evaluating the operator.
+    *
+    * If none is applied, the field value will be compared as is.
+    */
+    transform: optional FieldTransform
+
+    /**
+    * The predicate to evaluate against a single value of the field.
+    * Depending on the operator, parameters may be required in order to successfully
+    * evaluate the assertion against the field value.
+    */
+    operator: AssertionStdOperator
+
+    /**
+    * Standard parameters required for the assertion. e.g. min_value, max_value, value, columns
+    */
+    parameters: optional AssertionStdParameters
+
+    /**
+    * Additional customization about when the assertion
+    * should be officially considered failing.
+    */
+    failThreshold: record FieldValuesFailThreshold {
+
+      /**
+      * The type of failure threshold. Either based on the number
+      * of column values (rows) that fail the expectations, or the percentage
+      * of the total rows under consideration.
+      */
+      type: enum FieldValuesFailThresholdType {
+         /*
+         * The maximum number of column values (i.e. rows) that are allowed
+         * to fail the defined expectations before the assertion officially fails.
+         */
+         COUNT
+         /*
+         * The maximum percentage of rows that are allowed
+         * to fail the defined column expectations before the assertion officially fails.
+         */
+         PERCENTAGE
+      } = "COUNT"
+
+      /**
+      * By default this is 0, meaning that ALL column values (i.e. rows) must
+      * meet the defined expectations.
+      */
+      value: long = 0
+    }
+
+    /**
+    * Whether to ignore or allow nulls when running the values assertion. (i.e.
+    * consider only non-null values) using operators OTHER than the IS_NULL operator.
+    *
+    * Defaults to true, allowing null values.
+    */
+    excludeNulls: boolean = true
+}

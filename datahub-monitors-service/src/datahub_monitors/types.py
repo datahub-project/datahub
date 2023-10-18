@@ -2,7 +2,7 @@ import logging
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
-from pydantic import Field, root_validator
+from pydantic import Field, root_validator, validator
 
 from datahub_monitors.common.config import PermissiveBaseModel
 
@@ -14,16 +14,31 @@ logger = logging.getLogger(__name__)
 
 
 class AssertionStdOperator(Enum):
+    BETWEEN = "BETWEEN"
+    LESS_THAN = "LESS_THAN"
+    LESS_THAN_OR_EQUAL_TO = "LESS_THAN_OR_EQUAL_TO"
     GREATER_THAN = "GREATER_THAN"
     GREATER_THAN_OR_EQUAL_TO = "GREATER_THAN_OR_EQUAL_TO"
     EQUAL_TO = "EQUAL_TO"
-    LESS_THAN = "LESS_THAN"
-    LESS_THAN_OR_EQUAL_TO = "LESS_THAN_OR_EQUAL_TO"
-    BETWEEN = "BETWEEN"
+    NOT_EQUAL_TO = "NOT_EQUAL_TO"
+    NULL = "NULL"
+    NOT_NULL = "NOT_NULL"
+    CONTAIN = "CONTAIN"
+    END_WITH = "END_WITH"
+    START_WITH = "START_WITH"
+    REGEX_MATCH = "REGEX_MATCH"
+    IN = "IN"
+    IS_TRUE = "IS_TRUE"
+    IS_FALSE = "IS_FALSE"
+    NOT_IN = "NOT_IN"
 
 
 class AssertionStdParameterType(Enum):
+    STRING = "STRING"
     NUMBER = "NUMBER"
+    LIST = "LIST"
+    SET = "SET"
+    UNKNOWN = "UNKNOWN"
 
 
 class MonitorType(Enum):
@@ -38,6 +53,8 @@ class AssertionType(Enum):
     DATASET = "DATASET"
     FRESHNESS = "FRESHNESS"
     VOLUME = "VOLUME"
+    SQL = "SQL"
+    FIELD = "FIELD"
 
 
 class AssertionResultErrorType(Enum):
@@ -49,6 +66,7 @@ class AssertionResultErrorType(Enum):
     INVALID_PARAMETERS = "INVALID_PARAMETERS"
     INVALID_SOURCE_TYPE = "INVALID_SOURCE_TYPE"
     UNSUPPORTED_PLATFORM = "UNSUPPORTED_PLATFORM"
+    CUSTOM_SQL_ERROR = "CUSTOM_SQL_ERROR"
     UNKNOWN_ERROR = "UNKNOWN_ERROR"
 
 
@@ -67,11 +85,25 @@ class VolumeAssertionType(Enum):
     INCREMENTING_SEGMENT_ROW_COUNT_CHANGE = "INCREMENTING_SEGMENT_ROW_COUNT_CHANGE"
 
 
+class SQLAssertionType(Enum):
+    """Enumeration of SQL assertion types."""
+
+    METRIC = "METRIC"
+    METRIC_CHANGE = "METRIC_CHANGE"
+
+
 class FreshnessAssertionScheduleType(Enum):
     """Enumeration of freshness assertion schedule types."""
 
     CRON = "CRON"
     FIXED_INTERVAL = "FIXED_INTERVAL"
+
+
+class FieldAssertionType(Enum):
+    """Enumeration of field assertion types."""
+
+    FIELD_VALUES = "FIELD_VALUES"
+    FIELD_METRIC = "FIELD_METRIC"
 
 
 class PartitionType(Enum):
@@ -168,6 +200,8 @@ class AssertionEvaluationParametersType(Enum):
 
     DATASET_FRESHNESS = "DATASET_FRESHNESS"
     DATASET_VOLUME = "DATASET_VOLUME"
+    DATASET_SQL = "DATASET_SQL"
+    DATASET_FIELD = "DATASET_FIELD"
 
 
 class FreshnessFieldKind(Enum):
@@ -185,6 +219,41 @@ class AssertionValueChangeType(Enum):
     PERCENTAGE = "PERCENTAGE"
 
 
+class FieldValuesFailThresholdType(Enum):
+    COUNT = "COUNT"
+    PERCENTAGE = "PERCENTAGE"
+
+
+class FieldTransformType(Enum):
+    LENGTH = "LENGTH"
+
+
+class FieldMetricType(Enum):
+    UNIQUE_COUNT = "UNIQUE_COUNT"
+    UNIQUE_PERCENTAGE = "UNIQUE_PERCENTAGE"
+    NULL_COUNT = "NULL_COUNT"
+    NULL_PERCENTAGE = "NULL_PERCENTAGE"
+    MIN = "MIN"
+    MAX = "MAX"
+    MEAN = "MEAN"
+    MEDIAN = "MEDIAN"
+    STDDEV = "STDDEV"
+    NEGATIVE_COUNT = "NEGATIVE_COUNT"
+    NEGATIVE_PERCENTAGE = "NEGATIVE_PERCENTAGE"
+    ZERO_COUNT = "ZERO_COUNT"
+    ZERO_PERCENTAGE = "ZERO_PERCENTAGE"
+    MIN_LENGTH = "MIN_LENGTH"
+    MAX_LENGTH = "MAX_LENGTH"
+    EMPTY_COUNT = "EMPTY_COUNT"
+    EMPTY_PERCENTAGE = "EMPTY_PERCENTAGE"
+
+
+class DatasetFieldSourceType(Enum):
+    ALL_ROWS_QUERY = "ALL_ROWS_QUERY"
+    CHANGED_ROWS_QUERY = "CHANGED_ROWS_QUERY"
+    DATAHUB_DATASET_PROFILE = "DATAHUB_DATASET_PROFILE"
+
+
 class IncrementingSegmentFieldTransformerType(Enum):
     """The 'standard' transformer type. Note that not all source systems will support all operators."""
 
@@ -196,6 +265,12 @@ class IncrementingSegmentFieldTransformerType(Enum):
     FLOOR = "FLOOR"
     CEILING = "CEILING"
     NATIVE = "NATIVE"
+
+
+class AssertionSourceType(Enum):
+    NATIVE = "NATIVE"
+    EXTERNAL = "EXTERNAL"
+    INFERRED = "INFERRED"
 
 
 class CronSchedule(PermissiveBaseModel):
@@ -276,6 +351,10 @@ class DataHubOperationSpec(PermissiveBaseModel):
     custom_operation_types: Optional[List[str]] = Field(alias="customOperationTypes")
 
 
+class FreshnessFieldSpec(SchemaFieldSpec):
+    kind: Optional[FreshnessFieldKind]
+
+
 class DatasetFreshnessAssertionParameters(PermissiveBaseModel):
     """The type of the freshness signal"""
 
@@ -293,6 +372,12 @@ class DatasetFreshnessAssertionParameters(PermissiveBaseModel):
 
 class DatasetVolumeAssertionParameters(PermissiveBaseModel):
     source_type: DatasetVolumeSourceType = Field(alias="sourceType")
+
+
+class DatasetFieldAssertionParameters(PermissiveBaseModel):
+    source_type: DatasetFieldSourceType = Field(alias="sourceType")
+
+    changed_rows_field: Optional[FreshnessFieldSpec] = Field(alias="changedRowsField")
 
 
 class FreshnessAssertion(PermissiveBaseModel):
@@ -423,6 +508,179 @@ class VolumeAssertion(PermissiveBaseModel):
     filter: Optional[DatasetFilter] = None
 
 
+class SQLAssertion(PermissiveBaseModel):
+    type: SQLAssertionType
+
+    statement: str
+
+    change_type: Optional[AssertionValueChangeType] = Field(alias="changeType")
+
+    # The operator GREATER_THAN, GREATER_THAN_OR_EQUAL_TO, EQUAL_TO, etc being applied to the assertion
+    operator: AssertionStdOperator
+
+    # The parameters provided as input to the operator.
+    parameters: AssertionStdParameters
+
+
+class FieldValuesFailThreshold(PermissiveBaseModel):
+    type: FieldValuesFailThresholdType
+
+    value: int = 0
+
+
+class FieldTransform(PermissiveBaseModel):
+    type: FieldTransformType
+
+
+class FieldValuesAssertion(PermissiveBaseModel):
+    """
+    Attributes defining a field values assertion, which asserts that the values for a field / column
+    of a dataset / table matches a set of expectations.
+    In other words, this type of assertion acts as a semantic constraint applied to fields for a specific column.
+    """
+
+    field: SchemaFieldSpec
+
+    operator: AssertionStdOperator
+
+    parameters: Optional[AssertionStdParameters]
+
+    transform: Optional[FieldTransform]
+
+    fail_threshold: FieldValuesFailThreshold = Field(alias="failThreshold")
+
+    exclude_nulls: bool = Field(alias="excludeNulls")
+
+    @validator("parameters", pre=True, always=True)
+    def validate_parameters(cls, parameters: Optional[dict], values: dict) -> dict:
+        if parameters is None:
+            return {}
+
+        operator = values.get("operator")
+        # validate that the operator type is valid for the parameter type
+        if operator in [
+            AssertionStdOperator.LESS_THAN,
+            AssertionStdOperator.LESS_THAN_OR_EQUAL_TO,
+            AssertionStdOperator.GREATER_THAN,
+            AssertionStdOperator.GREATER_THAN_OR_EQUAL_TO,
+            AssertionStdOperator.EQUAL_TO,
+            AssertionStdOperator.NOT_EQUAL_TO,
+        ]:
+            if parameters["value"] is None:
+                raise ValueError(
+                    f"Parameter value is required when operator is {operator.name}"
+                )
+            if parameters["value"]["type"] not in [
+                AssertionStdParameterType.STRING.value,
+                AssertionStdParameterType.NUMBER.value,
+            ]:
+                raise ValueError(f"Operator {operator.name} must be a string or number")
+
+        if operator in [
+            AssertionStdOperator.CONTAIN,
+            AssertionStdOperator.END_WITH,
+            AssertionStdOperator.START_WITH,
+            AssertionStdOperator.IN,
+            AssertionStdOperator.NOT_IN,
+        ]:
+            if parameters["value"] is None:
+                raise ValueError(
+                    f"Parameter value is required when operator is {operator.name}"
+                )
+
+        if operator in [AssertionStdOperator.BETWEEN]:
+            if parameters["minValue"] is None or parameters["maxValue"] is None:
+                raise ValueError(
+                    f"Parameter minValue and maxValue are required when operator is {operator.name}"
+                )
+
+        if operator in [AssertionStdOperator.REGEX_MATCH]:
+            if parameters["value"] is None:
+                raise ValueError(
+                    f"Parameter value is required when operator is {operator.name}"
+                )
+            if (
+                not parameters["value"]["type"]
+                == AssertionStdParameterType.STRING.value
+            ):
+                raise ValueError(f"Operator {operator.name} must be a string")
+
+        return parameters
+
+    @validator("transform", pre=True, always=True)
+    def validate_transform(
+        cls, transform: Optional[FieldTransform], values: Dict[str, Any]
+    ) -> Optional[FieldTransform]:
+        if transform:
+            parameters = values.get("parameters")
+            field = values.get("field")
+            if parameters and field:
+                if not field.type == "STRING":
+                    raise ValueError(
+                        f"LENGTH Transform only valid on field type STRING, not {field.type}"
+                    )
+
+                if (
+                    parameters.value
+                    and not parameters.value.type == AssertionStdParameterType.NUMBER
+                ):
+                    raise ValueError(
+                        f"LENGTH Transform only valid with type NUMBER, not {parameters.value.type}"
+                    )
+
+                if (
+                    parameters.min_value
+                    and not parameters.min_value.type
+                    == AssertionStdParameterType.NUMBER
+                ):
+                    raise ValueError(
+                        f"LENGTH Transform only valid with type NUMBER, not {parameters.min_value.type}"
+                    )
+
+                if (
+                    parameters.max_value
+                    and not parameters.max_value.type
+                    == AssertionStdParameterType.NUMBER
+                ):
+                    raise ValueError(
+                        f"LENGTH Transform only valid with type NUMBER, not {parameters.max_value.type}"
+                    )
+
+        return transform
+
+
+class FieldMetricAssertion(PermissiveBaseModel):
+    """
+    Attributes defining a field metric assertion, which asserts an expectation against
+    a common metric derived from the set of field / column values, for example:
+    max, min, median, null count, null percentage, unique count, unique percentage, and more.
+    """
+
+    field: SchemaFieldSpec
+
+    metric: FieldMetricType
+
+    operator: AssertionStdOperator
+
+    parameters: AssertionStdParameters
+
+
+class FieldAssertion(PermissiveBaseModel):
+    """Attributes defining a Field Assertion.."""
+
+    type: FieldAssertionType
+
+    field_values_assertion: Optional[FieldValuesAssertion] = Field(
+        alias="fieldValuesAssertion"
+    )
+
+    field_metric_assertion: Optional[FieldMetricAssertion] = Field(
+        alias="fieldMetricAssertion"
+    )
+
+    filter: Optional[DatasetFilter] = None
+
+
 class AssertionEntity(PermissiveBaseModel):
     """A unique identifier for the assertee (e.g. dataset urn). This represents the unique coordinates inside the data platform"""
 
@@ -538,12 +796,28 @@ class Assertion(PermissiveBaseModel):
     # Volume Assertion Object
     volume_assertion: Optional[VolumeAssertion] = Field(alias="volumeAssertion")
 
+    # SQL Assertion Object
+    sql_assertion: Optional[SQLAssertion] = Field(alias="sqlAssertion")
+
+    # Field Assertion Object
+    field_assertion: Optional[FieldAssertion] = Field(alias="fieldAssertion")
+
+    source_type: Optional[AssertionSourceType] = Field(alias="sourceType")
+
     @root_validator(pre=True)
     def extract(cls, values: Dict[str, Any]) -> Dict[str, Any]:
         # Attempt to extract the entity field from the "relationships"
         # response object provided by the GraphQL API.
-        if "entity" not in values:
+        graphql_entity = None
+
+        if (
+            "relationships" in values
+            and "relationships" in values["relationships"]
+            and len(values["relationships"]["relationships"]) > 0
+        ):
             graphql_entity = values["relationships"]["relationships"][0]["entity"]
+
+        if "entity" not in values and graphql_entity:
             platform_urn = graphql_entity["platform"]["urn"]
             entity_urn = graphql_entity["urn"]
 
@@ -578,13 +852,19 @@ class Assertion(PermissiveBaseModel):
                 "qualified_name": qualified_name,
             }
 
-        if "connectionUrn" not in values:
-            graphql_entity = values["relationships"]["relationships"][0]["entity"]
+        if "connectionUrn" not in values and graphql_entity:
             platform_urn = graphql_entity["platform"]["urn"]
             values["connectionUrn"] = platform_urn
 
         if "info" in values and "type" in values["info"]:
             values["type"] = values["info"]["type"]
+
+        if (
+            "info" in values
+            and "source" in values["info"]
+            and "type" in values["info"]["source"]
+        ):
+            values["sourceType"] = values["info"]["source"]["type"]
 
         if (
             "freshnessAssertion" not in values
@@ -599,6 +879,20 @@ class Assertion(PermissiveBaseModel):
             and "volumeAssertion" in values["info"]
         ):
             values["volumeAssertion"] = values["info"]["volumeAssertion"]
+
+        if (
+            "sqlAssertion" not in values
+            and "info" in values
+            and "sqlAssertion" in values["info"]
+        ):
+            values["sqlAssertion"] = values["info"]["sqlAssertion"]
+
+        if (
+            "fieldAssertion" not in values
+            and "info" in values
+            and "fieldAssertion" in values["info"]
+        ):
+            values["fieldAssertion"] = values["info"]["fieldAssertion"]
 
         return values
 
@@ -617,6 +911,11 @@ class AssertionEvaluationParameters(PermissiveBaseModel):
         alias="datasetVolumeParameters"
     )
 
+    # Dataset FIELD Parameters. Present if the type is DATASET_FIELD
+    dataset_field_parameters: Optional[DatasetFieldAssertionParameters] = Field(
+        alias="datasetFieldParameters"
+    )
+
 
 class AssertionEvaluationSpec(PermissiveBaseModel):
     # The assertion to be evaluated
@@ -626,7 +925,7 @@ class AssertionEvaluationSpec(PermissiveBaseModel):
     schedule: CronSchedule
 
     # The parameters required to evaluate an assertion
-    parameters: Optional[AssertionEvaluationParameters] = None
+    parameters: AssertionEvaluationParameters
 
 
 class AssertionMonitor(PermissiveBaseModel):

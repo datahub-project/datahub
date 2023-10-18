@@ -2,7 +2,6 @@ package com.linkedin.datahub.graphql.resolvers.assertion;
 
 import com.linkedin.assertion.AssertionInfo;
 import com.linkedin.assertion.AssertionStdAggregation;
-import com.linkedin.assertion.AssertionStdOperator;
 import com.linkedin.assertion.AssertionType;
 import com.linkedin.assertion.DatasetAssertionInfo;
 import com.linkedin.assertion.DatasetAssertionScope;
@@ -10,13 +9,124 @@ import com.linkedin.assertion.FreshnessAssertionInfo;
 import com.linkedin.assertion.FreshnessAssertionType;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.datahub.graphql.generated.AssertionActionInput;
+import com.linkedin.datahub.graphql.generated.AssertionActionType;
+import com.linkedin.datahub.graphql.generated.AssertionActionsInput;
+import com.linkedin.datahub.graphql.generated.AssertionStdOperator;
+import com.linkedin.datahub.graphql.generated.AssertionStdParameterInput;
+import com.linkedin.datahub.graphql.generated.AssertionStdParameterType;
+import com.linkedin.datahub.graphql.generated.AssertionStdParametersInput;
+import com.linkedin.datahub.graphql.generated.CreateSqlAssertionInput;
+import com.linkedin.datahub.graphql.generated.DatasetFilterInput;
+import com.linkedin.datahub.graphql.generated.DatasetFilterType;
+import com.linkedin.datahub.graphql.generated.SchemaFieldSpecInput;
+import com.linkedin.datahub.graphql.generated.TestAssertionInput;
+
+import java.util.ArrayList;
+import java.util.List;
+
 import org.testng.Assert;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 public class AssertionUtilsTest {
 
   private static final Urn TEST_DATASET_URN = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,test,PROD)");
   private static final Urn TEST_DATAJOB_URN = UrnUtils.getUrn("urn:li:dataJob:test");
+  private static final AssertionStdParameterInput TEST_PARAMETER_INPUT = new AssertionStdParameterInput();
+  private static final AssertionStdParametersInput TEST_PARAMETERS_INPUT = new AssertionStdParametersInput();
+  private static final AssertionStdOperator TEST_OPERATOR = AssertionStdOperator.IN;
+  private static final SchemaFieldSpecInput TEST_SCHEMA_FIELD_SPEC_INPUT = new SchemaFieldSpecInput();
+  private static final DatasetFilterInput TEST_DATASET_FILTER_INPUT = new DatasetFilterInput();
+  private static final AssertionActionsInput TEST_ASSERTION_ACTIONS_INPUT = new AssertionActionsInput();
+  private static final AssertionActionInput TEST_ASSERTION_ACTION_SUCCESS_INPUT = new AssertionActionInput();
+  private static final AssertionActionInput TEST_ASSERTION_ACTION_FAILURE_INPUT = new AssertionActionInput();
+  private static final List<AssertionActionInput> TEST_ASSERTION_ACTION_SUCCESS_LIST_INPUT = new ArrayList<AssertionActionInput>();
+  private static final List<AssertionActionInput> TEST_ASSERTION_ACTION_FAILURE_LIST_INPUT = new ArrayList<AssertionActionInput>();
+  private static final TestAssertionInput TEST_ASSERTION_INPUT = new TestAssertionInput();
+  private static final CreateSqlAssertionInput TEST_CREATE_SQL_ASSERTION_INPUT = new CreateSqlAssertionInput();
+
+  @BeforeMethod
+  void setUp() {
+    // Set up test parameter input
+    TEST_PARAMETER_INPUT.setType(AssertionStdParameterType.NUMBER);
+    TEST_PARAMETER_INPUT.setValue("10");
+
+    // Set up test parameters input
+    TEST_PARAMETERS_INPUT.setValue(TEST_PARAMETER_INPUT);
+
+    // Set up test schema field spec input
+    TEST_SCHEMA_FIELD_SPEC_INPUT.setType("STRING");
+    TEST_SCHEMA_FIELD_SPEC_INPUT.setNativeType("VARCHAR");
+    TEST_SCHEMA_FIELD_SPEC_INPUT.setPath("test");
+
+    // Set up test dataset filter input
+    TEST_DATASET_FILTER_INPUT.setType(DatasetFilterType.SQL);
+    TEST_DATASET_FILTER_INPUT.setSql("WHERE value > 10");
+
+    // Set up test assertion actions input
+    TEST_ASSERTION_ACTION_SUCCESS_INPUT.setType(AssertionActionType.RESOLVE_INCIDENT);
+    TEST_ASSERTION_ACTION_FAILURE_INPUT.setType(AssertionActionType.RAISE_INCIDENT);
+    TEST_ASSERTION_ACTION_SUCCESS_LIST_INPUT.add(TEST_ASSERTION_ACTION_SUCCESS_INPUT);
+    TEST_ASSERTION_ACTION_FAILURE_LIST_INPUT.add(TEST_ASSERTION_ACTION_FAILURE_INPUT);
+    TEST_ASSERTION_ACTIONS_INPUT.setOnSuccess(TEST_ASSERTION_ACTION_SUCCESS_LIST_INPUT);
+    TEST_ASSERTION_ACTIONS_INPUT.setOnFailure(TEST_ASSERTION_ACTION_FAILURE_LIST_INPUT);
+
+    // Set up test assertion input
+    TEST_CREATE_SQL_ASSERTION_INPUT.setEntityUrn(TEST_DATASET_URN.toString());
+    TEST_ASSERTION_INPUT.setType(com.linkedin.datahub.graphql.generated.AssertionType.SQL);
+    TEST_ASSERTION_INPUT.setSqlTestInput(TEST_CREATE_SQL_ASSERTION_INPUT);
+  }
+
+  @Test
+  public void testCreateDatasetAssertionParameters() {
+    final com.linkedin.assertion.AssertionStdParameters result = AssertionUtils
+        .createDatasetAssertionParameters(TEST_PARAMETERS_INPUT);
+    Assert.assertEquals(result.getValue().getType(), com.linkedin.assertion.AssertionStdParameterType.NUMBER);
+    Assert.assertEquals(result.getValue().getValue(), "10");
+  }
+
+  @Test
+  public void testCreateDatasetAssertionParameter() {
+    final com.linkedin.assertion.AssertionStdParameter result = AssertionUtils
+        .createDatasetAssertionParameter(TEST_PARAMETER_INPUT);
+    Assert.assertEquals(result.getType(), com.linkedin.assertion.AssertionStdParameterType.NUMBER);
+    Assert.assertEquals(result.getValue(), "10");
+  }
+
+  @Test
+  public void testCreateAssertionStdOperator() {
+    final com.linkedin.assertion.AssertionStdOperator result = AssertionUtils
+        .createAssertionStdOperator(TEST_OPERATOR);
+    Assert.assertEquals(result, com.linkedin.assertion.AssertionStdOperator.IN);
+  }
+
+  @Test
+  public void testCreateSchemaFieldSpec() {
+    final com.linkedin.schema.SchemaFieldSpec result = AssertionUtils
+        .createSchemaFieldSpec(TEST_SCHEMA_FIELD_SPEC_INPUT);
+    Assert.assertEquals(result.getType(), "STRING");
+    Assert.assertEquals(result.getNativeType(), "VARCHAR");
+    Assert.assertEquals(result.getPath(), "test");
+  }
+
+  @Test
+  public void testCreateAssertionFilter() {
+    final com.linkedin.dataset.DatasetFilter result = AssertionUtils
+        .createAssertionFilter(TEST_DATASET_FILTER_INPUT);
+    Assert.assertEquals(result.getType(), com.linkedin.dataset.DatasetFilterType.SQL);
+    Assert.assertEquals(result.getSql(), "WHERE value > 10");
+  }
+
+  @Test
+  public void testCreateAssertionActions() {
+    final com.linkedin.assertion.AssertionActions result = AssertionUtils
+        .createAssertionActions(TEST_ASSERTION_ACTIONS_INPUT);
+    Assert.assertEquals(result.getOnSuccess().get(0).getType(),
+        com.linkedin.assertion.AssertionActionType.RESOLVE_INCIDENT);
+    Assert.assertEquals(result.getOnFailure().get(0).getType(),
+        com.linkedin.assertion.AssertionActionType.RAISE_INCIDENT);
+  }
 
   @Test
   public void testGetAsserteeUrnFromInfo() {
@@ -24,11 +134,10 @@ public class AssertionUtilsTest {
     AssertionInfo info = new AssertionInfo();
     info.setType(AssertionType.DATASET);
     info.setDatasetAssertion(new DatasetAssertionInfo()
-      .setOperator(AssertionStdOperator.IN)
-      .setScope(DatasetAssertionScope.DATASET_COLUMN)
-      .setDataset(TEST_DATASET_URN)
-      .setAggregation(AssertionStdAggregation.MAX)
-    );
+        .setOperator(com.linkedin.assertion.AssertionStdOperator.IN)
+        .setScope(DatasetAssertionScope.DATASET_COLUMN)
+        .setDataset(TEST_DATASET_URN)
+        .setAggregation(AssertionStdAggregation.MAX));
     Urn result = AssertionUtils.getAsserteeUrnFromInfo(info);
     Assert.assertEquals(result, TEST_DATASET_URN);
 
@@ -37,19 +146,16 @@ public class AssertionUtilsTest {
     info.setType(AssertionType.FRESHNESS);
     info.setFreshnessAssertion(new FreshnessAssertionInfo()
         .setType(FreshnessAssertionType.DATASET_CHANGE)
-        .setEntity(TEST_DATASET_URN)
-    );
+        .setEntity(TEST_DATASET_URN));
     result = AssertionUtils.getAsserteeUrnFromInfo(info);
     Assert.assertEquals(result, TEST_DATASET_URN);
-
 
     // Case 3: DataJob FRESHNESS Assertion
     info = new AssertionInfo();
     info.setType(AssertionType.FRESHNESS);
     info.setFreshnessAssertion(new FreshnessAssertionInfo()
         .setType(FreshnessAssertionType.DATASET_CHANGE)
-        .setEntity(TEST_DATAJOB_URN)
-    );
+        .setEntity(TEST_DATAJOB_URN));
     result = AssertionUtils.getAsserteeUrnFromInfo(info);
     Assert.assertEquals(result, TEST_DATAJOB_URN);
 
@@ -58,8 +164,13 @@ public class AssertionUtilsTest {
     info.setType(AssertionType.$UNKNOWN);
     info.setFreshnessAssertion(new FreshnessAssertionInfo()
         .setType(FreshnessAssertionType.DATA_JOB_RUN)
-        .setEntity(TEST_DATASET_URN)
-    );
+        .setEntity(TEST_DATASET_URN));
     Assert.assertThrows(RuntimeException.class, () -> AssertionUtils.getAsserteeUrnFromInfo(badInfo));
+  }
+
+  @Test
+  public void testGetAsserteeUrnFromTestInput() {
+    final String result = AssertionUtils.getAsserteeUrnFromTestInput(TEST_ASSERTION_INPUT);
+    Assert.assertEquals(result, TEST_DATASET_URN.toString());
   }
 }

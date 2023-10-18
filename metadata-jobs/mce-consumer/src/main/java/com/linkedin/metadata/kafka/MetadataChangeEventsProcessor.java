@@ -4,8 +4,7 @@ import com.codahale.metrics.Histogram;
 import com.codahale.metrics.MetricRegistry;
 import com.datahub.authentication.Authentication;
 import com.linkedin.entity.Entity;
-import com.linkedin.entity.client.RestliEntityClient;
-import com.linkedin.gms.factory.auth.SystemAuthenticationFactory;
+import com.linkedin.entity.client.SystemRestliEntityClient;
 import com.linkedin.gms.factory.entity.RestliEntityClientFactory;
 import com.linkedin.gms.factory.kafka.KafkaEventConsumerFactory;
 import com.linkedin.gms.factory.kafka.DataHubKafkaProducerFactory;
@@ -40,15 +39,14 @@ import org.springframework.stereotype.Component;
 @Slf4j
 @Component
 @Conditional(MetadataChangeProposalProcessorCondition.class)
-@Import({RestliEntityClientFactory.class, SystemAuthenticationFactory.class, KafkaEventConsumerFactory.class,
-    DataHubKafkaProducerFactory.class})
+@Import({RestliEntityClientFactory.class, KafkaEventConsumerFactory.class, DataHubKafkaProducerFactory.class})
 @EnableKafka
 @RequiredArgsConstructor
 public class MetadataChangeEventsProcessor {
 
   @NonNull
   private final Authentication systemAuthentication;
-  private final RestliEntityClient entityClient;
+  private final SystemRestliEntityClient entityClient;
   private final Producer<String, IndexedRecord> kafkaProducer;
 
   private final Histogram kafkaLagStats = MetricUtils.get().histogram(MetricRegistry.name(this.getClass(), "kafkaLag"));

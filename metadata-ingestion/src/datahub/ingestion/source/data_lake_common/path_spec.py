@@ -18,7 +18,14 @@ logging.getLogger("py4j").setLevel(logging.ERROR)
 logger: logging.Logger = logging.getLogger(__name__)
 
 SUPPORTED_FILE_TYPES: List[str] = ["csv", "tsv", "json", "parquet", "avro"]
-SUPPORTED_COMPRESSIONS: List[str] = ["gz", "bz2"]
+
+# These come from the smart_open library.
+SUPPORTED_COMPRESSIONS: List[str] = [
+    "gz",
+    "bz2",
+    # We have a monkeypatch on smart_open that aliases .gzip to .gz.
+    "gzip",
+]
 
 
 class PathSpec(ConfigModel):

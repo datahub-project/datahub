@@ -182,7 +182,12 @@ export default function GroupMembers({ urn, pageSize, isExternalGroup, onChangeM
     return (
         <>
             <Row style={ADD_MEMBER_STYLE}>
-                <AddMember type="text" disabled={isExternalGroup} onClick={onClickEditMembers}>
+                <AddMember
+                    type="text"
+                    disabled={isExternalGroup}
+                    onClick={onClickEditMembers}
+                    data-testid="add-group-member-button"
+                >
                     <UserAddOutlined />
                     <AddMemberText>Add Member</AddMemberText>
                 </AddMember>

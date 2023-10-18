@@ -16,6 +16,12 @@ import {
     AssertionStdParameterType,
     AssertionValueChangeType,
     DatasetVolumeSourceType,
+    SqlAssertionType,
+    FieldAssertionType,
+    FieldTransformType,
+    FieldValuesFailThresholdType,
+    FieldMetricType,
+    DatasetFieldAssertionSourceType,
 } from '../../../../../../../../types.generated';
 
 /**
@@ -46,6 +52,11 @@ export interface AssertionMonitorBuilderState {
          * The type of the source itself, e.g. mysql, bigquery, bigquery-usage. Should match the recipe.
          */
         type?: AssertionType | null;
+
+        /**
+         * An optional human-readable description of the assertion
+         */
+        description?: string | null;
 
         /**
          * The schedule on which to execute the source (optional)
@@ -116,6 +127,81 @@ export interface AssertionMonitorBuilderState {
                 sql?: string | null;
             } | null;
         } | null;
+
+        /**
+         * SQL assertion configuration
+         */
+        sqlAssertion?: {
+            /**
+             * The type of the SQL assertion
+             */
+            type?: SqlAssertionType | null;
+
+            /**
+             * The SQL statement to execute
+             */
+            statement?: string | null;
+
+            /**
+             * The type of the value used to evaluate the assertion: a fixed absolute value or a relative percentage.
+             */
+            changeType?: AssertionValueChangeType | null;
+
+            /**
+             * The operator you'd like to apply to the result of the SQL query
+             */
+            operator?: AssertionStdOperator | null;
+
+            /**
+             * The parameters for the SQL assertion
+             */
+            parameters?: {
+                /**
+                 * The value parameter of an assertion
+                 */
+                value?: {
+                    /**
+                     * The parameter value
+                     */
+                    value?: string | null;
+
+                    /**
+                     * The type of the parameter
+                     */
+                    type?: AssertionStdParameterType | null;
+                } | null;
+
+                /**
+                 * The maxValue parameter of an assertion
+                 */
+                maxValue?: {
+                    /**
+                     * The parameter value
+                     */
+                    value?: string | null;
+
+                    /**
+                     * The type of the parameter
+                     */
+                    type?: AssertionStdParameterType | null;
+                } | null;
+
+                /**
+                 * The minValue parameter of an assertion
+                 */
+                minValue?: {
+                    /**
+                     * The parameter value
+                     */
+                    value?: string | null;
+
+                    /**
+                     * The type of the parameter
+                     */
+                    type?: AssertionStdParameterType | null;
+                } | null;
+            } | null;
+        };
 
         /**
          * Volume assertion configuration
@@ -274,6 +360,226 @@ export interface AssertionMonitorBuilderState {
         } | null;
 
         /**
+         * Field assertion configuration
+         */
+        fieldAssertion?: {
+            /**
+             * The type of the Field assertion
+             */
+            type?: FieldAssertionType | null;
+
+            /**
+             * Required if type is 'FIELD_VALUES'
+             */
+            fieldValuesAssertion?: {
+                /**
+                 * The field under evaluation
+                 */
+                field?: {
+                    /**
+                     * The path of the field
+                     */
+                    path?: string | null;
+
+                    /**
+                     * The DataHub type of the field
+                     */
+                    type?: SchemaFieldDataType | null;
+
+                    /**
+                     * The native type of the field
+                     */
+                    nativeType?: string | null;
+                } | null;
+
+                /**
+                 * An optional transform to apply to field values
+                 */
+                transform?: {
+                    /**
+                     * The type of the field transform
+                     */
+                    type?: FieldTransformType | null;
+                } | null;
+
+                /**
+                 * The parameters for the field assertion
+                 */
+                parameters?: {
+                    /**
+                     * The value parameter of an assertion
+                     */
+                    value?: {
+                        /**
+                         * The parameter value
+                         */
+                        value?: string | null;
+
+                        /**
+                         * The type of the parameter
+                         */
+                        type?: AssertionStdParameterType | null;
+                    } | null;
+
+                    /**
+                     * The maxValue parameter of an assertion
+                     */
+                    maxValue?: {
+                        /**
+                         * The parameter value
+                         */
+                        value?: string | null;
+
+                        /**
+                         * The type of the parameter
+                         */
+                        type?: AssertionStdParameterType | null;
+                    } | null;
+
+                    /**
+                     * The minValue parameter of an assertion
+                     */
+                    minValue?: {
+                        /**
+                         * The parameter value
+                         */
+                        value?: string | null;
+
+                        /**
+                         * The type of the parameter
+                         */
+                        type?: AssertionStdParameterType | null;
+                    } | null;
+                } | null;
+
+                /**
+                 * Additional customization about when the assertion should be considered to fail
+                 */
+                failThreshold?: {
+                    /**
+                     * The type of failure threshold
+                     */
+                    type?: FieldValuesFailThresholdType | null;
+
+                    /**
+                     * The value of the threshold
+                     */
+                    value?: number | null;
+                } | null;
+
+                /**
+                 * Whether to ignore or allow nulls when running the values assertion
+                 */
+                excludeNulls?: boolean | null;
+
+                /**
+                 * A boolean operator that is applied on the input to an assertion
+                 */
+                operator?: AssertionStdOperator | null;
+            } | null;
+
+            /**
+             * Required if type is 'FIELD_METRIC'
+             */
+            fieldMetricAssertion?: {
+                /**
+                 * The field under evaluation
+                 */
+                field?: {
+                    /**
+                     * The path of the field
+                     */
+                    path?: string | null;
+
+                    /**
+                     * The DataHub type of the field
+                     */
+                    type?: SchemaFieldDataType | null;
+
+                    /**
+                     * The native type of the field
+                     */
+                    nativeType?: string | null;
+                } | null;
+
+                /**
+                 * The specific metric to assert against
+                 */
+                metric?: FieldMetricType | null;
+
+                /**
+                 * The predicate to evaluate against the metric for the field
+                 */
+                operator?: AssertionStdOperator | null;
+
+                /**
+                 * The parameters for the field assertion
+                 */
+                parameters?: {
+                    /**
+                     * The value parameter of an assertion
+                     */
+                    value?: {
+                        /**
+                         * The parameter value
+                         */
+                        value?: string | null;
+
+                        /**
+                         * The type of the parameter
+                         */
+                        type?: AssertionStdParameterType | null;
+                    } | null;
+
+                    /**
+                     * The maxValue parameter of an assertion
+                     */
+                    maxValue?: {
+                        /**
+                         * The parameter value
+                         */
+                        value?: string | null;
+
+                        /**
+                         * The type of the parameter
+                         */
+                        type?: AssertionStdParameterType | null;
+                    } | null;
+
+                    /**
+                     * The minValue parameter of an assertion
+                     */
+                    minValue?: {
+                        /**
+                         * The parameter value
+                         */
+                        value?: string | null;
+
+                        /**
+                         * The type of the parameter
+                         */
+                        type?: AssertionStdParameterType | null;
+                    } | null;
+                } | null;
+            } | null;
+
+            /**
+             * An optional filter used to further partition the dataset
+             */
+            filter?: {
+                /**
+                 * The filter type
+                 */
+                type?: DatasetFilterType | null;
+
+                /**
+                 * The raw query if using a SQL FilterType
+                 */
+                sql?: string | null;
+            } | null;
+        } | null;
+
+        /**
          * Configurations for actions to be performed on assertion success or failure.
          */
         actions?: {
@@ -376,6 +682,41 @@ export interface AssertionMonitorBuilderState {
              * The source type of the operation
              */
             sourceType?: DatasetVolumeSourceType | null;
+        } | null;
+
+        /**
+         * Information required to execute a Field assertion
+         */
+        datasetFieldParameters?: {
+            /**
+             * The source type of the operation
+             */
+            sourceType?: DatasetFieldAssertionSourceType | null;
+
+            /**
+             * Required if sourceType is 'CHANGED_ROWS_QUERY'
+             */
+            changedRowsField?: {
+                /**
+                 * The path of the field
+                 */
+                path?: string | null;
+
+                /**
+                 * The DataHub type of the field
+                 */
+                type?: string | null;
+
+                /**
+                 * The native type of the field
+                 */
+                nativeType?: string | null;
+
+                /**
+                 * The type of the field being used to verify the Freshness Assertion
+                 */
+                kind?: FreshnessFieldKind | null;
+            } | null;
         } | null;
     } | null;
 

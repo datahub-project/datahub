@@ -68,26 +68,31 @@ export const VolumeRowCountChangeBuilder = ({ volumeInfo, value, onChange, updat
         case AssertionStdOperator.GreaterThanOrEqualTo:
         case AssertionStdOperator.LessThanOrEqualTo:
             return (
-                <VolumeNumberInput
-                    name="parameters.value"
-                    placeholder="Number"
-                    value={value.value?.value ? parseInt(value.value.value, 10) : undefined}
-                    onChange={(newValue) => handleValueChange(newValue as number)}
-                    select={{
-                        value: (volumeInfo[propertyName] as any)?.type,
-                        options: [
-                            {
-                                label: 'total row count',
-                                value: AssertionValueChangeType.Absolute,
-                            },
-                            {
-                                label: '% of total table size',
-                                value: AssertionValueChangeType.Percentage,
-                            },
-                        ],
-                        onChange: handleTypeChange,
-                    }}
-                />
+                <Container>
+                    <VolumeNumberInput
+                        name="parameters.value"
+                        placeholder="Number"
+                        value={value.value?.value ? parseInt(value.value.value, 10) : undefined}
+                        onChange={(newValue) => handleValueChange(newValue as number)}
+                        select={{
+                            value: (volumeInfo[propertyName] as any)?.type,
+                            options: [
+                                {
+                                    label: 'total rows',
+                                    value: AssertionValueChangeType.Absolute,
+                                },
+                                {
+                                    label: '% of total table size',
+                                    value: AssertionValueChangeType.Percentage,
+                                },
+                            ],
+                            onChange: handleTypeChange,
+                        }}
+                    />
+                    <Typography.Paragraph type="secondary">
+                        Between subsequent evaluations of this assertion
+                    </Typography.Paragraph>
+                </Container>
             );
         case AssertionStdOperator.Between:
             return (
@@ -101,7 +106,7 @@ export const VolumeRowCountChangeBuilder = ({ volumeInfo, value, onChange, updat
                             value: (volumeInfo[propertyName] as any)?.type,
                             options: [
                                 {
-                                    label: 'total row count',
+                                    label: 'total rows',
                                     value: AssertionValueChangeType.Absolute,
                                 },
                                 {
@@ -132,7 +137,7 @@ export const VolumeRowCountChangeBuilder = ({ volumeInfo, value, onChange, updat
                             value: (volumeInfo[propertyName] as any)?.type,
                             options: [
                                 {
-                                    label: 'total row count',
+                                    label: 'total rows',
                                     value: AssertionValueChangeType.Absolute,
                                 },
                                 {
@@ -153,6 +158,9 @@ export const VolumeRowCountChangeBuilder = ({ volumeInfo, value, onChange, updat
                             }),
                         ]}
                     />
+                    <Typography.Paragraph type="secondary">
+                        Between subsequent evaluations of this assertion
+                    </Typography.Paragraph>
                 </Container>
             );
         default:

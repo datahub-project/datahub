@@ -138,6 +138,53 @@ fragment AssertionDetails on Assertion {
         sql
       }
     }
+    sqlAssertion {
+      type
+      statement
+      changeType
+      operator
+      parameters {
+        ...AssertionStdParameterDetails
+      }
+    }
+    fieldAssertion {
+      type
+      fieldValuesAssertion {
+        field {
+          path
+          type
+          nativeType
+        }
+        transform {
+          type
+        }
+        operator
+        parameters {
+          ...AssertionStdParameterDetails
+        }
+        failThreshold {
+          type
+          value
+        }
+        excludeNulls
+      }
+      fieldMetricAssertion {
+        field {
+          path
+          type
+          nativeType
+        }
+        metric
+        operator
+        parameters {
+          ...AssertionStdParameterDetails
+        }
+      }
+      filter {
+        type
+        sql
+      }
+    }
     source {
       type
     }
@@ -194,6 +241,15 @@ fragment MonitorSearchResults on SearchResults {
                 }
                 datasetVolumeParameters {
                   sourceType
+                }
+                datasetFieldParameters {
+                  sourceType
+                  changedRowsField {
+                    kind
+                    path
+                    type
+                    nativeType
+                  }
                 }
               }
             }

@@ -116,19 +116,21 @@ export const ASSERTION_INFO = [
         name: 'Column',
         description: 'Define & monitor your expectations about the values in a column',
         icon: <StyledProjectOutlined />,
-        type: null, // TODO
+        type: AssertionType.Field,
         entityTypes: [EntityType.Dataset],
-        enabled: false,
+        enabled: true,
         visible: true,
+        requiresConnection: true,
     },
     {
         name: 'Custom',
         description: 'Define & monitor your expectations using custom SQL rules',
         icon: <StyledConsoleSqlOutlined />,
-        type: null, // TODO
+        type: AssertionType.Sql,
         entityTypes: [EntityType.Dataset],
-        enabled: false,
+        enabled: true,
         visible: true,
+        requiresConnection: true,
     },
     {
         name: 'External',
@@ -267,8 +269,11 @@ export const getNextScheduleEvaluationTimeMs = (schedule: CronSchedule) => {
     }
 };
 
-export const getAssertionTypesForEntityType = (entityType: EntityType) => {
-    return ASSERTION_INFO.filter((type) => type.entityTypes.includes(entityType));
+export const getAssertionTypesForEntityType = (entityType: EntityType, connectionForEntityExists: boolean) => {
+    return ASSERTION_INFO.filter((type) => type.entityTypes.includes(entityType)).map((type) => ({
+        ...type,
+        enabled: type.enabled && (!type.requiresConnection || connectionForEntityExists),
+    }));
 };
 
 export const isMonitorActive = (monitor: Monitor) => {

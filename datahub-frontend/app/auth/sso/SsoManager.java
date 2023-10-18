@@ -91,7 +91,7 @@ public class SsoManager {
       try {
         OidcConfigs oidcConfigs = new OidcConfigs.Builder().from(_configs).build();
         maybeUpdateOidcProvider(oidcConfigs);
-      } catch (IllegalArgumentException e) {
+      } catch (Exception e) {
         // Error-level logging since this is unexpected to fail if SSO has been configured.
         log.error(String.format("Error building OidcConfigs from static configs %s", _configs), e);
       }

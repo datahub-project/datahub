@@ -194,6 +194,7 @@ export const SlackIntegration = () => {
                                         <StyledInput
                                             value={connection.botToken || settings.botToken || ''}
                                             placeholder="xoya-1402430190679-2634909095557-smkeDaPL3T8KafKXiR5gjPVU"
+                                            data-testid="bot-token-input"
                                             onChange={(e) => setConnection({ ...connection, botToken: e.target.value })}
                                         />
                                     </SettingValueContainer>
@@ -253,6 +254,7 @@ export const SlackIntegration = () => {
                                     <StyledInput
                                         value={settings.defaultChannelName || ''}
                                         placeholder="datahub-slack-notifications"
+                                        data-testid="default-channel-input"
                                         onChange={(e) =>
                                             setSettings({ ...settings, defaultChannelName: e.target.value })
                                         }
@@ -261,7 +263,7 @@ export const SlackIntegration = () => {
                             </Form.Item>
                         </Form>
 
-                        <Button onClick={() => updateSlackSettings()}>
+                        <Button onClick={() => updateSlackSettings()} data-testid="connect-to-slack-button">
                             <PlatformLogo preview={false} src={slackLogo} alt="slack-logo" />
                             {isConnected ? 'Re-connect to Slack' : 'Connect to Slack'}
                         </Button>

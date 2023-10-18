@@ -5,7 +5,7 @@ import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
 import com.datahub.authorization.AuthorizationRequest;
 import com.datahub.authorization.AuthorizationResult;
-import com.datahub.authorization.ResourceSpec;
+import com.datahub.authorization.EntitySpec;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
@@ -134,7 +134,7 @@ public class DeleteQueryResolverTest {
         DeleteQueryResolverTest.TEST_ACTOR_URN.toString(),
         PoliciesConfig.EDIT_QUERIES_PRIVILEGE.getType(),
         Optional.of(
-            new ResourceSpec(
+            new EntitySpec(
                 DeleteQueryResolverTest.TEST_DATASET_URN.getEntityType(),
                 DeleteQueryResolverTest.TEST_DATASET_URN.toString()))
     );
@@ -143,7 +143,7 @@ public class DeleteQueryResolverTest {
         TEST_ACTOR_URN.toString(),
         PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType(),
         Optional.of(
-            new ResourceSpec(
+            new EntitySpec(
                 TEST_DATASET_URN.getEntityType(),
                 TEST_DATASET_URN.toString()))
     );

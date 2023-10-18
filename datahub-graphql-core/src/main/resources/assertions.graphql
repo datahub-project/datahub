@@ -15,6 +15,21 @@ extend type Mutation {
   createVolumeAssertion(input: CreateVolumeAssertionInput!): Assertion!
 
   """
+  Create a new Sql Assertion
+  """
+  createSqlAssertion(input: CreateSqlAssertionInput!): Assertion!
+
+  """
+  Create a new Field Assertion
+  """
+  createFieldAssertion(input: CreateFieldAssertionInput!): Assertion!
+
+  """
+  Tests a given assertion and returns the result.
+  """
+  testAssertion(input: TestAssertionInput!): AssertionResult!
+
+  """
   Update an existing Dataset Assertion
   """
   updateDatasetAssertion(urn: String!, input: UpdateDatasetAssertionInput!): Assertion!
@@ -308,9 +323,24 @@ extend type AssertionInfo {
   volumeAssertion: VolumeAssertionInfo
 
   """
+  Information about a SQL Assertion
+  """
+  sqlAssertion: SqlAssertionInfo
+
+  """
+  Information about a Field Assertion
+  """
+  fieldAssertion: FieldAssertionInfo
+
+  """
   The source or origin of the Assertion definition.
   """
   source: AssertionSource
+
+  """
+  An optional human-readable description of the assertion
+  """
+  description: String
 }
 
 extend type Assertion {
@@ -926,4 +956,503 @@ input IncrementingSegmentFieldTransformerInput {
   This field is required if the type is NATIVE.
   """
   nativeType: String
+}
+
+"""
+The type of the SQL assertion being monitored.
+"""
+enum SqlAssertionType {
+  """
+  A SQL Metric Assertion, e.g. one based on a numeric value returned by an arbitrary SQL query.
+  """
+  METRIC
+
+  """
+  A SQL assertion that is evaluated against the CHANGE in a metric assertion over time.
+  """
+  METRIC_CHANGE
+}
+
+"""
+Attributes defining a SQL Assertion
+"""
+type SqlAssertionInfo {
+  """
+  The type of the SQL assertion being monitored.
+  """
+  type: SqlAssertionType!
+
+  """
+  The entity targeted by this SQL check.
+  """
+  entityUrn: String!
+
+  """
+  The SQL statement to be executed when evaluating the assertion.
+  """
+  statement: String!
+
+  """
+  The type of the value used to evaluate the assertion: a fixed absolute value or a relative percentage.
+  Required if the type is METRIC_CHANGE.
+  """
+  changeType: AssertionValueChangeType
+
+  """
+  The operator you'd like to apply to the result of the SQL query.
+  """
+  operator: AssertionStdOperator!
+
+  """
+  The parameters you'd like to provide as input to the operator.
+  """
+  parameters: AssertionStdParameters!
+}
+
+"""
+Input for creating a new SQL Assertion.
+"""
+input CreateSqlAssertionInput {
+  """
+  The entity targeted by this SQL check.
+  """
+  entityUrn: String!
+
+  """
+  An optional human-readable description of the assertion
+  """
+  description: String
+
+  """
+  The type of the volume assertion being monitored.
+  """
+  type: SqlAssertionType!
+
+  """
+  The SQL statement to be executed when evaluating the assertion.
+  """
+  statement: String!
+
+  """
+  The type of the value used to evaluate the assertion: a fixed absolute value or a relative percentage.
+  Required if the type is METRIC_CHANGE.
+  """
+  changeType: AssertionValueChangeType
+
+  """
+  The operator you'd like to apply to the result of the SQL query.
+  """
+  operator: AssertionStdOperator!
+
+  """
+  The parameters you'd like to provide as input to the operator.
+  """
+  parameters: AssertionStdParametersInput!
+
+  """
+  Optional actions to apply on success or failure of the assertion
+  """
+  actions: AssertionActionsInput
+}
+
+"""
+The type of a Field assertion
+"""
+enum FieldAssertionType {
+  """
+  An assertion used to validate the values contained with a field / column given a set of rows.
+  """
+  FIELD_VALUES
+
+  """
+  An assertion used to validate the value of a common field / column metric (e.g. aggregation)
+  such as null count + percentage, min, max, median, and more.
+  """
+  FIELD_METRIC
+}
+
+"""
+The type of the Field Transform
+"""
+enum FieldTransformType {
+  """
+  Obtain the length of a string field / column (applicable to string types)
+  """
+  LENGTH
+}
+
+"""
+The type of failure threshold.
+"""
+enum FieldValuesFailThresholdType {
+  """
+  The maximum number of column values (i.e. rows) that are allowed
+  to fail the defined expectations before the assertion officially fails.
+  """
+  COUNT
+
+  """
+  The maximum percentage of rows that are allowed
+  to fail the defined column expectations before the assertion officially fails.
+  """
+  PERCENTAGE
+}
+
+"""
+A standard metric that can be derived from the set of values
+for a specific field / column of a dataset / table.
+"""
+enum FieldMetricType {
+  """
+  The number of unique values found in the column value set
+  """
+  UNIQUE_COUNT
+
+  """
+  The percentage of unique values to total rows for the dataset
+  """
+  UNIQUE_PERCENTAGE
+
+  """
+  The number of null values found in the column value set
+  """
+  NULL_COUNT
+
+  """
+  The percentage of null values to total rows for the dataset
+  """
+  NULL_PERCENTAGE
+
+  """
+  The minimum value in the column set (applies to numeric columns)
+  """
+  MIN
+
+  """
+  The maximum value in the column set (applies to numeric columns)
+  """
+  MAX
+
+  """
+  The mean length found in the column set (applies to numeric columns)
+  """
+  MEAN
+
+  """
+  The median length found in the column set (applies to numeric columns)
+  """
+  MEDIAN
+
+  """
+  The stddev length found in the column set (applies to numeric columns)
+  """
+  STDDEV
+
+  """
+  The number of negative values found in the value set (applies to numeric columns)
+  """
+  NEGATIVE_COUNT
+
+  """
+  The percentage of negative values to total rows for the dataset (applies to numeric columns)
+  """
+  NEGATIVE_PERCENTAGE
+
+  """
+  The number of zero values found in the value set (applies to numeric columns)
+  """
+  ZERO_COUNT
+
+  """
+  The percentage of zero values to total rows for the dataset (applies to numeric columns)
+  """
+  ZERO_PERCENTAGE
+
+  """
+  The minimum length found in the column set (applies to string columns)
+  """
+  MIN_LENGTH
+
+  """
+  The maximum length found in the column set (applies to string columns)
+  """
+  MAX_LENGTH
+
+  """
+  The number of empty string values found in the value set (applies to string columns).
+  Note: This is a completely different metric different from NULL_COUNT!
+  """
+  EMPTY_COUNT
+
+  """
+  The percentage of empty string values to total rows for the dataset (applies to string columns).
+  Note: This is a completely different metric different from NULL_PERCENTAGE!
+  """
+  EMPTY_PERCENTAGE
+}
+
+"""
+A definition of a Field (Column) assertion.
+"""
+type FieldAssertionInfo {
+  """
+  The type of the field assertion being monitored.
+  """
+  type: FieldAssertionType!
+
+  """
+  The entity targeted by this Field check.
+  """
+  entityUrn: String!
+
+  """
+  The definition of an assertion that validates individual values of a field / column for a set of rows.
+  """
+  fieldValuesAssertion: FieldValuesAssertion
+
+  """
+  The definition of an assertion that validates a common metric obtained about a field / column for a set of rows.
+  """
+  fieldMetricAssertion: FieldMetricAssertion
+
+  """
+  A definition of the specific filters that should be applied, when performing monitoring.
+  If not provided, there is no filter, and the full table is under consideration.
+  """
+  filter: DatasetFilter
+}
+
+"""
+A definition of a Field Values assertion.
+"""
+type FieldValuesAssertion {
+  """
+  The field under evaluation.
+  """
+  field: SchemaFieldSpec!
+
+  """
+  An optional transform to apply to field values before evaluating the operator.
+  """
+  transform: FieldTransform
+
+  """
+  The predicate to evaluate against a single value of the field.
+  Depending on the operator, parameters may be required
+  """
+  operator: AssertionStdOperator!
+
+  """
+  Standard parameters required for the assertion.
+  """
+  parameters: AssertionStdParameters
+
+  """
+  Additional customization about when the assertion should be officially considered failing.
+  """
+  failThreshold: FieldValuesFailThreshold!
+
+  """
+  Whether to ignore or allow nulls when running the values assertion.
+  """
+  excludeNulls: Boolean!
+}
+
+"""
+Definition of a transform applied to the values of a column / field.
+"""
+type FieldTransform {
+  """
+  The type of the field transform.
+  """
+  type: FieldTransformType!
+}
+
+type FieldValuesFailThreshold {
+  """
+  The type of failure threshold.
+  """
+  type: FieldValuesFailThresholdType!
+
+  """
+  The value of the threshold, either representing a count or percentage.
+  """
+  value: Long!
+}
+
+"""
+A definition of a Field Metric assertion.
+"""
+type FieldMetricAssertion {
+  """
+  The field under evaluation
+  """
+  field: SchemaFieldSpec!
+
+  """
+  The specific metric to assert against.
+  """
+  metric: FieldMetricType!
+
+  """
+  The predicate to evaluate against the metric for the field / column.
+  """
+  operator: AssertionStdOperator!
+
+  """
+  Standard parameters required for the assertion.
+  """
+  parameters: AssertionStdParameters
+}
+
+"""
+Input for creating a new Field Assertion.
+"""
+input CreateFieldAssertionInput {
+  """
+  The type of the field assertion being monitored.
+  """
+  type: FieldAssertionType!
+
+  """
+  The entity targeted by this Field check.
+  """
+  entityUrn: String!
+
+  """
+  The definition of an assertion that validates individual values of a field / column for a set of rows.
+  """
+  fieldValuesAssertion: FieldValuesAssertionInput
+
+  """
+  The definition of an assertion that validates a common metric obtained about a field / column for a set of rows.
+  """
+  fieldMetricAssertion: FieldMetricAssertionInput
+
+  """
+  A definition of the specific filters that should be applied, when performing monitoring.
+  If not provided, there is no filter, and the full table is under consideration.
+  """
+  filter: DatasetFilterInput
+
+  """
+  Optional actions to apply on success or failure of the assertion
+  """
+  actions: AssertionActionsInput
+}
+
+"""
+Input for a Field Values assertion.
+"""
+input FieldValuesAssertionInput {
+  """
+  The field under evaluation.
+  """
+  field: SchemaFieldSpecInput!
+
+  """
+  An optional transform to apply to field values before evaluating the operator.
+  """
+  transform: FieldTransformInput
+
+  """
+  The predicate to evaluate against a single value of the field.
+  Depending on the operator, parameters may be required
+  """
+  operator: AssertionStdOperator!
+
+  """
+  Standard parameters required for the assertion.
+  """
+  parameters: AssertionStdParametersInput
+
+  """
+  Additional customization about when the assertion should be officially considered failing.
+  """
+  failThreshold: FieldValuesFailThresholdInput!
+
+  """
+  Whether to ignore or allow nulls when running the values assertion.
+  """
+  excludeNulls: Boolean!
+}
+
+"""
+Input for a Field Transform.
+"""
+input FieldTransformInput {
+  """
+  The type of the field transform.
+  """
+  type: FieldTransformType!
+}
+
+"""
+Input for a Field Values Fail Threshold.
+"""
+input FieldValuesFailThresholdInput {
+  """
+  The type of failure threshold.
+  """
+  type: FieldValuesFailThresholdType!
+
+  """
+  The value of the threshold, either representing a count or percentage.
+  """
+  value: Long!
+}
+
+"""
+Input for a Field Metric assertion.
+"""
+input FieldMetricAssertionInput {
+  """
+  The field under evaluation
+  """
+  field: SchemaFieldSpecInput!
+
+  """
+  The specific metric to assert against.
+  """
+  metric: FieldMetricType!
+
+  """
+  The predicate to evaluate against the metric for the field / column.
+  """
+  operator: AssertionStdOperator!
+
+  """
+  Standard parameters required for the assertion.
+  """
+  parameters: AssertionStdParametersInput
+}
+
+"""
+Input for testing a new Assertion
+"""
+input TestAssertionInput {
+  """
+  The type of the assertion being tested.
+  """
+  type: AssertionType!
+
+  """
+  The urn of the connection required to evaluate the assertion. For now, this is the same as the platform urn.
+  """
+  connectionUrn: String!
+
+  """
+  Input for testing a SQL assertion. Required if type is SQL.
+  """
+  sqlTestInput: CreateSqlAssertionInput
+
+  """
+  Input for testing a Field assertion. Required if type is FIELD.
+  """
+  fieldTestInput: CreateFieldAssertionInput
+
+  """
+  Parameters required to evaluate the assertion
+  """
+  parameters: AssertionEvaluationParametersInput
 }

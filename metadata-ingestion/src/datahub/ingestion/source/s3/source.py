@@ -7,8 +7,10 @@ import re
 import time
 from collections import OrderedDict
 from datetime import datetime
+from pathlib import PurePath
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
+import smart_open.compression as so_compression
 from more_itertools import peekable
 from pyspark.conf import SparkConf
 from pyspark.sql import SparkSession
@@ -118,6 +120,9 @@ _field_type_mapping = {
     StructType: RecordTypeClass,
 }
 PAGE_SIZE = 1000
+
+# Hack to support the .gzip extension with smart_open.
+so_compression.register_compressor(".gzip", so_compression._COMPRESSOR_REGISTRY[".gz"])
 
 
 def get_column_type(
@@ -406,7 +411,9 @@ class S3Source(StatefulIngestionSourceBase):
                 table_data.full_path, "rb", transport_params={"client": s3_client}
             )
         else:
-            file = open(table_data.full_path, "rb")
+            # We still use smart_open here to take advantage of the compression
+            # capabilities of smart_open.
+            file = smart_open(table_data.full_path, "rb")
 
         fields = []
 
@@ -819,7 +826,10 @@ class S3Source(StatefulIngestionSourceBase):
                 dirs.sort(key=functools.cmp_to_key(partitioned_folder_comparator))
 
                 for file in sorted(files):
-                    full_path = os.path.join(root, file)
+                    # We need to make sure the path is in posix style which is not true on windows
+                    full_path = PurePath(
+                        os.path.normpath(os.path.join(root, file))
+                    ).as_posix()
                     yield full_path, datetime.utcfromtimestamp(
                         os.path.getmtime(full_path)
                     ), os.path.getsize(full_path)

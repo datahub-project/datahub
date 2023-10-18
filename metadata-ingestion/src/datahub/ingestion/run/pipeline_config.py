@@ -57,6 +57,13 @@ class FlagsConfig(ConfigModel):
         ),
     )
 
+    generate_memory_profiles: Optional[str] = Field(
+        default=None,
+        description=(
+            "Generate memray memory dumps for ingestion process by providing a path to write the dump file in."
+        ),
+    )
+
 
 class PipelineConfig(ConfigModel):
     # Once support for discriminated unions gets merged into Pydantic, we can

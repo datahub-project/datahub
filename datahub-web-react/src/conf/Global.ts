@@ -25,6 +25,7 @@ export enum PageRoutes {
     INGESTION = '/ingestion',
     SETTINGS = '/settings',
     DOMAINS = '/domains',
+    DOMAIN = '/domain',
     GLOSSARY = '/glossary',
     TESTS = '/tests',
     SETTINGS_VIEWS = '/settings/views',

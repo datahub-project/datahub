@@ -22,6 +22,10 @@ public class VolumeAssertionUtils {
     public static com.linkedin.assertion.IncrementingSegmentSpec createIncrementingSegmentSpec(@Nonnull final IncrementingSegmentSpecInput input) {
         final com.linkedin.assertion.IncrementingSegmentSpec result = new com.linkedin.assertion.IncrementingSegmentSpec();
         result.setField(AssertionUtils.createSchemaFieldSpec(input.getField()));
+
+        if (input.getTransformer() != null) {
+            result.setTransformer(createIncrementingSegmentFieldTransformer(input.getTransformer()));
+        }
         return result;
     }
 

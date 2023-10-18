@@ -1,11 +1,13 @@
 package com.linkedin.datahub.graphql.resolvers.dataset;
 
+import com.datahub.authorization.EntitySpec;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.generated.CorpUser;
 import com.linkedin.datahub.graphql.generated.DatasetStatsSummary;
 import com.linkedin.datahub.graphql.generated.Entity;
@@ -14,6 +16,7 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.search.features.StorageFeatures;
 import com.linkedin.metadata.search.features.UsageFeatures;
+import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.usage.UsageClient;
 import com.linkedin.usage.UsageTimeRange;
 import com.linkedin.usage.UserUsageCounts;
@@ -21,6 +24,7 @@ import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -64,7 +68,12 @@ public class DatasetStatsSummaryResolver implements DataFetcher<CompletableFutur
       }
 
       try {
-
+        if (!isAuthorized(resourceUrn, context)) {
+          log.debug("User {} is not authorized to view profile information for dataset {}",
+                  context.getActorUrn(),
+                  resourceUrn.toString());
+          return null;
+        }
         final EntityResponse response = getOfflineFeatures(resourceUrn, context);
 
         final UsageFeatures maybeUsageFeatures = response != null && response.getAspects().containsKey(Constants.USAGE_FEATURES_ASPECT_NAME)
@@ -73,6 +82,9 @@ public class DatasetStatsSummaryResolver implements DataFetcher<CompletableFutur
         final StorageFeatures maybeStorageFeatures = response != null && response.getAspects().containsKey(Constants.STORAGE_FEATURES_ASPECT_NAME)
             ? new StorageFeatures(response.getAspects().get(Constants.STORAGE_FEATURES_ASPECT_NAME).getValue().data())
             : null;
+
+        com.linkedin.usage.UsageQueryResult
+            usageQueryResult = usageClient.getUsageStats(resourceUrn.toString(), UsageTimeRange.MONTH);
 
         final DatasetStatsSummary result = new DatasetStatsSummary();
         addUsageFeatures(result, maybeUsageFeatures, resourceUrn, context);
@@ -102,7 +114,7 @@ public class DatasetStatsSummaryResolver implements DataFetcher<CompletableFutur
 
     // else compute usage features normally
     com.linkedin.usage.UsageQueryResult
-        usageQueryResult = usageClient.getUsageStats(resourceUrn.toString(), UsageTimeRange.MONTH, context.getAuthentication());
+        usageQueryResult = usageClient.getUsageStats(resourceUrn.toString(), UsageTimeRange.MONTH);
     result.setQueryCountLast30Days(usageQueryResult.getAggregations().getTotalSqlQueries());
     result.setUniqueUserCountLast30Days(usageQueryResult.getAggregations().getUniqueUserCount());
     if (usageQueryResult.getAggregations().hasUsers()) {
@@ -213,5 +225,11 @@ public class DatasetStatsSummaryResolver implements DataFetcher<CompletableFutur
     if (storageFeatures.hasSizeInBytesPercentile()) {
       result.setSizeInBytesPercentile(storageFeatures.getSizeInBytesPercentile().intValue());
     }
+  }
+
+  private boolean isAuthorized(final Urn resourceUrn, final QueryContext context) {
+    return AuthorizationUtils.isAuthorized(context,
+            Optional.of(new EntitySpec(resourceUrn.getEntityType(), resourceUrn.toString())),
+            PoliciesConfig.VIEW_DATASET_USAGE_PRIVILEGE);
   }
 }

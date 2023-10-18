@@ -8,12 +8,15 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.UpdateNameInput;
 import com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils;
 import com.linkedin.datahub.graphql.resolvers.mutate.UpdateNameResolver;
+import com.linkedin.datahub.graphql.resolvers.mutate.util.DomainUtils;
 import com.linkedin.domain.DomainProperties;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.glossary.GlossaryNodeInfo;
 import com.linkedin.glossary.GlossaryTermInfo;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.search.SearchEntityArray;
+import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetchingEnvironment;
 import org.mockito.Mockito;
@@ -120,6 +123,15 @@ public class UpdateNameResolverTest {
             Constants.DOMAIN_PROPERTIES_ASPECT_NAME,
             0))
         .thenReturn(new DomainProperties().setName(name));
+
+    Mockito.when(mockClient.filter(
+        Mockito.eq(Constants.DOMAIN_ENTITY_NAME),
+        Mockito.eq(DomainUtils.buildNameAndParentDomainFilter(INPUT_FOR_DOMAIN.getName(), null)),
+        Mockito.eq(null),
+        Mockito.any(Integer.class),
+        Mockito.any(Integer.class),
+        Mockito.any(Authentication.class)
+    )).thenReturn(new SearchResult().setEntities(new SearchEntityArray()));
 
     DomainProperties properties = new DomainProperties();
     properties.setName(NEW_NAME);

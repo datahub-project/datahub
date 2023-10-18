@@ -3,7 +3,6 @@ from typing import Any, Optional
 
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
-from datahub.ingestion.source.bigquery_v2.common import get_bigquery_client
 
 from datahub_monitors.connection.connection import Connection
 from datahub_monitors.constants import BIGQUERY_PLATFORM_URN
@@ -22,5 +21,5 @@ class BigQueryConnection(Connection):
 
     def get_client(self) -> Any:
         if self.connection is None:
-            self.connection = get_bigquery_client(self.config)
+            self.connection = self.config.get_bigquery_client()
         return self.connection

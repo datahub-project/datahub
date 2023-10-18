@@ -33,6 +33,16 @@ record AssertionInfo includes CustomProperties, ExternalReference {
       VOLUME
 
       /**
+       * A raw SQL-statement based assertion
+       */
+      SQL
+
+      /**
+       * A structured assertion targeting a specific column or field of the Dataset.
+       */
+      FIELD
+
+      /**
        * A schema or structural assertion.
        *
        * Would have named this SCHEMA but the codegen for PDL does not allow this (reserved word).
@@ -57,6 +67,17 @@ record AssertionInfo includes CustomProperties, ExternalReference {
 
     /**
     * An schema Assertion definition. This field is populated when the type is DATASET_SCHEMA
+    * A SQL Assertion definition. This field is populated when the type is SQL.
+    */
+    sqlAssertion: optional SqlAssertionInfo
+
+    /**
+    * A Field Assertion definition. This field is populated when the type is FIELD.
+    */
+    fieldAssertion: optional FieldAssertionInfo
+
+    /**
+    * An schema Assertion definition. This field is populated when the type is DATA_SCHEMA
     */
     schemaAssertion: optional SchemaAssertionInfo
 
@@ -67,4 +88,9 @@ record AssertionInfo includes CustomProperties, ExternalReference {
     * the platform where it was ingested from.
     */
     source: optional AssertionSource
+
+    /**
+    * An optional human-readable description of the assertion
+    */
+    description: optional string
 }

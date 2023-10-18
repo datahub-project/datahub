@@ -10,7 +10,7 @@ on:
       - "**.md"
   pull_request:
     branches:
-      - master
+      - "**"
     paths-ignore:
       - "docker/**"
       - "docs/**"
@@ -28,12 +28,7 @@ jobs:
       max-parallel: 1
       fail-fast: false
       matrix:
-        command:
-          [
-            "datahub-client",
-            "datahub-protobuf",
-            "spark-lineage"
-          ]
+        command: ["datahub-client", "datahub-protobuf", "spark-lineage"]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -46,7 +41,7 @@ jobs:
           java-version: 11
       - uses: actions/setup-python@v4
         with:
-          python-version: "3.7"
+          python-version: "3.10"
       - name: check ${{ matrix.command }} jar
         run: |
           ./gradlew :metadata-integration:java:${{ matrix.command }}:build --info

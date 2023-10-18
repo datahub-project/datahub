@@ -6,14 +6,14 @@ source:
     # In the URL https://cloud.getdbt.com/next/deploy/107298/projects/175705/jobs/148094,
     # 107298 is the account_id, 175705 is the project_id, and 148094 is the job_id
 
-    account_id: # set to your dbt cloud account id
-    project_id: # set to your dbt cloud project id
-    job_id: # set to your dbt cloud job id
+    account_id: "${DBT_ACCOUNT_ID}" # set to your dbt cloud account id
+    project_id: "${DBT_PROJECT_ID}" # set to your dbt cloud project id
+    job_id: "${DBT_JOB_ID}" # set to your dbt cloud job id
     run_id: # set to your dbt cloud run id. This is optional, and defaults to the latest run
 
     target_platform: postgres
 
     # Options
-    target_platform: "my_target_platform_id" # e.g. bigquery/postgres/etc.
+    target_platform: "${TARGET_PLATFORM_ID}" # e.g. bigquery/postgres/etc.
 
 # sink configs

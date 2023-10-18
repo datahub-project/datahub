@@ -3,7 +3,7 @@
 package com.linkedin.gms.factory.auth;
 
 import com.datahub.authentication.proposal.ProposalService;
-import com.linkedin.gms.factory.spring.YamlPropertySourceFactory;
+import com.linkedin.metadata.spring.YamlPropertySourceFactory;
 import com.linkedin.metadata.client.JavaEntityClient;
 import com.linkedin.metadata.entity.EntityService;
 import javax.annotation.Nonnull;

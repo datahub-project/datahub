@@ -68,7 +68,9 @@ type Props = {
     onChange: (newSchedule: CronSchedule) => void;
     assertionType: AssertionType;
     showTimezone?: boolean;
+    showAdvanced?: boolean;
     actionText?: string;
+    disabled?: boolean;
 };
 
 /**
@@ -79,7 +81,9 @@ export const EvaluationScheduleBuilder = ({
     onChange,
     assertionType,
     showTimezone = true,
+    showAdvanced = true,
     actionText = 'Runs at',
+    disabled = false,
 }: Props) => {
     const { entityData } = useEntityData();
     const platformName = getPlatformName(entityData);
@@ -133,10 +137,12 @@ export const EvaluationScheduleBuilder = ({
                         title={
                             <TooltipContainer>
                                 <Typography.Paragraph>{tooltipDescription}</Typography.Paragraph>
-                                <Typography.Text>
-                                    <b>Pro-Tip!</b> Use the <b>Advanced</b> section to configure how checks are
-                                    evaluated for this dataset.
-                                </Typography.Text>
+                                {showAdvanced && (
+                                    <Typography.Text>
+                                        <b>Pro-Tip!</b> Use the <b>Advanced</b> section to configure how checks are
+                                        evaluated for this dataset.
+                                    </Typography.Text>
+                                )}
                             </TooltipContainer>
                         }
                     >
@@ -150,6 +156,7 @@ export const EvaluationScheduleBuilder = ({
                         clearButton={false}
                         className="cron-builder"
                         leadingZero
+                        disabled={disabled}
                     />
                     <CronText>
                         {cronAsText.error && <>Invalid cron schedule. Cron must be of UNIX form:</>}
@@ -172,7 +179,7 @@ export const EvaluationScheduleBuilder = ({
                     <>
                         <TimezoneTitle level={5}>In Timezone</TimezoneTitle>
                         <Section>
-                            <StyledTimezoneSelect value={timezone} onChange={updateTimezone} />
+                            <StyledTimezoneSelect value={timezone} onChange={updateTimezone} disabled={disabled} />
                         </Section>
                     </>
                 )}

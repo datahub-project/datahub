@@ -4,17 +4,15 @@ from datahub.ingestion.api.committable import StatefulCommittable
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.sql.mysql import MySQLConfig, MySQLSource
 from datahub.ingestion.source.state.checkpoint import Checkpoint
-from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
-from datahub.ingestion.source.state.stale_entity_removal_handler import StaleEntityRemovalHandler
+from datahub.ingestion.source.state.entity_removal_state import \
+    GenericCheckpointState
+from datahub.ingestion.source.state.stale_entity_removal_handler import \
+    StaleEntityRemovalHandler
 from sqlalchemy import create_engine
 from sqlalchemy.sql import text
 
-from tests.utils import (
-    get_gms_url,
-    get_mysql_password,
-    get_mysql_url,
-    get_mysql_username,
-)
+from tests.utils import (get_gms_url, get_mysql_password, get_mysql_url,
+                         get_mysql_username)
 
 
 def test_stateful_ingestion(wait_for_healthchecks):

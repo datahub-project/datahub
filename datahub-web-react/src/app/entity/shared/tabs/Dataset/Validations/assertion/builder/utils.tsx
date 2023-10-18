@@ -16,6 +16,9 @@ import {
     AssertionStdParameters,
     AssertionValueChangeType,
     IncrementingSegmentSpecInput,
+    SqlAssertionType,
+    FieldAssertionType,
+    SchemaField,
 } from '../../../../../../../../types.generated';
 import { BIGQUERY_URN, REDSHIFT_URN, SNOWFLAKE_URN } from '../../../../../../../ingest/source/builder/constants';
 import { AssertionMonitorBuilderState, AssertionActionsFormState, AssertionActionsBuilderState } from './types';
@@ -345,6 +348,61 @@ export const builderStateToUpdateVolumeAssertionVariables = (builderState: Asser
     };
 };
 
+export const builderStateToUpdateSqlAssertionVariables = (builderState: AssertionMonitorBuilderState) => {
+    return {
+        input: {
+            type: builderState.assertion?.sqlAssertion?.type as SqlAssertionType,
+            description: builderState.assertion?.description,
+            statement: builderState.assertion?.sqlAssertion?.statement,
+            changeType: builderState.assertion?.sqlAssertion?.changeType as AssertionValueChangeType,
+            operator: builderState.assertion?.sqlAssertion?.operator as AssertionStdOperator,
+            parameters:
+                builderState.assertion?.sqlAssertion?.operator === AssertionStdOperator.Between
+                    ? {
+                          minValue: builderState.assertion.sqlAssertion.parameters?.minValue,
+                          maxValue: builderState.assertion.sqlAssertion.parameters?.maxValue,
+                      }
+                    : {
+                          value: builderState.assertion?.sqlAssertion?.parameters?.value,
+                      },
+            actions: builderState.assertion?.actions
+                ? {
+                      onSuccess: builderState.assertion?.actions?.onSuccess || [],
+                      onFailure: builderState.assertion?.actions?.onFailure || [],
+                  }
+                : undefined,
+        },
+    };
+};
+
+export const builderStateToUpdateFieldAssertionVariables = (builderState: AssertionMonitorBuilderState) => {
+    return {
+        input: {
+            type: builderState.assertion?.fieldAssertion?.type as FieldAssertionType,
+            fieldValuesAssertion:
+                builderState.assertion?.fieldAssertion?.type === FieldAssertionType.FieldValues
+                    ? builderState.assertion?.fieldAssertion?.fieldValuesAssertion
+                    : undefined,
+            fieldMetricAssertion:
+                builderState.assertion?.fieldAssertion?.type === FieldAssertionType.FieldMetric
+                    ? builderState.assertion?.fieldAssertion?.fieldMetricAssertion
+                    : undefined,
+            filter: builderState.assertion?.fieldAssertion?.filter
+                ? {
+                      type: builderState.assertion?.fieldAssertion?.filter.type as DatasetFilterType,
+                      sql: builderState.assertion?.fieldAssertion?.filter.sql,
+                  }
+                : undefined,
+            actions: builderState.assertion?.actions
+                ? {
+                      onSuccess: builderState.assertion?.actions?.onSuccess || [],
+                      onFailure: builderState.assertion?.actions?.onFailure || [],
+                  }
+                : undefined,
+        },
+    };
+};
+
 export const builderStateToCreateAssertionMonitorVariables = (
     assertionUrn: string,
     builderState: AssertionMonitorBuilderState,
@@ -374,6 +432,24 @@ export const builderStateToCreateVolumeAssertionVariables = (builderState: Asser
         input: {
             entityUrn: builderState.entityUrn as string,
             ...builderStateToUpdateVolumeAssertionVariables(builderState).input,
+        },
+    };
+};
+
+export const builderStateToCreateSqlAssertionVariables = (builderState: AssertionMonitorBuilderState) => {
+    return {
+        input: {
+            entityUrn: builderState.entityUrn as string,
+            ...builderStateToUpdateSqlAssertionVariables(builderState).input,
+        },
+    };
+};
+
+export const builderStateToCreateFieldAssertionVariables = (builderState: AssertionMonitorBuilderState) => {
+    return {
+        input: {
+            entityUrn: builderState.entityUrn as string,
+            ...builderStateToUpdateFieldAssertionVariables(builderState).input,
         },
     };
 };
@@ -478,4 +554,13 @@ export const builderStateToUpdateAssertionActionsVariables = (
             onFailure: builderState.actions?.onFailure || [],
         },
     };
+};
+
+/**
+ * Used to identify fields that are of nested within a STRUCT. These fields are not eligible for use in Assertions.
+ * In v1 paths, STRUCTs have 'dots' in the path (i.e. a.b.c.d)
+ * In v2 paths, STRUCTs have 'type=struct' in the path (i.e. [type=Struct])
+ */
+export const isStructField = (field: SchemaField) => {
+    return field.fieldPath.includes('type=struct') || field.fieldPath.includes('.');
 };

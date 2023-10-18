@@ -72,13 +72,18 @@ export function EntityColumn({ subscription }: Props) {
         entityType,
         entityRegistry,
     );
+    const hasIcon = platformIcon?.props?.src?.length;
+    let defaultIcon: JSX.Element | null = null;
+    if (!hasIcon) {
+        defaultIcon = entityRegistry.getIcon(entityType, 28, IconStyleType.HIGHLIGHT);
+    }
 
     return (
         <EntityColumnContainer>
             <Button type="link" href={entityUrl}>
                 <ContentContainer>
                     <PlatformTypeContainer>
-                        <Tooltip overlay={platformTypeDisplayName}>{platformIcon}</Tooltip>
+                        <Tooltip overlay={platformTypeDisplayName}>{hasIcon ? platformIcon : defaultIcon}</Tooltip>
                     </PlatformTypeContainer>
                     <EntityNameContainer>
                         <EntityTypeContainer>

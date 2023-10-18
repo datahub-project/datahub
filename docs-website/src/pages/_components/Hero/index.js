@@ -7,6 +7,7 @@ import { useColorMode } from "@docusaurus/theme-common";
 import { QuestionCircleOutlined } from "@ant-design/icons";
 import styles from "./hero.module.scss";
 import CodeBlock from "@theme/CodeBlock";
+import CardCTAs from "../CardCTAs";
 
 const HeroAnnouncement = ({ message, linkUrl, linkText }) => (
   <div className={clsx("hero__alert alert alert--primary", styles.hero__alert)}>
@@ -33,7 +34,11 @@ const Hero = ({}) => {
               complexity of your data ecosystem.
             </p>
             <p className="hero__subtitle">
-Built with ❤️ by <img src="https://datahubproject.io/img/acryl-logo-light-mark.png" style={{'vertical-align': 'text-top;'}} width="25"/> <a href="https://acryldata.io" target="blank" rel="noopener noreferrer">Acryl Data</a> and <img src="https://datahubproject.io/img/LI-In-Bug.png" width="25"/> LinkedIn.
+              Built with ❤️ by <img src={useBaseUrl("/img/acryl-logo-transparent-mark.svg")} width="25" />{" "}
+              <a href="https://acryldata.io" target="blank" rel="noopener noreferrer">
+                Acryl Data
+              </a>{" "}
+              and <img src={useBaseUrl("img/LI-In-Bug.png")} width="25" /> LinkedIn.
             </p>
             <Link className="button button--primary button--md" to={useBaseUrl("docs/")}>
               Get Started →
@@ -43,11 +48,12 @@ Built with ❤️ by <img src="https://datahubproject.io/img/acryl-logo-light-ma
             </Link>
           </div>
         </div>
+        <CardCTAs />
         <Image className="hero__image" img={require(`/img/diagrams/datahub-flow-diagram-${colorMode}.png`)} alt="DataHub Flow Diagram" />
-        <div className="quickstart__content">
-          <h1 className="quickstart__title">Get Started Now</h1>
-          <p className="quickstart__subtitle">Run the following command to get started with DataHub.</p>
-          <div className="quickstart__codeblock">
+        <div className={styles.quickstartContent}>
+          <h1 className={styles.quickstartTitle}>Get Started Now</h1>
+          <p className={styles.quickstartSubtitle}>Run the following command to get started with DataHub.</p>
+          <div className={styles.quickstartCodeblock}>
             <CodeBlock className={"language-shell"}>
               python3 -m pip install --upgrade pip wheel setuptools <br />
               python3 -m pip install --upgrade acryl-datahub <br />

@@ -35,6 +35,7 @@ type Props = {
     assertions: Array<Assertion>;
     onDeleteAssertion: (urn: string) => void;
     onManageAssertion: (urn: string) => void;
+    onViewAssertionDetails: (urn: string) => void;
     onStartMonitor: (assertionUrn: string, monitorUrn: string) => void;
     onStopMonitor: (assertionUrn: string, monitorUrn: string) => void;
 };
@@ -49,6 +50,7 @@ export const AcrylAssertionsTable = ({
     assertions,
     onDeleteAssertion,
     onManageAssertion,
+    onViewAssertionDetails,
     onStartMonitor,
     onStopMonitor,
 }: Props) => {
@@ -93,6 +95,7 @@ export const AcrylAssertionsTable = ({
                         monitor={record.monitor}
                         lastEvaluationTimeMs={record.lastEvaluationTimeMs}
                         lastEvaluationResult={record.lastEvaluationResult}
+                        onViewAssertionDetails={() => onViewAssertionDetails(record.urn)}
                     />
                 );
             },

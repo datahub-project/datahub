@@ -4,7 +4,7 @@ import com.datahub.authentication.Authentication;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.gms.factory.auth.SystemAuthenticationFactory;
 import com.linkedin.gms.factory.entity.JavaEntityClientFactory;
-import com.linkedin.gms.factory.spring.YamlPropertySourceFactory;
+import com.linkedin.metadata.spring.YamlPropertySourceFactory;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.service.DomainService;
 import com.linkedin.metadata.service.OwnerService;

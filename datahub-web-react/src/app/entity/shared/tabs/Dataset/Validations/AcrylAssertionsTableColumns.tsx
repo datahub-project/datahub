@@ -14,6 +14,7 @@ import {
     DatasetAssertionInfo,
     FreshnessAssertionInfo,
     VolumeAssertionInfo,
+    FieldAssertionInfo,
 } from '../../../../../../types.generated';
 import { getResultColor, getResultIcon, getResultText } from './assertionUtils';
 import { FreshnessAssertionDescription } from './FreshnessAssertionDescription';
@@ -23,6 +24,8 @@ import { ANTD_GRAY, REDESIGN_COLORS } from '../../../constants';
 import { AssertionPlatformAvatar } from './AssertionPlatformAvatar';
 import { AssertionActionsMenu } from './AssertionActionsMenu';
 import { VolumeAssertionDescription } from './VolumeAssertionDescription';
+import { SqlAssertionDescription } from './SqlAssertionDescription';
+import { FieldAssertionDescription } from './FieldAssertionDescription';
 
 const DetailsContainer = styled.div`
     display: flex;
@@ -60,9 +63,16 @@ interface DetailsColumnProps {
     monitor?: Monitor;
     lastEvaluationTimeMs?: number;
     lastEvaluationResult?: AssertionResultType;
+    onViewAssertionDetails: () => void;
 }
 
-export function DetailsColumn({ assertion, monitor, lastEvaluationTimeMs, lastEvaluationResult }: DetailsColumnProps) {
+export function DetailsColumn({
+    assertion,
+    monitor,
+    lastEvaluationTimeMs,
+    lastEvaluationResult,
+    onViewAssertionDetails,
+}: DetailsColumnProps) {
     if (!assertion.info) {
         return <>No details found</>;
     }
@@ -103,6 +113,15 @@ export function DetailsColumn({ assertion, monitor, lastEvaluationTimeMs, lastEv
             )}
             {assertionType === AssertionType.Volume && (
                 <VolumeAssertionDescription assertionInfo={assertionInfo.volumeAssertion as VolumeAssertionInfo} />
+            )}
+            {assertionType === AssertionType.Sql && (
+                <SqlAssertionDescription
+                    assertionInfo={assertionInfo}
+                    onViewAssertionDetails={onViewAssertionDetails}
+                />
+            )}
+            {assertionType === AssertionType.Field && (
+                <FieldAssertionDescription assertionInfo={assertionInfo.fieldAssertion as FieldAssertionInfo} />
             )}
             {isInferred && (
                 <InferredAssertionPopover>

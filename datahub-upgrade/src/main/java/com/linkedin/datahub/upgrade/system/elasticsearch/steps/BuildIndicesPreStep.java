@@ -19,10 +19,10 @@ import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.shared.ElasticSearchIndexed;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.elasticsearch.ElasticsearchStatusException;
-import org.elasticsearch.action.admin.indices.settings.put.UpdateSettingsRequest;
-import org.elasticsearch.client.RequestOptions;
-import org.elasticsearch.client.indices.ResizeRequest;
+import org.opensearch.OpenSearchStatusException;
+import org.opensearch.action.admin.indices.settings.put.UpdateSettingsRequest;
+import org.opensearch.client.RequestOptions;
+import org.opensearch.client.indices.ResizeRequest;
 
 import static com.linkedin.datahub.upgrade.system.elasticsearch.util.IndexUtils.INDEX_BLOCKS_WRITE_SETTING;
 import static com.linkedin.datahub.upgrade.system.elasticsearch.util.IndexUtils.getAllReindexConfigs;
@@ -97,7 +97,7 @@ public class BuildIndicesPreStep implements UpgradeStep {
       ack = _esComponents.getSearchClient().indices()
               .putSettings(request, RequestOptions.DEFAULT).isAcknowledged();
       log.info("Updated index {} with new settings. Settings: {}, Acknowledged: {}", indexName, indexSettings, ack);
-    } catch (ElasticsearchStatusException | IOException ese) {
+    } catch (OpenSearchStatusException | IOException ese) {
       // Cover first run case, indices won't exist so settings updates won't work nor will the rest of the preConfigure steps.
       // Since no data are in there they are skippable.
       // Have to hack around HighLevelClient not sending the actual Java type nor having an easy way to extract it :(

@@ -48,11 +48,13 @@ dependencies {
   implementation externalDependency.dropwizardMetricsCore
   implementation externalDependency.dropwizardMetricsJmx
 
-  compileOnly externalDependency.lombok
+  implementation externalDependency.lombok
   implementation externalDependency.neo4jJavaDriver
   implementation externalDependency.opentelemetryAnnotations
 
   runtimeOnly externalDependency.logbackClassic
+  runtimeOnly externalDependency.logbackJackson
+  runtimeOnly externalDependency.logbackJsonClassic
 
   annotationProcessor externalDependency.lombok
 

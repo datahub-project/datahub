@@ -10,7 +10,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.experimental.Accessors;
 import lombok.extern.slf4j.Slf4j;
-import org.elasticsearch.common.settings.Settings;
+import org.opensearch.common.settings.Settings;
 
 import java.util.List;
 import java.util.Map;
@@ -122,13 +122,14 @@ public class ReindexConfig {
             if (super.exists) {
                 /* Consider mapping changes */
                 MapDifference<String, Object> mappingsDiff = Maps.difference(
-                        (TreeMap<String, Object>) super.currentMappings.getOrDefault("properties", new TreeMap()),
-                        (TreeMap<String, Object>) super.targetMappings.getOrDefault("properties", new TreeMap()));
+                        getOrDefault(super.currentMappings, List.of("properties")),
+                        getOrDefault(super.targetMappings, List.of("properties")));
                 super.requiresApplyMappings = !mappingsDiff.entriesDiffering().isEmpty()
                         || !mappingsDiff.entriesOnlyOnRight().isEmpty();
                 super.isPureMappingsAddition = super.requiresApplyMappings
                         && mappingsDiff.entriesDiffering().isEmpty()
                         && !mappingsDiff.entriesOnlyOnRight().isEmpty();
+
                 if (super.requiresApplyMappings && super.isPureMappingsAddition) {
                     log.info("Index: {} - New fields have been added to index. Adding: {}",
                             super.name, mappingsDiff.entriesOnlyOnRight());
@@ -172,8 +173,21 @@ public class ReindexConfig {
             return super.build();
         }
 
+        private static TreeMap<String, Object> getOrDefault(Map<String, Object> map, List<String> path) {
+            if (map == null) {
+                return new TreeMap<>();
+            }
+
+            TreeMap<String, Object> item = (TreeMap<String, Object>) map.getOrDefault(path.get(0), new TreeMap());
+            if (path.size() == 1) {
+                return item;
+            } else {
+                return getOrDefault(item, path.subList(1, path.size()));
+            }
+        }
+
         private boolean isAnalysisEqual() {
-            if (!super.targetSettings.containsKey("index")) {
+            if (super.targetSettings == null || !super.targetSettings.containsKey("index")) {
                 return true;
             }
             Map<String, Object> indexSettings = (Map<String, Object>) super.targetSettings.get("index");
@@ -187,7 +201,7 @@ public class ReindexConfig {
         }
 
         private boolean isSettingsEqual() {
-            if (!super.targetSettings.containsKey("index")) {
+            if (super.targetSettings == null || !super.targetSettings.containsKey("index")) {
                 return true;
             }
             Map<String, Object> indexSettings = (Map<String, Object>) super.targetSettings.get("index");
@@ -197,7 +211,7 @@ public class ReindexConfig {
         }
 
         private boolean isSettingsReindexRequired() {
-            if (!super.targetSettings.containsKey("index")) {
+            if (super.targetSettings == null || !super.targetSettings.containsKey("index")) {
                 return false;
             }
             Map<String, Object> indexSettings = (Map<String, Object>) super.targetSettings.get("index");

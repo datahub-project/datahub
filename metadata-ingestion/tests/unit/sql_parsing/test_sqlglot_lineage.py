@@ -208,6 +208,16 @@ FROM snowflake_sample_data.tpch_sf100.orders
     )
 
 
+def test_select_ambiguous_column_no_schema():
+    assert_sql_result(
+        """
+        select A, B, C from t1 inner join t2 on t1.id = t2.id
+        """,
+        dialect="hive",
+        expected_file=RESOURCE_DIR / "test_select_ambiguous_column_no_schema.json",
+    )
+
+
 def test_merge_from_union():
     # TODO: We don't support merge statements yet, but the union should still get handled.
 
@@ -261,6 +271,21 @@ WHERE orderdate = '1992-01-01'
             },
         },
         expected_file=RESOURCE_DIR / "test_expand_select_star_basic.json",
+    )
+
+
+def test_create_table_ddl():
+    assert_sql_result(
+        """
+CREATE TABLE IF NOT EXISTS costs (
+    id INTEGER PRIMARY KEY,
+    month TEXT NOT NULL,
+    total_cost REAL NOT NULL,
+    area REAL NOT NULL
+)
+""",
+        dialect="sqlite",
+        expected_file=RESOURCE_DIR / "test_create_table_ddl.json",
     )
 
 
@@ -583,4 +608,67 @@ group by 1,2,3
     )
 
 
+def test_snowflake_column_cast():
+    assert_sql_result(
+        """
+SELECT
+    o.o_orderkey::NUMBER(20,0) as orderkey,
+    CAST(o.o_totalprice AS INT) as total_cast_int,
+    CAST(o.o_totalprice AS NUMBER(16,4)) as total_cast_float
+FROM snowflake_sample_data.tpch_sf1.orders o
+LIMIT 10
+""",
+        dialect="snowflake",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_sample_data.tpch_sf1.orders,PROD)": {
+                "orderkey": "NUMBER(38,0)",
+                "totalprice": "NUMBER(12,2)",
+            },
+        },
+        expected_file=RESOURCE_DIR / "test_snowflake_column_cast.json",
+    )
+
+
 # TODO: Add a test for setting platform_instance or env
+
+
+def test_teradata_default_normalization():
+    assert_sql_result(
+        """
+create table demo_user.test_lineage2 as
+ (
+    select
+        ppd.PatientId,
+        ppf.bmi
+    from
+        demo_user.pima_patient_features ppf
+    join demo_user.pima_patient_diagnoses ppd on
+        ppd.PatientId = ppf.PatientId
+ ) with data;
+""",
+        dialect="teradata",
+        default_schema="dbc",
+        platform_instance="myteradata",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:teradata,myteradata.demo_user.pima_patient_diagnoses,PROD)": {
+                "HasDiabetes": "INTEGER()",
+                "PatientId": "INTEGER()",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:teradata,myteradata.demo_user.pima_patient_features,PROD)": {
+                "Age": "INTEGER()",
+                "BMI": "FLOAT()",
+                "BloodP": "INTEGER()",
+                "DiPedFunc": "FLOAT()",
+                "NumTimesPrg": "INTEGER()",
+                "PatientId": "INTEGER()",
+                "PlGlcConc": "INTEGER()",
+                "SkinThick": "INTEGER()",
+                "TwoHourSerIns": "INTEGER()",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:teradata,myteradata.demo_user.test_lineage2,PROD)": {
+                "BMI": "FLOAT()",
+                "PatientId": "INTEGER()",
+            },
+        },
+        expected_file=RESOURCE_DIR / "test_teradata_default_normalization.json",
+    )

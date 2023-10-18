@@ -325,7 +325,6 @@ button {
   padding-left: 1.5714286em;
 }
 .MarkpromptAnswer ol > li::marker {
-  font-weight: 400;
   color: var(--markprompt-foreground);
 }
 .MarkpromptAnswer ul > li::marker {
@@ -454,7 +453,6 @@ button {
   background-color: var(--markprompt-muted);
   border: 1px solid var(--markprompt-border);
   overflow-x: auto;
-  font-weight: 400;
   font-size: 0.8571429em;
   line-height: 1.6666667;
   margin-top: 1.6666667em;

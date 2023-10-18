@@ -217,14 +217,15 @@ class PostgresSource(SQLAlchemySource):
             key = (lineage.dependent_view, lineage.dependent_schema)
             # Append the source table to the list.
             lineage_elements[key].append(
-                mce_builder.make_dataset_urn(
-                    self.platform,
-                    self.get_identifier(
+                mce_builder.make_dataset_urn_with_platform_instance(
+                    platform=self.platform,
+                    name=self.get_identifier(
                         schema=lineage.source_schema,
                         entity=lineage.source_table,
                         inspector=inspector,
                     ),
-                    self.config.env,
+                    platform_instance=self.config.platform_instance,
+                    env=self.config.env,
                 )
             )
 
@@ -244,12 +245,13 @@ class PostgresSource(SQLAlchemySource):
             dependent_view, dependent_schema = key
 
             # Construct a lineage object.
-            urn = mce_builder.make_dataset_urn(
-                self.platform,
-                self.get_identifier(
+            urn = mce_builder.make_dataset_urn_with_platform_instance(
+                platform=self.platform,
+                name=self.get_identifier(
                     schema=dependent_schema, entity=dependent_view, inspector=inspector
                 ),
-                self.config.env,
+                platform_instance=self.config.platform_instance,
+                env=self.config.env,
             )
 
             # use the mce_builder to ensure that the change proposal inherits

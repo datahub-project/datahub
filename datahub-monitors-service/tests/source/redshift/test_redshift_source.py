@@ -5,15 +5,18 @@ import pytest
 
 from datahub_monitors.connection.redshift.redshift_connection import RedshiftConnection
 from datahub_monitors.exceptions import (
+    AssertionResultException,
     InvalidParametersException,
     InvalidSourceTypeException,
 )
 from datahub_monitors.source.redshift.redshift import RedshiftSource
 from datahub_monitors.source.types import DatabaseParams
 from datahub_monitors.types import (
+    AssertionStdOperator,
     DatasetFilterType,
     EntityEventType,
     FreshnessFieldKind,
+    FreshnessFieldSpec,
 )
 
 TEST_ENTITY_URN = (
@@ -418,3 +421,98 @@ class TestRedshiftSource:
             TEST_NUM_ROWS_VIA_COUNT_WITH_FILTER_QUERY,
         )
         assert result == 10
+
+    def test_get_field_values_query_high_watermark_invalid(self) -> None:
+        db_params = DatabaseParams(
+            dataset_part_0="test_db",
+            dataset_part_1="public",
+            dataset_part_2="test_table",
+        )
+        field = FreshnessFieldSpec(
+            path="col_string",
+            type="STRING",
+            native_type="STRING",
+        )
+        changed_rows_field = FreshnessFieldSpec(
+            path="not_high_watermark",
+            type="STRING",
+            native_type="string",
+        )
+        with pytest.raises(AssertionResultException):
+            self.redshift_source._build_field_values_query(
+                db_params,
+                field,
+                AssertionStdOperator.EQUAL_TO,
+                None,
+                False,
+                None,
+                None,
+                "2023-01-01",
+                changed_rows_field,
+            )
+
+    @patch.object(RedshiftSource, "_convert_value_for_comparison")
+    def test_get_field_values_query_high_watermark_timestamp(
+        self, convert_value_mock: Mock
+    ) -> None:
+        db_params = DatabaseParams(
+            dataset_part_0="test_db",
+            dataset_part_1="public",
+            dataset_part_2="test_table",
+        )
+        field = FreshnessFieldSpec(
+            path="col_string",
+            type="STRING",
+            native_type="STRING",
+        )
+        changed_rows_field = FreshnessFieldSpec(
+            path="col_date",
+            type="TIMESTAMP",
+            native_type="TIMESTAMP WITHOUT TIME ZONE",
+        )
+        self.redshift_source._build_field_values_query(
+            db_params,
+            field,
+            AssertionStdOperator.EQUAL_TO,
+            None,
+            False,
+            None,
+            None,
+            "2023-01-01",
+            changed_rows_field,
+        )
+        convert_value_mock.assert_called_once_with(
+            "2023-01-01", "TIMESTAMP WITHOUT TIME ZONE"
+        )
+
+    @patch.object(RedshiftSource, "_convert_value_for_comparison")
+    def test_get_field_values_query_high_watermark_integer(
+        self, convert_value_mock: Mock
+    ) -> None:
+        db_params = DatabaseParams(
+            dataset_part_0="test_db",
+            dataset_part_1="public",
+            dataset_part_2="test_table",
+        )
+        field = FreshnessFieldSpec(
+            path="col_string",
+            type="STRING",
+            native_type="STRING",
+        )
+        changed_rows_field = FreshnessFieldSpec(
+            path="col_integer",
+            type="INTEGER",
+            native_type="INTEGER",
+        )
+        self.redshift_source._build_field_values_query(
+            db_params,
+            field,
+            AssertionStdOperator.EQUAL_TO,
+            None,
+            False,
+            None,
+            None,
+            "2023-01-01",
+            changed_rows_field,
+        )
+        convert_value_mock.assert_not_called()

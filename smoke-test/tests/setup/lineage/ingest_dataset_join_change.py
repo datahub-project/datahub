@@ -1,32 +1,18 @@
 from typing import List
 
-from datahub.emitter.mce_builder import (
-    make_dataset_urn,
-)
+from datahub.emitter.mce_builder import make_dataset_urn
 from datahub.emitter.rest_emitter import DatahubRestEmitter
-from datahub.metadata.schema_classes import (
-    NumberTypeClass,
-    SchemaFieldDataTypeClass,
-    StringTypeClass,
-    UpstreamClass,
-)
+from datahub.metadata.schema_classes import (NumberTypeClass,
+                                             SchemaFieldDataTypeClass,
+                                             StringTypeClass, UpstreamClass)
 
-from tests.setup.lineage.constants import (
-    DATASET_ENTITY_TYPE,
-    SNOWFLAKE_DATA_PLATFORM,
-    TIMESTAMP_MILLIS_EIGHT_DAYS_AGO,
-    TIMESTAMP_MILLIS_ONE_DAY_AGO,
-)
-from tests.setup.lineage.helper_classes import (
-    Field,
-    Dataset,
-)
-from tests.setup.lineage.utils import (
-    create_node,
-    create_upstream_edge,
-    create_upstream_mcp,
-    emit_mcps,
-)
+from tests.setup.lineage.constants import (DATASET_ENTITY_TYPE,
+                                           SNOWFLAKE_DATA_PLATFORM,
+                                           TIMESTAMP_MILLIS_EIGHT_DAYS_AGO,
+                                           TIMESTAMP_MILLIS_ONE_DAY_AGO)
+from tests.setup.lineage.helper_classes import Dataset, Field
+from tests.setup.lineage.utils import (create_node, create_upstream_edge,
+                                       create_upstream_mcp, emit_mcps)
 
 # Constants for Case 3
 GDP_DATASET_ID = "economic_data.gdp"

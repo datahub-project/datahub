@@ -9,7 +9,7 @@ WORKDIR /go/src/github.com/jwilder/dockerize
 RUN go install github.com/jwilder/dockerize@$DOCKERIZE_VERSION
 
 
-FROM python:3.10 as base
+FROM acryldata/datahub-ingestion-base:head as base
 COPY --from=binary /go/bin/dockerize /usr/local/bin
 RUN pip install poetry==1.4.2
 
@@ -69,8 +69,8 @@ ENV EXTRA_UVICORN_ARGS="--reload --reload-dir /datahub-src/datahub-monitors-serv
 
 FROM ${APP_ENV}-install as final
 
-RUN addgroup --system datahub && adduser --system datahub --ingroup datahub
 USER datahub
 WORKDIR /datahub-src/datahub-monitors-service
 HEALTHCHECK --start-period=2m --retries=4 CMD curl --fail http://localhost:9004/health || exit 1
+ENTRYPOINT []
 CMD dockerize -wait ${DATAHUB_GMS_PROTOCOL:-http}://$DATAHUB_GMS_HOST:$DATAHUB_GMS_PORT/health -timeout 240s /start_datahub_monitors_service.sh

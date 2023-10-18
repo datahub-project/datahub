@@ -25,6 +25,7 @@ public class EntityTypeMapper {
           .put(EntityType.TAG, "tag")
           .put(EntityType.DATA_FLOW, "dataFlow")
           .put(EntityType.DATA_JOB, "dataJob")
+          .put(EntityType.DATA_PROCESS_INSTANCE, Constants.DATA_PROCESS_INSTANCE_ENTITY_NAME)
           .put(EntityType.GLOSSARY_TERM, "glossaryTerm")
           .put(EntityType.GLOSSARY_NODE, "glossaryNode")
           .put(EntityType.MLMODEL, "mlModel")

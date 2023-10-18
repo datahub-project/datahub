@@ -30,9 +30,12 @@ import com.linkedin.datahub.graphql.resolvers.actionrequest.ListActionRequestsRe
 import com.linkedin.datahub.graphql.resolvers.actionrequest.ListRejectedActionRequestsResolver;
 import com.linkedin.datahub.graphql.resolvers.anomaly.EntityAnomaliesResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.CreateDatasetAssertionResolver;
+import com.linkedin.datahub.graphql.resolvers.assertion.CreateFieldAssertionResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.CreateFreshnessAssertionResolver;
+import com.linkedin.datahub.graphql.resolvers.assertion.CreateSqlAssertionResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.CreateVolumeAssertionResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.EntityAssertionsResolver;
+import com.linkedin.datahub.graphql.resolvers.assertion.TestAssertionResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.UpdateAssertionActionsResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.UpdateDatasetAssertionResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.UpdateFreshnessAssertionResolver;
@@ -248,6 +251,9 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
         .dataFetcher("createDatasetAssertion", new CreateDatasetAssertionResolver(assertionService))
         .dataFetcher("createFreshnessAssertion", new CreateFreshnessAssertionResolver(assertionService))
         .dataFetcher("createVolumeAssertion", new CreateVolumeAssertionResolver(assertionService))
+        .dataFetcher("createFieldAssertion", new CreateFieldAssertionResolver(assertionService))
+        .dataFetcher("createSqlAssertion", new CreateSqlAssertionResolver(assertionService))
+        .dataFetcher("testAssertion", new TestAssertionResolver(monitorService))
         .dataFetcher("updateDatasetAssertion", new UpdateDatasetAssertionResolver(assertionService))
         .dataFetcher("updateFreshnessAssertion", new UpdateFreshnessAssertionResolver(assertionService))
         .dataFetcher("updateAssertionActions", new UpdateAssertionActionsResolver(assertionService))

@@ -29,6 +29,15 @@ fragment monitorDetails on Monitor {
                     datasetVolumeParameters {
                         sourceType
                     }
+                    datasetFieldParameters {
+                        sourceType
+                        changedRowsField {
+                            type
+                            nativeType
+                            path
+                            kind
+                        }
+                    }
                 }
             }
         }

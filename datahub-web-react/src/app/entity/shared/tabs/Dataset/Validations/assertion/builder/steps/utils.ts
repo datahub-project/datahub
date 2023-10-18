@@ -60,6 +60,10 @@ export const getEvaluationScheduleTooltipDescription = (assertionType: Assertion
             return `At these times, we will determine the last time this dataset has changed. This may involve issuing a query to ${platformName}.`;
         case AssertionType.Volume:
             return `At these times, we will evaluate the row count for this dataset. This may involve issuing a query to ${platformName}.`;
+        case AssertionType.Sql:
+            return `At these times, we will evaluate the SQL query for this dataset. This involves issuing a query to ${platformName}.`;
+        case AssertionType.Field:
+            return `At these times, we will evaluate the field value for this dataset. This involves issuing a query to ${platformName}.`;
         default:
             throw new Error(`Unknown assertion type: ${assertionType}`);
     }
@@ -71,6 +75,10 @@ export const getEvaluationScheduleTitle = (assertionType: AssertionType) => {
             return 'Check for table changes';
         case AssertionType.Volume:
             return 'Check table volume';
+        case AssertionType.Sql:
+            return 'Run this query';
+        case AssertionType.Field:
+            return 'Check field value';
         default:
             throw new Error(`Unknown assertion type: ${assertionType}`);
     }

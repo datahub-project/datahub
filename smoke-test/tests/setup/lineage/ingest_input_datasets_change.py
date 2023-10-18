@@ -1,36 +1,20 @@
 from typing import List
 
-from datahub.emitter.mce_builder import (
-    make_dataset_urn,
-    make_data_flow_urn,
-    make_data_job_urn_with_flow,
-)
+from datahub.emitter.mce_builder import (make_data_flow_urn,
+                                         make_data_job_urn_with_flow,
+                                         make_dataset_urn)
 from datahub.emitter.rest_emitter import DatahubRestEmitter
-from datahub.metadata.schema_classes import (
-    NumberTypeClass,
-    SchemaFieldDataTypeClass,
-    StringTypeClass,
-)
+from datahub.metadata.schema_classes import (NumberTypeClass,
+                                             SchemaFieldDataTypeClass,
+                                             StringTypeClass)
 
-from tests.setup.lineage.constants import (
-    AIRFLOW_DATA_PLATFORM,
-    BQ_DATA_PLATFORM,
-    TIMESTAMP_MILLIS_EIGHT_DAYS_AGO,
-    TIMESTAMP_MILLIS_ONE_DAY_AGO,
-)
-from tests.setup.lineage.helper_classes import (
-    Field,
-    Dataset,
-    Task,
-    Pipeline,
-)
-from tests.setup.lineage.utils import (
-    create_edge,
-    create_node,
-    create_nodes_and_edges,
-    emit_mcps,
-)
-
+from tests.setup.lineage.constants import (AIRFLOW_DATA_PLATFORM,
+                                           BQ_DATA_PLATFORM,
+                                           TIMESTAMP_MILLIS_EIGHT_DAYS_AGO,
+                                           TIMESTAMP_MILLIS_ONE_DAY_AGO)
+from tests.setup.lineage.helper_classes import Dataset, Field, Pipeline, Task
+from tests.setup.lineage.utils import (create_edge, create_node,
+                                       create_nodes_and_edges, emit_mcps)
 
 # Constants for Case 1
 TRANSACTIONS_DATASET_ID = "transactions.transactions"

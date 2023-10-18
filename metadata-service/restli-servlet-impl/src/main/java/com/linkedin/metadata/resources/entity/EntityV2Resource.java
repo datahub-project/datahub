@@ -4,7 +4,7 @@ import com.codahale.metrics.MetricRegistry;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.plugins.auth.authorization.Authorizer;
-import com.datahub.authorization.ResourceSpec;
+import com.datahub.authorization.EntitySpec;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.EntityResponse;
@@ -68,7 +68,7 @@ public class EntityV2Resource extends CollectionResourceTaskTemplate<String, Ent
     final Urn urn = Urn.createFromString(urnStr);
     Authentication auth = AuthenticationContext.getAuthentication();
     if (Boolean.parseBoolean(System.getenv(REST_API_AUTHORIZATION_ENABLED_ENV))
-        && !isAuthorized(auth, _authorizer, ImmutableList.of(PoliciesConfig.GET_ENTITY_PRIVILEGE), new ResourceSpec(urn.getEntityType(), urnStr))) {
+        && !isAuthorized(auth, _authorizer, ImmutableList.of(PoliciesConfig.GET_ENTITY_PRIVILEGE), new EntitySpec(urn.getEntityType(), urnStr))) {
       throw new RestLiServiceException(HttpStatus.S_401_UNAUTHORIZED,
           "User is unauthorized to get entity " + urn);
     }
@@ -96,8 +96,8 @@ public class EntityV2Resource extends CollectionResourceTaskTemplate<String, Ent
       urns.add(Urn.createFromString(urnStr));
     }
     Authentication auth = AuthenticationContext.getAuthentication();
-    List<java.util.Optional<ResourceSpec>> resourceSpecs = urns.stream()
-        .map(urn -> java.util.Optional.of(new ResourceSpec(urn.getEntityType(), urn.toString())))
+    List<java.util.Optional<EntitySpec>> resourceSpecs = urns.stream()
+        .map(urn -> java.util.Optional.of(new EntitySpec(urn.getEntityType(), urn.toString())))
         .collect(Collectors.toList());
     if (Boolean.parseBoolean(System.getenv(REST_API_AUTHORIZATION_ENABLED_ENV))
         && !isAuthorized(auth, _authorizer, ImmutableList.of(PoliciesConfig.GET_ENTITY_PRIVILEGE), resourceSpecs)) {

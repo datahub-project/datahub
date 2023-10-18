@@ -3,7 +3,7 @@ package com.linkedin.metadata.resources.entity;
 import com.codahale.metrics.MetricRegistry;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
-import com.datahub.authorization.ResourceSpec;
+import com.datahub.authorization.EntitySpec;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
@@ -20,7 +20,6 @@ import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.validation.ValidationException;
-import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.restli.RestliUtil;
@@ -123,7 +122,7 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
       Authentication authentication = AuthenticationContext.getAuthentication();
       if (Boolean.parseBoolean(System.getenv(REST_API_AUTHORIZATION_ENABLED_ENV))
           && !isAuthorized(authentication, _authorizer, ImmutableList.of(PoliciesConfig.GET_ENTITY_PRIVILEGE),
-          new ResourceSpec(urn.getEntityType(), urn.toString()))) {
+          new EntitySpec(urn.getEntityType(), urn.toString()))) {
         throw new RestLiServiceException(HttpStatus.S_401_UNAUTHORIZED, "User is unauthorized to get aspect for " + urn);
       }
       final VersionedAspect aspect = _entityService.getVersionedAspect(urn, aspectName, version);
@@ -154,7 +153,7 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
       Authentication authentication = AuthenticationContext.getAuthentication();
       if (Boolean.parseBoolean(System.getenv(REST_API_AUTHORIZATION_ENABLED_ENV))
           && !isAuthorized(authentication, _authorizer, ImmutableList.of(PoliciesConfig.GET_TIMESERIES_ASPECT_PRIVILEGE),
-          new ResourceSpec(urn.getEntityType(), urn.toString()))) {
+          new EntitySpec(urn.getEntityType(), urn.toString()))) {
         throw new RestLiServiceException(HttpStatus.S_401_UNAUTHORIZED, "User is unauthorized to get timeseries aspect for " + urn);
       }
       GetTimeseriesAspectValuesResponse response = new GetTimeseriesAspectValuesResponse();
@@ -193,11 +192,11 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
     }
 
     Authentication authentication = AuthenticationContext.getAuthentication();
-    EntitySpec entitySpec = _entityService.getEntityRegistry().getEntitySpec(metadataChangeProposal.getEntityType());
+    com.linkedin.metadata.models.EntitySpec entitySpec = _entityService.getEntityRegistry().getEntitySpec(metadataChangeProposal.getEntityType());
     Urn urn = EntityKeyUtils.getUrnFromProposal(metadataChangeProposal, entitySpec.getKeyAspectSpec());
     if (Boolean.parseBoolean(System.getenv(REST_API_AUTHORIZATION_ENABLED_ENV))
         && !isAuthorized(authentication, _authorizer, ImmutableList.of(PoliciesConfig.EDIT_ENTITY_PRIVILEGE),
-        new ResourceSpec(urn.getEntityType(), urn.toString()))) {
+        new EntitySpec(urn.getEntityType(), urn.toString()))) {
       throw new RestLiServiceException(HttpStatus.S_401_UNAUTHORIZED, "User is unauthorized to modify entity " + urn);
     }
     String actorUrnStr = authentication.getActor().toUrnStr();
@@ -249,7 +248,7 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
       Authentication authentication = AuthenticationContext.getAuthentication();
       if (Boolean.parseBoolean(System.getenv(REST_API_AUTHORIZATION_ENABLED_ENV))
           && !isAuthorized(authentication, _authorizer, ImmutableList.of(PoliciesConfig.GET_COUNTS_PRIVILEGE),
-          (ResourceSpec) null)) {
+          (EntitySpec) null)) {
         throw new RestLiServiceException(HttpStatus.S_401_UNAUTHORIZED, "User is unauthorized to get aspect counts.");
       }
       return _entityService.getCountAspect(aspectName, urnLike);

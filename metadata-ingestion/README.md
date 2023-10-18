@@ -176,7 +176,7 @@ The `deploy` subcommand of the `ingest` command tree allows users to upload thei
 datahub ingest deploy -n <user friendly name for ingestion> -c recipe.yaml
 ```
 
-By default, no schedule is done unless explicitly configured with the `--schedule` parameter. Timezones are inferred from the system time, can be overriden with `--time-zone` flag.
+By default, no schedule is done unless explicitly configured with the `--schedule` parameter. Schedule timezones are UTC by default and can be overriden with `--time-zone` flag.
 ```shell
 datahub ingest deploy -n test --schedule "0 * * * *" --time-zone "Europe/London" -c recipe.yaml
 ```

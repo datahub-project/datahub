@@ -537,6 +537,8 @@ entities:
     keyAspect: dataContractKey
     aspects:
       - dataContractProperties
+      - dataContractStatus
+      - status
   - name: monitor
     category: core
     keyAspect: monitorKey

@@ -3,7 +3,7 @@ package io.acryl.admin.grafana;
 import com.google.common.collect.ImmutableSet;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
-import com.linkedin.gms.factory.spring.YamlPropertySourceFactory;
+import com.linkedin.metadata.spring.YamlPropertySourceFactory;
 import lombok.Builder;
 import lombok.Getter;
 import org.springframework.beans.factory.annotation.Qualifier;

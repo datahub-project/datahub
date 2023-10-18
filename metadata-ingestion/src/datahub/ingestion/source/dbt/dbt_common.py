@@ -1,11 +1,10 @@
-import json
 import logging
 import re
 from abc import abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import auto
-from typing import Any, Callable, ClassVar, Dict, Iterable, List, Optional, Tuple, Union
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 import pydantic
 from pydantic import root_validator, validator
@@ -18,8 +17,8 @@ from datahub.configuration.common import (
     ConfigurationError,
     LineageConfig,
 )
-from datahub.configuration.pydantic_field_deprecation import pydantic_field_deprecated
 from datahub.configuration.source_common import DatasetSourceConfigMixin
+from datahub.configuration.validate_field_deprecation import pydantic_field_deprecated
 from datahub.emitter import mce_builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
@@ -34,6 +33,12 @@ from datahub.ingestion.api.decorators import (
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
+from datahub.ingestion.source.dbt.dbt_tests import (
+    DBTTest,
+    DBTTestResult,
+    make_assertion_from_test,
+    make_assertion_result_from_test,
+)
 from datahub.ingestion.source.sql.sql_types import (
     ATHENA_SQL_TYPES_MAP,
     BIGQUERY_TYPES_MAP,
@@ -81,20 +86,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     TimeTypeClass,
 )
 from datahub.metadata.schema_classes import (
-    AssertionInfoClass,
-    AssertionResultClass,
-    AssertionResultTypeClass,
-    AssertionRunEventClass,
-    AssertionRunStatusClass,
-    AssertionStdAggregationClass,
-    AssertionStdOperatorClass,
-    AssertionStdParameterClass,
-    AssertionStdParametersClass,
-    AssertionStdParameterTypeClass,
-    AssertionTypeClass,
     DataPlatformInstanceClass,
-    DatasetAssertionInfoClass,
-    DatasetAssertionScopeClass,
     DatasetPropertiesClass,
     GlobalTagsClass,
     GlossaryTermsClass,
@@ -214,7 +206,9 @@ class DBTCommonConfig(
         default=False,
         description="Use model identifier instead of model name if defined (if not, default to model name).",
     )
-    _deprecate_use_identifiers = pydantic_field_deprecated("use_identifiers")
+    _deprecate_use_identifiers = pydantic_field_deprecated(
+        "use_identifiers", warn_if_value_is_not=False
+    )
 
     entities_enabled: DBTEntitiesEnabled = Field(
         DBTEntitiesEnabled(),
@@ -277,6 +271,14 @@ class DBTCommonConfig(
         default=False,
         description="When enabled, converts column URNs to lowercase to ensure cross-platform compatibility. "
         "If `target_platform` is Snowflake, the default is True.",
+    )
+    use_compiled_code: bool = Field(
+        default=False,
+        description="When enabled, uses the compiled dbt code instead of the raw dbt node definition.",
+    )
+    test_warnings_are_errors: bool = Field(
+        default=False,
+        description="When enabled, dbt test warnings will be treated as failures.",
     )
 
     @validator("target_platform")
@@ -541,134 +543,6 @@ def get_column_type(
     return SchemaFieldDataType(type=TypeClass())
 
 
-@dataclass
-class AssertionParams:
-    scope: Union[DatasetAssertionScopeClass, str]
-    operator: Union[AssertionStdOperatorClass, str]
-    aggregation: Union[AssertionStdAggregationClass, str]
-    parameters: Optional[Callable[[Dict[str, str]], AssertionStdParametersClass]] = None
-    logic_fn: Optional[Callable[[Dict[str, str]], Optional[str]]] = None
-
-
-def _get_name_for_relationship_test(kw_args: Dict[str, str]) -> Optional[str]:
-    """
-    Try to produce a useful string for the name of a relationship constraint.
-    Return None if we fail to
-    """
-    destination_ref = kw_args.get("to")
-    source_ref = kw_args.get("model")
-    column_name = kw_args.get("column_name")
-    dest_field_name = kw_args.get("field")
-    if not destination_ref or not source_ref or not column_name or not dest_field_name:
-        # base assertions are violated, bail early
-        return None
-    m = re.match(r"^ref\(\'(.*)\'\)$", destination_ref)
-    if m:
-        destination_table = m.group(1)
-    else:
-        destination_table = destination_ref
-    m = re.search(r"ref\(\'(.*)\'\)", source_ref)
-    if m:
-        source_table = m.group(1)
-    else:
-        source_table = source_ref
-    return f"{source_table}.{column_name} referential integrity to {destination_table}.{dest_field_name}"
-
-
-@dataclass
-class DBTTest:
-    qualified_test_name: str
-    column_name: Optional[str]
-    kw_args: dict
-
-    TEST_NAME_TO_ASSERTION_MAP: ClassVar[Dict[str, AssertionParams]] = {
-        "not_null": AssertionParams(
-            scope=DatasetAssertionScopeClass.DATASET_COLUMN,
-            operator=AssertionStdOperatorClass.NOT_NULL,
-            aggregation=AssertionStdAggregationClass.IDENTITY,
-        ),
-        "unique": AssertionParams(
-            scope=DatasetAssertionScopeClass.DATASET_COLUMN,
-            operator=AssertionStdOperatorClass.EQUAL_TO,
-            aggregation=AssertionStdAggregationClass.UNIQUE_PROPOTION,
-            parameters=lambda _: AssertionStdParametersClass(
-                value=AssertionStdParameterClass(
-                    value="1.0",
-                    type=AssertionStdParameterTypeClass.NUMBER,
-                )
-            ),
-        ),
-        "accepted_values": AssertionParams(
-            scope=DatasetAssertionScopeClass.DATASET_COLUMN,
-            operator=AssertionStdOperatorClass.IN,
-            aggregation=AssertionStdAggregationClass.IDENTITY,
-            parameters=lambda kw_args: AssertionStdParametersClass(
-                value=AssertionStdParameterClass(
-                    value=json.dumps(kw_args.get("values")),
-                    type=AssertionStdParameterTypeClass.SET,
-                ),
-            ),
-        ),
-        "relationships": AssertionParams(
-            scope=DatasetAssertionScopeClass.DATASET_COLUMN,
-            operator=AssertionStdOperatorClass._NATIVE_,
-            aggregation=AssertionStdAggregationClass.IDENTITY,
-            parameters=lambda kw_args: AssertionStdParametersClass(
-                value=AssertionStdParameterClass(
-                    value=json.dumps(kw_args.get("values")),
-                    type=AssertionStdParameterTypeClass.SET,
-                ),
-            ),
-            logic_fn=_get_name_for_relationship_test,
-        ),
-        "dbt_expectations.expect_column_values_to_not_be_null": AssertionParams(
-            scope=DatasetAssertionScopeClass.DATASET_COLUMN,
-            operator=AssertionStdOperatorClass.NOT_NULL,
-            aggregation=AssertionStdAggregationClass.IDENTITY,
-        ),
-        "dbt_expectations.expect_column_values_to_be_between": AssertionParams(
-            scope=DatasetAssertionScopeClass.DATASET_COLUMN,
-            operator=AssertionStdOperatorClass.BETWEEN,
-            aggregation=AssertionStdAggregationClass.IDENTITY,
-            parameters=lambda x: AssertionStdParametersClass(
-                minValue=AssertionStdParameterClass(
-                    value=str(x.get("min_value", "unknown")),
-                    type=AssertionStdParameterTypeClass.NUMBER,
-                ),
-                maxValue=AssertionStdParameterClass(
-                    value=str(x.get("max_value", "unknown")),
-                    type=AssertionStdParameterTypeClass.NUMBER,
-                ),
-            ),
-        ),
-        "dbt_expectations.expect_column_values_to_be_in_set": AssertionParams(
-            scope=DatasetAssertionScopeClass.DATASET_COLUMN,
-            operator=AssertionStdOperatorClass.IN,
-            aggregation=AssertionStdAggregationClass.IDENTITY,
-            parameters=lambda kw_args: AssertionStdParametersClass(
-                value=AssertionStdParameterClass(
-                    value=json.dumps(kw_args.get("value_set")),
-                    type=AssertionStdParameterTypeClass.SET,
-                ),
-            ),
-        ),
-    }
-
-
-@dataclass
-class DBTTestResult:
-    invocation_id: str
-
-    status: str
-    execution_time: datetime
-
-    native_results: Dict[str, str]
-
-
-def string_map(input_map: Dict[str, Any]) -> Dict[str, str]:
-    return {k: str(v) for k, v in input_map.items()}
-
-
 @platform_name("dbt")
 @config_class(DBTCommonConfig)
 @support_status(SupportStatus.CERTIFIED)
@@ -701,18 +575,22 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             assertion_urn = mce_builder.make_assertion_urn(
                 mce_builder.datahub_guid(
                     {
-                        "platform": DBT_PLATFORM,
-                        "name": node.dbt_name,
-                        "instance": self.config.platform_instance,
-                        **(
-                            # Ideally we'd include the env unconditionally. However, we started out
-                            # not including env in the guid, so we need to maintain backwards compatibility
-                            # with existing PROD assertions.
-                            {"env": self.config.env}
-                            if self.config.env != mce_builder.DEFAULT_ENV
-                            and self.config.include_env_in_assertion_guid
-                            else {}
-                        ),
+                        k: v
+                        for k, v in {
+                            "platform": DBT_PLATFORM,
+                            "name": node.dbt_name,
+                            "instance": self.config.platform_instance,
+                            **(
+                                # Ideally we'd include the env unconditionally. However, we started out
+                                # not including env in the guid, so we need to maintain backwards compatibility
+                                # with existing PROD assertions.
+                                {"env": self.config.env}
+                                if self.config.env != mce_builder.DEFAULT_ENV
+                                and self.config.include_env_in_assertion_guid
+                                else {}
+                            ),
+                        }.items()
+                        if v is not None
                     }
                 )
             )
@@ -736,7 +614,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
 
             for upstream_urn in sorted(upstream_urns):
                 if self.config.entities_enabled.can_emit_node_type("test"):
-                    yield self._make_assertion_from_test(
+                    yield make_assertion_from_test(
                         custom_props,
                         node,
                         assertion_urn,
@@ -745,128 +623,16 @@ class DBTSourceBase(StatefulIngestionSourceBase):
 
                 if node.test_result:
                     if self.config.entities_enabled.can_emit_test_results:
-                        yield self._make_assertion_result_from_test(
-                            node, assertion_urn, upstream_urn
+                        yield make_assertion_result_from_test(
+                            node,
+                            assertion_urn,
+                            upstream_urn,
+                            test_warnings_are_errors=self.config.test_warnings_are_errors,
                         )
                     else:
                         logger.debug(
                             f"Skipping test result {node.name} emission since it is turned off."
                         )
-
-    def _make_assertion_from_test(
-        self,
-        extra_custom_props: Dict[str, str],
-        node: DBTNode,
-        assertion_urn: str,
-        upstream_urn: str,
-    ) -> MetadataWorkUnit:
-        assert node.test_info
-        qualified_test_name = node.test_info.qualified_test_name
-        column_name = node.test_info.column_name
-        kw_args = node.test_info.kw_args
-
-        if qualified_test_name in DBTTest.TEST_NAME_TO_ASSERTION_MAP:
-            assertion_params = DBTTest.TEST_NAME_TO_ASSERTION_MAP[qualified_test_name]
-            assertion_info = AssertionInfoClass(
-                type=AssertionTypeClass.DATASET,
-                customProperties=extra_custom_props,
-                datasetAssertion=DatasetAssertionInfoClass(
-                    dataset=upstream_urn,
-                    scope=assertion_params.scope,
-                    operator=assertion_params.operator,
-                    fields=[
-                        mce_builder.make_schema_field_urn(upstream_urn, column_name)
-                    ]
-                    if (
-                        assertion_params.scope
-                        == DatasetAssertionScopeClass.DATASET_COLUMN
-                        and column_name
-                    )
-                    else [],
-                    nativeType=node.name,
-                    aggregation=assertion_params.aggregation,
-                    parameters=assertion_params.parameters(kw_args)
-                    if assertion_params.parameters
-                    else None,
-                    logic=assertion_params.logic_fn(kw_args)
-                    if assertion_params.logic_fn
-                    else None,
-                    nativeParameters=string_map(kw_args),
-                ),
-            )
-        elif column_name:
-            # no match with known test types, column-level test
-            assertion_info = AssertionInfoClass(
-                type=AssertionTypeClass.DATASET,
-                customProperties=extra_custom_props,
-                datasetAssertion=DatasetAssertionInfoClass(
-                    dataset=upstream_urn,
-                    scope=DatasetAssertionScopeClass.DATASET_COLUMN,
-                    operator=AssertionStdOperatorClass._NATIVE_,
-                    fields=[
-                        mce_builder.make_schema_field_urn(upstream_urn, column_name)
-                    ],
-                    nativeType=node.name,
-                    logic=node.compiled_code if node.compiled_code else node.raw_code,
-                    aggregation=AssertionStdAggregationClass._NATIVE_,
-                    nativeParameters=string_map(kw_args),
-                ),
-            )
-        else:
-            # no match with known test types, default to row-level test
-            assertion_info = AssertionInfoClass(
-                type=AssertionTypeClass.DATASET,
-                customProperties=extra_custom_props,
-                datasetAssertion=DatasetAssertionInfoClass(
-                    dataset=upstream_urn,
-                    scope=DatasetAssertionScopeClass.DATASET_ROWS,
-                    operator=AssertionStdOperatorClass._NATIVE_,
-                    logic=node.compiled_code if node.compiled_code else node.raw_code,
-                    nativeType=node.name,
-                    aggregation=AssertionStdAggregationClass._NATIVE_,
-                    nativeParameters=string_map(kw_args),
-                ),
-            )
-
-        wu = MetadataChangeProposalWrapper(
-            entityUrn=assertion_urn,
-            aspect=assertion_info,
-        ).as_workunit()
-
-        return wu
-
-    def _make_assertion_result_from_test(
-        self,
-        node: DBTNode,
-        assertion_urn: str,
-        upstream_urn: str,
-    ) -> MetadataWorkUnit:
-        assert node.test_result
-        test_result = node.test_result
-
-        assertionResult = AssertionRunEventClass(
-            timestampMillis=int(test_result.execution_time.timestamp() * 1000.0),
-            assertionUrn=assertion_urn,
-            asserteeUrn=upstream_urn,
-            runId=test_result.invocation_id,
-            result=AssertionResultClass(
-                type=AssertionResultTypeClass.SUCCESS
-                if test_result.status == "pass"
-                else AssertionResultTypeClass.FAILURE,
-                nativeResults=test_result.native_results,
-            ),
-            status=AssertionRunStatusClass.COMPLETE,
-        )
-
-        event = MetadataChangeProposalWrapper(
-            entityUrn=assertion_urn,
-            aspect=assertionResult,
-        )
-        wu = MetadataWorkUnit(
-            id=f"{assertion_urn}-assertionRunEvent-{upstream_urn}",
-            mcp=event,
-        )
-        return wu
 
     @abstractmethod
     def load_nodes(self) -> Tuple[List[DBTNode], Dict[str, Optional[str]]]:
@@ -1003,8 +769,8 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     aspects.append(upstream_lineage_class)
 
                 # add view properties aspect
-                if node.raw_code and node.language == "sql":
-                    view_prop_aspect = self._create_view_properties_aspect(node)
+                view_prop_aspect = self._create_view_properties_aspect(node)
+                if view_prop_aspect:
                     aspects.append(view_prop_aspect)
 
                 # emit subtype mcp
@@ -1129,14 +895,21 @@ class DBTSourceBase(StatefulIngestionSourceBase):
     def get_external_url(self, node: DBTNode) -> Optional[str]:
         pass
 
-    def _create_view_properties_aspect(self, node: DBTNode) -> ViewPropertiesClass:
+    def _create_view_properties_aspect(
+        self, node: DBTNode
+    ) -> Optional[ViewPropertiesClass]:
+        view_logic = (
+            node.compiled_code if self.config.use_compiled_code else node.raw_code
+        )
+
+        if node.language != "sql" or not view_logic:
+            return None
+
         materialized = node.materialization in {"table", "incremental", "snapshot"}
-        # this function is only called when raw sql is present. assert is added to satisfy lint checks
-        assert node.raw_code is not None
         view_properties = ViewPropertiesClass(
             materialized=materialized,
             viewLanguage="SQL",
-            viewLogic=node.raw_code,
+            viewLogic=view_logic,
         )
         return view_properties
 
@@ -1188,9 +961,15 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         ):
             aspects.append(meta_aspects.get(Constants.ADD_TERM_OPERATION))
 
+        # add meta links aspect
+        meta_links_aspect = meta_aspects.get(Constants.ADD_DOC_LINK_OPERATION)
+        if meta_links_aspect and self.config.enable_meta_mapping:
+            aspects.append(meta_links_aspect)
+
         # add schema metadata aspect
         schema_metadata = self.get_schema_metadata(self.report, node, mce_platform)
         aspects.append(schema_metadata)
+
         return aspects
 
     def get_schema_metadata(

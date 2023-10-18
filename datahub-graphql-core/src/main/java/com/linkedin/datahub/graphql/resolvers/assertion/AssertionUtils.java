@@ -20,6 +20,7 @@ import com.linkedin.datahub.graphql.generated.AssertionStdParameterInput;
 import com.linkedin.datahub.graphql.generated.AssertionStdParametersInput;
 import com.linkedin.datahub.graphql.generated.DatasetFilterInput;
 import com.linkedin.datahub.graphql.generated.SchemaFieldSpecInput;
+import com.linkedin.datahub.graphql.generated.TestAssertionInput;
 import com.linkedin.datahub.graphql.resolvers.AuthUtils;
 import com.linkedin.dataset.DatasetFilterType;
 import com.linkedin.metadata.authorization.PoliciesConfig;
@@ -116,8 +117,29 @@ public class AssertionUtils {
         return info.getFreshnessAssertion().getEntity();
       case VOLUME:
         return info.getVolumeAssertion().getEntity();
+      case SQL:
+        return info.getSqlAssertion().getEntity();
+      case FIELD:
+        return info.getFieldAssertion().getEntity();
       default:
         throw new RuntimeException(String.format("Unsupported Assertion Type %s provided", info.getType()));
+    }
+  }
+
+  public static String getAsserteeUrnFromTestInput(final TestAssertionInput input) {
+    switch (input.getType()) {
+      case SQL:
+        if (input.getSqlTestInput() != null) {
+          return input.getSqlTestInput().getEntityUrn();
+        }
+        throw new RuntimeException("SQL Test Input is required for SQL Assertion");
+      case FIELD:
+        if (input.getFieldTestInput() != null) {
+          return input.getFieldTestInput().getEntityUrn();
+        }
+        throw new RuntimeException("Field Test Input is required for Field Assertion");
+      default:
+        throw new RuntimeException(String.format("Unsupported Assertion Type %s provided", input.getType()));
     }
   }
 

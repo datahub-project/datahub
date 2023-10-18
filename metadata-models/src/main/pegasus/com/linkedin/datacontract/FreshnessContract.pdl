@@ -1,0 +1,13 @@
+namespace com.linkedin.datacontract
+
+import com.linkedin.common.Urn
+
+/**
+ * A contract pertaining to the operational SLAs of a physical data asset
+ */
+record FreshnessContract {
+  /**
+   * The assertion representing the SLA contract.
+   */
+  assertion: Urn
+}

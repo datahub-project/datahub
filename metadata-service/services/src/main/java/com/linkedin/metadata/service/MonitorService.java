@@ -3,6 +3,9 @@ package com.linkedin.metadata.service;
 import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.linkedin.assertion.AssertionResult;
+import com.linkedin.assertion.FieldAssertionInfo;
+import com.linkedin.assertion.SqlAssertionInfo;
 import com.linkedin.common.CronSchedule;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.EntityResponse;
@@ -10,6 +13,7 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.key.MonitorKey;
+import com.linkedin.metadata.service.util.MonitorServiceUtils;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.monitor.AssertionEvaluationParameters;
 import com.linkedin.monitor.AssertionEvaluationSpec;
@@ -20,6 +24,10 @@ import com.linkedin.monitor.MonitorMode;
 import com.linkedin.monitor.MonitorStatus;
 import com.linkedin.monitor.MonitorType;
 import com.linkedin.mxe.MetadataChangeProposal;
+import com.linkedin.parseq.retry.backoff.BackoffPolicy;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
+import com.linkedin.parseq.retry.backoff.ExponentialBackoff;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -28,16 +36,69 @@ import java.util.UUID;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
-
+import org.apache.http.HttpEntity;
+import org.apache.http.HttpStatus;
+import org.apache.http.client.methods.CloseableHttpResponse;
+import org.apache.http.client.methods.HttpPost;
+import org.apache.http.client.methods.HttpUriRequest;
+import org.apache.http.entity.StringEntity;
+import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.HttpClients;
+import org.apache.http.util.EntityUtils;
 
 
 @Slf4j
 public class MonitorService extends BaseService {
 
+  private static final int DEFAULT_RETRY_INTERVAL = 2;
   private static final MonitorType DEFAULT_MONITOR_TYPE = MonitorType.ASSERTION;
+  private static final String TEST_ASSERTION_ENDPOINT = "assertions/evaluate_assertion";
 
-  public MonitorService(@Nonnull final EntityClient entityClient, @Nonnull final Authentication systemAuthentication) {
+  private final String monitorServiceHost;
+  private final Integer monitorServicePort;
+  private final Authentication systemAuthentication;
+  private final String protocol;
+  private final CloseableHttpClient httpClient;
+  private final BackoffPolicy backoffPolicy;
+  private final int retryCount;
+
+  public MonitorService(
+      @Nonnull final String monitorServiceHost,
+      @Nonnull final Integer monitorServicePort,
+      @Nonnull final Boolean useSsl,
+      @Nonnull final EntityClient entityClient,
+      @Nonnull final Authentication systemAuthentication) {
+    this(
+        monitorServiceHost,
+        monitorServicePort,
+        useSsl,
+        entityClient,
+        systemAuthentication,
+        HttpClients.createDefault(),
+        new ExponentialBackoff(DEFAULT_RETRY_INTERVAL),
+        3
+    );
+  }
+
+  public MonitorService(
+    @Nonnull final String monitorServiceHost,
+    @Nonnull final Integer monitorServicePort,
+    @Nonnull final Boolean useSsl,
+    @Nonnull final EntityClient entityClient,
+    @Nonnull final Authentication systemAuthentication,
+    @Nonnull final CloseableHttpClient httpClient,
+    @Nonnull final BackoffPolicy backoffPolicy,
+    final int retryCount) {
+
     super(entityClient, systemAuthentication);
+
+    this.monitorServiceHost = Objects.requireNonNull(monitorServiceHost);
+    this.monitorServicePort = Objects.requireNonNull(monitorServicePort);
+    this.systemAuthentication = Objects.requireNonNull(systemAuthentication);
+    this.httpClient = Objects.requireNonNull(httpClient);
+    this.protocol = useSsl ? "https" : "http";
+    this.backoffPolicy = backoffPolicy;
+    this.retryCount = retryCount;
   }
 
   /**
@@ -205,5 +266,121 @@ public class MonitorService extends BaseService {
     key.setEntity(entityUrn);
     key.setId(id);
     return EntityKeyUtils.convertEntityKeyToUrn(key, Constants.MONITOR_ENTITY_NAME);
+  }
+
+  private CloseableHttpResponse executeRequest(@Nonnull final HttpUriRequest request) throws Exception {
+    int attemptCount = 0;
+    while (attemptCount < this.retryCount) {
+      try {
+        return httpClient.execute(request);
+      } catch (Exception ex) {
+        MetricUtils.counter(MonitorService.class, "exception" + MetricUtils.DELIMITER + ex.getClass().getName().toLowerCase()).inc();
+        if (attemptCount == this.retryCount - 1) {
+          throw ex;
+        } else {
+          attemptCount = attemptCount + 1;
+          Thread.sleep(this.backoffPolicy.nextBackoff(attemptCount, ex) * 1000);
+        }
+      }
+    }
+    // Should never hit this line.
+    throw new RuntimeException("Failed to execute request to integrations service!");
+  }
+
+  private void addRequestHeaders(@Nonnull final HttpUriRequest request) {
+    // Add authorization header with DataHub frontend system id and secret.
+    // request.addHeader("Authorization", this.systemAuthentication.getCredentials());
+    request.addHeader("Content-Type", "application/json");
+  }
+
+  private AssertionResult testAssertion(
+    @Nonnull final String jsonBody
+  ) {
+    CloseableHttpResponse response = null;
+    try {
+      // Build request
+      final HttpPost request = new HttpPost(String.format("%s://%s:%s/%s",
+          protocol,
+          this.monitorServiceHost,
+          this.monitorServicePort,
+          TEST_ASSERTION_ENDPOINT));
+
+      addRequestHeaders(request);
+
+      request.setEntity(new StringEntity(jsonBody, StandardCharsets.UTF_8));
+
+      // Execute request
+      response = executeRequest(request);
+      final HttpEntity entity = response.getEntity();
+
+      if (response.getStatusLine().getStatusCode() == HttpStatus.SC_OK && entity != null) {
+        final String jsonStr = EntityUtils.toString(entity);
+        return MonitorServiceUtils.buildTestAssertionResult(jsonStr);
+      }
+      // Otherwise, something went wrong!
+      log.error(
+          String.format("Bad response from the Monitors Service: %s", response.getStatusLine().toString()));
+      return null;
+    } catch (Exception e) {
+      log.error("Failed to test assertion.", e);
+      return null;
+    } finally {
+      try {
+        if (response != null) {
+          response.close();
+        }
+      } catch (Exception e) {
+        log.error("Failed to close http response to Monitors service.", e);
+      }
+    }
+  }
+
+  @Nonnull
+  public AssertionResult testSqlAssertion(
+      @Nonnull final Urn asserteeUrn,
+      @Nonnull final Urn connectionUrn,
+      @Nonnull final SqlAssertionInfo sqlAssertionInfo) {
+    Objects.requireNonNull(asserteeUrn, "asserteeUrn must not be null");
+    Objects.requireNonNull(connectionUrn, "connectionUrn must not be null");
+    Objects.requireNonNull(sqlAssertionInfo, "sqlAssertionInfo must not be null");
+
+    try {
+      final String jsonBody = MonitorServiceUtils.buildTestSqlAssertionBodyJson(
+        "SQL",
+        asserteeUrn.toString(),
+        connectionUrn.toString(),
+        sqlAssertionInfo
+      );
+      return testAssertion(jsonBody);
+    } catch (Exception e) {
+      log.error("Failed to test SQL assertion.", e);
+      return null;
+    }
+  }
+
+  @Nonnull
+  public AssertionResult testFieldAssertion(
+      @Nonnull final Urn asserteeUrn,
+      @Nonnull final Urn connectionUrn,
+      @Nonnull final FieldAssertionInfo fieldAssertionInfo,
+      @Nonnull final AssertionEvaluationParameters parameters) {
+    Objects.requireNonNull(asserteeUrn, "asserteeUrn must not be null");
+    Objects.requireNonNull(connectionUrn, "connectionUrn must not be null");
+    Objects.requireNonNull(fieldAssertionInfo, "fieldAssertionInfo must not be null");
+    Objects.requireNonNull(parameters, "parameters must not be null");
+
+    try {
+      final String jsonBody = MonitorServiceUtils.buildTestFieldAssertionBodyJson(
+        "FIELD",
+        asserteeUrn.toString(),
+        connectionUrn.toString(),
+        fieldAssertionInfo,
+        parameters
+      );
+      return testAssertion(jsonBody);
+    } catch (Exception e) {
+      log.error("Failed to test FIELD assertion.", e);
+      return null;
+    }
   }
 }

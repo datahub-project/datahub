@@ -13,7 +13,7 @@ files = [
 
 [[package]]
 name = "acryl-datahub"
-version = "0.0.0.dev0"
+version = "1!0.0.0.dev0"
 description = "A CLI to work with DataHub metadata"
 category = "main"
 optional = false
@@ -22,10 +22,11 @@ files = []
 develop = true
 
 [package.dependencies]
-acryl-datahub-classify = {version = "0.0.6", optional = true, markers = "extra == \"snowflake\""}
+acryl-datahub-classify = {version = "0.0.8", optional = true, markers = "extra == \"snowflake\""}
+acryl-sqlglot = {version = "18.5.2.dev45", optional = true, markers = "extra == \"bigquery\" or extra == \"snowflake\""}
 aiohttp = "<4"
 avro = ">=1.10.2,<1.11"
-avro-gen3 = "0.7.10"
+avro-gen3 = "0.7.11"
 boto3 = {version = "*", optional = true, markers = "extra == \"s3\""}
 botocore = {version = "!=1.23.0", optional = true, markers = "extra == \"s3\""}
 cached_property = "*"
@@ -35,20 +36,20 @@ click-spinner = "*"
 cryptography = {version = "*", optional = true, markers = "extra == \"snowflake\""}
 Deprecated = "*"
 docker = "*"
-entrypoints = "*"
 expandvars = ">=0.6.5"
 GeoAlchemy2 = {version = "*", optional = true, markers = "extra == \"redshift\""}
 google-cloud-bigquery = {version = "*", optional = true, markers = "extra == \"bigquery\""}
-google-cloud-datacatalog-lineage = {version = "0.2.0", optional = true, markers = "extra == \"bigquery\""}
+google-cloud-datacatalog-lineage = {version = "0.2.2", optional = true, markers = "extra == \"bigquery\""}
 google-cloud-logging = {version = "<=3.5.0", optional = true, markers = "extra == \"bigquery\""}
 great-expectations = {version = ">=0.15.12,<=0.15.50", optional = true, markers = "extra == \"bigquery\" or extra == \"redshift\" or extra == \"snowflake\""}
 greenlet = {version = "*", optional = true, markers = "extra == \"bigquery\" or extra == \"redshift\" or extra == \"snowflake\""}
 humanfriendly = "*"
 ijson = "*"
+importlib_metadata = {version = ">=4.0.0", markers = "python_version < \"3.10\""}
 jsonref = "*"
-jsonschema = "*"
+jsonschema = {version = "*", markers = "python_version >= \"3.8\""}
 mixpanel = ">=4.9.0"
-more-itertools = {version = ">=8.12.0", optional = true, markers = "extra == \"bigquery\""}
+more-itertools = {version = ">=8.12.0", optional = true, markers = "extra == \"bigquery\" or extra == \"s3\""}
 moto = {version = "*", extras = ["s3"], optional = true, markers = "extra == \"s3\""}
 msal = {version = "*", optional = true, markers = "extra == \"snowflake\""}
 mypy_extensions = ">=0.4.3"
@@ -59,29 +60,27 @@ progressbar2 = "*"
 psutil = ">=5.8.0"
 psycopg2-binary = {version = "*", optional = true, markers = "extra == \"redshift\""}
 pyarrow = {version = ">=6.0.1", optional = true, markers = "extra == \"s3\""}
-pydantic = ">=1.5.1,<1.10.3 || >1.10.3"
-pydeequ = {version = ">=1.0.1", optional = true, markers = "extra == \"s3\""}
-pyspark = {version = "3.0.3", optional = true, markers = "extra == \"s3\""}
+pydantic = ">=1.5.1,<1.10.3 || >1.10.3,<2"
+pydeequ = {version = "1.1.0", optional = true, markers = "extra == \"s3\""}
+pyspark = {version = ">=3.3.0,<3.4.0", optional = true, markers = "extra == \"s3\""}
 python-dateutil = ">=2.8.0"
 PyYAML = "*"
 ratelimiter = "*"
 redshift-connector = {version = "*", optional = true, markers = "extra == \"redshift\""}
 requests_file = "*"
+"ruamel.yaml" = "*"
 scipy = {version = ">=1.7.2", optional = true, markers = "extra == \"bigquery\" or extra == \"redshift\" or extra == \"snowflake\""}
+sentry-sdk = "*"
 smart-open = {version = ">=5.2.1", extras = ["s3"], optional = true, markers = "extra == \"s3\""}
-snowflake-connector-python = {version = "<2.8.2 || >2.8.2,<3.0.0", optional = true, markers = "extra == \"snowflake\""}
-snowflake-sqlalchemy = {version = ">=1.2.4,<1.2.5 || >1.2.5", optional = true, markers = "extra == \"snowflake\""}
+snowflake-connector-python = {version = "!=2.8.2", optional = true, markers = "extra == \"snowflake\""}
+snowflake-sqlalchemy = {version = ">=1.4.3", optional = true, markers = "extra == \"snowflake\""}
 spacy = {version = "3.4.3", optional = true, markers = "extra == \"snowflake\""}
-sql_metadata = {version = "*", optional = true, markers = "extra == \"bigquery\""}
-sqlalchemy = [
-    {version = ">=1.3.24,<2", optional = true, markers = "extra == \"bigquery\" or extra == \"redshift\""},
-    {version = ">=1.3.24,<1.4.42", optional = true, markers = "extra == \"snowflake\""},
-]
+sqlalchemy = {version = ">=1.4.39,<2", optional = true, markers = "extra == \"bigquery\" or extra == \"redshift\" or extra == \"snowflake\""}
 sqlalchemy-bigquery = {version = ">=1.4.1", optional = true, markers = "extra == \"bigquery\""}
-sqlalchemy-redshift = {version = "*", optional = true, markers = "extra == \"redshift\""}
-sqllineage = {version = "1.3.6", optional = true, markers = "extra == \"bigquery\" or extra == \"redshift\""}
+sqlalchemy-redshift = {version = ">=0.8.3", optional = true, markers = "extra == \"redshift\""}
+sqllineage = {version = "1.3.8", optional = true, markers = "extra == \"bigquery\" or extra == \"redshift\""}
 sqlparse = [
-    {version = "0.4.3", optional = true, markers = "extra == \"bigquery\" or extra == \"redshift\""},
+    {version = "0.4.4", optional = true, markers = "extra == \"bigquery\" or extra == \"redshift\""},
     {version = "*", optional = true, markers = "extra == \"snowflake\""},
 ]
 tableschema = {version = ">=1.20.2", optional = true, markers = "extra == \"s3\""}
@@ -90,78 +89,85 @@ tdigest = "*"
 termcolor = ">=1.0.0"
 toml = ">=0.10.0"
 traitlets = {version = "<5.2.2", optional = true, markers = "extra == \"bigquery\" or extra == \"redshift\" or extra == \"snowflake\""}
-typing_extensions = {version = ">=3.10.0.2", markers = "python_version >= \"3.8\""}
+typing_extensions = ">=3.7.4.3"
 typing-inspect = "*"
 ujson = {version = ">=5.2.0", optional = true, markers = "extra == \"s3\""}
 wcmatch = {version = "*", optional = true, markers = "extra == \"redshift\" or extra == \"s3\""}
 
 [package.extras]
-airflow = ["Deprecated", "PyYAML", "aiohttp (<4)", "apache-airflow (>=2.0.2)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.10)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "docker", "entrypoints", "expandvars (>=0.6.5)", "humanfriendly", "ijson", "jsonref", "jsonschema", "packaging", "progressbar2", "psutil (>=5.8.0)", "python-dateutil (>=2.8.0)", "ratelimiter", "requests", "requests_file", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)"]
-all = ["Deprecated", "GeoAlchemy2", "GitPython (>2)", "JPype1", "PyAthena[sqlalchemy] (==2.4.1)", "PyYAML", "SQLAlchemy (<1.4.42)", "acryl-datahub-classify (==0.0.6)", "acryl-iceberg-legacy (==0.0.4)", "acryl-pyhive[hive] (>=0.6.12)", "acryl-pyhive[hive] (>=0.6.13)", "aiohttp (<4)", "apache-airflow (>=2.0.2)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.10)", "azure-identity (==1.10.0)", "boto3", "botocore (!=1.23.0)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "clickhouse-sqlalchemy (>=0.1.8)", "confluent_kafka (<1.9.0)", "confluent_kafka (>=1.5.0)", "cryptography", "cx_Oracle", "databricks-cli (==0.17.3)", "databricks-dbapi", "deltalake (>=0.6.3,!=0.6.4)", "docker", "elasticsearch (==7.13.4)", "entrypoints", "expandvars (>=0.6.5)", "fastavro (>=1.2.0)", "feast (>=0.29.0,<0.30.0)", "flask-openid (>=1.3.0)", "google-cloud-bigquery", "google-cloud-datacatalog-lineage (==0.2.0)", "google-cloud-logging (<=3.5.0)", "gql (>=3.3.0)", "gql[requests] (>=3.3.0)", "great-expectations (!=0.15.23,!=0.15.24,!=0.15.25,!=0.15.26)", "great-expectations (>=0.15.12,<=0.15.50)", "great_expectations", "greenlet", "grpcio (>=1.44.0,<2)", "grpcio-tools (>=1.44.0,<2)", "hdbcli (>=2.11.20)", "humanfriendly", "ijson", "jsonref", "jsonschema", "lark[regex] (==1.1.4)", "lkml (>=1.3.0b5)", "looker-sdk (==23.0.0)", "more-itertools (>=8.12.0)", "moto[s3]", "msal", "msal (==1.16.0)", "networkx (>=2.6.2)", "okta (>=1.7.0,<1.8.0)", "packaging", "pandas", "parse (>=1.19.0)", "progressbar2", "psutil (>=5.8.0)", "psycopg2-binary", "pyarrow (>=6.0.1)", "pydeequ (>=1.0.1)", "pydruid (>=0.6.2)", "pymongo[srv] (>=3.11)", "pymysql (>=1.0.2)", "pyspark (==3.0.3)", "python-dateutil (>=2.8.0)", "python-ldap (>=2.4)", "ratelimiter", "redash-toolbelt", "redshift-connector", "requests", "requests_file", "requests_ntlm", "scipy (>=1.7.2)", "simple-salesforce", "smart-open[s3] (>=5.2.1)", "snowflake-connector-python (!=2.8.2,<3.0.0)", "snowflake-sqlalchemy (>=1.2.4,!=1.2.5)", "spacy (==3.4.3)", "sql-metadata", "sql-metadata (==2.2.2)", "sql_metadata", "sqlalchemy", "sqlalchemy (>=1.3.24,<2)", "sqlalchemy-bigquery (>=1.4.1)", "sqlalchemy-hana (>=0.5.0)", "sqlalchemy-pytds (>=0.3)", "sqlalchemy-redshift", "sqllineage (==1.3.6)", "sqlparse", "sqlparse (==0.4.3)", "tableauserverclient (>=0.17.0)", "tableschema (>=1.20.2)", "tabulate", "tdigest", "tenacity (>=8.0.1)", "termcolor (>=1.0.0)", "toml (>=0.10.0)", "traitlets (<5.2.2)", "trino[sqlalchemy] (>=0.308,!=0.317)", "typeguard (<3)", "ujson (>=5.2.0)", "vertica-sqlalchemy-dialect[vertica-python] (==0.0.1)", "wcmatch"]
-athena = ["Deprecated", "PyAthena[sqlalchemy] (==2.4.1)", "PyYAML", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.10)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "docker", "entrypoints", "expandvars (>=0.6.5)", "great-expectations (>=0.15.12,<=0.15.50)", "greenlet", "humanfriendly", "ijson", "jsonref", "jsonschema", "packaging", "progressbar2", "psutil (>=5.8.0)", "python-dateutil (>=2.8.0)", "ratelimiter", "requests_file", "scipy (>=1.7.2)", "sqlalchemy (>=1.3.24,<2)", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)", "traitlets (<5.2.2)"]
-azure-ad = ["Deprecated", "PyYAML", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.10)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "docker", "entrypoints", "expandvars (>=0.6.5)", "humanfriendly", "ijson", "jsonref", "jsonschema", "packaging", "progressbar2", "psutil (>=5.8.0)", "python-dateutil (>=2.8.0)", "ratelimiter", "requests_file", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)"]
-base = ["Deprecated", "PyYAML", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.10)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "docker", "entrypoints", "expandvars (>=0.6.5)", "humanfriendly", "ijson", "jsonref", "jsonschema", "packaging", "progressbar2", "psutil (>=5.8.0)", "python-dateutil (>=2.8.0)", "ratelimiter", "requests_file", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)"]
-bigquery = ["Deprecated", "PyYAML", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.10)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "docker", "entrypoints", "expandvars (>=0.6.5)", "google-cloud-bigquery", "google-cloud-datacatalog-lineage (==0.2.0)", "google-cloud-logging (<=3.5.0)", "great-expectations (>=0.15.12,<=0.15.50)", "greenlet", "humanfriendly", "ijson", "jsonref", "jsonschema", "more-itertools (>=8.12.0)", "packaging", "progressbar2", "psutil (>=5.8.0)", "python-dateutil (>=2.8.0)", "ratelimiter", "requests_file", "scipy (>=1.7.2)", "sql_metadata", "sqlalchemy (>=1.3.24,<2)", "sqlalchemy-bigquery (>=1.4.1)", "sqllineage (==1.3.6)", "sqlparse (==0.4.3)", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)", "traitlets (<5.2.2)"]
-bigquery-beta = ["Deprecated", "PyYAML", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.10)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "docker", "entrypoints", "expandvars (>=0.6.5)", "google-cloud-bigquery", "google-cloud-logging (<=3.5.0)", "great-expectations (>=0.15.12,<=0.15.50)", "greenlet", "humanfriendly", "ijson", "jsonref", "jsonschema", "more-itertools (>=8.12.0)", "packaging", "progressbar2", "psutil (>=5.8.0)", "python-dateutil (>=2.8.0)", "ratelimiter", "requests_file", "scipy (>=1.7.2)", "sql_metadata", "sqlalchemy (>=1.3.24,<2)", "sqlalchemy-bigquery (>=1.4.1)", "sqllineage (==1.3.6)", "sqlparse (==0.4.3)", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)", "traitlets (<5.2.2)"]
-circuit-breaker = ["Deprecated", "PyYAML", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.10)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "docker", "entrypoints", "expandvars (>=0.6.5)", "gql (>=3.3.0)", "gql[requests] (>=3.3.0)", "humanfriendly", "ijson", "jsonref", "jsonschema", "packaging", "progressbar2", "psutil (>=5.8.0)", "python-dateutil (>=2.8.0)", "ratelimiter", "requests_file", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)"]
-clickhouse = ["Deprecated", "PyYAML", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.10)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "clickhouse-sqlalchemy (>=0.1.8)", "docker", "entrypoints", "expandvars (>=0.6.5)", "great-expectations (>=0.15.12,<=0.15.50)", "greenlet", "humanfriendly", "ijson", "jsonref", "jsonschema", "packaging", "progressbar2", "psutil (>=5.8.0)", "python-dateutil (>=2.8.0)", "ratelimiter", "requests_file", "scipy (>=1.7.2)", "sqlalchemy (>=1.3.24,<2)", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)", "traitlets (<5.2.2)"]
-clickhouse-usage = ["Deprecated", "PyYAML", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.10)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "clickhouse-sqlalchemy (>=0.1.8)", "docker", "entrypoints", "expandvars (>=0.6.5)", "great-expectations (>=0.15.12,<=0.15.50)", "greenlet", "humanfriendly", "ijson", "jsonref", "jsonschema", "packaging", "progressbar2", "psutil (>=5.8.0)", "python-dateutil (>=2.8.0)", "ratelimiter", "requests_file", "scipy (>=1.7.2)", "sqlalchemy (>=1.3.24,<2)", "sqlparse", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)", "traitlets (<5.2.2)"]
-datahub-business-glossary = ["Deprecated", "PyYAML", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.10)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "docker", "entrypoints", "expandvars (>=0.6.5)", "humanfriendly", "ijson", "jsonref", "jsonschema", "packaging", "progressbar2", "psutil (>=5.8.0)", "python-dateutil (>=2.8.0)", "ratelimiter", "requests_file", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)"]
-datahub-kafka = ["Deprecated", "PyYAML", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.10)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "confluent_kafka (<1.9.0)", "confluent_kafka (>=1.5.0)", "docker", "entrypoints", "expandvars (>=0.6.5)", "fastavro (>=1.2.0)", "humanfriendly", "ijson", "jsonref", "jsonschema", "packaging", "progressbar2", "psutil (>=5.8.0)", "python-dateutil (>=2.8.0)", "ratelimiter", "requests_file", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)"]
-datahub-lineage-file = ["Deprecated", "PyYAML", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.10)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "docker", "entrypoints", "expandvars (>=0.6.5)", "humanfriendly", "ijson", "jsonref", "jsonschema", "packaging", "progressbar2", "psutil (>=5.8.0)", "python-dateutil (>=2.8.0)", "ratelimiter", "requests_file", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)"]
-datahub-lite = ["Deprecated", "PyYAML", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.10)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "docker", "duckdb", "entrypoints", "expandvars (>=0.6.5)", "fastapi", "humanfriendly", "ijson", "jsonref", "jsonschema", "packaging", "progressbar2", "psutil (>=5.8.0)", "python-dateutil (>=2.8.0)", "ratelimiter", "requests_file", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)", "uvicorn"]
-datahub-rest = ["Deprecated", "PyYAML", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.10)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "docker", "entrypoints", "expandvars (>=0.6.5)", "humanfriendly", "ijson", "jsonref", "jsonschema", "packaging", "progressbar2", "psutil (>=5.8.0)", "python-dateutil (>=2.8.0)", "ratelimiter", "requests", "requests_file", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)"]
-dbt = ["Deprecated", "PyYAML", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.10)", "boto3", "botocore (!=1.23.0)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "docker", "entrypoints", "expandvars (>=0.6.5)", "humanfriendly", "ijson", "jsonref", "jsonschema", "packaging", "progressbar2", "psutil (>=5.8.0)", "python-dateutil (>=2.8.0)", "ratelimiter", "requests", "requests_file", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)"]
-dbt-cloud = ["Deprecated", "PyYAML", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.10)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "docker", "entrypoints", "expandvars (>=0.6.5)", "humanfriendly", "ijson", "jsonref", "jsonschema", "packaging", "progressbar2", "psutil (>=5.8.0)", "python-dateutil (>=2.8.0)", "ratelimiter", "requests", "requests_file", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)"]
-delta-lake = ["Deprecated", "PyYAML", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.10)", "boto3", "botocore (!=1.23.0)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "deltalake (>=0.6.3,!=0.6.4)", "docker", "entrypoints", "expandvars (>=0.6.5)", "humanfriendly", "ijson", "jsonref", "jsonschema", "moto[s3]", "packaging", "parse (>=1.19.0)", "progressbar2", "psutil (>=5.8.0)", "pyarrow (>=6.0.1)", "pydeequ (>=1.0.1)", "pyspark (==3.0.3)", "python-dateutil (>=2.8.0)", "ratelimiter", "requests_file", "smart-open[s3] (>=5.2.1)", "tableschema (>=1.20.2)", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)", "ujson (>=5.2.0)", "wcmatch"]
-dev = ["Deprecated", "GeoAlchemy2", "GitPython (>2)", "PyYAML", "SQLAlchemy (<1.4.42)", "acryl-datahub-classify (==0.0.6)", "acryl-iceberg-legacy (==0.0.4)", "acryl-pyhive[hive] (>=0.6.12)", "acryl-pyhive[hive] (>=0.6.13)", "aiohttp (<4)", "apache-airflow[snowflake] (>=2.0.2)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.10)", "azure-identity (==1.10.0)", "black (==22.12.0)", "boto3", "boto3-stubs[glue,s3,sagemaker,sts]", "botocore (!=1.23.0)", "build", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "clickhouse-sqlalchemy (>=0.1.8)", "confluent_kafka (<1.9.0)", "confluent_kafka (>=1.5.0)", "coverage (>=5.1)", "cryptography", "cx_Oracle", "databricks-cli (==0.17.3)", "databricks-dbapi", "deepdiff", "deltalake (>=0.6.3,!=0.6.4)", "docker", "duckdb", "elasticsearch (==7.13.4)", "entrypoints", "expandvars (>=0.6.5)", "faker (>=18.4.0)", "fastapi", "fastavro (>=1.2.0)", "feast (>=0.29.0,<0.30.0)", "flake8 (>=3.8.3)", "flake8-bugbear (==23.3.12)", "flake8-tidy-imports (>=4.3.0)", "flask-openid (>=1.3.0)", "freezegun", "google-cloud-bigquery", "google-cloud-datacatalog-lineage (==0.2.0)", "google-cloud-logging (<=3.5.0)", "great-expectations (!=0.15.23,!=0.15.24,!=0.15.25,!=0.15.26)", "great-expectations (>=0.15.12,<=0.15.50)", "greenlet", "grpcio (>=1.44.0,<2)", "grpcio-tools (>=1.44.0,<2)", "humanfriendly", "ijson", "isort (>=5.7.0)", "jsonpickle", "jsonref", "jsonschema", "lark[regex] (==1.1.4)", "lkml (>=1.3.0b5)", "looker-sdk (==23.0.0)", "mixpanel (>=4.9.0)", "more-itertools (>=8.12.0)", "moto[s3]", "msal", "msal (==1.16.0)", "mypy (==1.0.0)", "mypy_extensions (>=0.4.3)", "networkx (>=2.6.2)", "okta (>=1.7.0,<1.8.0)", "packaging", "pandas", "parse (>=1.19.0)", "progressbar2", "psutil (>=5.8.0)", "psycopg2-binary", "pyarrow (>=6.0.1)", "pydantic (>=1.5.1,!=1.10.3)", "pydantic (>=1.9.0)", "pydeequ (>=1.0.1)", "pydruid (>=0.6.2)", "pymysql (>=1.0.2)", "pyspark (==3.0.3)", "pytest (>=6.2.2)", "pytest-asyncio (>=0.16.0)", "pytest-cov (>=2.8.1)", "pytest-docker (>=1.0.1)", "python-dateutil (>=2.8.0)", "python-ldap (>=2.4)", "ratelimiter", "redash-toolbelt", "redshift-connector", "requests", "requests-mock", "requests_file", "requests_ntlm", "scipy (>=1.7.2)", "simple-salesforce", "smart-open[s3] (>=5.2.1)", "snowflake-connector-python (!=2.8.2,<3.0.0)", "snowflake-sqlalchemy (>=1.2.4,!=1.2.5)", "spacy (==3.4.3)", "sql-metadata", "sql-metadata (==2.2.2)", "sql_metadata", "sqlalchemy (>=1.3.24,<2)", "sqlalchemy-bigquery (>=1.4.1)", "sqlalchemy-redshift", "sqllineage (==1.3.6)", "sqlparse", "sqlparse (==0.4.3)", "tableauserverclient (>=0.17.0)", "tableschema (>=1.20.2)", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)", "traitlets (<5.2.2)", "trino[sqlalchemy] (>=0.308,!=0.317)", "twine", "typeguard (<3)", "types-Deprecated", "types-PyMySQL", "types-PyYAML", "types-cachetools", "types-click (==0.1.12)", "types-click-spinner (>=0.1.13.1)", "types-dataclasses", "types-freezegun", "types-pkg_resources", "types-protobuf (>=4.21.0.1)", "types-pyOpenSSL", "types-python-dateutil", "types-pytz", "types-requests (>=2.28.11.6)", "types-six", "types-tabulate", "types-termcolor (>=1.0.0)", "types-toml", "types-ujson (>=5.2.0)", "typing-inspect", "typing_extensions (>=3.10.0.2)", "typing_extensions (>=3.7.4.3)", "ujson (>=5.2.0)", "uvicorn", "virtualenv", "wcmatch"]
-druid = ["Deprecated", "PyYAML", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.10)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "docker", "entrypoints", "expandvars (>=0.6.5)", "great-expectations (>=0.15.12,<=0.15.50)", "greenlet", "humanfriendly", "ijson", "jsonref", "jsonschema", "packaging", "progressbar2", "psutil (>=5.8.0)", "pydruid (>=0.6.2)", "python-dateutil (>=2.8.0)", "ratelimiter", "requests_file", "scipy (>=1.7.2)", "sqlalchemy (>=1.3.24,<2)", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)", "traitlets (<5.2.2)"]
-elasticsearch = ["Deprecated", "PyYAML", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.10)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "docker", "elasticsearch (==7.13.4)", "entrypoints", "expandvars (>=0.6.5)", "humanfriendly", "ijson", "jsonref", "jsonschema", "packaging", "progressbar2", "psutil (>=5.8.0)", "python-dateutil (>=2.8.0)", "ratelimiter", "requests_file", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)"]
-feast = ["Deprecated", "PyYAML", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.10)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "docker", "entrypoints", "expandvars (>=0.6.5)", "feast (>=0.29.0,<0.30.0)", "flask-openid (>=1.3.0)", "humanfriendly", "ijson", "jsonref", "jsonschema", "packaging", "progressbar2", "psutil (>=5.8.0)", "python-dateutil (>=2.8.0)", "ratelimiter", "requests_file", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)", "typeguard (<3)"]
-glue = ["Deprecated", "PyYAML", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.10)", "boto3", "botocore (!=1.23.0)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "docker", "entrypoints", "expandvars (>=0.6.5)", "humanfriendly", "ijson", "jsonref", "jsonschema", "packaging", "progressbar2", "psutil (>=5.8.0)", "python-dateutil (>=2.8.0)", "ratelimiter", "requests_file", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)"]
-great-expectations = ["Deprecated", "PyYAML", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.10)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "docker", "entrypoints", "expandvars (>=0.6.5)", "great-expectations (>=0.15.12,<=0.15.50)", "greenlet", "humanfriendly", "ijson", "jsonref", "jsonschema", "packaging", "progressbar2", "psutil (>=5.8.0)", "python-dateutil (>=2.8.0)", "ratelimiter", "requests_file", "scipy (>=1.7.2)", "sqlalchemy (>=1.3.24,<2)", "sqllineage (==1.3.6)", "sqlparse (==0.4.3)", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)", "traitlets (<5.2.2)"]
-hana = ["Deprecated", "PyYAML", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.10)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "docker", "entrypoints", "expandvars (>=0.6.5)", "great-expectations (>=0.15.12,<=0.15.50)", "greenlet", "hdbcli (>=2.11.20)", "humanfriendly", "ijson", "jsonref", "jsonschema", "packaging", "progressbar2", "psutil (>=5.8.0)", "python-dateutil (>=2.8.0)", "ratelimiter", "requests_file", "scipy (>=1.7.2)", "sqlalchemy (>=1.3.24,<2)", "sqlalchemy-hana (>=0.5.0)", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)", "traitlets (<5.2.2)"]
-hive = ["Deprecated", "PyYAML", "acryl-pyhive[hive] (>=0.6.13)", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.10)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "databricks-dbapi", "docker", "entrypoints", "expandvars (>=0.6.5)", "great-expectations (!=0.15.23,!=0.15.24,!=0.15.25,!=0.15.26)", "great-expectations (>=0.15.12,<=0.15.50)", "greenlet", "humanfriendly", "ijson", "jsonref", "jsonschema", "packaging", "progressbar2", "psutil (>=5.8.0)", "python-dateutil (>=2.8.0)", "ratelimiter", "requests_file", "scipy (>=1.7.2)", "sqlalchemy (>=1.3.24,<2)", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)", "traitlets (<5.2.2)"]
-iceberg = ["Deprecated", "PyYAML", "acryl-iceberg-legacy (==0.0.4)", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.10)", "azure-identity (==1.10.0)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "docker", "entrypoints", "expandvars (>=0.6.5)", "humanfriendly", "ijson", "jsonref", "jsonschema", "packaging", "progressbar2", "psutil (>=5.8.0)", "python-dateutil (>=2.8.0)", "ratelimiter", "requests_file", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)"]
-integration-tests = ["JPype1", "PyAthena[sqlalchemy] (==2.4.1)", "acryl-iceberg-legacy (==0.0.4)", "acryl-pyhive[hive] (>=0.6.13)", "azure-identity (==1.10.0)", "boto3", "botocore (!=1.23.0)", "clickhouse-sqlalchemy (>=0.1.8)", "databricks-dbapi", "deltalake (>=0.6.3,!=0.6.4)", "gql (>=3.3.0)", "gql[requests] (>=3.3.0)", "great-expectations (!=0.15.23,!=0.15.24,!=0.15.25,!=0.15.26)", "great-expectations (>=0.15.12,<=0.15.50)", "greenlet", "hdbcli (>=2.11.20)", "moto[s3]", "packaging", "parse (>=1.19.0)", "pyarrow (>=6.0.1)", "pydeequ (>=1.0.1)", "pydruid (>=0.6.2)", "pymongo[srv] (>=3.11)", "pymysql (>=1.0.2)", "pyspark (==3.0.3)", "python-ldap (>=2.4)", "redash-toolbelt", "requests", "scipy (>=1.7.2)", "smart-open[s3] (>=5.2.1)", "sql-metadata", "sqlalchemy (>=1.3.24,<2)", "sqlalchemy-hana (>=0.5.0)", "sqlalchemy-pytds (>=0.3)", "sqllineage (==1.3.6)", "sqlparse (==0.4.3)", "tableschema (>=1.20.2)", "traitlets (<5.2.2)", "ujson (>=5.2.0)", "wcmatch"]
-json-schema = ["Deprecated", "PyYAML", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.10)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "docker", "entrypoints", "expandvars (>=0.6.5)", "humanfriendly", "ijson", "jsonref", "jsonschema", "packaging", "progressbar2", "psutil (>=5.8.0)", "python-dateutil (>=2.8.0)", "ratelimiter", "requests_file", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)"]
-kafka = ["Deprecated", "PyYAML", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.10)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "confluent_kafka (<1.9.0)", "confluent_kafka (>=1.5.0)", "docker", "entrypoints", "expandvars (>=0.6.5)", "fastavro (>=1.2.0)", "grpcio (>=1.44.0,<2)", "grpcio-tools (>=1.44.0,<2)", "humanfriendly", "ijson", "jsonref", "jsonschema", "networkx (>=2.6.2)", "packaging", "progressbar2", "psutil (>=5.8.0)", "python-dateutil (>=2.8.0)", "ratelimiter", "requests_file", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)"]
-kafka-connect = ["Deprecated", "JPype1", "PyYAML", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.10)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "docker", "entrypoints", "expandvars (>=0.6.5)", "great-expectations (>=0.15.12,<=0.15.50)", "greenlet", "humanfriendly", "ijson", "jsonref", "jsonschema", "packaging", "progressbar2", "psutil (>=5.8.0)", "python-dateutil (>=2.8.0)", "ratelimiter", "requests", "requests_file", "scipy (>=1.7.2)", "sqlalchemy (>=1.3.24,<2)", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)", "traitlets (<5.2.2)"]
-ldap = ["Deprecated", "PyYAML", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.10)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "docker", "entrypoints", "expandvars (>=0.6.5)", "humanfriendly", "ijson", "jsonref", "jsonschema", "packaging", "progressbar2", "psutil (>=5.8.0)", "python-dateutil (>=2.8.0)", "python-ldap (>=2.4)", "ratelimiter", "requests_file", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)"]
-looker = ["Deprecated", "GitPython (>2)", "PyYAML", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.10)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "docker", "entrypoints", "expandvars (>=0.6.5)", "humanfriendly", "ijson", "jsonref", "jsonschema", "lkml (>=1.3.0b5)", "looker-sdk (==23.0.0)", "packaging", "progressbar2", "psutil (>=5.8.0)", "python-dateutil (>=2.8.0)", "ratelimiter", "requests_file", "sql-metadata (==2.2.2)", "sqllineage (==1.3.6)", "sqlparse (==0.4.3)", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)"]
-lookml = ["Deprecated", "GitPython (>2)", "PyYAML", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.10)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "docker", "entrypoints", "expandvars (>=0.6.5)", "humanfriendly", "ijson", "jsonref", "jsonschema", "lkml (>=1.3.0b5)", "looker-sdk (==23.0.0)", "packaging", "progressbar2", "psutil (>=5.8.0)", "python-dateutil (>=2.8.0)", "ratelimiter", "requests_file", "sql-metadata (==2.2.2)", "sqllineage (==1.3.6)", "sqlparse (==0.4.3)", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)"]
-mariadb = ["Deprecated", "PyYAML", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.10)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "docker", "entrypoints", "expandvars (>=0.6.5)", "great-expectations (>=0.15.12,<=0.15.50)", "greenlet", "humanfriendly", "ijson", "jsonref", "jsonschema", "packaging", "progressbar2", "psutil (>=5.8.0)", "pymysql (>=1.0.2)", "python-dateutil (>=2.8.0)", "ratelimiter", "requests_file", "scipy (>=1.7.2)", "sqlalchemy (>=1.3.24,<2)", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)", "traitlets (<5.2.2)"]
-metabase = ["Deprecated", "PyYAML", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.10)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "docker", "entrypoints", "expandvars (>=0.6.5)", "humanfriendly", "ijson", "jsonref", "jsonschema", "packaging", "progressbar2", "psutil (>=5.8.0)", "python-dateutil (>=2.8.0)", "ratelimiter", "requests", "requests_file", "sqllineage (==1.3.6)", "sqlparse (==0.4.3)", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)"]
-mode = ["Deprecated", "PyYAML", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.10)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "docker", "entrypoints", "expandvars (>=0.6.5)", "humanfriendly", "ijson", "jsonref", "jsonschema", "packaging", "progressbar2", "psutil (>=5.8.0)", "python-dateutil (>=2.8.0)", "ratelimiter", "requests", "requests_file", "sqllineage (==1.3.6)", "sqlparse (==0.4.3)", "tabulate", "tdigest", "tenacity (>=8.0.1)", "termcolor (>=1.0.0)", "toml (>=0.10.0)"]
-mongodb = ["Deprecated", "PyYAML", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.10)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "docker", "entrypoints", "expandvars (>=0.6.5)", "humanfriendly", "ijson", "jsonref", "jsonschema", "packaging", "progressbar2", "psutil (>=5.8.0)", "pymongo[srv] (>=3.11)", "python-dateutil (>=2.8.0)", "ratelimiter", "requests_file", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)"]
-mssql = ["Deprecated", "PyYAML", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.10)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "docker", "entrypoints", "expandvars (>=0.6.5)", "great-expectations (>=0.15.12,<=0.15.50)", "greenlet", "humanfriendly", "ijson", "jsonref", "jsonschema", "packaging", "progressbar2", "psutil (>=5.8.0)", "python-dateutil (>=2.8.0)", "ratelimiter", "requests_file", "scipy (>=1.7.2)", "sqlalchemy (>=1.3.24,<2)", "sqlalchemy-pytds (>=0.3)", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)", "traitlets (<5.2.2)"]
-mssql-odbc = ["Deprecated", "PyYAML", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.10)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "docker", "entrypoints", "expandvars (>=0.6.5)", "great-expectations (>=0.15.12,<=0.15.50)", "greenlet", "humanfriendly", "ijson", "jsonref", "jsonschema", "packaging", "progressbar2", "psutil (>=5.8.0)", "pyodbc", "python-dateutil (>=2.8.0)", "ratelimiter", "requests_file", "scipy (>=1.7.2)", "sqlalchemy (>=1.3.24,<2)", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)", "traitlets (<5.2.2)"]
-mysql = ["Deprecated", "PyYAML", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.10)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "docker", "entrypoints", "expandvars (>=0.6.5)", "great-expectations (>=0.15.12,<=0.15.50)", "greenlet", "humanfriendly", "ijson", "jsonref", "jsonschema", "packaging", "progressbar2", "psutil (>=5.8.0)", "pymysql (>=1.0.2)", "python-dateutil (>=2.8.0)", "ratelimiter", "requests_file", "scipy (>=1.7.2)", "sqlalchemy (>=1.3.24,<2)", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)", "traitlets (<5.2.2)"]
-nifi = ["Deprecated", "PyYAML", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.10)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "docker", "entrypoints", "expandvars (>=0.6.5)", "humanfriendly", "ijson", "jsonref", "jsonschema", "packaging", "progressbar2", "psutil (>=5.8.0)", "python-dateutil (>=2.8.0)", "ratelimiter", "requests", "requests_file", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)"]
-okta = ["Deprecated", "PyYAML", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.10)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "docker", "entrypoints", "expandvars (>=0.6.5)", "humanfriendly", "ijson", "jsonref", "jsonschema", "okta (>=1.7.0,<1.8.0)", "packaging", "progressbar2", "psutil (>=5.8.0)", "python-dateutil (>=2.8.0)", "ratelimiter", "requests_file", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)"]
-oracle = ["Deprecated", "PyYAML", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.10)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "cx_Oracle", "docker", "entrypoints", "expandvars (>=0.6.5)", "great-expectations (>=0.15.12,<=0.15.50)", "greenlet", "humanfriendly", "ijson", "jsonref", "jsonschema", "packaging", "progressbar2", "psutil (>=5.8.0)", "python-dateutil (>=2.8.0)", "ratelimiter", "requests_file", "scipy (>=1.7.2)", "sqlalchemy (>=1.3.24,<2)", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)", "traitlets (<5.2.2)"]
-postgres = ["Deprecated", "GeoAlchemy2", "PyYAML", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.10)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "docker", "entrypoints", "expandvars (>=0.6.5)", "great-expectations (>=0.15.12,<=0.15.50)", "greenlet", "humanfriendly", "ijson", "jsonref", "jsonschema", "packaging", "progressbar2", "psutil (>=5.8.0)", "psycopg2-binary", "python-dateutil (>=2.8.0)", "ratelimiter", "requests_file", "scipy (>=1.7.2)", "sqlalchemy (>=1.3.24,<2)", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)", "traitlets (<5.2.2)"]
-powerbi = ["Deprecated", "PyYAML", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.10)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "docker", "entrypoints", "expandvars (>=0.6.5)", "humanfriendly", "ijson", "jsonref", "jsonschema", "lark[regex] (==1.1.4)", "msal (==1.16.0)", "packaging", "progressbar2", "psutil (>=5.8.0)", "python-dateutil (>=2.8.0)", "ratelimiter", "requests_file", "sqlparse", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)"]
-powerbi-report-server = ["Deprecated", "PyYAML", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.10)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "docker", "entrypoints", "expandvars (>=0.6.5)", "humanfriendly", "ijson", "jsonref", "jsonschema", "packaging", "progressbar2", "psutil (>=5.8.0)", "python-dateutil (>=2.8.0)", "ratelimiter", "requests", "requests_file", "requests_ntlm", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)"]
-presto = ["Deprecated", "PyYAML", "acryl-pyhive[hive] (>=0.6.12)", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.10)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "docker", "entrypoints", "expandvars (>=0.6.5)", "great-expectations (>=0.15.12,<=0.15.50)", "greenlet", "humanfriendly", "ijson", "jsonref", "jsonschema", "packaging", "progressbar2", "psutil (>=5.8.0)", "python-dateutil (>=2.8.0)", "ratelimiter", "requests_file", "scipy (>=1.7.2)", "sqlalchemy (>=1.3.24,<2)", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)", "traitlets (<5.2.2)", "trino[sqlalchemy] (>=0.308,!=0.317)"]
-presto-on-hive = ["Deprecated", "PyYAML", "acryl-pyhive[hive] (>=0.6.12)", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.10)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "docker", "entrypoints", "expandvars (>=0.6.5)", "great-expectations (>=0.15.12,<=0.15.50)", "greenlet", "humanfriendly", "ijson", "jsonref", "jsonschema", "packaging", "progressbar2", "psutil (>=5.8.0)", "psycopg2-binary", "pymysql (>=1.0.2)", "python-dateutil (>=2.8.0)", "ratelimiter", "requests_file", "scipy (>=1.7.2)", "sqlalchemy (>=1.3.24,<2)", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)", "traitlets (<5.2.2)"]
-pulsar = ["Deprecated", "PyYAML", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.10)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "docker", "entrypoints", "expandvars (>=0.6.5)", "humanfriendly", "ijson", "jsonref", "jsonschema", "packaging", "progressbar2", "psutil (>=5.8.0)", "python-dateutil (>=2.8.0)", "ratelimiter", "requests", "requests_file", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)"]
-redash = ["Deprecated", "PyYAML", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.10)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "docker", "entrypoints", "expandvars (>=0.6.5)", "humanfriendly", "ijson", "jsonref", "jsonschema", "packaging", "progressbar2", "psutil (>=5.8.0)", "python-dateutil (>=2.8.0)", "ratelimiter", "redash-toolbelt", "requests_file", "sql-metadata", "sqllineage (==1.3.6)", "sqlparse (==0.4.3)", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)"]
-redshift = ["Deprecated", "GeoAlchemy2", "PyYAML", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.10)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "docker", "entrypoints", "expandvars (>=0.6.5)", "great-expectations (>=0.15.12,<=0.15.50)", "greenlet", "humanfriendly", "ijson", "jsonref", "jsonschema", "packaging", "parse (>=1.19.0)", "progressbar2", "psutil (>=5.8.0)", "psycopg2-binary", "python-dateutil (>=2.8.0)", "ratelimiter", "redshift-connector", "requests_file", "scipy (>=1.7.2)", "sqlalchemy (>=1.3.24,<2)", "sqlalchemy-redshift", "sqllineage (==1.3.6)", "sqlparse", "sqlparse (==0.4.3)", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)", "traitlets (<5.2.2)", "wcmatch"]
-redshift-legacy = ["Deprecated", "GeoAlchemy2", "PyYAML", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.10)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "docker", "entrypoints", "expandvars (>=0.6.5)", "great-expectations (>=0.15.12,<=0.15.50)", "greenlet", "humanfriendly", "ijson", "jsonref", "jsonschema", "packaging", "parse (>=1.19.0)", "progressbar2", "psutil (>=5.8.0)", "psycopg2-binary", "python-dateutil (>=2.8.0)", "ratelimiter", "requests_file", "scipy (>=1.7.2)", "sqlalchemy (>=1.3.24,<2)", "sqlalchemy-redshift", "sqllineage (==1.3.6)", "sqlparse (==0.4.3)", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)", "traitlets (<5.2.2)", "wcmatch"]
-redshift-usage-legacy = ["Deprecated", "GeoAlchemy2", "PyYAML", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.10)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "docker", "entrypoints", "expandvars (>=0.6.5)", "great-expectations (>=0.15.12,<=0.15.50)", "greenlet", "humanfriendly", "ijson", "jsonref", "jsonschema", "packaging", "parse (>=1.19.0)", "progressbar2", "psutil (>=5.8.0)", "psycopg2-binary", "python-dateutil (>=2.8.0)", "ratelimiter", "requests_file", "scipy (>=1.7.2)", "sqlalchemy (>=1.3.24,<2)", "sqlalchemy-redshift", "sqllineage (==1.3.6)", "sqlparse", "sqlparse (==0.4.3)", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)", "traitlets (<5.2.2)", "wcmatch"]
-s3 = ["Deprecated", "PyYAML", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.10)", "boto3", "botocore (!=1.23.0)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "docker", "entrypoints", "expandvars (>=0.6.5)", "humanfriendly", "ijson", "jsonref", "jsonschema", "moto[s3]", "packaging", "parse (>=1.19.0)", "progressbar2", "psutil (>=5.8.0)", "pyarrow (>=6.0.1)", "pydeequ (>=1.0.1)", "pyspark (==3.0.3)", "python-dateutil (>=2.8.0)", "ratelimiter", "requests_file", "smart-open[s3] (>=5.2.1)", "tableschema (>=1.20.2)", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)", "ujson (>=5.2.0)", "wcmatch"]
-sagemaker = ["Deprecated", "PyYAML", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.10)", "boto3", "botocore (!=1.23.0)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "docker", "entrypoints", "expandvars (>=0.6.5)", "humanfriendly", "ijson", "jsonref", "jsonschema", "packaging", "progressbar2", "psutil (>=5.8.0)", "python-dateutil (>=2.8.0)", "ratelimiter", "requests_file", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)"]
-salesforce = ["Deprecated", "PyYAML", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.10)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "docker", "entrypoints", "expandvars (>=0.6.5)", "humanfriendly", "ijson", "jsonref", "jsonschema", "packaging", "progressbar2", "psutil (>=5.8.0)", "python-dateutil (>=2.8.0)", "ratelimiter", "requests_file", "simple-salesforce", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)"]
-snowflake = ["Deprecated", "PyYAML", "SQLAlchemy (<1.4.42)", "acryl-datahub-classify (==0.0.6)", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.10)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "cryptography", "docker", "entrypoints", "expandvars (>=0.6.5)", "great-expectations (>=0.15.12,<=0.15.50)", "greenlet", "humanfriendly", "ijson", "jsonref", "jsonschema", "msal", "packaging", "pandas", "progressbar2", "psutil (>=5.8.0)", "python-dateutil (>=2.8.0)", "ratelimiter", "requests_file", "scipy (>=1.7.2)", "snowflake-connector-python (!=2.8.2,<3.0.0)", "snowflake-sqlalchemy (>=1.2.4,!=1.2.5)", "spacy (==3.4.3)", "sqlalchemy (>=1.3.24,<2)", "sqlparse", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)", "traitlets (<5.2.2)"]
-snowflake-beta = ["Deprecated", "PyYAML", "SQLAlchemy (<1.4.42)", "acryl-datahub-classify (==0.0.6)", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.10)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "cryptography", "docker", "entrypoints", "expandvars (>=0.6.5)", "great-expectations (>=0.15.12,<=0.15.50)", "greenlet", "humanfriendly", "ijson", "jsonref", "jsonschema", "msal", "packaging", "pandas", "progressbar2", "psutil (>=5.8.0)", "python-dateutil (>=2.8.0)", "ratelimiter", "requests_file", "scipy (>=1.7.2)", "snowflake-connector-python (!=2.8.2,<3.0.0)", "snowflake-sqlalchemy (>=1.2.4,!=1.2.5)", "spacy (==3.4.3)", "sqlalchemy (>=1.3.24,<2)", "sqlparse", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)", "traitlets (<5.2.2)"]
-sqlalchemy = ["Deprecated", "PyYAML", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.10)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "docker", "entrypoints", "expandvars (>=0.6.5)", "great-expectations (>=0.15.12,<=0.15.50)", "greenlet", "humanfriendly", "ijson", "jsonref", "jsonschema", "packaging", "progressbar2", "psutil (>=5.8.0)", "python-dateutil (>=2.8.0)", "ratelimiter", "requests_file", "scipy (>=1.7.2)", "sqlalchemy (>=1.3.24,<2)", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)", "traitlets (<5.2.2)"]
-starburst-trino-usage = ["Deprecated", "PyYAML", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.10)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "docker", "entrypoints", "expandvars (>=0.6.5)", "great-expectations (>=0.15.12,<=0.15.50)", "greenlet", "humanfriendly", "ijson", "jsonref", "jsonschema", "packaging", "progressbar2", "psutil (>=5.8.0)", "python-dateutil (>=2.8.0)", "ratelimiter", "requests_file", "scipy (>=1.7.2)", "sqlalchemy (>=1.3.24,<2)", "sqlparse", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)", "traitlets (<5.2.2)", "trino[sqlalchemy] (>=0.308,!=0.317)"]
-superset = ["Deprecated", "PyYAML", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.10)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "docker", "entrypoints", "expandvars (>=0.6.5)", "great_expectations", "greenlet", "humanfriendly", "ijson", "jsonref", "jsonschema", "packaging", "progressbar2", "psutil (>=5.8.0)", "python-dateutil (>=2.8.0)", "ratelimiter", "requests", "requests_file", "sqlalchemy", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)"]
-tableau = ["Deprecated", "PyYAML", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.10)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "docker", "entrypoints", "expandvars (>=0.6.5)", "humanfriendly", "ijson", "jsonref", "jsonschema", "packaging", "progressbar2", "psutil (>=5.8.0)", "python-dateutil (>=2.8.0)", "ratelimiter", "requests_file", "sqllineage (==1.3.6)", "sqlparse (==0.4.3)", "tableauserverclient (>=0.17.0)", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)"]
-trino = ["Deprecated", "PyYAML", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.10)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "docker", "entrypoints", "expandvars (>=0.6.5)", "great-expectations (>=0.15.12,<=0.15.50)", "greenlet", "humanfriendly", "ijson", "jsonref", "jsonschema", "packaging", "progressbar2", "psutil (>=5.8.0)", "python-dateutil (>=2.8.0)", "ratelimiter", "requests_file", "scipy (>=1.7.2)", "sqlalchemy (>=1.3.24,<2)", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)", "traitlets (<5.2.2)", "trino[sqlalchemy] (>=0.308,!=0.317)"]
-unity-catalog = ["Deprecated", "PyYAML", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.10)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "databricks-cli (==0.17.3)", "docker", "entrypoints", "expandvars (>=0.6.5)", "humanfriendly", "ijson", "jsonref", "jsonschema", "packaging", "progressbar2", "psutil (>=5.8.0)", "python-dateutil (>=2.8.0)", "ratelimiter", "requests", "requests_file", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)"]
-vertica = ["Deprecated", "PyYAML", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.10)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "docker", "entrypoints", "expandvars (>=0.6.5)", "great-expectations (>=0.15.12,<=0.15.50)", "greenlet", "humanfriendly", "ijson", "jsonref", "jsonschema", "packaging", "progressbar2", "psutil (>=5.8.0)", "python-dateutil (>=2.8.0)", "ratelimiter", "requests_file", "scipy (>=1.7.2)", "sqlalchemy (>=1.3.24,<2)", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)", "traitlets (<5.2.2)", "vertica-sqlalchemy-dialect[vertica-python] (==0.0.1)"]
+airflow = ["Deprecated", "PyYAML", "acryl-datahub-airflow-plugin (==1!0.0.0.dev0)", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.11)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "docker", "expandvars (>=0.6.5)", "humanfriendly", "ijson", "importlib_metadata (>=4.0.0)", "jsonref", "jsonschema", "jsonschema (<=4.17.3)", "packaging", "progressbar2", "psutil (>=5.8.0)", "python-dateutil (>=2.8.0)", "ratelimiter", "requests_file", "ruamel.yaml", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)"]
+all = ["Deprecated", "GeoAlchemy2", "GitPython (>2)", "JPype1", "PyAthena[sqlalchemy] (==2.4.1)", "PyYAML", "acryl-datahub-airflow-plugin (==1!0.0.0.dev0)", "acryl-datahub-classify (==0.0.8)", "acryl-pyhive[hive-pure-sasl] (==0.6.14)", "acryl-sqlglot (==18.5.2.dev45)", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.11)", "boto3", "botocore (!=1.23.0)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "clickhouse-sqlalchemy (>=0.2.0)", "confluent_kafka (<1.9.0)", "confluent_kafka (>=1.5.0)", "cryptography", "cx_Oracle", "databricks-dbapi", "databricks-sdk (>=0.9.0)", "deltalake (>=0.6.3,!=0.6.4)", "docker", "elasticsearch (==7.13.4)", "expandvars (>=0.6.5)", "fastavro (>=1.2.0)", "feast (>=0.31.1,<0.32.0)", "filelock", "flask-openid (>=1.3.0)", "google-cloud-bigquery", "google-cloud-datacatalog-lineage (==0.2.2)", "google-cloud-logging (<=3.5.0)", "gql (>=3.3.0)", "gql[requests] (>=3.3.0)", "great-expectations (!=0.15.23,!=0.15.24,!=0.15.25,!=0.15.26)", "great-expectations (>=0.15.12,<=0.15.50)", "great_expectations", "greenlet", "grpcio (>=1.44.0,<2)", "grpcio-tools (>=1.44.0,<2)", "hdbcli (>=2.11.20)", "humanfriendly", "ijson", "importlib_metadata (>=4.0.0)", "jsonref", "jsonschema", "jsonschema (<=4.17.3)", "lark[regex] (==1.1.4)", "lkml (>=1.3.0b5)", "looker-sdk (==23.0.0)", "mlflow-skinny (>=2.3.0)", "more-itertools (>=8.12.0)", "moto[s3]", "msal", "msal (==1.22.0)", "nest-asyncio", "networkx (>=2.6.2)", "okta (>=1.7.0,<1.8.0)", "packaging", "pandas", "parse (>=1.19.0)", "progressbar2", "psutil (>=5.8.0)", "psycopg2-binary", "pyarrow (>=6.0.1)", "pyarrow (>=9.0.0,<13.0.0)", "pydeequ (==1.1.0)", "pydruid (>=0.6.2)", "pyiceberg", "pymongo[srv] (>=3.11)", "pymysql (>=1.0.2)", "pyspark", "pyspark (>=3.3.0,<3.4.0)", "python-dateutil (>=2.8.0)", "python-ldap (>=2.4)", "ratelimiter", "redash-toolbelt", "redshift-connector", "requests", "requests-gssapi", "requests_file", "requests_ntlm", "ruamel.yaml", "scipy (>=1.7.2)", "simple-salesforce", "smart-open[s3] (>=5.2.1)", "snowflake-connector-python (!=2.8.2)", "snowflake-sqlalchemy (>=1.4.3)", "spacy (==3.4.3)", "sql-metadata", "sql-metadata (==2.2.2)", "sqlalchemy", "sqlalchemy (>=1.4.39,<2)", "sqlalchemy-bigquery (>=1.4.1)", "sqlalchemy-hana (>=0.5.0)", "sqlalchemy-pytds (>=0.3)", "sqlalchemy-redshift (>=0.8.3)", "sqllineage (==1.3.8)", "sqlparse", "sqlparse (==0.4.4)", "tableauserverclient (>=0.17.0)", "tableschema (>=1.20.2)", "tabulate", "tdigest", "tenacity (>=8.0.1)", "termcolor (>=1.0.0)", "thrift (<0.14.0)", "toml (>=0.10.0)", "traitlets (<5.2.2)", "trino[sqlalchemy] (>=0.308)", "typeguard (<3)", "ujson (>=5.2.0)", "vertica-sqlalchemy-dialect[vertica-python] (==0.0.8)", "wcmatch"]
+athena = ["Deprecated", "PyAthena[sqlalchemy] (==2.4.1)", "PyYAML", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.11)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "docker", "expandvars (>=0.6.5)", "great-expectations (>=0.15.12,<=0.15.50)", "greenlet", "humanfriendly", "ijson", "importlib_metadata (>=4.0.0)", "jsonref", "jsonschema", "jsonschema (<=4.17.3)", "packaging", "progressbar2", "psutil (>=5.8.0)", "python-dateutil (>=2.8.0)", "ratelimiter", "requests_file", "ruamel.yaml", "scipy (>=1.7.2)", "sqlalchemy (>=1.4.39,<2)", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)", "traitlets (<5.2.2)"]
+azure-ad = ["Deprecated", "PyYAML", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.11)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "docker", "expandvars (>=0.6.5)", "humanfriendly", "ijson", "importlib_metadata (>=4.0.0)", "jsonref", "jsonschema", "jsonschema (<=4.17.3)", "packaging", "progressbar2", "psutil (>=5.8.0)", "python-dateutil (>=2.8.0)", "ratelimiter", "requests_file", "ruamel.yaml", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)"]
+base = ["Deprecated", "PyYAML", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.11)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "docker", "expandvars (>=0.6.5)", "humanfriendly", "ijson", "importlib_metadata (>=4.0.0)", "jsonref", "jsonschema", "jsonschema (<=4.17.3)", "packaging", "progressbar2", "psutil (>=5.8.0)", "python-dateutil (>=2.8.0)", "ratelimiter", "requests_file", "ruamel.yaml", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)"]
+bigquery = ["Deprecated", "PyYAML", "acryl-sqlglot (==18.5.2.dev45)", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.11)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "docker", "expandvars (>=0.6.5)", "google-cloud-bigquery", "google-cloud-datacatalog-lineage (==0.2.2)", "google-cloud-logging (<=3.5.0)", "great-expectations (>=0.15.12,<=0.15.50)", "greenlet", "humanfriendly", "ijson", "importlib_metadata (>=4.0.0)", "jsonref", "jsonschema", "jsonschema (<=4.17.3)", "more-itertools (>=8.12.0)", "packaging", "progressbar2", "psutil (>=5.8.0)", "python-dateutil (>=2.8.0)", "ratelimiter", "requests_file", "ruamel.yaml", "scipy (>=1.7.2)", "sqlalchemy (>=1.4.39,<2)", "sqlalchemy-bigquery (>=1.4.1)", "sqllineage (==1.3.8)", "sqlparse (==0.4.4)", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)", "traitlets (<5.2.2)"]
+circuit-breaker = ["Deprecated", "PyYAML", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.11)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "docker", "expandvars (>=0.6.5)", "gql (>=3.3.0)", "gql[requests] (>=3.3.0)", "humanfriendly", "ijson", "importlib_metadata (>=4.0.0)", "jsonref", "jsonschema", "jsonschema (<=4.17.3)", "packaging", "progressbar2", "psutil (>=5.8.0)", "python-dateutil (>=2.8.0)", "ratelimiter", "requests_file", "ruamel.yaml", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)"]
+clickhouse = ["Deprecated", "PyYAML", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.11)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "clickhouse-sqlalchemy (>=0.2.0)", "docker", "expandvars (>=0.6.5)", "great-expectations (>=0.15.12,<=0.15.50)", "greenlet", "humanfriendly", "ijson", "importlib_metadata (>=4.0.0)", "jsonref", "jsonschema", "jsonschema (<=4.17.3)", "packaging", "progressbar2", "psutil (>=5.8.0)", "python-dateutil (>=2.8.0)", "ratelimiter", "requests_file", "ruamel.yaml", "scipy (>=1.7.2)", "sqlalchemy (>=1.4.39,<2)", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)", "traitlets (<5.2.2)"]
+clickhouse-usage = ["Deprecated", "PyYAML", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.11)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "clickhouse-sqlalchemy (>=0.2.0)", "docker", "expandvars (>=0.6.5)", "great-expectations (>=0.15.12,<=0.15.50)", "greenlet", "humanfriendly", "ijson", "importlib_metadata (>=4.0.0)", "jsonref", "jsonschema", "jsonschema (<=4.17.3)", "packaging", "progressbar2", "psutil (>=5.8.0)", "python-dateutil (>=2.8.0)", "ratelimiter", "requests_file", "ruamel.yaml", "scipy (>=1.7.2)", "sqlalchemy (>=1.4.39,<2)", "sqlparse", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)", "traitlets (<5.2.2)"]
+cloud = ["acryl-datahub-cloud"]
+datahub = ["Deprecated", "PyYAML", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.11)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "confluent_kafka (<1.9.0)", "confluent_kafka (>=1.5.0)", "docker", "expandvars (>=0.6.5)", "fastavro (>=1.2.0)", "great-expectations (>=0.15.12,<=0.15.50)", "greenlet", "humanfriendly", "ijson", "importlib_metadata (>=4.0.0)", "jsonref", "jsonschema", "jsonschema (<=4.17.3)", "packaging", "progressbar2", "psutil (>=5.8.0)", "pymysql (>=1.0.2)", "python-dateutil (>=2.8.0)", "ratelimiter", "requests_file", "ruamel.yaml", "scipy (>=1.7.2)", "sqlalchemy (>=1.4.39,<2)", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)", "traitlets (<5.2.2)"]
+datahub-business-glossary = ["Deprecated", "PyYAML", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.11)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "docker", "expandvars (>=0.6.5)", "humanfriendly", "ijson", "importlib_metadata (>=4.0.0)", "jsonref", "jsonschema", "jsonschema (<=4.17.3)", "packaging", "progressbar2", "psutil (>=5.8.0)", "python-dateutil (>=2.8.0)", "ratelimiter", "requests_file", "ruamel.yaml", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)"]
+datahub-kafka = ["Deprecated", "PyYAML", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.11)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "confluent_kafka (<1.9.0)", "confluent_kafka (>=1.5.0)", "docker", "expandvars (>=0.6.5)", "fastavro (>=1.2.0)", "humanfriendly", "ijson", "importlib_metadata (>=4.0.0)", "jsonref", "jsonschema", "jsonschema (<=4.17.3)", "packaging", "progressbar2", "psutil (>=5.8.0)", "python-dateutil (>=2.8.0)", "ratelimiter", "requests_file", "ruamel.yaml", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)"]
+datahub-lineage-file = ["Deprecated", "PyYAML", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.11)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "docker", "expandvars (>=0.6.5)", "humanfriendly", "ijson", "importlib_metadata (>=4.0.0)", "jsonref", "jsonschema", "jsonschema (<=4.17.3)", "packaging", "progressbar2", "psutil (>=5.8.0)", "python-dateutil (>=2.8.0)", "ratelimiter", "requests_file", "ruamel.yaml", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)"]
+datahub-lite = ["Deprecated", "PyYAML", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.11)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "docker", "duckdb", "expandvars (>=0.6.5)", "fastapi", "humanfriendly", "ijson", "importlib_metadata (>=4.0.0)", "jsonref", "jsonschema", "jsonschema (<=4.17.3)", "packaging", "progressbar2", "psutil (>=5.8.0)", "python-dateutil (>=2.8.0)", "ratelimiter", "requests_file", "ruamel.yaml", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)", "uvicorn"]
+datahub-rest = ["Deprecated", "PyYAML", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.11)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "docker", "expandvars (>=0.6.5)", "humanfriendly", "ijson", "importlib_metadata (>=4.0.0)", "jsonref", "jsonschema", "jsonschema (<=4.17.3)", "packaging", "progressbar2", "psutil (>=5.8.0)", "python-dateutil (>=2.8.0)", "ratelimiter", "requests", "requests_file", "ruamel.yaml", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)"]
+dbt = ["Deprecated", "PyYAML", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.11)", "boto3", "botocore (!=1.23.0)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "docker", "expandvars (>=0.6.5)", "humanfriendly", "ijson", "importlib_metadata (>=4.0.0)", "jsonref", "jsonschema", "jsonschema (<=4.17.3)", "packaging", "progressbar2", "psutil (>=5.8.0)", "python-dateutil (>=2.8.0)", "ratelimiter", "requests", "requests_file", "ruamel.yaml", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)"]
+dbt-cloud = ["Deprecated", "PyYAML", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.11)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "docker", "expandvars (>=0.6.5)", "humanfriendly", "ijson", "importlib_metadata (>=4.0.0)", "jsonref", "jsonschema", "jsonschema (<=4.17.3)", "packaging", "progressbar2", "psutil (>=5.8.0)", "python-dateutil (>=2.8.0)", "ratelimiter", "requests", "requests_file", "ruamel.yaml", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)"]
+delta-lake = ["Deprecated", "PyYAML", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.11)", "boto3", "botocore (!=1.23.0)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "deltalake (>=0.6.3,!=0.6.4)", "docker", "expandvars (>=0.6.5)", "humanfriendly", "ijson", "importlib_metadata (>=4.0.0)", "jsonref", "jsonschema", "jsonschema (<=4.17.3)", "more-itertools (>=8.12.0)", "moto[s3]", "packaging", "parse (>=1.19.0)", "progressbar2", "psutil (>=5.8.0)", "pyarrow (>=6.0.1)", "pydeequ (==1.1.0)", "pyspark (>=3.3.0,<3.4.0)", "python-dateutil (>=2.8.0)", "ratelimiter", "requests_file", "ruamel.yaml", "smart-open[s3] (>=5.2.1)", "tableschema (>=1.20.2)", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)", "ujson (>=5.2.0)", "wcmatch"]
+dev = ["Deprecated", "GeoAlchemy2", "GitPython (>2)", "JPype1", "PyAthena[sqlalchemy] (==2.4.1)", "PyYAML", "acryl-datahub-classify (==0.0.8)", "acryl-pyhive[hive-pure-sasl] (==0.6.14)", "acryl-sqlglot (==18.5.2.dev45)", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.11)", "black (==22.12.0)", "boto3", "boto3-stubs[glue,s3,sagemaker,sts] (==1.28.15)", "botocore (!=1.23.0)", "build", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "clickhouse-sqlalchemy (>=0.2.0)", "confluent_kafka (<1.9.0)", "confluent_kafka (>=1.5.0)", "coverage (>=5.1)", "cryptography", "cx_Oracle", "databricks-dbapi", "databricks-sdk (>=0.9.0)", "deepdiff", "deltalake (>=0.6.3,!=0.6.4)", "docker", "duckdb", "elasticsearch (==7.13.4)", "expandvars (>=0.6.5)", "faker (>=18.4.0)", "fastapi", "fastavro (>=1.2.0)", "feast (>=0.31.1,<0.32.0)", "flake8 (>=3.8.3)", "flake8-bugbear (==23.3.12)", "flake8-tidy-imports (>=4.3.0)", "flask-openid (>=1.3.0)", "freezegun", "google-cloud-bigquery", "google-cloud-datacatalog-lineage (==0.2.2)", "google-cloud-logging (<=3.5.0)", "great-expectations (!=0.15.23,!=0.15.24,!=0.15.25,!=0.15.26)", "great-expectations (>=0.15.12,<=0.15.50)", "greenlet", "grpcio (>=1.44.0,<2)", "grpcio-tools (>=1.44.0,<2)", "humanfriendly", "ijson", "importlib_metadata (>=4.0.0)", "isort (>=5.7.0)", "jsonpickle", "jsonref", "jsonschema", "jsonschema (<=4.17.3)", "lark[regex] (==1.1.4)", "lkml (>=1.3.0b5)", "looker-sdk (==23.0.0)", "mixpanel (>=4.9.0)", "mlflow-skinny (>=2.3.0)", "more-itertools (>=8.12.0)", "moto[s3]", "msal", "msal (==1.22.0)", "mypy (==1.0.0)", "mypy-boto3-sagemaker (==1.28.15)", "mypy_extensions (>=0.4.3)", "nest-asyncio", "networkx (>=2.6.2)", "okta (>=1.7.0,<1.8.0)", "packaging", "pandas", "parse (>=1.19.0)", "progressbar2", "psutil (>=5.8.0)", "psycopg2-binary", "pyarrow (>=6.0.1)", "pyarrow (>=9.0.0,<13.0.0)", "pydantic (>=1.10.0)", "pydantic (>=1.5.1,!=1.10.3,<2)", "pydeequ (==1.1.0)", "pydruid (>=0.6.2)", "pyiceberg", "pymysql (>=1.0.2)", "pyspark", "pyspark (>=3.3.0,<3.4.0)", "pytest (>=6.2.2)", "pytest-asyncio (>=0.16.0)", "pytest-cov (>=2.8.1)", "pytest-docker (>=1.0.1)", "python-dateutil (>=2.8.0)", "python-ldap (>=2.4)", "ratelimiter", "redash-toolbelt", "redshift-connector", "requests", "requests-gssapi", "requests-mock", "requests_file", "requests_ntlm", "ruamel.yaml", "scipy (>=1.7.2)", "sentry-sdk", "simple-salesforce", "smart-open[s3] (>=5.2.1)", "snowflake-connector-python (!=2.8.2)", "snowflake-sqlalchemy (>=1.4.3)", "spacy (==3.4.3)", "sql-metadata", "sql-metadata (==2.2.2)", "sqlalchemy (>=1.4.39,<2)", "sqlalchemy-bigquery (>=1.4.1)", "sqlalchemy-redshift (>=0.8.3)", "sqlalchemy2-stubs", "sqllineage (==1.3.8)", "sqlparse", "sqlparse (==0.4.4)", "tableauserverclient (>=0.17.0)", "tableschema (>=1.20.2)", "tabulate", "tdigest", "tenacity (>=8.0.1)", "termcolor (>=1.0.0)", "thrift (<0.14.0)", "toml (>=0.10.0)", "traitlets (<5.2.2)", "trino[sqlalchemy] (>=0.308)", "twine", "typeguard (<3)", "types-Deprecated", "types-PyMySQL", "types-PyYAML", "types-cachetools", "types-click (==0.1.12)", "types-click-spinner (>=0.1.13.1)", "types-dataclasses", "types-freezegun", "types-pkg_resources", "types-protobuf (>=4.21.0.1)", "types-pyOpenSSL", "types-python-dateutil", "types-pytz", "types-requests (>=2.28.11.6,<=2.31.0.3)", "types-six", "types-tabulate", "types-termcolor (>=1.0.0)", "types-toml", "types-ujson (>=5.2.0)", "typing-inspect", "typing_extensions (>=3.7.4.3)", "ujson (>=5.2.0)", "uvicorn", "vertica-sqlalchemy-dialect[vertica-python] (==0.0.8)", "wcmatch"]
+druid = ["Deprecated", "PyYAML", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.11)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "docker", "expandvars (>=0.6.5)", "great-expectations (>=0.15.12,<=0.15.50)", "greenlet", "humanfriendly", "ijson", "importlib_metadata (>=4.0.0)", "jsonref", "jsonschema", "jsonschema (<=4.17.3)", "packaging", "progressbar2", "psutil (>=5.8.0)", "pydruid (>=0.6.2)", "python-dateutil (>=2.8.0)", "ratelimiter", "requests_file", "ruamel.yaml", "scipy (>=1.7.2)", "sqlalchemy (>=1.4.39,<2)", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)", "traitlets (<5.2.2)"]
+dynamodb = ["Deprecated", "PyYAML", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.11)", "boto3", "botocore (!=1.23.0)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "docker", "expandvars (>=0.6.5)", "humanfriendly", "ijson", "importlib_metadata (>=4.0.0)", "jsonref", "jsonschema", "jsonschema (<=4.17.3)", "packaging", "progressbar2", "psutil (>=5.8.0)", "python-dateutil (>=2.8.0)", "ratelimiter", "requests_file", "ruamel.yaml", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)"]
+elasticsearch = ["Deprecated", "PyYAML", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.11)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "docker", "elasticsearch (==7.13.4)", "expandvars (>=0.6.5)", "humanfriendly", "ijson", "importlib_metadata (>=4.0.0)", "jsonref", "jsonschema", "jsonschema (<=4.17.3)", "packaging", "progressbar2", "psutil (>=5.8.0)", "python-dateutil (>=2.8.0)", "ratelimiter", "requests_file", "ruamel.yaml", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)"]
+feast = ["Deprecated", "PyYAML", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.11)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "docker", "expandvars (>=0.6.5)", "feast (>=0.31.1,<0.32.0)", "flask-openid (>=1.3.0)", "humanfriendly", "ijson", "importlib_metadata (>=4.0.0)", "jsonref", "jsonschema", "jsonschema (<=4.17.3)", "packaging", "progressbar2", "psutil (>=5.8.0)", "python-dateutil (>=2.8.0)", "ratelimiter", "requests_file", "ruamel.yaml", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)", "typeguard (<3)"]
+gcs = ["Deprecated", "PyYAML", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.11)", "boto3", "botocore (!=1.23.0)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "docker", "expandvars (>=0.6.5)", "humanfriendly", "ijson", "importlib_metadata (>=4.0.0)", "jsonref", "jsonschema", "jsonschema (<=4.17.3)", "more-itertools (>=8.12.0)", "moto[s3]", "packaging", "parse (>=1.19.0)", "progressbar2", "psutil (>=5.8.0)", "pyarrow (>=6.0.1)", "pydeequ (==1.1.0)", "pyspark (>=3.3.0,<3.4.0)", "python-dateutil (>=2.8.0)", "ratelimiter", "requests_file", "ruamel.yaml", "smart-open[s3] (>=5.2.1)", "tableschema (>=1.20.2)", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)", "ujson (>=5.2.0)", "wcmatch"]
+glue = ["Deprecated", "PyYAML", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.11)", "boto3", "botocore (!=1.23.0)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "docker", "expandvars (>=0.6.5)", "humanfriendly", "ijson", "importlib_metadata (>=4.0.0)", "jsonref", "jsonschema", "jsonschema (<=4.17.3)", "packaging", "progressbar2", "psutil (>=5.8.0)", "python-dateutil (>=2.8.0)", "ratelimiter", "requests_file", "ruamel.yaml", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)"]
+great-expectations = ["Deprecated", "PyYAML", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.11)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "docker", "expandvars (>=0.6.5)", "great-expectations (>=0.15.12,<=0.15.50)", "greenlet", "humanfriendly", "ijson", "importlib_metadata (>=4.0.0)", "jsonref", "jsonschema", "jsonschema (<=4.17.3)", "packaging", "progressbar2", "psutil (>=5.8.0)", "python-dateutil (>=2.8.0)", "ratelimiter", "requests_file", "ruamel.yaml", "scipy (>=1.7.2)", "sqlalchemy (>=1.4.39,<2)", "sqllineage (==1.3.8)", "sqlparse (==0.4.4)", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)", "traitlets (<5.2.2)"]
+hana = ["Deprecated", "PyYAML", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.11)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "docker", "expandvars (>=0.6.5)", "great-expectations (>=0.15.12,<=0.15.50)", "greenlet", "hdbcli (>=2.11.20)", "humanfriendly", "ijson", "importlib_metadata (>=4.0.0)", "jsonref", "jsonschema", "jsonschema (<=4.17.3)", "packaging", "progressbar2", "psutil (>=5.8.0)", "python-dateutil (>=2.8.0)", "ratelimiter", "requests_file", "ruamel.yaml", "scipy (>=1.7.2)", "sqlalchemy (>=1.4.39,<2)", "sqlalchemy-hana (>=0.5.0)", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)", "traitlets (<5.2.2)"]
+hive = ["Deprecated", "PyYAML", "acryl-pyhive[hive-pure-sasl] (==0.6.14)", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.11)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "databricks-dbapi", "docker", "expandvars (>=0.6.5)", "great-expectations (!=0.15.23,!=0.15.24,!=0.15.25,!=0.15.26)", "great-expectations (>=0.15.12,<=0.15.50)", "greenlet", "humanfriendly", "ijson", "importlib_metadata (>=4.0.0)", "jsonref", "jsonschema", "jsonschema (<=4.17.3)", "packaging", "progressbar2", "psutil (>=5.8.0)", "python-dateutil (>=2.8.0)", "ratelimiter", "requests_file", "ruamel.yaml", "scipy (>=1.7.2)", "sqlalchemy (>=1.4.39,<2)", "tabulate", "tdigest", "termcolor (>=1.0.0)", "thrift (<0.14.0)", "toml (>=0.10.0)", "traitlets (<5.2.2)"]
+iceberg = ["Deprecated", "PyYAML", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.11)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "docker", "expandvars (>=0.6.5)", "humanfriendly", "ijson", "importlib_metadata (>=4.0.0)", "jsonref", "jsonschema", "jsonschema (<=4.17.3)", "packaging", "progressbar2", "psutil (>=5.8.0)", "pyarrow (>=9.0.0,<13.0.0)", "pyiceberg", "python-dateutil (>=2.8.0)", "ratelimiter", "requests_file", "ruamel.yaml", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)"]
+integration-tests = ["JPype1", "PyAthena[sqlalchemy] (==2.4.1)", "acryl-pyhive[hive-pure-sasl] (==0.6.14)", "boto3", "botocore (!=1.23.0)", "clickhouse-sqlalchemy (>=0.2.0)", "databricks-dbapi", "deltalake (>=0.6.3,!=0.6.4)", "feast (>=0.31.1,<0.32.0)", "flask-openid (>=1.3.0)", "gql (>=3.3.0)", "gql[requests] (>=3.3.0)", "great-expectations (!=0.15.23,!=0.15.24,!=0.15.25,!=0.15.26)", "great-expectations (>=0.15.12,<=0.15.50)", "greenlet", "hdbcli (>=2.11.20)", "more-itertools (>=8.12.0)", "moto[s3]", "packaging", "parse (>=1.19.0)", "pyarrow (>=6.0.1)", "pyarrow (>=9.0.0,<13.0.0)", "pydeequ (==1.1.0)", "pydruid (>=0.6.2)", "pyiceberg", "pymongo[srv] (>=3.11)", "pymysql (>=1.0.2)", "pyspark (>=3.3.0,<3.4.0)", "python-ldap (>=2.4)", "redash-toolbelt", "requests", "scipy (>=1.7.2)", "smart-open[s3] (>=5.2.1)", "sql-metadata", "sqlalchemy (>=1.4.39,<2)", "sqlalchemy-hana (>=0.5.0)", "sqlalchemy-pytds (>=0.3)", "sqllineage (==1.3.8)", "sqlparse (==0.4.4)", "tableschema (>=1.20.2)", "thrift (<0.14.0)", "traitlets (<5.2.2)", "typeguard (<3)", "ujson (>=5.2.0)", "vertica-sqlalchemy-dialect[vertica-python] (==0.0.8)", "wcmatch"]
+json-schema = ["Deprecated", "PyYAML", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.11)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "docker", "expandvars (>=0.6.5)", "humanfriendly", "ijson", "importlib_metadata (>=4.0.0)", "jsonref", "jsonschema", "jsonschema (<=4.17.3)", "packaging", "progressbar2", "psutil (>=5.8.0)", "python-dateutil (>=2.8.0)", "ratelimiter", "requests_file", "ruamel.yaml", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)"]
+kafka = ["Deprecated", "PyYAML", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.11)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "confluent_kafka (<1.9.0)", "confluent_kafka (>=1.5.0)", "docker", "expandvars (>=0.6.5)", "fastavro (>=1.2.0)", "grpcio (>=1.44.0,<2)", "grpcio-tools (>=1.44.0,<2)", "humanfriendly", "ijson", "importlib_metadata (>=4.0.0)", "jsonref", "jsonschema", "jsonschema (<=4.17.3)", "networkx (>=2.6.2)", "packaging", "progressbar2", "psutil (>=5.8.0)", "python-dateutil (>=2.8.0)", "ratelimiter", "requests_file", "ruamel.yaml", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)"]
+kafka-connect = ["Deprecated", "JPype1", "PyYAML", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.11)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "docker", "expandvars (>=0.6.5)", "great-expectations (>=0.15.12,<=0.15.50)", "greenlet", "humanfriendly", "ijson", "importlib_metadata (>=4.0.0)", "jsonref", "jsonschema", "jsonschema (<=4.17.3)", "packaging", "progressbar2", "psutil (>=5.8.0)", "python-dateutil (>=2.8.0)", "ratelimiter", "requests", "requests_file", "ruamel.yaml", "scipy (>=1.7.2)", "sqlalchemy (>=1.4.39,<2)", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)", "traitlets (<5.2.2)"]
+ldap = ["Deprecated", "PyYAML", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.11)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "docker", "expandvars (>=0.6.5)", "humanfriendly", "ijson", "importlib_metadata (>=4.0.0)", "jsonref", "jsonschema", "jsonschema (<=4.17.3)", "packaging", "progressbar2", "psutil (>=5.8.0)", "python-dateutil (>=2.8.0)", "python-ldap (>=2.4)", "ratelimiter", "requests_file", "ruamel.yaml", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)"]
+looker = ["Deprecated", "GitPython (>2)", "PyYAML", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.11)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "docker", "expandvars (>=0.6.5)", "humanfriendly", "ijson", "importlib_metadata (>=4.0.0)", "jsonref", "jsonschema", "jsonschema (<=4.17.3)", "lkml (>=1.3.0b5)", "looker-sdk (==23.0.0)", "packaging", "progressbar2", "psutil (>=5.8.0)", "python-dateutil (>=2.8.0)", "ratelimiter", "requests_file", "ruamel.yaml", "sql-metadata (==2.2.2)", "sqllineage (==1.3.8)", "sqlparse (==0.4.4)", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)"]
+lookml = ["Deprecated", "GitPython (>2)", "PyYAML", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.11)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "docker", "expandvars (>=0.6.5)", "humanfriendly", "ijson", "importlib_metadata (>=4.0.0)", "jsonref", "jsonschema", "jsonschema (<=4.17.3)", "lkml (>=1.3.0b5)", "looker-sdk (==23.0.0)", "packaging", "progressbar2", "psutil (>=5.8.0)", "python-dateutil (>=2.8.0)", "ratelimiter", "requests_file", "ruamel.yaml", "sql-metadata (==2.2.2)", "sqllineage (==1.3.8)", "sqlparse (==0.4.4)", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)"]
+mariadb = ["Deprecated", "PyYAML", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.11)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "docker", "expandvars (>=0.6.5)", "great-expectations (>=0.15.12,<=0.15.50)", "greenlet", "humanfriendly", "ijson", "importlib_metadata (>=4.0.0)", "jsonref", "jsonschema", "jsonschema (<=4.17.3)", "packaging", "progressbar2", "psutil (>=5.8.0)", "pymysql (>=1.0.2)", "python-dateutil (>=2.8.0)", "ratelimiter", "requests_file", "ruamel.yaml", "scipy (>=1.7.2)", "sqlalchemy (>=1.4.39,<2)", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)", "traitlets (<5.2.2)"]
+metabase = ["Deprecated", "PyYAML", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.11)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "docker", "expandvars (>=0.6.5)", "humanfriendly", "ijson", "importlib_metadata (>=4.0.0)", "jsonref", "jsonschema", "jsonschema (<=4.17.3)", "packaging", "progressbar2", "psutil (>=5.8.0)", "python-dateutil (>=2.8.0)", "ratelimiter", "requests", "requests_file", "ruamel.yaml", "sqllineage (==1.3.8)", "sqlparse (==0.4.4)", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)"]
+mlflow = ["Deprecated", "PyYAML", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.11)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "docker", "expandvars (>=0.6.5)", "humanfriendly", "ijson", "importlib_metadata (>=4.0.0)", "jsonref", "jsonschema", "jsonschema (<=4.17.3)", "mlflow-skinny (>=2.3.0)", "packaging", "progressbar2", "psutil (>=5.8.0)", "python-dateutil (>=2.8.0)", "ratelimiter", "requests_file", "ruamel.yaml", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)"]
+mode = ["Deprecated", "PyYAML", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.11)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "docker", "expandvars (>=0.6.5)", "humanfriendly", "ijson", "importlib_metadata (>=4.0.0)", "jsonref", "jsonschema", "jsonschema (<=4.17.3)", "packaging", "progressbar2", "psutil (>=5.8.0)", "python-dateutil (>=2.8.0)", "ratelimiter", "requests", "requests_file", "ruamel.yaml", "sqllineage (==1.3.8)", "sqlparse (==0.4.4)", "tabulate", "tdigest", "tenacity (>=8.0.1)", "termcolor (>=1.0.0)", "toml (>=0.10.0)"]
+mongodb = ["Deprecated", "PyYAML", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.11)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "docker", "expandvars (>=0.6.5)", "humanfriendly", "ijson", "importlib_metadata (>=4.0.0)", "jsonref", "jsonschema", "jsonschema (<=4.17.3)", "packaging", "progressbar2", "psutil (>=5.8.0)", "pymongo[srv] (>=3.11)", "python-dateutil (>=2.8.0)", "ratelimiter", "requests_file", "ruamel.yaml", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)"]
+mssql = ["Deprecated", "PyYAML", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.11)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "docker", "expandvars (>=0.6.5)", "great-expectations (>=0.15.12,<=0.15.50)", "greenlet", "humanfriendly", "ijson", "importlib_metadata (>=4.0.0)", "jsonref", "jsonschema", "jsonschema (<=4.17.3)", "packaging", "progressbar2", "psutil (>=5.8.0)", "python-dateutil (>=2.8.0)", "ratelimiter", "requests_file", "ruamel.yaml", "scipy (>=1.7.2)", "sqlalchemy (>=1.4.39,<2)", "sqlalchemy-pytds (>=0.3)", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)", "traitlets (<5.2.2)"]
+mssql-odbc = ["Deprecated", "PyYAML", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.11)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "docker", "expandvars (>=0.6.5)", "great-expectations (>=0.15.12,<=0.15.50)", "greenlet", "humanfriendly", "ijson", "importlib_metadata (>=4.0.0)", "jsonref", "jsonschema", "jsonschema (<=4.17.3)", "packaging", "progressbar2", "psutil (>=5.8.0)", "pyodbc", "python-dateutil (>=2.8.0)", "ratelimiter", "requests_file", "ruamel.yaml", "scipy (>=1.7.2)", "sqlalchemy (>=1.4.39,<2)", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)", "traitlets (<5.2.2)"]
+mysql = ["Deprecated", "PyYAML", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.11)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "docker", "expandvars (>=0.6.5)", "great-expectations (>=0.15.12,<=0.15.50)", "greenlet", "humanfriendly", "ijson", "importlib_metadata (>=4.0.0)", "jsonref", "jsonschema", "jsonschema (<=4.17.3)", "packaging", "progressbar2", "psutil (>=5.8.0)", "pymysql (>=1.0.2)", "python-dateutil (>=2.8.0)", "ratelimiter", "requests_file", "ruamel.yaml", "scipy (>=1.7.2)", "sqlalchemy (>=1.4.39,<2)", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)", "traitlets (<5.2.2)"]
+nifi = ["Deprecated", "PyYAML", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.11)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "docker", "expandvars (>=0.6.5)", "humanfriendly", "ijson", "importlib_metadata (>=4.0.0)", "jsonref", "jsonschema", "jsonschema (<=4.17.3)", "packaging", "progressbar2", "psutil (>=5.8.0)", "python-dateutil (>=2.8.0)", "ratelimiter", "requests", "requests-gssapi", "requests_file", "ruamel.yaml", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)"]
+okta = ["Deprecated", "PyYAML", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.11)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "docker", "expandvars (>=0.6.5)", "humanfriendly", "ijson", "importlib_metadata (>=4.0.0)", "jsonref", "jsonschema", "jsonschema (<=4.17.3)", "nest-asyncio", "okta (>=1.7.0,<1.8.0)", "packaging", "progressbar2", "psutil (>=5.8.0)", "python-dateutil (>=2.8.0)", "ratelimiter", "requests_file", "ruamel.yaml", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)"]
+oracle = ["Deprecated", "PyYAML", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.11)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "cx_Oracle", "docker", "expandvars (>=0.6.5)", "great-expectations (>=0.15.12,<=0.15.50)", "greenlet", "humanfriendly", "ijson", "importlib_metadata (>=4.0.0)", "jsonref", "jsonschema", "jsonschema (<=4.17.3)", "packaging", "progressbar2", "psutil (>=5.8.0)", "python-dateutil (>=2.8.0)", "ratelimiter", "requests_file", "ruamel.yaml", "scipy (>=1.7.2)", "sqlalchemy (>=1.4.39,<2)", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)", "traitlets (<5.2.2)"]
+postgres = ["Deprecated", "GeoAlchemy2", "PyYAML", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.11)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "docker", "expandvars (>=0.6.5)", "great-expectations (>=0.15.12,<=0.15.50)", "greenlet", "humanfriendly", "ijson", "importlib_metadata (>=4.0.0)", "jsonref", "jsonschema", "jsonschema (<=4.17.3)", "packaging", "progressbar2", "psutil (>=5.8.0)", "psycopg2-binary", "python-dateutil (>=2.8.0)", "ratelimiter", "requests_file", "ruamel.yaml", "scipy (>=1.7.2)", "sqlalchemy (>=1.4.39,<2)", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)", "traitlets (<5.2.2)"]
+powerbi = ["Deprecated", "PyYAML", "acryl-sqlglot (==18.5.2.dev45)", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.11)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "docker", "expandvars (>=0.6.5)", "humanfriendly", "ijson", "importlib_metadata (>=4.0.0)", "jsonref", "jsonschema", "jsonschema (<=4.17.3)", "lark[regex] (==1.1.4)", "msal (==1.22.0)", "packaging", "progressbar2", "psutil (>=5.8.0)", "python-dateutil (>=2.8.0)", "ratelimiter", "requests_file", "ruamel.yaml", "sqlparse", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)"]
+powerbi-report-server = ["Deprecated", "PyYAML", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.11)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "docker", "expandvars (>=0.6.5)", "humanfriendly", "ijson", "importlib_metadata (>=4.0.0)", "jsonref", "jsonschema", "jsonschema (<=4.17.3)", "packaging", "progressbar2", "psutil (>=5.8.0)", "python-dateutil (>=2.8.0)", "ratelimiter", "requests", "requests_file", "requests_ntlm", "ruamel.yaml", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)"]
+presto = ["Deprecated", "PyYAML", "acryl-pyhive[hive-pure-sasl] (==0.6.14)", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.11)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "docker", "expandvars (>=0.6.5)", "great-expectations (>=0.15.12,<=0.15.50)", "greenlet", "humanfriendly", "ijson", "importlib_metadata (>=4.0.0)", "jsonref", "jsonschema", "jsonschema (<=4.17.3)", "packaging", "progressbar2", "psutil (>=5.8.0)", "python-dateutil (>=2.8.0)", "ratelimiter", "requests_file", "ruamel.yaml", "scipy (>=1.7.2)", "sqlalchemy (>=1.4.39,<2)", "tabulate", "tdigest", "termcolor (>=1.0.0)", "thrift (<0.14.0)", "toml (>=0.10.0)", "traitlets (<5.2.2)", "trino[sqlalchemy] (>=0.308)"]
+presto-on-hive = ["Deprecated", "PyYAML", "acryl-pyhive[hive-pure-sasl] (==0.6.14)", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.11)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "docker", "expandvars (>=0.6.5)", "great-expectations (>=0.15.12,<=0.15.50)", "greenlet", "humanfriendly", "ijson", "importlib_metadata (>=4.0.0)", "jsonref", "jsonschema", "jsonschema (<=4.17.3)", "packaging", "progressbar2", "psutil (>=5.8.0)", "psycopg2-binary", "pymysql (>=1.0.2)", "python-dateutil (>=2.8.0)", "ratelimiter", "requests_file", "ruamel.yaml", "scipy (>=1.7.2)", "sqlalchemy (>=1.4.39,<2)", "tabulate", "tdigest", "termcolor (>=1.0.0)", "thrift (<0.14.0)", "toml (>=0.10.0)", "traitlets (<5.2.2)"]
+pulsar = ["Deprecated", "PyYAML", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.11)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "docker", "expandvars (>=0.6.5)", "humanfriendly", "ijson", "importlib_metadata (>=4.0.0)", "jsonref", "jsonschema", "jsonschema (<=4.17.3)", "packaging", "progressbar2", "psutil (>=5.8.0)", "python-dateutil (>=2.8.0)", "ratelimiter", "requests", "requests_file", "ruamel.yaml", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)"]
+redash = ["Deprecated", "PyYAML", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.11)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "docker", "expandvars (>=0.6.5)", "humanfriendly", "ijson", "importlib_metadata (>=4.0.0)", "jsonref", "jsonschema", "jsonschema (<=4.17.3)", "packaging", "progressbar2", "psutil (>=5.8.0)", "python-dateutil (>=2.8.0)", "ratelimiter", "redash-toolbelt", "requests_file", "ruamel.yaml", "sql-metadata", "sqllineage (==1.3.8)", "sqlparse (==0.4.4)", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)"]
+redshift = ["Deprecated", "GeoAlchemy2", "PyYAML", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.11)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "docker", "expandvars (>=0.6.5)", "great-expectations (>=0.15.12,<=0.15.50)", "greenlet", "humanfriendly", "ijson", "importlib_metadata (>=4.0.0)", "jsonref", "jsonschema", "jsonschema (<=4.17.3)", "packaging", "parse (>=1.19.0)", "progressbar2", "psutil (>=5.8.0)", "psycopg2-binary", "python-dateutil (>=2.8.0)", "ratelimiter", "redshift-connector", "requests_file", "ruamel.yaml", "scipy (>=1.7.2)", "sqlalchemy (>=1.4.39,<2)", "sqlalchemy-redshift (>=0.8.3)", "sqllineage (==1.3.8)", "sqlparse", "sqlparse (==0.4.4)", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)", "traitlets (<5.2.2)", "wcmatch"]
+redshift-legacy = ["Deprecated", "GeoAlchemy2", "PyYAML", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.11)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "docker", "expandvars (>=0.6.5)", "great-expectations (>=0.15.12,<=0.15.50)", "greenlet", "humanfriendly", "ijson", "importlib_metadata (>=4.0.0)", "jsonref", "jsonschema", "jsonschema (<=4.17.3)", "packaging", "parse (>=1.19.0)", "progressbar2", "psutil (>=5.8.0)", "psycopg2-binary", "python-dateutil (>=2.8.0)", "ratelimiter", "requests_file", "ruamel.yaml", "scipy (>=1.7.2)", "sqlalchemy (>=1.4.39,<2)", "sqlalchemy-redshift (>=0.8.3)", "sqllineage (==1.3.8)", "sqlparse (==0.4.4)", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)", "traitlets (<5.2.2)", "wcmatch"]
+redshift-usage-legacy = ["Deprecated", "GeoAlchemy2", "PyYAML", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.11)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "docker", "expandvars (>=0.6.5)", "great-expectations (>=0.15.12,<=0.15.50)", "greenlet", "humanfriendly", "ijson", "importlib_metadata (>=4.0.0)", "jsonref", "jsonschema", "jsonschema (<=4.17.3)", "packaging", "parse (>=1.19.0)", "progressbar2", "psutil (>=5.8.0)", "psycopg2-binary", "python-dateutil (>=2.8.0)", "ratelimiter", "requests_file", "ruamel.yaml", "scipy (>=1.7.2)", "sqlalchemy (>=1.4.39,<2)", "sqlalchemy-redshift (>=0.8.3)", "sqllineage (==1.3.8)", "sqlparse", "sqlparse (==0.4.4)", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)", "traitlets (<5.2.2)", "wcmatch"]
+s3 = ["Deprecated", "PyYAML", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.11)", "boto3", "botocore (!=1.23.0)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "docker", "expandvars (>=0.6.5)", "humanfriendly", "ijson", "importlib_metadata (>=4.0.0)", "jsonref", "jsonschema", "jsonschema (<=4.17.3)", "more-itertools (>=8.12.0)", "moto[s3]", "packaging", "parse (>=1.19.0)", "progressbar2", "psutil (>=5.8.0)", "pyarrow (>=6.0.1)", "pydeequ (==1.1.0)", "pyspark (>=3.3.0,<3.4.0)", "python-dateutil (>=2.8.0)", "ratelimiter", "requests_file", "ruamel.yaml", "smart-open[s3] (>=5.2.1)", "tableschema (>=1.20.2)", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)", "ujson (>=5.2.0)", "wcmatch"]
+sagemaker = ["Deprecated", "PyYAML", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.11)", "boto3", "botocore (!=1.23.0)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "docker", "expandvars (>=0.6.5)", "humanfriendly", "ijson", "importlib_metadata (>=4.0.0)", "jsonref", "jsonschema", "jsonschema (<=4.17.3)", "packaging", "progressbar2", "psutil (>=5.8.0)", "python-dateutil (>=2.8.0)", "ratelimiter", "requests_file", "ruamel.yaml", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)"]
+salesforce = ["Deprecated", "PyYAML", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.11)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "docker", "expandvars (>=0.6.5)", "humanfriendly", "ijson", "importlib_metadata (>=4.0.0)", "jsonref", "jsonschema", "jsonschema (<=4.17.3)", "packaging", "progressbar2", "psutil (>=5.8.0)", "python-dateutil (>=2.8.0)", "ratelimiter", "requests_file", "ruamel.yaml", "simple-salesforce", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)"]
+snowflake = ["Deprecated", "PyYAML", "acryl-datahub-classify (==0.0.8)", "acryl-sqlglot (==18.5.2.dev45)", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.11)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "cryptography", "docker", "expandvars (>=0.6.5)", "great-expectations (>=0.15.12,<=0.15.50)", "greenlet", "humanfriendly", "ijson", "importlib_metadata (>=4.0.0)", "jsonref", "jsonschema", "jsonschema (<=4.17.3)", "msal", "packaging", "pandas", "progressbar2", "psutil (>=5.8.0)", "python-dateutil (>=2.8.0)", "ratelimiter", "requests_file", "ruamel.yaml", "scipy (>=1.7.2)", "snowflake-connector-python (!=2.8.2)", "snowflake-sqlalchemy (>=1.4.3)", "spacy (==3.4.3)", "sqlalchemy (>=1.4.39,<2)", "sqlparse", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)", "traitlets (<5.2.2)"]
+sql-parser = ["Deprecated", "PyYAML", "acryl-sqlglot (==18.5.2.dev45)", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.11)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "docker", "expandvars (>=0.6.5)", "humanfriendly", "ijson", "importlib_metadata (>=4.0.0)", "jsonref", "jsonschema", "jsonschema (<=4.17.3)", "packaging", "progressbar2", "psutil (>=5.8.0)", "python-dateutil (>=2.8.0)", "ratelimiter", "requests_file", "ruamel.yaml", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)"]
+sql-queries = ["Deprecated", "PyYAML", "acryl-sqlglot (==18.5.2.dev45)", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.11)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "docker", "expandvars (>=0.6.5)", "humanfriendly", "ijson", "importlib_metadata (>=4.0.0)", "jsonref", "jsonschema", "jsonschema (<=4.17.3)", "packaging", "progressbar2", "psutil (>=5.8.0)", "python-dateutil (>=2.8.0)", "ratelimiter", "requests_file", "ruamel.yaml", "sqlparse", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)"]
+sqlalchemy = ["Deprecated", "PyYAML", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.11)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "docker", "expandvars (>=0.6.5)", "great-expectations (>=0.15.12,<=0.15.50)", "greenlet", "humanfriendly", "ijson", "importlib_metadata (>=4.0.0)", "jsonref", "jsonschema", "jsonschema (<=4.17.3)", "packaging", "progressbar2", "psutil (>=5.8.0)", "python-dateutil (>=2.8.0)", "ratelimiter", "requests_file", "ruamel.yaml", "scipy (>=1.7.2)", "sqlalchemy (>=1.4.39,<2)", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)", "traitlets (<5.2.2)"]
+starburst-trino-usage = ["Deprecated", "PyYAML", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.11)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "docker", "expandvars (>=0.6.5)", "great-expectations (>=0.15.12,<=0.15.50)", "greenlet", "humanfriendly", "ijson", "importlib_metadata (>=4.0.0)", "jsonref", "jsonschema", "jsonschema (<=4.17.3)", "packaging", "progressbar2", "psutil (>=5.8.0)", "python-dateutil (>=2.8.0)", "ratelimiter", "requests_file", "ruamel.yaml", "scipy (>=1.7.2)", "sqlalchemy (>=1.4.39,<2)", "sqlparse", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)", "traitlets (<5.2.2)", "trino[sqlalchemy] (>=0.308)"]
+superset = ["Deprecated", "PyYAML", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.11)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "docker", "expandvars (>=0.6.5)", "great_expectations", "greenlet", "humanfriendly", "ijson", "importlib_metadata (>=4.0.0)", "jsonref", "jsonschema", "jsonschema (<=4.17.3)", "packaging", "progressbar2", "psutil (>=5.8.0)", "python-dateutil (>=2.8.0)", "ratelimiter", "requests", "requests_file", "ruamel.yaml", "sqlalchemy", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)"]
+sync-file-emitter = ["Deprecated", "PyYAML", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.11)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "docker", "expandvars (>=0.6.5)", "filelock", "humanfriendly", "ijson", "importlib_metadata (>=4.0.0)", "jsonref", "jsonschema", "jsonschema (<=4.17.3)", "packaging", "progressbar2", "psutil (>=5.8.0)", "python-dateutil (>=2.8.0)", "ratelimiter", "requests_file", "ruamel.yaml", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)"]
+tableau = ["Deprecated", "PyYAML", "acryl-sqlglot (==18.5.2.dev45)", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.11)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "docker", "expandvars (>=0.6.5)", "humanfriendly", "ijson", "importlib_metadata (>=4.0.0)", "jsonref", "jsonschema", "jsonschema (<=4.17.3)", "packaging", "progressbar2", "psutil (>=5.8.0)", "python-dateutil (>=2.8.0)", "ratelimiter", "requests_file", "ruamel.yaml", "sqllineage (==1.3.8)", "sqlparse (==0.4.4)", "tableauserverclient (>=0.17.0)", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)"]
+testing-utils = ["PyYAML", "deepdiff", "pytest (>=6.2.2)"]
+trino = ["Deprecated", "PyYAML", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.11)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "docker", "expandvars (>=0.6.5)", "great-expectations (>=0.15.12,<=0.15.50)", "greenlet", "humanfriendly", "ijson", "importlib_metadata (>=4.0.0)", "jsonref", "jsonschema", "jsonschema (<=4.17.3)", "packaging", "progressbar2", "psutil (>=5.8.0)", "python-dateutil (>=2.8.0)", "ratelimiter", "requests_file", "ruamel.yaml", "scipy (>=1.7.2)", "sqlalchemy (>=1.4.39,<2)", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)", "traitlets (<5.2.2)", "trino[sqlalchemy] (>=0.308)"]
+unity-catalog = ["Deprecated", "PyYAML", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.11)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "databricks-sdk (>=0.9.0)", "docker", "expandvars (>=0.6.5)", "humanfriendly", "ijson", "importlib_metadata (>=4.0.0)", "jsonref", "jsonschema", "jsonschema (<=4.17.3)", "packaging", "progressbar2", "psutil (>=5.8.0)", "pyspark", "python-dateutil (>=2.8.0)", "ratelimiter", "requests", "requests_file", "ruamel.yaml", "sqllineage (==1.3.8)", "sqlparse (==0.4.4)", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)"]
+vertica = ["Deprecated", "PyYAML", "aiohttp (<4)", "avro (>=1.10.2,<1.11)", "avro-gen3 (==0.7.11)", "cached_property", "click (>=7.1.2)", "click-default-group", "click-spinner", "docker", "expandvars (>=0.6.5)", "great-expectations (>=0.15.12,<=0.15.50)", "greenlet", "humanfriendly", "ijson", "importlib_metadata (>=4.0.0)", "jsonref", "jsonschema", "jsonschema (<=4.17.3)", "packaging", "progressbar2", "psutil (>=5.8.0)", "python-dateutil (>=2.8.0)", "ratelimiter", "requests_file", "ruamel.yaml", "scipy (>=1.7.2)", "sqlalchemy (>=1.4.39,<2)", "tabulate", "tdigest", "termcolor (>=1.0.0)", "toml (>=0.10.0)", "traitlets (<5.2.2)", "vertica-sqlalchemy-dialect[vertica-python] (==0.0.8)"]
 
 [package.source]
 type = "directory"
@@ -169,14 +175,14 @@ url = "../metadata-ingestion"
 
 [[package]]
 name = "acryl-datahub-classify"
-version = "0.0.6"
+version = "0.0.8"
 description = "Library to predict info types for DataHub"
 category = "main"
 optional = false
 python-versions = ">=3.7"
 files = [
-    {file = "acryl-datahub-classify-0.0.6.tar.gz", hash = "sha256:2c901e19275ea8777d3f6288741a1cd4c14883d496e44afdacf66b6e2558eff1"},
-    {file = "acryl_datahub_classify-0.0.6-py3-none-any.whl", hash = "sha256:fd0900d9059e32c61f54a14930e7f82748e13a381ce6a22dd384e128f2ebedc0"},
+    {file = "acryl-datahub-classify-0.0.8.tar.gz", hash = "sha256:dcdab969344858de7fe1ce96f295a15faa897efda0bb3fcdadd96c4c845cc00c"},
+    {file = "acryl_datahub_classify-0.0.8-py3-none-any.whl", hash = "sha256:2b83f6f197b01d6258e4d58cd9e4d02c2e18f414e8c7eca8bfcafbfe72aa7718"},
 ]
 
 [package.dependencies]
@@ -189,6 +195,21 @@ vininfo = ">=1.7.0"
 
 [package.extras]
 dev = ["black (>=22.1.0)", "coverage (>=5.1)", "flake8 (>=3.8.3)", "flake8-tidy-imports (>=4.3.0)", "ipaddress (>=1.0.23)", "isort (>=5.7.0)", "mypy (>=0.981)", "openpyxl", "pandas (>=1.2.0,<=1.5.1)", "phonenumbers (>=8.12.56,<=8.13.0)", "pytest-cov (>=2.8.1)", "python-stdnum (>=1.17)", "schwifty (>=2022.9.0)", "scikit-learn", "spacy (>=3.4.1,<=3.4.3)", "vininfo (>=1.7.0)"]
+
+[[package]]
+name = "acryl-sqlglot"
+version = "18.5.2.dev45"
+description = "An easily customizable SQL parser and transpiler"
+category = "main"
+optional = false
+python-versions = ">=3.7"
+files = [
+    {file = "acryl-sqlglot-18.5.2.dev45.tar.gz", hash = "sha256:53887c737e225dbcdd6a1412d480d3c95d8bd1152bf0b687caf9195a50d93595"},
+    {file = "acryl_sqlglot-18.5.2.dev45-py3-none-any.whl", hash = "sha256:db771baea26bf002f30ca8cb0e254827714a92a1246cf031b8d4a33ce5fc0267"},
+]
+
+[package.extras]
+dev = ["autoflake", "black", "duckdb (>=0.6)", "isort", "mypy (>=0.990)", "pandas", "pdoc", "pre-commit", "pyspark", "python-dateutil", "types-python-dateutil"]
 
 [[package]]
 name = "aiohttp"
@@ -536,21 +557,19 @@ zstandard = ["zstandard"]
 
 [[package]]
 name = "avro-gen3"
-version = "0.7.10"
+version = "0.7.11"
 description = "Avro record class and specific record reader generator"
 category = "main"
 optional = false
 python-versions = "*"
 files = [
-    {file = "avro-gen3-0.7.10.tar.gz", hash = "sha256:4e1b304d88eb9527a2af57b0a2891df6c73ce6a83d343cd4a9a390f331dda017"},
-    {file = "avro_gen3-0.7.10-py3-none-any.whl", hash = "sha256:8d9bbfa52ec3814eb4e83c29b8b4d620b7e95c73c7f1bdd3bb15f2a5675d4b78"},
+    {file = "avro-gen3-0.7.11.tar.gz", hash = "sha256:70f76794cbce1e2613d8e9d4106f4ed9513ef7d19cdd1b125f4392d0d21f5cc8"},
+    {file = "avro_gen3-0.7.11-py3-none-any.whl", hash = "sha256:8c4489ebe76d25dd58e27965acd32f78a245251e7e1630e0983694816109905d"},
 ]
 
 [package.dependencies]
 avro = ">=1.10"
-pytz = "*"
 six = "*"
-tzlocal = "*"
 
 [[package]]
 name = "backcall"
@@ -651,18 +670,6 @@ webencodings = "*"
 
 [package.extras]
 css = ["tinycss2 (>=1.1.0,<1.2)"]
-
-[[package]]
-name = "blinker"
-version = "1.6.2"
-description = "Fast, simple object-to-object and broadcast signaling"
-category = "main"
-optional = false
-python-versions = ">=3.7"
-files = [
-    {file = "blinker-1.6.2-py3-none-any.whl", hash = "sha256:c3d739772abb7bc2860abf5f2ec284223d9ad5c76da018234f6f50d6f31ab1f0"},
-    {file = "blinker-1.6.2.tar.gz", hash = "sha256:4afd3de66ef3a9f8067559fb7a1cbe555c17dcbe15971b05d1b625c3e7abe213"},
-]
 
 [[package]]
 name = "blis"
@@ -1377,46 +1384,6 @@ docs = ["furo (>=2023.3.27)", "sphinx (>=6.1.3)", "sphinx-autodoc-typehints (>=1
 testing = ["covdefaults (>=2.3)", "coverage (>=7.2.3)", "diff-cover (>=7.5)", "pytest (>=7.3.1)", "pytest-cov (>=4)", "pytest-mock (>=3.10)", "pytest-timeout (>=2.1)"]
 
 [[package]]
-name = "flask"
-version = "2.3.2"
-description = "A simple framework for building complex web applications."
-category = "main"
-optional = false
-python-versions = ">=3.8"
-files = [
-    {file = "Flask-2.3.2-py3-none-any.whl", hash = "sha256:77fd4e1249d8c9923de34907236b747ced06e5467ecac1a7bb7115ae0e9670b0"},
-    {file = "Flask-2.3.2.tar.gz", hash = "sha256:8c2f9abd47a9e8df7f0c3f091ce9497d011dc3b31effcf4c85a6e2b50f4114ef"},
-]
-
-[package.dependencies]
-blinker = ">=1.6.2"
-click = ">=8.1.3"
-importlib-metadata = {version = ">=3.6.0", markers = "python_version < \"3.10\""}
-itsdangerous = ">=2.1.2"
-Jinja2 = ">=3.1.2"
-Werkzeug = ">=2.3.3"
-
-[package.extras]
-async = ["asgiref (>=3.2)"]
-dotenv = ["python-dotenv"]
-
-[[package]]
-name = "flask-cors"
-version = "3.0.10"
-description = "A Flask extension adding a decorator for CORS support"
-category = "main"
-optional = false
-python-versions = "*"
-files = [
-    {file = "Flask-Cors-3.0.10.tar.gz", hash = "sha256:b60839393f3b84a0f3746f6cdca56c1ad7426aa738b70d6c61375857823181de"},
-    {file = "Flask_Cors-3.0.10-py2.py3-none-any.whl", hash = "sha256:74efc975af1194fc7891ff5cd85b0f7478be4f7f59fe158102e91abb72bb4438"},
-]
-
-[package.dependencies]
-Flask = ">=0.9"
-Six = "*"
-
-[[package]]
 name = "frozenlist"
 version = "1.3.3"
 description = "A list-like structure which implements collections.abc.MutableSequence"
@@ -1702,14 +1669,14 @@ grpc = ["grpcio (>=1.38.0,<2.0dev)"]
 
 [[package]]
 name = "google-cloud-datacatalog-lineage"
-version = "0.2.0"
+version = "0.2.2"
 description = "Google Cloud Datacatalog Lineage API client library"
 category = "main"
 optional = false
 python-versions = ">=3.7"
 files = [
-    {file = "google-cloud-datacatalog-lineage-0.2.0.tar.gz", hash = "sha256:84d5af4aefefb0c8c0fcd7052231c52bfdf2bedcac691bba3c5c26659a29f9e1"},
-    {file = "google_cloud_datacatalog_lineage-0.2.0-py3-none-any.whl", hash = "sha256:e27197f5b6a69affb788a64addac084fb5ec7af094e5d361fa799b50cbb93efd"},
+    {file = "google-cloud-datacatalog-lineage-0.2.2.tar.gz", hash = "sha256:d4d35386413647a479316cd87c7877e3dd86285b023e009d30b84a4af7bbdc30"},
+    {file = "google_cloud_datacatalog_lineage-0.2.2-py3-none-any.whl", hash = "sha256:525e918b2c18f1b402cd7558cdda5f67f7b3abb4e4549971296a9fb5be5fba7d"},
 ]
 
 [package.dependencies]
@@ -1951,6 +1918,7 @@ files = [
     {file = "greenlet-2.0.2-cp27-cp27m-win32.whl", hash = "sha256:6c3acb79b0bfd4fe733dff8bc62695283b57949ebcca05ae5c129eb606ff2d74"},
     {file = "greenlet-2.0.2-cp27-cp27m-win_amd64.whl", hash = "sha256:283737e0da3f08bd637b5ad058507e578dd462db259f7f6e4c5c365ba4ee9343"},
     {file = "greenlet-2.0.2-cp27-cp27mu-manylinux2010_x86_64.whl", hash = "sha256:d27ec7509b9c18b6d73f2f5ede2622441de812e7b1a80bbd446cb0633bd3d5ae"},
+    {file = "greenlet-2.0.2-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:d967650d3f56af314b72df7089d96cda1083a7fc2da05b375d2bc48c82ab3f3c"},
     {file = "greenlet-2.0.2-cp310-cp310-macosx_11_0_x86_64.whl", hash = "sha256:30bcf80dda7f15ac77ba5af2b961bdd9dbc77fd4ac6105cee85b0d0a5fcf74df"},
     {file = "greenlet-2.0.2-cp310-cp310-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:26fbfce90728d82bc9e6c38ea4d038cba20b7faf8a0ca53a9c07b67318d46088"},
     {file = "greenlet-2.0.2-cp310-cp310-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:9190f09060ea4debddd24665d6804b995a9c122ef5917ab26e1566dcc712ceeb"},
@@ -1959,6 +1927,7 @@ files = [
     {file = "greenlet-2.0.2-cp310-cp310-musllinux_1_1_x86_64.whl", hash = "sha256:76ae285c8104046b3a7f06b42f29c7b73f77683df18c49ab5af7983994c2dd91"},
     {file = "greenlet-2.0.2-cp310-cp310-win_amd64.whl", hash = "sha256:2d4686f195e32d36b4d7cf2d166857dbd0ee9f3d20ae349b6bf8afc8485b3645"},
     {file = "greenlet-2.0.2-cp311-cp311-macosx_10_9_universal2.whl", hash = "sha256:c4302695ad8027363e96311df24ee28978162cdcdd2006476c43970b384a244c"},
+    {file = "greenlet-2.0.2-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:d4606a527e30548153be1a9f155f4e283d109ffba663a15856089fb55f933e47"},
     {file = "greenlet-2.0.2-cp311-cp311-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:c48f54ef8e05f04d6eff74b8233f6063cb1ed960243eacc474ee73a2ea8573ca"},
     {file = "greenlet-2.0.2-cp311-cp311-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:a1846f1b999e78e13837c93c778dcfc3365902cfb8d1bdb7dd73ead37059f0d0"},
     {file = "greenlet-2.0.2-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:3a06ad5312349fec0ab944664b01d26f8d1f05009566339ac6f63f56589bc1a2"},
@@ -1988,6 +1957,7 @@ files = [
     {file = "greenlet-2.0.2-cp37-cp37m-win32.whl", hash = "sha256:3f6ea9bd35eb450837a3d80e77b517ea5bc56b4647f5502cd28de13675ee12f7"},
     {file = "greenlet-2.0.2-cp37-cp37m-win_amd64.whl", hash = "sha256:7492e2b7bd7c9b9916388d9df23fa49d9b88ac0640db0a5b4ecc2b653bf451e3"},
     {file = "greenlet-2.0.2-cp38-cp38-macosx_10_15_x86_64.whl", hash = "sha256:b864ba53912b6c3ab6bcb2beb19f19edd01a6bfcbdfe1f37ddd1778abfe75a30"},
+    {file = "greenlet-2.0.2-cp38-cp38-macosx_11_0_arm64.whl", hash = "sha256:1087300cf9700bbf455b1b97e24db18f2f77b55302a68272c56209d5587c12d1"},
     {file = "greenlet-2.0.2-cp38-cp38-manylinux2010_x86_64.whl", hash = "sha256:ba2956617f1c42598a308a84c6cf021a90ff3862eddafd20c3333d50f0edb45b"},
     {file = "greenlet-2.0.2-cp38-cp38-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:fc3a569657468b6f3fb60587e48356fe512c1754ca05a564f11366ac9e306526"},
     {file = "greenlet-2.0.2-cp38-cp38-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:8eab883b3b2a38cc1e050819ef06a7e6344d4a990d24d45bc6f2cf959045a45b"},
@@ -1996,6 +1966,7 @@ files = [
     {file = "greenlet-2.0.2-cp38-cp38-musllinux_1_1_x86_64.whl", hash = "sha256:b0ef99cdbe2b682b9ccbb964743a6aca37905fda5e0452e5ee239b1654d37f2a"},
     {file = "greenlet-2.0.2-cp38-cp38-win32.whl", hash = "sha256:b80f600eddddce72320dbbc8e3784d16bd3fb7b517e82476d8da921f27d4b249"},
     {file = "greenlet-2.0.2-cp38-cp38-win_amd64.whl", hash = "sha256:4d2e11331fc0c02b6e84b0d28ece3a36e0548ee1a1ce9ddde03752d9b79bba40"},
+    {file = "greenlet-2.0.2-cp39-cp39-macosx_11_0_arm64.whl", hash = "sha256:8512a0c38cfd4e66a858ddd1b17705587900dd760c6003998e9472b77b56d417"},
     {file = "greenlet-2.0.2-cp39-cp39-macosx_11_0_x86_64.whl", hash = "sha256:88d9ab96491d38a5ab7c56dd7a3cc37d83336ecc564e4e8816dbed12e5aaefc8"},
     {file = "greenlet-2.0.2-cp39-cp39-manylinux2010_x86_64.whl", hash = "sha256:561091a7be172ab497a3527602d467e2b3fbe75f9e783d8b8ce403fa414f71a6"},
     {file = "greenlet-2.0.2-cp39-cp39-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:971ce5e14dc5e73715755d0ca2975ac88cfdaefcaab078a284fea6cfabf866df"},
@@ -2491,18 +2462,6 @@ colors = ["colorama (>=0.4.3)"]
 pipfile-deprecated-finder = ["pip-shims (>=0.5.2)", "pipreqs", "requirementslib"]
 plugins = ["setuptools"]
 requirements-deprecated-finder = ["pip-api", "pipreqs"]
-
-[[package]]
-name = "itsdangerous"
-version = "2.1.2"
-description = "Safely pass data to untrusted environments and back."
-category = "main"
-optional = false
-python-versions = ">=3.7"
-files = [
-    {file = "itsdangerous-2.1.2-py3-none-any.whl", hash = "sha256:2c2349112351b88699d8d4b6b075022c0808887cb7ad10069318a8b0bc88db44"},
-    {file = "itsdangerous-2.1.2.tar.gz", hash = "sha256:5dbbc68b317e5e42f327f9021763545dc3fc3bfe22e6deb96aaf1fc38874156a"},
-]
 
 [[package]]
 name = "jedi"
@@ -3536,13 +3495,17 @@ description = "TLS (SSL) sockets, key generation, encryption, decryption, signin
 category = "main"
 optional = false
 python-versions = "*"
-files = [
-    {file = "oscrypto-1.3.0-py2.py3-none-any.whl", hash = "sha256:2b2f1d2d42ec152ca90ccb5682f3e051fb55986e1b170ebde472b133713e7085"},
-    {file = "oscrypto-1.3.0.tar.gz", hash = "sha256:6f5fef59cb5b3708321db7cca56aed8ad7e662853351e7991fcf60ec606d47a4"},
-]
+files = []
+develop = false
 
 [package.dependencies]
 asn1crypto = ">=1.5.1"
+
+[package.source]
+type = "git"
+url = "https://github.com/wbond/oscrypto.git"
+reference = "1547f53"
+resolved_reference = "1547f535001ba568b239b8797465536759c742a3"
 
 [[package]]
 name = "packaging"
@@ -3644,6 +3607,7 @@ category = "main"
 optional = false
 python-versions = "*"
 files = [
+    {file = "parse-1.19.0-py2.py3-none-any.whl", hash = "sha256:6ce007645384a91150cb7cd7c8a9db2559e273c2e2542b508cd1e342508c2601"},
     {file = "parse-1.19.0.tar.gz", hash = "sha256:9ff82852bcb65d139813e2a5197627a94966245c897796760a3a2a8eb66f020b"},
 ]
 
@@ -4044,14 +4008,14 @@ dev = ["black (==22.6.0)", "flake8", "mypy (==0.971)", "pytest", "sure (==2.0.0)
 
 [[package]]
 name = "py4j"
-version = "0.10.9"
+version = "0.10.9.5"
 description = "Enables Python programs to dynamically access arbitrary Java objects"
 category = "main"
 optional = false
 python-versions = "*"
 files = [
-    {file = "py4j-0.10.9-py2.py3-none-any.whl", hash = "sha256:859ba728a7bb43e9c2bf058832759fb97a598bb28cc12f34f5fc4abdec08ede6"},
-    {file = "py4j-0.10.9.tar.gz", hash = "sha256:36ec57f43ff8ced260a18aa9a4e46c3500a730cac8860e259cbaa546c2b9db2f"},
+    {file = "py4j-0.10.9.5-py2.py3-none-any.whl", hash = "sha256:52d171a6a2b031d8a5d1de6efe451cf4f5baff1a2819aabc3741c8406539ba04"},
+    {file = "py4j-0.10.9.5.tar.gz", hash = "sha256:276a4a3c5a2154df1860ef3303a927460e02e97b047dc0a47c1c3fb8cce34db6"},
 ]
 
 [[package]]
@@ -4243,14 +4207,14 @@ email = ["email-validator (>=1.0.3)"]
 
 [[package]]
 name = "pydeequ"
-version = "1.0.1"
+version = "1.1.0"
 description = "PyDeequ - Unit Tests for Data"
 category = "main"
 optional = false
-python-versions = ">=3.6.2,<4"
+python-versions = ">=3.7,<4"
 files = [
-    {file = "pydeequ-1.0.1-py3-none-any.whl", hash = "sha256:54ca02e89a33ce08f0e8165b64913fc736862c10e426cd06daf7a2afe6983116"},
-    {file = "pydeequ-1.0.1.tar.gz", hash = "sha256:d06657a28c4646109fd03fcb7aba0c55a40d855aeba86a77424ac531946e6982"},
+    {file = "pydeequ-1.1.0-py3-none-any.whl", hash = "sha256:6f8744b4522980111f8da86ac55e6c12e9fab4663828d5acb2b2a3956aacf661"},
+    {file = "pydeequ-1.1.0.tar.gz", hash = "sha256:2655554b7fab2faa040cdaa7dc1e887834d02fe66f1ab2b941a824d321ada54b"},
 ]
 
 [package.dependencies]
@@ -4258,7 +4222,7 @@ numpy = ">=1.14.1"
 pandas = ">=0.23.0"
 
 [package.extras]
-pyspark = ["pyspark (>=2.4.7,<3.1.1)"]
+pyspark = ["pyspark (>=2.4.7,<3.3.0)"]
 
 [[package]]
 name = "pygments"
@@ -4381,22 +4345,23 @@ files = [
 
 [[package]]
 name = "pyspark"
-version = "3.0.3"
+version = "3.3.3"
 description = "Apache Spark Python API"
 category = "main"
 optional = false
-python-versions = "*"
+python-versions = ">=3.7"
 files = [
-    {file = "pyspark-3.0.3.tar.gz", hash = "sha256:c4499903e3d7289cf2b4bf7755fb32cf17922598f3b85a1c230860dec020eec4"},
+    {file = "pyspark-3.3.3.tar.gz", hash = "sha256:384d2ad7090cd1db5b2d2ac497bda409d86ab3a27272833e1a27efadf45e4d2f"},
 ]
 
 [package.dependencies]
-py4j = "0.10.9"
+py4j = "0.10.9.5"
 
 [package.extras]
-ml = ["numpy (>=1.7)"]
-mllib = ["numpy (>=1.7)"]
-sql = ["pandas (>=0.23.2)", "pyarrow (>=0.15.1)"]
+ml = ["numpy (>=1.15)"]
+mllib = ["numpy (>=1.15)"]
+pandas-on-spark = ["numpy (>=1.15)", "pandas (>=1.0.5)", "pyarrow (>=1.0.0)"]
+sql = ["pandas (>=1.0.5)", "pyarrow (>=1.0.0)"]
 
 [[package]]
 name = "pytest"
@@ -4885,7 +4850,8 @@ files = [
     {file = "ruamel.yaml.clib-0.2.7-cp310-cp310-win32.whl", hash = "sha256:763d65baa3b952479c4e972669f679fe490eee058d5aa85da483ebae2009d231"},
     {file = "ruamel.yaml.clib-0.2.7-cp310-cp310-win_amd64.whl", hash = "sha256:d000f258cf42fec2b1bbf2863c61d7b8918d31ffee905da62dede869254d3b8a"},
     {file = "ruamel.yaml.clib-0.2.7-cp311-cp311-macosx_10_9_universal2.whl", hash = "sha256:045e0626baf1c52e5527bd5db361bc83180faaba2ff586e763d3d5982a876a9e"},
-    {file = "ruamel.yaml.clib-0.2.7-cp311-cp311-macosx_12_6_arm64.whl", hash = "sha256:721bc4ba4525f53f6a611ec0967bdcee61b31df5a56801281027a3a6d1c2daf5"},
+    {file = "ruamel.yaml.clib-0.2.7-cp311-cp311-macosx_13_0_arm64.whl", hash = "sha256:1a6391a7cabb7641c32517539ca42cf84b87b667bad38b78d4d42dd23e957c81"},
+    {file = "ruamel.yaml.clib-0.2.7-cp311-cp311-manylinux2014_aarch64.whl", hash = "sha256:9c7617df90c1365638916b98cdd9be833d31d337dbcd722485597b43c4a215bf"},
     {file = "ruamel.yaml.clib-0.2.7-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.manylinux_2_24_x86_64.whl", hash = "sha256:41d0f1fa4c6830176eef5b276af04c89320ea616655d01327d5ce65e50575c94"},
     {file = "ruamel.yaml.clib-0.2.7-cp311-cp311-win32.whl", hash = "sha256:f6d3d39611ac2e4f62c3128a9eed45f19a6608670c5a2f4f07f24e8de3441d38"},
     {file = "ruamel.yaml.clib-0.2.7-cp311-cp311-win_amd64.whl", hash = "sha256:da538167284de58a52109a9b89b8f6a53ff8437dd6dc26d33b57bf6699153122"},
@@ -5391,21 +5357,6 @@ files = [
 ]
 
 [[package]]
-name = "sql-metadata"
-version = "2.8.0"
-description = "Uses tokenized query returned by python-sqlparse and generates query metadata"
-category = "main"
-optional = false
-python-versions = ">=3.7.2,<4.0.0"
-files = [
-    {file = "sql_metadata-2.8.0-py3-none-any.whl", hash = "sha256:f0cadad6915ce99ac9869245399d8702536f17b1feba68a2b5763a0f2aa43352"},
-    {file = "sql_metadata-2.8.0.tar.gz", hash = "sha256:3897dc881ae00b49d8efa1b0fa8270617fa4f6d818d2a945703f594cecfe93ad"},
-]
-
-[package.dependencies]
-sqlparse = ">=0.4.1,<0.5.0"
-
-[[package]]
 name = "sqlalchemy"
 version = "1.4.41"
 description = "Database Abstraction Library"
@@ -5526,22 +5477,19 @@ SQLAlchemy = ">=0.9.2,<2.0.0"
 
 [[package]]
 name = "sqllineage"
-version = "1.3.6"
+version = "1.3.8"
 description = "SQL Lineage Analysis Tool powered by Python"
 category = "main"
 optional = false
 python-versions = ">=3.6"
 files = [
-    {file = "sqllineage-1.3.6-py3-none-any.whl", hash = "sha256:0c69ba2fdedf94ce37f8f26e9c3b1dfd5af086ede7778ecaf782170b59fe0ce5"},
-    {file = "sqllineage-1.3.6.tar.gz", hash = "sha256:a9a66838544d1606f413470536680cd333fad122cfe2fa363e006762a9a4795b"},
+    {file = "sqllineage-1.3.8-py3-none-any.whl", hash = "sha256:dd1966606e13e95ecd26c9fae7e4451932e9af9253be704aedd6aa7285b2fe41"},
+    {file = "sqllineage-1.3.8.tar.gz", hash = "sha256:c577d7473ef319440189560bec48e71e9f3cafafc10de1872618baacfb8ed9db"},
 ]
 
 [package.dependencies]
-flask = "*"
-flask-cors = "*"
 networkx = ">=2.4"
-sqlparse = ">=0.3.1"
-werkzeug = "*"
+sqlparse = ">=0.4.4"
 
 [package.extras]
 ci = ["bandit", "black", "flake8", "flake8-blind-except", "flake8-builtins", "flake8-import-order", "flake8-logging-format", "mypy", "pytest", "pytest-cov", "tox", "twine", "wheel"]
@@ -5549,15 +5497,20 @@ docs = ["Sphinx (>=3.2.0)", "sphinx-rtd-theme (>=0.5.0)"]
 
 [[package]]
 name = "sqlparse"
-version = "0.4.3"
+version = "0.4.4"
 description = "A non-validating SQL parser."
 category = "main"
 optional = false
 python-versions = ">=3.5"
 files = [
-    {file = "sqlparse-0.4.3-py3-none-any.whl", hash = "sha256:0323c0ec29cd52bceabc1b4d9d579e311f3e4961b98d174201d5622a23b85e34"},
-    {file = "sqlparse-0.4.3.tar.gz", hash = "sha256:69ca804846bb114d2ec380e4360a8a340db83f0ccf3afceeb1404df028f57268"},
+    {file = "sqlparse-0.4.4-py3-none-any.whl", hash = "sha256:5430a4fe2ac7d0f93e66f1efc6e1338a41884b7ddf2a350cedd20ccc4d9d28f3"},
+    {file = "sqlparse-0.4.4.tar.gz", hash = "sha256:d446183e84b8349fa3061f0fe7f06ca94ba65b426946ffebe6e3e8295332420c"},
 ]
+
+[package.extras]
+dev = ["build", "flake8"]
+doc = ["sphinx"]
+test = ["pytest", "pytest-cov"]
 
 [[package]]
 name = "srsly"
@@ -6739,4 +6692,4 @@ testing = ["big-O", "flake8 (<5)", "jaraco.functools", "jaraco.itertools", "more
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.9.0,<3.12" 
-content-hash = "3222d729f3825a4c75be7b0a73e25d68ec8b5cfd65cf987710533a6152d45dd4"
+content-hash = "348d260d72ad2f37591d2ce17b9e390414c9ec3da9484ca6b9b3a5bc79cffc45"

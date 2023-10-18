@@ -16,9 +16,6 @@ dependencies {
   implementation project(':datahub-web-react')
 
   constraints {
-    play(externalDependency.springCore)
-    play(externalDependency.springBeans)
-    play(externalDependency.springContext)
     play(externalDependency.jacksonDataBind)
     play('com.nimbusds:oauth2-oidc-sdk:8.36.2')
     play('com.nimbusds:nimbus-jose-jwt:8.18')
@@ -35,7 +32,12 @@ dependencies {
 
   implementation project(":metadata-service:restli-client")
   implementation project(":metadata-service:auth-config")
+  implementation project(":metadata-service:configuration")
 
+  implementation externalDependency.springCore
+  implementation externalDependency.springBeans
+  implementation externalDependency.springContext
+  implementation externalDependency.springBootAutoconfigure
   implementation externalDependency.jettyJaas
   implementation externalDependency.graphqlJava
   implementation externalDependency.antlr4Runtime
@@ -84,7 +86,9 @@ dependencies {
   implementation externalDependency.log4j2Api
 
   implementation externalDependency.logbackClassic
-
+  implementation externalDependency.logbackJackson
+  implementation externalDependency.logbackJsonClassic
+  implementation externalDependency.janino
   annotationProcessor externalDependency.lombok
 
   implementation externalDependency.sentry
