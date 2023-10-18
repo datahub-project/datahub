@@ -1,8 +1,12 @@
 package com.linkedin.datahub.graphql.resolvers.owner;
 
 import com.google.common.collect.ImmutableList;
-import com.linkedin.common.*;
 import com.linkedin.common.AuditStamp;
+import com.linkedin.common.Owner;
+import com.linkedin.common.OwnerArray;
+import com.linkedin.common.Ownership;
+import com.linkedin.common.OwnershipSource;
+import com.linkedin.common.OwnershipSourceType;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
