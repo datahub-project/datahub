@@ -14,11 +14,12 @@ describe("glossary sidebar navigation test", () => {
         cy.clickOptionWithTestId("glossary-entity-modal-create-button");
         cy.get('[data-testid="glossary-browser-sidebar"]').contains(glossaryTermGroup).should("be.visible");
         cy.clickOptionWithTestId("add-term-button"); 
+        cy.waitTextVisible("Created Term Group!");
         cy.waitTextVisible("Create Glossary Term");
         cy.enterTextInTestId("create-glossary-entity-modal-name", glossaryTerm);
         cy.clickOptionWithTestId("glossary-entity-modal-create-button");
-        cy.get('[data-testid="glossary-browser-sidebar"]').contains(glossaryTerm).click();
-        cy.waitTextVisible("No documentation yet");
+        cy.waitTextVisible("Created Glossary Term!");
+        cy.get('[data-testid="glossary-browser-sidebar"]').contains(glossaryTerm).click().wait(3000);
         cy.openThreeDotDropdown();
         cy.clickOptionWithTestId("entity-menu-move-button")
         cy.get('[data-testid="move-glossary-entity-modal"]').contains(glossaryTermGroup).click({force: true});
@@ -30,8 +31,6 @@ describe("glossary sidebar navigation test", () => {
         cy.get('[data-testid="glossary-browser-sidebar"]').contains(glossaryTermGroup).click();
         cy.get('*[class^="GlossaryEntitiesList"]').contains(glossaryTerm).should("be.visible");
 
-
-        
         // Move a term group from the root level to be under a parent term group
         cy.goToGlossaryList();
         cy.clickOptionWithText(glossaryTermGroup);
