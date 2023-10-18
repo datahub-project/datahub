@@ -1,6 +1,5 @@
 package com.linkedin.metadata.kafka.hook.siblings;
 
-import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.FabricType;
@@ -19,7 +18,7 @@ import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
-import com.linkedin.entity.client.RestliEntityClient;
+import com.linkedin.entity.client.SystemRestliEntityClient;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.key.DatasetKey;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
@@ -44,19 +43,16 @@ import static org.mockito.ArgumentMatchers.*;
 
 public class SiblingAssociationHookTest {
   private SiblingAssociationHook _siblingAssociationHook;
-  RestliEntityClient _mockEntityClient;
+  SystemRestliEntityClient _mockEntityClient;
   EntitySearchService _mockSearchService;
-  Authentication _mockAuthentication;
 
   @BeforeMethod
   public void setupTest() {
     EntityRegistry registry = new ConfigEntityRegistry(
         SiblingAssociationHookTest.class.getClassLoader().getResourceAsStream("test-entity-registry-siblings.yml"));
-    _mockEntityClient = Mockito.mock(RestliEntityClient.class);
+    _mockEntityClient = Mockito.mock(SystemRestliEntityClient.class);
     _mockSearchService = Mockito.mock(EntitySearchService.class);
-    _mockAuthentication = Mockito.mock(Authentication.class);
-    _siblingAssociationHook = new SiblingAssociationHook(registry, _mockEntityClient, _mockSearchService, _mockAuthentication,
-        true);
+    _siblingAssociationHook = new SiblingAssociationHook(registry, _mockEntityClient, _mockSearchService, true);
     _siblingAssociationHook.setEnabled(true);
   }
 
@@ -69,15 +65,13 @@ public class SiblingAssociationHookTest {
     EntityResponse mockResponse = new EntityResponse();
     mockResponse.setAspects(mockResponseMap);
 
-    Mockito.when(_mockEntityClient.exists(Mockito.any(), Mockito.any())).thenReturn(true);
+    Mockito.when(_mockEntityClient.exists(Mockito.any())).thenReturn(true);
 
 
     Mockito.when(
         _mockEntityClient.getV2(
-            DATASET_ENTITY_NAME,
             Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:dbt,my-proj.jaffle_shop.customers,PROD)"),
-            ImmutableSet.of(SUB_TYPES_ASPECT_NAME),
-            _mockAuthentication
+            ImmutableSet.of(SUB_TYPES_ASPECT_NAME)
         )).thenReturn(mockResponse);
 
 
@@ -105,10 +99,7 @@ public class SiblingAssociationHookTest {
     proposal.setAspect(GenericRecordUtils.serializeAspect(dbtSiblingsAspect));
     proposal.setChangeType(ChangeType.UPSERT);
 
-    Mockito.verify(_mockEntityClient, Mockito.times(1)).ingestProposal(
-        Mockito.eq(proposal),
-        Mockito.eq(_mockAuthentication)
-    );
+    Mockito.verify(_mockEntityClient, Mockito.times(1)).ingestProposal(Mockito.eq(proposal), eq(true));
 
     final Siblings sourceSiblingsAspect = new Siblings()
         .setSiblings(new UrnArray(ImmutableList.of(Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:dbt,my-proj.jaffle_shop.customers,PROD)"))))
@@ -121,10 +112,7 @@ public class SiblingAssociationHookTest {
     proposal2.setAspect(GenericRecordUtils.serializeAspect(sourceSiblingsAspect));
     proposal2.setChangeType(ChangeType.UPSERT);
 
-    Mockito.verify(_mockEntityClient, Mockito.times(1)).ingestProposal(
-        Mockito.eq(proposal2),
-        Mockito.eq(_mockAuthentication)
-    );
+    Mockito.verify(_mockEntityClient, Mockito.times(1)).ingestProposal(Mockito.eq(proposal2), eq(true));
   }
 
   @Test
@@ -132,23 +120,20 @@ public class SiblingAssociationHookTest {
     SubTypes mockSourceSubtypesAspect = new SubTypes();
     mockSourceSubtypesAspect.setTypeNames(new StringArray(ImmutableList.of("model")));
 
-    Mockito.when(_mockEntityClient.exists(Mockito.any(), Mockito.any())).thenReturn(true);
+    Mockito.when(_mockEntityClient.exists(Mockito.any())).thenReturn(true);
 
     EnvelopedAspectMap mockResponseMap = new EnvelopedAspectMap();
     mockResponseMap.put(SUB_TYPES_ASPECT_NAME, new EnvelopedAspect().setValue(new Aspect(mockSourceSubtypesAspect.data())));
     EntityResponse mockResponse = new EntityResponse();
     mockResponse.setAspects(mockResponseMap);
 
-    Mockito.when(_mockEntityClient.exists(Mockito.any(), Mockito.any())).thenReturn(true);
+    Mockito.when(_mockEntityClient.exists(Mockito.any())).thenReturn(true);
 
 
     Mockito.when(
         _mockEntityClient.getV2(
-            DATASET_ENTITY_NAME,
             Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:dbt,my-proj.jaffle_shop.customers,PROD)"),
-            ImmutableSet.of(SUB_TYPES_ASPECT_NAME),
-            _mockAuthentication
-        )).thenReturn(mockResponse);
+            ImmutableSet.of(SUB_TYPES_ASPECT_NAME))).thenReturn(mockResponse);
 
     MetadataChangeLog event = createEvent(DATASET_ENTITY_NAME, UPSTREAM_LINEAGE_ASPECT_NAME, ChangeType.UPSERT);
     Upstream upstream = createUpstream("urn:li:dataset:(urn:li:dataPlatform:bigquery,my-proj.jaffle_shop.customers,PROD)", DatasetLineageType.TRANSFORMED);
@@ -174,15 +159,12 @@ public class SiblingAssociationHookTest {
     proposal.setAspect(GenericRecordUtils.serializeAspect(dbtSiblingsAspect));
     proposal.setChangeType(ChangeType.UPSERT);
 
-    Mockito.verify(_mockEntityClient, Mockito.times(0)).ingestProposal(
-        Mockito.eq(proposal),
-        Mockito.eq(_mockAuthentication)
-    );
+    Mockito.verify(_mockEntityClient, Mockito.times(0)).ingestProposal(Mockito.eq(proposal), eq(true));
   }
 
   @Test
   public void testInvokeWhenThereIsAPairWithBigqueryDownstreamNode() throws Exception {
-    Mockito.when(_mockEntityClient.exists(Mockito.any(), Mockito.any())).thenReturn(true);
+    Mockito.when(_mockEntityClient.exists(Mockito.any())).thenReturn(true);
 
 
     MetadataChangeLog event = createEvent(DATASET_ENTITY_NAME, UPSTREAM_LINEAGE_ASPECT_NAME, ChangeType.UPSERT);
@@ -208,10 +190,7 @@ public class SiblingAssociationHookTest {
     proposal.setAspect(GenericRecordUtils.serializeAspect(dbtSiblingsAspect));
     proposal.setChangeType(ChangeType.UPSERT);
 
-    Mockito.verify(_mockEntityClient, Mockito.times(1)).ingestProposal(
-        Mockito.eq(proposal),
-        Mockito.eq(_mockAuthentication)
-    );
+    Mockito.verify(_mockEntityClient, Mockito.times(1)).ingestProposal(Mockito.eq(proposal), eq(true));
 
     final Siblings sourceSiblingsAspect = new Siblings()
         .setSiblings(new UrnArray(ImmutableList.of(Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:dbt,my-proj.jaffle_shop.customers,PROD)"))))
@@ -224,15 +203,12 @@ public class SiblingAssociationHookTest {
     proposal2.setAspect(GenericRecordUtils.serializeAspect(sourceSiblingsAspect));
     proposal2.setChangeType(ChangeType.UPSERT);
 
-    Mockito.verify(_mockEntityClient, Mockito.times(1)).ingestProposal(
-        Mockito.eq(proposal2),
-        Mockito.eq(_mockAuthentication)
-    );
+    Mockito.verify(_mockEntityClient, Mockito.times(1)).ingestProposal(Mockito.eq(proposal2), eq(true));
   }
 
   @Test
   public void testInvokeWhenThereIsAKeyBeingReingested() throws Exception {
-    Mockito.when(_mockEntityClient.exists(Mockito.any(), Mockito.any())).thenReturn(true);
+    Mockito.when(_mockEntityClient.exists(Mockito.any())).thenReturn(true);
 
     SearchResult returnSearchResult = new SearchResult();
     SearchEntityArray returnEntityArray = new SearchEntityArray();
@@ -271,10 +247,7 @@ public class SiblingAssociationHookTest {
     proposal.setAspect(GenericRecordUtils.serializeAspect(dbtSiblingsAspect));
     proposal.setChangeType(ChangeType.UPSERT);
 
-    Mockito.verify(_mockEntityClient, Mockito.times(1)).ingestProposal(
-        Mockito.eq(proposal),
-        Mockito.eq(_mockAuthentication)
-    );
+    Mockito.verify(_mockEntityClient, Mockito.times(1)).ingestProposal(Mockito.eq(proposal), eq(true));
 
     final Siblings sourceSiblingsAspect = new Siblings()
         .setSiblings(new UrnArray(ImmutableList.of(Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:dbt,my-proj.jaffle_shop.customers,PROD)"))))
@@ -287,10 +260,7 @@ public class SiblingAssociationHookTest {
     proposal2.setAspect(GenericRecordUtils.serializeAspect(sourceSiblingsAspect));
     proposal2.setChangeType(ChangeType.UPSERT);
 
-    Mockito.verify(_mockEntityClient, Mockito.times(1)).ingestProposal(
-        Mockito.eq(proposal2),
-        Mockito.eq(_mockAuthentication)
-    );
+    Mockito.verify(_mockEntityClient, Mockito.times(1)).ingestProposal(Mockito.eq(proposal2), eq(true));
   }
   @Test
   public void testInvokeWhenSourceUrnHasTwoDbtUpstreams() throws Exception {
@@ -309,10 +279,7 @@ public class SiblingAssociationHookTest {
     _siblingAssociationHook.invoke(event);
 
 
-    Mockito.verify(_mockEntityClient, Mockito.times(0)).ingestProposal(
-            Mockito.any(),
-            Mockito.eq(_mockAuthentication)
-    );
+    Mockito.verify(_mockEntityClient, Mockito.times(0)).ingestProposal(Mockito.any(), eq(true));
 
 
   }
@@ -335,12 +302,7 @@ public class SiblingAssociationHookTest {
     _siblingAssociationHook.invoke(event);
 
 
-    Mockito.verify(_mockEntityClient, Mockito.times(2)).ingestProposal(
-            Mockito.any(),
-            Mockito.eq(_mockAuthentication)
-    );
-
-
+    Mockito.verify(_mockEntityClient, Mockito.times(2)).ingestProposal(Mockito.any(), eq(true));
   }
 
   private MetadataChangeLog createEvent(String entityType, String aspectName, ChangeType changeType) {

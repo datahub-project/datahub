@@ -89,12 +89,13 @@ export const SettingsPage = () => {
     const isPoliciesEnabled = config?.policiesConfig.enabled;
     const isIdentityManagementEnabled = config?.identityManagementConfig.enabled;
     const isViewsEnabled = config?.viewsConfig.enabled;
+    const { readOnlyModeEnabled } = config.featureFlags;
 
     const showPolicies = (isPoliciesEnabled && me && me?.platformPrivileges?.managePolicies) || false;
     const showUsersGroups = (isIdentityManagementEnabled && me && me?.platformPrivileges?.manageIdentities) || false;
     const showViews = isViewsEnabled || false;
     const showOwnershipTypes = me && me?.platformPrivileges?.manageOwnershipTypes;
-    const showHomePagePosts = me && me?.platformPrivileges?.manageGlobalAnnouncements;
+    const showHomePagePosts = me && me?.platformPrivileges?.manageGlobalAnnouncements && !readOnlyModeEnabled;
 
     return (
         <PageContainer>

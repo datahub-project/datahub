@@ -10,11 +10,11 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.elasticsearch.action.delete.DeleteRequest;
-import org.elasticsearch.action.update.UpdateRequest;
-import org.elasticsearch.common.xcontent.XContentType;
-import org.elasticsearch.index.query.BoolQueryBuilder;
-import org.elasticsearch.index.reindex.BulkByScrollResponse;
+import org.opensearch.action.delete.DeleteRequest;
+import org.opensearch.action.update.UpdateRequest;
+import org.opensearch.common.xcontent.XContentType;
+import org.opensearch.index.query.BoolQueryBuilder;
+import org.opensearch.index.reindex.BulkByScrollResponse;
 
 import static com.linkedin.metadata.graph.elastic.ESGraphQueryDAO.buildQuery;
 import static com.linkedin.metadata.graph.elastic.ElasticSearchGraphService.INDEX_NAME;

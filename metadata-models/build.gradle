@@ -34,6 +34,7 @@ dependencies {
 
   swaggerCodegen externalDependency.swaggerCli
   testImplementation externalDependency.guava
+  testImplementation externalDependency.testngJava8
 }
 
 sourceSets {

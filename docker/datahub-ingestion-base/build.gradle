@@ -9,6 +9,8 @@ ext {
     docker_registry = rootProject.ext.docker_registry == 'linkedin' ? 'acryldata' : docker_registry
     docker_repo = 'datahub-ingestion-base'
     docker_dir = 'datahub-ingestion-base'
+
+    revision = 2 // increment to trigger rebuild
 }
 
 docker {

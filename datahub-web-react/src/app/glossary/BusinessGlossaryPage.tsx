@@ -38,12 +38,6 @@ const MainContentWrapper = styled.div`
     flex-direction: column;
 `;
 
-export const BrowserWrapper = styled.div<{ width: number }>`
-    max-height: 100%;
-    width: ${(props) => props.width}px;
-    min-width: ${(props) => props.width}px;
-`;
-
 export const MAX_BROWSER_WIDTH = 500;
 export const MIN_BROWSWER_WIDTH = 200;
 

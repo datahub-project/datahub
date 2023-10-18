@@ -11,6 +11,7 @@ import { RoutedTabs } from '../../shared/RoutedTabs';
 import GroupInfoSidebar from './GroupInfoSideBar';
 import { GroupAssets } from './GroupAssets';
 import { ErrorSection } from '../../shared/error/ErrorSection';
+import NonExistentEntityPage from '../shared/entity/NonExistentEntityPage';
 
 const messageStyle = { marginTop: '10%' };
 
@@ -110,6 +111,9 @@ export default function GroupProfile() {
         urn,
     };
 
+    if (data?.corpGroup?.exists === false) {
+        return <NonExistentEntityPage />;
+    }
     return (
         <>
             {error && <ErrorSection />}

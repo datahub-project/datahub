@@ -44,6 +44,7 @@ dependencies {
     testImplementation externalDependency.mockito
     implementation externalDependency.awsMskIamAuth
 
+    testImplementation externalDependency.testng
     testImplementation externalDependency.springBootTest
     testRuntimeOnly externalDependency.logbackClassic
 }

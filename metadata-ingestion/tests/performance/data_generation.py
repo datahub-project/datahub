@@ -11,11 +11,14 @@ import random
 import uuid
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from typing import Iterable, List, TypeVar
+from typing import Iterable, List, TypeVar, Union, cast
 
 from faker import Faker
 
 from tests.performance.data_model import (
+    Column,
+    ColumnMapping,
+    ColumnType,
     Container,
     FieldAccess,
     Query,
@@ -52,15 +55,21 @@ class NormalDistribution:
 
 @dataclass
 class SeedMetadata:
-    containers: List[Container]
+    # Each list is a layer of containers, e.g. [[databases], [schemas]]
+    containers: List[List[Container]]
+
     tables: List[Table]
     views: List[View]
     start_time: datetime
     end_time: datetime
 
+    @property
+    def all_tables(self) -> List[Table]:
+        return self.tables + cast(List[Table], self.views)
+
 
 def generate_data(
-    num_containers: int,
+    num_containers: Union[List[int], int],
     num_tables: int,
     num_views: int,
     columns_per_table: NormalDistribution = NormalDistribution(5, 2),
@@ -68,31 +77,51 @@ def generate_data(
     view_definition_length: NormalDistribution = NormalDistribution(150, 50),
     time_range: timedelta = timedelta(days=14),
 ) -> SeedMetadata:
-    containers = [Container(f"container-{i}") for i in range(num_containers)]
+    # Assemble containers
+    if isinstance(num_containers, int):
+        num_containers = [num_containers]
+
+    containers: List[List[Container]] = []
+    for i, num_in_layer in enumerate(num_containers):
+        layer = [
+            Container(
+                f"{i}-container-{j}",
+                parent=random.choice(containers[-1]) if containers else None,
+            )
+            for j in range(num_in_layer)
+        ]
+        containers.append(layer)
+
+    # Assemble tables
     tables = [
         Table(
             f"table-{i}",
-            container=random.choice(containers),
+            container=random.choice(containers[-1]),
             columns=[
                 f"column-{j}-{uuid.uuid4()}"
                 for j in range(columns_per_table.sample_with_floor())
             ],
+            column_mapping=None,
         )
         for i in range(num_tables)
     ]
     views = [
         View(
             f"view-{i}",
-            container=random.choice(containers),
+            container=random.choice(containers[-1]),
             columns=[
                 f"column-{j}-{uuid.uuid4()}"
                 for j in range(columns_per_table.sample_with_floor())
             ],
+            column_mapping=None,
             definition=f"{uuid.uuid4()}-{'*' * view_definition_length.sample_with_floor(10)}",
             parents=random.sample(tables, parents_per_view.sample_with_floor()),
         )
         for i in range(num_views)
     ]
+
+    for table in tables + views:
+        _generate_column_mapping(table)
 
     now = datetime.now(tz=timezone.utc)
     return SeedMetadata(
@@ -160,6 +189,18 @@ def generate_queries(
             fields_accessed=_sample_list(all_columns, num_columns_modified, 0),
             object_modified=modified_table,
         )
+
+
+def _generate_column_mapping(table: Table) -> ColumnMapping:
+    d = {}
+    for column in table.columns:
+        d[column] = Column(
+            name=column,
+            type=random.choice(list(ColumnType)),
+            nullable=random.random() < 0.1,  # Fixed 10% chance for now
+        )
+    table.column_mapping = d
+    return d
 
 
 def _sample_list(lst: List[T], dist: NormalDistribution, floor: int = 1) -> List[T]:

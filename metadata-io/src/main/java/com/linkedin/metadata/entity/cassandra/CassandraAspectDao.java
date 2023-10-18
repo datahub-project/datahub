@@ -41,6 +41,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
@@ -445,6 +446,12 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
     return null;
   }
 
+  @Nonnull
+  @Override
+  public Stream<EntityAspect> streamAspects(String entityName, String aspectName) {
+    // Not implemented
+    return null;
+  }
 
   @Override
   @Nonnull

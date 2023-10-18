@@ -39,7 +39,7 @@ public class AspectUtilsTest {
 
   @Test
   public void testAdditionalChanges() {
-    Database server = EbeanTestUtils.createTestServer();
+    Database server = EbeanTestUtils.createTestServer(AspectUtilsTest.class.getSimpleName());
     EbeanAspectDao aspectDao = new EbeanAspectDao(server);
     aspectDao.setConnectionValidated(true);
     EventProducer mockProducer = mock(EventProducer.class);
