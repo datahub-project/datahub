@@ -9,10 +9,10 @@ const ingestion_source_name = `ingestion source ${number}`;
 
 describe("ingestion source creation flow", () => {
     it("create a ingestion source using ui, verify ingestion source details saved correctly, remove ingestion source", () => {
+      // Go to ingestion page, create a snowflake source
       cy.loginWithCredentials();
-      //go to ingestion page, create a snowflake source
       cy.goToIngestionPage();
-      cy.clickOptionWithText("Create new source");
+      cy.clickOptionWithTestId("create-ingestion-source-button");
       cy.clickOptionWithText("Snowflake");
       cy.waitTextVisible("Snowflake Recipe");
       cy.get("#account_id").type(accound_id);
@@ -21,26 +21,29 @@ describe("ingestion source creation flow", () => {
       cy.get("#password").type(password);
       cy.focused().blur();
       cy.get("#role").type(role);
-      //verify yaml recipe is generated correctly
-      cy.clickOptionWithText("YAML");
+
+      // Verify yaml recipe is generated correctly
+      cy.clickOptionWithTestId("recipe-builder-yaml-button");
       cy.waitTextVisible("account_id");
       cy.waitTextVisible(accound_id);
       cy.waitTextVisible(warehouse_id);
       cy.waitTextVisible(username);
       cy.waitTextVisible(password);
       cy.waitTextVisible(role);
-      //finish creating source
-      cy.get("button").contains("Next").click();
+
+      // Finish creating source
+      cy.clickOptionWithTestId("recipe-builder-next-button");
       cy.waitTextVisible("Configure an Ingestion Schedule");
-      cy.get("button").contains("Next").click();
+      cy.clickOptionWithTestId("ingestion-schedule-next-button");
       cy.waitTextVisible("Give this ingestion source a name."); 
       cy.get('[data-testid="source-name-input"]').type(ingestion_source_name);
-      cy.get("button").contains("Save").click();
-      cy.waitTextVisible("Successfully created ingestion source!").wait(5000)//prevent issue with missing form data
+      cy.clickOptionWithTestId("ingestion-source-save-button");
+      cy.waitTextVisible("Successfully created ingestion source!").wait(5000)
       cy.waitTextVisible(ingestion_source_name);
-      cy.get("button").contains("Pending...").should("be.visible");
-      //verify ingestion source details are saved correctly
-      cy.get("button").contains("EDIT").first().click();
+      cy.get('[data-testid="ingestion-source-table-status"]').contains("Pending...").should("be.visible");
+
+      // Verify ingestion source details are saved correctly
+      cy.get('[data-testid="ingestion-source-table-edit-button"]').first().click();
       cy.waitTextVisible("Edit Ingestion Source");
       cy.get("#account_id").should("have.value", accound_id);
       cy.get("#warehouse").should("have.value", warehouse_id);
@@ -49,12 +52,13 @@ describe("ingestion source creation flow", () => {
       cy.get("#role").should("have.value", role);
       cy.get("button").contains("Next").click();
       cy.waitTextVisible("Configure an Ingestion Schedule");
-      cy.get("button").contains("Next").click();
+      cy.clickOptionWithTestId("ingestion-schedule-next-button");
       cy.get('[data-testid="source-name-input"]').clear().type(ingestion_source_name + " EDITED");
-      cy.get("button").contains("Save").click();
+      cy.clickOptionWithTestId("ingestion-source-save-button");
       cy.waitTextVisible("Successfully updated ingestion source!");
       cy.waitTextVisible(ingestion_source_name + " EDITED");
-      //remove ingestion source
+
+      // Remove ingestion source
       cy.get('[data-testid="delete-button"]').first().click();
       cy.waitTextVisible("Confirm Ingestion Source Removal");
       cy.get("button").contains("Yes").click();
