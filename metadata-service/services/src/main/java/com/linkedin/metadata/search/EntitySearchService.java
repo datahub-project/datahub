@@ -188,11 +188,12 @@ public interface EntitySearchService {
    * @param sortCriterion {@link SortCriterion} to be applied to search results
    * @param scrollId opaque scroll identifier to pass to search service
    * @param size the number of search hits to return
+   * @param searchFlags flags controlling search options
    * @return a {@link ScrollResult} that contains a list of matched documents and related search result metadata
    */
   @Nonnull
   ScrollResult fullTextScroll(@Nonnull List<String> entities, @Nonnull String input, @Nullable Filter postFilters,
-      @Nullable SortCriterion sortCriterion, @Nullable String scrollId, @Nonnull String keepAlive, int size);
+      @Nullable SortCriterion sortCriterion, @Nullable String scrollId, @Nonnull String keepAlive, int size, @Nullable SearchFlags searchFlags);
 
   /**
    * Gets a list of documents that match given search request. The results are aggregated and filters are applied to the
@@ -204,11 +205,12 @@ public interface EntitySearchService {
    * @param sortCriterion {@link SortCriterion} to be applied to search results
    * @param scrollId opaque scroll identifier to pass to search service
    * @param size the number of search hits to return
+   * @param searchFlags flags controlling search options
    * @return a {@link ScrollResult} that contains a list of matched documents and related search result metadata
    */
   @Nonnull
   ScrollResult structuredScroll(@Nonnull List<String> entities, @Nonnull String input, @Nullable Filter postFilters,
-      @Nullable SortCriterion sortCriterion, @Nullable String scrollId, @Nonnull String keepAlive, int size);
+      @Nullable SortCriterion sortCriterion, @Nullable String scrollId, @Nonnull String keepAlive, int size, @Nullable SearchFlags searchFlags);
 
   /**
    * Max result size returned by the underlying search backend
