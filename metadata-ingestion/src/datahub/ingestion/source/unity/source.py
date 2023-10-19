@@ -41,6 +41,7 @@ from datahub.ingestion.api.source import (
     TestConnectionReport,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.aws.s3_util import make_s3_urn_for_lineage
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
@@ -454,6 +455,28 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                     type=DatasetLineageTypeClass.TRANSFORMED,
                 )
             )
+
+        if self.config.include_external_lineage:
+            for external_ref in table.external_upstreams:
+                if not external_ref.has_permission or not external_ref.path:
+                    self.report.num_external_upstreams_lacking_permissions += 1
+                    logger.warning(
+                        f"Lacking permissions for external file upstream on {table.ref}"
+                    )
+                elif external_ref.path.startswith("s3://"):
+                    upstreams.append(
+                        UpstreamClass(
+                            dataset=make_s3_urn_for_lineage(
+                                external_ref.path, self.config.env
+                            ),
+                            type=DatasetLineageTypeClass.COPY,
+                        )
+                    )
+                else:
+                    self.report.num_external_upstreams_unsupported += 1
+                    logger.warning(
+                        f"Unsupported external file upstream on {table.ref}: {external_ref.path}"
+                    )
 
         if upstreams:
             return UpstreamLineageClass(

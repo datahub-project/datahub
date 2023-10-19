@@ -19,6 +19,8 @@ class UnityCatalogReport(IngestionStageReport, StaleEntityRemovalSourceReport):
     notebooks: EntityFilterReport = EntityFilterReport.field(type="notebook")
 
     num_column_lineage_skipped_column_count: int = 0
+    num_external_upstreams_lacking_permissions: int = 0
+    num_external_upstreams_unsupported: int = 0
 
     num_queries: int = 0
     num_queries_dropped_parse_failure: int = 0
