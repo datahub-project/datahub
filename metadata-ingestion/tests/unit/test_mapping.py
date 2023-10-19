@@ -4,6 +4,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.common import GlobalTags
 from datahub.metadata.schema_classes import (
     GlobalTagsClass,
     GlossaryTermsClass,
+    InstitutionalMemoryClass,
     OwnerClass,
     OwnershipClass,
     OwnershipSourceTypeClass,
@@ -231,3 +232,91 @@ def test_operation_processor_advanced_matching_tags():
     tag_aspect: GlobalTagsClass = aspect_map["add_tag"]
     assert len(tag_aspect.tags) == 1
     assert tag_aspect.tags[0].tag == "urn:li:tag:case_4567"
+
+
+def test_operation_processor_institutional_memory():
+    raw_props = {
+        "documentation_link": "https://test.com/documentation#ignore-this",
+    }
+    processor = OperationProcessor(
+        operation_defs={
+            "documentation_link": {
+                "match": r"(?:https?)?\:\/\/\w*[^#]*",
+                "operation": "add_doc_link",
+                "config": {"link": "{{ $match }}", "description": "test"},
+            },
+        },
+    )
+    aspect_map = processor.process(raw_props)
+    assert "add_doc_link" in aspect_map
+
+    doc_link_aspect: InstitutionalMemoryClass = aspect_map["add_doc_link"]
+
+    assert doc_link_aspect.elements[0].url == "https://test.com/documentation"
+    assert doc_link_aspect.elements[0].description == "test"
+
+
+def test_operation_processor_institutional_memory_no_description():
+    raw_props = {
+        "documentation_link": "test.com/documentation#ignore-this",
+    }
+    processor = OperationProcessor(
+        operation_defs={
+            "documentation_link": {
+                "match": r"(?:https?)?\:\/\/\w*[^#]*",
+                "operation": "add_doc_link",
+                "config": {"link": "{{ $match }}"},
+            },
+        },
+    )
+    # we require a description, so this should stay empty
+    aspect_map = processor.process(raw_props)
+    assert aspect_map == {}
+
+
+def test_operation_processor_matching_nested_props():
+    raw_props = {
+        "gdpr": {
+            "pii": True,
+        },
+    }
+    processor = OperationProcessor(
+        operation_defs={
+            "gdpr.pii": {
+                "match": True,
+                "operation": "add_tag",
+                "config": {"tag": "pii"},
+            },
+        },
+        owner_source_type="SOURCE_CONTROL",
+        match_nested_props=True,
+    )
+    aspect_map = processor.process(raw_props)
+    assert "add_tag" in aspect_map
+
+    tag_aspect: GlobalTagsClass = aspect_map["add_tag"]
+    assert len(tag_aspect.tags) == 1
+    assert tag_aspect.tags[0].tag == "urn:li:tag:pii"
+
+
+def test_operation_processor_matching_dot_props():
+    raw_props = {
+        "gdpr.pii": True,
+    }
+    processor = OperationProcessor(
+        operation_defs={
+            "gdpr.pii": {
+                "match": True,
+                "operation": "add_tag",
+                "config": {"tag": "pii"},
+            },
+        },
+        owner_source_type="SOURCE_CONTROL",
+        match_nested_props=True,
+    )
+    aspect_map = processor.process(raw_props)
+    assert "add_tag" in aspect_map
+
+    tag_aspect: GlobalTagsClass = aspect_map["add_tag"]
+    assert len(tag_aspect.tags) == 1
+    assert tag_aspect.tags[0].tag == "urn:li:tag:pii"

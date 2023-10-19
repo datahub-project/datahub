@@ -3,8 +3,6 @@ on:
   release:
     types: [published]
   push:
-    branches:
-      - master
     paths:
       - "docker/datahub-ingestion-base/**"
       - "smoke-test/**"

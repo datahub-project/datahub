@@ -74,3 +74,26 @@
     margin-right: 0.5rem;
   }
 }
+
+.quickstartContent {
+  text-align: center;
+  padding: 2rem 0;
+  height: 100%;
+  margin: 2rem 0;
+  background: #34394d;
+  border-radius: var(--ifm-card-border-radius);
+}
+
+.quickstartTitle {
+  color: #fafafa;
+}
+
+.quickstartSubtitle {
+  font-size: 1.1rem;
+  color: gray;
+}
+
+.quickstartCodeblock {
+  text-align: left;
+  padding: 0 20vh;
+}

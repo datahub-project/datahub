@@ -1,7 +1,7 @@
 package com.linkedin.gms.factory.entity;
 
 import com.datastax.oss.driver.api.core.CqlSession;
-import com.linkedin.gms.factory.spring.YamlPropertySourceFactory;
+import com.linkedin.metadata.spring.YamlPropertySourceFactory;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.RetentionService;
 import com.linkedin.metadata.entity.cassandra.CassandraRetentionService;

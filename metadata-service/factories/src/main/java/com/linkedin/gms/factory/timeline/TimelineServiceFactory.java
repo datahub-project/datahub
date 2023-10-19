@@ -1,6 +1,6 @@
 package com.linkedin.gms.factory.timeline;
 
-import com.linkedin.gms.factory.spring.YamlPropertySourceFactory;
+import com.linkedin.metadata.spring.YamlPropertySourceFactory;
 import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.timeline.TimelineService;

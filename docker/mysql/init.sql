@@ -27,3 +27,5 @@ INSERT INTO metadata_aspect_v2 (urn, aspect, version, metadata, createdon, creat
   now(),
   'urn:li:corpuser:__datahub_system'
 );
+
+DROP TABLE IF EXISTS metadata_index;

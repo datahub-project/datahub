@@ -89,7 +89,7 @@ task fastReload(type: YarnTask) {
   args = ['run', 'generate-rsync']
 }
 
-task yarnLint(type: YarnTask, dependsOn: [yarnInstall]) {
+task yarnLint(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
   inputs.files(projectMdFiles)
   args = ['run', 'lint-check']
   outputs.dir("dist")

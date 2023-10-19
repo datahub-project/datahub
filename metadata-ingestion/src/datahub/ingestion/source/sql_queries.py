@@ -103,13 +103,12 @@ class SqlQueriesSource(Source):
         self.builder = SqlParsingBuilder(usage_config=self.config.usage)
 
         if self.config.use_schema_resolver:
-            schema_resolver, urns = self.graph.initialize_schema_resolver_from_datahub(
+            self.schema_resolver = self.graph.initialize_schema_resolver_from_datahub(
                 platform=self.config.platform,
                 platform_instance=self.config.platform_instance,
                 env=self.config.env,
             )
-            self.schema_resolver = schema_resolver
-            self.urns = urns
+            self.urns = self.schema_resolver.get_urns()
         else:
             self.schema_resolver = self.graph._make_schema_resolver(
                 platform=self.config.platform,

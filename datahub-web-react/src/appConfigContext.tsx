@@ -49,6 +49,7 @@ export const DEFAULT_APP_CONFIG = {
         showBrowseV2: true,
         showAcrylInfo: false,
         showAccessManagement: false,
+        nestedDomainsEnabled: true,
     },
 };
 

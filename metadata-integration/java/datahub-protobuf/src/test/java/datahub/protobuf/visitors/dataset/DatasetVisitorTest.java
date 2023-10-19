@@ -2,7 +2,7 @@ package datahub.protobuf.visitors.dataset;
 
 import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.data.template.RecordTemplate;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.net.URISyntaxException;

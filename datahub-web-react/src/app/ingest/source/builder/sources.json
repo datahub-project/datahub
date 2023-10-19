@@ -126,6 +126,13 @@
         "recipe": "source:\n    type: mongodb\n    config:\n        # Coordinates\n        connect_uri: # Your MongoDB connect URI, e.g. \"mongodb://localhost\"\n\n        # Credentials\n        # Add secret in Secrets Tab with relevant names for each variable\n        username: \"${MONGO_USERNAME}\" # Your MongoDB username, e.g. admin\n        password: \"${MONGO_PASSWORD}\" # Your MongoDB password, e.g. password_01\n\n        # Options (recommended)\n        enableSchemaInference: True\n        useRandomSampling: True\n        maxSchemaSize: 300"
     },
     {
+        "urn": "urn:li:dataPlatform:dynamodb",
+        "name": "dynamodb",
+        "displayName": "DynamoDB",
+        "docsUrl": "https://datahubproject.io/docs/metadata-ingestion/",
+        "recipe": "source:\n    type: dynamodb\n    config:\n        platform_instance: \"AWS_ACCOUNT_ID\"\n        aws_access_key_id : '${AWS_ACCESS_KEY_ID}'\n        aws_secret_access_key : '${AWS_SECRET_ACCESS_KEY}'\n        # If there are items that have most representative fields of the table, users could use the\n        # `include_table_item` option to provide a list of primary keys of the table in dynamodb format.\n        # For each `region.table`, the list of primary keys can be at most 100.\n        # We include these items in addition to the first 100 items in the table when we scan it.\n        # include_table_item:\n        #   region.table_name:\n        #     [\n        #       {\n        #         'partition_key_name': { 'attribute_type': 'attribute_value' },\n        #         'sort_key_name': { 'attribute_type': 'attribute_value' },\n        #       },\n        #     ]"
+    },
+    {
         "urn": "urn:li:dataPlatform:glue",
         "name": "glue",
         "displayName": "Glue",
@@ -173,6 +180,13 @@
         "displayName": "Metabase",
         "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/metabase/",
         "recipe": "source:\n  type: metabase\n  config:\n    # Coordinates\n    connect_uri:\n\n    # Credentials\n    username: root\n    password: example"
+    },
+    {
+        "urn": "urn:li:dataPlatform:mlflow",
+        "name": "mlflow",
+        "displayName": "MLflow",
+        "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/mlflow/",
+        "recipe": "source:\n  type: mlflow\n  config:\n    tracking_uri: tracking_uri"
     },
     {
         "urn": "urn:li:dataPlatform:mode",

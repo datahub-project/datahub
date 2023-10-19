@@ -30,7 +30,7 @@ dependencies {
   implementation(externalDependency.kafkaAvroSerializer) {
     exclude group: "org.apache.avro"
   }
-  implementation externalDependency.avro_1_7
+  implementation externalDependency.avro
   constraints {
     implementation('commons-collections:commons-collections:3.2.2') {
       because 'Vulnerability Issue'
@@ -49,6 +49,7 @@ dependencies {
   annotationProcessor externalDependency.lombok
   // VisibleForTesting
   compileOnly externalDependency.guava
+  testImplementation externalDependency.testngJava8
   testImplementation externalDependency.mockito
   testImplementation externalDependency.mockServer
   testImplementation externalDependency.mockServerClient

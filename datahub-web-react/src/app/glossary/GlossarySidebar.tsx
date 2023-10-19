@@ -1,14 +1,8 @@
 import React, { useState } from 'react';
-import styled from 'styled-components/macro';
 import GlossarySearch from './GlossarySearch';
 import GlossaryBrowser from './GlossaryBrowser/GlossaryBrowser';
 import { ProfileSidebarResizer } from '../entity/shared/containers/profile/sidebar/ProfileSidebarResizer';
-
-const BrowserWrapper = styled.div<{ width: number }>`
-    max-height: 100%;
-    width: ${(props) => props.width}px;
-    min-width: ${(props) => props.width}px;
-`;
+import { SidebarWrapper } from '../shared/sidebar/components';
 
 export const MAX_BROWSER_WIDTH = 500;
 export const MIN_BROWSWER_WIDTH = 200;
@@ -18,10 +12,10 @@ export default function GlossarySidebar() {
 
     return (
         <>
-            <BrowserWrapper width={browserWidth}>
+            <SidebarWrapper width={browserWidth}>
                 <GlossarySearch />
                 <GlossaryBrowser openToEntity />
-            </BrowserWrapper>
+            </SidebarWrapper>
             <ProfileSidebarResizer
                 setSidePanelWidth={(width) =>
                     setBrowserWith(Math.min(Math.max(width, MIN_BROWSWER_WIDTH), MAX_BROWSER_WIDTH))

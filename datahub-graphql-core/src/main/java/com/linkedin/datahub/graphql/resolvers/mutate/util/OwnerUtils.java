@@ -50,7 +50,7 @@ public class OwnerUtils {
   ) {
     final List<MetadataChangeProposal> changes = new ArrayList<>();
     for (ResourceRefInput resource : resources) {
-      changes.add(buildAddOwnersProposal(owners, UrnUtils.getUrn(resource.getResourceUrn()), actor, entityService));
+      changes.add(buildAddOwnersProposal(owners, UrnUtils.getUrn(resource.getResourceUrn()), entityService));
     }
     EntityUtils.ingestChangeProposals(changes, entityService, actor, false);
   }
@@ -69,7 +69,7 @@ public class OwnerUtils {
   }
 
 
-  private static MetadataChangeProposal buildAddOwnersProposal(List<OwnerInput> owners, Urn resourceUrn, Urn actor, EntityService entityService) {
+  static MetadataChangeProposal buildAddOwnersProposal(List<OwnerInput> owners, Urn resourceUrn, EntityService entityService) {
     Ownership ownershipAspect = (Ownership) EntityUtils.getAspectFromEntity(
         resourceUrn.toString(),
         Constants.OWNERSHIP_ASPECT_NAME, entityService,
@@ -181,18 +181,13 @@ public class OwnerUtils {
         orPrivilegeGroups);
   }
 
-  public static Boolean validateAddInput(
+  public static Boolean validateAddOwnerInput(
       List<OwnerInput> owners,
       Urn resourceUrn,
       EntityService entityService
   ) {
     for (OwnerInput owner : owners) {
-      boolean result = validateAddInput(
-          UrnUtils.getUrn(owner.getOwnerUrn()),
-          owner.getOwnershipTypeUrn(),
-          owner.getOwnerEntityType(),
-          resourceUrn,
-          entityService);
+      boolean result = validateAddOwnerInput(owner, resourceUrn, entityService);
       if (!result) {
         return false;
       }
@@ -200,44 +195,29 @@ public class OwnerUtils {
     return true;
   }
 
-  public static Boolean validateAddInput(
-      Urn ownerUrn,
-      String ownershipEntityUrn,
-      OwnerEntityType ownerEntityType,
+  public static Boolean validateAddOwnerInput(
+      OwnerInput owner,
       Urn resourceUrn,
       EntityService entityService
   ) {
-
-    if (OwnerEntityType.CORP_GROUP.equals(ownerEntityType) && !Constants.CORP_GROUP_ENTITY_NAME.equals(ownerUrn.getEntityType())) {
-      throw new IllegalArgumentException(String.format("Failed to change ownership for resource %s. Expected a corp group urn.", resourceUrn));
-    }
-
-    if (OwnerEntityType.CORP_USER.equals(ownerEntityType) && !Constants.CORP_USER_ENTITY_NAME.equals(ownerUrn.getEntityType())) {
-      throw new IllegalArgumentException(String.format("Failed to change ownership for resource %s. Expected a corp user urn.", resourceUrn));
-    }
 
     if (!entityService.exists(resourceUrn)) {
       throw new IllegalArgumentException(String.format("Failed to change ownership for resource %s. Resource does not exist.", resourceUrn));
     }
 
-    if (!entityService.exists(ownerUrn)) {
-      throw new IllegalArgumentException(String.format("Failed to change ownership for resource %s. Owner %s does not exist.", resourceUrn, ownerUrn));
-    }
-
-    if (ownershipEntityUrn != null && !entityService.exists(UrnUtils.getUrn(ownershipEntityUrn))) {
-      throw new IllegalArgumentException(String.format("Failed to change ownership type for resource %s. Ownership Type "
-          + "%s does not exist.", resourceUrn, ownershipEntityUrn));
-    }
+    validateOwner(owner, entityService);
 
     return true;
   }
 
   public static void validateOwner(
-      Urn ownerUrn,
-      OwnerEntityType ownerEntityType,
-      Urn ownershipEntityUrn,
+      OwnerInput owner,
       EntityService entityService
   ) {
+
+    OwnerEntityType ownerEntityType = owner.getOwnerEntityType();
+    Urn ownerUrn = UrnUtils.getUrn(owner.getOwnerUrn());
+
     if (OwnerEntityType.CORP_GROUP.equals(ownerEntityType) && !Constants.CORP_GROUP_ENTITY_NAME.equals(ownerUrn.getEntityType())) {
       throw new IllegalArgumentException(
           String.format("Failed to change ownership for resource(s). Expected a corp group urn, found %s", ownerUrn));
@@ -252,9 +232,14 @@ public class OwnerUtils {
       throw new IllegalArgumentException(String.format("Failed to change ownership for resource(s). Owner with urn %s does not exist.", ownerUrn));
     }
 
-    if (!entityService.exists(ownershipEntityUrn)) {
-      throw new IllegalArgumentException(String.format("Failed to change ownership for resource(s). Ownership type with "
-          + "urn %s does not exist.", ownershipEntityUrn));
+    if (owner.getOwnershipTypeUrn() != null && !entityService.exists(UrnUtils.getUrn(owner.getOwnershipTypeUrn()))) {
+      throw new IllegalArgumentException(String.format("Failed to change ownership for resource(s). Custom Ownership type with "
+          + "urn %s does not exist.", owner.getOwnershipTypeUrn()));
+    }
+
+    if (owner.getType() == null && owner.getOwnershipTypeUrn() == null) {
+      throw new IllegalArgumentException("Failed to change ownership for resource(s). Expected either "
+          + "type or ownershipTypeUrn to be specified.");
     }
   }
 
@@ -269,11 +254,11 @@ public class OwnerUtils {
   }
 
   public static void addCreatorAsOwner(
-    QueryContext context,
-    String urn,
-    OwnerEntityType ownerEntityType,
-    OwnershipType ownershipType,
-    EntityService entityService) {
+      QueryContext context,
+      String urn,
+      OwnerEntityType ownerEntityType,
+      OwnershipType ownershipType,
+      EntityService entityService) {
     try {
       Urn actorUrn = CorpuserUrn.createFromString(context.getActorUrn());
       String ownershipTypeUrn = mapOwnershipTypeToEntity(ownershipType.name());

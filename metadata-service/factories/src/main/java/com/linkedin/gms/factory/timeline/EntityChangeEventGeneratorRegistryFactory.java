@@ -1,7 +1,7 @@
 package com.linkedin.gms.factory.timeline;
 
 import com.datahub.authentication.Authentication;
-import com.linkedin.entity.client.RestliEntityClient;
+import com.linkedin.entity.client.SystemRestliEntityClient;
 import com.linkedin.metadata.timeline.eventgenerator.AssertionRunEventChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.DataProcessInstanceRunEventChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.DatasetPropertiesChangeEventGenerator;
@@ -38,7 +38,7 @@ public class EntityChangeEventGeneratorRegistryFactory {
   @Singleton
   @Nonnull
   protected com.linkedin.metadata.timeline.eventgenerator.EntityChangeEventGeneratorRegistry entityChangeEventGeneratorRegistry() {
-    final RestliEntityClient entityClient = applicationContext.getBean(RestliEntityClient.class);
+    final SystemRestliEntityClient entityClient = applicationContext.getBean(SystemRestliEntityClient.class);
     final Authentication systemAuthentication = applicationContext.getBean(Authentication.class);
 
     final com.linkedin.metadata.timeline.eventgenerator.EntityChangeEventGeneratorRegistry registry =
@@ -74,7 +74,7 @@ public class EntityChangeEventGeneratorRegistryFactory {
 
     // Data Process Instance differs
     registry.register(DATA_PROCESS_INSTANCE_RUN_EVENT_ASPECT_NAME,
-        new DataProcessInstanceRunEventChangeEventGenerator(entityClient, systemAuthentication));
+        new DataProcessInstanceRunEventChangeEventGenerator(entityClient));
 
     // TODO: Add ML models.
 

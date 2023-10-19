@@ -1,14 +1,18 @@
 package com.linkedin.datahub.graphql.resolvers.domain;
 
 import com.linkedin.common.AuditStamp;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
+import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
+import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
 import com.linkedin.datahub.graphql.generated.CreateDomainInput;
 import com.linkedin.datahub.graphql.generated.OwnerEntityType;
 import com.linkedin.datahub.graphql.generated.OwnershipType;
+import com.linkedin.datahub.graphql.resolvers.mutate.util.DomainUtils;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.OwnerUtils;
 import com.linkedin.domain.DomainProperties;
 import com.linkedin.entity.client.EntityClient;
@@ -19,8 +23,11 @@ import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+
+import java.net.URISyntaxException;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -45,9 +52,9 @@ public class CreateDomainResolver implements DataFetcher<CompletableFuture<Strin
 
     final QueryContext context = environment.getContext();
     final CreateDomainInput input = bindArgument(environment.getArgument("input"), CreateDomainInput.class);
+    final Urn parentDomain = input.getParentDomain() != null ? UrnUtils.getUrn(input.getParentDomain()) : null;
 
     return CompletableFuture.supplyAsync(() -> {
-
       if (!AuthorizationUtils.canCreateDomains(context)) {
         throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
       }
@@ -64,6 +71,17 @@ public class CreateDomainResolver implements DataFetcher<CompletableFuture<Strin
           throw new IllegalArgumentException("This Domain already exists!");
         }
 
+        if (parentDomain != null && !_entityClient.exists(parentDomain, context.getAuthentication())) {
+          throw new IllegalArgumentException("Parent Domain does not exist!");
+        }
+
+        if (DomainUtils.hasNameConflict(input.getName(), parentDomain, context, _entityClient)) {
+          throw new DataHubGraphQLException(
+              String.format("\"%s\" already exists in this domain. Please pick a unique name.", input.getName()),
+              DataHubGraphQLErrorCode.CONFLICT
+          );
+        }
+
         // Create the MCP
         final MetadataChangeProposal proposal = buildMetadataChangeProposalWithKey(key, DOMAIN_ENTITY_NAME,
             DOMAIN_PROPERTIES_ASPECT_NAME, mapDomainProperties(input, context));
@@ -77,6 +95,8 @@ public class CreateDomainResolver implements DataFetcher<CompletableFuture<Strin
         }
         OwnerUtils.addCreatorAsOwner(context, domainUrn, OwnerEntityType.CORP_USER, ownershipType, _entityService);
         return domainUrn;
+      } catch (DataHubGraphQLException e) {
+        throw e;
       } catch (Exception e) {
         log.error("Failed to create Domain with id: {}, name: {}: {}", input.getId(), input.getName(), e.getMessage());
         throw new RuntimeException(String.format("Failed to create Domain with id: %s, name: %s", input.getId(), input.getName()), e);
@@ -89,6 +109,13 @@ public class CreateDomainResolver implements DataFetcher<CompletableFuture<Strin
     result.setName(input.getName());
     result.setDescription(input.getDescription(), SetMode.IGNORE_NULL);
     result.setCreated(new AuditStamp().setActor(UrnUtils.getUrn(context.getActorUrn())).setTime(System.currentTimeMillis()));
+    if (input.getParentDomain() != null) {
+      try {
+        result.setParentDomain(Urn.createFromString(input.getParentDomain()));
+      } catch (URISyntaxException e) {
+        throw new RuntimeException(String.format("Failed to create Domain Urn from string: %s", input.getParentDomain()), e);
+      }
+    }
     return result;
   }
 }

@@ -6,7 +6,7 @@ import com.linkedin.gms.factory.kafka.schemaregistry.AwsGlueSchemaRegistryFactor
 import com.linkedin.gms.factory.kafka.schemaregistry.InternalSchemaRegistryFactory;
 import com.linkedin.gms.factory.kafka.schemaregistry.KafkaSchemaRegistryFactory;
 import com.linkedin.gms.factory.kafka.schemaregistry.SchemaRegistryConfig;
-import com.linkedin.gms.factory.spring.YamlPropertySourceFactory;
+import com.linkedin.metadata.spring.YamlPropertySourceFactory;
 import java.util.Arrays;
 import java.util.Map;
 import org.apache.avro.generic.IndexedRecord;

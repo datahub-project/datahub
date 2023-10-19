@@ -1,3 +1,4 @@
+import logging
 import os
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Optional
@@ -6,7 +7,10 @@ import pydantic
 from pydantic import Field
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
-from datahub.configuration.source_common import DatasetSourceConfigMixin
+from datahub.configuration.source_common import (
+    DatasetSourceConfigMixin,
+    LowerCaseDatasetUrnConfigMixin,
+)
 from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
@@ -21,6 +25,9 @@ from datahub.ingestion.source_config.operation_config import (
     OperationConfig,
     is_profiling_enabled,
 )
+from datahub.utilities.global_warning_util import add_global_warning
+
+logger = logging.getLogger(__name__)
 
 
 class UnityCatalogProfilerConfig(ConfigModel):
@@ -87,6 +94,7 @@ class UnityCatalogSourceConfig(
     BaseUsageConfig,
     DatasetSourceConfigMixin,
     StatefulProfilingConfigMixin,
+    LowerCaseDatasetUrnConfigMixin,
 ):
     token: str = pydantic.Field(description="Databricks personal access token")
     workspace_url: str = pydantic.Field(
@@ -97,9 +105,25 @@ class UnityCatalogSourceConfig(
         description="Name of the workspace. Default to deployment name present in workspace_url",
     )
 
+    include_metastore: bool = pydantic.Field(
+        default=True,
+        description=(
+            "Whether to ingest the workspace's metastore as a container and include it in all urns."
+            " Changing this will affect the urns of all entities in the workspace."
+            " This will be disabled by default in the future,"
+            " so it is recommended to set this to `False` for new ingestions."
+            " If you have an existing unity catalog ingestion, you'll want to avoid duplicates by soft deleting existing data."
+            " If stateful ingestion is enabled, running with `include_metastore: false` should be sufficient."
+            " Otherwise, we recommend deleting via the cli: `datahub delete --platform databricks` and re-ingesting with `include_metastore: false`."
+        ),
+    )
+
     ingest_data_platform_instance_aspect: Optional[bool] = pydantic.Field(
         default=False,
-        description="Option to enable/disable ingestion of the data platform instance aspect. The default data platform instance id for a dataset is workspace_name",
+        description=(
+            "Option to enable/disable ingestion of the data platform instance aspect."
+            " The default data platform instance id for a dataset is workspace_name"
+        ),
     )
 
     _only_ingest_assigned_metastore_removed = pydantic_removed_field(
@@ -122,14 +146,37 @@ class UnityCatalogSourceConfig(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns for tables to filter in ingestion. Specify regex to match the entire table name in `catalog.schema.table` format. e.g. to match all tables starting with customer in Customer catalog and public schema, use the regex `Customer\\.public\\.customer.*`.",
     )
+
+    notebook_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description=(
+            "Regex patterns for notebooks to filter in ingestion, based on notebook *path*."
+            " Specify regex to match the entire notebook path in `/<dir>/.../<name>` format."
+            " e.g. to match all notebooks in the root Shared directory, use the regex `/Shared/.*`."
+        ),
+    )
+
     domain: Dict[str, AllowDenyPattern] = Field(
         default=dict(),
         description='Attach domains to catalogs, schemas or tables during ingestion using regex patterns. Domain key can be a guid like *urn:li:domain:ec428203-ce86-4db3-985d-5a8ee6df32ba* or a string like "Marketing".) If you provide strings, then datahub will attempt to resolve this name to a guid, and will error out if this fails. There can be multiple domain keys specified.',
     )
 
-    include_table_lineage: Optional[bool] = pydantic.Field(
+    include_table_lineage: bool = pydantic.Field(
         default=True,
         description="Option to enable/disable lineage generation.",
+    )
+
+    include_external_lineage: bool = pydantic.Field(
+        default=True,
+        description=(
+            "Option to enable/disable lineage generation for external tables."
+            " Only external S3 tables are supported at the moment."
+        ),
+    )
+
+    include_notebooks: bool = pydantic.Field(
+        default=False,
+        description="Ingest notebooks, represented as DataHub datasets.",
     )
 
     include_ownership: bool = pydantic.Field(
@@ -141,9 +188,20 @@ class UnityCatalogSourceConfig(
         "include_table_ownership", "include_ownership"
     )
 
-    include_column_lineage: Optional[bool] = pydantic.Field(
+    include_column_lineage: bool = pydantic.Field(
         default=True,
         description="Option to enable/disable lineage generation. Currently we have to call a rest call per column to get column level lineage due to the Databrick api which can slow down ingestion. ",
+    )
+
+    column_lineage_column_limit: int = pydantic.Field(
+        default=300,
+        description="Limit the number of columns to get column level lineage. ",
+    )
+
+    lineage_max_workers: int = pydantic.Field(
+        default=5 * (os.cpu_count() or 4),
+        description="Number of worker threads to use for column lineage thread pool executor. Set to 1 to disable.",
+        hidden_from_docs=True,
     )
 
     include_usage_statistics: bool = Field(
@@ -177,3 +235,16 @@ class UnityCatalogSourceConfig(
                 "Workspace URL must start with http scheme. e.g. https://my-workspace.cloud.databricks.com"
             )
         return workspace_url
+
+    @pydantic.validator("include_metastore")
+    def include_metastore_warning(cls, v: bool) -> bool:
+        if v:
+            msg = (
+                "`include_metastore` is enabled."
+                " This is not recommended and will be disabled by default in the future, which is a breaking change."
+                " All databricks urns will change if you re-ingest with this disabled."
+                " We recommend soft deleting all databricks data and re-ingesting with `include_metastore` set to `False`."
+            )
+            logger.warning(msg)
+            add_global_warning(msg)
+        return v

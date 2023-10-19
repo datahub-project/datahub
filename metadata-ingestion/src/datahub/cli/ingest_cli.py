@@ -10,7 +10,6 @@ from typing import Optional
 
 import click
 import click_spinner
-import tzlocal
 from click_default_group import DefaultGroup
 from tabulate import tabulate
 
@@ -248,17 +247,17 @@ def run(
 @click.option(
     "--time-zone",
     type=str,
-    help=f"Timezone for the schedule. By default uses the timezone of the current system: {tzlocal.get_localzone_name()}.",
+    help="Timezone for the schedule in 'America/New_York' format. Uses UTC by default.",
     required=False,
-    default=tzlocal.get_localzone_name(),
+    default="UTC",
 )
 def deploy(
     name: str,
     config: str,
-    urn: str,
+    urn: Optional[str],
     executor_id: str,
-    cli_version: str,
-    schedule: str,
+    cli_version: Optional[str],
+    schedule: Optional[str],
     time_zone: str,
 ) -> None:
     """
@@ -276,17 +275,17 @@ def deploy(
         resolve_env_vars=False,
     )
 
-    graphql_query: str
-
     variables: dict = {
         "urn": urn,
         "name": name,
         "type": pipeline_config["source"]["type"],
-        "schedule": {"interval": schedule, "timezone": time_zone},
         "recipe": json.dumps(pipeline_config),
         "executorId": executor_id,
         "version": cli_version,
     }
+
+    if schedule is not None:
+        variables["schedule"] = {"interval": schedule, "timezone": time_zone}
 
     if urn:
         if not datahub_graph.exists(urn):
@@ -294,7 +293,7 @@ def deploy(
             exit()
         logger.info("Found recipe URN, will update recipe.")
 
-        graphql_query = textwrap.dedent(
+        graphql_query: str = textwrap.dedent(
             """
             mutation updateIngestionSource(
                 $urn: String!,
@@ -331,6 +330,7 @@ def deploy(
                 $version: String) {
 
                 createIngestionSource(input: {
+                    name: $name,
                     type: $type,
                     schedule: $schedule,
                     config: {

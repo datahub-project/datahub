@@ -1,6 +1,6 @@
 package com.linkedin.gms.factory.common;
 
-import com.linkedin.gms.factory.spring.YamlPropertySourceFactory;
+import com.linkedin.metadata.spring.YamlPropertySourceFactory;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import org.springframework.beans.factory.annotation.Value;

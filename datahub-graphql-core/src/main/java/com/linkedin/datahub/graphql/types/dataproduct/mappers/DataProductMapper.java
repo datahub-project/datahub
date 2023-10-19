@@ -50,7 +50,8 @@ public class DataProductMapper implements ModelMapper<EntityResponse, DataProduc
 
     EnvelopedAspectMap aspectMap = entityResponse.getAspects();
     MappingHelper<DataProduct> mappingHelper = new MappingHelper<>(aspectMap, result);
-    mappingHelper.mapToResult(DATA_PRODUCT_PROPERTIES_ASPECT_NAME, this::mapDataProductProperties);
+    mappingHelper.mapToResult(DATA_PRODUCT_PROPERTIES_ASPECT_NAME, (dataProduct, dataMap) ->
+        mapDataProductProperties(dataProduct, dataMap, entityUrn));
     mappingHelper.mapToResult(GLOBAL_TAGS_ASPECT_NAME, (dataProduct, dataMap) ->
         dataProduct.setTags(GlobalTagsMapper.map(new GlobalTags(dataMap), entityUrn)));
     mappingHelper.mapToResult(GLOSSARY_TERMS_ASPECT_NAME, (dataProduct, dataMap) ->
@@ -65,11 +66,12 @@ public class DataProductMapper implements ModelMapper<EntityResponse, DataProduc
     return result;
   }
 
-  private void mapDataProductProperties(@Nonnull DataProduct dataProduct, @Nonnull DataMap dataMap) {
+  private void mapDataProductProperties(@Nonnull DataProduct dataProduct, @Nonnull DataMap dataMap, @Nonnull Urn urn) {
     DataProductProperties dataProductProperties = new DataProductProperties(dataMap);
     com.linkedin.datahub.graphql.generated.DataProductProperties properties = new com.linkedin.datahub.graphql.generated.DataProductProperties();
 
-    properties.setName(dataProductProperties.getName());
+    final String name = dataProductProperties.hasName() ? dataProductProperties.getName() : urn.getId();
+    properties.setName(name);
     properties.setDescription(dataProductProperties.getDescription());
     if (dataProductProperties.hasExternalUrl()) {
       properties.setExternalUrl(dataProductProperties.getExternalUrl().toString());

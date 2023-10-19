@@ -4,7 +4,7 @@ import com.codahale.metrics.MetricRegistry;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.plugins.auth.authorization.Authorizer;
-import com.datahub.authorization.ResourceSpec;
+import com.datahub.authorization.EntitySpec;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.VersionedUrn;
 import com.linkedin.common.urn.Urn;
@@ -65,9 +65,9 @@ public class EntityVersionedV2Resource extends CollectionResourceTaskTemplate<co
       @QueryParam(PARAM_ENTITY_TYPE) @Nonnull String entityType,
       @QueryParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames) {
     Authentication auth = AuthenticationContext.getAuthentication();
-    List<java.util.Optional<ResourceSpec>> resourceSpecs = versionedUrnStrs.stream()
+    List<java.util.Optional<EntitySpec>> resourceSpecs = versionedUrnStrs.stream()
         .map(versionedUrn -> UrnUtils.getUrn(versionedUrn.getUrn()))
-        .map(urn -> java.util.Optional.of(new ResourceSpec(urn.getEntityType(), urn.toString())))
+        .map(urn -> java.util.Optional.of(new EntitySpec(urn.getEntityType(), urn.toString())))
         .collect(Collectors.toList());
     if (Boolean.parseBoolean(System.getenv(REST_API_AUTHORIZATION_ENABLED_ENV))
         && !isAuthorized(auth, _authorizer, ImmutableList.of(PoliciesConfig.GET_ENTITY_PRIVILEGE), resourceSpecs)) {

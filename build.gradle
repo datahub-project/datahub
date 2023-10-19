@@ -8,7 +8,7 @@ buildscript {
   ext.openTelemetryVersion = '1.18.0'
   ext.neo4jVersion = '4.4.9'
   ext.testContainersVersion = '1.17.4'
-  ext.elasticsearchVersion = '7.10.2'
+  ext.elasticsearchVersion = '2.9.0' // ES 7.10, Opensearch 1.x, 2.x
   ext.jacksonVersion = '2.15.2'
   ext.jettyVersion = '9.4.46.v20220331'
   ext.playVersion = '2.8.18'
@@ -27,7 +27,7 @@ buildscript {
   dependencies {
     classpath 'com.linkedin.pegasus:gradle-plugins:' + pegasusVersion
     classpath 'com.github.node-gradle:gradle-node-plugin:2.2.4'
-    classpath 'io.acryl.gradle.plugin:gradle-avro-plugin:0.8.1'
+    classpath 'io.acryl.gradle.plugin:gradle-avro-plugin:0.2.0'
     classpath 'org.springframework.boot:spring-boot-gradle-plugin:' + springBootVersion
     classpath "io.codearte.gradle.nexus:gradle-nexus-staging-plugin:0.30.0"
     classpath "com.palantir.gradle.gitversion:gradle-git-version:3.0.0"
@@ -67,8 +67,8 @@ project.ext.externalDependency = [
     'antlr4Runtime': 'org.antlr:antlr4-runtime:4.7.2',
     'antlr4': 'org.antlr:antlr4:4.7.2',
     'assertJ': 'org.assertj:assertj-core:3.11.1',
-    'avro_1_7': 'org.apache.avro:avro:1.7.7',
-    'avroCompiler_1_7': 'org.apache.avro:avro-compiler:1.7.7',
+    'avro': 'org.apache.avro:avro:1.11.3',
+    'avroCompiler': 'org.apache.avro:avro-compiler:1.11.3',
     'awsGlueSchemaRegistrySerde': 'software.amazon.glue:schema-registry-serde:1.1.10',
     'awsMskIamAuth': 'software.amazon.msk:aws-msk-iam-auth:1.1.1',
     'awsSecretsManagerJdbc': 'com.amazonaws.secretsmanager:aws-secretsmanager-jdbc:1.0.8',
@@ -90,15 +90,15 @@ project.ext.externalDependency = [
     'ebean': 'io.ebean:ebean:' + ebeanVersion,
     'ebeanAgent': 'io.ebean:ebean-agent:' + ebeanVersion,
     'ebeanDdl': 'io.ebean:ebean-ddl-generator:' + ebeanVersion,
-    'elasticSearchRest': 'org.elasticsearch.client:elasticsearch-rest-high-level-client:' + elasticsearchVersion,
-    'elasticSearchTransport': 'org.elasticsearch.client:transport:' + elasticsearchVersion,
+    'elasticSearchRest': 'org.opensearch.client:opensearch-rest-high-level-client:' + elasticsearchVersion,
+    'elasticSearchJava': 'org.opensearch.client:opensearch-java:2.6.0',
     'findbugsAnnotations': 'com.google.code.findbugs:annotations:3.0.1',
     'graphqlJava': 'com.graphql-java:graphql-java:19.5',
     'graphqlJavaScalars': 'com.graphql-java:graphql-java-extended-scalars:19.1',
     'gson': 'com.google.code.gson:gson:2.8.9',
     'guice': 'com.google.inject:guice:4.2.3',
     'guava': 'com.google.guava:guava:32.1.2-jre',
-    'h2': 'com.h2database:h2:2.1.214',
+    'h2': 'com.h2database:h2:2.2.224',
     'hadoopCommon':'org.apache.hadoop:hadoop-common:2.7.2',
     'hadoopMapreduceClient':'org.apache.hadoop:hadoop-mapreduce-client-core:2.7.2',
     "hadoopClient": "org.apache.hadoop:hadoop-client:$hadoop3Version",
@@ -127,7 +127,6 @@ project.ext.externalDependency = [
     'jgrapht': 'org.jgrapht:jgrapht-core:1.5.1',
     'jna': 'net.java.dev.jna:jna:5.12.1',
     'jsonPatch': 'com.github.java-json-tools:json-patch:1.13',
-    'jsonSchemaAvro': 'com.github.fge:json-schema-avro:0.1.4',
     'jsonSimple': 'com.googlecode.json-simple:json-simple:1.1.1',
     'jsonSmart': 'net.minidev:json-smart:2.4.9',
     'json': 'org.json:json:20230227',
@@ -200,15 +199,17 @@ project.ext.externalDependency = [
     'springBootStarterValidation': "org.springframework.boot:spring-boot-starter-validation:$springBootVersion",
     'springKafka': 'org.springframework.kafka:spring-kafka:2.8.11',
     'springActuator': "org.springframework.boot:spring-boot-starter-actuator:$springBootVersion",
-    'swaggerAnnotations': 'io.swagger.core.v3:swagger-annotations:2.1.12',
-    'swaggerCli': 'io.swagger.codegen.v3:swagger-codegen-cli:3.0.41',
-    'testng': 'org.testng:testng:7.3.0',
+    'swaggerAnnotations': 'io.swagger.core.v3:swagger-annotations:2.2.15',
+    'swaggerCli': 'io.swagger.codegen.v3:swagger-codegen-cli:3.0.46',
+    'testngJava8': 'org.testng:testng:7.5.1',
+    'testng': 'org.testng:testng:7.8.0',
     'testContainers': 'org.testcontainers:testcontainers:' + testContainersVersion,
     'testContainersJunit': 'org.testcontainers:junit-jupiter:' + testContainersVersion,
     'testContainersPostgresql':'org.testcontainers:postgresql:' + testContainersVersion,
     'testContainersElasticsearch': 'org.testcontainers:elasticsearch:' + testContainersVersion,
     'testContainersCassandra': 'org.testcontainers:cassandra:' + testContainersVersion,
     'testContainersKafka': 'org.testcontainers:kafka:' + testContainersVersion,
+    'testContainersOpenSearch': 'org.opensearch:opensearch-testcontainers:2.0.0',
     'typesafeConfig':'com.typesafe:config:1.4.1',
     'wiremock':'com.github.tomakehurst:wiremock:2.10.0',
     'zookeeper': 'org.apache.zookeeper:zookeeper:3.4.14',
@@ -257,7 +258,6 @@ subprojects {
 
   plugins.withType(JavaPlugin) {
     dependencies {
-      testImplementation externalDependency.testng
       constraints {
         implementation('io.netty:netty-all:4.1.86.Final')
         implementation('org.apache.commons:commons-compress:1.21')
@@ -265,12 +265,6 @@ subprojects {
         implementation('org.hibernate:hibernate-validator:6.0.20.Final')
         implementation("com.fasterxml.jackson.core:jackson-databind:$jacksonVersion")
         implementation("com.fasterxml.jackson.core:jackson-dataformat-cbor:$jacksonVersion")
-      }
-    }
-
-    tasks.withType(Test) {
-      if (!name.startsWith('integ')) {
-        useTestNG()
       }
     }
 
@@ -291,6 +285,13 @@ subprojects {
   tasks.withType(Test).configureEach {
     javaLauncher = javaToolchains.launcherFor {
       languageVersion = JavaLanguageVersion.of(11)
+    }
+    // https://docs.gradle.org/current/userguide/performance.html
+    maxParallelForks = Runtime.runtime.availableProcessors().intdiv(2) ?: 1
+
+    if (project.configurations.getByName("testImplementation").getDependencies()
+            .any{ it.getName().contains("testng") }) {
+      useTestNG()
     }
   }
 

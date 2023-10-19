@@ -60,16 +60,14 @@ class StaleEntityCheckpointStateBase(CheckpointStateBase, ABC, Generic[Derived])
 ```
 
 Examples: 
-1. [KafkaCheckpointState](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/src/datahub/ingestion/source/state/kafka_state.py#L11).
-2. [DbtCheckpointState](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/src/datahub/ingestion/source/state/dbt_state.py#L16)
-3. [BaseSQLAlchemyCheckpointState](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/src/datahub/ingestion/source/state/sql_common_state.py#L17)
+* [BaseSQLAlchemyCheckpointState](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/src/datahub/ingestion/source/state/sql_common_state.py#L17)
 
 ### 2. Modifying the SourceConfig
 
 The source's config must inherit from `StatefulIngestionConfigBase`, and should declare a field named `stateful_ingestion` of type `Optional[StatefulStaleMetadataRemovalConfig]`.
 
 Examples:
-1. The `KafkaSourceConfig`
+- The `KafkaSourceConfig`
 ```python
 from typing import List, Optional
 import pydantic
@@ -83,9 +81,6 @@ class KafkaSourceConfig(StatefulIngestionConfigBase):
 
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
 ```
-
-2. The [DBTStatefulIngestionConfig](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/src/datahub/ingestion/source/dbt.py#L131)
-   and the [DBTConfig](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/src/datahub/ingestion/source/dbt.py#L317).
 
 ### 3. Modifying the SourceReport
 The report class of the source should inherit from `StaleEntityRemovalSourceReport` whose definition is shown below.
@@ -102,7 +97,7 @@ class StaleEntityRemovalSourceReport(StatefulIngestionReport):
 ```
 
 Examples:
-1. The `KafkaSourceReport`
+* The `KafkaSourceReport`
 ```python
 from dataclasses import dataclass
 from datahub.ingestion.source.state.stale_entity_removal_handler import StaleEntityRemovalSourceReport
@@ -110,7 +105,7 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import StaleEnt
 class KafkaSourceReport(StaleEntityRemovalSourceReport):
     # <rest of kafka source report specific impl
 ```
-2. [DBTSourceReport](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/src/datahub/ingestion/source/dbt.py#L142)
+
 ### 4. Modifying the Source
 The source must inherit from `StatefulIngestionSourceBase`.
 

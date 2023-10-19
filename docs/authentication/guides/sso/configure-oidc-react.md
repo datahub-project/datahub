@@ -26,7 +26,7 @@ please see [this guide](../jaas.md) to mount a custom user.props file for a JAAS
 To configure OIDC in React, you will most often need to register yourself as a client with your identity provider (Google, Okta, etc). Each provider may
 have their own instructions. Provided below are links to examples for Okta, Google, Azure AD, & Keycloak.
 
-- [Registering an App in Okta](https://developer.okta.com/docs/guides/add-an-external-idp/apple/register-app-in-okta/)
+- [Registering an App in Okta](https://developer.okta.com/docs/guides/add-an-external-idp/openidconnect/main/)
 - [OpenID Connect in Google Identity](https://developers.google.com/identity/protocols/oauth2/openid-connect)
 - [OpenID Connect authentication with Azure Active Directory](https://docs.microsoft.com/en-us/azure/active-directory/fundamentals/auth-oidc)
 - [Keycloak - Securing Applications and Services Guide](https://www.keycloak.org/docs/latest/securing_apps/)
@@ -72,7 +72,8 @@ AUTH_OIDC_BASE_URL=your-datahub-url
 - `AUTH_OIDC_CLIENT_SECRET`: Unique client secret received from identity provider
 - `AUTH_OIDC_DISCOVERY_URI`: Location of the identity provider OIDC discovery API. Suffixed with `.well-known/openid-configuration`
 - `AUTH_OIDC_BASE_URL`: The base URL of your DataHub deployment, e.g. https://yourorgdatahub.com (prod) or http://localhost:9002 (testing)
-- `AUTH_SESSION_TTL_HOURS`: The length of time in hours before a user will be prompted to login again. Session tokens are stateless so this determines at what time a session token may no longer be used and a valid session token can be used until this time has passed.
+- `AUTH_SESSION_TTL_HOURS`: The length of time in hours before a user will be prompted to login again. Controls the actor cookie expiration time in the browser. Numeric value converted to hours, default 24.
+- `MAX_SESSION_TOKEN_AGE`: Determines the expiration time of a session token. Session tokens are stateless so this determines at what time a session token may no longer be used and a valid session token can be used until this time has passed. Accepts a valid relative Java date style String, default 24h.
 
 Providing these configs will cause DataHub to delegate authentication to your identity
 provider, requesting the "oidc email profile" scopes and parsing the "preferred_username" claim from
