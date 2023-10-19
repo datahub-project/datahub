@@ -1,7 +1,7 @@
 ARG APP_ENV=full
 ARG BASE_IMAGE=base
 
-FROM golang:1-alpine3.17 AS dockerize-binary
+FROM golang:1-alpine3.18 AS dockerize-binary
 
 ENV DOCKERIZE_VERSION v0.6.1
 WORKDIR /go/src/github.com/jwilder

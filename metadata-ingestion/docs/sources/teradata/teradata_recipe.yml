@@ -3,12 +3,11 @@ source:
   type: teradata
   config:
     host_port: "myteradatainstance.teradata.com:1025"
-    #platform_instance: "myteradatainstance"
     username: myuser
     password: mypassword
     #database_pattern:
     #  allow:
-    #    - "demo_user"
+    #    - "my_database"
     #  ignoreCase: true
     include_table_lineage: true
     include_usage_statistics: true
