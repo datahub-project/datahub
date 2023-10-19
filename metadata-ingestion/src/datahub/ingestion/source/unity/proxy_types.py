@@ -10,6 +10,7 @@ from databricks.sdk.service.catalog import (
     CatalogType,
     ColumnTypeName,
     DataSourceFormat,
+    SecurableType,
     TableType,
 )
 from databricks.sdk.service.sql import QueryStatementType
@@ -176,6 +177,35 @@ class TableReference:
         return f"{self.catalog}/{self.schema}/{self.table}"
 
 
+@dataclass(frozen=True, order=True)
+class ExternalTableReference:
+    path: str
+    has_permission: bool
+    name: Optional[str]
+    type: Optional[SecurableType]
+    storage_location: Optional[str]
+
+    @classmethod
+    def create_from_lineage(cls, d: dict) -> Optional["ExternalTableReference"]:
+        try:
+            securable_type: Optional[SecurableType]
+            try:
+                securable_type = SecurableType(d.get("securable_type", "").lower())
+            except ValueError:
+                securable_type = None
+
+            return cls(
+                path=d["path"],
+                has_permission=d.get("has_permission") or True,
+                name=d.get("securable_name"),
+                type=securable_type,
+                storage_location=d.get("storage_location"),
+            )
+        except Exception as e:
+            logger.warning(f"Failed to create ExternalTableReference from {d}: {e}")
+            return None
+
+
 @dataclass
 class Table(CommonProperty):
     schema: Schema
@@ -193,6 +223,7 @@ class Table(CommonProperty):
     view_definition: Optional[str]
     properties: Dict[str, str]
     upstreams: Dict[TableReference, Dict[str, List[str]]] = field(default_factory=dict)
+    external_upstreams: Set[ExternalTableReference] = field(default_factory=set)
     upstream_notebooks: Set[NotebookId] = field(default_factory=set)
     downstream_notebooks: Set[NotebookId] = field(default_factory=set)
 

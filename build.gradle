@@ -29,7 +29,7 @@ buildscript {
   dependencies {
     classpath 'com.linkedin.pegasus:gradle-plugins:' + pegasusVersion
     classpath 'com.github.node-gradle:gradle-node-plugin:2.2.4'
-    classpath 'io.acryl.gradle.plugin:gradle-avro-plugin:0.8.1'
+    classpath 'io.acryl.gradle.plugin:gradle-avro-plugin:0.2.0'
     classpath 'org.springframework.boot:spring-boot-gradle-plugin:' + springBootVersion
     classpath "io.codearte.gradle.nexus:gradle-nexus-staging-plugin:0.30.0"
     classpath "com.palantir.gradle.gitversion:gradle-git-version:3.0.0"
@@ -69,8 +69,8 @@ project.ext.externalDependency = [
     'antlr4Runtime': 'org.antlr:antlr4-runtime:4.7.2',
     'antlr4': 'org.antlr:antlr4:4.7.2',
     'assertJ': 'org.assertj:assertj-core:3.11.1',
-    'avro_1_7': 'org.apache.avro:avro:1.7.7',
-    'avroCompiler_1_7': 'org.apache.avro:avro-compiler:1.7.7',
+    'avro': 'org.apache.avro:avro:1.11.3',
+    'avroCompiler': 'org.apache.avro:avro-compiler:1.11.3',
     'awsGlueSchemaRegistrySerde': 'software.amazon.glue:schema-registry-serde:1.1.10',
     'awsMskIamAuth': 'software.amazon.msk:aws-msk-iam-auth:1.1.1',
     'awsSecretsManagerJdbc': 'com.amazonaws.secretsmanager:aws-secretsmanager-jdbc:1.0.8',
@@ -129,7 +129,6 @@ project.ext.externalDependency = [
     'jgrapht': 'org.jgrapht:jgrapht-core:1.5.1',
     'jna': 'net.java.dev.jna:jna:5.12.1',
     'jsonPatch': 'com.github.java-json-tools:json-patch:1.13',
-    'jsonSchemaAvro': 'com.github.fge:json-schema-avro:0.1.4',
     'jsonSimple': 'com.googlecode.json-simple:json-simple:1.1.1',
     'jsonSmart': 'net.minidev:json-smart:2.4.9',
     'json': 'org.json:json:20230227',

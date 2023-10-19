@@ -8,7 +8,7 @@ import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.AuthorizerChain;
 import com.datahub.authorization.ConjunctivePrivilegeGroup;
 import com.datahub.authorization.DisjunctivePrivilegeGroup;
-import com.datahub.authorization.ResourceSpec;
+import com.datahub.authorization.EntitySpec;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
@@ -93,8 +93,8 @@ public class EntitiesController {
         ImmutableList.of(PoliciesConfig.GET_ENTITY_PRIVILEGE.getType())
     )));
 
-    List<Optional<ResourceSpec>> resourceSpecs = entityUrns.stream()
-        .map(urn -> Optional.of(new ResourceSpec(urn.getEntityType(), urn.toString())))
+    List<Optional<EntitySpec>> resourceSpecs = entityUrns.stream()
+        .map(urn -> Optional.of(new EntitySpec(urn.getEntityType(), urn.toString())))
         .collect(Collectors.toList());
     if (restApiAuthorizationEnabled && !AuthUtil.isAuthorizedForResources(_authorizerChain, actorUrnStr, resourceSpecs, orGroup)) {
       throw new UnauthorizedException(actorUrnStr + " is unauthorized to get entities.");
@@ -175,8 +175,8 @@ public class EntitiesController {
         .map(URLDecoder::decode)
         .map(UrnUtils::getUrn).collect(Collectors.toSet());
 
-    List<Optional<ResourceSpec>> resourceSpecs = entityUrns.stream()
-        .map(urn -> Optional.of(new ResourceSpec(urn.getEntityType(), urn.toString())))
+    List<Optional<EntitySpec>> resourceSpecs = entityUrns.stream()
+        .map(urn -> Optional.of(new EntitySpec(urn.getEntityType(), urn.toString())))
         .collect(Collectors.toList());
     if (restApiAuthorizationEnabled && !AuthUtil.isAuthorizedForResources(_authorizerChain, actorUrnStr, resourceSpecs, orGroup)) {
       UnauthorizedException unauthorizedException = new UnauthorizedException(actorUrnStr + " is unauthorized to delete entities.");

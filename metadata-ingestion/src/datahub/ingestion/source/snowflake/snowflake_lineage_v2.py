@@ -21,7 +21,7 @@ from snowflake.connector import SnowflakeConnection
 import datahub.emitter.mce_builder as builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.aws.s3_util import make_s3_urn
+from datahub.ingestion.source.aws.s3_util import make_s3_urn_for_lineage
 from datahub.ingestion.source.snowflake.constants import (
     LINEAGE_PERMISSION_ERROR,
     SnowflakeEdition,
@@ -652,7 +652,9 @@ class SnowflakeLineageExtractor(
             # For now, populate only for S3
             if external_lineage_entry.startswith("s3://"):
                 external_upstream_table = UpstreamClass(
-                    dataset=make_s3_urn(external_lineage_entry, self.config.env),
+                    dataset=make_s3_urn_for_lineage(
+                        external_lineage_entry, self.config.env
+                    ),
                     type=DatasetLineageTypeClass.COPY,
                 )
                 external_upstreams.append(external_upstream_table)

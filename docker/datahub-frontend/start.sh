@@ -50,6 +50,7 @@ export JAVA_OPTS="-Xms512m \
    -Djava.security.auth.login.config=datahub-frontend/conf/jaas.conf \
    -Dlogback.configurationFile=datahub-frontend/conf/logback.xml \
    -Dlogback.debug=false \
+   -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=5005 \
    ${PROMETHEUS_AGENT:-} ${OTEL_AGENT:-} \
    ${TRUSTSTORE_FILE:-} ${TRUSTSTORE_TYPE:-} ${TRUSTSTORE_PASSWORD:-} \
    ${HTTP_PROXY:-} ${HTTPS_PROXY:-} ${NO_PROXY:-} \

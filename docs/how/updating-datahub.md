@@ -23,6 +23,8 @@ Otherwise, we recommend soft deleting all databricks data via the DataHub CLI:
 ### Deprecations
 
 ### Other Notable Changes
+- Session token configuration has changed, all previously created session tokens will be invalid and users will be prompted to log in. Expiration time has also been shortened which may result in more login prompts with the default settings.
+  There should be no other interruption due to this change.
 
 ## 0.11.0
 
