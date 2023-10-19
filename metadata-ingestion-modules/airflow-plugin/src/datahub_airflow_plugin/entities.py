@@ -38,9 +38,11 @@ class Urn(_Entity):
     def _validate_urn(self, attribute, value):
         if not value.startswith("urn:"):
             raise ValueError("invalid urn provided: urns must start with 'urn:'")
-        if guess_entity_type(value) != "dataset":
-            # This is because DataJobs only support Dataset lineage.
-            raise ValueError("Airflow lineage currently only supports datasets")
+        if guess_entity_type(value) not in ["dataset", "dataJob"]:
+            # This is because DataJobs only support Dataset and upstream Datajob lineage.
+            raise ValueError(
+                "Airflow lineage currently only supports datasets and upstream datajobs"
+            )
 
     @property
     def urn(self):
