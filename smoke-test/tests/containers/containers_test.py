@@ -227,6 +227,7 @@ def test_update_container(frontend_session, ingest_cleanup_data):
                 "ownerUrn": new_owner,
                 "resourceUrn": container_urn,
                 "ownerEntityType": "CORP_USER",
+                "type": "urn:li:ownershipType:__system__technical_owner",
             }
         },
     }
