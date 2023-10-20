@@ -199,11 +199,12 @@ function EntityDropdown(props: Props) {
                         )}
                         {!isDomainMoveHidden && menuItems.has(EntityMenuItems.MOVE) && (
                             <StyledMenuItem
+                                data-testid="entity-menu-move-button"
                                 key="4"
                                 disabled={isMoveDisabled(entityType, entityData, me.platformPrivileges)}
                                 onClick={() => setIsMoveModalVisible(true)}
                             >
-                                <MenuItem data-testid="entity-menu-move-button">
+                                <MenuItem>
                                     <FolderOpenOutlined /> &nbsp;Move
                                 </MenuItem>
                             </StyledMenuItem>
