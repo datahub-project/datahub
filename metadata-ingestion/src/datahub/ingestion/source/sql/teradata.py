@@ -20,7 +20,7 @@ from sqlalchemy import create_engine, inspect
 from sqlalchemy.engine import Engine
 from sqlalchemy.engine.reflection import Inspector
 
-# from teradatasqlalchemy.dialect import TeradataDialect
+from teradatasqlalchemy.dialect import TeradataDialect
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
@@ -36,7 +36,11 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DataHubGraph
-from datahub.ingestion.source.sql.sql_common import SqlWorkUnit, register_custom_type
+from datahub.ingestion.source.sql.sql_common import (
+    SqlWorkUnit,
+    register_custom_type,
+    MISSING_COLUMN_INFO,
+)
 from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 from datahub.ingestion.source.sql.sql_generic_profiler import ProfilingSqlReport
 from datahub.ingestion.source.sql.two_tier_sql_source import (
@@ -271,19 +275,31 @@ ORDER by DatabaseName, TableName;
         if self.config.use_cached_metadata:
             self.cache_tables_and_views()
             logger.info(f"Found {len(self._tables_cache)} tables and views")
-            setattr(self, "loop_tables", self.cached_loop_tables)
-            setattr(self, "loop_views", self.cached_loop_views)
-            setattr(self, "get_table_properties", self.cached_get_table_properties)
+            setattr(self, "loop_tables", self.cached_loop_tables)  # noqa: B010
+            setattr(self, "loop_views", self.cached_loop_views)  # noqa: B010
+            setattr(  # noqa: B010
+                self, "get_table_properties", self.cached_get_table_properties
+            )
             # self.loop_tables = self.cached_loop_tables
             # self.loop_views = self.cached_loop_views
             # self.get_table_properties = self.cached_get_table_properties
         if self.config.disable_schema_metadata:
             # self._get_columns = lambda dataset_name, inspector, schema, table: []
             # self._get_foreign_keys = lambda dataset_name, inspector, schema, table: []
-            setattr(
+            setattr(  # noqa: B010
                 self, "_get_columns", lambda dataset_name, inspector, schema, table: []
             )
-            setattr(
+            setattr(  # noqa: B010
+                TeradataDialect,
+                "get_columns",
+                lambda self, connection, table_name, schema=None, **kw: [],
+            )
+            setattr(  # noqa: B010
+                TeradataDialect,
+                "get_pk_constraint",
+                lambda self, connection, table_name, schema=None, **kw: {},
+            )
+            setattr(  # noqa: B010
                 self,
                 "_get_foreign_keys",
                 lambda dataset_name, inspector, schema, table: [],
@@ -331,7 +347,7 @@ ORDER by DatabaseName, TableName;
         schema: str,
         sql_config: SQLCommonConfig,
     ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
-        setattr(
+        setattr(  # noqa: B010
             inspector,
             "get_table_names",
             lambda schema: [
@@ -342,6 +358,27 @@ ORDER by DatabaseName, TableName;
             ],
         )
         yield from super().loop_tables(inspector, schema, sql_config)
+
+    def _get_columns(
+        self, dataset_name: str, inspector: Inspector, schema: str, table: str
+    ) -> List[dict]:
+        columns = []
+        try:
+            for t in self._tables_cache[schema]:
+                if t.name == table:
+                    columns = inspector.get_columns(
+                        table, schema, table_type=t.object_type
+                    )
+                    if len(columns) == 0:
+                        self.warn(logger, MISSING_COLUMN_INFO, dataset_name)
+                break
+        except Exception as e:
+            self.warn(
+                logger,
+                dataset_name,
+                f"unable to get column information due to an error -> {e}",
+            )
+        return columns
 
     def cached_get_table_properties(
         self, inspector: Inspector, schema: str, table: str
@@ -367,7 +404,7 @@ ORDER by DatabaseName, TableName;
         schema: str,
         sql_config: SQLCommonConfig,
     ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
-        setattr(
+        setattr(  # noqa: B010
             inspector,
             "get_view_names",
             lambda schema: [
