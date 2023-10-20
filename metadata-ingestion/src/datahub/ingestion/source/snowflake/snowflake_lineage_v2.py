@@ -136,7 +136,6 @@ class SnowflakeLineageExtractor(
             return
 
         self._populate_external_lineage_map(discovered_tables)
-
         if self.config.include_view_lineage:
             if len(discovered_views) > 0:
                 yield from self.get_view_upstream_workunits(

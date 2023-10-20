@@ -168,7 +168,11 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
 
     @pydantic.validator("include_view_lineage")
     def validate_include_view_lineage(cls, v, values):
-        if not values.get("include_table_lineage") and v:
+        if (
+            "include_table_lineage" in values
+            and not values.get("include_table_lineage")
+            and v
+        ):
             raise ValueError(
                 "include_table_lineage must be True for include_view_lineage to be set."
             )

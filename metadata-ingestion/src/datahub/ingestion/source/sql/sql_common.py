@@ -2,6 +2,7 @@ import datetime
 import logging
 import traceback
 from dataclasses import dataclass, field
+from functools import partial
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -32,6 +33,7 @@ from datahub.emitter.mce_builder import (
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.sql_parsing_builder import SqlParsingBuilder
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.incremental_lineage_helper import auto_incremental_lineage
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import (
@@ -483,6 +485,11 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
         return [
             *super().get_workunit_processors(),
+            partial(
+                auto_incremental_lineage,
+                self.ctx.graph,
+                self.config.incremental_lineage,
+            ),
             StaleEntityRemovalHandler.create(
                 self, self.config, self.ctx
             ).workunit_processor,

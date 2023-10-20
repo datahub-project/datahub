@@ -26,7 +26,6 @@ from datahub.configuration.source_common import PlatformInstanceConfigMixin
 from datahub.emitter.mcp_builder import mcps_from_mce
 from datahub.ingestion.api.closeable import Closeable
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope, WorkUnit
-from datahub.ingestion.api.incremental_lineage_helper import auto_incremental_lineage
 from datahub.ingestion.api.report import Report
 from datahub.ingestion.api.source_helpers import (
     auto_browse_path_v2,
@@ -217,34 +216,12 @@ class Source(Closeable, metaclass=ABCMeta):
         ):
             auto_lowercase_dataset_urns = auto_lowercase_urns
 
-        incremental_lineage_processor: Optional[MetadataWorkUnitProcessor] = None
-        if (
-            self.ctx.pipeline_config
-            and self.ctx.pipeline_config.source
-            and self.ctx.pipeline_config.source.config
-        ):
-            incremental_lineage = (
-                hasattr(
-                    self.ctx.pipeline_config.source.config,
-                    "incremental_lineage",
-                )
-                and self.ctx.pipeline_config.source.config.incremental_lineage
-            ) or (
-                hasattr(self.ctx.pipeline_config.source.config, "get")
-                and self.ctx.pipeline_config.source.config.get("incremental_lineage")
-            )
-            incremental_lineage_processor = partial(
-                auto_incremental_lineage,
-                self.ctx.graph,
-                incremental_lineage,
-            )
         return [
             auto_lowercase_dataset_urns,
             auto_status_aspect,
             auto_materialize_referenced_tags,
             browse_path_processor,
             partial(auto_workunit_reporter, self.get_report()),
-            incremental_lineage_processor,
         ]
 
     @staticmethod
