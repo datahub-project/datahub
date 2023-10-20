@@ -529,7 +529,6 @@ module.exports = {
       Community: [
         "docs/slack",
         "docs/townhalls",
-        "docs/townhall-history",
         "docs/CODE_OF_CONDUCT",
         "docs/CONTRIBUTING",
         "docs/links",
