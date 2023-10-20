@@ -506,6 +506,9 @@ class TableauSource(StatefulIngestionSourceBase):
                 x.strip()
                 for x in (self.config.ignore_upstream_lineage_platforms.split(","))
             ]
+        else:
+            # return empty list if the config is not set
+            self.ignore_upstream_lineage_platforms = []
 
         self._authenticate()
 
