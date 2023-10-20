@@ -2,15 +2,7 @@ import logging
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime
-from typing import (
-    Dict,
-    Iterable,
-    List,
-    MutableMapping,
-    Optional,
-    Tuple,
-    Union,
-)
+from typing import Dict, Iterable, List, MutableMapping, Optional, Tuple, Union
 
 # This import verifies that the dependencies are available.
 import teradatasqlalchemy  # noqa: F401
@@ -19,7 +11,6 @@ from pydantic.fields import Field
 from sqlalchemy import create_engine, inspect
 from sqlalchemy.engine import Engine
 from sqlalchemy.engine.reflection import Inspector
-
 from teradatasqlalchemy.dialect import TeradataDialect
 
 from datahub.configuration.common import AllowDenyPattern
@@ -37,9 +28,9 @@ from datahub.ingestion.api.decorators import (
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.sql.sql_common import (
+    MISSING_COLUMN_INFO,
     SqlWorkUnit,
     register_custom_type,
-    MISSING_COLUMN_INFO,
 )
 from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 from datahub.ingestion.source.sql.sql_generic_profiler import ProfilingSqlReport
