@@ -5,7 +5,7 @@ A metadata aspect is a structured document, or more precisely a `record` in [PDL
  A metadata aspect on its own has no meaning (e.g. ownership for what?) and must be associated with a particular entity (e.g. ownership for PageViewEvent). 
  We purposely not to impose any model requirement on metadata aspects, as each aspect is expected to differ significantly.
  
-Metadata aspects are immutable by design, i.e. every change to a particular aspect results in a [new version](../advanced/aspect-versioning.md) created. 
+Metadata aspects are immutable by design, i.e. every change to a particular aspect results in a new version created. 
 An optional retention policy can be applied such that X number of most recent versions will be retained after each update. 
 Setting X to 1 effectively means the metadata aspect is non-versioned. 
 It is also possible to apply the retention based on time, e.g. only keeps the metadata changes from the past 30 days.
