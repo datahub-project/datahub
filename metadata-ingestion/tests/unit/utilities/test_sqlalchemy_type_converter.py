@@ -3,7 +3,6 @@ from typing import no_type_check
 from sqlalchemy import types
 from sqlalchemy_bigquery import STRUCT
 
-from datahub.ingestion.source.sql.sql_types import MapType
 from datahub.metadata.schema_classes import (
     ArrayTypeClass,
     MapTypeClass,
@@ -13,6 +12,7 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.utilities.sqlalchemy_type_converter import (
     get_schema_fields_for_sqlalchemy_column,
+    MapType,
 )
 
 

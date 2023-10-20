@@ -9,7 +9,7 @@ from sqlalchemy_bigquery import STRUCT
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.aws.s3_util import make_s3_urn
 from datahub.ingestion.source.sql.athena import CustomAthenaRestDialect
-from datahub.ingestion.source.sql.sql_types import MapType
+from datahub.utilities.sqlalchemy_type_converter import MapType
 
 FROZEN_TIME = "2020-04-14 07:00:00"
 
