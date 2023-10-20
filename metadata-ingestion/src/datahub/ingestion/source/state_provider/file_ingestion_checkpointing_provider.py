@@ -65,7 +65,7 @@ class FileIngestionCheckpointingProvider(IngestionCheckpointingProviderBase):
             if isinstance(obj, MetadataChangeProposalWrapper) and obj.aspect:
                 if (
                     obj.entityUrn == data_job_urn
-                    and obj.aspectName == "datahubIngestionCheckpoint"
+                    and isinstance(obj.aspect, DatahubIngestionCheckpointClass)
                     and obj.aspect.get("pipelineName", "") == pipeline_name
                 ):
                     latest_checkpoint = cast(
