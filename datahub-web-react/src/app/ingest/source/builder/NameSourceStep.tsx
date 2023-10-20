@@ -123,6 +123,7 @@ export const NameSourceStep = ({ state, updateState, prev, submit }: StepProps) 
                 <Button onClick={prev}>Previous</Button>
                 <div>
                     <SaveButton
+                        data-testid="ingestion-source-save-button"
                         disabled={!(state.name !== undefined && state.name.length > 0)}
                         onClick={() => onClickCreate(false)}
                     >
