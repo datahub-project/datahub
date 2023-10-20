@@ -16,7 +16,6 @@ from datahub.emitter.mce_builder import (
     make_dataplatform_instance_urn,
     make_dataset_urn,
     make_tag_urn,
-    set_dataset_urn_to_lower,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import BigQueryDatasetKey, ContainerKey, ProjectIdKey
@@ -218,8 +217,6 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         )
         if self.config.enable_legacy_sharded_table_support:
             BigqueryTableIdentifier._BQ_SHARDED_TABLE_SUFFIX = ""
-
-        set_dataset_urn_to_lower(self.config.convert_urns_to_lowercase)
 
         self.bigquery_data_dictionary = BigQuerySchemaApi(
             self.report.schema_api_perf, self.config.get_bigquery_client()
@@ -462,7 +459,8 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 )
             else:
                 logger.warning(
-                    "Failed to load schema info from DataHub as DataHubGraph is missing.",
+                    "Failed to load schema info from DataHub as DataHubGraph is missing. "
+                    "Use `datahub-rest` sink OR provide `datahub-api` config in recipe. ",
                 )
         return SchemaResolver(platform=self.platform, env=self.config.env)
 
@@ -1057,6 +1055,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                         ):
                             field.description = col.comment
                             schema_fields[idx] = field
+                            break
             else:
                 tags = []
                 if col.is_partition_column:

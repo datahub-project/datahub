@@ -4,7 +4,7 @@ import com.codahale.metrics.MetricRegistry;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.plugins.auth.authorization.Authorizer;
-import com.datahub.authorization.ResourceSpec;
+import com.datahub.authorization.EntitySpec;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
@@ -123,9 +123,9 @@ public class BatchIngestionRunResource extends CollectionResourceTaskTemplate<St
         List<AspectRowSummary> aspectRowsToDelete;
         aspectRowsToDelete = _systemMetadataService.findByRunId(runId, doHardDelete, 0, ESUtils.MAX_RESULT_SIZE);
         Set<String> urns = aspectRowsToDelete.stream().collect(Collectors.groupingBy(AspectRowSummary::getUrn)).keySet();
-        List<java.util.Optional<ResourceSpec>> resourceSpecs = urns.stream()
+        List<java.util.Optional<EntitySpec>> resourceSpecs = urns.stream()
             .map(UrnUtils::getUrn)
-            .map(urn -> java.util.Optional.of(new ResourceSpec(urn.getEntityType(), urn.toString())))
+            .map(urn -> java.util.Optional.of(new EntitySpec(urn.getEntityType(), urn.toString())))
             .collect(Collectors.toList());
         Authentication auth = AuthenticationContext.getAuthentication();
         if (Boolean.parseBoolean(System.getenv(REST_API_AUTHORIZATION_ENABLED_ENV))

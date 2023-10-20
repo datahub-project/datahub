@@ -12,7 +12,7 @@ export default function GlossarySidebar() {
 
     return (
         <>
-            <SidebarWrapper width={browserWidth}>
+            <SidebarWrapper width={browserWidth} data-testid="glossary-browser-sidebar">
                 <GlossarySearch />
                 <GlossaryBrowser openToEntity />
             </SidebarWrapper>

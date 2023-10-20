@@ -98,6 +98,30 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
   }
 
   @Test
+  public void testSearchRequestHandlerHighlightingTurnedOff() {
+    SearchRequestHandler requestHandler = SearchRequestHandler.getBuilder(TestEntitySpecBuilder.getSpec(), testQueryConfig, null);
+    SearchRequest searchRequest = requestHandler.getSearchRequest("testQuery", null, null, 0,
+        10,  new SearchFlags().setFulltext(false).setSkipHighlighting(true), null);
+    SearchSourceBuilder sourceBuilder = searchRequest.source();
+    assertEquals(sourceBuilder.from(), 0);
+    assertEquals(sourceBuilder.size(), 10);
+    // Filters
+    Collection<AggregationBuilder> aggBuilders = sourceBuilder.aggregations().getAggregatorFactories();
+    // Expect 2 aggregations: textFieldOverride and _index
+    assertEquals(aggBuilders.size(), 2);
+    for (AggregationBuilder aggBuilder : aggBuilders) {
+      if (aggBuilder.getName().equals("textFieldOverride")) {
+        TermsAggregationBuilder filterPanelBuilder = (TermsAggregationBuilder) aggBuilder;
+        assertEquals(filterPanelBuilder.field(), "textFieldOverride.keyword");
+      } else if (!aggBuilder.getName().equals("_entityType")) {
+        fail("Found unexepected aggregation: " + aggBuilder.getName());
+      }
+    }
+    // Highlights should not be present
+    assertNull(sourceBuilder.highlighter());
+  }
+
+  @Test
   public void testSearchRequestHandler() {
     SearchRequestHandler requestHandler = SearchRequestHandler.getBuilder(TestEntitySpecBuilder.getSpec(), testQueryConfig, null);
     SearchRequest searchRequest = requestHandler.getSearchRequest("testQuery", null, null, 0,
