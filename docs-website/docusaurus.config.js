@@ -50,33 +50,33 @@ module.exports = {
           position: "right",
         },
         {
-          type: 'dropdown',
-          label: 'Resources',
-          position: 'right',
+          type: "dropdown",
+          label: "Resources",
+          position: "right",
           items: [
             {
-              to: "https://demo.datahubproject.io/",
+              href: "https://demo.datahubproject.io/",
               label: "Demo",
             },
             {
-              to: "https://blog.datahubproject.io/",
+              href: "https://blog.datahubproject.io/",
               label: "Blog",
             },
             {
-              to: "https://feature-requests.datahubproject.io/roadmap",
+              href: "https://feature-requests.datahubproject.io/roadmap",
               label: "Roadmap",
             },
             {
-              to: "https://slack.datahubproject.io",
+              href: "https://slack.datahubproject.io",
               label: "Slack",
             },
             {
-              to: "https://github.com/datahub-project/datahub",
-              label: "Github",
+              href: "https://github.com/datahub-project/datahub",
+              label: "GitHub",
             },
             {
-              to: "https://www.youtube.com/channel/UC3qFQC5IiwR5fvWEqi_tJ5w",
-              label: "Youtube",
+              href: "https://www.youtube.com/channel/UC3qFQC5IiwR5fvWEqi_tJ5w",
+              label: "YouTube",
             },
           ],
         },

@@ -6,6 +6,9 @@ import { translate } from "@docusaurus/Translate";
 import { useLocation } from "@docusaurus/router";
 import DefaultNavbarItem from "@theme/NavbarItem/DefaultNavbarItem";
 import DropdownNavbarItem from "@theme/NavbarItem/DropdownNavbarItem";
+
+import styles from "./styles.module.scss";
+
 const getVersionMainDoc = (version) => version.docs.find((doc) => doc.id === version.mainDocId);
 export default function DocsVersionDropdownNavbarItem({
   mobile,
@@ -60,6 +63,7 @@ export default function DocsVersionDropdownNavbarItem({
   return (
     <DropdownNavbarItem
       {...props}
+      className={styles.versionNavItem}
       mobile={mobile}
       label={dropdownLabel}
       to={false} // This component is Swizzled to disable the link here
