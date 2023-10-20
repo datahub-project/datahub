@@ -251,12 +251,7 @@ ORDER by DatabaseName, TableName;
             generate_operations=self.config.usage.include_operational_stats,
         )
 
-        self.schema_resolver = SchemaResolver(
-            platform=self.platform,
-            platform_instance=self.config.platform_instance,
-            graph=None,
-            env=self.config.env,
-        )
+        self.schema_resolver = self._init_schema_resolver()
 
         if self.config.use_file_backed_cache:
             self._view_definition_cache = FileBackedDict[str]()
@@ -300,6 +295,24 @@ ORDER by DatabaseName, TableName;
     def create(cls, config_dict, ctx):
         config = TeradataConfig.parse_obj(config_dict)
         return cls(config, ctx)
+
+    def _init_schema_resolver(self) -> SchemaResolver:
+        if self.config.disable_schema_metadata:
+            if self.ctx.graph:
+                return self.ctx.graph.initialize_schema_resolver_from_datahub(
+                    platform=self.platform,
+                    platform_instance=self.config.platform_instance,
+                    env=self.config.env,
+                )
+            else:
+                logger.warning(
+                    "Failed to load schema info from DataHub as DataHubGraph is missing.",
+                )
+        return SchemaResolver(
+            platform=self.platform,
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
+        )
 
     def get_inspectors(self):
         # This method can be overridden in the case that you want to dynamically
