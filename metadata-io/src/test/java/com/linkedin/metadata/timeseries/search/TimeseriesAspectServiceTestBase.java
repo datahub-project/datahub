@@ -892,8 +892,10 @@ abstract public class TimeseriesAspectServiceTestBase extends AbstractTestNGSpri
     //CHECKSTYLE:OFF
     /*
     Example result:
-    {aspectName=testentityprofile, sizeMb=52.234, indexName=es_timeseries_aspect_service_test_testentity_testentityprofileaspect_v1, entityName=testentity}
-    {aspectName=testentityprofile, sizeMb=0.208, indexName=es_timeseries_aspect_service_test_testentitywithouttests_testentityprofileaspect_v1, entityName=testentitywithouttests}
+    {aspectName=testentityprofile, sizeMb=52.234,
+    indexName=es_timeseries_aspect_service_test_testentity_testentityprofileaspect_v1, entityName=testentity}
+    {aspectName=testentityprofile, sizeMb=0.208,
+    indexName=es_timeseries_aspect_service_test_testentitywithouttests_testentityprofileaspect_v1, entityName=testentitywithouttests}
      */
     // There may be other indices in there from other tests, so just make sure that index for entity + aspect is in there
     //CHECKSTYLE:ON
