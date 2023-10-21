@@ -364,7 +364,12 @@ export const IngestionSourceList = () => {
             <SourceContainer>
                 <TabToolbar>
                     <div>
-                        <Button id={INGESTION_CREATE_SOURCE_ID} type="text" onClick={() => setIsBuildingSource(true)}>
+                        <Button
+                            id={INGESTION_CREATE_SOURCE_ID}
+                            type="text"
+                            onClick={() => setIsBuildingSource(true)}
+                            data-testid="create-ingestion-source-button"
+                        >
                             <PlusOutlined /> Create new source
                         </Button>
                         <Button id={INGESTION_REFRESH_SOURCES_ID} type="text" onClick={onRefresh}>

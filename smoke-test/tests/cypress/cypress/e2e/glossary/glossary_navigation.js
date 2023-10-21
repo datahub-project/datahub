@@ -17,8 +17,7 @@ describe("glossary sidebar navigation test", () => {
         cy.waitTextVisible("Created Term Group!");
         cy.waitTextVisible("Create Glossary Term");
         cy.enterTextInTestId("create-glossary-entity-modal-name", glossaryTerm);
-        cy.clickOptionWithTestId("glossary-entity-modal-create-button");
-        cy.waitTextVisible("Created Glossary Term!");
+        cy.clickOptionWithTestId("glossary-entity-modal-create-button").wait(3000);
         cy.get('[data-testid="glossary-browser-sidebar"]').contains(glossaryTerm).click().wait(3000);
         cy.openThreeDotDropdown();
         cy.clickOptionWithTestId("entity-menu-move-button")

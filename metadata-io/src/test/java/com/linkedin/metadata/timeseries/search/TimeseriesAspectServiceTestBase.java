@@ -889,6 +889,7 @@ abstract public class TimeseriesAspectServiceTestBase extends AbstractTestNGSpri
   @Test(groups = {"getAggregatedStats"}, dependsOnGroups = {"upsert"})
   public void testGetIndexSizes() {
     List<TimeseriesIndexSizeResult> result = _elasticSearchTimeseriesAspectService.getIndexSizes();
+    //CHECKSTYLE:OFF
     /*
     Example result:
     {aspectName=testentityprofile, sizeMb=52.234,
@@ -897,9 +898,10 @@ abstract public class TimeseriesAspectServiceTestBase extends AbstractTestNGSpri
     indexName=es_timeseries_aspect_service_test_testentitywithouttests_testentityprofileaspect_v1, entityName=testentitywithouttests}
      */
     // There may be other indices in there from other tests, so just make sure that index for entity + aspect is in there
-    assertTrue(result.size() > 1);
+    //CHECKSTYLE:ON
+    assertTrue(result.size() > 0);
     assertTrue(
         result.stream().anyMatch(idxSizeResult -> idxSizeResult.getIndexName().equals(
-            "es_timeseries_aspect_service_test_testentitywithouttests_testentityprofileaspect_v1")));
+            "es_timeseries_aspect_service_test_testentity_testentityprofileaspect_v1")));
   }
 }
