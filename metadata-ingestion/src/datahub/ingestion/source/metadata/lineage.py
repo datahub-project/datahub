@@ -23,11 +23,17 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
+    capability,
     config_class,
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import MetadataWorkUnitProcessor, Source, SourceReport
+from datahub.ingestion.api.source import (
+    MetadataWorkUnitProcessor,
+    Source,
+    SourceCapability,
+    SourceReport,
+)
 from datahub.ingestion.api.source_helpers import (
     auto_status_aspect,
     auto_workunit_reporter,
@@ -121,6 +127,8 @@ class LineageConfig(VersionedConfig):
 @platform_name("File Based Lineage")
 @config_class(LineageFileSourceConfig)
 @support_status(SupportStatus.CERTIFIED)
+@capability(SourceCapability.LINEAGE_COARSE, "Specified in the lineage file.")
+@capability(SourceCapability.LINEAGE_FINE, "Specified in the lineage file.")
 @dataclass
 class LineageFileSource(Source):
     """
