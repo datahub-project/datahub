@@ -66,6 +66,7 @@ Cypress.Commands.add("logout", () => {
 Cypress.Commands.add("goToGlossaryList", () => {
   cy.visit("/glossary");
   cy.waitTextVisible("Glossary");
+  cy.wait(3000);
 });
 
 Cypress.Commands.add("goToDomainList", () => {
