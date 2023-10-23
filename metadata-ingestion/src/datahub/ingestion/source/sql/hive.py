@@ -8,7 +8,7 @@ from pydantic.fields import Field
 
 # This import verifies that the dependencies are available.
 from pyhive import hive  # noqa: F401
-from pyhive.sqlalchemy_hive import HiveDate, HiveDecimal, HiveTimestamp
+from pyhive.sqlalchemy_hive import HiveDate, HiveDecimal, HiveDialect, HiveTimestamp
 from sqlalchemy.engine.reflection import Inspector
 
 from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
@@ -96,33 +96,28 @@ except Exception as e:
     logger.warning(f"Failed to patch method due to {e}")
 
 
-try:
-    from pyhive.sqlalchemy_hive import HiveDialect
+@reflection.cache  # type: ignore
+def get_view_names_patched(self, connection, schema=None, **kw):
+    query = "SHOW VIEWS"
+    if schema:
+        query += " IN " + self.identifier_preparer.quote_identifier(schema)
+    return [row[0] for row in connection.execute(query)]
 
-    @reflection.cache  # type: ignore
-    def get_view_names_patched(self, connection, schema=None, **kw):
-        query = "SHOW VIEWS"
-        if schema:
-            query += " IN " + self.identifier_preparer.quote_identifier(schema)
-        return [row[0] for row in connection.execute(query)]
 
-    @reflection.cache  # type: ignore
-    def get_view_definition_patched(self, connection, view_name, schema=None, **kw):
-        full_table = self.identifier_preparer.quote_identifier(view_name)
-        if schema:
-            full_table = "{}.{}".format(
-                self.identifier_preparer.quote_identifier(schema),
-                self.identifier_preparer.quote_identifier(view_name),
-            )
-        row = connection.execute("SHOW CREATE TABLE {}".format(full_table)).fetchone()
-        return row[0]
+@reflection.cache  # type: ignore
+def get_view_definition_patched(self, connection, view_name, schema=None, **kw):
+    full_table = self.identifier_preparer.quote_identifier(view_name)
+    if schema:
+        full_table = "{}.{}".format(
+            self.identifier_preparer.quote_identifier(schema),
+            self.identifier_preparer.quote_identifier(view_name),
+        )
+    row = connection.execute("SHOW CREATE TABLE {}".format(full_table)).fetchone()
+    return row[0]
 
-    HiveDialect.get_view_names = get_view_names_patched
-    HiveDialect.get_view_definition = get_view_definition_patched
-except ModuleNotFoundError:
-    pass
-except Exception as e:
-    logger.warning(f"Failed to patch method due to {e}")
+
+HiveDialect.get_view_names = get_view_names_patched
+HiveDialect.get_view_definition = get_view_definition_patched
 
 
 class HiveConfig(TwoTierSQLAlchemyConfig):

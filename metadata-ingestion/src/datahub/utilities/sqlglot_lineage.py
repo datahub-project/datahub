@@ -585,12 +585,9 @@ def _column_level_lineage(  # noqa: C901
         statement = sqlglot.optimizer.annotate_types.annotate_types(
             statement, schema=sqlglot_db_schema
         )
-    except sqlglot.errors.OptimizeError as e:
+    except (sqlglot.errors.OptimizeError, sqlglot.errors.ParseError) as e:
         # This is not a fatal error, so we can continue.
-        logger.debug("sqlglot failed to annotate types: %s", e)
-    except sqlglot.errors.ParseError as e:
-        # This is not a fatal error, so we can continue.
-        logger.debug("sqlglot failed to parse types: %s", e)
+        logger.debug("sqlglot failed to annotate or parse types: %s", e)
 
     column_lineage = []
 
