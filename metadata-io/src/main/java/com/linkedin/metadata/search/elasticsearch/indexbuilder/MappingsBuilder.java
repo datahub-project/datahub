@@ -133,7 +133,7 @@ public class MappingsBuilder {
     } else if (fieldType == FieldType.DATETIME) {
       mappingForField.put(TYPE, ESUtils.DATE_FIELD_TYPE);
     } else if (fieldType == FieldType.OBJECT) {
-      mappingForField.put(TYPE, ESUtils.DATE_FIELD_TYPE);
+      mappingForField.put(TYPE, ESUtils.OBJECT_FIELD_TYPE);
     } else {
       log.info("FieldType {} has no mappings implemented", fieldType);
     }
