@@ -2,8 +2,8 @@ import { aliasQuery } from "../utils";
 const DATASET_ENTITY_TYPE = 'dataset';
 const DATASET_URN = 'urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleCypressHdfsDataset,PROD)';
 const DOWNSTREAM_DATASET_URN = "urn:li:dataset:(urn:li:dataPlatform:kafka,SampleCypressKafkaDataset,PROD)";
-const upstream = '[data-testid="node-urn:li:dataset:(urn:li:dataPlatform:kafka,SampleCypressKafkaDataset,PROD)-Upstream"] text';
-const downstream = '[data-testid="node-urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleCypressHdfsDataset,PROD)-Downstream"] text';
+const upstreamColumn = '[data-testid="node-urn:li:dataset:(urn:li:dataPlatform:kafka,SampleCypressKafkaDataset,PROD)-Upstream"] text';
+const downstreamColumn = '[data-testid="node-urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleCypressHdfsDataset,PROD)-Downstream"] text';
 
 const verifyColumnPathModal = (from, to) => {
   cy.get('[data-testid="entity-paths-modal"]').contains(from).should("be.visible");
@@ -29,12 +29,12 @@ describe("column-Level lineage and impact analysis path test", () => {
       cy.waitTextVisible("shipment_info");
 
       // Verify functionality of column lineage
-      cy.get(upstream).eq(3).click();
-      cy.get(upstream).eq(3).prev().should('not.have.attr', 'fill', 'white');
-      cy.get(downstream).eq(2).prev().should('not.have.attr', 'stroke', 'transparent');
-      cy.get(downstream).eq(2).click();
-      cy.get(downstream).eq(2).prev().should('not.have.attr', 'fill', 'white');
-      cy.get(upstream).eq(3).prev().should('not.have.attr', 'stroke', 'transparent');
+      cy.get(upstreamColumn).eq(3).click();
+      cy.get(upstreamColumn).eq(3).prev().should('not.have.attr', 'fill', 'white');
+      cy.get(downstreamColumn).eq(2).prev().should('not.have.attr', 'stroke', 'transparent');
+      cy.get(downstreamColumn).eq(2).click();
+      cy.get(downstreamColumn).eq(2).prev().should('not.have.attr', 'fill', 'white');
+      cy.get(upstreamColumn).eq(3).prev().should('not.have.attr', 'stroke', 'transparent');
 
       // Open dataset impact analysis view, enable column lineage
       cy.goToDataset(DATASET_URN, "SampleCypressHdfsDataset");
