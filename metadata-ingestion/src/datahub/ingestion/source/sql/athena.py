@@ -40,8 +40,8 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaField
 from datahub.metadata.schema_classes import RecordTypeClass
 from datahub.utilities.hive_schema_to_avro import get_avro_schema_for_hive_column
 from datahub.utilities.sqlalchemy_type_converter import (
-    get_schema_fields_for_sqlalchemy_column,
     MapType,
+    get_schema_fields_for_sqlalchemy_column,
 )
 
 logger = logging.getLogger(__name__)
