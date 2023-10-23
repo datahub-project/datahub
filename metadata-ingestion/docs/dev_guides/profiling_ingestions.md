@@ -13,6 +13,35 @@ This page documents how to perform memory profiles of ingestion runs.
 It is useful when trying to size the amount of resources necessary to ingest some source or when developing new features or sources.
 
 ## How to use
+
+<Tabs>
+<TabItem value="ui" label="UI" default>
+
+Create an ingestion as specified in the [Ingestion guide](../../../docs/ui-ingestion.md).
+
+Add a flag to your ingestion recipe to generate a memray memory dump of your ingestion:
+```yaml
+source:
+  ...
+
+sink:
+  ...
+
+flags:
+  generate_memory_profiles: "<path to folder where dumps will be written to>"
+```
+
+In the final panel, under the advanced section, add the `debug` datahub package under the **Extra DataHub Plugins** section.
+As seen below:
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/ingestion-advanced-extra-datahub-plugin.png"/>
+</p>
+
+Finally, save and run the ingestion process.
+
+</TabItem>
+<TabItem value="cli" label="CLI" default>
 Install the `debug` plugin for DataHub's CLI wherever the ingestion runs:
 
 ```bash
@@ -32,6 +61,16 @@ sink:
 flags:
   generate_memory_profiles: "<path to folder where dumps will be written to>"
 ```
+
+Finally run the ingestion recipe
+
+```bash
+$ datahub ingest -c recipe.yaml
+```
+
+</TabItem>
+</Tabs>
+
 
 Once the ingestion run starts a binary file will be created and appended to during the execution of the ingestion. 
 

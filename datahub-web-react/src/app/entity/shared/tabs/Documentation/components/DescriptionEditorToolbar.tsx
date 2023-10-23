@@ -34,7 +34,7 @@ export const DescriptionEditorToolbar = ({
                         <MailOutlined /> Propose
                     </ProposeButton>
                 )}
-                <Button data-testid="save-description" onClick={onSave} disabled={disableSave}>
+                <Button data-testid="description-editor-save-button" onClick={onSave} disabled={disableSave}>
                     <CheckOutlined /> Save
                 </Button>
             </div>

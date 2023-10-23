@@ -5,6 +5,7 @@ import com.linkedin.datahub.graphql.generated.ExecutionRequest;
 import com.linkedin.datahub.graphql.generated.IngestionConfig;
 import com.linkedin.datahub.graphql.generated.IngestionSchedule;
 import com.linkedin.datahub.graphql.generated.IngestionSource;
+import com.linkedin.datahub.graphql.generated.StringMapEntry;
 import com.linkedin.datahub.graphql.generated.StructuredReport;
 import com.linkedin.datahub.graphql.types.common.mappers.StringMapMapper;
 import com.linkedin.entity.EntityResponse;
@@ -21,6 +22,7 @@ import com.linkedin.metadata.Constants;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 
 
@@ -143,6 +145,14 @@ public class IngestionResolverUtils {
     result.setVersion(config.getVersion());
     result.setExecutorId(config.getExecutorId());
     result.setDebugMode(config.isDebugMode());
+    if (config.getExtraArgs() != null) {
+      List<StringMapEntry> extraArgs = config.getExtraArgs()
+          .keySet()
+          .stream()
+          .map(key -> new StringMapEntry(key, config.getExtraArgs().get(key)))
+          .collect(Collectors.toList());
+      result.setExtraArgs(extraArgs);
+    }
     return result;
   }
 

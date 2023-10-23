@@ -5,7 +5,7 @@ configurations {
 }
 
 dependencies {
-  implementation project(':metadata-events:mxe-avro-1.7')
+  implementation project(':metadata-events:mxe-avro')
   implementation project(':metadata-models')
   implementation spec.product.pegasus.dataAvro1_6
 

@@ -17,8 +17,8 @@ tasks.withType(Test).configureEach {
 
 
 dependencies {
-  api externalDependency.avro_1_7
-  implementation(externalDependency.avroCompiler_1_7) {
+  api externalDependency.avro
+  implementation(externalDependency.avroCompiler) {
     exclude group: 'org.apache.velocity', module: 'velocity'
   }
   constraints {
@@ -32,7 +32,7 @@ dependencies {
 
 def genDir = file("src/generated/java")
 
-task avroCodeGen(type: com.commercehub.gradle.plugin.avro.GenerateAvroJavaTask, dependsOn: configurations.avsc) {
+task avroCodeGen(type: com.github.davidmc24.gradle.plugin.avro.GenerateAvroJavaTask, dependsOn: configurations.avsc) {
   source("$rootDir/metadata-events/mxe-schemas/src/renamed/avro")
   outputDir = genDir
   dependsOn(':metadata-events:mxe-schemas:renameNamespace')

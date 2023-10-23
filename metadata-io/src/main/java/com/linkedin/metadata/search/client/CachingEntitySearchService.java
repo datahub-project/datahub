@@ -342,8 +342,7 @@ public class CachingEntitySearchService {
       @Nullable final String keepAlive,
       final int count,
       final boolean fulltext,
-      @Nullable final SearchFlags searchFlags
-      ) {
+      @Nullable final SearchFlags searchFlags) {
     if (fulltext) {
       return entitySearchService.fullTextScroll(
           entities,

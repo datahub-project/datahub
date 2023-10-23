@@ -136,7 +136,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1672531200000,
-        "runId": "delta-lake-test"
+        "runId": "delta-lake-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -156,7 +157,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1672531200000,
-        "runId": "delta-lake-test"
+        "runId": "delta-lake-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -171,7 +173,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1672531200000,
-        "runId": "delta-lake-test"
+        "runId": "delta-lake-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -186,7 +189,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1672531200000,
-        "runId": "delta-lake-test"
+        "runId": "delta-lake-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -203,7 +207,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1672531200000,
-        "runId": "delta-lake-test"
+        "runId": "delta-lake-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -218,7 +223,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1672531200000,
-        "runId": "delta-lake-test"
+        "runId": "delta-lake-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -238,7 +244,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1672531200000,
-        "runId": "delta-lake-test"
+        "runId": "delta-lake-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -253,7 +260,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1672531200000,
-        "runId": "delta-lake-test"
+        "runId": "delta-lake-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -268,7 +276,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1672531200000,
-        "runId": "delta-lake-test"
+        "runId": "delta-lake-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -285,7 +294,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1672531200000,
-        "runId": "delta-lake-test"
+        "runId": "delta-lake-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -300,7 +310,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1672531200000,
-        "runId": "delta-lake-test"
+        "runId": "delta-lake-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -320,7 +331,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1672531200000,
-        "runId": "delta-lake-test"
+        "runId": "delta-lake-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -335,7 +347,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1672531200000,
-        "runId": "delta-lake-test"
+        "runId": "delta-lake-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -355,14 +368,16 @@
             "customProperties": {
                 "engineInfo": "local Delta-Standalone/0.4.0",
                 "isBlindAppend": "True",
-                "isolationLevel": "Serializable"
+                "isolationLevel": "Serializable",
+                "version": "0"
             },
             "lastUpdatedTimestamp": 1655664815399
         }
     },
     "systemMetadata": {
         "lastObserved": 1672531200000,
-        "runId": "delta-lake-test"
+        "runId": "delta-lake-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -386,7 +401,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1672531200000,
-        "runId": "delta-lake-test"
+        "runId": "delta-lake-test",
+        "lastRunId": "no-run-id-provided"
     }
 }
 ]

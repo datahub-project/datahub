@@ -39,7 +39,7 @@ public class AddOwnersResolver implements DataFetcher<CompletableFuture<Boolean>
         throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
       }
 
-      OwnerUtils.validateAddInput(
+      OwnerUtils.validateAddOwnerInput(
           owners,
           targetUrn,
           _entityService

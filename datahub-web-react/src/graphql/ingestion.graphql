@@ -12,6 +12,10 @@ query listIngestionSources($input: ListIngestionSourcesInput!) {
                 version
                 executorId
                 debugMode
+                extraArgs {
+                    key
+                    value
+                }
             }
             schedule {
                 interval
@@ -51,6 +55,10 @@ query getIngestionSource($urn: String!, $runStart: Int, $runCount: Int) {
             version
             executorId
             debugMode
+            extraArgs {
+                key
+                value
+            }
         }
         schedule {
             interval
@@ -89,6 +97,10 @@ query getIngestionExecutionRequest($urn: String!) {
         input {
             source {
                 type
+            }
+            arguments {
+                key
+                value
             }
         }
         result {

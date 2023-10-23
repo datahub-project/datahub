@@ -179,10 +179,12 @@ def test_snowflake_uri_default_authentication():
         }
     )
 
-    assert (
-        config.get_sql_alchemy_url()
-        == "snowflake://user:password@acctname/?authenticator=SNOWFLAKE&warehouse=COMPUTE_WH&role"
-        "=sysadmin&application=acryl_datahub"
+    assert config.get_sql_alchemy_url() == (
+        "snowflake://user:password@acctname"
+        "?application=acryl_datahub"
+        "&authenticator=SNOWFLAKE"
+        "&role=sysadmin"
+        "&warehouse=COMPUTE_WH"
     )
 
 
@@ -198,10 +200,12 @@ def test_snowflake_uri_external_browser_authentication():
         }
     )
 
-    assert (
-        config.get_sql_alchemy_url()
-        == "snowflake://user@acctname/?authenticator=EXTERNALBROWSER&warehouse=COMPUTE_WH&role"
-        "=sysadmin&application=acryl_datahub"
+    assert config.get_sql_alchemy_url() == (
+        "snowflake://user@acctname"
+        "?application=acryl_datahub"
+        "&authenticator=EXTERNALBROWSER"
+        "&role=sysadmin"
+        "&warehouse=COMPUTE_WH"
     )
 
 
@@ -219,10 +223,12 @@ def test_snowflake_uri_key_pair_authentication():
         }
     )
 
-    assert (
-        config.get_sql_alchemy_url()
-        == "snowflake://user@acctname/?authenticator=SNOWFLAKE_JWT&warehouse=COMPUTE_WH&role"
-        "=sysadmin&application=acryl_datahub"
+    assert config.get_sql_alchemy_url() == (
+        "snowflake://user@acctname"
+        "?application=acryl_datahub"
+        "&authenticator=SNOWFLAKE_JWT"
+        "&role=sysadmin"
+        "&warehouse=COMPUTE_WH"
     )
 
 

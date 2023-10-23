@@ -221,6 +221,7 @@ class GlueSourceReport(StaleEntityRemovalSourceReport):
     SourceCapability.DELETION_DETECTION,
     "Enabled by default when stateful ingestion is turned on.",
 )
+@capability(SourceCapability.LINEAGE_COARSE, "Enabled by default")
 class GlueSource(StatefulIngestionSourceBase):
     """
     Note: if you also have files in S3 that you'd like to ingest, we recommend you use Glue's built-in data catalog. See [here](../../../../docs/generated/ingestion/sources/s3.md) for a quick guide on how to set up a crawler on Glue and ingest the outputs with DataHub.

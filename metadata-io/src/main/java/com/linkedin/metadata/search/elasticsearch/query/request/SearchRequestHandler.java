@@ -243,7 +243,7 @@ public class SearchRequestHandler {
     searchSourceBuilder.query(QueryBuilders.boolQuery().must(getQuery(input, finalSearchFlags.isFulltext())).filter(filterQuery));
     _aggregationQueryBuilder.getAggregations().forEach(searchSourceBuilder::aggregation);
     if (!finalSearchFlags.isSkipHighlighting()) {
-      searchSourceBuilder.highlighter(getHighlights());
+      searchSourceBuilder.highlighter(_highlights);
     }
     ESUtils.buildSortOrder(searchSourceBuilder, sortCriterion, _entitySpecs);
     searchRequest.source(searchSourceBuilder);
@@ -272,7 +272,6 @@ public class SearchRequestHandler {
     final SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
     searchSourceBuilder.query(filterQuery);
     searchSourceBuilder.from(from).size(size);
-    searchSourceBuilder.fetchSource(URN_FIELD, null);
     ESUtils.buildSortOrder(searchSourceBuilder, sortCriterion, _entitySpecs);
     searchRequest.source(searchSourceBuilder);
 

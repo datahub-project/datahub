@@ -16,12 +16,14 @@ class AvroSerializer {
 
   private final Schema _recordSchema;
   private final Schema _genericAspectSchema;
+  private final Schema _changeTypeEnumSchema;
   private final EventFormatter _eventFormatter;
 
   public AvroSerializer() throws IOException {
     _recordSchema = new Schema.Parser()
         .parse(this.getClass().getClassLoader().getResourceAsStream("MetadataChangeProposal.avsc"));
     _genericAspectSchema = this._recordSchema.getField("aspect").schema().getTypes().get(1);
+    _changeTypeEnumSchema = this._recordSchema.getField("changeType").schema();
     _eventFormatter = new EventFormatter(EventFormatter.Format.PEGASUS_JSON);
   }
 
@@ -43,7 +45,7 @@ class AvroSerializer {
     genericRecord.put("aspect", genericAspect);
     genericRecord.put("aspectName", mcp.getAspectName());
     genericRecord.put("entityType", mcp.getEntityType());
-    genericRecord.put("changeType", mcp.getChangeType());
+    genericRecord.put("changeType", new GenericData.EnumSymbol(_changeTypeEnumSchema, mcp.getChangeType()));
     return genericRecord;
   }
 }

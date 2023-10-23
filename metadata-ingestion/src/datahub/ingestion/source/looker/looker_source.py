@@ -103,6 +103,11 @@ logger = logging.getLogger(__name__)
 @capability(
     SourceCapability.OWNERSHIP, "Enabled by default, configured using `extract_owners`"
 )
+@capability(SourceCapability.LINEAGE_COARSE, "Supported by default")
+@capability(
+    SourceCapability.LINEAGE_FINE,
+    "Enabled by default, configured using `extract_column_level_lineage`",
+)
 @capability(
     SourceCapability.USAGE_STATS,
     "Enabled by default, configured using `extract_usage_history`",
@@ -1128,7 +1133,6 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
     def emit_independent_looks_mcp(
         self, dashboard_element: LookerDashboardElement
     ) -> Iterable[MetadataWorkUnit]:
-
         yield from auto_workunit(
             stream=self._make_chart_metadata_events(
                 dashboard_element=dashboard_element,

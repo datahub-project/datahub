@@ -67,15 +67,14 @@ public class ESUtils {
 
   public static final Set<SearchableAnnotation.FieldType> FIELD_TYPES_STORED_AS_KEYWORD = Set.of(
       SearchableAnnotation.FieldType.KEYWORD,
-        SearchableAnnotation.FieldType.TEXT,
-        SearchableAnnotation.FieldType.TEXT_PARTIAL,
-        SearchableAnnotation.FieldType.WORD_GRAM);
+      SearchableAnnotation.FieldType.TEXT,
+      SearchableAnnotation.FieldType.TEXT_PARTIAL,
+      SearchableAnnotation.FieldType.WORD_GRAM);
   public static final Set<SearchableAnnotation.FieldType> FIELD_TYPES_STORED_AS_TEXT = Set.of(
       SearchableAnnotation.FieldType.BROWSE_PATH,
       SearchableAnnotation.FieldType.BROWSE_PATH_V2,
       SearchableAnnotation.FieldType.URN,
       SearchableAnnotation.FieldType.URN_PARTIAL);
-
   public static final String ENTITY_NAME_FIELD = "_entityName";
   public static final String NAME_SUGGESTION = "nameSuggestion";
 

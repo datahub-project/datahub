@@ -452,6 +452,10 @@ class TableauSourceReport(StaleEntityRemovalSourceReport):
 @capability(SourceCapability.OWNERSHIP, "Requires recipe configuration")
 @capability(SourceCapability.TAGS, "Requires recipe configuration")
 @capability(SourceCapability.LINEAGE_COARSE, "Enabled by default")
+@capability(
+    SourceCapability.LINEAGE_FINE,
+    "Enabled by default, configure using `extract_column_level_lineage`",
+)
 class TableauSource(StatefulIngestionSourceBase):
     platform = "tableau"
 
@@ -533,7 +537,7 @@ class TableauSource(StatefulIngestionSourceBase):
                     path=[],
                 )
             # Set parent project name
-            for project_id, project in all_project_map.items():
+            for _project_id, project in all_project_map.items():
                 if (
                     project.parent_id is not None
                     and project.parent_id in all_project_map

@@ -1,7 +1,7 @@
 import { Button, Checkbox, Collapse, Form, Input, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { SourceBuilderState, StepProps } from './types';
+import { SourceBuilderState, StepProps, StringMapEntryInput } from './types';
 
 const ControlsContainer = styled.div`
     display: flex;
@@ -12,6 +12,10 @@ const ControlsContainer = styled.div`
 const SaveButton = styled(Button)`
     margin-right: 15px;
 `;
+
+const ExtraEnvKey = 'extra_env_vars';
+const ExtraReqKey = 'extra_pip_requirements';
+const ExtraPluginKey = 'extra_pip_plugins';
 
 export const NameSourceStep = ({ state, updateState, prev, submit }: StepProps) => {
     const setName = (stagedName: string) => {
@@ -50,6 +54,90 @@ export const NameSourceStep = ({ state, updateState, prev, submit }: StepProps) 
             config: {
                 ...state.config,
                 debugMode,
+            },
+        };
+        updateState(newState);
+    };
+
+    const retrieveExtraEnvs = () => {
+        const extraArgs: StringMapEntryInput[] = state.config?.extraArgs ? state.config?.extraArgs : [];
+        const index: number = extraArgs.findIndex((entry) => entry.key === ExtraEnvKey) as number;
+        if (index > -1) {
+            return extraArgs[index].value;
+        }
+        return '';
+    };
+
+    const setExtraEnvs = (envs: string) => {
+        let extraArgs: StringMapEntryInput[] = state.config?.extraArgs ? state.config?.extraArgs : [];
+        const indxOfEnvVars: number = extraArgs.findIndex((entry) => entry.key === ExtraEnvKey) as number;
+        const value = { key: ExtraEnvKey, value: envs };
+        if (indxOfEnvVars > -1) {
+            extraArgs[indxOfEnvVars] = value;
+        } else {
+            extraArgs = [...extraArgs, value];
+        }
+        const newState: SourceBuilderState = {
+            ...state,
+            config: {
+                ...state.config,
+                extraArgs,
+            },
+        };
+        updateState(newState);
+    };
+
+    const retrieveExtraDataHubPlugins = () => {
+        const extraArgs: StringMapEntryInput[] = state.config?.extraArgs ? state.config?.extraArgs : [];
+        const index: number = extraArgs.findIndex((entry) => entry.key === ExtraPluginKey) as number;
+        if (index > -1) {
+            return extraArgs[index].value;
+        }
+        return '';
+    };
+
+    const setExtraDataHubPlugins = (plugins: string) => {
+        let extraArgs: StringMapEntryInput[] = state.config?.extraArgs ? state.config?.extraArgs : [];
+        const indxOfPlugins: number = extraArgs.findIndex((entry) => entry.key === ExtraPluginKey) as number;
+        const value = { key: ExtraPluginKey, value: plugins };
+        if (indxOfPlugins > -1) {
+            extraArgs[indxOfPlugins] = value;
+        } else {
+            extraArgs = [...extraArgs, value];
+        }
+        const newState: SourceBuilderState = {
+            ...state,
+            config: {
+                ...state.config,
+                extraArgs,
+            },
+        };
+        updateState(newState);
+    };
+
+    const retrieveExtraReqs = () => {
+        const extraArgs: StringMapEntryInput[] = state.config?.extraArgs ? state.config?.extraArgs : [];
+        const index: number = extraArgs.findIndex((entry) => entry.key === ExtraReqKey) as number;
+        if (index > -1) {
+            return extraArgs[index].value;
+        }
+        return '';
+    };
+
+    const setExtraReqs = (reqs: string) => {
+        let extraArgs: StringMapEntryInput[] = state.config?.extraArgs ? state.config?.extraArgs : [];
+        const indxOfReqs: number = extraArgs.findIndex((entry) => entry.key === ExtraReqKey) as number;
+        const value = { key: ExtraReqKey, value: reqs };
+        if (indxOfReqs > -1) {
+            extraArgs[indxOfReqs] = value;
+        } else {
+            extraArgs = [...extraArgs, value];
+        }
+        const newState: SourceBuilderState = {
+            ...state,
+            config: {
+                ...state.config,
+                extraArgs,
             },
         };
         updateState(newState);
@@ -116,6 +204,39 @@ export const NameSourceStep = ({ state, updateState, prev, submit }: StepProps) 
                                 onChange={(event) => setDebugMode(event.target.checked)}
                             />
                         </Form.Item>
+                        <Form.Item label={<Typography.Text strong>Extra Enviroment Variables</Typography.Text>}>
+                            <Typography.Paragraph>
+                                Advanced: Set extra environment variables to an ingestion execution
+                            </Typography.Paragraph>
+                            <Input
+                                data-testid="extra-args-input"
+                                placeholder='{"MY_CUSTOM_ENV": "my_custom_value2"}'
+                                value={retrieveExtraEnvs()}
+                                onChange={(event) => setExtraEnvs(event.target.value)}
+                            />
+                        </Form.Item>
+                        <Form.Item label={<Typography.Text strong>Extra DataHub plugins</Typography.Text>}>
+                            <Typography.Paragraph>
+                                Advanced: Set extra DataHub plugins for an ingestion execution
+                            </Typography.Paragraph>
+                            <Input
+                                data-testid="extra-pip-plugin-input"
+                                placeholder='["debug"]'
+                                value={retrieveExtraDataHubPlugins()}
+                                onChange={(event) => setExtraDataHubPlugins(event.target.value)}
+                            />
+                        </Form.Item>
+                        <Form.Item label={<Typography.Text strong>Extra Pip Libraries</Typography.Text>}>
+                            <Typography.Paragraph>
+                                Advanced: Add extra pip libraries for an ingestion execution
+                            </Typography.Paragraph>
+                            <Input
+                                data-testid="extra-pip-reqs-input"
+                                placeholder='["sqlparse==0.4.3"]'
+                                value={retrieveExtraReqs()}
+                                onChange={(event) => setExtraReqs(event.target.value)}
+                            />
+                        </Form.Item>
                     </Collapse.Panel>
                 </Collapse>
             </Form>
@@ -123,6 +244,7 @@ export const NameSourceStep = ({ state, updateState, prev, submit }: StepProps) 
                 <Button onClick={prev}>Previous</Button>
                 <div>
                     <SaveButton
+                        data-testid="ingestion-source-save-button"
                         disabled={!(state.name !== undefined && state.name.length > 0)}
                         onClick={() => onClickCreate(false)}
                     >
