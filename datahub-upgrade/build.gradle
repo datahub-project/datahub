@@ -12,14 +12,15 @@ ext {
 }
 
 dependencies {
-  compile project(':metadata-io')
-  compile project(':metadata-service:factories')
-  compile project(':metadata-service:restli-client')
-  compile project(':metadata-service:configuration')
+  implementation project(':metadata-io')
+  implementation project(':metadata-service:factories')
+  implementation project(':metadata-service:restli-client')
+  implementation project(':metadata-service:configuration')
+  implementation project(':metadata-dao-impl:kafka-producer')
   implementation externalDependency.charle
 
-  compile externalDependency.javaxInject
-  compile(externalDependency.hadoopClient) {
+  implementation externalDependency.javaxInject
+  implementation(externalDependency.hadoopClient) {
     exclude group: 'net.minidev', module: 'json-smart'
     exclude group: 'com.nimbusds', module: 'nimbus-jose-jwt'
     exclude group: "org.apache.htrace", module: "htrace-core4"
@@ -52,18 +53,18 @@ dependencies {
 
   implementation externalDependency.slf4jApi
   compileOnly externalDependency.lombok
-  compile externalDependency.picocli
-  compile externalDependency.parquet
+  implementation externalDependency.picocli
+  implementation externalDependency.parquet
   implementation externalDependency.protobuf
-  compile externalDependency.springBeans
-  compile externalDependency.springBootAutoconfigure
-  compile externalDependency.springCore
-  compile externalDependency.springKafka
+  implementation externalDependency.springBeans
+  implementation externalDependency.springBootAutoconfigure
+  implementation externalDependency.springCore
+  implementation externalDependency.springKafka
 
-  runtime externalDependency.logbackClassic
-  runtime externalDependency.mariadbConnector
-  runtime externalDependency.mysqlConnector
-  runtime externalDependency.postgresql
+  runtimeOnly externalDependency.logbackClassic
+  runtimeOnly externalDependency.mariadbConnector
+  runtimeOnly externalDependency.mysqlConnector
+  runtimeOnly externalDependency.postgresql
 
   implementation externalDependency.awsMskIamAuth
 
@@ -71,9 +72,9 @@ dependencies {
   annotationProcessor externalDependency.picocli
 
   testImplementation externalDependency.springBootTest
-  testCompile externalDependency.mockito
-  testCompile externalDependency.testng
-  testRuntime externalDependency.logbackClassic
+  testImplementation externalDependency.mockito
+  testImplementation externalDependency.testng
+  testRuntimeOnly externalDependency.logbackClassic
 }
 
 bootJar {
@@ -99,7 +100,7 @@ docker {
   load(true)
   push(false)
 }
-tasks.getByName("docker").dependsOn([bootJar])
+tasks.getByPath(":datahub-upgrade:docker").dependsOn([bootJar])
 
 task cleanLocalDockerImages {
   doLast {

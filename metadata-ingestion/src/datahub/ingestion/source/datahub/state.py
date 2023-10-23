@@ -16,14 +16,16 @@ if TYPE_CHECKING:
 
 
 class DataHubIngestionState(CheckpointStateBase):
-    mysql_createdon_ts: NonNegativeInt = 0
+    database_createdon_ts: NonNegativeInt = 0
 
     # Maps partition -> offset
     kafka_offsets: Dict[int, NonNegativeInt] = Field(default_factory=dict)
 
     @property
-    def mysql_createdon_datetime(self) -> datetime:
-        return datetime.fromtimestamp(self.mysql_createdon_ts / 1000, tz=timezone.utc)
+    def database_createdon_datetime(self) -> datetime:
+        return datetime.fromtimestamp(
+            self.database_createdon_ts / 1000, tz=timezone.utc
+        )
 
 
 class PartitionOffset(NamedTuple):
@@ -81,7 +83,7 @@ class StatefulDataHubIngestionHandler(
         if cur_checkpoint:
             cur_state = cast(DataHubIngestionState, cur_checkpoint.state)
             if last_createdon:
-                cur_state.mysql_createdon_ts = int(last_createdon.timestamp() * 1000)
+                cur_state.database_createdon_ts = int(last_createdon.timestamp() * 1000)
             if last_offset:
                 cur_state.kafka_offsets[last_offset.partition] = last_offset.offset + 1
 

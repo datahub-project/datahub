@@ -15,6 +15,7 @@ import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
 import static com.linkedin.datahub.graphql.TestUtils.getMockAllowContext;
+import static com.linkedin.datahub.graphql.TestUtils.getMockEntityService;
 import static com.linkedin.metadata.Constants.*;
 
 
@@ -69,7 +70,7 @@ public class CreateGlossaryNodeResolverTest {
   @Test
   public void testGetSuccess() throws Exception {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService mockService = getMockEntityService();
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     final MetadataChangeProposal proposal = setupTest(mockEnv, TEST_INPUT, "test-description", parentNodeUrn);
 
@@ -86,7 +87,7 @@ public class CreateGlossaryNodeResolverTest {
   @Test
   public void testGetSuccessNoDescription() throws Exception {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService mockService = getMockEntityService();
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     final MetadataChangeProposal proposal = setupTest(mockEnv, TEST_INPUT_NO_DESCRIPTION, "", parentNodeUrn);
 
@@ -103,7 +104,7 @@ public class CreateGlossaryNodeResolverTest {
   @Test
   public void testGetSuccessNoParentNode() throws Exception {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService mockService = getMockEntityService();
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     final MetadataChangeProposal proposal = setupTest(mockEnv, TEST_INPUT_NO_PARENT_NODE, "test-description", null);
 

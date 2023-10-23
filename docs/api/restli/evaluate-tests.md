@@ -14,5 +14,5 @@ curl --location --request POST 'https://DOMAIN.acryl.io/gms/test?action=evaluate
 w
 The supported parameters are
 - `urn` - Required URN string
-- `shouldPush` - Optional Boolean - whether or not to push the results to persist them
+- `push` - Optional Boolean - whether or not to push the results to persist them. Default `false`.
 - `testUrns` - Optional List of string - If you wish to get specific test URNs evaluated

@@ -6,6 +6,7 @@ import { getDeleteEntityMutation } from '../../../shared/deleteUtils';
 import analytics, { EventType } from '../../../analytics';
 import { useGlossaryEntityData } from '../GlossaryEntityContext';
 import { getParentNodeToUpdate, updateGlossarySidebar } from '../../../glossary/utils';
+import { useHandleDeleteDomain } from './useHandleDeleteDomain';
 
 /**
  * Performs the flow for deleting an entity of a given type.
@@ -25,6 +26,7 @@ function useDeleteEntity(
     const [hasBeenDeleted, setHasBeenDeleted] = useState(false);
     const entityRegistry = useEntityRegistry();
     const { isInGlossaryContext, urnsToUpdate, setUrnsToUpdate } = useGlossaryEntityData();
+    const { handleDeleteDomain } = useHandleDeleteDomain({ entityData, urn });
 
     const maybeDeleteEntity = getDeleteEntityMutation(type)();
     const deleteEntity = (maybeDeleteEntity && maybeDeleteEntity[0]) || undefined;
@@ -47,6 +49,11 @@ function useDeleteEntity(
                         duration: 2,
                     });
                 }
+
+                if (entityData.type === EntityType.Domain) {
+                    handleDeleteDomain();
+                }
+
                 setTimeout(
                     () => {
                         setHasBeenDeleted(true);

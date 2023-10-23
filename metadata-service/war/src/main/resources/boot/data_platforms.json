@@ -347,6 +347,16 @@
     }
   },
   {
+    "urn": "urn:li:dataPlatform:mlflow",
+    "aspect": {
+      "datasetNameDelimiter": ".",
+      "name": "mlflow",
+      "displayName": "MLflow",
+      "type": "OTHERS",
+      "logoUrl": "/assets/platforms/mlflowlogo.png"
+    }
+  },
+  {
     "urn": "urn:li:dataPlatform:glue",
     "aspect": {
       "datasetNameDelimiter": ".",
@@ -543,6 +553,16 @@
       "displayName": "Google Cloud Storage",
       "type": "FILE_SYSTEM",
       "logoUrl": "/assets/platforms/gcslogo.svg"
+    }
+  },
+  {
+    "urn": "urn:li:dataPlatform:dynamodb",
+    "aspect": {
+      "datasetNameDelimiter": ".",
+      "name": "dynamodb",
+      "displayName": "DynamoDB",
+      "type": "KEY_VALUE_STORE",
+      "logoUrl": "/assets/platforms/dynamodblogo.png"
     }
   }
 ]

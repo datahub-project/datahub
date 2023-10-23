@@ -34,7 +34,8 @@ CREATE TABLE Foo.Persons (
 GO
 CREATE TABLE Foo.SalesReason 
    (
-      TempID int NOT NULL, 
+      TempID int NOT NULL,
+      SomeId UNIQUEIDENTIFIER NOT NULL DEFAULT NEWID(),
       Name nvarchar(50)
       , CONSTRAINT PK_TempSales PRIMARY KEY NONCLUSTERED (TempID)
       , CONSTRAINT FK_TempSales_SalesReason FOREIGN KEY (TempID)
@@ -49,20 +50,20 @@ AS
     SELECT @ID AS ThatDB;
 GO
 
-GO  
-EXEC sys.sp_addextendedproperty   
-@name = N'MS_Description',   
-@value = N'Description for table Items of schema Foo.',   
-@level0type = N'SCHEMA', @level0name = 'Foo',  
-@level1type = N'TABLE',  @level1name = 'Items';  
+GO
+EXEC sys.sp_addextendedproperty
+@name = N'MS_Description',
+@value = N'Description for table Items of schema Foo.',
+@level0type = N'SCHEMA', @level0name = 'Foo',
+@level1type = N'TABLE',  @level1name = 'Items';
 GO
 
-GO  
-EXEC sys.sp_addextendedproperty   
-@name = N'MS_Description',   
-@value = N'Description for column LastName of table Persons of schema Foo.',  
-@level0type = N'SCHEMA', @level0name = 'Foo',  
-@level1type = N'TABLE', @level1name = 'Persons',   
+GO
+EXEC sys.sp_addextendedproperty
+@name = N'MS_Description',
+@value = N'Description for column LastName of table Persons of schema Foo.',
+@level0type = N'SCHEMA', @level0name = 'Foo',
+@level1type = N'TABLE', @level1name = 'Persons',
 @level2type = N'COLUMN',@level2name = 'LastName';
 GO
 USE msdb ;

@@ -57,7 +57,7 @@ public class MockEntitySpec implements EntitySpec {
 
   @Override
   public String getKeyAspectName() {
-    return null;
+    return _name + "Key";
   }
 
   @Override

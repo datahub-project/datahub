@@ -44,6 +44,16 @@ fragment autoCompleteFields on Entity {
             }
         }
         ...datasetStatsFields
+        access {
+            ...getAccess
+        }
+    }
+    ... on Role {
+        id
+        properties {
+            name
+            description
+        }
     }
     ... on CorpUser {
         username
@@ -145,6 +155,9 @@ fragment autoCompleteFields on Entity {
         properties {
             name
         }
+        parentDomains {
+            ...parentDomainsFields
+        }
     }
     ... on DataProduct {
         properties {
@@ -242,6 +255,25 @@ query getAutoCompleteMultipleResults($input: AutoCompleteMultipleInput!) {
     }
 }
 
+fragment getAccess on Access {
+    roles {
+        role {
+            ...getRolesName
+        }
+    }
+}
+
+fragment getRolesName on Role {
+    urn
+    type
+    id
+    properties {
+        name
+        description
+        type
+    }
+}
+
 fragment datasetStatsFields on Dataset {
     lastProfile: datasetProfiles(limit: 1) {
         rowCount
@@ -287,6 +319,9 @@ fragment nonSiblingsDatasetSearchFields on Dataset {
     }
     editableProperties {
         description
+    }
+    access {
+        ...getAccess
     }
     platformNativeType
     properties {
@@ -344,6 +379,13 @@ fragment searchResultFields on Entity {
                     ...nonSiblingsDatasetSearchFields
                 }
             }
+        }
+    }
+    ... on Role {
+        id
+        properties {
+            name
+            description
         }
     }
     ... on CorpUser {
@@ -632,6 +674,10 @@ fragment searchResultFields on Entity {
         ownership {
             ...ownershipFields
         }
+        parentDomains {
+            ...parentDomainsFields
+        }
+        ...domainEntitiesFields
     }
     ... on Container {
         properties {
@@ -785,6 +831,9 @@ fragment facetFields on FacetMetadata {
             ... on Domain {
                 properties {
                     name
+                }
+                parentDomains {
+                    ...parentDomainsFields
                 }
             }
             ... on Container {

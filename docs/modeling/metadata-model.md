@@ -433,7 +433,7 @@ aggregation query against a timeseries aspect.
 The *@TimeseriesField* and the *@TimeseriesFieldCollection* are two new annotations that can be attached to a field of
 a *Timeseries aspect* that allows it to be part of an aggregatable query. The kinds of aggregations allowed on these
 annotated fields depends on the type of the field, as well as the kind of aggregation, as
-described [here](#Performing-an-aggregation-on-a-Timeseries-aspect).
+described [here](#performing-an-aggregation-on-a-timeseries-aspect).
 
 * `@TimeseriesField = {}` - this annotation can be used with any type of non-collection type field of the aspect such as
   primitive types and records (see the fields *stat*, *strStat* and *strArray* fields
@@ -515,7 +515,7 @@ my_emitter = DatahubRestEmitter("http://localhost:8080")
 my_emitter.emit(mcpw)
 ```
 
-###### Performing an aggregation on a Timeseries aspect.
+###### Performing an aggregation on a Timeseries aspect
 
 Aggreations on timeseries aspects can be performed by the GMS REST API for `/analytics?action=getTimeseriesStats` which
 accepts the following params.

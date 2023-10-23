@@ -1,0 +1,82 @@
+plugins {
+  id 'java'
+  id 'org.hidetake.swagger.generator'
+}
+
+dependencies {
+
+  implementation project(':metadata-auth:auth-api')
+  implementation project(':metadata-service:auth-impl')
+  implementation project(':metadata-service:factories')
+  implementation project(':metadata-service:openapi-servlet')
+  implementation project(':metadata-models')
+
+  implementation externalDependency.springBoot
+  implementation externalDependency.springCore
+  implementation externalDependency.springDocUI
+  implementation externalDependency.springWeb
+  implementation externalDependency.springWebMVC
+  implementation externalDependency.springBeans
+  implementation externalDependency.springContext
+
+  implementation externalDependency.reflections
+  implementation externalDependency.slf4jApi
+  compileOnly externalDependency.lombok
+
+  implementation externalDependency.antlr4Runtime
+  implementation externalDependency.antlr4
+
+  annotationProcessor externalDependency.lombok
+
+  testImplementation externalDependency.testng
+  testImplementation externalDependency.mockito
+  testImplementation externalDependency.springBootTest
+
+  swaggerCodegen externalDependency.swaggerCli
+  swaggerCodegen project(':metadata-service:openapi-entity-servlet:generators')
+}
+
+sourceSets {
+  main {
+    java {
+      srcDirs = ["$buildDir/openapi/generated/src/main/java", 'src/main/java']
+    }
+  }
+}
+
+
+task mergeApiComponents(dependsOn: ':metadata-models:generateJsonSchema') {
+  doLast {
+    mkdir("$buildDir/openapi")
+    File combined = file("$buildDir/openapi/open-api.yaml")
+    def components = file("${project(':metadata-models').projectDir}/src/generatedJsonSchema/combined/open-api-components.yaml").getText('UTF-8')
+    def api = file("$projectDir/src/main/resources/entity-v2.0.yml").getText('UTF-8')
+    def paths = file("${project(':metadata-models').projectDir}/src/generatedJsonSchema/combined/open-api-paths.yaml").getText('UTF-8')
+    combined.text = (components + paths + api).replaceAll("---\n", "\n")
+  }
+  outputs.file(file("$buildDir/openapi/open-api.yaml"))
+}
+
+// https://github.com/int128/gradle-swagger-generator-plugin#task-type-generateswaggercode
+task openApiGenerate(type: GenerateSwaggerCode, dependsOn: [mergeApiComponents, ':metadata-service:openapi-entity-servlet:generators:jar']) {
+  inputFile = file("$buildDir/openapi/open-api.yaml")
+  outputDir = file("$buildDir/openapi/generated")
+
+  // custom generator class
+  language = 'io.datahubproject.CustomSpringCodegen'
+
+  components = ["apis"]
+  templateDir = file("$projectDir/src/main/resources/JavaSpring")
+  additionalProperties = [
+          'group-id'           : "io.datahubproject",
+          'dateLibrary'        : "java8",
+          'java11'             : "true",
+          'modelPropertyNaming': "original",
+          'modelPackage'       : "io.datahubproject.openapi.generated",
+          'apiPackage'         : "io.datahubproject.openapi.generated.controller",
+          'delegatePattern'    : "false"
+  ]
+}
+tasks.getByName("compileJava").dependsOn(openApiGenerate)
+
+checkstyleMain.exclude '**/generated/**'

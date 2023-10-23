@@ -6,7 +6,6 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.SiblingsUtils;
 import com.linkedin.metadata.entity.EntityService;
-import junit.framework.TestCase;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
@@ -14,8 +13,9 @@ import java.util.HashSet;
 import java.util.Optional;
 
 import static com.linkedin.metadata.Constants.SIBLINGS_ASPECT_NAME;
+import static org.testng.AssertJUnit.assertEquals;
 
-public class SiblingsUtilsTest extends TestCase {
+public class SiblingsUtilsTest {
 
   private static final String TEST_DATASET_URN1 = "urn:li:dataset:(urn:li:dataPlatform:hive,fct_cypress_users_created,PROD)";
   private static final String TEST_DATASET_URN2 = "urn:li:dataset:(urn:li:dataPlatform:hive,fct_cypress_users_created2,PROD)";

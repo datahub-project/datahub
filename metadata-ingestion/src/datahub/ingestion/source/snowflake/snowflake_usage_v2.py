@@ -25,7 +25,6 @@ from datahub.ingestion.source.snowflake.snowflake_utils import (
 from datahub.ingestion.source.state.redundant_run_skip_handler import (
     RedundantUsageRunSkipHandler,
 )
-from datahub.ingestion.source.usage.usage_common import TOTAL_BUDGET_FOR_QUERY_LIST
 from datahub.ingestion.source_report.ingestion_stage import (
     USAGE_EXTRACTION_OPERATIONAL_STATS,
     USAGE_EXTRACTION_USAGE_AGGREGATION,
@@ -246,7 +245,9 @@ class SnowflakeUsageExtractor(
 
             yield from self.build_usage_statistics_for_dataset(dataset_identifier, row)
 
-    def build_usage_statistics_for_dataset(self, dataset_identifier, row):
+    def build_usage_statistics_for_dataset(
+        self, dataset_identifier: str, row: dict
+    ) -> Iterable[MetadataWorkUnit]:
         try:
             stats = DatasetUsageStatistics(
                 timestampMillis=int(row["BUCKET_START_TIME"].timestamp() * 1000),
@@ -280,7 +281,7 @@ class SnowflakeUsageExtractor(
 
     def _map_top_sql_queries(self, top_sql_queries: Dict) -> List[str]:
         budget_per_query: int = int(
-            TOTAL_BUDGET_FOR_QUERY_LIST / self.config.top_n_queries
+            self.config.queries_character_limit / self.config.top_n_queries
         )
         return sorted(
             [
@@ -358,7 +359,7 @@ class SnowflakeUsageExtractor(
         end_time = int(self.end_time.timestamp() * 1000)
         return SnowflakeQuery.operational_data_for_time_window(start_time, end_time)
 
-    def _check_usage_date_ranges(self) -> Any:
+    def _check_usage_date_ranges(self) -> None:
         with PerfTimer() as timer:
             try:
                 results = self.query(SnowflakeQuery.get_access_history_date_range())
@@ -450,17 +451,10 @@ class SnowflakeUsageExtractor(
                 yield wu
 
     def _process_snowflake_history_row(
-        self, row: Any
+        self, event_dict: dict
     ) -> Iterable[SnowflakeJoinedAccessEvent]:
         try:  # big hammer try block to ensure we don't fail on parsing events
             self.report.rows_processed += 1
-            # Make some minor type conversions.
-            if hasattr(row, "_asdict"):
-                # Compat with SQLAlchemy 1.3 and 1.4
-                # See https://docs.sqlalchemy.org/en/14/changelog/migration_14.html#rowproxy-is-no-longer-a-proxy-is-now-called-row-and-behaves-like-an-enhanced-named-tuple.
-                event_dict = row._asdict()
-            else:
-                event_dict = dict(row)
 
             # no use processing events that don't have a query text
             if not event_dict["QUERY_TEXT"]:
@@ -478,7 +472,7 @@ class SnowflakeUsageExtractor(
                 f"Failed to parse operation history row {event_dict}, {e}",
             )
 
-    def parse_event_objects(self, event_dict):
+    def parse_event_objects(self, event_dict: Dict) -> None:
         event_dict["BASE_OBJECTS_ACCESSED"] = [
             obj
             for obj in json.loads(event_dict["BASE_OBJECTS_ACCESSED"])

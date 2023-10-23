@@ -108,7 +108,7 @@ class ApiWorkUnit(MetadataWorkUnit):
 
 @platform_name("OpenAPI", id="openapi")
 @config_class(OpenApiConfig)
-@support_status(SupportStatus.CERTIFIED)
+@support_status(SupportStatus.INCUBATING)
 @capability(SourceCapability.PLATFORM_INSTANCE, supported=False, description="")
 class APISource(Source, ABC):
     """

@@ -21,7 +21,9 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor, Source
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.sql import sql_common
+from datahub.ingestion.source.sql.sqlalchemy_uri_mapper import (
+    get_platform_from_sqlalchemy_uri,
+)
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
     StaleEntityRemovalSourceReport,
@@ -140,6 +142,7 @@ def get_filter_name(filter_obj):
 @capability(
     SourceCapability.DELETION_DETECTION, "Optionally enabled via stateful_ingestion"
 )
+@capability(SourceCapability.LINEAGE_COARSE, "Supported by default")
 class SupersetSource(StatefulIngestionSourceBase):
     """
     This plugin extracts the following:
@@ -202,7 +205,7 @@ class SupersetSource(StatefulIngestionSourceBase):
         sqlalchemy_uri = database_response.get("result", {}).get("sqlalchemy_uri")
         if sqlalchemy_uri is None:
             return database_response.get("result", {}).get("backend", "external")
-        return sql_common.get_platform_from_sqlalchemy_uri(sqlalchemy_uri)
+        return get_platform_from_sqlalchemy_uri(sqlalchemy_uri)
 
     @lru_cache(maxsize=None)
     def get_datasource_urn_from_id(self, datasource_id):

@@ -553,8 +553,10 @@ class ElasticsearchSource(Source):
                 row_count = 0
                 size_in_bytes = 0
                 for profile_info in profile_info_current:
-                    row_count += int(profile_info["docs.count"])
-                    size_in_bytes += int(profile_info["store.size"])
+                    if profile_info["docs.count"] is not None:
+                        row_count += int(profile_info["docs.count"])
+                    if profile_info["store.size"] is not None:
+                        size_in_bytes += int(profile_info["store.size"])
                 yield MetadataChangeProposalWrapper(
                     entityUrn=dataset_urn,
                     aspect=DatasetProfileClass(

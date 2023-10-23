@@ -11,9 +11,9 @@ buildscript {
 
 plugins {
     id 'base'
+    id 'maven-publish'
 }
 apply plugin: 'pegasus'
-
 
 if (project.hasProperty('projVersion')) {
   project.version = project.projVersion
@@ -23,11 +23,11 @@ if (project.hasProperty('projVersion')) {
 
 
 dependencies {
-  compile spec.product.pegasus.data
+  implementation spec.product.pegasus.data
   // Uncomment these if you want to depend on models defined in core datahub
-  //compile project(':li-utils')
+  //implementation project(':li-utils')
   //dataModel project(':li-utils')
-  //compile project(':metadata-models')
+  //implementation project(':metadata-models')
   //dataModel project(':metadata-models')
 
 }
@@ -69,6 +69,6 @@ task modelDeploy(type: Copy) {
 
 modelDeploy.dependsOn modelArtifact
 
-install.dependsOn modelDeploy
+publish.dependsOn modelDeploy
 
 

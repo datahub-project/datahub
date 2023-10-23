@@ -6,7 +6,7 @@ import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.AuthorizerChain;
 import com.datahub.authorization.ConjunctivePrivilegeGroup;
 import com.datahub.authorization.DisjunctivePrivilegeGroup;
-import com.datahub.authorization.ResourceSpec;
+import com.datahub.authorization.EntitySpec;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
@@ -67,7 +67,7 @@ public class TimelineController {
     Urn urn = Urn.createFromString(rawUrn);
     Authentication authentication = AuthenticationContext.getAuthentication();
     String actorUrnStr = authentication.getActor().toUrnStr();
-    ResourceSpec resourceSpec = new ResourceSpec(urn.getEntityType(), rawUrn);
+    EntitySpec resourceSpec = new EntitySpec(urn.getEntityType(), rawUrn);
     DisjunctivePrivilegeGroup orGroup = new DisjunctivePrivilegeGroup(
         ImmutableList.of(new ConjunctivePrivilegeGroup(ImmutableList.of(PoliciesConfig.GET_TIMELINE_PRIVILEGE.getType()))));
     if (restApiAuthorizationEnabled && !AuthUtil.isAuthorized(_authorizerChain, actorUrnStr, Optional.of(resourceSpec), orGroup)) {

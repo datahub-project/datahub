@@ -1,15 +1,12 @@
 package com.linkedin.metadata.kafka.hook.event;
 
-import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.SetMode;
-import com.linkedin.entity.client.EntityClient;
-import com.linkedin.entity.client.RestliEntityClient;
-import com.linkedin.gms.factory.auth.SystemAuthenticationFactory;
+import com.linkedin.entity.client.SystemRestliEntityClient;
 import com.linkedin.gms.factory.entity.RestliEntityClientFactory;
 import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
 import com.linkedin.metadata.Constants;
@@ -46,8 +43,7 @@ import org.springframework.stereotype.Component;
  */
 @Slf4j
 @Component
-@Import({EntityChangeEventGeneratorRegistry.class, EntityRegistryFactory.class, RestliEntityClientFactory.class,
-    SystemAuthenticationFactory.class})
+@Import({EntityChangeEventGeneratorRegistry.class, EntityRegistryFactory.class, RestliEntityClientFactory.class})
 public class EntityChangeEventGeneratorHook implements MetadataChangeLogHook {
 
   /**
@@ -83,20 +79,18 @@ public class EntityChangeEventGeneratorHook implements MetadataChangeLogHook {
    */
   private static final Set<String> SUPPORTED_OPERATIONS = ImmutableSet.of("CREATE", "UPSERT", "DELETE");
   private final EntityChangeEventGeneratorRegistry _entityChangeEventGeneratorRegistry;
-  private final EntityClient _entityClient;
-  private final Authentication _systemAuthentication;
+  private final SystemRestliEntityClient _entityClient;
   private final EntityRegistry _entityRegistry;
   private final Boolean _isEnabled;
 
   @Autowired
   public EntityChangeEventGeneratorHook(
       @Nonnull final EntityChangeEventGeneratorRegistry entityChangeEventGeneratorRegistry,
-      @Nonnull final RestliEntityClient entityClient, @Nonnull final Authentication systemAuthentication,
+      @Nonnull final SystemRestliEntityClient entityClient,
       @Nonnull final EntityRegistry entityRegistry,
       @Nonnull @Value("${entityChangeEvents.enabled:true}") Boolean isEnabled) {
     _entityChangeEventGeneratorRegistry = Objects.requireNonNull(entityChangeEventGeneratorRegistry);
     _entityClient = Objects.requireNonNull(entityClient);
-    _systemAuthentication = Objects.requireNonNull(systemAuthentication);
     _entityRegistry = Objects.requireNonNull(entityRegistry);
     _isEnabled = isEnabled;
   }
@@ -189,8 +183,7 @@ public class EntityChangeEventGeneratorHook implements MetadataChangeLogHook {
     _entityClient.producePlatformEvent(
         Constants.CHANGE_EVENT_PLATFORM_EVENT_NAME,
         partitioningKey,
-        event,
-        _systemAuthentication
+        event
     );
   }
 

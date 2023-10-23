@@ -9,24 +9,28 @@
         {
             "downstream": {
                 "table": null,
-                "column": "col1"
+                "column": "COL1",
+                "column_type": null,
+                "native_column_type": null
             },
             "upstreams": [
                 {
                     "table": "urn:li:dataset:(urn:li:dataPlatform:oracle,table1,PROD)",
-                    "column": "col1"
+                    "column": "COL1"
                 }
             ]
         },
         {
             "downstream": {
                 "table": null,
-                "column": "col3"
+                "column": "COL3",
+                "column_type": null,
+                "native_column_type": null
             },
             "upstreams": [
                 {
                     "table": "urn:li:dataset:(urn:li:dataPlatform:oracle,table2,PROD)",
-                    "column": "col3"
+                    "column": "COL3"
                 }
             ]
         }

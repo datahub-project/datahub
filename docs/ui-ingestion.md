@@ -1,4 +1,11 @@
-# UI Ingestion Guide 
+import FeatureAvailability from '@site/src/components/FeatureAvailability';
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+# Ingestion
+
+<FeatureAvailability/>
 
 ## Introduction 
 
@@ -173,14 +180,13 @@ Finally, give your Ingestion Source a name.
 Once you're happy with your configurations, click 'Done' to save your changes.
 
 
-##### Advanced: Running with a specific CLI version 
+##### Advanced ingestion configs:
 
-DataHub comes pre-configured to use the latest version of the DataHub CLI ([acryl-datahub](https://pypi.org/project/acryl-datahub/)) that is compatible
+DataHub's Managed Ingestion UI comes pre-configured to use the latest version of the DataHub CLI ([acryl-datahub](https://pypi.org/project/acryl-datahub/)) that is compatible
 with the server. However, you can override the default package version using the 'Advanced' source configurations.
 
 To do so, simply click 'Advanced', then change the 'CLI Version' text box to contain the exact version
 of the DataHub CLI you'd like to use.
-
 
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/custom-ingestion-cli-version.png"/>
@@ -188,13 +194,15 @@ of the DataHub CLI you'd like to use.
 
 _Pinning the CLI version to version `0.8.23.2`_
 
+Other advanced options include specifying **environment variables**, **DataHub plugins** or **python packages at runtime**. 
+
 Once you're happy with your changes, simply click 'Done' to save. 
 
    </TabItem>
    <TabItem value="cli" label="CLI" default>
 
 You can upload and even update recipes using the cli as mentioned in the [cli documentation for uploading ingestion recipes](./cli.md#ingest-deploy).
-An example execution would look something like:
+An example execution for a given `recipe.yaml` file, would look something like:
 
 ```bash
 datahub ingest deploy --name "My Test Ingestion Source" --schedule "5 * * * *" --time-zone "UTC" -c recipe.yaml
@@ -330,8 +338,8 @@ for the `datahub-actions` container and running `docker logs <container-id>`.
 There are valid cases for ingesting metadata without the UI-based ingestion scheduler. For example,
 
 - You have written a custom ingestion Source
-- Your data sources are not reachable on the network where DataHub is deployed
-- Your ingestion source requires context from a local filesystem (e.g. input files, environment variables, etc)
+- Your data sources are not reachable on the network where DataHub is deployed. Managed DataHub users can use a [remote executor](managed-datahub/operator-guide/setting-up-remote-ingestion-executor-on-aws.md) for remote UI-based ingestion.
+- Your ingestion source requires context from a local filesystem (e.g. input files)
 - You want to distribute metadata ingestion among multiple producers / environments
 
 ### How do I attach policies to the actions pod to give it permissions to pull metadata from various sources?

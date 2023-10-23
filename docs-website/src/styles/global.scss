@@ -7,16 +7,23 @@
 
 /* You can override the default Infima variables here. */
 :root {
-  font-family: "Manrope", sans-serif;
+  // Global
   --ifm-background-color: #ffffff;
+  --ifm-global-spacing: 1rem;
 
   /* Typography */
-  --ifm-heading-font-weight: 600;
-  --ifm-font-weight-semibold: 600;
+  --ifm-font-size-base: 95%;
+  --ifm-heading-font-weight: 700;
   --ifm-code-font-size: 0.9em;
   --ifm-heading-color: #000000;
+  --ifm-heading-font-family: "Manrope", sans-serif;
+  --ifm-font-family-base: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif, "Apple Color Emoji",
+    "Segoe UI Emoji", "Segoe UI Symbol";
+  --ifm-font-family-monospace: SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+
   /* Buttons */
   --ifm-button-border-radius: 1000em;
+  --ifm-button-font-weight: 600;
 
   /* Navbar */
   --ifm-navbar-background-color: var(--ifm-background-color);
@@ -30,6 +37,7 @@
   --ifm-hr-border-width: 1px 0 0 0;
   --ifm-hr-border-color: #e3e3e3;
   --ifm-hr-background-color: #e3e3e3;
+
   /* More Colors */
   --ifm-hero-background-color: var(--ifm-background-color);
   --ifm-background-surface-color: #fafafa;
@@ -37,6 +45,19 @@
   /* Cards */
   --ifm-card-background-color: --ifm-background-color;
   --ifm-card-border-radius: calc(var(--ifm-global-radius) * 1.5);
+
+  /* Menu */
+  --ifm-menu-link-padding-vertical: 0.6rem;
+  --ifm-menu-link-padding-horizontal: 1rem;
+  --ifm-menu-link-sublist-icon: url('data:image/svg+xml;utf8,<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6.47 9.47L8 7.94333L9.53 9.47L10 9L8 7L6 9L6.47 9.47Z" fill="black" fill-opacity="0.5"/></svg>');
+  --ifm-menu-color-background-hover: var(--ifm-color-primary-opaque);
+  --ifm-menu-color-background-active: var(--ifm-color-primary-opaque);
+
+  /* TOC */
+  --ifm-toc-padding-vertical: 1.25rem;
+
+  /* Breadcrumbs */
+  --ifm-breadcrumb-item-background-active: var(--ifm-color-primary-opaque);
 }
 
 html[data-theme="dark"] {
@@ -49,15 +70,28 @@ html[data-theme="dark"] {
   .button--primary {
     color: #fff;
   }
+
+  .invert-on-dark {
+    filter: invert(1);
+  }
 }
 
-h1 {
-  font-weight: 400;
+/* Main Docs Content Area */
+
+main {
+  padding-top: 1rem;
 }
 
-html[data-theme="dark"] .invert-on-dark {
-  filter: invert(1);
+.markdown,
+main > h1 {
+  margin-top: 1rem;
 }
+
+[class*="docItemCol"] {
+  padding: 0 2rem;
+}
+
+/* Custom Utility */
 
 .row--centered {
   align-items: center;
@@ -66,6 +100,8 @@ html[data-theme="dark"] .invert-on-dark {
 .row--padded {
   padding: 5vh 0;
 }
+
+/* Announcement Bar */
 
 div[class^="announcementBar"] {
   z-index: calc(var(--ifm-z-index-fixed) - 1);
@@ -105,6 +141,8 @@ div[class^="announcementBar"] {
     }
   }
 }
+
+/** Navbar */
 
 @media only screen and (max-width: 1050px) {
   .navbar__toggle {
@@ -158,16 +196,7 @@ div[class^="announcementBar"] {
   }
 }
 
-.footer {
-  .footer__copyright {
-    text-align: left;
-    font-size: 0.8em;
-    opacity: 0.5;
-  }
-  &.footer--dark {
-    --ifm-footer-background-color: #000000;
-  }
-}
+/* Misc */
 
 .button {
   white-space: initial;
@@ -192,63 +221,92 @@ div[class^="announcementBar"] {
   }
 }
 
-.hero {
-  padding: 5vh 0;
-}
-
-.hero__subtitle {
-  font-size: 1.25em;
-  margin: 1rem auto 3rem;
-  max-width: 800px;
-}
-.hero__content {
-  text-align: center;
-  padding: 2rem 0;
-  height: 100%;
-}
-
-.quickstart__content {
-  text-align: center;
-  padding: 2rem 0;
-  height: 100%;
-  margin: 2rem 0;
-  background: #34394d;
-  border-radius: var(--ifm-card-border-radius);
-}
-
-.quickstart__title {
-  color: #fafafa;
-}
-
-.quickstart__subtitle {
-  font-size: 1.1rem;
-  color: gray;
-}
-
-.quickstart__codeblock {
-  text-align: left;
-  padding: 0 20vh;
-}
-
-.theme-doc-sidebar-menu ul li.saasOnly a.menu__link {
-  &:after {
-    content: "";
-    display: block;
-    width: 20px;
-    height: 20px;
-    flex-shrink: 0;
-    margin-right: auto;
-    margin-left: 10px;
+.footer {
+  .footer__copyright {
+    text-align: left;
+    font-size: 0.8em;
     opacity: 0.5;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='64 64 896 896' focusable='false' data-icon='cloud' width='1em' height='1em' fill='currentColor' aria-hidden='true'%3E%3Cpath d='M811.4 418.7C765.6 297.9 648.9 212 512.2 212S258.8 297.8 213 418.6C127.3 441.1 64 519.1 64 612c0 110.5 89.5 200 199.9 200h496.2C870.5 812 960 722.5 960 612c0-92.7-63.1-170.7-148.6-193.3zm36.3 281a123.07 123.07 0 01-87.6 36.3H263.9c-33.1 0-64.2-12.9-87.6-36.3A123.3 123.3 0 01140 612c0-28 9.1-54.3 26.2-76.3a125.7 125.7 0 0166.1-43.7l37.9-9.9 13.9-36.6c8.6-22.8 20.6-44.1 35.7-63.4a245.6 245.6 0 0152.4-49.9c41.1-28.9 89.5-44.2 140-44.2s98.9 15.3 140 44.2c19.9 14 37.5 30.8 52.4 49.9 15.1 19.3 27.1 40.7 35.7 63.4l13.8 36.5 37.8 10c54.3 14.5 92.1 63.8 92.1 120 0 33.1-12.9 64.3-36.3 87.7z'%3E%3C/path%3E%3C/svg%3E");
-    background-repeat: no-repeat;
-    background-position: 50% 50%;
-    background-size: 20px 20px;
-    [data-theme="dark"] & {
-      filter: invert(1);
-    }
+  }
+  &.footer--dark {
+    --ifm-footer-background-color: #000000;
   }
 }
+
+/* Hero */
+
+.hero {
+  padding: 5vh 0;
+
+  .hero__subtitle {
+    font-size: 1.25em;
+    margin: 1rem auto 3rem;
+    max-width: 800px;
+
+    img {
+      vertical-align: middle;
+      margin-top: -0.3em;
+    }
+  }
+  .hero__content {
+    text-align: center;
+    padding: 2rem 0;
+    height: 100%;
+  }
+}
+
+/* Sidebar Menu */
+
+.menu .theme-doc-sidebar-menu {
+  ul li.saasOnly a.menu__link {
+    &:after {
+      content: "";
+      display: block;
+      width: 20px;
+      height: 20px;
+      flex-shrink: 0;
+      margin-right: auto;
+      margin-left: 10px;
+      opacity: 0.5;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='64 64 896 896' focusable='false' data-icon='cloud' width='1em' height='1em' fill='currentColor' aria-hidden='true'%3E%3Cpath d='M811.4 418.7C765.6 297.9 648.9 212 512.2 212S258.8 297.8 213 418.6C127.3 441.1 64 519.1 64 612c0 110.5 89.5 200 199.9 200h496.2C870.5 812 960 722.5 960 612c0-92.7-63.1-170.7-148.6-193.3zm36.3 281a123.07 123.07 0 01-87.6 36.3H263.9c-33.1 0-64.2-12.9-87.6-36.3A123.3 123.3 0 01140 612c0-28 9.1-54.3 26.2-76.3a125.7 125.7 0 0166.1-43.7l37.9-9.9 13.9-36.6c8.6-22.8 20.6-44.1 35.7-63.4a245.6 245.6 0 0152.4-49.9c41.1-28.9 89.5-44.2 140-44.2s98.9 15.3 140 44.2c19.9 14 37.5 30.8 52.4 49.9 15.1 19.3 27.1 40.7 35.7 63.4l13.8 36.5 37.8 10c54.3 14.5 92.1 63.8 92.1 120 0 33.1-12.9 64.3-36.3 87.7z'%3E%3C/path%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: 50% 50%;
+      background-size: 20px 20px;
+      [data-theme="dark"] & {
+        filter: invert(1);
+      }
+    }
+  }
+
+  .theme-doc-sidebar-item-category-level-1 .menu__link {
+    font-weight: 400;
+  }
+
+  .theme-doc-sidebar-item-category-level-1 .menu__link--active {
+    font-weight: 600;
+  }
+
+  .theme-doc-sidebar-item-category-level-1 > div > a:first-child {
+    color: var(--ifm-navbar-link-color);
+    font-weight: 600;
+    padding: calc(var(--ifm-menu-link-padding-vertical) + 0.2rem) var(--ifm-menu-link-padding-horizontal);
+  }
+  .theme-doc-sidebar-item-category-level-1 > div > a.menu__link--active {
+    color: var(--ifm-navbar-link-color);
+    font-weight: 600;
+  }
+}
+
+/* TOC */
+.table-of-contents {
+  padding-left: 1.5rem;
+  font-size: 0.9rem;
+  line-height: 1rem;
+  .table-of-contents__link--active {
+    font-weight: 600;
+  }
+}
+
+/* Search */
 
 [data-theme="light"] .DocSearch {
   /* --docsearch-primary-color: var(--ifm-color-primary); */
@@ -284,19 +342,4 @@ div[class^="announcementBar"] {
   /* Footer */
   --docsearch-footer-background: var(--ifm-background-surface-color);
   --docsearch-key-gradient: linear-gradient(-26.5deg, var(--ifm-color-emphasis-200) 0%, var(--ifm-color-emphasis-100) 100%);
-}
-
-.theme-doc-sidebar-item-category-level-1 > div > a:first-child {
-  color: var(--ifm-navbar-link-color);
-  font-size: 17px;
-}
-
-.theme-doc-sidebar-item-category-level-1 > div > a.menu__link--active {
-  color: var(--ifm-menu-color-active);
-  font-size: 17px;
-}
-
-/* Increase padding for levels greater than 1 */
-[class^="theme-doc-sidebar-item"][class*="-level-"]:not(.theme-doc-sidebar-item-category-level-1) {
-  padding-left: 8px;
 }

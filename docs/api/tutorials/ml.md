@@ -7,11 +7,12 @@ import TabItem from '@theme/TabItem';
 
 Machine learning systems have become a crucial feature in modern data stacks.
 However, the relationships between the different components of a machine learning system, such as features, models, and feature tables, can be complex.
-Thus, it is essential for these systems to be discoverable to facilitate easy access and utilization by other members of the organization.
+DataHub makes these relationships discoverable and facilitate utilization by other members of the organization.
 
-For more information on ML entities, please refer to the following docs:
+For technical details on ML entities, please refer to the following docs:
 
 - [MlFeature](/docs/generated/metamodel/entities/mlFeature.md)
+- [MlPrimaryKey](/docs/generated/metamodel/entities/mlPrimaryKey.md)
 - [MlFeatureTable](/docs/generated/metamodel/entities/mlFeatureTable.md)
 - [MlModel](/docs/generated/metamodel/entities/mlModel.md)
 - [MlModelGroup](/docs/generated/metamodel/entities/mlModelGroup.md)
@@ -20,9 +21,11 @@ For more information on ML entities, please refer to the following docs:
 
 This guide will show you how to
 
-- Create ML entities: MlFeature, MlFeatureTable, MlModel, MlModelGroup
-- Read ML entities: MlFeature, MlFeatureTable, MlModel, MlModelGroup
-- Attach MlFeatureTable or MlModel to MlFeature
+- Create ML entities: MlFeature, MlFeatureTable, MlModel, MlModelGroup, MlPrimaryKey
+- Read ML entities: MlFeature, MlFeatureTable, MlModel, MlModelGroup, MlPrimaryKey
+- Attach MlModel to MlFeature
+- Attach MlFeatures to MlFeatureTable
+- Attached MlFeatures to upstream Datasets that power them
 
 ## Prerequisites
 
@@ -33,6 +36,8 @@ For detailed steps, please refer to [Datahub Quickstart Guide](/docs/quickstart.
 
 ### Create MlFeature
 
+An ML Feature represents an instance of a feature that can be used across different machine learning models. Features are organized into Feature Tables to be consumed by machine learning models. For example, if we were modeling features for a Users Feature Table, the Features would be `age`, `sign_up_date`, `active_in_past_30_days` and so forth.Using Features in DataHub allows users to see the sources a feature was generated from and how a feature is used to train models.
+
 <Tabs>
 <TabItem value="python" label="Python" default>
 
@@ -40,12 +45,30 @@ For detailed steps, please refer to [Datahub Quickstart Guide](/docs/quickstart.
 {{ inline /metadata-ingestion/examples/library/create_mlfeature.py show_path_as_comment }}
 ```
 
-Note that when creating a feature, you can access a list of data sources using `sources`.
+Note that when creating a feature, you create upstream lineage to the data warehouse using `sources`.
+
+</TabItem>
+</Tabs>
+
+### Create MlPrimaryKey
+
+An ML Primary Key represents a specific element of a Feature Table that indicates what group the other features belong to. For example, if a Feature Table contained features for Users, the ML Primary Key would likely be `user_id` or some similar unique identifier for a user. Using ML Primary Keys in DataHub allow users to indicate how ML Feature Tables are structured.
+
+<Tabs>
+<TabItem value="python" label="Python" default>
+
+```python
+{{ inline /metadata-ingestion/examples/library/create_mlprimarykey.py show_path_as_comment }}
+```
+
+Note that when creating a primary key, you create upstream lineage to the data warehouse using `sources`.
 
 </TabItem>
 </Tabs>
 
 ### Create MlFeatureTable
+
+A feature table represents a group of similar Features that can all be used together to train a model. For example, if there was a Users Feature Table, it would contain documentation around how to use the Users collection of Features and references to each Feature and ML Primary Key contained within it.
 
 <Tabs>
 <TabItem value="python" label="Python" default>
@@ -54,14 +77,14 @@ Note that when creating a feature, you can access a list of data sources using `
 {{ inline /metadata-ingestion/examples/library/create_mlfeature_table.py show_path_as_comment }}
 ```
 
-Note that when creating a feature table, you can access a list of features using `mlFeatures`.
+Note that when creating a feature table, you connect the table to its features and primary key using `mlFeatures` and `mlPrimaryKeys`.
 
 </TabItem>
 </Tabs>
 
 ### Create MlModel
 
-Please note that an MlModel represents the outcome of a single training run for a model, not the collective results of all model runs.
+An ML Model in Acryl represents an individual version of a trained Machine Learning Model. Another way to think about the ML Model entity is as an istance of a training run. An ML Model entity tracks the exact ML Features used in that instance of training, along with the training results. This entity does not represents all versions of a ML Model. For example, if we train a model for homepage customization on a certain day, that would be a ML Model in DataHub. If you re-train the model the next day off of new data or with different parameters, that would produce a second ML Model entity.
 
 <Tabs>
 <TabItem value="python" label="Python" default>
@@ -70,15 +93,15 @@ Please note that an MlModel represents the outcome of a single training run for 
 {{ inline /metadata-ingestion/examples/library/create_mlmodel.py show_path_as_comment }}
 ```
 
-Note that when creating a model, you can access a list of features using `mlFeatures`.
-Additionally, you can access the relationship to model groups with `groups`.
+Note that when creating a model, you link it to a list of features using `mlFeatures`. This indicates how the individual instance of the model was trained.
+Additionally, you can access the relationship to model groups with `groups`. An ML Model is connected to the warehouse tables it depends on via its dependency on the ML Features it reads from.
 
 </TabItem>
 </Tabs>
 
 ### Create MlModelGroup
 
-Please note that an MlModelGroup serves as a container for all the runs of a single ML model.
+An ML Model Group represents the grouping of all training runs of a single Machine Learning model category. It will store documentation about the group of ML Models, along with references to each individual ML Model instance.
 
 <Tabs>
 <TabItem value="python" label="Python" default>
@@ -94,17 +117,13 @@ Please note that an MlModelGroup serves as a container for all the runs of a sin
 
 You can search the entities in DataHub UI.
 
-
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/apis/tutorials/feature-table-created.png"/>
 </p>
 
-
-
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/apis/tutorials/model-group-created.png"/>
 </p>
-
 
 ## Read ML Entities
 
@@ -192,6 +211,93 @@ Expected response:
 </TabItem>
 </Tabs>
 
+### Read MlPrimaryKey
+
+<Tabs>
+<TabItem value="graphql" label="GraphQL" default>
+
+```json
+query {
+  mlPrimaryKey(urn: "urn:li:mlPrimaryKey:(user_features,user_id)"){
+    name
+    featureNamespace
+    description
+    dataType
+    properties {
+      description
+      dataType
+      version {
+        versionTag
+      }
+    }
+  }
+}
+```
+
+Expected response:
+
+```json
+{
+  "data": {
+    "mlPrimaryKey": {
+      "name": "user_id",
+      "featureNamespace": "user_features",
+      "description": "User's internal ID",
+      "dataType": "ORDINAL",
+      "properties": {
+        "description": "User's internal ID",
+        "dataType": "ORDINAL",
+        "version": null
+      }
+    }
+  },
+  "extensions": {}
+}
+```
+
+</TabItem>
+<TabItem value="curl" label="Curl" default>
+
+```json
+curl --location --request POST 'http://localhost:8080/api/graphql' \
+--header 'Authorization: Bearer <my-access-token>' \
+--header 'Content-Type: application/json' \
+--data-raw '{
+    "query": "query {  mlPrimaryKey(urn: \"urn:li:mlPrimaryKey:(user_features,user_id)\"){    name    featureNamespace    description    dataType    properties {      description      dataType      version {        versionTag      }    }  }}"
+}'
+```
+
+Expected response:
+
+```json
+{
+  "data": {
+    "mlPrimaryKey": {
+      "name": "user_id",
+      "featureNamespace": "user_features",
+      "description": "User's internal ID",
+      "dataType": "ORDINAL",
+      "properties": {
+        "description": "User's internal ID",
+        "dataType": "ORDINAL",
+        "version": null
+      }
+    }
+  },
+  "extensions": {}
+}
+```
+
+</TabItem>
+<TabItem value="python" label="Python">
+
+```python
+{{ inline /metadata-ingestion/examples/library/read_mlprimarykey.py show_path_as_comment }}
+```
+
+</TabItem>
+</Tabs>
+
 ### Read MLFeatureTable
 
 <Tabs>
@@ -232,8 +338,7 @@ Expected Response:
           {
             "name": "test_BOOL_LIST_feature"
           },
-          ...
-          {
+          ...{
             "name": "test_STRING_feature"
           }
         ]
@@ -273,8 +378,7 @@ Expected Response:
           {
             "name": "test_BOOL_LIST_feature"
           },
-          ...
-          {
+          ...{
             "name": "test_STRING_feature"
           }
         ]
@@ -507,14 +611,10 @@ Expected Response: (Note that this entity does not exist in the sample ingestion
 
 You can access to `Features` or `Group` Tab of each entity to view the added entities.
 
-
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/apis/tutorials/feature-added-to-model.png"/>
 </p>
 
-
-
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/apis/tutorials/model-group-added-to-model.png"/>
 </p>
-

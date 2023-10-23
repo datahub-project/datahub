@@ -31,7 +31,8 @@
         "GET_ES_TASK_STATUS_PRIVILEGE",
         "SET_WRITEABLE_PRIVILEGE",
         "APPLY_RETENTION_PRIVILEGE",
-        "MANAGE_GLOBAL_OWNERSHIP_TYPES"
+        "MANAGE_GLOBAL_OWNERSHIP_TYPES",
+        "GET_ANALYTICS_PRIVILEGE"
       ],
       "displayName":"Root User - All Platform Privileges",
       "description":"Grants full platform privileges to root datahub super user.",
@@ -204,7 +205,8 @@
         "GET_ES_TASK_STATUS_PRIVILEGE",
         "SET_WRITEABLE_PRIVILEGE",
         "APPLY_RETENTION_PRIVILEGE",
-        "MANAGE_GLOBAL_OWNERSHIP_TYPES"
+        "MANAGE_GLOBAL_OWNERSHIP_TYPES",
+        "GET_ANALYTICS_PRIVILEGE"
       ],
       "displayName":"Admins - Platform Policy",
       "description":"Admins have all platform privileges.",

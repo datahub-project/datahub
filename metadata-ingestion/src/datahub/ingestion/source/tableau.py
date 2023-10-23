@@ -37,11 +37,11 @@ from datahub.configuration.common import (
     ConfigModel,
     ConfigurationError,
 )
-from datahub.configuration.pydantic_field_deprecation import pydantic_field_deprecated
 from datahub.configuration.source_common import (
     DatasetLineageProviderConfigBase,
     DatasetSourceConfigMixin,
 )
+from datahub.configuration.validate_field_deprecation import pydantic_field_deprecated
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import (
     ContainerKey,
@@ -77,6 +77,7 @@ from datahub.ingestion.source.tableau_common import (
     FIELD_TYPE_MAPPING,
     MetadataQueryException,
     TableauLineageOverrides,
+    TableauUpstreamReference,
     clean_query,
     custom_sql_graphql_query,
     dashboard_graphql_query,
@@ -85,7 +86,6 @@ from datahub.ingestion.source.tableau_common import (
     get_overridden_info,
     get_unique_custom_sql,
     make_fine_grained_lineage_class,
-    make_table_urn,
     make_upstream_class,
     published_datasource_graphql_query,
     query_metadata,
@@ -138,6 +138,7 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.utilities import config_clean
 from datahub.utilities.sqlglot_lineage import ColumnLineageInfo, SqlParsingResult
+from datahub.utilities.urns.dataset_urn import DatasetUrn
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -270,7 +271,7 @@ class TableauConfig(
         "You can change this if your Tableau projects contain slashes in their names, and you'd like to filter by project.",
     )
 
-    default_schema_map: dict = Field(
+    default_schema_map: Dict[str, str] = Field(
         default={}, description="Default schema to use when schema is not found."
     )
     ingest_tags: Optional[bool] = Field(
@@ -451,6 +452,10 @@ class TableauSourceReport(StaleEntityRemovalSourceReport):
 @capability(SourceCapability.OWNERSHIP, "Requires recipe configuration")
 @capability(SourceCapability.TAGS, "Requires recipe configuration")
 @capability(SourceCapability.LINEAGE_COARSE, "Enabled by default")
+@capability(
+    SourceCapability.LINEAGE_FINE,
+    "Enabled by default, configure using `extract_column_level_lineage`",
+)
 class TableauSource(StatefulIngestionSourceBase):
     platform = "tableau"
 
@@ -504,7 +509,7 @@ class TableauSource(StatefulIngestionSourceBase):
             self.server = None
         super().close()
 
-    def _populate_usage_stat_registry(self):
+    def _populate_usage_stat_registry(self) -> None:
         if self.server is None:
             return
 
@@ -532,7 +537,7 @@ class TableauSource(StatefulIngestionSourceBase):
                     path=[],
                 )
             # Set parent project name
-            for project_id, project in all_project_map.items():
+            for _project_id, project in all_project_map.items():
                 if (
                     project.parent_id is not None
                     and project.parent_id in all_project_map
@@ -645,7 +650,7 @@ class TableauSource(StatefulIngestionSourceBase):
                 continue
             self.workbook_project_map[wb.id] = wb.project_id
 
-    def _populate_projects_registry(self):
+    def _populate_projects_registry(self) -> None:
         if self.server is None:
             return
 
@@ -666,7 +671,7 @@ class TableauSource(StatefulIngestionSourceBase):
             f"Tableau workbooks {self.workbook_project_map}",
         )
 
-    def _authenticate(self):
+    def _authenticate(self) -> None:
         try:
             self.server = self.config.make_tableau_client()
             logger.info("Authenticated to Tableau server")
@@ -841,16 +846,14 @@ class TableauSource(StatefulIngestionSourceBase):
     def _create_upstream_table_lineage(
         self,
         datasource: dict,
-        browse_path: str,
+        browse_path: Optional[str],
         is_embedded_ds: bool = False,
     ) -> Tuple:
         upstream_tables: List[Upstream] = []
         fine_grained_lineages: List[FineGrainedLineage] = []
         table_id_to_urn = {}
 
-        upstream_datasources = self.get_upstream_datasources(
-            datasource, upstream_tables
-        )
+        upstream_datasources = self.get_upstream_datasources(datasource)
         upstream_tables.extend(upstream_datasources)
 
         # When tableau workbook connects to published datasource, it creates an embedded
@@ -875,7 +878,7 @@ class TableauSource(StatefulIngestionSourceBase):
 
             # This adds an edge to upstream CustomSQLTables using `fields`.`upstreamColumns`.`table`
             csql_upstreams, csql_id_to_urn = self.get_upstream_csql_tables(
-                datasource.get(tableau_constant.FIELDS),
+                datasource.get(tableau_constant.FIELDS) or [],
             )
             upstream_tables.extend(csql_upstreams)
             table_id_to_urn.update(csql_id_to_urn)
@@ -914,7 +917,7 @@ class TableauSource(StatefulIngestionSourceBase):
 
         return upstream_tables, fine_grained_lineages
 
-    def get_upstream_datasources(self, datasource, upstream_tables):
+    def get_upstream_datasources(self, datasource: dict) -> List[Upstream]:
         upstream_tables = []
         for ds in datasource.get(tableau_constant.UPSTREAM_DATA_SOURCES, []):
             if ds[tableau_constant.ID] not in self.datasource_ids_being_used:
@@ -933,14 +936,16 @@ class TableauSource(StatefulIngestionSourceBase):
             upstream_tables.append(upstream_table)
         return upstream_tables
 
-    def get_upstream_csql_tables(self, fields):
+    def get_upstream_csql_tables(
+        self, fields: List[dict]
+    ) -> Tuple[List[Upstream], Dict[str, str]]:
         upstream_csql_urns = set()
         csql_id_to_urn = {}
 
         for field in fields:
             if not field.get(tableau_constant.UPSTREAM_COLUMNS):
                 continue
-            for upstream_col in field.get(tableau_constant.UPSTREAM_COLUMNS):
+            for upstream_col in field[tableau_constant.UPSTREAM_COLUMNS]:
                 if (
                     upstream_col
                     and upstream_col.get(tableau_constant.TABLE)
@@ -968,7 +973,13 @@ class TableauSource(StatefulIngestionSourceBase):
             for csql_urn in upstream_csql_urns
         ], csql_id_to_urn
 
-    def get_upstream_tables(self, tables, datasource_name, browse_path, is_custom_sql):
+    def get_upstream_tables(
+        self,
+        tables: List[dict],
+        datasource_name: Optional[str],
+        browse_path: Optional[str],
+        is_custom_sql: bool,
+    ) -> Tuple[List[Upstream], Dict[str, str]]:
         upstream_tables = []
         # Same table urn can be used when setting fine grained lineage,
         table_id_to_urn: Dict[str, str] = {}
@@ -990,41 +1001,16 @@ class TableauSource(StatefulIngestionSourceBase):
                 )
                 continue
 
-            schema = table.get(tableau_constant.SCHEMA) or ""
-            table_name = table.get(tableau_constant.NAME) or ""
-            full_name = table.get(tableau_constant.FULL_NAME) or ""
-            upstream_db = (
-                table[tableau_constant.DATABASE][tableau_constant.NAME]
-                if table.get(tableau_constant.DATABASE)
-                and table[tableau_constant.DATABASE].get(tableau_constant.NAME)
-                else ""
-            )
-            logger.debug(
-                "Processing Table with Connection Type: {0} and id {1}".format(
-                    table.get(tableau_constant.CONNECTION_TYPE) or "",
-                    table.get(tableau_constant.ID) or "",
+            try:
+                ref = TableauUpstreamReference.create(
+                    table, default_schema_map=self.config.default_schema_map
                 )
-            )
-            schema = self._get_schema(schema, upstream_db, full_name)
-            # if the schema is included within the table name we omit it
-            if (
-                schema
-                and table_name
-                and full_name
-                and table_name == full_name
-                and schema in table_name
-            ):
-                logger.debug(
-                    f"Omitting schema for upstream table {table[tableau_constant.ID]}, schema included in table name"
-                )
-                schema = ""
+            except Exception as e:
+                logger.info(f"Failed to generate upstream reference for {table}: {e}")
+                continue
 
-            table_urn = make_table_urn(
+            table_urn = ref.make_dataset_urn(
                 self.config.env,
-                upstream_db,
-                table.get(tableau_constant.CONNECTION_TYPE) or "",
-                schema,
-                table_name,
                 self.config.platform_instance_map,
                 self.config.lineage_overrides,
             )
@@ -1045,7 +1031,7 @@ class TableauSource(StatefulIngestionSourceBase):
                     urn=table_urn,
                     id=table[tableau_constant.ID],
                     num_cols=num_tbl_cols,
-                    paths=set([table_path]) if table_path else set(),
+                    paths={table_path} if table_path else set(),
                 )
             else:
                 self.database_tables[table_urn].update_table(
@@ -1056,12 +1042,12 @@ class TableauSource(StatefulIngestionSourceBase):
 
     def get_upstream_columns_of_fields_in_datasource(
         self,
-        datasource,
-        datasource_urn,
-        table_id_to_urn,
-    ):
+        datasource: dict,
+        datasource_urn: str,
+        table_id_to_urn: Dict[str, str],
+    ) -> List[FineGrainedLineage]:
         fine_grained_lineages = []
-        for field in datasource.get(tableau_constant.FIELDS):
+        for field in datasource.get(tableau_constant.FIELDS) or []:
             field_name = field.get(tableau_constant.NAME)
             # upstreamColumns lineage will be set via upstreamFields.
             # such as for CalculatedField
@@ -1086,9 +1072,14 @@ class TableauSource(StatefulIngestionSourceBase):
                     and upstream_table_id
                     and upstream_table_id in table_id_to_urn.keys()
                 ):
+                    parent_dataset_urn = table_id_to_urn[upstream_table_id]
+                    if self.is_snowflake_urn(parent_dataset_urn):
+                        # This is required for column level lineage to work correctly as
+                        # DataHub Snowflake source lowercases all field names in the schema.
+                        name = name.lower()
                     input_columns.append(
                         builder.make_schema_field_urn(
-                            parent_urn=table_id_to_urn[upstream_table_id],
+                            parent_urn=parent_dataset_urn,
                             field_path=name,
                         )
                     )
@@ -1107,9 +1098,19 @@ class TableauSource(StatefulIngestionSourceBase):
 
         return fine_grained_lineages
 
-    def get_upstream_fields_of_field_in_datasource(self, datasource, datasource_urn):
+    def is_snowflake_urn(self, urn: str) -> bool:
+        return (
+            DatasetUrn.create_from_string(urn)
+            .get_data_platform_urn()
+            .get_platform_name()
+            == "snowflake"
+        )
+
+    def get_upstream_fields_of_field_in_datasource(
+        self, datasource: dict, datasource_urn: str
+    ) -> List[FineGrainedLineage]:
         fine_grained_lineages = []
-        for field in datasource.get(tableau_constant.FIELDS):
+        for field in datasource.get(tableau_constant.FIELDS) or []:
             field_name = field.get(tableau_constant.NAME)
             # It is observed that upstreamFields gives one-hop field
             # lineage, and not multi-hop field lineage
@@ -1157,8 +1158,6 @@ class TableauSource(StatefulIngestionSourceBase):
     def get_upstream_fields_from_custom_sql(
         self, datasource: dict, datasource_urn: str
     ) -> List[FineGrainedLineage]:
-        fine_grained_lineages: List[FineGrainedLineage] = []
-
         parsed_result = self.parse_custom_sql(
             datasource=datasource,
             datasource_urn=datasource_urn,
@@ -1172,13 +1171,20 @@ class TableauSource(StatefulIngestionSourceBase):
             logger.info(
                 f"Failed to extract column level lineage from datasource {datasource_urn}"
             )
-            return fine_grained_lineages
+            return []
+        if parsed_result.debug_info.error:
+            logger.info(
+                f"Failed to extract column level lineage from datasource {datasource_urn}: {parsed_result.debug_info.error}"
+            )
+            return []
 
         cll: List[ColumnLineageInfo] = (
             parsed_result.column_lineage
             if parsed_result.column_lineage is not None
             else []
         )
+
+        fine_grained_lineages: List[FineGrainedLineage] = []
         for cll_info in cll:
             downstream = (
                 [
@@ -1205,7 +1211,7 @@ class TableauSource(StatefulIngestionSourceBase):
 
         return fine_grained_lineages
 
-    def get_transform_operation(self, field):
+    def get_transform_operation(self, field: dict) -> str:
         field_type = field[tableau_constant.TYPE_NAME]
         if field_type in (
             tableau_constant.DATA_SOURCE_FIELD,
@@ -1381,7 +1387,7 @@ class TableauSource(StatefulIngestionSourceBase):
         )
         return schema_metadata
 
-    def _get_published_datasource_project_luid(self, ds):
+    def _get_published_datasource_project_luid(self, ds: dict) -> Optional[str]:
         # This is fallback in case "get all datasources" query fails for some reason.
         # It is possible due to https://github.com/tableau/server-client-python/issues/1210
         if (
@@ -1430,7 +1436,7 @@ class TableauSource(StatefulIngestionSourceBase):
             )
             logger.debug("Error stack trace", exc_info=True)
 
-    def _get_workbook_project_luid(self, wb):
+    def _get_workbook_project_luid(self, wb: dict) -> Optional[str]:
         if wb.get(tableau_constant.LUID) and self.workbook_project_map.get(
             wb[tableau_constant.LUID]
         ):
@@ -1440,11 +1446,12 @@ class TableauSource(StatefulIngestionSourceBase):
 
         return None
 
-    def _get_embedded_datasource_project_luid(self, ds):
+    def _get_embedded_datasource_project_luid(self, ds: dict) -> Optional[str]:
         if ds.get(tableau_constant.WORKBOOK):
             project_luid: Optional[str] = self._get_workbook_project_luid(
-                ds.get(tableau_constant.WORKBOOK)
+                ds[tableau_constant.WORKBOOK]
             )
+
             if project_luid and project_luid in self.tableau_project_registry:
                 return project_luid
 
@@ -1454,7 +1461,7 @@ class TableauSource(StatefulIngestionSourceBase):
 
         return None
 
-    def _get_datasource_project_luid(self, ds):
+    def _get_datasource_project_luid(self, ds: dict) -> Optional[str]:
         # Only published and embedded data-sources are supported
         ds_type: Optional[str] = ds.get(tableau_constant.TYPE_NAME)
         if ds_type not in (
@@ -1486,7 +1493,7 @@ class TableauSource(StatefulIngestionSourceBase):
             return ds.get(tableau_constant.PROJECT_NAME)
         return None
 
-    def _get_project_browse_path_name(self, ds):
+    def _get_project_browse_path_name(self, ds: dict) -> Optional[str]:
         if self.config.extract_project_hierarchy is False:
             # backward compatibility. Just return the name of datasource project
             return self._get_datasource_project_name(ds)
@@ -1494,9 +1501,8 @@ class TableauSource(StatefulIngestionSourceBase):
         # form path as per nested project structure
         project_luid = self._get_datasource_project_luid(ds)
         if project_luid is None:
-            datasource_name: str = ds.get(tableau_constant.NAME)
             logger.warning(
-                f"Could not load project hierarchy for datasource {datasource_name}. Please check permissions."
+                f"Could not load project hierarchy for datasource {ds.get(tableau_constant.NAME)}. Please check permissions."
             )
             logger.debug(f"datasource = {ds}")
             return None
@@ -1509,7 +1515,7 @@ class TableauSource(StatefulIngestionSourceBase):
         # This adds an edge to upstream DatabaseTables using `upstreamTables`
         upstream_tables, _ = self.get_upstream_tables(
             tables,
-            datasource.get(tableau_constant.NAME),
+            datasource.get(tableau_constant.NAME) or "",
             self._get_project_browse_path_name(datasource),
             is_custom_sql=True,
         )
@@ -1541,7 +1547,6 @@ class TableauSource(StatefulIngestionSourceBase):
             ]
         ],
     ) -> Optional["SqlParsingResult"]:
-
         database_info = datasource.get(tableau_constant.DATABASE) or {}
 
         if datasource.get(tableau_constant.IS_UNSUPPORTED_CUSTOM_SQL) in (None, False):
@@ -1593,7 +1598,6 @@ class TableauSource(StatefulIngestionSourceBase):
     def _create_lineage_from_unsupported_csql(
         self, csql_urn: str, csql: dict
     ) -> Iterable[MetadataWorkUnit]:
-
         parsed_result = self.parse_custom_sql(
             datasource=csql,
             datasource_urn=csql_urn,
@@ -1812,7 +1816,9 @@ class TableauSource(StatefulIngestionSourceBase):
     def get_custom_props_from_dict(self, obj: dict, keys: List[str]) -> Optional[dict]:
         return {key: str(obj[key]) for key in keys if obj.get(key)} or None
 
-    def _get_datasource_container_key(self, datasource, workbook, is_embedded_ds):
+    def _get_datasource_container_key(
+        self, datasource: dict, workbook: Optional[dict], is_embedded_ds: bool
+    ) -> Optional[ContainerKey]:
         container_key: Optional[ContainerKey] = None
         if is_embedded_ds:  # It is embedded then parent is container is workbook
             if workbook is not None:
@@ -2072,20 +2078,8 @@ class TableauSource(StatefulIngestionSourceBase):
             if wu is not None:
                 yield wu
 
-        project_luid: Optional[str] = self._get_workbook_project_luid(workbook)
-
-        if (
-            workbook is not None
-            and project_luid
-            and project_luid in self.tableau_project_registry
-            and workbook.get(tableau_constant.NAME)
-        ):
-            browse_paths = BrowsePathsClass(
-                paths=[
-                    f"/{self.platform}/{self._project_luid_to_browse_path_name(project_luid)}"
-                    f"/{workbook[tableau_constant.NAME].replace('/', REPLACE_SLASH_CHAR)}"
-                ]
-            )
+        browse_paths = self.get_browse_paths_aspect(workbook)
+        if browse_paths:
             chart_snapshot.aspects.append(browse_paths)
         else:
             logger.warning(
@@ -2221,7 +2215,7 @@ class TableauSource(StatefulIngestionSourceBase):
             workbook_id=workbook_id,
         )
 
-    def gen_project_key(self, project_luid):
+    def gen_project_key(self, project_luid: str) -> ProjectKey:
         return ProjectKey(
             platform=self.platform,
             instance=self.config.platform_instance,
@@ -2378,32 +2372,8 @@ class TableauSource(StatefulIngestionSourceBase):
             if wu is not None:
                 yield wu
 
-        project_luid: Optional[str] = self._get_workbook_project_luid(workbook)
-        if (
-            workbook is not None
-            and project_luid
-            and project_luid in self.tableau_project_registry
-            and workbook.get(tableau_constant.NAME)
-        ):
-            browse_paths = BrowsePathsClass(
-                paths=[
-                    f"/{self.platform}/{self._project_luid_to_browse_path_name(project_luid)}"
-                    f"/{workbook[tableau_constant.NAME].replace('/', REPLACE_SLASH_CHAR)}"
-                ]
-            )
-            dashboard_snapshot.aspects.append(browse_paths)
-        elif (
-            workbook is not None
-            and workbook.get(tableau_constant.PROJECT_NAME)
-            and workbook.get(tableau_constant.NAME)
-        ):
-            # browse path
-            browse_paths = BrowsePathsClass(
-                paths=[
-                    f"/{self.platform}/{workbook[tableau_constant.PROJECT_NAME].replace('/', REPLACE_SLASH_CHAR)}"
-                    f"/{workbook[tableau_constant.NAME].replace('/', REPLACE_SLASH_CHAR)}"
-                ]
-            )
+        browse_paths = self.get_browse_paths_aspect(workbook)
+        if browse_paths:
             dashboard_snapshot.aspects.append(browse_paths)
         else:
             logger.warning(
@@ -2432,6 +2402,31 @@ class TableauSource(StatefulIngestionSourceBase):
                 dashboard_snapshot.urn,
             )
 
+    def get_browse_paths_aspect(
+        self, workbook: Optional[Dict]
+    ) -> Optional[BrowsePathsClass]:
+        browse_paths: Optional[BrowsePathsClass] = None
+        if workbook and workbook.get(tableau_constant.NAME):
+            project_luid: Optional[str] = self._get_workbook_project_luid(workbook)
+            if project_luid in self.tableau_project_registry:
+                browse_paths = BrowsePathsClass(
+                    paths=[
+                        f"/{self.platform}/{self._project_luid_to_browse_path_name(project_luid)}"
+                        f"/{workbook[tableau_constant.NAME].replace('/', REPLACE_SLASH_CHAR)}"
+                    ]
+                )
+
+            elif workbook.get(tableau_constant.PROJECT_NAME):
+                # browse path
+                browse_paths = BrowsePathsClass(
+                    paths=[
+                        f"/{self.platform}/{workbook[tableau_constant.PROJECT_NAME].replace('/', REPLACE_SLASH_CHAR)}"
+                        f"/{workbook[tableau_constant.NAME].replace('/', REPLACE_SLASH_CHAR)}"
+                    ]
+                )
+
+        return browse_paths
+
     def emit_embedded_datasources(self) -> Iterable[MetadataWorkUnit]:
         datasource_filter = f"{tableau_constant.ID_WITH_IN}: {json.dumps(self.embedded_datasource_ids_being_used)}"
 
@@ -2445,35 +2440,6 @@ class TableauSource(StatefulIngestionSourceBase):
                 datasource.get(tableau_constant.WORKBOOK),
                 is_embedded_ds=True,
             )
-
-    @lru_cache(maxsize=None)
-    def _get_schema(self, schema_provided: str, database: str, fullName: str) -> str:
-        # For some databases, the schema attribute in tableau api does not return
-        # correct schema name for the table. For more information, see
-        # https://help.tableau.com/current/api/metadata_api/en-us/docs/meta_api_model.html#schema_attribute.
-        # Hence we extract schema from fullName whenever fullName is available
-        schema = self._extract_schema_from_fullName(fullName) if fullName else ""
-        if not schema:
-            schema = schema_provided
-        elif schema != schema_provided:
-            logger.debug(
-                "Correcting schema, provided {0}, corrected {1}".format(
-                    schema_provided, schema
-                )
-            )
-
-        if not schema and database in self.config.default_schema_map:
-            schema = self.config.default_schema_map[database]
-
-        return schema
-
-    @lru_cache(maxsize=None)
-    def _extract_schema_from_fullName(self, fullName: str) -> str:
-        # fullName is observed to be in format [schemaName].[tableName]
-        # OR simply tableName OR [tableName]
-        if fullName.startswith("[") and "].[" in fullName:
-            return fullName[1 : fullName.index("]")]
-        return ""
 
     @lru_cache(maxsize=None)
     def get_last_modified(

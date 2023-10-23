@@ -75,7 +75,7 @@ public class DatasetMapper implements ModelMapper<EntityResponse, Dataset> {
         result.setType(EntityType.DATASET);
 
         EnvelopedAspectMap aspectMap = entityResponse.getAspects();
-        Long lastIngested = SystemMetadataUtils.getLastIngested(aspectMap);
+        Long lastIngested = SystemMetadataUtils.getLastIngestedTime(aspectMap);
         result.setLastIngested(lastIngested);
 
         MappingHelper<Dataset> mappingHelper = new MappingHelper<>(aspectMap, result);
@@ -145,6 +145,9 @@ public class DatasetMapper implements ModelMapper<EntityResponse, Dataset> {
         properties.setQualifiedName(gmsProperties.getQualifiedName());
         dataset.setProperties(properties);
         dataset.setDescription(properties.getDescription());
+        if (gmsProperties.getUri() != null) {
+            dataset.setUri(gmsProperties.getUri().toString());
+        }
         TimeStamp created = gmsProperties.getCreated();
         if (created != null) {
             properties.setCreated(created.getTime());
