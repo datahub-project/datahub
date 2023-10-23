@@ -27,11 +27,7 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DataHubGraph
-from datahub.ingestion.source.sql.sql_common import (
-    MISSING_COLUMN_INFO,
-    SqlWorkUnit,
-    register_custom_type,
-)
+from datahub.ingestion.source.sql.sql_common import SqlWorkUnit, register_custom_type
 from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 from datahub.ingestion.source.sql.sql_generic_profiler import ProfilingSqlReport
 from datahub.ingestion.source.sql.two_tier_sql_source import (
@@ -85,6 +81,14 @@ class BaseTeradataConfig(TwoTierSQLAlchemyConfig):
 
 
 class TeradataConfig(BaseTeradataConfig, BaseTimeWindowConfig):
+    databases: Optional[List[str]] = Field(
+        default=None,
+        description=(
+            "List of databases to ingest. If not specified, all databases will be ingested."
+            " Even if this is specified, databases will still be filtered by `database_pattern`."
+        ),
+    )
+
     database_pattern = Field(
         default=AllowDenyPattern(
             deny=[
@@ -204,7 +208,9 @@ class TeradataSource(TwoTierSQLAlchemySource):
      and "timestamp" < TIMESTAMP '{end_time}'
      """
 
-    TABLES_AND_VIEWS_QIERY: str = """
+    LINEAGE_QUERY_DATABASE_FILTER: str = """and default_database IN ({databases})"""
+
+    TABLES_AND_VIEWS_QUERY: str = """
 SELECT
     t.DatabaseName,
     t.TableName as name,
@@ -324,6 +330,8 @@ ORDER by DatabaseName, TableName;
             inspector = inspect(conn)
             if self.config.database and self.config.database != "":
                 databases = [self.config.database]
+            elif self.config.databases:
+                databases = self.config.databases
             else:
                 databases = inspector.get_schema_names()
             for db in databases:
@@ -362,27 +370,6 @@ ORDER by DatabaseName, TableName;
             ],
         )
         yield from super().loop_tables(inspector, schema, sql_config)
-
-    def _get_columns(
-        self, dataset_name: str, inspector: Inspector, schema: str, table: str
-    ) -> List[dict]:
-        columns = []
-        try:
-            for t in self._tables_cache[schema]:
-                if t.name == table:
-                    columns = inspector.get_columns(
-                        table, schema, table_type=t.object_type
-                    )
-                    if len(columns) == 0:
-                        self.warn(logger, MISSING_COLUMN_INFO, dataset_name)
-                break
-        except Exception as e:
-            self.warn(
-                logger,
-                dataset_name,
-                f"unable to get column information due to an error -> {e}",
-            )
-        return columns
 
     def cached_get_table_properties(
         self, inspector: Inspector, schema: str, table: str
@@ -440,7 +427,7 @@ ORDER by DatabaseName, TableName;
 
     def cache_tables_and_views(self) -> None:
         engine = self.get_metadata_engine()
-        for entry in engine.execute(self.TABLES_AND_VIEWS_QIERY):
+        for entry in engine.execute(self.TABLES_AND_VIEWS_QUERY):
             table = TeradataTable(
                 database=entry.DatabaseName.strip(),
                 name=entry.name.strip(),
@@ -460,15 +447,12 @@ ORDER by DatabaseName, TableName;
 
     def get_audit_log_mcps(self) -> Iterable[MetadataWorkUnit]:
         engine = self.get_metadata_engine()
-        for entry in engine.execute(
-            self.LINEAGE_QUERY.format(
-                start_time=self.config.start_time, end_time=self.config.end_time
-            )
-        ):
+        for entry in engine.execute(self._make_lineage_query()):
             self.report.num_queries_parsed += 1
             if self.report.num_queries_parsed % 1000 == 0:
                 logger.info(f"Parsed {self.report.num_queries_parsed} queries")
-
+            print(entry.query)
+            print()
             yield from self.gen_lineage_from_query(
                 query=entry.query,
                 default_database=entry.default_database,
@@ -476,6 +460,16 @@ ORDER by DatabaseName, TableName;
                 user=entry.user,
                 is_view_ddl=False,
             )
+
+    def _make_lineage_query(self) -> str:
+        query = self.LINEAGE_QUERY.format(
+            start_time=self.config.start_time, end_time=self.config.end_time
+        )
+        if self.config.databases:
+            query += self.LINEAGE_QUERY_DATABASE_FILTER.format(
+                databases=",".join([f"'{db}'" for db in self.config.databases])
+            )
+        return query
 
     def gen_lineage_from_query(
         self,
