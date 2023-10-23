@@ -12,7 +12,7 @@ from snowflake.connector.network import (
     OAUTH_AUTHENTICATOR,
 )
 
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.oauth import OAuthConfiguration, OAuthIdentityProvider
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
@@ -42,7 +42,7 @@ VALID_AUTH_TYPES: Dict[str, str] = {
 SNOWFLAKE_HOST_SUFFIX = ".snowflakecomputing.com"
 
 
-class BaseSnowflakeConfig(BaseTimeWindowConfig):
+class BaseSnowflakeConfig(ConfigModel):
     # Note: this config model is also used by the snowflake-usage source.
 
     options: dict = pydantic.Field(
@@ -339,7 +339,7 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
             raise Exception("Not expected to be here.")
 
 
-class SnowflakeConfig(BaseSnowflakeConfig, SQLCommonConfig):
+class SnowflakeConfig(BaseSnowflakeConfig, BaseTimeWindowConfig, SQLCommonConfig):
 
     include_table_lineage: bool = pydantic.Field(
         default=True,

@@ -54,7 +54,6 @@ class Constant:
 SUPPORTED_DATA_PLATFORM_MAPPING = {
     "postgres": "postgres",
     "snowflake": "snowflake",
-    "mysql": "mysql",
 }
 
 

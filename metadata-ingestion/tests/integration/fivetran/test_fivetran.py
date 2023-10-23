@@ -19,15 +19,6 @@ def default_query_results(query):
     elif query == FivetranLogQuery.get_connectors_query():
         return [
             {
-                "connector_id": "fide_sizzle",
-                "connecting_user_id": "reapply_phone",
-                "connector_type_id": "fivetran_log",
-                "connector_name": "new_fivetran_log",
-                "paused": False,
-                "sync_frequency": 360,
-                "destination_id": "interval_unconstitutional",
-            },
-            {
                 "connector_id": "calendar_elected",
                 "connecting_user_id": "reapply_phone",
                 "connector_type_id": "postgres",
@@ -107,7 +98,7 @@ def test_fivetran_basic(pytestconfig, tmp_path):
     golden_file = test_resources_dir / "fivetran_golden.json"
 
     with mock.patch(
-        "datahub.ingestion.source.fivetran.data_classes.create_engine"
+        "datahub.ingestion.source.fivetran.fivetran_log_api.create_engine"
     ) as mock_create_engine:
         connection_magic_mock = MagicMock()
         connection_magic_mock.execute.side_effect = default_query_results

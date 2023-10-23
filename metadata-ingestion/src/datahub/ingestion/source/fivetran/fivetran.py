@@ -24,11 +24,8 @@ from datahub.ingestion.source.fivetran.config import (
     FivetranSourceReport,
     PlatformDetail,
 )
-from datahub.ingestion.source.fivetran.data_classes import (
-    Connector,
-    FivetranLogDataDictionary,
-    Job,
-)
+from datahub.ingestion.source.fivetran.data_classes import Connector, Job
+from datahub.ingestion.source.fivetran.fivetran_log_api import FivetranLogAPI
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
 )
@@ -61,7 +58,7 @@ class FivetranSource(StatefulIngestionSourceBase):
         self.config = config
         self.report = FivetranSourceReport()
 
-        self.audit_log = FivetranLogDataDictionary(self.config, self.report)
+        self.audit_log = FivetranLogAPI(self.config.fivetran_log_config)
 
         # Create and register the stateful ingestion use-case handler.
         self.stale_entity_removal_handler = StaleEntityRemovalHandler.create(
@@ -77,42 +74,37 @@ class FivetranSource(StatefulIngestionSourceBase):
         source_platform_detail: PlatformDetail = PlatformDetail()
         destination_platform_detail: PlatformDetail = PlatformDetail()
         # Get platform details for connector source
-        if connector.connector_id in self.config.sources_to_platform_instance.keys():
-            source_platform_detail = self.config.sources_to_platform_instance[
-                connector.connector_id
-            ]
+        source_platform_detail = self.config.sources_to_platform_instance.get(
+            connector.connector_id, PlatformDetail()
+        )
 
         # Get platform details for destination
-        if (
-            connector.destination_id
-            in self.config.destination_to_platform_instance.keys()
-        ):
-            destination_platform_detail = self.config.destination_to_platform_instance[
-                connector.destination_id
-            ]
+        destination_platform_detail = self.config.destination_to_platform_instance.get(
+            connector.destination_id, PlatformDetail()
+        )
 
-        if connector.connector_type in SUPPORTED_DATA_PLATFORM_MAPPING:
-            for table_name in connector.source_tables:
+        is_platform_supported = True
+        if connector.connector_type not in SUPPORTED_DATA_PLATFORM_MAPPING:
+            is_platform_supported = False
+            logger.debug(
+                f"Fivetran connector source type: {connector.connector_type} is not supported to mapped with Datahub dataset entity."
+            )
+        for source_table, destination_table in connector.table_lineage:
+            if is_platform_supported:
                 input_dataset_urn_list.append(
                     DatasetUrn.create_from_ids(
                         platform_id=SUPPORTED_DATA_PLATFORM_MAPPING[
                             connector.connector_type
                         ],
-                        table_name=table_name,
+                        table_name=source_table,
                         env=source_platform_detail.env,
                         platform_instance=source_platform_detail.platform_instance,
                     )
                 )
-        else:
-            logger.debug(
-                f"Fivetran connector source type: {connector.connector_type} is not supported to mapped with Datahub dataset entity."
-            )
-
-        for table_name in connector.destination_tables:
             output_dataset_urn_list.append(
                 DatasetUrn.create_from_ids(
                     platform_id=self.config.fivetran_log_config.destination_platform,
-                    table_name=table_name,
+                    table_name=destination_table,
                     env=destination_platform_detail.env,
                     platform_instance=destination_platform_detail.platform_instance,
                 )
@@ -161,6 +153,7 @@ class FivetranSource(StatefulIngestionSourceBase):
         ) = self._generate_iolet_dataset_urn_list(connector=connector)
         datajob.inlets.extend(input_dataset_urn_list)
         datajob.outlets.extend(output_dataset_urn_list)
+        # TODO: Add fine grained lineages after FineGrainedLineageDownstreamType.DATASET enabled
 
         return datajob
 
@@ -236,6 +229,9 @@ class FivetranSource(StatefulIngestionSourceBase):
         logger.info("Fivetran plugin execution is started")
         connectors = self.audit_log.get_connectors_list()
         for connector in connectors:
+            if not self.config.connector_patterns.allowed(connector.connector_name):
+                self.report.report_connectors_dropped(connector.connector_name)
+                continue
             logger.info(f"Processing connector id: {connector.connector_id}")
             yield from self._get_connector_workunit(connector)
 
