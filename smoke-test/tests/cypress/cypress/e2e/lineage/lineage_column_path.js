@@ -1,10 +1,14 @@
-import { aliasQuery, hasOperationName } from "../utils";
+import { aliasQuery } from "../utils";
 const DATASET_ENTITY_TYPE = 'dataset';
 const DATASET_URN = 'urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleCypressHdfsDataset,PROD)';
 const DOWNSTREAM_DATASET_URN = "urn:li:dataset:(urn:li:dataPlatform:kafka,SampleCypressKafkaDataset,PROD)";
 const upstream = '[data-testid="node-urn:li:dataset:(urn:li:dataPlatform:kafka,SampleCypressKafkaDataset,PROD)-Upstream"] text';
 const downstream = '[data-testid="node-urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleCypressHdfsDataset,PROD)-Downstream"] text';
 
+const verifyColumnPathModal = (from, to) => {
+  cy.get('[data-testid="entity-paths-modal"]').contains(from).should("be.visible");
+  cy.get('[data-testid="entity-paths-modal"]').contains(to).should("be.visible");
+};
 
 describe("column-Level lineage and impact analysis path test", () => {
     beforeEach(() => {
@@ -19,7 +23,7 @@ describe("column-Level lineage and impact analysis path test", () => {
       cy.loginWithCredentials();
       cy.goToEntityLineageGraph(DATASET_ENTITY_TYPE, DATASET_URN);
 
-      //Enable “show columns” toggle
+      // Enable “show columns” toggle
       cy.waitTextVisible("SampleCypressHdfs");
       cy.clickOptionWithTestId("column-toggle");
       cy.waitTextVisible("shipment_info");
@@ -38,7 +42,7 @@ describe("column-Level lineage and impact analysis path test", () => {
       cy.clickOptionWithText("Column Lineage");
       cy.clickOptionWithText("Downstream");
 
-      //Verify upstream column lineage, test column path modal
+      // Verify upstream column lineage, test column path modal
       cy.clickOptionWithText("Upstream");
       cy.waitTextVisible("SampleCypressKafkaDataset");
       cy.ensureTextNotPresent("field_bar");
@@ -46,11 +50,9 @@ describe("column-Level lineage and impact analysis path test", () => {
       cy.get(".rc-virtual-list").contains("shipment_info").click(); 
       cy.waitTextVisible("field_bar");
       cy.clickOptionWithText("field_bar");
-      cy.get('[data-testid="entity-paths-modal"]').contains("Column path").should("be.visible");
-      cy.get('[data-testid="entity-paths-modal"]').contains("field_bar").should("be.visible");
-      cy.get('[data-testid="entity-paths-modal"]').contains("shipment_info").should("be.visible");
+      verifyColumnPathModal("shipment_info", "field_bar");
       cy.get('[data-testid="entity-paths-modal"] [data-icon="close"]').click();
-
+    
       // Verify downstream column lineage, test column path modal
       cy.goToDataset(DOWNSTREAM_DATASET_URN, "SampleCypressKafkaDataset");
       cy.openEntityTab("Lineage");
@@ -60,9 +62,7 @@ describe("column-Level lineage and impact analysis path test", () => {
       cy.get(".rc-virtual-list").contains("field_bar").click(); 
       cy.waitTextVisible("shipment_info");
       cy.clickOptionWithText("shipment_info");
-      cy.get('[data-testid="entity-paths-modal"]').contains("Column path").should("be.visible");
-      cy.get('[data-testid="entity-paths-modal"]').contains("field_bar").should("be.visible");
-      cy.get('[data-testid="entity-paths-modal"]').contains("shipment_info").should("be.visible");
+      verifyColumnPathModal("shipment_info", "field_bar");
       cy.get('[data-testid="entity-paths-modal"] [data-icon="close"]').click();
     });
 }); 
