@@ -24,6 +24,7 @@ def assert_sql_result_with_resolver(
     *,
     expected_file: pathlib.Path,
     schema_resolver: SchemaResolver,
+    allow_table_error: bool = False,
     **kwargs: Any,
 ) -> None:
     # HACK: Our BigQuery source overwrites this value and doesn't undo it.
@@ -36,6 +37,14 @@ def assert_sql_result_with_resolver(
         **kwargs,
     )
 
+    if res.debug_info.table_error:
+        if allow_table_error:
+            logger.info(
+                f"SQL parser table error: {res.debug_info.table_error}",
+                exc_info=res.debug_info.table_error,
+            )
+        else:
+            raise res.debug_info.table_error
     if res.debug_info.column_error:
         logger.warning(
             f"SQL parser column error: {res.debug_info.column_error}",
@@ -70,11 +79,14 @@ def assert_sql_result(
     sql: str,
     *,
     dialect: str,
+    platform_instance: Optional[str] = None,
     expected_file: pathlib.Path,
     schemas: Optional[Dict[str, SchemaInfo]] = None,
     **kwargs: Any,
 ) -> None:
-    schema_resolver = SchemaResolver(platform=dialect)
+    schema_resolver = SchemaResolver(
+        platform=dialect, platform_instance=platform_instance
+    )
     if schemas:
         for urn, schema in schemas.items():
             schema_resolver.add_raw_schema_info(urn, schema)

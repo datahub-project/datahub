@@ -33,9 +33,9 @@ public class FieldResolver {
   /**
    * Helper function that returns FieldResolver given a fetchFieldValue function
    */
-  public static FieldResolver getResolverFromFunction(ResourceSpec resourceSpec,
-      Function<ResourceSpec, FieldValue> fetchFieldValue) {
-    return new FieldResolver(() -> CompletableFuture.supplyAsync(() -> fetchFieldValue.apply(resourceSpec)));
+  public static FieldResolver getResolverFromFunction(EntitySpec entitySpec,
+      Function<EntitySpec, FieldValue> fetchFieldValue) {
+    return new FieldResolver(() -> CompletableFuture.supplyAsync(() -> fetchFieldValue.apply(entitySpec)));
   }
 
   public static FieldValue emptyFieldValue() {

@@ -1,6 +1,7 @@
 import logging
 import re
 import time
+from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
 from typing import Dict, Iterable, List, Optional, Set, Union
 from urllib.parse import urljoin
@@ -40,6 +41,7 @@ from datahub.ingestion.api.source import (
     TestConnectionReport,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.aws.s3_util import make_s3_urn_for_lineage
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
@@ -367,15 +369,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         ownership = self._create_table_ownership_aspect(table)
         data_platform_instance = self._create_data_platform_instance_aspect()
 
-        if self.config.include_column_lineage:
-            self.unity_catalog_api_proxy.get_column_lineage(
-                table, include_entity_lineage=self.config.include_notebooks
-            )
-        elif self.config.include_table_lineage:
-            self.unity_catalog_api_proxy.table_lineage(
-                table, include_entity_lineage=self.config.include_notebooks
-            )
-        lineage = self._generate_lineage_aspect(dataset_urn, table)
+        lineage = self.ingest_lineage(table)
 
         if self.config.include_notebooks:
             for notebook_id in table.downstream_notebooks:
@@ -400,6 +394,28 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 ],
             )
         ]
+
+    def ingest_lineage(self, table: Table) -> Optional[UpstreamLineageClass]:
+        if self.config.include_table_lineage:
+            self.unity_catalog_api_proxy.table_lineage(
+                table, include_entity_lineage=self.config.include_notebooks
+            )
+
+        if self.config.include_column_lineage and table.upstreams:
+            if len(table.columns) > self.config.column_lineage_column_limit:
+                self.report.num_column_lineage_skipped_column_count += 1
+
+            with ThreadPoolExecutor(
+                max_workers=self.config.lineage_max_workers
+            ) as executor:
+                for column in table.columns[: self.config.column_lineage_column_limit]:
+                    executor.submit(
+                        self.unity_catalog_api_proxy.get_column_lineage,
+                        table,
+                        column.name,
+                    )
+
+        return self._generate_lineage_aspect(self.gen_dataset_urn(table.ref), table)
 
     def _generate_lineage_aspect(
         self, dataset_urn: str, table: Table
@@ -439,6 +455,28 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                     type=DatasetLineageTypeClass.TRANSFORMED,
                 )
             )
+
+        if self.config.include_external_lineage:
+            for external_ref in table.external_upstreams:
+                if not external_ref.has_permission or not external_ref.path:
+                    self.report.num_external_upstreams_lacking_permissions += 1
+                    logger.warning(
+                        f"Lacking permissions for external file upstream on {table.ref}"
+                    )
+                elif external_ref.path.startswith("s3://"):
+                    upstreams.append(
+                        UpstreamClass(
+                            dataset=make_s3_urn_for_lineage(
+                                external_ref.path, self.config.env
+                            ),
+                            type=DatasetLineageTypeClass.COPY,
+                        )
+                    )
+                else:
+                    self.report.num_external_upstreams_unsupported += 1
+                    logger.warning(
+                        f"Unsupported external file upstream on {table.ref}: {external_ref.path}"
+                    )
 
         if upstreams:
             return UpstreamLineageClass(

@@ -5,12 +5,13 @@ import itertools
 import logging
 import pathlib
 from collections import defaultdict
-from typing import Dict, List, Optional, Set, Tuple, Union
+from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
 import pydantic.dataclasses
 import sqlglot
 import sqlglot.errors
 import sqlglot.lineage
+import sqlglot.optimizer.annotate_types
 import sqlglot.optimizer.qualify
 import sqlglot.optimizer.qualify_columns
 from pydantic import BaseModel
@@ -23,7 +24,17 @@ from datahub.emitter.mce_builder import (
 from datahub.ingestion.api.closeable import Closeable
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import BigqueryTableIdentifier
-from datahub.metadata.schema_classes import OperationTypeClass, SchemaMetadataClass
+from datahub.metadata.schema_classes import (
+    ArrayTypeClass,
+    BooleanTypeClass,
+    DateTypeClass,
+    NumberTypeClass,
+    OperationTypeClass,
+    SchemaFieldDataTypeClass,
+    SchemaMetadataClass,
+    StringTypeClass,
+    TimeTypeClass,
+)
 from datahub.utilities.file_backed_collections import ConnectionWrapper, FileBackedDict
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 
@@ -90,8 +101,18 @@ def get_query_type_of_sql(expression: sqlglot.exp.Expression) -> QueryType:
     return QueryType.UNKNOWN
 
 
+class _ParserBaseModel(
+    BaseModel,
+    arbitrary_types_allowed=True,
+    json_encoders={
+        SchemaFieldDataTypeClass: lambda v: v.to_obj(),
+    },
+):
+    pass
+
+
 @functools.total_ordering
-class _FrozenModel(BaseModel, frozen=True):
+class _FrozenModel(_ParserBaseModel, frozen=True):
     def __lt__(self, other: "_FrozenModel") -> bool:
         for field in self.__fields__:
             self_v = getattr(self, field)
@@ -146,29 +167,42 @@ class _ColumnRef(_FrozenModel):
     column: str
 
 
-class ColumnRef(BaseModel):
+class ColumnRef(_ParserBaseModel):
     table: Urn
     column: str
 
 
-class _DownstreamColumnRef(BaseModel):
+class _DownstreamColumnRef(_ParserBaseModel):
     table: Optional[_TableName]
     column: str
+    column_type: Optional[sqlglot.exp.DataType]
 
 
-class DownstreamColumnRef(BaseModel):
+class DownstreamColumnRef(_ParserBaseModel):
     table: Optional[Urn]
     column: str
+    column_type: Optional[SchemaFieldDataTypeClass]
+    native_column_type: Optional[str]
+
+    @pydantic.validator("column_type", pre=True)
+    def _load_column_type(
+        cls, v: Optional[Union[dict, SchemaFieldDataTypeClass]]
+    ) -> Optional[SchemaFieldDataTypeClass]:
+        if v is None:
+            return None
+        if isinstance(v, SchemaFieldDataTypeClass):
+            return v
+        return SchemaFieldDataTypeClass.from_obj(v)
 
 
-class _ColumnLineageInfo(BaseModel):
+class _ColumnLineageInfo(_ParserBaseModel):
     downstream: _DownstreamColumnRef
     upstreams: List[_ColumnRef]
 
     logic: Optional[str]
 
 
-class ColumnLineageInfo(BaseModel):
+class ColumnLineageInfo(_ParserBaseModel):
     downstream: DownstreamColumnRef
     upstreams: List[ColumnRef]
 
@@ -176,7 +210,7 @@ class ColumnLineageInfo(BaseModel):
     logic: Optional[str] = pydantic.Field(default=None, exclude=True)
 
 
-class SqlParsingDebugInfo(BaseModel, arbitrary_types_allowed=True):
+class SqlParsingDebugInfo(_ParserBaseModel):
     confidence: float = 0.0
 
     tables_discovered: int = 0
@@ -190,7 +224,7 @@ class SqlParsingDebugInfo(BaseModel, arbitrary_types_allowed=True):
         return self.table_error or self.column_error
 
 
-class SqlParsingResult(BaseModel):
+class SqlParsingResult(_ParserBaseModel):
     query_type: QueryType = QueryType.UNKNOWN
 
     in_tables: List[Urn]
@@ -207,9 +241,9 @@ class SqlParsingResult(BaseModel):
     )
 
 
-def _parse_statement(sql: str, dialect: str) -> sqlglot.Expression:
-    statement = sqlglot.parse_one(
-        sql, read=dialect, error_level=sqlglot.ErrorLevel.RAISE
+def _parse_statement(sql: sqlglot.exp.ExpOrStr, dialect: str) -> sqlglot.Expression:
+    statement: sqlglot.Expression = sqlglot.maybe_parse(
+        sql, dialect=dialect, error_level=sqlglot.ErrorLevel.RAISE
     )
     return statement
 
@@ -433,13 +467,19 @@ def _column_level_lineage(  # noqa: C901
     default_db: Optional[str],
     default_schema: Optional[str],
 ) -> List[_ColumnLineageInfo]:
-    if not isinstance(
-        statement,
-        _SupportedColumnLineageTypesTuple,
+    is_create_ddl = _is_create_table_ddl(statement)
+    if (
+        not isinstance(
+            statement,
+            _SupportedColumnLineageTypesTuple,
+        )
+        and not is_create_ddl
     ):
         raise UnsupportedStatementTypeError(
             f"Can only generate column-level lineage for select-like inner statements, not {type(statement)}"
         )
+
+    column_lineage: List[_ColumnLineageInfo] = []
 
     use_case_insensitive_cols = dialect in {
         # Column identifiers are case-insensitive in BigQuery, so we need to
@@ -448,6 +488,11 @@ def _column_level_lineage(  # noqa: C901
         # Our snowflake source lowercases column identifiers, so we are forced
         # to do fuzzy (case-insensitive) resolution instead of exact resolution.
         "snowflake",
+        # Teradata column names are case-insensitive.
+        # A name, even when enclosed in double quotation marks, is not case sensitive. For example, CUSTOMER and Customer are the same.
+        # See more below:
+        # https://documentation.sas.com/doc/en/pgmsascdc/9.4_3.5/acreldb/n0ejgx4895bofnn14rlguktfx5r3.htm
+        "teradata",
     }
 
     sqlglot_db_schema = sqlglot.MappingSchema(
@@ -541,7 +586,46 @@ def _column_level_lineage(  # noqa: C901
         ) from e
     logger.debug("Qualified sql %s", statement.sql(pretty=True, dialect=dialect))
 
-    column_lineage = []
+    # Handle the create DDL case.
+    if is_create_ddl:
+        assert (
+            output_table is not None
+        ), "output_table must be set for create DDL statements"
+
+        create_schema: sqlglot.exp.Schema = statement.this
+        sqlglot_columns = create_schema.expressions
+
+        for column_def in sqlglot_columns:
+            if not isinstance(column_def, sqlglot.exp.ColumnDef):
+                # Ignore things like constraints.
+                continue
+
+            output_col = _schema_aware_fuzzy_column_resolve(
+                output_table, column_def.name
+            )
+            output_col_type = column_def.args.get("kind")
+
+            column_lineage.append(
+                _ColumnLineageInfo(
+                    downstream=_DownstreamColumnRef(
+                        table=output_table,
+                        column=output_col,
+                        column_type=output_col_type,
+                    ),
+                    upstreams=[],
+                )
+            )
+
+        return column_lineage
+
+    # Try to figure out the types of the output columns.
+    try:
+        statement = sqlglot.optimizer.annotate_types.annotate_types(
+            statement, schema=sqlglot_db_schema
+        )
+    except sqlglot.errors.OptimizeError as e:
+        # This is not a fatal error, so we can continue.
+        logger.debug("sqlglot failed to annotate types: %s", e)
 
     try:
         assert isinstance(statement, _SupportedColumnLineageTypesTuple)
@@ -551,9 +635,7 @@ def _column_level_lineage(  # noqa: C901
             (select_col.alias_or_name, select_col) for select_col in statement.selects
         ]
         logger.debug("output columns: %s", [col[0] for col in output_columns])
-        output_col: str
         for output_col, original_col_expression in output_columns:
-            # print(f"output column: {output_col}")
             if output_col == "*":
                 # If schema information is available, the * will be expanded to the actual columns.
                 # Otherwise, we can't process it.
@@ -581,7 +663,7 @@ def _column_level_lineage(  # noqa: C901
 
             # Generate SELECT lineage.
             # Using a set here to deduplicate upstreams.
-            direct_col_upstreams: Set[_ColumnRef] = set()
+            direct_raw_col_upstreams: Set[_ColumnRef] = set()
             for node in lineage_node.walk():
                 if node.downstream:
                     # We only want the leaf nodes.
@@ -596,8 +678,9 @@ def _column_level_lineage(  # noqa: C901
                     if node.subfield:
                         normalized_col = f"{normalized_col}.{node.subfield}"
 
-                    col = _schema_aware_fuzzy_column_resolve(table_ref, normalized_col)
-                    direct_col_upstreams.add(_ColumnRef(table=table_ref, column=col))
+                    direct_raw_col_upstreams.add(
+                        _ColumnRef(table=table_ref, column=normalized_col)
+                    )
                 else:
                     # This branch doesn't matter. For example, a count(*) column would go here, and
                     # we don't get any column-level lineage for that.
@@ -613,19 +696,35 @@ def _column_level_lineage(  # noqa: C901
 
             output_col = _schema_aware_fuzzy_column_resolve(output_table, output_col)
 
-            if not direct_col_upstreams:
+            # Guess the output column type.
+            output_col_type = None
+            if original_col_expression.type:
+                output_col_type = original_col_expression.type
+
+            # Fuzzy resolve upstream columns.
+            direct_resolved_col_upstreams = {
+                _ColumnRef(
+                    table=edge.table,
+                    column=_schema_aware_fuzzy_column_resolve(edge.table, edge.column),
+                )
+                for edge in direct_raw_col_upstreams
+            }
+
+            if not direct_resolved_col_upstreams:
                 logger.debug(f'  "{output_col}" has no upstreams')
             column_lineage.append(
                 _ColumnLineageInfo(
                     downstream=_DownstreamColumnRef(
-                        table=output_table, column=output_col
+                        table=output_table,
+                        column=output_col,
+                        column_type=output_col_type,
                     ),
-                    upstreams=sorted(direct_col_upstreams),
+                    upstreams=sorted(direct_resolved_col_upstreams),
                     # logic=column_logic.sql(pretty=True, dialect=dialect),
                 )
             )
 
-        # TODO: Also extract referenced columns (e.g. non-SELECT lineage)
+        # TODO: Also extract referenced columns (aka auxillary / non-SELECT lineage)
     except (sqlglot.errors.OptimizeError, ValueError) as e:
         raise SqlUnderstandingError(
             f"sqlglot failed to compute some lineage: {e}"
@@ -644,6 +743,12 @@ def _extract_select_from_create(
         return inner
     else:
         return statement
+
+
+def _is_create_table_ddl(statement: sqlglot.exp.Expression) -> bool:
+    return isinstance(statement, sqlglot.exp.Create) and isinstance(
+        statement.this, sqlglot.exp.Schema
+    )
 
 
 def _try_extract_select(
@@ -673,9 +778,46 @@ def _try_extract_select(
     return statement
 
 
+def _translate_sqlglot_type(
+    sqlglot_type: sqlglot.exp.DataType.Type,
+) -> Optional[SchemaFieldDataTypeClass]:
+    TypeClass: Any
+    if sqlglot_type in sqlglot.exp.DataType.TEXT_TYPES:
+        TypeClass = StringTypeClass
+    elif sqlglot_type in sqlglot.exp.DataType.NUMERIC_TYPES or sqlglot_type in {
+        sqlglot.exp.DataType.Type.DECIMAL,
+    }:
+        TypeClass = NumberTypeClass
+    elif sqlglot_type in {
+        sqlglot.exp.DataType.Type.BOOLEAN,
+        sqlglot.exp.DataType.Type.BIT,
+    }:
+        TypeClass = BooleanTypeClass
+    elif sqlglot_type in {
+        sqlglot.exp.DataType.Type.DATE,
+    }:
+        TypeClass = DateTypeClass
+    elif sqlglot_type in sqlglot.exp.DataType.TEMPORAL_TYPES:
+        TypeClass = TimeTypeClass
+    elif sqlglot_type in {
+        sqlglot.exp.DataType.Type.ARRAY,
+    }:
+        TypeClass = ArrayTypeClass
+    elif sqlglot_type in {
+        sqlglot.exp.DataType.Type.UNKNOWN,
+    }:
+        return None
+    else:
+        logger.debug("Unknown sqlglot type: %s", sqlglot_type)
+        return None
+
+    return SchemaFieldDataTypeClass(type=TypeClass())
+
+
 def _translate_internal_column_lineage(
     table_name_urn_mapping: Dict[_TableName, str],
     raw_column_lineage: _ColumnLineageInfo,
+    dialect: str,
 ) -> ColumnLineageInfo:
     downstream_urn = None
     if raw_column_lineage.downstream.table:
@@ -684,6 +826,18 @@ def _translate_internal_column_lineage(
         downstream=DownstreamColumnRef(
             table=downstream_urn,
             column=raw_column_lineage.downstream.column,
+            column_type=_translate_sqlglot_type(
+                raw_column_lineage.downstream.column_type.this
+            )
+            if raw_column_lineage.downstream.column_type
+            else None,
+            native_column_type=raw_column_lineage.downstream.column_type.sql(
+                dialect=dialect
+            )
+            if raw_column_lineage.downstream.column_type
+            and raw_column_lineage.downstream.column_type.this
+            != sqlglot.exp.DataType.Type.UNKNOWN
+            else None,
         ),
         upstreams=[
             ColumnRef(
@@ -700,12 +854,14 @@ def _get_dialect(platform: str) -> str:
     # TODO: convert datahub platform names to sqlglot dialect
     if platform == "presto-on-hive":
         return "hive"
+    if platform == "mssql":
+        return "tsql"
     else:
         return platform
 
 
 def _sqlglot_lineage_inner(
-    sql: str,
+    sql: sqlglot.exp.ExpOrStr,
     schema_resolver: SchemaResolver,
     default_db: Optional[str] = None,
     default_schema: Optional[str] = None,
@@ -818,7 +974,7 @@ def _sqlglot_lineage_inner(
     if column_lineage:
         column_lineage_urns = [
             _translate_internal_column_lineage(
-                table_name_urn_mapping, internal_col_lineage
+                table_name_urn_mapping, internal_col_lineage, dialect=dialect
             )
             for internal_col_lineage in column_lineage
         ]

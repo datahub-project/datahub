@@ -1,5 +1,7 @@
 import pytest
-from tests.utils import delete_urns_from_file, get_frontend_url, ingest_file_via_rest
+
+from tests.utils import (delete_urns_from_file, get_frontend_url,
+                         ingest_file_via_rest)
 
 
 @pytest.fixture(scope="module", autouse=False)
@@ -225,6 +227,7 @@ def test_update_container(frontend_session, ingest_cleanup_data):
                 "ownerUrn": new_owner,
                 "resourceUrn": container_urn,
                 "ownerEntityType": "CORP_USER",
+                "ownershipTypeUrn": "urn:li:ownershipType:__system__technical_owner"
             }
         },
     }

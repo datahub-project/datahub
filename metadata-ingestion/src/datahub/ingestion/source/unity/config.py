@@ -7,7 +7,10 @@ import pydantic
 from pydantic import Field
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
-from datahub.configuration.source_common import DatasetSourceConfigMixin
+from datahub.configuration.source_common import (
+    DatasetSourceConfigMixin,
+    LowerCaseDatasetUrnConfigMixin,
+)
 from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
@@ -91,6 +94,7 @@ class UnityCatalogSourceConfig(
     BaseUsageConfig,
     DatasetSourceConfigMixin,
     StatefulProfilingConfigMixin,
+    LowerCaseDatasetUrnConfigMixin,
 ):
     token: str = pydantic.Field(description="Databricks personal access token")
     workspace_url: str = pydantic.Field(
@@ -162,6 +166,14 @@ class UnityCatalogSourceConfig(
         description="Option to enable/disable lineage generation.",
     )
 
+    include_external_lineage: bool = pydantic.Field(
+        default=True,
+        description=(
+            "Option to enable/disable lineage generation for external tables."
+            " Only external S3 tables are supported at the moment."
+        ),
+    )
+
     include_notebooks: bool = pydantic.Field(
         default=False,
         description="Ingest notebooks, represented as DataHub datasets.",
@@ -179,6 +191,17 @@ class UnityCatalogSourceConfig(
     include_column_lineage: bool = pydantic.Field(
         default=True,
         description="Option to enable/disable lineage generation. Currently we have to call a rest call per column to get column level lineage due to the Databrick api which can slow down ingestion. ",
+    )
+
+    column_lineage_column_limit: int = pydantic.Field(
+        default=300,
+        description="Limit the number of columns to get column level lineage. ",
+    )
+
+    lineage_max_workers: int = pydantic.Field(
+        default=5 * (os.cpu_count() or 4),
+        description="Number of worker threads to use for column lineage thread pool executor. Set to 1 to disable.",
+        hidden_from_docs=True,
     )
 
     include_usage_statistics: bool = Field(

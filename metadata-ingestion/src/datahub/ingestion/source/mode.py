@@ -98,6 +98,7 @@ class HTTPError429(HTTPError):
 @config_class(ModeConfig)
 @support_status(SupportStatus.CERTIFIED)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
+@capability(SourceCapability.LINEAGE_COARSE, "Supported by default")
 class ModeSource(Source):
     """
 
