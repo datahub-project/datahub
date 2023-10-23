@@ -3,26 +3,26 @@ apply plugin: 'org.hidetake.swagger.generator'
 
 dependencies {
 // Dependencies for open api
-    compile externalDependency.reflections
-    compile externalDependency.springBoot
-    compile externalDependency.springCore
-    compile externalDependency.springWeb
-    compile externalDependency.springWebMVC
-    compile externalDependency.springBeans
-    compile externalDependency.springContext
+    implementation externalDependency.reflections
+    implementation externalDependency.springBoot
+    implementation externalDependency.springCore
+    implementation externalDependency.springWeb
+    implementation externalDependency.springWebMVC
+    implementation externalDependency.springBeans
+    implementation externalDependency.springContext
     implementation externalDependency.antlr4Runtime
     implementation externalDependency.antlr4
-    compile externalDependency.javaxValidation
-    compile externalDependency.servletApi
-    compile group: 'javax.annotation', name: 'javax.annotation-api', version: '1.3.2'
-    compile externalDependency.jacksonDataBind
-    compile externalDependency.slf4jApi
+    implementation externalDependency.javaxValidation
+    implementation externalDependency.servletApi
+    implementation group: 'javax.annotation', name: 'javax.annotation-api', version: '1.3.2'
+    implementation externalDependency.jacksonDataBind
+    implementation externalDependency.slf4jApi
 
     // End of dependencies
-    compile externalDependency.swaggerAnnotations
-    swaggerCodegen 'io.swagger.codegen.v3:swagger-codegen-cli:3.0.33'
+    implementation externalDependency.swaggerAnnotations
+    swaggerCodegen externalDependency.swaggerCli
 
-    testCompile externalDependency.assertJ
+    testImplementation externalDependency.assertJ
 }
 
 tasks.register('generateOpenApiPojos', GenerateSwaggerCode) {

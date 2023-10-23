@@ -6,7 +6,8 @@ import TabItem from '@theme/TabItem';
 ## Why Would You Use Lineage?
 
 Lineage is used to capture data dependencies within an organization. It allows you to track the inputs from which a data asset is derived, along with the data assets that depend on it downstream.
-For more information about lineage, refer to [About DataHub Lineage](/docs/lineage/lineage-feature-guide.md).
+
+For more information about lineage, refer to [About DataHub Lineage](/docs/generated/lineage/lineage-feature-guide.md).
 
 ### Goal Of This Guide
 
@@ -112,7 +113,11 @@ Expected Response:
 
 You can now see the lineage between `fct_users_deleted` and `logging_events`.
 
-![lineage-added](../../imgs/apis/tutorials/lineage-added.png)
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/apis/tutorials/lineage-added.png"/>
+</p>
+
 
 ## Add Column-level Lineage
 
@@ -130,15 +135,19 @@ You can now see the lineage between `fct_users_deleted` and `logging_events`.
 
 You can now see the column-level lineage between datasets. Note that you have to enable `Show Columns` to be able to see the column-level lineage.
 
-![column-level-lineage-added](../../imgs/apis/tutorials/column-level-lineage-added.png)
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/apis/tutorials/column-level-lineage-added.png"/>
+</p>
+
 
 ## Read Lineage
 
 <Tabs>
 <TabItem value="graphql" label="GraphQL" default>
 
-```json
-mutation searchAcrossLineage {
+```graphql
+query searchAcrossLineage {
   searchAcrossLineage(
     input: {
       query: "*"

@@ -13,6 +13,7 @@ import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import java.util.Date;
 import java.util.Map;
+
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
@@ -157,6 +158,7 @@ public class StatefulTokenServiceTest {
             DataHubTokenAuthenticatorTest.class.getClassLoader().getResourceAsStream("test-entity-registry.yaml"));
     final AspectSpec keyAspectSpec = configEntityRegistry.getEntitySpec(Constants.ACCESS_TOKEN_ENTITY_NAME).getKeyAspectSpec();
 
+    Mockito.when(mockService.getEntityRegistry()).thenReturn(configEntityRegistry);
     Mockito.when(mockService.getKeyAspectSpec(Mockito.eq(Constants.ACCESS_TOKEN_ENTITY_NAME))).thenReturn(keyAspectSpec);
     Mockito.when(mockService.exists(Mockito.any(Urn.class))).thenReturn(true);
     final RollbackRunResult result = new RollbackRunResult(ImmutableList.of(), 0);
@@ -173,5 +175,9 @@ public class StatefulTokenServiceTest {
 
     // Validation should fail.
     assertThrows(TokenException.class, () -> tokenService.validateAccessToken(token));
+  }
+
+  private void mockStateful() {
+
   }
 }

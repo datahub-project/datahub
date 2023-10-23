@@ -5,3 +5,7 @@ nested:
   array:
     - one
     - two
+  numbers:
+    4: "four"
+    6: "six"
+    "8": "eight"

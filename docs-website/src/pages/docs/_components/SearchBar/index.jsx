@@ -18,7 +18,8 @@ import ExecutionEnvironment from "@docusaurus/ExecutionEnvironment";
 import { usePluralForm, useEvent } from "@docusaurus/theme-common";
 import useDocusaurusContext from "@docusaurus/useDocusaurusContext";
 import { useAllDocsData } from "@docusaurus/plugin-content-docs/client";
-import { useSearchPage } from "@docusaurus/theme-common/internal";
+import { useSearchQueryString } from "@docusaurus/theme-common";
+import { useTitleFormatter } from "@docusaurus/theme-common/internal";
 import Translate, { translate } from "@docusaurus/Translate";
 import styles from "./search.module.scss";
 
@@ -47,7 +48,7 @@ function useDocsSearchVersionsHelpers() {
   // docsPluginId -> versionName map
   const [searchVersions, setSearchVersions] = useState(() => {
     return Object.entries(allDocsData).reduce((acc, [pluginId, pluginData]) => {
-      return { ...acc, [pluginId]: pluginData.versions[0].name };
+      return { ...acc, [pluginId]: pluginData.versions?.[1].name };
     }, {});
   });
 
@@ -69,11 +70,11 @@ const SearchVersionSelectList = ({ docsSearchVersionsHelpers }) => {
   const versionedPluginEntries = Object.entries(docsSearchVersionsHelpers.allDocsData)
     // Do not show a version select for unversioned docs plugin instances
     .filter(([, docsData]) => docsData.versions.length > 1);
-
   return (
-    <div className={clsx("col", "col--3", "padding-left--none", styles.searchVersionColumn)}>
+    <>
       {versionedPluginEntries.map(([pluginId, docsData]) => {
         const labelPrefix = versionedPluginEntries.length > 1 ? `${pluginId}: ` : "";
+
         return (
           <select
             key={pluginId}
@@ -87,7 +88,7 @@ const SearchVersionSelectList = ({ docsSearchVersionsHelpers }) => {
           </select>
         );
       })}
-    </div>
+    </>
   );
 };
 
@@ -103,7 +104,7 @@ function SearchBar() {
   const documentsFoundPlural = useDocumentsFoundPlural();
 
   const docsSearchVersionsHelpers = useDocsSearchVersionsHelpers();
-  const { searchQuery, setSearchQuery } = useSearchPage()
+  const [searchQuery, setSearchQuery] = useSearchQueryString();
   const initialSearchResultState = {
     items: [],
     query: null,
@@ -273,40 +274,40 @@ function SearchBar() {
   return (
     <div className="DocSearch row">
       <div className="col col--offset-3 col--6">
-        <form onSubmit={(e) => e.preventDefault()} className={styles.searchForm}>
-          <input
-            type="search"
-            name="q"
-            className={styles.searchQueryInput}
-            placeholder={translate({
-              id: "theme.SearchPage.inputPlaceholder",
-              message: "Search the docs",
-              description: "The placeholder for search page input",
-            })}
-            aria-label={translate({
-              id: "theme.SearchPage.inputLabel",
-              message: "Search",
-              description: "The ARIA label for search page input",
-            })}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            value={searchQuery}
-            autoComplete="off"
-            autoFocus
-          />
-          <svg width="20" height="20" className={clsx("DocSearch-Search-Icon", styles.searchIcon)} viewBox="0 0 20 20">
-            <path
-              d="M14.386 14.386l4.0877 4.0877-4.0877-4.0877c-2.9418 2.9419-7.7115 2.9419-10.6533 0-2.9419-2.9418-2.9419-7.7115 0-10.6533 2.9418-2.9419 7.7115-2.9419 10.6533 0 2.9419 2.9418 2.9419 7.7115 0 10.6533z"
-              stroke="currentColor"
-              fill="none"
-              fillRule="evenodd"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            ></path>
-          </svg>
-
+        <div className={styles.searchHeader}>
+          <form onSubmit={(e) => e.preventDefault()} className={styles.searchForm}>
+            <input
+              type="search"
+              name="q"
+              className={styles.searchQueryInput}
+              placeholder={translate({
+                id: "theme.SearchPage.inputPlaceholder",
+                message: "Search the docs",
+                description: "The placeholder for search page input",
+              })}
+              aria-label={translate({
+                id: "theme.SearchPage.inputLabel",
+                message: "Search",
+                description: "The ARIA label for search page input",
+              })}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              value={searchQuery}
+              autoComplete="off"
+              autoFocus
+            />
+            <svg width="20" height="20" className={clsx("DocSearch-Search-Icon", styles.searchIcon)} viewBox="0 0 20 20">
+              <path
+                d="M14.386 14.386l4.0877 4.0877-4.0877-4.0877c-2.9418 2.9419-7.7115 2.9419-10.6533 0-2.9419-2.9418-2.9419-7.7115 0-10.6533 2.9418-2.9419 7.7115-2.9419 10.6533 0 2.9419 2.9418 2.9419 7.7115 0 10.6533z"
+                stroke="currentColor"
+                fill="none"
+                fillRule="evenodd"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              ></path>
+            </svg>
+          </form>
           {docsSearchVersionsHelpers.versioningEnabled && <SearchVersionSelectList docsSearchVersionsHelpers={docsSearchVersionsHelpers} />}
-        </form>
-
+        </div>
         <div className={styles.searchResultsColumn}>{!!searchResultState.totalResults && documentsFoundPlural(searchResultState.totalResults)}</div>
 
         {searchResultState.items.length > 0 ? (

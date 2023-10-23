@@ -1,54 +1,58 @@
-apply plugin: 'java'
+apply plugin: 'java-library'
 apply from: "../../gradle/versioning/versioning.gradle"
 
 dependencies {
-  compile project(':metadata-io')
-  compile project(':metadata-utils')
-  compile project(':metadata-service:auth-impl')
-  compile project(':metadata-service:auth-config')
-  compile project(':metadata-service:plugin')
-  compile project(':metadata-service:configuration')
-  compile project(':datahub-graphql-core')
-  compile project(':metadata-service:restli-servlet-impl')
-  compile project(':metadata-dao-impl:kafka-producer')
-  compile project(':ingestion-scheduler')
+  api project(':metadata-io')
+  api project(':metadata-utils')
+  implementation project(':metadata-service:auth-impl')
+  api project(':metadata-service:auth-config')
+  api project(':metadata-service:plugin')
+  api project(':metadata-service:configuration')
+  implementation project(':datahub-graphql-core')
+  implementation project(':metadata-service:restli-servlet-impl')
+  implementation project(':metadata-dao-impl:kafka-producer')
+  implementation project(':ingestion-scheduler')
 
-  compile (externalDependency.awsGlueSchemaRegistrySerde) {
+  implementation (externalDependency.awsGlueSchemaRegistrySerde) {
     exclude group: 'org.json', module: 'json'
   }
-  compile externalDependency.elasticSearchRest
-  compile externalDependency.httpClient
-  compile externalDependency.gson
+  implementation externalDependency.elasticSearchRest
+  implementation externalDependency.httpClient
+  implementation externalDependency.gson
   implementation (externalDependency.hazelcast) {
     exclude group: 'org.json', module: 'json'
   }
-  compile externalDependency.hazelcastSpring
-  compile externalDependency.kafkaClients
-  compile externalDependency.kafkaAvroSerde
+  implementation externalDependency.hazelcastSpring
+  implementation externalDependency.kafkaClients
+  implementation externalDependency.kafkaAvroSerde
   compileOnly externalDependency.lombok
-  compile externalDependency.servletApi
-  compile externalDependency.springBeans
-  compile externalDependency.springBootAutoconfigure
-  compile externalDependency.springBootStarterCache
-  compile externalDependency.springContext
-  compile externalDependency.springCore
-  compile externalDependency.springKafka
-  compile externalDependency.springWeb
+  implementation externalDependency.servletApi
+  api externalDependency.springBeans
+  implementation externalDependency.springBootAutoconfigure
+  implementation externalDependency.springBootStarterCache
+  api externalDependency.springContext
+  api externalDependency.springCore
+  api externalDependency.springKafka
+  api externalDependency.springWeb
   implementation externalDependency.awsPostgresIamAuth
   implementation externalDependency.awsRds
+  implementation(externalDependency.mixpanel) {
+    exclude group: 'org.json', module: 'json'
+  }
 
   annotationProcessor externalDependency.lombok
 
-  compile spec.product.pegasus.restliSpringBridge
+  implementation spec.product.pegasus.restliSpringBridge
   implementation spec.product.pegasus.restliDocgen
-
-  testImplementation externalDependency.springBootTest
-
-  testCompile externalDependency.mockito
-  testCompile externalDependency.testng
-  testCompile externalDependency.hazelcastTest
   implementation externalDependency.jline
   implementation externalDependency.common
+
+  testImplementation externalDependency.springBootTest
+  testImplementation externalDependency.mockito
+  testImplementation externalDependency.testng
+  testImplementation externalDependency.hazelcastTest
+  testImplementation externalDependency.javatuples
+
 
   constraints {
     implementation(externalDependency.snappy) {

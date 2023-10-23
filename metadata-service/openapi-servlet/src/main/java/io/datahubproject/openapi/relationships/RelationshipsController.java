@@ -8,7 +8,7 @@ import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.AuthorizerChain;
 import com.datahub.authorization.ConjunctivePrivilegeGroup;
 import com.datahub.authorization.DisjunctivePrivilegeGroup;
-import com.datahub.authorization.ResourceSpec;
+import com.datahub.authorization.EntitySpec;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -18,8 +18,11 @@ import com.linkedin.metadata.graph.RelatedEntitiesResult;
 import com.linkedin.metadata.search.utils.QueryUtils;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.openapi.exception.UnauthorizedException;
-import io.swagger.annotations.ApiOperation;
+import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.net.URLDecoder;
 import java.nio.charset.Charset;
@@ -94,7 +97,8 @@ public class RelationshipsController {
   }
 
   @GetMapping(value = "/", produces = MediaType.APPLICATION_JSON_VALUE)
-  @ApiOperation(code = 0, response = RelatedEntitiesResult.class, value = "")
+  @Operation(responses = { @ApiResponse(responseCode = "0", description = "",
+          content = @Content(schema = @Schema(implementation = RelatedEntitiesResult.class)))})
   public ResponseEntity<RelatedEntitiesResult> getRelationships(
       @Parameter(name = "urn", required = true,
           description = "The urn for the entity whose relationships are being queried")
@@ -127,8 +131,8 @@ public class RelationshipsController {
             // Re-using GET_ENTITY_PRIVILEGE here as it doesn't make sense to split the privileges between these APIs.
         )));
 
-    List<Optional<ResourceSpec>> resourceSpecs =
-        Collections.singletonList(Optional.of(new ResourceSpec(entityUrn.getEntityType(), entityUrn.toString())));
+    List<Optional<EntitySpec>> resourceSpecs =
+        Collections.singletonList(Optional.of(new EntitySpec(entityUrn.getEntityType(), entityUrn.toString())));
     if (restApiAuthorizationEnabled && !AuthUtil.isAuthorizedForResources(_authorizerChain, actorUrnStr, resourceSpecs,
         orGroup)) {
       throw new UnauthorizedException(actorUrnStr + " is unauthorized to get relationships.");

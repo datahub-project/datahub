@@ -46,6 +46,7 @@ query getMe {
             createTags
             manageGlobalViews
             manageOwnershipTypes
+            manageGlobalAnnouncements
         }
     }
 }

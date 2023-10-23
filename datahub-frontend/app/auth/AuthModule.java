@@ -11,16 +11,19 @@ import com.datahub.authentication.Authentication;
 import com.google.inject.AbstractModule;
 import com.google.inject.Provides;
 import com.google.inject.Singleton;
-import com.linkedin.entity.client.EntityClient;
-import com.linkedin.entity.client.RestliEntityClient;
+import com.linkedin.entity.client.SystemEntityClient;
+import com.linkedin.entity.client.SystemRestliEntityClient;
 import com.linkedin.metadata.restli.DefaultRestliClientFactory;
 import com.linkedin.parseq.retry.backoff.ExponentialBackoff;
 import com.linkedin.util.Configuration;
+import config.ConfigurationProvider;
 import controllers.SsoCallbackController;
+
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
@@ -34,6 +37,7 @@ import org.pac4j.play.store.PlayCacheSessionStore;
 import org.pac4j.play.store.PlayCookieSessionStore;
 import org.pac4j.play.store.PlaySessionStore;
 import org.pac4j.play.store.ShiroAesDataEncrypter;
+import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import play.Environment;
 import play.cache.SyncCacheApi;
 import utils.ConfigUtil;
@@ -52,7 +56,7 @@ public class AuthModule extends AbstractModule {
      * Pac4j Stores Session State in a browser-side cookie in encrypted fashion. This configuration
      * value provides a stable encryption base from which to derive the encryption key.
      *
-     * We hash this value (SHA1), then take the first 16 bytes as the AES key.
+     * We hash this value (SHA256), then take the first 16 bytes as the AES key.
      */
     private static final String PAC4J_AES_KEY_BASE_CONF = "play.http.secret.key";
     private static final String PAC4J_SESSIONSTORE_PROVIDER_CONF = "pac4j.sessionStore.provider";
@@ -89,7 +93,7 @@ public class AuthModule extends AbstractModule {
                 // it to hex and slice the first 16 bytes, because AES key length must strictly
                 // have a specific length.
                 final String aesKeyBase = _configs.getString(PAC4J_AES_KEY_BASE_CONF);
-                final String aesKeyHash = DigestUtils.sha1Hex(aesKeyBase.getBytes(StandardCharsets.UTF_8));
+                final String aesKeyHash = DigestUtils.sha256Hex(aesKeyBase.getBytes(StandardCharsets.UTF_8));
                 final String aesEncryptionKey = aesKeyHash.substring(0, 16);
                 playCacheCookieStore = new PlayCookieSessionStore(
                         new ShiroAesDataEncrypter(aesEncryptionKey.getBytes()));
@@ -104,7 +108,7 @@ public class AuthModule extends AbstractModule {
             bind(SsoCallbackController.class).toConstructor(SsoCallbackController.class.getConstructor(
                 SsoManager.class,
                 Authentication.class,
-                EntityClient.class,
+                SystemEntityClient.class,
                 AuthServiceClient.class,
                 com.typesafe.config.Config.class));
         } catch (NoSuchMethodException | SecurityException e) {
@@ -161,10 +165,19 @@ public class AuthModule extends AbstractModule {
 
     @Provides
     @Singleton
-    protected EntityClient provideEntityClient() {
-        return new RestliEntityClient(buildRestliClient(),
+    protected ConfigurationProvider provideConfigurationProvider() {
+        AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext(ConfigurationProvider.class);
+        return context.getBean(ConfigurationProvider.class);
+    }
+
+    @Provides
+    @Singleton
+    protected SystemEntityClient provideEntityClient(final Authentication systemAuthentication,
+                                                     final ConfigurationProvider configurationProvider) {
+        return new SystemRestliEntityClient(buildRestliClient(),
                 new ExponentialBackoff(_configs.getInt(ENTITY_CLIENT_RETRY_INTERVAL)),
-                _configs.getInt(ENTITY_CLIENT_NUM_RETRIES));
+                _configs.getInt(ENTITY_CLIENT_NUM_RETRIES), systemAuthentication,
+                configurationProvider.getCache().getClient().getEntityClient());
     }
 
     @Provides

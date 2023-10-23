@@ -6,7 +6,11 @@ title: "Components"
 
 The DataHub platform consists of the components shown in the following diagram. 
 
-![DataHub Component Overview](./imgs/datahub-components.png)
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/datahub-components.png"/>
+</p>
+
 
 ## Metadata Store 
 

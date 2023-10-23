@@ -1,13 +1,15 @@
 import re
 from typing import Any, Dict, ValuesView
 
+from sqlalchemy import types
+
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     ArrayType,
     BooleanType,
     BytesType,
     DateType,
     EnumType,
-    MapType,
+    MapType as MapTypeAvro,
     NullType,
     NumberType,
     RecordType,
@@ -363,9 +365,15 @@ TRINO_SQL_TYPES_MAP: Dict[str, Any] = {
     "time": TimeType,
     "timestamp": TimeType,
     "row": RecordType,
-    "map": MapType,
+    "map": MapTypeAvro,
     "array": ArrayType,
 }
+
+
+class MapType(types.TupleType):
+    # Wrapper class around SQLalchemy's TupleType to increase compatibility with DataHub
+    pass
+
 
 # https://docs.aws.amazon.com/athena/latest/ug/data-types.html
 # https://github.com/dbt-athena/dbt-athena/tree/main

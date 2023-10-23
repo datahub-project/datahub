@@ -98,6 +98,7 @@ class HTTPError429(HTTPError):
 @config_class(ModeConfig)
 @support_status(SupportStatus.CERTIFIED)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
+@capability(SourceCapability.LINEAGE_COARSE, "Supported by default")
 class ModeSource(Source):
     """
 
@@ -746,7 +747,7 @@ class ModeSource(Source):
                     # respect Retry-After
                     sleep_time = error_response.headers.get("retry-after")
                     if sleep_time is not None:
-                        time.sleep(sleep_time)
+                        time.sleep(float(sleep_time))
                     raise HTTPError429
 
                 raise http_error

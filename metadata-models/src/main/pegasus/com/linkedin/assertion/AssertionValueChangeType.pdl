@@ -1,0 +1,16 @@
+namespace com.linkedin.assertion
+
+/**
+* An enum to represent a type of change in an assertion value, metric, or measurement.
+*/
+enum AssertionValueChangeType {
+  /**
+   * A change that is defined in absolute terms.
+   */
+   ABSOLUTE
+   /**
+   * A change that is defined in relative terms using percentage change
+   * from the original value.
+   */
+   PERCENTAGE
+}

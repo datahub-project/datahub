@@ -45,8 +45,8 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.elasticsearch.action.search.SearchResponse;
-import org.elasticsearch.index.query.QueryBuilders;
+import org.opensearch.action.search.SearchResponse;
+import org.opensearch.index.query.QueryBuilders;
 
 
 @Slf4j
@@ -318,7 +318,7 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
   public void configure() {
     log.info("Setting up elastic graph index");
     try {
-      for (ReindexConfig config : getReindexConfigs()) {
+      for (ReindexConfig config : buildReindexConfigs()) {
         _indexBuilder.buildIndex(config);
       }
     } catch (IOException e) {
@@ -327,7 +327,7 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
   }
 
   @Override
-  public List<ReindexConfig> getReindexConfigs() throws IOException {
+  public List<ReindexConfig> buildReindexConfigs() throws IOException {
     return List.of(_indexBuilder.buildReindexState(_indexConvention.getIndexName(INDEX_NAME),
             GraphRelationshipMappingsBuilder.getMappings(), Collections.emptyMap()));
   }

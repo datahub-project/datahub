@@ -343,8 +343,15 @@ KEY_ASPECTS: Dict[str, Type[_Aspect]] = {{
     "schemas_path", type=click.Path(exists=True, file_okay=False), required=True
 )
 @click.argument("outdir", type=click.Path(), required=True)
+@click.option("--check-unused-aspects", is_flag=True, default=False)
+@click.option("--enable-custom-loader", is_flag=True, default=True)
 def generate(
-    entity_registry: str, pdl_path: str, schemas_path: str, outdir: str
+    entity_registry: str,
+    pdl_path: str,
+    schemas_path: str,
+    outdir: str,
+    check_unused_aspects: bool,
+    enable_custom_loader: bool,
 ) -> None:
     entities = load_entity_registry(Path(entity_registry))
     schemas = load_schemas(schemas_path)
@@ -388,10 +395,13 @@ def generate(
             aspect["Aspect"]["entityDoc"] = entity.doc
 
     # Check for unused aspects. We currently have quite a few.
-    # unused_aspects = set(aspects.keys()) - set().union(
-    #     {entity.keyAspect for entity in entities},
-    #     *(set(entity.aspects) for entity in entities),
-    # )
+    if check_unused_aspects:
+        unused_aspects = set(aspects.keys()) - set().union(
+            {entity.keyAspect for entity in entities},
+            *(set(entity.aspects) for entity in entities),
+        )
+        if unused_aspects:
+            raise ValueError(f"Unused aspects: {unused_aspects}")
 
     merged_schema = merge_schemas(list(schemas.values()))
     write_schema_files(merged_schema, outdir)
@@ -403,6 +413,35 @@ def generate(
         list(aspects.values()),
         Path(outdir) / "schema_classes.py",
     )
+
+    if enable_custom_loader:
+        # Move schema_classes.py -> _schema_classes.py
+        # and add a custom loader.
+        (Path(outdir) / "_schema_classes.py").write_text(
+            (Path(outdir) / "schema_classes.py").read_text()
+        )
+        (Path(outdir) / "schema_classes.py").write_text(
+            """
+# This is a specialized shim layer that allows us to dynamically load custom models from elsewhere.
+
+import importlib
+from typing import TYPE_CHECKING
+
+from datahub.utilities._custom_package_loader import get_custom_models_package
+
+_custom_package_path = get_custom_models_package()
+
+if TYPE_CHECKING or not _custom_package_path:
+    from ._schema_classes import *
+
+    # Required explicitly because __all__ doesn't include _ prefixed names.
+    from ._schema_classes import _Aspect, __SCHEMA_TYPES
+else:
+    _custom_package = importlib.import_module(_custom_package_path)
+    globals().update(_custom_package.__dict__)
+
+"""
+        )
 
     # Keep a copy of a few raw avsc files.
     required_avsc_schemas = {"MetadataChangeEvent", "MetadataChangeProposal"}

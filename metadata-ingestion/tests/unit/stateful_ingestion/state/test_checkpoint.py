@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, List
 
 import pydantic
@@ -9,7 +9,9 @@ from datahub.ingestion.source.state.checkpoint import Checkpoint, CheckpointStat
 from datahub.ingestion.source.state.sql_common_state import (
     BaseSQLAlchemyCheckpointState,
 )
-from datahub.ingestion.source.state.usage_common_state import BaseUsageCheckpointState
+from datahub.ingestion.source.state.usage_common_state import (
+    BaseTimeWindowCheckpointState,
+)
 from datahub.metadata.schema_classes import (
     DatahubIngestionCheckpointClass,
     IngestionCheckpointStateClass,
@@ -27,7 +29,7 @@ def _assert_checkpoint_deserialization(
 ) -> Checkpoint:
     # Serialize a checkpoint aspect with the previous state.
     checkpoint_aspect = DatahubIngestionCheckpointClass(
-        timestampMillis=int(datetime.now().timestamp() * 1000),
+        timestampMillis=int(datetime.now(tz=timezone.utc).timestamp() * 1000),
         pipelineName=test_pipeline_name,
         platformInstanceId="this-can-be-anything-and-will-be-ignored",
         config="this-is-also-ignored",
@@ -67,8 +69,8 @@ def _make_sql_alchemy_checkpoint_state() -> BaseSQLAlchemyCheckpointState:
     return base_sql_alchemy_checkpoint_state_obj
 
 
-def _make_usage_checkpoint_state() -> BaseUsageCheckpointState:
-    base_usage_checkpoint_state_obj = BaseUsageCheckpointState(
+def _make_usage_checkpoint_state() -> BaseTimeWindowCheckpointState:
+    base_usage_checkpoint_state_obj = BaseTimeWindowCheckpointState(
         version="2.0", begin_timestamp_millis=1, end_timestamp_millis=100
     )
     return base_usage_checkpoint_state_obj
@@ -77,8 +79,8 @@ def _make_usage_checkpoint_state() -> BaseUsageCheckpointState:
 _checkpoint_aspect_test_cases: Dict[str, CheckpointStateBase] = {
     # An instance of BaseSQLAlchemyCheckpointState.
     "BaseSQLAlchemyCheckpointState": _make_sql_alchemy_checkpoint_state(),
-    # An instance of BaseUsageCheckpointState.
-    "BaseUsageCheckpointState": _make_usage_checkpoint_state(),
+    # An instance of BaseTimeWindowCheckpointState.
+    "BaseTimeWindowCheckpointState": _make_usage_checkpoint_state(),
 }
 
 
@@ -141,7 +143,7 @@ def test_supported_encodings():
     """
     Tests utf-8 and base85-bz2-json encodings
     """
-    test_state = BaseUsageCheckpointState(
+    test_state = BaseTimeWindowCheckpointState(
         version="1.0", begin_timestamp_millis=1, end_timestamp_millis=100
     )
 

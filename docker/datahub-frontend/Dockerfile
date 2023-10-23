@@ -29,6 +29,8 @@ FROM base as dev-install
 VOLUME [ "/datahub-frontend" ]
 
 FROM ${APP_ENV}-install as final
+COPY ./docker/datahub-frontend/start.sh /
+RUN chown datahub:datahub /start.sh && chmod 755 /start.sh
 USER datahub
 
 ARG SERVER_PORT=9002
@@ -37,5 +39,4 @@ RUN echo $SERVER_PORT
 EXPOSE $SERVER_PORT
 
 HEALTHCHECK --start-period=2m --retries=4 CMD curl --fail http://localhost:$SERVER_PORT/admin || exit 1
-COPY ./docker/datahub-frontend/start.sh /
 CMD ./start.sh

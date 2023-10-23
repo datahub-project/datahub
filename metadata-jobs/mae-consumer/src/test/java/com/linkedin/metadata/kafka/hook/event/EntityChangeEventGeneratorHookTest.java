@@ -1,6 +1,5 @@
 package com.linkedin.metadata.kafka.hook.event;
 
-import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.assertion.AssertionResult;
@@ -38,8 +37,7 @@ import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
-import com.linkedin.entity.client.EntityClient;
-import com.linkedin.entity.client.RestliEntityClient;
+import com.linkedin.entity.client.SystemRestliEntityClient;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.key.DatasetKey;
@@ -66,6 +64,7 @@ import com.linkedin.platform.event.v1.EntityChangeEvent;
 import com.linkedin.platform.event.v1.Parameters;
 import java.net.URISyntaxException;
 import java.util.Map;
+
 import org.mockito.Mockito;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -92,22 +91,19 @@ public class EntityChangeEventGeneratorHookTest {
   private static final String TEST_DATA_FLOW_URN = "urn:li:dataFlow:flow";
   private static final String TEST_DATA_JOB_URN = "urn:li:dataJob:job";
   private Urn actorUrn;
-  private Authentication _mockAuthentication;
 
-  private RestliEntityClient _mockClient;
+  private SystemRestliEntityClient _mockClient;
   private EntityService _mockEntityService;
   private EntityChangeEventGeneratorHook _entityChangeEventHook;
 
   @BeforeMethod
   public void setupTest() throws URISyntaxException {
     actorUrn = Urn.createFromString(TEST_ACTOR_URN);
-    _mockAuthentication = Mockito.mock(Authentication.class);
-    _mockClient = Mockito.mock(RestliEntityClient.class);
+    _mockClient = Mockito.mock(SystemRestliEntityClient.class);
     _mockEntityService = Mockito.mock(EntityService.class);
     EntityChangeEventGeneratorRegistry entityChangeEventGeneratorRegistry = createEntityChangeEventGeneratorRegistry();
     _entityChangeEventHook =
-        new EntityChangeEventGeneratorHook(entityChangeEventGeneratorRegistry, _mockClient, _mockAuthentication,
-            createMockEntityRegistry(), true);
+        new EntityChangeEventGeneratorHook(entityChangeEventGeneratorRegistry, _mockClient, createMockEntityRegistry(), true);
   }
 
   @Test
@@ -498,8 +494,7 @@ public class EntityChangeEventGeneratorHookTest {
     final EntityResponse entityResponse =
         buildEntityResponse(ImmutableMap.of(DATA_PROCESS_INSTANCE_RELATIONSHIPS_ASPECT_NAME, relationships));
 
-    Mockito.when(_mockClient.getV2(eq(DATA_PROCESS_INSTANCE_ENTITY_NAME), eq(dataProcessInstanceUrn),
-        any(), eq(_mockAuthentication))).thenReturn(entityResponse);
+    Mockito.when(_mockClient.getV2(eq(dataProcessInstanceUrn), any())).thenReturn(entityResponse);
 
     _entityChangeEventHook.invoke(event);
 
@@ -540,8 +535,7 @@ public class EntityChangeEventGeneratorHookTest {
     final EntityResponse entityResponse =
         buildEntityResponse(ImmutableMap.of(DATA_PROCESS_INSTANCE_RELATIONSHIPS_ASPECT_NAME, relationships));
 
-    Mockito.when(_mockClient.getV2(eq(DATA_PROCESS_INSTANCE_ENTITY_NAME), eq(dataProcessInstanceUrn),
-        any(), eq(_mockAuthentication))).thenReturn(entityResponse);
+    Mockito.when(_mockClient.getV2(eq(dataProcessInstanceUrn), any())).thenReturn(entityResponse);
 
     _entityChangeEventHook.invoke(event);
 
@@ -618,7 +612,7 @@ public class EntityChangeEventGeneratorHookTest {
     // Run change event generators
     registry.register(ASSERTION_RUN_EVENT_ASPECT_NAME, new AssertionRunEventChangeEventGenerator());
     registry.register(DATA_PROCESS_INSTANCE_RUN_EVENT_ASPECT_NAME,
-        new DataProcessInstanceRunEventChangeEventGenerator(_mockClient, _mockAuthentication));
+        new DataProcessInstanceRunEventChangeEventGenerator(_mockClient));
     return registry;
   }
 
@@ -668,14 +662,14 @@ public class EntityChangeEventGeneratorHookTest {
     return registry;
   }
 
-  private void verifyProducePlatformEvent(EntityClient mockClient, PlatformEvent platformEvent) throws Exception {
+  private void verifyProducePlatformEvent(SystemRestliEntityClient mockClient, PlatformEvent platformEvent) throws Exception {
     verifyProducePlatformEvent(mockClient, platformEvent, true);
   }
 
-  private void verifyProducePlatformEvent(EntityClient mockClient, PlatformEvent platformEvent, boolean noMoreInteractions) throws Exception {
+  private void verifyProducePlatformEvent(SystemRestliEntityClient mockClient, PlatformEvent platformEvent, boolean noMoreInteractions) throws Exception {
     // Verify event has been emitted.
     verify(mockClient, Mockito.times(1)).producePlatformEvent(eq(CHANGE_EVENT_PLATFORM_EVENT_NAME), Mockito.anyString(),
-        argThat(new PlatformEventMatcher(platformEvent)), Mockito.any(Authentication.class));
+        argThat(new PlatformEventMatcher(platformEvent)));
 
     if (noMoreInteractions) {
       Mockito.verifyNoMoreInteractions(_mockClient);

@@ -81,6 +81,13 @@ module.exports = {
                 "docs/quick-ingestion-guides/powerbi/configuration",
               ],
             },
+            {
+              Looker: [
+                "docs/quick-ingestion-guides/looker/overview",
+                "docs/quick-ingestion-guides/looker/setup",
+                "docs/quick-ingestion-guides/looker/configuration",
+              ],
+            },
           ],
         },
         {
@@ -133,15 +140,25 @@ module.exports = {
             "metadata-ingestion/docs/dev_guides/classification",
             "metadata-ingestion/docs/dev_guides/add_stateful_ingestion_to_source",
             "metadata-ingestion/docs/dev_guides/sql_profiles",
+            "metadata-ingestion/docs/dev_guides/profiling_ingestions",
           ],
         },
       ],
     },
     {
-      Deployment: [
+      type: "category",
+      label: "Deployment",
+      link: {
+        type: "generated-index",
+        title: "Deployment Guides",
+        description:
+          "Learn how to deploy DataHub to your environment, set up authentication, manage upgrades, and more.",
+      },
+      items: [
         // The purpose of this section is to provide the minimum steps required to deploy DataHub to the vendor of your choosing
         "docs/deploy/aws",
         "docs/deploy/gcp",
+        "docs/deploy/azure",
         "docker/README",
         "docs/deploy/kubernetes",
         "docs/deploy/environment-vars",
@@ -160,6 +177,7 @@ module.exports = {
                     "docs/authentication/guides/sso/configure-oidc-react-google",
                     "docs/authentication/guides/sso/configure-oidc-react-okta",
                     "docs/authentication/guides/sso/configure-oidc-react-azure",
+                    "docs/authentication/guides/sso/configure-oidc-behind-proxy",
                   ],
                 },
               ],
@@ -395,7 +413,14 @@ module.exports = {
       ],
     },
     {
-      Features: [
+      type: "category",
+      label: "Features",
+      link: {
+        type: "generated-index",
+        title: "Feature Guides",
+        description: "Learn about the features of DataHub.",
+      },
+      items: [
         "docs/ui-ingestion",
         "docs/how/search",
         "docs/schema-history",
@@ -405,12 +430,11 @@ module.exports = {
         "docs/glossary/business-glossary",
         "docs/tags",
         "docs/ownership/ownership-types",
-        "docs/browse",
         "docs/authorization/access-policies-guide",
         "docs/features/dataset-usage-and-query-history",
         "docs/posts",
         "docs/sync-status",
-        "docs/lineage/lineage-feature-guide",
+        "docs/generated/lineage/lineage-feature-guide",
         {
           type: "doc",
           id: "docs/tests/metadata-tests",
@@ -418,7 +442,14 @@ module.exports = {
         },
         "docs/act-on-metadata/impact-analysis",
         {
-          Observability: ["docs/managed-datahub/observe/freshness-assertions"],
+          Observability: [
+            "docs/managed-datahub/observe/freshness-assertions",
+            "docs/managed-datahub/observe/volume-assertions",
+            "docs/managed-datahub/observe/custom-sql-assertions",
+          ],
+        },
+        {
+          Guides: ["docs/features/feature-guides/ui-lineage"],
         },
       ],
     },
@@ -578,6 +609,8 @@ module.exports = {
         },
         {
           "Managed DataHub Release History": [
+            "docs/managed-datahub/release-notes/v_0_2_12",
+            "docs/managed-datahub/release-notes/v_0_2_11",
             "docs/managed-datahub/release-notes/v_0_2_10",
             "docs/managed-datahub/release-notes/v_0_2_9",
             "docs/managed-datahub/release-notes/v_0_2_8",

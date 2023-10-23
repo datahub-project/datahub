@@ -1,6 +1,9 @@
 import os
+import pathlib
+import textwrap
 from unittest import mock
 
+import deepdiff
 import expandvars
 import pytest
 import yaml
@@ -18,7 +21,14 @@ from datahub.configuration.config_loader import (
         (
             # Basic YAML load
             "tests/unit/config/basic.yml",
-            {"foo": "bar", "nested": {"array": ["one", "two"], "hi": "hello"}},
+            {
+                "foo": "bar",
+                "nested": {
+                    "array": ["one", "two"],
+                    "hi": "hello",
+                    "numbers": {4: "four", 6: "six", "8": "eight"},
+                },
+            },
             {},
             set(),
         ),
@@ -165,3 +175,46 @@ def test_load_error(pytestconfig, filename, env, error_type):
     with mock.patch.dict(os.environ, env):
         with pytest.raises(error_type):
             _ = load_config_file(filepath)
+
+
+def test_write_file_directive(pytestconfig):
+    filepath = pytestconfig.rootpath / "tests/unit/config/write_to_file_directive.yml"
+
+    fake_ssl_key = "my-secret-key-value"
+
+    with mock.patch.dict(os.environ, {"DATAHUB_SSL_KEY": fake_ssl_key}):
+        loaded_config = load_config_file(filepath, squirrel_original_config=False)
+
+        # Check that the rest of the dict is unmodified.
+        diff = deepdiff.DeepDiff(
+            loaded_config,
+            {
+                "foo": "bar",
+                "nested": {
+                    "hi": "hello",
+                    "another-key": "final-value",
+                },
+            },
+            exclude_paths=[
+                "root['nested']['ssl_cert']",
+                "root['nested']['ssl_key']",
+            ],
+        )
+        assert not diff
+
+        # Check that the ssl_cert was written to a file.
+        ssl_cert_path = loaded_config["nested"]["ssl_cert"]
+        assert (
+            pathlib.Path(ssl_cert_path).read_text()
+            == textwrap.dedent(
+                """
+                -----BEGIN CERTIFICATE-----
+                thisisnotarealcert
+                -----END CERTIFICATE-----
+                """
+            ).lstrip()
+        )
+
+        # Check that the ssl_key was written to a file.
+        ssl_key_path = loaded_config["nested"]["ssl_key"]
+        assert pathlib.Path(ssl_key_path).read_text() == fake_ssl_key

@@ -127,7 +127,7 @@ public class CachingEntitySearchService {
       @Nullable Filter filters,
       @Nullable SortCriterion sortCriterion,
       @Nullable String scrollId,
-      @Nonnull String keepAlive,
+      @Nullable String keepAlive,
       int size,
       @Nullable SearchFlags flags) {
     return getCachedScrollResults(entities, query, filters, sortCriterion, scrollId, keepAlive, size, flags);
@@ -238,7 +238,7 @@ public class CachingEntitySearchService {
       @Nullable Filter filters,
       @Nullable SortCriterion sortCriterion,
       @Nullable String scrollId,
-      @Nonnull String keepAlive,
+      @Nullable String keepAlive,
       int size,
       @Nullable SearchFlags flags) {
     try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "getCachedScrollResults").time()) {
@@ -256,13 +256,13 @@ public class CachingEntitySearchService {
         cacheAccess.stop();
         if (result == null) {
           Timer.Context cacheMiss = MetricUtils.timer(this.getClass(), "scroll_cache_miss").time();
-          result = getRawScrollResults(entities, query, filters, sortCriterion, scrollId, keepAlive, size, isFullText);
+          result = getRawScrollResults(entities, query, filters, sortCriterion, scrollId, keepAlive, size, isFullText, flags);
           cache.put(cacheKey, toJsonString(result));
           cacheMiss.stop();
           MetricUtils.counter(this.getClass(), "scroll_cache_miss_count").inc();
         }
       } else {
-        result = getRawScrollResults(entities, query, filters, sortCriterion, scrollId, keepAlive, size, isFullText);
+        result = getRawScrollResults(entities, query, filters, sortCriterion, scrollId, keepAlive, size, isFullText, flags);
       }
       return result;
     }
@@ -326,9 +326,10 @@ public class CachingEntitySearchService {
       final Filter filters,
       final SortCriterion sortCriterion,
       @Nullable final String scrollId,
-      @Nonnull final String keepAlive,
+      @Nullable final String keepAlive,
       final int count,
-      final boolean fulltext) {
+      final boolean fulltext,
+      @Nullable final SearchFlags searchFlags) {
     if (fulltext) {
       return entitySearchService.fullTextScroll(
           entities,
@@ -337,7 +338,8 @@ public class CachingEntitySearchService {
           sortCriterion,
           scrollId,
           keepAlive,
-          count);
+          count,
+          searchFlags);
     } else {
       return entitySearchService.structuredScroll(entities,
           input,
@@ -345,7 +347,8 @@ public class CachingEntitySearchService {
           sortCriterion,
           scrollId,
           keepAlive,
-          count);
+          count,
+          searchFlags);
     }
   }
 

@@ -8,6 +8,7 @@ export default function SearchContextProvider({ children }: { children: React.Re
     const history = useHistory();
     const location = useLocation();
     const params = useMemo(() => QueryString.parse(location.search, { arrayFormat: 'comma' }), [location.search]);
+    const query = (params.query ? decodeURIComponent(params.query as string) : undefined) as string | undefined;
     const selectedSortOption = params.sortOption as string | undefined;
 
     function setSelectedSortOption(selectedOption: string) {
@@ -15,7 +16,7 @@ export default function SearchContextProvider({ children }: { children: React.Re
     }
 
     return (
-        <SearchContext.Provider value={{ selectedSortOption, setSelectedSortOption }}>
+        <SearchContext.Provider value={{ query, selectedSortOption, setSelectedSortOption }}>
             {children}
         </SearchContext.Provider>
     );

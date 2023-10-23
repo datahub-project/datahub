@@ -1,12 +1,10 @@
 import datetime
 import logging
 import traceback
-from collections import OrderedDict
 from dataclasses import dataclass, field
 from typing import (
     TYPE_CHECKING,
     Any,
-    Callable,
     Dict,
     Iterable,
     List,
@@ -39,6 +37,7 @@ from datahub.ingestion.source.common.subtypes import (
     DatasetSubTypes,
 )
 from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
+from datahub.ingestion.source.sql.sql_types import MapType
 from datahub.ingestion.source.sql.sql_utils import (
     add_table_to_schema_container,
     downgrade_schema_from_v2,
@@ -82,6 +81,7 @@ from datahub.metadata.schema_classes import (
     DatasetLineageTypeClass,
     DatasetPropertiesClass,
     GlobalTagsClass,
+    MapTypeClass,
     SubTypesClass,
     TagAssociationClass,
     UpstreamClass,
@@ -101,52 +101,6 @@ if TYPE_CHECKING:
 logger: logging.Logger = logging.getLogger(__name__)
 
 MISSING_COLUMN_INFO = "missing column information"
-
-
-def _platform_alchemy_uri_tester_gen(
-    platform: str, opt_starts_with: Optional[str] = None
-) -> Tuple[str, Callable[[str], bool]]:
-    return platform, lambda x: x.startswith(
-        platform if not opt_starts_with else opt_starts_with
-    )
-
-
-PLATFORM_TO_SQLALCHEMY_URI_TESTER_MAP: Dict[str, Callable[[str], bool]] = OrderedDict(
-    [
-        _platform_alchemy_uri_tester_gen("athena", "awsathena"),
-        _platform_alchemy_uri_tester_gen("bigquery"),
-        _platform_alchemy_uri_tester_gen("clickhouse"),
-        _platform_alchemy_uri_tester_gen("druid"),
-        _platform_alchemy_uri_tester_gen("hana"),
-        _platform_alchemy_uri_tester_gen("hive"),
-        _platform_alchemy_uri_tester_gen("mongodb"),
-        _platform_alchemy_uri_tester_gen("mssql"),
-        _platform_alchemy_uri_tester_gen("mysql"),
-        _platform_alchemy_uri_tester_gen("oracle"),
-        _platform_alchemy_uri_tester_gen("pinot"),
-        _platform_alchemy_uri_tester_gen("presto"),
-        (
-            "redshift",
-            lambda x: (
-                x.startswith(("jdbc:postgres:", "postgresql"))
-                and x.find("redshift.amazonaws") > 0
-            )
-            or x.startswith("redshift"),
-        ),
-        # Don't move this before redshift.
-        _platform_alchemy_uri_tester_gen("postgres", "postgresql"),
-        _platform_alchemy_uri_tester_gen("snowflake"),
-        _platform_alchemy_uri_tester_gen("trino"),
-        _platform_alchemy_uri_tester_gen("vertica"),
-    ]
-)
-
-
-def get_platform_from_sqlalchemy_uri(sqlalchemy_uri: str) -> str:
-    for platform, tester in PLATFORM_TO_SQLALCHEMY_URI_TESTER_MAP.items():
-        if tester(sqlalchemy_uri):
-            return platform
-    return "external"
 
 
 @dataclass
@@ -202,6 +156,8 @@ _field_type_mapping: Dict[Type[TypeEngine], Type] = {
     types.DATETIME: TimeTypeClass,
     types.TIMESTAMP: TimeTypeClass,
     types.JSON: RecordTypeClass,
+    # additional type definitions that are used by the Athena source
+    MapType: MapTypeClass,  # type: ignore
     # Because the postgresql dialect is used internally by many other dialects,
     # we add some postgres types here. This is ok to do because the postgresql
     # dialect is built-in to sqlalchemy.
@@ -367,12 +323,12 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             )
 
     def warn(self, log: logging.Logger, key: str, reason: str) -> None:
-        self.report.report_warning(key, reason)
+        self.report.report_warning(key, reason[:100])
         log.warning(f"{key} => {reason}")
 
     def error(self, log: logging.Logger, key: str, reason: str) -> None:
-        self.report.report_failure(key, reason)
-        log.error(f"{key} => {reason}")
+        self.report.report_failure(key, reason[:100])
+        log.error(f"{key} => {reason}\n{traceback.format_exc()}")
 
     def get_inspectors(self) -> Iterable[Inspector]:
         # This method can be overridden in the case that you want to dynamically
@@ -478,6 +434,27 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             parent_container_key=schema_container_key,
         )
 
+    def get_database_level_workunits(
+        self,
+        inspector: Inspector,
+        database: str,
+    ) -> Iterable[MetadataWorkUnit]:
+        yield from self.gen_database_containers(database=database)
+
+    def get_schema_level_workunits(
+        self,
+        inspector: Inspector,
+        schema: str,
+        database: str,
+    ) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
+        yield from self.gen_schema_containers(schema=schema, database=database)
+
+        if self.config.include_tables:
+            yield from self.loop_tables(inspector, schema, self.config)
+
+        if self.config.include_views:
+            yield from self.loop_views(inspector, schema, self.config)
+
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
         return [
             *super().get_workunit_processors(),
@@ -507,35 +484,26 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                 try:
                     self.add_profile_metadata(inspector)
                 except Exception as e:
-                    logger.warning(
-                        "Failed to get enrichment data for profiler", exc_info=True
-                    )
-                    self.report.report_warning(
+                    self.warn(
+                        logger,
                         "profile_metadata",
                         f"Failed to get enrichment data for profile {e}",
                     )
 
             db_name = self.get_db_name(inspector)
-            yield from self.gen_database_containers(
+            yield from self.get_database_level_workunits(
+                inspector=inspector,
                 database=db_name,
             )
 
             for schema in self.get_allowed_schemas(inspector, db_name):
                 self.add_information_for_schema(inspector, schema)
 
-                yield from self.gen_schema_containers(
-                    database=db_name,
+                yield from self.get_schema_level_workunits(
+                    inspector=inspector,
                     schema=schema,
-                    extra_properties=self.get_schema_properties(
-                        inspector=inspector, schema=schema, database=db_name
-                    ),
+                    database=db_name,
                 )
-
-                if sql_config.include_tables:
-                    yield from self.loop_tables(inspector, schema, sql_config)
-
-                if sql_config.include_views:
-                    yield from self.loop_views(inspector, schema, sql_config)
 
                 if profiler:
                     profile_requests += list(
@@ -624,14 +592,9 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                         dataset_name, inspector, schema, table, sql_config
                     )
                 except Exception as e:
-                    logger.warning(
-                        f"Unable to ingest {schema}.{table} due to an exception.\n {traceback.format_exc()}"
-                    )
-                    self.report.report_warning(
-                        f"{schema}.{table}", f"Ingestion error: {e}"
-                    )
+                    self.warn(logger, f"{schema}.{table}", f"Ingestion error: {e}")
         except Exception as e:
-            self.report.report_failure(f"{schema}", f"Tables error: {e}")
+            self.error(logger, f"{schema}", f"Tables error: {e}")
 
     def add_information_for_schema(self, inspector: Inspector, schema: str) -> None:
         pass
@@ -792,9 +755,10 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         try:
             columns = inspector.get_columns(table, schema)
             if len(columns) == 0:
-                self.report.report_warning(MISSING_COLUMN_INFO, dataset_name)
+                self.warn(logger, MISSING_COLUMN_INFO, dataset_name)
         except Exception as e:
-            self.report.report_warning(
+            self.warn(
+                logger,
                 dataset_name,
                 f"unable to get column information due to an error -> {e}",
             )
@@ -889,14 +853,9 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                         sql_config=sql_config,
                     )
                 except Exception as e:
-                    logger.warning(
-                        f"Unable to ingest view {schema}.{view} due to an exception.\n {traceback.format_exc()}"
-                    )
-                    self.report.report_warning(
-                        f"{schema}.{view}", f"Ingestion error: {e}"
-                    )
+                    self.warn(logger, f"{schema}.{view}", f"Ingestion error: {e}")
         except Exception as e:
-            self.report.report_failure(f"{schema}", f"Views error: {e}")
+            self.error(logger, f"{schema}", f"Views error: {e}")
 
     def _process_view(
         self,
@@ -910,9 +869,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             columns = inspector.get_columns(view, schema)
         except KeyError:
             # For certain types of views, we are unable to fetch the list of columns.
-            self.report.report_warning(
-                dataset_name, "unable to get schema for this view"
-            )
+            self.warn(logger, dataset_name, "unable to get schema for this view")
             schema_metadata = None
         else:
             schema_fields = self.get_schema_fields(dataset_name, columns)
@@ -1098,7 +1055,8 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             if partition is None and self.is_table_partitioned(
                 database=None, schema=schema, table=table
             ):
-                self.report.report_warning(
+                self.warn(
+                    logger,
                     "profile skipped as partitioned table is empty or partition id was invalid",
                     dataset_name,
                 )

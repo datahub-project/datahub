@@ -180,5 +180,44 @@
        }
      },
      "proposedDelta": null
+   },
+   {
+     "auditHeader": null,
+     "proposedSnapshot": {
+       "com.linkedin.pegasus2avro.metadata.snapshot.TagSnapshot": {
+         "urn": "urn:li:tag:Legacy",
+         "aspects": [
+           {
+             "com.linkedin.pegasus2avro.tag.TagProperties": {
+               "name": "Legacy",
+               "description": "Indicates the dataset is no longer supported"
+             }
+           }
+         ]
+       }
+     },
+     "proposedDelta": null
+   },
+   {
+     "auditHeader": null,
+     "proposedSnapshot": {
+       "com.linkedin.pegasus2avro.metadata.snapshot.GlossaryTermSnapshot": {
+         "urn": "urn:li:glossaryTerm:SavingAccount",
+         "aspects": [
+           {
+             "com.linkedin.pegasus2avro.glossary.GlossaryTermInfo": {
+               "definition": "a product provided to consumers and businesses by a bank or similar depository institution such as a checking account, savings account, certificate of deposit, debit or pre-paid card, or credit card",
+               "sourceRef": "FIBO",
+               "termSource": "EXTERNAL",
+               "sourceUrl": "https://spec.edmcouncil.org/fibo/ontology/FBC/FunctionalEntities/FinancialServicesEntities/BankingProduct",
+               "customProperties": {
+                 "FQDN": "SavingAccount"
+               }
+             }
+           }
+         ]
+       }
+     },
+     "proposedDelta": null
    }
  ]

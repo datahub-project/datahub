@@ -39,6 +39,9 @@ public class SearchFlagsInputMapper implements ModelMapper<SearchFlags, com.link
     if (searchFlags.getSkipAggregates() != null) {
       result.setSkipAggregates(searchFlags.getSkipAggregates());
     }
+    if (searchFlags.getGetSuggestions() != null) {
+      result.setGetSuggestions(searchFlags.getGetSuggestions());
+    }
     return result;
   }
 }

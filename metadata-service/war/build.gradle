@@ -12,33 +12,35 @@ ext {
 ext.apiProject = project(':metadata-service:restli-api')
 
 dependencies {
-  runtime project(':metadata-service:factories')
-  runtime project(':metadata-service:auth-filter')
-  runtime project(':metadata-service:servlet')
-  runtime project(':metadata-service:auth-servlet-impl')
-  runtime project(':metadata-service:graphql-servlet-impl')
-  runtime project(':metadata-service:health-servlet')
-  runtime project(':metadata-service:openapi-servlet')
-  runtime project(':metadata-service:schema-registry-servlet')
-  runtime project(':metadata-jobs:mce-consumer')
-  runtime project(':metadata-jobs:mae-consumer')
-  runtime project(':metadata-jobs:pe-consumer')
+  runtimeOnly project(':metadata-service:factories')
+  runtimeOnly project(':metadata-service:auth-filter')
+  runtimeOnly project(':metadata-service:servlet')
+  runtimeOnly project(':metadata-service:auth-servlet-impl')
+  runtimeOnly project(':metadata-service:graphql-servlet-impl')
+  runtimeOnly project(':metadata-service:health-servlet')
+  runtimeOnly project(':metadata-service:openapi-servlet')
+  runtimeOnly project(':metadata-service:openapi-entity-servlet')
+  runtimeOnly project(':metadata-service:openapi-analytics-servlet')
+  runtimeOnly project(':metadata-service:schema-registry-servlet')
+  runtimeOnly project(':metadata-jobs:mce-consumer')
+  runtimeOnly project(':metadata-jobs:mae-consumer')
+  runtimeOnly project(':metadata-jobs:pe-consumer')
 
-  runtime externalDependency.awsSecretsManagerJdbc
-  runtime externalDependency.h2
-  runtime externalDependency.mariadbConnector
-  runtime externalDependency.mysqlConnector
-  runtime externalDependency.postgresql
-  runtime externalDependency.springWebMVC
+  runtimeOnly externalDependency.awsSecretsManagerJdbc
+  runtimeOnly externalDependency.h2
+  runtimeOnly externalDependency.mariadbConnector
+  runtimeOnly externalDependency.mysqlConnector
+  runtimeOnly externalDependency.postgresql
+  runtimeOnly externalDependency.springWebMVC
 
-  runtime spec.product.pegasus.restliDocgen
-  runtime spec.product.pegasus.restliSpringBridge
+  runtimeOnly spec.product.pegasus.restliDocgen
+  runtimeOnly spec.product.pegasus.restliSpringBridge
 
-  runtime externalDependency.log4jCore
-  runtime externalDependency.log4j2Api
-  runtime externalDependency.logbackClassic
+  runtimeOnly externalDependency.log4jCore
+  runtimeOnly externalDependency.log4j2Api
+  runtimeOnly externalDependency.logbackClassic
   implementation externalDependency.awsMskIamAuth
-  testRuntime externalDependency.logbackClassic
+  testRuntimeOnly externalDependency.logbackClassic
   implementation externalDependency.charle
 }
 configurations.all{
@@ -82,7 +84,7 @@ docker {
   load(true)
   push(false)
 }
-tasks.getByName("docker").dependsOn([build, war])
+tasks.getByPath(":metadata-service:war:docker").dependsOn([build, war])
 
 task cleanLocalDockerImages {
   doLast {

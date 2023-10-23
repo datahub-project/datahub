@@ -53,8 +53,7 @@ public class BatchAddOwnersResolver implements DataFetcher<CompletableFuture<Boo
 
   private void validateOwners(List<OwnerInput> owners) {
     for (OwnerInput ownerInput : owners) {
-      OwnerUtils.validateOwner(UrnUtils.getUrn(ownerInput.getOwnerUrn()), ownerInput.getOwnerEntityType(),
-          UrnUtils.getUrn(ownerInput.getOwnershipTypeUrn()), _entityService);
+      OwnerUtils.validateOwner(ownerInput, _entityService);
     }
   }
 

@@ -117,8 +117,7 @@ public class DashboardStatsSummaryTest {
     UsageClient mockClient = Mockito.mock(UsageClient.class);
     Mockito.when(mockClient.getUsageStats(
         Mockito.eq(TEST_DASHBOARD_URN),
-        Mockito.eq(UsageTimeRange.MONTH),
-        Mockito.any(Authentication.class)
+        Mockito.eq(UsageTimeRange.MONTH)
     )).thenThrow(RuntimeException.class);
 
     // Execute resolver

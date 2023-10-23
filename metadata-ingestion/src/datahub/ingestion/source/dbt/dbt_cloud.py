@@ -20,9 +20,8 @@ from datahub.ingestion.source.dbt.dbt_common import (
     DBTCommonConfig,
     DBTNode,
     DBTSourceBase,
-    DBTTest,
-    DBTTestResult,
 )
+from datahub.ingestion.source.dbt.dbt_tests import DBTTest, DBTTestResult
 
 logger = logging.getLogger(__name__)
 

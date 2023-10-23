@@ -11,7 +11,7 @@ public interface ElasticSearchIndexed {
      * The index configurations for the given service.
      * @return List of reindex configurations
      */
-    List<ReindexConfig> getReindexConfigs() throws IOException;
+    List<ReindexConfig> buildReindexConfigs() throws IOException;
 
     /**
      * Mirrors the service's functions which

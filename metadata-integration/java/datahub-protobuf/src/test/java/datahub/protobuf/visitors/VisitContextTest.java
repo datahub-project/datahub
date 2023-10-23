@@ -5,7 +5,7 @@ import datahub.protobuf.model.FieldTypeEdge;
 import datahub.protobuf.model.ProtobufElement;
 import datahub.protobuf.model.ProtobufGraph;
 import org.jgrapht.GraphPath;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.util.List;

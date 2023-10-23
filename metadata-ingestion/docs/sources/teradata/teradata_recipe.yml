@@ -1,0 +1,16 @@
+pipeline_name: my-teradata-ingestion-pipeline
+source:
+  type: teradata
+  config:
+    host_port: "myteradatainstance.teradata.com:1025"
+    username: myuser
+    password: mypassword
+    #database_pattern:
+    #  allow:
+    #    - "my_database"
+    #  ignoreCase: true
+    include_table_lineage: true
+    include_usage_statistics: true
+    stateful_ingestion:
+      enabled: true
+sink:

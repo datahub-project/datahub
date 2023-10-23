@@ -10,6 +10,8 @@ import AutoCompleteEntityIcon from './AutoCompleteEntityIcon';
 import { SuggestionText } from './styledComponents';
 import AutoCompletePlatformNames from './AutoCompletePlatformNames';
 import { getPlatformName } from '../../entity/shared/utils';
+import { getParentEntities } from '../filters/utils';
+import ParentEntities from '../filters/ParentEntities';
 
 const AutoCompleteEntityWrapper = styled.div`
     display: flex;
@@ -20,6 +22,7 @@ const AutoCompleteEntityWrapper = styled.div`
 
 const IconsContainer = styled.div`
     display: flex;
+    gap: 4px;
 `;
 
 const ContentWrapper = styled.div`
@@ -75,11 +78,12 @@ export default function AutoCompleteEntity({ query, entity, siblings, hasParentT
     // Need to reverse parentContainers since it returns direct parent first.
     const orderedParentContainers = [...parentContainers].reverse();
     const subtype = genericEntityProps?.subTypes?.typeNames?.[0];
+    const parentEntities = getParentEntities(entity) || [];
 
     const showPlatforms = !!platforms.length;
     const showPlatformDivider = !!platforms.length && !!parentContainers.length;
     const showParentContainers = !!parentContainers.length;
-    const showHeader = showPlatforms || showParentContainers;
+    const showHeader = showPlatforms || showParentContainers || parentEntities.length > 0;
 
     return (
         <AutoCompleteEntityWrapper data-testid={`auto-complete-entity-name-${displayName}`}>
@@ -95,6 +99,7 @@ export default function AutoCompleteEntity({ query, entity, siblings, hasParentT
                             {showPlatforms && <AutoCompletePlatformNames platforms={platforms} />}
                             {showPlatformDivider && <Divider />}
                             {showParentContainers && <ParentContainers parentContainers={orderedParentContainers} />}
+                            <ParentEntities parentEntities={parentEntities} numVisible={3} />
                         </ItemHeader>
                     )}
                     <Typography.Text

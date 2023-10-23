@@ -55,8 +55,7 @@ def snowflake_pipeline_config(tmp_path):
                 schema_pattern=AllowDenyPattern(allow=["test_db.test_schema"]),
                 include_view_lineage=False,
                 include_usage_stats=False,
-                use_legacy_lineage_method=False,
-                start_time=datetime(2022, 6, 6, 7, 17, 0, 0).replace(
+                start_time=datetime(2022, 6, 6, 0, 0, 0, 0).replace(
                     tzinfo=timezone.utc
                 ),
                 end_time=datetime(2022, 6, 7, 7, 17, 0, 0).replace(tzinfo=timezone.utc),
@@ -284,10 +283,12 @@ def test_snowflake_unexpected_snowflake_view_lineage_error_causes_pipeline_warni
         )
 
         snowflake_pipeline_config1 = snowflake_pipeline_config.copy()
-        cast(
+        config = cast(
             SnowflakeV2Config,
             cast(PipelineConfig, snowflake_pipeline_config1).source.config,
-        ).include_view_lineage = True
+        )
+        config.include_view_lineage = True
+        config.incremental_lineage = False
         pipeline = Pipeline(snowflake_pipeline_config1)
         pipeline.run()
         pipeline.raise_from_status()  # pipeline should not fail

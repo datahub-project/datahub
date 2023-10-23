@@ -38,12 +38,6 @@ const MainContentWrapper = styled.div`
     flex-direction: column;
 `;
 
-export const BrowserWrapper = styled.div<{ width: number }>`
-    max-height: 100%;
-    width: ${(props) => props.width}px;
-    min-width: ${(props) => props.width}px;
-`;
-
 export const MAX_BROWSER_WIDTH = 500;
 export const MIN_BROWSWER_WIDTH = 200;
 
@@ -98,11 +92,12 @@ function BusinessGlossaryPage() {
                 {(termsError || nodesError) && (
                     <Message type="error" content="Failed to load glossary! An unexpected error occurred." />
                 )}
-                <MainContentWrapper>
+                <MainContentWrapper data-testid="glossary-entities-list">
                     <HeaderWrapper>
                         <Typography.Title level={3}>Business Glossary</Typography.Title>
                         <div>
                             <Button
+                                data-testid="add-term-button"
                                 id={BUSINESS_GLOSSARY_CREATE_TERM_ID}
                                 disabled={!canManageGlossaries}
                                 type="text"
@@ -111,6 +106,7 @@ function BusinessGlossaryPage() {
                                 <PlusOutlined /> Add Term
                             </Button>
                             <Button
+                                data-testid="add-term-group-button"
                                 id={BUSINESS_GLOSSARY_CREATE_TERM_GROUP_ID}
                                 disabled={!canManageGlossaries}
                                 type="text"

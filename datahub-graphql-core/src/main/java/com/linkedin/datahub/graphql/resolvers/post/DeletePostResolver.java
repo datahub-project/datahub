@@ -23,7 +23,7 @@ public class DeletePostResolver implements DataFetcher<CompletableFuture<Boolean
   public CompletableFuture<Boolean> get(final DataFetchingEnvironment environment) throws Exception {
     final QueryContext context = environment.getContext();
 
-    if (!AuthorizationUtils.canCreateGlobalAnnouncements(context)) {
+    if (!AuthorizationUtils.canManageGlobalAnnouncements(context)) {
       throw new AuthorizationException(
           "Unauthorized to delete posts. Please contact your DataHub administrator if this needs corrective action.");
     }

@@ -19,6 +19,7 @@
         "GENERATE_PERSONAL_ACCESS_TOKENS",
         "MANAGE_ACCESS_TOKENS",
         "MANAGE_DOMAINS",
+        "MANAGE_GLOBAL_ANNOUNCEMENTS",
         "MANAGE_TESTS",
         "MANAGE_GLOSSARIES",
         "MANAGE_USER_CREDENTIALS",
@@ -30,7 +31,8 @@
         "GET_ES_TASK_STATUS_PRIVILEGE",
         "SET_WRITEABLE_PRIVILEGE",
         "APPLY_RETENTION_PRIVILEGE",
-        "MANAGE_GLOBAL_OWNERSHIP_TYPES"
+        "MANAGE_GLOBAL_OWNERSHIP_TYPES",
+        "GET_ANALYTICS_PRIVILEGE"
       ],
       "displayName":"Root User - All Platform Privileges",
       "description":"Grants full platform privileges to root datahub super user.",
@@ -102,6 +104,7 @@
         "VIEW_ANALYTICS",
         "GENERATE_PERSONAL_ACCESS_TOKENS",
         "MANAGE_DOMAINS",
+        "MANAGE_GLOBAL_ANNOUNCEMENTS",
         "MANAGE_TESTS",
         "MANAGE_GLOSSARIES",
         "MANAGE_TAGS",
@@ -190,6 +193,7 @@
         "GENERATE_PERSONAL_ACCESS_TOKENS",
         "MANAGE_ACCESS_TOKENS",
         "MANAGE_DOMAINS",
+        "MANAGE_GLOBAL_ANNOUNCEMENTS",
         "MANAGE_TESTS",
         "MANAGE_GLOSSARIES",
         "MANAGE_USER_CREDENTIALS",
@@ -201,7 +205,8 @@
         "GET_ES_TASK_STATUS_PRIVILEGE",
         "SET_WRITEABLE_PRIVILEGE",
         "APPLY_RETENTION_PRIVILEGE",
-        "MANAGE_GLOBAL_OWNERSHIP_TYPES"
+        "MANAGE_GLOBAL_OWNERSHIP_TYPES",
+        "GET_ANALYTICS_PRIVILEGE"
       ],
       "displayName":"Admins - Platform Policy",
       "description":"Admins have all platform privileges.",
@@ -283,6 +288,7 @@
       "privileges":[
         "GENERATE_PERSONAL_ACCESS_TOKENS",
         "MANAGE_DOMAINS",
+        "MANAGE_GLOBAL_ANNOUNCEMENTS",
         "MANAGE_GLOSSARIES",
         "MANAGE_TAGS"
       ],
