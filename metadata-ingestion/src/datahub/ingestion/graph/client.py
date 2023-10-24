@@ -623,6 +623,78 @@ class DataHubGraph(DatahubRestEmitter):
             if entity.get("schemaMetadata"):
                 yield entity["urn"], entity["schemaMetadata"]
 
+    def _bulk_fetch_view_definitions_by_filter(
+        self,
+        *,
+        platform: Optional[str] = None,
+        platform_instance: Optional[str] = None,
+        env: Optional[str] = None,
+        query: Optional[str] = None,
+        container: Optional[str] = None,
+        status: RemovedStatusFilter = RemovedStatusFilter.NOT_SOFT_DELETED,
+        batch_size: int = 100,
+        extraFilters: Optional[List[SearchFilterRule]] = None,
+    ) -> Iterable[Tuple[str, str]]:
+        """Fetch schema info for datasets that match all of the given filters.
+
+        :return: An iterable of (urn, schema info) tuple that match the filters.
+        """
+        types = [_graphql_entity_type("dataset")]
+
+        # Add the query default of * if no query is specified.
+        query = query or "*"
+
+        orFilters = generate_filter(
+            platform, platform_instance, env, container, status, extraFilters
+        )
+
+        graphql_query = textwrap.dedent(
+            """
+            query scrollUrnsWithFilters(
+                $types: [EntityType!],
+                $query: String!,
+                $orFilters: [AndFilterInput!],
+                $batchSize: Int!,
+                $scrollId: String) {
+
+                scrollAcrossEntities(input: {
+                    query: $query,
+                    count: $batchSize,
+                    scrollId: $scrollId,
+                    types: $types,
+                    orFilters: $orFilters,
+                    searchFlags: {
+                        skipHighlighting: true
+                        skipAggregates: true
+                    }
+                }) {
+                    nextScrollId
+                    searchResults {
+                        entity {
+                            urn
+                            ... on Dataset {
+                                viewProperties {
+                                    logic
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            """
+        )
+
+        variables = {
+            "types": types,
+            "query": query,
+            "orFilters": orFilters,
+            "batchSize": batch_size,
+        }
+
+        for entity in self._scroll_across_entities(graphql_query, variables):
+            if entity.get("viewProperties") and entity["viewProperties"]["logic"]:
+                yield entity["urn"], entity["viewProperties"]["logic"]
+
     def get_urns_by_filter(
         self,
         *,

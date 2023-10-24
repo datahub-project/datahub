@@ -520,6 +520,17 @@ ORDER by DatabaseName, TableName;
             yield wu
 
         if self.config.include_view_lineage:
+            if self.config.disable_schema_metadata and self.graph is not None:
+                entries = self.graph._bulk_fetch_view_definitions_by_filter(
+                    platform=self.platform,
+                    platform_instance=self.config.platform_instance,
+                    env=self.config.env,
+                )
+                for (urn, view_definition) in entries:
+                    self._view_definition_cache[urn] = view_definition
+            elif self.config.disable_schema_metadata:
+                self.report.report_failure("view_lineage", "Missing DataHubGraph")
+
             self.report.report_ingestion_stage_start("view lineage extraction")
             yield from self.get_view_lineage()
 
