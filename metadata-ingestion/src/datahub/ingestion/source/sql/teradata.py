@@ -451,8 +451,6 @@ ORDER by DatabaseName, TableName;
             self.report.num_queries_parsed += 1
             if self.report.num_queries_parsed % 1000 == 0:
                 logger.info(f"Parsed {self.report.num_queries_parsed} queries")
-            print(entry.query)
-            print()
             yield from self.gen_lineage_from_query(
                 query=entry.query,
                 default_database=entry.default_database,
