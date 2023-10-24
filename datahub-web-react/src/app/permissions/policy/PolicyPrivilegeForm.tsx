@@ -145,10 +145,7 @@ export default function PolicyPrivilegeForm({
         };
         setResources({
             ...resources,
-            filter: setFieldValues(filter, 'TYPE', [
-                ...resourceTypes,
-                createCriterionValue(selectedResourceType),
-            ]),
+            filter: setFieldValues(filter, 'TYPE', [...resourceTypes, createCriterionValue(selectedResourceType)]),
         });
     };
 
