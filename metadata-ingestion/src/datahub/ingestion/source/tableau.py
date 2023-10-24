@@ -364,6 +364,11 @@ class TableauConfig(
         description="Comma separated list of platforms to not ingest upstream lineage for",
     )
 
+    upstream_postgres_database_whitelist: Optional[str] = Field(
+        default="",
+        description="Comma separated list of postgres databases to include in upstream lineage",
+    )
+
     # pre = True because we want to take some decision before pydantic initialize the configuration to default values
     @root_validator(pre=True)
     def projects_backward_compatibility(cls, values: Dict) -> Dict:
@@ -506,6 +511,25 @@ class TableauSource(StatefulIngestionSourceBase):
                 x.strip()
                 for x in (self.config.ignore_upstream_lineage_platforms.split(","))
             ]
+        else:
+            # return empty list if the config is not set
+            self.ignore_upstream_lineage_platforms = []
+
+        # if ignore upstream lineage platforms doesn't contain "postgres", then consult the upstream_postgres_database_whitelist
+        if (
+            "postgres" not in self.ignore_upstream_lineage_platforms 
+            and self.config.upstream_postgres_database_whitelist
+        ):
+            self.upstream_postgres_database_whitelist = [
+                x.strip()
+                for x in (
+                    self.config.upstream_postgres_database_whitelist.split(",")
+                )
+            ]
+        else:
+            # return empty list if the config is not set
+            self.upstream_postgres_database_whitelist = []
+        
 
         self._authenticate()
 
@@ -1016,6 +1040,19 @@ class TableauSource(StatefulIngestionSourceBase):
                     f"Skipping upstream table {table[tableau_constant.ID]} from lineage since its name is none: {table}"
                 )
                 continue
+
+            # skip upstream tables if the source is postgres and the database is not whitelisted
+            if table.get(tableau_constant.CONNECTION_TYPE) == "postgres":
+                upstream_db = table.get(tableau_constant.DATABASE, {}).get(tableau_constant.NAME, "")
+                if (
+                    upstream_db
+                    and upstream_db not in self.upstream_postgres_database_whitelist
+                ):
+                    logger.debug(
+                        f"Skipping upstream table {table[tableau_constant.ID]}, database {upstream_db} not whitelisted"
+                    )
+                    continue
+
 
             schema = table.get(tableau_constant.SCHEMA) or ""
             table_name = table.get(tableau_constant.NAME) or ""
