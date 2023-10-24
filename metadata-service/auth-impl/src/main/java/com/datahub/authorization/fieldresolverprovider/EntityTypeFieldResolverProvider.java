@@ -3,7 +3,9 @@ package com.datahub.authorization.fieldresolverprovider;
 import com.datahub.authorization.FieldResolver;
 import com.datahub.authorization.EntityFieldType;
 import com.datahub.authorization.EntitySpec;
+import com.datastax.oss.driver.shaded.guava.common.collect.ImmutableList;
 import java.util.Collections;
+import java.util.List;
 
 
 /**
@@ -12,7 +14,12 @@ import java.util.Collections;
 public class EntityTypeFieldResolverProvider implements EntityFieldResolverProvider {
   @Override
   public EntityFieldType getFieldType() {
-    return EntityFieldType.TYPE;
+    return getFieldTypes().get(0);
+  }
+
+  @Override
+  public List<EntityFieldType> getFieldTypes() {
+    return ImmutableList.of(EntityFieldType.RESOURCE_TYPE, EntityFieldType.TYPE);
   }
 
   @Override

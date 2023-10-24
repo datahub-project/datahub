@@ -13,6 +13,7 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.identity.NativeGroupMembership;
 import com.linkedin.metadata.Constants;
 import com.linkedin.identity.GroupMembership;
+import java.util.Collections;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -37,6 +38,11 @@ public class GroupMembershipFieldResolverProvider implements EntityFieldResolver
   @Override
   public EntityFieldType getFieldType() {
     return EntityFieldType.GROUP_MEMBERSHIP;
+  }
+
+  @Override
+  public List<EntityFieldType> getFieldTypes() {
+    return Collections.singletonList(EntityFieldType.GROUP_MEMBERSHIP);
   }
 
   @Override

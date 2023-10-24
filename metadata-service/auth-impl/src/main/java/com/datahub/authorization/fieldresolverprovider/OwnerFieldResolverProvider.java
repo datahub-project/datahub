@@ -12,6 +12,7 @@ import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import java.util.Collections;
+import java.util.List;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -30,6 +31,11 @@ public class OwnerFieldResolverProvider implements EntityFieldResolverProvider {
   @Override
   public EntityFieldType getFieldType() {
     return EntityFieldType.OWNER;
+  }
+
+  @Override
+  public List<EntityFieldType> getFieldTypes() {
+    return Collections.singletonList(EntityFieldType.OWNER);
   }
 
   @Override
