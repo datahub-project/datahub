@@ -80,7 +80,6 @@ from datahub.metadata.schema_classes import (
     DatasetLineageTypeClass,
     DatasetPropertiesClass,
     GlobalTagsClass,
-    MapTypeClass,
     SubTypesClass,
     TagAssociationClass,
     UpstreamClass,
