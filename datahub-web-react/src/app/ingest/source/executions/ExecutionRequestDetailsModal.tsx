@@ -2,6 +2,7 @@ import { DownloadOutlined } from '@ant-design/icons';
 import { Button, message, Modal, Typography } from 'antd';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
+import YAML from 'yamljs';
 import { useGetIngestionExecutionRequestQuery } from '../../../../graphql/ingestion.generated';
 import { ANTD_GRAY } from '../../../entity/shared/constants';
 import { downloadFile } from '../../../search/utils/csvUtils';
@@ -65,6 +66,13 @@ const IngestedAssetsSection = styled.div`
     padding-right: 30px;
 `;
 
+const RecipeSection = styled.div`
+    border-top: 1px solid ${ANTD_GRAY[4]};
+    padding-top: 16px;
+    padding-left: 30px;
+    padding-right: 30px;
+`;
+
 const LogsSection = styled.div`
     padding-top: 16px;
     padding-left: 30px;
@@ -91,6 +99,8 @@ type Props = {
 
 export const ExecutionDetailsModal = ({ urn, visible, onClose }: Props) => {
     const [showExpandedLogs, setShowExpandedLogs] = useState(false);
+    const [showExpandedRecipe, setShowExpandedRecipe] = useState(false);
+
     const { data, loading, error, refetch } = useGetIngestionExecutionRequestQuery({ variables: { urn } });
     const output = data?.executionRequest?.result?.report || 'No output found.';
 
@@ -120,7 +130,18 @@ export const ExecutionDetailsModal = ({ urn, visible, onClose }: Props) => {
     const resultSummaryText =
         (result && <Typography.Text type="secondary">{getExecutionRequestSummaryText(result)}</Typography.Text>) ||
         undefined;
-    const isOutputExpandable = output.length > 100;
+
+    const recipeJson = data?.executionRequest?.input.arguments?.find((arg) => arg.key === 'recipe')?.value;
+    let recipeYaml: string;
+    try {
+        recipeYaml = recipeJson && YAML.stringify(JSON.parse(recipeJson), 8, 2).trim();
+    } catch (e) {
+        recipeYaml = '';
+    }
+    const recipe = showExpandedRecipe ? recipeYaml : recipeYaml?.split('\n').slice(0, 1).join('\n');
+
+    const areLogsExpandable = output.length > 100;
+    const isRecipeExpandable = recipeYaml?.includes('\n');
 
     return (
         <Modal
@@ -161,14 +182,32 @@ export const ExecutionDetailsModal = ({ urn, visible, onClose }: Props) => {
                         </Button>
                     </SectionSubHeader>
                     <Typography.Paragraph ellipsis>
-                        <pre>{`${logs}${!showExpandedLogs && isOutputExpandable ? '...' : ''}`}</pre>
-                        {isOutputExpandable && (
+                        <pre>{`${logs}${!showExpandedLogs && areLogsExpandable ? '...' : ''}`}</pre>
+                        {areLogsExpandable && (
                             <ShowMoreButton type="link" onClick={() => setShowExpandedLogs(!showExpandedLogs)}>
                                 {showExpandedLogs ? 'Hide' : 'Show More'}
                             </ShowMoreButton>
                         )}
                     </Typography.Paragraph>
                 </LogsSection>
+                {recipe && (
+                    <RecipeSection>
+                        <SectionHeader level={5}>Recipe</SectionHeader>
+                        <SectionSubHeader>
+                            <SubHeaderParagraph type="secondary">
+                                The recipe used for this ingestion run.
+                            </SubHeaderParagraph>
+                        </SectionSubHeader>
+                        <Typography.Paragraph ellipsis>
+                            <pre>{`${recipe}${!showExpandedRecipe && isRecipeExpandable ? '\n...' : ''}`}</pre>
+                        </Typography.Paragraph>
+                        {isRecipeExpandable && (
+                            <ShowMoreButton type="link" onClick={() => setShowExpandedRecipe((v) => !v)}>
+                                {showExpandedRecipe ? 'Hide' : 'Show More'}
+                            </ShowMoreButton>
+                        )}
+                    </RecipeSection>
+                )}
             </Section>
         </Modal>
     );
