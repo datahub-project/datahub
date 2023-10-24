@@ -16,6 +16,39 @@ This is currently enabled by default to preserve compatibility, but will be disa
 If stateful ingestion is enabled, simply setting `include_metastore: false` will perform all required cleanup.
 Otherwise, we recommend soft deleting all databricks data via the DataHub CLI:
 `datahub delete --platform databricks --soft` and then reingesting with `include_metastore: false`.
+- #8846 - Changed enum values in resource filters used by policies. `RESOURCE_TYPE` became `TYPE` and `RESOURCE_URN` became `URN`.
+Any existing policies using these filters (i.e. defined for particular `urns` or `types` such as `dataset`) need to be upgraded
+manually, for example by retrieving their respective `dataHubPolicyInfo` aspect and changing part using filter i.e.
+```yaml
+   "resources": {
+     "filter": {
+       "criteria": [
+         {
+           "field": "RESOURCE_TYPE",
+           "condition": "EQUALS",
+           "values": [
+             "dataset"
+           ]
+         }
+       ]
+     }
+```
+into
+```yaml
+   "resources": {
+     "filter": {
+       "criteria": [
+         {
+           "field": "TYPE",
+           "condition": "EQUALS",
+           "values": [
+             "dataset"
+           ]
+         }
+       ]
+     }
+```
+for example, using `datahub put` command. Policies can be also removed and re-created via UI.
 - #9077 - The BigQuery ingestion source by default sets `match_fully_qualified_names: true`.
 This means that any `dataset_pattern` or `schema_pattern` specified will be matched on the fully
 qualified dataset name, i.e. `<project_name>.<dataset_name>`. If this is not the case, please
