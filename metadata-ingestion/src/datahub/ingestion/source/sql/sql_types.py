@@ -1,8 +1,6 @@
 import re
 from typing import Any, Dict, ValuesView
 
-from sqlalchemy import types
-
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     ArrayType,
     BooleanType,
@@ -17,6 +15,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     TimeType,
     UnionType,
 )
+from datahub.utilities.sqlalchemy_type_converter import MapType
 
 # these can be obtained by running `select format_type(oid, null),* from pg_type;`
 # we've omitted the types without a meaningful DataHub type (e.g. postgres-specific types, index vectors, etc.)
@@ -368,12 +367,6 @@ TRINO_SQL_TYPES_MAP: Dict[str, Any] = {
     "map": MapTypeAvro,
     "array": ArrayType,
 }
-
-
-class MapType(types.TupleType):
-    # Wrapper class around SQLalchemy's TupleType to increase compatibility with DataHub
-    pass
-
 
 # https://docs.aws.amazon.com/athena/latest/ug/data-types.html
 # https://github.com/dbt-athena/dbt-athena/tree/main
