@@ -3,6 +3,7 @@ import pathlib
 import pytest
 
 from datahub.testing.check_sql_parser_result import assert_sql_result
+from datahub.utilities.sqlglot_lineage import _UPDATE_ARGS_NOT_SUPPORTED_BY_SELECT
 
 RESOURCE_DIR = pathlib.Path(__file__).parent / "goldens"
 
@@ -671,4 +672,99 @@ create table demo_user.test_lineage2 as
             },
         },
         expected_file=RESOURCE_DIR / "test_teradata_default_normalization.json",
+    )
+
+
+def test_snowflake_update_hardcoded():
+    assert_sql_result(
+        """
+UPDATE snowflake_sample_data.tpch_sf1.orders
+SET orderkey = 1, totalprice = 2
+WHERE orderkey = 3
+""",
+        dialect="snowflake",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_sample_data.tpch_sf1.orders,PROD)": {
+                "orderkey": "NUMBER(38,0)",
+                "totalprice": "NUMBER(12,2)",
+            },
+        },
+        expected_file=RESOURCE_DIR / "test_snowflake_update_hardcoded.json",
+    )
+
+
+def test_update_from_select():
+    assert _UPDATE_ARGS_NOT_SUPPORTED_BY_SELECT == {"returning", "this"}
+
+
+def test_snowflake_update_from_table():
+    # Can create these tables with the following SQL:
+    """
+    -- Create or replace my_table
+    CREATE OR REPLACE TABLE my_table (
+        id INT IDENTITY PRIMARY KEY,
+        col1 VARCHAR(50),
+        col2 VARCHAR(50)
+    );
+
+    -- Create or replace table1
+    CREATE OR REPLACE TABLE table1 (
+        id INT IDENTITY PRIMARY KEY,
+        col1 VARCHAR(50),
+        col2 VARCHAR(50)
+    );
+
+    -- Create or replace table2
+    CREATE OR REPLACE TABLE table2 (
+        id INT IDENTITY PRIMARY KEY,
+        col2 VARCHAR(50)
+    );
+
+    -- Insert data into my_table
+    INSERT INTO my_table (col1, col2)
+    VALUES ('foo', 'bar'),
+           ('baz', 'qux');
+
+    -- Insert data into table1
+    INSERT INTO table1 (col1, col2)
+    VALUES ('foo', 'bar'),
+           ('baz', 'qux');
+
+    -- Insert data into table2
+    INSERT INTO table2 (col2)
+    VALUES ('bar'),
+           ('qux');
+    """
+
+    assert_sql_result(
+        """
+UPDATE my_table
+SET
+    col1 = t1.col1 || t1.col2,
+    col2 = t1.col1 || t2.col2
+FROM table1 t1
+JOIN table2 t2 ON t1.id = t2.id
+WHERE my_table.id = t1.id;
+""",
+        dialect="snowflake",
+        default_db="my_db",
+        default_schema="my_schema",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.my_table,PROD)": {
+                "id": "NUMBER(38,0)",
+                "col1": "VARCHAR(16777216)",
+                "col2": "VARCHAR(16777216)",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.table1,PROD)": {
+                "id": "NUMBER(38,0)",
+                "col1": "VARCHAR(16777216)",
+                "col2": "VARCHAR(16777216)",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.table2,PROD)": {
+                "id": "NUMBER(38,0)",
+                "col1": "VARCHAR(16777216)",
+                "col2": "VARCHAR(16777216)",
+            },
+        },
+        expected_file=RESOURCE_DIR / "test_snowflake_update_from_table.json",
     )
