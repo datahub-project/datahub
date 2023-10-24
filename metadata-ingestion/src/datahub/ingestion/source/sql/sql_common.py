@@ -80,6 +80,7 @@ from datahub.metadata.schema_classes import (
     DatasetLineageTypeClass,
     DatasetPropertiesClass,
     GlobalTagsClass,
+    MapTypeClass,
     SubTypesClass,
     TagAssociationClass,
     UpstreamClass,
@@ -89,6 +90,7 @@ from datahub.telemetry import telemetry
 from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.registries.domain_registry import DomainRegistry
 from datahub.utilities.sqlalchemy_query_combiner import SQLAlchemyQueryCombinerReport
+from datahub.utilities.sqlalchemy_type_converter import MapType
 
 if TYPE_CHECKING:
     from datahub.ingestion.source.ge_data_profiler import (
@@ -154,6 +156,8 @@ _field_type_mapping: Dict[Type[TypeEngine], Type] = {
     types.DATETIME: TimeTypeClass,
     types.TIMESTAMP: TimeTypeClass,
     types.JSON: RecordTypeClass,
+    # additional type definitions that are used by the Athena source
+    MapType: MapTypeClass,  # type: ignore
     # Because the postgresql dialect is used internally by many other dialects,
     # we add some postgres types here. This is ok to do because the postgresql
     # dialect is built-in to sqlalchemy.
