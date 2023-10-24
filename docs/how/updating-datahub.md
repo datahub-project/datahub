@@ -11,11 +11,17 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
   by Looker and LookML source connectors.
 - #8853 - The Airflow plugin no longer supports Airflow 2.0.x or Python 3.7. See the docs for more details.
 - #8853 - Introduced the Airflow plugin v2. If you're using Airflow 2.3+, the v2 plugin will be enabled by default, and so you'll need to switch your requirements to include `pip install 'acryl-datahub-airflow-plugin[plugin-v2]'`. To continue using the v1 plugin, set the `DATAHUB_AIRFLOW_PLUGIN_USE_V1_PLUGIN` environment variable to `true`.
-- #8943 The Unity Catalog ingestion source has a new option `include_metastore`, which will cause all urns to be changed when disabled.
+- #8943 - The Unity Catalog ingestion source has a new option `include_metastore`, which will cause all urns to be changed when disabled.
 This is currently enabled by default to preserve compatibility, but will be disabled by default and then removed in the future.
 If stateful ingestion is enabled, simply setting `include_metastore: false` will perform all required cleanup.
 Otherwise, we recommend soft deleting all databricks data via the DataHub CLI:
 `datahub delete --platform databricks --soft` and then reingesting with `include_metastore: false`.
+- #9077 - The BigQuery ingestion source by default sets `match_fully_qualified_names: true`.
+This means that any `dataset_pattern` or `schema_pattern` specified will be matched on the fully
+qualified dataset name, i.e. `<project_name>.<dataset_name>`. If this is not the case, please
+update your pattern (e.g. prepend your old dataset pattern with `.*\.` which matches the project part), 
+or set `match_fully_qualified_names: false` in your recipe. However, note that
+setting this to `false` is deprecated and this flag will be removed entirely in a future release.
 
 ### Potential Downtime
 
