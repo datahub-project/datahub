@@ -367,7 +367,6 @@ TRINO_SQL_TYPES_MAP: Dict[str, Any] = {
     "array": ArrayType,
 }
 
-
 # https://docs.aws.amazon.com/athena/latest/ug/data-types.html
 # https://github.com/dbt-athena/dbt-athena/tree/main
 ATHENA_SQL_TYPES_MAP: Dict[str, Any] = {

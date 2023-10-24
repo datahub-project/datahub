@@ -7,11 +7,15 @@ from sqlalchemy import types
 from sqlalchemy_bigquery import STRUCT
 
 from datahub.ingestion.extractor.schema_util import avro_schema_to_mce_fields
-from datahub.ingestion.source.sql.sql_types import MapType
 from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaField
 from datahub.metadata.schema_classes import NullTypeClass, SchemaFieldDataTypeClass
 
 logger = logging.getLogger(__name__)
+
+
+class MapType(types.TupleType):
+    # Wrapper class around SQLalchemy's TupleType to increase compatibility with DataHub
+    pass
 
 
 class SqlAlchemyColumnToAvroConverter:
