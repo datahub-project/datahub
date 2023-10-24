@@ -12,13 +12,6 @@ import java.util.List;
 public interface EntityFieldResolverProvider {
 
   /**
-   * Field that this hydrator is hydrating
-   */
-  default EntityFieldType getFieldType() {
-    return this.getFieldTypes().get(0);
-  }
-
-  /**
    * List of fields that this hydrator is hydrating.
    * @return
    */
