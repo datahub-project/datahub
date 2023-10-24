@@ -37,7 +37,6 @@ from datahub.ingestion.source.common.subtypes import (
     DatasetSubTypes,
 )
 from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
-from datahub.ingestion.source.sql.sql_types import MapType
 from datahub.ingestion.source.sql.sql_utils import (
     add_table_to_schema_container,
     downgrade_schema_from_v2,
@@ -91,6 +90,7 @@ from datahub.telemetry import telemetry
 from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.registries.domain_registry import DomainRegistry
 from datahub.utilities.sqlalchemy_query_combiner import SQLAlchemyQueryCombinerReport
+from datahub.utilities.sqlalchemy_type_converter import MapType
 
 if TYPE_CHECKING:
     from datahub.ingestion.source.ge_data_profiler import (
