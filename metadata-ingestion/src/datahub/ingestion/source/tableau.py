@@ -517,18 +517,18 @@ class TableauSource(StatefulIngestionSourceBase):
             self.ignore_upstream_lineage_platforms = []
 
         # if ignore upstream lineage platforms doesn't contain "postgres", then consult the upstream_postgres_database_whitelist
-        if "postgres" not in self.ignore_upstream_lineage_platforms:
-            if self.config.upstream_postgres_database_whitelist:
-                self.upstream_postgres_database_whitelist = [
-                    x.strip()
-                    for x in (
-                        self.config.upstream_postgres_database_whitelist.split(",")
-                    )
-                ]
-            else:
-                # return empty list if the config is not set
-                self.upstream_postgres_database_whitelist = []
+        if (
+            "postgres" not in self.ignore_upstream_lineage_platforms 
+            and self.config.upstream_postgres_database_whitelist
+        ):
+            self.upstream_postgres_database_whitelist = [
+                x.strip()
+                for x in (
+                    self.config.upstream_postgres_database_whitelist.split(",")
+                )
+            ]
         else:
+            # return empty list if the config is not set
             self.upstream_postgres_database_whitelist = []
         
 
@@ -1036,12 +1036,7 @@ class TableauSource(StatefulIngestionSourceBase):
 
             # skip upstream tables if the source is postgres and the database is not whitelisted
             if table.get(c.CONNECTION_TYPE) == "postgres":
-                upstream_db = (
-                    table[c.DATABASE][c.NAME]
-                    if table.get(c.DATABASE)
-                    and table[c.DATABASE].get(c.NAME)
-                    else ""
-                )
+                upstream_db = table.get([c.DATABASE], {}).get([c.NAME], "")
                 if (
                     upstream_db
                     and upstream_db not in self.upstream_postgres_database_whitelist
