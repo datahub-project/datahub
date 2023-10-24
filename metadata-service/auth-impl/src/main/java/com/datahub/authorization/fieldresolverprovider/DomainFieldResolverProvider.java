@@ -38,11 +38,6 @@ public class DomainFieldResolverProvider implements EntityFieldResolverProvider 
   private final Authentication _systemAuthentication;
 
   @Override
-  public EntityFieldType getFieldType() {
-    return EntityFieldType.DOMAIN;
-  }
-
-  @Override
   public List<EntityFieldType> getFieldTypes() {
     return Collections.singletonList(EntityFieldType.DOMAIN);
   }

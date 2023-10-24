@@ -14,7 +14,9 @@ public interface EntityFieldResolverProvider {
   /**
    * Field that this hydrator is hydrating
    */
-  EntityFieldType getFieldType();
+  default EntityFieldType getFieldType() {
+    return this.getFieldTypes().get(0);
+  }
 
   /**
    * List of fields that this hydrator is hydrating.

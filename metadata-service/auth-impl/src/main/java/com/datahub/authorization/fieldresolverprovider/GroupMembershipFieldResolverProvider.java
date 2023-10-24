@@ -36,11 +36,6 @@ public class GroupMembershipFieldResolverProvider implements EntityFieldResolver
   private final Authentication _systemAuthentication;
 
   @Override
-  public EntityFieldType getFieldType() {
-    return EntityFieldType.GROUP_MEMBERSHIP;
-  }
-
-  @Override
   public List<EntityFieldType> getFieldTypes() {
     return Collections.singletonList(EntityFieldType.GROUP_MEMBERSHIP);
   }

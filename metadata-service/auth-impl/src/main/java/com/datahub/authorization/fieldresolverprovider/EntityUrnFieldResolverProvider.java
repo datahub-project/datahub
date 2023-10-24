@@ -12,14 +12,10 @@ import java.util.List;
  * Provides field resolver for entity urn given entitySpec
  */
 public class EntityUrnFieldResolverProvider implements EntityFieldResolverProvider {
-  @Override
-  public EntityFieldType getFieldType() {
-    return EntityFieldType.URN;
-  }
 
   @Override
   public List<EntityFieldType> getFieldTypes() {
-    return ImmutableList.of(EntityFieldType.RESOURCE_URN, EntityFieldType.URN);
+    return ImmutableList.of(EntityFieldType.URN, EntityFieldType.RESOURCE_URN);
   }
 
   @Override

@@ -29,11 +29,6 @@ public class OwnerFieldResolverProvider implements EntityFieldResolverProvider {
   private final Authentication _systemAuthentication;
 
   @Override
-  public EntityFieldType getFieldType() {
-    return EntityFieldType.OWNER;
-  }
-
-  @Override
   public List<EntityFieldType> getFieldTypes() {
     return Collections.singletonList(EntityFieldType.OWNER);
   }

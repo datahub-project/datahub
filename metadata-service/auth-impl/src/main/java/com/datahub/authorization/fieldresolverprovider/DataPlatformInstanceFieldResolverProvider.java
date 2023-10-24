@@ -29,11 +29,6 @@ public class DataPlatformInstanceFieldResolverProvider implements EntityFieldRes
   private final Authentication _systemAuthentication;
 
   @Override
-  public EntityFieldType getFieldType() {
-    return EntityFieldType.DATA_PLATFORM_INSTANCE;
-  }
-
-  @Override
   public List<EntityFieldType> getFieldTypes() {
     return Collections.singletonList(EntityFieldType.DATA_PLATFORM_INSTANCE);
   }
