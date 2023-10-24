@@ -145,8 +145,9 @@ class DataHubSource(StatefulIngestionSourceBase):
 
     def _get_api_workunits(self) -> Iterable[MetadataWorkUnit]:
         if self.ctx.graph is None:
-            logger.error(
-                "Specify datahub_api on your ingestion recipe to ingest from the DataHub API"
+            self.report.report_failure(
+                "datahub_api",
+                "Specify datahub_api on your ingestion recipe to ingest from the DataHub API",
             )
             return
 
