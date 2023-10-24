@@ -266,7 +266,9 @@ def _wrap_on_retry_callback(on_retry_callback):
         if config.enabled:
             context["_datahub_config"] = config
             try:
-                datahub_task_status_callback(context, status=InstanceRunResult.UP_FOR_RETRY)
+                datahub_task_status_callback(
+                    context, status=InstanceRunResult.UP_FOR_RETRY
+                )
             except Exception as e:
                 if not config.graceful_exceptions:
                     raise e
@@ -298,7 +300,11 @@ def task_policy(task: Union[BaseOperator, MappedOperator]) -> None:
         on_retry_callback_prop: property = getattr(
             MappedOperator, TASK_ON_RETRY_CALLBACK
         )
-        if not on_failure_callback_prop.fset or not on_success_callback_prop.fset or not on_retry_callback_prop.fset:
+        if (
+            not on_failure_callback_prop.fset
+            or not on_success_callback_prop.fset
+            or not on_retry_callback_prop.fset
+        ):
             task.log.debug(
                 "Using MappedOperator's partial_kwargs instead of callback properties"
             )
