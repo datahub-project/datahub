@@ -32,7 +32,7 @@ framework_common = {
     "expandvars>=0.6.5",
     "avro-gen3==0.7.11",
     # "avro-gen3 @ git+https://github.com/acryldata/avro_gen@master#egg=avro-gen3",
-    "avro>=1.10.2,<1.11",
+    "avro>=1.11.3,<1.12",
     "python-dateutil>=2.8.0",
     "tabulate",
     "progressbar2",
@@ -282,7 +282,8 @@ plugins: Dict[str, Set[str]] = {
     # Source plugins
     # sqlalchemy-bigquery is included here since it provides an implementation of
     # a SQLalchemy-conform STRUCT type definition
-    "athena": sql_common | {"PyAthena[SQLAlchemy]>=2.6.0,<3.0.0", "sqlalchemy-bigquery>=1.4.1"},
+    "athena": sql_common
+    | {"PyAthena[SQLAlchemy]>=2.6.0,<3.0.0", "sqlalchemy-bigquery>=1.4.1"},
     "azure-ad": set(),
     "bigquery": sql_common
     | bigquery_common
@@ -354,9 +355,13 @@ plugins: Dict[str, Set[str]] = {
     | {"psycopg2-binary", "pymysql>=1.0.2"},
     "pulsar": {"requests"},
     "redash": {"redash-toolbelt", "sql-metadata"} | sqllineage_lib,
-    "redshift": sql_common | redshift_common | usage_common | sqlglot_lib | {"redshift-connector"},
-    "redshift-legacy": sql_common | redshift_common,
-    "redshift-usage-legacy": sql_common | usage_common | redshift_common,
+    "redshift": sql_common
+    | redshift_common
+    | usage_common
+    | {"redshift-connector"}
+    | sqlglot_lib,
+    "redshift-legacy": sql_common | redshift_common | sqlglot_lib,
+    "redshift-usage-legacy": sql_common | redshift_common | sqlglot_lib | usage_common,
     "s3": {*s3_base, *data_lake_profiling},
     "gcs": {*s3_base, *data_lake_profiling},
     "sagemaker": aws_common,
@@ -435,7 +440,9 @@ pytest_dep = "pytest>=6.2.2"
 deepdiff_dep = "deepdiff"
 test_api_requirements = {pytest_dep, deepdiff_dep, "PyYAML"}
 
-debug_requirements = {"memray"}
+debug_requirements = {
+    "memray",
+}
 
 base_dev_requirements = {
     *base_requirements,
@@ -668,6 +675,7 @@ setuptools.setup(
         "Documentation": "https://datahubproject.io/docs/",
         "Source": "https://github.com/datahub-project/datahub",
         "Changelog": "https://github.com/datahub-project/datahub/releases",
+        "Releases": "https://github.com/acryldata/datahub/releases",
     },
     license="Apache License 2.0",
     description="A CLI to work with DataHub metadata",

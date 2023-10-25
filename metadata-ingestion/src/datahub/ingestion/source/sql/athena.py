@@ -31,22 +31,24 @@ from datahub.ingestion.source.sql.sql_common import (
     register_custom_type,
 )
 from datahub.ingestion.source.sql.sql_config import SQLCommonConfig, make_sqlalchemy_uri
-from datahub.ingestion.source.sql.sql_types import MapType
 from datahub.ingestion.source.sql.sql_utils import (
     add_table_to_schema_container,
     gen_database_container,
     gen_database_key,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaField
-from datahub.metadata.schema_classes import RecordTypeClass
+from datahub.metadata.schema_classes import MapTypeClass, RecordTypeClass
 from datahub.utilities.hive_schema_to_avro import get_avro_schema_for_hive_column
 from datahub.utilities.sqlalchemy_type_converter import (
+    MapType,
     get_schema_fields_for_sqlalchemy_column,
 )
 
 logger = logging.getLogger(__name__)
 
+assert STRUCT, "required type modules are not available"
 register_custom_type(STRUCT, RecordTypeClass)
+register_custom_type(MapType, MapTypeClass)
 
 
 class CustomAthenaRestDialect(AthenaRestDialect):

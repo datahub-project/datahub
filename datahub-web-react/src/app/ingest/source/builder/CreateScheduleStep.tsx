@@ -167,7 +167,11 @@ export const CreateScheduleStep = ({ state, updateState, goTo, prev }: StepProps
             <ControlsContainer>
                 <Button onClick={prev}>Previous</Button>
                 <div>
-                    <Button disabled={!interval || interval.length === 0 || cronAsText.error} onClick={onClickNext}>
+                    <Button
+                        data-testid="ingestion-schedule-next-button"
+                        disabled={!interval || interval.length === 0 || cronAsText.error}
+                        onClick={onClickNext}
+                    >
                         Next
                     </Button>
                 </div>
