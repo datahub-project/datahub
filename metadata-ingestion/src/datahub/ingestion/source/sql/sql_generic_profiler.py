@@ -1,12 +1,15 @@
 import logging
+from abc import abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
-from typing import Dict, Iterable, List, Optional, Tuple, Union, cast
+from typing import Dict, Iterable, List, Optional, Union, cast
 
 from sqlalchemy import create_engine, inspect
 from sqlalchemy.engine.reflection import Inspector
 
 from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.ge_data_profiler import (
     DatahubGEProfiler,
     GEProfilerRequest,
@@ -16,7 +19,7 @@ from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 from datahub.ingestion.source.sql.sql_generic import BaseTable, BaseView
 from datahub.ingestion.source.state.profiling_state_handler import ProfilingHandler
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import DatasetProfile
-from datahub.metadata.schema_classes import DatasetProfileClass
+from datahub.metadata.com.linkedin.pegasus2avro.timeseries import PartitionType
 from datahub.utilities.stats_collections import TopKDict, int_top_k_dict
 
 
@@ -63,14 +66,14 @@ class GenericProfiler:
         self.platform = platform
         self.state_handler = state_handler
 
-    def generate_profiles(
+    def generate_profile_workunits(
         self,
         requests: List[TableProfilerRequest],
         max_workers: int,
         db_name: Optional[str] = None,
         platform: Optional[str] = None,
         profiler_args: Optional[Dict] = None,
-    ) -> Iterable[Tuple[GEProfilerRequest, Optional[DatasetProfileClass]]]:
+    ) -> Iterable[MetadataWorkUnit]:
         ge_profile_requests: List[GEProfilerRequest] = [
             cast(GEProfilerRequest, request)
             for request in requests
@@ -80,21 +83,109 @@ class GenericProfiler:
             request for request in requests if request.profile_table_level_only
         ]
         for request in table_level_profile_requests:
-            profile = DatasetProfile(
+            table_level_profile = DatasetProfile(
                 timestampMillis=int(datetime.now().timestamp() * 1000),
                 columnCount=request.table.column_count,
                 rowCount=request.table.rows_count,
                 sizeInBytes=request.table.size_in_bytes,
             )
-            yield (request, profile)
+            dataset_urn = self.dataset_urn_builder(request.pretty_name)
+            yield MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn, aspect=table_level_profile
+            ).as_workunit()
 
         if not ge_profile_requests:
             return
 
         # Otherwise, if column level profiling is enabled, use  GE profiler.
         ge_profiler = self.get_profiler_instance(db_name)
-        yield from ge_profiler.generate_profiles(
+
+        for ge_profiler_request, profile in ge_profiler.generate_profiles(
             ge_profile_requests, max_workers, platform, profiler_args
+        ):
+            if profile is None:
+                continue
+
+            request = cast(TableProfilerRequest, ge_profiler_request)
+            profile.sizeInBytes = request.table.size_in_bytes
+
+            # If table is partitioned we profile only one partition (if nothing set then the last one)
+            # but for table level we can use the rows_count from the table metadata
+            # This way even though column statistics only reflects one partition data but the rows count
+            # shows the proper count.
+            if (
+                profile.partitionSpec
+                and profile.partitionSpec.type != PartitionType.FULL_TABLE
+            ):
+                profile.rowCount = request.table.rows_count
+
+            dataset_urn = self.dataset_urn_builder(request.pretty_name)
+
+            # We don't add to the profiler state if we only do table level profiling as it always happens
+            if self.state_handler:
+                self.state_handler.add_to_state(
+                    dataset_urn, int(datetime.now().timestamp() * 1000)
+                )
+            yield MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn, aspect=profile
+            ).as_workunit()
+
+    def dataset_urn_builder(self, dataset_name: str) -> str:
+        return make_dataset_urn_with_platform_instance(
+            self.platform,
+            dataset_name,
+            self.config.platform_instance,
+            self.config.env,
+        )
+
+    @abstractmethod
+    def get_dataset_name(self, table_name: str, schema_name: str, db_name: str) -> str:
+        pass
+
+    def get_profile_request(
+        self, table: BaseTable, schema_name: str, db_name: str
+    ) -> Optional[TableProfilerRequest]:
+        skip_profiling = False
+        profile_table_level_only = self.config.profiling.profile_table_level_only
+        dataset_name = self.get_dataset_name(table.name, schema_name, db_name)
+        if not self.is_dataset_eligible_for_profiling(
+            dataset_name, table.last_altered, table.size_in_bytes, table.rows_count
+        ):
+            # Profile only table level if dataset is filtered from profiling
+            # due to size limits alone
+            if self.is_dataset_eligible_for_profiling(
+                dataset_name, table.last_altered, 0, 0
+            ):
+                profile_table_level_only = True
+            else:
+                skip_profiling = True
+                self.report.num_tables_not_eligible_profiling[
+                    f"{db_name}.{schema_name}"
+                ] += 1
+
+        if table.column_count == 0:
+            skip_profiling = True
+
+        if skip_profiling:
+            if self.config.profiling.report_dropped_profiles:
+                self.report.report_dropped(f"profile of {dataset_name}")
+            return None
+
+        logger.debug(f"Preparing profiling request for {dataset_name}")
+        profile_request = TableProfilerRequest(
+            pretty_name=dataset_name,
+            batch_kwargs=self.get_batch_kwargs(table, schema_name, db_name),
+            table=table,
+            profile_table_level_only=profile_table_level_only,
+        )
+        return profile_request
+
+    def get_batch_kwargs(
+        self, table: BaseTable, schema_name: str, db_name: str
+    ) -> dict:
+        return dict(
+            schema=schema_name,
+            table=table.name,
         )
 
     def get_inspectors(self) -> Iterable[Inspector]:

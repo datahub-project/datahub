@@ -5,7 +5,7 @@ import com.datahub.authentication.Authentication;
 import com.datahub.authorization.AuthorizationRequest;
 import com.datahub.authorization.AuthorizationResult;
 import com.datahub.plugins.auth.authorization.Authorizer;
-import com.datahub.authorization.ResourceSpec;
+import com.datahub.authorization.EntitySpec;
 import com.linkedin.common.urn.GlossaryNodeUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -89,17 +89,17 @@ public class GlossaryUtilsTest {
       Mockito.any(Authentication.class)
     )).thenReturn(new EntityResponse().setAspects(new EnvelopedAspectMap(parentNode3Aspects)));
 
-    final ResourceSpec resourceSpec3 = new ResourceSpec(parentNodeUrn.getEntityType(), parentNodeUrn3.toString());
+    final EntitySpec resourceSpec3 = new EntitySpec(parentNodeUrn.getEntityType(), parentNodeUrn3.toString());
     mockAuthRequest("MANAGE_GLOSSARY_CHILDREN", AuthorizationResult.Type.DENY, resourceSpec3);
 
-    final ResourceSpec resourceSpec2 = new ResourceSpec(parentNodeUrn.getEntityType(), parentNodeUrn2.toString());
+    final EntitySpec resourceSpec2 = new EntitySpec(parentNodeUrn.getEntityType(), parentNodeUrn2.toString());
     mockAuthRequest("MANAGE_GLOSSARY_CHILDREN", AuthorizationResult.Type.DENY, resourceSpec2);
 
-    final ResourceSpec resourceSpec1 = new ResourceSpec(parentNodeUrn.getEntityType(), parentNodeUrn1.toString());
+    final EntitySpec resourceSpec1 = new EntitySpec(parentNodeUrn.getEntityType(), parentNodeUrn1.toString());
     mockAuthRequest("MANAGE_GLOSSARY_CHILDREN", AuthorizationResult.Type.DENY, resourceSpec1);
   }
 
-  private void mockAuthRequest(String privilege, AuthorizationResult.Type allowOrDeny, ResourceSpec resourceSpec) {
+  private void mockAuthRequest(String privilege, AuthorizationResult.Type allowOrDeny, EntitySpec resourceSpec) {
     final AuthorizationRequest authorizationRequest = new AuthorizationRequest(
         userUrn,
         privilege,
@@ -150,7 +150,7 @@ public class GlossaryUtilsTest {
     // they do NOT have the MANAGE_GLOSSARIES platform privilege
     mockAuthRequest("MANAGE_GLOSSARIES", AuthorizationResult.Type.DENY, null);
 
-    final ResourceSpec resourceSpec = new ResourceSpec(parentNodeUrn.getEntityType(), parentNodeUrn.toString());
+    final EntitySpec resourceSpec = new EntitySpec(parentNodeUrn.getEntityType(), parentNodeUrn.toString());
     mockAuthRequest("MANAGE_GLOSSARY_CHILDREN", AuthorizationResult.Type.ALLOW, resourceSpec);
 
     assertTrue(GlossaryUtils.canManageChildrenEntities(mockContext, parentNodeUrn, mockClient));
@@ -162,7 +162,7 @@ public class GlossaryUtilsTest {
     // they do NOT have the MANAGE_GLOSSARIES platform privilege
     mockAuthRequest("MANAGE_GLOSSARIES", AuthorizationResult.Type.DENY, null);
 
-    final ResourceSpec resourceSpec = new ResourceSpec(parentNodeUrn.getEntityType(), parentNodeUrn.toString());
+    final EntitySpec resourceSpec = new EntitySpec(parentNodeUrn.getEntityType(), parentNodeUrn.toString());
     mockAuthRequest("MANAGE_GLOSSARY_CHILDREN", AuthorizationResult.Type.DENY, resourceSpec);
     mockAuthRequest("MANAGE_ALL_GLOSSARY_CHILDREN", AuthorizationResult.Type.DENY, resourceSpec);
 
@@ -175,13 +175,13 @@ public class GlossaryUtilsTest {
     // they do NOT have the MANAGE_GLOSSARIES platform privilege
     mockAuthRequest("MANAGE_GLOSSARIES", AuthorizationResult.Type.DENY, null);
 
-    final ResourceSpec resourceSpec3 = new ResourceSpec(parentNodeUrn.getEntityType(), parentNodeUrn3.toString());
+    final EntitySpec resourceSpec3 = new EntitySpec(parentNodeUrn.getEntityType(), parentNodeUrn3.toString());
     mockAuthRequest("MANAGE_ALL_GLOSSARY_CHILDREN", AuthorizationResult.Type.ALLOW, resourceSpec3);
 
-    final ResourceSpec resourceSpec2 = new ResourceSpec(parentNodeUrn.getEntityType(), parentNodeUrn2.toString());
+    final EntitySpec resourceSpec2 = new EntitySpec(parentNodeUrn.getEntityType(), parentNodeUrn2.toString());
     mockAuthRequest("MANAGE_ALL_GLOSSARY_CHILDREN", AuthorizationResult.Type.DENY, resourceSpec2);
 
-    final ResourceSpec resourceSpec1 = new ResourceSpec(parentNodeUrn.getEntityType(), parentNodeUrn1.toString());
+    final EntitySpec resourceSpec1 = new EntitySpec(parentNodeUrn.getEntityType(), parentNodeUrn1.toString());
     mockAuthRequest("MANAGE_ALL_GLOSSARY_CHILDREN", AuthorizationResult.Type.DENY, resourceSpec1);
 
     assertTrue(GlossaryUtils.canManageChildrenEntities(mockContext, parentNodeUrn1, mockClient));
@@ -193,13 +193,13 @@ public class GlossaryUtilsTest {
     // they do NOT have the MANAGE_GLOSSARIES platform privilege
     mockAuthRequest("MANAGE_GLOSSARIES", AuthorizationResult.Type.DENY, null);
 
-    final ResourceSpec resourceSpec3 = new ResourceSpec(parentNodeUrn.getEntityType(), parentNodeUrn3.toString());
+    final EntitySpec resourceSpec3 = new EntitySpec(parentNodeUrn.getEntityType(), parentNodeUrn3.toString());
     mockAuthRequest("MANAGE_ALL_GLOSSARY_CHILDREN", AuthorizationResult.Type.DENY, resourceSpec3);
 
-    final ResourceSpec resourceSpec2 = new ResourceSpec(parentNodeUrn.getEntityType(), parentNodeUrn2.toString());
+    final EntitySpec resourceSpec2 = new EntitySpec(parentNodeUrn.getEntityType(), parentNodeUrn2.toString());
     mockAuthRequest("MANAGE_ALL_GLOSSARY_CHILDREN", AuthorizationResult.Type.DENY, resourceSpec2);
 
-    final ResourceSpec resourceSpec1 = new ResourceSpec(parentNodeUrn.getEntityType(), parentNodeUrn1.toString());
+    final EntitySpec resourceSpec1 = new EntitySpec(parentNodeUrn.getEntityType(), parentNodeUrn1.toString());
     mockAuthRequest("MANAGE_ALL_GLOSSARY_CHILDREN", AuthorizationResult.Type.DENY, resourceSpec1);
 
     assertFalse(GlossaryUtils.canManageChildrenEntities(mockContext, parentNodeUrn1, mockClient));
@@ -211,10 +211,10 @@ public class GlossaryUtilsTest {
     // they do NOT have the MANAGE_GLOSSARIES platform privilege
     mockAuthRequest("MANAGE_GLOSSARIES", AuthorizationResult.Type.DENY, null);
 
-    final ResourceSpec resourceSpec2 = new ResourceSpec(parentNodeUrn.getEntityType(), parentNodeUrn2.toString());
+    final EntitySpec resourceSpec2 = new EntitySpec(parentNodeUrn.getEntityType(), parentNodeUrn2.toString());
     mockAuthRequest("MANAGE_ALL_GLOSSARY_CHILDREN", AuthorizationResult.Type.ALLOW, resourceSpec2);
 
-    final ResourceSpec resourceSpec1 = new ResourceSpec(parentNodeUrn.getEntityType(), parentNodeUrn1.toString());
+    final EntitySpec resourceSpec1 = new EntitySpec(parentNodeUrn.getEntityType(), parentNodeUrn1.toString());
     mockAuthRequest("MANAGE_ALL_GLOSSARY_CHILDREN", AuthorizationResult.Type.DENY, resourceSpec1);
 
     assertTrue(GlossaryUtils.canManageChildrenEntities(mockContext, parentNodeUrn1, mockClient));
@@ -226,10 +226,10 @@ public class GlossaryUtilsTest {
     // they do NOT have the MANAGE_GLOSSARIES platform privilege
     mockAuthRequest("MANAGE_GLOSSARIES", AuthorizationResult.Type.DENY, null);
 
-    final ResourceSpec resourceSpec3 = new ResourceSpec(parentNodeUrn.getEntityType(), parentNodeUrn3.toString());
+    final EntitySpec resourceSpec3 = new EntitySpec(parentNodeUrn.getEntityType(), parentNodeUrn3.toString());
     mockAuthRequest("MANAGE_ALL_GLOSSARY_CHILDREN", AuthorizationResult.Type.DENY, resourceSpec3);
 
-    final ResourceSpec resourceSpec2 = new ResourceSpec(parentNodeUrn.getEntityType(), parentNodeUrn2.toString());
+    final EntitySpec resourceSpec2 = new EntitySpec(parentNodeUrn.getEntityType(), parentNodeUrn2.toString());
     mockAuthRequest("MANAGE_ALL_GLOSSARY_CHILDREN", AuthorizationResult.Type.DENY, resourceSpec2);
 
     assertFalse(GlossaryUtils.canManageChildrenEntities(mockContext, parentNodeUrn2, mockClient));
@@ -241,7 +241,7 @@ public class GlossaryUtilsTest {
     // they do NOT have the MANAGE_GLOSSARIES platform privilege
     mockAuthRequest("MANAGE_GLOSSARIES", AuthorizationResult.Type.DENY, null);
 
-    final ResourceSpec resourceSpec3 = new ResourceSpec(parentNodeUrn.getEntityType(), parentNodeUrn3.toString());
+    final EntitySpec resourceSpec3 = new EntitySpec(parentNodeUrn.getEntityType(), parentNodeUrn3.toString());
     mockAuthRequest("MANAGE_ALL_GLOSSARY_CHILDREN", AuthorizationResult.Type.DENY, resourceSpec3);
 
     assertFalse(GlossaryUtils.canManageChildrenEntities(mockContext, parentNodeUrn3, mockClient));

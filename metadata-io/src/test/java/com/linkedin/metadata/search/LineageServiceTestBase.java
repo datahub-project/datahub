@@ -47,8 +47,10 @@ import com.linkedin.metadata.search.utils.QueryUtils;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import org.junit.Assert;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 import org.opensearch.client.RestHighLevelClient;
+import org.opensearch.action.search.SearchRequest;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.concurrent.ConcurrentMapCacheManager;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
@@ -108,6 +110,7 @@ abstract public class LineageServiceTestBase extends AbstractTestNGSpringContext
   private GraphService _graphService;
   private CacheManager _cacheManager;
   private LineageSearchService _lineageSearchService;
+  private RestHighLevelClient _searchClientSpy;
 
   private static final String ENTITY_NAME = "testEntity";
   private static final Urn TEST_URN = TestEntityUtil.getTestEntityUrn();
@@ -162,10 +165,11 @@ abstract public class LineageServiceTestBase extends AbstractTestNGSpringContext
     EntityIndexBuilders indexBuilders =
         new EntityIndexBuilders(getIndexBuilder(), _entityRegistry,
             _indexConvention, _settingsBuilder);
-    ESSearchDAO searchDAO = new ESSearchDAO(_entityRegistry, getSearchClient(), _indexConvention, false,
+    _searchClientSpy = spy(getSearchClient());
+    ESSearchDAO searchDAO = new ESSearchDAO(_entityRegistry, _searchClientSpy, _indexConvention, false,
         ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH, getSearchConfiguration(), null);
-    ESBrowseDAO browseDAO = new ESBrowseDAO(_entityRegistry, getSearchClient(), _indexConvention, getSearchConfiguration(), getCustomSearchConfiguration());
-    ESWriteDAO writeDAO = new ESWriteDAO(_entityRegistry, getSearchClient(), _indexConvention, getBulkProcessor(), 1);
+    ESBrowseDAO browseDAO = new ESBrowseDAO(_entityRegistry, _searchClientSpy, _indexConvention, getSearchConfiguration(), getCustomSearchConfiguration());
+    ESWriteDAO writeDAO = new ESWriteDAO(_entityRegistry, _searchClientSpy, _indexConvention, getBulkProcessor(), 1);
     return new ElasticSearchService(indexBuilders, searchDAO, browseDAO, writeDAO);
   }
 
@@ -246,9 +250,15 @@ abstract public class LineageServiceTestBase extends AbstractTestNGSpringContext
     _elasticSearchService.upsertDocument(ENTITY_NAME, document2.toString(), urn2.toString());
     syncAfterWrite(getBulkProcessor());
 
+    Mockito.reset(_searchClientSpy);
     searchResult = searchAcrossLineage(null, TEST1);
     assertEquals(searchResult.getNumEntities().intValue(), 1);
     assertEquals(searchResult.getEntities().get(0).getEntity(), urn);
+    // Verify that highlighting was turned off in the query
+    ArgumentCaptor<SearchRequest> searchRequestCaptor = ArgumentCaptor.forClass(SearchRequest.class);
+    Mockito.verify(_searchClientSpy, times(1)).search(searchRequestCaptor.capture(), any());
+    SearchRequest capturedRequest = searchRequestCaptor.getValue();
+    assertNull(capturedRequest.source().highlighter());
     clearCache(false);
 
     when(_graphService.getLineage(eq(TEST_URN), eq(LineageDirection.DOWNSTREAM), anyInt(), anyInt(),

@@ -9,7 +9,7 @@ on:
       - "metadata-models/**"
   pull_request:
     branches:
-      - master
+      - "**"
     paths:
       - ".github/**"
       - "metadata-ingestion/**"
@@ -34,7 +34,6 @@ jobs:
         python-version: ["3.7", "3.10"]
         command:
           [
-            "lint",
             "testQuick",
             "testIntegrationBatch0",
             "testIntegrationBatch1",
@@ -54,6 +53,9 @@ jobs:
         run: ./metadata-ingestion/scripts/install_deps.sh
       - name: Install package
         run: ./gradlew :metadata-ingestion:installPackageOnly
+      - name: Run lint alongwith testQuick
+        if: ${{  matrix.command == 'testQuick' }}
+        run: ./gradlew :metadata-ingestion:lint
       - name: Run metadata-ingestion tests
         run: ./gradlew :metadata-ingestion:${{ matrix.command }}
       - name: Debug info
@@ -65,7 +67,6 @@ jobs:
           docker image ls
           docker system df
       - uses: actions/upload-artifact@v3
-        if: ${{ always() && matrix.command != 'lint' }}
         with:
           name: Test Results (metadata ingestion ${{ matrix.python-version }})
           path: |
@@ -73,7 +74,7 @@ jobs:
             **/build/test-results/test/**
             **/junit.*.xml
       - name: Upload coverage to Codecov
-        if: ${{ always() && matrix.python-version == '3.10' && matrix.command != 'lint' }}
+        if: ${{ always() && matrix.python-version == '3.10' }}
         uses: codecov/codecov-action@v3
         with:
           token: ${{ secrets.CODECOV_TOKEN }}

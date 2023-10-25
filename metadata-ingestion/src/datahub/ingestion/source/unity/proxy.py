@@ -23,6 +23,7 @@ from databricks.sdk.service.sql import (
     QueryStatementType,
     QueryStatus,
 )
+from databricks.sdk.service.workspace import ObjectType
 
 import datahub
 from datahub.ingestion.source.unity.proxy_profiling import (
@@ -32,7 +33,9 @@ from datahub.ingestion.source.unity.proxy_types import (
     ALLOWED_STATEMENT_TYPES,
     Catalog,
     Column,
+    ExternalTableReference,
     Metastore,
+    Notebook,
     Query,
     Schema,
     ServicePrincipal,
@@ -95,14 +98,13 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         self.report = report
 
     def check_basic_connectivity(self) -> bool:
-        self._workspace_client.metastores.summary()
-        return True
+        return bool(self._workspace_client.catalogs.list())
 
     def assigned_metastore(self) -> Metastore:
         response = self._workspace_client.metastores.summary()
         return self._create_metastore(response)
 
-    def catalogs(self, metastore: Metastore) -> Iterable[Catalog]:
+    def catalogs(self, metastore: Optional[Metastore]) -> Iterable[Catalog]:
         response = self._workspace_client.catalogs.list()
         if not response:
             logger.info("Catalogs not found")
@@ -137,6 +139,21 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         for principal in self._workspace_client.service_principals.list():
             yield self._create_service_principal(principal)
 
+    def workspace_notebooks(self) -> Iterable[Notebook]:
+        for obj in self._workspace_client.workspace.list("/", recursive=True):
+            if obj.object_type == ObjectType.NOTEBOOK:
+                yield Notebook(
+                    id=obj.object_id,
+                    path=obj.path,
+                    language=obj.language,
+                    created_at=datetime.fromtimestamp(
+                        obj.created_at / 1000, tz=timezone.utc
+                    ),
+                    modified_at=datetime.fromtimestamp(
+                        obj.modified_at / 1000, tz=timezone.utc
+                    ),
+                )
+
     def query_history(
         self,
         start_time: datetime,
@@ -153,7 +170,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                     "start_time_ms": start_time.timestamp() * 1000,
                     "end_time_ms": end_time.timestamp() * 1000,
                 },
-                "statuses": [QueryStatus.FINISHED.value],
+                "statuses": [QueryStatus.FINISHED],
                 "statement_types": [typ.value for typ in ALLOWED_STATEMENT_TYPES],
             }
         )
@@ -196,64 +213,79 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                 method, path, body={**body, "page_token": response["next_page_token"]}
             )
 
-    def list_lineages_by_table(self, table_name: str) -> dict:
+    def list_lineages_by_table(
+        self, table_name: str, include_entity_lineage: bool
+    ) -> dict:
         """List table lineage by table name."""
         return self._workspace_client.api_client.do(
             method="GET",
-            path="/api/2.0/lineage-tracking/table-lineage/get",
-            body={"table_name": table_name},
+            path="/api/2.0/lineage-tracking/table-lineage",
+            body={
+                "table_name": table_name,
+                "include_entity_lineage": include_entity_lineage,
+            },
         )
 
     def list_lineages_by_column(self, table_name: str, column_name: str) -> dict:
         """List column lineage by table name and column name."""
         return self._workspace_client.api_client.do(
             "GET",
-            "/api/2.0/lineage-tracking/column-lineage/get",
+            "/api/2.0/lineage-tracking/column-lineage",
             body={"table_name": table_name, "column_name": column_name},
         )
 
-    def table_lineage(self, table: Table) -> None:
+    def table_lineage(self, table: Table, include_entity_lineage: bool) -> None:
         # Lineage endpoint doesn't exists on 2.1 version
         try:
             response: dict = self.list_lineages_by_table(
-                table_name=f"{table.schema.catalog.name}.{table.schema.name}.{table.name}"
+                table_name=table.ref.qualified_table_name,
+                include_entity_lineage=include_entity_lineage,
             )
-            table.upstreams = {
-                TableReference(
-                    table.schema.catalog.metastore.id,
-                    item["catalog_name"],
-                    item["schema_name"],
-                    item["name"],
-                ): {}
-                for item in response.get("upstream_tables", [])
-            }
-        except Exception as e:
-            logger.error(f"Error getting lineage: {e}")
 
-    def get_column_lineage(self, table: Table) -> None:
-        try:
-            table_lineage_response: dict = self.list_lineages_by_table(
-                table_name=f"{table.schema.catalog.name}.{table.schema.name}.{table.name}"
-            )
-            if table_lineage_response:
-                for column in table.columns:
-                    response: dict = self.list_lineages_by_column(
-                        table_name=f"{table.schema.catalog.name}.{table.schema.name}.{table.name}",
-                        column_name=column.name,
+            for item in response.get("upstreams") or []:
+                if "tableInfo" in item:
+                    table_ref = TableReference.create_from_lineage(
+                        item["tableInfo"], table.schema.catalog.metastore
                     )
-                    for item in response.get("upstream_cols", []):
-                        table_ref = TableReference(
-                            table.schema.catalog.metastore.id,
-                            item["catalog_name"],
-                            item["schema_name"],
-                            item["table_name"],
-                        )
-                        table.upstreams.setdefault(table_ref, {}).setdefault(
-                            column.name, []
-                        ).append(item["name"])
+                    if table_ref:
+                        table.upstreams[table_ref] = {}
+                elif "fileInfo" in item:
+                    external_ref = ExternalTableReference.create_from_lineage(
+                        item["fileInfo"]
+                    )
+                    if external_ref:
+                        table.external_upstreams.add(external_ref)
 
+                for notebook in item.get("notebookInfos") or []:
+                    table.upstream_notebooks.add(notebook["notebook_id"])
+
+            for item in response.get("downstreams") or []:
+                for notebook in item.get("notebookInfos") or []:
+                    table.downstream_notebooks.add(notebook["notebook_id"])
         except Exception as e:
-            logger.error(f"Error getting lineage: {e}")
+            logger.warning(
+                f"Error getting lineage on table {table.ref}: {e}", exc_info=True
+            )
+
+    def get_column_lineage(self, table: Table, column_name: str) -> None:
+        try:
+            response: dict = self.list_lineages_by_column(
+                table_name=table.ref.qualified_table_name,
+                column_name=column_name,
+            )
+            for item in response.get("upstream_cols") or []:
+                table_ref = TableReference.create_from_lineage(
+                    item, table.schema.catalog.metastore
+                )
+                if table_ref:
+                    table.upstreams.setdefault(table_ref, {}).setdefault(
+                        column_name, []
+                    ).append(item["name"])
+        except Exception as e:
+            logger.warning(
+                f"Error getting column lineage on table {table.ref}, column {column_name}: {e}",
+                exc_info=True,
+            )
 
     @staticmethod
     def _escape_sequence(value: str) -> str:
@@ -274,10 +306,13 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             comment=None,
         )
 
-    def _create_catalog(self, metastore: Metastore, obj: CatalogInfo) -> Catalog:
+    def _create_catalog(
+        self, metastore: Optional[Metastore], obj: CatalogInfo
+    ) -> Catalog:
+        catalog_name = self._escape_sequence(obj.name)
         return Catalog(
             name=obj.name,
-            id=f"{metastore.id}.{self._escape_sequence(obj.name)}",
+            id=f"{metastore.id}.{catalog_name}" if metastore else catalog_name,
             metastore=metastore,
             comment=obj.comment,
             owner=obj.owner,

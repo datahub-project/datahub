@@ -15,6 +15,7 @@ from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceReport
 from datahub.ingestion.api.source_helpers import auto_workunit_reporter
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.datahub.config import DataHubSourceConfig
+from datahub.ingestion.source.datahub.datahub_api_reader import DataHubApiReader
 from datahub.ingestion.source.datahub.datahub_database_reader import (
     DataHubDatabaseReader,
 )
@@ -57,6 +58,9 @@ class DataHubSource(StatefulIngestionSourceBase):
         self.report.stop_time = datetime.now(tz=timezone.utc)
         logger.info(f"Ingesting DataHub metadata up until {self.report.stop_time}")
         state = self.stateful_ingestion_handler.get_last_run_state()
+
+        if self.config.pull_from_datahub_api:
+            yield from self._get_api_workunits()
 
         if self.config.database_connection is not None:
             yield from self._get_database_workunits(
@@ -138,6 +142,18 @@ class DataHubSource(StatefulIngestionSourceBase):
                         last_offset=offset
                     )
                 self._commit_progress(i)
+
+    def _get_api_workunits(self) -> Iterable[MetadataWorkUnit]:
+        if self.ctx.graph is None:
+            self.report.report_failure(
+                "datahub_api",
+                "Specify datahub_api on your ingestion recipe to ingest from the DataHub API",
+            )
+            return
+
+        reader = DataHubApiReader(self.config, self.report, self.ctx.graph)
+        for mcp in reader.get_aspects():
+            yield mcp.as_workunit()
 
     def _commit_progress(self, i: Optional[int] = None) -> None:
         """Commit progress to stateful storage, if there have been no errors.

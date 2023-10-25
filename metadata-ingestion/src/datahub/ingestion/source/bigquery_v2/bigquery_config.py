@@ -119,8 +119,8 @@ class BigQueryV2Config(
     )
 
     match_fully_qualified_names: bool = Field(
-        default=False,
-        description="Whether `dataset_pattern` is matched against fully qualified dataset name `<project_id>.<dataset_name>`.",
+        default=True,
+        description="[deprecated] Whether `dataset_pattern` is matched against fully qualified dataset name `<project_id>.<dataset_name>`.",
     )
 
     include_external_url: bool = Field(
@@ -206,11 +206,6 @@ class BigQueryV2Config(
         description="This flag enables the data lineage extraction from Data Lineage API exposed by Google Data Catalog. NOTE: This extractor can't build views lineage. It's recommended to enable the view's DDL parsing. Read the docs to have more information about: https://cloud.google.com/data-catalog/docs/concepts/about-data-lineage",
     )
 
-    convert_urns_to_lowercase: bool = Field(
-        default=False,
-        description="Convert urns to lowercase.",
-    )
-
     enable_legacy_sharded_table_support: bool = Field(
         default=True,
         description="Use the legacy sharded table urn suffix added.",
@@ -263,6 +258,11 @@ class BigQueryV2Config(
         hidden_from_docs=True,
         default=2000,
         description="Maximum number of entries for the in-memory caches of FileBacked data structures.",
+    )
+
+    exclude_empty_projects: bool = Field(
+        default=False,
+        description="Option to exclude empty projects from being ingested.",
     )
 
     @root_validator(pre=False)
@@ -327,8 +327,7 @@ class BigQueryV2Config(
         ):
             logger.warning(
                 "Please update `dataset_pattern` to match against fully qualified schema name `<project_id>.<dataset_name>` and set config `match_fully_qualified_names : True`."
-                "Current default `match_fully_qualified_names: False` is only to maintain backward compatibility. "
-                "The config option `match_fully_qualified_names` will be deprecated in future and the default behavior will assume `match_fully_qualified_names: True`."
+                "The config option `match_fully_qualified_names` is deprecated and will be removed in a future release."
             )
         return values
 
