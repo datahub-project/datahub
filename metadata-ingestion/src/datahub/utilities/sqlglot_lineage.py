@@ -752,7 +752,7 @@ _UPDATE_ARGS_NOT_SUPPORTED_BY_SELECT: Set[str] = set(
 
 def _extract_select_from_update(
     statement: sqlglot.exp.Update,
-) -> sqlglot.exp.Select:
+) -> Tuple[sqlglot.exp.Select, bool]:
     statement = statement.copy()
 
     # The "SET" expressions need to be converted.
@@ -774,16 +774,31 @@ def _extract_select_from_update(
             # they'll get caught later.
             new_expressions.append(expr)
 
-    return sqlglot.exp.Select(
+    # If there's no FROM clause in the update statement that translates directly,
+    # we make the select's FROM clause point at the table being updated.
+    self_lineage = False
+    from_ = statement.args.get("from")
+    if not from_:
+        from_ = sqlglot.exp.From(this=statement.this)
+        self_lineage = True
+
+    select_statement = sqlglot.exp.Select(
         **{
             **{
                 k: v
                 for k, v in statement.args.items()
-                if k not in _UPDATE_ARGS_NOT_SUPPORTED_BY_SELECT
+                if k not in _UPDATE_ARGS_NOT_SUPPORTED_BY_SELECT and k != "from"
             },
+            "from": from_,
             "expressions": new_expressions,
         }
     )
+
+    # If we don't have columns being referenced, we actually don't have any self-lineage.
+    if self_lineage and not list(select_statement.find_all(sqlglot.exp.Column)):
+        self_lineage = False
+
+    return select_statement, self_lineage
 
 
 def _is_create_table_ddl(statement: sqlglot.exp.Expression) -> bool:
@@ -794,10 +809,11 @@ def _is_create_table_ddl(statement: sqlglot.exp.Expression) -> bool:
 
 def _try_extract_select(
     statement: sqlglot.exp.Expression,
-) -> sqlglot.exp.Expression:
+) -> Tuple[sqlglot.exp.Expression, bool]:
     # Try to extract the core select logic from a more complex statement.
     # If it fails, just return the original statement.
 
+    self_lineage = False
     if isinstance(statement, sqlglot.exp.Merge):
         # TODO Need to map column renames in the expressions part of the statement.
         # Likely need to use the named_selects attr.
@@ -810,7 +826,7 @@ def _try_extract_select(
         statement = statement.expression
     elif isinstance(statement, sqlglot.exp.Update):
         # Assumption: the output table is already captured in the modified tables list.
-        statement = _extract_select_from_update(statement)
+        statement, self_lineage = _extract_select_from_update(statement)
     elif isinstance(statement, sqlglot.exp.Create):
         # TODO May need to map column renames.
         # Assumption: the output table is already captured in the modified tables list.
@@ -819,7 +835,7 @@ def _try_extract_select(
     if isinstance(statement, sqlglot.exp.Subquery):
         statement = statement.unnest()
 
-    return statement
+    return statement, self_lineage
 
 
 def _translate_sqlglot_type(
@@ -987,7 +1003,9 @@ def _sqlglot_lineage_inner(
 
     # Simplify the input statement for column-level lineage generation.
     try:
-        select_statement = _try_extract_select(statement)
+        select_statement, self_lineage = _try_extract_select(statement)
+        if self_lineage:
+            tables.update(modified)
     except Exception as e:
         logger.debug(f"Failed to extract select from statement: {e}", exc_info=True)
         debug_info.column_error = e

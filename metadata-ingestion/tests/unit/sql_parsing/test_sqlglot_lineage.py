@@ -768,3 +768,20 @@ WHERE my_table.id = t1.id;
         },
         expected_file=RESOURCE_DIR / "test_snowflake_update_from_table.json",
     )
+
+
+def test_snowflake_update_self():
+    assert_sql_result(
+        """
+UPDATE snowflake_sample_data.tpch_sf1.orders
+SET orderkey = orderkey + 1
+""",
+        dialect="snowflake",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_sample_data.tpch_sf1.orders,PROD)": {
+                "orderkey": "NUMBER(38,0)",
+                "totalprice": "NUMBER(12,2)",
+            },
+        },
+        expected_file=RESOURCE_DIR / "test_snowflake_update_self.json",
+    )
