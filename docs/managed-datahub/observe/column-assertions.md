@@ -16,7 +16,17 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 ## Introduction
 
-> **⚠️ TODO:** @jjoyce
+Can you remember a time when an important warehouse table column changed dramatically, with little or no notice? Perhaps the number of null values suddenly spiked, or a new value was added to a fixed set of possible values. If the answer is yes, how did you initially find out? We'll take a guess - someone looking at an internal reporting dashboard or worse, a user using your your product, sounded an alarm when a number looked a bit out of the ordinary.
+
+There are many reasons why important columns in your Snowflake, Redshift, or BigQuery tables may change - application code bugs, new feature rollouts, etc. Oftentimes, these changes break important assumptions made about the data used in building key downstream data products like reporting dashboards or data-driven product features.
+
+What if you could reduce the time to detect these incidents, so that the people responsible for the data were made aware of data issues before anyone else? With Acryl DataHub Column  Assertions, you can.
+
+With Acryl DataHub, you can define Column Value assertions to ensure each value in a column matches specific constraints, and Column Metric assertions to ensure that computed metrics from columns align with your expectations. As soon as things go wrong, your team will be the first to know, before the data issue becomes a larger data incident. 
+
+In this guide, we'll cover the basics of Column Assertions - what they are, how to configure them, and more - so that you and your team can start building trust in your most important data assets.
+
+Let's dive in!
 
 ## Support
 
@@ -34,7 +44,14 @@ Acryl DataHub's **Ingestion** tab.
 
 ## What is a Column Assertion?
 
-> **⚠️ TODO:** @jjoyce
+A **Column Assertion** is a highly configurable Data Quality rule used to monitor specific columns of a Data Warehouse table for unexpected changes. 
+
+Column Assertions are defined to validate a specific column, and can be used to 
+
+1. Validate that the values of the column match some constraints (regex, allowed values, max, min, etc) across rows OR
+2. Validate that specific column aggregation metrics match some expectations across rows.
+
+Column Assertions can be particularly useful for documenting and enforcing column-level "contracts", i.e. formal specifications about the expected contents of a particular column that can be used for coordinating among producers and consumers of the data.  
 
 ### Anatomy of Column Assertion
 
