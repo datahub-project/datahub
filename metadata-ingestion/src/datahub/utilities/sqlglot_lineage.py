@@ -1156,3 +1156,19 @@ def create_lineage_sql_parsed_result(
     finally:
         if needs_close:
             schema_resolver.close()
+
+
+def view_definition_lineage_helper(
+    result: SqlParsingResult, view_urn: str
+) -> SqlParsingResult:
+    if result.query_type is QueryType.SELECT:
+        # Some platforms (e.g. postgres) store only <select statement> from view definition
+        # `create view V as <select statement>` . For such view definitions, `result.out_tables` and
+        # `result.column_lineage[].downstream` are empty in `sqlglot_lineage` response, whereas
+        # Here, we inject view V's urn in `result.out_tables` and `result.column_lineage[].downstream`
+        # to get complete lineage result.
+        result.out_tables = [view_urn]
+        if result.column_lineage:
+            for col_result in result.column_lineage:
+                col_result.downstream.table = view_urn
+    return result

@@ -98,6 +98,7 @@ from datahub.utilities.sqlglot_lineage import (
     SchemaResolver,
     SqlParsingResult,
     sqlglot_lineage,
+    view_definition_lineage_helper,
 )
 
 if TYPE_CHECKING:
@@ -334,7 +335,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                 cached_domains=[k for k in self.config.domain], graph=self.ctx.graph
             )
 
-        self.views_processed: Set[str] = set()
+        self.views_failed_parsing: Set[str] = set()
         self.schema_resolver: SchemaResolver = SchemaResolver(
             platform=self.platform,
             platform_instance=self.config.platform_instance,
@@ -569,6 +570,8 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                     is_view_ddl=True,
                     include_column_lineage=self.config.include_view_column_lineage,
                 )
+            else:
+                self.views_failed_parsing.add(dataset_name)
         yield from builder.gen_workunits()
 
     def get_identifier(
@@ -1009,12 +1012,12 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             )
 
     def _run_sql_parser(
-        self, dataset_identifier: str, query: str, schema_resolver: SchemaResolver
+        self, view_identifier: str, query: str, schema_resolver: SchemaResolver
     ) -> Optional[SqlParsingResult]:
         try:
-            database, schema = self.get_db_schema(dataset_identifier)
+            database, schema = self.get_db_schema(view_identifier)
         except ValueError:
-            logger.warning(f"Invalid view identifier: {dataset_identifier}")
+            logger.warning(f"Invalid view identifier: {view_identifier}")
             return None
         raw_lineage = sqlglot_lineage(
             query,
@@ -1022,18 +1025,32 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             default_db=database,
             default_schema=schema,
         )
+        view_urn = make_dataset_urn_with_platform_instance(
+            self.platform,
+            view_identifier,
+            self.config.platform_instance,
+            self.config.env,
+        )
+
         if raw_lineage.debug_info.table_error:
             logger.debug(
-                f"Failed to parse lineage for view {dataset_identifier}: "
+                f"Failed to parse lineage for view {view_identifier}: "
                 f"{raw_lineage.debug_info.table_error}"
             )
             self.report.num_view_definitions_failed_parsing += 1
+            self.report.view_definitions_parsing_failures.append(
+                f"Table-level sql parsing error for view {view_identifier}: {raw_lineage.debug_info.table_error}"
+            )
             return None
+
         elif raw_lineage.debug_info.column_error:
             self.report.num_view_definitions_failed_column_parsing += 1
+            self.report.view_definitions_parsing_failures.append(
+                f"Column-level sql parsing error for view {view_identifier}: {raw_lineage.debug_info.column_error}"
+            )
         else:
             self.report.num_view_definitions_parsed += 1
-        return raw_lineage
+        return view_definition_lineage_helper(raw_lineage, view_urn)
 
     def get_db_schema(self, dataset_identifier: str) -> Tuple[Optional[str], str]:
         database, schema, _view = dataset_identifier.split(".")
