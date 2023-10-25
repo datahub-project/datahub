@@ -138,6 +138,7 @@ class SqlWorkUnit(MetadataWorkUnit):
 
 
 _field_type_mapping: Dict[Type[TypeEngine], Type] = {
+    # Note: to add dialect-specific types to this mapping, use the `register_custom_type` function.
     types.Integer: NumberTypeClass,
     types.Numeric: NumberTypeClass,
     types.Boolean: BooleanTypeClass,
