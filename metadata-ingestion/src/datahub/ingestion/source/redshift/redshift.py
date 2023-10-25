@@ -651,7 +651,6 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
             if col.sort_key:
                 tags.append(TagAssociationClass(make_tag_urn(Constants.TAG_SORT_KEY)))
 
-            logger.debug(f"col.data_type = {col.data_type}")
             data_type = self.REDSHIFT_FIELD_TYPE_MAPPINGS.get(col.data_type)
             # We have to remove the precision part to properly parse it
             if data_type is None:
