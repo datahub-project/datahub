@@ -1,0 +1,39 @@
+source:
+  type: fivetran
+  config:
+    # Fivetran log connector destination server configurations
+    fivetran_log_config:
+      destination_platform: snowflake
+      destination_config: 
+        # Coordinates
+        account_id: "abc48144"
+        warehouse: "COMPUTE_WH"
+        database: "fivetran_log_database"
+        log_schema: "fivetran_log_schema"
+        # Credentials
+        username: "${SNOWFLAKE_USER}"
+        password: "${SNOWFLAKE_PASS}"
+        role: "snowflake_role"
+
+    connector_patterns:
+      allow:
+        - connector_name
+    # Optional -- This mapping is optional and only required to configure platform-instance for source
+    # A mapping of Fivetran connector id to data platform instance
+    sources_to_platform_instance:
+      calendar_elected:
+        platform_instance: cloud_postgres_instance
+        env: DEV
+    # Optional -- This mapping is optional and only required to configure platform-instance for destination.
+    # A mapping of Fivetran destination id to data platform instance
+    destination_to_platform_instance:
+      calendar_elected:
+        platform_instance: cloud_postgres_instance
+        env: DEV
+    
+
+sink:
+  # sink configs
+  type: "datahub-rest"
+  config:
+    server: "http://localhost:8080"
