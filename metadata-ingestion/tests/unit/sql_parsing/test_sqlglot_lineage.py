@@ -787,15 +787,55 @@ SET orderkey = orderkey + 1
     )
 
 
-# TODO: Our tests for UPDATE statements are incomplete.
-"""
--- Set using a join against the table being updated.
-UPDATE accounts SET contact_first_name = first_name,
-                    contact_last_name = last_name
-  FROM employees WHERE employees.id = accounts.sales_person;
+@pytest.mark.skip(reason="We can't parse column-list syntax with sub-selects yet")
+def test_postgres_update_subselect():
+    assert_sql_result(
+        """
+UPDATE accounts SET sales_person_name =
+    (SELECT name FROM employees
+     WHERE employees.id = accounts.sales_person_id)
+""",
+        dialect="postgres",
+        default_db="my_db",
+        default_schema="my_schema",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,my_db.my_schema.accounts,PROD)": {
+                "id": "INTEGER",
+                "sales_person_id": "INTEGER",
+                "sales_person_name": "VARCHAR(16777216)",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,my_db.my_schema.employees,PROD)": {
+                "id": "INTEGER",
+                "name": "VARCHAR(16777216)",
+            },
+        },
+        expected_file=RESOURCE_DIR / "test_postgres_update_subselect.json",
+    )
 
--- Set using a subquery instead of a FROM-based join.
+
+@pytest.mark.skip(reason="We can't parse column-list syntax with sub-selects yet")
+def test_postgres_complex_update():
+    # Example query from the postgres docs:
+    # https://www.postgresql.org/docs/current/sql-update.html
+    assert_sql_result(
+        """
 UPDATE accounts SET (contact_first_name, contact_last_name) =
     (SELECT first_name, last_name FROM employees
      WHERE employees.id = accounts.sales_person);
-"""
+""",
+        dialect="postgres",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,my_db.my_schema.accounts,PROD)": {
+                "id": "INTEGER",
+                "contact_first_name": "VARCHAR(16777216)",
+                "contact_last_name": "VARCHAR(16777216)",
+                "sales_person": "INTEGER",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,my_db.my_schema.employees,PROD)": {
+                "id": "INTEGER",
+                "first_name": "VARCHAR(16777216)",
+                "last_name": "VARCHAR(16777216)",
+            },
+        },
+        expected_file=RESOURCE_DIR / "test_postgres_complex_update.json",
+    )

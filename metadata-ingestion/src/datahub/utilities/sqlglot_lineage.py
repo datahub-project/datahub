@@ -789,7 +789,11 @@ def _extract_select_from_update(
     )
 
     # Update statements always implicitly have the updated table in context.
-    select_statement = select_statement.join(statement.this, append=True)
+    # TODO: Retain table name alias.
+    if select_statement.args.get("from"):
+        select_statement = select_statement.join(statement.this, append=True)
+    else:
+        select_statement = select_statement.from_(statement.this)
 
     return select_statement
 
