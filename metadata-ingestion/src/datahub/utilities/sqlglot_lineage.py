@@ -1,7 +1,6 @@
 import contextlib
 import enum
 import functools
-import itertools
 import logging
 import pathlib
 from collections import defaultdict
@@ -288,6 +287,10 @@ def _table_level_lineage(
         }
     )
     # TODO: If a CTAS has "LIMIT 0", it's not really lineage, just copying the schema.
+
+    # Update statements implicitly read from the table being updated, so add those back in.
+    if isinstance(statement, sqlglot.exp.Update):
+        tables = tables | modified
 
     return tables, modified
 
@@ -752,7 +755,7 @@ _UPDATE_ARGS_NOT_SUPPORTED_BY_SELECT: Set[str] = set(
 
 def _extract_select_from_update(
     statement: sqlglot.exp.Update,
-) -> Tuple[sqlglot.exp.Select, bool]:
+) -> sqlglot.exp.Select:
     statement = statement.copy()
 
     # The "SET" expressions need to be converted.
@@ -774,31 +777,21 @@ def _extract_select_from_update(
             # they'll get caught later.
             new_expressions.append(expr)
 
-    # If there's no FROM clause in the update statement that translates directly,
-    # we make the select's FROM clause point at the table being updated.
-    self_lineage = False
-    from_ = statement.args.get("from")
-    if not from_:
-        from_ = sqlglot.exp.From(this=statement.this)
-        self_lineage = True
-
     select_statement = sqlglot.exp.Select(
         **{
             **{
                 k: v
                 for k, v in statement.args.items()
-                if k not in _UPDATE_ARGS_NOT_SUPPORTED_BY_SELECT and k != "from"
+                if k not in _UPDATE_ARGS_NOT_SUPPORTED_BY_SELECT
             },
-            "from": from_,
             "expressions": new_expressions,
         }
     )
 
-    # If we don't have columns being referenced, we actually don't have any self-lineage.
-    if self_lineage and not list(select_statement.find_all(sqlglot.exp.Column)):
-        self_lineage = False
+    # Update statements always implicitly have the updated table in context.
+    select_statement = select_statement.join(statement.this, append=True)
 
-    return select_statement, self_lineage
+    return select_statement
 
 
 def _is_create_table_ddl(statement: sqlglot.exp.Expression) -> bool:
@@ -809,11 +802,10 @@ def _is_create_table_ddl(statement: sqlglot.exp.Expression) -> bool:
 
 def _try_extract_select(
     statement: sqlglot.exp.Expression,
-) -> Tuple[sqlglot.exp.Expression, bool]:
+) -> sqlglot.exp.Expression:
     # Try to extract the core select logic from a more complex statement.
     # If it fails, just return the original statement.
 
-    self_lineage = False
     if isinstance(statement, sqlglot.exp.Merge):
         # TODO Need to map column renames in the expressions part of the statement.
         # Likely need to use the named_selects attr.
@@ -826,7 +818,7 @@ def _try_extract_select(
         statement = statement.expression
     elif isinstance(statement, sqlglot.exp.Update):
         # Assumption: the output table is already captured in the modified tables list.
-        statement, self_lineage = _extract_select_from_update(statement)
+        statement = _extract_select_from_update(statement)
     elif isinstance(statement, sqlglot.exp.Create):
         # TODO May need to map column renames.
         # Assumption: the output table is already captured in the modified tables list.
@@ -835,7 +827,7 @@ def _try_extract_select(
     if isinstance(statement, sqlglot.exp.Subquery):
         statement = statement.unnest()
 
-    return statement, self_lineage
+    return statement
 
 
 def _translate_sqlglot_type(
@@ -971,7 +963,7 @@ def _sqlglot_lineage_inner(
     # Fetch schema info for the relevant tables.
     table_name_urn_mapping: Dict[_TableName, str] = {}
     table_name_schema_mapping: Dict[_TableName, SchemaInfo] = {}
-    for table in itertools.chain(tables, modified):
+    for table in tables | modified:
         # For select statements, qualification will be a no-op. For other statements, this
         # is where the qualification actually happens.
         qualified_table = table.qualified(
@@ -987,7 +979,7 @@ def _sqlglot_lineage_inner(
         # Also include the original, non-qualified table name in the urn mapping.
         table_name_urn_mapping[table] = urn
 
-    total_tables_discovered = len(tables) + len(modified)
+    total_tables_discovered = len(tables | modified)
     total_schemas_resolved = len(table_name_schema_mapping)
     debug_info = SqlParsingDebugInfo(
         confidence=0.9 if total_tables_discovered == total_schemas_resolved
@@ -1003,9 +995,7 @@ def _sqlglot_lineage_inner(
 
     # Simplify the input statement for column-level lineage generation.
     try:
-        select_statement, self_lineage = _try_extract_select(statement)
-        if self_lineage:
-            tables.update(modified)
+        select_statement = _try_extract_select(statement)
     except Exception as e:
         logger.debug(f"Failed to extract select from statement: {e}", exc_info=True)
         debug_info.column_error = e

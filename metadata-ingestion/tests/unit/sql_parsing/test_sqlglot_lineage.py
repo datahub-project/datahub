@@ -785,3 +785,17 @@ SET orderkey = orderkey + 1
         },
         expected_file=RESOURCE_DIR / "test_snowflake_update_self.json",
     )
+
+
+# TODO: Our tests for UPDATE statements are incomplete.
+"""
+-- Set using a join against the table being updated.
+UPDATE accounts SET contact_first_name = first_name,
+                    contact_last_name = last_name
+  FROM employees WHERE employees.id = accounts.sales_person;
+
+-- Set using a subquery instead of a FROM-based join.
+UPDATE accounts SET (contact_first_name, contact_last_name) =
+    (SELECT first_name, last_name FROM employees
+     WHERE employees.id = accounts.sales_person);
+"""
