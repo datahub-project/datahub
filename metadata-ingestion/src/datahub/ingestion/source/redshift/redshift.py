@@ -245,6 +245,13 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
         "CHARACTER": StringType,
         "CHAR": StringType,
         "TIMESTAMP WITHOUT TIME ZONE": TimeType,
+        "REAL": NumberType,
+        "VARCHAR": StringType,
+        "TIMESTAMPTZ": TimeType,
+        "GEOMETRY": NullType,
+        "HLLSKETCH": NullType,
+        "TIMETZ": TimeType,
+        "VARBYTE": StringType,
     }
 
     def get_platform_instance_id(self) -> str:
