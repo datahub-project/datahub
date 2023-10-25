@@ -1,7 +1,7 @@
 import logging
 import os
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 import pydantic
 from pydantic import Field
@@ -131,6 +131,14 @@ class UnityCatalogSourceConfig(
     )
 
     _metastore_id_pattern_removed = pydantic_removed_field("metastore_id_pattern")
+
+    catalogs: Optional[List[str]] = pydantic.Field(
+        default=None,
+        description=(
+            "Fixed list of catalogs to ingest."
+            " If not specified, catalogs will be ingested based on `catalog_pattern`."
+        ),
+    )
 
     catalog_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
