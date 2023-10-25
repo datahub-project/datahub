@@ -8,7 +8,6 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 <FeatureAvailability saasOnly />
 
-
 > ⚠️ The **Column Assertions** feature is currently in private beta, part of the **Acryl Observe** module, and may only 
 > be available to a limited set of design partners.
 >
@@ -56,48 +55,45 @@ In this section, we'll give an overview of each.
 
 #### 1. Evaluation Schedule
 
-The **Evaluation Schedule**: This defines how often to evaluate the Column Assertion against the given warehouse Table.
-This should usually be configured to match the expected change frequency of the Table, although it can also be less
-frequently depending on the requirements. You can also specify specific days of the week, hours in the day, or even
+The **Evaluation Schedule**: This defines how often to evaluate the Column Assertion against the given warehouse table.
+This should usually be configured to match the expected change frequency of the table, although it can also be less
+frequently depending on your requirements. You can also specify specific days of the week, hours in the day, or even
 minutes in an hour.
 
 #### 2. Column Selection
 
 The **Column Selection**: This defines the column that should be monitored by the Column Assertion. You can choose from
-any of the columns from the table listed in the dropdown.
+any of the columns from the table listed in the dropdown. Note that columns of struct / object type are not currently supported.
 
 #### 3. Evaluation Criteria
 
-The **Evaluation Criteria**: This defines the condition that each row in the table must adhere to in order for the Column
+The **Evaluation Criteria**: This defines the condition that must be satisfied in order for the Column
 Assertion to pass.
 
 For **Column Value Assertions**, you will be able to choose from a set of operators that can be applied to the column
-value. The options presented will vary based on the data type of the selected column. For example with numeric types, you
-can check that the column value is greater than a specific value. For string types, you can check that the column value
-matches a particular regex pattern. You will also be able to control the behavior of null values in the column. If the
-**Allow Nulls** option is disabled, any null values encountered will be reported as a failure when evaluating the
-assertion.
+value. The options presented will vary based on the data type of the selected column. For example, if you've selected a numeric column, you
+can verify that the column value is greater than a particular value. For string types, you can check that the column value
+matches a particular regex pattern. Additionally, you are able to control the behavior of the check in the presence of NULL values. If the
+**Allow Nulls** option is _disabled_, then any null values encountered will be reported as a failure when evaluating the
+assertion. If **Allow Nulls** is enabled, then nulls will be ignored; the condition will be evaluated for rows where the column value is non-null.  
 
-For **Column Metric Assertions**, you will be able to choose from a list of common metrics and then specify the operator
-and value to compare against. The list of metrics will vary based on the data type of the selected column. For example
-with numeric types, you can choose to compute the average value of the column, and then assert that it is greater than a
-specific number. For string types, you can choose to compute the max length of all column values, and then assert that it
+For **Column Metric Assertions**, you will be able to choose from a list of common column metrics - MAX, MIN, MEAN, NULL COUNT, etc - and then compare these metric values to an expected value. The list of metrics will vary based on the type of the selected column. For example
+if you've selected a numeric column, you can choose to compute the MEAN value of the column, and then assert that it is greater than a
+specific number. For string types, you can choose to compute the MAX LENGTH of the string across all column values, and then assert that it
 is less than a specific number.
 
-#### 4. Row Evaluation Type
+#### 4. Row Selection Set
 
-The **Row Evaluation Type**: This defines which rows in the table the Column Assertion should evaluate. You can choose
+The **Row Selection Set**: This defines which rows in the table the Column Assertion will be evaluated across. You can choose
 from the following options:
 
-- **All Table Rows**: Evaluate the Column Assertion against all rows in the table. This is the default option. Note that
+- **All Table Rows**: Evaluate the Column Assertion across all rows in the table. This is the default option. Note that
 this may not be desirable for large tables.
 
 - **Only Rows That Have Changed**: Evaluate the Column Assertion only against rows that have changed since the last
-evaluation. If you choose this option, you will need to specify a **High Watermark Column** to help determine which rows
-have changed. A **High Watermark Column** is a column that contains a constantly-incrementing value - a date, a time, or
-another always-increasing number. When selected, a query will be issued to the Table to look for rows with a new "high
-watermark", e.g. a value that is higher than the previously observed value, in order to determine which rows have
-changed within a given period of time.
+evaluation of the assertion. If you choose this option, you will need to specify a **High Watermark Column** to help determine which rows
+have changed. A **High Watermark Column** is a column that contains a constantly incrementing value - a date, a time, or
+another always-increasing number - that can be used to find the "new rows" that were added since previous evaluation. When selected, a query will be issued to the table to find only the rows that have changed since the previous assertion evaluation. 
 
 ## Creating a Column Assertion
 
@@ -107,7 +103,7 @@ changed within a given period of time.
    `Edit Assertions` and `Edit Monitors` privileges for the entity. This is granted to Entity owners by default.
 
 2. **Data Platform Connection**: In order to create a Column Assertion, you'll need to have an **Ingestion Source** 
-   configured to your Data Platform: Snowflake, BigQuery, or Redshift under the **Integrations** tab.
+   configured to your Data Platform: Snowflake, BigQuery, or Redshift under the **Ingestion** tab.
 
 Once these are in place, you're ready to create your Column Assertions!
 
@@ -133,7 +129,7 @@ Once these are in place, you're ready to create your Column Assertions!
 
 6. Configure the **column assertion type**. You can choose from **Column Value** or **Column Metric**.
    **Column Value** assertions are used to monitor the value of a specific column in a table, and ensure that every row
-   adheres to a specific condition. In comparison, **Column Metric** assertions are used to compute a metric for that column, and ensure that the value of that metric adheres to a specific condition.
+   adheres to a specific condition. **Column Metric** assertions are used to compute a metric for that column, and then compare the value of that metric to your expectations.
 
 <p align="center">
   <img width="45%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/column/assertion-builder-column-assertion-type.png"/>
@@ -152,7 +148,7 @@ Once these are in place, you're ready to create your Column Assertions!
      value. The options presented will vary based on the data type of the selected column. For example with numeric types, you
      can check that the column value is greater than a specific value. For string types, you can check that the column value
      matches a particular regex pattern. You will also be able to control the behavior of null values in the column. If the
-     **Allow Nulls** option is disabled, any null values encountered will be reported as a failure when evaluating the
+     **Allow Nulls** option is _disabled_, any null values encountered will be reported as a failure when evaluating the
      assertion.
 
    - **Column Metric Assertions**: You will be able to choose from a list of common metrics and then specify the operator
@@ -170,9 +166,7 @@ Once these are in place, you're ready to create your Column Assertions!
    - **Only Rows That Have Changed**: Evaluate the Column Assertion only against rows that have changed since the last
      evaluation. If you choose this option, you will need to specify a **High Watermark Column** to help determine which rows
      have changed. A **High Watermark Column** is a column that contains a constantly-incrementing value - a date, a time, or
-     another always-increasing number. When selected, a query will be issued to the Table to look for rows with a new "high
-     watermark", e.g. a value that is higher than the previously observed value, in order to determine which rows have
-     changed within a given period of time.
+     another always-increasing number. When selected, a query will be issued to the table find only the rows which have changed since the last assertion run. 
 
 <p align="center">
   <img width="60%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/column/assertion-builder-column-row-evaluation-type.png"/>
@@ -181,11 +175,11 @@ Once these are in place, you're ready to create your Column Assertions!
 10. (Optional) Click **Advanced** to further customize the Column Assertion. The options listed here will vary based on the
     type of assertion you chose in the previous step.
 
-    - **Invalid Values Threshold**: For **Column Value** assertions only, you can configure the number of invalid values
-      (i.e. rows) that are allowed to fail before the assertion fails. This is useful if you want to allow a small number
+    - **Invalid Values Threshold**: For **Column Value** assertions, you can configure the number of invalid values
+      (i.e. rows) that are allowed to fail before the assertion is marked as failing. This is useful if you want to allow a limited number
       of invalid values in the column. By default this is 0, meaning the assertion will fail if any rows have an invalid column value.
 
-    - **Source**: For **Column Metric** assertions only, you can choose the mechanism that will be used to obtain the column
+    - **Source**: For **Column Metric** assertions, you can choose the mechanism that will be used to obtain the column
       metric. **Query** will issue a query to the dataset to compute the metric. **DataHub Dataset Profile** will use the
       DataHub Dataset Profile metadata to compute the metric. Note that this option requires that dataset profiling
       statistics are up-to-date as of the assertion run time.
@@ -228,7 +222,7 @@ Once your assertion has run, you will begin to see Success or Failure status for
 
 In order to temporarily stop the evaluation of a Column Assertion:
 
-1. Navigate to the **Validations** tab of the Table with the assertion
+1. Navigate to the **Validations** tab of the table with the assertion
 2. Click **Column** to open the Column Assertions list
 3. Click the three-dot menu on the right side of the assertion you want to disable
 4. Click **Stop**
