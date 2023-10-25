@@ -745,6 +745,47 @@ def _extract_select_from_create(
         return statement
 
 
+_UPDATE_ARGS_NOT_SUPPORTED_BY_SELECT: Set[str] = set(
+    sqlglot.exp.Update.arg_types.keys()
+) - set(sqlglot.exp.Select.arg_types.keys())
+
+
+def _extract_select_from_update(
+    statement: sqlglot.exp.Update,
+) -> sqlglot.exp.Select:
+    statement = statement.copy()
+
+    # The "SET" expressions need to be converted.
+    # For the update command, it'll be a list of EQ expressions, but the select
+    # should contain aliased columns.
+    new_expressions = []
+    for expr in statement.expressions:
+        if isinstance(expr, sqlglot.exp.EQ) and isinstance(
+            expr.left, sqlglot.exp.Column
+        ):
+            new_expressions.append(
+                sqlglot.exp.Alias(
+                    this=expr.right,
+                    alias=expr.left.this,
+                )
+            )
+        else:
+            # If we don't know how to convert it, just leave it as-is. If this causes issues,
+            # they'll get caught later.
+            new_expressions.append(expr)
+
+    return sqlglot.exp.Select(
+        **{
+            **{
+                k: v
+                for k, v in statement.args.items()
+                if k not in _UPDATE_ARGS_NOT_SUPPORTED_BY_SELECT
+            },
+            "expressions": new_expressions,
+        }
+    )
+
+
 def _is_create_table_ddl(statement: sqlglot.exp.Expression) -> bool:
     return isinstance(statement, sqlglot.exp.Create) and isinstance(
         statement.this, sqlglot.exp.Schema
@@ -767,6 +808,9 @@ def _try_extract_select(
     elif isinstance(statement, sqlglot.exp.Insert):
         # TODO Need to map column renames in the expressions part of the statement.
         statement = statement.expression
+    elif isinstance(statement, sqlglot.exp.Update):
+        # Assumption: the output table is already captured in the modified tables list.
+        statement = _extract_select_from_update(statement)
     elif isinstance(statement, sqlglot.exp.Create):
         # TODO May need to map column renames.
         # Assumption: the output table is already captured in the modified tables list.
@@ -942,19 +986,25 @@ def _sqlglot_lineage_inner(
     )
 
     # Simplify the input statement for column-level lineage generation.
-    select_statement = _try_extract_select(statement)
+    try:
+        select_statement = _try_extract_select(statement)
+    except Exception as e:
+        logger.debug(f"Failed to extract select from statement: {e}", exc_info=True)
+        debug_info.column_error = e
+        select_statement = None
 
     # Generate column-level lineage.
     column_lineage: Optional[List[_ColumnLineageInfo]] = None
     try:
-        column_lineage = _column_level_lineage(
-            select_statement,
-            dialect=dialect,
-            input_tables=table_name_schema_mapping,
-            output_table=downstream_table,
-            default_db=default_db,
-            default_schema=default_schema,
-        )
+        if select_statement is not None:
+            column_lineage = _column_level_lineage(
+                select_statement,
+                dialect=dialect,
+                input_tables=table_name_schema_mapping,
+                output_table=downstream_table,
+                default_db=default_db,
+                default_schema=default_schema,
+            )
     except UnsupportedStatementTypeError as e:
         # Inject details about the outer statement type too.
         e.args = (f"{e.args[0]} (outer statement type: {type(statement)})",)
