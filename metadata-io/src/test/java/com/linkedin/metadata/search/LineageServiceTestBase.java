@@ -51,7 +51,6 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.client.RestHighLevelClient;
-import org.opensearch.action.search.SearchRequest;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.concurrent.ConcurrentMapCacheManager;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
