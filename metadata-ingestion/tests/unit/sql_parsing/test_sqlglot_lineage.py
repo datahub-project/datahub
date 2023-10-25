@@ -787,6 +787,33 @@ SET orderkey = orderkey + 1
     )
 
 
+def test_postgres_select_subquery():
+    assert_sql_result(
+        """
+SELECT
+    a,
+    b,
+    (SELECT c FROM table2 WHERE table2.id = table1.id) as c
+FROM table1
+""",
+        dialect="postgres",
+        default_db="my_db",
+        default_schema="my_schema",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,my_db.my_schema.table1,PROD)": {
+                "id": "INTEGER",
+                "a": "INTEGER",
+                "b": "INTEGER",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,my_db.my_schema.table2,PROD)": {
+                "id": "INTEGER",
+                "c": "INTEGER",
+            },
+        },
+        expected_file=RESOURCE_DIR / "test_postgres_select_subquery.json",
+    )
+
+
 @pytest.mark.skip(reason="We can't parse column-list syntax with sub-selects yet")
 def test_postgres_update_subselect():
     assert_sql_result(
