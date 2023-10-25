@@ -446,6 +446,7 @@ module.exports = {
             "docs/managed-datahub/observe/freshness-assertions",
             "docs/managed-datahub/observe/volume-assertions",
             "docs/managed-datahub/observe/custom-sql-assertions",
+            "docs/managed-datahub/observe/column-assertions",
           ],
         },
         {
