@@ -548,7 +548,7 @@ class BigqueryLineageExtractor:
         # handle the case where the read happens within our time range but the query
         # completion event is delayed and happens after the configured end time.
         corrected_start_time = self.start_time - self.config.max_query_duration
-        corrected_end_time = self.end_time + -self.config.max_query_duration
+        corrected_end_time = self.end_time + self.config.max_query_duration
         self.report.log_entry_start_time = corrected_start_time
         self.report.log_entry_end_time = corrected_end_time
 

@@ -1,3 +1,4 @@
+import os
 from typing import Optional
 
 from pydantic import Field, root_validator
@@ -67,9 +68,25 @@ class DataHubSourceConfig(StatefulIngestionConfigBase):
         ),
     )
 
+    pull_from_datahub_api: bool = Field(
+        default=False,
+        description="Use the DataHub API to fetch versioned aspects.",
+        hidden_from_docs=True,
+    )
+
+    max_workers: int = Field(
+        default=5 * (os.cpu_count() or 4),
+        description="Number of worker threads to use for datahub api ingestion.",
+        hidden_from_docs=True,
+    )
+
     @root_validator
     def check_ingesting_data(cls, values):
-        if not values.get("database_connection") and not values.get("kafka_connection"):
+        if (
+            not values.get("database_connection")
+            and not values.get("kafka_connection")
+            and not values.get("pull_from_datahub_api")
+        ):
             raise ValueError(
                 "Your current config will not ingest any data."
                 " Please specify at least one of `database_connection` or `kafka_connection`, ideally both."

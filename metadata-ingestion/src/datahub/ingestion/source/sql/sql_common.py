@@ -37,7 +37,6 @@ from datahub.ingestion.source.common.subtypes import (
     DatasetSubTypes,
 )
 from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
-from datahub.ingestion.source.sql.sql_types import MapType
 from datahub.ingestion.source.sql.sql_utils import (
     add_table_to_schema_container,
     downgrade_schema_from_v2,
@@ -81,7 +80,6 @@ from datahub.metadata.schema_classes import (
     DatasetLineageTypeClass,
     DatasetPropertiesClass,
     GlobalTagsClass,
-    MapTypeClass,
     SubTypesClass,
     TagAssociationClass,
     UpstreamClass,
@@ -140,6 +138,7 @@ class SqlWorkUnit(MetadataWorkUnit):
 
 
 _field_type_mapping: Dict[Type[TypeEngine], Type] = {
+    # Note: to add dialect-specific types to this mapping, use the `register_custom_type` function.
     types.Integer: NumberTypeClass,
     types.Numeric: NumberTypeClass,
     types.Boolean: BooleanTypeClass,
@@ -156,8 +155,6 @@ _field_type_mapping: Dict[Type[TypeEngine], Type] = {
     types.DATETIME: TimeTypeClass,
     types.TIMESTAMP: TimeTypeClass,
     types.JSON: RecordTypeClass,
-    # additional type definitions that are used by the Athena source
-    MapType: MapTypeClass,  # type: ignore
     # Because the postgresql dialect is used internally by many other dialects,
     # we add some postgres types here. This is ok to do because the postgresql
     # dialect is built-in to sqlalchemy.

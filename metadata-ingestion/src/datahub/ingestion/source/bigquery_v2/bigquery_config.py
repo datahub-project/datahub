@@ -119,8 +119,8 @@ class BigQueryV2Config(
     )
 
     match_fully_qualified_names: bool = Field(
-        default=False,
-        description="Whether `dataset_pattern` is matched against fully qualified dataset name `<project_id>.<dataset_name>`.",
+        default=True,
+        description="[deprecated] Whether `dataset_pattern` is matched against fully qualified dataset name `<project_id>.<dataset_name>`.",
     )
 
     include_external_url: bool = Field(
@@ -327,8 +327,7 @@ class BigQueryV2Config(
         ):
             logger.warning(
                 "Please update `dataset_pattern` to match against fully qualified schema name `<project_id>.<dataset_name>` and set config `match_fully_qualified_names : True`."
-                "Current default `match_fully_qualified_names: False` is only to maintain backward compatibility. "
-                "The config option `match_fully_qualified_names` will be deprecated in future and the default behavior will assume `match_fully_qualified_names: True`."
+                "The config option `match_fully_qualified_names` is deprecated and will be removed in a future release."
             )
         return values
 

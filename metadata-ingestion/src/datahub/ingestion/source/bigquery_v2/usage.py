@@ -335,8 +335,12 @@ class BigQueryUsageExtractor:
     def _is_table_allowed(self, table_ref: Optional[BigQueryTableRef]) -> bool:
         return (
             table_ref is not None
-            and self.config.dataset_pattern.allowed(table_ref.table_identifier.dataset)
-            and self.config.table_pattern.allowed(table_ref.table_identifier.table)
+            and self.config.dataset_pattern.allowed(
+                f"{table_ref.table_identifier.project_id}.{table_ref.table_identifier.dataset}"
+                if self.config.match_fully_qualified_names
+                else table_ref.table_identifier.dataset
+            )
+            and self.config.table_pattern.allowed(str(table_ref.table_identifier))
         )
 
     def _should_ingest_usage(self) -> bool:
@@ -844,7 +848,7 @@ class BigQueryUsageExtractor:
         # handle the case where the read happens within our time range but the query
         # completion event is delayed and happens after the configured end time.
         corrected_start_time = self.start_time - self.config.max_query_duration
-        corrected_end_time = self.end_time + -self.config.max_query_duration
+        corrected_end_time = self.end_time + self.config.max_query_duration
         self.report.audit_start_time = corrected_start_time
         self.report.audit_end_time = corrected_end_time
 

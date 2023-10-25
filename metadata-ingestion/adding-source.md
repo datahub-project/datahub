@@ -62,7 +62,7 @@ Some sources use the default `SourceReport` class, but others inherit and extend
 
 ### 3. Implement the source itself
 
-The core for the source is the `get_workunits` method, which produces a stream of metadata events (typically MCP objects) wrapped up in a MetadataWorkUnit.
+The core for the source is the `get_workunits_internal` method, which produces a stream of metadata events (typically MCP objects) wrapped up in a MetadataWorkUnit.
 The [file source](./src/datahub/ingestion/source/file.py) is a good and simple example.
 
 The MetadataChangeEventClass is defined in the metadata models which are generated
