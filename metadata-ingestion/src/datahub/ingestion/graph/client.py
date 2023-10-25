@@ -559,11 +559,23 @@ class DataHubGraph(DatahubRestEmitter):
         status: RemovedStatusFilter = RemovedStatusFilter.NOT_SOFT_DELETED,
         batch_size: int = 100,
         extraFilters: Optional[List[SearchFilterRule]] = None,
+        allow_pickle: bool = False,
     ) -> Iterable[Tuple[str, "GraphQLSchemaMetadata"]]:
         """Fetch schema info for datasets that match all of the given filters.
 
         :return: An iterable of (urn, schema info) tuple that match the filters.
         """
+
+        import os
+        import pickle
+
+        pickle_filename = "schema_metadata.pkl"
+        if allow_pickle and os.path.exists(pickle_filename):
+            logger.info(f"Pulling schema metadata from {pickle_filename}")
+            with open(pickle_filename, "rb") as f:
+                yield from pickle.load(f).items()
+                return
+
         types = [_graphql_entity_type("dataset")]
 
         # Add the query default of * if no query is specified.
@@ -619,9 +631,17 @@ class DataHubGraph(DatahubRestEmitter):
             "batchSize": batch_size,
         }
 
+        d = {}
         for entity in self._scroll_across_entities(graphql_query, variables):
             if entity.get("schemaMetadata"):
                 yield entity["urn"], entity["schemaMetadata"]
+                if allow_pickle:
+                    d[entity["urn"]] = entity["schemaMetadata"]
+
+        if allow_pickle:
+            logger.info(f"Writing schema metadata to {pickle_filename}")
+            with open(pickle_filename, "wb") as f:
+                pickle.dump(d, f)
 
     def _bulk_fetch_view_definitions_by_filter(
         self,
@@ -1081,7 +1101,11 @@ class DataHubGraph(DatahubRestEmitter):
         )
 
     def initialize_schema_resolver_from_datahub(
-        self, platform: str, platform_instance: Optional[str], env: str
+        self,
+        platform: str,
+        platform_instance: Optional[str],
+        env: str,
+        allow_pickle: bool = False,
     ) -> "SchemaResolver":
         logger.info("Initializing schema resolver")
         schema_resolver = self._make_schema_resolver(
@@ -1095,6 +1119,7 @@ class DataHubGraph(DatahubRestEmitter):
                 platform=platform,
                 platform_instance=platform_instance,
                 env=env,
+                allow_pickle=allow_pickle,
             ):
                 try:
                     schema_resolver.add_graphql_schema_metadata(urn, schema_info)

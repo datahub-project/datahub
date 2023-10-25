@@ -166,6 +166,11 @@ class TeradataConfig(BaseTeradataConfig, BaseTimeWindowConfig):
         description="Whether to use cached metadata. This reduce the number of queries to the database but requires to have cached metadata.",
     )
 
+    allow_pickle: bool = Field(
+        default=False,
+        description="Whether to allow pickle when loading schema metadata from DataHub.",
+    )
+
 
 @dataclass
 class TeradataTable:
@@ -309,6 +314,7 @@ ORDER by DatabaseName, TableName;
                     platform=self.platform,
                     platform_instance=self.config.platform_instance,
                     env=self.config.env,
+                    allow_pickle=self.config.allow_pickle,
                 )
             else:
                 logger.warning(
@@ -419,10 +425,10 @@ ORDER by DatabaseName, TableName;
 
             self.report.num_view_ddl_parsed += 1
             if self.report.num_view_ddl_parsed % 1000 == 0:
-                logger.info(f"Parsed {self.report.num_queries_parsed} view ddl")
+                logger.info(f"Parsed {self.report.num_view_ddl_parsed} view ddl")
 
             yield from self.gen_lineage_from_query(
-                query=view_definition, default_database=db_name, is_view_ddl=True
+                query=view_definition, default_database=db_name, view_urn=key
             )
 
     def cache_tables_and_views(self) -> None:
@@ -456,7 +462,6 @@ ORDER by DatabaseName, TableName;
                 default_database=entry.default_database,
                 timestamp=entry.timestamp,
                 user=entry.user,
-                is_view_ddl=False,
             )
 
     def _make_lineage_query(self) -> str:
@@ -475,7 +480,7 @@ ORDER by DatabaseName, TableName;
         default_database: Optional[str] = None,
         timestamp: Optional[datetime] = None,
         user: Optional[str] = None,
-        is_view_ddl: bool = False,
+        view_urn: Optional[str] = None,
     ) -> Iterable[MetadataWorkUnit]:
         result = sqlglot_lineage(
             sql=query,
@@ -486,15 +491,16 @@ ORDER by DatabaseName, TableName;
             else self.config.default_db,
         )
         if result.debug_info.table_error:
-            logger.debug(
-                f"Error parsing table lineage, {result.debug_info.table_error}"
+            logger.info(
+                f"Error parsing table lineage ({view_urn}):\n{result.debug_info.table_error}\n"
             )
+            logger.info(f"{query}\n")
             self.report.num_table_parse_failures += 1
         else:
             yield from self.builder.process_sql_parsing_result(
                 result,
                 query=query,
-                is_view_ddl=is_view_ddl,
+                is_view_ddl=view_urn is not None,
                 query_timestamp=timestamp,
                 user=f"urn:li:corpuser:{user}",
                 include_urns=self.schema_resolver.get_urns(),
@@ -526,6 +532,12 @@ ORDER by DatabaseName, TableName;
                 )
                 for (urn, view_definition) in entries:
                     self._view_definition_cache[urn] = view_definition
+                logger.info(
+                    f"Loaded {len(self._view_definition_cache)} view definitions from DataHub."
+                )
+                logger.info(
+                    f"Sample view urns: {list(self._view_definition_cache.keys())[:10]}"
+                )
             elif self.config.disable_schema_metadata:
                 self.report.report_failure("view_lineage", "Missing DataHubGraph")
 
