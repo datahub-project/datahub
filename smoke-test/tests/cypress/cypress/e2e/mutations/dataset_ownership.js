@@ -5,7 +5,7 @@ const password = "Example password";
 const group_name = `Test group ${test_id}`;
 
 const addOwner = (owner, type, elementId) => {
-    cy.clickOptionWithText("Add Owners");
+    cy.clickOptionWithTestId("add-owners-button");
     cy.contains("Search for users or groups...").click({ force: true });
     cy.focused().type(owner);
     cy.clickOptionWithText(owner);
