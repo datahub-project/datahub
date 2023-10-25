@@ -112,7 +112,11 @@ function CreateGlossaryEntityModal(props: Props) {
                     <Button onClick={onClose} type="text">
                         Cancel
                     </Button>
-                    <Button onClick={createGlossaryEntity} disabled={createButtonDisabled}>
+                    <Button
+                        onClick={createGlossaryEntity}
+                        disabled={createButtonDisabled}
+                        data-testid="glossary-entity-modal-create-button"
+                    >
                         Create
                     </Button>
                 </>
@@ -130,6 +134,7 @@ function CreateGlossaryEntityModal(props: Props) {
             >
                 <Form.Item label={<Typography.Text strong>Name</Typography.Text>}>
                     <StyledItem
+                        data-testid="create-glossary-entity-modal-name"
                         name="name"
                         rules={[
                             {
