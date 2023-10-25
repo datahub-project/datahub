@@ -7,7 +7,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     BytesType,
     DateType,
     EnumType,
-    MapType as MapTypeAvro,
+    MapType,
     NullType,
     NumberType,
     RecordType,
@@ -15,7 +15,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     TimeType,
     UnionType,
 )
-from datahub.utilities.sqlalchemy_type_converter import MapType
 
 # these can be obtained by running `select format_type(oid, null),* from pg_type;`
 # we've omitted the types without a meaningful DataHub type (e.g. postgres-specific types, index vectors, etc.)
@@ -364,7 +363,7 @@ TRINO_SQL_TYPES_MAP: Dict[str, Any] = {
     "time": TimeType,
     "timestamp": TimeType,
     "row": RecordType,
-    "map": MapTypeAvro,
+    "map": MapType,
     "array": ArrayType,
 }
 
