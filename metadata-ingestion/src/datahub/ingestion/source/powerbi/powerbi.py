@@ -462,7 +462,6 @@ class Mapper:
 
             self.append_container_mcp(
                 dataset_mcps,
-                workspace,
                 ds_urn,
                 dataset,
             )
@@ -474,11 +473,7 @@ class Mapper:
                 dataset.tags,
             )
 
-        dataset.workspace_key = workspace.get_workspace_key(
-            platform_name=self.__config.platform_name,
-            platform_instance=self.__config.platform_instance,
-            workspace_id_as_urn_part=self.__config.workspace_id_as_urn_part,
-        )
+        dataset.workspace_key = self.workspace_key
         self.processed_datasets.add(dataset)
 
         return dataset_mcps
@@ -578,7 +573,6 @@ class Mapper:
 
         self.append_container_mcp(
             result_mcps,
-            workspace,
             chart_urn,
         )
 
@@ -701,7 +695,6 @@ class Mapper:
 
         self.append_container_mcp(
             list_of_mcps,
-            workspace,
             dashboard_urn,
         )
 
@@ -717,7 +710,6 @@ class Mapper:
     def append_container_mcp(
         self,
         list_of_mcps: List[MetadataChangeProposalWrapper],
-        workspace: powerbi_data_classes.Workspace,
         entity_urn: str,
         dataset: Optional[powerbi_data_classes.PowerBIDataset] = None,
     ) -> None:
@@ -726,11 +718,7 @@ class Mapper:
         ):
             container_key = dataset.get_dataset_key(self.__config.platform_name)
         elif self.__config.extract_workspaces_to_containers:
-            container_key = workspace.get_workspace_key(
-                platform_name=self.__config.platform_name,
-                platform_instance=self.__config.platform_instance,
-                workspace_id_as_urn_part=self.__config.workspace_id_as_urn_part,
-            )
+            container_key = self.workspace_key
         else:
             return None
 
@@ -971,7 +959,6 @@ class Mapper:
 
             self.append_container_mcp(
                 list_of_mcps,
-                workspace,
                 chart_urn,
             )
 
@@ -1092,7 +1079,6 @@ class Mapper:
 
         self.append_container_mcp(
             list_of_mcps,
-            workspace,
             dashboard_urn,
         )
 
