@@ -101,6 +101,11 @@ kafka_protobuf = {
     "grpcio-tools>=1.44.0,<2",
 }
 
+usage_common = {
+    "sqlparse",
+}
+
+
 sql_common = {
     # Required for all SQL sources.
     # This is temporary lower bound that we're open to loosening/tightening as requirements show up
@@ -115,7 +120,7 @@ sql_common = {
     # https://github.com/ipython/traitlets/issues/741
     "traitlets<5.2.2",
     "greenlet",
-}
+} | usage_common
 
 sqllineage_lib = {
     "sqllineage==1.3.8",
@@ -242,10 +247,6 @@ delta_lake = {
 }
 
 powerbi_report_server = {"requests", "requests_ntlm"}
-
-usage_common = {
-    "sqlparse",
-}
 
 databricks = {
     # 0.1.11 appears to have authentication issues with azure databricks
