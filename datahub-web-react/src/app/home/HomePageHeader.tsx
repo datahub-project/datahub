@@ -275,7 +275,7 @@ export const HomePageHeader = () => {
                         viewsEnabled={viewsEnabled}
                         combineSiblings
                         showQuickFilters
-                        viewAutoCompleteQuery
+                        showViewAllResults
                     />
                     {searchResultsToShow && searchResultsToShow.length > 0 && (
                         <SuggestionsContainer>
