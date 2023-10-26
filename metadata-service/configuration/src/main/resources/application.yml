@@ -11,6 +11,8 @@ authentication:
         # Key used to validate incoming tokens. Should typically be the same as authentication.tokenService.signingKey
         signingKey: ${DATAHUB_TOKEN_SERVICE_SIGNING_KEY:WnEdIeTG/VVCLQqGwC/BAkqyY0k+H8NEAtWGejrBI94=}
         salt: ${DATAHUB_TOKEN_SERVICE_SALT:ohDVbJBvHHVJh9S/UA4BYF9COuNnqqVhr9MLKEGXk1O=}
+    # Required for unauthenticated health check endpoints - best not to remove.
+    - type: com.datahub.authentication.authenticator.HealthStatusAuthenticator
 
   # Normally failures are only warnings, enable this to throw them.
   logAuthenticatorExceptions: ${METADATA_SERVICE_AUTHENTICATOR_EXCEPTIONS_ENABLED:false}
