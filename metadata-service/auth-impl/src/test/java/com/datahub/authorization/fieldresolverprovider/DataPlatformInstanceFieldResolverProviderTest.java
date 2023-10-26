@@ -1,8 +1,21 @@
 package com.datahub.authorization.fieldresolverprovider;
 
+import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.DATA_PLATFORM_INSTANCE_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.DATA_PLATFORM_INSTANCE_ENTITY_NAME;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyZeroInteractions;
+import static org.mockito.Mockito.when;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
+
 import com.datahub.authentication.Authentication;
-import com.datahub.authorization.ResourceFieldType;
-import com.datahub.authorization.ResourceSpec;
+import com.datahub.authorization.EntityFieldType;
+import com.datahub.authorization.EntitySpec;
 import com.linkedin.common.DataPlatformInstance;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.Aspect;
@@ -11,21 +24,13 @@ import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.r2.RemoteInvocationException;
+import java.net.URISyntaxException;
+import java.util.Collections;
+import java.util.Set;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
-
-import java.net.URISyntaxException;
-import java.util.Collections;
-import java.util.Set;
-
-import static com.linkedin.metadata.Constants.*;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.*;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
 
 public class DataPlatformInstanceFieldResolverProviderTest {
 
@@ -33,7 +38,7 @@ public class DataPlatformInstanceFieldResolverProviderTest {
       "urn:li:dataPlatformInstance:(urn:li:dataPlatform:s3,test-platform-instance)";
   private static final String RESOURCE_URN =
       "urn:li:dataset:(urn:li:dataPlatform:s3,test-platform-instance.testDataset,PROD)";
-  private static final ResourceSpec RESOURCE_SPEC = new ResourceSpec(DATASET_ENTITY_NAME, RESOURCE_URN);
+  private static final EntitySpec RESOURCE_SPEC = new EntitySpec(DATASET_ENTITY_NAME, RESOURCE_URN);
 
   @Mock
   private EntityClient entityClientMock;
@@ -51,12 +56,12 @@ public class DataPlatformInstanceFieldResolverProviderTest {
 
   @Test
   public void shouldReturnDataPlatformInstanceType() {
-    assertEquals(ResourceFieldType.DATA_PLATFORM_INSTANCE, dataPlatformInstanceFieldResolverProvider.getFieldType());
+    assertEquals(EntityFieldType.DATA_PLATFORM_INSTANCE, dataPlatformInstanceFieldResolverProvider.getFieldTypes().get(0));
   }
 
   @Test
   public void shouldReturnFieldValueWithResourceSpecIfTypeIsDataPlatformInstance() {
-    var resourceSpec = new ResourceSpec(DATA_PLATFORM_INSTANCE_ENTITY_NAME, DATA_PLATFORM_INSTANCE_URN);
+    var resourceSpec = new EntitySpec(DATA_PLATFORM_INSTANCE_ENTITY_NAME, DATA_PLATFORM_INSTANCE_URN);
 
     var result = dataPlatformInstanceFieldResolverProvider.getFieldResolver(resourceSpec);
 

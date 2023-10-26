@@ -4,6 +4,8 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ## Next
 
+- #9010 - In Redshift source's config `incremental_lineage` is set default to off.
+
 ### Breaking Changes
 
 - #8810 - Removed support for SQLAlchemy 1.3.x. Only SQLAlchemy 1.4.x is supported now.
@@ -11,17 +13,58 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
   by Looker and LookML source connectors.
 - #8853 - The Airflow plugin no longer supports Airflow 2.0.x or Python 3.7. See the docs for more details.
 - #8853 - Introduced the Airflow plugin v2. If you're using Airflow 2.3+, the v2 plugin will be enabled by default, and so you'll need to switch your requirements to include `pip install 'acryl-datahub-airflow-plugin[plugin-v2]'`. To continue using the v1 plugin, set the `DATAHUB_AIRFLOW_PLUGIN_USE_V1_PLUGIN` environment variable to `true`.
-- #8943 The Unity Catalog ingestion source has a new option `include_metastore`, which will cause all urns to be changed when disabled.
+- #8943 - The Unity Catalog ingestion source has a new option `include_metastore`, which will cause all urns to be changed when disabled.
 This is currently enabled by default to preserve compatibility, but will be disabled by default and then removed in the future.
 If stateful ingestion is enabled, simply setting `include_metastore: false` will perform all required cleanup.
 Otherwise, we recommend soft deleting all databricks data via the DataHub CLI:
 `datahub delete --platform databricks --soft` and then reingesting with `include_metastore: false`.
+- #8846 - Changed enum values in resource filters used by policies. `RESOURCE_TYPE` became `TYPE` and `RESOURCE_URN` became `URN`.
+Any existing policies using these filters (i.e. defined for particular `urns` or `types` such as `dataset`) need to be upgraded
+manually, for example by retrieving their respective `dataHubPolicyInfo` aspect and changing part using filter i.e.
+```yaml
+   "resources": {
+     "filter": {
+       "criteria": [
+         {
+           "field": "RESOURCE_TYPE",
+           "condition": "EQUALS",
+           "values": [
+             "dataset"
+           ]
+         }
+       ]
+     }
+```
+into
+```yaml
+   "resources": {
+     "filter": {
+       "criteria": [
+         {
+           "field": "TYPE",
+           "condition": "EQUALS",
+           "values": [
+             "dataset"
+           ]
+         }
+       ]
+     }
+```
+for example, using `datahub put` command. Policies can be also removed and re-created via UI.
+- #9077 - The BigQuery ingestion source by default sets `match_fully_qualified_names: true`.
+This means that any `dataset_pattern` or `schema_pattern` specified will be matched on the fully
+qualified dataset name, i.e. `<project_name>.<dataset_name>`. We attempt to support the old
+pattern format by prepending `.*\\.` to dataset patterns lacking a period, so in most cases this
+should not cause any issues. However, if you have a complex dataset pattern, we recommend you
+manually convert it to the fully qualified format to avoid any potential issues.
 
 ### Potential Downtime
 
 ### Deprecations
 
 ### Other Notable Changes
+- Session token configuration has changed, all previously created session tokens will be invalid and users will be prompted to log in. Expiration time has also been shortened which may result in more login prompts with the default settings.
+  There should be no other interruption due to this change.
 
 ## 0.11.0
 

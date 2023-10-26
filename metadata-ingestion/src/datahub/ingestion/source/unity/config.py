@@ -7,7 +7,10 @@ import pydantic
 from pydantic import Field
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
-from datahub.configuration.source_common import DatasetSourceConfigMixin
+from datahub.configuration.source_common import (
+    DatasetSourceConfigMixin,
+    LowerCaseDatasetUrnConfigMixin,
+)
 from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
@@ -91,6 +94,7 @@ class UnityCatalogSourceConfig(
     BaseUsageConfig,
     DatasetSourceConfigMixin,
     StatefulProfilingConfigMixin,
+    LowerCaseDatasetUrnConfigMixin,
 ):
     token: str = pydantic.Field(description="Databricks personal access token")
     workspace_url: str = pydantic.Field(
@@ -160,6 +164,14 @@ class UnityCatalogSourceConfig(
     include_table_lineage: bool = pydantic.Field(
         default=True,
         description="Option to enable/disable lineage generation.",
+    )
+
+    include_external_lineage: bool = pydantic.Field(
+        default=True,
+        description=(
+            "Option to enable/disable lineage generation for external tables."
+            " Only external S3 tables are supported at the moment."
+        ),
     )
 
     include_notebooks: bool = pydantic.Field(

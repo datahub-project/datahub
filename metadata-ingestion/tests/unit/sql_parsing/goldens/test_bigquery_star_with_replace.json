@@ -16,7 +16,7 @@
                         "com.linkedin.pegasus2avro.schema.StringType": {}
                     }
                 },
-                "native_column_type": "TEXT"
+                "native_column_type": "STRING"
             },
             "upstreams": [
                 {
@@ -34,7 +34,7 @@
                         "com.linkedin.pegasus2avro.schema.StringType": {}
                     }
                 },
-                "native_column_type": "TEXT"
+                "native_column_type": "STRING"
             },
             "upstreams": [
                 {
@@ -52,7 +52,7 @@
                         "com.linkedin.pegasus2avro.schema.StringType": {}
                     }
                 },
-                "native_column_type": "TEXT"
+                "native_column_type": "STRING"
             },
             "upstreams": [
                 {

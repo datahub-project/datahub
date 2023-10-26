@@ -1,20 +1,20 @@
 package com.datahub.authorization.fieldresolverprovider;
 
 import com.datahub.authentication.Authentication;
+import com.datahub.authorization.EntityFieldType;
+import com.datahub.authorization.EntitySpec;
 import com.datahub.authorization.FieldResolver;
-import com.datahub.authorization.ResourceFieldType;
-import com.datahub.authorization.ResourceSpec;
 import com.linkedin.common.DataPlatformInstance;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.client.EntityClient;
+import java.util.Collections;
+import java.util.List;
+import java.util.Objects;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-
-import java.util.Collections;
-import java.util.Objects;
 
 import static com.linkedin.metadata.Constants.*;
 
@@ -23,23 +23,23 @@ import static com.linkedin.metadata.Constants.*;
  */
 @Slf4j
 @RequiredArgsConstructor
-public class DataPlatformInstanceFieldResolverProvider implements ResourceFieldResolverProvider {
+public class DataPlatformInstanceFieldResolverProvider implements EntityFieldResolverProvider {
 
   private final EntityClient _entityClient;
   private final Authentication _systemAuthentication;
 
   @Override
-  public ResourceFieldType getFieldType() {
-    return ResourceFieldType.DATA_PLATFORM_INSTANCE;
+  public List<EntityFieldType> getFieldTypes() {
+    return Collections.singletonList(EntityFieldType.DATA_PLATFORM_INSTANCE);
   }
 
   @Override
-  public FieldResolver getFieldResolver(ResourceSpec resourceSpec) {
-    return FieldResolver.getResolverFromFunction(resourceSpec, this::getDataPlatformInstance);
+  public FieldResolver getFieldResolver(EntitySpec entitySpec) {
+    return FieldResolver.getResolverFromFunction(entitySpec, this::getDataPlatformInstance);
   }
 
-  private FieldResolver.FieldValue getDataPlatformInstance(ResourceSpec resourceSpec) {
-    Urn entityUrn = UrnUtils.getUrn(resourceSpec.getResource());
+  private FieldResolver.FieldValue getDataPlatformInstance(EntitySpec entitySpec) {
+    Urn entityUrn = UrnUtils.getUrn(entitySpec.getEntity());
     // In the case that the entity is a platform instance, the associated platform instance entity is the instance itself
     if (entityUrn.getEntityType().equals(DATA_PLATFORM_INSTANCE_ENTITY_NAME)) {
       return FieldResolver.FieldValue.builder()
