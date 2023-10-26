@@ -238,7 +238,7 @@ def test_missing_optional_simple() -> None:
                 "criteria": [
                     {
                         "condition": "EQUALS",
-                        "field": "RESOURCE_TYPE",
+                        "field": "TYPE",
                         "values": ["notebook", "dataset", "dashboard"],
                     }
                 ]
@@ -252,7 +252,7 @@ def test_missing_optional_simple() -> None:
             "criteria": [
                 {
                     "condition": "EQUALS",
-                    "field": "RESOURCE_TYPE",
+                    "field": "TYPE",
                     "values": ["notebook", "dataset", "dashboard"],
                 }
             ]
@@ -267,13 +267,13 @@ def test_missing_optional_simple() -> None:
 def test_missing_optional_in_union() -> None:
     # This one doesn't contain any optional fields and should work fine.
     revised_json = json.loads(
-        '{"lastUpdatedTimestamp":1662356745807,"actors":{"groups":[],"resourceOwners":false,"allUsers":true,"allGroups":false,"users":[]},"privileges":["EDIT_ENTITY_ASSERTIONS","EDIT_DATASET_COL_GLOSSARY_TERMS","EDIT_DATASET_COL_TAGS","EDIT_DATASET_COL_DESCRIPTION"],"displayName":"customtest","resources":{"filter":{"criteria":[{"field":"RESOURCE_TYPE","condition":"EQUALS","values":["notebook","dataset","dashboard"]}]},"allResources":false},"description":"","state":"ACTIVE","type":"METADATA"}'
+        '{"lastUpdatedTimestamp":1662356745807,"actors":{"groups":[],"resourceOwners":false,"allUsers":true,"allGroups":false,"users":[]},"privileges":["EDIT_ENTITY_ASSERTIONS","EDIT_DATASET_COL_GLOSSARY_TERMS","EDIT_DATASET_COL_TAGS","EDIT_DATASET_COL_DESCRIPTION"],"displayName":"customtest","resources":{"filter":{"criteria":[{"field":"TYPE","condition":"EQUALS","values":["notebook","dataset","dashboard"]}]},"allResources":false},"description":"","state":"ACTIVE","type":"METADATA"}'
     )
     revised = models.DataHubPolicyInfoClass.from_obj(revised_json)
 
     # This one is missing the optional filters.allResources field.
     original_json = json.loads(
-        '{"privileges":["EDIT_ENTITY_ASSERTIONS","EDIT_DATASET_COL_GLOSSARY_TERMS","EDIT_DATASET_COL_TAGS","EDIT_DATASET_COL_DESCRIPTION"],"actors":{"resourceOwners":false,"groups":[],"allGroups":false,"allUsers":true,"users":[]},"lastUpdatedTimestamp":1662356745807,"displayName":"customtest","description":"","resources":{"filter":{"criteria":[{"field":"RESOURCE_TYPE","condition":"EQUALS","values":["notebook","dataset","dashboard"]}]}},"state":"ACTIVE","type":"METADATA"}'
+        '{"privileges":["EDIT_ENTITY_ASSERTIONS","EDIT_DATASET_COL_GLOSSARY_TERMS","EDIT_DATASET_COL_TAGS","EDIT_DATASET_COL_DESCRIPTION"],"actors":{"resourceOwners":false,"groups":[],"allGroups":false,"allUsers":true,"users":[]},"lastUpdatedTimestamp":1662356745807,"displayName":"customtest","description":"","resources":{"filter":{"criteria":[{"field":"TYPE","condition":"EQUALS","values":["notebook","dataset","dashboard"]}]}},"state":"ACTIVE","type":"METADATA"}'
     )
     original = models.DataHubPolicyInfoClass.from_obj(original_json)
 
