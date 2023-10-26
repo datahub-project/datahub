@@ -158,6 +158,7 @@ module.exports = {
         // The purpose of this section is to provide the minimum steps required to deploy DataHub to the vendor of your choosing
         "docs/deploy/aws",
         "docs/deploy/gcp",
+        "docs/deploy/azure",
         "docker/README",
         "docs/deploy/kubernetes",
         "docs/deploy/environment-vars",
@@ -445,6 +446,7 @@ module.exports = {
             "docs/managed-datahub/observe/freshness-assertions",
             "docs/managed-datahub/observe/volume-assertions",
             "docs/managed-datahub/observe/custom-sql-assertions",
+            "docs/managed-datahub/observe/column-assertions",
           ],
         },
         {
@@ -608,6 +610,7 @@ module.exports = {
         },
         {
           "Managed DataHub Release History": [
+            "docs/managed-datahub/release-notes/v_0_2_12",
             "docs/managed-datahub/release-notes/v_0_2_11",
             "docs/managed-datahub/release-notes/v_0_2_10",
             "docs/managed-datahub/release-notes/v_0_2_9",

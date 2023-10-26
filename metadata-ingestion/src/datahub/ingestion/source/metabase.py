@@ -80,6 +80,7 @@ class MetabaseConfig(DatasetLineageProviderConfigBase):
 @config_class(MetabaseConfig)
 @support_status(SupportStatus.CERTIFIED)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
+@capability(SourceCapability.LINEAGE_COARSE, "Supported by default")
 class MetabaseSource(Source):
     """
     This plugin extracts Charts, dashboards, and associated metadata. This plugin is in beta and has only been tested

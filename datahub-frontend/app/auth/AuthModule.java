@@ -56,7 +56,7 @@ public class AuthModule extends AbstractModule {
      * Pac4j Stores Session State in a browser-side cookie in encrypted fashion. This configuration
      * value provides a stable encryption base from which to derive the encryption key.
      *
-     * We hash this value (SHA1), then take the first 16 bytes as the AES key.
+     * We hash this value (SHA256), then take the first 16 bytes as the AES key.
      */
     private static final String PAC4J_AES_KEY_BASE_CONF = "play.http.secret.key";
     private static final String PAC4J_SESSIONSTORE_PROVIDER_CONF = "pac4j.sessionStore.provider";
@@ -93,7 +93,7 @@ public class AuthModule extends AbstractModule {
                 // it to hex and slice the first 16 bytes, because AES key length must strictly
                 // have a specific length.
                 final String aesKeyBase = _configs.getString(PAC4J_AES_KEY_BASE_CONF);
-                final String aesKeyHash = DigestUtils.sha1Hex(aesKeyBase.getBytes(StandardCharsets.UTF_8));
+                final String aesKeyHash = DigestUtils.sha256Hex(aesKeyBase.getBytes(StandardCharsets.UTF_8));
                 final String aesEncryptionKey = aesKeyHash.substring(0, 16);
                 playCacheCookieStore = new PlayCookieSessionStore(
                         new ShiroAesDataEncrypter(aesEncryptionKey.getBytes()));
