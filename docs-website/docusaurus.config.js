@@ -55,17 +55,10 @@ module.exports = {
           sidebarId: 'developersSidebar',
           label: 'Developers',
         },
-//        {
-//          type: 'docSidebar',
-//          position: 'right',
-//          sidebarId: 'guidesSidebar',
-//          label: 'Guides',
-//        },
-//        {
-//          type: "docsVersionDropdown",
-//          position: "left",
-//          dropdownActiveClassDisabled: true,
-//        },
+        {
+          type: "docsVersionDropdown",
+          position: "left",
+        },
         {
           type: "dropdown",
           label: "Resources",
