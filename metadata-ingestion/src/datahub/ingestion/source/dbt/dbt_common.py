@@ -421,11 +421,14 @@ class DBTNode:
     test_info: Optional["DBTTest"] = None  # only populated if node_type == 'test'
     test_result: Optional["DBTTestResult"] = None
 
+    @staticmethod
+    def _join_parts(parts: List[Optional[str]]) -> str:
+        assert parts
+        return ".".join([part for part in parts if part])
+
     def get_db_fqn(self) -> str:
-        if self.database:
-            fqn = f"{self.database}.{self.schema}.{self.name}"
-        else:
-            fqn = f"{self.schema}.{self.name}"
+        # Database might be None, but schema and name should always be present.
+        fqn = self._join_parts([self.database, self.schema, self.name])
         return fqn.replace('"', "")
 
     def get_urn(
@@ -446,21 +449,17 @@ class DBTNode:
             env=env,
         )
 
-    def get_urn_fake_ephemeral(
-        self,
-        target_platform: str,
-        env: str,
-        target_platform_instance: Optional[str],
-    ) -> str:
-        assert self.materialization == "ephemeral"
-        db_fqn = f"__datahub__dbt__ephemeral__{self.name}"
+    def is_ephemeral_model(self) -> bool:
+        return self.materialization == "ephemeral"
 
-        return mce_builder.make_dataset_urn_with_platform_instance(
-            platform=target_platform,
-            name=db_fqn,
-            platform_instance=target_platform_instance,
-            env=env,
+    def get_fake_ephemeral_table_name(self) -> str:
+        assert self.is_ephemeral_model()
+
+        # Similar to get_db_fqn.
+        fqn = self._join_parts(
+            [self.database, self.schema, f"__datahub__dbt__ephemeral__{self.name}"]
         )
+        return fqn.replace('"', "")
 
     def get_urn_for_upstream_lineage(
         self,
@@ -495,7 +494,7 @@ class DBTNode:
 
     @property
     def exists_in_target_platform(self):
-        return not (self.materialization == "ephemeral" or self.node_type == "test")
+        return not (self.is_ephemeral_model() or self.node_type == "test")
 
     def merge_schema_fields(self, schema_fields: List[SchemaField]) -> None:
         """
@@ -845,12 +844,13 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     self.config.target_platform_instance,
                 )
                 should_fetch_target_node_schema = True
-            elif node.node_type == "ephemeral":
+            elif node.is_ephemeral_model():
                 # For ephemeral nodes, we "pretend" that they exist in the target platform
                 # for schema resolution purposes.
-                target_node_urn = node.get_urn_fake_ephemeral(
-                    target_platform=self.config.target_platform,
-                    target_platform_instance=self.config.target_platform_instance,
+                target_node_urn = mce_builder.make_dataset_urn_with_platform_instance(
+                    platform=self.config.target_platform,
+                    name=node.get_fake_ephemeral_table_name(),
+                    platform_instance=self.config.target_platform_instance,
                     env=self.config.env,
                 )
             if target_node_urn:
@@ -872,17 +872,13 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                         node.compiled_code,
                         platform=schema_resolver.platform,
                         cte_mapping={
-                            f"__dbt__cte__{upstream_node.name}": upstream_node.get_urn_fake_ephemeral(
-                                target_platform=self.config.target_platform,
-                                target_platform_instance=self.config.target_platform_instance,
-                                env=self.config.env,
-                            )
+                            f"__dbt__cte__{upstream_node.name}": upstream_node.get_fake_ephemeral_table_name()
                             for upstream_node in [
                                 all_nodes_map[upstream_node_name]
                                 for upstream_node_name in node.upstream_nodes
                                 if upstream_node_name in all_nodes_map
                             ]
-                            if upstream_node.materialization == "ephemeral"
+                            if upstream_node.is_ephemeral_model()
                         },
                     )
                 except Exception as e:
@@ -914,6 +910,11 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                         and target_platform_urn_to_dbt_name[upstream_column.table]
                         in node.upstream_nodes
                     ]
+            if (
+                "monthly_billing_with_cust" in node.dbt_name
+                and node.node_type == "model"
+            ):
+                breakpoint()
 
             # If we didn't fetch the schema from the graph, use the inferred schema.
             if not schema_fields and sql_result and sql_result.column_lineage:

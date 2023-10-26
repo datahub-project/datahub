@@ -41,6 +41,23 @@ def test_detach_ctes_with_alias():
     )
 
 
+def test_detach_ctes_with_multipart_replacement():
+    original = "WITH __cte_0 AS (SELECT * FROM table1) SELECT * FROM table2 JOIN __cte_0 ON table2.id = __cte_0.id"
+    detached_expr = detach_ctes(
+        original,
+        platform="snowflake",
+        cte_mapping={"__cte_0": "my_db.my_schema.my_table"},
+    )
+    detached = detached_expr.sql(dialect="snowflake")
+
+    assert (
+        detached
+        == "WITH __cte_0 AS (SELECT * FROM table1) SELECT * FROM table2 JOIN my_db.my_schema.my_table ON table2.id = my_db.my_schema.my_table.id"
+    )
+
+
+# TODO test lineage with a statement like this:
+# SELECT * FROM table2 JOIN my_db.my_schema.my_db.my_schema.my_table ON table2.id = my_db.my_schema.my_db.my_schema.my_table.id
 # TODO test if detaching ctes works with BigQuery
 
 

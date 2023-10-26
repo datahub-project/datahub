@@ -1141,13 +1141,26 @@ def detach_ctes(
     def replace_cte_refs(node: sqlglot.exp.Expression) -> sqlglot.exp.Expression:
         if (
             isinstance(node, sqlglot.exp.Identifier)
-            and not (node.parent and isinstance(node.parent.parent, sqlglot.exp.CTE))
+            and node.parent
+            and not isinstance(node.parent.parent, sqlglot.exp.CTE)
             and node.name in cte_mapping
         ):
-            # We expect node.parent to be a Table, Column, TableAlias, etc.
-            # There's quite a few possibilities, so this approach is easier except
-            # that it assumes that the cte names are unique.
-            new_node = sqlglot.exp.Identifier(this=cte_mapping[node.name])
+            full_new_name = cte_mapping[node.name]
+            table_expr = sqlglot.maybe_parse(
+                full_new_name, dialect=dialect, into=sqlglot.exp.Table
+            )
+
+            # We expect node.parent to be a Table or Column.
+            # Either way, it should support catalog/db/name.
+            parent = node.parent
+
+            if "catalog" in parent.arg_types:
+                parent.set("catalog", table_expr.catalog)
+            if "db" in parent.arg_types:
+                parent.set("db", table_expr.db)
+
+            new_node = sqlglot.exp.Identifier(this=table_expr.name)
+
             return new_node
         else:
             return node
