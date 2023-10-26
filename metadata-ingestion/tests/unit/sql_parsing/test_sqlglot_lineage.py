@@ -700,8 +700,60 @@ JOIN table3 ON table3.col5 = cte1.col2
     )
 
 
-# TODO test lineage with a statement like this:
-# SELECT * FROM table2 JOIN my_db.my_schema.my_db.my_schema.my_table ON table2.id = my_db.my_schema.my_db.my_schema.my_table.id
+def test_snowflake_cte_name_collision():
+    # In this example, output col1 should come from table3 and not table1, since the cte is unused.
+    # We'll still generate table-level lineage that includes table1.
+    assert_sql_result(
+        """
+WITH cte_alias AS (
+    SELECT col1, col2
+    FROM table1
+)
+SELECT table2.col2, cte_alias.col1
+FROM table2
+JOIN table3 AS cte_alias ON cte_alias.col2 = cte_alias.col2
+""",
+        dialect="snowflake",
+        default_db="my_db",
+        default_schema="my_schema",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.table1,PROD)": {
+                "col1": "NUMBER(38,0)",
+                "col2": "VARCHAR(16777216)",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.table2,PROD)": {
+                "col2": "VARCHAR(16777216)",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.table3,PROD)": {
+                "col1": "VARCHAR(16777216)",
+                "col2": "VARCHAR(16777216)",
+            },
+        },
+        expected_file=RESOURCE_DIR / "test_snowflake_cte_name_collision.json",
+    )
+
+
+def test_snowflake_full_table_name_col_reference():
+    assert_sql_result(
+        """
+SELECT
+    my_db.my_schema.my_table.id,
+    case when my_db.my_schema.my_table.id > 100 then 1 else 0 end as id_gt_100,
+    my_db.my_schema.my_table.struct_field.field1 as struct_field1,
+FROM my_db.my_schema.my_table
+""",
+        dialect="snowflake",
+        default_db="my_db",
+        default_schema="my_schema",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.my_db.my_schema.my_table,PROD)": {
+                "id": "NUMBER(38,0)",
+                "struct_field": "struct",
+            },
+        },
+        expected_file=RESOURCE_DIR
+        / "test_snowflake_full_table_name_col_reference.json",
+    )
 
 
 # TODO: Add a test for setting platform_instance or env
