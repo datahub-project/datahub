@@ -1,4 +1,6 @@
 import logging
+import os
+import pickle
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime
@@ -516,7 +518,7 @@ ORDER by DatabaseName, TableName;
         user: Optional[str] = None,
         view_urn: Optional[str] = None,
     ) -> Iterable[MetadataWorkUnit]:
-        query = query.replace("\r", " ")
+        query = query.replace("\r", "\n")
         result = sqlglot_lineage(
             sql=query,
             schema_resolver=self.schema_resolver,
@@ -561,13 +563,29 @@ ORDER by DatabaseName, TableName;
 
         if self.config.include_view_lineage:
             if not self.config.include_views and self.graph is not None:
-                entries = self.graph._bulk_fetch_view_definitions_by_filter(
-                    platform=self.platform,
-                    platform_instance=self.config.platform_instance,
-                    env=self.config.env,
-                )
+                pickle_filename = "view_definitions.pkl"
+                d = {}
+
+                if self.config.allow_pickle and os.path.exists(pickle_filename):
+                    logger.info(f"Pulling view definitions from {pickle_filename}")
+                    with open(pickle_filename, "rb") as f:
+                        entries = pickle.load(f).items()
+                else:
+                    entries = self.graph._bulk_fetch_view_definitions_by_filter(
+                        platform=self.platform,
+                        platform_instance=self.config.platform_instance,
+                        env=self.config.env,
+                    )
+
                 for (urn, view_definition) in entries:
                     self._view_definition_cache[urn] = view_definition
+                    d[urn] = view_definition
+
+                if self.config.allow_pickle:
+                    logger.info(f"Writing view definitions to {pickle_filename}")
+                    with open(pickle_filename, "wb") as f:
+                        pickle.dump(d, f)
+
                 logger.info(
                     f"Loaded {len(self._view_definition_cache)} view definitions from DataHub."
                 )
