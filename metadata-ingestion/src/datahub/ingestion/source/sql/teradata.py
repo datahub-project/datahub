@@ -1,6 +1,8 @@
+import json
 import logging
 import os
 import pickle
+import re
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime
@@ -172,6 +174,8 @@ class TeradataConfig(BaseTeradataConfig, BaseTimeWindowConfig):
         default=False,
         description="Whether to allow pickle when loading schema metadata from DataHub.",
     )
+
+    parse_lineage: bool = Field(default=True)
 
 
 @dataclass
@@ -492,13 +496,12 @@ ORDER by DatabaseName, TableName;
             self.report.num_queries_parsed += 1
             if self.report.num_queries_parsed % 1000 == 0:
                 logger.info(f"Parsed {self.report.num_queries_parsed} queries")
-            if str(entry.query_id) != "307191327669606177":
-                yield from self.gen_lineage_from_query(
-                    query=self._query_cache.get(str(entry.query_id), entry.query_text),
-                    default_database=entry.default_database,
-                    timestamp=entry.timestamp,
-                    user=entry.user,
-                )
+            yield from self.gen_lineage_from_query(
+                query=self._query_cache.get(str(entry.query_id), entry.query_text),
+                default_database=entry.default_database,
+                timestamp=entry.timestamp,
+                user=entry.user,
+            )
 
     def _make_lineage_query(self) -> str:
         query = self.LINEAGE_QUERY.format(
@@ -518,7 +521,26 @@ ORDER by DatabaseName, TableName;
         user: Optional[str] = None,
         view_urn: Optional[str] = None,
     ) -> Iterable[MetadataWorkUnit]:
+        if not self.config.parse_lineage:
+            return
+        query = re.sub(r'"[\s]*\n"', "", query)
+
+        # Remove other formatting.
+        query = query.strip().strip('"')
+
+        # Replace all other double quotes with single quotes.
+        query = query.replace('""', '"')
+
+        # Fixes to make our parser happy.
+        # query = query.replace("AS LOCKING ROW ACCESS", "AS LOCKING ROW FOR ACCESS")
+        query = re.sub(
+            r"AS\s+LOCKING\s+ROW\s+ACCESS", "AS LOCKING ROW FOR ACCESS", query
+        )
+        query = re.sub(r",\s+MAP\s+=\s+TD_MAP3", "", query)
+        query = query.replace("COMPRESS ,", ",")
         query = query.replace("\r", "\n")
+        query = re.sub(r"LOCKING\s+TABLE\s+\w+\s+FOR\s+\w+\s+", "", query)
+
         result = sqlglot_lineage(
             sql=query,
             schema_resolver=self.schema_resolver,
@@ -587,7 +609,7 @@ ORDER by DatabaseName, TableName;
                         pickle.dump(d, f)
 
                 logger.info(
-                    f"Loaded {len(self._view_definition_cache)} view definitions from DataHub."
+                    f"Loaded {len(self._view_definition_cache)} view definitions."
                 )
                 logger.info(
                     f"Sample view urns: {list(self._view_definition_cache.keys())[:10]}"
@@ -606,3 +628,10 @@ ORDER by DatabaseName, TableName;
             yield from self.get_audit_log_mcps()
 
         yield from self.builder.gen_workunits()
+
+        if self.config.allow_pickle:
+            with open("view_definitions.json", "w") as f:
+                json.dump(self._view_definition_cache, f)
+
+            with open("queries.json", "w") as f:
+                json.dump(self._query_cache, f)
