@@ -136,7 +136,6 @@ class SnowflakeLineageExtractor(
             return
 
         self._populate_external_lineage_map(discovered_tables)
-
         if self.config.include_view_lineage:
             if len(discovered_views) > 0:
                 yield from self.get_view_upstream_workunits(
@@ -200,14 +199,15 @@ class SnowflakeLineageExtractor(
         self,
         dataset_identifier: str,
         result: SqlParsingResult,
-    ) -> MetadataWorkUnit:
+    ) -> Iterable[MetadataWorkUnit]:
         upstreams, fine_upstreams = self.get_upstreams_from_sql_parsing_result(
             self.dataset_urn_builder(dataset_identifier), result
         )
-        self.report.num_views_with_upstreams += 1
-        return self._create_upstream_lineage_workunit(
-            dataset_identifier, upstreams, fine_upstreams
-        )
+        if upstreams:
+            self.report.num_views_with_upstreams += 1
+            yield self._create_upstream_lineage_workunit(
+                dataset_identifier, upstreams, fine_upstreams
+            )
 
     def _gen_workunits_from_query_result(
         self,
@@ -251,7 +251,7 @@ class SnowflakeLineageExtractor(
                     )
                     if result:
                         views_processed.add(view_identifier)
-                        yield self._gen_workunit_from_sql_parsing_result(
+                        yield from self._gen_workunit_from_sql_parsing_result(
                             view_identifier, result
                         )
                 self.report.view_lineage_parse_secs = timer.elapsed_seconds()
