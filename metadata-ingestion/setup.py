@@ -32,7 +32,7 @@ framework_common = {
     "expandvars>=0.6.5",
     "avro-gen3==0.7.11",
     # "avro-gen3 @ git+https://github.com/acryldata/avro_gen@master#egg=avro-gen3",
-    "avro>=1.10.2,<1.11",
+    "avro>=1.11.3,<1.12",
     "python-dateutil>=2.8.0",
     "tabulate",
     "progressbar2",
@@ -358,10 +358,10 @@ plugins: Dict[str, Set[str]] = {
     "redshift": sql_common
     | redshift_common
     | usage_common
-    | sqlglot_lib
-    | {"redshift-connector"},
-    "redshift-legacy": sql_common | redshift_common,
-    "redshift-usage-legacy": sql_common | usage_common | redshift_common,
+    | {"redshift-connector"}
+    | sqlglot_lib,
+    "redshift-legacy": sql_common | redshift_common | sqlglot_lib,
+    "redshift-usage-legacy": sql_common | redshift_common | sqlglot_lib | usage_common,
     "s3": {*s3_base, *data_lake_profiling},
     "gcs": {*s3_base, *data_lake_profiling},
     "sagemaker": aws_common,
