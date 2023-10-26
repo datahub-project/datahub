@@ -544,6 +544,31 @@ def get_custom_properties(node: DBTNode) -> Dict[str, str]:
     return custom_properties
 
 
+def _get_dbt_cte_names(name: str, target_platform: str) -> List[str]:
+    # Match the dbt CTE naming scheme:
+    # The default is defined here https://github.com/dbt-labs/dbt-core/blob/4122f6c308c88be4a24c1ea490802239a4c1abb8/core/dbt/adapters/base/relation.py#L222
+    # However, since this PR https://github.com/dbt-labs/dbt-core/pull/2712, it's also possible
+    # for adapters to override this default. Only a handful actually do though:
+    # https://github.com/search?type=code&q=add_ephemeral_prefix+path:/%5Edbt%5C/adapters%5C//
+
+    # Regardless, we need to keep the original name to work with older dbt versions.
+    default_cte_name = f"__dbt__cte__{name}"
+
+    adapter_cte_names = {
+        "hive": f"tmp__dbt__cte__{name}",
+        "oracle": f"dbt__cte__{name}__",
+        "netezza": f"dbt__cte__{name}",
+        "exasol": f"dbt__CTE__{name}",
+        "db2": f"DBT_CTE__{name}",  # ibm db2
+    }
+
+    cte_names = [default_cte_name]
+    if target_platform in adapter_cte_names:
+        cte_names.append(adapter_cte_names[target_platform])
+
+    return cte_names
+
+
 def get_upstreams(
     upstreams: List[str],
     all_nodes: Dict[str, DBTNode],
@@ -872,13 +897,16 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                         node.compiled_code,
                         platform=schema_resolver.platform,
                         cte_mapping={
-                            f"__dbt__cte__{upstream_node.name}": upstream_node.get_fake_ephemeral_table_name()
+                            cte_name: upstream_node.get_fake_ephemeral_table_name()
                             for upstream_node in [
                                 all_nodes_map[upstream_node_name]
                                 for upstream_node_name in node.upstream_nodes
                                 if upstream_node_name in all_nodes_map
                             ]
                             if upstream_node.is_ephemeral_model()
+                            for cte_name in _get_dbt_cte_names(
+                                upstream_node.name, schema_resolver.platform
+                            )
                         },
                     )
                 except Exception as e:
@@ -910,11 +938,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                         and target_platform_urn_to_dbt_name[upstream_column.table]
                         in node.upstream_nodes
                     ]
-            if (
-                "monthly_billing_with_cust" in node.dbt_name
-                and node.node_type == "model"
-            ):
-                breakpoint()
 
             # If we didn't fetch the schema from the graph, use the inferred schema.
             if not schema_fields and sql_result and sql_result.column_lineage:

@@ -56,11 +56,6 @@ def test_detach_ctes_with_multipart_replacement():
     )
 
 
-# TODO test lineage with a statement like this:
-# SELECT * FROM table2 JOIN my_db.my_schema.my_db.my_schema.my_table ON table2.id = my_db.my_schema.my_db.my_schema.my_table.id
-# TODO test if detaching ctes works with BigQuery
-
-
 def test_select_max():
     # The COL2 should get normalized to col2.
     assert_sql_result(
@@ -681,6 +676,32 @@ LIMIT 10
         },
         expected_file=RESOURCE_DIR / "test_snowflake_column_cast.json",
     )
+
+
+def test_snowflake_unused_cte():
+    # For this, we expect table level lineage to include table1, but CLL should not.
+    assert_sql_result(
+        """
+WITH cte1 AS (
+    SELECT col1, col2
+    FROM table1
+    WHERE col1 = 'value1'
+), cte2 AS (
+    SELECT col3, col4
+    FROM table2
+    WHERE col2 = 'value2'
+)
+SELECT cte1.col1, table3.col6
+FROM cte1
+JOIN table3 ON table3.col5 = cte1.col2
+""",
+        dialect="snowflake",
+        expected_file=RESOURCE_DIR / "test_snowflake_unused_cte.json",
+    )
+
+
+# TODO test lineage with a statement like this:
+# SELECT * FROM table2 JOIN my_db.my_schema.my_db.my_schema.my_table ON table2.id = my_db.my_schema.my_db.my_schema.my_table.id
 
 
 # TODO: Add a test for setting platform_instance or env
