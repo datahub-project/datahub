@@ -206,14 +206,36 @@ class TeradataSource(TwoTierSQLAlchemySource):
 
     config: TeradataConfig
 
-    LINEAGE_QUERY: str = """SELECT ProcID, UserName as "user", StartTime AT TIME ZONE 'GMT' as "timestamp", DefaultDatabase as default_database, QueryText as query
-     FROM "DBC".DBQLogTbl
-     where ErrorCode = 0
-     and "timestamp" >= TIMESTAMP '{start_time}'
-     and "timestamp" < TIMESTAMP '{end_time}'
-     """
+    LINEAGE_QUERY: str = """
+    SELECT
+        QueryId as "query_id",
+        UserName as "user",
+        StartTime AT TIME ZONE 'GMT' as "timestamp",
+        DefaultDatabase as default_database,
+        QueryText as "query_text"
+    FROM "DBC".DBQLogTbl
+    where ErrorCode = 0
+    and "timestamp" >= TIMESTAMP '{start_time}'
+    and "timestamp" < TIMESTAMP '{end_time}'
+    """.strip()
 
     LINEAGE_QUERY_DATABASE_FILTER: str = """and default_database IN ({databases})"""
+
+    LINEAGE_TIMESTAMP_BOUND_QUERY: str = """
+    SELECT MIN(CollectTimeStamp) as "min_ts", MAX(CollectTimeStamp) as "max_ts" from DBC.DBQLogTbl
+    """.strip()
+
+    QUERY_TEXT_QUERY: str = """
+    SELECT
+        QueryID as "query_id",
+        SqlTextInfo as "query_text",
+        SqlRowNo as "row_no"
+        FROM "DBC".DBQLSqlTbl
+        ORDER BY "query_id", "row_no"
+    WHERE
+        CollectTimeStamp >= TIMESTAMP '{min_ts}'
+        and CollectTimeStamp < TIMESTAMP '{max_ts}'
+    """.strip()
 
     TABLES_AND_VIEWS_QUERY: str = """
 SELECT
@@ -241,11 +263,12 @@ WHERE DatabaseName NOT IN ('All', 'Crashdumps', 'DBC', 'dbcmngr',
         'tdwm', 'SQLJ', 'TD_SYSFNLIB', 'SYSSPATIAL')
 and t.TableKind in ('T', 'V', 'Q', 'O')
 ORDER by DatabaseName, TableName;
-     """
+     """.strip()
 
     _tables_cache: MutableMapping[str, List[TeradataTable]] = defaultdict(list)
 
     _view_definition_cache: MutableMapping[str, str]
+    _query_cache: MutableMapping[str, str] = {}
 
     def __init__(self, config: TeradataConfig, ctx: PipelineContext):
         super().__init__(config, ctx, "teradata")
@@ -266,8 +289,10 @@ ORDER by DatabaseName, TableName;
 
         if self.config.use_file_backed_cache:
             self._view_definition_cache = FileBackedDict[str]()
+            self._query_cache = FileBackedDict[str]()
         else:
             self._view_definition_cache = {}
+            self._query_cache = {}
 
         if self.config.use_cached_metadata:
             self.cache_tables_and_views()
@@ -308,7 +333,11 @@ ORDER by DatabaseName, TableName;
         return cls(config, ctx)
 
     def _init_schema_resolver(self) -> SchemaResolver:
-        if self.config.disable_schema_metadata:
+        if (
+            self.config.disable_schema_metadata
+            or not self.config.include_tables
+            or not self.config.include_views
+        ):
             if self.ctx.graph:
                 return self.ctx.graph.initialize_schema_resolver_from_datahub(
                     platform=self.platform,
@@ -453,16 +482,21 @@ ORDER by DatabaseName, TableName;
 
     def get_audit_log_mcps(self) -> Iterable[MetadataWorkUnit]:
         engine = self.get_metadata_engine()
+        bounds = engine.execute(self.LINEAGE_TIMESTAMP_BOUND_QUERY).fetchone()
+        for entry in engine.execute(self.QUERY_TEXT_QUERY.format(**bounds)):
+            key = str(entry.query_id)
+            self._query_cache[key] = self._query_cache.get(key, "") + entry.query_text
         for entry in engine.execute(self._make_lineage_query()):
             self.report.num_queries_parsed += 1
             if self.report.num_queries_parsed % 1000 == 0:
                 logger.info(f"Parsed {self.report.num_queries_parsed} queries")
-            yield from self.gen_lineage_from_query(
-                query=entry.query,
-                default_database=entry.default_database,
-                timestamp=entry.timestamp,
-                user=entry.user,
-            )
+            if str(entry.query_id) != "307191327669606177":
+                yield from self.gen_lineage_from_query(
+                    query=self._query_cache.get(str(entry.query_id), entry.query_text),
+                    default_database=entry.default_database,
+                    timestamp=entry.timestamp,
+                    user=entry.user,
+                )
 
     def _make_lineage_query(self) -> str:
         query = self.LINEAGE_QUERY.format(
@@ -482,6 +516,7 @@ ORDER by DatabaseName, TableName;
         user: Optional[str] = None,
         view_urn: Optional[str] = None,
     ) -> Iterable[MetadataWorkUnit]:
+        query = query.replace("\r", " ")
         result = sqlglot_lineage(
             sql=query,
             schema_resolver=self.schema_resolver,
@@ -491,10 +526,11 @@ ORDER by DatabaseName, TableName;
             else self.config.default_db,
         )
         if result.debug_info.table_error:
-            logger.info(
-                f"Error parsing table lineage ({view_urn}):\n{result.debug_info.table_error}\n"
-            )
-            logger.info(f"{query}\n")
+            msg = f"Error parsing table lineage ({view_urn}):\n{result.debug_info.table_error}"
+            if "CASESPECIFIC" in query.upper() or "USING" in query.upper():
+                logger.debug(msg)
+            else:
+                logger.info(msg)
             self.report.num_table_parse_failures += 1
         else:
             yield from self.builder.process_sql_parsing_result(
@@ -524,7 +560,7 @@ ORDER by DatabaseName, TableName;
             yield wu
 
         if self.config.include_view_lineage:
-            if self.config.disable_schema_metadata and self.graph is not None:
+            if not self.config.include_views and self.graph is not None:
                 entries = self.graph._bulk_fetch_view_definitions_by_filter(
                     platform=self.platform,
                     platform_instance=self.config.platform_instance,
@@ -538,11 +574,14 @@ ORDER by DatabaseName, TableName;
                 logger.info(
                     f"Sample view urns: {list(self._view_definition_cache.keys())[:10]}"
                 )
-            elif self.config.disable_schema_metadata:
-                self.report.report_failure("view_lineage", "Missing DataHubGraph")
+            elif not self.config.include_views:
+                self.report.report_failure(
+                    "view_lineage", "Missing DataHubGraph to read view definitions."
+                )
 
             self.report.report_ingestion_stage_start("view lineage extraction")
             yield from self.get_view_lineage()
+            yield from self.builder._gen_lineage_workunits()
 
         if self.config.include_table_lineage or self.config.include_usage_statistics:
             self.report.report_ingestion_stage_start("audit log extraction")
