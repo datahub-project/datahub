@@ -34,6 +34,3 @@ source:
 
 sink:
   # sink configs
-  type: "datahub-rest"
-  config:
-    server: "http://localhost:8080"
