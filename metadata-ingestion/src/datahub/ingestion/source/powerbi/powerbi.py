@@ -111,7 +111,7 @@ class Mapper:
         self.__reporter = reporter
         self.__dataplatform_instance_resolver = dataplatform_instance_resolver
         self.processed_datasets: Set[powerbi_data_classes.PowerBIDataset] = set()
-        self.workspace_key: ContainerKey
+        self.workspace_key: Optional[ContainerKey] = None
 
     @staticmethod
     def urn_to_lowercase(value: str, flag: bool) -> str:
@@ -716,7 +716,7 @@ class Mapper:
             dataset, powerbi_data_classes.PowerBIDataset
         ):
             container_key = dataset.get_dataset_key(self.__config.platform_name)
-        elif self.__config.extract_workspaces_to_containers:
+        elif self.__config.extract_workspaces_to_containers and self.workspace_key:
             container_key = self.workspace_key
         else:
             return None
