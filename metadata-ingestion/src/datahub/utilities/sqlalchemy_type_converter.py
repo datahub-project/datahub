@@ -4,14 +4,23 @@ import uuid
 from typing import Any, Dict, List, Optional, Type, Union
 
 from sqlalchemy import types
-from sqlalchemy_bigquery import STRUCT
 
 from datahub.ingestion.extractor.schema_util import avro_schema_to_mce_fields
-from datahub.ingestion.source.sql.sql_types import MapType
 from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaField
 from datahub.metadata.schema_classes import NullTypeClass, SchemaFieldDataTypeClass
 
 logger = logging.getLogger(__name__)
+
+try:
+    # This is used for both BigQuery and Athena.
+    from sqlalchemy_bigquery import STRUCT
+except ImportError:
+    STRUCT = None
+
+
+class MapType(types.TupleType):
+    # Wrapper class around SQLalchemy's TupleType to increase compatibility with DataHub
+    pass
 
 
 class SqlAlchemyColumnToAvroConverter:
@@ -38,7 +47,9 @@ class SqlAlchemyColumnToAvroConverter:
     ) -> Dict[str, Any]:
         """Determines the concrete AVRO schema type for a SQLalchemy-typed column"""
 
-        if type(column_type) in cls.PRIMITIVE_SQL_ALCHEMY_TYPE_TO_AVRO_TYPE.keys():
+        if isinstance(
+            column_type, tuple(cls.PRIMITIVE_SQL_ALCHEMY_TYPE_TO_AVRO_TYPE.keys())
+        ):
             return {
                 "type": cls.PRIMITIVE_SQL_ALCHEMY_TYPE_TO_AVRO_TYPE[type(column_type)],
                 "native_data_type": str(column_type),
@@ -84,7 +95,7 @@ class SqlAlchemyColumnToAvroConverter:
                 "key_type": cls.get_avro_type(column_type=key_type, nullable=nullable),
                 "key_native_data_type": str(key_type),
             }
-        if isinstance(column_type, STRUCT):
+        if STRUCT and isinstance(column_type, STRUCT):
             fields = []
             for field_def in column_type._STRUCT_fields:
                 field_name, field_type = field_def
