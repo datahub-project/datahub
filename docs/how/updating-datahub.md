@@ -4,6 +4,8 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ## Next
 
+- #9010 - In Redshift source's config `incremental_lineage` is set default to off.
+
 ### Breaking Changes
 
 - #8810 - Removed support for SQLAlchemy 1.3.x. Only SQLAlchemy 1.4.x is supported now.
@@ -51,10 +53,10 @@ into
 for example, using `datahub put` command. Policies can be also removed and re-created via UI.
 - #9077 - The BigQuery ingestion source by default sets `match_fully_qualified_names: true`.
 This means that any `dataset_pattern` or `schema_pattern` specified will be matched on the fully
-qualified dataset name, i.e. `<project_name>.<dataset_name>`. If this is not the case, please
-update your pattern (e.g. prepend your old dataset pattern with `.*\.` which matches the project part), 
-or set `match_fully_qualified_names: false` in your recipe. However, note that
-setting this to `false` is deprecated and this flag will be removed entirely in a future release.
+qualified dataset name, i.e. `<project_name>.<dataset_name>`. We attempt to support the old
+pattern format by prepending `.*\\.` to dataset patterns lacking a period, so in most cases this
+should not cause any issues. However, if you have a complex dataset pattern, we recommend you
+manually convert it to the fully qualified format to avoid any potential issues.
 
 ### Potential Downtime
 
