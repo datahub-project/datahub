@@ -212,6 +212,7 @@ class FreshnessFieldKind(Enum):
 class MonitorMode(Enum):
     ACTIVE = "ACTIVE"
     INACTIVE = "INACTIVE"
+    PASSIVE = "PASSIVE"
 
 
 class AssertionValueChangeType(Enum):
@@ -802,6 +803,7 @@ class Assertion(PermissiveBaseModel):
     # Field Assertion Object
     field_assertion: Optional[FieldAssertion] = Field(alias="fieldAssertion")
 
+    # How the assertion was sourced
     source_type: Optional[AssertionSourceType] = Field(alias="sourceType")
 
     @root_validator(pre=True)

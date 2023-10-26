@@ -68,7 +68,6 @@ class FieldAssertionEvaluator(AssertionEvaluator):
         if (
             dataset_field_parameters.source_type
             == DatasetFieldSourceType.CHANGED_ROWS_QUERY
-            and context.dry_run is False
             and context.monitor_urn
         ):
             assert dataset_field_parameters.changed_rows_field is not None

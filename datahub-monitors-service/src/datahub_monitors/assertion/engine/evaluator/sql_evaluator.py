@@ -97,17 +97,11 @@ class SQLAssertionEvaluator(AssertionEvaluator):
         metric_value: float,
         context: AssertionEvaluationContext,
     ) -> AssertionEvaluationResult:
-        if not context.monitor_urn and context.dry_run is False:
-            raise InvalidParametersException(
-                message=f"_evaluate_row_count_change_assertion for {entity_urn} requires a monitor_urn",
-                parameters={"context": context},
-            )
-
         previous_state = (
             self.state_provider.get_state(
                 context.monitor_urn, AssertionStateType.MONITOR_TIMESERIES_STATE
             )
-            if context.dry_run is False and context.monitor_urn
+            if context.monitor_urn
             else None
         )
 
@@ -124,7 +118,7 @@ class SQLAssertionEvaluator(AssertionEvaluator):
                 AssertionResultType.INIT, parameters={"metric_value": str(metric_value)}
             )
 
-        if context.dry_run is False and context.monitor_urn:
+        if context.monitor_urn:
             self.state_provider.save_state(
                 context.monitor_urn,
                 AssertionState(

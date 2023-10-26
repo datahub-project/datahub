@@ -1,0 +1,40 @@
+namespace com.linkedin.assertion
+
+/**
+ * The result of dry running an assertion.
+ *
+ * A subset of AssertionResult without the @Searchables.
+ */
+record AssertionDryRunResult {
+  /**
+  *  The final result, e.g. either SUCCESS, FAILURE, or ERROR.
+  */
+  @TimeseriesField = {}
+  type: AssertionResultType
+
+  /**
+   * Number of rows for evaluated batch
+   */
+  rowCount: optional long
+
+  /**
+   * Number of rows with missing value for evaluated batch
+   */
+  missingCount: optional long
+
+  /**
+   * Number of rows with unexpected value for evaluated batch
+   */
+  unexpectedCount: optional long
+
+  /**
+   * Other results of evaluation
+   */
+  nativeResults: optional map[string, string]
+
+  /**
+   *  The error object if AssertionResultType is an Error
+   */
+  error: optional AssertionResultError
+
+}

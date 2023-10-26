@@ -11,4 +11,9 @@ import com.linkedin.common.CustomProperties
   "type": "timeseries",
 }
 record MonitorTimeseriesState includes TimeseriesAspectBase, CustomProperties {
+  /**
+   * An optional identifier for the state. Useful for partitioning + filtering state.
+   */
+  @TimeseriesField = {}
+  id: optional string
 }

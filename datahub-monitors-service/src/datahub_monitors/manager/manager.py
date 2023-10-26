@@ -7,6 +7,7 @@ from datahub_monitors.assertion.engine.engine import AssertionEngine
 from datahub_monitors.assertion.scheduler.scheduler import AssertionScheduler
 from datahub_monitors.constants import LIST_MONITORS_REFRESH_INTERVAL_MINUTES
 from datahub_monitors.fetcher.fetcher import MonitorFetcher
+from datahub_monitors.manager.util import is_dry_run_mode
 from datahub_monitors.types import (
     AssertionEvaluationContext,
     AssertionEvaluationSpec,
@@ -70,15 +71,18 @@ class MonitorManager:
             )
 
     def update_assertions_monitor(self, monitor: Monitor) -> None:
-        context = AssertionEvaluationContext(monitor_urn=monitor.urn)
         assertion_specs = (
             monitor.assertion_monitor.assertions
             if monitor.assertion_monitor is not None
             else []
         )
+        dry_run = is_dry_run_mode(monitor)
         if assertion_specs:
             self.scheduled_monitors[monitor.urn] = monitor
             for assertion_spec in assertion_specs:
+                context = AssertionEvaluationContext(
+                    dry_run=dry_run, monitor_urn=monitor.urn
+                )
                 self.schedule_assertion_evaluation(
                     assertion_spec, context, monitor.mode
                 )

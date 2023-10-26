@@ -1,0 +1,40 @@
+namespace com.linkedin.assertion
+
+import com.linkedin.timeseries.TimeseriesAspectBase
+import com.linkedin.common.Urn
+
+/**
+ * An event produced when assertion is executed in dry-run mode, e.g.
+ * when an assertion is being "dark-tested".
+ *
+ * This is used primarily in Acryl Observe to test assertion inference before production release.
+ *
+ * A subset of AssertionRunEvent without the @Searchables.
+ */
+@Aspect = {
+  "name": "assertionDryRunEvent",
+  "type": "timeseries",
+}
+record AssertionDryRunEvent includes TimeseriesAspectBase {
+  /*
+  * Urn of entity on which the assertion is applicable
+  */
+  @TimeseriesField = {}
+  asserteeUrn: Urn
+
+  /**
+  * The status of the assertion dry run as per this timeseries event.
+  */
+  @TimeseriesField = {}
+  status: AssertionRunStatus
+
+  /**
+  * Results of assertion, present if the status is COMPLETE
+  */
+  result: optional AssertionDryRunResult
+
+  /**
+   * Runtime parameters of evaluation
+   */
+  runtimeContext: optional map[string, string]
+}

@@ -7,7 +7,7 @@ from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.schema_classes import SystemMetadataClass
 
 from datahub_monitors.assertion.result.handler import AssertionResultHandler
-from datahub_monitors.common.aspect_builder import build_assertion_run_event
+from datahub_monitors.common.aspect_builder import build_assertion_dry_run_event
 from datahub_monitors.types import (
     Assertion,
     AssertionEvaluationContext,
@@ -18,8 +18,8 @@ from datahub_monitors.types import (
 logger = logging.getLogger(__name__)
 
 
-class AssertionRunEventResultHandler(AssertionResultHandler):
-    """An assertion result handler that produces AssertionRunEvent objects back to DataHub."""
+class AssertionDryRunEventResultHandler(AssertionResultHandler):
+    """An assertion result handler that produces AssertionDryRunEvent objects back to DataHub."""
 
     def __init__(self, graph: DataHubGraph):
         self.graph = graph
@@ -31,13 +31,13 @@ class AssertionRunEventResultHandler(AssertionResultHandler):
         result: AssertionEvaluationResult,
         context: AssertionEvaluationContext,
     ) -> None:
-        if context.dry_run:
-            # We should not produce assertion results for dry runs.
+        if not context.dry_run:
+            # We should not produce assertion results for production runs.
             return
 
         now_ms = int(time.time() * 1000)
         run_id = f"native-{assertion.urn}-{str(now_ms)}"
-        run_event = build_assertion_run_event(assertion, result)
+        run_event = build_assertion_dry_run_event(assertion, result)
 
         mcpw = MetadataChangeProposalWrapper(
             entityUrn=assertion.urn,
@@ -49,9 +49,9 @@ class AssertionRunEventResultHandler(AssertionResultHandler):
         try:
             self.graph.emit_mcp(mcpw)
             logger.info(
-                f"Successfully produced AssertionRunEvent MCP for assertion with urn {assertion.urn} for entity {assertion.entity.urn}, result type {result.type}."
+                f"Successfully produced AssertionDryRunEvent MCP for assertion with urn {assertion.urn} for entity {assertion.entity.urn}, result type {result.type}."
             )
         except Exception:
             logger.exception(
-                f"Failed to produce AssertionRunEvent MCP for assertion with urn {assertion.urn} for entity {assertion.entity.urn}, result type {result.type}. This means that assertion results will NOT be viewable!"
+                f"Failed to produce AssertionDryRunEvent MCP for assertion with urn {assertion.urn} for entity {assertion.entity.urn}, result type {result.type}. This means that assertion results will NOT be viewable!"
             )
