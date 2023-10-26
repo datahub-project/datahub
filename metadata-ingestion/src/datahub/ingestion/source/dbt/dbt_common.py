@@ -106,7 +106,13 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.specific.dataset import DatasetPatchBuilder
 from datahub.utilities.mapping import Constants, OperationProcessor
-from datahub.utilities.sqlglot_lineage import SchemaResolver, sqlglot_lineage
+from datahub.utilities.sqlglot_lineage import (
+    SchemaResolver,
+    SqlParsingDebugInfo,
+    SqlParsingResult,
+    detach_ctes,
+    sqlglot_lineage,
+)
 from datahub.utilities.time import datetime_to_ts_millis
 from datahub.utilities.topological_sort import topological_sort
 
@@ -404,6 +410,7 @@ class DBTNode:
     columns: List[DBTColumn] = field(default_factory=list)
     upstream_nodes: List[str] = field(default_factory=list)  # list of upstream dbt_name
     upstream_cll: List[DBTColumnLineageInfo] = field(default_factory=list)
+    cll_debug_info: Optional[SqlParsingDebugInfo] = None
 
     meta: Dict[str, Any] = field(default_factory=dict)
     query_tag: Dict[str, Any] = field(default_factory=dict)
@@ -425,6 +432,8 @@ class DBTNode:
         self,
         target_platform: str,
         env: str,
+        # If target_platform = dbt, this is the dbt platform instance.
+        # Otherwise, it's the target platform instance.
         data_platform_instance: Optional[str],
     ) -> str:
         db_fqn = self.get_db_fqn()
@@ -434,6 +443,22 @@ class DBTNode:
             platform=target_platform,
             name=db_fqn,
             platform_instance=data_platform_instance,
+            env=env,
+        )
+
+    def get_urn_fake_ephemeral(
+        self,
+        target_platform: str,
+        env: str,
+        target_platform_instance: Optional[str],
+    ) -> str:
+        assert self.materialization == "ephemeral"
+        db_fqn = f"__datahub__dbt__ephemeral__{self.name}"
+
+        return mce_builder.make_dataset_urn_with_platform_instance(
+            platform=target_platform,
+            name=db_fqn,
+            platform_instance=target_platform_instance,
             env=env,
         )
 
@@ -811,20 +836,29 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         ):
             node = all_nodes_map[dbt_name]
 
+            target_node_urn = None
+            should_fetch_target_node_schema = False
             if node.exists_in_target_platform:
                 target_node_urn = node.get_urn(
                     self.config.target_platform,
                     self.config.env,
                     self.config.target_platform_instance,
                 )
-
+                should_fetch_target_node_schema = True
+            elif node.node_type == "ephemeral":
+                # For ephemeral nodes, we "pretend" that they exist in the target platform
+                # for schema resolution purposes.
+                target_node_urn = node.get_urn_fake_ephemeral(
+                    target_platform=self.config.target_platform,
+                    target_platform_instance=self.config.target_platform_instance,
+                    env=self.config.env,
+                )
+            if target_node_urn:
                 target_platform_urn_to_dbt_name[target_node_urn] = node.dbt_name
-            else:
-                target_node_urn = None
 
             # Fetch the schema from the graph if possible.
             schema_fields: Optional[List[SchemaField]] = None
-            if target_node_urn:
+            if target_node_urn and should_fetch_target_node_schema:
                 schema_metadata = graph.get_aspect(target_node_urn, SchemaMetadata)
                 if schema_metadata:
                     schema_fields = schema_metadata.fields
@@ -832,34 +866,54 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             # Run sql parser to infer the schema + generate column lineage.
             sql_result = None
             if node.compiled_code:
-                # TODO: Add CTE stops based on the upstreams list. The code as currently
-                # written will generate lineage to the upstreams of ephemeral nodes instead
-                # of the ephemeral node itself.
-                sql_result = sqlglot_lineage(
-                    node.compiled_code, schema_resolver=schema_resolver
-                )
+                try:
+                    # Add CTE stops based on the upstreams list.
+                    preprocessed_sql = detach_ctes(
+                        node.compiled_code,
+                        platform=schema_resolver.platform,
+                        cte_mapping={
+                            f"__dbt__cte__{upstream_node.name}": upstream_node.get_urn_fake_ephemeral(
+                                target_platform=self.config.target_platform,
+                                target_platform_instance=self.config.target_platform_instance,
+                                env=self.config.env,
+                            )
+                            for upstream_node in [
+                                all_nodes_map[upstream_node_name]
+                                for upstream_node_name in node.upstream_nodes
+                                if upstream_node_name in all_nodes_map
+                            ]
+                            if upstream_node.materialization == "ephemeral"
+                        },
+                    )
+                except Exception as e:
+                    sql_result = SqlParsingResult.make_from_error(e)
+                else:
+                    sql_result = sqlglot_lineage(
+                        preprocessed_sql, schema_resolver=schema_resolver
+                    )
 
             # Save the column lineage.
-            if (
-                self.config.include_column_lineage
-                and sql_result
-                and sql_result.column_lineage
-            ):
-                node.upstream_cll = [
-                    DBTColumnLineageInfo(
-                        upstream_dbt_name=target_platform_urn_to_dbt_name[
-                            upstream_column.table
-                        ],
-                        upstream_col=upstream_column.column,
-                        downstream_col=column_lineage_info.downstream.column,
-                    )
-                    for column_lineage_info in sql_result.column_lineage
-                    for upstream_column in column_lineage_info.upstreams
-                    # Only include the CLL if the table in in the upstream list.
-                    if target_platform_urn_to_dbt_name.get(upstream_column.table)
-                    and target_platform_urn_to_dbt_name[upstream_column.table]
-                    in node.upstream_nodes
-                ]
+            if self.config.include_column_lineage and sql_result:
+                # We only save the debug info here. We're report errors based on it later, after
+                # applying the configured node filters.
+                node.cll_debug_info = sql_result.debug_info
+
+                if sql_result.column_lineage:
+                    node.upstream_cll = [
+                        DBTColumnLineageInfo(
+                            upstream_dbt_name=target_platform_urn_to_dbt_name[
+                                upstream_column.table
+                            ],
+                            upstream_col=upstream_column.column,
+                            downstream_col=column_lineage_info.downstream.column,
+                        )
+                        for column_lineage_info in sql_result.column_lineage
+                        for upstream_column in column_lineage_info.upstreams
+                        # Only include the CLL if the table in in the upstream list.
+                        if target_platform_urn_to_dbt_name.get(upstream_column.table)
+                        and target_platform_urn_to_dbt_name[upstream_column.table]
+                        in node.upstream_nodes
+                    ]
 
             # If we didn't fetch the schema from the graph, use the inferred schema.
             if not schema_fields and sql_result and sql_result.column_lineage:
@@ -1361,6 +1415,11 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     env=self.config.env,
                 )
 
+            if node.cll_debug_info and node.cll_debug_info.error:
+                self.report.report_warning(
+                    node.dbt_name,
+                    f"Error parsing column lineage: {node.cll_debug_info.error}",
+                )
             cll = [
                 FineGrainedLineage(
                     upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
@@ -1377,6 +1436,9 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     downstreams=[
                         mce_builder.make_schema_field_urn(node_urn, downstream)
                     ],
+                    confidenceScore=node.cll_debug_info.confidence
+                    if node.cll_debug_info
+                    else None,
                 )
                 for downstream, upstreams in itertools.groupby(
                     node.upstream_cll, lambda x: x.downstream_col
