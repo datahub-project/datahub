@@ -2,12 +2,18 @@
 
 This file documents any backwards-incompatible changes in DataHub and assists people when migrating to a new version.
 
-## Next
+### Potential Downtime
 
-- #9010 - In Redshift source's config `incremental_lineage` is set default to off.
+### Deprecations
+
+### Other Notable Changes
+
+## 0.12.0
 
 ### Breaking Changes
 
+- #9044 - GraphQL APIs for adding ownership now expect either an `ownershipTypeUrn` referencing a customer ownership type or a (deprecated) `type`. Where before adding an ownership without a concrete type was allowed, this is no longer the case. For simplicity you can use the `type` parameter which will get translated to a custom ownership type internally if one exists for the type being added.
+- #9010 - In Redshift source's config `incremental_lineage` is set default to off.
 - #8810 - Removed support for SQLAlchemy 1.3.x. Only SQLAlchemy 1.4.x is supported now.
 - #8942 - Removed `urn:li:corpuser:datahub` owner for the `Measure`, `Dimension` and `Temporal` tags emitted 
   by Looker and LookML source connectors.
