@@ -8,7 +8,7 @@ DataHub's Subscriptions and Notifications feature gives you real-time change ale
 With this feature, you can set up subscriptions to specific changes for an Entity – and DataHub will notify you when those changes happen. Currently, DataHub supports notifications on Slack, with support for Microsoft Teams and email subscriptions forthcoming.
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/df64ece310fa9bafbfc57bf0500c4930e5231051/imgs/saas/subscription-and-notification/s_n-user-notifications-in-slack.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/subscription-and-notification/s_n-user-notifications-in-slack.png"/>
 </p>
 
 This feature is especially useful in helping you stay on top of any upstream changes that could impact the assets you or your stakeholders rely on. It eliminates the need for you and your team to manually check for upstream changes, or for upstream stakeholders to identify and notify impacted users.
@@ -33,20 +33,20 @@ You can use the Subscriptions and Notifications feature to sign up for updates f
 The dropdown menu next to the Subscribe button lets you choose who the subscription is for. To create a group subscription, click on Manage Group Subscriptions.
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/df64ece310fa9bafbfc57bf0500c4930e5231051/imgs/saas/subscription-and-notification/s_n-subscription-dropdown.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/subscription-and-notification/s_n-subscription-dropdown.png"/>
 </p>
 
 Next, customize the group’s subscriptions by selecting the types of changes you want the group to be notified about.
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/df64ece310fa9bafbfc57bf0500c4930e5231051/imgs/saas/subscription-and-notification/s_n-group-subscription-settings.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/subscription-and-notification/s_n-group-subscription-settings.png"/>
 </p>
 
 Connect to Slack. Currently, Acryl's Subscriptions and Notifications feature integrates only with Slack. Add your group’s Slack Channel ID to receive notifications on Slack.
 (You can find your Channel ID in the About section of your channel on Slack.)
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/df64ece310fa9bafbfc57bf0500c4930e5231051/imgs/saas/subscription-and-notification/s_n-group-set-channel-id.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/subscription-and-notification/s_n-group-set-channel-id.png"/>
 </p>
 
 ### Individually Subscribing to an Entity
@@ -54,20 +54,20 @@ Connect to Slack. Currently, Acryl's Subscriptions and Notifications feature int
 Select the **Subscribe Me** option in the Subscriptions dropdown menu.
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/df64ece310fa9bafbfc57bf0500c4930e5231051/imgs/saas/subscription-and-notification/s_n-subscription-dropdown-zoom.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/subscription-and-notification/s_n-subscription-dropdown-zoom.png"/>
 </p>
 
 Pick the updates you want to be notified about, and connect your Slack account by using your Slack Member ID.
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/df64ece310fa9bafbfc57bf0500c4930e5231051/imgs/saas/subscription-and-notification/s_n-user-subscription-settings.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/subscription-and-notification/s_n-user-subscription-settings.png"/>
 </p>
 
 :::note
 You can find your Slack Member ID in your profile settings.
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/df64ece310fa9bafbfc57bf0500c4930e5231051/imgs/saas/subscription-and-notification/s_n-user-set-user-id.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/subscription-and-notification/s_n-user-set-user-id.png"/>
 </p>
 :::
 
@@ -78,19 +78,19 @@ You can enable, disable, or manage notifications at any time to ensure that you 
 Simply use the Dropdown menu next to the Subscribe button to unsubscribe from the asset, or to manage/modify your subscription (say, to modify the changes you want to be updated about).
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/df64ece310fa9bafbfc57bf0500c4930e5231051/imgs/saas/subscription-and-notification/s_n-subscription-dropdown.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/subscription-and-notification/s_n-subscription-dropdown.png"/>
 </p>
 
 You can also view and manage your subscriptions in your DataHub settings page.
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/df64ece310fa9bafbfc57bf0500c4930e5231051/imgs/saas/subscription-and-notification/s_n-user-subscriptions.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/subscription-and-notification/s_n-user-subscriptions.png"/>
 </p>
 
 You can view and manage the group’s subscriptions on the group’s page on DataHub.
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/df64ece310fa9bafbfc57bf0500c4930e5231051/imgs/saas/subscription-and-notification/s_n-group-subscriptions.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/subscription-and-notification/s_n-group-subscriptions.png"/>
 </p>
 
 ## FAQ
@@ -101,7 +101,7 @@ What changes can I be notified about using this feature?
 </summary>
 You can subscribe to deprecations, Assertion status changes, Incident status changes, Schema changes, Ownership changes, Glossary Term changes, and Tag changes.
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/df64ece310fa9bafbfc57bf0500c4930e5231051/imgs/saas/subscription-and-notification/s_n-user-subscription-settings-zoom.jpg"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/subscription-and-notification/s_n-user-subscription-settings-zoom.jpg"/>
 </p>
 </details>
 
@@ -112,7 +112,7 @@ What if I no longer want to receive updates about a data asset?
 You can unsubscribe from any asset to stop receiving notifications about it. On the asset’s DataHub page, simply use the dropdown menu next to the Subscribe button to unsubscribe from the asset.
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/df64ece310fa9bafbfc57bf0500c4930e5231051/imgs/saas/subscription-and-notification/s_n-subscription-dropdown.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/subscription-and-notification/s_n-subscription-dropdown.png"/>
 </p>
 </details>
 
