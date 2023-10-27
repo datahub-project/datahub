@@ -132,6 +132,16 @@ class RedshiftConfig(
         description="Whether `schema_pattern` is matched against fully qualified schema name `<database>.<schema>`.",
     )
 
+    extract_column_level_lineage: bool = Field(
+        default=True,
+        description="Whether to extract column level lineage. This config works with rest-sink only.",
+    )
+
+    incremental_lineage: bool = Field(
+        default=False,
+        description="When enabled, emits lineage as incremental to existing lineage already in DataHub. When disabled, re-states lineage on each run.  This config works with rest-sink only.",
+    )
+
     @root_validator(pre=True)
     def check_email_is_set_on_usage(cls, values):
         if values.get("include_usage_statistics"):

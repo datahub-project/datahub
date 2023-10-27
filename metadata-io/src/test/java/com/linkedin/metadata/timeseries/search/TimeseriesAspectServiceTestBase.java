@@ -45,6 +45,7 @@ import com.linkedin.timeseries.GenericTable;
 import com.linkedin.timeseries.GroupingBucket;
 import com.linkedin.timeseries.GroupingBucketType;
 import com.linkedin.timeseries.TimeWindowSize;
+import com.linkedin.timeseries.TimeseriesIndexSizeResult;
 import org.opensearch.client.RestHighLevelClient;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.testng.annotations.BeforeClass;
@@ -883,5 +884,24 @@ abstract public class TimeseriesAspectServiceTestBase extends AbstractTestNGSpri
     count =
         _elasticSearchTimeseriesAspectService.countByFilter(ENTITY_NAME, ASPECT_NAME, urnAndTimeFilter);
     assertEquals(count, 0L);
+  }
+
+  @Test(groups = {"getAggregatedStats"}, dependsOnGroups = {"upsert"})
+  public void testGetIndexSizes() {
+    List<TimeseriesIndexSizeResult> result = _elasticSearchTimeseriesAspectService.getIndexSizes();
+    //CHECKSTYLE:OFF
+    /*
+    Example result:
+    {aspectName=testentityprofile, sizeMb=52.234,
+    indexName=es_timeseries_aspect_service_test_testentity_testentityprofileaspect_v1, entityName=testentity}
+    {aspectName=testentityprofile, sizeMb=0.208,
+    indexName=es_timeseries_aspect_service_test_testentitywithouttests_testentityprofileaspect_v1, entityName=testentitywithouttests}
+     */
+    // There may be other indices in there from other tests, so just make sure that index for entity + aspect is in there
+    //CHECKSTYLE:ON
+    assertTrue(result.size() > 0);
+    assertTrue(
+        result.stream().anyMatch(idxSizeResult -> idxSizeResult.getIndexName().equals(
+            "es_timeseries_aspect_service_test_testentity_testentityprofileaspect_v1")));
   }
 }

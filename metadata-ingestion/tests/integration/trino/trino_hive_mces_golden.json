@@ -16,7 +16,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test"
+        "runId": "trino-hive-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -31,7 +32,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test"
+        "runId": "trino-hive-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -46,7 +48,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test"
+        "runId": "trino-hive-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -63,7 +66,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test"
+        "runId": "trino-hive-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -78,7 +82,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test"
+        "runId": "trino-hive-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -99,7 +104,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test"
+        "runId": "trino-hive-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -114,7 +120,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test"
+        "runId": "trino-hive-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -129,7 +136,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test"
+        "runId": "trino-hive-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -146,7 +154,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test"
+        "runId": "trino-hive-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -161,7 +170,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test"
+        "runId": "trino-hive-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -181,7 +191,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test"
+        "runId": "trino-hive-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -196,7 +207,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test"
+        "runId": "trino-hive-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -219,7 +231,7 @@
                             "numrows": "1",
                             "rawdatasize": "32",
                             "totalsize": "33",
-                            "transient_lastddltime": "1688422059"
+                            "transient_lastddltime": "1698223433"
                         },
                         "name": "array_struct_test",
                         "description": "This table has array of structs",
@@ -315,7 +327,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test"
+        "runId": "trino-hive-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -332,7 +345,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test"
+        "runId": "trino-hive-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -356,7 +370,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test"
+        "runId": "trino-hive-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -371,7 +386,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test"
+        "runId": "trino-hive-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -392,7 +408,7 @@
                             "numrows": "0",
                             "rawdatasize": "0",
                             "totalsize": "0",
-                            "transient_lastddltime": "1688422063"
+                            "transient_lastddltime": "1698223435"
                         },
                         "name": "map_test",
                         "tags": []
@@ -454,7 +470,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test"
+        "runId": "trino-hive-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -471,7 +488,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test"
+        "runId": "trino-hive-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -495,7 +513,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test"
+        "runId": "trino-hive-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -510,7 +529,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test"
+        "runId": "trino-hive-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -531,7 +551,7 @@
                             "numrows": "0",
                             "rawdatasize": "0",
                             "totalsize": "0",
-                            "transient_lastddltime": "1688422062"
+                            "transient_lastddltime": "1698223435"
                         },
                         "name": "nested_struct_test",
                         "tags": []
@@ -642,7 +662,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test"
+        "runId": "trino-hive-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -659,7 +680,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test"
+        "runId": "trino-hive-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -683,7 +705,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test"
+        "runId": "trino-hive-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -698,7 +721,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test"
+        "runId": "trino-hive-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -714,7 +738,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "transient_lastddltime": "1688421792"
+                            "transient_lastddltime": "1698223429"
                         },
                         "name": "pokes",
                         "tags": []
@@ -784,7 +808,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test"
+        "runId": "trino-hive-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -801,7 +826,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test"
+        "runId": "trino-hive-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -825,7 +851,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test"
+        "runId": "trino-hive-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -840,7 +867,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test"
+        "runId": "trino-hive-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -861,7 +889,7 @@
                             "numrows": "0",
                             "rawdatasize": "0",
                             "totalsize": "0",
-                            "transient_lastddltime": "1688421808"
+                            "transient_lastddltime": "1698223431"
                         },
                         "name": "struct_test",
                         "tags": []
@@ -950,7 +978,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test"
+        "runId": "trino-hive-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -967,7 +996,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test"
+        "runId": "trino-hive-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -991,7 +1021,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test"
+        "runId": "trino-hive-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1006,7 +1037,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test"
+        "runId": "trino-hive-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1024,7 +1056,7 @@
                         "customProperties": {
                             "numfiles": "0",
                             "totalsize": "0",
-                            "transient_lastddltime": "1688422062"
+                            "transient_lastddltime": "1698223435"
                         },
                         "name": "struct_test_view_materialized",
                         "tags": []
@@ -1113,7 +1145,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test"
+        "runId": "trino-hive-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1130,7 +1163,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test"
+        "runId": "trino-hive-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1154,7 +1188,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test"
+        "runId": "trino-hive-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1169,7 +1204,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test"
+        "runId": "trino-hive-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1190,7 +1226,7 @@
                             "numrows": "0",
                             "rawdatasize": "0",
                             "totalsize": "0",
-                            "transient_lastddltime": "1688421807"
+                            "transient_lastddltime": "1698223431"
                         },
                         "name": "_test_table_underscore",
                         "tags": []
@@ -1248,7 +1284,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test"
+        "runId": "trino-hive-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1265,7 +1302,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test"
+        "runId": "trino-hive-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1289,7 +1327,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test"
+        "runId": "trino-hive-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1304,7 +1343,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test"
+        "runId": "trino-hive-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1325,7 +1365,7 @@
                             "numrows": "0",
                             "rawdatasize": "0",
                             "totalsize": "0",
-                            "transient_lastddltime": "1688422062"
+                            "transient_lastddltime": "1698223435"
                         },
                         "name": "union_test",
                         "tags": []
@@ -1467,7 +1507,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test"
+        "runId": "trino-hive-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1484,7 +1525,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test"
+        "runId": "trino-hive-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1508,7 +1550,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test"
+        "runId": "trino-hive-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1523,7 +1566,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test"
+        "runId": "trino-hive-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1539,7 +1583,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "transient_lastddltime": "1688422062",
+                            "transient_lastddltime": "1698223435",
                             "view_definition": "SELECT \"property_id\", \"service\"\nFROM \"db1\".\"array_struct_test\"",
                             "is_view": "True"
                         },
@@ -1634,7 +1678,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test"
+        "runId": "trino-hive-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1651,7 +1696,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test"
+        "runId": "trino-hive-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1668,7 +1714,57 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test"
+        "runId": "trino-hive-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.array_struct_test_view,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.array_struct_test,PROD)",
+                    "type": "VIEW"
+                }
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.array_struct_test,PROD),property_id)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.array_struct_test_view,PROD),property_id)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.array_struct_test,PROD),service)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.array_struct_test_view,PROD),service)"
+                    ],
+                    "confidenceScore": 1.0
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1632398400000,
+        "runId": "trino-hive-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1692,7 +1788,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test"
+        "runId": "trino-hive-test",
+        "lastRunId": "no-run-id-provided"
     }
 }
 ]

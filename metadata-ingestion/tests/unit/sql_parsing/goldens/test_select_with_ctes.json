@@ -9,7 +9,9 @@
         {
             "downstream": {
                 "table": null,
-                "column": "COL1"
+                "column": "COL1",
+                "column_type": null,
+                "native_column_type": null
             },
             "upstreams": [
                 {
@@ -21,7 +23,9 @@
         {
             "downstream": {
                 "table": null,
-                "column": "COL3"
+                "column": "COL3",
+                "column_type": null,
+                "native_column_type": null
             },
             "upstreams": [
                 {

@@ -4,7 +4,7 @@ import operator
 import re
 import time
 from functools import reduce
-from typing import Any, Dict, List, Match, Optional, Union, cast
+from typing import Any, Dict, List, Mapping, Match, Optional, Union, cast
 
 from datahub.emitter import mce_builder
 from datahub.emitter.mce_builder import OwnerType
@@ -111,7 +111,7 @@ class OperationProcessor:
         self.owner_source_type = owner_source_type
         self.match_nested_props = match_nested_props
 
-    def process(self, raw_props: Dict[str, Any]) -> Dict[str, Any]:
+    def process(self, raw_props: Mapping[str, Any]) -> Dict[str, Any]:
         # Defining the following local variables -
         # operations_map - the final resulting map when operations are processed.
         # Against each operation the values to be applied are stored.
