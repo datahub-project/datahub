@@ -15,7 +15,7 @@ import { Message } from '../../shared/Message';
 import TabToolbar from '../../entity/shared/components/styled/TabToolbar';
 import { IngestionSourceBuilderModal } from './builder/IngestionSourceBuilderModal';
 import { addToListIngestionSourcesCache, CLI_EXECUTOR_ID, removeFromListIngestionSourcesCache } from './utils';
-import { DEFAULT_EXECUTOR_ID, SourceBuilderState } from './builder/types';
+import { DEFAULT_EXECUTOR_ID, SourceBuilderState, StringMapEntryInput } from './builder/types';
 import { IngestionSource, UpdateIngestionSourceInput } from '../../../types.generated';
 import { SearchBar } from '../../search/SearchBar';
 import { useEntityRegistry } from '../../useEntityRegistry';
@@ -173,6 +173,11 @@ export const IngestionSourceList = () => {
         setFocusSourceUrn(undefined);
     };
 
+    const formatExtraArgs = (extraArgs): StringMapEntryInput[] => {
+        if (extraArgs === null || extraArgs === undefined) return [];
+        return extraArgs.map((entry) => ({ key: entry.key, value: entry.value }));
+    };
+
     const createOrUpdateIngestionSource = (
         input: UpdateIngestionSourceInput,
         resetState: () => void,
@@ -294,6 +299,7 @@ export const IngestionSourceList = () => {
                             (recipeBuilderState.config?.executorId as string)) ||
                         DEFAULT_EXECUTOR_ID,
                     debugMode: recipeBuilderState.config?.debugMode || false,
+                    extraArgs: formatExtraArgs(recipeBuilderState.config?.extraArgs || []),
                 },
                 schedule: recipeBuilderState.schedule && {
                     interval: recipeBuilderState.schedule?.interval as string,
@@ -358,7 +364,12 @@ export const IngestionSourceList = () => {
             <SourceContainer>
                 <TabToolbar>
                     <div>
-                        <Button id={INGESTION_CREATE_SOURCE_ID} type="text" onClick={() => setIsBuildingSource(true)}>
+                        <Button
+                            id={INGESTION_CREATE_SOURCE_ID}
+                            type="text"
+                            onClick={() => setIsBuildingSource(true)}
+                            data-testid="create-ingestion-source-button"
+                        >
                             <PlusOutlined /> Create new source
                         </Button>
                         <Button id={INGESTION_REFRESH_SOURCES_ID} type="text" onClick={onRefresh}>
