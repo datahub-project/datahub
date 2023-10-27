@@ -786,7 +786,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             table_info: dict = inspector.get_table_comment(table, f'"{schema}"')  # type: ignore
 
         description = table_info.get("text")
-        if type(description) is LegacyRow:
+        if isinstance(description, LegacyRow):
             # Handling for value type tuple which is coming for dialect 'db2+ibm_db'
             description = table_info["text"][0]
 
