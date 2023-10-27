@@ -44,7 +44,7 @@ def privileges_and_test_user_setup(admin_session):
     # Remove test user
     remove_user(admin_session, "urn:li:corpuser:user")
 
-    # Restore All users vrivileges
+    # Restore All users privileges
     base_privileges_set_status("ACTIVE", admin_session)
     sensitive_info_prifileges_set_status("ACTIVE", admin_session)
     view_entity_prifileges_set_status("ACTIVE", admin_session)
@@ -104,7 +104,7 @@ def test_add_and_verify_privileges_to_manage_secrets():
     _ensure_cant_create_secret(user_session, create_secret)
 
 
-    # Assign privileges to the new user to manage secretes
+    # Assign privileges to the new user to manage secrets
     manage_secrets = {
         "query": """mutation createPolicy($input: PolicyUpdateInput!) {\n
             createPolicy(input: $input) }""",
