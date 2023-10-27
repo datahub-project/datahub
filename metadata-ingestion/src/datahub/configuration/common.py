@@ -283,7 +283,7 @@ class VersionedConfig(ConfigModel):
 
 class LineageConfig(ConfigModel):
     incremental_lineage: bool = Field(
-        default=True,
+        default=False,
         description="When enabled, emits lineage as incremental to existing lineage already in DataHub. When disabled, re-states lineage on each run.",
     )
 
