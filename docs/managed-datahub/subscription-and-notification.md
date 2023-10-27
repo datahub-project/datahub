@@ -14,17 +14,9 @@ With this feature, you can set up subscriptions to specific changes for an Entit
 This feature is especially useful in helping you stay on top of any upstream changes that could impact the assets you or your stakeholders rely on. It eliminates the need for you and your team to manually check for upstream changes, or for upstream stakeholders to identify and notify impacted users.
 As a user, you can subscribe to and receive notifications about changes such as deprecations, schema changes, changes in ownership, assertions, or incidents. You’ll always been in the know about potential data quality issues so you can proactively manage your data resources.
 
-https://www.loom.com/share/f02fe71e09494b5e82904c8a47f06ac1?sid=9379dd7f-b021-446a-8b5a-5838adeffd6b
+## Prerequisites
 
-<div style="position: relative; padding-bottom: 56.25%; height: 0;">
-    <iframe src="https://www.loom.com/embed/f02fe71e09494b5e82904c8a47f06ac1?sid=ef041cb7-9c06-4926-8e0c-e948b1dc3af0" frameborder="0" webkitallowfullscreen mozallowfullscreen allowfullscreen style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;">
-    </iframe>
-</div>
-
-## Setup, Prerequisites, and Permissions
-
-Once you have configured Slack within your DataHub instance, you will be able to subscribe to any Entitiy in DataHub and begin recieving notifications via DM.
-
+Once you have [configured Slack within your DataHub instance](saas-slack-setup.md), you will be able to subscribe to any Entity in DataHub and begin recieving notifications via DM.
 If you want to create and manage group-level Subscriptions for your team, you will need [the following privileges](../../docs/authorization/roles.md#role-privileges):
 
 - Manage Group Notification Settings
@@ -32,8 +24,8 @@ If you want to create and manage group-level Subscriptions for your team, you wi
 
 ## Using DataHub’s Subscriptions and Notifications Feature
 
-The first step is identifying the assets you want to subscribe to. DataHub’s [Lineage and Impact Analysis features](../../docs/act-on-metadata/impact-analysis.md#lineage-impact-analysis-setup-prerequisites-and-permissions) can help you identify upstream entities that could impact the assets you use and are responsible for.
-
+The first step is identifying the assets you want to subscribe to. 
+DataHub’s [Lineage and Impact Analysis features](../../docs/act-on-metadata/impact-analysis.md#lineage-impact-analysis-setup-prerequisites-and-permissions) can help you identify upstream entities that could impact the assets you use and are responsible for.
 You can use the Subscriptions and Notifications feature to sign up for updates for your entire team, or just for yourself.
 
 ### Subscribing Your Team/Group to Notifications
@@ -68,7 +60,7 @@ Select the **Subscribe Me** option in the Subscriptions dropdown menu.
 Pick the updates you want to be notified about, and connect your Slack account by using your Slack Member ID.
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/df64ece310fa9bafbfc57bf0500c4930e5231051/imgs/saas/subscription-and-notification/s_n-user-subscription-setting.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/df64ece310fa9bafbfc57bf0500c4930e5231051/imgs/saas/subscription-and-notification/s_n-user-subscription-settings.png"/>
 </p>
 
 :::note
@@ -101,11 +93,11 @@ You can view and manage the group’s subscriptions on the group’s page on Dat
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/df64ece310fa9bafbfc57bf0500c4930e5231051/imgs/saas/subscription-and-notification/s_n-group-subscriptions.png"/>
 </p>
 
-## FAQ and Troubleshooting
+## FAQ
 
 <details>
 <summary>
-1.What changes can I be notified about using this feature?
+What changes can I be notified about using this feature?
 </summary>
 You can subscribe to deprecations, Assertion status changes, Incident status changes, Schema changes, Ownership changes, Glossary Term changes, and Tag changes.
 <p align="center">
@@ -115,7 +107,7 @@ You can subscribe to deprecations, Assertion status changes, Incident status cha
 
 <details>
 <summary>
-2. What if I no longer want to receive updates about a data asset?
+What if I no longer want to receive updates about a data asset?
 </summary>
 You can unsubscribe from any asset to stop receiving notifications about it. On the asset’s DataHub page, simply use the dropdown menu next to the Subscribe button to unsubscribe from the asset.
 
@@ -126,7 +118,7 @@ You can unsubscribe from any asset to stop receiving notifications about it. On 
 
 <details>
 <summary>
-3. What if I want to be notified about different changes?
+What if I want to be notified about different changes?
 </summary>
 To modify your subscription, use the dropdown menu next to the Subscribe button to modify the changes you want to be notified about.
 </details>
@@ -134,3 +126,5 @@ To modify your subscription, use the dropdown menu next to the Subscribe button 
 ## Reference
 
 - [DataHub Blog - Simplifying Data Monitoring & Management with Subscriptions and Notifications with Acryl DataHub](https://www.acryldata.io/blog/simplifying-data-monitoring-and-management-with-subscriptions-and-notifications-with-acryl-datahub)
+- Video Guide - Getting Started with Subscription & Notifications
+    <iframe width="560" height="315" src="https://www.loom.com/embed/f02fe71e09494b5e82904c8a47f06ac1?sid=ef041cb7-9c06-4926-8e0c-e948b1dc3af0" frameborder="0" webkitallowfullscreen mozallowfullscreen allowfullscreen></iframe>
