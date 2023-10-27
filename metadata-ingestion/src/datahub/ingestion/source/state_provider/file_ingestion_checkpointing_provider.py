@@ -61,17 +61,20 @@ class FileIngestionCheckpointingProvider(IngestionCheckpointingProviderBase):
             self.orchestrator_name, pipeline_name, job_name
         )
         latest_checkpoint: Optional[DatahubIngestionCheckpointClass] = None
-        for obj in read_metadata_file(pathlib.Path(self.filename)):
-            if isinstance(obj, MetadataChangeProposalWrapper) and obj.aspect:
-                if (
-                    obj.entityUrn == data_job_urn
-                    and isinstance(obj.aspect, DatahubIngestionCheckpointClass)
-                    and obj.aspect.get("pipelineName", "") == pipeline_name
-                ):
-                    latest_checkpoint = cast(
-                        Optional[DatahubIngestionCheckpointClass], obj.aspect
-                    )
-                    break
+        try:
+            for obj in read_metadata_file(pathlib.Path(self.filename)):
+                if isinstance(obj, MetadataChangeProposalWrapper) and obj.aspect:
+                    if (
+                        obj.entityUrn == data_job_urn
+                        and isinstance(obj.aspect, DatahubIngestionCheckpointClass)
+                        and obj.aspect.get("pipelineName", "") == pipeline_name
+                    ):
+                        latest_checkpoint = cast(
+                            Optional[DatahubIngestionCheckpointClass], obj.aspect
+                        )
+                        break
+        except FileNotFoundError:
+            logger.debug(f"File {self.filename} not found")
 
         if latest_checkpoint:
             logger.debug(

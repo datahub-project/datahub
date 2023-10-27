@@ -420,11 +420,8 @@ def read_metadata_file(
     ]
 ]:
     # This simplified version of the FileSource can be used for testing purposes.
-    try:
-        with file.open("r") as f:
-            for obj in json.load(f):
-                item = _from_obj_for_file(obj)
-                if item:
-                    yield item
-    except FileNotFoundError:
-        return []
+    with file.open("r") as f:
+        for obj in json.load(f):
+            item = _from_obj_for_file(obj)
+            if item:
+                yield item
