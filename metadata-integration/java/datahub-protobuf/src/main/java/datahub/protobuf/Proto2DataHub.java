@@ -64,6 +64,12 @@ public class Proto2DataHub {
                 .desc("[Optional if using --directory] The protobuf source file. Typically a .proto file.")
                 .build();
 
+    private static final Option OPTION_MESSAGE_NAME = Option.builder()
+            .longOpt("message_name")
+            .hasArg()
+            .desc("[Optional if using --directory] The protobuf message name to read from.")
+            .build();
+
     private static final Option OPTION_DIR = Option.builder()
         .longOpt("directory")
         .hasArg()
@@ -150,6 +156,7 @@ public class Proto2DataHub {
         private final String dataPlatform;
         private final String protoc;
         private final String inputFile;
+        private final String messageName;
         private final String inputDir;
         private final TransportOptions transport;
         private final String filename;
@@ -169,6 +176,7 @@ public class Proto2DataHub {
             dataPlatform = cli.getOptionValue(OPTION_DATAHUB_PLATFORM, "kafka").toLowerCase(Locale.ROOT);
             protoc = cli.getOptionValue(OPTION_DESCRIPTOR);
             inputFile = cli.getOptionValue(OPTION_FILE, null);
+            messageName = cli.getOptionValue(OPTION_MESSAGE_NAME, null);
             transport = TransportOptions.valueOf(cli.getOptionValue(OPTION_TRANSPORT, "rest").toUpperCase(Locale.ROOT));
             filename = cli.getOptionValue(OPTION_FILENAME, null);
             subType = cli.getOptionValue(OPTION_SUBTYPE, "schema").toLowerCase(Locale.ROOT);
@@ -223,6 +231,7 @@ public class Proto2DataHub {
             .addOption(OPTION_DATAHUB_TOKEN)
             .addOption(OPTION_DESCRIPTOR)
             .addOption(OPTION_FILE)
+            .addOption(OPTION_MESSAGE_NAME)
             .addOption(OPTION_DIR)
             .addOption(OPTION_EXCLUDE_PATTERN)
             .addOption(OPTION_DATAHUB_USER)
@@ -321,6 +330,7 @@ public class Proto2DataHub {
                         .setGithubOrganization(config.githubOrg)
                         .setSlackTeamId(config.slackId)
                         .setSubType(config.subType)
+                        .setMessageName(config.messageName)
                         .build();
 
                     dataset.getAllMetadataChangeProposals().flatMap(Collection::stream).forEach(mcpw -> {
