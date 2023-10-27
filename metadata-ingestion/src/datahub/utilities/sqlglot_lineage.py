@@ -93,6 +93,7 @@ def get_query_type_of_sql(expression: sqlglot.exp.Expression) -> QueryType:
         sqlglot.exp.Update: QueryType.UPDATE,
         sqlglot.exp.Delete: QueryType.DELETE,
         sqlglot.exp.Merge: QueryType.MERGE,
+        sqlglot.exp.Subqueryable: QueryType.SELECT,  # unions, etc. are also selects
     }
 
     for cls, query_type in mapping.items():

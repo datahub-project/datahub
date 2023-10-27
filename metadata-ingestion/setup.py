@@ -108,7 +108,7 @@ usage_common = {
 sqlglot_lib = {
     # Using an Acryl fork of sqlglot.
     # https://github.com/tobymao/sqlglot/compare/main...hsheth2:sqlglot:hsheth?expand=1
-    "acryl-sqlglot==18.17.1.dev12",
+    "acryl-sqlglot==18.17.1.dev16",
 }
 
 sql_common = (
