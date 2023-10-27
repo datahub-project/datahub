@@ -781,7 +781,7 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
             sample_pc = 100 * self.config.sample_size / profile.rowCount
             sql = (
                 f"SELECT * FROM {str(self.dataset._table)} "
-                + f"TABLESAMPLE SYSTEM ({sample_pc:.3f} percent)"
+                + f"TABLESAMPLE SYSTEM ({sample_pc:.8f} percent)"
             )
             temp_table_name = create_bigquery_temp_table(
                 self,
@@ -792,6 +792,13 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
             if temp_table_name:
                 self.dataset._table = sa.text(temp_table_name)
                 logger.debug(f"Setting table name to be {self.dataset._table}")
+
+                # We can alternatively use `self._get_dataset_rows(profile)` to get
+                # exact count of rows in sample, as actual rows involved in sample
+                # may be slightly different (more or less) than configured `sample_size`.
+                # However not doing so to start with, as that adds another query overhead
+                # plus approximate metrics should work for sampling based profiling.
+                profile.rowCount = self.config.sample_size
 
                 if (
                     profile.partitionSpec
