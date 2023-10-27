@@ -72,7 +72,7 @@ logger = logging.getLogger(__name__)
 DENY_DATABASE_LIST = set(["admin", "config", "local"])
 
 
-class MongoDBConfig(DatasetSourceConfigMixin, StatefulIngestionConfigBase):
+class MongoDBConfig(PlatformInstanceConfigMixin, EnvConfigMixin, StatefulIngestionConfigBase):
     # See the MongoDB authentication docs for details and examples.
     # https://pymongo.readthedocs.io/en/stable/examples/authentication.html
     connect_uri: str = Field(
