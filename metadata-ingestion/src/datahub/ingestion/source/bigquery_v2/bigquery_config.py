@@ -309,6 +309,7 @@ class BigQueryV2Config(
                 "dataset_pattern is not set but schema_pattern is set, using schema_pattern as dataset_pattern. schema_pattern will be deprecated, please use dataset_pattern instead."
             )
             values["dataset_pattern"] = schema_pattern
+            dataset_pattern = schema_pattern
         elif (
             dataset_pattern != AllowDenyPattern.allow_all()
             and schema_pattern != AllowDenyPattern.allow_all()
