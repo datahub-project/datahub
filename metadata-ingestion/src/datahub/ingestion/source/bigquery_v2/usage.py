@@ -21,6 +21,7 @@ from typing import (
 
 import humanfriendly
 
+from datahub.configuration.pattern_utils import is_schema_allowed
 from datahub.configuration.time_window_config import (
     BaseTimeWindowConfig,
     get_time_bucket,
@@ -335,10 +336,11 @@ class BigQueryUsageExtractor:
     def _is_table_allowed(self, table_ref: Optional[BigQueryTableRef]) -> bool:
         return (
             table_ref is not None
-            and self.config.dataset_pattern.allowed(
-                f"{table_ref.table_identifier.project_id}.{table_ref.table_identifier.dataset}"
-                if self.config.match_fully_qualified_names
-                else table_ref.table_identifier.dataset
+            and is_schema_allowed(
+                self.config.dataset_pattern,
+                table_ref.table_identifier.dataset,
+                table_ref.table_identifier.project_id,
+                self.config.match_fully_qualified_names,
             )
             and self.config.table_pattern.allowed(str(table_ref.table_identifier))
         )
