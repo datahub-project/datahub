@@ -1,4 +1,3 @@
-from enum import Enum
 from typing import Any, Dict, List, Optional
 
 from datahub_classify.helper_classes import ColumnInfo
@@ -9,6 +8,7 @@ from pydantic.fields import Field
 
 from datahub.configuration.common import ConfigModel
 from datahub.ingestion.glossary.classifier import Classifier
+from datahub.utilities.str_enum import StrEnum
 
 
 class NameFactorConfig(ConfigModel):
@@ -32,7 +32,7 @@ class DataTypeFactorConfig(ConfigModel):
     )
 
 
-class ValuePredictionType(str, Enum):
+class ValuePredictionType(StrEnum):
     REGEX = "regex"
     LIBRARY = "library"
 

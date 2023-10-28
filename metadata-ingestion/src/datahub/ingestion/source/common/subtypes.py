@@ -1,7 +1,7 @@
-from enum import Enum
+from datahub.utilities.str_enum import StrEnum
 
 
-class DatasetSubTypes(str, Enum):
+class DatasetSubTypes(StrEnum):
     # Generic SubTypes
     TABLE = "Table"
     VIEW = "View"
@@ -20,7 +20,7 @@ class DatasetSubTypes(str, Enum):
     NOTEBOOK = "Notebook"
 
 
-class DatasetContainerSubTypes(str, Enum):
+class DatasetContainerSubTypes(StrEnum):
     # Generic SubTypes
     DATABASE = "Database"
     SCHEMA = "Schema"
@@ -34,13 +34,13 @@ class DatasetContainerSubTypes(str, Enum):
     GCS_BUCKET = "GCS bucket"
 
 
-class BIContainerSubTypes(str, Enum):
+class BIContainerSubTypes(StrEnum):
     LOOKER_FOLDER = "Folder"
     TABLEAU_WORKBOOK = "Workbook"
     POWERBI_WORKSPACE = "Workspace"
     POWERBI_DATASET = "PowerBI Dataset"
 
 
-class BIAssetSubTypes(str, Enum):
+class BIAssetSubTypes(StrEnum):
     # Generic SubTypes
     REPORT = "Report"
