@@ -851,12 +851,14 @@ jobs:
         if: failure()
         run: |
           docker ps -a
-          docker logs datahub-gms >& gms-${{ matrix.test_strategy }}.log
-          docker logs datahub-actions >& actions-${{ matrix.test_strategy }}.log
-          docker logs frontend-react >& frontend-${{ matrix.test_strategy }}.log
-          docker logs broker >& broker-${{ matrix.test_strategy }}.log
-          docker logs mysql >& mysql-${{ matrix.test_strategy }}.log
-          docker logs elasticsearch >& elasticsearch-${{ matrix.test_strategy }}.log
+          docker logs datahub-gms >& gms-${{ matrix.test_strategy }}.log || true
+          docker logs datahub-actions >& actions-${{ matrix.test_strategy }}.log || true
+          docker logs datahub-mae-consumer >& mae-${{ matrix.test_strategy }}.log || true
+          docker logs datahub-mce-consumer >& mce-${{ matrix.test_strategy }}.log || true
+          docker logs broker >& broker-${{ matrix.test_strategy }}.log || true
+          docker logs mysql >& mysql-${{ matrix.test_strategy }}.log || true
+          docker logs elasticsearch >& elasticsearch-${{ matrix.test_strategy }}.log || true
+          docker logs datahub-frontend-react >& frontend-${{ matrix.test_strategy }}.log || true
       - name: Upload logs
         uses: actions/upload-artifact@v3
         if: failure()
