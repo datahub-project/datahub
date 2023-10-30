@@ -64,7 +64,8 @@
         "GET_TIMELINE_PRIVILEGE",
         "PRODUCE_PLATFORM_EVENT_PRIVILEGE",
         "MANAGE_DATA_PRODUCTS",
-        "MANAGE_GLOBAL_OWNERSHIP_TYPES"
+        "MANAGE_GLOBAL_OWNERSHIP_TYPES",
+        "DELETE_ENTITY"
       ],
       "displayName":"Root User - Edit and View All Resources",
       "description":"Grants full edit and view privileges for all resources to root 'datahub' root user.",
@@ -263,7 +264,8 @@
         "GET_ENTITY_PRIVILEGE",
         "GET_TIMELINE_PRIVILEGE",
         "PRODUCE_PLATFORM_EVENT_PRIVILEGE",
-        "MANAGE_DATA_PRODUCTS"
+        "MANAGE_DATA_PRODUCTS",
+        "DELETE_ENTITY"
       ],
       "displayName":"Admins - Metadata Policy",
       "description":"Admins have all metadata privileges.",

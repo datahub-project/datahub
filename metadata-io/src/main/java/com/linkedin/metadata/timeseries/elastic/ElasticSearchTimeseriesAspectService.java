@@ -137,9 +137,10 @@ public class ElasticSearchTimeseriesAspectService implements TimeseriesAspectSer
   }
 
   @Override
-  public List<ReindexConfig> getReindexConfigs() {
-    return _indexBuilders.getReindexConfigs();
+  public List<ReindexConfig> buildReindexConfigs() {
+    return _indexBuilders.buildReindexConfigs();
   }
+
   public String reindexAsync(String index, @Nullable QueryBuilder filterQuery, BatchWriteOperationsOptions options)
       throws Exception {
     return _indexBuilders.reindexAsync(index, filterQuery, options);
@@ -168,7 +169,7 @@ public class ElasticSearchTimeseriesAspectService implements TimeseriesAspectSer
     List<TimeseriesIndexSizeResult> res = new ArrayList<>();
     try {
       String indicesPattern = _indexConvention.getAllTimeseriesAspectIndicesPattern();
-      Response r = _searchClient.getLowLevelClient().performRequest(new Request("GET", indicesPattern + "/_stats"));
+      Response r = _searchClient.getLowLevelClient().performRequest(new Request("GET", "/" + indicesPattern + "/_stats"));
       JsonNode body = new ObjectMapper().readTree(r.getEntity().getContent());
       body.get("indices").fields().forEachRemaining(entry -> {
         TimeseriesIndexSizeResult elemResult = new TimeseriesIndexSizeResult();
