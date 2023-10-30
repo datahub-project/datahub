@@ -173,7 +173,9 @@ bigquery_common = {
 
 clickhouse_common = {
     # Clickhouse 0.2.0 adds support for SQLAlchemy 1.4.x
-    "clickhouse-sqlalchemy>=0.2.0",
+    # Disallow 0.2.5 because of https://github.com/xzkostyan/clickhouse-sqlalchemy/issues/272.
+    # Note that there's also a known issue around nested map types: https://github.com/xzkostyan/clickhouse-sqlalchemy/issues/269.
+    "clickhouse-sqlalchemy>=0.2.0,<0.2.5",
 }
 
 redshift_common = {
