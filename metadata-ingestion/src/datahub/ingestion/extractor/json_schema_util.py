@@ -598,7 +598,8 @@ class JsonSchemaTranslator:
                     jsonref_schema_dict = schema_dict
                 else:
                     # first validate the schema using a json validator
-                    jsonschema.Draft7Validator.check_schema(schema_dict)
+                    validator = jsonschema.validators.validator_for(schema_dict)
+                    validator.check_schema(schema_dict)
                     # then apply jsonref
                     jsonref_schema_dict = jsonref.loads(schema_string)
             except Exception as e:

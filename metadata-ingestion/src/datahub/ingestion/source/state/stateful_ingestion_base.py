@@ -11,7 +11,6 @@ from datahub.configuration.common import (
     ConfigModel,
     ConfigurationError,
     DynamicTypedConfig,
-    LineageConfig,
 )
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
@@ -100,7 +99,7 @@ class StatefulIngestionConfigBase(GenericModel, Generic[CustomConfig]):
     )
 
 
-class StatefulLineageConfigMixin(LineageConfig):
+class StatefulLineageConfigMixin:
     enable_stateful_lineage_ingestion: bool = Field(
         default=True,
         description="Enable stateful lineage ingestion."

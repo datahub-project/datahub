@@ -106,6 +106,7 @@ class SqlParsingBuilder:
         user: Optional[UserUrn] = None,
         custom_operation_type: Optional[str] = None,
         include_urns: Optional[Set[DatasetUrn]] = None,
+        include_column_lineage: bool = True,
     ) -> Iterable[MetadataWorkUnit]:
         """Process a single query and yield any generated workunits.
 
@@ -130,7 +131,9 @@ class SqlParsingBuilder:
                 _merge_lineage_data(
                     downstream_urn=downstream_urn,
                     upstream_urns=result.in_tables,
-                    column_lineage=result.column_lineage,
+                    column_lineage=result.column_lineage
+                    if include_column_lineage
+                    else None,
                     upstream_edges=self._lineage_map[downstream_urn],
                     query_timestamp=query_timestamp,
                     is_view_ddl=is_view_ddl,

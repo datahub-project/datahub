@@ -287,8 +287,9 @@ def test_snowflake_unexpected_snowflake_view_lineage_error_causes_pipeline_warni
             SnowflakeV2Config,
             cast(PipelineConfig, snowflake_pipeline_config1).source.config,
         )
+        config.include_table_lineage = True
         config.include_view_lineage = True
-        config.incremental_lineage = False
+
         pipeline = Pipeline(snowflake_pipeline_config1)
         pipeline.run()
         pipeline.raise_from_status()  # pipeline should not fail

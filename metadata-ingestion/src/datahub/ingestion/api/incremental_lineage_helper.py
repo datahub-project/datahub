@@ -130,10 +130,13 @@ def auto_incremental_lineage(
                 if len(wu.metadata.proposedSnapshot.aspects) > 0:
                     yield wu
 
-            yield _lineage_wu_via_read_modify_write(
-                graph, urn, lineage_aspect, wu.metadata.systemMetadata
-            ) if lineage_aspect.fineGrainedLineages else _convert_upstream_lineage_to_patch(
-                urn, lineage_aspect, wu.metadata.systemMetadata
-            )
+            if lineage_aspect.fineGrainedLineages:
+                yield _lineage_wu_via_read_modify_write(
+                    graph, urn, lineage_aspect, wu.metadata.systemMetadata
+                )
+            elif lineage_aspect.upstreams:
+                yield _convert_upstream_lineage_to_patch(
+                    urn, lineage_aspect, wu.metadata.systemMetadata
+                )
         else:
             yield wu

@@ -45,7 +45,7 @@ CREATE TABLE Foo.SalesReason
    )
 ;
 GO
-CREATE PROCEDURE Foo.DBs @ID INT
+CREATE PROCEDURE [Foo].[Proc.With.SpecialChar] @ID INT
 AS
     SELECT @ID AS ThatDB;
 GO

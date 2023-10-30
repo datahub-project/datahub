@@ -98,7 +98,7 @@ class AirflowGenerator:
         # It is possible to tie an external sensor to DAG if external_task_id is omitted but currently we can't tie
         # jobflow to anothet jobflow.
         external_task_upstreams = []
-        if task.task_type == "ExternalTaskSensor":
+        if isinstance(task, ExternalTaskSensor):
             task = cast(ExternalTaskSensor, task)
             if hasattr(task, "external_task_id") and task.external_task_id is not None:
                 external_task_upstreams = [
@@ -155,6 +155,8 @@ class AirflowGenerator:
             "_concurrency",
             # "_default_view",
             "catchup",
+            "description",
+            "doc_md",
             "fileloc",
             "is_paused_upon_creation",
             "start_date",
@@ -431,6 +433,9 @@ class AirflowGenerator:
         job_property_bag["operator"] = str(ti.operator)
         job_property_bag["priority_weight"] = str(ti.priority_weight)
         job_property_bag["log_url"] = ti.log_url
+        job_property_bag["orchestrator"] = "airflow"
+        job_property_bag["dag_id"] = str(dag.dag_id)
+        job_property_bag["task_id"] = str(ti.task_id)
         dpi.properties.update(job_property_bag)
         dpi.url = ti.log_url
 

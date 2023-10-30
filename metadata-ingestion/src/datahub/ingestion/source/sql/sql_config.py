@@ -6,7 +6,7 @@ import pydantic
 from pydantic import Field
 from sqlalchemy.engine import URL
 
-from datahub.configuration.common import AllowDenyPattern, ConfigModel
+from datahub.configuration.common import AllowDenyPattern, ConfigModel, LineageConfig
 from datahub.configuration.source_common import (
     DatasetSourceConfigMixin,
     LowerCaseDatasetUrnConfigMixin,
@@ -28,6 +28,7 @@ class SQLCommonConfig(
     StatefulIngestionConfigBase,
     DatasetSourceConfigMixin,
     LowerCaseDatasetUrnConfigMixin,
+    LineageConfig,
 ):
     options: dict = pydantic.Field(
         default_factory=dict,
@@ -68,6 +69,22 @@ class SQLCommonConfig(
     include_table_location_lineage: bool = Field(
         default=True,
         description="If the source supports it, include table lineage to the underlying storage location.",
+    )
+
+    include_view_lineage: bool = Field(
+        default=True,
+        description="Populates view->view and table->view lineage using DataHub's sql parser.",
+    )
+
+    include_view_column_lineage: bool = Field(
+        default=True,
+        description="Populates column-level lineage for  view->view and table->view lineage using DataHub's sql parser."
+        " Requires `include_view_lineage` to be enabled.",
+    )
+
+    use_file_backed_cache: bool = Field(
+        default=True,
+        description="Whether to use a file backed cache for the view definitions.",
     )
 
     profiling: GEProfilingConfig = GEProfilingConfig()

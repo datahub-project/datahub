@@ -1,6 +1,8 @@
 package client;
 
+import com.linkedin.metadata.config.kafka.ProducerConfiguration;
 import com.typesafe.config.Config;
+import config.ConfigurationProvider;
 import org.apache.kafka.clients.CommonClientConfigs;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerConfig;
@@ -35,12 +37,12 @@ public class KafkaTrackingProducer {
     private final KafkaProducer<String, String> _producer;
 
     @Inject
-    public KafkaTrackingProducer(@Nonnull Config config, ApplicationLifecycle lifecycle) {
+    public KafkaTrackingProducer(@Nonnull Config config, ApplicationLifecycle lifecycle, final ConfigurationProvider configurationProvider) {
         _isEnabled = !config.hasPath("analytics.enabled") || config.getBoolean("analytics.enabled");
 
         if (_isEnabled) {
             _logger.debug("Analytics tracking is enabled");
-            _producer = createKafkaProducer(config);
+            _producer = createKafkaProducer(config, configurationProvider.getKafka().getProducer());
 
             lifecycle.addStopHook(
                     () -> {
@@ -62,13 +64,15 @@ public class KafkaTrackingProducer {
         _producer.send(record);
     }
 
-    private static KafkaProducer createKafkaProducer(Config config) {
+    private static KafkaProducer createKafkaProducer(Config config, ProducerConfiguration producerConfiguration) {
         final Properties props = new Properties();
         props.put(ProducerConfig.CLIENT_ID_CONFIG, "datahub-frontend");
         props.put(ProducerConfig.DELIVERY_TIMEOUT_MS_CONFIG, config.getString("analytics.kafka.delivery.timeout.ms"));
         props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, config.getString("analytics.kafka.bootstrap.server"));
         props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringSerializer"); // Actor urn.
         props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringSerializer"); // JSON object.
+        props.put(ProducerConfig.MAX_REQUEST_SIZE_CONFIG, producerConfiguration.getMaxRequestSize());
+        props.put(ProducerConfig.COMPRESSION_TYPE_CONFIG, producerConfiguration.getCompressionType());
 
         final String securityProtocolConfig = "analytics.kafka.security.protocol";
         if (config.hasPath(securityProtocolConfig)

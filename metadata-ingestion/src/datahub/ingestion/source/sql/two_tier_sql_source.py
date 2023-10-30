@@ -1,6 +1,6 @@
 import typing
 import urllib.parse
-from typing import Any, Dict, Iterable, Optional
+from typing import Any, Dict, Iterable, Optional, Tuple
 
 from pydantic.fields import Field
 from sqlalchemy import create_engine, inspect
@@ -70,6 +70,10 @@ class TwoTierSQLAlchemySource(SQLAlchemySource):
     def __init__(self, config, ctx, platform):
         super().__init__(config, ctx, platform)
         self.config: TwoTierSQLAlchemyConfig = config
+
+    def get_db_schema(self, dataset_identifier: str) -> Tuple[Optional[str], str]:
+        schema, _view = dataset_identifier.split(".", 1)
+        return None, schema
 
     def get_database_container_key(self, db_name: str, schema: str) -> ContainerKey:
         # Because our overridden get_allowed_schemas method returns db_name as the schema name,

@@ -11,7 +11,11 @@ from pydantic.fields import Field
 from pymongo.mongo_client import MongoClient
 
 from datahub.configuration.common import AllowDenyPattern
-from datahub.configuration.source_common import EnvConfigMixin
+from datahub.configuration.source_common import (
+    EnvConfigMixin,
+    PlatformInstanceConfigMixin,
+)
+from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -55,7 +59,7 @@ logger = logging.getLogger(__name__)
 DENY_DATABASE_LIST = set(["admin", "config", "local"])
 
 
-class MongoDBConfig(EnvConfigMixin):
+class MongoDBConfig(PlatformInstanceConfigMixin, EnvConfigMixin):
     # See the MongoDB authentication docs for details and examples.
     # https://pymongo.readthedocs.io/en/stable/examples/authentication.html
     connect_uri: str = Field(
@@ -199,6 +203,7 @@ def construct_schema_pymongo(
 @platform_name("MongoDB")
 @config_class(MongoDBConfig)
 @support_status(SupportStatus.CERTIFIED)
+@capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.SCHEMA_METADATA, "Enabled by default")
 @dataclass
 class MongoDBSource(Source):
@@ -320,7 +325,12 @@ class MongoDBSource(Source):
                     self.report.report_dropped(dataset_name)
                     continue
 
-                dataset_urn = f"urn:li:dataset:(urn:li:dataPlatform:{platform},{dataset_name},{self.config.env})"
+                dataset_urn = make_dataset_urn_with_platform_instance(
+                    platform=platform,
+                    name=dataset_name,
+                    env=self.config.env,
+                    platform_instance=self.config.platform_instance,
+                )
 
                 dataset_snapshot = DatasetSnapshot(
                     urn=dataset_urn,

@@ -119,6 +119,7 @@ interface Props {
     setIsSearchBarFocused?: (isSearchBarFocused: boolean) => void;
     onFocus?: () => void;
     onBlur?: () => void;
+    showViewAllResults?: boolean;
 }
 
 const defaultProps = {
@@ -146,6 +147,7 @@ export const SearchBar = ({
     setIsSearchBarFocused,
     onFocus,
     onBlur,
+    showViewAllResults = false,
 }: Props) => {
     const history = useHistory();
     const [searchQuery, setSearchQuery] = useState<string | undefined>(initialQuery);
@@ -203,7 +205,7 @@ export const SearchBar = ({
     const { quickFilters, selectedQuickFilter, setSelectedQuickFilter } = useQuickFiltersContext();
 
     const autoCompleteQueryOptions = useMemo(() => {
-        if (effectiveQuery === '') return [];
+        if (effectiveQuery === '' || !showViewAllResults) return [];
 
         return [
             {
@@ -212,7 +214,7 @@ export const SearchBar = ({
                 type: EXACT_AUTOCOMPLETE_OPTION_TYPE,
             },
         ];
-    }, [effectiveQuery]);
+    }, [effectiveQuery, showViewAllResults]);
 
     const autoCompleteEntityOptions = useMemo(() => {
         return suggestions.map((suggestion: AutoCompleteResultForEntity) => {

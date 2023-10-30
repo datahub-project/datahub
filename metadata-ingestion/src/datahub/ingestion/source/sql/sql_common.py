@@ -2,12 +2,14 @@ import datetime
 import logging
 import traceback
 from dataclasses import dataclass, field
+from functools import partial
 from typing import (
     TYPE_CHECKING,
     Any,
     Dict,
     Iterable,
     List,
+    MutableMapping,
     Optional,
     Set,
     Tuple,
@@ -29,7 +31,9 @@ from datahub.emitter.mce_builder import (
     make_tag_urn,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.sql_parsing_builder import SqlParsingBuilder
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.incremental_lineage_helper import auto_incremental_lineage
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import (
@@ -86,9 +90,16 @@ from datahub.metadata.schema_classes import (
     ViewPropertiesClass,
 )
 from datahub.telemetry import telemetry
+from datahub.utilities.file_backed_collections import FileBackedDict
 from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.registries.domain_registry import DomainRegistry
 from datahub.utilities.sqlalchemy_query_combiner import SQLAlchemyQueryCombinerReport
+from datahub.utilities.sqlglot_lineage import (
+    SchemaResolver,
+    SqlParsingResult,
+    sqlglot_lineage,
+    view_definition_lineage_helper,
+)
 
 if TYPE_CHECKING:
     from datahub.ingestion.source.ge_data_profiler import (
@@ -109,6 +120,11 @@ class SQLSourceReport(StaleEntityRemovalSourceReport):
     filtered: LossyList[str] = field(default_factory=LossyList)
 
     query_combiner: Optional[SQLAlchemyQueryCombinerReport] = None
+
+    num_view_definitions_parsed: int = 0
+    num_view_definitions_failed_parsing: int = 0
+    num_view_definitions_failed_column_parsing: int = 0
+    view_definitions_parsing_failures: LossyList[str] = field(default_factory=LossyList)
 
     def report_entity_scanned(self, name: str, ent_type: str = "table") -> None:
         """
@@ -319,6 +335,18 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                 cached_domains=[k for k in self.config.domain], graph=self.ctx.graph
             )
 
+        self.views_failed_parsing: Set[str] = set()
+        self.schema_resolver: SchemaResolver = SchemaResolver(
+            platform=self.platform,
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
+        )
+        self._view_definition_cache: MutableMapping[str, str]
+        if self.config.use_file_backed_cache:
+            self._view_definition_cache = FileBackedDict[str]()
+        else:
+            self._view_definition_cache = {}
+
     def warn(self, log: logging.Logger, key: str, reason: str) -> None:
         self.report.report_warning(key, reason[:100])
         log.warning(f"{key} => {reason}")
@@ -455,6 +483,11 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
         return [
             *super().get_workunit_processors(),
+            partial(
+                auto_incremental_lineage,
+                self.ctx.graph,
+                self.config.incremental_lineage,
+            ),
             StaleEntityRemovalHandler.create(
                 self, self.config, self.ctx
             ).workunit_processor,
@@ -511,6 +544,35 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                 yield from self.loop_profiler(
                     profile_requests, profiler, platform=self.platform
                 )
+
+        if self.config.include_view_lineage:
+            yield from self.get_view_lineage()
+
+    def get_view_lineage(self) -> Iterable[MetadataWorkUnit]:
+        builder = SqlParsingBuilder(
+            generate_lineage=True,
+            generate_usage_statistics=False,
+            generate_operations=False,
+        )
+        for dataset_name in self._view_definition_cache.keys():
+            view_definition = self._view_definition_cache[dataset_name]
+            result = self._run_sql_parser(
+                dataset_name,
+                view_definition,
+                self.schema_resolver,
+            )
+            if result and result.out_tables:
+                # This does not yield any workunits but we use
+                # yield here to execute this method
+                yield from builder.process_sql_parsing_result(
+                    result=result,
+                    query=view_definition,
+                    is_view_ddl=True,
+                    include_column_lineage=self.config.include_view_column_lineage,
+                )
+            else:
+                self.views_failed_parsing.add(dataset_name)
+        yield from builder.gen_workunits()
 
     def get_identifier(
         self, *, schema: str, entity: str, inspector: Inspector, **kwargs: Any
@@ -658,6 +720,8 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             schema_fields,
         )
         dataset_snapshot.aspects.append(schema_metadata)
+        if self.config.include_view_lineage:
+            self.schema_resolver.add_schema_metadata(dataset_urn, schema_metadata)
         db_name = self.get_db_name(inspector)
 
         yield from self.add_table_to_schema_container(
@@ -862,6 +926,12 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         view: str,
         sql_config: SQLCommonConfig,
     ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
+        dataset_urn = make_dataset_urn_with_platform_instance(
+            self.platform,
+            dataset_name,
+            self.config.platform_instance,
+            self.config.env,
+        )
         try:
             columns = inspector.get_columns(view, schema)
         except KeyError:
@@ -877,6 +947,8 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                 columns,
                 canonical_schema=schema_fields,
             )
+            if self.config.include_view_lineage:
+                self.schema_resolver.add_schema_metadata(dataset_urn, schema_metadata)
         description, properties, _ = self.get_table_properties(inspector, schema, view)
         try:
             view_definition = inspector.get_view_definition(view, schema)
@@ -890,12 +962,9 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             view_definition = ""
         properties["view_definition"] = view_definition
         properties["is_view"] = "True"
-        dataset_urn = make_dataset_urn_with_platform_instance(
-            self.platform,
-            dataset_name,
-            self.config.platform_instance,
-            self.config.env,
-        )
+        if view_definition and self.config.include_view_lineage:
+            self._view_definition_cache[dataset_name] = view_definition
+
         dataset_snapshot = DatasetSnapshot(
             urn=dataset_urn,
             aspects=[StatusClass(removed=False)],
@@ -941,6 +1010,51 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                 domain_config=sql_config.domain,
                 domain_registry=self.domain_registry,
             )
+
+    def _run_sql_parser(
+        self, view_identifier: str, query: str, schema_resolver: SchemaResolver
+    ) -> Optional[SqlParsingResult]:
+        try:
+            database, schema = self.get_db_schema(view_identifier)
+        except ValueError:
+            logger.warning(f"Invalid view identifier: {view_identifier}")
+            return None
+        raw_lineage = sqlglot_lineage(
+            query,
+            schema_resolver=schema_resolver,
+            default_db=database,
+            default_schema=schema,
+        )
+        view_urn = make_dataset_urn_with_platform_instance(
+            self.platform,
+            view_identifier,
+            self.config.platform_instance,
+            self.config.env,
+        )
+
+        if raw_lineage.debug_info.table_error:
+            logger.debug(
+                f"Failed to parse lineage for view {view_identifier}: "
+                f"{raw_lineage.debug_info.table_error}"
+            )
+            self.report.num_view_definitions_failed_parsing += 1
+            self.report.view_definitions_parsing_failures.append(
+                f"Table-level sql parsing error for view {view_identifier}: {raw_lineage.debug_info.table_error}"
+            )
+            return None
+
+        elif raw_lineage.debug_info.column_error:
+            self.report.num_view_definitions_failed_column_parsing += 1
+            self.report.view_definitions_parsing_failures.append(
+                f"Column-level sql parsing error for view {view_identifier}: {raw_lineage.debug_info.column_error}"
+            )
+        else:
+            self.report.num_view_definitions_parsed += 1
+        return view_definition_lineage_helper(raw_lineage, view_urn)
+
+    def get_db_schema(self, dataset_identifier: str) -> Tuple[Optional[str], str]:
+        database, schema, _view = dataset_identifier.split(".")
+        return database, schema
 
     def get_profiler_instance(self, inspector: Inspector) -> "DatahubGEProfiler":
         from datahub.ingestion.source.ge_data_profiler import DatahubGEProfiler

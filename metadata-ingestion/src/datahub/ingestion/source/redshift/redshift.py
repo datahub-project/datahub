@@ -218,6 +218,9 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
     ] = {
         "BYTES": BytesType,
         "BOOL": BooleanType,
+        "BOOLEAN": BooleanType,
+        "DOUBLE": NumberType,
+        "DOUBLE PRECISION": NumberType,
         "DECIMAL": NumberType,
         "NUMERIC": NumberType,
         "BIGNUMERIC": NumberType,
@@ -244,6 +247,13 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
         "CHARACTER": StringType,
         "CHAR": StringType,
         "TIMESTAMP WITHOUT TIME ZONE": TimeType,
+        "REAL": NumberType,
+        "VARCHAR": StringType,
+        "TIMESTAMPTZ": TimeType,
+        "GEOMETRY": NullType,
+        "HLLSKETCH": NullType,
+        "TIMETZ": TimeType,
+        "VARBYTE": StringType,
     }
 
     def get_platform_instance_id(self) -> str:

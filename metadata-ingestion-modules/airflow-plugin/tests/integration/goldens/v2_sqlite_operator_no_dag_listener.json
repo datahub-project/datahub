@@ -9,6 +9,8 @@
             "customProperties": {
                 "_access_control": "None",
                 "catchup": "False",
+                "description": "None",
+                "doc_md": "None",
                 "fileloc": "'/Users/hsheth/projects/datahub/metadata-ingestion-modules/airflow-plugin/tests/integration/dags/sqlite_operator.py'",
                 "is_paused_upon_creation": "None",
                 "start_date": "DateTime(2023, 1, 1, 0, 0, 0, tzinfo=Timezone('UTC'))",
@@ -201,7 +203,10 @@
                 "state": "running",
                 "operator": "SqliteOperator",
                 "priority_weight": "5",
-                "log_url": "http://airflow.example.com/log?execution_date=2023-09-27T21%3A34%3A38%2B00%3A00&task_id=create_cost_table&dag_id=sqlite_operator&map_index=-1"
+                "log_url": "http://airflow.example.com/log?execution_date=2023-09-27T21%3A34%3A38%2B00%3A00&task_id=create_cost_table&dag_id=sqlite_operator&map_index=-1",
+                "orchestrator": "airflow",
+                "dag_id": "sqlite_operator",
+                "task_id": "create_cost_table"
             },
             "externalUrl": "http://airflow.example.com/log?execution_date=2023-09-27T21%3A34%3A38%2B00%3A00&task_id=create_cost_table&dag_id=sqlite_operator&map_index=-1",
             "name": "sqlite_operator_create_cost_table_manual_run_test",
@@ -460,6 +465,8 @@
             "customProperties": {
                 "_access_control": "None",
                 "catchup": "False",
+                "description": "None",
+                "doc_md": "None",
                 "fileloc": "'/Users/hsheth/projects/datahub/metadata-ingestion-modules/airflow-plugin/tests/integration/dags/sqlite_operator.py'",
                 "is_paused_upon_creation": "None",
                 "start_date": "DateTime(2023, 1, 1, 0, 0, 0, tzinfo=Timezone('UTC'))",
@@ -617,7 +624,10 @@
                 "state": "running",
                 "operator": "SqliteOperator",
                 "priority_weight": "4",
-                "log_url": "http://airflow.example.com/log?execution_date=2023-09-27T21%3A34%3A38%2B00%3A00&task_id=populate_cost_table&dag_id=sqlite_operator&map_index=-1"
+                "log_url": "http://airflow.example.com/log?execution_date=2023-09-27T21%3A34%3A38%2B00%3A00&task_id=populate_cost_table&dag_id=sqlite_operator&map_index=-1",
+                "orchestrator": "airflow",
+                "dag_id": "sqlite_operator",
+                "task_id": "populate_cost_table"
             },
             "externalUrl": "http://airflow.example.com/log?execution_date=2023-09-27T21%3A34%3A38%2B00%3A00&task_id=populate_cost_table&dag_id=sqlite_operator&map_index=-1",
             "name": "sqlite_operator_populate_cost_table_manual_run_test",
@@ -805,6 +815,8 @@
             "customProperties": {
                 "_access_control": "None",
                 "catchup": "False",
+                "description": "None",
+                "doc_md": "None",
                 "fileloc": "'/Users/hsheth/projects/datahub/metadata-ingestion-modules/airflow-plugin/tests/integration/dags/sqlite_operator.py'",
                 "is_paused_upon_creation": "None",
                 "start_date": "DateTime(2023, 1, 1, 0, 0, 0, tzinfo=Timezone('UTC'))",
@@ -1032,7 +1044,10 @@
                 "state": "running",
                 "operator": "SqliteOperator",
                 "priority_weight": "3",
-                "log_url": "http://airflow.example.com/log?execution_date=2023-09-27T21%3A34%3A38%2B00%3A00&task_id=transform_cost_table&dag_id=sqlite_operator&map_index=-1"
+                "log_url": "http://airflow.example.com/log?execution_date=2023-09-27T21%3A34%3A38%2B00%3A00&task_id=transform_cost_table&dag_id=sqlite_operator&map_index=-1",
+                "orchestrator": "airflow",
+                "dag_id": "sqlite_operator",
+                "task_id": "transform_cost_table"
             },
             "externalUrl": "http://airflow.example.com/log?execution_date=2023-09-27T21%3A34%3A38%2B00%3A00&task_id=transform_cost_table&dag_id=sqlite_operator&map_index=-1",
             "name": "sqlite_operator_transform_cost_table_manual_run_test",
@@ -1370,6 +1385,8 @@
             "customProperties": {
                 "_access_control": "None",
                 "catchup": "False",
+                "description": "None",
+                "doc_md": "None",
                 "fileloc": "'/Users/hsheth/projects/datahub/metadata-ingestion-modules/airflow-plugin/tests/integration/dags/sqlite_operator.py'",
                 "is_paused_upon_creation": "None",
                 "start_date": "DateTime(2023, 1, 1, 0, 0, 0, tzinfo=Timezone('UTC'))",
@@ -1529,7 +1546,10 @@
                 "state": "running",
                 "operator": "SqliteOperator",
                 "priority_weight": "1",
-                "log_url": "http://airflow.example.com/log?execution_date=2023-09-27T21%3A34%3A38%2B00%3A00&task_id=cleanup_costs&dag_id=sqlite_operator&map_index=-1"
+                "log_url": "http://airflow.example.com/log?execution_date=2023-09-27T21%3A34%3A38%2B00%3A00&task_id=cleanup_costs&dag_id=sqlite_operator&map_index=-1",
+                "orchestrator": "airflow",
+                "dag_id": "sqlite_operator",
+                "task_id": "cleanup_costs"
             },
             "externalUrl": "http://airflow.example.com/log?execution_date=2023-09-27T21%3A34%3A38%2B00%3A00&task_id=cleanup_costs&dag_id=sqlite_operator&map_index=-1",
             "name": "sqlite_operator_cleanup_costs_manual_run_test",
@@ -1719,6 +1739,8 @@
             "customProperties": {
                 "_access_control": "None",
                 "catchup": "False",
+                "description": "None",
+                "doc_md": "None",
                 "fileloc": "'/Users/hsheth/projects/datahub/metadata-ingestion-modules/airflow-plugin/tests/integration/dags/sqlite_operator.py'",
                 "is_paused_upon_creation": "None",
                 "start_date": "DateTime(2023, 1, 1, 0, 0, 0, tzinfo=Timezone('UTC'))",
@@ -1878,7 +1900,10 @@
                 "state": "running",
                 "operator": "SqliteOperator",
                 "priority_weight": "1",
-                "log_url": "http://airflow.example.com/log?execution_date=2023-09-27T21%3A34%3A38%2B00%3A00&task_id=cleanup_processed_costs&dag_id=sqlite_operator&map_index=-1"
+                "log_url": "http://airflow.example.com/log?execution_date=2023-09-27T21%3A34%3A38%2B00%3A00&task_id=cleanup_processed_costs&dag_id=sqlite_operator&map_index=-1",
+                "orchestrator": "airflow",
+                "dag_id": "sqlite_operator",
+                "task_id": "cleanup_processed_costs"
             },
             "externalUrl": "http://airflow.example.com/log?execution_date=2023-09-27T21%3A34%3A38%2B00%3A00&task_id=cleanup_processed_costs&dag_id=sqlite_operator&map_index=-1",
             "name": "sqlite_operator_cleanup_processed_costs_manual_run_test",

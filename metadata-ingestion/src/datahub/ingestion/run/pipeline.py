@@ -390,7 +390,15 @@ class Pipeline:
                         record_envelopes = self.extractor.get_records(wu)
                         for record_envelope in self.transform(record_envelopes):
                             if not self.dry_run:
-                                self.sink.write_record_async(record_envelope, callback)
+                                try:
+                                    self.sink.write_record_async(
+                                        record_envelope, callback
+                                    )
+                                except Exception as e:
+                                    # In case the sink's error handling is bad, we still want to report the error.
+                                    self.sink.report.report_failure(
+                                        f"Failed to write record: {e}"
+                                    )
 
                     except RuntimeError:
                         raise

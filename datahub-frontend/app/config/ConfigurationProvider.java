@@ -1,6 +1,7 @@
 package config;
 
 import com.linkedin.metadata.config.cache.CacheConfiguration;
+import com.linkedin.metadata.config.kafka.KafkaConfiguration;
 import com.linkedin.metadata.spring.YamlPropertySourceFactory;
 import lombok.Data;
 
@@ -11,7 +12,6 @@ import org.springframework.context.annotation.PropertySource;
 
 /**
  * Minimal sharing between metadata-service and frontend
- * Initially for use of client caching configuration.
  * Does not use the factories module to avoid transitive dependencies.
  */
 @EnableConfigurationProperties
@@ -19,6 +19,10 @@ import org.springframework.context.annotation.PropertySource;
 @ConfigurationProperties
 @Data
 public class ConfigurationProvider {
+    /**
+     * Kafka related configs.
+     */
+    private KafkaConfiguration kafka;
 
     /**
      * Configuration for caching
