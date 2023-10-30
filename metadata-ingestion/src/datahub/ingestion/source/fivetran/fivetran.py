@@ -32,6 +32,7 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
+from datahub.metadata.schema_classes import StatusClass
 from datahub.utilities.urns.data_flow_urn import DataFlowUrn
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 
@@ -181,7 +182,9 @@ class FivetranSource(StatefulIngestionSourceBase):
             return []
         result = status_result_map[job.status]
         start_timestamp_millis = job.start_time * 1000
-        for mcp in dpi.generate_mcp(created_ts_millis=start_timestamp_millis):
+        for mcp in dpi.generate_mcp(
+            created_ts_millis=start_timestamp_millis, materialize_iolets=False
+        ):
             yield mcp.as_workunit()
         for mcp in dpi.start_event_mcp(start_timestamp_millis):
             yield mcp.as_workunit()
@@ -203,8 +206,13 @@ class FivetranSource(StatefulIngestionSourceBase):
 
         # Map Fivetran's connector entity with Datahub's datajob entity
         datajob = self._generate_datajob_from_connector(connector)
-        for mcp in datajob.generate_mcp():
-            yield mcp.as_workunit()
+        for mcp in datajob.generate_mcp(materialize_iolets=True):
+            if mcp.entityType == "dataset" and isinstance(mcp.aspect, StatusClass):
+                # While we "materialize" the referenced datasets, we don't want them
+                # to be tracked by stateful ingestion.
+                yield mcp.as_workunit(is_primary_source=False)
+            else:
+                yield mcp.as_workunit()
 
         # Map Fivetran's job/sync history entity with Datahub's data process entity
         for job in connector.jobs:
