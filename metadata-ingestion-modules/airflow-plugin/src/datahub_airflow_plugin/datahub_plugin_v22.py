@@ -3,7 +3,6 @@ import logging
 import traceback
 from typing import Any, Callable, Iterable, List, Optional, Union
 
-import airflow
 from airflow.lineage import PIPELINE_OUTLETS
 from airflow.models.baseoperator import BaseOperator
 from airflow.utils.module_loading import import_string
@@ -11,6 +10,7 @@ from cattr import structure
 from datahub.api.entities.dataprocess.dataprocess_instance import InstanceRunResult
 from datahub.telemetry import telemetry
 
+import airflow
 from datahub_airflow_plugin._airflow_shims import (
     MappedOperator,
     get_task_inlets,

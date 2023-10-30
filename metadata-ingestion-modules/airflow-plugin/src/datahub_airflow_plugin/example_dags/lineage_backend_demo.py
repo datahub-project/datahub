@@ -5,10 +5,10 @@ An example DAG demonstrating the usage of DataHub's Airflow lineage backend.
 
 from datetime import timedelta
 
-from airflow import DAG
 from airflow.operators.bash import BashOperator
 from airflow.utils.dates import days_ago
 
+from airflow import DAG
 from datahub_airflow_plugin.entities import Dataset, Urn
 
 default_args = {
@@ -46,6 +46,7 @@ with DAG(
             Urn(
                 "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableC,PROD)"
             ),
+            Urn("urn:li:dataJob:(urn:li:dataFlow:(airflow,dag1,prod),task1)"),
         ],
         outlets=[Dataset("snowflake", "mydb.schema.tableD")],
     )

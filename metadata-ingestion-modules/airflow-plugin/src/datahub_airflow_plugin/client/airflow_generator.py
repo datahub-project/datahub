@@ -17,9 +17,9 @@ from datahub_airflow_plugin._airflow_compat import AIRFLOW_PATCHED
 assert AIRFLOW_PATCHED
 
 if TYPE_CHECKING:
-    from airflow import DAG
     from airflow.models import DagRun, TaskInstance
 
+    from airflow import DAG
     from datahub_airflow_plugin._airflow_shims import Operator
 
 

@@ -1,8 +1,8 @@
 from datetime import datetime
 
-from airflow import DAG
 from airflow.operators.bash import BashOperator
 
+from airflow import DAG
 from datahub_airflow_plugin.entities import Dataset, Urn
 
 with DAG(
@@ -26,6 +26,7 @@ with DAG(
             Urn(
                 "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableC,PROD)"
             ),
+            Urn("urn:li:dataJob:(urn:li:dataFlow:(airflow,test_dag,PROD),test_task)"),
         ],
         outlets=[
             Dataset("snowflake", "mydb.schema.tableD"),
