@@ -3,8 +3,8 @@ import tenacity
 
 from tests.utils import (get_frontend_session, wait_for_writes_to_sync, wait_for_healthcheck_util,
                         get_frontend_url, get_admin_credentials,get_sleep_info)
-from tests.privileges.utils import (base_privileges_set_status, sensitive_info_prifileges_set_status, 
-                                    view_entity_prifileges_set_status, create_user, remove_user,login_as)
+from tests.privileges.utils import (set_base_platform_privileges_policy_status, set_view_dataset_sensitive_info_policy_status, 
+                                    set_view_entity_profile_privileges_policy_status, create_user, remove_user,login_as)
 
 sleep_sec, sleep_times = get_sleep_info()
 
@@ -30,9 +30,9 @@ def admin_session(wait_for_healthchecks):
 def privileges_and_test_user_setup(admin_session):
     """Fixture to execute setup before and tear down after all tests are run"""
     # Disable 'All users' privileges
-    base_privileges_set_status("INACTIVE", admin_session)
-    sensitive_info_prifileges_set_status("INACTIVE", admin_session)
-    view_entity_prifileges_set_status("INACTIVE", admin_session)
+    set_base_platform_privileges_policy_status("INACTIVE", admin_session)
+    set_view_dataset_sensitive_info_policy_status("INACTIVE", admin_session)
+    set_view_entity_profile_privileges_policy_status("INACTIVE", admin_session)
     # Sleep for eventual consistency
     wait_for_writes_to_sync()
 
@@ -45,9 +45,9 @@ def privileges_and_test_user_setup(admin_session):
     remove_user(admin_session, "urn:li:corpuser:user")
 
     # Restore All users privileges
-    base_privileges_set_status("ACTIVE", admin_session)
-    sensitive_info_prifileges_set_status("ACTIVE", admin_session)
-    view_entity_prifileges_set_status("ACTIVE", admin_session)
+    set_base_platform_privileges_policy_status("ACTIVE", admin_session)
+    set_view_dataset_sensitive_info_policy_status("ACTIVE", admin_session)
+    set_view_entity_profile_privileges_policy_status("ACTIVE", admin_session)
 
     # Sleep for eventual consistency
     wait_for_writes_to_sync()
@@ -56,7 +56,7 @@ def privileges_and_test_user_setup(admin_session):
 @tenacity.retry(
     stop=tenacity.stop_after_attempt(10), wait=tenacity.wait_fixed(sleep_sec)
 )
-def _ensure_can_create_secret(session, json):
+def _ensure_can_create_secret(session, json, url):
     create_secret_success = session.post(
         f"{get_frontend_url()}/api/v2/graphql", json=json)
     create_secret_success.raise_for_status()
@@ -65,7 +65,7 @@ def _ensure_can_create_secret(session, json):
     assert secret_data
     assert secret_data["data"]
     assert secret_data["data"]["createSecret"]
-    assert secret_data["data"]["createSecret"] == "urn:li:dataHubSecret:TestSecretName"
+    assert secret_data["data"]["createSecret"] == url
     
 
 @tenacity.retry(
@@ -88,6 +88,7 @@ def test_add_and_verify_privileges_to_manage_secrets():
     (admin_user, admin_pass) = get_admin_credentials()
     admin_session = login_as(admin_user, admin_pass)
     user_session = login_as("user", "user")
+    secret_urn = "urn:li:dataHubSecret:TestSecretName"
 
     # Verify new user can't create secrets
     create_secret = { 
@@ -138,7 +139,7 @@ def test_add_and_verify_privileges_to_manage_secrets():
 
     # Verify new user can create and manage secrets
     # Create a secret
-    _ensure_can_create_secret(user_session, create_secret)
+    _ensure_can_create_secret(user_session, create_secret, secret_urn)
 
 
     # Remove a secret
@@ -146,7 +147,7 @@ def test_add_and_verify_privileges_to_manage_secrets():
         "query": """mutation deleteSecret($urn: String!) {\n
             deleteSecret(urn: $urn)\n}""",
         "variables": {
-            "urn": "urn:li:dataHubSecret:TestSecretName"
+            "urn": secret_urn
         },
     }
 
@@ -157,7 +158,7 @@ def test_add_and_verify_privileges_to_manage_secrets():
     assert secret_data
     assert secret_data["data"]
     assert secret_data["data"]["deleteSecret"]
-    assert secret_data["data"]["deleteSecret"] == "urn:li:dataHubSecret:TestSecretName"
+    assert secret_data["data"]["deleteSecret"] == secret_urn
 
 
     # Remove the policy

@@ -3,7 +3,7 @@ from tests.consistency_utils import wait_for_writes_to_sync
 from tests.utils import (get_frontend_url, wait_for_writes_to_sync, get_admin_credentials)
 
 
-def base_privileges_set_status(status, session):
+def set_base_platform_privileges_policy_status(status, session):
     base_platform_privileges = { 
         "query": """mutation updatePolicy($urn: String!, $input: PolicyUpdateInput!) {\n
             updatePolicy(urn: $urn, input: $input) }""",
@@ -43,7 +43,7 @@ def base_privileges_set_status(status, session):
     base_res_data = base_privileges_response.json()
     assert base_res_data["data"]["updatePolicy"] == "urn:li:dataHubPolicy:7"
 
-def sensitive_info_prifileges_set_status(status, session):
+def set_view_dataset_sensitive_info_policy_status(status, session):
     dataset_sensitive_information = { 
         "query": """mutation updatePolicy($urn: String!, $input: PolicyUpdateInput!) {\n
             updatePolicy(urn: $urn, input: $input) }""",
@@ -72,7 +72,7 @@ def sensitive_info_prifileges_set_status(status, session):
     sens_info_data = sensitive_info_response.json()
     assert sens_info_data["data"]["updatePolicy"] == "urn:li:dataHubPolicy:view-dataset-sensitive"
 
-def view_entity_prifileges_set_status(status, session):
+def set_view_entity_profile_privileges_policy_status(status, session):
     view_entity_page = { 
         "query": """mutation updatePolicy($urn: String!, $input: PolicyUpdateInput!) {\n
             updatePolicy(urn: $urn, input: $input) }""",
