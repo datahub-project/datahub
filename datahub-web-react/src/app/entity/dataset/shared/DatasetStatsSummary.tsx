@@ -12,6 +12,9 @@ import ExpandingStat from './ExpandingStat';
 
 const StatText = styled.span<{ color: string }>`
     color: ${(props) => props.color};
+    @media (min-width: 1160px) {
+        width: 100%;
+        white-space: nowrap;
 `;
 
 const PopoverContent = styled.div`
@@ -47,6 +50,7 @@ export const DatasetStatsSummary = ({
     const statsViews = [
         !!rowCount && (
             <ExpandingStat
+                renderCss={false}
                 disabled={isTooltipMode || !needsFormatting(rowCount)}
                 render={(isExpanded) => (
                     <StatText color={displayedColor}>
