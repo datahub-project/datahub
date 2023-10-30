@@ -1,4 +1,5 @@
 import React, { CSSProperties, useRef, useState } from 'react';
+import { LoadingOutlined } from '@ant-design/icons';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
 import Highlight from 'react-highlighter';
@@ -47,6 +48,13 @@ const SearchResult = styled(Link)`
     }
 `;
 
+const LoadingWrapper = styled.div`
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 350px;
+    font-size: 30px;
+`;
 const IconWrapper = styled.span``;
 
 const highlightMatchStyle: CSSProperties = {
@@ -60,7 +68,7 @@ function DomainSearch() {
     const [isSearchBarFocused, setIsSearchBarFocused] = useState(false);
     const entityRegistry = useEntityRegistry();
 
-    const { data } = useGetSearchResultsForMultipleQuery({
+    const { data, loading } = useGetSearchResultsForMultipleQuery({
         variables: {
             input: {
                 types: [EntityType.Domain],
@@ -69,7 +77,6 @@ function DomainSearch() {
                 count: 50,
             },
         },
-        skip: !query,
     });
 
     const searchResults = data?.searchAcrossEntities?.searchResults;
@@ -102,38 +109,47 @@ function DomainSearch() {
                     entityRegistry={entityRegistry}
                     onFocus={() => setIsSearchBarFocused(true)}
                 />
-                {isSearchBarFocused && searchResults && !!searchResults.length && (
-                    <ResultsWrapper>
-                        {searchResults.map((result) => {
-                            return (
-                                <SearchResult
-                                    to={entityRegistry.getEntityUrl(result.entity.type, result.entity.urn)}
-                                    onClick={() => setIsSearchBarFocused(false)}
-                                >
-                                    <IconWrapper>
-                                        {result.entity.type === EntityType.Domain ? (
-                                            <DomainIcon
-                                                style={{
-                                                    fontSize: 16,
-                                                    color: '#BFBFBF',
-                                                }}
-                                            />
-                                        ) : (
-                                            entityRegistry.getIcon(result.entity.type, 12, IconStyleType.ACCENT)
-                                        )}
-                                    </IconWrapper>
-                                    <div>
-                                        <ParentEntities
-                                            parentEntities={getParentDomains(result.entity, entityRegistry)}
-                                        />
-                                        <Highlight matchStyle={highlightMatchStyle} search={query}>
-                                            {entityRegistry.getDisplayName(result.entity.type, result.entity)}
-                                        </Highlight>
-                                    </div>
-                                </SearchResult>
-                            );
-                        })}
-                    </ResultsWrapper>
+                {loading && (
+                    <LoadingWrapper>
+                        <LoadingOutlined />
+                    </LoadingWrapper>
+                )}
+                {!loading && (
+                    <>
+                        {isSearchBarFocused && searchResults && !!searchResults.length && (
+                            <ResultsWrapper>
+                                {searchResults.map((result) => {
+                                    return (
+                                        <SearchResult
+                                            to={entityRegistry.getEntityUrl(result.entity.type, result.entity.urn)}
+                                            onClick={() => setIsSearchBarFocused(false)}
+                                        >
+                                            <IconWrapper>
+                                                {result.entity.type === EntityType.Domain ? (
+                                                    <DomainIcon
+                                                        style={{
+                                                            fontSize: 16,
+                                                            color: '#BFBFBF',
+                                                        }}
+                                                    />
+                                                ) : (
+                                                    entityRegistry.getIcon(result.entity.type, 12, IconStyleType.ACCENT)
+                                                )}
+                                            </IconWrapper>
+                                            <div>
+                                                <ParentEntities
+                                                    parentEntities={getParentDomains(result.entity, entityRegistry)}
+                                                />
+                                                <Highlight matchStyle={highlightMatchStyle} search={query}>
+                                                    {entityRegistry.getDisplayName(result.entity.type, result.entity)}
+                                                </Highlight>
+                                            </div>
+                                        </SearchResult>
+                                    );
+                                })}
+                            </ResultsWrapper>
+                        )}
+                    </>
                 )}
             </ClickOutside>
         </DomainSearchWrapper>
