@@ -21,7 +21,8 @@ public class TopPlatformsSource extends EntitySearchAggregationSource {
    * TODO: Remove this once we permit specifying set of entities in aggregation API (filter out assertions)
    */
   private static final Set<String> FILTERED_DATA_PLATFORM_URNS = ImmutableSet.of(
-      "urn:li:dataPlatform:great-expectations"
+      "urn:li:dataPlatform:great-expectations",
+      "urn:li:dataPlatform:slack"
   );
 
   private final EntityService _entityService;
