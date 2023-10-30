@@ -67,8 +67,8 @@ export default function PolicyPrivilegeForm({
     } = useAppConfig();
 
     const resources: ResourceFilter = convertLegacyResourceFilter(maybeResources) || EMPTY_POLICY.resources;
-    const resourceTypes = getFieldValues(resources.filter, 'RESOURCE_TYPE') || [];
-    const resourceEntities = getFieldValues(resources.filter, 'RESOURCE_URN') || [];
+    const resourceTypes = getFieldValues(resources.filter, 'TYPE') || [];
+    const resourceEntities = getFieldValues(resources.filter, 'URN') || [];
 
     const getDisplayName = (entity) => {
         if (!entity) {
@@ -145,10 +145,7 @@ export default function PolicyPrivilegeForm({
         };
         setResources({
             ...resources,
-            filter: setFieldValues(filter, 'RESOURCE_TYPE', [
-                ...resourceTypes,
-                createCriterionValue(selectedResourceType),
-            ]),
+            filter: setFieldValues(filter, 'TYPE', [...resourceTypes, createCriterionValue(selectedResourceType)]),
         });
     };
 
@@ -160,7 +157,7 @@ export default function PolicyPrivilegeForm({
             ...resources,
             filter: setFieldValues(
                 filter,
-                'RESOURCE_TYPE',
+                'TYPE',
                 resourceTypes?.filter((criterionValue) => criterionValue.value !== deselectedResourceType),
             ),
         });
@@ -173,7 +170,7 @@ export default function PolicyPrivilegeForm({
         };
         setResources({
             ...resources,
-            filter: setFieldValues(filter, 'RESOURCE_URN', [
+            filter: setFieldValues(filter, 'URN', [
                 ...resourceEntities,
                 createCriterionValueWithEntity(
                     resource,
@@ -192,7 +189,7 @@ export default function PolicyPrivilegeForm({
             ...resources,
             filter: setFieldValues(
                 filter,
-                'RESOURCE_URN',
+                'URN',
                 resourceEntities?.filter((criterionValue) => criterionValue.value !== resource),
             ),
         });

@@ -176,7 +176,11 @@ export const SecretsList = () => {
             <div>
                 <TabToolbar>
                     <div>
-                        <Button type="text" onClick={() => setIsCreatingSecret(true)}>
+                        <Button
+                            data-testid="create-secret-button"
+                            type="text"
+                            onClick={() => setIsCreatingSecret(true)}
+                        >
                             <PlusOutlined /> Create new secret
                         </Button>
                     </div>
