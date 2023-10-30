@@ -629,7 +629,16 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
         self.query_combiner.flush()
 
         assert profile.rowCount is not None
-        row_count: int = profile.rowCount
+        row_count: int  # used for null counts calculation
+        if profile.partitionSpec and "SAMPLE" in profile.partitionSpec.partition:
+            # We can alternatively use `self._get_dataset_rows(profile)` to get
+            # exact count of rows in sample, as actual rows involved in sample
+            # may be slightly different (more or less) than configured `sample_size`.
+            # However not doing so to start with, as that adds another query overhead
+            # plus approximate metrics should work for sampling based profiling.
+            row_count = self.config.sample_size
+        else:
+            row_count = profile.rowCount
 
         for column_spec in columns_profiling_queue:
             column = column_spec.column
@@ -792,13 +801,6 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
             if temp_table_name:
                 self.dataset._table = sa.text(temp_table_name)
                 logger.debug(f"Setting table name to be {self.dataset._table}")
-
-                # We can alternatively use `self._get_dataset_rows(profile)` to get
-                # exact count of rows in sample, as actual rows involved in sample
-                # may be slightly different (more or less) than configured `sample_size`.
-                # However not doing so to start with, as that adds another query overhead
-                # plus approximate metrics should work for sampling based profiling.
-                profile.rowCount = self.config.sample_size
 
                 if (
                     profile.partitionSpec
