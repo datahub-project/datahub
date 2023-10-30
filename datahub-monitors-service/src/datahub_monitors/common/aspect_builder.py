@@ -4,6 +4,8 @@ import time
 from typing import Dict, Optional
 
 from datahub.metadata.schema_classes import (
+    AssertionDryRunEventClass,
+    AssertionDryRunResultClass,
     AssertionResultClass,
     AssertionResultErrorClass,
     AssertionResultTypeClass,
@@ -67,6 +69,64 @@ def build_assertion_result(
         error = build_assertion_result_error(result.error)
 
     return AssertionResultClass(
+        type=AssertionResultTypeClass.SUCCESS
+        if result.type == AssertionResultType.SUCCESS
+        else AssertionResultTypeClass.FAILURE
+        if result.type == AssertionResultType.FAILURE
+        else AssertionResultTypeClass.INIT
+        if result.type == AssertionResultType.INIT
+        else AssertionResultTypeClass.ERROR,
+        rowCount=row_count,
+        nativeResults=native_results,
+        error=error,
+    )
+
+
+def build_assertion_dry_run_event(
+    assertion: Assertion,
+    assertion_evaluation_result: AssertionEvaluationResult,
+) -> AssertionDryRunEventClass:
+    event_result = build_assertion_dry_run_result(
+        assertion, assertion_evaluation_result
+    )
+
+    now_ms = int(time.time() * 1000)
+    return AssertionDryRunEventClass(
+        timestampMillis=now_ms,
+        asserteeUrn=assertion.entity.urn,
+        status=AssertionRunStatusClass.COMPLETE,
+        result=event_result,
+    )
+
+
+def build_assertion_dry_run_result(
+    assertion: Assertion, result: AssertionEvaluationResult
+) -> AssertionDryRunResultClass:
+    logger.info(
+        f"Attempting to produce Assertion Dry Run Result for assertion run with urn {assertion.urn}. Result {result.type}"
+    )
+
+    parameters = result.parameters
+    error = None
+    native_results = None
+    row_count = None
+    if parameters is not None:
+        if assertion.type == AssertionType.FRESHNESS:
+            native_results = _freshness_parameters_to_native_results(parameters)
+        elif assertion.type == AssertionType.VOLUME:
+            native_results = _volume_parameters_to_native_results(parameters)
+        elif assertion.type == AssertionType.SQL:
+            native_results = _sql_parameters_to_native_results(parameters)
+        elif assertion.type == AssertionType.FIELD:
+            native_results = _field_parameters_to_native_results(parameters)
+
+        if "row_count" in parameters:
+            row_count = parameters["row_count"]
+
+    if result.error is not None:
+        error = build_assertion_result_error(result.error)
+
+    return AssertionDryRunResultClass(
         type=AssertionResultTypeClass.SUCCESS
         if result.type == AssertionResultType.SUCCESS
         else AssertionResultTypeClass.FAILURE

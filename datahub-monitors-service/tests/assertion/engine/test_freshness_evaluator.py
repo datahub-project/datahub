@@ -341,7 +341,7 @@ class TestFreshnessEvaluator:
             "urn:li:dataset:test", [TEST_START, TEST_END], ANY
         )
 
-    def test_evaluate_high_watermark_assertion_dry_run(self) -> None:
+    def test_evaluate_high_watermark_assertion_no_monitor_urn(self) -> None:
         source_mock = Mock(spec=Source)
         self.source_provider.create_source_from_connection.return_value = source_mock
         source_mock.get_current_high_watermark_for_column.return_value = (
@@ -350,7 +350,6 @@ class TestFreshnessEvaluator:
         )
 
         self.context.monitor_urn = ""
-        self.context.dry_run = True
 
         eval_result = self.evaluator._evaluate_internal_window_event(
             [TEST_START, TEST_END],

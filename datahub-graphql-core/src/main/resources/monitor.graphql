@@ -412,6 +412,12 @@ enum MonitorMode {
   The monitor is disabled, or not actively operating
   """
   INACTIVE
+
+  """
+  The monitor is in passive mode
+  For assertion monitors, this means that assertions will be run in dry mode.
+  """
+  PASSIVE
 }
 
 """

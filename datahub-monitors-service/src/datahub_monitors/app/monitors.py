@@ -17,6 +17,9 @@ from datahub_monitors.assertion.engine.evaluator.sql_evaluator import (
 from datahub_monitors.assertion.engine.evaluator.volume_evaluator import (
     VolumeAssertionEvaluator,
 )
+from datahub_monitors.assertion.result.assertion_dry_run_event_handler import (
+    AssertionDryRunEventResultHandler,
+)
 from datahub_monitors.assertion.result.assertion_run_event_handler import (
     AssertionRunEventResultHandler,
 )
@@ -85,10 +88,14 @@ def create_assertion_engine(graph: DataHubAssertionGraph) -> AssertionEngine:
         ),
     ]
 
+    # Create result handlers
+    result_handlers = [
+        AssertionRunEventResultHandler(graph),
+        AssertionDryRunEventResultHandler(graph),
+    ]
+
     # Create assertion engine
-    return AssertionEngine(
-        evaluators, result_handlers=[AssertionRunEventResultHandler(graph)]
-    )
+    return AssertionEngine(evaluators, result_handlers=result_handlers)
 
 
 def start_async_monitors(config: MonitorFetcherConfig) -> None:

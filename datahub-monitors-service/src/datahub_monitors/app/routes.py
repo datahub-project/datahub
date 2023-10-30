@@ -56,12 +56,16 @@ def evaluate_assertion(
     if dataset := result.get("dataset", None):
         table_name = (
             dataset["properties"]["name"]
-            if "properties" in dataset and "name" in dataset["properties"]
+            if "properties" in dataset
+            and dataset["properties"] is not None
+            and "name" in dataset["properties"]
             else None
         )
         qualified_name = (
             dataset["properties"]["qualifiedName"]
-            if "properties" in dataset and "qualifiedName" in dataset["properties"]
+            if "properties" in dataset
+            and dataset["properties"] is not None
+            and "qualifiedName" in dataset["properties"]
             else None
         )
 

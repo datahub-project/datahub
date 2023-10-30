@@ -1,7 +1,5 @@
 from unittest.mock import Mock
 
-import pytest
-
 from datahub_monitors.assertion.engine.evaluator.sql_evaluator import (
     SQLAssertionEvaluator,
 )
@@ -10,7 +8,6 @@ from datahub_monitors.connection.connection import Connection
 from datahub_monitors.connection.datahub_ingestion_source_connection_provider import (
     DataHubIngestionSourceConnectionProvider,
 )
-from datahub_monitors.exceptions import InvalidParametersException
 from datahub_monitors.source.provider import SourceProvider
 from datahub_monitors.source.source import Source
 from datahub_monitors.state.datahub_monitor_state_provider import (
@@ -326,25 +323,6 @@ class TestSQLEvaluator:
         )
         self.assertion.sql_assertion = sql_assertion
         self.context.monitor_urn = ""
-
-        with pytest.raises(InvalidParametersException):
-            self.evaluator._evaluate_internal(
-                self.assertion, self.params, self.connection, self.context
-            )
-
-    def test_evaluate_row_count_change_dry_run(self) -> None:
-        sql_assertion = SQLAssertion(
-            type=SQLAssertionType.METRIC_CHANGE,
-            change_type=AssertionValueChangeType.PERCENTAGE,
-            statement=TEST_SQL_STATEMENT,
-            operator=AssertionStdOperator.EQUAL_TO,
-            parameters=AssertionStdParameters(
-                value=AssertionStdParameter(value="10", type="NUMBER"),
-            ),
-        )
-        self.assertion.sql_assertion = sql_assertion
-        self.context.monitor_urn = ""
-        self.context.dry_run = True
 
         result = self.evaluator._evaluate_internal(
             self.assertion, self.params, self.connection, self.context

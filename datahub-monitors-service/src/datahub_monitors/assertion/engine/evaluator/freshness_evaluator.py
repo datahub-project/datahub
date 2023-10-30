@@ -204,17 +204,11 @@ class FreshnessAssertionEvaluator(AssertionEvaluator):
         [start_time, _] = window
         start_time = start_time - STATEFUL_ASSERTION_EVALUATION_BUFFER
 
-        if not context.monitor_urn and context.dry_run is False:
-            raise InvalidParametersException(
-                message=f"_evaluate_high_watermark_assertion for {assertion.urn} requires a monitor_urn",
-                parameters={"source_params": source_params, "context": context},
-            )
-
         previous_state = (
             self.state_provider.get_state(
                 context.monitor_urn, AssertionStateType.MONITOR_TIMESERIES_STATE
             )
-            if context.dry_run is False and context.monitor_urn
+            if context.monitor_urn
             else None
         )
 
@@ -284,11 +278,9 @@ class FreshnessAssertionEvaluator(AssertionEvaluator):
                 AssertionResultType.SUCCESS,
                 parameters={
                     "row_count": current_row_count,
-                    "prev_row_count": int(
-                        previous_state.properties.get("row_count", "0")
-                    )
+                    "prev_row_count": previous_state.properties.get("row_count", "0")
                     if previous_state
-                    else 0,
+                    else "0",
                 },
             )
         else:
@@ -296,9 +288,7 @@ class FreshnessAssertionEvaluator(AssertionEvaluator):
                 AssertionResultType.FAILURE,
                 parameters={
                     "row_count": current_row_count,
-                    "prev_row_count": int(
-                        previous_state.properties.get("row_count", "0")
-                    )
+                    "prev_row_count": previous_state.properties.get("row_count", "0")
                     if previous_state
                     else 0,
                 },
@@ -316,7 +306,7 @@ class FreshnessAssertionEvaluator(AssertionEvaluator):
                 else "0"
             )
 
-        if context.dry_run is False and context.monitor_urn:
+        if context.monitor_urn:
             self.state_provider.save_state(
                 context.monitor_urn,
                 AssertionState(

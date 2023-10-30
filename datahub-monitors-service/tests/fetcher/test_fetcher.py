@@ -175,7 +175,7 @@ def test_fetch_freshness_assertion() -> None:
                             },
                             {
                                 "field": "mode",
-                                "values": ["ACTIVE"],
+                                "values": ["ACTIVE", "PASSIVE"],
                                 "condition": "EQUAL",
                             },
                         ]
@@ -332,7 +332,7 @@ def test_fetch_volume_assertion() -> None:
                             },
                             {
                                 "field": "mode",
-                                "values": ["ACTIVE"],
+                                "values": ["ACTIVE", "PASSIVE"],
                                 "condition": "EQUAL",
                             },
                         ]
@@ -477,7 +477,7 @@ def test_fetch_sql_assertion() -> None:
                             },
                             {
                                 "field": "mode",
-                                "values": ["ACTIVE"],
+                                "values": ["ACTIVE", "PASSIVE"],
                                 "condition": "EQUAL",
                             },
                         ]
@@ -646,7 +646,7 @@ def test_fetch_field_assertion() -> None:
                             },
                             {
                                 "field": "mode",
-                                "values": ["ACTIVE"],
+                                "values": ["ACTIVE", "PASSIVE"],
                                 "condition": "EQUAL",
                             },
                         ]

@@ -46,9 +46,8 @@ class AssertionEngine:
 
         result = evaluator.evaluate(assertion, parameters, context)
 
-        if not context.dry_run:
-            # Execute the result handlers.
-            for result_handler in self.result_handlers:
-                result_handler.handle(assertion, parameters, result, context)
+        # Execute the result handlers.
+        for result_handler in self.result_handlers:
+            result_handler.handle(assertion, parameters, result, context)
 
         return result

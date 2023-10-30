@@ -215,6 +215,9 @@ fragment MonitorSearchResults on SearchResults {
         urn
         info {
           type
+          status {
+            mode
+          }
           assertionMonitor {
             assertions {
               assertion {
@@ -253,9 +256,6 @@ fragment MonitorSearchResults on SearchResults {
                 }
               }
             }
-          }
-          status {
-            mode
           }
         }
       }

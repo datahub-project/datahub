@@ -8,7 +8,7 @@ def build_filters(config: MonitorFetcherConfig) -> List[Any]:
     or_filters: List[Any] = []
     active_filter = {
         "field": "mode",
-        "values": [MonitorMode.ACTIVE.value],
+        "values": [MonitorMode.ACTIVE.value, MonitorMode.PASSIVE.value],
         "condition": "EQUAL",
     }
 

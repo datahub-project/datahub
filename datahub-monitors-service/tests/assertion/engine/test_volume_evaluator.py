@@ -469,25 +469,6 @@ class TestVolumeEvaluator:
         )
         assert result.type == AssertionResultType.INIT
 
-    def test_evaluate_row_count_change_no_monitor_urn(self) -> None:
-        volume_assertion = VolumeAssertion(
-            type=VolumeAssertionType.ROW_COUNT_CHANGE,
-            row_count_change=RowCountChange(
-                type=AssertionValueChangeType.ABSOLUTE,
-                operator=AssertionStdOperator.EQUAL_TO,
-                parameters=AssertionStdParameters(
-                    value=AssertionStdParameter(value="10", type="NUMBER"),
-                ),
-            ),
-        )
-        self.assertion.volume_assertion = volume_assertion
-        self.context.monitor_urn = ""
-
-        with pytest.raises(InvalidParametersException):
-            self.evaluator._evaluate_internal(
-                self.assertion, self.params, self.connection, self.context
-            )
-
     def test_evaluate_row_count_total_dataset_profile_success(self) -> None:
         evaluation_params = AssertionEvaluationParameters(
             type=AssertionEvaluationParametersType.DATASET_VOLUME,
@@ -585,7 +566,7 @@ class TestVolumeEvaluator:
         assert result.type == AssertionResultType.SUCCESS
         assert result.parameters == {"row_count": 999, "prev_row_count": "899"}
 
-    def test_evaluate_row_count_change_dry_run(self) -> None:
+    def test_evaluate_row_count_change_no_monitor_urn(self) -> None:
         volume_assertion = VolumeAssertion(
             type=VolumeAssertionType.ROW_COUNT_CHANGE,
             row_count_change=RowCountChange(
@@ -598,7 +579,6 @@ class TestVolumeEvaluator:
         )
         self.assertion.volume_assertion = volume_assertion
         self.context.monitor_urn = ""
-        self.context.dry_run = True
 
         self.evaluator._evaluate_internal(
             self.assertion, self.params, self.connection, self.context
