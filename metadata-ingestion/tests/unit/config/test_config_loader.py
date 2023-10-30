@@ -13,6 +13,7 @@ from datahub.configuration.config_loader import (
     list_referenced_env_variables,
     load_config_file,
 )
+from datahub.configuration.yaml import IncludeLoader
 
 
 @pytest.mark.parametrize(
@@ -32,6 +33,22 @@ from datahub.configuration.config_loader import (
             {},
             set(),
         ),
+        (
+            # Include YAML load
+            "tests/unit/config/basic_include.yml",
+            {
+                "foo": "bar",
+                "nested": {
+                    "array": ["one", "two"],
+                    "hi": "hello",
+                    "numbers": {4: "four", 6: "six", "8": "eight"},
+                    "included": {5: "five", 2: "two", "1": "one"},
+                },
+            },
+            {},
+            set(),
+        ),
+
         (
             # Basic TOML load
             "tests/unit/config/basic.toml",
@@ -130,7 +147,7 @@ def test_load_success(pytestconfig, filename, golden_config, env, referenced_env
     filepath = pytestconfig.rootpath / filename
 
     if referenced_env_vars is not None:
-        raw_config = yaml.safe_load(filepath.read_text())
+        raw_config = yaml.load(filepath.read_text(), Loader=IncludeLoader)
         assert list_referenced_env_variables(raw_config) == referenced_env_vars
 
     with mock.patch.dict(os.environ, env):
