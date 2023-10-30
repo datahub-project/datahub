@@ -41,7 +41,7 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOk
               }
             : undefined,
     );
-    const [domainSearch, { data: domainSearchData }] = useGetSearchResultsLazyQuery();
+    const [domainSearch, { data: domainSearchData, loading }] = useGetSearchResultsLazyQuery();
     const domainSearchResults =
         domainSearchData?.search?.searchResults?.map((searchResult) => searchResult.entity) || [];
     const [batchSetDomainMutation] = useBatchSetDomainMutation();
@@ -181,40 +181,42 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOk
                 </>
             }
         >
-            <Form component={false}>
-                <Form.Item>
-                    <ClickOutside onClickOutside={handleCLickOutside}>
-                        <Select
-                            autoFocus
-                            defaultOpen
-                            filterOption={false}
-                            showSearch
-                            mode="multiple"
-                            defaultActiveFirstOption={false}
-                            placeholder="Search for Domains..."
-                            onSelect={(domainUrn: any) => onSelectDomain(domainUrn)}
-                            onDeselect={onDeselectDomain}
-                            onSearch={(value: string) => {
-                                // eslint-disable-next-line react/prop-types
-                                handleSearch(value.trim());
-                                // eslint-disable-next-line react/prop-types
-                                setInputValue(value.trim());
-                            }}
-                            ref={inputEl}
-                            value={selectValue}
-                            tagRender={tagRender}
-                            onBlur={handleBlur}
-                            onFocus={() => setIsFocusedOnInput(true)}
-                            dropdownStyle={isShowingDomainNavigator ? { display: 'none' } : {}}
-                        >
-                            {domainSearchOptions}
-                        </Select>
-                        <BrowserWrapper isHidden={!isShowingDomainNavigator}>
-                            <DomainNavigator selectDomainOverride={selectDomainFromBrowser} />
-                        </BrowserWrapper>
-                    </ClickOutside>
-                </Form.Item>
-            </Form>
+                <Form component={false}>
+                    <Form.Item>
+                        <ClickOutside onClickOutside={handleCLickOutside}>
+                            <Select
+                                autoFocus
+                                defaultOpen
+                                filterOption={false}
+                                showSearch
+                                mode="multiple"
+                                defaultActiveFirstOption={false}
+                                placeholder="Search for Domains..."
+                                onSelect={(domainUrn: any) => onSelectDomain(domainUrn)}
+                                onDeselect={onDeselectDomain}
+                                onSearch={(value: string) => {
+                                    // eslint-disable-next-line react/prop-types
+                                    handleSearch(value.trim());
+                                    // eslint-disable-next-line react/prop-types
+                                    setInputValue(value.trim());
+                                }}
+                                ref={inputEl}
+                                value={selectValue}
+                                tagRender={tagRender}
+                                onBlur={handleBlur}
+                                onFocus={() => setIsFocusedOnInput(true)}
+                                dropdownStyle={isShowingDomainNavigator ? { display: 'none' } : {}}
+                                loading={loading}
+                                disabled={loading}
+                            >
+                                {domainSearchOptions}
+                            </Select>
+                            <BrowserWrapper isHidden={!isShowingDomainNavigator}>
+                                <DomainNavigator selectDomainOverride={selectDomainFromBrowser} />
+                            </BrowserWrapper>
+                        </ClickOutside>
+                    </Form.Item>
+                </Form>
         </Modal>
     );
 };
