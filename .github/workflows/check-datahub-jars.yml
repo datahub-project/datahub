@@ -4,17 +4,13 @@ on:
   push:
     branches:
       - master
-    paths-ignore:
-      - "docker/**"
-      - "docs/**"
-      - "**.md"
+    paths:
+      - "metadata-integration"
   pull_request:
     branches:
       - "**"
-    paths-ignore:
-      - "docker/**"
-      - "docs/**"
-      - "**.md"
+    paths:
+      - "metadata-integration"
   release:
     types: [published]
 

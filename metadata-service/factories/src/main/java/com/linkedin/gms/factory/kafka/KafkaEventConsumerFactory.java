@@ -70,6 +70,7 @@ public class KafkaEventConsumerFactory {
         consumerProps.setEnableAutoCommit(true);
         consumerProps.setAutoCommitInterval(Duration.ofSeconds(10));
 
+
         // KAFKA_BOOTSTRAP_SERVER has precedence over SPRING_KAFKA_BOOTSTRAP_SERVERS
         if (kafkaConfiguration.getBootstrapServers() != null && kafkaConfiguration.getBootstrapServers().length() > 0) {
             consumerProps.setBootstrapServers(Arrays.asList(kafkaConfiguration.getBootstrapServers().split(",")));
@@ -83,6 +84,9 @@ public class KafkaEventConsumerFactory {
                 .stream()
                 .filter(entry -> entry.getValue() != null && !entry.getValue().toString().isEmpty())
                 .forEach(entry -> customizedProperties.put(entry.getKey(), entry.getValue()));
+
+        customizedProperties.put(ConsumerConfig.MAX_PARTITION_FETCH_BYTES_CONFIG,
+                kafkaConfiguration.getConsumer().getMaxPartitionFetchBytes());
 
         return customizedProperties;
     }
