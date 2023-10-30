@@ -821,10 +821,8 @@ def _extract_select_from_update(
     )
 
     # Update statements always implicitly have the updated table in context.
-    # TODO: Retain table name alias.
+    # TODO: Retain table name alias, if one was present.
     if select_statement.args.get("from"):
-        # select_statement = sqlglot.parse_one(select_statement.sql(dialect=dialect))
-
         select_statement = select_statement.join(
             statement.this, append=True, join_kind="cross"
         )
