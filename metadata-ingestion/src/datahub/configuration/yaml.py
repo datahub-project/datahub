@@ -1,6 +1,6 @@
-from typing import IO, Union
+from typing import IO
 
-import yaml, os, json
+import yaml, os
 
 from datahub.configuration import ConfigurationMechanism
 
