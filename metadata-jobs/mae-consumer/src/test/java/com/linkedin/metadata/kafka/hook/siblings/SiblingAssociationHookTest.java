@@ -306,7 +306,7 @@ public class SiblingAssociationHookTest {
   }
 
   @Test
-  public void testInvokeWhenSourceUrnHasTwoUpstreamsNoDbt() throws Exception {
+  public void testInvokeWhenxSourceUrnHasTwoUpstreamsNoDbt() throws Exception {
 
     MetadataChangeLog event = createEvent(DATASET_ENTITY_NAME, UPSTREAM_LINEAGE_ASPECT_NAME, ChangeType.UPSERT);
     final UpstreamLineage upstreamLineage = new UpstreamLineage();
