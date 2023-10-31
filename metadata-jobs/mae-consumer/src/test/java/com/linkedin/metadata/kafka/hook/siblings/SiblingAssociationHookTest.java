@@ -305,6 +305,27 @@ public class SiblingAssociationHookTest {
     Mockito.verify(_mockEntityClient, Mockito.times(2)).ingestProposal(Mockito.any(), eq(true));
   }
 
+  @Test
+  public void testInvokeWhenSourceUrnHasTwoUpstreamsNoDbt() throws Exception {
+
+    MetadataChangeLog event = createEvent(DATASET_ENTITY_NAME, UPSTREAM_LINEAGE_ASPECT_NAME, ChangeType.UPSERT);
+    final UpstreamLineage upstreamLineage = new UpstreamLineage();
+    final UpstreamArray upstreamArray = new UpstreamArray();
+    Upstream snowflakeUpstream1 = createUpstream("urn:li:dataset:(urn:li:dataPlatform:snowflake,my-proj.jaffle_shop1.customers,PROD)", DatasetLineageType.TRANSFORMED);
+    Upstream snowflakeUpstream2 =
+            createUpstream("urn:li:dataset:(urn:li:dataPlatform:snowflake,my-proj.jaffle_shop2.customers,PROD)", DatasetLineageType.TRANSFORMED);
+    upstreamArray.add(snowflakeUpstream1);
+    upstreamArray.add(snowflakeUpstream2);
+    upstreamLineage.setUpstreams(upstreamArray);
+
+    event.setAspect(GenericRecordUtils.serializeAspect(upstreamLineage));
+    event.setEntityUrn(Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:bigquery,my-proj.jaffle_shop.customers,PROD)"));
+    _siblingAssociationHook.invoke(event);
+
+
+    Mockito.verify(_mockEntityClient, Mockito.times(0)).ingestProposal(Mockito.any(), eq(true));
+  }
+
   private MetadataChangeLog createEvent(String entityType, String aspectName, ChangeType changeType) {
     MetadataChangeLog event = new MetadataChangeLog();
     event.setEntityType(entityType);
