@@ -1,4 +1,5 @@
 import datahub.emitter.mcp_builder as builder
+from datahub.metadata.schema_classes import StatusClass, TelemetryClientIdClass
 
 
 def test_guid_generator():
@@ -83,3 +84,11 @@ def test_guid_generators():
 
     guid = key.guid()
     assert guid == guid_datahub
+
+
+def test_entity_supports_aspect():
+    assert builder.entity_supports_aspect("dataset", StatusClass)
+    assert not builder.entity_supports_aspect("telemetry", StatusClass)
+
+    assert not builder.entity_supports_aspect("dataset", TelemetryClientIdClass)
+    assert builder.entity_supports_aspect("telemetry", TelemetryClientIdClass)

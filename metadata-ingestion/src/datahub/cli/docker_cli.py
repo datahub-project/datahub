@@ -5,6 +5,7 @@ import logging
 import os
 import pathlib
 import platform
+import signal
 import subprocess
 import sys
 import tempfile
@@ -770,6 +771,10 @@ def quickstart(  # noqa: C901
                     logger.debug("docker compose up still running, sending SIGKILL")
                     up_process.kill()
                     up_process.wait()
+            else:
+                # If the docker process got a keyboard interrupt, raise one here.
+                if up_process.returncode in {128 + signal.SIGINT, -signal.SIGINT}:
+                    raise KeyboardInterrupt
 
         # Check docker health every few seconds.
         status = check_docker_quickstart()

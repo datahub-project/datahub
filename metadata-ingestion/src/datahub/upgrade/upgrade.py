@@ -1,6 +1,5 @@
 import asyncio
 import contextlib
-import functools
 import logging
 import sys
 from datetime import datetime, timedelta, timezone
@@ -374,17 +373,14 @@ def check_upgrade(func: Callable[..., T]) -> Callable[..., T]:
     @wraps(func)
     def async_wrapper(*args: Any, **kwargs: Any) -> Any:
         async def run_inner_func():
-            loop = asyncio.get_event_loop()
-            return await loop.run_in_executor(
-                None, functools.partial(func, *args, **kwargs)
-            )
+            return func(*args, **kwargs)
 
         async def run_func_check_upgrade():
             version_stats_future = asyncio.ensure_future(retrieve_version_stats())
-            the_one_future = asyncio.ensure_future(run_inner_func())
-            ret = await the_one_future
+            main_func_future = asyncio.ensure_future(run_inner_func())
+            ret = await main_func_future
 
-            # the one future has returned
+            # the main future has returned
             # we check the other futures quickly
             try:
                 version_stats = await asyncio.wait_for(version_stats_future, 0.5)

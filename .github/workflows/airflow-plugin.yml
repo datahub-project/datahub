@@ -12,7 +12,7 @@ on:
     branches:
       - "**"
     paths:
-      - ".github/**"
+      - ".github/workflows/airflow-plugin.yml"
       - "metadata-ingestion-modules/airflow-plugin/**"
       - "metadata-ingestion/**"
       - "metadata-models/**"

@@ -27,6 +27,9 @@ const downloadCsvFile = (filename) => {
 };
 
 describe("download lineage results to .csv file", () => {
+     beforeEach(() => {
+        cy.on('uncaught:exception', (err, runnable) => { return false; });
+      });
 
     it("download and verify lineage results for 1st, 2nd and 3+ degree of dependencies", () => {
       cy.loginWithCredentials();

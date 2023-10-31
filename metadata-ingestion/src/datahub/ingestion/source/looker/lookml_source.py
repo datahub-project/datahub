@@ -2171,10 +2171,7 @@ class LookMLSource(StatefulIngestionSourceBase):
                                     for mcp in self._build_dataset_mcps(
                                         maybe_looker_view
                                     ):
-                                        # We want to treat mcp aspects as optional, so allowing failures in this aspect to be treated as warnings rather than failures
-                                        yield mcp.as_workunit(
-                                            treat_errors_as_warnings=True
-                                        )
+                                        yield mcp.as_workunit()
                                 else:
                                     (
                                         prev_model_name,

@@ -926,14 +926,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         mcps = chart_mcps
         mcps.append(dashboard_mcp)
 
-        workunits = [
-            MetadataWorkUnit(
-                id=f"looker-{mcp.aspectName}-{mcp.entityUrn}",
-                mcp=mcp,
-                treat_errors_as_warnings=True,
-            )
-            for mcp in mcps
-        ]
+        workunits = [mcp.as_workunit() for mcp in mcps]
 
         return workunits
 
@@ -1320,10 +1313,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                     id=f"looker-{event.proposedSnapshot.urn}", mce=event
                 )
             elif isinstance(event, MetadataChangeProposalWrapper):
-                # We want to treat subtype aspects as optional, so allowing failures in this aspect to be treated as warnings rather than failures
-                yield event.as_workunit(
-                    treat_errors_as_warnings=event.aspectName in ["subTypes"]
-                )
+                yield event.as_workunit()
             else:
                 raise Exception(f"Unexpected type of event {event}")
         self.reporter.report_stage_end("explore_metadata")
