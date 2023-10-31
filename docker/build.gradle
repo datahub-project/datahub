@@ -101,6 +101,9 @@ task quickstartDebug(type: Exec, dependsOn: ':metadata-ingestion:install') {
     environment "DATAHUB_TELEMETRY_ENABLED", "false"
     environment "DOCKER_COMPOSE_BASE", "file://${rootProject.projectDir}"
 
+    // Saas only
+    environment "METADATA_TESTS_ENABLED", "true"
+
     def cmd = [
             'source ../metadata-ingestion/venv/bin/activate && ',
             'datahub docker quickstart',

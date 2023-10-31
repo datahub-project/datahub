@@ -1,0 +1,55 @@
+package {{package}};
+
+{{^x-is-composed-model}}
+import java.util.Objects;
+{{#imports}}import {{import}};
+{{/imports}}
+{{#serializableModel}}
+import java.io.Serializable;
+{{/serializableModel}}
+{{#useBeanValidation}}
+import org.springframework.validation.annotation.Validated;
+{{#jakarta}}
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.*;
+{{/jakarta}}
+{{^jakarta}}
+import javax.validation.Valid;
+import javax.validation.constraints.*;
+{{/jakarta}}
+{{/useBeanValidation}}
+{{#jackson}}
+import lombok.Builder;
+import lombok.Data;
+import lombok.extern.jackson.Jacksonized;
+import com.fasterxml.jackson.annotation.JsonInclude;
+{{#withXml}}
+import com.fasterxml.jackson.dataformat.xml.annotation.JacksonXmlRootElement;
+import com.fasterxml.jackson.dataformat.xml.annotation.JacksonXmlProperty;
+{{/withXml}}
+{{/jackson}}
+{{#withXml}}
+{{#jakarta}}
+import jakarta.xml.bind.annotation.*;
+{{/jakarta}}
+{{^jakarta}}
+import javax.xml.bind.annotation.*;
+{{/jakarta}}
+{{/withXml}}
+{{/x-is-composed-model}}
+
+{{#models}}
+{{#model}}
+{{#isComposedModel}}
+{{>interface}}
+{{/isComposedModel}}
+{{^isComposedModel}}
+{{#isEnum}}
+{{>enumOuterClass}}
+{{/isEnum}}
+{{^isEnum}}
+{{>pojo}}
+{{/isEnum}}
+{{/isComposedModel}}
+{{/model}}
+{{/models}}

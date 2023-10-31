@@ -63,7 +63,7 @@ public class TestFetcher {
 
     // Fetch aspects for each urn
     final Map<Urn, EntityResponse> testEntities =
-        _entityService.getEntitiesV2(POLICY_ENTITY_NAME,
+        _entityService.getEntitiesV2(TEST_ENTITY_NAME,
             new HashSet<>(testUrns), ImmutableSet.of(
                 TEST_INFO_ASPECT_NAME));
     return new TestFetchResult(testUrns.stream()
@@ -74,7 +74,7 @@ public class TestFetcher {
         .collect(Collectors.toList()), result.getNumEntities());
   }
 
-  private Test extractTest(EntityResponse entityResponse) {
+  protected Test extractTest(EntityResponse entityResponse) {
     EnvelopedAspectMap aspectMap = entityResponse.getAspects();
     if (!aspectMap.containsKey(TEST_INFO_ASPECT_NAME)) {
       // Right after deleting the policy, there could be a small time frame where search and local db is not consistent.

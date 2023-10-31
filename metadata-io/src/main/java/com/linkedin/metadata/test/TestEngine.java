@@ -74,7 +74,7 @@ public class TestEngine {
   // Not concurrent data structure because writes are always against the entire thing.
   private final Map<String, List<TestDefinition>> _testPerEntityTypeCache = new HashMap<>();
 
-  private final ScheduledExecutorService _refreshExecutorService = Executors.newScheduledThreadPool(1);
+  private ScheduledExecutorService _refreshExecutorService;
   private final TestRefreshRunnable _testRefreshRunnable;
   private final Set<String> _supportedEntityTypes;
 
@@ -107,17 +107,24 @@ public class TestEngine {
       ActionApplier actionApplier,
       final int delayIntervalSeconds,
       final int refreshIntervalSeconds) {
-    _entityService = entityService;
-    _queryEngine = queryEngine;
-    _predicateEvaluator = predicateEvaluator;
-    _testDefinitionParser = testDefinitionParser;
-    _actionApplier = actionApplier;
-    _testRefreshRunnable =
-        new TestRefreshRunnable(testFetcher, testDefinitionParser, _testCache, _testPerEntityTypeCache);
-    _refreshExecutorService.scheduleAtFixedRate(_testRefreshRunnable, delayIntervalSeconds, refreshIntervalSeconds,
-        TimeUnit.SECONDS);
-    _refreshExecutorService.execute(_testRefreshRunnable);
-    _supportedEntityTypes = TestUtils.getSupportedEntityTypes(entityService.getEntityRegistry());
+
+      _entityService = entityService;
+      _queryEngine = queryEngine;
+      _predicateEvaluator = predicateEvaluator;
+      _testDefinitionParser = testDefinitionParser;
+      _actionApplier = actionApplier;
+      _testRefreshRunnable =
+              new TestRefreshRunnable(testFetcher, testDefinitionParser, _testCache, _testPerEntityTypeCache);
+
+      if (refreshIntervalSeconds > 0) {
+        _refreshExecutorService = Executors.newScheduledThreadPool(1);
+        _refreshExecutorService.scheduleAtFixedRate(_testRefreshRunnable, delayIntervalSeconds, refreshIntervalSeconds,
+                TimeUnit.SECONDS);
+        _refreshExecutorService.execute(_testRefreshRunnable);
+      } else {
+        loadTests();
+      }
+      _supportedEntityTypes = TestUtils.getSupportedEntityTypes(entityService.getEntityRegistry());
   }
 
   /**
@@ -125,7 +132,9 @@ public class TestEngine {
    * when a test is created, modified, or deleted.
    */
   public void invalidateCache() {
-    _refreshExecutorService.execute(_testRefreshRunnable);
+    if (_refreshExecutorService != null) {
+      _refreshExecutorService.execute(_testRefreshRunnable);
+    }
   }
 
   /**
