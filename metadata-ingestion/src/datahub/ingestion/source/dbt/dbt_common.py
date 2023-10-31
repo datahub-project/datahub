@@ -280,6 +280,11 @@ class DBTCommonConfig(
         default=False,
         description="When enabled, dbt test warnings will be treated as failures.",
     )
+    # override fault value to True.
+    incremental_lineage: bool = Field(
+        default=True,
+        description="When enabled, emits lineage as incremental to existing lineage already in DataHub. When disabled, re-states lineage on each run.",
+    )
 
     @validator("target_platform")
     def validate_target_platform_value(cls, target_platform: str) -> str:

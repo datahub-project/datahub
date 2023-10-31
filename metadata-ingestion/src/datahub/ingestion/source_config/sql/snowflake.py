@@ -357,10 +357,14 @@ class SnowflakeConfig(BaseSnowflakeConfig, BaseTimeWindowConfig, SQLCommonConfig
     ignore_start_time_lineage: bool = False
     upstream_lineage_in_report: bool = False
 
-    @pydantic.validator("include_view_lineage")
-    def validate_include_view_lineage(cls, v, values):
-        if not values.get("include_table_lineage") and v:
+    @pydantic.root_validator()
+    def validate_include_view_lineage(cls, values):
+        if (
+            "include_table_lineage" in values
+            and not values.get("include_table_lineage")
+            and values.get("include_view_lineage")
+        ):
             raise ValueError(
                 "include_table_lineage must be True for include_view_lineage to be set."
             )
-        return v
+        return values

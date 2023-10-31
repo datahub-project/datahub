@@ -101,21 +101,35 @@ kafka_protobuf = {
     "grpcio-tools>=1.44.0,<2",
 }
 
-sql_common = {
-    # Required for all SQL sources.
-    # This is temporary lower bound that we're open to loosening/tightening as requirements show up
-    "sqlalchemy>=1.4.39, <2",
-    # Required for SQL profiling.
-    "great-expectations>=0.15.12, <=0.15.50",
-    # scipy version restricted to reduce backtracking, used by great-expectations,
-    "scipy>=1.7.2",
-    # GE added handling for higher version of jinja2
-    # https://github.com/great-expectations/great_expectations/pull/5382/files
-    # datahub does not depend on traitlets directly but great expectations does.
-    # https://github.com/ipython/traitlets/issues/741
-    "traitlets<5.2.2",
-    "greenlet",
+usage_common = {
+    "sqlparse",
 }
+
+sqlglot_lib = {
+    # Using an Acryl fork of sqlglot.
+    # https://github.com/tobymao/sqlglot/compare/main...hsheth2:sqlglot:hsheth?expand=1
+    "acryl-sqlglot==18.17.1.dev16",
+}
+
+sql_common = (
+    {
+        # Required for all SQL sources.
+        # This is temporary lower bound that we're open to loosening/tightening as requirements show up
+        "sqlalchemy>=1.4.39, <2",
+        # Required for SQL profiling.
+        "great-expectations>=0.15.12, <=0.15.50",
+        # scipy version restricted to reduce backtracking, used by great-expectations,
+        "scipy>=1.7.2",
+        # GE added handling for higher version of jinja2
+        # https://github.com/great-expectations/great_expectations/pull/5382/files
+        # datahub does not depend on traitlets directly but great expectations does.
+        # https://github.com/ipython/traitlets/issues/741
+        "traitlets<5.2.2",
+        "greenlet",
+    }
+    | usage_common
+    | sqlglot_lib
+)
 
 sqllineage_lib = {
     "sqllineage==1.3.8",
@@ -123,12 +137,6 @@ sqllineage_lib = {
     # There have previously been issues from not pinning sqlparse, so it's best to pin it.
     # Related: https://github.com/reata/sqllineage/issues/361 and https://github.com/reata/sqllineage/pull/360
     "sqlparse==0.4.4",
-}
-
-sqlglot_lib = {
-    # Using an Acryl fork of sqlglot.
-    # https://github.com/tobymao/sqlglot/compare/main...hsheth2:sqlglot:hsheth?expand=1
-    "acryl-sqlglot==18.5.2.dev45",
 }
 
 aws_common = {
@@ -165,7 +173,9 @@ bigquery_common = {
 
 clickhouse_common = {
     # Clickhouse 0.2.0 adds support for SQLAlchemy 1.4.x
-    "clickhouse-sqlalchemy>=0.2.0",
+    # Disallow 0.2.5 because of https://github.com/xzkostyan/clickhouse-sqlalchemy/issues/272.
+    # Note that there's also a known issue around nested map types: https://github.com/xzkostyan/clickhouse-sqlalchemy/issues/269.
+    "clickhouse-sqlalchemy>=0.2.0,<0.2.5",
 }
 
 redshift_common = {
@@ -242,10 +252,6 @@ delta_lake = {
 }
 
 powerbi_report_server = {"requests", "requests_ntlm"}
-
-usage_common = {
-    "sqlparse",
-}
 
 databricks = {
     # 0.1.11 appears to have authentication issues with azure databricks

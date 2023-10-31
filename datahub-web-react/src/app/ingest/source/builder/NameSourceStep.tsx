@@ -190,7 +190,7 @@ export const NameSourceStep = ({ state, updateState, prev, submit }: StepProps) 
                             <Input
                                 data-testid="cli-version-input"
                                 className="cli-version-input"
-                                placeholder="(e.g. 0.10.5)"
+                                placeholder="(e.g. 0.12.0)"
                                 value={state.config?.version || ''}
                                 onChange={(event) => setVersion(event.target.value)}
                             />

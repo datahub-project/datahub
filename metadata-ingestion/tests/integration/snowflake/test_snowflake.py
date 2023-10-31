@@ -211,11 +211,12 @@ def test_snowflake_private_link(pytestconfig, tmp_path, mock_time, mock_datahub_
                         include_technical_schema=True,
                         include_table_lineage=True,
                         include_column_lineage=False,
-                        include_views=False,
-                        include_view_lineage=False,
+                        include_views=True,
+                        include_view_lineage=True,
                         include_usage_stats=False,
                         incremental_lineage=False,
                         include_operational_stats=False,
+                        platform_instance="instance1",
                         start_time=datetime(2022, 6, 6, 0, 0, 0, 0).replace(
                             tzinfo=timezone.utc
                         ),
