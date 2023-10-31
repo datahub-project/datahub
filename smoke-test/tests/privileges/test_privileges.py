@@ -3,8 +3,7 @@ import tenacity
 
 from tests.utils import (get_frontend_session, wait_for_writes_to_sync, wait_for_healthcheck_util,
                         get_frontend_url, get_admin_credentials,get_sleep_info)
-from tests.privileges.utils import (set_base_platform_privileges_policy_status, set_view_dataset_sensitive_info_policy_status, create_user_policy, 
-                                    set_view_entity_profile_privileges_policy_status, create_user, remove_user,login_as,remove_policy)
+from tests.privileges.utils import *
 
 sleep_sec, sleep_times = get_sleep_info()
 
