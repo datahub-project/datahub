@@ -29,6 +29,7 @@ import databricksLogo from '../../../../images/databrickslogo.png';
 import verticaLogo from '../../../../images/verticalogo.png';
 import mlflowLogo from '../../../../images/mlflowlogo.png';
 import dynamodbLogo from '../../../../images/dynamodblogo.png';
+import fivetranLogo from '../../../../images/fivetranlogo.png';
 
 export const ATHENA = 'athena';
 export const ATHENA_URN = `urn:li:dataPlatform:${ATHENA}`;
@@ -105,6 +106,8 @@ export const DBT_CLOUD = 'dbt-cloud';
 export const DBT_CLOUD_URN = `urn:li:dataPlatform:dbt`;
 export const VERTICA = 'vertica';
 export const VERTICA_URN = `urn:li:dataPlatform:${VERTICA}`;
+export const FIVETRAN = 'fivetran';
+export const FIVETRAN_URN = `urn:li:dataPlatform:${FIVETRAN}`;
 
 export const PLATFORM_URN_TO_LOGO = {
     [ATHENA_URN]: athenaLogo,
@@ -138,6 +141,7 @@ export const PLATFORM_URN_TO_LOGO = {
     [SUPERSET_URN]: supersetLogo,
     [UNITY_CATALOG_URN]: databricksLogo,
     [VERTICA_URN]: verticaLogo,
+    [FIVETRAN_URN]: fivetranLogo,
 };
 
 export const SOURCE_TO_PLATFORM_URN = {
