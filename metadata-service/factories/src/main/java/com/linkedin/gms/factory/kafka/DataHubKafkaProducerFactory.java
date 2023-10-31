@@ -59,6 +59,8 @@ public class DataHubKafkaProducerFactory {
     props.put(ProducerConfig.DELIVERY_TIMEOUT_MS_CONFIG, kafkaConfiguration.getProducer().getDeliveryTimeout());
     props.put(ProducerConfig.REQUEST_TIMEOUT_MS_CONFIG, kafkaConfiguration.getProducer().getRequestTimeout());
     props.put(ProducerConfig.RETRY_BACKOFF_MS_CONFIG, kafkaConfiguration.getProducer().getBackoffTimeout());
+    props.put(ProducerConfig.COMPRESSION_TYPE_CONFIG, kafkaConfiguration.getProducer().getCompressionType());
+    props.put(ProducerConfig.MAX_REQUEST_SIZE_CONFIG, kafkaConfiguration.getProducer().getMaxRequestSize());
 
     // Override KafkaProperties with SchemaRegistryConfig only for non-empty values
     schemaRegistryConfig.getProperties().entrySet()

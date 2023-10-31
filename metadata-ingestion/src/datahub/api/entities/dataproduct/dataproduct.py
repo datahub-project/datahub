@@ -104,7 +104,7 @@ class DataProduct(ConfigModel):
 
     id: str
     domain: str
-    _resolved_domain_urn: Optional[str]
+    _resolved_domain_urn: Optional[str] = None
     assets: Optional[List[str]] = None
     display_name: Optional[str] = None
     owners: Optional[List[Union[str, Ownership]]] = None
