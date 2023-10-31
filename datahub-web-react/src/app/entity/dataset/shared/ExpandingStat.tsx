@@ -1,20 +1,17 @@
 import React, { ReactNode, useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
 
-const ExpandingStatContainer = styled.span<{ disabled: boolean; expanded: boolean; width: string; renderCss: boolean }>`
-    overflow: ${(props) => props.renderCss && 'hidden'};
-    white-space: ${(props) => props.renderCss && 'nowrap'};
-    max-width: ${(props) => (!props.renderCss ? '100%' : props.width)};
+const ExpandingStatContainer = styled.span<{ disabled: boolean; expanded: boolean; width: string }>`
+    max-width: 100%;
     transition: width 250ms ease;
 `;
 
 const ExpandingStat = ({
     disabled = false,
     render,
-    renderCss = true,
 }: {
     disabled?: boolean;
-    renderCss?: boolean;
+
     render: (isExpanded: boolean) => ReactNode;
 }) => {
     const contentRef = useRef<HTMLSpanElement>(null);
@@ -36,7 +33,6 @@ const ExpandingStat = ({
 
     return (
         <ExpandingStatContainer
-            renderCss={renderCss}
             disabled={disabled}
             expanded={isExpanded}
             width={width}

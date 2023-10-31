@@ -50,7 +50,6 @@ export const DatasetStatsSummary = ({
     const statsViews = [
         !!rowCount && (
             <ExpandingStat
-                renderCss={false}
                 disabled={isTooltipMode || !needsFormatting(rowCount)}
                 render={(isExpanded) => (
                     <StatText color={displayedColor}>
