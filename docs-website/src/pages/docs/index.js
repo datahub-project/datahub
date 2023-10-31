@@ -114,7 +114,7 @@ const featureGuideContent = [
   },
   { title: "Tags", icon: <TagsTwoTone />, to: "docs/tags" },
   {
-    title: "UI-Based Ingestion",
+    title: "Ingestion",
     icon: <ApiTwoTone />,
     to: "docs/ui-ingestion",
   },

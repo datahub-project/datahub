@@ -5,6 +5,7 @@ import logging
 import os
 import pathlib
 import platform
+import signal
 import subprocess
 import sys
 import tempfile
@@ -426,7 +427,7 @@ def detect_quickstart_arch(arch: Optional[str]) -> Architectures:
     return quickstart_arch
 
 
-@docker.command()
+@docker.command()  # noqa: C901
 @click.option(
     "--version",
     type=str,
@@ -588,7 +589,7 @@ def detect_quickstart_arch(arch: Optional[str]) -> Architectures:
         "arch",
     ]
 )
-def quickstart(
+def quickstart(  # noqa: C901
     version: Optional[str],
     build_locally: bool,
     pull_images: bool,
@@ -755,14 +756,25 @@ def quickstart(
             up_attempts += 1
 
             logger.debug(f"Executing docker compose up command, attempt #{up_attempts}")
+            up_process = subprocess.Popen(
+                base_command + ["up", "-d", "--remove-orphans"],
+                env=_docker_subprocess_env(),
+            )
             try:
-                subprocess.run(
-                    base_command + ["up", "-d", "--remove-orphans"],
-                    env=_docker_subprocess_env(),
-                    timeout=_QUICKSTART_UP_TIMEOUT.total_seconds(),
-                )
+                up_process.wait(timeout=_QUICKSTART_UP_TIMEOUT.total_seconds())
             except subprocess.TimeoutExpired:
-                logger.debug("docker compose up timed out, will retry")
+                logger.debug("docker compose up timed out, sending SIGTERM")
+                up_process.terminate()
+                try:
+                    up_process.wait(timeout=3)
+                except subprocess.TimeoutExpired:
+                    logger.debug("docker compose up still running, sending SIGKILL")
+                    up_process.kill()
+                    up_process.wait()
+            else:
+                # If the docker process got a keyboard interrupt, raise one here.
+                if up_process.returncode in {128 + signal.SIGINT, -signal.SIGINT}:
+                    raise KeyboardInterrupt
 
         # Check docker health every few seconds.
         status = check_docker_quickstart()

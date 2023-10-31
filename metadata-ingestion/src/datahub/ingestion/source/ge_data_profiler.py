@@ -273,6 +273,7 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
     partition: Optional[str]
     config: GEProfilingConfig
     report: SQLSourceReport
+    custom_sql: Optional[str]
 
     query_combiner: SQLAlchemyQueryCombiner
 
@@ -596,16 +597,8 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
             "catch_exceptions", self.config.catch_exceptions
         )
 
-        profile = DatasetProfileClass(timestampMillis=get_sys_time())
-        if self.partition:
-            profile.partitionSpec = PartitionSpecClass(partition=self.partition)
-        elif self.config.limit and self.config.offset:
-            profile.partitionSpec = PartitionSpecClass(
-                type=PartitionTypeClass.QUERY,
-                partition=json.dumps(
-                    dict(limit=self.config.limit, offset=self.config.offset)
-                ),
-            )
+        profile = self.init_profile()
+
         profile.fieldProfiles = []
         self._get_dataset_rows(profile)
 
@@ -738,6 +731,24 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
 
         logger.debug(f"profiling {self.dataset_name}: flushing stage 3 queries")
         self.query_combiner.flush()
+        return profile
+
+    def init_profile(self):
+        profile = DatasetProfileClass(timestampMillis=get_sys_time())
+        if self.partition:
+            profile.partitionSpec = PartitionSpecClass(partition=self.partition)
+        elif self.config.limit:
+            profile.partitionSpec = PartitionSpecClass(
+                type=PartitionTypeClass.QUERY,
+                partition=json.dumps(
+                    dict(limit=self.config.limit, offset=self.config.offset)
+                ),
+            )
+        elif self.custom_sql:
+            profile.partitionSpec = PartitionSpecClass(
+                type=PartitionTypeClass.QUERY, partition="SAMPLE"
+            )
+
         return profile
 
     def update_dataset_batch_use_sampling(self, profile: DatasetProfileClass) -> None:
@@ -1064,6 +1075,7 @@ class DatahubGEProfiler:
                     partition,
                     self.config,
                     self.report,
+                    custom_sql,
                     query_combiner,
                 ).generate_dataset_profile()
 

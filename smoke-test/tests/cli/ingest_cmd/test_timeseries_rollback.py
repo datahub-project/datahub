@@ -2,14 +2,14 @@ import json
 import time
 from typing import Any, Dict, List, Optional
 
-from click.testing import CliRunner, Result
-
 import datahub.emitter.mce_builder as builder
+from click.testing import CliRunner, Result
 from datahub.emitter.serialization_helper import post_json_transform
 from datahub.entrypoints import datahub
 from datahub.metadata.schema_classes import DatasetProfileClass
-from tests.utils import ingest_file_via_rest, wait_for_writes_to_sync
+
 import requests_wrapper as requests
+from tests.utils import ingest_file_via_rest, wait_for_writes_to_sync
 
 runner = CliRunner(mix_stderr=False)
 

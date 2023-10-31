@@ -38,6 +38,7 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -49,19 +50,21 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.pac4j.core.config.Config;
+import org.pac4j.core.context.Cookie;
 import org.pac4j.core.engine.DefaultCallbackLogic;
 import org.pac4j.core.http.adapter.HttpActionAdapter;
 import org.pac4j.core.profile.CommonProfile;
 import org.pac4j.core.profile.ProfileManager;
 import org.pac4j.core.profile.UserProfile;
+import org.pac4j.core.util.Pac4jConstants;
 import org.pac4j.play.PlayWebContext;
 import play.mvc.Result;
 import auth.sso.SsoManager;
 
-import static auth.AuthUtils.createActorCookie;
-import static auth.AuthUtils.createSessionMap;
+import static auth.AuthUtils.*;
 import static com.linkedin.metadata.Constants.CORP_USER_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.GROUP_MEMBERSHIP_ASPECT_NAME;
+import static org.pac4j.play.store.PlayCookieSessionStore.*;
 import static play.mvc.Results.internalServerError;
 
 
@@ -97,6 +100,9 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
   public Result perform(PlayWebContext context, Config config,
       HttpActionAdapter<Result, PlayWebContext> httpActionAdapter, String defaultUrl, Boolean saveInSession,
       Boolean multiProfile, Boolean renewSession, String defaultClient) {
+
+    setContextRedirectUrl(context);
+
     final Result result =
         super.perform(context, config, httpActionAdapter, defaultUrl, saveInSession, multiProfile, renewSession,
             defaultClient);
@@ -109,6 +115,15 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
     // By this point, we know that OIDC is the enabled provider.
     final OidcConfigs oidcConfigs = (OidcConfigs) _ssoManager.getSsoProvider().configs();
     return handleOidcCallback(oidcConfigs, result, context, getProfileManager(context));
+  }
+
+  @SuppressWarnings("unchecked")
+  private void setContextRedirectUrl(PlayWebContext context) {
+    Optional<Cookie> redirectUrl = context.getRequestCookies().stream()
+        .filter(cookie -> REDIRECT_URL_COOKIE_NAME.equals(cookie.getName())).findFirst();
+    redirectUrl.ifPresent(
+        cookie -> context.getSessionStore().set(context, Pac4jConstants.REQUESTED_URL,
+            JAVA_SER_HELPER.deserializeFromBytes(uncompressBytes(Base64.getDecoder().decode(cookie.getValue())))));
   }
 
   private Result handleOidcCallback(final OidcConfigs oidcConfigs, final Result result, final PlayWebContext context,
