@@ -106,6 +106,7 @@ def get_query_type_of_sql(expression: sqlglot.exp.Expression) -> QueryType:
         sqlglot.exp.Update: QueryType.UPDATE,
         sqlglot.exp.Delete: QueryType.DELETE,
         sqlglot.exp.Merge: QueryType.MERGE,
+        sqlglot.exp.Subqueryable: QueryType.SELECT,  # unions, etc. are also selects
     }
 
     for cls, query_type in mapping.items():
@@ -820,10 +821,8 @@ def _extract_select_from_update(
     )
 
     # Update statements always implicitly have the updated table in context.
-    # TODO: Retain table name alias.
+    # TODO: Retain table name alias, if one was present.
     if select_statement.args.get("from"):
-        # select_statement = sqlglot.parse_one(select_statement.sql(dialect=dialect))
-
         select_statement = select_statement.join(
             statement.this, append=True, join_kind="cross"
         )
