@@ -675,6 +675,20 @@ create table demo_user.test_lineage2 as
     )
 
 
+def test_teradata_strange_operators():
+    assert_sql_result(
+        """
+select col1, col2 from dbc.table1
+where col1 eq 'value1'
+minus
+select col1, col2 from dbc.table2
+""",
+        dialect="teradata",
+        default_schema="dbc",
+        expected_file=RESOURCE_DIR / "test_teradata_strange_operators.json",
+    )
+
+
 def test_snowflake_update_hardcoded():
     assert_sql_result(
         """
@@ -767,4 +781,102 @@ WHERE my_table.id = t1.id;
             },
         },
         expected_file=RESOURCE_DIR / "test_snowflake_update_from_table.json",
+    )
+
+
+def test_snowflake_update_self():
+    assert_sql_result(
+        """
+UPDATE snowflake_sample_data.tpch_sf1.orders
+SET orderkey = orderkey + 1
+""",
+        dialect="snowflake",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_sample_data.tpch_sf1.orders,PROD)": {
+                "orderkey": "NUMBER(38,0)",
+                "totalprice": "NUMBER(12,2)",
+            },
+        },
+        expected_file=RESOURCE_DIR / "test_snowflake_update_self.json",
+    )
+
+
+def test_postgres_select_subquery():
+    assert_sql_result(
+        """
+SELECT
+    a,
+    b,
+    (SELECT c FROM table2 WHERE table2.id = table1.id) as c
+FROM table1
+""",
+        dialect="postgres",
+        default_db="my_db",
+        default_schema="my_schema",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,my_db.my_schema.table1,PROD)": {
+                "id": "INTEGER",
+                "a": "INTEGER",
+                "b": "INTEGER",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,my_db.my_schema.table2,PROD)": {
+                "id": "INTEGER",
+                "c": "INTEGER",
+            },
+        },
+        expected_file=RESOURCE_DIR / "test_postgres_select_subquery.json",
+    )
+
+
+@pytest.mark.skip(reason="We can't parse column-list syntax with sub-selects yet")
+def test_postgres_update_subselect():
+    assert_sql_result(
+        """
+UPDATE accounts SET sales_person_name =
+    (SELECT name FROM employees
+     WHERE employees.id = accounts.sales_person_id)
+""",
+        dialect="postgres",
+        default_db="my_db",
+        default_schema="my_schema",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,my_db.my_schema.accounts,PROD)": {
+                "id": "INTEGER",
+                "sales_person_id": "INTEGER",
+                "sales_person_name": "VARCHAR(16777216)",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,my_db.my_schema.employees,PROD)": {
+                "id": "INTEGER",
+                "name": "VARCHAR(16777216)",
+            },
+        },
+        expected_file=RESOURCE_DIR / "test_postgres_update_subselect.json",
+    )
+
+
+@pytest.mark.skip(reason="We can't parse column-list syntax with sub-selects yet")
+def test_postgres_complex_update():
+    # Example query from the postgres docs:
+    # https://www.postgresql.org/docs/current/sql-update.html
+    assert_sql_result(
+        """
+UPDATE accounts SET (contact_first_name, contact_last_name) =
+    (SELECT first_name, last_name FROM employees
+     WHERE employees.id = accounts.sales_person);
+""",
+        dialect="postgres",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,my_db.my_schema.accounts,PROD)": {
+                "id": "INTEGER",
+                "contact_first_name": "VARCHAR(16777216)",
+                "contact_last_name": "VARCHAR(16777216)",
+                "sales_person": "INTEGER",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,my_db.my_schema.employees,PROD)": {
+                "id": "INTEGER",
+                "first_name": "VARCHAR(16777216)",
+                "last_name": "VARCHAR(16777216)",
+            },
+        },
+        expected_file=RESOURCE_DIR / "test_postgres_complex_update.json",
     )
