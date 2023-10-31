@@ -53,6 +53,59 @@ def test_bigquery_uri_on_behalf():
     assert config.get_sql_alchemy_url() == "bigquery://test-project-on-behalf"
 
 
+def test_bigquery_dataset_pattern():
+    config = BigQueryV2Config.parse_obj(
+        {
+            "dataset_pattern": {
+                "allow": [
+                    "test-dataset",
+                    "test-project.test-dataset",
+                    ".*test-dataset",
+                ],
+                "deny": [
+                    "^test-dataset-2$",
+                    "project\\.second_dataset",
+                ],
+            },
+        }
+    )
+    assert config.dataset_pattern.allow == [
+        r".*\.test-dataset",
+        r"test-project.test-dataset",
+        r".*test-dataset",
+    ]
+    assert config.dataset_pattern.deny == [
+        r"^.*\.test-dataset-2$",
+        r"project\.second_dataset",
+    ]
+
+    config = BigQueryV2Config.parse_obj(
+        {
+            "dataset_pattern": {
+                "allow": [
+                    "test-dataset",
+                    "test-project.test-dataset",
+                    ".*test-dataset",
+                ],
+                "deny": [
+                    "^test-dataset-2$",
+                    "project\\.second_dataset",
+                ],
+            },
+            "match_fully_qualified_names": False,
+        }
+    )
+    assert config.dataset_pattern.allow == [
+        r"test-dataset",
+        r"test-project.test-dataset",
+        r".*test-dataset",
+    ]
+    assert config.dataset_pattern.deny == [
+        r"^test-dataset-2$",
+        r"project\.second_dataset",
+    ]
+
+
 def test_bigquery_uri_with_credential():
     expected_credential_json = {
         "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
