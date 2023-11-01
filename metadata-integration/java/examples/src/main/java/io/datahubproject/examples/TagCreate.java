@@ -10,6 +10,10 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 
 public class TagCreate {
+    
+    private TagCreate() {
+
+    }
 
     public static void main(String[] args) throws IOException, ExecutionException, InterruptedException {
         TagProperties tagProperties = new TagProperties()
