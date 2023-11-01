@@ -88,8 +88,8 @@
                 "urn:li:dataset:(urn:li:dataPlatform:postgres,public.company,DEV)"
             ],
             "outputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:snowflake,postgres_public.employee,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:snowflake,postgres_public.company,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_database.postgres_public.employee,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_database.postgres_public.company,PROD)"
             ],
             "inputDatajobs": [],
             "fineGrainedLineages": [
@@ -100,7 +100,7 @@
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,postgres_public.employee,PROD),id)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_database.postgres_public.employee,PROD),id)"
                     ],
                     "confidenceScore": 1.0
                 },
@@ -111,7 +111,7 @@
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,postgres_public.employee,PROD),name)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_database.postgres_public.employee,PROD),name)"
                     ],
                     "confidenceScore": 1.0
                 },
@@ -122,7 +122,7 @@
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,postgres_public.company,PROD),id)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_database.postgres_public.company,PROD),id)"
                     ],
                     "confidenceScore": 1.0
                 },
@@ -133,7 +133,7 @@
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,postgres_public.company,PROD),name)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_database.postgres_public.company,PROD),name)"
                     ],
                     "confidenceScore": 1.0
                 }
@@ -180,7 +180,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,postgres_public.employee,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_database.postgres_public.employee,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -196,7 +196,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,postgres_public.company,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_database.postgres_public.company,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -320,8 +320,8 @@
     "aspect": {
         "json": {
             "outputs": [
-                "urn:li:dataset:(urn:li:dataPlatform:snowflake,postgres_public.employee,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:snowflake,postgres_public.company,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_database.postgres_public.employee,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_database.postgres_public.company,PROD)"
             ]
         }
     },
@@ -443,8 +443,8 @@
     "aspect": {
         "json": {
             "outputs": [
-                "urn:li:dataset:(urn:li:dataPlatform:snowflake,postgres_public.employee,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:snowflake,postgres_public.company,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_database.postgres_public.employee,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_database.postgres_public.company,PROD)"
             ]
         }
     },
@@ -566,8 +566,8 @@
     "aspect": {
         "json": {
             "outputs": [
-                "urn:li:dataset:(urn:li:dataPlatform:snowflake,postgres_public.employee,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:snowflake,postgres_public.company,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_database.postgres_public.employee,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_database.postgres_public.company,PROD)"
             ]
         }
     },

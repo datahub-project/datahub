@@ -18,6 +18,7 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 class FivetranLogAPI:
     def __init__(self, fivetran_log_config: FivetranLogConfig) -> None:
+        self.fivetran_log_database = None
         self.fivetran_log_config = fivetran_log_config
         self.engine = self._get_log_destination_engine()
 
@@ -37,6 +38,7 @@ class FivetranLogAPI:
                         snowflake_destination_config.log_schema,
                     )
                 )
+                self.fivetran_log_database = snowflake_destination_config.database
         return engine
 
     def _query(self, query: str) -> List[Dict]:
@@ -66,7 +68,7 @@ class FivetranLogAPI:
             table_lineage_list.append(
                 TableLineage(
                     source_table=f"{table_lineage[Constant.SOURCE_SCHEMA_NAME]}.{table_lineage[Constant.SOURCE_TABLE_NAME]}",
-                    destination_table=f"{table_lineage[Constant.DESTINATION_SCHEMA_NAME]}.{table_lineage[Constant.DESTINATION_TABLE_NAME]}",
+                    destination_table=f"{self.fivetran_log_database.lower()}.{table_lineage[Constant.DESTINATION_SCHEMA_NAME]}.{table_lineage[Constant.DESTINATION_TABLE_NAME]}",
                     column_lineage=column_lineage_list,
                 )
             )
