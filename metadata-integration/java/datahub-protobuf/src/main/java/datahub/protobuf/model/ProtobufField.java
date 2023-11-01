@@ -259,7 +259,9 @@ public class ProtobufField implements ProtobufElement {
             messageType = messageType.getNestedType(value);
         }
 
-        if (pathList.get(pathSize - 2) == DescriptorProto.FIELD_FIELD_NUMBER) {
+        if (pathList.get(pathSize - 2) == DescriptorProto.FIELD_FIELD_NUMBER
+                && pathList.get(pathSize - 1) != DescriptorProto.RESERVED_RANGE_FIELD_NUMBER
+                && pathList.get(pathSize - 1) != DescriptorProto.RESERVED_NAME_FIELD_NUMBER) {
             return messageType.getField(pathList.get(pathSize - 1));
         } else {
             return null;
