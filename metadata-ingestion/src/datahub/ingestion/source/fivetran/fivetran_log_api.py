@@ -1,11 +1,16 @@
 import json
 import logging
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List
 
 from sqlalchemy import create_engine
 
 from datahub.ingestion.source.fivetran.config import Constant, FivetranLogConfig
-from datahub.ingestion.source.fivetran.data_classes import Connector, Job
+from datahub.ingestion.source.fivetran.data_classes import (
+    ColumnLineage,
+    Connector,
+    Job,
+    TableLineage,
+)
 from datahub.ingestion.source.fivetran.fivetran_query import FivetranLogQuery
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -39,19 +44,34 @@ class FivetranLogAPI:
         resp = self.engine.execute(query)
         return [row for row in resp]
 
-    def _get_table_lineage(self, connector_id: str) -> List[Tuple[str, str]]:
-        table_lineage_resut = self._query(
+    def _get_table_lineage(self, connector_id: str) -> List[TableLineage]:
+        table_lineage_result = self._query(
             FivetranLogQuery.get_table_lineage_query(connector_id=connector_id)
         )
-        table_lineage: List[Tuple[str, str]] = []
-        for each in table_lineage_resut:
-            table_lineage.append(
-                (
-                    f"{each[Constant.SOURCE_SCHEMA_NAME]}.{each[Constant.SOURCE_TABLE_NAME]}",
-                    f"{each[Constant.DESTINATION_SCHEMA_NAME]}.{each[Constant.DESTINATION_TABLE_NAME]}",
+        table_lineage_list: List[TableLineage] = []
+        for table_lineage in table_lineage_result:
+            column_lineage_result = self._query(
+                FivetranLogQuery.get_column_lineage_query(
+                    source_table_id=table_lineage[Constant.SOURCE_TABLE_ID],
+                    destination_table_id=table_lineage[Constant.DESTINATION_TABLE_ID],
                 )
             )
-        return table_lineage
+            column_lineage_list: List[ColumnLineage] = [
+                ColumnLineage(
+                    source_column=column_lineage[Constant.SOURCE_COLUMN_NAME],
+                    destination_column=column_lineage[Constant.DESTINATION_COLUMN_NAME],
+                )
+                for column_lineage in column_lineage_result
+            ]
+            table_lineage_list.append(
+                TableLineage(
+                    source_table=f"{table_lineage[Constant.SOURCE_SCHEMA_NAME]}.{table_lineage[Constant.SOURCE_TABLE_NAME]}",
+                    destination_table=f"{table_lineage[Constant.DESTINATION_SCHEMA_NAME]}.{table_lineage[Constant.DESTINATION_TABLE_NAME]}",
+                    column_lineage=column_lineage_list,
+                )
+            )
+
+        return table_lineage_list
 
     def _get_jobs_list(self, connector_id: str) -> List[Job]:
         jobs: List[Job] = []
@@ -73,7 +93,7 @@ class FivetranLogAPI:
                 continue
 
             message_data = json.loads(sync_end_logs[sync_id][Constant.MESSAGE_DATA])
-            if type(message_data) is str:
+            if isinstance(message_data, str):
                 # Sometimes message_data contains json string inside string
                 # Ex: '"{\"status\":\"SUCCESSFUL\"}"'
                 # Hence, need to do json loads twice.

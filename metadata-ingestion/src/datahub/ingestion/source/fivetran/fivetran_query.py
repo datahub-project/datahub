@@ -49,11 +49,28 @@ class FivetranLogQuery:
     @staticmethod
     def get_table_lineage_query(connector_id: str) -> str:
         return f"""
-        SELECT stm.name as "SOURCE_TABLE_NAME", ssm.name as "SOURCE_SCHEMA_NAME",
-        dtm.name as "DESTINATION_TABLE_NAME", dsm.name as "DESTINATION_SCHEMA_NAME"
+        SELECT stm.id as "SOURCE_TABLE_ID",
+        stm.name as "SOURCE_TABLE_NAME",
+        ssm.name as "SOURCE_SCHEMA_NAME",
+        dtm.id as "DESTINATION_TABLE_ID",
+        dtm.name as "DESTINATION_TABLE_NAME",
+        dsm.name as "DESTINATION_SCHEMA_NAME"
         FROM table_lineage as tl
         JOIN source_table_metadata as stm on tl.source_table_id = stm.id
         JOIN destination_table_metadata as dtm on tl.destination_table_id = dtm.id
         JOIN source_schema_metadata as ssm on stm.schema_id = ssm.id
         JOIN destination_schema_metadata as dsm on dtm.schema_id = dsm.id
         WHERE stm.connector_id = '{connector_id}'"""
+
+    @staticmethod
+    def get_column_lineage_query(
+        source_table_id: str, destination_table_id: str
+    ) -> str:
+        return f"""
+        SELECT scm.name as "SOURCE_COLUMN_NAME",
+        dcm.name as "DESTINATION_COLUMN_NAME"
+        FROM column_lineage as cl
+        JOIN source_column_metadata as scm on
+        (cl.source_column_id = scm.id and scm.table_id = {source_table_id})
+        JOIN destination_column_metadata as dcm on
+        (cl.destination_column_id = dcm.id and dcm.table_id = {destination_table_id})"""

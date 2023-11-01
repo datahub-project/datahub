@@ -3,8 +3,7 @@ from dataclasses import dataclass, field as dataclass_field
 from typing import Dict, List, Optional
 
 import pydantic
-from pydantic import Field
-from pydantic.class_validators import root_validator
+from pydantic import Field, root_validator
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.source_common import DEFAULT_ENV, DatasetSourceConfigMixin
@@ -29,8 +28,12 @@ class Constant:
     # table column name
     SOURCE_SCHEMA_NAME = "source_schema_name"
     SOURCE_TABLE_NAME = "source_table_name"
+    SOURCE_TABLE_ID = "source_table_id"
+    SOURCE_COLUMN_NAME = "source_column_name"
     DESTINATION_SCHEMA_NAME = "destination_schema_name"
     DESTINATION_TABLE_NAME = "destination_table_name"
+    DESTINATION_TABLE_ID = "destination_table_id"
+    DESTINATION_COLUMN_NAME = "destination_column_name"
     SYNC_ID = "sync_id"
     MESSAGE_DATA = "message_data"
     TIME_STAMP = "time_stamp"
@@ -117,6 +120,10 @@ class FivetranSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin
     connector_patterns: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns for connectors to filter in ingestion.",
+    )
+    include_column_lineage: bool = Field(
+        default=True,
+        description="Populates table->table column lineage.",
     )
     # Configuration for stateful ingestion
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = pydantic.Field(

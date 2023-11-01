@@ -17,6 +17,7 @@ from typing import (
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.emitter.mce_builder import make_dataplatform_instance_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.mcp_builder import entity_supports_aspect
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.schema_classes import (
     BrowsePathEntryClass,
@@ -64,8 +65,6 @@ def auto_status_aspect(
     """
     For all entities that don't have a status aspect, add one with removed set to false.
     """
-
-    skip_entities: Set[str] = {"dataProcessInstance"}
     all_urns: Set[str] = set()
     status_urns: Set[str] = set()
     skip_urns: Set[str] = set()
@@ -91,10 +90,9 @@ def auto_status_aspect(
         else:
             raise ValueError(f"Unexpected type {type(wu.metadata)}")
 
-        if (
-            not isinstance(wu.metadata, MetadataChangeEventClass)
-            and wu.metadata.entityType in skip_entities
-        ):
+        if not isinstance(
+            wu.metadata, MetadataChangeEventClass
+        ) and not entity_supports_aspect(wu.metadata.entityType, StatusClass):
             # If any entity does not support aspect 'status' then skip that entity from adding status aspect.
             # Example like dataProcessInstance doesn't suppport status aspect.
             # If not skipped gives error: java.lang.RuntimeException: Unknown aspect status for entity dataProcessInstance

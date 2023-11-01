@@ -1,5 +1,18 @@
 from dataclasses import dataclass
-from typing import List, Tuple
+from typing import List
+
+
+@dataclass
+class ColumnLineage:
+    source_column: str
+    destination_column: str
+
+
+@dataclass
+class TableLineage:
+    source_table: str
+    destination_table: str
+    column_lineage: List[ColumnLineage]
 
 
 @dataclass
@@ -11,7 +24,7 @@ class Connector:
     sync_frequency: int
     destination_id: str
     user_name: str
-    table_lineage: List[Tuple[str, str]]
+    table_lineage: List[TableLineage]
     jobs: List["Job"]
 
 

@@ -31,16 +31,33 @@ def default_query_results(query):
     elif query == FivetranLogQuery.get_table_lineage_query("calendar_elected"):
         return [
             {
+                "source_table_id": "10040",
                 "source_table_name": "employee",
                 "source_schema_name": "public",
+                "destination_table_id": "7779",
                 "destination_table_name": "employee",
                 "destination_schema_name": "postgres_public",
             },
             {
+                "source_table_id": "10041",
                 "source_table_name": "company",
                 "source_schema_name": "public",
+                "destination_table_id": "7780",
                 "destination_table_name": "company",
                 "destination_schema_name": "postgres_public",
+            },
+        ]
+    elif query == FivetranLogQuery.get_column_lineage_query(
+        "10040", "7779"
+    ) or query == FivetranLogQuery.get_column_lineage_query("10041", "7780"):
+        return [
+            {
+                "source_column_name": "id",
+                "destination_column_name": "id",
+            },
+            {
+                "source_column_name": "name",
+                "destination_column_name": "name",
             },
         ]
     elif query == FivetranLogQuery.get_user_query("reapply_phone"):
@@ -168,5 +185,5 @@ def test_fivetran_snowflake_destination_config(pytestconfig, tmp_path):
     )
     assert (
         snowflake_dest.get_sql_alchemy_url()
-        == "snowflake://test:test%40123@TESTID/?authenticator=SNOWFLAKE&warehouse=TEST_WH&role=TESTROLE&application=acryl_datahub"
+        == "snowflake://test:test%40123@TESTID?application=acryl_datahub&authenticator=SNOWFLAKE&role=TESTROLE&warehouse=TEST_WH"
     )

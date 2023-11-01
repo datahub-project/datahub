@@ -24,6 +24,10 @@ This source extracts the following:
 
 Source and destination are mapped to Dataset as an Input and Output of Connector.
 
+## Current limitations
+
+Works only for Snowflake destination for now.
+
 ## Snowflake destination Configuration Guide
 1. If your fivetran platform connector destination is snowflake, you need to provide user details and its role with correct privileges in order to fetch metadata.
 2. Snowflake system admin can follow this guide to create a fivetran_datahub role, assign it the required privileges, and assign it to a user by executing the following Snowflake commands from a user with the ACCOUNTADMIN role or MANAGE GRANTS privilege.

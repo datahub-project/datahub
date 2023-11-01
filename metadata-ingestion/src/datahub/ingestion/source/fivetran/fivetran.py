@@ -1,6 +1,7 @@
 import logging
-from typing import Dict, Iterable, List, Optional, Tuple
+from typing import Dict, Iterable, List, Optional
 
+import datahub.emitter.mce_builder as builder
 from datahub.api.entities.datajob import DataFlow, DataJob
 from datahub.api.entities.dataprocess.dataprocess_instance import (
     DataProcessInstance,
@@ -32,6 +33,11 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
+from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
+    FineGrainedLineage,
+    FineGrainedLineageDownstreamType,
+    FineGrainedLineageUpstreamType,
+)
 from datahub.metadata.schema_classes import StatusClass
 from datahub.utilities.urns.data_flow_urn import DataFlowUrn
 from datahub.utilities.urns.dataset_urn import DatasetUrn
@@ -44,6 +50,10 @@ logger = logging.getLogger(__name__)
 @config_class(FivetranSourceConfig)
 @support_status(SupportStatus.INCUBATING)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
+@capability(
+    SourceCapability.LINEAGE_FINE,
+    "Enabled by default, can be disabled via configuration `include_column_lineage`",
+)
 class FivetranSource(StatefulIngestionSourceBase):
     """
     This plugin extracts fivetran users, connectors, destinations and sync history.
@@ -66,11 +76,10 @@ class FivetranSource(StatefulIngestionSourceBase):
             self, self.config, self.ctx
         )
 
-    def _generate_iolet_dataset_urn_list(
-        self, connector: Connector
-    ) -> Tuple[List[DatasetUrn], List[DatasetUrn]]:
+    def _extend_lineage(self, connector: Connector, datajob: DataJob) -> None:
         input_dataset_urn_list: List[DatasetUrn] = []
         output_dataset_urn_list: List[DatasetUrn] = []
+        fine_grained_lineage: List[FineGrainedLineage] = []
 
         source_platform_detail: PlatformDetail = PlatformDetail()
         destination_platform_detail: PlatformDetail = PlatformDetail()
@@ -90,28 +99,53 @@ class FivetranSource(StatefulIngestionSourceBase):
             logger.debug(
                 f"Fivetran connector source type: {connector.connector_type} is not supported to mapped with Datahub dataset entity."
             )
-        for source_table, destination_table in connector.table_lineage:
+        for table_lineage in connector.table_lineage:
+            input_dataset_urn: Optional[DatasetUrn] = None
             if is_platform_supported:
-                input_dataset_urn_list.append(
-                    DatasetUrn.create_from_ids(
-                        platform_id=SUPPORTED_DATA_PLATFORM_MAPPING[
-                            connector.connector_type
-                        ],
-                        table_name=source_table,
-                        env=source_platform_detail.env,
-                        platform_instance=source_platform_detail.platform_instance,
-                    )
+                input_dataset_urn = DatasetUrn.create_from_ids(
+                    platform_id=SUPPORTED_DATA_PLATFORM_MAPPING[
+                        connector.connector_type
+                    ],
+                    table_name=table_lineage.source_table,
+                    env=source_platform_detail.env,
+                    platform_instance=source_platform_detail.platform_instance,
                 )
-            output_dataset_urn_list.append(
-                DatasetUrn.create_from_ids(
-                    platform_id=self.config.fivetran_log_config.destination_platform,
-                    table_name=destination_table,
-                    env=destination_platform_detail.env,
-                    platform_instance=destination_platform_detail.platform_instance,
-                )
+                input_dataset_urn_list.append(input_dataset_urn)
+            output_dataset_urn = DatasetUrn.create_from_ids(
+                platform_id=self.config.fivetran_log_config.destination_platform,
+                table_name=table_lineage.destination_table,
+                env=destination_platform_detail.env,
+                platform_instance=destination_platform_detail.platform_instance,
             )
+            output_dataset_urn_list.append(output_dataset_urn)
 
-        return input_dataset_urn_list, output_dataset_urn_list
+            if self.config.include_column_lineage:
+                for column_lineage in table_lineage.column_lineage:
+                    fine_grained_lineage.append(
+                        FineGrainedLineage(
+                            upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
+                            upstreams=[
+                                builder.make_schema_field_urn(
+                                    str(input_dataset_urn),
+                                    column_lineage.source_column,
+                                )
+                            ]
+                            if input_dataset_urn
+                            else [],
+                            downstreamType=FineGrainedLineageDownstreamType.FIELD,
+                            downstreams=[
+                                builder.make_schema_field_urn(
+                                    str(output_dataset_urn),
+                                    column_lineage.destination_column,
+                                )
+                            ],
+                        )
+                    )
+
+        datajob.inlets.extend(input_dataset_urn_list)
+        datajob.outlets.extend(output_dataset_urn_list)
+        datajob.fine_grained_lineages.extend(fine_grained_lineage)
+        return None
 
     def _generate_dataflow_from_connector(self, connector: Connector) -> DataFlow:
         return DataFlow(
@@ -148,13 +182,10 @@ class FivetranSource(StatefulIngestionSourceBase):
         datajob.properties = job_property_bag
 
         # Map connector source and destination table with dataset entity
-        (
-            input_dataset_urn_list,
-            output_dataset_urn_list,
-        ) = self._generate_iolet_dataset_urn_list(connector=connector)
-        datajob.inlets.extend(input_dataset_urn_list)
-        datajob.outlets.extend(output_dataset_urn_list)
-        # TODO: Add fine grained lineages after FineGrainedLineageDownstreamType.DATASET enabled
+        # Also extend the fine grained lineage of column if include_column_lineage is True
+        self._extend_lineage(connector=connector, datajob=datajob)
+
+        # TODO: Add fine grained lineages of dataset after FineGrainedLineageDownstreamType.DATASET enabled
 
         return datajob
 
@@ -166,7 +197,7 @@ class FivetranSource(StatefulIngestionSourceBase):
             clone_outlets=True,
         )
 
-    def _get_dpi_workunit(
+    def _get_dpi_workunits(
         self, job: Job, dpi: DataProcessInstance
     ) -> Iterable[MetadataWorkUnit]:
         status_result_map: Dict[str, InstanceRunResult] = {
@@ -195,7 +226,7 @@ class FivetranSource(StatefulIngestionSourceBase):
         ):
             yield mcp.as_workunit()
 
-    def _get_connector_workunit(
+    def _get_connector_workunits(
         self, connector: Connector
     ) -> Iterable[MetadataWorkUnit]:
         self.report.report_connectors_scanned()
@@ -217,7 +248,7 @@ class FivetranSource(StatefulIngestionSourceBase):
         # Map Fivetran's job/sync history entity with Datahub's data process entity
         for job in connector.jobs:
             dpi = self._generate_dpi_from_job(job, datajob)
-            yield from self._get_dpi_workunit(job, dpi)
+            yield from self._get_dpi_workunits(job, dpi)
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> Source:
@@ -241,7 +272,7 @@ class FivetranSource(StatefulIngestionSourceBase):
                 self.report.report_connectors_dropped(connector.connector_name)
                 continue
             logger.info(f"Processing connector id: {connector.connector_id}")
-            yield from self._get_connector_workunit(connector)
+            yield from self._get_connector_workunits(connector)
 
     def get_report(self) -> SourceReport:
         return self.report
