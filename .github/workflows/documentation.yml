@@ -4,9 +4,17 @@ on:
   pull_request:
     branches:
       - "**"
+    paths:
+      - "metadata-ingestion/**"
+      - "metadata-models/**"
+      - "docs-website/**"
   push:
     branches:
       - master
+    paths:
+      - "metadata-ingestion/**"
+      - "metadata-models/**"
+      - "docs-website/**"
   # release:
   #   types: [published, edited]
 
