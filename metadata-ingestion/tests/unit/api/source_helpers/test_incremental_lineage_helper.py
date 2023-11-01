@@ -104,6 +104,27 @@ def test_incremental_table_lineage(tmp_path, pytestconfig):
     )
 
 
+def test_incremental_table_lineage_empty_upstreams(tmp_path, pytestconfig):
+
+    urn = make_dataset_urn(platform, "dataset1")
+    aspect = make_lineage_aspect(
+        "dataset1",
+        upstreams=[],
+    )
+
+    processed_wus = auto_incremental_lineage(
+        graph=None,
+        incremental_lineage=True,
+        stream=[
+            MetadataChangeProposalWrapper(
+                entityUrn=urn, aspect=aspect, systemMetadata=system_metadata
+            ).as_workunit()
+        ],
+    )
+
+    assert [wu.metadata for wu in processed_wus] == []
+
+
 @pytest.mark.parametrize(
     "gms_aspect,current_aspect,output_aspect",
     [
