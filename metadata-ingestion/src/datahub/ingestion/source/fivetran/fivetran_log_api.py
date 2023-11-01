@@ -18,13 +18,15 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 class FivetranLogAPI:
     def __init__(self, fivetran_log_config: FivetranLogConfig) -> None:
-        self.fivetran_log_database = None
+        self.fivetran_log_database: str = ""
         self.fivetran_log_config = fivetran_log_config
         self.engine = self._get_log_destination_engine()
 
     def _get_log_destination_engine(self) -> Any:
         destination_platform = self.fivetran_log_config.destination_platform
         engine = None
+        # For every destination, create sqlalchemy engine,
+        # select the database and schema and set fivetran_log_database class variable
         if destination_platform == "snowflake":
             snowflake_destination_config = self.fivetran_log_config.destination_config
             if snowflake_destination_config is not None:
