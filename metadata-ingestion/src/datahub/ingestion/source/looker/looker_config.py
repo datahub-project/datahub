@@ -121,7 +121,10 @@ class LookerCommonConfig(DatasetSourceConfigMixin):
         "discoverable. When disabled, adds this information to the description of the column.",
     )
     platform_name: str = Field(
-        "looker", description="Default platform name. Don't change."
+        # TODO: This shouldn't be part of the config.
+        "looker",
+        description="Default platform name.",
+        hidden_from_docs=True,
     )
     extract_column_level_lineage: bool = Field(
         True,
@@ -213,7 +216,6 @@ class LookerDashboardSourceConfig(
     def stateful_ingestion_should_be_enabled(
         cls, v: Optional[bool], *, values: Dict[str, Any], **kwargs: Dict[str, Any]
     ) -> Optional[bool]:
-
         stateful_ingestion: StatefulStaleMetadataRemovalConfig = cast(
             StatefulStaleMetadataRemovalConfig, values.get("stateful_ingestion")
         )
