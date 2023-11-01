@@ -7,10 +7,9 @@ pulls the DB connection configuration from Airflow's connection store.
 
 from datetime import datetime, timedelta
 
+from airflow import DAG
 from airflow.hooks.base import BaseHook
 from airflow.operators.python import PythonVirtualenvOperator
-
-from airflow import DAG
 
 
 def ingest_from_snowflake(snowflake_credentials, datahub_gms_server):

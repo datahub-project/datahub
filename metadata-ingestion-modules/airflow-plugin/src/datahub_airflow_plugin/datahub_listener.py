@@ -4,6 +4,7 @@ import logging
 import threading
 from typing import TYPE_CHECKING, Callable, Dict, List, Optional, TypeVar, cast
 
+import airflow
 import datahub.emitter.mce_builder as builder
 from datahub.api.entities.datajob import DataJob
 from datahub.api.entities.dataprocess.dataprocess_instance import InstanceRunResult
@@ -20,7 +21,6 @@ from openlineage.airflow.listener import TaskHolder
 from openlineage.airflow.utils import redact_with_exclusions
 from openlineage.client.serde import Serde
 
-import airflow
 from datahub_airflow_plugin._airflow_shims import (
     HAS_AIRFLOW_DAG_LISTENER_API,
     Operator,

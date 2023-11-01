@@ -12,10 +12,10 @@ from datahub_airflow_plugin.entities import (
 )
 
 if TYPE_CHECKING:
+    from airflow import DAG
     from airflow.models.dagrun import DagRun
     from airflow.models.taskinstance import TaskInstance
 
-    from airflow import DAG
     from datahub_airflow_plugin._airflow_shims import Operator
 
 

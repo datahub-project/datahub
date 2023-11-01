@@ -1,8 +1,7 @@
 from datetime import datetime
 
-from airflow.providers.snowflake.operators.snowflake import SnowflakeOperator
-
 from airflow import DAG
+from airflow.providers.snowflake.operators.snowflake import SnowflakeOperator
 
 SNOWFLAKE_COST_TABLE = "costs"
 SNOWFLAKE_PROCESSED_TABLE = "processed_costs"

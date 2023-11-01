@@ -5,10 +5,10 @@ An example DAG demonstrating the usage of DataHub's Airflow lineage backend.
 
 from datetime import timedelta
 
+from airflow import DAG
 from airflow.operators.bash import BashOperator
 from airflow.utils.dates import days_ago
 
-from airflow import DAG
 from datahub_airflow_plugin.entities import Dataset, Urn
 
 default_args = {

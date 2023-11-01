@@ -1,8 +1,7 @@
 from datetime import datetime
 
-from airflow.providers.sqlite.operators.sqlite import SqliteOperator
-
 from airflow import DAG
+from airflow.providers.sqlite.operators.sqlite import SqliteOperator
 
 CONN_ID = "my_sqlite"
 

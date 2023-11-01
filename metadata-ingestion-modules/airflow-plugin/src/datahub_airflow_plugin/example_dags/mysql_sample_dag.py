@@ -7,9 +7,8 @@ embedded within the code.
 
 from datetime import datetime, timedelta
 
-from airflow.operators.python import PythonVirtualenvOperator
-
 from airflow import DAG
+from airflow.operators.python import PythonVirtualenvOperator
 
 
 def ingest_from_mysql():

@@ -1,8 +1,8 @@
 from datetime import datetime
 
+from airflow import DAG
 from airflow.operators.bash import BashOperator
 
-from airflow import DAG
 from datahub_airflow_plugin.entities import Dataset, Urn
 
 with DAG(
