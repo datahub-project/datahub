@@ -21,6 +21,11 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 
 public class DatasetAdd {
+    
+    private DatasetAdd(){
+        
+    }
+
     public static void main(String[] args) throws IOException, ExecutionException, InterruptedException {
         DatasetUrn datasetUrn = UrnUtils.toDatasetUrn("hive", "fct_users_deleted", "PROD");
         CorpuserUrn userUrn = new CorpuserUrn("ingestion");
