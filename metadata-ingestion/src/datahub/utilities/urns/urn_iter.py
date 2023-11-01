@@ -117,17 +117,19 @@ def _modify_at_path(
         if isinstance(path[0], int):
             assert isinstance(model, list)
             model[path[0]] = new_value
-        elif isinstance(model, MetadataChangeProposalWrapper):
-            setattr(model, path[0], new_value)
-        else:
-            assert isinstance(model, DictWrapper)
+        elif isinstance(model, DictWrapper):
             model._inner_dict[path[0]] = new_value
+        else:
+            # isinstance(model, MetadataChangeProposalWrapper)
+            setattr(model, path[0], new_value)
     elif isinstance(path[0], int):
         assert isinstance(model, list)
-        return _modify_at_path(model[path[0]], path[1:], new_value)
+        _modify_at_path(model[path[0]], path[1:], new_value)
+    elif isinstance(model, DictWrapper):
+        _modify_at_path(model._inner_dict[path[0]], path[1:], new_value)
     else:
-        assert isinstance(model, DictWrapper)
-        return _modify_at_path(model._inner_dict[path[0]], path[1:], new_value)
+        # isinstance(model, MetadataChangeProposalWrapper)
+        _modify_at_path(getattr(model, path[0]), path[1:], new_value)
 
 
 def _lowercase_dataset_urn(dataset_urn: str) -> str:
