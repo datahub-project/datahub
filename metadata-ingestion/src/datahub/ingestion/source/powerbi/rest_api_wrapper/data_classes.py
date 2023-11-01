@@ -135,7 +135,6 @@ class PowerBIDataset:
     tables: List["Table"]
     tags: List[str]
     configuredBy: Optional[str] = None
-    workspace_key: Optional[ContainerKey] = None
 
     def get_urn_part(self):
         return f"datasets.{self.id}"

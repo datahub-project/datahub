@@ -472,7 +472,6 @@ class Mapper:
                 dataset.tags,
             )
 
-        dataset.workspace_key = self.workspace_key
         self.processed_datasets.add(dataset)
 
         return dataset_mcps
@@ -736,6 +735,7 @@ class Mapper:
     ) -> Iterable[MetadataWorkUnit]:
         self.workspace_key = workspace.get_workspace_key(
             platform_name=self.__config.platform_name,
+            platform_instance=self.__config.platform_instance,
             workspace_id_as_urn_part=self.__config.workspace_id_as_urn_part,
         )
         container_work_units = gen_containers(
@@ -752,7 +752,7 @@ class Mapper:
         container_work_units = gen_containers(
             container_key=dataset_key,
             name=dataset.name if dataset.name else dataset.id,
-            parent_container_key=dataset.workspace_key,
+            parent_container_key=self.workspace_key,
             sub_types=[BIContainerSubTypes.POWERBI_DATASET],
         )
         return container_work_units
@@ -1229,6 +1229,8 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase):
     def get_workspace_workunit(
         self, workspace: powerbi_data_classes.Workspace
     ) -> Iterable[MetadataWorkUnit]:
+        self.mapper.processed_datasets = set()
+
         if self.source_config.extract_workspaces_to_containers:
             workspace_workunits = self.mapper.generate_container_for_workspace(
                 workspace
