@@ -9,9 +9,7 @@
             "customProperties": {
                 "_access_control": "None",
                 "catchup": "False",
-                "description": "'A simple DAG that runs a few fake data tasks.'",
-                "doc_md": "None",
-                "fileloc": "'/Users/hsheth/projects/datahub/metadata-ingestion-modules/airflow-plugin/tests/integration/dags/simple_dag.py'",
+                "fileloc": "'/home/shubham/airflow/datahub/metadata-ingestion-modules/airflow-plugin/tests/integration/dags/simple_dag.py'",
                 "is_paused_upon_creation": "None",
                 "start_date": "DateTime(2023, 1, 1, 0, 0, 0, tzinfo=Timezone('UTC'))",
                 "tags": "None",
