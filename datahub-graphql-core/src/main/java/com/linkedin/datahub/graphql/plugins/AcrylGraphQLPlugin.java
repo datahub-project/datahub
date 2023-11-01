@@ -391,7 +391,7 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
   private void configureMonitorResolvers(final RuntimeWiring.Builder builder, GmsGraphQLEngine baseEngine) {
     builder.type("Mutation", typeWiring -> typeWiring
         .dataFetcher("deleteMonitor", new DeleteMonitorResolver(entityClient, entityService))
-        .dataFetcher("createAssertionMonitor", new CreateAssertionMonitorResolver(monitorService))
+        .dataFetcher("createAssertionMonitor", new CreateAssertionMonitorResolver(monitorService, assertionService))
         .dataFetcher("updateSystemMonitors", new UpdateSystemMonitorsResolver(
             this.monitorService,
             this.entityClient
