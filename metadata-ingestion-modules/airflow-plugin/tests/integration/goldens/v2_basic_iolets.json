@@ -9,7 +9,9 @@
             "customProperties": {
                 "_access_control": "None",
                 "catchup": "False",
-                "fileloc": "'/home/shubham/airflow/datahub/metadata-ingestion-modules/airflow-plugin/tests/integration/dags/basic_iolets.py'",
+                "description": "None",
+                "doc_md": "None",
+                "fileloc": "'/Users/hsheth/projects/datahub/metadata-ingestion-modules/airflow-plugin/tests/integration/dags/basic_iolets.py'",
                 "is_paused_upon_creation": "None",
                 "start_date": "DateTime(2023, 1, 1, 0, 0, 0, tzinfo=Timezone('UTC'))",
                 "tags": "[]",
@@ -226,7 +228,10 @@
                 "state": "running",
                 "operator": "BashOperator",
                 "priority_weight": "1",
-                "log_url": "http://airflow.example.com/log?execution_date=2023-09-27T21%3A34%3A38%2B00%3A00&task_id=run_data_task&dag_id=basic_iolets&map_index=-1"
+                "log_url": "http://airflow.example.com/log?execution_date=2023-09-27T21%3A34%3A38%2B00%3A00&task_id=run_data_task&dag_id=basic_iolets&map_index=-1",
+                "orchestrator": "airflow",
+                "dag_id": "basic_iolets",
+                "task_id": "run_data_task"
             },
             "externalUrl": "http://airflow.example.com/log?execution_date=2023-09-27T21%3A34%3A38%2B00%3A00&task_id=run_data_task&dag_id=basic_iolets&map_index=-1",
             "name": "basic_iolets_run_data_task_manual_run_test",
