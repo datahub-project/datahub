@@ -40,6 +40,22 @@ public class TestAssertionResolver implements DataFetcher<CompletableFuture<Asse
     return CompletableFuture.supplyAsync(() -> {
       if (isAuthorizedToTestAssertion(asserteeUrn, input, context)) {
         switch (input.getType()) {
+          case FRESHNESS:
+            final com.linkedin.assertion.AssertionResult freshnessResult = _monitorService.testFreshnessAssertion(
+                asserteeUrn,
+                connectionUrn,
+                FreshnessAssertionUtils.createFreshnessAssertionInfo(input.getFreshnessTestInput()),
+                MonitorUtils.createAssertionEvaluationParameters(input.getParameters())
+            );
+            return AssertionRunEventMapper.mapResult(freshnessResult);
+          case VOLUME:
+            final com.linkedin.assertion.AssertionResult volumeResult = _monitorService.testVolumeAssertion(
+                asserteeUrn,
+                connectionUrn,
+                VolumeAssertionUtils.createVolumeAssertionInfo(input.getVolumeTestInput()),
+                MonitorUtils.createAssertionEvaluationParameters(input.getParameters())
+            );
+            return AssertionRunEventMapper.mapResult(volumeResult);
           case SQL:
             final com.linkedin.assertion.AssertionResult sqlResult = _monitorService.testSqlAssertion(
                 asserteeUrn,

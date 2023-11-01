@@ -5,7 +5,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.assertion.AssertionResult;
 import com.linkedin.assertion.FieldAssertionInfo;
+import com.linkedin.assertion.FreshnessAssertionInfo;
 import com.linkedin.assertion.SqlAssertionInfo;
+import com.linkedin.assertion.VolumeAssertionInfo;
 import com.linkedin.common.CronSchedule;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.EntityResponse;
@@ -319,7 +321,7 @@ public class MonitorService extends BaseService {
       }
       // Otherwise, something went wrong!
       log.error(
-          String.format("Bad response from the Monitors Service: %s", response.getStatusLine().toString()));
+          String.format("Bad response from the Monitors Service: %s %s", response.getStatusLine().toString(), EntityUtils.toString(entity, "UTF-8")));
       return null;
     } catch (Exception e) {
       log.error("Failed to test assertion.", e);
@@ -332,6 +334,58 @@ public class MonitorService extends BaseService {
       } catch (Exception e) {
         log.error("Failed to close http response to Monitors service.", e);
       }
+    }
+  }
+
+  @Nonnull
+  public AssertionResult testFreshnessAssertion(
+      @Nonnull final Urn asserteeUrn,
+      @Nonnull final Urn connectionUrn,
+      @Nonnull final FreshnessAssertionInfo freshnessAssertionInfo,
+      @Nonnull final AssertionEvaluationParameters parameters) {
+    Objects.requireNonNull(asserteeUrn, "asserteeUrn must not be null");
+    Objects.requireNonNull(connectionUrn, "connectionUrn must not be null");
+    Objects.requireNonNull(freshnessAssertionInfo, "freshnessAssertionInfo must not be null");
+    Objects.requireNonNull(parameters, "parameters must not be null");
+
+    try {
+      final String jsonBody = MonitorServiceUtils.buildTestFreshnessAssertionBodyJson(
+        "FRESHNESS",
+        asserteeUrn.toString(),
+        connectionUrn.toString(),
+        freshnessAssertionInfo,
+        parameters
+      );
+      return testAssertion(jsonBody);
+    } catch (Exception e) {
+      log.error("Failed to test Freshness assertion.", e);
+      return null;
+    }
+  }
+
+  @Nonnull
+  public AssertionResult testVolumeAssertion(
+      @Nonnull final Urn asserteeUrn,
+      @Nonnull final Urn connectionUrn,
+      @Nonnull final VolumeAssertionInfo volumeAssertionInfo,
+      @Nonnull final AssertionEvaluationParameters parameters) {
+    Objects.requireNonNull(asserteeUrn, "asserteeUrn must not be null");
+    Objects.requireNonNull(connectionUrn, "connectionUrn must not be null");
+    Objects.requireNonNull(volumeAssertionInfo, "volumeAssertionInfo must not be null");
+    Objects.requireNonNull(parameters, "parameters must not be null");
+
+    try {
+      final String jsonBody = MonitorServiceUtils.buildTestVolumeAssertionBodyJson(
+        "VOLUME",
+        asserteeUrn.toString(),
+        connectionUrn.toString(),
+        volumeAssertionInfo,
+        parameters
+      );
+      return testAssertion(jsonBody);
+    } catch (Exception e) {
+      log.error("Failed to test Volume assertion.", e);
+      return null;
     }
   }
 

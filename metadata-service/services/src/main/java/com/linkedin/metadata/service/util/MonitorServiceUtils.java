@@ -17,11 +17,20 @@ import com.linkedin.assertion.FieldAssertionInfo;
 import com.linkedin.assertion.FieldAssertionType;
 import com.linkedin.assertion.FieldMetricAssertion;
 import com.linkedin.assertion.FieldValuesAssertion;
+import com.linkedin.assertion.FixedIntervalSchedule;
+import com.linkedin.assertion.FreshnessAssertionInfo;
+import com.linkedin.assertion.FreshnessAssertionSchedule;
+import com.linkedin.assertion.FreshnessCronSchedule;
 import com.linkedin.assertion.FreshnessFieldSpec;
+import com.linkedin.assertion.IncrementingSegmentSpec;
 import com.linkedin.assertion.SqlAssertionInfo;
+import com.linkedin.assertion.VolumeAssertionInfo;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.monitor.AssertionEvaluationParameters;
+import com.linkedin.monitor.AuditLogSpec;
+import com.linkedin.monitor.DataHubOperationSpec;
 import com.linkedin.monitor.DatasetFieldAssertionParameters;
+import com.linkedin.monitor.DatasetFreshnessAssertionParameters;
 import com.linkedin.schema.SchemaFieldSpec;
 
 public class MonitorServiceUtils {
@@ -54,6 +63,34 @@ public class MonitorServiceUtils {
     return objectNode;
   }
 
+  public static ObjectNode buildAuditLogSpecJson(@Nonnull final AuditLogSpec field) {
+    final ObjectMapper objectMapper = new ObjectMapper();
+    final ObjectNode objectNode = objectMapper.createObjectNode();
+
+    if (field.hasOperationTypes()) {
+      objectNode.put("operationTypes", field.getOperationTypes().toString());
+    }
+    if (field.hasUserName()) {
+      objectNode.put("userName", field.getUserName());
+    }
+
+    return objectNode;
+  }
+
+  public static ObjectNode buildDataHubOperationJson(@Nonnull final DataHubOperationSpec field) {
+    final ObjectMapper objectMapper = new ObjectMapper();
+    final ObjectNode objectNode = objectMapper.createObjectNode();
+
+    if (field.hasOperationTypes()) {
+      objectNode.put("operationTypes", field.getOperationTypes().toString());
+    }
+    if (field.hasCustomOperationTypes()) {
+      objectNode.put("customOperationTypes", field.getCustomOperationTypes().toString());
+    }
+
+    return objectNode;
+  }
+
   public static ObjectNode buildSchemaFieldSpecJson(@Nonnull final SchemaFieldSpec field) {
     final ObjectMapper objectMapper = new ObjectMapper();
     final ObjectNode objectNode = objectMapper.createObjectNode();
@@ -75,6 +112,29 @@ public class MonitorServiceUtils {
     if (field.hasKind()) {
       objectNode.put("kind", field.getKind().toString());
     }
+
+    return objectNode;
+  }
+
+  public static ObjectNode buildFreshnessCronScheduleJson(@Nonnull final FreshnessCronSchedule field) {
+    final ObjectMapper objectMapper = new ObjectMapper();
+    final ObjectNode objectNode = objectMapper.createObjectNode();
+
+    objectNode.put("cron", field.getCron());
+    objectNode.put("timezone", field.getTimezone());
+    if (field.hasWindowStartOffsetMs()) {
+      objectNode.put("windowStartOffsetMs", field.getWindowStartOffsetMs());
+    }
+
+    return objectNode;
+  }
+
+  public static ObjectNode buildFixedIntervalScheduleJson(@Nonnull final FixedIntervalSchedule field) {
+    final ObjectMapper objectMapper = new ObjectMapper();
+    final ObjectNode objectNode = objectMapper.createObjectNode();
+
+    objectNode.put("unit", field.getUnit().toString());
+    objectNode.put("multiple", field.getMultiple());
 
     return objectNode;
   }
@@ -105,6 +165,38 @@ public class MonitorServiceUtils {
     return objectNode;
   }
 
+  public static ObjectNode buildFreshnessAssertionScheduleJson(@Nonnull final FreshnessAssertionSchedule freshnessAssertionSchedule) {
+    final ObjectMapper objectMapper = new ObjectMapper();
+    final ObjectNode objectNode = objectMapper.createObjectNode();
+
+    objectNode.put("type", freshnessAssertionSchedule.getType().toString());
+    if (freshnessAssertionSchedule.hasCron()) {
+      objectNode.put("cron", buildFreshnessCronScheduleJson(freshnessAssertionSchedule.getCron()));
+    }
+    if (freshnessAssertionSchedule.hasFixedInterval()) {
+      objectNode.put("fixedInterval", buildFixedIntervalScheduleJson(freshnessAssertionSchedule.getFixedInterval()));
+    }
+
+    return objectNode;
+  }
+
+  public static ObjectNode buildIncrementingSegmentSpecJson(@Nonnull final IncrementingSegmentSpec field) {
+    final ObjectMapper objectMapper = new ObjectMapper();
+    final ObjectNode objectNode = objectMapper.createObjectNode();
+
+    objectNode.put("field", buildSchemaFieldSpecJson(field.getField()));
+    if (field.hasTransformer()) {
+      final ObjectNode transformerNode = objectMapper.createObjectNode();
+      transformerNode.put("type", field.getTransformer().getType().toString());
+      if (field.getTransformer().hasNativeType()) {
+        transformerNode.put("nativeType", field.getTransformer().getNativeType().toString());
+      }
+      objectNode.put("transformer", transformerNode);
+    }
+
+    return objectNode;
+  }
+
   public static ObjectNode buildFieldMetricAssertionJson(@Nonnull final FieldMetricAssertion fieldMetricAssertion) {
     final ObjectMapper objectMapper = new ObjectMapper();
     final ObjectNode objectNode = objectMapper.createObjectNode();
@@ -115,6 +207,24 @@ public class MonitorServiceUtils {
 
     if (fieldMetricAssertion.hasParameters()) {
       objectNode.put("parameters", buildAssertionStdParametersJson(fieldMetricAssertion.getParameters()));
+    }
+
+    return objectNode;
+  }
+
+  public static ObjectNode buildDatasetFreshnessParametersJson(@Nonnull final DatasetFreshnessAssertionParameters parameters) {
+    final ObjectMapper objectMapper = new ObjectMapper();
+    final ObjectNode objectNode = objectMapper.createObjectNode();
+
+    objectNode.put("sourceType", parameters.getSourceType().toString());
+    if (parameters.hasField()) {
+      objectNode.put("field", buildFreshnessFieldSpecJson(parameters.getField()));
+    }
+    if (parameters.hasAuditLog()) {
+      objectNode.put("auditLog", buildAuditLogSpecJson(parameters.getAuditLog()));
+    }
+    if (parameters.hasDataHubOperation()) {
+      objectNode.put("dataHubOperation", buildDataHubOperationJson(parameters.getDataHubOperation()));
     }
 
     return objectNode;
@@ -137,11 +247,115 @@ public class MonitorServiceUtils {
     final ObjectNode objectNode = objectMapper.createObjectNode();
 
     objectNode.put("type", parameters.getType().toString());
+    if (parameters.hasDatasetFreshnessParameters()) {
+      objectNode.put("datasetFreshnessParameters", buildDatasetFreshnessParametersJson(parameters.getDatasetFreshnessParameters()));
+    }
+    if (parameters.hasDatasetVolumeParameters()) {
+      final ObjectNode datasetVolumeParametersNode = objectMapper.createObjectNode();
+      datasetVolumeParametersNode.put("sourceType", parameters.getDatasetVolumeParameters().getSourceType().toString());
+      objectNode.put("datasetVolumeParameters", datasetVolumeParametersNode);
+    }
     if (parameters.hasDatasetFieldParameters()) {
       objectNode.put("datasetFieldParameters", buildDatasetFieldParametersJson(parameters.getDatasetFieldParameters()));
     }
 
     return objectNode;
+  }
+
+  public static String buildTestFreshnessAssertionBodyJson(
+      @Nonnull final String type,
+      @Nonnull final String asserteeUrn,
+      @Nonnull final String connectionUrn,
+      @Nonnull final FreshnessAssertionInfo freshnessAssertionInfo,
+      @Nonnull final AssertionEvaluationParameters parameters
+  ) throws Exception {
+    final ObjectMapper objectMapper = new ObjectMapper();
+    final ObjectNode objectNode = objectMapper.createObjectNode();
+    final ObjectNode assertionNode = objectMapper.createObjectNode();
+    final ObjectNode freshnessAssertionNode = objectMapper.createObjectNode();
+    final ObjectNode paramNode = objectMapper.createObjectNode();
+
+    freshnessAssertionNode.put("type", freshnessAssertionInfo.getType().toString());
+    freshnessAssertionNode.put("schedule", buildFreshnessAssertionScheduleJson(freshnessAssertionInfo.getSchedule()));
+
+    if (freshnessAssertionInfo.hasFilter()) {
+      final ObjectNode filterNode = objectMapper.createObjectNode();
+      filterNode.put("type", freshnessAssertionInfo.getFilter().getType().toString());
+      filterNode.put("sql", freshnessAssertionInfo.getFilter().getSql());
+      freshnessAssertionNode.put("filter", filterNode);
+    }
+
+    assertionNode.put("freshnessAssertion", freshnessAssertionNode);
+
+    paramNode.put("type", "DATASET_FRESHNESS");
+    objectNode.put("type", type);
+    objectNode.put("connectionUrn", connectionUrn);
+    objectNode.put("entityUrn", asserteeUrn);
+    objectNode.put("assertion", assertionNode);
+    objectNode.put("parameters", buildAssertionEvaluationParametersJson(parameters));
+
+    return objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(objectNode);
+  }
+
+  public static String buildTestVolumeAssertionBodyJson(
+      @Nonnull final String type,
+      @Nonnull final String asserteeUrn,
+      @Nonnull final String connectionUrn,
+      @Nonnull final VolumeAssertionInfo volumeAssertionInfo,
+      @Nonnull final AssertionEvaluationParameters parameters
+  ) throws Exception {
+    final ObjectMapper objectMapper = new ObjectMapper();
+    final ObjectNode objectNode = objectMapper.createObjectNode();
+    final ObjectNode assertionNode = objectMapper.createObjectNode();
+    final ObjectNode volumeAssertionNode = objectMapper.createObjectNode();
+    final ObjectNode paramNode = objectMapper.createObjectNode();
+
+    volumeAssertionNode.put("type", volumeAssertionInfo.getType().toString());
+    if (volumeAssertionInfo.hasRowCountTotal()) {
+      final ObjectNode rowCountTotalNode = objectMapper.createObjectNode();
+      rowCountTotalNode.put("operator", volumeAssertionInfo.getRowCountTotal().getOperator().toString());
+      rowCountTotalNode.put("parameters", buildAssertionStdParametersJson(volumeAssertionInfo.getRowCountTotal().getParameters()));
+      volumeAssertionNode.put("rowCountTotal", rowCountTotalNode);
+    }
+    if (volumeAssertionInfo.hasRowCountChange()) {
+      final ObjectNode rowCountChangeNode = objectMapper.createObjectNode();
+      rowCountChangeNode.put("type", volumeAssertionInfo.getRowCountChange().getType().toString());
+      rowCountChangeNode.put("operator", volumeAssertionInfo.getRowCountChange().getOperator().toString());
+      rowCountChangeNode.put("parameters", buildAssertionStdParametersJson(volumeAssertionInfo.getRowCountChange().getParameters()));
+      volumeAssertionNode.put("rowCountChange", rowCountChangeNode);
+    }
+    if (volumeAssertionInfo.hasIncrementingSegmentRowCountTotal()) {
+      final ObjectNode incRowCountTotalNode = objectMapper.createObjectNode();
+      incRowCountTotalNode.put("segment", buildIncrementingSegmentSpecJson(volumeAssertionInfo.getIncrementingSegmentRowCountTotal().getSegment()));
+      incRowCountTotalNode.put("operator", volumeAssertionInfo.getIncrementingSegmentRowCountTotal().getOperator().toString());
+      incRowCountTotalNode.put("parameters", buildAssertionStdParametersJson(volumeAssertionInfo.getIncrementingSegmentRowCountTotal().getParameters()));
+      volumeAssertionNode.put("incrementingSegmentRowCountTotal", incRowCountTotalNode);
+    }
+    if (volumeAssertionInfo.hasIncrementingSegmentRowCountChange()) {
+      final ObjectNode incRowCountChangeNode = objectMapper.createObjectNode();
+      incRowCountChangeNode.put("segment", buildIncrementingSegmentSpecJson(volumeAssertionInfo.getIncrementingSegmentRowCountChange().getSegment()));
+      incRowCountChangeNode.put("type", volumeAssertionInfo.getIncrementingSegmentRowCountChange().getType().toString());
+      incRowCountChangeNode.put("operator", volumeAssertionInfo.getIncrementingSegmentRowCountChange().getOperator().toString());
+      incRowCountChangeNode.put("parameters", buildAssertionStdParametersJson(volumeAssertionInfo.getIncrementingSegmentRowCountChange().getParameters()));
+      volumeAssertionNode.put("incrementingSegmentRowCountChange", incRowCountChangeNode);
+    }
+
+    if (volumeAssertionInfo.hasFilter()) {
+      final ObjectNode filterNode = objectMapper.createObjectNode();
+      filterNode.put("type", volumeAssertionInfo.getFilter().getType().toString());
+      filterNode.put("sql", volumeAssertionInfo.getFilter().getSql());
+      volumeAssertionNode.put("filter", filterNode);
+    }
+    assertionNode.put("volumeAssertion", volumeAssertionNode);
+
+    paramNode.put("type", "DATASET_VOLUME");
+    objectNode.put("type", type);
+    objectNode.put("connectionUrn", connectionUrn);
+    objectNode.put("entityUrn", asserteeUrn);
+    objectNode.put("assertion", assertionNode);
+    objectNode.put("parameters", buildAssertionEvaluationParametersJson(parameters));
+
+    return objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(objectNode);
   }
 
   public static String buildTestSqlAssertionBodyJson(

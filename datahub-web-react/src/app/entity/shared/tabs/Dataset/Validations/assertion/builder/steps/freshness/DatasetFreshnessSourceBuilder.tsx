@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import styled from 'styled-components';
 import { Typography, Select } from 'antd';
 import { InfoCircleOutlined } from '@ant-design/icons';
+import useFormInstance from 'antd/lib/form/hooks/useFormInstance';
 import {
     DatasetFreshnessAssertionParameters,
     DatasetFreshnessSourceType,
@@ -87,6 +88,7 @@ type Props = {
  * For applicable sources
  */
 export const DatasetFreshnessSourceBuilder = ({ entityUrn, platformUrn, scheduleType, value, onChange }: Props) => {
+    const form = useFormInstance();
     const { data: ingestionSourceData } = useIngestionSourceForEntityQuery({
         variables: { urn: entityUrn },
         fetchPolicy: 'cache-first',
@@ -96,6 +98,7 @@ export const DatasetFreshnessSourceBuilder = ({ entityUrn, platformUrn, schedule
     const sourceType = value?.sourceType || defaultSourceType;
     const field = value?.field;
     const fieldKind = field?.kind;
+    const fieldPath = field?.path;
 
     const { data } = useGetDatasetSchemaQuery({
         variables: {
@@ -156,6 +159,10 @@ export const DatasetFreshnessSourceBuilder = ({ entityUrn, platformUrn, schedule
         sourceType: defaultSourceType,
         updateSourceType,
     });
+
+    useEffect(() => {
+        form.setFieldValue('column', fieldPath);
+    }, [form, fieldPath]);
 
     return (
         <Form>

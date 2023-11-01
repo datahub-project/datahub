@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import styled from 'styled-components';
 import { Button } from 'antd';
 import { AssertionBuilderStep, StepProps } from '../types';
@@ -9,6 +9,7 @@ import { DescriptionBuilder } from './sql/DescriptionBuilder';
 import { SqlEvaluationBuilder } from './sql/SqlEvaluationBuilder';
 import { TestAssertionModal } from './preview/TestAssertionModal';
 import { builderStateToCreateSqlAssertionVariables } from '../utils';
+import { useTestAssertionModal } from './utils';
 
 const Step = styled.div`
     height: 100%;
@@ -34,8 +35,8 @@ const ControlsGroup = styled.div`
  * Step for defining the Dataset SQL assertion
  */
 export const ConfigureDatasetSqlAssertionStep = ({ state, updateState, goTo, prev }: StepProps) => {
-    const [testAssertionModalVisible, setTestAssertionModalVisible] = useState(false);
     const sqlAssertion = state.assertion?.sqlAssertion;
+    const { isTestAssertionModalVisible, handleTestAssertionSubmit, hideTestAssertionModal } = useTestAssertionModal();
 
     const updateAssertionSchedule = (schedule: CronSchedule) => {
         updateState({
@@ -83,17 +84,15 @@ export const ConfigureDatasetSqlAssertionStep = ({ state, updateState, goTo, pre
             <Controls>
                 <Button onClick={prev}>Back</Button>
                 <ControlsGroup>
-                    <Button onClick={() => setTestAssertionModalVisible(true)} disabled={!sqlAssertion?.statement}>
-                        Try it out
-                    </Button>
+                    <Button onClick={handleTestAssertionSubmit}>Try it out</Button>
                     <Button type="primary" onClick={() => goTo(AssertionBuilderStep.CONFIGURE_ACTIONS)}>
                         Next
                     </Button>
                 </ControlsGroup>
             </Controls>
             <TestAssertionModal
-                visible={testAssertionModalVisible}
-                handleClose={() => setTestAssertionModalVisible(false)}
+                visible={isTestAssertionModalVisible}
+                handleClose={hideTestAssertionModal}
                 input={{
                     type: AssertionType.Sql,
                     connectionUrn: state.platformUrn as string,

@@ -128,6 +128,16 @@ public class AssertionUtils {
 
   public static String getAsserteeUrnFromTestInput(final TestAssertionInput input) {
     switch (input.getType()) {
+      case FRESHNESS:
+        if (input.getFreshnessTestInput() != null) {
+          return input.getFreshnessTestInput().getEntityUrn();
+        }
+        throw new RuntimeException("Freshness Test Input is required for Freshness Assertion");
+      case VOLUME:
+        if (input.getVolumeTestInput() != null) {
+          return input.getVolumeTestInput().getEntityUrn();
+        }
+        throw new RuntimeException("Volume Test Input is required for Volume Assertion");
       case SQL:
         if (input.getSqlTestInput() != null) {
           return input.getSqlTestInput().getEntityUrn();

@@ -362,7 +362,7 @@ class DatasetFreshnessAssertionParameters(PermissiveBaseModel):
     source_type: DatasetFreshnessSourceType = Field(alias="sourceType")
 
     # A descriptor for a Dataset Field to use. Present when source_type is FIELD_LAST_UPDATED
-    field: Optional[SchemaFieldSpec] = None
+    field: Optional[FreshnessFieldSpec] = None
 
     # A descriptor for a Dataset Column to use. Present when source_type is AUDIT_LOG_OPERATION
     audit_log: Optional[AuditLogSpec] = Field(alias="auditLog")

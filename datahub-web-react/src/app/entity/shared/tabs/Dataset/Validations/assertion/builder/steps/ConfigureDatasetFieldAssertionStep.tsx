@@ -1,7 +1,6 @@
-import React, { useState } from 'react';
+import React from 'react';
 import styled from 'styled-components';
 import { Button, Collapse } from 'antd';
-import useFormInstance from 'antd/lib/form/hooks/useFormInstance';
 import { AssertionBuilderStep, StepProps } from '../types';
 import { EvaluationScheduleBuilder } from './freshness/EvaluationScheduleBuilder';
 import {
@@ -22,6 +21,7 @@ import { FieldErrorThresholdBuilder } from './field/FieldErrorThresholdBuilder';
 import { FieldSourceBuilder } from './field/FieldSourceBuilder';
 import { FieldValuesParameterBuilder } from './field/FieldValuesParameterBuilder';
 import { FieldNullCheckBuilder } from './field/FieldNullCheckBuilder';
+import { useTestAssertionModal } from './utils';
 
 const Step = styled.div`
     height: 100%;
@@ -51,10 +51,9 @@ const ControlsGroup = styled.div`
  * Step for defining the Dataset Field assertion
  */
 export const ConfigureDatasetFieldAssertionStep = ({ state, updateState, goTo, prev }: StepProps) => {
-    const [testAssertionModalVisible, setTestAssertionModalVisible] = useState(false);
     const fieldAssertion = state.assertion?.fieldAssertion;
     const parameters = state.parameters?.datasetFieldParameters;
-    const form = useFormInstance();
+    const { isTestAssertionModalVisible, handleTestAssertionSubmit, hideTestAssertionModal } = useTestAssertionModal();
 
     const updateAssertionSchedule = (schedule: CronSchedule) => {
         updateState({
@@ -74,15 +73,6 @@ export const ConfigureDatasetFieldAssertionStep = ({ state, updateState, goTo, p
                 },
             },
         });
-    };
-
-    const handleTestAssertion = async () => {
-        try {
-            await form.validateFields();
-            setTestAssertionModalVisible(true);
-        } catch {
-            // Ignore validation errors
-        }
     };
 
     return (
@@ -118,15 +108,15 @@ export const ConfigureDatasetFieldAssertionStep = ({ state, updateState, goTo, p
             <Controls>
                 <Button onClick={prev}>Back</Button>
                 <ControlsGroup>
-                    <Button onClick={handleTestAssertion}>Try it out</Button>
+                    <Button onClick={handleTestAssertionSubmit}>Try it out</Button>
                     <Button type="primary" onClick={() => goTo(AssertionBuilderStep.CONFIGURE_ACTIONS)}>
                         Next
                     </Button>
                 </ControlsGroup>
             </Controls>
             <TestAssertionModal
-                visible={testAssertionModalVisible}
-                handleClose={() => setTestAssertionModalVisible(false)}
+                visible={isTestAssertionModalVisible}
+                handleClose={hideTestAssertionModal}
                 input={{
                     type: AssertionType.Field,
                     connectionUrn: state.platformUrn as string,

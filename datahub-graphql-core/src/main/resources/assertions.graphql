@@ -32,17 +32,26 @@ extend type Mutation {
   """
   Update an existing Dataset Assertion
   """
-  updateDatasetAssertion(urn: String!, input: UpdateDatasetAssertionInput!): Assertion!
+  updateDatasetAssertion(
+    urn: String!
+    input: UpdateDatasetAssertionInput!
+  ): Assertion!
 
   """
   Update an existing Freshness Assertion
   """
-  updateFreshnessAssertion(urn: String!, input: UpdateFreshnessAssertionInput!): Assertion!
+  updateFreshnessAssertion(
+    urn: String!
+    input: UpdateFreshnessAssertionInput!
+  ): Assertion!
 
   """
   Update the actions for a given assertion.
   """
-  updateAssertionActions(urn: String!, input: AssertionActionsInput!): Assertion!
+  updateAssertionActions(
+    urn: String!
+    input: AssertionActionsInput!
+  ): Assertion!
 }
 
 """
@@ -148,7 +157,6 @@ input UpdateDatasetAssertionInput {
   Optional actions to apply on success or failure of the assertion
   """
   actions: AssertionActionsInput
-
 }
 
 """
@@ -1440,6 +1448,16 @@ input TestAssertionInput {
   The urn of the connection required to evaluate the assertion. For now, this is the same as the platform urn.
   """
   connectionUrn: String!
+
+  """
+  Input for testing a Freshness assertion. Required if type is Freshness.
+  """
+  freshnessTestInput: CreateFreshnessAssertionInput
+
+  """
+  Input for testing a Volume assertion. Required if type is VOLUME.
+  """
+  volumeTestInput: CreateVolumeAssertionInput
 
   """
   Input for testing a SQL assertion. Required if type is SQL.
