@@ -775,7 +775,7 @@ def test_simple_dataset_tags_transformation(mock_time):
             ]
         )
     )
-    assert len(outputs) == 3
+    assert len(outputs) == 5
 
     # Check that tags were added.
     tags_aspect = outputs[1].record.aspect
@@ -815,7 +815,7 @@ def test_pattern_dataset_tags_transformation(mock_time):
         )
     )
 
-    assert len(outputs) == 3
+    assert len(outputs) == 5
     tags_aspect = outputs[1].record.aspect
     assert tags_aspect
     assert len(tags_aspect.tags) == 2
@@ -1324,7 +1324,7 @@ def test_mcp_add_tags_missing(mock_time):
     ]
     input_stream.append(RecordEnvelope(record=EndOfStream(), metadata={}))
     outputs = list(transformer.transform(input_stream))
-    assert len(outputs) == 3
+    assert len(outputs) == 5
     assert outputs[0].record == dataset_mcp
     # Check that tags were added, this will be the second result
     tags_aspect = outputs[1].record.aspect

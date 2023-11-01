@@ -17,6 +17,16 @@ from datahub.utilities.urns.urn import Urn, guess_entity_type
 log = logging.getLogger(__name__)
 
 
+def _update_work_unit_id(
+    envelope: RecordEnvelope, urn: str, aspect_name: str
+) -> dict[Any, Any]:
+    structured_urn = Urn.create_from_string(urn)
+    simple_name = "-".join(structured_urn.get_entity_id())
+    record_metadata = envelope.metadata.copy()
+    record_metadata.update({"workunit_id": f"txform-{simple_name}-{aspect_name}"})
+    return record_metadata
+
+
 class LegacyMCETransformer(Transformer, metaclass=ABCMeta):
     @abstractmethod
     def transform_one(self, mce: MetadataChangeEventClass) -> MetadataChangeEventClass:
@@ -39,6 +49,11 @@ class SingleAspectTransformer(metaclass=ABCMeta):
         param: aspect: an optional aspect corresponding to the aspect name that the transformer is interested in. Empty if no aspect with this name was produced by the underlying connector
         """
         pass
+
+    def handle_end_of_stream(
+        self, entity_urn: str
+    ) -> List[MetadataChangeProposalWrapper]:
+        return []
 
 
 class BaseTransformer(Transformer, metaclass=ABCMeta):
@@ -180,6 +195,33 @@ class BaseTransformer(Transformer, metaclass=ABCMeta):
             self._record_mcp(envelope.record)
         return envelope if envelope.record.aspect is not None else None
 
+    def _handle_end_of_stream(
+        self, envelope: RecordEnvelope, entity_urn: str
+    ) -> Iterable[RecordEnvelope]:
+
+        if not isinstance(self, SingleAspectTransformer):
+            return
+
+        mcps: List[MetadataChangeProposalWrapper] = self.handle_end_of_stream(
+            entity_urn
+        )
+
+        for mcp in mcps:
+            # I am not sure if we need to update the work_unit_id. @harshal please confirm it
+            if mcp.aspect is None or mcp.entityUrn is None:  # to silent the lint error
+                continue
+
+            record_metadata = _update_work_unit_id(
+                envelope=envelope,
+                aspect_name=mcp.aspect.get_aspect_name(),  # type: ignore
+                urn=mcp.entityUrn,
+            )
+
+            yield RecordEnvelope(
+                record=mcp,
+                metadata=record_metadata,
+            )
+
     def transform(
         self, record_envelopes: Iterable[RecordEnvelope]
     ) -> Iterable[RecordEnvelope]:
@@ -217,14 +259,12 @@ class BaseTransformer(Transformer, metaclass=ABCMeta):
                         )
                         if transformed_aspect:
                             # for end of stream records, we modify the workunit-id
-                            structured_urn = Urn.create_from_string(urn)
-                            simple_name = "-".join(structured_urn.get_entity_id())
-                            record_metadata = envelope.metadata.copy()
-                            record_metadata.update(
-                                {
-                                    "workunit_id": f"txform-{simple_name}-{self.aspect_name()}"
-                                }
+                            record_metadata = _update_work_unit_id(
+                                envelope=envelope,
+                                aspect_name=self.aspect_name(),
+                                urn=urn,
                             )
+                            structured_urn = Urn.create_from_string(urn)
                             yield RecordEnvelope(
                                 record=MetadataChangeProposalWrapper(
                                     entityUrn=urn,
@@ -237,5 +277,10 @@ class BaseTransformer(Transformer, metaclass=ABCMeta):
                                 ),
                                 metadata=record_metadata,
                             )
+                            yield from self._handle_end_of_stream(
+                                envelope=envelope, entity_urn=urn
+                            )
+
                     self._mark_processed(urn)
+
             yield envelope
