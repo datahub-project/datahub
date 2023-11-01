@@ -73,7 +73,7 @@ export function HeaderLinks(props: Props) {
     const showSettings = true;
     const showIngestion =
         isIngestionEnabled && me && me.platformPrivileges?.manageIngestion && me.platformPrivileges?.manageSecrets;
-    const showDomains = me?.platformPrivileges?.createDomains || me?.platformPrivileges?.manageDomains;
+    const showDomains = me?.platformPrivileges?.createDomains;
 
     useUpdateEducationStepIdsAllowlist(!!showIngestion, HOME_PAGE_INGESTION_ID);
 
