@@ -212,7 +212,7 @@ module.exports = {
             "docs/how/jattach-guide",
           ],
         },
-        ]
+      ],
     },
     {
       Developers: [
@@ -551,7 +551,10 @@ module.exports = {
       label: "Managed DataHub",
       type: "category",
       collapsed: true,
-      link: { type: "doc", id: "docs/managed-datahub/managed-datahub-overview" },
+      link: {
+        type: "doc",
+        id: "docs/managed-datahub/managed-datahub-overview",
+      },
       items: [
         "docs/managed-datahub/welcome-acryl",
         {
@@ -650,7 +653,8 @@ module.exports = {
       link: {
         type: "generated-index",
         title: "Community",
-        description: "Learn about DataHub community.", },
+        description: "Learn about DataHub community.",
+      },
       items: [
         "docs/slack",
         "docs/townhalls",
@@ -662,10 +666,7 @@ module.exports = {
       ],
     },
     {
-      "Release History": [
-           "releases",
-           "docs/how/updating-datahub",
-           ],
+      "Release History": ["releases", "docs/how/updating-datahub"],
     },
 
     // "Candidates for Deprecation": [
