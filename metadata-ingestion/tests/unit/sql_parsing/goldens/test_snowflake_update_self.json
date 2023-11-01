@@ -16,22 +16,14 @@
                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                     }
                 },
-                "native_column_type": "INT"
+                "native_column_type": "DECIMAL"
             },
-            "upstreams": []
-        },
-        {
-            "downstream": {
-                "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_sample_data.tpch_sf1.orders,PROD)",
-                "column": "totalprice",
-                "column_type": {
-                    "type": {
-                        "com.linkedin.pegasus2avro.schema.NumberType": {}
-                    }
-                },
-                "native_column_type": "INT"
-            },
-            "upstreams": []
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_sample_data.tpch_sf1.orders,PROD)",
+                    "column": "orderkey"
+                }
+            ]
         }
     ]
 }
