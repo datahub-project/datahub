@@ -7,8 +7,9 @@ From time to time we also use the opportunity to showcase upcoming features.
 
 ## Meeting Invite & Agenda
 
-You can join with this link https://zoom.datahubproject.io, or [RSVP](https://rsvp.datahubproject.io/) to get a calendar invite - this will always have the most up-to-date agenda for upcoming sessions.
+You can join with [this link](https://zoom.datahubproject.io) or [RSVP](https://rsvp.datahubproject.io/) to get a calendar invite - this will always have the most up-to-date agenda for upcoming sessions.
 
-## Past Meetings
+## Town Hall History
 
-See [Town Hall History](townhall-history.md) for recordings of past town halls.
+See our [Town Hall history](https://www.linkedin.com/company/acryl-data/events/) for the recordings and summaries of the past town halls.
+
