@@ -18,9 +18,11 @@ import { FieldColumnBuilder } from './field/FieldColumnBuilder';
 import { FieldTypeBuilder } from './field/FieldTypeBuilder';
 import { FieldFilterBuilder } from './field/FieldFilterBuilder';
 import { FieldErrorThresholdBuilder } from './field/FieldErrorThresholdBuilder';
-import { FieldSourceBuilder } from './field/FieldSourceBuilder';
+import { FieldRowCheckBuilder } from './field/FieldRowCheckBuilder';
 import { FieldValuesParameterBuilder } from './field/FieldValuesParameterBuilder';
 import { FieldNullCheckBuilder } from './field/FieldNullCheckBuilder';
+import { FieldMetricBuilder } from './field/FieldMetricBuilder';
+import { FieldMetricSourceBuilder } from './field/FieldMetricSourceBuilder';
 import { useTestAssertionModal } from './utils';
 
 const Step = styled.div`
@@ -31,9 +33,13 @@ const Step = styled.div`
 `;
 
 const Section = styled.div`
+    padding-bottom: 20px;
+`;
+
+const AdvancedSection = styled.div`
     display: flex;
     flex-direction: column;
-    padding-bottom: 20px;
+    gap: 16px;
 `;
 
 const Controls = styled.div`
@@ -53,6 +59,8 @@ const ControlsGroup = styled.div`
 export const ConfigureDatasetFieldAssertionStep = ({ state, updateState, goTo, prev }: StepProps) => {
     const fieldAssertion = state.assertion?.fieldAssertion;
     const parameters = state.parameters?.datasetFieldParameters;
+    const isFieldValuesAssertion = fieldAssertion?.type === FieldAssertionType.FieldValues;
+    const isFieldMetricAssertion = fieldAssertion?.type === FieldAssertionType.FieldMetric;
     const { isTestAssertionModalVisible, handleTestAssertionSubmit, hideTestAssertionModal } = useTestAssertionModal();
 
     const updateAssertionSchedule = (schedule: CronSchedule) => {
@@ -86,21 +94,32 @@ export const ConfigureDatasetFieldAssertionStep = ({ state, updateState, goTo, p
                 />
                 <FieldTypeBuilder value={state} onChange={updateState} />
                 <FieldColumnBuilder value={state} onChange={updateState} />
-                {fieldAssertion?.type === FieldAssertionType.FieldValues &&
-                    fieldAssertion.fieldValuesAssertion?.field?.path && (
+                {isFieldValuesAssertion && fieldAssertion?.fieldValuesAssertion?.field?.path && (
+                    <>
                         <FieldValuesParameterBuilder value={state} onChange={updateState} />
-                    )}
-                <FieldNullCheckBuilder value={state} onChange={updateState} />
-                <FieldSourceBuilder value={state} onChange={updateState} />
+                        <FieldNullCheckBuilder value={state} onChange={updateState} />
+                    </>
+                )}
+                {isFieldMetricAssertion && fieldAssertion?.fieldMetricAssertion?.field?.path && (
+                    <FieldMetricBuilder value={state} onChange={updateState} />
+                )}
+                <FieldRowCheckBuilder value={state} onChange={updateState} />
                 <Section>
                     <Collapse>
                         <Collapse.Panel key="Advanced" header="Advanced">
-                            <FieldFilterBuilder
-                                value={fieldAssertion?.filter as DatasetFilter}
-                                onChange={updateFilter}
-                                sourceType={parameters?.sourceType as DatasetFieldAssertionSourceType}
-                            />
-                            <FieldErrorThresholdBuilder value={state} onChange={updateState} />
+                            <AdvancedSection>
+                                {isFieldMetricAssertion && (
+                                    <FieldMetricSourceBuilder value={state} onChange={updateState} />
+                                )}
+                                <FieldFilterBuilder
+                                    value={fieldAssertion?.filter as DatasetFilter}
+                                    onChange={updateFilter}
+                                    sourceType={parameters?.sourceType as DatasetFieldAssertionSourceType}
+                                />
+                                {isFieldValuesAssertion && (
+                                    <FieldErrorThresholdBuilder value={state} onChange={updateState} />
+                                )}
+                            </AdvancedSection>
                         </Collapse.Panel>
                     </Collapse>
                 </Section>

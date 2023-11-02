@@ -10,35 +10,35 @@ import {
 const getAssertionStdOperator = (operator: AssertionStdOperator) => {
     switch (operator) {
         case AssertionStdOperator.EqualTo:
-            return 'should be equal to';
+            return 'is equal to';
         case AssertionStdOperator.Null:
-            return 'should be null';
+            return 'is null';
         case AssertionStdOperator.NotNull:
-            return 'should not be null';
+            return 'is not null';
         case AssertionStdOperator.NotEqualTo:
-            return 'should not be equal to';
+            return 'is not equal to';
         case AssertionStdOperator.NotIn:
-            return 'should not be in';
+            return 'is not in';
         case AssertionStdOperator.RegexMatch:
-            return 'should match regex';
+            return 'matches regex';
         case AssertionStdOperator.GreaterThan:
-            return 'should be greater than';
+            return 'is greater than';
         case AssertionStdOperator.LessThan:
-            return 'should be less than';
+            return 'is less than';
         case AssertionStdOperator.GreaterThanOrEqualTo:
-            return 'should be greater than or equal to';
+            return 'is greater than or equal to';
         case AssertionStdOperator.LessThanOrEqualTo:
-            return 'should be less than or equal to';
+            return 'is less than or equal to';
         case AssertionStdOperator.In:
-            return 'should be in';
+            return 'is in';
         case AssertionStdOperator.Between:
-            return 'should be between';
+            return 'is between';
         case AssertionStdOperator.Contain:
-            return 'should contain';
+            return 'contains';
         case AssertionStdOperator.IsTrue:
-            return 'should be true';
+            return 'is true';
         case AssertionStdOperator.IsFalse:
-            return 'should be false';
+            return 'is false';
         default:
             throw new Error(`Unknown operator ${operator}`);
     }
@@ -67,7 +67,7 @@ const getMetricType = (metric: FieldMetricType) => {
         case FieldMetricType.Min:
             return 'Min';
         case FieldMetricType.Mean:
-            return 'Mean';
+            return 'Average';
         case FieldMetricType.Median:
             return 'Median';
         case FieldMetricType.NegativeCount:

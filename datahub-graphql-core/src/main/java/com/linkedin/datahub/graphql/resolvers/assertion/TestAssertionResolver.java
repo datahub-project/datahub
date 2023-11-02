@@ -81,15 +81,13 @@ public class TestAssertionResolver implements DataFetcher<CompletableFuture<Asse
 
   private boolean isAuthorizedToTestAssertion(@Nonnull final Urn asserteeUrn, @Nonnull final TestAssertionInput input, @Nonnull final QueryContext context) {
     // We must be able to both create assertions + monitors.
-    if (AssertionUtils.isAuthorizedToEditAssertionFromAssertee(context, asserteeUrn) &&
-        MonitorUtils.isAuthorizedToUpdateEntityMonitors(asserteeUrn, context)
-    ) {
+    if (AssertionUtils.isAuthorizedToEditAssertionFromAssertee(context, asserteeUrn)) {
       // Check whether we are allowed to test sensitive monitor types (Custom SQL).
       if (AssertionType.SQL.equals(input.getType())) {
         return MonitorUtils.isAuthorizedToUpdateSqlAssertionMonitors(asserteeUrn, context);
       }
       // User is authorized.
-      return true;
+      return MonitorUtils.isAuthorizedToUpdateEntityMonitors(asserteeUrn, context);
     }
     // Unauthorized
     return false;

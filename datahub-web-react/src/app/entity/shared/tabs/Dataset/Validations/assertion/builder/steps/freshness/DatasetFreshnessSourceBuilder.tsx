@@ -20,8 +20,8 @@ import {
     isStructField,
 } from '../../utils';
 import { useChangeSourceOptionIf } from '../../hooks';
-import { useIngestionSourceForEntityQuery } from '../../../../../../../../../../graphql/ingestion.generated';
 import { AssertionDatasetFieldBuilder } from '../AssertionDatasetFieldBuilder';
+import { useConnectionForEntityExists } from '../../../../acrylUtils';
 
 const Form = styled.div``;
 
@@ -44,7 +44,7 @@ const StyledInfoCircleOutlined = styled(InfoCircleOutlined)`
 `;
 
 const StyledSelect = styled(Select)`
-    max-width: 340px;
+    width: 340px;
 `;
 
 const SelectOptionContent = styled.div<{ disabled: boolean }>`
@@ -72,6 +72,7 @@ type Props = {
     scheduleType: FreshnessAssertionScheduleType;
     value?: DatasetFreshnessAssertionParameters | null;
     onChange: (newParams: DatasetFreshnessAssertionParameters) => void;
+    disabled?: boolean;
 };
 
 /**
@@ -87,13 +88,16 @@ type Props = {
  *
  * For applicable sources
  */
-export const DatasetFreshnessSourceBuilder = ({ entityUrn, platformUrn, scheduleType, value, onChange }: Props) => {
+export const DatasetFreshnessSourceBuilder = ({
+    entityUrn,
+    platformUrn,
+    scheduleType,
+    value,
+    onChange,
+    disabled,
+}: Props) => {
     const form = useFormInstance();
-    const { data: ingestionSourceData } = useIngestionSourceForEntityQuery({
-        variables: { urn: entityUrn },
-        fetchPolicy: 'cache-first',
-    });
-    const connectionForEntityExists = !!ingestionSourceData?.ingestionSourceForEntity?.urn;
+    const connectionForEntityExists = useConnectionForEntityExists(entityUrn);
     const defaultSourceType = getDefaultFreshnessSourceOption(platformUrn, connectionForEntityExists);
     const sourceType = value?.sourceType || defaultSourceType;
     const field = value?.field;
@@ -173,6 +177,7 @@ export const DatasetFreshnessSourceBuilder = ({ entityUrn, platformUrn, schedule
             <StyledSelect
                 value={selectedSourceOption.name}
                 onChange={(sourceOption) => updateSourceType(sourceOption as string)}
+                disabled={disabled}
             >
                 {sourceOptions.map((option) => {
                     const isDisabled = !option.allowedScheduleTypes.includes(scheduleType);
@@ -208,6 +213,7 @@ export const DatasetFreshnessSourceBuilder = ({ entityUrn, platformUrn, schedule
                     fields={eligibleFieldSpecs}
                     onChange={updateFieldSpec}
                     width="340px"
+                    disabled={disabled}
                 />
             )}
         </Form>

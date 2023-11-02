@@ -11,8 +11,10 @@ from datahub_monitors.connection.connection import Connection
 from datahub_monitors.exceptions import (
     AssertionResultException,
     CustomSQLErrorException,
+    FieldAssertionErrorException,
     InvalidParametersException,
     InvalidSourceTypeException,
+    SourceQueryFailedException,
 )
 from datahub_monitors.types import (
     AssertionStdOperator,
@@ -22,13 +24,15 @@ from datahub_monitors.types import (
     DatasetVolumeSourceType,
     EntityEvent,
     EntityEventType,
+    FieldMetricType,
     FieldTransform,
     FreshnessFieldSpec,
     SchemaFieldSpec,
 )
 
+from .sql.field_metrics_sql_generator import FieldMetricsSQLGenerator
+from .sql.field_values_sql_generator import FieldValuesSQLGenerator
 from .types import DatabaseParams, SourceOperationParams
-from .utils.sql import setup_field_values_query
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +42,8 @@ class Source:
 
     connection: Connection
     source_name: str
+    field_values_sql_generator: FieldValuesSQLGenerator
+    field_metrics_sql_generator: FieldMetricsSQLGenerator
     row_limit: int = (
         5  # row limit to prevent large queries but still show recent events
     )
@@ -356,18 +362,11 @@ class Source:
         # database_params = self._get_database_params(entity_urn, database_parameters)
         return self._execute_custom_sql(custom_sql)
 
-    def _build_field_values_query(
+    def _setup_last_checked_sql_fragment(
         self,
-        database_params: DatabaseParams,
-        field: SchemaFieldSpec,
-        operator: AssertionStdOperator,
-        parameters: Optional[AssertionStdParameters],
-        exclude_nulls: bool,
-        transform: Optional[FieldTransform],
-        filter_sql: Optional[str],
         prev_high_watermark_value: Optional[str],
         changed_rows_field: Optional[FreshnessFieldSpec],
-    ) -> str:
+    ) -> Optional[str]:
         last_checked = None
         if changed_rows_field and prev_high_watermark_value:
             if (
@@ -390,16 +389,35 @@ class Source:
 
             last_checked = f"{changed_rows_field.path} >= {prev_high_watermark_value}"
 
-        return setup_field_values_query(
+        return last_checked
+
+    def _build_field_values_query(
+        self,
+        database_params: DatabaseParams,
+        field: SchemaFieldSpec,
+        operator: AssertionStdOperator,
+        parameters: Optional[AssertionStdParameters],
+        exclude_nulls: bool,
+        transform: Optional[FieldTransform],
+        filter_sql: Optional[str],
+        prev_high_watermark_value: Optional[str],
+        changed_rows_field: Optional[FreshnessFieldSpec],
+    ) -> str:
+        # if applicable, setup a "last checked" sql fragment to filter the query further
+        # eg. last_modified >= TO_TIMESTAMP('2023-11-11 12:00:00')
+        last_checked_sql_fragment = self._setup_last_checked_sql_fragment(
+            prev_high_watermark_value, changed_rows_field
+        )
+
+        return self.field_values_sql_generator.setup_query(
             self._get_database_string(database_params),
-            self.source_name,
             field,
             operator,
             parameters,
             exclude_nulls,
             filter_sql,
             transform,
-            last_checked,
+            last_checked_sql_fragment,
         )
 
     @retry(
@@ -433,16 +451,17 @@ class Source:
         rows = self._execute_fetchall_query(query)
 
         if len(rows) != 1:
-            raise CustomSQLErrorException(
-                f"Field Values query returned {len(rows)} rows, expected one!"
+            raise SourceQueryFailedException(
+                f"Field Values query returned {len(rows)} rows, expected one!",
+                query=query,
             )
 
         row = rows[0]
         try:
             return int(row[0])
         except (ValueError, TypeError):
-            raise CustomSQLErrorException(
-                f"Field Values query returned non-numeric value '{row[0]}'"
+            raise SourceQueryFailedException(
+                f"Field Values query returned non-numeric value '{row[0]}'", query=query
             )
 
     def get_field_values_count(
@@ -468,6 +487,71 @@ class Source:
             parameters,
             exclude_nulls,
             transform,
+            filter_sql,
+            prev_high_watermark_value,
+            changed_rows_field,
+        )
+
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=2, min=4, max=10),
+        reraise=True,
+    )
+    def _get_field_metric_value(
+        self,
+        database_params: DatabaseParams,
+        field: SchemaFieldSpec,
+        metric: FieldMetricType,
+        filter_sql: Optional[str],
+        prev_high_watermark_value: Optional[str],
+        changed_rows_field: Optional[FreshnessFieldSpec],
+    ) -> float:
+        # if applicable, setup a "last checked" sql fragment to filter the query further
+        # eg. last_modified >= TO_TIMESTAMP('2023-11-11 12:00:00')
+        last_checked_sql_fragment = self._setup_last_checked_sql_fragment(
+            prev_high_watermark_value, changed_rows_field
+        )
+        query = self.field_metrics_sql_generator.setup_query(
+            self._get_database_string(database_params),
+            field,
+            metric,
+            filter_sql,
+            last_checked_sql_fragment,
+        )
+        rows = self._execute_fetchall_query(query)
+
+        if len(rows) != 1:
+            raise FieldAssertionErrorException(
+                f"Field Metrics query returned {len(rows)} rows, expected one!",
+                query=query,
+            )
+
+        row = rows[0]
+        try:
+            return float(row[0])
+        except (ValueError, TypeError):
+            raise FieldAssertionErrorException(
+                f"Field Metrics query returned non-numeric value '{row[0]}'",
+                query=query,
+            )
+
+    def get_field_metric_value(
+        self,
+        entity_urn: str,
+        database_parameters: AssertionDatabaseParams,
+        field: SchemaFieldSpec,
+        metric: FieldMetricType,
+        filter: Optional[DatasetFilter],
+        prev_high_watermark_value: Optional[str],
+        changed_rows_field: Optional[FreshnessFieldSpec],
+    ) -> float:
+        database_params = self._get_database_params(entity_urn, database_parameters)
+        filter_sql = FilterBuilder(filter.__dict__).get_sql() if filter else None
+
+        return self._get_field_metric_value(
+            database_params,
+            field,
+            metric,
             filter_sql,
             prev_high_watermark_value,
             changed_rows_field,

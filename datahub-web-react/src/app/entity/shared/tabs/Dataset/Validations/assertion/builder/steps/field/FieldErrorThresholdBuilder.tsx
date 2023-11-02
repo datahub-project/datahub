@@ -2,23 +2,20 @@ import React from 'react';
 import { Form, InputNumber, Typography } from 'antd';
 import styled from 'styled-components';
 import { AssertionMonitorBuilderState } from '../../types';
-import { FieldAssertionType, FieldValuesFailThresholdType } from '../../../../../../../../../../types.generated';
+import { FieldValuesFailThresholdType } from '../../../../../../../../../../types.generated';
 
 type Props = {
     value: AssertionMonitorBuilderState;
     onChange: (newState: AssertionMonitorBuilderState) => void;
+    disabled?: boolean;
 };
-
-const Section = styled.div`
-    margin-top: 24px;
-`;
 
 const StyledFormItem = styled(Form.Item)`
     width: 240px;
     margin: 0;
 `;
 
-export const FieldErrorThresholdBuilder = ({ value, onChange }: Props) => {
+export const FieldErrorThresholdBuilder = ({ value, onChange, disabled }: Props) => {
     const updateErrorThreshold = (newValue: number | null) => {
         onChange({
             ...value,
@@ -38,8 +35,8 @@ export const FieldErrorThresholdBuilder = ({ value, onChange }: Props) => {
         });
     };
 
-    return value.assertion?.fieldAssertion?.type === FieldAssertionType.FieldValues ? (
-        <Section>
+    return (
+        <div>
             <Typography.Title level={5}>Invalid Values Threshold </Typography.Title>
             <Typography.Paragraph type="secondary">
                 The maximum number of column values (rows) that are allowed to fail the condition before the assertion
@@ -53,8 +50,9 @@ export const FieldErrorThresholdBuilder = ({ value, onChange }: Props) => {
                 <InputNumber
                     value={value.assertion?.fieldAssertion?.fieldValuesAssertion?.failThreshold?.value}
                     onChange={(newValue) => updateErrorThreshold(newValue)}
+                    disabled={disabled}
                 />
             </StyledFormItem>
-        </Section>
-    ) : null;
+        </div>
+    );
 };

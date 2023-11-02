@@ -1,6 +1,7 @@
 from datahub_monitors.exceptions import (
     AssertionResultException,
     CustomSQLErrorException,
+    FieldAssertionErrorException,
     InsufficientDataException,
     InvalidParametersException,
     InvalidSourceTypeException,
@@ -62,5 +63,13 @@ def extract_assertion_evaluation_result_error(
         return AssertionEvaluationResultError(
             type=AssertionResultErrorType.CUSTOM_SQL_ERROR,
             properties={"message": error.message},
+        )
+    elif isinstance(error, FieldAssertionErrorException):
+        return AssertionEvaluationResultError(
+            type=AssertionResultErrorType.FIELD_ASSERTION_ERROR,
+            properties={
+                "message": error.message,
+                "query": error.query if error.query else "",
+            },
         )
     raise Exception(f"Unknown error type {error}")

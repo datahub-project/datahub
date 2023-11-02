@@ -4,7 +4,7 @@ import styled from 'styled-components';
 import { Switch, Tooltip } from 'antd';
 import { InfoCircleOutlined } from '@ant-design/icons';
 import { AssertionMonitorBuilderState } from '../../types';
-import { AssertionStdOperator, FieldAssertionType } from '../../../../../../../../../../types.generated';
+import { AssertionStdOperator } from '../../../../../../../../../../types.generated';
 import { ANTD_GRAY } from '../../../../../../../constants';
 
 const Section = styled.div`
@@ -27,15 +27,12 @@ const Title = styled(Typography.Paragraph)`
 type Props = {
     value: AssertionMonitorBuilderState;
     onChange: (newState: AssertionMonitorBuilderState) => void;
+    disabled?: boolean;
 };
 
-export const FieldNullCheckBuilder = ({ value, onChange }: Props) => {
-    const fieldAssertionType = value.assertion?.fieldAssertion?.type;
+export const FieldNullCheckBuilder = ({ value, onChange, disabled }: Props) => {
     const operator = value.assertion?.fieldAssertion?.fieldValuesAssertion?.operator;
-    const showForm =
-        fieldAssertionType === FieldAssertionType.FieldValues &&
-        operator &&
-        ![AssertionStdOperator.Null, AssertionStdOperator.NotNull].includes(operator);
+    const showForm = operator && ![AssertionStdOperator.Null, AssertionStdOperator.NotNull].includes(operator);
     const handleToggle = (newValue: boolean) => {
         onChange({
             ...value,
@@ -67,6 +64,7 @@ export const FieldNullCheckBuilder = ({ value, onChange }: Props) => {
             <Switch
                 checked={value.assertion?.fieldAssertion?.fieldValuesAssertion?.excludeNulls ?? true}
                 onChange={handleToggle}
+                disabled={disabled}
             />
         </Section>
     ) : null;

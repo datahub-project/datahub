@@ -382,7 +382,8 @@ public class PoliciesConfig {
   public static final Privilege EDIT_ENTITY_SQL_ASSERTION_MONITORS = Privilege.of(
       "EDIT_ENTITY_SQL_ASSERTION_MONITORS",
       "Edit SQL Assertion Monitors",
-      "The ability to edit custom SQL assertion monitors for the entity. Note that this gives read query access to users with through the Custom SQL assertion builder. Grant with care.");
+      "The ability to edit custom SQL assertion monitors for the entity. "
+          + "Note that this gives read query access to users with through the Custom SQL assertion builder. Grant with care.");
 
   // Tag Privileges
   public static final Privilege EDIT_TAG_COLOR_PRIVILEGE = Privilege.of(

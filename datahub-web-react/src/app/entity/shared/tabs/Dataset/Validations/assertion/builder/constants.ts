@@ -10,9 +10,6 @@ import {
     SqlAssertionType,
     AssertionStdOperator,
     AssertionStdParameterType,
-    FieldAssertionType,
-    DatasetFieldAssertionSourceType,
-    FieldValuesFailThresholdType,
 } from '../../../../../../../../types.generated';
 
 // Every 6 hours.
@@ -71,26 +68,6 @@ export const DEFAULT_DATASET_FRESHNESS_ASSERTION_STATE = {
 // Default assertion definition used when the selected type is Volume.
 export const DEFAULT_DATASET_VOLUME_ASSERTION_STATE = {
     type: VolumeAssertionType.RowCountTotal,
-};
-
-// Default assertion definition used when the selected type is Field.
-export const DEFAULT_DATASET_FIELD_ASSERTION_STATE = {
-    type: FieldAssertionType.FieldValues,
-    fieldValuesAssertion: {
-        field: {},
-        failThreshold: {
-            type: FieldValuesFailThresholdType.Count,
-            value: 0,
-        },
-        excludeNulls: true,
-    },
-};
-
-export const DEFAULT_DATASET_FIELD_ASSERTION_PARAMETERS_STATE = {
-    type: AssertionEvaluationParametersType.DatasetField,
-    datasetFieldParameters: {
-        sourceType: DatasetFieldAssertionSourceType.AllRowsQuery,
-    },
 };
 
 // Default assertion definition used when the selected type is SQL.

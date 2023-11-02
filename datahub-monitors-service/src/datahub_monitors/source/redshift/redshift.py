@@ -13,14 +13,22 @@ from datahub_monitors.source.redshift.time_utils import (
     convert_value_for_comparison,
 )
 from datahub_monitors.source.source import Source
-from datahub_monitors.source.types import DatabaseParams, SourceOperationParams
-from datahub_monitors.types import EntityEvent, EntityEventType
-
-from ..utils.sql import (
+from datahub_monitors.source.sql.field_metrics_sql_generator import (
+    FieldMetricsSQLGenerator,
+)
+from datahub_monitors.source.sql.field_values_sql_generator import (
+    FieldValuesSQLGenerator,
+)
+from datahub_monitors.source.sql.utils import (
     setup_high_watermark_field_value_query,
     setup_high_watermark_row_count_query,
     setup_row_count_query,
 )
+from datahub_monitors.source.types import DatabaseParams, SourceOperationParams
+from datahub_monitors.types import EntityEvent, EntityEventType
+
+from .sql.field_metrics_sql_generator import RedshiftFieldMetricsSQLGenerator
+from .sql.field_values_sql_generator import RedshiftFieldValuesSQLGenerator
 from .types import (
     HIGH_WATERMARK_DATE_AND_TIME_TYPES,
     SUPPORTED_HIGH_WATERMARK_COLUMN_TYPES,
@@ -59,10 +67,14 @@ class RedshiftSource(Source):
 
     connection: RedshiftConnection
     source_name: str = "Redshift"
+    field_values_sql_generator: FieldValuesSQLGenerator
+    field_metrics_sql_generator: FieldMetricsSQLGenerator
 
     def __init__(self, connection: RedshiftConnection):
         super().__init__(connection)
         self.connection = connection
+        self.field_values_sql_generator = RedshiftFieldValuesSQLGenerator()
+        self.field_metrics_sql_generator = RedshiftFieldMetricsSQLGenerator()
 
     def _get_user_name_filter(self, parameters: dict) -> Optional[str]:
         if parameters is not None:

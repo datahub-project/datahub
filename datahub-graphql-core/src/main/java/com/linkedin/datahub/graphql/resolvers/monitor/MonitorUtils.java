@@ -114,13 +114,13 @@ public class MonitorUtils {
     final DisjunctivePrivilegeGroup orPrivilegeGroups = new DisjunctivePrivilegeGroup(ImmutableList.of(
         new ConjunctivePrivilegeGroup(ImmutableList.of(PoliciesConfig.EDIT_ENTITY_SQL_ASSERTION_MONITORS.getType()))
     ));
-    return AuthorizationUtils.isAuthorized(context, Optional.empty(), PoliciesConfig.MANAGE_MONITORS)
-      || AuthorizationUtils.isAuthorized(
-        context.getAuthorizer(),
-        context.getActorUrn(),
-        entityUrn.getEntityType(),
-        entityUrn.toString(),
-        orPrivilegeGroups);
+    return AuthorizationUtils.isAuthorized(
+          context.getAuthorizer(),
+          context.getActorUrn(),
+          entityUrn.getEntityType(),
+          entityUrn.toString(),
+          orPrivilegeGroups)
+        || AuthorizationUtils.isAuthorized(context, Optional.empty(), PoliciesConfig.MANAGE_MONITORS);
   }
 
   public static CronSchedule createCronSchedule(@Nonnull final CronScheduleInput input) {

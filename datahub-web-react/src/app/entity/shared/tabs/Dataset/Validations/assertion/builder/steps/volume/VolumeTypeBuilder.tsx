@@ -30,9 +30,10 @@ const StyledSelect = styled(Select)`
 type Props = {
     segment?: Maybe<IncrementingSegmentSpec>;
     onChange: (newParams: Partial<VolumeAssertionInfo>) => void;
+    disabled?: boolean;
 };
 
-export const VolumeTypeBuilder = ({ onChange, segment }: Props) => {
+export const VolumeTypeBuilder = ({ onChange, segment, disabled }: Props) => {
     const options = getVolumeTypeOptions();
 
     const updateVolumeType = (newValue: VolumeTypeOptionEnum) => {
@@ -68,6 +69,7 @@ export const VolumeTypeBuilder = ({ onChange, segment }: Props) => {
                     placeholder="Select condition type"
                     onChange={(option) => updateVolumeType(option as VolumeTypeOptionEnum)}
                     options={options}
+                    disabled={disabled}
                 />
             </Form.Item>
         </Container>

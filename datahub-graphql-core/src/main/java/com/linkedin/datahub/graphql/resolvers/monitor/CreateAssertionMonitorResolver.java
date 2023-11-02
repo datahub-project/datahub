@@ -70,20 +70,15 @@ public class CreateAssertionMonitorResolver implements DataFetcher<CompletableFu
   }
 
   private boolean isAuthorizedToCreateMonitor(@Nonnull final Urn entityUrn, @Nonnull final Urn assertionUrn, @Nonnull final QueryContext context) {
-    if (isAuthorizedToUpdateEntityMonitors(entityUrn, context)) {
-      // If the monitor requires heightened checks (SQL monitors), then we require them here.
-      AssertionInfo assertion = _assertionService.getAssertionInfo(assertionUrn);
-      if (assertion != null) {
-        if (AssertionType.SQL.equals(assertion.getType())) {
-          return isAuthorizedToUpdateSqlAssertionMonitors(entityUrn, context);
-        }
-        // User is authorized - non sensitive assertion.
-        return true;
-      } else {
-        throw new DataHubGraphQLException(String.format("Assertion with urn %s does not exist!", assertionUrn), DataHubGraphQLErrorCode.BAD_REQUEST);
+    // If the monitor requires heightened checks (SQL monitors), then we require them here.
+    AssertionInfo assertion = _assertionService.getAssertionInfo(assertionUrn);
+    if (assertion != null) {
+      if (AssertionType.SQL.equals(assertion.getType())) {
+        return isAuthorizedToUpdateSqlAssertionMonitors(entityUrn, context);
       }
+      // User is authorized - non sensitive assertion.
+      return isAuthorizedToUpdateEntityMonitors(entityUrn, context);
     }
-    // User not authorized.
-    return false;
+    throw new DataHubGraphQLException(String.format("Assertion with urn %s does not exist!", assertionUrn), DataHubGraphQLErrorCode.BAD_REQUEST);
   }
 }

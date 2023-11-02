@@ -13,6 +13,9 @@ from datahub_monitors.source.redshift.redshift import RedshiftSource
 from datahub_monitors.source.types import DatabaseParams
 from datahub_monitors.types import (
     AssertionStdOperator,
+    AssertionStdParameter,
+    AssertionStdParameters,
+    AssertionStdParameterType,
     DatasetFilterType,
     EntityEventType,
     FreshnessFieldKind,
@@ -128,6 +131,11 @@ class TestRedshiftSource:
     def setup_method(self) -> None:
         self.redshift_connection_mock = Mock(spec=RedshiftConnection)
         self.redshift_source = RedshiftSource(self.redshift_connection_mock)
+        self.value_parameters = AssertionStdParameters(
+            value=AssertionStdParameter(
+                value="77", type=AssertionStdParameterType.NUMBER
+            )
+        )
 
     @patch.object(RedshiftSource, "_build_audit_log_results")
     @patch.object(RedshiftSource, "_execute_fetchall_query")
@@ -446,7 +454,7 @@ class TestRedshiftSource:
                 db_params,
                 field,
                 AssertionStdOperator.EQUAL_TO,
-                None,
+                self.value_parameters,
                 False,
                 None,
                 None,
@@ -477,7 +485,7 @@ class TestRedshiftSource:
             db_params,
             field,
             AssertionStdOperator.EQUAL_TO,
-            None,
+            self.value_parameters,
             False,
             None,
             None,
@@ -511,7 +519,7 @@ class TestRedshiftSource:
             db_params,
             field,
             AssertionStdOperator.EQUAL_TO,
-            None,
+            self.value_parameters,
             False,
             None,
             None,
