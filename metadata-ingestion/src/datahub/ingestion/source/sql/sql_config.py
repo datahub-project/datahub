@@ -90,6 +90,8 @@ class SQLCommonConfig(
     profiling: GEProfilingConfig = GEProfilingConfig()
     # Custom Stateful Ingestion settings
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
+    # Custom data_dictionary_mode
+    data_dictionary_mode: Optional[str] = None
 
     def is_profiling_enabled(self) -> bool:
         return self.profiling.enabled and is_profiling_enabled(
