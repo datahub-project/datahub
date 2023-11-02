@@ -78,7 +78,7 @@ public class MetadataTestsDelegateImpl implements MetadataTestApiDelegate {
     }
 
     @Override
-    public ResponseEntity<MetadataTestResultV1> executeTest(String testUrnStr, List<String> body, Boolean evaluateOnly) {
+    public ResponseEntity<MetadataTestResultV1> evaluateTest(String testUrnStr, List<String> body, Boolean evaluateOnly) {
         Optional<MetadataTestResultV1> result;
 
         try {

@@ -4,12 +4,13 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.common.urn.GlossaryTermUrn;
 import datahub.client.patch.AbstractMultiFieldPatchBuilder;
 import datahub.client.patch.PatchOperationType;
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import org.apache.commons.lang3.tuple.ImmutableTriple;
 
-import static com.fasterxml.jackson.databind.node.JsonNodeFactory.*;
-import static com.linkedin.metadata.Constants.*;
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+
+import static com.fasterxml.jackson.databind.node.JsonNodeFactory.instance;
+import static com.linkedin.metadata.Constants.GLOSSARY_TERMS_ASPECT_NAME;
 
 
 public class GlossaryTermsPatchBuilder extends AbstractMultiFieldPatchBuilder<GlossaryTermsPatchBuilder> {

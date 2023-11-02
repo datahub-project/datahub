@@ -1,14 +1,14 @@
 openapi: "3.0.0"
 info:
   title: Metadata Tests API
-  description: These endpoints are for executing metadata tests.
+  description: These endpoints are for evaluating metadata tests.
   version: v1
 
 paths:
-  /metadata_test/{testUrn}/execute:
+  /metadata_test/{testUrn}/evaluate:
     post:
-      summary: Executes metadata tests on the given target URNs.
-      operationId: executeTest
+      summary: Evaluates metadata tests on the given target URNs.
+      operationId: evaluateTest
       tags:
         - "Metadata Test Operations"
       parameters:

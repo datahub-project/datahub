@@ -21,20 +21,15 @@ import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.client.CachingEntitySearchService;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.test.action.ActionApplier;
-import com.linkedin.metadata.test.eval.PredicateEvaluator;
 import com.linkedin.metadata.test.query.QueryEngine;
 import com.linkedin.metadata.timeline.TimelineService;
 import io.datahubproject.openapi.delegates.EntityApiDelegateImpl;
-import io.datahubproject.openapi.entities.EntitiesController;
 import io.datahubproject.openapi.generated.ScrollTestEntityResponseV2;
 import io.datahubproject.openapi.generated.TestEntityRequestV2;
 import io.datahubproject.openapi.generated.TestEntityResponseV2;
-import io.datahubproject.openapi.metadatatests.delegates.MetadataTestsDelegateImpl;
-import io.datahubproject.openapi.metadatatests.generated.controller.MetadataTestApiDelegate;
 import io.datahubproject.openapi.relationships.RelationshipsController;
 import io.datahubproject.openapi.timeline.TimelineController;
 import org.mockito.Mockito;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Bean;
@@ -82,7 +77,8 @@ public class MetadataTestsTestConfiguration {
 
         Authentication authentication = Mockito.mock(Authentication.class);
         when(authentication.getActor()).thenReturn(new Actor(ActorType.USER, "datahub"));
-        when(authorizerChain.authorize(any())).thenReturn(new AuthorizationResult(null, AuthorizationResult.Type.ALLOW, ""));
+        when(authorizerChain.authorize(any())).thenReturn(new AuthorizationResult(null,
+                AuthorizationResult.Type.ALLOW, ""));
         AuthenticationContext.setAuthentication(authentication);
 
         return authorizerChain;

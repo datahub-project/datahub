@@ -27,7 +27,7 @@ public abstract class CompoundKeyTemplate<T extends RecordTemplate> implements A
       String[] keys = path.split("/");
       // Skip first as it will always be blank due to path starting with /, skip last key as we only need to populate top level
       JsonNode parent = transformedNodeClone;
-      for (int i = 1; i < keys.length - 1; i++) {
+      for (int i = 1; i < keys.length; i++) {
         if (parent.get(keys[i]) == null) {
           ((ObjectNode) parent).set(keys[i], instance.objectNode());
         }

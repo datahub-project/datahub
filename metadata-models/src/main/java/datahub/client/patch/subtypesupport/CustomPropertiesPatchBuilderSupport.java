@@ -1,8 +1,9 @@
 package datahub.client.patch.subtypesupport;
 
 import datahub.client.patch.AbstractMultiFieldPatchBuilder;
-import java.util.Map;
+
 import javax.annotation.Nonnull;
+import java.util.Map;
 
 
 /**

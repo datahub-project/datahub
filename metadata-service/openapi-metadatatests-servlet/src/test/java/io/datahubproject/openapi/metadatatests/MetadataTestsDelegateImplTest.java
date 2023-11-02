@@ -94,11 +94,11 @@ public class MetadataTestsDelegateImplTest extends AbstractTestNGSpringContextTe
 
     @Test
     public void executeTest() throws Exception {
-        String testBody = "[\n" +
-                String.format("  \"%s\",\n", TEST_ENTITIES.get(0)) +
-                String.format("  \"%s\",\n", TEST_ENTITIES.get(1)) +
-                String.format("  \"%s\"\n", TEST_ENTITIES.get(2)) +
-                "]";
+        String testBody = "[\n"
+                + String.format("  \"%s\",\n", TEST_ENTITIES.get(0))
+                + String.format("  \"%s\",\n", TEST_ENTITIES.get(1))
+                + String.format("  \"%s\"\n", TEST_ENTITIES.get(2))
+                + "]";
 
         setupMockQueryEngine();
         setupMockTestInfo();
@@ -132,6 +132,7 @@ public class MetadataTestsDelegateImplTest extends AbstractTestNGSpringContextTe
     }
 
     private void setupMockTestInfo() throws URISyntaxException {
+        // CHECKSTYLE:OFF
         final com.linkedin.entity.Aspect testInfoAspect =
                 new com.linkedin.entity.Aspect(new TestInfo()
                         .setName("HasTags")
@@ -139,6 +140,7 @@ public class MetadataTestsDelegateImplTest extends AbstractTestNGSpringContextTe
                                 .setType(TestDefinitionType.JSON)
                                 .setJson("{\"on\":{\"types\":[\"dataset\"]},\"rules\":{\"and\":[{\"property\":\"globalTags.tags.tag\",\"operator\":\"exists\"}]}}"))
                         .setStatus(new TestStatus().setMode(TestMode.ACTIVE)).data());
+        // CHECKSTYLE:ON
 
         final EnvelopedAspect envelopedAspect = new EnvelopedAspect();
         envelopedAspect.setName(Constants.TEST_INFO_ASPECT_NAME);

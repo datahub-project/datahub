@@ -2,8 +2,9 @@ package datahub.client.patch.subtypesupport;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import datahub.client.patch.AbstractMultiFieldPatchBuilder;
-import java.util.List;
 import org.apache.commons.lang3.tuple.ImmutableTriple;
+
+import java.util.List;
 
 
 /**

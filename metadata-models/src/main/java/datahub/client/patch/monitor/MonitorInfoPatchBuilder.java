@@ -11,13 +11,15 @@ import datahub.client.patch.AbstractMultiFieldPatchBuilder;
 import datahub.client.patch.PatchOperationType;
 import datahub.client.patch.common.CustomPropertiesPatchBuilder;
 import datahub.client.patch.subtypesupport.CustomPropertiesPatchBuilderSupport;
-import java.util.List;
-import java.util.Map;
-import javax.annotation.Nonnull;
 import org.apache.commons.lang3.tuple.ImmutableTriple;
 
-import static com.fasterxml.jackson.databind.node.JsonNodeFactory.*;
-import static com.linkedin.metadata.Constants.*;
+import javax.annotation.Nonnull;
+import java.util.List;
+import java.util.Map;
+
+import static com.fasterxml.jackson.databind.node.JsonNodeFactory.instance;
+import static com.linkedin.metadata.Constants.MONITOR_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.MONITOR_INFO_ASPECT_NAME;
 
 
 public class MonitorInfoPatchBuilder extends AbstractMultiFieldPatchBuilder<MonitorInfoPatchBuilder>

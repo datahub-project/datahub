@@ -5,12 +5,13 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import datahub.client.patch.AbstractMultiFieldPatchBuilder;
 import datahub.client.patch.PatchOperationType;
 import datahub.client.patch.subtypesupport.IntermediatePatchBuilder;
+import org.apache.commons.lang3.tuple.ImmutableTriple;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import org.apache.commons.lang3.tuple.ImmutableTriple;
 
-import static com.fasterxml.jackson.databind.node.JsonNodeFactory.*;
+import static com.fasterxml.jackson.databind.node.JsonNodeFactory.instance;
 
 
 public class CustomPropertiesPatchBuilder<T extends AbstractMultiFieldPatchBuilder<T>> implements IntermediatePatchBuilder<T> {

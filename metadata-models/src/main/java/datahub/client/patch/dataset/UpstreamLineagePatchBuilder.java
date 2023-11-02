@@ -5,12 +5,15 @@ import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.dataset.DatasetLineageType;
 import datahub.client.patch.AbstractMultiFieldPatchBuilder;
 import datahub.client.patch.PatchOperationType;
-import javax.annotation.Nonnull;
 import lombok.ToString;
 import org.apache.commons.lang3.tuple.ImmutableTriple;
 
-import static com.fasterxml.jackson.databind.node.JsonNodeFactory.*;
-import static com.linkedin.metadata.Constants.*;
+import javax.annotation.Nonnull;
+
+import static com.fasterxml.jackson.databind.node.JsonNodeFactory.instance;
+import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.UNKNOWN_ACTOR;
+import static com.linkedin.metadata.Constants.UPSTREAM_LINEAGE_ASPECT_NAME;
 
 
 @ToString

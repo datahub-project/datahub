@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.github.fge.jsonpatch.JsonPatchException;
 import com.github.fge.jsonpatch.Patch;
 import com.linkedin.data.template.RecordTemplate;
+
 import javax.annotation.Nonnull;
 
 import static com.linkedin.metadata.models.registry.template.util.TemplateUtil.*;
@@ -19,7 +20,12 @@ public interface Template<T extends RecordTemplate> {
    * @return specific type for this template
    * @throws {@link ClassCastException} when recordTemplate is not the correct type for the template
    */
-  T getSubtype(RecordTemplate recordTemplate) throws ClassCastException;
+  default T getSubtype(RecordTemplate recordTemplate) throws ClassCastException {
+    if (getTemplateType().isInstance(recordTemplate)) {
+      return getTemplateType().cast(recordTemplate);
+    }
+    throw new ClassCastException("Unable to cast RecordTemplate to " + getTemplateType().getName());
+  }
 
   /**
    * Get the template clas type

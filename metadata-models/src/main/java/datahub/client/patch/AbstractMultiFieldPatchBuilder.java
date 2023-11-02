@@ -7,17 +7,18 @@ import com.linkedin.data.ByteString;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeProposal;
+import org.apache.commons.lang3.tuple.ImmutableTriple;
+
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
-import org.apache.commons.lang3.tuple.ImmutableTriple;
-import org.apache.http.entity.ContentType;
 
-import static com.fasterxml.jackson.databind.node.JsonNodeFactory.*;
+import static com.fasterxml.jackson.databind.node.JsonNodeFactory.instance;
 
 
 public abstract class AbstractMultiFieldPatchBuilder<T extends AbstractMultiFieldPatchBuilder<T>> {
 
+  public static final String JSON_CONTENT_TYPE = "application/json";
   public static final String OP_KEY = "op";
   public static final String VALUE_KEY = "value";
   public static final String PATH_KEY = "path";
@@ -78,7 +79,7 @@ public abstract class AbstractMultiFieldPatchBuilder<T extends AbstractMultiFiel
         .set(VALUE_KEY, triple.right)));
 
     GenericAspect genericAspect = new GenericAspect();
-    genericAspect.setContentType(ContentType.APPLICATION_JSON.getMimeType());
+    genericAspect.setContentType(JSON_CONTENT_TYPE);
     genericAspect.setValue(ByteString.copyString(patches.toString(), StandardCharsets.UTF_8));
 
     return genericAspect;
