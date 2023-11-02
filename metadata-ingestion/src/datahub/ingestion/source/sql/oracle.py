@@ -6,12 +6,11 @@ import re
 # This import verifies that the dependencies are available.
 import cx_Oracle
 import pydantic
-import sqlalchemy.engine
 from pydantic.fields import Field
 from sqlalchemy import event, sql
 from sqlalchemy.dialects.oracle.base import ischema_names
 from sqlalchemy.engine.reflection import Inspector
-from sqlalchemy.util import warn, defaultdict, py2k, compat
+from sqlalchemy.util import warn, defaultdict, py2k
 from sqlalchemy.sql import sqltypes
 from sqlalchemy.types import INTEGER, FLOAT, TIMESTAMP
 
@@ -81,11 +80,11 @@ class OracleConfig(BasicSQLAlchemyConfig):
         default=False,
         description="Add oracle database name to urn, default urn is schema.table",
     )
-    # custom
+    #custom
     data_dictionary_mode: Optional[str] = Field(
         default='ALL',
         description="The data dictionary views mode, to extract information about schema objects "
-                    "('ALL' and 'DBA' views are supported). (https://docs.oracle.com/cd/E11882_01/nav/catalog_views.htm)"
+        "('ALL' and 'DBA' views are supported). (https://docs.oracle.com/cd/E11882_01/nav/catalog_views.htm)"
     )
 
     @pydantic.validator("service_name")
@@ -133,38 +132,6 @@ class OracleInspectorObjectWrapper:
         self.log = logging.getLogger(__name__)
         # tables that we don't want to ingest into the DataHub
         self.exclude_tablespaces: Tuple[str, str] = ("SYSTEM", "SYSAUX")
-
-    def parse_identity_options(self, identity_options, default_on_nul):
-        # identity_options is a string that starts with 'ALWAYS,' or
-        # 'BY DEFAULT,' and continues with
-        # START WITH: 1, INCREMENT BY: 1, MAX_VALUE: 123, MIN_VALUE: 1,
-        # CYCLE_FLAG: N, CACHE_SIZE: 1, ORDER_FLAG: N, SCALE_FLAG: N,
-        # EXTEND_FLAG: N, SESSION_FLAG: N, KEEP_VALUE: N
-        parts = [p.strip() for p in identity_options.split(",")]
-        identity = {
-            "always": parts[0] == "ALWAYS",
-            "on_null": default_on_nul == "YES",
-        }
-
-        for part in parts[1:]:
-            option, value = part.split(":")
-            value = value.strip()
-
-            if "START WITH" in option:
-                identity["start"] = compat.long_type(value)
-            elif "INCREMENT BY" in option:
-                identity["increment"] = compat.long_type(value)
-            elif "MAX_VALUE" in option:
-                identity["maxvalue"] = compat.long_type(value)
-            elif "MIN_VALUE" in option:
-                identity["minvalue"] = compat.long_type(value)
-            elif "CYCLE_FLAG" in option:
-                identity["cycle"] = value == "Y"
-            elif "CACHE_SIZE" in option:
-                identity["cache"] = compat.long_type(value)
-            elif "ORDER_FLAG" in option:
-                identity["order"] = value == "Y"
-        return identity
 
     def get_schema_names(self) -> List[str]:
         cursor = self._inspector_instance.bind.execute(sql.text("SELECT username FROM dba_users ORDER BY username"))
@@ -224,7 +191,7 @@ class OracleInspectorObjectWrapper:
         ]
 
     def get_columns(
-            self, table_name: Optional[str], schema: Optional[str] = None, dblink: str = ''
+            self, table_name: str, schema: str = None, dblink: str = ''
     ) -> List[dict]:
 
         table_name = self._inspector_instance.dialect.denormalize_name(table_name)
@@ -234,15 +201,12 @@ class OracleInspectorObjectWrapper:
             schema = self._inspector_instance.dialect.default_schema_name
 
         columns = []
-        if not (self._inspector_instance.dialect.server_version_info and
-                self._inspector_instance.dialect.server_version_info < (9,)):
-            # _supports_char_length --> not self._is_oracle_8
+        if self._inspector_instance.dialect._supports_char_length:
             char_length_col = "char_length"
         else:
             char_length_col = "data_length"
 
-        if self._inspector_instance.dialect.server_version_info and \
-                self._inspector_instance.dialect.server_version_info >= (12,):
+        if self._inspector_instance.dialect.server_version_info >= (12,):
             identity_cols = """\
                 col.default_on_null,
                 (
@@ -335,7 +299,7 @@ class OracleInspectorObjectWrapper:
                 computed = None
 
             if identity_options is not None:
-                identity = self.parse_identity_options(identity_options, default_on_nul)
+                identity = self._inspector_instance.dialect._parse_identity_options(identity_options, default_on_nul)
                 default = None
             else:
                 identity = None
@@ -359,7 +323,7 @@ class OracleInspectorObjectWrapper:
         return columns
 
     def get_table_comment(
-            self, table_name: Optional[str], schema: Optional[str] = None
+            self, table_name: str, schema: str = None
     ) -> Dict:
         table_name = self._inspector_instance.dialect.denormalize_name(table_name)
         schema = self._inspector_instance.dialect.denormalize_name(schema or self.default_schema_name)
@@ -382,8 +346,8 @@ class OracleInspectorObjectWrapper:
         return {"text": c.scalar()}
 
     def _get_constraint_data(
-            self, table_name: Optional[str], schema: Optional[str] = None, dblink: str = ''
-    ) -> List[sqlalchemy.engine.Row]:
+            self, table_name: str, schema: str = None, dblink: str = ''
+    ) -> List[tuple]:
         params = {"table_name": table_name}
 
         text = (
@@ -424,7 +388,7 @@ class OracleInspectorObjectWrapper:
         return constraint_data
 
     def get_pk_constraint(
-            self, table_name: Optional[str], schema: Optional[str] = None, dblink: str = ''
+            self, table_name: str, schema: str = None, dblink: str = ''
     ) -> Dict:
         table_name = self._inspector_instance.dialect.denormalize_name(table_name)
         schema = self._inspector_instance.dialect.denormalize_name(schema or self.default_schema_name)
@@ -457,7 +421,7 @@ class OracleInspectorObjectWrapper:
         return {"constrained_columns": pkeys, "name": constraint_name}
 
     def get_foreign_keys(
-            self, table_name: Optional[str], schema: Optional[str] = None, dblink: str = ''
+            self, table_name: str, schema: str = None, dblink: str = ''
     ) -> List:
 
         table_name = self._inspector_instance.dialect.denormalize_name(table_name)
@@ -484,7 +448,7 @@ class OracleInspectorObjectWrapper:
                 "options": {},
             }
 
-        fkeys = defaultdict(fkey_rec)  # type: defaultdict
+        fkeys = defaultdict(fkey_rec)
 
         for row in constraint_data:
             (
@@ -535,7 +499,7 @@ class OracleInspectorObjectWrapper:
         return list(fkeys.values())
 
     def get_view_definition(
-            self, view_name: Optional[str], schema: Optional[str] = None
+            self, view_name: str, schema: str = None
     ) -> str | None:
         view_name = self._inspector_instance.dialect.denormalize_name(view_name)
         schema = self._inspector_instance.dialect.denormalize_name(schema or self.default_schema_name)
@@ -600,9 +564,8 @@ class OracleSource(SQLAlchemySource):
             # OracleInspectorObjectWrapper provides alternate implementation using DBA_* tables.
             if self.config.data_dictionary_mode != "ALL":
                 yield cast(Inspector, OracleInspectorObjectWrapper(inspector))
-            else:
-                # To silent the mypy lint error
-                yield cast(Inspector, inspector)
+            # To silent the mypy lint error
+            yield cast(Inspector, inspector)
 
     def get_workunits(self):
         with patch.dict(
