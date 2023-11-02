@@ -21,13 +21,20 @@ const searchCsvDownloadHeader = [
     'entity url',
 ];
 
-export const getSearchCsvDownloadHeader = (sampleResult?: SearchResultInterface) => {
+export const getSearchCsvDownloadHeader = (searchResults?: SearchResultInterface[]) => {
     let result = searchCsvDownloadHeader;
+    const sampleResult = searchResults?.[0];
 
     // this is checking if the degree field is filled out- if it is that
     // means the caller is interested in level of dependency.
     if (typeof sampleResult?.degree === 'number') {
         result = [...result, 'level of dependency'];
+    }
+    if (searchResults?.find((r) => (r.entity as any).statsSummary?.viewCount)) {
+        result = [...result, 'view count'];
+    }
+    if (searchResults?.find((r) => (r.entity as any).statsSummary?.uniqueUserCountLast30Days)) {
+        result = [...result, 'unique users'];
     }
     return result;
 };
@@ -36,6 +43,7 @@ export const transformGenericEntityPropertiesToCsvRow = (
     properties: GenericEntityProperties | null,
     entityUrl: string,
     result: SearchResultInterface,
+    csvHeader: string[],
 ) => {
     let row = [
         // urn
@@ -91,13 +99,23 @@ export const transformGenericEntityPropertiesToCsvRow = (
         // optional level of dependency
         row = [...row, String(result?.degree)];
     }
+    if (csvHeader.includes('view count')) {
+        row = [...row, String(properties?.statsSummary?.viewCount) || ''];
+    }
+    if (csvHeader.includes('unique users')) {
+        row = [...row, String(properties?.statsSummary?.uniqueUserCountLast30Days) || ''];
+    }
     return row;
 };
 
-export const transformResultsToCsvRow = (results: SearchResultInterface[], entityRegistry: EntityRegistry) => {
+export const transformResultsToCsvRow = (
+    results: SearchResultInterface[],
+    entityRegistry: EntityRegistry,
+    csvHeader: string[],
+) => {
     return results.map((result) => {
         const genericEntityProperties = entityRegistry.getGenericEntityProperties(result.entity.type, result.entity);
         const entityUrl = entityRegistry.getEntityUrl(result.entity.type, result.entity.urn);
-        return transformGenericEntityPropertiesToCsvRow(genericEntityProperties, entityUrl, result);
+        return transformGenericEntityPropertiesToCsvRow(genericEntityProperties, entityUrl, result, csvHeader);
     });
 };
