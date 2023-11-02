@@ -1,8 +1,8 @@
 package com.linkedin.metadata.elasticsearch.update;
 
 import com.linkedin.metadata.search.elasticsearch.update.BulkListener;
-import org.elasticsearch.action.bulk.BulkRequest;
-import org.elasticsearch.action.support.WriteRequest;
+import org.opensearch.action.bulk.BulkRequest;
+import org.opensearch.action.support.WriteRequest;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 

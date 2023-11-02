@@ -10,7 +10,9 @@
         {
             "downstream": {
                 "table": "urn:li:dataset:(urn:li:dataPlatform:oracle,vsal,PROD)",
-                "column": "Department"
+                "column": "Department",
+                "column_type": null,
+                "native_column_type": null
             },
             "upstreams": [
                 {
@@ -22,14 +24,22 @@
         {
             "downstream": {
                 "table": "urn:li:dataset:(urn:li:dataPlatform:oracle,vsal,PROD)",
-                "column": "Employees"
+                "column": "Employees",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                },
+                "native_column_type": "NUMBER"
             },
             "upstreams": []
         },
         {
             "downstream": {
                 "table": "urn:li:dataset:(urn:li:dataPlatform:oracle,vsal,PROD)",
-                "column": "Salary"
+                "column": "Salary",
+                "column_type": null,
+                "native_column_type": null
             },
             "upstreams": [
                 {

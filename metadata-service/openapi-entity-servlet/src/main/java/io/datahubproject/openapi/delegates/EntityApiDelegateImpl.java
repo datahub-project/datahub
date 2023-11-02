@@ -14,27 +14,38 @@ import io.datahubproject.openapi.dto.UpsertAspectRequest;
 import io.datahubproject.openapi.dto.UrnResponseMap;
 import io.datahubproject.openapi.entities.EntitiesController;
 import com.datahub.authorization.AuthorizerChain;
+import io.datahubproject.openapi.exception.UnauthorizedException;
 import io.datahubproject.openapi.generated.BrowsePathsV2AspectRequestV2;
 import io.datahubproject.openapi.generated.BrowsePathsV2AspectResponseV2;
+import io.datahubproject.openapi.generated.ChartInfoAspectRequestV2;
+import io.datahubproject.openapi.generated.ChartInfoAspectResponseV2;
+import io.datahubproject.openapi.generated.DataProductPropertiesAspectRequestV2;
+import io.datahubproject.openapi.generated.DataProductPropertiesAspectResponseV2;
+import io.datahubproject.openapi.generated.DatasetPropertiesAspectRequestV2;
+import io.datahubproject.openapi.generated.DatasetPropertiesAspectResponseV2;
 import io.datahubproject.openapi.generated.DeprecationAspectRequestV2;
 import io.datahubproject.openapi.generated.DeprecationAspectResponseV2;
 import io.datahubproject.openapi.generated.DomainsAspectRequestV2;
 import io.datahubproject.openapi.generated.DomainsAspectResponseV2;
+import io.datahubproject.openapi.generated.EditableChartPropertiesAspectRequestV2;
+import io.datahubproject.openapi.generated.EditableChartPropertiesAspectResponseV2;
+import io.datahubproject.openapi.generated.EditableDatasetPropertiesAspectRequestV2;
+import io.datahubproject.openapi.generated.EditableDatasetPropertiesAspectResponseV2;
 import io.datahubproject.openapi.generated.GlobalTagsAspectRequestV2;
 import io.datahubproject.openapi.generated.GlobalTagsAspectResponseV2;
 import io.datahubproject.openapi.generated.GlossaryTermsAspectRequestV2;
 import io.datahubproject.openapi.generated.GlossaryTermsAspectResponseV2;
+import io.datahubproject.openapi.generated.InstitutionalMemoryAspectRequestV2;
+import io.datahubproject.openapi.generated.InstitutionalMemoryAspectResponseV2;
 import io.datahubproject.openapi.generated.OwnershipAspectRequestV2;
 import io.datahubproject.openapi.generated.OwnershipAspectResponseV2;
 import io.datahubproject.openapi.generated.SortOrder;
 import io.datahubproject.openapi.generated.StatusAspectRequestV2;
 import io.datahubproject.openapi.generated.StatusAspectResponseV2;
-import io.datahubproject.openapi.exception.UnauthorizedException;
 import io.datahubproject.openapi.util.OpenApiEntitiesUtil;
 import com.datahub.authorization.ConjunctivePrivilegeGroup;
 import com.datahub.authorization.DisjunctivePrivilegeGroup;
-import com.linkedin.metadata.models.EntitySpec;
-import com.datahub.authorization.ResourceSpec;
+import com.datahub.authorization.EntitySpec;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.google.common.collect.ImmutableList;
 import com.datahub.authorization.AuthUtil;
@@ -365,7 +376,7 @@ public class EntityApiDelegateImpl<I, O, S> {
                                     @Valid String scrollId, @Valid List<String> sort, @Valid SortOrder sortOrder, @Valid String query) {
 
         Authentication authentication = AuthenticationContext.getAuthentication();
-        EntitySpec entitySpec = OpenApiEntitiesUtil.responseClassToEntitySpec(_entityRegistry, _respClazz);
+        com.linkedin.metadata.models.EntitySpec entitySpec = OpenApiEntitiesUtil.responseClassToEntitySpec(_entityRegistry, _respClazz);
         checkScrollAuthorized(authentication, entitySpec);
 
         // TODO multi-field sort
@@ -398,14 +409,197 @@ public class EntityApiDelegateImpl<I, O, S> {
         return ResponseEntity.of(OpenApiEntitiesUtil.convertToScrollResponse(_scrollRespClazz, result.getScrollId(), entities));
     }
 
-    private void checkScrollAuthorized(Authentication authentication, EntitySpec entitySpec) {
+    private void checkScrollAuthorized(Authentication authentication, com.linkedin.metadata.models.EntitySpec entitySpec) {
         String actorUrnStr = authentication.getActor().toUrnStr();
         DisjunctivePrivilegeGroup orGroup = new DisjunctivePrivilegeGroup(ImmutableList.of(new ConjunctivePrivilegeGroup(
                 ImmutableList.of(PoliciesConfig.GET_ENTITY_PRIVILEGE.getType()))));
 
-        List<Optional<ResourceSpec>> resourceSpecs = List.of(Optional.of(new ResourceSpec(entitySpec.getName(), "")));
+        List<Optional<EntitySpec>> resourceSpecs = List.of(Optional.of(new EntitySpec(entitySpec.getName(), "")));
         if (_restApiAuthorizationEnabled && !AuthUtil.isAuthorizedForResources(_authorizationChain, actorUrnStr, resourceSpecs, orGroup)) {
             throw new UnauthorizedException(actorUrnStr + " is unauthorized to get entities.");
         }
+    }
+
+    public ResponseEntity<DatasetPropertiesAspectResponseV2> createDatasetProperties(@Valid DatasetPropertiesAspectRequestV2 body, String urn) {
+        String methodName = walker.walk(frames -> frames
+                .findFirst()
+                .map(StackWalker.StackFrame::getMethodName)).get();
+        return createAspect(urn, methodNameToAspectName(methodName), body, DatasetPropertiesAspectRequestV2.class,
+                DatasetPropertiesAspectResponseV2.class);
+    }
+
+    public ResponseEntity<EditableDatasetPropertiesAspectResponseV2> createEditableDatasetProperties(
+            @Valid EditableDatasetPropertiesAspectRequestV2 body, String urn) {
+        String methodName = walker.walk(frames -> frames
+                .findFirst()
+                .map(StackWalker.StackFrame::getMethodName)).get();
+        return createAspect(urn, methodNameToAspectName(methodName), body, EditableDatasetPropertiesAspectRequestV2.class,
+                EditableDatasetPropertiesAspectResponseV2.class);
+    }
+
+    public ResponseEntity<InstitutionalMemoryAspectResponseV2> createInstitutionalMemory(
+            @Valid InstitutionalMemoryAspectRequestV2 body, String urn) {
+        String methodName = walker.walk(frames -> frames
+                .findFirst()
+                .map(StackWalker.StackFrame::getMethodName)).get();
+        return createAspect(urn, methodNameToAspectName(methodName), body, InstitutionalMemoryAspectRequestV2.class,
+                InstitutionalMemoryAspectResponseV2.class);
+    }
+
+    public ResponseEntity<ChartInfoAspectResponseV2> createChartInfo(@Valid ChartInfoAspectRequestV2 body, String urn) {
+        String methodName = walker.walk(frames -> frames
+                .findFirst()
+                .map(StackWalker.StackFrame::getMethodName)).get();
+        return createAspect(urn, methodNameToAspectName(methodName), body, ChartInfoAspectRequestV2.class,
+                ChartInfoAspectResponseV2.class);
+    }
+
+    public ResponseEntity<EditableChartPropertiesAspectResponseV2> createEditableChartProperties(
+            @Valid EditableChartPropertiesAspectRequestV2 body, String urn) {
+        String methodName = walker.walk(frames -> frames
+                .findFirst()
+                .map(StackWalker.StackFrame::getMethodName)).get();
+        return createAspect(urn, methodNameToAspectName(methodName), body, EditableChartPropertiesAspectRequestV2.class,
+                EditableChartPropertiesAspectResponseV2.class);
+    }
+
+    public ResponseEntity<DataProductPropertiesAspectResponseV2> createDataProductProperties(
+            @Valid DataProductPropertiesAspectRequestV2 body, String urn) {
+        String methodName = walker.walk(frames -> frames
+                .findFirst()
+                .map(StackWalker.StackFrame::getMethodName)).get();
+        return createAspect(urn, methodNameToAspectName(methodName), body, DataProductPropertiesAspectRequestV2.class,
+                DataProductPropertiesAspectResponseV2.class);
+    }
+
+    public ResponseEntity<Void> deleteDatasetProperties(String urn) {
+        String methodName = walker.walk(frames -> frames
+                .findFirst()
+                .map(StackWalker.StackFrame::getMethodName)).get();
+        return deleteAspect(urn, methodNameToAspectName(methodName));
+    }
+
+    public ResponseEntity<Void> deleteEditableDatasetProperties(String urn) {
+        String methodName = walker.walk(frames -> frames
+                .findFirst()
+                .map(StackWalker.StackFrame::getMethodName)).get();
+        return deleteAspect(urn, methodNameToAspectName(methodName));
+    }
+
+    public ResponseEntity<Void> deleteInstitutionalMemory(String urn) {
+        String methodName = walker.walk(frames -> frames
+                .findFirst()
+                .map(StackWalker.StackFrame::getMethodName)).get();
+        return deleteAspect(urn, methodNameToAspectName(methodName));
+    }
+
+    public ResponseEntity<Void> deleteChartInfo(String urn) {
+        String methodName = walker.walk(frames -> frames
+                .findFirst()
+                .map(StackWalker.StackFrame::getMethodName)).get();
+        return deleteAspect(urn, methodNameToAspectName(methodName));
+    }
+
+    public ResponseEntity<DatasetPropertiesAspectResponseV2> getDatasetProperties(String urn, Boolean systemMetadata) {
+        String methodName = walker.walk(frames -> frames
+                .findFirst()
+                .map(StackWalker.StackFrame::getMethodName)).get();
+        return getAspect(urn, systemMetadata, methodNameToAspectName(methodName), _respClazz,
+                DatasetPropertiesAspectResponseV2.class);
+    }
+
+    public ResponseEntity<EditableDatasetPropertiesAspectResponseV2> getEditableDatasetProperties(String urn, Boolean systemMetadata) {
+        String methodName = walker.walk(frames -> frames
+                .findFirst()
+                .map(StackWalker.StackFrame::getMethodName)).get();
+        return getAspect(urn, systemMetadata, methodNameToAspectName(methodName), _respClazz,
+                EditableDatasetPropertiesAspectResponseV2.class);
+    }
+
+    public ResponseEntity<InstitutionalMemoryAspectResponseV2> getInstitutionalMemory(String urn, Boolean systemMetadata) {
+        String methodName = walker.walk(frames -> frames
+                .findFirst()
+                .map(StackWalker.StackFrame::getMethodName)).get();
+        return getAspect(urn, systemMetadata, methodNameToAspectName(methodName), _respClazz,
+                InstitutionalMemoryAspectResponseV2.class);
+    }
+
+    public ResponseEntity<EditableChartPropertiesAspectResponseV2> getEditableChartProperties(String urn, Boolean systemMetadata) {
+        String methodName = walker.walk(frames -> frames
+                .findFirst()
+                .map(StackWalker.StackFrame::getMethodName)).get();
+        return getAspect(urn, systemMetadata, methodNameToAspectName(methodName), _respClazz, EditableChartPropertiesAspectResponseV2.class);
+    }
+
+    public ResponseEntity<ChartInfoAspectResponseV2> getChartInfo(String urn, Boolean systemMetadata) {
+        String methodName = walker.walk(frames -> frames
+                .findFirst()
+                .map(StackWalker.StackFrame::getMethodName)).get();
+        return getAspect(urn, systemMetadata, methodNameToAspectName(methodName), _respClazz,
+                ChartInfoAspectResponseV2.class);
+    }
+
+    public ResponseEntity<DataProductPropertiesAspectResponseV2> getDataProductProperties(String urn, Boolean systemMetadata) {
+        String methodName = walker.walk(frames -> frames
+                .findFirst()
+                .map(StackWalker.StackFrame::getMethodName)).get();
+        return getAspect(urn, systemMetadata, methodNameToAspectName(methodName), _respClazz,
+                DataProductPropertiesAspectResponseV2.class);
+    }
+
+    public ResponseEntity<Void> headDatasetProperties(String urn) {
+        String methodName = walker.walk(frames -> frames
+                .findFirst()
+                .map(StackWalker.StackFrame::getMethodName)).get();
+        return headAspect(urn, methodNameToAspectName(methodName));
+    }
+
+    public ResponseEntity<Void> headEditableDatasetProperties(String urn) {
+        String methodName = walker.walk(frames -> frames
+                .findFirst()
+                .map(StackWalker.StackFrame::getMethodName)).get();
+        return headAspect(urn, methodNameToAspectName(methodName));
+    }
+
+    public ResponseEntity<Void> headInstitutionalMemory(String urn) {
+        String methodName = walker.walk(frames -> frames
+                .findFirst()
+                .map(StackWalker.StackFrame::getMethodName)).get();
+        return headAspect(urn, methodNameToAspectName(methodName));
+    }
+
+    public ResponseEntity<Void> headDataProductProperties(String urn) {
+        String methodName = walker.walk(frames -> frames
+                .findFirst()
+                .map(StackWalker.StackFrame::getMethodName)).get();
+        return headAspect(urn, methodNameToAspectName(methodName));
+    }
+
+    public ResponseEntity<Void> headEditableChartProperties(String urn) {
+        String methodName = walker.walk(frames -> frames
+                .findFirst()
+                .map(StackWalker.StackFrame::getMethodName)).get();
+        return headAspect(urn, methodNameToAspectName(methodName));
+    }
+
+    public ResponseEntity<Void> headChartInfo(String urn) {
+        String methodName = walker.walk(frames -> frames
+                .findFirst()
+                .map(StackWalker.StackFrame::getMethodName)).get();
+        return headAspect(urn, methodNameToAspectName(methodName));
+    }
+
+    public ResponseEntity<Void> deleteEditableChartProperties(String urn) {
+        String methodName = walker.walk(frames -> frames
+                .findFirst()
+                .map(StackWalker.StackFrame::getMethodName)).get();
+        return deleteAspect(urn, methodNameToAspectName(methodName));
+    }
+
+    public ResponseEntity<Void> deleteDataProductProperties(String urn) {
+        String methodName = walker.walk(frames -> frames
+                .findFirst()
+                .map(StackWalker.StackFrame::getMethodName)).get();
+        return deleteAspect(urn, methodNameToAspectName(methodName));
     }
 }

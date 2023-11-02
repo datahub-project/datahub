@@ -37,11 +37,11 @@ from datahub.configuration.common import (
     ConfigModel,
     ConfigurationError,
 )
-from datahub.configuration.pydantic_field_deprecation import pydantic_field_deprecated
 from datahub.configuration.source_common import (
     DatasetLineageProviderConfigBase,
     DatasetSourceConfigMixin,
 )
+from datahub.configuration.validate_field_deprecation import pydantic_field_deprecated
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import (
     ContainerKey,
@@ -77,6 +77,7 @@ from datahub.ingestion.source.tableau_common import (
     FIELD_TYPE_MAPPING,
     MetadataQueryException,
     TableauLineageOverrides,
+    TableauUpstreamReference,
     clean_query,
     custom_sql_graphql_query,
     dashboard_graphql_query,
@@ -85,7 +86,6 @@ from datahub.ingestion.source.tableau_common import (
     get_overridden_info,
     get_unique_custom_sql,
     make_fine_grained_lineage_class,
-    make_table_urn,
     make_upstream_class,
     published_datasource_graphql_query,
     query_metadata,
@@ -271,7 +271,7 @@ class TableauConfig(
         "You can change this if your Tableau projects contain slashes in their names, and you'd like to filter by project.",
     )
 
-    default_schema_map: dict = Field(
+    default_schema_map: Dict[str, str] = Field(
         default={}, description="Default schema to use when schema is not found."
     )
     ingest_tags: Optional[bool] = Field(
@@ -452,6 +452,10 @@ class TableauSourceReport(StaleEntityRemovalSourceReport):
 @capability(SourceCapability.OWNERSHIP, "Requires recipe configuration")
 @capability(SourceCapability.TAGS, "Requires recipe configuration")
 @capability(SourceCapability.LINEAGE_COARSE, "Enabled by default")
+@capability(
+    SourceCapability.LINEAGE_FINE,
+    "Enabled by default, configure using `extract_column_level_lineage`",
+)
 class TableauSource(StatefulIngestionSourceBase):
     platform = "tableau"
 
@@ -533,7 +537,7 @@ class TableauSource(StatefulIngestionSourceBase):
                     path=[],
                 )
             # Set parent project name
-            for project_id, project in all_project_map.items():
+            for _project_id, project in all_project_map.items():
                 if (
                     project.parent_id is not None
                     and project.parent_id in all_project_map
@@ -997,41 +1001,16 @@ class TableauSource(StatefulIngestionSourceBase):
                 )
                 continue
 
-            schema = table.get(tableau_constant.SCHEMA) or ""
-            table_name = table.get(tableau_constant.NAME) or ""
-            full_name = table.get(tableau_constant.FULL_NAME) or ""
-            upstream_db = (
-                table[tableau_constant.DATABASE][tableau_constant.NAME]
-                if table.get(tableau_constant.DATABASE)
-                and table[tableau_constant.DATABASE].get(tableau_constant.NAME)
-                else ""
-            )
-            logger.debug(
-                "Processing Table with Connection Type: {0} and id {1}".format(
-                    table.get(tableau_constant.CONNECTION_TYPE) or "",
-                    table.get(tableau_constant.ID) or "",
+            try:
+                ref = TableauUpstreamReference.create(
+                    table, default_schema_map=self.config.default_schema_map
                 )
-            )
-            schema = self._get_schema(schema, upstream_db, full_name)
-            # if the schema is included within the table name we omit it
-            if (
-                schema
-                and table_name
-                and full_name
-                and table_name == full_name
-                and schema in table_name
-            ):
-                logger.debug(
-                    f"Omitting schema for upstream table {table[tableau_constant.ID]}, schema included in table name"
-                )
-                schema = ""
+            except Exception as e:
+                logger.info(f"Failed to generate upstream reference for {table}: {e}")
+                continue
 
-            table_urn = make_table_urn(
+            table_urn = ref.make_dataset_urn(
                 self.config.env,
-                upstream_db,
-                table.get(tableau_constant.CONNECTION_TYPE) or "",
-                schema,
-                table_name,
                 self.config.platform_instance_map,
                 self.config.lineage_overrides,
             )
@@ -1052,7 +1031,7 @@ class TableauSource(StatefulIngestionSourceBase):
                     urn=table_urn,
                     id=table[tableau_constant.ID],
                     num_cols=num_tbl_cols,
-                    paths=set([table_path]) if table_path else set(),
+                    paths={table_path} if table_path else set(),
                 )
             else:
                 self.database_tables[table_urn].update_table(
@@ -1179,8 +1158,6 @@ class TableauSource(StatefulIngestionSourceBase):
     def get_upstream_fields_from_custom_sql(
         self, datasource: dict, datasource_urn: str
     ) -> List[FineGrainedLineage]:
-        fine_grained_lineages: List[FineGrainedLineage] = []
-
         parsed_result = self.parse_custom_sql(
             datasource=datasource,
             datasource_urn=datasource_urn,
@@ -1194,13 +1171,20 @@ class TableauSource(StatefulIngestionSourceBase):
             logger.info(
                 f"Failed to extract column level lineage from datasource {datasource_urn}"
             )
-            return fine_grained_lineages
+            return []
+        if parsed_result.debug_info.error:
+            logger.info(
+                f"Failed to extract column level lineage from datasource {datasource_urn}: {parsed_result.debug_info.error}"
+            )
+            return []
 
         cll: List[ColumnLineageInfo] = (
             parsed_result.column_lineage
             if parsed_result.column_lineage is not None
             else []
         )
+
+        fine_grained_lineages: List[FineGrainedLineage] = []
         for cll_info in cll:
             downstream = (
                 [
@@ -2456,35 +2440,6 @@ class TableauSource(StatefulIngestionSourceBase):
                 datasource.get(tableau_constant.WORKBOOK),
                 is_embedded_ds=True,
             )
-
-    @lru_cache(maxsize=None)
-    def _get_schema(self, schema_provided: str, database: str, fullName: str) -> str:
-        # For some databases, the schema attribute in tableau api does not return
-        # correct schema name for the table. For more information, see
-        # https://help.tableau.com/current/api/metadata_api/en-us/docs/meta_api_model.html#schema_attribute.
-        # Hence we extract schema from fullName whenever fullName is available
-        schema = self._extract_schema_from_fullName(fullName) if fullName else ""
-        if not schema:
-            schema = schema_provided
-        elif schema != schema_provided:
-            logger.debug(
-                "Correcting schema, provided {0}, corrected {1}".format(
-                    schema_provided, schema
-                )
-            )
-
-        if not schema and database in self.config.default_schema_map:
-            schema = self.config.default_schema_map[database]
-
-        return schema
-
-    @lru_cache(maxsize=None)
-    def _extract_schema_from_fullName(self, fullName: str) -> str:
-        # fullName is observed to be in format [schemaName].[tableName]
-        # OR simply tableName OR [tableName]
-        if fullName.startswith("[") and "].[" in fullName:
-            return fullName[1 : fullName.index("]")]
-        return ""
 
     @lru_cache(maxsize=None)
     def get_last_modified(

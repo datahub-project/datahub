@@ -2,8 +2,8 @@ package com.datahub.authorization.fieldresolverprovider;
 
 import com.datahub.authentication.Authentication;
 import com.datahub.authorization.FieldResolver;
-import com.datahub.authorization.ResourceFieldType;
-import com.datahub.authorization.ResourceSpec;
+import com.datahub.authorization.EntityFieldType;
+import com.datahub.authorization.EntitySpec;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.domain.DomainProperties;
@@ -14,6 +14,7 @@ import com.linkedin.entity.client.EntityClient;
 
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -27,23 +28,23 @@ import static com.linkedin.metadata.Constants.*;
 
 
 /**
- * Provides field resolver for domain given resourceSpec
+ * Provides field resolver for domain given entitySpec
  */
 @Slf4j
 @RequiredArgsConstructor
-public class DomainFieldResolverProvider implements ResourceFieldResolverProvider {
+public class DomainFieldResolverProvider implements EntityFieldResolverProvider {
 
   private final EntityClient _entityClient;
   private final Authentication _systemAuthentication;
 
   @Override
-  public ResourceFieldType getFieldType() {
-    return ResourceFieldType.DOMAIN;
+  public List<EntityFieldType> getFieldTypes() {
+    return Collections.singletonList(EntityFieldType.DOMAIN);
   }
 
   @Override
-  public FieldResolver getFieldResolver(ResourceSpec resourceSpec) {
-    return FieldResolver.getResolverFromFunction(resourceSpec, this::getDomains);
+  public FieldResolver getFieldResolver(EntitySpec entitySpec) {
+    return FieldResolver.getResolverFromFunction(entitySpec, this::getDomains);
   }
 
   private Set<Urn> getBatchedParentDomains(@Nonnull final Set<Urn> urns) {
@@ -78,8 +79,8 @@ public class DomainFieldResolverProvider implements ResourceFieldResolverProvide
     return parentUrns;
   }
 
-  private FieldResolver.FieldValue getDomains(ResourceSpec resourceSpec) {
-    final Urn entityUrn = UrnUtils.getUrn(resourceSpec.getResource());
+  private FieldResolver.FieldValue getDomains(EntitySpec entitySpec) {
+    final Urn entityUrn = UrnUtils.getUrn(entitySpec.getEntity());
     // In the case that the entity is a domain, the associated domain is the domain itself
     if (entityUrn.getEntityType().equals(DOMAIN_ENTITY_NAME)) {
       return FieldResolver.FieldValue.builder()

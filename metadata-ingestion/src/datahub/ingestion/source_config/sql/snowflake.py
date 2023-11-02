@@ -166,13 +166,17 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
                 "but should be set when using use_certificate false for oauth_config"
             )
 
-    @pydantic.validator("include_view_lineage")
-    def validate_include_view_lineage(cls, v, values):
-        if not values.get("include_table_lineage") and v:
+    @pydantic.root_validator()
+    def validate_include_view_lineage(cls, values):
+        if (
+            "include_table_lineage" in values
+            and not values.get("include_table_lineage")
+            and values.get("include_view_lineage")
+        ):
             raise ValueError(
                 "include_table_lineage must be True for include_view_lineage to be set."
             )
-        return v
+        return values
 
     def get_sql_alchemy_url(
         self,

@@ -1,7 +1,7 @@
 apply plugin: 'java-library'
 
 dependencies {
-  api externalDependency.avro_1_7
+  api externalDependency.avro
   implementation externalDependency.commonsLang
   api externalDependency.dropwizardMetricsCore
   implementation externalDependency.dropwizardMetricsJmx
@@ -16,8 +16,8 @@ dependencies {
 
   api project(':li-utils')
   api project(':entity-registry')
-  api project(':metadata-events:mxe-avro-1.7')
-  api project(':metadata-events:mxe-utils-avro-1.7')
+  api project(':metadata-events:mxe-avro')
+  api project(':metadata-events:mxe-utils-avro')
 
   implementation externalDependency.slf4jApi
   compileOnly externalDependency.lombok
@@ -26,6 +26,7 @@ dependencies {
 
   testImplementation project(':test-models')
   testImplementation project(path: ':test-models', configuration: 'testDataTemplate')
+  testImplementation externalDependency.testng
 
   constraints {
       implementation(externalDependency.log4jCore) {

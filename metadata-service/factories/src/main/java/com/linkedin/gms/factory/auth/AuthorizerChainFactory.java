@@ -2,12 +2,12 @@ package com.linkedin.gms.factory.auth;
 
 import com.datahub.authorization.AuthorizerChain;
 import com.datahub.authorization.DataHubAuthorizer;
-import com.datahub.authorization.DefaultResourceSpecResolver;
+import com.datahub.authorization.DefaultEntitySpecResolver;
 import com.datahub.plugins.PluginConstant;
 import com.datahub.authentication.Authentication;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.datahub.authorization.AuthorizerContext;
-import com.datahub.authorization.ResourceSpecResolver;
+import com.datahub.authorization.EntitySpecResolver;
 import com.datahub.plugins.common.PluginConfig;
 import com.datahub.plugins.common.PluginPermissionManager;
 import com.datahub.plugins.common.PluginType;
@@ -19,7 +19,7 @@ import com.datahub.plugins.loader.IsolatedClassLoader;
 import com.datahub.plugins.loader.PluginPermissionManagerImpl;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
-import com.linkedin.gms.factory.spring.YamlPropertySourceFactory;
+import com.linkedin.metadata.spring.YamlPropertySourceFactory;
 import com.linkedin.metadata.client.JavaEntityClient;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -64,7 +64,7 @@ public class AuthorizerChainFactory {
   @Scope("singleton")
   @Nonnull
   protected AuthorizerChain getInstance() {
-    final ResourceSpecResolver resolver = initResolver();
+    final EntitySpecResolver resolver = initResolver();
 
     // Extract + initialize customer authorizers from application configs.
     final List<Authorizer> authorizers = new ArrayList<>(initCustomAuthorizers(resolver));
@@ -79,11 +79,11 @@ public class AuthorizerChainFactory {
     return new AuthorizerChain(authorizers, dataHubAuthorizer);
   }
 
-  private ResourceSpecResolver initResolver() {
-    return new DefaultResourceSpecResolver(systemAuthentication, entityClient);
+  private EntitySpecResolver initResolver() {
+    return new DefaultEntitySpecResolver(systemAuthentication, entityClient);
   }
 
-  private List<Authorizer> initCustomAuthorizers(ResourceSpecResolver resolver) {
+  private List<Authorizer> initCustomAuthorizers(EntitySpecResolver resolver) {
     final List<Authorizer> customAuthorizers = new ArrayList<>();
 
     Path pluginBaseDirectory = Paths.get(configurationProvider.getDatahub().getPlugin().getAuth().getPath());
@@ -99,7 +99,7 @@ public class AuthorizerChainFactory {
     return customAuthorizers;
   }
 
-  private void registerAuthorizer(List<Authorizer> customAuthorizers, ResourceSpecResolver resolver, Config config) {
+  private void registerAuthorizer(List<Authorizer> customAuthorizers, EntitySpecResolver resolver, Config config) {
     PluginConfigFactory authorizerPluginPluginConfigFactory = new PluginConfigFactory(config);
     // Load only Authorizer configuration from plugin config factory
     List<PluginConfig> authorizers =

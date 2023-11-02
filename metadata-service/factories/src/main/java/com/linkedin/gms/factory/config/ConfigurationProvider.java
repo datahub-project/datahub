@@ -12,7 +12,7 @@ import com.linkedin.metadata.config.cache.CacheConfiguration;
 import com.linkedin.metadata.config.kafka.KafkaConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
-import com.linkedin.gms.factory.spring.YamlPropertySourceFactory;
+import com.linkedin.metadata.spring.YamlPropertySourceFactory;
 import com.linkedin.metadata.config.telemetry.TelemetryConfiguration;
 import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;

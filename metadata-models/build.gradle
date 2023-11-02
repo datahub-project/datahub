@@ -23,6 +23,7 @@ dependencies {
       }
     }
   api project(':li-utils')
+  api project(path: ':li-utils', configuration: "dataTemplate")
   dataModel project(':li-utils')
 
   compileOnly externalDependency.lombok
@@ -34,6 +35,7 @@ dependencies {
 
   swaggerCodegen externalDependency.swaggerCli
   testImplementation externalDependency.guava
+  testImplementation externalDependency.testngJava8
 }
 
 sourceSets {

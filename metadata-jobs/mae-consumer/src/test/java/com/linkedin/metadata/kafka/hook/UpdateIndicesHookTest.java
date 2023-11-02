@@ -34,6 +34,7 @@ import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.search.EntitySearchService;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.EntityIndexBuilders;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.service.UpdateIndicesService;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
@@ -42,10 +43,12 @@ import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.schema.SchemaField;
+
 import java.net.URISyntaxException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import org.mockito.Mockito;
+import org.springframework.beans.factory.annotation.Value;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -82,8 +85,12 @@ public class UpdateIndicesHookTest {
   private SearchDocumentTransformer _searchDocumentTransformer;
   private DataHubUpgradeKafkaListener _mockDataHubUpgradeKafkaListener;
   private ConfigurationProvider _mockConfigurationProvider;
+  private EntityIndexBuilders _mockEntityIndexBuilders;
   private Urn _actorUrn;
   private UpdateIndicesService _updateIndicesService;
+
+  @Value("${elasticsearch.index.maxArrayLength}")
+  private int maxArrayLength;
 
   @BeforeMethod
   public void setupTest() {
@@ -95,6 +102,8 @@ public class UpdateIndicesHookTest {
     _searchDocumentTransformer = new SearchDocumentTransformer(1000, 1000, 1000);
     _mockDataHubUpgradeKafkaListener = Mockito.mock(DataHubUpgradeKafkaListener.class);
     _mockConfigurationProvider = Mockito.mock(ConfigurationProvider.class);
+    _mockEntityIndexBuilders = Mockito.mock(EntityIndexBuilders.class);
+
     ElasticSearchConfiguration elasticSearchConfiguration = new ElasticSearchConfiguration();
     SystemUpdateConfiguration systemUpdateConfiguration = new SystemUpdateConfiguration();
     systemUpdateConfiguration.setWaitForSystemUpdate(false);
@@ -105,7 +114,8 @@ public class UpdateIndicesHookTest {
         _mockTimeseriesAspectService,
         _mockSystemMetadataService,
         ENTITY_REGISTRY,
-        _searchDocumentTransformer
+        _searchDocumentTransformer,
+        _mockEntityIndexBuilders
     );
     _updateIndicesHook = new UpdateIndicesHook(
         _updateIndicesService,
@@ -163,7 +173,8 @@ public class UpdateIndicesHookTest {
         _mockTimeseriesAspectService,
         _mockSystemMetadataService,
         mockEntityRegistry,
-        _searchDocumentTransformer
+        _searchDocumentTransformer,
+        _mockEntityIndexBuilders
     );
     _updateIndicesHook = new UpdateIndicesHook(_updateIndicesService, true);
 

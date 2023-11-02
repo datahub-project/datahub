@@ -273,6 +273,7 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
     partition: Optional[str]
     config: GEProfilingConfig
     report: SQLSourceReport
+    custom_sql: Optional[str]
 
     query_combiner: SQLAlchemyQueryCombiner
 
@@ -405,22 +406,52 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
     def _get_dataset_column_min(
         self, column_profile: DatasetFieldProfileClass, column: str
     ) -> None:
-        if self.config.include_field_min_value:
+        if not self.config.include_field_min_value:
+            return
+        try:
             column_profile.min = str(self.dataset.get_column_min(column))
+        except Exception as e:
+            logger.debug(
+                f"Caught exception while attempting to get column min for column {column}. {e}"
+            )
+            self.report.report_warning(
+                "Profiling - Unable to get column min",
+                f"{self.dataset_name}.{column}",
+            )
 
     @_run_with_query_combiner
     def _get_dataset_column_max(
         self, column_profile: DatasetFieldProfileClass, column: str
     ) -> None:
-        if self.config.include_field_max_value:
+        if not self.config.include_field_max_value:
+            return
+        try:
             column_profile.max = str(self.dataset.get_column_max(column))
+        except Exception as e:
+            logger.debug(
+                f"Caught exception while attempting to get column max for column {column}. {e}"
+            )
+            self.report.report_warning(
+                "Profiling - Unable to get column max",
+                f"{self.dataset_name}.{column}",
+            )
 
     @_run_with_query_combiner
     def _get_dataset_column_mean(
         self, column_profile: DatasetFieldProfileClass, column: str
     ) -> None:
-        if self.config.include_field_mean_value:
+        if not self.config.include_field_mean_value:
+            return
+        try:
             column_profile.mean = str(self.dataset.get_column_mean(column))
+        except Exception as e:
+            logger.debug(
+                f"Caught exception while attempting to get column mean for column {column}. {e}"
+            )
+            self.report.report_warning(
+                "Profiling - Unable to get column mean",
+                f"{self.dataset_name}.{column}",
+            )
 
     @_run_with_query_combiner
     def _get_dataset_column_median(
@@ -596,16 +627,8 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
             "catch_exceptions", self.config.catch_exceptions
         )
 
-        profile = DatasetProfileClass(timestampMillis=get_sys_time())
-        if self.partition:
-            profile.partitionSpec = PartitionSpecClass(partition=self.partition)
-        elif self.config.limit and self.config.offset:
-            profile.partitionSpec = PartitionSpecClass(
-                type=PartitionTypeClass.QUERY,
-                partition=json.dumps(
-                    dict(limit=self.config.limit, offset=self.config.offset)
-                ),
-            )
+        profile = self.init_profile()
+
         profile.fieldProfiles = []
         self._get_dataset_rows(profile)
 
@@ -636,7 +659,16 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
         self.query_combiner.flush()
 
         assert profile.rowCount is not None
-        row_count: int = profile.rowCount
+        row_count: int  # used for null counts calculation
+        if profile.partitionSpec and "SAMPLE" in profile.partitionSpec.partition:
+            # We can alternatively use `self._get_dataset_rows(profile)` to get
+            # exact count of rows in sample, as actual rows involved in sample
+            # may be slightly different (more or less) than configured `sample_size`.
+            # However not doing so to start with, as that adds another query overhead
+            # plus approximate metrics should work for sampling based profiling.
+            row_count = self.config.sample_size
+        else:
+            row_count = profile.rowCount
 
         for column_spec in columns_profiling_queue:
             column = column_spec.column
@@ -740,6 +772,24 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
         self.query_combiner.flush()
         return profile
 
+    def init_profile(self):
+        profile = DatasetProfileClass(timestampMillis=get_sys_time())
+        if self.partition:
+            profile.partitionSpec = PartitionSpecClass(partition=self.partition)
+        elif self.config.limit:
+            profile.partitionSpec = PartitionSpecClass(
+                type=PartitionTypeClass.QUERY,
+                partition=json.dumps(
+                    dict(limit=self.config.limit, offset=self.config.offset)
+                ),
+            )
+        elif self.custom_sql:
+            profile.partitionSpec = PartitionSpecClass(
+                type=PartitionTypeClass.QUERY, partition="SAMPLE"
+            )
+
+        return profile
+
     def update_dataset_batch_use_sampling(self, profile: DatasetProfileClass) -> None:
         if (
             self.dataset.engine.dialect.name.lower() == BIGQUERY
@@ -770,7 +820,7 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
             sample_pc = 100 * self.config.sample_size / profile.rowCount
             sql = (
                 f"SELECT * FROM {str(self.dataset._table)} "
-                + f"TABLESAMPLE SYSTEM ({sample_pc:.3f} percent)"
+                + f"TABLESAMPLE SYSTEM ({sample_pc:.8f} percent)"
             )
             temp_table_name = create_bigquery_temp_table(
                 self,
@@ -1064,6 +1114,7 @@ class DatahubGEProfiler:
                     partition,
                     self.config,
                     self.report,
+                    custom_sql,
                     query_combiner,
                 ).generate_dataset_profile()
 

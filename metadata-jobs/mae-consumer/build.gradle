@@ -21,9 +21,9 @@ dependencies {
     implementation project(':ingestion-scheduler')
     implementation project(':metadata-utils')
     implementation project(":entity-registry")
-    implementation project(':metadata-events:mxe-avro-1.7')
+    implementation project(':metadata-events:mxe-avro')
     implementation project(':metadata-events:mxe-registration')
-    implementation project(':metadata-events:mxe-utils-avro-1.7')
+    implementation project(':metadata-events:mxe-utils-avro')
     implementation project(':datahub-graphql-core')
 
     implementation externalDependency.elasticSearchRest
@@ -44,6 +44,7 @@ dependencies {
     testImplementation externalDependency.mockito
     implementation externalDependency.awsMskIamAuth
 
+    testImplementation externalDependency.testng
     testImplementation externalDependency.springBootTest
     testRuntimeOnly externalDependency.logbackClassic
 }

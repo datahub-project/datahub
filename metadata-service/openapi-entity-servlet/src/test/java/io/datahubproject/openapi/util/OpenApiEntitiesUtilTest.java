@@ -1,7 +1,7 @@
 package io.datahubproject.openapi.util;
 
 import com.linkedin.data.schema.annotation.PathSpecBasedSchemaAnnotationVisitor;
-import com.linkedin.gms.factory.spring.YamlPropertySourceFactory;
+import com.linkedin.metadata.spring.YamlPropertySourceFactory;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import io.datahubproject.openapi.config.OpenAPIEntityTestConfiguration;
 import io.datahubproject.openapi.dto.UpsertAspectRequest;
@@ -17,8 +17,8 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 
-import static org.junit.Assert.assertNotNull;
 import static org.testng.AssertJUnit.assertEquals;
+import static org.testng.AssertJUnit.assertNotNull;
 
 
 @Import({OpenAPIEntityTestConfiguration.class})

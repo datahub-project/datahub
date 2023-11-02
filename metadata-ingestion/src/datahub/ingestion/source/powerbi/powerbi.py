@@ -44,6 +44,11 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import ChangeAuditStamps
+from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
+    FineGrainedLineage,
+    FineGrainedLineageDownstreamType,
+    FineGrainedLineageUpstreamType,
+)
 from datahub.metadata.schema_classes import (
     BrowsePathsClass,
     ChangeTypeClass,
@@ -71,6 +76,7 @@ from datahub.metadata.schema_classes import (
     ViewPropertiesClass,
 )
 from datahub.utilities.dedup_list import deduplicate_list
+from datahub.utilities.sqlglot_lineage import ColumnLineageInfo
 
 # Logger instance
 logger = logging.getLogger(__name__)
@@ -165,6 +171,48 @@ class Mapper:
         )
         return [schema_mcp]
 
+    def make_fine_grained_lineage_class(
+        self, lineage: resolver.Lineage, dataset_urn: str
+    ) -> List[FineGrainedLineage]:
+        fine_grained_lineages: List[FineGrainedLineage] = []
+
+        if (
+            self.__config.extract_column_level_lineage is False
+            or self.__config.extract_lineage is False
+        ):
+            return fine_grained_lineages
+
+        if lineage is None:
+            return fine_grained_lineages
+
+        logger.info("Extracting column level lineage")
+
+        cll: List[ColumnLineageInfo] = lineage.column_lineage
+
+        for cll_info in cll:
+            downstream = (
+                [builder.make_schema_field_urn(dataset_urn, cll_info.downstream.column)]
+                if cll_info.downstream is not None
+                and cll_info.downstream.column is not None
+                else []
+            )
+
+            upstreams = [
+                builder.make_schema_field_urn(column_ref.table, column_ref.column)
+                for column_ref in cll_info.upstreams
+            ]
+
+            fine_grained_lineages.append(
+                FineGrainedLineage(
+                    downstreamType=FineGrainedLineageDownstreamType.FIELD,
+                    downstreams=downstream,
+                    upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
+                    upstreams=upstreams,
+                )
+            )
+
+        return fine_grained_lineages
+
     def extract_lineage(
         self, table: powerbi_data_classes.Table, ds_urn: str
     ) -> List[MetadataChangeProposalWrapper]:
@@ -174,8 +222,9 @@ class Mapper:
         parameters = table.dataset.parameters if table.dataset else {}
 
         upstream: List[UpstreamClass] = []
+        cll_lineage: List[FineGrainedLineage] = []
 
-        upstream_dpts: List[resolver.DataPlatformTable] = parser.get_upstream_tables(
+        upstream_lineage: List[resolver.Lineage] = parser.get_upstream_tables(
             table=table,
             reporter=self.__reporter,
             platform_instance_resolver=self.__dataplatform_instance_resolver,
@@ -185,34 +234,48 @@ class Mapper:
         )
 
         logger.debug(
-            f"PowerBI virtual table {table.full_name} and it's upstream dataplatform tables = {upstream_dpts}"
+            f"PowerBI virtual table {table.full_name} and it's upstream dataplatform tables = {upstream_lineage}"
         )
 
-        for upstream_dpt in upstream_dpts:
-            if (
-                upstream_dpt.data_platform_pair.powerbi_data_platform_name
-                not in self.__config.dataset_type_mapping.keys()
-            ):
-                logger.debug(
-                    f"Skipping upstream table for {ds_urn}. The platform {upstream_dpt.data_platform_pair.powerbi_data_platform_name} is not part of dataset_type_mapping",
+        for lineage in upstream_lineage:
+            for upstream_dpt in lineage.upstreams:
+                if (
+                    upstream_dpt.data_platform_pair.powerbi_data_platform_name
+                    not in self.__config.dataset_type_mapping.keys()
+                ):
+                    logger.debug(
+                        f"Skipping upstream table for {ds_urn}. The platform {upstream_dpt.data_platform_pair.powerbi_data_platform_name} is not part of dataset_type_mapping",
+                    )
+                    continue
+
+                upstream_table_class = UpstreamClass(
+                    upstream_dpt.urn,
+                    DatasetLineageTypeClass.TRANSFORMED,
                 )
-                continue
 
-            upstream_table_class = UpstreamClass(
-                upstream_dpt.urn,
-                DatasetLineageTypeClass.TRANSFORMED,
-            )
+                upstream.append(upstream_table_class)
 
-            upstream.append(upstream_table_class)
+                # Add column level lineage if any
+                cll_lineage.extend(
+                    self.make_fine_grained_lineage_class(
+                        lineage=lineage,
+                        dataset_urn=ds_urn,
+                    )
+                )
 
         if len(upstream) > 0:
-            upstream_lineage = UpstreamLineageClass(upstreams=upstream)
+            upstream_lineage_class: UpstreamLineageClass = UpstreamLineageClass(
+                upstreams=upstream,
+                fineGrainedLineages=cll_lineage or None,
+            )
+
             logger.debug(f"Dataset urn = {ds_urn} and its lineage = {upstream_lineage}")
+
             mcp = MetadataChangeProposalWrapper(
                 entityType=Constant.DATASET,
                 changeType=ChangeTypeClass.UPSERT,
                 entityUrn=ds_urn,
-                aspect=upstream_lineage,
+                aspect=upstream_lineage_class,
             )
             mcps.append(mcp)
 
@@ -1074,6 +1137,14 @@ class Mapper:
 @capability(
     SourceCapability.OWNERSHIP,
     "Disabled by default, configured using `extract_ownership`",
+)
+@capability(
+    SourceCapability.LINEAGE_COARSE,
+    "Enabled by default, configured using `extract_lineage`.",
+)
+@capability(
+    SourceCapability.LINEAGE_FINE,
+    "Disabled by default, configured using `extract_column_level_lineage`. ",
 )
 class PowerBiDashboardSource(StatefulIngestionSourceBase):
     """
