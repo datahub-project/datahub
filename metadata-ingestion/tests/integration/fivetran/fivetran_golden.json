@@ -84,8 +84,8 @@
     "aspect": {
         "json": {
             "inputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:postgres,public.employee,DEV)",
-                "urn:li:dataset:(urn:li:dataPlatform:postgres,public.company,DEV)"
+                "urn:li:dataset:(urn:li:dataPlatform:postgres,postgres_db.public.employee,DEV)",
+                "urn:li:dataset:(urn:li:dataPlatform:postgres,postgres_db.public.company,DEV)"
             ],
             "outputDatasets": [
                 "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_database.postgres_public.employee,PROD)",
@@ -96,7 +96,7 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,public.employee,DEV),id)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,postgres_db.public.employee,DEV),id)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
@@ -107,7 +107,7 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,public.employee,DEV),name)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,postgres_db.public.employee,DEV),name)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
@@ -118,7 +118,7 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,public.company,DEV),id)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,postgres_db.public.company,DEV),id)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
@@ -129,7 +129,7 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,public.company,DEV),name)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,postgres_db.public.company,DEV),name)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
@@ -148,7 +148,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,public.employee,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,postgres_db.public.employee,DEV)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -164,7 +164,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,public.company,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,postgres_db.public.company,DEV)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -301,8 +301,8 @@
     "aspect": {
         "json": {
             "inputs": [
-                "urn:li:dataset:(urn:li:dataPlatform:postgres,public.employee,DEV)",
-                "urn:li:dataset:(urn:li:dataPlatform:postgres,public.company,DEV)"
+                "urn:li:dataset:(urn:li:dataPlatform:postgres,postgres_db.public.employee,DEV)",
+                "urn:li:dataset:(urn:li:dataPlatform:postgres,postgres_db.public.company,DEV)"
             ]
         }
     },
@@ -424,8 +424,8 @@
     "aspect": {
         "json": {
             "inputs": [
-                "urn:li:dataset:(urn:li:dataPlatform:postgres,public.employee,DEV)",
-                "urn:li:dataset:(urn:li:dataPlatform:postgres,public.company,DEV)"
+                "urn:li:dataset:(urn:li:dataPlatform:postgres,postgres_db.public.employee,DEV)",
+                "urn:li:dataset:(urn:li:dataPlatform:postgres,postgres_db.public.company,DEV)"
             ]
         }
     },
@@ -547,8 +547,8 @@
     "aspect": {
         "json": {
             "inputs": [
-                "urn:li:dataset:(urn:li:dataPlatform:postgres,public.employee,DEV)",
-                "urn:li:dataset:(urn:li:dataPlatform:postgres,public.company,DEV)"
+                "urn:li:dataset:(urn:li:dataPlatform:postgres,postgres_db.public.employee,DEV)",
+                "urn:li:dataset:(urn:li:dataPlatform:postgres,postgres_db.public.company,DEV)"
             ]
         }
     },

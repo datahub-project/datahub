@@ -93,6 +93,11 @@ class FivetranSource(StatefulIngestionSourceBase):
             connector.destination_id, PlatformDetail()
         )
 
+        # Get database for connector source
+        source_database: Optional[str] = self.config.sources_to_database.get(
+            connector.connector_id
+        )
+
         is_platform_supported = True
         if connector.connector_type not in SUPPORTED_DATA_PLATFORM_MAPPING:
             is_platform_supported = False
@@ -101,23 +106,25 @@ class FivetranSource(StatefulIngestionSourceBase):
             )
         for table_lineage in connector.table_lineage:
             input_dataset_urn: Optional[DatasetUrn] = None
-            if is_platform_supported:
+            output_dataset_urn: Optional[DatasetUrn] = None
+            if is_platform_supported and source_database:
                 input_dataset_urn = DatasetUrn.create_from_ids(
                     platform_id=SUPPORTED_DATA_PLATFORM_MAPPING[
                         connector.connector_type
                     ],
-                    table_name=table_lineage.source_table,
+                    table_name=f"{source_database.lower()}.{table_lineage.source_table}",
                     env=source_platform_detail.env,
                     platform_instance=source_platform_detail.platform_instance,
                 )
                 input_dataset_urn_list.append(input_dataset_urn)
-            output_dataset_urn = DatasetUrn.create_from_ids(
-                platform_id=self.config.fivetran_log_config.destination_platform,
-                table_name=table_lineage.destination_table,
-                env=destination_platform_detail.env,
-                platform_instance=destination_platform_detail.platform_instance,
-            )
-            output_dataset_urn_list.append(output_dataset_urn)
+            if self.audit_log.fivetran_log_database:
+                output_dataset_urn = DatasetUrn.create_from_ids(
+                    platform_id=self.config.fivetran_log_config.destination_platform,
+                    table_name=f"{self.audit_log.fivetran_log_database.lower()}.{table_lineage.destination_table}",
+                    env=destination_platform_detail.env,
+                    platform_instance=destination_platform_detail.platform_instance,
+                )
+                output_dataset_urn_list.append(output_dataset_urn)
 
             if self.config.include_column_lineage:
                 for column_lineage in table_lineage.column_lineage:
@@ -138,7 +145,9 @@ class FivetranSource(StatefulIngestionSourceBase):
                                     str(output_dataset_urn),
                                     column_lineage.destination_column,
                                 )
-                            ],
+                            ]
+                            if output_dataset_urn
+                            else [],
                         )
                     )
 

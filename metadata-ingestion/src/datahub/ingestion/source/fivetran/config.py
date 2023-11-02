@@ -125,6 +125,10 @@ class FivetranSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin
         default=True,
         description="Populates table->table column lineage.",
     )
+    sources_to_database: Dict[str, str] = pydantic.Field(
+        default={},
+        description="A mapping of the connector's all sources to its database. Use connector id as key.",
+    )
     # Configuration for stateful ingestion
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = pydantic.Field(
         default=None, description="Airbyte Stateful Ingestion Config."

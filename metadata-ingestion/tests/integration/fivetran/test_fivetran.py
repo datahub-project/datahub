@@ -145,6 +145,9 @@ def test_fivetran_basic(pytestconfig, tmp_path):
                                 "postgres",
                             ]
                         },
+                        "sources_to_database": {
+                            "calendar_elected": "postgres_db",
+                        },
                         "sources_to_platform_instance": {
                             "calendar_elected": {
                                 "env": "DEV",

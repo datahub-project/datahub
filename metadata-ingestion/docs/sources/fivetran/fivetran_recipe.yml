@@ -21,18 +21,22 @@ source:
     #   allow:
     #     - connector_name
 
+    # Optional -- A mapping of the connector's all sources to its database.
+    # sources_to_database:
+    #   connector_id: source_db
+    
     # Optional -- This mapping is optional and only required to configure platform-instance for source
     # A mapping of Fivetran connector id to data platform instance
     # sources_to_platform_instance:
-    #   calendar_elected:
-    #     platform_instance: cloud_postgres_instance
+    #   connector_id:
+    #     platform_instance: cloud_instance
     #     env: DEV
 
     # Optional -- This mapping is optional and only required to configure platform-instance for destination.
     # A mapping of Fivetran destination id to data platform instance
     # destination_to_platform_instance:
-    #   calendar_elected:
-    #     platform_instance: cloud_postgres_instance
+    #   destination_id:
+    #     platform_instance: cloud_instance
     #     env: DEV
 
 sink:
