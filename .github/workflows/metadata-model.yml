@@ -3,9 +3,8 @@ on:
   push:
     branches:
       - master
-    paths-ignore:
-      - "docs/**"
-      - "**.md"
+    paths:
+      - "metadata-models/**"
   release:
     types: [published]
 
