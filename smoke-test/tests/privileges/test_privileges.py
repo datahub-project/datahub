@@ -53,6 +53,20 @@ def privileges_and_test_user_setup(admin_session):
 
 
 @tenacity.retry(
+    stop=tenacity.stop_after_attempt(sleep_times), wait=tenacity.wait_fixed(sleep_sec)
+)
+def _ensure_cant_perform_action(session, json,assertion_key):
+    action_response = session.post(
+        f"{get_frontend_url()}/api/v2/graphql", json=json)
+    action_response.raise_for_status()
+    action_data = action_response.json()
+
+    assert action_data["errors"][0]["extensions"]["code"] == 403
+    assert action_data["errors"][0]["extensions"]["type"] == "UNAUTHORIZED"
+    assert action_data["data"][assertion_key] == None
+
+
+@tenacity.retry(
     stop=tenacity.stop_after_attempt(10), wait=tenacity.wait_fixed(sleep_sec)
 )
 def _ensure_can_create_secret(session, json, urn):
@@ -66,20 +80,6 @@ def _ensure_can_create_secret(session, json, urn):
     assert secret_data["data"]["createSecret"]
     assert secret_data["data"]["createSecret"] == urn
     
-
-@tenacity.retry(
-    stop=tenacity.stop_after_attempt(sleep_times), wait=tenacity.wait_fixed(sleep_sec)
-)
-def _ensure_cant_create_secret(session, json):
-    create_secret_response = session.post(
-        f"{get_frontend_url()}/api/v2/graphql", json=json)
-    create_secret_response.raise_for_status()
-    create_secret_data = create_secret_response.json()
-
-    assert create_secret_data["errors"][0]["extensions"]["code"] == 403
-    assert create_secret_data["errors"][0]["extensions"]["type"] == "UNAUTHORIZED"
-    assert create_secret_data["data"]["createSecret"] == None
-
 
 @tenacity.retry(
     stop=tenacity.stop_after_attempt(10), wait=tenacity.wait_fixed(sleep_sec)
@@ -99,17 +99,19 @@ def _ensure_can_create_ingestion_source(session, json):
     
 
 @tenacity.retry(
-    stop=tenacity.stop_after_attempt(sleep_times), wait=tenacity.wait_fixed(sleep_sec)
+    stop=tenacity.stop_after_attempt(10), wait=tenacity.wait_fixed(sleep_sec)
 )
-def _ensure_cant_create_ingestion_source(session, json):
-    create_source_response = session.post(
+def _ensure_can_create_access_token(session, json):
+    create_access_token_success = session.post(
         f"{get_frontend_url()}/api/v2/graphql", json=json)
-    create_source_response.raise_for_status()
-    create_source_data = create_source_response.json()
+    create_access_token_success.raise_for_status()
+    ingestion_data = create_access_token_success.json()
 
-    assert create_source_data["errors"][0]["extensions"]["code"] == 403
-    assert create_source_data["errors"][0]["extensions"]["type"] == "UNAUTHORIZED"
-    assert create_source_data["data"]["createIngestionSource"] == None
+    assert ingestion_data
+    assert ingestion_data["data"]
+    assert ingestion_data["data"]["createAccessToken"]
+    assert ingestion_data["data"]["createAccessToken"]["accessToken"] is not None
+    assert ingestion_data["data"]["createAccessToken"]["__typename"] == "AccessToken"
 
 
 @pytest.mark.dependency(depends=["test_healthchecks"])
@@ -132,7 +134,7 @@ def test_privilege_to_create_and_manage_secrets():
                 }
         },
     }
-    _ensure_cant_create_secret(user_session, create_secret)
+    _ensure_cant_perform_action(user_session, create_secret,"createSecret")
 
 
     # Assign privileges to the new user to manage secrets
@@ -166,7 +168,7 @@ def test_privilege_to_create_and_manage_secrets():
     remove_policy(policy_urn, admin_session)
 
     # Ensure user can't create secret after policy is removed
-    _ensure_cant_create_secret(user_session, create_secret)
+    _ensure_cant_perform_action(user_session, create_secret,"createSecret")
 
 
 @pytest.mark.dependency(depends=["test_healthchecks"])
@@ -182,11 +184,18 @@ def test_privilege_to_create_and_manage_ingestion_source():
             createIngestionSource(input: $input)\n}""",
         "variables": {"input":{"type":"snowflake","name":"test","config":
             {"recipe":
-                "{\"source\":{\"type\":\"snowflake\",\"config\":{\"account_id\":null,\"include_table_lineage\":true,\"include_view_lineage\":true,\"include_tables\":true,\"include_views\":true,\"profiling\":{\"enabled\":true,\"profile_table_level_only\":true},\"stateful_ingestion\":{\"enabled\":true}}}}",
+                """{\"source\":{\"type\":\"snowflake\",\"config\":{
+                    \"account_id\":null,
+                    \"include_table_lineage\":true,
+                    \"include_view_lineage\":true,
+                    \"include_tables\":true,
+                    \"include_views\":true,
+                    \"profiling\":{\"enabled\":true,\"profile_table_level_only\":true},
+                    \"stateful_ingestion\":{\"enabled\":true}}}}""",
                 "executorId":"default","debugMode":False,"extraArgs":[]}}},
     }
 
-    _ensure_cant_create_ingestion_source(user_session, create_ingestion_source)
+    _ensure_cant_perform_action(user_session, create_ingestion_source, "createIngestionSource")
 
 
      # Assign privileges to the new user to manage ingestion source
@@ -201,7 +210,14 @@ def test_privilege_to_create_and_manage_ingestion_source():
             updateIngestionSource(urn: $urn, input: $input)\n}""",
         "variables": {"urn":ingestion_source_urn,
               "input":{"type":"snowflake","name":"test updated",
-                       "config":{"recipe":"{\"source\":{\"type\":\"snowflake\",\"config\":{\"account_id\":null,\"include_table_lineage\":true,\"include_view_lineage\":true,\"include_tables\":true,\"include_views\":true,\"profiling\":{\"enabled\":true,\"profile_table_level_only\":true},\"stateful_ingestion\":{\"enabled\":true}}}}",
+                       "config":{"recipe":"""{\"source\":{\"type\":\"snowflake\",\"config\":{
+                                 \"account_id\":null,
+                                 \"include_table_lineage\":true,
+                                 \"include_view_lineage\":true,
+                                 \"include_tables\":true,
+                                 \"include_views\":true,
+                                 \"profiling\":{\"enabled\":true,\"profile_table_level_only\":true},
+                                 \"stateful_ingestion\":{\"enabled\":true}}}}""",
                         "executorId":"default","debugMode":False,"extraArgs":[]}}}
     }
 
@@ -238,4 +254,87 @@ def test_privilege_to_create_and_manage_ingestion_source():
     remove_policy(policy_urn, admin_session)
 
     # Ensure that user can't create ingestion source after policy is removed
-    _ensure_cant_create_ingestion_source(user_session, create_ingestion_source)
+    _ensure_cant_perform_action(user_session, create_ingestion_source, "createIngestionSource")
+
+
+@pytest.mark.dependency(depends=["test_healthchecks"])
+def test_privilege_to_create_and_manage_access_tokens():
+
+    (admin_user, admin_pass) = get_admin_credentials()
+    admin_session = login_as(admin_user, admin_pass)
+    user_session = login_as("user", "user")
+  
+
+    # Verify new user can't create access token
+    create_access_token = { 
+        "query": """mutation createAccessToken($input: CreateAccessTokenInput!) {\n 
+          createAccessToken(input: $input) {\n    accessToken\n    __typename\n  }\n}\n""",
+        "variables": {"input":{"actorUrn":"urn:li:corpuser:user",
+                               "type":"PERSONAL",
+                               "duration":"ONE_MONTH",
+                               "name":"test",
+                               "description":"test"}}
+    }
+
+    _ensure_cant_perform_action(user_session, create_access_token,"createAccessToken")
+
+
+    # Assign privileges to the new user to create and manage access tokens
+    policy_urn = create_user_policy("urn:li:corpuser:user", ["MANAGE_ACCESS_TOKENS"], admin_session)
+   
+
+    # Verify new user can create and manage access token(create, revoke)
+    # Create a access token
+    _ensure_can_create_access_token(user_session, create_access_token)
+
+
+    # List access tokens first to get token id
+    list_access_tokens = { 
+        "query": """query listAccessTokens($input: ListAccessTokenInput!) {\n 
+          listAccessTokens(input: $input) {\n
+                start\n count\n total\n tokens {\n urn\n type\n
+                id\n name\n description\n actorUrn\n ownerUrn\n  
+                createdAt\n expiresAt\n __typename\n }\n __typename\n  }\n}\n""",
+        "variables": {
+            "input":{
+                "start":0,"count":10,"filters":[{
+                    "field":"ownerUrn",
+                    "values":["urn:li:corpuser:user"]}]}
+        }
+    }
+
+    list_tokens_response = user_session.post(f"{get_frontend_url()}/api/v2/graphql", json=list_access_tokens)
+    list_tokens_response.raise_for_status()
+    list_tokens_data = list_tokens_response.json()
+
+    assert list_tokens_data
+    assert list_tokens_data["data"]
+    assert list_tokens_data["data"]["listAccessTokens"]["tokens"][0]["id"] is not None
+    
+    access_token_id = list_tokens_data["data"]["listAccessTokens"]["tokens"][0]["id"]
+
+
+    # Revoke access token
+    revoke_access_token = { 
+        "query": "mutation revokeAccessToken($tokenId: String!) {\n  revokeAccessToken(tokenId: $tokenId)\n}\n",
+        "variables": {
+            "tokenId": access_token_id
+        },
+    }
+
+    revoke_token_response = user_session.post(f"{get_frontend_url()}/api/v2/graphql", json=revoke_access_token)
+    revoke_token_response.raise_for_status()
+    revoke_token_data = revoke_token_response.json()
+
+    assert revoke_token_data
+    assert revoke_token_data["data"]
+    assert revoke_token_data["data"]["revokeAccessToken"]
+    assert revoke_token_data["data"]["revokeAccessToken"] is True
+
+
+    # Remove the policy
+    remove_policy(policy_urn, admin_session)
+
+
+    # Ensure that user can't create access token after policy is removed
+    _ensure_cant_perform_action(user_session, create_access_token,"createAccessToken")
