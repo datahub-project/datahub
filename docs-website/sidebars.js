@@ -657,6 +657,7 @@ module.exports = {
       items: [
         "docs/slack",
         "docs/townhalls",
+//        "docs/townhall-history",
         "docs/CODE_OF_CONDUCT",
         "docs/CONTRIBUTING",
         "docs/links",

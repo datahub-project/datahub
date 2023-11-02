@@ -11,5 +11,9 @@ You can join with [this link](https://zoom.datahubproject.io) or [RSVP](https://
 
 ## Town Hall History
 
-See our [Town Hall history](https://www.linkedin.com/company/acryl-data/events/) for the recordings and summaries of the past town halls.
+See our Town Hall history for the recordings and summaries of the past town halls.
+
+* [Town Hall Events (July 2023~)](https://www.linkedin.com/company/acryl-data/events/)
+* [Town Hall Events (~June 2023)](townhall-history.md)
+
 
