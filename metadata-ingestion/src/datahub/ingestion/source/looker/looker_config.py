@@ -205,6 +205,10 @@ class LookerDashboardSourceConfig(
         False,
         description="Extract looks which are not part of any Dashboard. To enable this flag the stateful_ingestion should also be enabled.",
     )
+    emit_used_explores_only: bool = Field(
+        True,
+        description="When enabled, only explores that are used by a Dashboard/Look will be ingested.",
+    )
 
     @validator("external_base_url", pre=True, always=True)
     def external_url_defaults_to_api_config_base_url(
