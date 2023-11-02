@@ -140,6 +140,7 @@ class OracleInspectorObjectWrapper:
         # START WITH: 1, INCREMENT BY: 1, MAX_VALUE: 123, MIN_VALUE: 1,
         # CYCLE_FLAG: N, CACHE_SIZE: 1, ORDER_FLAG: N, SCALE_FLAG: N,
         # EXTEND_FLAG: N, SESSION_FLAG: N, KEEP_VALUE: N
+
         parts = [p.strip() for p in identity_options.split(",")]
         identity = {
             "always": parts[0] == "ALWAYS",
