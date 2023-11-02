@@ -73,7 +73,6 @@ export function HeaderLinks(props: Props) {
     const showSettings = true;
     const showIngestion =
         isIngestionEnabled && me && me.platformPrivileges?.manageIngestion && me.platformPrivileges?.manageSecrets;
-    const showDomains = me?.platformPrivileges?.createDomains;
 
     useUpdateEducationStepIdsAllowlist(!!showIngestion, HOME_PAGE_INGESTION_ID);
 
@@ -106,7 +105,6 @@ export function HeaderLinks(props: Props) {
                                 <NavTitleDescription>View and modify your data dictionary</NavTitleDescription>
                             </Link>
                         </MenuItem>
-                        {showDomains && (
                             <MenuItem key="1">
                                 <Link to="/domains">
                                     <NavTitleContainer>
@@ -121,7 +119,6 @@ export function HeaderLinks(props: Props) {
                                     <NavTitleDescription>Manage related groups of data assets</NavTitleDescription>
                                 </Link>
                             </MenuItem>
-                        )}
                     </Menu>
                 }
             >
