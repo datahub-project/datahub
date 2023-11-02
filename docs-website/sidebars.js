@@ -626,6 +626,11 @@ module.exports = {
           id: "docs/managed-datahub/chrome-extension",
         },
         {
+          type: "doc",
+          id: "docs/managed-datahub/subscription-and-notification",
+          className: "saasOnly",
+        },
+        {
           "Managed DataHub Release History": [
             "docs/managed-datahub/release-notes/v_0_2_12",
             "docs/managed-datahub/release-notes/v_0_2_11",
