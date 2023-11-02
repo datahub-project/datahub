@@ -1,9 +1,7 @@
-import io
 from pathlib import Path
 from typing import Union
 
-from datahub.configuration.common import ConfigurationError
-from datahub.configuration.yaml import YamlConfigurationMechanism
+from datahub.configuration.config_loader import load_config_file
 
 
 def load_file(config_file: Path) -> Union[dict, list]:
@@ -17,19 +15,11 @@ def load_file(config_file: Path) -> Union[dict, list]:
     evolve to becoming a standard function that all the specific. cli variants will use
     to load up the models from external files
     """
-    if not isinstance(config_file, Path):
-        config_file = Path(config_file)
-    if not config_file.is_file():
-        raise ConfigurationError(f"Cannot open config file {config_file}")
 
-    if config_file.suffix in {".yaml", ".yml"}:
-        config_mech: YamlConfigurationMechanism = YamlConfigurationMechanism()
-    else:
-        raise ConfigurationError(
-            f"Only .yaml and .yml are supported. Cannot process file type {config_file.suffix}"
-        )
-
-    raw_config_file = config_file.read_text()
-    config_fp = io.StringIO(raw_config_file)
-    raw_config = config_mech.load_config(config_fp)
-    return raw_config
+    res = load_config_file(
+        config_file,
+        squirrel_original_config=False,
+        resolve_env_vars=False,
+        allow_stdin=False,
+    )
+    return res

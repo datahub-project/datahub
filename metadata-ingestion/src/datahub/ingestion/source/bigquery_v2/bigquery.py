@@ -16,7 +16,6 @@ from datahub.emitter.mce_builder import (
     make_dataplatform_instance_urn,
     make_dataset_urn,
     make_tag_urn,
-    set_dataset_urn_to_lower,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import BigQueryDatasetKey, ContainerKey, ProjectIdKey
@@ -154,6 +153,7 @@ def cleanup(config: BigQueryV2Config) -> None:
 )
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
 @capability(SourceCapability.LINEAGE_COARSE, "Optionally enabled via configuration")
+@capability(SourceCapability.LINEAGE_FINE, "Optionally enabled via configuration")
 @capability(
     SourceCapability.USAGE_STATS,
     "Enabled by default, can be disabled via configuration `include_usage_statistics`",
@@ -217,8 +217,6 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         )
         if self.config.enable_legacy_sharded_table_support:
             BigqueryTableIdentifier._BQ_SHARDED_TABLE_SUFFIX = ""
-
-        set_dataset_urn_to_lower(self.config.convert_urns_to_lowercase)
 
         self.bigquery_data_dictionary = BigQuerySchemaApi(
             self.report.schema_api_perf, self.config.get_bigquery_client()
@@ -458,10 +456,11 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                     platform=self.platform,
                     platform_instance=self.config.platform_instance,
                     env=self.config.env,
-                )[0]
+                )
             else:
                 logger.warning(
-                    "Failed to load schema info from DataHub as DataHubGraph is missing.",
+                    "Failed to load schema info from DataHub as DataHubGraph is missing. "
+                    "Use `datahub-rest` sink OR provide `datahub-api` config in recipe. ",
                 )
         return SchemaResolver(platform=self.platform, env=self.config.env)
 
@@ -600,9 +599,6 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         db_views: Dict[str, List[BigqueryView]] = {}
 
         project_id = bigquery_project.id
-
-        yield from self.gen_project_id_containers(project_id)
-
         try:
             bigquery_project.datasets = (
                 self.bigquery_data_dictionary.get_datasets_for_project_id(project_id)
@@ -619,10 +615,22 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             return None
 
         if len(bigquery_project.datasets) == 0:
-            logger.warning(
-                f"No dataset found in {project_id}. Either there are no datasets in this project or missing bigquery.datasets.get permission. You can assign predefined roles/bigquery.metadataViewer role to your service account."
+            more_info = (
+                "Either there are no datasets in this project or missing bigquery.datasets.get permission. "
+                "You can assign predefined roles/bigquery.metadataViewer role to your service account."
             )
+            if self.config.exclude_empty_projects:
+                self.report.report_dropped(project_id)
+                warning_message = f"Excluded project '{project_id}' since no were datasets found. {more_info}"
+            else:
+                yield from self.gen_project_id_containers(project_id)
+                warning_message = (
+                    f"No datasets found in project '{project_id}'. {more_info}"
+                )
+            logger.warning(warning_message)
             return
+
+        yield from self.gen_project_id_containers(project_id)
 
         self.report.num_project_datasets_to_scan[project_id] = len(
             bigquery_project.datasets
@@ -1042,11 +1050,18 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                     for idx, field in enumerate(schema_fields):
                         # Remove all the [version=2.0].[type=struct]. tags to get the field path
                         if (
-                            re.sub(r"\[.*?\]\.", "", field.fieldPath, 0, re.MULTILINE)
-                            == col.field_path
+                            re.sub(
+                                r"\[.*?\]\.",
+                                "",
+                                field.fieldPath.lower(),
+                                0,
+                                re.MULTILINE,
+                            )
+                            == col.field_path.lower()
                         ):
                             field.description = col.comment
                             schema_fields[idx] = field
+                            break
             else:
                 tags = []
                 if col.is_partition_column:

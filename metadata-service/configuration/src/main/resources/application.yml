@@ -25,6 +25,8 @@ authentication:
     # Key used to sign new tokens.
     signingKey: ${DATAHUB_TOKEN_SERVICE_SIGNING_KEY:WnEdIeTG/VVCLQqGwC/BAkqyY0k+H8NEAtWGejrBI94=}
     salt: ${DATAHUB_TOKEN_SERVICE_SALT:ohDVbJBvHHVJh9S/UA4BYF9COuNnqqVhr9MLKEGXk1O=}
+    issuer: ${DATAHUB_TOKEN_SERVICE_ISSUER:datahub-metadata-service}
+    signingAlgorithm: ${DATAHUB_TOKEN_SERVICE_SIGNING_ALGORITHM:HS256}
 
   # The max duration of a UI session in milliseconds. Defaults to 1 day.
   sessionTokenDurationMs: ${SESSION_TOKEN_DURATION_MS:86400000}
@@ -226,6 +228,10 @@ kafka:
     deliveryTimeout: ${KAFKA_PRODUCER_DELIVERY_TIMEOUT:30000}
     requestTimeout: ${KAFKA_PRODUCER_REQUEST_TIMEOUT:3000}
     backoffTimeout: ${KAFKA_PRODUCER_BACKOFF_TIMEOUT:500}
+    compressionType: ${KAFKA_PRODUCER_COMPRESSION_TYPE:snappy} # producer's compression algorithm
+    maxRequestSize: ${KAFKA_PRODUCER_MAX_REQUEST_SIZE:5242880} # the max bytes sent by the producer, also see kafka-setup MAX_MESSAGE_BYTES for matching value
+  consumer:
+    maxPartitionFetchBytes: ${KAFKA_CONSUMER_MAX_PARTITION_FETCH_BYTES:5242880} # the max bytes consumed per partition
   schemaRegistry:
     type: ${SCHEMA_REGISTRY_TYPE:KAFKA} # INTERNAL or KAFKA or AWS_GLUE
     url: ${KAFKA_SCHEMAREGISTRY_URL:http://localhost:8081}
@@ -276,6 +282,13 @@ bootstrap:
     enabled: ${UPGRADE_DEFAULT_BROWSE_PATHS_ENABLED:false} # enable to run the upgrade to migrate legacy default browse paths to new ones
   backfillBrowsePathsV2:
     enabled: ${BACKFILL_BROWSE_PATHS_V2:false} # Enables running the backfill of browsePathsV2 upgrade step. There are concerns about the load of this step so hiding it behind a flag. Deprecating in favor of running through SystemUpdate
+  policies:
+    file: ${BOOTSTRAP_POLICIES_FILE:classpath:boot/policies.json}
+    # eg for local file
+    # file: "file:///datahub/datahub-gms/resources/custom-policies.json"
+  servlets:
+    waitTimeout: ${BOOTSTRAP_SERVLETS_WAITTIMEOUT:60} # Total waiting time in seconds for servlets to initialize
+
 
 systemUpdate:
   initialBackOffMs: ${BOOTSTRAP_SYSTEM_UPDATE_INITIAL_BACK_OFF_MILLIS:5000}
