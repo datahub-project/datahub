@@ -142,6 +142,7 @@ class BigQuerySource(Source):
         entries = client.list_entries(
             filter_=filter,
             page_size=self.connection.config.log_page_size,
+            max_results=self.row_limit,
         )
         for entry in enumerate(entries):
             yield entry
@@ -213,6 +214,7 @@ class BigQuerySource(Source):
             WHERE table_id="{operation_params.table}"
                 AND last_modified_time >= {operation_params.start_time_millis}
                 AND last_modified_time <= {operation_params.end_time_millis}
+            LIMIT {self.row_limit}
         ;"""
 
         logger.debug(query)
@@ -267,6 +269,7 @@ class BigQuerySource(Source):
                 AND {date_column} <= ({end_datetime})
                 {f"AND {filter_sql}" if filter_sql else ''}
                 ORDER BY {date_column} DESC
+                LIMIT {self.row_limit}
             ;"""
 
             return self._build_field_update_results(

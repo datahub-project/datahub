@@ -167,6 +167,7 @@ class SnowflakeSource(Source):
             WHERE                
                 REGEXP_REPLACE(LOWER(exploded_access_history.updated_objects:objectName::STRING), '\\"|\\'', '') in ('{operation_params.catalog.lower()}.{operation_params.schema.lower()}.{operation_params.table.lower()}')
             ORDER BY query_history.start_time DESC
+            LIMIT {self.row_limit}
 ;"""
         logger.debug(query)
 
@@ -194,7 +195,8 @@ class SnowflakeSource(Source):
             AND last_altered < to_timestamp_ltz({operation_params.end_time_millis}, 3)
             AND table_name = '{operation_params.table}'
             AND table_schema = '{operation_params.schema.upper()}'
-            AND table_catalog = '{operation_params.catalog.upper()}';"""
+            AND table_catalog = '{operation_params.catalog.upper()}'
+            LIMIT {self.row_limit};"""
 
         logger.debug(query)
 
@@ -251,6 +253,7 @@ class SnowflakeSource(Source):
                 AND {date_column} <= ({end_datetime})
                 {f"AND {filter_sql}" if filter_sql else ''}
                 ORDER BY {date_column} DESC
+                LIMIT {self.row_limit}
                 ;
             """
             logger.debug(query)

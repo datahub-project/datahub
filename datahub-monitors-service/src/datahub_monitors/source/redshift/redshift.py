@@ -152,7 +152,8 @@ class RedshiftSource(Source):
                 AND sti.schema = '{operation_params.schema}'
                 AND sti.table = '{operation_params.table}'
                 {f"AND sui.usename = '{user_name_filter}'" if user_name_filter is not None else ''}
-            ORDER BY endtime DESC;
+            ORDER BY endtime DESC
+            LIMIT {self.row_limit};
         """
 
         logger.debug(query)
@@ -213,6 +214,7 @@ class RedshiftSource(Source):
                 AND {date_column} <= ({end_datetime})
                 {f"AND {filter_sql}" if filter_sql else ''}
                 ORDER BY {date_column} DESC
+                LIMIT {self.row_limit}
                 ;
             """
             logger.debug(query)

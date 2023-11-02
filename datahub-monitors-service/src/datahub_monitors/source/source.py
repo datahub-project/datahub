@@ -38,6 +38,9 @@ class Source:
 
     connection: Connection
     source_name: str
+    row_limit: int = (
+        5  # row limit to prevent large queries but still show recent events
+    )
 
     def __init__(self, connection: Connection):
         self.connection = connection

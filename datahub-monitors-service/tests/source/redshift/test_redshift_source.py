@@ -49,7 +49,8 @@ TEST_AUDIT_LOG_QUERY_NO_USER_NAME_FILTER = f"""
                 AND sti.schema = 'public'
                 AND sti.table = 'test_table'
                 
-            ORDER BY endtime DESC;
+            ORDER BY endtime DESC
+            LIMIT 5;
         """
 TEST_AUDIT_LOG_QUERY_WITH_USER_NAME_FILTER = f"""
             SELECT
@@ -70,7 +71,8 @@ TEST_AUDIT_LOG_QUERY_WITH_USER_NAME_FILTER = f"""
                 AND sti.schema = 'public'
                 AND sti.table = 'test_table'
                 AND sui.usename = 'testusername'
-            ORDER BY endtime DESC;
+            ORDER BY endtime DESC
+            LIMIT 5;
         """
 TEST_FIELD_UPDATE_QUERY = f"""
                 SELECT timestamp as last_altered_date
@@ -79,6 +81,7 @@ TEST_FIELD_UPDATE_QUERY = f"""
                 AND timestamp <= (TIMESTAMP 'epoch' + {TEST_END / 1000} * INTERVAL '1 second')
                 AND foo = 'bar'
                 ORDER BY timestamp DESC
+                LIMIT 5
                 ;
             """
 TEST_HIGHWATERMARK_VALUE_QUERY = f"""
