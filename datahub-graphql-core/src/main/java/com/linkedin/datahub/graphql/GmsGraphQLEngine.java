@@ -1431,6 +1431,10 @@ public class GmsGraphQLEngine {
             .dataFetcher("statsSummary", new ChartStatsSummaryResolver(this.timeseriesAspectService))
             .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
             .dataFetcher("exists", new EntityExistsResolver(entityService))
+            .dataFetcher("subTypes", new SubTypesResolver(
+                this.entityClient,
+                "chart",
+                "subTypes"))
         );
         builder.type("ChartInfo", typeWiring -> typeWiring
             .dataFetcher("inputs", new LoadableTypeBatchResolver<>(datasetType,
