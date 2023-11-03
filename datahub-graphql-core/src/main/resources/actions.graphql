@@ -333,7 +333,8 @@ type ActionRequestParams {
 
 enum AssigneeType {
     USER,
-    GROUP
+    GROUP,
+    ROLE
 }
 
 type TagProposalParams {
