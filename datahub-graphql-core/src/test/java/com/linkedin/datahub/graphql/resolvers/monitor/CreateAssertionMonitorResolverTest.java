@@ -1,8 +1,12 @@
 package com.linkedin.datahub.graphql.resolvers.monitor;
 
 import com.datahub.authentication.Authentication;
+import com.datahub.authorization.AuthorizationRequest;
+import com.datahub.authorization.EntitySpec;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.linkedin.assertion.AssertionInfo;
+import com.linkedin.assertion.AssertionType;
 import com.linkedin.common.CronSchedule;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -26,7 +30,9 @@ import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.key.MonitorKey;
+import com.linkedin.metadata.service.AssertionService;
 import com.linkedin.metadata.service.MonitorService;
 import com.linkedin.monitor.AssertionEvaluationParameters;
 import com.linkedin.monitor.AssertionEvaluationSpec;
@@ -41,6 +47,7 @@ import com.linkedin.monitor.MonitorMode;
 import com.linkedin.monitor.MonitorStatus;
 import com.linkedin.monitor.MonitorType;
 import graphql.schema.DataFetchingEnvironment;
+import java.util.Optional;
 import java.util.concurrent.CompletionException;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
@@ -203,8 +210,9 @@ public class CreateAssertionMonitorResolverTest {
   @Test
   public void testGetSuccessFreshnessAssertion() throws Exception {
     // Create resolver
-    MonitorService mockService = initMockService(TEST_MONITOR_INFO_FRESHNESS);
-    CreateAssertionMonitorResolver resolver = new CreateAssertionMonitorResolver(mockService);
+    MonitorService mockService = initMockMonitorService(TEST_MONITOR_INFO_FRESHNESS);
+    AssertionService mockAssertionService = initMockAssertionsService(TEST_ASSERTION_URN, AssertionType.FRESHNESS);
+    CreateAssertionMonitorResolver resolver = new CreateAssertionMonitorResolver(mockService, mockAssertionService);
 
     // Execute resolver
     QueryContext mockContext = getMockAllowContext();
@@ -233,8 +241,9 @@ public class CreateAssertionMonitorResolverTest {
   @Test
   public void testGetSuccessVolumeAssertion() throws Exception {
     // Create resolver
-    MonitorService mockService = initMockService(TEST_MONITOR_INFO_VOLUME);
-    CreateAssertionMonitorResolver resolver = new CreateAssertionMonitorResolver(mockService);
+    MonitorService mockService = initMockMonitorService(TEST_MONITOR_INFO_VOLUME);
+    AssertionService mockAssertionService = initMockAssertionsService(TEST_ASSERTION_URN, AssertionType.VOLUME);
+    CreateAssertionMonitorResolver resolver = new CreateAssertionMonitorResolver(mockService, mockAssertionService);
 
     // Execute resolver
     QueryContext mockContext = getMockAllowContext();
@@ -263,8 +272,9 @@ public class CreateAssertionMonitorResolverTest {
   @Test
   public void testGetSuccessSqlAssertion() throws Exception {
     // Create resolver
-    MonitorService mockService = initMockService(TEST_MONITOR_INFO_SQL);
-    CreateAssertionMonitorResolver resolver = new CreateAssertionMonitorResolver(mockService);
+    MonitorService mockService = initMockMonitorService(TEST_MONITOR_INFO_SQL);
+    AssertionService mockAssertionService = initMockAssertionsService(TEST_ASSERTION_URN, AssertionType.SQL);
+    CreateAssertionMonitorResolver resolver = new CreateAssertionMonitorResolver(mockService, mockAssertionService);
 
     // Execute resolver
     QueryContext mockContext = getMockAllowContext();
@@ -288,13 +298,28 @@ public class CreateAssertionMonitorResolverTest {
         Mockito.eq(evaluationSpec.getParameters()),
         Mockito.eq(TEST_EXECUTOR_ID),
         Mockito.any(Authentication.class));
+
+
+    // Ensure that we retrieved the assertion info to check whether it is of type SQL.
+    Mockito.verify(mockAssertionService, Mockito.times(1)).getAssertionInfo(
+        Mockito.eq(TEST_ASSERTION_URN));
+
+    // Ensure that we authorized the SQL create.
+    Mockito.verify(mockContext.getAuthorizer(),
+        Mockito.times(1)).authorize(
+        Mockito.eq(new AuthorizationRequest(
+            "urn:li:corpuser:test",
+            PoliciesConfig.EDIT_ENTITY_SQL_ASSERTION_MONITORS.getType(),
+            Optional.of(new EntitySpec("dataset", TEST_ENTITY_URN.toString()))
+        )));
   }
 
   @Test
   public void testGetSuccessFieldAssertion() throws Exception {
     // Create resolver
-    MonitorService mockService = initMockService(TEST_MONITOR_INFO_VOLUME);
-    CreateAssertionMonitorResolver resolver = new CreateAssertionMonitorResolver(mockService);
+    MonitorService mockService = initMockMonitorService(TEST_MONITOR_INFO_VOLUME);
+    AssertionService mockAssertionService = initMockAssertionsService(TEST_ASSERTION_URN, AssertionType.FIELD);
+    CreateAssertionMonitorResolver resolver = new CreateAssertionMonitorResolver(mockService, mockAssertionService);
 
     // Execute resolver
     QueryContext mockContext = getMockAllowContext();
@@ -324,8 +349,9 @@ public class CreateAssertionMonitorResolverTest {
   public void testGetUnauthorized() throws Exception {
     // Create resolver
     EntityClient mockClient = Mockito.mock(EntityClient.class);
-    MonitorService mockService = initMockService(TEST_MONITOR_INFO_FRESHNESS);
-    CreateAssertionMonitorResolver resolver = new CreateAssertionMonitorResolver(mockService);
+    MonitorService mockService = initMockMonitorService(TEST_MONITOR_INFO_FRESHNESS);
+    AssertionService mockAssertionService = initMockAssertionsService(TEST_ASSERTION_URN, AssertionType.FRESHNESS);
+    CreateAssertionMonitorResolver resolver = new CreateAssertionMonitorResolver(mockService, mockAssertionService);
 
     // Execute resolver
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
@@ -342,7 +368,9 @@ public class CreateAssertionMonitorResolverTest {
   @Test
   public void testGetAssertionServiceException() throws Exception {
     // Create resolver
-    MonitorService mockService = initMockService(TEST_MONITOR_INFO_FRESHNESS);
+    MonitorService mockService = initMockMonitorService(TEST_MONITOR_INFO_FRESHNESS);
+    AssertionService mockAssertionService = initMockAssertionsService(TEST_ASSERTION_URN, AssertionType.FRESHNESS);
+
     Mockito.doThrow(RuntimeException.class).when(mockService).createAssertionMonitor(
         Mockito.any(),
         Mockito.any(),
@@ -351,7 +379,7 @@ public class CreateAssertionMonitorResolverTest {
         Mockito.any(),
         Mockito.any(Authentication.class));
 
-    CreateAssertionMonitorResolver resolver = new CreateAssertionMonitorResolver(mockService);
+    CreateAssertionMonitorResolver resolver = new CreateAssertionMonitorResolver(mockService, mockAssertionService);
 
     // Execute resolver
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
@@ -362,7 +390,7 @@ public class CreateAssertionMonitorResolverTest {
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
   }
 
-  private MonitorService initMockService(MonitorInfo monitorInfo) throws Exception {
+  private MonitorService initMockMonitorService(MonitorInfo monitorInfo) throws Exception {
     MonitorService service = Mockito.mock(MonitorService.class);
     Mockito.when(service.createAssertionMonitor(
         Mockito.any(),
@@ -388,6 +416,19 @@ public class CreateAssertionMonitorResolverTest {
         .setEntityName(Constants.MONITOR_ENTITY_NAME)
         .setUrn(TEST_MONITOR_URN)
     );
+    return service;
+  }
+
+  private AssertionService initMockAssertionsService(Urn assertionUrn, AssertionType assertionType) {
+    AssertionService service = Mockito.mock(AssertionService.class);
+
+    AssertionInfo nonSqlAssertion = new AssertionInfo();
+    nonSqlAssertion.setType(assertionType);
+
+    Mockito.when(service.getAssertionInfo(
+        Mockito.eq(assertionUrn)
+    )).thenReturn(nonSqlAssertion);
+
     return service;
   }
 }

@@ -7,6 +7,12 @@ import com.linkedin.assertion.DatasetAssertionInfo;
 import com.linkedin.assertion.DatasetAssertionScope;
 import com.linkedin.assertion.FreshnessAssertionInfo;
 import com.linkedin.assertion.FreshnessAssertionType;
+import com.linkedin.assertion.FieldAssertionInfo;
+import com.linkedin.assertion.FieldAssertionType;
+import com.linkedin.assertion.SqlAssertionInfo;
+import com.linkedin.assertion.SqlAssertionType;
+import com.linkedin.assertion.VolumeAssertionInfo;
+import com.linkedin.assertion.VolumeAssertionType;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.generated.AssertionActionInput;
@@ -16,7 +22,10 @@ import com.linkedin.datahub.graphql.generated.AssertionStdOperator;
 import com.linkedin.datahub.graphql.generated.AssertionStdParameterInput;
 import com.linkedin.datahub.graphql.generated.AssertionStdParameterType;
 import com.linkedin.datahub.graphql.generated.AssertionStdParametersInput;
+import com.linkedin.datahub.graphql.generated.CreateFieldAssertionInput;
+import com.linkedin.datahub.graphql.generated.CreateFreshnessAssertionInput;
 import com.linkedin.datahub.graphql.generated.CreateSqlAssertionInput;
+import com.linkedin.datahub.graphql.generated.CreateVolumeAssertionInput;
 import com.linkedin.datahub.graphql.generated.DatasetFilterInput;
 import com.linkedin.datahub.graphql.generated.DatasetFilterType;
 import com.linkedin.datahub.graphql.generated.SchemaFieldSpecInput;
@@ -43,8 +52,6 @@ public class AssertionUtilsTest {
   private static final AssertionActionInput TEST_ASSERTION_ACTION_FAILURE_INPUT = new AssertionActionInput();
   private static final List<AssertionActionInput> TEST_ASSERTION_ACTION_SUCCESS_LIST_INPUT = new ArrayList<AssertionActionInput>();
   private static final List<AssertionActionInput> TEST_ASSERTION_ACTION_FAILURE_LIST_INPUT = new ArrayList<AssertionActionInput>();
-  private static final TestAssertionInput TEST_ASSERTION_INPUT = new TestAssertionInput();
-  private static final CreateSqlAssertionInput TEST_CREATE_SQL_ASSERTION_INPUT = new CreateSqlAssertionInput();
 
   @BeforeMethod
   void setUp() {
@@ -71,11 +78,6 @@ public class AssertionUtilsTest {
     TEST_ASSERTION_ACTION_FAILURE_LIST_INPUT.add(TEST_ASSERTION_ACTION_FAILURE_INPUT);
     TEST_ASSERTION_ACTIONS_INPUT.setOnSuccess(TEST_ASSERTION_ACTION_SUCCESS_LIST_INPUT);
     TEST_ASSERTION_ACTIONS_INPUT.setOnFailure(TEST_ASSERTION_ACTION_FAILURE_LIST_INPUT);
-
-    // Set up test assertion input
-    TEST_CREATE_SQL_ASSERTION_INPUT.setEntityUrn(TEST_DATASET_URN.toString());
-    TEST_ASSERTION_INPUT.setType(com.linkedin.datahub.graphql.generated.AssertionType.SQL);
-    TEST_ASSERTION_INPUT.setSqlTestInput(TEST_CREATE_SQL_ASSERTION_INPUT);
   }
 
   @Test
@@ -159,7 +161,35 @@ public class AssertionUtilsTest {
     result = AssertionUtils.getAsserteeUrnFromInfo(info);
     Assert.assertEquals(result, TEST_DATAJOB_URN);
 
-    // Case 4: Unsupported Assertion Type
+    // Case 4: VOLUME Assertion
+    info = new AssertionInfo();
+    info.setType(AssertionType.VOLUME);
+    info.setVolumeAssertion(new VolumeAssertionInfo()
+        .setType(VolumeAssertionType.ROW_COUNT_TOTAL)
+        .setEntity(TEST_DATASET_URN));
+    result = AssertionUtils.getAsserteeUrnFromInfo(info);
+    Assert.assertEquals(result, TEST_DATASET_URN);
+
+    // Case 5: SQL Assertion
+    info = new AssertionInfo();
+    info.setType(AssertionType.SQL);
+    info.setSqlAssertion(new SqlAssertionInfo()
+        .setType(SqlAssertionType.METRIC)
+        .setEntity(TEST_DATASET_URN));
+    result = AssertionUtils.getAsserteeUrnFromInfo(info);
+    Assert.assertEquals(result, TEST_DATASET_URN);
+    Assert.assertEquals(result, TEST_DATASET_URN);
+
+    // Case 6: FIELD Assertion
+    info = new AssertionInfo();
+    info.setType(AssertionType.FIELD);
+    info.setFieldAssertion(new FieldAssertionInfo()
+        .setType(FieldAssertionType.FIELD_VALUES)
+        .setEntity(TEST_DATASET_URN));
+    result = AssertionUtils.getAsserteeUrnFromInfo(info);
+    Assert.assertEquals(result, TEST_DATASET_URN);
+
+    // Case 7: Unsupported Assertion Type
     final AssertionInfo badInfo = new AssertionInfo();
     info.setType(AssertionType.$UNKNOWN);
     info.setFreshnessAssertion(new FreshnessAssertionInfo()
@@ -170,7 +200,39 @@ public class AssertionUtilsTest {
 
   @Test
   public void testGetAsserteeUrnFromTestInput() {
-    final String result = AssertionUtils.getAsserteeUrnFromTestInput(TEST_ASSERTION_INPUT);
+    TestAssertionInput testAssertonInput = new TestAssertionInput();
+
+    // Case 1: FRESHNESS Assertion
+    CreateFreshnessAssertionInput freshnessAssertionInput = new CreateFreshnessAssertionInput();
+    freshnessAssertionInput.setEntityUrn(TEST_DATASET_URN.toString());
+    testAssertonInput.setType(com.linkedin.datahub.graphql.generated.AssertionType.FRESHNESS);
+    testAssertonInput.setFreshnessTestInput(freshnessAssertionInput);
+    String result = AssertionUtils.getAsserteeUrnFromTestInput(testAssertonInput);
     Assert.assertEquals(result, TEST_DATASET_URN.toString());
+
+    // Case 2: VOLUME Assertion
+    CreateVolumeAssertionInput volumeAssertionInput = new CreateVolumeAssertionInput();
+    volumeAssertionInput.setEntityUrn(TEST_DATASET_URN.toString());
+    testAssertonInput.setType(com.linkedin.datahub.graphql.generated.AssertionType.VOLUME);
+    testAssertonInput.setVolumeTestInput(volumeAssertionInput);
+    result = AssertionUtils.getAsserteeUrnFromTestInput(testAssertonInput);
+    Assert.assertEquals(result, TEST_DATASET_URN.toString());
+
+    // Case 3: SQL Assertion
+    CreateSqlAssertionInput sqlAssertionInput = new CreateSqlAssertionInput();
+    sqlAssertionInput.setEntityUrn(TEST_DATASET_URN.toString());
+    testAssertonInput.setType(com.linkedin.datahub.graphql.generated.AssertionType.SQL);
+    testAssertonInput.setSqlTestInput(sqlAssertionInput);
+    result = AssertionUtils.getAsserteeUrnFromTestInput(testAssertonInput);
+    Assert.assertEquals(result, TEST_DATASET_URN.toString());
+
+    // Case 4: FIELD Assertion
+    CreateFieldAssertionInput fieldAssertionInput = new CreateFieldAssertionInput();
+    fieldAssertionInput.setEntityUrn(TEST_DATASET_URN.toString());
+    testAssertonInput.setType(com.linkedin.datahub.graphql.generated.AssertionType.FIELD);
+    testAssertonInput.setFieldTestInput(fieldAssertionInput);
+    result = AssertionUtils.getAsserteeUrnFromTestInput(testAssertonInput);
+    Assert.assertEquals(result, TEST_DATASET_URN.toString());
+
   }
 }

@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import styled from 'styled-components';
 import { Typography, Select } from 'antd';
 import { InfoCircleOutlined } from '@ant-design/icons';
+import useFormInstance from 'antd/lib/form/hooks/useFormInstance';
 import {
     DatasetFreshnessAssertionParameters,
     DatasetFreshnessSourceType,
@@ -19,8 +20,8 @@ import {
     isStructField,
 } from '../../utils';
 import { useChangeSourceOptionIf } from '../../hooks';
-import { useIngestionSourceForEntityQuery } from '../../../../../../../../../../graphql/ingestion.generated';
 import { AssertionDatasetFieldBuilder } from '../AssertionDatasetFieldBuilder';
+import { useConnectionForEntityExists } from '../../../../acrylUtils';
 
 const Form = styled.div``;
 
@@ -43,7 +44,7 @@ const StyledInfoCircleOutlined = styled(InfoCircleOutlined)`
 `;
 
 const StyledSelect = styled(Select)`
-    max-width: 340px;
+    width: 340px;
 `;
 
 const SelectOptionContent = styled.div<{ disabled: boolean }>`
@@ -71,6 +72,7 @@ type Props = {
     scheduleType: FreshnessAssertionScheduleType;
     value?: DatasetFreshnessAssertionParameters | null;
     onChange: (newParams: DatasetFreshnessAssertionParameters) => void;
+    disabled?: boolean;
 };
 
 /**
@@ -86,16 +88,21 @@ type Props = {
  *
  * For applicable sources
  */
-export const DatasetFreshnessSourceBuilder = ({ entityUrn, platformUrn, scheduleType, value, onChange }: Props) => {
-    const { data: ingestionSourceData } = useIngestionSourceForEntityQuery({
-        variables: { urn: entityUrn },
-        fetchPolicy: 'cache-first',
-    });
-    const connectionForEntityExists = !!ingestionSourceData?.ingestionSourceForEntity?.urn;
+export const DatasetFreshnessSourceBuilder = ({
+    entityUrn,
+    platformUrn,
+    scheduleType,
+    value,
+    onChange,
+    disabled,
+}: Props) => {
+    const form = useFormInstance();
+    const connectionForEntityExists = useConnectionForEntityExists(entityUrn);
     const defaultSourceType = getDefaultFreshnessSourceOption(platformUrn, connectionForEntityExists);
     const sourceType = value?.sourceType || defaultSourceType;
     const field = value?.field;
     const fieldKind = field?.kind;
+    const fieldPath = field?.path;
 
     const { data } = useGetDatasetSchemaQuery({
         variables: {
@@ -157,6 +164,10 @@ export const DatasetFreshnessSourceBuilder = ({ entityUrn, platformUrn, schedule
         updateSourceType,
     });
 
+    useEffect(() => {
+        form.setFieldValue('column', fieldPath);
+    }, [form, fieldPath]);
+
     return (
         <Form>
             <Typography.Title level={5}>Change Source</Typography.Title>
@@ -166,6 +177,7 @@ export const DatasetFreshnessSourceBuilder = ({ entityUrn, platformUrn, schedule
             <StyledSelect
                 value={selectedSourceOption.name}
                 onChange={(sourceOption) => updateSourceType(sourceOption as string)}
+                disabled={disabled}
             >
                 {sourceOptions.map((option) => {
                     const isDisabled = !option.allowedScheduleTypes.includes(scheduleType);
@@ -201,6 +213,7 @@ export const DatasetFreshnessSourceBuilder = ({ entityUrn, platformUrn, schedule
                     fields={eligibleFieldSpecs}
                     onChange={updateFieldSpec}
                     width="340px"
+                    disabled={disabled}
                 />
             )}
         </Form>

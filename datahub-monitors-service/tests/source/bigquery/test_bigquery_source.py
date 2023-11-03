@@ -36,6 +36,7 @@ TEST_INFORMATION_SCHEMA_UPDATE_QUERY = f"""
             WHERE table_id="test_table"
                 AND last_modified_time >= {TEST_START}
                 AND last_modified_time <= {TEST_END}
+            LIMIT 5
         ;"""
 TEST_FIELD_UPDATE_QUERY = f"""
                 SELECT timestamp as last_altered_date
@@ -44,6 +45,7 @@ TEST_FIELD_UPDATE_QUERY = f"""
                 AND timestamp <= (TIMESTAMP_MILLIS(CAST({TEST_END} AS INT64)))
                 AND foo = 'bar'
                 ORDER BY timestamp DESC
+                LIMIT 5
             ;"""
 TEST_HIGHWATERMARK_VALUE_QUERY = f"""
         SELECT timestamp

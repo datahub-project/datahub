@@ -9,9 +9,10 @@ import { AssertionDatasetFieldBuilder } from '../AssertionDatasetFieldBuilder';
 type Props = {
     value: AssertionMonitorBuilderState;
     onChange: (newState: AssertionMonitorBuilderState) => void;
+    disabled?: boolean;
 };
 
-export const FieldChangedRowsBuilder = ({ value, onChange }: Props) => {
+export const FieldChangedRowsBuilder = ({ value, onChange, disabled }: Props) => {
     const sourceType = value.parameters?.datasetFieldParameters?.sourceType;
     const { data } = useGetDatasetSchemaQuery({
         variables: {
@@ -46,7 +47,7 @@ export const FieldChangedRowsBuilder = ({ value, onChange }: Props) => {
                 onChange={updateChangedRows}
                 width="240px"
                 required={sourceType === DatasetFieldAssertionSourceType.ChangedRowsQuery}
-                disabled={sourceType !== DatasetFieldAssertionSourceType.ChangedRowsQuery}
+                disabled={disabled || sourceType !== DatasetFieldAssertionSourceType.ChangedRowsQuery}
                 placeholder="Select a High Watermark column"
             />
         </StopPropagation>

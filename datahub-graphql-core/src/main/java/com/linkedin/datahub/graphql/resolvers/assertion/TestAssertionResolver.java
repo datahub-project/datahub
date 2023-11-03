@@ -5,6 +5,7 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.AssertionResult;
+import com.linkedin.datahub.graphql.generated.AssertionType;
 import com.linkedin.datahub.graphql.generated.TestAssertionInput;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.resolvers.monitor.MonitorUtils;
@@ -37,8 +38,24 @@ public class TestAssertionResolver implements DataFetcher<CompletableFuture<Asse
     final Urn connectionUrn = UrnUtils.getUrn(input.getConnectionUrn());
 
     return CompletableFuture.supplyAsync(() -> {
-      if (AssertionUtils.isAuthorizedToEditAssertionFromAssertee(context, asserteeUrn)) {
+      if (isAuthorizedToTestAssertion(asserteeUrn, input, context)) {
         switch (input.getType()) {
+          case FRESHNESS:
+            final com.linkedin.assertion.AssertionResult freshnessResult = _monitorService.testFreshnessAssertion(
+                asserteeUrn,
+                connectionUrn,
+                FreshnessAssertionUtils.createFreshnessAssertionInfo(input.getFreshnessTestInput()),
+                MonitorUtils.createAssertionEvaluationParameters(input.getParameters())
+            );
+            return AssertionRunEventMapper.mapResult(freshnessResult);
+          case VOLUME:
+            final com.linkedin.assertion.AssertionResult volumeResult = _monitorService.testVolumeAssertion(
+                asserteeUrn,
+                connectionUrn,
+                VolumeAssertionUtils.createVolumeAssertionInfo(input.getVolumeTestInput()),
+                MonitorUtils.createAssertionEvaluationParameters(input.getParameters())
+            );
+            return AssertionRunEventMapper.mapResult(volumeResult);
           case SQL:
             final com.linkedin.assertion.AssertionResult sqlResult = _monitorService.testSqlAssertion(
                 asserteeUrn,
@@ -60,5 +77,19 @@ public class TestAssertionResolver implements DataFetcher<CompletableFuture<Asse
       }
       throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
     });
+  }
+
+  private boolean isAuthorizedToTestAssertion(@Nonnull final Urn asserteeUrn, @Nonnull final TestAssertionInput input, @Nonnull final QueryContext context) {
+    // We must be able to both create assertions + monitors.
+    if (AssertionUtils.isAuthorizedToEditAssertionFromAssertee(context, asserteeUrn)) {
+      // Check whether we are allowed to test sensitive monitor types (Custom SQL).
+      if (AssertionType.SQL.equals(input.getType())) {
+        return MonitorUtils.isAuthorizedToUpdateSqlAssertionMonitors(asserteeUrn, context);
+      }
+      // User is authorized.
+      return MonitorUtils.isAuthorizedToUpdateEntityMonitors(asserteeUrn, context);
+    }
+    // Unauthorized
+    return false;
   }
 }

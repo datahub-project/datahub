@@ -5,6 +5,23 @@ extend type Query {
   systemMonitors(urn: String!): SystemMonitorsResult!
 }
 
+extend type EntityPrivileges {
+  """
+  Whether or not a user can edit assertions for a specific entity.
+  """
+  canEditAssertions: Boolean
+
+  """
+  Whether or not a user can edit general monitors for a specific entity.
+  """
+  canEditMonitors: Boolean
+
+  """
+  Whether or not a user can edit custom SQL assertion monitors for a specific entity (most sensitive).
+  """
+  canEditSqlAssertionMonitors: Boolean
+}
+
 extend type Mutation {
   """
   Create a monitor that evaluates assertions

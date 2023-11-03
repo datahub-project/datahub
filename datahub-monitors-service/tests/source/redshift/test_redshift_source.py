@@ -13,6 +13,9 @@ from datahub_monitors.source.redshift.redshift import RedshiftSource
 from datahub_monitors.source.types import DatabaseParams
 from datahub_monitors.types import (
     AssertionStdOperator,
+    AssertionStdParameter,
+    AssertionStdParameters,
+    AssertionStdParameterType,
     DatasetFilterType,
     EntityEventType,
     FreshnessFieldKind,
@@ -49,7 +52,8 @@ TEST_AUDIT_LOG_QUERY_NO_USER_NAME_FILTER = f"""
                 AND sti.schema = 'public'
                 AND sti.table = 'test_table'
                 
-            ORDER BY endtime DESC;
+            ORDER BY endtime DESC
+            LIMIT 5;
         """
 TEST_AUDIT_LOG_QUERY_WITH_USER_NAME_FILTER = f"""
             SELECT
@@ -70,7 +74,8 @@ TEST_AUDIT_LOG_QUERY_WITH_USER_NAME_FILTER = f"""
                 AND sti.schema = 'public'
                 AND sti.table = 'test_table'
                 AND sui.usename = 'testusername'
-            ORDER BY endtime DESC;
+            ORDER BY endtime DESC
+            LIMIT 5;
         """
 TEST_FIELD_UPDATE_QUERY = f"""
                 SELECT timestamp as last_altered_date
@@ -79,6 +84,7 @@ TEST_FIELD_UPDATE_QUERY = f"""
                 AND timestamp <= (TIMESTAMP 'epoch' + {TEST_END / 1000} * INTERVAL '1 second')
                 AND foo = 'bar'
                 ORDER BY timestamp DESC
+                LIMIT 5
                 ;
             """
 TEST_HIGHWATERMARK_VALUE_QUERY = f"""
@@ -125,6 +131,11 @@ class TestRedshiftSource:
     def setup_method(self) -> None:
         self.redshift_connection_mock = Mock(spec=RedshiftConnection)
         self.redshift_source = RedshiftSource(self.redshift_connection_mock)
+        self.value_parameters = AssertionStdParameters(
+            value=AssertionStdParameter(
+                value="77", type=AssertionStdParameterType.NUMBER
+            )
+        )
 
     @patch.object(RedshiftSource, "_build_audit_log_results")
     @patch.object(RedshiftSource, "_execute_fetchall_query")
@@ -443,7 +454,7 @@ class TestRedshiftSource:
                 db_params,
                 field,
                 AssertionStdOperator.EQUAL_TO,
-                None,
+                self.value_parameters,
                 False,
                 None,
                 None,
@@ -474,7 +485,7 @@ class TestRedshiftSource:
             db_params,
             field,
             AssertionStdOperator.EQUAL_TO,
-            None,
+            self.value_parameters,
             False,
             None,
             None,
@@ -508,7 +519,7 @@ class TestRedshiftSource:
             db_params,
             field,
             AssertionStdOperator.EQUAL_TO,
-            None,
+            self.value_parameters,
             False,
             None,
             None,

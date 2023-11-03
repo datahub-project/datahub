@@ -1,3 +1,5 @@
+import useFormInstance from 'antd/lib/form/hooks/useFormInstance';
+import { useState } from 'react';
 import { AssertionActionType, AssertionType } from '../../../../../../../../../types.generated';
 import { AssertionMonitorBuilderState } from '../types';
 
@@ -82,4 +84,25 @@ export const getEvaluationScheduleTitle = (assertionType: AssertionType) => {
         default:
             throw new Error(`Unknown assertion type: ${assertionType}`);
     }
+};
+
+export const useTestAssertionModal = () => {
+    const [isTestAssertionModalVisible, setTestAssertionModalVisible] = useState(false);
+    const form = useFormInstance();
+
+    const handleTestAssertionSubmit = async () => {
+        try {
+            await form.validateFields();
+            setTestAssertionModalVisible(true);
+        } catch {
+            // Ignore validation errors
+        }
+    };
+
+    return {
+        isTestAssertionModalVisible,
+        handleTestAssertionSubmit,
+        showTestAssertionModal: () => setTestAssertionModalVisible(true),
+        hideTestAssertionModal: () => setTestAssertionModalVisible(false),
+    };
 };

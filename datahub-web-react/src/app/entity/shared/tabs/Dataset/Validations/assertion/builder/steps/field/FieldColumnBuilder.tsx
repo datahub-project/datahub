@@ -1,10 +1,11 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import Typography from 'antd/lib/typography';
 import styled from 'styled-components';
+import useFormInstance from 'antd/lib/form/hooks/useFormInstance';
 import { AssertionMonitorBuilderState } from '../../types';
 import { useGetDatasetSchemaQuery } from '../../../../../../../../../../graphql/dataset.generated';
 import { SchemaField } from '../../../../../../../../../../types.generated';
-import { getEligibleFieldColumns } from './utils';
+import { getEligibleFieldColumns, getFieldAssertionTypeKey } from './utils';
 import { AssertionDatasetFieldBuilder } from '../AssertionDatasetFieldBuilder';
 
 const Section = styled.div`
@@ -14,9 +15,14 @@ const Section = styled.div`
 type Props = {
     value: AssertionMonitorBuilderState;
     onChange: (newState: AssertionMonitorBuilderState) => void;
+    disabled?: boolean;
 };
 
-export const FieldColumnBuilder = ({ value, onChange }: Props) => {
+export const FieldColumnBuilder = ({ value, onChange, disabled }: Props) => {
+    const form = useFormInstance();
+    const fieldAssertionType = value.assertion?.fieldAssertion?.type;
+    const fieldAssertionTypeKey = getFieldAssertionTypeKey(fieldAssertionType);
+    const fieldColumn = value.assertion?.fieldAssertion?.[fieldAssertionTypeKey]?.field?.path;
     const { data } = useGetDatasetSchemaQuery({
         variables: {
             urn: value.entityUrn as string,
@@ -30,21 +36,27 @@ export const FieldColumnBuilder = ({ value, onChange }: Props) => {
 
     const updateColumnSpec = (newFieldPath: string) => {
         const fieldSpec = columnOptions.find((field) => field.path === newFieldPath);
+
         onChange({
             ...value,
             assertion: {
                 ...value.assertion,
                 fieldAssertion: {
                     ...value.assertion?.fieldAssertion,
-                    fieldValuesAssertion: {
-                        ...value.assertion?.fieldAssertion?.fieldValuesAssertion,
+                    [fieldAssertionTypeKey]: {
+                        ...value.assertion?.fieldAssertion?.[fieldAssertionTypeKey],
                         field: fieldSpec,
                         operator: undefined,
+                        metric: undefined,
                     },
                 },
             },
         });
     };
+
+    useEffect(() => {
+        form.setFieldValue('fieldColumn', fieldColumn);
+    }, [form, fieldColumn]);
 
     return (
         <Section>
@@ -55,6 +67,7 @@ export const FieldColumnBuilder = ({ value, onChange }: Props) => {
                 width="240px"
                 fields={columnOptions}
                 onChange={updateColumnSpec}
+                disabled={disabled}
             />
         </Section>
     );

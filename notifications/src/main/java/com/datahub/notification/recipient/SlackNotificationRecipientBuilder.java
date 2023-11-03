@@ -44,9 +44,10 @@ public class SlackNotificationRecipientBuilder extends NotificationRecipientBuil
   public List<NotificationRecipient> buildGlobalRecipients(@Nonnull final NotificationScenarioType type) {
     final GlobalSettingsInfo globalSettingsInfo = _settingsProvider.getGlobalSettings();
     final NotificationSetting setting = globalSettingsInfo.getNotifications().getSettings().get(type.toString());
+
     // If notifications are disabled for this notification type, skip.
-    if (!isSlackEnabled(globalSettingsInfo) || (hasParam(setting.getParams(), "slack.enabled")
-        && Boolean.FALSE.equals(Boolean.valueOf(setting.getParams().get("slack.enabled"))))) {
+    if (!isSlackEnabled(globalSettingsInfo)
+        || (hasParam(setting.getParams(), "slack.enabled") && Boolean.FALSE.equals(Boolean.valueOf(setting.getParams().get("slack.enabled"))))) {
       // Skip notification type.
       return Collections.emptyList();
     }

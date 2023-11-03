@@ -69,6 +69,7 @@ TEST_AUDIT_LOG_QUERY_NO_USER_NAME_FILTER = f"""
             WHERE                
                 REGEXP_REPLACE(LOWER(exploded_access_history.updated_objects:objectName::STRING), '\\"|\\'', '') in ('test_db.public.test_table')
             ORDER BY query_history.start_time DESC
+            LIMIT 5
 ;"""
 TEST_AUDIT_LOG_QUERY_WITH_USER_NAME_FILTER = f"""
             WITH exploded_access_history AS (
@@ -105,6 +106,7 @@ TEST_AUDIT_LOG_QUERY_WITH_USER_NAME_FILTER = f"""
             WHERE                
                 REGEXP_REPLACE(LOWER(exploded_access_history.updated_objects:objectName::STRING), '\\"|\\'', '') in ('test_db.public.test_table')
             ORDER BY query_history.start_time DESC
+            LIMIT 5
 ;"""
 TEST_AUDIT_LOG_QUERY_OPERATIONAL_TYPE_FILTER = f"""
             WITH exploded_access_history AS (
@@ -141,6 +143,7 @@ TEST_AUDIT_LOG_QUERY_OPERATIONAL_TYPE_FILTER = f"""
             WHERE                
                 REGEXP_REPLACE(LOWER(exploded_access_history.updated_objects:objectName::STRING), '\\"|\\'', '') in ('test_db.public.test_table')
             ORDER BY query_history.start_time DESC
+            LIMIT 5
 ;"""
 TEST_INFORMATION_SCHEMA_UPDATE_QUERY = f"""
             SELECT table_name, table_type, (DATE_PART('EPOCH', last_altered) * 1000) as last_altered
@@ -149,7 +152,8 @@ TEST_INFORMATION_SCHEMA_UPDATE_QUERY = f"""
             AND last_altered < to_timestamp_ltz({TEST_END}, 3)
             AND table_name = 'test_table'
             AND table_schema = 'PUBLIC'
-            AND table_catalog = 'TEST_DB';"""
+            AND table_catalog = 'TEST_DB'
+            LIMIT 5;"""
 TEST_FIELD_UPDATE_QUERY = f"""
                 SELECT timestamp as last_altered_date
                 FROM test_db.public."test_table"
@@ -157,6 +161,7 @@ TEST_FIELD_UPDATE_QUERY = f"""
                 AND timestamp <= (TO_TIMESTAMP({TEST_END}, 3))
                 AND foo = 'bar'
                 ORDER BY timestamp DESC
+                LIMIT 5
                 ;
             """
 TEST_HIGHWATERMARK_VALUE_QUERY = f"""

@@ -1,7 +1,7 @@
 import React from 'react';
 import styled from 'styled-components';
 import { Tooltip, Typography, Dropdown, Button, Tag } from 'antd';
-import { MoreOutlined, StopOutlined } from '@ant-design/icons';
+import { ArrowRightOutlined, MoreOutlined, StopOutlined } from '@ant-design/icons';
 import { DatasetAssertionDescription } from './DatasetAssertionDescription';
 import {
     Assertion,
@@ -54,6 +54,10 @@ const StartMonitorButton = styled(Button)`
 
 const StyledMoreOutlined = styled(MoreOutlined)`
     font-size: 18px;
+`;
+
+const StyledArrowRightOutlined = styled(ArrowRightOutlined)`
+    font-size: 12px;
 `;
 
 const UNKNOWN_DATA_PLATFORM = 'urn:li:dataPlatform:unknown';
@@ -114,14 +118,22 @@ export function DetailsColumn({
             {assertionType === AssertionType.Volume && (
                 <VolumeAssertionDescription assertionInfo={assertionInfo.volumeAssertion as VolumeAssertionInfo} />
             )}
-            {assertionType === AssertionType.Sql && (
-                <SqlAssertionDescription
-                    assertionInfo={assertionInfo}
-                    onViewAssertionDetails={onViewAssertionDetails}
-                />
-            )}
+            {assertionType === AssertionType.Sql && <SqlAssertionDescription assertionInfo={assertionInfo} />}
             {assertionType === AssertionType.Field && (
                 <FieldAssertionDescription assertionInfo={assertionInfo.fieldAssertion as FieldAssertionInfo} />
+            )}
+            {[AssertionType.Freshness, AssertionType.Volume, AssertionType.Field, AssertionType.Sql].includes(
+                assertionType,
+            ) && (
+                <Button
+                    type="link"
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        onViewAssertionDetails();
+                    }}
+                >
+                    Details <StyledArrowRightOutlined />
+                </Button>
             )}
             {isInferred && (
                 <InferredAssertionPopover>

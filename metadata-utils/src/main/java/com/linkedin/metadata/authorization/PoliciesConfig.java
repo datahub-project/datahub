@@ -141,7 +141,7 @@ public class PoliciesConfig {
   public static final Privilege MANAGE_MONITORS = Privilege.of(
       "MANAGE_MONITORS",
       "Manage Monitors",
-      "Create, update, and delete any data asset monitors.");
+      "Create, update, and delete any data asset monitors, including Custom SQL monitors. Grant with care.");
 
   public static final List<Privilege> PLATFORM_PRIVILEGES = ImmutableList.of(
       MANAGE_POLICIES_PRIVILEGE,
@@ -374,10 +374,16 @@ public class PoliciesConfig {
       "The ability to edit the Queries for a Dataset.");
 
   // Acryl-main Only
-  public static final Privilege EDIT_MONITORS_PRIVILEGE = Privilege.of(
-      "EDIT_MONITORS",
+  public static final Privilege EDIT_ENTITY_MONITORS = Privilege.of(
+      "EDIT_ENTITY_MONITORS",
       "Edit Monitors",
       "The ability to edit monitors for the entity.");
+
+  public static final Privilege EDIT_ENTITY_SQL_ASSERTION_MONITORS = Privilege.of(
+      "EDIT_ENTITY_SQL_ASSERTION_MONITORS",
+      "Edit SQL Assertion Monitors",
+      "The ability to edit custom SQL assertion monitors for the entity. "
+          + "Note that this gives read query access to users with through the Custom SQL assertion builder. Grant with care.");
 
   // Tag Privileges
   public static final Privilege EDIT_TAG_COLOR_PRIVILEGE = Privilege.of(
@@ -506,7 +512,8 @@ public class PoliciesConfig {
               EDIT_LINEAGE_PRIVILEGE,
               EDIT_ENTITY_EMBED_PRIVILEGE,
               EDIT_QUERIES_PRIVILEGE,
-              EDIT_MONITORS_PRIVILEGE) // Acryl-Main only
+              EDIT_ENTITY_MONITORS,
+              EDIT_ENTITY_SQL_ASSERTION_MONITORS) // Acryl-Main only
       )
           .flatMap(Collection::stream)
           .collect(Collectors.toList())

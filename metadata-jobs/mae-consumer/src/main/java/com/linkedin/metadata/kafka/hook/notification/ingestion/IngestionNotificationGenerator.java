@@ -3,12 +3,15 @@ package com.linkedin.metadata.kafka.hook.notification.ingestion;
 import com.datahub.authentication.Authentication;
 import com.datahub.notification.NotificationTemplateType;
 import com.datahub.notification.provider.SettingsProvider;
+import com.datahub.notification.recipient.SlackNotificationRecipientBuilder;
+import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.event.notification.NotificationRecipient;
 import com.linkedin.event.notification.NotificationRequest;
+import com.linkedin.event.notification.NotificationSinkType;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.execution.ExecutionRequestInput;
 import com.linkedin.execution.ExecutionRequestResult;
@@ -20,7 +23,6 @@ import com.linkedin.metadata.kafka.hook.notification.BaseMclNotificationGenerato
 import com.datahub.notification.NotificationScenarioType;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeLog;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -41,8 +43,15 @@ public class IngestionNotificationGenerator extends BaseMclNotificationGenerator
       @Nonnull final EntityClient entityClient,
       @Nonnull final GraphClient graphClient,
       @Nonnull final SettingsProvider settingsProvider,
+      @Nonnull final SlackNotificationRecipientBuilder slackNotificationRecipientBuilder,
       @Nonnull final Authentication systemAuthentication) {
-    super(eventProducer, entityClient, graphClient, settingsProvider, systemAuthentication, Collections.emptyMap());
+    super(
+        eventProducer,
+        entityClient,
+        graphClient,
+        settingsProvider,
+        systemAuthentication,
+        ImmutableMap.of(NotificationSinkType.SLACK, slackNotificationRecipientBuilder));
   }
 
   @Override
@@ -51,7 +60,7 @@ public class IngestionNotificationGenerator extends BaseMclNotificationGenerator
       return;
     }
 
-    log.debug(String.format("Found eligible Execution Request MCL. urn: %s", event.getEntityUrn()));
+    log.debug(String.format("Found eligible ingestion Execution Request MCL. urn: %s", event.getEntityUrn()));
 
     generateIngestionRunChangeNotifications(
         event.getEntityUrn(),
@@ -69,7 +78,7 @@ public class IngestionNotificationGenerator extends BaseMclNotificationGenerator
     }
     return Constants.EXECUTION_REQUEST_RESULT_ASPECT_NAME.equals(event.getAspectName())
         && (ChangeType.UPSERT.equals(event.getChangeType()) || ChangeType.CREATE.equals(event.getChangeType()))
-        && !event.hasPreviousAspectValue(); // If there is a previous result, we've already sent a notification.
+        && !isRunProgressUpdate(event); // If there is a previous result, we've already sent a notification.
   }
 
   public void generateIngestionRunChangeNotifications(
@@ -102,6 +111,7 @@ public class IngestionNotificationGenerator extends BaseMclNotificationGenerator
     Set<NotificationRecipient> recipients =
         new HashSet<>(buildRecipients(NotificationScenarioType.INGESTION_RUN_CHANGE, ingestionSourceUrn, null));
     if (recipients.isEmpty()) {
+      log.warn(String.format("Found empty recipients for ingestion source notification for urn %s. Skipping sending..", ingestionSourceUrn));
       return;
     }
 
@@ -146,6 +156,17 @@ public class IngestionNotificationGenerator extends BaseMclNotificationGenerator
       return new ExecutionRequestInput(data);
     }
     return null;
+  }
+
+  private boolean isRunProgressUpdate(final MetadataChangeLog event) {
+    final ExecutionRequestResult result = GenericRecordUtils.deserializeAspect(
+        event.getAspect().getValue(),
+        event.getAspect().getContentType(),
+        ExecutionRequestResult.class);
+    // If the run is in RUNNING state and there has already been at least one "running" status before,
+    // then we are just dealing with a run progress update. We don't send notifications here since this happens
+    // every minute.
+    return event.hasPreviousAspectValue() && Constants.EXECUTION_REQUEST_STATUS_RUNNING.equals(result.getStatus());
   }
 
   private DataHubIngestionSourceInfo getIngestionSourceInfo(final Urn ingestionSourceUrn) {

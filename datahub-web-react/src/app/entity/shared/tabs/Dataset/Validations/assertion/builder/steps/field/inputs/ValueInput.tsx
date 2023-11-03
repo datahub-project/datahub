@@ -3,6 +3,7 @@ import { Form, Input } from 'antd';
 import styled from 'styled-components';
 import { AssertionMonitorBuilderState } from '../../../types';
 import { onValueChange } from './utils';
+import { getFieldAssertionTypeKey } from '../utils';
 
 const StyledFormItem = styled(Form.Item)`
     width: 200px;
@@ -13,11 +14,14 @@ type Props = {
     value: AssertionMonitorBuilderState;
     onChange: (newState: AssertionMonitorBuilderState) => void;
     inputType?: string;
+    disabled?: boolean;
 };
 
-export const ValueInput = ({ value, onChange, inputType }: Props) => {
+export const ValueInput = ({ value, onChange, inputType, disabled }: Props) => {
     const form = Form.useFormInstance();
-    const fieldValue = value.assertion?.fieldAssertion?.fieldValuesAssertion?.parameters?.value?.value;
+    const fieldAssertionType = value.assertion?.fieldAssertion?.type;
+    const fieldAssertionKey = getFieldAssertionTypeKey(fieldAssertionType);
+    const fieldValue = value.assertion?.fieldAssertion?.[fieldAssertionKey]?.parameters?.value?.value;
 
     useEffect(() => {
         form.setFieldValue('fieldValue', fieldValue);
@@ -29,6 +33,7 @@ export const ValueInput = ({ value, onChange, inputType }: Props) => {
                 type={inputType}
                 placeholder="Value"
                 onChange={(e) => onValueChange(e.target.value, value, onChange)}
+                disabled={disabled}
             />
         </StyledFormItem>
     );

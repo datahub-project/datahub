@@ -24,6 +24,7 @@ fragment monitorDetails on Monitor {
                             type
                             nativeType
                             path
+                            kind
                         }
                     }
                     datasetVolumeParameters {

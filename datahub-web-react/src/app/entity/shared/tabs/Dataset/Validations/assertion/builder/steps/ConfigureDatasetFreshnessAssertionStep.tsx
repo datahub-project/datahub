@@ -3,8 +3,10 @@ import styled from 'styled-components';
 import { Button, Collapse } from 'antd';
 import { AssertionBuilderStep, StepProps } from '../types';
 import {
+    AssertionEvaluationParametersInput,
     AssertionEvaluationParametersType,
     AssertionType,
+    CreateFreshnessAssertionInput,
     CronSchedule,
     DatasetFilter,
     DatasetFreshnessAssertionParameters,
@@ -15,6 +17,9 @@ import { EvaluationScheduleBuilder } from './freshness/EvaluationScheduleBuilder
 import { DatasetFreshnessSourceBuilder } from './freshness/DatasetFreshnessSourceBuilder';
 import { DatasetFreshnessFilterBuilder } from './freshness/DatasetFreshnessFilterBuilder';
 import { DatasetFreshnessScheduleBuilder } from './freshness/DatasetFreshnessScheduleBuilder';
+import { TestAssertionModal } from './preview/TestAssertionModal';
+import { builderStateToCreateFreshnessAssertionVariables } from '../utils';
+import { useTestAssertionModal } from './utils';
 
 const Step = styled.div`
     height: 100%;
@@ -37,6 +42,11 @@ const Controls = styled.div`
     margin-top: 8px;
 `;
 
+const ControlsGroup = styled.div`
+    display: flex;
+    gap: 8px;
+`;
+
 /**
  * Step for defining the Dataset Freshness assertion
  */
@@ -46,6 +56,7 @@ export const ConfigureDatasetFreshnessAssertionStep = ({ state, updateState, goT
     const freshnessSchedule = freshnessAssertion?.schedule;
     const freshnessScheduleType = freshnessSchedule?.type;
     const datasetFreshnessParameters = state.parameters?.datasetFreshnessParameters;
+    const { isTestAssertionModalVisible, handleTestAssertionSubmit, hideTestAssertionModal } = useTestAssertionModal();
 
     const updateDatasetFreshnessAssertionParameters = (parameters: DatasetFreshnessAssertionParameters) => {
         updateState({
@@ -138,10 +149,24 @@ export const ConfigureDatasetFreshnessAssertionStep = ({ state, updateState, goT
             </Form>
             <Controls>
                 <Button onClick={prev}>Back</Button>
-                <Button type="primary" onClick={() => goTo(AssertionBuilderStep.CONFIGURE_ACTIONS)}>
-                    Next
-                </Button>
+                <ControlsGroup>
+                    <Button onClick={handleTestAssertionSubmit}>Try it out</Button>
+                    <Button type="primary" onClick={() => goTo(AssertionBuilderStep.CONFIGURE_ACTIONS)}>
+                        Next
+                    </Button>
+                </ControlsGroup>
             </Controls>
+            <TestAssertionModal
+                visible={isTestAssertionModalVisible}
+                handleClose={hideTestAssertionModal}
+                input={{
+                    type: AssertionType.Freshness,
+                    connectionUrn: state.platformUrn as string,
+                    freshnessTestInput: builderStateToCreateFreshnessAssertionVariables(state)
+                        .input as CreateFreshnessAssertionInput,
+                    parameters: state.parameters as AssertionEvaluationParametersInput,
+                }}
+            />
         </Step>
     );
 };

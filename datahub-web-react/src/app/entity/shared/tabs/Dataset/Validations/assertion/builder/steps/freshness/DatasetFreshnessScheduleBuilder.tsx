@@ -51,9 +51,10 @@ const TextContainer = styled.div`
 type Props = {
     value: FreshnessAssertionSchedule;
     onChange: (schedule: FreshnessAssertionSchedule) => void;
+    disabled?: boolean;
 };
 
-export const DatasetFreshnessScheduleBuilder = ({ value, onChange }: Props) => {
+export const DatasetFreshnessScheduleBuilder = ({ value, onChange, disabled }: Props) => {
     const { type: scheduleType, fixedInterval } = value;
 
     const handleScheduleTypeChange = (newScheduleType: FreshnessAssertionScheduleType) => {
@@ -76,6 +77,7 @@ export const DatasetFreshnessScheduleBuilder = ({ value, onChange }: Props) => {
             <RadioGroup
                 value={scheduleType}
                 onChange={(e: RadioChangeEvent) => handleScheduleTypeChange(e.target.value)}
+                disabled={disabled}
             >
                 <RadioContainer>
                     <StyledRadio value={FreshnessAssertionScheduleType.Cron}>
@@ -93,6 +95,7 @@ export const DatasetFreshnessScheduleBuilder = ({ value, onChange }: Props) => {
                             <FixedIntervalScheduleBuilder
                                 value={fixedInterval as FixedIntervalSchedule}
                                 onChange={handleFixedIntervalScheduleChange}
+                                disabled={disabled}
                                 // Prevents clicks inside Select dropdown from malfunctioning when nested inside Radio:
                                 stopPropagation
                             />

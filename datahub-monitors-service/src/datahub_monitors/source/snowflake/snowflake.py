@@ -14,14 +14,22 @@ from datahub_monitors.source.snowflake.time_utils import (
     convert_value_for_comparison,
 )
 from datahub_monitors.source.source import Source
-from datahub_monitors.source.types import DatabaseParams, SourceOperationParams
-from datahub_monitors.types import EntityEvent, EntityEventType
-
-from ..utils.sql import (
+from datahub_monitors.source.sql.field_metrics_sql_generator import (
+    FieldMetricsSQLGenerator,
+)
+from datahub_monitors.source.sql.field_values_sql_generator import (
+    FieldValuesSQLGenerator,
+)
+from datahub_monitors.source.sql.utils import (
     setup_high_watermark_field_value_query,
     setup_high_watermark_row_count_query,
     setup_row_count_query,
 )
+from datahub_monitors.source.types import DatabaseParams, SourceOperationParams
+from datahub_monitors.types import EntityEvent, EntityEventType
+
+from .sql.field_metrics_sql_generator import SnowflakeFieldMetricsSQLGenerator
+from .sql.field_values_sql_generator import SnowflakeFieldValuesSQLGenerator
 from .types import (
     DEFAULT_OPERATION_TYPES_FILTER,
     HIGH_WATERMARK_DATE_AND_TIME_TYPES,
@@ -38,9 +46,14 @@ class SnowflakeSource(Source):
 
     connection: SnowflakeConnection
     source_name: str = "Snowflake"
+    field_values_sql_generator: FieldValuesSQLGenerator
+    field_metrics_sql_generator: FieldMetricsSQLGenerator
 
     def __init__(self, connection: SnowflakeConnection):
         super().__init__(connection)
+
+        self.field_values_sql_generator = SnowflakeFieldValuesSQLGenerator()
+        self.field_metrics_sql_generator = SnowflakeFieldMetricsSQLGenerator()
 
         try:
             # Set our default timezone to UTC so that comparisons with
@@ -167,6 +180,7 @@ class SnowflakeSource(Source):
             WHERE                
                 REGEXP_REPLACE(LOWER(exploded_access_history.updated_objects:objectName::STRING), '\\"|\\'', '') in ('{operation_params.catalog.lower()}.{operation_params.schema.lower()}.{operation_params.table.lower()}')
             ORDER BY query_history.start_time DESC
+            LIMIT {self.row_limit}
 ;"""
         logger.debug(query)
 
@@ -194,7 +208,8 @@ class SnowflakeSource(Source):
             AND last_altered < to_timestamp_ltz({operation_params.end_time_millis}, 3)
             AND table_name = '{operation_params.table}'
             AND table_schema = '{operation_params.schema.upper()}'
-            AND table_catalog = '{operation_params.catalog.upper()}';"""
+            AND table_catalog = '{operation_params.catalog.upper()}'
+            LIMIT {self.row_limit};"""
 
         logger.debug(query)
 
@@ -251,6 +266,7 @@ class SnowflakeSource(Source):
                 AND {date_column} <= ({end_datetime})
                 {f"AND {filter_sql}" if filter_sql else ''}
                 ORDER BY {date_column} DESC
+                LIMIT {self.row_limit}
                 ;
             """
             logger.debug(query)

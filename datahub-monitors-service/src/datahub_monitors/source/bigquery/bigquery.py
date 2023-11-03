@@ -11,6 +11,7 @@ from datahub_monitors.assertion.engine.evaluator.filter_builder import FilterBui
 from datahub_monitors.connection.bigquery.bigquery_connection import BigQueryConnection
 from datahub_monitors.exceptions import (
     CustomSQLErrorException,
+    FieldAssertionErrorException,
     InvalidParametersException,
     SourceQueryFailedException,
 )
@@ -19,22 +20,31 @@ from datahub_monitors.source.bigquery.time_utils import (
     convert_value_for_comparison,
 )
 from datahub_monitors.source.source import Source
+from datahub_monitors.source.sql.field_metrics_sql_generator import (
+    FieldMetricsSQLGenerator,
+)
+from datahub_monitors.source.sql.field_values_sql_generator import (
+    FieldValuesSQLGenerator,
+)
+from datahub_monitors.source.sql.utils import (
+    setup_high_watermark_field_value_query,
+    setup_high_watermark_row_count_query,
+    setup_row_count_query,
+)
 from datahub_monitors.source.types import DatabaseParams, SourceOperationParams
 from datahub_monitors.types import (
     AssertionStdOperator,
     AssertionStdParameters,
     EntityEvent,
     EntityEventType,
+    FieldMetricType,
     FieldTransform,
     FreshnessFieldSpec,
     SchemaFieldSpec,
 )
 
-from ..utils.sql import (
-    setup_high_watermark_field_value_query,
-    setup_high_watermark_row_count_query,
-    setup_row_count_query,
-)
+from .sql.field_metrics_sql_generator import BigQueryFieldMetricsSQLGenerator
+from .sql.field_values_sql_generator import BigQueryFieldValuesSQLGenerator
 from .types import (
     DEFAULT_OPERATION_TYPES_FILTER,
     HIGH_WATERMARK_DATE_AND_TIME_TYPES,
@@ -51,10 +61,14 @@ class BigQuerySource(Source):
 
     connection: BigQueryConnection
     source_name: str = "BigQuery"
+    field_values_sql_generator: FieldValuesSQLGenerator
+    field_metrics_sql_generator: FieldMetricsSQLGenerator
 
     def __init__(self, connection: BigQueryConnection):
         super().__init__(connection)
         self.connection = connection
+        self.field_values_sql_generator = BigQueryFieldValuesSQLGenerator()
+        self.field_metrics_sql_generator = BigQueryFieldMetricsSQLGenerator()
 
     # TODO: Convert from DataHub Operation Type to BQ type.
     def _get_operation_types_filter(self, parameters: dict) -> str:
@@ -142,6 +156,7 @@ class BigQuerySource(Source):
         entries = client.list_entries(
             filter_=filter,
             page_size=self.connection.config.log_page_size,
+            max_results=self.row_limit,
         )
         for entry in enumerate(entries):
             yield entry
@@ -213,6 +228,7 @@ class BigQuerySource(Source):
             WHERE table_id="{operation_params.table}"
                 AND last_modified_time >= {operation_params.start_time_millis}
                 AND last_modified_time <= {operation_params.end_time_millis}
+            LIMIT {self.row_limit}
         ;"""
 
         logger.debug(query)
@@ -267,6 +283,7 @@ class BigQuerySource(Source):
                 AND {date_column} <= ({end_datetime})
                 {f"AND {filter_sql}" if filter_sql else ''}
                 ORDER BY {date_column} DESC
+                LIMIT {self.row_limit}
             ;"""
 
             return self._build_field_update_results(
@@ -439,21 +456,71 @@ class BigQuerySource(Source):
         try:
             for row in rows:
                 if len(row) != 1:
-                    raise CustomSQLErrorException(
+                    raise FieldAssertionErrorException(
                         f"Field Values query returned {len(row)} rows, expected one!"
                     )
 
                 try:
                     return int(row[0])
                 except (ValueError, TypeError):
-                    raise CustomSQLErrorException(
+                    raise FieldAssertionErrorException(
                         f"Field Values query returned non-numeric value '{row[0]}'"
                     )
         except (NotFound, Forbidden, BadRequest) as e:
             # try/except here not around the _execute_fetchall_query because it seems the
             # google client has lazy evaluation, so doesn't fail until the 'for row in rows:' line
-            raise CustomSQLErrorException(e.message)
+            raise FieldAssertionErrorException(e.message)
 
-        raise CustomSQLErrorException(
+        raise FieldAssertionErrorException(
+            "Field Values query returned 0 rows, expected one!"
+        )
+
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=2, min=4, max=10),
+        reraise=True,
+    )
+    def _get_field_metric_value(
+        self,
+        database_params: DatabaseParams,
+        field: SchemaFieldSpec,
+        metric: FieldMetricType,
+        filter_sql: Optional[str],
+        prev_high_watermark_value: Optional[str],
+        changed_rows_field: Optional[FreshnessFieldSpec],
+    ) -> float:
+        # if applicable, setup a "last checked" sql fragment to filter the query further
+        # eg. last_modified >= TO_TIMESTAMP('2023-11-11 12:00:00')
+        last_checked_sql_fragment = self._setup_last_checked_sql_fragment(
+            prev_high_watermark_value, changed_rows_field
+        )
+        query = self.field_metrics_sql_generator.setup_query(
+            self._get_database_string(database_params),
+            field,
+            metric,
+            filter_sql,
+            last_checked_sql_fragment,
+        )
+        rows = self._execute_fetchall_query(query)
+
+        try:
+            for row in rows:
+                if len(row) != 1:
+                    raise FieldAssertionErrorException(
+                        f"Field Values query returned {len(row)} rows, expected one!"
+                    )
+
+                try:
+                    return float(row[0])
+                except (ValueError, TypeError):
+                    raise FieldAssertionErrorException(
+                        f"Field Values query returned non-numeric value '{row[0]}'"
+                    )
+        except (NotFound, Forbidden, BadRequest) as e:
+            # try/except here not around the _execute_fetchall_query because it seems the
+            # google client has lazy evaluation, so doesn't fail until the 'for row in rows:' line
+            raise FieldAssertionErrorException(e.message)
+
+        raise FieldAssertionErrorException(
             "Field Values query returned 0 rows, expected one!"
         )

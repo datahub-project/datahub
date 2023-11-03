@@ -3,11 +3,9 @@ import React from 'react';
 import { Button } from 'antd';
 import { AssertionTypeOption } from './AssertionTypeOption';
 import { AssertionBuilderStep, StepProps } from '../types';
-import { getAssertionTypesForEntityType } from '../../../acrylUtils';
+import { getAssertionTypesForEntityType, useConnectionForEntityExists } from '../../../acrylUtils';
 import { AssertionType, EntityType } from '../../../../../../../../../types.generated';
 import {
-    DEFAULT_DATASET_FIELD_ASSERTION_PARAMETERS_STATE,
-    DEFAULT_DATASET_FIELD_ASSERTION_STATE,
     DEFAULT_DATASET_FRESHNESS_ASSERTION_STATE,
     DEFAULT_DATASET_SQL_ASSERTION_PARAMETERS_STATE,
     DEFAULT_DATASET_SQL_ASSERTION_STATE,
@@ -15,7 +13,7 @@ import {
 } from '../constants';
 import { getDefaultDatasetFreshnessAssertionParametersState } from '../utils';
 import { getDefaultDatasetVolumeAssertionParametersState } from './volume/utils';
-import { useIngestionSourceForEntityQuery } from '../../../../../../../../../graphql/ingestion.generated';
+import { getDefaultDatasetFieldAssertionParametersState, getDefaultDatasetFieldAssertionState } from './field/utils';
 
 const Step = styled.div`
     height: 100%;
@@ -48,11 +46,7 @@ const CancelButton = styled(Button)`
  * Step for selecting the type of assertion
  */
 export const SelectTypeStep = ({ state, updateState, goTo, cancel }: StepProps) => {
-    const { data: ingestionSourceData } = useIngestionSourceForEntityQuery({
-        variables: { urn: state.entityUrn as string },
-        fetchPolicy: 'cache-first',
-    });
-    const connectionForEntityExists = !!ingestionSourceData?.ingestionSourceForEntity?.urn;
+    const connectionForEntityExists = useConnectionForEntityExists(state.entityUrn as string);
     const filteredTypes = getAssertionTypesForEntityType(
         state.entityType as EntityType,
         connectionForEntityExists,
@@ -100,9 +94,9 @@ export const SelectTypeStep = ({ state, updateState, goTo, cancel }: StepProps) 
                 ...newState,
                 assertion: {
                     type,
-                    fieldAssertion: DEFAULT_DATASET_FIELD_ASSERTION_STATE,
+                    fieldAssertion: getDefaultDatasetFieldAssertionState(connectionForEntityExists),
                 },
-                parameters: DEFAULT_DATASET_FIELD_ASSERTION_PARAMETERS_STATE,
+                parameters: getDefaultDatasetFieldAssertionParametersState(connectionForEntityExists),
             };
         }
 

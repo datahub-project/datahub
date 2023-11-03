@@ -68,3 +68,11 @@ class CustomSQLErrorException(AssertionResultException):
 
     def __init__(self, message: str):
         super().__init__(message)
+
+
+class FieldAssertionErrorException(AssertionResultException):
+    """Raised when a field metrics assertion is run and results are unsupported"""
+
+    def __init__(self, message: str, query: Optional[str] = None):
+        super().__init__(message)
+        self.query = query

@@ -26,6 +26,7 @@ import {
 import { sortAssertions } from './assertionUtils';
 import { AssertionGroup, AssertionGroupSummary } from './acrylTypes';
 import { lowerFirstLetter } from '../../../../../shared/textUtil';
+import { useIngestionSourceForEntityQuery } from '../../../../../../graphql/ingestion.generated';
 
 const SUCCESS_COLOR_HEX = '#52C41A';
 const FAILURE_COLOR_HEX = '#F5222D';
@@ -120,7 +121,7 @@ export const ASSERTION_INFO = [
         entityTypes: [EntityType.Dataset],
         enabled: true,
         visible: true,
-        requiresConnection: true,
+        requiresConnection: false,
     },
     {
         name: 'Custom',
@@ -308,4 +309,13 @@ export const canManageAssertionMonitor = (monitor: any, connectionForEntityExist
         assertionParameters?.datasetFreshnessParameters?.sourceType === DatasetFreshnessSourceType.DatahubOperation ||
         assertionParameters?.datasetVolumeParameters?.sourceType === DatasetVolumeSourceType.DatahubDatasetProfile
     );
+};
+
+export const useConnectionForEntityExists = (entityUrn: string) => {
+    const { data: ingestionSourceData } = useIngestionSourceForEntityQuery({
+        variables: { urn: entityUrn as string },
+        fetchPolicy: 'cache-first',
+    });
+
+    return !!ingestionSourceData?.ingestionSourceForEntity?.urn;
 };
