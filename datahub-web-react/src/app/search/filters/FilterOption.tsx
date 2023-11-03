@@ -3,7 +3,7 @@ import { Button, Checkbox } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 import { FilterOptionType } from './types';
-import { EntityType, GlossaryNode, GlossaryTerm, Tag } from '../../../types.generated';
+import { Entity, EntityType, Tag } from '../../../types.generated';
 import { generateColor } from '../../entity/shared/components/styled/StyledTag';
 import { ANTD_GRAY } from '../../entity/shared/constants';
 import { useEntityRegistry } from '../../useEntityRegistry';
@@ -15,9 +15,9 @@ import {
     TYPE_NAMES_FILTER_NAME,
 } from '../utils/constants';
 import { IconSpacer, Label } from './ActiveFilter';
-import { isFilterOptionSelected, getFilterIconAndLabel, isAnyOptionSelected } from './utils';
+import { isFilterOptionSelected, getFilterIconAndLabel, isAnyOptionSelected, getParentEntities } from './utils';
 import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
-import ParentNodes from './ParentNodes';
+import ParentEntities from './ParentEntities';
 import { formatNumber } from '../../shared/formatNumber';
 
 const FilterOptionWrapper = styled.div<{ centerAlign?: boolean; addPadding?: boolean }>`
@@ -102,6 +102,10 @@ const ArrowButton = styled(Button)<{ isOpen: boolean }>`
     `}
 `;
 
+const ParentWrapper = styled.div`
+    max-width: 220px;
+`;
+
 interface Props {
     filterOption: FilterOptionType;
     selectedFilterOptions: FilterOptionType[];
@@ -124,8 +128,7 @@ export default function FilterOption({
     const shouldShowIcon = field === PLATFORM_FILTER_NAME && icon !== null;
     const shouldShowTagColor = field === TAGS_FILTER_NAME && entity?.type === EntityType.Tag;
     const isSubTypeFilter = field === TYPE_NAMES_FILTER_NAME;
-    const isGlossaryTerm = entity?.type === EntityType.GlossaryTerm;
-    const parentNodes: GlossaryNode[] = isGlossaryTerm ? (entity as GlossaryTerm).parentNodes?.nodes || [] : [];
+    const parentEntities: Entity[] = getParentEntities(entity as Entity) || [];
     // only entity type filters return 10,000 max aggs
     const countText = count === MAX_COUNT_VAL && field === ENTITY_SUB_TYPE_FILTER_NAME ? '10k+' : formatNumber(count);
 
@@ -143,7 +146,7 @@ export default function FilterOption({
 
     return (
         <>
-            <FilterOptionWrapper centerAlign={parentNodes.length > 0} addPadding={addPadding}>
+            <FilterOptionWrapper centerAlign={parentEntities.length > 0} addPadding={addPadding}>
                 <StyledCheckbox
                     checked={isFilterOptionSelected(selectedFilterOptions, value)}
                     // show indeterminate if a nested option is selected
@@ -154,7 +157,11 @@ export default function FilterOption({
                     onClick={updateFilterValues}
                     data-testid={`filter-option-${label}`}
                 >
-                    {isGlossaryTerm && <ParentNodes glossaryTerm={entity as GlossaryTerm} />}
+                    {parentEntities.length > 0 && (
+                        <ParentWrapper>
+                            <ParentEntities parentEntities={parentEntities} />
+                        </ParentWrapper>
+                    )}
                     <CheckboxContent>
                         {shouldShowIcon && <>{icon}</>}
                         {shouldShowTagColor && (

@@ -1,7 +1,9 @@
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Dict, Optional, Sequence, Tuple, Union
 
 from airflow.exceptions import AirflowException
 from airflow.hooks.base import BaseHook
+from datahub.emitter.generic_emitter import Emitter
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeEvent,
     MetadataChangeProposal,
@@ -11,6 +13,7 @@ if TYPE_CHECKING:
     from airflow.models.connection import Connection
     from datahub.emitter.kafka_emitter import DatahubKafkaEmitter
     from datahub.emitter.rest_emitter import DatahubRestEmitter
+    from datahub.emitter.synchronized_file_emitter import SynchronizedFileEmitter
     from datahub.ingestion.sink.datahub_kafka import KafkaSinkConfig
 
 
@@ -29,7 +32,7 @@ class DatahubRestHook(BaseHook):
 
     conn_name_attr = "datahub_rest_conn_id"
     default_conn_name = "datahub_rest_default"
-    conn_type = "datahub_rest"
+    conn_type = "datahub-rest"
     hook_name = "DataHub REST Server"
 
     def __init__(self, datahub_rest_conn_id: str = default_conn_name) -> None:
@@ -49,6 +52,15 @@ class DatahubRestHook(BaseHook):
                 "host": "Server Endpoint",
             },
         }
+
+    def test_connection(self) -> Tuple[bool, str]:
+        try:
+            emitter = self.make_emitter()
+            emitter.test_connection()
+        except Exception as e:
+            return False, str(e)
+
+        return True, "Successfully connected to DataHub."
 
     def _get_config(self) -> Tuple[str, Optional[str], Optional[int]]:
         conn: "Connection" = self.get_connection(self.datahub_rest_conn_id)
@@ -71,17 +83,24 @@ class DatahubRestHook(BaseHook):
 
         return datahub.emitter.rest_emitter.DatahubRestEmitter(*self._get_config())
 
-    def emit_mces(self, mces: List[MetadataChangeEvent]) -> None:
+    def emit(
+        self,
+        items: Sequence[
+            Union[
+                MetadataChangeEvent,
+                MetadataChangeProposal,
+                MetadataChangeProposalWrapper,
+            ]
+        ],
+    ) -> None:
         emitter = self.make_emitter()
 
-        for mce in mces:
-            emitter.emit_mce(mce)
+        for item in items:
+            emitter.emit(item)
 
-    def emit_mcps(self, mcps: List[MetadataChangeProposal]) -> None:
-        emitter = self.make_emitter()
-
-        for mce in mcps:
-            emitter.emit_mcp(mce)
+    # Retained for backwards compatibility.
+    emit_mces = emit
+    emit_mcps = emit
 
 
 class DatahubKafkaHook(BaseHook):
@@ -99,7 +118,7 @@ class DatahubKafkaHook(BaseHook):
 
     conn_name_attr = "datahub_kafka_conn_id"
     default_conn_name = "datahub_kafka_default"
-    conn_type = "datahub_kafka"
+    conn_type = "datahub-kafka"
     hook_name = "DataHub Kafka Sink"
 
     def __init__(self, datahub_kafka_conn_id: str = default_conn_name) -> None:
@@ -143,7 +162,16 @@ class DatahubKafkaHook(BaseHook):
         sink_config = self._get_config()
         return datahub.emitter.kafka_emitter.DatahubKafkaEmitter(sink_config)
 
-    def emit_mces(self, mces: List[MetadataChangeEvent]) -> None:
+    def emit(
+        self,
+        items: Sequence[
+            Union[
+                MetadataChangeEvent,
+                MetadataChangeProposal,
+                MetadataChangeProposalWrapper,
+            ]
+        ],
+    ) -> None:
         emitter = self.make_emitter()
         errors = []
 
@@ -151,29 +179,50 @@ class DatahubKafkaHook(BaseHook):
             if exc:
                 errors.append(exc)
 
-        for mce in mces:
-            emitter.emit_mce_async(mce, callback)
+        for mce in items:
+            emitter.emit(mce, callback)
 
         emitter.flush()
 
         if errors:
-            raise AirflowException(f"failed to push some MCEs: {errors}")
+            raise AirflowException(f"failed to push some metadata: {errors}")
 
-    def emit_mcps(self, mcps: List[MetadataChangeProposal]) -> None:
+    # Retained for backwards compatibility.
+    emit_mces = emit
+    emit_mcps = emit
+
+
+class SynchronizedFileHook(BaseHook):
+    conn_type = "datahub-file"
+
+    def __init__(self, datahub_conn_id: str) -> None:
+        super().__init__()
+        self.datahub_conn_id = datahub_conn_id
+
+    def make_emitter(self) -> "SynchronizedFileEmitter":
+        from datahub.emitter.synchronized_file_emitter import SynchronizedFileEmitter
+
+        conn = self.get_connection(self.datahub_conn_id)
+        filename = conn.host
+        if not filename:
+            raise AirflowException("filename parameter is required")
+
+        return SynchronizedFileEmitter(filename=filename)
+
+    def emit(
+        self,
+        items: Sequence[
+            Union[
+                MetadataChangeEvent,
+                MetadataChangeProposal,
+                MetadataChangeProposalWrapper,
+            ]
+        ],
+    ) -> None:
         emitter = self.make_emitter()
-        errors = []
 
-        def callback(exc, msg):
-            if exc:
-                errors.append(exc)
-
-        for mcp in mcps:
-            emitter.emit_mcp_async(mcp, callback)
-
-        emitter.flush()
-
-        if errors:
-            raise AirflowException(f"failed to push some MCPs: {errors}")
+        for item in items:
+            emitter.emit(item)
 
 
 class DatahubGenericHook(BaseHook):
@@ -189,15 +238,28 @@ class DatahubGenericHook(BaseHook):
         super().__init__()
         self.datahub_conn_id = datahub_conn_id
 
-    def get_underlying_hook(self) -> Union[DatahubRestHook, DatahubKafkaHook]:
+    def get_underlying_hook(
+        self,
+    ) -> Union[DatahubRestHook, DatahubKafkaHook, SynchronizedFileHook]:
         conn = self.get_connection(self.datahub_conn_id)
 
         # We need to figure out the underlying hook type. First check the
         # conn_type. If that fails, attempt to guess using the conn id name.
-        if conn.conn_type == DatahubRestHook.conn_type:
+        if (
+            conn.conn_type == DatahubRestHook.conn_type
+            or conn.conn_type == DatahubRestHook.conn_type.replace("-", "_")
+        ):
             return DatahubRestHook(self.datahub_conn_id)
-        elif conn.conn_type == DatahubKafkaHook.conn_type:
+        elif (
+            conn.conn_type == DatahubKafkaHook.conn_type
+            or conn.conn_type == DatahubKafkaHook.conn_type.replace("-", "_")
+        ):
             return DatahubKafkaHook(self.datahub_conn_id)
+        elif (
+            conn.conn_type == SynchronizedFileHook.conn_type
+            or conn.conn_type == SynchronizedFileHook.conn_type.replace("-", "_")
+        ):
+            return SynchronizedFileHook(self.datahub_conn_id)
         elif "rest" in self.datahub_conn_id:
             return DatahubRestHook(self.datahub_conn_id)
         elif "kafka" in self.datahub_conn_id:
@@ -207,8 +269,20 @@ class DatahubGenericHook(BaseHook):
                 f"DataHub cannot handle conn_type {conn.conn_type} in {conn}"
             )
 
-    def make_emitter(self) -> Union["DatahubRestEmitter", "DatahubKafkaEmitter"]:
+    def make_emitter(self) -> Emitter:
         return self.get_underlying_hook().make_emitter()
 
-    def emit_mces(self, mces: List[MetadataChangeEvent]) -> None:
-        return self.get_underlying_hook().emit_mces(mces)
+    def emit(
+        self,
+        items: Sequence[
+            Union[
+                MetadataChangeEvent,
+                MetadataChangeProposal,
+                MetadataChangeProposalWrapper,
+            ]
+        ],
+    ) -> None:
+        return self.get_underlying_hook().emit(items)
+
+    # Retained for backwards compatibility.
+    emit_mces = emit

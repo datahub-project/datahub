@@ -10,7 +10,6 @@ from typing import Optional
 
 import click
 import click_spinner
-import tzlocal
 from click_default_group import DefaultGroup
 from tabulate import tabulate
 
@@ -28,7 +27,6 @@ from datahub.ingestion.run.connection import ConnectionManager
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.telemetry import telemetry
 from datahub.upgrade import upgrade
-from datahub.utilities import memory_leak_detector
 
 logger = logging.getLogger(__name__)
 
@@ -99,7 +97,6 @@ def ingest() -> None:
 @click.option(
     "--no-spinner", type=bool, is_flag=True, default=False, help="Turn off spinner"
 )
-@click.pass_context
 @telemetry.with_telemetry(
     capture_kwargs=[
         "dry_run",
@@ -110,9 +107,7 @@ def ingest() -> None:
         "no_spinner",
     ]
 )
-@memory_leak_detector.with_leak_detection
 def run(
-    ctx: click.Context,
     config: str,
     dry_run: bool,
     preview: bool,
@@ -248,17 +243,17 @@ def run(
 @click.option(
     "--time-zone",
     type=str,
-    help=f"Timezone for the schedule. By default uses the timezone of the current system: {tzlocal.get_localzone_name()}.",
+    help="Timezone for the schedule in 'America/New_York' format. Uses UTC by default.",
     required=False,
-    default=tzlocal.get_localzone_name(),
+    default="UTC",
 )
 def deploy(
     name: str,
     config: str,
-    urn: str,
+    urn: Optional[str],
     executor_id: str,
-    cli_version: str,
-    schedule: str,
+    cli_version: Optional[str],
+    schedule: Optional[str],
     time_zone: str,
 ) -> None:
     """
@@ -275,8 +270,6 @@ def deploy(
         allow_stdin=True,
         resolve_env_vars=False,
     )
-
-    graphql_query: str
 
     variables: dict = {
         "urn": urn,
@@ -296,7 +289,7 @@ def deploy(
             exit()
         logger.info("Found recipe URN, will update recipe.")
 
-        graphql_query = textwrap.dedent(
+        graphql_query: str = textwrap.dedent(
             """
             mutation updateIngestionSource(
                 $urn: String!,

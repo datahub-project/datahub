@@ -1,6 +1,8 @@
 package com.linkedin.datahub.graphql.resolvers.dataset;
 
 import com.datahub.authentication.Authentication;
+import com.datahub.authorization.AuthorizationResult;
+import com.datahub.plugins.auth.authorization.Authorizer;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -53,13 +55,18 @@ public class DatasetStatsSummaryResolverTest {
     UsageClient mockClient = Mockito.mock(UsageClient.class);
     Mockito.when(mockClient.getUsageStats(
         Mockito.eq(TEST_DATASET_URN),
-        Mockito.eq(UsageTimeRange.MONTH),
-        Mockito.any(Authentication.class)
+        Mockito.eq(UsageTimeRange.MONTH)
     )).thenReturn(testResult);
 
     // Execute resolver
     DatasetStatsSummaryResolver resolver = new DatasetStatsSummaryResolver(mockClient);
     QueryContext mockContext = Mockito.mock(QueryContext.class);
+    Mockito.when(mockContext.getActorUrn()).thenReturn("urn:li:corpuser:test");
+    Authorizer mockAuthorizer = Mockito.mock(Authorizer.class);
+    AuthorizationResult mockAuthorizerResult = Mockito.mock(AuthorizationResult.class);
+    Mockito.when(mockAuthorizerResult.getType()).thenReturn(AuthorizationResult.Type.ALLOW);
+    Mockito.when(mockAuthorizer.authorize(Mockito.any())).thenReturn(mockAuthorizerResult);
+    Mockito.when(mockContext.getAuthorizer()).thenReturn(mockAuthorizer);
     Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     Mockito.when(mockEnv.getSource()).thenReturn(TEST_SOURCE);
@@ -79,8 +86,7 @@ public class DatasetStatsSummaryResolverTest {
     newResult.setAggregations(new UsageQueryResultAggregations());
     Mockito.when(mockClient.getUsageStats(
         Mockito.eq(TEST_DATASET_URN),
-        Mockito.eq(UsageTimeRange.MONTH),
-        Mockito.any(Authentication.class)
+        Mockito.eq(UsageTimeRange.MONTH)
     )).thenReturn(newResult);
 
     // Then verify that the new result is _not_ returned (cache hit)
@@ -116,8 +122,7 @@ public class DatasetStatsSummaryResolverTest {
     UsageClient mockClient = Mockito.mock(UsageClient.class);
     Mockito.when(mockClient.getUsageStats(
         Mockito.eq(TEST_DATASET_URN),
-        Mockito.eq(UsageTimeRange.MONTH),
-        Mockito.any(Authentication.class)
+        Mockito.eq(UsageTimeRange.MONTH)
     )).thenThrow(RuntimeException.class);
 
     // Execute resolver

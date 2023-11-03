@@ -13,6 +13,9 @@ import com.linkedin.metadata.entity.EntityServiceImpl;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistryException;
+import com.linkedin.metadata.models.registry.MergedEntityRegistry;
+import com.linkedin.metadata.models.registry.PluginEntityRegistryLoader;
+import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchService;
@@ -87,9 +90,21 @@ public class OpenAPIEntityTestConfiguration {
 
     @Bean("entityRegistry")
     @Primary
-    public ConfigEntityRegistry configEntityRegistry() throws EntityRegistryException {
-        return new ConfigEntityRegistry(
+    public EntityRegistry entityRegistry() throws EntityRegistryException, InterruptedException {
+        /*
+           Considered a few different approach to loading a custom model. Chose this method
+           to as closely match a production configuration rather than direct project to project
+           dependency.
+         */
+        PluginEntityRegistryLoader custom = new PluginEntityRegistryLoader(
+                getClass().getResource("/custom-model").getFile());
+
+        ConfigEntityRegistry standard = new ConfigEntityRegistry(
                 OpenAPIEntityTestConfiguration.class.getClassLoader().getResourceAsStream("entity-registry.yml"));
+        MergedEntityRegistry entityRegistry = new MergedEntityRegistry(SnapshotEntityRegistry.getInstance()).apply(standard);
+        custom.withBaseRegistry(entityRegistry).start(true);
+
+        return entityRegistry;
     }
 
     /* Controllers not under this module */

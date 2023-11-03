@@ -2,9 +2,7 @@ package com.linkedin.metadata.kafka;
 
 import com.codahale.metrics.Histogram;
 import com.codahale.metrics.MetricRegistry;
-import com.datahub.authentication.Authentication;
-import com.linkedin.entity.client.RestliEntityClient;
-import com.linkedin.gms.factory.auth.SystemAuthenticationFactory;
+import com.linkedin.entity.client.SystemRestliEntityClient;
 import com.linkedin.gms.factory.entity.RestliEntityClientFactory;
 import com.linkedin.gms.factory.kafka.KafkaEventConsumerFactory;
 import com.linkedin.gms.factory.kafka.DataHubKafkaProducerFactory;
@@ -35,15 +33,13 @@ import org.springframework.stereotype.Component;
 
 @Slf4j
 @Component
-@Import({RestliEntityClientFactory.class, SystemAuthenticationFactory.class, KafkaEventConsumerFactory.class,
-    DataHubKafkaProducerFactory.class})
+@Import({RestliEntityClientFactory.class, KafkaEventConsumerFactory.class, DataHubKafkaProducerFactory.class})
 @Conditional(MetadataChangeProposalProcessorCondition.class)
 @EnableKafka
 @RequiredArgsConstructor
 public class MetadataChangeProposalsProcessor {
 
-  private final Authentication systemAuthentication;
-  private final RestliEntityClient entityClient;
+  private final SystemRestliEntityClient entityClient;
   private final Producer<String, IndexedRecord> kafkaProducer;
 
   private final Histogram kafkaLagStats = MetricUtils.get().histogram(MetricRegistry.name(this.getClass(), "kafkaLag"));
@@ -64,7 +60,7 @@ public class MetadataChangeProposalsProcessor {
       event = EventUtils.avroToPegasusMCP(record);
       log.debug("MetadataChangeProposal {}", event);
       // TODO: Get this from the event itself.
-      entityClient.ingestProposal(event, this.systemAuthentication, false);
+      entityClient.ingestProposal(event, false);
     } catch (Throwable throwable) {
       log.error("MCP Processor Error", throwable);
       log.error("Message: {}", record);

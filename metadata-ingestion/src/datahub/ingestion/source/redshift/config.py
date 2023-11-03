@@ -7,8 +7,8 @@ from pydantic.fields import Field
 
 from datahub.configuration import ConfigModel
 from datahub.configuration.common import AllowDenyPattern
-from datahub.configuration.pydantic_field_deprecation import pydantic_field_deprecated
 from datahub.configuration.source_common import DatasetLineageProviderConfigBase
+from datahub.configuration.validate_field_deprecation import pydantic_field_deprecated
 from datahub.ingestion.source.data_lake_common.path_spec import PathSpec
 from datahub.ingestion.source.sql.postgres import BasePostgresConfig
 from datahub.ingestion.source.state.stateful_ingestion_base import (
@@ -130,6 +130,16 @@ class RedshiftConfig(
     match_fully_qualified_names: bool = Field(
         default=False,
         description="Whether `schema_pattern` is matched against fully qualified schema name `<database>.<schema>`.",
+    )
+
+    extract_column_level_lineage: bool = Field(
+        default=True,
+        description="Whether to extract column level lineage. This config works with rest-sink only.",
+    )
+
+    incremental_lineage: bool = Field(
+        default=False,
+        description="When enabled, emits lineage as incremental to existing lineage already in DataHub. When disabled, re-states lineage on each run.  This config works with rest-sink only.",
     )
 
     @root_validator(pre=True)

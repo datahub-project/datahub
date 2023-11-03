@@ -55,6 +55,8 @@ export default function EmbeddedProfile<T>({ urn, entityType, getOverridePropert
         return <NonExistentEntityPage />;
     }
 
+    const readOnly = false;
+
     return (
         <EntityContext.Provider
             value={{
@@ -80,15 +82,15 @@ export default function EmbeddedProfile<T>({ urn, entityType, getOverridePropert
                     <StyledDivider />
                     <UpstreamHealth />
                     <StyledDivider />
-                    <SidebarAboutSection readOnly />
+                    <SidebarAboutSection readOnly={readOnly} />
                     <StyledDivider />
-                    <SidebarOwnerSection readOnly />
+                    <SidebarOwnerSection readOnly={readOnly} />
                     <StyledDivider />
-                    <SidebarTagsSection readOnly properties={{ hasTags: true, hasTerms: true }} />
+                    <SidebarTagsSection readOnly={readOnly} properties={{ hasTags: true, hasTerms: true }} />
                     <StyledDivider />
-                    <SidebarDomainSection readOnly />
+                    <SidebarDomainSection readOnly={readOnly} />
                     <StyledDivider />
-                    <DataProductSection readOnly />
+                    <DataProductSection readOnly={readOnly} />
                 </>
             )}
         </EntityContext.Provider>

@@ -81,9 +81,6 @@ from datahub.metadata.schema_classes import (
     EnumTypeClass,
     FineGrainedLineageClass,
     GlobalTagsClass,
-    OwnerClass,
-    OwnershipClass,
-    OwnershipTypeClass,
     SchemaMetadataClass,
     StatusClass,
     SubTypesClass,
@@ -391,7 +388,7 @@ class LookerUtil:
 
         # if still not found, log and continue
         if type_class is None:
-            logger.info(
+            logger.debug(
                 f"The type '{native_type}' is not recognized for field type, setting as NullTypeClass.",
             )
             type_class = NullTypeClass
@@ -453,17 +450,9 @@ class LookerUtil:
     @staticmethod
     def _get_tag_mce_for_urn(tag_urn: str) -> MetadataChangeEvent:
         assert tag_urn in LookerUtil.tag_definitions
-        ownership = OwnershipClass(
-            owners=[
-                OwnerClass(
-                    owner="urn:li:corpuser:datahub",
-                    type=OwnershipTypeClass.DATAOWNER,
-                )
-            ]
-        )
         return MetadataChangeEvent(
             proposedSnapshot=TagSnapshotClass(
-                urn=tag_urn, aspects=[ownership, LookerUtil.tag_definitions[tag_urn]]
+                urn=tag_urn, aspects=[LookerUtil.tag_definitions[tag_urn]]
             )
         )
 

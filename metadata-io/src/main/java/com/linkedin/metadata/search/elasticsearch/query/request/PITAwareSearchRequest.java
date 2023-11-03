@@ -1,7 +1,7 @@
 package com.linkedin.metadata.search.elasticsearch.query.request;
 
-import org.elasticsearch.action.search.SearchRequest;
-import org.elasticsearch.action.support.IndicesOptions;
+import org.opensearch.action.search.SearchRequest;
+import org.opensearch.action.support.IndicesOptions;
 
 
 public class PITAwareSearchRequest extends SearchRequest {
