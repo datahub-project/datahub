@@ -9,6 +9,7 @@ import {
     LinkOutlined,
     MoreOutlined,
     PlusOutlined,
+    CopyOutlined,
 } from '@ant-design/icons';
 import { Redirect } from 'react-router';
 import { EntityType } from '../../../../types.generated';
@@ -32,6 +33,7 @@ export enum EntityMenuItems {
     ADD_TERM_GROUP,
     DELETE,
     MOVE,
+    CLONE,
 }
 
 export const MenuIcon = styled(MoreOutlined)<{ fontSize?: number }>`
@@ -107,6 +109,7 @@ function EntityDropdown(props: Props) {
 
     const [isCreateTermModalVisible, setIsCreateTermModalVisible] = useState(false);
     const [isCreateNodeModalVisible, setIsCreateNodeModalVisible] = useState(false);
+    const [isCloneEntityModalVisible, setIsCloneEntityModalVisible] = useState<boolean>(false);
     const [isDeprecationModalVisible, setIsDeprecationModalVisible] = useState(false);
     const [isMoveModalVisible, setIsMoveModalVisible] = useState(false);
 
@@ -197,10 +200,21 @@ function EntityDropdown(props: Props) {
                                 </MenuItem>
                             </StyledMenuItem>
                         )}
+                        {menuItems.has(EntityMenuItems.CLONE) && (
+                            <StyledMenuItem
+                                key="4"
+                                disabled={!entityData?.privileges?.canManageEntity}
+                                onClick={() => setIsCloneEntityModalVisible(true)}
+                            >
+                                <MenuItem>
+                                    <CopyOutlined /> &nbsp;Clone
+                                </MenuItem>
+                            </StyledMenuItem>
+                        )}
                         {!isDomainMoveHidden && menuItems.has(EntityMenuItems.MOVE) && (
                             <StyledMenuItem
                                 data-testid="entity-menu-move-button"
-                                key="4"
+                                key="5"
                                 disabled={isMoveDisabled(entityType, entityData, me.platformPrivileges)}
                                 onClick={() => setIsMoveModalVisible(true)}
                             >
@@ -211,7 +225,7 @@ function EntityDropdown(props: Props) {
                         )}
                         {menuItems.has(EntityMenuItems.DELETE) && (
                             <StyledMenuItem
-                                key="5"
+                                key="6"
                                 disabled={isDeleteDisabled(entityType, entityData, me.platformPrivileges)}
                                 onClick={onDeleteEntity}
                             >
@@ -248,6 +262,14 @@ function EntityDropdown(props: Props) {
                     entityType={EntityType.GlossaryNode}
                     onClose={() => setIsCreateNodeModalVisible(false)}
                     refetchData={refetchForNodes}
+                />
+            )}
+            {isCloneEntityModalVisible && (
+                <CreateGlossaryEntityModal
+                    entityType={entityType}
+                    onClose={() => setIsCloneEntityModalVisible(false)}
+                    refetchData={entityType === EntityType.GlossaryTerm ? refetchForTerms : refetchForNodes}
+                    clone
                 />
             )}
             {isDeprecationModalVisible && (
