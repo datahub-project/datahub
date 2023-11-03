@@ -108,7 +108,7 @@ usage_common = {
 sqlglot_lib = {
     # Using an Acryl fork of sqlglot.
     # https://github.com/tobymao/sqlglot/compare/main...hsheth2:sqlglot:hsheth?expand=1
-    "acryl-sqlglot==18.5.2.dev45",
+    "acryl-sqlglot==19.0.2.dev10",
 }
 
 sql_common = (
@@ -173,7 +173,9 @@ bigquery_common = {
 
 clickhouse_common = {
     # Clickhouse 0.2.0 adds support for SQLAlchemy 1.4.x
-    "clickhouse-sqlalchemy>=0.2.0",
+    # Disallow 0.2.5 because of https://github.com/xzkostyan/clickhouse-sqlalchemy/issues/272.
+    # Note that there's also a known issue around nested map types: https://github.com/xzkostyan/clickhouse-sqlalchemy/issues/269.
+    "clickhouse-sqlalchemy>=0.2.0,<0.2.5",
 }
 
 redshift_common = {

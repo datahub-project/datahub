@@ -1050,8 +1050,14 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                     for idx, field in enumerate(schema_fields):
                         # Remove all the [version=2.0].[type=struct]. tags to get the field path
                         if (
-                            re.sub(r"\[.*?\]\.", "", field.fieldPath, 0, re.MULTILINE)
-                            == col.field_path
+                            re.sub(
+                                r"\[.*?\]\.",
+                                "",
+                                field.fieldPath.lower(),
+                                0,
+                                re.MULTILINE,
+                            )
+                            == col.field_path.lower()
                         ):
                             field.description = col.comment
                             schema_fields[idx] = field
