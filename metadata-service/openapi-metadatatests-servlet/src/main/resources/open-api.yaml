@@ -5,9 +5,9 @@ info:
   version: v1
 
 paths:
-  /metadata_test/{testUrn}/evaluate:
+  /metadata_test/test/{testUrn}/evaluate:
     post:
-      summary: Evaluates metadata tests on the given target URNs.
+      summary: Evaluates a metadata test on the given target URNs.
       operationId: evaluateTest
       tags:
         - "Metadata Test Operations"
@@ -37,6 +37,39 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/MetadataTestResult_v1"
+
+  /metadata_test/entity/{entityUrn}/evaluate:
+    post:
+      summary: Evaluates metadata tests on the a target URN. If no tests are given, all tests are run.
+      operationId: evaluateEntity
+      tags:
+        - "Metadata Test Operations"
+      parameters:
+        - $ref: "#/components/parameters/EntityUrn_v1"
+        - in: "query"
+          name: "evaluateOnly"
+          description: "Evaluate test without writing to the database."
+          schema:
+            type: "boolean"
+            default: true
+
+      requestBody:
+        description: "Metadata Test URNs"
+        required: true
+        content:
+          application/json:
+            schema:
+              type: "array"
+              items:
+                $ref: "string"
+
+      responses:
+        "200":
+          description: "Success"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MetadataTestEntityResult_v1"
 
   /metadata_test:
     get:
@@ -153,6 +186,13 @@ components:
         type: string
       required: true
       description: The metadata test's URN
+    EntityUrn_v1:
+      in: "path"
+      name: entityUrn
+      schema:
+        type: string
+      required: true
+      description: The entity to test's URN
   schemas:
     MetadataTestResult_v1:
       description: "Information about a Test Result"
@@ -179,7 +219,48 @@ components:
                 $ref: "#/components/schemas/TestResultType"
             required:
               - "entity"
+    MetadataTestEntityResult_v1:
+      description: "Information for an entity's Metadata Test Results"
+      type: "object"
+      additionalProperties: false
+      properties:
+        entityUrn:
+          description: "The urn of the entity"
+          type: "string"
+        passing:
+          description: "A list of the passing test results"
+          type: "array"
+          items:
+            type: "object"
+            properties:
+              test:
+                description: "The urn of the test."
+                type: "string"
+              testName:
+                description: "The name of the test"
+                type: "string"
+              type:
+                description: "The type of the result"
+                $ref: "#/components/schemas/TestResultType"
+        failing:
+          description: "A list of the failing test results"
+          type: "array"
+          items:
+            type: "object"
+            properties:
+              test:
+                description: "The urn of the test."
+                type: "string"
+              testName:
+                description: "The name of the test"
+                type: "string"
+              type:
+                description: "The type of the result"
+                $ref: "#/components/schemas/TestResultType"
+            required:
+              - "passing"
+              - "failing"
       required:
-        - "test"
-        - "entities"
+        - "entityUrn"
+        - "tests"
 

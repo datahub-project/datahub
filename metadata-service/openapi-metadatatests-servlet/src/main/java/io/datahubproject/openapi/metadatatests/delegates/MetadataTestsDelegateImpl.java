@@ -22,6 +22,9 @@ import com.linkedin.test.TestMode;
 import com.linkedin.test.TestStatus;
 import com.linkedin.util.Pair;
 import io.datahubproject.openapi.delegates.EntityApiDelegateImpl;
+import io.datahubproject.openapi.generated.MetadataTestEntityResultV1;
+import io.datahubproject.openapi.generated.MetadataTestEntityResultV1Failing;
+import io.datahubproject.openapi.generated.MetadataTestEntityResultV1Passing;
 import io.datahubproject.openapi.generated.MetadataTestResultV1;
 import io.datahubproject.openapi.generated.MetadataTestResultV1Entities;
 import io.datahubproject.openapi.generated.ScrollTestEntityResponseV2;
@@ -32,7 +35,9 @@ import io.datahubproject.openapi.generated.TestResultType;
 import io.datahubproject.openapi.metadatatests.generated.controller.MetadataTestApiDelegate;
 import org.springframework.http.ResponseEntity;
 
+import javax.annotation.Nullable;
 import java.net.URISyntaxException;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -78,17 +83,50 @@ public class MetadataTestsDelegateImpl implements MetadataTestApiDelegate {
     }
 
     @Override
-    public ResponseEntity<MetadataTestResultV1> evaluateTest(String testUrnStr, List<String> body, Boolean evaluateOnly) {
+    public ResponseEntity<MetadataTestEntityResultV1> evaluateEntity(String entityUrnStr, List<String> testUrnStrings, Boolean evaluateOnly) {
+        Optional<MetadataTestEntityResultV1> result;
+
+        try {
+            Urn entityUrn = Urn.createFromString(entityUrnStr);
+            Set<Urn> testUrns = testUrnStrings.stream().map(urnStr -> {
+                try {
+                    return Urn.createFromString(urnStr);
+                } catch (URISyntaxException e) {
+                    throw new RuntimeException(e);
+                }
+            }).collect(Collectors.toSet());
+
+            Pair<Map<Urn, TestInfo>, TestEngine> testRuntime = getEngineForTests(testUrns);
+            final Map<Urn, TestInfo> testinfoMap = testRuntime.getFirst();
+            final TestEngine engine = testRuntime.getSecond();
+
+            Map<Urn, com.linkedin.test.TestResults> testResultsMap = engine.batchEvaluateTestsForEntities(
+                    List.of(entityUrn),
+                    Optional.ofNullable(evaluateOnly).orElse(true) ? TestEngine.EvaluationMode.EVALUATE_ONLY
+                            : TestEngine.EvaluationMode.DEFAULT);
+
+            result = Optional.ofNullable(testResultsMap.get(entityUrn)).map(testsResult ->
+                    toTestResult(entityUrn, testinfoMap, testsResult));
+
+        } catch (URISyntaxException e) {
+            throw new RuntimeException(e);
+        }
+
+        return ResponseEntity.of(result);
+    }
+
+    @Override
+    public ResponseEntity<MetadataTestResultV1> evaluateTest(String testUrnStr, List<String> entityUrnStrings, Boolean evaluateOnly) {
         Optional<MetadataTestResultV1> result;
 
         try {
             Urn testUrn = Urn.createFromString(testUrnStr);
 
-            result = getTestEngine(testUrn).map(testInfoEngine -> {
-                TestInfo info = testInfoEngine.getFirst();
-                TestEngine engine = testInfoEngine.getSecond();
+            Pair<Map<Urn, TestInfo>, TestEngine> testRuntime = getEngineForTests(Set.of(testUrn));
+            final TestEngine engine = testRuntime.getSecond();
 
-                List<Urn> targetUrns = body.stream().map(urnStr -> {
+            result = Optional.ofNullable(testRuntime.getFirst().get(testUrn)).map(info -> {
+                List<Urn> targetUrns = entityUrnStrings.stream().map(urnStr -> {
                     try {
                         return Urn.createFromString(urnStr);
                     } catch (URISyntaxException e) {
@@ -115,41 +153,60 @@ public class MetadataTestsDelegateImpl implements MetadataTestApiDelegate {
         return ResponseEntity.of(result);
     }
 
-    private Optional<Pair<TestInfo, TestEngine>> getTestEngine(Urn testUrn) throws URISyntaxException {
-        Map<Urn, EntityResponse> entityResponseMap = entityService.getEntitiesV2(
-                Constants.TEST_ENTITY_NAME,
-                Set.of(testUrn),
-                Set.of(Constants.TEST_INFO_ASPECT_NAME, Constants.STATUS_ASPECT_NAME)
-        );
+    private Pair<Map<Urn, TestInfo>, TestEngine> getEngineForTests(Set<Urn> testUrns) throws URISyntaxException {
+        final Map<Urn, TestInfo> testInfoMap;
 
-        boolean softDeleted = optionalEnvelopedAspect(entityResponseMap, testUrn, Constants.STATUS_ASPECT_NAME)
-                .flatMap(MetadataTestsDelegateImpl::optionalDataMap)
-                .map(Status::new)
-                .map(Status::isRemoved)
-                .orElse(false);
+        if (testUrns.isEmpty()) {
+            // normal all tests
+            testInfoMap = Collections.emptyMap();
+        } else {
+            Map<Urn, EntityResponse> entityResponseMap = entityService.getEntitiesV2(
+                    Constants.TEST_ENTITY_NAME,
+                    testUrns,
+                    Set.of(Constants.TEST_INFO_ASPECT_NAME, Constants.STATUS_ASPECT_NAME));
 
-        if (!softDeleted) {
-            return optionalEnvelopedAspect(entityResponseMap, testUrn, Constants.TEST_INFO_ASPECT_NAME)
-                    .flatMap(MetadataTestsDelegateImpl::optionalDataMap)
-                    .map(TestInfo::new)
-                    .filter(testInfo -> TestMode.ACTIVE == Optional.ofNullable(testInfo.getStatus()).map(TestStatus::getMode).orElse(TestMode.ACTIVE))
-                    .map(testInfo -> buildTestEngine(testUrn, testInfo));
+            testInfoMap = entityResponseMap.keySet().stream().flatMap(testUrn -> {
+                Optional<Map.Entry<Urn, TestInfo>> optTest = Optional.empty();
+
+                boolean softDeleted = optionalEnvelopedAspect(entityResponseMap, testUrn, Constants.STATUS_ASPECT_NAME)
+                        .flatMap(MetadataTestsDelegateImpl::optionalDataMap)
+                        .map(Status::new)
+                        .map(Status::isRemoved)
+                        .orElse(false);
+
+                if (!softDeleted) {
+                    optTest = optionalEnvelopedAspect(entityResponseMap, testUrn, Constants.TEST_INFO_ASPECT_NAME)
+                            .flatMap(MetadataTestsDelegateImpl::optionalDataMap)
+                            .map(TestInfo::new)
+                            .filter(testInfo -> TestMode.ACTIVE == Optional.ofNullable(testInfo.getStatus()).map(TestStatus::getMode).orElse(TestMode.ACTIVE))
+                            .map(testInfo -> Map.entry(testUrn, testInfo));
+                }
+
+                return optTest.stream();
+            }).collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
         }
 
-        return Optional.empty();
+        return Pair.of(testInfoMap, buildTestEngine(testInfoMap));
     }
 
-    private Pair<TestInfo, TestEngine> buildTestEngine(Urn testUrn, TestInfo testInfo) {
-        return Pair.of(testInfo, new TestEngine(
+    private TestEngine buildTestEngine(Map<Urn, TestInfo> testInfoMap) {
+        final TestFetcher testFetcher;
+
+        if (testInfoMap.isEmpty()) {
+            testFetcher = new TestFetcher(entityService, entitySearchService);
+        } else {
+            testFetcher = new TestListFetcher(entityService, entitySearchService, testInfoMap);
+        }
+
+        return new TestEngine(
                 entityService,
-                new SingleTestFetcher(entityService, entitySearchService, testUrn, testInfo),
+                testFetcher,
                 new TestDefinitionParser(predicateEvaluator),
                 queryEngine,
                 predicateEvaluator,
                 actionApplier,
                 0,
-                0
-        ));
+                0);
     }
 
     private static MetadataTestResultV1 toTestResult(Urn testUrn, TestInfo testInfo, List<Pair<Urn, com.linkedin.test.TestResults>> testResults) {
@@ -178,16 +235,56 @@ public class MetadataTestsDelegateImpl implements MetadataTestApiDelegate {
                 .build();
     }
 
-    public static class SingleTestFetcher extends TestFetcher {
-        final private TestFetchResult result;
-        public SingleTestFetcher(EntityService entityService, EntitySearchService entitySearchService,
-                                 Urn testUrn, TestInfo testInfo) {
+    private static MetadataTestEntityResultV1 toTestResult(Urn entityUrn, Map<Urn, TestInfo> testInfoMap,
+                                                           @Nullable com.linkedin.test.TestResults testResult) {
+        MetadataTestEntityResultV1.MetadataTestEntityResultV1Builder builder = MetadataTestEntityResultV1.builder()
+                .entityUrn(entityUrn.toString());
+
+        if (testResult != null) {
+            boolean passing = testResult.hasPassing() && !testResult.getPassing().isEmpty();
+            boolean failing = testResult.hasFailing() && !testResult.getFailing().isEmpty();
+
+            if (passing) {
+                builder.passing(
+                        testResult.getPassing().stream().map(passResult -> {
+                            Urn testUrn = passResult.getTest();
+                            return MetadataTestEntityResultV1Passing.builder()
+                                    .test(testUrn.toString())
+                                    .testName(testInfoMap.containsKey(testUrn) ? testInfoMap.get(testUrn).getName() : null)
+                                    .type(TestResultType.valueOf(passResult.getType().toString()))
+                                    .build();
+                        }).collect(Collectors.toList()));
+            }
+
+            if (failing) {
+                builder.failing(
+                        testResult.getFailing().stream().map(failResult -> {
+                            Urn testUrn = failResult.getTest();
+                            return MetadataTestEntityResultV1Failing.builder()
+                                    .test(testUrn.toString())
+                                    .testName(testInfoMap.containsKey(testUrn) ? testInfoMap.get(testUrn).getName() : null)
+                                    .type(TestResultType.valueOf(failResult.getType().toString()))
+                                    .build();
+                                }
+                        ).collect(Collectors.toList()));
+            }
+        }
+
+        return builder.build();
+    }
+
+    public static class TestListFetcher extends TestFetcher {
+        final private List<Test> tests;
+
+        public TestListFetcher(EntityService entityService, EntitySearchService entitySearchService, Map<Urn, TestInfo> testInfo) {
             super(entityService, entitySearchService);
-            this.result = new TestFetchResult(List.of(new Test(testUrn, testInfo)), 1);
+            this.tests = testInfo.entrySet().stream()
+                    .map(entry -> new Test(entry.getKey(), entry.getValue()))
+                    .collect(Collectors.toList());
         }
         @Override
         public TestFetchResult fetch(int start, int count, String query) throws RemoteInvocationException, URISyntaxException {
-            return result;
+            return new TestFetchResult(tests.subList(start, Math.min(tests.size(), start + count)), tests.size());
         }
     }
 

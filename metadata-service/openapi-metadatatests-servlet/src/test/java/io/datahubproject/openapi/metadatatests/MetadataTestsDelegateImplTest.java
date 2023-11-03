@@ -104,7 +104,7 @@ public class MetadataTestsDelegateImplTest extends AbstractTestNGSpringContextTe
         setupMockTestInfo();
 
         mockMvc.perform(MockMvcRequestBuilders
-                        .post(String.format("/v2/metadata_test/%s/execute", TEST_URN))
+                        .post(String.format("/v2/metadata_test/test/%s/evaluate", TEST_URN))
                         .content(testBody)
                         .contentType(MediaType.APPLICATION_JSON)
                         .accept(MediaType.APPLICATION_JSON))
