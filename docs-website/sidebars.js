@@ -174,15 +174,8 @@ module.exports = {
             {
               "Frontend Authentication": [
                 "docs/authentication/guides/jaas",
-                {
-                  "OIDC Authentication": [
-                    "docs/authentication/guides/sso/configure-oidc-react",
-                    "docs/authentication/guides/sso/configure-oidc-react-google",
-                    "docs/authentication/guides/sso/configure-oidc-react-okta",
-                    "docs/authentication/guides/sso/configure-oidc-react-azure",
-                    "docs/authentication/guides/sso/configure-oidc-behind-proxy",
-                  ],
-                },
+                "docs/authentication/guides/sso/configure-oidc-react",
+                "docs/authentication/guides/sso/configure-oidc-behind-proxy",
               ],
             },
             "docs/authentication/introducing-metadata-service-authentication",
@@ -621,6 +614,11 @@ module.exports = {
         {
           type: "doc",
           id: "docs/managed-datahub/chrome-extension",
+        },
+        {
+          type: "doc",
+          id: "docs/managed-datahub/subscription-and-notification",
+          className: "saasOnly",
         },
         {
           "Managed DataHub Release History": [
