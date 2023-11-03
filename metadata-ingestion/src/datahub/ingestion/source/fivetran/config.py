@@ -54,7 +54,7 @@ class Constant:
     CANCELED = "CANCELED"
 
 
-SUPPORTED_DATA_PLATFORM_MAPPING = {
+KNOWN_DATA_PLATFORM_MAPPING = {
     "postgres": "postgres",
     "snowflake": "snowflake",
 }

@@ -19,7 +19,7 @@ from datahub.ingestion.api.decorators import (
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor, Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.fivetran.config import (
-    SUPPORTED_DATA_PLATFORM_MAPPING,
+    KNOWN_DATA_PLATFORM_MAPPING,
     Constant,
     FivetranSourceConfig,
     FivetranSourceReport,
@@ -94,29 +94,31 @@ class FivetranSource(StatefulIngestionSourceBase):
         )
 
         # Get database for connector source
+        # TODO: Once Fivetran exposes this, we shouldn't ask for it via config.
         source_database: Optional[str] = self.config.sources_to_database.get(
             connector.connector_id
         )
 
-        is_platform_supported = True
-        if connector.connector_type not in SUPPORTED_DATA_PLATFORM_MAPPING:
-            is_platform_supported = False
-            logger.debug(
+        if connector.connector_type in KNOWN_DATA_PLATFORM_MAPPING:
+            source_platform = KNOWN_DATA_PLATFORM_MAPPING[connector.connector_type]
+        else:
+            source_platform = connector.connector_type
+            logger.info(
                 f"Fivetran connector source type: {connector.connector_type} is not supported to mapped with Datahub dataset entity."
             )
+
         for table_lineage in connector.table_lineage:
-            input_dataset_urn: Optional[DatasetUrn] = None
+            input_dataset_urn = DatasetUrn.create_from_ids(
+                platform_id=source_platform,
+                table_name=f"{source_database.lower()}.{table_lineage.source_table}"
+                if source_database
+                else table_lineage.source_table,
+                env=source_platform_detail.env,
+                platform_instance=source_platform_detail.platform_instance,
+            )
+            input_dataset_urn_list.append(input_dataset_urn)
+
             output_dataset_urn: Optional[DatasetUrn] = None
-            if is_platform_supported and source_database:
-                input_dataset_urn = DatasetUrn.create_from_ids(
-                    platform_id=SUPPORTED_DATA_PLATFORM_MAPPING[
-                        connector.connector_type
-                    ],
-                    table_name=f"{source_database.lower()}.{table_lineage.source_table}",
-                    env=source_platform_detail.env,
-                    platform_instance=source_platform_detail.platform_instance,
-                )
-                input_dataset_urn_list.append(input_dataset_urn)
             if self.audit_log.fivetran_log_database:
                 output_dataset_urn = DatasetUrn.create_from_ids(
                     platform_id=self.config.fivetran_log_config.destination_platform,
