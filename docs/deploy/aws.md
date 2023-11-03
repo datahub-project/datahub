@@ -15,7 +15,7 @@ This guide requires the following tools:
 - [kubectl](https://kubernetes.io/docs/tasks/tools/) to manage kubernetes resources
 - [helm](https://helm.sh/docs/intro/install/) to deploy the resources based on helm charts. Note, we only support Helm
     3.
-- [eksctl](https://eksctl.io/introduction/#installation) to create and manage clusters on EKS
+- [eksctl](https://eksctl.io/installation/) to create and manage clusters on EKS
 - [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-install.html) to manage AWS resources
 
 To use the above tools, you need to set up AWS credentials by following

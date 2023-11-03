@@ -215,6 +215,7 @@ class Source(Closeable, metaclass=ABCMeta):
             )
         ):
             auto_lowercase_dataset_urns = auto_lowercase_urns
+
         return [
             auto_lowercase_dataset_urns,
             auto_status_aspect,

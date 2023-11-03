@@ -1,8 +1,5 @@
 package com.datahub.authorization.fieldresolverprovider;
 
-import static com.linkedin.metadata.Constants.DATA_PLATFORM_INSTANCE_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.DATA_PLATFORM_INSTANCE_ENTITY_NAME;
-
 import com.datahub.authentication.Authentication;
 import com.datahub.authorization.EntityFieldType;
 import com.datahub.authorization.EntitySpec;
@@ -14,9 +11,12 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.client.EntityClient;
 import java.util.Collections;
+import java.util.List;
 import java.util.Objects;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+
+import static com.linkedin.metadata.Constants.*;
 
 /**
  * Provides field resolver for domain given resourceSpec
@@ -29,8 +29,8 @@ public class DataPlatformInstanceFieldResolverProvider implements EntityFieldRes
   private final Authentication _systemAuthentication;
 
   @Override
-  public EntityFieldType getFieldType() {
-    return EntityFieldType.DATA_PLATFORM_INSTANCE;
+  public List<EntityFieldType> getFieldTypes() {
+    return Collections.singletonList(EntityFieldType.DATA_PLATFORM_INSTANCE);
   }
 
   @Override

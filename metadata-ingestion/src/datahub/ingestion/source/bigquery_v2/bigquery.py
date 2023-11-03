@@ -153,6 +153,7 @@ def cleanup(config: BigQueryV2Config) -> None:
 )
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
 @capability(SourceCapability.LINEAGE_COARSE, "Optionally enabled via configuration")
+@capability(SourceCapability.LINEAGE_FINE, "Optionally enabled via configuration")
 @capability(
     SourceCapability.USAGE_STATS,
     "Enabled by default, can be disabled via configuration `include_usage_statistics`",
@@ -1049,8 +1050,14 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                     for idx, field in enumerate(schema_fields):
                         # Remove all the [version=2.0].[type=struct]. tags to get the field path
                         if (
-                            re.sub(r"\[.*?\]\.", "", field.fieldPath, 0, re.MULTILINE)
-                            == col.field_path
+                            re.sub(
+                                r"\[.*?\]\.",
+                                "",
+                                field.fieldPath.lower(),
+                                0,
+                                re.MULTILINE,
+                            )
+                            == col.field_path.lower()
                         ):
                             field.description = col.comment
                             schema_fields[idx] = field
