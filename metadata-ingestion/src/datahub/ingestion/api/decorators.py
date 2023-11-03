@@ -105,7 +105,7 @@ def capability(
             for base in cls.__bases__:
                 base_caps = getattr(base, "__capabilities", None)
                 if base_caps:
-                    cls.__capabilities.update(base.__capabilities)
+                    cls.__capabilities.update(base_caps)
 
         cls.__capabilities[capability_name] = CapabilitySetting(
             capability=capability_name, description=description, supported=supported
