@@ -13,6 +13,7 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.identity.RoleMembership;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.authorization.PoliciesConfig;
+import com.linkedin.pegasus2avro.common.AccessLevel;
 import com.linkedin.policy.DataHubActorFilter;
 import com.linkedin.policy.DataHubPolicyInfo;
 import com.linkedin.policy.DataHubResourceFilter;
@@ -32,7 +33,10 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
 
+import lombok.AccessLevel;
+import lombok.AllArgsConstructor;
 import lombok.RequiredArgsConstructor;
+import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 
 import static com.linkedin.metadata.Constants.*;
@@ -75,6 +79,7 @@ public class PolicyEngine {
       final Optional<ResolvedEntitySpec> resource) {
     final List<Urn> users = new ArrayList<>();
     final List<Urn> groups = new ArrayList<>();
+    final List<Urn> roles = new ArrayList<>();
     boolean allUsers = false;
     boolean allGroups = false;
     if (policyMatchesResource(policy, resource)) {
@@ -96,6 +101,9 @@ public class PolicyEngine {
       if (actorFilter.getGroups() != null) {
         groups.addAll(actorFilter.getGroups());
       }
+      if (actorFilter.getRoles() != null) {
+        roles.addAll(actorFilter.getRoles());
+      }
 
       // 2. Fetch Actors based on resource ownership.
       if (actorFilter.isResourceOwners() && resource.isPresent()) {
@@ -104,7 +112,7 @@ public class PolicyEngine {
         groups.addAll(groupOwners(owners));
       }
     }
-    return new PolicyActors(users, groups, allUsers, allGroups);
+    return new PolicyActors(users, groups, roles, allUsers, allGroups);
   }
 
   private boolean isPolicyApplicable(
@@ -438,34 +446,14 @@ public class PolicyEngine {
   /**
    * Class used to represent all valid users of a policy.
    */
+  @Value
+  @AllArgsConstructor(access = AccessLevel.PUBLIC)
   public static class PolicyActors {
-    final List<Urn> _users;
-    final List<Urn> _groups;
-    final Boolean _allUsers;
-    final Boolean _allGroups;
-
-    public PolicyActors(final List<Urn> users, final List<Urn> groups, final Boolean allUsers, final Boolean allGroups) {
-      _users = users;
-      _groups = groups;
-      _allUsers = allUsers;
-      _allGroups = allGroups;
-    }
-
-    public List<Urn> getUsers() {
-      return _users;
-    }
-
-    public List<Urn> getGroups() {
-      return _groups;
-    }
-
-    public Boolean allUsers() {
-      return _allUsers;
-    }
-
-    public Boolean allGroups() {
-      return _allGroups;
-    }
+    List<Urn> users;
+    List<Urn> groups;
+    List<Urn> roles;
+    Boolean allUsers;
+    Boolean allGroups;
   }
 
   private List<Urn> userOwners(final Set<String> owners) {

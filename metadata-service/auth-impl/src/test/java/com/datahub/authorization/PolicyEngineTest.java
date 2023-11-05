@@ -1,6 +1,7 @@
 package com.datahub.authorization;
 
 import com.datahub.authentication.Authentication;
+import com.datastax.oss.driver.shaded.guava.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -1041,6 +1042,7 @@ public class PolicyEngineTest {
         Urn.createFromString("urn:li:corpuser:user2"))));
     actorFilter.setGroups(new UrnArray(ImmutableList.of(Urn.createFromString("urn:li:corpGroup:group1"),
         Urn.createFromString("urn:li:corpGroup:group2"))));
+    actorFilter.setRoles(new UrnArray(ImmutableList.of(Urn.createFromString("urn:li:role:Admin"))));
     dataHubPolicyInfo.setActors(actorFilter);
 
     final DataHubResourceFilter resourceFilter = new DataHubResourceFilter();
@@ -1067,6 +1069,8 @@ public class PolicyEngineTest {
     assertEquals(actors.getGroups(), ImmutableList.of(Urn.createFromString("urn:li:corpGroup:group1"),
         Urn.createFromString("urn:li:corpGroup:group2"), Urn.createFromString(AUTHORIZED_GROUP) // Resource Owner
     ));
+
+    assertEquals(actors.getRoles(), ImmutableList.of(Urn.createFromString("urn:li:role:Admin")));
 
     // Verify aspect client called, entity client not called.
     verify(_entityClient, times(0)).batchGetV2(eq(CORP_USER_ENTITY_NAME), eq(Collections.singleton(authorizedUserUrn)),
