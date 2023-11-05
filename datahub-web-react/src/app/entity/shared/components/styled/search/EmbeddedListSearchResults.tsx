@@ -3,7 +3,7 @@ import { Pagination, Typography } from 'antd';
 import styled from 'styled-components';
 import { FacetFilterInput, FacetMetadata, SearchResults as SearchResultType } from '../../../../../../types.generated';
 import { SearchCfg } from '../../../../../../conf';
-import { ReactComponent as LoadingSvg } from '../../../../../../images/datahub-logo-color-loading_pendulum.svg';
+import LoadingSvg from '../../../../../../images/datahub-logo-color-loading_pendulum.svg?react';
 import { EntityAndType } from '../../../types';
 import { UnionType } from '../../../../../search/utils/constants';
 import { SearchFiltersSection } from '../../../../../search/SearchFiltersSection';

@@ -3,7 +3,7 @@ import Editor, { loader } from '@monaco-editor/react';
 
 loader.config({
     paths: {
-        vs: `${process.env.PUBLIC_URL}/monaco-editor/vs`,
+        vs: `${import.meta.env.BASE_URL}/monaco-editor/vs`,
     },
 });
 
