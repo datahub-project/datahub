@@ -38,13 +38,28 @@ export default defineConfig(({ mode }) => {
                 targets: [
                     // Self-host images by copying them to the build directory
                     { src: path.resolve(__dirname, 'src/images/*'), dest: 'assets/platforms' },
-                    // Copy monaco-editor files to the build directory
-                    // { src: path.resolve(__dirname, 'node_modules/monaco-editor/min/vs/'), dest: 'monaco-editor/vs' },
-                    // {
-                    //     src: path.resolve(__dirname, 'node_modules/monaco-editor/min-maps/vs/'),
-                    //     dest: 'monaco-editor/min-maps/vs',
-                    // },
                 ],
+            }),
+            viteStaticCopy({
+                targets: [
+                    // Copy monaco-editor files to the build directory
+                    // Because of the structured option, specifying dest .
+                    // means that it will mirror the node_modules/... structure
+                    // in the build directory.
+                    {
+                        src: 'node_modules/monaco-editor/min/vs/',
+                        dest: '.',
+                    },
+                    {
+                        src: 'node_modules/monaco-editor/min-maps/vs/',
+                        dest: '.',
+                        rename: (name, ext, fullPath) => {
+                            console.log(name, ext, fullPath);
+                            return name;
+                        },
+                    },
+                ],
+                structured: true,
             }),
         ],
         optimizeDeps: {
