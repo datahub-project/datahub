@@ -21,6 +21,7 @@ if (mockServer !== 'true' && mockServer !== 'cy') {
     };
 }
 
+// https://vitejs.dev/config/
 export default defineConfig({
     plugins: [
         react(),
@@ -29,7 +30,7 @@ export default defineConfig({
         viteStaticCopy({
             targets: [
                 // Self-host images by copying them to the build directory
-                { src: path.resolve(__dirname, 'src/images'), dest: 'assets/assets/platforms' },
+                { src: path.resolve(__dirname, 'src/images/*'), dest: 'assets/platforms' },
                 // Copy monaco-editor files to the build directory
                 // { src: path.resolve(__dirname, 'node_modules/monaco-editor/min/vs/'), dest: 'monaco-editor/vs' },
                 // {
@@ -44,7 +45,7 @@ export default defineConfig({
     },
     envPrefix: 'REACT_APP_',
     build: {
-        outDir: 'build/yarn',
+        outDir: 'dist',
     },
     server: {
         open: false,

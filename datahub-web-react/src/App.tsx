@@ -93,7 +93,7 @@ const App: React.VFC = () => {
     const [dynamicThemeConfig, setDynamicThemeConfig] = useState<Theme>(defaultThemeConfig);
 
     useEffect(() => {
-        import(/* @vite-ignore */ `./conf/theme/${import.meta.env.REACT_APP_THEME_CONFIG}.json`).then((theme) => {
+        import(/* @vite-ignore */ `./conf/theme/${import.meta.env.REACT_APP_THEME_CONFIG}`).then((theme) => {
             setDynamicThemeConfig(theme);
         });
     }, []);
