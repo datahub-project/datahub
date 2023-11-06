@@ -96,7 +96,7 @@ export default function AdvancedFilters({
                 </FlexWrapper>
                 <FilterButtonsWrapper>
                     {showSaveViewButton && <SaveViewButton activeFilters={activeFilters} unionType={unionType} />}
-                    <TextButton disabled={onlyShowAdvancedFilters} type="text" onClick={showBasicFilters} marginTop={0}>
+                    <TextButton disabled={onlyShowAdvancedFilters} type="text" onClick={showBasicFilters} $marginTop={0}>
                         Basic Filters
                     </TextButton>
                 </FilterButtonsWrapper>

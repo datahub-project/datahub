@@ -20,8 +20,8 @@ type ViewBuilderDisplayState = {
     view?: DataHubView;
 };
 
-const TriangleIcon = styled(VscTriangleDown)<{ isOpen: boolean }>`
-    color: ${(props) => (props.isOpen ? props.theme.styles['primary-color'] : ANTD_GRAY_V2[10])};
+const TriangleIcon = styled(VscTriangleDown)<{ $isOpen: boolean }>`
+    color: ${(props) => (props.$isOpen ? props.theme.styles['primary-color'] : ANTD_GRAY_V2[10])};
 `;
 
 const DEFAULT_VIEW_BUILDER_DISPLAY_STATE = {
@@ -209,7 +209,7 @@ export const ViewSelect = ({ dropdownStyle = {} }: Props) => {
                 optionLabelProp="label"
                 bordered={false}
                 dropdownMatchSelectWidth={false}
-                suffixIcon={<TriangleIcon isOpen={isOpen} />}
+                suffixIcon={<TriangleIcon $isOpen={isOpen} />}
                 dropdownStyle={{
                     paddingBottom: 0,
                     ...dropdownStyle,
