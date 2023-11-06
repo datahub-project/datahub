@@ -84,7 +84,7 @@
         "yamljs": "^0.3.0"
     },
     "scripts": {
-        "analyze": "source-map-explorer 'dist/static/js/*.js'",
+        "analyze": "source-map-explorer 'dist/assets/*.js'",
         "start": "yarn run generate && REACT_APP_MOCK=false vite",
         "start:mock": "yarn run generate && REACT_APP_MOCK=true vite",
         "start:e2e": "REACT_APP_MOCK=cy PORT=3010 vite",

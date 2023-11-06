@@ -23,9 +23,9 @@ const BorderedSection = styled.div`
     border: solid ${ANTD_GRAY[4]} 0.5px;
 `;
 
-const StyledButton = styled(Button)<{ isSelected: boolean }>`
+const StyledButton = styled(Button)<{ $isSelected: boolean }>`
     ${(props) =>
-        props.isSelected &&
+        props.$isSelected &&
         `
         color: #1890ff;
         &:focus {
@@ -88,7 +88,7 @@ function RecipeBuilder(props: Props) {
                 <ButtonsWrapper>
                     <StyledButton
                         type="text"
-                        isSelected={isViewingForm}
+                        $isSelected={isViewingForm}
                         onClick={() => switchViews(true)}
                         data-testid="recipe-builder-form-button"
                     >
@@ -96,7 +96,7 @@ function RecipeBuilder(props: Props) {
                     </StyledButton>
                     <StyledButton
                         type="text"
-                        isSelected={!isViewingForm}
+                        $isSelected={!isViewingForm}
                         onClick={() => switchViews(false)}
                         data-testid="recipe-builder-yaml-button"
                     >
