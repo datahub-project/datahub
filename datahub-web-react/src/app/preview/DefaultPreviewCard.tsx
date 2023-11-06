@@ -268,7 +268,7 @@ export default function DefaultPreviewCard({
 
     return (
         <PreviewContainer data-testid={dataTestID} onMouseDown={onPreventMouseDown}>
-            <LeftColumn expandWidth={!shouldShowRightColumn}>
+            <LeftColumn key='left-column' expandWidth={!shouldShowRightColumn}>
                 <TitleContainer>
                     <PlatformContentView
                         platformName={platform}
@@ -370,7 +370,7 @@ export default function DefaultPreviewCard({
                 )}
             </LeftColumn>
             {shouldShowRightColumn && (
-                <RightColumn>
+                <RightColumn key='right-column'>
                     {topUsers && topUsers?.length > 0 && (
                         <>
                             <UserListContainer>
