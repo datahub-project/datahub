@@ -136,8 +136,6 @@ type Props = {
     hasKeySchema: boolean;
     showKeySchema: boolean;
     setShowKeySchema: (show: boolean) => void;
-    lastUpdated?: number | null;
-    lastObserved?: number | null;
     selectedVersion: string;
     versionList: Array<SemanticVersionStruct>;
     showSchemaAuditView: boolean;
@@ -157,8 +155,6 @@ export default function SchemaHeader({
     hasKeySchema,
     showKeySchema,
     setShowKeySchema,
-    lastUpdated,
-    lastObserved,
     selectedVersion,
     versionList,
     showSchemaAuditView,
