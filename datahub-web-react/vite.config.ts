@@ -62,9 +62,9 @@ export default defineConfig(({ mode }) => {
                 structured: true,
             }),
         ],
-        optimizeDeps: {
-            include: ['@ant-design/colors', '@ant-design/icons', 'lodash-es', '@ant-design/icons/es/icons'],
-        },
+        // optimizeDeps: {
+        //     include: ['@ant-design/colors', '@ant-design/icons', 'lodash-es', '@ant-design/icons/es/icons'],
+        // },
         envPrefix: 'REACT_APP_',
         build: {
             outDir: 'dist',
@@ -82,6 +82,18 @@ export default defineConfig(({ mode }) => {
                     // https://4x.ant.design/docs/react/customize-theme#Ant-Design-Less-variables
                     modifyVars: themeConfig.styles,
                 },
+            },
+        },
+        test: {
+            globals: true,
+            environment: 'jsdom',
+            setupFiles: './src/setupTests.ts',
+            css: true,
+            // reporters: ['verbose'],
+            coverage: {
+                reporter: ['text', 'json', 'html'],
+                include: ['src/**/*'],
+                exclude: [],
             },
         },
     };
