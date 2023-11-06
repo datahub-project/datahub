@@ -1,13 +1,16 @@
 import json
 import logging
 from datetime import datetime
-from typing import Dict, Iterable, Optional, Tuple
+from typing import Any, Generic, Iterable, List, Optional, Tuple, TypeVar
 
 from sqlalchemy import create_engine
+from sqlalchemy.engine import Row
+from typing_extensions import Protocol
 
 from datahub.emitter.aspect import ASPECT_MAP
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.serialization_helper import post_json_transform
+from datahub.ingestion.api.closeable import Closeable
 from datahub.ingestion.source.datahub.config import DataHubSourceConfig
 from datahub.ingestion.source.datahub.report import DataHubSourceReport
 from datahub.ingestion.source.sql.sql_config import SQLAlchemyConnectionConfig
@@ -18,6 +21,66 @@ logger = logging.getLogger(__name__)
 
 # Should work for at least mysql, mariadb, postgres
 DATETIME_FORMAT = "%Y-%m-%d %H:%M:%S.%f"
+
+
+class VersionOrderable(Protocol):
+    createdon: Any  # Should restrict to only orderable types
+    version: int
+
+
+ROW = TypeVar("ROW", bound=VersionOrderable)
+
+
+class VersionOrderer(Generic[ROW], Closeable):
+    """Orders rows by (createdon, version == 0).
+
+    That is, orders rows first by createdon, and for equal timestamps, puts version 0 rows last.
+    """
+
+    def __init__(self, enabled: bool):
+        # Stores all version 0 aspects for a given createdon timestamp
+        # Once we have emitted all aspects for a given timestamp, we can emit the version 0 aspects
+        # Guaranteeing that, for a given timestamp, we always ingest version 0 aspects last
+        self.queue: Optional[Tuple[datetime, List[ROW]]] = None
+        self.enabled = enabled
+
+    def __enter__(self) -> "VersionOrderer":
+        return self
+
+    def close(self) -> None:
+        if self.queue is not None:
+            logger.error(
+                "Did not properly close VersionOrderer, database aspects may be dropped."
+            )
+
+    def process_row(self, row: ROW) -> Iterable[ROW]:
+        if not self.enabled:
+            yield row
+            return
+
+        yield from self._attempt_queue_flush(row)
+        if row.version == 0:
+            self._add_to_queue(row)
+        else:
+            yield row
+
+    def _add_to_queue(self, row: ROW) -> None:
+        if self.queue is None:
+            self.queue = (row.createdon, [row])
+        else:
+            self.queue[1].append(row)
+
+    def _attempt_queue_flush(self, row: ROW) -> Iterable[ROW]:
+        if self.queue is None:
+            return
+
+        if row.createdon > self.queue[0]:
+            yield from self.flush_queue()
+
+    def flush_queue(self) -> Iterable[ROW]:
+        if self.queue is not None:
+            yield from self.queue[1]
+            self.queue = None
 
 
 class DataHubDatabaseReader:
@@ -40,13 +103,14 @@ class DataHubDatabaseReader:
         # Offset is generally 0, unless we repeat the same createdon twice
 
         # Ensures stable order, chronological per (urn, aspect)
-        # Version 0 last, only when createdon is the same. Otherwise relies on createdon order
+        # Relies on createdon order to reflect version order
+        # Ordering of entries with the same createdon is handled by VersionOrderer
         return f"""
-            SELECT urn, aspect, metadata, systemmetadata, createdon
+            SELECT urn, aspect, metadata, systemmetadata, createdon, version
             FROM {self.engine.dialect.identifier_preparer.quote(self.config.database_table_name)}
             WHERE createdon >= %(since_createdon)s
             {"" if self.config.include_all_versions else "AND version = 0"}
-            ORDER BY createdon, urn, aspect, CASE WHEN version = 0 THEN 1 ELSE 0 END, version
+            ORDER BY createdon, urn, aspect, version
             LIMIT %(limit)s
             OFFSET %(offset)s
         """
@@ -54,7 +118,10 @@ class DataHubDatabaseReader:
     def get_aspects(
         self, from_createdon: datetime, stop_time: datetime
     ) -> Iterable[Tuple[MetadataChangeProposalWrapper, datetime]]:
-        with self.engine.connect() as conn:
+        with (
+            self.engine.connect() as conn,
+            VersionOrderer[Row](enabled=self.config.include_all_versions) as orderer,
+        ):
             ts = from_createdon
             offset = 0
             while ts.timestamp() <= stop_time.timestamp():
@@ -69,34 +136,42 @@ class DataHubDatabaseReader:
                     return
 
                 for i, row in enumerate(rows):
-                    row_dict = row._asdict()
-                    mcp = self._parse_row(row_dict)
-                    if mcp:
-                        yield mcp, row_dict["createdon"]
+                    rows_to_emit = orderer.process_row(row)
+                    yield from self._emit_rows(rows_to_emit)
 
-                if ts == row_dict["createdon"]:
+                if ts == row.createdon:
                     offset += i
                 else:
-                    ts = row_dict["createdon"]
+                    ts = row.createdon
                     offset = 0
 
-    def _parse_row(self, d: Dict) -> Optional[MetadataChangeProposalWrapper]:
+            yield from self._emit_rows(orderer.flush_queue())
+
+    def _emit_rows(
+        self, rows: Iterable[Row]
+    ) -> Iterable[Tuple[MetadataChangeProposalWrapper, datetime]]:
+        for row in rows:
+            mcp = self._parse_row(row)
+            if mcp:
+                yield mcp, row.createdon
+
+    def _parse_row(self, row: Row) -> Optional[MetadataChangeProposalWrapper]:
         try:
-            json_aspect = post_json_transform(json.loads(d["metadata"]))
-            json_metadata = post_json_transform(json.loads(d["systemmetadata"] or "{}"))
+            json_aspect = post_json_transform(json.loads(row.metadata))
+            json_metadata = post_json_transform(json.loads(row.systemmetadata or "{}"))
             system_metadata = SystemMetadataClass.from_obj(json_metadata)
             return MetadataChangeProposalWrapper(
-                entityUrn=d["urn"],
-                aspect=ASPECT_MAP[d["aspect"]].from_obj(json_aspect),
+                entityUrn=row.urn,
+                aspect=ASPECT_MAP[row.aspect].from_obj(json_aspect),
                 systemMetadata=system_metadata,
                 changeType=ChangeTypeClass.UPSERT,
             )
         except Exception as e:
             logger.warning(
-                f"Failed to parse metadata for {d['urn']}: {e}", exc_info=True
+                f"Failed to parse metadata for {row.urn}: {e}", exc_info=True
             )
             self.report.num_database_parse_errors += 1
             self.report.database_parse_errors.setdefault(
                 str(e), LossyDict()
-            ).setdefault(d["aspect"], LossyList()).append(d["urn"])
+            ).setdefault(row.aspect, LossyList()).append(row.urn)
             return None
