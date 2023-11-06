@@ -275,11 +275,8 @@ export const HomePageHeader = () => {
                         viewsEnabled={viewsEnabled}
                         combineSiblings
                         showQuickFilters
-<<<<<<< HEAD
                         showViewAllResults
-=======
                         showCommandK
->>>>>>> e6fb13fec2c... Adding command k to search
                     />
                     {searchResultsToShow && searchResultsToShow.length > 0 && (
                         <SuggestionsContainer>
