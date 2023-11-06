@@ -17,7 +17,6 @@ import { SemanticVersionStruct } from '../../../../../../types.generated';
 import { toRelativeTimeString } from '../../../../../shared/time/timeUtils';
 import { ANTD_GRAY, REDESIGN_COLORS } from '../../../../shared/constants';
 import { navigateToVersionedDatasetUrl } from '../../../../shared/tabs/Dataset/Schema/utils/navigateToVersionedDatasetUrl';
-import SchemaTimeStamps from './SchemaTimeStamps';
 import getSchemaFilterFromQueryString from '../../../../shared/tabs/Dataset/Schema/utils/getSchemaFilterFromQueryString';
 
 const SchemaHeaderContainer = styled.div`
@@ -255,7 +254,6 @@ export default function SchemaHeader({
                     )}
                 </LeftButtonsGroup>
                 <RightButtonsGroup>
-                    <SchemaTimeStamps lastObserved={lastObserved} lastUpdated={lastUpdated} />
                     <Tooltip title={schemaAuditToggleText}>
                         <SchemaAuditButton
                             type="text"
