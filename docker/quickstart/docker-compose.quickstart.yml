@@ -300,7 +300,8 @@ services:
     ports:
     - ${DATAHUB_MAPPED_ZK_PORT:-2181}:2181
     volumes:
-    - zkdata:/var/lib/zookeeper
+    - zkdata:/var/lib/zookeeper/data
+    - zklogs:/var/lib/zookeeper/log
 version: '3.9'
 volumes:
   broker: null
@@ -308,3 +309,4 @@ volumes:
   mysqldata: null
   neo4jdata: null
   zkdata: null
+  zklogs: null

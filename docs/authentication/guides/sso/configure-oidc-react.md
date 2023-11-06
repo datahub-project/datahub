@@ -1,59 +1,201 @@
-# Overview
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+# OIDC Authentication
 
 The DataHub React application supports OIDC authentication built on top of the [Pac4j Play](https://github.com/pac4j/play-pac4j) library.
 This enables operators of DataHub to integrate with 3rd party identity providers like Okta, Google, Keycloak, & more to authenticate their users.
 
-When configured, OIDC auth will be enabled between clients of the DataHub UI & `datahub-frontend` server. Beyond this point is considered
-to be a secure environment and as such authentication is validated & enforced only at the "front door" inside datahub-frontend.
+## 1. Register an app with your Identity Provider
 
-:::caution
-Even if OIDC is configured the root user can still login without OIDC by going
-to `/login` URL endpoint. It is recommended that you don't use the default
-credentials by mounting a different file in the front end container. To do this
-please see [this guide](../jaas.md) to mount a custom user.props file for a JAAS authenticated deployment.
+<Tabs>
+<TabItem value="google" label="Google Identity">
+
+#### Create a project in the Google API Console
+
+Using an account linked to your organization, navigate to the [Google API Console](https://console.developers.google.com/) and select **New project**.
+Within this project, we will configure the OAuth2.0 screen and credentials.
+
+#### Create OAuth2.0 consent screen
+
+Navigate to **OAuth consent screen**. This is where you'll configure the screen your users see when attempting to
+log in to DataHub. Select **Internal** (if you only want your company users to have access) and then click **Create**.
+Note that in order to complete this step you should be logged into a Google account associated with your organization.
+
+Fill out the details in the App Information & Domain sections. Make sure the 'Application Home Page' provided matches where DataHub is deployed
+at your organization. Once you've completed this, **Save & Continue**.
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/sso/google-setup-1.png"/>
+</p>
+
+#### Configure the scopes
+
+Next, click **Add or Remove Scopes**. Select the following scope and click **Save & Continue**.
+
+- .../auth/userinfo.email
+- .../auth/userinfo.profile
+- openid
+
+</TabItem>
+<TabItem value="okta" label="Okta">
+
+#### Create an application in Okta Developer Console
+
+Log in to your Okta admin account & navigate to the developer console. Select **Applications**, then **Add Application**, the **Create New App** to create a new app.
+Select `Web` as the **Platform**, and `OpenID Connect` as the **Sign on method**.
+
+Click **Create** and name your application under **General Settings** and save.
+
+- **Login Redirect URI** : `https://your-datahub-domain.com/callback/oidc`.
+- **Logout Redirect URI**. `https://your-datahub-domain.com`
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/sso/okta-setup-2.png"/>
+</p>
+
+:::note Optional
+If you're enabling DataHub login as an Okta tile, you'll need to provide the **Initiate Login URI**. You
+can set if to `https://your-datahub-domain.com/authenticate`. If you're just testing locally, this can be `http://localhost:9002`.
 :::
 
-## Provider-Specific Guides
+</TabItem>
+<TabItem value="azure" label="Azure">
 
-1. [Configuring OIDC using Google](configure-oidc-react-google.md)
-2. [Configuring OIDC using Okta](configure-oidc-react-okta.md)
-3. [Configuring OIDC using Azure](configure-oidc-react-azure.md)
+#### Create an application registration in Microsoft Azure portal
 
-## Configuring OIDC in React
+Using an account linked to your organization, navigate to the [Microsoft Azure Portal](https://portal.azure.com). Select **App registrations**, then **New registration** to register a new app.
 
-### 1. Register an app with your Identity Provider
+Name your app registration and choose who can access your application.
 
-To configure OIDC in React, you will most often need to register yourself as a client with your identity provider (Google, Okta, etc). Each provider may
-have their own instructions. Provided below are links to examples for Okta, Google, Azure AD, & Keycloak.
+- **Redirect URI** : Select **Web** as type and enter `https://your-datahub-domain.com/callback/oidc`
 
-- [Registering an App in Okta](https://developer.okta.com/docs/guides/add-an-external-idp/openidconnect/main/)
-- [OpenID Connect in Google Identity](https://developers.google.com/identity/protocols/oauth2/openid-connect)
-- [OpenID Connect authentication with Azure Active Directory](https://docs.microsoft.com/en-us/azure/active-directory/fundamentals/auth-oidc)
-- [Keycloak - Securing Applications and Services Guide](https://www.keycloak.org/docs/latest/securing_apps/)
+Azure supports more than one redirect URI, so both can be configured at the same time from the **Authentication** tab once the registration is complete.
+At this point, your app registration should look like the following. Finally, click **Register**.
 
-During the registration process, you'll need to provide a login redirect URI to the identity provider. This tells the identity provider
-where to redirect to once they've authenticated the end user.
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/sso/azure-setup-app-registration.png"/>
+</p>
 
-By default, the URL will be constructed as follows:
+:::note Optional
+Once registration is done, you will land on the app registration **Overview** tab.  
+On the left-side navigation bar, click on **Authentication** under **Manage** and add extra redirect URIs if need be (if you want to support both local testing and Azure deployments). Finally, click **Save**.
 
-> "http://your-datahub-domain.com/callback/oidc"
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/sso/azure-setup-authentication.png"/>
+</p>
 
-For example, if you're hosted DataHub at `datahub.myorg.com`, this
-value would be `http://datahub.myorg.com/callback/oidc`. For testing purposes you can also specify localhost as the domain name
-directly: `http://localhost:9002/callback/oidc`
+:::
+
+#### Configure Certificates & secrets
+
+On the left-side navigation bar, click on **Certificates & secrets** under **Manage**.  
+Select **Client secrets**, then **New client secret**. Type in a meaningful description for your secret and select an expiry. Click the **Add** button when you are done.
+Copy the value of your newly create secret since Azure will never display its value afterwards.
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/sso/azure-setup-certificates-secrets.png"/>
+</p>
+
+#### Configure API permissions
+
+On the left-side navigation bar, click on **API permissions** under **Manage**. DataHub requires the following four Microsoft Graph APIs:
+
+- User.Read _(should be already configured)_
+- profile
+- email
+- openid
+
+Click on **Add a permission**, then from the **Microsoft APIs** tab select **Microsoft Graph**, then **Delegated permissions**. From the **OpenId permissions** category, select `email`, `openid`, `profile` and click **Add permissions**.
+
+At this point, you should be looking at a screen like the following:
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/sso/azure-setup-api-permissions.png"/>
+</p>
+
+</TabItem>
+</Tabs>
+
+## 2. Obtain Client Credentials & Discovery URL
 
 The goal of this step should be to obtain the following values, which will need to be configured before deploying DataHub:
 
-1. **Client ID** - A unique identifier for your application with the identity provider
-2. **Client Secret** - A shared secret to use for exchange between you and your identity provider
-3. **Discovery URL** - A URL where the OIDC API of your identity provider can be discovered. This should suffixed by
-   `.well-known/openid-configuration`. Sometimes, identity providers will not explicitly include this URL in their setup guides, though
-   this endpoint *will* exist as per the OIDC specification. For more info see http://openid.net/specs/openid-connect-discovery-1_0.html.
+- **Client ID** - A unique identifier for your application with the identity provider
+- **Client Secret** - A shared secret to use for exchange between you and your identity provider
+- **Discovery URL** - A URL where the OIDC API of your identity provider can be discovered. This should suffixed by
+  `.well-known/openid-configuration`. Sometimes, identity providers will not explicitly include this URL in their setup guides, though
+  this endpoint _will_ exist as per the OIDC specification. For more info see http://openid.net/specs/openid-connect-discovery-1_0.html.
 
+<Tabs>
 
-### 2. Configure DataHub Frontend Server
+<TabItem value="google" label="Google Identity">
 
-The second step to enabling OIDC involves configuring `datahub-frontend` to enable OIDC authentication with your Identity Provider.
+**Obtain Client Credentials**
+
+Navigate to the **Credentials** tab. Click **Create Credentials** & select **OAuth client ID** as the credential type.
+
+On the following screen, select **Web application** as your Application Type.
+Add the domain where DataHub is hosted to your 'Authorized Javascript Origins'.
+
+```
+https://your-datahub-domain.com
+```
+
+Add the domain where DataHub is hosted with the path `/callback/oidc` appended to 'Authorized Redirect URLs'. Finally, click **Create**
+
+```
+https://your-datahub-domain.com/callback/oidc
+```
+
+You will now receive a pair of values, a client id and a client secret. Bookmark these for the next step.
+
+</TabItem>
+<TabItem value="okta" label="Okta">
+
+**Obtain Client Credentials**
+
+After registering the app, you should see the client credentials. Bookmark the `Client id` and `Client secret` for the next step.
+
+**Obtain Discovery URI**
+
+On the same page, you should see an `Okta Domain`. Your OIDC discovery URI will be formatted as follows:
+
+```
+https://your-okta-domain.com/.well-known/openid-configuration
+```
+
+For example, `https://dev-33231928.okta.com/.well-known/openid-configuration`.
+
+At this point, you should be looking at a screen like the following:
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/sso/okta-setup-1.png"/>
+</p>
+
+</TabItem>
+<TabItem value="azure" label="Azure">
+
+**Obtain Application (Client) ID**
+
+On the left-side navigation bar, go back to the **Overview** tab. You should see the `Application (client) ID`. Save its value for the next step.
+
+**Obtain Discovery URI**
+
+On the same page, you should see a `Directory (tenant) ID`. Your OIDC discovery URI will be formatted as follows:
+
+```
+https://login.microsoftonline.com/{tenant ID}/v2.0/.well-known/openid-configuration
+```
+
+</TabItem>
+</Tabs>
+
+## 3. Configure DataHub Frontend Server
+
+### Docker
+
+The next step to enabling OIDC involves configuring `datahub-frontend` to enable OIDC authentication with your Identity Provider.
 
 To do so, you must update the `datahub-frontend` [docker.env](../../../../docker/datahub-frontend/env/docker.env) file with the
 values received from your identity provider:
@@ -67,22 +209,29 @@ AUTH_OIDC_DISCOVERY_URI=your-provider-discovery-url
 AUTH_OIDC_BASE_URL=your-datahub-url
 ```
 
-- `AUTH_OIDC_ENABLED`: Enable delegating authentication to OIDC identity provider
-- `AUTH_OIDC_CLIENT_ID`: Unique client id received from identity provider
-- `AUTH_OIDC_CLIENT_SECRET`: Unique client secret received from identity provider
-- `AUTH_OIDC_DISCOVERY_URI`: Location of the identity provider OIDC discovery API. Suffixed with `.well-known/openid-configuration`
-- `AUTH_OIDC_BASE_URL`: The base URL of your DataHub deployment, e.g. https://yourorgdatahub.com (prod) or http://localhost:9002 (testing)
-- `AUTH_SESSION_TTL_HOURS`: The length of time in hours before a user will be prompted to login again. Controls the actor cookie expiration time in the browser. Numeric value converted to hours, default 24.
-- `MAX_SESSION_TOKEN_AGE`: Determines the expiration time of a session token. Session tokens are stateless so this determines at what time a session token may no longer be used and a valid session token can be used until this time has passed. Accepts a valid relative Java date style String, default 24h.
+| Configuration           | Description                                                                                                                                                                                                                                                              | Default |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------- |
+| AUTH_OIDC_ENABLED       | Enable delegating authentication to OIDC identity provider                                                                                                                                                                                                               |         |
+| AUTH_OIDC_CLIENT_ID     | Unique client id received from identity provider                                                                                                                                                                                                                         |         |
+| AUTH_OIDC_CLIENT_SECRET | Unique client secret received from identity provider                                                                                                                                                                                                                     |         |
+| AUTH_OIDC_DISCOVERY_URI | Location of the identity provider OIDC discovery API. Suffixed with `.well-known/openid-configuration`                                                                                                                                                                   |         |
+| AUTH_OIDC_BASE_URL      | The base URL of your DataHub deployment, e.g. https://yourorgdatahub.com (prod) or http://localhost:9002 (testing)                                                                                                                                                       |         |
+| AUTH_SESSION_TTL_HOURS  | The length of time in hours before a user will be prompted to login again. Controls the actor cookie expiration time in the browser. Numeric value converted to hours.                                                                                                   | 24      |
+| MAX_SESSION_TOKEN_AGE   | Determines the expiration time of a session token. Session tokens are stateless so this determines at what time a session token may no longer be used and a valid session token can be used until this time has passed. Accepts a valid relative Java date style String. | 24h     |
 
 Providing these configs will cause DataHub to delegate authentication to your identity
 provider, requesting the "oidc email profile" scopes and parsing the "preferred_username" claim from
 the authenticated profile as the DataHub CorpUser identity.
 
+:::note
 
-> By default, the login callback endpoint exposed by DataHub will be located at `${AUTH_OIDC_BASE_URL}/callback/oidc`. This must **exactly** match the login redirect URL you've registered with your identity provider in step 1.
+By default, the login callback endpoint exposed by DataHub will be located at `${AUTH_OIDC_BASE_URL}/callback/oidc`. This must **exactly** match the login redirect URL you've registered with your identity provider in step 1.
 
-In kubernetes, you can add the above env variables in the values.yaml as follows.
+:::
+
+### Kubernetes
+
+In Kubernetes, you can add the above env variables in the `values.yaml` as follows.
 
 ```yaml
 datahub-frontend:
@@ -102,20 +251,21 @@ datahub-frontend:
 
 You can also package OIDC client secrets into a k8s secret by running
 
-```kubectl create secret generic datahub-oidc-secret --from-literal=secret=<<OIDC SECRET>>```
+```
+kubectl create secret generic datahub-oidc-secret --from-literal=secret=<<OIDC SECRET>>
+```
 
 Then set the secret env as follows.
 
 ```yaml
-    - name: AUTH_OIDC_CLIENT_SECRET
-      valueFrom:
-        secretKeyRef:
-          name: datahub-oidc-secret
-          key: secret
+- name: AUTH_OIDC_CLIENT_SECRET
+  valueFrom:
+    secretKeyRef:
+      name: datahub-oidc-secret
+      key: secret
 ```
 
-
-#### Advanced
+### Advanced OIDC Configurations
 
 You can optionally customize the flow further using advanced configurations. These allow
 you to specify the OIDC scopes requested, how the DataHub username is parsed from the claims returned by the identity provider, and how users and groups are extracted and provisioned from the OIDC claim set.
@@ -128,23 +278,15 @@ AUTH_OIDC_SCOPE=your-custom-scope
 AUTH_OIDC_CLIENT_AUTHENTICATION_METHOD=authentication-method
 ```
 
-- `AUTH_OIDC_USER_NAME_CLAIM`: The attribute that will contain the username used on the DataHub platform. By default, this is "email" provided
-  as part of the standard `email` scope.
-- `AUTH_OIDC_USER_NAME_CLAIM_REGEX`: A regex string used for extracting the username from the userNameClaim attribute. For example, if
-  the userNameClaim field will contain an email address, and we want to omit the domain name suffix of the email, we can specify a custom
-  regex to do so. (e.g. `([^@]+)`)
-- `AUTH_OIDC_SCOPE`: a string representing the scopes to be requested from the identity provider, granted by the end user. For more info,
-  see [OpenID Connect Scopes](https://auth0.com/docs/scopes/openid-connect-scopes).
-- `AUTH_OIDC_CLIENT_AUTHENTICATION_METHOD`: a string representing the token authentication method to use with the identity provider. Default value
-  is `client_secret_basic`, which uses HTTP Basic authentication. Another option is `client_secret_post`, which includes the client_id and secret_id
-  as form parameters in the HTTP POST request. For more info, see [OAuth 2.0 Client Authentication](https://darutk.medium.com/oauth-2-0-client-authentication-4b5f929305d4)
+| Configuration                          | Description                                                                                                                                                                                                                                                                                                                                                                                                                         | Default             |
+| -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------- |
+| AUTH_OIDC_USER_NAME_CLAIM              | The attribute that will contain the username used on the DataHub platform. By default, this is "email" providedas part of the standard `email` scope.                                                                                                                                                                                                                                                                               |                     |
+| AUTH_OIDC_USER_NAME_CLAIM_REGEX        | A regex string used for extracting the username from the userNameClaim attribute. For example, if the userNameClaim field will contain an email address, and we want to omit the domain name suffix of the email, we can specify a customregex to do so. (e.g. `([^@]+)`)                                                                                                                                                           |                     |
+| AUTH_OIDC_SCOPE                        | A string representing the scopes to be requested from the identity provider, granted by the end user. For more info, see [OpenID Connect Scopes](https://auth0.com/docs/scopes/openid-connect-scopes).                                                                                                                                                                                                                              |                     |
+| AUTH_OIDC_CLIENT_AUTHENTICATION_METHOD | a string representing the token authentication method to use with the identity provider. Default value is `client_secret_basic`, which uses HTTP Basic authentication. Another option is `client_secret_post`, which includes the client_id and secret_id as form parameters in the HTTP POST request. For more info, see [OAuth 2.0 Client Authentication](https://darutk.medium.com/oauth-2-0-client-authentication-4b5f929305d4) | client_secret_basic |
+| AUTH_OIDC_PREFERRED_JWS_ALGORITHM      | Can be used to select a preferred signing algorithm for id tokens. Examples include: `RS256` or `HS256`. If your IdP includes `none` before `RS256`/`HS256` in the list of signing algorithms, then this value **MUST** be set.                                                                                                                                                                                                     |                     |
 
-Additional OIDC Options:
-
-- `AUTH_OIDC_PREFERRED_JWS_ALGORITHM` - Can be used to select a preferred signing algorithm for id tokens. Examples include: `RS256` or `HS256`. If
-your IdP includes `none` before `RS256`/`HS256` in the list of signing algorithms, then this value **MUST** be set.
-
-##### User & Group Provisioning (JIT Provisioning)
+### User & Group Provisioning (JIT Provisioning)
 
 By default, DataHub will optimistically attempt to provision users and groups that do not already exist at the time of login.
 For users, we extract information like first name, last name, display name, & email to construct a basic user profile. If a groups claim is present,
@@ -160,26 +302,30 @@ AUTH_OIDC_EXTRACT_GROUPS_ENABLED=false
 AUTH_OIDC_GROUPS_CLAIM=<your-groups-claim-name>
 ```
 
-- `AUTH_OIDC_JIT_PROVISIONING_ENABLED`: Whether DataHub users & groups should be provisioned on login if they do not exist. Defaults to true.
-- `AUTH_OIDC_PRE_PROVISIONING_REQUIRED`: Whether the user should already exist in DataHub when they login, failing login if they are not. This is appropriate for situations in which users and groups are batch ingested and tightly controlled inside your environment. Defaults to false.
-- `AUTH_OIDC_EXTRACT_GROUPS_ENABLED`: Only applies if `AUTH_OIDC_JIT_PROVISIONING_ENABLED` is set to true. This determines whether we should attempt to extract a list of group names from a particular claim in the OIDC attributes. Note that if this is enabled, each login will re-sync group membership with the groups in your Identity Provider, clearing the group membership that has been assigned through the DataHub UI. Enable with care! Defaults to false.
-- `AUTH_OIDC_GROUPS_CLAIM`: Only applies if `AUTH_OIDC_EXTRACT_GROUPS_ENABLED` is set to true. This determines which OIDC claims will contain a list of string group names. Accepts multiple claim names with comma-separated values. I.e: `groups, teams, departments`. Defaults to 'groups'.
+| Configuration                       | Description                                                                                                                                                                                                                                                                                                                                                                                                      | Default |
+| ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
+| AUTH_OIDC_JIT_PROVISIONING_ENABLED  | Whether DataHub users & groups should be provisioned on login if they do not exist.                                                                                                                                                                                                                                                                                                                              | true    |
+| AUTH_OIDC_PRE_PROVISIONING_REQUIRED | Whether the user should already exist in DataHub when they login, failing login if they are not. This is appropriate for situations in which users and groups are batch ingested and tightly controlled inside your environment.                                                                                                                                                                                 | false   |
+| AUTH_OIDC_EXTRACT_GROUPS_ENABLED    | Only applies if `AUTH_OIDC_JIT_PROVISIONING_ENABLED` is set to true. This determines whether we should attempt to extract a list of group names from a particular claim in the OIDC attributes. Note that if this is enabled, each login will re-sync group membership with the groups in your Identity Provider, clearing the group membership that has been assigned through the DataHub UI. Enable with care! | false   |
+| AUTH_OIDC_GROUPS_CLAIM              | Only applies if `AUTH_OIDC_EXTRACT_GROUPS_ENABLED` is set to true. This determines which OIDC claims will contain a list of string group names. Accepts multiple claim names with comma-separated values. I.e: `groups, teams, departments`.                                                                                                                                                                     | groups  |
 
+## 4. Restart datahub-frontend-react
 
-Once configuration has been updated, `datahub-frontend-react` will need to be restarted to pick up the new environment variables:
+Once configured, restarting the `datahub-frontend-react` container will enable an indirect authentication flow in which DataHub delegates authentication to the specified identity provider.
 
 ```
 docker-compose -p datahub -f docker-compose.yml -f docker-compose.override.yml  up datahub-frontend-react
 ```
 
->Note that by default, enabling OIDC will *not* disable the dummy JAAS authentication path, which can be reached at the `/login`
+Navigate to your DataHub domain to see SSO in action.
+
+:::caution
+By default, enabling OIDC will _not_ disable the dummy JAAS authentication path, which can be reached at the `/login`
 route of the React app. To disable this authentication path, additionally specify the following config:
-> `AUTH_JAAS_ENABLED=false`
+`AUTH_JAAS_ENABLED=false`
+:::
 
-### Summary
-
-Once configured, deploying the `datahub-frontend-react` container will enable an indirect authentication flow in which DataHub delegates
-authentication to the specified identity provider.
+## Summary
 
 Once a user is authenticated by the identity provider, DataHub will extract a username from the provided claims
 and grant DataHub access to the user by setting a pair of session cookies.
@@ -196,44 +342,45 @@ A brief summary of the steps that occur when the user navigates to the React app
 7. DataHub sets session cookies for the newly authenticated user
 8. DataHub redirects the user to the homepage ("/")
 
-## FAQ
+## Troubleshooting
 
-**No users can log in. Instead, I get redirected to the login page with an error. What do I do?**
+<details>
+<summary>No users can log in. Instead, I get redirected to the login page with an error. What do I do?</summary>
 
 This can occur for a variety of reasons, but most often it is due to misconfiguration of Single-Sign On, either on the DataHub
-side or on the Identity Provider side. 
+side or on the Identity Provider side.
 
-First, verify that all values are consistent across them (e.g. the host URL where DataHub is deployed), and that no values
-are misspelled (client id, client secret). 
+- Verify that all values are consistent across them (e.g. the host URL where DataHub is deployed), and that no values are misspelled (client id, client secret).
+- Verify that the scopes requested are supported by your Identity Provider and that the claim (i.e. attribute) DataHub uses for uniquely identifying the user is supported by your Identity Provider (refer to Identity Provider OpenID Connect documentation). By default, this claim is `email`.
+- Make sure the Discovery URI you've configured (`AUTH_OIDC_DISCOVERY_URI`) is accessible where the datahub-frontend container is running. You can do this by issuing a basic CURL to the address (**Pro-Tip**: you may also visit the address in your browser to check more specific details about your Identity Provider).
+- Check the container logs for the `datahub-frontend` container. This should hopefully provide some additional context around why exactly the login handoff is not working.
 
-Next, verify that the scopes requested are supported by your Identity Provider
-and that the claim (i.e. attribute) DataHub uses for uniquely identifying the user is supported by your Identity Provider (refer to Identity Provider OpenID Connect documentation). By default, this claim is `email`. 
+If all else fails, feel free to reach out to the DataHub Community on Slack for real-time support.
 
-Then, make sure the Discovery URI you've configured (`AUTH_OIDC_DISCOVERY_URI`) is accessible where the datahub-frontend container is running. You
-can do this by issuing a basic CURL to the address (**Pro-Tip**: you may also visit the address in your browser to check more specific details about your Identity Provider). 
+</details>
 
-Finally, check the container logs for the `datahub-frontend` container. This should hopefully provide some additional context
-around why exactly the login handoff is not working. 
-
-If all else fails, feel free to reach out to the DataHub Community on Slack for
-real-time support 
-
-
-
-**I'm seeing an error in the `datahub-frontend` logs when a user tries to login**
-```shell
-Caused by: java.lang.RuntimeException: Failed to resolve user name claim from profile provided by Identity Provider. Missing attribute. Attribute: 'email', Regex: '(.*)', Profile: { ...
-```
-**what do I do?**
+<details>
+<summary>
+I'm seeing an error in the `datahub-frontend` logs when a user tries to login: Caused by: java.lang.RuntimeException: Failed to resolve user name claim from profile provided by Identity Provider. Missing attribute. Attribute: 'email', Regex: '(.*)', Profile: &#123; ....
+</summary>
 
 This indicates that your Identity Provider does not provide the claim with name 'email', which DataHub
 uses by default to uniquely identify users within your organization.
 
-To fix this, you may need to 
+To fix this, you may need to
 
-1. Change the claim that is used as the unique user identifier to something else by changing the `AUTH_OIDC_USER_NAME_CLAIM` (e.g. to "name" or "preferred_username") _OR_
+1. Change the claim that is used as the unique user identifier to something else by changing the `AUTH_OIDC_USER_NAME_CLAIM` (e.g. to "name" or "preferred*username") \_OR*
 2. Change the environment variable `AUTH_OIDC_SCOPE` to include the scope required to retrieve the claim with name "email"
 
-For the `datahub-frontend` container / pod. 
+For the `datahub-frontend` container / pod.
 
-**Pro-Tip**: Check the documentation for your Identity Provider to learn more about the scope claims supported.
+</details>
+
+## Reference
+
+Check the documentation for your Identity Provider to learn more about the scope claims supported.
+
+- [Registering an App in Okta](https://developer.okta.com/docs/guides/add-an-external-idp/openidconnect/main/)
+- [OpenID Connect in Google Identity](https://developers.google.com/identity/protocols/oauth2/openid-connect)
+- [OpenID Connect authentication with Azure Active Directory](https://docs.microsoft.com/en-us/azure/active-directory/fundamentals/auth-oidc)
+- [Keycloak - Securing Applications and Services Guide](https://www.keycloak.org/docs/latest/securing_apps/)

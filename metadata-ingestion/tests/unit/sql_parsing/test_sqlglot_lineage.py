@@ -675,6 +675,37 @@ create table demo_user.test_lineage2 as
     )
 
 
+def test_teradata_strange_operators():
+    # This is a test for the following operators:
+    # - `SEL` (select)
+    # - `EQ` (equals)
+    # - `MINUS` (except)
+    assert_sql_result(
+        """
+sel col1, col2 from dbc.table1
+where col1 eq 'value1'
+minus
+select col1, col2 from dbc.table2
+""",
+        dialect="teradata",
+        default_schema="dbc",
+        expected_file=RESOURCE_DIR / "test_teradata_strange_operators.json",
+    )
+
+
+@pytest.mark.skip("sqlglot doesn't support this cast syntax yet")
+def test_teradata_cast_syntax():
+    assert_sql_result(
+        """
+SELECT my_table.date_col MONTH(4) AS month_col
+FROM my_table
+""",
+        dialect="teradata",
+        default_schema="dbc",
+        expected_file=RESOURCE_DIR / "test_teradata_cast_syntax.json",
+    )
+
+
 def test_snowflake_update_hardcoded():
     assert_sql_result(
         """
