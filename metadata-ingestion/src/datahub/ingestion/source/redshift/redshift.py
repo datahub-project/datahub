@@ -1,5 +1,6 @@
 import logging
 from collections import defaultdict
+from functools import partial
 from typing import Dict, Iterable, List, Optional, Type, Union
 
 import humanfriendly
@@ -25,6 +26,7 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
+from datahub.ingestion.api.incremental_lineage_helper import auto_incremental_lineage
 from datahub.ingestion.api.source import (
     CapabilityReport,
     MetadataWorkUnitProcessor,
@@ -216,6 +218,9 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
     ] = {
         "BYTES": BytesType,
         "BOOL": BooleanType,
+        "BOOLEAN": BooleanType,
+        "DOUBLE": NumberType,
+        "DOUBLE PRECISION": NumberType,
         "DECIMAL": NumberType,
         "NUMERIC": NumberType,
         "BIGNUMERIC": NumberType,
@@ -242,6 +247,13 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
         "CHARACTER": StringType,
         "CHAR": StringType,
         "TIMESTAMP WITHOUT TIME ZONE": TimeType,
+        "REAL": NumberType,
+        "VARCHAR": StringType,
+        "TIMESTAMPTZ": TimeType,
+        "GEOMETRY": NullType,
+        "HLLSKETCH": NullType,
+        "TIMETZ": TimeType,
+        "VARBYTE": StringType,
     }
 
     def get_platform_instance_id(self) -> str:
@@ -369,6 +381,11 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
         return [
             *super().get_workunit_processors(),
+            partial(
+                auto_incremental_lineage,
+                self.ctx.graph,
+                self.config.incremental_lineage,
+            ),
             StaleEntityRemovalHandler.create(
                 self, self.config, self.ctx
             ).workunit_processor,
@@ -881,6 +898,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
         self.lineage_extractor = RedshiftLineageExtractor(
             config=self.config,
             report=self.report,
+            context=self.ctx,
             redundant_run_skip_handler=self.redundant_lineage_run_skip_handler,
         )
 
@@ -941,7 +959,9 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                 )
                 if lineage_info:
                     yield from gen_lineage(
-                        dataset_urn, lineage_info, self.config.incremental_lineage
+                        dataset_urn,
+                        lineage_info,
+                        incremental_lineage=False,  # incremental lineage generation is taken care by auto_incremental_lineage
                     )
 
         for schema in self.db_views[database]:
@@ -955,7 +975,9 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                 )
                 if lineage_info:
                     yield from gen_lineage(
-                        dataset_urn, lineage_info, self.config.incremental_lineage
+                        dataset_urn,
+                        lineage_info,
+                        incremental_lineage=False,  # incremental lineage generation is taken care by auto_incremental_lineage
                     )
 
     def add_config_to_report(self):

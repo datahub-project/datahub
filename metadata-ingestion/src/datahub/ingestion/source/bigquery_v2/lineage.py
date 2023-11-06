@@ -20,6 +20,7 @@ import humanfriendly
 from google.cloud.datacatalog import lineage_v1
 from google.cloud.logging_v2.client import Client as GCPLoggingClient
 
+from datahub.configuration.pattern_utils import is_schema_allowed
 from datahub.emitter import mce_builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -548,7 +549,7 @@ class BigqueryLineageExtractor:
         # handle the case where the read happens within our time range but the query
         # completion event is delayed and happens after the configured end time.
         corrected_start_time = self.start_time - self.config.max_query_duration
-        corrected_end_time = self.end_time + -self.config.max_query_duration
+        corrected_end_time = self.end_time + self.config.max_query_duration
         self.report.log_entry_start_time = corrected_start_time
         self.report.log_entry_end_time = corrected_end_time
 
@@ -683,8 +684,11 @@ class BigqueryLineageExtractor:
                 self.report.num_skipped_lineage_entries_missing_data[e.project_id] += 1
                 continue
 
-            if not self.config.dataset_pattern.allowed(
-                destination_table.table_identifier.dataset
+            if not is_schema_allowed(
+                self.config.dataset_pattern,
+                destination_table.table_identifier.dataset,
+                destination_table.table_identifier.project_id,
+                self.config.match_fully_qualified_names,
             ) or not self.config.table_pattern.allowed(
                 destination_table.table_identifier.get_table_name()
             ):

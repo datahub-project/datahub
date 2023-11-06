@@ -37,10 +37,10 @@ record DataHubIngestionSourceInfo {
   * Parameters associated with the Ingestion Source
   */
   config: record DataHubIngestionSourceConfig {
-    /**
-     * The JSON recipe to use for ingestion
-     */
-     recipe: string
+     /**
+      * The JSON recipe to use for ingestion
+      */
+      recipe: string
 
      /**
       * The PyPI version of the datahub CLI to use when executing a recipe
@@ -56,5 +56,10 @@ record DataHubIngestionSourceInfo {
       * Whether or not to run this ingestion source in debug mode
       */
       debugMode: optional boolean
+
+     /**
+      * Extra arguments for the ingestion run.
+      */
+      extraArgs: optional map[string, string]
   }
 }

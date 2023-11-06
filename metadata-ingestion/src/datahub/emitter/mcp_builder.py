@@ -1,11 +1,11 @@
-import hashlib
-import json
-from typing import Any, Dict, Iterable, List, Optional, TypeVar
+from typing import Dict, Iterable, List, Optional, Type, TypeVar
 
 from pydantic.fields import Field
 from pydantic.main import BaseModel
 
 from datahub.emitter.mce_builder import (
+    Aspect,
+    datahub_guid,
     make_container_urn,
     make_data_platform_urn,
     make_dataplatform_instance_urn,
@@ -19,6 +19,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.common import (
 )
 from datahub.metadata.com.linkedin.pegasus2avro.container import ContainerProperties
 from datahub.metadata.schema_classes import (
+    KEY_ASPECTS,
     ContainerClass,
     DomainsClass,
     EmbedClass,
@@ -33,24 +34,13 @@ from datahub.metadata.schema_classes import (
 )
 
 
-def _stable_guid_from_dict(d: dict) -> str:
-    json_key = json.dumps(
-        d,
-        separators=(",", ":"),
-        sort_keys=True,
-        cls=DatahubKeyJSONEncoder,
-    )
-    md5_hash = hashlib.md5(json_key.encode("utf-8"))
-    return str(md5_hash.hexdigest())
-
-
 class DatahubKey(BaseModel):
     def guid_dict(self) -> Dict[str, str]:
         return self.dict(by_alias=True, exclude_none=True)
 
     def guid(self) -> str:
         bag = self.guid_dict()
-        return _stable_guid_from_dict(bag)
+        return datahub_guid(bag)
 
 
 class ContainerKey(DatahubKey):
@@ -106,7 +96,15 @@ class MetastoreKey(ContainerKey):
     metastore: str
 
 
-class CatalogKey(MetastoreKey):
+class CatalogKeyWithMetastore(MetastoreKey):
+    catalog: str
+
+
+class UnitySchemaKeyWithMetastore(CatalogKeyWithMetastore):
+    unity_schema: str
+
+
+class CatalogKey(ContainerKey):
     catalog: str
 
 
@@ -135,15 +133,6 @@ class NotebookKey(DatahubKey):
         return make_dataset_urn_with_platform_instance(
             platform=self.platform, platform_instance=self.instance, name=self.guid()
         )
-
-
-class DatahubKeyJSONEncoder(json.JSONEncoder):
-    # overload method default
-    def default(self, obj: Any) -> Any:
-        if hasattr(obj, "guid"):
-            return obj.guid()
-        # Call the default method for other types
-        return json.JSONEncoder.default(self, obj)
 
 
 KeyType = TypeVar("KeyType", bound=ContainerKey)
@@ -319,3 +308,12 @@ def create_embed_mcp(urn: str, embed_url: str) -> MetadataChangeProposalWrapper:
         entityUrn=urn,
         aspect=EmbedClass(renderUrl=embed_url),
     )
+
+
+def entity_supports_aspect(entity_type: str, aspect_type: Type[Aspect]) -> bool:
+    entity_key_aspect = KEY_ASPECTS[entity_type]
+    aspect_name = aspect_type.get_aspect_name()
+
+    supported_aspects = entity_key_aspect.ASPECT_INFO["entityAspects"]
+
+    return aspect_name in supported_aspects

@@ -10,6 +10,7 @@ from databricks.sdk.service.catalog import (
     CatalogType,
     ColumnTypeName,
     DataSourceFormat,
+    SecurableType,
     TableType,
 )
 from databricks.sdk.service.sql import QueryStatementType
@@ -92,7 +93,7 @@ class Metastore(CommonProperty):
 
 @dataclass
 class Catalog(CommonProperty):
-    metastore: Metastore
+    metastore: Optional[Metastore]
     owner: Optional[str]
     type: CatalogType
 
@@ -130,7 +131,7 @@ class ServicePrincipal:
 
 @dataclass(frozen=True, order=True)
 class TableReference:
-    metastore: str
+    metastore: Optional[str]
     catalog: str
     schema: str
     table: str
@@ -138,17 +139,21 @@ class TableReference:
     @classmethod
     def create(cls, table: "Table") -> "TableReference":
         return cls(
-            table.schema.catalog.metastore.id,
+            table.schema.catalog.metastore.id
+            if table.schema.catalog.metastore
+            else None,
             table.schema.catalog.name,
             table.schema.name,
             table.name,
         )
 
     @classmethod
-    def create_from_lineage(cls, d: dict, metastore: str) -> Optional["TableReference"]:
+    def create_from_lineage(
+        cls, d: dict, metastore: Optional[Metastore]
+    ) -> Optional["TableReference"]:
         try:
             return cls(
-                metastore,
+                metastore.id if metastore else None,
                 d["catalog_name"],
                 d["schema_name"],
                 d.get("table_name", d["name"]),  # column vs table query output
@@ -158,7 +163,10 @@ class TableReference:
             return None
 
     def __str__(self) -> str:
-        return f"{self.metastore}.{self.catalog}.{self.schema}.{self.table}"
+        if self.metastore:
+            return f"{self.metastore}.{self.catalog}.{self.schema}.{self.table}"
+        else:
+            return self.qualified_table_name
 
     @property
     def qualified_table_name(self) -> str:
@@ -167,6 +175,35 @@ class TableReference:
     @property
     def external_path(self) -> str:
         return f"{self.catalog}/{self.schema}/{self.table}"
+
+
+@dataclass(frozen=True, order=True)
+class ExternalTableReference:
+    path: str
+    has_permission: bool
+    name: Optional[str]
+    type: Optional[SecurableType]
+    storage_location: Optional[str]
+
+    @classmethod
+    def create_from_lineage(cls, d: dict) -> Optional["ExternalTableReference"]:
+        try:
+            securable_type: Optional[SecurableType]
+            try:
+                securable_type = SecurableType(d.get("securable_type", "").lower())
+            except ValueError:
+                securable_type = None
+
+            return cls(
+                path=d["path"],
+                has_permission=d.get("has_permission") or True,
+                name=d.get("securable_name"),
+                type=securable_type,
+                storage_location=d.get("storage_location"),
+            )
+        except Exception as e:
+            logger.warning(f"Failed to create ExternalTableReference from {d}: {e}")
+            return None
 
 
 @dataclass
@@ -186,6 +223,7 @@ class Table(CommonProperty):
     view_definition: Optional[str]
     properties: Dict[str, str]
     upstreams: Dict[TableReference, Dict[str, List[str]]] = field(default_factory=dict)
+    external_upstreams: Set[ExternalTableReference] = field(default_factory=set)
     upstream_notebooks: Set[NotebookId] = field(default_factory=set)
     downstream_notebooks: Set[NotebookId] = field(default_factory=set)
 

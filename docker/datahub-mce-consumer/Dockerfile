@@ -1,7 +1,7 @@
 # Defining environment
 ARG APP_ENV=prod
 
-FROM golang:1-alpine3.17 AS binary
+FROM golang:1-alpine3.18 AS binary
 
 ENV DOCKERIZE_VERSION v0.6.1
 WORKDIR /go/src/github.com/jwilder
@@ -18,7 +18,7 @@ FROM alpine:3 AS base
 ENV JMX_VERSION=0.18.0
 # PFP-260: Upgrade Sqlite to >=3.28.0-r0 to fix https://security.snyk.io/vuln/SNYK-ALPINE39-SQLITE-449762
 RUN apk --no-cache --update-cache --available upgrade \
-    && apk --no-cache add curl bash sqlite \
+    && apk --no-cache add curl bash sqlite libc6-compat java-snappy \
     && apk --no-cache add openjdk11-jre --repository=http://dl-cdn.alpinelinux.org/alpine/edge/community \
     && apk --no-cache add jattach --repository http://dl-cdn.alpinelinux.org/alpine/edge/community/ \
     && wget --no-verbose https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/download/v1.24.0/opentelemetry-javaagent.jar \
@@ -32,6 +32,8 @@ COPY metadata-models/src/main/resources/entity-registry.yml /datahub/datahub-mce
 COPY docker/datahub-mce-consumer/start.sh /datahub/datahub-mce-consumer/scripts/
 COPY docker/monitoring/client-prometheus-config.yaml /datahub/datahub-mce-consumer/scripts/prometheus-config.yaml
 RUN chmod +x /datahub/datahub-mce-consumer/scripts/start.sh
+
+ENV LD_LIBRARY_PATH="/lib:/lib64"
 
 FROM base as dev-install
 # Dummy stage for development. Assumes code is built on your machine and mounted to this image.

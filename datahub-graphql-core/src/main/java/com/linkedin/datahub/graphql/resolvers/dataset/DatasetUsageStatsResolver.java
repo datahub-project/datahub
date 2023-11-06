@@ -1,6 +1,6 @@
 package com.linkedin.datahub.graphql.resolvers.dataset;
 
-import com.datahub.authorization.ResourceSpec;
+import com.datahub.authorization.EntitySpec;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -52,7 +52,7 @@ public class DatasetUsageStatsResolver implements DataFetcher<CompletableFuture<
 
   private boolean isAuthorized(final Urn resourceUrn, final QueryContext context) {
     return AuthorizationUtils.isAuthorized(context,
-        Optional.of(new ResourceSpec(resourceUrn.getEntityType(), resourceUrn.toString())),
+        Optional.of(new EntitySpec(resourceUrn.getEntityType(), resourceUrn.toString())),
         PoliciesConfig.VIEW_DATASET_USAGE_PRIVILEGE);
   }
 }
