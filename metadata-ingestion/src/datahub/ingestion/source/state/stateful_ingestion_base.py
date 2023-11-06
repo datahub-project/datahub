@@ -1,6 +1,6 @@
 import logging
 from dataclasses import dataclass
-from typing import Any, Dict, Generic, Optional, Type, TypeVar, cast
+from typing import Any, Dict, Generic, Optional, Type, TypeVar
 
 import pydantic
 from pydantic import root_validator
@@ -38,10 +38,8 @@ class DynamicTypedStateProviderConfig(DynamicTypedConfig):
     type: str = Field(
         description="The type of the state provider to use. For DataHub use `datahub`",
     )
-    # This config type is declared Optional[Any] here. The eventual parser for the
-    # specified type is responsible for further validation.
-    config: Optional[Any] = Field(
-        default=None,
+    config: Dict[str, Any] = Field(
+        default={},
         description="The configuration required for initializing the state provider. Default: The datahub_api config if set at pipeline level. Otherwise, the default DatahubClientConfig. See the defaults (https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/src/datahub/ingestion/graph/client.py#L19).",
     )
 
@@ -81,7 +79,7 @@ class StatefulIngestionConfig(ConfigModel):
         if values.get("enabled"):
             if values.get("state_provider") is None:
                 values["state_provider"] = DynamicTypedStateProviderConfig(
-                    type="datahub", config=None
+                    type="datahub"
                 )
         return values
 
@@ -246,15 +244,10 @@ class StateProviderWrapper:
                     f"Cannot find checkpoint provider class of type={self.stateful_ingestion_config.state_provider.type} "
                     " in the registry! Please check the type of the checkpointing provider in your config."
                 )
-            config_dict: Dict[str, Any] = cast(
-                Dict[str, Any],
-                self.stateful_ingestion_config.state_provider.dict().get("config", {}),
-            )
             self.ingestion_checkpointing_state_provider = (
                 checkpointing_state_provider_class.create(
-                    config_dict=config_dict,
+                    config_dict=self.stateful_ingestion_config.state_provider.config,
                     ctx=self.ctx,
-                    name=checkpointing_state_provider_class.__name__,
                 )
             )
             assert self.ingestion_checkpointing_state_provider

@@ -17,15 +17,25 @@ logger = logging.getLogger(__name__)
 
 
 class DatahubIngestionStateProviderConfig(IngestionCheckpointingProviderConfig):
-    datahub_api: Optional[DatahubClientConfig] = DatahubClientConfig()
+    datahub_api: DatahubClientConfig = DatahubClientConfig()
 
 
 class DatahubIngestionCheckpointingProvider(IngestionCheckpointingProviderBase):
     orchestrator_name: str = "datahub"
 
-    def __init__(self, graph: DataHubGraph, name: str):
-        super().__init__(name)
-        self.graph = graph
+    def __init__(
+        self,
+        config: DatahubIngestionStateProviderConfig,
+        graph: Optional[DataHubGraph] = None,
+    ):
+        super().__init__(self.__class__.__name__)
+
+        if graph:
+            # Use the pipeline-level graph if set
+            self.graph = graph
+        else:
+            self.graph = DataHubGraph(config.datahub_api)
+
         if not self._is_server_stateful_ingestion_capable():
             raise ConfigurationError(
                 "Datahub server is not capable of supporting stateful ingestion."
@@ -34,24 +44,10 @@ class DatahubIngestionCheckpointingProvider(IngestionCheckpointingProviderBase):
 
     @classmethod
     def create(
-        cls, config_dict: Dict[str, Any], ctx: PipelineContext, name: str
+        cls, config_dict: Dict[str, Any], ctx: PipelineContext
     ) -> "DatahubIngestionCheckpointingProvider":
-        if ctx.graph:
-            # Use the pipeline-level graph if set
-            return cls(ctx.graph, name)
-        elif config_dict is None:
-            raise ConfigurationError("Missing provider configuration.")
-        else:
-            provider_config = (
-                DatahubIngestionStateProviderConfig.parse_obj_allow_extras(config_dict)
-            )
-            if provider_config.datahub_api:
-                graph = DataHubGraph(provider_config.datahub_api)
-                return cls(graph, name)
-            else:
-                raise ConfigurationError(
-                    "Missing datahub_api. Provide either a global one or under the state_provider."
-                )
+        config = DatahubIngestionStateProviderConfig.parse_obj(config_dict)
+        return cls(config, ctx.graph)
 
     def _is_server_stateful_ingestion_capable(self) -> bool:
         server_config = self.graph.get_config() if self.graph else None

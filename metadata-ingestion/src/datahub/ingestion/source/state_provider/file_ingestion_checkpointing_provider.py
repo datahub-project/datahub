@@ -3,7 +3,6 @@ import pathlib
 from datetime import datetime
 from typing import Any, Dict, List, Optional, cast
 
-from datahub.configuration.common import ConfigurationError
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.ingestion_job_checkpointing_provider_base import (
@@ -19,33 +18,22 @@ logger = logging.getLogger(__name__)
 
 
 class FileIngestionStateProviderConfig(IngestionCheckpointingProviderConfig):
-    filename: Optional[str] = None
+    filename: str
 
 
 class FileIngestionCheckpointingProvider(IngestionCheckpointingProviderBase):
     orchestrator_name: str = "file"
 
-    def __init__(self, filename: str, name: str):
-        super().__init__(name)
-        self.filename = filename
-        self.committed = False
+    def __init__(self, config: FileIngestionStateProviderConfig):
+        super().__init__(self.__class__.__name__)
+        self.config = config
 
     @classmethod
     def create(
-        cls, config_dict: Dict[str, Any], ctx: PipelineContext, name: str
+        cls, config_dict: Dict[str, Any], ctx: PipelineContext
     ) -> "FileIngestionCheckpointingProvider":
-        if config_dict is None:
-            raise ConfigurationError("Missing provider configuration.")
-        else:
-            provider_config = FileIngestionStateProviderConfig.parse_obj_allow_extras(
-                config_dict
-            )
-            if provider_config.filename:
-                return cls(provider_config.filename, name)
-            else:
-                raise ConfigurationError(
-                    "Missing filename. Provide filename under the state_provider configuration."
-                )
+        config = FileIngestionStateProviderConfig.parse_obj(config_dict)
+        return cls(config)
 
     def get_latest_checkpoint(
         self,
@@ -62,19 +50,20 @@ class FileIngestionCheckpointingProvider(IngestionCheckpointingProviderBase):
         )
         latest_checkpoint: Optional[DatahubIngestionCheckpointClass] = None
         try:
-            for obj in read_metadata_file(pathlib.Path(self.filename)):
-                if isinstance(obj, MetadataChangeProposalWrapper) and obj.aspect:
-                    if (
-                        obj.entityUrn == data_job_urn
-                        and isinstance(obj.aspect, DatahubIngestionCheckpointClass)
-                        and obj.aspect.get("pipelineName", "") == pipeline_name
-                    ):
-                        latest_checkpoint = cast(
-                            Optional[DatahubIngestionCheckpointClass], obj.aspect
-                        )
-                        break
+            for obj in read_metadata_file(pathlib.Path(self.config.filename)):
+                if (
+                    isinstance(obj, MetadataChangeProposalWrapper)
+                    and obj.entityUrn == data_job_urn
+                    and obj.aspect
+                    and isinstance(obj.aspect, DatahubIngestionCheckpointClass)
+                    and obj.aspect.get("pipelineName", "") == pipeline_name
+                ):
+                    latest_checkpoint = cast(
+                        Optional[DatahubIngestionCheckpointClass], obj.aspect
+                    )
+                    break
         except FileNotFoundError:
-            logger.debug(f"File {self.filename} not found")
+            logger.debug(f"File {self.config.filename} not found")
 
         if latest_checkpoint:
             logger.debug(
@@ -114,7 +103,7 @@ class FileIngestionCheckpointingProvider(IngestionCheckpointingProviderBase):
                     aspect=checkpoint,
                 )
             )
-        write_metadata_file(pathlib.Path(self.filename), checkpoint_workunits)
+        write_metadata_file(pathlib.Path(self.config.filename), checkpoint_workunits)
         self.committed = True
         logger.debug(
             f"Committed all ingestion checkpoints for pipeline:'{checkpoint.pipelineName}'"
