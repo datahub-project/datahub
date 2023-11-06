@@ -94,7 +94,7 @@ def default_query_results(  # noqa: C901
                 "name": "VIEW_{}".format(view_idx),
                 "created_on": datetime(2021, 6, 8, 0, 0, 0, 0),
                 "comment": "Comment for View",
-                "text": None,
+                "text": f"create view view_{view_idx} as select * from table_{view_idx}",
             }
             for view_idx in range(1, num_views + 1)
         ]
@@ -565,5 +565,4 @@ def default_query_results(  # noqa: C901
                 "DOMAIN": "DATABASE",
             },
         ]
-    # Unreachable code
-    raise Exception(f"Unknown query {query}")
+    raise ValueError(f"Unexpected query: {query}")

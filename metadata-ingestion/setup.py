@@ -32,13 +32,12 @@ framework_common = {
     "expandvars>=0.6.5",
     "avro-gen3==0.7.11",
     # "avro-gen3 @ git+https://github.com/acryldata/avro_gen@master#egg=avro-gen3",
-    "avro>=1.10.2,<1.11",
+    "avro>=1.11.3,<1.12",
     "python-dateutil>=2.8.0",
     "tabulate",
     "progressbar2",
     "termcolor>=1.0.0",
     "psutil>=5.8.0",
-    "ratelimiter",
     "Deprecated",
     "humanfriendly",
     "packaging",
@@ -102,21 +101,35 @@ kafka_protobuf = {
     "grpcio-tools>=1.44.0,<2",
 }
 
-sql_common = {
-    # Required for all SQL sources.
-    # This is temporary lower bound that we're open to loosening/tightening as requirements show up
-    "sqlalchemy>=1.4.39, <2",
-    # Required for SQL profiling.
-    "great-expectations>=0.15.12, <=0.15.50",
-    # scipy version restricted to reduce backtracking, used by great-expectations,
-    "scipy>=1.7.2",
-    # GE added handling for higher version of jinja2
-    # https://github.com/great-expectations/great_expectations/pull/5382/files
-    # datahub does not depend on traitlets directly but great expectations does.
-    # https://github.com/ipython/traitlets/issues/741
-    "traitlets<5.2.2",
-    "greenlet",
+usage_common = {
+    "sqlparse",
 }
+
+sqlglot_lib = {
+    # Using an Acryl fork of sqlglot.
+    # https://github.com/tobymao/sqlglot/compare/main...hsheth2:sqlglot:hsheth?expand=1
+    "acryl-sqlglot==19.0.2.dev10",
+}
+
+sql_common = (
+    {
+        # Required for all SQL sources.
+        # This is temporary lower bound that we're open to loosening/tightening as requirements show up
+        "sqlalchemy>=1.4.39, <2",
+        # Required for SQL profiling.
+        "great-expectations>=0.15.12, <=0.15.50",
+        # scipy version restricted to reduce backtracking, used by great-expectations,
+        "scipy>=1.7.2",
+        # GE added handling for higher version of jinja2
+        # https://github.com/great-expectations/great_expectations/pull/5382/files
+        # datahub does not depend on traitlets directly but great expectations does.
+        # https://github.com/ipython/traitlets/issues/741
+        "traitlets<5.2.2",
+        "greenlet",
+    }
+    | usage_common
+    | sqlglot_lib
+)
 
 sqllineage_lib = {
     "sqllineage==1.3.8",
@@ -124,12 +137,6 @@ sqllineage_lib = {
     # There have previously been issues from not pinning sqlparse, so it's best to pin it.
     # Related: https://github.com/reata/sqllineage/issues/361 and https://github.com/reata/sqllineage/pull/360
     "sqlparse==0.4.4",
-}
-
-sqlglot_lib = {
-    # Using an Acryl fork of sqlglot.
-    # https://github.com/tobymao/sqlglot/compare/main...hsheth2:sqlglot:hsheth?expand=1
-    "acryl-sqlglot==18.5.2.dev45",
 }
 
 aws_common = {
@@ -166,7 +173,9 @@ bigquery_common = {
 
 clickhouse_common = {
     # Clickhouse 0.2.0 adds support for SQLAlchemy 1.4.x
-    "clickhouse-sqlalchemy>=0.2.0",
+    # Disallow 0.2.5 because of https://github.com/xzkostyan/clickhouse-sqlalchemy/issues/272.
+    # Note that there's also a known issue around nested map types: https://github.com/xzkostyan/clickhouse-sqlalchemy/issues/269.
+    "clickhouse-sqlalchemy>=0.2.0,<0.2.5",
 }
 
 redshift_common = {
@@ -244,10 +253,6 @@ delta_lake = {
 
 powerbi_report_server = {"requests", "requests_ntlm"}
 
-usage_common = {
-    "sqlparse",
-}
-
 databricks = {
     # 0.1.11 appears to have authentication issues with azure databricks
     "databricks-sdk>=0.9.0",
@@ -281,8 +286,10 @@ plugins: Dict[str, Set[str]] = {
     # Misc plugins.
     "sql-parser": sqlglot_lib,
     # Source plugins
-    # PyAthena is pinned with exact version because we use private method in PyAthena
-    "athena": sql_common | {"PyAthena[SQLAlchemy]==2.4.1"},
+    # sqlalchemy-bigquery is included here since it provides an implementation of
+    # a SQLalchemy-conform STRUCT type definition
+    "athena": sql_common
+    | {"PyAthena[SQLAlchemy]>=2.6.0,<3.0.0", "sqlalchemy-bigquery>=1.4.1"},
     "azure-ad": set(),
     "bigquery": sql_common
     | bigquery_common
@@ -354,9 +361,13 @@ plugins: Dict[str, Set[str]] = {
     | {"psycopg2-binary", "pymysql>=1.0.2"},
     "pulsar": {"requests"},
     "redash": {"redash-toolbelt", "sql-metadata"} | sqllineage_lib,
-    "redshift": sql_common | redshift_common | usage_common | {"redshift-connector"},
-    "redshift-legacy": sql_common | redshift_common,
-    "redshift-usage-legacy": sql_common | usage_common | redshift_common,
+    "redshift": sql_common
+    | redshift_common
+    | usage_common
+    | {"redshift-connector"}
+    | sqlglot_lib,
+    "redshift-legacy": sql_common | redshift_common | sqlglot_lib,
+    "redshift-usage-legacy": sql_common | redshift_common | sqlglot_lib | usage_common,
     "s3": {*s3_base, *data_lake_profiling},
     "gcs": {*s3_base, *data_lake_profiling},
     "sagemaker": aws_common,
@@ -373,12 +384,16 @@ plugins: Dict[str, Set[str]] = {
     # FIXME: I don't think tableau uses sqllineage anymore so we should be able
     # to remove that dependency.
     "tableau": {"tableauserverclient>=0.17.0"} | sqllineage_lib | sqlglot_lib,
+    "teradata": sql_common
+    | usage_common
+    | sqlglot_lib
+    | {"teradatasqlalchemy>=17.20.0.0"},
     "trino": sql_common | trino,
     "starburst-trino-usage": sql_common | usage_common | trino,
     "nifi": {"requests", "packaging", "requests-gssapi"},
     "powerbi": microsoft_common | {"lark[regex]==1.1.4", "sqlparse"} | sqlglot_lib,
     "powerbi-report-server": powerbi_report_server,
-    "vertica": sql_common | {"vertica-sqlalchemy-dialect[vertica-python]==0.0.8"},
+    "vertica": sql_common | {"vertica-sqlalchemy-dialect[vertica-python]==0.0.8.1"},
     "unity-catalog": databricks | sqllineage_lib,
 }
 
@@ -430,6 +445,10 @@ mypy_stubs = {
 pytest_dep = "pytest>=6.2.2"
 deepdiff_dep = "deepdiff"
 test_api_requirements = {pytest_dep, deepdiff_dep, "PyYAML"}
+
+debug_requirements = {
+    "memray",
+}
 
 base_dev_requirements = {
     *base_requirements,
@@ -495,6 +514,7 @@ base_dev_requirements = {
             "s3",
             "snowflake",
             "tableau",
+            "teradata",
             "trino",
             "hive",
             "starburst-trino-usage",
@@ -593,6 +613,7 @@ entry_points = {
         "tableau = datahub.ingestion.source.tableau:TableauSource",
         "openapi = datahub.ingestion.source.openapi:OpenApiSource",
         "metabase = datahub.ingestion.source.metabase:MetabaseSource",
+        "teradata = datahub.ingestion.source.sql.teradata:TeradataSource",
         "trino = datahub.ingestion.source.sql.trino:TrinoSource",
         "starburst-trino-usage = datahub.ingestion.source.usage.starburst_trino_usage:TrinoUsageSource",
         "nifi = datahub.ingestion.source.nifi:NifiSource",
@@ -660,6 +681,7 @@ setuptools.setup(
         "Documentation": "https://datahubproject.io/docs/",
         "Source": "https://github.com/datahub-project/datahub",
         "Changelog": "https://github.com/datahub-project/datahub/releases",
+        "Releases": "https://github.com/acryldata/datahub/releases",
     },
     license="Apache License 2.0",
     description="A CLI to work with DataHub metadata",
@@ -723,5 +745,6 @@ See the [DataHub docs](https://datahubproject.io/docs/metadata-ingestion).
         "dev": list(dev_requirements),
         "testing-utils": list(test_api_requirements),  # To import `datahub.testing`
         "integration-tests": list(full_test_dev_requirements),
+        "debug": list(debug_requirements),
     },
 )

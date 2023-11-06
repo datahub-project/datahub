@@ -1,4 +1,4 @@
-FROM golang:1-alpine3.17 AS binary
+FROM golang:1-alpine3.18 AS binary
 
 ENV DOCKERIZE_VERSION v0.6.1
 WORKDIR /go/src/github.com/jwilder

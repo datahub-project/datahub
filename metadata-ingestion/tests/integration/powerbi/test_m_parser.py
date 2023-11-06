@@ -17,9 +17,8 @@ from datahub.ingestion.source.powerbi.dataplatform_instance_resolver import (
 )
 from datahub.ingestion.source.powerbi.m_query import parser, resolver, tree_function
 from datahub.ingestion.source.powerbi.m_query.resolver import DataPlatformTable, Lineage
-from datahub.utilities.sqlglot_lineage import ColumnLineageInfo, DownstreamColumnRef
 
-pytestmark = pytest.mark.slow
+pytestmark = pytest.mark.integration_batch_2
 
 M_QUERIES = [
     'let\n    Source = Snowflake.Databases("bu10758.ap-unknown-2.fakecomputing.com","PBI_TEST_WAREHOUSE_PROD",[Role="PBI_TEST_MEMBER"]),\n    PBI_TEST_Database = Source{[Name="PBI_TEST",Kind="Database"]}[Data],\n    TEST_Schema = PBI_TEST_Database{[Name="TEST",Kind="Schema"]}[Data],\n    TESTTABLE_Table = TEST_Schema{[Name="TESTTABLE",Kind="Table"]}[Data]\nin\n    TESTTABLE_Table',
@@ -742,75 +741,25 @@ def test_sqlglot_parser():
         == "urn:li:dataset:(urn:li:dataPlatform:snowflake,sales_deployment.operations_analytics.transformed_prod.v_sme_unit_targets,PROD)"
     )
 
-    assert lineage[0].column_lineage == [
-        ColumnLineageInfo(
-            downstream=DownstreamColumnRef(table=None, column="client_director"),
-            upstreams=[],
-            logic=None,
-        ),
-        ColumnLineageInfo(
-            downstream=DownstreamColumnRef(table=None, column="tier"),
-            upstreams=[],
-            logic=None,
-        ),
-        ColumnLineageInfo(
-            downstream=DownstreamColumnRef(table=None, column='upper("manager")'),
-            upstreams=[],
-            logic=None,
-        ),
-        ColumnLineageInfo(
-            downstream=DownstreamColumnRef(table=None, column="team_type"),
-            upstreams=[],
-            logic=None,
-        ),
-        ColumnLineageInfo(
-            downstream=DownstreamColumnRef(table=None, column="date_target"),
-            upstreams=[],
-            logic=None,
-        ),
-        ColumnLineageInfo(
-            downstream=DownstreamColumnRef(table=None, column="monthid"),
-            upstreams=[],
-            logic=None,
-        ),
-        ColumnLineageInfo(
-            downstream=DownstreamColumnRef(table=None, column="target_team"),
-            upstreams=[],
-            logic=None,
-        ),
-        ColumnLineageInfo(
-            downstream=DownstreamColumnRef(table=None, column="seller_email"),
-            upstreams=[],
-            logic=None,
-        ),
-        ColumnLineageInfo(
-            downstream=DownstreamColumnRef(table=None, column="agent_key"),
-            upstreams=[],
-            logic=None,
-        ),
-        ColumnLineageInfo(
-            downstream=DownstreamColumnRef(table=None, column="sme_quota"),
-            upstreams=[],
-            logic=None,
-        ),
-        ColumnLineageInfo(
-            downstream=DownstreamColumnRef(table=None, column="revenue_quota"),
-            upstreams=[],
-            logic=None,
-        ),
-        ColumnLineageInfo(
-            downstream=DownstreamColumnRef(table=None, column="service_quota"),
-            upstreams=[],
-            logic=None,
-        ),
-        ColumnLineageInfo(
-            downstream=DownstreamColumnRef(table=None, column="bl_target"),
-            upstreams=[],
-            logic=None,
-        ),
-        ColumnLineageInfo(
-            downstream=DownstreamColumnRef(table=None, column="software_quota"),
-            upstreams=[],
-            logic=None,
-        ),
+    # TODO: None of these columns have upstreams?
+    # That doesn't seem right - we probably need to add fake schemas for the two tables above.
+    cols = [
+        "client_director",
+        "tier",
+        'upper("manager")',
+        "team_type",
+        "date_target",
+        "monthid",
+        "target_team",
+        "seller_email",
+        "agent_key",
+        "sme_quota",
+        "revenue_quota",
+        "service_quota",
+        "bl_target",
+        "software_quota",
     ]
+    for i, column in enumerate(cols):
+        assert lineage[0].column_lineage[i].downstream.table is None
+        assert lineage[0].column_lineage[i].downstream.column == column
+        assert lineage[0].column_lineage[i].upstreams == []

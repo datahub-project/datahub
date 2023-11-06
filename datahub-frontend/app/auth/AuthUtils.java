@@ -41,6 +41,11 @@ public class AuthUtils {
      */
     public static final String SYSTEM_CLIENT_SECRET_CONFIG_PATH = "systemClientSecret";
 
+    /**
+     * Cookie name for redirect url that is manually separated from the session to reduce size
+     */
+    public static final String REDIRECT_URL_COOKIE_NAME = "REDIRECT_URL";
+
     public static final CorpuserUrn DEFAULT_ACTOR_URN = new CorpuserUrn("datahub");
 
     public static final String LOGIN_ROUTE = "/login";
@@ -77,7 +82,9 @@ public class AuthUtils {
      * as well as their agreement to determine authentication status.
      */
     public static boolean hasValidSessionCookie(final Http.Request req) {
-        return req.session().data().containsKey(ACTOR)
+        Map<String, String> sessionCookie = req.session().data();
+        return sessionCookie.containsKey(ACCESS_TOKEN)
+                && sessionCookie.containsKey(ACTOR)
                 && req.getCookie(ACTOR).isPresent()
                 && req.session().data().get(ACTOR).equals(req.getCookie(ACTOR).get().value());
     }
