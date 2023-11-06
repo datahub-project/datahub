@@ -6,8 +6,8 @@ from pydantic import ValidationError
 from datahub.configuration.common import ConfigModel
 from datahub.ingestion.graph.client import DatahubClientConfig
 from datahub.ingestion.source.state.stateful_ingestion_base import (
-    StatefulIngestionConfig,
     DynamicTypedStateProviderConfig,
+    StatefulIngestionConfig,
 )
 from datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider import (
     DatahubIngestionStateProviderConfig,
