@@ -349,7 +349,7 @@ class SchemaResolver(Closeable):
 
         if lower:
             table_name = table_name.lower()
-            platform_instance = platform_instance.lower()
+            platform_instance = platform_instance.lower() if platform_instance else None
 
         if self.platform == "bigquery":
             # Normalize shard numbers and other BigQuery weirdness.
