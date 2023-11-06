@@ -10,7 +10,6 @@ from typing_extensions import Protocol
 from datahub.emitter.aspect import ASPECT_MAP
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.serialization_helper import post_json_transform
-from datahub.ingestion.api.closeable import Closeable
 from datahub.ingestion.source.datahub.config import DataHubSourceConfig
 from datahub.ingestion.source.datahub.report import DataHubSourceReport
 from datahub.ingestion.source.sql.sql_config import SQLAlchemyConnectionConfig
@@ -31,7 +30,7 @@ class VersionOrderable(Protocol):
 ROW = TypeVar("ROW", bound=VersionOrderable)
 
 
-class VersionOrderer(Generic[ROW], Closeable):
+class VersionOrderer(Generic[ROW]):
     """Orders rows by (createdon, version == 0).
 
     That is, orders rows first by createdon, and for equal timestamps, puts version 0 rows last.
@@ -44,16 +43,12 @@ class VersionOrderer(Generic[ROW], Closeable):
         self.queue: Optional[Tuple[datetime, List[ROW]]] = None
         self.enabled = enabled
 
-    def __enter__(self) -> "VersionOrderer":
-        return self
+    def __call__(self, rows: Iterable[ROW]) -> Iterable[ROW]:
+        for row in rows:
+            yield from self._process_row(row)
+        yield from self._flush_queue()
 
-    def close(self) -> None:
-        if self.queue is not None:
-            logger.error(
-                "Did not properly close VersionOrderer, database aspects may be dropped."
-            )
-
-    def process_row(self, row: ROW) -> Iterable[ROW]:
+    def _process_row(self, row: ROW) -> Iterable[ROW]:
         if not self.enabled:
             yield row
             return
@@ -75,9 +70,9 @@ class VersionOrderer(Generic[ROW], Closeable):
             return
 
         if row.createdon > self.queue[0]:
-            yield from self.flush_queue()
+            yield from self._flush_queue()
 
-    def flush_queue(self) -> Iterable[ROW]:
+    def _flush_queue(self) -> Iterable[ROW]:
         if self.queue is not None:
             yield from self.queue[1]
             self.queue = None
@@ -118,10 +113,15 @@ class DataHubDatabaseReader:
     def get_aspects(
         self, from_createdon: datetime, stop_time: datetime
     ) -> Iterable[Tuple[MetadataChangeProposalWrapper, datetime]]:
-        with (
-            self.engine.connect() as conn,
-            VersionOrderer[Row](enabled=self.config.include_all_versions) as orderer,
-        ):
+        orderer = VersionOrderer[Row](enabled=self.config.include_all_versions)
+        rows = self._get_rows(from_createdon=from_createdon, stop_time=stop_time)
+        for row in orderer(rows):
+            mcp = self._parse_row(row)
+            if mcp:
+                yield mcp, row.createdon
+
+    def _get_rows(self, from_createdon: datetime, stop_time: datetime) -> Iterable[Row]:
+        with self.engine.connect() as conn:
             ts = from_createdon
             offset = 0
             while ts.timestamp() <= stop_time.timestamp():
@@ -136,24 +136,13 @@ class DataHubDatabaseReader:
                     return
 
                 for i, row in enumerate(rows):
-                    rows_to_emit = orderer.process_row(row)
-                    yield from self._emit_rows(rows_to_emit)
+                    yield row
 
                 if ts == row.createdon:
-                    offset += i
+                    offset += i + 1
                 else:
                     ts = row.createdon
                     offset = 0
-
-            yield from self._emit_rows(orderer.flush_queue())
-
-    def _emit_rows(
-        self, rows: Iterable[Row]
-    ) -> Iterable[Tuple[MetadataChangeProposalWrapper, datetime]]:
-        for row in rows:
-            mcp = self._parse_row(row)
-            if mcp:
-                yield mcp, row.createdon
 
     def _parse_row(self, row: Row) -> Optional[MetadataChangeProposalWrapper]:
         try:

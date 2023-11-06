@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-from typing import Iterable
 
 import pytest
 
@@ -38,17 +37,9 @@ def rows():
     ]
 
 
-def _process_rows(
-    orderer: VersionOrderer, rows: Iterable[MockRow]
-) -> Iterable[MockRow]:
-    for row in rows:
-        yield from orderer.process_row(row)  # type: ignore
-    yield from orderer.flush_queue()  # type: ignore
-
-
 def test_version_orderer(rows):
     orderer = VersionOrderer[MockRow](enabled=True)
-    ordered_rows = list(_process_rows(orderer, rows))
+    ordered_rows = list(orderer(rows))
     assert ordered_rows == sorted(
         ordered_rows, key=lambda x: (x.createdon, x.version == 0)
     )
@@ -56,5 +47,5 @@ def test_version_orderer(rows):
 
 def test_version_orderer_disabled(rows):
     orderer = VersionOrderer[MockRow](enabled=False)
-    ordered_rows = list(_process_rows(orderer, rows))
+    ordered_rows = list(orderer(rows))
     assert ordered_rows == rows
