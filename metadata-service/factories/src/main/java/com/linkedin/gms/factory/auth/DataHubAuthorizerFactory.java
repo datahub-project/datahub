@@ -32,6 +32,9 @@ public class DataHubAuthorizerFactory {
   @Value("${authorization.defaultAuthorizer.cacheRefreshIntervalSecs}")
   private Integer policyCacheRefreshIntervalSeconds;
 
+  @Value("${authorization.defaultAuthorizer.cachePolicyFetchSize}")
+  private Integer policyCacheFetchSize;
+
   @Value("${authorization.defaultAuthorizer.enabled:true}")
   private Boolean policiesEnabled;
 
@@ -44,6 +47,6 @@ public class DataHubAuthorizerFactory {
         : DataHubAuthorizer.AuthorizationMode.ALLOW_ALL;
 
     return new DataHubAuthorizer(systemAuthentication, entityClient, 10,
-        policyCacheRefreshIntervalSeconds, mode);
+        policyCacheRefreshIntervalSeconds, mode, policyCacheFetchSize);
   }
 }

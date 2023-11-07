@@ -381,7 +381,7 @@ public class JavaEntityClient implements EntityClient {
     @Nonnull
     @Override
     public ScrollResult scrollAcrossEntities(@Nonnull List<String> entities, @Nonnull String input,
-        @Nullable Filter filter, @Nullable String scrollId, @Nonnull String keepAlive, int count,
+        @Nullable Filter filter, @Nullable String scrollId, @Nullable String keepAlive, int count,
         @Nullable SearchFlags searchFlags, @Nonnull Authentication authentication)
         throws RemoteInvocationException {
         final SearchFlags finalFlags = searchFlags != null ? searchFlags : new SearchFlags().setFulltext(true);
