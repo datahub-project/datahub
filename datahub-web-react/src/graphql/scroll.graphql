@@ -44,6 +44,11 @@ fragment downloadSearchResults on Entity {
         deprecation {
             ...deprecationFields
         }
+        statsSummary {
+            rowCount
+            uniqueUserCountLast30Days
+            sizeInBytes
+        }
     }
     ... on CorpUser {
         username

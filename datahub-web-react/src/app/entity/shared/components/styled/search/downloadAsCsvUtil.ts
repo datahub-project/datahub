@@ -1,8 +1,19 @@
-import { CorpGroup, CorpUser, EntityType } from '../../../../../../types.generated';
+import {
+    CorpGroup,
+    CorpUser,
+    DashboardStatsSummary,
+    DatasetStatsSummary,
+    EntityType,
+} from '../../../../../../types.generated';
 import { capitalizeFirstLetterOnly } from '../../../../../shared/textUtil';
 import EntityRegistry from '../../../../EntityRegistry';
 import { GenericEntityProperties } from '../../../types';
 import { SearchResultInterface } from './types';
+
+const VIEW_COUNT = 'view count';
+const UNIQUE_USERS = 'unique users';
+const ROW_COUNT = 'row count';
+const SIZE_IN_BYTES = 'size in bytes';
 
 const searchCsvDownloadHeader = [
     'urn',
@@ -30,11 +41,17 @@ export const getSearchCsvDownloadHeader = (searchResults?: SearchResultInterface
     if (typeof sampleResult?.degree === 'number') {
         result = [...result, 'level of dependency'];
     }
-    if (searchResults?.find((r) => (r.entity as any).statsSummary?.viewCount)) {
-        result = [...result, 'view count'];
+    if (searchResults?.find((r) => (r.entity as any).statsSummary?.viewCount !== undefined)) {
+        result = [...result, VIEW_COUNT];
     }
-    if (searchResults?.find((r) => (r.entity as any).statsSummary?.uniqueUserCountLast30Days)) {
-        result = [...result, 'unique users'];
+    if (searchResults?.find((r) => (r.entity as any).statsSummary?.uniqueUserCountLast30Days !== undefined)) {
+        result = [...result, UNIQUE_USERS];
+    }
+    if (searchResults?.find((r) => (r.entity as any).statsSummary?.rowCount !== undefined)) {
+        result = [...result, ROW_COUNT];
+    }
+    if (searchResults?.find((r) => (r.entity as any).statsSummary?.sizeInBytes !== undefined)) {
+        result = [...result, SIZE_IN_BYTES];
     }
     return result;
 };
@@ -99,11 +116,17 @@ export const transformGenericEntityPropertiesToCsvRow = (
         // optional level of dependency
         row = [...row, String(result?.degree)];
     }
-    if (csvHeader.includes('view count')) {
-        row = [...row, String(properties?.statsSummary?.viewCount) || ''];
+    if (csvHeader.includes(VIEW_COUNT)) {
+        row = [...row, String((properties?.statsSummary as DashboardStatsSummary)?.viewCount) || ''];
     }
-    if (csvHeader.includes('unique users')) {
+    if (csvHeader.includes(UNIQUE_USERS)) {
         row = [...row, String(properties?.statsSummary?.uniqueUserCountLast30Days) || ''];
+    }
+    if (csvHeader.includes(ROW_COUNT)) {
+        row = [...row, String((properties?.statsSummary as DatasetStatsSummary)?.rowCount) || ''];
+    }
+    if (csvHeader.includes(SIZE_IN_BYTES)) {
+        row = [...row, String((properties?.statsSummary as DatasetStatsSummary)?.sizeInBytes) || ''];
     }
     return row;
 };
