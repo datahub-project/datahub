@@ -16,7 +16,6 @@ import java.util.Optional;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
-import org.javatuples.Quintet;
 import org.javatuples.Septet;
 import org.javatuples.Sextet;
 import org.springframework.cache.Cache;
