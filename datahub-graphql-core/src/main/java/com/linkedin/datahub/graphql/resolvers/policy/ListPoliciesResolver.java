@@ -40,23 +40,15 @@ public class ListPoliciesResolver implements DataFetcher<CompletableFuture<ListP
       final Integer count = input.getCount() == null ? DEFAULT_COUNT : input.getCount();
       final String query = input.getQuery() == null ? DEFAULT_QUERY : input.getQuery();
 
-      return CompletableFuture.supplyAsync(() -> {
-        try {
-          // First, get all policy Urns.
-          final PolicyFetcher.PolicyFetchResult policyFetchResult =
-              _policyFetcher.fetchPolicies(start, count, query, context.getAuthentication());
-
-          // Now that we have entities we can bind this to a result.
-          final ListPoliciesResult result = new ListPoliciesResult();
-          result.setStart(start);
-          result.setCount(count);
-          result.setTotal(policyFetchResult.getTotal());
-          result.setPolicies(mapEntities(policyFetchResult.getPolicies()));
-          return result;
-        } catch (Exception e) {
-          throw new RuntimeException("Failed to list policies", e);
-        }
-      });
+      return _policyFetcher.fetchPolicies(start, query, count, context.getAuthentication())
+              .thenApply(policyFetchResult -> {
+                final ListPoliciesResult result = new ListPoliciesResult();
+                result.setStart(start);
+                result.setCount(count);
+                result.setTotal(policyFetchResult.getTotal());
+                result.setPolicies(mapEntities(policyFetchResult.getPolicies()));
+                return result;
+              });
     }
     throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
   }
