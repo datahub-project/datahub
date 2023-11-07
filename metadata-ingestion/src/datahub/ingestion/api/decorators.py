@@ -93,9 +93,19 @@ def capability(
     """
 
     def wrapper(cls: Type) -> Type:
-        if not hasattr(cls, "__capabilities"):
+        if not hasattr(cls, "__capabilities") or any(
+            # It's from this class and not a superclass.
+            cls.__capabilities is getattr(base, "__capabilities", None)
+            for base in cls.__bases__
+        ):
             cls.__capabilities = {}
             cls.get_capabilities = lambda: cls.__capabilities.values()
+
+            # If the superclasses have capability annotations, copy those over.
+            for base in cls.__bases__:
+                base_caps = getattr(base, "__capabilities", None)
+                if base_caps:
+                    cls.__capabilities.update(base_caps)
 
         cls.__capabilities[capability_name] = CapabilitySetting(
             capability=capability_name, description=description, supported=supported

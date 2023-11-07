@@ -8,4 +8,10 @@ dependencies {
 
   restClientCompile spec.product.pegasus.d2
   restClientCompile spec.product.pegasus.restliClient
+
+  constraints {
+    restClientCompile(externalDependency.zookeeper) {
+      because("CVE-2023-44981")
+    }
+  }
 }
