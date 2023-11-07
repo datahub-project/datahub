@@ -13,7 +13,6 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.identity.RoleMembership;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.authorization.PoliciesConfig;
-import com.linkedin.pegasus2avro.common.AccessLevel;
 import com.linkedin.policy.DataHubActorFilter;
 import com.linkedin.policy.DataHubPolicyInfo;
 import com.linkedin.policy.DataHubResourceFilter;

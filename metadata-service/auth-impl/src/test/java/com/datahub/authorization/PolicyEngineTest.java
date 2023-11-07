@@ -1,7 +1,6 @@
 package com.datahub.authorization;
 
 import com.datahub.authentication.Authentication;
-import com.datastax.oss.driver.shaded.guava.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -1058,8 +1057,8 @@ public class PolicyEngineTest {
             Collections.emptySet(), Collections.emptySet());
     PolicyEngine.PolicyActors actors = _policyEngine.getMatchingActors(dataHubPolicyInfo, Optional.of(resourceSpec));
 
-    assertTrue(actors.allUsers());
-    assertTrue(actors.allGroups());
+    assertTrue(actors.getAllUsers());
+    assertTrue(actors.getAllGroups());
 
     assertEquals(actors.getUsers(),
         ImmutableList.of(Urn.createFromString("urn:li:corpuser:user1"), Urn.createFromString("urn:li:corpuser:user2"),
@@ -1110,8 +1109,8 @@ public class PolicyEngineTest {
         buildEntityResolvers("dataset", "urn:li:dataset:random"); // A resource not covered by the policy.
     PolicyEngine.PolicyActors actors = _policyEngine.getMatchingActors(dataHubPolicyInfo, Optional.of(resourceSpec));
 
-    assertFalse(actors.allUsers());
-    assertFalse(actors.allGroups());
+    assertFalse(actors.getAllUsers());
+    assertFalse(actors.getAllGroups());
     assertEquals(actors.getUsers(), Collections.emptyList());
     assertEquals(actors.getGroups(), Collections.emptyList());
 

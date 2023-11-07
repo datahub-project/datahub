@@ -154,11 +154,11 @@ public class DataHubAuthorizer implements Authorizer {
       // Step 3: For each matching policy, add actors that are authorized.
       authorizedUsers.addAll(matchingActors.getUsers());
       authorizedGroups.addAll(matchingActors.getGroups());
-      authorizedRoles.add(matchingActors.getRoles());
-      if (matchingActors.allUsers()) {
+      authorizedRoles.addAll(matchingActors.getRoles());
+      if (matchingActors.getAllUsers()) {
         allUsers = true;
       }
-      if (matchingActors.allGroups()) {
+      if (matchingActors.getAllGroups()) {
         allGroups = true;
       }
     }
