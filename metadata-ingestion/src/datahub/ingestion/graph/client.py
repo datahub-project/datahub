@@ -754,12 +754,9 @@ class DataHubGraph(DatahubRestEmitter):
         )
         from datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider import (
             DatahubIngestionCheckpointingProvider,
-            DatahubIngestionStateProviderConfig,
         )
 
-        checkpoint_provider = DatahubIngestionCheckpointingProvider(
-            DatahubIngestionStateProviderConfig(), self
-        )
+        checkpoint_provider = DatahubIngestionCheckpointingProvider(self)
         job_name = StaleEntityRemovalHandler.compute_job_id(platform)
 
         raw_checkpoint = checkpoint_provider.get_latest_checkpoint(

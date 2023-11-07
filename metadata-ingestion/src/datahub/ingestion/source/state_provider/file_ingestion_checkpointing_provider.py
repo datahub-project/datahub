@@ -1,7 +1,7 @@
 import logging
 import pathlib
 from datetime import datetime
-from typing import Any, Dict, List, Optional, cast
+from typing import Any, Dict, List, Optional
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
@@ -58,9 +58,7 @@ class FileIngestionCheckpointingProvider(IngestionCheckpointingProviderBase):
                     and isinstance(obj.aspect, DatahubIngestionCheckpointClass)
                     and obj.aspect.get("pipelineName", "") == pipeline_name
                 ):
-                    latest_checkpoint = cast(
-                        Optional[DatahubIngestionCheckpointClass], obj.aspect
-                    )
+                    latest_checkpoint = obj.aspect
                     break
         except FileNotFoundError:
             logger.debug(f"File {self.config.filename} not found")

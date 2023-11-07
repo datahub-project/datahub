@@ -25,17 +25,10 @@ class DatahubIngestionCheckpointingProvider(IngestionCheckpointingProviderBase):
 
     def __init__(
         self,
-        config: DatahubIngestionStateProviderConfig,
-        graph: Optional[DataHubGraph] = None,
+        graph: DataHubGraph,
     ):
         super().__init__(self.__class__.__name__)
-
-        if graph:
-            # Use the pipeline-level graph if set
-            self.graph = graph
-        else:
-            self.graph = DataHubGraph(config.datahub_api)
-
+        self.graph = graph
         if not self._is_server_stateful_ingestion_capable():
             raise ConfigurationError(
                 "Datahub server is not capable of supporting stateful ingestion."
@@ -47,7 +40,11 @@ class DatahubIngestionCheckpointingProvider(IngestionCheckpointingProviderBase):
         cls, config_dict: Dict[str, Any], ctx: PipelineContext
     ) -> "DatahubIngestionCheckpointingProvider":
         config = DatahubIngestionStateProviderConfig.parse_obj(config_dict)
-        return cls(config, ctx.graph)
+        if ctx.graph:
+            # Use the pipeline-level graph if set
+            return cls(ctx.graph)
+        else:
+            return cls(DataHubGraph(config.datahub_api))
 
     def _is_server_stateful_ingestion_capable(self) -> bool:
         server_config = self.graph.get_config() if self.graph else None

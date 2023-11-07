@@ -79,7 +79,7 @@ class StatefulIngestionConfig(ConfigModel):
         if values.get("enabled"):
             if values.get("state_provider") is None:
                 values["state_provider"] = DynamicTypedStateProviderConfig(
-                    type="datahub"
+                    type="datahub", config={}
                 )
         return values
 
