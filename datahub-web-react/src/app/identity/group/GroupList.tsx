@@ -49,7 +49,7 @@ export const GroupList = () => {
     const { loading, error, data, refetch, client } = useListGroupsQuery({
         variables: {
             input: {
-                start,
+                start: query && start === 0 ? null : start,
                 count: pageSize,
                 query: (query?.length && query) || undefined,
             },
@@ -92,7 +92,10 @@ export const GroupList = () => {
                             fontSize: 12,
                         }}
                         onSearch={() => null}
-                        onQueryChange={(q) => setQuery(q)}
+                        onQueryChange={(q) => {
+                            setPage(1);
+                            setQuery(q);
+                        }}
                         entityRegistry={entityRegistry}
                         hideRecommendations
                     />

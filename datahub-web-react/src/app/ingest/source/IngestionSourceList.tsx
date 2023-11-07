@@ -105,12 +105,12 @@ export const IngestionSourceList = () => {
     const { loading, error, data, client, refetch } = useListIngestionSourcesQuery({
         variables: {
             input: {
-                start,
+                start: query && start === 0 ? null : start,
                 count: pageSize,
-                query,
+                query: (query?.length && query) || undefined,
             },
         },
-        fetchPolicy: 'cache-first',
+        fetchPolicy: (query?.length || 0) > 0 ? 'no-cache' : 'cache-first',
     });
     const [createIngestionSource] = useCreateIngestionSourceMutation();
     const [updateIngestionSource] = useUpdateIngestionSourceMutation();
@@ -399,7 +399,10 @@ export const IngestionSourceList = () => {
                                 fontSize: 12,
                             }}
                             onSearch={() => null}
-                            onQueryChange={(q) => setQuery(q)}
+                            onQueryChange={(q) => {
+                                setPage(1);
+                                setQuery(q);
+                            }}
                             entityRegistry={entityRegistry}
                             hideRecommendations
                         />

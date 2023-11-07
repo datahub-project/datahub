@@ -72,14 +72,14 @@ export const ManageRoles = () => {
         data: rolesData,
         refetch: rolesRefetch,
     } = useListRolesQuery({
-        fetchPolicy: 'cache-first',
         variables: {
             input: {
-                start,
+                start: query && start === 0 ? null : start,
                 count: pageSize,
-                query,
+                query: (query?.length && query) || undefined,
             },
         },
+        fetchPolicy: (query?.length || 0) > 0 ? 'no-cache' : 'cache-first',
     });
 
     const totalRoles = rolesData?.listRoles?.total || 0;
@@ -238,7 +238,10 @@ export const ManageRoles = () => {
                             fontSize: 12,
                         }}
                         onSearch={() => null}
-                        onQueryChange={(q) => setQuery(q)}
+                        onQueryChange={(q) => {
+                            setPage(1);
+                            setQuery(q);
+                        }}
                         entityRegistry={entityRegistry}
                     />
                     {isBatchAddRolesModalVisible && (
