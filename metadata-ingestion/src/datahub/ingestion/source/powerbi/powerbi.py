@@ -374,6 +374,9 @@ class Mapper:
             f"Mapping dataset={dataset.name}(id={dataset.id}) to datahub dataset"
         )
 
+        if self.__config.extract_datasets_to_containers:
+            dataset_mcps.extend(self.generate_container_for_dataset(dataset))
+
         for table in dataset.tables:
             # Create a URN for dataset
             ds_urn = builder.make_dataset_urn_with_platform_instance(
@@ -747,7 +750,7 @@ class Mapper:
 
     def generate_container_for_dataset(
         self, dataset: powerbi_data_classes.PowerBIDataset
-    ) -> Iterable[MetadataWorkUnit]:
+    ) -> Iterable[MetadataChangeProposalWrapper]:
         dataset_key = dataset.get_dataset_key(self.__config.platform_name)
         container_work_units = gen_containers(
             container_key=dataset_key,
@@ -755,7 +758,13 @@ class Mapper:
             parent_container_key=self.workspace_key,
             sub_types=[BIContainerSubTypes.POWERBI_DATASET],
         )
-        return container_work_units
+
+        # The if statement here is just to satisfy mypy
+        return [
+            wu.metadata
+            for wu in container_work_units
+            if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+        ]
 
     def append_tag_mcp(
         self,
@@ -1211,10 +1220,6 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase):
             f"Dataset lineage would get ingested for data-platform = {self.source_config.dataset_type_mapping}"
         )
 
-    def extract_datasets_as_containers(self):
-        for dataset in self.mapper.processed_datasets:
-            yield from self.mapper.generate_container_for_dataset(dataset)
-
     def extract_independent_datasets(
         self, workspace: powerbi_data_classes.Workspace
     ) -> Iterable[MetadataWorkUnit]:
@@ -1262,9 +1267,6 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase):
                 report, workspace
             ):
                 yield work_unit
-
-        if self.source_config.extract_datasets_to_containers:
-            yield from self.extract_datasets_as_containers()
 
         yield from self.extract_independent_datasets(workspace)
 
