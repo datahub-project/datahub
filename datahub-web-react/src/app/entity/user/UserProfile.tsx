@@ -17,7 +17,7 @@ export interface Props {
 }
 
 export enum TabType {
-    Assets = 'Assets',
+    Assets = 'Owner Of',
     Groups = 'Groups',
 }
 const ENABLED_TAB_TYPES = [TabType.Assets, TabType.Groups];
