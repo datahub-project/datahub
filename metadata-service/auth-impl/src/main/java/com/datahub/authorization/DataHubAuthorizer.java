@@ -19,6 +19,9 @@ import java.util.Optional;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 import javax.annotation.Nonnull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -53,6 +56,8 @@ public class DataHubAuthorizer implements Authorizer {
   // Maps privilege name to the associated set of policies for fast access.
   // Not concurrent data structure because writes are always against the entire thing.
   private final Map<String, List<DataHubPolicyInfo>> _policyCache = new HashMap<>(); // Shared Policy Cache.
+  private final ReadWriteLock readWriteLock = new ReentrantReadWriteLock();
+  private final Lock readLock = readWriteLock.readLock();
 
   private final ScheduledExecutorService _refreshExecutorService = Executors.newScheduledThreadPool(1);
   private final PolicyRefreshRunnable _policyRefreshRunnable;
@@ -71,7 +76,7 @@ public class DataHubAuthorizer implements Authorizer {
     _systemAuthentication = Objects.requireNonNull(systemAuthentication);
     _mode = Objects.requireNonNull(mode);
     _policyEngine = new PolicyEngine(systemAuthentication, Objects.requireNonNull(entityClient));
-    _policyRefreshRunnable = new PolicyRefreshRunnable(systemAuthentication, new PolicyFetcher(entityClient), _policyCache);
+    _policyRefreshRunnable = new PolicyRefreshRunnable(systemAuthentication, new PolicyFetcher(entityClient), _policyCache, readWriteLock.writeLock());
     _refreshExecutorService.scheduleAtFixedRate(_policyRefreshRunnable, delayIntervalSeconds, refreshIntervalSeconds, TimeUnit.SECONDS);
   }
 
@@ -91,7 +96,7 @@ public class DataHubAuthorizer implements Authorizer {
     Optional<ResolvedEntitySpec> resolvedResourceSpec = request.getResourceSpec().map(_entitySpecResolver::resolve);
 
     // 1. Fetch the policies relevant to the requested privilege.
-    final List<DataHubPolicyInfo> policiesToEvaluate = _policyCache.getOrDefault(request.getPrivilege(), new ArrayList<>());
+    final List<DataHubPolicyInfo> policiesToEvaluate = getOrDefault(request.getPrivilege(), new ArrayList<>());
 
     // 2. Evaluate each policy.
     for (DataHubPolicyInfo policy : policiesToEvaluate) {
@@ -107,7 +112,7 @@ public class DataHubAuthorizer implements Authorizer {
   public List<String> getGrantedPrivileges(final String actor, final Optional<EntitySpec> resourceSpec) {
 
     // 1. Fetch all policies
-    final List<DataHubPolicyInfo> policiesToEvaluate = _policyCache.getOrDefault(ALL, new ArrayList<>());
+    final List<DataHubPolicyInfo> policiesToEvaluate = getOrDefault(ALL, new ArrayList<>());
 
     Urn actorUrn = UrnUtils.getUrn(actor);
     final ResolvedEntitySpec resolvedActorSpec = _entitySpecResolver.resolve(new EntitySpec(actorUrn.getEntityType(), actor));
@@ -125,7 +130,7 @@ public class DataHubAuthorizer implements Authorizer {
       final String privilege,
       final Optional<EntitySpec> resourceSpec) {
     // Step 1: Find policies granting the privilege.
-    final List<DataHubPolicyInfo> policiesToEvaluate = _policyCache.getOrDefault(privilege, new ArrayList<>());
+    final List<DataHubPolicyInfo> policiesToEvaluate = getOrDefault(privilege, new ArrayList<>());
 
     Optional<ResolvedEntitySpec> resolvedResourceSpec = resourceSpec.map(_entitySpecResolver::resolve);
 
@@ -215,6 +220,16 @@ public class DataHubAuthorizer implements Authorizer {
     }
   }
 
+  private List<DataHubPolicyInfo> getOrDefault(String key, List<DataHubPolicyInfo> defaultValue) {
+    readLock.lock();
+    try {
+      return _policyCache.getOrDefault(key, defaultValue);
+    } finally {
+      // To unlock the acquired read thread
+      readLock.unlock();
+    }
+  }
+
   /**
    * A {@link Runnable} used to periodically fetch a new instance of the policies Cache.
    *
@@ -228,6 +243,7 @@ public class DataHubAuthorizer implements Authorizer {
     private final Authentication _systemAuthentication;
     private final PolicyFetcher _policyFetcher;
     private final Map<String, List<DataHubPolicyInfo>> _policyCache;
+    private final Lock writeLock;
 
     @Override
     public void run() {
@@ -253,11 +269,17 @@ public class DataHubAuthorizer implements Authorizer {
                 "Failed to retrieve policy urns! Skipping updating policy cache until next refresh. start: {}, count: {}", start, count, e);
             return;
           }
-          synchronized (_policyCache) {
-            _policyCache.clear();
-            _policyCache.putAll(newCache);
-          }
         }
+
+        writeLock.lock();
+        try {
+          _policyCache.clear();
+          _policyCache.putAll(newCache);
+        } finally {
+          // To unlock the acquired write thread
+          writeLock.unlock();
+        }
+
         log.debug(String.format("Successfully fetched %s policies.", total));
       } catch (Exception e) {
         log.error("Caught exception while loading Policy cache. Will retry on next scheduled attempt.", e);
