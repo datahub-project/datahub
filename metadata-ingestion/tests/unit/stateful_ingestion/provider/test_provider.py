@@ -26,13 +26,10 @@ from datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_pro
 from datahub.ingestion.source.state_provider.file_ingestion_checkpointing_provider import (
     FileIngestionCheckpointingProvider,
 )
-from datahub.ingestion.source.state_provider.state_provider_registry import (
-    ingestion_checkpoint_provider_registry,
-)
 from tests.test_helpers.type_helpers import assert_not_null
 
 
-class TestDatahubIngestionCheckpointProvider(unittest.TestCase):
+class TestIngestionCheckpointProviders(unittest.TestCase):
     # Static members for the tests
     pipeline_name: str = "test_pipeline"
     job_names: List[JobId] = [JobId("job1"), JobId("job2")]
@@ -69,20 +66,13 @@ class TestDatahubIngestionCheckpointProvider(unittest.TestCase):
             run_id=self.run_id, pipeline_name=self.pipeline_name
         )
         ctx.graph = self.mock_graph
-        self.providers: List[IngestionCheckpointingProviderBase] = []
-        for provider_name in ingestion_checkpoint_provider_registry.mapping.keys():
-            provider_cls = ingestion_checkpoint_provider_registry.get(provider_name)
-            if provider_cls == DatahubIngestionCheckpointingProvider:
-                self.providers.append(
-                    DatahubIngestionCheckpointingProvider.create({}, ctx)
-                )
-            elif provider_cls == FileIngestionCheckpointingProvider:
-                self.providers.append(
-                    FileIngestionCheckpointingProvider.create(
-                        {"filename": f"{tempfile.mkdtemp()}/checkpoint_mces.json"},
-                        ctx,
-                    )
-                )
+        self.providers: List[IngestionCheckpointingProviderBase] = [
+            DatahubIngestionCheckpointingProvider.create({}, ctx),
+            FileIngestionCheckpointingProvider.create(
+                {"filename": f"{tempfile.mkdtemp()}/checkpoint_mces.json"},
+                ctx,
+            ),
+        ]
 
     def monkey_patch_emit_mcp(
         self, graph_ref: MagicMock, mcpw: MetadataChangeProposalWrapper
