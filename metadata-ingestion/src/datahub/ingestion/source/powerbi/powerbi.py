@@ -110,7 +110,6 @@ class Mapper:
         self.__config = config
         self.__reporter = reporter
         self.__dataplatform_instance_resolver = dataplatform_instance_resolver
-        self.processed_datasets: Set[powerbi_data_classes.PowerBIDataset] = set()
         self.workspace_key: Optional[ContainerKey] = None
 
     @staticmethod
@@ -474,8 +473,6 @@ class Mapper:
                 Constant.DATASET,
                 dataset.tags,
             )
-
-        self.processed_datasets.add(dataset)
 
         return dataset_mcps
 
@@ -1234,8 +1231,6 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase):
     def get_workspace_workunit(
         self, workspace: powerbi_data_classes.Workspace
     ) -> Iterable[MetadataWorkUnit]:
-        self.mapper.processed_datasets = set()
-
         if self.source_config.extract_workspaces_to_containers:
             workspace_workunits = self.mapper.generate_container_for_workspace(
                 workspace
