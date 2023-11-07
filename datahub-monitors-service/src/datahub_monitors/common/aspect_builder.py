@@ -16,7 +16,7 @@ from datahub.metadata.schema_classes import (
     MonitorInfoClass,
 )
 
-from datahub_monitors.types import (
+from datahub_monitors.common.types import (
     Assertion,
     AssertionEvaluationContext,
     AssertionEvaluationResult,

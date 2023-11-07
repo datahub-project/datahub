@@ -33,11 +33,6 @@ extend type Query {
   Get whether or not not a data connection for an entity exists
   """
   ingestionSourceForEntity(urn: String!): IngestionSource
-
-  """
-  List signal requests available for a list of urns
-  """
-  listSignalRequests(input: ListSignalRequestsInput!): ListSignalRequestsResult
 }
 
 extend type Mutation {
@@ -636,47 +631,51 @@ input RollbackIngestionInput {
 }
 
 """
-Input arguments for listing Signal Requests
+Results returned when listing SQS Credentials
 """
-input ListSignalRequestsInput {
-  """
-  A list of execution request urns to check for signal requests associated to them
-  """
-  urns: [String!]
-}
-
-"""
-Results returned when listing Signal Requests
-"""
-type ListSignalRequestsResult {
+type ListAwsSqsCredentialsResult {
   """
   The total number of results in the result set
   """
   total: Int!
 
   """
-  The Signal Requests themselves
+  The credentials themselves
   """
-  signalRequests: [SignalRequest!]!
+  credentials: [AwsSqsCredentials!]!
 }
 
 """
-A Signal Request
+A set of AWS SQS Credentials
 """
-type SignalRequest {
+type AwsSqsCredentials {
   """
-  The execId of the execution request this signal is associated with
+  The AWS Region
   """
-  execId: String!
+  region: String!
 
   """
-  The executorId associated with this execution request
+  The executorId that this queue is configured for
   """
   executorId: String!
 
   """
-  The signal sent
+  The queue URL
   """
-  signal: String!
-}
+  queueUrl: String!
 
+  """
+  The AWS Access Key
+  """
+  accessKeyId: String!
+
+  """
+  The AWS Secret Key
+  """
+  secretKeyId: String!
+
+  """
+  The expiration for this set of credentials
+  """
+  expiration: String!
+}
