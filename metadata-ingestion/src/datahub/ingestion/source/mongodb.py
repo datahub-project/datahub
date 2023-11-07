@@ -498,6 +498,7 @@ class MongoDBSource(StatefulIngestionSourceBase):
         # the operation $bsonsize is only available in server version greater than 4.4
         # and is not supported by AWS DocumentDB, we should only add this operation to
         # aggregation for mongodb that doesn't run on AWS DocumentDB and version is greater than 4.4
+        # https://docs.aws.amazon.com/documentdb/latest/developerguide/mongo-apis.html
         return (
             self.is_server_version_gte_4_4() and not self.is_hosted_on_aws_documentdb()
         )
