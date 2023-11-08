@@ -15,6 +15,7 @@ public class FeatureFlags {
   private boolean showBrowseV2 = false;
   private PreProcessHooks preProcessHooks;
   private boolean showAcrylInfo = false;
+  private boolean showSlackHelpButton = true;
   private boolean showAccessManagement = false;
   private boolean nestedDomainsEnabled = false;
 }

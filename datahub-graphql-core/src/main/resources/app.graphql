@@ -443,6 +443,11 @@ type FeatureFlagsConfig {
   showAcrylInfo: Boolean!
 
   """
+  Whether we should show the Slack Help Button on the Home Page.
+  """
+  showSlackHelpButton: Boolean!
+
+  """
   Whether we should show AccessManagement tab in the datahub UI.
   """
   showAccessManagement: Boolean!

@@ -13,6 +13,11 @@ export function useIsShowAcrylInfoEnabled() {
     return appConfig.config.featureFlags.showAcrylInfo;
 }
 
+export function useIsShowSlackHelpButtonEnabled() {
+    const appConfig = useAppConfig();
+    return appConfig.config.featureFlags.showSlackHelpButton;
+}
+
 export function useIsNestedDomainsEnabled() {
     const appConfig = useAppConfig();
     return appConfig.config.featureFlags.nestedDomainsEnabled;
