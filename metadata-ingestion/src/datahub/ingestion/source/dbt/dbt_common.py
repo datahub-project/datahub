@@ -107,6 +107,7 @@ from datahub.metadata.schema_classes import (
 from datahub.specific.dataset import DatasetPatchBuilder
 from datahub.utilities.mapping import Constants, OperationProcessor
 from datahub.utilities.sqlglot_lineage import (
+    SchemaInfo,
     SchemaResolver,
     SqlParsingDebugInfo,
     SqlParsingResult,
@@ -511,7 +512,7 @@ class DBTNode:
     def exists_in_target_platform(self):
         return not (self.is_ephemeral_model() or self.node_type == "test")
 
-    def merge_inferred_schema_fields(self, schema_fields: List[SchemaField]) -> None:
+    def merge_schema_fields(self, schema_fields: List[SchemaField]) -> None:
         """
         Merges the schema fields into the DBTNode.
 
@@ -844,6 +845,10 @@ class DBTSourceBase(StatefulIngestionSourceBase):
 
         return nodes
 
+    @staticmethod
+    def _to_schema_info(schema_fields: List[SchemaField]) -> SchemaInfo:
+        return {column.fieldPath: column.nativeDataType for column in schema_fields}
+
     def _infer_schemas_and_update_cll(self, all_nodes_map: Dict[str, DBTNode]) -> None:
         if not self.config.infer_dbt_schemas:
             if self.config.include_column_lineage:
@@ -896,12 +901,49 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             if target_node_urn:
                 target_platform_urn_to_dbt_name[target_node_urn] = node.dbt_name
 
-            # Fetch the schema from the graph if possible.
+            # Our schema resolver preference is:
+            # 1. dbt catalog
+            # 2. graph
+            # 3. inferred
+            # Exception: if convert_column_urns_to_lowercase is enabled, swap 1 and 2.
+            # Cases 1 and 2 are handled here, and case 3 is handled after schema inference has occurred.
             schema_fields: Optional[List[SchemaField]] = None
-            if target_node_urn and should_fetch_target_node_schema:
+
+            # Fetch the schema from the graph.
+            if (
+                not schema_fields
+                and target_node_urn
+                and should_fetch_target_node_schema
+            ):
                 schema_metadata = graph.get_aspect(target_node_urn, SchemaMetadata)
                 if schema_metadata:
                     schema_fields = schema_metadata.fields
+
+            # Otherwise, load the schema from the dbt catalog.
+            # Note that this might get the casing wrong relative to DataHub, but
+            # has a more up-to-date column list.
+            if node.columns and (
+                not schema_fields or self.config.convert_column_urns_to_lowercase
+            ):
+                schema_fields = [
+                    SchemaField(
+                        fieldPath=column.name.lower()
+                        if self.config.convert_column_urns_to_lowercase
+                        else column.name,
+                        type=column.datahub_data_type or NullTypeClass(),
+                        nativeDataType=column.data_type,
+                    )
+                    for column in node.columns
+                ]
+
+            # Add the node to the schema resolver, so that we can get column
+            # casing to match the upstream platform.
+            added_to_schema_resolver = False
+            if schema_fields:
+                schema_resolver.add_raw_schema_info(
+                    target_node_urn, self._to_schema_info(schema_fields)
+                )
+                added_to_schema_resolver = True
 
             # Run sql parser to infer the schema + generate column lineage.
             sql_result = None
@@ -967,31 +1009,15 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     for column_lineage in sql_result.column_lineage
                 ]
 
+            # Conditionally add the inferred schema to the schema resolver.
+            if not added_to_schema_resolver and schema_fields:
+                schema_resolver.add_raw_schema_info(
+                    target_node_urn, self._to_schema_info(schema_fields)
+                )
+
             # Merge the schema fields into the dbt node.
             if schema_fields:
-                node.merge_inferred_schema_fields(schema_fields)
-            elif node.columns:
-                # If we don't have an inferred schema, fallback to the user-defined schema.
-                schema_fields = [
-                    SchemaField(
-                        fieldPath=column.name,
-                        type=column.datahub_data_type
-                        or SchemaFieldDataType(type=NullTypeClass()),
-                        nativeDataType=column.data_type or "",
-                    )
-                    for column in node.columns
-                ]
-
-            # Add the node to the schema resolver, so that CLL works for
-            # downstream nodes.
-            if target_node_urn and node.columns:
-                schema_resolver.add_raw_schema_info(
-                    target_node_urn,
-                    {
-                        column.fieldPath: column.nativeDataType
-                        for column in schema_fields
-                    },
-                )
+                node.merge_schema_fields(schema_fields)
 
     def create_platform_mces(
         self,
