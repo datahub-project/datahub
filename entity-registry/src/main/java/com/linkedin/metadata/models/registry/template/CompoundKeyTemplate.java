@@ -7,6 +7,9 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.github.fge.jsonpatch.JsonPatchException;
 import com.github.fge.jsonpatch.Patch;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.util.Pair;
+import datahub.client.patch.PatchOperationType;
+
 import java.util.List;
 
 import static com.fasterxml.jackson.databind.node.JsonNodeFactory.*;
@@ -22,12 +25,16 @@ public abstract class CompoundKeyTemplate<T extends RecordTemplate> implements A
    */
   public JsonNode populateTopLevelKeys(JsonNode transformedNode, Patch jsonPatch) {
     JsonNode transformedNodeClone = transformedNode.deepCopy();
-    List<String> paths = getPaths(jsonPatch);
-    for (String path : paths) {
-      String[] keys = path.split("/");
-      // Skip first as it will always be blank due to path starting with /, skip last key as we only need to populate top level
+    List<Pair<PatchOperationType, String>> paths = getPaths(jsonPatch);
+    for (Pair<PatchOperationType, String> operationPath : paths) {
+      String[] keys = operationPath.getSecond().split("/");
       JsonNode parent = transformedNodeClone;
-      for (int i = 1; i < keys.length; i++) {
+
+      // if not remove, skip last key as we only need to populate top level
+      int endIdx = PatchOperationType.REMOVE.equals(operationPath.getFirst()) ? keys.length : keys.length - 1;
+
+      // Skip first as it will always be blank due to path starting with /
+      for (int i = 1; i < endIdx; i++) {
         if (parent.get(keys[i]) == null) {
           ((ObjectNode) parent).set(keys[i], instance.objectNode());
         }
