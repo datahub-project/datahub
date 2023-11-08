@@ -18,16 +18,6 @@ import { useQuickFiltersContext } from '../../providers/QuickFiltersContext';
 import { useUserContext } from '../context/useUserContext';
 import { useSelectedSortOption } from './context/SearchContext';
 
-const styles = {
-    children: {
-        flex: '1',
-        marginTop: 60,
-        display: 'flex',
-        flexDirection: 'column' as const,
-        maxHeight: 'calc(100vh - 60px)',
-    },
-};
-
 interface Props extends React.PropsWithChildren<any> {
     onSearch?: (query: string, type?: EntityType) => void;
     onAutoComplete?: (query: string) => void;
@@ -138,7 +128,16 @@ export const SearchablePage = ({ onSearch, onAutoComplete, children }: Props) =>
                 authenticatedUserPictureLink={user?.editableProperties?.pictureLink}
                 entityRegistry={entityRegistry}
             />
-            <div style={styles.children}>{children}</div>
+            <div
+                style={{
+                    maxHeight: 'calc(100vh - 60px)',
+                    position: 'absolute',
+                    inset: '60px 0px 0px',
+                    overflowY: 'auto',
+                }}
+            >
+                {children}
+            </div>
         </>
     );
 };

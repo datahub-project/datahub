@@ -21,7 +21,9 @@ import { OnboardingTour } from '../../onboarding/OnboardingTour';
 import { ROLES_INTRO_ID } from '../../onboarding/config/RolesOnboardingConfig';
 import { clearUserListCache } from '../../identity/user/cacheUtils';
 
-const SourceContainer = styled.div``;
+const SourceContainer = styled.div`
+    height: calc(100% - 40px);
+`;
 
 const PaginationContainer = styled.div`
     display: flex;
@@ -33,8 +35,9 @@ const RoleName = styled.span`
     font-weight: 700;
 `;
 
-const PageContainer = styled.span`
+const PageContainer = styled.div`
     width: 100%;
+    height: 100%;
 `;
 
 const ActionsContainer = styled.div`
@@ -261,6 +264,10 @@ export const ManageRoles = () => {
                         emptyText: <Empty description="No Roles!" image={Empty.PRESENTED_IMAGE_SIMPLE} />,
                     }}
                     pagination={false}
+                    style={{
+                        height: 'calc(100% - 30px)',
+                        overflow: 'auto',
+                    }}
                 />
             </SourceContainer>
             <PaginationContainer>

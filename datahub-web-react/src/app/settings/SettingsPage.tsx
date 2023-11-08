@@ -24,11 +24,12 @@ import ManagePosts from './posts/ManagePosts';
 
 const PageContainer = styled.div`
     display: flex;
+    height: calc(100% - 60px);
 `;
 
 const SettingsBarContainer = styled.div`
     padding-top: 20px;
-    min-height: 100vh;
+    height: calc(100vh - 60px);
     border-right: 1px solid ${ANTD_GRAY[5]};
 `;
 
@@ -108,7 +109,13 @@ export const SettingsPage = () => {
                 <Menu
                     selectable={false}
                     mode="inline"
-                    style={{ width: 256, marginTop: 8 }}
+                    style={{
+                        width: 256,
+                        marginTop: 8,
+                        height: 'calc(100% - 120px)',
+                        overflowX: 'hidden',
+                        overflowY: 'auto',
+                    }}
                     selectedKeys={[activePath]}
                     onClick={(newPath) => {
                         history.replace(`${url}/${newPath.key}`);

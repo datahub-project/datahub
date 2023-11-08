@@ -21,7 +21,9 @@ const PageTitle = styled(Typography.Title)`
     }
 `;
 
-const ListContainer = styled.div``;
+const ListContainer = styled.div`
+    height: calc(100% - 120px);
+`;
 
 export default function ManagePosts() {
     return (

@@ -17,7 +17,9 @@ import { SearchBar } from '../../search/SearchBar';
 import { StyledTable } from '../../entity/shared/components/styled/StyledTable';
 import { POST_TYPE_TO_DISPLAY_TEXT } from './constants';
 
-const PostsContainer = styled.div``;
+const PostsContainer = styled.div`
+    height: 100%;
+`;
 
 export const PostsPaginationContainer = styled.div`
     display: flex;
@@ -155,6 +157,10 @@ export const PostList = () => {
                     rowKey="urn"
                     pagination={false}
                     locale={{ emptyText: <Empty description="No posts!" image={Empty.PRESENTED_IMAGE_SIMPLE} /> }}
+                    style={{
+                        height: 'calc(100% - 30px)',
+                        overflow: 'auto',
+                    }}
                 />
                 {totalPosts > pageSize && (
                     <PostsPaginationContainer>

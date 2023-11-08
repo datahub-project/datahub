@@ -55,6 +55,10 @@ export const OwnershipTable = ({ ownershipTypes, setIsOpen, setOwnershipType, re
                 emptyText: <Empty description="No Ownership Types found!" image={Empty.PRESENTED_IMAGE_SIMPLE} />,
             }}
             pagination={false}
+            style={{
+                height: 'calc(100% - 30px)',
+                overflow: 'auto',
+            }}
         />
     );
 };

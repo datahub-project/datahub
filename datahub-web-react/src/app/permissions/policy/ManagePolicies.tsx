@@ -38,7 +38,9 @@ import analytics, { EventType } from '../../analytics';
 import { POLICIES_CREATE_POLICY_ID, POLICIES_INTRO_ID } from '../../onboarding/config/PoliciesOnboardingConfig';
 import { OnboardingTour } from '../../onboarding/OnboardingTour';
 
-const SourceContainer = styled.div``;
+const SourceContainer = styled.div`
+    height: calc(100% - 40px);
+`;
 
 const PaginationContainer = styled.div`
     display: flex;
@@ -73,8 +75,9 @@ const EditPolicyButton = styled(Button)`
     margin-right: 16px;
 `;
 
-const PageContainer = styled.span`
+const PageContainer = styled.div`
     width: 100%;
+    height: 100%;
 `;
 
 const DEFAULT_PAGE_SIZE = 10;
@@ -489,6 +492,10 @@ export const ManagePolicies = () => {
                         emptyText: <Empty description="No Policies!" image={Empty.PRESENTED_IMAGE_SIMPLE} />,
                     }}
                     pagination={false}
+                    style={{
+                        height: 'calc(100% - 30px)',
+                        overflow: 'auto',
+                    }}
                 />
             </SourceContainer>
             <PaginationContainer>

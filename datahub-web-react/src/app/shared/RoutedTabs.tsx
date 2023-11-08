@@ -3,6 +3,7 @@ import { Route, Switch, useRouteMatch, useLocation } from 'react-router-dom';
 import { Redirect, useHistory } from 'react-router';
 import { Tabs } from 'antd';
 import { TabsProps } from 'antd/lib/tabs';
+import styled from 'styled-components';
 
 const { TabPane } = Tabs;
 
@@ -32,8 +33,13 @@ export const RoutedTabs = ({ defaultPath, tabs, onTabChange, ...props }: Props) 
     const splitPathName = trimmedPathName.split('/');
     const providedPath = splitPathName[splitPathName.length - 1];
     const activePath = subRoutes.includes(providedPath) ? providedPath : defaultPath.replace('/', '');
+
+    const PaginationContainer = styled.div`
+        height: calc(100% - 80px);
+    `;
+
     return (
-        <div>
+        <PaginationContainer>
             <Tabs
                 defaultActiveKey={activePath}
                 activeKey={activePath}
@@ -62,6 +68,6 @@ export const RoutedTabs = ({ defaultPath, tabs, onTabChange, ...props }: Props) 
                     />
                 ))}
             </Switch>
-        </div>
+        </PaginationContainer>
     );
 };

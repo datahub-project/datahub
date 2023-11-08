@@ -25,10 +25,14 @@ import { useUpdateEducationStepIdsAllowlist } from '../../onboarding/useUpdateEd
 import { DEFAULT_USER_LIST_PAGE_SIZE, removeUserFromListUsersCache } from './cacheUtils';
 import { useUserContext } from '../../context/useUserContext';
 
-const UserContainer = styled.div``;
+const UserContainer = styled.div`
+    height: 100%;
+`;
 
 const UserStyledList = styled(List)`
     &&& {
+        height: calc(100% - 85px);
+        overflow: auto;
         width: 100%;
         border-color: ${(props) => props.theme.styles['border-color-base']};
     }

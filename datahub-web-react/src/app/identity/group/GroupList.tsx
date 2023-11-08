@@ -17,12 +17,16 @@ import { GROUPS_CREATE_GROUP_ID, GROUPS_INTRO_ID } from '../../onboarding/config
 import { OnboardingTour } from '../../onboarding/OnboardingTour';
 import { addGroupToListGroupsCache, DEFAULT_GROUP_LIST_PAGE_SIZE, removeGroupFromListGroupsCache } from './cacheUtils';
 
-const GroupContainer = styled.div``;
+const GroupContainer = styled.div`
+    height: 100%;
+`;
 
 const GroupStyledList = styled(List)`
     &&& {
+        height: calc(100% - 85px);
         width: 100%;
         border-color: ${(props) => props.theme.styles['border-color-base']};
+        overflow: auto;
     }
 `;
 

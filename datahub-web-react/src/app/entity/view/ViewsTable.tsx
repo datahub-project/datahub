@@ -56,6 +56,10 @@ export const ViewsTable = ({ views, onEditView }: ViewsTableProps) => {
                 emptyText: <Empty description="No Views found!" image={Empty.PRESENTED_IMAGE_SIMPLE} />,
             }}
             pagination={false}
+            style={{
+                height: 'calc(100% - 30px)',
+                overflow: 'auto',
+            }}
         />
     );
 };

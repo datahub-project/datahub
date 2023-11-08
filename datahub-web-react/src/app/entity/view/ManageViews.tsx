@@ -20,7 +20,9 @@ const PageTitle = styled(Typography.Title)`
     }
 `;
 
-const ListContainer = styled.div``;
+const ListContainer = styled.div`
+    height: calc(100% - 120px);
+`;
 
 /**
  * Component used for displaying the 'Manage Views' experience.

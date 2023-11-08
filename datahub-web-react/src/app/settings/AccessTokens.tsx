@@ -21,6 +21,7 @@ const SourceContainer = styled.div`
     padding-top: 20px;
     padding-right: 40px;
     padding-left: 40px;
+    height: 100%;
 `;
 
 const TokensContainer = styled.div`
@@ -270,6 +271,10 @@ export const AccessTokens = () => {
                     emptyText: <Empty description="No Access Tokens!" image={Empty.PRESENTED_IMAGE_SIMPLE} />,
                 }}
                 pagination={false}
+                style={{
+                    height: 'calc(100% - 365px)',
+                    overflow: 'auto',
+                }}
             />
             <PaginationContainer>
                 <Pagination
