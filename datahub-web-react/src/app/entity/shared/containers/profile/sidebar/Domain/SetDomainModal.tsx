@@ -1,6 +1,8 @@
 import React, { useRef, useState } from 'react';
-import { Button, Form, message, Modal, Select } from 'antd';
+import { Button, Form, message, Modal, Select, Empty } from 'antd';
+import { LoadingOutlined } from '@ant-design/icons';
 
+import styled from 'styled-components/macro';
 import { useGetSearchResultsLazyQuery } from '../../../../../../../graphql/search.generated';
 import { Domain, Entity, EntityType } from '../../../../../../../types.generated';
 import { useBatchSetDomainMutation } from '../../../../../../../graphql/mutations.generated';
@@ -12,6 +14,7 @@ import { tagRender } from '../tagRenderer';
 import { BrowserWrapper } from '../../../../../../shared/tags/AddTagsTermsModal';
 import DomainNavigator from '../../../../../../domain/nestedDomains/domainNavigator/DomainNavigator';
 import ClickOutside from '../../../../../../shared/ClickOutside';
+import { ANTD_GRAY } from '../../../../constants';
 
 type Props = {
     urns: string[];
@@ -27,6 +30,18 @@ type SelectedDomain = {
     type: EntityType;
     urn: string;
 };
+
+const LoadingWrapper = styled.div`
+    padding: 8px;
+    display: flex;
+    justify-content: center;
+
+    svg {
+        height: 15px;
+        width: 15px;
+        color: ${ANTD_GRAY[8]};
+    }
+`;
 
 export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOkOverride, titleOverride }: Props) => {
     const entityRegistry = useEntityRegistry();
@@ -181,42 +196,55 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOk
                 </>
             }
         >
-                <Form component={false}>
-                    <Form.Item>
-                        <ClickOutside onClickOutside={handleCLickOutside}>
-                            <Select
-                                autoFocus
-                                defaultOpen
-                                filterOption={false}
-                                showSearch
-                                mode="multiple"
-                                defaultActiveFirstOption={false}
-                                placeholder="Search for Domains..."
-                                onSelect={(domainUrn: any) => onSelectDomain(domainUrn)}
-                                onDeselect={onDeselectDomain}
-                                onSearch={(value: string) => {
-                                    // eslint-disable-next-line react/prop-types
-                                    handleSearch(value.trim());
-                                    // eslint-disable-next-line react/prop-types
-                                    setInputValue(value.trim());
-                                }}
-                                ref={inputEl}
-                                value={selectValue}
-                                tagRender={tagRender}
-                                onBlur={handleBlur}
-                                onFocus={() => setIsFocusedOnInput(true)}
-                                dropdownStyle={isShowingDomainNavigator ? { display: 'none' } : {}}
-                                loading={loading}
-                                disabled={loading}
-                            >
-                                {domainSearchOptions}
-                            </Select>
-                            <BrowserWrapper isHidden={!isShowingDomainNavigator}>
-                                <DomainNavigator selectDomainOverride={selectDomainFromBrowser} />
-                            </BrowserWrapper>
-                        </ClickOutside>
-                    </Form.Item>
-                </Form>
+            <Form component={false}>
+                <Form.Item>
+                    <ClickOutside onClickOutside={handleCLickOutside}>
+                        <Select
+                            autoFocus
+                            defaultOpen
+                            filterOption={false}
+                            showSearch
+                            mode="multiple"
+                            defaultActiveFirstOption={false}
+                            placeholder="Search for Domains..."
+                            onSelect={(domainUrn: any) => onSelectDomain(domainUrn)}
+                            onDeselect={onDeselectDomain}
+                            onSearch={(value: string) => {
+                                // eslint-disable-next-line react/prop-types
+                                handleSearch(value.trim());
+                                // eslint-disable-next-line react/prop-types
+                                setInputValue(value.trim());
+                            }}
+                            ref={inputEl}
+                            value={selectValue}
+                            tagRender={tagRender}
+                            onBlur={handleBlur}
+                            onFocus={() => setIsFocusedOnInput(true)}
+                            dropdownStyle={isShowingDomainNavigator ? { display: 'none' } : {}}
+                            notFoundContent={
+                                <Empty
+                                    description="No Domains Found"
+                                    image={Empty.PRESENTED_IMAGE_SIMPLE}
+                                    style={{ color: ANTD_GRAY[7] }}
+                                />
+                            }
+                        >
+                            {loading ? (
+                                <Select.Option value="loading">
+                                    <LoadingWrapper>
+                                        <LoadingOutlined />
+                                    </LoadingWrapper>
+                                </Select.Option>
+                            ) : (
+                                domainSearchOptions
+                            )}
+                        </Select>
+                        <BrowserWrapper isHidden={!isShowingDomainNavigator}>
+                            <DomainNavigator selectDomainOverride={selectDomainFromBrowser} />
+                        </BrowserWrapper>
+                    </ClickOutside>
+                </Form.Item>
+            </Form>
         </Modal>
     );
 };
