@@ -241,7 +241,7 @@ public interface EntityClient {
    */
   @Nonnull
   ScrollResult scrollAcrossEntities(@Nonnull List<String> entities, @Nonnull String input,
-      @Nullable Filter filter, @Nullable String scrollId, @Nonnull String keepAlive, int count, @Nullable SearchFlags searchFlags,
+      @Nullable Filter filter, @Nullable String scrollId, @Nullable String keepAlive, int count, @Nullable SearchFlags searchFlags,
       @Nonnull Authentication authentication)
       throws RemoteInvocationException;
 
