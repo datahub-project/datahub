@@ -20,6 +20,7 @@ from typing import (
 import sqlalchemy.dialects.postgresql.base
 from sqlalchemy import create_engine, inspect
 from sqlalchemy.engine.reflection import Inspector
+from sqlalchemy.engine.row import LegacyRow
 from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.sql import sqltypes as types
 from sqlalchemy.types import TypeDecorator, TypeEngine
@@ -784,7 +785,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             table_info: dict = inspector.get_table_comment(table, f'"{schema}"')  # type: ignore
 
         description = table_info.get("text")
-        if type(description) is tuple:
+        if isinstance(description, LegacyRow):
             # Handling for value type tuple which is coming for dialect 'db2+ibm_db'
             description = table_info["text"][0]
 

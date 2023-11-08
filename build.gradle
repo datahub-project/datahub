@@ -1,7 +1,7 @@
 buildscript {
   ext.junitJupiterVersion = '5.6.1'
   // Releases: https://github.com/linkedin/rest.li/blob/master/CHANGELOG.md
-  ext.pegasusVersion = '29.45.0'
+  ext.pegasusVersion = '29.46.8'
   ext.mavenVersion = '3.6.3'
   ext.springVersion = '5.3.29'
   ext.springBootVersion = '2.7.14'
@@ -39,7 +39,7 @@ buildscript {
 plugins {
   id 'com.gorylenko.gradle-git-properties' version '2.4.0-rc2'
   id 'com.github.johnrengelman.shadow' version '6.1.0'
-  id 'com.palantir.docker' version '0.35.0'
+  id 'com.palantir.docker' version '0.35.0' apply false
   // https://blog.ltgt.net/javax-jakarta-mess-and-gradle-solution/
   // TODO id "org.gradlex.java-ecosystem-capabilities" version "1.0"
 }
@@ -212,7 +212,7 @@ project.ext.externalDependency = [
     'testContainersOpenSearch': 'org.opensearch:opensearch-testcontainers:2.0.0',
     'typesafeConfig':'com.typesafe:config:1.4.1',
     'wiremock':'com.github.tomakehurst:wiremock:2.10.0',
-    'zookeeper': 'org.apache.zookeeper:zookeeper:3.4.14',
+    'zookeeper': 'org.apache.zookeeper:zookeeper:3.7.2',
     'wire': 'com.squareup.wire:wire-compiler:3.7.1',
     'charle':  'com.charleskorn.kaml:kaml:0.53.0',
     'common': 'commons-io:commons-io:2.7',
