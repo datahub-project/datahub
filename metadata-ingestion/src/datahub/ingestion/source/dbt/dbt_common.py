@@ -299,7 +299,8 @@ class DBTCommonConfig(
     )
     include_column_lineage: bool = Field(
         default=False,
-        description="When enabled, column-level lineage will be extracted from the dbt node definition. Requires `infer_dbt_schemas` and a datahub API instance.",
+        description="When enabled, column-level lineage will be extracted from the dbt node definition. Requires `infer_dbt_schemas` to be enabled. "
+        "If you run into issues where the column name casing does not match up with properly, providing a datahub_api or using the rest sink will improve accuracy.",
     )
     # override default value to True.
     incremental_lineage: bool = Field(
@@ -497,7 +498,13 @@ class DBTNode:
         platform_instance_value = dbt_platform_instance
 
         materialized = self.materialization
-        if materialized in {"view", "table", "incremental", "snapshot"}:
+        if materialized in {
+            "view",
+            "materialized_view",
+            "table",
+            "incremental",
+            "snapshot",
+        }:
             # upstream urns point to the target platform
             platform_value = target_platform
             platform_instance_value = target_platform_instance
@@ -788,8 +795,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         if self.config.write_semantics == "PATCH":
             self.ctx.require_graph("Using dbt with write_semantics=PATCH")
-        if self.config.infer_dbt_schemas:
-            self.ctx.require_graph("Using dbt with infer_dbt_schemas=True")
 
         all_nodes, additional_custom_props = self.load_nodes()
 
@@ -857,7 +862,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 )
             return
 
-        graph = self.ctx.require_graph("Using dbt with infer_dbt_schemas")
+        graph = self.ctx.graph
 
         schema_resolver = SchemaResolver(
             platform=self.config.target_platform,
@@ -902,8 +907,8 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 target_platform_urn_to_dbt_name[target_node_urn] = node.dbt_name
 
             # Our schema resolver preference is:
-            # 1. dbt catalog
-            # 2. graph
+            # 1. graph
+            # 2. dbt catalog
             # 3. inferred
             # Exception: if convert_column_urns_to_lowercase is enabled, swap 1 and 2.
             # Cases 1 and 2 are handled here, and case 3 is handled after schema inference has occurred.
@@ -914,6 +919,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 not schema_fields
                 and target_node_urn
                 and should_fetch_target_node_schema
+                and graph
             ):
                 schema_metadata = graph.get_aspect(target_node_urn, SchemaMetadata)
                 if schema_metadata:
