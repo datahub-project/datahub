@@ -298,7 +298,7 @@ class DBTCommonConfig(
     )
     include_column_lineage: bool = Field(
         default=False,
-        description="When enabled, column-level lineage will be extracted from the dbt node definition.",
+        description="When enabled, column-level lineage will be extracted from the dbt node definition. Requires `infer_dbt_schemas` and a datahub API instance.",
     )
     # override default value to True.
     incremental_lineage: bool = Field(
@@ -359,6 +359,16 @@ class DBTCommonConfig(
                             f"Owner category {owner_category} is not one of {allowed_categories}"
                         )
         return meta_mapping
+
+    @validator("include_column_lineage")
+    def validate_include_column_lineage(
+        cls, include_column_lineage: bool, values: Dict
+    ) -> bool:
+        if include_column_lineage and not values.get("infer_dbt_schemas"):
+            raise ValueError(
+                "`infer_dbt_schemas` must be enabled to use `include_column_lineage`"
+            )
+        return include_column_lineage
 
 
 @dataclass
@@ -501,7 +511,7 @@ class DBTNode:
     def exists_in_target_platform(self):
         return not (self.is_ephemeral_model() or self.node_type == "test")
 
-    def merge_schema_fields(self, schema_fields: List[SchemaField]) -> None:
+    def merge_inferred_schema_fields(self, schema_fields: List[SchemaField]) -> None:
         """
         Merges the schema fields into the DBTNode.
 
@@ -959,7 +969,18 @@ class DBTSourceBase(StatefulIngestionSourceBase):
 
             # Merge the schema fields into the dbt node.
             if schema_fields:
-                node.merge_schema_fields(schema_fields)
+                node.merge_inferred_schema_fields(schema_fields)
+            elif node.columns:
+                # If we don't have an inferred schema, fallback to the user-defined schema.
+                schema_fields = [
+                    SchemaField(
+                        fieldPath=column.name,
+                        type=column.datahub_data_type
+                        or SchemaFieldDataType(type=NullTypeClass()),
+                        nativeDataType=column.data_type or "",
+                    )
+                    for column in node.columns
+                ]
 
             # Add the node to the schema resolver, so that CLL works for
             # downstream nodes.
@@ -967,8 +988,8 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 schema_resolver.add_raw_schema_info(
                     target_node_urn,
                     {
-                        column.name: column.data_type or "unknown"
-                        for column in node.columns
+                        column.fieldPath: column.nativeDataType
+                        for column in schema_fields
                     },
                 )
 
