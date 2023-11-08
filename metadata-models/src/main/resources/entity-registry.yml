@@ -120,6 +120,7 @@ entities:
       - globalTags
       - glossaryTerms
       - browsePathsV2
+      - subTypes
   - name: dashboard
     keyAspect: dashboardKey
     aspects:

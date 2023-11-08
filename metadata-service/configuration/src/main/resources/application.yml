@@ -251,6 +251,7 @@ neo4j:
   username: ${NEO4J_USERNAME:neo4j}
   password: ${NEO4J_PASSWORD:datahub}
   uri: ${NEO4J_URI:bolt://localhost}
+  database: ${NEO4J_DATABASE:graph.db}
   maxConnectionPoolSize: ${NEO4J_MAX_CONNECTION_POOL_SIZE:100}
   maxConnectionAcquisitionTimeout: ${NEO4J_MAX_CONNECTION_ACQUISITION_TIMEOUT_IN_SECONDS:60}
   maxConnectionLifetimeInSeconds: ${NEO4j_MAX_CONNECTION_LIFETIME_IN_SECONDS:3600}
