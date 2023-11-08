@@ -12,8 +12,8 @@ import sqlglot
 import sqlglot.errors
 import sqlglot.lineage
 import sqlglot.optimizer.annotate_types
+import sqlglot.optimizer.optimizer
 import sqlglot.optimizer.qualify
-import sqlglot.optimizer.qualify_columns
 from pydantic import BaseModel
 from typing_extensions import TypedDict
 
@@ -46,6 +46,19 @@ Urn = str
 SchemaInfo = Dict[str, str]
 
 SQL_PARSE_RESULT_CACHE_SIZE = 1000
+
+
+RULES_BEFORE_TYPE_ANNOTATION: tuple = tuple(
+    filter(
+        # Skip pushdown_predicates because it sometimes throws exceptions, and we
+        # don't actually need it for anything.
+        lambda func: func.__name__ not in {"pushdown_predicates"},
+        itertools.takewhile(
+            lambda func: func != sqlglot.optimizer.annotate_types.annotate_types,
+            sqlglot.optimizer.optimizer.RULES,
+        ),
+    )
+)
 
 
 class GraphQLSchemaField(TypedDict):
@@ -93,6 +106,7 @@ def get_query_type_of_sql(expression: sqlglot.exp.Expression) -> QueryType:
         sqlglot.exp.Update: QueryType.UPDATE,
         sqlglot.exp.Delete: QueryType.DELETE,
         sqlglot.exp.Merge: QueryType.MERGE,
+        sqlglot.exp.Subqueryable: QueryType.SELECT,  # unions, etc. are also selects
     }
 
     for cls, query_type in mapping.items():
@@ -288,6 +302,10 @@ def _table_level_lineage(
         }
     )
     # TODO: If a CTAS has "LIMIT 0", it's not really lineage, just copying the schema.
+
+    # Update statements implicitly read from the table being updated, so add those back in.
+    if isinstance(statement, sqlglot.exp.Update):
+        tables = tables | modified
 
     return tables, modified
 
@@ -568,17 +586,20 @@ def _column_level_lineage(  # noqa: C901
         # - the select instead of the full outer statement
         # - schema info
         # - column qualification enabled
+        # - running the full pre-type annotation optimizer
 
         # logger.debug("Schema: %s", sqlglot_db_schema.mapping)
-        statement = sqlglot.optimizer.qualify.qualify(
+        statement = sqlglot.optimizer.optimizer.optimize(
             statement,
             dialect=dialect,
             schema=sqlglot_db_schema,
+            qualify_columns=True,
             validate_qualify_columns=False,
             identify=True,
             # sqlglot calls the db -> schema -> table hierarchy "catalog", "db", "table".
             catalog=default_db,
             db=default_schema,
+            rules=RULES_BEFORE_TYPE_ANNOTATION,
         )
     except (sqlglot.errors.OptimizeError, ValueError) as e:
         raise SqlUnderstandingError(
@@ -623,9 +644,9 @@ def _column_level_lineage(  # noqa: C901
         statement = sqlglot.optimizer.annotate_types.annotate_types(
             statement, schema=sqlglot_db_schema
         )
-    except sqlglot.errors.OptimizeError as e:
+    except (sqlglot.errors.OptimizeError, sqlglot.errors.ParseError) as e:
         # This is not a fatal error, so we can continue.
-        logger.debug("sqlglot failed to annotate types: %s", e)
+        logger.debug("sqlglot failed to annotate or parse types: %s", e)
 
     try:
         assert isinstance(statement, _SupportedColumnLineageTypesTuple)
@@ -748,6 +769,7 @@ def _extract_select_from_create(
 _UPDATE_ARGS_NOT_SUPPORTED_BY_SELECT: Set[str] = set(
     sqlglot.exp.Update.arg_types.keys()
 ) - set(sqlglot.exp.Select.arg_types.keys())
+_UPDATE_FROM_TABLE_ARGS_TO_MOVE = {"joins", "laterals", "pivot"}
 
 
 def _extract_select_from_update(
@@ -774,16 +796,40 @@ def _extract_select_from_update(
             # they'll get caught later.
             new_expressions.append(expr)
 
-    return sqlglot.exp.Select(
+    # Special translation for the `from` clause.
+    extra_args = {}
+    original_from = statement.args.get("from")
+    if original_from and isinstance(original_from.this, sqlglot.exp.Table):
+        # Move joins, laterals, and pivots from the Update->From->Table->field
+        # to the top-level Select->field.
+
+        for k in _UPDATE_FROM_TABLE_ARGS_TO_MOVE:
+            if k in original_from.this.args:
+                # Mutate the from table clause in-place.
+                extra_args[k] = original_from.this.args.pop(k)
+
+    select_statement = sqlglot.exp.Select(
         **{
             **{
                 k: v
                 for k, v in statement.args.items()
                 if k not in _UPDATE_ARGS_NOT_SUPPORTED_BY_SELECT
             },
+            **extra_args,
             "expressions": new_expressions,
         }
     )
+
+    # Update statements always implicitly have the updated table in context.
+    # TODO: Retain table name alias, if one was present.
+    if select_statement.args.get("from"):
+        select_statement = select_statement.join(
+            statement.this, append=True, join_kind="cross"
+        )
+    else:
+        select_statement = select_statement.from_(statement.this)
+
+    return select_statement
 
 
 def _is_create_table_ddl(statement: sqlglot.exp.Expression) -> bool:
@@ -955,7 +1001,7 @@ def _sqlglot_lineage_inner(
     # Fetch schema info for the relevant tables.
     table_name_urn_mapping: Dict[_TableName, str] = {}
     table_name_schema_mapping: Dict[_TableName, SchemaInfo] = {}
-    for table in itertools.chain(tables, modified):
+    for table in tables | modified:
         # For select statements, qualification will be a no-op. For other statements, this
         # is where the qualification actually happens.
         qualified_table = table.qualified(
@@ -971,7 +1017,7 @@ def _sqlglot_lineage_inner(
         # Also include the original, non-qualified table name in the urn mapping.
         table_name_urn_mapping[table] = urn
 
-    total_tables_discovered = len(tables) + len(modified)
+    total_tables_discovered = len(tables | modified)
     total_schemas_resolved = len(table_name_schema_mapping)
     debug_info = SqlParsingDebugInfo(
         confidence=0.9 if total_tables_discovered == total_schemas_resolved
@@ -1156,3 +1202,20 @@ def create_lineage_sql_parsed_result(
     finally:
         if needs_close:
             schema_resolver.close()
+
+
+def view_definition_lineage_helper(
+    result: SqlParsingResult, view_urn: str
+) -> SqlParsingResult:
+    if result.query_type is QueryType.SELECT:
+        # Some platforms (e.g. postgres) store only <select statement> from view definition
+        # `create view V as <select statement>` . For such view definitions, `result.out_tables` and
+        # `result.column_lineage[].downstream` are empty in `sqlglot_lineage` response, whereas upstream
+        # details and downstream column details are extracted correctly.
+        # Here, we inject view V's urn in `result.out_tables` and `result.column_lineage[].downstream`
+        # to get complete lineage result.
+        result.out_tables = [view_urn]
+        if result.column_lineage:
+            for col_result in result.column_lineage:
+                col_result.downstream.table = view_urn
+    return result

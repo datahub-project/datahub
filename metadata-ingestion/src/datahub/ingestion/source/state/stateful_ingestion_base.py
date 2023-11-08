@@ -11,16 +11,16 @@ from datahub.configuration.common import (
     ConfigModel,
     ConfigurationError,
     DynamicTypedConfig,
-    LineageConfig,
 )
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.decorators import capability
 from datahub.ingestion.api.ingestion_job_checkpointing_provider_base import (
     IngestionCheckpointingProviderBase,
     JobId,
 )
-from datahub.ingestion.api.source import Source, SourceReport
+from datahub.ingestion.api.source import Source, SourceCapability, SourceReport
 from datahub.ingestion.source.state.checkpoint import Checkpoint, StateType
 from datahub.ingestion.source.state.use_case_handler import (
     StatefulIngestionUsecaseHandlerBase,
@@ -100,7 +100,7 @@ class StatefulIngestionConfigBase(GenericModel, Generic[CustomConfig]):
     )
 
 
-class StatefulLineageConfigMixin(LineageConfig):
+class StatefulLineageConfigMixin:
     enable_stateful_lineage_ingestion: bool = Field(
         default=True,
         description="Enable stateful lineage ingestion."
@@ -178,6 +178,11 @@ class StatefulIngestionReport(SourceReport):
     pass
 
 
+@capability(
+    SourceCapability.DELETION_DETECTION,
+    "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
+    supported=True,
+)
 class StatefulIngestionSourceBase(Source):
     """
     Defines the base class for all stateful sources.

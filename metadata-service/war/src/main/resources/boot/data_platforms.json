@@ -564,5 +564,15 @@
       "type": "KEY_VALUE_STORE",
       "logoUrl": "/assets/platforms/dynamodblogo.png"
     }
+  },
+  {
+    "urn": "urn:li:dataPlatform:fivetran",
+    "aspect": {
+      "datasetNameDelimiter": ".",
+      "name": "fivetran",
+      "displayName": "Fivetran",
+      "type": "OTHERS",
+      "logoUrl": "/assets/platforms/fivetranlogo.png"
+    }
   }
 ]
