@@ -936,7 +936,9 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                         fieldPath=column.name.lower()
                         if self.config.convert_column_urns_to_lowercase
                         else column.name,
-                        type=column.datahub_data_type or NullTypeClass(),
+                        type=SchemaFieldDataType(
+                            type=column.datahub_data_type or NullTypeClass()
+                        ),
                         nativeDataType=column.data_type,
                     )
                     for column in node.columns
@@ -945,7 +947,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             # Add the node to the schema resolver, so that we can get column
             # casing to match the upstream platform.
             added_to_schema_resolver = False
-            if schema_fields:
+            if target_node_urn and schema_fields:
                 schema_resolver.add_raw_schema_info(
                     target_node_urn, self._to_schema_info(schema_fields)
                 )
@@ -1016,7 +1018,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 ]
 
             # Conditionally add the inferred schema to the schema resolver.
-            if not added_to_schema_resolver and schema_fields:
+            if not added_to_schema_resolver and target_node_urn and schema_fields:
                 schema_resolver.add_raw_schema_info(
                     target_node_urn, self._to_schema_info(schema_fields)
                 )
