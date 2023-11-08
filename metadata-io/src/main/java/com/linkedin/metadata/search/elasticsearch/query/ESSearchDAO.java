@@ -157,7 +157,7 @@ public class ESSearchDAO {
   @Nonnull
   @WithSpan
   private ScrollResult executeAndExtract(@Nonnull List<EntitySpec> entitySpecs, @Nonnull SearchRequest searchRequest, @Nullable Filter filter,
-      @Nullable String scrollId, @Nonnull String keepAlive, int size) {
+      @Nullable String scrollId, @Nullable String keepAlive, int size) {
     try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "executeAndExtract_scroll").time()) {
       final SearchResponse searchResponse = client.search(searchRequest, RequestOptions.DEFAULT);
       // extract results, validated against document model as well
@@ -166,7 +166,7 @@ public class ESSearchDAO {
               .extractScrollResult(searchResponse,
               filter, scrollId, keepAlive, size, supportsPointInTime()));
     } catch (Exception e) {
-      log.error("Search query failed", e);
+      log.error("Search query failed: {}", searchRequest, e);
       throw new ESQueryException("Search query failed:", e);
     }
   }

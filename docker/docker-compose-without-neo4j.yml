@@ -174,7 +174,10 @@ services:
       retries: 3
       timeout: 5s
     volumes:
-    - zkdata:/var/lib/zookeeper
+    # See https://stackoverflow.com/a/61008432 for why we need two volumes.
+    # See also: https://docs.confluent.io/platform/current/installation/docker/operations/external-volumes.html#data-volumes-for-kafka-and-zk
+    - zkdata:/var/lib/zookeeper/data
+    - zklogs:/var/lib/zookeeper/log
 networks:
   default:
     name: datahub_network
@@ -182,3 +185,4 @@ volumes:
   esdata:
   broker:
   zkdata:
+  zklogs:

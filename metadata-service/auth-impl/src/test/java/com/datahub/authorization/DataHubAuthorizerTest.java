@@ -22,6 +22,7 @@ import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.query.SearchFlags;
+import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
@@ -35,6 +36,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -89,30 +92,58 @@ public class DataHubAuthorizerTest {
     final EnvelopedAspectMap childDomainPolicyAspectMap = new EnvelopedAspectMap();
     childDomainPolicyAspectMap.put(DATAHUB_POLICY_INFO_ASPECT_NAME, new EnvelopedAspect().setValue(new Aspect(childDomainPolicy.data())));
 
-    final SearchResult policySearchResult = new SearchResult();
-    policySearchResult.setNumEntities(3);
-    policySearchResult.setEntities(
-        new SearchEntityArray(
-            ImmutableList.of(
-                new SearchEntity().setEntity(activePolicyUrn),
-                new SearchEntity().setEntity(inactivePolicyUrn),
-                new SearchEntity().setEntity(parentDomainPolicyUrn),
-                new SearchEntity().setEntity(childDomainPolicyUrn)
-            )
-        )
-    );
+    final ScrollResult policySearchResult1 = new ScrollResult()
+            .setScrollId("1")
+            .setNumEntities(4)
+            .setEntities(
+                    new SearchEntityArray(
+                            ImmutableList.of(new SearchEntity().setEntity(activePolicyUrn))));
 
-    when(_entityClient.search(eq("dataHubPolicy"), eq(""), isNull(), any(), anyInt(), anyInt(), any(),
-        eq(new SearchFlags().setFulltext(true)))).thenReturn(policySearchResult);
-    when(_entityClient.batchGetV2(eq(POLICY_ENTITY_NAME),
-        eq(ImmutableSet.of(activePolicyUrn, inactivePolicyUrn, parentDomainPolicyUrn, childDomainPolicyUrn)), eq(null), any())).thenReturn(
-        ImmutableMap.of(
-            activePolicyUrn, new EntityResponse().setUrn(activePolicyUrn).setAspects(activeAspectMap),
-            inactivePolicyUrn, new EntityResponse().setUrn(inactivePolicyUrn).setAspects(inactiveAspectMap),
-            parentDomainPolicyUrn, new EntityResponse().setUrn(parentDomainPolicyUrn).setAspects(parentDomainPolicyAspectMap),
-            childDomainPolicyUrn, new EntityResponse().setUrn(childDomainPolicyUrn).setAspects(childDomainPolicyAspectMap)
-        )
-    );
+    final ScrollResult policySearchResult2 = new ScrollResult()
+            .setScrollId("2")
+            .setNumEntities(4)
+            .setEntities(
+                    new SearchEntityArray(
+                            ImmutableList.of(new SearchEntity().setEntity(inactivePolicyUrn))));
+
+    final ScrollResult policySearchResult3 = new ScrollResult()
+            .setScrollId("3")
+            .setNumEntities(4)
+            .setEntities(
+                    new SearchEntityArray(
+                            ImmutableList.of(new SearchEntity().setEntity(parentDomainPolicyUrn))));
+
+    final ScrollResult policySearchResult4 = new ScrollResult()
+            .setNumEntities(4)
+            .setEntities(
+                    new SearchEntityArray(
+                            ImmutableList.of(
+                                    new SearchEntity().setEntity(childDomainPolicyUrn))));
+
+    when(_entityClient.scrollAcrossEntities(eq(List.of("dataHubPolicy")), eq(""), isNull(), any(), isNull(),
+            anyInt(), eq(new SearchFlags().setFulltext(true).setSkipAggregates(true).setSkipHighlighting(true).setSkipCache(true)), any()))
+            .thenReturn(policySearchResult1)
+            .thenReturn(policySearchResult2)
+            .thenReturn(policySearchResult3)
+            .thenReturn(policySearchResult4);
+
+    when(_entityClient.batchGetV2(eq(POLICY_ENTITY_NAME), any(), eq(null), any())).thenAnswer(args -> {
+      Set<Urn> inputUrns = args.getArgument(1);
+      Urn urn = inputUrns.stream().findFirst().get();
+
+      switch (urn.toString()) {
+        case "urn:li:dataHubPolicy:0":
+          return Map.of(activePolicyUrn, new EntityResponse().setUrn(activePolicyUrn).setAspects(activeAspectMap));
+        case "urn:li:dataHubPolicy:1":
+          return Map.of(inactivePolicyUrn, new EntityResponse().setUrn(inactivePolicyUrn).setAspects(inactiveAspectMap));
+        case "urn:li:dataHubPolicy:2":
+          return Map.of(parentDomainPolicyUrn, new EntityResponse().setUrn(parentDomainPolicyUrn).setAspects(parentDomainPolicyAspectMap));
+        case "urn:li:dataHubPolicy:3":
+          return Map.of(childDomainPolicyUrn, new EntityResponse().setUrn(childDomainPolicyUrn).setAspects(childDomainPolicyAspectMap));
+        default:
+          throw new IllegalStateException();
+      }
+    });
 
     final List<Urn> userUrns = ImmutableList.of(Urn.createFromString("urn:li:corpuser:user3"), Urn.createFromString("urn:li:corpuser:user4"));
     final List<Urn> groupUrns = ImmutableList.of(Urn.createFromString("urn:li:corpGroup:group3"), Urn.createFromString("urn:li:corpGroup:group4"));
@@ -146,7 +177,8 @@ public class DataHubAuthorizerTest {
         _entityClient,
         10,
         10,
-        DataHubAuthorizer.AuthorizationMode.DEFAULT
+        DataHubAuthorizer.AuthorizationMode.DEFAULT,
+        1 // force pagination logic
     );
     _dataHubAuthorizer.init(Collections.emptyMap(), createAuthorizerContext(systemAuthentication, _entityClient));
     _dataHubAuthorizer.invalidateCache();
