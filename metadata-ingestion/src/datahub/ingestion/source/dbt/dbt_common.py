@@ -294,7 +294,7 @@ class DBTCommonConfig(
         description="When enabled, dbt test warnings will be treated as failures.",
     )
     infer_dbt_schemas: bool = Field(
-        default=False,
+        default=True,
         description="When enabled, schemas will be inferred from the dbt node definition.",
     )
     include_column_lineage: bool = Field(
@@ -936,9 +936,8 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                         fieldPath=column.name.lower()
                         if self.config.convert_column_urns_to_lowercase
                         else column.name,
-                        type=SchemaFieldDataType(
-                            type=column.datahub_data_type or NullTypeClass()
-                        ),
+                        type=column.datahub_data_type
+                        or SchemaFieldDataType(type=NullTypeClass()),
                         nativeDataType=column.data_type,
                     )
                     for column in node.columns
