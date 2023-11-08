@@ -73,6 +73,7 @@ class TestVolumeEvaluator:
         self.connection = Connection(
             "urn:li:dataPlatform:snowflake", "urn:li:dataPlatform:snowflake"
         )
+        self.connection_provider.get_connection.return_value = self.connection
         self.context = AssertionEvaluationContext(monitor_urn="urn:li:monitor:test")
         self.params = AssertionEvaluationParameters(
             type=AssertionEvaluationParametersType.DATASET_VOLUME,
@@ -203,7 +204,7 @@ class TestVolumeEvaluator:
         source_mock.get_row_count.return_value = 999
 
         result = self.evaluator._evaluate_internal(
-            self.assertion, self.params, self.connection, self.context
+            self.assertion, self.params, self.context
         )
         assert result.type == AssertionResultType.SUCCESS
         assert result.parameters == {
@@ -227,7 +228,7 @@ class TestVolumeEvaluator:
         source_mock.get_row_count.return_value = 999
 
         result = self.evaluator._evaluate_internal(
-            self.assertion, self.params, self.connection, self.context
+            self.assertion, self.params, self.context
         )
         assert result.type == AssertionResultType.FAILURE
 
@@ -257,7 +258,7 @@ class TestVolumeEvaluator:
         )
 
         result = self.evaluator._evaluate_internal(
-            self.assertion, self.params, self.connection, self.context
+            self.assertion, self.params, self.context
         )
         assert result.type == AssertionResultType.SUCCESS
         assert result.parameters == {"row_count": 999, "prev_row_count": "899"}
@@ -289,7 +290,7 @@ class TestVolumeEvaluator:
         )
 
         result = self.evaluator._evaluate_internal(
-            self.assertion, self.params, self.connection, self.context
+            self.assertion, self.params, self.context
         )
         assert result.type == AssertionResultType.SUCCESS
         assert result.parameters == {"row_count": 1020, "prev_row_count": "899"}
@@ -320,7 +321,7 @@ class TestVolumeEvaluator:
         )
 
         result = self.evaluator._evaluate_internal(
-            self.assertion, self.params, self.connection, self.context
+            self.assertion, self.params, self.context
         )
         assert result.type == AssertionResultType.FAILURE
 
@@ -350,7 +351,7 @@ class TestVolumeEvaluator:
         )
 
         result = self.evaluator._evaluate_internal(
-            self.assertion, self.params, self.connection, self.context
+            self.assertion, self.params, self.context
         )
         assert result.type == AssertionResultType.SUCCESS
         assert result.parameters == {"row_count": 1100, "prev_row_count": "1000"}
@@ -382,7 +383,7 @@ class TestVolumeEvaluator:
         )
 
         result = self.evaluator._evaluate_internal(
-            self.assertion, self.params, self.connection, self.context
+            self.assertion, self.params, self.context
         )
         assert result.type == AssertionResultType.SUCCESS
         assert result.parameters == {"row_count": 1125, "prev_row_count": "1000"}
@@ -413,7 +414,7 @@ class TestVolumeEvaluator:
         )
 
         result = self.evaluator._evaluate_internal(
-            self.assertion, self.params, self.connection, self.context
+            self.assertion, self.params, self.context
         )
         assert result.type == AssertionResultType.FAILURE
 
@@ -437,7 +438,7 @@ class TestVolumeEvaluator:
         self.state_provider.get_state.return_value = None
 
         result = self.evaluator._evaluate_internal(
-            self.assertion, self.params, self.connection, self.context
+            self.assertion, self.params, self.context
         )
         assert result.type == AssertionResultType.INIT
 
@@ -465,7 +466,7 @@ class TestVolumeEvaluator:
         )
 
         result = self.evaluator._evaluate_internal(
-            self.assertion, self.params, self.connection, self.context
+            self.assertion, self.params, self.context
         )
         assert result.type == AssertionResultType.INIT
 
@@ -492,7 +493,7 @@ class TestVolumeEvaluator:
         )
 
         result = self.evaluator._evaluate_internal(
-            self.assertion, evaluation_params, self.connection, self.context
+            self.assertion, evaluation_params, self.context
         )
         assert result.type == AssertionResultType.SUCCESS
         assert result.parameters == {
@@ -525,7 +526,7 @@ class TestVolumeEvaluator:
         self.state_provider.get_state.return_value = None
 
         result = self.evaluator._evaluate_internal(
-            self.assertion, evaluation_params, self.connection, self.context
+            self.assertion, evaluation_params, self.context
         )
         assert result.type == AssertionResultType.INIT
 
@@ -561,7 +562,7 @@ class TestVolumeEvaluator:
         )
 
         result = self.evaluator._evaluate_internal(
-            self.assertion, evaluation_params, self.connection, self.context
+            self.assertion, evaluation_params, self.context
         )
         assert result.type == AssertionResultType.SUCCESS
         assert result.parameters == {"row_count": 999, "prev_row_count": "899"}
@@ -580,15 +581,13 @@ class TestVolumeEvaluator:
         self.assertion.volume_assertion = volume_assertion
         self.context.monitor_urn = ""
 
-        self.evaluator._evaluate_internal(
-            self.assertion, self.params, self.connection, self.context
-        )
+        self.evaluator._evaluate_internal(self.assertion, self.params, self.context)
         source_mock = Mock(spec=Source)
         self.source_provider.create_source_from_connection.return_value = source_mock
         source_mock.get_row_count.return_value = 999
 
         result = self.evaluator._evaluate_internal(
-            self.assertion, self.params, self.connection, self.context
+            self.assertion, self.params, self.context
         )
         assert result.type == AssertionResultType.INIT
         assert self.state_provider.get_state.call_count == 0

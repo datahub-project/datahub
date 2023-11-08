@@ -1,6 +1,6 @@
 import logging
 import time
-from typing import List, Optional, Tuple, Union
+from typing import List, Optional, Tuple, Union, cast
 
 from datahub.metadata.schema_classes import (
     DatasetFieldProfileClass,
@@ -14,13 +14,13 @@ from datahub_monitors.assertion.types import (
     AssertionState,
     AssertionStateType,
 )
-from datahub_monitors.connection.connection import Connection
 from datahub_monitors.connection.datahub_ingestion_source_connection_provider import (
     DataHubIngestionSourceConnectionProvider,
 )
 from datahub_monitors.exceptions import (
     InsufficientDataException,
     InvalidParametersException,
+    SourceConnectionErrorException,
 )
 from datahub_monitors.source.source import Source
 from datahub_monitors.types import (
@@ -324,14 +324,6 @@ class FieldAssertionEvaluator(AssertionEvaluator):
     ) -> AssertionEvaluationResult:
         assert field_assertion.field_metric_assertion is not None
 
-        if (
-            dataset_field_parameters.source_type
-            == DatasetFieldSourceType.DATAHUB_DATASET_PROFILE
-        ):
-            return self._evaluate_datahub_dataset_profile_field_metric_assertion(
-                entity_urn, field_assertion
-            )
-
         (
             previous_state,
             prev_high_watermark_value,
@@ -382,15 +374,33 @@ class FieldAssertionEvaluator(AssertionEvaluator):
         self,
         assertion: Assertion,
         parameters: AssertionEvaluationParameters,
-        connection: Connection,
         context: AssertionEvaluationContext,
     ) -> AssertionEvaluationResult:
+        assert assertion.connection_urn
         assert assertion.field_assertion is not None
         assert parameters.dataset_field_parameters is not None
 
         entity_urn = assertion.entity.urn
         field_assertion = assertion.field_assertion
         dataset_field_parameters = parameters.dataset_field_parameters
+
+        if (
+            field_assertion.type == FieldAssertionType.FIELD_METRIC
+            and dataset_field_parameters.source_type
+            == DatasetFieldSourceType.DATAHUB_DATASET_PROFILE
+        ):
+            return self._evaluate_datahub_dataset_profile_field_metric_assertion(
+                entity_urn, field_assertion
+            )
+
+        connection = self.connection_provider.get_connection(
+            cast(str, assertion.connection_urn)
+        )
+        if connection is None:
+            raise SourceConnectionErrorException(
+                message=f"Unable to retrieve valid connection for Data Platform with urn {assertion.connection_urn}",
+                connection_urn=assertion.connection_urn,
+            )
 
         source = self.source_provider.create_source_from_connection(connection)
         database_params = get_database_parameters(assertion)

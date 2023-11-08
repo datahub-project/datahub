@@ -69,6 +69,7 @@ class TestSQLEvaluator:
         self.connection = Connection(
             "urn:li:dataPlatform:snowflake", "urn:li:dataPlatform:snowflake"
         )
+        self.connection_provider.get_connection.return_value = self.connection
         self.context = AssertionEvaluationContext(monitor_urn="urn:li:monitor:test")
         self.params = AssertionEvaluationParameters(
             type=AssertionEvaluationParametersType.DATASET_SQL,
@@ -93,7 +94,7 @@ class TestSQLEvaluator:
         source_mock.execute_custom_sql.return_value = 999
 
         result = self.evaluator._evaluate_internal(
-            self.assertion, self.params, self.connection, self.context
+            self.assertion, self.params, self.context
         )
         assert result.type == AssertionResultType.SUCCESS
         assert result.parameters == {
@@ -116,7 +117,7 @@ class TestSQLEvaluator:
         source_mock.execute_custom_sql.return_value = 999
 
         result = self.evaluator._evaluate_internal(
-            self.assertion, self.params, self.connection, self.context
+            self.assertion, self.params, self.context
         )
         assert result.type == AssertionResultType.SUCCESS
         assert result.parameters == {
@@ -139,7 +140,7 @@ class TestSQLEvaluator:
         source_mock.execute_custom_sql.return_value = 999
 
         result = self.evaluator._evaluate_internal(
-            self.assertion, self.params, self.connection, self.context
+            self.assertion, self.params, self.context
         )
         assert result.type == AssertionResultType.FAILURE
 
@@ -168,7 +169,7 @@ class TestSQLEvaluator:
         )
 
         result = self.evaluator._evaluate_internal(
-            self.assertion, self.params, self.connection, self.context
+            self.assertion, self.params, self.context
         )
         assert result.type == AssertionResultType.SUCCESS
         assert result.parameters == {"metric_value": "999", "prev_metric_value": "899"}
@@ -198,7 +199,7 @@ class TestSQLEvaluator:
         )
 
         result = self.evaluator._evaluate_internal(
-            self.assertion, self.params, self.connection, self.context
+            self.assertion, self.params, self.context
         )
         assert result.type == AssertionResultType.FAILURE
 
@@ -227,7 +228,7 @@ class TestSQLEvaluator:
         )
 
         result = self.evaluator._evaluate_internal(
-            self.assertion, self.params, self.connection, self.context
+            self.assertion, self.params, self.context
         )
         assert result.type == AssertionResultType.SUCCESS
         assert result.parameters == {
@@ -260,7 +261,7 @@ class TestSQLEvaluator:
         )
 
         result = self.evaluator._evaluate_internal(
-            self.assertion, self.params, self.connection, self.context
+            self.assertion, self.params, self.context
         )
         assert result.type == AssertionResultType.FAILURE
 
@@ -283,7 +284,7 @@ class TestSQLEvaluator:
         self.state_provider.get_state.return_value = None
 
         result = self.evaluator._evaluate_internal(
-            self.assertion, self.params, self.connection, self.context
+            self.assertion, self.params, self.context
         )
         assert result.type == AssertionResultType.INIT
 
@@ -310,7 +311,7 @@ class TestSQLEvaluator:
         )
 
         result = self.evaluator._evaluate_internal(
-            self.assertion, self.params, self.connection, self.context
+            self.assertion, self.params, self.context
         )
         assert result.type == AssertionResultType.INIT
 
@@ -328,7 +329,7 @@ class TestSQLEvaluator:
         self.context.monitor_urn = ""
 
         result = self.evaluator._evaluate_internal(
-            self.assertion, self.params, self.connection, self.context
+            self.assertion, self.params, self.context
         )
         assert result.type == AssertionResultType.INIT
         assert self.state_provider.get_state.call_count == 0

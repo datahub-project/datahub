@@ -1,14 +1,15 @@
 import logging
 import re
 import time
+from typing import cast
 
 from datahub_monitors.assertion.engine.evaluator.evaluator import AssertionEvaluator
 from datahub_monitors.assertion.engine.evaluator.utils import get_database_parameters
 from datahub_monitors.assertion.types import AssertionState, AssertionStateType
-from datahub_monitors.connection.connection import Connection
 from datahub_monitors.exceptions import (
     CustomSQLErrorException,
     InvalidParametersException,
+    SourceConnectionErrorException,
 )
 from datahub_monitors.types import (
     Assertion,
@@ -162,10 +163,19 @@ class SQLAssertionEvaluator(AssertionEvaluator):
         self,
         assertion: Assertion,
         parameters: AssertionEvaluationParameters,
-        connection: Connection,
         context: AssertionEvaluationContext,
     ) -> AssertionEvaluationResult:
         assert assertion.sql_assertion is not None
+        assert assertion.connection_urn
+        connection = self.connection_provider.get_connection(
+            cast(str, assertion.connection_urn)
+        )
+
+        if connection is None:
+            raise SourceConnectionErrorException(
+                message=f"Unable to retrieve valid connection for Data Platform with urn {assertion.connection_urn}",
+                connection_urn=assertion.connection_urn,
+            )
 
         entity_urn = assertion.entity.urn
         sql_assertion = assertion.sql_assertion

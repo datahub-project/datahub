@@ -1,6 +1,6 @@
 import logging
 import time
-from typing import Optional
+from typing import Optional, cast
 
 from datahub.metadata.schema_classes import DatasetProfileClass
 
@@ -10,13 +10,13 @@ from datahub_monitors.assertion.engine.evaluator.utils.volume import (
     get_filter_parameters,
 )
 from datahub_monitors.assertion.types import AssertionState, AssertionStateType
-from datahub_monitors.connection.connection import Connection
 from datahub_monitors.connection.datahub_ingestion_source_connection_provider import (
     DataHubIngestionSourceConnectionProvider,
 )
 from datahub_monitors.exceptions import (
     InsufficientDataException,
     InvalidParametersException,
+    SourceConnectionErrorException,
 )
 from datahub_monitors.types import (
     Assertion,
@@ -180,11 +180,11 @@ class VolumeAssertionEvaluator(AssertionEvaluator):
         self,
         assertion: Assertion,
         parameters: AssertionEvaluationParameters,
-        connection: Connection,
         context: AssertionEvaluationContext,
     ) -> AssertionEvaluationResult:
         assert assertion.volume_assertion is not None
         assert parameters.dataset_volume_parameters is not None
+        assert assertion.connection_urn
 
         entity_urn = assertion.entity.urn
         volume_assertion = assertion.volume_assertion
@@ -197,6 +197,16 @@ class VolumeAssertionEvaluator(AssertionEvaluator):
         ):
             return self._evaluate_datahub_dataset_profile_assertion(
                 entity_urn, volume_assertion, context
+            )
+
+        connection = self.connection_provider.get_connection(
+            cast(str, assertion.connection_urn)
+        )
+
+        if connection is None:
+            raise SourceConnectionErrorException(
+                message=f"Unable to retrieve valid connection for Data Platform with urn {assertion.connection_urn}",
+                connection_urn=assertion.connection_urn,
             )
 
         source = self.source_provider.create_source_from_connection(connection)

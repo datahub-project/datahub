@@ -56,6 +56,7 @@ class TestFreshnessEvaluator:
         self.connection = Connection(
             "urn:li:dataPlatform:snowflake", "urn:li:dataPlatform:snowflake"
         )
+        self.connection_provider.get_connection.return_value = self.connection
         self.context = AssertionEvaluationContext(monitor_urn="urn:li:monitor:test")
         self.params = AssertionEvaluationParameters(
             type=AssertionEvaluationParametersType.DATASET_FRESHNESS,
@@ -80,7 +81,6 @@ class TestFreshnessEvaluator:
                 [TEST_START, TEST_END],
                 self.assertion,
                 self.params,
-                self.connection,
                 self.context,
             )
 
@@ -94,7 +94,6 @@ class TestFreshnessEvaluator:
             [TEST_START, TEST_END],
             self.assertion,
             self.params,
-            self.connection,
             self.context,
         )
         assert eval_result.type == AssertionResultType.INIT
@@ -116,7 +115,6 @@ class TestFreshnessEvaluator:
             [TEST_START, TEST_END],
             self.assertion,
             self.params,
-            self.connection,
             self.context,
         )
         assert eval_result.type == AssertionResultType.INIT
@@ -143,7 +141,6 @@ class TestFreshnessEvaluator:
             [TEST_START, TEST_END],
             self.assertion,
             self.params,
-            self.connection,
             self.context,
         )
         assert eval_result.type == AssertionResultType.FAILURE
@@ -168,7 +165,6 @@ class TestFreshnessEvaluator:
             [TEST_START, TEST_END],
             self.assertion,
             self.params,
-            self.connection,
             self.context,
         )
         assert eval_result.type == AssertionResultType.FAILURE
@@ -196,7 +192,6 @@ class TestFreshnessEvaluator:
             [TEST_START, TEST_END],
             self.assertion,
             self.params,
-            self.connection,
             self.context,
         )
         assert eval_result.type == AssertionResultType.FAILURE
@@ -225,7 +220,6 @@ class TestFreshnessEvaluator:
             [TEST_START, TEST_END],
             self.assertion,
             self.params,
-            self.connection,
             self.context,
         )
         assert eval_result.type == AssertionResultType.FAILURE
@@ -254,7 +248,6 @@ class TestFreshnessEvaluator:
             [TEST_START, TEST_END],
             self.assertion,
             self.params,
-            self.connection,
             self.context,
         )
         assert eval_result.type == AssertionResultType.SUCCESS
@@ -282,7 +275,6 @@ class TestFreshnessEvaluator:
             [TEST_START, TEST_END],
             self.assertion,
             self.params,
-            self.connection,
             self.context,
         )
         assert eval_result.type == AssertionResultType.SUCCESS
@@ -310,7 +302,6 @@ class TestFreshnessEvaluator:
             [TEST_START, TEST_END],
             self.assertion,
             self.params,
-            self.connection,
             self.context,
         )
         assert eval_result.type == AssertionResultType.SUCCESS
@@ -333,7 +324,6 @@ class TestFreshnessEvaluator:
             [TEST_START, TEST_END],
             self.assertion,
             operation_params,
-            self.connection,
             self.context,
         )
 
@@ -355,7 +345,6 @@ class TestFreshnessEvaluator:
             [TEST_START, TEST_END],
             self.assertion,
             self.params,
-            self.connection,
             self.context,
         )
         assert eval_result.type == AssertionResultType.INIT

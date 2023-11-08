@@ -80,6 +80,7 @@ class TestFreshnessEvaluator:
         self.connection = Connection(
             "urn:li:dataPlatform:snowflake", "urn:li:dataPlatform:snowflake"
         )
+        self.connection_provider.get_connection.return_value = self.connection
         self.source = Mock(spec=Source)
         self.source_provider.create_source_from_connection.return_value = self.source
 
@@ -100,7 +101,6 @@ class TestFreshnessEvaluator:
             self.evaluator._evaluate_internal(
                 self.assertion,
                 self.params,
-                self.connection,
                 self.context,
             )
 
@@ -110,7 +110,6 @@ class TestFreshnessEvaluator:
             self.evaluator._evaluate_internal(
                 self.assertion,
                 self.params,
-                self.connection,
                 self.context,
             )
 
@@ -561,13 +560,9 @@ class TestFreshnessEvaluator:
         self.assertion.field_assertion = field_assertion
 
         with pytest.raises(InvalidParametersException):
-            self.evaluator._evaluate_field_metric_assertion(
+            self.evaluator._evaluate_datahub_dataset_profile_field_metric_assertion(
                 TEST_ENTITY_URN,
                 self.assertion.field_assertion,
-                self.params.dataset_field_parameters,
-                self.source,
-                self.database_params,
-                self.context,
             )
 
     def test_evaluate_field_metric_assertion_datahub_dataset_profile_no_data(
@@ -605,13 +600,8 @@ class TestFreshnessEvaluator:
         self.connection_provider.graph.get_latest_timeseries_value.return_value = None
 
         with pytest.raises(InsufficientDataException):
-            self.evaluator._evaluate_field_metric_assertion(
-                TEST_ENTITY_URN,
-                self.assertion.field_assertion,
-                self.params.dataset_field_parameters,
-                self.source,
-                self.database_params,
-                self.context,
+            self.evaluator._evaluate_datahub_dataset_profile_field_metric_assertion(
+                TEST_ENTITY_URN, self.assertion.field_assertion
             )
 
     def test_evaluate_field_metric_assertion_datahub_dataset_profile_no_profile(
@@ -651,13 +641,9 @@ class TestFreshnessEvaluator:
         )
 
         with pytest.raises(InsufficientDataException):
-            self.evaluator._evaluate_field_metric_assertion(
+            self.evaluator._evaluate_datahub_dataset_profile_field_metric_assertion(
                 TEST_ENTITY_URN,
                 self.assertion.field_assertion,
-                self.params.dataset_field_parameters,
-                self.source,
-                self.database_params,
-                self.context,
             )
 
     def test_evaluate_field_metric_assertion_datahub_dataset_profile_no_metric_value(
@@ -702,13 +688,9 @@ class TestFreshnessEvaluator:
         )
 
         with pytest.raises(InsufficientDataException):
-            self.evaluator._evaluate_field_metric_assertion(
+            self.evaluator._evaluate_datahub_dataset_profile_field_metric_assertion(
                 TEST_ENTITY_URN,
                 self.assertion.field_assertion,
-                self.params.dataset_field_parameters,
-                self.source,
-                self.database_params,
-                self.context,
             )
 
     def test_evaluate_field_metric_assertion_datahub_dataset_profile_success(
@@ -752,13 +734,11 @@ class TestFreshnessEvaluator:
             )
         )
 
-        result = self.evaluator._evaluate_field_metric_assertion(
-            TEST_ENTITY_URN,
-            self.assertion.field_assertion,
-            self.params.dataset_field_parameters,
-            self.source,
-            self.database_params,
-            self.context,
+        result = (
+            self.evaluator._evaluate_datahub_dataset_profile_field_metric_assertion(
+                TEST_ENTITY_URN,
+                self.assertion.field_assertion,
+            )
         )
         assert result.type == AssertionResultType.SUCCESS
 
@@ -803,13 +783,11 @@ class TestFreshnessEvaluator:
             )
         )
 
-        result = self.evaluator._evaluate_field_metric_assertion(
-            TEST_ENTITY_URN,
-            self.assertion.field_assertion,
-            self.params.dataset_field_parameters,
-            self.source,
-            self.database_params,
-            self.context,
+        result = (
+            self.evaluator._evaluate_datahub_dataset_profile_field_metric_assertion(
+                TEST_ENTITY_URN,
+                self.assertion.field_assertion,
+            )
         )
         assert result.type == AssertionResultType.FAILURE
 
