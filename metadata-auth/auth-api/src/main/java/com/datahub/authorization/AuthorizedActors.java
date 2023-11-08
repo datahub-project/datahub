@@ -15,6 +15,7 @@ public class AuthorizedActors {
   String privilege;
   List<Urn> users;
   List<Urn> groups;
+  List<Urn> roles;
   boolean allUsers;
   boolean allGroups;
 }
