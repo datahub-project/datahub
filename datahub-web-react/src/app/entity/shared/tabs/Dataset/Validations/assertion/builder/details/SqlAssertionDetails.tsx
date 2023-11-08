@@ -1,11 +1,11 @@
 import React from 'react';
 import { Form } from 'antd';
 import styled from 'styled-components';
-import { Assertion, AssertionType, Monitor } from '../../../../../../../../types.generated';
-import { EvaluationScheduleBuilder } from './steps/freshness/EvaluationScheduleBuilder';
-import { DescriptionBuilder } from './steps/sql/DescriptionBuilder';
-import { SqlEvaluationBuilder } from './steps/sql/SqlEvaluationBuilder';
-import { SqlQueryBuilder } from './steps/sql/SqlQueryBuilder';
+import { Assertion, AssertionType, Monitor } from '../../../../../../../../../types.generated';
+import { EvaluationScheduleBuilder } from '../steps/freshness/EvaluationScheduleBuilder';
+import { DescriptionBuilder } from '../steps/sql/DescriptionBuilder';
+import { SqlEvaluationBuilder } from '../steps/sql/SqlEvaluationBuilder';
+import { SqlQueryBuilder } from '../steps/sql/SqlQueryBuilder';
 
 const Section = styled.div`
     margin-bottom: 24px;

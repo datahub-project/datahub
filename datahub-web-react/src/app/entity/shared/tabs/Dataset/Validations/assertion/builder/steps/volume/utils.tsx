@@ -169,6 +169,19 @@ export const getVolumeTypeCategory = (categoryKey: VolumeTypeCategoryEnum) => {
     return VOLUME_TYPE_CATEGORIES[categoryKey];
 };
 
+export const getSelectedVolumeTypeCategory = (volumeAssertionType: VolumeAssertionType) => {
+    switch (volumeAssertionType) {
+        case VolumeAssertionType.RowCountTotal:
+        case VolumeAssertionType.IncrementingSegmentRowCountTotal:
+            return VolumeTypeCategoryEnum.ROW_COUNT;
+        case VolumeAssertionType.RowCountChange:
+        case VolumeAssertionType.IncrementingSegmentRowCountChange:
+            return VolumeTypeCategoryEnum.GROWTH_RATE;
+        default:
+            throw new Error(`Unknown volume assertion type: ${volumeAssertionType}`);
+    }
+};
+
 // Volume assertion type config
 export type VolumeTypeOption = {
     label: string;
@@ -275,6 +288,17 @@ export const getVolumeTypeInfo = (volumeAssertion: VolumeAssertionInfo) => {
         throw new Error(`Unknown volume assertion type: ${volumeAssertion.type}`);
     }
     return result;
+};
+
+export const getSelectedVolumeTypeOption = (volumeAssertionInfo: VolumeAssertionInfo) => {
+    const category = getSelectedVolumeTypeCategory(volumeAssertionInfo.type);
+    const options = VOLUME_TYPE_OPTIONS_BY_CATEGORY[category];
+    const { operator } = getVolumeTypeInfo(volumeAssertionInfo);
+    return options.find(
+        (optionKey) =>
+            VOLUME_TYPE_OPTIONS[optionKey].category === category &&
+            VOLUME_TYPE_OPTIONS[optionKey].operator === operator,
+    );
 };
 
 export const getIsRowCountChange = (type: VolumeAssertionType) => {

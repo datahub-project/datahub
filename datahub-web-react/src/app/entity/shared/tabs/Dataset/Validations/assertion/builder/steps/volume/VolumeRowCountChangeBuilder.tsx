@@ -22,9 +22,16 @@ type Props = {
     value: AssertionStdParameters;
     onChange: (newParams: AssertionStdParameters) => void;
     updateVolumeAssertion: (newParams: Partial<VolumeAssertionInfo>) => void;
+    disabled?: boolean;
 };
 
-export const VolumeRowCountChangeBuilder = ({ volumeInfo, value, onChange, updateVolumeAssertion }: Props) => {
+export const VolumeRowCountChangeBuilder = ({
+    volumeInfo,
+    value,
+    onChange,
+    updateVolumeAssertion,
+    disabled,
+}: Props) => {
     const selectedType = volumeInfo.type;
     const propertyName = getPropertyFromVolumeType(selectedType);
     const operator = volumeInfo[propertyName]?.operator as AssertionStdOperator;
@@ -74,6 +81,7 @@ export const VolumeRowCountChangeBuilder = ({ volumeInfo, value, onChange, updat
                         placeholder="Number"
                         value={value.value?.value ? parseInt(value.value.value, 10) : undefined}
                         onChange={(newValue) => handleValueChange(newValue as number)}
+                        disabled={disabled}
                         select={{
                             value: (volumeInfo[propertyName] as any)?.type,
                             options: [
@@ -102,6 +110,7 @@ export const VolumeRowCountChangeBuilder = ({ volumeInfo, value, onChange, updat
                         placeholder="Min"
                         value={value.minValue?.value ? parseInt(value.minValue.value, 10) : undefined}
                         onChange={(newValue) => handleMinValueChange(newValue as number)}
+                        disabled={disabled}
                         select={{
                             value: (volumeInfo[propertyName] as any)?.type,
                             options: [
@@ -133,6 +142,7 @@ export const VolumeRowCountChangeBuilder = ({ volumeInfo, value, onChange, updat
                         placeholder="Max"
                         value={value.maxValue?.value ? parseInt(value.maxValue.value, 10) : undefined}
                         onChange={(newValue) => handleMaxValueChange(newValue as number)}
+                        disabled={disabled}
                         select={{
                             value: (volumeInfo[propertyName] as any)?.type,
                             options: [

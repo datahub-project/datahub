@@ -27,13 +27,14 @@ const MultipleInput = styled(InputNumber)`
 type Props = {
     value?: FixedIntervalSchedule | null;
     onChange: (newSchedule: FixedIntervalSchedule) => void;
+    disabled?: boolean;
     stopPropagation?: boolean;
 };
 
 /**
  * Builder used to construct a Fixed Interval suitable for Assertion Evaluation.
  */
-export const FixedIntervalScheduleBuilder = ({ value, onChange, stopPropagation }: Props) => {
+export const FixedIntervalScheduleBuilder = ({ value, onChange, disabled, stopPropagation }: Props) => {
     const unit = value?.unit || DEFAULT_ASSERTION_EVALUATION_INTERVAL_UNIT;
     const multiple = value?.multiple || DEFAULT_ASSERTION_EVALUATION_INTERVAL_MULTIPLE;
     const MaybeStopPropagation = stopPropagation ? StopPropagation : React.Fragment;
@@ -58,9 +59,9 @@ export const FixedIntervalScheduleBuilder = ({ value, onChange, stopPropagation 
         <Form>
             <ScheduleDefinition>
                 <ScheduleText strong>In the past</ScheduleText>
-                <MultipleInput min={1} max={500} value={multiple} onChange={updateMultiple} />
+                <MultipleInput min={1} max={500} value={multiple} onChange={updateMultiple} disabled={disabled} />
                 <MaybeStopPropagation>
-                    <Select value={unit} onChange={updateUnit}>
+                    <Select value={unit} onChange={updateUnit} disabled={disabled}>
                         <Select.Option value={DateInterval.Minute}>minutes</Select.Option>
                         <Select.Option value={DateInterval.Hour}>hours</Select.Option>
                         <Select.Option value={DateInterval.Day}>days</Select.Option>

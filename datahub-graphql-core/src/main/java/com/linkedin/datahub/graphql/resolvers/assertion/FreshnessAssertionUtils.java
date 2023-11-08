@@ -3,12 +3,31 @@ package com.linkedin.datahub.graphql.resolvers.assertion;
 import javax.annotation.Nonnull;
 import com.linkedin.assertion.FixedIntervalSchedule;
 import com.linkedin.assertion.FreshnessAssertionScheduleType;
+import com.linkedin.assertion.FreshnessAssertionType;
 import com.linkedin.assertion.FreshnessCronSchedule;
+import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.datahub.graphql.generated.FreshnessAssertionScheduleInput;
+import com.linkedin.datahub.graphql.generated.CreateFreshnessAssertionInput;
 import com.linkedin.timeseries.CalendarInterval;
 
 public class FreshnessAssertionUtils {
+    @Nonnull
+    public static com.linkedin.assertion.FreshnessAssertionInfo createFreshnessAssertionInfo(
+            @Nonnull final CreateFreshnessAssertionInput input) {
+        final com.linkedin.assertion.FreshnessAssertionInfo result = new com.linkedin.assertion.FreshnessAssertionInfo();
+        final Urn asserteeUrn = UrnUtils.getUrn(input.getEntityUrn());
+
+        result.setEntity(asserteeUrn);
+        result.setType(FreshnessAssertionType.valueOf(input.getType().toString()));
+        result.setSchedule(FreshnessAssertionUtils.createFreshnessAssertionSchedule(input.getSchedule()));
+        if (input.getFilter() != null) {
+            result.setFilter(AssertionUtils.createAssertionFilter(input.getFilter()));
+        }
+
+        return result;
+    }
 
     @Nonnull
     public static com.linkedin.assertion.FreshnessAssertionSchedule createFreshnessAssertionSchedule(@Nonnull final FreshnessAssertionScheduleInput schedule) {

@@ -26,9 +26,10 @@ const Row = styled.div`
 type Props = {
     value: AssertionMonitorBuilderState;
     onChange: (newState: AssertionMonitorBuilderState) => void;
+    disabled?: boolean;
 };
 
-export const FieldValuesParameterBuilder = ({ value, onChange }: Props) => {
+export const FieldValuesParameterBuilder = ({ value, onChange, disabled }: Props) => {
     const form = useFormInstance();
     const operator = value.assertion?.fieldAssertion?.fieldValuesAssertion?.operator;
     const fieldType = value.assertion?.fieldAssertion?.fieldValuesAssertion?.field?.type;
@@ -75,7 +76,7 @@ export const FieldValuesParameterBuilder = ({ value, onChange }: Props) => {
 
     return (
         <Section>
-            <Typography.Title level={5}>Fail if any value</Typography.Title>
+            <Typography.Title level={5}>Pass if every value</Typography.Title>
             <Row>
                 <StyledFormItem
                     name="fieldValuesOperator"
@@ -87,9 +88,10 @@ export const FieldValuesParameterBuilder = ({ value, onChange }: Props) => {
                     ]}
                 >
                     <Select
-                        placeholder="Select failure criteria"
+                        placeholder="Select passing criteria"
                         onChange={(newOperator) => updateOperator(newOperator)}
                         options={options}
+                        disabled={disabled}
                     />
                 </StyledFormItem>
                 {renderInput()}

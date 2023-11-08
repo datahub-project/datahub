@@ -1,7 +1,6 @@
-import React, { useState } from 'react';
+import React from 'react';
 import styled from 'styled-components';
 import { Button, Collapse } from 'antd';
-import useFormInstance from 'antd/lib/form/hooks/useFormInstance';
 import { AssertionBuilderStep, StepProps } from '../types';
 import { EvaluationScheduleBuilder } from './freshness/EvaluationScheduleBuilder';
 import {
@@ -19,9 +18,12 @@ import { FieldColumnBuilder } from './field/FieldColumnBuilder';
 import { FieldTypeBuilder } from './field/FieldTypeBuilder';
 import { FieldFilterBuilder } from './field/FieldFilterBuilder';
 import { FieldErrorThresholdBuilder } from './field/FieldErrorThresholdBuilder';
-import { FieldSourceBuilder } from './field/FieldSourceBuilder';
+import { FieldRowCheckBuilder } from './field/FieldRowCheckBuilder';
 import { FieldValuesParameterBuilder } from './field/FieldValuesParameterBuilder';
 import { FieldNullCheckBuilder } from './field/FieldNullCheckBuilder';
+import { FieldMetricBuilder } from './field/FieldMetricBuilder';
+import { FieldMetricSourceBuilder } from './field/FieldMetricSourceBuilder';
+import { useTestAssertionModal } from './utils';
 
 const Step = styled.div`
     height: 100%;
@@ -31,9 +33,13 @@ const Step = styled.div`
 `;
 
 const Section = styled.div`
+    padding-bottom: 20px;
+`;
+
+const AdvancedSection = styled.div`
     display: flex;
     flex-direction: column;
-    padding-bottom: 20px;
+    gap: 16px;
 `;
 
 const Controls = styled.div`
@@ -51,10 +57,11 @@ const ControlsGroup = styled.div`
  * Step for defining the Dataset Field assertion
  */
 export const ConfigureDatasetFieldAssertionStep = ({ state, updateState, goTo, prev }: StepProps) => {
-    const [testAssertionModalVisible, setTestAssertionModalVisible] = useState(false);
     const fieldAssertion = state.assertion?.fieldAssertion;
     const parameters = state.parameters?.datasetFieldParameters;
-    const form = useFormInstance();
+    const isFieldValuesAssertion = fieldAssertion?.type === FieldAssertionType.FieldValues;
+    const isFieldMetricAssertion = fieldAssertion?.type === FieldAssertionType.FieldMetric;
+    const { isTestAssertionModalVisible, handleTestAssertionSubmit, hideTestAssertionModal } = useTestAssertionModal();
 
     const updateAssertionSchedule = (schedule: CronSchedule) => {
         updateState({
@@ -76,15 +83,6 @@ export const ConfigureDatasetFieldAssertionStep = ({ state, updateState, goTo, p
         });
     };
 
-    const handleTestAssertion = async () => {
-        try {
-            await form.validateFields();
-            setTestAssertionModalVisible(true);
-        } catch {
-            // Ignore validation errors
-        }
-    };
-
     return (
         <Step>
             <div>
@@ -96,21 +94,32 @@ export const ConfigureDatasetFieldAssertionStep = ({ state, updateState, goTo, p
                 />
                 <FieldTypeBuilder value={state} onChange={updateState} />
                 <FieldColumnBuilder value={state} onChange={updateState} />
-                {fieldAssertion?.type === FieldAssertionType.FieldValues &&
-                    fieldAssertion.fieldValuesAssertion?.field?.path && (
+                {isFieldValuesAssertion && fieldAssertion?.fieldValuesAssertion?.field?.path && (
+                    <>
                         <FieldValuesParameterBuilder value={state} onChange={updateState} />
-                    )}
-                <FieldNullCheckBuilder value={state} onChange={updateState} />
-                <FieldSourceBuilder value={state} onChange={updateState} />
+                        <FieldNullCheckBuilder value={state} onChange={updateState} />
+                    </>
+                )}
+                {isFieldMetricAssertion && fieldAssertion?.fieldMetricAssertion?.field?.path && (
+                    <FieldMetricBuilder value={state} onChange={updateState} />
+                )}
+                <FieldRowCheckBuilder value={state} onChange={updateState} />
                 <Section>
                     <Collapse>
                         <Collapse.Panel key="Advanced" header="Advanced">
-                            <FieldFilterBuilder
-                                value={fieldAssertion?.filter as DatasetFilter}
-                                onChange={updateFilter}
-                                sourceType={parameters?.sourceType as DatasetFieldAssertionSourceType}
-                            />
-                            <FieldErrorThresholdBuilder value={state} onChange={updateState} />
+                            <AdvancedSection>
+                                {isFieldMetricAssertion && (
+                                    <FieldMetricSourceBuilder value={state} onChange={updateState} />
+                                )}
+                                <FieldFilterBuilder
+                                    value={fieldAssertion?.filter as DatasetFilter}
+                                    onChange={updateFilter}
+                                    sourceType={parameters?.sourceType as DatasetFieldAssertionSourceType}
+                                />
+                                {isFieldValuesAssertion && (
+                                    <FieldErrorThresholdBuilder value={state} onChange={updateState} />
+                                )}
+                            </AdvancedSection>
                         </Collapse.Panel>
                     </Collapse>
                 </Section>
@@ -118,15 +127,15 @@ export const ConfigureDatasetFieldAssertionStep = ({ state, updateState, goTo, p
             <Controls>
                 <Button onClick={prev}>Back</Button>
                 <ControlsGroup>
-                    <Button onClick={handleTestAssertion}>Try it out</Button>
+                    <Button onClick={handleTestAssertionSubmit}>Try it out</Button>
                     <Button type="primary" onClick={() => goTo(AssertionBuilderStep.CONFIGURE_ACTIONS)}>
                         Next
                     </Button>
                 </ControlsGroup>
             </Controls>
             <TestAssertionModal
-                visible={testAssertionModalVisible}
-                handleClose={() => setTestAssertionModalVisible(false)}
+                visible={isTestAssertionModalVisible}
+                handleClose={hideTestAssertionModal}
                 input={{
                     type: AssertionType.Field,
                     connectionUrn: state.platformUrn as string,

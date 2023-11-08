@@ -41,7 +41,6 @@ import java.util.Optional;
 import java.util.Set;
 import javax.annotation.Nonnull;
 
-import static com.linkedin.datahub.graphql.resolvers.AuthUtils.*;
 import static com.linkedin.metadata.AcrylConstants.*;
 
 
@@ -89,9 +88,11 @@ public class MonitorUtils {
   public static boolean isAuthorizedToUpdateEntityMonitors(
       @Nonnull final Urn entityUrn,
       @Nonnull final QueryContext context) {
+    // For monitors, you must explicitly be granted the privilege to create them.
+    // The classic ALL ENTITY privilege will not get you access, because of their heightened sensitivity.
     final DisjunctivePrivilegeGroup orPrivilegeGroups = new DisjunctivePrivilegeGroup(
-        ImmutableList.of(ALL_PRIVILEGES_GROUP,
-            new ConjunctivePrivilegeGroup(ImmutableList.of(PoliciesConfig.EDIT_MONITORS_PRIVILEGE.getType()))));
+        ImmutableList.of(
+            new ConjunctivePrivilegeGroup(ImmutableList.of(PoliciesConfig.EDIT_ENTITY_MONITORS.getType()))));
     return AuthorizationUtils.isAuthorized(context, Optional.empty(), PoliciesConfig.MANAGE_MONITORS)
         || AuthorizationUtils.isAuthorized(
         context.getAuthorizer(),
@@ -99,6 +100,27 @@ public class MonitorUtils {
         entityUrn.getEntityType(),
         entityUrn.toString(),
         orPrivilegeGroups);
+  }
+
+  /**
+   * Determine whether the current user is allowed to update a SQL assertion monitor for a given entity.
+   *
+   * SQL assertion monitors allow users to run arbitrary SQL, and are thus controlled more tightly than the other types
+   * of monitors.
+   */
+  public static boolean isAuthorizedToUpdateSqlAssertionMonitors(@Nonnull final Urn entityUrn, @Nonnull final QueryContext context) {
+    // For SQL assertion monitors, you must explicitly be granted the privilege to create them.
+    // The classic ALL ENTITY privilege will not get you access.
+    final DisjunctivePrivilegeGroup orPrivilegeGroups = new DisjunctivePrivilegeGroup(ImmutableList.of(
+        new ConjunctivePrivilegeGroup(ImmutableList.of(PoliciesConfig.EDIT_ENTITY_SQL_ASSERTION_MONITORS.getType()))
+    ));
+    return AuthorizationUtils.isAuthorized(
+          context.getAuthorizer(),
+          context.getActorUrn(),
+          entityUrn.getEntityType(),
+          entityUrn.toString(),
+          orPrivilegeGroups)
+        || AuthorizationUtils.isAuthorized(context, Optional.empty(), PoliciesConfig.MANAGE_MONITORS);
   }
 
   public static CronSchedule createCronSchedule(@Nonnull final CronScheduleInput input) {

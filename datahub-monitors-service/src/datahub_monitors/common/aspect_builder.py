@@ -191,4 +191,12 @@ def _field_parameters_to_native_results(parameters: dict) -> Optional[Dict[str, 
         results["Invalid Rows"] = parameters["values_count"]
     if "threshold_value" in parameters and parameters["threshold_value"] is not None:
         results["Threshold Value"] = parameters["threshold_value"]
+    if "metric_value" in parameters and parameters["metric_value"] is not None:
+        results["Metric Value"] = parameters["metric_value"]
+    if "value" in parameters and parameters["value"] is not None:
+        results["Compared Value"] = parameters["value"]
+    if "min_value" in parameters and parameters["min_value"] is not None:
+        results["Compared Min Value"] = parameters["min_value"]
+    if "max_value" in parameters and parameters["max_value"] is not None:
+        results["Compared Max Value"] = parameters["max_value"]
     return results

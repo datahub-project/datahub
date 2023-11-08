@@ -1,4 +1,5 @@
 import { AssertionMonitorBuilderState } from '../../../types';
+import { getFieldAssertionTypeKey } from '../utils';
 
 /**
  * Updates the assertion state for "value" parameter inputs
@@ -8,18 +9,20 @@ export const onValueChange = (
     state: AssertionMonitorBuilderState,
     onChange: (newState: AssertionMonitorBuilderState) => void,
 ) => {
+    const fieldAssertionType = state.assertion?.fieldAssertion?.type;
+    const fieldAssertionKey = getFieldAssertionTypeKey(fieldAssertionType);
     onChange({
         ...state,
         assertion: {
             ...state.assertion,
             fieldAssertion: {
                 ...state.assertion?.fieldAssertion,
-                fieldValuesAssertion: {
-                    ...state.assertion?.fieldAssertion?.fieldValuesAssertion,
+                [fieldAssertionKey]: {
+                    ...state.assertion?.fieldAssertion?.[fieldAssertionKey],
                     parameters: {
-                        ...state.assertion?.fieldAssertion?.fieldValuesAssertion?.parameters,
+                        ...state.assertion?.fieldAssertion?.[fieldAssertionKey]?.parameters,
                         value: {
-                            ...state.assertion?.fieldAssertion?.fieldValuesAssertion?.parameters?.value,
+                            ...state.assertion?.fieldAssertion?.[fieldAssertionKey]?.parameters?.value,
                             value: newValue,
                         },
                     },
@@ -38,18 +41,20 @@ export const onRangeValueChange = (
     state: AssertionMonitorBuilderState,
     onChange: (newState: AssertionMonitorBuilderState) => void,
 ) => {
+    const fieldAssertionType = state.assertion?.fieldAssertion?.type;
+    const fieldAssertionKey = getFieldAssertionTypeKey(fieldAssertionType);
     onChange({
         ...state,
         assertion: {
             ...state.assertion,
             fieldAssertion: {
                 ...state.assertion?.fieldAssertion,
-                fieldValuesAssertion: {
-                    ...state.assertion?.fieldAssertion?.fieldValuesAssertion,
+                [fieldAssertionKey]: {
+                    ...state.assertion?.fieldAssertion?.[fieldAssertionKey],
                     parameters: {
-                        ...state.assertion?.fieldAssertion?.fieldValuesAssertion?.parameters,
+                        ...state.assertion?.fieldAssertion?.[fieldAssertionKey]?.parameters,
                         [key]: {
-                            ...state.assertion?.fieldAssertion?.fieldValuesAssertion?.parameters?.[key],
+                            ...state.assertion?.fieldAssertion?.[fieldAssertionKey]?.parameters?.[key],
                             value: newValue?.toString() ?? '',
                         },
                     },
@@ -82,6 +87,8 @@ export const onSetValueChange = (
     onChange: (newState: AssertionMonitorBuilderState) => void,
     inputType?: string,
 ) => {
+    const fieldAssertionType = state.assertion?.fieldAssertion?.type;
+    const fieldAssertionKey = getFieldAssertionTypeKey(fieldAssertionType);
     const encodedValues = JSON.stringify(convertValues(newValues, inputType));
 
     onChange({
@@ -90,12 +97,12 @@ export const onSetValueChange = (
             ...state.assertion,
             fieldAssertion: {
                 ...state.assertion?.fieldAssertion,
-                fieldValuesAssertion: {
-                    ...state.assertion?.fieldAssertion?.fieldValuesAssertion,
+                [fieldAssertionKey]: {
+                    ...state.assertion?.fieldAssertion?.[fieldAssertionKey],
                     parameters: {
-                        ...state.assertion?.fieldAssertion?.fieldValuesAssertion?.parameters,
+                        ...state.assertion?.fieldAssertion?.[fieldAssertionKey]?.parameters,
                         value: {
-                            ...state.assertion?.fieldAssertion?.fieldValuesAssertion?.parameters?.value,
+                            ...state.assertion?.fieldAssertion?.[fieldAssertionKey]?.parameters?.value,
                             value: encodedValues,
                         },
                     },

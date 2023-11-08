@@ -1,5 +1,7 @@
 from unittest.mock import Mock
 
+import pytest
+
 from datahub_monitors.assertion.engine.evaluator.sql_evaluator import (
     SQLAssertionEvaluator,
 )
@@ -8,6 +10,7 @@ from datahub_monitors.connection.connection import Connection
 from datahub_monitors.connection.datahub_ingestion_source_connection_provider import (
     DataHubIngestionSourceConnectionProvider,
 )
+from datahub_monitors.exceptions import CustomSQLErrorException
 from datahub_monitors.source.provider import SourceProvider
 from datahub_monitors.source.source import Source
 from datahub_monitors.state.datahub_monitor_state_provider import (
@@ -66,6 +69,7 @@ class TestSQLEvaluator:
         self.connection = Connection(
             "urn:li:dataPlatform:snowflake", "urn:li:dataPlatform:snowflake"
         )
+        self.connection_provider.get_connection.return_value = self.connection
         self.context = AssertionEvaluationContext(monitor_urn="urn:li:monitor:test")
         self.params = AssertionEvaluationParameters(
             type=AssertionEvaluationParametersType.DATASET_SQL,
@@ -90,7 +94,7 @@ class TestSQLEvaluator:
         source_mock.execute_custom_sql.return_value = 999
 
         result = self.evaluator._evaluate_internal(
-            self.assertion, self.params, self.connection, self.context
+            self.assertion, self.params, self.context
         )
         assert result.type == AssertionResultType.SUCCESS
         assert result.parameters == {
@@ -113,7 +117,7 @@ class TestSQLEvaluator:
         source_mock.execute_custom_sql.return_value = 999
 
         result = self.evaluator._evaluate_internal(
-            self.assertion, self.params, self.connection, self.context
+            self.assertion, self.params, self.context
         )
         assert result.type == AssertionResultType.SUCCESS
         assert result.parameters == {
@@ -136,7 +140,7 @@ class TestSQLEvaluator:
         source_mock.execute_custom_sql.return_value = 999
 
         result = self.evaluator._evaluate_internal(
-            self.assertion, self.params, self.connection, self.context
+            self.assertion, self.params, self.context
         )
         assert result.type == AssertionResultType.FAILURE
 
@@ -165,7 +169,7 @@ class TestSQLEvaluator:
         )
 
         result = self.evaluator._evaluate_internal(
-            self.assertion, self.params, self.connection, self.context
+            self.assertion, self.params, self.context
         )
         assert result.type == AssertionResultType.SUCCESS
         assert result.parameters == {"metric_value": "999", "prev_metric_value": "899"}
@@ -195,7 +199,7 @@ class TestSQLEvaluator:
         )
 
         result = self.evaluator._evaluate_internal(
-            self.assertion, self.params, self.connection, self.context
+            self.assertion, self.params, self.context
         )
         assert result.type == AssertionResultType.FAILURE
 
@@ -224,7 +228,7 @@ class TestSQLEvaluator:
         )
 
         result = self.evaluator._evaluate_internal(
-            self.assertion, self.params, self.connection, self.context
+            self.assertion, self.params, self.context
         )
         assert result.type == AssertionResultType.SUCCESS
         assert result.parameters == {
@@ -257,7 +261,7 @@ class TestSQLEvaluator:
         )
 
         result = self.evaluator._evaluate_internal(
-            self.assertion, self.params, self.connection, self.context
+            self.assertion, self.params, self.context
         )
         assert result.type == AssertionResultType.FAILURE
 
@@ -280,7 +284,7 @@ class TestSQLEvaluator:
         self.state_provider.get_state.return_value = None
 
         result = self.evaluator._evaluate_internal(
-            self.assertion, self.params, self.connection, self.context
+            self.assertion, self.params, self.context
         )
         assert result.type == AssertionResultType.INIT
 
@@ -307,7 +311,7 @@ class TestSQLEvaluator:
         )
 
         result = self.evaluator._evaluate_internal(
-            self.assertion, self.params, self.connection, self.context
+            self.assertion, self.params, self.context
         )
         assert result.type == AssertionResultType.INIT
 
@@ -325,8 +329,65 @@ class TestSQLEvaluator:
         self.context.monitor_urn = ""
 
         result = self.evaluator._evaluate_internal(
-            self.assertion, self.params, self.connection, self.context
+            self.assertion, self.params, self.context
         )
         assert result.type == AssertionResultType.INIT
         assert self.state_provider.get_state.call_count == 0
         assert self.state_provider.save_state.call_count == 0
+
+    def test_validate_custom_sql_valid(self) -> None:
+        self.evaluator._validate_custom_sql(
+            "SELECT * FROM database.insert-is-my-schema-name.delete-is-my-table-name"
+        )
+
+    def test_validate_custom_sql_insert_statement(self) -> None:
+        with pytest.raises(CustomSQLErrorException):
+            self.evaluator._validate_custom_sql(
+                "SELECT * FROM my_table; INSERT INTO my_table id='bad data'"
+            )
+
+    def test_validate_custom_sql_insert_statement_lowercase(self) -> None:
+        with pytest.raises(CustomSQLErrorException):
+            self.evaluator._validate_custom_sql(
+                "SELECT * FROM my_table; insert into my_table id='bad data'"
+            )
+
+    def test_validate_custom_sql_insert_statement_mixed_case(self) -> None:
+        with pytest.raises(CustomSQLErrorException):
+            self.evaluator._validate_custom_sql(
+                "SELECT * FROM my_table; InSeRt InTO my_table id='bad data'"
+            )
+
+    def test_validate_custom_sql_update_statement(self) -> None:
+        with pytest.raises(CustomSQLErrorException):
+            self.evaluator._validate_custom_sql(
+                "SELECT * FROM my_table; UPDATE my_table set id='bad data'"
+            )
+
+    def test_validate_custom_sql_delete_statement(self) -> None:
+        with pytest.raises(CustomSQLErrorException):
+            self.evaluator._validate_custom_sql(
+                "delete FROM my_table; SELECT * FROM my_table"
+            )
+
+    def test_validate_custom_sql_create_table_statement(self) -> None:
+        with pytest.raises(CustomSQLErrorException):
+            self.evaluator._validate_custom_sql("CREATE TABLE my_new_table (ID int)")
+
+    def test_validate_custom_sql_alter_table_statement(self) -> None:
+        with pytest.raises(CustomSQLErrorException):
+            self.evaluator._validate_custom_sql(
+                "alter TABLE my_new_table add my_new_column varchar(255)"
+            )
+
+    def test_validate_custom_sql_drop_table_statement(self) -> None:
+        with pytest.raises(CustomSQLErrorException):
+            self.evaluator._validate_custom_sql("DROP TABLE my_new_table")
+
+    def test_validate_custom_sql_create_database_statement(self) -> None:
+        with pytest.raises(CustomSQLErrorException):
+            self.evaluator._validate_custom_sql("create DATABASE my_new_database")
+
+    def test_validate_custom_sql_drop_database_statement(self) -> None:
+        with pytest.raises(CustomSQLErrorException):
+            self.evaluator._validate_custom_sql("DROP DATABASE my_new_database")

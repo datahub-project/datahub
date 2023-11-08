@@ -3,8 +3,10 @@ import styled from 'styled-components';
 import { Button, Collapse } from 'antd';
 import { AssertionBuilderStep, StepProps } from '../types';
 import {
+    AssertionEvaluationParametersInput,
     AssertionStdParameters,
     AssertionType,
+    CreateVolumeAssertionInput,
     CronSchedule,
     DatasetFilter,
     DatasetVolumeSourceType,
@@ -16,6 +18,9 @@ import { VolumeTypeBuilder } from './volume/VolumeTypeBuilder';
 import { VolumeParametersBuilder } from './volume/VolumeParametersBuilder';
 import { VolumeSourceTypeBuilder } from './volume/VolumeSourceTypeBuilder';
 import { VolumeFilterBuilder } from './volume/VolumeFilterBuilder';
+import { TestAssertionModal } from './preview/TestAssertionModal';
+import { builderStateToCreateVolumeAssertionVariables } from '../utils';
+import { useTestAssertionModal } from './utils';
 
 const Step = styled.div`
     height: 100%;
@@ -38,6 +43,11 @@ const Controls = styled.div`
     margin-top: 8px;
 `;
 
+const ControlsGroup = styled.div`
+    display: flex;
+    gap: 8px;
+`;
+
 /**
  * Step for defining the Dataset Volume assertion
  */
@@ -47,6 +57,7 @@ export const ConfigureDatasetVolumeAssertionStep = ({ state, updateState, goTo, 
     const volumeParameters = volumeAssertion?.parameters;
     const filter = volumeAssertion?.filter;
     const sourceType = state.parameters?.datasetVolumeParameters?.sourceType;
+    const { isTestAssertionModalVisible, handleTestAssertionSubmit, hideTestAssertionModal } = useTestAssertionModal();
 
     const updateAssertionSchedule = (schedule: CronSchedule) => {
         updateState({
@@ -162,10 +173,24 @@ export const ConfigureDatasetVolumeAssertionStep = ({ state, updateState, goTo, 
             </Form>
             <Controls>
                 <Button onClick={prev}>Back</Button>
-                <Button type="primary" onClick={() => goTo(AssertionBuilderStep.CONFIGURE_ACTIONS)}>
-                    Next
-                </Button>
+                <ControlsGroup>
+                    <Button onClick={handleTestAssertionSubmit}>Try it out</Button>
+                    <Button type="primary" onClick={() => goTo(AssertionBuilderStep.CONFIGURE_ACTIONS)}>
+                        Next
+                    </Button>
+                </ControlsGroup>
             </Controls>
+            <TestAssertionModal
+                visible={isTestAssertionModalVisible}
+                handleClose={hideTestAssertionModal}
+                input={{
+                    type: AssertionType.Volume,
+                    connectionUrn: state.platformUrn as string,
+                    volumeTestInput: builderStateToCreateVolumeAssertionVariables(state)
+                        .input as CreateVolumeAssertionInput,
+                    parameters: state.parameters as AssertionEvaluationParametersInput,
+                }}
+            />
         </Step>
     );
 };

@@ -7058,6 +7058,11 @@ enum AssertionResultErrorType {
     CUSTOM_SQL_ERROR
 
     """
+    Error while executing a field assertion
+    """
+    FIELD_ASSERTION_ERROR
+
+    """
     Unknown error
     """
     UNKNOWN_ERROR

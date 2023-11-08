@@ -1,15 +1,13 @@
 import logging
-from typing import Optional, Union, cast
+from typing import Optional, Union
 
 from datahub_monitors.assertion.engine.evaluator.utils.errors import (
     extract_assertion_evaluation_result_error,
 )
-from datahub_monitors.connection.connection import Connection
 from datahub_monitors.connection.provider import ConnectionProvider
 from datahub_monitors.exceptions import (
     AssertionResultException,
     InvalidParametersException,
-    SourceConnectionErrorException,
 )
 from datahub_monitors.source.provider import SourceProvider
 from datahub_monitors.state.assertion_state_provider import AssertionStateProvider
@@ -159,7 +157,6 @@ class AssertionEvaluator:
         self,
         assertion: Assertion,
         parameters: AssertionEvaluationParameters,
-        connection: Connection,
         context: AssertionEvaluationContext,
     ) -> AssertionEvaluationResult:
         raise NotImplementedError()
@@ -171,21 +168,9 @@ class AssertionEvaluator:
         context: AssertionEvaluationContext,
     ) -> AssertionEvaluationResult:
         try:
-            assert assertion.connection_urn
-            connection = self.connection_provider.get_connection(
-                cast(str, assertion.connection_urn)
-            )
-
-            if connection is None:
-                raise SourceConnectionErrorException(
-                    message=f"Unable to retrieve valid connection for Data Platform with urn {assertion.connection_urn}",
-                    connection_urn=assertion.connection_urn,
-                )
-
             return self._evaluate_internal(
                 assertion,
                 parameters if parameters is not None else self.default_parameters,
-                connection,
                 context,
             )
         except AssertionResultException as e:

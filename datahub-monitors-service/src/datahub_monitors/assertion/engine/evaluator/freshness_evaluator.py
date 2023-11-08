@@ -14,11 +14,13 @@ from datahub_monitors.assertion.engine.evaluator.utils.time import (
     get_prev_cron_schedule_time,
 )
 from datahub_monitors.assertion.types import AssertionState, AssertionStateType
-from datahub_monitors.connection.connection import Connection
 from datahub_monitors.connection.datahub_ingestion_source_connection_provider import (
     DataHubIngestionSourceConnectionProvider,
 )
-from datahub_monitors.exceptions import InvalidParametersException
+from datahub_monitors.exceptions import (
+    InvalidParametersException,
+    SourceConnectionErrorException,
+)
 from datahub_monitors.graph import DataHubAssertionGraph
 from datahub_monitors.source.source import Source
 from datahub_monitors.types import (
@@ -68,9 +70,9 @@ class FreshnessAssertionEvaluator(AssertionEvaluator):
         window: List[int],
         assertion: Assertion,
         parameters: AssertionEvaluationParameters,
-        connection: Connection,
         context: AssertionEvaluationContext,
     ) -> AssertionEvaluationResult:
+        assert assertion.connection_urn
         entity_urn = assertion.entity.urn
 
         # Check whether any matching events have fallen into the bucket
@@ -83,6 +85,16 @@ class FreshnessAssertionEvaluator(AssertionEvaluator):
                 entity_urn,
                 window,
                 source_params,
+            )
+
+        connection = self.connection_provider.get_connection(
+            cast(str, assertion.connection_urn)
+        )
+
+        if connection is None:
+            raise SourceConnectionErrorException(
+                message=f"Unable to retrieve valid connection for Data Platform with urn {assertion.connection_urn}",
+                connection_urn=assertion.connection_urn,
             )
 
         # This is where we drop into system-specific bits --> Need a way to do this for Snowflake first.
@@ -374,7 +386,6 @@ class FreshnessAssertionEvaluator(AssertionEvaluator):
         self,
         assertion: Assertion,
         parameters: AssertionEvaluationParameters,
-        connection: Connection,
         context: AssertionEvaluationContext,
     ) -> AssertionEvaluationResult:
         assert assertion.freshness_assertion is not None
@@ -407,14 +418,13 @@ class FreshnessAssertionEvaluator(AssertionEvaluator):
 
         # Now we have the window to validate on, so let's try to see if any events fall into the window!
         return self._evaluate_internal_window_event(
-            validation_window, assertion, parameters, connection, context
+            validation_window, assertion, parameters, context
         )
 
     def _evaluate_internal_fixed_interval(
         self,
         assertion: Assertion,
         parameters: AssertionEvaluationParameters,
-        connection: Connection,
         context: AssertionEvaluationContext,
     ) -> AssertionEvaluationResult:
         assert assertion.freshness_assertion is not None
@@ -434,14 +444,13 @@ class FreshnessAssertionEvaluator(AssertionEvaluator):
 
         # Now we have the window to validate on, so let's try to see if any events fall into the window!
         return self._evaluate_internal_window_event(
-            validation_window, assertion, parameters, connection, context
+            validation_window, assertion, parameters, context
         )
 
     def _evaluate_internal(
         self,
         assertion: Assertion,
         parameters: AssertionEvaluationParameters,
-        connection: Connection,
         context: AssertionEvaluationContext,
     ) -> AssertionEvaluationResult:
         # Here's how we evaluate an Assertion.
@@ -451,15 +460,13 @@ class FreshnessAssertionEvaluator(AssertionEvaluator):
 
         freshness_assertion = cast(FreshnessAssertion, assertion.freshness_assertion)
         if freshness_assertion.schedule.type == FreshnessAssertionScheduleType.CRON:
-            return self._evaluate_internal_cron(
-                assertion, parameters, connection, context
-            )
+            return self._evaluate_internal_cron(assertion, parameters, context)
         elif (
             freshness_assertion.schedule.type
             == FreshnessAssertionScheduleType.FIXED_INTERVAL
         ):
             return self._evaluate_internal_fixed_interval(
-                assertion, parameters, connection, context
+                assertion, parameters, context
             )
         else:
             raise InvalidParametersException(

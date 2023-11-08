@@ -21,6 +21,7 @@ type Props = {
     value?: number;
     onChange: (newValue: number) => void;
     placeholder: string;
+    disabled?: boolean;
     select?: {
         value: string;
         options: { label: string; value: string }[];
@@ -29,7 +30,15 @@ type Props = {
     customRules?: Rule[];
 };
 
-export const VolumeNumberInput = ({ name, value, onChange, placeholder, select, customRules = [] }: Props) => {
+export const VolumeNumberInput = ({
+    name,
+    value,
+    onChange,
+    placeholder,
+    disabled,
+    select,
+    customRules = [],
+}: Props) => {
     const form = useFormInstance();
     useEffect(() => {
         form.setFieldValue(name, value);
@@ -58,6 +67,7 @@ export const VolumeNumberInput = ({ name, value, onChange, placeholder, select, 
                 onChange={(newValue) => onChange(newValue as number)}
                 formatter={(newValue) => `${newValue}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
                 parser={(newValue) => (newValue ? newValue.replace(/(,*)/g, '') : '')}
+                disabled={disabled}
             />
         </StyledFormItem>
     );

@@ -10,9 +10,10 @@ type Props = {
     value?: DatasetFilter | null;
     onChange: (newFilter?: DatasetFilter) => void;
     sourceType?: DatasetFieldAssertionSourceType | null;
+    disabled?: boolean;
 };
 
-export const FieldFilterBuilder = ({ value, onChange, sourceType }: Props) => {
+export const FieldFilterBuilder = ({ value, onChange, sourceType, disabled }: Props) => {
     const updateSqlFilter = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
         const { value: sql } = e.target;
         const newFilter = sql ? { type: DatasetFilterType.Sql, sql } : undefined;
@@ -20,7 +21,7 @@ export const FieldFilterBuilder = ({ value, onChange, sourceType }: Props) => {
     };
 
     return sourceType !== DatasetFieldAssertionSourceType.DatahubDatasetProfile ? (
-        <>
+        <div>
             <Typography.Title level={5}>Additional Filters (Optional)</Typography.Title>
             <Typography.Paragraph type="secondary">
                 Include a custom SQL fragment to scope the column value check down to a particular segment of data.
@@ -31,7 +32,8 @@ export const FieldFilterBuilder = ({ value, onChange, sourceType }: Props) => {
                 value={value?.sql || ''}
                 onChange={updateSqlFilter}
                 placeholder={`foo = "FOO_VALUE" and bar = "BAR_VALUE"`}
+                disabled={disabled}
             />
-        </>
+        </div>
     ) : null;
 };

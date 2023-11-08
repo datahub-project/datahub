@@ -1,5 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.monitor;
 
+import com.linkedin.assertion.AssertionInfo;
+import com.linkedin.assertion.AssertionType;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -10,6 +12,7 @@ import com.linkedin.datahub.graphql.generated.CreateAssertionMonitorInput;
 import com.linkedin.datahub.graphql.generated.Monitor;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.types.monitor.MonitorMapper;
+import com.linkedin.metadata.service.AssertionService;
 import com.linkedin.metadata.service.MonitorService;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -26,9 +29,11 @@ import static com.linkedin.datahub.graphql.resolvers.monitor.MonitorUtils.*;
 public class CreateAssertionMonitorResolver implements DataFetcher<CompletableFuture<Monitor>> {
 
   private final MonitorService _monitorService;
+  private final AssertionService _assertionService;
 
-  public CreateAssertionMonitorResolver(@Nonnull final MonitorService monitorService) {
+  public CreateAssertionMonitorResolver(@Nonnull final MonitorService monitorService, @Nonnull final AssertionService assertionService) {
     _monitorService = Objects.requireNonNull(monitorService, "monitorService is required");
+    _assertionService = Objects.requireNonNull(assertionService, "assertionService is required");
   }
 
   @Override
@@ -41,8 +46,7 @@ public class CreateAssertionMonitorResolver implements DataFetcher<CompletableFu
 
     return CompletableFuture.supplyAsync(() -> {
 
-      if (isAuthorizedToUpdateEntityMonitors(entityUrn, context)) {
-
+      if (isAuthorizedToCreateMonitor(entityUrn, assertionUrn, context)) {
         try {
           // First create the new monitor
           final Urn monitorUrn = _monitorService.createAssertionMonitor(
@@ -63,5 +67,18 @@ public class CreateAssertionMonitorResolver implements DataFetcher<CompletableFu
       }
       throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
     });
+  }
+
+  private boolean isAuthorizedToCreateMonitor(@Nonnull final Urn entityUrn, @Nonnull final Urn assertionUrn, @Nonnull final QueryContext context) {
+    // If the monitor requires heightened checks (SQL monitors), then we require them here.
+    AssertionInfo assertion = _assertionService.getAssertionInfo(assertionUrn);
+    if (assertion != null) {
+      if (AssertionType.SQL.equals(assertion.getType())) {
+        return isAuthorizedToUpdateSqlAssertionMonitors(entityUrn, context);
+      }
+      // User is authorized - non sensitive assertion.
+      return isAuthorizedToUpdateEntityMonitors(entityUrn, context);
+    }
+    throw new DataHubGraphQLException(String.format("Assertion with urn %s does not exist!", assertionUrn), DataHubGraphQLErrorCode.BAD_REQUEST);
   }
 }

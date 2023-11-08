@@ -17,6 +17,11 @@ import com.linkedin.assertion.FieldAssertionInfo;
 import com.linkedin.assertion.FieldAssertionType;
 import com.linkedin.assertion.FieldMetricAssertion;
 import com.linkedin.assertion.FieldMetricType;
+import com.linkedin.assertion.FixedIntervalSchedule;
+import com.linkedin.assertion.FreshnessAssertionInfo;
+import com.linkedin.assertion.FreshnessAssertionSchedule;
+import com.linkedin.assertion.FreshnessAssertionScheduleType;
+import com.linkedin.assertion.FreshnessAssertionType;
 import com.linkedin.assertion.SqlAssertionInfo;
 import com.linkedin.assertion.SqlAssertionType;
 import com.linkedin.monitor.AssertionEvaluationParameters;
@@ -35,6 +40,7 @@ import com.linkedin.monitor.MonitorStatus;
 import com.linkedin.monitor.MonitorType;
 import com.linkedin.parseq.retry.backoff.BackoffPolicy;
 import com.linkedin.schema.SchemaFieldSpec;
+import com.linkedin.timeseries.CalendarInterval;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.entity.Aspect;
@@ -346,6 +352,66 @@ public class MonitorServiceTest {
     );
     info.setStatus(new MonitorStatus().setMode(MonitorMode.ACTIVE));
     return info;
+  }
+
+  @Test
+  public void testFreshnessAssertionSuccess() throws Exception {
+    final EntityClient mockClient = Mockito.mock(EntityClient.class);
+    final CloseableHttpClient httpClient = Mockito.mock(CloseableHttpClient.class);
+    final MonitorService service = new MonitorService(
+        TEST_HOST,
+        TEST_PORT,
+        false,
+        mockClient,
+        Mockito.mock(Authentication.class),
+        httpClient,
+        backoffPolicy,
+        3
+    );
+
+    final FreshnessAssertionInfo freshnessAssertionInfo = new FreshnessAssertionInfo()
+        .setType(FreshnessAssertionType.DATASET_CHANGE)
+        .setEntity(TEST_ENTITY_URN)
+        .setSchedule(
+            new FreshnessAssertionSchedule()
+                .setType(FreshnessAssertionScheduleType.FIXED_INTERVAL)
+                .setFixedInterval(
+                    new FixedIntervalSchedule()
+                        .setUnit(CalendarInterval.HOUR)
+                        .setMultiple(1)
+                )
+        )
+        .setFilter(
+            new DatasetFilter()
+                .setType(DatasetFilterType.SQL)
+                .setSql("some_condition = True")
+        );
+    
+    final AssertionEvaluationParameters freshnessParameters = new AssertionEvaluationParameters()
+        .setType(AssertionEvaluationParametersType.DATASET_FRESHNESS)
+        .setDatasetFreshnessParameters(new DatasetFreshnessAssertionParameters()
+            .setSourceType(DatasetFreshnessSourceType.AUDIT_LOG)
+        );
+
+    CloseableHttpResponse mockResponse = mock(CloseableHttpResponse.class);
+    when(mockResponse.getStatusLine()).thenReturn(new BasicStatusLine(new ProtocolVersion("HTTP", 1, 1), 200, "OK"));
+
+    String expectedJson = "{\"type\": \"SUCCESS\", \"rowCount\": null, \"missingCount\": null, \"unexpectedCount\": null, "
+                + "\"actualAggValue\": null, \"nativeResults\": {     \"Value\": \"200\" }, \"externalUrl\": null, \"error\": null}";
+    BasicHttpEntity entity = new BasicHttpEntity();
+    entity.setContent(new ByteArrayInputStream(expectedJson.getBytes(StandardCharsets.UTF_8)));
+    when(mockResponse.getEntity()).thenReturn(entity);
+    when(httpClient.execute(any(HttpPost.class))).thenReturn(mockResponse);
+
+    AssertionResult result = service.testFreshnessAssertion(TEST_ENTITY_URN, TEST_CONNECTION_URN, freshnessAssertionInfo,
+            freshnessParameters);
+
+    ArgumentCaptor<HttpPost> argument = ArgumentCaptor.forClass(HttpPost.class);
+    verify(httpClient, times(1)).execute(argument.capture());
+    HttpPost request = argument.getValue();
+
+    assertEquals("localhost:9004/assertions/evaluate_assertion", request.getURI().getAuthority() + request.getURI().getPath());
+    assertEquals(AssertionResultType.SUCCESS, result.getType());
   }
 
   @Test

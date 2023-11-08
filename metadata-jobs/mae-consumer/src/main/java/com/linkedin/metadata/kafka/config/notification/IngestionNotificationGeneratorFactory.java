@@ -2,6 +2,7 @@ package com.linkedin.metadata.kafka.config.notification;
 
 import com.datahub.authentication.Authentication;
 import com.datahub.notification.provider.SettingsProvider;
+import com.datahub.notification.recipient.SlackNotificationRecipientBuilder;
 import com.linkedin.entity.client.RestliEntityClient;
 import com.linkedin.gms.factory.auth.SystemAuthenticationFactory;
 import com.linkedin.gms.factory.common.GraphClientFactory;
@@ -43,6 +44,10 @@ public class IngestionNotificationGeneratorFactory {
   private SettingsProvider _settingsProvider;
 
   @Autowired
+  @Qualifier("slackNotificationRecipientBuilder")
+  private SlackNotificationRecipientBuilder _slackNotificationRecipientBuilder;
+
+  @Autowired
   @Qualifier("systemAuthentication")
   private Authentication _systemAuthentication;
 
@@ -55,6 +60,7 @@ public class IngestionNotificationGeneratorFactory {
         _entityClient,
         _graphClient,
         _settingsProvider,
+        _slackNotificationRecipientBuilder,
         _systemAuthentication
     );
   }

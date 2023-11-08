@@ -127,8 +127,7 @@
         "VIEW_METADATA_PROPOSALS",
         "MANAGE_DOMAINS",
         "MANAGE_GLOBAL_VIEWS",
-        "CREATE_CONSTRAINTS",
-        "MANAGE_MONITORS"
+        "CREATE_CONSTRAINTS"
       ],
       "displayName":"All Users - Base Platform Privileges",
       "description":"Grants base platform privileges to ALL users of DataHub. Change this policy to alter that behavior.",
@@ -322,7 +321,6 @@
         "GET_TIMELINE_PRIVILEGE",
         "PRODUCE_PLATFORM_EVENT_PRIVILEGE",
         "MANAGE_DATA_PRODUCTS",
-        "EDIT_MONITORS",
         "EDIT_ENTITY_QUERIES",
         "MANAGE_GROUP_NOTIFICATION_SETTINGS",
         "MANAGE_GROUP_SUBSCRIPTIONS",
@@ -414,7 +412,6 @@
         "GET_TIMELINE_PRIVILEGE",
         "PRODUCE_PLATFORM_EVENT_PRIVILEGE",
         "MANAGE_DATA_PRODUCTS",
-        "EDIT_MONITORS",
         "MANAGE_GROUP_NOTIFICATION_SETTINGS",
         "MANAGE_GROUP_SUBSCRIPTIONS"
       ],
@@ -525,7 +522,6 @@
         "GET_TIMESERIES_ASPECT_PRIVILEGE",
         "GET_COUNTS_PRIVILEGE",
         "MANAGE_DATA_PRODUCTS",
-        "EDIT_MONITORS",
         "MANAGE_GROUP_NOTIFICATION_SETTINGS",
         "MANAGE_GROUP_SUBSCRIPTIONS"
       ],

@@ -9,24 +9,7 @@ record AssertionResult {
   */
   @TimeseriesField = {}
   @Searchable = {}
-  type: enum AssertionResultType {
-    /**
-    *  The Assertion has not yet been fully evaluated
-    */
-    INIT
-    /**
-    *  The Assertion Succeeded
-    */
-    SUCCESS
-    /**
-    *  The Assertion Failed
-    */
-    FAILURE
-    /**
-    *  The Assertion encountered an Error
-    */
-    ERROR
-  }
+  type: AssertionResultType
 
   /**
    * Number of rows for evaluated batch

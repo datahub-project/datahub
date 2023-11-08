@@ -3,6 +3,7 @@ import { Form, InputNumber } from 'antd';
 import styled from 'styled-components';
 import { AssertionMonitorBuilderState } from '../../../types';
 import { onRangeValueChange } from './utils';
+import { getFieldAssertionTypeKey } from '../utils';
 
 const StyledFormItem = styled(Form.Item)`
     width: 100px;
@@ -16,12 +17,15 @@ const StyledNumberInput = styled(InputNumber)`
 type Props = {
     value: AssertionMonitorBuilderState;
     onChange: (newState: AssertionMonitorBuilderState) => void;
+    disabled?: boolean;
 };
 
-export const RangeInput = ({ value, onChange }: Props) => {
+export const RangeInput = ({ value, onChange, disabled }: Props) => {
     const form = Form.useFormInstance();
-    const fieldMinValue = value.assertion?.fieldAssertion?.fieldValuesAssertion?.parameters?.minValue?.value;
-    const fieldMaxValue = value.assertion?.fieldAssertion?.fieldValuesAssertion?.parameters?.maxValue?.value;
+    const fieldAssertionType = value.assertion?.fieldAssertion?.type;
+    const fieldAssertionKey = getFieldAssertionTypeKey(fieldAssertionType);
+    const fieldMinValue = value.assertion?.fieldAssertion?.[fieldAssertionKey]?.parameters?.minValue?.value;
+    const fieldMaxValue = value.assertion?.fieldAssertion?.[fieldAssertionKey]?.parameters?.maxValue?.value;
 
     useEffect(() => {
         form.setFieldValue('fieldMinValue', fieldMinValue ? parseFloat(fieldMinValue) : undefined);
@@ -50,6 +54,7 @@ export const RangeInput = ({ value, onChange }: Props) => {
                 <StyledNumberInput
                     placeholder="Minimum"
                     onChange={(newValue) => onRangeValueChange('minValue', newValue as number, value, onChange)}
+                    disabled={disabled}
                 />
             </StyledFormItem>
             <StyledFormItem
@@ -69,6 +74,7 @@ export const RangeInput = ({ value, onChange }: Props) => {
                 <StyledNumberInput
                     placeholder="Maximum"
                     onChange={(newValue) => onRangeValueChange('maxValue', newValue as number, value, onChange)}
+                    disabled={disabled}
                 />
             </StyledFormItem>
         </>

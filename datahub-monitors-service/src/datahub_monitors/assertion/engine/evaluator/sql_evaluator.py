@@ -1,11 +1,16 @@
 import logging
+import re
 import time
+from typing import cast
 
 from datahub_monitors.assertion.engine.evaluator.evaluator import AssertionEvaluator
 from datahub_monitors.assertion.engine.evaluator.utils import get_database_parameters
 from datahub_monitors.assertion.types import AssertionState, AssertionStateType
-from datahub_monitors.connection.connection import Connection
-from datahub_monitors.exceptions import InvalidParametersException
+from datahub_monitors.exceptions import (
+    CustomSQLErrorException,
+    InvalidParametersException,
+    SourceConnectionErrorException,
+)
 from datahub_monitors.types import (
     Assertion,
     AssertionEvaluationContext,
@@ -132,20 +137,53 @@ class SQLAssertionEvaluator(AssertionEvaluator):
 
         return assertion_evaluation_result
 
+    def _validate_custom_sql(
+        self,
+        sql_statement: str,
+    ) -> None:
+        INVALID_STATEMENTS = [
+            r"INSERT INTO",
+            r"UPDATE .*? SET",
+            r"DELETE FROM",
+            r"CREATE TABLE",
+            r"ALTER TABLE",
+            r"DROP TABLE",
+            r"CREATE DATABASE",
+            r"DROP DATABASE",
+        ]
+        if any(
+            re.search(invalid_statement, sql_statement, re.IGNORECASE)
+            for invalid_statement in INVALID_STATEMENTS
+        ):
+            raise CustomSQLErrorException(
+                message="Custom SQL cannot alter tables or databases"
+            )
+
     def _evaluate_internal(
         self,
         assertion: Assertion,
         parameters: AssertionEvaluationParameters,
-        connection: Connection,
         context: AssertionEvaluationContext,
     ) -> AssertionEvaluationResult:
         assert assertion.sql_assertion is not None
+        assert assertion.connection_urn
+        connection = self.connection_provider.get_connection(
+            cast(str, assertion.connection_urn)
+        )
+
+        if connection is None:
+            raise SourceConnectionErrorException(
+                message=f"Unable to retrieve valid connection for Data Platform with urn {assertion.connection_urn}",
+                connection_urn=assertion.connection_urn,
+            )
 
         entity_urn = assertion.entity.urn
         sql_assertion = assertion.sql_assertion
 
         source = self.source_provider.create_source_from_connection(connection)
         database_params = get_database_parameters(assertion)
+
+        self._validate_custom_sql(sql_assertion.statement)
         metric_value = source.execute_custom_sql(
             entity_urn,
             database_params,

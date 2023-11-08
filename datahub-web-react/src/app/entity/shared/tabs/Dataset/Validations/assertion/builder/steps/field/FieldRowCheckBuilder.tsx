@@ -1,11 +1,13 @@
 import React from 'react';
 import Typography from 'antd/lib/typography';
 import styled from 'styled-components';
-import { Radio, RadioChangeEvent } from 'antd';
+import { Radio, RadioChangeEvent, Tooltip } from 'antd';
 import { AssertionMonitorBuilderState } from '../../types';
 import { DatasetFieldAssertionSourceType } from '../../../../../../../../../../types.generated';
 import { ANTD_GRAY } from '../../../../../../../constants';
 import { FieldChangedRowsBuilder } from './FieldChangedRowsBuilder';
+import { getDatasetProfileDisabledMessage } from './utils';
+import { useConnectionForEntityExists } from '../../../../acrylUtils';
 
 const Section = styled.div`
     margin: 16px 0 24px;
@@ -42,9 +44,15 @@ const TextContainer = styled.div`
 type Props = {
     value: AssertionMonitorBuilderState;
     onChange: (newState: AssertionMonitorBuilderState) => void;
+    disabled?: boolean;
 };
 
-export const FieldSourceBuilder = ({ value, onChange }: Props) => {
+export const FieldRowCheckBuilder = ({ value, onChange, disabled }: Props) => {
+    const connectionForEntityExists = useConnectionForEntityExists(value.entityUrn as string);
+    const sourceType = value.parameters?.datasetFieldParameters?.sourceType;
+    const disabledMessage =
+        getDatasetProfileDisabledMessage(value.platformUrn as string, true, connectionForEntityExists) ||
+        'Not supported when using DataHub Dataset Profiles as the data source.';
     const updateSourceType = (newSourceType: DatasetFieldAssertionSourceType) => {
         onChange({
             ...value,
@@ -62,8 +70,13 @@ export const FieldSourceBuilder = ({ value, onChange }: Props) => {
         <Section>
             <Typography.Title level={5}>Evaluate the condition for</Typography.Title>
             <RadioGroup
-                value={value.parameters?.datasetFieldParameters?.sourceType}
+                value={
+                    sourceType === DatasetFieldAssertionSourceType.DatahubDatasetProfile
+                        ? DatasetFieldAssertionSourceType.AllRowsQuery
+                        : sourceType
+                }
                 onChange={(e: RadioChangeEvent) => updateSourceType(e.target.value)}
+                disabled={disabled}
             >
                 <RadioContainer>
                     <StyledRadio value={DatasetFieldAssertionSourceType.AllRowsQuery}>
@@ -77,15 +90,27 @@ export const FieldSourceBuilder = ({ value, onChange }: Props) => {
                     </StyledRadio>
                 </RadioContainer>
                 <RadioContainer>
-                    <StyledRadio value={DatasetFieldAssertionSourceType.ChangedRowsQuery}>
-                        <TextContainer>
-                            <Typography.Text strong>Only rows that have changed</Typography.Text>
-                            <Typography.Text type="secondary">
-                                Each time we run the check, we’ll evaluate the condition using only the rows that have
-                                changed since the previous check.
-                            </Typography.Text>
-                            <FieldChangedRowsBuilder value={value} onChange={onChange} />
-                        </TextContainer>
+                    <StyledRadio
+                        value={DatasetFieldAssertionSourceType.ChangedRowsQuery}
+                        disabled={sourceType === DatasetFieldAssertionSourceType.DatahubDatasetProfile}
+                    >
+                        <Tooltip
+                            placement="bottom"
+                            title={
+                                sourceType === DatasetFieldAssertionSourceType.DatahubDatasetProfile
+                                    ? disabledMessage
+                                    : undefined
+                            }
+                        >
+                            <TextContainer>
+                                <Typography.Text strong>Only rows that have changed</Typography.Text>
+                                <Typography.Text type="secondary">
+                                    Each time we run the check, we’ll evaluate the condition using only the rows that
+                                    have changed since the previous check.
+                                </Typography.Text>
+                                <FieldChangedRowsBuilder value={value} onChange={onChange} disabled={disabled} />
+                            </TextContainer>
+                        </Tooltip>
                     </StyledRadio>
                 </RadioContainer>
             </RadioGroup>

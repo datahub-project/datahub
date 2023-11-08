@@ -82,7 +82,7 @@ describe("create and manage group", () => {
         cy.focused().type(expected_name);
         cy.get(".ant-select-item-option").contains(display_name, { matchCase: false }).click(); // Saas
         cy.focused().blur();
-        cy.contains(display_name).should("have.length", 1); // Saas
+        cy.contains(display_name, { matchCase: false }).should("have.length", 1); // Saas
         cy.get('[role="dialog"] button').contains("Done").click();
         cy.waitTextVisible("Owners Added");
         cy.contains(display_name, { matchCase: false }).should("be.visible"); // Saas

@@ -21,6 +21,7 @@ type Props = {
     value: AssertionStdParameters;
     onChange: (newParams: AssertionStdParameters) => void;
     updateVolumeAssertion: (newParams: Partial<VolumeAssertionInfo>) => void;
+    disabled?: boolean;
 };
 
 export const VolumeParametersBuilder = (props: Props) => {

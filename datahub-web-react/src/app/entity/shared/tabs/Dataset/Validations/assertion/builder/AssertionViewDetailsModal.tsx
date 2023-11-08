@@ -2,7 +2,7 @@ import React from 'react';
 import styled from 'styled-components';
 import { Button, Modal, Typography } from 'antd';
 import { Assertion } from '../../../../../../../../types.generated';
-import { AssertionDetails } from './AssertionDetails';
+import { AssertionDetails } from './details/AssertionDetails';
 import { ANTD_GRAY } from '../../../../../constants';
 
 const modalBodyStyle = { paddingRight: 48, paddingLeft: 48, paddingBottom: 20 };

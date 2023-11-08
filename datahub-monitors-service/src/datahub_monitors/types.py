@@ -67,6 +67,7 @@ class AssertionResultErrorType(Enum):
     INVALID_SOURCE_TYPE = "INVALID_SOURCE_TYPE"
     UNSUPPORTED_PLATFORM = "UNSUPPORTED_PLATFORM"
     CUSTOM_SQL_ERROR = "CUSTOM_SQL_ERROR"
+    FIELD_ASSERTION_ERROR = "FIELD_ASSERTION_ERROR"
     UNKNOWN_ERROR = "UNKNOWN_ERROR"
 
 
@@ -362,7 +363,7 @@ class DatasetFreshnessAssertionParameters(PermissiveBaseModel):
     source_type: DatasetFreshnessSourceType = Field(alias="sourceType")
 
     # A descriptor for a Dataset Field to use. Present when source_type is FIELD_LAST_UPDATED
-    field: Optional[SchemaFieldSpec] = None
+    field: Optional[FreshnessFieldSpec] = None
 
     # A descriptor for a Dataset Column to use. Present when source_type is AUDIT_LOG_OPERATION
     audit_log: Optional[AuditLogSpec] = Field(alias="auditLog")

@@ -5,7 +5,7 @@ import { InfoCircleOutlined } from '@ant-design/icons';
 import { DatasetVolumeSourceType } from '../../../../../../../../../../types.generated';
 import { VOLUME_SOURCE_TYPES, getVolumeSourceTypeDetails, getVolumeSourceTypeOptions } from './utils';
 import { ANTD_GRAY } from '../../../../../../../constants';
-import { useIngestionSourceForEntityQuery } from '../../../../../../../../../../graphql/ingestion.generated';
+import { useConnectionForEntityExists } from '../../../../acrylUtils';
 
 const StyledSelect = styled(Select)`
     width: 300px;
@@ -49,14 +49,11 @@ type Props = {
     platformUrn: string;
     value: DatasetVolumeSourceType;
     onChange: (newParams: DatasetVolumeSourceType) => void;
+    disabled?: boolean;
 };
 
-export const VolumeSourceTypeBuilder = ({ entityUrn, platformUrn, value, onChange }: Props) => {
-    const { data: ingestionSourceData } = useIngestionSourceForEntityQuery({
-        variables: { urn: entityUrn },
-        fetchPolicy: 'cache-first',
-    });
-    const connectionForEntityExists = !!ingestionSourceData?.ingestionSourceForEntity?.urn;
+export const VolumeSourceTypeBuilder = ({ entityUrn, platformUrn, value, onChange, disabled }: Props) => {
+    const connectionForEntityExists = useConnectionForEntityExists(entityUrn);
     const sourceOptions = getVolumeSourceTypeOptions(platformUrn, connectionForEntityExists);
     const sourceDetails = getVolumeSourceTypeDetails(platformUrn, value);
 
@@ -66,7 +63,11 @@ export const VolumeSourceTypeBuilder = ({ entityUrn, platformUrn, value, onChang
             <Typography.Paragraph>
                 Select the mechanism used to determine the table&apos;s row count
             </Typography.Paragraph>
-            <StyledSelect value={value} onChange={(newValue) => onChange(newValue as DatasetVolumeSourceType)}>
+            <StyledSelect
+                value={value}
+                onChange={(newValue) => onChange(newValue as DatasetVolumeSourceType)}
+                disabled={disabled}
+            >
                 {sourceOptions.map((sourceType) => {
                     const { label, description } = VOLUME_SOURCE_TYPES[sourceType];
 
