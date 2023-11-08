@@ -103,6 +103,9 @@ query getChart($urn: String!) {
             canEditLineage
             canEditEmbed
         }
+        subTypes {
+            typeNames
+        }
         termProposals: proposals(type: TERM_ASSOCIATION) {
             ...proposalsFragment
         }

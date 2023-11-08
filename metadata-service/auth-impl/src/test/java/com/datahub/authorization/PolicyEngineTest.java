@@ -1041,6 +1041,7 @@ public class PolicyEngineTest {
         Urn.createFromString("urn:li:corpuser:user2"))));
     actorFilter.setGroups(new UrnArray(ImmutableList.of(Urn.createFromString("urn:li:corpGroup:group1"),
         Urn.createFromString("urn:li:corpGroup:group2"))));
+    actorFilter.setRoles(new UrnArray(ImmutableList.of(Urn.createFromString("urn:li:role:Admin"))));
     dataHubPolicyInfo.setActors(actorFilter);
 
     final DataHubResourceFilter resourceFilter = new DataHubResourceFilter();
@@ -1056,8 +1057,8 @@ public class PolicyEngineTest {
             Collections.emptySet(), Collections.emptySet());
     PolicyEngine.PolicyActors actors = _policyEngine.getMatchingActors(dataHubPolicyInfo, Optional.of(resourceSpec));
 
-    assertTrue(actors.allUsers());
-    assertTrue(actors.allGroups());
+    assertTrue(actors.getAllUsers());
+    assertTrue(actors.getAllGroups());
 
     assertEquals(actors.getUsers(),
         ImmutableList.of(Urn.createFromString("urn:li:corpuser:user1"), Urn.createFromString("urn:li:corpuser:user2"),
@@ -1067,6 +1068,8 @@ public class PolicyEngineTest {
     assertEquals(actors.getGroups(), ImmutableList.of(Urn.createFromString("urn:li:corpGroup:group1"),
         Urn.createFromString("urn:li:corpGroup:group2"), Urn.createFromString(AUTHORIZED_GROUP) // Resource Owner
     ));
+
+    assertEquals(actors.getRoles(), ImmutableList.of(Urn.createFromString("urn:li:role:Admin")));
 
     // Verify aspect client called, entity client not called.
     verify(_entityClient, times(0)).batchGetV2(eq(CORP_USER_ENTITY_NAME), eq(Collections.singleton(authorizedUserUrn)),
@@ -1106,13 +1109,56 @@ public class PolicyEngineTest {
         buildEntityResolvers("dataset", "urn:li:dataset:random"); // A resource not covered by the policy.
     PolicyEngine.PolicyActors actors = _policyEngine.getMatchingActors(dataHubPolicyInfo, Optional.of(resourceSpec));
 
-    assertFalse(actors.allUsers());
-    assertFalse(actors.allGroups());
+    assertFalse(actors.getAllUsers());
+    assertFalse(actors.getAllGroups());
     assertEquals(actors.getUsers(), Collections.emptyList());
     assertEquals(actors.getGroups(), Collections.emptyList());
+    //assertEquals(actors.getRoles(), Collections.emptyList());
 
     // Verify no network calls
     verify(_entityClient, times(0)).batchGetV2(any(), any(), any(), any());
+  }
+
+  @Test
+  public void testGetMatchingActorsByRoleResourceMatch() throws Exception {
+    final DataHubPolicyInfo dataHubPolicyInfo = new DataHubPolicyInfo();
+    dataHubPolicyInfo.setType(METADATA_POLICY_TYPE);
+    dataHubPolicyInfo.setState(ACTIVE_POLICY_STATE);
+    dataHubPolicyInfo.setPrivileges(new StringArray("EDIT_ENTITY_TAGS"));
+    dataHubPolicyInfo.setDisplayName("My Test Display");
+    dataHubPolicyInfo.setDescription("My test display!");
+    dataHubPolicyInfo.setEditable(true);
+
+    final DataHubActorFilter actorFilter = new DataHubActorFilter();
+    actorFilter.setResourceOwners(true);
+    actorFilter.setAllUsers(false);
+    actorFilter.setAllGroups(false);
+    actorFilter.setRoles(new UrnArray(ImmutableList.of(Urn.createFromString("urn:li:dataHubRole:Editor"))));
+    dataHubPolicyInfo.setActors(actorFilter);
+
+    final DataHubResourceFilter resourceFilter = new DataHubResourceFilter();
+    resourceFilter.setAllResources(false);
+    resourceFilter.setType("dataset");
+    StringArray resourceUrns = new StringArray();
+    resourceUrns.add(RESOURCE_URN);
+    resourceFilter.setResources(resourceUrns);
+    dataHubPolicyInfo.setResources(resourceFilter);
+
+    ResolvedEntitySpec resourceSpec = buildEntityResolvers("dataset", RESOURCE_URN, ImmutableSet.of(),
+        Collections.emptySet(), Collections.emptySet());
+
+    PolicyEngine.PolicyActors actors = _policyEngine.getMatchingActors(dataHubPolicyInfo, Optional.of(resourceSpec));
+
+    assertFalse(actors.getAllUsers());
+    assertFalse(actors.getAllGroups());
+
+    assertEquals(actors.getUsers(), ImmutableList.of());
+    assertEquals(actors.getGroups(), ImmutableList.of());
+    assertEquals(actors.getRoles(), ImmutableList.of(Urn.createFromString("urn:li:dataHubRole:Editor")));
+
+    // Verify aspect client called, entity client not called.
+    verify(_entityClient, times(0)).batchGetV2(eq(CORP_USER_ENTITY_NAME), eq(Collections.singleton(authorizedUserUrn)),
+        eq(null), any());
   }
 
   private Ownership createOwnershipAspect(final Boolean addUserOwner, final Boolean addGroupOwner) throws Exception {

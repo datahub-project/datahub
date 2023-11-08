@@ -6,7 +6,7 @@ from freezegun import freeze_time
 
 from tests.test_helpers import mce_helpers
 from tests.test_helpers.click_helpers import run_datahub_cmd
-from tests.test_helpers.docker_helpers import wait_for_port
+from tests.test_helpers.docker_helpers import cleanup_image, wait_for_port
 
 FROZEN_TIME = "2020-04-14 07:00:00"
 
@@ -48,6 +48,9 @@ def vertica_runner(docker_compose_runner, test_resources_dir):
         assert ret.returncode == 0
 
         yield docker_services
+
+    # The image is pretty large, so we remove it after the test.
+    cleanup_image("vertica/vertica-ce")
 
 
 @freeze_time(FROZEN_TIME)

@@ -1,5 +1,6 @@
-package com.datahub.health.controller;
+package io.datahubproject.openapi.health;
 
+import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -9,7 +10,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Supplier;
 
 import org.opensearch.action.admin.cluster.health.ClusterHealthRequest;
 import org.opensearch.action.admin.cluster.health.ClusterHealthResponse;
@@ -27,7 +27,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 
 @RestController
-@RequestMapping("/check")
+@RequestMapping("/")
 @Tag(name = "HealthCheck", description = "An API for checking health of GMS and its clients.")
 public class HealthCheckController {
   @Autowired
@@ -41,6 +41,12 @@ public class HealthCheckController {
         this::getElasticHealth, config.getHealthCheck().getCacheDurationSeconds(), TimeUnit.SECONDS);
   }
 
+  @GetMapping(path = "/check/ready", produces = MediaType.APPLICATION_JSON_VALUE)
+  public ResponseEntity<Boolean> getCombinedHealthCheck(String... checks) {
+    return ResponseEntity.status(getCombinedDebug(checks).getStatusCode())
+            .body(getCombinedDebug(checks).getStatusCode().is2xxSuccessful());
+  }
+
   /**
    * Combined health check endpoint for checking GMS clients.
    * For now, just checks the health of the ElasticSearch client
@@ -48,11 +54,10 @@ public class HealthCheckController {
    * that component). The status code will be 200 if all components are okay, and 500 if one or more components are not
    * healthy.
    */
-  @GetMapping(path = "/ready", produces = MediaType.APPLICATION_JSON_VALUE)
-  public ResponseEntity<Map<String, ResponseEntity<String>>> getCombinedHealthCheck(String... checks) {
-
+  @GetMapping(path = "/debug/ready", produces = MediaType.APPLICATION_JSON_VALUE)
+  public ResponseEntity<Map<String, ResponseEntity<String>>> getCombinedDebug(String... checks) {
     Map<String, Supplier<ResponseEntity<String>>> healthChecks = new HashMap<>();
-    healthChecks.put("elasticsearch", this::getElasticHealthWithCache);
+    healthChecks.put("elasticsearch", this::getElasticDebugWithCache);
     // Add new components here
 
     List<String> componentsToCheck = checks != null && checks.length > 0
@@ -67,7 +72,6 @@ public class HealthCheckController {
               .get());
     }
 
-
     boolean isHealthy = componentHealth.values().stream().allMatch(resp -> resp.getStatusCode() == HttpStatus.OK);
     if (isHealthy) {
       return ResponseEntity.ok(componentHealth);
@@ -75,12 +79,18 @@ public class HealthCheckController {
     return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(componentHealth);
   }
 
+  @GetMapping(path = "/check/elastic", produces = MediaType.APPLICATION_JSON_VALUE)
+  public ResponseEntity<Boolean> getElasticHealthWithCache() {
+    return ResponseEntity.status(getElasticDebugWithCache().getStatusCode())
+            .body(getElasticDebugWithCache().getStatusCode().is2xxSuccessful());
+  }
+
   /**
    * Checks the memoized cache for the latest elastic health check result
    * @return The ResponseEntity containing the health check result
    */
-  @GetMapping(path = "/elastic", produces = MediaType.APPLICATION_JSON_VALUE)
-  public ResponseEntity<String> getElasticHealthWithCache() {
+  @GetMapping(path = "/debug/elastic", produces = MediaType.APPLICATION_JSON_VALUE)
+  public ResponseEntity<String> getElasticDebugWithCache() {
     return this.memoizedSupplier.get();
   }
 

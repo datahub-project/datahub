@@ -36,6 +36,7 @@ import { DataPlatformEntity } from './app/entity/dataPlatform/DataPlatformEntity
 import { DataProductEntity } from './app/entity/dataProduct/DataProductEntity';
 import { DataPlatformInstanceEntity } from './app/entity/dataPlatformInstance/DataPlatformInstanceEntity';
 import { RoleEntity } from './app/entity/Access/RoleEntity';
+import possibleTypesResult from './possibleTypes.generated';
 
 /*
     Construct Apollo Client
@@ -77,6 +78,8 @@ const client = new ApolloClient({
                 },
             },
         },
+        // need to define possibleTypes to allow us to use Apollo cache with union types
+        possibleTypes: possibleTypesResult.possibleTypes,
     }),
     credentials: 'include',
     defaultOptions: {

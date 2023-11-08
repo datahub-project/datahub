@@ -27,7 +27,6 @@ from datahub.ingestion.run.connection import ConnectionManager
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.telemetry import telemetry
 from datahub.upgrade import upgrade
-from datahub.utilities import memory_leak_detector
 
 logger = logging.getLogger(__name__)
 
@@ -98,7 +97,6 @@ def ingest() -> None:
 @click.option(
     "--no-spinner", type=bool, is_flag=True, default=False, help="Turn off spinner"
 )
-@click.pass_context
 @telemetry.with_telemetry(
     capture_kwargs=[
         "dry_run",
@@ -109,9 +107,7 @@ def ingest() -> None:
         "no_spinner",
     ]
 )
-@memory_leak_detector.with_leak_detection
 def run(
-    ctx: click.Context,
     config: str,
     dry_run: bool,
     preview: bool,

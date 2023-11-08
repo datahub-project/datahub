@@ -1,6 +1,6 @@
 -- create datahub database
-CREATE DATABASE IF NOT EXISTS DATAHUB_DB_NAME CHARACTER SET utf8mb4 COLLATE utf8mb4_bin;
-USE DATAHUB_DB_NAME;
+CREATE DATABASE IF NOT EXISTS `DATAHUB_DB_NAME` CHARACTER SET utf8mb4 COLLATE utf8mb4_bin;
+USE `DATAHUB_DB_NAME`;
 
 -- create metadata aspect table
 create table if not exists metadata_aspect_v2 (

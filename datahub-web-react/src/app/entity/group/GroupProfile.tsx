@@ -19,7 +19,7 @@ import NonExistentEntityPage from '../shared/entity/NonExistentEntityPage';
 const messageStyle = { marginTop: '10%' };
 
 export enum TabType {
-    Assets = 'Assets',
+    Assets = 'Owner Of',
     Members = 'Members',
     Notifications = 'Notifications',
     Subscriptions = 'Subscriptions',

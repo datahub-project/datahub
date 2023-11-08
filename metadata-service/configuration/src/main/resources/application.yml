@@ -14,6 +14,8 @@ authentication:
         # Key used to validate incoming tokens. Should typically be the same as authentication.tokenService.signingKey
         signingKey: ${DATAHUB_TOKEN_SERVICE_SIGNING_KEY:WnEdIeTG/VVCLQqGwC/BAkqyY0k+H8NEAtWGejrBI94=}
         salt: ${DATAHUB_TOKEN_SERVICE_SALT:ohDVbJBvHHVJh9S/UA4BYF9COuNnqqVhr9MLKEGXk1O=}
+    # Required for unauthenticated health check endpoints - best not to remove.
+    - type: com.datahub.authentication.authenticator.HealthStatusAuthenticator
     - type: com.datahub.authentication.authenticator.LegacyTokenAuthenticator
       configs:
         # Key used to validate incoming tokens. Should typically be the same as authentication.tokenService.signingKey
@@ -269,6 +271,7 @@ neo4j:
   username: ${NEO4J_USERNAME:neo4j}
   password: ${NEO4J_PASSWORD:datahub}
   uri: ${NEO4J_URI:bolt://localhost}
+  database: ${NEO4J_DATABASE:graph.db}
   maxConnectionPoolSize: ${NEO4J_MAX_CONNECTION_POOL_SIZE:100}
   maxConnectionAcquisitionTimeout: ${NEO4J_MAX_CONNECTION_ACQUISITION_TIMEOUT_IN_SECONDS:60}
   maxConnectionLifetimeInSeconds: ${NEO4j_MAX_CONNECTION_LIFETIME_IN_SECONDS:3600}
@@ -338,23 +341,24 @@ ingestionScheduler:
   enabled: ${ENABLE_INGESTION_SCHEDULER_HOOK:true} # enable to execute ingestion scheduling
 assertions:
   hook:
-    enabled: {ENABLE_ASSERTIONS_HOOK:true}
+    enabled: { ENABLE_ASSERTIONS_HOOK:true }
 incidents:
   hook:
-    enabled: {ENABLE_INCIDENTS_HOOK:true}
+    enabled: { ENABLE_INCIDENTS_HOOK:true }
 
 bootstrap:
   upgradeDefaultBrowsePaths:
     enabled: ${UPGRADE_DEFAULT_BROWSE_PATHS_ENABLED:false} # enable to run the upgrade to migrate legacy default browse paths to new ones
   backfillBrowsePathsV2:
     enabled: ${BACKFILL_BROWSE_PATHS_V2:false} # Enables running the backfill of browsePathsV2 upgrade step. There are concerns about the load of this step so hiding it behind a flag. Deprecating in favor of running through SystemUpdate
+  reprocessDefaultBrowsePathsV2:
+    enabled: ${REPROCESS_DEFAULT_BROWSE_PATHS_V2:false} # reprocess V2 browse paths which were set to the default: {"path":[{"id":"Default"}]}
   policies:
     file: ${BOOTSTRAP_POLICIES_FILE:classpath:boot/policies.json}
     # eg for local file
     # file: "file:///datahub/datahub-gms/resources/custom-policies.json"
   servlets:
     waitTimeout: ${BOOTSTRAP_SERVLETS_WAITTIMEOUT:60} # Total waiting time in seconds for servlets to initialize
-
 
 sentry:
   enabled: ${SENTRY_ENABLED:false}
@@ -416,7 +420,8 @@ cache:
       ttlSeconds: ${CACHE_SEARCH_LINEAGE_TTL_SECONDS:86400} # 1 day
       lightningThreshold: ${CACHE_SEARCH_LINEAGE_LIGHTNING_THRESHOLD:300}
       maxSize: ${CACHE_SEARCH_LINEAGE_MAX_SIZE:10000}
-      evictionPolicy: ${CACHE_SEARCH_LINEAGE_EXPIRATION_POLICY:SIZE_AND_TTL} # One of NEVER, TTL, MAX_SIZE, SIZE_AND_TTL ->
+      evictionPolicy:
+        ${CACHE_SEARCH_LINEAGE_EXPIRATION_POLICY:SIZE_AND_TTL} # One of NEVER, TTL, MAX_SIZE, SIZE_AND_TTL ->
         # NEVER will ignore max size and ttl configurations, TTL will only apply TTL and ignore size,
         # MAX_SIZE will ignore TTL and apply size, SIZE_AND_TTL will apply both ttl and size
   client:

@@ -44,7 +44,6 @@ public class SpringWebConfig implements WebMvcConfigurer {
             .group("default")
             .packagesToExclude(
                     "io.datahubproject.openapi.operations",
-                    "com.datahub.health",
                     "io.datahubproject.openapi.health"
             ).build();
   }
@@ -55,7 +54,6 @@ public class SpringWebConfig implements WebMvcConfigurer {
             .group("operations")
             .packagesToScan(
                     "io.datahubproject.openapi.operations",
-                    "com.datahub.health",
                     "io.datahubproject.openapi.health"
             ).build();
   }

@@ -121,7 +121,10 @@ class LookerCommonConfig(DatasetSourceConfigMixin):
         "discoverable. When disabled, adds this information to the description of the column.",
     )
     platform_name: str = Field(
-        "looker", description="Default platform name. Don't change."
+        # TODO: This shouldn't be part of the config.
+        "looker",
+        description="Default platform name.",
+        hidden_from_docs=True,
     )
     extract_column_level_lineage: bool = Field(
         True,
@@ -202,6 +205,10 @@ class LookerDashboardSourceConfig(
         False,
         description="Extract looks which are not part of any Dashboard. To enable this flag the stateful_ingestion should also be enabled.",
     )
+    emit_used_explores_only: bool = Field(
+        True,
+        description="When enabled, only explores that are used by a Dashboard/Look will be ingested.",
+    )
 
     @validator("external_base_url", pre=True, always=True)
     def external_url_defaults_to_api_config_base_url(
@@ -213,7 +220,6 @@ class LookerDashboardSourceConfig(
     def stateful_ingestion_should_be_enabled(
         cls, v: Optional[bool], *, values: Dict[str, Any], **kwargs: Dict[str, Any]
     ) -> Optional[bool]:
-
         stateful_ingestion: StatefulStaleMetadataRemovalConfig = cast(
             StatefulStaleMetadataRemovalConfig, values.get("stateful_ingestion")
         )
