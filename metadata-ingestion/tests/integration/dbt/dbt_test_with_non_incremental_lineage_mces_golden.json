@@ -14,7 +14,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-test-with-non-incremental-lineage"
+        "runId": "dbt-test-with-non-incremental-lineage",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -141,7 +142,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-test-with-non-incremental-lineage"
+        "runId": "dbt-test-with-non-incremental-lineage",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -160,7 +162,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-test-with-non-incremental-lineage"
+        "runId": "dbt-test-with-non-incremental-lineage",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -303,7 +306,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-test-with-non-incremental-lineage"
+        "runId": "dbt-test-with-non-incremental-lineage",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -321,7 +325,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-test-with-non-incremental-lineage"
+        "runId": "dbt-test-with-non-incremental-lineage",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -523,7 +528,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-test-with-non-incremental-lineage"
+        "runId": "dbt-test-with-non-incremental-lineage",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -542,7 +548,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-test-with-non-incremental-lineage"
+        "runId": "dbt-test-with-non-incremental-lineage",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -660,7 +667,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-test-with-non-incremental-lineage"
+        "runId": "dbt-test-with-non-incremental-lineage",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -678,7 +686,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-test-with-non-incremental-lineage"
+        "runId": "dbt-test-with-non-incremental-lineage",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -827,7 +836,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-test-with-non-incremental-lineage"
+        "runId": "dbt-test-with-non-incremental-lineage",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -845,7 +855,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-test-with-non-incremental-lineage"
+        "runId": "dbt-test-with-non-incremental-lineage",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1015,7 +1026,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-test-with-non-incremental-lineage"
+        "runId": "dbt-test-with-non-incremental-lineage",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1033,7 +1045,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-test-with-non-incremental-lineage"
+        "runId": "dbt-test-with-non-incremental-lineage",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1143,7 +1156,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-test-with-non-incremental-lineage"
+        "runId": "dbt-test-with-non-incremental-lineage",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1161,7 +1175,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-test-with-non-incremental-lineage"
+        "runId": "dbt-test-with-non-incremental-lineage",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1283,7 +1298,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-test-with-non-incremental-lineage"
+        "runId": "dbt-test-with-non-incremental-lineage",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1301,7 +1317,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-test-with-non-incremental-lineage"
+        "runId": "dbt-test-with-non-incremental-lineage",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1428,7 +1445,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-test-with-non-incremental-lineage"
+        "runId": "dbt-test-with-non-incremental-lineage",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1446,7 +1464,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-test-with-non-incremental-lineage"
+        "runId": "dbt-test-with-non-incremental-lineage",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1640,7 +1659,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-test-with-non-incremental-lineage"
+        "runId": "dbt-test-with-non-incremental-lineage",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1658,7 +1678,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-test-with-non-incremental-lineage"
+        "runId": "dbt-test-with-non-incremental-lineage",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1804,7 +1825,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-test-with-non-incremental-lineage"
+        "runId": "dbt-test-with-non-incremental-lineage",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1822,7 +1844,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-test-with-non-incremental-lineage"
+        "runId": "dbt-test-with-non-incremental-lineage",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1986,7 +2009,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-test-with-non-incremental-lineage"
+        "runId": "dbt-test-with-non-incremental-lineage",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2004,7 +2028,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-test-with-non-incremental-lineage"
+        "runId": "dbt-test-with-non-incremental-lineage",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2150,7 +2175,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-test-with-non-incremental-lineage"
+        "runId": "dbt-test-with-non-incremental-lineage",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2168,7 +2194,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-test-with-non-incremental-lineage"
+        "runId": "dbt-test-with-non-incremental-lineage",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2314,7 +2341,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-test-with-non-incremental-lineage"
+        "runId": "dbt-test-with-non-incremental-lineage",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2332,7 +2360,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-test-with-non-incremental-lineage"
+        "runId": "dbt-test-with-non-incremental-lineage",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2478,7 +2507,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-test-with-non-incremental-lineage"
+        "runId": "dbt-test-with-non-incremental-lineage",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2496,7 +2526,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-test-with-non-incremental-lineage"
+        "runId": "dbt-test-with-non-incremental-lineage",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2642,7 +2673,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-test-with-non-incremental-lineage"
+        "runId": "dbt-test-with-non-incremental-lineage",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2669,7 +2701,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-test-with-non-incremental-lineage"
+        "runId": "dbt-test-with-non-incremental-lineage",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2696,7 +2729,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-test-with-non-incremental-lineage"
+        "runId": "dbt-test-with-non-incremental-lineage",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2723,7 +2757,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-test-with-non-incremental-lineage"
+        "runId": "dbt-test-with-non-incremental-lineage",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2738,7 +2773,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-test-with-non-incremental-lineage"
+        "runId": "dbt-test-with-non-incremental-lineage",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2753,7 +2789,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-test-with-non-incremental-lineage"
+        "runId": "dbt-test-with-non-incremental-lineage",
+        "lastRunId": "no-run-id-provided"
     }
 }
 ]
