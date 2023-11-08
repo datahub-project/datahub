@@ -32,6 +32,7 @@ function getParentRelationship(direction: Direction, parent: VizNode | null, nod
     return directionRelationships?.find((r) => r?.entity?.urn === node?.urn);
 }
 
+// this utility function is to help make sure layouts that contain many references to the same URN don't struggle laying out that URN.
 function firstAppearanceIndices(arr) {
     const seen = new Set(); // To track which strings have been seen
     const result = [] as number[];
