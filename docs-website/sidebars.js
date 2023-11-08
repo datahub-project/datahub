@@ -546,6 +546,7 @@ module.exports = {
         "docs/CONTRIBUTING",
         "docs/links",
         "docs/rfc",
+        "SECURITY"
       ],
     },
     {
