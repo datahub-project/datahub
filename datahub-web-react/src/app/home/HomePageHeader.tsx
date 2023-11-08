@@ -276,6 +276,7 @@ export const HomePageHeader = () => {
                         combineSiblings
                         showQuickFilters
                         showViewAllResults
+                        showCommandK
                     />
                     {searchResultsToShow && searchResultsToShow.length > 0 && (
                         <SuggestionsContainer>
