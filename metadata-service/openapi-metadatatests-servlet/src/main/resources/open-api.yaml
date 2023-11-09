@@ -1,0 +1,266 @@
+openapi: "3.0.0"
+info:
+  title: Metadata Tests API
+  description: These endpoints are for evaluating metadata tests.
+  version: v1
+
+paths:
+  /metadata_test/test/{testUrn}/evaluate:
+    post:
+      summary: Evaluates a metadata test on the given target URNs.
+      operationId: evaluateTest
+      tags:
+        - "Metadata Test Operations"
+      parameters:
+        - $ref: "#/components/parameters/TestUrn_v1"
+        - in: "query"
+          name: "evaluateOnly"
+          description: "Evaluate test without writing to the database."
+          schema:
+            type: "boolean"
+            default: true
+
+      requestBody:
+        description: "Test target URNs"
+        required: true
+        content:
+          application/json:
+            schema:
+              type: "array"
+              items:
+                $ref: "string"
+
+      responses:
+        "200":
+          description: "Success"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MetadataTestResult_v1"
+
+  /metadata_test/entity/{entityUrn}/evaluate:
+    post:
+      summary: Evaluates metadata tests on the a target URN. If no tests are given, all tests are run.
+      operationId: evaluateEntity
+      tags:
+        - "Metadata Test Operations"
+      parameters:
+        - $ref: "#/components/parameters/EntityUrn_v1"
+        - in: "query"
+          name: "evaluateOnly"
+          description: "Evaluate test without writing to the database."
+          schema:
+            type: "boolean"
+            default: true
+
+      requestBody:
+        description: "Metadata Test URNs"
+        required: true
+        content:
+          application/json:
+            schema:
+              type: "array"
+              items:
+                $ref: "string"
+
+      responses:
+        "200":
+          description: "Success"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MetadataTestEntityResult_v1"
+
+  /metadata_test:
+    get:
+      summary: "Scroll Metadata Tests"
+      operationId: "scroll"
+      parameters:
+        - in: "query"
+          name: "systemMetadata"
+          description: "Include systemMetadata with response."
+          schema:
+            type: "boolean"
+            default: false
+        - $ref: "open-api-components.yaml#/components/parameters/TestAspects_v2"
+        - $ref: "open-api-components.yaml#/components/parameters/PaginationCount_v2"
+        - $ref: "open-api-components.yaml#/components/parameters/ScrollId_v2"
+        - $ref: "open-api-components.yaml#/components/parameters/SortBy_v2"
+        - $ref: "open-api-components.yaml#/components/parameters/SortOrder_v2"
+        - $ref: "open-api-components.yaml#/components/parameters/ScrollQuery_v2"
+      responses:
+        "200":
+          description: "Success"
+          content:
+            application/json:
+              schema:
+                $ref: "open-api-components.yaml#/components/schemas/ScrollTestEntityResponse_v2"
+      tags:
+        - "Metadata Test Definition"
+    post:
+      summary: "Create Test"
+      operationId: "create"
+      requestBody:
+        description: "Create test entities."
+        required: true
+        content:
+          application/json:
+            schema:
+              type: "array"
+              items:
+                $ref: "open-api-components.yaml#/components/schemas/TestEntityRequest_v2"
+      responses:
+        "201":
+          description: "Create test entities."
+          content:
+            application/json:
+              schema:
+                type: "array"
+                items:
+                  $ref: "open-api-components.yaml#/components/schemas/TestEntityResponse_v2"
+      tags:
+        - "Metadata Test Definition"
+  /metadata_test/{urn}:
+    parameters:
+      - in: "path"
+        name: "urn"
+        required: true
+        schema:
+          type: "string"
+    get:
+      summary: "Get test by key."
+      operationId: "get"
+      tags:
+        - "Metadata Test Definition"
+      parameters:
+        - in: "query"
+          name: "systemMetadata"
+          description: "Include systemMetadata with response."
+          schema:
+            type: "boolean"
+            default: false
+        - $ref: "open-api-components.yaml#/components/parameters/TestAspects_v2"
+      responses:
+        "200":
+          description: "Success"
+          content:
+            application/json:
+              schema:
+                $ref: "open-api-components.yaml#/components/schemas/TestEntityResponse_v2"
+        "404":
+          description: "Not Found"
+          content:
+            application/json:
+              schema: {}
+    head:
+      summary: "Test existence."
+      operationId: "head"
+      responses:
+        "204":
+          description: "test exists."
+          content:
+            application/json: {}
+        "404":
+          description: "test does not exist."
+          content:
+            application/json: {}
+      tags:
+        - "Metadata Test Definition"
+    delete:
+      summary: "Delete entity Test"
+      operationId: "delete"
+      responses:
+        "200":
+          description: "Delete test entity."
+          content:
+            application/json: {}
+      tags:
+        - "Metadata Test Definition"
+
+components:
+  parameters:
+    TestUrn_v1:
+      in: "path"
+      name: testUrn
+      schema:
+        type: string
+      required: true
+      description: The metadata test's URN
+    EntityUrn_v1:
+      in: "path"
+      name: entityUrn
+      schema:
+        type: string
+      required: true
+      description: The entity to test's URN
+  schemas:
+    MetadataTestResult_v1:
+      description: "Information about a Test Result"
+      type: "object"
+      additionalProperties: false
+      properties:
+        test:
+          description: "The urn of the test"
+          type: "string"
+        testName:
+          description: "The name of the test"
+          type: "string"
+        entities:
+          description: "A list of entity test results"
+          type: "array"
+          items:
+            type: "object"
+            properties:
+              entity:
+                description: "The urn of the target entity."
+                type: "string"
+              type:
+                description: "The type of the result"
+                $ref: "#/components/schemas/TestResultType"
+            required:
+              - "entity"
+    MetadataTestEntityResult_v1:
+      description: "Information for an entity's Metadata Test Results"
+      type: "object"
+      additionalProperties: false
+      properties:
+        entityUrn:
+          description: "The urn of the entity"
+          type: "string"
+        passing:
+          description: "A list of the passing test results"
+          type: "array"
+          items:
+            type: "object"
+            properties:
+              test:
+                description: "The urn of the test."
+                type: "string"
+              testName:
+                description: "The name of the test"
+                type: "string"
+              type:
+                description: "The type of the result"
+                $ref: "#/components/schemas/TestResultType"
+        failing:
+          description: "A list of the failing test results"
+          type: "array"
+          items:
+            type: "object"
+            properties:
+              test:
+                description: "The urn of the test."
+                type: "string"
+              testName:
+                description: "The name of the test"
+                type: "string"
+              type:
+                description: "The type of the result"
+                $ref: "#/components/schemas/TestResultType"
+            required:
+              - "passing"
+              - "failing"
+      required:
+        - "entityUrn"
+        - "tests"
+

@@ -22,7 +22,8 @@ import static com.linkedin.metadata.Constants.*;
 public class AspectTemplateEngine {
 
   public static final Stream<String> SUPPORTED_TEMPLATES_SAAS = Stream.of(
-          MONITOR_INFO_ASPECT_NAME
+          MONITOR_INFO_ASPECT_NAME,
+          TEST_RESULTS_ASPECT_NAME
   );
 
   public static final Set<String> SUPPORTED_TEMPLATES = Stream.concat(SUPPORTED_TEMPLATES_SAAS, Stream.of(

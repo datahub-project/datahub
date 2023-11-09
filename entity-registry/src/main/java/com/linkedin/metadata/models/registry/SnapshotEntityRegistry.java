@@ -20,6 +20,7 @@ import com.linkedin.metadata.models.registry.template.dataset.DatasetPropertiesT
 import com.linkedin.metadata.models.registry.template.dataset.EditableSchemaMetadataTemplate;
 import com.linkedin.metadata.models.registry.template.dataset.UpstreamLineageTemplate;
 import com.linkedin.metadata.models.registry.template.monitor.MonitorInfoTemplate;
+import com.linkedin.metadata.models.registry.template.tests.TestResultsTemplate;
 import com.linkedin.metadata.snapshot.Snapshot;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -84,6 +85,7 @@ public class SnapshotEntityRegistry implements EntityRegistry {
   private void populateTemplateEngineSaaS(Map<String, Template<? extends RecordTemplate>> aspectSpecTemplateMap) {
      // SaaS only goes in this function to avoid conflicts
     aspectSpecTemplateMap.put(MONITOR_INFO_ASPECT_NAME, new MonitorInfoTemplate());
+    aspectSpecTemplateMap.put(TEST_RESULTS_ASPECT_NAME, new TestResultsTemplate());
   }
 
   @Nonnull

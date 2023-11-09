@@ -50,9 +50,6 @@ public class TestEngineFactory {
   @Value("${metadataTests.cacheRefreshIntervalSecs}")
   private Integer testCacheRefreshIntervalSeconds;
 
-  @Value("${metadataTests.enabled:true}")
-  private Boolean testEnabled;
-
   @Bean(name = "testEngine")
   @Nonnull
   protected TestEngine getInstance() {

@@ -42,7 +42,7 @@ services:
       - SKIP_ELASTICSEARCH_CHECK=false
       - DATAHUB_SERVER_TYPE=${DATAHUB_SERVER_TYPE:-dev}
       - DATAHUB_TELEMETRY_ENABLED=${DATAHUB_TELEMETRY_ENABLED:-true}
-      - METADATA_SERVICE_AUTH_ENABLED=false
+      - METADATA_SERVICE_AUTH_ENABLED=${METADATA_SERVICE_AUTH_ENABLED:-false}
       - SENTRY_ENVIRONMENT=dev
       # Copy DSN from here https://sentry.io/settings/acryl-data/projects/gms/keys/ in case you wish to try this locally
       - SENTRY_DSN=
@@ -51,6 +51,8 @@ services:
       - SEARCH_SERVICE_ENABLE_CACHE=false
       - LINEAGE_SEARCH_CACHE_ENABLED=false
       - SHOW_BROWSE_V2=true
+      # Saas
+      - METADATA_TESTS_ENABLED=${METADATA_TESTS_ENABLED:-false}
     volumes:
       - ./datahub-gms/start.sh:/datahub/datahub-gms/scripts/start.sh
       - ./datahub-gms/jetty.xml:/datahub/datahub-gms/scripts/jetty.xml

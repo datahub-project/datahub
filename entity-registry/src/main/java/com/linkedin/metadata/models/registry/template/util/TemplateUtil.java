@@ -4,6 +4,9 @@ import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.fge.jsonpatch.Patch;
+import com.linkedin.util.Pair;
+import datahub.client.patch.PatchOperationType;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -24,11 +27,11 @@ public class TemplateUtil {
             .maxStringLength(maxSize).build());
   }
 
-  public static List<String> getPaths(Patch jsonPatch) {
+  public static List<Pair<PatchOperationType, String>> getPaths(Patch jsonPatch) {
     JsonNode patchNode = OBJECT_MAPPER.valueToTree(jsonPatch);
-    List<String> paths = new ArrayList<>();
+    List<Pair<PatchOperationType, String>> paths = new ArrayList<>();
     patchNode.elements().forEachRemaining(node -> {
-      paths.add(node.get("path").asText());
+      paths.add(Pair.of(PatchOperationType.valueOf(node.get("op").asText().toUpperCase()), node.get("path").asText()));
     });
     return paths;
   }
