@@ -27,7 +27,7 @@ const Content = styled.div`
         margin: 0;
     }
     color: #262626;
-    height: calc(100% - 60px);
+    height: calc(100% - 11vh);
 
     &&& .ant-tabs > .ant-tabs-nav .ant-tabs-nav-wrap {
         padding-left: 28px;

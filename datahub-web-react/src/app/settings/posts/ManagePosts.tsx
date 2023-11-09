@@ -22,7 +22,7 @@ const PageTitle = styled(Typography.Title)`
 `;
 
 const ListContainer = styled.div`
-    height: calc(100% - 120px);
+    height: calc(100% - 11vh);
 `;
 
 export default function ManagePosts() {

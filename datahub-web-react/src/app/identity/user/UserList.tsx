@@ -26,12 +26,12 @@ import { DEFAULT_USER_LIST_PAGE_SIZE, removeUserFromListUsersCache } from './cac
 import { useUserContext } from '../../context/useUserContext';
 
 const UserContainer = styled.div`
-    height: 100%;
+    height: calc(100% - 6vh);
 `;
 
 const UserStyledList = styled(List)`
     &&& {
-        height: calc(100% - 85px);
+        height: calc(100% - 11vh);
         overflow: auto;
         width: 100%;
         border-color: ${(props) => props.theme.styles['border-color-base']};

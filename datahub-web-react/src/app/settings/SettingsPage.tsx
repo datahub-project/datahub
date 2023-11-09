@@ -112,7 +112,7 @@ export const SettingsPage = () => {
                     style={{
                         width: 256,
                         marginTop: 8,
-                        height: 'calc(100% - 120px)',
+                        height: 'calc(100% - 11vh)',
                         overflowX: 'hidden',
                         overflowY: 'auto',
                     }}

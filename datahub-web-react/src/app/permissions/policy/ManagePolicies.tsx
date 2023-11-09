@@ -39,7 +39,7 @@ import { POLICIES_CREATE_POLICY_ID, POLICIES_INTRO_ID } from '../../onboarding/c
 import { OnboardingTour } from '../../onboarding/OnboardingTour';
 
 const SourceContainer = styled.div`
-    height: calc(100% - 40px);
+    height: 100%;
 `;
 
 const PaginationContainer = styled.div`
@@ -77,7 +77,7 @@ const EditPolicyButton = styled(Button)`
 
 const PageContainer = styled.div`
     width: 100%;
-    height: 100%;
+    height: calc(100% - 11vh);
 `;
 
 const DEFAULT_PAGE_SIZE = 10;
@@ -493,7 +493,7 @@ export const ManagePolicies = () => {
                     }}
                     pagination={false}
                     style={{
-                        height: 'calc(100% - 30px)',
+                        height: 'calc(100% - 46px)',
                         overflow: 'auto',
                     }}
                 />

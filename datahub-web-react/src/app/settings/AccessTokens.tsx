@@ -272,7 +272,7 @@ export const AccessTokens = () => {
                 }}
                 pagination={false}
                 style={{
-                    height: 'calc(100% - 365px)',
+                    height: 'calc(100% - 45vh)',
                     overflow: 'auto',
                 }}
             />

@@ -56,7 +56,6 @@ export const OwnershipTable = ({ ownershipTypes, setIsOpen, setOwnershipType, re
             }}
             pagination={false}
             style={{
-                height: 'calc(100% - 30px)',
                 overflow: 'auto',
             }}
         />

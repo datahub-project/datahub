@@ -18,12 +18,12 @@ import { OnboardingTour } from '../../onboarding/OnboardingTour';
 import { addGroupToListGroupsCache, DEFAULT_GROUP_LIST_PAGE_SIZE, removeGroupFromListGroupsCache } from './cacheUtils';
 
 const GroupContainer = styled.div`
-    height: 100%;
+    height: calc(100% - 6vh);
 `;
 
 const GroupStyledList = styled(List)`
     &&& {
-        height: calc(100% - 85px);
+        height: calc(100% - 11vh);
         width: 100%;
         border-color: ${(props) => props.theme.styles['border-color-base']};
         overflow: auto;

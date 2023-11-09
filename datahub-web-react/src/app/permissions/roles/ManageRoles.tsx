@@ -22,7 +22,7 @@ import { ROLES_INTRO_ID } from '../../onboarding/config/RolesOnboardingConfig';
 import { clearUserListCache } from '../../identity/user/cacheUtils';
 
 const SourceContainer = styled.div`
-    height: calc(100% - 40px);
+    height: 100%;
 `;
 
 const PaginationContainer = styled.div`
@@ -37,7 +37,7 @@ const RoleName = styled.span`
 
 const PageContainer = styled.div`
     width: 100%;
-    height: 100%;
+    height: calc(100% - 11vh);
 `;
 
 const ActionsContainer = styled.div`
@@ -265,7 +265,7 @@ export const ManageRoles = () => {
                     }}
                     pagination={false}
                     style={{
-                        height: 'calc(100% - 30px)',
+                        height: 'calc(100% - 46px)',
                         overflow: 'auto',
                     }}
                 />

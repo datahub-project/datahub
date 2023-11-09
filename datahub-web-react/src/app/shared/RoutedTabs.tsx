@@ -35,7 +35,7 @@ export const RoutedTabs = ({ defaultPath, tabs, onTabChange, ...props }: Props) 
     const activePath = subRoutes.includes(providedPath) ? providedPath : defaultPath.replace('/', '');
 
     const PaginationContainer = styled.div`
-        height: calc(100% - 80px);
+        height: 100%;
     `;
 
     return (

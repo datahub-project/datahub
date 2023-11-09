@@ -158,7 +158,7 @@ export const PostList = () => {
                     pagination={false}
                     locale={{ emptyText: <Empty description="No posts!" image={Empty.PRESENTED_IMAGE_SIMPLE} /> }}
                     style={{
-                        height: 'calc(100% - 30px)',
+                        height: 'calc(100% - 6vh)',
                         overflow: 'auto',
                     }}
                 />

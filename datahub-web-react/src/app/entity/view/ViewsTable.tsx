@@ -57,7 +57,6 @@ export const ViewsTable = ({ views, onEditView }: ViewsTableProps) => {
             }}
             pagination={false}
             style={{
-                height: 'calc(100% - 30px)',
                 overflow: 'auto',
             }}
         />
