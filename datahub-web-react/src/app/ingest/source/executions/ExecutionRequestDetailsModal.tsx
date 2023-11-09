@@ -83,7 +83,7 @@ const ShowMoreButton = styled(Button)`
     padding: 0px;
 `;
 
-const OuterContainer = styled.div<OuterContainerProps>`
+const LogsContainer = styled.div<LogsContainerProps>`
     ${(props) =>
         props.areLogsExpandable &&
         !props.showExpandedLogs &&
@@ -101,7 +101,7 @@ const modalBodyStyle = {
     padding: 0,
 };
 
-type OuterContainerProps = {
+type LogsContainerProps = {
     showExpandedLogs: boolean;
     areLogsExpandable: boolean;
 };
@@ -196,11 +196,11 @@ export const ExecutionDetailsModal = ({ urn, visible, onClose }: Props) => {
                             Download
                         </Button>
                     </SectionSubHeader>
-                    <OuterContainer areLogsExpandable={areLogsExpandable} showExpandedLogs={showExpandedLogs}>
+                    <LogsContainer areLogsExpandable={areLogsExpandable} showExpandedLogs={showExpandedLogs}>
                         <Typography.Paragraph ellipsis>
                             <pre>{`${logs}${!showExpandedLogs && areLogsExpandable ? '...' : ''}`}</pre>
                         </Typography.Paragraph>
-                    </OuterContainer>
+                    </LogsContainer>
                     {areLogsExpandable && (
                         <ShowMoreButton type="link" onClick={() => setShowExpandedLogs(!showExpandedLogs)}>
                             {showExpandedLogs ? 'Hide' : 'Show More'}
