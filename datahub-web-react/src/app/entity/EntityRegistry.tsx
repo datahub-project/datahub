@@ -183,6 +183,7 @@ export default class EntityRegistry {
                 fineGrainedLineages,
                 siblings: genericEntityProperties?.siblings,
                 schemaMetadata: genericEntityProperties?.schemaMetadata,
+                editableSchemaMetadata: genericEntityProperties?.editableSchemaMetadata,
                 inputFields: genericEntityProperties?.inputFields,
                 canEditLineage: genericEntityProperties?.privileges?.canEditLineage,
             } as FetchedEntity) || undefined

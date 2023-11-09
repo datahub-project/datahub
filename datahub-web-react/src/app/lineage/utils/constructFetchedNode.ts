@@ -63,6 +63,7 @@ export default function constructFetchedNode(
             status: fetchedNode.status,
             siblingPlatforms: fetchedNode.siblingPlatforms,
             schemaMetadata: fetchedNode.schemaMetadata,
+            editableSchemaMetadata: fetchedNode.editableSchemaMetadata,
             inputFields: fetchedNode.inputFields,
             canEditLineage: fetchedNode.canEditLineage,
             upstreamRelationships: fetchedNode?.upstreamRelationships || [],

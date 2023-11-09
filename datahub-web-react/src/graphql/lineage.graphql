@@ -324,6 +324,12 @@ fragment fullLineageResults on EntityLineageResult {
                 schemaMetadata(version: 0) @include(if: $showColumns) {
                     ...schemaMetadataFields
                 }
+                editableSchemaMetadata @include(if: $showColumns) {
+                    editableSchemaFieldInfo {
+                        fieldPath
+                        description
+                    }
+                }
             }
             ... on Chart {
                 inputFields @include(if: $showColumns) {
@@ -372,6 +378,12 @@ query getEntityLineage(
         ... on Dataset {
             schemaMetadata(version: 0) @include(if: $showColumns) {
                 ...schemaMetadataFields
+            }
+            editableSchemaMetadata @include(if: $showColumns) {
+                editableSchemaFieldInfo {
+                    fieldPath
+                    description
+                }
             }
             siblings {
                 isPrimary
