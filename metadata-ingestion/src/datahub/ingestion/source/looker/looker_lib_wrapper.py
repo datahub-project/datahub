@@ -59,6 +59,7 @@ class LookerAPIStats(BaseModel):
     lookml_model_calls: int = 0
     all_dashboards_calls: int = 0
     all_looks_calls: int = 0
+    all_models_calls: int = 0
     get_query_calls: int = 0
     search_looks_calls: int = 0
     search_dashboards_calls: int = 0
@@ -152,6 +153,12 @@ class LookerAPI:
         return self.client.dashboard(
             dashboard_id=dashboard_id,
             fields=self.__fields_mapper(fields),
+            transport_options=self.transport_options,
+        )
+
+    def all_lookml_models(self) -> Sequence[LookmlModel]:
+        self.client_stats.all_models_calls += 1
+        return self.client.all_lookml_models(
             transport_options=self.transport_options,
         )
 

@@ -108,7 +108,7 @@ usage_common = {
 sqlglot_lib = {
     # Using an Acryl fork of sqlglot.
     # https://github.com/tobymao/sqlglot/compare/main...hsheth2:sqlglot:hsheth?expand=1
-    "acryl-sqlglot==18.17.1.dev16",
+    "acryl-sqlglot==19.0.2.dev10",
 }
 
 sql_common = (
@@ -395,6 +395,7 @@ plugins: Dict[str, Set[str]] = {
     "powerbi-report-server": powerbi_report_server,
     "vertica": sql_common | {"vertica-sqlalchemy-dialect[vertica-python]==0.0.8.1"},
     "unity-catalog": databricks | sqllineage_lib,
+    "fivetran": snowflake_common,
 }
 
 # This is mainly used to exclude plugins from the Docker image.
@@ -525,6 +526,7 @@ base_dev_requirements = {
             "nifi",
             "vertica",
             "mode",
+            "fivetran",
             "kafka-connect",
         ]
         if plugin
@@ -629,6 +631,7 @@ entry_points = {
         "unity-catalog = datahub.ingestion.source.unity.source:UnityCatalogSource",
         "gcs = datahub.ingestion.source.gcs.gcs_source:GCSSource",
         "sql-queries = datahub.ingestion.source.sql_queries:SqlQueriesSource",
+        "fivetran = datahub.ingestion.source.fivetran.fivetran:FivetranSource",
     ],
     "datahub.ingestion.transformer.plugins": [
         "simple_remove_dataset_ownership = datahub.ingestion.transformer.remove_dataset_ownership:SimpleRemoveDatasetOwnership",

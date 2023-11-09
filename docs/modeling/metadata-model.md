@@ -625,7 +625,7 @@ curl --location --request POST 'http://localhost:8080/analytics?action=getTimese
     }
 }
 ```
-For more examples on the complex types of group-by/aggregations, refer to the tests in the group `getAggregatedStats` of [ElasticSearchTimeseriesAspectServiceTest.java](https://github.com/datahub-project/datahub/blob/master/metadata-io/src/test/java/com/linkedin/metadata/timeseries/elastic/ElasticSearchTimeseriesAspectServiceTest.java).
+For more examples on the complex types of group-by/aggregations, refer to the tests in the group `getAggregatedStats` of [TimeseriesAspectServiceTestBase.java](https://github.com/datahub-project/datahub/blob/master/metadata-io/src/test/java/com/linkedin/metadata/timeseries/search/TimeseriesAspectServiceTestBase.java).
 
 
 

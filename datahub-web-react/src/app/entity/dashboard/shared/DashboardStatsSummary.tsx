@@ -11,6 +11,9 @@ import ExpandingStat from '../../dataset/shared/ExpandingStat';
 
 const StatText = styled.span`
     color: ${ANTD_GRAY[8]};
+    @media (min-width: 1024px) {
+        width: 100%;
+        white-space: nowrap;
 `;
 
 const HelpIcon = styled(QuestionCircleOutlined)`
