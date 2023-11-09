@@ -49,7 +49,7 @@ export const GroupList = () => {
     const { loading, error, data, refetch, client } = useListGroupsQuery({
         variables: {
             input: {
-                start: query && start === 0 ? null : start,
+                start,
                 count: pageSize,
                 query: (query?.length && query) || undefined,
             },

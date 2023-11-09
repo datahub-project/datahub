@@ -65,7 +65,7 @@ export const UserList = () => {
     } = useListUsersQuery({
         variables: {
             input: {
-                start: query && start === 0 ? null : start,
+                start,
                 count: pageSize,
                 query: (query?.length && query) || undefined,
             },

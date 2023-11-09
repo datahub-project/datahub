@@ -52,7 +52,7 @@ export const SecretsList = () => {
     const { loading, error, data, client } = useListSecretsQuery({
         variables: {
             input: {
-                start: query && start === 0 ? null : start,
+                start,
                 count: pageSize,
                 query: (query?.length && query) || undefined,
             },

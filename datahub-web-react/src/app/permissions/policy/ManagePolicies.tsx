@@ -168,7 +168,7 @@ export const ManagePolicies = () => {
     } = useListPoliciesQuery({
         variables: {
             input: {
-                start: query && start === 0 ? null : start,
+                start,
                 count: pageSize,
                 query,
             },

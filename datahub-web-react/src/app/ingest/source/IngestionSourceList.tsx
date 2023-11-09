@@ -105,7 +105,7 @@ export const IngestionSourceList = () => {
     const { loading, error, data, client, refetch } = useListIngestionSourcesQuery({
         variables: {
             input: {
-                start: query && start === 0 ? null : start,
+                start,
                 count: pageSize,
                 query: (query?.length && query) || undefined,
             },

@@ -74,7 +74,7 @@ export const ManageRoles = () => {
     } = useListRolesQuery({
         variables: {
             input: {
-                start: query && start === 0 ? null : start,
+                start,
                 count: pageSize,
                 query,
             },
