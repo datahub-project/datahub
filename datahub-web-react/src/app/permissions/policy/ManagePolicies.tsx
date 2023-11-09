@@ -170,7 +170,7 @@ export const ManagePolicies = () => {
             input: {
                 start: query && start === 0 ? null : start,
                 count: pageSize,
-                query: (query?.length && query) || undefined,
+                query,
             },
         },
         fetchPolicy: (query?.length || 0) > 0 ? 'no-cache' : 'cache-first',
