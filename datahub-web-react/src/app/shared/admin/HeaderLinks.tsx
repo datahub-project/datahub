@@ -6,7 +6,6 @@ import {
     InboxOutlined,
     BookOutlined,
     SettingOutlined,
-    FolderOutlined,
     FileDoneOutlined,
     SolutionOutlined,
     DownOutlined,
@@ -21,6 +20,7 @@ import { HOME_PAGE_INGESTION_ID } from '../../onboarding/config/HomePageOnboardi
 import { useUpdateEducationStepIdsAllowlist } from '../../onboarding/useUpdateEducationStepIdsAllowlist';
 import { useUserContext } from '../../context/useUserContext';
 import { PageRoutes } from '../../../conf/Global';
+import DomainIcon from '../../domain/DomainIcon';
 
 const LinkWrapper = styled.span`
     margin-right: 0px;
