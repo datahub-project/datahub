@@ -482,11 +482,11 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
   @Nonnull
   @Override
   public ScrollResult scrollAcrossEntities(@Nonnull List<String> entities, @Nonnull String input,
-      @Nullable Filter filter, @Nullable String scrollId, @Nonnull String keepAlive, int count,
+      @Nullable Filter filter, @Nullable String scrollId, @Nullable String keepAlive, int count,
       @Nullable SearchFlags searchFlags, @Nonnull Authentication authentication)
       throws RemoteInvocationException {
     final EntitiesDoScrollAcrossEntitiesRequestBuilder requestBuilder =
-        ENTITIES_REQUEST_BUILDERS.actionScrollAcrossEntities().inputParam(input).countParam(count).keepAliveParam(keepAlive);
+        ENTITIES_REQUEST_BUILDERS.actionScrollAcrossEntities().inputParam(input).countParam(count);
 
     if (entities != null) {
       requestBuilder.entitiesParam(new StringArray(entities));
@@ -499,6 +499,9 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
     }
     if (searchFlags != null) {
       requestBuilder.searchFlagsParam(searchFlags);
+    }
+    if (keepAlive != null) {
+      requestBuilder.keepAliveParam(keepAlive);
     }
 
     return sendClientRequest(requestBuilder, authentication).getEntity();
