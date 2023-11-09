@@ -100,26 +100,20 @@ public class DataHubAuthorizer implements Authorizer {
     // 1. Fetch the policies relevant to the requested privilege.
     final List<DataHubPolicyInfo> policiesToEvaluate = getOrDefault(request.getPrivilege(), new ArrayList<>());
 
-      // 2. Evaluate each policy.
-      for (DataHubPolicyInfo policy : policiesToEvaluate) {
-        if (isRequestGranted(policy, request, resolvedResourceSpec)) {
-          // Short circuit if policy has granted privileges to this actor.
-          return new AuthorizationResult(request, AuthorizationResult.Type.ALLOW,
-              String.format("Granted by policy with type: %s", policy.getType()));
-        }
+    // 2. Evaluate each policy.
+    for (DataHubPolicyInfo policy : policiesToEvaluate) {
+      if (isRequestGranted(policy, request, resolvedResourceSpec)) {
+        // Short circuit if policy has granted privileges to this actor.
+        return new AuthorizationResult(request, AuthorizationResult.Type.ALLOW,
+            String.format("Granted by policy with type: %s", policy.getType()));
       }
-      return new AuthorizationResult(request, AuthorizationResult.Type.DENY,  null);
-    } finally {
-      _lockPolicyCache.readLock().unlock();
     }
+    return new AuthorizationResult(request, AuthorizationResult.Type.DENY,  null);
   }
 
   public List<String> getGrantedPrivileges(final String actor, final Optional<EntitySpec> resourceSpec) {
-
-    _lockPolicyCache.readLock().lock();
-    try {
-      // 1. Fetch all policies
-      final List<DataHubPolicyInfo> policiesToEvaluate = _policyCache.getOrDefault(ALL, new ArrayList<>());
+    // 1. Fetch all policies
+    final List<DataHubPolicyInfo> policiesToEvaluate = getOrDefault(ALL, new ArrayList<>());
 
     Urn actorUrn = UrnUtils.getUrn(actor);
     final ResolvedEntitySpec resolvedActorSpec = _entitySpecResolver.resolve(new EntitySpec(actorUrn.getEntityType(), actor));
@@ -136,10 +130,6 @@ public class DataHubAuthorizer implements Authorizer {
   public AuthorizedActors authorizedActors(
       final String privilege,
       final Optional<EntitySpec> resourceSpec) {
-    // Step 1: Find policies granting the privilege.
-    final List<DataHubPolicyInfo> policiesToEvaluate = getOrDefault(privilege, new ArrayList<>());
-
-    Optional<ResolvedEntitySpec> resolvedResourceSpec = resourceSpec.map(_entitySpecResolver::resolve);
 
     final List<Urn> authorizedUsers = new ArrayList<>();
     final List<Urn> authorizedGroups = new ArrayList<>();
