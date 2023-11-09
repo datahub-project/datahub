@@ -84,8 +84,8 @@ const ShowMoreButton = styled(Button)`
 `;
 
 const OuterContainer = styled.div<OuterContainerProps>`
-    height: ${(props) => (props.showExpandedLogs ? 'max-content' : 'auto')};
     ${(props) =>
+        props.areLogsExpandable &&
         !props.showExpandedLogs &&
         `
         -webkit-mask-image: linear-gradient(to bottom, black 40%, transparent 100%);
@@ -103,6 +103,7 @@ const modalBodyStyle = {
 
 type OuterContainerProps = {
     showExpandedLogs: boolean;
+    areLogsExpandable: boolean;
 };
 
 type Props = {
@@ -154,7 +155,7 @@ export const ExecutionDetailsModal = ({ urn, visible, onClose }: Props) => {
     }
     const recipe = showExpandedRecipe ? recipeYaml : recipeYaml?.split('\n').slice(0, 1).join('\n');
 
-    const areLogsExpandable = output.length > 100;
+    const areLogsExpandable = output.length > 250;
     const isRecipeExpandable = recipeYaml?.includes('\n');
 
     return (
@@ -195,7 +196,7 @@ export const ExecutionDetailsModal = ({ urn, visible, onClose }: Props) => {
                             Download
                         </Button>
                     </SectionSubHeader>
-                    <OuterContainer showExpandedLogs={showExpandedLogs}>
+                    <OuterContainer areLogsExpandable={areLogsExpandable} showExpandedLogs={showExpandedLogs}>
                         <Typography.Paragraph ellipsis>
                             <pre>{`${logs}${!showExpandedLogs && areLogsExpandable ? '...' : ''}`}</pre>
                         </Typography.Paragraph>
