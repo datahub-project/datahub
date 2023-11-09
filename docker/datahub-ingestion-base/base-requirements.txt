@@ -255,7 +255,7 @@ ptyprocess==0.7.0
 pure-eval==0.2.2
 pure-sasl==0.6.2
 py-partiql-parser==0.3.7
-pyarrow==11.0.0
+pyarrow==14.0.1
 pyasn1==0.5.0
 pyasn1-modules==0.3.0
 pyathena==2.4.1
