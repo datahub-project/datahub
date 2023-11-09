@@ -1,8 +1,4 @@
-import json
 import logging
-import os
-import pickle
-import re
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime
@@ -169,13 +165,6 @@ class TeradataConfig(BaseTeradataConfig, BaseTimeWindowConfig):
         default=True,
         description="Whether to use cached metadata. This reduce the number of queries to the database but requires to have cached metadata.",
     )
-
-    allow_pickle: bool = Field(
-        default=False,
-        description="Whether to allow pickle when loading schema metadata from DataHub.",
-    )
-
-    parse_lineage: bool = Field(default=True)
 
 
 @dataclass
@@ -349,7 +338,6 @@ ORDER by DatabaseName, TableName;
                     platform=self.platform,
                     platform_instance=self.config.platform_instance,
                     env=self.config.env,
-                    allow_pickle=self.config.allow_pickle,
                 )
             else:
                 logger.warning(
@@ -489,7 +477,11 @@ ORDER by DatabaseName, TableName;
     def get_audit_log_mcps(self) -> Iterable[MetadataWorkUnit]:
         engine = self.get_metadata_engine()
         bounds = engine.execute(self.LINEAGE_TIMESTAMP_BOUND_QUERY).fetchone()
-        for entry in engine.execute(self.QUERY_TEXT_QUERY.format(**bounds)):
+        query = self.QUERY_TEXT_QUERY.format(
+            min_ts=getattr(bounds, "min_ts", self.config.start_time),
+            max_ts=getattr(bounds, "max_ts", self.config.end_time),
+        )
+        for entry in engine.execute(query):
             key = str(entry.query_id)
             self._query_cache[key] = self._query_cache.get(key, "") + entry.query_text
         for entry in engine.execute(self._make_lineage_query()):
@@ -521,26 +513,6 @@ ORDER by DatabaseName, TableName;
         user: Optional[str] = None,
         view_urn: Optional[str] = None,
     ) -> Iterable[MetadataWorkUnit]:
-        if not self.config.parse_lineage:
-            return
-        query = re.sub(r'"[\s]*\n"', "", query)
-
-        # Remove other formatting.
-        query = query.strip().strip('"')
-
-        # Replace all other double quotes with single quotes.
-        query = query.replace('""', '"')
-
-        # Fixes to make our parser happy.
-        # query = query.replace("AS LOCKING ROW ACCESS", "AS LOCKING ROW FOR ACCESS")
-        query = re.sub(
-            r"AS\s+LOCKING\s+ROW\s+ACCESS", "AS LOCKING ROW FOR ACCESS", query
-        )
-        query = re.sub(r",\s+MAP\s+=\s+TD_MAP3", "", query)
-        query = query.replace("COMPRESS ,", ",")
-        query = query.replace("\r", "\n")
-        query = re.sub(r"LOCKING\s+TABLE\s+\w+\s+FOR\s+\w+\s+", "", query)
-
         result = sqlglot_lineage(
             sql=query,
             schema_resolver=self.schema_resolver,
@@ -550,11 +522,9 @@ ORDER by DatabaseName, TableName;
             else self.config.default_db,
         )
         if result.debug_info.table_error:
-            msg = f"Error parsing table lineage ({view_urn}):\n{result.debug_info.table_error}"
-            if "CASESPECIFIC" in query.upper() or "USING" in query.upper():
-                logger.debug(msg)
-            else:
-                logger.info(msg)
+            logger.debug(
+                f"Error parsing table lineage ({view_urn}):\n{result.debug_info.table_error}"
+            )
             self.report.num_table_parse_failures += 1
         else:
             yield from self.builder.process_sql_parsing_result(
@@ -585,28 +555,17 @@ ORDER by DatabaseName, TableName;
 
         if self.config.include_view_lineage:
             if not self.config.include_views and self.graph is not None:
-                pickle_filename = "view_definitions.pkl"
                 d = {}
 
-                if self.config.allow_pickle and os.path.exists(pickle_filename):
-                    logger.info(f"Pulling view definitions from {pickle_filename}")
-                    with open(pickle_filename, "rb") as f:
-                        entries = pickle.load(f).items()
-                else:
-                    entries = self.graph._bulk_fetch_view_definitions_by_filter(
-                        platform=self.platform,
-                        platform_instance=self.config.platform_instance,
-                        env=self.config.env,
-                    )
+                entries = self.graph.bulk_fetch_view_definitions(
+                    platform=self.platform,
+                    platform_instance=self.config.platform_instance,
+                    env=self.config.env,
+                )
 
                 for (urn, view_definition) in entries:
                     self._view_definition_cache[urn] = view_definition
                     d[urn] = view_definition
-
-                if self.config.allow_pickle:
-                    logger.info(f"Writing view definitions to {pickle_filename}")
-                    with open(pickle_filename, "wb") as f:
-                        pickle.dump(d, f)
 
                 logger.info(
                     f"Loaded {len(self._view_definition_cache)} view definitions."
@@ -628,10 +587,3 @@ ORDER by DatabaseName, TableName;
             yield from self.get_audit_log_mcps()
 
         yield from self.builder.gen_workunits()
-
-        if self.config.allow_pickle:
-            with open("view_definitions.json", "w") as f:
-                json.dump(self._view_definition_cache, f)
-
-            with open("queries.json", "w") as f:
-                json.dump(self._query_cache, f)

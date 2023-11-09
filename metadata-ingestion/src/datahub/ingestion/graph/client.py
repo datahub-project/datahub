@@ -21,6 +21,7 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.emitter.serialization_helper import post_json_transform
 from datahub.ingestion.graph.filters import (
+    FilterParameters,
     RemovedStatusFilter,
     SearchFilterRule,
     generate_filter,
@@ -548,172 +549,109 @@ class DataHubGraph(DatahubRestEmitter):
             logger.debug(f"yielding {x['entity']}")
             yield x["entity"]
 
+    def _bulk_fetch_urns_with_aspects(
+        self,
+        entity_fragment: str,
+        entity_types: List[str],
+        filter_params: FilterParameters,
+        *,
+        query: Optional[str] = None,
+        batch_size: int = 100,
+    ) -> Iterable[Tuple[str, Dict]]:
+        """Fetch schema info for datasets that match all of the given filters.
+
+        :return: An iterable of (urn, schema info) tuple that match the filters.
+        """
+        types = [_graphql_entity_type(t) for t in entity_types]
+
+        # Add the query default of * if no query is specified.
+        query = query or "*"
+
+        orFilters = generate_filter(filter_params)
+
+        graphql_query = textwrap.dedent(
+            f"""
+            query scrollUrnsWithFilters(
+                $types: [EntityType!],
+                $query: String!,
+                $orFilters: [AndFilterInput!],
+                $batchSize: Int!,
+                $scrollId: String) {{
+
+                scrollAcrossEntities(input: {{
+                    query: $query,
+                    count: $batchSize,
+                    scrollId: $scrollId,
+                    types: $types,
+                    orFilters: $orFilters,
+                    searchFlags: {{
+                        skipHighlighting: true
+                        skipAggregates: true
+                    }}
+                }}) {{
+                    nextScrollId
+                    searchResults {{
+                        entity {{
+                            urn
+                            {entity_fragment}
+                        }}
+                    }}
+                }}
+            }}
+            """
+        )
+
+        variables = {
+            "types": types,
+            "query": query,
+            "orFilters": orFilters,
+            "batchSize": batch_size,
+        }
+
+        for entity in self._scroll_across_entities(graphql_query, variables):
+            yield entity["urn"], entity
+
     def _bulk_fetch_schema_info_by_filter(
-        self,
-        *,
-        platform: Optional[str] = None,
-        platform_instance: Optional[str] = None,
-        env: Optional[str] = None,
-        query: Optional[str] = None,
-        container: Optional[str] = None,
-        status: RemovedStatusFilter = RemovedStatusFilter.NOT_SOFT_DELETED,
-        batch_size: int = 100,
-        extraFilters: Optional[List[SearchFilterRule]] = None,
-        allow_pickle: bool = False,
+        self, filter_params: FilterParameters
     ) -> Iterable[Tuple[str, "GraphQLSchemaMetadata"]]:
-        """Fetch schema info for datasets that match all of the given filters.
-
-        :return: An iterable of (urn, schema info) tuple that match the filters.
-        """
-
-        import os
-        import pickle
-
-        pickle_filename = "schema_metadata.pkl"
-        if allow_pickle and os.path.exists(pickle_filename):
-            logger.info(f"Pulling schema metadata from {pickle_filename}")
-            with open(pickle_filename, "rb") as f:
-                yield from pickle.load(f).items()
-                return
-
-        types = [_graphql_entity_type("dataset")]
-
-        # Add the query default of * if no query is specified.
-        query = query or "*"
-
-        orFilters = generate_filter(
-            platform, platform_instance, env, container, status, extraFilters
-        )
-
-        graphql_query = textwrap.dedent(
-            """
-            query scrollUrnsWithFilters(
-                $types: [EntityType!],
-                $query: String!,
-                $orFilters: [AndFilterInput!],
-                $batchSize: Int!,
-                $scrollId: String) {
-
-                scrollAcrossEntities(input: {
-                    query: $query,
-                    count: $batchSize,
-                    scrollId: $scrollId,
-                    types: $types,
-                    orFilters: $orFilters,
-                    searchFlags: {
-                        skipHighlighting: true
-                        skipAggregates: true
-                    }
-                }) {
-                    nextScrollId
-                    searchResults {
-                        entity {
-                            urn
-                            ... on Dataset {
-                                schemaMetadata(version: 0) {
-                                    fields {
-                                        fieldPath
-                                        nativeDataType
-                                    }
-                                }
-                            }
-                        }
-                    }
+        fragment = """
+        ... on Dataset {
+            schemaMetadata(version: 0) {
+                fields {
+                    fieldPath
+                    nativeDataType
                 }
             }
-            """
-        )
-
-        variables = {
-            "types": types,
-            "query": query,
-            "orFilters": orFilters,
-            "batchSize": batch_size,
         }
-
-        d = {}
-        for entity in self._scroll_across_entities(graphql_query, variables):
+        """
+        for urn, entity in self._bulk_fetch_urns_with_aspects(
+            entity_fragment=fragment,
+            entity_types=["dataset"],
+            filter_params=filter_params,
+        ):
             if entity.get("schemaMetadata"):
-                yield entity["urn"], entity["schemaMetadata"]
-                if allow_pickle:
-                    d[entity["urn"]] = entity["schemaMetadata"]
+                yield urn, entity["schemaMetadata"]
 
-        if allow_pickle:
-            logger.info(f"Writing schema metadata to {pickle_filename}")
-            with open(pickle_filename, "wb") as f:
-                pickle.dump(d, f)
-
-    def _bulk_fetch_view_definitions_by_filter(
-        self,
-        *,
-        platform: Optional[str] = None,
-        platform_instance: Optional[str] = None,
-        env: Optional[str] = None,
-        query: Optional[str] = None,
-        container: Optional[str] = None,
-        status: RemovedStatusFilter = RemovedStatusFilter.NOT_SOFT_DELETED,
-        batch_size: int = 100,
-        extraFilters: Optional[List[SearchFilterRule]] = None,
+    def bulk_fetch_view_definitions(
+        self, platform: str, platform_instance: Optional[str], env: str
     ) -> Iterable[Tuple[str, str]]:
-        """Fetch schema info for datasets that match all of the given filters.
-
-        :return: An iterable of (urn, schema info) tuple that match the filters.
-        """
-        types = [_graphql_entity_type("dataset")]
-
-        # Add the query default of * if no query is specified.
-        query = query or "*"
-
-        orFilters = generate_filter(
-            platform, platform_instance, env, container, status, extraFilters
-        )
-
-        graphql_query = textwrap.dedent(
-            """
-            query scrollUrnsWithFilters(
-                $types: [EntityType!],
-                $query: String!,
-                $orFilters: [AndFilterInput!],
-                $batchSize: Int!,
-                $scrollId: String) {
-
-                scrollAcrossEntities(input: {
-                    query: $query,
-                    count: $batchSize,
-                    scrollId: $scrollId,
-                    types: $types,
-                    orFilters: $orFilters,
-                    searchFlags: {
-                        skipHighlighting: true
-                        skipAggregates: true
-                    }
-                }) {
-                    nextScrollId
-                    searchResults {
-                        entity {
-                            urn
-                            ... on Dataset {
-                                viewProperties {
-                                    logic
-                                }
-                            }
-                        }
-                    }
-                }
+        fragment = """
+        ... on Dataset {
+            viewProperties {
+                logic
             }
-            """
-        )
-
-        variables = {
-            "types": types,
-            "query": query,
-            "orFilters": orFilters,
-            "batchSize": batch_size,
         }
-
-        for entity in self._scroll_across_entities(graphql_query, variables):
-            if entity.get("viewProperties") and entity["viewProperties"]["logic"]:
-                yield entity["urn"], entity["viewProperties"]["logic"]
+        """
+        filter_params = FilterParameters(
+            platform=platform, platform_instance=platform_instance, env=env
+        )
+        for urn, entity in self._bulk_fetch_urns_with_aspects(
+            entity_fragment=fragment,
+            entity_types=["dataset"],
+            filter_params=filter_params,
+        ):
+            if entity.get("viewProperties"):
+                yield urn, entity["viewProperties"].get("logic")
 
     def get_urns_by_filter(
         self,
@@ -726,7 +664,7 @@ class DataHubGraph(DatahubRestEmitter):
         container: Optional[str] = None,
         status: RemovedStatusFilter = RemovedStatusFilter.NOT_SOFT_DELETED,
         batch_size: int = 10000,
-        extraFilters: Optional[List[SearchFilterRule]] = None,
+        extra_filters: Optional[List[SearchFilterRule]] = None,
     ) -> Iterable[str]:
         """Fetch all urns that match all of the given filters.
 
@@ -744,7 +682,7 @@ class DataHubGraph(DatahubRestEmitter):
             If None, all entities will be returned.
             Note that this requires browsePathV2 aspects (added in 0.10.4+).
         :param status: Filter on the deletion status of the entity. The default is only return non-soft-deleted entities.
-        :param extraFilters: Additional filters to apply. If specified, the results will match all of the filters.
+        :param extra_filters: Additional filters to apply. If specified, the results will match all of the filters.
 
         :return: An iterable of urns that match the filters.
         """
@@ -754,10 +692,16 @@ class DataHubGraph(DatahubRestEmitter):
         # Add the query default of * if no query is specified.
         query = query or "*"
 
-        # Env filter.
-        orFilters = generate_filter(
-            platform, platform_instance, env, container, status, extraFilters
+        filter_params = FilterParameters(
+            platform=platform,
+            platform_instance=platform_instance,
+            env=env,
+            container=container,
+            status=status,
+            extra_filters=extra_filters,
         )
+        # Env filter.
+        orFilters = generate_filter(filter_params)
 
         graphql_query = textwrap.dedent(
             """
@@ -1105,7 +1049,6 @@ class DataHubGraph(DatahubRestEmitter):
         platform: str,
         platform_instance: Optional[str],
         env: str,
-        allow_pickle: bool = False,
     ) -> "SchemaResolver":
         logger.info("Initializing schema resolver")
         schema_resolver = self._make_schema_resolver(
@@ -1114,12 +1057,12 @@ class DataHubGraph(DatahubRestEmitter):
 
         logger.info(f"Fetching schemas for platform {platform}, env {env}")
         count = 0
+        filter_params = FilterParameters(
+            platform=platform, platform_instance=platform_instance, env=env
+        )
         with PerfTimer() as timer:
             for urn, schema_info in self._bulk_fetch_schema_info_by_filter(
-                platform=platform,
-                platform_instance=platform_instance,
-                env=env,
-                allow_pickle=allow_pickle,
+                filter_params
             ):
                 try:
                     schema_resolver.add_graphql_schema_metadata(urn, schema_info)
