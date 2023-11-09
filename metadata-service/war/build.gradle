@@ -17,7 +17,6 @@ dependencies {
   runtimeOnly project(':metadata-service:servlet')
   runtimeOnly project(':metadata-service:auth-servlet-impl')
   runtimeOnly project(':metadata-service:graphql-servlet-impl')
-  runtimeOnly project(':metadata-service:health-servlet')
   runtimeOnly project(':metadata-service:openapi-servlet')
   runtimeOnly project(':metadata-service:openapi-entity-servlet')
   runtimeOnly project(':metadata-service:openapi-analytics-servlet')

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useHistory, useLocation } from 'react-router';
+import { debounce } from 'lodash';
 import * as QueryString from 'query-string';
 import { useTheme } from 'styled-components';
 import { SearchHeader } from './SearchHeader';
@@ -17,6 +18,7 @@ import { getAutoCompleteInputFromQuickFilter } from './utils/filterUtils';
 import { useQuickFiltersContext } from '../../providers/QuickFiltersContext';
 import { useUserContext } from '../context/useUserContext';
 import { useSelectedSortOption } from './context/SearchContext';
+import { HALF_SECOND_IN_MS } from '../entity/shared/tabs/Dataset/Queries/utils/constants';
 
 const styles = {
     children: {
@@ -93,7 +95,7 @@ export const SearchablePage = ({ onSearch, onAutoComplete, children }: Props) =>
         });
     };
 
-    const autoComplete = (query: string) => {
+    const autoComplete = debounce((query: string) => {
         if (query && query.trim() !== '') {
             getAutoCompleteResults({
                 variables: {
@@ -105,7 +107,7 @@ export const SearchablePage = ({ onSearch, onAutoComplete, children }: Props) =>
                 },
             });
         }
-    };
+    }, HALF_SECOND_IN_MS);
 
     // Load correct autocomplete results on initial page load.
     useEffect(() => {
