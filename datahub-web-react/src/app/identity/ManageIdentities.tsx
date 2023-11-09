@@ -8,6 +8,11 @@ import { UserList } from './user/UserList';
 const PageContainer = styled.div`
     padding-top: 20px;
     width: 100%;
+    max-height: 100%;
+    overflow: auto;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
 `;
 
 const PageHeaderContainer = styled.div`
@@ -23,11 +28,15 @@ const PageTitle = styled(Typography.Title)`
 `;
 
 const Content = styled.div`
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow: auto;
     &&& .ant-tabs-nav {
         margin: 0;
     }
     color: #262626;
-    height: calc(100vh - 60px);
+    // height: calc(100vh - 60px);
 
     &&& .ant-tabs > .ant-tabs-nav .ant-tabs-nav-wrap {
         padding-left: 28px;
