@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Checkbox, Divider, List, ListProps } from 'antd';
 import styled from 'styled-components';
+import { useLocation } from 'react-router';
 import { ANTD_GRAY } from '../entity/shared/constants';
 import { SEPARATE_SIBLINGS_URL_PARAM } from '../entity/shared/siblingUtils';
 import { CompactEntityNameList } from '../recommendations/renderer/component/CompactEntityNameList';
@@ -54,6 +55,7 @@ const ListItem = styled.div<{ isSelectMode: boolean }>`
 `;
 
 type Props = {
+    loading: boolean;
     query: string;
     searchResults: CombinedSearchResult[];
     totalResultCount: number;
@@ -64,6 +66,7 @@ type Props = {
 };
 
 export const SearchResultList = ({
+    loading,
     query,
     searchResults,
     totalResultCount,
@@ -98,13 +101,40 @@ export const SearchResultList = ({
         }
     };
 
+    const location = useLocation();
+    const key = `scroll:${location.pathname}`;
+
+    useEffect(() => {
+        // When the component mounts, read the scroll position from sessionStorage and scroll to that position
+        const savedScrollPosition = sessionStorage.getItem(key);
+        if (savedScrollPosition) {
+            window.scrollTo(0, parseInt(savedScrollPosition, 10));
+        }
+
+        // When the component unmounts, save the scroll position to sessionStorage
+        const handleSaveScroll = () => {
+            console.log(`${window.scrollY.toString()}`);
+            sessionStorage.setItem(key, window.scrollY.toString());
+        };
+
+        // Add the event listener to save the scroll position when the user navigates away
+        window.addEventListener('beforeunload', handleSaveScroll);
+
+        // Remove the event listener on cleanup
+        return () => {
+            window.removeEventListener('beforeunload', handleSaveScroll);
+            // Also call handleSaveScroll when the component unmounts
+            handleSaveScroll();
+        };
+    }, [key]);
+
     return (
         <>
             <ResultList<React.FC<ListProps<CombinedSearchResult>>>
                 id="search-result-list"
                 dataSource={searchResults}
                 split={false}
-                locale={{ emptyText: <EmptySearchResults suggestions={suggestions} /> }}
+                locale={{ emptyText: (!loading && <EmptySearchResults suggestions={suggestions} />) || <></> }}
                 renderItem={(item, index) => (
                     <ResultWrapper showUpdatedStyles={showSearchFiltersV2} className={`entityUrn-${item.entity.urn}`}>
                         <ListItem

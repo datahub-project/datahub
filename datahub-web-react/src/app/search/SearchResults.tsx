@@ -180,7 +180,9 @@ export const SearchResults = ({
 
     return (
         <>
-            {loading && <Message type="loading" content="Loading..." style={{ marginTop: '10%' }} />}
+            {loading && !combinedSiblingSearchResults.length && (
+                <Message type="loading" content="Loading..." style={{ marginTop: '10%' }} />
+            )}
             <SearchResultsWrapper v2Styles={showSearchFiltersV2}>
                 <SearchBody>
                     {!showSearchFiltersV2 && (
@@ -247,10 +249,11 @@ export const SearchResults = ({
                             </StyledTabToolbar>
                         )}
                         {(error && <ErrorSection />) ||
-                            (!loading && (
+                            (combinedSiblingSearchResults && (
                                 <SearchResultListContainer v2Styles={showSearchFiltersV2}>
                                     {totalResults > 0 && <SearchQuerySuggester suggestions={suggestions} />}
                                     <SearchResultList
+                                        loading={loading}
                                         query={query}
                                         searchResults={combinedSiblingSearchResults}
                                         totalResultCount={totalResults}

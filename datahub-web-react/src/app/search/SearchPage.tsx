@@ -62,6 +62,7 @@ export const SearchPage = () => {
                 searchFlags: { getSuggestions: true },
             },
         },
+        fetchPolicy: 'cache-and-network',
     });
 
     const total = data?.searchAcrossEntities?.total || 0;
