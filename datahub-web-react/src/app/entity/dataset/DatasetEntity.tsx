@@ -95,9 +95,7 @@ export class DatasetEntity implements Entity<Dataset> {
             useEntityQuery={useGetDatasetQuery}
             useUpdateQuery={useUpdateDatasetMutation}
             getOverrideProperties={this.getOverridePropertiesFromEntity}
-            headerDropdownItems={
-                new Set([EntityMenuItems.COPY_URL, EntityMenuItems.UPDATE_DEPRECATION, EntityMenuItems.RAISE_INCIDENT])
-            }
+            headerDropdownItems={new Set([EntityMenuItems.UPDATE_DEPRECATION, EntityMenuItems.RAISE_INCIDENT])}
             subHeader={{
                 component: DatasetStatsSummarySubHeader,
             }}
