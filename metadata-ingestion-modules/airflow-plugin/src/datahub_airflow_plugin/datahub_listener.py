@@ -17,7 +17,6 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.telemetry import telemetry
 from datahub.utilities.sqlglot_lineage import SqlParsingResult
-from datahub.utilities.urns.dataset_urn import DatasetUrn
 from openlineage.airflow.listener import TaskHolder
 from openlineage.airflow.utils import redact_with_exclusions
 from openlineage.client.serde import Serde
@@ -32,7 +31,11 @@ from datahub_airflow_plugin._config import DatahubLineageConfig, get_lineage_con
 from datahub_airflow_plugin._datahub_ol_adapter import translate_ol_to_datahub_urn
 from datahub_airflow_plugin._extractors import SQL_PARSING_RESULT_KEY, ExtractorManager
 from datahub_airflow_plugin.client.airflow_generator import AirflowGenerator
-from datahub_airflow_plugin.entities import _Entity
+from datahub_airflow_plugin.entities import (
+    _Entity,
+    entities_to_datajob_urn_list,
+    entities_to_dataset_urn_list,
+)
 
 _F = TypeVar("_F", bound=Callable[..., None])
 if TYPE_CHECKING:
@@ -272,10 +275,9 @@ class DataHubListener:
         )
 
         # Write the lineage to the datajob object.
-        datajob.inlets.extend(DatasetUrn.create_from_string(urn) for urn in input_urns)
-        datajob.outlets.extend(
-            DatasetUrn.create_from_string(urn) for urn in output_urns
-        )
+        datajob.inlets.extend(entities_to_dataset_urn_list(input_urns))
+        datajob.outlets.extend(entities_to_dataset_urn_list(output_urns))
+        datajob.upstream_urns.extend(entities_to_datajob_urn_list(input_urns))
         datajob.fine_grained_lineages.extend(fine_grained_lineages)
 
         # Merge in extra stuff that was present in the DataJob we constructed
