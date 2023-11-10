@@ -117,16 +117,16 @@ export const transformGenericEntityPropertiesToCsvRow = (
         row = [...row, String(result?.degree)];
     }
     if (csvHeader.includes(VIEW_COUNT)) {
-        row = [...row, String((properties?.statsSummary as DashboardStatsSummary)?.viewCount) || ''];
+        row = [...row, String((properties?.statsSummary as DashboardStatsSummary)?.viewCount || '')];
     }
     if (csvHeader.includes(UNIQUE_USERS)) {
-        row = [...row, String(properties?.statsSummary?.uniqueUserCountLast30Days) || ''];
+        row = [...row, String(properties?.statsSummary?.uniqueUserCountLast30Days || '')];
     }
     if (csvHeader.includes(ROW_COUNT)) {
-        row = [...row, String((properties?.statsSummary as DatasetStatsSummary)?.rowCount) || ''];
+        row = [...row, String((properties?.statsSummary as DatasetStatsSummary)?.rowCount || '')];
     }
     if (csvHeader.includes(SIZE_IN_BYTES)) {
-        row = [...row, String((properties?.statsSummary as DatasetStatsSummary)?.sizeInBytes) || ''];
+        row = [...row, String((properties?.statsSummary as DatasetStatsSummary)?.sizeInBytes || '')];
     }
     return row;
 };
