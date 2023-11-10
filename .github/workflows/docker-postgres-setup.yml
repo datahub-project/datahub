@@ -46,7 +46,7 @@ jobs:
     needs: setup
     steps:
       - name: Check out the repo
-        uses: ./.github/actions/checkout
+        uses: hsheth2/sane-checkout-action@v1
       - name: Build and push
         uses: ./.github/actions/docker-custom-build-and-push
         with:

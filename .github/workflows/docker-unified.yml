@@ -74,7 +74,7 @@ jobs:
     needs: setup
     steps:
       - name: Check out the repo
-        uses: ./.github/actions/checkout
+        uses: hsheth2/sane-checkout-action@v1
       - name: Pre-build artifacts for docker image
         run: |
           ./gradlew :metadata-service:war:build -x test --parallel
@@ -130,7 +130,7 @@ jobs:
     needs: setup
     steps:
       - name: Check out the repo
-        uses: ./.github/actions/checkout
+        uses: hsheth2/sane-checkout-action@v1
       - name: Pre-build artifacts for docker image
         run: |
           ./gradlew :metadata-jobs:mae-consumer-job:build -x test --parallel
@@ -186,7 +186,7 @@ jobs:
     needs: setup
     steps:
       - name: Check out the repo
-        uses: ./.github/actions/checkout
+        uses: hsheth2/sane-checkout-action@v1
       - name: Pre-build artifacts for docker image
         run: |
           ./gradlew :metadata-jobs:mce-consumer-job:build -x test --parallel
@@ -242,7 +242,7 @@ jobs:
     needs: setup
     steps:
       - name: Check out the repo
-        uses: ./.github/actions/checkout
+        uses: hsheth2/sane-checkout-action@v1
       - name: Pre-build artifacts for docker image
         run: |
           ./gradlew :datahub-upgrade:build -x test --parallel
@@ -298,7 +298,7 @@ jobs:
     needs: setup
     steps:
       - name: Check out the repo
-        uses: ./.github/actions/checkout
+        uses: hsheth2/sane-checkout-action@v1
       - name: Pre-build artifacts for docker image
         run: |
           ./gradlew :datahub-frontend:dist -x test -x yarnTest -x yarnLint --parallel
@@ -356,7 +356,7 @@ jobs:
     needs: setup
     steps:
       - name: Check out the repo
-        uses: ./.github/actions/checkout
+        uses: hsheth2/sane-checkout-action@v1
       - name: Build and push
         uses: ./.github/actions/docker-custom-build-and-push
         with:
@@ -376,7 +376,7 @@ jobs:
     needs: setup
     steps:
       - name: Check out the repo
-        uses: ./.github/actions/checkout
+        uses: hsheth2/sane-checkout-action@v1
       - name: Build and push
         uses: ./.github/actions/docker-custom-build-and-push
         with:
@@ -396,7 +396,7 @@ jobs:
     needs: setup
     steps:
       - name: Check out the repo
-        uses: ./.github/actions/checkout
+        uses: hsheth2/sane-checkout-action@v1
       - name: Build and push
         uses: ./.github/actions/docker-custom-build-and-push
         with:
@@ -418,7 +418,7 @@ jobs:
     needs: setup
     steps:
       - name: Check out the repo
-        uses: ./.github/actions/checkout
+        uses: hsheth2/sane-checkout-action@v1
       - uses: dorny/paths-filter@v2
         id: filter
         with:
@@ -450,7 +450,7 @@ jobs:
     needs: [setup, datahub_ingestion_base_build]
     steps:
       - name: Check out the repo
-        uses: ./.github/actions/checkout
+        uses: hsheth2/sane-checkout-action@v1
       - uses: dorny/paths-filter@v2
         id: filter
         with:
@@ -490,7 +490,7 @@ jobs:
     needs: [setup, datahub_ingestion_base_build]
     steps:
       - name: Check out the repo
-        uses: ./.github/actions/checkout
+        uses: hsheth2/sane-checkout-action@v1
       - uses: dorny/paths-filter@v2
         id: filter
         with:
@@ -532,7 +532,7 @@ jobs:
     needs: [setup, datahub_ingestion_base_slim_build]
     steps:
       - name: Check out the repo
-        uses: ./.github/actions/checkout
+        uses: hsheth2/sane-checkout-action@v1
       - uses: dorny/paths-filter@v2
         id: filter
         with:
@@ -613,7 +613,7 @@ jobs:
     needs: [setup, datahub_ingestion_base_full_build]
     steps:
       - name: Check out the repo
-        uses: ./.github/actions/checkout
+        uses: hsheth2/sane-checkout-action@v1
       - uses: dorny/paths-filter@v2
         id: filter
         with:
