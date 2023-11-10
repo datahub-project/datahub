@@ -54,6 +54,7 @@ diff_policies = set(platform_privileges).difference(
 )
 assert len(diff_policies) == 0, f"Missing privileges for root user are {diff_policies}"
 
+# All users privileges checks
 assert "MANAGE_POLICIES" not in all_user_platform_policy_privileges
 assert "MANAGE_USERS_AND_GROUPS" not in all_user_platform_policy_privileges
 assert "MANAGE_SECRETS" not in all_user_platform_policy_privileges
@@ -61,3 +62,14 @@ assert "MANAGE_USER_CREDENTIALS" not in all_user_platform_policy_privileges
 assert "MANAGE_ACCESS_TOKENS" not in all_user_platform_policy_privileges
 assert "EDIT_ENTITY" not in all_user_platform_policy_privileges
 assert "DELETE_ENTITY" not in all_user_platform_policy_privileges
+
+# Editor checks
+assert "MANAGE_POLICIES" not in editor_platform_policy_privileges
+assert "MANAGE_USERS_AND_GROUPS" not in editor_platform_policy_privileges
+assert "MANAGE_SECRETS" not in editor_platform_policy_privileges
+assert "MANAGE_USER_CREDENTIALS" not in editor_platform_policy_privileges
+assert "MANAGE_ACCESS_TOKENS" not in editor_platform_policy_privileges
+# These don't prevent a user from modifying entities they are an asset owner of, i.e. their own profile info
+assert "EDIT_CONTACT_INFO" not in editor_platform_policy_privileges
+assert "EDIT_USER_PROFILE" not in editor_platform_policy_privileges
+assert "EDIT_ENTITY_OWNERS" not in editor_platform_policy_privileges
