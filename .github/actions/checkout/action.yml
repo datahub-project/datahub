@@ -7,5 +7,8 @@ runs:
     - name: Check out the repo
       uses: actions/checkout@v4
       with:
+        # TODO: Look into using `filter: blob:none`.
+        # See https://github.blog/2020-12-21-get-up-to-speed-with-partial-clone-and-shallow-clone/
+        # and https://github.com/actions/checkout/pull/1396
         fetch-depth: 800 # we likely won't have 800 commits between releases
         fetch-tags: true
