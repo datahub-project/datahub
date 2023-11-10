@@ -125,7 +125,7 @@ class _ParserBaseModel(
 ):
     def json(self, *args: Any, **kwargs: Any) -> str:
         if PYDANTIC_VERSION_2:
-            return super().model_dump_json(*args, **kwargs)
+            return super().model_dump_json(*args, **kwargs)  # type: ignore
         else:
             return super().json(*args, **kwargs)
 

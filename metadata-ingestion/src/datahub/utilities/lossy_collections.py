@@ -48,7 +48,7 @@ class LossyList(List[T]):
         # so we need to make it explicit.
 
         @classmethod
-        def __get_pydantic_core_schema__(cls, source_type, handler):
+        def __get_pydantic_core_schema__(cls, source_type, handler):  # type: ignore
             from pydantic_core import core_schema
 
             return core_schema.no_info_after_validator_function(cls, handler(list))

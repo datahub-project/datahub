@@ -8,10 +8,11 @@ else:
     PYDANTIC_VERSION_2 = False
 
 
+# This can be used to silence deprecation warnings while we migrate.
 if PYDANTIC_VERSION_2:
-    from pydantic import PydanticDeprecatedSince20
+    from pydantic import PydanticDeprecatedSince20  # type: ignore
 else:
-    PydanticDeprecatedSince20 = None
+    PydanticDeprecatedSince20 = None  # type: ignore
 
 
 if PYDANTIC_VERSION_2:

@@ -1,10 +1,8 @@
 from enum import Enum
-from typing import Any
 
 import pydantic
 import pydantic.types
 import pydantic.validators
-from git import TYPE_CHECKING
 
 from datahub.configuration.pydantic_migration_helpers import PYDANTIC_VERSION_2
 
@@ -20,13 +18,11 @@ class ConfigEnum(Enum):
         return name
 
     if PYDANTIC_VERSION_2:
-        if TYPE_CHECKING:
-            from pydantic import GetCoreSchemaHandler
+        # if TYPE_CHECKING:
+        #     from pydantic import GetCoreSchemaHandler
 
         @classmethod
-        def __get_pydantic_core_schema__(
-            cls, source_type: Any, handler: "GetCoreSchemaHandler"
-        ):
+        def __get_pydantic_core_schema__(cls, source_type, handler):  # type: ignore
             from pydantic_core import core_schema
 
             return core_schema.no_info_before_validator_function(
