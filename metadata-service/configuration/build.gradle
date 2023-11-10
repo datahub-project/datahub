@@ -1,8 +1,7 @@
-apply from: "../../gradle/versioning/versioning.gradle"
-
 plugins {
     id 'java'
 }
+apply from: "../../gradle/versioning/versioning.gradle"
 
 dependencies {
     implementation externalDependency.jacksonDataBind
