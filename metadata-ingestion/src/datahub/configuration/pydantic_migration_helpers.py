@@ -12,7 +12,9 @@ else:
 if PYDANTIC_VERSION_2:
     from pydantic import PydanticDeprecatedSince20  # type: ignore
 else:
-    PydanticDeprecatedSince20 = None  # type: ignore
+
+    class PydanticDeprecatedSince20(Warning):
+        pass
 
 
 if PYDANTIC_VERSION_2:
