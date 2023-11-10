@@ -1,3 +1,5 @@
+apply from: "../../gradle/versioning/versioning.gradle"
+
 plugins {
     id 'java'
 }
@@ -12,4 +14,8 @@ dependencies {
     compileOnly externalDependency.lombok
 
     annotationProcessor externalDependency.lombok
+}
+
+processResources.configure {
+  finalizedBy printVersionDetails // always print version details
 }

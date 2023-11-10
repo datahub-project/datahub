@@ -1,0 +1,11 @@
+name: "Checkout"
+description: "Checkout limited git history to speed up CI"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Check out the repo
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 800 # we likely won't have 800 commits between releases
+        fetch-tags: true
