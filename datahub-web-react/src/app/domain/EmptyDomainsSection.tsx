@@ -41,12 +41,11 @@ const StyledParagraph = styled(Typography.Paragraph)<{ alignLeft?: string }>`
 `;
 
 interface Props {
-    title?: string;
     setIsCreatingDomain: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 function EmptyDomainsSection(props: Props) {
-    const { title, setIsCreatingDomain } = props;
+    const { setIsCreatingDomain } = props;
 
     return (
         <EmptyDomainContainer>
@@ -54,7 +53,7 @@ function EmptyDomainsSection(props: Props) {
                 description={
                     <>
                         <ReadOutlined style={{ fontSize: 40, marginBottom: 10, color: ANTD_GRAY[7] }} />
-                        <Typography.Title level={4}>{title}</Typography.Title>
+                        <Typography.Title level={4}>Organize your data</Typography.Title>
                         <StyledParagraph type="secondary">
                             <strong style={{ color: ANTD_GRAY[8] }}>Welcome to your Data Domains!</strong> It looks like
                             this space is ready to be transformed into a well-organized data universe. Start by creating
