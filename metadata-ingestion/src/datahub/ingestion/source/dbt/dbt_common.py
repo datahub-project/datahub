@@ -150,7 +150,7 @@ class DBTEntitiesEnabled(ConfigModel):
         description="Emit metadata for test results when set to Yes or Only",
     )
 
-    @root_validator
+    @root_validator(skip_on_failure=True)
     def process_only_directive(cls, values):
         # Checks that at most one is set to ONLY, and then sets the others to NO.
 
@@ -229,7 +229,7 @@ class DBTCommonConfig(
         default={},
         description="mapping rules that will be executed against dbt column meta properties. Refer to the section below on dbt meta automated mappings.",
     )
-    enable_meta_mapping = Field(
+    enable_meta_mapping: bool = Field(
         default=True,
         description="When enabled, applies the mappings that are defined through the meta_mapping directives.",
     )
@@ -237,7 +237,7 @@ class DBTCommonConfig(
         default={},
         description="mapping rules that will be executed against dbt query_tag meta properties. Refer to the section below on dbt meta automated mappings.",
     )
-    enable_query_tag_mapping = Field(
+    enable_query_tag_mapping: bool = Field(
         default=True,
         description="When enabled, applies the mappings that are defined through the `query_tag_mapping` directives.",
     )

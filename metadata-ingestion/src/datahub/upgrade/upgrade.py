@@ -23,18 +23,18 @@ T = TypeVar("T")
 
 class VersionStats(BaseModel, arbitrary_types_allowed=True):
     version: Version
-    release_date: Optional[datetime]
+    release_date: Optional[datetime] = None
 
 
 class ServerVersionStats(BaseModel):
     current: VersionStats
-    latest: Optional[VersionStats]
-    current_server_type: Optional[str]
+    latest: Optional[VersionStats] = None
+    current_server_type: Optional[str] = None
 
 
 class ClientVersionStats(BaseModel):
     current: VersionStats
-    latest: Optional[VersionStats]
+    latest: Optional[VersionStats] = None
 
 
 class DataHubVersionStats(BaseModel):

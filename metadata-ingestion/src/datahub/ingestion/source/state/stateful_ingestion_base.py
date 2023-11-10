@@ -5,13 +5,13 @@ from typing import Any, Dict, Generic, Optional, Type, TypeVar, cast
 import pydantic
 from pydantic import root_validator
 from pydantic.fields import Field
-from pydantic.generics import GenericModel
 
 from datahub.configuration.common import (
     ConfigModel,
     ConfigurationError,
     DynamicTypedConfig,
 )
+from datahub.configuration.pydantic_migration_helpers import GenericModel
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.ingestion.api.common import PipelineContext
@@ -77,7 +77,7 @@ class StatefulIngestionConfig(ConfigModel):
         hidden_from_docs=True,
     )
 
-    @pydantic.root_validator()
+    @pydantic.root_validator(skip_on_failure=True)
     def validate_config(cls, values: Dict[str, Any]) -> Dict[str, Any]:
         if values.get("enabled"):
             if values.get("state_provider") is None:
@@ -112,7 +112,7 @@ class StatefulLineageConfigMixin:
         "store_last_lineage_extraction_timestamp", "enable_stateful_lineage_ingestion"
     )
 
-    @root_validator(pre=False)
+    @root_validator(skip_on_failure=True)
     def lineage_stateful_option_validator(cls, values: Dict) -> Dict:
         sti = values.get("stateful_ingestion")
         if not sti or not sti.enabled:
@@ -137,7 +137,7 @@ class StatefulProfilingConfigMixin(ConfigModel):
         "store_last_profiling_timestamps", "enable_stateful_profiling"
     )
 
-    @root_validator(pre=False)
+    @root_validator(skip_on_failure=True)
     def profiling_stateful_option_validator(cls, values: Dict) -> Dict:
         sti = values.get("stateful_ingestion")
         if not sti or not sti.enabled:
@@ -161,7 +161,7 @@ class StatefulUsageConfigMixin(BaseTimeWindowConfig):
         "store_last_usage_extraction_timestamp", "enable_stateful_usage_ingestion"
     )
 
-    @root_validator(pre=False)
+    @root_validator(skip_on_failure=True)
     def last_usage_extraction_stateful_option_validator(cls, values: Dict) -> Dict:
         sti = values.get("stateful_ingestion")
         if not sti or not sti.enabled:
