@@ -11,7 +11,7 @@
                 "catchup": "False",
                 "description": "'A simple DAG that runs a few fake data tasks.'",
                 "doc_md": "None",
-                "fileloc": "'/home/shubham/airflow1/datahub/metadata-ingestion-modules/airflow-plugin/tests/integration/dags/simple_dag.py'",
+                "fileloc": "'/Users/hsheth/projects/datahub/metadata-ingestion-modules/airflow-plugin/tests/integration/dags/simple_dag.py'",
                 "is_paused_upon_creation": "None",
                 "start_date": "DateTime(2023, 1, 1, 0, 0, 0, tzinfo=Timezone('UTC'))",
                 "tags": "[]",
@@ -65,8 +65,6 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "_task_type": "'BashOperator'",
-                "_task_module": "'airflow.operators.bash'",
                 "depends_on_past": "False",
                 "email": "None",
                 "label": "'task_1'",
@@ -76,9 +74,9 @@
                 "trigger_rule": "<TriggerRule.ALL_SUCCESS: 'all_success'>",
                 "wait_for_downstream": "False",
                 "downstream_task_ids": "['run_another_data_task']",
-                "inlets": "[\"Dataset(platform='snowflake', name='mydb.schema.tableA', env='PROD', platform_instance=None)\", \"Urn(_urn='urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableC,PROD)')\", \"Urn(_urn='urn:li:dataJob:(urn:li:dataFlow:(airflow,test_dag,PROD),test_task)')\"]",
-                "outlets": "[\"Dataset(platform='snowflake', name='mydb.schema.tableD', env='PROD', platform_instance=None)\"]",
-                "openlineage_run_facet_unknownSourceAttribute": "{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.2.0/integration/airflow\", \"_schemaURL\": \"https://raw.githubusercontent.com/OpenLineage/OpenLineage/main/spec/OpenLineage.json#/definitions/BaseFacet\", \"unknownItems\": [{\"name\": \"SerializedBaseOperator\", \"properties\": {\"_BaseOperator__from_mapped\": false, \"_BaseOperator__init_kwargs\": {\"task_id\": \"task_1\"}, \"_BaseOperator__instantiated\": true, \"_dag\": \"<<non-serializable: SerializedDAG>>\", \"_is_empty\": false, \"_log\": \"<<non-serializable: Logger>>\", \"_operator_name\": \"BashOperator\", \"_task_module\": \"airflow.operators.bash\", \"_task_type\": \"BashOperator\", \"bash_command\": \"echo 'task 1'\", \"depends_on_past\": false, \"do_xcom_push\": true, \"downstream_task_ids\": [\"run_another_data_task\"], \"email_on_failure\": true, \"email_on_retry\": true, \"executor_config\": {}, \"ignore_first_depends_on_past\": true, \"inlets\": [\"Dataset(platform='snowflake', name='mydb.schema.tableA', env='PROD', platform_instance=None)\", \"Urn(_urn='urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableC,PROD)')\", \"Urn(_urn='urn:li:dataJob:(urn:li:dataFlow:(airflow,test_dag,PROD),test_task)')\"], \"operator_extra_links\": [], \"outlets\": [\"Dataset(platform='snowflake', name='mydb.schema.tableD', env='PROD', platform_instance=None)\"], \"owner\": \"airflow\", \"params\": \"<<non-serializable: ParamsDict>>\", \"pool\": \"default_pool\", \"pool_slots\": 1, \"priority_weight\": 1, \"queue\": \"default\", \"retries\": 0, \"retry_delay\": \"<<non-serializable: timedelta>>\", \"retry_exponential_backoff\": false, \"start_date\": \"<<non-serializable: DateTime>>\", \"task_group\": \"<<non-serializable: SerializedTaskGroup>>\", \"task_id\": \"task_1\", \"template_ext\": [\".sh\", \".bash\"], \"template_fields\": [\"bash_command\", \"env\"], \"template_fields_renderers\": {\"bash_command\": \"bash\", \"env\": \"json\"}, \"trigger_rule\": \"all_success\", \"ui_color\": \"#f0ede4\", \"ui_fgcolor\": \"#000\", \"upstream_task_ids\": [], \"wait_for_downstream\": false, \"weight_rule\": \"downstream\"}, \"type\": \"operator\"}]}"
+                "inlets": "[Dataset(platform='snowflake', name='mydb.schema.tableA', env='PROD', platform_instance=None), Urn(_urn='urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableC,PROD)'), Urn(_urn='urn:li:dataJob:(urn:li:dataFlow:(airflow,test_dag,PROD),test_task)')]",
+                "outlets": "[Dataset(platform='snowflake', name='mydb.schema.tableD', env='PROD', platform_instance=None)]",
+                "openlineage_run_facet_unknownSourceAttribute": "{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.2.0/integration/airflow\", \"_schemaURL\": \"https://raw.githubusercontent.com/OpenLineage/OpenLineage/main/spec/OpenLineage.json#/definitions/BaseFacet\", \"unknownItems\": [{\"name\": \"BashOperator\", \"properties\": {\"_BaseOperator__from_mapped\": false, \"_BaseOperator__init_kwargs\": {\"bash_command\": \"echo 'task 1'\", \"dag\": \"<<non-serializable: DAG>>\", \"inlets\": [{\"env\": \"PROD\", \"name\": \"mydb.schema.tableA\", \"platform\": \"snowflake\"}, {\"_urn\": \"urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableC,PROD)\"}, {\"_urn\": \"urn:li:dataJob:(urn:li:dataFlow:(airflow,test_dag,PROD),test_task)\"}], \"outlets\": [{\"env\": \"PROD\", \"name\": \"mydb.schema.tableD\", \"platform\": \"snowflake\"}], \"task_id\": \"task_1\"}, \"_BaseOperator__instantiated\": true, \"_dag\": \"<<non-serializable: DAG>>\", \"_log\": \"<<non-serializable: Logger>>\", \"append_env\": false, \"bash_command\": \"echo 'task 1'\", \"depends_on_past\": false, \"do_xcom_push\": true, \"downstream_task_ids\": [\"run_another_data_task\"], \"email_on_failure\": true, \"email_on_retry\": true, \"executor_config\": {}, \"ignore_first_depends_on_past\": true, \"inlets\": [{\"env\": \"PROD\", \"name\": \"mydb.schema.tableA\", \"platform\": \"snowflake\"}, {\"_urn\": \"urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableC,PROD)\"}, {\"_urn\": \"urn:li:dataJob:(urn:li:dataFlow:(airflow,test_dag,PROD),test_task)\"}], \"outlets\": [{\"env\": \"PROD\", \"name\": \"mydb.schema.tableD\", \"platform\": \"snowflake\"}], \"output_encoding\": \"utf-8\", \"owner\": \"airflow\", \"params\": \"<<non-serializable: ParamsDict>>\", \"pool\": \"default_pool\", \"pool_slots\": 1, \"priority_weight\": 1, \"queue\": \"default\", \"retries\": 0, \"retry_delay\": \"<<non-serializable: timedelta>>\", \"retry_exponential_backoff\": false, \"skip_exit_code\": 99, \"start_date\": \"<<non-serializable: DateTime>>\", \"task_group\": \"<<non-serializable: TaskGroup>>\", \"task_id\": \"task_1\", \"trigger_rule\": \"all_success\", \"upstream_task_ids\": [], \"wait_for_downstream\": false, \"weight_rule\": \"downstream\"}, \"type\": \"operator\"}]}"
             },
             "externalUrl": "http://airflow.example.com/taskinstance/list/?flt1_dag_id_equals=simple_dag&_flt_3_task_id=task_1",
             "name": "task_1",
@@ -95,10 +93,50 @@
     "aspectName": "dataJobInputOutput",
     "aspect": {
         "json": {
-            "inputDatasets": [],
-            "outputDatasets": [],
-            "inputDatajobs": [],
+            "inputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableA,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableC,PROD)"
+            ],
+            "outputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableD,PROD)"
+            ],
+            "inputDatajobs": [
+                "urn:li:dataJob:(urn:li:dataFlow:(airflow,test_dag,PROD),test_task)"
+            ],
             "fineGrainedLineages": []
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableA,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableC,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableD,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
         }
     }
 },
@@ -146,7 +184,7 @@
             "customProperties": {
                 "run_id": "manual_run_test",
                 "duration": "None",
-                "start_date": "2023-11-09 11:11:47.527539+00:00",
+                "start_date": "2023-11-10 19:10:10.856995+00:00",
                 "end_date": "None",
                 "execution_date": "2023-09-27 21:34:38+00:00",
                 "try_number": "0",
@@ -164,7 +202,7 @@
             "name": "simple_dag_task_1_manual_run_test",
             "type": "BATCH_AD_HOC",
             "created": {
-                "time": 1699528307527,
+                "time": 1699643410856,
                 "actor": "urn:li:corpuser:datahub"
             }
         }
@@ -186,10 +224,70 @@
     "entityType": "dataProcessInstance",
     "entityUrn": "urn:li:dataProcessInstance:fdbbbcd638bc0e91bbf8d7775efbecaf",
     "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceInput",
+    "aspect": {
+        "json": {
+            "inputs": [
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableA,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableC,PROD)"
+            ]
+        }
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:fdbbbcd638bc0e91bbf8d7775efbecaf",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceOutput",
+    "aspect": {
+        "json": {
+            "outputs": [
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableD,PROD)"
+            ]
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableA,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableC,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableD,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:fdbbbcd638bc0e91bbf8d7775efbecaf",
+    "changeType": "UPSERT",
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1699528307527,
+            "timestampMillis": 1699643410856,
             "partitionSpec": {
                 "type": "FULL_TABLE",
                 "partition": "FULL_TABLE_SNAPSHOT"
@@ -207,8 +305,6 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "_task_type": "'BashOperator'",
-                "_task_module": "'airflow.operators.bash'",
                 "depends_on_past": "False",
                 "email": "None",
                 "label": "'task_1'",
@@ -218,9 +314,9 @@
                 "trigger_rule": "<TriggerRule.ALL_SUCCESS: 'all_success'>",
                 "wait_for_downstream": "False",
                 "downstream_task_ids": "['run_another_data_task']",
-                "inlets": "[\"Dataset(platform='snowflake', name='mydb.schema.tableA', env='PROD', platform_instance=None)\", \"Urn(_urn='urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableC,PROD)')\", \"Urn(_urn='urn:li:dataJob:(urn:li:dataFlow:(airflow,test_dag,PROD),test_task)')\"]",
-                "outlets": "[\"Dataset(platform='snowflake', name='mydb.schema.tableD', env='PROD', platform_instance=None)\"]",
-                "openlineage_run_facet_unknownSourceAttribute": "{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.2.0/integration/airflow\", \"_schemaURL\": \"https://raw.githubusercontent.com/OpenLineage/OpenLineage/main/spec/OpenLineage.json#/definitions/BaseFacet\", \"unknownItems\": [{\"name\": \"SerializedBaseOperator\", \"properties\": {\"_BaseOperator__from_mapped\": false, \"_BaseOperator__init_kwargs\": {\"task_id\": \"task_1\"}, \"_BaseOperator__instantiated\": true, \"_dag\": \"<<non-serializable: SerializedDAG>>\", \"_is_empty\": false, \"_log\": \"<<non-serializable: Logger>>\", \"_operator_name\": \"BashOperator\", \"_task_module\": \"airflow.operators.bash\", \"_task_type\": \"BashOperator\", \"bash_command\": \"echo 'task 1'\", \"depends_on_past\": false, \"do_xcom_push\": true, \"downstream_task_ids\": [\"run_another_data_task\"], \"email_on_failure\": true, \"email_on_retry\": true, \"executor_config\": {}, \"ignore_first_depends_on_past\": true, \"inlets\": [\"Dataset(platform='snowflake', name='mydb.schema.tableA', env='PROD', platform_instance=None)\", \"Urn(_urn='urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableC,PROD)')\", \"Urn(_urn='urn:li:dataJob:(urn:li:dataFlow:(airflow,test_dag,PROD),test_task)')\"], \"operator_extra_links\": [], \"outlets\": [\"Dataset(platform='snowflake', name='mydb.schema.tableD', env='PROD', platform_instance=None)\"], \"owner\": \"airflow\", \"params\": \"<<non-serializable: ParamsDict>>\", \"pool\": \"default_pool\", \"pool_slots\": 1, \"priority_weight\": 1, \"queue\": \"default\", \"retries\": 0, \"retry_delay\": \"<<non-serializable: timedelta>>\", \"retry_exponential_backoff\": false, \"start_date\": \"<<non-serializable: DateTime>>\", \"task_group\": \"<<non-serializable: SerializedTaskGroup>>\", \"task_id\": \"task_1\", \"template_ext\": [\".sh\", \".bash\"], \"template_fields\": [\"bash_command\", \"env\"], \"template_fields_renderers\": {\"bash_command\": \"bash\", \"env\": \"json\"}, \"trigger_rule\": \"all_success\", \"ui_color\": \"#f0ede4\", \"ui_fgcolor\": \"#000\", \"upstream_task_ids\": [], \"wait_for_downstream\": false, \"weight_rule\": \"downstream\"}, \"type\": \"operator\"}]}"
+                "inlets": "[Dataset(platform='snowflake', name='mydb.schema.tableA', env='PROD', platform_instance=None), Urn(_urn='urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableC,PROD)'), Urn(_urn='urn:li:dataJob:(urn:li:dataFlow:(airflow,test_dag,PROD),test_task)')]",
+                "outlets": "[Dataset(platform='snowflake', name='mydb.schema.tableD', env='PROD', platform_instance=None)]",
+                "openlineage_run_facet_unknownSourceAttribute": "{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.2.0/integration/airflow\", \"_schemaURL\": \"https://raw.githubusercontent.com/OpenLineage/OpenLineage/main/spec/OpenLineage.json#/definitions/BaseFacet\", \"unknownItems\": [{\"name\": \"BashOperator\", \"properties\": {\"_BaseOperator__from_mapped\": false, \"_BaseOperator__init_kwargs\": {\"bash_command\": \"echo 'task 1'\", \"dag\": \"<<non-serializable: DAG>>\", \"inlets\": [{\"env\": \"PROD\", \"name\": \"mydb.schema.tableA\", \"platform\": \"snowflake\"}, {\"_urn\": \"urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableC,PROD)\"}, {\"_urn\": \"urn:li:dataJob:(urn:li:dataFlow:(airflow,test_dag,PROD),test_task)\"}], \"outlets\": [{\"env\": \"PROD\", \"name\": \"mydb.schema.tableD\", \"platform\": \"snowflake\"}], \"task_id\": \"task_1\"}, \"_BaseOperator__instantiated\": true, \"_dag\": \"<<non-serializable: DAG>>\", \"_log\": \"<<non-serializable: Logger>>\", \"append_env\": false, \"bash_command\": \"echo 'task 1'\", \"depends_on_past\": false, \"do_xcom_push\": true, \"downstream_task_ids\": [\"run_another_data_task\"], \"email_on_failure\": true, \"email_on_retry\": true, \"executor_config\": {}, \"ignore_first_depends_on_past\": true, \"inlets\": [{\"env\": \"PROD\", \"name\": \"mydb.schema.tableA\", \"platform\": \"snowflake\"}, {\"_urn\": \"urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableC,PROD)\"}, {\"_urn\": \"urn:li:dataJob:(urn:li:dataFlow:(airflow,test_dag,PROD),test_task)\"}], \"outlets\": [{\"env\": \"PROD\", \"name\": \"mydb.schema.tableD\", \"platform\": \"snowflake\"}], \"output_encoding\": \"utf-8\", \"owner\": \"airflow\", \"params\": \"<<non-serializable: ParamsDict>>\", \"pool\": \"default_pool\", \"pool_slots\": 1, \"priority_weight\": 1, \"queue\": \"default\", \"retries\": 0, \"retry_delay\": \"<<non-serializable: timedelta>>\", \"retry_exponential_backoff\": false, \"skip_exit_code\": 99, \"start_date\": \"<<non-serializable: DateTime>>\", \"task_group\": \"<<non-serializable: TaskGroup>>\", \"task_id\": \"task_1\", \"trigger_rule\": \"all_success\", \"upstream_task_ids\": [], \"wait_for_downstream\": false, \"weight_rule\": \"downstream\"}, \"type\": \"operator\"}]}"
             },
             "externalUrl": "http://airflow.example.com/taskinstance/list/?flt1_dag_id_equals=simple_dag&_flt_3_task_id=task_1",
             "name": "task_1",
@@ -237,10 +333,50 @@
     "aspectName": "dataJobInputOutput",
     "aspect": {
         "json": {
-            "inputDatasets": [],
-            "outputDatasets": [],
-            "inputDatajobs": [],
+            "inputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableA,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableC,PROD)"
+            ],
+            "outputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableD,PROD)"
+            ],
+            "inputDatajobs": [
+                "urn:li:dataJob:(urn:li:dataFlow:(airflow,test_dag,PROD),test_task)"
+            ],
             "fineGrainedLineages": []
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableA,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableC,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableD,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
         }
     }
 },
@@ -285,7 +421,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1699528307907,
+            "timestampMillis": 1699643411390,
             "partitionSpec": {
                 "type": "FULL_TABLE",
                 "partition": "FULL_TABLE_SNAPSHOT"
@@ -310,7 +446,7 @@
                 "catchup": "False",
                 "description": "'A simple DAG that runs a few fake data tasks.'",
                 "doc_md": "None",
-                "fileloc": "'/home/shubham/airflow1/datahub/metadata-ingestion-modules/airflow-plugin/tests/integration/dags/simple_dag.py'",
+                "fileloc": "'/Users/hsheth/projects/datahub/metadata-ingestion-modules/airflow-plugin/tests/integration/dags/simple_dag.py'",
                 "is_paused_upon_creation": "None",
                 "start_date": "DateTime(2023, 1, 1, 0, 0, 0, tzinfo=Timezone('UTC'))",
                 "tags": "[]",
@@ -364,8 +500,6 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "_task_type": "'BashOperator'",
-                "_task_module": "'airflow.operators.bash'",
                 "depends_on_past": "False",
                 "email": "None",
                 "label": "'run_another_data_task'",
@@ -377,7 +511,7 @@
                 "downstream_task_ids": "[]",
                 "inlets": "[]",
                 "outlets": "[]",
-                "openlineage_run_facet_unknownSourceAttribute": "{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.2.0/integration/airflow\", \"_schemaURL\": \"https://raw.githubusercontent.com/OpenLineage/OpenLineage/main/spec/OpenLineage.json#/definitions/BaseFacet\", \"unknownItems\": [{\"name\": \"SerializedBaseOperator\", \"properties\": {\"_BaseOperator__from_mapped\": false, \"_BaseOperator__init_kwargs\": {\"task_id\": \"run_another_data_task\"}, \"_BaseOperator__instantiated\": true, \"_dag\": \"<<non-serializable: SerializedDAG>>\", \"_is_empty\": false, \"_log\": \"<<non-serializable: Logger>>\", \"_operator_name\": \"BashOperator\", \"_task_module\": \"airflow.operators.bash\", \"_task_type\": \"BashOperator\", \"bash_command\": \"echo 'task 2'\", \"depends_on_past\": false, \"do_xcom_push\": true, \"downstream_task_ids\": [], \"email_on_failure\": true, \"email_on_retry\": true, \"executor_config\": {}, \"ignore_first_depends_on_past\": true, \"inlets\": [], \"operator_extra_links\": [], \"outlets\": [], \"owner\": \"airflow\", \"params\": \"<<non-serializable: ParamsDict>>\", \"pool\": \"default_pool\", \"pool_slots\": 1, \"priority_weight\": 1, \"queue\": \"default\", \"retries\": 0, \"retry_delay\": \"<<non-serializable: timedelta>>\", \"retry_exponential_backoff\": false, \"start_date\": \"<<non-serializable: DateTime>>\", \"task_group\": \"<<non-serializable: SerializedTaskGroup>>\", \"task_id\": \"run_another_data_task\", \"template_ext\": [\".sh\", \".bash\"], \"template_fields\": [\"bash_command\", \"env\"], \"template_fields_renderers\": {\"bash_command\": \"bash\", \"env\": \"json\"}, \"trigger_rule\": \"all_success\", \"ui_color\": \"#f0ede4\", \"ui_fgcolor\": \"#000\", \"upstream_task_ids\": [\"task_1\"], \"wait_for_downstream\": false, \"weight_rule\": \"downstream\"}, \"type\": \"operator\"}]}"
+                "openlineage_run_facet_unknownSourceAttribute": "{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.2.0/integration/airflow\", \"_schemaURL\": \"https://raw.githubusercontent.com/OpenLineage/OpenLineage/main/spec/OpenLineage.json#/definitions/BaseFacet\", \"unknownItems\": [{\"name\": \"BashOperator\", \"properties\": {\"_BaseOperator__from_mapped\": false, \"_BaseOperator__init_kwargs\": {\"bash_command\": \"echo 'task 2'\", \"dag\": \"<<non-serializable: DAG>>\", \"task_id\": \"run_another_data_task\"}, \"_BaseOperator__instantiated\": true, \"_dag\": \"<<non-serializable: DAG>>\", \"_log\": \"<<non-serializable: Logger>>\", \"append_env\": false, \"bash_command\": \"echo 'task 2'\", \"depends_on_past\": false, \"do_xcom_push\": true, \"downstream_task_ids\": [], \"email_on_failure\": true, \"email_on_retry\": true, \"executor_config\": {}, \"ignore_first_depends_on_past\": true, \"inlets\": [], \"outlets\": [], \"output_encoding\": \"utf-8\", \"owner\": \"airflow\", \"params\": \"<<non-serializable: ParamsDict>>\", \"pool\": \"default_pool\", \"pool_slots\": 1, \"priority_weight\": 1, \"queue\": \"default\", \"retries\": 0, \"retry_delay\": \"<<non-serializable: timedelta>>\", \"retry_exponential_backoff\": false, \"skip_exit_code\": 99, \"start_date\": \"<<non-serializable: DateTime>>\", \"task_group\": \"<<non-serializable: TaskGroup>>\", \"task_id\": \"run_another_data_task\", \"trigger_rule\": \"all_success\", \"upstream_task_ids\": [\"task_1\"], \"wait_for_downstream\": false, \"weight_rule\": \"downstream\"}, \"type\": \"operator\"}]}"
             },
             "externalUrl": "http://airflow.example.com/taskinstance/list/?flt1_dag_id_equals=simple_dag&_flt_3_task_id=run_another_data_task",
             "name": "run_another_data_task",
@@ -447,7 +581,7 @@
             "customProperties": {
                 "run_id": "manual_run_test",
                 "duration": "None",
-                "start_date": "2023-11-09 11:11:51.911481+00:00",
+                "start_date": "2023-11-10 19:10:15.128009+00:00",
                 "end_date": "None",
                 "execution_date": "2023-09-27 21:34:38+00:00",
                 "try_number": "0",
@@ -465,7 +599,7 @@
             "name": "simple_dag_run_another_data_task_manual_run_test",
             "type": "BATCH_AD_HOC",
             "created": {
-                "time": 1699528311911,
+                "time": 1699643415128,
                 "actor": "urn:li:corpuser:datahub"
             }
         }
@@ -490,7 +624,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1699528311911,
+            "timestampMillis": 1699643415128,
             "partitionSpec": {
                 "type": "FULL_TABLE",
                 "partition": "FULL_TABLE_SNAPSHOT"
@@ -508,8 +642,6 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "_task_type": "'BashOperator'",
-                "_task_module": "'airflow.operators.bash'",
                 "depends_on_past": "False",
                 "email": "None",
                 "label": "'run_another_data_task'",
@@ -521,7 +653,7 @@
                 "downstream_task_ids": "[]",
                 "inlets": "[]",
                 "outlets": "[]",
-                "openlineage_run_facet_unknownSourceAttribute": "{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.2.0/integration/airflow\", \"_schemaURL\": \"https://raw.githubusercontent.com/OpenLineage/OpenLineage/main/spec/OpenLineage.json#/definitions/BaseFacet\", \"unknownItems\": [{\"name\": \"SerializedBaseOperator\", \"properties\": {\"_BaseOperator__from_mapped\": false, \"_BaseOperator__init_kwargs\": {\"task_id\": \"run_another_data_task\"}, \"_BaseOperator__instantiated\": true, \"_dag\": \"<<non-serializable: SerializedDAG>>\", \"_is_empty\": false, \"_log\": \"<<non-serializable: Logger>>\", \"_operator_name\": \"BashOperator\", \"_task_module\": \"airflow.operators.bash\", \"_task_type\": \"BashOperator\", \"bash_command\": \"echo 'task 2'\", \"depends_on_past\": false, \"do_xcom_push\": true, \"downstream_task_ids\": [], \"email_on_failure\": true, \"email_on_retry\": true, \"executor_config\": {}, \"ignore_first_depends_on_past\": true, \"inlets\": [], \"operator_extra_links\": [], \"outlets\": [], \"owner\": \"airflow\", \"params\": \"<<non-serializable: ParamsDict>>\", \"pool\": \"default_pool\", \"pool_slots\": 1, \"priority_weight\": 1, \"queue\": \"default\", \"retries\": 0, \"retry_delay\": \"<<non-serializable: timedelta>>\", \"retry_exponential_backoff\": false, \"start_date\": \"<<non-serializable: DateTime>>\", \"task_group\": \"<<non-serializable: SerializedTaskGroup>>\", \"task_id\": \"run_another_data_task\", \"template_ext\": [\".sh\", \".bash\"], \"template_fields\": [\"bash_command\", \"env\"], \"template_fields_renderers\": {\"bash_command\": \"bash\", \"env\": \"json\"}, \"trigger_rule\": \"all_success\", \"ui_color\": \"#f0ede4\", \"ui_fgcolor\": \"#000\", \"upstream_task_ids\": [\"task_1\"], \"wait_for_downstream\": false, \"weight_rule\": \"downstream\"}, \"type\": \"operator\"}]}"
+                "openlineage_run_facet_unknownSourceAttribute": "{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.2.0/integration/airflow\", \"_schemaURL\": \"https://raw.githubusercontent.com/OpenLineage/OpenLineage/main/spec/OpenLineage.json#/definitions/BaseFacet\", \"unknownItems\": [{\"name\": \"BashOperator\", \"properties\": {\"_BaseOperator__from_mapped\": false, \"_BaseOperator__init_kwargs\": {\"bash_command\": \"echo 'task 2'\", \"dag\": \"<<non-serializable: DAG>>\", \"task_id\": \"run_another_data_task\"}, \"_BaseOperator__instantiated\": true, \"_dag\": \"<<non-serializable: DAG>>\", \"_log\": \"<<non-serializable: Logger>>\", \"append_env\": false, \"bash_command\": \"echo 'task 2'\", \"depends_on_past\": false, \"do_xcom_push\": true, \"downstream_task_ids\": [], \"email_on_failure\": true, \"email_on_retry\": true, \"executor_config\": {}, \"ignore_first_depends_on_past\": true, \"inlets\": [], \"outlets\": [], \"output_encoding\": \"utf-8\", \"owner\": \"airflow\", \"params\": \"<<non-serializable: ParamsDict>>\", \"pool\": \"default_pool\", \"pool_slots\": 1, \"priority_weight\": 1, \"queue\": \"default\", \"retries\": 0, \"retry_delay\": \"<<non-serializable: timedelta>>\", \"retry_exponential_backoff\": false, \"skip_exit_code\": 99, \"start_date\": \"<<non-serializable: DateTime>>\", \"task_group\": \"<<non-serializable: TaskGroup>>\", \"task_id\": \"run_another_data_task\", \"trigger_rule\": \"all_success\", \"upstream_task_ids\": [\"task_1\"], \"wait_for_downstream\": false, \"weight_rule\": \"downstream\"}, \"type\": \"operator\"}]}"
             },
             "externalUrl": "http://airflow.example.com/taskinstance/list/?flt1_dag_id_equals=simple_dag&_flt_3_task_id=run_another_data_task",
             "name": "run_another_data_task",
@@ -588,7 +720,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1699528312594,
+            "timestampMillis": 1699643415856,
             "partitionSpec": {
                 "type": "FULL_TABLE",
                 "partition": "FULL_TABLE_SNAPSHOT"
