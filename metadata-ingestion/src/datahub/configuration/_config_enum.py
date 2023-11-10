@@ -1,8 +1,12 @@
 from enum import Enum
+from typing import Any
 
 import pydantic
 import pydantic.types
 import pydantic.validators
+from git import TYPE_CHECKING
+
+from datahub.configuration.pydantic_migration_helpers import PYDANTIC_VERSION_2
 
 
 class ConfigEnum(Enum):
@@ -15,11 +19,27 @@ class ConfigEnum(Enum):
         # From https://stackoverflow.com/a/44785241/5004662.
         return name
 
-    @classmethod
-    def __get_validators__(cls) -> "pydantic.types.CallableGenerator":
-        # We convert the text to uppercase before attempting to match it to an enum value.
-        yield cls.validate
-        yield pydantic.validators.enum_member_validator
+    if PYDANTIC_VERSION_2:
+        if TYPE_CHECKING:
+            from pydantic import GetCoreSchemaHandler
+
+        @classmethod
+        def __get_pydantic_core_schema__(
+            cls, source_type: Any, handler: "GetCoreSchemaHandler"
+        ):
+            from pydantic_core import core_schema
+
+            return core_schema.no_info_before_validator_function(
+                cls.validate, handler(source_type)
+            )
+
+    else:
+
+        @classmethod
+        def __get_validators__(cls) -> "pydantic.types.CallableGenerator":
+            # We convert the text to uppercase before attempting to match it to an enum value.
+            yield cls.validate
+            yield pydantic.validators.enum_member_validator
 
     @classmethod
     def validate(cls, v):  # type: ignore[no-untyped-def]

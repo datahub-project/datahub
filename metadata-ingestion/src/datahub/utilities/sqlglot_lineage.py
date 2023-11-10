@@ -17,6 +17,7 @@ import sqlglot.optimizer.qualify
 from pydantic import BaseModel
 from typing_extensions import TypedDict
 
+from datahub.configuration.pydantic_migration_helpers import PYDANTIC_VERSION_2
 from datahub.emitter.mce_builder import (
     DEFAULT_ENV,
     make_dataset_urn_with_platform_instance,
@@ -122,12 +123,17 @@ class _ParserBaseModel(
         SchemaFieldDataTypeClass: lambda v: v.to_obj(),
     },
 ):
-    pass
+    def json(self, *args: Any, **kwargs: Any) -> str:
+        if PYDANTIC_VERSION_2:
+            return super().model_dump_json(*args, **kwargs)
+        else:
+            return super().json(*args, **kwargs)
 
 
 @functools.total_ordering
 class _FrozenModel(_ParserBaseModel, frozen=True):
     def __lt__(self, other: "_FrozenModel") -> bool:
+        # TODO: The __fields__ attribute is deprecated in Pydantic v2.
         for field in self.__fields__:
             self_v = getattr(self, field)
             other_v = getattr(other, field)
@@ -138,8 +144,8 @@ class _FrozenModel(_ParserBaseModel, frozen=True):
 
 
 class _TableName(_FrozenModel):
-    database: Optional[str]
-    db_schema: Optional[str]
+    database: Optional[str] = None
+    db_schema: Optional[str] = None
     table: str
 
     def as_sqlglot_table(self) -> sqlglot.exp.Table:
@@ -187,16 +193,16 @@ class ColumnRef(_ParserBaseModel):
 
 
 class _DownstreamColumnRef(_ParserBaseModel):
-    table: Optional[_TableName]
+    table: Optional[_TableName] = None
     column: str
-    column_type: Optional[sqlglot.exp.DataType]
+    column_type: Optional[sqlglot.exp.DataType] = None
 
 
 class DownstreamColumnRef(_ParserBaseModel):
-    table: Optional[Urn]
+    table: Optional[Urn] = None
     column: str
-    column_type: Optional[SchemaFieldDataTypeClass]
-    native_column_type: Optional[str]
+    column_type: Optional[SchemaFieldDataTypeClass] = None
+    native_column_type: Optional[str] = None
 
     @pydantic.validator("column_type", pre=True)
     def _load_column_type(
@@ -213,7 +219,7 @@ class _ColumnLineageInfo(_ParserBaseModel):
     downstream: _DownstreamColumnRef
     upstreams: List[_ColumnRef]
 
-    logic: Optional[str]
+    logic: Optional[str] = None
 
 
 class ColumnLineageInfo(_ParserBaseModel):
@@ -244,7 +250,7 @@ class SqlParsingResult(_ParserBaseModel):
     in_tables: List[Urn]
     out_tables: List[Urn]
 
-    column_lineage: Optional[List[ColumnLineageInfo]]
+    column_lineage: Optional[List[ColumnLineageInfo]] = None
 
     # TODO include formatted original sql logic
     # TODO include list of referenced columns
