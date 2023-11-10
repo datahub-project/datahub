@@ -76,7 +76,7 @@ class UnityCatalogProfilerConfig(ConfigModel):
         description="Number of worker threads to use for profiling. Set to 1 to disable.",
     )
 
-    @pydantic.root_validator
+    @pydantic.root_validator(skip_on_failure=True)
     def warehouse_id_required_for_profiling(
         cls, values: Dict[str, Any]
     ) -> Dict[str, Any]:

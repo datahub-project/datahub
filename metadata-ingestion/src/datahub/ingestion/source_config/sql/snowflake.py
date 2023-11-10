@@ -340,7 +340,6 @@ class BaseSnowflakeConfig(ConfigModel):
 
 
 class SnowflakeConfig(BaseSnowflakeConfig, BaseTimeWindowConfig, SQLCommonConfig):
-
     include_table_lineage: bool = pydantic.Field(
         default=True,
         description="If enabled, populates the snowflake table-to-table and s3-to-snowflake table lineage. Requires appropriate grants given to the role and Snowflake Enterprise Edition or above.",
@@ -357,7 +356,7 @@ class SnowflakeConfig(BaseSnowflakeConfig, BaseTimeWindowConfig, SQLCommonConfig
     ignore_start_time_lineage: bool = False
     upstream_lineage_in_report: bool = False
 
-    @pydantic.root_validator()
+    @pydantic.root_validator(skip_on_failure=True)
     def validate_include_view_lineage(cls, values):
         if (
             "include_table_lineage" in values
