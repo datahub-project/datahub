@@ -85,6 +85,7 @@ public class ListActionRequestsResolver implements DataFetcher<CompletableFuture
           // Case 2: Caller provided a user or group assignee filter.
           final Urn assigneeUrn = Urn.createFromString(assignee.getUrn());
           if (AssigneeType.GROUP.equals(assignee.getType())) {
+            // We do not compute role urns from group urns because only users are assigned to roles.
             groupUrns = Collections.singletonList(assigneeUrn);
           } else {
             actorUrn = assigneeUrn;
@@ -129,7 +130,7 @@ public class ListActionRequestsResolver implements DataFetcher<CompletableFuture
       final @Nullable Long endTimestampMillis) {
     final Filter filter = new Filter();
     final ConjunctiveCriterionArray disjunction = new ConjunctiveCriterionArray();
-    // If actor and group are both provided, "or" the results.
+    // If more than 1 different type of urn are provided, "or" the results.
     if (actorUrn != null) {
       disjunction.add(createUserFilterConjunction(actorUrn, type, status, startTimestampMillis, endTimestampMillis));
     }
