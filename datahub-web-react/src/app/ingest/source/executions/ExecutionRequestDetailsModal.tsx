@@ -88,8 +88,8 @@ const LogsContainer = styled.div<LogsContainerProps>`
         props.areLogsExpandable &&
         !props.showExpandedLogs &&
         `
-        -webkit-mask-image: linear-gradient(to bottom, black 40%, transparent 100%);
-        mask-image: linear-gradient(to bottom, black 40%, transparent 100%);
+        -webkit-mask-image: linear-gradient(to bottom, rgba(0,0,0,1) 50%, rgba(255,0,0,0.5) 60%, rgba(255,0,0,0) 90% );
+        mask-image: linear-gradient(to bottom, rgba(0,0,0,1) 50%, rgba(255,0,0,0.5) 60%, rgba(255,0,0,0) 90%);
     `}
 `;
 
