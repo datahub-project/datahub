@@ -16,6 +16,11 @@
       type: STRUCTURED_PROPERTY
       structured_property_urn: urn:li:structuredProperty:io.acryl.dataManagement.replicationSLA
       required: True
+    - title: "compliance_officer"
+      description: "Compliance officer"
+      type: STRUCTURED_PROPERTY
+      structured_property_id: compliance_officer
+      required: True
     - id: "76543"
       title: "Replication SLA"
       description: "Apply Replication SLA structured property to form"
@@ -23,22 +28,13 @@
       structured_property_urn: urn:li:structuredProperty:io.acryl.dataManagement.replicationSLA
       required: False
   entities: # Either pass a list of urns or a group of filters
-    # urns:
-    #   - urn:li:dataset:(urn:li:dataPlatform:hive,user.clicks,PROD)
-    #   - urn:li:dataset:(urn:li:dataPlatform:snowflake,user.clicks,PROD)
-    filters:
-      types:
-        - dataset
-      platforms:
-        - snowflake
-        - dbt
-      domains:
-        - urn:li:domain:b41fbb69-1549-4f30-a463-d75d1bed31c1
-      containers:
-        - urn:li:container:21d4204e13d5b984c58acad468ecdbdd
+    urns:
+      - urn:li:dataset:(urn:li:dataPlatform:hive,user.clicks,PROD)
+      - urn:li:dataset:(urn:li:dataPlatform:snowflake,user.clicks,PROD)
+      - urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleHdfsDataset,PROD)
 - urn: "urn:li:form:917364"
   # id: 917364  # optional if urn is provided
-  type: VERIFICATION
+  type: COMPLETION
   name: "Governance Initiative"
   prompts:
     - id: "123"
@@ -52,3 +48,8 @@
       type: STRUCTURED_PROPERTY
       structured_property_id: io.acryl.dataManagement.certifier
       required: True
+  filters:
+    types:
+      - dataset
+    platforms:
+      - snowflake
