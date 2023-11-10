@@ -13,7 +13,7 @@ if PYDANTIC_VERSION_2:
     from pydantic import PydanticDeprecatedSince20  # type: ignore
 else:
 
-    class PydanticDeprecatedSince20(Warning):
+    class PydanticDeprecatedSince20(Warning):  # type: ignore
         pass
 
 
