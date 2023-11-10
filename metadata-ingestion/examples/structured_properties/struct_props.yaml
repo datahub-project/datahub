@@ -31,9 +31,9 @@
 - id: io.acryl.dataManagement.steward
   type: urn
   type_qualifier:
-    entity_types: # only user and group urns are allowed
-      - corpuser
-      - corpGroup
+    allowed_types: # only user and group urns are allowed
+      - urn:li:entityType:datahub.corpuser
+      - urn:li:entityType:datahub.corpGroup
   display_name: Steward
   entity_types:
     - dataset
@@ -41,6 +41,9 @@
     - dataJob
 - id: io.acryl.dataManagement.certifier
   type: urn
+  type_qualifier:
+    allowed_types:
+      - urn:li:entityType:datahub.corpuser
   display_name: Person Certifying the asset
   entity_types:
     - dataset
@@ -69,3 +72,12 @@
   entity_types:
     - dataset
     - dataJob
+- id: relevant_links
+  qualified_name: relevant_links
+  type: rich_text
+  cardinality: SINGLE
+  display_name: Relevant Links
+  description: "Links out to relevant documents, JIRA tickets, Confluence pages,
+    meetings notes, etc."
+  entity_types:
+    - dataset
