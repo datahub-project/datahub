@@ -84,6 +84,7 @@ const ShowMoreButton = styled(Button)`
 `;
 
 const LogsContainer = styled.div<LogsContainerProps>`
+    margin-bottom: -25px;
     ${(props) =>
         props.areLogsExpandable &&
         !props.showExpandedLogs &&
