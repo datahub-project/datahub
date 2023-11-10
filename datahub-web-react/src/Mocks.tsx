@@ -1925,7 +1925,6 @@ export const mocks = [
                 browse: {
                     entities: [
                         {
-                            __typename: 'Dataset',
                             ...dataset1,
                         },
                     ],
@@ -2072,7 +2071,6 @@ export const mocks = [
                     searchResults: [
                         {
                             entity: {
-                                __typename: 'Dataset',
                                 ...dataset1,
                             },
                             matchedFields: [
@@ -2085,7 +2083,6 @@ export const mocks = [
                         },
                         {
                             entity: {
-                                __typename: 'Dataset',
                                 ...dataset2,
                             },
                         },
