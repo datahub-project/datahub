@@ -666,6 +666,7 @@ entry_points = {
     ],
     "datahub.ingestion.checkpointing_provider.plugins": [
         "datahub = datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider:DatahubIngestionCheckpointingProvider",
+        "file = datahub.ingestion.source.state_provider.file_ingestion_checkpointing_provider:FileIngestionCheckpointingProvider",
     ],
     "datahub.ingestion.reporting_provider.plugins": [
         "datahub = datahub.ingestion.reporting.datahub_ingestion_run_summary_provider:DatahubIngestionRunSummaryProvider",
