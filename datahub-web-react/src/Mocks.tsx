@@ -611,7 +611,7 @@ export const dataset3 = {
     siblings: null,
     statsSummary: null,
     embed: null,
-    browsePathV2: { __typename: 'BrowsePathV2', path: [{ name: 'test', entity: null }], __typename: 'BrowsePathV2' },
+    browsePathV2: { __typename: 'BrowsePathV2', path: [{ name: 'test', entity: null }] },
     access: null,
     dataProduct: null,
     lastProfile: null,
