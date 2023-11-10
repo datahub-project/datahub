@@ -1,6 +1,11 @@
 # Sinks
 
 Sinks are **destinations for metadata**.
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/sources-recipe-sinks.png"/>
+</p>
+
 In general, the sink will be defined in the recipe after the _source_ like below.
 
 ```yaml
@@ -11,13 +16,17 @@ sink:
   config: ...
 ```
 
+## Types of Sink
+
 When configuring ingestion for DataHub, you're likely to be sending the metadata to DataHub over either one of the following.
 
 - [REST (datahub-rest)](sink_docs/datahub.md#datahub-rest)
 - [Kafka (datahub-kafka)](sink_docs/datahub.md#datahub-kafka)
 - [File](sink_docs/file.md)
-- Since `acryl-datahub` version `>=0.8.33.2`, the default sink is assumed to be a `datahub-rest` endpoint.
 
+## Default Sink
+
+Since `acryl-datahub` version `>=0.8.33.2`, the default sink is assumed to be a `datahub-rest` endpoint.
 - Hosted at "http://localhost:8080" or the environment variable `${DATAHUB_GMS_URL}` if present
 - With an empty auth token or the environment variable `${DATAHUB_GMS_TOKEN}` if present.
 

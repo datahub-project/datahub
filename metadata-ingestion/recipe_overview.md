@@ -1,6 +1,14 @@
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
 # Recipes
 
 A recipe is the main configuration file for metadata ingestion. It tells our ingestion scripts where to pull data from (source) and where to put it (sink).
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/sources-recipe-sinks.png"/>
+</p>
+
 
 ## Configuring Recipe
 
@@ -33,15 +41,47 @@ A number of recipes are included in the [examples/recipes](./examples/recipes) d
 Note that one recipe file can only have 1 source and 1 sink. If you want multiple sources then you will need multiple recipe files.
 :::
 
-## Running Recipe
+## Running a Recipe
 
+DataHub supports running recipes via the CLI or UI.
+
+<Tabs>
+<TabItem value="cli" label="CLI" default>
+
+Install CLI and the plugin for the ingestion.
+```shell
+python3 -m pip install --upgrade acryl-datahub
+pip install 'acryl-datahub[datahub-rest]'
+```
 Running this recipe is as simple as:
 
 ```shell
 datahub ingest -c recipe.dhub.yaml
 ```
-
 For a detailed guide on running recipes via CLI, please refer to [CLI Ingestion Guide](cli-ingestion.md).
+
+</TabItem>
+
+<TabItem value="ui" label="UI">
+
+You can configure and run the recipe in **Ingestion** tab in DataHub. 
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/ingestion-tab.png"/>
+</p>
+
+* Make sure you have the **Manage Metadata Ingestion & Manage Secret** privileges.
+* Navigate to **Ingestion** tab in DataHub.
+* Create an ingestion source & configure the recipe via UI.
+* Hit **Execute**.
+
+For a detailed guide on running recipes via UI, please refer to [UI Ingestion Guide](../docs/ui-ingestion.md).
+
+</TabItem>
+</Tabs>
+
+
+## Advanced Configuration
 
 ### Handling Sensitive Information in Recipes
 

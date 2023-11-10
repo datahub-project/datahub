@@ -125,7 +125,7 @@ module.exports = {
         },
         {
           type: "category",
-          label: "Sinks",
+          label: "Transformers",
           link: {
             type: "doc",
             id: "metadata-ingestion/docs/transformer/intro",

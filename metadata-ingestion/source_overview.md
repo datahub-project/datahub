@@ -1,20 +1,32 @@
 # Sources
 
+
+Sources refers to **the data systems that we are extracting metadata from.** 
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/sources-recipe-sinks.png"/>
+</p>
+
+In general, the source will be defined at the top of the recipe like below.
+
+
+```yaml
+#my_recipe.yml
+source: 
+  type: <source_name>
+  config: 
+    option_1: <value>
+    ...
+```
+
+## Types of Source
+The `Sources` tab on the left in the sidebar shows you all the sources that are available for you to ingest metadata from. For example, we have sources for [BigQuery](https://datahubproject.io/docs/generated/ingestion/sources/bigquery), [Looker](https://datahubproject.io/docs/generated/ingestion/sources/looker), [Tableau](https://datahubproject.io/docs/generated/ingestion/sources/tableau) and many others.
+
 :::tip Find Integration Source
 Please see our **[Integrations page](https://datahubproject.io/integrations)** to browse our ingestion sources and filter on their features.
 :::
 
-Sources refers to the data systems that we are extracting metadata from.
-The `Sources` tab on the left in the sidebar shows you all the sources that are available for you to ingest metadata from. For example, we have sources for [BigQuery](https://datahubproject.io/docs/generated/ingestion/sources/bigquery), [Looker](https://datahubproject.io/docs/generated/ingestion/sources/looker), [Tableau](https://datahubproject.io/docs/generated/ingestion/sources/tableau) and many others.
-
-In general, the source will be defined at the top of the recipe like below.
-
-```yaml
-source: <source_name>
-config: ...
-```
-
-:::note Metadata Ingestion Source Status
+## Metadata Ingestion Source Status
 
 We apply a Support Status to each Metadata Source to help you understand the integration reliability at a glance.
 
