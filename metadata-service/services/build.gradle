@@ -1,4 +1,4 @@
-apply plugin: 'java'
+apply plugin: 'java-library'
 apply plugin: 'org.hidetake.swagger.generator'
 
 configurations {
@@ -13,6 +13,9 @@ dependencies {
     implementation project(':metadata-events:mxe-registration')
     implementation project(':metadata-events:mxe-utils-avro')
     implementation project(':metadata-models')
+    api project(path: ':metadata-models', configuration: 'dataTemplate')
+    api project(':metadata-models')
+
     implementation project(':metadata-service:restli-client')
     implementation project(':metadata-service:configuration')
 

@@ -110,6 +110,8 @@ task quickstartDebug(type: Exec, dependsOn: ':metadata-ingestion:install') {
     environment "XPACK_SECURITY_ENABLED", 'plugins.security.disabled=true'
     environment "USE_AWS_ELASTICSEARCH", 'true'
 
+    // Saas only
+    environment "METADATA_TESTS_ENABLED", "true"
 
     def cmd = [
             'source ../metadata-ingestion/venv/bin/activate && ',

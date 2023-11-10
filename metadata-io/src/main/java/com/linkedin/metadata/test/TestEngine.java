@@ -1,5 +1,8 @@
 package com.linkedin.metadata.test;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -8,9 +11,9 @@ import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.entity.EntityResponse;
-import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.ebean.transactions.AspectsBatchImpl;
 import com.linkedin.metadata.test.action.ActionApplier;
 import com.linkedin.metadata.test.action.ActionParameters;
 import com.linkedin.metadata.test.definition.TestAction;
@@ -24,12 +27,12 @@ import com.linkedin.metadata.test.query.QueryEngine;
 import com.linkedin.metadata.test.query.TestQuery;
 import com.linkedin.metadata.test.query.TestQueryResponse;
 import com.linkedin.metadata.test.util.TestUtils;
-import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.test.TestResult;
 import com.linkedin.test.TestResultArray;
 import com.linkedin.test.TestResultType;
 import com.linkedin.test.TestResults;
+import datahub.client.patch.tests.TestResultsPatchBuilder;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
@@ -44,9 +47,14 @@ import java.util.Set;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -74,7 +82,11 @@ public class TestEngine {
   // Not concurrent data structure because writes are always against the entire thing.
   private final Map<String, List<TestDefinition>> _testPerEntityTypeCache = new HashMap<>();
 
-  private final ScheduledExecutorService _refreshExecutorService = Executors.newScheduledThreadPool(1);
+  // Shared lock for both cache hashmaps
+  private final ReadWriteLock cacheReadWriteLock = new ReentrantReadWriteLock();
+  private final Lock cacheReadLock = cacheReadWriteLock.readLock();
+
+  private ScheduledExecutorService _refreshExecutorService;
   private final TestRefreshRunnable _testRefreshRunnable;
   private final Set<String> _supportedEntityTypes;
 
@@ -92,10 +104,16 @@ public class TestEngine {
     EVALUATE_ONLY,
 
     /**
-     * Default evaluation mode, where results are saved to storage and
+     * Default evaluation mode, where results are saved to storage async and
      * actions are applied.
      */
-    DEFAULT
+    DEFAULT,
+
+    /**
+     * Default evaluation mode, where results are saved to storage sync and
+     * actions are applied.
+     */
+    SYNC
   }
 
   public TestEngine(
@@ -107,17 +125,24 @@ public class TestEngine {
       ActionApplier actionApplier,
       final int delayIntervalSeconds,
       final int refreshIntervalSeconds) {
-    _entityService = entityService;
-    _queryEngine = queryEngine;
-    _predicateEvaluator = predicateEvaluator;
-    _testDefinitionParser = testDefinitionParser;
-    _actionApplier = actionApplier;
-    _testRefreshRunnable =
-        new TestRefreshRunnable(testFetcher, testDefinitionParser, _testCache, _testPerEntityTypeCache);
-    _refreshExecutorService.scheduleAtFixedRate(_testRefreshRunnable, delayIntervalSeconds, refreshIntervalSeconds,
-        TimeUnit.SECONDS);
-    _refreshExecutorService.execute(_testRefreshRunnable);
-    _supportedEntityTypes = TestUtils.getSupportedEntityTypes(entityService.getEntityRegistry());
+
+      _entityService = entityService;
+      _queryEngine = queryEngine;
+      _predicateEvaluator = predicateEvaluator;
+      _testDefinitionParser = testDefinitionParser;
+      _actionApplier = actionApplier;
+      _testRefreshRunnable =
+              new TestRefreshRunnable(testFetcher, testDefinitionParser, _testCache, _testPerEntityTypeCache, cacheReadWriteLock.writeLock());
+
+      if (refreshIntervalSeconds > 0) {
+        _refreshExecutorService = Executors.newScheduledThreadPool(1);
+        _refreshExecutorService.scheduleAtFixedRate(_testRefreshRunnable, delayIntervalSeconds, refreshIntervalSeconds,
+                TimeUnit.SECONDS);
+        _refreshExecutorService.execute(_testRefreshRunnable);
+      } else {
+        loadTests();
+      }
+      _supportedEntityTypes = TestUtils.getSupportedEntityTypes(entityService.getEntityRegistry());
   }
 
   /**
@@ -125,7 +150,9 @@ public class TestEngine {
    * when a test is created, modified, or deleted.
    */
   public void invalidateCache() {
-    _refreshExecutorService.execute(_testRefreshRunnable);
+    if (_refreshExecutorService != null) {
+      _refreshExecutorService.execute(_testRefreshRunnable);
+    }
   }
 
   /**
@@ -137,12 +164,24 @@ public class TestEngine {
 
   @Nonnull
   public List<TestDefinition> getTestDefinitions() {
-    return _testPerEntityTypeCache.values().stream().flatMap(Collection::stream).collect(Collectors.toList());
+    cacheReadLock.lock();
+    try {
+      return _testPerEntityTypeCache.values().stream().flatMap(Collection::stream).collect(Collectors.toList());
+    } finally {
+      // To unlock the acquired read thread
+      cacheReadLock.unlock();
+    }
   }
 
   @Nonnull
   public Set<String> getEntityTypesToEvaluate() {
-    return _testPerEntityTypeCache.keySet();
+    cacheReadLock.lock();
+    try {
+      return _testPerEntityTypeCache.keySet();
+    } finally {
+      // To unlock the acquired read thread
+      cacheReadLock.unlock();
+    }
   }
 
   @Nonnull
@@ -188,16 +227,14 @@ public class TestEngine {
     }
 
     // Step 1: Retrieve eligible tests.
-    List<TestDefinition> testsEligibleForEntityType = _testPerEntityTypeCache.getOrDefault(
-        urn.getEntityType(),
-        Collections.emptyList());
+    List<TestDefinition> testsEligibleForEntityType = getOrDefault(urn.getEntityType(), Collections.emptyList());
 
     // Step 2: Evaluate all tests for entity
     TestResults results = evaluateTests(urn, testsEligibleForEntityType);
 
     // Step 3 (Optional): Write results to DataHub
     if (!EvaluationMode.EVALUATE_ONLY.equals(mode)) {
-      ingestResults(urn, results);
+      batchIngestResults(urn, results, mode);
       batchApplyActions(ImmutableMap.of(urn, results));
     }
     return results;
@@ -224,7 +261,7 @@ public class TestEngine {
     }
     TestResults results = evaluateTests(urn, fetchDefinitions(testUrns));
     if (!EvaluationMode.EVALUATE_ONLY.equals(mode)) {
-      ingestPartialResults(urn, testUrns, results);
+      ingestPartialResults(urn, testUrns, results, mode);
       batchApplyActions(ImmutableMap.of(urn, results));
     }
     return results;
@@ -287,7 +324,7 @@ public class TestEngine {
     Map<Urn, TestResults> finalTestResults = new HashMap<>();
 
     for (String entityType : urnsPerEntityType.keySet()) {
-      List<TestDefinition> testsEligibleForEntityType = _testPerEntityTypeCache.getOrDefault(entityType, Collections.emptyList());
+      List<TestDefinition> testsEligibleForEntityType = getOrDefault(entityType, Collections.emptyList());
       if (testsEligibleForEntityType.isEmpty()) {
         continue;
       }
@@ -298,7 +335,7 @@ public class TestEngine {
     }
 
     if (!EvaluationMode.EVALUATE_ONLY.equals(mode)) {
-      finalTestResults.forEach(this::ingestResults);
+      batchIngestResults(finalTestResults, mode);
       batchApplyActions(finalTestResults);
     }
 
@@ -319,7 +356,7 @@ public class TestEngine {
       @Nonnull final EvaluationMode mode) {
     final Map<Urn, TestResults> resultsPerUrn = batchEvaluateTests(urns, fetchDefinitions(testUrns));
     if (!EvaluationMode.EVALUATE_ONLY.equals(mode)) {
-      resultsPerUrn.forEach((urn, results) -> ingestPartialResults(urn, testUrns, results));
+      resultsPerUrn.forEach((urn, results) -> ingestPartialResults(urn, testUrns, results, mode));
       batchApplyActions(resultsPerUrn);
     }
     return resultsPerUrn;
@@ -453,13 +490,21 @@ public class TestEngine {
 
   private List<TestDefinition> fetchDefinitions(@Nonnull final List<Urn> testUrns) {
     List<TestDefinition> tests = new ArrayList<>(testUrns.size());
-    for (Urn testUrn : testUrns) {
-      if (_testCache.containsKey(testUrn)) {
-        tests.add(_testCache.get(testUrn));
-      } else {
-        log.warn("Test {} does not exist: Skipping", testUrn);
+
+    cacheReadLock.lock();
+    try {
+      for (Urn testUrn : testUrns) {
+        if (_testCache.containsKey(testUrn)) {
+          tests.add(_testCache.get(testUrn));
+        } else {
+          log.warn("Test {} does not exist: Skipping", testUrn);
+        }
       }
+    } finally {
+      // To unlock the acquired read thread
+      cacheReadLock.unlock();
     }
+
     return tests;
   }
 
@@ -528,7 +573,7 @@ public class TestEngine {
    * @param testUrns the test urns
    * @param results the test results
    */
-  private void ingestPartialResults(Urn urn, List<Urn> testUrns, TestResults results) {
+  private void ingestPartialResults(Urn urn, List<Urn> testUrns, TestResults results, EvaluationMode mode) {
     EntityResponse entityResponse;
     try {
       entityResponse =
@@ -539,7 +584,7 @@ public class TestEngine {
     }
     // If TestResults aspect does not exist, do a simple ingest
     if (entityResponse == null || !entityResponse.getAspects().containsKey(Constants.TEST_RESULTS_ASPECT_NAME)) {
-      ingestResults(urn, results);
+      batchIngestResults(urn, results, mode);
       return;
     }
     TestResults prevResults = new TestResults(entityResponse.getAspects().get(Constants.TEST_RESULTS_ASPECT_NAME).getValue().data());
@@ -557,7 +602,7 @@ public class TestEngine {
         .stream()
         .filter(test -> !testSet.contains(test.getTest()))
         .forEach(mergedResults.getFailing()::add);
-    ingestResults(urn, mergedResults);
+    batchIngestResults(urn, mergedResults, mode);
   }
 
   /**
@@ -566,16 +611,43 @@ public class TestEngine {
    * @param urn the entity urn
    * @param results the test results
    */
-  private void ingestResults(Urn urn, TestResults results) {
-    final MetadataChangeProposal proposal = new MetadataChangeProposal();
-    proposal.setEntityUrn(urn);
-    proposal.setEntityType(urn.getEntityType());
-    proposal.setAspectName(Constants.TEST_RESULTS_ASPECT_NAME);
-    proposal.setAspect(GenericRecordUtils.serializeAspect(results));
-    proposal.setChangeType(ChangeType.UPSERT);
+  private void batchIngestResults(Urn urn, TestResults results, EvaluationMode mode) {
+    batchIngestResults(Map.of(urn, results), mode);
+  }
 
-    _entityService.ingestProposal(proposal,
-        new AuditStamp().setActor(UrnUtils.getUrn(Constants.SYSTEM_ACTOR)).setTime(System.currentTimeMillis()), false);
+  private void batchIngestResults(@Nonnull  Map<Urn, TestResults> testResults, EvaluationMode mode) {
+    List<MetadataChangeProposal> mcps = testResults.entrySet().stream()
+            .map(entry -> new TestResultsPatchBuilder()
+                    .urn(entry.getKey())
+                    .updateTestResults(entry.getValue())
+                    .build())
+            .collect(Collectors.toList());
+
+    AspectsBatchImpl batch = AspectsBatchImpl.builder()
+            .mcps(mcps, _entityService.getEntityRegistry())
+            .build();
+
+    AuditStamp auditStamp = new AuditStamp().setActor(UrnUtils.getUrn(Constants.SYSTEM_ACTOR)).setTime(System.currentTimeMillis());
+    _entityService.ingestProposal(batch, auditStamp, mode != EvaluationMode.SYNC);
+  }
+
+  private static JsonNode asPatch(TestResults testResults) {
+    ArrayNode node = JsonNodeFactory.instance.arrayNode(testResults.getPassing().size() + testResults.getFailing().size());
+
+    // { "op": "add", "path": "/hello", "value": ["world"] },
+    BiConsumer<String, TestResult> addOp = (path, result) -> {
+      node.add(JsonNodeFactory.instance.objectNode()
+              .put("op", "add")
+              .put("path", path)
+              .putObject("value")
+              .put("test", result.getTest().toString())
+              .put("type", result.getType().toString()));
+    };
+
+    testResults.getPassing().forEach(passing -> addOp.accept("/passing", passing));
+    testResults.getFailing().forEach(failing -> addOp.accept("/failing", failing));
+
+    return node;
   }
 
   /**
@@ -605,15 +677,33 @@ public class TestEngine {
       @Nonnull final Urn entityUrn,
       @Nonnull final List<TestResult> testResults,
       @Nonnull final Map<TestAction, Set<Urn>> actionToEntityUrns) {
-    for (TestResult result : testResults) {
-      TestDefinition definition = _testCache.get(result.getTest());
-      List<TestAction> eligibleActions = TestResultType.FAILURE.equals(result.getType())
-          ? definition.getActions().getFailing()
-          : definition.getActions().getPassing();
-      for (TestAction action : eligibleActions) {
-        actionToEntityUrns.putIfAbsent(action, new HashSet<>());
-        actionToEntityUrns.get(action).add(entityUrn);
+
+    cacheReadLock.lock();
+    try {
+      for (TestResult result : testResults) {
+        TestDefinition definition = _testCache.get(result.getTest());
+        List<TestAction> eligibleActions = TestResultType.FAILURE.equals(result.getType())
+                ? definition.getActions().getFailing()
+                : definition.getActions().getPassing();
+        for (TestAction action : eligibleActions) {
+          actionToEntityUrns.putIfAbsent(action, new HashSet<>());
+          actionToEntityUrns.get(action).add(entityUrn);
+        }
       }
+    } finally {
+      // To unlock the acquired read thread
+      cacheReadLock.unlock();
+    }
+
+  }
+
+  private List<TestDefinition> getOrDefault(String key, List<TestDefinition> defaultValue) {
+    cacheReadLock.lock();
+    try {
+      return _testPerEntityTypeCache.getOrDefault(key, defaultValue);
+    } finally {
+      // To unlock the acquired read thread
+      cacheReadLock.unlock();
     }
   }
 
@@ -631,6 +721,7 @@ public class TestEngine {
     private final TestDefinitionParser _testDefinitionParser;
     private final Map<Urn, TestDefinition> _testCache;
     private final Map<String, List<TestDefinition>> _testPerEntityTypeCache;
+    private final Lock cacheWriteLock;
 
     @Override
     public void run() {
@@ -657,15 +748,19 @@ public class TestEngine {
                 start, count, e);
             return;
           }
-          synchronized (_testCache) {
-            _testCache.clear();
-            _testCache.putAll(newTestCache);
-          }
-          synchronized (_testPerEntityTypeCache) {
-            _testPerEntityTypeCache.clear();
-            _testPerEntityTypeCache.putAll(newTestPerEntityCache);
-          }
         }
+
+        cacheWriteLock.lock();
+        try {
+          _testCache.clear();
+          _testCache.putAll(newTestCache);
+          _testPerEntityTypeCache.clear();
+          _testPerEntityTypeCache.putAll(newTestPerEntityCache);
+        } finally {
+          // To unlock the acquired write thread
+          cacheWriteLock.unlock();
+        }
+
         log.debug(String.format("Successfully fetched %s tests.", total));
       } catch (Exception e) {
         log.error("Caught exception while loading Test cache. Will retry on next scheduled attempt.", e);
