@@ -14,6 +14,8 @@ public class NativeAuthenticationConfigs {
   public NativeAuthenticationConfigs(final com.typesafe.config.Config configs) {
     if (configs.hasPath(NATIVE_AUTHENTICATION_ENABLED_CONFIG_PATH)) {
       _isEnabled = Boolean.parseBoolean(configs.getValue(NATIVE_AUTHENTICATION_ENABLED_CONFIG_PATH).toString());
+    }
+    if (configs.hasPath(NATIVE_AUTHENTICATION_ENFORCE_VALID_EMAIL_ENABLED_CONFIG_PATH)) {
       _isEnforceValidEmailEnabled =
           Boolean.parseBoolean(configs.getValue(NATIVE_AUTHENTICATION_ENFORCE_VALID_EMAIL_ENABLED_CONFIG_PATH).toString());
     }
