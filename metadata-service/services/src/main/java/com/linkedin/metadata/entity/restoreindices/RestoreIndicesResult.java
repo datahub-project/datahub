@@ -13,4 +13,6 @@ public class RestoreIndicesResult {
     public long aspectCheckMs = 0;
     public long createRecordMs = 0;
     public long sendMessageMs = 0;
+    public String lastUrn = "";
+    public String lastAspect = "";
 }

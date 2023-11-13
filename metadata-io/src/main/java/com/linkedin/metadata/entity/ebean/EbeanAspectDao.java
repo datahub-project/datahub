@@ -425,11 +425,20 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
     if (args.urnLike != null) {
       exp = exp.like(EbeanAspectV2.URN_COLUMN, args.urnLike);
     }
+
+    int start = args.start;
+    if (args.urnBasedPagination) {
+      start = 0;
+      if (args.lastUrn != null && !args.lastUrn.isEmpty()) {
+        exp = exp.where().gt(String.format("concat(%s, %s)", EbeanAspectV2.URN_COLUMN, EbeanAspectV2.ASPECT_COLUMN), args.lastUrn + args.lastAspect);
+      }
+    }
+
     return  exp.orderBy()
             .asc(EbeanAspectV2.URN_COLUMN)
             .orderBy()
             .asc(EbeanAspectV2.ASPECT_COLUMN)
-            .setFirstRow(args.start)
+            .setFirstRow(start)
             .setMaxRows(args.batchSize)
             .findPagedList();
   }

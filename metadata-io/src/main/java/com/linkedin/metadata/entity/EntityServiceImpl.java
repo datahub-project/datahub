@@ -941,6 +941,7 @@ public class EntityServiceImpl implements EntityService {
       Urn urn;
       try {
         urn = Urn.createFromString(aspect.getKey().getUrn());
+        result.lastUrn = urn.toString();
       } catch (Exception e) {
         logger.accept(String.format("Failed to bind Urn with value %s into Urn object: %s. Ignoring row.",
             aspect.getKey().getUrn(), e));
@@ -964,6 +965,7 @@ public class EntityServiceImpl implements EntityService {
       result.timeEntityRegistryCheckMs += System.currentTimeMillis() - startTime;
       startTime = System.currentTimeMillis();
       final String aspectName = aspect.getKey().getAspect();
+      result.lastAspect = aspectName;
 
       // 3. Verify that the aspect is a valid aspect associated with the entity
       AspectSpec aspectSpec = entitySpec.getAspectSpec(aspectName);
