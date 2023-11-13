@@ -54,6 +54,9 @@ export const getSearchCsvDownloadHeader = (searchResults?: SearchResultInterface
     if (searchResults?.find((r) => (r.entity as any).statsSummary?.sizeInBytes !== undefined)) {
         result = [...result, SIZE_IN_BYTES];
     }
+    if (searchResults?.find((r) => (r.entity as any).statsSummary?.queryCountLast30Days !== undefined)) {
+        result = [...result, QUERIES_LAST_MONTH];
+    }
     return result;
 };
 
@@ -128,6 +131,9 @@ export const transformGenericEntityPropertiesToCsvRow = (
     }
     if (csvHeader.includes(SIZE_IN_BYTES)) {
         row = [...row, String((properties?.statsSummary as DatasetStatsSummary)?.sizeInBytes || '')];
+    }
+    if (csvHeader.includes(QUERIES_LAST_MONTH)) {
+        row = [...row, String((properties?.statsSummary as DatasetStatsSummary)?.queryCountLast30Days)];
     }
     return row;
 };
