@@ -1,5 +1,4 @@
 apply plugin: 'java-library'
-apply from: "../../gradle/versioning/versioning.gradle"
 
 dependencies {
   api project(':metadata-io')
@@ -64,8 +63,4 @@ dependencies {
 configurations.all{
   exclude group: "commons-io", module:"commons-io"
   exclude group: "jline", module:"jline"
-}
-
-processResources.configure {
-  finalizedBy printVersionDetails // always print version details
 }

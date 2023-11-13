@@ -9,20 +9,21 @@ ext {
     docker_registry = rootProject.ext.docker_registry == 'linkedin' ? 'acryldata' : docker_registry
     docker_repo = 'datahub-ingestion-base'
     docker_dir = 'datahub-ingestion-base'
+    docker_target = project.getProperties().getOrDefault("dockerTarget", "slim")
 
     revision = 2 // increment to trigger rebuild
 }
 
 docker {
-    name "${docker_registry}/${docker_repo}:v${version}-slim"
-    version "v${version}-slim"
+    name "${docker_registry}/${docker_repo}:v${version}-${docker_target}"
+    version "v${version}-${docker_target}"
     dockerfile file("${rootProject.projectDir}/docker/${docker_dir}/Dockerfile")
     files fileTree(rootProject.projectDir) {
         include "docker/${docker_dir}/*"
     }.exclude {
         i -> i.file.isHidden() || i.file == buildDir
     }
-    buildArgs([APP_ENV: 'slim'])
+    buildArgs([APP_ENV: docker_target])
 }
 tasks.getByName('docker').dependsOn('build')
 
