@@ -31,6 +31,9 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
+from datahub.ingestion.api.incremental_lineage_helper import (
+    convert_upstream_lineage_to_patch,
+)
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
@@ -104,7 +107,6 @@ from datahub.metadata.schema_classes import (
     UpstreamLineageClass,
     ViewPropertiesClass,
 )
-from datahub.specific.dataset import DatasetPatchBuilder
 from datahub.utilities.mapping import Constants, OperationProcessor
 from datahub.utilities.sqlglot_lineage import (
     SchemaInfo,
@@ -305,7 +307,7 @@ class DBTCommonConfig(
     # override default value to True.
     incremental_lineage: bool = Field(
         default=True,
-        description="When enabled, emits lineage as incremental to existing lineage already in DataHub. When disabled, re-states lineage on each run.",
+        description="When enabled, emits incremental/patch lineage for non-dbt entities. When disabled, re-states lineage on each run.",
     )
 
     @validator("target_platform")
@@ -370,6 +372,13 @@ class DBTCommonConfig(
             raise ValueError(
                 "`infer_dbt_schemas` must be enabled to use `include_column_lineage`"
             )
+
+        if include_column_lineage and values.get("incremental_lineage"):
+            # TODO allow this if the graph instance is also available
+            raise ValueError(
+                "cannot enable both `include_column_lineage` and `incremental_lineage`"
+            )
+
         return include_column_lineage
 
 
@@ -440,8 +449,9 @@ class DBTNode:
 
     @staticmethod
     def _join_parts(parts: List[Optional[str]]) -> str:
-        assert parts
-        return ".".join([part for part in parts if part])
+        joined = ".".join([part for part in parts if part])
+        assert joined
+        return joined
 
     def get_db_fqn(self) -> str:
         # Database might be None, but schema and name should always be present.
@@ -519,11 +529,9 @@ class DBTNode:
     def exists_in_target_platform(self):
         return not (self.is_ephemeral_model() or self.node_type == "test")
 
-    def merge_schema_fields(self, schema_fields: List[SchemaField]) -> None:
+    def columns_setdefault(self, schema_fields: List[SchemaField]) -> None:
         """
-        Merges the schema fields into the DBTNode.
-
-        This will prefer the dbt columns info over the schema metadata info.
+        Update the column list if they are not already set.
         """
 
         if self.columns:
@@ -855,6 +863,19 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         return {column.fieldPath: column.nativeDataType for column in schema_fields}
 
     def _infer_schemas_and_update_cll(self, all_nodes_map: Dict[str, DBTNode]) -> None:
+        """Annotate the DBTNode objects with schema information and column-level lineage.
+
+        Note that this mutates the DBTNode objects directly.
+
+        This method does the following:
+        1. Iterate over the dbt nodes in topological order.
+        2. For each node, either load the schema from the graph or from the dbt catalog info.
+           We also add this schema to the schema resolver.
+        3. Run sql parser to infer the schema + generate column lineage.
+        4. Write the schema and column lineage back to the DBTNode object.
+        5. If we haven't already added the node's schema to the schema resolver, do that.
+        """
+
         if not self.config.infer_dbt_schemas:
             if self.config.include_column_lineage:
                 raise ConfigurationError(
@@ -877,10 +898,9 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         for dbt_name in topological_sort(
             list(all_nodes_map.keys()),
             edges=list(
-                itertools.chain.from_iterable(
-                    [(upstream, node.dbt_name) for upstream in node.upstream_nodes]
-                    for node in all_nodes_map.values()
-                )
+                (upstream, node.dbt_name)
+                for node in all_nodes_map.values()
+                for upstream in node.upstream_nodes
             ),
         ):
             node = all_nodes_map[dbt_name]
@@ -915,12 +935,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             schema_fields: Optional[List[SchemaField]] = None
 
             # Fetch the schema from the graph.
-            if (
-                not schema_fields
-                and target_node_urn
-                and should_fetch_target_node_schema
-                and graph
-            ):
+            if target_node_urn and should_fetch_target_node_schema and graph:
                 schema_metadata = graph.get_aspect(target_node_urn, SchemaMetadata)
                 if schema_metadata:
                     schema_fields = schema_metadata.fields
@@ -999,13 +1014,13 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                         for upstream_column in column_lineage_info.upstreams
                         # Only include the CLL if the table in in the upstream list.
                         if target_platform_urn_to_dbt_name.get(upstream_column.table)
-                        and target_platform_urn_to_dbt_name[upstream_column.table]
                         in node.upstream_nodes
                     ]
 
             # If we didn't fetch the schema from the graph, use the inferred schema.
-            if not schema_fields and sql_result and sql_result.column_lineage:
-                schema_fields = [
+            inferred_schema_fields = None
+            if sql_result and sql_result.column_lineage:
+                inferred_schema_fields = [
                     SchemaField(
                         fieldPath=column_lineage.downstream.column,
                         type=column_lineage.downstream.column_type
@@ -1017,14 +1032,18 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 ]
 
             # Conditionally add the inferred schema to the schema resolver.
-            if not added_to_schema_resolver and target_node_urn and schema_fields:
+            if (
+                not added_to_schema_resolver
+                and target_node_urn
+                and inferred_schema_fields
+            ):
                 schema_resolver.add_raw_schema_info(
-                    target_node_urn, self._to_schema_info(schema_fields)
+                    target_node_urn, self._to_schema_info(inferred_schema_fields)
                 )
 
-            # Merge the schema fields into the dbt node.
-            if schema_fields:
-                node.merge_schema_fields(schema_fields)
+            # Save the inferred schema fields into the dbt node.
+            if inferred_schema_fields:
+                node.columns_setdefault(inferred_schema_fields)
 
     def create_platform_mces(
         self,
@@ -1118,19 +1137,15 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                         self.config.platform_instance,
                     )
                     upstreams_lineage_class = get_upstream_lineage([upstream_dbt_urn])
-                    if self.config.incremental_lineage:
-                        patch_builder: DatasetPatchBuilder = DatasetPatchBuilder(
-                            urn=node_datahub_urn
+                    if not is_primary_source and self.config.incremental_lineage:
+                        # We only generate incremental lineage for non-dbt nodes.
+                        wu = convert_upstream_lineage_to_patch(
+                            urn=node_datahub_urn,
+                            aspect=upstreams_lineage_class,
+                            system_metadata=None,
                         )
-                        for upstream in upstreams_lineage_class.upstreams:
-                            patch_builder.add_upstream_lineage(upstream)
-
-                        for mcp in patch_builder.build():
-                            yield MetadataWorkUnit(
-                                id=f"upstreamLineage-for-{node_datahub_urn}",
-                                mcp_raw=mcp,
-                                is_primary_source=is_primary_source,
-                            )
+                        wu.is_primary_source = is_primary_source
+                        yield wu
                     else:
                         aspects.append(upstreams_lineage_class)
 
