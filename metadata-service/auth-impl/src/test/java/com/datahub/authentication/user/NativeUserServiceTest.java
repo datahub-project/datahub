@@ -74,6 +74,16 @@ public class NativeUserServiceTest {
     _nativeUserService.createNativeUser(USER_URN_STRING, FULL_NAME, EMAIL, TITLE, PASSWORD, SYSTEM_AUTHENTICATION);
   }
 
+  @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "This user already exists! Cannot create a new user.")
+  public void testCreateNativeUserUserDatahub() throws Exception {
+    _nativeUserService.createNativeUser(DATAHUB_ACTOR, FULL_NAME, EMAIL, TITLE, PASSWORD, SYSTEM_AUTHENTICATION);
+  }
+
+  @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "This user already exists! Cannot create a new user.")
+  public void testCreateNativeUserUserSystemUser() throws Exception {
+    _nativeUserService.createNativeUser(SYSTEM_ACTOR, FULL_NAME, EMAIL, TITLE, PASSWORD, SYSTEM_AUTHENTICATION);
+  }
+
   @Test
   public void testCreateNativeUserPasses() throws Exception {
     when(_entityService.exists(any())).thenReturn(false);
