@@ -48,6 +48,7 @@ fragment downloadSearchResults on Entity {
             rowCount
             uniqueUserCountLast30Days
             sizeInBytes
+            queryCountLast30Days
         }
     }
     ... on CorpUser {

@@ -14,6 +14,7 @@ const VIEW_COUNT = 'view count';
 const UNIQUE_USERS = 'unique users';
 const ROW_COUNT = 'row count';
 const SIZE_IN_BYTES = 'size in bytes';
+const QUERIES_LAST_MONTH = 'queries last month';
 
 const searchCsvDownloadHeader = [
     'urn',
