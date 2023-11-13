@@ -1,12 +1,14 @@
 buildscript {
   ext.junitJupiterVersion = '5.6.1'
   // Releases: https://github.com/linkedin/rest.li/blob/master/CHANGELOG.md
-  ext.pegasusVersion = '29.45.0'
+  ext.pegasusVersion = '29.46.8'
   ext.mavenVersion = '3.6.3'
   ext.springVersion = '5.3.29'
   ext.springBootVersion = '2.7.14'
   ext.openTelemetryVersion = '1.18.0'
   ext.neo4jVersion = '4.4.9'
+  ext.neo4jTestVersion = '4.4.25'
+  ext.neo4jApocVersion = '4.4.0.20:all'
   ext.testContainersVersion = '1.17.4'
   ext.elasticsearchVersion = '2.9.0' // ES 7.10, Opensearch 1.x, 2.x
   ext.jacksonVersion = '2.15.2'
@@ -154,8 +156,10 @@ project.ext.externalDependency = [
     'mockServer': 'org.mock-server:mockserver-netty:5.11.2',
     'mockServerClient': 'org.mock-server:mockserver-client-java:5.11.2',
     'mysqlConnector': 'mysql:mysql-connector-java:8.0.20',
-    'neo4jHarness': 'org.neo4j.test:neo4j-harness:' + neo4jVersion,
+    'neo4jHarness': 'org.neo4j.test:neo4j-harness:' + neo4jTestVersion,
     'neo4jJavaDriver': 'org.neo4j.driver:neo4j-java-driver:' + neo4jVersion,
+    'neo4jTestJavaDriver': 'org.neo4j.driver:neo4j-java-driver:' + neo4jTestVersion,
+    'neo4jApoc': 'org.neo4j.procedure:apoc:' + neo4jApocVersion,
     'opentelemetryApi': 'io.opentelemetry:opentelemetry-api:' + openTelemetryVersion,
     'opentelemetryAnnotations': 'io.opentelemetry:opentelemetry-extension-annotations:' + openTelemetryVersion,
     'opentracingJdbc':'io.opentracing.contrib:opentracing-jdbc:0.2.15',
@@ -212,13 +216,13 @@ project.ext.externalDependency = [
     'testContainersOpenSearch': 'org.opensearch:opensearch-testcontainers:2.0.0',
     'typesafeConfig':'com.typesafe:config:1.4.1',
     'wiremock':'com.github.tomakehurst:wiremock:2.10.0',
-    'zookeeper': 'org.apache.zookeeper:zookeeper:3.4.14',
+    'zookeeper': 'org.apache.zookeeper:zookeeper:3.7.2',
     'wire': 'com.squareup.wire:wire-compiler:3.7.1',
     'charle':  'com.charleskorn.kaml:kaml:0.53.0',
     'common': 'commons-io:commons-io:2.7',
     'jline':'jline:jline:1.4.1',
     'jetbrains':' org.jetbrains.kotlin:kotlin-stdlib:1.6.0'
-    
+
 ]
 
 allprojects {

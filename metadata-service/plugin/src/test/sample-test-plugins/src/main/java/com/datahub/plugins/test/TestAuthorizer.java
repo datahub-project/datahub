@@ -75,7 +75,7 @@ public class TestAuthorizer implements Authorizer {
 
   @Override
   public AuthorizedActors authorizedActors(String privilege, Optional<EntitySpec> resourceSpec) {
-    return new AuthorizedActors("ALL", null, null, true, true);
+    return new AuthorizedActors("ALL", null, null, null, true, true);
   }
 }
 

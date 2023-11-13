@@ -1039,7 +1039,11 @@ def test_workspace_container(
                 "type": "powerbi",
                 "config": {
                     **default_source_config(),
+                    "workspace_id_pattern": {
+                        "deny": ["64ED5CAD-7322-4684-8180-826122881108"],
+                    },
                     "extract_workspaces_to_containers": True,
+                    "extract_datasets_to_containers": True,
                     "extract_reports": True,
                 },
             },
