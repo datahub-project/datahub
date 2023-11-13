@@ -72,11 +72,13 @@ public class DataHubAuthorizer implements Authorizer {
       final EntityClient entityClient,
       final int delayIntervalSeconds,
       final int refreshIntervalSeconds,
-      final AuthorizationMode mode) {
+      final AuthorizationMode mode,
+      final int policyFetchSize) {
     _systemAuthentication = Objects.requireNonNull(systemAuthentication);
     _mode = Objects.requireNonNull(mode);
     _policyEngine = new PolicyEngine(systemAuthentication, Objects.requireNonNull(entityClient));
-    _policyRefreshRunnable = new PolicyRefreshRunnable(systemAuthentication, new PolicyFetcher(entityClient), _policyCache, readWriteLock.writeLock());
+    _policyRefreshRunnable = new PolicyRefreshRunnable(systemAuthentication, new PolicyFetcher(entityClient), _policyCache,
+            readWriteLock.writeLock(), policyFetchSize);
     _refreshExecutorService.scheduleAtFixedRate(_policyRefreshRunnable, delayIntervalSeconds, refreshIntervalSeconds, TimeUnit.SECONDS);
   }
 
@@ -131,6 +133,7 @@ public class DataHubAuthorizer implements Authorizer {
 
     final List<Urn> authorizedUsers = new ArrayList<>();
     final List<Urn> authorizedGroups = new ArrayList<>();
+    final List<Urn> authorizedRoles = new ArrayList<>();
     boolean allUsers = false;
     boolean allGroups = false;
 
@@ -151,16 +154,17 @@ public class DataHubAuthorizer implements Authorizer {
       // Step 3: For each matching policy, add actors that are authorized.
       authorizedUsers.addAll(matchingActors.getUsers());
       authorizedGroups.addAll(matchingActors.getGroups());
-      if (matchingActors.allUsers()) {
+      authorizedRoles.addAll(matchingActors.getRoles());
+      if (matchingActors.getAllUsers()) {
         allUsers = true;
       }
-      if (matchingActors.allGroups()) {
+      if (matchingActors.getAllGroups()) {
         allGroups = true;
       }
     }
 
     // Step 4: Return all authorized users and groups.
-    return new AuthorizedActors(privilege, authorizedUsers, authorizedGroups, allUsers, allGroups);
+    return new AuthorizedActors(privilege, authorizedUsers, authorizedGroups, authorizedRoles, allUsers, allGroups);
   }
 
   /**
@@ -244,29 +248,28 @@ public class DataHubAuthorizer implements Authorizer {
     private final PolicyFetcher _policyFetcher;
     private final Map<String, List<DataHubPolicyInfo>> _policyCache;
     private final Lock writeLock;
+    private final int count;
 
     @Override
     public void run() {
       try {
         // Populate new cache and swap.
         Map<String, List<DataHubPolicyInfo>> newCache = new HashMap<>();
+        Integer total = null;
+        String scrollId = null;
 
-        int start = 0;
-        int count = 30;
-        int total = 30;
-
-        while (start < total) {
+        while (total == null || scrollId != null) {
           try {
             final PolicyFetcher.PolicyFetchResult
-                policyFetchResult = _policyFetcher.fetchPolicies(start, count, _systemAuthentication);
+                    policyFetchResult = _policyFetcher.fetchPolicies(count, scrollId, _systemAuthentication);
 
             addPoliciesToCache(newCache, policyFetchResult.getPolicies());
 
             total = policyFetchResult.getTotal();
-            start = start + count;
+            scrollId = policyFetchResult.getScrollId();
           } catch (Exception e) {
             log.error(
-                "Failed to retrieve policy urns! Skipping updating policy cache until next refresh. start: {}, count: {}", start, count, e);
+                    "Failed to retrieve policy urns! Skipping updating policy cache until next refresh. count: {}, scrollId: {}", count, scrollId, e);
             return;
           }
         }
