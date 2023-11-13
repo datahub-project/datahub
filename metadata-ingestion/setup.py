@@ -242,7 +242,7 @@ s3_base = {
 }
 
 data_lake_profiling = {
-    "pydeequ==1.1.0",
+    "pydeequ~=1.1.0",
     "pyspark~=3.3.0",
 }
 
@@ -256,7 +256,7 @@ powerbi_report_server = {"requests", "requests_ntlm"}
 databricks = {
     # 0.1.11 appears to have authentication issues with azure databricks
     "databricks-sdk>=0.9.0",
-    "pyspark",
+    "pyspark~=3.3.0",
     "requests",
 }
 
@@ -666,6 +666,7 @@ entry_points = {
     ],
     "datahub.ingestion.checkpointing_provider.plugins": [
         "datahub = datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider:DatahubIngestionCheckpointingProvider",
+        "file = datahub.ingestion.source.state_provider.file_ingestion_checkpointing_provider:FileIngestionCheckpointingProvider",
     ],
     "datahub.ingestion.reporting_provider.plugins": [
         "datahub = datahub.ingestion.reporting.datahub_ingestion_run_summary_provider:DatahubIngestionRunSummaryProvider",
