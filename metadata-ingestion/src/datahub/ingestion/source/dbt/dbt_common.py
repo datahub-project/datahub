@@ -1100,7 +1100,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 )  # mutates meta_aspects
 
             if mce_platform == DBT_PLATFORM:
-                aspects = self._generate_base_aspects(
+                aspects = self._generate_base_dbt_aspects(
                     node, additional_custom_props_filtered, mce_platform, meta_aspects
                 )
 
@@ -1252,7 +1252,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         )
         return view_properties
 
-    def _generate_base_aspects(
+    def _generate_base_dbt_aspects(
         self,
         node: DBTNode,
         additional_custom_props_filtered: Dict[str, str],
@@ -1260,8 +1260,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         meta_aspects: Dict[str, Any],
     ) -> List[Any]:
         """
-        There are some common aspects that get generated for both dbt node and platform node depending on whether dbt
-        node creation is enabled or not.
+        Some common aspects that get generated for dbt nodes.
         """
 
         # create an empty list of aspects and keep adding to it. Initializing with Any to avoid a
