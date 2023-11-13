@@ -373,12 +373,6 @@ class DBTCommonConfig(
                 "`infer_dbt_schemas` must be enabled to use `include_column_lineage`"
             )
 
-        if include_column_lineage and values.get("incremental_lineage"):
-            # TODO allow this if the graph instance is also available
-            raise ValueError(
-                "cannot enable both `include_column_lineage` and `incremental_lineage`"
-            )
-
         return include_column_lineage
 
 
