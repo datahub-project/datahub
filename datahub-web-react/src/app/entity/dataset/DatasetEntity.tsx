@@ -98,7 +98,7 @@ export class DatasetEntity implements Entity<Dataset> {
             }}
             tabs={[
                 {
-                    name: 'Schema',
+                    name: 'Columns',
                     component: SchemaTab,
                 },
                 {
