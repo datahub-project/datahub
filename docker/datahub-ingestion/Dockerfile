@@ -32,8 +32,8 @@ COPY ./docker/datahub-ingestion/pyspark_jars.sh .
 
 RUN pip install --no-cache --user ".[base]" && \
     pip install --no-cache --user "./airflow-plugin[acryl-datahub-airflow-plugin]" && \
-    pip install --no-cache --user ".[all]" && \
-    ./pyspark_jars.sh
+    pip install --no-cache --user ".[all]"
+RUN ./pyspark_jars.sh
 
 FROM base as full-install
 
