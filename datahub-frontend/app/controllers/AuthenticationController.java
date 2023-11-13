@@ -200,10 +200,16 @@ public class AuthenticationController extends Controller {
             return Results.badRequest(invalidCredsJson);
         }
 
-        Constraints.EmailValidator emailValidator = new Constraints.EmailValidator();
-        if (StringUtils.isBlank(email) || !emailValidator.isValid(email)) {
+        if (StringUtils.isBlank(email)) {
             JsonNode invalidCredsJson = Json.newObject().put("message", "Email must not be empty.");
             return Results.badRequest(invalidCredsJson);
+        }
+        if (_nativeAuthenticationConfigs.isEnforceValidEmailEnabled()) {
+            Constraints.EmailValidator emailValidator = new Constraints.EmailValidator();
+            if (!emailValidator.isValid(email)) {
+                JsonNode invalidCredsJson = Json.newObject().put("message", "Email must not be empty.");
+                return Results.badRequest(invalidCredsJson);
+            }
         }
 
         if (StringUtils.isBlank(password)) {
