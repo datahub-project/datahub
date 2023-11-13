@@ -84,6 +84,8 @@ public class ActionRequestUtils {
             Collectors.toList()));
         actionRequest.setAssignedGroups(actionRequestInfo.getAssignedGroups().stream().map(Urn::toString).collect(
             Collectors.toList()));
+        actionRequest.setAssignedRoles(actionRequestInfo.getAssignedRoles().stream().map(Urn::toString).collect(
+            Collectors.toList()));
 
         if (actionRequestInfo.hasResource()) {
           // For now, resource must be of Urn type to qualify. This assumption needs to be documented explicitly somewhere.
