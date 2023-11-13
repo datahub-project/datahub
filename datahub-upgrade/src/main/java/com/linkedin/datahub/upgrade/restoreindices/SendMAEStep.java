@@ -140,6 +140,7 @@ public class SendMAEStep implements UpgradeStep {
           args = args.clone();
           if (previousResult != null) {
             args.lastUrn = previousResult.lastUrn;
+            args.lastAspect = previousResult.lastAspect;
           }
           args.start = start;
           context.report().addLine(String.format("Getting next batch of urns + aspects, starting with %s - %s", args.lastUrn, args.lastAspect));
