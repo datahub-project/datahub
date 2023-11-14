@@ -1,3 +1,10 @@
+extend type Mutation {
+    """
+    Propose creation or addition of data contract
+    """
+    proposeDataContract(input: ProposeDataContractInput!): Boolean
+}
+
 extend type Dataset {
     """
     Proposed tags and terms on the given entity
@@ -95,6 +102,7 @@ type ActionRequestsConfig {
     """
     enabled: Boolean!
 }
+
 enum ActionRequestType {
     """
     Requests to associate a tag with an entity or sub resource
@@ -116,6 +124,10 @@ enum ActionRequestType {
     Requests to update a description
     """
     UPDATE_DESCRIPTION
+    """
+    Data Contract Proposal
+    """
+    DATA_CONTRACT
 }
 enum ActionRequestStatus {
     """
@@ -154,6 +166,11 @@ input ListActionRequestsInput {
     An optional Status filter
     """
     status: ActionRequestStatus
+    """
+    An optional resource urn associated with the proposal. This represents
+    the entity being proposed against.
+    """
+    resourceUrn: String
     """
     An optional action request assignee to filter by. If not provided, all
     action requests that the authenticated user is assigned to will be returned.
@@ -329,6 +346,10 @@ type ActionRequestParams {
     Updating a Description specific arguments
     """
     updateDescriptionProposal: UpdateDescriptionProposalParams
+    """
+    Data contract proposal
+    """
+    dataContractProposal: DataContractProposalParams
 }
 
 enum AssigneeType {
@@ -387,6 +408,41 @@ type UpdateDescriptionProposalParams {
     description: String!
 }
 
+enum DataContractProposalOperationType {
+    """
+    Add the contracts to existing contract
+    """
+    ADD,
+    """
+    Overwrite the contracts to existing contract
+    """
+    OVERWRITE
+}
+
+type DataContractProposalParams {
+    """
+    The operation type to use when applying the proposal
+    """
+    operationType: DataContractProposalOperationType
+
+    """
+    The Freshness (SLA) portion of the contract. If not provided, this will be set to none.
+    For Dataset Contracts, it is expected that there will not be more than 1 FRESHNESS contract. If there are, only the first will be displayed.
+    """
+    freshness: [FreshnessContract!]
+
+    """
+    The schema / structural portion of the contract. If not provided, this will be set to none.
+    For Dataset Contracts, it is expected that there will not be more than 1 Schema contract. If there are, only the first will be displayed.
+    """
+    schema: [SchemaContract!]
+
+    """
+    The data quality portion of the contract. If not provided, this will be set to none.
+    """
+    dataQuality: [DataQualityContract!]
+}
+
 """
 Resource level properties for an action request.
 """
@@ -413,4 +469,39 @@ type ActionRequestSubResourceProperties {
     Tags that are applied to the sub-resource.
     """
     tags: GlobalTags
+}
+
+
+"""
+Input required to propose the addition of assertions to a data contract.
+If the proposal is approved, and a contract does not exist, one will be created.
+"""
+input ProposeDataContractInput {
+  """
+  The urn of the entity (e.g. dataset) associated with the contract.
+  Dataset is the only entity currently supported.
+  """
+  entityUrn: String!
+
+  """
+  The proposal type - either add contracts to the existing contract, or overwrite with a new contract.
+  """
+  operationType: DataContractProposalOperationType!
+
+  """
+  The Freshness / SLA portion of the contract. If not provided, this will be set to none.
+  For Dataset Contracts, it is expected that there will not be more than 1 Freshness contract. If there are, only the first will be displayed.
+  """
+  freshness: [FreshnessContractInput!]
+
+  """
+  The schema / structural portion of the contract. If not provided, this will be set to none.
+  For Dataset Contracts, it is expected that there will not be more than 1 Schema contract. If there are, only the first will be displayed.
+  """
+  schema: [SchemaContractInput!]
+
+  """
+  The data quality portion of the contract. If not provided, this will be set to none.
+  """
+  dataQuality: [DataQualityContractInput!]
 }

@@ -11,6 +11,8 @@ import {
     CheckOutlined,
     CloseOutlined,
     ApiOutlined,
+    CodeOutlined,
+    ExclamationCircleOutlined,
 } from '@ant-design/icons';
 import {
     Assertion,
@@ -24,12 +26,13 @@ import {
     MonitorMode,
 } from '../../../../../../types.generated';
 import { sortAssertions } from './assertionUtils';
-import { AssertionGroup, AssertionGroupSummary } from './acrylTypes';
+import { AssertionGroup, AssertionStatusSummary } from './acrylTypes';
 import { lowerFirstLetter } from '../../../../../shared/textUtil';
 import { useIngestionSourceForEntityQuery } from '../../../../../../graphql/ingestion.generated';
 
-const SUCCESS_COLOR_HEX = '#52C41A';
-const FAILURE_COLOR_HEX = '#F5222D';
+export const SUCCESS_COLOR_HEX = '#52C41A';
+export const FAILURE_COLOR_HEX = '#F5222D';
+export const WARNING_COLOR_HEX = '#FA8C16';
 
 const StyledClockCircleOutlined = styled(ClockCircleOutlined)`
     && {
@@ -85,12 +88,30 @@ const StyledCheckOutlined = styled(CheckOutlined)`
     }
 `;
 
-const StyleCloseOutlined = styled(CloseOutlined)`
+const StyledCloseOutlined = styled(CloseOutlined)`
     && {
         color: ${FAILURE_COLOR_HEX};
         font-size: 14px;
         padding: 0px;
         margin: 0px;
+    }
+`;
+
+const StyledExclamationOutlined = styled(ExclamationCircleOutlined)`
+    && {
+        color: ${WARNING_COLOR_HEX};
+        font-size: 14px;
+        padding: 0px;
+        margin: 0px;
+    }
+`;
+
+const StyledCodeOutlined = styled(CodeOutlined)`
+    && {
+        margin: 0px;
+        padding: 0px;
+        margin-right: 8px;
+        font-size: 18px;
     }
 `;
 
@@ -142,6 +163,15 @@ export const ASSERTION_INFO = [
         enabled: false,
         visible: false,
     },
+    {
+        name: 'Schema',
+        description: 'Assertions that verify the schema of an asset.',
+        icon: <StyledCodeOutlined />,
+        type: AssertionType.DataSchema,
+        entityTypes: [EntityType.Dataset],
+        enabled: false,
+        visible: false,
+    },
 ];
 
 const ASSERTION_TYPE_TO_INFO = new Map();
@@ -162,12 +192,12 @@ const getAssertionGroupTypeIcon = (type: AssertionType) => {
  *
  * @param assertions The assertions to extract the summary for
  */
-export const getAssertionGroupSummary = (assertions: Assertion[]) => {
+export const getAssertionsSummary = (assertions: Assertion[]): AssertionStatusSummary => {
     const summary = {
-        failedRuns: 0,
-        succeededRuns: 0,
-        totalRuns: 0,
-        erroredRuns: 0,
+        passing: 0,
+        failing: 0,
+        erroring: 0,
+        total: 0,
         totalAssertions: assertions.length,
     };
     assertions.forEach((assertion) => {
@@ -175,20 +205,35 @@ export const getAssertionGroupSummary = (assertions: Assertion[]) => {
             const mostRecentRun = assertion.runEvents?.runEvents?.[0];
             const resultType = mostRecentRun?.result?.type;
             if (AssertionResultType.Success === resultType) {
-                summary.succeededRuns++;
+                summary.passing++;
             }
             if (AssertionResultType.Failure === resultType) {
-                summary.failedRuns++;
+                summary.failing++;
             }
             if (AssertionResultType.Error === resultType) {
-                summary.erroredRuns++;
+                summary.erroring++;
             }
             if (AssertionResultType.Init !== resultType) {
-                summary.totalRuns++; // only count assertions for which there is one completed run event, ignoring INIT statuses!
+                summary.total++; // only count assertions for which there is one completed run event, ignoring INIT statuses!
             }
         }
     });
     return summary;
+};
+
+/**
+ * TODO: We will remove this mapping code once we replace the OSS legacy assertions summary with the new
+ * format.
+ */
+export const getLegacyAssertionsSummary = (assertions: Assertion[]) => {
+    const newSummary = getAssertionsSummary(assertions);
+    return {
+        failedRuns: newSummary.failing,
+        succeededRuns: newSummary.passing,
+        erroredRuns: newSummary.erroring,
+        totalRuns: newSummary.total,
+        totalAssertions: newSummary.totalAssertions,
+    };
 };
 
 /**
@@ -219,7 +264,8 @@ export const createAssertionGroups = (assertions: Array<Assertion>): AssertionGr
             name: getAssertionGroupName(type),
             icon: getAssertionGroupTypeIcon(type),
             assertions: groupedAssertions,
-            summary: getAssertionGroupSummary(groupedAssertions),
+            summary: getAssertionsSummary(groupedAssertions),
+            type,
         };
         assertionGroups.push(newGroup);
     });
@@ -227,27 +273,32 @@ export const createAssertionGroups = (assertions: Array<Assertion>): AssertionGr
     return assertionGroups;
 };
 
-export const getAssertionGroupSummaryIcon = (summary: AssertionGroupSummary) => {
-    if (summary.succeededRuns === 0 && summary.failedRuns === 0) {
+// TODO: Make this the default inside DatasetAssertionsSummary.tsx.
+export const getAssertionGroupSummaryIcon = (summary: AssertionStatusSummary) => {
+    if (summary.total === 0) {
         return null;
     }
-    if (summary.succeededRuns === summary.totalRuns) {
+    if (summary.passing === summary.total) {
         return <StyledCheckOutlined />;
     }
-    return <StyleCloseOutlined />;
+    if (summary.erroring > 0) {
+        return <StyledExclamationOutlined />;
+    }
+    return <StyledCloseOutlined />;
 };
 
-export const getAssertionGroupSummaryMessage = (summary: AssertionGroupSummary) => {
-    if (summary.totalRuns === 0) {
+// TODO: Make this the default inside DatasetAssertionsSummary.tsx.
+export const getAssertionGroupSummaryMessage = (summary: AssertionStatusSummary) => {
+    if (summary.total === 0) {
         return 'No assertions have run';
     }
-    if (summary.succeededRuns === summary.totalRuns) {
+    if (summary.passing === summary.total) {
         return 'All assertions are passing';
     }
-    if (summary.erroredRuns > 0) {
+    if (summary.erroring > 0) {
         return 'An error is preventing some assertions from running';
     }
-    if (summary.failedRuns === summary.totalRuns) {
+    if (summary.failing === summary.total) {
         return 'All assertions are failing';
     }
     return 'Some assertions are failing';
@@ -309,6 +360,29 @@ export const canManageAssertionMonitor = (monitor: any, connectionForEntityExist
         assertionParameters?.datasetFreshnessParameters?.sourceType === DatasetFreshnessSourceType.DatahubOperation ||
         assertionParameters?.datasetVolumeParameters?.sourceType === DatasetVolumeSourceType.DatahubDatasetProfile
     );
+};
+
+export const getEntityUrnForAssertion = (assertion: Assertion) => {
+    if (assertion.info?.type === AssertionType.Dataset) {
+        return assertion.info?.datasetAssertion?.datasetUrn;
+    }
+    if (assertion.info?.type === AssertionType.Freshness) {
+        return assertion.info?.freshnessAssertion?.entityUrn;
+    }
+    if (assertion.info?.type === AssertionType.Volume) {
+        return assertion.info?.volumeAssertion?.entityUrn;
+    }
+    if (assertion.info?.type === AssertionType.Field) {
+        return assertion.info?.fieldAssertion?.entityUrn;
+    }
+    if (assertion.info?.type === AssertionType.Sql) {
+        return assertion.info?.sqlAssertion?.entityUrn;
+    }
+    if (assertion.info?.type === AssertionType.DataSchema) {
+        return assertion.info?.schemaAssertion?.entityUrn;
+    }
+    console.error(`Unable to extract entity urn from unrecognized assertion with type ${assertion.info?.type}`);
+    return undefined;
 };
 
 export const useConnectionForEntityExists = (entityUrn: string) => {

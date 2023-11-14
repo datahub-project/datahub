@@ -146,5 +146,11 @@ export const createCachedAssertionWithMonitor = (assertion: Assertion, monitor: 
             succeeded: 0,
             runEvents: [],
         },
+        contract: {
+            start: 0,
+            count: 0,
+            total: 0,
+            relationships: [],
+        },
     };
 };

@@ -380,10 +380,21 @@ public class PoliciesConfig {
       "The ability to edit monitors for the entity.");
 
   public static final Privilege EDIT_ENTITY_SQL_ASSERTION_MONITORS = Privilege.of(
-      "EDIT_ENTITY_SQL_ASSERTION_MONITORS",
-      "Edit SQL Assertion Monitors",
-      "The ability to edit custom SQL assertion monitors for the entity. "
-          + "Note that this gives read query access to users with through the Custom SQL assertion builder. Grant with care.");
+    "EDIT_ENTITY_SQL_ASSERTION_MONITORS",
+    "Edit SQL Assertion Monitors",
+    "The ability to edit custom SQL assertion monitors for the entity. "
+        + "Note that this gives read query access to users with through the Custom SQL assertion builder. Grant with care.");
+  
+  public static final Privilege EDIT_ENTITY_DATA_CONTRACT_PRIVILEGE = Privilege.of(
+      "EDIT_ENTITY_DATA_CONTRACT",
+      "Edit Data Contract",
+      "The ability to edit the Data Contract for an entity.");
+
+  public static final Privilege MANAGE_ENTITY_DATA_CONTRACT_PROPOSALS_PRIVILEGE = Privilege.of(
+      "MANAGE_ENTITY_DATA_CONTRACT_PROPOSALS",
+      "Manage Data Contract Proposals",
+      "The ability to manage a proposal for a Data Contract");
+  // End acryl-main
 
   // Tag Privileges
   public static final Privilege EDIT_TAG_COLOR_PRIVILEGE = Privilege.of(
@@ -512,9 +523,11 @@ public class PoliciesConfig {
               EDIT_LINEAGE_PRIVILEGE,
               EDIT_ENTITY_EMBED_PRIVILEGE,
               EDIT_QUERIES_PRIVILEGE,
-              EDIT_ENTITY_MONITORS,
-              EDIT_ENTITY_SQL_ASSERTION_MONITORS) // Acryl-Main only
-      )
+              EDIT_ENTITY_MONITORS, // Acryl main only
+              EDIT_ENTITY_SQL_ASSERTION_MONITORS, // Acryl main only
+              EDIT_ENTITY_DATA_CONTRACT_PRIVILEGE, // Acryl main only
+              MANAGE_ENTITY_DATA_CONTRACT_PROPOSALS_PRIVILEGE) // Acryl main only
+          )
           .flatMap(Collection::stream)
           .collect(Collectors.toList())
   );

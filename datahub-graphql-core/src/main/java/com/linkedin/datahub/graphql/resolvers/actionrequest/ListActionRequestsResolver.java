@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.actionrequest;
 
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.ActionRequestAssignee;
 import com.linkedin.datahub.graphql.generated.ActionRequestStatus;
@@ -64,6 +65,7 @@ public class ListActionRequestsResolver implements DataFetcher<CompletableFuture
     final ActionRequestType type = input.getType() == null ? null : input.getType();
     final ActionRequestStatus status = input.getStatus() == null ? null : input.getStatus();
     final ActionRequestAssignee assignee = input.getAssignee() == null ? null : input.getAssignee();
+    final Urn resourceUrn = input.getResourceUrn() == null ? null : UrnUtils.getUrn(input.getResourceUrn());
     final Long startTimestampMillis = input.getStartTimestampMillis() == null ? null : input.getStartTimestampMillis();
     final Long endTimestampMillis = input.getEndTimestampMillis() == null ? null : input.getEndTimestampMillis();
 
@@ -88,7 +90,7 @@ public class ListActionRequestsResolver implements DataFetcher<CompletableFuture
           }
         }
 
-        final Filter filter = createFilter(actorUrn, groupUrns, type, status, startTimestampMillis, endTimestampMillis);
+        final Filter filter = createFilter(actorUrn, groupUrns, type, status, resourceUrn, startTimestampMillis, endTimestampMillis);
 
         final SortCriterion sortCriterion = new SortCriterion()
             .setField(CREATED_FIELD_NAME)
@@ -119,23 +121,27 @@ public class ListActionRequestsResolver implements DataFetcher<CompletableFuture
 
   private Filter createFilter(final @Nullable Urn actorUrn, final @Nullable List<Urn> groupUrns,
       final @Nullable ActionRequestType type, final @Nullable ActionRequestStatus status,
+      final @Nullable Urn resourceUrn,
       final @Nullable Long startTimestampMillis, final @Nullable Long endTimestampMillis) {
     final Filter filter = new Filter();
     final ConjunctiveCriterionArray disjunction = new ConjunctiveCriterionArray();
     // If actor and group are both provided, "or" the results.
     if (actorUrn != null) {
-      disjunction.add(createUserFilterConjunction(actorUrn, type, status, startTimestampMillis, endTimestampMillis));
+      disjunction.add(createUserFilterConjunction(actorUrn, type, status, resourceUrn, startTimestampMillis, endTimestampMillis));
     }
     if (groupUrns != null) {
       disjunction.addAll(
-          createGroupFilterDisjunction(groupUrns, type, status, startTimestampMillis, endTimestampMillis));
+          createGroupFilterDisjunction(groupUrns, type, status, resourceUrn, startTimestampMillis, endTimestampMillis));
     }
     filter.setOr(disjunction);
     return filter;
   }
 
-  private ConjunctiveCriterion createUserFilterConjunction(final Urn userUrn, final @Nullable ActionRequestType type,
-      final @Nullable ActionRequestStatus status, final @Nullable Long startTimestampMillis,
+  private ConjunctiveCriterion createUserFilterConjunction(final Urn userUrn,
+      final @Nullable ActionRequestType type,
+      final @Nullable ActionRequestStatus status,
+      final @Nullable Urn resourceUrn,
+      final @Nullable Long startTimestampMillis,
       final @Nullable Long endTimestampMillis) {
     final ConjunctiveCriterion conjunction = new ConjunctiveCriterion();
     final CriterionArray andCriterion = new CriterionArray();
@@ -150,6 +156,9 @@ public class ListActionRequestsResolver implements DataFetcher<CompletableFuture
     if (type != null) {
       andCriterion.add(ActionRequestUtils.createTypeCriterion(type));
     }
+    if (resourceUrn != null) {
+      andCriterion.add(ActionRequestUtils.createResourceCriterion(resourceUrn.toString()));
+    }
     if (startTimestampMillis != null) {
       andCriterion.add(ActionRequestUtils.createStartTimestampCriterion(startTimestampMillis));
     }
@@ -161,8 +170,11 @@ public class ListActionRequestsResolver implements DataFetcher<CompletableFuture
   }
 
   private List<ConjunctiveCriterion> createGroupFilterDisjunction(final List<Urn> groupUrns,
-      final @Nullable ActionRequestType type, final @Nullable ActionRequestStatus status,
-      final @Nullable Long startTimestampMillis, final @Nullable Long endTimestampMillis) {
+      final @Nullable ActionRequestType type,
+      final @Nullable ActionRequestStatus status,
+      final @Nullable Urn resourceUrn,
+      final @Nullable Long startTimestampMillis,
+      final @Nullable Long endTimestampMillis) {
     final List<ConjunctiveCriterion> disjunction = new ArrayList<>();
     // Create a new filter for each group urn, where the urn, type, and status must all match.
     for (Urn groupUrn : groupUrns) {
@@ -178,6 +190,9 @@ public class ListActionRequestsResolver implements DataFetcher<CompletableFuture
       }
       if (type != null) {
         andCriterion.add(ActionRequestUtils.createTypeCriterion(type));
+      }
+      if (resourceUrn != null) {
+        andCriterion.add(ActionRequestUtils.createResourceCriterion(resourceUrn.toString()));
       }
       if (startTimestampMillis != null) {
         andCriterion.add(ActionRequestUtils.createStartTimestampCriterion(startTimestampMillis));

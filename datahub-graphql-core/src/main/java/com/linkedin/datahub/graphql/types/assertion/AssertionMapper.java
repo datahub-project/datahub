@@ -17,6 +17,7 @@ import com.linkedin.datahub.graphql.generated.AssertionStdParameters;
 import com.linkedin.datahub.graphql.generated.AssertionType;
 import com.linkedin.datahub.graphql.generated.AssertionSourceType;
 import com.linkedin.datahub.graphql.generated.FreshnessAssertionInfo;
+import com.linkedin.datahub.graphql.generated.SchemaAssertionInfo;
 import com.linkedin.datahub.graphql.generated.FixedIntervalSchedule;
 import com.linkedin.datahub.graphql.generated.DateInterval;
 import com.linkedin.datahub.graphql.generated.DataPlatform;
@@ -29,6 +30,7 @@ import com.linkedin.datahub.graphql.generated.SqlAssertionInfo;
 import com.linkedin.datahub.graphql.generated.VolumeAssertionInfo;
 import com.linkedin.datahub.graphql.types.common.mappers.DataPlatformInstanceAspectMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StringMapMapper;
+import com.linkedin.datahub.graphql.types.dataset.mappers.SchemaMetadataMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
@@ -99,6 +101,11 @@ public class AssertionMapper {
     if (gmsAssertionInfo.hasFieldAssertion()) {
       FieldAssertionInfo fieldAssertionInfo = FieldAssertionMapper.mapFieldAssertionInfo(gmsAssertionInfo.getFieldAssertion());
       assertionInfo.setFieldAssertion(fieldAssertionInfo);
+    }
+    // SCHEMA Assertions
+    if (gmsAssertionInfo.hasSchemaAssertion()) {
+      SchemaAssertionInfo schemaAssertionInfo = mapSchemaAssertionInfo(gmsAssertionInfo.getSchemaAssertion());
+      assertionInfo.setSchemaAssertion(schemaAssertionInfo);
     }
     // Source Type
     if (gmsAssertionInfo.hasSource()) {
@@ -230,7 +237,17 @@ public class AssertionMapper {
     result.setType(gmsField.getType());
     result.setNativeType(gmsField.getNativeType());
     return result;
-}
+  }
+
+  private static SchemaAssertionInfo mapSchemaAssertionInfo(final com.linkedin.assertion.SchemaAssertionInfo gmsSchemaAssertionInfo) {
+    SchemaAssertionInfo result = new SchemaAssertionInfo();
+    result.setEntityUrn(gmsSchemaAssertionInfo.getEntity().toString());
+    result.setSchema(SchemaMetadataMapper.INSTANCE.apply(
+        gmsSchemaAssertionInfo.getSchema(),
+        null,
+        0L));
+    return result;
+  }
 
   protected AssertionMapper() {
   }

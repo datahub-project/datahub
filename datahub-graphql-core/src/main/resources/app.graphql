@@ -914,12 +914,17 @@ type FeatureFlagsConfig {
   Whether subscriptions should be enabled
   """
   subscriptionsEnabled: Boolean!
-  
+
   """
   Enables the nested Domains feature that allows users to have sub-Domains.
   If this is off, Domains appear "flat" again.
   """
   nestedDomainsEnabled: Boolean!
+
+  """
+  Whether data contracts should be enabled
+  """
+  dataContractsEnabled: Boolean!
 }
 
 """

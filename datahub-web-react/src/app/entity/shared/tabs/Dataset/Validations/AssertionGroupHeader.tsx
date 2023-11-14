@@ -44,7 +44,7 @@ type Props = {
 export const AssertionGroupHeader = ({ group }: Props) => {
     const { summary } = group;
     const summaryIcon = getAssertionGroupSummaryIcon(summary);
-    const summaryMessage = `${summary.succeededRuns} passing assertions, ${summary.failedRuns} failing assertions`;
+    const summaryMessage = `${summary.passing} passing assertions, ${summary.failing} failing assertions`;
     return (
         <Tooltip title="This status is based on the most recent run of each assertion.">
             <Container>

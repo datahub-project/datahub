@@ -354,6 +354,11 @@ public class Constants {
   public static final String MONITOR_KEY_ASPECT_NAME = "monitorKey";
   public static final String MONITOR_INFO_ASPECT_NAME = "monitorInfo";
 
+  // Data Contracts
+  public static final String DATA_CONTRACT_ENTITY_NAME = "dataContract";
+  public static final String DATA_CONTRACT_PROPERTIES_ASPECT_NAME = "dataContractProperties";
+  public static final String DATA_CONTRACT_KEY_ASPECT_NAME = "dataContractKey";
+  public static final String DATA_CONTRACT_STATUS_ASPECT_NAME = "dataContractStatus";
 
   /**
    * Relationships

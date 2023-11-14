@@ -1,11 +1,15 @@
 import React from 'react';
 import styled from 'styled-components';
 import { Tooltip, Typography, Dropdown, Button, Tag } from 'antd';
-import { ArrowRightOutlined, MoreOutlined, StopOutlined } from '@ant-design/icons';
+import { AuditOutlined, ArrowRightOutlined, MoreOutlined, StopOutlined } from '@ant-design/icons';
+import { Link } from 'react-router-dom';
 import { DatasetAssertionDescription } from './DatasetAssertionDescription';
 import {
     Assertion,
     AssertionType,
+    EntityType,
+    DataContract,
+    SchemaAssertionInfo,
     DataPlatform,
     MonitorMode,
     AssertionSourceType,
@@ -18,6 +22,7 @@ import {
 } from '../../../../../../types.generated';
 import { getResultColor, getResultIcon, getResultText } from './assertionUtils';
 import { FreshnessAssertionDescription } from './FreshnessAssertionDescription';
+import { SchemaAssertionDescription } from './SchemaAssertionDescription';
 import { InferredAssertionPopover } from './InferredAssertionPopover';
 import { InferredAssertionBadge } from './InferredAssertionBadge';
 import { ANTD_GRAY, REDESIGN_COLORS } from '../../../constants';
@@ -26,6 +31,9 @@ import { AssertionActionsMenu } from './AssertionActionsMenu';
 import { VolumeAssertionDescription } from './VolumeAssertionDescription';
 import { SqlAssertionDescription } from './SqlAssertionDescription';
 import { FieldAssertionDescription } from './FieldAssertionDescription';
+import { useEntityRegistry } from '../../../../../useEntityRegistry';
+import { getEntityUrnForAssertion } from './acrylUtils';
+import { isAssertionPartOfContract } from './contract/utils';
 
 const DetailsContainer = styled.div`
     display: flex;
@@ -62,9 +70,16 @@ const StyledArrowRightOutlined = styled(ArrowRightOutlined)`
 
 const UNKNOWN_DATA_PLATFORM = 'urn:li:dataPlatform:unknown';
 
+const DataContractLogo = styled(AuditOutlined)`
+    margin-left: 8px;
+    font-size: 16px;
+    color: ${REDESIGN_COLORS.BLUE};
+`;
+
 interface DetailsColumnProps {
     assertion: Assertion;
     monitor?: Monitor;
+    contract?: DataContract;
     lastEvaluationTimeMs?: number;
     lastEvaluationResult?: AssertionResultType;
     onViewAssertionDetails: () => void;
@@ -73,13 +88,17 @@ interface DetailsColumnProps {
 export function DetailsColumn({
     assertion,
     monitor,
+    contract,
     lastEvaluationTimeMs,
     lastEvaluationResult,
     onViewAssertionDetails,
 }: DetailsColumnProps) {
+    const entityRegistry = useEntityRegistry();
     if (!assertion.info) {
         return <>No details found</>;
     }
+    const assertionEntityUrn = getEntityUrnForAssertion(assertion);
+    const isPartOfContract = contract && isAssertionPartOfContract(assertion, contract);
     const assertionInfo = assertion.info;
     const assertionType = assertionInfo.type;
     const isInferred = assertionInfo.source?.type === AssertionSourceType.Inferred;
@@ -112,7 +131,6 @@ export function DetailsColumn({
             {assertionType === AssertionType.Freshness && (
                 <FreshnessAssertionDescription
                     assertionInfo={assertionInfo.freshnessAssertion as FreshnessAssertionInfo}
-                    monitorSchedule={monitor?.info?.assertionMonitor?.assertions[0]?.schedule}
                 />
             )}
             {assertionType === AssertionType.Volume && (
@@ -121,6 +139,9 @@ export function DetailsColumn({
             {assertionType === AssertionType.Sql && <SqlAssertionDescription assertionInfo={assertionInfo} />}
             {assertionType === AssertionType.Field && (
                 <FieldAssertionDescription assertionInfo={assertionInfo.fieldAssertion as FieldAssertionInfo} />
+            )}
+            {assertionType === AssertionType.DataSchema && (
+                <SchemaAssertionDescription assertionInfo={assertionInfo.schemaAssertion as SchemaAssertionInfo} />
             )}
             {[AssertionType.Freshness, AssertionType.Volume, AssertionType.Field, AssertionType.Sql].includes(
                 assertionType,
@@ -140,23 +161,57 @@ export function DetailsColumn({
                     <InferredAssertionBadge />
                 </InferredAssertionPopover>
             )}
+            {(isPartOfContract && assertionEntityUrn && (
+                <Tooltip
+                    title={
+                        <>
+                            Part of Data Contract{' '}
+                            <Link
+                                to={`${entityRegistry.getEntityUrl(
+                                    EntityType.Dataset,
+                                    assertionEntityUrn,
+                                )}/Validation/Data Contract`}
+                                style={{ color: REDESIGN_COLORS.BLUE }}
+                            >
+                                view
+                            </Link>
+                        </>
+                    }
+                >
+                    <Link
+                        to={`${entityRegistry.getEntityUrl(
+                            EntityType.Dataset,
+                            assertionEntityUrn,
+                        )}/Validation/Data Contract`}
+                    >
+                        <DataContractLogo />
+                    </Link>
+                </Tooltip>
+            )) ||
+                undefined}
         </DetailsContainer>
     );
 }
 
 interface ActionsColumnProps {
+    assertion: Assertion;
     platform?: DataPlatform;
     monitor?: Monitor;
     canManageAssertion: boolean;
+    contract?: DataContract;
     lastEvaluationUrl?: string;
     onManageAssertion: () => void;
     onDeleteAssertion: () => void;
     onStartMonitor: () => void;
     onStopMonitor: () => void;
+    onAddToContract?: () => void;
+    onRemoveFromContract?: () => void;
 }
 
 export function ActionsColumn({
+    assertion,
     platform,
+    contract,
     monitor,
     canManageAssertion,
     lastEvaluationUrl,
@@ -164,8 +219,11 @@ export function ActionsColumn({
     onDeleteAssertion,
     onStartMonitor,
     onStopMonitor,
+    onAddToContract,
+    onRemoveFromContract,
 }: ActionsColumnProps) {
     const isStopped = monitor?.info?.status?.mode === MonitorMode.Inactive;
+    const isPartOfContract = contract && isAssertionPartOfContract(assertion, contract);
     return (
         <ActionButtonContainer>
             {isStopped && (
@@ -189,10 +247,13 @@ export function ActionsColumn({
                     <AssertionActionsMenu
                         monitor={monitor}
                         canManageAssertion={canManageAssertion}
+                        isPartOfContract={isPartOfContract}
                         onManageAssertion={onManageAssertion}
                         onDeleteAssertion={onDeleteAssertion}
                         onStartMonitor={onStartMonitor}
                         onStopMonitor={onStopMonitor}
+                        onAddToContract={onAddToContract}
+                        onRemoveFromContract={onRemoveFromContract}
                     />
                 }
                 trigger={['click']}

@@ -10,13 +10,14 @@ import { useAppConfig } from '../../../../../useAppConfig';
 import { AssertionMonitorBuilderModal } from './assertion/builder/AssertionMonitorBuilderModal';
 import TabToolbar from '../../../components/styled/TabToolbar';
 import { isEntityEligibleForAssertionMonitoring } from './assertion/builder/utils';
-import { createAssertionGroups, getAssertionGroupSummary } from './acrylUtils';
+import { createAssertionGroups, getLegacyAssertionsSummary } from './acrylUtils';
 import { AssertionGroupTable } from './AssertionGroupTable';
 import {
     updateDatasetAssertionsCache,
     removeFromDatasetAssertionsCache,
     createCachedAssertionWithMonitor,
 } from './acrylCacheUtils';
+import { useGetDatasetContractQuery } from '../../../../../../graphql/contract.generated';
 
 /**
  * Component used for rendering the Assertions Sub Tab on the Validations Tab
@@ -34,10 +35,16 @@ export const AcrylAssertions = () => {
         fetchPolicy: 'cache-first',
     });
 
+    const { data: contractData, refetch: contractRefetch } = useGetDatasetContractQuery({
+        variables: { urn },
+        fetchPolicy: 'cache-first',
+    });
+
     const combinedData = isHideSiblingMode ? data : combineEntityDataWithSiblings(data);
     const assertions = combinedData?.dataset?.assertions?.assertions?.map((assertion) => assertion as Assertion) || [];
     const assertionGroups = createAssertionGroups(assertions);
 
+    const contract = contractData?.dataset?.contract as any;
     const assertionMonitorsEnabled = config?.featureFlags?.assertionMonitorsEnabled || false;
     return (
         <>
@@ -48,16 +55,19 @@ export const AcrylAssertions = () => {
                     </Button>
                 </TabToolbar>
             )}
-            <DatasetAssertionsSummary summary={getAssertionGroupSummary(assertions)} />
+            <DatasetAssertionsSummary summary={getLegacyAssertionsSummary(assertions)} />
             <AssertionGroupTable
                 groups={assertionGroups}
+                contract={contract}
                 onDeletedAssertion={(assertionUrn) => {
                     removeFromDatasetAssertionsCache(urn, assertionUrn, client);
                     setTimeout(() => refetch(), 5000);
+                    contractRefetch();
                 }}
                 onUpdatedAssertion={(assertion) => {
                     updateDatasetAssertionsCache(urn, assertion, client);
                     setTimeout(() => refetch(), 5000);
+                    contractRefetch();
                 }}
             />
             {showAssertionBuilder && (

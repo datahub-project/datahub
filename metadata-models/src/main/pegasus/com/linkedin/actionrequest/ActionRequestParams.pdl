@@ -1,6 +1,10 @@
 namespace com.linkedin.actionrequest
 
 import com.linkedin.common.Urn
+import com.linkedin.datacontract.SchemaContract
+import com.linkedin.datacontract.FreshnessContract
+import com.linkedin.datacontract.DataQualityContract
+
 
 /**
  * Parameters provided with a particular action request. Only one of the fields will be populated,
@@ -71,5 +75,39 @@ record ActionRequestParams {
      * The text of the description.
      */
     description: string
+  }
+
+  /**
+   * A proposal to create or modify a Data Contract
+   */
+  dataContractProposal: optional record DataContractProposal {
+    /**
+     * How to apply the Data Contract
+     */
+    type: optional enum DataContractProposalOperationType {
+      /**
+       * Add contracts to existing contract
+       */
+      ADD,
+      /**
+       * Overwrite the contract in its entirety
+       */
+      OVERWRITE
+    } = "OVERWRITE"
+
+    /**
+     * An optional set of schema contracts. If this is a dataset contract, there will only be one.
+     */
+    schema: optional array[SchemaContract]
+
+    /**
+     * An optional set of Freshness contracts. If this is a dataset contract, there will only be one.
+     */
+    freshness: optional array[FreshnessContract]
+
+    /**
+     * An optional set of Data Quality contracts, e.g. table and column level contract constraints.
+     */
+    dataQuality: optional array[DataQualityContract]
   }
 }

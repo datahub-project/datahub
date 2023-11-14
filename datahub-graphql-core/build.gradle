@@ -62,6 +62,8 @@ graphqlCodegen {
         "$projectDir/src/main/resources/notifications.graphql".toString(),
         // Subscriptions not in OSS
         "$projectDir/src/main/resources/subscriptions.graphql".toString(),
+        // Contracts not [yet] in OSS
+        "$projectDir/src/main/resources/contract.graphql".toString(),
     ]
     outputDir = new File("$projectDir/src/mainGeneratedGraphQL/java")
     packageName = "com.linkedin.datahub.graphql.generated"

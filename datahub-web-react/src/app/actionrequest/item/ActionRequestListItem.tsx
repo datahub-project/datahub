@@ -7,6 +7,7 @@ import TagAssociationRequestItem from './TagAssociationRequestItem';
 import CreateTermRequestItem from './CreateTermRequestItem';
 import CreateNodeRequestItem from './CreateNodeRequestItem';
 import UpdateDescriptionRequestItem from './updateDescription/UpdateDescriptionRequestItem';
+import DataContractListItem from './DataContractListItem';
 
 const ActionRequestItemContainer = styled.div`
     display: flex;
@@ -70,8 +71,17 @@ export default function ActionRequestListItem({ actionRequest, onUpdate, showAct
                         showActionsButtons={showActionsButtons}
                     />
                 );
+            case ActionRequestType.DataContract:
+                return (
+                    <DataContractListItem
+                        actionRequest={request}
+                        onUpdate={onUpdate}
+                        showActionsButtons={showActionsButtons}
+                    />
+                );
             default:
-                throw new Error(`Unrecognized Action Request Type ${requestType} provided. Unable to render.`);
+                console.error(`Unrecognized Action Request Type ${requestType} provided. Unable to render.`);
+                return null;
         }
     };
 

@@ -4,21 +4,38 @@ import com.datahub.authentication.Authentication;
 import com.datahub.authorization.AuthorizedActors;
 import com.datahub.authorization.EntitySpec;
 import com.datahub.plugins.auth.authorization.Authorizer;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.linkedin.actionrequest.ActionRequestInfo;
 import com.linkedin.actionrequest.ActionRequestParams;
 import com.linkedin.actionrequest.ActionRequestStatus;
 import com.linkedin.actionrequest.CreateGlossaryNodeProposal;
 import com.linkedin.actionrequest.CreateGlossaryTermProposal;
+import com.linkedin.actionrequest.DataContractProposal;
+import com.linkedin.actionrequest.DataContractProposalOperationType;
 import com.linkedin.actionrequest.DescriptionProposal;
 import com.linkedin.common.AuditStamp;
+import com.linkedin.common.EntityRelationships;
 import com.linkedin.common.Owner;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.GlossaryNodeUrn;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.template.GetMode;
 import com.linkedin.data.template.SetMode;
+import com.linkedin.datacontract.DataContractProperties;
+import com.linkedin.datacontract.DataContractState;
+import com.linkedin.datacontract.DataContractStatus;
+import com.linkedin.datacontract.DataQualityContract;
+import com.linkedin.datacontract.DataQualityContractArray;
+import com.linkedin.datacontract.FreshnessContract;
+import com.linkedin.datacontract.FreshnessContractArray;
+import com.linkedin.datacontract.SchemaContract;
+import com.linkedin.datacontract.SchemaContractArray;
 import com.linkedin.dataset.EditableDatasetProperties;
 import com.linkedin.entity.Entity;
+import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.glossary.GlossaryNodeInfo;
@@ -29,8 +46,10 @@ import com.linkedin.metadata.aspect.ActionRequestAspect;
 import com.linkedin.metadata.aspect.ActionRequestAspectArray;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.key.GlossaryNodeKey;
 import com.linkedin.metadata.key.GlossaryTermKey;
+import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.snapshot.ActionRequestSnapshot;
 import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.metadata.utils.EntityKeyUtils;
@@ -47,6 +66,7 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 
+import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -61,9 +81,11 @@ public class ProposalService {
   private static final String CREATE_GLOSSARY_NODE_ACTION_REQUEST_TYPE = "CREATE_GLOSSARY_NODE";
   private static final String CREATE_GLOSSARY_TERM_ACTION_REQUEST_TYPE = "CREATE_GLOSSARY_TERM";
   private static final String UPDATE_DESCRIPTION_ACTION_REQUEST_TYPE = "UPDATE_DESCRIPTION";
+  private static final String DATA_CONTRACT_REQUEST_TYPE = "DATA_CONTRACT";
 
   private final EntityService _entityService;
   private final EntityClient _entityClient;
+  private final GraphClient _graphClient;
 
   public boolean proposeCreateGlossaryNode(@Nonnull final Urn actorUrn, @Nonnull final String name,
       @Nonnull final Optional<Urn> parentNode, final String description, final Authorizer dataHubAuthorizer) {
@@ -148,6 +170,59 @@ public class ProposalService {
 
     ActionRequestSnapshot snapshot =
         createUpdateDescriptionProposalActionRequest(actorUrn, resourceUrn, assignedUsers, assignedGroups, description);
+
+    final AuditStamp auditStamp = new AuditStamp();
+    auditStamp.setActor(actorUrn, SetMode.IGNORE_NULL);
+    auditStamp.setTime(System.currentTimeMillis());
+
+    Entity entity = new Entity();
+    entity.setValue(Snapshot.create(snapshot));
+    _entityService.ingestEntity(entity, auditStamp);
+
+    return true;
+  }
+
+  public boolean proposeDataContract(
+      @Nonnull final Urn actorUrn,
+      @Nonnull final Urn entityUrn,
+      @Nonnull final DataContractProposalOperationType opType,
+      @Nullable final List<FreshnessContract> freshness,
+      @Nullable final List<SchemaContract> schema,
+      @Nullable final List<DataQualityContract> quality,
+      final Authorizer dataHubAuthorizer
+  ) {
+    Objects.requireNonNull(actorUrn, "actorUrn cannot be null");
+    Objects.requireNonNull(entityUrn, "entityUrn cannot be null");
+    Objects.requireNonNull(opType, "opType cannot be null");
+
+    if (!_entityService.exists(entityUrn)) {
+      throw new RuntimeException(String.format("Entity %s does not exist", entityUrn));
+    }
+
+    if (freshness != null) {
+      verifyAssertionsExist(freshness.stream().map(FreshnessContract::getAssertion).collect(Collectors.toList()));
+    }
+
+    if (schema != null) {
+      verifyAssertionsExist(schema.stream().map(SchemaContract::getAssertion).collect(Collectors.toList()));
+    }
+
+    if (quality != null) {
+      verifyAssertionsExist(quality.stream().map(DataQualityContract::getAssertion).collect(Collectors.toList()));
+    }
+
+    List<Urn> assignedUsers;
+    List<Urn> assignedGroups;
+    EntitySpec spec = new EntitySpec(entityUrn.getEntityType(), entityUrn.toString());
+
+    AuthorizedActors actors = dataHubAuthorizer.authorizedActors(
+        PoliciesConfig.MANAGE_ENTITY_DATA_CONTRACT_PROPOSALS_PRIVILEGE.getType(),
+        Optional.of(spec));
+    assignedUsers = actors.getUsers();
+    assignedGroups = actors.getGroups();
+
+    ActionRequestSnapshot snapshot =
+        createDataContractActionRequest(actorUrn, assignedUsers, assignedGroups, entityUrn, opType, freshness, schema, quality);
 
     final AuditStamp auditStamp = new AuditStamp();
     auditStamp.setActor(actorUrn, SetMode.IGNORE_NULL);
@@ -299,6 +374,138 @@ public class ProposalService {
             resourceUrn.getEntityType()));
         break;
     }
+  }
+
+  public void acceptDataContractProposal(
+      @Nonnull final ActionRequestSnapshot actionRequestSnapshot,
+      @Nonnull final Authentication authentication) throws Exception {
+    Objects.requireNonNull(actionRequestSnapshot, "actionRequestSnapshot cannot be null");
+    Objects.requireNonNull(authentication, "authentication cannot be null");
+
+    ActionRequestInfo actionRequestInfo = findActionRequestInfoAspect(actionRequestSnapshot);
+    DataContractProposal dataContractProposal = actionRequestInfo.getParams().getDataContractProposal();
+    if (dataContractProposal != null) {
+      final Urn entityUrn = UrnUtils.getUrn(actionRequestInfo.getResource());
+      final Urn existingContractUrn = getDataContractUrn(entityUrn, authentication);
+      final DataContractProperties existingProperties = existingContractUrn != null
+          ? getDataContractProperties(existingContractUrn, authentication)
+          : null;
+      final Urn finalContractUrn = existingContractUrn != null 
+        ? existingContractUrn 
+        : Urn.createFromString(String.format("urn:li:dataContract:%s", UUID.randomUUID()));
+      final DataContractProperties newProperties = new DataContractProperties()
+          .setEntity(entityUrn)
+          .setFreshness(dataContractProposal.getFreshness(GetMode.NULL), SetMode.IGNORE_NULL)
+          .setDataQuality(dataContractProposal.getDataQuality(GetMode.NULL), SetMode.IGNORE_NULL)
+          .setSchema(dataContractProposal.getSchema(GetMode.NULL), SetMode.IGNORE_NULL);
+      final DataContractProperties finalProperties = existingProperties != null
+          ? mergeDataContractProperties(
+            dataContractProposal.getType(),
+            existingProperties,
+            newProperties
+          )
+          : newProperties;
+
+      // TODO: If the contract contains external assertions, then mark it as pending.
+      final DataContractStatus status = new DataContractStatus()
+          .setState(getStateForContract(entityUrn, dataContractProposal));
+
+      final MetadataChangeProposal propertiesProposal = new MetadataChangeProposal();
+      propertiesProposal.setEntityUrn(finalContractUrn);
+      propertiesProposal.setEntityType(DATA_CONTRACT_ENTITY_NAME);
+      propertiesProposal.setAspectName(DATA_CONTRACT_PROPERTIES_ASPECT_NAME);
+      propertiesProposal.setAspect(GenericRecordUtils.serializeAspect(finalProperties));
+      propertiesProposal.setChangeType(ChangeType.UPSERT);
+
+      final MetadataChangeProposal statusProposal = new MetadataChangeProposal();
+      statusProposal.setEntityUrn(finalContractUrn);
+      statusProposal.setEntityType(DATA_CONTRACT_ENTITY_NAME);
+      statusProposal.setAspectName(DATA_CONTRACT_STATUS_ASPECT_NAME);
+      statusProposal.setAspect(GenericRecordUtils.serializeAspect(status));
+      statusProposal.setChangeType(ChangeType.UPSERT);
+
+      // TODO: In the future, we may need to mint Monitors to execute the assertions if they
+      // are executable.
+      // Currently, we are expecting that the assertions will be purely external.
+      _entityClient.batchIngestProposals(ImmutableList.of(propertiesProposal, statusProposal), authentication);
+    } else {
+      throw new IllegalArgumentException("Failed to accept Data Contract Proposal. Action Request is missing required parameters.");
+    }
+  }
+
+  @Nullable
+  private Urn getDataContractUrn(final Urn entityUrn, final Authentication authentication) {
+    EntityRelationships relationships = _graphClient.getRelatedEntities(
+        entityUrn.toString(),
+        ImmutableList.of("ContractFor"),
+        RelationshipDirection.INCOMING,
+        0,
+        1,
+        authentication.getActor().toUrnStr()
+    );
+
+    if (relationships.getTotal() > 1) {
+      // Bad state - There are multiple contracts for a single entity! Cannot update.
+      log.warn(String.format("Found entity with multiple data contracts! urn: %s, num contracts: %s", entityUrn, relationships.getTotal()));
+    }
+
+    if (relationships.getRelationships().size() >= 1) {
+      return relationships.getRelationships().get(0).getEntity();
+    }
+    return null;
+  }
+
+  @Nullable
+  private DataContractProperties getDataContractProperties(Urn contractUrn, Authentication authentication) {
+    try {
+      EntityResponse response = _entityClient.getV2(
+          DATA_CONTRACT_ENTITY_NAME,
+          contractUrn,
+          ImmutableSet.of(DATA_CONTRACT_PROPERTIES_ASPECT_NAME),
+          authentication
+      );
+      if (response != null && response.getAspects().containsKey(DATA_CONTRACT_PROPERTIES_ASPECT_NAME)) {
+        return new DataContractProperties(response.getAspects().get(DATA_CONTRACT_PROPERTIES_ASPECT_NAME).data());
+      }
+      return null;
+    } catch (Exception e) {
+      log.error(String.format("Failed to retrieve data contract properties for contract urn %s", contractUrn));
+      return null;
+    }
+  }
+
+  @Nonnull
+  private DataContractProperties mergeDataContractProperties(
+      @Nonnull final DataContractProposalOperationType type,
+      @Nonnull final DataContractProperties first,
+      @Nonnull final DataContractProperties second) {
+    final DataContractProperties properties = new DataContractProperties();
+    final List<FreshnessContract> freshness = new ArrayList<>();
+    final List<SchemaContract> schema = new ArrayList<>();
+    final List<DataQualityContract> quality = new ArrayList<>();
+    if (DataContractProposalOperationType.ADD.equals(type) && first.hasFreshness()) {
+      freshness.addAll(first.getFreshness());
+    }
+    if (second.hasFreshness()) {
+      freshness.addAll(second.getFreshness());
+    }
+    if (DataContractProposalOperationType.ADD.equals(type) && first.hasSchema()) {
+      schema.addAll(first.getSchema());
+    }
+    if (second.hasSchema()) {
+      schema.addAll(second.getSchema());
+    }
+    if (DataContractProposalOperationType.ADD.equals(type) && first.hasDataQuality()) {
+      quality.addAll(first.getDataQuality());
+    }
+    if (second.hasDataQuality()) {
+      quality.addAll(second.getDataQuality());
+    }
+    properties.setFreshness(new FreshnessContractArray(freshness));
+    properties.setSchema(new SchemaContractArray(schema));
+    properties.setDataQuality(new DataQualityContractArray(quality));
+    properties.setEntity(second.getEntity());
+    return properties;
   }
 
   public void completeProposal(@Nonnull final Urn actorUrn, @Nonnull final String actionRequestStatus,
@@ -473,6 +680,31 @@ public class ProposalService {
     return result;
   }
 
+  ActionRequestSnapshot createDataContractActionRequest(
+      @Nonnull final Urn actorUrn,
+      @Nonnull final List<Urn> assignedUsers,
+      @Nonnull final List<Urn> assignedGroups,
+      @Nonnull final Urn entityUrn,
+      @Nonnull final DataContractProposalOperationType opType,
+      @Nullable final List<FreshnessContract> freshness,
+      @Nullable final List<SchemaContract> schema,
+      @Nullable final List<DataQualityContract> quality) {
+    final ActionRequestSnapshot result = new ActionRequestSnapshot();
+
+    final UUID uuid = UUID.randomUUID();
+    final String uuidStr = uuid.toString();
+    result.setUrn(Urn.createFromTuple(ACTION_REQUEST_ENTITY_NAME, uuidStr));
+
+    final ActionRequestAspectArray aspects = new ActionRequestAspectArray();
+    aspects.add(ActionRequestAspect.create(createActionRequestStatus(actorUrn)));
+    aspects.add(ActionRequestAspect.create(
+        createDataContractActionRequestInfo(actorUrn, assignedUsers, assignedGroups, entityUrn, opType, freshness, schema, quality)));
+    result.setAspects(aspects);
+
+    return result;
+  }
+
+
   static ActionRequestInfo createCreateGlossaryNodeActionRequestInfo(final Urn creator, final List<Urn> assignedUsers,
       final List<Urn> assignedGroups, final String name, final Optional<Urn> parentNode, final String description) {
     final ActionRequestInfo info = new ActionRequestInfo();
@@ -521,6 +753,27 @@ public class ProposalService {
     return info;
   }
 
+  ActionRequestInfo createDataContractActionRequestInfo(
+      @Nonnull final Urn actorUrn,
+      @Nonnull final List<Urn> assignedUsers,
+      @Nonnull final List<Urn> assignedGroups,
+      @Nonnull final Urn entityUrn,
+      @Nonnull final DataContractProposalOperationType opType,
+      @Nullable final List<FreshnessContract> freshness,
+      @Nullable final List<SchemaContract> schema,
+      @Nullable final List<DataQualityContract> quality) {
+    final ActionRequestInfo info = new ActionRequestInfo();
+    info.setType(DATA_CONTRACT_REQUEST_TYPE);
+    info.setResource(entityUrn.toString());
+    info.setAssignedUsers(new UrnArray(assignedUsers));
+    info.setAssignedGroups(new UrnArray(assignedGroups));
+    info.setResourceType(entityUrn.getEntityType());
+    info.setParams(createDataContractParams(opType, freshness, schema, quality));
+    info.setCreated(System.currentTimeMillis());
+    info.setCreatedBy(actorUrn);
+    return info;
+  }
+
   static ActionRequestParams createCreateGlossaryNodeActionRequestParams(@Nonnull final String name,
       @Nonnull final Optional<Urn> parentNode, final String description) {
     CreateGlossaryNodeProposal createGlossaryNodeProposal = new CreateGlossaryNodeProposal();
@@ -556,6 +809,46 @@ public class ProposalService {
     ActionRequestParams actionRequestParams = new ActionRequestParams();
     actionRequestParams.setUpdateDescriptionProposal(descriptionProposal);
     return actionRequestParams;
+  }
+
+  ActionRequestParams createDataContractParams(
+      @Nonnull final DataContractProposalOperationType opType,
+      @Nullable final List<FreshnessContract> freshness,
+      @Nullable final List<SchemaContract> schema,
+      @Nullable final List<DataQualityContract> quality) {
+    final ActionRequestParams result = new ActionRequestParams();
+    final DataContractProposal params = new DataContractProposal();
+    params.setType(opType);
+    if (freshness != null) {
+      params.setFreshness(new FreshnessContractArray(freshness));
+    }
+    if (schema != null) {
+      params.setSchema(new SchemaContractArray(schema));
+    }
+    if (quality != null) {
+      params.setDataQuality(new DataQualityContractArray(quality));
+    }
+    result.setDataContractProposal(params);
+    return result;
+  }
+
+  @Nullable
+  private Urn getEntityContractUrn(@Nonnull Urn entityUrn, @Nonnull Urn actorUrn) {
+    EntityRelationships relationships = _graphClient.getRelatedEntities(
+        entityUrn.toString(),
+        ImmutableList.of("ContractFor"),
+        RelationshipDirection.INCOMING,
+        0,
+        1,
+        actorUrn.toString()
+    );
+    if (relationships.getRelationships().size() == 1) {
+      return relationships.getRelationships().get(0).getEntity();
+    } else if (relationships.getTotal() > 1) {
+      // Bad state - There are multiple contracts for a single entity! Cannot update.
+      log.warn(String.format("Found entity with multiple data contracts! urn: %s, num contracts: %s", entityUrn, relationships.getTotal()));
+    }
+    return null;
   }
 
   void createGlossaryNodeEntity(@Nonnull final String name, @Nonnull final Optional<Urn> parentNode,
@@ -661,5 +954,26 @@ public class ProposalService {
     description.ifPresent(result::setDefinition);
 
     return result;
+  }
+
+  private DataContractState getStateForContract(
+      @Nonnull final Urn entityUrn,
+      @Nonnull final DataContractProposal proposal) {
+    // TOTAL HACK
+    if (entityUrn.toString().contains("urn:li:dataPlatform:dbt")) {
+      // Assertions must be provisioned for this contract.
+      // This is a really bad way to do this. Ideally we know if the assertions are external or not.
+      // We should check them before creating the contract.
+      return DataContractState.PENDING;
+    }
+    return DataContractState.ACTIVE;
+  }
+
+  private void verifyAssertionsExist(@Nonnull final List<Urn> assertionUrns) {
+    for (final Urn assertionUrn : assertionUrns) {
+      if (!_entityService.exists(assertionUrn)) {
+        throw new RuntimeException(String.format("Assertion %s does not exist", assertionUrn));
+      }
+    }
   }
 }
