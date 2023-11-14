@@ -6,6 +6,8 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Breaking Changes
 
+* Updating MySQL version for quickstarts to 8.2, may cause quickstart issues for existing instances.
+
 ### Potential Downtime
 
 ### Deprecations
