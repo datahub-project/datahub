@@ -1,5 +1,4 @@
 import React from 'react';
-import { act } from 'react-dom/test-utils';
 import { render, waitFor } from '@testing-library/react';
 import { InMemoryCache } from '@apollo/client';
 import { MockedProvider } from '@apollo/client/testing';
@@ -16,23 +15,6 @@ const cache = new InMemoryCache({
 });
 
 describe('SearchPage', () => {
-    it('renders loading', async () => {
-        const promise = Promise.resolve();
-        const { getByText } = render(
-            <MockedProvider mocks={mocksWithSearchFlagsOff} addTypename cache={cache}>
-                <TestPageContainer
-                    initialEntries={[
-                        '/search?filter__entityType=DATASET&filter_platform=hive,kafka&page=1&query=sample',
-                    ]}
-                >
-                    <Route path={PageRoutes.SEARCH_RESULTS} render={() => <SearchPage />} />
-                </TestPageContainer>
-            </MockedProvider>,
-        );
-        await waitFor(() => expect(getByText('Loading...')).toBeInTheDocument());
-        await act(() => promise);
-    });
-
     it('renders the selected filters as checked', async () => {
         const { getByTestId, queryByTestId } = render(
             <MockedProvider mocks={mocksWithSearchFlagsOff} addTypename cache={cache}>

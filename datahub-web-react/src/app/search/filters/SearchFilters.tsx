@@ -55,6 +55,7 @@ export default function SearchFilters({
         >
             {isShowingBasicFilters && (
                 <BasicFilters
+                    loading={loading}
                     availableFilters={finalAvailableFilters}
                     activeFilters={activeFilters}
                     onChangeFilters={onChangeFilters}
