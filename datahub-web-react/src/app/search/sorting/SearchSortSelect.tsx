@@ -18,15 +18,16 @@ const SelectWrapper = styled.span`
         font-weight: 700;
     }
 
-    svg {
+    .ant-select-selection-placeholder {
         color: ${ANTD_GRAY[8]};
+        font-weight: 700;
     }
 `;
 
 const StyledIcon = styled(Icon)`
     color: ${ANTD_GRAY[8]};
     font-size: 16px;
-    margin-right: -6px;
+    margin-right: -8px;
 `;
 
 export default function SearchSortSelect() {
@@ -39,8 +40,8 @@ export default function SearchSortSelect() {
             <SelectWrapper>
                 <StyledIcon component={SortIcon} />
                 <Select
-                    value={selectedSortOption}
-                    defaultValue={DEFAULT_SORT_OPTION}
+                    placeholder="Sort"
+                    value={selectedSortOption === DEFAULT_SORT_OPTION ? null : selectedSortOption}
                     options={options}
                     bordered={false}
                     onChange={(sortOption) => setSelectedSortOption(sortOption)}

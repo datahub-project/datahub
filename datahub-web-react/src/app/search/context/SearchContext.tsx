@@ -3,13 +3,13 @@ import React, { useContext } from 'react';
 export type SearchContextType = {
     query: string | undefined;
     selectedSortOption: string | undefined;
-    setSelectedSortOption: (sortOption: string) => void;
+    setSelectedSortOption: (sortOption: string | null) => void;
 };
 
 export const DEFAULT_CONTEXT = {
     query: undefined,
     selectedSortOption: undefined,
-    setSelectedSortOption: (_: string) => null,
+    setSelectedSortOption: (_: string | null) => null,
 };
 
 export const SearchContext = React.createContext<SearchContextType>(DEFAULT_CONTEXT);
