@@ -194,7 +194,7 @@
             "customProperties": {
                 "run_id": "manual_run_test",
                 "duration": "None",
-                "start_date": "2023-10-15 20:27:26.883178+00:00",
+                "start_date": "2023-11-10 19:12:17.805860+00:00",
                 "end_date": "None",
                 "execution_date": "2023-09-27 21:34:38+00:00",
                 "try_number": "0",
@@ -212,7 +212,7 @@
             "name": "sqlite_operator_create_cost_table_manual_run_test",
             "type": "BATCH_AD_HOC",
             "created": {
-                "time": 1697401646883,
+                "time": 1699643537805,
                 "actor": "urn:li:corpuser:datahub"
             }
         }
@@ -261,7 +261,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1697401646883,
+            "timestampMillis": 1699643537805,
             "partitionSpec": {
                 "type": "FULL_TABLE",
                 "partition": "FULL_TABLE_SNAPSHOT"
@@ -442,7 +442,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1697401647826,
+            "timestampMillis": 1699643538759,
             "partitionSpec": {
                 "type": "FULL_TABLE",
                 "partition": "FULL_TABLE_SNAPSHOT"
@@ -615,7 +615,7 @@
             "customProperties": {
                 "run_id": "manual_run_test",
                 "duration": "None",
-                "start_date": "2023-10-15 20:27:31.398799+00:00",
+                "start_date": "2023-11-10 19:12:22.560376+00:00",
                 "end_date": "None",
                 "execution_date": "2023-09-27 21:34:38+00:00",
                 "try_number": "0",
@@ -633,7 +633,7 @@
             "name": "sqlite_operator_populate_cost_table_manual_run_test",
             "type": "BATCH_AD_HOC",
             "created": {
-                "time": 1697401651398,
+                "time": 1699643542560,
                 "actor": "urn:li:corpuser:datahub"
             }
         }
@@ -682,7 +682,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1697401651398,
+            "timestampMillis": 1699643542560,
             "partitionSpec": {
                 "type": "FULL_TABLE",
                 "partition": "FULL_TABLE_SNAPSHOT"
@@ -792,7 +792,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1697401652651,
+            "timestampMillis": 1699643543925,
             "partitionSpec": {
                 "type": "FULL_TABLE",
                 "partition": "FULL_TABLE_SNAPSHOT"
@@ -1035,7 +1035,7 @@
             "customProperties": {
                 "run_id": "manual_run_test",
                 "duration": "None",
-                "start_date": "2023-10-15 20:27:37.697995+00:00",
+                "start_date": "2023-11-10 19:12:29.429032+00:00",
                 "end_date": "None",
                 "execution_date": "2023-09-27 21:34:38+00:00",
                 "try_number": "0",
@@ -1053,7 +1053,7 @@
             "name": "sqlite_operator_transform_cost_table_manual_run_test",
             "type": "BATCH_AD_HOC",
             "created": {
-                "time": 1697401657697,
+                "time": 1699643549429,
                 "actor": "urn:li:corpuser:datahub"
             }
         }
@@ -1126,7 +1126,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1697401657697,
+            "timestampMillis": 1699643549429,
             "partitionSpec": {
                 "type": "FULL_TABLE",
                 "partition": "FULL_TABLE_SNAPSHOT"
@@ -1362,7 +1362,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1697401659496,
+            "timestampMillis": 1699643551423,
             "partitionSpec": {
                 "type": "FULL_TABLE",
                 "partition": "FULL_TABLE_SNAPSHOT"
@@ -1537,7 +1537,7 @@
             "customProperties": {
                 "run_id": "manual_run_test",
                 "duration": "None",
-                "start_date": "2023-10-15 20:27:45.670215+00:00",
+                "start_date": "2023-11-10 19:12:37.423556+00:00",
                 "end_date": "None",
                 "execution_date": "2023-09-27 21:34:38+00:00",
                 "try_number": "0",
@@ -1555,7 +1555,7 @@
             "name": "sqlite_operator_cleanup_costs_manual_run_test",
             "type": "BATCH_AD_HOC",
             "created": {
-                "time": 1697401665670,
+                "time": 1699643557423,
                 "actor": "urn:li:corpuser:datahub"
             }
         }
@@ -1604,7 +1604,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1697401665670,
+            "timestampMillis": 1699643557423,
             "partitionSpec": {
                 "type": "FULL_TABLE",
                 "partition": "FULL_TABLE_SNAPSHOT"
@@ -1716,7 +1716,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1697401667670,
+            "timestampMillis": 1699643559607,
             "partitionSpec": {
                 "type": "FULL_TABLE",
                 "partition": "FULL_TABLE_SNAPSHOT"
@@ -1891,7 +1891,7 @@
             "customProperties": {
                 "run_id": "manual_run_test",
                 "duration": "None",
-                "start_date": "2023-10-15 20:27:51.559194+00:00",
+                "start_date": "2023-11-10 19:12:43.792375+00:00",
                 "end_date": "None",
                 "execution_date": "2023-09-27 21:34:38+00:00",
                 "try_number": "0",
@@ -1909,7 +1909,7 @@
             "name": "sqlite_operator_cleanup_processed_costs_manual_run_test",
             "type": "BATCH_AD_HOC",
             "created": {
-                "time": 1697401671559,
+                "time": 1699643563792,
                 "actor": "urn:li:corpuser:datahub"
             }
         }
@@ -1958,7 +1958,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1697401671559,
+            "timestampMillis": 1699643563792,
             "partitionSpec": {
                 "type": "FULL_TABLE",
                 "partition": "FULL_TABLE_SNAPSHOT"
@@ -2070,7 +2070,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1697401673788,
+            "timestampMillis": 1699643566350,
             "partitionSpec": {
                 "type": "FULL_TABLE",
                 "partition": "FULL_TABLE_SNAPSHOT"

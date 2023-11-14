@@ -96,7 +96,7 @@ describe("create and manage group", () => {
     });
 
     it("test user verify group participation", () => {
-        cy.loginWithCredentials(email,password);
+        cy.loginWithCredentials();
         cy.visit("/settings/identities/groups");
         cy.hideOnboardingTour();
         cy.clickOptionWithText(`Test group EDITED ${test_id}`);
