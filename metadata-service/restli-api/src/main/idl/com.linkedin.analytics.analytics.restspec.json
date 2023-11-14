@@ -4,10 +4,12 @@
   "path" : "/analytics",
   "schema" : "com.linkedin.analytics.GetTimeseriesAggregatedStatsResponse",
   "doc" : "Rest.li entry point: /analytics\n\ngenerated from: com.linkedin.metadata.resources.analytics.Analytics",
+  "resourceClass" : "com.linkedin.metadata.resources.analytics.Analytics",
   "simple" : {
     "supports" : [ ],
     "actions" : [ {
       "name" : "getTimeseriesStats",
+      "javaMethodName" : "getTimeseriesStats",
       "parameters" : [ {
         "name" : "entityName",
         "type" : "string"
