@@ -4,6 +4,7 @@ import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
+import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.recommendation.ContentParams;
 import com.linkedin.metadata.recommendation.RecommendationContent;
 import com.linkedin.metadata.recommendation.RecommendationParams;
@@ -82,7 +83,7 @@ public abstract class EntitySearchAggregationSource implements RecommendationSou
   public List<RecommendationContent> getRecommendations(@Nonnull Urn userUrn,
       @Nullable RecommendationRequestContext requestContext) {
     Map<String, Long> aggregationResult =
-        _entitySearchService.aggregateByValue(null, getSearchFieldName(), null, getMaxContent());
+        _entitySearchService.aggregateByValue(null, getSearchFieldName(), buildAggregationFilter(), getMaxContent());
 
     if (aggregationResult.isEmpty()) {
       return Collections.emptyList();
@@ -114,6 +115,11 @@ public abstract class EntitySearchAggregationSource implements RecommendationSou
     return getTopKValues(urnCounts).stream()
         .map(entry -> buildRecommendationContent(entry.getKey(), entry.getValue()))
         .collect(Collectors.toList());
+  }
+
+  protected Filter buildAggregationFilter() {
+    // By default, no filter is applied
+    return null;
   }
 
   // Get top K entries with the most count
