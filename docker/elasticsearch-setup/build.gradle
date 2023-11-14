@@ -15,10 +15,11 @@ docker {
     version "v${version}"
     dockerfile file("${rootProject.projectDir}/docker/${docker_dir}/Dockerfile")
     files fileTree(rootProject.projectDir) {
+        include '.dockerignore'
         include "docker/${docker_dir}/*"
-        include "metadata-service/restli-servlet-impl/src/main/resources/index/**"
+        include 'metadata-service/restli-servlet-impl/src/main/resources/index/**'
     }.exclude {
-        i -> i.file.isHidden() || i.file == buildDir
+        i -> (!i.file.name.endsWith(".dockerignore") && i.file.isHidden())
     }
     tag("Debug", "${docker_registry}/${docker_repo}:debug")
 
