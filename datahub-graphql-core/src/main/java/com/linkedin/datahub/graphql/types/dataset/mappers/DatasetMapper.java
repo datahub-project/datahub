@@ -5,6 +5,7 @@ import com.linkedin.common.BrowsePathsV2;
 import com.linkedin.common.DataPlatformInstance;
 import com.linkedin.common.Deprecation;
 import com.linkedin.common.Embed;
+import com.linkedin.datahub.graphql.generated.AuditStamp;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.GlossaryTerms;
 import com.linkedin.common.InstitutionalMemory;
@@ -157,10 +158,8 @@ public class DatasetMapper implements ModelMapper<EntityResponse, Dataset> {
         }
         TimeStamp lastModified = gmsProperties.getLastModified();
         if (lastModified != null) {
-            properties.setLastModified(lastModified.getTime());
-            if (lastModified.hasActor()) {
-                properties.setLastModifiedActor(lastModified.getActor().toString());
-            }
+            Urn actor = lastModified.getActor();
+            properties.setLastModified(new AuditStamp(lastModified.getTime(), actor == null ? null : actor.toString()));
         }
     }
 

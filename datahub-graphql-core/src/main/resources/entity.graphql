@@ -1789,7 +1789,7 @@ type DatasetProperties {
     """
     Last Modified timestamp millis associated with the Dataset
     """
-    lastModified: Long
+    lastModified: AuditStamp
 
     """
     Actor associated with the Dataset's lastModified timestamp
@@ -3946,7 +3946,7 @@ type Ownership {
     """
     Audit stamp containing who last modified the record and when
     """
-    lastModified: AuditStamp!
+    lastModified: AuditStamp
 }
 
 """
@@ -4996,7 +4996,7 @@ type DashboardInfo {
     """
     An AuditStamp corresponding to the modification of this dashboard
     """
-    lastModified: AuditStamp!
+    lastModified: AuditStamp
 
     """
     An optional AuditStamp corresponding to the deletion of this dashboard
@@ -5077,7 +5077,7 @@ type DashboardProperties {
     """
     An AuditStamp corresponding to the modification of this dashboard
     """
-    lastModified: AuditStamp!
+    lastModified: AuditStamp
 
     """
     An optional AuditStamp corresponding to the deletion of this dashboard
@@ -5310,7 +5310,7 @@ type ChartInfo {
     """
     An AuditStamp corresponding to the modification of this chart
     """
-    lastModified: AuditStamp!
+    lastModified: AuditStamp
 
     """
     An optional AuditStamp corresponding to the deletion of this chart
@@ -5365,7 +5365,7 @@ type ChartProperties {
     """
     An AuditStamp corresponding to the modification of this chart
     """
-    lastModified: AuditStamp!
+    lastModified: AuditStamp
 
     """
     An optional AuditStamp corresponding to the deletion of this chart
@@ -10327,7 +10327,7 @@ type Post implements Entity {
     """
     When the post was last modified
     """
-    lastModified: AuditStamp!
+    lastModified: AuditStamp
 }
 
 """
@@ -10723,7 +10723,7 @@ type QueryProperties {
   """
   An Audit Stamp corresponding to the update of this resource
   """
-  lastModified: AuditStamp!
+  lastModified: AuditStamp
 }
 
 """
