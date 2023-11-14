@@ -122,7 +122,7 @@ HiveDialect.get_view_definition = get_view_definition_patched
 
 class HiveConfig(TwoTierSQLAlchemyConfig):
     # defaults
-    scheme = Field(default="hive", hidden_from_docs=True)
+    scheme: str = Field(default="hive", hidden_from_docs=True)
 
     @validator("host_port")
     def clean_host_port(cls, v):
