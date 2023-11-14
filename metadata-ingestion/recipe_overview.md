@@ -6,7 +6,7 @@ import TabItem from '@theme/TabItem';
 A recipe is the main configuration file for metadata ingestion. It tells our ingestion scripts where to pull data from (source) and where to put it (sink).
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/sources-recipe-sinks.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/sources-sinks.png"/>
 </p>
 
 

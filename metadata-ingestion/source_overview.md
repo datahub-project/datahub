@@ -4,7 +4,7 @@
 Sources refers to **the data systems that we are extracting metadata from.** 
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/sources-recipe-sinks.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/sources-sinks.png"/>
 </p>
 
 In general, the source will be defined at the top of the recipe like below.
