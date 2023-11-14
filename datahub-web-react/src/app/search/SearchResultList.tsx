@@ -1,7 +1,6 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { Checkbox, Divider, List, ListProps } from 'antd';
 import styled from 'styled-components';
-import { useLocation } from 'react-router';
 import { ANTD_GRAY } from '../entity/shared/constants';
 import { SEPARATE_SIBLINGS_URL_PARAM } from '../entity/shared/siblingUtils';
 import { CompactEntityNameList } from '../recommendations/renderer/component/CompactEntityNameList';
@@ -100,33 +99,6 @@ export const SearchResultList = ({
             setSelectedEntities?.(selectedEntities?.filter((entity) => entity.urn !== selectedEntity.urn) || []);
         }
     };
-
-    const location = useLocation();
-    const key = `scroll:${location.pathname}`;
-
-    useEffect(() => {
-        // When the component mounts, read the scroll position from sessionStorage and scroll to that position
-        const savedScrollPosition = sessionStorage.getItem(key);
-        if (savedScrollPosition) {
-            window.scrollTo(0, parseInt(savedScrollPosition, 10));
-        }
-
-        // When the component unmounts, save the scroll position to sessionStorage
-        const handleSaveScroll = () => {
-            console.log(`${window.scrollY.toString()}`);
-            sessionStorage.setItem(key, window.scrollY.toString());
-        };
-
-        // Add the event listener to save the scroll position when the user navigates away
-        window.addEventListener('beforeunload', handleSaveScroll);
-
-        // Remove the event listener on cleanup
-        return () => {
-            window.removeEventListener('beforeunload', handleSaveScroll);
-            // Also call handleSaveScroll when the component unmounts
-            handleSaveScroll();
-        };
-    }, [key]);
 
     return (
         <>

@@ -218,6 +218,7 @@ export const SearchPage = () => {
             )}
             {showSearchFiltersV2 && (
                 <SearchFilters
+                    loading={loading}
                     availableFilters={data?.searchAcrossEntities?.facets || []}
                     activeFilters={filters}
                     unionType={unionType}
