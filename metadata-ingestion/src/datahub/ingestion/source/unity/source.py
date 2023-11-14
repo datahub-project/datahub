@@ -364,7 +364,6 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
 
         sub_type = self._create_table_sub_type_aspect(table)
         schema_metadata = self._create_schema_metadata_aspect(table)
-        operation = self._create_table_operation_aspect(table)
         domain = self._get_domain_aspect(dataset_name=table.ref.qualified_table_name)
         ownership = self._create_table_ownership_aspect(table)
         data_platform_instance = self._create_data_platform_instance_aspect()
@@ -386,7 +385,6 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                     view_props,
                     sub_type,
                     schema_metadata,
-                    operation,
                     domain,
                     ownership,
                     data_platform_instance,
@@ -652,10 +650,10 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             int(table.created_at.timestamp() * 1000), make_user_urn(table.created_by)
         )
         last_modified = created
-        if table.updated_at and table.updated_by is not None:
+        if table.updated_at:
             last_modified = TimeStampClass(
                 int(table.updated_at.timestamp() * 1000),
-                make_user_urn(table.updated_by),
+                table.updated_by and make_user_urn(table.updated_by),
             )
 
         return DatasetPropertiesClass(
@@ -667,35 +665,6 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             lastModified=last_modified,
             externalUrl=f"{self.external_url_base}/{table.ref.external_path}",
         )
-
-    def _create_table_operation_aspect(self, table: Table) -> OperationClass:
-        """Produce an operation aspect for a table.
-
-        If a last updated time is present, we produce an update operation.
-        Otherwise, we produce a create operation. We do this in addition to
-        setting the last updated time in the dataset properties aspect, as
-        the UI is currently missing the ability to display the last updated
-        from the properties aspect.
-        """
-
-        reported_time = int(time.time() * 1000)
-
-        operation = OperationClass(
-            timestampMillis=reported_time,
-            lastUpdatedTimestamp=int(table.created_at.timestamp() * 1000),
-            actor=make_user_urn(table.created_by),
-            operationType=OperationTypeClass.CREATE,
-        )
-
-        if table.updated_at and table.updated_by is not None:
-            operation = OperationClass(
-                timestampMillis=reported_time,
-                lastUpdatedTimestamp=int(table.updated_at.timestamp() * 1000),
-                actor=make_user_urn(table.updated_by),
-                operationType=OperationTypeClass.UPDATE,
-            )
-
-        return operation
 
     def _create_table_ownership_aspect(self, table: Table) -> Optional[OwnershipClass]:
         owner_urn = self.get_owner_urn(table.owner)

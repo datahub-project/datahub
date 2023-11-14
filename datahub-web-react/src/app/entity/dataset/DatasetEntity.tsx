@@ -311,7 +311,10 @@ export class DatasetEntity implements Entity<Dataset> {
                 columnCount={(data as any).lastProfile?.length && (data as any).lastProfile[0].columnCount}
                 sizeInBytes={(data as any).lastProfile?.length && (data as any).lastProfile[0].sizeInBytes}
                 lastUpdatedMs={
-                    (data as any).lastOperation?.length && (data as any).lastOperation[0].lastUpdatedTimestamp
+                    Math.max(
+                        data.properties?.lastModified || 0,
+                        (data as any).lastOperation?.length && (data as any).lastOperation[0].lastUpdatedTimestamp,
+                    ) || undefined
                 }
                 health={data.health}
                 degree={(result as any).degree}
