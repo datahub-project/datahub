@@ -62,6 +62,13 @@ query appConfig {
             readOnlyModeEnabled
             showSearchFiltersV2
             showBrowseV2
+<<<<<<< HEAD
+=======
+            platformBrowseV2
+            assertionMonitorsEnabled
+            subscriptionsEnabled
+            datasetHealthDashboardEnabled
+>>>>>>> 2bf498a1d37... feat(): important: Add platform-based browse behind a feature flag
             showAcrylInfo
             showAccessManagement
             nestedDomainsEnabled

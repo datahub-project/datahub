@@ -17,7 +17,6 @@ import { generateOrFilters } from './utils/generateOrFilters';
 import { SEARCH_RESULTS_FILTERS_ID } from '../onboarding/config/SearchOnboardingConfig';
 import { useUserContext } from '../context/useUserContext';
 import { DownloadSearchResults, DownloadSearchResultsInput } from './utils/types';
-import BrowseSidebar from './sidebar';
 import ToggleSidebarButton from './ToggleSidebarButton';
 import { SidebarProvider } from './sidebar/SidebarContext';
 import { BrowseProvider } from './sidebar/BrowseContext';
@@ -27,7 +26,11 @@ import SearchSortSelect from './sorting/SearchSortSelect';
 import { combineSiblingsInSearchResults } from './utils/combineSiblingsInSearchResults';
 import SearchQuerySuggester from './suggestions/SearchQuerySugggester';
 import { ANTD_GRAY_V2 } from '../entity/shared/constants';
+<<<<<<< HEAD
 import { formatNumberWithoutAbbreviation } from '../shared/formatNumber';
+=======
+import BrowseSidebar from './sidebar';
+>>>>>>> 2bf498a1d37... feat(): important: Add platform-based browse behind a feature flag
 import SearchResultsLoadingSection from './SearchResultsLoadingSection';
 
 const SearchResultsWrapper = styled.div<{ v2Styles: boolean }>`
@@ -197,7 +200,7 @@ export const SearchResults = ({
                     {showBrowseV2 && (
                         <SidebarProvider selectedFilters={selectedFilters} onChangeFilters={onChangeFilters}>
                             <BrowseProvider>
-                                <BrowseSidebar visible={isSidebarOpen} width={360} />
+                                <BrowseSidebar visible={isSidebarOpen} width={260} />
                             </BrowseProvider>
                         </SidebarProvider>
                     )}

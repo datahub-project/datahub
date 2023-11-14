@@ -427,6 +427,31 @@ public class ESBrowseDAO {
     }
   }
 
+  public BrowseResultV2 browseV2(@Nonnull List<String> entities, @Nonnull String path, @Nullable Filter filter, @Nonnull String input, int start, int count) {
+    try {
+      final SearchResponse groupsResponse;
+
+      try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "esGroupSearch").time()) {
+        final String finalInput = input.isEmpty() ? "*" : input;
+        groupsResponse =
+            client.search(constructGroupsSearchRequestBrowseAcrossEntities(entities, path, filter, finalInput), RequestOptions.DEFAULT);
+      }
+
+      final BrowseGroupsResultV2 browseGroupsResult = extractGroupsResponseV2(groupsResponse, path, start, count);
+      final int numGroups = browseGroupsResult.getTotalGroups();
+
+      return new BrowseResultV2().setMetadata(
+          new BrowseResultMetadata().setTotalNumEntities(browseGroupsResult.getTotalNumEntities()).setPath(path))
+          .setGroups(new BrowseResultGroupV2Array(browseGroupsResult.getGroups()))
+          .setNumGroups(numGroups)
+          .setFrom(start)
+          .setPageSize(count);
+    } catch (Exception e) {
+      log.error("Browse Across Entities query failed: " + e.getMessage());
+      throw new ESQueryException("Browse Acriss Entities query failed: ", e);
+    }
+  }
+
   @Nonnull
   private SearchRequest constructGroupsSearchRequestV2(
       @Nonnull String entityName,
@@ -443,6 +468,30 @@ public class ESBrowseDAO {
             path,
             SearchUtil.transformFilterForEntities(filter, indexConvention),
             input));
+    searchSourceBuilder.aggregation(buildAggregationsV2(path));
+    searchRequest.source(searchSourceBuilder);
+    return searchRequest;
+  }
+
+  @Nonnull
+  private SearchRequest constructGroupsSearchRequestBrowseAcrossEntities(
+      @Nonnull List<String> entities,
+      @Nonnull String path,
+      @Nullable Filter filter,
+      @Nonnull String input) {
+
+    List<EntitySpec> entitySpecs = entities.stream()
+        .map(entityRegistry::getEntitySpec)
+        .collect(Collectors.toList());
+
+    String[] indexArray = entities.stream()
+        .map(indexConvention::getEntityIndexName)
+        .toArray(String[]::new);
+
+    final SearchRequest searchRequest = new SearchRequest(indexArray);
+    final SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
+    searchSourceBuilder.size(0);
+    searchSourceBuilder.query(buildQueryStringBrowseAcrossEntities(entitySpecs, path, SearchUtil.transformFilterForEntities(filter, indexConvention), input));
     searchSourceBuilder.aggregation(buildAggregationsV2(path));
     searchRequest.source(searchSourceBuilder);
     return searchRequest;
@@ -482,6 +531,28 @@ public class ESBrowseDAO {
     queryBuilder.must(query);
 
     filterSoftDeletedByDefault(filter, queryBuilder);
+
+    if (!path.isEmpty()) {
+      queryBuilder.filter(QueryBuilders.matchQuery(BROWSE_PATH_V2, path));
+    }
+
+    queryBuilder.filter(QueryBuilders.rangeQuery(BROWSE_PATH_V2_DEPTH).gt(browseDepthVal));
+
+    queryBuilder.filter(SearchRequestHandler.getFilterQuery(filter));
+
+    return queryBuilder;
+  }
+
+  @Nonnull
+  private QueryBuilder buildQueryStringBrowseAcrossEntities(@Nonnull List<EntitySpec> entitySpecs, @Nonnull String path, @Nullable Filter filter, @Nonnull String input) {
+    final int browseDepthVal = getPathDepthV2(path);
+
+    final BoolQueryBuilder queryBuilder = QueryBuilders.boolQuery();
+
+    QueryBuilder query = SearchRequestHandler
+        .getBuilder(entitySpecs, searchConfiguration, customSearchConfiguration)
+        .getQuery(input, false);
+    queryBuilder.must(query);
 
     if (!path.isEmpty()) {
       queryBuilder.filter(QueryBuilders.matchQuery(BROWSE_PATH_V2, path));
