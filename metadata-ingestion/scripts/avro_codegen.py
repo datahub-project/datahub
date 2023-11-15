@@ -433,12 +433,11 @@ def generate_urn_class(entity_type: str, key_aspect: dict) -> str:
     # TODO include the docs for each field
 
     code = f"""
-from datahub.metadata.schema_classes import {key_aspect_class}
+if TYPE_CHECKING:
+    from datahub.metadata.schema_classes import {key_aspect_class}
 
 class {class_name}(_SpecificUrn):
     ENTITY_TYPE = "{entity_type}"
-    UNDERLYING_KEY_ASPECT = {key_aspect_class}
-
     URN_PARTS = {arg_count}
 
     def __init__(self, {init_args}, _allow_coercion: bool = True) -> None:
@@ -457,11 +456,19 @@ class {class_name}(_SpecificUrn):
             raise InvalidUrnError(f"{class_name} should have {{cls.URN_PARTS}} parts, got {{len(entity_ids)}}: {{entity_ids}}")
         return cls({parse_ids_mapping}, _allow_coercion=False)
 
-    def to_key_aspect(self) -> {key_aspect_class}:
+    @classmethod
+    def underlying_key_aspect_type(cls) -> Type["{key_aspect_class}"]:
+        from datahub.metadata.schema_classes import {key_aspect_class}
+
+        return {key_aspect_class}
+
+    def to_key_aspect(self) -> "{key_aspect_class}":
+        from datahub.metadata.schema_classes import {key_aspect_class}
+
         return {key_aspect_class}({to_key_aspect_args})
 
     @classmethod
-    def from_key_aspect(cls, key_aspect: {key_aspect_class}) -> "{class_name}":
+    def from_key_aspect(cls, key_aspect: "{key_aspect_class}") -> "{class_name}":
         return cls({from_key_aspect_args})
 """
 
@@ -483,7 +490,7 @@ def write_urn_classes(key_aspects: List[dict], urn_dir: Path) -> None:
     code = """
 # This file contains classes corresponding to entity URNs.
 
-from typing import List
+from typing import List, Type, TYPE_CHECKING
 
 from datahub.utilities.urns._urn_base import _SpecificUrn
 from datahub.utilities.urns.error import InvalidUrnError

@@ -1,7 +1,7 @@
 import dataclasses
 import urllib.parse
 from abc import abstractmethod
-from typing import Dict, List, Optional, Type, TypeVar
+from typing import ClassVar, Dict, List, Optional, Type, TypeVar
 
 from deprecated import deprecated
 
@@ -52,6 +52,8 @@ class Urn:
 
     It will be in format of urn:li:<type>:<id> or urn:li:<type>:(<id1>,<id2>,...)
     """
+
+    LI_DOMAIN: ClassVar[str] = "li"  # retained for backwards compatibility
 
     entity_type: str
     entity_ids: List[str]
@@ -148,7 +150,6 @@ class Urn:
 
 class _SpecificUrn(Urn):
     ENTITY_TYPE: str = ""
-    UNDERLYING_KEY_ASPECT: Type = None  # type: ignore
 
     def __init_subclass__(cls) -> None:
         # Validate the subclass.
@@ -164,6 +165,10 @@ class _SpecificUrn(Urn):
         return super().__init_subclass__()
 
     @classmethod
+    def underlying_key_aspect_type(cls) -> Type:
+        raise NotImplementedError()
+
+    @classmethod
     def from_string(cls: Type[_UrnSelf], urn_str: str) -> "_UrnSelf":
         urn = super().from_string(urn_str)
         if not isinstance(urn, cls):
@@ -176,28 +181,3 @@ class _SpecificUrn(Urn):
     @abstractmethod
     def _parse_ids(cls: Type[_UrnSelf], entity_ids: List[str]) -> _UrnSelf:
         raise NotImplementedError()
-
-
-# class DatasetUrn(SpecificUrn):
-#     def __init__(self, platform: str, name: str, env: str = "PROD"):
-#         # TODO: where to do extra validation on platform?
-#         super().__init__(self.ENTITY_TYPE, [platform, name, env])
-
-#     @classmethod
-#     def _parse_ids(cls, entity_ids: List[str]) -> "DatasetUrn":
-#         assert len(entity_ids) == 3
-
-#         platform, name, env = entity_ids
-#         return cls(platform=platform, name=name, env=env)
-
-#     @property
-#     def platform(self) -> str:
-#         return self.entity_ids[0]
-
-#     @property
-#     def name(self) -> str:
-#         return self.entity_ids[1]
-
-#     @property
-#     def env(self) -> str:
-#         return self.entity_ids[2]
