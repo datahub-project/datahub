@@ -4,6 +4,7 @@ import com.datahub.authentication.Authentication;
 import com.linkedin.actionrequest.ActionRequestInfo;
 import com.linkedin.actionrequest.CreateGlossaryNodeProposal;
 import com.linkedin.actionrequest.CreateGlossaryTermProposal;
+import com.linkedin.actionrequest.DataContractProposal;
 import com.linkedin.actionrequest.DescriptionProposal;
 import com.linkedin.actionrequest.GlossaryTermProposal;
 import com.linkedin.actionrequest.TagProposal;
@@ -18,15 +19,21 @@ import com.linkedin.datahub.graphql.generated.ActionRequestResult;
 import com.linkedin.datahub.graphql.generated.ActionRequestStatus;
 import com.linkedin.datahub.graphql.generated.ActionRequestSubResourceProperties;
 import com.linkedin.datahub.graphql.generated.ActionRequestType;
+import com.linkedin.datahub.graphql.generated.Assertion;
 import com.linkedin.datahub.graphql.generated.CorpUser;
 import com.linkedin.datahub.graphql.generated.CreateGlossaryEntityProposalProperties;
 import com.linkedin.datahub.graphql.generated.CreateGlossaryNodeProposalParams;
 import com.linkedin.datahub.graphql.generated.CreateGlossaryTermProposalParams;
+import com.linkedin.datahub.graphql.generated.DataContractProposalOperationType;
+import com.linkedin.datahub.graphql.generated.DataContractProposalParams;
+import com.linkedin.datahub.graphql.generated.DataQualityContract;
 import com.linkedin.datahub.graphql.generated.EditableSchemaFieldInfo;
 import com.linkedin.datahub.graphql.generated.GlossaryNode;
 import com.linkedin.datahub.graphql.generated.GlossaryTerm;
 import com.linkedin.datahub.graphql.generated.GlossaryTermProposalParams;
 import com.linkedin.datahub.graphql.generated.ResolvedAuditStamp;
+import com.linkedin.datahub.graphql.generated.SchemaContract;
+import com.linkedin.datahub.graphql.generated.FreshnessContract;
 import com.linkedin.datahub.graphql.generated.Tag;
 import com.linkedin.datahub.graphql.generated.TagProposalParams;
 import com.linkedin.datahub.graphql.generated.UpdateDescriptionProposalParams;
@@ -41,6 +48,7 @@ import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.identity.GroupMembership;
 import com.linkedin.identity.NativeGroupMembership;
+import com.linkedin.identity.RoleMembership;
 import com.linkedin.metadata.aspect.ActionRequestAspect;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.EntityUtils;
@@ -57,6 +65,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
+import lombok.Value;
 
 import static com.linkedin.metadata.Constants.*;
 
@@ -81,6 +90,8 @@ public class ActionRequestUtils {
         actionRequest.setAssignedUsers(actionRequestInfo.getAssignedUsers().stream().map(Urn::toString).collect(
             Collectors.toList()));
         actionRequest.setAssignedGroups(actionRequestInfo.getAssignedGroups().stream().map(Urn::toString).collect(
+            Collectors.toList()));
+        actionRequest.setAssignedRoles(actionRequestInfo.getAssignedRoles().stream().map(Urn::toString).collect(
             Collectors.toList()));
 
         if (actionRequestInfo.hasResource()) {
@@ -233,6 +244,9 @@ public class ActionRequestUtils {
     if (params.hasUpdateDescriptionProposal()) {
       result.setUpdateDescriptionProposal(mapUpdateDescriptionProposal(params.getUpdateDescriptionProposal()));
     }
+    if (params.hasDataContractProposal()) {
+      result.setDataContractProposal(mapDataContractProposal(params.getDataContractProposal()));
+    }
     return result;
   }
 
@@ -287,6 +301,28 @@ public class ActionRequestUtils {
   public static UpdateDescriptionProposalParams mapUpdateDescriptionProposal(final DescriptionProposal proposal) {
     final UpdateDescriptionProposalParams params = new UpdateDescriptionProposalParams();
     params.setDescription(proposal.getDescription());
+    return params;
+  }
+
+  public static DataContractProposalParams mapDataContractProposal(final DataContractProposal proposal) {
+    final DataContractProposalParams params = new DataContractProposalParams();
+    params.setOperationType(DataContractProposalOperationType.valueOf(proposal.getType().toString()));
+    if (proposal.hasSchema()) {
+      params.setSchema(
+          proposal.getSchema().stream().map(ActionRequestUtils::mapSchemaContract)
+          .collect(Collectors.toList()));
+    }
+    if (proposal.hasFreshness()) {
+      params.setFreshness(
+          proposal.getFreshness().stream().map(ActionRequestUtils::mapFreshnessContract)
+          .collect(Collectors.toList())
+      );
+    }
+    if (proposal.hasDataQuality()) {
+      params.setDataQuality(
+          proposal.getDataQuality().stream().map(ActionRequestUtils::mapDataQualityContract)
+          .collect(Collectors.toList()));
+    }
     return params;
   }
 
@@ -367,9 +403,10 @@ public class ActionRequestUtils {
         .collect(Collectors.toList());
   }
 
-  public static List<Urn> getGroupUrns(final Urn actor, final Authentication authentication,
+  public static AssignedUrns getGroupAndRoleUrns(final Urn actor, final Authentication authentication,
       EntityClient entityClient) throws Exception {
     List<Urn> groupUrns = new ArrayList<>();
+    List<Urn> roleUrns = new ArrayList<>();
     try {
       final EntityResponse response = entityClient.getV2(CORP_USER_ENTITY_NAME, actor, null, authentication);
       final EnvelopedAspectMap aspects = response.getAspects();
@@ -384,12 +421,49 @@ public class ActionRequestUtils {
         final NativeGroupMembership nativeGroupMembership = new NativeGroupMembership(aspect.getValue().data());
         groupUrns.addAll(nativeGroupMembership.getNativeGroups());
       }
-      return groupUrns;
+      if (aspects.get(ROLE_MEMBERSHIP_ASPECT_NAME) != null) {
+        EnvelopedAspect aspect = aspects.get(ROLE_MEMBERSHIP_ASPECT_NAME);
+        final RoleMembership roleMembership = new RoleMembership(aspect.getValue().data());
+        roleUrns.addAll(roleMembership.getRoles());
+      }
+      return new AssignedUrns(groupUrns, roleUrns);
     } catch (RemoteInvocationException e) {
       throw new RuntimeException(String.format("Failed to fetch corpUser for urn %s", actor), e);
     }
   }
 
+  @Value
+  static class AssignedUrns {
+    List<Urn> groupUrns;
+    List<Urn> roleUrns;
+  }
+
+  private static SchemaContract mapSchemaContract(final com.linkedin.datacontract.SchemaContract schemaContract) {
+    final SchemaContract result = new SchemaContract();
+    final Assertion partialAssertion = new Assertion();
+    partialAssertion.setUrn(schemaContract.getAssertion().toString());
+    result.setAssertion(partialAssertion);
+    return result;
+  }
+
+  private static FreshnessContract mapFreshnessContract(final com.linkedin.datacontract.FreshnessContract freshnessContract) {
+    final FreshnessContract result = new FreshnessContract();
+    final Assertion partialAssertion = new Assertion();
+    partialAssertion.setUrn(freshnessContract.getAssertion().toString());
+    result.setAssertion(partialAssertion);
+    return result;
+  }
+
+  private static DataQualityContract mapDataQualityContract(final com.linkedin.datacontract.DataQualityContract qualityContract) {
+    final DataQualityContract result = new DataQualityContract();
+    final Assertion partialAssertion = new Assertion();
+    partialAssertion.setUrn(qualityContract.getAssertion().toString());
+    result.setAssertion(partialAssertion);
+    return result;
+
+  }
+
   private ActionRequestUtils() {
+
   }
 }

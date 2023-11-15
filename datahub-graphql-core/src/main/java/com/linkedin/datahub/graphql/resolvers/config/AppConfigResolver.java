@@ -192,6 +192,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
       .setDatasetHealthDashboardEnabled(_featureFlags.isDatasetHealthDashboardEnabled())
       .setShowAccessManagement(_featureFlags.isShowAccessManagement())
       .setNestedDomainsEnabled(_featureFlags.isNestedDomainsEnabled())
+      .setDataContractsEnabled(_featureFlags.isDataContractsEnabled())
       .build();
 
     appConfig.setFeatureFlags(featureFlagsConfig);

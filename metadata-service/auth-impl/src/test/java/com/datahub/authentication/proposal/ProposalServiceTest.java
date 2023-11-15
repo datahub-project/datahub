@@ -21,6 +21,7 @@ import com.linkedin.glossary.GlossaryNodeInfo;
 import com.linkedin.glossary.GlossaryTermInfo;
 import com.linkedin.identity.GroupMembership;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.snapshot.ActionRequestSnapshot;
 import com.linkedin.metadata.snapshot.Snapshot;
 import java.util.Collections;
@@ -53,6 +54,8 @@ public class ProposalServiceTest {
 
   private EntityService _entityService;
   private EntityClient _entityClient;
+  private GraphClient _graphClient;
+
   private ProposalService _proposalService;
 
   @BeforeMethod
@@ -67,8 +70,9 @@ public class ProposalServiceTest {
 
     _entityService = mock(EntityService.class);
     _entityClient = mock(EntityClient.class);
+    _graphClient = mock(GraphClient.class);
 
-    _proposalService = new ProposalService(_entityService, _entityClient);
+    _proposalService = new ProposalService(_entityService, _entityClient, _graphClient);
   }
 
   @Test
@@ -160,7 +164,7 @@ public class ProposalServiceTest {
 
     ActionRequestSnapshot actionRequestSnapshot =
         _proposalService.createCreateGlossaryNodeProposalActionRequest(ACTOR_URN, Collections.singletonList(ACTOR_URN),
-            Collections.EMPTY_LIST, GLOSSARY_NODE_NAME, Optional.empty(), "test");
+            Collections.EMPTY_LIST, Collections.EMPTY_LIST, GLOSSARY_NODE_NAME, Optional.empty(), "test");
     _proposalService.acceptCreateGlossaryNodeProposal(ACTOR_URN, actionRequestSnapshot, true, SYSTEM_AUTHENTICATION);
 
     verify(_entityClient).ingestProposal(any(), any());
@@ -179,7 +183,7 @@ public class ProposalServiceTest {
 
     ActionRequestSnapshot actionRequestSnapshot =
         _proposalService.createCreateGlossaryTermProposalActionRequest(ACTOR_URN, Collections.singletonList(ACTOR_URN),
-            Collections.EMPTY_LIST, GLOSSARY_TERM_NAME, Optional.empty(), "test");
+            Collections.EMPTY_LIST, Collections.EMPTY_LIST, GLOSSARY_TERM_NAME, Optional.empty(), "test");
     _proposalService.acceptCreateGlossaryTermProposal(ACTOR_URN, actionRequestSnapshot, true, SYSTEM_AUTHENTICATION);
 
     verify(_entityClient).ingestProposal(any(), any());
@@ -200,7 +204,7 @@ public class ProposalServiceTest {
 
     ActionRequestSnapshot actionRequestSnapshot =
         _proposalService.createUpdateDescriptionProposalActionRequest(ACTOR_URN, _glossaryNodeUrn,
-            Collections.singletonList(ACTOR_URN), Collections.EMPTY_LIST, DESCRIPTION);
+            Collections.singletonList(ACTOR_URN), Collections.EMPTY_LIST, Collections.EMPTY_LIST, DESCRIPTION);
     _proposalService.acceptUpdateResourceDescriptionProposal(actionRequestSnapshot, SYSTEM_AUTHENTICATION);
 
     verify(_entityClient).ingestProposal(any(), any());
@@ -215,7 +219,7 @@ public class ProposalServiceTest {
 
     ActionRequestSnapshot actionRequestSnapshot =
         _proposalService.createUpdateDescriptionProposalActionRequest(ACTOR_URN, _glossaryTermUrn,
-            Collections.singletonList(ACTOR_URN), Collections.EMPTY_LIST, DESCRIPTION);
+            Collections.singletonList(ACTOR_URN), Collections.EMPTY_LIST, Collections.EMPTY_LIST, DESCRIPTION);
     _proposalService.acceptUpdateResourceDescriptionProposal(actionRequestSnapshot, SYSTEM_AUTHENTICATION);
 
     verify(_entityClient).ingestProposal(any(), any());
@@ -238,7 +242,7 @@ public class ProposalServiceTest {
   public void completeProposal() {
     ActionRequestSnapshot actionRequestSnapshot =
         _proposalService.createUpdateDescriptionProposalActionRequest(ACTOR_URN, _glossaryNodeUrn,
-            Collections.singletonList(ACTOR_URN), Collections.EMPTY_LIST, DESCRIPTION);
+            Collections.singletonList(ACTOR_URN), Collections.EMPTY_LIST, Collections.EMPTY_LIST, DESCRIPTION);
     Entity entity = new Entity().setValue(Snapshot.create(actionRequestSnapshot));
     _proposalService.completeProposal(ACTOR_URN, ACTION_REQUEST_STATUS_COMPLETE, ACTION_REQUEST_RESULT_ACCEPTED,
         entity);

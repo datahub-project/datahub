@@ -127,6 +127,13 @@ public class AcceptProposalResolver implements DataFetcher<CompletableFuture<Boo
                 "Unauthorized to perform this action. Please contact your DataHub administrator.");
           }
           _proposalService.acceptUpdateResourceDescriptionProposal(actionRequestSnapshot, authentication);
+        } else if (proposal.getType().equals(ActionRequestType.DATA_CONTRACT)) {
+          if (!ProposalUtils.isAuthorizedToAcceptProposal(context, actionRequestType,
+              Urn.createFromString(proposal.getEntity().getUrn()), subResource)) {
+            throw new AuthorizationException(
+                "Unauthorized to perform this action. Please contact your DataHub administrator.");
+          }
+          _proposalService.acceptDataContractProposal(actionRequestSnapshot, authentication);
         } else {
           log.error("Cannot accept proposal- proposal is not acceptable");
           return false;

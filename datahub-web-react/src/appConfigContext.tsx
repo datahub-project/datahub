@@ -56,6 +56,7 @@ export const DEFAULT_APP_CONFIG = {
         showAcrylInfo: false,
         showAccessManagement: false,
         nestedDomainsEnabled: true,
+        dataContractsEnabled: false,
     },
     chromeExtensionConfig: {
         enabled: false,

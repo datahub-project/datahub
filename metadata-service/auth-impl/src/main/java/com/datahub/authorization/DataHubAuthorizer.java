@@ -142,6 +142,12 @@ public class DataHubAuthorizer implements Authorizer {
 
     Optional<ResolvedEntitySpec> resolvedResourceSpec = resourceSpec.map(_entitySpecResolver::resolve);
 
+    final List<Urn> authorizedUsers = new ArrayList<>();
+    final List<Urn> authorizedGroups = new ArrayList<>();
+    final List<Urn> authorizedRoles = new ArrayList<>();
+    boolean allUsers = false;
+    boolean allGroups = false;
+
     // Step 2: For each policy, determine whether the resource is a match.
     for (DataHubPolicyInfo policy : policiesToEvaluate) {
       if (!PoliciesConfig.ACTIVE_POLICY_STATE.equals(policy.getState())) {

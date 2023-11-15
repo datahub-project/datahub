@@ -20,4 +20,5 @@ public class FeatureFlags {
   private boolean showAcrylInfo = false;
   private boolean showAccessManagement = false;
   private boolean nestedDomainsEnabled = false;
+  private boolean dataContractsEnabled = false;
 }

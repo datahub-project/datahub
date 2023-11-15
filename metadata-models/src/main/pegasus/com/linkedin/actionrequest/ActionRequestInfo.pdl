@@ -40,6 +40,17 @@ record ActionRequestInfo {
   assignedGroups: array[Urn]
 
   /**
+   * The roles this action request is assigned to
+   */
+  @Searchable = {
+    "/*": {
+      "fieldType": "URN",
+      "addToFilters": true
+    }
+  }
+  assignedRoles: optional array[Urn]
+
+  /**
    * The resource type that the action is associated with, for example 'dataset'
    */
   resourceType: optional string

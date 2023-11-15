@@ -960,6 +960,11 @@ enum EntityType {
     A Role from an organisation
     """
     ROLE
+
+    """
+    A data contract
+    """
+    DATA_CONTRACT
 }
 
 """
@@ -7417,6 +7422,10 @@ enum AssertionType {
     A Field assertion
     """
     FIELD
+    """
+    A Data Schema Assertion
+    """
+    DATA_SCHEMA
 }
 
 """

@@ -1,14 +1,11 @@
-import { Assertion } from '../../../../../../types.generated';
+import { Assertion, AssertionType } from '../../../../../../types.generated';
 
-/**
- * A summary for a group of assertions.
- */
-export type AssertionGroupSummary = {
+export type AssertionStatusSummary = {
+    passing: number;
+    failing: number;
+    erroring: number;
+    total: number; // Total assertions with at least 1 run.
     totalAssertions: number;
-    totalRuns: number;
-    failedRuns: number;
-    succeededRuns: number;
-    erroredRuns: number;
 };
 
 /**
@@ -19,5 +16,6 @@ export type AssertionGroup = {
     icon: React.ReactNode;
     description?: string;
     assertions: Assertion[];
-    summary: AssertionGroupSummary;
+    summary: AssertionStatusSummary;
+    type: AssertionType;
 };

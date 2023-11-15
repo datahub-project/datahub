@@ -19,6 +19,7 @@ fragment assertionDetails on Assertion {
         type
         description
         datasetAssertion {
+            datasetUrn
             scope
             aggregation
             operator
@@ -49,6 +50,7 @@ fragment assertionDetails on Assertion {
         }
         freshnessAssertion {
             type
+            entityUrn
             schedule {
                 type
                 cron {
@@ -67,6 +69,7 @@ fragment assertionDetails on Assertion {
         }
         sqlAssertion {
             type
+            entityUrn
             statement
             changeType
             operator
@@ -76,6 +79,7 @@ fragment assertionDetails on Assertion {
         }
         fieldAssertion {
             type
+            entityUrn
             filter {
                 type
                 sql
@@ -114,6 +118,7 @@ fragment assertionDetails on Assertion {
         }
         volumeAssertion {
             type
+            entityUrn
             filter {
                 type
                 sql
@@ -148,6 +153,16 @@ fragment assertionDetails on Assertion {
                 }
                 segment {
                     ...incrementingSegmentSpecDetails
+                }
+            }
+        }
+        schemaAssertion {
+            entityUrn
+            schema {
+                fields {
+                    fieldPath
+                    type
+                    nativeDataType
                 }
             }
         }

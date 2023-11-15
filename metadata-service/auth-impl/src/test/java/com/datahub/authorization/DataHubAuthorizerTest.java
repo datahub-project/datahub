@@ -58,7 +58,6 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.assertFalse;
 
-
 public class DataHubAuthorizerTest {
 
   public static final String DATAHUB_SYSTEM_CLIENT_ID = "__datahub_system";
@@ -124,16 +123,16 @@ public class DataHubAuthorizerTest {
                             ImmutableList.of(new SearchEntity().setEntity(parentDomainPolicyUrn))));
 
     final ScrollResult policySearchResult4 = new ScrollResult()
-        .setScrollId("4")
-        .setNumEntities(5)
+            .setScrollId("4")
+            .setNumEntities(5)
             .setEntities(
                     new SearchEntityArray(
                             ImmutableList.of(
                                     new SearchEntity().setEntity(childDomainPolicyUrn))));
 
     final ScrollResult policySearchResult5 = new ScrollResult()
-        .setNumEntities(5)
-        .setEntities(
+            .setNumEntities(5)
+            .setEntities(
             new SearchEntityArray(
                 ImmutableList.of(
                     new SearchEntity().setEntity(adminPolicyUrn))));
@@ -416,7 +415,6 @@ public class DataHubAuthorizerTest {
     dataHubPolicyInfo.setDisplayName("My Test Display");
     dataHubPolicyInfo.setDescription("My test display!");
     dataHubPolicyInfo.setEditable(true);
-
     dataHubPolicyInfo.setActors(actorFilter);
 
     final DataHubResourceFilter resourceFilter = new DataHubResourceFilter();

@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.types.assertion;
 
+import com.google.common.collect.ImmutableList;
 import com.linkedin.assertion.AssertionInfo;
 import com.linkedin.assertion.AssertionSource;
 import com.linkedin.assertion.AssertionStdAggregation;
@@ -15,6 +16,7 @@ import com.linkedin.assertion.FreshnessAssertionInfo;
 import com.linkedin.assertion.FreshnessAssertionSchedule;
 import com.linkedin.assertion.FreshnessAssertionScheduleType;
 import com.linkedin.assertion.FreshnessAssertionType;
+import com.linkedin.assertion.SchemaAssertionInfo;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.DataMap;
@@ -26,6 +28,12 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.metadata.Constants;
+import com.linkedin.schema.MySqlDDL;
+import com.linkedin.schema.SchemaField;
+import com.linkedin.schema.SchemaFieldArray;
+import com.linkedin.schema.SchemaFieldDataType;
+import com.linkedin.schema.SchemaMetadata;
+import com.linkedin.schema.StringType;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -64,6 +72,14 @@ public class AssertionMapperTest {
     verifyAssertion(input, output);
   }
 
+  @Test
+  public void testMapDataSchemaAssertion() {
+    AssertionInfo input = createSchemaAssertion();
+    EntityResponse schemaAssertionEntityResponse = createAssertionInfoEntityResponse(input);
+    Assertion output = AssertionMapper.map(schemaAssertionEntityResponse);
+    verifyAssertion(input, output);
+  }
+
   private void verifyAssertion(AssertionInfo input, Assertion output) {
     Assert.assertNotNull(output);
     Assert.assertNotNull(output.getInfo());
@@ -75,6 +91,10 @@ public class AssertionMapperTest {
 
     if (input.hasFreshnessAssertion()) {
       verifyFreshnessAssertion(input.getFreshnessAssertion(), output.getInfo().getFreshnessAssertion());
+    }
+
+    if (input.hasSchemaAssertion()) {
+      verifySchemaAssertion(input.getSchemaAssertion(), output.getInfo().getSchemaAssertion());
     }
 
     if (input.hasSource()) {
@@ -108,6 +128,11 @@ public class AssertionMapperTest {
     if (input.hasSchedule()) {
       verifyFreshnessSchedule(input.getSchedule(), output.getSchedule());
     }
+  }
+
+  private void verifySchemaAssertion(SchemaAssertionInfo input, com.linkedin.datahub.graphql.generated.SchemaAssertionInfo output) {
+    Assert.assertEquals(output.getEntityUrn(), input.getEntity().toString());
+    Assert.assertEquals(output.getSchema().getFields().size(), input.getSchema().getFields().size());
   }
 
   private void verifyCronSchedule(FreshnessCronSchedule input, com.linkedin.datahub.graphql.generated.FreshnessCronSchedule output) {
@@ -200,6 +225,26 @@ public class AssertionMapperTest {
       .setType(com.linkedin.assertion.AssertionSourceType.INFERRED)
     );
     return infoWithoutNullables;
+  }
+
+  private AssertionInfo createSchemaAssertion() {
+    AssertionInfo info = new AssertionInfo();
+    info.setType(AssertionType.DATA_SCHEMA);
+    SchemaAssertionInfo schemaAssertionInfo = new SchemaAssertionInfo();
+    schemaAssertionInfo.setEntity(UrnUtils.getUrn("urn:li:dataset:1"));
+    schemaAssertionInfo.setSchema(new SchemaMetadata()
+      .setCluster("Test")
+      .setHash("Test")
+      .setPlatformSchema(SchemaMetadata.PlatformSchema.create(new MySqlDDL()))
+      .setFields(new SchemaFieldArray(ImmutableList.of(
+          new SchemaField()
+            .setType(new SchemaFieldDataType().setType(SchemaFieldDataType.Type.create(new StringType())))
+            .setNullable(false)
+            .setNativeDataType("string")
+            .setFieldPath("test")
+      )))
+    );
+    return info;
   }
 
   private AssertionStdParameters createAssertionStdParameters() {

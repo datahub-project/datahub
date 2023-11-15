@@ -2,7 +2,7 @@ import React from 'react';
 import styled from 'styled-components';
 import { Empty } from 'antd';
 import { DownOutlined, RightOutlined } from '@ant-design/icons';
-import { Assertion } from '../../../../../../types.generated';
+import { Assertion, DataContract } from '../../../../../../types.generated';
 import { AssertionGroup } from './acrylTypes';
 import { AssertionGroupHeader } from './AssertionGroupHeader';
 import { AcrylDatasetAssertionsList } from './AcrylAssertionsList';
@@ -29,11 +29,12 @@ const StyledRightOutlined = styled(RightOutlined)`
 
 type Props = {
     groups: AssertionGroup[];
+    contract?: DataContract;
     onDeletedAssertion: (urn: string) => void;
     onUpdatedAssertion: (assertion: Assertion) => void;
 };
 
-export const AssertionGroupTable = ({ groups, onDeletedAssertion, onUpdatedAssertion }: Props) => {
+export const AssertionGroupTable = ({ groups, contract, onDeletedAssertion, onUpdatedAssertion }: Props) => {
     const columns = [
         {
             title: 'Name',
@@ -57,6 +58,7 @@ export const AssertionGroupTable = ({ groups, onDeletedAssertion, onUpdatedAsser
                     return (
                         <AcrylDatasetAssertionsList
                             assertions={group.assertions}
+                            contract={contract}
                             onDeletedAssertion={onDeletedAssertion}
                             onUpdatedAssertion={onUpdatedAssertion}
                         />

@@ -45,6 +45,7 @@ public class EntityTypeMapper {
           .put(EntityType.MONITOR, Constants.MONITOR_ENTITY_NAME) // SaaS only
           .put(EntityType.INCIDENT, Constants.INCIDENT_ENTITY_NAME) // SaaS only
           .put(EntityType.ANOMALY, Constants.ANOMALY_ENTITY_NAME) // SaaS only
+          .put(EntityType.DATA_CONTRACT, Constants.DATA_CONTRACT_ENTITY_NAME) // SaaS only
           .build();
 
   private static final Map<String, EntityType> ENTITY_NAME_TO_TYPE =

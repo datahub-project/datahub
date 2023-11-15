@@ -1,5 +1,6 @@
 name: Docker Build, Scan, Test
 on:
+  workflow_dispatch:
   push:
     branches:
       - acryl-main

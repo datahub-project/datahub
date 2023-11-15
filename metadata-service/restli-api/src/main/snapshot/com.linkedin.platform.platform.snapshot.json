@@ -46,6 +46,20 @@
         }
       }
     }, {
+      "name" : "assignedRoles",
+      "type" : {
+        "type" : "array",
+        "items" : "com.linkedin.common.Urn"
+      },
+      "doc" : "The roles this action request is assigned to",
+      "optional" : true,
+      "Searchable" : {
+        "/*" : {
+          "addToFilters" : true,
+          "fieldType" : "URN"
+        }
+      }
+    }, {
       "name" : "resourceType",
       "type" : "string",
       "doc" : "The resource type that the action is associated with, for example 'dataset'",
@@ -162,6 +176,83 @@
           },
           "doc" : "An optional set of information specific to proposals for updating Descriptions.",
           "optional" : true
+        }, {
+          "name" : "dataContractProposal",
+          "type" : {
+            "type" : "record",
+            "name" : "DataContractProposal",
+            "fields" : [ {
+              "name" : "type",
+              "type" : {
+                "type" : "enum",
+                "name" : "DataContractProposalOperationType",
+                "symbols" : [ "ADD", "OVERWRITE" ],
+                "symbolDocs" : {
+                  "ADD" : "Add contracts to existing contract",
+                  "OVERWRITE" : "Overwrite the contract in its entirety"
+                }
+              },
+              "doc" : "How to apply the Data Contract",
+              "default" : "OVERWRITE",
+              "optional" : true
+            }, {
+              "name" : "schema",
+              "type" : {
+                "type" : "array",
+                "items" : {
+                  "type" : "record",
+                  "name" : "SchemaContract",
+                  "namespace" : "com.linkedin.datacontract",
+                  "doc" : "Expectations for a logical schema",
+                  "fields" : [ {
+                    "name" : "assertion",
+                    "type" : "com.linkedin.common.Urn",
+                    "doc" : "The assertion representing the schema contract."
+                  } ]
+                }
+              },
+              "doc" : "An optional set of schema contracts. If this is a dataset contract, there will only be one.",
+              "optional" : true
+            }, {
+              "name" : "freshness",
+              "type" : {
+                "type" : "array",
+                "items" : {
+                  "type" : "record",
+                  "name" : "FreshnessContract",
+                  "namespace" : "com.linkedin.datacontract",
+                  "doc" : "A contract pertaining to the operational SLAs of a physical data asset",
+                  "fields" : [ {
+                    "name" : "assertion",
+                    "type" : "com.linkedin.common.Urn",
+                    "doc" : "The assertion representing the SLA contract."
+                  } ]
+                }
+              },
+              "doc" : "An optional set of Freshness contracts. If this is a dataset contract, there will only be one.",
+              "optional" : true
+            }, {
+              "name" : "dataQuality",
+              "type" : {
+                "type" : "array",
+                "items" : {
+                  "type" : "record",
+                  "name" : "DataQualityContract",
+                  "namespace" : "com.linkedin.datacontract",
+                  "doc" : "A data quality contract pertaining to a physical data asset\nData Quality contracts are used to make assertions about data quality metrics for a physical data asset",
+                  "fields" : [ {
+                    "name" : "assertion",
+                    "type" : "com.linkedin.common.Urn",
+                    "doc" : "The assertion representing the Data Quality contract.\nE.g. a table or column-level assertion."
+                  } ]
+                }
+              },
+              "doc" : "An optional set of Data Quality contracts, e.g. table and column level contract constraints.",
+              "optional" : true
+            } ]
+          },
+          "doc" : "A proposal to create or modify a Data Contract",
+          "optional" : true
         } ]
       },
       "doc" : "Parameters specific for a particular Action Request type",
@@ -252,7 +343,7 @@
     "Aspect" : {
       "name" : "actionRequestStatus"
     }
-  }, "com.linkedin.actionrequest.CreateGlossaryNodeProposal", "com.linkedin.actionrequest.CreateGlossaryTermProposal", "com.linkedin.actionrequest.DescriptionProposal", "com.linkedin.actionrequest.GlossaryTermProposal", "com.linkedin.actionrequest.TagProposal", {
+  }, "com.linkedin.actionrequest.CreateGlossaryNodeProposal", "com.linkedin.actionrequest.CreateGlossaryTermProposal", "com.linkedin.actionrequest.DataContractProposal", "com.linkedin.actionrequest.DataContractProposalOperationType", "com.linkedin.actionrequest.DescriptionProposal", "com.linkedin.actionrequest.GlossaryTermProposal", "com.linkedin.actionrequest.TagProposal", {
     "type" : "typeref",
     "name" : "ChartDataSourceType",
     "namespace" : "com.linkedin.chart",
@@ -1684,7 +1775,7 @@
     "Aspect" : {
       "name" : "editableDashboardProperties"
     }
-  }, {
+  }, "com.linkedin.datacontract.DataQualityContract", "com.linkedin.datacontract.FreshnessContract", "com.linkedin.datacontract.SchemaContract", {
     "type" : "record",
     "name" : "DataFlowInfo",
     "namespace" : "com.linkedin.datajob",
@@ -5803,6 +5894,7 @@
     "path" : "/platform",
     "schema" : "com.linkedin.entity.Entity",
     "doc" : "DataHub Platform Actions\n\ngenerated from: com.linkedin.metadata.resources.platform.PlatformResource",
+    "resourceClass" : "com.linkedin.metadata.resources.platform.PlatformResource",
     "collection" : {
       "identifier" : {
         "name" : "platformId",
@@ -5811,6 +5903,7 @@
       "supports" : [ ],
       "actions" : [ {
         "name" : "producePlatformEvent",
+        "javaMethodName" : "producePlatformEvent",
         "parameters" : [ {
           "name" : "name",
           "type" : "string"
