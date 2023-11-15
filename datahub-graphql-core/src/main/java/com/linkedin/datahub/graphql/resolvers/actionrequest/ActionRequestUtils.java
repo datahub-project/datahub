@@ -48,6 +48,7 @@ import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.identity.GroupMembership;
 import com.linkedin.identity.NativeGroupMembership;
+import com.linkedin.identity.RoleMembership;
 import com.linkedin.metadata.aspect.ActionRequestAspect;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.EntityUtils;
@@ -64,6 +65,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
+import lombok.Value;
 
 import static com.linkedin.metadata.Constants.*;
 
@@ -88,6 +90,8 @@ public class ActionRequestUtils {
         actionRequest.setAssignedUsers(actionRequestInfo.getAssignedUsers().stream().map(Urn::toString).collect(
             Collectors.toList()));
         actionRequest.setAssignedGroups(actionRequestInfo.getAssignedGroups().stream().map(Urn::toString).collect(
+            Collectors.toList()));
+        actionRequest.setAssignedRoles(actionRequestInfo.getAssignedRoles().stream().map(Urn::toString).collect(
             Collectors.toList()));
 
         if (actionRequestInfo.hasResource()) {
@@ -399,9 +403,10 @@ public class ActionRequestUtils {
         .collect(Collectors.toList());
   }
 
-  public static List<Urn> getGroupUrns(final Urn actor, final Authentication authentication,
+  public static AssignedUrns getGroupAndRoleUrns(final Urn actor, final Authentication authentication,
       EntityClient entityClient) throws Exception {
     List<Urn> groupUrns = new ArrayList<>();
+    List<Urn> roleUrns = new ArrayList<>();
     try {
       final EntityResponse response = entityClient.getV2(CORP_USER_ENTITY_NAME, actor, null, authentication);
       final EnvelopedAspectMap aspects = response.getAspects();
@@ -416,10 +421,21 @@ public class ActionRequestUtils {
         final NativeGroupMembership nativeGroupMembership = new NativeGroupMembership(aspect.getValue().data());
         groupUrns.addAll(nativeGroupMembership.getNativeGroups());
       }
-      return groupUrns;
+      if (aspects.get(ROLE_MEMBERSHIP_ASPECT_NAME) != null) {
+        EnvelopedAspect aspect = aspects.get(ROLE_MEMBERSHIP_ASPECT_NAME);
+        final RoleMembership roleMembership = new RoleMembership(aspect.getValue().data());
+        roleUrns.addAll(roleMembership.getRoles());
+      }
+      return new AssignedUrns(groupUrns, roleUrns);
     } catch (RemoteInvocationException e) {
       throw new RuntimeException(String.format("Failed to fetch corpUser for urn %s", actor), e);
     }
+  }
+
+  @Value
+  static class AssignedUrns {
+    List<Urn> groupUrns;
+    List<Urn> roleUrns;
   }
 
   private static SchemaContract mapSchemaContract(final com.linkedin.datacontract.SchemaContract schemaContract) {
@@ -444,8 +460,10 @@ public class ActionRequestUtils {
     partialAssertion.setUrn(qualityContract.getAssertion().toString());
     result.setAssertion(partialAssertion);
     return result;
+
   }
 
   private ActionRequestUtils() {
+
   }
 }

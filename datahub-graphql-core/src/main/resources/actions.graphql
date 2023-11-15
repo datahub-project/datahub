@@ -288,6 +288,10 @@ type ActionRequest {
     """
     assignedGroups: [String!]
     """
+    The roles assigned to the action request
+    """
+    assignedRoles: [String!]
+    """
     An optional target entity associated with the action request
     """
     entity: Entity
@@ -354,7 +358,8 @@ type ActionRequestParams {
 
 enum AssigneeType {
     USER,
-    GROUP
+    GROUP,
+    ROLE
 }
 
 type TagProposalParams {

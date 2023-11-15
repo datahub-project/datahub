@@ -44,6 +44,7 @@ public class ListActionRequestsResolver implements DataFetcher<CompletableFuture
   private static final String CREATED_FIELD_NAME = "created";
   private static final String ASSIGNED_USERS_FIELD_NAME = "assignedUsers";
   private static final String ASSIGNED_GROUPS_FIELD_NAME = "assignedGroups";
+  private static final String ASSIGNED_ROLES_FIELD_NAME = "assignedRoles";
 
   private static final Integer DEFAULT_START = 0;
   private static final Integer DEFAULT_COUNT = 20;
@@ -74,23 +75,29 @@ public class ListActionRequestsResolver implements DataFetcher<CompletableFuture
 
         Urn actorUrn = null;
         List<Urn> groupUrns = null;
+        List<Urn> roleUrns = null;
 
         if (assignee == null) {
           // Case 1: If no assignee filter provided, fall back to filtering for current user and their groups.
           actorUrn = Urn.createFromString(context.getActorUrn());
-          groupUrns = getGroupUrns(actorUrn, context.getAuthentication(), _entityClient);
+          AssignedUrns groupAndRoleUrns = getGroupAndRoleUrns(actorUrn, context.getAuthentication(), _entityClient);
+          groupUrns = groupAndRoleUrns.getGroupUrns();
+          roleUrns = groupAndRoleUrns.getRoleUrns();
         } else {
           // Case 2: Caller provided a user or group assignee filter.
           final Urn assigneeUrn = Urn.createFromString(assignee.getUrn());
           if (AssigneeType.GROUP.equals(assignee.getType())) {
+            // We do not compute role urns from group urns because only users are assigned to roles.
             groupUrns = Collections.singletonList(assigneeUrn);
           } else {
             actorUrn = assigneeUrn;
-            groupUrns = getGroupUrns(actorUrn, context.getAuthentication(), _entityClient);
+            AssignedUrns groupAndRoleUrns = getGroupAndRoleUrns(actorUrn, context.getAuthentication(), _entityClient);
+            groupUrns = groupAndRoleUrns.getGroupUrns();
+            roleUrns = groupAndRoleUrns.getRoleUrns();
           }
         }
 
-        final Filter filter = createFilter(actorUrn, groupUrns, type, status, resourceUrn, startTimestampMillis, endTimestampMillis);
+        final Filter filter = createFilter(actorUrn, groupUrns, roleUrns, type, status, resourceUrn, startTimestampMillis, endTimestampMillis);
 
         final SortCriterion sortCriterion = new SortCriterion()
             .setField(CREATED_FIELD_NAME)
@@ -120,18 +127,22 @@ public class ListActionRequestsResolver implements DataFetcher<CompletableFuture
   }
 
   private Filter createFilter(final @Nullable Urn actorUrn, final @Nullable List<Urn> groupUrns,
-      final @Nullable ActionRequestType type, final @Nullable ActionRequestStatus status,
-      final @Nullable Urn resourceUrn,
+      final @Nullable List<Urn> roleUrns, final @Nullable ActionRequestType type,
+      final @Nullable ActionRequestStatus status, final @Nullable Urn resourceUrn,
       final @Nullable Long startTimestampMillis, final @Nullable Long endTimestampMillis) {
     final Filter filter = new Filter();
     final ConjunctiveCriterionArray disjunction = new ConjunctiveCriterionArray();
-    // If actor and group are both provided, "or" the results.
+    // If more than 1 different type of urn are provided, "or" the results.
     if (actorUrn != null) {
       disjunction.add(createUserFilterConjunction(actorUrn, type, status, resourceUrn, startTimestampMillis, endTimestampMillis));
     }
     if (groupUrns != null) {
       disjunction.addAll(
           createGroupFilterDisjunction(groupUrns, type, status, resourceUrn, startTimestampMillis, endTimestampMillis));
+    }
+    if (roleUrns != null) {
+      disjunction.addAll(
+          createRoleFilterDisjunction(roleUrns, type, status, startTimestampMillis, endTimestampMillis));
     }
     filter.setOr(disjunction);
     return filter;
@@ -193,6 +204,36 @@ public class ListActionRequestsResolver implements DataFetcher<CompletableFuture
       }
       if (resourceUrn != null) {
         andCriterion.add(ActionRequestUtils.createResourceCriterion(resourceUrn.toString()));
+      }
+      if (startTimestampMillis != null) {
+        andCriterion.add(ActionRequestUtils.createStartTimestampCriterion(startTimestampMillis));
+      }
+      if (endTimestampMillis != null) {
+        andCriterion.add(ActionRequestUtils.createEndTimestampCriterion(endTimestampMillis));
+      }
+      conjunction.setAnd(andCriterion);
+      disjunction.add(conjunction);
+    }
+    return disjunction;
+  }
+  private List<ConjunctiveCriterion> createRoleFilterDisjunction(final List<Urn> roleUrns,
+      final @Nullable ActionRequestType type, final @Nullable ActionRequestStatus status,
+      final @Nullable Long startTimestampMillis, final @Nullable Long endTimestampMillis) {
+    final List<ConjunctiveCriterion> disjunction = new ArrayList<>();
+    // Create a new filter for each role urn, where the urn, type, and status must all match.
+    for (Urn groupUrn : roleUrns) {
+      final ConjunctiveCriterion conjunction = new ConjunctiveCriterion();
+      final CriterionArray andCriterion = new CriterionArray();
+      final Criterion roleUrnCriterion = new Criterion();
+      roleUrnCriterion.setField(ASSIGNED_ROLES_FIELD_NAME + ".keyword");
+      roleUrnCriterion.setValue(groupUrn.toString());
+      roleUrnCriterion.setCondition(Condition.EQUAL);
+      andCriterion.add(roleUrnCriterion);
+      if (status != null) {
+        andCriterion.add(ActionRequestUtils.createStatusCriterion(status));
+      }
+      if (type != null) {
+        andCriterion.add(ActionRequestUtils.createTypeCriterion(type));
       }
       if (startTimestampMillis != null) {
         andCriterion.add(ActionRequestUtils.createStartTimestampCriterion(startTimestampMillis));

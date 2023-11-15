@@ -46,6 +46,20 @@
         }
       }
     }, {
+      "name" : "assignedRoles",
+      "type" : {
+        "type" : "array",
+        "items" : "com.linkedin.common.Urn"
+      },
+      "doc" : "The roles this action request is assigned to",
+      "optional" : true,
+      "Searchable" : {
+        "/*" : {
+          "addToFilters" : true,
+          "fieldType" : "URN"
+        }
+      }
+    }, {
       "name" : "resourceType",
       "type" : "string",
       "doc" : "The resource type that the action is associated with, for example 'dataset'",
@@ -5880,6 +5894,7 @@
     "path" : "/platform",
     "schema" : "com.linkedin.entity.Entity",
     "doc" : "DataHub Platform Actions\n\ngenerated from: com.linkedin.metadata.resources.platform.PlatformResource",
+    "resourceClass" : "com.linkedin.metadata.resources.platform.PlatformResource",
     "collection" : {
       "identifier" : {
         "name" : "platformId",
@@ -5888,6 +5903,7 @@
       "supports" : [ ],
       "actions" : [ {
         "name" : "producePlatformEvent",
+        "javaMethodName" : "producePlatformEvent",
         "parameters" : [ {
           "name" : "name",
           "type" : "string"

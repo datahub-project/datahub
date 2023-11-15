@@ -4,10 +4,12 @@
   "path" : "/test",
   "schema" : "com.linkedin.test.TestInfo",
   "doc" : "Single unified resource for fetching, updating, searching, & browsing DataHub entities\n\ngenerated from: com.linkedin.metadata.resources.test.MetadataTestResource",
+  "resourceClass" : "com.linkedin.metadata.resources.test.MetadataTestResource",
   "simple" : {
     "supports" : [ ],
     "actions" : [ {
       "name" : "batchEvaluate",
+      "javaMethodName" : "batchEvaluate",
       "parameters" : [ {
         "name" : "urns",
         "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }"
@@ -23,6 +25,7 @@
       "returns" : "com.linkedin.test.BatchedTestResults"
     }, {
       "name" : "evaluate",
+      "javaMethodName" : "evaluate",
       "parameters" : [ {
         "name" : "urn",
         "type" : "string"

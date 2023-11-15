@@ -260,16 +260,19 @@ public class ProposalUtils {
 
     List<Urn> assignedUsers = new ArrayList<>();
     List<Urn> assignedGroups = new ArrayList<>();
+    List<Urn> assignedRoles = new ArrayList<>();
 
     if (actors != null) {
       assignedUsers = actors.getUsers();
       assignedGroups = actors.getGroups();
+      assignedRoles = actors.getRoles();
     }
 
     ActionRequestSnapshot snapshot = createTagProposalRequest(
         creator,
         assignedUsers,
         assignedGroups,
+        assignedRoles,
         tagUrn,
         targetUrn,
         subResource,
@@ -291,6 +294,7 @@ public class ProposalUtils {
       Urn creator,
       List<Urn> assignedUsers,
       List<Urn> assignedGroups,
+      List<Urn> assignedRoles,
       Urn tagUrn,
       Urn targetUrn,
       String subResource,
@@ -309,6 +313,7 @@ public class ProposalUtils {
         creator,
         assignedUsers,
         assignedGroups,
+        assignedRoles,
         tagUrn, targetUrn, subResource, subResourceType)));
 
     result.setAspects(aspects);
@@ -338,14 +343,16 @@ public class ProposalUtils {
 
     List<Urn> assignedUsers = new ArrayList<>();
     List<Urn> assignedGroups = new ArrayList<>();
+    List<Urn> assignedRoles = new ArrayList<>();
 
     if (actors != null) {
       assignedUsers = actors.getUsers();
       assignedGroups = actors.getGroups();
+      assignedRoles = actors.getRoles();
     }
 
-    // if no users or groups were assigned, attempt to assign the owners of the container
-    if (assignedUsers.isEmpty() && assignedGroups.isEmpty()) {
+    // if no users, groups or roles were assigned, attempt to assign the owners of the container
+    if (assignedUsers.isEmpty() && assignedGroups.isEmpty() && assignedRoles.isEmpty()) {
       // also potentially fetch the owners of the dataset's container
       Container containerAspect =
           (Container) EntityUtils.getAspectFromEntity(targetUrn.toString(), CONTAINER_ASPECT_NAME, entityService, new Container());
@@ -375,6 +382,7 @@ public class ProposalUtils {
         creator,
         assignedUsers,
         assignedGroups,
+        assignedRoles,
         termUrn,
         targetUrn,
         subResource,
@@ -634,6 +642,7 @@ public class ProposalUtils {
       Urn creator,
       List<Urn> assignedUsers,
       List<Urn> assignedGroups,
+      List<Urn> assignedRoles,
       Urn termUrn,
       Urn targetUrn,
       String subResource,
@@ -652,6 +661,7 @@ public class ProposalUtils {
         creator,
         assignedUsers,
         assignedGroups,
+        assignedRoles,
         termUrn,
         targetUrn,
         subResource,
@@ -682,6 +692,7 @@ public class ProposalUtils {
       Urn creator,
       List<Urn> assignedUsers,
       List<Urn> assignedGroups,
+      List<Urn> assignedRoles,
       Urn labelUrn,
       Urn targetUrn,
       String subResource,
@@ -691,6 +702,7 @@ public class ProposalUtils {
     info.setType(type.toString());
     info.setAssignedUsers(new UrnArray(assignedUsers));
     info.setAssignedGroups(new UrnArray(assignedGroups));
+    info.setAssignedRoles(new UrnArray(assignedRoles));
     info.setResourceType(targetUrn.getEntityType());
     info.setResource(targetUrn.toString());
     if (subResourceType != null) {
