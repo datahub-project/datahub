@@ -366,8 +366,6 @@ plugins: Dict[str, Set[str]] = {
     | usage_common
     | {"redshift-connector"}
     | sqlglot_lib,
-    "redshift-legacy": sql_common | redshift_common | sqlglot_lib,
-    "redshift-usage-legacy": sql_common | redshift_common | sqlglot_lib | usage_common,
     "s3": {*s3_base, *data_lake_profiling},
     "gcs": {*s3_base, *data_lake_profiling},
     "sagemaker": aws_common,
@@ -510,8 +508,6 @@ base_dev_requirements = {
             "presto",
             "redash",
             "redshift",
-            "redshift-legacy",
-            "redshift-usage-legacy",
             "s3",
             "snowflake",
             "tableau",
@@ -608,8 +604,6 @@ entry_points = {
         "postgres = datahub.ingestion.source.sql.postgres:PostgresSource",
         "redash = datahub.ingestion.source.redash:RedashSource",
         "redshift = datahub.ingestion.source.redshift.redshift:RedshiftSource",
-        "redshift-legacy = datahub.ingestion.source.sql.redshift:RedshiftSource",
-        "redshift-usage-legacy = datahub.ingestion.source.usage.redshift_usage:RedshiftUsageSource",
         "snowflake = datahub.ingestion.source.snowflake.snowflake_v2:SnowflakeV2Source",
         "superset = datahub.ingestion.source.superset:SupersetSource",
         "tableau = datahub.ingestion.source.tableau:TableauSource",
