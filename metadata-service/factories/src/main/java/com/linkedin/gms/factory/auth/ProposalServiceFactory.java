@@ -6,6 +6,7 @@ import com.datahub.authentication.proposal.ProposalService;
 import com.linkedin.metadata.spring.YamlPropertySourceFactory;
 import com.linkedin.metadata.client.JavaEntityClient;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.graph.GraphClient;
 import javax.annotation.Nonnull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -26,10 +27,14 @@ public class ProposalServiceFactory {
   @Qualifier("javaEntityClient")
   private JavaEntityClient _javaEntityClient;
 
+  @Autowired
+  @Qualifier("graphClient")
+  private GraphClient _graphClient;
+
   @Bean(name = "proposalService")
   @Scope("singleton")
   @Nonnull
   protected ProposalService getInstance() throws Exception {
-    return new ProposalService(this._entityService, this._javaEntityClient);
+    return new ProposalService(this._entityService, this._javaEntityClient, this._graphClient);
   }
 }

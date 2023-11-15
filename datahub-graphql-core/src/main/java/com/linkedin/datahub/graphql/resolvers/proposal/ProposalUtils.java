@@ -151,7 +151,9 @@ public class ProposalUtils {
     if (type.equals(ActionRequestType.UPDATE_DESCRIPTION)) {
       return isAuthorizedToAcceptDescriptionProposals(context, targetUrn, subResource);
     }
-
+    if (type.equals(ActionRequestType.DATA_CONTRACT)) {
+      return isAuthorizedToAcceptDataContractProposals(context, targetUrn, subResource);
+    }
     return false;
   }
 
@@ -212,6 +214,22 @@ public class ProposalUtils {
     }
 
     // TODO: Add these new privileges to default places like superuser as well as roles
+
+    return AuthorizationUtils.isAuthorized(
+        context.getAuthorizer(),
+        context.getActorUrn(),
+        targetUrn.getEntityType(),
+        targetUrn.toString(),
+        orPrivilegeGroups);
+  }
+
+
+  public static boolean isAuthorizedToAcceptDataContractProposals(@Nonnull QueryContext context, Urn targetUrn, String subResource) {
+
+    final DisjunctivePrivilegeGroup orPrivilegeGroups = new DisjunctivePrivilegeGroup(new ArrayList<>(Arrays.asList(
+        ALL_PRIVILEGES_GROUP,
+        new ConjunctivePrivilegeGroup(List.of(PoliciesConfig.EDIT_ENTITY_DATA_CONTRACT_PRIVILEGE.getType()))
+    )));
 
     return AuthorizationUtils.isAuthorized(
         context.getAuthorizer(),

@@ -16,14 +16,17 @@ import com.linkedin.datahub.graphql.generated.CorpUser;
 import com.linkedin.datahub.graphql.generated.CreateGlossaryEntityProposalProperties;
 import com.linkedin.datahub.graphql.generated.DataHubConnection;
 import com.linkedin.datahub.graphql.generated.DataHubSubscription;
+import com.linkedin.datahub.graphql.generated.DataQualityContract;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityAnomaliesResult;
 import com.linkedin.datahub.graphql.generated.EntitySubscriptionSummary;
+import com.linkedin.datahub.graphql.generated.FreshnessContract;
 import com.linkedin.datahub.graphql.generated.GlossaryTermAssociation;
 import com.linkedin.datahub.graphql.generated.GlossaryTermProposalParams;
 import com.linkedin.datahub.graphql.generated.IncidentSource;
 import com.linkedin.datahub.graphql.generated.Monitor;
 import com.linkedin.datahub.graphql.generated.ResolvedAuditStamp;
+import com.linkedin.datahub.graphql.generated.SchemaContract;
 import com.linkedin.datahub.graphql.generated.SystemMonitor;
 import com.linkedin.datahub.graphql.generated.TagProposalParams;
 import com.linkedin.datahub.graphql.resolvers.actionrequest.ListActionRequestsResolver;
@@ -42,6 +45,8 @@ import com.linkedin.datahub.graphql.resolvers.assertion.UpdateFreshnessAssertion
 import com.linkedin.datahub.graphql.resolvers.connection.UpsertConnectionResolver;
 import com.linkedin.datahub.graphql.resolvers.constraint.ConstraintsResolver;
 import com.linkedin.datahub.graphql.resolvers.constraint.CreateTermConstraintResolver;
+import com.linkedin.datahub.graphql.resolvers.datacontract.EntityDataContractResolver;
+import com.linkedin.datahub.graphql.resolvers.datacontract.UpsertDataContractResolver;
 import com.linkedin.datahub.graphql.resolvers.dataset.AcrylDatasetHealthResolver;
 import com.linkedin.datahub.graphql.resolvers.dataset.DatasetStatsSummaryResolver;
 import com.linkedin.datahub.graphql.resolvers.incident.EntityIncidentsResolver;
@@ -62,6 +67,7 @@ import com.linkedin.datahub.graphql.resolvers.monitor.UpdateSystemMonitorsResolv
 import com.linkedin.datahub.graphql.resolvers.proposal.AcceptProposalResolver;
 import com.linkedin.datahub.graphql.resolvers.proposal.ProposeCreateGlossaryNodeResolver;
 import com.linkedin.datahub.graphql.resolvers.proposal.ProposeCreateGlossaryTermResolver;
+import com.linkedin.datahub.graphql.resolvers.proposal.ProposeDataContractResolver;
 import com.linkedin.datahub.graphql.resolvers.proposal.ProposeTagResolver;
 import com.linkedin.datahub.graphql.resolvers.proposal.ProposeTermResolver;
 import com.linkedin.datahub.graphql.resolvers.proposal.ProposeUpdateDescriptionResolver;
@@ -92,6 +98,7 @@ import com.linkedin.datahub.graphql.types.EntityType;
 import com.linkedin.datahub.graphql.types.LoadableType;
 import com.linkedin.datahub.graphql.types.anomaly.AnomalyType;
 import com.linkedin.datahub.graphql.types.connection.DataHubConnectionType;
+import com.linkedin.datahub.graphql.types.datacontract.DataContractType;
 import com.linkedin.datahub.graphql.types.glossary.GlossaryNodeType;
 import com.linkedin.datahub.graphql.types.glossary.GlossaryTermType;
 import com.linkedin.datahub.graphql.types.incident.IncidentType;
@@ -120,14 +127,6 @@ import static com.linkedin.datahub.graphql.AcrylConstants.*;
 
 public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
 
-  public static final String CONSTRAINTS_SCHEMA_FILE = "constraints.graphql";
-  public static final String INCIDENTS_SCHEMA_FILE = "incident.graphql";
-  public static final String ACTIONS_SCHEMA_FILE = "actions.graphql";
-  public static final String ANOMALY_SCHEMA_FILE = "anomaly.graphql";
-  public static final String ASSERTIONS_SCHEMA_FILE = "assertions.graphql";
-  public static final String NOTIFICATIONS_SCHEMA_FILE = "notifications.graphql";
-  public static final String SUBSCRIPTIONS_SCHEMA_FILE = "subscriptions.graphql";
-
   // OSS Types
   private GlossaryTermType glossaryTermType;
   private GlossaryNodeType glossaryNodeType;
@@ -138,6 +137,7 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
   private MonitorType monitorType; // SaaS only
   private IncidentType incidentType; // SaaS only
   private AnomalyType anomalyType;
+  private DataContractType dataContractType; // SaaS only, will be moved to OSS
 
   private List<EntityType<?, ?>> entityTypes;
 
@@ -192,13 +192,15 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
     this.monitorType = new MonitorType(args.getEntityClient()); // SaaS only
     this.incidentType = new IncidentType(args.getEntityClient()); // SaaS only
     this.anomalyType = new AnomalyType(args.getEntityClient()); // SaaS only
+    this.dataContractType = new DataContractType(entityClient); // SaaS only
 
     // New saas types
     this.entityTypes = ImmutableList.of(
         this.connectionType,
         this.monitorType,
         this.incidentType,
-        this.anomalyType
+        this.anomalyType,
+        this.dataContractType
     );
 
     this.initialized = true;
@@ -216,8 +218,9 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
         ANOMALY_SCHEMA_FILE,
         INTEGRATIONS_SCHEMA_FILE,
         NOTIFICATIONS_SCHEMA_FILE,
-        SUBSCRIPTIONS_SCHEMA_FILE
-        );
+        SUBSCRIPTIONS_SCHEMA_FILE,
+        CONTRACTS_SCHEMA_FILE
+    );
   }
 
   @Override
@@ -227,13 +230,34 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
         connectionType, // Saas only
         monitorType, // SaaS only
         incidentType, // SaaS only
-        anomalyType // SaaS only
+        anomalyType, // SaaS only
+        dataContractType
     );
   }
 
   @Override
   public Collection<? extends EntityType<?, ?>> getEntityTypes() {
     return this.entityTypes;
+  }
+
+  @Override
+  public void configureExtraResolvers(RuntimeWiring.Builder builder, GmsGraphQLEngine baseEngine) {
+    configureGenericResolvers(builder, baseEngine);
+    configureQueryResolvers(builder);
+    configureMutationResolvers(builder, baseEngine);
+    configureContainerResolvers(builder);
+    configureDatasetResolvers(builder);
+    configureActionRequestResolvers(builder);
+    configureAnomalyResolvers(builder, baseEngine);
+    configureConnectionResolvers(builder, baseEngine);
+    configureIntegrationResolvers(builder);
+    configureMonitorResolvers(builder, baseEngine);
+    configureIncidentResolvers(builder, baseEngine);
+    configureResolvedAuditStampResolvers(builder, baseEngine);
+    configureGlobalSettingsResolvers(builder);
+    configureTestResolvers(builder);
+    configureProposalResolvers(builder);
+    configureContractResolvers(builder, baseEngine);
   }
 
   private void configureMutationResolvers(final RuntimeWiring.Builder builder, GmsGraphQLEngine baseEngine) {
@@ -246,6 +270,7 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
         .dataFetcher("proposeCreateGlossaryTerm", new ProposeCreateGlossaryTermResolver(proposalService))
         .dataFetcher("proposeCreateGlossaryNode", new ProposeCreateGlossaryNodeResolver(proposalService))
         .dataFetcher("proposeUpdateDescription", new ProposeUpdateDescriptionResolver(proposalService))
+        .dataFetcher("proposeDataContract", new ProposeDataContractResolver(proposalService))
         .dataFetcher("raiseIncident", new RaiseIncidentResolver(this.entityClient))
         .dataFetcher("updateIncidentStatus", new UpdateIncidentStatusResolver(this.entityClient, this.entityService))
         .dataFetcher("createDatasetAssertion", new CreateDatasetAssertionResolver(assertionService))
@@ -493,25 +518,6 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
     }
   }
 
-    @Override
-  public void configureExtraResolvers(RuntimeWiring.Builder builder, GmsGraphQLEngine baseEngine) {
-    configureGenericResolvers(builder, baseEngine);
-    configureQueryResolvers(builder);
-    configureMutationResolvers(builder, baseEngine);
-    configureContainerResolvers(builder);
-    configureDatasetResolvers(builder);
-    configureActionRequestResolvers(builder);
-    configureAnomalyResolvers(builder, baseEngine);
-    configureConnectionResolvers(builder, baseEngine);
-    configureIntegrationResolvers(builder);
-    configureMonitorResolvers(builder, baseEngine);
-    configureIncidentResolvers(builder, baseEngine);
-    configureResolvedAuditStampResolvers(builder, baseEngine);
-    configureGlobalSettingsResolvers(builder);
-    configureTestResolvers(builder);
-    configureProposalResolvers(builder);
-  }
-
   private void configureGenericResolvers(RuntimeWiring.Builder builder, GmsGraphQLEngine baseEngine) {
     builder
         .type("GlossaryTermAssociation", typeWiring -> typeWiring
@@ -551,5 +557,40 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
         .dataFetcher("assertions", new EntityAssertionsResolver(entityClient, graphClient))
         .dataFetcher("incidents", new EntityIncidentsResolver(entityClient))
     );
+  }
+
+  private void configureContractResolvers(final RuntimeWiring.Builder builder, final GmsGraphQLEngine baseEngine) {
+    builder.type("Dataset", typeWiring -> typeWiring
+        .dataFetcher("contract",
+            new EntityDataContractResolver(this.entityClient, this.graphClient)
+        ));
+    builder.type("FreshnessContract", typeWiring -> typeWiring
+        .dataFetcher("assertion",
+            new LoadableTypeResolver<>(baseEngine.getAssertionType(),
+                (env) -> {
+                  final FreshnessContract contract = env.getSource();
+                  return contract.getAssertion() != null ? contract.getAssertion().getUrn() : null;
+                })
+        ));
+    builder.type("DataQualityContract", typeWiring -> typeWiring
+        .dataFetcher("assertion",
+            new LoadableTypeResolver<>(baseEngine.getAssertionType(),
+                (env) -> {
+                  final DataQualityContract contract = env.getSource();
+                  return contract.getAssertion() != null ? contract.getAssertion().getUrn() : null;
+                })
+        ));
+    builder.type("SchemaContract", typeWiring -> typeWiring
+        .dataFetcher("assertion",
+            new LoadableTypeResolver<>(baseEngine.getAssertionType(),
+                (env) -> {
+                  final SchemaContract contract = env.getSource();
+                  return contract.getAssertion() != null ? contract.getAssertion().getUrn() : null;
+                })
+        ));
+    builder.type("Mutation", typeWiring -> typeWiring
+        .dataFetcher("upsertDataContract",
+            new UpsertDataContractResolver(this.entityClient, this.graphClient)
+        ));
   }
 }

@@ -21,6 +21,7 @@ import com.linkedin.glossary.GlossaryNodeInfo;
 import com.linkedin.glossary.GlossaryTermInfo;
 import com.linkedin.identity.GroupMembership;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.snapshot.ActionRequestSnapshot;
 import com.linkedin.metadata.snapshot.Snapshot;
 import java.util.Collections;
@@ -53,6 +54,8 @@ public class ProposalServiceTest {
 
   private EntityService _entityService;
   private EntityClient _entityClient;
+  private GraphClient _graphClient;
+
   private ProposalService _proposalService;
 
   @BeforeMethod
@@ -67,8 +70,9 @@ public class ProposalServiceTest {
 
     _entityService = mock(EntityService.class);
     _entityClient = mock(EntityClient.class);
+    _graphClient = mock(GraphClient.class);
 
-    _proposalService = new ProposalService(_entityService, _entityClient);
+    _proposalService = new ProposalService(_entityService, _entityClient, _graphClient);
   }
 
   @Test

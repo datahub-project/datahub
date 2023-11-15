@@ -13,12 +13,12 @@ public class GlobalTagsMapper {
 
     public static com.linkedin.datahub.graphql.generated.GlobalTags map(
         @Nonnull final GlobalTags standardTags,
-         @Nonnull final Urn entityUrn
+         final Urn entityUrn
     ) {
         return INSTANCE.apply(standardTags, entityUrn);
     }
 
-    public com.linkedin.datahub.graphql.generated.GlobalTags apply(@Nonnull final GlobalTags input, @Nonnull final Urn entityUrn) {
+    public com.linkedin.datahub.graphql.generated.GlobalTags apply(@Nonnull final GlobalTags input, final Urn entityUrn) {
         final com.linkedin.datahub.graphql.generated.GlobalTags result = new com.linkedin.datahub.graphql.generated.GlobalTags();
         result.setTags(input.getTags().stream().map(tag -> this.mapTagAssociation(tag, entityUrn)).collect(Collectors.toList()));
         return result;
@@ -26,13 +26,15 @@ public class GlobalTagsMapper {
 
     private com.linkedin.datahub.graphql.generated.TagAssociation mapTagAssociation(
         @Nonnull final TagAssociation input,
-        @Nonnull final Urn entityUrn
+        final Urn entityUrn
     ) {
         final com.linkedin.datahub.graphql.generated.TagAssociation result = new com.linkedin.datahub.graphql.generated.TagAssociation();
         final Tag resultTag = new Tag();
         resultTag.setUrn(input.getTag().toString());
         result.setTag(resultTag);
-        result.setAssociatedUrn(entityUrn.toString());
+        if (entityUrn != null) {
+            result.setAssociatedUrn(entityUrn.toString());
+        }
         return result;
     }
 }

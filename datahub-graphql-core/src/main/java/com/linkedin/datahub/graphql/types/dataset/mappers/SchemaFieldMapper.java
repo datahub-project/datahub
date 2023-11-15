@@ -12,11 +12,11 @@ public class SchemaFieldMapper {
 
     public static final SchemaFieldMapper INSTANCE = new SchemaFieldMapper();
 
-    public static SchemaField map(@Nonnull final com.linkedin.schema.SchemaField metadata, @Nonnull Urn entityUrn) {
+    public static SchemaField map(@Nonnull final com.linkedin.schema.SchemaField metadata, Urn entityUrn) {
         return INSTANCE.apply(metadata, entityUrn);
     }
 
-    public SchemaField apply(@Nonnull final com.linkedin.schema.SchemaField input, @Nonnull Urn entityUrn) {
+    public SchemaField apply(@Nonnull final com.linkedin.schema.SchemaField input, Urn entityUrn) {
         final SchemaField result = new SchemaField();
         result.setDescription(input.getDescription());
         result.setFieldPath(input.getFieldPath());

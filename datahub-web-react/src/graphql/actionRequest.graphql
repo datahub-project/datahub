@@ -186,6 +186,24 @@ query listActionRequests($input: ListActionRequestsInput!) {
                 updateDescriptionProposal {
                     description
                 }
+                dataContractProposal {
+                    operationType
+                    freshness {
+                        assertion {
+                            ...assertionDetailsWithMonitors
+                        }
+                    }
+                    schema {
+                        assertion {
+                            ...assertionDetailsWithMonitors
+                        }
+                    }
+                    dataQuality {
+                        assertion {
+                            ...assertionDetailsWithMonitors
+                        }
+                    }
+                }
             }
             created {
                 time

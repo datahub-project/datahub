@@ -341,6 +341,11 @@ extend type AssertionInfo {
   fieldAssertion: FieldAssertionInfo
 
   """
+  Schema assertion, e.g. defining the expected structure for an asset.
+  """
+  schemaAssertion: SchemaAssertionInfo
+
+  """
   The source or origin of the Assertion definition.
   """
   source: AssertionSource
@@ -1473,4 +1478,19 @@ input TestAssertionInput {
   Parameters required to evaluate the assertion
   """
   parameters: AssertionEvaluationParametersInput
+}
+
+"""
+Information about an Schema assertion
+"""
+type SchemaAssertionInfo {
+  """
+  The entity targeted by this schema assertion.
+  """
+  entityUrn: String!
+
+  """
+  A definition of the expected structure for the asset
+  """
+  schema: SchemaMetadata!
 }
