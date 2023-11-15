@@ -3,7 +3,7 @@ apply plugin: 'java-library'
 dependencies {
   api project(':metadata-events:mxe-avro')
   api project(':metadata-models')
-  api spec.product.pegasus.dataAvro1_6
+  api spec.product.pegasus.dataAvro
 
   testImplementation externalDependency.testng
   testImplementation project(':test-models')
