@@ -1,6 +1,7 @@
 import copy
 import functools
 import logging
+import os
 import threading
 from typing import TYPE_CHECKING, Callable, Dict, List, Optional, TypeVar, cast
 
@@ -55,7 +56,10 @@ logger = logging.getLogger(__name__)
 
 _airflow_listener_initialized = False
 _airflow_listener: Optional["DataHubListener"] = None
-_RUN_IN_THREAD = True
+_RUN_IN_THREAD = os.getenv("DATAHUB_AIRFLOW_PLUGIN_RUN_IN_THREAD", "true").lower() in (
+    "true",
+    "1",
+)
 _RUN_IN_THREAD_TIMEOUT = 30
 
 
@@ -133,7 +137,7 @@ class DataHubListener:
 
         self._emitter = config.make_emitter_hook().make_emitter()
         self._graph: Optional[DataHubGraph] = None
-        logger.info(f"DataHub plugin using {repr(self._emitter)}")
+        logger.info(f"DataHub plugin v2 using {repr(self._emitter)}")
 
         # See discussion here https://github.com/OpenLineage/OpenLineage/pull/508 for
         # why we need to keep track of tasks ourselves.

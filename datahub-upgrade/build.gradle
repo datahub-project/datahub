@@ -66,7 +66,9 @@ dependencies {
   runtimeOnly externalDependency.mysqlConnector
   runtimeOnly externalDependency.postgresql
 
-  implementation externalDependency.awsMskIamAuth
+  implementation(externalDependency.awsMskIamAuth) {
+    exclude group: 'software.amazon.awssdk', module: 'third-party-jackson-core'
+  }
 
   annotationProcessor externalDependency.lombok
   annotationProcessor externalDependency.picocli
@@ -75,6 +77,12 @@ dependencies {
   testImplementation externalDependency.mockito
   testImplementation externalDependency.testng
   testRuntimeOnly externalDependency.logbackClassic
+
+  constraints {
+    implementation(implementation externalDependency.parquetHadoop) {
+      because("CVE-2022-42003")
+    }
+  }
 }
 
 bootJar {
