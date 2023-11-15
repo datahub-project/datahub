@@ -83,12 +83,28 @@ const ShowMoreButton = styled(Button)`
     padding: 0px;
 `;
 
+const LogsContainer = styled.div<LogsContainerProps>`
+    margin-bottom: -25px;
+    ${(props) =>
+        props.areLogsExpandable &&
+        !props.showExpandedLogs &&
+        `
+        -webkit-mask-image: linear-gradient(to bottom, rgba(0,0,0,1) 50%, rgba(255,0,0,0.5) 60%, rgba(255,0,0,0) 90% );
+        mask-image: linear-gradient(to bottom, rgba(0,0,0,1) 50%, rgba(255,0,0,0.5) 60%, rgba(255,0,0,0) 90%);
+    `}
+`;
+
 const modalStyle = {
     top: 100,
 };
 
 const modalBodyStyle = {
     padding: 0,
+};
+
+type LogsContainerProps = {
+    showExpandedLogs: boolean;
+    areLogsExpandable: boolean;
 };
 
 type Props = {
@@ -108,7 +124,7 @@ export const ExecutionDetailsModal = ({ urn, visible, onClose }: Props) => {
         downloadFile(output, `exec-${urn}.log`);
     };
 
-    const logs = (showExpandedLogs && output) || output.slice(0, 100);
+    const logs = (showExpandedLogs && output) || output.slice(0, 250);
     const result = data?.executionRequest?.result?.status;
 
     useEffect(() => {
@@ -140,7 +156,7 @@ export const ExecutionDetailsModal = ({ urn, visible, onClose }: Props) => {
     }
     const recipe = showExpandedRecipe ? recipeYaml : recipeYaml?.split('\n').slice(0, 1).join('\n');
 
-    const areLogsExpandable = output.length > 100;
+    const areLogsExpandable = output.length > 250;
     const isRecipeExpandable = recipeYaml?.includes('\n');
 
     return (
@@ -181,14 +197,16 @@ export const ExecutionDetailsModal = ({ urn, visible, onClose }: Props) => {
                             Download
                         </Button>
                     </SectionSubHeader>
-                    <Typography.Paragraph ellipsis>
-                        <pre>{`${logs}${!showExpandedLogs && areLogsExpandable ? '...' : ''}`}</pre>
-                        {areLogsExpandable && (
-                            <ShowMoreButton type="link" onClick={() => setShowExpandedLogs(!showExpandedLogs)}>
-                                {showExpandedLogs ? 'Hide' : 'Show More'}
-                            </ShowMoreButton>
-                        )}
-                    </Typography.Paragraph>
+                    <LogsContainer areLogsExpandable={areLogsExpandable} showExpandedLogs={showExpandedLogs}>
+                        <Typography.Paragraph ellipsis>
+                            <pre>{`${logs}${!showExpandedLogs && areLogsExpandable ? '...' : ''}`}</pre>
+                        </Typography.Paragraph>
+                    </LogsContainer>
+                    {areLogsExpandable && (
+                        <ShowMoreButton type="link" onClick={() => setShowExpandedLogs(!showExpandedLogs)}>
+                            {showExpandedLogs ? 'Hide' : 'Show More'}
+                        </ShowMoreButton>
+                    )}
                 </LogsSection>
                 {recipe && (
                     <RecipeSection>
