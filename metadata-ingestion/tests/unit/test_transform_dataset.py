@@ -775,6 +775,7 @@ def test_simple_dataset_tags_transformation(mock_time):
             ]
         )
     )
+
     assert len(outputs) == 5
 
     # Check that tags were added.
@@ -782,6 +783,10 @@ def test_simple_dataset_tags_transformation(mock_time):
     assert tags_aspect
     assert len(tags_aspect.tags) == 2
     assert tags_aspect.tags[0].tag == builder.make_tag_urn("NeedsDocumentation")
+
+    # Check new tag entity should be there
+    assert outputs[2].record.entityUrn == builder.make_tag_urn("NeedsDocumentation")
+    assert outputs[3].record.entityUrn == builder.make_tag_urn("Legacy")
 
 
 def dummy_tag_resolver_method(dataset_snapshot):

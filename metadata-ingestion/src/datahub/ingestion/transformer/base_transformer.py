@@ -27,13 +27,22 @@ def _update_work_unit_id(
     return record_metadata
 
 
-class LegacyMCETransformer(Transformer, metaclass=ABCMeta):
+class HandleEndOfStreamTransformer:
+    def handle_end_of_stream(
+        self, entity_urn: str
+    ) -> List[MetadataChangeProposalWrapper]:
+        return []
+
+
+class LegacyMCETransformer(
+    Transformer, HandleEndOfStreamTransformer, metaclass=ABCMeta
+):
     @abstractmethod
     def transform_one(self, mce: MetadataChangeEventClass) -> MetadataChangeEventClass:
         pass
 
 
-class SingleAspectTransformer(metaclass=ABCMeta):
+class SingleAspectTransformer(HandleEndOfStreamTransformer, metaclass=ABCMeta):
     @abstractmethod
     def aspect_name(self) -> str:
         """Implement this method to specify a single aspect that the transformer is interested in subscribing to. No default provided."""
@@ -49,11 +58,6 @@ class SingleAspectTransformer(metaclass=ABCMeta):
         param: aspect: an optional aspect corresponding to the aspect name that the transformer is interested in. Empty if no aspect with this name was produced by the underlying connector
         """
         pass
-
-    def handle_end_of_stream(
-        self, entity_urn: str
-    ) -> List[MetadataChangeProposalWrapper]:
-        return []
 
 
 class BaseTransformer(Transformer, metaclass=ABCMeta):
@@ -199,7 +203,9 @@ class BaseTransformer(Transformer, metaclass=ABCMeta):
         self, envelope: RecordEnvelope, entity_urn: str
     ) -> Iterable[RecordEnvelope]:
 
-        if not isinstance(self, SingleAspectTransformer):
+        if not isinstance(self, SingleAspectTransformer) and not isinstance(
+            self, LegacyMCETransformer
+        ):
             return
 
         mcps: List[MetadataChangeProposalWrapper] = self.handle_end_of_stream(
@@ -207,19 +213,12 @@ class BaseTransformer(Transformer, metaclass=ABCMeta):
         )
 
         for mcp in mcps:
-            # I am not sure if we need to update the work_unit_id. @harshal please confirm it
             if mcp.aspect is None or mcp.entityUrn is None:  # to silent the lint error
                 continue
 
-            record_metadata = _update_work_unit_id(
-                envelope=envelope,
-                aspect_name=mcp.aspect.get_aspect_name(),  # type: ignore
-                urn=mcp.entityUrn,
-            )
-
             yield RecordEnvelope(
                 record=mcp,
-                metadata=record_metadata,
+                metadata=envelope.metadata,
             )
 
     def transform(
@@ -277,9 +276,9 @@ class BaseTransformer(Transformer, metaclass=ABCMeta):
                                 ),
                                 metadata=record_metadata,
                             )
-                            yield from self._handle_end_of_stream(
-                                envelope=envelope, entity_urn=urn
-                            )
+                        yield from self._handle_end_of_stream(
+                            envelope=envelope, entity_urn=urn
+                        )
 
                     self._mark_processed(urn)
 
