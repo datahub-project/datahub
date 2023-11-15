@@ -7,7 +7,7 @@ from deprecated import deprecated
 
 from datahub.utilities.urns.error import InvalidUrnError
 
-URN_TYPES: Dict[str, Type["SpecificUrn"]] = {}
+URN_TYPES: Dict[str, Type["_SpecificUrn"]] = {}
 
 
 def _split_entity_id(entity_id: str) -> List[str]:
@@ -48,7 +48,8 @@ _UrnSelf = TypeVar("_UrnSelf", bound="Urn")
 @dataclasses.dataclass(frozen=True, order=True)
 class Urn:
     """
-    URNs are Globally Unique Identifiers (GUID) used to represent an entity.
+    URNs are globally unique identifiers used to refer to entities.
+
     It will be in format of urn:li:<type>:<id> or urn:li:<type>:(<id1>,<id2>,...)
     """
 
@@ -90,7 +91,7 @@ class Urn:
 
         # TODO undo encoding?
 
-        UrnCls: Optional[Type["SpecificUrn"]] = URN_TYPES.get(entity_type)
+        UrnCls: Optional[Type["_SpecificUrn"]] = URN_TYPES.get(entity_type)
         if UrnCls:
             return UrnCls._parse_ids(entity_ids)
 
@@ -145,7 +146,7 @@ class Urn:
         return urllib.parse.quote(urn, safe="")
 
 
-class SpecificUrn(Urn):
+class _SpecificUrn(Urn):
     ENTITY_TYPE: str = ""
     UNDERLYING_KEY_ASPECT: Type = None  # type: ignore
 
@@ -153,7 +154,7 @@ class SpecificUrn(Urn):
         # Validate the subclass.
         entity_type = cls.ENTITY_TYPE
         if not entity_type:
-            raise ValueError(f'SpecificUrn subclass {cls} must define "ENTITY_TYPE"')
+            raise ValueError(f'_SpecificUrn subclass {cls} must define "ENTITY_TYPE"')
 
         # Register the urn type.
         if entity_type in URN_TYPES:

@@ -117,7 +117,8 @@ def patch_schema(schema: dict, urn_arrays: Dict[str, List[Tuple[str, str]]]) -> 
         # Patch normal urn types.
         field: avro.schema.Field
         for field in nested.fields:
-            java_class: Optional[str] = field.props.get("java", {}).get("class")
+            java_props: dict = field.props.get("java", {})  # type: ignore
+            java_class: Optional[str] = java_props.get("class")
             if java_class and java_class.startswith(
                 "com.linkedin.pegasus2avro.common.urn."
             ):
@@ -143,6 +144,7 @@ def merge_schemas(schemas_obj: List[dict]) -> str:
     class NamesWithDups(avro.schema.Names):
         def add_name(self, name_attr, space_attr, new_schema):
             to_add = avro.schema.Name(name_attr, space_attr, self.default_namespace)
+            assert to_add.fullname
             self.names[to_add.fullname] = new_schema
             return to_add
 
@@ -230,7 +232,6 @@ def make_load_schema_methods(schemas: Iterable[str]) -> str:
 
 def save_raw_schemas(schema_save_dir: Path, schemas: Dict[str, dict]) -> None:
     # Save raw avsc files.
-    schema_save_dir.mkdir()
     for name, schema in schemas.items():
         (schema_save_dir / f"{name}.avsc").write_text(json.dumps(schema, indent=2))
 
@@ -422,8 +423,10 @@ def generate_urn_class(entity_type: str, key_aspect: dict) -> str:
     for field in fields:
         if field_name(field) == "env":
             coercion += "env = env.upper()\n"
-        if field_name(field) == "platformName":
+        elif field_name(field) == "platformName":
             coercion += 'if platformName.startswith("urn:li:dataPlatform:"):\n    platformName = DataPlatformUrn.from_string(platformName).platformName\n'
+        elif field_name(field) == "platform":
+            coercion += "platform = DataPlatformUrn(platform).urn()\n"
     if not coercion:
         coercion = "pass"
 
@@ -432,7 +435,7 @@ def generate_urn_class(entity_type: str, key_aspect: dict) -> str:
     code = f"""
 from datahub.metadata.schema_classes import {key_aspect_class}
 
-class {class_name}(SpecificUrn):
+class {class_name}(_SpecificUrn):
     ENTITY_TYPE = "{entity_type}"
     UNDERLYING_KEY_ASPECT = {key_aspect_class}
 
@@ -450,8 +453,8 @@ class {class_name}(SpecificUrn):
 
     @classmethod
     def _parse_ids(cls, entity_ids: List[str]) -> "{class_name}":
-        if len(entity_ids) != {arg_count}:
-            raise InvalidUrnError(f"{class_name} should have {arg_count} parts, got {{len(entity_ids)}}: {{entity_ids}}")
+        if len(entity_ids) != cls.URN_PARTS:
+            raise InvalidUrnError(f"{class_name} should have {{cls.URN_PARTS}} parts, got {{len(entity_ids)}}: {{entity_ids}}")
         return cls({parse_ids_mapping}, _allow_coercion=False)
 
     def to_key_aspect(self) -> {key_aspect_class}:
@@ -482,7 +485,7 @@ def write_urn_classes(key_aspects: List[dict], urn_dir: Path) -> None:
 
 from typing import List
 
-from datahub.utilities.urns._urn_base import SpecificUrn
+from datahub.utilities.urns._urn_base import _SpecificUrn
 from datahub.utilities.urns.error import InvalidUrnError
 """
 
@@ -625,7 +628,6 @@ else:
 
     # Keep a copy of a few raw avsc files.
     required_avsc_schemas = {"MetadataChangeEvent", "MetadataChangeProposal"}
-    schema_save_dir = Path(outdir) / "schemas"
     save_raw_schemas(
         schema_save_dir,
         {
