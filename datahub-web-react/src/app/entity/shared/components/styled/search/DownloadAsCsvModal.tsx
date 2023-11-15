@@ -91,10 +91,9 @@ export default function DownloadAsCsvModal({
                 viewUrn,
             })
                 .then((refetchData) => {
-                    const csvHeader = getSearchCsvDownloadHeader(refetchData?.searchResults);
                     accumulatedResults = [
                         ...accumulatedResults,
-                        ...transformResultsToCsvRow(refetchData?.searchResults || [], entityRegistry, csvHeader),
+                        ...transformResultsToCsvRow(refetchData?.searchResults || [], entityRegistry),
                     ];
                     // If we have a "next offset", then we continue.
                     // Otherwise, we terminate fetching.
@@ -104,7 +103,11 @@ export default function DownloadAsCsvModal({
                     } else {
                         setIsDownloadingCsv(false);
                         closeNotification();
-                        downloadRowsAsCsv(csvHeader, accumulatedResults, filename);
+                        downloadRowsAsCsv(
+                            getSearchCsvDownloadHeader(refetchData?.searchResults[0]),
+                            accumulatedResults,
+                            filename,
+                        );
                     }
                 })
                 .catch((_) => {
