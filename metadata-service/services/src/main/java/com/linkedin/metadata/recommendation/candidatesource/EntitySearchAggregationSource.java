@@ -4,7 +4,6 @@ import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
-import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.recommendation.ContentParams;
 import com.linkedin.metadata.recommendation.RecommendationContent;
 import com.linkedin.metadata.recommendation.RecommendationParams;
@@ -83,7 +82,7 @@ public abstract class EntitySearchAggregationSource implements RecommendationSou
   public List<RecommendationContent> getRecommendations(@Nonnull Urn userUrn,
       @Nullable RecommendationRequestContext requestContext) {
     Map<String, Long> aggregationResult =
-        _entitySearchService.aggregateByValue(null, getSearchFieldName(), buildAggregationFilter(), getMaxContent());
+        _entitySearchService.aggregateByValue(getEntityNames(), getSearchFieldName(), null, getMaxContent());
 
     if (aggregationResult.isEmpty()) {
       return Collections.emptyList();
@@ -117,8 +116,8 @@ public abstract class EntitySearchAggregationSource implements RecommendationSou
         .collect(Collectors.toList());
   }
 
-  protected Filter buildAggregationFilter() {
-    // By default, no filter is applied
+  protected List<String> getEntityNames() {
+    // By default, no list is applied which means searching across entities.
     return null;
   }
 
