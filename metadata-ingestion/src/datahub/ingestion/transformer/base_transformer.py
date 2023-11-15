@@ -17,16 +17,6 @@ from datahub.utilities.urns.urn import Urn, guess_entity_type
 log = logging.getLogger(__name__)
 
 
-def _update_work_unit_id(
-    envelope: RecordEnvelope, urn: str, aspect_name: str
-) -> dict[Any, Any]:
-    structured_urn = Urn.create_from_string(urn)
-    simple_name = "-".join(structured_urn.get_entity_id())
-    record_metadata = envelope.metadata.copy()
-    record_metadata.update({"workunit_id": f"txform-{simple_name}-{aspect_name}"})
-    return record_metadata
-
-
 class HandleEndOfStreamTransformer:
     def handle_end_of_stream(
         self, entity_urn: str
@@ -257,12 +247,6 @@ class BaseTransformer(Transformer, metaclass=ABCMeta):
                             else None,
                         )
                         if transformed_aspect:
-                            # for end of stream records, we modify the workunit-id
-                            record_metadata = _update_work_unit_id(
-                                envelope=envelope,
-                                aspect_name=self.aspect_name(),
-                                urn=urn,
-                            )
                             structured_urn = Urn.create_from_string(urn)
                             yield RecordEnvelope(
                                 record=MetadataChangeProposalWrapper(
@@ -274,7 +258,7 @@ class BaseTransformer(Transformer, metaclass=ABCMeta):
                                     aspectName=self.aspect_name(),
                                     aspect=transformed_aspect,
                                 ),
-                                metadata=record_metadata,
+                                metadata=envelope.metadata,
                             )
                         yield from self._handle_end_of_stream(
                             envelope=envelope, entity_urn=urn
