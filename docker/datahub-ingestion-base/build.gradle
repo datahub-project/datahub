@@ -10,18 +10,20 @@ ext {
     docker_repo = 'datahub-ingestion-base'
     docker_dir = 'datahub-ingestion-base'
     docker_target = project.getProperties().getOrDefault("dockerTarget", "slim")
+    docker_version = "${version}${docker_target == 'slim' ? '-slim' : ''}"
 
     revision = 2 // increment to trigger rebuild
 }
 
 docker {
-    name "${docker_registry}/${docker_repo}:v${version}-${docker_target}"
-    version "v${version}-${docker_target}"
+    name "${docker_registry}/${docker_repo}:v${docker_version}"
+    version "v${docker_version}"
     dockerfile file("${rootProject.projectDir}/docker/${docker_dir}/Dockerfile")
     files fileTree(rootProject.projectDir) {
+        include '.dockerignore'
         include "docker/${docker_dir}/*"
     }.exclude {
-        i -> i.file.isHidden() || i.file == buildDir
+        i -> (!i.file.name.endsWith(".dockerignore") && i.file.isHidden())
     }
     buildArgs([APP_ENV: docker_target])
 }
