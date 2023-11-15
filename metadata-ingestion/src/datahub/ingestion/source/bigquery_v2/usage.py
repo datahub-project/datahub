@@ -439,40 +439,44 @@ class BigQueryUsageExtractor:
         """Read log and store events in usage_state."""
         num_aggregated = 0
         num_generated = 0
-        for audit_event in events:
-            try:
-                # Note for View Usage:
-                # If Query Event references a view, bigquery audit logs do not contain Read Event for view
-                # in its audit logs, but only for it base tables. To extract usage for views, we parse the
-                # sql query to find bigquery tables and views read in the query and generate Read Events
-                # for them in our code (`from_query`=True). For such Query Events, we delete the original
-                # Read Events coming from Bigquery audit logs and keep only generated ones.
+        events = list(events)
+        with self.report.sql_parsing_and_store_usage_sec:
+            for audit_event in events:
+                try:
+                    # Note for View Usage:
+                    # If Query Event references a view, bigquery audit logs do not contain Read Event for view
+                    # in its audit logs, but only for it base tables. To extract usage for views, we parse the
+                    # sql query to find bigquery tables and views read in the query and generate Read Events
+                    # for them in our code (`from_query`=True). For such Query Events, we delete the original
+                    # Read Events coming from Bigquery audit logs and keep only generated ones.
 
-                # Caveats of SQL parsing approach used here:
-                # 1. If query parsing fails, usage for such query is not considered/counted.
-                # 2. Due to limitations of query parsing, field level usage is not available.
-                # To limit the impact, we use query parsing only for those queries that reference at least
-                # one view. For all other queries, field level usage is available through bigquery audit logs.
-                if (
-                    audit_event.query_event
-                    and audit_event.query_event.query_on_view
-                    and not self.config.usage.apply_view_usage_to_tables
-                ):
-                    query_event = audit_event.query_event
-                    self.report.num_view_query_events += 1
+                    # Caveats of SQL parsing approach used here:
+                    # 1. If query parsing fails, usage for such query is not considered/counted.
+                    # 2. Due to limitations of query parsing, field level usage is not available.
+                    # To limit the impact, we use query parsing only for those queries that reference at least
+                    # one view. For all other queries, field level usage is available through bigquery audit logs.
+                    if (
+                        audit_event.query_event
+                        and audit_event.query_event.query_on_view
+                        and not self.config.usage.apply_view_usage_to_tables
+                    ):
+                        query_event = audit_event.query_event
+                        self.report.num_view_query_events += 1
 
-                    for new_event in self.generate_read_events_from_query(query_event):
-                        num_generated += self._store_usage_event(
-                            new_event, usage_state, table_refs
-                        )
-                num_aggregated += self._store_usage_event(
-                    audit_event, usage_state, table_refs
-                )
-            except Exception as e:
-                logger.warning(
-                    f"Unable to store usage event {audit_event}", exc_info=True
-                )
-                self._report_error("store-event", e)
+                        for new_event in self.generate_read_events_from_query(
+                            query_event
+                        ):
+                            num_generated += self._store_usage_event(
+                                new_event, usage_state, table_refs
+                            )
+                    num_aggregated += self._store_usage_event(
+                        audit_event, usage_state, table_refs
+                    )
+                except Exception as e:
+                    logger.warning(
+                        f"Unable to store usage event {audit_event}", exc_info=True
+                    )
+                    self._report_error("store-event", e)
         logger.info(f"Total number of events aggregated = {num_aggregated}.")
 
         if self.report.num_view_query_events > 0:
