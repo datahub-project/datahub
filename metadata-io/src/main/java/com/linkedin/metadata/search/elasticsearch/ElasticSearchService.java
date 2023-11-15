@@ -1,6 +1,5 @@
 package com.linkedin.metadata.search.elasticsearch;
 
-import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.browse.BrowseResultV2;
