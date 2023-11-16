@@ -14,9 +14,7 @@ class TestDomainUrn(unittest.TestCase):
 
         assert dataprocessinstance_urn.get_entity_id() == ["abc"]
         assert str(dataprocessinstance_urn) == dataprocessinstance_urn_str
-        assert dataprocessinstance_urn == DataProcessInstanceUrn(
-            "dataProcessInstance", ["abc"]
-        )
+        assert dataprocessinstance_urn == DataProcessInstanceUrn("abc")
         assert dataprocessinstance_urn == DataProcessInstanceUrn.create_from_id("abc")
         assert "abc" == dataprocessinstance_urn.get_dataprocessinstance_id()
 

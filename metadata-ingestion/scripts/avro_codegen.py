@@ -376,10 +376,54 @@ def create_from_id(cls, id: str) -> "{class_name}":
 _extra_urn_methods: Dict[str, List[str]] = {
     "corpGroup": [_create_from_id.format(class_name="CorpGroupUrn")],
     "corpuser": [_create_from_id.format(class_name="CorpUserUrn")],
+    "dataFlow": [
+        """
+@deprecated(reason="Use .orchestrator instead")
+def get_orchestrator_name(self) -> str:
+    return self.orchestrator
+
+@deprecated(reason="Use .flowId instead")
+def get_flow_id(self) -> str:
+    return self.flowId
+
+@deprecated(reason="Use .cluster instead")
+def get_env(self) -> str:
+    return self.cluster
+""",
+    ],
+    "dataJob": [
+        """
+def get_data_flow_urn(self) -> "DataFlowUrn":
+    return DataFlowUrn.from_string(self.flow)
+
+@deprecated(reason="Use .jobId instead")
+def get_job_id(self) -> str:
+    return self.jobId
+"""
+    ],
     "dataPlatform": [_create_from_id.format(class_name="DataPlatformUrn")],
+    "dataProcessInstance": [
+        _create_from_id.format(class_name="DataProcessInstanceUrn"),
+        """
+@deprecated(reason="Use .id instead")
+def get_dataprocessinstance_id(self) -> str:
+    return self.id
+""",
+    ],
     "domain": [_create_from_id.format(class_name="DomainUrn")],
+    "notebook": [
+        """
+
+@deprecated(reason="Use .notebookTool instead")
+def get_platform_id(self) -> str:
+    return self.notebookTool
+
+@deprecated(reason="Use .notebookId instead")
+def get_notebook_id(self) -> str:
+    return self.notebookId
+"""
+    ],
     "tag": [_create_from_id.format(class_name="TagUrn")],
-    # datajob -> get_data_flow_urn
     # TODO
 }
 
@@ -435,6 +479,9 @@ def generate_urn_class(entity_type: str, key_aspect: dict) -> str:
             init_validation += (
                 f"assert DataPlatformUrn.from_string({field_name(field)})\n"
             )
+        elif field_name(field) == "flow":
+            init_validation += f"{field_name(field)} = str({field_name(field)})\n"
+            init_validation += f"assert DataFlowUrn.from_string({field_name(field)})\n"
 
     coercion = ""
     for field in fields:

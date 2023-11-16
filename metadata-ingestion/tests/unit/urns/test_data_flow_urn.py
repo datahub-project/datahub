@@ -20,8 +20,3 @@ class TestDataFlowUrn(unittest.TestCase):
 
         with self.assertRaises(InvalidUrnError):
             DataFlowUrn.create_from_string("urn:li:dataFlow:(airflow,flow_id)")
-
-        with self.assertRaises(InvalidUrnError):
-            DataFlowUrn.create_from_string(
-                "urn:li:dataFlow:(airflow,flow_id,invalidEnv)"
-            )

@@ -12,7 +12,7 @@ class TestNotebookUrn(unittest.TestCase):
         assert notebook_urn.get_notebook_id() == "123"
         assert str(notebook_urn) == notebook_urn_str
 
-        assert notebook_urn == NotebookUrn("notebook", ["querybook", "123"])
+        assert notebook_urn == NotebookUrn("querybook", "123")
 
     def test_invalid_urn(self) -> None:
         with self.assertRaises(InvalidUrnError):
