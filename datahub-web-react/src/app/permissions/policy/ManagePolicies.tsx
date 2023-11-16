@@ -166,7 +166,6 @@ export const ManagePolicies = () => {
         data: policiesData,
         refetch: policiesRefetch,
     } = useListPoliciesQuery({
-        fetchPolicy: 'no-cache',
         variables: {
             input: {
                 start,
@@ -174,6 +173,7 @@ export const ManagePolicies = () => {
                 query,
             },
         },
+        fetchPolicy: (query?.length || 0) > 0 ? 'no-cache' : 'cache-first',
     });
 
     // Any time a policy is removed, edited, or created, refetch the list.
@@ -476,7 +476,10 @@ export const ManagePolicies = () => {
                             fontSize: 12,
                         }}
                         onSearch={() => null}
-                        onQueryChange={(q) => setQuery(q)}
+                        onQueryChange={(q) => {
+                            setPage(1);
+                            setQuery(q);
+                        }}
                         entityRegistry={entityRegistry}
                         hideRecommendations
                     />
