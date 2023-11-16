@@ -53,19 +53,21 @@ class Urn:
     It will be in format of urn:li:<type>:<id> or urn:li:<type>:(<id1>,<id2>,...)
     """
 
-    LI_DOMAIN: ClassVar[str] = "li"  # retained for backwards compatibility
+    # retained for backwards compatibility
+    URN_PREFIX: ClassVar[str] = "urn"
+    LI_DOMAIN: ClassVar[str] = "li"
 
     _entity_type: str
     _entity_ids: List[str]
 
-    def __init__(self, entity_type: str, entity_ids: List[str]) -> None:
+    def __init__(self, entity_type: str, entity_id: List[str]) -> None:
         self._entity_type = entity_type
-        self._entity_ids = entity_ids
+        self._entity_ids = entity_id
 
         if not self._entity_ids:
             raise InvalidUrnError("Empty entity id.")
-        for entity_id in self._entity_ids:
-            if not entity_id:
+        for part in self._entity_ids:
+            if not part:
                 raise InvalidUrnError("Empty entity id.")
 
     @property
@@ -77,7 +79,7 @@ class Urn:
         return self._entity_ids
 
     @classmethod
-    def from_string(cls, urn_str: str) -> "Urn":
+    def from_string(cls: Type[_UrnSelf], urn_str: str) -> "_UrnSelf":
         """
         Create a Urn from the its string representation
         :param urn_str: the string representation of the Urn
@@ -109,10 +111,21 @@ class Urn:
 
         UrnCls: Optional[Type["_SpecificUrn"]] = URN_TYPES.get(entity_type)
         if UrnCls:
-            return UrnCls._parse_ids(entity_ids)
+            if not issubclass(UrnCls, cls):
+                # We want to return a specific subtype of Urn. If we're called
+                # with Urn.from_string(), that's fine. However, if we're called as
+                # DatasetUrn.from_string('urn:li:corpuser:foo'), that should throw an error.
+                raise InvalidUrnError(
+                    f"Passed an urn of type {entity_type} to the from_string method of {cls}. Use Urn.from_string() or {UrnCls}.from_string() instead."
+                )
+            return UrnCls._parse_ids(entity_ids)  # type: ignore
 
         # Fallback for unknown types.
-        return Urn(entity_type, entity_ids)
+        if cls != Urn:
+            raise InvalidUrnError(
+                f"Unknown urn type {entity_type} for urn {urn_str} of type {cls}"
+            )
+        return cls(entity_type, entity_ids)
 
     def urn(self) -> str:
         # TODO: add encoding?
@@ -147,7 +160,7 @@ class Urn:
 
     @classmethod
     @deprecated(reason="prefer .from_string")
-    def create_from_string(cls, urn_str: str) -> "Urn":
+    def create_from_string(cls: Type[_UrnSelf], urn_str: str) -> "_UrnSelf":
         return cls.from_string(urn_str)
 
     @deprecated(reason="prefer .entity_ids")
@@ -200,15 +213,6 @@ class _SpecificUrn(Urn):
     @classmethod
     def underlying_key_aspect_type(cls) -> Type:
         raise NotImplementedError()
-
-    @classmethod
-    def from_string(cls: Type[_UrnSelf], urn_str: str) -> "_UrnSelf":
-        urn = super().from_string(urn_str)
-        if not isinstance(urn, cls):
-            raise InvalidUrnError(
-                f"Passed an urn of type {type(urn)} to the from_string method of {cls}. Use Urn.from_string() or {type(urn)}.from_string() instead."
-            )
-        return urn
 
     @classmethod
     @abstractmethod

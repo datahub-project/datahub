@@ -389,7 +389,7 @@ def field_type(field: dict) -> str:
 def field_name(field: dict) -> str:
     manual_mapping = {
         "origin": "env",
-        "platformName": "platformName",
+        "platformName": "platform_name",
     }
 
     name: str = field["name"]
@@ -425,7 +425,7 @@ def create_from_ids(
     return cls(
         orchestrator=orchestrator,
         flow_id=f"{platform_instance}.{flow_id}" if platform_instance else flow_id,
-        env=env,
+        cluster=env,
     )
 
 @deprecated(reason="Use .orchestrator instead")
@@ -479,6 +479,10 @@ def create_from_ids(
         name=f"{platform_instance}.{table_name}" if platform_instance else table_name,
         env=env,
     )
+
+from datahub.utilities.urns.field_paths import get_simple_field_path_from_v2_field_path as _get_simple_field_path_from_v2_field_path
+
+get_simple_field_path_from_v2_field_path = staticmethod(deprecated(reason='Use the function from the field_paths module instead')(_get_simple_field_path_from_v2_field_path))
 
 def get_data_platform_urn(self) -> "DataPlatformUrn":
     return DataPlatformUrn.from_string(self.platform)
@@ -568,8 +572,8 @@ def generate_urn_class(entity_type: str, key_aspect: dict) -> str:
         if field_name(field) == "env":
             coercion += "env = env.upper()\n"
         # TODO add ALL_ENV_TYPES validation
-        elif field_name(field) == "platformName":
-            coercion += 'if platformName.startswith("urn:li:dataPlatform:"):\n    platformName = DataPlatformUrn.from_string(platformName).platformName\n'
+        elif field_name(field) == "platform_name":
+            coercion += 'if platform_name.startswith("urn:li:dataPlatform:"):\n    platform_name = DataPlatformUrn.from_string(platform_name).platform_name\n'
         elif field_name(field) == "platform":
             coercion += "platform = DataPlatformUrn(platform).urn()\n"
     if not coercion:

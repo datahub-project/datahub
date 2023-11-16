@@ -1,5 +1,6 @@
 import pytest
 
+from datahub.utilities.urns import DatasetUrn
 from datahub.utilities.urns.error import InvalidUrnError
 from datahub.utilities.urns.urn import Urn
 
@@ -46,3 +47,11 @@ def test_invalid_urn() -> None:
 
     with pytest.raises(InvalidUrnError):
         Urn.create_from_string("urn:li:abc:(abc,)")
+
+
+def test_urn_type_dispatch() -> None:
+    urn = Urn.from_string("urn:li:dataset:(urn:li:dataPlatform:abc,def,prod)")
+    assert isinstance(urn, DatasetUrn)
+
+    with pytest.raises(InvalidUrnError, match="Passed an urn of type corpuser"):
+        DatasetUrn.from_string("urn:li:corpuser:foo")
