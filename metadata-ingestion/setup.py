@@ -347,7 +347,7 @@ plugins: Dict[str, Set[str]] = {
     "mlflow": {"mlflow-skinny>=2.3.0"},
     "mode": {"requests", "tenacity>=8.0.1"} | sqllineage_lib,
     "mongodb": {"pymongo[srv]>=3.11", "packaging"},
-    "mssql": sql_common | {"sqlalchemy-pytds>=0.3"},
+    "mssql": sql_common | {"sqlalchemy-pytds>=0.3", "pyOpenSSL"},
     "mssql-odbc": sql_common | {"pyodbc"},
     "mysql": mysql,
     # mariadb should have same dependency as mysql
