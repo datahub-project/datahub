@@ -1,10 +1,13 @@
 import unittest
 
+import pytest
+
 from datahub.utilities.urns.data_process_instance_urn import DataProcessInstanceUrn
 from datahub.utilities.urns.error import InvalidUrnError
 
 
-class TestDomainUrn(unittest.TestCase):
+@pytest.mark.filterwarnings("ignore::DeprecationWarning")
+class TestDataProcessInstanceUrn(unittest.TestCase):
     def test_parse_urn(self) -> None:
         dataprocessinstance_urn_str = "urn:li:dataProcessInstance:abc"
         dataprocessinstance_urn = DataProcessInstanceUrn.create_from_string(

@@ -1,9 +1,12 @@
 import unittest
 
+import pytest
+
 from datahub.utilities.urns.error import InvalidUrnError
 from datahub.utilities.urns.tag_urn import TagUrn
 
 
+@pytest.mark.filterwarnings("ignore::DeprecationWarning")
 class TestTagUrn(unittest.TestCase):
     def test_parse_urn(self) -> None:
         tag_urn_str = "urn:li:tag:abc"

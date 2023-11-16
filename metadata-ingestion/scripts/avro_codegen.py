@@ -361,9 +361,19 @@ def field_type(field: dict) -> str:
 
 
 def field_name(field: dict) -> str:
-    name = field["name"]
-    if name == "origin":
-        return "env"
+    manual_mapping = {
+        "origin": "env",
+        "platformName": "platformName",
+    }
+
+    name: str = field["name"]
+    if name in manual_mapping:
+        return manual_mapping[name]
+
+    # If the name is mixed case, convert to snake case.
+    if name.lower() != name:
+        return re.sub(r"(?<!^)(?=[A-Z])", "_", name).lower()
+
     return name
 
 
@@ -388,7 +398,7 @@ def create_from_ids(
 ) -> "DataFlowUrn":
     return cls(
         orchestrator=orchestrator,
-        flowId=f"{platform_instance}.{flow_id}" if platform_instance else flow_id,
+        flow_id=f"{platform_instance}.{flow_id}" if platform_instance else flow_id,
         env=env,
     )
 
@@ -396,9 +406,9 @@ def create_from_ids(
 def get_orchestrator_name(self) -> str:
     return self.orchestrator
 
-@deprecated(reason="Use .flowId instead")
+@deprecated(reason="Use .flow_id instead")
 def get_flow_id(self) -> str:
-    return self.flowId
+    return self.flow_id
 
 @deprecated(reason="Use .cluster instead")
 def get_env(self) -> str:
@@ -414,9 +424,9 @@ def create_from_ids(cls, data_flow_urn: str, job_id: str) -> "DataJobUrn":
 def get_data_flow_urn(self) -> "DataFlowUrn":
     return DataFlowUrn.from_string(self.flow)
 
-@deprecated(reason="Use .jobId instead")
+@deprecated(reason="Use .job_id instead")
 def get_job_id(self) -> str:
-    return self.jobId
+    return self.job_id
 """
     ],
     "dataPlatform": [_create_from_id.format(class_name="DataPlatformUrn")],
@@ -459,13 +469,13 @@ def get_env(self) -> str:
     "domain": [_create_from_id.format(class_name="DomainUrn")],
     "notebook": [
         """
-@deprecated(reason="Use .notebookTool instead")
+@deprecated(reason="Use .notebook_tool instead")
 def get_platform_id(self) -> str:
-    return self.notebookTool
+    return self.notebook_tool
 
-@deprecated(reason="Use .notebookId instead")
+@deprecated(reason="Use .notebook_id instead")
 def get_notebook_id(self) -> str:
-    return self.notebookId
+    return self.notebook_id
 """
     ],
     "tag": [_create_from_id.format(class_name="TagUrn")],

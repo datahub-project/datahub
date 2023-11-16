@@ -1,10 +1,13 @@
 import unittest
 
+import pytest
+
 from datahub.utilities.urns.data_platform_urn import DataPlatformUrn
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 from datahub.utilities.urns.error import InvalidUrnError
 
 
+@pytest.mark.filterwarnings("ignore::DeprecationWarning")
 class TestDatasetUrn(unittest.TestCase):
     def test_parse_urn(self) -> None:
         dataset_urn_str = "urn:li:dataset:(urn:li:dataPlatform:abc,def,PROD)"

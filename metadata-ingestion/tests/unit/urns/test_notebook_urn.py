@@ -1,9 +1,12 @@
 import unittest
 
+import pytest
+
 from datahub.utilities.urns.error import InvalidUrnError
 from datahub.utilities.urns.notebook_urn import NotebookUrn
 
 
+@pytest.mark.filterwarnings("ignore::DeprecationWarning")
 class TestNotebookUrn(unittest.TestCase):
     def test_parse_urn(self) -> None:
         notebook_urn_str = "urn:li:notebook:(querybook,123)"

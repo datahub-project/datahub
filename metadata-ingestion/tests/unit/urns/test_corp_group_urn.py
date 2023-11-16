@@ -6,7 +6,7 @@ from datahub.utilities.urns.corp_group_urn import CorpGroupUrn
 from datahub.utilities.urns.error import InvalidUrnError
 
 
-@pytest.mark.filterwarnings("ignore:DeprecationWarning")
+@pytest.mark.filterwarnings("ignore::DeprecationWarning")
 class TestCorpGroupUrn(unittest.TestCase):
     def test_parse_urn(self) -> None:
         corp_group_urn_str = "urn:li:corpGroup:abc"

@@ -1,9 +1,12 @@
 import unittest
 
+import pytest
+
 from datahub.utilities.urns.data_flow_urn import DataFlowUrn
 from datahub.utilities.urns.error import InvalidUrnError
 
 
+@pytest.mark.filterwarnings("ignore::DeprecationWarning")
 class TestDataFlowUrn(unittest.TestCase):
     def test_parse_urn(self) -> None:
         data_flow_urn_str = "urn:li:dataFlow:(airflow,def,prod)"

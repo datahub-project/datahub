@@ -1,9 +1,12 @@
 import unittest
 
+import pytest
+
 from datahub.utilities.urns.domain_urn import DomainUrn
 from datahub.utilities.urns.error import InvalidUrnError
 
 
+@pytest.mark.filterwarnings("ignore::DeprecationWarning")
 class TestDomainUrn(unittest.TestCase):
     def test_parse_urn(self) -> None:
         domain_urn_str = "urn:li:domain:abc"

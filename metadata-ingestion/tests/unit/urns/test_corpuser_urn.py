@@ -6,7 +6,7 @@ from datahub.utilities.urns.corpuser_urn import CorpuserUrn
 from datahub.utilities.urns.error import InvalidUrnError
 
 
-@pytest.mark.filterwarnings("ignore:DeprecationWarning")
+@pytest.mark.filterwarnings("ignore::DeprecationWarning")
 class TestCorpuserUrn(unittest.TestCase):
     def test_parse_urn(self) -> None:
         corpuser_urn_str = "urn:li:corpuser:abc"
