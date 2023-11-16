@@ -1,1 +1,1 @@
-from datahub.utilities.urns.urn import DomainUrn  # noqa: F401
+from datahub.utilities.urns import DomainUrn  # noqa: F401

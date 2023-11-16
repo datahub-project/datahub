@@ -1,1 +1,1 @@
-from datahub.utilities.urns.urn import DataProcessInstanceUrn  # noqa: F401
+from datahub.utilities.urns import DataProcessInstanceUrn  # noqa: F401

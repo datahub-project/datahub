@@ -1,1 +1,1 @@
-from datahub.utilities.urns.urn import DataFlowUrn  # noqa: F401
+from datahub.utilities.urns import DataFlowUrn  # noqa: F401
