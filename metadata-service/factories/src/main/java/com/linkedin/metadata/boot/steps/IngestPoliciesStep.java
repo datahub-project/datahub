@@ -13,6 +13,7 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.boot.BootstrapStep;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.ebean.transactions.AspectsBatchImpl;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.ListUrnsResult;
@@ -24,15 +25,19 @@ import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.policy.DataHubPolicyInfo;
+
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.core.io.ClassPathResource;
+import org.springframework.core.io.Resource;
+
 
 import static com.linkedin.metadata.Constants.*;
 
@@ -49,6 +54,8 @@ public class IngestPoliciesStep implements BootstrapStep {
   private final EntitySearchService _entitySearchService;
   private final SearchDocumentTransformer _searchDocumentTransformer;
 
+  private final Resource _policiesResource;
+
   @Override
   public String name() {
     return "IngestPoliciesStep";
@@ -63,10 +70,10 @@ public class IngestPoliciesStep implements BootstrapStep {
         .maxStringLength(maxSize).build());
 
     // 0. Execute preflight check to see whether we need to ingest policies
-    log.info("Ingesting default access policies...");
+    log.info("Ingesting default access policies from: {}...", _policiesResource);
 
     // 1. Read from the file into JSON.
-    final JsonNode policiesObj = mapper.readTree(new ClassPathResource("./boot/policies.json").getFile());
+    final JsonNode policiesObj = mapper.readTree(_policiesResource.getFile());
 
     if (!policiesObj.isArray()) {
       throw new RuntimeException(
@@ -172,9 +179,6 @@ public class IngestPoliciesStep implements BootstrapStep {
     keyAspectProposal.setChangeType(ChangeType.UPSERT);
     keyAspectProposal.setEntityUrn(urn);
 
-    _entityService.ingestProposal(keyAspectProposal,
-        new AuditStamp().setActor(Urn.createFromString(Constants.SYSTEM_ACTOR)).setTime(System.currentTimeMillis()), false);
-
     final MetadataChangeProposal proposal = new MetadataChangeProposal();
     proposal.setEntityUrn(urn);
     proposal.setEntityType(POLICY_ENTITY_NAME);
@@ -182,8 +186,11 @@ public class IngestPoliciesStep implements BootstrapStep {
     proposal.setAspect(GenericRecordUtils.serializeAspect(info));
     proposal.setChangeType(ChangeType.UPSERT);
 
-    _entityService.ingestProposal(proposal,
-        new AuditStamp().setActor(Urn.createFromString(Constants.SYSTEM_ACTOR)).setTime(System.currentTimeMillis()), false);
+    _entityService.ingestProposal(AspectsBatchImpl.builder()
+                    .mcps(List.of(keyAspectProposal, proposal), _entityRegistry)
+                    .build(),
+            new AuditStamp().setActor(Urn.createFromString(Constants.SYSTEM_ACTOR)).setTime(System.currentTimeMillis()),
+            false);
   }
 
   private boolean hasPolicy(Urn policyUrn) {

@@ -47,6 +47,11 @@ public class PoliciesConfig {
       "View Analytics",
       "View the DataHub analytics dashboard.");
 
+  public static final Privilege GET_ANALYTICS_PRIVILEGE = Privilege.of(
+          "GET_ANALYTICS_PRIVILEGE",
+          "Analytics API access",
+          "API read access to raw analytics data.");
+
   public static final Privilege GENERATE_PERSONAL_ACCESS_TOKENS_PRIVILEGE = Privilege.of(
       "GENERATE_PERSONAL_ACCESS_TOKENS",
       "Generate Personal Access Tokens",
@@ -117,6 +122,7 @@ public class PoliciesConfig {
       MANAGE_POLICIES_PRIVILEGE,
       MANAGE_USERS_AND_GROUPS_PRIVILEGE,
       VIEW_ANALYTICS_PRIVILEGE,
+      GET_ANALYTICS_PRIVILEGE,
       MANAGE_DOMAINS_PRIVILEGE,
       MANAGE_GLOBAL_ANNOUNCEMENTS_PRIVILEGE,
       MANAGE_INGESTION_PRIVILEGE,

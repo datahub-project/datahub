@@ -83,8 +83,19 @@ class NamingPatternMapping:
     name: str
 
 
+@dataclasses.dataclass
+class ViewNamingPatternMapping(NamingPatternMapping):
+    file_path: str
+
+
 class LookerNamingPattern(NamingPattern):
     ALLOWED_VARS = [field.name for field in dataclasses.fields(NamingPatternMapping)]
+
+
+class LookerViewNamingPattern(NamingPattern):
+    ALLOWED_VARS = [
+        field.name for field in dataclasses.fields(ViewNamingPatternMapping)
+    ]
 
 
 class LookerCommonConfig(DatasetSourceConfigMixin):
@@ -96,13 +107,13 @@ class LookerCommonConfig(DatasetSourceConfigMixin):
         description=f"Pattern for providing browse paths to explores. {LookerNamingPattern.allowed_docstring()}",
         default=LookerNamingPattern(pattern="/{env}/{platform}/{project}/explores"),
     )
-    view_naming_pattern: LookerNamingPattern = Field(
-        LookerNamingPattern(pattern="{project}.view.{name}"),
-        description=f"Pattern for providing dataset names to views. {LookerNamingPattern.allowed_docstring()}",
+    view_naming_pattern: LookerViewNamingPattern = Field(
+        LookerViewNamingPattern(pattern="{project}.view.{name}"),
+        description=f"Pattern for providing dataset names to views. {LookerViewNamingPattern.allowed_docstring()}",
     )
-    view_browse_pattern: LookerNamingPattern = Field(
-        LookerNamingPattern(pattern="/{env}/{platform}/{project}/views"),
-        description=f"Pattern for providing browse paths to views. {LookerNamingPattern.allowed_docstring()}",
+    view_browse_pattern: LookerViewNamingPattern = Field(
+        LookerViewNamingPattern(pattern="/{env}/{platform}/{project}/views"),
+        description=f"Pattern for providing browse paths to views. {LookerViewNamingPattern.allowed_docstring()}",
     )
     tag_measures_and_dimensions: bool = Field(
         True,
@@ -110,7 +121,10 @@ class LookerCommonConfig(DatasetSourceConfigMixin):
         "discoverable. When disabled, adds this information to the description of the column.",
     )
     platform_name: str = Field(
-        "looker", description="Default platform name. Don't change."
+        # TODO: This shouldn't be part of the config.
+        "looker",
+        description="Default platform name.",
+        hidden_from_docs=True,
     )
     extract_column_level_lineage: bool = Field(
         True,
@@ -191,6 +205,10 @@ class LookerDashboardSourceConfig(
         False,
         description="Extract looks which are not part of any Dashboard. To enable this flag the stateful_ingestion should also be enabled.",
     )
+    emit_used_explores_only: bool = Field(
+        True,
+        description="When enabled, only explores that are used by a Dashboard/Look will be ingested.",
+    )
 
     @validator("external_base_url", pre=True, always=True)
     def external_url_defaults_to_api_config_base_url(
@@ -202,7 +220,6 @@ class LookerDashboardSourceConfig(
     def stateful_ingestion_should_be_enabled(
         cls, v: Optional[bool], *, values: Dict[str, Any], **kwargs: Dict[str, Any]
     ) -> Optional[bool]:
-
         stateful_ingestion: StatefulStaleMetadataRemovalConfig = cast(
             StatefulStaleMetadataRemovalConfig, values.get("stateful_ingestion")
         )

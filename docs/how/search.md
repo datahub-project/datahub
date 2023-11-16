@@ -2,14 +2,6 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 # About DataHub Search
 
-<!-- All Feature Guides should begin with `About DataHub ` to improve SEO -->
-
-<!-- 
-Update feature availability; by default, feature availability is Self-Hosted and Managed DataHub
-
-Add in `saasOnly` for Managed DataHub-only features
- -->
-
 <FeatureAvailability/>
 
 The **search bar** is an important mechanism for discovering data assets in DataHub. From the search bar, you can find Datasets, Columns, Dashboards, Charts, Data Pipelines, and more. Simply type in a term and press 'enter'. 

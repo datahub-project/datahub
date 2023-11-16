@@ -1,0 +1,33 @@
+namespace com.linkedin.assertion
+
+
+/**
+* Attributes defining an INCREMENTING_SEGMENT_ROW_COUNT_CHANGE volume assertion.
+*/
+record IncrementingSegmentRowCountChange {
+  /**
+   * A specification of how the 'segment' can be derived using a column and an optional transformer function.
+   */
+  segment: IncrementingSegmentSpec
+
+  /**
+  * The type of the value used to evaluate the assertion: a fixed absolute value or a relative percentage.
+  */
+  type: AssertionValueChangeType
+
+  /**
+  * The operator you'd like to apply to the row count value
+  *
+  * Note that only numeric operators are valid inputs:
+  * GREATER_THAN, GREATER_THAN_OR_EQUAL_TO, EQUAL_TO, LESS_THAN, LESS_THAN_OR_EQUAL_TO,
+  * BETWEEN.
+  */
+  operator: AssertionStdOperator
+
+  /**
+  * The parameters you'd like to provide as input to the operator.
+  *
+  * Note that only numeric parameter types are valid inputs: NUMBER.
+  */
+  parameters: AssertionStdParameters
+}

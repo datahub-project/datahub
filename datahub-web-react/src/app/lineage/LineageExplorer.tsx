@@ -3,7 +3,6 @@ import { useHistory } from 'react-router';
 import { Button, Drawer } from 'antd';
 import { InfoCircleOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
-import { Message } from '../shared/Message';
 import { useEntityRegistry } from '../useEntityRegistry';
 import CompactContext from '../shared/CompactContext';
 import { EntityAndType, EntitySelectParams, FetchedEntities } from './types';
@@ -17,12 +16,11 @@ import { SHOW_COLUMNS_URL_PARAMS, useIsShowColumnsMode } from './utils/useIsShow
 import { ErrorSection } from '../shared/error/ErrorSection';
 import usePrevious from '../shared/usePrevious';
 import { useGetLineageTimeParams } from './utils/useGetLineageTimeParams';
+import analytics, { EventType } from '../analytics';
+import LineageLoadingSection from './LineageLoadingSection';
 
 const DEFAULT_DISTANCE_FROM_TOP = 106;
 
-const LoadingMessage = styled(Message)`
-    margin-top: 10%;
-`;
 const FooterButtonGroup = styled.div`
     display: flex;
     justify-content: space-between;
@@ -85,7 +83,13 @@ export default function LineageExplorer({ urn, type }: Props) {
     // they should be added to the dependency array below.
     useEffect(() => {
         setAsyncEntities({});
-    }, [isHideSiblingMode, startTimeMillis, endTimeMillis]);
+        // this can also be our hook for emitting the tracking event
+
+        analytics.event({
+            type: EventType.VisualLineageViewEvent,
+            entityType: entityData?.type,
+        });
+    }, [isHideSiblingMode, startTimeMillis, endTimeMillis, entityData?.type]);
 
     useEffect(() => {
         if (showColumns) {
@@ -160,7 +164,7 @@ export default function LineageExplorer({ urn, type }: Props) {
     return (
         <>
             {error && <ErrorSection />}
-            {loading && <LoadingMessage type="loading" content="Loading..." />}
+            {loading && <LineageLoadingSection />}
             {!!data && (
                 <div>
                     <LineageViz
@@ -183,6 +187,10 @@ export default function LineageExplorer({ urn, type }: Props) {
                         onLineageExpand={(asyncData: EntityAndType) => {
                             resetAsyncEntity(asyncData.entity.urn);
                             maybeAddAsyncLoadedEntity(asyncData);
+                            analytics.event({
+                                type: EventType.VisualLineageExpandGraphEvent,
+                                targetEntityType: asyncData?.type,
+                            });
                         }}
                         refetchCenterNode={() => {
                             refetch().then(() => {
@@ -209,7 +217,7 @@ export default function LineageExplorer({ urn, type }: Props) {
                                 Close
                             </Button>
                             <Button href={entityRegistry.getEntityUrl(selectedEntity.type, selectedEntity.urn)}>
-                                <InfoCircleOutlined /> {entityRegistry.getEntityName(selectedEntity.type)} Details
+                                <InfoCircleOutlined /> View details
                             </Button>
                         </FooterButtonGroup>
                     )

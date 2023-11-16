@@ -22,7 +22,7 @@ $(VENV_SENTINEL): requirements.txt
 	$(VENV_DIR)/bin/pip install -r requirements.txt
 	touch $(VENV_SENTINEL)
 
-.PHONY: help html doctest linkcheck clean serve md
+.PHONY: help html doctest linkcheck clean clean_all serve md
 
 # Not using Python's http.server because it enables caching headers.
 serve:
@@ -35,3 +35,6 @@ md: html
 # "make mode" option.  $(O) is meant as a shortcut for $(SPHINXOPTS).
 html doctest linkcheck clean: venv Makefile
 	@$(SPHINXBUILD) -M $@ "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
+
+clean_all: clean
+	-rm -rf $(VENV_DIR)

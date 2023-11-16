@@ -2,6 +2,7 @@ import json
 import logging
 from collections import defaultdict
 from dataclasses import dataclass
+from datetime import datetime
 from typing import (
     Callable,
     Collection,
@@ -19,12 +20,12 @@ from snowflake.connector import SnowflakeConnection
 
 import datahub.emitter.mce_builder as builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.sql_parsing_builder import SqlParsingBuilder
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.aws.s3_util import make_s3_urn
+from datahub.ingestion.source.aws.s3_util import make_s3_urn_for_lineage
 from datahub.ingestion.source.snowflake.constants import (
     LINEAGE_PERMISSION_ERROR,
     SnowflakeEdition,
-    SnowflakeObjectDomain,
 )
 from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
 from datahub.ingestion.source.snowflake.snowflake_query import SnowflakeQuery
@@ -34,6 +35,9 @@ from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakeConnectionMixin,
     SnowflakePermissionError,
     SnowflakeQueryMixin,
+)
+from datahub.ingestion.source.state.redundant_run_skip_handler import (
+    RedundantLineageRunSkipHandler,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     FineGrainedLineage,
@@ -48,9 +52,13 @@ from datahub.utilities.sqlglot_lineage import (
     SqlParsingResult,
     sqlglot_lineage,
 )
-from datahub.utilities.urns.dataset_urn import DatasetUrn
+from datahub.utilities.time import ts_millis_to_datetime
 
 logger: logging.Logger = logging.getLogger(__name__)
+
+EXTERNAL_LINEAGE = "external_lineage"
+TABLE_LINEAGE = "table_lineage"
+VIEW_LINEAGE = "view_lineage"
 
 
 @dataclass(frozen=True)
@@ -81,6 +89,7 @@ class SnowflakeLineageExtractor(
         config: SnowflakeV2Config,
         report: SnowflakeV2Report,
         dataset_urn_builder: Callable[[str], str],
+        redundant_run_skip_handler: Optional[RedundantLineageRunSkipHandler],
     ) -> None:
         self._external_lineage_map: Dict[str, Set[str]] = defaultdict(set)
         self.config = config
@@ -89,6 +98,28 @@ class SnowflakeLineageExtractor(
         self.dataset_urn_builder = dataset_urn_builder
         self.connection: Optional[SnowflakeConnection] = None
 
+        self.redundant_run_skip_handler = redundant_run_skip_handler
+        self.start_time, self.end_time = (
+            self.report.lineage_start_time,
+            self.report.lineage_end_time,
+        ) = self.get_time_window()
+
+    def get_time_window(self) -> Tuple[datetime, datetime]:
+        if self.redundant_run_skip_handler:
+            return self.redundant_run_skip_handler.suggest_run_time_window(
+                self.config.start_time
+                if not self.config.ignore_start_time_lineage
+                else ts_millis_to_datetime(0),
+                self.config.end_time,
+            )
+        else:
+            return (
+                self.config.start_time
+                if not self.config.ignore_start_time_lineage
+                else ts_millis_to_datetime(0),
+                self.config.end_time,
+            )
+
     def get_workunits(
         self,
         discovered_tables: List[str],
@@ -96,12 +127,14 @@ class SnowflakeLineageExtractor(
         schema_resolver: SchemaResolver,
         view_definitions: MutableMapping[str, str],
     ) -> Iterable[MetadataWorkUnit]:
+        if not self._should_ingest_lineage():
+            return
+
         self.connection = self.create_connection()
         if self.connection is None:
             return
 
         self._populate_external_lineage_map(discovered_tables)
-
         if self.config.include_view_lineage:
             if len(discovered_views) > 0:
                 yield from self.get_view_upstream_workunits(
@@ -116,6 +149,15 @@ class SnowflakeLineageExtractor(
 
         if self._external_lineage_map:  # Some external lineage is yet to be emitted
             yield from self.get_table_external_upstream_workunits()
+
+        if self.redundant_run_skip_handler:
+            # Update the checkpoint state for this run.
+            self.redundant_run_skip_handler.update_state(
+                self.config.start_time
+                if not self.config.ignore_start_time_lineage
+                else ts_millis_to_datetime(0),
+                self.config.end_time,
+            )
 
     def get_table_external_upstream_workunits(self) -> Iterable[MetadataWorkUnit]:
         for (
@@ -140,28 +182,17 @@ class SnowflakeLineageExtractor(
         else:
             with PerfTimer() as timer:
                 results = self._fetch_upstream_lineages_for_tables()
+
+                if not results:
+                    return
+
+                yield from self._gen_workunits_from_query_result(
+                    discovered_tables, results
+                )
                 self.report.table_lineage_query_secs = timer.elapsed_seconds()
-
-            if not results:
-                return
-
-            yield from self._gen_workunits_from_query_result(discovered_tables, results)
             logger.info(
                 f"Upstream lineage detected for {self.report.num_tables_with_upstreams} tables.",
             )
-
-    def _gen_workunit_from_sql_parsing_result(
-        self,
-        dataset_identifier: str,
-        result: SqlParsingResult,
-    ) -> MetadataWorkUnit:
-        upstreams, fine_upstreams = self.get_upstreams_from_sql_parsing_result(
-            self.dataset_urn_builder(dataset_identifier), result
-        )
-        self.report.num_views_with_upstreams += 1
-        return self._create_upstream_lineage_workunit(
-            dataset_identifier, upstreams, fine_upstreams
-        )
 
     def _gen_workunits_from_query_result(
         self,
@@ -196,28 +227,43 @@ class SnowflakeLineageExtractor(
         schema_resolver: SchemaResolver,
         view_definitions: MutableMapping[str, str],
     ) -> Iterable[MetadataWorkUnit]:
-        views_processed = set()
+        views_failed_parsing = set()
         if self.config.include_view_column_lineage:
             with PerfTimer() as timer:
+                builder = SqlParsingBuilder(
+                    generate_lineage=True,
+                    generate_usage_statistics=False,
+                    generate_operations=False,
+                )
                 for view_identifier, view_definition in view_definitions.items():
                     result = self._run_sql_parser(
                         view_identifier, view_definition, schema_resolver
                     )
-                    if result:
-                        views_processed.add(view_identifier)
-                        yield self._gen_workunit_from_sql_parsing_result(
-                            view_identifier, result
+                    if result and result.out_tables:
+                        self.report.num_views_with_upstreams += 1
+                        # This does not yield any workunits but we use
+                        # yield here to execute this method
+                        yield from builder.process_sql_parsing_result(
+                            result=result,
+                            query=view_definition,
+                            is_view_ddl=True,
                         )
+                    else:
+                        views_failed_parsing.add(view_identifier)
+
+                yield from builder.gen_workunits()
                 self.report.view_lineage_parse_secs = timer.elapsed_seconds()
 
         with PerfTimer() as timer:
             results = self._fetch_upstream_lineages_for_views()
-            self.report.view_upstream_lineage_query_secs = timer.elapsed_seconds()
 
-        if results:
-            yield from self._gen_workunits_from_query_result(
-                set(discovered_views) - views_processed, results, upstream_for_view=True
-            )
+            if results:
+                yield from self._gen_workunits_from_query_result(
+                    views_failed_parsing,
+                    results,
+                    upstream_for_view=True,
+                )
+            self.report.view_upstream_lineage_query_secs = timer.elapsed_seconds()
         logger.info(
             f"Upstream lineage detected for {self.report.num_views_with_upstreams} views.",
         )
@@ -301,39 +347,6 @@ class SnowflakeLineageExtractor(
 
         return upstreams, fine_upstreams
 
-    def get_upstreams_from_sql_parsing_result(
-        self, downstream_table_urn: str, result: SqlParsingResult
-    ) -> Tuple[List[UpstreamClass], List[FineGrainedLineage]]:
-        # Note: This ignores the out_tables section of the sql parsing result.
-        upstreams = [
-            UpstreamClass(dataset=upstream_table_urn, type=DatasetLineageTypeClass.VIEW)
-            for upstream_table_urn in set(result.in_tables)
-        ]
-
-        # Maps downstream_col -> [upstream_col]
-        fine_lineage: Dict[str, Set[SnowflakeColumnId]] = defaultdict(set)
-        for column_lineage in result.column_lineage or []:
-            out_column = column_lineage.downstream.column
-            for upstream_column_info in column_lineage.upstreams:
-                upstream_table_name = DatasetUrn.create_from_string(
-                    upstream_column_info.table
-                ).get_dataset_name()
-                fine_lineage[out_column].add(
-                    SnowflakeColumnId(
-                        columnName=upstream_column_info.column,
-                        objectName=upstream_table_name,
-                        objectDomain=SnowflakeObjectDomain.VIEW.value,
-                    )
-                )
-        fine_upstreams = [
-            self.build_finegrained_lineage(
-                downstream_table_urn, downstream_col, upstream_cols
-            )
-            for downstream_col, upstream_cols in fine_lineage.items()
-        ]
-
-        return upstreams, list(filter(None, fine_upstreams))
-
     def _populate_external_lineage_map(self, discovered_tables: List[str]) -> None:
         with PerfTimer() as timer:
             self.report.num_external_table_edges_scanned = 0
@@ -356,7 +369,9 @@ class SnowflakeLineageExtractor(
 
     # Handles the case for explicitly created external tables.
     # NOTE: Snowflake does not log this information to the access_history table.
-    def _populate_external_lineage_from_show_query(self, discovered_tables):
+    def _populate_external_lineage_from_show_query(
+        self, discovered_tables: List[str]
+    ) -> None:
         external_tables_query: str = SnowflakeQuery.show_external_tables()
         try:
             for db_row in self.query(external_tables_query):
@@ -377,6 +392,7 @@ class SnowflakeLineageExtractor(
                 "external_lineage",
                 f"Populating external table lineage from Snowflake failed due to error {e}.",
             )
+            self.report_status(EXTERNAL_LINEAGE, False)
 
     # Handles the case where a table is populated from an external stage/s3 location via copy.
     # Eg: copy into category_english from @external_s3_stage;
@@ -386,10 +402,8 @@ class SnowflakeLineageExtractor(
         self, discovered_tables: List[str]
     ) -> None:
         query: str = SnowflakeQuery.copy_lineage_history(
-            start_time_millis=int(self.config.start_time.timestamp() * 1000)
-            if not self.config.ignore_start_time_lineage
-            else 0,
-            end_time_millis=int(self.config.end_time.timestamp() * 1000),
+            start_time_millis=int(self.start_time.timestamp() * 1000),
+            end_time_millis=int(self.end_time.timestamp() * 1000),
             downstreams_deny_pattern=self.config.temporary_tables_pattern,
         )
 
@@ -406,8 +420,11 @@ class SnowflakeLineageExtractor(
                     "external_lineage",
                     f"Populating table external lineage from Snowflake failed due to error {e}.",
                 )
+            self.report_status(EXTERNAL_LINEAGE, False)
 
-    def _process_external_lineage_result_row(self, db_row, discovered_tables):
+    def _process_external_lineage_result_row(
+        self, db_row: dict, discovered_tables: List[str]
+    ) -> None:
         # key is the down-stream table name
         key: str = self.get_dataset_identifier_from_qualified_name(
             db_row["DOWNSTREAM_TABLE_NAME"]
@@ -427,12 +444,10 @@ class SnowflakeLineageExtractor(
                 f"ExternalLineage[Table(Down)={key}]:External(Up)={self._external_lineage_map[key]} via access_history"
             )
 
-    def _fetch_upstream_lineages_for_tables(self):
+    def _fetch_upstream_lineages_for_tables(self) -> Iterable[Dict]:
         query: str = SnowflakeQuery.table_to_table_lineage_history_v2(
-            start_time_millis=int(self.config.start_time.timestamp() * 1000)
-            if not self.config.ignore_start_time_lineage
-            else 0,
-            end_time_millis=int(self.config.end_time.timestamp() * 1000),
+            start_time_millis=int(self.start_time.timestamp() * 1000),
+            end_time_millis=int(self.end_time.timestamp() * 1000),
             upstreams_deny_pattern=self.config.temporary_tables_pattern,
             include_view_lineage=self.config.include_view_lineage,
             include_column_lineage=self.config.include_column_lineage,
@@ -450,8 +465,11 @@ class SnowflakeLineageExtractor(
                     "table-upstream-lineage",
                     f"Extracting lineage from Snowflake failed due to error {e}.",
                 )
+            self.report_status(TABLE_LINEAGE, False)
 
-    def map_query_result_upstreams(self, upstream_tables):
+    def map_query_result_upstreams(
+        self, upstream_tables: Optional[List[dict]]
+    ) -> List[UpstreamClass]:
         if not upstream_tables:
             return []
         upstreams: List[UpstreamClass] = []
@@ -463,7 +481,9 @@ class SnowflakeLineageExtractor(
                     logger.debug(e, exc_info=e)
         return upstreams
 
-    def _process_add_single_upstream(self, upstreams, upstream_table):
+    def _process_add_single_upstream(
+        self, upstreams: List[UpstreamClass], upstream_table: dict
+    ) -> None:
         upstream_name = self.get_dataset_identifier_from_qualified_name(
             upstream_table["upstream_object_name"]
         )
@@ -477,7 +497,9 @@ class SnowflakeLineageExtractor(
                 )
             )
 
-    def map_query_result_fine_upstreams(self, dataset_urn, column_wise_upstreams):
+    def map_query_result_fine_upstreams(
+        self, dataset_urn: str, column_wise_upstreams: Optional[List[dict]]
+    ) -> List[FineGrainedLineage]:
         if not column_wise_upstreams:
             return []
         fine_upstreams: List[FineGrainedLineage] = []
@@ -492,8 +514,11 @@ class SnowflakeLineageExtractor(
         return fine_upstreams
 
     def _process_add_single_column_upstream(
-        self, dataset_urn, fine_upstreams, column_with_upstreams
-    ):
+        self,
+        dataset_urn: str,
+        fine_upstreams: List[FineGrainedLineage],
+        column_with_upstreams: Dict,
+    ) -> None:
         column_name = column_with_upstreams["column_name"]
         upstream_jobs = column_with_upstreams["upstreams"]
         if column_name and upstream_jobs:
@@ -535,6 +560,7 @@ class SnowflakeLineageExtractor(
                     "view-upstream-lineage",
                     f"Extracting the upstream view lineage from Snowflake failed due to error {e}.",
                 )
+            self.report_status(VIEW_LINEAGE, False)
 
     def build_finegrained_lineage(
         self,
@@ -591,8 +617,32 @@ class SnowflakeLineageExtractor(
             # For now, populate only for S3
             if external_lineage_entry.startswith("s3://"):
                 external_upstream_table = UpstreamClass(
-                    dataset=make_s3_urn(external_lineage_entry, self.config.env),
+                    dataset=make_s3_urn_for_lineage(
+                        external_lineage_entry, self.config.env
+                    ),
                     type=DatasetLineageTypeClass.COPY,
                 )
                 external_upstreams.append(external_upstream_table)
         return external_upstreams
+
+    def _should_ingest_lineage(self) -> bool:
+        if (
+            self.redundant_run_skip_handler
+            and self.redundant_run_skip_handler.should_skip_this_run(
+                cur_start_time=self.config.start_time
+                if not self.config.ignore_start_time_lineage
+                else ts_millis_to_datetime(0),
+                cur_end_time=self.config.end_time,
+            )
+        ):
+            # Skip this run
+            self.report.report_warning(
+                "lineage-extraction",
+                "Skip this run as there was already a run for current ingestion window.",
+            )
+            return False
+        return True
+
+    def report_status(self, step: str, status: bool) -> None:
+        if self.redundant_run_skip_handler:
+            self.redundant_run_skip_handler.report_current_run_status(step, status)

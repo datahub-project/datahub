@@ -4,7 +4,6 @@ import os
 from freezegun import freeze_time
 
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import (
-    BQ_AUDIT_V2,
     BigqueryTableIdentifier,
     BigQueryTableRef,
 )
@@ -111,10 +110,12 @@ AND
     OR
     protoPayload.metadata.tableDataRead.reason = "JOB"
 )"""  # noqa: W293
-    source = BigQueryUsageExtractor(
-        config, BigQueryV2Report(), dataset_urn_builder=lambda _: ""
-    )
-    filter: str = source._generate_filter(BQ_AUDIT_V2)
+
+    corrected_start_time = config.start_time - config.max_query_duration
+    corrected_end_time = config.end_time + config.max_query_duration
+    filter: str = BigQueryUsageExtractor(
+        config, BigQueryV2Report(), lambda x: ""
+    )._generate_filter(corrected_start_time, corrected_end_time)
     assert filter == expected_filter
 
 
@@ -143,10 +144,10 @@ def test_bigquery_table_sanitasitation():
     assert new_table_ref.dataset == "dataset-4567"
 
     table_ref = BigQueryTableRef(
-        BigqueryTableIdentifier("project-1234", "dataset-4567", "foo_20222110")
+        BigqueryTableIdentifier("project-1234", "dataset-4567", "foo_20221210")
     )
     new_table_identifier = table_ref.table_identifier
-    assert new_table_identifier.table == "foo_20222110"
+    assert new_table_identifier.table == "foo_20221210"
     assert new_table_identifier.is_sharded_table()
     assert new_table_identifier.get_table_display_name() == "foo"
     assert new_table_identifier.project_id == "project-1234"

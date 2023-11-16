@@ -32,6 +32,8 @@ import com.linkedin.metadata.aspect.Aspect;
 import com.linkedin.metadata.aspect.CorpUserAspect;
 import com.linkedin.metadata.aspect.CorpUserAspectArray;
 import com.linkedin.metadata.aspect.VersionedAspect;
+import com.linkedin.metadata.entity.ebean.transactions.AspectsBatchImpl;
+import com.linkedin.metadata.entity.ebean.transactions.UpsertBatchItem;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.key.CorpUserKey;
@@ -46,7 +48,6 @@ import com.linkedin.metadata.snapshot.CorpUserSnapshot;
 import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.GenericAspect;
-import com.linkedin.mxe.MetadataAuditOperation;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
@@ -146,9 +147,6 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         assertNull(mcl.getPreviousSystemMetadata());
         assertEquals(mcl.getChangeType(), ChangeType.UPSERT);
 
-        verify(_mockProducer, times(2)).produceMetadataAuditEvent(Mockito.eq(entityUrn), Mockito.eq(null), Mockito.any(),
-            Mockito.any(), Mockito.any(), Mockito.eq(MetadataAuditOperation.UPDATE));
-
         verifyNoMoreInteractions(_mockProducer);
     }
 
@@ -182,9 +180,6 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         assertNull(mcl.getPreviousAspectValue());
         assertNull(mcl.getPreviousSystemMetadata());
         assertEquals(mcl.getChangeType(), ChangeType.UPSERT);
-
-        verify(_mockProducer, times(2)).produceMetadataAuditEvent(Mockito.eq(entityUrn), Mockito.eq(null), Mockito.any(),
-            Mockito.any(), Mockito.any(), Mockito.eq(MetadataAuditOperation.UPDATE));
 
         verifyNoMoreInteractions(_mockProducer);
     }
@@ -254,12 +249,6 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         assertNull(mcl.getPreviousSystemMetadata());
         assertEquals(mcl.getChangeType(), ChangeType.UPSERT);
 
-        verify(_mockProducer, times(2)).produceMetadataAuditEvent(Mockito.eq(entityUrn1), Mockito.eq(null), Mockito.any(),
-            Mockito.any(), Mockito.any(), Mockito.eq(MetadataAuditOperation.UPDATE));
-
-        verify(_mockProducer, times(2)).produceMetadataAuditEvent(Mockito.eq(entityUrn2), Mockito.eq(null), Mockito.any(),
-            Mockito.any(), Mockito.any(), Mockito.eq(MetadataAuditOperation.UPDATE));
-
         verifyNoMoreInteractions(_mockProducer);
     }
 
@@ -313,12 +302,6 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         expectedKey2.setUsername("tester2");
         EnvelopedAspect envelopedKey2 = readEntityResponse2.getAspects().get(keyName);
         assertTrue(DataTemplateUtil.areEqual(expectedKey2, new CorpUserKey(envelopedKey2.getValue().data())));
-
-        verify(_mockProducer, times(2)).produceMetadataAuditEvent(Mockito.eq(entityUrn1), Mockito.eq(null), Mockito.any(),
-            Mockito.any(), Mockito.any(), Mockito.eq(MetadataAuditOperation.UPDATE));
-
-        verify(_mockProducer, times(2)).produceMetadataAuditEvent(Mockito.eq(entityUrn2), Mockito.eq(null), Mockito.any(),
-            Mockito.any(), Mockito.any(), Mockito.eq(MetadataAuditOperation.UPDATE));
 
         verify(_mockProducer, times(2)).produceMetadataChangeLog(Mockito.eq(entityUrn1),
             Mockito.any(), Mockito.any());
@@ -382,12 +365,6 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         EnvelopedAspect envelopedKey2 = readEntityResponse2.getAspects().get(keyName);
         assertTrue(DataTemplateUtil.areEqual(expectedKey2, new CorpUserKey(envelopedKey2.getValue().data())));
 
-        verify(_mockProducer, times(2)).produceMetadataAuditEvent(Mockito.eq(entityUrn1), Mockito.eq(null), Mockito.any(),
-            Mockito.any(), Mockito.any(), Mockito.eq(MetadataAuditOperation.UPDATE));
-
-        verify(_mockProducer, times(2)).produceMetadataAuditEvent(Mockito.eq(entityUrn2), Mockito.eq(null), Mockito.any(),
-            Mockito.any(), Mockito.any(), Mockito.eq(MetadataAuditOperation.UPDATE));
-
         verify(_mockProducer, times(2)).produceMetadataChangeLog(Mockito.eq(entityUrn1),
             Mockito.any(), Mockito.any());
 
@@ -413,7 +390,6 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         pairToIngest.add(getAspectRecordPair(writeAspect2, CorpUserInfo.class));
 
         SystemMetadata metadata1 = AspectGenerationUtils.createSystemMetadata();
-
         _entityServiceImpl.ingestAspects(entityUrn, pairToIngest, TEST_AUDIT_STAMP, metadata1);
 
         Map<String, RecordTemplate> latestAspects = _entityServiceImpl.getLatestAspectsForUrn(
@@ -425,8 +401,6 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
 
         verify(_mockProducer, times(2)).produceMetadataChangeLog(Mockito.eq(entityUrn),
             Mockito.any(), Mockito.any());
-        verify(_mockProducer, times(2)).produceMetadataAuditEvent(Mockito.eq(entityUrn),
-            Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any());
 
         verifyNoMoreInteractions(_mockProducer);
     }
@@ -444,7 +418,6 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         pairToIngest.add(getAspectRecordPair(writeAspect1, CorpUserInfo.class));
 
         SystemMetadata metadata1 = AspectGenerationUtils.createSystemMetadata();
-
         _entityServiceImpl.ingestAspects(entityUrn, pairToIngest, TEST_AUDIT_STAMP, metadata1);
 
         final MetadataChangeLog initialChangeLog = new MetadataChangeLog();
@@ -478,8 +451,6 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
 
         verify(_mockProducer, times(1)).produceMetadataChangeLog(Mockito.eq(entityUrn),
             Mockito.any(), Mockito.eq(initialChangeLog));
-        verify(_mockProducer, times(1)).produceMetadataAuditEvent(Mockito.eq(entityUrn),
-            Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any());
 
         // Mockito detects the previous invocation and throws an error in verifying the second call unless invocations are cleared
         clearInvocations(_mockProducer);
@@ -488,8 +459,6 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
 
         verify(_mockProducer, times(1)).produceMetadataChangeLog(Mockito.eq(entityUrn),
             Mockito.any(), Mockito.eq(restateChangeLog));
-        verify(_mockProducer, times(1)).produceMetadataAuditEvent(Mockito.eq(entityUrn),
-            Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any());
 
 
         verifyNoMoreInteractions(_mockProducer);
@@ -541,8 +510,6 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
 
         verify(_mockProducer, times(1)).produceMetadataChangeLog(Mockito.eq(entityUrn),
             Mockito.any(), Mockito.eq(initialChangeLog));
-        verify(_mockProducer, times(1)).produceMetadataAuditEvent(Mockito.eq(entityUrn),
-            Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any());
 
         // Mockito detects the previous invocation and throws an error in verifying the second call unless invocations are cleared
         clearInvocations(_mockProducer);
@@ -551,8 +518,6 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
 
         verify(_mockProducer, times(1)).produceMetadataChangeLog(Mockito.eq(entityUrn),
             Mockito.any(), Mockito.eq(restateChangeLog));
-        verify(_mockProducer, times(1)).produceMetadataAuditEvent(Mockito.eq(entityUrn),
-            Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any());
 
 
         verifyNoMoreInteractions(_mockProducer);
@@ -704,9 +669,9 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         CorpUserInfo writeAspect = AspectGenerationUtils.createCorpUserInfo("email@test.com");
 
         // Validate retrieval of CorpUserInfo Aspect #1
-        _entityServiceImpl.updateAspect(entityUrn, "corpuser", aspectName, corpUserInfoSpec, writeAspect, TEST_AUDIT_STAMP, 1,
-            true);
-        RecordTemplate readAspect1 = _entityServiceImpl.getAspect(entityUrn, aspectName, 1);
+        _entityServiceImpl.ingestAspects(entityUrn, List.of(Pair.of(aspectName, writeAspect)), TEST_AUDIT_STAMP, null);
+
+        RecordTemplate readAspect1 = _entityServiceImpl.getAspect(entityUrn, aspectName, 0);
         assertTrue(DataTemplateUtil.areEqual(writeAspect, readAspect1));
         verify(_mockProducer, times(1)).produceMetadataChangeLog(Mockito.eq(entityUrn), Mockito.eq(corpUserInfoSpec),
             Mockito.any());
@@ -715,10 +680,13 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         writeAspect.setEmail("newemail@test.com");
 
         // Validate retrieval of CorpUserInfo Aspect #2
-        _entityServiceImpl.updateAspect(entityUrn, "corpuser", aspectName, corpUserInfoSpec, writeAspect, TEST_AUDIT_STAMP, 1,
-            false);
-        RecordTemplate readAspect2 = _entityServiceImpl.getAspect(entityUrn, aspectName, 1);
+        _entityServiceImpl.ingestAspects(entityUrn, List.of(Pair.of(aspectName, writeAspect)), TEST_AUDIT_STAMP, null);
+
+        RecordTemplate readAspect2 = _entityServiceImpl.getAspect(entityUrn, aspectName, 0);
         assertTrue(DataTemplateUtil.areEqual(writeAspect, readAspect2));
+        verify(_mockProducer, times(2)).produceMetadataChangeLog(Mockito.eq(entityUrn), Mockito.eq(corpUserInfoSpec),
+                Mockito.any());
+
         verifyNoMoreInteractions(_mockProducer);
     }
 
@@ -731,26 +699,39 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         AspectSpec corpUserInfoSpec = _testEntityRegistry.getEntitySpec("corpuser").getAspectSpec("corpUserInfo");
 
         // Ingest CorpUserInfo Aspect #1
-        CorpUserInfo writeAspect = AspectGenerationUtils.createCorpUserInfo("email@test.com");
+        CorpUserInfo writeAspect1 = AspectGenerationUtils.createCorpUserInfo("email@test.com");
+        CorpUserInfo writeAspect2 = AspectGenerationUtils.createCorpUserInfo("email2@test.com");
 
         // Validate retrieval of CorpUserInfo Aspect #1
-        _entityServiceImpl.updateAspect(entityUrn, "corpuser", aspectName, corpUserInfoSpec, writeAspect, TEST_AUDIT_STAMP, 1,
-            true);
+        _entityServiceImpl.ingestAspects(entityUrn, List.of(Pair.of(aspectName, writeAspect1)), TEST_AUDIT_STAMP, null);
 
-        VersionedAspect writtenVersionedAspect = new VersionedAspect();
-        writtenVersionedAspect.setAspect(Aspect.create(writeAspect));
-        writtenVersionedAspect.setVersion(1);
+        VersionedAspect writtenVersionedAspect1 = new VersionedAspect();
+        writtenVersionedAspect1.setAspect(Aspect.create(writeAspect1));
+        writtenVersionedAspect1.setVersion(0);
 
-        VersionedAspect readAspect1 = _entityServiceImpl.getVersionedAspect(entityUrn, aspectName, 1);
-        assertTrue(DataTemplateUtil.areEqual(writtenVersionedAspect, readAspect1));
+        VersionedAspect readAspect1 = _entityServiceImpl.getVersionedAspect(entityUrn, aspectName, 0);
+        assertTrue(DataTemplateUtil.areEqual(writtenVersionedAspect1, readAspect1));
         verify(_mockProducer, times(1)).produceMetadataChangeLog(Mockito.eq(entityUrn), Mockito.eq(corpUserInfoSpec),
             Mockito.any());
 
-        VersionedAspect readAspect2 = _entityServiceImpl.getVersionedAspect(entityUrn, aspectName, -1);
-        assertTrue(DataTemplateUtil.areEqual(writtenVersionedAspect, readAspect2));
+        readAspect1 = _entityServiceImpl.getVersionedAspect(entityUrn, aspectName, -1);
+        assertTrue(DataTemplateUtil.areEqual(writtenVersionedAspect1, readAspect1));
 
-        VersionedAspect readAspectVersion0 = _entityServiceImpl.getVersionedAspect(entityUrn, aspectName, 0);
-        assertFalse(DataTemplateUtil.areEqual(writtenVersionedAspect, readAspectVersion0));
+        // Validate retrieval of CorpUserInfo Aspect #2
+        _entityServiceImpl.ingestAspects(entityUrn, List.of(Pair.of(aspectName, writeAspect2)), TEST_AUDIT_STAMP, null);
+
+        VersionedAspect writtenVersionedAspect2 = new VersionedAspect();
+        writtenVersionedAspect2.setAspect(Aspect.create(writeAspect2));
+        writtenVersionedAspect2.setVersion(0);
+
+        VersionedAspect readAspectVersion2 = _entityServiceImpl.getVersionedAspect(entityUrn, aspectName, 0);
+        assertFalse(DataTemplateUtil.areEqual(writtenVersionedAspect1, readAspectVersion2));
+        assertTrue(DataTemplateUtil.areEqual(writtenVersionedAspect2, readAspectVersion2));
+        verify(_mockProducer, times(2)).produceMetadataChangeLog(Mockito.eq(entityUrn), Mockito.eq(corpUserInfoSpec),
+                Mockito.any());
+
+        readAspect1 = _entityServiceImpl.getVersionedAspect(entityUrn, aspectName, -1);
+        assertFalse(DataTemplateUtil.areEqual(writtenVersionedAspect1, readAspect1));
 
         verifyNoMoreInteractions(_mockProducer);
     }
@@ -768,19 +749,43 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
 
         // Ingest CorpUserInfo Aspect #1
         CorpUserInfo writeAspect1 = AspectGenerationUtils.createCorpUserInfo("email@test.com");
-        _entityServiceImpl.ingestAspect(entityUrn1, aspectName, writeAspect1, TEST_AUDIT_STAMP, metadata1);
 
         // Ingest CorpUserInfo Aspect #2
         CorpUserInfo writeAspect2 = AspectGenerationUtils.createCorpUserInfo("email2@test.com");
-        _entityServiceImpl.ingestAspect(entityUrn2, aspectName, writeAspect2, TEST_AUDIT_STAMP, metadata1);
 
         // Ingest CorpUserInfo Aspect #3
         CorpUserInfo writeAspect3 = AspectGenerationUtils.createCorpUserInfo("email3@test.com");
-        _entityServiceImpl.ingestAspect(entityUrn3, aspectName, writeAspect3, TEST_AUDIT_STAMP, metadata1);
 
         // Ingest CorpUserInfo Aspect #1 Overwrite
         CorpUserInfo writeAspect1Overwrite = AspectGenerationUtils.createCorpUserInfo("email1.overwrite@test.com");
-        _entityServiceImpl.ingestAspect(entityUrn1, aspectName, writeAspect1Overwrite, TEST_AUDIT_STAMP, metadata2);
+
+        List<UpsertBatchItem> items = List.of(
+                UpsertBatchItem.builder()
+                        .urn(entityUrn1)
+                        .aspectName(aspectName)
+                        .aspect(writeAspect1)
+                        .systemMetadata(metadata1)
+                        .build(_testEntityRegistry),
+                UpsertBatchItem.builder()
+                        .urn(entityUrn2)
+                        .aspectName(aspectName)
+                        .aspect(writeAspect2)
+                        .systemMetadata(metadata1)
+                        .build(_testEntityRegistry),
+                UpsertBatchItem.builder()
+                        .urn(entityUrn3)
+                        .aspectName(aspectName)
+                        .aspect(writeAspect3)
+                        .systemMetadata(metadata1)
+                        .build(_testEntityRegistry),
+                UpsertBatchItem.builder()
+                        .urn(entityUrn1)
+                        .aspectName(aspectName)
+                        .aspect(writeAspect1Overwrite)
+                        .systemMetadata(metadata2)
+                        .build(_testEntityRegistry)
+        );
+        _entityServiceImpl.ingestAspects(AspectsBatchImpl.builder().items(items).build(), TEST_AUDIT_STAMP, true, true);
 
         // this should no-op since this run has been overwritten
         AspectRowSummary rollbackOverwrittenAspect = new AspectRowSummary();
@@ -822,14 +827,33 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
 
         // Ingest CorpUserInfo Aspect #1
         CorpUserInfo writeAspect1 = AspectGenerationUtils.createCorpUserInfo("email@test.com");
-        _entityServiceImpl.ingestAspect(entityUrn1, aspectName, writeAspect1, TEST_AUDIT_STAMP, metadata1);
 
-        RecordTemplate writeKey1 = _entityServiceImpl.buildKeyAspect(entityUrn1);
-        _entityServiceImpl.ingestAspect(entityUrn1, keyAspectName, writeKey1, TEST_AUDIT_STAMP, metadata1);
+        RecordTemplate writeKey1 = EntityUtils.buildKeyAspect(_testEntityRegistry, entityUrn1);
 
         // Ingest CorpUserInfo Aspect #1 Overwrite
         CorpUserInfo writeAspect1Overwrite = AspectGenerationUtils.createCorpUserInfo("email1.overwrite@test.com");
-        _entityServiceImpl.ingestAspect(entityUrn1, aspectName, writeAspect1Overwrite, TEST_AUDIT_STAMP, metadata2);
+
+        List<UpsertBatchItem> items = List.of(
+                UpsertBatchItem.builder()
+                        .urn(entityUrn1)
+                        .aspectName(aspectName)
+                        .aspect(writeAspect1)
+                        .systemMetadata(metadata1)
+                        .build(_testEntityRegistry),
+                UpsertBatchItem.builder()
+                        .urn(entityUrn1)
+                        .aspectName(keyAspectName)
+                        .aspect(writeKey1)
+                        .systemMetadata(metadata1)
+                        .build(_testEntityRegistry),
+                UpsertBatchItem.builder()
+                        .urn(entityUrn1)
+                        .aspectName(aspectName)
+                        .aspect(writeAspect1Overwrite)
+                        .systemMetadata(metadata2)
+                        .build(_testEntityRegistry)
+        );
+        _entityServiceImpl.ingestAspects(AspectsBatchImpl.builder().items(items).build(), TEST_AUDIT_STAMP, true, true);
 
         // this should no-op since the key should have been written in the furst run
         AspectRowSummary rollbackKeyWithWrongRunId = new AspectRowSummary();
@@ -873,22 +897,51 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
 
         // Ingest CorpUserInfo Aspect #1
         CorpUserInfo writeAspect1 = AspectGenerationUtils.createCorpUserInfo("email@test.com");
-        _entityServiceImpl.ingestAspect(entityUrn1, aspectName, writeAspect1, TEST_AUDIT_STAMP, metadata1);
 
-        RecordTemplate writeKey1 = _entityServiceImpl.buildKeyAspect(entityUrn1);
-        _entityServiceImpl.ingestAspect(entityUrn1, keyAspectName, writeKey1, TEST_AUDIT_STAMP, metadata1);
+        RecordTemplate writeKey1 = EntityUtils.buildKeyAspect(_testEntityRegistry, entityUrn1);
 
         // Ingest CorpUserInfo Aspect #2
         CorpUserInfo writeAspect2 = AspectGenerationUtils.createCorpUserInfo("email2@test.com");
-        _entityServiceImpl.ingestAspect(entityUrn2, aspectName, writeAspect2, TEST_AUDIT_STAMP, metadata1);
 
         // Ingest CorpUserInfo Aspect #3
         CorpUserInfo writeAspect3 = AspectGenerationUtils.createCorpUserInfo("email3@test.com");
-        _entityServiceImpl.ingestAspect(entityUrn3, aspectName, writeAspect3, TEST_AUDIT_STAMP, metadata1);
 
         // Ingest CorpUserInfo Aspect #1 Overwrite
         CorpUserInfo writeAspect1Overwrite = AspectGenerationUtils.createCorpUserInfo("email1.overwrite@test.com");
-        _entityServiceImpl.ingestAspect(entityUrn1, aspectName, writeAspect1Overwrite, TEST_AUDIT_STAMP, metadata2);
+
+        List<UpsertBatchItem> items = List.of(
+                UpsertBatchItem.builder()
+                        .urn(entityUrn1)
+                        .aspectName(aspectName)
+                        .aspect(writeAspect1)
+                        .systemMetadata(metadata1)
+                        .build(_testEntityRegistry),
+                UpsertBatchItem.builder()
+                        .urn(entityUrn1)
+                        .aspectName(keyAspectName)
+                        .aspect(writeKey1)
+                        .systemMetadata(metadata1)
+                        .build(_testEntityRegistry),
+                UpsertBatchItem.builder()
+                        .urn(entityUrn2)
+                        .aspectName(aspectName)
+                        .aspect(writeAspect2)
+                        .systemMetadata(metadata1)
+                        .build(_testEntityRegistry),
+                UpsertBatchItem.builder()
+                        .urn(entityUrn3)
+                        .aspectName(aspectName)
+                        .aspect(writeAspect3)
+                        .systemMetadata(metadata1)
+                        .build(_testEntityRegistry),
+                UpsertBatchItem.builder()
+                        .urn(entityUrn1)
+                        .aspectName(aspectName)
+                        .aspect(writeAspect1Overwrite)
+                        .systemMetadata(metadata2)
+                        .build(_testEntityRegistry)
+        );
+        _entityServiceImpl.ingestAspects(AspectsBatchImpl.builder().items(items).build(), TEST_AUDIT_STAMP, true, true);
 
         // this should no-op since the key should have been written in the furst run
         AspectRowSummary rollbackKeyWithWrongRunId = new AspectRowSummary();
@@ -918,8 +971,17 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         SystemMetadata metadata1 = AspectGenerationUtils.createSystemMetadata(1625792689, "run-123");
         SystemMetadata metadata2 = AspectGenerationUtils.createSystemMetadata(1635792689, "run-456");
 
+        List<UpsertBatchItem> items = List.of(
+                UpsertBatchItem.builder()
+                        .urn(entityUrn)
+                        .aspectName(aspectName)
+                        .aspect(writeAspect1)
+                        .systemMetadata(metadata1)
+                        .build(_testEntityRegistry)
+        );
+        _entityServiceImpl.ingestAspects(AspectsBatchImpl.builder().items(items).build(), TEST_AUDIT_STAMP, true, true);
+
         // Validate retrieval of CorpUserInfo Aspect #1
-        _entityServiceImpl.ingestAspect(entityUrn, aspectName, writeAspect1, TEST_AUDIT_STAMP, metadata1);
         RecordTemplate readAspect1 = _entityServiceImpl.getLatestAspect(entityUrn, aspectName);
         assertTrue(DataTemplateUtil.areEqual(writeAspect1, readAspect1));
 
@@ -931,9 +993,6 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         assertNull(mcl.getPreviousSystemMetadata());
         assertEquals(mcl.getChangeType(), ChangeType.UPSERT);
 
-        verify(_mockProducer, times(1)).produceMetadataAuditEvent(Mockito.eq(entityUrn), Mockito.any(), Mockito.any(),
-            Mockito.any(), Mockito.any(), Mockito.eq(MetadataAuditOperation.UPDATE));
-
         verifyNoMoreInteractions(_mockProducer);
 
         reset(_mockProducer);
@@ -941,8 +1000,17 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         // Ingest CorpUserInfo Aspect #2
         CorpUserInfo writeAspect2 = AspectGenerationUtils.createCorpUserInfo("email2@test.com");
 
+        items = List.of(
+                UpsertBatchItem.builder()
+                        .urn(entityUrn)
+                        .aspectName(aspectName)
+                        .aspect(writeAspect2)
+                        .systemMetadata(metadata2)
+                        .build(_testEntityRegistry)
+        );
+        _entityServiceImpl.ingestAspects(AspectsBatchImpl.builder().items(items).build(), TEST_AUDIT_STAMP, true, true);
+
         // Validate retrieval of CorpUserInfo Aspect #2
-        _entityServiceImpl.ingestAspect(entityUrn, aspectName, writeAspect2, TEST_AUDIT_STAMP, metadata2);
         RecordTemplate readAspect2 = _entityServiceImpl.getLatestAspect(entityUrn, aspectName);
         EntityAspect readAspectDao1 = _aspectDao.getAspect(entityUrn.toString(), aspectName, 1);
         EntityAspect readAspectDao2 = _aspectDao.getAspect(entityUrn.toString(), aspectName, 0);
@@ -958,9 +1026,6 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         assertNotNull(mcl.getPreviousSystemMetadata());
         assertEquals(mcl.getChangeType(), ChangeType.UPSERT);
 
-        verify(_mockProducer, times(1)).produceMetadataAuditEvent(Mockito.eq(entityUrn), Mockito.notNull(), Mockito.any(),
-            Mockito.any(), Mockito.any(), Mockito.eq(MetadataAuditOperation.UPDATE));
-
         verifyNoMoreInteractions(_mockProducer);
     }
 
@@ -975,16 +1040,34 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         SystemMetadata metadata1 = AspectGenerationUtils.createSystemMetadata(1625792689, "run-123");
         SystemMetadata metadata2 = AspectGenerationUtils.createSystemMetadata(1635792689, "run-456");
 
+        List<UpsertBatchItem> items = List.of(
+                UpsertBatchItem.builder()
+                        .urn(entityUrn)
+                        .aspectName(aspectName)
+                        .aspect(writeAspect1)
+                        .systemMetadata(metadata1)
+                        .build(_testEntityRegistry)
+        );
+        _entityServiceImpl.ingestAspects(AspectsBatchImpl.builder().items(items).build(), TEST_AUDIT_STAMP, true, true);
+
         // Validate retrieval of CorpUserInfo Aspect #1
-        _entityServiceImpl.ingestAspect(entityUrn, aspectName, writeAspect1, TEST_AUDIT_STAMP, metadata1);
         EnvelopedAspect readAspect1 = _entityServiceImpl.getLatestEnvelopedAspect("corpuser", entityUrn, aspectName);
         assertTrue(DataTemplateUtil.areEqual(writeAspect1, new CorpUserInfo(readAspect1.getValue().data())));
 
         // Ingest CorpUserInfo Aspect #2
         CorpUserInfo writeAspect2 = AspectGenerationUtils.createCorpUserInfo("email2@test.com");
 
+        items = List.of(
+                UpsertBatchItem.builder()
+                        .urn(entityUrn)
+                        .aspectName(aspectName)
+                        .aspect(writeAspect2)
+                        .systemMetadata(metadata2)
+                        .build(_testEntityRegistry)
+        );
+        _entityServiceImpl.ingestAspects(AspectsBatchImpl.builder().items(items).build(), TEST_AUDIT_STAMP, true, true);
+
         // Validate retrieval of CorpUserInfo Aspect #2
-        _entityServiceImpl.ingestAspect(entityUrn, aspectName, writeAspect2, TEST_AUDIT_STAMP, metadata2);
         EnvelopedAspect readAspect2 = _entityServiceImpl.getLatestEnvelopedAspect("corpuser", entityUrn, aspectName);
         EntityAspect readAspectDao1 = _aspectDao.getAspect(entityUrn.toString(), aspectName, 1);
         EntityAspect readAspectDao2 = _aspectDao.getAspect(entityUrn.toString(), aspectName, 0);
@@ -992,12 +1075,6 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         assertTrue(DataTemplateUtil.areEqual(writeAspect2, new CorpUserInfo(readAspect2.getValue().data())));
         assertTrue(DataTemplateUtil.areEqual(EntityUtils.parseSystemMetadata(readAspectDao2.getSystemMetadata()), metadata2));
         assertTrue(DataTemplateUtil.areEqual(EntityUtils.parseSystemMetadata(readAspectDao1.getSystemMetadata()), metadata1));
-
-        verify(_mockProducer, times(1)).produceMetadataAuditEvent(Mockito.eq(entityUrn), Mockito.eq(null), Mockito.any(),
-            Mockito.any(), Mockito.any(), Mockito.eq(MetadataAuditOperation.UPDATE));
-
-        verify(_mockProducer, times(1)).produceMetadataAuditEvent(Mockito.eq(entityUrn), Mockito.notNull(), Mockito.any(),
-            Mockito.any(), Mockito.any(), Mockito.eq(MetadataAuditOperation.UPDATE));
 
         verify(_mockProducer, times(2)).produceMetadataChangeLog(Mockito.eq(entityUrn),
             Mockito.any(), Mockito.any());
@@ -1015,10 +1092,19 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
 
         SystemMetadata metadata1 = AspectGenerationUtils.createSystemMetadata(1625792689, "run-123");
         SystemMetadata metadata2 = AspectGenerationUtils.createSystemMetadata(1635792689, "run-456");
-        SystemMetadata metadata3 = AspectGenerationUtils.createSystemMetadata(1635792689, "run-123");
+        SystemMetadata metadata3 = AspectGenerationUtils.createSystemMetadata(1635792689, "run-123", "run-456");
+
+        List<UpsertBatchItem> items = List.of(
+                UpsertBatchItem.builder()
+                        .urn(entityUrn)
+                        .aspectName(aspectName)
+                        .aspect(writeAspect1)
+                        .systemMetadata(metadata1)
+                        .build(_testEntityRegistry)
+        );
+        _entityServiceImpl.ingestAspects(AspectsBatchImpl.builder().items(items).build(), TEST_AUDIT_STAMP, true, true);
 
         // Validate retrieval of CorpUserInfo Aspect #1
-        _entityServiceImpl.ingestAspect(entityUrn, aspectName, writeAspect1, TEST_AUDIT_STAMP, metadata1);
         RecordTemplate readAspect1 = _entityServiceImpl.getLatestAspect(entityUrn, aspectName);
         assertTrue(DataTemplateUtil.areEqual(writeAspect1, readAspect1));
 
@@ -1030,9 +1116,6 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         assertNull(mcl.getPreviousSystemMetadata());
         assertEquals(mcl.getChangeType(), ChangeType.UPSERT);
 
-        verify(_mockProducer, times(1)).produceMetadataAuditEvent(Mockito.eq(entityUrn), Mockito.eq(null), Mockito.any(),
-            Mockito.any(), Mockito.any(), Mockito.eq(MetadataAuditOperation.UPDATE));
-
         verifyNoMoreInteractions(_mockProducer);
 
         reset(_mockProducer);
@@ -1040,8 +1123,17 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         // Ingest CorpUserInfo Aspect #2
         CorpUserInfo writeAspect2 = AspectGenerationUtils.createCorpUserInfo("email@test.com");
 
+        items = List.of(
+                UpsertBatchItem.builder()
+                        .urn(entityUrn)
+                        .aspectName(aspectName)
+                        .aspect(writeAspect2)
+                        .systemMetadata(metadata2)
+                        .build(_testEntityRegistry)
+        );
+        _entityServiceImpl.ingestAspects(AspectsBatchImpl.builder().items(items).build(), TEST_AUDIT_STAMP, true, true);
+
         // Validate retrieval of CorpUserInfo Aspect #2
-        _entityServiceImpl.ingestAspect(entityUrn, aspectName, writeAspect2, TEST_AUDIT_STAMP, metadata2);
         RecordTemplate readAspect2 = _entityServiceImpl.getLatestAspect(entityUrn, aspectName);
         EntityAspect readAspectDao2 = _aspectDao.getAspect(entityUrn.toString(), aspectName, ASPECT_LATEST_VERSION);
 
@@ -1052,9 +1144,6 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         assertTrue(DataTemplateUtil.areEqual(EntityUtils.parseSystemMetadata(readAspectDao2.getSystemMetadata()), metadata3));
 
         verify(_mockProducer, times(1)).produceMetadataChangeLog(Mockito.eq(entityUrn), Mockito.any(), mclCaptor.capture());
-
-        verify(_mockProducer, times(1)).produceMetadataAuditEvent(Mockito.eq(entityUrn), Mockito.notNull(), Mockito.any(),
-            Mockito.any(), Mockito.any(), Mockito.eq(MetadataAuditOperation.UPDATE));
 
         verifyNoMoreInteractions(_mockProducer);
     }
@@ -1069,20 +1158,54 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
 
         // Ingest CorpUserInfo Aspect
         CorpUserInfo writeAspect1 = AspectGenerationUtils.createCorpUserInfo("email@test.com");
-        _entityServiceImpl.ingestAspect(entityUrn, aspectName, writeAspect1, TEST_AUDIT_STAMP, metadata1);
         CorpUserInfo writeAspect1a = AspectGenerationUtils.createCorpUserInfo("email_a@test.com");
-        _entityServiceImpl.ingestAspect(entityUrn, aspectName, writeAspect1a, TEST_AUDIT_STAMP, metadata1);
         CorpUserInfo writeAspect1b = AspectGenerationUtils.createCorpUserInfo("email_b@test.com");
-        _entityServiceImpl.ingestAspect(entityUrn, aspectName, writeAspect1b, TEST_AUDIT_STAMP, metadata1);
 
         String aspectName2 = AspectGenerationUtils.getAspectName(new Status());
         // Ingest Status Aspect
         Status writeAspect2 = new Status().setRemoved(true);
-        _entityServiceImpl.ingestAspect(entityUrn, aspectName2, writeAspect2, TEST_AUDIT_STAMP, metadata1);
         Status writeAspect2a = new Status().setRemoved(false);
-        _entityServiceImpl.ingestAspect(entityUrn, aspectName2, writeAspect2a, TEST_AUDIT_STAMP, metadata1);
         Status writeAspect2b = new Status().setRemoved(true);
-        _entityServiceImpl.ingestAspect(entityUrn, aspectName2, writeAspect2b, TEST_AUDIT_STAMP, metadata1);
+
+        List<UpsertBatchItem> items = List.of(
+                UpsertBatchItem.builder()
+                        .urn(entityUrn)
+                        .aspectName(aspectName)
+                        .aspect(writeAspect1)
+                        .systemMetadata(metadata1)
+                        .build(_testEntityRegistry),
+                UpsertBatchItem.builder()
+                        .urn(entityUrn)
+                        .aspectName(aspectName)
+                        .aspect(writeAspect1a)
+                        .systemMetadata(metadata1)
+                        .build(_testEntityRegistry),
+                UpsertBatchItem.builder()
+                        .urn(entityUrn)
+                        .aspectName(aspectName)
+                        .aspect(writeAspect1b)
+                        .systemMetadata(metadata1)
+                        .build(_testEntityRegistry),
+                UpsertBatchItem.builder()
+                        .urn(entityUrn)
+                        .aspectName(aspectName2)
+                        .aspect(writeAspect2)
+                        .systemMetadata(metadata1)
+                        .build(_testEntityRegistry),
+                UpsertBatchItem.builder()
+                        .urn(entityUrn)
+                        .aspectName(aspectName2)
+                        .aspect(writeAspect2a)
+                        .systemMetadata(metadata1)
+                        .build(_testEntityRegistry),
+                UpsertBatchItem.builder()
+                        .urn(entityUrn)
+                        .aspectName(aspectName2)
+                        .aspect(writeAspect2b)
+                        .systemMetadata(metadata1)
+                        .build(_testEntityRegistry)
+        );
+        _entityServiceImpl.ingestAspects(AspectsBatchImpl.builder().items(items).build(), TEST_AUDIT_STAMP, true, true);
 
         assertEquals(_entityServiceImpl.getAspect(entityUrn, aspectName, 1), writeAspect1);
         assertEquals(_entityServiceImpl.getAspect(entityUrn, aspectName2, 1), writeAspect2);
@@ -1094,10 +1217,24 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
 
         // Ingest CorpUserInfo Aspect again
         CorpUserInfo writeAspect1c = AspectGenerationUtils.createCorpUserInfo("email_c@test.com");
-        _entityServiceImpl.ingestAspect(entityUrn, aspectName, writeAspect1c, TEST_AUDIT_STAMP, metadata1);
         // Ingest Status Aspect again
         Status writeAspect2c = new Status().setRemoved(false);
-        _entityServiceImpl.ingestAspect(entityUrn, aspectName2, writeAspect2c, TEST_AUDIT_STAMP, metadata1);
+
+        items = List.of(
+                UpsertBatchItem.builder()
+                        .urn(entityUrn)
+                        .aspectName(aspectName)
+                        .aspect(writeAspect1c)
+                        .systemMetadata(metadata1)
+                        .build(_testEntityRegistry),
+                UpsertBatchItem.builder()
+                        .urn(entityUrn)
+                        .aspectName(aspectName2)
+                        .aspect(writeAspect2c)
+                        .systemMetadata(metadata1)
+                        .build(_testEntityRegistry)
+        );
+        _entityServiceImpl.ingestAspects(AspectsBatchImpl.builder().items(items).build(), TEST_AUDIT_STAMP, true, true);
 
         assertNull(_entityServiceImpl.getAspect(entityUrn, aspectName, 1));
         assertEquals(_entityServiceImpl.getAspect(entityUrn, aspectName2, 1), writeAspect2);
@@ -1203,12 +1340,12 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     public void testValidateUrn() throws Exception {
         // Valid URN
         Urn validTestUrn = new Urn("li", "corpuser", new TupleKey("testKey"));
-        _entityServiceImpl.validateUrn(validTestUrn);
+        EntityUtils.validateUrn(_testEntityRegistry, validTestUrn);
 
         // URN with trailing whitespace
         Urn testUrnWithTrailingWhitespace = new Urn("li", "corpuser", new TupleKey("testKey   "));
         try {
-            _entityServiceImpl.validateUrn(testUrnWithTrailingWhitespace);
+            EntityUtils.validateUrn(_testEntityRegistry, testUrnWithTrailingWhitespace);
             Assert.fail("Should have raised IllegalArgumentException for URN with trailing whitespace");
         } catch (IllegalArgumentException e) {
             assertEquals(e.getMessage(), "Error: cannot provide an URN with leading or trailing whitespace");
@@ -1219,7 +1356,7 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
 
         Urn testUrnTooLong = new Urn("li", "corpuser", new TupleKey(stringTooLong));
         try {
-            _entityServiceImpl.validateUrn(testUrnTooLong);
+            EntityUtils.validateUrn(_testEntityRegistry, testUrnTooLong);
             Assert.fail("Should have raised IllegalArgumentException for URN too long");
         } catch (IllegalArgumentException e) {
             assertEquals(e.getMessage(), "Error: cannot provide an URN longer than 512 bytes (when URL encoded)");
@@ -1235,9 +1372,9 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         Urn testUrnTooLongWhenEncoded = new Urn("li", "corpUser", new TupleKey(buildStringTooLongWhenEncoded.toString()));
         Urn testUrnSameLengthWhenEncoded = new Urn("li", "corpUser", new TupleKey(buildStringSameLengthWhenEncoded.toString()));
         // Same length when encoded should be allowed, the encoded one should not be
-        _entityServiceImpl.validateUrn(testUrnSameLengthWhenEncoded);
+        EntityUtils.validateUrn(_testEntityRegistry, testUrnSameLengthWhenEncoded);
         try {
-            _entityServiceImpl.validateUrn(testUrnTooLongWhenEncoded);
+            EntityUtils.validateUrn(_testEntityRegistry, testUrnTooLongWhenEncoded);
             Assert.fail("Should have raised IllegalArgumentException for URN too long");
         } catch (IllegalArgumentException e) {
             assertEquals(e.getMessage(), "Error: cannot provide an URN longer than 512 bytes (when URL encoded)");
@@ -1246,9 +1383,9 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         // Urn containing disallowed character
         Urn testUrnSpecialCharValid = new Urn("li", "corpUser", new TupleKey("bob␇"));
         Urn testUrnSpecialCharInvalid = new Urn("li", "corpUser", new TupleKey("bob␟"));
-        _entityServiceImpl.validateUrn(testUrnSpecialCharValid);
+        EntityUtils.validateUrn(_testEntityRegistry, testUrnSpecialCharValid);
         try {
-            _entityServiceImpl.validateUrn(testUrnSpecialCharInvalid);
+            EntityUtils.validateUrn(_testEntityRegistry, testUrnSpecialCharInvalid);
             Assert.fail("Should have raised IllegalArgumentException for URN containing the illegal char");
         } catch (IllegalArgumentException e) {
             assertEquals(e.getMessage(), "Error: URN cannot contain ␟ character");
@@ -1256,7 +1393,7 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
 
         Urn urnWithMismatchedParens = new Urn("li", "corpuser", new TupleKey("test(Key"));
         try {
-            _entityServiceImpl.validateUrn(urnWithMismatchedParens);
+            EntityUtils.validateUrn(_testEntityRegistry, urnWithMismatchedParens);
             Assert.fail("Should have raised IllegalArgumentException for URN with mismatched parens");
         } catch (IllegalArgumentException e) {
             assertTrue(e.getMessage().contains("mismatched paren nesting"));
@@ -1264,18 +1401,18 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
 
         Urn invalidType = new Urn("li", "fakeMadeUpType", new TupleKey("testKey"));
         try {
-            _entityServiceImpl.validateUrn(invalidType);
+            EntityUtils.validateUrn(_testEntityRegistry, invalidType);
             Assert.fail("Should have raised IllegalArgumentException for URN with non-existent entity type");
         } catch (IllegalArgumentException e) {
             assertTrue(e.getMessage().contains("Failed to find entity with name fakeMadeUpType"));
         }
 
         Urn validFabricType = new Urn("li", "dataset", new TupleKey("urn:li:dataPlatform:foo", "bar", "PROD"));
-        _entityServiceImpl.validateUrn(validFabricType);
+        EntityUtils.validateUrn(_testEntityRegistry, validFabricType);
 
         Urn invalidFabricType = new Urn("li", "dataset", new TupleKey("urn:li:dataPlatform:foo", "bar", "prod"));
         try {
-            _entityServiceImpl.validateUrn(invalidFabricType);
+            EntityUtils.validateUrn(_testEntityRegistry, invalidFabricType);
             Assert.fail("Should have raised IllegalArgumentException for URN with invalid fabric type");
         } catch (IllegalArgumentException e) {
             assertTrue(e.getMessage().contains(invalidFabricType.toString()));
@@ -1283,7 +1420,7 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
 
         Urn urnEndingInComma = new Urn("li", "dataset", new TupleKey("urn:li:dataPlatform:foo", "bar", "PROD", ""));
         try {
-            _entityServiceImpl.validateUrn(urnEndingInComma);
+            EntityUtils.validateUrn(_testEntityRegistry, urnEndingInComma);
             Assert.fail("Should have raised IllegalArgumentException for URN ending in comma");
         } catch (IllegalArgumentException e) {
             assertTrue(e.getMessage().contains(urnEndingInComma.toString()));

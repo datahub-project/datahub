@@ -9,15 +9,102 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 ### Potential Downtime
 
 ### Deprecations
-- #8525: In LDAP ingestor, the `manager_pagination_enabled` changed to general `pagination_enabled`
 
 ### Other Notable Changes
+
+## 0.12.0
+
+### Breaking Changes
+
+- #8687 (datahub-helm #365 #353) - If Helm is used for installation and Neo4j is enabled, update the prerequisites Helm chart to version >=0.1.2 and adjust your value overrides in the `neo4j:` section according to the new structure.
+- #9044 - GraphQL APIs for adding ownership now expect either an `ownershipTypeUrn` referencing a customer ownership type or a (deprecated) `type`. Where before adding an ownership without a concrete type was allowed, this is no longer the case. For simplicity you can use the `type` parameter which will get translated to a custom ownership type internally if one exists for the type being added.
+- #9010 - In Redshift source's config `incremental_lineage` is set default to off.
+- #8810 - Removed support for SQLAlchemy 1.3.x. Only SQLAlchemy 1.4.x is supported now.
+- #8942 - Removed `urn:li:corpuser:datahub` owner for the `Measure`, `Dimension` and `Temporal` tags emitted 
+  by Looker and LookML source connectors.
+- #8853 - The Airflow plugin no longer supports Airflow 2.0.x or Python 3.7. See the docs for more details.
+- #8853 - Introduced the Airflow plugin v2. If you're using Airflow 2.3+, the v2 plugin will be enabled by default, and so you'll need to switch your requirements to include `pip install 'acryl-datahub-airflow-plugin[plugin-v2]'`. To continue using the v1 plugin, set the `DATAHUB_AIRFLOW_PLUGIN_USE_V1_PLUGIN` environment variable to `true`.
+- #8943 - The Unity Catalog ingestion source has a new option `include_metastore`, which will cause all urns to be changed when disabled.
+This is currently enabled by default to preserve compatibility, but will be disabled by default and then removed in the future.
+If stateful ingestion is enabled, simply setting `include_metastore: false` will perform all required cleanup.
+Otherwise, we recommend soft deleting all databricks data via the DataHub CLI:
+`datahub delete --platform databricks --soft` and then reingesting with `include_metastore: false`.
+- #8846 - Changed enum values in resource filters used by policies. `RESOURCE_TYPE` became `TYPE` and `RESOURCE_URN` became `URN`.
+Any existing policies using these filters (i.e. defined for particular `urns` or `types` such as `dataset`) need to be upgraded
+manually, for example by retrieving their respective `dataHubPolicyInfo` aspect and changing part using filter i.e.
+```yaml
+   "resources": {
+     "filter": {
+       "criteria": [
+         {
+           "field": "RESOURCE_TYPE",
+           "condition": "EQUALS",
+           "values": [
+             "dataset"
+           ]
+         }
+       ]
+     }
+```
+into
+```yaml
+   "resources": {
+     "filter": {
+       "criteria": [
+         {
+           "field": "TYPE",
+           "condition": "EQUALS",
+           "values": [
+             "dataset"
+           ]
+         }
+       ]
+     }
+```
+for example, using `datahub put` command. Policies can be also removed and re-created via UI.
+- #9077 - The BigQuery ingestion source by default sets `match_fully_qualified_names: true`.
+This means that any `dataset_pattern` or `schema_pattern` specified will be matched on the fully
+qualified dataset name, i.e. `<project_name>.<dataset_name>`. We attempt to support the old
+pattern format by prepending `.*\\.` to dataset patterns lacking a period, so in most cases this
+should not cause any issues. However, if you have a complex dataset pattern, we recommend you
+manually convert it to the fully qualified format to avoid any potential issues.
+
+### Potential Downtime
+
+### Deprecations
+
+### Other Notable Changes
+- Session token configuration has changed, all previously created session tokens will be invalid and users will be prompted to log in. Expiration time has also been shortened which may result in more login prompts with the default settings.
+  There should be no other interruption due to this change.
+
+## 0.11.0
+
+### Breaking Changes
+
+### Potential Downtime
+- #8611 Search improvements requires reindexing indices. A `system-update` job will run which will set indices to read-only and create a backup/clone of each index. During the reindexing new components will be prevented from start-up until the reindex completes. The logs of this job will indicate a % complete per index. Depending on index sizes and infrastructure this process can take 5 minutes to hours however as a rough estimate 1 hour for every 2.3 million entities.
+
+### Deprecations
+- #8525: In LDAP ingestor, the `manager_pagination_enabled` changed to general `pagination_enabled`
+- MAE Events are no longer produced. MAE events have been deprecated for over a year.
+
+### Other Notable Changes
+- In this release we now enable you to create and delete pinned announcements on your DataHub homepage! If you have the “Manage Home Page Posts” platform privilege you’ll see a new section in settings called “Home Page Posts” where you can create and delete text posts and link posts that your users see on the home page.
+- The new search and browse experience, which was first made available in the previous release behind a feature flag, is now on by default. Check out our release notes for v0.10.5 to get more information and documentation on this new Browse experience.
+- In addition to the ranking changes mentioned above, this release includes changes to the highlighting of search entities to understand why they match your query. You can also sort your results alphabetically or by last updated times, in addition to relevance. In this release, we suggest a correction if your query has a typo in it.
 - #8300: Clickhouse source now inherited from TwoTierSQLAlchemy. In old way we have platform_instance -> container -> co
   container db (None) -> container schema and now we have platform_instance -> container database.
 - #8300: Added `uri_opts` argument; now we can add any options for clickhouse client.
 - #8659: BigQuery ingestion no longer creates DataPlatformInstance aspects by default.
   This will only affect users that were depending on this aspect for custom functionality,
   and can be enabled via the `include_data_platform_instance` config option.
+- OpenAPI entity and aspect endpoints expanded to improve developer experience when using this API with additional aspects to be added in the near future.
+- The CLI now supports recursive deletes.
+- Batching of default aspects on initial ingestion (SQL)
+- Improvements to multi-threading. Ingestion recipes, if previously reduced to 1 thread, can be restored to the 15 thread default.
+- Gradle 7 upgrade moderately improves build speed
+- DataHub Ingestion slim images reduced in size by 2GB+
+- Glue Schema Registry fixed
 
 ## 0.10.5
 

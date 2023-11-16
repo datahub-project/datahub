@@ -5,12 +5,11 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union
 
-import clickhouse_driver  # noqa: F401
+import clickhouse_driver
 import clickhouse_sqlalchemy.types as custom_types
 import pydantic
 from clickhouse_sqlalchemy.drivers import base
 from clickhouse_sqlalchemy.drivers.base import ClickHouseDialect
-from pydantic.class_validators import root_validator
 from pydantic.fields import Field
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import reflection
@@ -19,9 +18,9 @@ from sqlalchemy.sql import sqltypes
 from sqlalchemy.types import BOOLEAN, DATE, DATETIME, INTEGER
 
 import datahub.emitter.mce_builder as builder
-from datahub.configuration.pydantic_field_deprecation import pydantic_field_deprecated
 from datahub.configuration.source_common import DatasetLineageProviderConfigBase
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
+from datahub.configuration.validate_field_deprecation import pydantic_field_deprecated
 from datahub.emitter import mce_builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.decorators import (
@@ -38,7 +37,6 @@ from datahub.ingestion.source.sql.sql_common import (
     logger,
     register_custom_type,
 )
-from datahub.ingestion.source.sql.sql_config import make_sqlalchemy_uri
 from datahub.ingestion.source.sql.two_tier_sql_source import (
     TwoTierSQLAlchemyConfig,
     TwoTierSQLAlchemySource,
@@ -59,6 +57,8 @@ from datahub.metadata.schema_classes import (
     DatasetSnapshotClass,
     UpstreamClass,
 )
+
+assert clickhouse_driver
 
 # adding extra types not handled by clickhouse-sqlalchemy 0.1.8
 base.ischema_names["DateTime64(0)"] = DATETIME
@@ -127,8 +127,8 @@ class ClickHouseConfig(
     TwoTierSQLAlchemyConfig, BaseTimeWindowConfig, DatasetLineageProviderConfigBase
 ):
     # defaults
-    host_port = Field(default="localhost:8123", description="ClickHouse host URL.")
-    scheme = Field(default="clickhouse", description="", hidden_from_docs=True)
+    host_port: str = Field(default="localhost:8123", description="ClickHouse host URL.")
+    scheme: str = Field(default="clickhouse", description="", hidden_from_docs=True)
     password: pydantic.SecretStr = Field(
         default=pydantic.SecretStr(""), description="password"
     )
@@ -147,7 +147,6 @@ class ClickHouseConfig(
     include_materialized_views: Optional[bool] = Field(default=True, description="")
 
     def get_sql_alchemy_url(self, current_db=None):
-
         url = make_url(
             super().get_sql_alchemy_url(uri_opts=self.uri_opts, current_db=current_db)
         )
@@ -158,47 +157,16 @@ class ClickHouseConfig(
             )
 
         # We can setup clickhouse ingestion in sqlalchemy_uri form and config form.
-
-        # If we use sqlalchemu_uri form then super().get_sql_alchemy_url doesn't
-        # update current_db because it return self.sqlalchemy_uri without any update.
-        # This code bellow needed for rewriting sqlalchemi_uri and replace database with current_db.from
-        # For the future without python3.7 and sqlalchemy 1.3 support we can use code
-        # url=url.set(db=current_db), but not now.
-
         # Why we need to update database in uri at all?
         # Because we get database from sqlalchemy inspector and inspector we form from url inherited from
         # TwoTierSQLAlchemySource and SQLAlchemySource
-
         if self.sqlalchemy_uri and current_db:
-            self.scheme = url.drivername
-            self.username = url.username
-            self.password = (
-                pydantic.SecretStr(str(url.password))
-                if url.password
-                else pydantic.SecretStr("")
-            )
-            if url.host and url.port:
-                self.host_port = url.host + ":" + str(url.port)
-            elif url.host:
-                self.host_port = url.host
-            # untill released https://github.com/python/mypy/pull/15174
-            self.uri_opts = {str(k): str(v) for (k, v) in url.query.items()}
-
-            url = make_url(
-                make_sqlalchemy_uri(
-                    self.scheme,
-                    self.username,
-                    self.password.get_secret_value() if self.password else None,
-                    self.host_port,
-                    current_db if current_db else self.database,
-                    uri_opts=self.uri_opts,
-                )
-            )
+            url = url.set(database=current_db)
 
         return str(url)
 
     # pre = True because we want to take some decision before pydantic initialize the configuration to default values
-    @root_validator(pre=True)
+    @pydantic.root_validator(pre=True)
     def projects_backward_compatibility(cls, values: Dict) -> Dict:
         secure = values.get("secure")
         protocol = values.get("protocol")

@@ -30,7 +30,11 @@ Conceptually, metadata is modeled using the following abstractions
 
 Here is an example graph consisting of 3 types of entity (CorpUser, Chart, Dashboard), 2 types of relationship (OwnedBy, Contains), and 3 types of metadata aspect (Ownership, ChartInfo, and DashboardInfo).
 
-![metadata-modeling](../imgs/metadata-model-chart.png)
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/metadata-model-chart.png"/>
+</p>
+
 
 ## The Core Entities
 
@@ -73,7 +77,11 @@ to the YAML configuration, instead of creating new Snapshot / Aspect files.
 ## Exploring DataHub's Metadata Model
 
 To explore the current DataHub metadata model, you can inspect this high-level picture that shows the different entities and edges between them showing the relationships between them. 
-![Metadata Model Graph](../imgs/datahub-metadata-model.png)
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/datahub-metadata-model.png"/>
+</p>
+
 
 To navigate the aspect model for specific entities and explore relationships using the `foreign-key` concept, you can view them in our demo environment or navigate the auto-generated docs in the **Metadata Modeling/Entities** section on the left.
 
@@ -425,7 +433,7 @@ aggregation query against a timeseries aspect.
 The *@TimeseriesField* and the *@TimeseriesFieldCollection* are two new annotations that can be attached to a field of
 a *Timeseries aspect* that allows it to be part of an aggregatable query. The kinds of aggregations allowed on these
 annotated fields depends on the type of the field, as well as the kind of aggregation, as
-described [here](#Performing-an-aggregation-on-a-Timeseries-aspect).
+described [here](#performing-an-aggregation-on-a-timeseries-aspect).
 
 * `@TimeseriesField = {}` - this annotation can be used with any type of non-collection type field of the aspect such as
   primitive types and records (see the fields *stat*, *strStat* and *strArray* fields
@@ -507,7 +515,7 @@ my_emitter = DatahubRestEmitter("http://localhost:8080")
 my_emitter.emit(mcpw)
 ```
 
-###### Performing an aggregation on a Timeseries aspect.
+###### Performing an aggregation on a Timeseries aspect
 
 Aggreations on timeseries aspects can be performed by the GMS REST API for `/analytics?action=getTimeseriesStats` which
 accepts the following params.
@@ -617,7 +625,7 @@ curl --location --request POST 'http://localhost:8080/analytics?action=getTimese
     }
 }
 ```
-For more examples on the complex types of group-by/aggregations, refer to the tests in the group `getAggregatedStats` of [ElasticSearchTimeseriesAspectServiceTest.java](https://github.com/datahub-project/datahub/blob/master/metadata-io/src/test/java/com/linkedin/metadata/timeseries/elastic/ElasticSearchTimeseriesAspectServiceTest.java).
+For more examples on the complex types of group-by/aggregations, refer to the tests in the group `getAggregatedStats` of [TimeseriesAspectServiceTestBase.java](https://github.com/datahub-project/datahub/blob/master/metadata-io/src/test/java/com/linkedin/metadata/timeseries/search/TimeseriesAspectServiceTestBase.java).
 
 
 

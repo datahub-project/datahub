@@ -12,29 +12,39 @@ import com.linkedin.common.Ownership;
 import com.linkedin.common.OwnershipType;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.StringArray;
+import com.linkedin.domain.DomainProperties;
+import com.linkedin.domain.Domains;
 import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.identity.RoleMembership;
 import com.linkedin.metadata.query.SearchFlags;
+import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.policy.DataHubActorFilter;
 import com.linkedin.policy.DataHubPolicyInfo;
 import com.linkedin.policy.DataHubResourceFilter;
+
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import static com.linkedin.metadata.Constants.DATAHUB_POLICY_INFO_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.OWNERSHIP_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.POLICY_ENTITY_NAME;
+import javax.annotation.Nullable;
+
+import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.authorization.PoliciesConfig.ACTIVE_POLICY_STATE;
 import static com.linkedin.metadata.authorization.PoliciesConfig.INACTIVE_POLICY_STATE;
 import static com.linkedin.metadata.authorization.PoliciesConfig.METADATA_POLICY_TYPE;
@@ -46,11 +56,16 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.assertFalse;
 
 
 public class DataHubAuthorizerTest {
 
   public static final String DATAHUB_SYSTEM_CLIENT_ID = "__datahub_system";
+
+  private static final Urn PARENT_DOMAIN_URN = UrnUtils.getUrn("urn:li:domain:parent");
+  private static final Urn CHILD_DOMAIN_URN = UrnUtils.getUrn("urn:li:domain:child");
+  private static final Urn USER_WITH_ADMIN_ROLE = UrnUtils.getUrn("urn:li:corpuser:user-with-admin");
 
   private EntityClient _entityClient;
   private DataHubAuthorizer _dataHubAuthorizer;
@@ -61,39 +76,121 @@ public class DataHubAuthorizerTest {
 
     // Init mocks.
     final Urn activePolicyUrn = Urn.createFromString("urn:li:dataHubPolicy:0");
-    final DataHubPolicyInfo activePolicy = createDataHubPolicyInfo(true, ImmutableList.of("EDIT_ENTITY_TAGS"));
+    final DataHubPolicyInfo activePolicy = createDataHubPolicyInfo(true, ImmutableList.of("EDIT_ENTITY_TAGS"), null);
     final EnvelopedAspectMap activeAspectMap = new EnvelopedAspectMap();
     activeAspectMap.put(DATAHUB_POLICY_INFO_ASPECT_NAME, new EnvelopedAspect().setValue(new Aspect(activePolicy.data())));
 
     final Urn inactivePolicyUrn = Urn.createFromString("urn:li:dataHubPolicy:1");
-    final DataHubPolicyInfo inactivePolicy = createDataHubPolicyInfo(false, ImmutableList.of("EDIT_ENTITY_OWNERS"));
+    final DataHubPolicyInfo inactivePolicy = createDataHubPolicyInfo(false, ImmutableList.of("EDIT_ENTITY_OWNERS"), null);
     final EnvelopedAspectMap inactiveAspectMap = new EnvelopedAspectMap();
     inactiveAspectMap.put(DATAHUB_POLICY_INFO_ASPECT_NAME, new EnvelopedAspect().setValue(new Aspect(inactivePolicy.data())));
 
-    final SearchResult policySearchResult = new SearchResult();
-    policySearchResult.setNumEntities(2);
-    policySearchResult.setEntities(new SearchEntityArray(ImmutableList.of(new SearchEntity().setEntity(activePolicyUrn),
-        new SearchEntity().setEntity(inactivePolicyUrn))));
+    final Urn parentDomainPolicyUrn = Urn.createFromString("urn:li:dataHubPolicy:2");
+    final DataHubPolicyInfo parentDomainPolicy = createDataHubPolicyInfo(true, ImmutableList.of("EDIT_ENTITY_DOCS"), PARENT_DOMAIN_URN);
+    final EnvelopedAspectMap parentDomainPolicyAspectMap = new EnvelopedAspectMap();
+    parentDomainPolicyAspectMap.put(DATAHUB_POLICY_INFO_ASPECT_NAME, new EnvelopedAspect().setValue(new Aspect(parentDomainPolicy.data())));
 
-    when(_entityClient.search(eq("dataHubPolicy"), eq(""), isNull(), any(), anyInt(), anyInt(), any(),
-        eq(new SearchFlags().setFulltext(true)))).thenReturn(policySearchResult);
-    when(_entityClient.batchGetV2(eq(POLICY_ENTITY_NAME),
-        eq(ImmutableSet.of(activePolicyUrn, inactivePolicyUrn)), eq(null), any())).thenReturn(
-        ImmutableMap.of(
-            activePolicyUrn, new EntityResponse().setUrn(activePolicyUrn).setAspects(activeAspectMap),
-            inactivePolicyUrn, new EntityResponse().setUrn(inactivePolicyUrn).setAspects(inactiveAspectMap)
-        )
-    );
+    final Urn childDomainPolicyUrn = Urn.createFromString("urn:li:dataHubPolicy:3");
+    final DataHubPolicyInfo childDomainPolicy = createDataHubPolicyInfo(true, ImmutableList.of("EDIT_ENTITY_STATUS"), CHILD_DOMAIN_URN);
+    final EnvelopedAspectMap childDomainPolicyAspectMap = new EnvelopedAspectMap();
+    childDomainPolicyAspectMap.put(DATAHUB_POLICY_INFO_ASPECT_NAME, new EnvelopedAspect().setValue(new Aspect(childDomainPolicy.data())));
+
+    final Urn adminPolicyUrn = Urn.createFromString("urn:li:dataHubPolicy:4");
+    final DataHubActorFilter actorFilter = new DataHubActorFilter();
+    actorFilter.setRoles(new UrnArray(ImmutableList.of(Urn.createFromString("urn:li:dataHubRole:Admin"))));
+    final DataHubPolicyInfo adminPolicy = createDataHubPolicyInfoFor(true, ImmutableList.of("EDIT_USER_PROFILE"), null, actorFilter);
+    final EnvelopedAspectMap adminPolicyAspectMap = new EnvelopedAspectMap();
+    adminPolicyAspectMap.put(DATAHUB_POLICY_INFO_ASPECT_NAME, new EnvelopedAspect().setValue(new Aspect(adminPolicy.data())));
+
+    final ScrollResult policySearchResult1 = new ScrollResult()
+            .setScrollId("1")
+            .setNumEntities(5)
+            .setEntities(
+                    new SearchEntityArray(
+                            ImmutableList.of(new SearchEntity().setEntity(activePolicyUrn))));
+
+    final ScrollResult policySearchResult2 = new ScrollResult()
+            .setScrollId("2")
+            .setNumEntities(5)
+            .setEntities(
+                    new SearchEntityArray(
+                            ImmutableList.of(new SearchEntity().setEntity(inactivePolicyUrn))));
+
+    final ScrollResult policySearchResult3 = new ScrollResult()
+            .setScrollId("3")
+            .setNumEntities(5)
+            .setEntities(
+                    new SearchEntityArray(
+                            ImmutableList.of(new SearchEntity().setEntity(parentDomainPolicyUrn))));
+
+    final ScrollResult policySearchResult4 = new ScrollResult()
+        .setScrollId("4")
+        .setNumEntities(5)
+            .setEntities(
+                    new SearchEntityArray(
+                            ImmutableList.of(
+                                    new SearchEntity().setEntity(childDomainPolicyUrn))));
+
+    final ScrollResult policySearchResult5 = new ScrollResult()
+        .setNumEntities(5)
+        .setEntities(
+            new SearchEntityArray(
+                ImmutableList.of(
+                    new SearchEntity().setEntity(adminPolicyUrn))));
+
+    when(_entityClient.scrollAcrossEntities(eq(List.of("dataHubPolicy")), eq(""), isNull(), any(), isNull(),
+            anyInt(), eq(new SearchFlags().setFulltext(true).setSkipAggregates(true).setSkipHighlighting(true).setSkipCache(true)), any()))
+            .thenReturn(policySearchResult1)
+            .thenReturn(policySearchResult2)
+            .thenReturn(policySearchResult3)
+            .thenReturn(policySearchResult4)
+            .thenReturn(policySearchResult5);
+
+    when(_entityClient.batchGetV2(eq(POLICY_ENTITY_NAME), any(), eq(null), any())).thenAnswer(args -> {
+      Set<Urn> inputUrns = args.getArgument(1);
+      Urn urn = inputUrns.stream().findFirst().get();
+
+      switch (urn.toString()) {
+        case "urn:li:dataHubPolicy:0":
+          return Map.of(activePolicyUrn, new EntityResponse().setUrn(activePolicyUrn).setAspects(activeAspectMap));
+        case "urn:li:dataHubPolicy:1":
+          return Map.of(inactivePolicyUrn, new EntityResponse().setUrn(inactivePolicyUrn).setAspects(inactiveAspectMap));
+        case "urn:li:dataHubPolicy:2":
+          return Map.of(parentDomainPolicyUrn, new EntityResponse().setUrn(parentDomainPolicyUrn).setAspects(parentDomainPolicyAspectMap));
+        case "urn:li:dataHubPolicy:3":
+          return Map.of(childDomainPolicyUrn, new EntityResponse().setUrn(childDomainPolicyUrn).setAspects(childDomainPolicyAspectMap));
+        case "urn:li:dataHubPolicy:4":
+          return Map.of(adminPolicyUrn, new EntityResponse().setUrn(adminPolicyUrn).setAspects(adminPolicyAspectMap));
+        default:
+          throw new IllegalStateException();
+      }
+    });
 
     final List<Urn> userUrns = ImmutableList.of(Urn.createFromString("urn:li:corpuser:user3"), Urn.createFromString("urn:li:corpuser:user4"));
     final List<Urn> groupUrns = ImmutableList.of(Urn.createFromString("urn:li:corpGroup:group3"), Urn.createFromString("urn:li:corpGroup:group4"));
-    EntityResponse entityResponse = new EntityResponse();
-    EnvelopedAspectMap envelopedAspectMap = new EnvelopedAspectMap();
-    envelopedAspectMap.put(OWNERSHIP_ASPECT_NAME, new EnvelopedAspect()
+    EntityResponse ownershipResponse = new EntityResponse();
+    EnvelopedAspectMap ownershipAspectMap = new EnvelopedAspectMap();
+    ownershipAspectMap.put(OWNERSHIP_ASPECT_NAME, new EnvelopedAspect()
         .setValue(new com.linkedin.entity.Aspect(createOwnershipAspect(userUrns, groupUrns).data())));
-    entityResponse.setAspects(envelopedAspectMap);
+    ownershipResponse.setAspects(ownershipAspectMap);
     when(_entityClient.getV2(any(), any(), eq(Collections.singleton(OWNERSHIP_ASPECT_NAME)), any()))
-        .thenReturn(entityResponse);
+        .thenReturn(ownershipResponse);
+
+    // Mocks to get domains on a resource
+    when(_entityClient.getV2(any(), any(), eq(Collections.singleton(DOMAINS_ASPECT_NAME)), any()))
+        .thenReturn(createDomainsResponse(CHILD_DOMAIN_URN));
+
+    // Mocks to get parent domains on a domain
+    when(_entityClient.batchGetV2(any(), eq(Collections.singleton(CHILD_DOMAIN_URN)), eq(Collections.singleton(DOMAIN_PROPERTIES_ASPECT_NAME)), any()))
+        .thenReturn(createDomainPropertiesBatchResponse(PARENT_DOMAIN_URN));
+
+    // Mocks to reach the stopping point on domain parents
+    when(_entityClient.batchGetV2(any(), eq(Collections.singleton(PARENT_DOMAIN_URN)), eq(Collections.singleton(DOMAIN_PROPERTIES_ASPECT_NAME)), any()))
+        .thenReturn(createDomainPropertiesBatchResponse(null));
+
+    // Mocks to reach role membership for a user urn
+    when(_entityClient.batchGetV2(any(), eq(Collections.singleton(USER_WITH_ADMIN_ROLE)), eq(Collections.singleton(ROLE_MEMBERSHIP_ASPECT_NAME)), any())
+    ).thenReturn(createUserRoleMembershipBatchResponse(USER_WITH_ADMIN_ROLE, UrnUtils.getUrn("urn:li:dataHubRole:Admin")));
 
     final Authentication systemAuthentication = new Authentication(
         new Actor(ActorType.USER, DATAHUB_SYSTEM_CLIENT_ID),
@@ -105,7 +202,8 @@ public class DataHubAuthorizerTest {
         _entityClient,
         10,
         10,
-        DataHubAuthorizer.AuthorizationMode.DEFAULT
+        DataHubAuthorizer.AuthorizationMode.DEFAULT,
+        1 // force pagination logic
     );
     _dataHubAuthorizer.init(Collections.emptyMap(), createAuthorizerContext(systemAuthentication, _entityClient));
     _dataHubAuthorizer.invalidateCache();
@@ -117,7 +215,7 @@ public class DataHubAuthorizerTest {
 
     // Validate that the System Actor is authorized, even if there is no policy.
 
-    ResourceSpec resourceSpec = new ResourceSpec("dataset", "urn:li:dataset:test");
+    EntitySpec resourceSpec = new EntitySpec("dataset", "urn:li:dataset:test");
 
     AuthorizationRequest request = new AuthorizationRequest(
         new Actor(ActorType.USER, DATAHUB_SYSTEM_CLIENT_ID).toUrnStr(),
@@ -131,7 +229,7 @@ public class DataHubAuthorizerTest {
   @Test
   public void testAuthorizeGranted() throws Exception {
 
-    ResourceSpec resourceSpec = new ResourceSpec("dataset", "urn:li:dataset:test");
+    EntitySpec resourceSpec = new EntitySpec("dataset", "urn:li:dataset:test");
 
     AuthorizationRequest request = new AuthorizationRequest(
         "urn:li:corpuser:test",
@@ -145,7 +243,7 @@ public class DataHubAuthorizerTest {
   @Test
   public void testAuthorizeNotGranted() throws Exception {
 
-    ResourceSpec resourceSpec = new ResourceSpec("dataset", "urn:li:dataset:test");
+    EntitySpec resourceSpec = new EntitySpec("dataset", "urn:li:dataset:test");
 
     // Policy for this privilege is inactive.
     AuthorizationRequest request = new AuthorizationRequest(
@@ -162,7 +260,7 @@ public class DataHubAuthorizerTest {
 
     _dataHubAuthorizer.setMode(DataHubAuthorizer.AuthorizationMode.ALLOW_ALL);
 
-    ResourceSpec resourceSpec = new ResourceSpec("dataset", "urn:li:dataset:test");
+    EntitySpec resourceSpec = new EntitySpec("dataset", "urn:li:dataset:test");
 
     // Policy for this privilege is inactive.
     AuthorizationRequest request = new AuthorizationRequest(
@@ -178,7 +276,7 @@ public class DataHubAuthorizerTest {
   public void testInvalidateCache() throws Exception {
 
     // First make sure that the default policies are as expected.
-    ResourceSpec resourceSpec = new ResourceSpec("dataset", "urn:li:dataset:test");
+    EntitySpec resourceSpec = new EntitySpec("dataset", "urn:li:dataset:test");
 
     AuthorizationRequest request = new AuthorizationRequest(
         "urn:li:corpuser:test",
@@ -209,7 +307,7 @@ public class DataHubAuthorizerTest {
   public void testAuthorizedActorsActivePolicy() throws Exception {
     final AuthorizedActors actors =
         _dataHubAuthorizer.authorizedActors("EDIT_ENTITY_TAGS", // Should be inside the active policy.
-            Optional.of(new ResourceSpec("dataset", "urn:li:dataset:1")));
+            Optional.of(new EntitySpec("dataset", "urn:li:dataset:1")));
 
     assertTrue(actors.isAllUsers());
     assertTrue(actors.isAllGroups());
@@ -229,14 +327,72 @@ public class DataHubAuthorizerTest {
     ));
   }
 
-  private DataHubPolicyInfo createDataHubPolicyInfo(boolean active, List<String> privileges) throws Exception {
-    final DataHubPolicyInfo dataHubPolicyInfo = new DataHubPolicyInfo();
-    dataHubPolicyInfo.setType(METADATA_POLICY_TYPE);
-    dataHubPolicyInfo.setState(active ? ACTIVE_POLICY_STATE : INACTIVE_POLICY_STATE);
-    dataHubPolicyInfo.setPrivileges(new StringArray(privileges));
-    dataHubPolicyInfo.setDisplayName("My Test Display");
-    dataHubPolicyInfo.setDescription("My test display!");
-    dataHubPolicyInfo.setEditable(true);
+  @Test
+  public void testAuthorizedRoleActivePolicy() throws Exception {
+    final AuthorizedActors actors =
+        _dataHubAuthorizer.authorizedActors("EDIT_USER_PROFILE", // Should be inside the active policy.
+            Optional.of(new EntitySpec("dataset", "urn:li:dataset:1")));
+
+    assertFalse(actors.isAllUsers());
+    assertFalse(actors.isAllGroups());
+    assertEquals(new HashSet<>(actors.getUsers()), ImmutableSet.of());
+    assertEquals(new HashSet<>(actors.getGroups()), ImmutableSet.of());
+    assertEquals(new HashSet<>(actors.getRoles()), ImmutableSet.of(UrnUtils.getUrn("urn:li:dataHubRole:Admin")));
+  }
+
+  @Test
+  public void testAuthorizationBasedOnRoleIsAllowed() {
+    EntitySpec resourceSpec = new EntitySpec("dataset", "urn:li:dataset:test");
+
+    AuthorizationRequest request = new AuthorizationRequest(
+        USER_WITH_ADMIN_ROLE.toString(),
+        "EDIT_USER_PROFILE",
+        Optional.of(resourceSpec)
+    );
+
+    assertEquals(_dataHubAuthorizer.authorize(request).getType(), AuthorizationResult.Type.ALLOW);
+  }
+
+  @Test
+  public void testAuthorizationOnDomainWithPrivilegeIsAllowed() {
+    EntitySpec resourceSpec = new EntitySpec("dataset", "urn:li:dataset:test");
+
+    AuthorizationRequest request = new AuthorizationRequest(
+        "urn:li:corpuser:test",
+        "EDIT_ENTITY_STATUS",
+        Optional.of(resourceSpec)
+    );
+
+    assertEquals(_dataHubAuthorizer.authorize(request).getType(), AuthorizationResult.Type.ALLOW);
+  }
+
+  @Test
+  public void testAuthorizationOnDomainWithParentPrivilegeIsAllowed() {
+    EntitySpec resourceSpec = new EntitySpec("dataset", "urn:li:dataset:test");
+
+    AuthorizationRequest request = new AuthorizationRequest(
+        "urn:li:corpuser:test",
+        "EDIT_ENTITY_DOCS",
+        Optional.of(resourceSpec)
+    );
+
+    assertEquals(_dataHubAuthorizer.authorize(request).getType(), AuthorizationResult.Type.ALLOW);
+  }
+
+  @Test
+  public void testAuthorizationOnDomainWithoutPrivilegeIsDenied() {
+    EntitySpec resourceSpec = new EntitySpec("dataset", "urn:li:dataset:test");
+
+    AuthorizationRequest request = new AuthorizationRequest(
+        "urn:li:corpuser:test",
+        "EDIT_ENTITY_DOC_LINKS",
+        Optional.of(resourceSpec)
+    );
+
+    assertEquals(_dataHubAuthorizer.authorize(request).getType(), AuthorizationResult.Type.DENY);
+  }
+
+  private DataHubPolicyInfo createDataHubPolicyInfo(boolean active, List<String> privileges, @Nullable final Urn domain) throws Exception {
 
     List<Urn> users = ImmutableList.of(Urn.createFromString("urn:li:corpuser:user1"), Urn.createFromString("urn:li:corpuser:user2"));
     List<Urn> groups = ImmutableList.of(Urn.createFromString("urn:li:corpGroup:group1"), Urn.createFromString("urn:li:corpGroup:group2"));
@@ -247,12 +403,32 @@ public class DataHubAuthorizerTest {
     actorFilter.setAllGroups(true);
     actorFilter.setUsers(new UrnArray(users));
     actorFilter.setGroups(new UrnArray(groups));
+
+    return createDataHubPolicyInfoFor(active, privileges, domain, actorFilter);
+  }
+
+  private DataHubPolicyInfo createDataHubPolicyInfoFor(boolean active, List<String> privileges,
+      @Nullable final Urn domain, DataHubActorFilter actorFilter) throws Exception {
+    final DataHubPolicyInfo dataHubPolicyInfo = new DataHubPolicyInfo();
+    dataHubPolicyInfo.setType(METADATA_POLICY_TYPE);
+    dataHubPolicyInfo.setState(active ? ACTIVE_POLICY_STATE : INACTIVE_POLICY_STATE);
+    dataHubPolicyInfo.setPrivileges(new StringArray(privileges));
+    dataHubPolicyInfo.setDisplayName("My Test Display");
+    dataHubPolicyInfo.setDescription("My test display!");
+    dataHubPolicyInfo.setEditable(true);
+
     dataHubPolicyInfo.setActors(actorFilter);
 
     final DataHubResourceFilter resourceFilter = new DataHubResourceFilter();
     resourceFilter.setAllResources(true);
     resourceFilter.setType("dataset");
+
+    if (domain != null) {
+      resourceFilter.setFilter(FilterUtils.newFilter(ImmutableMap.of(EntityFieldType.DOMAIN, Collections.singletonList(domain.toString()))));
+    }
+
     dataHubPolicyInfo.setResources(resourceFilter);
+
     return dataHubPolicyInfo;
   }
 
@@ -284,7 +460,49 @@ public class DataHubAuthorizerTest {
     return ownershipAspect;
   }
 
+  private EntityResponse createDomainsResponse(final Urn domainUrn) {
+    final List<Urn> domainUrns = ImmutableList.of(domainUrn);
+    final EntityResponse domainsResponse = new EntityResponse();
+    EnvelopedAspectMap domainsAspectMap = new EnvelopedAspectMap();
+    final Domains domains = new Domains();
+    domains.setDomains(new UrnArray(domainUrns));
+    domainsAspectMap.put(DOMAINS_ASPECT_NAME, new EnvelopedAspect()
+        .setValue(new com.linkedin.entity.Aspect(domains.data())));
+    domainsResponse.setAspects(domainsAspectMap);
+    return domainsResponse;
+  }
+
+  private Map<Urn, EntityResponse> createDomainPropertiesBatchResponse(@Nullable final Urn parentDomainUrn) {
+    final Map<Urn, EntityResponse> batchResponse = new HashMap<>();
+    final EntityResponse response = new EntityResponse();
+    EnvelopedAspectMap aspectMap = new EnvelopedAspectMap();
+    final DomainProperties properties = new DomainProperties();
+    if (parentDomainUrn != null) {
+      properties.setParentDomain(parentDomainUrn);
+    }
+    aspectMap.put(DOMAIN_PROPERTIES_ASPECT_NAME, new EnvelopedAspect()
+        .setValue(new com.linkedin.entity.Aspect(properties.data())));
+    response.setAspects(aspectMap);
+    batchResponse.put(parentDomainUrn, response);
+    return batchResponse;
+  }
+
+  private Map<Urn, EntityResponse> createUserRoleMembershipBatchResponse(final Urn userUrn, @Nullable final Urn roleUrn) {
+    final Map<Urn, EntityResponse> batchResponse = new HashMap<>();
+    final EntityResponse response = new EntityResponse();
+    EnvelopedAspectMap aspectMap = new EnvelopedAspectMap();
+    final RoleMembership membership = new RoleMembership();
+    if (roleUrn != null) {
+      membership.setRoles(new UrnArray(roleUrn));
+    }
+    aspectMap.put(ROLE_MEMBERSHIP_ASPECT_NAME, new EnvelopedAspect()
+        .setValue(new com.linkedin.entity.Aspect(membership.data())));
+    response.setAspects(aspectMap);
+    batchResponse.put(userUrn, response);
+    return batchResponse;
+  }
+
   private AuthorizerContext createAuthorizerContext(final Authentication systemAuthentication, final EntityClient entityClient) {
-    return new AuthorizerContext(Collections.emptyMap(), new DefaultResourceSpecResolver(systemAuthentication, entityClient));
+    return new AuthorizerContext(Collections.emptyMap(), new DefaultEntitySpecResolver(systemAuthentication, entityClient));
   }
 }

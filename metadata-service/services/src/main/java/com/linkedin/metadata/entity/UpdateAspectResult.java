@@ -3,14 +3,20 @@ package com.linkedin.metadata.entity;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.metadata.entity.transactions.AbstractBatchItem;
 import com.linkedin.mxe.MetadataAuditOperation;
 import com.linkedin.mxe.SystemMetadata;
+import lombok.Builder;
 import lombok.Value;
 
+import java.util.concurrent.Future;
 
+
+@Builder(toBuilder = true)
 @Value
 public class UpdateAspectResult {
   Urn urn;
+  AbstractBatchItem request;
   RecordTemplate oldValue;
   RecordTemplate newValue;
   SystemMetadata oldSystemMetadata;
@@ -18,4 +24,6 @@ public class UpdateAspectResult {
   MetadataAuditOperation operation;
   AuditStamp auditStamp;
   long maxVersion;
+  boolean processedMCL;
+  Future<?> mclFuture;
 }

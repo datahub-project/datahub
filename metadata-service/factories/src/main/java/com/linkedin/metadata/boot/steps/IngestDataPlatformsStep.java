@@ -12,6 +12,14 @@ import com.linkedin.metadata.boot.BootstrapStep;
 import com.linkedin.metadata.entity.EntityService;
 import java.io.IOException;
 import java.net.URISyntaxException;
+import java.util.List;
+import java.util.Spliterator;
+import java.util.Spliterators;
+import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
+
+import com.linkedin.metadata.entity.ebean.transactions.AspectsBatchImpl;
+import com.linkedin.metadata.entity.ebean.transactions.UpsertBatchItem;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.ClassPathResource;
@@ -49,32 +57,32 @@ public class IngestDataPlatformsStep implements BootstrapStep {
     }
 
     // 2. For each JSON object, cast into a DataPlatformSnapshot object.
-    for (final JsonNode dataPlatform : dataPlatforms) {
-      final String urnString;
-      final Urn urn;
-      try {
-        urnString = dataPlatform.get("urn").asText();
-        urn = Urn.createFromString(urnString);
-      } catch (URISyntaxException e) {
-        log.error("Malformed urn: {}", dataPlatform.get("urn").asText());
-        throw new RuntimeException("Malformed urn", e);
-      }
+    List<UpsertBatchItem> dataPlatformAspects =  StreamSupport.stream(
+            Spliterators.spliteratorUnknownSize(dataPlatforms.iterator(), Spliterator.ORDERED), false)
+            .map(dataPlatform -> {
+              final String urnString;
+              final Urn urn;
+              try {
+                urnString = dataPlatform.get("urn").asText();
+                urn = Urn.createFromString(urnString);
+              } catch (URISyntaxException e) {
+                log.error("Malformed urn: {}", dataPlatform.get("urn").asText());
+                throw new RuntimeException("Malformed urn", e);
+              }
 
-      final DataPlatformInfo existingInfo =
-          (DataPlatformInfo) _entityService.getLatestAspect(urn, PLATFORM_ASPECT_NAME);
-      // Skip ingesting for this JSON object if info already exists.
-      if (existingInfo != null) {
-        log.debug(String.format("%s already exists for %s. Skipping...", PLATFORM_ASPECT_NAME, urnString));
-        continue;
-      }
+              final DataPlatformInfo info =
+                      RecordUtils.toRecordTemplate(DataPlatformInfo.class, dataPlatform.get("aspect").toString());
 
-      final DataPlatformInfo info =
-          RecordUtils.toRecordTemplate(DataPlatformInfo.class, dataPlatform.get("aspect").toString());
+              return UpsertBatchItem.builder()
+                      .urn(urn)
+                      .aspectName(PLATFORM_ASPECT_NAME)
+                      .aspect(info)
+                      .build(_entityService.getEntityRegistry());
+            }).collect(Collectors.toList());
 
-      final AuditStamp aspectAuditStamp =
-          new AuditStamp().setActor(Urn.createFromString(Constants.SYSTEM_ACTOR)).setTime(System.currentTimeMillis());
-
-      _entityService.ingestAspect(urn, PLATFORM_ASPECT_NAME, info, aspectAuditStamp, null);
-    }
+    _entityService.ingestAspects(AspectsBatchImpl.builder().items(dataPlatformAspects).build(),
+            new AuditStamp().setActor(Urn.createFromString(Constants.SYSTEM_ACTOR)).setTime(System.currentTimeMillis()),
+            true,
+            false);
   }
 }

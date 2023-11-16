@@ -95,7 +95,7 @@
       "Searchable" : {
         "enableAutocomplete" : true,
         "fieldNameAliases" : [ "_entityName" ],
-        "fieldType" : "TEXT_PARTIAL"
+        "fieldType" : "WORD_GRAM"
       }
     }, {
       "name" : "description",
@@ -1034,7 +1034,7 @@
         "boostScore" : 10.0,
         "enableAutocomplete" : true,
         "fieldNameAliases" : [ "_entityName" ],
-        "fieldType" : "TEXT_PARTIAL"
+        "fieldType" : "WORD_GRAM"
       }
     }, {
       "name" : "description",
@@ -1161,7 +1161,7 @@
         "boostScore" : 10.0,
         "enableAutocomplete" : true,
         "fieldNameAliases" : [ "_entityName" ],
-        "fieldType" : "TEXT_PARTIAL"
+        "fieldType" : "WORD_GRAM"
       }
     }, {
       "name" : "description",
@@ -1221,7 +1221,7 @@
         "boostScore" : 10.0,
         "enableAutocomplete" : true,
         "fieldNameAliases" : [ "_entityName" ],
-        "fieldType" : "TEXT_PARTIAL"
+        "fieldType" : "WORD_GRAM"
       }
     }, {
       "name" : "description",
@@ -1623,7 +1623,7 @@
         "boostScore" : 10.0,
         "enableAutocomplete" : true,
         "fieldNameAliases" : [ "_entityName" ],
-        "fieldType" : "TEXT_PARTIAL"
+        "fieldType" : "WORD_GRAM"
       }
     }, {
       "name" : "qualifiedName",
@@ -1634,7 +1634,7 @@
         "addToFilters" : false,
         "boostScore" : 10.0,
         "enableAutocomplete" : true,
-        "fieldType" : "TEXT"
+        "fieldType" : "WORD_GRAM"
       }
     }, {
       "name" : "description",
@@ -1806,7 +1806,7 @@
         "enableAutocomplete" : true,
         "fieldName" : "displayName",
         "fieldNameAliases" : [ "_entityName" ],
-        "fieldType" : "TEXT_PARTIAL"
+        "fieldType" : "WORD_GRAM"
       }
     }, {
       "name" : "id",
@@ -1843,7 +1843,7 @@
         "boostScore" : 10.0,
         "enableAutocomplete" : true,
         "fieldNameAliases" : [ "_entityName" ],
-        "fieldType" : "TEXT_PARTIAL"
+        "fieldType" : "WORD_GRAM"
       }
     }, {
       "name" : "definition",
@@ -2035,7 +2035,7 @@
       "optional" : true,
       "Searchable" : {
         "boostScore" : 10.0,
-        "fieldType" : "TEXT_PARTIAL",
+        "fieldType" : "WORD_GRAM",
         "queryByDefault" : true
       }
     }, {
@@ -2088,7 +2088,7 @@
         "boostScore" : 10.0,
         "enableAutocomplete" : true,
         "fieldNameAliases" : [ "_entityName" ],
-        "fieldType" : "TEXT_PARTIAL",
+        "fieldType" : "WORD_GRAM",
         "queryByDefault" : true
       }
     }, {
@@ -2151,7 +2151,7 @@
       "Searchable" : {
         "boostScore" : 10.0,
         "enableAutocomplete" : true,
-        "fieldType" : "TEXT_PARTIAL",
+        "fieldType" : "WORD_GRAM",
         "queryByDefault" : true
       }
     }, {
@@ -2244,7 +2244,7 @@
         "Searchable" : {
           "boostScore" : 10.0,
           "enableAutocomplete" : true,
-          "fieldType" : "TEXT_PARTIAL",
+          "fieldType" : "WORD_GRAM",
           "queryByDefault" : true
         }
       } ],
@@ -2264,7 +2264,7 @@
           "boostScore" : 2.0,
           "enableAutocomplete" : true,
           "fieldName" : "ldap",
-          "fieldType" : "TEXT_PARTIAL"
+          "fieldType" : "WORD_GRAM"
         }
       } ],
       "Aspect" : {
@@ -2310,7 +2310,7 @@
         "doc" : "Unique Identifier of the data flow",
         "Searchable" : {
           "enableAutocomplete" : true,
-          "fieldType" : "TEXT_PARTIAL"
+          "fieldType" : "WORD_GRAM"
         }
       }, {
         "name" : "cluster",
@@ -2347,7 +2347,7 @@
         "doc" : "Unique Identifier of the data job",
         "Searchable" : {
           "enableAutocomplete" : true,
-          "fieldType" : "TEXT_PARTIAL"
+          "fieldType" : "WORD_GRAM"
         }
       } ],
       "Aspect" : {
@@ -2922,7 +2922,7 @@
         "type" : "string",
         "Searchable" : {
           "enableAutocomplete" : true,
-          "fieldType" : "TEXT_PARTIAL"
+          "fieldType" : "WORD_GRAM"
         }
       } ],
       "Aspect" : {
@@ -2940,7 +2940,7 @@
         "Searchable" : {
           "enableAutocomplete" : true,
           "fieldName" : "id",
-          "fieldType" : "TEXT_PARTIAL"
+          "fieldType" : "WORD_GRAM"
         }
       } ],
       "Aspect" : {
@@ -2966,7 +2966,7 @@
           "boostScore" : 8.0,
           "enableAutocomplete" : true,
           "fieldNameAliases" : [ "_entityName" ],
-          "fieldType" : "TEXT_PARTIAL"
+          "fieldType" : "WORD_GRAM"
         }
       } ],
       "Aspect" : {
@@ -3032,7 +3032,7 @@
           "boostScore" : 10.0,
           "enableAutocomplete" : true,
           "fieldNameAliases" : [ "_entityName" ],
-          "fieldType" : "TEXT_PARTIAL"
+          "fieldType" : "WORD_GRAM"
         }
       }, {
         "name" : "origin",
@@ -3599,7 +3599,7 @@
           "boostScore" : 10.0,
           "enableAutocomplete" : true,
           "fieldName" : "id",
-          "fieldType" : "TEXT_PARTIAL"
+          "fieldType" : "WORD_GRAM"
         }
       } ],
       "Aspect" : {
@@ -3618,7 +3618,7 @@
           "boostScore" : 10.0,
           "enableAutocomplete" : true,
           "fieldNameAliases" : [ "_entityName" ],
-          "fieldType" : "TEXT_PARTIAL"
+          "fieldType" : "WORD_GRAM"
         }
       }, {
         "name" : "description",

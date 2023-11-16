@@ -21,5 +21,5 @@ public class AuthorizationRequest {
    * The resource that the user is requesting for, if applicable. If the privilege is a platform privilege
    * this optional will be empty.
    */
-  Optional<ResourceSpec> resourceSpec;
+  Optional<EntitySpec> resourceSpec;
 }

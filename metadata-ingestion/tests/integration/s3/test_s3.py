@@ -140,7 +140,7 @@ def test_data_lake_s3_ingest(
 def test_data_lake_local_ingest(
     pytestconfig, touch_local_files, source_file, tmp_path, mock_time
 ):
-    os.environ["SPARK_VERSION"] = "3.0.3"
+    os.environ["SPARK_VERSION"] = "3.3.2"
     test_resources_dir = pytestconfig.rootpath / "tests/integration/s3/"
     f = open(os.path.join(SOURCE_FILES_PATH, source_file))
     source = json.load(f)

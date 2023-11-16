@@ -13,6 +13,7 @@ import org.testng.annotations.Test;
 import java.util.concurrent.CompletionException;
 
 import static com.linkedin.datahub.graphql.TestUtils.getMockAllowContext;
+import static com.linkedin.datahub.graphql.TestUtils.getMockEntityService;
 import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 
@@ -23,7 +24,7 @@ public class DeleteGlossaryEntityResolverTest {
   @Test
   public void testGetSuccess() throws Exception {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService mockService = getMockEntityService();
 
     Mockito.when(mockService.exists(Urn.createFromString(TEST_TERM_URN))).thenReturn(true);
 
@@ -48,7 +49,7 @@ public class DeleteGlossaryEntityResolverTest {
         Mockito.any(),
         Mockito.any(Authentication.class));
 
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService mockService = getMockEntityService();
     Mockito.when(mockService.exists(Urn.createFromString(TEST_TERM_URN))).thenReturn(true);
 
     DeleteGlossaryEntityResolver resolver = new DeleteGlossaryEntityResolver(mockClient, mockService);

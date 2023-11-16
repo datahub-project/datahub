@@ -58,6 +58,7 @@ from datahub.ingestion.source.looker.looker_common import (
     ProjectInclude,
     ViewField,
     ViewFieldType,
+    ViewFieldValue,
 )
 from datahub.ingestion.source.looker.looker_lib_wrapper import (
     LookerAPI,
@@ -274,7 +275,7 @@ class LookMLSourceConfig(
                     )
         return conn_map
 
-    @root_validator()
+    @root_validator(skip_on_failure=True)
     def check_either_connection_map_or_connection_provided(cls, values):
         """Validate that we must either have a connection map or an api credential"""
         if not values.get("connection_to_platform_map", {}) and not values.get(
@@ -285,7 +286,7 @@ class LookMLSourceConfig(
             )
         return values
 
-    @root_validator()
+    @root_validator(skip_on_failure=True)
     def check_either_project_name_or_api_provided(cls, values):
         """Validate that we must either have a project name or an api credential to fetch project names"""
         if not values.get("project_name") and not values.get("api"):
@@ -1066,9 +1067,28 @@ class LookerView:
         return fields
 
     @classmethod
+    def determine_view_file_path(
+        cls, base_folder_path: str, absolute_file_path: str
+    ) -> str:
+        splits: List[str] = absolute_file_path.split(base_folder_path, 1)
+        if len(splits) != 2:
+            logger.debug(
+                f"base_folder_path({base_folder_path}) and absolute_file_path({absolute_file_path}) not matching"
+            )
+            return ViewFieldValue.NOT_AVAILABLE.value
+
+        file_path: str = splits[1]
+        logger.debug(f"file_path={file_path}")
+
+        return file_path.strip(
+            "/"
+        )  # strip / from path to make it equivalent to source_file attribute of LookerModelExplore API
+
+    @classmethod
     def from_looker_dict(
         cls,
         project_name: str,
+        base_folder_path: str,
         model_name: str,
         looker_view: dict,
         connection: LookerConnectionDefinition,
@@ -1206,9 +1226,16 @@ class LookerView:
                 viewLanguage=VIEW_LANGUAGE_LOOKML,
             )
 
+        file_path = LookerView.determine_view_file_path(
+            base_folder_path, looker_viewfile.absolute_file_path
+        )
+
         return LookerView(
             id=LookerViewId(
-                project_name=project_name, model_name=model_name, view_name=view_name
+                project_name=project_name,
+                model_name=model_name,
+                view_name=view_name,
+                file_path=file_path,
             ),
             absolute_file_path=looker_viewfile.absolute_file_path,
             connection=connection,
@@ -1544,6 +1571,7 @@ class LookMLSource(StatefulIngestionSourceBase):
                 project_name=looker_view.id.project_name,
                 model_name=looker_view.id.model_name,
                 view_name=sql_table_name,
+                file_path=looker_view.id.file_path,
             )
             return view_id.get_urn(self.source_config)
 
@@ -2077,22 +2105,36 @@ class LookMLSource(StatefulIngestionSourceBase):
                             raw_view = looker_refinement_resolver.apply_view_refinement(
                                 raw_view=raw_view,
                             )
-                            maybe_looker_view = LookerView.from_looker_dict(
+
+                            current_project_name: str = (
                                 include.project
                                 if include.project != _BASE_PROJECT_NAME
-                                else project_name,
-                                model_name,
-                                raw_view,
-                                connectionDefinition,
-                                looker_viewfile,
-                                viewfile_loader,
-                                looker_refinement_resolver,
-                                self.reporter,
-                                self.source_config.max_file_snippet_length,
-                                self.source_config.parse_table_names_from_sql,
-                                self.source_config.sql_parser,
-                                self.source_config.extract_column_level_lineage,
-                                self.source_config.populate_sql_logic_for_missing_descriptions,
+                                else project_name
+                            )
+
+                            # if project is base project then it is available as self.base_projects_folder[_BASE_PROJECT_NAME]
+                            base_folder_path: str = str(
+                                self.base_projects_folder.get(
+                                    current_project_name,
+                                    self.base_projects_folder[_BASE_PROJECT_NAME],
+                                )
+                            )
+
+                            maybe_looker_view = LookerView.from_looker_dict(
+                                project_name=current_project_name,
+                                base_folder_path=base_folder_path,
+                                model_name=model_name,
+                                looker_view=raw_view,
+                                connection=connectionDefinition,
+                                looker_viewfile=looker_viewfile,
+                                looker_viewfile_loader=viewfile_loader,
+                                looker_refinement_resolver=looker_refinement_resolver,
+                                reporter=self.reporter,
+                                max_file_snippet_length=self.source_config.max_file_snippet_length,
+                                parse_table_names_from_sql=self.source_config.parse_table_names_from_sql,
+                                sql_parser_path=self.source_config.sql_parser,
+                                extract_col_level_lineage=self.source_config.extract_column_level_lineage,
+                                populate_sql_logic_in_descriptions=self.source_config.populate_sql_logic_for_missing_descriptions,
                                 process_isolation_for_sql_parsing=self.source_config.process_isolation_for_sql_parsing,
                             )
                         except Exception as e:
@@ -2126,10 +2168,7 @@ class LookMLSource(StatefulIngestionSourceBase):
                                     for mcp in self._build_dataset_mcps(
                                         maybe_looker_view
                                     ):
-                                        # We want to treat mcp aspects as optional, so allowing failures in this aspect to be treated as warnings rather than failures
-                                        yield mcp.as_workunit(
-                                            treat_errors_as_warnings=True
-                                        )
+                                        yield mcp.as_workunit()
                                 else:
                                     (
                                         prev_model_name,

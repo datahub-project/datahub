@@ -14,9 +14,12 @@ import com.linkedin.domain.Domains;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.ebean.transactions.AspectsBatchImpl;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetchingEnvironment;
+
+import java.util.List;
 import java.util.concurrent.CompletionException;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
@@ -35,7 +38,7 @@ public class BatchSetDomainResolverTest {
 
   @Test
   public void testGetSuccessNoExistingDomains() throws Exception {
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService mockService = getMockEntityService();
 
     Mockito.when(mockService.getAspect(
         Mockito.eq(UrnUtils.getUrn(TEST_ENTITY_URN_1)),
@@ -74,13 +77,10 @@ public class BatchSetDomainResolverTest {
 
     final MetadataChangeProposal proposal1 = MutationUtils.buildMetadataChangeProposalWithUrn(Urn.createFromString(TEST_ENTITY_URN_1),
         DOMAINS_ASPECT_NAME, newDomains);
-
-    verifyIngestProposal(mockService, 1, proposal1);
-
     final MetadataChangeProposal proposal2 = MutationUtils.buildMetadataChangeProposalWithUrn(Urn.createFromString(TEST_ENTITY_URN_2),
         DOMAINS_ASPECT_NAME, newDomains);
 
-    verifyIngestProposal(mockService, 1, proposal2);
+    verifyIngestProposal(mockService, 1, List.of(proposal1, proposal2));
 
     Mockito.verify(mockService, Mockito.times(1)).exists(
         Mockito.eq(Urn.createFromString(TEST_DOMAIN_2_URN))
@@ -92,7 +92,7 @@ public class BatchSetDomainResolverTest {
     final Domains originalDomain = new Domains().setDomains(new UrnArray(ImmutableList.of(
         Urn.createFromString(TEST_DOMAIN_1_URN))));
 
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService mockService = getMockEntityService();
 
     Mockito.when(mockService.getAspect(
         Mockito.eq(UrnUtils.getUrn(TEST_ENTITY_URN_1)),
@@ -135,13 +135,10 @@ public class BatchSetDomainResolverTest {
     proposal1.setAspectName(Constants.DOMAINS_ASPECT_NAME);
     proposal1.setAspect(GenericRecordUtils.serializeAspect(newDomains));
     proposal1.setChangeType(ChangeType.UPSERT);
-
-    verifyIngestProposal(mockService, 1, proposal1);
-
     final MetadataChangeProposal proposal2 = MutationUtils.buildMetadataChangeProposalWithUrn(Urn.createFromString(TEST_ENTITY_URN_2),
         DOMAINS_ASPECT_NAME, newDomains);
 
-    verifyIngestProposal(mockService, 1, proposal2);
+    verifyIngestProposal(mockService, 1, List.of(proposal1, proposal2));
 
     Mockito.verify(mockService, Mockito.times(1)).exists(
         Mockito.eq(Urn.createFromString(TEST_DOMAIN_2_URN))
@@ -153,7 +150,7 @@ public class BatchSetDomainResolverTest {
     final Domains originalDomain = new Domains().setDomains(new UrnArray(ImmutableList.of(
         Urn.createFromString(TEST_DOMAIN_1_URN))));
 
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService mockService = getMockEntityService();
 
     Mockito.when(mockService.getAspect(
         Mockito.eq(UrnUtils.getUrn(TEST_ENTITY_URN_1)),
@@ -189,18 +186,15 @@ public class BatchSetDomainResolverTest {
 
     final MetadataChangeProposal proposal1 = MutationUtils.buildMetadataChangeProposalWithUrn(Urn.createFromString(TEST_ENTITY_URN_1),
         DOMAINS_ASPECT_NAME, newDomains);
-
-    verifyIngestProposal(mockService, 1, proposal1);
-
-    final MetadataChangeProposal proposal2 = MutationUtils.buildMetadataChangeProposalWithUrn(Urn.createFromString(TEST_ENTITY_URN_1),
+    final MetadataChangeProposal proposal2 = MutationUtils.buildMetadataChangeProposalWithUrn(Urn.createFromString(TEST_ENTITY_URN_2),
         DOMAINS_ASPECT_NAME, newDomains);
 
-    verifyIngestProposal(mockService, 1, proposal2);
+    verifyIngestProposal(mockService, 1, List.of(proposal1, proposal2));
   }
 
   @Test
   public void testGetFailureDomainDoesNotExist() throws Exception {
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService mockService = getMockEntityService();
 
     Mockito.when(mockService.getAspect(
         Mockito.eq(UrnUtils.getUrn(TEST_ENTITY_URN_1)),
@@ -228,7 +222,7 @@ public class BatchSetDomainResolverTest {
 
   @Test
   public void testGetFailureResourceDoesNotExist() throws Exception {
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService mockService = getMockEntityService();
 
     Mockito.when(mockService.getAspect(
         Mockito.eq(UrnUtils.getUrn(TEST_ENTITY_URN_1)),
@@ -262,7 +256,7 @@ public class BatchSetDomainResolverTest {
 
   @Test
   public void testGetUnauthorized() throws Exception {
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService mockService = getMockEntityService();
 
     BatchSetDomainResolver resolver = new BatchSetDomainResolver(mockService);
 
@@ -281,10 +275,10 @@ public class BatchSetDomainResolverTest {
 
   @Test
   public void testGetEntityClientException() throws Exception {
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService mockService = getMockEntityService();
 
     Mockito.doThrow(RuntimeException.class).when(mockService).ingestProposal(
-        Mockito.any(),
+        Mockito.any(AspectsBatchImpl.class),
         Mockito.any(AuditStamp.class), Mockito.anyBoolean());
 
     BatchSetDomainResolver resolver = new BatchSetDomainResolver(mockService);

@@ -22,14 +22,14 @@ noCode: "true"
 
 Note that a `.` is used to denote nested fields in the YAML recipe.
 
-| Field                                                        | Required | Default                                                                                                          | Description                                                                                                                                                 |
-|--------------------------------------------------------------| -------- |------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `source.config.stateful_ingestion.enabled`                   |          | False                                                                                                            | The type of the ingestion state provider registered with datahub.                                                                                           |
-| `source.config.stateful_ingestion.ignore_old_state`          |          | False                                                                                                            | If set to True, ignores the previous checkpoint state.                                                                                                      |
-| `source.config.stateful_ingestion.ignore_new_state`          |          | False                                                                                                            | If set to True, ignores the current checkpoint state.                                                                                                       |
-| `source.config.stateful_ingestion.max_checkpoint_state_size` |          | 2^24 (16MB)                                                                                                      | The maximum size of the checkpoint state in bytes.                                                                                                          |
-| `source.config.stateful_ingestion.state_provider`            |          | The default [datahub ingestion state provider](#datahub-ingestion-state-provider) configuration. | The ingestion state provider configuration.                                                                                                                 |
-| `pipeline_name`                                              |    ✅    |                                                                                                                  | The name of the ingestion pipeline the checkpoint states of various source connector job runs are saved/retrieved against via the ingestion state provider. |
+| Field                                                        | Required | Default                                                                                                         | Description                                                                                                                                                 |
+|--------------------------------------------------------------| -------- |-----------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `source.config.stateful_ingestion.enabled`                   |          | False                                                                                                           | The type of the ingestion state provider registered with datahub.                                                                                           |
+| `source.config.stateful_ingestion.ignore_old_state`          |          | False                                                                                                           | If set to True, ignores the previous checkpoint state.                                                                                                      |
+| `source.config.stateful_ingestion.ignore_new_state`          |          | False                                                                                                           | If set to True, ignores the current checkpoint state.                                                                                                       |
+| `source.config.stateful_ingestion.max_checkpoint_state_size` |          | 2^24 (16MB)                                                                                                     | The maximum size of the checkpoint state in bytes.                                                                                                          |
+| `source.config.stateful_ingestion.state_provider`            |          | The default datahub ingestion state provider configuration. | The ingestion state provider configuration.                                                                                                                 |
+| `pipeline_name`                                              |    ✅    |                                                                                                                 | The name of the ingestion pipeline the checkpoint states of various source connector job runs are saved/retrieved against via the ingestion state provider. |
 
 NOTE: If either `dry-run` or `preview` mode are set, stateful ingestion will be turned off regardless of the rest of the configuration.
 ## Use-cases powered by stateful ingestion.
@@ -38,7 +38,9 @@ Following is the list of current use-cases powered by stateful ingestion in data
 Stateful ingestion can be used to automatically soft-delete the tables and views that are seen in a previous run
 but absent in the current run (they are either deleted or no longer desired).
 
-![Stale Metadata Deletion](./stale_metadata_deletion.png)
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/stale_metadata_deletion.png"/>
+</p>
 
 #### Supported sources
 * All sql based sources.

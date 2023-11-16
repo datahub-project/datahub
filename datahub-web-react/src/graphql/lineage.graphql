@@ -165,6 +165,9 @@ fragment lineageNodeProperties on EntityWithRelationships {
         status {
             removed
         }
+        subTypes {
+            typeNames
+        }
     }
     ... on Dataset {
         name
@@ -197,6 +200,12 @@ fragment lineageNodeProperties on EntityWithRelationships {
                 urn
                 path
             }
+        }
+        health {
+            type
+            status
+            message
+            causes
         }
     }
     ... on MLModelGroup {

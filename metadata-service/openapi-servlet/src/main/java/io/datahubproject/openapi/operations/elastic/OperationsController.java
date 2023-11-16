@@ -13,7 +13,7 @@ import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
-import org.elasticsearch.client.tasks.GetTaskResponse;
+import org.opensearch.client.tasks.GetTaskResponse;
 import org.json.JSONObject;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;

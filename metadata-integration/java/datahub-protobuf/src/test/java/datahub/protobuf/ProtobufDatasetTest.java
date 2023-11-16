@@ -26,7 +26,7 @@ import com.linkedin.util.Pair;
 import datahub.protobuf.model.ProtobufField;
 import datahub.protobuf.visitors.ProtobufModelVisitor;
 import datahub.protobuf.visitors.VisitContext;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.util.Set;

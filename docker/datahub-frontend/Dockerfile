@@ -8,9 +8,11 @@ RUN addgroup -S datahub && adduser -S datahub -G datahub
 # Upgrade Alpine and base packages
 # PFP-260: Upgrade Sqlite to >=3.28.0-r0 to fix https://security.snyk.io/vuln/SNYK-ALPINE39-SQLITE-449762
 RUN apk --no-cache --update-cache --available upgrade \
-    && apk --no-cache add curl sqlite \
-    && apk --no-cache add openjdk11-jre --repository=http://dl-cdn.alpinelinux.org/alpine/edge/community \
+    && apk --no-cache add curl sqlite libc6-compat java-snappy \
+    && apk --no-cache add openjdk11-jre-headless --repository=http://dl-cdn.alpinelinux.org/alpine/edge/community \
     && apk --no-cache add jattach --repository http://dl-cdn.alpinelinux.org/alpine/edge/community/
+
+ENV LD_LIBRARY_PATH="/lib:/lib64"
 
 FROM base as prod-install
 
@@ -29,6 +31,8 @@ FROM base as dev-install
 VOLUME [ "/datahub-frontend" ]
 
 FROM ${APP_ENV}-install as final
+COPY ./docker/datahub-frontend/start.sh /
+RUN chown datahub:datahub /start.sh && chmod 755 /start.sh
 USER datahub
 
 ARG SERVER_PORT=9002
@@ -37,5 +41,4 @@ RUN echo $SERVER_PORT
 EXPOSE $SERVER_PORT
 
 HEALTHCHECK --start-period=2m --retries=4 CMD curl --fail http://localhost:$SERVER_PORT/admin || exit 1
-COPY ./docker/datahub-frontend/start.sh /
 CMD ./start.sh

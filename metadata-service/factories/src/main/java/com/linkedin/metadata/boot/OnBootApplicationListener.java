@@ -1,6 +1,7 @@
 package com.linkedin.metadata.boot;
 
 import com.linkedin.gms.factory.config.ConfigurationProvider;
+import com.linkedin.gms.factory.kafka.schemaregistry.InternalSchemaRegistryFactory;
 import java.io.IOException;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
@@ -14,15 +15,18 @@ import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.event.ContextRefreshedEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 import org.springframework.web.context.WebApplicationContext;
+import org.springframework.context.annotation.Configuration;
 
 
 /**
  * Responsible for coordinating starting steps that happen before the application starts up.
  */
+@Configuration
 @Slf4j
 @Component
 public class OnBootApplicationListener {
@@ -43,20 +47,27 @@ public class OnBootApplicationListener {
   @Qualifier("configurationProvider")
   private ConfigurationProvider provider;
 
+  @Value("${bootstrap.servlets.waitTimeout}")
+  private int _servletsWaitTimeout;
 
   @EventListener(ContextRefreshedEvent.class)
   public void onApplicationEvent(@Nonnull ContextRefreshedEvent event) {
     log.warn("OnBootApplicationListener context refreshed! {} event: {}",
         ROOT_WEB_APPLICATION_CONTEXT_ID.equals(event.getApplicationContext().getId()), event);
+    String schemaRegistryType = provider.getKafka().getSchemaRegistry().getType();
     if (ROOT_WEB_APPLICATION_CONTEXT_ID.equals(event.getApplicationContext().getId())) {
-      executorService.submit(isSchemaRegistryAPIServeletReady());
+      if (InternalSchemaRegistryFactory.TYPE.equals(schemaRegistryType)) {
+        executorService.submit(isSchemaRegistryAPIServletReady());
+      } else {
+        _bootstrapManager.start();
+      }
     }
   }
 
-  public Runnable isSchemaRegistryAPIServeletReady() {
+  public Runnable isSchemaRegistryAPIServletReady() {
     return () -> {
         final HttpGet request = new HttpGet(provider.getKafka().getSchemaRegistry().getUrl());
-        int timeouts = 30;
+        int timeouts = _servletsWaitTimeout;
         boolean openAPIServeletReady = false;
         while (!openAPIServeletReady && timeouts > 0) {
           try {
@@ -73,7 +84,7 @@ public class OnBootApplicationListener {
           timeouts--;
         }
         if (!openAPIServeletReady) {
-          log.error("Failed to bootstrap DataHub, OpenAPI servlet was not ready after 30 seconds");
+          log.error("Failed to bootstrap DataHub, OpenAPI servlet was not ready after {} seconds", timeouts);
           System.exit(1);
         } else {
         _bootstrapManager.start();

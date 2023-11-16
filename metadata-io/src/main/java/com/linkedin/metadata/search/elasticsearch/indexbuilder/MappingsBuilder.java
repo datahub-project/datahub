@@ -5,6 +5,7 @@ import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.SearchScoreFieldSpec;
 import com.linkedin.metadata.models.SearchableFieldSpec;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation.FieldType;
+import com.linkedin.metadata.search.utils.ESUtils;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -31,15 +32,6 @@ public class MappingsBuilder {
 
   public static final Map<String, String> KEYWORD_TYPE_MAP = ImmutableMap.of(TYPE, KEYWORD);
 
-  // Field Types
-  public static final String BOOLEAN = "boolean";
-  public static final String DATE = "date";
-  public static final String DOUBLE = "double";
-  public static final String LONG = "long";
-  public static final String OBJECT = "object";
-  public static final String TEXT = "text";
-  public static final String TOKEN_COUNT = "token_count";
-
   // Subfields
   public static final String DELIMITED = "delimited";
   public static final String LENGTH = "length";
@@ -50,6 +42,8 @@ public class MappingsBuilder {
   // Alias field mappings constants
   public static final String ALIAS = "alias";
   public static final String PATH = "path";
+
+  public static final String PROPERTIES = "properties";
 
   private MappingsBuilder() {
   }
@@ -66,13 +60,13 @@ public class MappingsBuilder {
     mappings.put("urn", getMappingsForUrn());
     mappings.put("runId", getMappingsForRunId());
 
-    return ImmutableMap.of("properties", mappings);
+    return ImmutableMap.of(PROPERTIES, mappings);
   }
 
   private static Map<String, Object> getMappingsForUrn() {
     Map<String, Object> subFields = new HashMap<>();
     subFields.put(DELIMITED, ImmutableMap.of(
-            TYPE, TEXT,
+            TYPE, ESUtils.TEXT_FIELD_TYPE,
             ANALYZER, URN_ANALYZER,
             SEARCH_ANALYZER, URN_SEARCH_ANALYZER,
             SEARCH_QUOTE_ANALYZER, CUSTOM_QUOTE_ANALYZER)
@@ -83,13 +77,13 @@ public class MappingsBuilder {
             )
     ));
     return ImmutableMap.<String, Object>builder()
-            .put(TYPE, KEYWORD)
+            .put(TYPE, ESUtils.KEYWORD_FIELD_TYPE)
             .put(FIELDS, subFields)
             .build();
   }
 
   private static Map<String, Object> getMappingsForRunId() {
-    return ImmutableMap.<String, Object>builder().put(TYPE, KEYWORD).build();
+    return ImmutableMap.<String, Object>builder().put(TYPE, ESUtils.KEYWORD_FIELD_TYPE).build();
   }
 
   private static Map<String, Object> getMappingsForField(@Nonnull final SearchableFieldSpec searchableFieldSpec) {
@@ -98,61 +92,27 @@ public class MappingsBuilder {
     Map<String, Object> mappings = new HashMap<>();
     Map<String, Object> mappingForField = new HashMap<>();
     if (fieldType == FieldType.KEYWORD) {
-      mappingForField.put(TYPE, KEYWORD);
-      mappingForField.put(NORMALIZER, KEYWORD_NORMALIZER);
-      // Add keyword subfield without lowercase filter
-      mappingForField.put(FIELDS, ImmutableMap.of(KEYWORD, KEYWORD_TYPE_MAP));
+      mappingForField.putAll(getMappingsForKeyword());
     } else if (fieldType == FieldType.TEXT || fieldType == FieldType.TEXT_PARTIAL || fieldType == FieldType.WORD_GRAM) {
-      mappingForField.put(TYPE, KEYWORD);
-      mappingForField.put(NORMALIZER, KEYWORD_NORMALIZER);
-      Map<String, Object> subFields = new HashMap<>();
-      if (fieldType == FieldType.TEXT_PARTIAL || fieldType == FieldType.WORD_GRAM) {
-        subFields.put(NGRAM, getPartialNgramConfigWithOverrides(
-                ImmutableMap.of(
-                        ANALYZER, PARTIAL_ANALYZER
-                )
-        ));
-        if (fieldType == FieldType.WORD_GRAM) {
-          for (Map.Entry<String, String> entry : Map.of(
-              WORD_GRAMS_LENGTH_2, WORD_GRAM_2_ANALYZER,
-              WORD_GRAMS_LENGTH_3, WORD_GRAM_3_ANALYZER,
-              WORD_GRAMS_LENGTH_4, WORD_GRAM_4_ANALYZER).entrySet()) {
-            String fieldName = entry.getKey();
-            String analyzerName = entry.getValue();
-            subFields.put(fieldName, ImmutableMap.of(
-                TYPE, TEXT,
-                ANALYZER, analyzerName,
-                SEARCH_ANALYZER, analyzerName
-            ));
-          }
-        }
-      }
-      subFields.put(DELIMITED, ImmutableMap.of(
-              TYPE, TEXT,
-              ANALYZER, TEXT_ANALYZER,
-              SEARCH_ANALYZER, TEXT_SEARCH_ANALYZER,
-              SEARCH_QUOTE_ANALYZER, CUSTOM_QUOTE_ANALYZER));
-      // Add keyword subfield without lowercase filter
-      subFields.put(KEYWORD, KEYWORD_TYPE_MAP);
-      mappingForField.put(FIELDS, subFields);
+      mappingForField.putAll(getMappingsForSearchText(fieldType));
     } else if (fieldType == FieldType.BROWSE_PATH) {
-      mappingForField.put(TYPE, TEXT);
+      mappingForField.put(TYPE, ESUtils.TEXT_FIELD_TYPE);
       mappingForField.put(FIELDS,
           ImmutableMap.of(LENGTH, ImmutableMap.of(
-              TYPE, TOKEN_COUNT,
+              TYPE, ESUtils.TOKEN_COUNT_FIELD_TYPE,
               ANALYZER, SLASH_PATTERN_ANALYZER)));
       mappingForField.put(ANALYZER, BROWSE_PATH_HIERARCHY_ANALYZER);
       mappingForField.put(FIELDDATA, true);
     } else if (fieldType == FieldType.BROWSE_PATH_V2) {
-      mappingForField.put(TYPE, TEXT);
+      mappingForField.put(TYPE, ESUtils.TEXT_FIELD_TYPE);
       mappingForField.put(FIELDS,
           ImmutableMap.of(LENGTH, ImmutableMap.of(
-              TYPE, TOKEN_COUNT,
+              TYPE, ESUtils.TOKEN_COUNT_FIELD_TYPE,
               ANALYZER, UNIT_SEPARATOR_PATTERN_ANALYZER)));
       mappingForField.put(ANALYZER, BROWSE_PATH_V2_HIERARCHY_ANALYZER);
       mappingForField.put(FIELDDATA, true);
     }  else if (fieldType == FieldType.URN || fieldType == FieldType.URN_PARTIAL) {
-      mappingForField.put(TYPE, TEXT);
+      mappingForField.put(TYPE, ESUtils.TEXT_FIELD_TYPE);
       mappingForField.put(ANALYZER, URN_ANALYZER);
       mappingForField.put(SEARCH_ANALYZER, URN_SEARCH_ANALYZER);
       mappingForField.put(SEARCH_QUOTE_ANALYZER, CUSTOM_QUOTE_ANALYZER);
@@ -167,13 +127,13 @@ public class MappingsBuilder {
       subFields.put(KEYWORD, KEYWORD_TYPE_MAP);
       mappingForField.put(FIELDS, subFields);
     } else if (fieldType == FieldType.BOOLEAN) {
-      mappingForField.put(TYPE, BOOLEAN);
+      mappingForField.put(TYPE, ESUtils.BOOLEAN_FIELD_TYPE);
     } else if (fieldType == FieldType.COUNT) {
-      mappingForField.put(TYPE, LONG);
+      mappingForField.put(TYPE, ESUtils.LONG_FIELD_TYPE);
     } else if (fieldType == FieldType.DATETIME) {
-      mappingForField.put(TYPE, DATE);
+      mappingForField.put(TYPE, ESUtils.DATE_FIELD_TYPE);
     } else if (fieldType == FieldType.OBJECT) {
-      mappingForField.put(TYPE, OBJECT);
+      mappingForField.put(TYPE, ESUtils.OBJECT_FIELD_TYPE);
     } else {
       log.info("FieldType {} has no mappings implemented", fieldType);
     }
@@ -181,19 +141,64 @@ public class MappingsBuilder {
 
     searchableFieldSpec.getSearchableAnnotation()
         .getHasValuesFieldName()
-        .ifPresent(fieldName -> mappings.put(fieldName, ImmutableMap.of(TYPE, BOOLEAN)));
+        .ifPresent(fieldName -> mappings.put(fieldName, ImmutableMap.of(TYPE, ESUtils.BOOLEAN_FIELD_TYPE)));
     searchableFieldSpec.getSearchableAnnotation()
         .getNumValuesFieldName()
-        .ifPresent(fieldName -> mappings.put(fieldName, ImmutableMap.of(TYPE, LONG)));
+        .ifPresent(fieldName -> mappings.put(fieldName, ImmutableMap.of(TYPE, ESUtils.LONG_FIELD_TYPE)));
     mappings.putAll(getMappingsForFieldNameAliases(searchableFieldSpec));
 
     return mappings;
   }
 
+  private static Map<String, Object> getMappingsForKeyword() {
+    Map<String, Object> mappingForField = new HashMap<>();
+    mappingForField.put(TYPE, ESUtils.KEYWORD_FIELD_TYPE);
+    mappingForField.put(NORMALIZER, KEYWORD_NORMALIZER);
+    // Add keyword subfield without lowercase filter
+    mappingForField.put(FIELDS, ImmutableMap.of(KEYWORD, KEYWORD_TYPE_MAP));
+    return mappingForField;
+  }
+
+  private static Map<String, Object> getMappingsForSearchText(FieldType fieldType) {
+    Map<String, Object> mappingForField = new HashMap<>();
+    mappingForField.put(TYPE, ESUtils.KEYWORD_FIELD_TYPE);
+    mappingForField.put(NORMALIZER, KEYWORD_NORMALIZER);
+    Map<String, Object> subFields = new HashMap<>();
+    if (fieldType == FieldType.TEXT_PARTIAL || fieldType == FieldType.WORD_GRAM) {
+      subFields.put(NGRAM, getPartialNgramConfigWithOverrides(
+              ImmutableMap.of(
+                      ANALYZER, PARTIAL_ANALYZER
+              )
+      ));
+      if (fieldType == FieldType.WORD_GRAM) {
+        for (Map.Entry<String, String> entry : Map.of(
+                WORD_GRAMS_LENGTH_2, WORD_GRAM_2_ANALYZER,
+                WORD_GRAMS_LENGTH_3, WORD_GRAM_3_ANALYZER,
+                WORD_GRAMS_LENGTH_4, WORD_GRAM_4_ANALYZER).entrySet()) {
+          String fieldName = entry.getKey();
+          String analyzerName = entry.getValue();
+          subFields.put(fieldName, ImmutableMap.of(
+                  TYPE, ESUtils.TEXT_FIELD_TYPE,
+                  ANALYZER, analyzerName
+          ));
+        }
+      }
+    }
+    subFields.put(DELIMITED, ImmutableMap.of(
+            TYPE, ESUtils.TEXT_FIELD_TYPE,
+            ANALYZER, TEXT_ANALYZER,
+            SEARCH_ANALYZER, TEXT_SEARCH_ANALYZER,
+            SEARCH_QUOTE_ANALYZER, CUSTOM_QUOTE_ANALYZER));
+    // Add keyword subfield without lowercase filter
+    subFields.put(KEYWORD, KEYWORD_TYPE_MAP);
+    mappingForField.put(FIELDS, subFields);
+    return mappingForField;
+  }
+
   private static Map<String, Object> getMappingsForSearchScoreField(
       @Nonnull final SearchScoreFieldSpec searchScoreFieldSpec) {
     return ImmutableMap.of(searchScoreFieldSpec.getSearchScoreAnnotation().getFieldName(),
-        ImmutableMap.of(TYPE, DOUBLE));
+        ImmutableMap.of(TYPE, ESUtils.DOUBLE_FIELD_TYPE));
   }
 
   private static Map<String, Object> getMappingsForFieldNameAliases(@Nonnull final SearchableFieldSpec searchableFieldSpec) {
