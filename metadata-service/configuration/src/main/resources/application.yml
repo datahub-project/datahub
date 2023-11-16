@@ -311,6 +311,7 @@ notifications:
         # Whether we should attempt to retry sending important Slack notifications
         retryEnabled: ${SLACK_RETRY_NOTIFICATION_ENABLED:true}
         maxNumRetries: ${SLACK_MAX_NUM_RETRIES:2}
+        proxyUrl: ${SLACK_PROXY_URL:}
 
 # Mirroring events to external systems (e.g. Event Bridge)
 eventSinks:

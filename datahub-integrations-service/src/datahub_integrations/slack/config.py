@@ -1,3 +1,4 @@
+import os
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Optional
@@ -11,6 +12,7 @@ from datahub_integrations.graphql.connection import get_connection, save_connect
 
 _SLACK_CONFIG_ID = "__system_slack-0"
 _SLACK_CONFIG_URN = f"urn:li:dataHubConnection:{_SLACK_CONFIG_ID}"
+SLACK_PROXY = os.environ.get("DATAHUB_SLACK_PROXY")
 
 
 class _FrozenConnectionModel(ConnectionModel, frozen=True):

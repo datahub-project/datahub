@@ -25,6 +25,7 @@ import com.linkedin.metadata.connection.ConnectionService;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.settings.global.GlobalSettingsInfo;
 import com.slack.api.Slack;
+import com.slack.api.SlackConfig;
 import com.slack.api.methods.MethodsClient;
 import com.slack.api.methods.SlackApiException;
 import com.slack.api.methods.request.chat.ChatPostMessageRequest;
@@ -84,6 +85,7 @@ public class SlackNotificationSink implements NotificationSink {
   private static final String RETRY_ENABLED_CONFIG_NAME = "retryEnabled";
   private static final String MAX_NUM_RETRIES_CONFIG_NAME = "maxNumRetries";
   private static final String DEFAULT_CHANNEL_CONFIG_NAME = "defaultChannel";
+  private static final String PROXY_URL_CONFIG_NAME = "proxyUrl";
   private static final String NOTIFICATION_DROPPED_METRIC = "slack_notification_dropped";
   private static final String RETRY_AFTER_HEADER = "retry-after";
   private static final int RATE_LIMIT_ERROR_CODE = 429;
@@ -94,7 +96,7 @@ public class SlackNotificationSink implements NotificationSink {
   }
 
   private final Map<String, User> emailToSlackUser = new HashMap<>();
-  private Slack slack = Slack.getInstance();
+  private Slack slack;
   private SettingsProvider settingsProvider;
   private IdentityProvider identityProvider;
   private SecretProvider secretProvider;
@@ -133,6 +135,11 @@ public class SlackNotificationSink implements NotificationSink {
 
   @Override
   public void init(@Nonnull final NotificationSinkConfig cfg) {
+    SlackConfig slackConfig = new SlackConfig();
+    if (cfg.getStaticConfig().getOrDefault(PROXY_URL_CONFIG_NAME, null) != null) {
+      slackConfig.setProxyUrl((String) cfg.getStaticConfig().get(PROXY_URL_CONFIG_NAME));
+    }
+    this.slack = Slack.getInstance(slackConfig);
     this.settingsProvider = cfg.getSettingsProvider();
     this.identityProvider = cfg.getIdentityProvider();
     this.secretProvider = cfg.getSecretProvider();
