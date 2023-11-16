@@ -12,7 +12,7 @@ class TestDomainUrn(unittest.TestCase):
 
         assert domain_urn.get_entity_id() == ["abc"]
         assert str(domain_urn) == domain_urn_str
-        assert domain_urn == DomainUrn("domain", ["abc"])
+        assert domain_urn == DomainUrn("abc")
         assert domain_urn == DomainUrn.create_from_id("abc")
 
     def test_invalid_urn(self) -> None:

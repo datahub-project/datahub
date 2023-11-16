@@ -474,8 +474,8 @@ class {class_name}(_SpecificUrn):
 
     if len(fields) == 1:
         code += f"""
-    @deprecated(reason="Use the constructor instead")
     @classmethod
+    @deprecated(reason="Use the constructor instead")
     def create_from_id(cls, {field_name(fields[0])}: {field_type(fields[0])}) -> "{class_name}":
         return cls({field_name(fields[0])})
 """

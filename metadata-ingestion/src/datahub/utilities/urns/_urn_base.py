@@ -1,4 +1,4 @@
-import dataclasses
+import functools
 import urllib.parse
 from abc import abstractmethod
 from typing import ClassVar, Dict, List, Optional, Type, TypeVar
@@ -45,7 +45,7 @@ def _split_entity_id(entity_id: str) -> List[str]:
 _UrnSelf = TypeVar("_UrnSelf", bound="Urn")
 
 
-@dataclasses.dataclass(frozen=True, order=True)
+@functools.total_ordering
 class Urn:
     """
     URNs are globally unique identifiers used to refer to entities.
@@ -55,18 +55,26 @@ class Urn:
 
     LI_DOMAIN: ClassVar[str] = "li"  # retained for backwards compatibility
 
-    entity_type: str
-    entity_ids: List[str]
+    _entity_type: str
+    _entity_ids: List[str]
 
     def __init__(self, entity_type: str, entity_ids: List[str]) -> None:
-        self.entity_type = entity_type
-        self.entity_ids = entity_ids
+        self._entity_type = entity_type
+        self._entity_ids = entity_ids
 
-        if not self.entity_ids:
+        if not self._entity_ids:
             raise InvalidUrnError("Empty entity id.")
-        for entity_id in self.entity_ids:
+        for entity_id in self._entity_ids:
             if not entity_id:
                 raise InvalidUrnError("Empty entity id.")
+
+    @property
+    def entity_type(self) -> str:
+        return self._entity_type
+
+    @property
+    def entity_ids(self) -> List[str]:
+        return self._entity_ids
 
     @classmethod
     def from_string(cls, urn_str: str) -> "Urn":
@@ -108,16 +116,30 @@ class Urn:
 
     def urn(self) -> str:
         # TODO: add encoding?
-        if len(self.entity_ids) == 1:
-            return f"urn:li:{self.entity_type}:{self.entity_ids[0]}"
+        if len(self._entity_ids) == 1:
+            return f"urn:li:{self._entity_type}:{self._entity_ids[0]}"
 
-        return f"urn:li:{self.entity_type}:({','.join(self.entity_ids)})"
+        return f"urn:li:{self._entity_type}:({','.join(self._entity_ids)})"
 
     def __str__(self) -> str:
         return self.urn()
 
     def urn_url_encoded(self) -> str:
         return Urn.url_encode(self.urn())
+
+    def __eq__(self, other: object) -> bool:
+        # TODO: Should we allow comparison with strings?
+        if not isinstance(other, Urn):
+            return False
+        return self.urn() == other.urn()
+
+    def __lt__(self, other: object) -> bool:
+        if not isinstance(other, Urn):
+            return False
+        return self.urn() < other.urn()
+
+    def __hash__(self) -> int:
+        return hash(self.urn())
 
     @classmethod
     @deprecated(reason="prefer .from_string")
@@ -126,11 +148,11 @@ class Urn:
 
     @deprecated(reason="prefer .entity_ids")
     def get_entity_id(self) -> List[str]:
-        return self.entity_ids
+        return self._entity_ids
 
     @deprecated(reason="prefer .entity_type")
     def get_type(self) -> str:
-        return self.entity_type
+        return self._entity_type
 
     @deprecated(reason="no longer needed")
     def get_domain(self) -> str:
