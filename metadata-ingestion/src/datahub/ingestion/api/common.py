@@ -2,6 +2,7 @@ from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Dict, Generic, Iterable, Optional, Tuple, TypeVar
 
+from datahub.configuration.common import ConfigurationError
 from datahub.emitter.mce_builder import set_dataset_urn_to_lower
 from datahub.ingestion.api.committable import Committable
 from datahub.ingestion.graph.client import DataHubGraph
@@ -75,3 +76,11 @@ class PipelineContext:
 
     def get_committables(self) -> Iterable[Tuple[str, Committable]]:
         yield from self.checkpointers.items()
+
+    def require_graph(self, operation: Optional[str] = None) -> DataHubGraph:
+        if not self.graph:
+            raise ConfigurationError(
+                f"{operation or 'This operation'} requires a graph, but none was provided. "
+                "To provide one, either use the datahub-rest sink or set the top-level datahub_api config in the recipe."
+            )
+        return self.graph

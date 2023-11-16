@@ -25,7 +25,7 @@ source:
       include_field_distinct_value_frequencies: false
       include_field_histogram: false
       catch_exceptions: true
-    include_views: false
+    include_views: true
 sink:
   type: file
   config:

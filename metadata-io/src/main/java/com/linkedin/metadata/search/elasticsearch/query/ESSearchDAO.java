@@ -31,6 +31,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
@@ -157,7 +158,7 @@ public class ESSearchDAO {
   @Nonnull
   @WithSpan
   private ScrollResult executeAndExtract(@Nonnull List<EntitySpec> entitySpecs, @Nonnull SearchRequest searchRequest, @Nullable Filter filter,
-      @Nullable String scrollId, @Nonnull String keepAlive, int size) {
+      @Nullable String scrollId, @Nullable String keepAlive, int size) {
     try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "executeAndExtract_scroll").time()) {
       final SearchResponse searchResponse = client.search(searchRequest, RequestOptions.DEFAULT);
       // extract results, validated against document model as well
@@ -166,7 +167,7 @@ public class ESSearchDAO {
               .extractScrollResult(searchResponse,
               filter, scrollId, keepAlive, size, supportsPointInTime()));
     } catch (Exception e) {
-      log.error("Search query failed", e);
+      log.error("Search query failed: {}", searchRequest, e);
       throw new ESQueryException("Search query failed:", e);
     }
   }
@@ -263,17 +264,16 @@ public class ESSearchDAO {
    * @return
    */
   @Nonnull
-  public Map<String, Long> aggregateByValue(@Nullable String entityName, @Nonnull String field,
+  public Map<String, Long> aggregateByValue(@Nullable List<String> entityNames, @Nonnull String field,
       @Nullable Filter requestParams, int limit) {
     final SearchRequest searchRequest = SearchRequestHandler.getAggregationRequest(field, transformFilterForEntities(requestParams, indexConvention), limit);
-    String indexName;
-    if (entityName == null) {
-      indexName = indexConvention.getAllEntityIndicesPattern();
+    if (entityNames == null) {
+      String indexName = indexConvention.getAllEntityIndicesPattern();
+      searchRequest.indices(indexName);
     } else {
-      EntitySpec entitySpec = entityRegistry.getEntitySpec(entityName);
-      indexName = indexConvention.getIndexName(entitySpec);
+      Stream<String> stream = entityNames.stream().map(entityRegistry::getEntitySpec).map(indexConvention::getIndexName);
+      searchRequest.indices(stream.toArray(String[]::new));
     }
-    searchRequest.indices(indexName);
 
     try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "aggregateByValue_search").time()) {
       final SearchResponse searchResponse = client.search(searchRequest, RequestOptions.DEFAULT);

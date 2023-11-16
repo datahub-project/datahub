@@ -1,6 +1,11 @@
 package app;
 
+import com.nimbusds.jwt.JWT;
+import com.nimbusds.jwt.JWTClaimsSet;
+import com.nimbusds.jwt.JWTParser;
 import controllers.routes;
+import java.text.ParseException;
+import java.util.Date;
 import no.nav.security.mock.oauth2.MockOAuth2Server;
 import no.nav.security.mock.oauth2.token.DefaultOAuth2TokenCallback;
 import okhttp3.mockwebserver.MockResponse;
@@ -27,8 +32,6 @@ import play.test.WithBrowser;
 
 import java.io.IOException;
 import java.net.InetAddress;
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 
@@ -149,7 +152,7 @@ public class ApplicationTest extends WithBrowser {
   }
 
   @Test
-  public void testHappyPathOidc() throws InterruptedException {
+  public void testHappyPathOidc() throws ParseException {
     browser.goTo("/authenticate");
     assertEquals("", browser.url());
 
@@ -157,8 +160,23 @@ public class ApplicationTest extends WithBrowser {
     assertEquals(TEST_USER, actorCookie.getValue());
 
     Cookie sessionCookie = browser.getCookie("PLAY_SESSION");
-    assertTrue(sessionCookie.getValue().contains("token=" + TEST_TOKEN));
-    assertTrue(sessionCookie.getValue().contains("actor=" + URLEncoder.encode(TEST_USER, StandardCharsets.UTF_8)));
+    String jwtStr = sessionCookie.getValue();
+    JWT jwt = JWTParser.parse(jwtStr);
+    JWTClaimsSet claims = jwt.getJWTClaimsSet();
+    Map<String, String> data = (Map<String, String>) claims.getClaim("data");
+    assertEquals(TEST_TOKEN, data.get("token"));
+    assertEquals(TEST_USER, data.get("actor"));
+    // Default expiration is 24h, so should always be less than current time + 1 day since it stamps the time before this executes
+    assertTrue(claims.getExpirationTime().compareTo(new Date(System.currentTimeMillis() + (24 * 60 * 60 * 1000))) < 0);
+  }
+
+  @Test
+  public void testAPI() throws ParseException {
+    testHappyPathOidc();
+    int requestCount = _gmsServer.getRequestCount();
+
+    browser.goTo("/api/v2/graphql/");
+    assertEquals(++requestCount, _gmsServer.getRequestCount());
   }
 
   @Test

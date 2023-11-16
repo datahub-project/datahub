@@ -199,6 +199,7 @@ function EntityDropdown(props: Props) {
                         )}
                         {!isDomainMoveHidden && menuItems.has(EntityMenuItems.MOVE) && (
                             <StyledMenuItem
+                                data-testid="entity-menu-move-button"
                                 key="4"
                                 disabled={isMoveDisabled(entityType, entityData, me.platformPrivileges)}
                                 onClick={() => setIsMoveModalVisible(true)}
@@ -223,7 +224,7 @@ function EntityDropdown(props: Props) {
                                             : undefined
                                     }
                                 >
-                                    <MenuItem>
+                                    <MenuItem data-testid="entity-menu-delete-button">
                                         <DeleteOutlined /> &nbsp;Delete
                                     </MenuItem>
                                 </Tooltip>

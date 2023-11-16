@@ -1,6 +1,7 @@
 plugins {
     id 'java'
 }
+apply from: "../../gradle/versioning/versioning.gradle"
 
 dependencies {
     implementation externalDependency.jacksonDataBind
@@ -12,4 +13,8 @@ dependencies {
     compileOnly externalDependency.lombok
 
     annotationProcessor externalDependency.lombok
+}
+
+processResources.configure {
+  finalizedBy printVersionDetails // always print version details
 }

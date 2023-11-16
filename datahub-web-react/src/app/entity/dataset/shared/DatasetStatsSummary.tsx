@@ -12,6 +12,9 @@ import ExpandingStat from './ExpandingStat';
 
 const StatText = styled.span<{ color: string }>`
     color: ${(props) => props.color};
+    @media (min-width: 1160px) {
+        width: 100%;
+        white-space: nowrap;
 `;
 
 const PopoverContent = styled.div`

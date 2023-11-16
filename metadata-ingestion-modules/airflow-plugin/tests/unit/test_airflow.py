@@ -188,10 +188,17 @@ def test_entities():
         == "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableConsumed,PROD)"
     )
 
+    assert (
+        Urn("urn:li:dataJob:(urn:li:dataFlow:(airflow,testDag,PROD),testTask)").urn
+        == "urn:li:dataJob:(urn:li:dataFlow:(airflow,testDag,PROD),testTask)"
+    )
+
     with pytest.raises(ValueError, match="invalid"):
         Urn("not a URN")
 
-    with pytest.raises(ValueError, match="only supports datasets"):
+    with pytest.raises(
+        ValueError, match="only supports datasets and upstream datajobs"
+    ):
         Urn("urn:li:mlModel:(urn:li:dataPlatform:science,scienceModel,PROD)")
 
 
@@ -199,13 +206,19 @@ def test_entities():
     ["inlets", "outlets", "capture_executions"],
     [
         pytest.param(
-            [Dataset("snowflake", "mydb.schema.tableConsumed")],
+            [
+                Dataset("snowflake", "mydb.schema.tableConsumed"),
+                Urn("urn:li:dataJob:(urn:li:dataFlow:(airflow,testDag,PROD),testTask)"),
+            ],
             [Dataset("snowflake", "mydb.schema.tableProduced")],
             False,
             id="airflow-lineage-no-executions",
         ),
         pytest.param(
-            [Dataset("snowflake", "mydb.schema.tableConsumed")],
+            [
+                Dataset("snowflake", "mydb.schema.tableConsumed"),
+                Urn("urn:li:dataJob:(urn:li:dataFlow:(airflow,testDag,PROD),testTask)"),
+            ],
             [Dataset("snowflake", "mydb.schema.tableProduced")],
             True,
             id="airflow-lineage-capture-executions",
@@ -293,9 +306,13 @@ def test_lineage_backend(mock_emit, inlets, outlets, capture_executions):
 
         # Verify that the inlets and outlets are registered and recognized by Airflow correctly,
         # or that our lineage backend forces it to.
-        assert len(op2.inlets) == 1
+        assert len(op2.inlets) == 2
         assert len(op2.outlets) == 1
-        assert all(map(lambda let: isinstance(let, Dataset), op2.inlets))
+        assert all(
+            map(
+                lambda let: isinstance(let, Dataset) or isinstance(let, Urn), op2.inlets
+            )
+        )
         assert all(map(lambda let: isinstance(let, Dataset), op2.outlets))
 
         # Check that the right things were emitted.
@@ -337,6 +354,10 @@ def test_lineage_backend(mock_emit, inlets, outlets, capture_executions):
             assert (
                 mock_emitter.method_calls[4].args[0].aspect.inputDatajobs[0]
                 == "urn:li:dataJob:(urn:li:dataFlow:(airflow,test_lineage_is_sent_to_backend,prod),task1_upstream)"
+            )
+            assert (
+                mock_emitter.method_calls[4].args[0].aspect.inputDatajobs[1]
+                == "urn:li:dataJob:(urn:li:dataFlow:(airflow,testDag,PROD),testTask)"
             )
             assert (
                 mock_emitter.method_calls[4].args[0].aspect.inputDatasets[0]

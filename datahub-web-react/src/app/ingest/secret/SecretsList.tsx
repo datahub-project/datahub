@@ -54,10 +54,10 @@ export const SecretsList = () => {
             input: {
                 start,
                 count: pageSize,
-                query: query && query.length > 0 ? query : undefined,
+                query: (query?.length && query) || undefined,
             },
         },
-        fetchPolicy: query && query.length > 0 ? 'no-cache' : 'cache-first',
+        fetchPolicy: (query?.length || 0) > 0 ? 'no-cache' : 'cache-first',
     });
 
     const totalSecrets = data?.listSecrets?.total || 0;
@@ -176,7 +176,11 @@ export const SecretsList = () => {
             <div>
                 <TabToolbar>
                     <div>
-                        <Button type="text" onClick={() => setIsCreatingSecret(true)}>
+                        <Button
+                            data-testid="create-secret-button"
+                            type="text"
+                            onClick={() => setIsCreatingSecret(true)}
+                        >
                             <PlusOutlined /> Create new secret
                         </Button>
                     </div>
@@ -193,7 +197,10 @@ export const SecretsList = () => {
                             fontSize: 12,
                         }}
                         onSearch={() => null}
-                        onQueryChange={(q) => setQuery(q)}
+                        onQueryChange={(q) => {
+                            setPage(1);
+                            setQuery(q);
+                        }}
                         entityRegistry={entityRegistry}
                         hideRecommendations
                     />
