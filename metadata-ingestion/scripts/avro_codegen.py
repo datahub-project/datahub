@@ -423,6 +423,7 @@ def generate_urn_class(entity_type: str, key_aspect: dict) -> str:
     for field in fields:
         if field_name(field) == "env":
             coercion += "env = env.upper()\n"
+        # TODO add ALL_ENV_TYPES validation
         elif field_name(field) == "platformName":
             coercion += 'if platformName.startswith("urn:li:dataPlatform:"):\n    platformName = DataPlatformUrn.from_string(platformName).platformName\n'
         elif field_name(field) == "platform":
