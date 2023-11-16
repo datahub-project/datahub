@@ -82,6 +82,7 @@ project.ext.externalDependency = [
     'commonsLang': 'commons-lang:commons-lang:2.6',
     'commonsText': 'org.apache.commons:commons-text:1.10.0',
     'commonsCollections': 'commons-collections:commons-collections:3.2.2',
+    'caffeine': 'com.github.ben-manes.caffeine:caffeine:3.1.8',
     'datastaxOssNativeProtocol': 'com.datastax.oss:native-protocol:1.5.1',
     'datastaxOssCore': 'com.datastax.oss:java-driver-core:4.14.1',
     'datastaxOssQueryBuilder': 'com.datastax.oss:java-driver-query-builder:4.14.1',
