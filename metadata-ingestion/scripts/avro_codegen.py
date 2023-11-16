@@ -133,7 +133,7 @@ def patch_schema(schema: dict, urn_arrays: Dict[str, List[Tuple[str, str]]]) -> 
                 field.set_prop("Urn", type)
                 field.set_prop("urn_is_array", True)
 
-    return patched.to_json()
+    return patched.to_json()  # type: ignore
 
 
 def merge_schemas(schemas_obj: List[dict]) -> str:
@@ -378,6 +378,20 @@ _extra_urn_methods: Dict[str, List[str]] = {
     "corpuser": [_create_from_id.format(class_name="CorpUserUrn")],
     "dataFlow": [
         """
+@classmethod
+def create_from_ids(
+    cls,
+    orchestrator: str,
+    flow_id: str,
+    env: str,
+    platform_instance: Optional[str] = None,
+) -> "DataFlowUrn":
+    return cls(
+        orchestrator=orchestrator,
+        flowId=f"{platform_instance}.{flow_id}" if platform_instance else flow_id,
+        env=env,
+    )
+
 @deprecated(reason="Use .orchestrator instead")
 def get_orchestrator_name(self) -> str:
     return self.orchestrator
@@ -393,6 +407,10 @@ def get_env(self) -> str:
     ],
     "dataJob": [
         """
+@classmethod
+def create_from_ids(cls, data_flow_urn: str, job_id: str) -> "DataJobUrn":
+    return cls(data_flow_urn, job_id)
+
 def get_data_flow_urn(self) -> "DataFlowUrn":
     return DataFlowUrn.from_string(self.flow)
 
@@ -410,10 +428,37 @@ def get_dataprocessinstance_id(self) -> str:
     return self.id
 """,
     ],
+    "dataset": [
+        """
+@classmethod
+def create_from_ids(
+    cls,
+    platform_id: str,
+    table_name: str,
+    env: str,
+    platform_instance: Optional[str] = None,
+) -> "DatasetUrn":
+    return DatasetUrn(
+        platform=platform_id,
+        name=f"{platform_instance}.{table_name}" if platform_instance else table_name,
+        env=env,
+    )
+
+def get_data_platform_urn(self) -> "DataPlatformUrn":
+    return DataPlatformUrn.from_string(self.platform)
+
+@deprecated(reason="Use .name instead")
+def get_dataset_name(self) -> str:
+    return self.name
+
+@deprecated(reason="Use .env instead")
+def get_env(self) -> str:
+    return self.env
+"""
+    ],
     "domain": [_create_from_id.format(class_name="DomainUrn")],
     "notebook": [
         """
-
 @deprecated(reason="Use .notebookTool instead")
 def get_platform_id(self) -> str:
     return self.notebookTool
@@ -424,7 +469,6 @@ def get_notebook_id(self) -> str:
 """
     ],
     "tag": [_create_from_id.format(class_name="TagUrn")],
-    # TODO
 }
 
 
@@ -558,7 +602,7 @@ def write_urn_classes(key_aspects: List[dict], urn_dir: Path) -> None:
     code = """
 # This file contains classes corresponding to entity URNs.
 
-from typing import List, Type, TYPE_CHECKING
+from typing import List, Optional, Type, TYPE_CHECKING
 
 from deprecated import deprecated
 
