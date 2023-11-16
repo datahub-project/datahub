@@ -336,6 +336,32 @@ KEY_ASPECTS: Dict[str, Type[_Aspect]] = {{
     schema_class_file.write_text("\n".join(schema_classes_lines))
 
 
+def write_urn_classes(key_aspects: List[dict], urn_dir: Path) -> None:
+    urn_dir.mkdir()
+
+    (urn_dir / "__init__.py").write_text("\n# This file is intentionally left empty.")
+
+    code = """
+# This file contains classes corresponding to entity URNs.
+
+from typing import List, Optional, Type, TYPE_CHECKING
+
+from deprecated import deprecated
+
+from datahub.utilities.urns._urn_base import _SpecificUrn
+from datahub.utilities.urns.error import InvalidUrnError
+"""
+
+    for aspect in key_aspects:
+        entity_type = aspect["Aspect"]["keyForEntity"]
+        if aspect["Aspect"]["entityCategory"] == "internal":
+            continue
+
+        code += generate_urn_class(entity_type, aspect)
+
+    (urn_dir / "urn_defs.py").write_text(code)
+
+
 def capitalize_entity_name(entity_name: str) -> str:
     if entity_name == "corpuser":
         return "CorpUser"
@@ -602,32 +628,6 @@ class {class_name}(_SpecificUrn):
 """
 
     return code
-
-
-def write_urn_classes(key_aspects: List[dict], urn_dir: Path) -> None:
-    urn_dir.mkdir()
-
-    (urn_dir / "__init__.py").write_text("\n# This file is intentionally left empty.")
-
-    code = """
-# This file contains classes corresponding to entity URNs.
-
-from typing import List, Optional, Type, TYPE_CHECKING
-
-from deprecated import deprecated
-
-from datahub.utilities.urns._urn_base import _SpecificUrn
-from datahub.utilities.urns.error import InvalidUrnError
-"""
-
-    for aspect in key_aspects:
-        entity_type = aspect["Aspect"]["keyForEntity"]
-        if aspect["Aspect"]["entityCategory"] == "internal":
-            continue
-
-        code += generate_urn_class(entity_type, aspect)
-
-    (urn_dir / "urn_defs.py").write_text(code)
 
 
 @click.command()
