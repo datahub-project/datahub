@@ -58,9 +58,15 @@ class Urn:
     entity_type: str
     entity_ids: List[str]
 
-    def __post_init__(self) -> None:
+    def __init__(self, entity_type: str, entity_ids: List[str]) -> None:
+        self.entity_type = entity_type
+        self.entity_ids = entity_ids
+
         if not self.entity_ids:
             raise InvalidUrnError("Empty entity id.")
+        for entity_id in self.entity_ids:
+            if not entity_id:
+                raise InvalidUrnError("Empty entity id.")
 
     @classmethod
     def from_string(cls, urn_str: str) -> "Urn":
@@ -135,7 +141,8 @@ class Urn:
         urn = self.urn()
         prefix = "urn:li:"
         assert urn.startswith(prefix)
-        return urn[len(prefix) :]
+        id_with_type = urn[len(prefix) :]
+        return id_with_type.split(":", maxsplit=1)[1]
 
     @classmethod
     @deprecated(reason="no longer needed")
