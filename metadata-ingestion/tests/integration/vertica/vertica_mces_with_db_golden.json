@@ -11,7 +11,7 @@
                 "env": "PROD",
                 "database": "vmart",
                 "cluster_type": "Enterprise",
-                "cluster_size": "122 GB",
+                "cluster_size": "101 GB",
                 "subcluster": " ",
                 "communal_storage_path": ""
             },
@@ -20,7 +20,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -35,7 +36,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -50,7 +52,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -67,7 +70,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -82,7 +86,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -97,16 +102,17 @@
                 "env": "PROD",
                 "database": "vmart",
                 "schema": "public",
-                "projection_count": "9",
-                "udx_list": "APPROXIMATE_COUNT_DISTINCT_SYNOPSIS_INFO, APPROXIMATE_MEDIAN, APPROXIMATE_PERCENTILE, AcdDataToCount, AcdDataToLongSyn, AcdDataToSyn, AcdSynToCount, AcdSynToSyn, DelimitedExport, DelimitedExportMulti, EmptyMap, Explode, FAvroParser, FCefParser, FCsvParser, FDelimitedPairParser, FDelimitedParser, FIDXParser, FJSONParser, FRegexParser, FlexTokenizer, JsonExport, JsonExportMulti, KafkaAvroParser, KafkaCheckBrokers, KafkaExport, KafkaInsertDelimiters, KafkaInsertLengths, KafkaJsonParser, KafkaListManyTopics, KafkaListTopics, KafkaOffsets, KafkaParser, KafkaSource, KafkaTopicDetails, MSE, MapAggregate, MapAggregate, MapContainsKey, MapContainsKey, MapContainsValue, MapContainsValue, MapDelimitedExtractor, MapItems, MapItems, MapJSONExtractor, MapKeys, MapKeys, MapKeysInfo, MapKeysInfo, MapLookup, MapLookup, MapLookup, MapPut, MapRegexExtractor, MapSize, MapSize, MapToString, MapToString, MapValues, MapValues, MapValuesOrField, MapVersion, MapVersion, OrcExport, OrcExportMulti, PRC, ParquetExport, ParquetExportMulti, PickBestType, PickBestType, PickBestType, ROC, STV_AsGeoJSON, STV_AsGeoJSON, STV_AsGeoJSON, STV_Create_Index, STV_Create_Index, STV_Create_Index, STV_DWithin, STV_DWithin, STV_DWithin, STV_Describe_Index, STV_Drop_Index, STV_Export2Shapefile, STV_Extent, STV_Extent, STV_ForceLHR, STV_Geography, STV_Geography, STV_GeographyPoint, STV_Geometry, STV_Geometry, STV_GeometryPoint, STV_GeometryPoint, STV_GetExportShapefileDirectory, STV_Intersect, STV_Intersect, STV_Intersect, STV_Intersect, STV_Intersect, STV_Intersect, STV_Intersect, STV_Intersect, STV_IsValidReason, STV_IsValidReason, STV_IsValidReason, STV_LineStringPoint, STV_LineStringPoint, STV_LineStringPoint, STV_MemSize, STV_MemSize, STV_MemSize, STV_NN, STV_NN, STV_NN, STV_PolygonPoint, STV_PolygonPoint, STV_PolygonPoint, STV_Refresh_Index, STV_Refresh_Index, STV_Refresh_Index, STV_Rename_Index, STV_Reverse, STV_SetExportShapefileDirectory, STV_ShpCreateTable, STV_ShpParser, STV_ShpSource, ST_Area, ST_Area, ST_Area, ST_AsBinary, ST_AsBinary, ST_AsBinary, ST_AsText, ST_AsText, ST_AsText, ST_Boundary, ST_Buffer, ST_Centroid, ST_Contains, ST_Contains, ST_Contains, ST_ConvexHull, ST_Crosses, ST_Difference, ST_Disjoint, ST_Disjoint, ST_Disjoint, ST_Distance, ST_Distance, ST_Distance, ST_Envelope, ST_Equals, ST_Equals, ST_Equals, ST_GeoHash, ST_GeoHash, ST_GeoHash, ST_GeographyFromText, ST_GeographyFromWKB, ST_GeomFromGeoHash, ST_GeomFromGeoJSON, ST_GeomFromGeoJSON, ST_GeomFromText, ST_GeomFromText, ST_GeomFromWKB, ST_GeomFromWKB, ST_GeometryN, ST_GeometryN, ST_GeometryN, ST_GeometryType, ST_GeometryType, ST_GeometryType, ST_Intersection, ST_Intersects, ST_Intersects, ST_IsEmpty, ST_IsEmpty, ST_IsEmpty, ST_IsSimple, ST_IsSimple, ST_IsSimple, ST_IsValid, ST_IsValid, ST_IsValid, ST_Length, ST_Length, ST_Length, ST_NumGeometries, ST_NumGeometries, ST_NumGeometries, ST_NumPoints, ST_NumPoints, ST_NumPoints, ST_Overlaps, ST_PointFromGeoHash, ST_PointN, ST_PointN, ST_PointN, ST_Relate, ST_SRID, ST_SRID, ST_SRID, ST_Simplify, ST_SimplifyPreserveTopology, ST_SymDifference, ST_Touches, ST_Touches, ST_Touches, ST_Transform, ST_Union, ST_Union, ST_Within, ST_Within, ST_Within, ST_X, ST_X, ST_X, ST_XMax, ST_XMax, ST_XMax, ST_XMin, ST_XMin, ST_XMin, ST_Y, ST_Y, ST_Y, ST_YMax, ST_YMax, ST_YMax, ST_YMin, ST_YMin, ST_YMin, ST_intersects, SetMapKeys, Summarize_CatCol, Summarize_CatCol, Summarize_CatCol, Summarize_CatCol, Summarize_CatCol, Summarize_NumCol, VoltageSecureAccess, VoltageSecureAccess, VoltageSecureConfigure, VoltageSecureConfigureGlobal, VoltageSecureProtect, VoltageSecureProtect, VoltageSecureProtectAllKeys, VoltageSecureRefreshPolicy, VoltageSecureVersion, append_centers, apply_bisecting_kmeans, apply_iforest, apply_inverse_pca, apply_inverse_svd, apply_kmeans, apply_normalize, apply_one_hot_encoder, apply_pca, apply_svd, approximate_quantiles, ar_create_blobs, ar_final_newton, ar_save_model, ar_transition_newton, avg_all_columns_local, bisecting_kmeans_init_model, bk_apply_best_kmeans_results, bk_compute_totss_local, bk_finalize_model, bk_get_rows_in_active_cluster, bk_kmeans_compute_local_centers, bk_kmeans_compute_withinss, bk_kmeans_fast_random_init, bk_kmeans_slow_random_init, bk_kmeanspp_init_cur_cluster, bk_kmeanspp_reset_blob, bk_kmeanspp_select_new_centers, bk_kmeanspp_within_chunk_sum, bk_save_final_model, bk_write_new_cluster_level, blob_to_table, bufUdx, bufUdx, calc_pseudo_centers, calculate_alpha_linear, calculate_hessian_linear1, calculate_hessian_linear2, cleanup_kmeans_files, compute_and_save_global_center, compute_and_save_new_centers, compute_local_totss, compute_local_withinss, compute_new_local_centers, confusion_matrix, coordinate_descent_covariance, corr_matrix, count_rows_in_blob, create_aggregator_blob, error_rate, evaluate_naive_bayes_model, evaluate_reg_model, evaluate_svm_model, export_model_files, finalize_blob_resource_group, get_attr_minmax, get_attr_robust_zscore, get_attr_zscore, get_model_attribute, get_model_summary, get_robust_zscore_median, iforest_create_blobs, iforest_phase0_udf1, iforest_phase0_udf2, iforest_phase1_udf1, iforest_phase1_udf2, iforest_phase1_udf3, iforest_phase1_udf4, iforest_phase2_udf1, iforest_phase2_udf2, iforest_phase2_udf3, iforest_phase2_udf4, iforest_save_model, import_model_files, isOrContains, kmeansAddMetricsToModel, kmeans_init_blobs, kmeans_to_write_final_centers, lift_table, line_search_logistic1, line_search_logistic2, load_rows_into_blocks, map_factor, math_op, matrix_global_xtx, matrix_local_xtx, mode_finder, model_converter, naive_bayes_phase1, naive_bayes_phase1_blob, naive_bayes_phase2, pca_prep1_global, pca_prep1_local, pca_prep2, pmml_parser, predict_autoregressor, predict_linear_reg, predict_logistic_reg, predict_moving_average, predict_naive_bayes, predict_naive_bayes_classes, predict_pmml, predict_rf_classifier, predict_rf_classifier_classes, predict_rf_regressor, predict_svm_classifier, predict_svm_regressor, predict_xgb_classifier, predict_xgb_classifier_classes, predict_xgb_regressor, random_init, random_init_write, read_from_dfblob, read_map_factor, read_ptree, read_tree, reg_final_bfgs, reg_final_newton, reg_transition_bfgs, reg_transition_newton, reg_write_model, remove_blob, reverse_normalize, rf_blob, rf_clean, rf_phase0_udf1, rf_phase0_udf2, rf_phase1_udf1, rf_phase1_udf2, rf_phase1_udf3, rf_phase1_udf4, rf_phase2_udf1, rf_phase2_udf2, rf_phase2_udf3, rf_phase2_udf4, rf_predictor_importance, rf_save_model, rsquared, save_cv_result, save_pca_model, save_svd_model, save_svm_model, select_new_centers, store_minmax_model, store_one_hot_encoder_model, store_robust_zscore_model, store_zscore_model, table_to_blob, table_to_dfblob, update_and_return_sum_of_squared_distances, upgrade_model_format, writeInitialKmeansModelToDfs, xgb_create_blobs, xgb_phase0_udf1, xgb_phase0_udf2, xgb_phase1_udf1, xgb_phase1_udf2, xgb_phase1_udf3, xgb_phase2_udf1, xgb_phase2_udf2, xgb_phase2_udf3, xgb_prune, xgb_save_model, yule_walker, ",
-                "udx_language": "ComplexTypesLib -- Functions for Complex Types |  DelimitedExportLib -- Delimited data export package |  JsonExportLib -- Json data export package |  MachineLearningLib -- Machine learning package |  OrcExportLib -- Orc export package |  ParquetExportLib -- Parquet export package |  ApproximateLib -- Approximate package |  FlexTableLib -- Flexible Tables Data Load and Query |  KafkaLib -- Kafka streaming load and export |  PlaceLib -- Geospatial package |  VoltageSecureLib -- Voltage SecureData Connector |  "
+                "projection_count": "12",
+                "udx_list": "APPROXIMATE_COUNT_DISTINCT_SYNOPSIS_INFO, APPROXIMATE_MEDIAN, APPROXIMATE_PERCENTILE, AcdDataToCount, AcdDataToLongSyn, AcdDataToSyn, AcdSynToCount, AcdSynToSyn, DelimitedExport, DelimitedExportMulti, EmptyMap, Explode, FAvroParser, FCefParser, FCsvParser, FDelimitedPairParser, FDelimitedParser, FIDXParser, FJSONParser, FRegexParser, FlexTokenizer, JsonExport, JsonExportMulti, KafkaAvroParser, KafkaCheckBrokers, KafkaExport, KafkaInsertDelimiters, KafkaInsertLengths, KafkaJsonParser, KafkaListManyTopics, KafkaListTopics, KafkaOffsets, KafkaParser, KafkaSource, KafkaTopicDetails, MSE, MapAggregate, MapAggregate, MapContainsKey, MapContainsKey, MapContainsValue, MapContainsValue, MapDelimitedExtractor, MapItems, MapItems, MapJSONExtractor, MapKeys, MapKeys, MapKeysInfo, MapKeysInfo, MapLookup, MapLookup, MapLookup, MapPut, MapRegexExtractor, MapSize, MapSize, MapToString, MapToString, MapValues, MapValues, MapValuesOrField, MapVersion, MapVersion, OrcExport, OrcExportMulti, PRC, ParquetExport, ParquetExportMulti, PickBestType, PickBestType, PickBestType, ROC, STV_AsGeoJSON, STV_AsGeoJSON, STV_AsGeoJSON, STV_Create_Index, STV_Create_Index, STV_Create_Index, STV_DWithin, STV_DWithin, STV_DWithin, STV_Describe_Index, STV_Drop_Index, STV_Export2Shapefile, STV_Extent, STV_Extent, STV_ForceLHR, STV_Geography, STV_Geography, STV_GeographyPoint, STV_Geometry, STV_Geometry, STV_GeometryPoint, STV_GeometryPoint, STV_GetExportShapefileDirectory, STV_Intersect, STV_Intersect, STV_Intersect, STV_Intersect, STV_Intersect, STV_Intersect, STV_Intersect, STV_Intersect, STV_IsValidReason, STV_IsValidReason, STV_IsValidReason, STV_LineStringPoint, STV_LineStringPoint, STV_LineStringPoint, STV_MemSize, STV_MemSize, STV_MemSize, STV_NN, STV_NN, STV_NN, STV_PolygonPoint, STV_PolygonPoint, STV_PolygonPoint, STV_Refresh_Index, STV_Refresh_Index, STV_Refresh_Index, STV_Rename_Index, STV_Reverse, STV_SetExportShapefileDirectory, STV_ShpCreateTable, STV_ShpParser, STV_ShpSource, ST_Area, ST_Area, ST_Area, ST_AsBinary, ST_AsBinary, ST_AsBinary, ST_AsText, ST_AsText, ST_AsText, ST_Boundary, ST_Buffer, ST_Centroid, ST_Contains, ST_Contains, ST_Contains, ST_ConvexHull, ST_Crosses, ST_Difference, ST_Disjoint, ST_Disjoint, ST_Disjoint, ST_Distance, ST_Distance, ST_Distance, ST_Envelope, ST_Equals, ST_Equals, ST_Equals, ST_GeoHash, ST_GeoHash, ST_GeoHash, ST_GeographyFromText, ST_GeographyFromWKB, ST_GeomFromGeoHash, ST_GeomFromGeoJSON, ST_GeomFromGeoJSON, ST_GeomFromText, ST_GeomFromText, ST_GeomFromWKB, ST_GeomFromWKB, ST_GeometryN, ST_GeometryN, ST_GeometryN, ST_GeometryType, ST_GeometryType, ST_GeometryType, ST_Intersection, ST_Intersects, ST_Intersects, ST_IsEmpty, ST_IsEmpty, ST_IsEmpty, ST_IsSimple, ST_IsSimple, ST_IsSimple, ST_IsValid, ST_IsValid, ST_IsValid, ST_Length, ST_Length, ST_Length, ST_NumGeometries, ST_NumGeometries, ST_NumGeometries, ST_NumPoints, ST_NumPoints, ST_NumPoints, ST_Overlaps, ST_PointFromGeoHash, ST_PointN, ST_PointN, ST_PointN, ST_Relate, ST_SRID, ST_SRID, ST_SRID, ST_Simplify, ST_SimplifyPreserveTopology, ST_SymDifference, ST_Touches, ST_Touches, ST_Touches, ST_Transform, ST_Union, ST_Union, ST_Within, ST_Within, ST_Within, ST_X, ST_X, ST_X, ST_XMax, ST_XMax, ST_XMax, ST_XMin, ST_XMin, ST_XMin, ST_Y, ST_Y, ST_Y, ST_YMax, ST_YMax, ST_YMax, ST_YMin, ST_YMin, ST_YMin, ST_intersects, SetMapKeys, Summarize_CatCol, Summarize_CatCol, Summarize_CatCol, Summarize_CatCol, Summarize_CatCol, Summarize_NumCol, Unnest, VoltageSecureAccess, VoltageSecureAccess, VoltageSecureConfigure, VoltageSecureConfigureGlobal, VoltageSecureProtect, VoltageSecureProtect, VoltageSecureProtectAllKeys, VoltageSecureRefreshPolicy, VoltageSecureVersion, append_centers, apply_bisecting_kmeans, apply_iforest, apply_inverse_pca, apply_inverse_svd, apply_kmeans, apply_kprototypes, apply_normalize, apply_one_hot_encoder, apply_pca, apply_svd, approximate_quantiles, ar_create_blobs, ar_final_newton, ar_save_model, ar_transition_newton, arima_bfgs, arima_line_search, arima_save_model, avg_all_columns_local, bisecting_kmeans_init_model, bk_apply_best_kmeans_results, bk_compute_totss_local, bk_finalize_model, bk_get_rows_in_active_cluster, bk_kmeans_compute_local_centers, bk_kmeans_compute_withinss, bk_kmeans_fast_random_init, bk_kmeans_slow_random_init, bk_kmeanspp_init_cur_cluster, bk_kmeanspp_reset_blob, bk_kmeanspp_select_new_centers, bk_kmeanspp_within_chunk_sum, bk_save_final_model, bk_write_new_cluster_level, blob_to_table, bufUdx, bufUdx, calc_pseudo_centers, calculate_alpha_linear, calculate_hessian_linear1, calculate_hessian_linear2, chi_squared, cleanup_kmeans_files, compute_and_save_global_center, compute_and_save_new_centers, compute_local_totss, compute_local_withinss, compute_new_local_centers, confusion_matrix, coordinate_descent_covariance, corr_matrix, count_rows_in_blob, create_aggregator_blob, error_rate, evaluate_naive_bayes_model, evaluate_reg_model, evaluate_svm_model, export_model_files, finalize_blob_resource_group, get_attr_minmax, get_attr_robust_zscore, get_attr_zscore, get_model_attribute, get_model_summary, get_robust_zscore_median, iforest_create_blobs, iforest_phase0_udf1, iforest_phase0_udf2, iforest_phase1_udf1, iforest_phase1_udf2, iforest_phase1_udf3, iforest_phase1_udf4, iforest_phase2_udf1, iforest_phase2_udf2, iforest_phase2_udf3, iforest_phase2_udf4, iforest_save_model, import_model_files, isOrContains, kmeansAddMetricsToModel, kmeans_init_blobs, kmeans_to_write_final_centers, lift_table, line_search_logistic1, line_search_logistic2, load_rows_into_blocks, map_factor, math_op, matrix_global_xtx, matrix_local_xtx, mode_finder, model_converter, naive_bayes_phase1, naive_bayes_phase1_blob, naive_bayes_phase2, pca_prep1_global, pca_prep1_local, pca_prep2, pmml_parser, predict_arima, predict_autoregressor, predict_linear_reg, predict_logistic_reg, predict_moving_average, predict_naive_bayes, predict_naive_bayes_classes, predict_pmml, predict_poisson_reg, predict_rf_classifier, predict_rf_classifier_classes, predict_rf_regressor, predict_svm_classifier, predict_svm_regressor, predict_xgb_classifier, predict_xgb_classifier_classes, predict_xgb_regressor, random_init, random_init_write, read_from_dfblob, read_map_factor, read_ptree, read_tree, reg_final_bfgs, reg_final_newton, reg_transition_bfgs, reg_transition_newton, reg_write_model, remove_blob, reverse_normalize, rf_blob, rf_clean, rf_phase0_udf1, rf_phase0_udf2, rf_phase1_udf1, rf_phase1_udf2, rf_phase1_udf3, rf_phase1_udf4, rf_phase2_udf1, rf_phase2_udf2, rf_phase2_udf3, rf_phase2_udf4, rf_predictor_importance, rf_save_model, rsquared, save_cv_result, save_pca_model, save_svd_model, save_svm_model, select_new_centers, store_minmax_model, store_one_hot_encoder_model, store_robust_zscore_model, store_zscore_model, table_to_blob, table_to_dfblob, tokenize, topk, update_and_return_sum_of_squared_distances, upgrade_model_format, writeInitialKmeansModelToDfs, xgb_create_blobs, xgb_phase0_udf1, xgb_phase0_udf2, xgb_phase1_udf1, xgb_phase1_udf2, xgb_phase1_udf3, xgb_phase2_udf1, xgb_phase2_udf2, xgb_phase2_udf3, xgb_predictor_importance, xgb_prune, xgb_save_model, yule_walker, ",
+                "udx_language": "ComplexTypesLib -- Functions for Complex Types |  DelimitedExportLib -- Delimited data export package |  JsonExportLib -- Json data export package |  MachineLearningLib -- Machine learning package |  OrcExportLib -- Orc export package |  ParquetExportLib -- Parquet export package |  ApproximateLib -- Approximate package |  FlexTableLib -- Flexible Tables Data Load and Query |  KafkaLib -- Kafka streaming load and export |  PlaceLib -- Geospatial package |  VoltageSecureLib -- Voltage SecureData Connector |  TransformFunctions -- User-defined Python library |  "
             },
             "name": "public"
         }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -121,7 +127,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -136,7 +143,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -153,7 +161,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -168,7 +177,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -188,7 +198,184 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertica,public.clicks,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:dbadmin",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertica,public.clicks,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:eb682025a9113b5543ec7ed26bfa21e4"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:vertica,public.clicks,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {
+                            "create_time": "2023-10-13 11:23:05.308022+00:00",
+                            "table_size": "0 KB"
+                        },
+                        "name": "clicks",
+                        "description": "References the properties of a native table in Vertica.             Vertica physically stores table data in projections, which are collections of table columns.             Projections store data in a format that optimizes query execution.             In order to query or perform any operation on a Vertica table, the table must have one or more projections associated with it. ",
+                        "tags": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                        "schemaName": "public.clicks",
+                        "platform": "urn:li:dataPlatform:vertica",
+                        "version": 0,
+                        "created": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "hash": "",
+                        "platformSchema": {
+                            "com.linkedin.pegasus2avro.schema.MySqlDDL": {
+                                "tableSchema": ""
+                            }
+                        },
+                        "fields": [
+                            {
+                                "fieldPath": "user_id",
+                                "nullable": true,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "INTEGER()",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "page_id",
+                                "nullable": true,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "INTEGER()",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "click_time",
+                                "nullable": true,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
+                                    }
+                                },
+                                "nativeDataType": "TIMESTAMP_WITH_PRECISION()",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertica,public.clicks,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Table"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertica,public.clicks,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:343f520ad0fb3259b298736800bb1385",
+                    "urn": "urn:li:container:343f520ad0fb3259b298736800bb1385"
+                },
+                {
+                    "id": "urn:li:container:eb682025a9113b5543ec7ed26bfa21e4",
+                    "urn": "urn:li:container:eb682025a9113b5543ec7ed26bfa21e4"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -212,7 +399,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -227,7 +415,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -243,7 +432,8 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2023-07-26 06:37:53.358215+00:00"
+                            "create_time": "2023-10-13 11:22:37.846965+00:00",
+                            "table_size": "2119 KB"
                         },
                         "name": "customer_dimension",
                         "description": "References the properties of a native table in Vertica.             Vertica physically stores table data in projections, which are collections of table columns.             Projections store data in a format that optimizes query execution.             In order to query or perform any operation on a Vertica table, the table must have one or more projections associated with it. ",
@@ -551,7 +741,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -568,7 +759,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -592,7 +784,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -616,7 +809,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -631,7 +825,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -647,7 +842,8 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2023-07-26 06:37:53.368954+00:00"
+                            "create_time": "2023-10-13 11:22:37.857152+00:00",
+                            "table_size": "138 KB"
                         },
                         "name": "date_dimension",
                         "description": "References the properties of a native table in Vertica.             Vertica physically stores table data in projections, which are collections of table columns.             Projections store data in a format that optimizes query execution.             In order to query or perform any operation on a Vertica table, the table must have one or more projections associated with it. ",
@@ -955,7 +1151,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -972,7 +1169,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -996,7 +1194,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1020,7 +1219,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1035,7 +1235,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1051,7 +1252,8 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2023-07-26 06:37:53.375896+00:00"
+                            "create_time": "2023-10-13 11:22:37.863745+00:00",
+                            "table_size": "327 KB"
                         },
                         "name": "employee_dimension",
                         "description": "References the properties of a native table in Vertica.             Vertica physically stores table data in projections, which are collections of table columns.             Projections store data in a format that optimizes query execution.             In order to query or perform any operation on a Vertica table, the table must have one or more projections associated with it. ",
@@ -1320,7 +1522,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1337,7 +1540,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1361,7 +1565,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1385,7 +1590,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1400,7 +1606,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1416,7 +1623,8 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2023-07-26 06:37:53.385843+00:00"
+                            "create_time": "2023-10-13 11:22:37.873181+00:00",
+                            "table_size": "2564 KB"
                         },
                         "name": "inventory_fact",
                         "description": "References the properties of a native table in Vertica.             Vertica physically stores table data in projections, which are collections of table columns.             Projections store data in a format that optimizes query execution.             In order to query or perform any operation on a Vertica table, the table must have one or more projections associated with it. ",
@@ -1529,7 +1737,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1546,7 +1755,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1570,7 +1780,158 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertica,public.phrases,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:dbadmin",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertica,public.phrases,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:eb682025a9113b5543ec7ed26bfa21e4"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:vertica,public.phrases,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {
+                            "create_time": "2023-10-13 11:23:05.408507+00:00",
+                            "table_size": "0 KB"
+                        },
+                        "name": "phrases",
+                        "description": "References the properties of a native table in Vertica.             Vertica physically stores table data in projections, which are collections of table columns.             Projections store data in a format that optimizes query execution.             In order to query or perform any operation on a Vertica table, the table must have one or more projections associated with it. ",
+                        "tags": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                        "schemaName": "public.phrases",
+                        "platform": "urn:li:dataPlatform:vertica",
+                        "version": 0,
+                        "created": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "hash": "",
+                        "platformSchema": {
+                            "com.linkedin.pegasus2avro.schema.MySqlDDL": {
+                                "tableSchema": ""
+                            }
+                        },
+                        "fields": [
+                            {
+                                "fieldPath": "phrase",
+                                "nullable": true,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "VARCHAR(length=128)",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertica,public.phrases,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Table"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertica,public.phrases,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:343f520ad0fb3259b298736800bb1385",
+                    "urn": "urn:li:container:343f520ad0fb3259b298736800bb1385"
+                },
+                {
+                    "id": "urn:li:container:eb682025a9113b5543ec7ed26bfa21e4",
+                    "urn": "urn:li:container:eb682025a9113b5543ec7ed26bfa21e4"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1594,7 +1955,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1609,7 +1971,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1625,7 +1988,8 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2023-07-26 06:37:53.362016+00:00"
+                            "create_time": "2023-10-13 11:22:37.850505+00:00",
+                            "table_size": "19 KB"
                         },
                         "name": "product_dimension",
                         "description": "References the properties of a native table in Vertica.             Vertica physically stores table data in projections, which are collections of table columns.             Projections store data in a format that optimizes query execution.             In order to query or perform any operation on a Vertica table, the table must have one or more projections associated with it. ",
@@ -1933,7 +2297,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1950,7 +2315,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1974,7 +2340,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1998,7 +2365,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2013,7 +2381,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2029,7 +2398,8 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2023-07-26 06:37:53.365453+00:00"
+                            "create_time": "2023-10-13 11:22:37.853878+00:00",
+                            "table_size": "3 KB"
                         },
                         "name": "promotion_dimension",
                         "description": "References the properties of a native table in Vertica.             Vertica physically stores table data in projections, which are collections of table columns.             Projections store data in a format that optimizes query execution.             In order to query or perform any operation on a Vertica table, the table must have one or more projections associated with it. ",
@@ -2220,7 +2590,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2237,7 +2608,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2261,7 +2633,184 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertica,public.readings,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:dbadmin",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertica,public.readings,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:eb682025a9113b5543ec7ed26bfa21e4"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:vertica,public.readings,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {
+                            "create_time": "2023-10-13 11:23:05.296044+00:00",
+                            "table_size": "0 KB"
+                        },
+                        "name": "readings",
+                        "description": "References the properties of a native table in Vertica.             Vertica physically stores table data in projections, which are collections of table columns.             Projections store data in a format that optimizes query execution.             In order to query or perform any operation on a Vertica table, the table must have one or more projections associated with it. ",
+                        "tags": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                        "schemaName": "public.readings",
+                        "platform": "urn:li:dataPlatform:vertica",
+                        "version": 0,
+                        "created": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "hash": "",
+                        "platformSchema": {
+                            "com.linkedin.pegasus2avro.schema.MySqlDDL": {
+                                "tableSchema": ""
+                            }
+                        },
+                        "fields": [
+                            {
+                                "fieldPath": "meter_id",
+                                "nullable": true,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "INTEGER()",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "reading_date",
+                                "nullable": true,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
+                                    }
+                                },
+                                "nativeDataType": "TIMESTAMP_WITH_PRECISION()",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "reading_value",
+                                "nullable": true,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "FLOAT()",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertica,public.readings,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Table"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertica,public.readings,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:343f520ad0fb3259b298736800bb1385",
+                    "urn": "urn:li:container:343f520ad0fb3259b298736800bb1385"
+                },
+                {
+                    "id": "urn:li:container:eb682025a9113b5543ec7ed26bfa21e4",
+                    "urn": "urn:li:container:eb682025a9113b5543ec7ed26bfa21e4"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2285,7 +2834,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2300,7 +2850,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2316,7 +2867,8 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2023-07-26 06:37:53.379273+00:00"
+                            "create_time": "2023-10-13 11:22:37.867119+00:00",
+                            "table_size": "1 KB"
                         },
                         "name": "shipping_dimension",
                         "description": "References the properties of a native table in Vertica.             Vertica physically stores table data in projections, which are collections of table columns.             Projections store data in a format that optimizes query execution.             In order to query or perform any operation on a Vertica table, the table must have one or more projections associated with it. ",
@@ -2403,7 +2955,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2420,7 +2973,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2444,7 +2998,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2468,7 +3023,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2483,7 +3039,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2499,7 +3056,8 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2023-07-26 06:37:53.372409+00:00"
+                            "create_time": "2023-10-13 11:22:37.860541+00:00",
+                            "table_size": "1 KB"
                         },
                         "name": "vendor_dimension",
                         "description": "References the properties of a native table in Vertica.             Vertica physically stores table data in projections, which are collections of table columns.             Projections store data in a format that optimizes query execution.             In order to query or perform any operation on a Vertica table, the table must have one or more projections associated with it. ",
@@ -2638,7 +3196,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2655,7 +3214,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2679,7 +3239,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2703,7 +3264,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2718,7 +3280,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2734,7 +3297,8 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2023-07-26 06:38:20.045598+00:00"
+                            "create_time": "2023-10-13 11:23:04.970568+00:00",
+                            "table_size": "0 KB"
                         },
                         "name": "vmart_load_success",
                         "description": "References the properties of a native table in Vertica.             Vertica physically stores table data in projections, which are collections of table columns.             Projections store data in a format that optimizes query execution.             In order to query or perform any operation on a Vertica table, the table must have one or more projections associated with it. ",
@@ -2782,7 +3346,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2799,7 +3364,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2823,7 +3389,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2847,7 +3414,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2862,7 +3430,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2878,7 +3447,8 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2023-07-26 06:37:53.382549+00:00"
+                            "create_time": "2023-10-13 11:22:37.870169+00:00",
+                            "table_size": "2 KB"
                         },
                         "name": "warehouse_dimension",
                         "description": "References the properties of a native table in Vertica.             Vertica physically stores table data in projections, which are collections of table columns.             Projections store data in a format that optimizes query execution.             In order to query or perform any operation on a Vertica table, the table must have one or more projections associated with it. ",
@@ -2991,7 +3561,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -3008,7 +3579,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -3032,7 +3604,224 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertica,public.sampleview,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:dbadmin",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertica,public.sampleview,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:eb682025a9113b5543ec7ed26bfa21e4"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:vertica,public.sampleview,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {
+                            "create_time": "2023-10-13 11:23:05.319029+00:00",
+                            "table_size": "0 KB",
+                            "view_definition": "SELECT sum(customer_dimension.annual_income) AS SUM, customer_dimension.customer_state FROM public.customer_dimension WHERE (customer_dimension.customer_key IN (SELECT store_sales_fact.customer_key FROM store.store_sales_fact)) GROUP BY customer_dimension.customer_state ORDER BY customer_dimension.customer_state",
+                            "is_view": "True"
+                        },
+                        "name": "sampleview",
+                        "description": "References the properties of a native table in Vertica.             Vertica physically stores table data in projections, which are collections of table columns.             Projections store data in a format that optimizes query execution.             In order to query or perform any operation on a Vertica table, the table must have one or more projections associated with it. ",
+                        "tags": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                        "schemaName": "public.sampleview",
+                        "platform": "urn:li:dataPlatform:vertica",
+                        "version": 0,
+                        "created": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "hash": "",
+                        "platformSchema": {
+                            "com.linkedin.pegasus2avro.schema.MySqlDDL": {
+                                "tableSchema": ""
+                            }
+                        },
+                        "fields": [
+                            {
+                                "fieldPath": "SUM",
+                                "nullable": true,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "INTEGER()",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "customer_state",
+                                "nullable": true,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "CHAR(length=2)",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertica,public.sampleview,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "View"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertica,public.sampleview,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "viewProperties",
+    "aspect": {
+        "json": {
+            "materialized": false,
+            "viewLogic": "SELECT sum(customer_dimension.annual_income) AS SUM, customer_dimension.customer_state FROM public.customer_dimension WHERE (customer_dimension.customer_key IN (SELECT store_sales_fact.customer_key FROM store.store_sales_fact)) GROUP BY customer_dimension.customer_state ORDER BY customer_dimension.customer_state",
+            "viewLanguage": "SQL"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertica,public.sampleview,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:vertica,public.customer_dimension,PROD)",
+                    "type": "TRANSFORMED"
+                },
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:vertica,store.store_sales_fact,PROD)",
+                    "type": "TRANSFORMED"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertica,public.sampleview,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:343f520ad0fb3259b298736800bb1385",
+                    "urn": "urn:li:container:343f520ad0fb3259b298736800bb1385"
+                },
+                {
+                    "id": "urn:li:container:eb682025a9113b5543ec7ed26bfa21e4",
+                    "urn": "urn:li:container:eb682025a9113b5543ec7ed26bfa21e4"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -3056,7 +3845,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -3071,7 +3861,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -3089,11 +3880,11 @@
                         "customProperties": {
                             "ROS_Count": "1",
                             "Projection_Type": "is_super_projection",
-                            "is_segmented": "True",
+                            "Is_Segmented": "True",
                             "Segmentation_key": "hash(date_dimension.date_key)",
-                            "projection_size": "138 KB",
+                            "Projection_size": "138 KB",
                             "Partition_Key": "Not Available",
-                            "Partition_Size": "0",
+                            "Number_Of_Partitions": "0",
                             "Projection_Cached": "False"
                         },
                         "name": "date_dimension_super",
@@ -3402,7 +4193,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -3419,7 +4211,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -3443,7 +4236,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -3467,7 +4261,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -3491,7 +4286,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -3506,7 +4302,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -3524,11 +4321,11 @@
                         "customProperties": {
                             "ROS_Count": "1",
                             "Projection_Type": "is_super_projection",
-                            "is_segmented": "True",
+                            "Is_Segmented": "True",
                             "Segmentation_key": "hash(product_dimension.product_key, product_dimension.product_version)",
-                            "projection_size": "19 KB",
+                            "Projection_size": "19 KB",
                             "Partition_Key": "Not Available",
-                            "Partition_Size": "0",
+                            "Number_Of_Partitions": "0",
                             "Projection_Cached": "False"
                         },
                         "name": "product_dimension_super",
@@ -3837,7 +4634,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -3854,7 +4652,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -3878,7 +4677,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -3902,7 +4702,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -3926,7 +4727,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -3941,7 +4743,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -3959,11 +4762,11 @@
                         "customProperties": {
                             "ROS_Count": "1",
                             "Projection_Type": "is_super_projection",
-                            "is_segmented": "True",
+                            "Is_Segmented": "True",
                             "Segmentation_key": "hash(promotion_dimension.promotion_key)",
-                            "projection_size": "3 KB",
+                            "Projection_size": "3 KB",
                             "Partition_Key": "Not Available",
-                            "Partition_Size": "0",
+                            "Number_Of_Partitions": "0",
                             "Projection_Cached": "False"
                         },
                         "name": "promotion_dimension_super",
@@ -4155,7 +4958,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -4172,7 +4976,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -4196,7 +5001,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -4220,7 +5026,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -4244,7 +5051,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -4259,7 +5067,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -4277,11 +5086,11 @@
                         "customProperties": {
                             "ROS_Count": "1",
                             "Projection_Type": "is_super_projection",
-                            "is_segmented": "True",
+                            "Is_Segmented": "True",
                             "Segmentation_key": "hash(vendor_dimension.vendor_key)",
-                            "projection_size": "1 KB",
+                            "Projection_size": "1 KB",
                             "Partition_Key": "Not Available",
-                            "Partition_Size": "0",
+                            "Number_Of_Partitions": "0",
                             "Projection_Cached": "False"
                         },
                         "name": "vendor_dimension_super",
@@ -4421,7 +5230,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -4438,7 +5248,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -4462,7 +5273,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -4486,7 +5298,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -4510,7 +5323,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -4525,7 +5339,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -4543,11 +5358,11 @@
                         "customProperties": {
                             "ROS_Count": "1",
                             "Projection_Type": "is_super_projection",
-                            "is_segmented": "True",
+                            "Is_Segmented": "True",
                             "Segmentation_key": "hash(customer_dimension.customer_key)",
-                            "projection_size": "2119 KB",
+                            "Projection_size": "2119 KB",
                             "Partition_Key": "Not Available",
-                            "Partition_Size": "0",
+                            "Number_Of_Partitions": "0",
                             "Projection_Cached": "False"
                         },
                         "name": "customer_dimension_super",
@@ -4856,7 +5671,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -4873,7 +5689,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -4897,7 +5714,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -4921,7 +5739,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -4945,7 +5764,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -4960,7 +5780,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -4978,11 +5799,11 @@
                         "customProperties": {
                             "ROS_Count": "1",
                             "Projection_Type": "is_super_projection",
-                            "is_segmented": "True",
+                            "Is_Segmented": "True",
                             "Segmentation_key": "hash(employee_dimension.employee_key)",
-                            "projection_size": "327 KB",
+                            "Projection_size": "327 KB",
                             "Partition_Key": "Not Available",
-                            "Partition_Size": "0",
+                            "Number_Of_Partitions": "0",
                             "Projection_Cached": "False"
                         },
                         "name": "employee_dimension_super",
@@ -5252,7 +6073,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -5269,7 +6091,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -5293,7 +6116,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -5317,7 +6141,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -5341,7 +6166,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -5356,7 +6182,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -5374,11 +6201,11 @@
                         "customProperties": {
                             "ROS_Count": "1",
                             "Projection_Type": "is_super_projection",
-                            "is_segmented": "True",
+                            "Is_Segmented": "True",
                             "Segmentation_key": "hash(warehouse_dimension.warehouse_key)",
-                            "projection_size": "2 KB",
+                            "Projection_size": "2 KB",
                             "Partition_Key": "Not Available",
-                            "Partition_Size": "0",
+                            "Number_Of_Partitions": "0",
                             "Projection_Cached": "False"
                         },
                         "name": "warehouse_dimension_super",
@@ -5492,7 +6319,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -5509,7 +6337,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -5533,7 +6362,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -5557,7 +6387,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -5581,7 +6412,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -5596,7 +6428,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -5614,11 +6447,11 @@
                         "customProperties": {
                             "ROS_Count": "1",
                             "Projection_Type": "is_super_projection",
-                            "is_segmented": "True",
+                            "Is_Segmented": "True",
                             "Segmentation_key": "hash(shipping_dimension.shipping_key)",
-                            "projection_size": "1 KB",
+                            "Projection_size": "1 KB",
                             "Partition_Key": "Not Available",
-                            "Partition_Size": "0",
+                            "Number_Of_Partitions": "0",
                             "Projection_Cached": "False"
                         },
                         "name": "shipping_dimension_super",
@@ -5706,7 +6539,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -5723,7 +6557,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -5747,7 +6582,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -5771,7 +6607,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -5795,7 +6632,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -5810,7 +6648,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -5828,11 +6667,11 @@
                         "customProperties": {
                             "ROS_Count": "1",
                             "Projection_Type": "is_super_projection",
-                            "is_segmented": "True",
+                            "Is_Segmented": "True",
                             "Segmentation_key": "hash(inventory_fact.date_key, inventory_fact.product_key, inventory_fact.product_version, inventory_fact.warehouse_key, inventory_fact.qty_in_stock)",
-                            "projection_size": "2566 KB",
+                            "Projection_size": "2564 KB",
                             "Partition_Key": "Not Available",
-                            "Partition_Size": "0",
+                            "Number_Of_Partitions": "0",
                             "Projection_Cached": "False"
                         },
                         "name": "inventory_fact_super",
@@ -5946,7 +6785,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -5963,7 +6803,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -5987,7 +6828,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -6011,7 +6853,577 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertica,public.readings_topk,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:dbadmin",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertica,public.readings_topk,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:eb682025a9113b5543ec7ed26bfa21e4"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:vertica,public.readings_topk,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {
+                            "ROS_Count": "1",
+                            "Projection_Type": "is_aggregate_projection, has_expressions",
+                            "Is_Segmented": "True",
+                            "Segmentation_key": "hash(readings.meter_id)",
+                            "Projection_size": "0 KB",
+                            "Partition_Key": "Not Available",
+                            "Number_Of_Partitions": "0",
+                            "Projection_Cached": "False"
+                        },
+                        "name": "readings_topk",
+                        "description": "Vertica physically stores table data in projections,             which are collections of table columns. Projections store data in a format that optimizes query execution             For more info on projections and corresponding properties check out the Vertica Docs: https://www.vertica.com/docs",
+                        "tags": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                        "schemaName": "public.readings_topk",
+                        "platform": "urn:li:dataPlatform:vertica",
+                        "version": 0,
+                        "created": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "hash": "",
+                        "platformSchema": {
+                            "com.linkedin.pegasus2avro.schema.MySqlDDL": {
+                                "tableSchema": ""
+                            }
+                        },
+                        "fields": [
+                            {
+                                "fieldPath": "meter_id",
+                                "nullable": true,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "INTEGER()",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "recent_date",
+                                "nullable": true,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
+                                    }
+                                },
+                                "nativeDataType": "TIMESTAMP_WITH_PRECISION()",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "recent_value",
+                                "nullable": true,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "FLOAT()",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertica,public.readings_topk,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Projections"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertica,public.readings_topk,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:vertica,public.readings_topk,PROD)",
+                    "type": "TRANSFORMED"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertica,public.readings_topk,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:343f520ad0fb3259b298736800bb1385",
+                    "urn": "urn:li:container:343f520ad0fb3259b298736800bb1385"
+                },
+                {
+                    "id": "urn:li:container:eb682025a9113b5543ec7ed26bfa21e4",
+                    "urn": "urn:li:container:eb682025a9113b5543ec7ed26bfa21e4"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertica,public.clicks_agg,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:dbadmin",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertica,public.clicks_agg,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:eb682025a9113b5543ec7ed26bfa21e4"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:vertica,public.clicks_agg,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {
+                            "ROS_Count": "1",
+                            "Projection_Type": "is_aggregate_projection, has_expressions",
+                            "Is_Segmented": "True",
+                            "Segmentation_key": "hash(clicks.page_id, (clicks.click_time)::date)",
+                            "Projection_size": "0 KB",
+                            "Partition_Key": "Not Available",
+                            "Number_Of_Partitions": "0",
+                            "Projection_Cached": "False"
+                        },
+                        "name": "clicks_agg",
+                        "description": "Vertica physically stores table data in projections,             which are collections of table columns. Projections store data in a format that optimizes query execution             For more info on projections and corresponding properties check out the Vertica Docs: https://www.vertica.com/docs",
+                        "tags": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                        "schemaName": "public.clicks_agg",
+                        "platform": "urn:li:dataPlatform:vertica",
+                        "version": 0,
+                        "created": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "hash": "",
+                        "platformSchema": {
+                            "com.linkedin.pegasus2avro.schema.MySqlDDL": {
+                                "tableSchema": ""
+                            }
+                        },
+                        "fields": [
+                            {
+                                "fieldPath": "page_id",
+                                "nullable": true,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "INTEGER()",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertica,public.clicks_agg,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Projections"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertica,public.clicks_agg,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:vertica,public.clicks_agg,PROD)",
+                    "type": "TRANSFORMED"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertica,public.clicks_agg,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:343f520ad0fb3259b298736800bb1385",
+                    "urn": "urn:li:container:343f520ad0fb3259b298736800bb1385"
+                },
+                {
+                    "id": "urn:li:container:eb682025a9113b5543ec7ed26bfa21e4",
+                    "urn": "urn:li:container:eb682025a9113b5543ec7ed26bfa21e4"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertica,public.phrases_super,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:dbadmin",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertica,public.phrases_super,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:eb682025a9113b5543ec7ed26bfa21e4"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:vertica,public.phrases_super,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {
+                            "ROS_Count": "1",
+                            "Projection_Type": "is_super_projection",
+                            "Is_Segmented": "True",
+                            "Segmentation_key": "hash(phrases.phrase)",
+                            "Projection_size": "0 KB",
+                            "Partition_Key": "Not Available",
+                            "Number_Of_Partitions": "0",
+                            "Projection_Cached": "False"
+                        },
+                        "name": "phrases_super",
+                        "description": "Vertica physically stores table data in projections,             which are collections of table columns. Projections store data in a format that optimizes query execution             For more info on projections and corresponding properties check out the Vertica Docs: https://www.vertica.com/docs",
+                        "tags": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                        "schemaName": "public.phrases_super",
+                        "platform": "urn:li:dataPlatform:vertica",
+                        "version": 0,
+                        "created": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "hash": "",
+                        "platformSchema": {
+                            "com.linkedin.pegasus2avro.schema.MySqlDDL": {
+                                "tableSchema": ""
+                            }
+                        },
+                        "fields": [
+                            {
+                                "fieldPath": "phrase",
+                                "nullable": true,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "VARCHAR(length=128)",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertica,public.phrases_super,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Projections"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertica,public.phrases_super,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:vertica,public.phrases,PROD)",
+                    "type": "TRANSFORMED"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertica,public.phrases_super,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:343f520ad0fb3259b298736800bb1385",
+                    "urn": "urn:li:container:343f520ad0fb3259b298736800bb1385"
+                },
+                {
+                    "id": "urn:li:container:eb682025a9113b5543ec7ed26bfa21e4",
+                    "urn": "urn:li:container:eb682025a9113b5543ec7ed26bfa21e4"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -6035,7 +7447,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -6050,7 +7463,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -6065,7 +7479,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -6082,7 +7497,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -6097,7 +7513,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -6117,7 +7534,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -6141,7 +7559,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -6156,7 +7575,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -6172,7 +7592,8 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2023-07-26 06:37:53.393181+00:00"
+                            "create_time": "2023-10-13 11:22:37.879951+00:00",
+                            "table_size": "2 KB"
                         },
                         "name": "store_dimension",
                         "description": "References the properties of a native table in Vertica.             Vertica physically stores table data in projections, which are collections of table columns.             Projections store data in a format that optimizes query execution.             In order to query or perform any operation on a Vertica table, the table must have one or more projections associated with it. ",
@@ -6441,7 +7862,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -6458,7 +7880,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -6482,7 +7905,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -6506,7 +7930,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -6521,7 +7946,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -6537,7 +7963,8 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2023-07-26 06:37:53.404717+00:00"
+                            "create_time": "2023-10-13 11:22:37.890717+00:00",
+                            "table_size": "8646 KB"
                         },
                         "name": "store_orders_fact",
                         "description": "References the properties of a native table in Vertica.             Vertica physically stores table data in projections, which are collections of table columns.             Projections store data in a format that optimizes query execution.             In order to query or perform any operation on a Vertica table, the table must have one or more projections associated with it. ",
@@ -6819,7 +8246,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -6836,7 +8264,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -6860,7 +8289,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -6884,7 +8314,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -6899,7 +8330,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -6915,7 +8347,8 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2023-07-26 06:37:53.396731+00:00"
+                            "create_time": "2023-10-13 11:22:37.883186+00:00",
+                            "table_size": "225060 KB"
                         },
                         "name": "store_sales_fact",
                         "description": "References the properties of a native table in Vertica.             Vertica physically stores table data in projections, which are collections of table columns.             Projections store data in a format that optimizes query execution.             In order to query or perform any operation on a Vertica table, the table must have one or more projections associated with it. ",
@@ -7171,7 +8604,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -7188,7 +8622,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -7212,7 +8647,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -7236,7 +8672,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -7251,7 +8688,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -7269,11 +8707,11 @@
                         "customProperties": {
                             "ROS_Count": "1",
                             "Projection_Type": "is_super_projection",
-                            "is_segmented": "True",
+                            "Is_Segmented": "True",
                             "Segmentation_key": "hash(store_dimension.store_key)",
-                            "projection_size": "2 KB",
+                            "Projection_size": "2 KB",
                             "Partition_Key": "Not Available",
-                            "Partition_Size": "0",
+                            "Number_Of_Partitions": "0",
                             "Projection_Cached": "False"
                         },
                         "name": "store_dimension_super",
@@ -7543,7 +8981,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -7560,7 +8999,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -7584,7 +9024,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -7608,7 +9049,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -7632,7 +9074,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -7647,7 +9090,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -7665,11 +9109,11 @@
                         "customProperties": {
                             "ROS_Count": "2",
                             "Projection_Type": "is_super_projection",
-                            "is_segmented": "True",
+                            "Is_Segmented": "True",
                             "Segmentation_key": "hash(store_sales_fact.date_key, store_sales_fact.product_key, store_sales_fact.product_version, store_sales_fact.store_key, store_sales_fact.promotion_key, store_sales_fact.customer_key, store_sales_fact.employee_key, store_sales_fact.pos_transaction_number)",
-                            "projection_size": "225089 KB",
+                            "Projection_size": "225060 KB",
                             "Partition_Key": "Not Available",
-                            "Partition_Size": "0",
+                            "Number_Of_Partitions": "0",
                             "Projection_Cached": "False"
                         },
                         "name": "store_sales_fact_super",
@@ -7926,7 +9370,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -7943,7 +9388,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -7967,7 +9413,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -7991,7 +9438,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -8015,7 +9463,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -8030,7 +9479,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -8048,11 +9498,11 @@
                         "customProperties": {
                             "ROS_Count": "1",
                             "Projection_Type": "is_super_projection",
-                            "is_segmented": "True",
+                            "Is_Segmented": "True",
                             "Segmentation_key": "hash(store_orders_fact.product_key, store_orders_fact.product_version, store_orders_fact.store_key, store_orders_fact.vendor_key, store_orders_fact.employee_key, store_orders_fact.order_number, store_orders_fact.date_ordered, store_orders_fact.date_shipped)",
-                            "projection_size": "8648 KB",
+                            "Projection_size": "8646 KB",
                             "Partition_Key": "Not Available",
-                            "Partition_Size": "0",
+                            "Number_Of_Partitions": "0",
                             "Projection_Cached": "False"
                         },
                         "name": "store_orders_fact_super",
@@ -8335,7 +9785,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -8352,7 +9803,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -8376,7 +9828,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -8400,7 +9853,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -8424,7 +9878,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -8439,7 +9894,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -8454,7 +9910,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -8471,7 +9928,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -8486,7 +9944,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -8506,7 +9965,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -8530,7 +9990,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -8545,7 +10006,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -8561,7 +10023,8 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2023-07-26 06:37:53.415595+00:00"
+                            "create_time": "2023-10-13 11:22:37.900841+00:00",
+                            "table_size": "6 KB"
                         },
                         "name": "call_center_dimension",
                         "description": "References the properties of a native table in Vertica.             Vertica physically stores table data in projections, which are collections of table columns.             Projections store data in a format that optimizes query execution.             In order to query or perform any operation on a Vertica table, the table must have one or more projections associated with it. ",
@@ -8752,7 +10215,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -8769,7 +10233,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -8793,7 +10258,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -8817,7 +10283,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -8832,7 +10299,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -8848,7 +10316,8 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2023-07-26 06:37:53.412266+00:00"
+                            "create_time": "2023-10-13 11:22:37.897788+00:00",
+                            "table_size": "9 KB"
                         },
                         "name": "online_page_dimension",
                         "description": "References the properties of a native table in Vertica.             Vertica physically stores table data in projections, which are collections of table columns.             Projections store data in a format that optimizes query execution.             In order to query or perform any operation on a Vertica table, the table must have one or more projections associated with it. ",
@@ -8961,7 +10430,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -8978,7 +10448,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -9002,7 +10473,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -9026,7 +10498,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -9041,7 +10514,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -9057,7 +10531,8 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2023-07-26 06:37:53.419260+00:00"
+                            "create_time": "2023-10-13 11:22:37.903963+00:00",
+                            "table_size": "182356 KB"
                         },
                         "name": "online_sales_fact",
                         "description": "References the properties of a native table in Vertica.             Vertica physically stores table data in projections, which are collections of table columns.             Projections store data in a format that optimizes query execution.             In order to query or perform any operation on a Vertica table, the table must have one or more projections associated with it. ",
@@ -9352,7 +10827,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -9369,7 +10845,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -9393,7 +10870,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -9417,7 +10895,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -9432,7 +10911,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -9450,11 +10930,11 @@
                         "customProperties": {
                             "ROS_Count": "1",
                             "Projection_Type": "is_super_projection",
-                            "is_segmented": "True",
+                            "Is_Segmented": "True",
                             "Segmentation_key": "hash(online_page_dimension.online_page_key)",
-                            "projection_size": "9 KB",
+                            "Projection_size": "9 KB",
                             "Partition_Key": "Not Available",
-                            "Partition_Size": "0",
+                            "Number_Of_Partitions": "0",
                             "Projection_Cached": "False"
                         },
                         "name": "online_page_dimension_super",
@@ -9568,7 +11048,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -9585,7 +11066,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -9609,7 +11091,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -9633,7 +11116,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -9657,7 +11141,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -9672,7 +11157,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -9690,11 +11176,11 @@
                         "customProperties": {
                             "ROS_Count": "1",
                             "Projection_Type": "is_super_projection",
-                            "is_segmented": "True",
+                            "Is_Segmented": "True",
                             "Segmentation_key": "hash(call_center_dimension.call_center_key)",
-                            "projection_size": "6 KB",
+                            "Projection_size": "6 KB",
                             "Partition_Key": "Not Available",
-                            "Partition_Size": "0",
+                            "Number_Of_Partitions": "0",
                             "Projection_Cached": "False"
                         },
                         "name": "call_center_dimension_super",
@@ -9886,7 +11372,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -9903,7 +11390,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -9927,7 +11415,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -9951,7 +11440,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -9975,7 +11465,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -9990,7 +11481,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -10008,11 +11500,11 @@
                         "customProperties": {
                             "ROS_Count": "1",
                             "Projection_Type": "is_super_projection",
-                            "is_segmented": "True",
+                            "Is_Segmented": "True",
                             "Segmentation_key": "hash(online_sales_fact.sale_date_key, online_sales_fact.ship_date_key, online_sales_fact.product_key, online_sales_fact.product_version, online_sales_fact.customer_key, online_sales_fact.call_center_key, online_sales_fact.online_page_key, online_sales_fact.shipping_key)",
-                            "projection_size": "182385 KB",
+                            "Projection_size": "182356 KB",
                             "Partition_Key": "Not Available",
-                            "Partition_Size": "0",
+                            "Number_Of_Partitions": "0",
                             "Projection_Cached": "False"
                         },
                         "name": "online_sales_fact_super",
@@ -10308,7 +11800,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -10325,7 +11818,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -10349,7 +11843,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -10373,7 +11868,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "vertica-2020_04_14-07_00_00"
+        "runId": "vertica-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 }
 ]

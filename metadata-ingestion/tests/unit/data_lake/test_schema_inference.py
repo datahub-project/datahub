@@ -1,14 +1,14 @@
 import tempfile
 from typing import List, Type
 
-import avro.schema
 import pandas as pd
 import ujson
 from avro import schema as avro_schema
 from avro.datafile import DataFileWriter
 from avro.io import DatumWriter
 
-from datahub.ingestion.source.schema_inference import avro, csv_tsv, json, parquet
+from datahub.ingestion.source.schema_inference import csv_tsv, json, parquet
+from datahub.ingestion.source.schema_inference.avro import AvroInferrer
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     BooleanTypeClass,
     NumberTypeClass,
@@ -123,7 +123,7 @@ def test_infer_schema_avro():
 
         file.seek(0)
 
-        fields = avro.AvroInferrer().infer_schema(file)
+        fields = AvroInferrer().infer_schema(file)
         fields.sort(key=lambda x: x.fieldPath)
 
         assert_field_paths_match(fields, expected_field_paths_avro)

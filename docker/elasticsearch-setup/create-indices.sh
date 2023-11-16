@@ -129,7 +129,7 @@ function create_datahub_usage_event_aws_elasticsearch() {
   if [ $USAGE_EVENT_STATUS -eq 200 ]; then
     USAGE_EVENT_DEFINITION=$(curl "${CURL_ARGS[@]}" "$ELASTICSEARCH_URL/${PREFIX}datahub_usage_event")
     # the definition is expected to contain "datahub_usage_event-000001" string
-    if [[ $USAGE_EVENT_DEFINITION != *"datahub_usage_event-$INDEX_SUFFIX"* ]]; then
+    if [[ $USAGE_EVENT_DEFINITION != *"datahub_usage_event-"* ]]; then
       # ... if it doesn't, we need to drop it
       echo -e "\n>>> deleting invalid datahub_usage_event ..."
       curl "${CURL_ARGS[@]}" -XDELETE "$ELASTICSEARCH_URL/${PREFIX}datahub_usage_event"

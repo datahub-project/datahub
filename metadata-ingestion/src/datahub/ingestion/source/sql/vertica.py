@@ -86,7 +86,7 @@ class VerticaConfig(BasicSQLAlchemyConfig):
         default=True, description="Whether Models should be ingested."
     )
 
-    include_view_lineage: Optional[bool] = pydantic.Field(
+    include_view_lineage: bool = pydantic.Field(
         default=True,
         description="If the source supports it, include view lineage to the underlying storage location.",
     )

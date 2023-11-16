@@ -21,6 +21,7 @@ from typing import (
 
 import humanfriendly
 
+from datahub.configuration.pattern_utils import is_schema_allowed
 from datahub.configuration.time_window_config import (
     BaseTimeWindowConfig,
     get_time_bucket,
@@ -335,8 +336,13 @@ class BigQueryUsageExtractor:
     def _is_table_allowed(self, table_ref: Optional[BigQueryTableRef]) -> bool:
         return (
             table_ref is not None
-            and self.config.dataset_pattern.allowed(table_ref.table_identifier.dataset)
-            and self.config.table_pattern.allowed(table_ref.table_identifier.table)
+            and is_schema_allowed(
+                self.config.dataset_pattern,
+                table_ref.table_identifier.dataset,
+                table_ref.table_identifier.project_id,
+                self.config.match_fully_qualified_names,
+            )
+            and self.config.table_pattern.allowed(str(table_ref.table_identifier))
         )
 
     def _should_ingest_usage(self) -> bool:
@@ -844,7 +850,7 @@ class BigQueryUsageExtractor:
         # handle the case where the read happens within our time range but the query
         # completion event is delayed and happens after the configured end time.
         corrected_start_time = self.start_time - self.config.max_query_duration
-        corrected_end_time = self.end_time + -self.config.max_query_duration
+        corrected_end_time = self.end_time + self.config.max_query_duration
         self.report.audit_start_time = corrected_start_time
         self.report.audit_end_time = corrected_end_time
 

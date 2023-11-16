@@ -76,7 +76,7 @@ class UnityCatalogProfilerConfig(ConfigModel):
         description="Number of worker threads to use for profiling. Set to 1 to disable.",
     )
 
-    @pydantic.root_validator
+    @pydantic.root_validator(skip_on_failure=True)
     def warehouse_id_required_for_profiling(
         cls, values: Dict[str, Any]
     ) -> Dict[str, Any]:
@@ -164,6 +164,14 @@ class UnityCatalogSourceConfig(
     include_table_lineage: bool = pydantic.Field(
         default=True,
         description="Option to enable/disable lineage generation.",
+    )
+
+    include_external_lineage: bool = pydantic.Field(
+        default=True,
+        description=(
+            "Option to enable/disable lineage generation for external tables."
+            " Only external S3 tables are supported at the moment."
+        ),
     )
 
     include_notebooks: bool = pydantic.Field(

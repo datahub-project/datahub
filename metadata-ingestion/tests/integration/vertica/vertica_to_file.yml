@@ -5,6 +5,13 @@ source:
     database: Vmart
     username: dbadmin
     password: abc123
+    include_tables: true
+    include_views: true
+    include_projections: true
+    include_models: true
+    include_view_lineage: true
+    include_projection_lineage: true
+
 
 sink:
   type: file

@@ -48,8 +48,8 @@ base.ischema_names["decimal128"] = DECIMAL128
 
 class MySQLConnectionConfig(SQLAlchemyConnectionConfig):
     # defaults
-    host_port = Field(default="localhost:3306", description="MySQL host URL.")
-    scheme = "mysql+pymysql"
+    host_port: str = Field(default="localhost:3306", description="MySQL host URL.")
+    scheme: str = "mysql+pymysql"
 
 
 class MySQLConfig(MySQLConnectionConfig, TwoTierSQLAlchemyConfig):
