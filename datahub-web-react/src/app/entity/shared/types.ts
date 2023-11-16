@@ -39,6 +39,9 @@ import {
     BrowsePathV2,
     DataJobInputOutput,
     ParentDomainsResult,
+    ChartStatsSummary,
+    DashboardStatsSummary,
+    DatasetStatsSummary,
 } from '../../../types.generated';
 import { FetchedEntity } from '../../lineage/types';
 
@@ -118,6 +121,7 @@ export type GenericEntityProperties = {
     inputOutput?: Maybe<DataJobInputOutput>;
     tagProposals?: Maybe<ActionRequest[]>;
     termProposals?: Maybe<ActionRequest[]>;
+    statsSummary?: Maybe<ChartStatsSummary | DashboardStatsSummary | DatasetStatsSummary>;
 };
 
 export type GenericEntityUpdate = {
