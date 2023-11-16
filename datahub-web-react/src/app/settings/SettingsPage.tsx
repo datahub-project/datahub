@@ -58,6 +58,8 @@ const ItemTitle = styled.span`
     margin-left: 8px;
 `;
 
+const menuStyle = { width: 256, 'margin-top': 8, overflow: 'hidden auto' };
+
 /**
  * URL Paths for each settings page.
  */
@@ -112,7 +114,7 @@ export const SettingsPage = () => {
                 <Menu
                     selectable={false}
                     mode="inline"
-                    style={{ width: 256, marginTop: 8, overflowY: 'auto', overflowX: 'hidden' }}
+                    style={menuStyle}
                     selectedKeys={[activePath]}
                     onClick={(newPath) => {
                         history.replace(`${url}/${newPath.key}`);

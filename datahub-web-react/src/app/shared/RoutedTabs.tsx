@@ -21,7 +21,6 @@ interface Props extends TabsProps {
 }
 
 const RoutedTabsStyle = styled.div`
-    max-height: 100%;
     display: flex;
     flex-direction: column;
     overflow: auto;
