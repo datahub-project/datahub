@@ -124,18 +124,22 @@ class Urn:
     def __str__(self) -> str:
         return self.urn()
 
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}({self.urn()})"
+
     def urn_url_encoded(self) -> str:
         return Urn.url_encode(self.urn())
 
     def __eq__(self, other: object) -> bool:
-        # TODO: Should we allow comparison with strings?
         if not isinstance(other, Urn):
             return False
         return self.urn() == other.urn()
 
     def __lt__(self, other: object) -> bool:
         if not isinstance(other, Urn):
-            return False
+            raise TypeError(
+                f"'<' not supported between instances of '{type(self)}' and '{type(other)}'"
+            )
         return self.urn() < other.urn()
 
     def __hash__(self) -> int:

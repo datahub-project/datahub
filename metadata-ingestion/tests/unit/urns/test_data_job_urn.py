@@ -17,7 +17,7 @@ class TestDataJobUrn(unittest.TestCase):
         assert data_job_urn.get_job_id() == "job_id"
         assert data_job_urn.__str__() == data_job_urn_str
         assert data_job_urn == DataJobUrn(
-            "dataJob", ["urn:li:dataFlow:(airflow,flow_id,prod)", "job_id"]
+            "urn:li:dataFlow:(airflow,flow_id,prod)", "job_id"
         )
 
     def test_invalid_urn(self) -> None:

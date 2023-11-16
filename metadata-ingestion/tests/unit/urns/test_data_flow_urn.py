@@ -12,7 +12,7 @@ class TestDataFlowUrn(unittest.TestCase):
         assert data_flow_urn.get_flow_id() == "def"
         assert data_flow_urn.get_env() == "prod"
         assert data_flow_urn.__str__() == "urn:li:dataFlow:(airflow,def,prod)"
-        assert data_flow_urn == DataFlowUrn("dataFlow", ["airflow", "def", "prod"])
+        assert data_flow_urn == DataFlowUrn("airflow", "def", "prod")
 
     def test_invalid_urn(self) -> None:
         with self.assertRaises(InvalidUrnError):

@@ -12,7 +12,7 @@ class TestTagUrn(unittest.TestCase):
 
         assert tag_urn.get_entity_id() == ["abc"]
         assert str(tag_urn) == tag_urn_str
-        assert tag_urn == TagUrn("tag", ["abc"])
+        assert tag_urn == TagUrn("abc")
         assert tag_urn == TagUrn.create_from_id("abc")
 
     def test_invalid_urn(self) -> None:

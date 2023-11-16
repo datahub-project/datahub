@@ -367,6 +367,23 @@ def field_name(field: dict) -> str:
     return name
 
 
+_create_from_id = """
+@classmethod
+@deprecated(reason="Use the constructor instead")
+def create_from_id(cls, id: str) -> "{class_name}":
+    return cls(id)
+"""
+_extra_urn_methods: Dict[str, List[str]] = {
+    "corpGroup": [_create_from_id.format(class_name="CorpGroupUrn")],
+    "corpuser": [_create_from_id.format(class_name="CorpUserUrn")],
+    "dataPlatform": [_create_from_id.format(class_name="DataPlatformUrn")],
+    "domain": [_create_from_id.format(class_name="DomainUrn")],
+    "tag": [_create_from_id.format(class_name="TagUrn")],
+    # datajob -> get_data_flow_urn
+    # TODO
+}
+
+
 def generate_urn_class(entity_type: str, key_aspect: dict) -> str:
     class_name = f"{capitalize_entity_name(entity_type)}Urn"
 
@@ -473,13 +490,8 @@ class {class_name}(_SpecificUrn):
         return cls({from_key_aspect_args})
 """
 
-    if len(fields) == 1:
-        code += f"""
-    @classmethod
-    @deprecated(reason="Use the constructor instead")
-    def create_from_id(cls, {field_name(fields[0])}: {field_type(fields[0])}) -> "{class_name}":
-        return cls({field_name(fields[0])})
-"""
+    for extra_method in _extra_urn_methods.get(entity_type, []):
+        code += textwrap.indent(extra_method, prefix=" " * 4)
 
     for i, field in enumerate(fields):
         code += f"""
