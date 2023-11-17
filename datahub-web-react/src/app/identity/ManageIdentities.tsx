@@ -8,7 +8,6 @@ import { UserList } from './user/UserList';
 const PageContainer = styled.div`
     padding-top: 20px;
     width: 100%;
-    max-height: 100%;
     overflow: auto;
     flex: 1;
     display: flex;
@@ -28,7 +27,6 @@ const PageTitle = styled(Typography.Title)`
 `;
 
 const Content = styled.div`
-    height: 100%;
     display: flex;
     flex-direction: column;
     overflow: auto;

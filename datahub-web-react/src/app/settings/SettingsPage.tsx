@@ -24,7 +24,6 @@ import ManagePosts from './posts/ManagePosts';
 
 const PageContainer = styled.div`
     display: flex;
-    max-height: 100%;
     overflow: auto;
 `;
 

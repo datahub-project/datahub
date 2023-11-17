@@ -20,7 +20,6 @@ import { addGroupToListGroupsCache, DEFAULT_GROUP_LIST_PAGE_SIZE, removeGroupFro
 const GroupContainer = styled.div`
     display: flex;
     flex-direction: column;
-    height: 100%;
     overflow: auto;
 `;
 
