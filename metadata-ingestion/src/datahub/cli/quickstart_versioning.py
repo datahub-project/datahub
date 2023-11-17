@@ -104,7 +104,7 @@ class QuickstartVersionMappingConfig(BaseModel):
         return config
 
     def get_quickstart_execution_plan(
-        self, requested_version: Optional[str]
+        self, requested_version: Optional[str],
     ) -> QuickstartExecutionPlan:
         """
         From the requested version and stable flag, returns the execution plan for the quickstart.
@@ -115,11 +115,14 @@ class QuickstartVersionMappingConfig(BaseModel):
             requested_version = "default"
         composefile_git_ref = requested_version
         docker_tag = requested_version
-        mysql_tag = requested_version
+        # Default to 5.7 if not specified in version map
+        mysql_tag = "5.7"
         result = self.quickstart_version_map.get(
             requested_version,
             QuickstartExecutionPlan(
-                composefile_git_ref=composefile_git_ref, docker_tag=docker_tag, mysql_tag=mysql_tag
+                composefile_git_ref=composefile_git_ref,
+                docker_tag=docker_tag,
+                mysql_tag=mysql_tag
             ),
         )
         # new CLI version is downloading the composefile corresponding to the requested version
