@@ -167,6 +167,7 @@ export class ContainerEntity implements Entity<Container> {
     getOverridePropertiesFromEntity = (data: Container) => {
         return {
             name: this.displayName(data),
+            externalUrl: data.properties?.externalUrl,
             entityCount: data.entities?.total,
         };
     };

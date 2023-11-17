@@ -332,7 +332,8 @@ entityClient:
 
 usageClient:
   retryInterval: ${USAGE_CLIENT_RETRY_INTERVAL:2}
-  numRetries: ${USAGE_CLIENT_NUM_RETRIES:3}
+  numRetries: ${USAGE_CLIENT_NUM_RETRIES:0}
+  timeoutMs: ${USAGE_CLIENT_TIMEOUT_MS:3000}
 
 cache:
   primary:
