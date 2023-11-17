@@ -165,6 +165,8 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOk
         setTimeout(() => setIsFocusedOnInput(false), 0);
     }
 
+    const getContainer = () => document.body; // to focus out from modal popup so autofocus works
+
     return (
         <Modal
             title={titleOverride || 'Set Domain'}
@@ -180,6 +182,7 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOk
                     </Button>
                 </>
             }
+            getContainer={getContainer}
         >
             <Form component={false}>
                 <Form.Item>

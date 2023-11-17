@@ -332,6 +332,19 @@ export const EditOwnersModal = ({
         setInputValue('');
     }
 
+    const getContainer = () => document.body; // to focus out from modal popup so autofocus works
+    const [defaultValue, setDefaultValue] = useState<any>();
+
+    // If the modal content is dynamic or the modal is not rendered immediately.
+    // we ned need to use the useEffect hook to ensure that the Select component gets the default value after the modal is mounted.
+    useEffect(() => {
+        const defaultOwner = selectedOwners.map((owner) => ({
+            key: owner.value.ownerUrn,
+            value: owner.value.ownerUrn,
+            label: owner.label,
+        }));
+        setDefaultValue(defaultOwner);
+    }, [selectedOwners]);
     return (
         <Modal
             title={title || `${operationType === OperationType.ADD ? 'Add' : 'Remove'} Owners`}
@@ -348,6 +361,7 @@ export const EditOwnersModal = ({
                     </Button>
                 </>
             }
+            getContainer={getContainer}
         >
             <Form layout="vertical" colon={false}>
                 <Form.Item key="owners" name="owners" label={<Typography.Text strong>Owner</Typography.Text>}>
@@ -374,11 +388,7 @@ export const EditOwnersModal = ({
                             tagRender={tagRender}
                             onBlur={handleBlur}
                             value={selectedOwners as any}
-                            defaultValue={selectedOwners.map((owner) => ({
-                                key: owner.value.ownerUrn,
-                                value: owner.value.ownerUrn,
-                                label: owner.label,
-                            }))}
+                            defaultValue={defaultValue}
                         >
                             {ownerSearchOptions}
                         </SelectInput>

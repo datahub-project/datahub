@@ -110,6 +110,7 @@ export default function SetDataProductModal({
     const selectValue =
         (selectedDataProduct && [entityRegistry.getDisplayName(EntityType.DataProduct, selectedDataProduct)]) ||
         undefined;
+    const getContainer = () => document.body; // to focus out from modal popup so autofocus works
 
     return (
         <Modal
@@ -126,6 +127,7 @@ export default function SetDataProductModal({
                     </Button>
                 </>
             }
+            getContainer={getContainer}
         >
             <Select
                 autoFocus
