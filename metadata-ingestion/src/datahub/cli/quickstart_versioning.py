@@ -104,7 +104,8 @@ class QuickstartVersionMappingConfig(BaseModel):
         return config
 
     def get_quickstart_execution_plan(
-        self, requested_version: Optional[str],
+        self,
+        requested_version: Optional[str],
     ) -> QuickstartExecutionPlan:
         """
         From the requested version and stable flag, returns the execution plan for the quickstart.
