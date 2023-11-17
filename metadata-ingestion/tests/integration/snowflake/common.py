@@ -568,5 +568,4 @@ def default_query_results(  # noqa: C901
                 "DOMAIN": "DATABASE",
             },
         ]
-    # Unreachable code
-    raise Exception(f"Unknown query {query}")
+    raise ValueError(f"Unexpected query: {query}")

@@ -370,8 +370,7 @@ def setup_mock_connect(mock_connect, query_results=None):
             return [('{"roles":"","value":""}',)]
         elif query == "select current_warehouse()":
             return [("TEST_WAREHOUSE")]
-        # Unreachable code
-        raise Exception()
+        raise ValueError(f"Unexpected query: {query}")
 
     connection_mock = MagicMock()
     cursor_mock = MagicMock()
@@ -399,8 +398,7 @@ def test_test_connection_no_warehouse(mock_connect):
             ]
         elif query == 'show grants to role "PUBLIC"':
             return []
-        # Unreachable code
-        raise Exception()
+        raise ValueError(f"Unexpected query: {query}")
 
     config = {
         "username": "user",
@@ -443,8 +441,7 @@ def test_test_connection_capability_schema_failure(mock_connect):
             return [("", "USAGE", "DATABASE", "DB1")]
         elif query == 'show grants to role "PUBLIC"':
             return []
-        # Unreachable code
-        raise Exception()
+        raise ValueError(f"Unexpected query: {query}")
 
     setup_mock_connect(mock_connect, query_results)
 
@@ -487,8 +484,7 @@ def test_test_connection_capability_schema_success(mock_connect):
             ]
         elif query == 'show grants to role "PUBLIC"':
             return []
-        # Unreachable code
-        raise Exception()
+        raise ValueError(f"Unexpected query: {query}")
 
     setup_mock_connect(mock_connect, query_results)
 
@@ -538,8 +534,7 @@ def test_test_connection_capability_all_success(mock_connect):
                 ["", "USAGE", "VIEW", "SNOWFLAKE.ACCOUNT_USAGE.ACCESS_HISTORY"],
                 ["", "USAGE", "VIEW", "SNOWFLAKE.ACCOUNT_USAGE.OBJECT_DEPENDENCIES"],
             ]
-        # Unreachable code
-        raise Exception()
+        raise ValueError(f"Unexpected query: {query}")
 
     setup_mock_connect(mock_connect, query_results)
 
