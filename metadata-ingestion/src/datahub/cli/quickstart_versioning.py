@@ -21,6 +21,7 @@ DEFAULT_REMOTE_CONFIG_PATH = "https://raw.githubusercontent.com/datahub-project/
 class QuickstartExecutionPlan(BaseModel):
     composefile_git_ref: str
     docker_tag: str
+    mysql_tag: str
 
 
 def _is_it_a_version(version: str) -> bool:
@@ -81,7 +82,7 @@ class QuickstartVersionMappingConfig(BaseModel):
             return QuickstartVersionMappingConfig(
                 quickstart_version_map={
                     "default": QuickstartExecutionPlan(
-                        composefile_git_ref="master", docker_tag="head"
+                        composefile_git_ref="master", docker_tag="head", mysql_tag="5.7"
                     ),
                 }
             )
@@ -114,10 +115,11 @@ class QuickstartVersionMappingConfig(BaseModel):
             requested_version = "default"
         composefile_git_ref = requested_version
         docker_tag = requested_version
+        mysql_tag = requested_version
         result = self.quickstart_version_map.get(
             requested_version,
             QuickstartExecutionPlan(
-                composefile_git_ref=composefile_git_ref, docker_tag=docker_tag
+                composefile_git_ref=composefile_git_ref, docker_tag=docker_tag, mysql_tag=mysql_tag
             ),
         )
         # new CLI version is downloading the composefile corresponding to the requested version
