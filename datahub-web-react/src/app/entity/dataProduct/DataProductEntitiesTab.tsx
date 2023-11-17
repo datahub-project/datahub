@@ -11,6 +11,7 @@ export function DataProductEntitiesTab() {
             useGetSearchResults={generateUseListDataProductAssets({ urn })}
             emptySearchQuery="*"
             placeholderText="Filter assets..."
+            includeSorting
         />
     );
 }

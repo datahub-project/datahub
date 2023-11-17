@@ -22,6 +22,7 @@ export const GroupAssets = ({ urn }: Props) => {
                 }}
                 emptySearchQuery="*"
                 placeholderText="Filter entities..."
+                includeSorting
             />
         </GroupAssetsWrapper>
     );
