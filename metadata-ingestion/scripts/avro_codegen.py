@@ -354,11 +354,14 @@ def write_urn_classes(key_aspects: List[dict], urn_dir: Path) -> None:
 
 from typing import ClassVar, List, Optional, Type, TYPE_CHECKING
 
-from deprecated import deprecated
+import functools
+from deprecated.sphinx import deprecated as _sphinx_deprecated
 
 from datahub.utilities.urn_encoder import UrnEncoder
 from datahub.utilities.urns._urn_base import _SpecificUrn, Urn
 from datahub.utilities.urns.error import InvalidUrnError
+
+deprecated = functools.partial(_sphinx_deprecated, version="0.12.0.2")
 """
 
     for aspect in key_aspects:
