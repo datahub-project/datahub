@@ -136,7 +136,7 @@ export const SettingsPage = () => {
                             )}
                         </Menu.ItemGroup>
                     )}
-                    {(!showViews || !showOwnershipTypes || !showHomePagePosts) && (
+                    {(showViews || showOwnershipTypes || showHomePagePosts) && (
                         <Menu.ItemGroup title="Manage">
                             {showViews && (
                                 <Menu.Item key="views">
