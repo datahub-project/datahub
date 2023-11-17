@@ -428,11 +428,14 @@ export default function EditTagTermsModal({
 
     const isShowingGlossaryBrowser = !inputValue && type === EntityType.GlossaryTerm && isFocusedOnInput;
 
+    const getContainer = () => document.body; // to focus out from modal popup so autofocus works
+
     return (
         <Modal
             title={`${operationType === OperationType.ADD ? 'Add' : 'Remove'} ${entityRegistry.getEntityName(type)}s`}
             visible={visible}
             onCancel={onCloseModal}
+            getContainer={getContainer}
             footer={
                 <>
                     <Button onClick={onCloseModal} type="text">

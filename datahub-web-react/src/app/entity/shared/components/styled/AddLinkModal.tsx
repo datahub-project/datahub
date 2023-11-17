@@ -17,8 +17,8 @@ export const AddLinkModal = ({ buttonProps, refetch }: AddLinkProps) => {
     const user = useUserContext();
     const { entityType } = useEntityData();
     const [addLinkMutation] = useAddLinkMutation();
-
     const [form] = Form.useForm();
+    const getContainer = () => document.body;
 
     const showModal = () => {
         setIsModalVisible(true);
@@ -73,6 +73,7 @@ export const AddLinkModal = ({ buttonProps, refetch }: AddLinkProps) => {
                         Add
                     </Button>,
                 ]}
+                getContainer={getContainer}
             >
                 <Form form={form} name="addLinkForm" onFinish={handleAdd} layout="vertical">
                     <Form.Item
