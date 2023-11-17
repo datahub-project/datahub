@@ -51,6 +51,15 @@ class Urn:
     URNs are globally unique identifiers used to refer to entities.
 
     It will be in format of urn:li:<type>:<id> or urn:li:<type>:(<id1>,<id2>,...)
+
+    A note on encoding: certain characters, particularly commas and parentheses, are
+    not allowed in string portions of the URN. However, these are allowed when the urn
+    has another urn embedded within it. The main URN class ignores this possibility,
+    and assumes that the user provides a valid URN string. However, the specific URN
+    classes, such as DatasetUrn, will automatically encode these characters using
+    url-encoding when the URN is created and _allow_coercion is enabled (the default).
+    However, all from_string methods will try to preserve the string as-is, and will
+    raise an error if the string is invalid.
     """
 
     # retained for backwards compatibility
@@ -107,8 +116,6 @@ class Urn:
         _urn, _li, entity_type, entity_ids_str = parts
         entity_ids = _split_entity_id(entity_ids_str)
 
-        # TODO undo encoding?
-
         UrnCls: Optional[Type["_SpecificUrn"]] = URN_TYPES.get(entity_type)
         if UrnCls:
             if not issubclass(UrnCls, cls):
@@ -128,7 +135,6 @@ class Urn:
         return cls(entity_type, entity_ids)
 
     def urn(self) -> str:
-        # TODO: add encoding?
         if len(self._entity_ids) == 1:
             return f"urn:li:{self._entity_type}:{self._entity_ids[0]}"
 

@@ -579,6 +579,10 @@ def generate_urn_class(entity_type: str, key_aspect: dict) -> str:
             init_validation += (
                 f"assert {field_urn_type_class}.from_string({field_name(field)})\n"
             )
+        else:
+            init_validation += (
+                f"assert not UrnEncoder.contains_reserved_char({field_name(field)})\n"
+            )
 
         if field_name(field) == "env":
             init_coercion += "env = env.upper()\n"
