@@ -117,13 +117,14 @@ def patch_schema(schema: dict, urn_arrays: Dict[str, List[Tuple[str, str]]]) -> 
         # Patch normal urn types.
         field: avro.schema.Field
         for field in nested.fields:
-            java_props: dict = field.props.get("java", {})  # type: ignore
+            field_props: dict = field.props  # type: ignore
+            java_props: dict = field_props.get("java", {})
             java_class: Optional[str] = java_props.get("class")
             if java_class and java_class.startswith(
                 "com.linkedin.pegasus2avro.common.urn."
             ):
                 type = java_class.split(".")[-1]
-                entity_types = field.props.get("Relationship", {}).get(
+                entity_types = field_props.get("Relationship", {}).get(
                     "entityTypes", []
                 )
 
@@ -355,6 +356,7 @@ from typing import List, Optional, Type, TYPE_CHECKING
 
 from deprecated import deprecated
 
+from datahub.utilities.urn_encoder import UrnEncoder
 from datahub.utilities.urns._urn_base import _SpecificUrn, Urn
 from datahub.utilities.urns.error import InvalidUrnError
 """
@@ -556,6 +558,7 @@ def generate_urn_class(entity_type: str, key_aspect: dict) -> str:
         f"{field_name(field)}=key_aspect.{field['name']}" for field in fields
     )
 
+    init_coercion = ""
     init_validation = ""
     for field in fields:
         init_validation += f'if not {field_name(field)}:\n    raise InvalidUrnError("{field_name(field)} cannot be empty")\n'
@@ -577,17 +580,22 @@ def generate_urn_class(entity_type: str, key_aspect: dict) -> str:
                 f"assert {field_urn_type_class}.from_string({field_name(field)})\n"
             )
 
-    coercion = ""
-    for field in fields:
         if field_name(field) == "env":
-            coercion += "env = env.upper()\n"
+            init_coercion += "env = env.upper()\n"
         # TODO add ALL_ENV_TYPES validation
-        elif field_name(field) == "platform_name":
-            coercion += 'if platform_name.startswith("urn:li:dataPlatform:"):\n    platform_name = DataPlatformUrn.from_string(platform_name).platform_name\n'
-        elif field_name(field) == "platform":
-            coercion += "platform = DataPlatformUrn(platform).urn()\n"
-    if not coercion:
-        coercion = "pass"
+        elif entity_type == "dataPlatform" and field_name(field) == "platform_name":
+            init_coercion += 'if platform_name.startswith("urn:li:dataPlatform:"):\n'
+            init_coercion += "    platform_name = DataPlatformUrn.from_string(platform_name).platform_name\n"
+
+        if field_name(field) == "platform":
+            init_coercion += "platform = DataPlatformUrn(platform).urn()\n"
+        elif field_urn_type_class is None:
+            # For all non-urns, run the value through the UrnEncoder.
+            init_coercion += (
+                f"{field_name(field)} = UrnEncoder.encode_string({field_name(field)})\n"
+            )
+    if not init_coercion:
+        init_coercion = "pass"
 
     # TODO include the docs for each field
 
@@ -599,10 +607,10 @@ class {class_name}(_SpecificUrn):
     ENTITY_TYPE = "{entity_type}"
     URN_PARTS = {arg_count}
 
-    def __init__(self, {init_args}, _allow_coercion: bool = True) -> None:
+    def __init__(self, {init_args}, *, _allow_coercion: bool = True) -> None:
         if _allow_coercion:
             # Field coercion logic (if any is required).
-{textwrap.indent(coercion.strip(), prefix=" "*4*3)}
+{textwrap.indent(init_coercion.strip(), prefix=" "*4*3)}
 
         # Validation logic.
 {textwrap.indent(init_validation.strip(), prefix=" "*4*2)}
