@@ -72,6 +72,7 @@
         "react-highlighter": "^0.4.3",
         "react-icons": "4.3.1",
         "react-js-cron": "^2.1.0",
+        "react-resizable": "^3.0.5",
         "react-router": "^5.2.0",
         "react-router-dom": "^5.1.6",
         "react-scripts": "4.0.3",
