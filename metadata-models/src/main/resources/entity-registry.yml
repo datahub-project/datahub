@@ -11,6 +11,7 @@ entities:
       - roleProperties
       - actors
       - overProvisionedRole
+      - roleUsageStatistics
   - name: dataset
     doc: Datasets represent logical or physical data assets stored or represented in various data platforms. Tables, Views, Streams are all instances of datasets.
     category: core
@@ -178,6 +179,7 @@ entities:
       - origin
       - roleMembership
       - overProvisionedCorpUser
+      - corpUserUsageStatistics
   - name: corpGroup
     doc: CorpGroup represents an identity of a group of users in the enterprise.
     keyAspect: corpGroupKey

@@ -1,0 +1,18 @@
+namespace com.linkedin.identity
+
+import com.linkedin.timeseries.TimeseriesAspectBase
+
+/**
+ * Stats corresponding to dataset's usage.
+ */
+@Aspect = {
+  "name": "corpUserUsageStatistics",
+  "type": "timeseries",
+}
+record CorpUserUsageStatistics includes TimeseriesAspectBase {
+  /**
+   * Total SQL query count
+   */
+  @TimeseriesField = {}
+  totalLoginCount: optional int
+}

@@ -1,0 +1,18 @@
+namespace com.linkedin.role
+
+import com.linkedin.timeseries.TimeseriesAspectBase
+
+/**
+ * Stats corresponding to dataset's usage.
+ */
+@Aspect = {
+  "name": "roleUsageStatistics",
+  "type": "timeseries",
+}
+record RoleUsageStatistics includes TimeseriesAspectBase {
+  /**
+   * Total SQL query count
+   */
+  @TimeseriesField = {}
+  totalSqlQueries: optional int
+}
