@@ -3,7 +3,7 @@
 Sinks are **destinations for metadata**.
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/docs/main/imgs/sources-sinks.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/sources-sinks.png"/>
 </p>
 
 In general, the sink will be defined in the recipe after the _source_ like below.
