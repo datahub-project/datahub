@@ -1,1 +1,1 @@
-from datahub.utilities.urns import TagUrn  # noqa: F401
+from datahub.metadata.urns import TagUrn  # noqa: F401

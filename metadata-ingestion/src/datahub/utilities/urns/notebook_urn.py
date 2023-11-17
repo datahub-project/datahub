@@ -1,1 +1,1 @@
-from datahub.utilities.urns import NotebookUrn  # noqa: F401
+from datahub.metadata.urns import NotebookUrn  # noqa: F401

@@ -1,1 +1,1 @@
-from datahub.utilities.urns import DataPlatformUrn  # noqa: F401
+from datahub.metadata.urns import DataPlatformUrn  # noqa: F401

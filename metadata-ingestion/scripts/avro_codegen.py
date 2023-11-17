@@ -764,7 +764,26 @@ if TYPE_CHECKING or not _custom_package_path:
 else:
     _custom_package = importlib.import_module(_custom_package_path)
     globals().update(_custom_package.__dict__)
+"""
+        )
 
+        (Path(outdir) / "urns.py").write_text(
+            """
+# This is a specialized shim layer that allows us to dynamically load custom URN types from elsewhere.
+
+import importlib
+from typing import TYPE_CHECKING
+
+from datahub.utilities._custom_package_loader import get_custom_urns_package
+from datahub.utilities.urns._urn_base import Urn  # noqa: F401
+
+_custom_package_path = get_custom_urns_package()
+
+if TYPE_CHECKING or not _custom_package_path:
+    from ._urns.urn_defs import *  # noqa: F401
+else:
+    _custom_package = importlib.import_module(_custom_package_path)
+    globals().update(_custom_package.__dict__)
 """
         )
 

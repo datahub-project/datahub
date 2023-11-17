@@ -1,1 +1,1 @@
-from datahub.utilities.urns import CorpUserUrn as CorpuserUrn  # noqa: F401
+from datahub.metadata.urns import CorpUserUrn as CorpuserUrn  # noqa: F401

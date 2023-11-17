@@ -1,8 +1,7 @@
 import pytest
 
-from datahub.utilities.urns import DatasetUrn
+from datahub.metadata.urns import DatasetUrn, Urn
 from datahub.utilities.urns.error import InvalidUrnError
-from datahub.utilities.urns.urn import Urn
 
 pytestmark = pytest.mark.filterwarnings("ignore::DeprecationWarning")
 
