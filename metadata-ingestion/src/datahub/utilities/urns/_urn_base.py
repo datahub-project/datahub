@@ -91,9 +91,11 @@ class Urn:
     def from_string(cls: Type[_UrnSelf], urn_str: str) -> "_UrnSelf":
         """
         Create a Urn from the its string representation
+
         :param urn_str: the string representation of the Urn
         :return: Urn of the given string representation
-        :raises InvalidUrnError if the string representation is in invalid format
+
+        :raises InvalidUrnError: if the string representation is in invalid format
         """
 
         # TODO: Add handling for url encoded urns e.g. urn%3A ...

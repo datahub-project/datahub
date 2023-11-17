@@ -352,7 +352,7 @@ def write_urn_classes(key_aspects: List[dict], urn_dir: Path) -> None:
     code = """
 # This file contains classes corresponding to entity URNs.
 
-from typing import List, Optional, Type, TYPE_CHECKING
+from typing import ClassVar, List, Optional, Type, TYPE_CHECKING
 
 from deprecated import deprecated
 
@@ -608,8 +608,8 @@ if TYPE_CHECKING:
     from datahub.metadata.schema_classes import {key_aspect_class}
 
 class {class_name}(_SpecificUrn):
-    ENTITY_TYPE = "{entity_type}"
-    URN_PARTS = {arg_count}
+    ENTITY_TYPE: ClassVar[str] = "{entity_type}"
+    URN_PARTS: ClassVar[int] = {arg_count}
 
     def __init__(self, {init_args}, *, _allow_coercion: bool = True) -> None:
         if _allow_coercion:
@@ -752,6 +752,7 @@ def generate(
 import importlib
 from typing import TYPE_CHECKING
 
+from datahub.utilities.docs_build import IS_SPHINX_BUILD
 from datahub.utilities._custom_package_loader import get_custom_models_package
 
 _custom_package_path = get_custom_models_package()
@@ -761,6 +762,13 @@ if TYPE_CHECKING or not _custom_package_path:
 
     # Required explicitly because __all__ doesn't include _ prefixed names.
     from ._schema_classes import _Aspect, __SCHEMA_TYPES
+
+    if IS_SPHINX_BUILD:
+        # Set __module__ to the current module so that Sphinx will document the
+        # classes as belonging to this module instead of the custom package.
+        for _cls in list(globals().values()):
+            if hasattr(_cls, "__module__") and "datahub.metadata._schema_classes" in _cls.__module__:
+                _cls.__module__ = __name__
 else:
     _custom_package = importlib.import_module(_custom_package_path)
     globals().update(_custom_package.__dict__)
@@ -774,6 +782,7 @@ else:
 import importlib
 from typing import TYPE_CHECKING
 
+from datahub.utilities.docs_build import IS_SPHINX_BUILD
 from datahub.utilities._custom_package_loader import get_custom_urns_package
 from datahub.utilities.urns._urn_base import Urn  # noqa: F401
 
@@ -781,6 +790,13 @@ _custom_package_path = get_custom_urns_package()
 
 if TYPE_CHECKING or not _custom_package_path:
     from ._urns.urn_defs import *  # noqa: F401
+
+    if IS_SPHINX_BUILD:
+        # Set __module__ to the current module so that Sphinx will document the
+        # classes as belonging to this module instead of the custom package.
+        for _cls in list(globals().values()):
+            if hasattr(_cls, "__module__") and ("datahub.metadata._urns.urn_defs" in _cls.__module__ or _cls is Urn):
+                _cls.__module__ = __name__
 else:
     _custom_package = importlib.import_module(_custom_package_path)
     globals().update(_custom_package.__dict__)
