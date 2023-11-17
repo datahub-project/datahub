@@ -122,7 +122,14 @@ def patch_schema(schema: dict, urn_arrays: Dict[str, List[Tuple[str, str]]]) -> 
             if java_class and java_class.startswith(
                 "com.linkedin.pegasus2avro.common.urn."
             ):
-                field.set_prop("Urn", java_class.split(".")[-1])
+                type = java_class.split(".")[-1]
+                entity_types = field.props.get("Relationship", {}).get(
+                    "entityTypes", []
+                )
+
+                field.set_prop("Urn", type)
+                if entity_types:
+                    field.set_prop("entityTypes", entity_types)
 
         # Patch array urn types.
         if nested.name in urn_arrays:
@@ -348,7 +355,7 @@ from typing import List, Optional, Type, TYPE_CHECKING
 
 from deprecated import deprecated
 
-from datahub.utilities.urns._urn_base import _SpecificUrn
+from datahub.utilities.urns._urn_base import _SpecificUrn, Urn
 from datahub.utilities.urns.error import InvalidUrnError
 """
 
@@ -553,19 +560,22 @@ def generate_urn_class(entity_type: str, key_aspect: dict) -> str:
     for field in fields:
         init_validation += f'if not {field_name(field)}:\n    raise InvalidUrnError("{field_name(field)} cannot be empty")\n'
 
+        # Generalized mechanism for validating embedded urns.
+        field_urn_type_class = None
         if field_name(field) == "platform":
-            # TODO: Generalize this logic to all contained urns. Specifically, we'll
-            # need a way to use the field's annotations to determine that a field is
-            # supposed to be an urn.
-            # Ideally, this would also generalize into the type annotations that
-            # the init method accepts.
-            init_validation += f"{field_name(field)} = str({field_name(field)})\n"  # converts Urn types -> str
-            init_validation += (
-                f"assert DataPlatformUrn.from_string({field_name(field)})\n"
-            )
-        elif field_name(field) == "flow":
+            field_urn_type_class = "DataPlatformUrn"
+        elif field.get("Urn"):
+            if len(field.get("entityTypes", [])) == 1:
+                field_entity_type = field["entityTypes"][0]
+                field_urn_type_class = f"{capitalize_entity_name(field_entity_type)}Urn"
+            else:
+                field_urn_type_class = "Urn"
+
+        if field_urn_type_class:
             init_validation += f"{field_name(field)} = str({field_name(field)})\n"
-            init_validation += f"assert DataFlowUrn.from_string({field_name(field)})\n"
+            init_validation += (
+                f"assert {field_urn_type_class}.from_string({field_name(field)})\n"
+            )
 
     coercion = ""
     for field in fields:

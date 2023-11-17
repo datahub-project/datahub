@@ -116,7 +116,7 @@ class Urn:
                 # with Urn.from_string(), that's fine. However, if we're called as
                 # DatasetUrn.from_string('urn:li:corpuser:foo'), that should throw an error.
                 raise InvalidUrnError(
-                    f"Passed an urn of type {entity_type} to the from_string method of {cls}. Use Urn.from_string() or {UrnCls}.from_string() instead."
+                    f"Passed an urn of type {entity_type} to the from_string method of {cls.__name__}. Use Urn.from_string() or {UrnCls.__name__}.from_string() instead."
                 )
             return UrnCls._parse_ids(entity_ids)  # type: ignore
 
