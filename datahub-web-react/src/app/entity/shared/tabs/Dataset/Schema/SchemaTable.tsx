@@ -24,6 +24,7 @@ import useSchemaBlameRenderer from './utils/useSchemaBlameRenderer';
 import { ANTD_GRAY } from '../../../constants';
 import MenuColumn from './components/MenuColumn';
 import translateFieldPath from '../../../../dataset/profile/schema/utils/translateFieldPath';
+import { ResizableTitle } from './ResizableTitle';
 
 const TableContainer = styled.div`
     overflow: inherit;
@@ -57,6 +58,7 @@ export type Props = {
 
 const EMPTY_SET: Set<string> = new Set();
 const TABLE_HEADER_HEIGHT = 52;
+const MAX_COLUMN_WIDTH = 600;
 
 export default function SchemaTable({
     rows,
@@ -219,6 +221,31 @@ export default function SchemaTable({
 
     useMemo(() => setVT({ body: { row: SchemaRow } }), [setVT]);
 
+    const [columns, setColumns] = useState(allColumns);
+
+    const handleResize =
+        (index) =>
+        (e, { size }) => {
+            setColumns((prevColumns) => {
+                const nextColumns = [...prevColumns];
+                const newWidth = Math.min(size.width, MAX_COLUMN_WIDTH);
+                nextColumns[index] = {
+                    ...nextColumns[index],
+                    width: newWidth,
+                };
+                return nextColumns;
+            });
+        };
+
+    const resizableColumns = columns.map((col, index) => ({
+        ...col,
+        onHeaderCell: (column) => ({
+            width: column.width,
+            onResize: handleResize(index),
+            column,
+        }),
+    }));
+
     return (
         <FkContext.Provider value={selectedFkFieldPath}>
             <TableContainer>
@@ -227,11 +254,16 @@ export default function SchemaTable({
                         rowClassName={(record) =>
                             record.fieldPath === selectedFkFieldPath?.fieldPath ? 'open-fk-row' : ''
                         }
-                        columns={allColumns}
+                        columns={resizableColumns}
                         dataSource={rows}
                         rowKey="fieldPath"
                         scroll={{ y: tableHeight }}
-                        components={VT}
+                        components={{
+                            header: {
+                                cell: ResizableTitle,
+                            },
+                            body: VT as any,
+                        }}
                         expandable={{
                             expandedRowKeys: [...Array.from(expandedRows)],
                             defaultExpandAllRows: false,
