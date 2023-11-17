@@ -1,0 +1,8 @@
+namespace com.linkedin.datapolicy
+/**
+* Supported DataPolicies
+*/
+enum DataPolicyType {
+  ResourcePrincipalPolicy
+  DataMaskingPolicy
+}

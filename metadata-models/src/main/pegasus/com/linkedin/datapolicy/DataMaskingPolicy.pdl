@@ -1,0 +1,24 @@
+namespace com.linkedin.datapolicy
+
+import com.linkedin.common.Urn
+
+/**
+  *  DataMaskingPolicy is a type of DataPolicy
+  */
+
+record DataMaskingPolicy {
+  /**
+    * Reference to resource on which masking policy is applied
+    */
+  resourceRef: ResourceReference
+
+  /**
+    * Reference of masking policy defined in external system 
+    */
+  externalPolicyId: optional string
+
+  /**
+    * Reference of masking policy defined in external system 
+    */
+  defaultMaskedValue: string
+}

@@ -1,0 +1,8 @@
+namespace com.linkedin.dataset
+
+import com.linkedin.common.Urn
+
+record ColumnPrivacyClassification {
+  columnUrn: Urn 
+  privacyClassification: PrivacyClassification
+}

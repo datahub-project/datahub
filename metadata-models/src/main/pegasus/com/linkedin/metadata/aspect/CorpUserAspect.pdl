@@ -7,6 +7,7 @@ import com.linkedin.identity.CorpUserStatus
 import com.linkedin.identity.GroupMembership
 import com.linkedin.common.GlobalTags
 import com.linkedin.common.Status
+import com.linkedin.identity.OverProvisionedCorpUser
 
 /**
  * A union of all supported metadata aspects for a CorpUser
@@ -18,5 +19,6 @@ typeref CorpUserAspect = union[
   CorpUserStatus,
   GroupMembership,
   GlobalTags,
-  Status
+  Status,
+  OverProvisionedCorpUser
 ]

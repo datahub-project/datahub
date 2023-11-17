@@ -1,0 +1,15 @@
+namespace com.linkedin.dataset
+
+/** 
+  *
+  * Privacy classification of each column of Dataset.
+  * Refer refer https://docs.snowflake.com/en/user-guide/governance-classify-concepts for more detail on privacy classification
+  * 
+  */
+
+@Aspect = {
+  "name": "datasetPrivacyClassification"
+}
+record DatasetPrivacyClassification {
+  columnClassifications: array[ColumnPrivacyClassification]
+}

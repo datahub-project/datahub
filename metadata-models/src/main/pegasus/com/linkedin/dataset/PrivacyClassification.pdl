@@ -1,0 +1,13 @@
+namespace com.linkedin.dataset
+
+/**
+  * Privacy classification of metadata.
+  * Example:
+  *    if privacyCategory is "IDENTIFIER" then  semanticCategory would be "PAYMENT_CARD"
+  * For all possible values please refer https://docs.snowflake.com/en/user-guide/governance-classify-concepts
+  */
+
+record PrivacyClassification {
+    privacyCategory: string 
+    semanticCategory: string
+}
