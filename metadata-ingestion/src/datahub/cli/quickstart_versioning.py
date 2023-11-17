@@ -21,7 +21,7 @@ DEFAULT_REMOTE_CONFIG_PATH = "https://raw.githubusercontent.com/datahub-project/
 class QuickstartExecutionPlan(BaseModel):
     composefile_git_ref: str
     docker_tag: str
-    mysql_tag: str
+    mysql_tag: Optional[str]
 
 
 def _is_it_a_version(version: str) -> bool:
@@ -94,7 +94,7 @@ class QuickstartVersionMappingConfig(BaseModel):
             try:
                 release = cls._fetch_latest_version()
                 config.quickstart_version_map["stable"] = QuickstartExecutionPlan(
-                    composefile_git_ref=release, docker_tag=release
+                    composefile_git_ref=release, docker_tag=release, mysql_tag=release
                 )
             except Exception:
                 click.echo(
