@@ -122,7 +122,7 @@ class QuickstartVersionMappingConfig(BaseModel):
             QuickstartExecutionPlan(
                 composefile_git_ref=composefile_git_ref,
                 docker_tag=docker_tag,
-                mysql_tag=mysql_tag
+                mysql_tag=mysql_tag,
             ),
         )
         # new CLI version is downloading the composefile corresponding to the requested version
