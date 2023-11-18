@@ -545,10 +545,11 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         if not projects:
             return
 
-        for project_id in projects:
-            self.report.set_ingestion_stage(project_id.id, METADATA_EXTRACTION)
-            logger.info(f"Processing project: {project_id.id}")
-            yield from self._process_project(project_id)
+        if self.config.include_schema_metadata:
+            for project_id in projects:
+                self.report.set_ingestion_stage(project_id.id, METADATA_EXTRACTION)
+                logger.info(f"Processing project: {project_id.id}")
+                yield from self._process_project(project_id)
 
         if self.config.include_usage_statistics:
             yield from self.usage_extractor.get_usage_workunits(
