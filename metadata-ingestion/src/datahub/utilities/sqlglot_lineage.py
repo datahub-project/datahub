@@ -360,8 +360,12 @@ class SchemaResolver(Closeable):
         table_name = ".".join(
             filter(None, [table.database, table.db_schema, table.table])
         )
+
+        platform_instance = self.platform_instance
+
         if lower:
             table_name = table_name.lower()
+            platform_instance = platform_instance.lower() if platform_instance else None
 
         if self.platform == "bigquery":
             # Normalize shard numbers and other BigQuery weirdness.
@@ -372,7 +376,7 @@ class SchemaResolver(Closeable):
 
         urn = make_dataset_urn_with_platform_instance(
             platform=self.platform,
-            platform_instance=self.platform_instance,
+            platform_instance=platform_instance,
             env=self.env,
             name=table_name,
         )
