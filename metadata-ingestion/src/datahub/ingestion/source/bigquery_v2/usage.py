@@ -462,11 +462,11 @@ class BigQueryUsageExtractor:
                     self.report.num_view_query_events += 1
 
                     for new_event in self.generate_read_events_from_query(query_event):
-                        with self.report.store_usage_sec:
+                        with self.report.store_usage_event_sec:
                             num_generated += self._store_usage_event(
                                 new_event, usage_state, table_refs
                             )
-                with self.report.store_usage_sec:
+                with self.report.store_usage_event_sec:
                     num_aggregated += self._store_usage_event(
                         audit_event, usage_state, table_refs
                     )
@@ -918,16 +918,13 @@ class BigQueryUsageExtractor:
 
         parsed_tables = set()
         try:
-            with PerfTimer() as timer:
+            with self.report.sql_parsing_sec:
                 parser = BigQuerySQLParser(
                     query,
                     self.config.sql_parser_use_external_process,
                     use_raw_names=self.config.lineage_sql_parser_use_raw_names,
                 )
                 tables = parser.get_tables()
-                self.report.sql_parsing_sec[" ".join(query.split())] = round(
-                    timer.elapsed_seconds(), 2
-                )
         except Exception as ex:
             logger.debug(
                 f"Sql parsing failed on this query on view: {query}. "

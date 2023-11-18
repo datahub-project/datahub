@@ -63,8 +63,8 @@ class BigQueryV2Report(ProfilingSqlReport, IngestionStageReport, BaseTimeWindowR
     lineage_mem_size: Dict[str, str] = field(default_factory=TopKDict)
     lineage_extraction_sec: Dict[str, float] = field(default_factory=TopKDict)
     usage_extraction_sec: Dict[str, float] = field(default_factory=TopKDict)
-    sql_parsing_sec: Dict[str, float] = field(default_factory=TopKDict)
-    store_usage_sec: PerfTimer = field(default_factory=PerfTimer)
+    sql_parsing_sec: PerfTimer = field(default_factory=PerfTimer)
+    store_usage_event_sec: PerfTimer = field(default_factory=PerfTimer)
     num_usage_total_log_entries: TopKDict[str, int] = field(
         default_factory=int_top_k_dict
     )
