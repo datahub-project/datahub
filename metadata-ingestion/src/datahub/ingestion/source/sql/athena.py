@@ -379,7 +379,7 @@ class AthenaSource(SQLAlchemySource):
         # Based on community feedback, db_name only available if it is explicitly specified in the connection string.
         # If it is not available then we should use schema as db_name
 
-        if not db_name:
+        if not db_name or db_name == "none":
             db_name = schema
 
         return gen_database_key(
