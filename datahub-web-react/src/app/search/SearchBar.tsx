@@ -45,7 +45,7 @@ const StyledSearchBar = styled(Input)`
         border: 2px solid transparent;
 
         &:focus-within {
-            border: 1.5px solid ${REDESIGN_COLORS.BLUE};
+            border: 2px solid ${REDESIGN_COLORS.BLUE};
         }
     }
     > .ant-input::placeholder {

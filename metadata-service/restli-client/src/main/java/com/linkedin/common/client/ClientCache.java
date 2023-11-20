@@ -14,8 +14,8 @@ import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
-import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiFunction;
@@ -63,15 +63,15 @@ public class ClientCache<K, V, C extends ClientCacheConfig> {
 
         public ClientCache<K, V, C> build(Class<?> metricClazz) {
             // loads data from entity client
-            CacheLoader<K, V> loader = new CacheLoader<>() {
+            CacheLoader<K, V> loader = new CacheLoader<K, V>() {
                 @Override
                 public V load(@NonNull K key) {
-                    return loadAll(List.of(key)).get(key);
+                    return loadAll(Set.of(key)).get(key);
                 }
 
                 @Override
                 @NonNull
-                public Map<K, V> loadAll(@NonNull Iterable<? extends K> keys) {
+                public Map<K, V> loadAll(@NonNull Set<? extends K> keys) {
                     return loadFunction.apply(keys);
                 }
             };

@@ -142,11 +142,11 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
 
   @Nonnull
   @Override
-  public Map<String, Long> aggregateByValue(@Nullable String entityName, @Nonnull String field,
+  public Map<String, Long> aggregateByValue(@Nullable List<String> entityNames, @Nonnull String field,
       @Nullable Filter requestParams, int limit) {
-    log.debug("Aggregating by value: {}, field: {}, requestParams: {}, limit: {}", entityName, field, requestParams,
-        limit);
-    return esSearchDAO.aggregateByValue(entityName, field, requestParams, limit);
+    log.debug("Aggregating by value: {}, field: {}, requestParams: {}, limit: {}", entityNames.toString(), field,
+        requestParams, limit);
+    return esSearchDAO.aggregateByValue(entityNames, field, requestParams, limit);
   }
 
   @Nonnull

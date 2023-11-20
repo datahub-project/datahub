@@ -31,6 +31,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
@@ -263,17 +264,16 @@ public class ESSearchDAO {
    * @return
    */
   @Nonnull
-  public Map<String, Long> aggregateByValue(@Nullable String entityName, @Nonnull String field,
+  public Map<String, Long> aggregateByValue(@Nullable List<String> entityNames, @Nonnull String field,
       @Nullable Filter requestParams, int limit) {
     final SearchRequest searchRequest = SearchRequestHandler.getAggregationRequest(field, transformFilterForEntities(requestParams, indexConvention), limit);
-    String indexName;
-    if (entityName == null) {
-      indexName = indexConvention.getAllEntityIndicesPattern();
+    if (entityNames == null) {
+      String indexName = indexConvention.getAllEntityIndicesPattern();
+      searchRequest.indices(indexName);
     } else {
-      EntitySpec entitySpec = entityRegistry.getEntitySpec(entityName);
-      indexName = indexConvention.getIndexName(entitySpec);
+      Stream<String> stream = entityNames.stream().map(entityRegistry::getEntitySpec).map(indexConvention::getIndexName);
+      searchRequest.indices(stream.toArray(String[]::new));
     }
-    searchRequest.indices(indexName);
 
     try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "aggregateByValue_search").time()) {
       final SearchResponse searchResponse = client.search(searchRequest, RequestOptions.DEFAULT);
