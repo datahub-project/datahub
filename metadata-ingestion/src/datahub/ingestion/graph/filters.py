@@ -1,5 +1,4 @@
 import enum
-from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
 from datahub.emitter.mce_builder import (
@@ -24,49 +23,42 @@ class RemovedStatusFilter(enum.Enum):
     """Search only soft-deleted entities."""
 
 
-@dataclass
-class FilterParameters:
-    platform: Optional[str] = None
-    platform_instance: Optional[str] = None
-    env: Optional[str] = None
-    container: Optional[str] = None
-    status: RemovedStatusFilter = RemovedStatusFilter.NOT_SOFT_DELETED
-    extra_filters: Optional[List[SearchFilterRule]] = None
-
-
 def generate_filter(
-    params: FilterParameters,
+    platform: Optional[str],
+    platform_instance: Optional[str],
+    env: Optional[str],
+    container: Optional[str],
+    status: RemovedStatusFilter,
+    extra_filters: Optional[List[SearchFilterRule]],
 ) -> List[Dict[str, List[SearchFilterRule]]]:
     and_filters: List[SearchFilterRule] = []
 
     # Platform filter.
-    if params.platform:
-        and_filters.append(_get_platform_filter(params.platform))
+    if platform:
+        and_filters.append(_get_platform_filter(platform))
 
     # Platform instance filter.
-    if params.platform_instance:
-        and_filters.append(
-            _get_platform_instance_filter(params.platform, params.platform_instance)
-        )
+    if platform_instance:
+        and_filters.append(_get_platform_instance_filter(platform, platform_instance))
 
     # Browse path v2 filter.
-    if params.container:
-        and_filters.append(_get_container_filter(params.container))
+    if container:
+        and_filters.append(_get_container_filter(container))
 
     # Status filter.
-    status_filter = _get_status_filter(params.status)
+    status_filter = _get_status_filter(status)
     if status_filter:
         and_filters.append(status_filter)
 
     # Extra filters.
-    if params.extra_filters:
-        and_filters += params.extra_filters
+    if extra_filters:
+        and_filters += extra_filters
 
     or_filters: List[Dict[str, List[SearchFilterRule]]] = [{"and": and_filters}]
 
     # Env filter
-    if params.env:
-        env_filters = _get_env_filters(params.env)
+    if env:
+        env_filters = _get_env_filters(env)
         # This matches ALL the and_filters and at least one of the envOrConditions.
         or_filters = [
             {"and": and_filter["and"] + [extraCondition]}

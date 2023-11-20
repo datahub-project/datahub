@@ -536,8 +536,7 @@ class PrestoOnHiveSource(SQLAlchemySource):
                 schema_fields,
                 self.config.simplify_nested_field_paths,
             )
-            if schema_metadata:
-                dataset_snapshot.aspects.append(schema_metadata)
+            dataset_snapshot.aspects.append(schema_metadata)
 
             # add table properties
             properties: Dict[str, str] = properties_cache.get(dataset_name, {})
@@ -767,8 +766,7 @@ class PrestoOnHiveSource(SQLAlchemySource):
                 canonical_schema=schema_fields,
                 simplify_nested_field_paths=self.config.simplify_nested_field_paths,
             )
-            if schema_metadata:
-                dataset_snapshot.aspects.append(schema_metadata)
+            dataset_snapshot.aspects.append(schema_metadata)
 
             # add view properties
             properties: Dict[str, str] = {
