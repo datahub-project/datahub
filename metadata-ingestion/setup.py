@@ -213,11 +213,14 @@ pyhive_common = {
     # - 0.6.12 adds support for Spark Thrift Server
     # - 0.6.13 adds a small fix for Databricks
     # - 0.6.14 uses pure-sasl instead of sasl so it builds on Python 3.11
-    "acryl-pyhive[hive_pure_sasl]==0.6.14",
+    # - 0.6.15 adds support for thrift > 0.14 (cherry-picked from https://github.com/apache/thrift/pull/2491)
+    "acryl-pyhive[hive_pure_sasl]==0.6.15",
     # As per https://github.com/datahub-project/datahub/issues/8405
-    # and https://github.com/dropbox/PyHive/issues/417, new versions
-    # of thrift break PyHive's hive+http transport.
-    "thrift<0.14.0",
+    # and https://github.com/dropbox/PyHive/issues/417, version 0.14.0
+    # of thrift broke PyHive's hive+http transport.
+    # Fixed by https://github.com/apache/thrift/pull/2491 in version 0.17.0
+    # which is unfortunately not on PyPi.
+    # Instead, we put the fix in our PyHive fork, so no thrift pin is needed.
 }
 
 microsoft_common = {"msal==1.22.0"}
@@ -366,8 +369,6 @@ plugins: Dict[str, Set[str]] = {
     | usage_common
     | {"redshift-connector"}
     | sqlglot_lib,
-    "redshift-legacy": sql_common | redshift_common | sqlglot_lib,
-    "redshift-usage-legacy": sql_common | redshift_common | sqlglot_lib | usage_common,
     "s3": {*s3_base, *data_lake_profiling},
     "gcs": {*s3_base, *data_lake_profiling},
     "sagemaker": aws_common,
@@ -510,8 +511,6 @@ base_dev_requirements = {
             "presto",
             "redash",
             "redshift",
-            "redshift-legacy",
-            "redshift-usage-legacy",
             "s3",
             "snowflake",
             "tableau",
@@ -608,8 +607,6 @@ entry_points = {
         "postgres = datahub.ingestion.source.sql.postgres:PostgresSource",
         "redash = datahub.ingestion.source.redash:RedashSource",
         "redshift = datahub.ingestion.source.redshift.redshift:RedshiftSource",
-        "redshift-legacy = datahub.ingestion.source.sql.redshift:RedshiftSource",
-        "redshift-usage-legacy = datahub.ingestion.source.usage.redshift_usage:RedshiftUsageSource",
         "snowflake = datahub.ingestion.source.snowflake.snowflake_v2:SnowflakeV2Source",
         "superset = datahub.ingestion.source.superset:SupersetSource",
         "tableau = datahub.ingestion.source.tableau:TableauSource",
