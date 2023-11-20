@@ -75,21 +75,6 @@
     }
   },
   {
-    "urn": "urn:li:dataHubPolicy:2"
-  },
-  {
-    "urn": "urn:li:dataHubPolicy:3"
-  },
-  {
-    "urn": "urn:li:dataHubPolicy:4"
-  },
-  {
-    "urn": "urn:li:dataHubPolicy:5"
-  },
-  {
-    "urn": "urn:li:dataHubPolicy:6"
-  },
-  {
     "urn": "urn:li:dataHubPolicy:7",
     "info": {
       "actors":{
@@ -99,18 +84,8 @@
         "users":[]
       },
       "privileges":[
-        "MANAGE_INGESTION",
-        "MANAGE_SECRETS",
-        "MANAGE_USERS_AND_GROUPS",
         "VIEW_ANALYTICS",
-        "GENERATE_PERSONAL_ACCESS_TOKENS",
-        "MANAGE_DOMAINS",
-        "MANAGE_GLOBAL_ANNOUNCEMENTS",
-        "MANAGE_TESTS",
-        "MANAGE_GLOSSARIES",
-        "MANAGE_TAGS",
-        "MANAGE_GLOBAL_VIEWS",
-        "MANAGE_GLOBAL_OWNERSHIP_TYPES"
+        "GENERATE_PERSONAL_ACCESS_TOKENS"
       ],
       "displayName":"All Users - Base Platform Privileges",
       "description":"Grants base platform privileges to ALL users of DataHub. Change this policy to alter that behavior.",
@@ -118,15 +93,6 @@
       "type":"PLATFORM",
       "editable":true
     }
-  },
-  {
-    "urn": "urn:li:dataHubPolicy:8"
-  },
-  {
-    "urn": "urn:li:dataHubPolicy:9"
-  },
-  {
-    "urn": "urn:li:dataHubPolicy:10"
   },
   {
     "urn": "urn:li:dataHubPolicy:view-entity-page-all",
@@ -313,7 +279,6 @@
         "VIEW_ENTITY_PAGE",
         "EDIT_ENTITY_TAGS",
         "EDIT_ENTITY_GLOSSARY_TERMS",
-        "EDIT_ENTITY_OWNERS",
         "EDIT_ENTITY_DOCS",
         "EDIT_ENTITY_DOC_LINKS",
         "EDIT_ENTITY_STATUS",
@@ -321,16 +286,12 @@
         "EDIT_ENTITY_DATA_PRODUCTS",
         "EDIT_DEPRECATION_PRIVILEGE",
         "EDIT_ENTITY_ASSERTIONS",
-        "EDIT_ENTITY",
         "EDIT_DATASET_COL_TAGS",
         "EDIT_DATASET_COL_GLOSSARY_TERMS",
         "EDIT_DATASET_COL_DESCRIPTION",
         "VIEW_DATASET_USAGE",
         "VIEW_DATASET_PROFILE",
         "EDIT_TAG_COLOR",
-        "EDIT_GROUP_MEMBERS",
-        "EDIT_USER_PROFILE",
-        "EDIT_CONTACT_INFO",
         "EDIT_LINEAGE",
         "EDIT_ENTITY_QUERIES",
         "SEARCH_PRIVILEGE",
@@ -346,6 +307,54 @@
       "state":"ACTIVE",
       "type":"METADATA",
       "editable":false
+    }
+  },
+  {
+    "urn": "urn:li:dataHubPolicy:editor-metadata-policy-entities",
+    "info": {
+      "actors":{
+        "resourceOwners":false,
+        "allUsers":false,
+        "allGroups":false,
+        "users":[],
+        "groups":[],
+        "roles":[
+          "urn:li:dataHubRole:Editor"
+        ]
+      },
+      "resources": {
+        "allResources": false,
+        "filter": {
+          "criteria": [
+            {
+              "field": "RESOURCE_TYPE",
+              "values": [
+                "dataset",
+                "chart",
+                "dashboard",
+                "dataFlow",
+                "dataJob",
+                "tag",
+                "container",
+                "domain",
+                "glossaryTerm",
+                "glossaryNode",
+                "notebook",
+                "dataProduct"
+              ],
+              "condition": "EQUALS"
+            }
+          ]
+        }
+      },
+      "privileges":[
+        "EDIT_ENTITY"
+      ],
+      "displayName":"Editors - Edit Metadata Entities",
+      "description":"Editors can edit primary metadata entities.",
+      "state":"ACTIVE",
+      "type":"METADATA",
+      "editable":true
     }
   },
   {
