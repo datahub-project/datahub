@@ -6,6 +6,7 @@ from loguru import logger
 
 from datahub_integrations.app import DATAHUB_FRONTEND_URL
 from datahub_integrations.slack.config import (
+    SLACK_PROXY,
     SlackAppConfigCredentials,
     SlackAppDetails,
     SlackConnection,
@@ -139,7 +140,7 @@ def upsert_app_with_manifest(
     # Refresh the token if required.
     if slack_config.app_config_tokens.is_expired():
         logger.info("Refreshing slack token")
-        slack_client = slack_sdk.web.WebClient()  # no token required
+        slack_client = slack_sdk.web.WebClient(proxy=SLACK_PROXY)  # no token required
 
         res = slack_client.api_call(
             "tooling.tokens.rotate",
@@ -160,7 +161,7 @@ def upsert_app_with_manifest(
 
     assert slack_config.app_config_tokens
     slack_client = slack_sdk.web.WebClient(
-        token=slack_config.app_config_tokens.access_token
+        proxy=SLACK_PROXY, token=slack_config.app_config_tokens.access_token
     )
 
     if not slack_config.app_details:

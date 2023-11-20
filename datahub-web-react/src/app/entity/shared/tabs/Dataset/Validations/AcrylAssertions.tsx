@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { PlusOutlined } from '@ant-design/icons';
-import { Button } from 'antd';
+import { Button, Tooltip } from 'antd';
 import { useGetDatasetAssertionsWithMonitorsQuery } from '../../../../../../graphql/monitor.generated';
 import { Assertion } from '../../../../../../types.generated';
 import { useEntityData } from '../../../EntityContext';
@@ -46,13 +46,27 @@ export const AcrylAssertions = () => {
 
     const contract = contractData?.dataset?.contract as any;
     const assertionMonitorsEnabled = config?.featureFlags?.assertionMonitorsEnabled || false;
+
+    const canCreateAssertion =
+        (data?.dataset?.privileges?.canEditAssertions || false) &&
+        (data?.dataset?.privileges?.canEditMonitors || false);
     return (
         <>
             {assertionMonitorsEnabled && isEntityEligibleForAssertionMonitoring(entityData?.platform?.urn) && (
                 <TabToolbar>
-                    <Button type="text" onClick={() => setShowAssertionBuilder(true)}>
-                        <PlusOutlined /> Create Assertion
-                    </Button>
+                    <Tooltip
+                        title={
+                            !canCreateAssertion && 'You do not have permission to create an assertion for this asset'
+                        }
+                    >
+                        <Button
+                            type="text"
+                            onClick={() => canCreateAssertion && setShowAssertionBuilder(true)}
+                            disabled={!canCreateAssertion}
+                        >
+                            <PlusOutlined /> Create Assertion
+                        </Button>
+                    </Tooltip>
                 </TabToolbar>
             )}
             <DatasetAssertionsSummary summary={getLegacyAssertionsSummary(assertions)} />

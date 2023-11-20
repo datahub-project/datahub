@@ -22,7 +22,7 @@ from datahub_integrations.slack.app_manifest import (
     slack_bot_scopes,
     upsert_app_with_manifest,
 )
-from datahub_integrations.slack.config import SlackConnection, slack_config
+from datahub_integrations.slack.config import SLACK_PROXY, SlackConnection, slack_config
 from datahub_integrations.slack.oauth_state_store import InMemoryStateStore
 
 external_router = fastapi.APIRouter()
@@ -100,7 +100,7 @@ def oauth_callback(
     assert code
 
     # Logic based on https://slack.dev/python-slack-sdk/oauth/.
-    slack_client = slack_sdk.web.WebClient()  # no token required
+    slack_client = slack_sdk.web.WebClient(proxy=SLACK_PROXY)  # no token required
 
     authorize_url_generator = get_oauth_url_generator(config)
     oauth_response = slack_client.oauth_v2_access(
@@ -153,6 +153,7 @@ def get_slack_app(config: SlackConnection) -> slack_bolt.App:
 
     # Initializes your app with your bot token and signing secret
     app = slack_bolt.App(
+        client=slack_sdk.web.WebClient(proxy=SLACK_PROXY),
         token=config.bot_token,
         signing_secret=config.app_details.signing_secret,
         # As per the docs:

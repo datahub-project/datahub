@@ -186,14 +186,6 @@ export class DatasetEntity implements Entity<Dataset> {
                 {
                     name: 'Incidents',
                     component: IncidentTab,
-                    display: {
-                        visible: (_, dataset: GetDatasetQuery) => {
-                            return (dataset?.dataset?.totalIncidents?.total || 0) > 0;
-                        },
-                        enabled: (_, dataset: GetDatasetQuery) => {
-                            return (dataset?.dataset?.totalIncidents?.total || 0) > 0;
-                        },
-                    },
                 },
             ]}
             sidebarSections={[

@@ -44,6 +44,12 @@ fragment downloadSearchResults on Entity {
         deprecation {
             ...deprecationFields
         }
+        statsSummary {
+            rowCount
+            uniqueUserCountLast30Days
+            sizeInBytes
+            queryCountLast30Days
+        }
     }
     ... on CorpUser {
         username
@@ -117,6 +123,10 @@ fragment downloadSearchResults on Entity {
         subTypes {
             typeNames
         }
+        statsSummary {
+            viewCount
+            uniqueUserCountLast30Days
+        }
     }
     ... on Chart {
         chartId
@@ -157,6 +167,10 @@ fragment downloadSearchResults on Entity {
         ...entityDataProduct
         deprecation {
             ...deprecationFields
+        }
+        statsSummary {
+            viewCount
+            uniqueUserCountLast30Days
         }
     }
     ... on DataFlow {

@@ -81,7 +81,9 @@ public class SlackNotificationSinkTest {
             "defaultChannel",
             "#test",
             "retryEnabled",
-            "true"
+            "true",
+            "proxyUrl",
+            "https://proxy.acryl.io"
         ),
         mockSettingsProvider,
         mockIdentityProvider,

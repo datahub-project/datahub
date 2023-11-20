@@ -46,7 +46,6 @@ const ContentSectionTitle = styled(Typography.Title)`
 
 const ContentSection = styled.div`
     height: 100%;
-    display: flex;
 `;
 
 const Section = styled.div`
@@ -58,13 +57,13 @@ const Section = styled.div`
 `;
 
 const LeftColumn = styled.div`
-    width: 50%;
-    padding: 20px;
+    width: 100%;
+    padding: 20px 20px 10px 20px;
 `;
 
 const RightColumn = styled.div`
-    width: 50%;
-    padding: 20px;
+    width: 100%;
+    padding: 10px 20px 20px 20px;
 `;
 
 const StyledDatabaseOutlined = styled(DatabaseOutlined)`
