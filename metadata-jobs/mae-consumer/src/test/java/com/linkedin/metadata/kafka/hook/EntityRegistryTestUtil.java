@@ -11,7 +11,8 @@ public class EntityRegistryTestUtil {
     public static final EntityRegistry ENTITY_REGISTRY;
 
     static {
-        EntityRegistryTestUtil.class.getClassLoader().setClassAssertionStatus(PathSpecBasedSchemaAnnotationVisitor.class.getName(), false);
+        PathSpecBasedSchemaAnnotationVisitor.class.getClassLoader().setClassAssertionStatus(
+                PathSpecBasedSchemaAnnotationVisitor.class.getName(), false);
         ENTITY_REGISTRY = new ConfigEntityRegistry(
                 EntityRegistryTestUtil.class.getClassLoader().getResourceAsStream("test-entity-registry.yml"));
     }
