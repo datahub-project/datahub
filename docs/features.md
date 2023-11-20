@@ -26,7 +26,7 @@ To get started with DataHub, you can use a simple CLI command. Alternatively, yo
 
 ### Ingestion
 
-DataHub Supports Ingestion by UI and CLI.
+DataHub supports ingestion by UI and CLI.
 
 - [UI-based Ingestion](ui-ingestion.md)
 - [CLI-based Ingestion](cli.md)
