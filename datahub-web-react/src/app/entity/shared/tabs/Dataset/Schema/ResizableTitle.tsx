@@ -3,7 +3,7 @@ import { Resizable } from 'react-resizable';
 import PropTypes from 'prop-types';
 import styled from 'styled-components';
 import { percentToPixelWidth } from '../../../utils';
-import { SCHEMA_TABLE_MIN_COLUMN_HEIGHT, SCHEMA_TABLE_MIN_COLUMN_WIDTH } from '../../../constants';
+import { ANTD_GRAY, SCHEMA_TABLE_MIN_COLUMN_HEIGHT, SCHEMA_TABLE_MIN_COLUMN_WIDTH } from '../../../constants';
 
 const ResizableDiv = styled.div`
     width: 2px;
@@ -17,7 +17,7 @@ const ResizableDiv = styled.div`
 
 const ColumnHeader = styled.th`
     font-weight: 600 !important;
-    color: #595959 !important;
+    color: ${ANTD_GRAY[8]} !important;
     word-break: normal !important;
 `;
 
