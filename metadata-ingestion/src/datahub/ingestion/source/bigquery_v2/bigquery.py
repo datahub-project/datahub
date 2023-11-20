@@ -221,6 +221,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         self.bigquery_data_dictionary = BigQuerySchemaApi(
             self.report.schema_api_perf, self.config.get_bigquery_client()
         )
+        self.sql_parser_schema_resolver = self._init_schema_resolver()
 
         redundant_lineage_run_skip_handler: Optional[
             RedundantLineageRunSkipHandler
@@ -253,6 +254,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         self.usage_extractor = BigQueryUsageExtractor(
             config,
             self.report,
+            schema_resolver=self.sql_parser_schema_resolver,
             dataset_urn_builder=self.gen_dataset_urn_from_ref,
             redundant_run_skip_handler=redundant_usage_run_skip_handler,
         )
@@ -282,8 +284,6 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         self.view_refs_by_project: Dict[str, Set[str]] = defaultdict(set)
         # Maps view ref -> actual sql
         self.view_definitions: FileBackedDict[str] = FileBackedDict()
-
-        self.sql_parser_schema_resolver = self._init_schema_resolver()
 
         self.add_config_to_report()
         atexit.register(cleanup, config)
@@ -371,7 +371,10 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         report: BigQueryV2Report,
     ) -> CapabilityReport:
         usage_extractor = BigQueryUsageExtractor(
-            connection_conf, report, lambda ref: ""
+            connection_conf,
+            report,
+            schema_resolver=SchemaResolver(platform="bigquery"),
+            dataset_urn_builder=lambda ref: "",
         )
         for project_id in project_ids:
             try:
@@ -447,7 +450,9 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             self.config.lineage_parse_view_ddl or self.config.lineage_use_sql_parser
         )
         schema_ingestion_enabled = (
-            self.config.include_views and self.config.include_tables
+            self.config.include_schema_metadata
+            and self.config.include_tables
+            and self.config.include_views
         )
 
         if schema_resolution_required and not schema_ingestion_enabled:

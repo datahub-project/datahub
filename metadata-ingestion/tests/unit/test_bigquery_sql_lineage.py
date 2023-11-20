@@ -1,4 +1,14 @@
 from datahub.utilities.bigquery_sql_parser import BigQuerySQLParser
+from datahub.utilities.sqlglot_lineage import SchemaResolver
+
+
+def test_bigquery_sql_lineage_basic():
+    parser = BigQuerySQLParser(
+        sql_query="""SELECT * FROM project_1.database_1.view_1""",
+        schema_resolver=SchemaResolver(platform="bigquery"),
+    )
+
+    assert parser.get_tables() == ["project_1.database_1.view_1"]
 
 
 def test_bigquery_sql_lineage_hash_as_comment_sign_is_accepted():
@@ -14,7 +24,8 @@ SELECT foo
 -- this comment will not break sqllineage either
 # this comment will not break sqllineage either
 FROM `project.dataset.src_tbl`
-        """
+        """,
+        schema_resolver=SchemaResolver(platform="bigquery"),
     )
 
     assert parser.get_tables() == ["project.dataset.src_tbl"]
@@ -39,7 +50,7 @@ SELECT foo, bar
 # this comment will not break sqllineage either
 FROM `project.dataset.CamelCaseTable`
         """,
-        use_raw_names=True,
+        schema_resolver=SchemaResolver(platform="bigquery"),
     )
 
     assert parser.get_tables() == ["project.dataset.CamelCaseTable"]
@@ -64,7 +75,7 @@ SELECT foo, bar
 # this comment will not break sqllineage either
 FROM `project.DataSet.table`
         """,
-        use_raw_names=True,
+        schema_resolver=SchemaResolver(platform="bigquery"),
     )
 
     assert parser.get_tables() == ["project.DataSet.table"]
@@ -89,7 +100,7 @@ SELECT foo, bar
 # this comment will not break sqllineage either
 FROM `project.DataSet.CamelTable`
         """,
-        use_raw_names=True,
+        schema_resolver=SchemaResolver(platform="bigquery"),
     )
 
     assert parser.get_tables() == ["project.DataSet.CamelTable"]
@@ -117,7 +128,7 @@ FROM (
     SELECT * FROM `project.DataSet.CamelTable`
 )
         """,
-        use_raw_names=True,
+        schema_resolver=SchemaResolver(platform="bigquery"),
     )
 
     assert parser.get_tables() == ["project.DataSet.CamelTable"]
@@ -146,7 +157,7 @@ INNER JOIN `project.DataSet2.CamelTable2`
 LEFT JOIN `project.DataSet3.CamelTable3`
     on c.id = b.id
         """,
-        use_raw_names=True,
+        schema_resolver=SchemaResolver(platform="bigquery"),
     )
 
     assert parser.get_tables() == [
@@ -179,7 +190,7 @@ INNER JOIN `project.DataSet2.CamelTable2` b
 LEFT JOIN (SELECT * FROM `project.DataSet3.CamelTable3`) c
     ON c.id = b.id
         """,
-        use_raw_names=True,
+        schema_resolver=SchemaResolver(platform="bigquery"),
     )
 
     assert parser.get_tables() == [
@@ -199,7 +210,8 @@ def test_bigquery_sql_lineage_keyword_data_is_accepted():
                 FROM `project.example_dataset.example_table`
             )
             SELECT * FROM data
-        """
+        """,
+        schema_resolver=SchemaResolver(platform="bigquery"),
     )
 
     assert parser.get_tables() == ["project.example_dataset.example_table"]
@@ -213,7 +225,8 @@ def test_bigquery_sql_lineage_keyword_admin_is_accepted():
                 FROM `project.example_dataset.example_table`
             )
             SELECT * FROM admin
-        """
+        """,
+        schema_resolver=SchemaResolver(platform="bigquery"),
     )
 
     assert parser.get_tables() == ["project.example_dataset.example_table"]
@@ -238,7 +251,8 @@ WITH map AS (
        )
 SELECT *
   FROM map
-        """
+        """,
+        schema_resolver=SchemaResolver(platform="bigquery"),
     )
 
     assert parser.get_tables() == [
@@ -255,7 +269,8 @@ def test_bigquery_sql_lineage_create_or_replace_view_name_with_hyphens_is_accept
             FROM project.dataset.src_table_a
             UNION
             SELECT * FROM `project.dataset.src_table_b`
-        """
+        """,
+        schema_resolver=SchemaResolver(platform="bigquery"),
     )
 
     assert parser.get_tables() == [
@@ -270,7 +285,8 @@ def test_bigquery_sql_lineage_source_table_name_with_hyphens_is_accepted():
             CREATE OR REPLACE VIEW `project.dataset.test_view` AS
             SELECT *
             FROM test-project.dataset.src_table
-        """
+        """,
+        schema_resolver=SchemaResolver(platform="bigquery"),
     )
 
     assert parser.get_tables() == ["test-project.dataset.src_table"]
@@ -282,7 +298,8 @@ def test_bigquery_sql_lineage_from_as_column_name_is_accepted():
             CREATE OR REPLACE VIEW `project.dataset.test_view` AS
             SELECT x.from AS col
             FROM project.dataset.src_table AS x
-        """
+        """,
+        schema_resolver=SchemaResolver(platform="bigquery"),
     )
 
     assert parser.get_tables() == ["project.dataset.src_table"]

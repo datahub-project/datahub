@@ -35,6 +35,7 @@ from datahub.metadata.schema_classes import (
     TimeWindowSizeClass,
 )
 from datahub.testing.compare_metadata_json import diff_metadata_json
+from datahub.utilities.sqlglot_lineage import SchemaResolver
 from tests.performance.bigquery.bigquery_events import generate_events, ref_from_table
 from tests.performance.data_generation import generate_data, generate_queries
 from tests.performance.data_model import Container, FieldAccess, Query, Table, View
@@ -201,7 +202,10 @@ def usage_extractor(config: BigQueryV2Config) -> BigQueryUsageExtractor:
     return BigQueryUsageExtractor(
         config,
         report,
-        lambda ref: make_dataset_urn("bigquery", str(ref.table_identifier)),
+        schema_resolver=SchemaResolver(platform="bigquery"),
+        dataset_urn_builder=lambda ref: make_dataset_urn(
+            "bigquery", str(ref.table_identifier)
+        ),
     )
 
 
@@ -959,21 +963,21 @@ def test_operational_stats(
 
 def test_get_tables_from_query(usage_extractor):
     assert usage_extractor.get_tables_from_query(
-        PROJECT_1, "SELECT * FROM project-1.database_1.view_1"
+        "SELECT * FROM project-1.database_1.view_1", default_project=PROJECT_1
     ) == [
         BigQueryTableRef(BigqueryTableIdentifier("project-1", "database_1", "view_1"))
     ]
 
     assert usage_extractor.get_tables_from_query(
-        PROJECT_1, "SELECT * FROM database_1.view_1"
+        "SELECT * FROM database_1.view_1", default_project=PROJECT_1
     ) == [
         BigQueryTableRef(BigqueryTableIdentifier("project-1", "database_1", "view_1"))
     ]
 
     assert sorted(
         usage_extractor.get_tables_from_query(
-            PROJECT_1,
             "SELECT v.id, v.name, v.total, t.name as name1 FROM database_1.view_1 as v inner join database_1.table_1 as t on v.id=t.id",
+            default_project=PROJECT_1,
         )
     ) == [
         BigQueryTableRef(BigqueryTableIdentifier("project-1", "database_1", "table_1")),
@@ -982,8 +986,8 @@ def test_get_tables_from_query(usage_extractor):
 
     assert sorted(
         usage_extractor.get_tables_from_query(
-            PROJECT_1,
             "CREATE TABLE database_1.new_table AS SELECT v.id, v.name, v.total, t.name as name1 FROM database_1.view_1 as v inner join database_1.table_1 as t on v.id=t.id",
+            default_project=PROJECT_1,
         )
     ) == [
         BigQueryTableRef(BigqueryTableIdentifier("project-1", "database_1", "table_1")),
