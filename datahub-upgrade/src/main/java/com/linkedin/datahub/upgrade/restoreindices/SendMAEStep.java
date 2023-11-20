@@ -145,7 +145,6 @@ public class SendMAEStep implements UpgradeStep {
           args.start = start;
           context.report().addLine(String.format("Getting next batch of urns + aspects, starting with %s - %s", args.lastUrn, args.lastAspect));
           Future<RestoreIndicesResult> future = executor.submit(new KafkaJob(context, args));
-          while (!future.isDone()) { }
           try {
             RestoreIndicesResult result = future.get();
             reportStats(context, finalJobResult, result, rowCount, startTime);
@@ -154,7 +153,8 @@ public class SendMAEStep implements UpgradeStep {
             context.report().addLine(String.format("Rows processed this loop %d", rowsProcessed));
             start += args.batchSize;
           } catch (InterruptedException | ExecutionException e) {
-            e.printStackTrace();
+            context.report().addLine(String.format("Exception received while processing batch, exiting: %s", e.getMessage()));
+            break;
           }
         }
       } else {
