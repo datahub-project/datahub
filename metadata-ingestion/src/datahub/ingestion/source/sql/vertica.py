@@ -483,8 +483,7 @@ class VerticaSource(SQLAlchemySource):
             foreign_keys,
             schema_fields,
         )
-        if schema_metadata:
-            dataset_snapshot.aspects.append(schema_metadata)
+        dataset_snapshot.aspects.append(schema_metadata)
         db_name = self.get_db_name(inspector)
         yield from self.add_table_to_schema_container(dataset_urn, db_name, schema)
         mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
@@ -693,8 +692,7 @@ class VerticaSource(SQLAlchemySource):
             schema_fields,  # type: ignore
         )
 
-        if schema_metadata:
-            dataset_snapshot.aspects.append(schema_metadata)
+        dataset_snapshot.aspects.append(schema_metadata)
         db_name = self.get_db_name(inspector)
 
         yield from self.add_table_to_schema_container(dataset_urn, db_name, schema)
