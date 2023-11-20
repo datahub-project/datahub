@@ -18,8 +18,6 @@ const FeatureCard = ({icon, platformIcon, title, description, to}) => {
 return (
     <div className="col col--4">
       <Link to={useBaseUrl(to)} className={clsx("card", styles.feature)}>
-        {/* {icon}
-        {platformIcon && <img src={useBaseUrl(`/img/logos/platforms/${platformIcon}.svg`)} />} */}
         <div>
           <strong>{title}</strong>
           <span>{description}</span>
