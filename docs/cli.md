@@ -99,6 +99,36 @@ Command Options:
   --strict-warnings         If enabled, ingestion runs with warnings will yield a non-zero error code
   --test-source-connection  When set, ingestion will only test the source connection details from the recipe
 ```
+#### ingest --dry-run
+
+The `--dry-run` option of the `ingest` command performs all of the ingestion steps, except writing to the sink. This is useful to validate that the
+ingestion recipe is producing the desired metadata events before ingesting them into datahub.
+
+```shell
+# Dry run
+datahub ingest -c ./examples/recipes/example_to_datahub_rest.dhub.yml --dry-run
+# Short-form
+datahub ingest -c ./examples/recipes/example_to_datahub_rest.dhub.yml -n
+```
+
+#### ingest --preview
+
+The `--preview` option of the `ingest` command performs all of the ingestion steps, but limits the processing to only the first 10 workunits produced by the source.
+This option helps with quick end-to-end smoke testing of the ingestion recipe.
+
+```shell
+# Preview
+datahub ingest -c ./examples/recipes/example_to_datahub_rest.dhub.yml --preview
+# Preview with dry-run
+datahub ingest -c ./examples/recipes/example_to_datahub_rest.dhub.yml -n --preview
+```
+
+By default `--preview` creates 10 workunits. But if you wish to try producing more workunits you can use another option `--preview-workunits`
+
+```shell
+# Preview 20 workunits without sending anything to sink
+datahub ingest -c ./examples/recipes/example_to_datahub_rest.dhub.yml -n --preview --preview-workunits=20
+```
 
 #### ingest deploy
 
@@ -114,6 +144,37 @@ To update an existing recipe please use the `--urn` parameter to specify the id 
 
 **Note:** Updating a recipe will result in a replacement of the existing options with what was specified in the cli command.
 I.e: Not specifying a schedule in the cli update command will remove the schedule from the recipe to be updated.
+
+#### ingest --no-default-report
+By default, the cli sends an ingestion report to DataHub, which allows you to see the result of all cli-based ingestion in the UI. This can be turned off with the `--no-default-report` flag.
+
+```shell
+# Running ingestion with reporting to DataHub turned off
+datahub ingest -c ./examples/recipes/example_to_datahub_rest.dhub.yaml --no-default-report
+```
+
+The reports include the recipe that was used for ingestion. This can be turned off by adding an additional section to the ingestion recipe.
+
+```yaml
+source:
+  # source configs
+
+sink:
+  # sink configs
+
+# Add configuration for the datahub reporter
+reporting:
+  - type: datahub
+    config:
+      report_recipe: false
+
+# Optional log to put failed JSONs into a file
+# Helpful in case you are trying to debug some issue with specific ingestion failing
+failure_log:
+  enabled: false
+  log_config:
+    filename: ./path/to/failure.json
+```
 
 ### init
 
