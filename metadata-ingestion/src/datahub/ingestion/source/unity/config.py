@@ -1,13 +1,16 @@
 import logging
 import os
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 import pydantic
 from pydantic import Field
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
-from datahub.configuration.source_common import DatasetSourceConfigMixin
+from datahub.configuration.source_common import (
+    DatasetSourceConfigMixin,
+    LowerCaseDatasetUrnConfigMixin,
+)
 from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
@@ -73,7 +76,7 @@ class UnityCatalogProfilerConfig(ConfigModel):
         description="Number of worker threads to use for profiling. Set to 1 to disable.",
     )
 
-    @pydantic.root_validator
+    @pydantic.root_validator(skip_on_failure=True)
     def warehouse_id_required_for_profiling(
         cls, values: Dict[str, Any]
     ) -> Dict[str, Any]:
@@ -91,6 +94,7 @@ class UnityCatalogSourceConfig(
     BaseUsageConfig,
     DatasetSourceConfigMixin,
     StatefulProfilingConfigMixin,
+    LowerCaseDatasetUrnConfigMixin,
 ):
     token: str = pydantic.Field(description="Databricks personal access token")
     workspace_url: str = pydantic.Field(
@@ -128,6 +132,14 @@ class UnityCatalogSourceConfig(
 
     _metastore_id_pattern_removed = pydantic_removed_field("metastore_id_pattern")
 
+    catalogs: Optional[List[str]] = pydantic.Field(
+        default=None,
+        description=(
+            "Fixed list of catalogs to ingest."
+            " If not specified, catalogs will be ingested based on `catalog_pattern`."
+        ),
+    )
+
     catalog_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns for catalogs to filter in ingestion. Specify regex to match the full `metastore.catalog` name.",
@@ -160,6 +172,14 @@ class UnityCatalogSourceConfig(
     include_table_lineage: bool = pydantic.Field(
         default=True,
         description="Option to enable/disable lineage generation.",
+    )
+
+    include_external_lineage: bool = pydantic.Field(
+        default=True,
+        description=(
+            "Option to enable/disable lineage generation for external tables."
+            " Only external S3 tables are supported at the moment."
+        ),
     )
 
     include_notebooks: bool = pydantic.Field(

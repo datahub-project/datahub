@@ -33,6 +33,7 @@ from datahub.ingestion.source.unity.proxy_types import (
     ALLOWED_STATEMENT_TYPES,
     Catalog,
     Column,
+    ExternalTableReference,
     Metastore,
     Notebook,
     Query,
@@ -110,6 +111,15 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             return []
         for catalog in response:
             yield self._create_catalog(metastore, catalog)
+
+    def catalog(
+        self, catalog_name: str, metastore: Optional[Metastore]
+    ) -> Optional[Catalog]:
+        response = self._workspace_client.catalogs.get(catalog_name)
+        if not response:
+            logger.info(f"Catalog {catalog_name} not found")
+            return None
+        return self._create_catalog(metastore, response)
 
     def schemas(self, catalog: Catalog) -> Iterable[Schema]:
         response = self._workspace_client.schemas.list(catalog_name=catalog.name)
@@ -248,6 +258,13 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                     )
                     if table_ref:
                         table.upstreams[table_ref] = {}
+                elif "fileInfo" in item:
+                    external_ref = ExternalTableReference.create_from_lineage(
+                        item["fileInfo"]
+                    )
+                    if external_ref:
+                        table.external_upstreams.add(external_ref)
+
                 for notebook in item.get("notebookInfos") or []:
                     table.upstream_notebooks.add(notebook["notebook_id"])
 

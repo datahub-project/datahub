@@ -13,6 +13,13 @@ module.exports = {
   projectName: "datahub", // Usually your repo name.
   staticDirectories: ["static", "genStatic"],
   stylesheets: ["https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700&display=swap"],
+  scripts: [
+    {
+      src: "https://tools.luckyorange.com/core/lo.js?site-id=28ea8a38",
+      async: true,
+      defer: true,
+    },
+  ],
   noIndex: isSaas,
   customFields: {
     isSaas: isSaas,
@@ -44,20 +51,10 @@ module.exports = {
           label: "Docs",
         },
         {
-          type: 'docSidebar',
-          position: 'right',
-          sidebarId: 'integrationsSidebar',
-          label: 'Integrations',
-        },
-        {
-          type: 'docSidebar',
-          position: 'right',
-          sidebarId: 'developersSidebar',
-          label: 'Developers',
-        },
-        {
-          type: "docsVersionDropdown",
-          position: "left",
+          to: "/integrations",
+          activeBasePath: "integrations",
+          label: "Integrations",
+          position: "right",
         },
         {
           type: "dropdown",
@@ -65,30 +62,35 @@ module.exports = {
           position: "right",
           items: [
             {
-              to: "https://demo.datahubproject.io/",
+              href: "https://demo.datahubproject.io/",
               label: "Demo",
             },
             {
-              to: "https://blog.datahubproject.io/",
+              href: "https://blog.datahubproject.io/",
               label: "Blog",
             },
             {
-              to: "https://feature-requests.datahubproject.io/roadmap",
+              href: "https://feature-requests.datahubproject.io/roadmap",
               label: "Roadmap",
             },
             {
-              to: "https://slack.datahubproject.io",
+              href: "https://slack.datahubproject.io",
               label: "Slack",
             },
             {
-              to: "https://github.com/datahub-project/datahub",
-              label: "Github",
+              href: "https://github.com/datahub-project/datahub",
+              label: "GitHub",
             },
             {
-              to: "https://www.youtube.com/channel/UC3qFQC5IiwR5fvWEqi_tJ5w",
-              label: "Youtube",
+              href: "https://www.youtube.com/channel/UC3qFQC5IiwR5fvWEqi_tJ5w",
+              label: "YouTube",
             },
           ],
+        },
+        {
+          type: "docsVersionDropdown",
+          position: "left",
+          dropdownActiveClassDisabled: true,
         },
       ],
     },

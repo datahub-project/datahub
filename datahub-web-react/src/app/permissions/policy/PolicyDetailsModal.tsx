@@ -67,8 +67,8 @@ export default function PolicyDetailsModal({ policy, visible, onClose, privilege
     const isMetadataPolicy = policy?.type === PolicyType.Metadata;
 
     const resources = convertLegacyResourceFilter(policy?.resources);
-    const resourceTypes = getFieldValues(resources?.filter, 'RESOURCE_TYPE') || [];
-    const resourceEntities = getFieldValues(resources?.filter, 'RESOURCE_URN') || [];
+    const resourceTypes = getFieldValues(resources?.filter, 'TYPE') || [];
+    const resourceEntities = getFieldValues(resources?.filter, 'URN') || [];
     const domains = getFieldValues(resources?.filter, 'DOMAIN') || [];
 
     const {

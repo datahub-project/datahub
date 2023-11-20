@@ -6,7 +6,7 @@ import pytest
 import datahub.metadata.schema_classes as models
 from datahub.emitter.mce_builder import make_dataset_urn, make_schema_field_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.api.source_helpers import auto_incremental_lineage
+from datahub.ingestion.api.incremental_lineage_helper import auto_incremental_lineage
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.sink.file import write_metadata_file
 from tests.test_helpers import mce_helpers
@@ -88,7 +88,6 @@ def test_incremental_table_lineage(tmp_path, pytestconfig):
     processed_wus = auto_incremental_lineage(
         graph=None,
         incremental_lineage=True,
-        include_column_level_lineage=False,
         stream=[
             MetadataChangeProposalWrapper(
                 entityUrn=urn, aspect=aspect, systemMetadata=system_metadata
@@ -103,6 +102,27 @@ def test_incremental_table_lineage(tmp_path, pytestconfig):
     mce_helpers.check_golden_file(
         pytestconfig=pytestconfig, output_path=test_file, golden_path=golden_file
     )
+
+
+def test_incremental_table_lineage_empty_upstreams(tmp_path, pytestconfig):
+
+    urn = make_dataset_urn(platform, "dataset1")
+    aspect = make_lineage_aspect(
+        "dataset1",
+        upstreams=[],
+    )
+
+    processed_wus = auto_incremental_lineage(
+        graph=None,
+        incremental_lineage=True,
+        stream=[
+            MetadataChangeProposalWrapper(
+                entityUrn=urn, aspect=aspect, systemMetadata=system_metadata
+            ).as_workunit()
+        ],
+    )
+
+    assert [wu.metadata for wu in processed_wus] == []
 
 
 @pytest.mark.parametrize(
@@ -146,7 +166,6 @@ def test_incremental_column_level_lineage(
     processed_wus = auto_incremental_lineage(
         graph=mock_graph,
         incremental_lineage=True,
-        include_column_level_lineage=True,
         stream=[
             MetadataChangeProposalWrapper(
                 entityUrn=dataset_urn,
@@ -184,7 +203,6 @@ def test_incremental_column_lineage_less_upstreams_in_gms_aspect(
     processed_wus = auto_incremental_lineage(
         graph=mock_graph,
         incremental_lineage=True,
-        include_column_level_lineage=True,
         stream=[
             MetadataChangeProposalWrapper(
                 entityUrn=urn, aspect=aspect, systemMetadata=system_metadata
@@ -227,7 +245,6 @@ def test_incremental_column_lineage_more_upstreams_in_gms_aspect(
     processed_wus = auto_incremental_lineage(
         graph=mock_graph,
         incremental_lineage=True,
-        include_column_level_lineage=True,
         stream=[
             MetadataChangeProposalWrapper(
                 entityUrn=urn, aspect=aspect, systemMetadata=system_metadata

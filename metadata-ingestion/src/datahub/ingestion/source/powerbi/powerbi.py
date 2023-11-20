@@ -4,7 +4,7 @@
 #
 #########################################################
 import logging
-from typing import Iterable, List, Optional, Set, Tuple, Union
+from typing import Iterable, List, Optional, Tuple, Union
 
 import datahub.emitter.mce_builder as builder
 import datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes as powerbi_data_classes
@@ -110,8 +110,7 @@ class Mapper:
         self.__config = config
         self.__reporter = reporter
         self.__dataplatform_instance_resolver = dataplatform_instance_resolver
-        self.processed_datasets: Set[powerbi_data_classes.PowerBIDataset] = set()
-        self.workspace_key: ContainerKey
+        self.workspace_key: Optional[ContainerKey] = None
 
     @staticmethod
     def urn_to_lowercase(value: str, flag: bool) -> str:
@@ -264,7 +263,6 @@ class Mapper:
                 )
 
         if len(upstream) > 0:
-
             upstream_lineage_class: UpstreamLineageClass = UpstreamLineageClass(
                 upstreams=upstream,
                 fineGrainedLineages=cll_lineage or None,
@@ -375,6 +373,9 @@ class Mapper:
             f"Mapping dataset={dataset.name}(id={dataset.id}) to datahub dataset"
         )
 
+        if self.__config.extract_datasets_to_containers:
+            dataset_mcps.extend(self.generate_container_for_dataset(dataset))
+
         for table in dataset.tables:
             # Create a URN for dataset
             ds_urn = builder.make_dataset_urn_with_platform_instance(
@@ -462,7 +463,6 @@ class Mapper:
 
             self.append_container_mcp(
                 dataset_mcps,
-                workspace,
                 ds_urn,
                 dataset,
             )
@@ -473,8 +473,6 @@ class Mapper:
                 Constant.DATASET,
                 dataset.tags,
             )
-
-        self.processed_datasets.add(dataset)
 
         return dataset_mcps
 
@@ -573,7 +571,6 @@ class Mapper:
 
         self.append_container_mcp(
             result_mcps,
-            workspace,
             chart_urn,
         )
 
@@ -696,7 +693,6 @@ class Mapper:
 
         self.append_container_mcp(
             list_of_mcps,
-            workspace,
             dashboard_urn,
         )
 
@@ -712,7 +708,6 @@ class Mapper:
     def append_container_mcp(
         self,
         list_of_mcps: List[MetadataChangeProposalWrapper],
-        workspace: powerbi_data_classes.Workspace,
         entity_urn: str,
         dataset: Optional[powerbi_data_classes.PowerBIDataset] = None,
     ) -> None:
@@ -720,12 +715,8 @@ class Mapper:
             dataset, powerbi_data_classes.PowerBIDataset
         ):
             container_key = dataset.get_dataset_key(self.__config.platform_name)
-        elif self.__config.extract_workspaces_to_containers:
-            container_key = workspace.get_workspace_key(
-                platform_name=self.__config.platform_name,
-                platform_instance=self.__config.platform_instance,
-                workspace_id_as_urn_part=self.__config.workspace_id_as_urn_part,
-            )
+        elif self.__config.extract_workspaces_to_containers and self.workspace_key:
+            container_key = self.workspace_key
         else:
             return None
 
@@ -744,6 +735,7 @@ class Mapper:
     ) -> Iterable[MetadataWorkUnit]:
         self.workspace_key = workspace.get_workspace_key(
             platform_name=self.__config.platform_name,
+            platform_instance=self.__config.platform_instance,
             workspace_id_as_urn_part=self.__config.workspace_id_as_urn_part,
         )
         container_work_units = gen_containers(
@@ -755,7 +747,7 @@ class Mapper:
 
     def generate_container_for_dataset(
         self, dataset: powerbi_data_classes.PowerBIDataset
-    ) -> Iterable[MetadataWorkUnit]:
+    ) -> Iterable[MetadataChangeProposalWrapper]:
         dataset_key = dataset.get_dataset_key(self.__config.platform_name)
         container_work_units = gen_containers(
             container_key=dataset_key,
@@ -763,7 +755,13 @@ class Mapper:
             parent_container_key=self.workspace_key,
             sub_types=[BIContainerSubTypes.POWERBI_DATASET],
         )
-        return container_work_units
+
+        # The if statement here is just to satisfy mypy
+        return [
+            wu.metadata
+            for wu in container_work_units
+            if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+        ]
 
     def append_tag_mcp(
         self,
@@ -966,7 +964,6 @@ class Mapper:
 
             self.append_container_mcp(
                 list_of_mcps,
-                workspace,
                 chart_urn,
             )
 
@@ -1087,7 +1084,6 @@ class Mapper:
 
         self.append_container_mcp(
             list_of_mcps,
-            workspace,
             dashboard_urn,
         )
 
@@ -1138,6 +1134,10 @@ class Mapper:
 @capability(
     SourceCapability.OWNERSHIP,
     "Disabled by default, configured using `extract_ownership`",
+)
+@capability(
+    SourceCapability.LINEAGE_COARSE,
+    "Enabled by default, configured using `extract_lineage`.",
 )
 @capability(
     SourceCapability.LINEAGE_FINE,
@@ -1217,10 +1217,6 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase):
             f"Dataset lineage would get ingested for data-platform = {self.source_config.dataset_type_mapping}"
         )
 
-    def extract_datasets_as_containers(self):
-        for dataset in self.mapper.processed_datasets:
-            yield from self.mapper.generate_container_for_dataset(dataset)
-
     def extract_independent_datasets(
         self, workspace: powerbi_data_classes.Workspace
     ) -> Iterable[MetadataWorkUnit]:
@@ -1266,9 +1262,6 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase):
                 report, workspace
             ):
                 yield work_unit
-
-        if self.source_config.extract_datasets_to_containers:
-            yield from self.extract_datasets_as_containers()
 
         yield from self.extract_independent_datasets(workspace)
 

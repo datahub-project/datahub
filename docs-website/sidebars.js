@@ -10,6 +10,7 @@ module.exports = {
       },
       type: "category",
       collapsed: true,
+      link: { type: "doc", id: "docs/features" },
       items: [
         // By the end of this section, readers should understand the core use cases that DataHub addresses,
         // target end-users, high-level architecture, & hosting options
@@ -80,8 +81,10 @@ module.exports = {
         // The purpose of this section is to provide the minimum steps required to deploy DataHub to the vendor of your choosing
         "docs/deploy/aws",
         "docs/deploy/gcp",
+        "docs/deploy/azure",
         "docker/README",
         "docs/deploy/kubernetes",
+        "docs/deploy/confluent-cloud",
         "docs/deploy/environment-vars",
       ],
     },
@@ -103,15 +106,8 @@ module.exports = {
             {
               "Frontend Authentication": [
                 "docs/authentication/guides/jaas",
-                {
-                  "OIDC Authentication": [
-                    "docs/authentication/guides/sso/configure-oidc-react",
-                    "docs/authentication/guides/sso/configure-oidc-react-google",
-                    "docs/authentication/guides/sso/configure-oidc-react-okta",
-                    "docs/authentication/guides/sso/configure-oidc-react-azure",
-                    "docs/authentication/guides/sso/configure-oidc-behind-proxy",
-                  ],
-                },
+                "docs/authentication/guides/sso/configure-oidc-react",
+                "docs/authentication/guides/sso/configure-oidc-behind-proxy",
               ],
             },
             "docs/authentication/introducing-metadata-service-authentication",
@@ -134,10 +130,8 @@ module.exports = {
             "docs/how/restore-indices",
             "docs/advanced/db-retention",
             "docs/advanced/monitoring",
-            "docs/how/extract-container-logs",
             "docs/deploy/telemetry",
             "docs/how/kafka-config",
-            "docs/deploy/confluent-cloud",
             "docs/advanced/no-code-upgrade",
             "docs/how/jattach-guide",
           ],
@@ -503,20 +497,7 @@ module.exports = {
           ],
         },
         {
-          Advanced: [
-            "metadata-ingestion/docs/dev_guides/reporting_telemetry",
-            "docs/advanced/mcp-mcl",
-            "docker/datahub-upgrade/README",
-            "docs/advanced/no-code-modeling",
-            "datahub-web-react/src/app/analytics/README",
-            "docs/how/migrating-graph-service-implementation",
-            "docs/advanced/field-path-spec-v2",
-            "metadata-ingestion/adding-source",
-            "docs/how/add-custom-ingestion-source",
-            "docs/how/add-custom-data-platform",
-            "docs/advanced/browse-paths-upgrade",
-            "docs/browseV2/browse-paths-v2",
-          ],
+          Guides: ["docs/features/feature-guides/ui-lineage"],
         },
       ],
     },
@@ -749,6 +730,7 @@ module.exports = {
           ],
         },
       ],
+
     },
   ],
   guidesSidebar: {},

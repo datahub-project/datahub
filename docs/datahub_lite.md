@@ -85,9 +85,10 @@ source:
 
 sink:
   type: datahub-lite
-  forward_to:
-    type: datahub-rest
-    config:
+  config:
+    forward_to:
+      type: datahub-rest
+      config:
         server: "http://datahub-gms:8080"
 ```
 
