@@ -1,6 +1,6 @@
 # CLI Ingestion
 
-## Installing CLI
+## Installing the CLI
 
 Make sure you have installed DataHub CLI before following this guide. 
 ```shell
@@ -11,7 +11,7 @@ python3 -m pip install --upgrade acryl-datahub
 datahub version
 # If you see "command not found", try running this instead: python3 -m datahub version
 ```
-Check out the [CLI Installation Guide](../docs/cli.md#installation) for more reference. 
+Check out the [CLI Installation Guide](../docs/cli.md#installation) for more installation options and troubleshooting tips. 
 
 After that, install the required plugin for the ingestion.
 

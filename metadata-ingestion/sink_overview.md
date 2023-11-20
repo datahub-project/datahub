@@ -6,7 +6,7 @@ Sinks are **destinations for metadata**.
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/sources-sinks.png"/>
 </p>
 
-In general, the sink will be defined in the recipe after the _source_ like below.
+In general, the sink will be defined in the [recipe](./recipe_overview.md) after the [source](./source-docs-template.md) like below.
 
 ```yaml
 source: ...
@@ -16,22 +16,18 @@ sink:
   config: ...
 ```
 
-## Types of Sink
+## Types of Sinks
 
 When configuring ingestion for DataHub, you're likely to be sending the metadata to DataHub over either one of the following.
 
 - [REST (datahub-rest)](sink_docs/datahub.md#datahub-rest)
 - [Kafka (datahub-kafka)](sink_docs/datahub.md#datahub-kafka)
+
+For debugging purposes or troubleshooting, the following sinks can be useful:
+
 - [File](sink_docs/file.md)
+- [Console](sink_docs/console.md)
 
 ## Default Sink
 
 Since `acryl-datahub` version `>=0.8.33.2`, the default sink is assumed to be a `datahub-rest` endpoint.
-- Hosted at "http://localhost:8080" or the environment variable `${DATAHUB_GMS_URL}` if present
-- With an empty auth token or the environment variable `${DATAHUB_GMS_TOKEN}` if present.
-
-If you want to override the default endpoints, you can provide the environment variables as part of the command like below:
-
-```shell
-DATAHUB_GMS_URL="https://my-datahub-server:8080" DATAHUB_GMS_TOKEN="my-datahub-token" datahub ingest -c recipe.dhub.yaml
-```

@@ -8,16 +8,13 @@ Please see our **[Integrations page](https://datahubproject.io/integrations)** t
 
 DataHub offers three methods for data ingestion:
 
-- [UI Ingestion](../docs/ui-ingestion.md)
-- [CLI Ingestion guide](cli-ingestion.md)
-- SDK-based ingestion - [Python Emitter](./as-a-library.md), [Java emitter](../metadata-integration/java/as-a-library.md)
+- [UI Ingestion](../docs/ui-ingestion.md) : Easily configure and execute a metadata ingestion pipeline through the UI. 
+- [CLI Ingestion guide](cli-ingestion.md) : Configure the ingestion pipeline using YAML and execute by it through CLI. 
+- SDK-based ingestion : Use [Python Emitter](./as-a-library.md) or [Java emitter](../metadata-integration/java/as-a-library.md) to programmatically control the ingestion pipelines. 
 
 ## Types of Integration
 
 Integration can be divided into two concepts based on the method:
-
-- Push-based integration
-- Pull-based integration
 
 ### Push-based Integration
 
@@ -33,9 +30,9 @@ Examples of pull-based integrations include BigQuery, Snowflake, Looker, Tableau
 
 The following are the core concepts related to ingestion:
 
-- [Sources](source_overview.md) : Data systems from which extract metadata. (e.g. BigQuery, MySQL)
-- [Sinks](sink_overview.md) : Destination for metadata (e.g. File, DataHub)
-- [Recipe](recipe_overview.md) : The main configuration for ingestion in the form or .yaml file
+- [Sources](source_overview.md): Data systems from which extract metadata. (e.g. BigQuery, MySQL)
+- [Sinks](sink_overview.md): Destination for metadata (e.g. File, DataHub)
+- [Recipe](recipe_overview.md): The main configuration for ingestion in the form or .yaml file
 
 For more advanced guides, please refer to the following:
 
