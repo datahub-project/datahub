@@ -591,12 +591,7 @@ ORDER by DatabaseName, TableName;
             setattr(  # noqa: B010
                 self, "get_table_properties", self.cached_get_table_properties
             )
-            # self.loop_tables = self.cached_loop_tables
-            # self.loop_views = self.cached_loop_views
-            # self.get_table_properties = self.cached_get_table_properties
-            # setattr(  # noqa: B010
-            #    self, "_get_columns", lambda dataset_name, inspector, schema, table: []
-            # )
+
             tables_cache = self._tables_cache
             setattr(  # noqa: B010
                 TeradataDialect,
