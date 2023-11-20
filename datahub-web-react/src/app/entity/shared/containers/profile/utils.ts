@@ -221,3 +221,6 @@ export function sortEntityProfileTabs(appConfig: AppConfig, entityType: EntityTy
 
     return sortedTabs;
 }
+
+// To focus out from modal popup so autofocus works
+export const getContainer = () => document.getElementById('root') as HTMLElement;

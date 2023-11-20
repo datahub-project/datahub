@@ -19,6 +19,7 @@ import { useGetRecommendations } from '../recommendation';
 import { FORBIDDEN_URN_CHARS_REGEX, handleBatchError } from '../../entity/shared/utils';
 import { TagTermLabel } from './TagTermLabel';
 import { ENTER_KEY_CODE } from '../constants';
+import { getContainer } from '../../entity/shared/containers/profile/utils';
 
 export enum OperationType {
     ADD,
@@ -427,8 +428,6 @@ export default function EditTagTermsModal({
     }
 
     const isShowingGlossaryBrowser = !inputValue && type === EntityType.GlossaryTerm && isFocusedOnInput;
-
-    const getContainer = () => document.body; // to focus out from modal popup so autofocus works
 
     return (
         <Modal

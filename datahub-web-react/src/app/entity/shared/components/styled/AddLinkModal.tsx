@@ -5,6 +5,7 @@ import { useEntityData, useMutationUrn } from '../../EntityContext';
 import { useAddLinkMutation } from '../../../../../graphql/mutations.generated';
 import analytics, { EventType, EntityActionType } from '../../../../analytics';
 import { useUserContext } from '../../../../context/useUserContext';
+import { getContainer } from '../../containers/profile/utils';
 
 type AddLinkProps = {
     buttonProps?: Record<string, unknown>;
@@ -18,8 +19,6 @@ export const AddLinkModal = ({ buttonProps, refetch }: AddLinkProps) => {
     const { entityType } = useEntityData();
     const [addLinkMutation] = useAddLinkMutation();
     const [form] = Form.useForm();
-    const getContainer = () => document.body;
-
     const showModal = () => {
         setIsModalVisible(true);
     };
