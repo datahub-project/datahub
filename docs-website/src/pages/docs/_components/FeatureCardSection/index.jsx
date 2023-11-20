@@ -41,7 +41,7 @@ const featureCardContent =  [
 {
   title: "Vibrant Community →",
   description: "Our community provides support through office hours, workshops, and a Slack channel.",
-  to: "docs/community",
+  to: "docs/slack",
 }
 ]
 
