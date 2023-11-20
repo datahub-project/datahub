@@ -97,13 +97,8 @@ class TeradataTable:
     request_text: Optional[str]
 
 
-@lru_cache()
-def cached_query_execution(self, connection, query):
-    stmt = text(query)
-    return connection.execute(stmt).fetchall()
-
-
-@lru_cache(maxsize=5)
+# lru cache is set to 1 which work only in single threaded environment but it keeps the memory footprint lower
+@lru_cache(maxsize=1)
 def get_schema_columns(
     self: Any, connection: Connection, dbc_columns: str, schema: str
 ) -> Dict[str, List[Any]]:
@@ -120,7 +115,8 @@ def get_schema_columns(
     return columns
 
 
-@lru_cache(maxsize=5)
+# lru cache is set to 1 which work only in single threaded environment but it keeps the memory footprint lower
+@lru_cache(maxsize=1)
 def get_schema_pk_constraints(
     self: Any, connection: Connection, schema: str
 ) -> Dict[str, List[Any]]:
@@ -245,7 +241,8 @@ def optimized_get_columns(
     return final_column_info
 
 
-@lru_cache(maxsize=5)
+# lru cache is set to 1 which work only in single threaded environment but it keeps the memory footprint lower
+@lru_cache(maxsize=1)
 def get_schema_foreign_keys(
     self: Any, connection: Connection, schema: str
 ) -> Dict[str, List[Any]]:
@@ -474,8 +471,8 @@ class TeradataSource(TwoTierSQLAlchemySource):
         DefaultDatabase as default_database,
         s.SqlTextInfo as "query_text",
         s.SqlRowNo as "row_no"
-    FROM "DBC".DBQLSqlTbl as s
-    JOIN "DBC".DBQLogTbl as l on l.QueryID = s.QueryID
+    FROM "DBC".DBQLogTbl as l
+    JOIN "DBC".DBQLSqlTbl as s on s.QueryID = l.QueryID
     WHERE
         l.ErrorCode = 0
         AND l.statementtype not in (
@@ -496,6 +493,7 @@ class TeradataSource(TwoTierSQLAlchemySource):
     )
         and "timestamp" >= TIMESTAMP '{start_time}'
         and "timestamp" < TIMESTAMP '{end_time}'
+        and s.CollectTimeStamp >= TIMESTAMP '{start_time}'
         and default_database not in ('DEMONOW_MONITOR')
         {databases_filter}
     ORDER BY "query_id", "row_no"
@@ -639,13 +637,6 @@ ORDER by DatabaseName, TableName;
                 ),
             )
 
-            setattr(  # noqa: B010
-                TeradataDialect,
-                "cached_query_execution",
-                lambda self, connection, query: cached_query_execution(
-                    self, connection, query
-                ),
-            )
             setattr(  # noqa: B010
                 TeradataDialect,
                 "get_schema_columns",
