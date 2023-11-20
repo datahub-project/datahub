@@ -10,6 +10,7 @@ import { IconStyleType } from '../../../../../Entity';
 import { tagRender } from '../tagRenderer';
 import { useBatchSetDataProductMutation } from '../../../../../../../graphql/dataProduct.generated';
 import { handleBatchError } from '../../../../utils';
+import { getContainer } from '../../utils';
 
 const OptionWrapper = styled.div`
     padding: 2px 0;
@@ -110,7 +111,6 @@ export default function SetDataProductModal({
     const selectValue =
         (selectedDataProduct && [entityRegistry.getDisplayName(EntityType.DataProduct, selectedDataProduct)]) ||
         undefined;
-    const getContainer = () => document.body; // to focus out from modal popup so autofocus works
 
     return (
         <Modal

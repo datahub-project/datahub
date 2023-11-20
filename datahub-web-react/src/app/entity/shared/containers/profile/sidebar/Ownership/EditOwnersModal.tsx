@@ -20,6 +20,7 @@ import { useGetRecommendations } from '../../../../../../shared/recommendation';
 import { OwnerLabel } from '../../../../../../shared/OwnerLabel';
 import { handleBatchError } from '../../../../utils';
 import { useListOwnershipTypesQuery } from '../../../../../../../graphql/ownership.generated';
+import { getContainer } from '../../utils';
 
 const SelectInput = styled(Select)`
     width: 480px;
@@ -331,8 +332,6 @@ export const EditOwnersModal = ({
     function handleBlur() {
         setInputValue('');
     }
-
-    const getContainer = () => document.body; // to focus out from modal popup so autofocus works
     const [defaultValue, setDefaultValue] = useState<any>();
 
     // If the modal content is dynamic or the modal is not rendered immediately.

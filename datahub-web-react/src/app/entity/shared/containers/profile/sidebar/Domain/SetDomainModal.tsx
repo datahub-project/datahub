@@ -15,6 +15,7 @@ import { BrowserWrapper } from '../../../../../../shared/tags/AddTagsTermsModal'
 import DomainNavigator from '../../../../../../domain/nestedDomains/domainNavigator/DomainNavigator';
 import ClickOutside from '../../../../../../shared/ClickOutside';
 import { ANTD_GRAY } from '../../../../constants';
+import { getContainer } from '../../utils';
 
 type Props = {
     urns: string[];
@@ -179,8 +180,6 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOk
         // delay closing the domain navigator so we don't get a UI "flash" between showing search results and navigator
         setTimeout(() => setIsFocusedOnInput(false), 0);
     }
-
-    const getContainer = () => document.body; // to focus out from modal popup so autofocus works
 
     return (
         <Modal
