@@ -37,11 +37,23 @@ pip install 'acryl-datahub-airflow-plugin[plugin-v2]'
 
 ### Configuration
 
-Set up a DataHub connection in Airflow.
+Set up a DataHub connection in Airflow, either via command line or the Airflow UI.
+
+#### Command Line
 
 ```shell
 airflow connections add  --conn-type 'datahub-rest' 'datahub_rest_default' --conn-host 'http://datahub-gms:8080' --conn-password '<optional datahub auth token>'
 ```
+
+#### Airflow UI
+
+On the Airflow UI, go to Admin -> Connections and click the "+" symbol to create a new connection. Select "DataHub REST Server" from the dropdown for "Connection Type" and enter the appropriate values.
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/airflow/plugin_connection_setup.png"/>
+</p>
+
+#### Optional Configurations
 
 No additional configuration is required to use the plugin. However, there are some optional configuration parameters that can be set in the `airflow.cfg` file.
 

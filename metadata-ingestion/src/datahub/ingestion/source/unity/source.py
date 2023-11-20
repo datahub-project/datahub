@@ -188,9 +188,10 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
-        self.report.report_ingestion_stage_start("Start warehouse")
+        self.report.report_ingestion_stage_start("Ingestion Setup")
         wait_on_warehouse = None
         if self.config.is_profiling_enabled():
+            self.report.report_ingestion_stage_start("Start warehouse")
             # Can take several minutes, so start now and wait later
             wait_on_warehouse = self.unity_catalog_api_proxy.start_warehouse()
             if wait_on_warehouse is None:
@@ -200,8 +201,9 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 )
                 return
 
-        self.report.report_ingestion_stage_start("Ingest service principals")
-        self.build_service_principal_map()
+        if self.config.include_ownership:
+            self.report.report_ingestion_stage_start("Ingest service principals")
+            self.build_service_principal_map()
         if self.config.include_notebooks:
             self.report.report_ingestion_stage_start("Ingest notebooks")
             yield from self.process_notebooks()
@@ -317,7 +319,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
     def process_catalogs(
         self, metastore: Optional[Metastore]
     ) -> Iterable[MetadataWorkUnit]:
-        for catalog in self.unity_catalog_api_proxy.catalogs(metastore=metastore):
+        for catalog in self._get_catalogs(metastore):
             if not self.config.catalog_pattern.allowed(catalog.id):
                 self.report.catalogs.dropped(catalog.id)
                 continue
@@ -326,6 +328,17 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             yield from self.process_schemas(catalog)
 
             self.report.catalogs.processed(catalog.id)
+
+    def _get_catalogs(self, metastore: Optional[Metastore]) -> Iterable[Catalog]:
+        if self.config.catalogs:
+            for catalog_name in self.config.catalogs:
+                catalog = self.unity_catalog_api_proxy.catalog(
+                    catalog_name, metastore=metastore
+                )
+                if catalog:
+                    yield catalog
+        else:
+            yield from self.unity_catalog_api_proxy.catalogs(metastore=metastore)
 
     def process_schemas(self, catalog: Catalog) -> Iterable[MetadataWorkUnit]:
         for schema in self.unity_catalog_api_proxy.schemas(catalog=catalog):
@@ -509,6 +522,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             platform=self.platform,
             platform_instance=self.platform_instance_name,
             name=str(table_ref),
+            env=self.config.env,
         )
 
     def gen_notebook_urn(self, notebook: Union[Notebook, NotebookId]) -> str:
@@ -576,6 +590,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 instance=self.config.platform_instance,
                 catalog=schema.catalog.name,
                 metastore=schema.catalog.metastore.name,
+                env=self.config.env,
             )
         else:
             return UnitySchemaKey(
@@ -583,6 +598,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 platform=self.platform,
                 instance=self.config.platform_instance,
                 catalog=schema.catalog.name,
+                env=self.config.env,
             )
 
     def gen_metastore_key(self, metastore: Metastore) -> MetastoreKey:
@@ -590,6 +606,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             metastore=metastore.name,
             platform=self.platform,
             instance=self.config.platform_instance,
+            env=self.config.env,
         )
 
     def gen_catalog_key(self, catalog: Catalog) -> ContainerKey:
@@ -600,12 +617,14 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 metastore=catalog.metastore.name,
                 platform=self.platform,
                 instance=self.config.platform_instance,
+                env=self.config.env,
             )
         else:
             return CatalogKey(
                 catalog=catalog.name,
                 platform=self.platform,
                 instance=self.config.platform_instance,
+                env=self.config.env,
             )
 
     def _gen_domain_urn(self, dataset_name: str) -> Optional[str]:

@@ -70,7 +70,7 @@ public class MapperUtils {
                   Urn urn = Urn.createFromString(field.getValue());
                   matchedField.setEntity(UrnToEntityMapper.map(urn));
               } catch (URISyntaxException e) {
-                  log.warn("Failed to create urn from MatchedField value: {}", field.getValue(), e);
+                  log.debug("Failed to create urn from MatchedField value: {}", field.getValue());
               }
           }
           return matchedField;
