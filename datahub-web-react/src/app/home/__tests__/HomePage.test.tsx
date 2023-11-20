@@ -12,8 +12,8 @@ describe('HomePage', () => {
                 mocks={mocks}
                 addTypename={false}
                 defaultOptions={{
-                    watchQuery: { fetchPolicy: 'no-cache' },
-                    query: { fetchPolicy: 'no-cache' },
+                    watchQuery: { fetchPolicy: 'cache-first' },
+                    query: { fetchPolicy: 'cache-first' },
                 }}
             >
                 <TestPageContainer>
@@ -30,8 +30,8 @@ describe('HomePage', () => {
                 mocks={mocks}
                 addTypename={false}
                 defaultOptions={{
-                    watchQuery: { fetchPolicy: 'no-cache' },
-                    query: { fetchPolicy: 'no-cache' },
+                    watchQuery: { fetchPolicy: 'cache-first' },
+                    query: { fetchPolicy: 'cache-first' },
                 }}
             >
                 <TestPageContainer>
@@ -48,8 +48,8 @@ describe('HomePage', () => {
                 mocks={mocks}
                 addTypename={false}
                 defaultOptions={{
-                    watchQuery: { fetchPolicy: 'no-cache' },
-                    query: { fetchPolicy: 'no-cache' },
+                    watchQuery: { fetchPolicy: 'cache-first' },
+                    query: { fetchPolicy: 'cache-first' },
                 }}
             >
                 <TestPageContainer>
@@ -71,8 +71,8 @@ describe('HomePage', () => {
                 mocks={mocks}
                 addTypename
                 defaultOptions={{
-                    watchQuery: { fetchPolicy: 'no-cache' },
-                    query: { fetchPolicy: 'no-cache' },
+                    watchQuery: { fetchPolicy: 'cache-first' },
+                    query: { fetchPolicy: 'cache-first' },
                 }}
             >
                 <TestPageContainer>
@@ -91,8 +91,8 @@ describe('HomePage', () => {
                 mocks={mocks}
                 addTypename
                 defaultOptions={{
-                    watchQuery: { fetchPolicy: 'no-cache' },
-                    query: { fetchPolicy: 'no-cache' },
+                    watchQuery: { fetchPolicy: 'cache-first' },
+                    query: { fetchPolicy: 'cache-first' },
                 }}
             >
                 <TestPageContainer>
