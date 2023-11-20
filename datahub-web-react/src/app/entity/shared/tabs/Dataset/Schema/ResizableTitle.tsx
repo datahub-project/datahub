@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { Resizable } from 'react-resizable';
 import PropTypes from 'prop-types';
 import styled from 'styled-components';
+import { percentToPixelWidth } from '../../../utils';
+import { SCHEMA_TABLE_MIN_COLUMN_HEIGHT, SCHEMA_TABLE_MIN_COLUMN_WIDTH } from '../../../constants';
 
 const ResizableDiv = styled.div`
     width: 2px;
@@ -19,29 +21,15 @@ const ColumnHeader = styled.th`
     word-break: normal !important;
 `;
 
-const MIN_COLUMN_WIDTH = 50;
-const MIN_COLUMN_HEIGHT = 30;
-
-const parseWidth = (width: any) => {
-    if (width === undefined) return MIN_COLUMN_WIDTH;
-    if (typeof width === 'string' && width.endsWith('%')) {
-        const percentage = parseFloat(width.slice(0, -1));
-        if (!Number.isNaN(percentage)) {
-            return (percentage / 100) * window.innerWidth; // Convert percentage to pixel value
-        }
-    }
-    return width;
-};
-
 export const ResizableTitle = ({ onResize, width, column, onClick, ...restProps }) => {
     const [allowClick, setAllowClick] = useState(true);
 
-    if (!width) {
-        return <th {...restProps}>{restProps.title}</th>;
-    }
-
-    const numericWidth = parseWidth(width);
+    const numericWidth = percentToPixelWidth(width);
     const title = column && column.title;
+
+    if (!column || !width) {
+        return <th {...restProps} />;
+    }
 
     return (
         <Resizable
@@ -58,7 +46,7 @@ export const ResizableTitle = ({ onResize, width, column, onClick, ...restProps 
                 setAllowClick(true);
             }}
             onClick={(e) => allowClick && onClick !== undefined && onClick(e)}
-            minConstraints={[MIN_COLUMN_WIDTH, MIN_COLUMN_HEIGHT]}
+            minConstraints={[SCHEMA_TABLE_MIN_COLUMN_WIDTH, SCHEMA_TABLE_MIN_COLUMN_HEIGHT]}
             handle={
                 <ResizableDiv
                     onClick={(e) => {

@@ -3,6 +3,7 @@ import { Maybe } from 'graphql/jsutils/Maybe';
 import { Entity, EntityType, EntityRelationshipsResult, DataProduct } from '../../../types.generated';
 import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
 import { GenericEntityProperties } from './types';
+import { SCHEMA_TABLE_MIN_COLUMN_WIDTH } from './constants';
 
 export function dictToQueryStringParams(params: Record<string, string | boolean>) {
     return Object.keys(params)
@@ -130,3 +131,14 @@ export function getDataProduct(dataProductResult: Maybe<EntityRelationshipsResul
     }
     return null;
 }
+
+export const percentToPixelWidth = (width: any) => {
+    if (width === undefined) return SCHEMA_TABLE_MIN_COLUMN_WIDTH;
+    if (typeof width === 'string' && width.endsWith('%')) {
+        const percentage = parseFloat(width.slice(0, -1));
+        if (!Number.isNaN(percentage)) {
+            return (percentage / 100) * window.innerWidth; // Convert percentage to pixel value
+        }
+    }
+    return width;
+};
