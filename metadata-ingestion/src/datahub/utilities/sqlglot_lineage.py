@@ -17,6 +17,7 @@ import sqlglot.optimizer.qualify
 from pydantic import BaseModel
 from typing_extensions import TypedDict
 
+from datahub.configuration.pydantic_migration_helpers import PYDANTIC_VERSION_2
 from datahub.emitter.mce_builder import (
     DEFAULT_ENV,
     make_dataset_urn_with_platform_instance,
@@ -122,12 +123,17 @@ class _ParserBaseModel(
         SchemaFieldDataTypeClass: lambda v: v.to_obj(),
     },
 ):
-    pass
+    def json(self, *args: Any, **kwargs: Any) -> str:
+        if PYDANTIC_VERSION_2:
+            return super().model_dump_json(*args, **kwargs)  # type: ignore
+        else:
+            return super().json(*args, **kwargs)
 
 
 @functools.total_ordering
 class _FrozenModel(_ParserBaseModel, frozen=True):
     def __lt__(self, other: "_FrozenModel") -> bool:
+        # TODO: The __fields__ attribute is deprecated in Pydantic v2.
         for field in self.__fields__:
             self_v = getattr(self, field)
             other_v = getattr(other, field)
@@ -138,8 +144,8 @@ class _FrozenModel(_ParserBaseModel, frozen=True):
 
 
 class _TableName(_FrozenModel):
-    database: Optional[str]
-    db_schema: Optional[str]
+    database: Optional[str] = None
+    db_schema: Optional[str] = None
     table: str
 
     def as_sqlglot_table(self) -> sqlglot.exp.Table:
@@ -187,16 +193,16 @@ class ColumnRef(_ParserBaseModel):
 
 
 class _DownstreamColumnRef(_ParserBaseModel):
-    table: Optional[_TableName]
+    table: Optional[_TableName] = None
     column: str
-    column_type: Optional[sqlglot.exp.DataType]
+    column_type: Optional[sqlglot.exp.DataType] = None
 
 
 class DownstreamColumnRef(_ParserBaseModel):
-    table: Optional[Urn]
+    table: Optional[Urn] = None
     column: str
-    column_type: Optional[SchemaFieldDataTypeClass]
-    native_column_type: Optional[str]
+    column_type: Optional[SchemaFieldDataTypeClass] = None
+    native_column_type: Optional[str] = None
 
     @pydantic.validator("column_type", pre=True)
     def _load_column_type(
@@ -213,7 +219,7 @@ class _ColumnLineageInfo(_ParserBaseModel):
     downstream: _DownstreamColumnRef
     upstreams: List[_ColumnRef]
 
-    logic: Optional[str]
+    logic: Optional[str] = None
 
 
 class ColumnLineageInfo(_ParserBaseModel):
@@ -244,7 +250,7 @@ class SqlParsingResult(_ParserBaseModel):
     in_tables: List[Urn]
     out_tables: List[Urn]
 
-    column_lineage: Optional[List[ColumnLineageInfo]]
+    column_lineage: Optional[List[ColumnLineageInfo]] = None
 
     # TODO include formatted original sql logic
     # TODO include list of referenced columns
@@ -253,6 +259,16 @@ class SqlParsingResult(_ParserBaseModel):
         default_factory=lambda: SqlParsingDebugInfo(),
         exclude=True,
     )
+
+    @classmethod
+    def make_from_error(cls, error: Exception) -> "SqlParsingResult":
+        return cls(
+            in_tables=[],
+            out_tables=[],
+            debug_info=SqlParsingDebugInfo(
+                table_error=error,
+            ),
+        )
 
 
 def _parse_statement(sql: sqlglot.exp.ExpOrStr, dialect: str) -> sqlglot.Expression:
@@ -344,8 +360,12 @@ class SchemaResolver(Closeable):
         table_name = ".".join(
             filter(None, [table.database, table.db_schema, table.table])
         )
+
+        platform_instance = self.platform_instance
+
         if lower:
             table_name = table_name.lower()
+            platform_instance = platform_instance.lower() if platform_instance else None
 
         if self.platform == "bigquery":
             # Normalize shard numbers and other BigQuery weirdness.
@@ -356,7 +376,7 @@ class SchemaResolver(Closeable):
 
         urn = make_dataset_urn_with_platform_instance(
             platform=self.platform,
-            platform_instance=self.platform_instance,
+            platform_instance=platform_instance,
             env=self.env,
             name=table_name,
         )
@@ -1148,14 +1168,60 @@ def sqlglot_lineage(
             default_schema=default_schema,
         )
     except Exception as e:
-        return SqlParsingResult(
-            in_tables=[],
-            out_tables=[],
-            column_lineage=None,
-            debug_info=SqlParsingDebugInfo(
-                table_error=e,
-            ),
-        )
+        return SqlParsingResult.make_from_error(e)
+
+
+def detach_ctes(
+    sql: sqlglot.exp.ExpOrStr, platform: str, cte_mapping: Dict[str, str]
+) -> sqlglot.exp.Expression:
+    """Replace CTE references with table references.
+
+    For example, with cte_mapping = {"__cte_0": "_my_cte_table"}, the following SQL
+
+    WITH __cte_0 AS (SELECT * FROM table1) SELECT * FROM table2 JOIN __cte_0 ON table2.id = __cte_0.id
+
+    is transformed into
+
+    WITH __cte_0 AS (SELECT * FROM table1) SELECT * FROM table2 JOIN _my_cte_table ON table2.id = _my_cte_table.id
+
+    Note that the original __cte_0 definition remains in the query, but is simply not referenced.
+    The query optimizer should be able to remove it.
+
+    This method makes a major assumption: that no other table/column has the same name as a
+    key in the cte_mapping.
+    """
+
+    dialect = _get_dialect(platform)
+    statement = _parse_statement(sql, dialect=dialect)
+
+    def replace_cte_refs(node: sqlglot.exp.Expression) -> sqlglot.exp.Expression:
+        if (
+            isinstance(node, sqlglot.exp.Identifier)
+            and node.parent
+            and not isinstance(node.parent.parent, sqlglot.exp.CTE)
+            and node.name in cte_mapping
+        ):
+            full_new_name = cte_mapping[node.name]
+            table_expr = sqlglot.maybe_parse(
+                full_new_name, dialect=dialect, into=sqlglot.exp.Table
+            )
+
+            # We expect node.parent to be a Table or Column.
+            # Either way, it should support catalog/db/name.
+            parent = node.parent
+
+            if "catalog" in parent.arg_types:
+                parent.set("catalog", table_expr.catalog)
+            if "db" in parent.arg_types:
+                parent.set("db", table_expr.db)
+
+            new_node = sqlglot.exp.Identifier(this=table_expr.name)
+
+            return new_node
+        else:
+            return node
+
+    return statement.transform(replace_cte_refs, copy=False)
 
 
 def create_lineage_sql_parsed_result(
@@ -1191,14 +1257,7 @@ def create_lineage_sql_parsed_result(
             default_schema=schema,
         )
     except Exception as e:
-        return SqlParsingResult(
-            in_tables=[],
-            out_tables=[],
-            column_lineage=None,
-            debug_info=SqlParsingDebugInfo(
-                table_error=e,
-            ),
-        )
+        return SqlParsingResult.make_from_error(e)
     finally:
         if needs_close:
             schema_resolver.close()

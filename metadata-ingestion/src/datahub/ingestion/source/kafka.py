@@ -100,11 +100,11 @@ class KafkaSourceConfig(
         default="datahub.ingestion.source.confluent_schema_registry.ConfluentSchemaRegistry",
         description="The fully qualified implementation class(custom) that implements the KafkaSchemaRegistryBase interface.",
     )
-    schema_tags_field = pydantic.Field(
+    schema_tags_field: str = pydantic.Field(
         default="tags",
         description="The field name in the schema metadata that contains the tags to be added to the dataset.",
     )
-    enable_meta_mapping = pydantic.Field(
+    enable_meta_mapping: bool = pydantic.Field(
         default=True,
         description="When enabled, applies the mappings that are defined through the meta_mapping directives.",
     )

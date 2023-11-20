@@ -142,6 +142,7 @@ Here are the companies that have officially adopted DataHub. Please feel free to
 - [SpotHero](https://spothero.com)
 - [Stash](https://www.stash.com)
 - [Shanghai HuaRui Bank](https://www.shrbank.com)
+- [s7 Airlines](https://www.s7.ru/)
 - [ThoughtWorks](https://www.thoughtworks.com)
 - [TypeForm](http://typeform.com)
 - [Udemy](https://www.udemy.com/)

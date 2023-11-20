@@ -27,6 +27,7 @@ import org.pac4j.play.http.PlayHttpActionAdapter;
 import org.pac4j.play.store.PlaySessionStore;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import play.data.validation.Constraints;
 import play.libs.Json;
 import play.mvc.Controller;
 import play.mvc.Http;
@@ -202,6 +203,13 @@ public class AuthenticationController extends Controller {
         if (StringUtils.isBlank(email)) {
             JsonNode invalidCredsJson = Json.newObject().put("message", "Email must not be empty.");
             return Results.badRequest(invalidCredsJson);
+        }
+        if (_nativeAuthenticationConfigs.isEnforceValidEmailEnabled()) {
+            Constraints.EmailValidator emailValidator = new Constraints.EmailValidator();
+            if (!emailValidator.isValid(email)) {
+                JsonNode invalidCredsJson = Json.newObject().put("message", "Email must not be empty.");
+                return Results.badRequest(invalidCredsJson);
+            }
         }
 
         if (StringUtils.isBlank(password)) {

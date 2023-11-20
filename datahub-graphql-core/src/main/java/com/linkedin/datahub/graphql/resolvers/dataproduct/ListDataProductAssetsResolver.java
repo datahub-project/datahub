@@ -79,11 +79,11 @@ public class ListDataProductAssetsResolver implements DataFetcher<CompletableFut
     }
 
     // 2. Get list of entities that we should query based on filters or assets from aspect.
-    List<String> entitiesToQuery = assetUrns.stream().map(Urn::getEntityType).collect(Collectors.toList());
+    List<String> entitiesToQuery = assetUrns.stream().map(Urn::getEntityType).distinct().collect(Collectors.toList());
 
 
     final List<EntityType> inputEntityTypes = (input.getTypes() == null || input.getTypes().isEmpty()) ? ImmutableList.of() : input.getTypes();
-    final List<String> inputEntityNames = inputEntityTypes.stream().map(EntityTypeMapper::getName).collect(Collectors.toList());
+    final List<String> inputEntityNames = inputEntityTypes.stream().map(EntityTypeMapper::getName).distinct().collect(Collectors.toList());
 
     final List<String> finalEntityNames = inputEntityNames.size() > 0 ? inputEntityNames : entitiesToQuery;
 

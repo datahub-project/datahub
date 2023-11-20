@@ -23,3 +23,11 @@ def test_gms_config_accessible():
         assert gms_config["versions"]["linkedin/datahub"]["version"] == DATAHUB_VERSION
     else:
         print("[WARN] TEST_DATAHUB_VERSION is not set")
+
+    # Make sure that the default CLI version gets generated properly.
+    # While we don't want to hardcode the actual value, we can make
+    # sure it mostly looks like a version string.
+    default_cli_version: str = gms_config["managedIngestion"]["defaultCliVersion"]
+    print(f"Default CLI version: {default_cli_version}")
+    assert not default_cli_version.startswith("@")
+    assert "." in default_cli_version

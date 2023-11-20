@@ -70,7 +70,7 @@ class TeradataReport(ProfilingSqlReport, IngestionStageReport, BaseTimeWindowRep
 
 
 class BaseTeradataConfig(TwoTierSQLAlchemyConfig):
-    scheme = Field(default="teradatasql", description="database scheme")
+    scheme: str = Field(default="teradatasql", description="database scheme")
 
 
 class TeradataConfig(BaseTeradataConfig, BaseTimeWindowConfig):

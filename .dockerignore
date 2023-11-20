@@ -1,12 +1,7 @@
 **/node_modules/
-datahub-frontend/build/
-metadata-ingestion/venv/
-metadata-ingestion/build/
-metadata-ingestion/dist/
-**/.venv/
-**/venv/
-docs-website/sphinx/venv/
-docs-website/sphinx/_build/
+*/build/
+*/*/build/
+*/venv/
 out
 .vercel/
 **/.mypy_cache/

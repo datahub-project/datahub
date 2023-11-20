@@ -81,16 +81,14 @@ public class EntityClientCache {
         public EntityClientCache build(Class<?> metricClazz) {
             // estimate size
             Weigher<Key, EnvelopedAspect> weighByEstimatedSize = (key, value) ->
-                    value.getValue().data().values().parallelStream()
-                            .mapToInt(o -> o.toString().getBytes().length)
-                            .sum();
+                    value.getValue().data().toString().getBytes().length;
 
             // batch loads data from entity client (restli or java)
             Function<Iterable<? extends Key>, Map<Key, EnvelopedAspect>> loader = (Iterable<? extends Key> keys) -> {
                 Map<String, Set<Key>> keysByEntity = StreamSupport.stream(keys.spliterator(), true)
                         .collect(Collectors.groupingBy(Key::getEntityName, Collectors.toSet()));
 
-                Map<Key, EnvelopedAspect> results = keysByEntity.entrySet().parallelStream()
+                Map<Key, EnvelopedAspect> results = keysByEntity.entrySet().stream()
                         .flatMap(entry -> {
                             Set<Urn> urns = entry.getValue().stream()
                                     .map(Key::getUrn)

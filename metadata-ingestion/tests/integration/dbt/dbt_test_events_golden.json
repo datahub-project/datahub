@@ -15,7 +15,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -203,7 +204,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -222,7 +224,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -429,7 +432,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -447,7 +451,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -565,7 +570,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -583,7 +589,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -713,7 +720,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -731,7 +739,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -861,7 +870,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -878,7 +888,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -975,7 +986,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -992,7 +1004,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1101,7 +1114,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1118,7 +1132,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1227,7 +1242,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1236,12 +1252,25 @@
     "changeType": "PATCH",
     "aspectName": "upstreamLineage",
     "aspect": {
-        "value": "[{\"op\": \"add\", \"path\": \"/upstreams/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adbt%2Ccalm-pagoda-323403.jaffle_shop.customers%2CPROD%29\", \"value\": {\"auditStamp\": {\"time\": 1643871600000, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.customers,PROD)\", \"type\": \"TRANSFORMED\"}}]",
-        "contentType": "application/json-patch+json"
+        "json": [
+            {
+                "op": "add",
+                "path": "/upstreams/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adbt%2Ccalm-pagoda-323403.jaffle_shop.customers%2CPROD%29",
+                "value": {
+                    "auditStamp": {
+                        "time": 1643871600000,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.customers,PROD)",
+                    "type": "TRANSFORMED"
+                }
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1250,12 +1279,25 @@
     "changeType": "PATCH",
     "aspectName": "upstreamLineage",
     "aspect": {
-        "value": "[{\"op\": \"add\", \"path\": \"/upstreams/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adbt%2Ccalm-pagoda-323403.jaffle_shop.orders%2CPROD%29\", \"value\": {\"auditStamp\": {\"time\": 1643871600000, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.orders,PROD)\", \"type\": \"TRANSFORMED\"}}]",
-        "contentType": "application/json-patch+json"
+        "json": [
+            {
+                "op": "add",
+                "path": "/upstreams/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adbt%2Ccalm-pagoda-323403.jaffle_shop.orders%2CPROD%29",
+                "value": {
+                    "auditStamp": {
+                        "time": 1643871600000,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.orders,PROD)",
+                    "type": "TRANSFORMED"
+                }
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1264,12 +1306,25 @@
     "changeType": "PATCH",
     "aspectName": "upstreamLineage",
     "aspect": {
-        "value": "[{\"op\": \"add\", \"path\": \"/upstreams/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adbt%2Ccalm-pagoda-323403.jaffle_shop.stg_customers%2CPROD%29\", \"value\": {\"auditStamp\": {\"time\": 1643871600000, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.stg_customers,PROD)\", \"type\": \"TRANSFORMED\"}}]",
-        "contentType": "application/json-patch+json"
+        "json": [
+            {
+                "op": "add",
+                "path": "/upstreams/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adbt%2Ccalm-pagoda-323403.jaffle_shop.stg_customers%2CPROD%29",
+                "value": {
+                    "auditStamp": {
+                        "time": 1643871600000,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.stg_customers,PROD)",
+                    "type": "TRANSFORMED"
+                }
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1278,12 +1333,25 @@
     "changeType": "PATCH",
     "aspectName": "upstreamLineage",
     "aspect": {
-        "value": "[{\"op\": \"add\", \"path\": \"/upstreams/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adbt%2Ccalm-pagoda-323403.jaffle_shop.stg_orders%2CPROD%29\", \"value\": {\"auditStamp\": {\"time\": 1643871600000, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.stg_orders,PROD)\", \"type\": \"TRANSFORMED\"}}]",
-        "contentType": "application/json-patch+json"
+        "json": [
+            {
+                "op": "add",
+                "path": "/upstreams/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adbt%2Ccalm-pagoda-323403.jaffle_shop.stg_orders%2CPROD%29",
+                "value": {
+                    "auditStamp": {
+                        "time": 1643871600000,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.stg_orders,PROD)",
+                    "type": "TRANSFORMED"
+                }
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1292,12 +1360,25 @@
     "changeType": "PATCH",
     "aspectName": "upstreamLineage",
     "aspect": {
-        "value": "[{\"op\": \"add\", \"path\": \"/upstreams/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adbt%2Ccalm-pagoda-323403.jaffle_shop.stg_payments%2CPROD%29\", \"value\": {\"auditStamp\": {\"time\": 1643871600000, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.stg_payments,PROD)\", \"type\": \"TRANSFORMED\"}}]",
-        "contentType": "application/json-patch+json"
+        "json": [
+            {
+                "op": "add",
+                "path": "/upstreams/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adbt%2Ccalm-pagoda-323403.jaffle_shop.stg_payments%2CPROD%29",
+                "value": {
+                    "auditStamp": {
+                        "time": 1643871600000,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.stg_payments,PROD)",
+                    "type": "TRANSFORMED"
+                }
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1306,12 +1387,25 @@
     "changeType": "PATCH",
     "aspectName": "upstreamLineage",
     "aspect": {
-        "value": "[{\"op\": \"add\", \"path\": \"/upstreams/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adbt%2Ccalm-pagoda-323403.jaffle_shop.raw_customers%2CPROD%29\", \"value\": {\"auditStamp\": {\"time\": 1643871600000, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.raw_customers,PROD)\", \"type\": \"TRANSFORMED\"}}]",
-        "contentType": "application/json-patch+json"
+        "json": [
+            {
+                "op": "add",
+                "path": "/upstreams/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adbt%2Ccalm-pagoda-323403.jaffle_shop.raw_customers%2CPROD%29",
+                "value": {
+                    "auditStamp": {
+                        "time": 1643871600000,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.raw_customers,PROD)",
+                    "type": "TRANSFORMED"
+                }
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1320,12 +1414,25 @@
     "changeType": "PATCH",
     "aspectName": "upstreamLineage",
     "aspect": {
-        "value": "[{\"op\": \"add\", \"path\": \"/upstreams/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adbt%2Ccalm-pagoda-323403.jaffle_shop.raw_orders%2CPROD%29\", \"value\": {\"auditStamp\": {\"time\": 1643871600000, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.raw_orders,PROD)\", \"type\": \"TRANSFORMED\"}}]",
-        "contentType": "application/json-patch+json"
+        "json": [
+            {
+                "op": "add",
+                "path": "/upstreams/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adbt%2Ccalm-pagoda-323403.jaffle_shop.raw_orders%2CPROD%29",
+                "value": {
+                    "auditStamp": {
+                        "time": 1643871600000,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.raw_orders,PROD)",
+                    "type": "TRANSFORMED"
+                }
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1334,12 +1441,25 @@
     "changeType": "PATCH",
     "aspectName": "upstreamLineage",
     "aspect": {
-        "value": "[{\"op\": \"add\", \"path\": \"/upstreams/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adbt%2Ccalm-pagoda-323403.jaffle_shop.raw_payments%2CPROD%29\", \"value\": {\"auditStamp\": {\"time\": 1643871600000, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.raw_payments,PROD)\", \"type\": \"TRANSFORMED\"}}]",
-        "contentType": "application/json-patch+json"
+        "json": [
+            {
+                "op": "add",
+                "path": "/upstreams/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adbt%2Ccalm-pagoda-323403.jaffle_shop.raw_payments%2CPROD%29",
+                "value": {
+                    "auditStamp": {
+                        "time": 1643871600000,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.raw_payments,PROD)",
+                    "type": "TRANSFORMED"
+                }
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1354,7 +1474,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1397,7 +1518,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1408,23 +1530,24 @@
     "aspect": {
         "json": {
             "timestampMillis": 1655565131058,
-            "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
-            },
             "runId": "c7a6b778-0e0f-4789-b567-ca7e124a6840",
-            "assertionUrn": "urn:li:assertion:b052a324c05327985f3b579a19ad7579",
             "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.orders,PROD)",
             "status": "COMPLETE",
             "result": {
                 "type": "SUCCESS",
                 "nativeResults": {}
+            },
+            "assertionUrn": "urn:li:assertion:b052a324c05327985f3b579a19ad7579",
+            "partitionSpec": {
+                "type": "FULL_TABLE",
+                "partition": "FULL_TABLE_SNAPSHOT"
             }
         }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1439,7 +1562,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1482,7 +1606,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1493,23 +1618,24 @@
     "aspect": {
         "json": {
             "timestampMillis": 1655565131075,
-            "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
-            },
             "runId": "c7a6b778-0e0f-4789-b567-ca7e124a6840",
-            "assertionUrn": "urn:li:assertion:da743330013b7e3e3707ac6e526ab408",
             "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.stg_orders,PROD)",
             "status": "COMPLETE",
             "result": {
                 "type": "SUCCESS",
                 "nativeResults": {}
+            },
+            "assertionUrn": "urn:li:assertion:da743330013b7e3e3707ac6e526ab408",
+            "partitionSpec": {
+                "type": "FULL_TABLE",
+                "partition": "FULL_TABLE_SNAPSHOT"
             }
         }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1524,7 +1650,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1567,7 +1694,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1578,23 +1706,24 @@
     "aspect": {
         "json": {
             "timestampMillis": 1655565131073,
-            "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
-            },
             "runId": "c7a6b778-0e0f-4789-b567-ca7e124a6840",
-            "assertionUrn": "urn:li:assertion:2887b9c826e0be6296a37833bdc380bd",
             "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.stg_payments,PROD)",
             "status": "COMPLETE",
             "result": {
                 "type": "SUCCESS",
                 "nativeResults": {}
+            },
+            "assertionUrn": "urn:li:assertion:2887b9c826e0be6296a37833bdc380bd",
+            "partitionSpec": {
+                "type": "FULL_TABLE",
+                "partition": "FULL_TABLE_SNAPSHOT"
             }
         }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1609,7 +1738,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1640,7 +1770,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1651,23 +1782,24 @@
     "aspect": {
         "json": {
             "timestampMillis": 1655565131077,
-            "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
-            },
             "runId": "c7a6b778-0e0f-4789-b567-ca7e124a6840",
-            "assertionUrn": "urn:li:assertion:591d8dc8939e0cf9bf0fd03264ad1a0e",
             "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.orders,PROD)",
             "status": "COMPLETE",
             "result": {
                 "type": "SUCCESS",
                 "nativeResults": {}
+            },
+            "assertionUrn": "urn:li:assertion:591d8dc8939e0cf9bf0fd03264ad1a0e",
+            "partitionSpec": {
+                "type": "FULL_TABLE",
+                "partition": "FULL_TABLE_SNAPSHOT"
             }
         }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1682,7 +1814,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1732,7 +1865,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1747,7 +1881,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1791,7 +1926,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1802,12 +1938,7 @@
     "aspect": {
         "json": {
             "timestampMillis": 1655565137668,
-            "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
-            },
             "runId": "c7a6b778-0e0f-4789-b567-ca7e124a6840",
-            "assertionUrn": "urn:li:assertion:bf7fd2b46d2c32ee9bb036acd1559782",
             "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.customers,PROD)",
             "status": "COMPLETE",
             "result": {
@@ -1815,12 +1946,18 @@
                 "nativeResults": {
                     "message": "Database Error in test dbt_expectations_expect_column_values_to_be_in_set_customers_customer_id__customer_id_is_not_null__0__1__2 (models/schema.yml)\n  No matching signature for operator = for argument types: INT64, STRING. Supported signature: ANY = ANY at [46:25]\n  compiled SQL at target/run/jaffle_shop/models/schema.yml/dbt_expectations_expect_column_e42202dc29e1149de0f5c3966219796d.sql"
                 }
+            },
+            "assertionUrn": "urn:li:assertion:bf7fd2b46d2c32ee9bb036acd1559782",
+            "partitionSpec": {
+                "type": "FULL_TABLE",
+                "partition": "FULL_TABLE_SNAPSHOT"
             }
         }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1835,7 +1972,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1874,7 +2012,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1885,12 +2024,7 @@
     "aspect": {
         "json": {
             "timestampMillis": 1655565137668,
-            "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
-            },
             "runId": "c7a6b778-0e0f-4789-b567-ca7e124a6840",
-            "assertionUrn": "urn:li:assertion:1c217b7587a0cad47a07a09bfe154055",
             "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.orders,PROD)",
             "status": "COMPLETE",
             "result": {
@@ -1898,12 +2032,18 @@
                 "nativeResults": {
                     "message": "Database Error in test dbt_expectations_expect_column_values_to_not_be_in_set_orders_credit_card_amount__credit_card_amount_is_not_null__0 (models/schema.yml)\n  No matching signature for operator = for argument types: FLOAT64, STRING. Supported signature: ANY = ANY at [36:25]\n  compiled SQL at target/run/jaffle_shop/models/schema.yml/dbt_expectations_expect_column_fdf581b1071168614662824120d65b90.sql"
                 }
+            },
+            "assertionUrn": "urn:li:assertion:1c217b7587a0cad47a07a09bfe154055",
+            "partitionSpec": {
+                "type": "FULL_TABLE",
+                "partition": "FULL_TABLE_SNAPSHOT"
             }
         }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1918,7 +2058,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1954,7 +2095,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1965,23 +2107,24 @@
     "aspect": {
         "json": {
             "timestampMillis": 1655565132560,
-            "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
-            },
             "runId": "c7a6b778-0e0f-4789-b567-ca7e124a6840",
-            "assertionUrn": "urn:li:assertion:44519aa345bf3ea896179f9f352ae946",
             "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.customers,PROD)",
             "status": "COMPLETE",
             "result": {
                 "type": "SUCCESS",
                 "nativeResults": {}
+            },
+            "assertionUrn": "urn:li:assertion:44519aa345bf3ea896179f9f352ae946",
+            "partitionSpec": {
+                "type": "FULL_TABLE",
+                "partition": "FULL_TABLE_SNAPSHOT"
             }
         }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1996,7 +2139,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2032,7 +2176,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2043,23 +2188,24 @@
     "aspect": {
         "json": {
             "timestampMillis": 1655565133585,
-            "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
-            },
             "runId": "c7a6b778-0e0f-4789-b567-ca7e124a6840",
-            "assertionUrn": "urn:li:assertion:bbd78a070092f54313153abec49f6f31",
             "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.orders,PROD)",
             "status": "COMPLETE",
             "result": {
                 "type": "SUCCESS",
                 "nativeResults": {}
+            },
+            "assertionUrn": "urn:li:assertion:bbd78a070092f54313153abec49f6f31",
+            "partitionSpec": {
+                "type": "FULL_TABLE",
+                "partition": "FULL_TABLE_SNAPSHOT"
             }
         }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2074,7 +2220,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2110,7 +2257,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2121,23 +2269,24 @@
     "aspect": {
         "json": {
             "timestampMillis": 1655565133591,
-            "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
-            },
             "runId": "c7a6b778-0e0f-4789-b567-ca7e124a6840",
-            "assertionUrn": "urn:li:assertion:52d06197762e3608d94609e96f03a0a7",
             "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.orders,PROD)",
             "status": "COMPLETE",
             "result": {
                 "type": "SUCCESS",
                 "nativeResults": {}
+            },
+            "assertionUrn": "urn:li:assertion:52d06197762e3608d94609e96f03a0a7",
+            "partitionSpec": {
+                "type": "FULL_TABLE",
+                "partition": "FULL_TABLE_SNAPSHOT"
             }
         }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2152,7 +2301,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2188,7 +2338,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2199,23 +2350,24 @@
     "aspect": {
         "json": {
             "timestampMillis": 1655565133595,
-            "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
-            },
             "runId": "c7a6b778-0e0f-4789-b567-ca7e124a6840",
-            "assertionUrn": "urn:li:assertion:ca065a99637630468f688717590beeab",
             "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.orders,PROD)",
             "status": "COMPLETE",
             "result": {
                 "type": "SUCCESS",
                 "nativeResults": {}
+            },
+            "assertionUrn": "urn:li:assertion:ca065a99637630468f688717590beeab",
+            "partitionSpec": {
+                "type": "FULL_TABLE",
+                "partition": "FULL_TABLE_SNAPSHOT"
             }
         }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2230,7 +2382,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2266,7 +2419,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2277,23 +2431,24 @@
     "aspect": {
         "json": {
             "timestampMillis": 1655565134031,
-            "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
-            },
             "runId": "c7a6b778-0e0f-4789-b567-ca7e124a6840",
-            "assertionUrn": "urn:li:assertion:7a305acc5fc049dc9bbd141b814461d0",
             "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.orders,PROD)",
             "status": "COMPLETE",
             "result": {
                 "type": "SUCCESS",
                 "nativeResults": {}
+            },
+            "assertionUrn": "urn:li:assertion:7a305acc5fc049dc9bbd141b814461d0",
+            "partitionSpec": {
+                "type": "FULL_TABLE",
+                "partition": "FULL_TABLE_SNAPSHOT"
             }
         }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2308,7 +2463,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2344,7 +2500,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2355,23 +2512,24 @@
     "aspect": {
         "json": {
             "timestampMillis": 1655565134482,
-            "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
-            },
             "runId": "c7a6b778-0e0f-4789-b567-ca7e124a6840",
-            "assertionUrn": "urn:li:assertion:11087a3d7ae178df22c42922ac8ef8ad",
             "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.orders,PROD)",
             "status": "COMPLETE",
             "result": {
                 "type": "SUCCESS",
                 "nativeResults": {}
+            },
+            "assertionUrn": "urn:li:assertion:11087a3d7ae178df22c42922ac8ef8ad",
+            "partitionSpec": {
+                "type": "FULL_TABLE",
+                "partition": "FULL_TABLE_SNAPSHOT"
             }
         }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2386,7 +2544,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2422,7 +2581,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2433,23 +2593,24 @@
     "aspect": {
         "json": {
             "timestampMillis": 1655565134485,
-            "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
-            },
             "runId": "c7a6b778-0e0f-4789-b567-ca7e124a6840",
-            "assertionUrn": "urn:li:assertion:b301bb47cc4ebce4e78a194b3de11f25",
             "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.orders,PROD)",
             "status": "COMPLETE",
             "result": {
                 "type": "SUCCESS",
                 "nativeResults": {}
+            },
+            "assertionUrn": "urn:li:assertion:b301bb47cc4ebce4e78a194b3de11f25",
+            "partitionSpec": {
+                "type": "FULL_TABLE",
+                "partition": "FULL_TABLE_SNAPSHOT"
             }
         }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2464,7 +2625,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2500,7 +2662,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2511,23 +2674,24 @@
     "aspect": {
         "json": {
             "timestampMillis": 1655565134493,
-            "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
-            },
             "runId": "c7a6b778-0e0f-4789-b567-ca7e124a6840",
-            "assertionUrn": "urn:li:assertion:2e9117138dcc9facda66f1efd55a8cd7",
             "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.orders,PROD)",
             "status": "COMPLETE",
             "result": {
                 "type": "SUCCESS",
                 "nativeResults": {}
+            },
+            "assertionUrn": "urn:li:assertion:2e9117138dcc9facda66f1efd55a8cd7",
+            "partitionSpec": {
+                "type": "FULL_TABLE",
+                "partition": "FULL_TABLE_SNAPSHOT"
             }
         }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2542,7 +2706,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2578,7 +2743,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2589,23 +2755,24 @@
     "aspect": {
         "json": {
             "timestampMillis": 1655565134966,
-            "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
-            },
             "runId": "c7a6b778-0e0f-4789-b567-ca7e124a6840",
-            "assertionUrn": "urn:li:assertion:25ebf4faa9b1654ef54c46d975ca0a81",
             "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.stg_customers,PROD)",
             "status": "COMPLETE",
             "result": {
                 "type": "SUCCESS",
                 "nativeResults": {}
+            },
+            "assertionUrn": "urn:li:assertion:25ebf4faa9b1654ef54c46d975ca0a81",
+            "partitionSpec": {
+                "type": "FULL_TABLE",
+                "partition": "FULL_TABLE_SNAPSHOT"
             }
         }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2620,7 +2787,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2656,7 +2824,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2667,23 +2836,24 @@
     "aspect": {
         "json": {
             "timestampMillis": 1655565135368,
-            "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
-            },
             "runId": "c7a6b778-0e0f-4789-b567-ca7e124a6840",
-            "assertionUrn": "urn:li:assertion:b03abcc447aac70bbebb22a8a9d7dbbe",
             "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.stg_orders,PROD)",
             "status": "COMPLETE",
             "result": {
                 "type": "SUCCESS",
                 "nativeResults": {}
+            },
+            "assertionUrn": "urn:li:assertion:b03abcc447aac70bbebb22a8a9d7dbbe",
+            "partitionSpec": {
+                "type": "FULL_TABLE",
+                "partition": "FULL_TABLE_SNAPSHOT"
             }
         }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2698,7 +2868,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2734,7 +2905,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2745,23 +2917,24 @@
     "aspect": {
         "json": {
             "timestampMillis": 1655565135377,
-            "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
-            },
             "runId": "c7a6b778-0e0f-4789-b567-ca7e124a6840",
-            "assertionUrn": "urn:li:assertion:c1eebc71f36690e4523adca30314e927",
             "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.stg_payments,PROD)",
             "status": "COMPLETE",
             "result": {
                 "type": "SUCCESS",
                 "nativeResults": {}
+            },
+            "assertionUrn": "urn:li:assertion:c1eebc71f36690e4523adca30314e927",
+            "partitionSpec": {
+                "type": "FULL_TABLE",
+                "partition": "FULL_TABLE_SNAPSHOT"
             }
         }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2776,7 +2949,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2821,7 +2995,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2832,23 +3007,24 @@
     "aspect": {
         "json": {
             "timestampMillis": 1655565135510,
-            "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
-            },
             "runId": "c7a6b778-0e0f-4789-b567-ca7e124a6840",
-            "assertionUrn": "urn:li:assertion:b210dbd31c2ee4efc0c24a9e4cf125ef",
             "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.customers,PROD)",
             "status": "COMPLETE",
             "result": {
                 "type": "SUCCESS",
                 "nativeResults": {}
+            },
+            "assertionUrn": "urn:li:assertion:b210dbd31c2ee4efc0c24a9e4cf125ef",
+            "partitionSpec": {
+                "type": "FULL_TABLE",
+                "partition": "FULL_TABLE_SNAPSHOT"
             }
         }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2893,7 +3069,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2904,23 +3081,24 @@
     "aspect": {
         "json": {
             "timestampMillis": 1655565135510,
-            "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
-            },
             "runId": "c7a6b778-0e0f-4789-b567-ca7e124a6840",
-            "assertionUrn": "urn:li:assertion:b210dbd31c2ee4efc0c24a9e4cf125ef",
             "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.orders,PROD)",
             "status": "COMPLETE",
             "result": {
                 "type": "SUCCESS",
                 "nativeResults": {}
+            },
+            "assertionUrn": "urn:li:assertion:b210dbd31c2ee4efc0c24a9e4cf125ef",
+            "partitionSpec": {
+                "type": "FULL_TABLE",
+                "partition": "FULL_TABLE_SNAPSHOT"
             }
         }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2935,7 +3113,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2977,7 +3156,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2988,23 +3168,24 @@
     "aspect": {
         "json": {
             "timestampMillis": 1655565135836,
-            "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
-            },
             "runId": "c7a6b778-0e0f-4789-b567-ca7e124a6840",
-            "assertionUrn": "urn:li:assertion:c51ca9c4b5a1f964bef748f0b8968e71",
             "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.customers,PROD)",
             "status": "COMPLETE",
             "result": {
                 "type": "SUCCESS",
                 "nativeResults": {}
+            },
+            "assertionUrn": "urn:li:assertion:c51ca9c4b5a1f964bef748f0b8968e71",
+            "partitionSpec": {
+                "type": "FULL_TABLE",
+                "partition": "FULL_TABLE_SNAPSHOT"
             }
         }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -3019,7 +3200,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -3061,7 +3243,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -3072,23 +3255,24 @@
     "aspect": {
         "json": {
             "timestampMillis": 1655565136269,
-            "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
-            },
             "runId": "c7a6b778-0e0f-4789-b567-ca7e124a6840",
-            "assertionUrn": "urn:li:assertion:caa9b8060e214cecab88a92dc39c2e60",
             "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.orders,PROD)",
             "status": "COMPLETE",
             "result": {
                 "type": "SUCCESS",
                 "nativeResults": {}
+            },
+            "assertionUrn": "urn:li:assertion:caa9b8060e214cecab88a92dc39c2e60",
+            "partitionSpec": {
+                "type": "FULL_TABLE",
+                "partition": "FULL_TABLE_SNAPSHOT"
             }
         }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -3103,7 +3287,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -3145,7 +3330,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -3156,23 +3342,24 @@
     "aspect": {
         "json": {
             "timestampMillis": 1655565136230,
-            "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
-            },
             "runId": "c7a6b778-0e0f-4789-b567-ca7e124a6840",
-            "assertionUrn": "urn:li:assertion:54bac90e6785bdefd8685ebf8814c429",
             "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.stg_customers,PROD)",
             "status": "COMPLETE",
             "result": {
                 "type": "SUCCESS",
                 "nativeResults": {}
+            },
+            "assertionUrn": "urn:li:assertion:54bac90e6785bdefd8685ebf8814c429",
+            "partitionSpec": {
+                "type": "FULL_TABLE",
+                "partition": "FULL_TABLE_SNAPSHOT"
             }
         }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -3187,7 +3374,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -3229,7 +3417,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -3240,23 +3429,24 @@
     "aspect": {
         "json": {
             "timestampMillis": 1655565136395,
-            "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
-            },
             "runId": "c7a6b778-0e0f-4789-b567-ca7e124a6840",
-            "assertionUrn": "urn:li:assertion:815963e1332b46a203504ba46ebfab24",
             "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.stg_orders,PROD)",
             "status": "COMPLETE",
             "result": {
                 "type": "SUCCESS",
                 "nativeResults": {}
+            },
+            "assertionUrn": "urn:li:assertion:815963e1332b46a203504ba46ebfab24",
+            "partitionSpec": {
+                "type": "FULL_TABLE",
+                "partition": "FULL_TABLE_SNAPSHOT"
             }
         }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -3271,7 +3461,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -3313,7 +3504,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -3324,23 +3516,24 @@
     "aspect": {
         "json": {
             "timestampMillis": 1655565136719,
-            "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
-            },
             "runId": "c7a6b778-0e0f-4789-b567-ca7e124a6840",
-            "assertionUrn": "urn:li:assertion:fac27f352406b941125292413afa8096",
             "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.stg_payments,PROD)",
             "status": "COMPLETE",
             "result": {
                 "type": "SUCCESS",
                 "nativeResults": {}
+            },
+            "assertionUrn": "urn:li:assertion:fac27f352406b941125292413afa8096",
+            "partitionSpec": {
+                "type": "FULL_TABLE",
+                "partition": "FULL_TABLE_SNAPSHOT"
             }
         }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -3355,7 +3548,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -3370,7 +3564,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -3385,7 +3580,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -3400,7 +3596,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -3415,7 +3612,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -3430,7 +3628,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -3445,7 +3644,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -3460,7 +3660,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -3475,7 +3676,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -3490,7 +3692,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -3505,7 +3708,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -3520,7 +3724,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -3535,7 +3740,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -3550,7 +3756,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -3565,7 +3772,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -3580,7 +3788,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -3595,7 +3804,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -3610,7 +3820,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -3625,7 +3836,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -3640,7 +3852,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -3655,7 +3868,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -3670,7 +3884,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -3685,7 +3900,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -3700,7 +3916,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00"
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 }
 ]

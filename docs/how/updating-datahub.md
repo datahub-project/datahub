@@ -6,6 +6,8 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Breaking Changes
 
+- #9244: The `redshift-legacy` and `redshift-legacy-usage` sources, which have been deprecated for >6 months, have been removed. The new `redshift` source is a superset of the functionality provided by those legacy sources.
+
 ### Potential Downtime
 
 ### Deprecations
@@ -16,6 +18,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Breaking Changes
 
+- #8687 (datahub-helm #365 #353) - If Helm is used for installation and Neo4j is enabled, update the prerequisites Helm chart to version >=0.1.2 and adjust your value overrides in the `neo4j:` section according to the new structure.
 - #9044 - GraphQL APIs for adding ownership now expect either an `ownershipTypeUrn` referencing a customer ownership type or a (deprecated) `type`. Where before adding an ownership without a concrete type was allowed, this is no longer the case. For simplicity you can use the `type` parameter which will get translated to a custom ownership type internally if one exists for the type being added.
 - #9010 - In Redshift source's config `incremental_lineage` is set default to off.
 - #8810 - Removed support for SQLAlchemy 1.3.x. Only SQLAlchemy 1.4.x is supported now.
@@ -67,6 +70,9 @@ qualified dataset name, i.e. `<project_name>.<dataset_name>`. We attempt to supp
 pattern format by prepending `.*\\.` to dataset patterns lacking a period, so in most cases this
 should not cause any issues. However, if you have a complex dataset pattern, we recommend you
 manually convert it to the fully qualified format to avoid any potential issues.
+- #9110 - The Unity Catalog source will now generate urns based on `env` properly. If you have
+been setting `env` in your recipe to something besides `PROD`, we will now generate urns
+with that new env variable, invalidating your existing urns.
 
 ### Potential Downtime
 

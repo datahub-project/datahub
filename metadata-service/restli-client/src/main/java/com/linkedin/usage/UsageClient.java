@@ -9,6 +9,7 @@ import com.linkedin.metadata.config.cache.client.UsageClientCacheConfig;
 import com.linkedin.parseq.retry.backoff.BackoffPolicy;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.restli.client.Client;
+
 import java.net.URISyntaxException;
 import javax.annotation.Nonnull;
 
@@ -51,10 +52,12 @@ public class UsageClient extends BaseClient {
     private UsageQueryResult getUsageStats(@Nonnull String resource, @Nonnull UsageTimeRange range,
                                            @Nonnull Authentication authentication)
             throws RemoteInvocationException, URISyntaxException {
-        final UsageStatsDoQueryRangeRequestBuilder requestBuilder = USAGE_STATS_REQUEST_BUILDERS.actionQueryRange()
-            .resourceParam(resource)
-            .durationParam(WindowDuration.DAY)
-            .rangeFromEndParam(range);
+
+        final UsageStatsDoQueryRangeRequestBuilder requestBuilder = USAGE_STATS_REQUEST_BUILDERS
+                .actionQueryRange()
+                .resourceParam(resource)
+                .durationParam(WindowDuration.DAY)
+                .rangeFromEndParam(range);
         return sendClientRequest(requestBuilder, authentication).getEntity();
     }
 }

@@ -59,7 +59,7 @@ class BaseSnowflakeConfig(ConfigModel):
     )
     private_key: Optional[str] = pydantic.Field(
         default=None,
-        description="Private key in a form of '-----BEGIN PRIVATE KEY-----\\nprivate-key\\n-----END PRIVATE KEY-----\\n' if using key pair authentication. Encrypted version of private key will be in a form of '-----BEGIN ENCRYPTED PRIVATE KEY-----\\nencrypted-private-key\\n-----END ECNCRYPTED PRIVATE KEY-----\\n' See: https://docs.snowflake.com/en/user-guide/key-pair-auth.html",
+        description="Private key in a form of '-----BEGIN PRIVATE KEY-----\\nprivate-key\\n-----END PRIVATE KEY-----\\n' if using key pair authentication. Encrypted version of private key will be in a form of '-----BEGIN ENCRYPTED PRIVATE KEY-----\\nencrypted-private-key\\n-----END ENCRYPTED PRIVATE KEY-----\\n' See: https://docs.snowflake.com/en/user-guide/key-pair-auth.html",
     )
 
     private_key_path: Optional[str] = pydantic.Field(
@@ -340,7 +340,6 @@ class BaseSnowflakeConfig(ConfigModel):
 
 
 class SnowflakeConfig(BaseSnowflakeConfig, BaseTimeWindowConfig, SQLCommonConfig):
-
     include_table_lineage: bool = pydantic.Field(
         default=True,
         description="If enabled, populates the snowflake table-to-table and s3-to-snowflake table lineage. Requires appropriate grants given to the role and Snowflake Enterprise Edition or above.",
@@ -357,7 +356,7 @@ class SnowflakeConfig(BaseSnowflakeConfig, BaseTimeWindowConfig, SQLCommonConfig
     ignore_start_time_lineage: bool = False
     upstream_lineage_in_report: bool = False
 
-    @pydantic.root_validator()
+    @pydantic.root_validator(skip_on_failure=True)
     def validate_include_view_lineage(cls, values):
         if (
             "include_table_lineage" in values

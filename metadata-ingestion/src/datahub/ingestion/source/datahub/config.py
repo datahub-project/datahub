@@ -80,7 +80,7 @@ class DataHubSourceConfig(StatefulIngestionConfigBase):
         hidden_from_docs=True,
     )
 
-    @root_validator
+    @root_validator(skip_on_failure=True)
     def check_ingesting_data(cls, values):
         if (
             not values.get("database_connection")

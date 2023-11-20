@@ -766,7 +766,7 @@ def quickstart(  # noqa: C901
                 logger.debug("docker compose up timed out, sending SIGTERM")
                 up_process.terminate()
                 try:
-                    up_process.wait(timeout=3)
+                    up_process.wait(timeout=8)
                 except subprocess.TimeoutExpired:
                     logger.debug("docker compose up still running, sending SIGKILL")
                     up_process.kill()

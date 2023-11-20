@@ -12,6 +12,7 @@ import com.datahub.telemetry.TrackingService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.entity.EntityService;
@@ -208,6 +209,11 @@ public class AuthServiceController {
     }
 
     String userUrnString = userUrn.asText();
+    String systemClientUser = new CorpuserUrn(_configProvider.getAuthentication().getSystemClientId()).toString();
+
+    if (userUrnString.equals(systemClientUser) || userUrnString.equals(DATAHUB_ACTOR) || userUrnString.equals(UNKNOWN_ACTOR)) {
+      return CompletableFuture.completedFuture(new ResponseEntity<>(HttpStatus.BAD_REQUEST));
+    }
     String fullNameString = fullName.asText();
     String emailString = email.asText();
     String titleString = title.asText();

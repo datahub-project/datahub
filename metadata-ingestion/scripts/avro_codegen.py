@@ -192,7 +192,7 @@ def add_avro_python3_warning(filepath: Path) -> None:
 # This means that installation order matters, which is a pretty unintuitive outcome.
 # See https://github.com/pypa/pip/issues/4625 for details.
 try:
-    from avro.schema import SchemaFromJSONData
+    from avro.schema import SchemaFromJSONData  # type: ignore
     import warnings
 
     warnings.warn("It seems like 'avro-python3' is installed, which conflicts with the 'avro' package used by datahub. "

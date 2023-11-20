@@ -14,7 +14,7 @@ def get_long_description():
     return pathlib.Path(os.path.join(root, "README.md")).read_text()
 
 
-_version = package_metadata["__version__"]
+_version: str = package_metadata["__version__"]
 _self_pin = f"=={_version}" if not _version.endswith("dev0") else ""
 
 

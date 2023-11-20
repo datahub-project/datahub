@@ -51,6 +51,7 @@ authorization:
   restApiAuthorization: ${REST_API_AUTHORIZATION_ENABLED:false}
 
 ingestion:
+  # The value of cliMajorVersion is substituted in by the processResources Gradle task.
   enabled: ${UI_INGESTION_ENABLED:true}
   defaultCliVersion: "${UI_INGESTION_DEFAULT_CLI_VERSION:@cliMajorVersion@}"
   maxSerializedStringLength: "${INGESTION_MAX_SERIALIZED_STRING_LENGTH:16000000}" # Indicates the maximum allowed JSON String length Jackson will handle, impacts the maximum size of ingested aspects
@@ -408,7 +409,8 @@ entityClient:
 
 usageClient:
   retryInterval: ${USAGE_CLIENT_RETRY_INTERVAL:2}
-  numRetries: ${USAGE_CLIENT_NUM_RETRIES:3}
+  numRetries: ${USAGE_CLIENT_NUM_RETRIES:0}
+  timeoutMs: ${USAGE_CLIENT_TIMEOUT_MS:3000}
 
 cache:
   primary:

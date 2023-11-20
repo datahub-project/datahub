@@ -13,5 +13,8 @@ dependencies {
     restClientCompile(externalDependency.zookeeper) {
       because("CVE-2023-44981")
     }
+    restClientCompile(externalDependency.grpcProtobuf) {
+      because("CVE-2023-1428, CVE-2023-32731")
+    }
   }
 }

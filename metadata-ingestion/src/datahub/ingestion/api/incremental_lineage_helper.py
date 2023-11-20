@@ -15,7 +15,7 @@ from datahub.metadata.schema_classes import (
 from datahub.specific.dataset import DatasetPatchBuilder
 
 
-def _convert_upstream_lineage_to_patch(
+def convert_upstream_lineage_to_patch(
     urn: str,
     aspect: UpstreamLineageClass,
     system_metadata: Optional[SystemMetadataClass],
@@ -86,16 +86,11 @@ def _merge_upstream_lineage(
 
 
 def _lineage_wu_via_read_modify_write(
-    graph: Optional[DataHubGraph],
+    graph: DataHubGraph,
     urn: str,
     aspect: UpstreamLineageClass,
     system_metadata: Optional[SystemMetadataClass],
 ) -> MetadataWorkUnit:
-    if graph is None:
-        raise ValueError(
-            "Failed to handle incremental lineage, DataHubGraph is missing. "
-            "Use `datahub-rest` sink OR provide `datahub-api` config in recipe. "
-        )
     gms_aspect = graph.get_aspect(urn, UpstreamLineageClass)
     if gms_aspect:
         new_aspect = _merge_upstream_lineage(aspect, gms_aspect)
@@ -131,11 +126,16 @@ def auto_incremental_lineage(
                     yield wu
 
             if lineage_aspect.fineGrainedLineages:
+                if graph is None:
+                    raise ValueError(
+                        "Failed to handle incremental lineage, DataHubGraph is missing. "
+                        "Use `datahub-rest` sink OR provide `datahub-api` config in recipe. "
+                    )
                 yield _lineage_wu_via_read_modify_write(
                     graph, urn, lineage_aspect, wu.metadata.systemMetadata
                 )
             elif lineage_aspect.upstreams:
-                yield _convert_upstream_lineage_to_patch(
+                yield convert_upstream_lineage_to_patch(
                     urn, lineage_aspect, wu.metadata.systemMetadata
                 )
         else:

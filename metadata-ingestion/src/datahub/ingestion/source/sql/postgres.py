@@ -98,8 +98,10 @@ class ViewLineageEntry(BaseModel):
 
 
 class BasePostgresConfig(BasicSQLAlchemyConfig):
-    scheme = Field(default="postgresql+psycopg2", description="database scheme")
-    schema_pattern = Field(default=AllowDenyPattern(deny=["information_schema"]))
+    scheme: str = Field(default="postgresql+psycopg2", description="database scheme")
+    schema_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern(deny=["information_schema"])
+    )
 
 
 class PostgresConfig(BasePostgresConfig):

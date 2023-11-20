@@ -105,7 +105,7 @@ class SupersetConfig(StatefulIngestionConfigBase, ConfigModel):
     def remove_trailing_slash(cls, v):
         return config_clean.remove_trailing_slashes(v)
 
-    @root_validator
+    @root_validator(skip_on_failure=True)
     def default_display_uri_to_connect_uri(cls, values):
         base = values.get("display_uri")
         if base is None:

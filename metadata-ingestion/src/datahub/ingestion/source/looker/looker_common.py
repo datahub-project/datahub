@@ -828,7 +828,7 @@ class LookerExplore:
                 )
             else:
                 logger.warning(
-                    f"Failed to extract explore {explore_name} from model {model}.", e
+                    f"Failed to extract explore {explore_name} from model {model}: {e}"
                 )
 
         except AssertionError:

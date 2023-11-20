@@ -8,6 +8,7 @@
         "json": {
             "customProperties": {
                 "platform": "databricks",
+                "env": "PROD",
                 "metastore": "acryl metastore"
             },
             "externalUrl": "https://dummy.cloud.databricks.com/explore/data",
@@ -16,7 +17,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -31,7 +33,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -46,7 +49,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -63,7 +67,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -87,7 +92,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -102,7 +108,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -114,6 +121,7 @@
         "json": {
             "customProperties": {
                 "platform": "databricks",
+                "env": "PROD",
                 "metastore": "acryl metastore",
                 "catalog": "main"
             },
@@ -124,7 +132,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -139,7 +148,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -154,7 +164,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -171,7 +182,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -195,7 +207,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -210,7 +223,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -230,7 +244,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -242,6 +257,7 @@
         "json": {
             "customProperties": {
                 "platform": "databricks",
+                "env": "PROD",
                 "metastore": "acryl metastore",
                 "catalog": "main",
                 "unity_schema": "default"
@@ -253,7 +269,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -268,7 +285,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -283,7 +301,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -300,7 +319,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -324,7 +344,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -339,7 +360,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -363,7 +385,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -378,7 +401,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -420,7 +444,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -437,7 +462,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -494,7 +520,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -516,7 +543,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -540,7 +568,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -568,7 +597,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -580,6 +610,7 @@
         "json": {
             "customProperties": {
                 "platform": "databricks",
+                "env": "PROD",
                 "metastore": "acryl metastore",
                 "catalog": "main",
                 "unity_schema": "information_schema"
@@ -591,7 +622,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -606,7 +638,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -621,7 +654,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -638,7 +672,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -662,7 +697,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -677,7 +713,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -701,7 +738,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -716,7 +754,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -758,7 +797,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -775,7 +815,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -832,7 +873,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -854,7 +896,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -878,7 +921,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -906,7 +950,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -918,6 +963,7 @@
         "json": {
             "customProperties": {
                 "platform": "databricks",
+                "env": "PROD",
                 "metastore": "acryl metastore",
                 "catalog": "main",
                 "unity_schema": "quickstart_schema"
@@ -929,7 +975,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -944,7 +991,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -959,7 +1007,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -976,7 +1025,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1000,7 +1050,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1015,7 +1066,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1039,7 +1091,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1054,7 +1107,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1096,7 +1150,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1113,7 +1168,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1170,7 +1226,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1192,7 +1249,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1216,7 +1274,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1244,7 +1303,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1256,6 +1316,7 @@
         "json": {
             "customProperties": {
                 "platform": "databricks",
+                "env": "PROD",
                 "metastore": "acryl metastore",
                 "catalog": "quickstart_catalog"
             },
@@ -1266,7 +1327,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1281,7 +1343,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1296,7 +1359,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1313,7 +1377,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1337,7 +1402,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1352,7 +1418,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1372,7 +1439,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1384,6 +1452,7 @@
         "json": {
             "customProperties": {
                 "platform": "databricks",
+                "env": "PROD",
                 "metastore": "acryl metastore",
                 "catalog": "quickstart_catalog",
                 "unity_schema": "default"
@@ -1395,7 +1464,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1410,7 +1480,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1425,7 +1496,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1442,7 +1514,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1466,7 +1539,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1481,7 +1555,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1505,7 +1580,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1520,7 +1596,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1562,7 +1639,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1579,7 +1657,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1636,7 +1715,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1658,7 +1738,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1682,7 +1763,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1710,7 +1792,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1722,6 +1805,7 @@
         "json": {
             "customProperties": {
                 "platform": "databricks",
+                "env": "PROD",
                 "metastore": "acryl metastore",
                 "catalog": "quickstart_catalog",
                 "unity_schema": "information_schema"
@@ -1733,7 +1817,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1748,7 +1833,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1763,7 +1849,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1780,7 +1867,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1804,7 +1892,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1819,7 +1908,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1843,7 +1933,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1858,7 +1949,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1900,7 +1992,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1917,7 +2010,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1974,7 +2068,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1996,7 +2091,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2020,7 +2116,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2048,7 +2145,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2060,6 +2158,7 @@
         "json": {
             "customProperties": {
                 "platform": "databricks",
+                "env": "PROD",
                 "metastore": "acryl metastore",
                 "catalog": "quickstart_catalog",
                 "unity_schema": "quickstart_schema"
@@ -2071,7 +2170,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2086,7 +2186,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2101,7 +2202,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2118,7 +2220,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2142,7 +2245,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2157,7 +2261,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2181,7 +2286,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2196,7 +2302,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2238,7 +2345,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2255,7 +2363,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2312,7 +2421,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2334,7 +2444,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2358,7 +2469,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2386,7 +2498,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2398,6 +2511,7 @@
         "json": {
             "customProperties": {
                 "platform": "databricks",
+                "env": "PROD",
                 "metastore": "acryl metastore",
                 "catalog": "system"
             },
@@ -2408,7 +2522,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2423,7 +2538,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2438,7 +2554,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2455,7 +2572,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2479,7 +2597,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2494,7 +2613,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2514,7 +2634,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2526,6 +2647,7 @@
         "json": {
             "customProperties": {
                 "platform": "databricks",
+                "env": "PROD",
                 "metastore": "acryl metastore",
                 "catalog": "system",
                 "unity_schema": "default"
@@ -2537,7 +2659,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2552,7 +2675,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2567,7 +2691,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2584,7 +2709,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2608,7 +2734,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2623,7 +2750,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2647,7 +2775,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2662,7 +2791,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2704,7 +2834,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2721,7 +2852,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2778,7 +2910,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2800,7 +2933,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2824,7 +2958,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2852,7 +2987,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2864,6 +3000,7 @@
         "json": {
             "customProperties": {
                 "platform": "databricks",
+                "env": "PROD",
                 "metastore": "acryl metastore",
                 "catalog": "system",
                 "unity_schema": "information_schema"
@@ -2875,7 +3012,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2890,7 +3028,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2905,7 +3044,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2922,7 +3062,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2946,7 +3087,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2961,7 +3103,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2985,7 +3128,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -3000,7 +3144,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -3042,7 +3187,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -3059,7 +3205,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -3116,7 +3263,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -3138,7 +3286,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -3162,7 +3311,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -3190,7 +3340,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -3202,6 +3353,7 @@
         "json": {
             "customProperties": {
                 "platform": "databricks",
+                "env": "PROD",
                 "metastore": "acryl metastore",
                 "catalog": "system",
                 "unity_schema": "quickstart_schema"
@@ -3213,7 +3365,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -3228,7 +3381,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -3243,7 +3397,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -3260,7 +3415,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -3284,7 +3440,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -3299,7 +3456,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -3323,7 +3481,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -3338,7 +3497,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -3380,7 +3540,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -3397,7 +3558,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -3454,7 +3616,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -3476,7 +3639,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -3500,7 +3664,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -3528,7 +3693,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -3543,7 +3709,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -3558,7 +3725,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -3573,7 +3741,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -3588,7 +3757,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -3603,7 +3773,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -3618,7 +3789,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -3633,7 +3805,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -3648,7 +3821,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -3663,7 +3837,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test"
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
     }
 }
 ]

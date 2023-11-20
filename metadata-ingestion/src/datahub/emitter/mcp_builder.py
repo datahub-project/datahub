@@ -127,7 +127,7 @@ class BucketKey(ContainerKey):
 class NotebookKey(DatahubKey):
     notebook_id: int
     platform: str
-    instance: Optional[str]
+    instance: Optional[str] = None
 
     def as_urn(self) -> str:
         return make_dataset_urn_with_platform_instance(

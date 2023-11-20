@@ -7,7 +7,7 @@ configurations {
 dependencies {
   implementation project(':metadata-events:mxe-avro')
   implementation project(':metadata-models')
-  implementation spec.product.pegasus.dataAvro1_6
+  implementation spec.product.pegasus.dataAvro
 
   testImplementation project(':test-models')
   testImplementation project(path: ':test-models', configuration: 'testDataTemplate')

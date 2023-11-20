@@ -148,7 +148,7 @@ public interface EntitySearchService {
   /**
    * Returns number of documents per field value given the field and filters
    *
-   * @param entityName name of the entity, if empty or null aggregate over all entities
+   * @param entityNames list of name of entities to aggregate across, if empty aggregate over all entities
    * @param field the field name for aggregate
    * @param requestParams filters to apply before aggregating
    * @param limit the number of aggregations to return
@@ -156,8 +156,8 @@ public interface EntitySearchService {
    * @return a map of the value to the count of documents having the value
    */
   @Nonnull
-  Map<String, Long> aggregateByValue(@Nullable String entityName, @Nonnull String field, @Nullable Filter requestParams,
-      int limit);
+  Map<String, Long> aggregateByValue(@Nullable List<String> entityNames, @Nonnull String field,
+      @Nullable Filter requestParams, int limit);
 
   /**
    * Gets a list of groups/entities that match given browse request.

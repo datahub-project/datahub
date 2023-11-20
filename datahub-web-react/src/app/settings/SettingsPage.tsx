@@ -35,12 +35,15 @@ import ManagePosts from './posts/ManagePosts';
 
 const PageContainer = styled.div`
     display: flex;
+    overflow: auto;
 `;
 
 const SettingsBarContainer = styled.div`
     padding-top: 20px;
-    min-height: 100vh;
+    max-height: 100vh;
     border-right: 1px solid ${ANTD_GRAY[5]};
+    display: flex;
+    flex-direction: column;
 `;
 
 const SettingsBarHeader = styled.div`
@@ -65,6 +68,7 @@ const ItemTitle = styled.span`
     margin-left: 8px;
 `;
 
+<<<<<<< HEAD
 const ACRYL_PATHS = [
     { path: 'integrations', content: <PlatformIntegrations /> },
     { path: 'notifications', content: <PlatformNotifications /> },
@@ -72,6 +76,9 @@ const ACRYL_PATHS = [
     { path: 'personal-notifications', content: <ManageActorNotifications isPersonal /> },
     { path: 'personal-subscriptions', content: <ManageActorSubscriptions isPersonal /> },
 ];
+=======
+const menuStyle = { width: 256, 'margin-top': 8, overflow: 'hidden auto' };
+>>>>>>> oss_master
 
 /**
  * URL Paths for each settings page.
@@ -132,7 +139,7 @@ export const SettingsPage = () => {
                 <Menu
                     selectable={false}
                     mode="inline"
-                    style={{ width: 256, marginTop: 8 }}
+                    style={menuStyle}
                     selectedKeys={[activePath]}
                     onClick={(newPath) => {
                         history.replace(`${url}/${newPath.key}`);

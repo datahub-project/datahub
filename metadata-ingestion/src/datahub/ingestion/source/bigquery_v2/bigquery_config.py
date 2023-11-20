@@ -265,7 +265,7 @@ class BigQueryV2Config(
         description="Option to exclude empty projects from being ingested.",
     )
 
-    @root_validator(pre=False)
+    @root_validator(skip_on_failure=True)
     def profile_default_settings(cls, values: Dict) -> Dict:
         # Extra default SQLAlchemy option for better connection pooling and threading.
         # https://docs.sqlalchemy.org/en/14/core/pooling.html#sqlalchemy.pool.QueuePool.params.max_overflow

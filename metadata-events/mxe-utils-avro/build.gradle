@@ -15,9 +15,7 @@ tasks.withType(Test).configureEach {
 dependencies {
   api project(':metadata-events:mxe-avro')
   api project(':metadata-models')
-  api(spec.product.pegasus.dataAvro1_6) {
-      exclude group: 'org.apache.avro'
-  }
+  api spec.product.pegasus.dataAvro
 
   testImplementation externalDependency.testngJava8
   testImplementation project(':test-models')
