@@ -42,6 +42,7 @@ const platformSelection = [
     'urn:li:dataPlatform:kudu',
     'urn:li:dataPlatform:postgres',
     'urn:li:dataPlatform:app_ui',
+    'urn:li:dataPlatform:OpenApi',
 ];
 
 export const CsvForm = () => {
