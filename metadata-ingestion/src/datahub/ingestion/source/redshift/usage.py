@@ -329,6 +329,7 @@ class RedshiftUsageExtractor:
         all_tables: Dict[str, Dict[str, List[Union[RedshiftView, RedshiftTable]]]],
     ) -> Iterable[RedshiftAccessEvent]:
         cursor = connection.cursor()
+        logger.info(f"Running query to get query history: {query}")
         cursor.execute(query)
         results = cursor.fetchmany()
         field_names = [i[0] for i in cursor.description]
