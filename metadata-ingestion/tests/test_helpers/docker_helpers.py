@@ -1,5 +1,6 @@
 import contextlib
 import logging
+import os
 import subprocess
 from typing import Callable, Optional, Union
 
@@ -77,6 +78,10 @@ def docker_compose_runner(
 
 def cleanup_image(image_name: str) -> None:
     assert ":" not in image_name, "image_name should not contain a tag"
+
+    if not os.environ.get("CI"):
+        logger.debug("Not cleaning up images to speed up local development")
+        return
 
     images_proc = subprocess.run(
         f"docker image ls --filter 'reference={image_name}*' -q",

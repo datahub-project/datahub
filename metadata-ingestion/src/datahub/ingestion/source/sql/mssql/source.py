@@ -530,7 +530,7 @@ class SQLServerSource(SQLAlchemySource):
     def _get_procedure_code(
         conn: Connection, procedure: StoredProcedure
     ) -> Tuple[Optional[str], Optional[str]]:
-        query = f"EXEC [{procedure.db}].dbo.sp_helptext '{procedure.full_name}'"
+        query = f"EXEC [{procedure.db}].dbo.sp_helptext '{procedure.escape_full_name}'"
         try:
             code_data = conn.execute(query)
         except ProgrammingError:
@@ -567,7 +567,7 @@ class SQLServerSource(SQLAlchemySource):
                 create_date as date_created,
                 modify_date as date_modified
             FROM sys.procedures
-            WHERE object_id = object_id('{procedure.full_name}')
+            WHERE object_id = object_id('{procedure.escape_full_name}')
             """
         )
         properties = {}

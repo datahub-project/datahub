@@ -189,7 +189,7 @@ abstract public class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
         String dateFieldName = "lastOperationTime";
         List<String> entityNamesToTestSearch = List.of("dataset", "chart", "corpgroup");
         List<EntitySpec> entitySpecs = entityNamesToTestSearch.stream().map(
-            name -> getEntityRegistry().getEntitySpec(name))
+                name -> getEntityRegistry().getEntitySpec(name))
             .collect(Collectors.toList());
         SearchSourceBuilder builder = new SearchSourceBuilder();
         SortCriterion sortCriterion = new SortCriterion().setOrder(SortOrder.DESCENDING).setField(dateFieldName);

@@ -53,7 +53,7 @@ public class GroupMembershipFieldResolverProviderTest {
 
   @Test
   public void shouldReturnGroupsMembershipType() {
-    assertEquals(EntityFieldType.GROUP_MEMBERSHIP, groupMembershipFieldResolverProvider.getFieldType());
+    assertEquals(EntityFieldType.GROUP_MEMBERSHIP, groupMembershipFieldResolverProvider.getFieldTypes().get(0));
   }
 
   @Test

@@ -8,23 +8,24 @@ const ingestion_source_name = `ingestion source ${number}`;
 
 describe("managing secrets for ingestion creation", () => {
     it("create a secret, create ingestion source using a secret, remove a secret", () => {
+      // Navigate to the manage ingestion page → secrets
       cy.loginWithCredentials();
-      //navigate to the manage ingestion page → secrets
       cy.goToIngestionPage();
-      cy.clickOptionWithText("Secrets");
-      //create a new secret
-      cy.clickOptionWithText("Create new secret");
-      cy.get('[role="dialog"]').contains("Create a new Secret").should("be.visible");
-      cy.get('[role="dialog"] #name').type(`secretname${number}`);
-      cy.get('[role="dialog"] #value').type(`secretvalue${number}`);
-      cy.get('[role="dialog"] #description').type(`secretdescription${number}`);
-      cy.get('#createSecretButton').click();
+      cy.openEntityTab("Secrets");
+
+      // Create a new secret
+      cy.clickOptionWithTestId("create-secret-button");
+      cy.enterTextInTestId('secret-modal-name-input', `secretname${number}`);
+      cy.enterTextInTestId('secret-modal-value-input', `secretvalue${number}`);
+      cy.enterTextInTestId('secret-modal-description-input', `secretdescription${number}`);
+      cy.clickOptionWithTestId("secret-modal-create-button");
       cy.waitTextVisible("Successfully created Secret!");
       cy.waitTextVisible(`secretname${number}`);
-      cy.waitTextVisible(`secretdescription${number}`).wait(5000)//prevent issue with missing secret
-      //create an ingestion source using a secret
+      cy.waitTextVisible(`secretdescription${number}`).wait(5000)
+
+      // Create an ingestion source using a secret
       cy.goToIngestionPage();
-      cy.clickOptionWithText("Create new source");
+      cy.get("#ingestion-create-source").click();
       cy.clickOptionWithText("Snowflake");
       cy.waitTextVisible("Snowflake Recipe");
       cy.get("#account_id").type(accound_id);
@@ -40,11 +41,12 @@ describe("managing secrets for ingestion creation", () => {
       cy.waitTextVisible("Give this ingestion source a name."); 
       cy.get('[data-testid="source-name-input"]').type(ingestion_source_name);
       cy.get("button").contains("Save").click();
-      cy.waitTextVisible("Successfully created ingestion source!").wait(5000)//prevent issue with missing form data
+      cy.waitTextVisible("Successfully created ingestion source!").wait(5000)
       cy.waitTextVisible(ingestion_source_name);
       cy.get("button").contains("Pending...").should("be.visible");
-      //remove a secret
-      cy.clickOptionWithText("Secrets");
+
+      // Remove a secret
+      cy.openEntityTab("Secrets");
       cy.waitTextVisible(`secretname${number}`);
       cy.get('[data-icon="delete"]').first().click();
       cy.waitTextVisible("Confirm Secret Removal");
@@ -52,14 +54,16 @@ describe("managing secrets for ingestion creation", () => {
       cy.waitTextVisible("Removed secret.");
       cy.ensureTextNotPresent(`secretname${number}`);
       cy.ensureTextNotPresent(`secretdescription${number}`);
-      //remove ingestion source
+
+      // Remove ingestion source
       cy.goToIngestionPage();
       cy.get('[data-testid="delete-button"]').first().click();
       cy.waitTextVisible("Confirm Ingestion Source Removal");
       cy.get("button").contains("Yes").click();
       cy.waitTextVisible("Removed ingestion source.");
       cy.ensureTextNotPresent(ingestion_source_name)
-      //verify secret is not present during ingestion source creation for password dropdown
+
+      // Verify secret is not present during ingestion source creation for password dropdown
       cy.clickOptionWithText("Create new source");
       cy.clickOptionWithText("Snowflake");
       cy.waitTextVisible("Snowflake Recipe");
@@ -68,13 +72,13 @@ describe("managing secrets for ingestion creation", () => {
       cy.get("#username").type(username);
       cy.get("#password").click().wait(1000);
       cy.ensureTextNotPresent(`secretname${number}`);
-      //verify secret can be added during ingestion source creation and used successfully
+
+      // Verify secret can be added during ingestion source creation and used successfully
       cy.clickOptionWithText("Create Secret");    
-      cy.get('[role="dialog"]').contains("Create a new Secret").should("be.visible");
-      cy.get('[role="dialog"] #name').type(`secretname${number}`);
-      cy.get('[role="dialog"] #value').type(`secretvalue${number}`);
-      cy.get('[role="dialog"] #description').type(`secretdescription${number}`);
-      cy.get('#createSecretButton').click();
+      cy.enterTextInTestId('secret-modal-name-input', `secretname${number}`)
+      cy.enterTextInTestId('secret-modal-value-input', `secretvalue${number}`)
+      cy.enterTextInTestId('secret-modal-description-input', `secretdescription${number}`)
+      cy.clickOptionWithTestId("secret-modal-create-button");
       cy.waitTextVisible("Created secret!");
       cy.get("#role").type(role);
       cy.get("button").contains("Next").click();
@@ -86,6 +90,7 @@ describe("managing secrets for ingestion creation", () => {
       cy.waitTextVisible("Successfully created ingestion source!").wait(5000)//prevent issue with missing form data
       cy.waitTextVisible(ingestion_source_name);
       cy.get("button").contains("Pending...").should("be.visible");
+
       //Remove ingestion source and secret
       cy.goToIngestionPage();
       cy.get('[data-testid="delete-button"]').first().click();

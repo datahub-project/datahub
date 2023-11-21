@@ -405,8 +405,7 @@ class PowerBiDashboardSourceConfig(
         "Works for M-Query where native SQL is used for transformation.",
     )
 
-    @root_validator
-    @classmethod
+    @root_validator(skip_on_failure=True)
     def validate_extract_column_level_lineage(cls, values: Dict) -> Dict:
         flags = [
             "native_query_parsing",
@@ -445,7 +444,7 @@ class PowerBiDashboardSourceConfig(
 
         return value
 
-    @root_validator(pre=False)
+    @root_validator(skip_on_failure=True)
     def workspace_id_backward_compatibility(cls, values: Dict) -> Dict:
         workspace_id = values.get("workspace_id")
         workspace_id_pattern = values.get("workspace_id_pattern")

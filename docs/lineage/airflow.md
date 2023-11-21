@@ -37,11 +37,23 @@ pip install 'acryl-datahub-airflow-plugin[plugin-v2]'
 
 ### Configuration
 
-Set up a DataHub connection in Airflow.
+Set up a DataHub connection in Airflow, either via command line or the Airflow UI.
+
+#### Command Line
 
 ```shell
 airflow connections add  --conn-type 'datahub-rest' 'datahub_rest_default' --conn-host 'http://datahub-gms:8080' --conn-password '<optional datahub auth token>'
 ```
+
+#### Airflow UI
+
+On the Airflow UI, go to Admin -> Connections and click the "+" symbol to create a new connection. Select "DataHub REST Server" from the dropdown for "Connection Type" and enter the appropriate values.
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/airflow/plugin_connection_setup.png"/>
+</p>
+
+#### Optional Configurations
 
 No additional configuration is required to use the plugin. However, there are some optional configuration parameters that can be set in the `airflow.cfg` file.
 
@@ -193,6 +205,7 @@ In order to use this example, you must first configure the Datahub hook. Like in
 If you're not seeing lineage in DataHub, check the following:
 
 - Validate that the plugin is loaded in Airflow. Go to Admin -> Plugins and check that the DataHub plugin is listed.
+- With the v2 plugin, it should also print a log line like `INFO  [datahub_airflow_plugin.datahub_listener] DataHub plugin v2 using DataHubRestEmitter: configured to talk to <datahub_url>` during Airflow startup, and the `airflow plugins` command should list `datahub_plugin` with a listener enabled.
 - If using the v2 plugin's automatic lineage, ensure that the `enable_extractors` config is set to true and that automatic lineage is supported for your operator.
 - If using manual lineage annotation, ensure that you're using the `datahub_airflow_plugin.entities.Dataset` or `datahub_airflow_plugin.entities.Urn` classes for your inlets and outlets.
 

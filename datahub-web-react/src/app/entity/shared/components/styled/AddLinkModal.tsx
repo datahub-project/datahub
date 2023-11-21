@@ -57,7 +57,7 @@ export const AddLinkModal = ({ buttonProps, refetch }: AddLinkProps) => {
 
     return (
         <>
-            <Button icon={<PlusOutlined />} onClick={showModal} {...buttonProps}>
+            <Button data-testid="add-link-button" icon={<PlusOutlined />} onClick={showModal} {...buttonProps}>
                 Add Link
             </Button>
             <Modal
@@ -69,13 +69,14 @@ export const AddLinkModal = ({ buttonProps, refetch }: AddLinkProps) => {
                     <Button type="text" onClick={handleClose}>
                         Cancel
                     </Button>,
-                    <Button form="addLinkForm" key="submit" htmlType="submit">
+                    <Button data-testid="add-link-modal-add-button" form="addLinkForm" key="submit" htmlType="submit">
                         Add
                     </Button>,
                 ]}
             >
                 <Form form={form} name="addLinkForm" onFinish={handleAdd} layout="vertical">
                     <Form.Item
+                        data-testid="add-link-modal-url"
                         name="url"
                         label="URL"
                         rules={[
@@ -93,6 +94,7 @@ export const AddLinkModal = ({ buttonProps, refetch }: AddLinkProps) => {
                         <Input placeholder="https://" autoFocus />
                     </Form.Item>
                     <Form.Item
+                        data-testid="add-link-modal-label"
                         name="label"
                         label="Label"
                         rules={[

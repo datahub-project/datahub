@@ -1,0 +1,26 @@
+[
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(file,dummy_stateful,prod),default_stale_entity_removal)",
+    "changeType": "UPSERT",
+    "aspectName": "datahubIngestionCheckpoint",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1586847600000,
+            "partitionSpec": {
+                "type": "FULL_TABLE",
+                "partition": "FULL_TABLE_SNAPSHOT"
+            },
+            "pipelineName": "dummy_stateful",
+            "platformInstanceId": "",
+            "config": "",
+            "state": {
+                "formatVersion": "1.0",
+                "serde": "base85-bz2-json",
+                "payload": "LRx4!F+o`-Q(317h`0a%NgsevWH1l}0MH7jr`{?c0B9vdZ9%mLfYG4P6;f$2G%+v`9z&~6n|e(JEPC2_Iix~CA_im)jR-zsjEK*yo|HQz#IUUHtf@DYVEme-lUW9{Xmmt~y^2jCdyY95az!{$kf#WUxB"
+            },
+            "runId": "dummy-test-stateful-ingestion"
+        }
+    }
+}
+]

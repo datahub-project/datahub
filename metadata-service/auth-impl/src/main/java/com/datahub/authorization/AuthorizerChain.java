@@ -125,6 +125,7 @@ public class AuthorizerChain implements Authorizer {
       groups.addAll(other.getGroups());
       mergedGroups = new ArrayList<>(groups);
     }
+
     Set<Urn> roles = new HashSet<>(original.getRoles());
     roles.addAll(other.getRoles());
     List<Urn> mergedRoles = new ArrayList<>(roles);

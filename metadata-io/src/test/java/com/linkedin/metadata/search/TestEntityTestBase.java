@@ -3,6 +3,7 @@ package com.linkedin.metadata.search;
 import com.datahub.test.Snapshot;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.TestEntityUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.schema.annotation.PathSpecBasedSchemaAnnotationVisitor;
@@ -99,7 +100,7 @@ abstract public class TestEntityTestBase extends AbstractTestNGSpringContextTest
     BrowseResult browseResult = _elasticSearchService.browse(ENTITY_NAME, "", null, 0, 10);
     assertEquals(browseResult.getMetadata().getTotalNumEntities().longValue(), 0);
     assertEquals(_elasticSearchService.docCount(ENTITY_NAME), 0);
-    assertEquals(_elasticSearchService.aggregateByValue(ENTITY_NAME, "textField", null, 10).size(), 0);
+    assertEquals(_elasticSearchService.aggregateByValue(ImmutableList.of(ENTITY_NAME), "textField", null, 10).size(), 0);
 
     Urn urn = new TestEntityUrn("test", "urn1", "VALUE_1");
     ObjectNode document = JsonNodeFactory.instance.objectNode();
@@ -124,7 +125,7 @@ abstract public class TestEntityTestBase extends AbstractTestNGSpringContextTest
     assertEquals(browseResult.getMetadata().getTotalNumEntities().longValue(), 1);
     assertEquals(browseResult.getGroups().get(0).getName(), "b");
     assertEquals(_elasticSearchService.docCount(ENTITY_NAME), 1);
-    assertEquals(_elasticSearchService.aggregateByValue(ENTITY_NAME, "textFieldOverride", null, 10),
+    assertEquals(_elasticSearchService.aggregateByValue(ImmutableList.of(ENTITY_NAME), "textFieldOverride", null, 10),
         ImmutableMap.of("textFieldOverride", 1L));
 
     Urn urn2 = new TestEntityUrn("test2", "urn2", "VALUE_2");
@@ -147,7 +148,7 @@ abstract public class TestEntityTestBase extends AbstractTestNGSpringContextTest
     assertEquals(browseResult.getMetadata().getTotalNumEntities().longValue(), 1);
     assertEquals(browseResult.getGroups().get(0).getName(), "b");
     assertEquals(_elasticSearchService.docCount(ENTITY_NAME), 2);
-    assertEquals(_elasticSearchService.aggregateByValue(ENTITY_NAME, "textFieldOverride", null, 10),
+    assertEquals(_elasticSearchService.aggregateByValue(ImmutableList.of(ENTITY_NAME), "textFieldOverride", null, 10),
         ImmutableMap.of("textFieldOverride", 1L, "textFieldOverride2", 1L));
 
     _elasticSearchService.deleteDocument(ENTITY_NAME, urn.toString());
@@ -158,7 +159,7 @@ abstract public class TestEntityTestBase extends AbstractTestNGSpringContextTest
     browseResult = _elasticSearchService.browse(ENTITY_NAME, "", null, 0, 10);
     assertEquals(browseResult.getMetadata().getTotalNumEntities().longValue(), 0);
     assertEquals(_elasticSearchService.docCount(ENTITY_NAME), 0);
-    assertEquals(_elasticSearchService.aggregateByValue(ENTITY_NAME, "textField", null, 10).size(), 0);
+    assertEquals(_elasticSearchService.aggregateByValue(ImmutableList.of(ENTITY_NAME), "textField", null, 10).size(), 0);
   }
 
   @Test
@@ -181,7 +182,7 @@ abstract public class TestEntityTestBase extends AbstractTestNGSpringContextTest
     assertEquals(searchResult.getEntities().get(0).getEntity(), urn);
 
     assertEquals(_elasticSearchService.docCount(ENTITY_NAME), 1);
-    assertEquals(_elasticSearchService.aggregateByValue(ENTITY_NAME, "textFieldOverride", null, 10),
+    assertEquals(_elasticSearchService.aggregateByValue(ImmutableList.of(ENTITY_NAME), "textFieldOverride", null, 10),
             ImmutableMap.of("textFieldOverride", 1L));
 
     Urn urn2 = new TestEntityUrn("test2", "urn2", "VALUE_2");
@@ -198,7 +199,7 @@ abstract public class TestEntityTestBase extends AbstractTestNGSpringContextTest
     assertEquals(searchResult.getEntities().get(0).getEntity(), urn2);
 
     assertEquals(_elasticSearchService.docCount(ENTITY_NAME), 2);
-    assertEquals(_elasticSearchService.aggregateByValue(ENTITY_NAME, "textFieldOverride", null, 10),
+    assertEquals(_elasticSearchService.aggregateByValue(ImmutableList.of(ENTITY_NAME), "textFieldOverride", null, 10),
             ImmutableMap.of("textFieldOverride", 1L, "textFieldOverride2", 1L));
 
     _elasticSearchService.deleteDocument(ENTITY_NAME, urn.toString());
@@ -208,6 +209,6 @@ abstract public class TestEntityTestBase extends AbstractTestNGSpringContextTest
     assertEquals(searchResult.getNumEntities().intValue(), 0);
 
     assertEquals(_elasticSearchService.docCount(ENTITY_NAME), 0);
-    assertEquals(_elasticSearchService.aggregateByValue(ENTITY_NAME, "textField", null, 10).size(), 0);
+    assertEquals(_elasticSearchService.aggregateByValue(ImmutableList.of(ENTITY_NAME), "textField", null, 10).size(), 0);
   }
 }

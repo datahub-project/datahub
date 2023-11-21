@@ -1,0 +1,64 @@
+{
+    "query_type": "SELECT",
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:postgres,my_db.my_schema.table1,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:postgres,my_db.my_schema.table2,PROD)"
+    ],
+    "out_tables": [],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": null,
+                "column": "a",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                },
+                "native_column_type": "INT"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:postgres,my_db.my_schema.table1,PROD)",
+                    "column": "a"
+                }
+            ]
+        },
+        {
+            "downstream": {
+                "table": null,
+                "column": "b",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                },
+                "native_column_type": "INT"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:postgres,my_db.my_schema.table1,PROD)",
+                    "column": "b"
+                }
+            ]
+        },
+        {
+            "downstream": {
+                "table": null,
+                "column": "c",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.ArrayType": {}
+                    }
+                },
+                "native_column_type": "INT[]"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:postgres,my_db.my_schema.table2,PROD)",
+                    "column": "c"
+                }
+            ]
+        }
+    ]
+}

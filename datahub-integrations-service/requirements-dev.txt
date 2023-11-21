@@ -36,7 +36,7 @@ attrs==23.1.0
     #   -r requirements.txt
     #   aiohttp
     #   jsonschema
-avro==1.10.2
+avro==1.11.3
     # via
     #   -r requirements.txt
     #   acryl-datahub
@@ -77,7 +77,9 @@ click-spinner==0.1.10
     #   -r requirements.txt
     #   acryl-datahub
 coverage[toml]==7.3.1
-    # via pytest-cov
+    # via
+    #   coverage
+    #   pytest-cov
 deprecated==1.2.14
     # via
     #   -r requirements.txt
@@ -217,10 +219,6 @@ pyyaml==6.0.1
     #   -r requirements.txt
     #   acryl-datahub
     #   uvicorn
-ratelimiter==1.2.0.post0
-    # via
-    #   -r requirements.txt
-    #   acryl-datahub
 requests==2.31.0
     # via
     #   -r requirements.txt
@@ -317,6 +315,7 @@ uvicorn[standard]==0.23.2
     # via
     #   -r requirements.txt
     #   acryl-datahub-integrations (pyproject.toml)
+    #   uvicorn
 uvloop==0.17.0
     # via
     #   -r requirements.txt

@@ -77,13 +77,13 @@ public class MappingsBuilder {
             )
     ));
     return ImmutableMap.<String, Object>builder()
-            .put(TYPE, KEYWORD)
+            .put(TYPE, ESUtils.KEYWORD_FIELD_TYPE)
             .put(FIELDS, subFields)
             .build();
   }
 
   private static Map<String, Object> getMappingsForRunId() {
-    return ImmutableMap.<String, Object>builder().put(TYPE, KEYWORD).build();
+    return ImmutableMap.<String, Object>builder().put(TYPE, ESUtils.KEYWORD_FIELD_TYPE).build();
   }
 
   private static Map<String, Object> getMappingsForField(@Nonnull final SearchableFieldSpec searchableFieldSpec) {
@@ -152,7 +152,7 @@ public class MappingsBuilder {
 
   private static Map<String, Object> getMappingsForKeyword() {
     Map<String, Object> mappingForField = new HashMap<>();
-    mappingForField.put(TYPE, KEYWORD);
+    mappingForField.put(TYPE, ESUtils.KEYWORD_FIELD_TYPE);
     mappingForField.put(NORMALIZER, KEYWORD_NORMALIZER);
     // Add keyword subfield without lowercase filter
     mappingForField.put(FIELDS, ImmutableMap.of(KEYWORD, KEYWORD_TYPE_MAP));
@@ -161,7 +161,7 @@ public class MappingsBuilder {
 
   private static Map<String, Object> getMappingsForSearchText(FieldType fieldType) {
     Map<String, Object> mappingForField = new HashMap<>();
-    mappingForField.put(TYPE, KEYWORD);
+    mappingForField.put(TYPE, ESUtils.KEYWORD_FIELD_TYPE);
     mappingForField.put(NORMALIZER, KEYWORD_NORMALIZER);
     Map<String, Object> subFields = new HashMap<>();
     if (fieldType == FieldType.TEXT_PARTIAL || fieldType == FieldType.WORD_GRAM) {

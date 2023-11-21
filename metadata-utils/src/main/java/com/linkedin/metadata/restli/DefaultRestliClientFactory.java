@@ -44,18 +44,34 @@ public class DefaultRestliClientFactory {
   @Nonnull
   public static RestClient getRestLiClient(@Nonnull String restLiServerHost, int restLiServerPort, boolean useSSL,
                                            @Nullable String sslProtocol) {
+    return getRestLiClient(restLiServerHost, restLiServerPort, useSSL, sslProtocol, null);
+  }
+
+  @Nonnull
+  public static RestClient getRestLiClient(@Nonnull String restLiServerHost, int restLiServerPort, boolean useSSL,
+                                           @Nullable String sslProtocol, @Nullable Map<String, String> params) {
     return getRestLiClient(
             URI.create(String.format("%s://%s:%s", useSSL ? "https" : "http", restLiServerHost, restLiServerPort)),
-            sslProtocol);
+            sslProtocol,
+            params);
   }
 
   @Nonnull
   public static RestClient getRestLiClient(@Nonnull URI gmsUri, @Nullable String sslProtocol) {
+    return getRestLiClient(gmsUri, sslProtocol, null);
+  }
+
+  @Nonnull
+  public static RestClient getRestLiClient(@Nonnull URI gmsUri, @Nullable String sslProtocol,
+                                           @Nullable Map<String, String> inputParams) {
     if (StringUtils.isBlank(gmsUri.getHost()) || gmsUri.getPort() <= 0) {
       throw new InvalidParameterException("Invalid restli server host name or port!");
     }
 
     Map<String, Object> params = new HashMap<>();
+    if (inputParams != null) {
+      params.putAll(inputParams);
+    }
 
     if ("https".equals(gmsUri.getScheme())) {
       try {

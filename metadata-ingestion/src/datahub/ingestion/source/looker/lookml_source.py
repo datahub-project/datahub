@@ -275,7 +275,7 @@ class LookMLSourceConfig(
                     )
         return conn_map
 
-    @root_validator()
+    @root_validator(skip_on_failure=True)
     def check_either_connection_map_or_connection_provided(cls, values):
         """Validate that we must either have a connection map or an api credential"""
         if not values.get("connection_to_platform_map", {}) and not values.get(
@@ -286,7 +286,7 @@ class LookMLSourceConfig(
             )
         return values
 
-    @root_validator()
+    @root_validator(skip_on_failure=True)
     def check_either_project_name_or_api_provided(cls, values):
         """Validate that we must either have a project name or an api credential to fetch project names"""
         if not values.get("project_name") and not values.get("api"):
@@ -1070,7 +1070,6 @@ class LookerView:
     def determine_view_file_path(
         cls, base_folder_path: str, absolute_file_path: str
     ) -> str:
-
         splits: List[str] = absolute_file_path.split(base_folder_path, 1)
         if len(splits) != 2:
             logger.debug(
@@ -1104,7 +1103,6 @@ class LookerView:
         populate_sql_logic_in_descriptions: bool = False,
         process_isolation_for_sql_parsing: bool = False,
     ) -> Optional["LookerView"]:
-
         view_name = looker_view["name"]
         logger.debug(f"Handling view {view_name} in model {model_name}")
         # The sql_table_name might be defined in another view and this view is extending that view,
@@ -2087,7 +2085,6 @@ class LookMLSource(StatefulIngestionSourceBase):
                 )
 
                 if looker_viewfile is not None:
-
                     for raw_view in looker_viewfile.views:
                         raw_view_name = raw_view["name"]
                         if LookerRefinementResolver.is_refinement(raw_view_name):
@@ -2171,10 +2168,7 @@ class LookMLSource(StatefulIngestionSourceBase):
                                     for mcp in self._build_dataset_mcps(
                                         maybe_looker_view
                                     ):
-                                        # We want to treat mcp aspects as optional, so allowing failures in this aspect to be treated as warnings rather than failures
-                                        yield mcp.as_workunit(
-                                            treat_errors_as_warnings=True
-                                        )
+                                        yield mcp.as_workunit()
                                 else:
                                     (
                                         prev_model_name,

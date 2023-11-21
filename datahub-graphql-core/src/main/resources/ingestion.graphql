@@ -337,6 +337,11 @@ type IngestionConfig {
   Advanced: Whether or not to run ingestion in debug mode
   """
   debugMode: Boolean
+
+  """
+  Advanced: Extra arguments for the ingestion run.
+  """
+  extraArgs: [StringMapEntry!]
 }
 
 """
@@ -488,6 +493,11 @@ input UpdateIngestionSourceConfigInput {
   Whether or not to run ingestion in debug mode
   """
   debugMode: Boolean
+
+  """
+  Extra arguments for the ingestion run.
+  """
+  extraArgs: [StringMapEntryInput!]
 }
 
 """

@@ -179,10 +179,12 @@ def test_snowflake_uri_default_authentication():
         }
     )
 
-    assert (
-        config.get_sql_alchemy_url()
-        == "snowflake://user:password@acctname/?authenticator=SNOWFLAKE&warehouse=COMPUTE_WH&role"
-        "=sysadmin&application=acryl_datahub"
+    assert config.get_sql_alchemy_url() == (
+        "snowflake://user:password@acctname"
+        "?application=acryl_datahub"
+        "&authenticator=SNOWFLAKE"
+        "&role=sysadmin"
+        "&warehouse=COMPUTE_WH"
     )
 
 
@@ -198,10 +200,12 @@ def test_snowflake_uri_external_browser_authentication():
         }
     )
 
-    assert (
-        config.get_sql_alchemy_url()
-        == "snowflake://user@acctname/?authenticator=EXTERNALBROWSER&warehouse=COMPUTE_WH&role"
-        "=sysadmin&application=acryl_datahub"
+    assert config.get_sql_alchemy_url() == (
+        "snowflake://user@acctname"
+        "?application=acryl_datahub"
+        "&authenticator=EXTERNALBROWSER"
+        "&role=sysadmin"
+        "&warehouse=COMPUTE_WH"
     )
 
 
@@ -219,10 +223,12 @@ def test_snowflake_uri_key_pair_authentication():
         }
     )
 
-    assert (
-        config.get_sql_alchemy_url()
-        == "snowflake://user@acctname/?authenticator=SNOWFLAKE_JWT&warehouse=COMPUTE_WH&role"
-        "=sysadmin&application=acryl_datahub"
+    assert config.get_sql_alchemy_url() == (
+        "snowflake://user@acctname"
+        "?application=acryl_datahub"
+        "&authenticator=SNOWFLAKE_JWT"
+        "&role=sysadmin"
+        "&warehouse=COMPUTE_WH"
     )
 
 
@@ -362,8 +368,7 @@ def setup_mock_connect(mock_connect, query_results=None):
             return [('{"roles":"","value":""}',)]
         elif query == "select current_warehouse()":
             return [("TEST_WAREHOUSE")]
-        # Unreachable code
-        raise Exception()
+        raise ValueError(f"Unexpected query: {query}")
 
     connection_mock = MagicMock()
     cursor_mock = MagicMock()
@@ -391,8 +396,7 @@ def test_test_connection_no_warehouse(mock_connect):
             ]
         elif query == 'show grants to role "PUBLIC"':
             return []
-        # Unreachable code
-        raise Exception()
+        raise ValueError(f"Unexpected query: {query}")
 
     config = {
         "username": "user",
@@ -435,8 +439,7 @@ def test_test_connection_capability_schema_failure(mock_connect):
             return [("", "USAGE", "DATABASE", "DB1")]
         elif query == 'show grants to role "PUBLIC"':
             return []
-        # Unreachable code
-        raise Exception()
+        raise ValueError(f"Unexpected query: {query}")
 
     setup_mock_connect(mock_connect, query_results)
 
@@ -479,8 +482,7 @@ def test_test_connection_capability_schema_success(mock_connect):
             ]
         elif query == 'show grants to role "PUBLIC"':
             return []
-        # Unreachable code
-        raise Exception()
+        raise ValueError(f"Unexpected query: {query}")
 
     setup_mock_connect(mock_connect, query_results)
 
@@ -530,8 +532,7 @@ def test_test_connection_capability_all_success(mock_connect):
                 ["", "USAGE", "VIEW", "SNOWFLAKE.ACCOUNT_USAGE.ACCESS_HISTORY"],
                 ["", "USAGE", "VIEW", "SNOWFLAKE.ACCOUNT_USAGE.OBJECT_DEPENDENCIES"],
             ]
-        # Unreachable code
-        raise Exception()
+        raise ValueError(f"Unexpected query: {query}")
 
     setup_mock_connect(mock_connect, query_results)
 

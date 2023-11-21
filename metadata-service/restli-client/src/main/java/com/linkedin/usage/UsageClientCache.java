@@ -42,9 +42,7 @@ public class UsageClientCache {
         public UsageClientCache build() {
             // estimate size
             Weigher<Key, UsageQueryResult> weighByEstimatedSize = (key, value) ->
-                    value.data().values().parallelStream()
-                            .mapToInt(o -> o.toString().getBytes().length)
-                            .sum();
+                    value.data().toString().getBytes().length;
 
             // batch loads data from usage client
             Function<Iterable<? extends Key>, Map<Key, UsageQueryResult>> loader = (Iterable<? extends Key> keys) ->

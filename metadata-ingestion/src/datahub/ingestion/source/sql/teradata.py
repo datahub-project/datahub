@@ -1,7 +1,7 @@
 import logging
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Iterable, MutableMapping, Optional, Union
+from typing import Iterable, Optional, Union
 
 # This import verifies that the dependencies are available.
 import teradatasqlalchemy  # noqa: F401
@@ -33,14 +33,11 @@ from datahub.ingestion.source.sql.two_tier_sql_source import (
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
 from datahub.ingestion.source_report.ingestion_stage import IngestionStageReport
 from datahub.ingestion.source_report.time_window import BaseTimeWindowReport
-from datahub.metadata._schema_classes import SchemaMetadataClass, ViewPropertiesClass
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     BytesTypeClass,
     TimeTypeClass,
 )
-from datahub.utilities.file_backed_collections import FileBackedDict
 from datahub.utilities.sqlglot_lineage import SchemaResolver, sqlglot_lineage
-from datahub.utilities.urns.dataset_urn import DatasetUrn
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -73,7 +70,7 @@ class TeradataReport(ProfilingSqlReport, IngestionStageReport, BaseTimeWindowRep
 
 
 class BaseTeradataConfig(TwoTierSQLAlchemyConfig):
-    scheme = Field(default="teradatasql", description="database scheme")
+    scheme: str = Field(default="teradatasql", description="database scheme")
 
 
 class TeradataConfig(BaseTeradataConfig, BaseTimeWindowConfig):
@@ -87,11 +84,6 @@ class TeradataConfig(BaseTeradataConfig, BaseTimeWindowConfig):
         "This requires to have the table lineage feature enabled.",
     )
 
-    include_view_lineage = Field(
-        default=True,
-        description="Whether to include view lineage in the ingestion. "
-        "This requires to have the view lineage feature enabled.",
-    )
     usage: BaseUsageConfig = Field(
         description="The usage config to use when generating usage statistics",
         default=BaseUsageConfig(),
@@ -105,11 +97,6 @@ class TeradataConfig(BaseTeradataConfig, BaseTimeWindowConfig):
     include_usage_statistics: bool = Field(
         default=False,
         description="Generate usage statistic.",
-    )
-
-    use_file_backed_cache: bool = Field(
-        default=True,
-        description="Whether to use a file backed cache for the view definitions.",
     )
 
 
@@ -143,8 +130,6 @@ class TeradataSource(TwoTierSQLAlchemySource):
      and "timestamp" < TIMESTAMP '{end_time}'
      """
 
-    _view_definition_cache: MutableMapping[str, str]
-
     def __init__(self, config: TeradataConfig, ctx: PipelineContext):
         super().__init__(config, ctx, "teradata")
 
@@ -167,33 +152,10 @@ class TeradataSource(TwoTierSQLAlchemySource):
             env=self.config.env,
         )
 
-        if self.config.use_file_backed_cache:
-            self._view_definition_cache = FileBackedDict[str]()
-        else:
-            self._view_definition_cache = {}
-
     @classmethod
     def create(cls, config_dict, ctx):
         config = TeradataConfig.parse_obj(config_dict)
         return cls(config, ctx)
-
-    def get_view_lineage(self) -> Iterable[MetadataWorkUnit]:
-        for key in self._view_definition_cache.keys():
-            view_definition = self._view_definition_cache[key]
-            dataset_urn = DatasetUrn.create_from_string(key)
-
-            db_name: Optional[str] = None
-            # We need to get the default db from the dataset urn otherwise the builder generates the wrong urns
-            if "." in dataset_urn.get_dataset_name():
-                db_name = dataset_urn.get_dataset_name().split(".", 1)[0]
-
-            self.report.num_view_ddl_parsed += 1
-            if self.report.num_view_ddl_parsed % 1000 == 0:
-                logger.info(f"Parsed {self.report.num_queries_parsed} view ddl")
-
-            yield from self.gen_lineage_from_query(
-                query=view_definition, default_database=db_name, is_view_ddl=True
-            )
 
     def get_audit_log_mcps(self) -> Iterable[MetadataWorkUnit]:
         engine = self.get_metadata_engine()
@@ -252,19 +214,7 @@ class TeradataSource(TwoTierSQLAlchemySource):
 
     def get_workunits_internal(self) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
         # Add all schemas to the schema resolver
-        for wu in super().get_workunits_internal():
-            urn = wu.get_urn()
-            schema_metadata = wu.get_aspect_of_type(SchemaMetadataClass)
-            if schema_metadata:
-                self.schema_resolver.add_schema_metadata(urn, schema_metadata)
-            view_properties = wu.get_aspect_of_type(ViewPropertiesClass)
-            if view_properties and self.config.include_view_lineage:
-                self._view_definition_cache[urn] = view_properties.viewLogic
-            yield wu
-
-        if self.config.include_view_lineage:
-            self.report.report_ingestion_stage_start("view lineage extraction")
-            yield from self.get_view_lineage()
+        yield from super().get_workunits_internal()
 
         if self.config.include_table_lineage or self.config.include_usage_statistics:
             self.report.report_ingestion_stage_start("audit log extraction")

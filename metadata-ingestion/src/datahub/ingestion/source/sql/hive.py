@@ -1,15 +1,18 @@
 import json
 import logging
 import re
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Iterable, List, Optional, Union
 
 from pydantic.class_validators import validator
 from pydantic.fields import Field
 
 # This import verifies that the dependencies are available.
 from pyhive import hive  # noqa: F401
-from pyhive.sqlalchemy_hive import HiveDate, HiveDecimal, HiveTimestamp
+from pyhive.sqlalchemy_hive import HiveDate, HiveDecimal, HiveDialect, HiveTimestamp
+from sqlalchemy.engine.reflection import Inspector
 
+from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.decorators import (
     SourceCapability,
     SupportStatus,
@@ -18,8 +21,10 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.extractor import schema_util
-from datahub.ingestion.source.sql.sql_common import register_custom_type
+from datahub.ingestion.source.sql.sql_common import SqlWorkUnit, register_custom_type
+from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 from datahub.ingestion.source.sql.two_tier_sql_source import (
     TwoTierSQLAlchemyConfig,
     TwoTierSQLAlchemySource,
@@ -31,6 +36,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     SchemaField,
     TimeTypeClass,
 )
+from datahub.metadata.schema_classes import ViewPropertiesClass
 from datahub.utilities import config_clean
 from datahub.utilities.hive_schema_to_avro import get_avro_schema_for_hive_column
 
@@ -90,18 +96,33 @@ except Exception as e:
     logger.warning(f"Failed to patch method due to {e}")
 
 
+@reflection.cache  # type: ignore
+def get_view_names_patched(self, connection, schema=None, **kw):
+    query = "SHOW VIEWS"
+    if schema:
+        query += " IN " + self.identifier_preparer.quote_identifier(schema)
+    return [row[0] for row in connection.execute(query)]
+
+
+@reflection.cache  # type: ignore
+def get_view_definition_patched(self, connection, view_name, schema=None, **kw):
+    full_table = self.identifier_preparer.quote_identifier(view_name)
+    if schema:
+        full_table = "{}.{}".format(
+            self.identifier_preparer.quote_identifier(schema),
+            self.identifier_preparer.quote_identifier(view_name),
+        )
+    row = connection.execute("SHOW CREATE TABLE {}".format(full_table)).fetchone()
+    return row[0]
+
+
+HiveDialect.get_view_names = get_view_names_patched
+HiveDialect.get_view_definition = get_view_definition_patched
+
+
 class HiveConfig(TwoTierSQLAlchemyConfig):
     # defaults
-    scheme = Field(default="hive", hidden_from_docs=True)
-
-    # Hive SQLAlchemy connector returns views as tables.
-    # See https://github.com/dropbox/PyHive/blob/b21c507a24ed2f2b0cf15b0b6abb1c43f31d3ee0/pyhive/sqlalchemy_hive.py#L270-L273.
-    # Disabling views helps us prevent this duplication.
-    include_views = Field(
-        default=False,
-        hidden_from_docs=True,
-        description="Hive SQLAlchemy connector returns views as tables. See https://github.com/dropbox/PyHive/blob/b21c507a24ed2f2b0cf15b0b6abb1c43f31d3ee0/pyhive/sqlalchemy_hive.py#L270-L273. Disabling views helps us prevent this duplication.",
-    )
+    scheme: str = Field(default="hive", hidden_from_docs=True)
 
     @validator("host_port")
     def clean_host_port(cls, v):
@@ -174,3 +195,41 @@ class HiveSource(TwoTierSQLAlchemySource):
             return new_fields
 
         return fields
+
+    # Hive SQLAlchemy connector returns views as tables in get_table_names.
+    # See https://github.com/dropbox/PyHive/blob/b21c507a24ed2f2b0cf15b0b6abb1c43f31d3ee0/pyhive/sqlalchemy_hive.py#L270-L273.
+    # This override makes sure that we ingest view definitions for views
+    def _process_view(
+        self,
+        dataset_name: str,
+        inspector: Inspector,
+        schema: str,
+        view: str,
+        sql_config: SQLCommonConfig,
+    ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
+        dataset_urn = make_dataset_urn_with_platform_instance(
+            self.platform,
+            dataset_name,
+            self.config.platform_instance,
+            self.config.env,
+        )
+
+        try:
+            view_definition = inspector.get_view_definition(view, schema)
+            if view_definition is None:
+                view_definition = ""
+            else:
+                # Some dialects return a TextClause instead of a raw string,
+                # so we need to convert them to a string.
+                view_definition = str(view_definition)
+        except NotImplementedError:
+            view_definition = ""
+
+        if view_definition:
+            view_properties_aspect = ViewPropertiesClass(
+                materialized=False, viewLanguage="SQL", viewLogic=view_definition
+            )
+            yield MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn,
+                aspect=view_properties_aspect,
+            ).as_workunit()

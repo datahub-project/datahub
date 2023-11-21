@@ -25,7 +25,7 @@ attrs==23.1.0
     # via
     #   aiohttp
     #   jsonschema
-avro==1.10.2
+avro==1.11.3
     # via
     #   acryl-datahub
     #   avro-gen3
@@ -119,8 +119,6 @@ pyyaml==6.0.1
     # via
     #   acryl-datahub
     #   uvicorn
-ratelimiter==1.2.0.post0
-    # via acryl-datahub
 requests==2.31.0
     # via
     #   docker

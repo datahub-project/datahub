@@ -18,7 +18,7 @@ ENV SCALA_VERSION 2.13
 LABEL name="kafka" version=${KAFKA_VERSION}
 
 RUN apk add --no-cache bash coreutils
-RUN apk --no-cache add openjdk11-jre --repository=http://dl-cdn.alpinelinux.org/alpine/edge/community
+RUN apk --no-cache add openjdk11-jre-headless --repository=http://dl-cdn.alpinelinux.org/alpine/edge/community
 
 RUN apk add --no-cache -t .build-deps git curl ca-certificates jq gcc musl-dev libffi-dev zip
 RUN mkdir -p /opt \

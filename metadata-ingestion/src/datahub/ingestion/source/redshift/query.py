@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from datahub.ingestion.source.sql.redshift import redshift_datetime_format
+redshift_datetime_format = "%Y-%m-%d %H:%M:%S"
 
 
 class RedshiftQuery:

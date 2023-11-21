@@ -1,10 +1,12 @@
 package com.linkedin.datahub.graphql.resolvers.ingest.source;
 
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.template.StringMap;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
+import com.linkedin.datahub.graphql.generated.StringMapEntryInput;
 import com.linkedin.datahub.graphql.generated.UpdateIngestionSourceConfigInput;
 import com.linkedin.datahub.graphql.generated.UpdateIngestionSourceInput;
 import com.linkedin.datahub.graphql.generated.UpdateIngestionSourceScheduleInput;
@@ -17,6 +19,8 @@ import com.linkedin.metadata.key.DataHubIngestionSourceKey;
 import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import java.util.Map;
+import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 
 import java.net.URISyntaxException;
@@ -107,6 +111,12 @@ public class UpsertIngestionSourceResolver implements DataFetcher<CompletableFut
     }
     if (input.getDebugMode() != null) {
       result.setDebugMode(input.getDebugMode());
+    }
+    if (input.getExtraArgs() != null) {
+      Map<String, String> extraArgs = input.getExtraArgs()
+          .stream()
+          .collect(Collectors.toMap(StringMapEntryInput::getKey, StringMapEntryInput::getValue));
+      result.setExtraArgs(new StringMap(extraArgs));
     }
     return result;
   }

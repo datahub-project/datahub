@@ -79,30 +79,30 @@ class SnowflakeColumnReference(PermissiveModel):
 
 
 class SnowflakeObjectAccessEntry(PermissiveModel):
-    columns: Optional[List[SnowflakeColumnReference]]
+    columns: Optional[List[SnowflakeColumnReference]] = None
     objectDomain: str
     objectName: str
     # Seems like it should never be null, but in practice have seen null objectIds
-    objectId: Optional[int]
-    stageKind: Optional[str]
+    objectId: Optional[int] = None
+    stageKind: Optional[str] = None
 
 
 class SnowflakeJoinedAccessEvent(PermissiveModel):
     query_start_time: datetime
     query_text: str
     query_type: str
-    rows_inserted: Optional[int]
-    rows_updated: Optional[int]
-    rows_deleted: Optional[int]
+    rows_inserted: Optional[int] = None
+    rows_updated: Optional[int] = None
+    rows_deleted: Optional[int] = None
     base_objects_accessed: List[SnowflakeObjectAccessEntry]
     direct_objects_accessed: List[SnowflakeObjectAccessEntry]
     objects_modified: List[SnowflakeObjectAccessEntry]
 
     user_name: str
-    first_name: Optional[str]
-    last_name: Optional[str]
-    display_name: Optional[str]
-    email: Optional[str]
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    display_name: Optional[str] = None
+    email: Optional[str] = None
     role_name: str
 
 

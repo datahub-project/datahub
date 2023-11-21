@@ -112,7 +112,6 @@ public class DataHubAuthorizer implements Authorizer {
   }
 
   public List<String> getGrantedPrivileges(final String actor, final Optional<EntitySpec> resourceSpec) {
-
     // 1. Fetch all policies
     final List<DataHubPolicyInfo> policiesToEvaluate = getOrDefault(ALL, new ArrayList<>());
 
@@ -131,16 +130,17 @@ public class DataHubAuthorizer implements Authorizer {
   public AuthorizedActors authorizedActors(
       final String privilege,
       final Optional<EntitySpec> resourceSpec) {
-    // Step 1: Find policies granting the privilege.
-    final List<DataHubPolicyInfo> policiesToEvaluate = getOrDefault(privilege, new ArrayList<>());
-
-    Optional<ResolvedEntitySpec> resolvedResourceSpec = resourceSpec.map(_entitySpecResolver::resolve);
 
     final List<Urn> authorizedUsers = new ArrayList<>();
     final List<Urn> authorizedGroups = new ArrayList<>();
     final List<Urn> authorizedRoles = new ArrayList<>();
     boolean allUsers = false;
     boolean allGroups = false;
+
+    // Step 1: Find policies granting the privilege.
+    final List<DataHubPolicyInfo> policiesToEvaluate = getOrDefault(privilege, new ArrayList<>());
+
+    Optional<ResolvedEntitySpec> resolvedResourceSpec = resourceSpec.map(_entitySpecResolver::resolve);
 
     // Step 2: For each policy, determine whether the resource is a match.
     for (DataHubPolicyInfo policy : policiesToEvaluate) {

@@ -9,7 +9,7 @@ RUN addgroup -S datahub && adduser -S datahub -G datahub
 # PFP-260: Upgrade Sqlite to >=3.28.0-r0 to fix https://security.snyk.io/vuln/SNYK-ALPINE39-SQLITE-449762
 RUN apk --no-cache --update-cache --available upgrade \
     && apk --no-cache add curl sqlite libc6-compat java-snappy \
-    && apk --no-cache add openjdk11-jre --repository=http://dl-cdn.alpinelinux.org/alpine/edge/community \
+    && apk --no-cache add openjdk11-jre-headless --repository=http://dl-cdn.alpinelinux.org/alpine/edge/community \
     && apk --no-cache add jattach --repository http://dl-cdn.alpinelinux.org/alpine/edge/community/
 
 ENV LD_LIBRARY_PATH="/lib:/lib64"

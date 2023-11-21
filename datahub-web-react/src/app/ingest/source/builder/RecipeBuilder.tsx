@@ -86,10 +86,20 @@ function RecipeBuilder(props: Props) {
                     {sourceConfigs?.displayName} Recipe
                 </Title>
                 <ButtonsWrapper>
-                    <StyledButton type="text" isSelected={isViewingForm} onClick={() => switchViews(true)}>
+                    <StyledButton
+                        type="text"
+                        isSelected={isViewingForm}
+                        onClick={() => switchViews(true)}
+                        data-testid="recipe-builder-form-button"
+                    >
                         <FormOutlined /> Form
                     </StyledButton>
-                    <StyledButton type="text" isSelected={!isViewingForm} onClick={() => switchViews(false)}>
+                    <StyledButton
+                        type="text"
+                        isSelected={!isViewingForm}
+                        onClick={() => switchViews(false)}
+                        data-testid="recipe-builder-yaml-button"
+                    >
                         <CodeOutlined /> YAML
                     </StyledButton>
                 </ButtonsWrapper>
@@ -114,7 +124,9 @@ function RecipeBuilder(props: Props) {
                         <Button disabled={isEditing} onClick={goToPrevious}>
                             Previous
                         </Button>
-                        <Button onClick={onClickNext}>Next</Button>
+                        <Button data-testid="recipe-builder-next-button" onClick={onClickNext}>
+                            Next
+                        </Button>
                     </ControlsContainer>
                 </>
             )}

@@ -241,9 +241,11 @@ public class SearchRequestHandler {
 
     BoolQueryBuilder filterQuery = getFilterQuery(filter);
     searchSourceBuilder.query(QueryBuilders.boolQuery().must(getQuery(input, finalSearchFlags.isFulltext())).filter(filterQuery));
-    _aggregationQueryBuilder.getAggregations().forEach(searchSourceBuilder::aggregation);
+    if (!finalSearchFlags.isSkipAggregates()) {
+      _aggregationQueryBuilder.getAggregations().forEach(searchSourceBuilder::aggregation);
+    }
     if (!finalSearchFlags.isSkipHighlighting()) {
-      searchSourceBuilder.highlighter(getHighlights());
+      searchSourceBuilder.highlighter(_highlights);
     }
     ESUtils.buildSortOrder(searchSourceBuilder, sortCriterion, _entitySpecs);
     searchRequest.source(searchSourceBuilder);
@@ -272,7 +274,6 @@ public class SearchRequestHandler {
     final SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
     searchSourceBuilder.query(filterQuery);
     searchSourceBuilder.from(from).size(size);
-    searchSourceBuilder.fetchSource(URN_FIELD, null);
     ESUtils.buildSortOrder(searchSourceBuilder, sortCriterion, _entitySpecs);
     searchRequest.source(searchSourceBuilder);
 
@@ -422,7 +423,7 @@ public class SearchRequestHandler {
 
   @WithSpan
   public ScrollResult extractScrollResult(@Nonnull SearchResponse searchResponse, Filter filter, @Nullable String scrollId,
-      @Nonnull String keepAlive, int size, boolean supportsPointInTime) {
+      @Nullable String keepAlive, int size, boolean supportsPointInTime) {
     int totalCount = (int) searchResponse.getHits().getTotalHits().value;
     List<SearchEntity> resultList = getResults(searchResponse);
     SearchResultMetadata searchResultMetadata = extractSearchResultMetadata(searchResponse, filter);
@@ -432,7 +433,7 @@ public class SearchRequestHandler {
     if (searchHits.length == size) {
       Object[] sort = searchHits[searchHits.length - 1].getSortValues();
       long expirationTimeMs = 0L;
-      if (supportsPointInTime) {
+      if (keepAlive != null && supportsPointInTime) {
         expirationTimeMs = TimeValue.parseTimeValue(keepAlive, "expirationTime").getMillis() + System.currentTimeMillis();
       }
       nextScrollId = new SearchAfterWrapper(sort, searchResponse.pointInTimeId(), expirationTimeMs).toScrollId();

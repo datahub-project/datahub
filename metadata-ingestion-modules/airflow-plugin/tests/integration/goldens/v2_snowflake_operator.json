@@ -9,7 +9,9 @@
             "customProperties": {
                 "_access_control": "None",
                 "catchup": "False",
-                "fileloc": "'/Users/hsheth/projects/datahub/metadata-ingestion-modules/airflow-plugin/tests/integration/dags/snowflake_operator.py'",
+                "description": "None",
+                "doc_md": "None",
+                "fileloc": "'/Users/shubham/airflow1/datahub/metadata-ingestion-modules/airflow-plugin/tests/integration/dags/snowflake_operator.py'",
                 "is_paused_upon_creation": "None",
                 "start_date": "DateTime(2023, 1, 1, 0, 0, 0, tzinfo=Timezone('UTC'))",
                 "tags": "[]",
@@ -234,7 +236,10 @@
                 "state": "running",
                 "operator": "SnowflakeOperator",
                 "priority_weight": "1",
-                "log_url": "http://airflow.example.com/log?execution_date=2023-09-27T21%3A34%3A38%2B00%3A00&task_id=transform_cost_table&dag_id=snowflake_operator&map_index=-1"
+                "log_url": "http://airflow.example.com/log?execution_date=2023-09-27T21%3A34%3A38%2B00%3A00&task_id=transform_cost_table&dag_id=snowflake_operator&map_index=-1",
+                "orchestrator": "airflow",
+                "dag_id": "snowflake_operator",
+                "task_id": "transform_cost_table"
             },
             "externalUrl": "http://airflow.example.com/log?execution_date=2023-09-27T21%3A34%3A38%2B00%3A00&task_id=transform_cost_table&dag_id=snowflake_operator&map_index=-1",
             "name": "snowflake_operator_transform_cost_table_manual_run_test",

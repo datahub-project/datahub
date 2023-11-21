@@ -133,9 +133,9 @@ public class DataHubAuthorizerTest {
     final ScrollResult policySearchResult5 = new ScrollResult()
             .setNumEntities(5)
             .setEntities(
-                    new SearchEntityArray(
-                        ImmutableList.of(
-                            new SearchEntity().setEntity(adminPolicyUrn))));
+            new SearchEntityArray(
+                ImmutableList.of(
+                    new SearchEntity().setEntity(adminPolicyUrn))));
 
     when(_entityClient.scrollAcrossEntities(eq(List.of("dataHubPolicy")), eq(""), isNull(), any(), isNull(),
             anyInt(), eq(new SearchFlags().setFulltext(true).setSkipAggregates(true).setSkipHighlighting(true).setSkipCache(true)), any()))

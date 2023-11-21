@@ -112,6 +112,15 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         for catalog in response:
             yield self._create_catalog(metastore, catalog)
 
+    def catalog(
+        self, catalog_name: str, metastore: Optional[Metastore]
+    ) -> Optional[Catalog]:
+        response = self._workspace_client.catalogs.get(catalog_name)
+        if not response:
+            logger.info(f"Catalog {catalog_name} not found")
+            return None
+        return self._create_catalog(metastore, response)
+
     def schemas(self, catalog: Catalog) -> Iterable[Schema]:
         response = self._workspace_client.schemas.list(catalog_name=catalog.name)
         if not response:

@@ -30,7 +30,7 @@
                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                     }
                 },
-                "native_column_type": "BIGINT"
+                "native_column_type": "NUMBER"
             },
             "upstreams": []
         },

@@ -78,6 +78,14 @@ Expected Response:
 
 </TabItem>
 
+<TabItem value="java" label="Java">
+
+```java
+{{ inline /metadata-integration/java/examples/src/main/java/io/datahubproject/examples/TagCreate.java show_path_as_comment }}
+```
+
+</TabItem>
+
 <TabItem value="python" label="Python">
 
 ```python

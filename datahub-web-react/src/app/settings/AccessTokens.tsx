@@ -21,6 +21,9 @@ const SourceContainer = styled.div`
     padding-top: 20px;
     padding-right: 40px;
     padding-left: 40px;
+    display: flex;
+    flex-direction: column;
+    overflow: auto;
 `;
 
 const TokensContainer = styled.div`

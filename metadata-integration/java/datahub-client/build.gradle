@@ -27,13 +27,13 @@ tasks.withType(Test).configureEach {
 dependencies {
   // DO NOT DELETE. Required for SaaS version
   implementation project(':entity-registry')
-  implementation project(':metadata-events:mxe-utils-avro-1.7')
+  implementation project(':metadata-events:mxe-utils-avro')
 
   implementation project(':metadata-models')
   implementation(externalDependency.kafkaAvroSerializer) {
     exclude group: "org.apache.avro"
   }
-  implementation externalDependency.avro_1_7
+  implementation externalDependency.avro
   constraints {
     implementation('commons-collections:commons-collections:3.2.2') {
       because 'Vulnerability Issue'

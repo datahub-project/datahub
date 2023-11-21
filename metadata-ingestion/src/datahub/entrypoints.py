@@ -70,21 +70,10 @@ MAX_CONTENT_WIDTH = 120
     version=datahub_package.nice_version_name(),
     prog_name=datahub_package.__package_name__,
 )
-@click.option(
-    "-dl",
-    "--detect-memory-leaks",
-    type=bool,
-    is_flag=True,
-    default=False,
-    help="Run memory leak detection.",
-)
-@click.pass_context
 def datahub(
-    ctx: click.Context,
     debug: bool,
     log_file: Optional[str],
     debug_vars: bool,
-    detect_memory_leaks: bool,
 ) -> None:
     if debug_vars:
         # debug_vars implies debug. This option isn't actually used here, but instead
@@ -108,10 +97,6 @@ def datahub(
     _logging_configured = None  # see if we can force python to GC this
     _logging_configured = configure_logging(debug=debug, log_file=log_file)
     _logging_configured.__enter__()
-
-    # Setup the context for the memory_leak_detector decorator.
-    ctx.ensure_object(dict)
-    ctx.obj["detect_memory_leaks"] = detect_memory_leaks
 
 
 @datahub.command()

@@ -105,6 +105,9 @@ fragment autoCompleteFields on Entity {
         parentContainers {
             ...parentContainersFields
         }
+        subTypes {
+            typeNames
+        }
     }
     ... on DataFlow {
         orchestrator
@@ -560,6 +563,9 @@ fragment searchResultFields on Entity {
                     pictureLink
                 }
             }
+        }
+        subTypes {
+            typeNames
         }
     }
     ... on DataFlow {

@@ -57,7 +57,11 @@ export default function UpdateDescriptionModal({
                             Propose
                         </Button>
                     )}
-                    <Button onClick={() => onSubmit(updatedDesc)} disabled={updatedDesc === description}>
+                    <Button
+                        onClick={() => onSubmit(updatedDesc)}
+                        disabled={updatedDesc === description}
+                        data-testid="description-modal-update-button"
+                    >
                         Update
                     </Button>
                 </>

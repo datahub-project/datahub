@@ -56,7 +56,7 @@ public class DataPlatformInstanceFieldResolverProviderTest {
 
   @Test
   public void shouldReturnDataPlatformInstanceType() {
-    assertEquals(EntityFieldType.DATA_PLATFORM_INSTANCE, dataPlatformInstanceFieldResolverProvider.getFieldType());
+    assertEquals(EntityFieldType.DATA_PLATFORM_INSTANCE, dataPlatformInstanceFieldResolverProvider.getFieldTypes().get(0));
   }
 
   @Test

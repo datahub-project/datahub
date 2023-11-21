@@ -27,7 +27,7 @@ describe("proposals", () => {
       "/glossaryTerm/urn:li:glossaryTerm:CypressNode.CypressTermToProposeOn/Documentation"
     );
 
-    cy.get('[data-testid="edit-description"]').click({ force: true });
+    cy.get('[data-testid="edit-documentation-button"]').click({ force: true });
 
     cy.focused().clear().type("Description to propose");
     cy.get('[data-testid="propose-description"]').click({ force: true });

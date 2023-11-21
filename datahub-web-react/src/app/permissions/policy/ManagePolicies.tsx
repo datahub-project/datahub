@@ -38,7 +38,11 @@ import analytics, { EventType } from '../../analytics';
 import { POLICIES_CREATE_POLICY_ID, POLICIES_INTRO_ID } from '../../onboarding/config/PoliciesOnboardingConfig';
 import { OnboardingTour } from '../../onboarding/OnboardingTour';
 
-const SourceContainer = styled.div``;
+const SourceContainer = styled.div`
+    overflow: auto;
+    display: flex;
+    flex-direction: column;
+`;
 
 const PaginationContainer = styled.div`
     display: flex;
@@ -75,6 +79,9 @@ const EditPolicyButton = styled(Button)`
 
 const PageContainer = styled.span`
     width: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow: auto;
 `;
 
 const DEFAULT_PAGE_SIZE = 10;
@@ -166,7 +173,6 @@ export const ManagePolicies = () => {
         data: policiesData,
         refetch: policiesRefetch,
     } = useListPoliciesQuery({
-        fetchPolicy: 'no-cache',
         variables: {
             input: {
                 start,
@@ -174,6 +180,7 @@ export const ManagePolicies = () => {
                 query,
             },
         },
+        fetchPolicy: (query?.length || 0) > 0 ? 'no-cache' : 'cache-first',
     });
 
     // Any time a policy is removed, edited, or created, refetch the list.
@@ -476,7 +483,10 @@ export const ManagePolicies = () => {
                             fontSize: 12,
                         }}
                         onSearch={() => null}
-                        onQueryChange={(q) => setQuery(q)}
+                        onQueryChange={(q) => {
+                            setPage(1);
+                            setQuery(q);
+                        }}
                         entityRegistry={entityRegistry}
                         hideRecommendations
                     />

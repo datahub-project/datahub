@@ -3,7 +3,7 @@ import json
 import logging
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, Iterable, List, Optional, Type
+from typing import Any, Dict, Iterable, List, Optional, Type, cast
 
 import avro.schema
 import confluent_kafka
@@ -100,11 +100,11 @@ class KafkaSourceConfig(
         default="datahub.ingestion.source.confluent_schema_registry.ConfluentSchemaRegistry",
         description="The fully qualified implementation class(custom) that implements the KafkaSchemaRegistryBase interface.",
     )
-    schema_tags_field = pydantic.Field(
+    schema_tags_field: str = pydantic.Field(
         default="tags",
         description="The field name in the schema metadata that contains the tags to be added to the dataset.",
     )
-    enable_meta_mapping = pydantic.Field(
+    enable_meta_mapping: bool = pydantic.Field(
         default=True,
         description="When enabled, applies the mappings that are defined through the meta_mapping directives.",
     )
@@ -316,13 +316,20 @@ class KafkaSource(StatefulIngestionSourceBase):
             avro_schema = avro.schema.parse(
                 schema_metadata.platformSchema.documentSchema
             )
-            description = avro_schema.doc
+            description = getattr(avro_schema, "doc", None)
             # set the tags
             all_tags: List[str] = []
-            for tag in avro_schema.other_props.get(
-                self.source_config.schema_tags_field, []
-            ):
-                all_tags.append(self.source_config.tag_prefix + tag)
+            try:
+                schema_tags = cast(
+                    Iterable[str],
+                    avro_schema.other_props.get(
+                        self.source_config.schema_tags_field, []
+                    ),
+                )
+                for tag in schema_tags:
+                    all_tags.append(self.source_config.tag_prefix + tag)
+            except TypeError:
+                pass
 
             if self.source_config.enable_meta_mapping:
                 meta_aspects = self.meta_processor.process(avro_schema.other_props)

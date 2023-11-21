@@ -1,5 +1,6 @@
 package com.linkedin.metadata.kafka.hook.spring;
 
+import com.linkedin.data.schema.annotation.PathSpecBasedSchemaAnnotationVisitor;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.kafka.MetadataChangeLogProcessor;
 import com.linkedin.metadata.kafka.hook.UpdateIndicesHook;
@@ -18,7 +19,7 @@ import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.testng.annotations.Test;
 
-import static org.testng.AssertJUnit.*;
+import static org.testng.AssertJUnit.assertEquals;
 
 
 @SpringBootTest(classes = {
@@ -34,6 +35,11 @@ import static org.testng.AssertJUnit.*;
 })
 @EnableAutoConfiguration(exclude = {CassandraAutoConfiguration.class})
 public class MCLSpringTest extends AbstractTestNGSpringContextTests {
+
+  static {
+    PathSpecBasedSchemaAnnotationVisitor.class.getClassLoader().setClassAssertionStatus(
+            PathSpecBasedSchemaAnnotationVisitor.class.getName(), false);
+  }
 
   @Test
   public void testHooks() {

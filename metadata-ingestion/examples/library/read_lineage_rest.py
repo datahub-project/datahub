@@ -6,7 +6,7 @@ graph = DataHubGraph(DatahubClientConfig(server=gms_endpoint))
 
 # Query multiple aspects from entity
 query = """
-mutation searchAcrossLineage {
+query searchAcrossLineage {
   searchAcrossLineage(
     input: {
       query: "*"

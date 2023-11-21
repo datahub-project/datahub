@@ -14,7 +14,7 @@ def get_long_description():
     return pathlib.Path(os.path.join(root, "README.md")).read_text()
 
 
-_version = package_metadata["__version__"]
+_version: str = package_metadata["__version__"]
 _self_pin = f"=={_version}" if not _version.endswith("dev0") else ""
 
 
@@ -101,6 +101,10 @@ integration_test_requirements = {
     f"acryl-datahub[testing-utils]{_self_pin}",
     # Extra requirements for loading our test dags.
     "apache-airflow[snowflake]>=2.0.2",
+    # Connexion's new version breaks Airflow:
+    # See https://github.com/apache/airflow/issues/35234.
+    # TODO: We should transition to using Airflow's constraints file.
+    "connexion<3",
     # https://github.com/snowflakedb/snowflake-sqlalchemy/issues/350
     # Eventually we want to set this to "snowflake-sqlalchemy>=1.4.3".
     # However, that doesn't work with older versions of Airflow. Instead

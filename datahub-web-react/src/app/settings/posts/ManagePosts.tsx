@@ -6,7 +6,9 @@ import { PostList } from './PostsList';
 const PageContainer = styled.div`
     padding-top: 20px;
     width: 100%;
-    height: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow: auto;
 `;
 
 const PageHeaderContainer = styled.div`
@@ -21,7 +23,11 @@ const PageTitle = styled(Typography.Title)`
     }
 `;
 
-const ListContainer = styled.div``;
+const ListContainer = styled.div`
+    display: flex;
+    flex-direction: column;
+    overflow: auto;
+`;
 
 export default function ManagePosts() {
     return (

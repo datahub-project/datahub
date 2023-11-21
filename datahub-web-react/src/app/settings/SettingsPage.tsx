@@ -35,12 +35,15 @@ import ManagePosts from './posts/ManagePosts';
 
 const PageContainer = styled.div`
     display: flex;
+    overflow: auto;
 `;
 
 const SettingsBarContainer = styled.div`
     padding-top: 20px;
-    min-height: 100vh;
+    max-height: 100vh;
     border-right: 1px solid ${ANTD_GRAY[5]};
+    display: flex;
+    flex-direction: column;
 `;
 
 const SettingsBarHeader = styled.div`
@@ -72,6 +75,7 @@ const ACRYL_PATHS = [
     { path: 'personal-notifications', content: <ManageActorNotifications isPersonal /> },
     { path: 'personal-subscriptions', content: <ManageActorSubscriptions isPersonal /> },
 ];
+const menuStyle = { width: 256, 'margin-top': 8, overflow: 'hidden auto' };
 
 /**
  * URL Paths for each settings page.
@@ -132,7 +136,7 @@ export const SettingsPage = () => {
                 <Menu
                     selectable={false}
                     mode="inline"
-                    style={{ width: 256, marginTop: 8 }}
+                    style={menuStyle}
                     selectedKeys={[activePath]}
                     onClick={(newPath) => {
                         history.replace(`${url}/${newPath.key}`);
@@ -199,19 +203,26 @@ export const SettingsPage = () => {
                             </Menu.ItemGroup>
                         )
                     }
-                    <Menu.ItemGroup title="Manage">
-                        {showOwnershipTypes && (
-                            <Menu.Item key="ownership">
-                                <TeamOutlined /> <ItemTitle>Ownership Types</ItemTitle>
-                            </Menu.Item>
-                        )}
-                        {showHomePagePosts && (
-                            <Menu.Item key="posts">
-                                <PushpinOutlined /> <ItemTitle>Home Page Posts</ItemTitle>
-                            </Menu.Item>
-                        )}
-                    </Menu.ItemGroup>
 
+                    {(showViews || showOwnershipTypes || showHomePagePosts) && (
+                        <Menu.ItemGroup title="Manage">
+                            {showViews && (
+                                <Menu.Item key="views">
+                                    <FilterOutlined /> <ItemTitle>My Views</ItemTitle>
+                                </Menu.Item>
+                            )}
+                            {showOwnershipTypes && (
+                                <Menu.Item key="ownership">
+                                    <TeamOutlined /> <ItemTitle>Ownership Types</ItemTitle>
+                                </Menu.Item>
+                            )}
+                            {showHomePagePosts && (
+                                <Menu.Item key="posts">
+                                    <PushpinOutlined /> <ItemTitle>Home Page Posts</ItemTitle>
+                                </Menu.Item>
+                            )}
+                        </Menu.ItemGroup>
+                    )}
                     <Menu.ItemGroup title="Preferences">
                         <Menu.Item key="preferences">
                             <ToolOutlined />

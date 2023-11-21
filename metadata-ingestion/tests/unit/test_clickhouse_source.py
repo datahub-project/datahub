@@ -26,9 +26,7 @@ def test_clickhouse_uri_native():
             "scheme": "clickhouse+native",
         }
     )
-    assert (
-        config.get_sql_alchemy_url() == "clickhouse+native://user:password@host:1111/"
-    )
+    assert config.get_sql_alchemy_url() == "clickhouse+native://user:password@host:1111"
 
 
 def test_clickhouse_uri_native_secure():

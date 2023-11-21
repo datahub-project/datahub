@@ -9,6 +9,7 @@ dependencies {
   api project(':metadata-utils')
   implementation project(':metadata-service:configuration')
 
+  implementation externalDependency.caffeine
   implementation externalDependency.slf4jApi
   compileOnly externalDependency.lombok
   annotationProcessor externalDependency.lombok

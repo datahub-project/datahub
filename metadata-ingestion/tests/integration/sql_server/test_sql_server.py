@@ -6,7 +6,7 @@ import pytest
 
 from tests.test_helpers import mce_helpers
 from tests.test_helpers.click_helpers import run_datahub_cmd
-from tests.test_helpers.docker_helpers import wait_for_port
+from tests.test_helpers.docker_helpers import cleanup_image, wait_for_port
 
 
 @pytest.fixture(scope="module")
@@ -28,6 +28,9 @@ def mssql_runner(docker_compose_runner, pytestconfig):
         )
         assert ret.returncode == 0
         yield docker_services
+
+    # The image is pretty large, so we remove it after the test.
+    cleanup_image("mcr.microsoft.com/mssql/server")
 
 
 SOURCE_FILES_PATH = "./tests/integration/sql_server/source_files"

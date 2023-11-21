@@ -26,11 +26,12 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
+    capability,
     config_class,
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import Source, SourceReport
+from datahub.ingestion.api.source import Source, SourceCapability, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.schema_classes import (
     DataFlowInfoClass,
@@ -125,7 +126,7 @@ class NifiSourceConfig(EnvConfigMixin):
         description="Path to PEM file containing certs for the root CA(s) for the NiFi",
     )
 
-    @root_validator
+    @root_validator(skip_on_failure=True)
     def validate_auth_params(cla, values):
         if values.get("auth") is NifiAuthType.CLIENT_CERT and not values.get(
             "client_cert_file"
@@ -142,7 +143,7 @@ class NifiSourceConfig(EnvConfigMixin):
             )
         return values
 
-    @root_validator(pre=False)
+    @root_validator(skip_on_failure=True)
     def validator_site_url_to_site_name(cls, values):
         site_url_to_site_name = values.get("site_url_to_site_name")
         site_url = values.get("site_url")
@@ -360,6 +361,7 @@ class NifiSourceReport(SourceReport):
 @platform_name("NiFi", id="nifi")
 @config_class(NifiSourceConfig)
 @support_status(SupportStatus.CERTIFIED)
+@capability(SourceCapability.LINEAGE_COARSE, "Supported. See docs for limitations")
 class NifiSource(Source):
     """
     This plugin extracts the following:

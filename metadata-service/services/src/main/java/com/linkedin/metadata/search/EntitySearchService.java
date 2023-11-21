@@ -148,7 +148,7 @@ public interface EntitySearchService {
   /**
    * Returns number of documents per field value given the field and filters
    *
-   * @param entityName name of the entity, if empty or null aggregate over all entities
+   * @param entityNames list of name of entities to aggregate across, if empty aggregate over all entities
    * @param field the field name for aggregate
    * @param requestParams filters to apply before aggregating
    * @param limit the number of aggregations to return
@@ -156,8 +156,8 @@ public interface EntitySearchService {
    * @return a map of the value to the count of documents having the value
    */
   @Nonnull
-  Map<String, Long> aggregateByValue(@Nullable String entityName, @Nonnull String field, @Nullable Filter requestParams,
-      int limit);
+  Map<String, Long> aggregateByValue(@Nullable List<String> entityNames, @Nonnull String field,
+      @Nullable Filter requestParams, int limit);
 
   /**
    * Gets a list of groups/entities that match given browse request.
@@ -211,7 +211,7 @@ public interface EntitySearchService {
    */
   @Nonnull
   ScrollResult fullTextScroll(@Nonnull List<String> entities, @Nonnull String input, @Nullable Filter postFilters,
-      @Nullable SortCriterion sortCriterion, @Nullable String scrollId, @Nonnull String keepAlive, int size, @Nullable SearchFlags searchFlags);
+      @Nullable SortCriterion sortCriterion, @Nullable String scrollId, @Nullable String keepAlive, int size, @Nullable SearchFlags searchFlags);
 
   /**
    * Gets a list of documents that match given search request. The results are aggregated and filters are applied to the
@@ -228,7 +228,7 @@ public interface EntitySearchService {
    */
   @Nonnull
   ScrollResult structuredScroll(@Nonnull List<String> entities, @Nonnull String input, @Nullable Filter postFilters,
-      @Nullable SortCriterion sortCriterion, @Nullable String scrollId, @Nonnull String keepAlive, int size, @Nullable SearchFlags searchFlags);
+      @Nullable SortCriterion sortCriterion, @Nullable String scrollId, @Nullable String keepAlive, int size, @Nullable SearchFlags searchFlags);
 
   /**
    * Max result size returned by the underlying search backend

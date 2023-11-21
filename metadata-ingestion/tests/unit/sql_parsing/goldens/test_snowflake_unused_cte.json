@@ -1,0 +1,39 @@
+{
+    "query_type": "SELECT",
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,table1,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,table2,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,table3,PROD)"
+    ],
+    "out_tables": [],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": null,
+                "column": "col1",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,table1,PROD)",
+                    "column": "col1"
+                }
+            ]
+        },
+        {
+            "downstream": {
+                "table": null,
+                "column": "col6",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,table3,PROD)",
+                    "column": "col6"
+                }
+            ]
+        }
+    ]
+}

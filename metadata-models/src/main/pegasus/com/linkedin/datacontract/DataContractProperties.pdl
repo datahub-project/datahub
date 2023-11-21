@@ -20,6 +20,11 @@ record DataContractProperties {
   entity: Urn
 
   /**
+   * An optional set of SLA contracts. If this is a dataset contract, there will only be one.
+   */
+  sla: optional array[SlaContract]
+
+  /**
    * An optional set of schema contracts. If this is a dataset contract, there will only be one.
    */
    @Relationship = {

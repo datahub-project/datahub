@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useHistory } from 'react-router';
 import { Typography, Image, Row, Button, Tag } from 'antd';
+import { debounce } from 'lodash';
 import styled, { useTheme } from 'styled-components/macro';
 import { RightOutlined } from '@ant-design/icons';
 import { ManageAccount } from '../shared/ManageAccount';
@@ -24,6 +25,7 @@ import { getAutoCompleteInputFromQuickFilter } from '../search/utils/filterUtils
 import { useUserContext } from '../context/useUserContext';
 import AcrylDemoBanner from './AcrylDemoBanner';
 import DemoButton from '../entity/shared/components/styled/DemoButton';
+import { HALF_SECOND_IN_MS } from '../entity/shared/tabs/Dataset/Queries/utils/constants';
 
 const Background = styled.div`
     width: 100%;
@@ -176,7 +178,7 @@ export const HomePageHeader = () => {
         });
     };
 
-    const onAutoComplete = (query: string) => {
+    const onAutoComplete = debounce((query: string) => {
         if (query && query.trim() !== '') {
             getAutoCompleteResultsForMultiple({
                 variables: {
@@ -189,7 +191,7 @@ export const HomePageHeader = () => {
                 },
             });
         }
-    };
+    }, HALF_SECOND_IN_MS);
 
     const onClickExploreAll = () => {
         analytics.event({
@@ -275,6 +277,8 @@ export const HomePageHeader = () => {
                         viewsEnabled={viewsEnabled}
                         combineSiblings
                         showQuickFilters
+                        showViewAllResults
+                        showCommandK
                     />
                     {searchResultsToShow && searchResultsToShow.length > 0 && (
                         <SuggestionsContainer>

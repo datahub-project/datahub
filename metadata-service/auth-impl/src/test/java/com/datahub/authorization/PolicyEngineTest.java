@@ -1071,7 +1071,6 @@ public class PolicyEngineTest {
 
     assertEquals(actors.getRoles(), ImmutableList.of(Urn.createFromString("urn:li:role:Admin")));
 
-
     // Verify aspect client called, entity client not called.
     verify(_entityClient, times(0)).batchGetV2(eq(CORP_USER_ENTITY_NAME), eq(Collections.singleton(authorizedUserUrn)),
         eq(null), any());
