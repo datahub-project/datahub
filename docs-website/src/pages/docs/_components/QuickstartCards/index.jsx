@@ -17,14 +17,14 @@ import {
 
 const quickstartContent =  [
 {
-    title: "Quickstart with DataHub →",
+    title: "Quickstart with DataHub",
     icon: "datahub-logo-color-mark",
     to: "docs/quickstart",
     color: '#FFF',
     fontColor: '#091013',
   },
 {
-    title: "Learn about Managed DataHub →",
+    title: "Learn about Managed DataHub",
     icon: "acryl-logo-transparent-mark",
     to: "docs/managed-datahub/managed-datahub-overview",
     color: '#091013',

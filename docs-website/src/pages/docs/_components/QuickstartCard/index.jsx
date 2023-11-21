@@ -12,7 +12,7 @@ const QuickstartCard = ({ icon, title, to, color, fontColor }) => {
       <Link to={useBaseUrl(to)} className={clsx("card", styles.feature)} style={{ background: color, color: fontColor}}>
         <img src={useBaseUrl(`/img/${icon}.svg`)} />
         <div style={{ margin: "auto 0"}}>
-          <strong>{title}</strong>
+          <strong>{title}&nbsp;→</strong>
         </div>
       </Link>
     </div>

@@ -20,7 +20,7 @@ return (
       <Link to={useBaseUrl(to)} className={clsx("card", styles.feature)}>
         <div> 
           {icon}
-          <strong>{title}</strong>
+          <strong>{title}&nbsp;→</strong>
           <span>{description}</span>
         </div>
       </Link>
