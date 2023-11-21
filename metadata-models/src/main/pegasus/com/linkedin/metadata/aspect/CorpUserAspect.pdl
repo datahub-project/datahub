@@ -20,7 +20,5 @@ typeref CorpUserAspect = union[
   CorpUserStatus,
   GroupMembership,
   GlobalTags,
-  Status,
-  OverProvisionedCorpUser,
-  CorpUserUsageStatistics
+  Status
 ]

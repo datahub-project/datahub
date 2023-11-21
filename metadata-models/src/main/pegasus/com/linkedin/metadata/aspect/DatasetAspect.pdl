@@ -40,7 +40,5 @@ typeref DatasetAspect = union[
   BrowsePaths,
   DataPlatformInstance,
   ViewProperties,
-  BrowsePathsV2,
-  DatasetPrivacyClassification,
-  IsDataMaskingRequired
+  BrowsePathsV2
 ]

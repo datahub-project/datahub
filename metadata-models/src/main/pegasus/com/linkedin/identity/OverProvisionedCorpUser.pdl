@@ -6,7 +6,7 @@ import com.linkedin.common.AuditStamp
   * Information about a ExternalRoleProperties
   */
 @Aspect = {
-  "name": "OverProvisionedCorpUser"
+  "name": "overProvisionedCorpUser"
 }
 record OverProvisionedCorpUser {
   /**
