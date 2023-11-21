@@ -12,7 +12,7 @@ import { tagRender } from '../tagRenderer';
 import { BrowserWrapper } from '../../../../../../shared/tags/AddTagsTermsModal';
 import DomainNavigator from '../../../../../../domain/nestedDomains/domainNavigator/DomainNavigator';
 import ClickOutside from '../../../../../../shared/ClickOutside';
-import { getContainer } from '../../utils';
+import { getModalDomContainer } from '../../../../../../../utils/focus';
 
 type Props = {
     urns: string[];
@@ -181,7 +181,7 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOk
                     </Button>
                 </>
             }
-            getContainer={getContainer}
+            getContainer={getModalDomContainer}
         >
             <Form component={false}>
                 <Form.Item>

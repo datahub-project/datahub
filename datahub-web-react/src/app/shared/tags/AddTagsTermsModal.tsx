@@ -19,7 +19,7 @@ import { useGetRecommendations } from '../recommendation';
 import { FORBIDDEN_URN_CHARS_REGEX, handleBatchError } from '../../entity/shared/utils';
 import { TagTermLabel } from './TagTermLabel';
 import { ENTER_KEY_CODE } from '../constants';
-import { getContainer } from '../../entity/shared/containers/profile/utils';
+import { getModalDomContainer } from '../../../utils/focus';
 
 export enum OperationType {
     ADD,
@@ -434,7 +434,7 @@ export default function EditTagTermsModal({
             title={`${operationType === OperationType.ADD ? 'Add' : 'Remove'} ${entityRegistry.getEntityName(type)}s`}
             visible={visible}
             onCancel={onCloseModal}
-            getContainer={getContainer}
+            getContainer={getModalDomContainer}
             footer={
                 <>
                     <Button onClick={onCloseModal} type="text">
