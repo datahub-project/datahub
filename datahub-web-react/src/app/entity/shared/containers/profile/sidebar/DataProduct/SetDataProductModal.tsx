@@ -10,7 +10,7 @@ import { IconStyleType } from '../../../../../Entity';
 import { tagRender } from '../tagRenderer';
 import { useBatchSetDataProductMutation } from '../../../../../../../graphql/dataProduct.generated';
 import { handleBatchError } from '../../../../utils';
-import { getContainer } from '../../utils';
+import { getModalDomContainer } from '../../../../../../../utils/focus';
 
 const OptionWrapper = styled.div`
     padding: 2px 0;
@@ -127,7 +127,7 @@ export default function SetDataProductModal({
                     </Button>
                 </>
             }
-            getContainer={getContainer}
+            getContainer={getModalDomContainer}
         >
             <Select
                 autoFocus
