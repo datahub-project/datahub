@@ -46,11 +46,11 @@ function useDocsSearchVersionsHelpers() {
 
   // State of the version select menus / algolia facet filters
   // docsPluginId -> versionName map
-//   const [searchVersions, setSearchVersions] = useState(() => {
-//     return Object.entries(allDocsData).reduce((acc, [pluginId, pluginData]) => {
-//       return { ...acc, [pluginId]: pluginData.versions?.[1].name };
-//     }, {});
-//   });
+  const [searchVersions, setSearchVersions] = useState(() => {
+    return Object.entries(allDocsData).reduce((acc, [pluginId, pluginData]) => {
+      return { ...acc, [pluginId]: pluginData.versions?.[1].name };
+    }, {});
+  });
 
   // Set the value of a single select menu
   const setSearchVersion = (pluginId, searchVersion) => setSearchVersions((s) => ({ ...s, [pluginId]: searchVersion }));
@@ -60,37 +60,37 @@ function useDocsSearchVersionsHelpers() {
   return {
     allDocsData,
     versioningEnabled,
-//     searchVersions,
+    searchVersions,
     setSearchVersion,
   };
 }
 
 // We want to display one select per versioned docs plugin instance
-// const SearchVersionSelectList = ({ docsSearchVersionsHelpers }) => {
-//   const versionedPluginEntries = Object.entries(docsSearchVersionsHelpers.allDocsData)
-//     // Do not show a version select for unversioned docs plugin instances
-//     .filter(([, docsData]) => docsData.versions.length > 1);
-//   return (
-//     <>
-//       {versionedPluginEntries.map(([pluginId, docsData]) => {
-//         const labelPrefix = versionedPluginEntries.length > 1 ? `${pluginId}: ` : "";
-//
-//         return (
-//           <select
-//             key={pluginId}
-//             onChange={(e) => docsSearchVersionsHelpers.setSearchVersion(pluginId, e.target.value)}
-//             defaultValue={docsSearchVersionsHelpers.searchVersions[pluginId]}
-//             className={styles.searchVersionInput}
-//           >
-//             {docsData.versions.map((version, i) => (
-//               <option key={i} label={`${labelPrefix}${version.label}`} value={version.name} />
-//             ))}
-//           </select>
-//         );
-//       })}
-//     </>
-//   );
-// };
+const SearchVersionSelectList = ({ docsSearchVersionsHelpers }) => {
+  const versionedPluginEntries = Object.entries(docsSearchVersionsHelpers.allDocsData)
+    // Do not show a version select for unversioned docs plugin instances
+    .filter(([, docsData]) => docsData.versions.length > 1);
+  return (
+    <>
+      {versionedPluginEntries.map(([pluginId, docsData]) => {
+        const labelPrefix = versionedPluginEntries.length > 1 ? `${pluginId}: ` : "";
+
+        return (
+          <select
+            key={pluginId}
+            onChange={(e) => docsSearchVersionsHelpers.setSearchVersion(pluginId, e.target.value)}
+            defaultValue={docsSearchVersionsHelpers.searchVersions[pluginId]}
+            className={styles.searchVersionInput}
+          >
+            {docsData.versions.map((version, i) => (
+              <option key={i} label={`${labelPrefix}${version.label}`} value={version.name} />
+            ))}
+          </select>
+        );
+      })}
+    </>
+  );
+};
 
 function SearchBar() {
   const {

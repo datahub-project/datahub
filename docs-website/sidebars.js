@@ -57,10 +57,29 @@ module.exports = {
         },
         "docs/act-on-metadata/impact-analysis",
         {
-          Observability: [
-            "docs/managed-datahub/observe/freshness-assertions",
-            "docs/managed-datahub/observe/volume-assertions",
-            "docs/managed-datahub/observe/custom-sql-assertions",
+          label: "Observability",
+          type: "category",
+          items: [
+            {
+              type: "doc",
+              id: "docs/managed-datahub/observe/freshness-assertions",
+              className: "saasOnly",
+            },
+            {
+              type: "doc",
+              id: "docs/managed-datahub/observe/volume-assertions",
+              className: "saasOnly",
+            },
+            {
+              type: "doc",
+              id: "docs/managed-datahub/observe/custom-sql-assertions",
+              className: "saasOnly",
+            },
+            {
+              type: "doc",
+              id: "docs/managed-datahub/observe/column-assertions",
+              className: "saasOnly",
+            },
           ],
         },
         {
@@ -86,6 +105,7 @@ module.exports = {
         "docs/deploy/kubernetes",
         "docs/deploy/confluent-cloud",
         "docs/deploy/environment-vars",
+        "docs/how/extract-container-logs",
       ],
     },
     {
@@ -168,6 +188,7 @@ module.exports = {
         "docs/CONTRIBUTING",
         "docs/links",
         "docs/rfc",
+        "SECURITY",
       ],
     },
     {
@@ -247,7 +268,13 @@ module.exports = {
           className: "saasOnly",
         },
         {
+          type: "doc",
+          id: "docs/managed-datahub/subscription-and-notification",
+          className: "saasOnly",
+        },
+        {
           "Managed DataHub Release History": [
+            "docs/managed-datahub/release-notes/v_0_2_12",
             "docs/managed-datahub/release-notes/v_0_2_11",
             "docs/managed-datahub/release-notes/v_0_2_10",
             "docs/managed-datahub/release-notes/v_0_2_9",
@@ -334,7 +361,12 @@ module.exports = {
         type: "doc",
         id: "metadata-ingestion/README",
       },
-      items: [],
+      items: [
+        "metadata-ingestion/recipe_overview",
+        "metadata-ingestion/sink_overview",
+        "metadata-ingestion/source_overview",
+        "metadata-ingestion/cli-ingestion",
+      ],
     },
     {
       type: "category",
@@ -446,6 +478,7 @@ module.exports = {
             "metadata-ingestion/docs/dev_guides/classification",
             "metadata-ingestion/docs/dev_guides/add_stateful_ingestion_to_source",
             "metadata-ingestion/docs/dev_guides/sql_profiles",
+            "metadata-ingestion/docs/dev_guides/profiling_ingestions",
           ],
         },
       ],
@@ -494,6 +527,22 @@ module.exports = {
             "docs/troubleshooting/quickstart",
             "docs/troubleshooting/build",
             "docs/troubleshooting/general",
+          ],
+        },
+        {
+          Advanced: [
+            "metadata-ingestion/docs/dev_guides/reporting_telemetry",
+            "docs/advanced/mcp-mcl",
+            "docker/datahub-upgrade/README",
+            "docs/advanced/no-code-modeling",
+            "datahub-web-react/src/app/analytics/README",
+            "docs/how/migrating-graph-service-implementation",
+            "docs/advanced/field-path-spec-v2",
+            "metadata-ingestion/adding-source",
+            "docs/how/add-custom-ingestion-source",
+            "docs/how/add-custom-data-platform",
+            "docs/advanced/browse-paths-upgrade",
+            "docs/browseV2/browse-paths-v2",
           ],
         },
         {
