@@ -29,7 +29,7 @@ record RoleProperties {
   /**
    * Can be READ, ADMIN, WRITE
    */
-  type: optional string  //making it optional as privilege information is in policy
+  type: optional string  // making it optional as privilege information is in policy
 
   /**
    * Link to access external access management

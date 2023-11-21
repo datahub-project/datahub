@@ -1,6 +1,7 @@
 import datahub.emitter.mce_builder as builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
+from datahub.metadata.com.linkedin.pegasus2avro.datapolicy import DataMaskingPolicy
 from datahub.metadata.schema_classes import (
     ChangeTypeClass,
     RolePropertiesClass,
@@ -20,7 +21,7 @@ from datahub.metadata.schema_classes import (
 corp_role_info = RolePropertiesClass(name="analyst")
 corp_role_urn = builder.make_role_urn("analyst")
 
-corp_role_soap_analyst_info = RolePropertiesClass(displayName="db_analyst")
+corp_role_soap_analyst_info = RolePropertiesClass(name="db_analyst")
 db_analyst_analyst_urn = builder.make_role_urn("db_analyst")
 corp_parent_role = InheritedRoleClass(roles=[corp_role_urn])
 
@@ -62,13 +63,36 @@ data_policy_info_class = DataPolicyInfoClass(
     resourcePrincipalPolicy=resource_principal_policy,
     displayName="Dataset {} access policy".format("sale"),
 )
+
 data_policy_urn = builder.make_data_policy_urn(
     platform="redshift", name="db.public.sale#analyst#SELECT"
 )
 
+resource_masking_policy = DataMaskingPolicy(
+    resourceRef=resource_reference,
+    externalPolicyId="snowflake_policy_1",
+    defaultMaskedValue="""
+        CREATE OR REPLACE MASKING POLICY email_mask AS (val string) returns string ->
+        CASE
+            WHEN current_role() IN ('ANALYST') THEN VAL
+            ELSE '*********'
+        END;
+    """,
+)
+
+masking_policy_info_class = DataPolicyInfoClass(
+    type=DataPolicyTypeClass.DataMaskingPolicy,
+    dataMaskingPolicy=resource_masking_policy,
+    displayName="Dataset {} masking policy".format("sale"),
+)
+
+masking_policy_urn = builder.make_data_policy_urn(
+    platform="snowflake", name="email_mask"
+)
+
 
 # Construct a MetadataChangeProposalWrapper object.
-corp_role_mcp = MetadataChangeProposalWrapper(
+role_mcp = MetadataChangeProposalWrapper(
     entityType="role",
     changeType=ChangeTypeClass.UPSERT,
     entityUrn=corp_role_urn,
@@ -82,7 +106,7 @@ analyst_role_users = MetadataChangeProposalWrapper( # role users
     aspect=actors,
 )
 
-corp_role_soap_analyst_mcp = MetadataChangeProposalWrapper(
+db_analyst_analyst_urn_mcp = MetadataChangeProposalWrapper(
     entityType="role",
     changeType=ChangeTypeClass.UPSERT,
     entityUrn=db_analyst_analyst_urn,
@@ -90,7 +114,7 @@ corp_role_soap_analyst_mcp = MetadataChangeProposalWrapper(
     aspect=corp_role_soap_analyst_info,
 )
 
-corp_role_parent_mcp = MetadataChangeProposalWrapper(
+db_analyst_parent_mcp = MetadataChangeProposalWrapper(
     entityType="role",
     changeType=ChangeTypeClass.UPSERT,
     entityUrn=db_analyst_analyst_urn,
@@ -161,20 +185,30 @@ corp_data_policy_mcp_all = MetadataChangeProposalWrapper(
     aspectName="dataPolicyInfo",
     aspect=data_policy_info_class_all,
 )
+
+data_masking_policy_mcp = MetadataChangeProposalWrapper(
+    entityType="dataPolicy",
+    entityUrn=masking_policy_urn,
+    aspect=masking_policy_info_class,
+)
 # Create an emitter to the GMS REST API.
 emitter = DatahubRestEmitter("http://localhost:8080")
 
 mcps = [
     dataset_mcp,
-    corp_role_mcp,
+    role_mcp,
     corp_user_info1_mcp,
     corp_user_info2_mcp,
     corp_data_policy_mcp,
     corp_data_policy_mcp_all,
-    corp_role_soap_analyst_mcp,
-    corp_role_parent_mcp,
+    db_analyst_analyst_urn_mcp,
+    db_analyst_parent_mcp,
     analyst_role_users,
+    data_masking_policy_mcp,
 ]
 
 for mcp in mcps:
+    print(f"Emitting {mcp.entityUrn}")
     emitter.emit_mcp(mcp)
+
+print("Emission completed...")

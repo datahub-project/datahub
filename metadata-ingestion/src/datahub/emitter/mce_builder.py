@@ -510,7 +510,7 @@ def set_aspect(
         mce.proposedSnapshot.aspects.append(aspect)  # type: ignore
 
 
-def make_role_urn(platform: str, name: str, env: str = DEFAULT_ENV) -> str:
+def make_role_urn(name: str) -> str:
     return f"urn:li:role:{name}"
 
 

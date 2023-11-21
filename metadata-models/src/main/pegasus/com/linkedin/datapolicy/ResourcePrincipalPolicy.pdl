@@ -9,11 +9,11 @@ import com.linkedin.common.Urn
 record ResourcePrincipalPolicy {
   /**
   * Identity to apply the policy
-  * Possible values are CorpUserUrn or CorpGroupUrn or CorpRoleUrn
+  * Possible values are CorpUserUrn or CorpGroupUrn or RoleUrn
   */
   @Relationship = {
       "name": "AssociatedWithPrincipal",
-      "entityTypes": [ "corpuser", "corpGroup", "corpRole" ]
+      "entityTypes": [ "corpuser", "corpGroup", "role" ]
   }
   principal: Urn
 
