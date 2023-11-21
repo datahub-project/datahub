@@ -63,6 +63,13 @@ class DatahubRestHook(BaseHook):
         return True, "Successfully connected to DataHub."
 
     def _get_config(self) -> Tuple[str, Optional[str], Optional[int]]:
+        # We have a few places in the codebase that use this method directly, despite
+        # it being "private". For now, we retain backwards compatibility by keeping
+        # this method around, but should stop using it in the future.
+        config = self._get_config_v2()
+        return config[0], config[1], config[2].get("timeout_sec")
+
+    def _get_config_v2(self) -> Tuple[str, Optional[str], Dict]:
         conn: "Connection" = self.get_connection(self.datahub_rest_conn_id)
 
         host = conn.host
@@ -74,14 +81,19 @@ class DatahubRestHook(BaseHook):
                     "host parameter should not contain a port number if the port is specified separately"
                 )
             host = f"{host}:{conn.port}"
-        password = conn.password
-        timeout_sec = conn.extra_dejson.get("timeout_sec")
-        return (host, password, timeout_sec)
+        token = conn.password
+
+        extra_args = conn.extra_dejson
+        return (host, token, extra_args)
 
     def make_emitter(self) -> "DatahubRestEmitter":
         import datahub.emitter.rest_emitter
 
-        return datahub.emitter.rest_emitter.DatahubRestEmitter(*self._get_config())
+        config = self._get_config_v2()
+
+        return datahub.emitter.rest_emitter.DataHubRestEmitter(
+            config[0], config[1], **config[2]
+        )
 
     def emit(
         self,

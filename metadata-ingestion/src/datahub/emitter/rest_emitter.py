@@ -1,10 +1,9 @@
-import datetime
 import functools
 import json
 import logging
 import os
 from json.decoder import JSONDecodeError
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union
 
 import requests
 from deprecated import deprecated
@@ -208,8 +207,7 @@ class DataHubRestEmitter(Closeable, Emitter):
             UsageAggregation,
         ],
         callback: Optional[Callable[[Exception, str], None]] = None,
-    ) -> Tuple[datetime.datetime, datetime.datetime]:
-        start_time = datetime.datetime.now()
+    ) -> None:
         try:
             if isinstance(item, UsageAggregation):
                 self.emit_usage(item)
@@ -226,7 +224,6 @@ class DataHubRestEmitter(Closeable, Emitter):
         else:
             if callback:
                 callback(None, "success")  # type: ignore
-            return start_time, datetime.datetime.now()
 
     def emit_mce(self, mce: MetadataChangeEvent) -> None:
         url = f"{self._gms_server}/entities?action=ingest"
