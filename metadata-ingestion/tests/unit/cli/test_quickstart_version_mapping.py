@@ -6,14 +6,26 @@ from datahub.cli.quickstart_versioning import (
 example_version_mapper = QuickstartVersionMappingConfig.parse_obj(
     {
         "quickstart_version_map": {
-            "default": {"composefile_git_ref": "master", "docker_tag": "latest", "mysql_tag": "5.7"},
+            "default": {
+                "composefile_git_ref": "master",
+                "docker_tag": "latest",
+                "mysql_tag": "5.7",
+            },
             "v0.9.6": {
                 "composefile_git_ref": "v0.9.6.1",
                 "docker_tag": "v0.9.6.1",
                 "mysql_tag": "5.7",
             },
-            "v2.0.0": {"composefile_git_ref": "v2.0.1", "docker_tag": "v2.0.0", "mysql_tag": "5.7"},
-            "v1.0.0": {"composefile_git_ref": "v1.0.0", "docker_tag": "v1.0.0", "mysql_tag": "5.7"},
+            "v2.0.0": {
+                "composefile_git_ref": "v2.0.1",
+                "docker_tag": "v2.0.0",
+                "mysql_tag": "5.7",
+            },
+            "v1.0.0": {
+                "composefile_git_ref": "v1.0.0",
+                "docker_tag": "v1.0.0",
+                "mysql_tag": "5.7",
+            },
             "stable": {
                 "composefile_git_ref": "v1.0.1",
                 "docker_tag": "latest",
