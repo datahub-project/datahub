@@ -2149,11 +2149,11 @@ class LookMLSource(StatefulIngestionSourceBase):
                                 maybe_looker_view.id.view_name
                             ):
                                 view_connection_mapping = view_connection_map.get(
-                                    maybe_looker_view.id.view_name
+                                    maybe_looker_view.id.get_urn(self.source_config)
                                 )
                                 if not view_connection_mapping:
                                     view_connection_map[
-                                        maybe_looker_view.id.view_name
+                                        maybe_looker_view.id.get_urn(self.source_config)
                                     ] = (model_name, model.connection)
                                     # first time we are discovering this view
                                     logger.debug(
