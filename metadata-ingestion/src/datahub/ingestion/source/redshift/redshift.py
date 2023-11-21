@@ -103,15 +103,6 @@ from datahub.utilities import memory_footprint
 from datahub.utilities.mapping import Constants
 from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.registries.domain_registry import DomainRegistry
-
-
-import logging
-from typing import Union
-
-from datahub.configuration.kafka import KafkaProducerConnectionConfig
-from datahub.emitter.kafka_emitter import DatahubKafkaEmitter, KafkaEmitterConfig
-from datahub.emitter.mce_builder import make_dataset_urn
-from datahub.emitter.rest_emitter import DataHubRestEmitter
 from datahub.specific.dataset import DatasetPatchBuilder
 
 
