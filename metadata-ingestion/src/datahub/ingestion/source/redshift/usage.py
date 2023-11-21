@@ -333,6 +333,7 @@ class RedshiftUsageExtractor:
         results = cursor.fetchmany()
         field_names = [i[0] for i in cursor.description]
         while results:
+            logger.debug(f"Processing {len(results)} rows of access events")
             for row in results:
                 try:
                     access_event = RedshiftAccessEvent(
@@ -368,6 +369,8 @@ class RedshiftUsageExtractor:
                     continue
 
                 yield access_event
+                self.report.num_usage_stat_processed += 1
+
             results = cursor.fetchmany()
 
     def _gen_operation_aspect_workunits_from_access_events(
