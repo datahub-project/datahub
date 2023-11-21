@@ -1,0 +1,22 @@
+namespace com.linkedin.identity
+
+import com.linkedin.common.Urn
+
+/**
+* Link from child CorpRole to parent CorpRole
+*/
+@Aspect = {
+  "name": "inheritedRole"
+}
+record InheritedRole {
+  /**
+   * The parent Role of a current Role
+   */
+  @Relationship = {
+    "/*": {
+      "name": "InheritedFrom",
+      "entityTypes": [ "role" ]
+    }
+  }
+  roles: array[Urn]
+}
