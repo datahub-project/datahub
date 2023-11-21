@@ -7,7 +7,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 ### Breaking Changes
 
 - #9244: The `redshift-legacy` and `redshift-legacy-usage` sources, which have been deprecated for >6 months, have been removed. The new `redshift` source is a superset of the functionality provided by those legacy sources.
-- #9286: The `DataHubRestEmitter` no longer returns anything. It previously returned a tuple of timestamps.
+- #9286: The `DataHubRestEmitter.emit` method no longer returns anything. It previously returned a tuple of timestamps.
 
 ### Potential Downtime
 
