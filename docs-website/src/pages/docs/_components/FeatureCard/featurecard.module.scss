@@ -1,9 +1,11 @@
 .feature {
   flex-direction: row;
   padding: 1.75rem;
-  color: var(--ifm-text-color);
+  color: var(--ifm-hero-text-color);
   margin: 0rem 2rem 1rem 0rem;
-  min-height: 12rem;
+  min-height: 14rem;
+  max-height: 15rem; 
+  overflow: hidden;
   text-decoration: none !important;
 
   img {
@@ -20,6 +22,7 @@
   span {
     display: block;
     margin-bottom: 0.75rem;
+    text-align: center;
   }
   strong {
     font-weight: 600;

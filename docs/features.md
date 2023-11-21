@@ -14,22 +14,22 @@ This extensible metadata platform is built for developers to tame the complexity
 
 <FeatureCardSection/>
 
-## How does it work?
+## Get Started
 
 ### Deployment
 
 To get started with DataHub, you can use a simple CLI command. Alternatively, you can deploy the instance to production using Docker or Helm charts.
 
-- [Quickstart](https://datahubproject.io/docs/quickstart)
-- [Self-hosted DataHub](https://datahubproject.io/docs/deploy/kubernetes)
-- [Managed DataHub](https://datahubproject.io/docs/managed-datahub/managed-datahub-overview)
+- [Quickstart](quickstart.md)
+- [Self-hosted DataHub](deploy/kubernetes.md)
+- [Managed DataHub](managed-datahub/managed-datahub-overview.md)
 
 ### Ingestion
 
 DataHub supports ingestion by UI and CLI.
 
 - [UI-based Ingestion](ui-ingestion.md)
-- [CLI-based Ingestion](cli.md)
+- [CLI-based Ingestion](../metadata-ingestion/cli-ingestion.md)
 
 ## Join the Community
 
