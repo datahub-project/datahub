@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import styles from "./townhallbutton.module.scss";
-import useBaseUrl from "@docusaurus/useBaseUrl";
 import clsx from "clsx";
 import Link from "@docusaurus/Link";
 
@@ -26,7 +25,7 @@ const TownhallButton = () => {
 
     setShowButton(shouldShowButton);
     setCurrentMonth(monthText);
-  }, []); 
+  }); 
 
   return (
       showButton && (
