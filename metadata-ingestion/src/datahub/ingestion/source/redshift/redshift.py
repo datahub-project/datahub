@@ -104,6 +104,17 @@ from datahub.utilities.mapping import Constants
 from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.registries.domain_registry import DomainRegistry
 
+
+import logging
+from typing import Union
+
+from datahub.configuration.kafka import KafkaProducerConnectionConfig
+from datahub.emitter.kafka_emitter import DatahubKafkaEmitter, KafkaEmitterConfig
+from datahub.emitter.mce_builder import make_dataset_urn
+from datahub.emitter.rest_emitter import DataHubRestEmitter
+from datahub.specific.dataset import DatasetPatchBuilder
+
+
 logger: logging.Logger = logging.getLogger(__name__)
 
 
@@ -738,7 +749,13 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
         )
 
         if custom_properties:
-            dataset_properties.customProperties = custom_properties
+            patch_builder = DatasetPatchBuilder(dataset_urn)
+            for key, value in custom_properties.items():
+                patch_builder.add_custom_property(key, value)
+            for patch_mcp in patch_builder.build():
+                yield MetadataWorkUnit(
+                    id=f"{dataset_urn}-{patch_mcp.aspectName}", mcp=patch_mcp
+                )
 
         yield MetadataChangeProposalWrapper(
             entityUrn=dataset_urn, aspect=dataset_properties
