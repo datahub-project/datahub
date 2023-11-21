@@ -66,6 +66,9 @@ import static com.linkedin.metadata.Constants.CORP_USER_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.GROUP_MEMBERSHIP_ASPECT_NAME;
 import static org.pac4j.play.store.PlayCookieSessionStore.*;
 import static play.mvc.Results.internalServerError;
+import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
+import java.lang.reflect.Type;
 
 
 /**
@@ -275,8 +278,13 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
             // List of group names
             groupNames = (Collection<String>) profile.getAttribute(groupsClaimName, Collection.class);
           } else if (groupAttribute instanceof String) {
-            // Single group name
-            groupNames = Collections.singleton(profile.getAttribute(groupsClaimName, String.class));
+            String groupString = (String) groupAttribute;
+            if (groupString.startsWith("[") && groupString.endsWith("]")){
+              groupNames = jsonStringToCollection(groupString);
+            } else {
+              // Single group name
+              groupNames = Collections.singleton(profile.getAttribute(groupsClaimName, String.class));
+            }
           } else {
             log.error(
                 String.format("Fail to parse OIDC group claim with name %s. Unknown type %s provided.", groupsClaimName,
@@ -466,5 +474,11 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
       return Optional.of(extractedValue);
     }
     return Optional.empty();
+  }
+
+  private Collection<String> jsonStringToCollection(String jsonString) {
+    Gson gson = new Gson();
+    Type collectionType = new TypeToken<Collection<String>>(){}.getType();
+    return gson.fromJson(jsonString, collectionType);
   }
 }
