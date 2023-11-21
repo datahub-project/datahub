@@ -1,7 +1,7 @@
 package com.linkedin.gms.factory.search.views;
 
 import com.datahub.authentication.Authentication;
-import com.linkedin.gms.factory.spring.YamlPropertySourceFactory;
+import com.linkedin.metadata.spring.YamlPropertySourceFactory;
 import com.linkedin.metadata.client.JavaEntityClient;
 import com.linkedin.metadata.service.ViewService;
 import javax.annotation.Nonnull;

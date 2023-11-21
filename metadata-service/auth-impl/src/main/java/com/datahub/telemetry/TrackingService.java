@@ -102,7 +102,8 @@ public class TrackingService {
     try {
       _mixpanelAPI.sendMessage(_mixpanelMessageBuilder.event(getClientId(), eventType, sanitizedEvent));
     } catch (IOException e) {
-      log.error("Failed to send event to Mixpanel", e);
+      log.info("Failed to send event to Mixpanel; this does not affect the functionality of the application");
+      log.debug("Failed to send event to Mixpanel", e);
     }
   }
 

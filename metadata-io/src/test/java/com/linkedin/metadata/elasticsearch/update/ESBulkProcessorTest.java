@@ -1,7 +1,7 @@
 package com.linkedin.metadata.elasticsearch.update;
 
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
-import org.elasticsearch.client.RestHighLevelClient;
+import org.opensearch.client.RestHighLevelClient;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 

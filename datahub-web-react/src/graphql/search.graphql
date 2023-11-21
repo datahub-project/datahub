@@ -105,6 +105,9 @@ fragment autoCompleteFields on Entity {
         parentContainers {
             ...parentContainersFields
         }
+        subTypes {
+            typeNames
+        }
     }
     ... on DataFlow {
         orchestrator
@@ -154,6 +157,9 @@ fragment autoCompleteFields on Entity {
     ... on Domain {
         properties {
             name
+        }
+        parentDomains {
+            ...parentDomainsFields
         }
     }
     ... on DataProduct {
@@ -547,6 +553,9 @@ fragment searchResultFields on Entity {
                 }
             }
         }
+        subTypes {
+            typeNames
+        }
     }
     ... on DataFlow {
         flowId
@@ -671,6 +680,10 @@ fragment searchResultFields on Entity {
         ownership {
             ...ownershipFields
         }
+        parentDomains {
+            ...parentDomainsFields
+        }
+        ...domainEntitiesFields
     }
     ... on Container {
         properties {
@@ -824,6 +837,9 @@ fragment facetFields on FacetMetadata {
             ... on Domain {
                 properties {
                     name
+                }
+                parentDomains {
+                    ...parentDomainsFields
                 }
             }
             ... on Container {

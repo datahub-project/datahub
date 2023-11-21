@@ -4,7 +4,7 @@ import com.datahub.authentication.Authentication;
 import com.datahub.authorization.DataHubAuthorizer;
 import com.linkedin.metadata.client.JavaEntityClient;
 import com.linkedin.gms.factory.entity.RestliEntityClientFactory;
-import com.linkedin.gms.factory.spring.YamlPropertySourceFactory;
+import com.linkedin.metadata.spring.YamlPropertySourceFactory;
 import javax.annotation.Nonnull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -32,6 +32,9 @@ public class DataHubAuthorizerFactory {
   @Value("${authorization.defaultAuthorizer.cacheRefreshIntervalSecs}")
   private Integer policyCacheRefreshIntervalSeconds;
 
+  @Value("${authorization.defaultAuthorizer.cachePolicyFetchSize}")
+  private Integer policyCacheFetchSize;
+
   @Value("${authorization.defaultAuthorizer.enabled:true}")
   private Boolean policiesEnabled;
 
@@ -44,6 +47,6 @@ public class DataHubAuthorizerFactory {
         : DataHubAuthorizer.AuthorizationMode.ALLOW_ALL;
 
     return new DataHubAuthorizer(systemAuthentication, entityClient, 10,
-        policyCacheRefreshIntervalSeconds, mode);
+        policyCacheRefreshIntervalSeconds, mode, policyCacheFetchSize);
   }
 }

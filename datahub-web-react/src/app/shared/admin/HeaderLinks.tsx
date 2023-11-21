@@ -5,7 +5,6 @@ import {
     BarChartOutlined,
     BookOutlined,
     SettingOutlined,
-    FolderOutlined,
     SolutionOutlined,
     DownOutlined,
 } from '@ant-design/icons';
@@ -16,6 +15,7 @@ import { ANTD_GRAY } from '../../entity/shared/constants';
 import { HOME_PAGE_INGESTION_ID } from '../../onboarding/config/HomePageOnboardingConfig';
 import { useUpdateEducationStepIdsAllowlist } from '../../onboarding/useUpdateEducationStepIdsAllowlist';
 import { useUserContext } from '../../context/useUserContext';
+import DomainIcon from '../../domain/DomainIcon';
 
 const LinkWrapper = styled.span`
     margin-right: 0px;
@@ -73,7 +73,6 @@ export function HeaderLinks(props: Props) {
     const showSettings = true;
     const showIngestion =
         isIngestionEnabled && me && me.platformPrivileges?.manageIngestion && me.platformPrivileges?.manageSecrets;
-    const showDomains = me?.platformPrivileges?.createDomains || me?.platformPrivileges?.manageDomains;
 
     useUpdateEducationStepIdsAllowlist(!!showIngestion, HOME_PAGE_INGESTION_ID);
 
@@ -93,6 +92,42 @@ export function HeaderLinks(props: Props) {
                     </Link>
                 </LinkWrapper>
             )}
+            <Dropdown
+                trigger={['click']}
+                overlay={
+                    <Menu>
+                        <MenuItem key="0">
+                            <Link to="/glossary">
+                                <NavTitleContainer>
+                                    <BookOutlined style={{ fontSize: '14px', fontWeight: 'bold' }} />
+                                    <NavTitleText>Glossary</NavTitleText>
+                                </NavTitleContainer>
+                                <NavTitleDescription>View and modify your data dictionary</NavTitleDescription>
+                            </Link>
+                        </MenuItem>
+                        <MenuItem key="1">
+                            <Link to="/domains">
+                                <NavTitleContainer>
+                                    <DomainIcon
+                                        style={{
+                                            fontSize: 14,
+                                            fontWeight: 'bold',
+                                        }}
+                                    />
+                                    <NavTitleText>Domains</NavTitleText>
+                                </NavTitleContainer>
+                                <NavTitleDescription>Manage related groups of data assets</NavTitleDescription>
+                            </Link>
+                        </MenuItem>
+                    </Menu>
+                }
+            >
+                <LinkWrapper>
+                    <Button type="text">
+                        <SolutionOutlined /> Govern <DownOutlined style={{ fontSize: '6px' }} />
+                    </Button>
+                </LinkWrapper>
+            </Dropdown>
             {showIngestion && (
                 <LinkWrapper>
                     <Link to="/ingestion">
@@ -107,39 +142,6 @@ export function HeaderLinks(props: Props) {
                     </Link>
                 </LinkWrapper>
             )}
-            <Dropdown
-                trigger={['click']}
-                overlay={
-                    <Menu>
-                        <MenuItem key="0">
-                            <Link to="/glossary">
-                                <NavTitleContainer>
-                                    <BookOutlined style={{ fontSize: '14px', fontWeight: 'bold' }} />
-                                    <NavTitleText>Glossary</NavTitleText>
-                                </NavTitleContainer>
-                                <NavTitleDescription>View and modify your data dictionary</NavTitleDescription>
-                            </Link>
-                        </MenuItem>
-                        {showDomains && (
-                            <MenuItem key="1">
-                                <Link to="/domains">
-                                    <NavTitleContainer>
-                                        <FolderOutlined style={{ fontSize: '14px', fontWeight: 'bold' }} />
-                                        <NavTitleText>Domains</NavTitleText>
-                                    </NavTitleContainer>
-                                    <NavTitleDescription>Manage related groups of data assets</NavTitleDescription>
-                                </Link>
-                            </MenuItem>
-                        )}
-                    </Menu>
-                }
-            >
-                <LinkWrapper>
-                    <Button type="text">
-                        <SolutionOutlined /> Govern <DownOutlined style={{ fontSize: '6px' }} />
-                    </Button>
-                </LinkWrapper>
-            </Dropdown>
             {showSettings && (
                 <LinkWrapper style={{ marginRight: 12 }}>
                     <Link to="/settings">

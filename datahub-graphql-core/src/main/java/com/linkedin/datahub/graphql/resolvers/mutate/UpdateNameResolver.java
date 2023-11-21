@@ -6,8 +6,11 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
+import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
+import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
 import com.linkedin.datahub.graphql.generated.UpdateNameInput;
 import com.linkedin.datahub.graphql.resolvers.dataproduct.DataProductAuthorizationUtils;
+import com.linkedin.datahub.graphql.resolvers.mutate.util.DomainUtils;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.GlossaryUtils;
 import com.linkedin.dataproduct.DataProductProperties;
 import com.linkedin.domain.DomainProperties;
@@ -124,14 +127,25 @@ public class UpdateNameResolver implements DataFetcher<CompletableFuture<Boolean
       try {
         DomainProperties domainProperties = (DomainProperties) EntityUtils.getAspectFromEntity(
             targetUrn.toString(), Constants.DOMAIN_PROPERTIES_ASPECT_NAME, _entityService, null);
+
         if (domainProperties == null) {
           throw new IllegalArgumentException("Domain does not exist");
         }
+
+        if (DomainUtils.hasNameConflict(input.getName(), DomainUtils.getParentDomainSafely(domainProperties), context, _entityClient)) {
+          throw new DataHubGraphQLException(
+              String.format("\"%s\" already exists in this domain. Please pick a unique name.", input.getName()),
+              DataHubGraphQLErrorCode.CONFLICT
+          );
+        }
+
         domainProperties.setName(input.getName());
         Urn actor = CorpuserUrn.createFromString(context.getActorUrn());
         persistAspect(targetUrn, Constants.DOMAIN_PROPERTIES_ASPECT_NAME, domainProperties, actor, _entityService);
 
         return true;
+      } catch (DataHubGraphQLException e) {
+        throw e;
       } catch (Exception e) {
         throw new RuntimeException(String.format("Failed to perform update against input %s", input), e);
       }

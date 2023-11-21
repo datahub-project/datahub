@@ -3,7 +3,7 @@ package datahub.protobuf;
 import com.google.protobuf.DescriptorProtos;
 import com.google.protobuf.ExtensionRegistry;
 import datahub.protobuf.model.ProtobufGraph;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 

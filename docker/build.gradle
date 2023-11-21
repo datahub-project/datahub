@@ -35,8 +35,18 @@ task quickstart(type: Exec, dependsOn: ':metadata-ingestion:install') {
 
     environment "DATAHUB_TELEMETRY_ENABLED", "false"
     environment "DOCKER_COMPOSE_BASE", "file://${rootProject.projectDir}"
-    // environment "ACTIONS_VERSION", 'alpine3.17-slim'
+    // environment "ACTIONS_VERSION", 'alpine3.18-slim'
     // environment "DATAHUB_ACTIONS_IMAGE", 'nginx'
+
+    // Elastic
+    // environment "DATAHUB_SEARCH_IMAGE", 'elasticsearch'
+    // environment "DATAHUB_SEARCH_TAG", '7.10.1'
+
+    // OpenSearch
+    environment "DATAHUB_SEARCH_IMAGE", 'opensearchproject/opensearch'
+    environment "DATAHUB_SEARCH_TAG", '2.9.0'
+    environment "XPACK_SECURITY_ENABLED", 'plugins.security.disabled=true'
+    environment "USE_AWS_ELASTICSEARCH", 'true'
 
     def cmd = [
             'source ../metadata-ingestion/venv/bin/activate && ',
@@ -87,9 +97,19 @@ task quickstartDebug(type: Exec, dependsOn: ':metadata-ingestion:install') {
     dependsOn(debug_modules.collect { it + ':dockerTagDebug' })
     shouldRunAfter ':metadata-ingestion:clean', 'quickstartNuke'
 
-    environment "DATAHUB_PRECREATE_TOPICS", "true"
     environment "DATAHUB_TELEMETRY_ENABLED", "false"
     environment "DOCKER_COMPOSE_BASE", "file://${rootProject.projectDir}"
+
+    // Elastic
+    // environment "DATAHUB_SEARCH_IMAGE", 'elasticsearch'
+    // environment "DATAHUB_SEARCH_TAG", '7.10.1'
+
+    // OpenSearch
+    environment "DATAHUB_SEARCH_IMAGE", 'opensearchproject/opensearch'
+    environment "DATAHUB_SEARCH_TAG", '2.9.0'
+    environment "XPACK_SECURITY_ENABLED", 'plugins.security.disabled=true'
+    environment "USE_AWS_ELASTICSEARCH", 'true'
+
 
     def cmd = [
             'source ../metadata-ingestion/venv/bin/activate && ',

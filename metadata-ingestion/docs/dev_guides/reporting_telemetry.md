@@ -69,7 +69,7 @@ reporting:
 An ingestion reporting state provider is responsible for saving and retrieving the ingestion telemetry 
 associated with the ingestion runs of various jobs inside the source connector of the ingestion pipeline. 
 The data model used for capturing the telemetry is [DatahubIngestionRunSummary](https://github.com/datahub-project/datahub/blob/master/metadata-models/src/main/pegasus/com/linkedin/datajob/datahub/DatahubIngestionRunSummary.pdl). 
-A reporting ingestion state provider needs to implement the [IngestionReportingProviderBase](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/src/datahub/ingestion/api/ingestion_job_reporting_provider_base.py)
+A reporting ingestion state provider needs to implement the IngestionReportingProviderBase.
 interface and register itself with datahub by adding an entry under `datahub.ingestion.reporting_provider.plugins` 
 key of the entry_points section in [setup.py](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/setup.py) 
 with its type and implementation class as shown below. 

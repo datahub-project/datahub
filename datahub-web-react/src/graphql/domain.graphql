@@ -2,9 +2,13 @@ query getDomain($urn: String!) {
     domain(urn: $urn) {
         urn
         id
+        type
         properties {
             name
             description
+        }
+        parentDomains {
+            ...parentDomainsFields
         }
         ownership {
             ...ownershipFields
@@ -23,6 +27,9 @@ query getDomain($urn: String!) {
                 }
             }
         }
+        children: relationships(input: { types: ["IsPartOf"], direction: INCOMING, start: 0, count: 0 }) {
+            total
+        }
     }
 }
 
@@ -33,22 +40,39 @@ query listDomains($input: ListDomainsInput!) {
         total
         domains {
             urn
+            id
+            type
             properties {
                 name
                 description
             }
+            parentDomains {
+                ...parentDomainsFields
+            }
             ownership {
                 ...ownershipFields
             }
-            entities(input: { start: 0, count: 1 }) {
-                total
-            }
+            ...domainEntitiesFields
+        }
+    }
+}
+
+query getDomainChildrenCount($urn: String!) {
+    domain(urn: $urn) {
+        urn
+        type
+        children: relationships(input: { types: ["IsPartOf"], direction: INCOMING, start: 0, count: 0 }) {
+            total
         }
     }
 }
 
 mutation createDomain($input: CreateDomainInput!) {
     createDomain(input: $input)
+}
+
+mutation moveDomain($input: MoveDomainInput!) {
+    moveDomain(input: $input)
 }
 
 mutation deleteDomain($urn: String!) {

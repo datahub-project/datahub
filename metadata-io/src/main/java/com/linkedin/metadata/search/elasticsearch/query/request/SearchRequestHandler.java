@@ -54,23 +54,23 @@ import javax.annotation.Nullable;
 
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang.StringUtils;
-import org.elasticsearch.action.search.SearchRequest;
-import org.elasticsearch.action.search.SearchResponse;
-import org.elasticsearch.common.text.Text;
-import org.elasticsearch.common.unit.TimeValue;
-import org.elasticsearch.index.query.BoolQueryBuilder;
-import org.elasticsearch.index.query.QueryBuilder;
-import org.elasticsearch.index.query.QueryBuilders;
-import org.elasticsearch.search.SearchHit;
-import org.elasticsearch.search.aggregations.Aggregation;
-import org.elasticsearch.search.aggregations.AggregationBuilders;
-import org.elasticsearch.search.aggregations.Aggregations;
-import org.elasticsearch.search.aggregations.bucket.terms.ParsedTerms;
-import org.elasticsearch.search.aggregations.bucket.terms.Terms;
-import org.elasticsearch.search.builder.SearchSourceBuilder;
-import org.elasticsearch.search.fetch.subphase.highlight.HighlightBuilder;
-import org.elasticsearch.search.fetch.subphase.highlight.HighlightField;
-import org.elasticsearch.search.suggest.term.TermSuggestion;
+import org.opensearch.action.search.SearchRequest;
+import org.opensearch.action.search.SearchResponse;
+import org.opensearch.common.text.Text;
+import org.opensearch.common.unit.TimeValue;
+import org.opensearch.index.query.BoolQueryBuilder;
+import org.opensearch.index.query.QueryBuilder;
+import org.opensearch.index.query.QueryBuilders;
+import org.opensearch.search.SearchHit;
+import org.opensearch.search.aggregations.Aggregation;
+import org.opensearch.search.aggregations.AggregationBuilders;
+import org.opensearch.search.aggregations.Aggregations;
+import org.opensearch.search.aggregations.bucket.terms.ParsedTerms;
+import org.opensearch.search.aggregations.bucket.terms.Terms;
+import org.opensearch.search.builder.SearchSourceBuilder;
+import org.opensearch.search.fetch.subphase.highlight.HighlightBuilder;
+import org.opensearch.search.fetch.subphase.highlight.HighlightField;
+import org.opensearch.search.suggest.term.TermSuggestion;
 
 import static com.linkedin.metadata.search.utils.ESUtils.NAME_SUGGESTION;
 import static com.linkedin.metadata.search.utils.ESUtils.toFacetField;
@@ -202,7 +202,7 @@ public class SearchRequestHandler {
     if (!finalSearchFlags.isSkipHighlighting()) {
       searchSourceBuilder.highlighter(_highlights);
     }
-    ESUtils.buildSortOrder(searchSourceBuilder, sortCriterion);
+    ESUtils.buildSortOrder(searchSourceBuilder, sortCriterion, _entitySpecs);
 
     if (finalSearchFlags.isGetSuggestions()) {
       ESUtils.buildNameSuggestions(searchSourceBuilder, input);
@@ -241,9 +241,13 @@ public class SearchRequestHandler {
 
     BoolQueryBuilder filterQuery = getFilterQuery(filter);
     searchSourceBuilder.query(QueryBuilders.boolQuery().must(getQuery(input, finalSearchFlags.isFulltext())).filter(filterQuery));
-    _aggregationQueryBuilder.getAggregations().forEach(searchSourceBuilder::aggregation);
-    searchSourceBuilder.highlighter(getHighlights());
-    ESUtils.buildSortOrder(searchSourceBuilder, sortCriterion);
+    if (!finalSearchFlags.isSkipAggregates()) {
+      _aggregationQueryBuilder.getAggregations().forEach(searchSourceBuilder::aggregation);
+    }
+    if (!finalSearchFlags.isSkipHighlighting()) {
+      searchSourceBuilder.highlighter(_highlights);
+    }
+    ESUtils.buildSortOrder(searchSourceBuilder, sortCriterion, _entitySpecs);
     searchRequest.source(searchSourceBuilder);
     log.debug("Search request is: " + searchRequest);
     searchRequest.indicesOptions(null);
@@ -270,7 +274,7 @@ public class SearchRequestHandler {
     final SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
     searchSourceBuilder.query(filterQuery);
     searchSourceBuilder.from(from).size(size);
-    ESUtils.buildSortOrder(searchSourceBuilder, sortCriterion);
+    ESUtils.buildSortOrder(searchSourceBuilder, sortCriterion, _entitySpecs);
     searchRequest.source(searchSourceBuilder);
 
     return searchRequest;
@@ -301,7 +305,7 @@ public class SearchRequestHandler {
     searchSourceBuilder.size(size);
 
     ESUtils.setSearchAfter(searchSourceBuilder, sort, pitId, keepAlive);
-    ESUtils.buildSortOrder(searchSourceBuilder, sortCriterion);
+    ESUtils.buildSortOrder(searchSourceBuilder, sortCriterion, _entitySpecs);
     searchRequest.source(searchSourceBuilder);
 
     return searchRequest;
@@ -364,7 +368,7 @@ public class SearchRequestHandler {
 
   @WithSpan
   public ScrollResult extractScrollResult(@Nonnull SearchResponse searchResponse, Filter filter, @Nullable String scrollId,
-      @Nonnull String keepAlive, int size, boolean supportsPointInTime) {
+      @Nullable String keepAlive, int size, boolean supportsPointInTime) {
     int totalCount = (int) searchResponse.getHits().getTotalHits().value;
     List<SearchEntity> resultList = getResults(searchResponse);
     SearchResultMetadata searchResultMetadata = extractSearchResultMetadata(searchResponse, filter);
@@ -374,7 +378,7 @@ public class SearchRequestHandler {
     if (searchHits.length == size) {
       Object[] sort = searchHits[searchHits.length - 1].getSortValues();
       long expirationTimeMs = 0L;
-      if (supportsPointInTime) {
+      if (keepAlive != null && supportsPointInTime) {
         expirationTimeMs = TimeValue.parseTimeValue(keepAlive, "expirationTime").getMillis() + System.currentTimeMillis();
       }
       nextScrollId = new SearchAfterWrapper(sort, searchResponse.pointInTimeId(), expirationTimeMs).toScrollId();

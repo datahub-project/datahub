@@ -31,24 +31,25 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.elasticsearch.action.search.SearchRequest;
-import org.elasticsearch.action.search.SearchResponse;
-import org.elasticsearch.client.Request;
-import org.elasticsearch.client.RequestOptions;
-import org.elasticsearch.client.Response;
-import org.elasticsearch.client.RestHighLevelClient;
-import org.elasticsearch.client.core.CountRequest;
-import org.elasticsearch.common.settings.Settings;
-import org.elasticsearch.common.xcontent.LoggingDeprecationHandler;
-import org.elasticsearch.common.xcontent.NamedXContentRegistry;
-import org.elasticsearch.common.xcontent.XContentParser;
-import org.elasticsearch.common.xcontent.XContentType;
-import org.elasticsearch.search.SearchModule;
-import org.elasticsearch.search.builder.SearchSourceBuilder;
+import org.opensearch.action.search.SearchRequest;
+import org.opensearch.action.search.SearchResponse;
+import org.opensearch.client.Request;
+import org.opensearch.client.RequestOptions;
+import org.opensearch.client.Response;
+import org.opensearch.client.RestHighLevelClient;
+import org.opensearch.client.core.CountRequest;
+import org.opensearch.common.settings.Settings;
+import org.opensearch.common.xcontent.LoggingDeprecationHandler;
+import org.opensearch.core.xcontent.NamedXContentRegistry;
+import org.opensearch.core.xcontent.XContentParser;
+import org.opensearch.common.xcontent.XContentType;
+import org.opensearch.search.SearchModule;
+import org.opensearch.search.builder.SearchSourceBuilder;
 
 import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.models.registry.template.util.TemplateUtil.*;
@@ -63,7 +64,7 @@ import static com.linkedin.metadata.utils.SearchUtil.*;
 public class ESSearchDAO {
   private static final NamedXContentRegistry X_CONTENT_REGISTRY;
   static {
-    SearchModule searchModule = new SearchModule(Settings.EMPTY, false, Collections.emptyList());
+    SearchModule searchModule = new SearchModule(Settings.EMPTY, Collections.emptyList());
     X_CONTENT_REGISTRY = new NamedXContentRegistry(searchModule.getNamedXContents());
   }
 
@@ -137,7 +138,7 @@ public class ESSearchDAO {
   }
 
   @VisibleForTesting
-  SearchResult transformIndexIntoEntityName(SearchResult result) {
+  public SearchResult transformIndexIntoEntityName(SearchResult result) {
     return result.setMetadata(result.getMetadata().setAggregations(transformIndexIntoEntityName(result.getMetadata().getAggregations())));
   }
   private ScrollResult transformIndexIntoEntityName(ScrollResult result) {
@@ -157,7 +158,7 @@ public class ESSearchDAO {
   @Nonnull
   @WithSpan
   private ScrollResult executeAndExtract(@Nonnull List<EntitySpec> entitySpecs, @Nonnull SearchRequest searchRequest, @Nullable Filter filter,
-      @Nullable String scrollId, @Nonnull String keepAlive, int size) {
+      @Nullable String scrollId, @Nullable String keepAlive, int size) {
     try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "executeAndExtract_scroll").time()) {
       final SearchResponse searchResponse = client.search(searchRequest, RequestOptions.DEFAULT);
       // extract results, validated against document model as well
@@ -166,7 +167,7 @@ public class ESSearchDAO {
               .extractScrollResult(searchResponse,
               filter, scrollId, keepAlive, size, supportsPointInTime()));
     } catch (Exception e) {
-      log.error("Search query failed", e);
+      log.error("Search query failed: {}", searchRequest, e);
       throw new ESQueryException("Search query failed:", e);
     }
   }
@@ -263,17 +264,16 @@ public class ESSearchDAO {
    * @return
    */
   @Nonnull
-  public Map<String, Long> aggregateByValue(@Nullable String entityName, @Nonnull String field,
+  public Map<String, Long> aggregateByValue(@Nullable List<String> entityNames, @Nonnull String field,
       @Nullable Filter requestParams, int limit) {
     final SearchRequest searchRequest = SearchRequestHandler.getAggregationRequest(field, transformFilterForEntities(requestParams, indexConvention), limit);
-    String indexName;
-    if (entityName == null) {
-      indexName = indexConvention.getAllEntityIndicesPattern();
+    if (entityNames == null) {
+      String indexName = indexConvention.getAllEntityIndicesPattern();
+      searchRequest.indices(indexName);
     } else {
-      EntitySpec entitySpec = entityRegistry.getEntitySpec(entityName);
-      indexName = indexConvention.getIndexName(entitySpec);
+      Stream<String> stream = entityNames.stream().map(entityRegistry::getEntitySpec).map(indexConvention::getIndexName);
+      searchRequest.indices(stream.toArray(String[]::new));
     }
-    searchRequest.indices(indexName);
 
     try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "aggregateByValue_search").time()) {
       final SearchResponse searchResponse = client.search(searchRequest, RequestOptions.DEFAULT);

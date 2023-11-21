@@ -13,4 +13,8 @@ public class ProducerConfiguration {
   private int requestTimeout;
 
   private int backoffTimeout;
+
+  private String compressionType;
+
+  private int maxRequestSize;
 }

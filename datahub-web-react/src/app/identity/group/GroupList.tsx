@@ -17,9 +17,16 @@ import { GROUPS_CREATE_GROUP_ID, GROUPS_INTRO_ID } from '../../onboarding/config
 import { OnboardingTour } from '../../onboarding/OnboardingTour';
 import { addGroupToListGroupsCache, DEFAULT_GROUP_LIST_PAGE_SIZE, removeGroupFromListGroupsCache } from './cacheUtils';
 
-const GroupContainer = styled.div``;
+const GroupContainer = styled.div`
+    display: flex;
+    flex-direction: column;
+    overflow: auto;
+`;
 
 const GroupStyledList = styled(List)`
+    display: flex;
+    flex-direction: column;
+    overflow: auto;
     &&& {
         width: 100%;
         border-color: ${(props) => props.theme.styles['border-color-base']};
@@ -92,7 +99,10 @@ export const GroupList = () => {
                             fontSize: 12,
                         }}
                         onSearch={() => null}
-                        onQueryChange={(q) => setQuery(q)}
+                        onQueryChange={(q) => {
+                            setPage(1);
+                            setQuery(q);
+                        }}
                         entityRegistry={entityRegistry}
                         hideRecommendations
                     />

@@ -7,7 +7,9 @@ dependencies {
   api project(path: ':metadata-service:restli-api', configuration: 'restClient')
   api project(':metadata-events:mxe-schemas')
   api project(':metadata-utils')
+  implementation project(':metadata-service:configuration')
 
+  implementation externalDependency.caffeine
   implementation externalDependency.slf4jApi
   compileOnly externalDependency.lombok
   annotationProcessor externalDependency.lombok

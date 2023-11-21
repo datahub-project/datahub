@@ -117,6 +117,9 @@ public class CreateIngestionExecutionRequestResolver implements DataFetcher<Comp
           if (ingestionSourceInfo.getConfig().hasDebugMode()) {
             debugMode = ingestionSourceInfo.getConfig().isDebugMode() ? "true" : "false";
           }
+          if (ingestionSourceInfo.getConfig().hasExtraArgs()) {
+            arguments.putAll(ingestionSourceInfo.getConfig().getExtraArgs());
+          }
           arguments.put(DEBUG_MODE_ARG_NAME, debugMode);
           execInput.setArgs(new StringMap(arguments));
 

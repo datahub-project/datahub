@@ -8,7 +8,13 @@
         {
             "downstream": {
                 "table": null,
-                "column": "total_agg"
+                "column": "total_agg",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                },
+                "native_column_type": "DOUBLE"
             },
             "upstreams": [
                 {
@@ -20,7 +26,13 @@
         {
             "downstream": {
                 "table": null,
-                "column": "total_avg"
+                "column": "total_avg",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                },
+                "native_column_type": "DOUBLE"
             },
             "upstreams": [
                 {
@@ -32,7 +44,13 @@
         {
             "downstream": {
                 "table": null,
-                "column": "total_min"
+                "column": "total_min",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                },
+                "native_column_type": "FLOAT"
             },
             "upstreams": [
                 {
@@ -44,7 +62,13 @@
         {
             "downstream": {
                 "table": null,
-                "column": "total_max"
+                "column": "total_max",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                },
+                "native_column_type": "FLOAT"
             },
             "upstreams": [
                 {

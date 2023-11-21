@@ -7,8 +7,8 @@ from pydantic.fields import Field
 
 from datahub.configuration import ConfigModel
 from datahub.configuration.common import AllowDenyPattern
-from datahub.configuration.pydantic_field_deprecation import pydantic_field_deprecated
 from datahub.configuration.source_common import DatasetLineageProviderConfigBase
+from datahub.configuration.validate_field_deprecation import pydantic_field_deprecated
 from datahub.ingestion.source.data_lake_common.path_spec import PathSpec
 from datahub.ingestion.source.sql.postgres import BasePostgresConfig
 from datahub.ingestion.source.state.stateful_ingestion_base import (
@@ -81,7 +81,7 @@ class RedshiftConfig(
     # Because of this behavior, it uses dramatically fewer round trips for
     # large Redshift warehouses. As an example, see this query for the columns:
     # https://github.com/sqlalchemy-redshift/sqlalchemy-redshift/blob/60b4db04c1d26071c291aeea52f1dcb5dd8b0eb0/sqlalchemy_redshift/dialect.py#L745.
-    scheme = Field(
+    scheme: str = Field(
         default="redshift+psycopg2",
         description="",
         hidden_from_schema=True,
@@ -132,6 +132,16 @@ class RedshiftConfig(
         description="Whether `schema_pattern` is matched against fully qualified schema name `<database>.<schema>`.",
     )
 
+    extract_column_level_lineage: bool = Field(
+        default=True,
+        description="Whether to extract column level lineage. This config works with rest-sink only.",
+    )
+
+    incremental_lineage: bool = Field(
+        default=False,
+        description="When enabled, emits lineage as incremental to existing lineage already in DataHub. When disabled, re-states lineage on each run.  This config works with rest-sink only.",
+    )
+
     @root_validator(pre=True)
     def check_email_is_set_on_usage(cls, values):
         if values.get("include_usage_statistics"):
@@ -140,14 +150,14 @@ class RedshiftConfig(
             ), "email_domain needs to be set if usage is enabled"
         return values
 
-    @root_validator()
+    @root_validator(skip_on_failure=True)
     def check_database_or_database_alias_set(cls, values):
         assert values.get("database") or values.get(
             "database_alias"
         ), "either database or database_alias must be set"
         return values
 
-    @root_validator(pre=False)
+    @root_validator(skip_on_failure=True)
     def backward_compatibility_configs_set(cls, values: Dict) -> Dict:
         match_fully_qualified_names = values.get("match_fully_qualified_names")
 

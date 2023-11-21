@@ -64,6 +64,7 @@ query appConfig {
             showBrowseV2
             showAcrylInfo
             showAccessManagement
+            nestedDomainsEnabled
         }
     }
 }

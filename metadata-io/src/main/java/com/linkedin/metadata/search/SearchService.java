@@ -147,15 +147,23 @@ public class SearchService {
     return result;
   }
 
+  /**
+   * If no entities are provided, fallback to the list of non-empty entities
+   * @param inputEntities the requested entities
+   * @return some entities to search
+   */
   private List<String> getEntitiesToSearch(@Nonnull List<String> inputEntities) {
     List<String> nonEmptyEntities;
     List<String> lowercaseEntities = inputEntities.stream().map(String::toLowerCase).collect(Collectors.toList());
-    try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "getNonEmptyEntities").time()) {
-      nonEmptyEntities = _entityDocCountCache.getNonEmptyEntities();
+
+    if (lowercaseEntities.isEmpty()) {
+      try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "getNonEmptyEntities").time()) {
+        nonEmptyEntities = _entityDocCountCache.getNonEmptyEntities();
+      }
+    } else {
+      nonEmptyEntities = lowercaseEntities;
     }
-    if (!inputEntities.isEmpty()) {
-      nonEmptyEntities = nonEmptyEntities.stream().filter(lowercaseEntities::contains).collect(Collectors.toList());
-    }
+
     return nonEmptyEntities;
   }
 

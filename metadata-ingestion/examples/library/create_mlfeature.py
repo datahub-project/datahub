@@ -7,11 +7,11 @@ from datahub.emitter.rest_emitter import DatahubRestEmitter
 emitter = DatahubRestEmitter(gms_server="http://localhost:8080", extra_headers={})
 
 dataset_urn = builder.make_dataset_urn(
-    name="fct_users_deleted", platform="hive", env="PROD"
+    name="fct_users_created", platform="hive", env="PROD"
 )
 feature_urn = builder.make_ml_feature_urn(
-    feature_table_name="my-feature-table",
-    feature_name="my-feature",
+    feature_table_name="users_feature_table",
+    feature_name="user_signup_date",
 )
 
 #  Create feature
@@ -21,7 +21,12 @@ metadata_change_proposal = MetadataChangeProposalWrapper(
     entityUrn=feature_urn,
     aspectName="mlFeatureProperties",
     aspect=models.MLFeaturePropertiesClass(
-        description="my feature", sources=[dataset_urn], dataType="TEXT"
+        description="Represents the date the user created their account",
+        # attaching a source to a feature creates lineage between the feature
+        # and the upstream dataset. This is how lineage between your data warehouse
+        # and machine learning ecosystem is established.
+        sources=[dataset_urn],
+        dataType="TIME",
     ),
 )
 

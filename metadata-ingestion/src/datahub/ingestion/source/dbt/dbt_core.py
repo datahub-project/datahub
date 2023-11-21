@@ -26,9 +26,8 @@ from datahub.ingestion.source.dbt.dbt_common import (
     DBTNode,
     DBTSourceBase,
     DBTSourceReport,
-    DBTTest,
-    DBTTestResult,
 )
+from datahub.ingestion.source.dbt.dbt_tests import DBTTest, DBTTestResult
 
 logger = logging.getLogger(__name__)
 
@@ -172,7 +171,8 @@ def extract_dbt_entities(
         catalog_type = None
 
         if catalog_node is None:
-            if materialization != "test":
+            if materialization not in {"test", "ephemeral"}:
+                # Test and ephemeral nodes will never show up in the catalog.
                 report.report_warning(
                     key,
                     f"Entity {key} ({name}) is in manifest but missing from catalog",

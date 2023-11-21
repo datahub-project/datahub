@@ -8,7 +8,7 @@ on:
       - "**.md"
   pull_request:
     branches:
-      - master
+      - "**"
     paths-ignore:
       - "docs/**"
       - "**.md"
@@ -46,6 +46,9 @@ jobs:
       unique_full_tag: ${{ steps.tag.outputs.unique_full_tag }}
       publish: ${{ steps.publish.outputs.publish }}
       python_release_version: ${{ steps.tag.outputs.python_release_version }}
+      short_sha: ${{ steps.tag.outputs.short_sha }}
+      branch_name: ${{ steps.tag.outputs.branch_name }}
+      repository_name: ${{ steps.tag.outputs.repository_name }}
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -53,13 +56,16 @@ jobs:
         id: tag
         run: |
           source .github/scripts/docker_helpers.sh
+          echo "short_sha=${SHORT_SHA}" >> $GITHUB_OUTPUT
           echo "tag=$(get_tag)" >> $GITHUB_OUTPUT
-          echo "slim_tag=$(get_tag)-slim" >> $GITHUB_OUTPUT
-          echo "full_tag=$(get_tag)-full" >> $GITHUB_OUTPUT
+          echo "slim_tag=$(get_tag_slim)" >> $GITHUB_OUTPUT
+          echo "full_tag=$(get_tag_full)" >> $GITHUB_OUTPUT
           echo "unique_tag=$(get_unique_tag)" >> $GITHUB_OUTPUT
-          echo "unique_slim_tag=$(get_unique_tag)-slim" >> $GITHUB_OUTPUT
-          echo "unique_full_tag=$(get_unique_tag)-full" >> $GITHUB_OUTPUT
+          echo "unique_slim_tag=$(get_unique_tag_slim)" >> $GITHUB_OUTPUT
+          echo "unique_full_tag=$(get_unique_tag_full)" >> $GITHUB_OUTPUT
           echo "python_release_version=$(get_python_docker_release_v)" >> $GITHUB_OUTPUT
+          echo "branch_name=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}" >> $GITHUB_OUTPUT
+          echo "repository_name=${GITHUB_REPOSITORY#*/}" >> $GITHUB_OUTPUT
       - name: Check whether publishing enabled
         id: publish
         env:
@@ -74,9 +80,7 @@ jobs:
     needs: setup
     steps:
       - name: Check out the repo
-        uses: actions/checkout@v3
-        with:
-          fetch-depth: 800
+        uses: hsheth2/sane-checkout-action@v1
       - name: Pre-build artifacts for docker image
         run: |
           ./gradlew :metadata-service:war:build -x test --parallel
@@ -132,9 +136,7 @@ jobs:
     needs: setup
     steps:
       - name: Check out the repo
-        uses: actions/checkout@v3
-        with:
-          fetch-depth: 800
+        uses: hsheth2/sane-checkout-action@v1
       - name: Pre-build artifacts for docker image
         run: |
           ./gradlew :metadata-jobs:mae-consumer-job:build -x test --parallel
@@ -190,9 +192,7 @@ jobs:
     needs: setup
     steps:
       - name: Check out the repo
-        uses: actions/checkout@v3
-        with:
-          fetch-depth: 800
+        uses: hsheth2/sane-checkout-action@v1
       - name: Pre-build artifacts for docker image
         run: |
           ./gradlew :metadata-jobs:mce-consumer-job:build -x test --parallel
@@ -248,9 +248,7 @@ jobs:
     needs: setup
     steps:
       - name: Check out the repo
-        uses: actions/checkout@v3
-        with:
-          fetch-depth: 800
+        uses: hsheth2/sane-checkout-action@v1
       - name: Pre-build artifacts for docker image
         run: |
           ./gradlew :datahub-upgrade:build -x test --parallel
@@ -306,9 +304,7 @@ jobs:
     needs: setup
     steps:
       - name: Check out the repo
-        uses: actions/checkout@v3
-        with:
-          fetch-depth: 800
+        uses: hsheth2/sane-checkout-action@v1
       - name: Pre-build artifacts for docker image
         run: |
           ./gradlew :datahub-frontend:dist -x test -x yarnTest -x yarnLint --parallel
@@ -366,9 +362,7 @@ jobs:
     needs: setup
     steps:
       - name: Check out the repo
-        uses: actions/checkout@v3
-        with:
-          fetch-depth: 800
+        uses: hsheth2/sane-checkout-action@v1
       - name: Build and push
         uses: ./.github/actions/docker-custom-build-and-push
         with:
@@ -388,9 +382,7 @@ jobs:
     needs: setup
     steps:
       - name: Check out the repo
-        uses: actions/checkout@v3
-        with:
-          fetch-depth: 800
+        uses: hsheth2/sane-checkout-action@v1
       - name: Build and push
         uses: ./.github/actions/docker-custom-build-and-push
         with:
@@ -410,9 +402,7 @@ jobs:
     needs: setup
     steps:
       - name: Check out the repo
-        uses: actions/checkout@v3
-        with:
-          fetch-depth: 800
+        uses: hsheth2/sane-checkout-action@v1
       - name: Build and push
         uses: ./.github/actions/docker-custom-build-and-push
         with:
@@ -434,9 +424,7 @@ jobs:
     needs: setup
     steps:
       - name: Check out the repo
-        uses: actions/checkout@v3
-        with:
-          fetch-depth: 800
+        uses: hsheth2/sane-checkout-action@v1
       - uses: dorny/paths-filter@v2
         id: filter
         with:
@@ -459,7 +447,7 @@ jobs:
           platforms: linux/amd64,linux/arm64/v8
       - name: Compute DataHub Ingestion (Base) Tag
         id: tag
-        run: echo "tag=${{ steps.filter.outputs.datahub-ingestion-base == 'true' && needs.setup.outputs.tag || 'head' }}" >> $GITHUB_OUTPUT
+        run: echo "tag=${{ steps.filter.outputs.datahub-ingestion-base == 'true' && needs.setup.outputs.unique_tag || 'head' }}" >> $GITHUB_OUTPUT
   datahub_ingestion_base_slim_build:
     name: Build and Push DataHub Ingestion (Base-Slim) Docker Image
     runs-on: ubuntu-latest
@@ -468,9 +456,7 @@ jobs:
     needs: [setup, datahub_ingestion_base_build]
     steps:
       - name: Check out the repo
-        uses: actions/checkout@v3
-        with:
-          fetch-depth: 800
+        uses: hsheth2/sane-checkout-action@v1
       - uses: dorny/paths-filter@v2
         id: filter
         with:
@@ -501,7 +487,7 @@ jobs:
           platforms: linux/amd64,linux/arm64/v8
       - name: Compute DataHub Ingestion (Base-Slim) Tag
         id: tag
-        run: echo "tag=${{ steps.filter.outputs.datahub-ingestion-base == 'true' && needs.setup.outputs.unique_slim_tag || 'head' }}" >> $GITHUB_OUTPUT
+        run: echo "tag=${{ steps.filter.outputs.datahub-ingestion-base == 'true' && needs.setup.outputs.unique_slim_tag || 'head-slim' }}" >> $GITHUB_OUTPUT
   datahub_ingestion_base_full_build:
     name: Build and Push DataHub Ingestion (Base-Full) Docker Image
     runs-on: ubuntu-latest
@@ -510,9 +496,7 @@ jobs:
     needs: [setup, datahub_ingestion_base_build]
     steps:
       - name: Check out the repo
-        uses: actions/checkout@v3
-        with:
-          fetch-depth: 800
+        uses: hsheth2/sane-checkout-action@v1
       - uses: dorny/paths-filter@v2
         id: filter
         with:
@@ -524,14 +508,14 @@ jobs:
         if: ${{ needs.setup.outputs.publish != 'true' &&  steps.filter.outputs.datahub-ingestion-base == 'true' }}
         with:
           image: ${{ env.DATAHUB_INGESTION_BASE_IMAGE }}:${{ steps.filter.outputs.datahub-ingestion-base == 'true' && needs.setup.outputs.unique_tag || 'head' }}
-      - name: Build and push Base-Full Image
+      - name: Build and push (Base-Full) Image
         if: ${{ steps.filter.outputs.datahub-ingestion-base == 'true' }}
         uses: ./.github/actions/docker-custom-build-and-push
         with:
           target: full-install
           images: |
             ${{ env.DATAHUB_INGESTION_BASE_IMAGE }}
-          tags: ${{ needs.setup.outputs.unique_full_tag }}
+          tags: ${{ needs.setup.outputs.full_tag }}
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
           password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
           build-args: |
@@ -545,7 +529,6 @@ jobs:
         id: tag
         run: echo "tag=${{ steps.filter.outputs.datahub-ingestion-base == 'true' && needs.setup.outputs.unique_full_tag || 'head' }}" >> $GITHUB_OUTPUT
 
-
   datahub_ingestion_slim_build:
     name: Build and Push DataHub Ingestion Docker Images
     runs-on: ubuntu-latest
@@ -555,9 +538,7 @@ jobs:
     needs: [setup, datahub_ingestion_base_slim_build]
     steps:
       - name: Check out the repo
-        uses: actions/checkout@v3
-        with:
-          fetch-depth: 800
+        uses: hsheth2/sane-checkout-action@v1
       - uses: dorny/paths-filter@v2
         id: filter
         with:
@@ -567,13 +548,13 @@ jobs:
             datahub-ingestion:
               - 'docker/datahub-ingestion/**'
       - name: Build codegen
-        if: ${{ steps.filter.outputs.datahub-ingestion-base == 'true' || steps.filter.outputs.datahub-ingestion == 'true' }}
+        if: ${{ steps.filter.outputs.datahub-ingestion-base == 'true' || steps.filter.outputs.datahub-ingestion == 'true' || needs.setup.outputs.publish }}
         run: ./gradlew :metadata-ingestion:codegen
       - name: Download Base Image
         uses: ishworkh/docker-image-artifact-download@v1
         if: ${{ needs.setup.outputs.publish != 'true' && steps.filter.outputs.datahub-ingestion-base == 'true' }}
         with:
-          image: ${{ env.DATAHUB_INGESTION_BASE_IMAGE }}:${{ steps.filter.outputs.datahub-ingestion-base == 'true' && needs.setup.outputs.unique_slim_tag || 'head' }}
+          image: ${{ env.DATAHUB_INGESTION_BASE_IMAGE }}:${{ steps.filter.outputs.datahub-ingestion-base == 'true' && needs.setup.outputs.unique_slim_tag || 'head-slim' }}
       - name: Build and push Slim Image
         if: ${{ steps.filter.outputs.datahub-ingestion-base == 'true' || steps.filter.outputs.datahub-ingestion == 'true' || needs.setup.outputs.publish }}
         uses: ./.github/actions/docker-custom-build-and-push
@@ -583,7 +564,7 @@ jobs:
             ${{ env.DATAHUB_INGESTION_IMAGE }}
           build-args: |
             BASE_IMAGE=${{ env.DATAHUB_INGESTION_BASE_IMAGE }}
-            DOCKER_VERSION=${{ steps.filter.outputs.datahub-ingestion-base == 'true' && needs.setup.outputs.unique_slim_tag || 'head' }}
+            DOCKER_VERSION=${{ steps.filter.outputs.datahub-ingestion-base == 'true' && needs.setup.outputs.unique_slim_tag || 'head-slim' }}
             RELEASE_VERSION=${{ needs.setup.outputs.python_release_version }}
             APP_ENV=slim
           tags: ${{ needs.setup.outputs.slim_tag }}
@@ -595,7 +576,7 @@ jobs:
           platforms: linux/amd64,linux/arm64/v8
       - name: Compute Tag
         id: tag
-        run: echo "tag=${{ (steps.filter.outputs.datahub-ingestion-base == 'true' || steps.filter.outputs.datahub-ingestion == 'true') && needs.setup.outputs.unique_slim_tag || 'head' }}" >> $GITHUB_OUTPUT
+        run: echo "tag=${{ (steps.filter.outputs.datahub-ingestion-base == 'true' || steps.filter.outputs.datahub-ingestion == 'true') && needs.setup.outputs.unique_slim_tag || 'head-slim' }}" >> $GITHUB_OUTPUT
   datahub_ingestion_slim_scan:
     permissions:
       contents: read # for actions/checkout to fetch code
@@ -638,9 +619,7 @@ jobs:
     needs: [setup, datahub_ingestion_base_full_build]
     steps:
       - name: Check out the repo
-        uses: actions/checkout@v3
-        with:
-          fetch-depth: 800
+        uses: hsheth2/sane-checkout-action@v1
       - uses: dorny/paths-filter@v2
         id: filter
         with:
@@ -650,13 +629,13 @@ jobs:
             datahub-ingestion:
               - 'docker/datahub-ingestion/**'
       - name: Build codegen
-        if: ${{ steps.filter.outputs.datahub-ingestion-base == 'true' || steps.filter.outputs.datahub-ingestion == 'true' }}
+        if: ${{ steps.filter.outputs.datahub-ingestion-base == 'true' || steps.filter.outputs.datahub-ingestion == 'true' || needs.setup.outputs.publish }}
         run: ./gradlew :metadata-ingestion:codegen
       - name: Download Base Image
         uses: ishworkh/docker-image-artifact-download@v1
         if: ${{ needs.setup.outputs.publish != 'true' && steps.filter.outputs.datahub-ingestion-base == 'true' }}
         with:
-          image: ${{ env.DATAHUB_INGESTION_BASE_IMAGE }}:${{ steps.filter.outputs.datahub-ingestion-base == 'true' && needs.setup.outputs.unique_full_tag || 'head' }}
+          image: ${{ env.DATAHUB_INGESTION_BASE_IMAGE }}:${{ steps.filter.outputs.datahub-ingestion-base == 'true' && needs.setup.outputs.unique_tag || 'head' }}
       - name: Build and push Full Image
         if: ${{ steps.filter.outputs.datahub-ingestion-base == 'true' || steps.filter.outputs.datahub-ingestion == 'true' || needs.setup.outputs.publish }}
         uses: ./.github/actions/docker-custom-build-and-push
@@ -666,9 +645,9 @@ jobs:
             ${{ env.DATAHUB_INGESTION_IMAGE }}
           build-args: |
             BASE_IMAGE=${{ env.DATAHUB_INGESTION_BASE_IMAGE }}
-            DOCKER_VERSION=${{ steps.filter.outputs.datahub-ingestion-base == 'true' && needs.setup.outputs.unique_full_tag || 'head' }}
+            DOCKER_VERSION=${{ steps.filter.outputs.datahub-ingestion-base == 'true' && needs.setup.outputs.unique_tag || 'head' }}
             RELEASE_VERSION=${{ needs.setup.outputs.python_release_version }}
-          tags: ${{ needs.setup.outputs.unique_full_tag }}
+          tags: ${{ needs.setup.outputs.tag }}
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
           password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
           publish: ${{ needs.setup.outputs.publish }}
@@ -677,7 +656,7 @@ jobs:
           platforms: linux/amd64,linux/arm64/v8
       - name: Compute Tag (Full)
         id: tag
-        run: echo "tag=${{ (steps.filter.outputs.datahub-ingestion-base == 'true' || steps.filter.outputs.datahub-ingestion == 'true') && needs.setup.outputs.unique_full_tag || 'head' }}" >> $GITHUB_OUTPUT
+        run: echo "tag=${{ (steps.filter.outputs.datahub-ingestion-base == 'true' || steps.filter.outputs.datahub-ingestion == 'true') && needs.setup.outputs.unique_tag || 'head' }}" >> $GITHUB_OUTPUT
   datahub_ingestion_full_scan:
     permissions:
       contents: read # for actions/checkout to fetch code
@@ -809,8 +788,8 @@ jobs:
           DATAHUB_VERSION: ${{ needs.setup.outputs.unique_tag }}
           DATAHUB_ACTIONS_IMAGE: ${{ env.DATAHUB_INGESTION_IMAGE }}
           ACTIONS_VERSION: ${{ needs.datahub_ingestion_slim_build.outputs.tag }}
-          ACTIONS_EXTRA_PACKAGES: 'acryl-datahub-actions[executor]==0.0.13 acryl-datahub-actions==0.0.13 acryl-datahub==0.10.5'
-          ACTIONS_CONFIG: 'https://raw.githubusercontent.com/acryldata/datahub-actions/main/docker/config/executor.yaml'
+          ACTIONS_EXTRA_PACKAGES: "acryl-datahub-actions[executor]==0.0.13 acryl-datahub-actions==0.0.13 acryl-datahub==0.10.5"
+          ACTIONS_CONFIG: "https://raw.githubusercontent.com/acryldata/datahub-actions/main/docker/config/executor.yaml"
         run: |
           ./smoke-test/run-quickstart.sh
       - name: sleep 60s
@@ -852,8 +831,14 @@ jobs:
         if: failure()
         run: |
           docker ps -a
-          docker logs datahub-gms >& gms-${{ matrix.test_strategy }}.log
-          docker logs datahub-actions >& actions-${{ matrix.test_strategy }}.log
+          docker logs datahub-gms >& gms-${{ matrix.test_strategy }}.log || true
+          docker logs datahub-actions >& actions-${{ matrix.test_strategy }}.log || true
+          docker logs datahub-mae-consumer >& mae-${{ matrix.test_strategy }}.log || true
+          docker logs datahub-mce-consumer >& mce-${{ matrix.test_strategy }}.log || true
+          docker logs broker >& broker-${{ matrix.test_strategy }}.log || true
+          docker logs mysql >& mysql-${{ matrix.test_strategy }}.log || true
+          docker logs elasticsearch >& elasticsearch-${{ matrix.test_strategy }}.log || true
+          docker logs datahub-frontend-react >& frontend-${{ matrix.test_strategy }}.log || true
       - name: Upload logs
         uses: actions/upload-artifact@v3
         if: failure()
@@ -881,3 +866,21 @@ jobs:
           job-status: ${{ job.status }}
           slack-bot-token: ${{ secrets.SLACK_BOT_TOKEN }}
           channel: github-activities
+  deploy_datahub_head:
+    name: Deploy to Datahub HEAD
+    runs-on: ubuntu-latest
+    needs:
+      [
+        setup,
+        smoke_test
+      ]
+    steps:
+      - uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_SQS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SQS_ACCESS_KEY }}
+          aws-region: us-west-2
+      - uses: isbang/sqs-action@v0.2.0
+        with:
+          sqs-url: ${{ secrets.DATAHUB_HEAD_SYNC_QUEUE }}
+          message: '{ "command": "git-sync", "args" : {"repoName": "${{ needs.setup.outputs.repository_name }}", "repoOrg": "${{ github.repository_owner }}", "repoBranch": "${{ needs.setup.outputs.branch_name }}", "repoShaShort": "${{ needs.setup.outputs.short_sha }}" }}'
