@@ -265,7 +265,7 @@ class BigQueryV2Config(
         description="Option to exclude empty projects from being ingested.",
     )
 
-    @root_validator(pre=False)
+    @root_validator(skip_on_failure=True)
     def profile_default_settings(cls, values: Dict) -> Dict:
         # Extra default SQLAlchemy option for better connection pooling and threading.
         # https://docs.sqlalchemy.org/en/14/core/pooling.html#sqlalchemy.pool.QueuePool.params.max_overflow
@@ -299,7 +299,7 @@ class BigQueryV2Config(
                 "use project_id_pattern whenever possible. project_id will be deprecated, please use project_id_pattern only if possible."
             )
 
-        dataset_pattern = values.get("dataset_pattern")
+        dataset_pattern: Optional[AllowDenyPattern] = values.get("dataset_pattern")
         schema_pattern = values.get("schema_pattern")
         if (
             dataset_pattern == AllowDenyPattern.allow_all()
@@ -309,6 +309,7 @@ class BigQueryV2Config(
                 "dataset_pattern is not set but schema_pattern is set, using schema_pattern as dataset_pattern. schema_pattern will be deprecated, please use dataset_pattern instead."
             )
             values["dataset_pattern"] = schema_pattern
+            dataset_pattern = schema_pattern
         elif (
             dataset_pattern != AllowDenyPattern.allow_all()
             and schema_pattern != AllowDenyPattern.allow_all()
@@ -329,6 +330,22 @@ class BigQueryV2Config(
                 "Please update `dataset_pattern` to match against fully qualified schema name `<project_id>.<dataset_name>` and set config `match_fully_qualified_names : True`."
                 "The config option `match_fully_qualified_names` is deprecated and will be removed in a future release."
             )
+        elif match_fully_qualified_names and dataset_pattern is not None:
+            adjusted = False
+            for lst in [dataset_pattern.allow, dataset_pattern.deny]:
+                for i, pattern in enumerate(lst):
+                    if "." not in pattern:
+                        if pattern.startswith("^"):
+                            lst[i] = r"^.*\." + pattern[1:]
+                        else:
+                            lst[i] = r".*\." + pattern
+                        adjusted = True
+            if adjusted:
+                logger.warning(
+                    "`dataset_pattern` was adjusted to match against fully qualified schema names,"
+                    " of the form `<project_id>.<dataset_name>`."
+                )
+
         return values
 
     def get_table_pattern(self, pattern: List[str]) -> str:

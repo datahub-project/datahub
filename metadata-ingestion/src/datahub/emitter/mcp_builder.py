@@ -1,9 +1,10 @@
-from typing import Dict, Iterable, List, Optional, TypeVar
+from typing import Dict, Iterable, List, Optional, Type, TypeVar
 
 from pydantic.fields import Field
 from pydantic.main import BaseModel
 
 from datahub.emitter.mce_builder import (
+    Aspect,
     datahub_guid,
     make_container_urn,
     make_data_platform_urn,
@@ -18,6 +19,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.common import (
 )
 from datahub.metadata.com.linkedin.pegasus2avro.container import ContainerProperties
 from datahub.metadata.schema_classes import (
+    KEY_ASPECTS,
     ContainerClass,
     DomainsClass,
     EmbedClass,
@@ -125,7 +127,7 @@ class BucketKey(ContainerKey):
 class NotebookKey(DatahubKey):
     notebook_id: int
     platform: str
-    instance: Optional[str]
+    instance: Optional[str] = None
 
     def as_urn(self) -> str:
         return make_dataset_urn_with_platform_instance(
@@ -306,3 +308,12 @@ def create_embed_mcp(urn: str, embed_url: str) -> MetadataChangeProposalWrapper:
         entityUrn=urn,
         aspect=EmbedClass(renderUrl=embed_url),
     )
+
+
+def entity_supports_aspect(entity_type: str, aspect_type: Type[Aspect]) -> bool:
+    entity_key_aspect = KEY_ASPECTS[entity_type]
+    aspect_name = aspect_type.get_aspect_name()
+
+    supported_aspects = entity_key_aspect.ASPECT_INFO["entityAspects"]
+
+    return aspect_name in supported_aspects

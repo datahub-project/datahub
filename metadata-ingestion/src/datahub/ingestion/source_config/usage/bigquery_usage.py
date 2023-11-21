@@ -44,7 +44,7 @@ class BigQueryCredential(ConfigModel):
         description="If not set it will be default to https://www.googleapis.com/robot/v1/metadata/x509/client_email",
     )
 
-    @pydantic.root_validator()
+    @pydantic.root_validator(skip_on_failure=True)
     def validate_config(cls, values: Dict[str, Any]) -> Dict[str, Any]:
         if values.get("client_x509_cert_url") is None:
             values[

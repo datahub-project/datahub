@@ -11,6 +11,8 @@ authentication:
         # Key used to validate incoming tokens. Should typically be the same as authentication.tokenService.signingKey
         signingKey: ${DATAHUB_TOKEN_SERVICE_SIGNING_KEY:WnEdIeTG/VVCLQqGwC/BAkqyY0k+H8NEAtWGejrBI94=}
         salt: ${DATAHUB_TOKEN_SERVICE_SALT:ohDVbJBvHHVJh9S/UA4BYF9COuNnqqVhr9MLKEGXk1O=}
+    # Required for unauthenticated health check endpoints - best not to remove.
+    - type: com.datahub.authentication.authenticator.HealthStatusAuthenticator
 
   # Normally failures are only warnings, enable this to throw them.
   logAuthenticatorExceptions: ${METADATA_SERVICE_AUTHENTICATOR_EXCEPTIONS_ENABLED:false}
@@ -37,10 +39,12 @@ authorization:
   defaultAuthorizer:
     enabled: ${AUTH_POLICIES_ENABLED:true}
     cacheRefreshIntervalSecs: ${POLICY_CACHE_REFRESH_INTERVAL_SECONDS:120}
+    cachePolicyFetchSize: ${POLICY_CACHE_FETCH_SIZE:1000}
   # Enables authorization of reads, writes, and deletes on REST APIs. Defaults to false for backwards compatibility, but should become true down the road
   restApiAuthorization: ${REST_API_AUTHORIZATION_ENABLED:false}
 
 ingestion:
+  # The value of cliMajorVersion is substituted in by the processResources Gradle task.
   enabled: ${UI_INGESTION_ENABLED:true}
   defaultCliVersion: "${UI_INGESTION_DEFAULT_CLI_VERSION:@cliMajorVersion@}"
   maxSerializedStringLength: "${INGESTION_MAX_SERIALIZED_STRING_LENGTH:16000000}" # Indicates the maximum allowed JSON String length Jackson will handle, impacts the maximum size of ingested aspects
@@ -71,7 +75,7 @@ datahub:
   plugin:
     pluginSecurityMode: ${PLUGIN_SECURITY_MODE:RESTRICTED} # Possible value RESTRICTED or LENIENT, default to RESTRICTED
     entityRegistry:
-        path: ${ENTITY_REGISTRY_PLUGIN_PATH:/etc/datahub/plugins/models}
+      path: ${ENTITY_REGISTRY_PLUGIN_PATH:/etc/datahub/plugins/models}
     retention:
       path: ${RETENTION_PLUGIN_PATH:/etc/datahub/plugins/retention}
     auth:
@@ -228,6 +232,10 @@ kafka:
     deliveryTimeout: ${KAFKA_PRODUCER_DELIVERY_TIMEOUT:30000}
     requestTimeout: ${KAFKA_PRODUCER_REQUEST_TIMEOUT:3000}
     backoffTimeout: ${KAFKA_PRODUCER_BACKOFF_TIMEOUT:500}
+    compressionType: ${KAFKA_PRODUCER_COMPRESSION_TYPE:snappy} # producer's compression algorithm
+    maxRequestSize: ${KAFKA_PRODUCER_MAX_REQUEST_SIZE:5242880} # the max bytes sent by the producer, also see kafka-setup MAX_MESSAGE_BYTES for matching value
+  consumer:
+    maxPartitionFetchBytes: ${KAFKA_CONSUMER_MAX_PARTITION_FETCH_BYTES:5242880} # the max bytes consumed per partition
   schemaRegistry:
     type: ${SCHEMA_REGISTRY_TYPE:KAFKA} # INTERNAL or KAFKA or AWS_GLUE
     url: ${KAFKA_SCHEMAREGISTRY_URL:http://localhost:8081}
@@ -244,6 +252,7 @@ neo4j:
   username: ${NEO4J_USERNAME:neo4j}
   password: ${NEO4J_PASSWORD:datahub}
   uri: ${NEO4J_URI:bolt://localhost}
+  database: ${NEO4J_DATABASE:graph.db}
   maxConnectionPoolSize: ${NEO4J_MAX_CONNECTION_POOL_SIZE:100}
   maxConnectionAcquisitionTimeout: ${NEO4J_MAX_CONNECTION_ACQUISITION_TIMEOUT_IN_SECONDS:60}
   maxConnectionLifetimeInSeconds: ${NEO4j_MAX_CONNECTION_LIFETIME_IN_SECONDS:3600}
@@ -272,19 +281,19 @@ updateIndices:
 ingestionScheduler:
   enabled: ${ENABLE_INGESTION_SCHEDULER_HOOK:true} # enable to execute ingestion scheduling
 
-
 bootstrap:
   upgradeDefaultBrowsePaths:
     enabled: ${UPGRADE_DEFAULT_BROWSE_PATHS_ENABLED:false} # enable to run the upgrade to migrate legacy default browse paths to new ones
   backfillBrowsePathsV2:
     enabled: ${BACKFILL_BROWSE_PATHS_V2:false} # Enables running the backfill of browsePathsV2 upgrade step. There are concerns about the load of this step so hiding it behind a flag. Deprecating in favor of running through SystemUpdate
+  reprocessDefaultBrowsePathsV2:
+    enabled: ${REPROCESS_DEFAULT_BROWSE_PATHS_V2:false} # reprocess V2 browse paths which were set to the default: {"path":[{"id":"Default"}]}
   policies:
     file: ${BOOTSTRAP_POLICIES_FILE:classpath:boot/policies.json}
     # eg for local file
     # file: "file:///datahub/datahub-gms/resources/custom-policies.json"
   servlets:
     waitTimeout: ${BOOTSTRAP_SERVLETS_WAITTIMEOUT:60} # Total waiting time in seconds for servlets to initialize
-
 
 systemUpdate:
   initialBackOffMs: ${BOOTSTRAP_SYSTEM_UPDATE_INITIAL_BACK_OFF_MILLIS:5000}
@@ -323,7 +332,8 @@ entityClient:
 
 usageClient:
   retryInterval: ${USAGE_CLIENT_RETRY_INTERVAL:2}
-  numRetries: ${USAGE_CLIENT_NUM_RETRIES:3}
+  numRetries: ${USAGE_CLIENT_NUM_RETRIES:0}
+  timeoutMs: ${USAGE_CLIENT_TIMEOUT_MS:3000}
 
 cache:
   primary:

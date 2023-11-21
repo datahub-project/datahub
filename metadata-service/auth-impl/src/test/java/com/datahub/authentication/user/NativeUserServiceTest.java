@@ -3,6 +3,7 @@ package com.datahub.authentication.user;
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
+import com.datahub.authentication.AuthenticationConfiguration;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.client.EntityClient;
@@ -48,8 +49,10 @@ public class NativeUserServiceTest {
     _entityService = mock(EntityService.class);
     _entityClient = mock(EntityClient.class);
     _secretService = mock(SecretService.class);
+    AuthenticationConfiguration authenticationConfiguration = new AuthenticationConfiguration();
+    authenticationConfiguration.setSystemClientId("someCustomId");
 
-    _nativeUserService = new NativeUserService(_entityService, _entityClient, _secretService);
+    _nativeUserService = new NativeUserService(_entityService, _entityClient, _secretService, authenticationConfiguration);
   }
 
   @Test
@@ -72,6 +75,16 @@ public class NativeUserServiceTest {
     when(_entityService.exists(any())).thenReturn(true);
 
     _nativeUserService.createNativeUser(USER_URN_STRING, FULL_NAME, EMAIL, TITLE, PASSWORD, SYSTEM_AUTHENTICATION);
+  }
+
+  @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "This user already exists! Cannot create a new user.")
+  public void testCreateNativeUserUserDatahub() throws Exception {
+    _nativeUserService.createNativeUser(DATAHUB_ACTOR, FULL_NAME, EMAIL, TITLE, PASSWORD, SYSTEM_AUTHENTICATION);
+  }
+
+  @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "This user already exists! Cannot create a new user.")
+  public void testCreateNativeUserUserSystemUser() throws Exception {
+    _nativeUserService.createNativeUser(SYSTEM_ACTOR, FULL_NAME, EMAIL, TITLE, PASSWORD, SYSTEM_AUTHENTICATION);
   }
 
   @Test

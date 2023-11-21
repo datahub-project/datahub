@@ -1,12 +1,14 @@
 buildscript {
   ext.junitJupiterVersion = '5.6.1'
   // Releases: https://github.com/linkedin/rest.li/blob/master/CHANGELOG.md
-  ext.pegasusVersion = '29.45.0'
+  ext.pegasusVersion = '29.46.8'
   ext.mavenVersion = '3.6.3'
   ext.springVersion = '5.3.29'
   ext.springBootVersion = '2.7.14'
   ext.openTelemetryVersion = '1.18.0'
   ext.neo4jVersion = '4.4.9'
+  ext.neo4jTestVersion = '4.4.25'
+  ext.neo4jApocVersion = '4.4.0.20:all'
   ext.testContainersVersion = '1.17.4'
   ext.elasticsearchVersion = '2.9.0' // ES 7.10, Opensearch 1.x, 2.x
   ext.jacksonVersion = '2.15.2'
@@ -17,7 +19,7 @@ buildscript {
   ext.logbackClassic = '1.2.12'
   ext.hadoop3Version = '3.3.5'
   ext.kafkaVersion = '2.3.0'
-  ext.hazelcastVersion = '5.3.1'
+  ext.hazelcastVersion = '5.3.6'
   ext.ebeanVersion = '12.16.1'
 
   ext.docker_registry = 'linkedin'
@@ -39,7 +41,7 @@ buildscript {
 plugins {
   id 'com.gorylenko.gradle-git-properties' version '2.4.0-rc2'
   id 'com.github.johnrengelman.shadow' version '6.1.0'
-  id 'com.palantir.docker' version '0.35.0'
+  id 'com.palantir.docker' version '0.35.0' apply false
   // https://blog.ltgt.net/javax-jakarta-mess-and-gradle-solution/
   // TODO id "org.gradlex.java-ecosystem-capabilities" version "1.0"
 }
@@ -51,7 +53,7 @@ project.ext.spec = [
         'pegasus' : [
             'd2' : 'com.linkedin.pegasus:d2:' + pegasusVersion,
             'data' : 'com.linkedin.pegasus:data:' + pegasusVersion,
-            'dataAvro1_6' : 'com.linkedin.pegasus:data-avro-1_6:' + pegasusVersion,
+            'dataAvro': 'com.linkedin.pegasus:data-avro:' + pegasusVersion,
             'generator': 'com.linkedin.pegasus:generator:' + pegasusVersion,
             'restliCommon' : 'com.linkedin.pegasus:restli-common:' + pegasusVersion,
             'restliClient' : 'com.linkedin.pegasus:restli-client:' + pegasusVersion,
@@ -69,22 +71,22 @@ project.ext.externalDependency = [
     'assertJ': 'org.assertj:assertj-core:3.11.1',
     'avro': 'org.apache.avro:avro:1.11.3',
     'avroCompiler': 'org.apache.avro:avro-compiler:1.11.3',
-    'awsGlueSchemaRegistrySerde': 'software.amazon.glue:schema-registry-serde:1.1.10',
-    'awsMskIamAuth': 'software.amazon.msk:aws-msk-iam-auth:1.1.1',
-    'awsSecretsManagerJdbc': 'com.amazonaws.secretsmanager:aws-secretsmanager-jdbc:1.0.8',
-    'awsPostgresIamAuth': 'software.amazon.jdbc:aws-advanced-jdbc-wrapper:1.0.0',
+    'awsGlueSchemaRegistrySerde': 'software.amazon.glue:schema-registry-serde:1.1.17',
+    'awsMskIamAuth': 'software.amazon.msk:aws-msk-iam-auth:1.1.9',
+    'awsSecretsManagerJdbc': 'com.amazonaws.secretsmanager:aws-secretsmanager-jdbc:1.0.13',
+    'awsPostgresIamAuth': 'software.amazon.jdbc:aws-advanced-jdbc-wrapper:1.0.2',
     'awsRds':'software.amazon.awssdk:rds:2.18.24',
-    'cacheApi' : 'javax.cache:cache-api:1.1.0',
+    'cacheApi': 'javax.cache:cache-api:1.1.0',
     'commonsCli': 'commons-cli:commons-cli:1.5.0',
     'commonsIo': 'commons-io:commons-io:2.4',
     'commonsLang': 'commons-lang:commons-lang:2.6',
     'commonsText': 'org.apache.commons:commons-text:1.10.0',
     'commonsCollections': 'commons-collections:commons-collections:3.2.2',
-    'data' : 'com.linkedin.pegasus:data:' + pegasusVersion,
+    'caffeine': 'com.github.ben-manes.caffeine:caffeine:3.1.8',
     'datastaxOssNativeProtocol': 'com.datastax.oss:native-protocol:1.5.1',
     'datastaxOssCore': 'com.datastax.oss:java-driver-core:4.14.1',
     'datastaxOssQueryBuilder': 'com.datastax.oss:java-driver-query-builder:4.14.1',
-    'dgraph4j' : 'io.dgraph:dgraph4j:21.03.1',
+    'dgraph4j' : 'io.dgraph:dgraph4j:21.12.0',
     'dropwizardMetricsCore': 'io.dropwizard.metrics:metrics-core:4.2.3',
     'dropwizardMetricsJmx': 'io.dropwizard.metrics:metrics-jmx:4.2.3',
     'ebean': 'io.ebean:ebean:' + ebeanVersion,
@@ -129,7 +131,7 @@ project.ext.externalDependency = [
     'jsonPatch': 'com.github.java-json-tools:json-patch:1.13',
     'jsonSimple': 'com.googlecode.json-simple:json-simple:1.1.1',
     'jsonSmart': 'net.minidev:json-smart:2.4.9',
-    'json': 'org.json:json:20230227',
+    'json': 'org.json:json:20231013',
     'junit': 'junit:junit:4.13.2',
     'junitJupiterApi': "org.junit.jupiter:junit-jupiter-api:$junitJupiterVersion",
     'junitJupiterParams': "org.junit.jupiter:junit-jupiter-params:$junitJupiterVersion",
@@ -138,7 +140,7 @@ project.ext.externalDependency = [
     'kafkaAvroSerde': 'io.confluent:kafka-streams-avro-serde:5.5.1',
     'kafkaAvroSerializer': 'io.confluent:kafka-avro-serializer:5.1.4',
     'kafkaClients': "org.apache.kafka:kafka-clients:$kafkaVersion",
-    'snappy': 'org.xerial.snappy:snappy-java:1.1.10.3',
+    'snappy': 'org.xerial.snappy:snappy-java:1.1.10.4',
     'logbackClassic': "ch.qos.logback:logback-classic:$logbackClassic",
     'slf4jApi': "org.slf4j:slf4j-api:$slf4jVersion",
     'log4jCore': "org.apache.logging.log4j:log4j-core:$log4jVersion",
@@ -154,12 +156,15 @@ project.ext.externalDependency = [
     'mockServer': 'org.mock-server:mockserver-netty:5.11.2',
     'mockServerClient': 'org.mock-server:mockserver-client-java:5.11.2',
     'mysqlConnector': 'mysql:mysql-connector-java:8.0.20',
-    'neo4jHarness': 'org.neo4j.test:neo4j-harness:' + neo4jVersion,
+    'neo4jHarness': 'org.neo4j.test:neo4j-harness:' + neo4jTestVersion,
     'neo4jJavaDriver': 'org.neo4j.driver:neo4j-java-driver:' + neo4jVersion,
+    'neo4jTestJavaDriver': 'org.neo4j.driver:neo4j-java-driver:' + neo4jTestVersion,
+    'neo4jApoc': 'org.neo4j.procedure:apoc:' + neo4jApocVersion,
     'opentelemetryApi': 'io.opentelemetry:opentelemetry-api:' + openTelemetryVersion,
     'opentelemetryAnnotations': 'io.opentelemetry:opentelemetry-extension-annotations:' + openTelemetryVersion,
     'opentracingJdbc':'io.opentracing.contrib:opentracing-jdbc:0.2.15',
     'parquet': 'org.apache.parquet:parquet-avro:1.12.3',
+    'parquetHadoop': 'org.apache.parquet:parquet-hadoop:1.13.1',
     'picocli': 'info.picocli:picocli:4.5.0',
     'playCache': "com.typesafe.play:play-cache_2.12:$playVersion",
     'playWs': 'com.typesafe.play:play-ahc-ws-standalone_2.12:2.1.10',
@@ -174,6 +179,7 @@ project.ext.externalDependency = [
     'playPac4j': 'org.pac4j:play-pac4j_2.12:9.0.2',
     'postgresql': 'org.postgresql:postgresql:42.3.8',
     'protobuf': 'com.google.protobuf:protobuf-java:3.19.6',
+    'grpcProtobuf': 'io.grpc:grpc-protobuf:1.53.0',
     'rangerCommons': 'org.apache.ranger:ranger-plugins-common:2.3.0',
     'reflections': 'org.reflections:reflections:0.9.9',
     'resilience4j': 'io.github.resilience4j:resilience4j-retry:1.7.1',
@@ -197,7 +203,7 @@ project.ext.externalDependency = [
     'springBootStarterJetty': "org.springframework.boot:spring-boot-starter-jetty:$springBootVersion",
     'springBootStarterCache': "org.springframework.boot:spring-boot-starter-cache:$springBootVersion",
     'springBootStarterValidation': "org.springframework.boot:spring-boot-starter-validation:$springBootVersion",
-    'springKafka': 'org.springframework.kafka:spring-kafka:2.8.11',
+    'springKafka': 'org.springframework.kafka:spring-kafka:2.9.13',
     'springActuator': "org.springframework.boot:spring-boot-starter-actuator:$springBootVersion",
     'swaggerAnnotations': 'io.swagger.core.v3:swagger-annotations:2.2.15',
     'swaggerCli': 'io.swagger.codegen.v3:swagger-codegen-cli:3.0.46',
@@ -212,13 +218,13 @@ project.ext.externalDependency = [
     'testContainersOpenSearch': 'org.opensearch:opensearch-testcontainers:2.0.0',
     'typesafeConfig':'com.typesafe:config:1.4.1',
     'wiremock':'com.github.tomakehurst:wiremock:2.10.0',
-    'zookeeper': 'org.apache.zookeeper:zookeeper:3.4.14',
+    'zookeeper': 'org.apache.zookeeper:zookeeper:3.7.2',
     'wire': 'com.squareup.wire:wire-compiler:3.7.1',
     'charle':  'com.charleskorn.kaml:kaml:0.53.0',
     'common': 'commons-io:commons-io:2.7',
     'jline':'jline:jline:1.4.1',
     'jetbrains':' org.jetbrains.kotlin:kotlin-stdlib:1.6.0'
-    
+
 ]
 
 allprojects {
@@ -259,7 +265,7 @@ subprojects {
   plugins.withType(JavaPlugin) {
     dependencies {
       constraints {
-        implementation('io.netty:netty-all:4.1.86.Final')
+        implementation('io.netty:netty-all:4.1.100.Final')
         implementation('org.apache.commons:commons-compress:1.21')
         implementation('org.apache.velocity:velocity-engine-core:2.3')
         implementation('org.hibernate:hibernate-validator:6.0.20.Final')
