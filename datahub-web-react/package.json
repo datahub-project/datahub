@@ -74,7 +74,7 @@
         "react-js-cron": "^2.1.0",
         "react-router": "^5.2.0",
         "react-router-dom": "^5.1.6",
-        "react-scripts": "4.0.3",
+        "react-scripts": "^5.0.1",
         "react-syntax-highlighter": "^15.4.4",
         "react-visibility-sensor": "^5.1.1",
         "reactour": "1.18.7",
