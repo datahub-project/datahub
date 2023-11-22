@@ -105,7 +105,6 @@ from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.registries.domain_registry import DomainRegistry
 from datahub.specific.dataset import DatasetPatchBuilder
 
-
 logger: logging.Logger = logging.getLogger(__name__)
 
 
