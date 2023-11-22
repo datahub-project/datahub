@@ -725,20 +725,6 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
             dataset_urn, table, str(datahub_dataset_name)
         )
 
-        dataset_properties = DatasetProperties(
-            name=table.name,
-            created=TimeStamp(time=int(table.created.timestamp() * 1000))
-            if table.created
-            else None,
-            lastModified=TimeStamp(time=int(table.last_altered.timestamp() * 1000))
-            if table.last_altered
-            else TimeStamp(time=int(table.created.timestamp() * 1000))
-            if table.created
-            else None,
-            description=table.comment,
-            qualifiedName=str(datahub_dataset_name),
-        )
-
         if custom_properties:
             patch_builder = DatasetPatchBuilder(dataset_urn)
             for key, value in custom_properties.items():
@@ -747,10 +733,6 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                 yield MetadataWorkUnit(
                     id=f"{dataset_urn}-{patch_mcp.aspectName}", mcp=patch_mcp
                 )
-
-        yield MetadataChangeProposalWrapper(
-            entityUrn=dataset_urn, aspect=dataset_properties
-        ).as_workunit()
 
         # TODO: Check if needed
         # if tags_to_add:
