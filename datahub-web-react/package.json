@@ -95,7 +95,7 @@
         "start:mock": "yarn run generate && BROWSER=none REACT_APP_MOCK=true craco start",
         "start:e2e": "REACT_APP_MOCK=cy BROWSER=none PORT=3010 craco start",
         "ec2-dev": "yarn run generate && CI=true;export CI;BROWSER=none craco start",
-        "build": "yarn run generate && CI=false REACT_APP_MOCK=false craco build && rm -rf dist/ && cp -r build/yarn/ dist/ && rm -r build/yarn/",
+        "build": "yarn run generate && NODE_OPTIONS='--max-old-space-size=3072 --openssl-legacy-provider' CI=false REACT_APP_MOCK=false craco build && rm -rf dist/ && cp -r build/yarn/ dist/ && rm -r build/yarn/",
         "test": "craco test",
         "pretest:e2e:ci": "yarn generate",
         "test:e2e": "start-server-and-test start:e2e 3010",
