@@ -1,8 +1,4 @@
 import React from "react";
-import clsx from "clsx";
-import styles from "./featurecardsection.module.scss";
-import useBaseUrl from "@docusaurus/useBaseUrl";
-import Link from "@docusaurus/Link";
 import FeatureCard from '../FeatureCard'
 import {
   EyeTwoTone,
