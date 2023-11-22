@@ -17,7 +17,8 @@ export const CSVInfo = () => {
             banner
             message={
                 <>
-                    Add the URL of your CSV file to be ingested. You can create a file in google sheets following the
+                    Add the URL of your CSV file to be ingested. This will work for any web-hosted CSV file. For example,
+                    You can create a file in google sheets following the
                     format at this {link} and then construct the CSV URL by publishing your google sheet in the CSV
                     format.
                 </>
