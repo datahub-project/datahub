@@ -5,7 +5,6 @@ const validateURL = (fieldName) => {
         validator(_, value) {
             const URLPattern = new RegExp(/^(?:http(s)?:\/\/)?[\w.-]+(?:\.[\w.-]+)+[\w\-._~:/?#[\]@!$&'()*+,;=.]+$/);
             const isURLValid = URLPattern.test(value);
-            console.log(value, isURLValid);
             if (!value || isURLValid) {
                 return Promise.resolve();
             }
