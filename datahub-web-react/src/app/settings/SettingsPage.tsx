@@ -204,13 +204,8 @@ export const SettingsPage = () => {
                         )
                     }
 
-                    {(showViews || showOwnershipTypes || showHomePagePosts) && (
+                    {(showOwnershipTypes || showHomePagePosts) && (
                         <Menu.ItemGroup title="Manage">
-                            {showViews && (
-                                <Menu.Item key="views">
-                                    <FilterOutlined /> <ItemTitle>My Views</ItemTitle>
-                                </Menu.Item>
-                            )}
                             {showOwnershipTypes && (
                                 <Menu.Item key="ownership">
                                     <TeamOutlined /> <ItemTitle>Ownership Types</ItemTitle>

@@ -6,7 +6,7 @@ import { useHistory } from 'react-router';
 import { AutoCompleteResultForEntity, EntityType, FacetFilterInput, ScenarioType } from '../../types.generated';
 import EntityRegistry from '../entity/EntityRegistry';
 import filterSearchQuery from './utils/filterSearchQuery';
-import { ANTD_GRAY, ANTD_GRAY_V2, REDESIGN_COLORS } from '../entity/shared/constants';
+import { ANTD_GRAY, ANTD_GRAY_V2 } from '../entity/shared/constants';
 import { getEntityPath } from '../entity/shared/containers/profile/utils';
 import { EXACT_SEARCH_PREFIX } from './utils/constants';
 import { useListRecommendationsQuery } from '../../graphql/recommendations.generated';
@@ -45,7 +45,7 @@ const StyledSearchBar = styled(Input)`
         border: 2px solid transparent;
 
         &:focus-within {
-            border: 2px solid ${REDESIGN_COLORS.BLUE};
+            border: 2px solid ${(props) => props.theme.styles['primary-color']};
         }
     }
     > .ant-input::placeholder {
