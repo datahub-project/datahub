@@ -5,7 +5,7 @@ const placeholderRecipe = `\
 source:
     type: csv-enricher
     config:
-        filename: # relative path to your csv file to ingest, e.g. ./path/to/your/file.csv
+        filename: # URL of your csv file to ingest, e.g. https://docs.google.com/spreadsheets/d/DOCID/export?format=csv
         array_delimiter: |
         delimiter: ,
         write_semantics: PATCH

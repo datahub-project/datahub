@@ -140,7 +140,7 @@ import {
     INCLUDE_VIEW_LINEAGE,
     INCLUDE_PROJECTIONS_LINEAGE,
 } from './vertica';
-import { CSV_ARRAY_DELIMITER, CSV_DELIMITER, CSV_FILENAME, CSV_WRITE_SEMANTICS } from './csv';
+import { CSV_ARRAY_DELIMITER, CSV_DELIMITER, CSV_FILE_URL, CSV_WRITE_SEMANTICS } from './csv';
 
 export enum RecipeSections {
     Connection = 0,
@@ -455,9 +455,9 @@ export const RECIPE_FIELDS: RecipeFields = {
         filterSectionTooltip: 'Include or exclude specific Schemas, Tables, Views and Projections from ingestion.',
     },
     [CSV]: {
-        fields: [CSV_FILENAME, CSV_ARRAY_DELIMITER, CSV_DELIMITER, CSV_WRITE_SEMANTICS],
+        fields: [CSV_FILE_URL],
         filterFields: [],
-        advancedFields: [],
+        advancedFields: [CSV_ARRAY_DELIMITER, CSV_DELIMITER, CSV_WRITE_SEMANTICS],
     },
 };
 

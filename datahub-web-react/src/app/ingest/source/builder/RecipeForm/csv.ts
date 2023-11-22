@@ -1,14 +1,28 @@
 import { RecipeField, FieldType } from './common';
 
-export const CSV_FILENAME: RecipeField = {
+const validateURL = (fieldName) => {
+    return {
+        validator(_, value) {
+            const URLPattern = new RegExp(/^(?:http(s)?:\/\/)?[\w.-]+(?:\.[\w.-]+)+[\w\-._~:/?#[\]@!$&'()*+,;=.]+$/);
+            const isURLValid = URLPattern.test(value);
+            console.log(value, isURLValid);
+            if (!value || isURLValid) {
+                return Promise.resolve();
+            }
+            return Promise.reject(new Error(`A valid ${fieldName} is required.`));
+        },
+    };
+};
+
+export const CSV_FILE_URL: RecipeField = {
     name: 'filename',
-    label: 'File name',
-    tooltip: 'File path or URL of CSV file to ingest.',
+    label: 'File URL',
+    tooltip: 'File URL of the CSV file to ingest.',
     type: FieldType.TEXT,
     fieldPath: 'source.config.filename',
-    placeholder: 'File name',
+    placeholder: 'File URL',
     required: true,
-    rules: null,
+    rules: [() => validateURL('File URL')],
 };
 
 export const CSV_ARRAY_DELIMITER: RecipeField = {
@@ -36,7 +50,11 @@ export const CSV_WRITE_SEMANTICS: RecipeField = {
     label: 'Write Semantics',
     tooltip:
         'Whether the new tags, terms and owners to be added will override the existing ones added only by this source or not. Value for this config can be "PATCH" or "OVERRIDE"',
-    type: FieldType.TEXT,
+    type: FieldType.SELECT,
+    options: [
+        { label: 'PATCH', value: 'PATCH' },
+        { label: 'OVERRIDE', value: 'OVERRIDE' },
+    ],
     fieldPath: 'source.config.write_semantics',
     placeholder: 'Write Semantics',
     rules: null,

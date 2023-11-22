@@ -109,7 +109,7 @@ export const VERTICA = 'vertica';
 export const VERTICA_URN = `urn:li:dataPlatform:${VERTICA}`;
 export const FIVETRAN = 'fivetran';
 export const FIVETRAN_URN = `urn:li:dataPlatform:${FIVETRAN}`;
-export const CSV = 'csv';
+export const CSV = 'csv-enricher';
 export const CSV_URN = `urn:li:dataPlatform:${CSV}`;
 
 export const PLATFORM_URN_TO_LOGO = {
