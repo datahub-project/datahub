@@ -83,38 +83,25 @@ export function FilterPage(
   );
 
   return (
-    <Layout
-      title={siteConfig.tagline}
-      description="DataHub is a data discovery application built on an extensible metadata platform that helps you tame the complexity of diverse data ecosystems."
-    >
-      <header className={"hero"}>
-        <div className="container">
-          <div className="hero__content">
-            <div>
-              <h1 className="hero__title">{title}</h1>
-              <p className="hero__subtitle">{subtitle}</p>
-
-              <FilterBar
-                textState={textState}
-                setTextState={setTextState}
-                filterState={filterState}
-                setFilterState={setFilterState}
-                filterOptions={filterOptions}
-                allowExclusivity={allowExclusivity}
-                setIsExclusive={setIsExclusive}
-              />
-            </div>
-          </div>
-        </div>
-      </header>
-
+    <div>
+      <div style={{ padding: "3vh 0" }}>
+        <FilterBar
+                        textState={textState}
+                        setTextState={setTextState}
+                        filterState={filterState}
+                        setFilterState={setFilterState}
+                        filterOptions={filterOptions}
+                        allowExclusivity={allowExclusivity}
+                        setIsExclusive={setIsExclusive}
+        />
+      </div>
       <FilterCards
         content={filteredIngestionSourceContent}
         filterBar={<FilterBar />}
       />
       <br />
       <br />
-    </Layout>
+    </div>
   );
 }
 

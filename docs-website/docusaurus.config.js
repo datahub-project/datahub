@@ -51,10 +51,16 @@ module.exports = {
           label: "Docs",
         },
         {
-          to: "/integrations",
-          activeBasePath: "integrations",
+          type: 'docSidebar',
+          position: 'right',
+          sidebarId: 'integrationsSidebar',
           label: "Integrations",
-          position: "right",
+        },
+        {
+          type: 'docSidebar',
+          position: 'right',
+          sidebarId: 'developersSidebar',
+          label: "Developers",
         },
         {
           type: "dropdown",

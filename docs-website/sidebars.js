@@ -357,11 +357,12 @@ module.exports = {
     {
       type: "category",
       label: "Overview",
-      link: {
-        type: "doc",
-        id: "metadata-ingestion/README",
-      },
+      // link: {
+      //   type: "doc",
+      //   id: "metadata-ingestion/README",
+      // },
       items: [
+        "metadata-ingestion/README",
         "metadata-ingestion/recipe_overview",
         "metadata-ingestion/sink_overview",
         "metadata-ingestion/source_overview",
@@ -422,7 +423,13 @@ module.exports = {
       ],
     },
     {
-      Sources: [
+      type: "category",
+      label: "Sources",
+      link: {
+        type: "doc",
+        id: "metadata-ingestion/integrations",
+      },
+      items: [
         // The purpose of this section is to provide a deeper understanding of how ingestion works.
         // Readers should be able to find details for ingesting from all systems, apply transformers, understand sinks,
         // and understand key concepts of the Ingestion Framework (Sources, Sinks, Transformers, and Recipes)

@@ -25,7 +25,7 @@ function FilterBar({
   allowExclusivity,
   setIsExclusive,
 }) {
-  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(true);
   const [selectedFilters, setSelectedFilters] = useState([]);
   const [isSelectedExclusive, setIsSelectedExclusive] = useState(false);
   function toggleFilters() {
