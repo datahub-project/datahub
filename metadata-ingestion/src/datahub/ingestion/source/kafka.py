@@ -15,6 +15,7 @@ from confluent_kafka.admin import (
     ConfigResource,
     TopicMetadata,
 )
+from confluent_kafka.schema_registry.schema_registry_client import SchemaRegistryClient
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.kafka import KafkaConsumerConnectionConfig
@@ -151,6 +152,49 @@ class KafkaSourceReport(StaleEntityRemovalSourceReport):
         self.filtered.append(topic)
 
 
+class KafkaConnectionTest:
+    def __init__(self, config_dict: dict):
+        self.config = KafkaSourceConfig.parse_obj_allow_extras(config_dict)
+        self.report = KafkaSourceReport()
+        self.consumer: confluent_kafka.Consumer = confluent_kafka.Consumer(
+            {
+                "group.id": "test",
+                "bootstrap.servers": self.config.connection.bootstrap,
+                **self.config.connection.consumer_config,
+            }
+        )
+
+    def get_connection_test(self) -> TestConnectionReport:
+        capability_report = {
+            SourceCapability.SCHEMA_METADATA: self.schema_registry_connectivity(),
+        }
+        return TestConnectionReport(
+            basic_connectivity=self.basic_connectivity(),
+            capability_report={
+                k: v for k, v in capability_report.items() if v is not None
+            },
+        )
+
+    def basic_connectivity(self) -> CapabilityReport:
+        try:
+            self.consumer.list_topics(timeout=10)
+            return CapabilityReport(capable=True)
+        except Exception as e:
+            return CapabilityReport(capable=False, failure_reason=str(e))
+
+    def schema_registry_connectivity(self) -> CapabilityReport:
+        try:
+            SchemaRegistryClient(
+                {
+                    "url": self.config.connection.schema_registry_url,
+                    **self.config.connection.schema_registry_config,
+                }
+            ).get_subjects()
+            return CapabilityReport(capable=True)
+        except Exception as e:
+            return CapabilityReport(capable=False, failure_reason=str(e))
+
+
 @platform_name("Kafka")
 @config_class(KafkaSourceConfig)
 @support_status(SupportStatus.CERTIFIED)
@@ -234,22 +278,7 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
 
     @staticmethod
     def test_connection(config_dict: dict) -> TestConnectionReport:
-        test_report = TestConnectionReport()
-        try:
-            source_config = KafkaSourceConfig.parse_obj_allow_extras(config_dict)
-            confluent_kafka.Consumer(
-                {
-                    "group.id": "test",
-                    "bootstrap.servers": source_config.connection.bootstrap,
-                    **source_config.connection.consumer_config,
-                }
-            ).list_topics(timeout=10).topics
-            test_report.basic_connectivity = CapabilityReport(capable=True)
-        except Exception as e:
-            test_report.basic_connectivity = CapabilityReport(
-                capable=False, failure_reason=str(e)
-            )
-        return test_report
+        return KafkaConnectionTest(config_dict).get_connection_test()
 
     @classmethod
     def create(cls, config_dict: Dict, ctx: PipelineContext) -> "KafkaSource":
