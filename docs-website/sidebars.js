@@ -274,6 +274,7 @@ module.exports = {
         },
         {
           "Managed DataHub Release History": [
+            "docs/managed-datahub/release-notes/v_0_2_13",
             "docs/managed-datahub/release-notes/v_0_2_12",
             "docs/managed-datahub/release-notes/v_0_2_11",
             "docs/managed-datahub/release-notes/v_0_2_10",
@@ -357,12 +358,11 @@ module.exports = {
     {
       type: "category",
       label: "Overview",
-      // link: {
-      //   type: "doc",
-      //   id: "metadata-ingestion/README",
-      // },
+      link: {
+        type: "doc",
+        id: "metadata-ingestion/README",
+      },
       items: [
-        "metadata-ingestion/README",
         "metadata-ingestion/recipe_overview",
         "metadata-ingestion/sink_overview",
         "metadata-ingestion/source_overview",
