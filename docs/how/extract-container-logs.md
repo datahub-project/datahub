@@ -21,7 +21,7 @@ CONTAINER ID   IMAGE                                   COMMAND                  
 3680fcaef3ed   confluentinc/cp-kafka:5.4.0             "/etc/confluent/dock…"   5 days ago   Up 5 days               0.0.0.0:9092->9092/tcp, 0.0.0.0:29092->29092/tcp           broker
 9d6730ddd4c4   neo4j:4.0.6                             "/sbin/tini -g -- /d…"   5 days ago   Up 5 days               0.0.0.0:7474->7474/tcp, 7473/tcp, 0.0.0.0:7687->7687/tcp   neo4j
 c97edec663af   confluentinc/cp-zookeeper:5.4.0         "/etc/confluent/dock…"   5 days ago   Up 5 days               2888/tcp, 0.0.0.0:2181->2181/tcp, 3888/tcp                 zookeeper
-150ba161cf26   mysql:5.7                               "docker-entrypoint.s…"   5 days ago   Up 5 days               0.0.0.0:3306->3306/tcp, 33060/tcp                          mysql
+150ba161cf26   mysql:8.2                               "docker-entrypoint.s…"   5 days ago   Up 5 days               0.0.0.0:3306->3306/tcp, 33060/tcp                          mysql
 4b72a3eab73f   elasticsearch:7.9.3                     "/tini -- /usr/local…"   5 days ago   Up 5 days (healthy)     0.0.0.0:9200->9200/tcp, 9300/tcp                           elasticsearch
 ```
 

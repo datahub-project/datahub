@@ -3,6 +3,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from pydantic import ValidationError
 
+from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.oauth import OAuthConfiguration
 from datahub.configuration.pattern_utils import UUID_REGEX
 from datahub.ingestion.api.source import SourceCapability
@@ -16,6 +17,7 @@ from datahub.ingestion.source.snowflake.snowflake_config import (
     SnowflakeV2Config,
 )
 from datahub.ingestion.source.snowflake.snowflake_query import (
+    SnowflakeQuery,
     create_deny_regex_sql_filter,
 )
 from datahub.ingestion.source.snowflake.snowflake_usage_v2 import (
@@ -661,3 +663,44 @@ def test_snowflake_temporary_patterns_config_rename():
         }
     )
     assert conf.temporary_tables_pattern == [".*tmp.*"]
+
+
+def test_email_filter_query_generation_with_one_deny():
+    email_filter = AllowDenyPattern(deny=[".*@example.com"])
+    filter_query = SnowflakeQuery.gen_email_filter_query(email_filter)
+    assert filter_query == " AND NOT (rlike(user_name, '.*@example.com','i'))"
+
+
+def test_email_filter_query_generation_without_any_filter():
+    email_filter = AllowDenyPattern()
+    filter_query = SnowflakeQuery.gen_email_filter_query(email_filter)
+    assert filter_query == ""
+
+
+def test_email_filter_query_generation_one_allow():
+    email_filter = AllowDenyPattern(allow=[".*@example.com"])
+    filter_query = SnowflakeQuery.gen_email_filter_query(email_filter)
+    assert filter_query == "AND (rlike(user_name, '.*@example.com','i'))"
+
+
+def test_email_filter_query_generation_one_allow_and_deny():
+    email_filter = AllowDenyPattern(
+        allow=[".*@example.com", ".*@example2.com"],
+        deny=[".*@example2.com", ".*@example4.com"],
+    )
+    filter_query = SnowflakeQuery.gen_email_filter_query(email_filter)
+    assert (
+        filter_query
+        == "AND (rlike(user_name, '.*@example.com','i') OR rlike(user_name, '.*@example2.com','i')) AND NOT (rlike(user_name, '.*@example2.com','i') OR rlike(user_name, '.*@example4.com','i'))"
+    )
+
+
+def test_email_filter_query_generation_with_case_insensitive_filter():
+    email_filter = AllowDenyPattern(
+        allow=[".*@example.com"], deny=[".*@example2.com"], ignoreCase=False
+    )
+    filter_query = SnowflakeQuery.gen_email_filter_query(email_filter)
+    assert (
+        filter_query
+        == "AND (rlike(user_name, '.*@example.com','c')) AND NOT (rlike(user_name, '.*@example2.com','c'))"
+    )
