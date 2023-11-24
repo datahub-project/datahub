@@ -93,6 +93,7 @@ Usage: datahub [datahub-options] ingest [command-options]
 
 Command Options:
   -c / --config             Config file in .toml or .yaml format
+  -q / --quite              Mute intermediate ingestion reports
   -n / --dry-run            Perform a dry run of the ingestion, essentially skipping writing to sink
   --preview                 Perform limited ingestion from the source to the sink to get a quick preview
   --preview-workunits       The number of workunits to produce for preview
