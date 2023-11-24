@@ -29,6 +29,7 @@ const Page = styled.div`
     width: 100%;
     display: flex;
     justify-content: center;
+    overflow: auto;
 `;
 
 const ContentContainer = styled.div`
