@@ -198,7 +198,7 @@ public class AssertionActionsHookTest {
     Mockito.verify(entityClient, Mockito.times(2)).getV2(
         Mockito.eq(ASSERTION_ENTITY_NAME),
         Mockito.eq(TEST_ASSERTION_URN),
-        Mockito.eq(ImmutableSet.of(ASSERTION_INFO_ASPECT_NAME, ASSERTION_ACTIONS_ASPECT_NAME)),
+        Mockito.eq(ImmutableSet.of(ASSERTION_INFO_ASPECT_NAME, ASSERTION_ACTIONS_ASPECT_NAME, DATA_PLATFORM_INSTANCE_ASPECT_NAME)),
         Mockito.any(Authentication.class)
     );
 
@@ -264,7 +264,7 @@ public class AssertionActionsHookTest {
     Mockito.verify(entityClient, Mockito.times(2)).getV2(
         Mockito.eq(ASSERTION_ENTITY_NAME),
         Mockito.eq(TEST_ASSERTION_URN),
-        Mockito.eq(ImmutableSet.of(ASSERTION_INFO_ASPECT_NAME, ASSERTION_ACTIONS_ASPECT_NAME)),
+        Mockito.eq(ImmutableSet.of(ASSERTION_INFO_ASPECT_NAME, ASSERTION_ACTIONS_ASPECT_NAME, DATA_PLATFORM_INSTANCE_ASPECT_NAME)),
         Mockito.any(Authentication.class)
     );
 
@@ -346,7 +346,7 @@ public class AssertionActionsHookTest {
     Mockito.verify(entityClient, Mockito.times(2)).getV2(
         Mockito.eq(ASSERTION_ENTITY_NAME),
         Mockito.eq(TEST_ASSERTION_URN),
-        Mockito.eq(ImmutableSet.of(ASSERTION_INFO_ASPECT_NAME, ASSERTION_ACTIONS_ASPECT_NAME)),
+        Mockito.eq(ImmutableSet.of(ASSERTION_INFO_ASPECT_NAME, ASSERTION_ACTIONS_ASPECT_NAME, DATA_PLATFORM_INSTANCE_ASPECT_NAME)),
         Mockito.any(Authentication.class)
     );
 
@@ -416,7 +416,7 @@ public class AssertionActionsHookTest {
     Mockito.verify(entityClient, Mockito.times(2)).getV2(
         Mockito.eq(ASSERTION_ENTITY_NAME),
         Mockito.eq(TEST_ASSERTION_URN),
-        Mockito.eq(ImmutableSet.of(ASSERTION_INFO_ASPECT_NAME, ASSERTION_ACTIONS_ASPECT_NAME)),
+        Mockito.eq(ImmutableSet.of(ASSERTION_INFO_ASPECT_NAME, ASSERTION_ACTIONS_ASPECT_NAME, DATA_PLATFORM_INSTANCE_ASPECT_NAME)),
         Mockito.any(Authentication.class)
     );
 
@@ -488,7 +488,7 @@ public class AssertionActionsHookTest {
     Mockito.verify(entityClient, Mockito.times(2)).getV2(
         Mockito.eq(ASSERTION_ENTITY_NAME),
         Mockito.eq(TEST_ASSERTION_URN),
-        Mockito.eq(ImmutableSet.of(ASSERTION_INFO_ASPECT_NAME, ASSERTION_ACTIONS_ASPECT_NAME)),
+        Mockito.eq(ImmutableSet.of(ASSERTION_INFO_ASPECT_NAME, ASSERTION_ACTIONS_ASPECT_NAME, DATA_PLATFORM_INSTANCE_ASPECT_NAME)),
         Mockito.any(Authentication.class)
     );
 
@@ -559,7 +559,7 @@ public class AssertionActionsHookTest {
     Mockito.verify(entityClient, Mockito.times(2)).getV2(
         Mockito.eq(ASSERTION_ENTITY_NAME),
         Mockito.eq(TEST_ASSERTION_URN),
-        Mockito.eq(ImmutableSet.of(ASSERTION_INFO_ASPECT_NAME, ASSERTION_ACTIONS_ASPECT_NAME)),
+        Mockito.eq(ImmutableSet.of(ASSERTION_INFO_ASPECT_NAME, ASSERTION_ACTIONS_ASPECT_NAME, DATA_PLATFORM_INSTANCE_ASPECT_NAME)),
         Mockito.any(Authentication.class)
     );
 
@@ -624,7 +624,7 @@ public class AssertionActionsHookTest {
     Mockito.verify(entityClient, Mockito.times(2)).getV2(
         Mockito.eq(ASSERTION_ENTITY_NAME),
         Mockito.eq(TEST_ASSERTION_URN),
-        Mockito.eq(ImmutableSet.of(ASSERTION_INFO_ASPECT_NAME, ASSERTION_ACTIONS_ASPECT_NAME)),
+        Mockito.eq(ImmutableSet.of(ASSERTION_INFO_ASPECT_NAME, ASSERTION_ACTIONS_ASPECT_NAME, DATA_PLATFORM_INSTANCE_ASPECT_NAME)),
         Mockito.any(Authentication.class)
     );
 
@@ -642,8 +642,8 @@ public class AssertionActionsHookTest {
 
     IncidentInfo expectedInfo = new IncidentInfo();
     expectedInfo.setType(IncidentType.DATASET_COLUMN);
-    expectedInfo.setTitle("A critical Assertion is failing for this asset.");
-    expectedInfo.setDescription("A critical Assertion has failed for this data asset. "
+    expectedInfo.setTitle("A External Assertion is failing for this asset.");
+    expectedInfo.setDescription(String.format("A External Assertion has failed for this data asset: '%s'. ", TEST_ASSERTION_URN.toString())
         + "This may indicate that the asset is unhealthy or unfit for consumption!");
     expectedInfo.setPriority(0);
     expectedInfo.setEntities(new UrnArray(ImmutableList.of(TEST_DATASET_URN)));
@@ -725,7 +725,7 @@ public class AssertionActionsHookTest {
     Mockito.verify(entityClient, Mockito.times(2)).getV2(
         Mockito.eq(ASSERTION_ENTITY_NAME),
         Mockito.eq(TEST_ASSERTION_URN),
-        Mockito.eq(ImmutableSet.of(ASSERTION_INFO_ASPECT_NAME, ASSERTION_ACTIONS_ASPECT_NAME)),
+        Mockito.eq(ImmutableSet.of(ASSERTION_INFO_ASPECT_NAME, ASSERTION_ACTIONS_ASPECT_NAME, DATA_PLATFORM_INSTANCE_ASPECT_NAME)),
         Mockito.any(Authentication.class)
     );
 
@@ -784,7 +784,7 @@ public class AssertionActionsHookTest {
     Mockito.verify(entityClient, Mockito.times(2)).getV2(
         Mockito.eq(ASSERTION_ENTITY_NAME),
         Mockito.eq(TEST_ASSERTION_URN),
-        Mockito.eq(ImmutableSet.of(ASSERTION_INFO_ASPECT_NAME, ASSERTION_ACTIONS_ASPECT_NAME)),
+        Mockito.eq(ImmutableSet.of(ASSERTION_INFO_ASPECT_NAME, ASSERTION_ACTIONS_ASPECT_NAME, DATA_PLATFORM_INSTANCE_ASPECT_NAME)),
         Mockito.any(Authentication.class)
     );
 
@@ -875,7 +875,7 @@ public class AssertionActionsHookTest {
     Mockito.verify(entityClient, Mockito.times(2)).getV2(
         Mockito.eq(ASSERTION_ENTITY_NAME),
         Mockito.eq(TEST_ASSERTION_URN),
-        Mockito.eq(ImmutableSet.of(ASSERTION_INFO_ASPECT_NAME, ASSERTION_ACTIONS_ASPECT_NAME)),
+        Mockito.eq(ImmutableSet.of(ASSERTION_INFO_ASPECT_NAME, ASSERTION_ACTIONS_ASPECT_NAME, DATA_PLATFORM_INSTANCE_ASPECT_NAME)),
         Mockito.any(Authentication.class)
     );
 
@@ -949,7 +949,7 @@ public class AssertionActionsHookTest {
     Mockito.verify(entityClient, Mockito.times(0)).getV2(
         Mockito.eq(ASSERTION_ENTITY_NAME),
         Mockito.eq(TEST_ASSERTION_URN),
-        Mockito.eq(ImmutableSet.of(ASSERTION_INFO_ASPECT_NAME, ASSERTION_ACTIONS_ASPECT_NAME)),
+        Mockito.eq(ImmutableSet.of(ASSERTION_INFO_ASPECT_NAME, ASSERTION_ACTIONS_ASPECT_NAME, DATA_PLATFORM_INSTANCE_ASPECT_NAME)),
         Mockito.any(Authentication.class)
     );
 
@@ -1026,7 +1026,7 @@ public class AssertionActionsHookTest {
     Mockito.verify(entityClient, Mockito.times(0)).getV2(
         Mockito.eq(ASSERTION_ENTITY_NAME),
         Mockito.eq(TEST_ASSERTION_URN),
-        Mockito.eq(ImmutableSet.of(ASSERTION_INFO_ASPECT_NAME, ASSERTION_ACTIONS_ASPECT_NAME)),
+        Mockito.eq(ImmutableSet.of(ASSERTION_INFO_ASPECT_NAME, ASSERTION_ACTIONS_ASPECT_NAME, DATA_PLATFORM_INSTANCE_ASPECT_NAME)),
         Mockito.any(Authentication.class)
     );
 
@@ -1100,7 +1100,7 @@ public class AssertionActionsHookTest {
     Mockito.verify(entityClient, Mockito.times(0)).getV2(
         Mockito.eq(ASSERTION_ENTITY_NAME),
         Mockito.eq(TEST_ASSERTION_URN),
-        Mockito.eq(ImmutableSet.of(ASSERTION_INFO_ASPECT_NAME, ASSERTION_ACTIONS_ASPECT_NAME)),
+        Mockito.eq(ImmutableSet.of(ASSERTION_INFO_ASPECT_NAME, ASSERTION_ACTIONS_ASPECT_NAME, DATA_PLATFORM_INSTANCE_ASPECT_NAME)),
         Mockito.any(Authentication.class)
     );
 
@@ -1175,7 +1175,7 @@ public class AssertionActionsHookTest {
     Mockito.verify(entityClient, Mockito.times(0)).getV2(
         Mockito.eq(ASSERTION_ENTITY_NAME),
         Mockito.eq(TEST_ASSERTION_URN),
-        Mockito.eq(ImmutableSet.of(ASSERTION_INFO_ASPECT_NAME, ASSERTION_ACTIONS_ASPECT_NAME)),
+        Mockito.eq(ImmutableSet.of(ASSERTION_INFO_ASPECT_NAME, ASSERTION_ACTIONS_ASPECT_NAME, DATA_PLATFORM_INSTANCE_ASPECT_NAME)),
         Mockito.any(Authentication.class)
     );
 
@@ -1234,7 +1234,7 @@ public class AssertionActionsHookTest {
       Mockito.when(mockClient.getV2(
           Mockito.eq(ASSERTION_ENTITY_NAME),
           Mockito.eq(assertionUrn),
-          Mockito.eq(ImmutableSet.of(ASSERTION_INFO_ASPECT_NAME, ASSERTION_ACTIONS_ASPECT_NAME)),
+          Mockito.eq(ImmutableSet.of(ASSERTION_INFO_ASPECT_NAME, ASSERTION_ACTIONS_ASPECT_NAME, DATA_PLATFORM_INSTANCE_ASPECT_NAME)),
           Mockito.any(Authentication.class)
       ))
           .thenReturn(
@@ -1312,7 +1312,7 @@ public class AssertionActionsHookTest {
       Mockito.when(mockClient.getV2(
           Mockito.eq(ASSERTION_ENTITY_NAME),
           Mockito.eq(assertionUrn),
-          Mockito.eq(ImmutableSet.of(ASSERTION_INFO_ASPECT_NAME, ASSERTION_ACTIONS_ASPECT_NAME)),
+          Mockito.eq(ImmutableSet.of(ASSERTION_INFO_ASPECT_NAME, ASSERTION_ACTIONS_ASPECT_NAME, DATA_PLATFORM_INSTANCE_ASPECT_NAME)),
           Mockito.any(Authentication.class)
       ))
           .thenReturn(

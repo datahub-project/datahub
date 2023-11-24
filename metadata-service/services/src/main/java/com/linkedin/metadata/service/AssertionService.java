@@ -21,6 +21,7 @@ import com.linkedin.assertion.SqlAssertionType;
 import com.linkedin.assertion.VolumeAssertionInfo;
 import com.linkedin.assertion.VolumeAssertionType;
 import com.linkedin.common.AssertionsSummary;
+import com.linkedin.common.DataPlatformInstance;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.SetMode;
@@ -106,6 +107,26 @@ public class AssertionService extends BaseService {
     return null;
   }
 
+
+  /**
+   * Returns an instance of {@link com.linkedin.common.DataPlatformInstance} for the specified Assertion urn,
+   * or null if one cannot be found.
+   *
+   * @param assertionUrn the urn of the Assertion
+   *
+   * @return an instance of {@link AssertionInfo} for the Assertion, null if it does not exist.
+   */
+  @Nullable
+  public DataPlatformInstance getAssertionDataPlatformInstance(@Nonnull final Urn assertionUrn) {
+    Objects.requireNonNull(assertionUrn, "assertionUrn must not be null");
+    final EntityResponse response = getAssertionEntityResponse(assertionUrn, this.systemAuthentication);
+    if (response != null && response.getAspects().containsKey(Constants.DATA_PLATFORM_INSTANCE_ASPECT_NAME)) {
+      return new DataPlatformInstance(response.getAspects().get(Constants.DATA_PLATFORM_INSTANCE_ASPECT_NAME).getValue().data());
+    }
+    // No aspect found
+    return null;
+  }
+
   /**
    * Produces a Metadata Change Proposal to update the AssertionsSummary aspect for a given entity.
    */
@@ -135,7 +156,7 @@ public class AssertionService extends BaseService {
       return this.entityClient.getV2(
           Constants.ASSERTION_ENTITY_NAME,
           assertionUrn,
-          ImmutableSet.of(Constants.ASSERTION_INFO_ASPECT_NAME, Constants.ASSERTION_ACTIONS_ASPECT_NAME),
+          ImmutableSet.of(Constants.ASSERTION_INFO_ASPECT_NAME, Constants.ASSERTION_ACTIONS_ASPECT_NAME, Constants.DATA_PLATFORM_INSTANCE_ASPECT_NAME),
           authentication
       );
     } catch (Exception e) {

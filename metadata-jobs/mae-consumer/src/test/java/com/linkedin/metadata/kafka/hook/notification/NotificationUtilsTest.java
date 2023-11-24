@@ -69,6 +69,25 @@ public class NotificationUtilsTest {
   }
 
   @Test
+  public void testIsEligibleForNotificationGenerationAssertionRunEvent() {
+    MetadataChangeLog event = new MetadataChangeLog();
+    event.setEntityType(Constants.ASSERTION_ENTITY_NAME);
+    event.setAspectName(Constants.ASSERTION_RUN_EVENT_ASPECT_NAME);
+    event.setChangeType(ChangeType.UPSERT);
+    event.setEntityUrn(UrnUtils.getUrn("urn:li:assertion:test"));
+    // no previous aspect.
+
+    SystemMetadata systemMetadata = new SystemMetadata();
+    systemMetadata.setLastObserved(CREATED_EVENT_TIME);
+    systemMetadata.setRunId("non-default-run-id");
+    event.setSystemMetadata(systemMetadata);
+    event.setCreated(new AuditStamp().setActor(UrnUtils.getUrn(ACTOR_URN)).setTime(CREATED_EVENT_TIME));
+
+    boolean isEligible = NotificationUtils.isEligibleForNotificationGeneration(event);
+    assertTrue(isEligible);
+  }
+
+  @Test
   public void testGenerateEntityPath() {
     Urn urn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:snowflake,Test Name,PROD)");
     Assert.assertEquals(

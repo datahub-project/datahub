@@ -382,7 +382,7 @@ public class SlackNotificationSinkTest {
   }
 
   @Test
-  public void testAssertionNotification() throws Exception {
+  public void testNativeAssertionNotification() throws Exception {
     /*
      * This test verifies that sending a notification for assertion changes
      * makes requests that are expected.
@@ -415,7 +415,113 @@ public class SlackNotificationSinkTest {
     ChatPostMessageRequest dmMsgRequest = ChatPostMessageRequest.builder()
         .channel("12345")
         .text(String.format(
-            "%s  Assertion now *%s* on *<%s|%s>*", ":white_check_mark:", "passing", "http://localhost:9002/datasets/test/Validation", "SampleName"
+            ">%s  *Column Assertion* `column x is greater than y` has *passed* for *<%s|%s>*! <%s|View results>",
+            ":white_check_mark:",
+            "http://localhost:9002/datasets/test",
+            "SampleName",
+            "http://localhost:9002/datasets/test/Validation/Assertions"
+            ))
+        .iconUrl(String.format("http://localhost:9002%s", ACRYL_LOGO_FILE_PATH))
+        .build();
+    ChatPostMessageResponse defaultChannelMsgResponse = new ChatPostMessageResponse();
+    defaultChannelMsgResponse.setOk(true);
+    Mockito.when(mockSlackClient.chatPostMessage(Mockito.eq(dmMsgRequest))).thenReturn(defaultChannelMsgResponse);
+
+    // Init with a mock slack client.
+    SlackNotificationSink sink = new SlackNotificationSink(mockSlackClient);
+    sink.init(new NotificationSinkConfig(
+        ImmutableMap.of(
+            "botToken",
+            "abc",
+            "defaultChannel",
+            "#test"
+        ),
+        mockSettingsProvider,
+        mockIdentityProvider,
+        mockSecretProvider,
+        mockConnectionService,
+        TEST_BASE_URL
+    ));
+
+    // Now, construct an assertion message request and verify that it is sent to the slack client.
+    NotificationRequest notificationRequest = new NotificationRequest();
+    notificationRequest.setMessage(new NotificationMessage()
+        .setTemplate(com.linkedin.event.notification.template.NotificationTemplateType.valueOf(
+            NotificationTemplateType.BROADCAST_ASSERTION_STATUS_CHANGE.name()))
+        .setParameters(new StringMap(
+            ImmutableMap.of(
+                "assertionType",
+                "FIELD",
+                "entityName",
+                "SampleName",
+                "entityPath",
+                "/datasets/test",
+                "result",
+                "SUCCESS",
+                "description",
+                "column x is greater than y",
+                "sourceType",
+                "NATIVE"
+            )
+        ))
+    );
+
+    notificationRequest.setRecipients(new NotificationRecipientArray(
+        ImmutableList.of(
+            // Custom DM recipient
+            new NotificationRecipient()
+                .setType(NotificationRecipientType.CUSTOM)
+                .setCustomType("SLACK_DM")
+                .setId("12345")
+        )
+    ));
+
+    // Send the request
+    sink.send(notificationRequest, new NotificationContext());
+
+    Mockito.verify(mockSlackClient, Mockito.times(1))
+        .chatPostMessage(Mockito.eq(dmMsgRequest));
+  }
+
+  @Test
+  public void testExternalAssertionNotification() throws Exception {
+    /*
+     * This test verifies that sending a notification for assertion changes
+     * makes requests that are expected.
+     */
+    SettingsProvider mockSettingsProvider = Mockito.mock(SettingsProvider.class);
+    Mockito.when(mockSettingsProvider.getGlobalSettings()).thenReturn(
+        enabledSettings()
+    );
+    ConnectionService mockConnectionService = Mockito.mock(ConnectionService.class);
+    Mockito.when(mockConnectionService.getConnectionDetails(Mockito.any(Urn.class)))
+        .thenReturn(
+            null
+        );
+    IdentityProvider mockIdentityProvider = Mockito.mock(IdentityProvider.class);
+    Mockito.when(mockIdentityProvider.getUser(TEST_USER_URN)).thenReturn(testUser());
+    SecretProvider mockSecretProvider = Mockito.mock(SecretProvider.class);
+
+    // Init the slack client mock
+    MethodsClient mockSlackClient = Mockito.mock(MethodsClient.class);
+    UsersLookupByEmailRequest lookupRequests = UsersLookupByEmailRequest.builder()
+        .email("test@gmail.com")
+        .build();
+    UsersLookupByEmailResponse lookupResponse = new UsersLookupByEmailResponse();
+    lookupResponse.setOk(true);
+    User slackUser = new User();
+    slackUser.setId("test-id");
+    lookupResponse.setUser(slackUser);
+    Mockito.when(mockSlackClient.usersLookupByEmail(Mockito.eq(lookupRequests))).thenReturn(lookupResponse);
+
+    ChatPostMessageRequest dmMsgRequest = ChatPostMessageRequest.builder()
+        .channel("12345")
+        .text(String.format(
+            ">%s  *External Assertion* `urn:li:assertion:test` has *passed* for *<%s|%s>*! <%s|View results in dbt>",
+            ":white_check_mark:",
+            "http://localhost:9002/datasets/test",
+            "SampleName",
+            "http://localhost:8084/dbt/results"
         ))
         .iconUrl(String.format("http://localhost:9002%s", ACRYL_LOGO_FILE_PATH))
         .build();
@@ -446,12 +552,22 @@ public class SlackNotificationSinkTest {
             NotificationTemplateType.BROADCAST_ASSERTION_STATUS_CHANGE.name()))
         .setParameters(new StringMap(
             ImmutableMap.of(
+                "assertionType",
+                "DATASET",
                 "entityName",
                 "SampleName",
                 "entityPath",
                 "/datasets/test",
                 "result",
-                "SUCCESS"
+                "SUCCESS",
+                "description",
+                "urn:li:assertion:test",
+                "sourceType",
+                "EXTERNAL",
+                "externalPlatform",
+                "dbt",
+                "externalUrl",
+                "http://localhost:8084/dbt/results"
             )
         ))
     );
@@ -506,11 +622,13 @@ public class SlackNotificationSinkTest {
 
     ChatPostMessageRequest dmMsgRequest = ChatPostMessageRequest.builder()
         .channel("12345")
-        .text(
-            String.format(
-                "%s  Assertion now *%s* on *<%s|%s>*", ":white_check_mark:", "passing", "http://localhost:9002/datasets/test/Validation", "SampleName"
-            )
-        )
+        .text(String.format(
+            ">%s  *Column Assertion* `column x is greater than y` has *passed* for *<%s|%s>*! <%s|View results>",
+            ":white_check_mark:",
+            "http://localhost:9002/datasets/test",
+            "SampleName",
+            "http://localhost:9002/datasets/test/Validation/Assertions"
+        ))
         .iconUrl(String.format("http://localhost:9002%s", ACRYL_LOGO_FILE_PATH))
         .build();
 
@@ -543,12 +661,18 @@ public class SlackNotificationSinkTest {
             NotificationTemplateType.BROADCAST_ASSERTION_STATUS_CHANGE.name()))
         .setParameters(new StringMap(
             ImmutableMap.of(
+                "assertionType",
+                "FIELD",
                 "entityName",
                 "SampleName",
                 "entityPath",
                 "/datasets/test",
                 "result",
-                "SUCCESS"
+                "SUCCESS",
+                "description",
+                "column x is greater than y",
+                "sourceType",
+                "NATIVE"
             )
         ))
     );

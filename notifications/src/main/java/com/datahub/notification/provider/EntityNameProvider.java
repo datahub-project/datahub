@@ -7,6 +7,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.container.ContainerProperties;
 import com.linkedin.dashboard.DashboardInfo;
 import com.linkedin.data.DataMap;
+import com.linkedin.dataplatform.DataPlatformInfo;
 import com.linkedin.dataset.DatasetProperties;
 import com.linkedin.domain.DomainProperties;
 import com.linkedin.entity.EntityResponse;
@@ -66,7 +67,9 @@ public class EntityNameProvider {
         return getGroupName(entityUrn);
       case Constants.INGESTION_SOURCE_ENTITY_NAME:
         return getIngestionSourceName(entityUrn);
-      case "schemaField":
+      case Constants.DATA_PLATFORM_ENTITY_NAME:
+        return getDataPlatformName(entityUrn);
+      case Constants.SCHEMA_FIELD_ENTITY_NAME:
         return getSchemaFieldName(entityUrn);
       default:
         return entityUrn.toString();
@@ -153,6 +156,16 @@ public class EntityNameProvider {
     }
     return ingestionSourceUrn.toString();
   }
+
+  private String getDataPlatformName(Urn dataPlatformUrn) {
+    DataMap data = getAspectData(dataPlatformUrn, Constants.DATA_PLATFORM_INFO_ASPECT_NAME);
+    if (data != null) {
+      DataPlatformInfo info = new DataPlatformInfo(data);
+      return info.hasDisplayName() ? info.getDisplayName() : info.getName();
+    }
+    return dataPlatformUrn.toString();
+  }
+
 
   private String getSchemaFieldName(Urn schemaFieldUrn) {
     return schemaFieldUrn.getEntityKey().get(1);

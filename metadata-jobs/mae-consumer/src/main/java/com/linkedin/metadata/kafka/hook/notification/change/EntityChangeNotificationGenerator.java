@@ -7,9 +7,12 @@ import com.datahub.notification.provider.SettingsProvider;
 import com.datahub.notification.recipient.SlackNotificationRecipientBuilder;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.linkedin.assertion.AssertionInfo;
+import com.linkedin.assertion.AssertionResult;
 import com.linkedin.assertion.AssertionResultType;
 import com.linkedin.assertion.AssertionRunEvent;
 import com.linkedin.common.AuditStamp;
+import com.linkedin.common.DataPlatformInstance;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
@@ -29,6 +32,8 @@ import com.linkedin.metadata.kafka.hook.notification.BaseMclNotificationGenerato
 import com.datahub.notification.NotificationScenarioType;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.service.AssertionService;
+import com.linkedin.metadata.service.util.AssertionUtils;
 import com.linkedin.metadata.timeline.data.ChangeCategory;
 import com.linkedin.metadata.timeline.data.ChangeEvent;
 import com.linkedin.metadata.timeline.data.ChangeOperation;
@@ -131,6 +136,7 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
   private final EntityChangeEventGeneratorRegistry _entityChangeEventGeneratorRegistry;
   private final EntityRegistry _entityRegistry;
   private final FeatureFlags _featureFlags;
+  private final AssertionService _assertionService;
 
   public EntityChangeNotificationGenerator(
       @Nonnull final EntityChangeEventGeneratorRegistry entityChangeEventGeneratorRegistry,
@@ -139,6 +145,7 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
       @Nonnull final EntityClient entityClient,
       @Nonnull final GraphClient graphClient,
       @Nonnull final SettingsProvider settingsProvider,
+      @Nonnull final AssertionService assertionService,
       @Nonnull final Authentication systemAuthentication,
       @Nonnull final SlackNotificationRecipientBuilder slackNotificationRecipientBuilder,
       @Nonnull final FeatureFlags featureFlags) {
@@ -151,6 +158,7 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
     _entityNameProvider = new EntityNameProvider(entityClient, systemAuthentication);
     _entityChangeEventGeneratorRegistry = Objects.requireNonNull(entityChangeEventGeneratorRegistry);
     _entityRegistry = Objects.requireNonNull(entityRegistry);
+    _assertionService = Objects.requireNonNull(assertionService);
     _featureFlags = featureFlags;
   }
 
@@ -670,8 +678,9 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
 
     if (successfulAssertionEvents.size() > 0) {
       sendAssertionChangeNotification(
+          logEvent.getEntityUrn(),
           EntityChangeType.ASSERTION_PASSED,
-          AssertionResultType.SUCCESS,
+          runEvent.getResult(),
           runEvent.getAsserteeUrn()
       );
     }
@@ -682,16 +691,31 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
 
     if (failedAssertionEvents.size() > 0) {
       sendAssertionChangeNotification(
+          logEvent.getEntityUrn(),
           EntityChangeType.ASSERTION_FAILED,
-          AssertionResultType.FAILURE,
+          runEvent.getResult(),
+          runEvent.getAsserteeUrn()
+      );
+    }
+
+    List<ChangeEvent> errorAssertionEvents = completedAssertionEvents.stream()
+        .filter(changeEvent -> changeEvent.getParameters().get(ASSERTION_RESULT_KEY).equals(AssertionResultType.ERROR.toString()))
+        .collect(Collectors.toList());
+
+    if (errorAssertionEvents.size() > 0) {
+      sendAssertionChangeNotification(
+          logEvent.getEntityUrn(),
+          EntityChangeType.ASSERTION_ERROR,
+          runEvent.getResult(),
           runEvent.getAsserteeUrn()
       );
     }
   }
 
   private void sendAssertionChangeNotification(
+      final Urn assertionUrn,
       final EntityChangeType entityChangeType,
-      final AssertionResultType result,
+      final AssertionResult result,
       final Urn entityUrn
   ) {
     // 1. Determine who to send to.
@@ -702,11 +726,30 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
     }
 
     // 2. Build request.
+    final AssertionInfo assertionInfo = _assertionService.getAssertionInfo(assertionUrn);
+    final DataPlatformInstance maybeAssertionPlatform = _assertionService.getAssertionDataPlatformInstance(assertionUrn);
+
+    if (assertionInfo == null) {
+      log.warn(String.format("Attempted to send assertion change notification for non-existant assertion with urn %s", assertionUrn));
+      return;
+    }
+
     final String entityName = _entityNameProvider.getName(entityUrn);
     final Map<String, String> templateParams = new HashMap<>();
+    templateParams.put("assertionType", assertionInfo.getType().toString());
     templateParams.put("entityName", entityName);
     templateParams.put("entityPath", generateEntityPath(entityUrn));
-    templateParams.put("result", result.toString());
+    templateParams.put("result", result.getType().toString());
+    templateParams.put("description",  AssertionUtils.buildAssertionDescription(assertionUrn, assertionInfo));
+    if (result.hasExternalUrl()) {
+      templateParams.put("externalUrl", result.getExternalUrl());
+    }
+    if (maybeAssertionPlatform != null) {
+      templateParams.put("externalPlatform", _entityNameProvider.getName(maybeAssertionPlatform.getPlatform()));
+    }
+    if (assertionInfo.hasSource()) {
+      templateParams.put("sourceType", assertionInfo.getSource().getType().toString());
+    }
 
     final NotificationRequest notificationRequest = buildNotificationRequest(
         NotificationTemplateType.BROADCAST_ASSERTION_STATUS_CHANGE.name(),

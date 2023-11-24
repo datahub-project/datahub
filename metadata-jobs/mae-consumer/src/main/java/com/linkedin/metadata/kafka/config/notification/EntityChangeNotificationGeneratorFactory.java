@@ -11,6 +11,7 @@ import com.linkedin.gms.factory.entity.RestliEntityClientFactory;
 import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
 import com.linkedin.gms.factory.notifications.SettingsProviderFactory;
 import com.linkedin.gms.factory.notifications.recipient.SlackNotificationRecipientBuilderFactory;
+import com.linkedin.metadata.service.AssertionService;
 import com.linkedin.metadata.spring.YamlPropertySourceFactory;
 import com.linkedin.gms.factory.timeline.EntityChangeEventGeneratorRegistryFactory;
 import com.linkedin.metadata.event.EventProducer;
@@ -69,6 +70,9 @@ public class EntityChangeNotificationGeneratorFactory {
   @Qualifier("configurationProvider")
   private ConfigurationProvider _configProvider;
 
+  @Autowired
+  @Qualifier("assertionService")
+  private AssertionService _assertionService;
 
   @Bean(name = "entityChangeNotificationGenerator")
   @Scope("singleton")
@@ -81,6 +85,7 @@ public class EntityChangeNotificationGeneratorFactory {
         _entityClient,
         _graphClient,
         _settingsProvider,
+        _assertionService,
         _systemAuthentication,
         _slackNotificationRecipientBuilder,
         _configProvider.getFeatureFlags()

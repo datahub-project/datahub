@@ -191,9 +191,10 @@ public class NotificationUtils {
    *
    * Events are eligible for notification generation if the event is NOT coming from an initial ingestion run (first time we're hearing about this entity)
    * OR it is but it's an ingestion related notification.
+   * OR if they are assertion run events.
    */
   public static boolean isEligibleForNotificationGeneration(@Nonnull final MetadataChangeLog event) {
-    return !isFromInitialIngestionRun(event) || isIngestionRunResultEvent(event);
+    return !isFromInitialIngestionRun(event) || isIngestionRunResultEvent(event) || isAssertionRunEvent(event);
   }
 
   /**
@@ -214,6 +215,10 @@ public class NotificationUtils {
 
   private static boolean isIngestionRunResultEvent(@Nonnull final MetadataChangeLog event) {
     return INGESTION_EXECUTION_REQUEST_ASPECTS.contains(event.getAspectName());
+  }
+
+  private static boolean isAssertionRunEvent(@Nonnull final MetadataChangeLog event) {
+    return Constants.ASSERTION_RUN_EVENT_ASPECT_NAME.equals(event.getAspectName());
   }
 
   private NotificationUtils() { }

@@ -25,6 +25,7 @@ import com.linkedin.assertion.RowCountTotal;
 import com.linkedin.assertion.VolumeAssertionInfo;
 import com.linkedin.assertion.VolumeAssertionType;
 import com.linkedin.common.AssertionsSummary;
+import com.linkedin.common.DataPlatformInstance;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -57,6 +58,7 @@ public class AssertionServiceTest {
   private static final Urn TEST_NON_EXISTENT_ASSERTION_URN = UrnUtils.getUrn("urn:li:assertion:test-non-existant");
   private static final Urn TEST_DATASET_URN = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,name,PROD)");
   private static final Urn TEST_NON_EXISTENT_DATASET_URN = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,non-existant,PROD)");
+  private static final Urn TEST_PLATFORM_URN = UrnUtils.getUrn("urn:li:dataPlatform:hive");
 
   @Test
   private void testGetAssertionInfo() throws Exception {
@@ -71,7 +73,7 @@ public class AssertionServiceTest {
     Mockito.verify(mockClient, Mockito.times(1)).getV2(
         Mockito.eq(Constants.ASSERTION_ENTITY_NAME),
         Mockito.eq(TEST_ASSERTION_URN),
-        Mockito.eq(ImmutableSet.of(Constants.ASSERTION_INFO_ASPECT_NAME, Constants.ASSERTION_ACTIONS_ASPECT_NAME)),
+        Mockito.eq(ImmutableSet.of(Constants.ASSERTION_INFO_ASPECT_NAME, Constants.ASSERTION_ACTIONS_ASPECT_NAME, DATA_PLATFORM_INSTANCE_ASPECT_NAME)),
         Mockito.any(Authentication.class)
     );
 
@@ -81,7 +83,35 @@ public class AssertionServiceTest {
     Mockito.verify(mockClient, Mockito.times(1)).getV2(
         Mockito.eq(Constants.ASSERTION_ENTITY_NAME),
         Mockito.eq(TEST_NON_EXISTENT_ASSERTION_URN),
-        Mockito.eq(ImmutableSet.of(Constants.ASSERTION_INFO_ASPECT_NAME, Constants.ASSERTION_ACTIONS_ASPECT_NAME)),
+        Mockito.eq(ImmutableSet.of(Constants.ASSERTION_INFO_ASPECT_NAME, Constants.ASSERTION_ACTIONS_ASPECT_NAME, DATA_PLATFORM_INSTANCE_ASPECT_NAME)),
+        Mockito.any(Authentication.class)
+    );
+  }
+
+  @Test
+  private void testGetAssertionDataPlatformInstance() throws Exception {
+    final EntityClient mockClient = createMockEntityClient();
+    final AssertionService service = new AssertionService(
+        mockClient,
+        Mockito.mock(Authentication.class));
+
+    // Case 1: data platform exists
+    DataPlatformInstance instance = service.getAssertionDataPlatformInstance(TEST_ASSERTION_URN);
+    Assert.assertEquals(instance, mockDataPlatformInstance());
+    Mockito.verify(mockClient, Mockito.times(1)).getV2(
+        Mockito.eq(Constants.ASSERTION_ENTITY_NAME),
+        Mockito.eq(TEST_ASSERTION_URN),
+        Mockito.eq(ImmutableSet.of(Constants.ASSERTION_INFO_ASPECT_NAME, Constants.ASSERTION_ACTIONS_ASPECT_NAME, DATA_PLATFORM_INSTANCE_ASPECT_NAME)),
+        Mockito.any(Authentication.class)
+    );
+
+    // Case 2: data platform info does not exist
+    instance = service.getAssertionDataPlatformInstance(TEST_NON_EXISTENT_ASSERTION_URN);
+    Assert.assertNull(instance);
+    Mockito.verify(mockClient, Mockito.times(1)).getV2(
+        Mockito.eq(Constants.ASSERTION_ENTITY_NAME),
+        Mockito.eq(TEST_NON_EXISTENT_ASSERTION_URN),
+        Mockito.eq(ImmutableSet.of(Constants.ASSERTION_INFO_ASPECT_NAME, Constants.ASSERTION_ACTIONS_ASPECT_NAME, DATA_PLATFORM_INSTANCE_ASPECT_NAME)),
         Mockito.any(Authentication.class)
     );
   }
@@ -470,7 +500,7 @@ public class AssertionServiceTest {
     Mockito.when(mockClient.getV2(
         Mockito.eq(Constants.ASSERTION_ENTITY_NAME),
         Mockito.eq(TEST_ASSERTION_URN),
-        Mockito.eq(ImmutableSet.of(Constants.ASSERTION_INFO_ASPECT_NAME, ASSERTION_ACTIONS_ASPECT_NAME)),
+        Mockito.eq(ImmutableSet.of(Constants.ASSERTION_INFO_ASPECT_NAME, ASSERTION_ACTIONS_ASPECT_NAME, DATA_PLATFORM_INSTANCE_ASPECT_NAME)),
         Mockito.any(Authentication.class))
     ).thenReturn(
             new EntityResponse()
@@ -478,12 +508,14 @@ public class AssertionServiceTest {
                 .setEntityName(ASSERTION_ENTITY_NAME)
                 .setAspects(new EnvelopedAspectMap(ImmutableMap.of(
                     ASSERTION_INFO_ASPECT_NAME,
-                    new EnvelopedAspect().setValue(new Aspect(mockAssertionInfo().data()))
+                    new EnvelopedAspect().setValue(new Aspect(mockAssertionInfo().data())),
+                    DATA_PLATFORM_INSTANCE_ASPECT_NAME,
+                    new EnvelopedAspect().setValue(new Aspect(mockDataPlatformInstance().data()))
                 ))));
     Mockito.when(mockClient.getV2(
         Mockito.eq(Constants.ASSERTION_ENTITY_NAME),
         Mockito.eq(TEST_NON_EXISTENT_ASSERTION_URN),
-        Mockito.eq(ImmutableSet.of(Constants.ASSERTION_INFO_ASPECT_NAME, ASSERTION_ACTIONS_ASPECT_NAME)),
+        Mockito.eq(ImmutableSet.of(Constants.ASSERTION_INFO_ASPECT_NAME, ASSERTION_ACTIONS_ASPECT_NAME, DATA_PLATFORM_INSTANCE_ASPECT_NAME)),
         Mockito.any(Authentication.class))
     ).thenReturn(
         new EntityResponse()
@@ -493,7 +525,7 @@ public class AssertionServiceTest {
     Mockito.when(mockClient.getV2(
         Mockito.eq(Constants.ASSERTION_ENTITY_NAME),
         Mockito.eq(TEST_FRESHNESS_ASSERTION_URN),
-        Mockito.eq(ImmutableSet.of(Constants.ASSERTION_INFO_ASPECT_NAME, ASSERTION_ACTIONS_ASPECT_NAME)),
+        Mockito.eq(ImmutableSet.of(ASSERTION_INFO_ASPECT_NAME, ASSERTION_ACTIONS_ASPECT_NAME, DATA_PLATFORM_INSTANCE_ASPECT_NAME)),
         Mockito.any(Authentication.class))
     ).thenReturn(
         new EntityResponse()
@@ -545,6 +577,12 @@ public class AssertionServiceTest {
       .setDataset(TEST_DATASET_URN)
     );
     return info;
+  }
+
+  private static DataPlatformInstance mockDataPlatformInstance() throws Exception {
+    final DataPlatformInstance instance = new DataPlatformInstance();
+    instance.setPlatform(TEST_PLATFORM_URN);
+    return instance;
   }
 
   private static AssertionInfo mockFreshnessAssertionInfo() throws Exception {

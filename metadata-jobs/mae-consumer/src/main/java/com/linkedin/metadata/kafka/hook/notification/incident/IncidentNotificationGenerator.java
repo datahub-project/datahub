@@ -2,6 +2,7 @@ package com.linkedin.metadata.kafka.hook.notification.incident;
 
 import com.datahub.authentication.Authentication;
 import com.datahub.notification.NotificationTemplateType;
+import com.datahub.notification.provider.EntityNameProvider;
 import com.datahub.notification.provider.SettingsProvider;
 import com.datahub.notification.recipient.SlackNotificationRecipientBuilder;
 import com.fasterxml.jackson.core.StreamReadConstraints;
@@ -47,6 +48,7 @@ import static com.linkedin.metadata.kafka.hook.notification.NotificationUtils.*;
 @Slf4j
 public class IncidentNotificationGenerator extends BaseMclNotificationGenerator {
 
+  private final EntityNameProvider _entityNameProvider;
   private final FeatureFlags _featureFlags;
 
   public IncidentNotificationGenerator(
@@ -65,6 +67,7 @@ public class IncidentNotificationGenerator extends BaseMclNotificationGenerator 
         systemAuthentication,
         ImmutableMap.of(NotificationSinkType.SLACK, slackNotificationRecipientBuilder));
     _featureFlags = featureFlags;
+    _entityNameProvider = new EntityNameProvider(entityClient, systemAuthentication);
   }
 
   @Override
@@ -152,6 +155,7 @@ public class IncidentNotificationGenerator extends BaseMclNotificationGenerator 
     final Map<String, String> templateParams = new HashMap<>();
     templateParams.put("incidentUrn", urn.toString());
     templateParams.put("entityUrn", entityUrn.toString());
+    templateParams.put("entityName", _entityNameProvider.getName(entityUrn));
     templateParams.put("entityType", entityUrn.getEntityType());
     templateParams.put("entityPath", generateEntityPath(entityUrn));
     templateParams.put("newStatus", info.getStatus().getState().toString());
@@ -208,6 +212,7 @@ public class IncidentNotificationGenerator extends BaseMclNotificationGenerator 
     templateParams.put("incidentUrn", urn.toString());
     templateParams.put("entityUrn", entityUrn.toString());
     templateParams.put("entityPath", generateEntityPath(entityUrn));
+    templateParams.put("entityName", _entityNameProvider.getName(entityUrn));
     templateParams.put("newStatus", newInfo.getStatus().getState().toString());
     templateParams.put("prevStatus", prevInfo.getStatus().getState().toString());
     templateParams.put("owners", listToJSON(owners));

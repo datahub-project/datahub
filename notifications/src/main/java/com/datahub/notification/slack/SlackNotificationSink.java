@@ -12,6 +12,8 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.assertion.AssertionResultType;
+import com.linkedin.assertion.AssertionSourceType;
+import com.linkedin.assertion.AssertionType;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.connection.DataHubConnectionDetails;
@@ -22,6 +24,7 @@ import com.linkedin.event.notification.NotificationRecipientType;
 import com.linkedin.event.notification.NotificationRequest;
 import com.linkedin.event.notification.NotificationSinkType;
 import com.linkedin.metadata.connection.ConnectionService;
+import com.linkedin.metadata.service.util.AssertionUtils;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.settings.global.GlobalSettingsInfo;
 import com.slack.api.Slack;
@@ -430,6 +433,7 @@ public class SlackNotificationSink implements NotificationSink {
     // Build the message.
     // TODO: Replace this with a template DSL (e.g. Jinja)
     final String url = String.format("%s%s", this.baseUrl, request.getMessage().getParameters().get("entityPath"));
+    final String entityName = request.getMessage().getParameters().get("entityName");
     final String title = request.getMessage().getParameters().get("incidentTitle");
     final String description = request.getMessage().getParameters().get("incidentDescription");
     final String actorName = getUserName(request.getMessage().getParameters().get("actorUrn"));
@@ -447,14 +451,15 @@ public class SlackNotificationSink implements NotificationSink {
             .collect(Collectors.toList()));
 
     return String.format("%s%s",
-        String.format(":warning: *New Incident Raised* \n\nA new incident has been raised on asset %s%s.",
+        String.format(":warning: *New Incident Raised* \n\nA new incident has been raised on asset <%s|%s>%s.",
             url,
+            entityName,
             actorName != null ? String.format(" by *%s*", actorName) : ""),
         String.format("\n\n*Incident Name*: %s\n*Incident Description*: %s\n\n*Asset Owners*: %s\n*Downstream Asset Owners*: %s",
             title != null ? title : "None",
             description != null ? description : "None",
-            ownersStr.length() > 0 ? ownersStr : "N/A",
-            downstreamOwnersStr.length() > 0 ? downstreamOwnersStr : "N/A"
+            ownersStr.length() > 0 ? ownersStr : "None",
+            downstreamOwnersStr.length() > 0 ? downstreamOwnersStr : "None"
         )
     );
   }
@@ -489,6 +494,7 @@ public class SlackNotificationSink implements NotificationSink {
 
     // Build the message. TODO: Use a template here.
     final String url = String.format("%s%s", this.baseUrl, request.getMessage().getParameters().get("entityPath"));
+    final String entityName = request.getMessage().getParameters().get("entityName");
     final String message = request.getMessage().getParameters().get("message");
     final String title = request.getMessage().getParameters().get("incidentTitle");
     final String description = request.getMessage().getParameters().get("incidentDescription");
@@ -510,21 +516,22 @@ public class SlackNotificationSink implements NotificationSink {
 
     final String icon = newStatus.equals("RESOLVED") ? ":white_check_mark:" : ":warning:";
     return String.format("%s%s%s",
-        String.format("%s *Incident Status Changed*\n\n The status of incident *%s* on asset %s has changed from *%s* to *%s*%s.",
+        String.format("%s *Incident Status Changed*\n\nThe status of incident *%s* on asset <%s|%s> has changed from *%s* to *%s*%s.",
             icon,
             title != null ? title : "None",
             url,
+            entityName,
             prevStatus,
             newStatus,
             actorName != null ? String.format(" by *%s*", actorName) : ""),
-        String.format("\n\n *Message*: %s\n",
+        String.format("\n\n*Message*: %s\n",
             message != null ? message : "None"
         ),
         String.format("\n\n*Incident Name*: %s\n*Incident Description*: %s\n\n*Asset Owners*: %s\n*Downstream Asset Owners*: %s",
             title != null ? title : "None",
             description != null ? description : "None",
-            ownersStr.length() > 0 ? ownersStr : "N/A",
-            downstreamOwnersStr.length() > 0 ? downstreamOwnersStr : "N/A"
+            ownersStr.length() > 0 ? ownersStr : "None",
+            downstreamOwnersStr.length() > 0 ? downstreamOwnersStr : "None"
         )
     );
   }
@@ -552,24 +559,38 @@ public class SlackNotificationSink implements NotificationSink {
   }
 
 private String buildAssertionStatusChangeMessage(NotificationRequest request) {
+    final String assertionType = request.getMessage().getParameters().get("assertionType");
     final String entityName = request.getMessage().getParameters().get("entityName");
     final String entityPath = request.getMessage().getParameters().get("entityPath");
-    final String entityUrl = String.format("%s%s/Validation", this.baseUrl, entityPath);
+    final String entityUrl = String.format("%s%s", this.baseUrl, entityPath);
+    final String resultsUrl = String.format("%s%s/Validation/Assertions", this.baseUrl, entityPath);
     final String result = request.getMessage().getParameters().get("result");
-
-    String resultString = result.equals(AssertionResultType.SUCCESS.toString()) ? "passing" : "failing";
-    String emojiString = result.equals(AssertionResultType.SUCCESS.toString()) ? ":white_check_mark:" : ":warning:";
+    final String description = request.getMessage().getParameters().get("description");
+    final String maybeExternalUrl = request.getMessage().getParameters().getOrDefault("externalUrl", null);
+    final String maybeExternalPlatform = request.getMessage().getParameters().getOrDefault("externalPlatform", null);
+    final String maybeSourceType = request.getMessage().getParameters().getOrDefault("sourceType", null);
+    final String assertionTypeText = AssertionSourceType.INFERRED.toString().equals(maybeSourceType)
+      ? "Smart Assertion"
+      : String.format("%s Assertion", AssertionUtils.getAssertionTypeName(assertionType));
+    final String resultString = AssertionUtils.getAssertionResultString(result);
+  final String resultEmoji = AssertionUtils.getAssertionResultEmoji(result);
+  final String resultsLink = maybeExternalUrl != null
+        ? maybeExternalPlatform != null
+          ? String.format("<%s|View results in %s>", maybeExternalUrl, maybeExternalPlatform)
+          : String.format("<%s|View original results>", maybeExternalUrl)
+        : String.format("<%s|View results>", resultsUrl);
 
     /*
-     * Example:
-     *     - Assertion now failing on SampleHiveDataset
-     *     - Assertion now passing on SampleHiveDataset
+     * Example: Assertion `column x must not be null` has failed for Dataset SampleHiveDataset! View results in dbt
      */
-    return String.format("%s  Assertion now *%s* on *<%s|%s>*",
-        emojiString,
+    return String.format(">%s  *%s* `%s` has *%s* for *<%s|%s>*! %s",
+        resultEmoji,
+        assertionTypeText,
+        description,
         resultString,
         entityUrl,
-        entityName
+        entityName,
+        resultsLink
     );
   }
 
@@ -810,8 +831,6 @@ private String buildAssertionStatusChangeMessage(NotificationRequest request) {
         ? Optional.ofNullable(globalSettings.getIntegrations().getSlackSettings().getDefaultChannelName())
         : Optional.ofNullable(this.defaultChannel);
   }
-
-
 
   private void initSlackClientFromGlobalSettings(@Nonnull final GlobalSettingsInfo globalSettings) {
     // Attempt to init the slack client from static config or local configuration.

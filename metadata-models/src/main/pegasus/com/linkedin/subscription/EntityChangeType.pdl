@@ -21,6 +21,7 @@ enum EntityChangeType {
     */
     ASSERTION_PASSED
     ASSERTION_FAILED
+    ASSERTION_ERROR
     /**
     * Incident status changes.
     */

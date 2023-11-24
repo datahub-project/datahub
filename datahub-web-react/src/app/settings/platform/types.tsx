@@ -63,7 +63,7 @@ const CHANGE_NOTIFICATIONS = [
     },
     {
         type: NotificationScenarioType.DatasetSchemaChange,
-        description: 'Schema fields are added to or removed from a dataset',
+        description: 'Dataset fields (columns) are added, removed, or changed.',
     },
 ];
 
@@ -82,6 +82,13 @@ const INCIDENT_NOTIFICATIONS = [
     {
         type: NotificationScenarioType.IncidentStatusChange,
         description: 'An incident is resolved',
+    },
+];
+
+const ASSERTION_NOTIFICATIONS = [
+    {
+        type: NotificationScenarioType.AssertionStatusChange,
+        description: 'An assertion passes or fails',
     },
 ];
 
@@ -104,6 +111,10 @@ export const NOTIFICATION_GROUPS = [
     {
         title: 'Ingestion',
         notifications: INGESTION_NOTIFICATIONS,
+    },
+    {
+        title: 'Assertions',
+        notifications: ASSERTION_NOTIFICATIONS,
     },
     {
         title: 'Incidents',

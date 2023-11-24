@@ -42,6 +42,7 @@ import com.linkedin.metadata.search.utils.QueryUtils;
 import com.linkedin.metadata.service.AnomalyService;
 import com.linkedin.metadata.service.AssertionService;
 import com.linkedin.metadata.service.IncidentService;
+import com.linkedin.metadata.service.util.AssertionUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import java.util.HashMap;
@@ -382,8 +383,15 @@ public class AssertionActionsHook implements MetadataChangeLogHook {
           getIncidentTypeFromAssertionInfo(info),
           null,
           0,
-          "A critical Assertion is failing for this asset.",
-          "A critical Assertion has failed for this data asset. This may indicate that the asset is unhealthy or unfit for consumption!",
+          String.format("A %s Assertion is failing for this asset.",
+              info.hasSource() && AssertionSourceType.INFERRED.equals(info.getSource().getType())
+                  ? "Smart Assertion"
+                  : AssertionUtils.getAssertionTypeName(info.getType().toString())),
+          String.format(
+              "A %s Assertion has failed for this data asset: '%s'. This may indicate that the asset is unhealthy or unfit for consumption!",
+              AssertionUtils.getAssertionTypeName(info.getType().toString()),
+              AssertionUtils.buildAssertionDescription(assertionUrn, info)
+          ),
           ImmutableList.of(entityUrn),
           new IncidentSource()
             .setSourceUrn(assertionUrn)
