@@ -49,6 +49,14 @@ def ingest() -> None:
     required=True,
 )
 @click.option(
+    "-q",
+    "--quite",
+    type=bool,
+    is_flag=True,
+    default=False,
+    help="Mute intermediate ingestion reports.",
+)
+@click.option(
     "-n",
     "--dry-run",
     type=bool,
@@ -99,6 +107,7 @@ def ingest() -> None:
 )
 @telemetry.with_telemetry(
     capture_kwargs=[
+        "quite",
         "dry_run",
         "preview",
         "strict_warnings",
@@ -109,6 +118,7 @@ def ingest() -> None:
 )
 def run(
     config: str,
+    quite: bool,
     dry_run: bool,
     preview: bool,
     strict_warnings: bool,
@@ -162,6 +172,7 @@ def run(
         # logger.debug(f"Using config: {pipeline_config}")
         pipeline = Pipeline.create(
             pipeline_config,
+            quite,
             dry_run,
             preview,
             preview_workunits,
