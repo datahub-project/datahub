@@ -86,12 +86,15 @@ export const DeprecationPill = ({ deprecation, urn, refetch, showUndeprecate }: 
     const decommissionTimeLocal =
         (deprecation.decommissionTime &&
             `Scheduled to be decommissioned on ${moment
-                .unix(deprecation.decommissionTime)
+                .unix(deprecation.decommissionTime / 1000)
                 .format('DD/MMM/YYYY')} (${localeTimezone})`) ||
         undefined;
     const decommissionTimeGMT =
         deprecation.decommissionTime &&
-        moment.unix(deprecation.decommissionTime).utc().format('dddd, DD/MMM/YYYY HH:mm:ss z');
+        moment
+            .unix(deprecation.decommissionTime / 1000)
+            .utc()
+            .format('dddd, DD/MMM/YYYY HH:mm:ss z');
 
     const hasDetails = deprecation.note !== '' || deprecation.decommissionTime !== null;
     const isDividerNeeded = deprecation.note !== '' && deprecation.decommissionTime !== null;
