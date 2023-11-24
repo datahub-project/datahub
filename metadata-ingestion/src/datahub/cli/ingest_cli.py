@@ -50,7 +50,7 @@ def ingest() -> None:
 )
 @click.option(
     "-q",
-    "--quite",
+    "--quiet",
     type=bool,
     is_flag=True,
     default=False,
@@ -107,7 +107,7 @@ def ingest() -> None:
 )
 @telemetry.with_telemetry(
     capture_kwargs=[
-        "quite",
+        "quiet",
         "dry_run",
         "preview",
         "strict_warnings",
@@ -118,7 +118,7 @@ def ingest() -> None:
 )
 def run(
     config: str,
-    quite: bool,
+    quiet: bool,
     dry_run: bool,
     preview: bool,
     strict_warnings: bool,
@@ -172,7 +172,7 @@ def run(
         # logger.debug(f"Using config: {pipeline_config}")
         pipeline = Pipeline.create(
             pipeline_config,
-            quite,
+            quiet,
             dry_run,
             preview,
             preview_workunits,
