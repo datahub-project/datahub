@@ -895,6 +895,8 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 (upstream, node.dbt_name)
                 for node in all_nodes_map.values()
                 for upstream in node.upstream_nodes
+                if not upstream.startswith("macro")
+                and not node.dbt_name.startswith("macro")
             ),
         ):
             node = all_nodes_map[dbt_name]
