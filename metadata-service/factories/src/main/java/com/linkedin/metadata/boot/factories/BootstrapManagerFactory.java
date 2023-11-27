@@ -94,6 +94,9 @@ public class BootstrapManagerFactory {
   @Value("${bootstrap.policies.file}")
   private Resource _policiesResource;
 
+  @Value("${bootstrap.ownershipTypes.file}")
+  private Resource _ownershipTypesResource;
+
   @Bean(name = "bootstrapManager")
   @Scope("singleton")
   @Nonnull
@@ -116,7 +119,7 @@ public class BootstrapManagerFactory {
     final IngestDefaultGlobalSettingsStep ingestSettingsStep = new IngestDefaultGlobalSettingsStep(_entityService);
     final WaitForSystemUpdateStep waitForSystemUpdateStep = new WaitForSystemUpdateStep(_dataHubUpgradeKafkaListener,
         _configurationProvider);
-    final IngestOwnershipTypesStep ingestOwnershipTypesStep = new IngestOwnershipTypesStep(_entityService);
+    final IngestOwnershipTypesStep ingestOwnershipTypesStep = new IngestOwnershipTypesStep(_entityService, _ownershipTypesResource);
 
     final List<BootstrapStep> finalSteps = new ArrayList<>(ImmutableList.of(
         waitForSystemUpdateStep,
