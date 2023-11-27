@@ -183,6 +183,10 @@ class CustomAthenaRestDialect(AthenaRestDialect):
         # can also be returned, so we need to extend the handling here as well
         elif type_name in ["bigint", "long"]:
             detected_col_type = types.BIGINT
+        elif type_name in ["decimal"]:
+            detected_col_type = types.DECIMAL
+            precision, scale = type_meta_information.split(",")
+            args = [int(precision), int(scale)]
         else:
             return super()._get_column_type(type_name)
         return detected_col_type(*args)

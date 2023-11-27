@@ -25,11 +25,11 @@ import ManagePosts from './posts/ManagePosts';
 const PageContainer = styled.div`
     display: flex;
     overflow: auto;
+    flex: 1;
 `;
 
 const SettingsBarContainer = styled.div`
     padding-top: 20px;
-    max-height: 100vh;
     border-right: 1px solid ${ANTD_GRAY[5]};
     display: flex;
     flex-direction: column;
@@ -141,24 +141,25 @@ export const SettingsPage = () => {
                             )}
                         </Menu.ItemGroup>
                     )}
-
-                    <Menu.ItemGroup title="Manage">
-                        {showViews && (
-                            <Menu.Item key="views">
-                                <FilterOutlined /> <ItemTitle>My Views</ItemTitle>
-                            </Menu.Item>
-                        )}
-                        {showOwnershipTypes && (
-                            <Menu.Item key="ownership">
-                                <TeamOutlined /> <ItemTitle>Ownership Types</ItemTitle>
-                            </Menu.Item>
-                        )}
-                        {showHomePagePosts && (
-                            <Menu.Item key="posts">
-                                <PushpinOutlined /> <ItemTitle>Home Page Posts</ItemTitle>
-                            </Menu.Item>
-                        )}
-                    </Menu.ItemGroup>
+                    {(showViews || showOwnershipTypes || showHomePagePosts) && (
+                        <Menu.ItemGroup title="Manage">
+                            {showViews && (
+                                <Menu.Item key="views">
+                                    <FilterOutlined /> <ItemTitle>My Views</ItemTitle>
+                                </Menu.Item>
+                            )}
+                            {showOwnershipTypes && (
+                                <Menu.Item key="ownership">
+                                    <TeamOutlined /> <ItemTitle>Ownership Types</ItemTitle>
+                                </Menu.Item>
+                            )}
+                            {showHomePagePosts && (
+                                <Menu.Item key="posts">
+                                    <PushpinOutlined /> <ItemTitle>Home Page Posts</ItemTitle>
+                                </Menu.Item>
+                            )}
+                        </Menu.ItemGroup>
+                    )}
 
                     <Menu.ItemGroup title="Preferences">
                         <Menu.Item key="preferences">
