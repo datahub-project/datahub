@@ -319,7 +319,7 @@ export default function PolicyPrivilegeForm({
                             .filter((privs) => privs.resourceType !== 'all')
                             .map((resPrivs) => {
                                 return (
-                                    <Select.Option value={resPrivs.resourceType}>
+                                    <Select.Option key={resPrivs.resourceType} value={resPrivs.resourceType}>
                                         {resPrivs.resourceTypeDisplayName}
                                     </Select.Option>
                                 );
@@ -355,7 +355,9 @@ export default function PolicyPrivilegeForm({
                         )}
                     >
                         {resourceSearchResults?.map((result) => (
-                            <Select.Option value={result.entity.urn}>{renderSearchResult(result)}</Select.Option>
+                            <Select.Option key={result.entity.urn} value={result.entity.urn}>
+                                {renderSearchResult(result)}
+                            </Select.Option>
                         ))}
                     </Select>
                 </Form.Item>
@@ -389,7 +391,9 @@ export default function PolicyPrivilegeForm({
                             dropdownStyle={isShowingDomainNavigator ? { display: 'none' } : {}}
                         >
                             {domainSearchResults?.map((result) => (
-                                <Select.Option value={result.entity.urn}>{renderSearchResult(result)}</Select.Option>
+                                <Select.Option key={result.entity.urn} value={result.entity.urn}>
+                                    {renderSearchResult(result)}
+                                </Select.Option>
                             ))}
                         </Select>
                         <BrowserWrapper isHidden={!isShowingDomainNavigator} width="100%" maxHeight={300}>
@@ -412,9 +416,14 @@ export default function PolicyPrivilegeForm({
                         </Tag>
                     )}
                 >
-                    {privilegeOptions.map((priv) => (
-                        <Select.Option value={priv.type}>{priv.displayName}</Select.Option>
-                    ))}
+                    {privilegeOptions.map((priv, index) => {
+                        const key = `${priv.type}-${index}`;
+                        return (
+                            <Select.Option key={key} value={priv.type}>
+                                {priv.displayName}
+                            </Select.Option>
+                        );
+                    })}
                     <Select.Option value="All">All Privileges</Select.Option>
                 </Select>
             </Form.Item>
