@@ -23,6 +23,7 @@ quickstart_version_map:
   default:
     composefile_git_ref: master
     docker_tag: head
+    mysql_tag: 5.7
   # default:  # Use this to pin default to a specific version.
   #   composefile_git_ref: fd1bd51541a132017a648f4a2f037eec8f70ba26 # v0.10.0 + quickstart compose file fixes
   #   docker_tag: v0.10.0
@@ -30,11 +31,19 @@ quickstart_version_map:
   head:
     composefile_git_ref: master
     docker_tag: head
+    mysql_tag: 5.7
+
+  # v0.13.0 we upgraded MySQL image for EOL
+  v0.13.0:
+    composefile_git_ref: master
+    docker_tag: head
+    mysql_tag: 8.2
 
   # v0.9.6 images contain security vulnerabilities
   v0.9.6:
     composefile_git_ref: v0.9.6.1
     docker_tag: v0.9.6.1
+    mysql_tag: 5.7
 
   # If stable is not defined the latest released version will be used.
   # stable:

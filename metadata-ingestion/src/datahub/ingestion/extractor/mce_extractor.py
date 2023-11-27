@@ -26,11 +26,11 @@ def _try_reformat_with_black(code: str) -> str:
 
 
 class WorkUnitRecordExtractorConfig(ConfigModel):
-    set_system_metadata = True
-    set_system_metadata_pipeline_name = (
+    set_system_metadata: bool = True
+    set_system_metadata_pipeline_name: bool = (
         False  # false for now until the models are available in OSS
     )
-    unpack_mces_into_mcps = False
+    unpack_mces_into_mcps: bool = False
 
 
 class WorkUnitRecordExtractor(
