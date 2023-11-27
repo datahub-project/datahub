@@ -7,7 +7,7 @@ import FilterCard from "../FilterCard";
 
 const FilterCards = ({ content, filterBar }) =>
   content?.length > 0 ? (
-    <div style={{ padding: "2vh 0" }}>
+    <div style={{ padding: "3vh 4vw" }}>
       <div className="container">
         <div className="row">
           {content.map((props, idx) => (
