@@ -1,6 +1,6 @@
 import React, { useContext, useState } from 'react';
 import styled from 'styled-components/macro';
-import { Group } from '@vx/group';
+import { Group } from '@visx/group';
 import { SchemaField } from '../../types.generated';
 import { downgradeV2FieldPath } from '../entity/dataset/profile/schema/utils/utils';
 import { NodeData } from './types';
