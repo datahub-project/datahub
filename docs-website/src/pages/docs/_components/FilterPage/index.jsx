@@ -6,8 +6,6 @@ import FilterCards from "../FilterCards";
 export function FilterPage(
   siteConfig,
   metadata,
-  title,
-  subtitle,
   allowExclusivity = false,
   useTags = false,
   useFilters = false

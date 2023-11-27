@@ -13,8 +13,6 @@ function DataProviderComponent() {
   return FilterPage(
     siteConfig,
     metadata,
-    "DataHub Integrations",
-    "Services that integrate with DataHub",
     false,
     true
   );
