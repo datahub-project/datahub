@@ -46,6 +46,9 @@ jobs:
       unique_full_tag: ${{ steps.tag.outputs.unique_full_tag }}
       publish: ${{ steps.publish.outputs.publish }}
       python_release_version: ${{ steps.tag.outputs.python_release_version }}
+      short_sha: ${{ steps.tag.outputs.short_sha }}
+      branch_name: ${{ steps.tag.outputs.branch_name }}
+      repository_name: ${{ steps.tag.outputs.repository_name }}
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -53,6 +56,7 @@ jobs:
         id: tag
         run: |
           source .github/scripts/docker_helpers.sh
+          echo "short_sha=${SHORT_SHA}" >> $GITHUB_OUTPUT
           echo "tag=$(get_tag)" >> $GITHUB_OUTPUT
           echo "slim_tag=$(get_tag_slim)" >> $GITHUB_OUTPUT
           echo "full_tag=$(get_tag_full)" >> $GITHUB_OUTPUT
@@ -60,6 +64,8 @@ jobs:
           echo "unique_slim_tag=$(get_unique_tag_slim)" >> $GITHUB_OUTPUT
           echo "unique_full_tag=$(get_unique_tag_full)" >> $GITHUB_OUTPUT
           echo "python_release_version=$(get_python_docker_release_v)" >> $GITHUB_OUTPUT
+          echo "branch_name=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}" >> $GITHUB_OUTPUT
+          echo "repository_name=${GITHUB_REPOSITORY#*/}" >> $GITHUB_OUTPUT
       - name: Check whether publishing enabled
         id: publish
         env:
@@ -860,3 +866,23 @@ jobs:
           job-status: ${{ job.status }}
           slack-bot-token: ${{ secrets.SLACK_BOT_TOKEN }}
           channel: github-activities
+  deploy_datahub_head:
+    name: Deploy to Datahub HEAD
+    runs-on: ubuntu-latest
+    needs:
+      [
+        setup,
+        smoke_test
+      ]
+    steps:
+      - uses: aws-actions/configure-aws-credentials@v1
+        if: ${{ needs.setup.outputs.publish != 'false' }}
+        with:
+          aws-access-key-id: ${{ secrets.AWS_SQS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SQS_ACCESS_KEY }}
+          aws-region: us-west-2
+      - uses: isbang/sqs-action@v0.2.0
+        if: ${{ needs.setup.outputs.publish != 'false' }}
+        with:
+          sqs-url: ${{ secrets.DATAHUB_HEAD_SYNC_QUEUE }}
+          message: '{ "command": "git-sync", "args" : {"repoName": "${{ needs.setup.outputs.repository_name }}", "repoOrg": "${{ github.repository_owner }}", "repoBranch": "${{ needs.setup.outputs.branch_name }}", "repoShaShort": "${{ needs.setup.outputs.short_sha }}" }}'
