@@ -70,11 +70,20 @@ runs:
         push: false
         cache-from: type=registry,ref=${{ steps.docker_meta.outputs.tags }}
         cache-to: type=inline
+    - name: Single Tag
+      if: ${{ inputs.publish != 'true' }}
+      shell: bash
+      run: |
+        TAGS="""
+        ${{ steps.docker_meta.outputs.tags }}
+        """
+        echo "SINGLE_TAG=$(echo $TAGS | tr '\n' ' ' | awk -F' ' '{ print $1 }')" >> $GITHUB_OUTPUT
+      id: single_tag
     - name: Upload image locally for testing (if not publishing)
       uses: ishworkh/docker-image-artifact-upload@v1
       if: ${{ inputs.publish != 'true' }}
       with:
-        image: ${{ steps.docker_meta.outputs.tags }}
+        image: ${{ steps.single_tag.outputs.SINGLE_TAG }}
 
     # Code for building multi-platform images and pushing to Docker Hub.
     - name: Set up QEMU

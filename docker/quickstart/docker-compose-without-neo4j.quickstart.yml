@@ -218,7 +218,7 @@ services:
       test: mysqladmin ping -h mysql -u $$MYSQL_USER --password=$$MYSQL_PASSWORD
       timeout: 5s
     hostname: mysql
-    image: mysql:5.7
+    image: mysql:${DATAHUB_MYSQL_VERSION:-5.7}
     ports:
     - ${DATAHUB_MAPPED_MYSQL_PORT:-3306}:3306
     restart: on-failure

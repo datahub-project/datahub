@@ -6,6 +6,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Breaking Changes
 
+- Updating MySQL version for quickstarts to 8.2, may cause quickstart issues for existing instances.
 - #9244: The `redshift-legacy` and `redshift-legacy-usage` sources, which have been deprecated for >6 months, have been removed. The new `redshift` source is a superset of the functionality provided by those legacy sources.
 
 ### Potential Downtime

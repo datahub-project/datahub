@@ -73,7 +73,7 @@ task yarnBuild(type: YarnTask, dependsOn: [yarnInstall, yarnTest, yarnLint]) {
 }
 
 task yarnQuickBuild(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
-  environment = [NODE_OPTIONS: "--max-old-space-size=3072"]
+  environment = [NODE_OPTIONS: "--max-old-space-size=3072 --openssl-legacy-provider"]
   args = ['run', 'build']
 }
 

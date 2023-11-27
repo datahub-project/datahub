@@ -21,7 +21,11 @@ import { OnboardingTour } from '../../onboarding/OnboardingTour';
 import { ROLES_INTRO_ID } from '../../onboarding/config/RolesOnboardingConfig';
 import { clearUserListCache } from '../../identity/user/cacheUtils';
 
-const SourceContainer = styled.div``;
+const SourceContainer = styled.div`
+    overflow: auto;
+    display: flex;
+    flex-direction: column;
+`;
 
 const PaginationContainer = styled.div`
     display: flex;
@@ -35,6 +39,9 @@ const RoleName = styled.span`
 
 const PageContainer = styled.span`
     width: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow: auto;
 `;
 
 const ActionsContainer = styled.div`

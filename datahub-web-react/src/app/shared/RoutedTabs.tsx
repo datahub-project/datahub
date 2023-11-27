@@ -3,6 +3,7 @@ import { Route, Switch, useRouteMatch, useLocation } from 'react-router-dom';
 import { Redirect, useHistory } from 'react-router';
 import { Tabs } from 'antd';
 import { TabsProps } from 'antd/lib/tabs';
+import styled from 'styled-components';
 
 const { TabPane } = Tabs;
 
@@ -19,6 +20,12 @@ interface Props extends TabsProps {
     onTabChange?: (selectedTab: string) => void;
 }
 
+const RoutedTabsStyle = styled.div`
+    display: flex;
+    flex-direction: column;
+    overflow: auto;
+`;
+
 /**
  * A tab view where each tab is associated with a route mounted on top of the current path.
  * This permits direct navigation to a particular tab via URL.
@@ -33,7 +40,7 @@ export const RoutedTabs = ({ defaultPath, tabs, onTabChange, ...props }: Props) 
     const providedPath = splitPathName[splitPathName.length - 1];
     const activePath = subRoutes.includes(providedPath) ? providedPath : defaultPath.replace('/', '');
     return (
-        <div>
+        <RoutedTabsStyle>
             <Tabs
                 defaultActiveKey={activePath}
                 activeKey={activePath}
@@ -62,6 +69,6 @@ export const RoutedTabs = ({ defaultPath, tabs, onTabChange, ...props }: Props) 
                     />
                 ))}
             </Switch>
-        </div>
+        </RoutedTabsStyle>
     );
 };

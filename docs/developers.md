@@ -6,6 +6,7 @@ title: "Local Development"
 
 ## Pre-requirements
  - [Java 11 SDK](https://openjdk.org/projects/jdk/11/)
+ - [Python 3.10] (https://www.python.org/downloads/release/python-3100/)
  - [Docker](https://www.docker.com/)
  - [Docker Compose](https://docs.docker.com/compose/)
  - Docker engine with at least 8GB of memory to run tests.
