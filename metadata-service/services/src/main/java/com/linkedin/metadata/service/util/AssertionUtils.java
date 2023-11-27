@@ -6,7 +6,6 @@ import com.linkedin.assertion.AssertionStdOperator;
 import com.linkedin.assertion.AssertionStdParameters;
 import com.linkedin.assertion.AssertionType;
 import com.linkedin.assertion.AssertionValueChangeType;
-import com.linkedin.assertion.DatasetAssertionInfo;
 import com.linkedin.assertion.FieldAssertionInfo;
 import com.linkedin.assertion.FieldAssertionType;
 import com.linkedin.assertion.FieldMetricType;
@@ -68,7 +67,7 @@ public class AssertionUtils {
   }
 
   private static String getUnitText(@Nonnull final CalendarInterval interval) {
-    switch(interval) {
+    switch (interval) {
       case SECOND:
         return "seconds";
       case MINUTE:
