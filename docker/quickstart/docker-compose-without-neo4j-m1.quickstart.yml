@@ -16,6 +16,8 @@ services:
     - KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS=0
     - KAFKA_HEAP_OPTS=-Xms256m -Xmx256m
     - KAFKA_CONFLUENT_SUPPORT_METRICS_ENABLE=false
+    - KAFKA_MESSAGE_MAX_BYTES=5242880
+    - KAFKA_MAX_MESSAGE_BYTES=5242880
     healthcheck:
       interval: 1s
       retries: 5
@@ -142,6 +144,7 @@ services:
     - DATAHUB_GMS_PORT=8080
     - ENTITY_REGISTRY_CONFIG_PATH=/datahub/datahub-gms/resources/entity-registry.yml
     - BACKFILL_BROWSE_PATHS_V2=true
+    - REPROCESS_DEFAULT_BROWSE_PATHS_V2=false
     hostname: datahub-upgrade
     image: ${DATAHUB_UPGRADE_IMAGE:-acryldata/datahub-upgrade}:${DATAHUB_VERSION:-head}
     labels:
@@ -272,10 +275,12 @@ services:
     ports:
     - ${DATAHUB_MAPPED_ZK_PORT:-2181}:2181
     volumes:
-    - zkdata:/var/lib/zookeeper
+    - zkdata:/var/lib/zookeeper/data
+    - zklogs:/var/lib/zookeeper/log
 version: '3.9'
 volumes:
   broker: null
   esdata: null
   mysqldata: null
   zkdata: null
+  zklogs: null

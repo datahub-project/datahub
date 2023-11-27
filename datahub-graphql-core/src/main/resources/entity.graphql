@@ -226,6 +226,11 @@ type Query {
     listOwnershipTypes(
         "Input required for listing custom ownership types"
         input: ListOwnershipTypesInput!): ListOwnershipTypesResult!
+
+    """
+    Fetch a Data Platform Instance by primary key (urn)
+    """
+    dataPlatformInstance(urn: String!): DataPlatformInstance
 }
 
 """
@@ -3783,6 +3788,11 @@ type CorpGroup implements Entity {
     Additional read only info about the group
     """
     info: CorpGroupInfo @deprecated
+
+    """
+    Whether or not this entity exists on DataHub
+    """
+    exists: Boolean
 }
 
 """
@@ -5239,6 +5249,11 @@ type Chart implements EntityWithRelationships & Entity & BrowsableEntity {
     Whether or not this entity exists on DataHub
     """
     exists: Boolean
+
+    """
+    Sub Types that this entity implements
+    """
+    subTypes: SubTypes
 }
 
 """

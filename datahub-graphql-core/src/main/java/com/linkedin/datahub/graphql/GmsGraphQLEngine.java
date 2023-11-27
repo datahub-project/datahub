@@ -821,6 +821,7 @@ public class GmsGraphQLEngine {
             .dataFetcher("glossaryNode", getResolver(glossaryNodeType))
             .dataFetcher("domain", getResolver((domainType)))
             .dataFetcher("dataPlatform", getResolver(dataPlatformType))
+            .dataFetcher("dataPlatformInstance", getResolver(dataPlatformInstanceType))
             .dataFetcher("mlFeatureTable", getResolver(mlFeatureTableType))
             .dataFetcher("mlFeature", getResolver(mlFeatureType))
             .dataFetcher("mlPrimaryKey", getResolver(mlPrimaryKeyType))
@@ -1291,7 +1292,8 @@ public class GmsGraphQLEngine {
      */
     private void configureCorpGroupResolvers(final RuntimeWiring.Builder builder) {
         builder.type("CorpGroup", typeWiring -> typeWiring
-            .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient)));
+            .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient))
+            .dataFetcher("exists", new EntityExistsResolver(entityService)));
         builder.type("CorpGroupInfo", typeWiring -> typeWiring
                 .dataFetcher("admins",
                     new LoadableTypeBatchResolver<>(corpUserType,
@@ -1431,6 +1433,10 @@ public class GmsGraphQLEngine {
             .dataFetcher("statsSummary", new ChartStatsSummaryResolver(this.timeseriesAspectService))
             .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
             .dataFetcher("exists", new EntityExistsResolver(entityService))
+            .dataFetcher("subTypes", new SubTypesResolver(
+                this.entityClient,
+                "chart",
+                "subTypes"))
         );
         builder.type("ChartInfo", typeWiring -> typeWiring
             .dataFetcher("inputs", new LoadableTypeBatchResolver<>(datasetType,

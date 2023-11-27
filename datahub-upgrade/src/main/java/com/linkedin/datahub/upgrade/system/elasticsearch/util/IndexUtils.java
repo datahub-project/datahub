@@ -31,7 +31,7 @@ public class IndexUtils {
     List<ReindexConfig> reindexConfigs = new ArrayList<>(_reindexConfigs);
     if (reindexConfigs.isEmpty()) {
       for (ElasticSearchIndexed elasticSearchIndexed : elasticSearchIndexedList) {
-        reindexConfigs.addAll(elasticSearchIndexed.getReindexConfigs());
+        reindexConfigs.addAll(elasticSearchIndexed.buildReindexConfigs());
       }
       _reindexConfigs = new ArrayList<>(reindexConfigs);
     }

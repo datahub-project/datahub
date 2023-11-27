@@ -6,8 +6,10 @@ import com.linkedin.metadata.graph.neo4j.Neo4jGraphService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import javax.annotation.Nonnull;
 import org.neo4j.driver.Driver;
+import org.neo4j.driver.SessionConfig;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
@@ -24,10 +26,13 @@ public class Neo4jGraphServiceFactory {
   @Qualifier("entityRegistry")
   private EntityRegistry entityRegistry;
 
+  @Value("${neo4j.database}")
+  private String neo4jDatabase;
+
   @Bean(name = "neo4jGraphService")
   @Nonnull
   protected Neo4jGraphService getInstance() {
     LineageRegistry lineageRegistry = new LineageRegistry(entityRegistry);
-    return new Neo4jGraphService(lineageRegistry, neo4jDriver);
+    return new Neo4jGraphService(lineageRegistry, neo4jDriver, SessionConfig.forDatabase(neo4jDatabase));
   }
 }

@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
+import com.google.common.collect.ImmutableSet;
 import com.linkedin.metadata.models.registry.config.Entities;
 import com.linkedin.metadata.models.registry.config.Entity;
 import org.gradle.internal.Pair;
@@ -16,7 +17,12 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
-import java.util.*;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.Spliterator;
+import java.util.Spliterators;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -37,10 +43,23 @@ public class OpenApiEntities {
     private String entityRegistryYaml;
     private Path combinedDirectory;
 
-    private final static Set<String> SUPPORTED_ASPECT_PATHS = Set.of(
-            "domains", "ownership", "deprecation", "status", "globalTags", "glossaryTerms", "dataContractInfo",
-            "browsePathsV2"
-    );
+    private final static ImmutableSet<Object> SUPPORTED_ASPECT_PATHS = ImmutableSet.builder()
+                .add("domains")
+                .add("ownership")
+                .add("deprecation")
+                .add("status")
+                .add("globalTags")
+                .add("glossaryTerms")
+                .add("dataContractInfo")
+                .add("browsePathsV2")
+                .add("datasetProperties").add("editableDatasetProperties")
+                .add("chartInfo").add("editableChartProperties")
+                .add("dashboardInfo").add("editableDashboardProperties")
+                .add("notebookInfo").add("editableNotebookProperties")
+                .add("dataProductProperties")
+                .add("institutionalMemory")
+                .build();
+
 
     public OpenApiEntities(JsonNodeFactory NODE_FACTORY) {
         this.NODE_FACTORY = NODE_FACTORY;

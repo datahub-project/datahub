@@ -1,12 +1,9 @@
-import dataclasses
 import logging
 from datetime import datetime
 from typing import Dict, Iterable, List, Optional, Tuple, cast
 
 from dateutil.relativedelta import relativedelta
 
-from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import BigqueryTableIdentifier
 from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
@@ -15,7 +12,7 @@ from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
     RANGE_PARTITION_NAME,
     BigqueryTable,
 )
-from datahub.ingestion.source.ge_data_profiler import GEProfilerRequest
+from datahub.ingestion.source.sql.sql_generic import BaseTable
 from datahub.ingestion.source.sql.sql_generic_profiler import (
     GenericProfiler,
     TableProfilerRequest,
@@ -23,12 +20,6 @@ from datahub.ingestion.source.sql.sql_generic_profiler import (
 from datahub.ingestion.source.state.profiling_state_handler import ProfilingHandler
 
 logger = logging.getLogger(__name__)
-
-
-@dataclasses.dataclass
-class BigqueryProfilerRequest(GEProfilerRequest):
-    table: BigqueryTable
-    profile_table_level_only: bool = False
 
 
 class BigqueryProfiler(GenericProfiler):
@@ -183,84 +174,54 @@ WHERE
                     )
 
                 # Emit the profile work unit
-                profile_request = self.get_bigquery_profile_request(
-                    project=project_id, dataset=dataset, table=table
-                )
+                profile_request = self.get_profile_request(table, dataset, project_id)
                 if profile_request is not None:
+                    self.report.report_entity_profiled(profile_request.pretty_name)
                     profile_requests.append(profile_request)
 
         if len(profile_requests) == 0:
             return
-        yield from self.generate_wu_from_profile_requests(profile_requests)
-
-    def generate_wu_from_profile_requests(
-        self, profile_requests: List[BigqueryProfilerRequest]
-    ) -> Iterable[MetadataWorkUnit]:
-        table_profile_requests = cast(List[TableProfilerRequest], profile_requests)
-        for request, profile in self.generate_profiles(
-            table_profile_requests,
+        yield from self.generate_profile_workunits(
+            profile_requests,
             self.config.profiling.max_workers,
             platform=self.platform,
             profiler_args=self.get_profile_args(),
-        ):
-            if request is None or profile is None:
-                continue
+        )
 
-            request = cast(BigqueryProfilerRequest, request)
-            profile.sizeInBytes = request.table.size_in_bytes
-            # If table is partitioned we profile only one partition (if nothing set then the last one)
-            # but for table level we can use the rows_count from the table metadata
-            # This way even though column statistics only reflects one partition data but the rows count
-            # shows the proper count.
-            if profile.partitionSpec and profile.partitionSpec.partition:
-                profile.rowCount = request.table.rows_count
-
-            dataset_name = request.pretty_name
-            dataset_urn = make_dataset_urn_with_platform_instance(
-                self.platform,
-                dataset_name,
-                self.config.platform_instance,
-                self.config.env,
-            )
-            # We don't add to the profiler state if we only do table level profiling as it always happens
-            if self.state_handler and not request.profile_table_level_only:
-                self.state_handler.add_to_state(
-                    dataset_urn, int(datetime.now().timestamp() * 1000)
-                )
-
-            yield MetadataChangeProposalWrapper(
-                entityUrn=dataset_urn, aspect=profile
-            ).as_workunit()
-
-    def get_bigquery_profile_request(
-        self, project: str, dataset: str, table: BigqueryTable
-    ) -> Optional[BigqueryProfilerRequest]:
-        skip_profiling = False
-        profile_table_level_only = self.config.profiling.profile_table_level_only
-        dataset_name = BigqueryTableIdentifier(
-            project_id=project, dataset=dataset, table=table.name
+    def get_dataset_name(self, table_name: str, schema_name: str, db_name: str) -> str:
+        return BigqueryTableIdentifier(
+            project_id=db_name, dataset=schema_name, table=table_name
         ).get_table_name()
-        if not self.is_dataset_eligible_for_profiling(
-            dataset_name, table.last_altered, table.size_in_bytes, table.rows_count
-        ):
-            profile_table_level_only = True
-            self.report.num_tables_not_eligible_profiling[f"{project}.{dataset}"] += 1
 
-        if not table.column_count:
-            skip_profiling = True
+    def get_batch_kwargs(
+        self, table: BaseTable, schema_name: str, db_name: str
+    ) -> dict:
+        return dict(
+            schema=db_name,  # <project>
+            table=f"{schema_name}.{table.name}",  # <dataset>.<table>
+        )
 
-        if skip_profiling:
-            if self.config.profiling.report_dropped_profiles:
-                self.report.report_dropped(f"profile of {dataset_name}")
+    def get_profile_request(
+        self, table: BaseTable, schema_name: str, db_name: str
+    ) -> Optional[TableProfilerRequest]:
+        profile_request = super().get_profile_request(table, schema_name, db_name)
+
+        if not profile_request:
             return None
 
+        # Below code handles profiling changes required for partitioned or sharded tables
+        # 1. Skip profile if partition profiling is disabled.
+        # 2. Else update `profile_request.batch_kwargs` with partition and custom_sql
+
+        bq_table = cast(BigqueryTable, table)
         (partition, custom_sql) = self.generate_partition_profiler_query(
-            project, dataset, table, self.config.profiling.partition_datetime
+            db_name, schema_name, bq_table, self.config.profiling.partition_datetime
         )
-        if partition is None and table.partition_info:
+
+        if partition is None and bq_table.partition_info:
             self.report.report_warning(
                 "profile skipped as partitioned table is empty or partition id or type was invalid",
-                dataset_name,
+                profile_request.pretty_name,
             )
             return None
         if (
@@ -268,24 +229,20 @@ WHERE
             and not self.config.profiling.partition_profiling_enabled
         ):
             logger.debug(
-                f"{dataset_name} and partition {partition} is skipped because profiling.partition_profiling_enabled property is disabled"
+                f"{profile_request.pretty_name} and partition {partition} is skipped because profiling.partition_profiling_enabled property is disabled"
             )
             self.report.profiling_skipped_partition_profiling_disabled.append(
-                dataset_name
+                profile_request.pretty_name
             )
             return None
 
-        self.report.report_entity_profiled(dataset_name)
-        logger.debug(f"Preparing profiling request for {dataset_name}")
-        profile_request = BigqueryProfilerRequest(
-            pretty_name=dataset_name,
-            batch_kwargs=dict(
-                schema=project,
-                table=f"{dataset}.{table.name}",
-                custom_sql=custom_sql,
-                partition=partition,
-            ),
-            table=table,
-            profile_table_level_only=profile_table_level_only,
-        )
+        if partition:
+            logger.debug("Updating profiling request for partitioned/sharded tables")
+            profile_request.batch_kwargs.update(
+                dict(
+                    custom_sql=custom_sql,
+                    partition=partition,
+                )
+            )
+
         return profile_request

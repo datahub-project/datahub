@@ -9,6 +9,10 @@ ext {
     docker_registry = rootProject.ext.docker_registry == 'linkedin' ? 'acryldata' : docker_registry
     docker_repo = 'datahub-ingestion'
     docker_dir = 'datahub-ingestion'
+    docker_target = project.getProperties().getOrDefault("dockerTarget", "slim")
+    docker_version = "${version}${docker_target == 'slim' ? '-slim' : ''}"
+
+    revision = 2 // increment to trigger rebuild
 }
 
 dependencies {
@@ -17,21 +21,19 @@ dependencies {
 }
 
 docker {
-    name "${docker_registry}/${docker_repo}:v${version}-slim"
-    version "v${version}-slim"
-    dockerfile file("${rootProject.projectDir}/docker/${docker_dir}/Dockerfile-slim-only")
+    name "${docker_registry}/${docker_repo}:v${docker_version}"
+    version "v${docker_version}"
+    dockerfile file("${rootProject.projectDir}/docker/${docker_dir}/Dockerfile${docker_target == "slim" ? "-slim-only" : ""}")
     files fileTree(rootProject.projectDir) {
+        include '.dockerignore'
         include "docker/${docker_dir}/*"
         include "metadata-ingestion/**"
         include "metadata-ingestion-modules/**"
     }.exclude {
-        i -> i.file.isHidden() ||
-                i.file == buildDir ||
-                i.file == project(':metadata-ingestion').buildDir ||
-                i.file == project(':metadata-ingestion-modules').buildDir
+        i -> (!i.file.name.endsWith(".dockerignore") && i.file.isHidden())
     }
     buildArgs([DOCKER_VERSION: version,
-               RELEASE_VERSION: version.replace('-SNAPSHOT', '').replace('v', '').replace('-slim', '')])
+               RELEASE_VERSION: version.replace('-SNAPSHOT', '').replace('v', '').replace("-slim", '')])
 }
 tasks.getByName('docker').dependsOn(['build',
                                      ':docker:datahub-ingestion-base:docker',

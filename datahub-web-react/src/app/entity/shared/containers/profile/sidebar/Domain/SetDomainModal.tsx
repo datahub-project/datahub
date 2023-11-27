@@ -1,6 +1,8 @@
 import React, { useRef, useState } from 'react';
-import { Button, Form, message, Modal, Select } from 'antd';
+import { Button, Form, message, Modal, Select, Empty } from 'antd';
+import { LoadingOutlined } from '@ant-design/icons';
 
+import styled from 'styled-components/macro';
 import { useGetSearchResultsLazyQuery } from '../../../../../../../graphql/search.generated';
 import { Domain, Entity, EntityType } from '../../../../../../../types.generated';
 import { useBatchSetDomainMutation } from '../../../../../../../graphql/mutations.generated';
@@ -12,6 +14,7 @@ import { tagRender } from '../tagRenderer';
 import { BrowserWrapper } from '../../../../../../shared/tags/AddTagsTermsModal';
 import DomainNavigator from '../../../../../../domain/nestedDomains/domainNavigator/DomainNavigator';
 import ClickOutside from '../../../../../../shared/ClickOutside';
+import { ANTD_GRAY } from '../../../../constants';
 
 type Props = {
     urns: string[];
@@ -28,6 +31,18 @@ type SelectedDomain = {
     urn: string;
 };
 
+const LoadingWrapper = styled.div`
+    padding: 8px;
+    display: flex;
+    justify-content: center;
+
+    svg {
+        height: 15px;
+        width: 15px;
+        color: ${ANTD_GRAY[8]};
+    }
+`;
+
 export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOkOverride, titleOverride }: Props) => {
     const entityRegistry = useEntityRegistry();
     const [isFocusedOnInput, setIsFocusedOnInput] = useState(false);
@@ -41,7 +56,7 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOk
               }
             : undefined,
     );
-    const [domainSearch, { data: domainSearchData }] = useGetSearchResultsLazyQuery();
+    const [domainSearch, { data: domainSearchData, loading }] = useGetSearchResultsLazyQuery();
     const domainSearchResults =
         domainSearchData?.search?.searchResults?.map((searchResult) => searchResult.entity) || [];
     const [batchSetDomainMutation] = useBatchSetDomainMutation();
@@ -206,8 +221,23 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOk
                             onBlur={handleBlur}
                             onFocus={() => setIsFocusedOnInput(true)}
                             dropdownStyle={isShowingDomainNavigator ? { display: 'none' } : {}}
+                            notFoundContent={
+                                <Empty
+                                    description="No Domains Found"
+                                    image={Empty.PRESENTED_IMAGE_SIMPLE}
+                                    style={{ color: ANTD_GRAY[7] }}
+                                />
+                            }
                         >
-                            {domainSearchOptions}
+                            {loading ? (
+                                <Select.Option value="loading">
+                                    <LoadingWrapper>
+                                        <LoadingOutlined />
+                                    </LoadingWrapper>
+                                </Select.Option>
+                            ) : (
+                                domainSearchOptions
+                            )}
                         </Select>
                         <BrowserWrapper isHidden={!isShowingDomainNavigator}>
                             <DomainNavigator selectDomainOverride={selectDomainFromBrowser} />
