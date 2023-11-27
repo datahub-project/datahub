@@ -724,10 +724,13 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
             dataset_urn, table, str(datahub_dataset_name)
         )
 
+        patch_builder = DatasetPatchBuilder(dataset_urn)
+        patch_builder.set_display_name(table.name)
+        patch_builder.set_description(table.comment)
+        # patch_builder.set_qualified_name(str(datahub_dataset_name))
+
         if custom_properties:
-            patch_builder = DatasetPatchBuilder(dataset_urn)
-            for key, value in custom_properties.items():
-                patch_builder.add_custom_property(key, value)
+            patch_builder.set_custom_properties(custom_properties)
             for patch_mcp in patch_builder.build():
                 yield MetadataWorkUnit(
                     id=f"{dataset_urn}-{patch_mcp.aspectName}", mcp=patch_mcp
