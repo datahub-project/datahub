@@ -1,6 +1,7 @@
 import json
 from datetime import datetime, timezone
 
+from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.time_window_config import BucketDuration
 from datahub.ingestion.source.snowflake import snowflake_query
 from datahub.ingestion.source.snowflake.snowflake_query import SnowflakeQuery
@@ -263,6 +264,8 @@ def default_query_results(  # noqa: C901
             top_n_queries=10,
             include_top_n_queries=True,
             time_bucket_size=BucketDuration.DAY,
+            email_domain=None,
+            email_filter=AllowDenyPattern.allow_all(),
         )
     ):
         return []

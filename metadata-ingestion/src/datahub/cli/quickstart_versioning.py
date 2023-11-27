@@ -21,6 +21,7 @@ DEFAULT_REMOTE_CONFIG_PATH = "https://raw.githubusercontent.com/datahub-project/
 class QuickstartExecutionPlan(BaseModel):
     composefile_git_ref: str
     docker_tag: str
+    mysql_tag: Optional[str]
 
 
 def _is_it_a_version(version: str) -> bool:
@@ -81,7 +82,7 @@ class QuickstartVersionMappingConfig(BaseModel):
             return QuickstartVersionMappingConfig(
                 quickstart_version_map={
                     "default": QuickstartExecutionPlan(
-                        composefile_git_ref="master", docker_tag="head"
+                        composefile_git_ref="master", docker_tag="head", mysql_tag="5.7"
                     ),
                 }
             )
@@ -93,7 +94,7 @@ class QuickstartVersionMappingConfig(BaseModel):
             try:
                 release = cls._fetch_latest_version()
                 config.quickstart_version_map["stable"] = QuickstartExecutionPlan(
-                    composefile_git_ref=release, docker_tag=release
+                    composefile_git_ref=release, docker_tag=release, mysql_tag=release
                 )
             except Exception:
                 click.echo(
@@ -103,7 +104,8 @@ class QuickstartVersionMappingConfig(BaseModel):
         return config
 
     def get_quickstart_execution_plan(
-        self, requested_version: Optional[str]
+        self,
+        requested_version: Optional[str],
     ) -> QuickstartExecutionPlan:
         """
         From the requested version and stable flag, returns the execution plan for the quickstart.
@@ -114,10 +116,14 @@ class QuickstartVersionMappingConfig(BaseModel):
             requested_version = "default"
         composefile_git_ref = requested_version
         docker_tag = requested_version
+        # Default to 5.7 if not specified in version map
+        mysql_tag = "5.7"
         result = self.quickstart_version_map.get(
             requested_version,
             QuickstartExecutionPlan(
-                composefile_git_ref=composefile_git_ref, docker_tag=docker_tag
+                composefile_git_ref=composefile_git_ref,
+                docker_tag=docker_tag,
+                mysql_tag=mysql_tag,
             ),
         )
         # new CLI version is downloading the composefile corresponding to the requested version

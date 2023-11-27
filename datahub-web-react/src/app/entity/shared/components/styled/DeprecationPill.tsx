@@ -83,15 +83,24 @@ export const DeprecationPill = ({ deprecation, urn, refetch, showUndeprecate }: 
      * Deprecation Decommission Timestamp
      */
     const localeTimezone = getLocaleTimezone();
+
+    let decommissionTimeSeconds;
+    if (deprecation.decommissionTime) {
+        if (deprecation.decommissionTime < 943920000000) {
+            // Time is set in way past if it was milli-second so considering this as set in seconds
+            decommissionTimeSeconds = deprecation.decommissionTime;
+        } else {
+            decommissionTimeSeconds = deprecation.decommissionTime / 1000;
+        }
+    }
     const decommissionTimeLocal =
-        (deprecation.decommissionTime &&
+        (decommissionTimeSeconds &&
             `Scheduled to be decommissioned on ${moment
-                .unix(deprecation.decommissionTime)
+                .unix(decommissionTimeSeconds)
                 .format('DD/MMM/YYYY')} (${localeTimezone})`) ||
         undefined;
     const decommissionTimeGMT =
-        deprecation.decommissionTime &&
-        moment.unix(deprecation.decommissionTime).utc().format('dddd, DD/MMM/YYYY HH:mm:ss z');
+        decommissionTimeSeconds && moment.unix(decommissionTimeSeconds).utc().format('dddd, DD/MMM/YYYY HH:mm:ss z');
 
     const hasDetails = deprecation.note !== '' || deprecation.decommissionTime !== null;
     const isDividerNeeded = deprecation.note !== '' && deprecation.decommissionTime !== null;

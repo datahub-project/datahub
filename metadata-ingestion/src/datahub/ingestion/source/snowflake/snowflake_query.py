@@ -1,5 +1,6 @@
 from typing import List, Optional
 
+from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.time_window_config import BucketDuration
 from datahub.ingestion.source.snowflake.constants import SnowflakeObjectDomain
 from datahub.ingestion.source.snowflake.snowflake_config import DEFAULT_TABLES_DENY_LIST
@@ -551,6 +552,8 @@ class SnowflakeQuery:
         use_base_objects: bool,
         top_n_queries: int,
         include_top_n_queries: bool,
+        email_domain: Optional[str],
+        email_filter: AllowDenyPattern,
     ) -> str:
         if not include_top_n_queries:
             top_n_queries = 0
@@ -561,6 +564,9 @@ class SnowflakeQuery:
         objects_column = (
             "BASE_OBJECTS_ACCESSED" if use_base_objects else "DIRECT_OBJECTS_ACCESSED"
         )
+        email_filter_query = SnowflakeQuery.gen_email_filter_query(email_filter)
+
+        email_domain = f"@{email_domain}" if email_domain else ""
 
         return f"""
         WITH object_access_history AS
@@ -578,12 +584,16 @@ class SnowflakeQuery:
                         query_id,
                         query_start_time,
                         user_name,
+                        NVL(USERS.email, CONCAT(user_name, '{email_domain}')) AS user_email,
                         {objects_column}
                     from
                         snowflake.account_usage.access_history
+                    LEFT JOIN
+                        snowflake.account_usage.users USERS
                     WHERE
                         query_start_time >= to_timestamp_ltz({start_time_millis}, 3)
                         AND query_start_time < to_timestamp_ltz({end_time_millis}, 3)
+                        {email_filter_query}
                 )
                 t,
                 lateral flatten(input => t.{objects_column}) object
@@ -704,6 +714,34 @@ class SnowflakeQuery:
         order by
             basic_usage_counts.bucket_start_time
         """
+
+    @staticmethod
+    def gen_email_filter_query(email_filter: AllowDenyPattern) -> str:
+        allow_filters = []
+        allow_filter = ""
+        if len(email_filter.allow) == 1 and email_filter.allow[0] == ".*":
+            allow_filter = ""
+        else:
+            for allow_pattern in email_filter.allow:
+                allow_filters.append(
+                    f"rlike(user_name, '{allow_pattern}','{'i' if email_filter.ignoreCase else 'c'}')"
+                )
+            if allow_filters:
+                allow_filter = " OR ".join(allow_filters)
+                allow_filter = f"AND ({allow_filter})"
+        deny_filters = []
+        deny_filter = ""
+        for deny_pattern in email_filter.deny:
+            deny_filters.append(
+                f"rlike(user_name, '{deny_pattern}','{'i' if email_filter.ignoreCase else 'c'}')"
+            )
+        if deny_filters:
+            deny_filter = " OR ".join(deny_filters)
+            deny_filter = f"({deny_filter})"
+        email_filter_query = allow_filter + (
+            " AND" + f" NOT {deny_filter}" if deny_filter else ""
+        )
+        return email_filter_query
 
     @staticmethod
     def table_upstreams_with_column_lineage(

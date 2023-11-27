@@ -1982,9 +1982,16 @@ class LookMLSource(StatefulIngestionSourceBase):
             self.reporter,
         )
 
-        # some views can be mentioned by multiple 'include' statements and can be included via different connections.
-        # So this set is used to prevent creating duplicate events
+        # Some views can be mentioned by multiple 'include' statements and can be included via different connections.
+
+        # This map is used to keep track of which views files have already been processed
+        # for a connection in order to prevent creating duplicate events.
+        # Key: connection name, Value: view file paths
         processed_view_map: Dict[str, Set[str]] = {}
+
+        # This map is used to keep track of the connection that a view is processed with.
+        # Key: view unique identifier - determined by variables present in config `view_naming_pattern`
+        # Value: Tuple(model file name, connection name)
         view_connection_map: Dict[str, Tuple[str, str]] = {}
 
         # The ** means "this directory and all subdirectories", and hence should
@@ -2148,13 +2155,17 @@ class LookMLSource(StatefulIngestionSourceBase):
                             if self.source_config.view_pattern.allowed(
                                 maybe_looker_view.id.view_name
                             ):
+                                view_urn = maybe_looker_view.id.get_urn(
+                                    self.source_config
+                                )
                                 view_connection_mapping = view_connection_map.get(
-                                    maybe_looker_view.id.view_name
+                                    view_urn
                                 )
                                 if not view_connection_mapping:
-                                    view_connection_map[
-                                        maybe_looker_view.id.view_name
-                                    ] = (model_name, model.connection)
+                                    view_connection_map[view_urn] = (
+                                        model_name,
+                                        model.connection,
+                                    )
                                     # first time we are discovering this view
                                     logger.debug(
                                         f"Generating MCP for view {raw_view['name']}"
