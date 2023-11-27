@@ -895,6 +895,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 (upstream, node.dbt_name)
                 for node in all_nodes_map.values()
                 for upstream in node.upstream_nodes
+                if upstream in all_nodes_map
             ),
         ):
             node = all_nodes_map[dbt_name]

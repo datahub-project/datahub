@@ -195,6 +195,9 @@ class SqlParsingBuilder:
                 upstreams.append(edge.gen_upstream_aspect())
                 fine_upstreams.extend(edge.gen_fine_grained_lineage_aspects())
 
+            if not upstreams:
+                continue
+
             upstream_lineage = UpstreamLineageClass(
                 upstreams=sorted(upstreams, key=lambda x: x.dataset),
                 fineGrainedLineages=sorted(
