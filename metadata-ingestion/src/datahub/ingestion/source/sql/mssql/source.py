@@ -138,7 +138,7 @@ class SQLServerConfig(BasicSQLAlchemyConfig):
 
     @property
     def db(self):
-        return self.database_alias or self.database
+        return self.database
 
 
 @platform_name("Microsoft SQL Server", id="mssql")
@@ -660,10 +660,7 @@ class SQLServerSource(SQLAlchemySource):
         regular = f"{schema}.{entity}"
         qualified_table_name = regular
         if self.config.database:
-            if self.config.database_alias:
-                qualified_table_name = f"{self.config.database_alias}.{regular}"
-            else:
-                qualified_table_name = f"{self.config.database}.{regular}"
+            qualified_table_name = f"{self.config.database}.{regular}"
         if self.current_database:
             qualified_table_name = f"{self.current_database}.{regular}"
         return (
