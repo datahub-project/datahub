@@ -159,6 +159,11 @@ class SnowflakeV2Config(
         description="Format user urns as an email, if the snowflake user's email is set. If `email_domain` is provided, generates email addresses for snowflake users with unset emails, based on their username.",
     )
 
+    extract_access_control: bool = Field(
+        default=False,
+        description="Whether to extract snowflake access control metadata.",
+    )
+
     @validator("convert_urns_to_lowercase")
     def validate_convert_urns_to_lowercase(cls, v):
         if not v:

@@ -175,6 +175,19 @@ class SnowflakeCommonMixin:
     ) -> str:
         return self.snowflake_identifier(f"{db_name}.{schema_name}.{table_name}")
 
+    def get_datapolicy_identifier(
+        self: SnowflakeCommonProtocol,
+        dataset_identifier: str,
+        role_name: str,
+        privilege: str,
+    ) -> str:
+        return self.snowflake_identifier(
+            f"{dataset_identifier}#{role_name}#{privilege}"
+        )
+
+    def get_role_identifier(self: SnowflakeCommonProtocol, role_name: str) -> str:
+        return self.snowflake_identifier(f"{role_name}")
+
     # Qualified Object names from snowflake audit logs have quotes for for snowflake quoted identifiers,
     # For example "test-database"."test-schema".test_table
     # whereas we generate urns without quotes even for quoted identifiers for backward compatibility

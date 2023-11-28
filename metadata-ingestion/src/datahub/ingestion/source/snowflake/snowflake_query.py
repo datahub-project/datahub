@@ -197,7 +197,7 @@ class SnowflakeQuery:
         FROM table("{db_name}".information_schema.tag_references_all_columns('{quoted_table_identifier}', '{SnowflakeObjectDomain.TABLE}'));
         """
 
-    # View definition is retrived in information_schema query only if role is owner of view. Hence this query is not used.
+    # View definition is retrieved in information_schema query only if role is owner of view. Hence this query is not used.
     # https://community.snowflake.com/s/article/Is-it-possible-to-see-the-view-definition-in-information-schema-views-from-a-non-owner-role
     @staticmethod
     def views_for_database(db_name: Optional[str]) -> str:
@@ -870,3 +870,28 @@ class SnowflakeQuery:
                 ORDER BY
                     downstream_table_name
             """
+
+    """
+    Table documentation is available at: https://docs.snowflake.com/en/sql-reference/info-schema/object_privileges
+    """
+
+    @staticmethod
+    def role_privileges(database: str) -> str:
+        """
+        This Information Schema view displays a row for each access
+        privilege granted for all objects defined in your account
+        """
+        return f"""
+            SELECT
+                GRANTOR,
+                GRANTEE AS "ROLE_NAME",
+                OBJECT_SCHEMA AS "SCHEMA_NAME",
+                OBJECT_NAME AS "DATASET_NAME",
+                OBJECT_TYPE,
+                PRIVILEGE_TYPE AS "PRIVILEGE",
+                IS_GRANTABLE
+            FROM
+                {database}.INFORMATION_SCHEMA.OBJECT_PRIVILEGES
+            WHERE
+                OBJECT_TYPE in ('TABLE', 'VIEW')
+        """

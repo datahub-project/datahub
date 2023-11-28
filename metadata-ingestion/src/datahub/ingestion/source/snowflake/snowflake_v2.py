@@ -13,6 +13,7 @@ from snowflake.connector import SnowflakeConnection
 from datahub.configuration.pattern_utils import is_schema_allowed
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
+    make_data_policy_urn_with_platform_instance,
     make_dataset_urn,
     make_dataset_urn_with_platform_instance,
     make_schema_field_urn,
@@ -48,6 +49,9 @@ from datahub.ingestion.source.snowflake.constants import (
     SNOWFLAKE_DATABASE,
     SnowflakeEdition,
     SnowflakeObjectDomain,
+)
+from datahub.ingestion.source.snowflake.snowflake_access_control import (
+    SnowflakeAccessControl,
 )
 from datahub.ingestion.source.snowflake.snowflake_config import (
     SnowflakeV2Config,
@@ -287,6 +291,15 @@ class SnowflakeV2Source(
                 config=self.config,
                 pipeline_name=self.ctx.pipeline_name,
                 run_id=self.ctx.run_id,
+            )
+
+        self.snowflake_access_control_extractor: Optional[SnowflakeAccessControl] = None
+        if self.config.extract_access_control:
+            self.snowflake_access_control_extractor = SnowflakeAccessControl(
+                config=self.config,
+                report=self.report,
+                dataset_urn_builder=self.gen_dataset_urn,
+                datapolicy_urn_builder=self.gen_datapolicy_urn,
             )
 
         if config.is_profiling_enabled():
@@ -609,6 +622,11 @@ class SnowflakeV2Source(
             self.config.include_usage_stats or self.config.include_operational_stats
         ) and self.usage_extractor:
             yield from self.usage_extractor.get_usage_workunits(discovered_datasets)
+
+        if self.snowflake_access_control_extractor is not None:
+            yield from self.snowflake_access_control_extractor.get_workunits(
+                databases=databases
+            )
 
     def report_cache_info(self):
         lru_cache_functions: List[Callable] = [
@@ -1039,6 +1057,14 @@ class SnowflakeV2Source(
         return make_dataset_urn_with_platform_instance(
             platform=self.platform,
             name=dataset_identifier,
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
+        )
+
+    def gen_datapolicy_urn(self, datapolicy_identifier: str) -> str:
+        return make_data_policy_urn_with_platform_instance(
+            platform=self.platform,
+            name=datapolicy_identifier,
             platform_instance=self.config.platform_instance,
             env=self.config.env,
         )

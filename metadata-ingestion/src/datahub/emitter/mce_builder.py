@@ -17,7 +17,6 @@ from typing import (
     cast,
     get_type_hints,
 )
-from datahub.utilities.urns.data_policy_urn import DataPolicyUrn
 
 import typing_inspect
 
@@ -48,6 +47,7 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.utilities.urn_encoder import UrnEncoder
 from datahub.utilities.urns.data_flow_urn import DataFlowUrn
+from datahub.utilities.urns.data_policy_urn import DataPolicyUrn
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 
 logger = logging.getLogger(__name__)

@@ -3,7 +3,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime
 from functools import lru_cache
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 import pandas as pd
 from snowflake.connector import SnowflakeConnection
@@ -113,6 +113,25 @@ class SnowflakeDatabase:
     last_altered: Optional[datetime] = None
     schemas: List[SnowflakeSchema] = field(default_factory=list)
     tags: Optional[List[SnowflakeTag]] = None
+
+
+@dataclass
+class SnowflakeRole:
+    name: str  # Role name
+    database_name: str
+    schema_name: str
+    dataset_name: str
+    privilege: str
+
+    @staticmethod
+    def create(row: Dict[Any, Any]) -> "SnowflakeRole":
+        return SnowflakeRole(
+            name=row["ROLE_NAME"],
+            database_name=row["DATABASE_NAME"],
+            schema_name=row["SCHEMA_NAME"],
+            dataset_name=row["DATASET_NAME"],
+            privilege=row["PRIVILEGE"],
+        )
 
 
 class _SnowflakeTagCache:

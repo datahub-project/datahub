@@ -3,8 +3,8 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.metadata.com.linkedin.pegasus2avro.datapolicy import DataMaskingPolicy
 from datahub.metadata.schema_classes import (
+    ActorsClass,
     ChangeTypeClass,
-    RolePropertiesClass,
     CorpUserInfoClass,
     DataPolicyInfoClass,
     DataPolicyTypeClass,
@@ -14,8 +14,8 @@ from datahub.metadata.schema_classes import (
     ResourceKeywordClass,
     ResourcePrincipalPolicyClass,
     ResourceReferenceClass,
+    RolePropertiesClass,
     RoleUserClass,
-    ActorsClass,
 )
 
 corp_role_info = RolePropertiesClass(name="analyst")
@@ -35,14 +35,7 @@ dataset_info = DatasetPropertiesClass(description="sales dataset")
 dataset_urn = builder.make_dataset_urn("postgres", "db.public.sale")
 
 actors = ActorsClass(
-    users=[
-        RoleUserClass(
-            user=corp_user_1_urn
-        ),
-        RoleUserClass(
-            user=corp_user_2_urn
-        )
-    ]
+    users=[RoleUserClass(user=corp_user_1_urn), RoleUserClass(user=corp_user_2_urn)]
 )
 
 
@@ -100,7 +93,7 @@ role_mcp = MetadataChangeProposalWrapper(
     aspect=corp_role_info,
 )
 
-analyst_role_users = MetadataChangeProposalWrapper( # role users
+analyst_role_users = MetadataChangeProposalWrapper(  # role users
     changeType=ChangeTypeClass.UPSERT,
     entityUrn=corp_role_urn,
     aspect=actors,
