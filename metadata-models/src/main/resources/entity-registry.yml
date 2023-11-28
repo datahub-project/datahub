@@ -67,6 +67,7 @@ entities:
       - institutionalMemory
       - dataPlatformInstance
       - browsePathsV2
+      - subTypes
   - name: dataFlow
     category: core
     keyAspect: dataFlowKey
