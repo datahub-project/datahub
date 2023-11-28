@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.actionrequest;
 
 import com.datahub.authentication.Authentication;
+import com.google.common.collect.ImmutableList;
 import com.linkedin.actionrequest.ActionRequestInfo;
 import com.linkedin.actionrequest.CreateGlossaryNodeProposal;
 import com.linkedin.actionrequest.CreateGlossaryTermProposal;
@@ -91,8 +92,10 @@ public class ActionRequestUtils {
             Collectors.toList()));
         actionRequest.setAssignedGroups(actionRequestInfo.getAssignedGroups().stream().map(Urn::toString).collect(
             Collectors.toList()));
-        actionRequest.setAssignedRoles(actionRequestInfo.getAssignedRoles().stream().map(Urn::toString).collect(
-            Collectors.toList()));
+
+        List<String> roles = actionRequestInfo.hasAssignedRoles() ? actionRequestInfo.getAssignedRoles()
+            .stream().map(Urn::toString).collect(Collectors.toList()) : ImmutableList.of();
+        actionRequest.setAssignedRoles(roles);
 
         if (actionRequestInfo.hasResource()) {
           // For now, resource must be of Urn type to qualify. This assumption needs to be documented explicitly somewhere.
