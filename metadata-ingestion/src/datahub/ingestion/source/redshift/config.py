@@ -87,7 +87,7 @@ class RedshiftConfig(
         hidden_from_schema=True,
     )
 
-    _database_alias_deprecation = pydantic_removed_field("database_alias")
+    _database_alias_removed = pydantic_removed_field("database_alias")
 
     default_schema: str = Field(
         default="public",
