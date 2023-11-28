@@ -149,6 +149,8 @@
     "resolutions": {
         "@ant-design/colors": "6.0.0",
         "refractor": "3.3.1",
-        "json-schema": "0.4.0"
+        "json-schema": "0.4.0",
+        "ansi-regex": "3.0.1",
+        "minimatch": "3.0.5"
     }
 }
