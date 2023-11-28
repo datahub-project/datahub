@@ -57,7 +57,13 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import MetadataWorkUnitProcessor, Source
+from datahub.ingestion.api.source import (
+    CapabilityReport,
+    MetadataWorkUnitProcessor,
+    Source,
+    TestableSource,
+    TestConnectionReport,
+)
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source import tableau_constant as c
 from datahub.ingestion.source.common.subtypes import (
@@ -456,7 +462,7 @@ class TableauSourceReport(StaleEntityRemovalSourceReport):
     SourceCapability.LINEAGE_FINE,
     "Enabled by default, configure using `extract_column_level_lineage`",
 )
-class TableauSource(StatefulIngestionSourceBase):
+class TableauSource(StatefulIngestionSourceBase, TestableSource):
     platform = "tableau"
 
     def __hash__(self):
@@ -495,6 +501,19 @@ class TableauSource(StatefulIngestionSourceBase):
         self.custom_sql_ids_being_used: List[str] = []
 
         self._authenticate()
+
+    @staticmethod
+    def test_connection(config_dict: dict) -> TestConnectionReport:
+        test_report = TestConnectionReport()
+        try:
+            source_config = TableauConfig.parse_obj_allow_extras(config_dict)
+            source_config.make_tableau_client()
+            test_report.basic_connectivity = CapabilityReport(capable=True)
+        except Exception as e:
+            test_report.basic_connectivity = CapabilityReport(
+                capable=False, failure_reason=str(e)
+            )
+        return test_report
 
     def close(self) -> None:
         try:
