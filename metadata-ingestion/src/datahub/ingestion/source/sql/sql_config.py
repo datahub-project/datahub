@@ -145,7 +145,7 @@ class SQLAlchemyConnectionConfig(ConfigModel):
         ),
     )
 
-    _database_alias_deprecation = pydantic_removed_field("database_alias")
+    _database_alias_removed = pydantic_removed_field("database_alias")
 
     def get_sql_alchemy_url(
         self, uri_opts: Optional[Dict[str, Any]] = None, database: Optional[str] = None
