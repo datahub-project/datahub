@@ -1,7 +1,6 @@
 import { Image, Typography } from 'antd';
 import React from 'react';
 import styled, { useTheme } from 'styled-components';
-import dataHubLogo from '../../../images/datahublogo.png';
 import { ANTD_GRAY } from '../../entity/shared/constants';
 
 const Section = styled.div`
@@ -63,7 +62,7 @@ export const ErrorSection = (): JSX.Element => {
         <Section>
             <div>
                 <TitleSection>
-                    <Image src={dataHubLogo} preview={false} style={{ width: 40 }} />
+                    <Image src={themeConfig.assets.logoUrl} style={{ width: 40 }} preview={false} />
                     <TitleText strong>{themeConfig.content.title}</TitleText>
                 </TitleSection>
                 <MessageSection>
