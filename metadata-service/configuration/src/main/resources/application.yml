@@ -292,6 +292,8 @@ bootstrap:
     file: ${BOOTSTRAP_POLICIES_FILE:classpath:boot/policies.json}
     # eg for local file
     # file: "file:///datahub/datahub-gms/resources/custom-policies.json"
+  ownershipTypes:
+    file: ${BOOTSTRAP_OWNERSHIP_TYPES_FILE:classpath:boot/ownership_types.json}
   servlets:
     waitTimeout: ${BOOTSTRAP_SERVLETS_WAITTIMEOUT:60} # Total waiting time in seconds for servlets to initialize
 
