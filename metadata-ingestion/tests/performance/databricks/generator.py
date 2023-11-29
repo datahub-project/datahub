@@ -9,11 +9,7 @@ from urllib.parse import urlparse
 from databricks.sdk import WorkspaceClient
 from databricks.sdk.core import DatabricksError
 from databricks.sdk.service.catalog import ColumnTypeName
-from performance.data_generation import (
-    Distribution,
-    LomaxDistribution,
-    SeedMetadata,
-)
+from performance.data_generation import Distribution, LomaxDistribution, SeedMetadata
 from performance.data_model import ColumnType, Container, Table, View
 from performance.databricks.unity_proxy_mock import _convert_column_type
 from sqlalchemy import create_engine
