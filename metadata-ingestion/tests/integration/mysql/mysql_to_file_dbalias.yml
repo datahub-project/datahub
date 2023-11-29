@@ -6,7 +6,6 @@ source:
     username: root
     password: example
     database: metagalaxy
-    database_alias: foogalaxy
     host_port: localhost:53307
     schema_pattern:
       allow:

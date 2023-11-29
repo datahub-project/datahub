@@ -8,7 +8,7 @@ from pydantic.fields import Field
 from datahub.configuration import ConfigModel
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import DatasetLineageProviderConfigBase
-from datahub.configuration.validate_field_deprecation import pydantic_field_deprecated
+from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.ingestion.source.data_lake_common.path_spec import PathSpec
 from datahub.ingestion.source.sql.postgres import BasePostgresConfig
 from datahub.ingestion.source.state.stateful_ingestion_base import (
@@ -87,10 +87,7 @@ class RedshiftConfig(
         hidden_from_schema=True,
     )
 
-    _database_alias_deprecation = pydantic_field_deprecated(
-        "database_alias",
-        message="database_alias is deprecated. Use platform_instance instead.",
-    )
+    _database_alias_removed = pydantic_removed_field("database_alias")
 
     default_schema: str = Field(
         default="public",
@@ -151,10 +148,8 @@ class RedshiftConfig(
         return values
 
     @root_validator(skip_on_failure=True)
-    def check_database_or_database_alias_set(cls, values):
-        assert values.get("database") or values.get(
-            "database_alias"
-        ), "either database or database_alias must be set"
+    def check_database_is_set(cls, values):
+        assert values.get("database"), "database must be set"
         return values
 
     @root_validator(skip_on_failure=True)

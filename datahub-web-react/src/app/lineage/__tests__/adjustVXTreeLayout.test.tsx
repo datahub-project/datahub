@@ -1,5 +1,5 @@
 import React from 'react';
-import { Tree, hierarchy } from '@vx/hierarchy';
+import { Tree, hierarchy } from '@visx/hierarchy';
 import { render } from '@testing-library/react';
 
 import {

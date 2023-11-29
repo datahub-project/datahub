@@ -70,7 +70,6 @@ def test_trino_ingest(
                 "config": TrinoConfig(
                     host_port="localhost:5300",
                     database="postgresqldb",
-                    database_alias="library_catalog",
                     username="foo",
                     schema_pattern=AllowDenyPattern(allow=["^librarydb"]),
                     profile_pattern=AllowDenyPattern(

@@ -7,7 +7,6 @@ source:
     password: test!Password
     database: DemoData
     host_port: localhost:51433
-    database_alias: DemoDataAlias
     convert_urns_to_lowercase: true
     # use_odbc: True
     # uri_args:

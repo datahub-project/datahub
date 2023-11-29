@@ -96,6 +96,8 @@ class SupersetConfig(StatefulIngestionConfigBase, ConfigModel):
         default=DEFAULT_ENV,
         description="Environment to use in namespace when constructing URNs",
     )
+    # TODO: Check and remove this if no longer needed.
+    # Config database_alias is removed from sql sources.
     database_alias: Dict[str, str] = Field(
         default={},
         description="Can be used to change mapping for database names in superset to what you have in datahub",

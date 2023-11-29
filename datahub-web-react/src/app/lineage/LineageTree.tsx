@@ -1,5 +1,5 @@
 import React, { useContext, useEffect, useMemo, useState } from 'react';
-import { TransformMatrix } from '@vx/zoom/lib/types';
+import { TransformMatrix } from '@visx/zoom/lib/types';
 
 import { NodeData, EntitySelectParams, TreeProps, EntityAndType, FetchedEntity, UpdatedLineages } from './types';
 import LineageTreeNodeAndEdgeRenderer from './LineageTreeNodeAndEdgeRenderer';
