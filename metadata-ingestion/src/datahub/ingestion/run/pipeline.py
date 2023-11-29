@@ -332,6 +332,7 @@ class Pipeline:
         preview_workunits: int = 10,
         report_to: Optional[str] = "datahub",
         no_default_report: bool = False,
+        no_progress: bool = False,
         raw_config: Optional[dict] = None,
     ) -> "Pipeline":
         config = PipelineConfig.from_dict(config_dict, raw_config)
@@ -342,6 +343,7 @@ class Pipeline:
             preview_workunits=preview_workunits,
             report_to=report_to,
             no_default_report=no_default_report,
+            no_progress=no_progress,
         )
 
     def _time_to_print(self) -> bool:
