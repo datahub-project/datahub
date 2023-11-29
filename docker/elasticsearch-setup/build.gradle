@@ -27,6 +27,16 @@ docker {
     buildx(true)
     load(true)
     push(false)
+
+    // Add build args if they are defined (needed for some CI or enterprise environments)
+    def dockerBuildArgs = [:]
+    if (project.hasProperty('alpineApkRepositoryUrl')) {
+        dockerBuildArgs.ALPINE_REPO_URL = project.getProperty('alpineApkRepositoryUrl')
+    }
+
+    if (dockerBuildArgs.size() > 0) {
+        buildArgs(dockerBuildArgs)
+    }
 }
 tasks.getByName('docker').dependsOn('build')
 

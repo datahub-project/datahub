@@ -329,8 +329,6 @@ class PrestoOnHiveSource(SQLAlchemySource):
         )
 
     def get_db_name(self, inspector: Inspector) -> str:
-        if self.config.database_alias:
-            return f"{self.config.database_alias}"
         if self.config.database:
             return f"{self.config.database}"
         else:
