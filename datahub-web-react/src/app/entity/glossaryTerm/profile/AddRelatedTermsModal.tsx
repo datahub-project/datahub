@@ -34,6 +34,7 @@ function AddRelatedTermsModal(props: Props) {
     const [AddRelatedTerms] = useAddRelatedTermsMutation();
 
     function addTerms() {
+        message.loading({ content: 'Adding...' });
         AddRelatedTerms({
             variables: {
                 input: {
@@ -43,19 +44,19 @@ function AddRelatedTermsModal(props: Props) {
                 },
             },
         })
-            .catch((e) => {
-                message.destroy();
-                message.error({ content: `Failed to move: \n ${e.message || ''}`, duration: 3 });
-            })
-            .finally(() => {
-                message.loading({ content: 'Adding...', duration: 2 });
+            .then(() => {
                 setTimeout(() => {
+                    refetch();
+                    message.destroy();
                     message.success({
                         content: 'Added Related Terms!',
                         duration: 2,
                     });
-                    refetch();
                 }, 2000);
+            })
+            .catch((e) => {
+                message.destroy();
+                message.error({ content: `Failed to move: \n ${e.message || ''}`, duration: 3 });
             });
         onClose();
     }
