@@ -120,6 +120,7 @@ entities:
       - globalTags
       - glossaryTerms
       - browsePathsV2
+      - subTypes
   - name: dashboard
     keyAspect: dashboardKey
     aspects:
@@ -262,6 +263,7 @@ entities:
       - assertionInfo
       - dataPlatformInstance
       - assertionRunEvent
+      - assertionActions
       - status
   - name: dataHubRetention
     category: internal
@@ -457,4 +459,12 @@ entities:
     aspects:
       - ownershipTypeInfo
       - status
+  - name: dataContract
+    category: core
+    keyAspect: dataContractKey
+    aspects:
+      - dataContractProperties
+      - dataContractStatus
+      - status
+
 events:

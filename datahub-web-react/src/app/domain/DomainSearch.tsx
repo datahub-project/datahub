@@ -1,17 +1,12 @@
-import React, { CSSProperties, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useRef, useState } from 'react';
+import { LoadingOutlined } from '@ant-design/icons';
 import styled from 'styled-components/macro';
-import Highlight from 'react-highlighter';
 import { useGetSearchResultsForMultipleQuery } from '../../graphql/search.generated';
 import { EntityType } from '../../types.generated';
-import { IconStyleType } from '../entity/Entity';
-import { ANTD_GRAY } from '../entity/shared/constants';
 import { SearchBar } from '../search/SearchBar';
 import ClickOutside from '../shared/ClickOutside';
 import { useEntityRegistry } from '../useEntityRegistry';
-import DomainIcon from './DomainIcon';
-import ParentEntities from '../search/filters/ParentEntities';
-import { getParentDomains } from './utils';
+import DomainSearchResultItem from './DomainSearchResultItem';
 
 const DomainSearchWrapper = styled.div`
     position: relative;
@@ -33,34 +28,19 @@ const ResultsWrapper = styled.div`
     z-index: 1;
 `;
 
-const SearchResult = styled(Link)`
-    color: #262626;
+const LoadingWrapper = styled.div`
     display: flex;
     align-items: center;
-    gap: 8px;
-    height: 100%;
-    padding: 6px 8px;
-    width: 100%;
-    &:hover {
-        background-color: ${ANTD_GRAY[3]};
-        color: #262626;
-    }
+    justify-content: center;
+    height: 350px;
+    font-size: 30px;
 `;
-
-const IconWrapper = styled.span``;
-
-const highlightMatchStyle: CSSProperties = {
-    fontWeight: 'bold',
-    background: 'none',
-    padding: 0,
-};
 
 function DomainSearch() {
     const [query, setQuery] = useState('');
     const [isSearchBarFocused, setIsSearchBarFocused] = useState(false);
     const entityRegistry = useEntityRegistry();
-
-    const { data } = useGetSearchResultsForMultipleQuery({
+    const { data, loading } = useGetSearchResultsForMultipleQuery({
         variables: {
             input: {
                 types: [EntityType.Domain],
@@ -69,17 +49,37 @@ function DomainSearch() {
                 count: 50,
             },
         },
-        skip: !query,
     });
 
     const searchResults = data?.searchAcrossEntities?.searchResults;
     const timerRef = useRef(-1);
+
     const handleQueryChange = (q: string) => {
         window.clearTimeout(timerRef.current);
         timerRef.current = window.setTimeout(() => {
             setQuery(q);
         }, 250);
     };
+
+    const renderLoadingIndicator = () => (
+        <LoadingWrapper>
+            <LoadingOutlined />
+        </LoadingWrapper>
+    );
+
+    const renderSearchResults = () => (
+        <ResultsWrapper>
+            {searchResults?.map((result) => (
+                <DomainSearchResultItem
+                    key={result.entity.urn}
+                    entity={result.entity}
+                    entityRegistry={entityRegistry}
+                    query={query}
+                    onResultClick={() => setIsSearchBarFocused(false)}
+                />
+            ))}
+        </ResultsWrapper>
+    );
 
     return (
         <DomainSearchWrapper>
@@ -102,39 +102,8 @@ function DomainSearch() {
                     entityRegistry={entityRegistry}
                     onFocus={() => setIsSearchBarFocused(true)}
                 />
-                {isSearchBarFocused && searchResults && !!searchResults.length && (
-                    <ResultsWrapper>
-                        {searchResults.map((result) => {
-                            return (
-                                <SearchResult
-                                    to={entityRegistry.getEntityUrl(result.entity.type, result.entity.urn)}
-                                    onClick={() => setIsSearchBarFocused(false)}
-                                >
-                                    <IconWrapper>
-                                        {result.entity.type === EntityType.Domain ? (
-                                            <DomainIcon
-                                                style={{
-                                                    fontSize: 16,
-                                                    color: '#BFBFBF',
-                                                }}
-                                            />
-                                        ) : (
-                                            entityRegistry.getIcon(result.entity.type, 12, IconStyleType.ACCENT)
-                                        )}
-                                    </IconWrapper>
-                                    <div>
-                                        <ParentEntities
-                                            parentEntities={getParentDomains(result.entity, entityRegistry)}
-                                        />
-                                        <Highlight matchStyle={highlightMatchStyle} search={query}>
-                                            {entityRegistry.getDisplayName(result.entity.type, result.entity)}
-                                        </Highlight>
-                                    </div>
-                                </SearchResult>
-                            );
-                        })}
-                    </ResultsWrapper>
-                )}
+                {loading && renderLoadingIndicator()}
+                {!loading && isSearchBarFocused && !!searchResults?.length && renderSearchResults()}
             </ClickOutside>
         </DomainSearchWrapper>
     );

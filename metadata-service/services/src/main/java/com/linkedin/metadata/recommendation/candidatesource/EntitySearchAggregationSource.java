@@ -82,7 +82,7 @@ public abstract class EntitySearchAggregationSource implements RecommendationSou
   public List<RecommendationContent> getRecommendations(@Nonnull Urn userUrn,
       @Nullable RecommendationRequestContext requestContext) {
     Map<String, Long> aggregationResult =
-        _entitySearchService.aggregateByValue(null, getSearchFieldName(), null, getMaxContent());
+        _entitySearchService.aggregateByValue(getEntityNames(), getSearchFieldName(), null, getMaxContent());
 
     if (aggregationResult.isEmpty()) {
       return Collections.emptyList();
@@ -114,6 +114,11 @@ public abstract class EntitySearchAggregationSource implements RecommendationSou
     return getTopKValues(urnCounts).stream()
         .map(entry -> buildRecommendationContent(entry.getKey(), entry.getValue()))
         .collect(Collectors.toList());
+  }
+
+  protected List<String> getEntityNames() {
+    // By default, no list is applied which means searching across entities.
+    return null;
   }
 
   // Get top K entries with the most count

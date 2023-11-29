@@ -20,11 +20,17 @@ from datahub.emitter.sql_parsing_builder import SqlParsingBuilder
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
+    capability,
     config_class,
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import MetadataWorkUnitProcessor, Source, SourceReport
+from datahub.ingestion.api.source import (
+    MetadataWorkUnitProcessor,
+    Source,
+    SourceCapability,
+    SourceReport,
+)
 from datahub.ingestion.api.source_helpers import auto_workunit_reporter
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DataHubGraph
@@ -83,6 +89,8 @@ class SqlQueriesSourceReport(SourceReport):
 @platform_name("SQL Queries")
 @config_class(SqlQueriesSourceConfig)
 @support_status(SupportStatus.TESTING)
+@capability(SourceCapability.LINEAGE_COARSE, "Parsed from SQL queries")
+@capability(SourceCapability.LINEAGE_FINE, "Parsed from SQL queries")
 class SqlQueriesSource(Source):
     # TODO: Documentation
     urns: Optional[Set[str]]

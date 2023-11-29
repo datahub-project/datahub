@@ -2,11 +2,11 @@ CREATE DATABASE NewData;
 GO
 USE NewData;
 GO
-CREATE TABLE ProductsNew (ID int, ProductName nvarchar(max));
+CREATE TABLE ProductsNew (ID int, ProductName nvarchar(max), Price money);
 GO
 CREATE SCHEMA FooNew;
 GO
-CREATE TABLE FooNew.ItemsNew (ID int, ItemName nvarchar(max));
+CREATE TABLE FooNew.ItemsNew (ID int, ItemName nvarchar(max), Price smallmoney);
 GO
 CREATE TABLE FooNew.PersonsNew (
     ID int NOT NULL PRIMARY KEY,
@@ -45,7 +45,7 @@ CREATE TABLE Foo.SalesReason
    )
 ;
 GO
-CREATE PROCEDURE Foo.DBs @ID INT
+CREATE PROCEDURE [Foo].[Proc.With.SpecialChar] @ID INT
 AS
     SELECT @ID AS ThatDB;
 GO

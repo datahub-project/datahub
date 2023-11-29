@@ -2,8 +2,10 @@ name: Lint actions
 on:
   pull_request:
     paths:
-      - '.github/workflows/**'
+      - ".github/workflows/**"
 
+    branches:
+      - "**"
 jobs:
   actionlint:
     runs-on: ubuntu-latest

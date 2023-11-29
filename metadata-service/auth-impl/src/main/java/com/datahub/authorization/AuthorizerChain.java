@@ -82,7 +82,7 @@ public class AuthorizerChain implements Authorizer {
   }
 
   @Override
-  public AuthorizedActors authorizedActors(String privilege, Optional<ResourceSpec> resourceSpec) {
+  public AuthorizedActors authorizedActors(String privilege, Optional<EntitySpec> resourceSpec) {
     if (this.authorizers.isEmpty()) {
       return null;
     }
@@ -126,11 +126,16 @@ public class AuthorizerChain implements Authorizer {
       mergedGroups = new ArrayList<>(groups);
     }
 
+    Set<Urn> roles = new HashSet<>(original.getRoles());
+    roles.addAll(other.getRoles());
+    List<Urn> mergedRoles = new ArrayList<>(roles);
+
     return AuthorizedActors.builder()
         .allUsers(original.isAllUsers() || other.isAllUsers())
         .allGroups(original.isAllGroups() || other.isAllGroups())
         .users(mergedUsers)
         .groups(mergedGroups)
+        .roles(mergedRoles)
         .build();
   }
 

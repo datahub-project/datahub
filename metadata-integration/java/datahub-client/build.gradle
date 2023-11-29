@@ -30,7 +30,7 @@ dependencies {
   implementation(externalDependency.kafkaAvroSerializer) {
     exclude group: "org.apache.avro"
   }
-  implementation externalDependency.avro_1_7
+  implementation externalDependency.avro
   constraints {
     implementation('commons-collections:commons-collections:3.2.2') {
       because 'Vulnerability Issue'
@@ -97,6 +97,7 @@ shadowJar {
   // we can move to automatic relocation using ConfigureShadowRelocation after we get to a good place on these first
   relocate 'org.springframework', 'datahub.shaded.org.springframework'
   relocate 'com.fasterxml.jackson', 'datahub.shaded.jackson'
+  relocate 'org.yaml', 'io.acryl.shaded.org.yaml' // Required for shading snakeyaml
   relocate 'net.jcip.annotations', 'datahub.shaded.annotations'
   relocate 'javassist', 'datahub.shaded.javassist'
   relocate 'edu.umd.cs.findbugs', 'datahub.shaded.findbugs'

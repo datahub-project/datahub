@@ -1,6 +1,7 @@
 import logging
 import re
 import time
+from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
 from typing import Dict, Iterable, List, Optional, Set, Union
 from urllib.parse import urljoin
@@ -16,10 +17,12 @@ from datahub.emitter.mce_builder import (
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import (
     CatalogKey,
+    CatalogKeyWithMetastore,
     ContainerKey,
     MetastoreKey,
     NotebookKey,
     UnitySchemaKey,
+    UnitySchemaKeyWithMetastore,
     add_dataset_to_container,
     gen_containers,
 )
@@ -38,6 +41,7 @@ from datahub.ingestion.api.source import (
     TestConnectionReport,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.aws.s3_util import make_s3_urn_for_lineage
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
@@ -127,7 +131,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
     config: UnityCatalogSourceConfig
     unity_catalog_api_proxy: UnityCatalogApiProxy
     platform: str = "databricks"
-    platform_instance_name: str
+    platform_instance_name: Optional[str]
 
     def get_report(self) -> UnityCatalogReport:
         return self.report
@@ -146,11 +150,13 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         self.external_url_base = urljoin(self.config.workspace_url, "/explore/data")
 
         # Determine the platform_instance_name
-        self.platform_instance_name = (
-            config.workspace_name
-            if config.workspace_name is not None
-            else config.workspace_url.split("//")[1].split(".")[0]
-        )
+        self.platform_instance_name = self.config.platform_instance
+        if self.config.include_metastore:
+            self.platform_instance_name = (
+                config.workspace_name
+                if config.workspace_name is not None
+                else config.workspace_url.split("//")[1].split(".")[0]
+            )
 
         if self.config.domain:
             self.domain_registry = DomainRegistry(
@@ -182,9 +188,10 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
-        self.report.report_ingestion_stage_start("Start warehouse")
+        self.report.report_ingestion_stage_start("Ingestion Setup")
         wait_on_warehouse = None
         if self.config.is_profiling_enabled():
+            self.report.report_ingestion_stage_start("Start warehouse")
             # Can take several minutes, so start now and wait later
             wait_on_warehouse = self.unity_catalog_api_proxy.start_warehouse()
             if wait_on_warehouse is None:
@@ -194,8 +201,9 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 )
                 return
 
-        self.report.report_ingestion_stage_start("Ingest service principals")
-        self.build_service_principal_map()
+        if self.config.include_ownership:
+            self.report.report_ingestion_stage_start("Ingest service principals")
+            self.build_service_principal_map()
         if self.config.include_notebooks:
             self.report.report_ingestion_stage_start("Ingest notebooks")
             yield from self.process_notebooks()
@@ -247,10 +255,14 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
 
     def process_notebooks(self) -> Iterable[MetadataWorkUnit]:
         for notebook in self.unity_catalog_api_proxy.workspace_notebooks():
-            self.notebooks[str(notebook.id)] = notebook
-            yield from self._gen_notebook_aspects(notebook)
+            if not self.config.notebook_pattern.allowed(notebook.path):
+                self.report.notebooks.dropped(notebook.path)
+                continue
 
-    def _gen_notebook_aspects(self, notebook: Notebook) -> Iterable[MetadataWorkUnit]:
+            self.notebooks[str(notebook.id)] = notebook
+            yield from self._gen_notebook_workunits(notebook)
+
+    def _gen_notebook_workunits(self, notebook: Notebook) -> Iterable[MetadataWorkUnit]:
         mcps = MetadataChangeProposalWrapper.construct_many(
             entityUrn=self.gen_notebook_urn(notebook),
             aspects=[
@@ -270,7 +282,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 ),
                 SubTypesClass(typeNames=[DatasetSubTypes.NOTEBOOK]),
                 BrowsePathsClass(paths=notebook.path.split("/")),
-                # TODO: Add DPI aspect
+                self._create_data_platform_instance_aspect(),
             ],
         )
         for mcp in mcps:
@@ -296,14 +308,18 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         ).as_workunit()
 
     def process_metastores(self) -> Iterable[MetadataWorkUnit]:
-        metastore = self.unity_catalog_api_proxy.assigned_metastore()
-        yield from self.gen_metastore_containers(metastore)
+        metastore: Optional[Metastore] = None
+        if self.config.include_metastore:
+            metastore = self.unity_catalog_api_proxy.assigned_metastore()
+            yield from self.gen_metastore_containers(metastore)
         yield from self.process_catalogs(metastore)
+        if metastore and self.config.include_metastore:
+            self.report.metastores.processed(metastore.id)
 
-        self.report.metastores.processed(metastore.id)
-
-    def process_catalogs(self, metastore: Metastore) -> Iterable[MetadataWorkUnit]:
-        for catalog in self.unity_catalog_api_proxy.catalogs(metastore=metastore):
+    def process_catalogs(
+        self, metastore: Optional[Metastore]
+    ) -> Iterable[MetadataWorkUnit]:
+        for catalog in self._get_catalogs(metastore):
             if not self.config.catalog_pattern.allowed(catalog.id):
                 self.report.catalogs.dropped(catalog.id)
                 continue
@@ -312,6 +328,17 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             yield from self.process_schemas(catalog)
 
             self.report.catalogs.processed(catalog.id)
+
+    def _get_catalogs(self, metastore: Optional[Metastore]) -> Iterable[Catalog]:
+        if self.config.catalogs:
+            for catalog_name in self.config.catalogs:
+                catalog = self.unity_catalog_api_proxy.catalog(
+                    catalog_name, metastore=metastore
+                )
+                if catalog:
+                    yield catalog
+        else:
+            yield from self.unity_catalog_api_proxy.catalogs(metastore=metastore)
 
     def process_schemas(self, catalog: Catalog) -> Iterable[MetadataWorkUnit]:
         for schema in self.unity_catalog_api_proxy.schemas(catalog=catalog):
@@ -353,17 +380,9 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         operation = self._create_table_operation_aspect(table)
         domain = self._get_domain_aspect(dataset_name=table.ref.qualified_table_name)
         ownership = self._create_table_ownership_aspect(table)
-        data_platform_instance = self._create_data_platform_instance_aspect(table)
+        data_platform_instance = self._create_data_platform_instance_aspect()
 
-        if self.config.include_column_lineage:
-            self.unity_catalog_api_proxy.get_column_lineage(
-                table, include_entity_lineage=self.config.include_notebooks
-            )
-        elif self.config.include_table_lineage:
-            self.unity_catalog_api_proxy.table_lineage(
-                table, include_entity_lineage=self.config.include_notebooks
-            )
-        lineage = self._generate_lineage_aspect(dataset_urn, table)
+        lineage = self.ingest_lineage(table)
 
         if self.config.include_notebooks:
             for notebook_id in table.downstream_notebooks:
@@ -388,6 +407,28 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 ],
             )
         ]
+
+    def ingest_lineage(self, table: Table) -> Optional[UpstreamLineageClass]:
+        if self.config.include_table_lineage:
+            self.unity_catalog_api_proxy.table_lineage(
+                table, include_entity_lineage=self.config.include_notebooks
+            )
+
+        if self.config.include_column_lineage and table.upstreams:
+            if len(table.columns) > self.config.column_lineage_column_limit:
+                self.report.num_column_lineage_skipped_column_count += 1
+
+            with ThreadPoolExecutor(
+                max_workers=self.config.lineage_max_workers
+            ) as executor:
+                for column in table.columns[: self.config.column_lineage_column_limit]:
+                    executor.submit(
+                        self.unity_catalog_api_proxy.get_column_lineage,
+                        table,
+                        column.name,
+                    )
+
+        return self._generate_lineage_aspect(self.gen_dataset_urn(table.ref), table)
 
     def _generate_lineage_aspect(
         self, dataset_urn: str, table: Table
@@ -428,6 +469,28 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 )
             )
 
+        if self.config.include_external_lineage:
+            for external_ref in table.external_upstreams:
+                if not external_ref.has_permission or not external_ref.path:
+                    self.report.num_external_upstreams_lacking_permissions += 1
+                    logger.warning(
+                        f"Lacking permissions for external file upstream on {table.ref}"
+                    )
+                elif external_ref.path.startswith("s3://"):
+                    upstreams.append(
+                        UpstreamClass(
+                            dataset=make_s3_urn_for_lineage(
+                                external_ref.path, self.config.env
+                            ),
+                            type=DatasetLineageTypeClass.COPY,
+                        )
+                    )
+                else:
+                    self.report.num_external_upstreams_unsupported += 1
+                    logger.warning(
+                        f"Unsupported external file upstream on {table.ref}: {external_ref.path}"
+                    )
+
         if upstreams:
             return UpstreamLineageClass(
                 upstreams=upstreams,
@@ -459,6 +522,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             platform=self.platform,
             platform_instance=self.platform_instance_name,
             name=str(table_ref),
+            env=self.config.env,
         )
 
     def gen_notebook_urn(self, notebook: Union[Notebook, NotebookId]) -> str:
@@ -503,42 +567,65 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
     def gen_catalog_containers(self, catalog: Catalog) -> Iterable[MetadataWorkUnit]:
         domain_urn = self._gen_domain_urn(catalog.name)
 
-        metastore_container_key = self.gen_metastore_key(catalog.metastore)
         catalog_container_key = self.gen_catalog_key(catalog)
         yield from gen_containers(
             container_key=catalog_container_key,
             name=catalog.name,
             sub_types=[DatasetContainerSubTypes.CATALOG],
             domain_urn=domain_urn,
-            parent_container_key=metastore_container_key,
+            parent_container_key=self.gen_metastore_key(catalog.metastore)
+            if self.config.include_metastore and catalog.metastore
+            else None,
             description=catalog.comment,
             owner_urn=self.get_owner_urn(catalog.owner),
             external_url=f"{self.external_url_base}/{catalog.name}",
         )
 
     def gen_schema_key(self, schema: Schema) -> ContainerKey:
-        return UnitySchemaKey(
-            unity_schema=schema.name,
-            platform=self.platform,
-            instance=self.config.platform_instance,
-            catalog=schema.catalog.name,
-            metastore=schema.catalog.metastore.name,
-        )
+        if self.config.include_metastore:
+            assert schema.catalog.metastore
+            return UnitySchemaKeyWithMetastore(
+                unity_schema=schema.name,
+                platform=self.platform,
+                instance=self.config.platform_instance,
+                catalog=schema.catalog.name,
+                metastore=schema.catalog.metastore.name,
+                env=self.config.env,
+            )
+        else:
+            return UnitySchemaKey(
+                unity_schema=schema.name,
+                platform=self.platform,
+                instance=self.config.platform_instance,
+                catalog=schema.catalog.name,
+                env=self.config.env,
+            )
 
     def gen_metastore_key(self, metastore: Metastore) -> MetastoreKey:
         return MetastoreKey(
             metastore=metastore.name,
             platform=self.platform,
             instance=self.config.platform_instance,
+            env=self.config.env,
         )
 
-    def gen_catalog_key(self, catalog: Catalog) -> CatalogKey:
-        return CatalogKey(
-            catalog=catalog.name,
-            metastore=catalog.metastore.name,
-            platform=self.platform,
-            instance=self.config.platform_instance,
-        )
+    def gen_catalog_key(self, catalog: Catalog) -> ContainerKey:
+        if self.config.include_metastore:
+            assert catalog.metastore
+            return CatalogKeyWithMetastore(
+                catalog=catalog.name,
+                metastore=catalog.metastore.name,
+                platform=self.platform,
+                instance=self.config.platform_instance,
+                env=self.config.env,
+            )
+        else:
+            return CatalogKey(
+                catalog=catalog.name,
+                platform=self.platform,
+                instance=self.config.platform_instance,
+                env=self.config.env,
+            )
 
     def _gen_domain_urn(self, dataset_name: str) -> Optional[str]:
         domain_urn: Optional[str] = None
@@ -643,15 +730,16 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         return None
 
     def _create_data_platform_instance_aspect(
-        self, table: Table
+        self,
     ) -> Optional[DataPlatformInstanceClass]:
-        # Only ingest the DPI aspect if the flag is true
         if self.config.ingest_data_platform_instance_aspect:
             return DataPlatformInstanceClass(
                 platform=make_data_platform_urn(self.platform),
                 instance=make_dataplatform_instance_urn(
                     self.platform, self.platform_instance_name
-                ),
+                )
+                if self.platform_instance_name
+                else None,
             )
         return None
 

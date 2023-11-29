@@ -2,6 +2,7 @@ package com.datahub.auth.authentication.filter;
 
 import com.datahub.authentication.authenticator.AuthenticatorChain;
 import com.datahub.authentication.authenticator.DataHubSystemAuthenticator;
+import com.datahub.authentication.authenticator.HealthStatusAuthenticator;
 import com.datahub.authentication.authenticator.NoOpAuthenticator;
 import com.datahub.authentication.token.StatefulTokenService;
 import com.datahub.plugins.PluginConstant;
@@ -29,6 +30,7 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -148,7 +150,7 @@ public class AuthenticationFilter implements Filter {
   }
 
   private AuthenticationRequest buildAuthContext(HttpServletRequest request) {
-    return new AuthenticationRequest(Collections.list(request.getHeaderNames())
+    return new AuthenticationRequest(request.getServletPath(), request.getPathInfo(), Collections.list(request.getHeaderNames())
         .stream()
         .collect(Collectors.toMap(headerName -> headerName, request::getHeader)));
   }
@@ -242,7 +244,14 @@ public class AuthenticationFilter implements Filter {
         final Authenticator authenticator = clazz.newInstance();
         // Successfully created authenticator. Now init and register it.
         log.debug(String.format("Initializing Authenticator with name %s", type));
-        authenticator.init(configs, authenticatorContext);
+        if (authenticator instanceof HealthStatusAuthenticator) {
+          Map<String, Object> authenticatorConfig = new HashMap<>(Map.of(SYSTEM_CLIENT_ID_CONFIG,
+                  this.configurationProvider.getAuthentication().getSystemClientId()));
+          authenticatorConfig.putAll(Optional.ofNullable(internalAuthenticatorConfig.getConfigs()).orElse(Collections.emptyMap()));
+          authenticator.init(authenticatorConfig, authenticatorContext);
+        } else {
+          authenticator.init(configs, authenticatorContext);
+        }
         log.info(String.format("Registering Authenticator with name %s", type));
         authenticatorChain.register(authenticator);
       } catch (Exception e) {

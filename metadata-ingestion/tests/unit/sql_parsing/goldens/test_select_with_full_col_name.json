@@ -8,7 +8,13 @@
         {
             "downstream": {
                 "table": null,
-                "column": "post_id"
+                "column": "post_id",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                },
+                "native_column_type": "NUMERIC"
             },
             "upstreams": [
                 {
@@ -20,7 +26,9 @@
         {
             "downstream": {
                 "table": null,
-                "column": "id"
+                "column": "id",
+                "column_type": null,
+                "native_column_type": null
             },
             "upstreams": [
                 {

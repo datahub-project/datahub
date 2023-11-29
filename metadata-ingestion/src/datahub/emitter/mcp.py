@@ -240,7 +240,7 @@ class MetadataChangeProposalWrapper:
         return mcp
 
     def as_workunit(
-        self, *, treat_errors_as_warnings: bool = False
+        self, *, treat_errors_as_warnings: bool = False, is_primary_source: bool = True
     ) -> "MetadataWorkUnit":
         from datahub.ingestion.api.workunit import MetadataWorkUnit
 
@@ -254,10 +254,12 @@ class MetadataChangeProposalWrapper:
                 id=f"{self.entityUrn}-{self.aspectName}-{ts}",
                 mcp=self,
                 treat_errors_as_warnings=treat_errors_as_warnings,
+                is_primary_source=is_primary_source,
             )
 
         return MetadataWorkUnit(
             id=f"{self.entityUrn}-{self.aspectName}",
             mcp=self,
             treat_errors_as_warnings=treat_errors_as_warnings,
+            is_primary_source=is_primary_source,
         )

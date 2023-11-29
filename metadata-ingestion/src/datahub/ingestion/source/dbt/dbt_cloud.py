@@ -20,9 +20,8 @@ from datahub.ingestion.source.dbt.dbt_common import (
     DBTCommonConfig,
     DBTNode,
     DBTSourceBase,
-    DBTTest,
-    DBTTestResult,
 )
+from datahub.ingestion.source.dbt.dbt_tests import DBTTest, DBTTestResult
 
 logger = logging.getLogger(__name__)
 
@@ -47,6 +46,7 @@ class DBTCloudConfig(DBTCommonConfig):
         description="The ID of the job to ingest metadata from.",
     )
     run_id: Optional[int] = Field(
+        None,
         description="The ID of the run to ingest metadata from. If not specified, we'll default to the latest run.",
     )
 
