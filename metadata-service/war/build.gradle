@@ -83,6 +83,22 @@ docker {
   buildx(true)
   load(true)
   push(false)
+
+  // Add build args if they are defined (needed for some CI or enterprise environments)
+  def dockerBuildArgs = [:]
+  if (project.hasProperty('alpineApkRepositoryUrl')) {
+    dockerBuildArgs.ALPINE_REPO_URL = project.getProperty('alpineApkRepositoryUrl')
+  }
+  if (project.hasProperty('githubMirrorUrl')) {
+    dockerBuildArgs.GITHUB_REPO_URL = project.getProperty('githubMirrorUrl')
+  }
+  if (project.hasProperty('mavenCentralRepositoryUrl')) {
+    dockerBuildArgs.MAVEN_CENTRAL_REPO_URL = project.getProperty('mavenCentralRepositoryUrl')
+  }
+
+  if (dockerBuildArgs.size() > 0) {
+    buildArgs(dockerBuildArgs)
+  }
 }
 tasks.getByPath(":metadata-service:war:docker").dependsOn([build, war])
 
