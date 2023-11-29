@@ -1,8 +1,8 @@
 import React, { useMemo } from 'react';
-import { BarStack } from '@vx/shape';
-import { scaleOrdinal, scaleLinear, scaleBand } from '@vx/scale';
-import { Group } from '@vx/group';
-import { AxisBottom, AxisRight } from '@vx/axis';
+import { BarStack } from '@visx/shape';
+import { scaleOrdinal, scaleLinear, scaleBand } from '@visx/scale';
+import { Group } from '@visx/group';
+import { AxisBottom, AxisRight } from '@visx/axis';
 
 import { BarChart as BarChartType } from '../../../types.generated';
 import { lineColors } from './lineColors';
@@ -85,7 +85,7 @@ export const BarChart = ({ chartData, width, height }: Props) => {
             <svg width={width + WIDTH_MARGIN_SIZE} height={height}>
                 <rect x={0} y={0} width={width} height={height} fill="white" rx={14} />
                 <Group top={HEIGHT_MARGIN_SIZE} left={WIDTH_MARGIN_SIZE}>
-                    <BarStack<typeof transformedChartData[0], typeof keys[number]>
+                    <BarStack<(typeof transformedChartData)[0], (typeof keys)[number]>
                         data={transformedChartData}
                         keys={keys}
                         x={(data) => data.displayName}
