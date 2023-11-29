@@ -49,14 +49,6 @@ def ingest() -> None:
     required=True,
 )
 @click.option(
-    "-q",
-    "--quiet",
-    type=bool,
-    is_flag=True,
-    default=False,
-    help="Mute intermediate ingestion reports.",
-)
-@click.option(
     "-n",
     "--dry-run",
     type=bool,
@@ -105,20 +97,26 @@ def ingest() -> None:
 @click.option(
     "--no-spinner", type=bool, is_flag=True, default=False, help="Turn off spinner"
 )
+@click.option(
+    "--no-progress",
+    type=bool,
+    is_flag=True,
+    default=False,
+    help="If enabled, mute intermediate progress ingestion reports",
+)
 @telemetry.with_telemetry(
     capture_kwargs=[
-        "quiet",
         "dry_run",
         "preview",
         "strict_warnings",
         "test_source_connection",
         "no_default_report",
         "no_spinner",
+        "no_progress",
     ]
 )
 def run(
     config: str,
-    quiet: bool,
     dry_run: bool,
     preview: bool,
     strict_warnings: bool,
@@ -127,6 +125,7 @@ def run(
     report_to: str,
     no_default_report: bool,
     no_spinner: bool,
+    no_progress: bool,
 ) -> None:
     """Ingest metadata into DataHub."""
 
@@ -172,12 +171,12 @@ def run(
         # logger.debug(f"Using config: {pipeline_config}")
         pipeline = Pipeline.create(
             pipeline_config,
-            quiet,
             dry_run,
             preview,
             preview_workunits,
             report_to,
             no_default_report,
+            no_progress,
             raw_pipeline_config,
         )
 

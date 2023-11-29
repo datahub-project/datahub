@@ -168,20 +168,20 @@ class Pipeline:
     def __init__(
         self,
         config: PipelineConfig,
-        quiet: bool = False,
         dry_run: bool = False,
         preview_mode: bool = False,
         preview_workunits: int = 10,
         report_to: Optional[str] = None,
         no_default_report: bool = False,
+        no_progress: bool = False,
     ):
         self.config = config
-        self.quiet = quiet
         self.dry_run = dry_run
         self.preview_mode = preview_mode
         self.preview_workunits = preview_workunits
         self.report_to = report_to
         self.reporters: List[PipelineRunListener] = []
+        self.no_progress = no_progress
         self.num_intermediate_workunits = 0
         self.last_time_printed = int(time.time())
         self.cli_report = CliReport()
@@ -381,7 +381,7 @@ class Pipeline:
                     self.preview_workunits if self.preview_mode else None,
                 ):
                     try:
-                        if self._time_to_print() and not self.quiet:
+                        if self._time_to_print() and not self.no_progress:
                             self.pretty_print_summary(currently_running=True)
                     except Exception as e:
                         logger.warning(f"Failed to print summary {e}")

@@ -93,12 +93,12 @@ Usage: datahub [datahub-options] ingest [command-options]
 
 Command Options:
   -c / --config             Config file in .toml or .yaml format
-  -q / --quiet              Mute intermediate ingestion reports
   -n / --dry-run            Perform a dry run of the ingestion, essentially skipping writing to sink
   --preview                 Perform limited ingestion from the source to the sink to get a quick preview
   --preview-workunits       The number of workunits to produce for preview
   --strict-warnings         If enabled, ingestion runs with warnings will yield a non-zero error code
   --test-source-connection  When set, ingestion will only test the source connection details from the recipe
+  --no-progress             If enabled, mute intermediate progress ingestion reports
 ```
 #### ingest --dry-run
 
