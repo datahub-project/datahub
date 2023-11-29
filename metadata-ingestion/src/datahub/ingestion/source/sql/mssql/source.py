@@ -48,6 +48,7 @@ from datahub.ingestion.source.sql.sql_config import (
 )
 from datahub.metadata.schema_classes import (
     BooleanTypeClass,
+    NumberTypeClass,
     StringTypeClass,
     UnionTypeClass,
 )
@@ -55,6 +56,8 @@ from datahub.metadata.schema_classes import (
 logger: logging.Logger = logging.getLogger(__name__)
 
 register_custom_type(sqlalchemy.dialects.mssql.BIT, BooleanTypeClass)
+register_custom_type(sqlalchemy.dialects.mssql.MONEY, NumberTypeClass)
+register_custom_type(sqlalchemy.dialects.mssql.SMALLMONEY, NumberTypeClass)
 register_custom_type(sqlalchemy.dialects.mssql.SQL_VARIANT, UnionTypeClass)
 register_custom_type(sqlalchemy.dialects.mssql.UNIQUEIDENTIFIER, StringTypeClass)
 
@@ -135,7 +138,7 @@ class SQLServerConfig(BasicSQLAlchemyConfig):
 
     @property
     def db(self):
-        return self.database_alias or self.database
+        return self.database
 
 
 @platform_name("Microsoft SQL Server", id="mssql")
@@ -657,10 +660,7 @@ class SQLServerSource(SQLAlchemySource):
         regular = f"{schema}.{entity}"
         qualified_table_name = regular
         if self.config.database:
-            if self.config.database_alias:
-                qualified_table_name = f"{self.config.database_alias}.{regular}"
-            else:
-                qualified_table_name = f"{self.config.database}.{regular}"
+            qualified_table_name = f"{self.config.database}.{regular}"
         if self.current_database:
             qualified_table_name = f"{self.current_database}.{regular}"
         return (

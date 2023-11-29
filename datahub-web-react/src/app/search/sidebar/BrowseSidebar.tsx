@@ -26,12 +26,12 @@ const SidebarHeader = styled.div`
     white-space: nowrap;
 `;
 
-const SidebarBody = styled.div`
+const SidebarBody = styled.div<{ visible: boolean }>`
     height: calc(100% - 47px);
     padding-left: 16px;
     padding-right: 12px;
     padding-bottom: 200px;
-    overflow: auto;
+    overflow: ${(props) => (props.visible ? 'auto' : 'hidden')};
     white-space: nowrap;
 `;
 
@@ -50,7 +50,7 @@ const BrowseSidebar = ({ visible, width }: Props) => {
             <SidebarHeader>
                 <Typography.Text strong>Navigate</Typography.Text>
             </SidebarHeader>
-            <SidebarBody>
+            <SidebarBody visible={visible}>
                 {entityAggregations && !entityAggregations.length && <div>No results found</div>}
                 {entityAggregations?.map((entityAggregation) => (
                     <BrowseProvider key={entityAggregation.value} entityAggregation={entityAggregation}>
