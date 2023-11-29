@@ -607,7 +607,7 @@
     },
     {
       "Path": "docs/generated/ingestion/sources/teradata",
-      "imgPath": "img/logos/platform/teradata.svg",
+      "imgPath": "img/logos/platforms/teradata.svg",
       "Title": "Teradata",
       "Description": "Teradata is a data warehousing and analytics tool that allows users to store, manage, and analyze large amounts of data in a scalable and cost-effective manner.",
       "tags": {
