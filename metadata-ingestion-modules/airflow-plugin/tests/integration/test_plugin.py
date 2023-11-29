@@ -9,7 +9,7 @@ import random
 import signal
 import subprocess
 import time
-from typing import Iterator, Sequence
+from typing import Any, Iterator, Sequence
 
 import pytest
 import requests
@@ -390,7 +390,7 @@ def _sanitize_output_file(output_path: pathlib.Path) -> None:
         "duration": "<duration>",
     }
 
-    def _sanitize(obj) -> None:
+    def _sanitize(obj: Any) -> None:
         if isinstance(obj, dict) and "customProperties" in obj:
             replacement_props = (
                 props_process if "run_id" in obj["customProperties"] else props_job
