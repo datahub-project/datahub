@@ -1,6 +1,5 @@
 import logging
 import re
-import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
 from typing import Dict, Iterable, List, Optional, Set, Union
@@ -83,8 +82,6 @@ from datahub.metadata.schema_classes import (
     DomainsClass,
     MySqlDDLClass,
     NullTypeClass,
-    OperationClass,
-    OperationTypeClass,
     OwnerClass,
     OwnershipClass,
     OwnershipTypeClass,
