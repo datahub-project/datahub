@@ -88,9 +88,8 @@ def test_presto_on_hive_ingest(
                 "type": data_platform,
                 "config": {
                     "host_port": "localhost:5432",
-                    "database": "db1",
                     "metastore_db_name": "metastore",
-                    "database_alias": "hive",
+                    "database_pattern": {"allow": ["db1"]},
                     "username": "postgres",
                     "scheme": "postgresql+psycopg2",
                     "include_views": True,
@@ -152,7 +151,6 @@ def test_presto_on_hive_instance_ingest(
             "config": {
                 "host_port": "localhost:5432",
                 "database": "metastore",
-                "database_alias": "hive",
                 "username": "postgres",
                 "scheme": "postgresql+psycopg2",
                 "include_views": True,

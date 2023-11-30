@@ -167,6 +167,7 @@ project.ext.externalDependency = [
     'parquetHadoop': 'org.apache.parquet:parquet-hadoop:1.13.1',
     'picocli': 'info.picocli:picocli:4.5.0',
     'playCache': "com.typesafe.play:play-cache_2.12:$playVersion",
+    'playCaffeineCache': "com.typesafe.play:play-caffeine-cache_2.12:$playVersion",
     'playWs': 'com.typesafe.play:play-ahc-ws-standalone_2.12:2.1.10',
     'playDocs': "com.typesafe.play:play-docs_2.12:$playVersion",
     'playGuice': "com.typesafe.play:play-guice_2.12:$playVersion",
