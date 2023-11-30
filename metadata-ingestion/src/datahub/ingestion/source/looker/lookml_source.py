@@ -1455,7 +1455,7 @@ class LookerManifest:
 @support_status(SupportStatus.CERTIFIED)
 @capability(
     SourceCapability.PLATFORM_INSTANCE,
-    "Supported using the `connection_to_platform_map`",
+    "Use the `platform_instance` and `connection_to_platform_map` fields",
 )
 @capability(SourceCapability.LINEAGE_COARSE, "Supported by default")
 @capability(
