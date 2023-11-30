@@ -495,7 +495,7 @@ class BusinessGlossaryFileSource(Source):
     def load_glossary_config(
         cls, file_name: Union[str, pathlib.Path]
     ) -> BusinessGlossaryConfig:
-        config = load_config_file(file_name)
+        config = load_config_file(file_name, resolve_env_vars=True)
         glossary_cfg = BusinessGlossaryConfig.parse_obj(config)
         return glossary_cfg
 
