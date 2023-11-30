@@ -66,8 +66,8 @@ class DatahubRestHook(BaseHook):
         # We have a few places in the codebase that use this method directly, despite
         # it being "private". For now, we retain backwards compatibility by keeping
         # this method around, but should stop using it in the future.
-        config = self._get_config_v2()
-        return config[0], config[1], config[2].get("timeout_sec")
+        host, token, extra_args = self._get_config_v2()
+        return host, token, extra_args.get("timeout_sec")
 
     def _get_config_v2(self) -> Tuple[str, Optional[str], Dict]:
         conn: "Connection" = self.get_connection(self.datahub_rest_conn_id)
