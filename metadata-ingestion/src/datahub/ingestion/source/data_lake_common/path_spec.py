@@ -63,6 +63,11 @@ class PathSpec(ConfigModel):
         description="Not listing all the files but only taking a handful amount of sample file to infer the schema. File count and file size calculation will be disabled. This can affect performance significantly if enabled",
     )
 
+    allow_double_stars: bool = Field(
+        default=False,
+        description="Allow double stars in the include path. This can affect performance significantly if enabled",
+    )
+
     def allowed(self, path: str) -> bool:
         logger.debug(f"Checking file to inclusion: {path}")
         if not pathlib.PurePath(path).globmatch(
@@ -128,7 +133,7 @@ class PathSpec(ConfigModel):
 
     @pydantic.validator("include")
     def validate_no_double_stars(cls, v: str) -> str:
-        if "**" in v:
+        if "**" in v and not cls.allow_double_stars:
             raise ValueError("path_spec.include cannot contain '**'")
         return v
 
