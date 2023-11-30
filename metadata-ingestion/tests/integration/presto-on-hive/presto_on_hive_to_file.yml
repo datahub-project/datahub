@@ -5,7 +5,6 @@ source:
   config:
     host_port: localhost:5432
     database: metastore
-    database_alias: hive
     username: postgres
 
     scheme: "postgresql+psycopg2"

@@ -4,7 +4,11 @@ plugins {
 }
 
 repositories {
-    mavenCentral()
+    if (project.hasProperty('apacheMavenRepositoryUrl')) {
+        maven { url project.getProperty('apacheMavenRepositoryUrl') }
+    } else {
+        mavenCentral()
+    }
     mavenLocal()
 }
 

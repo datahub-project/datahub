@@ -142,6 +142,7 @@ def test_snowflake_basic(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
                                     type="datahub", config=datahub_classifier_config
                                 )
                             ],
+                            max_workers=1,
                         ),
                         profiling=GEProfilingConfig(
                             enabled=True,

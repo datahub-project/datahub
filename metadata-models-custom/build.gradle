@@ -2,7 +2,11 @@ import org.yaml.snakeyaml.Yaml
 
 buildscript {
     repositories{
-        mavenCentral()
+        if (project.hasProperty('apacheMavenRepositoryUrl')) {
+            maven { url project.getProperty('apacheMavenRepositoryUrl') }
+        } else {
+            mavenCentral()
+        }
     }
     dependencies {
         classpath("org.yaml:snakeyaml:1.33")

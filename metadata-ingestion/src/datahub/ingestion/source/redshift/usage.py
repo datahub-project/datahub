@@ -359,10 +359,6 @@ class RedshiftUsageExtractor:
                     self.report.num_usage_stat_skipped += 1
                     continue
 
-                # Replace database name with the alias name if one is provided in the config.
-                if self.config.database_alias:
-                    access_event.database = self.config.database_alias
-
                 if not self._should_process_event(access_event, all_tables=all_tables):
                     self.report.num_usage_stat_skipped += 1
                     continue

@@ -16,7 +16,7 @@ const ChartTitle = styled(Typography.Text)`
 
 const ChartCard = styled(Card)<{ visible: boolean }>`
     box-shadow: ${(props) => props.theme.styles['box-shadow']};
-    visibility: ${(props) => (props.visible ? 'visible' : 'hidden')}; ;
+    visibility: ${(props) => (props.visible ? 'visible' : 'hidden')};
 `;
 
 type Point = {
@@ -87,7 +87,7 @@ export default function StatChart({ title, values, tickInterval: interval, dateR
                     }}
                     width={360}
                     height={300}
-                    yScale={{ type: 'linear', includeZero: false }}
+                    yScale={{ type: 'linear', zero: false }}
                     yAxis={yAxis}
                 />
             </ChartContainer>
