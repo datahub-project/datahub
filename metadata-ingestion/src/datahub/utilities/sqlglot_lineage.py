@@ -966,6 +966,8 @@ def _get_dialect(platform: str) -> str:
         return "hive"
     if platform == "mssql":
         return "tsql"
+    if platform == "athena":
+        return "trino"
     else:
         return platform
 
