@@ -89,10 +89,9 @@ class DatahubRestHook(BaseHook):
     def make_emitter(self) -> "DatahubRestEmitter":
         import datahub.emitter.rest_emitter
 
-        config = self._get_config_v2()
-
+        host, token, extra_args = self._get_config_v2()
         return datahub.emitter.rest_emitter.DataHubRestEmitter(
-            config[0], config[1], **config[2]
+           host, token, **extra_args
         )
 
     def emit(
