@@ -59,6 +59,7 @@ class DataHubRestEmitter(Closeable, Emitter):
         self,
         gms_server: str,
         token: Optional[str] = None,
+        timeout_sec: Optional[float] = None,
         connect_timeout_sec: Optional[float] = None,
         read_timeout_sec: Optional[float] = None,
         retry_status_codes: Optional[List[int]] = None,
@@ -102,11 +103,12 @@ class DataHubRestEmitter(Closeable, Emitter):
         if disable_ssl_verification:
             self._session.verify = False
 
-        if connect_timeout_sec:
-            self._connect_timeout_sec = connect_timeout_sec
-
-        if read_timeout_sec:
-            self._read_timeout_sec = read_timeout_sec
+        self._connect_timeout_sec = (
+            connect_timeout_sec or timeout_sec or _DEFAULT_CONNECT_TIMEOUT_SEC
+        )
+        self._read_timeout_sec = (
+            read_timeout_sec or timeout_sec or _DEFAULT_READ_TIMEOUT_SEC
+        )
 
         if self._connect_timeout_sec < 1 or self._read_timeout_sec < 1:
             logger.warning(

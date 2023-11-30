@@ -12,7 +12,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
 if TYPE_CHECKING:
     from airflow.models.connection import Connection
     from datahub.emitter.kafka_emitter import DatahubKafkaEmitter
-    from datahub.emitter.rest_emitter import DatahubRestEmitter
+    from datahub.emitter.rest_emitter import DataHubRestEmitter
     from datahub.emitter.synchronized_file_emitter import SynchronizedFileEmitter
     from datahub.ingestion.sink.datahub_kafka import KafkaSinkConfig
 
@@ -86,12 +86,12 @@ class DatahubRestHook(BaseHook):
         extra_args = conn.extra_dejson
         return (host, token, extra_args)
 
-    def make_emitter(self) -> "DatahubRestEmitter":
+    def make_emitter(self) -> "DataHubRestEmitter":
         import datahub.emitter.rest_emitter
 
         host, token, extra_args = self._get_config_v2()
         return datahub.emitter.rest_emitter.DataHubRestEmitter(
-           host, token, **extra_args
+            host, token, **extra_args
         )
 
     def emit(
