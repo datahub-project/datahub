@@ -8,7 +8,6 @@ We could also get more human data by using Faker.
 This is a work in progress, built piecemeal as needed.
 NOTE: Only works on Python 3.9+ due to random.sample's counts parameter.
 """
-import dataclasses
 import random
 from abc import ABCMeta, abstractmethod
 from collections import OrderedDict
@@ -130,9 +129,7 @@ def generate_data(
     views = [
         View(
             **{  # type: ignore
-                **dataclasses.asdict(
-                    _generate_table(i, containers[-1], columns_per_table)
-                ),
+                **_generate_table(i, containers[-1], columns_per_table).__dict__,
                 "name": f"view_{i}",
                 "definition": f"--{'*' * view_definition_length.sample(floor=0)}",
             },
