@@ -151,6 +151,8 @@
         "refractor": "3.3.1",
         "json-schema": "0.4.0",
         "@babel/traverse": ">=7.23.2",
+        "ansi-regex": "3.0.1",
+        "minimatch": "3.0.5",
         "prismjs": "^1.27.0",
         "nth-check": "^2.0.1"
     }
