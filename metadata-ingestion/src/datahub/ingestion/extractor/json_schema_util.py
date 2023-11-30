@@ -2,7 +2,7 @@ import json
 import logging
 import unittest.mock
 from hashlib import md5
-from typing import Any, Callable, Dict, Iterable, List, Optional, Type
+from typing import Any, Callable, Dict, Iterable, List, Optional, Type, Union
 
 import jsonref
 import jsonschema
@@ -316,7 +316,7 @@ class JsonSchemaTranslator:
         return generic_type
 
     @staticmethod
-    def _get_description_from_any_schema(schema: Dict) -> str:
+    def _get_description_from_any_schema(schema: Dict) -> Union[str, None]:
         # we do a redundant `if description in schema` check to guard against the scenario that schema is not a dictionary
         empty_description = None
         if JsonSchemaTranslator._INJECT_EMPTY_DESCRIPTION:
