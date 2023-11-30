@@ -15,8 +15,8 @@ describe('Recommendations', () => {
                 mocks={mocks}
                 addTypename={false}
                 defaultOptions={{
-                    watchQuery: { fetchPolicy: 'no-cache' },
-                    query: { fetchPolicy: 'no-cache' },
+                    watchQuery: { fetchPolicy: 'cache-first' },
+                    query: { fetchPolicy: 'cache-first' },
                 }}
             >
                 <TestPageContainer>

@@ -292,6 +292,7 @@ export const dataset2 = {
         customProperties: [],
         origin: 'PROD',
         externalUrl: null,
+        __typename: 'DataPlatformProperties'
     },
     editableProperties: null,
     created: {
@@ -1639,10 +1640,13 @@ export const recommendationModules = [
         content: [
             {
                 entity: {
+                    __typename: 'DataPlatform',
                     ...dataset2,
                 },
+                __typename: 'RecommendationContent'
             },
         ],
+        __typename: 'RecommendationModule'
     },
     {
         title: 'Top Platforms',
@@ -1658,17 +1662,23 @@ export const recommendationModules = [
                         displayName: 'Snowflake',
                         datasetNameDelimiter: '.',
                         logoUrl: null,
+                        __typename: 'DataPlatformProperties'
                     },
                     displayName: null,
                     info: null,
+                    __typename: 'DataPlatform'
                 },
                 params: {
                     contentParams: {
                         count: 1,
+                        __typename: 'ContentParams'
                     },
+                    __typename: 'RecommendationParams'
                 },
+                __typename: 'RecommendationModule'
             },
         ],
+        __typename: 'RecommendationModule'
     },
     {
         title: 'Popular Tags',
@@ -1679,9 +1689,11 @@ export const recommendationModules = [
                 entity: {
                     urn: 'urn:li:tag:TestTag',
                     name: 'TestTag',
+                    __typename: 'DataPlatform'
                 },
             },
         ],
+        __typename: 'RecommendationModule'
     },
 ];
 
@@ -3404,8 +3416,10 @@ export const mocks = [
         },
         result: {
             data: {
+                __typename: 'Query',
                 listRecommendations: {
                     modules: [...recommendationModules],
+                    __typename: 'ListRecommendationsResult'
                 },
             },
         },
@@ -3429,8 +3443,10 @@ export const mocks = [
         },
         result: {
             data: {
+                __typename: 'Query',
                 listRecommendations: {
                     modules: [...recommendationModules],
+                    __typename: 'ListRecommendationsResult'
                 },
             },
         },
@@ -3454,8 +3470,10 @@ export const mocks = [
         },
         result: {
             data: {
+                __typename: 'Query',
                 listRecommendations: {
                     modules: [...recommendationModules],
+                    __typename: 'ListRecommendationsResult'
                 },
             },
         },
