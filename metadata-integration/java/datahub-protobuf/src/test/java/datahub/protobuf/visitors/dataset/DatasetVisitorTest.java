@@ -2,7 +2,6 @@ package datahub.protobuf.visitors.dataset;
 
 import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.data.template.RecordTemplate;
-import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.net.URISyntaxException;
@@ -14,9 +13,10 @@ import datahub.protobuf.ProtobufDataset;
 import datahub.protobuf.visitors.ProtobufModelVisitor;
 import datahub.protobuf.visitors.VisitContext;
 import datahub.event.MetadataChangeProposalWrapper;
+import org.testng.annotations.Test;
 
 import static datahub.protobuf.TestFixtures.*;
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.testng.Assert.assertEquals;
 
 
 public class DatasetVisitorTest {

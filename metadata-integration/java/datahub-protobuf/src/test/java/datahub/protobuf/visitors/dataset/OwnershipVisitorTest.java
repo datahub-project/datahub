@@ -6,7 +6,7 @@ import com.linkedin.common.OwnershipSourceType;
 import com.linkedin.common.OwnershipType;
 import com.linkedin.common.urn.Urn;
 import datahub.protobuf.model.ProtobufGraph;
-import org.junit.jupiter.api.Test;
+import org.testng.annotations.Test;
 
 import java.io.IOException;
 import java.util.List;
@@ -15,7 +15,7 @@ import java.util.stream.Collectors;
 
 import static datahub.protobuf.TestFixtures.getTestProtobufGraph;
 import static datahub.protobuf.TestFixtures.getVisitContextBuilder;
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.testng.Assert.assertEquals;
 
 
 public class OwnershipVisitorTest {

@@ -15,7 +15,7 @@ import com.linkedin.schema.SchemaFieldDataType;
 import com.linkedin.schema.StringType;
 import com.linkedin.util.Pair;
 import datahub.protobuf.ProtobufDataset;
-import org.junit.jupiter.api.Test;
+import org.testng.annotations.Test;
 
 import java.io.IOException;
 import java.net.URISyntaxException;
@@ -24,7 +24,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static datahub.protobuf.TestFixtures.*;
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.testng.Assert.assertEquals;
 
 
 public class ProtobufExtensionFieldVisitorTest {

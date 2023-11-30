@@ -1,7 +1,7 @@
 package datahub.protobuf.model;
 
 import com.google.protobuf.DescriptorProtos.FileDescriptorSet;
-import org.junit.jupiter.api.Test;
+import org.testng.annotations.Test;
 
 import java.io.IOException;
 import java.util.HashSet;
@@ -10,7 +10,9 @@ import java.util.stream.Collectors;
 
 import static datahub.protobuf.TestFixtures.getTestProtobufFileSet;
 import static datahub.protobuf.TestFixtures.getTestProtobufGraph;
-import static org.junit.jupiter.api.Assertions.*;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotEquals;
+import static org.testng.Assert.assertThrows;
 
 public class ProtobufGraphTest {
 

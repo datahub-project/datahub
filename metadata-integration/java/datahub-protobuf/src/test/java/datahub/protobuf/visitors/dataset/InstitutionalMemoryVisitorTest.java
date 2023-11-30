@@ -2,7 +2,7 @@ package datahub.protobuf.visitors.dataset;
 
 import com.linkedin.common.InstitutionalMemoryMetadata;
 import com.linkedin.common.url.Url;
-import org.junit.jupiter.api.Test;
+import org.testng.annotations.Test;
 
 import java.io.IOException;
 import java.util.List;
@@ -10,7 +10,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static datahub.protobuf.TestFixtures.*;
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.testng.Assert.assertEquals;
 
 
 public class InstitutionalMemoryVisitorTest {

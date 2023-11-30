@@ -26,7 +26,7 @@ import com.linkedin.util.Pair;
 import datahub.protobuf.model.ProtobufField;
 import datahub.protobuf.visitors.ProtobufModelVisitor;
 import datahub.protobuf.visitors.VisitContext;
-import org.junit.jupiter.api.Test;
+import org.testng.annotations.Test;
 
 import java.io.IOException;
 import java.util.Set;
@@ -34,8 +34,8 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static datahub.protobuf.TestFixtures.*;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotNull;
 
 
 public class ProtobufDatasetTest {

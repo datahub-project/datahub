@@ -7,7 +7,7 @@ import com.linkedin.schema.StringType;
 import com.linkedin.schema.UnionType;
 import com.linkedin.util.Pair;
 import datahub.protobuf.ProtobufDataset;
-import org.junit.jupiter.api.Test;
+import org.testng.annotations.Test;
 
 import java.io.IOException;
 import java.util.List;
@@ -16,7 +16,7 @@ import java.util.stream.Stream;
 
 import static datahub.protobuf.TestFixtures.getTestProtobufGraph;
 import static datahub.protobuf.TestFixtures.getVisitContextBuilder;
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.testng.Assert.assertEquals;
 
 
 public class SchemaFieldVisitorTest {
