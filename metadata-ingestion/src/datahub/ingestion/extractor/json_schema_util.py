@@ -185,6 +185,7 @@ class FieldPath:
 
 class JsonSchemaTranslator:
     _INJECT_DEFAULTS_INTO_DESCRIPTION = True
+    _INJECT_EMPTY_DESCRIPTION = True
 
     field_type_mapping: Dict[str, Type] = {
         "null": NullTypeClass,
@@ -317,8 +318,13 @@ class JsonSchemaTranslator:
     @staticmethod
     def _get_description_from_any_schema(schema: Dict) -> str:
         # we do a redundant `if description in schema` check to guard against the scenario that schema is not a dictionary
+        empty_description = None
+        if JsonSchemaTranslator._INJECT_EMPTY_DESCRIPTION:
+            empty_description = ""
         description = (
-            (schema.get("description") or "") if "description" in schema else ""
+            (schema.get("description") or empty_description)
+            if "description" in schema
+            else empty_description
         )
         if JsonSchemaTranslator._INJECT_DEFAULTS_INTO_DESCRIPTION:
             default = schema.get("default")

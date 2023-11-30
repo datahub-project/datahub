@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from os.path import basename, dirname
 from pathlib import Path
 from typing import Any, Iterable, List, Optional, Union
+from urllib.parse import urlparse
 
 import jsonref
 from pydantic import AnyHttpUrl, DirectoryPath, FilePath, validator
@@ -77,6 +78,14 @@ class JsonSchemaSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMix
     uri_replace_pattern: Optional[URIReplacePattern] = Field(
         default=None,
         description="Use this if URI-s need to be modified during reference resolution. Simple string match - replace capabilities are supported.",
+    )
+    inject_default_description: bool = Field(
+        default=True,
+        description="When enabled, injects a default description if one is not present in the schema",
+    )
+    inject_empty_description: bool = Field(
+        default=False,
+        description="When enabled, injects an empty description if one is not present in the schema",
     )
 
     @validator("path")
@@ -280,12 +289,14 @@ class JsonSchemaSource(StatefulIngestionSourceBase):
                 entityUrn=dataset_urn, aspect=models.StatusClass(removed=False)
             ).as_workunit()
 
+            external_url = JsonSchemaTranslator._get_id_from_any_schema(schema_dict)
+            external_url_parsed = urlparse(external_url)
+            if not all([external_url_parsed.scheme, external_url_parsed.netloc]):
+                external_url = None
             yield MetadataChangeProposalWrapper(
                 entityUrn=dataset_urn,
                 aspect=models.DatasetPropertiesClass(
-                    externalUrl=JsonSchemaTranslator._get_id_from_any_schema(
-                        schema_dict
-                    ),
+                    externalUrl=external_url,
                     name=dataset_simple_name,
                     description=JsonSchemaTranslator._get_description_from_any_schema(
                         schema_dict
@@ -327,6 +338,12 @@ class JsonSchemaSource(StatefulIngestionSourceBase):
         ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
+        JsonSchemaTranslator._INJECT_DEFAULTS_INTO_DESCRIPTION = (
+            self.config.inject_default_description
+        )
+        JsonSchemaTranslator._INJECT_EMPTY_DESCRIPTION = (
+            self.config.inject_empty_description
+        )
         if self.config.uri_replace_pattern:
             ref_loader = functools.partial(
                 self.stringreplaceloader,
