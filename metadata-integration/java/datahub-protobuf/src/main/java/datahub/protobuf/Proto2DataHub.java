@@ -67,7 +67,7 @@ public class Proto2DataHub {
     private static final Option OPTION_MESSAGE_NAME = Option.builder()
             .longOpt("message_name")
             .hasArg()
-            .desc("[Optional if using --directory] The protobuf message name to read from.")
+            .desc("[Optional] The protobuf message name to read from.")
             .build();
 
     private static final Option OPTION_DIR = Option.builder()
