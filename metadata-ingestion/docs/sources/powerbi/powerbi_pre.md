@@ -107,6 +107,10 @@ By default, extracting endorsement information to tags is disabled. The feature 
 
 Please note that the default implementation overwrites tags for the ingested entities, if you need to preserve existing tags, consider using a [transformer](../../../../metadata-ingestion/docs/transformer/dataset_transformer.md#simple-add-dataset-globaltags) with `semantics: PATCH` tags instead of `OVERWRITE`.
 
+## Profiling
+
+The profiling implementation is done through querying [DAX query endpoint](https://learn.microsoft.com/en-us/rest/api/power-bi/datasets/execute-queries). Therefore the principal needs to have permission to query the datasets to be profiled. Profiling is done with column based queries to be able to handle wide datasets without timeouts.
+
 ## Admin Ingestion vs. Basic Ingestion
 PowerBI provides two sets of API i.e. [Basic API and Admin API](https://learn.microsoft.com/en-us/rest/api/power-bi/). 
 

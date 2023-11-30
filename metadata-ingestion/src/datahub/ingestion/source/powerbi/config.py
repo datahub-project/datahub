@@ -235,7 +235,7 @@ class OwnershipMapping(ConfigModel):
 class PowerBiProfilingConfig(ConfigModel):
     enabled: bool = pydantic.Field(
         default=False,
-        description="Whether profiling should be done.",
+        description="Whether profiling of PowerBI datasets should be done",
     )
 
 
