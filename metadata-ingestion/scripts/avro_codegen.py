@@ -375,10 +375,15 @@ deprecated = functools.partial(_sphinx_deprecated, version="0.12.0.2")
 
 
 def capitalize_entity_name(entity_name: str) -> str:
+    # Examples:
+    # corpuser -> CorpUser
+    # corpGroup -> CorpGroup
+    # mlModelDeployment -> MlModelDeployment
+
     if entity_name == "corpuser":
         return "CorpUser"
 
-    return f"{entity_name[0].capitalize()}{entity_name[1:]}"
+    return f"{entity_name[0].upper()}{entity_name[1:]}"
 
 
 def python_type(avro_type: str) -> str:
@@ -410,6 +415,7 @@ def field_name(field: dict) -> str:
 
     # If the name is mixed case, convert to snake case.
     if name.lower() != name:
+        # Inject an underscore before each capital letter, and then convert to lowercase.
         return re.sub(r"(?<!^)(?=[A-Z])", "_", name).lower()
 
     return name
@@ -525,6 +531,21 @@ def get_notebook_id(self) -> str:
 
 
 def generate_urn_class(entity_type: str, key_aspect: dict) -> str:
+    """Generate a class definition for this entity.
+
+    The class definition has the following structure:
+    - A class attribute ENTITY_TYPE, which is the entity type string.
+    - A class attribute URN_PARTS, which is the number of parts in the URN.
+    - A constructor that takes the URN parts as arguments. The field names
+      will match the key aspect's field names. It will also have a _allow_coercion
+      flag, which will allow for some normalization (e.g. upper case env).
+      Then, each part will be validated (including nested calls for urn subparts).
+    - Utilities for converting to/from the key aspect.
+    - Any additional methods that are required for this entity type, defined above.
+      These are primarily for backwards compatibility.
+    - Getter methods for each field.
+    """
+
     class_name = f"{capitalize_entity_name(entity_type)}Urn"
 
     fields = copy.deepcopy(key_aspect["fields"])

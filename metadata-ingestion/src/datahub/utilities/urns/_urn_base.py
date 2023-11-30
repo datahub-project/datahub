@@ -90,12 +90,16 @@ class Urn:
     @classmethod
     def from_string(cls: Type[_UrnSelf], urn_str: str) -> "_UrnSelf":
         """
-        Create a Urn from the its string representation
+        Creates an Urn from its string representation.
 
-        :param urn_str: the string representation of the Urn
-        :return: Urn of the given string representation
+        Args:
+            urn_str: The string representation of the Urn.
 
-        :raises InvalidUrnError: if the string representation is in invalid format
+        Returns:
+            Urn of the given string representation.
+
+        Raises:
+            InvalidUrnError: If the string representation is in invalid format.
         """
 
         # TODO: Add handling for url encoded urns e.g. urn%3A ...
@@ -137,6 +141,8 @@ class Urn:
         return cls(entity_type, entity_ids)
 
     def urn(self) -> str:
+        """Get the string representation of the urn."""
+
         if len(self._entity_ids) == 1:
             return f"urn:li:{self._entity_type}:{self._entity_ids[0]}"
 
