@@ -6,6 +6,7 @@ by anonymizing and reduplicating a production datahub instance's data.
 We could also get more human data by using Faker.
 
 This is a work in progress, built piecemeal as needed.
+NOTE: Only works on Python 3.9+ due to random.sample's counts parameter.
 """
 import dataclasses
 import random
@@ -167,11 +168,10 @@ def generate_lineage(
     table_weights = [1 + (num_upstreams[i] * factor) for i in range(len(tables))]
     view_weights = [1] * len(views)
     for i, table in enumerate(tables):
-        factor = 1 + len(tables) // 10
         table.upstreams = random.sample(
             list(tables) + list(views),
             k=num_upstreams[i],
-            counts=table_weights + view_weights,
+            counts=table_weights + view_weights,  # type: ignore
         )
 
 
