@@ -26,6 +26,9 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.data_resolver import (
     AdminAPIResolver,
     RegularAPIResolver,
 )
+from datahub.ingestion.source.powerbi.rest_api_wrapper.powerbi_profiler import (
+    PowerBiDatasetProfilingResolver,
+)
 
 # Logger instance
 logger = logging.getLogger(__name__)
@@ -45,6 +48,13 @@ class PowerBiAPI:
             client_id=self.__config.client_id,
             client_secret=self.__config.client_secret,
             tenant_id=self.__config.tenant_id,
+        )
+
+        self.__profiling_resolver = PowerBiDatasetProfilingResolver(
+            client_id=self.__config.client_id,
+            client_secret=self.__config.client_secret,
+            tenant_id=self.__config.tenant_id,
+            config=self.__config,
         )
 
     def log_http_error(self, message: str) -> Any:
@@ -286,11 +296,12 @@ class PowerBiAPI:
 
         return [endorsement]
 
-    def _get_workspace_datasets(self, scan_result: Optional[dict]) -> dict:
+    def _get_workspace_datasets(self, workspace: Workspace) -> dict:
         """
         Filter out "dataset" from scan_result and return Dataset instance set
         """
         dataset_map: dict = {}
+        scan_result = workspace.scan_result
 
         if scan_result is None:
             return dataset_map
@@ -344,30 +355,33 @@ class PowerBiAPI:
                     and len(table[Constant.SOURCE]) > 0
                     else None
                 )
-                dataset_instance.tables.append(
-                    Table(
-                        name=table[Constant.NAME],
-                        full_name="{}.{}".format(
-                            dataset_name.replace(" ", "_"),
-                            table[Constant.NAME].replace(" ", "_"),
-                        ),
-                        expression=expression,
-                        columns=[
-                            Column(
-                                **column,
-                                datahubDataType=FIELD_TYPE_MAPPING.get(
-                                    column["dataType"], FIELD_TYPE_MAPPING["Null"]
-                                ),
-                            )
-                            for column in table.get("columns", [])
-                        ],
-                        measures=[
-                            Measure(**measure) for measure in table.get("measures", [])
-                        ],
-                        dataset=dataset_instance,
-                    )
+                table = Table(
+                    name=table[Constant.NAME],
+                    full_name="{}.{}".format(
+                        dataset_name.replace(" ", "_"),
+                        table[Constant.NAME].replace(" ", "_"),
+                    ),
+                    expression=expression,
+                    columns=[
+                        Column(
+                            **column,
+                            datahubDataType=FIELD_TYPE_MAPPING.get(
+                                column["dataType"], FIELD_TYPE_MAPPING["Null"]
+                            ),
+                        )
+                        for column in table.get("columns", [])
+                    ],
+                    measures=[
+                        Measure(**measure) for measure in table.get("measures", [])
+                    ],
+                    dataset=dataset_instance,
+                    row_count=None,
+                    column_count=None,
                 )
-
+                self.__profiling_resolver.profile_dataset(
+                    dataset_instance, table, workspace.name
+                )
+                dataset_instance.tables.append(table)
         return dataset_map
 
     def _fill_metadata_from_scan_result(
@@ -392,9 +406,7 @@ class PowerBiAPI:
                 independent_datasets=[],
             )
             cur_workspace.scan_result = workspace_metadata
-            cur_workspace.datasets = self._get_workspace_datasets(
-                cur_workspace.scan_result
-            )
+            cur_workspace.datasets = self._get_workspace_datasets(cur_workspace)
 
             # Fetch endorsements tag if it is enabled from configuration
             if self.__config.extract_endorsements_to_tags:

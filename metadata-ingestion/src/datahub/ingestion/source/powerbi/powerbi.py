@@ -43,6 +43,7 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
+from datahub.metadata._schema_classes import DatasetProfileClass
 from datahub.metadata.com.linkedin.pegasus2avro.common import ChangeAuditStamps
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     FineGrainedLineage,
@@ -58,6 +59,7 @@ from datahub.metadata.schema_classes import (
     CorpUserKeyClass,
     DashboardInfoClass,
     DashboardKeyClass,
+    DatasetFieldProfileClass,
     DatasetLineageTypeClass,
     DatasetPropertiesClass,
     GlobalTagsClass,
@@ -473,8 +475,61 @@ class Mapper:
                 Constant.DATASET,
                 dataset.tags,
             )
+            self.extract_profile(dataset_mcps, workspace, dataset, table, ds_urn)
 
         return dataset_mcps
+
+    def extract_profile(
+        self,
+        dataset_mcps: List[MetadataChangeProposalWrapper],
+        workspace: powerbi_data_classes.Workspace,
+        dataset: powerbi_data_classes.PowerBIDataset,
+        table: powerbi_data_classes.Table,
+        ds_urn: str,
+    ) -> None:
+        if not self.__config.profiling.enabled:
+            # Profiling not enabled
+            return
+
+        if not self.__config.profile_pattern.allowed(
+            f"{workspace.name}.{dataset.name}.{table.name}"
+        ):
+            logger.info(
+                f"Table {table.name} in {dataset.name}, not allowed for profiling"
+            )
+            return
+        logger.info(f"Profiling table: {table.name}")
+
+        profile = DatasetProfileClass(timestampMillis=builder.get_sys_time())
+        profile.rowCount = table.row_count
+        profile.fieldProfiles = []
+
+        columns: List[
+            Union[powerbi_data_classes.Column, powerbi_data_classes.Measure]
+        ] = [*(table.columns or []), *(table.measures or [])]
+        for column in columns:
+            allowed_column = self.__config.profile_pattern.allowed(
+                f"{workspace.name}.{dataset.name}.{table.name}.{column.name}"
+            )
+            if column.isHidden or not allowed_column:
+                logger.info(f"Column {column.name} not allowed for profiling")
+                continue
+            field_profile = DatasetFieldProfileClass(column.name or "")
+            field_profile.sampleValues = column.sample_values
+            field_profile.min = column.min
+            field_profile.max = column.max
+            field_profile.uniqueCount = column.unique_count
+            profile.fieldProfiles.append(field_profile)
+
+        profile.columnCount = table.column_count
+
+        mcp = MetadataChangeProposalWrapper(
+            entityType="dataset",
+            entityUrn=ds_urn,
+            aspectName="datasetProfile",
+            aspect=profile,
+        )
+        dataset_mcps.append(mcp)
 
     @staticmethod
     def transform_tags(tags: List[str]) -> GlobalTagsClass:

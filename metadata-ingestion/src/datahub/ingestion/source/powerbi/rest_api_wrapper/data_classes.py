@@ -96,6 +96,10 @@ class Column:
     columnType: Optional[str] = None
     expression: Optional[str] = None
     description: Optional[str] = None
+    min: Optional[str] = None
+    max: Optional[str] = None
+    unique_count: Optional[int] = None
+    sample_values: Optional[List[str]] = None
 
 
 @dataclass
@@ -108,6 +112,10 @@ class Measure:
         BooleanTypeClass, DateTypeClass, NullTypeClass, NumberTypeClass, StringTypeClass
     ] = dataclasses.field(default_factory=NullTypeClass)
     description: Optional[str] = None
+    min: Optional[str] = None
+    max: Optional[str] = None
+    unique_count: Optional[int] = None
+    sample_values: Optional[List[str]] = None
 
 
 @dataclass
@@ -117,6 +125,8 @@ class Table:
     expression: Optional[str] = None
     columns: Optional[List[Column]] = None
     measures: Optional[List[Measure]] = None
+    row_count: Optional[int] = None
+    column_count: Optional[int] = None
 
     # Pointer to the parent dataset.
     dataset: Optional["PowerBIDataset"] = None
