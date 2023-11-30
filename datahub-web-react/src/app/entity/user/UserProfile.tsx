@@ -11,6 +11,7 @@ import { decodeUrn } from '../shared/utils';
 import UserInfoSideBar from './UserInfoSideBar';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { ErrorSection } from '../../shared/error/ErrorSection';
+import { UserSubscriptions } from './UserSubscriptions';
 
 export interface Props {
     onTabChange: (selectedTab: string) => void;
@@ -19,8 +20,9 @@ export interface Props {
 export enum TabType {
     Assets = 'Owner Of',
     Groups = 'Groups',
+    Subscription = 'Subscriptions',
 }
-const ENABLED_TAB_TYPES = [TabType.Assets, TabType.Groups];
+const ENABLED_TAB_TYPES = [TabType.Assets, TabType.Groups, TabType.Subscription];
 
 const GROUP_PAGE_SIZE = 20;
 
@@ -85,6 +87,14 @@ export default function UserProfile() {
                 content: <UserGroups urn={urn} initialRelationships={userGroups} pageSize={GROUP_PAGE_SIZE} />,
                 display: {
                     enabled: () => userGroups?.length > 0,
+                },
+            },
+            {
+                name: TabType.Subscription,
+                path: TabType.Subscription.toLocaleLowerCase(),
+                content: <UserSubscriptions />,
+                display: {
+                    enabled: () => true,
                 },
             },
         ].filter((tab) => ENABLED_TAB_TYPES.includes(tab.name));
