@@ -38,7 +38,6 @@ from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
 )
-from datahub.ingestion.source.redshift.common import get_db_name
 from datahub.ingestion.source.redshift.config import RedshiftConfig
 from datahub.ingestion.source.redshift.lineage import RedshiftLineageExtractor
 from datahub.ingestion.source.redshift.profile import RedshiftProfiler
@@ -115,6 +114,10 @@ logger: logging.Logger = logging.getLogger(__name__)
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
 @capability(SourceCapability.LINEAGE_COARSE, "Optionally enabled via configuration")
+@capability(
+    SourceCapability.LINEAGE_FINE,
+    "Optionally enabled via configuration (`mixed` or `sql_based` lineage needs to be enabled)",
+)
 @capability(
     SourceCapability.USAGE_STATS,
     "Enabled by default, can be disabled via configuration `include_usage_statistics`",
@@ -393,8 +396,8 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
 
     def get_workunits_internal(self) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
         connection = RedshiftSource.get_redshift_connection(self.config)
-        database = get_db_name(self.config)
-        logger.info(f"Processing db {self.config.database} with name {database}")
+        database = self.config.database
+        logger.info(f"Processing db {database}")
         self.report.report_ingestion_stage_start(METADATA_EXTRACTION)
         self.db_tables[database] = defaultdict()
         self.db_views[database] = defaultdict()
@@ -628,7 +631,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
     ) -> Iterable[MetadataWorkUnit]:
         yield from self.gen_dataset_workunits(
             table=view,
-            database=get_db_name(self.config),
+            database=self.config.database,
             schema=schema,
             sub_type=DatasetSubTypes.VIEW,
             custom_properties={},
