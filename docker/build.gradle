@@ -15,6 +15,7 @@ ext {
             ':metadata-service:war',
             ':datahub-frontend',
     ]
+
     debug_modules = quickstart_modules - [':metadata-jobs:mce-consumer-job',
                                           ':metadata-jobs:mae-consumer-job']
     debug_compose_args = [
@@ -26,6 +27,13 @@ ext {
     debug_reloadable = [
             'datahub-gms',
             'datahub-frontend-react'
+    ]
+
+    // Postgres
+    pg_quickstart_modules = quickstart_modules - [':docker:mysql-setup'] + [':docker:postgres-setup']
+    pg_compose_args = [
+            '-f', 'docker-compose-without-neo4j.yml',
+            '-f', 'docker-compose-without-neo4j.postgres.override.yml'
     ]
 }
 
@@ -123,5 +131,31 @@ task quickstartDebug(type: Exec, dependsOn: ':metadata-ingestion:install') {
 
 task debugReload(type: Exec) {
     def cmd = ['docker compose -p datahub'] + debug_compose_args + ['restart'] + debug_reloadable
+    commandLine 'bash', '-c', cmd.join(" ")
+}
+
+task quickstartPg(type: Exec, dependsOn: ':metadata-ingestion:install') {
+    dependsOn(pg_quickstart_modules.collect { it + ':dockerTag' })
+    shouldRunAfter ':metadata-ingestion:clean', 'quickstartNuke'
+
+    environment "DATAHUB_TELEMETRY_ENABLED", "false"
+    environment "DOCKER_COMPOSE_BASE", "file://${rootProject.projectDir}"
+    environment "DATAHUB_POSTGRES_VERSION", "15.5"
+
+    // OpenSearch
+    environment "DATAHUB_SEARCH_IMAGE", 'opensearchproject/opensearch'
+    environment "DATAHUB_SEARCH_TAG", '2.9.0'
+    environment "XPACK_SECURITY_ENABLED", 'plugins.security.disabled=true'
+    environment "USE_AWS_ELASTICSEARCH", 'true'
+
+    def cmd = [
+            'source ../metadata-ingestion/venv/bin/activate && ',
+            'datahub docker quickstart',
+            '--no-pull-images',
+            '--standalone_consumers',
+            '--version', "v${version}",
+            '--dump-logs-on-failure'
+    ] + pg_compose_args
+
     commandLine 'bash', '-c', cmd.join(" ")
 }
