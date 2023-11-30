@@ -168,10 +168,10 @@ def generate_lineage(
     table_weights = [1 + (num_upstreams[i] * factor) for i in range(len(tables))]
     view_weights = [1] * len(views)
     for i, table in enumerate(tables):
-        table.upstreams = random.sample(
+        table.upstreams = random.sample(  # type: ignore
             list(tables) + list(views),
             k=num_upstreams[i],
-            counts=table_weights + view_weights,  # type: ignore
+            counts=table_weights + view_weights,
         )
 
 
