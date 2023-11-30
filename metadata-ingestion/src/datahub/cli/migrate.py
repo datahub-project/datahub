@@ -145,10 +145,7 @@ def dataplatform2instance_func(
     migration_report = MigrationReport(run_id, dry_run, keep)
     system_metadata = SystemMetadataClass(runId=run_id)
 
-    if dry_run:
-        graph = DataHubGraph(config=DataHubGraphConfig(server="127.0.0.1"))
-    else:
-        graph = get_default_graph()
+    graph = get_default_graph()
 
     urns_to_migrate = []
 
