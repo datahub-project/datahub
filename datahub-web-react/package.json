@@ -80,7 +80,7 @@
         "reactour": "1.18.7",
         "remirror": "^2.0.23",
         "sinon": "^11.1.1",
-        "start-server-and-test": "1.12.2",
+        "start-server-and-test": "^2.0.3",
         "styled-components": "^5.2.1",
         "turndown-plugin-gfm": "^1.0.2",
         "typescript": "^4.8.4",
@@ -149,6 +149,11 @@
     "resolutions": {
         "@ant-design/colors": "6.0.0",
         "refractor": "3.3.1",
-        "json-schema": "0.4.0"
+        "json-schema": "0.4.0",
+        "@babel/traverse": ">=7.23.2",
+        "ansi-regex": "3.0.1",
+        "minimatch": "3.0.5",
+        "prismjs": "^1.27.0",
+        "nth-check": "^2.0.1"
     }
 }

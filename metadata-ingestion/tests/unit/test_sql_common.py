@@ -102,3 +102,17 @@ PLATFORM_FROM_SQLALCHEMY_URI_TEST_CASES: Dict[str, str] = {
 def test_get_platform_from_sqlalchemy_uri(uri: str, expected_platform: str) -> None:
     platform: str = get_platform_from_sqlalchemy_uri(uri)
     assert platform == expected_platform
+
+
+def test_get_db_schema_with_dots_in_view_name():
+    config: SQLCommonConfig = _TestSQLAlchemyConfig()
+    ctx: PipelineContext = PipelineContext(run_id="test_ctx")
+    platform: str = "TEST"
+    source = _TestSQLAlchemySource(config=config, ctx=ctx, platform=platform)
+
+    database, schema = source.get_db_schema(
+        dataset_identifier="database.schema.long.view.name1"
+    )
+
+    assert database == "database"
+    assert schema == "schema"
