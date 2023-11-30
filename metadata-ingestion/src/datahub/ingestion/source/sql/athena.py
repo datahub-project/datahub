@@ -8,7 +8,7 @@ import pydantic
 from pyathena.common import BaseCursor
 from pyathena.model import AthenaTableMetadata
 from pyathena.sqlalchemy_athena import AthenaRestDialect
-from sqlalchemy import create_engine, inspect, types
+from sqlalchemy import create_engine, exc, inspect, text, types
 from sqlalchemy.engine import reflection
 from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.types import TypeEngine
@@ -68,21 +68,18 @@ class CustomAthenaRestDialect(AthenaRestDialect):
     @typing.no_type_check
     @reflection.cache
     def get_view_definition(self, connection, view_name, schema=None, **kw):
-        """Retrieves the view definition from Athena.
-
-        This method is overwritten to extend the behavior of PyAthena.
-        Pyathena is not capable of retrieving the view definition from Athena.
-        The custom implementation extends the functionality by retrieving the view definition.
-        """
-
-        # the view definition can be retrieved from the `view_definition` attribute
-        # of the table metadata
+        # This method was backported from PyAthena v3.0.7 to allow to retrieve the view definition
+        # from Athena. This is required until we support sqlalchemy > 2.0
+        # https://github.com/laughingman7743/PyAthena/blob/509dd37d0fd15ad603993482cc47b8549b82facd/pyathena/sqlalchemy/base.py#L1118
         raw_connection = self._raw_connection(connection)
-        schema = schema if schema else raw_connection.schema_name
-        with raw_connection.connection.cursor() as cursor:
-            cursor.execute(f'SHOW CREATE VIEW "{schema}"."{view_name}"')
-            result = cursor.fetchall()
-            return "\n".join([r[0] for r in result])
+        schema = schema if schema else raw_connection.schema_name  # type: ignore
+        query = f"""SHOW CREATE VIEW "{schema}"."{view_name}";"""
+        try:
+            res = connection.scalars(text(query))
+        except exc.OperationalError as e:
+            raise exc.NoSuchTableError(f"{schema}.{view_name}") from e
+        else:
+            return "\n".join([r for r in res])
 
     @typing.no_type_check
     def _get_column_type(
