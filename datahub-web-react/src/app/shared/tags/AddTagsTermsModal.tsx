@@ -93,6 +93,7 @@ export default function EditTagTermsModal({
     defaultValues = [],
     onOkOverride,
 }: EditTagsModalProps) {
+    console.log(visible,"visible=====")
     const entityRegistry = useEntityRegistry();
     const [inputValue, setInputValue] = useState('');
     const [showCreateModal, setShowCreateModal] = useState(false);
