@@ -23,11 +23,7 @@ from datahub.emitter.mcp_builder import (
     SchemaKey,
 )
 from datahub.emitter.rest_emitter import DatahubRestEmitter
-from datahub.ingestion.graph.client import (
-    DataHubGraph,
-    DataHubGraphConfig,
-    get_default_graph,
-)
+from datahub.ingestion.graph.client import DataHubGraph, get_default_graph
 from datahub.metadata.schema_classes import (
     ContainerKeyClass,
     ContainerPropertiesClass,
