@@ -21,6 +21,7 @@ interface Props {
     selectedParentUrn: string;
     setSelectedParentUrn: (parent: string) => void;
     isMoving?: boolean;
+    autoFocus?: boolean;
 }
 
 function NodeParentSelect(props: Props) {
@@ -56,6 +57,7 @@ function NodeParentSelect(props: Props) {
     return (
         <ClickOutside onClickOutside={() => setIsFocusedOnInput(false)}>
             <Select
+                autoFocus={props?.autoFocus}
                 showSearch
                 allowClear
                 filterOption={false}

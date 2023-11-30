@@ -30,6 +30,15 @@ describe("glossary sidebar navigation test", () => {
         cy.get('[data-testid="glossary-browser-sidebar"]').contains(glossaryTermGroup).click().wait(3000);
         cy.get('*[class^="GlossaryEntitiesList"]').contains(glossaryTerm).should("be.visible");
 
+        // create glossaryParentGroup
+        cy.goToGlossaryList();
+        cy.clickOptionWithTestId("add-term-group-button");
+        cy.waitTextVisible("Create Term Group");
+        cy.enterTextInTestId("create-glossary-entity-modal-name", glossaryParentGroup);
+        cy.clickOptionWithTestId("glossary-entity-modal-create-button");
+        cy.get('[data-testid="glossary-browser-sidebar"]').contains(glossaryParentGroup).should("be.visible");
+
+
         // Move a term group from the root level to be under a parent term group
         cy.goToGlossaryList();
         cy.clickOptionWithText(glossaryTermGroup);
@@ -55,9 +64,14 @@ describe("glossary sidebar navigation test", () => {
         cy.clickOptionWithText(glossaryTermGroup).wait(3000);
         cy.deleteFromDropdown();
         cy.waitTextVisible("Deleted Term Group!");
+        cy.clickOptionWithText(glossaryParentGroup);
+        cy.deleteFromDropdown();
+        cy.waitTextVisible("Deleted Term Group!");
 
         // Ensure it is no longer in the sidebar navigator
         cy.ensureTextNotPresent(glossaryTerm);
         cy.ensureTextNotPresent(glossaryTermGroup);
+        cy.ensureTextNotPresent(glossaryParentGroup);
+
     });
 });
