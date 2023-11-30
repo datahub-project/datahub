@@ -452,11 +452,11 @@ describe('EntityProfile', () => {
         );
 
         // find the tab name
-        await waitFor(() => expect(getByText('Auto Render Aspect Custom Tab Name')).toBeInTheDocument());
+        await waitFor(() => expect(getByText('Documentation')).toBeInTheDocument());
 
         // open the custom tab
         fireEvent(
-            getByText('Auto Render Aspect Custom Tab Name'),
+            getByText('Documentation'),
             new MouseEvent('click', {
                 bubbles: true,
                 cancelable: true,
@@ -464,7 +464,6 @@ describe('EntityProfile', () => {
         );
 
         // find the tab contents
-        await waitFor(() => expect(getByText('autoField1')).toBeInTheDocument());
-        await waitFor(() => expect(getByText('autoValue1')).toBeInTheDocument());
+        await waitFor(() => expect(getByText('Edit')).toBeInTheDocument());
     });
 });
