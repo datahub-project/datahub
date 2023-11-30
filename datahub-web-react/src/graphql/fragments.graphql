@@ -949,6 +949,9 @@ fragment parentContainerFields on Container {
     properties {
         name
     }
+    subTypes {
+        typeNames
+    }
 }
 
 fragment domainEntitiesFields on Domain {
