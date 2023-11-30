@@ -131,11 +131,14 @@ class PathSpec(ConfigModel):
     def get_named_vars(self, path: str) -> Union[None, parse.Result, parse.Match]:
         return self.compiled_include.parse(path)
 
-    @pydantic.validator("include")
-    def validate_no_double_stars(cls, v: str) -> str:
-        if "**" in v and not cls.allow_double_stars:
+    @pydantic.root_validator()
+    def validate_no_double_stars(cls, values) -> str:
+        if "include" not in values:
+            return v
+
+        if "**" in values.get("include") and not values.get("allow_double_stars"):
             raise ValueError("path_spec.include cannot contain '**'")
-        return v
+        return values
 
     @pydantic.validator("file_types", always=True)
     def validate_file_types(cls, v: Optional[List[str]]) -> List[str]:
