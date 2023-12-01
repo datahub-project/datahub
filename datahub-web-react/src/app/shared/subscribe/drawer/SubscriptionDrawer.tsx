@@ -1,8 +1,6 @@
 import React, { useEffect } from 'react';
 import styled from 'styled-components/macro';
-import { Alert, Button, Drawer, Typography } from 'antd';
-import { CloseCircleOutlined } from '@ant-design/icons';
-import { ANTD_GRAY } from '../../../entity/shared/constants';
+import { Alert, Drawer, Typography } from 'antd';
 import NotificationTypesSection from './section/NotificationTypesSection';
 import UpstreamSection from './section/UpstreamSection';
 import NotificationRecipientSection from './section/NotificationRecipientSection';
@@ -50,15 +48,6 @@ const SubscriptionTitle = styled(Typography.Text)`
 
 const StyledAlert = styled(Alert)`
     margin-top: 16px;
-`;
-
-const CancelButtonWrapper = styled.div`
-    display: flex;
-    justify-content: flex-end;
-`;
-
-const StyledButton = styled(Button)`
-    padding: 0 4px;
 `;
 
 interface Props {
@@ -184,11 +173,6 @@ const SubscriptionDrawerContent = ({
             onClose={onClose}
             closable={false}
         >
-            <CancelButtonWrapper>
-                <StyledButton type="link" onClick={onClose}>
-                    <CloseCircleOutlined style={{ color: ANTD_GRAY[10] }} />
-                </StyledButton>
-            </CancelButtonWrapper>
             <SubscriptionTitleContainer>
                 <SubscriptionTitle>Subscribe to {entityName}</SubscriptionTitle>
             </SubscriptionTitleContainer>
