@@ -7,7 +7,7 @@ import {
     HealthSummaryIconType,
 } from '../../../../../shared/health/healthUtils';
 import { EntityHealthStatus } from './EntityHealthStatus';
-import { Health, HealthStatus, HealthStatusType } from '../../../../../../types.generated';
+import { Health } from '../../../../../../types.generated';
 import { ANTD_GRAY } from '../../../constants';
 
 const Header = styled.span`
@@ -55,23 +55,20 @@ type Props = {
 };
 
 export const EntityHealthPopover = ({ health, baseUrl, children, fontSize, placement = 'right' }: Props) => {
-    const icon = getHealthSummaryIcon(health, HealthSummaryIconType.OUTLINED, fontSize);
-    const message = getHealthSummaryMessage(health);
     return (
         <Popover
             content={
                 <>
                     <Header>
-                        <Icon>{icon}</Icon> <Title>{message}</Title>
+                        <Icon>{getHealthSummaryIcon(health, HealthSummaryIconType.OUTLINED, fontSize)}</Icon>{' '}
+                        <Title>{getHealthSummaryMessage(health)}</Title>
                     </Header>
                     <StyledDivider />
-                    {health
-                        .filter((h) => !(h.type === HealthStatusType.Incidents && h.status === HealthStatus.Pass))
-                        .map((h) => (
-                            <StatusContainer>
-                                <EntityHealthStatus type={h.type} message={h.message || undefined} baseUrl={baseUrl} />
-                            </StatusContainer>
-                        ))}
+                    {health.map((h) => (
+                        <StatusContainer key={h.type}>
+                            <EntityHealthStatus type={h.type} message={h.message || undefined} baseUrl={baseUrl} />
+                        </StatusContainer>
+                    ))}
                 </>
             }
             color="#262626"

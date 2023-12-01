@@ -1,4 +1,5 @@
 import {
+    CheckCircleFilled,
     CheckOutlined,
     CloseOutlined,
     ExclamationCircleOutlined,
@@ -11,7 +12,7 @@ import {
 import React from 'react';
 import styled from 'styled-components';
 import { HealthStatus, HealthStatusType, Health } from '../../../types.generated';
-import { FAILURE_COLOR_HEX } from '../../entity/shared/tabs/Incident/incidentUtils';
+import { FAILURE_COLOR_HEX, SUCCESS_COLOR_HEX } from '../../entity/shared/tabs/Incident/incidentUtils';
 
 const HEALTH_INDICATOR_COLOR = '#d48806';
 
@@ -44,17 +45,39 @@ export const isUnhealthy = (healths: Health[]) => {
     return isFailingAssertions || hasActiveIncidents;
 };
 
+export const isHealthy = (healths: Health[]) => {
+    const assertionHealth = healths.filter((health) => health.type === HealthStatusType.Assertions);
+    if (assertionHealth?.length > 0) {
+        const isPassingAllAssertions = assertionHealth.every((assertion) => assertion?.status === HealthStatus.Pass);
+        // Currently, being healthy is defined as having passing all assertions (acryl-main).
+        return isPassingAllAssertions;
+    }
+    return false;
+};
+
 export const getHealthSummaryIcon = (
     healths: Health[],
     type: HealthSummaryIconType = HealthSummaryIconType.FILLED,
     fontSize = 16,
 ) => {
     const unhealthy = isUnhealthy(healths);
-    return unhealthy
-        ? (type === HealthSummaryIconType.FILLED && (
-              <UnhealthyIconFilled twoToneColor={HEALTH_INDICATOR_COLOR} fontSize={fontSize} />
-          )) || <UnhealthyIconOutlined fontSize={fontSize} />
-        : undefined;
+    const healthy = isHealthy(healths);
+
+    if (unhealthy) {
+        const iconComponent =
+            type === HealthSummaryIconType.FILLED ? (
+                <UnhealthyIconFilled twoToneColor={HEALTH_INDICATOR_COLOR} fontSize={fontSize} />
+            ) : (
+                <UnhealthyIconOutlined fontSize={fontSize} />
+            );
+        return iconComponent;
+    }
+
+    if (healthy) {
+        return <CheckCircleFilled style={{ color: SUCCESS_COLOR_HEX, fontSize }} />;
+    }
+
+    return undefined;
 };
 
 export const getHealthSummaryMessage = (healths: Health[]) => {

@@ -10,7 +10,8 @@ describe("dataset health test", () => {
         cy.get(`[href="/dataset/${urn}/Validation"] span`).trigger("mouseover", { force: true });
         cy.waitTextVisible("This asset may be unhealthy");
         cy.waitTextVisible("Assertions 1 of 1 assertions are failing");
-        cy.clickOptionWithText("details");
+        cy.get('[data-testid="assertions-details"]').click();
+        // cy.clickOptionWithText("details");
         cy.waitTextVisible("All assertions are failing");
         cy.clickOptionWithText("External");
         cy.waitTextVisible("Failed");

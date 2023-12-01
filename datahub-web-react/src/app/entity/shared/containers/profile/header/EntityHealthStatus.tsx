@@ -39,7 +39,11 @@ export const EntityHealthStatus = ({ type, message, baseUrl }: Props) => {
     return (
         <StatusContainer>
             <Title>{title}</Title> {message}
-            {redirectPath && <RedirectLink to={fullPath}>details</RedirectLink>}
+            {redirectPath && (
+                <RedirectLink to={fullPath} data-testid={`${title.toLowerCase()}-details`}>
+                    details
+                </RedirectLink>
+            )}
         </StatusContainer>
     );
 };
