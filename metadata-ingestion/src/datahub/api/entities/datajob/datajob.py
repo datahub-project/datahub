@@ -40,7 +40,8 @@ class DataJob:
         group_owners Set[str]): A list of group ids that own this job.
         inlets (List[str]): List of urns the DataProcessInstance consumes
         outlets (List[str]): List of urns the DataProcessInstance produces
-        input_datajob_urns: List[DataJobUrn] = field(default_factory=list)
+        fine_grained_lineages: Column lineage for the inlets and outlets
+        upstream_urns: List[DataJobUrn] = field(default_factory=list)
     """
 
     id: str
