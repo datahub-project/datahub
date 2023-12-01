@@ -85,6 +85,10 @@ module.exports = {
               href: "https://www.youtube.com/channel/UC3qFQC5IiwR5fvWEqi_tJ5w",
               label: "YouTube",
             },
+            {
+              to: "/champions",
+              label: "Champions",
+            },
           ],
         },
         {
