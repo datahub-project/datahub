@@ -1,4 +1,6 @@
 from collections import OrderedDict
+
+import typing
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
@@ -50,7 +52,7 @@ ColumnMapping = Dict[ColumnRef, Column]
 class Table:
     name: str
     container: Container
-    columns: OrderedDict[ColumnRef, Column] = field(repr=False)
+    columns: typing.OrderedDict[ColumnRef, Column] = field(repr=False)
     upstreams: List["Table"] = field(repr=False)
 
     def __init__(
