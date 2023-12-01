@@ -44,7 +44,7 @@ export const EntityTabs = <T,>({ tabs, selectedTab }: Props) => {
             onTabClick={(tab: string) => routeToTab({ tabName: tab })}
         >
             {tabs.map((tab) => {
-                const tabName = tab?.getDynamicName ? tab?.getDynamicName(entityData, baseEntity) : tab.name;
+                const tabName = (tab.getDynamicName && tab.getDynamicName(entityData, baseEntity)) || tab.name;
                 if (!tab.display?.enabled(entityData, baseEntity)) {
                     return <Tab tab={tabName} key={tab.name} disabled />;
                 }
