@@ -70,7 +70,6 @@ export const Preview = ({
             urn={urn}
             description={description || ''}
             type="Data Task"
-            entityType={EntityType.DataJob}
             type={subType}
             typeIcon={entityRegistry.getIcon(EntityType.DataJob, 14, IconStyleType.ACCENT)}
             platform={platformName}
