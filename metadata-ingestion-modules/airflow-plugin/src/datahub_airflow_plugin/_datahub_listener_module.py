@@ -13,18 +13,22 @@ if _listener:
 
     @hookimpl
     def on_task_instance_running(previous_state, task_instance, session):
+        assert _listener
         _listener.on_task_instance_running(previous_state, task_instance, session)
 
     @hookimpl
     def on_task_instance_success(previous_state, task_instance, session):
+        assert _listener
         _listener.on_task_instance_success(previous_state, task_instance, session)
 
     @hookimpl
     def on_task_instance_failed(previous_state, task_instance, session):
+        assert _listener
         _listener.on_task_instance_failed(previous_state, task_instance, session)
 
     if hasattr(_listener, "on_dag_run_running"):
 
         @hookimpl
         def on_dag_run_running(dag_run, session):
+            assert _listener
             _listener.on_dag_run_running(dag_run, session)
