@@ -14,12 +14,7 @@ from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.transformer.dataset_transformer import (
     DatasetOwnershipTransformer,
 )
-from datahub.metadata.schema_classes import (
-    OwnerClass,
-    OwnershipClass,
-    OwnershipTypeClass,
-)
-
+from datahub.metadata.schema_classes import OwnerClass, OwnershipClass
 
 class AddDatasetOwnershipConfig(TransformerSemanticsConfigModel):
     get_owners_to_add: Callable[[str], List[OwnerClass]]
