@@ -1086,9 +1086,7 @@ class TableauSource(StatefulIngestionSourceBase):
 
     def is_snowflake_urn(self, urn: str) -> bool:
         return (
-            DatasetUrn.create_from_string(urn)
-            .get_data_platform_urn()
-            .get_platform_name()
+            DatasetUrn.create_from_string(urn).get_data_platform_urn().platform_name
             == "snowflake"
         )
 

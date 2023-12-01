@@ -191,6 +191,7 @@ class OperationProcessor:
                     OwnerClass(
                         owner=x.get("urn"),
                         type=x.get("category"),
+                        typeUrn=x.get("categoryUrn"),
                         source=OwnershipSourceClass(type=self.owner_source_type)
                         if self.owner_source_type
                         else None,
@@ -281,18 +282,25 @@ class OperationProcessor:
                 operation_config.get(Constants.OWNER_CATEGORY)
                 or OwnershipTypeClass.DATAOWNER
             )
-            owner_category = owner_category.upper()
+            owner_category_urn = None
+            if owner_category.startswith("urn:li:"):
+                owner_category_urn = owner_category
+                owner_category = OwnershipTypeClass.DATAOWNER
+            else:
+                owner_category = owner_category.upper()
             if self.strip_owner_email_id:
                 owner_id = self.sanitize_owner_ids(owner_id)
             if operation_config[Constants.OWNER_TYPE] == Constants.USER_OWNER:
                 return {
                     "urn": mce_builder.make_owner_urn(owner_id, OwnerType.USER),
                     "category": owner_category,
+                    "categoryUrn": owner_category_urn,
                 }
             elif operation_config[Constants.OWNER_TYPE] == Constants.GROUP_OWNER:
                 return {
                     "urn": mce_builder.make_owner_urn(owner_id, OwnerType.GROUP),
                     "category": owner_category,
+                    "categoryUrn": owner_category_urn,
                 }
         elif (
             operation_type == Constants.ADD_TERM_OPERATION

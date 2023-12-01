@@ -23,4 +23,8 @@ class UrnEncoder:
 
     @staticmethod
     def contains_reserved_char(value: str) -> bool:
+        return bool(set(value).intersection(RESERVED_CHARS))
+
+    @staticmethod
+    def contains_extended_reserved_char(value: str) -> bool:
         return bool(set(value).intersection(RESERVED_CHARS_EXTENDED))

@@ -94,8 +94,7 @@ export const HomePageOnboardingConfig: OnboardingStep[] = [
             <Typography.Paragraph>
                 Here are your organization&apos;s <strong>Data Platforms</strong>. Data Platforms represent specific
                 third-party Data Systems or Tools. Examples include Data Warehouses like <strong>Snowflake</strong>,
-                Orchestrators like
-                <strong>Airflow</strong>, and Dashboarding tools like <strong>Looker</strong>.
+                Orchestrators like <strong>Airflow</strong>, and Dashboarding tools like <strong>Looker</strong>.
             </Typography.Paragraph>
         ),
     },

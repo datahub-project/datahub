@@ -77,7 +77,9 @@ class GitInfo(GitReference):
 
     deploy_key_file: Optional[FilePath] = Field(
         None,
-        description="A private key file that contains an ssh key that has been configured as a deploy key for this repository. Use a file where possible, else see deploy_key for a config field that accepts a raw string.",
+        description="A private key file that contains an ssh key that has been configured as a deploy key for this repository. "
+        "Use a file where possible, else see deploy_key for a config field that accepts a raw string. "
+        "We expect the key not have a passphrase.",
     )
     deploy_key: Optional[SecretStr] = Field(
         None,

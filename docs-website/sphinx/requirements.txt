@@ -1,4 +1,4 @@
--e ../../metadata-ingestion[datahub-rest,sql-parsing]
+-e ../../metadata-ingestion[datahub-rest,sql-parser]
 beautifulsoup4==4.11.2
 Sphinx==6.1.3
 sphinx-click==4.4.0

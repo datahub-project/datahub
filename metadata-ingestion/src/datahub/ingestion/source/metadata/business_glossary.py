@@ -113,7 +113,7 @@ def create_id(path: List[str], default_id: Optional[str], enable_auto_id: bool) 
 
     id_: str = ".".join(path)
 
-    if UrnEncoder.contains_reserved_char(id_):
+    if UrnEncoder.contains_extended_reserved_char(id_):
         enable_auto_id = True
 
     if enable_auto_id:

@@ -14,6 +14,7 @@ Welcome to DataHub Python SDK's documentation!
    apidocs/builder
    apidocs/clients
    apidocs/models
+   apidocs/urns
 
 
 Indices and tables

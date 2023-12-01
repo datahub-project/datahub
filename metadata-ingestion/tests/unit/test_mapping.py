@@ -174,7 +174,11 @@ def test_operation_processor_advanced_matching_owners():
 
 
 def test_operation_processor_ownership_category():
-    raw_props = {"user_owner": "@test_user", "business_owner": "alice"}
+    raw_props = {
+        "user_owner": "@test_user",
+        "business_owner": "alice",
+        "architect": "bob",
+    }
     processor = OperationProcessor(
         operation_defs={
             "user_owner": {
@@ -193,6 +197,14 @@ def test_operation_processor_ownership_category():
                     "owner_category": OwnershipTypeClass.BUSINESS_OWNER,
                 },
             },
+            "architect": {
+                "match": ".*",
+                "operation": "add_owner",
+                "config": {
+                    "owner_type": "user",
+                    "owner_category": "urn:li:ownershipType:architect",
+                },
+            },
         },
         owner_source_type="SOURCE_CONTROL",
     )
@@ -200,7 +212,7 @@ def test_operation_processor_ownership_category():
     assert "add_owner" in aspect_map
 
     ownership_aspect: OwnershipClass = aspect_map["add_owner"]
-    assert len(ownership_aspect.owners) == 2
+    assert len(ownership_aspect.owners) == 3
     new_owner: OwnerClass = ownership_aspect.owners[0]
     assert new_owner.owner == "urn:li:corpGroup:test_user"
     assert new_owner.source and new_owner.source.type == "SOURCE_CONTROL"
@@ -210,6 +222,12 @@ def test_operation_processor_ownership_category():
     assert new_owner.owner == "urn:li:corpuser:alice"
     assert new_owner.source and new_owner.source.type == "SOURCE_CONTROL"
     assert new_owner.type and new_owner.type == OwnershipTypeClass.BUSINESS_OWNER
+
+    new_owner = ownership_aspect.owners[2]
+    assert new_owner.owner == "urn:li:corpuser:bob"
+    assert new_owner.source and new_owner.source.type == "SOURCE_CONTROL"
+    assert new_owner.type == OwnershipTypeClass.DATAOWNER  # dummy value
+    assert new_owner.typeUrn == "urn:li:ownershipType:architect"
 
 
 def test_operation_processor_advanced_matching_tags():
