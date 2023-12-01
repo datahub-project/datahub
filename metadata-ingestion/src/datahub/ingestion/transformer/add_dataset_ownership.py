@@ -16,6 +16,7 @@ from datahub.ingestion.transformer.dataset_transformer import (
 )
 from datahub.metadata.schema_classes import OwnerClass, OwnershipClass
 
+
 class AddDatasetOwnershipConfig(TransformerSemanticsConfigModel):
     get_owners_to_add: Callable[[str], List[OwnerClass]]
     default_actor: str = builder.make_user_urn("etl")
