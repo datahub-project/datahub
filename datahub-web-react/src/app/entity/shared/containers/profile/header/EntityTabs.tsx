@@ -39,6 +39,7 @@ export const EntityTabs = <T,>({ tabs, selectedTab }: Props) => {
 
     return (
         <UnborderedTabs
+            animated={false}
             activeKey={selectedTab?.name || ''}
             size="large"
             onTabClick={(tab: string) => routeToTab({ tabName: tab })}
