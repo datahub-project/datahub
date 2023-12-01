@@ -102,7 +102,8 @@ class AddDatasetOwnership(DatasetOwnershipTransformer):
 
 
 class DatasetOwnershipBaseConfig(TransformerSemanticsConfigModel):
-    ownership_type: Optional[str] = OwnershipTypeClass.DATAOWNER
+    ownership_type: Optional[str]
+    ownership_type_urn: Optional[str]
 
 
 class SimpleDatasetOwnershipConfig(DatasetOwnershipBaseConfig):
@@ -114,11 +115,14 @@ class SimpleAddDatasetOwnership(AddDatasetOwnership):
     """Transformer that adds a specified set of owners to each dataset."""
 
     def __init__(self, config: SimpleDatasetOwnershipConfig, ctx: PipelineContext):
-        ownership_type = builder.validate_ownership_type(config.ownership_type)
+        ownership_type = builder.validate_ownership_type(
+            config.ownership_type, config.ownership_type_urn
+        )
         owners = [
             OwnerClass(
                 owner=owner,
                 type=ownership_type,
+                typeUrn=config.ownership_type_urn,
             )
             for owner in config.owner_urns
         ]
@@ -147,29 +151,17 @@ class PatternDatasetOwnershipConfig(DatasetOwnershipBaseConfig):
 class PatternAddDatasetOwnership(AddDatasetOwnership):
     """Transformer that adds a specified set of owners to each dataset."""
 
-    def getOwners(
-        self,
-        key: str,
-        owner_pattern: KeyValuePattern,
-        ownership_type: Optional[str] = None,
-    ) -> List[OwnerClass]:
-        owners = [
-            OwnerClass(
-                owner=owner,
-                type=builder.validate_ownership_type(ownership_type),
-            )
-            for owner in owner_pattern.value(key)
-        ]
-        return owners
-
     def __init__(self, config: PatternDatasetOwnershipConfig, ctx: PipelineContext):
-        ownership_type = builder.validate_ownership_type(config.ownership_type)
         owner_pattern = config.owner_pattern
+        ownership_type = builder.validate_ownership_type(
+            config.ownership_type, config.ownership_type_urn
+        )
         generic_config = AddDatasetOwnershipConfig(
             get_owners_to_add=lambda urn: [
                 OwnerClass(
                     owner=owner,
                     type=ownership_type,
+                    typeUrn=config.ownership_type_urn,
                 )
                 for owner in owner_pattern.value(urn)
             ],

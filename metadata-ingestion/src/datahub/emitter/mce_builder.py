@@ -9,6 +9,7 @@ from enum import Enum
 from typing import (
     TYPE_CHECKING,
     Any,
+    Iterable,
     List,
     Optional,
     Type,
@@ -342,25 +343,25 @@ def make_ml_model_group_urn(platform: str, group_name: str, env: str) -> str:
     )
 
 
-def is_valid_ownership_type(ownership_type: Optional[str]) -> bool:
-    return ownership_type is not None and ownership_type in [
-        OwnershipTypeClass.TECHNICAL_OWNER,
-        OwnershipTypeClass.BUSINESS_OWNER,
-        OwnershipTypeClass.DATA_STEWARD,
-        OwnershipTypeClass.NONE,
-        OwnershipTypeClass.DEVELOPER,
-        OwnershipTypeClass.DATAOWNER,
-        OwnershipTypeClass.DELEGATE,
-        OwnershipTypeClass.PRODUCER,
-        OwnershipTypeClass.CONSUMER,
-        OwnershipTypeClass.STAKEHOLDER,
+def get_class_fields(_class: Type[object]) -> Iterable[str]:
+    return [
+        f
+        for f in dir(_class)
+        if not callable(getattr(_class, f)) and not f.startswith("_")
     ]
 
 
-def validate_ownership_type(ownership_type: Optional[str]) -> str:
-    if is_valid_ownership_type(ownership_type):
-        return cast(str, ownership_type)
-    else:
+def validate_ownership_type(
+    ownership_type: Optional[str], ownership_type_urn: Optional[str]
+) -> str:
+    try:
+        ownership_type_str = cast(str, ownership_type)
+        if not ownership_type_str and ownership_type_urn:
+            ownership_type_str = OwnershipTypeClass.CUSTOM
+        if ownership_type_str in get_class_fields(OwnershipTypeClass):
+            return ownership_type_str
+        raise ValueError
+    except ValueError:
         raise ValueError(f"Unexpected ownership type: {ownership_type}")
 
 
