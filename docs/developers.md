@@ -84,7 +84,7 @@ We suggest partially compiling DataHub according to your needs:
   ./gradlew :docs-website:serve
   ```
 
-## Deploying local versions
+## Deploying Local Versions
 
 Run just once to have the local `datahub` cli tool installed in your $PATH
 
