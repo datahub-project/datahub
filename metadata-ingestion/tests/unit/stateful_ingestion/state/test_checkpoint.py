@@ -4,7 +4,6 @@ from typing import Dict, List
 import pydantic
 import pytest
 
-from datahub.emitter.mce_builder import make_dataset_urn
 from datahub.ingestion.source.state.checkpoint import Checkpoint, CheckpointStateBase
 from datahub.ingestion.source.state.sql_common_state import (
     BaseSQLAlchemyCheckpointState,
@@ -59,12 +58,15 @@ def _assert_checkpoint_deserialization(
 
 
 def _make_sql_alchemy_checkpoint_state() -> BaseSQLAlchemyCheckpointState:
+    # Note that the urns here purposely use a lowercase env, even though it's
+    # technically incorrect. This is purely for backwards compatibility testing, but
+    # all existing code uses correctly formed envs.
     base_sql_alchemy_checkpoint_state_obj = BaseSQLAlchemyCheckpointState()
     base_sql_alchemy_checkpoint_state_obj.add_checkpoint_urn(
-        type="table", urn=make_dataset_urn("mysql", "db1.t1", "prod")
+        type="table", urn="urn:li:dataset:(urn:li:dataPlatform:mysql,db1.t1,prod)"
     )
     base_sql_alchemy_checkpoint_state_obj.add_checkpoint_urn(
-        type="view", urn=make_dataset_urn("mysql", "db1.v1", "prod")
+        type="view", urn="urn:li:dataset:(urn:li:dataPlatform:mysql,db1.v1,prod)"
     )
     return base_sql_alchemy_checkpoint_state_obj
 

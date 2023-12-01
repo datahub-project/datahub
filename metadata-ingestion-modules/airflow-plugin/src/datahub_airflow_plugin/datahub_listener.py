@@ -296,6 +296,7 @@ class DataHubListener:
             logger.debug("Merging start datajob into finish datajob")
             datajob.inlets.extend(original_datajob.inlets)
             datajob.outlets.extend(original_datajob.outlets)
+            datajob.upstream_urns.extend(original_datajob.upstream_urns)
             datajob.fine_grained_lineages.extend(original_datajob.fine_grained_lineages)
 
             for k, v in original_datajob.properties.items():
@@ -304,6 +305,9 @@ class DataHubListener:
         # Deduplicate inlets/outlets.
         datajob.inlets = list(sorted(set(datajob.inlets), key=lambda x: str(x)))
         datajob.outlets = list(sorted(set(datajob.outlets), key=lambda x: str(x)))
+        datajob.upstream_urns = list(
+            sorted(set(datajob.upstream_urns), key=lambda x: str(x))
+        )
 
         # Write all other OL facets as DataHub properties.
         if task_metadata:

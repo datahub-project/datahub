@@ -4,10 +4,10 @@ import functools
 import logging
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
-from datetime import timedelta
+from datetime import datetime, timedelta
 from enum import auto
 from threading import BoundedSemaphore
-from typing import Union
+from typing import Tuple, Union
 
 from datahub.cli.cli_utils import set_env_variables_override_config
 from datahub.configuration.common import (
@@ -181,6 +181,18 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
                 self.report.report_failure({"e": e})
                 write_callback.on_failure(record_envelope, Exception(e), {})
 
+    def _emit_wrapper(
+        self,
+        record: Union[
+            MetadataChangeEvent,
+            MetadataChangeProposal,
+            MetadataChangeProposalWrapper,
+        ],
+    ) -> Tuple[datetime, datetime]:
+        start_time = datetime.now()
+        self.emitter.emit(record)
+        return start_time, datetime.now()
+
     def write_record_async(
         self,
         record_envelope: RecordEnvelope[
@@ -194,7 +206,7 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
     ) -> None:
         record = record_envelope.record
         if self.config.mode == SyncOrAsync.ASYNC:
-            write_future = self.executor.submit(self.emitter.emit, record)
+            write_future = self.executor.submit(self._emit_wrapper, record)
             write_future.add_done_callback(
                 functools.partial(
                     self._write_done_callback, record_envelope, write_callback
@@ -204,7 +216,7 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
         else:
             # execute synchronously
             try:
-                (start, end) = self.emitter.emit(record)
+                (start, end) = self._emit_wrapper(record)
                 write_callback.on_success(record_envelope, success_metadata={})
             except Exception as e:
                 write_callback.on_failure(record_envelope, e, failure_metadata={})

@@ -28,6 +28,7 @@ import SearchSortSelect from './sorting/SearchSortSelect';
 import { combineSiblingsInSearchResults } from './utils/combineSiblingsInSearchResults';
 import SearchQuerySuggester from './suggestions/SearchQuerySugggester';
 import { ANTD_GRAY_V2 } from '../entity/shared/constants';
+import { formatNumberWithoutAbbreviation } from '../shared/formatNumber';
 
 const SearchResultsWrapper = styled.div<{ v2Styles: boolean }>`
     display: flex;
@@ -210,7 +211,13 @@ export const SearchResults = ({
                                     <b>
                                         {lastResultIndex > 0 ? (page - 1) * pageSize + 1 : 0} - {lastResultIndex}
                                     </b>{' '}
-                                    of <b>{totalResults}</b> results
+                                    of{' '}
+                                    <b>
+                                        {totalResults >= 10000
+                                            ? `${formatNumberWithoutAbbreviation(10000)}+`
+                                            : formatNumberWithoutAbbreviation(totalResults)}
+                                    </b>{' '}
+                                    results
                                 </Typography.Text>
                             </LeftControlsContainer>
                             <SearchMenuContainer>
