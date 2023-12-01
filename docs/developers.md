@@ -12,7 +12,7 @@ title: "Local Development"
 - [Docker Compose](https://docs.docker.com/compose/)
 - Docker engine with at least 8GB of memory to run tests.
 
-:::note
+:::caution
 
 Do not try to use a JDK newer than JDK 11. The build process does not currently work with newer JDKs versions.
 
