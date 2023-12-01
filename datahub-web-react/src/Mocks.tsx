@@ -427,7 +427,7 @@ export const dataset3 = {
         name: 'Yet Another Dataset',
         qualifiedName: 'Yet Another Dataset',
         description: 'This and here we have yet another Dataset (YAN). Are there more?',
-        origin: 'PROD' as FabricType,
+        origin: 'PROD',
         customProperties: [
             {
                 __typename: 'CustomPropertiesEntry',
