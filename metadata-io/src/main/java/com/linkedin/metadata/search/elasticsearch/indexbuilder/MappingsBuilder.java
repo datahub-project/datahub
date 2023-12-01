@@ -138,8 +138,7 @@ public class MappingsBuilder {
     }
     if (fieldType == FieldType.DOUBLE) {
       mappingForField.putAll(getMappingsForDouble());
-    }
-    else {
+    } else {
       log.info("FieldType {} has no mappings implemented", fieldType);
     }
     mappings.put(searchableFieldSpec.getSearchableAnnotation().getFieldName(), mappingForField);
