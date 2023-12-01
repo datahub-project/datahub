@@ -53,7 +53,7 @@ services:
   postgres:
     container_name: postgres
     hostname: postgres
-    image: postgres:12.3
+    image: postgres:${DATAHUB_POSTGRES_VERSION:-12.3}
     env_file: postgres/env/docker.env
     ports:
       - '5432:5432'

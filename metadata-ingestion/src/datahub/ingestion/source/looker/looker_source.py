@@ -99,7 +99,7 @@ logger = logging.getLogger(__name__)
 @support_status(SupportStatus.CERTIFIED)
 @config_class(LookerDashboardSourceConfig)
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
-@capability(SourceCapability.PLATFORM_INSTANCE, "Not supported", supported=False)
+@capability(SourceCapability.PLATFORM_INSTANCE, "Use the `platform_instance` field")
 @capability(
     SourceCapability.OWNERSHIP, "Enabled by default, configured using `extract_owners`"
 )
