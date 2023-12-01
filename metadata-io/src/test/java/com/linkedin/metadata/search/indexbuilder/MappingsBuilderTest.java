@@ -18,7 +18,7 @@ public class MappingsBuilderTest {
     Map<String, Object> result = MappingsBuilder.getMappings(TestEntitySpecBuilder.getSpec());
     assertEquals(result.size(), 1);
     Map<String, Object> properties = (Map<String, Object>) result.get("properties");
-    assertEquals(properties.size(), 19);
+    assertEquals(properties.size(), 20);
     assertEquals(properties.get("urn"), ImmutableMap.of("type", "keyword",
             "fields",
             ImmutableMap.of("delimited",
@@ -123,5 +123,15 @@ public class MappingsBuilderTest {
     assertEquals(feature1.get("type"), "double");
     Map<String, Object> feature2 = (Map<String, Object>) properties.get("feature2");
     assertEquals(feature2.get("type"), "double");
+
+    // DOUBLE
+    Map<String, Object> doubleValue1Field = (Map<String, Object>) properties.get("doubleValue1");
+    assertEquals(doubleValue1Field.get("type"), "keyword");
+    assertEquals(doubleValue1Field.get("normalizer"), "keyword_normalizer");
+    Map<String, Object> doubleValue1Subfields = (Map<String, Object>) doubleValue1Field.get("fields");
+    assertEquals(doubleValue1Subfields.size(), 1);
+    assertTrue(doubleValue1Subfields.containsKey("numeric"));
+    Map<String, Object> doubleValue1NumericFields = (Map<String, Object>) doubleValue1Subfields.get("numeric");
+    assertEquals(doubleValue1NumericFields.get("type"), "double");
   }
 }

@@ -90,4 +90,10 @@ record TestEntityInfo includes CustomProperties {
     }
   }
   esObjectField: optional map[string, string]
+
+    @Searchable = {
+      "fieldName": "doubleValue1",
+      "fieldType": "DOUBLE"
+    }
+    doubleValue1: double
 }

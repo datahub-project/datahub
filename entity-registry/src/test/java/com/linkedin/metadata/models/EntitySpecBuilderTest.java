@@ -142,7 +142,7 @@ public class EntitySpecBuilderTest {
     assertEquals(new TestEntityInfo().schema().getFullName(), testEntityInfo.getPegasusSchema().getFullName());
 
     // Assert on Searchable Fields
-    assertEquals(testEntityInfo.getSearchableFieldSpecs().size(), 10);
+    assertEquals(testEntityInfo.getSearchableFieldSpecs().size(), 11);
     assertEquals("customProperties", testEntityInfo.getSearchableFieldSpecMap().get(
         new PathSpec("customProperties").toString()).getSearchableAnnotation().getFieldName());
     assertEquals(SearchableAnnotation.FieldType.KEYWORD, testEntityInfo.getSearchableFieldSpecMap().get(
