@@ -125,13 +125,13 @@ public class MappingsBuilderTest {
     assertEquals(feature2.get("type"), "double");
 
     // DOUBLE
-    Map<String, Object> doubleValue1Field = (Map<String, Object>) properties.get("doubleValue1");
-    assertEquals(doubleValue1Field.get("type"), "keyword");
-    assertEquals(doubleValue1Field.get("normalizer"), "keyword_normalizer");
-    Map<String, Object> doubleValue1Subfields = (Map<String, Object>) doubleValue1Field.get("fields");
-    assertEquals(doubleValue1Subfields.size(), 1);
-    assertTrue(doubleValue1Subfields.containsKey("numeric"));
-    Map<String, Object> doubleValue1NumericFields = (Map<String, Object>) doubleValue1Subfields.get("numeric");
-    assertEquals(doubleValue1NumericFields.get("type"), "double");
+    Map<String, Object> doubleField = (Map<String, Object>) properties.get("doubleField");
+    assertEquals(doubleField.get("type"), "keyword");
+    assertEquals(doubleField.get("normalizer"), "keyword_normalizer");
+    Map<String, Object> doubleFieldSubFields = (Map<String, Object>) doubleField.get("fields");
+    assertEquals(doubleFieldSubFields.size(), 1);
+    assertTrue(doubleFieldSubFields.containsKey("numeric"));
+    Map<String, Object> doubleFieldSubFieldsNumericFields = (Map<String, Object>) doubleFieldSubFields.get("numeric");
+    assertEquals(doubleFieldSubFieldsNumericFields.get("type"), "double");
   }
 }

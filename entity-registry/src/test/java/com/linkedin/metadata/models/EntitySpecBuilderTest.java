@@ -89,7 +89,7 @@ public class EntitySpecBuilderTest {
 
     // Assert on Aspect Specs
     final Map<String, AspectSpec> aspectSpecMap = testEntitySpec.getAspectSpecMap();
-    assertEquals(6, aspectSpecMap.size());
+    assertEquals(5, aspectSpecMap.size());
     assertTrue(aspectSpecMap.containsKey("testEntityKey"));
     assertTrue(aspectSpecMap.containsKey("testBrowsePaths"));
     assertTrue(aspectSpecMap.containsKey("testEntityInfo"));
@@ -142,7 +142,7 @@ public class EntitySpecBuilderTest {
     assertEquals(new TestEntityInfo().schema().getFullName(), testEntityInfo.getPegasusSchema().getFullName());
 
     // Assert on Searchable Fields
-    assertEquals(testEntityInfo.getSearchableFieldSpecs().size(), 10);
+    assertEquals(testEntityInfo.getSearchableFieldSpecs().size(), 11);
     assertEquals("customProperties", testEntityInfo.getSearchableFieldSpecMap().get(
         new PathSpec("customProperties").toString()).getSearchableAnnotation().getFieldName());
     assertEquals(SearchableAnnotation.FieldType.KEYWORD, testEntityInfo.getSearchableFieldSpecMap().get(
@@ -189,6 +189,10 @@ public class EntitySpecBuilderTest {
             new PathSpec("foreignKey").toString()).getSearchableAnnotation().getFieldName());
     assertEquals(true, testEntityInfo.getSearchableFieldSpecMap().get(
             new PathSpec("foreignKey").toString()).getSearchableAnnotation().isQueryByDefault());
+    assertEquals("doubleField", testEntityInfo.getSearchableFieldSpecMap().get(
+            new PathSpec("doubleField").toString()).getSearchableAnnotation().getFieldName());
+    assertEquals(SearchableAnnotation.FieldType.DOUBLE, testEntityInfo.getSearchableFieldSpecMap().get(
+                    new PathSpec("doubleField").toString()).getSearchableAnnotation().getFieldType());
 
 
     // Assert on Relationship Fields
