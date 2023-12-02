@@ -3,6 +3,7 @@ import styled from 'styled-components';
 import LinkButton from '../LinkButton';
 import { useEntityData, useRefetch } from '../../../../EntityContext';
 import { AddLinkModal } from '../../../../components/styled/AddLinkModal';
+import { RemoveLinkModal } from '../../../../components/styled/RemoveLinkModal';
 
 const AddLinksWrapper = styled.div`
     margin-left: -15px;
@@ -27,6 +28,7 @@ export default function LinksSection({ hideLinksButton, readOnly }: Props) {
             {!readOnly && !hideLinksButton && (
                 <AddLinksWrapper>
                     <AddLinkModal buttonProps={{ type: 'text' }} refetch={refetch} />
+                    <RemoveLinkModal buttonProps={{ type: 'text' }} refetch={refetch} />
                 </AddLinksWrapper>
             )}
         </>
