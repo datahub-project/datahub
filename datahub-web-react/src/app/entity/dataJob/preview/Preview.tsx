@@ -26,6 +26,7 @@ const StatText = styled(Typography.Text)`
 export const Preview = ({
     urn,
     name,
+    subType,
     description,
     platformName,
     platformLogo,
@@ -44,6 +45,7 @@ export const Preview = ({
 }: {
     urn: string;
     name: string;
+    subType?: string | null;
     description?: string | null;
     platformName: string;
     platformLogo?: string | null;
@@ -67,7 +69,7 @@ export const Preview = ({
             name={name}
             urn={urn}
             description={description || ''}
-            type="Data Task"
+            type={subType || "Data Task"}
             typeIcon={entityRegistry.getIcon(EntityType.DataJob, 14, IconStyleType.ACCENT)}
             platform={platformName}
             logoUrl={platformLogo || ''}
