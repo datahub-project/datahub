@@ -289,9 +289,12 @@ class JsonSchemaSource(StatefulIngestionSourceBase):
                 entityUrn=dataset_urn, aspect=models.StatusClass(removed=False)
             ).as_workunit()
 
-            external_url = JsonSchemaTranslator._get_id_from_any_schema(schema_dict)
-            external_url_parsed = urlparse(external_url)
-            if not all([external_url_parsed.scheme, external_url_parsed.netloc]):
+            try:
+                external_url = JsonSchemaTranslator._get_id_from_any_schema(schema_dict)
+                external_url_parsed = urlparse(external_url)
+                if not all([external_url_parsed.scheme, external_url_parsed.netloc]):
+                    external_url = None
+            except:
                 external_url = None
             yield MetadataChangeProposalWrapper(
                 entityUrn=dataset_urn,
