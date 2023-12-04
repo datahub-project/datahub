@@ -219,7 +219,7 @@ public interface EntitySearchService {
    */
   @Nonnull
   public BrowseResultV2 browseV2(@Nonnull List<String> entityNames, @Nonnull String path, @Nullable Filter filter,
-      @Nonnull String input, int start, int count, @Nullable SearchFlags searchFlags);
+      @Nonnull String input, int start, int count);
 
   /**
    * Gets a list of paths for a given urn.

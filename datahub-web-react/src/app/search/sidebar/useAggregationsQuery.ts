@@ -27,7 +27,7 @@ const useAggregationsQuery = ({ facets, excludeFilters = false, skip }: Props) =
         fetchPolicy: 'cache-first',
         variables: {
             input: {
-                ...(excludeFilters ? {} : { types: sidebarFilters.entityFilters || [] }),
+                ...(excludeFilters ? {} : { types: sidebarFilters.entityFilters }),
                 facets,
                 ...(excludeFilters ? {} : { orFilters: sidebarFilters.orFilters }),
                 ...(excludeFilters ? {} : { viewUrn: sidebarFilters.viewUrn }),

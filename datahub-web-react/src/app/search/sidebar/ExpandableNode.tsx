@@ -16,12 +16,11 @@ type ExpandableNodeProps = {
     isOpen: boolean;
     header: ReactNode;
     body: ReactNode;
-    style?: any;
 };
 
-const ExpandableNode = ({ isOpen, header, body, style }: ExpandableNodeProps) => {
+const ExpandableNode = ({ isOpen, header, body }: ExpandableNodeProps) => {
     return (
-        <Layout style={style}>
+        <Layout>
             <HeaderContainer>{header}</HeaderContainer>
             <BodyGridExpander isOpen={isOpen}>
                 <BodyContainer>{body}</BodyContainer>
@@ -30,11 +29,7 @@ const ExpandableNode = ({ isOpen, header, body, style }: ExpandableNodeProps) =>
     );
 };
 
-ExpandableNode.Header = styled.div<{
-    isOpen: boolean;
-    isSelected?: boolean;
-    showBorder?: boolean;
-}>`
+ExpandableNode.Header = styled.div<{ isOpen: boolean; isSelected?: boolean; showBorder?: boolean }>`
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -76,13 +71,11 @@ ExpandableNode.TriangleButton = ({
     isVisible,
     onClick,
     dataTestId,
-    style,
 }: {
     isOpen: boolean;
     isVisible: boolean;
     onClick?: () => void;
     dataTestId?: string;
-    style?: any;
 }) => {
     const onClickButton: MouseEventHandler = (e) => {
         e.stopPropagation();
@@ -94,10 +87,9 @@ ExpandableNode.TriangleButton = ({
             size="small"
             type="ghost"
             deg={isOpen ? 90 : 0}
-            icon={<VscTriangleRight style={{ color: ANTD_GRAY[6], visibility: isVisible ? 'visible' : 'hidden' }} />}
+            icon={<VscTriangleRight style={{ color: '#000', visibility: isVisible ? 'visible' : 'hidden' }} />}
             onClick={onClickButton}
             data-testid={dataTestId}
-            style={style}
         />
     );
 };

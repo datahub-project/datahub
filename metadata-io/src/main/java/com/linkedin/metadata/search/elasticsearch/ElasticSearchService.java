@@ -212,9 +212,8 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
 
   @Nonnull
   @Override
-  public BrowseResultV2 browseV2(@Nonnull List<String> entityNames, @Nonnull String path, @Nullable Filter filter, @Nonnull String input, int start, int count,
-      @Nullable SearchFlags searchFlags) {
-    return esBrowseDAO.browseV2(entityNames, path, filter, input, start, count, searchFlags);
+  public BrowseResultV2 browseV2(@Nonnull List<String> entityNames, @Nonnull String path, @Nullable Filter filter, @Nonnull String input, int start, int count) {
+    return esBrowseDAO.browseV2(entityNames, path, filter, input, start, count);
   }
 
   @Nonnull

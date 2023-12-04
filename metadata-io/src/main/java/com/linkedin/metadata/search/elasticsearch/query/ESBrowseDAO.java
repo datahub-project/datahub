@@ -448,7 +448,7 @@ public class ESBrowseDAO {
           .setPageSize(count);
     } catch (Exception e) {
       log.error("Browse Across Entities query failed: " + e.getMessage());
-      throw new ESQueryException("Browse Acriss Entities query failed: ", e);
+      throw new ESQueryException("Browse Across Entities query failed: ", e);
     }
   }
 

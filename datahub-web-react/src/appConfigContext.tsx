@@ -47,16 +47,10 @@ export const DEFAULT_APP_CONFIG = {
         readOnlyModeEnabled: false,
         showSearchFiltersV2: true,
         showBrowseV2: true,
-<<<<<<< HEAD
-=======
-        platformBrowseV2: false,
-        assertionMonitorsEnabled: false,
-        subscriptionsEnabled: false,
-        datasetHealthDashboardEnabled: false,
->>>>>>> 2bf498a1d37... feat(): important: Add platform-based browse behind a feature flag
         showAcrylInfo: false,
         showAccessManagement: false,
         nestedDomainsEnabled: true,
+        platformBrowseV2: false,
     },
 };
 

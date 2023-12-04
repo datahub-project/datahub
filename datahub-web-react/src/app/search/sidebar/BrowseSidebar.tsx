@@ -1,11 +1,12 @@
 import React from 'react';
 import styled from 'styled-components';
 import { Typography } from 'antd';
-import EntityBrowse from './EntityBrowse';
+import EntityNode from './EntityNode';
+import { BrowseProvider } from './BrowseContext';
+import SidebarLoadingError from './SidebarLoadingError';
 import { SEARCH_RESULTS_BROWSE_SIDEBAR_ID } from '../../onboarding/config/SearchOnboardingConfig';
+import useSidebarEntities from './useSidebarEntities';
 import { ANTD_GRAY_V2 } from '../../entity/shared/constants';
-import PlatformBrowse from './PlatformBrowse';
-import { useIsPlatformBrowseMode } from './BrowseContext';
 
 const Sidebar = styled.div<{ visible: boolean; width: number }>`
     height: 100%;
@@ -27,24 +28,11 @@ const SidebarHeader = styled.div`
 
 const SidebarBody = styled.div<{ visible: boolean }>`
     height: calc(100% - 47px);
-<<<<<<< HEAD
     padding-left: 16px;
     padding-right: 12px;
     padding-bottom: 200px;
     overflow: ${(props) => (props.visible ? 'auto' : 'hidden')};
-=======
-    padding-left: 8px;
-    padding-right: 8px;
-    overflow: auto;
->>>>>>> 2bf498a1d37... feat(): important: Add platform-based browse behind a feature flag
     white-space: nowrap;
-`;
-
-const SidebarHeaderTitle = styled(Typography.Title)`
-    && {
-        margin: 0px;
-        padding: 0px;
-    }
 `;
 
 type Props = {
@@ -53,13 +41,15 @@ type Props = {
 };
 
 const BrowseSidebar = ({ visible, width }: Props) => {
-    const isPlatformBrowseMode = useIsPlatformBrowseMode();
+    const { error, entityAggregations, retry } = useSidebarEntities({
+        skip: !visible,
+    });
+
     return (
         <Sidebar visible={visible} width={width} id={SEARCH_RESULTS_BROWSE_SIDEBAR_ID} data-testid="browse-v2">
             <SidebarHeader>
-                <SidebarHeaderTitle level={5}>Navigate</SidebarHeaderTitle>
+                <Typography.Text strong>Navigate</Typography.Text>
             </SidebarHeader>
-<<<<<<< HEAD
             <SidebarBody visible={visible}>
                 {entityAggregations && !entityAggregations.length && <div>No results found</div>}
                 {entityAggregations?.map((entityAggregation) => (
@@ -68,10 +58,6 @@ const BrowseSidebar = ({ visible, width }: Props) => {
                     </BrowseProvider>
                 ))}
                 {error && <SidebarLoadingError onClickRetry={retry} />}
-=======
-            <SidebarBody>
-                {!isPlatformBrowseMode ? <EntityBrowse visible={visible} /> : <PlatformBrowse visible={visible} />}
->>>>>>> 2bf498a1d37... feat(): important: Add platform-based browse behind a feature flag
             </SidebarBody>
         </Sidebar>
     );

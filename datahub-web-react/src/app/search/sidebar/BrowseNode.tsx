@@ -26,13 +26,12 @@ import { EntityType } from '../../../types.generated';
 const FolderStyled = styled(FolderOutlined)`
     font-size: 16px;
     color: ${(props) => props.theme.styles['primary-color']};
-    margin-right: 4px;
 `;
 
 const Count = styled(Typography.Text)`
     font-size: 12px;
     color: ${(props) => props.color};
-    padding-right: 8px;
+    padding-right: 2px;
 `;
 
 const BrowseNode = () => {

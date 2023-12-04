@@ -247,8 +247,14 @@ public class JavaEntityClient implements EntityClient {
    * @throws RemoteInvocationException
    */
   @Nonnull
-  public BrowseResultV2 browseV2(@Nonnull List<String> entityNames, @Nonnull String path, @Nullable Filter filter,
-      @Nonnull String input, int start, int count, @Nonnull Authentication authentication) {
+  public BrowseResultV2 browseV2(
+      @Nonnull List<String> entityNames,
+      @Nonnull String path,
+      @Nullable Filter filter,
+      @Nonnull String input,
+      int start,
+      int count,
+      @Nonnull Authentication authentication) {
     // TODO: cache browseV2 results
     return _entitySearchService.browseV2(entityNames, path, filter, input, start, count);
   }
