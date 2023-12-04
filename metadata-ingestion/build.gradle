@@ -179,6 +179,11 @@ task testIntegrationBatch2(type: Exec, dependsOn: [installDevTest]) {
   commandLine 'bash', '-c',
     "source ${venv_name}/bin/activate && pytest ${cvg_arg} --durations=20 -m 'integration_batch_2' -vv --continue-on-collection-errors --junit-xml=junit.integrationbatch2.xml"
 }
+task testIntegrationBatch3(type: Exec, dependsOn: [installDevTest]) {
+  def cvg_arg = get_coverage_arg("intBatch3")
+  commandLine 'bash', '-c',
+    "source ${venv_name}/bin/activate && pytest ${cvg_arg} --durations=20 -m 'integration_batch_3' -vv --continue-on-collection-errors --junit-xml=junit.integrationbatch3.xml"
+}
 
 task testFull(type: Exec, dependsOn: [installDevTest]) {
   commandLine 'bash', '-c',
