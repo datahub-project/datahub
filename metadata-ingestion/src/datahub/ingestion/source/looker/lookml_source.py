@@ -301,13 +301,13 @@ class LookMLSourceConfig(
     ) -> Optional[pydantic.DirectoryPath]:
         if v is None:
             git_info: Optional[GitInfo] = values.get("git_info")
-            if git_info and git_info.deploy_key:
-                # We have git_info populated correctly, base folder is not needed
-                pass
+            if git_info:
+                if not git_info.deploy_key:
+                    logger.warning(
+                        "git_info is provided, but no SSH key is present. If the repo is not public, we'll fail to clone it."
+                    )
             else:
-                raise ValueError(
-                    "base_folder is not provided. Neither has a github deploy_key or deploy_key_file been provided"
-                )
+                raise ValueError("Neither base_folder nor git_info has been provided.")
         return v
 
 
@@ -1831,14 +1831,8 @@ class LookMLSource(StatefulIngestionSourceBase):
                 assert self.source_config.git_info
                 # we don't have a base_folder, so we need to clone the repo and process it locally
                 start_time = datetime.now()
-                git_clone = GitClone(tmp_dir)
-                # Github info deploy key is always populated
-                assert self.source_config.git_info.deploy_key
-                assert self.source_config.git_info.repo_ssh_locator
-                checkout_dir = git_clone.clone(
-                    ssh_key=self.source_config.git_info.deploy_key,
-                    repo_url=self.source_config.git_info.repo_ssh_locator,
-                    branch=self.source_config.git_info.branch_for_clone,
+                checkout_dir = self.source_config.git_info.clone(
+                    tmp_path=tmp_dir,
                 )
                 self.reporter.git_clone_latency = datetime.now() - start_time
                 self.source_config.base_folder = checkout_dir.resolve()
@@ -1853,23 +1847,14 @@ class LookMLSource(StatefulIngestionSourceBase):
             for project, p_ref in self.source_config.project_dependencies.items():
                 # If we were given GitHub info, we need to clone the project.
                 if isinstance(p_ref, GitInfo):
-                    assert p_ref.repo_ssh_locator
-
-                    p_cloner = GitClone(f"{tmp_dir}/_included_/{project}")
                     try:
-                        p_checkout_dir = p_cloner.clone(
-                            ssh_key=(
-                                # If a deploy key was provided, use it. Otherwise, fall back
-                                # to the main project deploy key.
-                                p_ref.deploy_key
-                                or (
-                                    self.source_config.git_info.deploy_key
-                                    if self.source_config.git_info
-                                    else None
-                                )
-                            ),
-                            repo_url=p_ref.repo_ssh_locator,
-                            branch=p_ref.branch_for_clone,
+                        p_checkout_dir = p_ref.clone(
+                            tmp_path=f"{tmp_dir}/_included_/{project}",
+                            # If a deploy key was provided, use it. Otherwise, fall back
+                            # to the main project deploy key, if present.
+                            fallback_deploy_key=self.source_config.git_info.deploy_key
+                            if self.source_config.git_info
+                            else None,
                         )
 
                         p_ref = p_checkout_dir.resolve()
