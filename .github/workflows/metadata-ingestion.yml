@@ -38,6 +38,7 @@ jobs:
             "testIntegrationBatch0",
             "testIntegrationBatch1",
             "testIntegrationBatch2",
+            "testIntegrationBatch3",
           ]
         include:
           - python-version: "3.7"
