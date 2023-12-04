@@ -483,7 +483,7 @@ def test_auto_browse_path_v2_dry_run(telemetry_ping_mock):
 
 
 @freeze_time("2023-01-02 00:00:00")
-def test_auto_empty_dataset_usage_statistics(caplog: pytest.LogCaptureFixture):
+def test_auto_empty_dataset_usage_statistics(caplog: pytest.LogCaptureFixture) -> None:
     has_urn = make_dataset_urn("my_platform", "has_aspect")
     empty_urn = make_dataset_urn("my_platform", "no_aspect")
     config = BaseTimeWindowConfig()
@@ -534,7 +534,7 @@ def test_auto_empty_dataset_usage_statistics(caplog: pytest.LogCaptureFixture):
 @freeze_time("2023-01-02 00:00:00")
 def test_auto_empty_dataset_usage_statistics_invalid_timestamp(
     caplog: pytest.LogCaptureFixture,
-):
+) -> None:
     urn = make_dataset_urn("my_platform", "my_dataset")
     config = BaseTimeWindowConfig()
     wus = [
