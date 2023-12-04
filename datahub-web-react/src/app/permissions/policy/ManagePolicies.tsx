@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, {  useEffect, useState } from 'react';
 import { Button, Empty, message, Modal, Pagination, Tag } from 'antd';
 import styled from 'styled-components/macro';
 import * as QueryString from 'query-string';
@@ -26,7 +26,7 @@ import {
     useUpdatePolicyMutation,
 } from '../../../graphql/policy.generated';
 import { Message } from '../../shared/Message';
-import { EMPTY_POLICY } from './policyUtils';
+import { EMPTY_POLICY, addToListPoliciesCache, removeFromListPoliciesCache } from './policyUtils';
 import TabToolbar from '../../entity/shared/components/styled/TabToolbar';
 import { StyledTable } from '../../entity/shared/components/styled/StyledTable';
 import AvatarsGroup from '../AvatarsGroup';
@@ -144,6 +144,8 @@ export const ManagePolicies = () => {
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
     const paramsQuery = (params?.query as string) || undefined;
     const [query, setQuery] = useState<undefined | string>(undefined);
+    const [removedUrns, setRemovedUrns] = useState<string[]>([]);
+
     useEffect(() => setQuery(paramsQuery), [paramsQuery]);
 
     const {
@@ -172,6 +174,7 @@ export const ManagePolicies = () => {
         error: policiesError,
         data: policiesData,
         refetch: policiesRefetch,
+        client,
     } = useListPoliciesQuery({
         variables: {
             input: {
@@ -193,7 +196,8 @@ export const ManagePolicies = () => {
     const updateError = createPolicyError || updatePolicyError || deletePolicyError;
 
     const totalPolicies = policiesData?.listPolicies?.total || 0;
-    const policies = useMemo(() => policiesData?.listPolicies?.policies || [], [policiesData]);
+    const policies = policiesData?.listPolicies?.policies || []
+    // console.log(policies,"policies ===========");
 
     const onChangePage = (newPage: number) => {
         scrollToTop();
@@ -258,17 +262,28 @@ export const ManagePolicies = () => {
             title: `Delete ${policy?.name}`,
             content: `Are you sure you want to remove policy?`,
             onOk() {
-                deletePolicy({ variables: { urn: policy?.urn as string } }); // There must be a focus policy urn.
-                analytics.event({
-                    type: EventType.DeleteEntityEvent,
-                    entityUrn: policy?.urn,
-                    entityType: EntityType.DatahubPolicy,
-                });
-                message.success('Successfully removed policy.');
-                setTimeout(() => {
-                    policiesRefetch();
-                }, 3000);
-                onCancelViewPolicy();
+                removeFromListPoliciesCache(client, policy?.urn , page, pageSize, query);
+                deletePolicy({ variables: { urn: policy?.urn as string } }) // There must be a focus policy urn.
+                .then(() => {
+                    analytics.event({
+                        type: EventType.DeleteEntityEvent,
+                        entityUrn: policy?.urn,
+                        entityType: EntityType.DatahubPolicy,
+                    });
+                    message.success('Successfully removed policy.');
+                    const newRemovedUrns = [...removedUrns, policy?.urn];
+                    setRemovedUrns(newRemovedUrns);
+                    setTimeout(() => {
+                        policiesRefetch?.();
+                    }, 3000);
+                    onCancelViewPolicy();
+                })
+                .catch((e: unknown) => {
+                    message.destroy();
+                    if (e instanceof Error) {
+                        message.error({ content: `Failed to remove Policy: \n ${e.message || ''}`, duration: 3 });
+                    }
+                });                
             },
             onCancel() {},
             okText: 'Yes',
@@ -301,23 +316,55 @@ export const ManagePolicies = () => {
     const onSavePolicy = (savePolicy: Omit<Policy, 'urn'>) => {
         if (focusPolicyUrn) {
             // If there's an URN associated with the focused policy, then we are editing an existing policy.
-            updatePolicy({ variables: { urn: focusPolicyUrn, input: toPolicyInput(savePolicy) } });
-            analytics.event({
-                type: EventType.UpdatePolicyEvent,
-                policyUrn: focusPolicyUrn,
+            updatePolicy({ variables: { urn: focusPolicyUrn, input: toPolicyInput(savePolicy) } })
+            .then(() => {
+                analytics.event({
+                    type: EventType.UpdatePolicyEvent,
+                    policyUrn: focusPolicyUrn,
+                });
+                message.success({
+                    content: `Successfully updated policy!`,
+                    duration: 3,
+                });
+                policiesRefetch();
+                onClosePolicyBuilder();
+            })
+            .catch((e) => {
+                message.destroy();
+                message.error({
+                    content: `Failed to update policy!: \n ${e.message || ''}`,
+                    duration: 3,
+                });
             });
+            
         } else {
-            // If there's no URN associated with the focused policy, then we are creating.
-            createPolicy({ variables: { input: toPolicyInput(savePolicy) } });
-            analytics.event({
-                type: EventType.CreatePolicyEvent,
-            });
+            createPolicy({ variables: { input: toPolicyInput(savePolicy) }  })
+                .then((result) => {
+                    const newPolicy = {
+                        urn: result?.data?.createPolicy,
+                        ...savePolicy,
+                    };
+                    addToListPoliciesCache(client, newPolicy, pageSize, query);
+                    setTimeout(() => {
+                        policiesRefetch();
+                        analytics.event({
+                            type: EventType.CreatePolicyEvent,
+                        });
+                        message.success({
+                            content: `Successfully saved policy.`,
+                            duration: 3,
+                        })
+                    }, 2000);
+                    onClosePolicyBuilder();
+                })
+                .catch((e) => {
+                    message.destroy();
+                    message.error({
+                        content: `Failed to create policy!: \n ${e.message || ''}`,
+                        duration: 3,
+                    });
+                });
         }
-        message.success('Successfully saved policy.');
-        setTimeout(() => {
-            policiesRefetch();
-        }, 3000);
-        onClosePolicyBuilder();
     };
 
     const tableColumns = [
