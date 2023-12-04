@@ -1,10 +1,9 @@
-import datetime
 import functools
 import json
 import logging
 import os
 from json.decoder import JSONDecodeError
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union
 
 import requests
 from deprecated import deprecated
@@ -60,6 +59,7 @@ class DataHubRestEmitter(Closeable, Emitter):
         self,
         gms_server: str,
         token: Optional[str] = None,
+        timeout_sec: Optional[float] = None,
         connect_timeout_sec: Optional[float] = None,
         read_timeout_sec: Optional[float] = None,
         retry_status_codes: Optional[List[int]] = None,
@@ -103,11 +103,12 @@ class DataHubRestEmitter(Closeable, Emitter):
         if disable_ssl_verification:
             self._session.verify = False
 
-        if connect_timeout_sec:
-            self._connect_timeout_sec = connect_timeout_sec
-
-        if read_timeout_sec:
-            self._read_timeout_sec = read_timeout_sec
+        self._connect_timeout_sec = (
+            connect_timeout_sec or timeout_sec or _DEFAULT_CONNECT_TIMEOUT_SEC
+        )
+        self._read_timeout_sec = (
+            read_timeout_sec or timeout_sec or _DEFAULT_READ_TIMEOUT_SEC
+        )
 
         if self._connect_timeout_sec < 1 or self._read_timeout_sec < 1:
             logger.warning(
@@ -208,8 +209,7 @@ class DataHubRestEmitter(Closeable, Emitter):
             UsageAggregation,
         ],
         callback: Optional[Callable[[Exception, str], None]] = None,
-    ) -> Tuple[datetime.datetime, datetime.datetime]:
-        start_time = datetime.datetime.now()
+    ) -> None:
         try:
             if isinstance(item, UsageAggregation):
                 self.emit_usage(item)
@@ -226,7 +226,6 @@ class DataHubRestEmitter(Closeable, Emitter):
         else:
             if callback:
                 callback(None, "success")  # type: ignore
-            return start_time, datetime.datetime.now()
 
     def emit_mce(self, mce: MetadataChangeEvent) -> None:
         url = f"{self._gms_server}/entities?action=ingest"
