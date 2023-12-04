@@ -1,14 +1,15 @@
 import React from 'react';
 import { Pagination, Typography } from 'antd';
+import { LoadingOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
 import { FacetFilterInput, FacetMetadata, SearchResults as SearchResultType } from '../../../../../../types.generated';
 import { SearchCfg } from '../../../../../../conf';
-import { ReactComponent as LoadingSvg } from '../../../../../../images/datahub-logo-color-loading_pendulum.svg';
 import { EntityAndType } from '../../../types';
 import { UnionType } from '../../../../../search/utils/constants';
 import { SearchFiltersSection } from '../../../../../search/SearchFiltersSection';
 import { EntitySearchResults, EntityActionProps } from './EntitySearchResults';
 import MatchingViewsLabel from './MatchingViewsLabel';
+import { ANTD_GRAY } from '../../../constants';
 
 const SearchBody = styled.div`
     height: 100%;
@@ -58,6 +59,12 @@ const LoadingContainer = styled.div`
     text-align: center;
     flex: 1;
 `;
+
+const StyledLoading = styled(LoadingOutlined)`
+    font-size: 36px;
+    color: ${ANTD_GRAY[7]};
+    padding-bottom: 18px;
+]`;
 
 interface Props {
     page: number;
@@ -121,7 +128,7 @@ export const EmbeddedListSearchResults = ({
                 <ResultContainer>
                     {loading && (
                         <LoadingContainer>
-                            <LoadingSvg height={80} width={80} />
+                            <StyledLoading />
                         </LoadingContainer>
                     )}
                     {!loading && (

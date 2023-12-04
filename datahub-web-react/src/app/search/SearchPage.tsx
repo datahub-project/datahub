@@ -62,6 +62,7 @@ export const SearchPage = () => {
                 searchFlags: { getSuggestions: true },
             },
         },
+        fetchPolicy: 'cache-and-network',
     });
 
     const total = data?.searchAcrossEntities?.total || 0;
@@ -217,6 +218,7 @@ export const SearchPage = () => {
             )}
             {showSearchFiltersV2 && (
                 <SearchFilters
+                    loading={loading}
                     availableFilters={data?.searchAcrossEntities?.facets || []}
                     activeFilters={filters}
                     unionType={unionType}
