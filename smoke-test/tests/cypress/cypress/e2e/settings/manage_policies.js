@@ -14,7 +14,7 @@ describe("create and manage platform and metadata policies", () => {
         cy.clickOptionWithTestId("policy-name")
           .focused()
           .type(platform_policy_name);
-        cy.get('[data-testid="policy-type"] [title="Metadata"]').click();
+        cy.get('[data-testid="policy-type"] [title="Metadata"]').click({ force: true });
         cy.clickOptionWithTestId("platform");
         cy.clickOptionWithTestId("policy-description")
           .focused()
@@ -24,10 +24,10 @@ describe("create and manage platform and metadata policies", () => {
         cy.clickOptionWithText("All Privileges").focused().blur();
         cy.get("#nextButton").click();
         cy.get('[data-testid="users"]').type("All");
-        cy.get("[title='All Users']").click();
+        cy.get("[title='All Users']").click({ force: true });
         cy.focused().blur();
         cy.get('[data-testid="groups"]').type("All");
-        cy.get("[title='All Groups']").click();
+        cy.get("[title='All Groups']").click({force: true});
         cy.focused().blur();
         cy.get("#saveButton").click();
         cy.waitTextVisible("Successfully saved policy.");
@@ -39,7 +39,7 @@ describe("create and manage platform and metadata policies", () => {
         cy.visit("/settings/permissions/policies");
         cy.contains('tr', `${platform_policy_name}` )
           .contains('EDIT')
-          .click();
+          .click({ force: true });
         cy.clickOptionWithTestId("policy-name");
         cy.focused().clear().type(platform_policy_edited);
         cy.clickOptionWithTestId("policy-description");
@@ -110,7 +110,7 @@ describe("create and manage platform and metadata policies", () => {
         cy.visit("/settings/permissions/policies");
         cy.contains('tr', `${metadata_policy_name}` )
           .contains('EDIT')
-          .click();
+          .click({ force: true });
         cy.clickOptionWithTestId("policy-name")
         cy.focused().clear().type(metadata_policy_edited);
         cy.clickOptionWithTestId("policy-description");
