@@ -9,7 +9,9 @@
             "customProperties": {
                 "_access_control": "None",
                 "catchup": "False",
-                "fileloc": "'/Users/hsheth/projects/datahub/metadata-ingestion-modules/airflow-plugin/tests/integration/dags/simple_dag.py'",
+                "description": "'A simple DAG that runs a few fake data tasks.'",
+                "doc_md": "None",
+                "fileloc": "<fileloc>",
                 "is_paused_upon_creation": "None",
                 "start_date": "DateTime(2023, 1, 1, 0, 0, 0, tzinfo=Timezone('UTC'))",
                 "tags": "None",
@@ -97,7 +99,9 @@
             "outputDatasets": [
                 "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableD,PROD)"
             ],
-            "inputDatajobs": [],
+            "inputDatajobs": [
+                "urn:li:dataJob:(urn:li:dataFlow:(airflow,test_dag,PROD),test_task)"
+            ],
             "fineGrainedLineages": []
         }
     }
@@ -211,7 +215,9 @@
             "outputDatasets": [
                 "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableD,PROD)"
             ],
-            "inputDatajobs": [],
+            "inputDatajobs": [
+                "urn:li:dataJob:(urn:li:dataFlow:(airflow,test_dag,PROD),test_task)"
+            ],
             "fineGrainedLineages": []
         }
     }
@@ -292,9 +298,9 @@
         "json": {
             "customProperties": {
                 "run_id": "manual_run_test",
-                "duration": "0.175983",
-                "start_date": "2023-09-30 00:48:58.943850+00:00",
-                "end_date": "2023-09-30 00:48:59.119833+00:00",
+                "duration": "<duration>",
+                "start_date": "<start_date>",
+                "end_date": "<end_date>",
                 "execution_date": "2023-09-27 21:34:38+00:00",
                 "try_number": "1",
                 "max_tries": "0",
@@ -302,13 +308,16 @@
                 "state": "success",
                 "operator": "BashOperator",
                 "priority_weight": "2",
-                "log_url": "http://airflow.example.com/log?execution_date=2023-09-27T21%3A34%3A38%2B00%3A00&task_id=task_1&dag_id=simple_dag"
+                "log_url": "http://airflow.example.com/log?execution_date=2023-09-27T21%3A34%3A38%2B00%3A00&task_id=task_1&dag_id=simple_dag",
+                "orchestrator": "airflow",
+                "dag_id": "simple_dag",
+                "task_id": "task_1"
             },
             "externalUrl": "http://airflow.example.com/log?execution_date=2023-09-27T21%3A34%3A38%2B00%3A00&task_id=task_1&dag_id=simple_dag",
             "name": "simple_dag_task_1_manual_run_test",
             "type": "BATCH_AD_HOC",
             "created": {
-                "time": 1696034938943,
+                "time": 1701222595752,
                 "actor": "urn:li:corpuser:datahub"
             }
         }
@@ -393,7 +402,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1696034938943,
+            "timestampMillis": 1701222595752,
             "partitionSpec": {
                 "type": "FULL_TABLE",
                 "partition": "FULL_TABLE_SNAPSHOT"
@@ -410,7 +419,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1696034939119,
+            "timestampMillis": 1701222595962,
             "partitionSpec": {
                 "type": "FULL_TABLE",
                 "partition": "FULL_TABLE_SNAPSHOT"
@@ -433,7 +442,9 @@
             "customProperties": {
                 "_access_control": "None",
                 "catchup": "False",
-                "fileloc": "'/Users/hsheth/projects/datahub/metadata-ingestion-modules/airflow-plugin/tests/integration/dags/simple_dag.py'",
+                "description": "'A simple DAG that runs a few fake data tasks.'",
+                "doc_md": "None",
+                "fileloc": "<fileloc>",
                 "is_paused_upon_creation": "None",
                 "start_date": "DateTime(2023, 1, 1, 0, 0, 0, tzinfo=Timezone('UTC'))",
                 "tags": "None",
@@ -644,9 +655,9 @@
         "json": {
             "customProperties": {
                 "run_id": "manual_run_test",
-                "duration": "0.129888",
-                "start_date": "2023-09-30 00:49:02.158752+00:00",
-                "end_date": "2023-09-30 00:49:02.288640+00:00",
+                "duration": "<duration>",
+                "start_date": "<start_date>",
+                "end_date": "<end_date>",
                 "execution_date": "2023-09-27 21:34:38+00:00",
                 "try_number": "1",
                 "max_tries": "0",
@@ -654,13 +665,16 @@
                 "state": "success",
                 "operator": "BashOperator",
                 "priority_weight": "1",
-                "log_url": "http://airflow.example.com/log?execution_date=2023-09-27T21%3A34%3A38%2B00%3A00&task_id=run_another_data_task&dag_id=simple_dag"
+                "log_url": "http://airflow.example.com/log?execution_date=2023-09-27T21%3A34%3A38%2B00%3A00&task_id=run_another_data_task&dag_id=simple_dag",
+                "orchestrator": "airflow",
+                "dag_id": "simple_dag",
+                "task_id": "run_another_data_task"
             },
             "externalUrl": "http://airflow.example.com/log?execution_date=2023-09-27T21%3A34%3A38%2B00%3A00&task_id=run_another_data_task&dag_id=simple_dag",
             "name": "simple_dag_run_another_data_task_manual_run_test",
             "type": "BATCH_AD_HOC",
             "created": {
-                "time": 1696034942158,
+                "time": 1701222599804,
                 "actor": "urn:li:corpuser:datahub"
             }
         }
@@ -685,7 +699,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1696034942158,
+            "timestampMillis": 1701222599804,
             "partitionSpec": {
                 "type": "FULL_TABLE",
                 "partition": "FULL_TABLE_SNAPSHOT"
@@ -702,7 +716,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1696034942288,
+            "timestampMillis": 1701222599959,
             "partitionSpec": {
                 "type": "FULL_TABLE",
                 "partition": "FULL_TABLE_SNAPSHOT"

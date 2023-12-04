@@ -8,7 +8,7 @@ on:
       - ".github/workflows/docker-postgres-setup.yml"
   pull_request:
     branches:
-      - master
+      - "**"
     paths:
       - "docker/postgres-setup/**"
       - ".github/workflows/docker-postgres-setup.yml"
@@ -46,9 +46,7 @@ jobs:
     needs: setup
     steps:
       - name: Check out the repo
-        uses: actions/checkout@v3
-        with:
-          fetch-depth: 800
+        uses: hsheth2/sane-checkout-action@v1
       - name: Build and push
         uses: ./.github/actions/docker-custom-build-and-push
         with:
@@ -61,4 +59,3 @@ jobs:
           context: .
           file: ./docker/postgres-setup/Dockerfile
           platforms: linux/amd64,linux/arm64
-

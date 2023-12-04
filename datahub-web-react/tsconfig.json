@@ -1,6 +1,6 @@
 {
     "compilerOptions": {
-        "target": "es5",
+        "target": "es2017",
         "lib": ["dom", "dom.iterable", "esnext"],
         "allowJs": true,
         "skipLibCheck": true,
@@ -17,5 +17,5 @@
         "noEmit": true,
         "jsx": "react-jsx"
     },
-    "include": ["src", "src/conf/theme/styled-components.d.ts"]
+    "include": ["src", "src/conf/theme/styled-components.d.ts", "craco.config.js", ".eslintrc.js"]
 }

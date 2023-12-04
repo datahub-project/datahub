@@ -1,0 +1,48 @@
+.feature {
+  flex-direction: row;
+  height: 10rem;
+  flex-shrink: 0;
+  padding: 3rem;
+  color: var(--ifm-text-color);
+  margin: 0rem 2rem 1rem 0rem;
+  min-height: calc(100% - 1rem);
+  text-decoration: none !important;
+
+
+  img {
+    width: 3rem;
+    height: 3rem;
+    margin: auto 1rem;
+  }
+  svg {
+    width: 1.5rem;
+    height: 1.5rem;
+    margin-right: 0.75rem;
+  }
+  strong,
+  span {
+    display: block;
+    margin-bottom: 0.25rem;
+  }
+  strong {
+    font-weight: 600;
+    padding: auto 0;
+  }
+
+  span {
+    font-size: 0.875rem;
+    line-height: 1.25em;
+  }
+  &:hover {
+    border-color: var(--ifm-color-primary);
+  }
+
+  .quickstart-text {
+    margin: auto 0;
+  }
+  
+}
+
+.quickstart-text {
+  margin: auto 0;
+}

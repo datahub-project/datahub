@@ -17,6 +17,7 @@ from typing import (
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.emitter.mce_builder import make_dataplatform_instance_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.mcp_builder import entity_supports_aspect
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.schema_classes import (
     BrowsePathEntryClass,
@@ -35,7 +36,7 @@ from datahub.telemetry import telemetry
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 from datahub.utilities.urns.tag_urn import TagUrn
 from datahub.utilities.urns.urn import guess_entity_type
-from datahub.utilities.urns.urn_iter import list_urns
+from datahub.utilities.urns.urn_iter import list_urns, lowercase_dataset_urns
 
 if TYPE_CHECKING:
     from datahub.ingestion.api.source import SourceReport
@@ -64,13 +65,12 @@ def auto_status_aspect(
     """
     For all entities that don't have a status aspect, add one with removed set to false.
     """
-
     all_urns: Set[str] = set()
     status_urns: Set[str] = set()
+    skip_urns: Set[str] = set()
     for wu in stream:
         urn = wu.get_urn()
         all_urns.add(urn)
-
         if not wu.is_primary_source:
             # If this is a non-primary source, we pretend like we've seen the status
             # aspect so that we don't try to emit a removal for it.
@@ -90,9 +90,17 @@ def auto_status_aspect(
         else:
             raise ValueError(f"Unexpected type {type(wu.metadata)}")
 
+        if not isinstance(
+            wu.metadata, MetadataChangeEventClass
+        ) and not entity_supports_aspect(wu.metadata.entityType, StatusClass):
+            # If any entity does not support aspect 'status' then skip that entity from adding status aspect.
+            # Example like dataProcessInstance doesn't suppport status aspect.
+            # If not skipped gives error: java.lang.RuntimeException: Unknown aspect status for entity dataProcessInstance
+            skip_urns.add(urn)
+
         yield wu
 
-    for urn in sorted(all_urns - status_urns):
+    for urn in sorted(all_urns - status_urns - skip_urns):
         yield MetadataChangeProposalWrapper(
             entityUrn=urn,
             aspect=StatusClass(removed=False),
@@ -171,6 +179,38 @@ def auto_materialize_referenced_tags(
             entityUrn=urn,
             aspect=TagKeyClass(name=tag_urn.get_entity_id()[0]),
         ).as_workunit()
+
+
+def auto_lowercase_urns(
+    stream: Iterable[MetadataWorkUnit],
+) -> Iterable[MetadataWorkUnit]:
+    """Lowercase all dataset urns"""
+
+    for wu in stream:
+        try:
+            old_urn = wu.get_urn()
+            lowercase_dataset_urns(wu.metadata)
+            wu.id = wu.id.replace(old_urn, wu.get_urn())
+
+            yield wu
+        except Exception as e:
+            logger.warning(f"Failed to lowercase urns for {wu}: {e}", exc_info=True)
+            yield wu
+
+
+def re_emit_browse_path_v2(
+    stream: Iterable[MetadataWorkUnit],
+) -> Iterable[MetadataWorkUnit]:
+    """Re-emit browse paths v2 aspects, to avoid race condition where server overwrites with default."""
+    browse_path_v2_workunits = []
+
+    for wu in stream:
+        yield wu
+        if wu.is_primary_source and wu.get_aspect_of_type(BrowsePathsV2Class):
+            browse_path_v2_workunits.append(wu)
+
+    for wu in browse_path_v2_workunits:
+        yield wu
 
 
 def auto_browse_path_v2(

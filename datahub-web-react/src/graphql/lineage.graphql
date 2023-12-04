@@ -36,6 +36,9 @@ fragment lineageNodeProperties on EntityWithRelationships {
         dataPlatformInstance {
             ...dataPlatformInstanceFields
         }
+        subTypes {
+            typeNames
+        }
         editableProperties {
             description
         }
@@ -164,6 +167,9 @@ fragment lineageNodeProperties on EntityWithRelationships {
         ...entityDataProduct
         status {
             removed
+        }
+        subTypes {
+            typeNames
         }
     }
     ... on Dataset {

@@ -20,7 +20,10 @@ from datahub.metadata.schema_classes import (AuditStampClass,
                                              UpstreamClass,
                                              UpstreamLineageClass)
 from datahub.specific.dataset import DatasetPatchBuilder
-from tests.patch.common_patch_tests import helper_test_entity_terms_patch, helper_test_dataset_tags_patch, helper_test_ownership_patch, helper_test_custom_properties_patch
+
+from tests.patch.common_patch_tests import (
+    helper_test_custom_properties_patch, helper_test_dataset_tags_patch,
+    helper_test_entity_terms_patch, helper_test_ownership_patch)
 
 
 # Common Aspect Patch Tests
@@ -31,12 +34,14 @@ def test_dataset_ownership_patch(wait_for_healthchecks):
     )
     helper_test_ownership_patch(dataset_urn, DatasetPatchBuilder)
 
+
 # Tags
 def test_dataset_tags_patch(wait_for_healthchecks):
     dataset_urn = make_dataset_urn(
         platform="hive", name=f"SampleHiveDataset-{uuid.uuid4()}", env="PROD"
     )
     helper_test_dataset_tags_patch(dataset_urn, DatasetPatchBuilder)
+
 
 # Terms
 def test_dataset_terms_patch(wait_for_healthchecks):
@@ -284,8 +289,15 @@ def test_custom_properties_patch(wait_for_healthchecks):
     dataset_urn = make_dataset_urn(
         platform="hive", name=f"SampleHiveDataset-{uuid.uuid4()}", env="PROD"
     )
-    orig_dataset_properties = DatasetPropertiesClass(name="test_name", description="test_description")
-    helper_test_custom_properties_patch(test_entity_urn=dataset_urn, patch_builder_class=DatasetPatchBuilder, custom_properties_aspect_class=DatasetPropertiesClass, base_aspect=orig_dataset_properties)
+    orig_dataset_properties = DatasetPropertiesClass(
+        name="test_name", description="test_description"
+    )
+    helper_test_custom_properties_patch(
+        test_entity_urn=dataset_urn,
+        patch_builder_class=DatasetPatchBuilder,
+        custom_properties_aspect_class=DatasetPropertiesClass,
+        base_aspect=orig_dataset_properties,
+    )
 
     with DataHubGraph(DataHubGraphConfig()) as graph:
         # Patch custom properties along with name

@@ -66,6 +66,7 @@ Cypress.Commands.add("logout", () => {
 Cypress.Commands.add("goToGlossaryList", () => {
   cy.visit("/glossary");
   cy.waitTextVisible("Glossary");
+  cy.wait(3000);
 });
 
 Cypress.Commands.add("goToDomainList", () => {
@@ -82,6 +83,12 @@ Cypress.Commands.add("goToViewsSettings", () => {
 Cypress.Commands.add("goToOwnershipTypesSettings", () => {
   cy.visit("/settings/ownership");
   cy.waitTextVisible("Manage Ownership");
+});
+
+Cypress.Commands.add("goToAccessTokenSettings", () => {
+  cy.visit("/settings/tokens");
+  cy.waitTextVisible("Manage Access Tokens");
+  cy.wait(3000);
 });
 
 Cypress.Commands.add("goToIngestionPage", () => {
