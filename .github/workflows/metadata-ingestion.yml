@@ -53,7 +53,7 @@ jobs:
       - name: Install dependencies
         run: ./metadata-ingestion/scripts/install_deps.sh
       - name: Install package
-        run: ./gradlew :metadata-ingestion:installPackageOnly
+        run: ./gradlew :metadata-ingestion:installPackage
       - name: Run lint alongwith testQuick
         if: ${{  matrix.command == 'testQuick' }}
         run: ./gradlew :metadata-ingestion:lint
