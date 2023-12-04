@@ -30,8 +30,6 @@ public class SettingsBuilder {
   public static final String FILTERS = "filters";
   public static final String IGNORE_CASE = "ignore_case";
   public static final String KEYWORD = "keyword";
-  public static final String NUMERIC = "numeric";
-  public static final String DOUBLE = "double";
   public static final String LENIENT = "lenient";
   public static final String MAX_NGRAM_DIFF = "max_ngram_diff";
   public static final String MAX_SHINGLE_SIZE = "max_shingle_size";

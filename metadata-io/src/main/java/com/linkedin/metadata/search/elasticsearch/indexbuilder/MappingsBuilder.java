@@ -31,7 +31,6 @@ public class MappingsBuilder {
   }
 
   public static final Map<String, String> KEYWORD_TYPE_MAP = ImmutableMap.of(TYPE, KEYWORD);
-  public static final Map<String, String> DOUBLE_TYPE_MAP = ImmutableMap.of(TYPE, DOUBLE);
 
   // Subfields
   public static final String DELIMITED = "delimited";
@@ -137,7 +136,6 @@ public class MappingsBuilder {
       mappingForField.put(TYPE, ESUtils.OBJECT_FIELD_TYPE);
     } else if (fieldType == FieldType.DOUBLE) {
       mappingForField.put(TYPE, ESUtils.DOUBLE_FIELD_TYPE);
-//      mappingForField.putAll(getMappingsForDouble());
     } else {
       log.info("FieldType {} has no mappings implemented", fieldType);
     }
@@ -160,15 +158,6 @@ public class MappingsBuilder {
     mappingForField.put(NORMALIZER, KEYWORD_NORMALIZER);
     // Add keyword subfield without lowercase filter
     mappingForField.put(FIELDS, ImmutableMap.of(KEYWORD, KEYWORD_TYPE_MAP));
-    return mappingForField;
-  }
-
-  private static Map<String, Object> getMappingsForDouble() {
-    Map<String, Object> mappingForField = new HashMap<>();
-    mappingForField.put(TYPE, ESUtils.KEYWORD_FIELD_TYPE);
-    mappingForField.put(NORMALIZER, KEYWORD_NORMALIZER);
-    // Add numeric subfield with type double
-    mappingForField.put(FIELDS, ImmutableMap.of(NUMERIC, DOUBLE_TYPE_MAP));
     return mappingForField;
   }
 
