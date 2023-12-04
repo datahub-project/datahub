@@ -255,7 +255,6 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                     sql_common_config=self.config,
                     profiling_config=self.config.profiling,
                     report=self.report,
-                    dataset_urn_builder=self.gen_dataset_urn,
                 ).get_workunits(list(self.tables.values()))
             else:
                 raise ValueError("Unknown profiling config method")

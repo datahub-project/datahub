@@ -98,7 +98,7 @@ def test_serde_to_avro(
 
         # Deserialized from Avro.
         fo.seek(0)
-        in_records = list(fastavro.reader(fo, return_record_name=True))
+        in_records = list(fastavro.reader(fo, return_record_name=True))  # type: ignore
         in_mces = [
             MetadataChangeEventClass.from_obj(record, tuples=True)
             for record in in_records

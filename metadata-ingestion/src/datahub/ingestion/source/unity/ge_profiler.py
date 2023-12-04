@@ -1,15 +1,12 @@
 import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
-from datetime import datetime
-from typing import Callable, Iterable, List, Optional, cast
+from typing import Iterable, List, Optional
 
 from sqlalchemy import create_engine
 from sqlalchemy.engine import Connection
 
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.ge_data_profiler import GEProfilerRequest
 from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 from datahub.ingestion.source.sql.sql_generic import BaseTable
 from datahub.ingestion.source.sql.sql_generic_profiler import (
@@ -39,28 +36,21 @@ class UnityCatalogSQLGenericTable(BaseTable):
         self.ddl = None
 
 
-@dataclass
-class UnityCatalogProfilerRequest(GEProfilerRequest):
-    table: UnityCatalogSQLGenericTable
-    profile_table_level_only: bool = False
-
-
 class UnityCatalogGEProfiler(GenericProfiler):
     sql_common_config: SQLCommonConfig
     profiling_config: UnityCatalogGEProfilerConfig
     report: UnityCatalogReport
-    dataset_urn_builder: Callable[[TableReference], str]
 
     def __init__(
         self,
         sql_common_config: SQLCommonConfig,
         profiling_config: UnityCatalogGEProfilerConfig,
         report: UnityCatalogReport,
-        dataset_urn_builder: Callable[[TableReference], str],
     ) -> None:
         super().__init__(sql_common_config, report, "databricks")
         self.profiling_config = profiling_config
-        self.dataset_urn_builder = dataset_urn_builder
+        # TODO: Consider passing dataset urn builder directly
+        # So there is no repeated logic between this class and source.py
 
     def get_workunits(self, tables: List[Table]) -> Iterable[MetadataWorkUnit]:
         # Extra default SQLAlchemy option for better connection pooling and threading.
@@ -101,33 +91,21 @@ class UnityCatalogGEProfiler(GenericProfiler):
         if len(profile_requests) == 0:
             return
 
-        table_profile_requests = cast(List[TableProfilerRequest], profile_requests)
-        for request, profile in self.generate_profiles(
-            table_profile_requests,
-            max_workers=self.profiling_config.max_workers,
+        yield from self.generate_profile_workunits(
+            profile_requests,
+            max_workers=self.config.profiling.max_workers,
             platform=self.platform,
             profiler_args=self.get_profile_args(),
-        ):
-            if profile is None:
-                continue
+        )
 
-            request = cast(UnityCatalogProfilerRequest, request)
-            profile.sizeInBytes = request.table.size_in_bytes
-            dataset_urn = self.dataset_urn_builder(request.table.ref)
-
-            # We don't add to the profiler state if we only do table level profiling as it always happens
-            if self.state_handler and not request.profile_table_level_only:
-                self.state_handler.add_to_state(
-                    dataset_urn, int(datetime.now().timestamp() * 1000)
-                )
-
-            yield MetadataChangeProposalWrapper(
-                entityUrn=dataset_urn, aspect=profile
-            ).as_workunit()
+    def get_dataset_name(self, table_name: str, schema_name: str, db_name: str) -> str:
+        # Note: unused... ideally should share logic with TableReference
+        return f"{db_name}.{schema_name}.{table_name}"
 
     def get_unity_profile_request(
         self, table: UnityCatalogSQLGenericTable, conn: Connection
-    ) -> Optional[UnityCatalogProfilerRequest]:
+    ) -> Optional[TableProfilerRequest]:
+        # TODO: Reduce code duplication with get_profile_request
         skip_profiling = False
         profile_table_level_only = self.profiling_config.profile_table_level_only
 
@@ -167,7 +145,7 @@ class UnityCatalogGEProfiler(GenericProfiler):
 
         self.report.report_entity_profiled(dataset_name)
         logger.debug(f"Preparing profiling request for {dataset_name}")
-        return UnityCatalogProfilerRequest(
+        return TableProfilerRequest(
             table=table,
             pretty_name=dataset_name,
             batch_kwargs=dict(schema=table.ref.schema, table=table.name),
