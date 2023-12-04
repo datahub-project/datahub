@@ -49,6 +49,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
     StatefulIngestionSourceBase,
 )
+from datahub.specific.dataset import DatasetPatchBuilder
 from datahub.utilities.urns.data_platform_urn import DataPlatformUrn
 
 logger = logging.getLogger(__name__)
@@ -289,23 +290,29 @@ class JsonSchemaSource(StatefulIngestionSourceBase):
                 entityUrn=dataset_urn, aspect=models.StatusClass(removed=False)
             ).as_workunit()
 
+            dataset_patch_builder = DatasetPatchBuilder(dataset_urn).set_display_name(
+                dataset_simple_name
+            )
             try:
                 external_url = JsonSchemaTranslator._get_id_from_any_schema(schema_dict)
                 external_url_parsed = urlparse(external_url)
                 if not all([external_url_parsed.scheme, external_url_parsed.netloc]):
                     external_url = None
+                else:
+                    dataset_patch_builder.add_custom_property(
+                        "externalUrl", external_url
+                    )
             except:
-                external_url = None
-            yield MetadataChangeProposalWrapper(
-                entityUrn=dataset_urn,
-                aspect=models.DatasetPropertiesClass(
-                    externalUrl=external_url,
-                    name=dataset_simple_name,
-                    description=JsonSchemaTranslator._get_description_from_any_schema(
-                        schema_dict
-                    ),
-                ),
-            ).as_workunit()
+                # Nothing to do in this case
+                pass
+            description = JsonSchemaTranslator._get_description_from_any_schema(
+                schema_dict
+            )
+            if description:
+                dataset_patch_builder.add_custom_property("description", description)
+
+            for mcp in dataset_patch_builder.build():
+                yield MetadataWorkUnit(id=f"{dataset_urn}-properties", mcp_raw=mcp)
 
             yield MetadataChangeProposalWrapper(
                 entityUrn=dataset_urn,
