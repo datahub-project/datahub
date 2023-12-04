@@ -1,6 +1,6 @@
-const glossaryTerm = "CypressGlosssaryNavigationTerm";
-const glossaryTermGroup = "CypressGlosssaryNavigationGroup";
-const glossaryParentGroup = "Cypress";
+const glossaryTerm = `CypressGlosssaryNavigationTerm_${new Date().getTime()}`;
+const glossaryTermGroup = `CypressGlosssaryNavigationGroup_${new Date().getTime()}`;
+const glossaryParentGroup = `Cypress_${new Date().getTime()}`;
 
 describe("glossary sidebar navigation test", () => {
     it("create term and term parent group, move and delete term group", () => {
@@ -18,7 +18,8 @@ describe("glossary sidebar navigation test", () => {
         cy.waitTextVisible("Create Glossary Term");
         cy.enterTextInTestId("create-glossary-entity-modal-name", glossaryTerm);
         cy.clickOptionWithTestId("glossary-entity-modal-create-button").wait(3000);
-        cy.get('[data-testid="glossary-browser-sidebar"]').contains(glossaryTerm).click().wait(3000);
+        cy.get('[data-testid="glossary-browser-sidebar"]').contains(glossaryTerm).should("be.visible");
+        cy.get('[data-testid="glossary-browser-sidebar"]').contains(glossaryTerm).click({force: true}).wait(3000);
         cy.openThreeDotDropdown();
         cy.clickOptionWithTestId("entity-menu-move-button")
         cy.get('[data-testid="move-glossary-entity-modal"]').contains(glossaryTermGroup).click({force: true});
