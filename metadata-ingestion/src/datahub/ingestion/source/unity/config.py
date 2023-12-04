@@ -35,7 +35,7 @@ from datahub.utilities.global_warning_util import add_global_warning
 logger = logging.getLogger(__name__)
 
 
-class UnityCatalogConfig(ConfigModel):
+class UnityCatalogProfilerConfig(ConfigModel):
     method: str
 
     warehouse_id: Optional[str] = Field(
@@ -52,7 +52,7 @@ class UnityCatalogConfig(ConfigModel):
     )
 
 
-class UnityCatalogAnalyzeProfilerConfig(UnityCatalogConfig):
+class UnityCatalogAnalyzeProfilerConfig(UnityCatalogProfilerConfig):
     method: Literal["analyze"] = "analyze"
 
     # TODO: Reduce duplicate code with DataLakeProfilerConfig, GEProfilingConfig, SQLAlchemyConfig
@@ -100,7 +100,7 @@ class UnityCatalogAnalyzeProfilerConfig(UnityCatalogConfig):
         return not self.profile_table_level_only
 
 
-class UnityCatalogGEProfilerConfig(UnityCatalogConfig, GEProfilingConfig):
+class UnityCatalogGEProfilerConfig(UnityCatalogProfilerConfig, GEProfilingConfig):
     method: Literal["ge"] = "ge"
 
     max_wait_secs: Optional[int] = Field(
