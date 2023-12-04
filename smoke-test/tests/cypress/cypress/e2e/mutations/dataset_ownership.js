@@ -11,8 +11,8 @@ const addOwner = (owner, type, elementId) => {
     cy.clickOptionWithText(owner);
     cy.focused().blur();
     cy.waitTextVisible(owner);
-    cy.get('[role="dialog"]').contains("Technical Owner").click();
-    cy.get('[role="listbox"]').parent().contains(type).click();
+    cy.get('[role="dialog"]').contains("Technical Owner").click({ focus: true });
+    cy.get('[role="listbox"]').parent().contains(type).click({ focus: true });
     cy.get('[role="dialog"]').contains(type).should("be.visible");
     cy.clickOptionWithText("Done");
     cy.waitTextVisible("Owners Added");
@@ -21,7 +21,7 @@ const addOwner = (owner, type, elementId) => {
     cy.clickOptionWithText(owner);
     cy.waitTextVisible("SampleCypressHiveDataset");
     cy.goToDataset("urn:li:dataset:(urn:li:dataPlatform:hive,SampleCypressHiveDataset,PROD)", "SampleCypressHiveDataset");
-    cy.get(elementId).next().click();
+    cy.get(elementId).next().click({ focus: true });
     cy.clickOptionWithText("Yes");
     cy.waitTextVisible("Owner Removed");
     cy.ensureTextNotPresent(owner);
