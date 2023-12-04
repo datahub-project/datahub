@@ -843,6 +843,7 @@ def test_usage_counts_no_columns(
             )
         ),
     ]
+    caplog.clear()
     with caplog.at_level(logging.WARNING):
         workunits = usage_extractor._get_workunits_internal(
             events, [TABLE_REFS[TABLE_1.name]]

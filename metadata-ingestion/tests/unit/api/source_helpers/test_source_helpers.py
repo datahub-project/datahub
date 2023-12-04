@@ -499,6 +499,7 @@ def test_auto_empty_dataset_usage_statistics(caplog):
             ),
         ).as_workunit()
     ]
+    caplog.clear()
     with caplog.at_level(logging.WARNING):
         new_wus = list(
             auto_empty_dataset_usage_statistics(
@@ -546,6 +547,7 @@ def test_auto_empty_dataset_usage_statistics_invalid_timestamp(caplog):
             ),
         ).as_workunit()
     ]
+    caplog.clear()
     with caplog.at_level(logging.WARNING):
         new_wus = list(
             auto_empty_dataset_usage_statistics(
