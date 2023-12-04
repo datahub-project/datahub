@@ -331,6 +331,13 @@ Cypress.Commands.add("addGroupMember", (group_name, group_urn, member_name) => {
   cy.contains(member_name, {timeout: 10000}).should("be.visible");
 })
 
+Cypress.Commands.add("removeTermGroup", (termGroup) => {
+  cy.clickOptionWithText(termGroup).wait(10000);
+  cy.deleteFromDropdown();
+  cy.waitTextVisible("Deleted Term Group!");
+})
+
+
 //
 //
 // -- This is a child command --

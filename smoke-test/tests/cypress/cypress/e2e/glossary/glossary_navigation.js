@@ -62,17 +62,11 @@ describe("glossary sidebar navigation test", () => {
         cy.deleteFromDropdown();
         cy.waitTextVisible("Deleted Glossary Term!");
         cy.clickOptionWithText(glossaryParentGroup);
-        cy.clickOptionWithText(glossaryTermGroup).wait(3000);
-        cy.deleteFromDropdown();
-        cy.waitTextVisible("Deleted Term Group!");
-        cy.clickOptionWithText(glossaryParentGroup);
-        cy.deleteFromDropdown();
-        cy.waitTextVisible("Deleted Term Group!");
+        cy.removeTermGroup(glossaryTermGroup);
+        cy.removeTermGroup(glossaryParentGroup);
 
-        // Ensure it is no longer in the sidebar navigator
         cy.ensureTextNotPresent(glossaryTerm);
         cy.ensureTextNotPresent(glossaryTermGroup);
         cy.ensureTextNotPresent(glossaryParentGroup);
-
     });
 });
