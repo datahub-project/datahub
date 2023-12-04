@@ -40,6 +40,7 @@ describe("create and manage platform and metadata policies", () => {
         cy.contains('tr', `${platform_policy_name}` )
           .contains('EDIT')
           .click({ force: true });
+        cy.waitTextVisible("Edit a Policy");  
         cy.clickOptionWithTestId("policy-name");
         cy.focused().clear().type(platform_policy_edited);
         cy.clickOptionWithTestId("policy-description");
@@ -111,6 +112,7 @@ describe("create and manage platform and metadata policies", () => {
         cy.contains('tr', `${metadata_policy_name}` )
           .contains('EDIT')
           .click({ force: true });
+        cy.waitTextVisible("Edit a Policy");
         cy.clickOptionWithTestId("policy-name")
         cy.focused().clear().type(metadata_policy_edited);
         cy.clickOptionWithTestId("policy-description");
