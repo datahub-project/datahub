@@ -38,16 +38,7 @@ task runPreFlightScript(type: Exec, dependsOn: environmentSetup) {
     "touch ${sentinel_file}"
 }
 
-task installPackageOnly(type: Exec, dependsOn: runPreFlightScript) {
-  def sentinel_file = "${venv_name}/.build_install_package_only_sentinel"
-  inputs.file file('setup.py')
-  outputs.file(sentinel_file)
-  commandLine 'bash', '-x', '-c',
-    "${venv_name}/bin/pip install -e . &&" +
-    "touch ${sentinel_file}"
-}
-
-task installPackage(type: Exec, dependsOn: installPackageOnly) {
+task installPackage(type: Exec) {
   def sentinel_file = "${venv_name}/.build_install_package_sentinel"
   inputs.file file('setup.py')
   outputs.file(sentinel_file)
