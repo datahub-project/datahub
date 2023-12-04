@@ -181,8 +181,11 @@ def test_run_cypress(frontend_session, wait_for_healthchecks):
     rest_specs = set(os.listdir("tests/cypress/cypress/e2e"))
     cypress_suite1_specs = {"mutations", "search", "views"}
     rest_specs.difference_update(set(cypress_suite1_specs))
+    cypress_saas_suite1_specs = {"assertions", "incidents", "metadata_tests", "observability"}
+    rest_specs.difference_update(set(cypress_saas_suite1_specs))
     strategy_spec_map = {
         "cypress_suite1": cypress_suite1_specs,
+        "cypress_saas_suite1": cypress_saas_suite1_specs,
         "cypress_rest": rest_specs,
     }
     print(f"test strategy is {test_strategy}")
