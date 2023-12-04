@@ -21,6 +21,7 @@ import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapp
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.CustomPropertiesMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.SubTypesMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.SystemMetadataUtils;
 import com.linkedin.datahub.graphql.types.domain.DomainAssociationMapper;
 import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
@@ -97,7 +98,7 @@ public class ContainerMapper {
 
     final EnvelopedAspect envelopedSubTypes = aspects.get(Constants.SUB_TYPES_ASPECT_NAME);
     if (envelopedSubTypes != null) {
-      result.setSubTypes(mapSubTypes(new SubTypes(envelopedSubTypes.getValue().data())));
+      result.setSubTypes(SubTypesMapper.map(new SubTypes(envelopedSubTypes.getValue().data())));
     }
 
     final EnvelopedAspect envelopedContainer = aspects.get(Constants.CONTAINER_ASPECT_NAME);
@@ -148,12 +149,6 @@ public class ContainerMapper {
         new com.linkedin.datahub.graphql.generated.ContainerEditableProperties();
     editableContainerProperties.setDescription(gmsProperties.getDescription());
     return editableContainerProperties;
-  }
-
-  private static com.linkedin.datahub.graphql.generated.SubTypes mapSubTypes(final SubTypes gmsSubTypes) {
-    final com.linkedin.datahub.graphql.generated.SubTypes subTypes = new com.linkedin.datahub.graphql.generated.SubTypes();
-    subTypes.setTypeNames(gmsSubTypes.getTypeNames());
-    return subTypes;
   }
 
   private static DataPlatform mapPlatform(final DataPlatformInstance platformInstance) {
