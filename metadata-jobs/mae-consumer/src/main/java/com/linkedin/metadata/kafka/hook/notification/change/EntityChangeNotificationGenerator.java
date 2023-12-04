@@ -120,7 +120,15 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
       Constants.DATA_JOB_ENTITY_NAME,
       Constants.DOMAIN_ENTITY_NAME,
       Constants.TAG_ENTITY_NAME,
-      Constants.ASSERTION_ENTITY_NAME
+      Constants.ASSERTION_ENTITY_NAME,
+      Constants.ML_FEATURE_ENTITY_NAME,
+      Constants.ML_MODEL_ENTITY_NAME,
+      Constants.ML_MODEL_GROUP_ENTITY_NAME,
+      Constants.ML_FEATURE_TABLE_ENTITY_NAME,
+      Constants.ML_PRIMARY_KEY_ENTITY_NAME,
+      Constants.GLOSSARY_TERM_ENTITY_NAME,
+      Constants.DATA_PRODUCT_ENTITY_NAME,
+      Constants.NOTEBOOK_ENTITY_NAME
   );
   /**
    * The list of aspects that are supported for generating semantic change events.

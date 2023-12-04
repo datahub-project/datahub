@@ -8,6 +8,7 @@ import com.linkedin.container.ContainerProperties;
 import com.linkedin.dashboard.DashboardInfo;
 import com.linkedin.data.DataMap;
 import com.linkedin.dataplatform.DataPlatformInfo;
+import com.linkedin.dataproduct.DataProductProperties;
 import com.linkedin.dataset.DatasetProperties;
 import com.linkedin.domain.DomainProperties;
 import com.linkedin.entity.EntityResponse;
@@ -16,6 +17,12 @@ import com.linkedin.glossary.GlossaryTermInfo;
 import com.linkedin.identity.CorpGroupInfo;
 import com.linkedin.ingestion.DataHubIngestionSourceInfo;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.key.MLFeatureKey;
+import com.linkedin.metadata.key.MLFeatureTableKey;
+import com.linkedin.metadata.key.MLModelGroupKey;
+import com.linkedin.metadata.key.MLModelKey;
+import com.linkedin.metadata.key.MLPrimaryKeyKey;
+import com.linkedin.notebook.NotebookInfo;
 import com.linkedin.tag.TagProperties;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -71,6 +78,20 @@ public class EntityNameProvider {
         return getDataPlatformName(entityUrn);
       case Constants.SCHEMA_FIELD_ENTITY_NAME:
         return getSchemaFieldName(entityUrn);
+      case Constants.ML_FEATURE_ENTITY_NAME:
+        return getMLFeatureName(entityUrn);
+      case Constants.ML_MODEL_ENTITY_NAME:
+        return getMLModelName(entityUrn);
+      case Constants.ML_MODEL_GROUP_ENTITY_NAME:
+        return getMLModelGroupName(entityUrn);
+      case Constants.ML_FEATURE_TABLE_ENTITY_NAME:
+        return getMLFeatureTableName(entityUrn);
+      case Constants.ML_PRIMARY_KEY_ENTITY_NAME:
+        return getMLPrimaryKeyName(entityUrn);
+      case Constants.DATA_PRODUCT_ENTITY_NAME:
+        return getDataProductName(entityUrn);
+      case Constants.NOTEBOOK_ENTITY_NAME:
+        return getNotebookName(entityUrn);
       default:
         return entityUrn.toString();
     }
@@ -169,6 +190,69 @@ public class EntityNameProvider {
 
   private String getSchemaFieldName(Urn schemaFieldUrn) {
     return schemaFieldUrn.getEntityKey().get(1);
+  }
+
+  private String getMLFeatureName(Urn mlFeatureUrn) {
+    DataMap data = getAspectData(mlFeatureUrn, Constants.ML_FEATURE_KEY_ASPECT_NAME);
+    if (data != null) {
+      MLFeatureKey mlFeatureKey = new MLFeatureKey(data);
+      return mlFeatureKey.getName();
+    }
+    return mlFeatureUrn.getEntityKey().get(1);
+  }
+
+  private String getMLModelName(Urn mlModelUrn) {
+    DataMap data = getAspectData(mlModelUrn, Constants.ML_MODEL_KEY_ASPECT_NAME);
+    if (data != null) {
+      MLModelKey mlModelKey = new MLModelKey(data);
+      return mlModelKey.getName();
+    }
+    return mlModelUrn.getEntityKey().get(1);
+  }
+
+  private String getMLModelGroupName(Urn mlModelGroupUrn) {
+    DataMap data = getAspectData(mlModelGroupUrn, Constants.ML_MODEL_GROUP_KEY_ASPECT_NAME);
+    if (data != null) {
+      MLModelGroupKey mlModelGroupKey = new MLModelGroupKey(data);
+      return mlModelGroupKey.getName();
+    }
+    return mlModelGroupUrn.getEntityKey().get(1);
+  }
+
+  private String getMLFeatureTableName(Urn mlFeatureTableUrn) {
+    DataMap data = getAspectData(mlFeatureTableUrn, Constants.ML_FEATURE_TABLE_KEY_ASPECT_NAME);
+    if (data != null) {
+      MLFeatureTableKey mlFeatureTableKey = new MLFeatureTableKey(data);
+      return mlFeatureTableKey.getName();
+    }
+    return mlFeatureTableUrn.getEntityKey().get(1);
+  }
+
+  private String getMLPrimaryKeyName(Urn mlPrimaryKeyUrn) {
+    DataMap data = getAspectData(mlPrimaryKeyUrn, Constants.ML_PRIMARY_KEY_KEY_ASPECT_NAME);
+    if (data != null) {
+      MLPrimaryKeyKey mlPrimaryKeyKey = new MLPrimaryKeyKey(data);
+      return mlPrimaryKeyKey.getName();
+    }
+    return mlPrimaryKeyUrn.getEntityKey().get(1);
+  }
+
+  private String getDataProductName(Urn dataProductUrn) {
+    DataMap data = getAspectData(dataProductUrn, Constants.DATA_PRODUCT_PROPERTIES_ASPECT_NAME);
+    if (data != null) {
+      DataProductProperties dataProductProperties = new DataProductProperties(data);
+      return dataProductProperties.getName();
+    }
+    return dataProductUrn.toString();
+  }
+
+  private String getNotebookName(Urn notebookUrn) {
+    DataMap data = getAspectData(notebookUrn, Constants.NOTEBOOK_INFO_ASPECT_NAME);
+    if (data != null) {
+      NotebookInfo notebookInfo = new NotebookInfo(data);
+      return notebookInfo.getTitle();
+    }
+    return notebookUrn.toString();
   }
 
   @Nullable

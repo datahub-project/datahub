@@ -100,6 +100,20 @@ public class NotificationUtils {
         return "Group";
       case Constants.INCIDENT_ENTITY_NAME:
         return "Incident";
+      case Constants.ML_FEATURE_ENTITY_NAME:
+        return "Feature";
+      case Constants.ML_MODEL_ENTITY_NAME:
+        return "ML Model";
+      case Constants.ML_MODEL_GROUP_ENTITY_NAME:
+        return "ML Group";
+      case Constants.ML_FEATURE_TABLE_ENTITY_NAME:
+        return "Feature Table";
+      case Constants.ML_PRIMARY_KEY_ENTITY_NAME:
+        return "ML Primary Key";
+      case Constants.DATA_PRODUCT_ENTITY_NAME:
+        return "Data Product";
+      case Constants.NOTEBOOK_ENTITY_NAME:
+        return "Notebook";
       default:
         return "";
     }
