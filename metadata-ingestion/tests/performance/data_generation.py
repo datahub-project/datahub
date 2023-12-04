@@ -6,7 +6,6 @@ by anonymizing and reduplicating a production datahub instance's data.
 We could also get more human data by using Faker.
 
 This is a work in progress, built piecemeal as needed.
-NOTE: Only works on Python 3.9+ due to random.sample's counts parameter.
 """
 import random
 from abc import ABCMeta, abstractmethod
@@ -158,17 +157,24 @@ def generate_lineage(
     # Percentiles: 75th=0, 80th=1, 95th=2, 99th=4, 99.99th=15
     upstream_distribution: Distribution = LomaxDistribution(scale=3, shape=5),
 ) -> None:
-    # Note: Requires Python 3.9 for counts parameter in random.sample
     num_upstreams = [upstream_distribution.sample(ceiling=100) for _ in tables]
     # Prioritize tables with a lot of upstreams themselves
     factor = 1 + len(tables) // 10
     table_weights = [1 + (num_upstreams[i] * factor) for i in range(len(tables))]
     view_weights = [1] * len(views)
+
+    # TODO: Python 3.9 use random.sample with counts
+    sample = []
+    for table, weight in zip(tables, table_weights):
+        for _ in range(weight):
+            sample.append(table)
+    for view, weight in zip(views, view_weights):
+        for _ in range(weight):
+            sample.append(view)
     for i, table in enumerate(tables):
         table.upstreams = random.sample(  # type: ignore
-            list(tables) + list(views),
+            sample,
             k=num_upstreams[i],
-            counts=table_weights + view_weights,
         )
 
 
