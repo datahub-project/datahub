@@ -1917,7 +1917,7 @@ class LookMLSource(StatefulIngestionSourceBase):
             if remote_project.name in project_visited:
                 continue
 
-            p_cloner = GitClone(f"{tmp_dir}/_remote_/{project_name}")
+            p_cloner = GitClone(f"{tmp_dir}/_remote_/{remote_project.name}")
             try:
                 # TODO: For 100% correctness, we should be consulting
                 # the manifest lock file for the exact ref to use.
