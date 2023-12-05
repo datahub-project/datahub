@@ -21,9 +21,4 @@ module.exports = defineConfig({
     specPattern: 'cypress/e2e/**/*.{js,jsx,ts,tsx}',
     experimentalStudio: true,
   },
-  env: {
-    "ADMIN_USERNAME": "datahub",
-    "ADMIN_PASSWORD": "datahub"
-    // add other environment variables as needed
-  }
 })
