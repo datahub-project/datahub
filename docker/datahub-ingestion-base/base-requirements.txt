@@ -159,7 +159,7 @@ jsonpointer==2.4
 jsonref==1.1.0
 jsonschema==4.19.1
 jsonschema-specifications==2023.7.1
-jupyter-server==1.24.0
+jupyter-server==2.11.2
 jupyter_client==7.4.9
 jupyter_core==4.12.0
 jupyterlab-pygments==0.2.2
