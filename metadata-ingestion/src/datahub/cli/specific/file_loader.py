@@ -21,5 +21,6 @@ def load_file(config_file: Path) -> Union[dict, list]:
         squirrel_original_config=False,
         resolve_env_vars=False,
         allow_stdin=False,
+        process_directives=False,
     )
     return res

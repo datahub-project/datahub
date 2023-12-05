@@ -205,9 +205,8 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
         // We're assuming a data asset (eg. snowflake table) will only ever be downstream of 1 dbt model
         if (dbtUpstreams.size() == 1) {
           setSiblingsAndSoftDeleteSibling(dbtUpstreams.get(0).getDataset(), sourceUrn);
-        } else {
+        } else if (dbtUpstreams.size() > 1) {
           log.error("{} has an unexpected number of dbt upstreams: {}. Not adding any as siblings.", sourceUrn.toString(), dbtUpstreams.size());
- 
         }
       }
     }

@@ -30,6 +30,7 @@ import verticaLogo from '../../../../images/verticalogo.png';
 import mlflowLogo from '../../../../images/mlflowlogo.png';
 import dynamodbLogo from '../../../../images/dynamodblogo.png';
 import fivetranLogo from '../../../../images/fivetranlogo.png';
+import csvLogo from '../../../../images/csv-logo.png';
 
 export const ATHENA = 'athena';
 export const ATHENA_URN = `urn:li:dataPlatform:${ATHENA}`;
@@ -108,6 +109,8 @@ export const VERTICA = 'vertica';
 export const VERTICA_URN = `urn:li:dataPlatform:${VERTICA}`;
 export const FIVETRAN = 'fivetran';
 export const FIVETRAN_URN = `urn:li:dataPlatform:${FIVETRAN}`;
+export const CSV = 'csv-enricher';
+export const CSV_URN = `urn:li:dataPlatform:${CSV}`;
 
 export const PLATFORM_URN_TO_LOGO = {
     [ATHENA_URN]: athenaLogo,
@@ -142,6 +145,7 @@ export const PLATFORM_URN_TO_LOGO = {
     [UNITY_CATALOG_URN]: databricksLogo,
     [VERTICA_URN]: verticaLogo,
     [FIVETRAN_URN]: fivetranLogo,
+    [CSV_URN]: csvLogo,
 };
 
 export const SOURCE_TO_PLATFORM_URN = {
