@@ -33,3 +33,8 @@ clean {
   project.delete('src/mainGeneratedAvroSchema/avro')
   project.delete('src/renamed/avro')
 }
+
+spotlessJava.dependsOn generateDataTemplate
+spotlessJava.dependsOn copyOriginalAvsc
+spotlessJava.dependsOn ':metadata-service:restli-api:generateMainGeneratedRestRestClient'
+spotlessJava.dependsOn ':datahub-frontend:compilePlayRoutes'

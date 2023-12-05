@@ -108,3 +108,7 @@ task cleanLocalDockerImages {
   }
 }
 dockerClean.finalizedBy(cleanLocalDockerImages)
+
+spotlessJava.dependsOn ':metadata-service:restli-api:generateMainGeneratedRestRestClient'
+spotlessJava.dependsOn ':metadata-events:mxe-schemas:generateDataTemplate'
+spotlessJava.dependsOn ':datahub-frontend:compilePlayRoutes'
