@@ -132,7 +132,7 @@ class PathSpec(ConfigModel):
         return self.compiled_include.parse(path)
 
     @pydantic.root_validator()
-    def validate_no_double_stars(cls, values) -> str:
+    def validate_no_double_stars(cls, values: Dict) -> str:
         if "include" not in values:
             return values
 
