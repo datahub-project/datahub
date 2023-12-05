@@ -134,7 +134,7 @@ class PathSpec(ConfigModel):
     @pydantic.root_validator()
     def validate_no_double_stars(cls, values) -> str:
         if "include" not in values:
-            return v
+            return values
 
         if "**" in values.get("include") and not values.get("allow_double_stars"):
             raise ValueError("path_spec.include cannot contain '**'")
