@@ -99,19 +99,19 @@ def patch_airflow_connection(conn: Connection) -> Iterator[Connection]:
         yield conn
 
 
-@mock.patch("datahub.emitter.rest_emitter.DatahubRestEmitter", autospec=True)
+@mock.patch("datahub.emitter.rest_emitter.DataHubRestEmitter", autospec=True)
 def test_datahub_rest_hook(mock_emitter):
     with patch_airflow_connection(datahub_rest_connection_config) as config:
         assert config.conn_id
         hook = DatahubRestHook(config.conn_id)
         hook.emit_mces([lineage_mce])
 
-        mock_emitter.assert_called_once_with(config.host, None, None)
+        mock_emitter.assert_called_once_with(config.host, None)
         instance = mock_emitter.return_value
         instance.emit.assert_called_with(lineage_mce)
 
 
-@mock.patch("datahub.emitter.rest_emitter.DatahubRestEmitter", autospec=True)
+@mock.patch("datahub.emitter.rest_emitter.DataHubRestEmitter", autospec=True)
 def test_datahub_rest_hook_with_timeout(mock_emitter):
     with patch_airflow_connection(
         datahub_rest_connection_config_with_timeout
@@ -120,7 +120,7 @@ def test_datahub_rest_hook_with_timeout(mock_emitter):
         hook = DatahubRestHook(config.conn_id)
         hook.emit_mces([lineage_mce])
 
-        mock_emitter.assert_called_once_with(config.host, None, 5)
+        mock_emitter.assert_called_once_with(config.host, None, timeout_sec=5)
         instance = mock_emitter.return_value
         instance.emit.assert_called_with(lineage_mce)
 

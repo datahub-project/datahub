@@ -1174,10 +1174,6 @@ public class GmsGraphQLEngine {
                 .dataFetcher("testResults", new TestResultsResolver(entityClient))
                 .dataFetcher("aspects", new WeaklyTypedAspectsResolver(entityClient, entityRegistry))
                 .dataFetcher("exists", new EntityExistsResolver(entityService))
-                .dataFetcher("subTypes", new SubTypesResolver(
-                    this.entityClient,
-                    "dataset",
-                    "subTypes"))
                 .dataFetcher("runs", new EntityRunsResolver(entityClient))
                 .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
                 .dataFetcher("parentContainers", new ParentContainersResolver(entityClient)))
@@ -1433,10 +1429,6 @@ public class GmsGraphQLEngine {
             .dataFetcher("statsSummary", new ChartStatsSummaryResolver(this.timeseriesAspectService))
             .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
             .dataFetcher("exists", new EntityExistsResolver(entityService))
-            .dataFetcher("subTypes", new SubTypesResolver(
-                this.entityClient,
-                "chart",
-                "subTypes"))
         );
         builder.type("ChartInfo", typeWiring -> typeWiring
             .dataFetcher("inputs", new LoadableTypeBatchResolver<>(datasetType,

@@ -27,7 +27,7 @@ export const UpdateDeprecationModal = ({ urns, onClose, refetch }: Props) => {
                         resources: [...urns.map((urn) => ({ resourceUrn: urn }))],
                         deprecated: true,
                         note: formData.note,
-                        decommissionTime: formData.decommissionTime && formData.decommissionTime.unix(),
+                        decommissionTime: formData.decommissionTime && formData.decommissionTime.unix() * 1000,
                     },
                 },
             });
