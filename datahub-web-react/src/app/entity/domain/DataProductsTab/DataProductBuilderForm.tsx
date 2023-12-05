@@ -1,12 +1,31 @@
-import { Form, Input, Typography } from 'antd';
+import { Collapse, Form, Input, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 import { Editor as MarkdownEditor } from '../../shared/tabs/Documentation/components/editor/Editor';
 import { ANTD_GRAY } from '../../shared/constants';
 import { DataProductBuilderState } from './types';
+import { validateCustomUrnId } from '../../../shared/textUtil';
 
 const StyledEditor = styled(MarkdownEditor)`
     border: 1px solid ${ANTD_GRAY[4]};
+`;
+
+const FormItem = styled(Form.Item)`
+    .ant-form-item-label {
+        padding-bottom: 2px;
+    }
+`;
+
+const FormItemWithMargin = styled(FormItem)`
+    margin-bottom: 16px;
+`;
+
+const FormItemNoMargin = styled(FormItem)`
+    margin-bottom: 0;
+`;
+
+const AdvancedLabel = styled(Typography.Text)`
+    color: #373d44;
 `;
 
 type Props = {
@@ -29,6 +48,13 @@ export default function DataProductBuilderForm({ builderState, updateBuilderStat
         });
     }
 
+    function updateDomainId(id: string) {
+        updateBuilderState({
+            ...builderState,
+            id,
+        });
+    }
+
     return (
         <Form layout="vertical">
             <Form.Item
@@ -47,6 +73,37 @@ export default function DataProductBuilderForm({ builderState, updateBuilderStat
             <Form.Item label={<Typography.Text strong>Description</Typography.Text>}>
                 <StyledEditor doNotFocus content={builderState.description} onChange={updateDescription} />
             </Form.Item>
+            <Collapse ghost>
+                    <Collapse.Panel header={<AdvancedLabel>Advanced Options</AdvancedLabel>} key="1">
+                        <FormItemWithMargin
+                            label={<Typography.Text strong>Domain Id</Typography.Text>}
+                            help="By default, a random UUID will be generated to uniquely identify this domain. If
+                                you'd like to provide a custom id instead to more easily keep track of this domain,
+                                you may provide it here. Be careful, you cannot easily change the domain id after
+                                creation."
+                        >
+                            <FormItemNoMargin
+                                rules={[
+                                    () => ({
+                                        validator(_, value) {
+                                            if (value && validateCustomUrnId(value)) {
+                                                return Promise.resolve();
+                                            }
+                                            return Promise.reject(new Error('Please enter a valid Domain id'));
+                                        },
+                                    }),
+                                ]}
+                            >
+                                <Input 
+                                    data-testid="create-domain-id" 
+                                    placeholder="engineering" 
+                                    value={builderState.id}
+                                    onChange={(e) => updateDomainId(e.target.value)}
+                                />
+                            </FormItemNoMargin>
+                        </FormItemWithMargin>
+                    </Collapse.Panel>
+                </Collapse>
         </Form>
     );
 }

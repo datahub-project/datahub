@@ -32,6 +32,7 @@ export default function CreateDataProductModal({ domain, onCreateDataProduct, on
             variables: {
                 input: {
                     domainUrn: domain.urn,
+                    id: builderState.id || '',
                     properties: {
                         name: builderState.name,
                         description: builderState.description || undefined,
