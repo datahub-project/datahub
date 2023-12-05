@@ -41,7 +41,7 @@ describe("create and manage platform and metadata policies", () => {
         cy.contains('tr', `${platform_policy_name}` )
           .contains('EDIT')
           .click();
-        cy.waitUntil(() => cy.contains("Edit a Policy").should('be.visible'), {
+        cy.wait(() => cy.contains("Edit a Policy").should('be.visible'), {
           timeout: 10000,  // Adjust the timeout as needed
           interval: 1000    // Adjust the interval as needed
         });
@@ -117,7 +117,7 @@ describe("create and manage platform and metadata policies", () => {
         cy.contains('tr', `${platform_policy_name}` )
           .contains('EDIT')
           .click();
-        cy.waitUntil(() => cy.contains("Edit a Policy").should('be.visible'), {
+        cy.wait(() => cy.contains("Edit a Policy").should('be.visible'), {
           timeout: 10000,  // Adjust the timeout as needed
           interval: 1000    // Adjust the interval as needed
         });
