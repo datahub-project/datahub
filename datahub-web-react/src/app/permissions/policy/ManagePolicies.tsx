@@ -26,7 +26,7 @@ import {
     useUpdatePolicyMutation,
 } from '../../../graphql/policy.generated';
 import { Message } from '../../shared/Message';
-import { EMPTY_POLICY, addToListPoliciesCache, removeFromListPoliciesCache } from './policyUtils';
+import { EMPTY_POLICY, addToListPoliciesCache, removeFromListPoliciesCache, updateListPoliciesCache } from './policyUtils';
 import TabToolbar from '../../entity/shared/components/styled/TabToolbar';
 import { StyledTable } from '../../entity/shared/components/styled/StyledTable';
 import AvatarsGroup from '../AvatarsGroup';
@@ -144,7 +144,6 @@ export const ManagePolicies = () => {
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
     const paramsQuery = (params?.query as string) || undefined;
     const [query, setQuery] = useState<undefined | string>(undefined);
-    const [removedUrns, setRemovedUrns] = useState<string[]>([]);
 
     useEffect(() => setQuery(paramsQuery), [paramsQuery]);
 
@@ -196,8 +195,7 @@ export const ManagePolicies = () => {
     const updateError = createPolicyError || updatePolicyError || deletePolicyError;
 
     const totalPolicies = policiesData?.listPolicies?.total || 0;
-    const policies = policiesData?.listPolicies?.policies || []
-    // console.log(policies,"policies ===========");
+    const policies = policiesData?.listPolicies?.policies || [];
 
     const onChangePage = (newPage: number) => {
         scrollToTop();
@@ -271,18 +269,13 @@ export const ManagePolicies = () => {
                         entityType: EntityType.DatahubPolicy,
                     });
                     message.success('Successfully removed policy.');
-                    const newRemovedUrns = [...removedUrns, policy?.urn];
-                    setRemovedUrns(newRemovedUrns);
                     setTimeout(() => {
                         policiesRefetch?.();
                     }, 3000);
                     onCancelViewPolicy();
                 })
-                .catch((e: unknown) => {
-                    message.destroy();
-                    if (e instanceof Error) {
-                        message.error({ content: `Failed to remove Policy: \n ${e.message || ''}`, duration: 3 });
-                    }
+                .catch(() => {
+                    message.error({ content: `Failed to remove policy! An unexpected error occurred.`, duration: 3 }); 
                 });                
             },
             onCancel() {},
@@ -316,6 +309,7 @@ export const ManagePolicies = () => {
     const onSavePolicy = (savePolicy: Omit<Policy, 'urn'>) => {
         if (focusPolicyUrn) {
             // If there's an URN associated with the focused policy, then we are editing an existing policy.
+            updateListPoliciesCache(client, savePolicy, pageSize, query);
             updatePolicy({ variables: { urn: focusPolicyUrn, input: toPolicyInput(savePolicy) } })
             .then(() => {
                 analytics.event({
@@ -329,10 +323,9 @@ export const ManagePolicies = () => {
                 policiesRefetch();
                 onClosePolicyBuilder();
             })
-            .catch((e) => {
-                message.destroy();
+            .catch(() => {
                 message.error({
-                    content: `Failed to update policy!: \n ${e.message || ''}`,
+                    content: `Failed to update policy! An unexpected error occurred.`,
                     duration: 3,
                 });
             });
@@ -357,10 +350,9 @@ export const ManagePolicies = () => {
                     }, 2000);
                     onClosePolicyBuilder();
                 })
-                .catch((e) => {
-                    message.destroy();
+                .catch(() => {
                     message.error({
-                        content: `Failed to create policy!: \n ${e.message || ''}`,
+                        content: `Failed to create policy! An unexpected error occurred.`,
                         duration: 3,
                     });
                 });

@@ -147,7 +147,7 @@ export const addToListPoliciesCache = (client, newPolicy, pageSize, query) => {
 
     const completeNewPolicy = {
         ...newPolicy,
-        actors:{
+        actors : {
             ...newPolicy?.actors,
             roles : newPolicy?.actors?.roles || [],
             resourceOwnersTypes: newPolicy?.actors?.resourceOwnersTypes || [],
@@ -159,12 +159,12 @@ export const addToListPoliciesCache = (client, newPolicy, pageSize, query) => {
         resources : {
             ...newPolicy.resources,
             type: newPolicy?.resources?.type || '', // replace '' with the default value for type
-            allResources: newPolicy?.resources?.allResources || '',
-            resources: newPolicy?.resources?.resources || ''
+            allResources: newPolicy?.resources?.allResources || false,
+            resources: newPolicy?.resources?.resources || [],
         }
     };
 
-    // Add our new source into the existing list.
+    // Add our new policies into the existing list.
     const newPolicies = [completeNewPolicy, ...(currData?.listPolicies?.policies || [])];
     
     // Write our data back to the cache.
@@ -190,7 +190,7 @@ export const addToListPoliciesCache = (client, newPolicy, pageSize, query) => {
 
 
 /**
- * Remove an entry from the ListIngestionSources cache.
+ * Remove an entry from the ListPolicies cache.
  */
 export const removeFromListPoliciesCache = (client, urn, page, pageSize, query) => {
     // Read the data from our cache for this query.
@@ -205,7 +205,6 @@ export const removeFromListPoliciesCache = (client, urn, page, pageSize, query) 
         },
     });
 
-    // Remove the source from the existing sources set.
     const newPolicies = [
         ...(currData?.listPolicies?.policies || []).filter((policy) => policy.urn !== urn),
     ];
@@ -226,6 +225,51 @@ export const removeFromListPoliciesCache = (client, urn, page, pageSize, query) 
                 count: (currData?.listPolicies?.count || 1) - 1,
                 total: (currData?.listPolicies?.total || 1) - 1,
                 policies: newPolicies,
+            },
+        },
+    });
+};
+
+
+/**
+ * update an entry from the ListPolicies cache.
+ */
+export const updateListPoliciesCache = (client, updatedPolicy, pageSize, query) => {
+    // Read the data from our cache for this query.
+    const currData: ListPoliciesQuery = client.readQuery({
+        query: ListPoliciesDocument,
+        variables: {
+            input: {
+                start: 0,
+                count: pageSize,
+                query,
+            },
+        },
+    });
+
+    const updatedPolicies = [
+        ...(currData?.listPolicies?.policies || []).filter((policy) => 
+            policy.urn !== updatedPolicy.urn ?
+            updatedPolicy : policy
+        ),
+    ];
+    console.log(updatedPolicies,"updatedPolicies ======")
+    // Write our data back to the cache.
+    client.writeQuery({
+        query: ListPoliciesDocument,
+        variables: {
+            input: {
+                start: 0,
+                count: pageSize,
+                query,
+            },
+        },
+        data: {
+            listPolicies: {
+                start: currData?.listPolicies?.start || 0,
+                count: (currData?.listPolicies?.count || 1),
+                total: (currData?.listPolicies?.total || 1),
+                policies: updatedPolicies,
             },
         },
     });
