@@ -124,7 +124,7 @@
     },
     "devDependencies": {
         "@babel/plugin-proposal-private-property-in-object": "^7.21.11",
-        "@graphql-codegen/cli": "1.20.0",
+        "@graphql-codegen/cli": "^5.0.0",
         "@graphql-codegen/near-operation-file-preset": "^1.17.13",
         "@graphql-codegen/typescript-operations": "1.17.13",
         "@graphql-codegen/typescript-react-apollo": "2.2.1",
