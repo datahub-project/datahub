@@ -159,7 +159,3 @@ task quickstartPg(type: Exec, dependsOn: ':metadata-ingestion:install') {
 
     commandLine 'bash', '-c', cmd.join(" ")
 }
-
-spotlessJava.dependsOn ':docker:datahub-ingestion:spotlessJava'
-spotlessJava.dependsOn ':docker:datahub-ingestion-base:spotlessJava'
-spotlessJava.dependsOn ':docker:elasticsearch-setup:spotlessJava'

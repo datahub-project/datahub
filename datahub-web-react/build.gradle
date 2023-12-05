@@ -114,6 +114,3 @@ jar {
   }
   classifier = 'assets'
 }
-
-spotlessJava.dependsOn yarnSetup
-spotlessJava.dependsOn nodeSetup

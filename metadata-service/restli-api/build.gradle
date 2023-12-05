@@ -18,6 +18,3 @@ dependencies {
     }
   }
 }
-
-spotlessJava.dependsOn compileMainGeneratedRestJava
-spotlessJava.dependsOn generateMainGeneratedRestRestClient
