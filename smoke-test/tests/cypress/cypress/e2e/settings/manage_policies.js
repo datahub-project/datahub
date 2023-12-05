@@ -40,11 +40,8 @@ describe("create and manage platform and metadata policies", () => {
         cy.contains('tr', `${platform_policy_name}`).should('be.visible');
         cy.contains('tr', `${platform_policy_name}` )
           .contains('EDIT')
-          .click();
-        cy.wait(() => cy.contains("Edit a Policy").should('be.visible'), {
-          timeout: 10000,  // Adjust the timeout as needed
-          interval: 1000    // Adjust the interval as needed
-        });
+          .click().wait(1000);
+        cy.contains("Edit a Policy").wait(1000);  
         cy.clickOptionWithTestId("policy-name");
         cy.focused().clear().type(platform_policy_edited);
         cy.clickOptionWithTestId("policy-description");
@@ -113,14 +110,10 @@ describe("create and manage platform and metadata policies", () => {
     it("edit metadata policy", () => {
         cy.loginWithCredentials();
         cy.visit("/settings/permissions/policies");
-        cy.contains('tr', `${platform_policy_name}`).should('be.visible');
-        cy.contains('tr', `${platform_policy_name}` )
+        cy.contains('tr', `${metadata_policy_name}` )
           .contains('EDIT')
-          .click();
-        cy.wait(() => cy.contains("Edit a Policy").should('be.visible'), {
-          timeout: 10000,  // Adjust the timeout as needed
-          interval: 1000    // Adjust the interval as needed
-        });
+          .click().wait(1000);
+        cy.contains("Edit a Policy").wait(1000);
         cy.clickOptionWithTestId("policy-name")
         cy.focused().clear().type(metadata_policy_edited);
         cy.clickOptionWithTestId("policy-description");
