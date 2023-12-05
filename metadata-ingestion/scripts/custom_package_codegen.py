@@ -90,6 +90,7 @@ setup(
     entry_points={{
         "datahub.custom_packages": [
             "models={python_package_name}.models.schema_classes",
+            "urns={python_package_name}.models._urns.urn_defs",
         ],
     }},
 )
