@@ -23,7 +23,7 @@ from datahub.emitter.mcp_builder import (
     SchemaKey,
 )
 from datahub.emitter.rest_emitter import DatahubRestEmitter
-from datahub.ingestion.graph.client import DataHubGraph, DataHubGraphConfig
+from datahub.ingestion.graph.client import DataHubGraph, get_default_graph
 from datahub.metadata.schema_classes import (
     ContainerKeyClass,
     ContainerPropertiesClass,
@@ -141,13 +141,7 @@ def dataplatform2instance_func(
     migration_report = MigrationReport(run_id, dry_run, keep)
     system_metadata = SystemMetadataClass(runId=run_id)
 
-    # initialize for dry-run
-    graph = DataHubGraph(config=DataHubGraphConfig(server="127.0.0.1"))
-
-    if not dry_run:
-        graph = DataHubGraph(
-            config=DataHubGraphConfig(server=cli_utils.get_session_and_host()[1])
-        )
+    graph = get_default_graph()
 
     urns_to_migrate = []
 

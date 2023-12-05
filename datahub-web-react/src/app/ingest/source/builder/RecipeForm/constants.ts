@@ -83,7 +83,7 @@ import {
     PROJECT_NAME,
 } from './lookml';
 import { PRESTO, PRESTO_HOST_PORT, PRESTO_DATABASE, PRESTO_USERNAME, PRESTO_PASSWORD } from './presto';
-import { BIGQUERY_BETA, DBT_CLOUD, MYSQL, POWER_BI, UNITY_CATALOG, VERTICA } from '../constants';
+import { BIGQUERY_BETA, CSV, DBT_CLOUD, MYSQL, POWER_BI, UNITY_CATALOG, VERTICA } from '../constants';
 import { BIGQUERY_BETA_PROJECT_ID, DATASET_ALLOW, DATASET_DENY, PROJECT_ALLOW, PROJECT_DENY } from './bigqueryBeta';
 import { MYSQL_HOST_PORT, MYSQL_PASSWORD, MYSQL_USERNAME } from './mysql';
 import { MSSQL, MSSQL_DATABASE, MSSQL_HOST_PORT, MSSQL_PASSWORD, MSSQL_USERNAME } from './mssql';
@@ -140,6 +140,7 @@ import {
     INCLUDE_VIEW_LINEAGE,
     INCLUDE_PROJECTIONS_LINEAGE,
 } from './vertica';
+import { CSV_ARRAY_DELIMITER, CSV_DELIMITER, CSV_FILE_URL, CSV_WRITE_SEMANTICS } from './csv';
 
 export enum RecipeSections {
     Connection = 0,
@@ -452,6 +453,11 @@ export const RECIPE_FIELDS: RecipeFields = {
             TABLE_PROFILING_ENABLED,
         ],
         filterSectionTooltip: 'Include or exclude specific Schemas, Tables, Views and Projections from ingestion.',
+    },
+    [CSV]: {
+        fields: [CSV_FILE_URL],
+        filterFields: [],
+        advancedFields: [CSV_ARRAY_DELIMITER, CSV_DELIMITER, CSV_WRITE_SEMANTICS],
     },
 };
 
