@@ -5,6 +5,8 @@ from tests.utils import (get_frontend_session, wait_for_writes_to_sync, wait_for
                         get_frontend_url, get_admin_credentials,get_sleep_info)
 from tests.privileges.utils import *
 
+pytestmark = pytest.mark.no_cypress_suite1
+
 sleep_sec, sleep_times = get_sleep_info()
 
 @pytest.fixture(scope="session")
