@@ -437,6 +437,11 @@ export const dataset3 = {
             },
         ],
         externalUrl: 'https://data.hub',
+        lastModified: {
+            __typename: 'AuditStamp',
+            time: 0,
+            actor: null,
+        },
     },
     parentContainers: {
         __typename: 'ParentContainersResult',
@@ -697,6 +702,7 @@ export const dataset5 = {
     name: 'Fifth Test Dataset',
     urn: 'urn:li:dataset:5',
     properties: {
+        ...dataset3.properties,
         name: 'Fifth Test Dataset',
         description: 'This and here we have yet another Dataset (YAN). Are there more?',
         origin: 'PROD',
@@ -710,6 +716,7 @@ export const dataset6 = {
     name: 'Sixth Test Dataset',
     urn: 'urn:li:dataset:6',
     properties: {
+        ...dataset3.properties,
         name: 'Display Name of Sixth',
         qualifiedName: 'Fully Qualified Name of Sixth Test Dataset',
         description: 'This and here we have yet another Dataset (YAN). Are there more?',
