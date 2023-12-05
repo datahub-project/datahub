@@ -11128,7 +11128,7 @@ type OwnershipTypeInfo {
     """
     An Audit Stamp corresponding to the update of this resource
     """
-    lastModified: AuditStamp!
+    lastModified: AuditStamp
 }
 
 """
