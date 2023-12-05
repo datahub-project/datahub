@@ -164,6 +164,7 @@ public class DatasetMapper implements ModelMapper<EntityResponse, Dataset> {
         if (lastModified != null) {
             Urn actor = lastModified.getActor();
             properties.setLastModified(new AuditStamp(lastModified.getTime(), actor == null ? null : actor.toString()));
+            properties.setLastModifiedActor(actor == null ? null : actor.toString());
         } else {
             properties.setLastModified(new AuditStamp(0L, null));
         }
