@@ -298,9 +298,9 @@ subprojects {
         spotlessJavaTask.dependsOn compileJavaTask
       }
       // TODO - Do not run this in CI. How?
-      tasks.withType(JavaCompile) {
-        finalizedBy(tasks.findByName('spotlessApply'))
-      }
+      // tasks.withType(JavaCompile) {
+      //   finalizedBy(tasks.findByName('spotlessApply'))
+      // }
     }
   }
 
