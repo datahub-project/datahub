@@ -540,6 +540,12 @@ export const dataset3 = {
                     parentNodes: null,
                 },
                 associatedUrn: 'urn:li:dataset:3',
+                actor: {
+                    __typename: 'CorpUser',
+                    urn: 'urn:li:corpuser:admin',
+                    type: EntityType.CorpUser,
+                    username: '',
+                },
             },
         ],
     },
