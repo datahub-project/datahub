@@ -2,7 +2,6 @@ import base64
 import json
 import logging
 from collections import namedtuple
-from enum import Enum
 from itertools import groupby
 from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
@@ -61,13 +60,14 @@ from datahub.metadata.schema_classes import (
     ViewPropertiesClass,
 )
 from datahub.utilities.hive_schema_to_avro import get_schema_fields_for_hive_column
+from datahub.utilities.str_enum import StrEnum
 
 logger: logging.Logger = logging.getLogger(__name__)
 
 TableKey = namedtuple("TableKey", ["schema", "table"])
 
 
-class PrestoOnHiveConfigMode(str, Enum):
+class PrestoOnHiveConfigMode(StrEnum):
     hive: str = "hive"  # noqa: F811
     presto: str = "presto"
     presto_on_hive: str = "presto-on-hive"

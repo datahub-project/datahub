@@ -1,7 +1,6 @@
 import logging
 from collections import defaultdict
 from dataclasses import dataclass
-from enum import Enum
 from typing import Dict, List, Optional, Set, cast
 
 from pydantic import Field, SecretStr, root_validator, validator
@@ -24,6 +23,7 @@ from datahub.ingestion.source_config.sql.snowflake import (
 )
 from datahub.ingestion.source_config.usage.snowflake_usage import SnowflakeUsageConfig
 from datahub.utilities.global_warning_util import add_global_warning
+from datahub.utilities.str_enum import StrEnum
 
 logger = logging.Logger(__name__)
 
@@ -40,7 +40,7 @@ DEFAULT_TABLES_DENY_LIST = [
 ]
 
 
-class TagOption(str, Enum):
+class TagOption(StrEnum):
     with_lineage = "with_lineage"
     without_lineage = "without_lineage"
     skip = "skip"

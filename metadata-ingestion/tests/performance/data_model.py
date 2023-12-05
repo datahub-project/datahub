@@ -1,9 +1,10 @@
 from dataclasses import dataclass
 from datetime import datetime
-from enum import Enum
 from typing import Dict, List, Optional
 
 from typing_extensions import Literal
+
+from datahub.utilities.str_enum import StrEnum
 
 StatementType = Literal[  # SELECT + values from OperationTypeClass
     "SELECT",
@@ -24,7 +25,7 @@ class Container:
     parent: Optional["Container"] = None
 
 
-class ColumnType(str, Enum):
+class ColumnType(StrEnum):
     # Can add types that take parameters in the future
 
     INTEGER = "INTEGER"
