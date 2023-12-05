@@ -136,7 +136,11 @@ class PathSpec(ConfigModel):
         if "include" not in values:
             return values
 
-        if "**" in values.get("include") and not values.get("allow_double_stars"):
+        if (
+            values.get("include")
+            and "**" in values.get("include")
+            and not values.get("allow_double_stars")
+        ):
             raise ValueError("path_spec.include cannot contain '**'")
         return values
 
