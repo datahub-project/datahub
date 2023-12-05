@@ -292,6 +292,28 @@ def test_tableau_ingest(pytestconfig, tmp_path, mock_datahub_graph):
 
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration
+def test_tableau_test_connection_success():
+    with mock.patch("datahub.ingestion.source.tableau.Server"):
+        report = TableauSource.test_connection(config_source_default)
+        assert report is not None
+        assert report.basic_connectivity
+        assert report.basic_connectivity.capable
+        assert report.basic_connectivity.failure_reason is None
+
+
+@freeze_time(FROZEN_TIME)
+@pytest.mark.integration
+def test_tableau_test_connection_failure():
+    report = TableauSource.test_connection(config_source_default)
+    assert report is not None
+    assert report.basic_connectivity
+    assert not report.basic_connectivity.capable
+    assert report.basic_connectivity.failure_reason
+    assert "Unable to login" in report.basic_connectivity.failure_reason
+
+
+@freeze_time(FROZEN_TIME)
+@pytest.mark.integration
 def test_tableau_cll_ingest(pytestconfig, tmp_path, mock_datahub_graph):
     enable_logging()
     output_file_name: str = "tableau_mces_cll.json"

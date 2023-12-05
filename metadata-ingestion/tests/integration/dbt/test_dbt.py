@@ -10,7 +10,7 @@ from datahub.configuration.common import DynamicTypedConfig
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.run.pipeline_config import PipelineConfig, SourceConfig
 from datahub.ingestion.source.dbt.dbt_common import DBTEntitiesEnabled, EmitDirective
-from datahub.ingestion.source.dbt.dbt_core import DBTCoreConfig
+from datahub.ingestion.source.dbt.dbt_core import DBTCoreConfig, DBTCoreSource
 from datahub.ingestion.source.sql.sql_types import (
     ATHENA_SQL_TYPES_MAP,
     TRINO_SQL_TYPES_MAP,
@@ -231,6 +231,39 @@ def test_dbt_ingest(dbt_test_config, pytestconfig, tmp_path, mock_time, requests
         output_path=config.output_path,
         golden_path=config.golden_path,
     )
+
+
+@pytest.mark.integration
+@freeze_time(FROZEN_TIME)
+def test_dbt_test_connection_success(pytestconfig):
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/dbt"
+    config = {
+        "manifest_path": str((test_resources_dir / "dbt_manifest.json").resolve()),
+        "catalog_path": str((test_resources_dir / "dbt_catalog.json").resolve()),
+        "target_platform": "postgres",
+    }
+    report = DBTCoreSource.test_connection(config)
+    assert report is not None
+    assert report.basic_connectivity
+    assert report.basic_connectivity.capable
+    assert report.basic_connectivity.failure_reason is None
+
+
+@pytest.mark.integration
+@freeze_time(FROZEN_TIME)
+def test_dbt_test_connection_failure(pytestconfig):
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/dbt"
+    config = {
+        "manifest_path": str((test_resources_dir / "dbt_manifest.json").resolve()),
+        "catalog_path": str((test_resources_dir / "dbt_cat.json").resolve()),
+        "target_platform": "postgres",
+    }
+    report = DBTCoreSource.test_connection(config)
+    assert report is not None
+    assert report.basic_connectivity
+    assert not report.basic_connectivity.capable
+    assert report.basic_connectivity.failure_reason
+    assert "No such file or directory" in report.basic_connectivity.failure_reason
 
 
 @pytest.mark.integration

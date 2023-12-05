@@ -140,6 +140,18 @@ class KafkaSourceConfig(
     )
 
 
+def get_kafka_consumer(
+    connection: KafkaConsumerConnectionConfig,
+) -> confluent_kafka.Consumer:
+    return confluent_kafka.Consumer(
+        {
+            "group.id": "test",
+            "bootstrap.servers": connection.bootstrap,
+            **connection.consumer_config,
+        }
+    )
+
+
 @dataclass
 class KafkaSourceReport(StaleEntityRemovalSourceReport):
     topics_scanned: int = 0
@@ -156,12 +168,8 @@ class KafkaConnectionTest:
     def __init__(self, config_dict: dict):
         self.config = KafkaSourceConfig.parse_obj_allow_extras(config_dict)
         self.report = KafkaSourceReport()
-        self.consumer: confluent_kafka.Consumer = confluent_kafka.Consumer(
-            {
-                "group.id": "test",
-                "bootstrap.servers": self.config.connection.bootstrap,
-                **self.config.connection.consumer_config,
-            }
+        self.consumer: confluent_kafka.Consumer = get_kafka_consumer(
+            self.config.connection
         )
 
     def get_connection_test(self) -> TestConnectionReport:
@@ -233,12 +241,8 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
     def __init__(self, config: KafkaSourceConfig, ctx: PipelineContext):
         super().__init__(config, ctx)
         self.source_config: KafkaSourceConfig = config
-        self.consumer: confluent_kafka.Consumer = confluent_kafka.Consumer(
-            {
-                "group.id": "test",
-                "bootstrap.servers": self.source_config.connection.bootstrap,
-                **self.source_config.connection.consumer_config,
-            }
+        self.consumer: confluent_kafka.Consumer = get_kafka_consumer(
+            self.source_config.connection
         )
         self.init_kafka_admin_client()
         self.report: KafkaSourceReport = KafkaSourceReport()

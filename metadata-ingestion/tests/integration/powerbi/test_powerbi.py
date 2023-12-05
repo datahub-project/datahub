@@ -666,6 +666,31 @@ def test_powerbi_ingest(mock_msal, pytestconfig, tmp_path, mock_time, requests_m
 @freeze_time(FROZEN_TIME)
 @mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
 @pytest.mark.integration
+def test_powerbi_test_connection_success(mock_msal):
+    report = PowerBiDashboardSource.test_connection(default_source_config())
+    assert report is not None
+    assert report.basic_connectivity
+    assert report.basic_connectivity.capable
+    assert report.basic_connectivity.failure_reason is None
+
+
+@freeze_time(FROZEN_TIME)
+@pytest.mark.integration
+def test_powerbi_test_connection_failure():
+    report = PowerBiDashboardSource.test_connection(default_source_config())
+    assert report is not None
+    assert report.basic_connectivity
+    assert not report.basic_connectivity.capable
+    assert report.basic_connectivity.failure_reason
+    assert (
+        "Unable to get authority configuration"
+        in report.basic_connectivity.failure_reason
+    )
+
+
+@freeze_time(FROZEN_TIME)
+@mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
+@pytest.mark.integration
 def test_powerbi_platform_instance_ingest(
     mock_msal, pytestconfig, tmp_path, mock_time, requests_mock
 ):
