@@ -12,6 +12,7 @@ import com.linkedin.common.InstitutionalMemory;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.Siblings;
 import com.linkedin.common.Status;
+import com.linkedin.common.SubTypes;
 import com.linkedin.common.TimeStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
@@ -30,6 +31,7 @@ import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.SiblingsMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.CustomPropertiesMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.SubTypesMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.UpstreamLineagesMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.SystemMetadataUtils;
@@ -115,6 +117,8 @@ public class DatasetMapper implements ModelMapper<EntityResponse, Dataset> {
             dataset.setBrowsePathV2(BrowsePathsV2Mapper.map(new BrowsePathsV2(dataMap))));
         mappingHelper.mapToResult(ACCESS_DATASET_ASPECT_NAME, ((dataset, dataMap) ->
                 dataset.setAccess(AccessMapper.map(new Access(dataMap), entityUrn))));
+        mappingHelper.mapToResult(SUB_TYPES_ASPECT_NAME, (dashboard, dataMap) ->
+            dashboard.setSubTypes(SubTypesMapper.map(new SubTypes(dataMap))));
         return mappingHelper.getResult();
     }
 

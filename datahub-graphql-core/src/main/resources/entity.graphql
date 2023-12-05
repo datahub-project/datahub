@@ -5690,6 +5690,11 @@ type DataJob implements EntityWithRelationships & Entity & BrowsableEntity {
     type: EntityType!
 
     """
+    Sub Types that this entity implements
+    """
+    subTypes: SubTypes
+
+    """
     The timestamp for the last time this entity was ingested
     """
     lastIngested: Long

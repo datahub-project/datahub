@@ -6,7 +6,6 @@ from typing import Dict, Iterable, List, Optional, Type, Union
 import humanfriendly
 
 # These imports verify that the dependencies are available.
-import psycopg2  # noqa: F401
 import pydantic
 import redshift_connector
 
@@ -114,6 +113,10 @@ logger: logging.Logger = logging.getLogger(__name__)
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
 @capability(SourceCapability.LINEAGE_COARSE, "Optionally enabled via configuration")
+@capability(
+    SourceCapability.LINEAGE_FINE,
+    "Optionally enabled via configuration (`mixed` or `sql_based` lineage needs to be enabled)",
+)
 @capability(
     SourceCapability.USAGE_STATS,
     "Enabled by default, can be disabled via configuration `include_usage_statistics`",
@@ -348,7 +351,6 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
     def get_redshift_connection(
         config: RedshiftConfig,
     ) -> redshift_connector.Connection:
-        client_options = config.extra_client_options
         host, port = config.host_port.split(":")
         conn = redshift_connector.connect(
             host=host,
@@ -356,7 +358,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
             user=config.username,
             database=config.database,
             password=config.password.get_secret_value() if config.password else None,
-            **client_options,
+            **config.extra_client_options,
         )
 
         conn.autocommit = True
@@ -637,7 +639,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
         dataset_urn = self.gen_dataset_urn(datahub_dataset_name)
         if view.ddl:
             view_properties_aspect = ViewProperties(
-                materialized=view.type == "VIEW_MATERIALIZED",
+                materialized=view.materialized,
                 viewLanguage="SQL",
                 viewLogic=view.ddl,
             )

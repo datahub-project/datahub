@@ -336,6 +336,9 @@ fragment nonRecursiveDataJobFields on DataJob {
     deprecation {
         ...deprecationFields
     }
+    subTypes {
+        typeNames
+    }
 }
 
 fragment dataJobFields on DataJob {
@@ -389,6 +392,9 @@ fragment dataJobFields on DataJob {
     }
     browsePathV2 {
         ...browsePathV2Fields
+    }
+    subTypes {
+        typeNames
     }
 }
 
@@ -946,6 +952,9 @@ fragment parentContainerFields on Container {
     urn
     properties {
         name
+    }
+    subTypes {
+        typeNames
     }
 }
 
