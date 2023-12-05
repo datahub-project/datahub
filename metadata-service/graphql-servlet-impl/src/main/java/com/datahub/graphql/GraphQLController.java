@@ -13,6 +13,7 @@ import com.linkedin.datahub.graphql.GraphQLEngine;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLError;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import graphql.ExecutionResult;
+import io.opentelemetry.api.trace.Span;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -95,6 +96,7 @@ public class GraphQLController {
         true,
         authentication,
         _authorizerChain);
+    Span.current().setAttribute("actor.urn", context.getActorUrn());
 
     return CompletableFuture.supplyAsync(() -> {
       /*
