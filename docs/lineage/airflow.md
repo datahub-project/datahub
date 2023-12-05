@@ -246,6 +246,20 @@ If your URLs aren't being generated correctly (usually they'll start with `http:
 base_url = http://airflow.mycorp.example.com
 ```
 
+### TypeError ... missing 3 required positional arguments
+
+If you see errors like the following with the v2 plugin:
+
+```shell
+ERROR - on_task_instance_success() missing 3 required positional arguments: 'previous_state', 'task_instance', and 'session'
+Traceback (most recent call last):
+  File "/home/airflow/.local/lib/python3.8/site-packages/datahub_airflow_plugin/datahub_listener.py", line 124, in wrapper
+    f(*args, **kwargs)
+TypeError: on_task_instance_success() missing 3 required positional arguments: 'previous_state', 'task_instance', and 'session'
+```
+
+The solution is to upgrade `acryl-datahub-airflow-plugin>=0.12.0.4` or upgrade `pluggy>=1.2.0`. See this [PR](https://github.com/datahub-project/datahub/pull/9365) for details.
+
 ## Compatibility
 
 We no longer officially support Airflow <2.1. However, you can use older versions of `acryl-datahub-airflow-plugin` with older versions of Airflow.

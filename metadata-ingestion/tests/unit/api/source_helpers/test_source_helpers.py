@@ -3,6 +3,7 @@ from datetime import datetime
 from typing import Any, Dict, Iterable, List, Union
 from unittest.mock import patch
 
+import pytest
 from freezegun import freeze_time
 
 import datahub.metadata.schema_classes as models
@@ -482,7 +483,7 @@ def test_auto_browse_path_v2_dry_run(telemetry_ping_mock):
 
 
 @freeze_time("2023-01-02 00:00:00")
-def test_auto_empty_dataset_usage_statistics(caplog):
+def test_auto_empty_dataset_usage_statistics(caplog: pytest.LogCaptureFixture) -> None:
     has_urn = make_dataset_urn("my_platform", "has_aspect")
     empty_urn = make_dataset_urn("my_platform", "no_aspect")
     config = BaseTimeWindowConfig()
@@ -499,6 +500,7 @@ def test_auto_empty_dataset_usage_statistics(caplog):
             ),
         ).as_workunit()
     ]
+    caplog.clear()
     with caplog.at_level(logging.WARNING):
         new_wus = list(
             auto_empty_dataset_usage_statistics(
@@ -530,7 +532,9 @@ def test_auto_empty_dataset_usage_statistics(caplog):
 
 
 @freeze_time("2023-01-02 00:00:00")
-def test_auto_empty_dataset_usage_statistics_invalid_timestamp(caplog):
+def test_auto_empty_dataset_usage_statistics_invalid_timestamp(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
     urn = make_dataset_urn("my_platform", "my_dataset")
     config = BaseTimeWindowConfig()
     wus = [
@@ -546,6 +550,7 @@ def test_auto_empty_dataset_usage_statistics_invalid_timestamp(caplog):
             ),
         ).as_workunit()
     ]
+    caplog.clear()
     with caplog.at_level(logging.WARNING):
         new_wus = list(
             auto_empty_dataset_usage_statistics(
