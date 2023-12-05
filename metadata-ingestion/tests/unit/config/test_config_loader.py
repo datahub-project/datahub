@@ -134,7 +134,7 @@ def test_load_success(pytestconfig, filename, golden_config, env, referenced_env
         assert list_referenced_env_variables(raw_config) == referenced_env_vars
 
     with mock.patch.dict(os.environ, env):
-        loaded_config = load_config_file(filepath)
+        loaded_config = load_config_file(filepath, resolve_env_vars=True)
         assert loaded_config == golden_config
 
         # TODO check referenced env vars
@@ -183,7 +183,12 @@ def test_write_file_directive(pytestconfig):
     fake_ssl_key = "my-secret-key-value"
 
     with mock.patch.dict(os.environ, {"DATAHUB_SSL_KEY": fake_ssl_key}):
-        loaded_config = load_config_file(filepath, squirrel_original_config=False)
+        loaded_config = load_config_file(
+            filepath,
+            squirrel_original_config=False,
+            resolve_env_vars=True,
+            process_directives=True,
+        )
 
         # Check that the rest of the dict is unmodified.
         diff = deepdiff.DeepDiff(

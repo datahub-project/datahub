@@ -550,7 +550,7 @@ class LookerModel:
 @dataclass
 class LookerViewFile:
     absolute_file_path: str
-    connection: Optional[str]
+    connection: Optional[LookerConnectionDefinition]
     includes: List[str]
     resolved_includes: List[ProjectInclude]
     views: List[Dict]

@@ -224,6 +224,13 @@
         "recipe": "source:\n    type: fivetran\n    config:\n        # Fivetran log connector destination server configurations\n        fivetran_log_config:\n            destination_platform: snowflake\n            destination_config:\n                # Coordinates\n                account_id: snowflake_account_id\n                warehouse: warehouse_name\n                database: snowflake_db\n                log_schema: fivetran_log_schema\n\n                # Credentials\n                username: ${SNOWFLAKE_USER}\n                password: ${SNOWFLAKE_PASS}\n                role: snowflake_role\n\n        # Optional - filter for certain connector names instead of ingesting everything.\n        # connector_patterns:\n        #     allow:\n        #         - connector_name\n\n        # Optional -- This mapping is optional and only required to configure platform-instance for source\n        # A mapping of Fivetran connector id to data platform instance\n        # sources_to_platform_instance:\n        #     calendar_elected:\n        #         platform_instance: cloud_postgres_instance\n        #         env: DEV\n\n        # Optional -- This mapping is optional and only required to configure platform-instance for destination.\n        # A mapping of Fivetran destination id to data platform instance\n        # destination_to_platform_instance:\n        #     calendar_elected:\n        #         platform_instance: cloud_postgres_instance\n        #         env: DEV"
     },
     {
+        "urn": "urn:li:dataPlatform:csv-enricher",
+        "name": "csv-enricher",
+        "displayName": "CSV",
+        "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/csv'",
+        "recipe": "source: \n    type: csv-enricher \n    config: \n        # URL of your csv file to ingest \n        filename: \n        array_delimiter: '|' \n        delimiter: ',' \n        write_semantics: PATCH"
+    },
+    {
         "urn": "urn:li:dataPlatform:custom",
         "name": "custom",
         "displayName": "Other",
