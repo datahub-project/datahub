@@ -1895,68 +1895,69 @@ class LookMLSource(StatefulIngestionSourceBase):
             return
 
         manifest = self.get_manifest_if_present(project_path)
-        if manifest:
-            # Special case handling if the root project has a name in the manifest file.
-            if project_name == _BASE_PROJECT_NAME and manifest.project_name:
-                if (
-                    self.source_config.project_name is not None
-                    and manifest.project_name != self.source_config.project_name
-                ):
-                    logger.warning(
-                        f"The project name in the manifest file '{manifest.project_name}'"
-                        f"does not match the configured project name '{self.source_config.project_name}'. "
-                        "This can lead to failures in LookML include resolution and lineage generation."
-                    )
-                elif self.source_config.project_name is None:
-                    self.source_config.project_name = manifest.project_name
+        if not manifest:
+            return
 
-            # Clone the remote project dependencies.
-            for remote_project in manifest.remote_dependencies:
-                if remote_project.name in project_visited:
-                    continue
+        # Special case handling if the root project has a name in the manifest file.
+        if project_name == _BASE_PROJECT_NAME and manifest.project_name:
+            if (
+                self.source_config.project_name is not None
+                and manifest.project_name != self.source_config.project_name
+            ):
+                logger.warning(
+                    f"The project name in the manifest file '{manifest.project_name}'"
+                    f"does not match the configured project name '{self.source_config.project_name}'. "
+                    "This can lead to failures in LookML include resolution and lineage generation."
+                )
+            elif self.source_config.project_name is None:
+                self.source_config.project_name = manifest.project_name
 
-                p_cloner = GitClone(f"{tmp_dir}/_remote_/{project_name}")
-                try:
-                    # TODO: For 100% correctness, we should be consulting
-                    # the manifest lock file for the exact ref to use.
+        # Clone the remote project dependencies.
+        for remote_project in manifest.remote_dependencies:
+            if remote_project.name in project_visited:
+                continue
 
-                    p_checkout_dir = p_cloner.clone(
-                        ssh_key=(
-                            self.source_config.git_info.deploy_key
-                            if self.source_config.git_info
-                            else None
-                        ),
-                        repo_url=remote_project.url,
-                    )
+            p_cloner = GitClone(f"{tmp_dir}/_remote_/{project_name}")
+            try:
+                # TODO: For 100% correctness, we should be consulting
+                # the manifest lock file for the exact ref to use.
 
-                    self.base_projects_folder[
-                        remote_project.name
-                    ] = p_checkout_dir.resolve()
-                    repo = p_cloner.get_last_repo_cloned()
-                    assert repo
-                    remote_git_info = GitInfo(
-                        url_template=remote_project.url,
-                        repo="dummy/dummy",  # set to dummy values to bypass validation
-                        branch=repo.active_branch.name,
-                    )
-                    remote_git_info.repo = (
-                        ""  # set to empty because url already contains the full path
-                    )
-                    self.remote_projects_git_info[remote_project.name] = remote_git_info
+                p_checkout_dir = p_cloner.clone(
+                    ssh_key=(
+                        self.source_config.git_info.deploy_key
+                        if self.source_config.git_info
+                        else None
+                    ),
+                    repo_url=remote_project.url,
+                )
 
-                except Exception as e:
-                    logger.warning(
-                        f"Failed to clone remote project {project_name}. This can lead to failures in parsing lookml files later on",
-                        e,
-                    )
-                    project_visited.add(project_name)
-                else:
-                    self._recursively_check_manifests(
-                        tmp_dir, remote_project.name, project_visited
-                    )
+                self.base_projects_folder[
+                    remote_project.name
+                ] = p_checkout_dir.resolve()
+                repo = p_cloner.get_last_repo_cloned()
+                assert repo
+                remote_git_info = GitInfo(
+                    url_template=remote_project.url,
+                    repo="dummy/dummy",  # set to dummy values to bypass validation
+                    branch=repo.active_branch.name,
+                )
+                remote_git_info.repo = (
+                    ""  # set to empty because url already contains the full path
+                )
+                self.remote_projects_git_info[remote_project.name] = remote_git_info
 
-            for project in manifest.local_dependencies:
-                self._recursively_check_manifests(tmp_dir, project, project_visited)
+            except Exception as e:
+                logger.warning(
+                    f"Failed to clone remote project {project_name}. This can lead to failures in parsing lookml files later on: {e}",
+                )
+                project_visited.add(project_name)
+            else:
+                self._recursively_check_manifests(
+                    tmp_dir, remote_project.name, project_visited
+                )
+
+        for project in manifest.local_dependencies:
+            self._recursively_check_manifests(tmp_dir, project, project_visited)
 
     def get_internal_workunits(self) -> Iterable[MetadataWorkUnit]:  # noqa: C901
         assert self.source_config.base_folder
