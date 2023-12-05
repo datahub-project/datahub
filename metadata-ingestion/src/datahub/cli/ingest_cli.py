@@ -147,6 +147,9 @@ def run(
         squirrel_original_config=True,
         squirrel_field="__raw_config",
         allow_stdin=True,
+        allow_remote=True,
+        process_directives=True,
+        resolve_env_vars=True,
     )
     raw_pipeline_config = pipeline_config.pop("__raw_config")
 
@@ -268,6 +271,7 @@ def deploy(
     pipeline_config = load_config_file(
         config,
         allow_stdin=True,
+        allow_remote=True,
         resolve_env_vars=False,
     )
 
