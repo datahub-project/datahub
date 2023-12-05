@@ -282,6 +282,7 @@ subprojects {
         target project.fileTree(project.projectDir) {
             include '**/*.java'
             exclude 'build/**/*.java'
+            exclude '**/generated/**/*.*'
             exclude '**/mainGeneratedDataTemplate/**/*.*'
             exclude '**/mainGeneratedRest/**/*.*'
         }
