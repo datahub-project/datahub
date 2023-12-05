@@ -128,8 +128,8 @@ class UnityCatalogGEProfiler(GenericProfiler):
             if self.is_dataset_eligible_for_profiling(
                 dataset_name,
                 last_altered=table.last_altered,
-                size_in_bytes=0,
-                rows_count=0,
+                size_in_bytes=None,
+                rows_count=None,
             ):
                 profile_table_level_only = True
             else:

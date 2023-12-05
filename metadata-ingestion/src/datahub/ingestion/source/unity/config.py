@@ -36,8 +36,16 @@ logger = logging.getLogger(__name__)
 
 
 class UnityCatalogProfilerConfig(ConfigModel):
-    method: str
+    method: str = Field(
+        description=(
+            "Profiling method to use."
+            " Options supported are `ge` and `analyze`."
+            " `ge` uses Great Expectations and runs SELECT SQL queries on profiled tables."
+            " `analyze` calls ANALYZE TABLE on profiled tables. Only works for delta tables."
+        ),
+    )
 
+    # TODO: Support cluster compute as well, for ge profiling
     warehouse_id: Optional[str] = Field(
         default=None, description="SQL Warehouse id, for running profiling queries."
     )
