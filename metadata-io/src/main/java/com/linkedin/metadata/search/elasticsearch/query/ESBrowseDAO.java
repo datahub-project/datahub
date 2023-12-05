@@ -544,7 +544,11 @@ public class ESBrowseDAO {
   }
 
   @Nonnull
-  private QueryBuilder buildQueryStringBrowseAcrossEntities(@Nonnull List<EntitySpec> entitySpecs, @Nonnull String path, @Nullable Filter filter, @Nonnull String input) {
+  private QueryBuilder buildQueryStringBrowseAcrossEntities(
+      @Nonnull List<EntitySpec> entitySpecs,
+      @Nonnull String path,
+      @Nullable Filter filter,
+      @Nonnull String input) {
     final int browseDepthVal = getPathDepthV2(path);
 
     final BoolQueryBuilder queryBuilder = QueryBuilders.boolQuery();
