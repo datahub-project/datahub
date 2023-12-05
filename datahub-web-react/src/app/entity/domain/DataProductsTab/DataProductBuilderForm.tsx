@@ -48,7 +48,7 @@ export default function DataProductBuilderForm({ builderState, updateBuilderStat
         });
     }
 
-    function updateDomainId(id: string) {
+    function updateDataProductId(id: string) {
         updateBuilderState({
             ...builderState,
             id,
@@ -76,10 +76,10 @@ export default function DataProductBuilderForm({ builderState, updateBuilderStat
             <Collapse ghost>
                     <Collapse.Panel header={<AdvancedLabel>Advanced Options</AdvancedLabel>} key="1">
                         <FormItemWithMargin
-                            label={<Typography.Text strong>Domain Id</Typography.Text>}
-                            help="By default, a random UUID will be generated to uniquely identify this domain. If
-                                you'd like to provide a custom id instead to more easily keep track of this domain,
-                                you may provide it here. Be careful, you cannot easily change the domain id after
+                            label={<Typography.Text strong>Data Product Id</Typography.Text>}
+                            help="By default, a random UUID will be generated to uniquely identify this data product. If
+                                you'd like to provide a custom id instead to more easily keep track of this data product,
+                                you may provide it here. Be careful, you cannot easily change the data product id after
                                 creation."
                         >
                             <FormItemNoMargin
@@ -89,16 +89,16 @@ export default function DataProductBuilderForm({ builderState, updateBuilderStat
                                             if (value && validateCustomUrnId(value)) {
                                                 return Promise.resolve();
                                             }
-                                            return Promise.reject(new Error('Please enter a valid Domain id'));
+                                            return Promise.reject(new Error('Please enter a valid Data product id'));
                                         },
                                     }),
                                 ]}
                             >
                                 <Input 
-                                    data-testid="create-domain-id" 
+                                    data-testid="data-product-id" 
                                     placeholder="engineering" 
                                     value={builderState.id}
-                                    onChange={(e) => updateDomainId(e.target.value)}
+                                    onChange={(e) => updateDataProductId(e.target.value)}
                                 />
                             </FormItemNoMargin>
                         </FormItemWithMargin>
