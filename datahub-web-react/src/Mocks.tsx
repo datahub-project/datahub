@@ -702,12 +702,12 @@ export const dataset5 = {
     name: 'Fifth Test Dataset',
     urn: 'urn:li:dataset:5',
     properties: {
-        ...dataset3.properties,
         name: 'Fifth Test Dataset',
         description: 'This and here we have yet another Dataset (YAN). Are there more?',
         origin: 'PROD',
         customProperties: [{ key: 'propertyAKey', value: 'propertyAValue', associatedUrn: 'urn:li:dataset:5' }],
         externalUrl: 'https://data.hub',
+        lastModified: dataset3.properties?.lastModified,
     },
 };
 
@@ -716,13 +716,13 @@ export const dataset6 = {
     name: 'Sixth Test Dataset',
     urn: 'urn:li:dataset:6',
     properties: {
-        ...dataset3.properties,
         name: 'Display Name of Sixth',
         qualifiedName: 'Fully Qualified Name of Sixth Test Dataset',
         description: 'This and here we have yet another Dataset (YAN). Are there more?',
         origin: 'PROD',
         customProperties: [{ key: 'propertyAKey', value: 'propertyAValue', associatedUrn: 'urn:li:dataset:6' }],
         externalUrl: 'https://data.hub',
+        lastModified: dataset3.properties?.lastModified,
     },
 };
 
