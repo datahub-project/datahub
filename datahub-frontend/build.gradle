@@ -119,3 +119,7 @@ task cleanLocalDockerImages {
   }
 }
 dockerClean.finalizedBy(cleanLocalDockerImages)
+
+stageMainDist.dependsOn ':datahub-frontend:createDatahub-frontendStartScripts'
+spotlessJava.dependsOn stageMainDist
+spotlessJava.dependsOn ':datahub-frontend:stageDatahub-frontendDist'
