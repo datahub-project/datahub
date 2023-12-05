@@ -33,7 +33,6 @@ configurations {
 }
 
 dependencies {
-
   //Needed for tie breaking of guava version need for spark and wiremock
   provided(externalDependency.hadoopMapreduceClient) {
     force = true
@@ -47,7 +46,8 @@ dependencies {
     force = true
   } // required for org.apache.commons.io.Charsets that is used internally
 
-  implementation externalDependency.slf4jApi
+  provided(externalDependency.slf4jApi)
+  provided(externalDependency.httpClient)
   compileOnly externalDependency.lombok
   annotationProcessor externalDependency.lombok
 
@@ -59,6 +59,8 @@ dependencies {
   provided(externalDependency.sparkSql)
   provided(externalDependency.sparkHive)
   implementation externalDependency.httpAsyncClient
+
+  provided('org.apache.kyuubi:kyuubi-spark-lineage_2.12:1.7.0')
 
   // Tests need a concrete log4j available. Providing it here
   testImplementation 'org.apache.logging.log4j:log4j-api:2.17.1'
@@ -109,13 +111,14 @@ shadowJar {
   // https://github.com/johnrengelman/shadow/issues/729
   exclude('module-info.class', 'META-INF/versions/**')
 
+  exclude 'scala/**'
   // prevent jni conflict with spark
   exclude '**/libzstd-jni.*'
   exclude '**/com_github_luben_zstd_*'
 
   relocate 'com.fasterxml.jackson', 'datahub.shaded.jackson'
-  relocate 'org.slf4j','datahub.shaded.org.slf4j'
-  relocate 'org.apache.http','datahub.spark2.shaded.http'
+//  relocate 'org.slf4j','datahub.shaded.org.slf4j'
+//  relocate 'org.apache.http','datahub.spark2.shaded.http'
   relocate 'org.apache.commons.codec', 'datahub.spark2.shaded.o.a.c.codec'
   relocate 'org.apache.commons.compress', 'datahub.spark2.shaded.o.a.c.compress'
   relocate 'mozilla', 'datahub.spark2.shaded.mozilla'
