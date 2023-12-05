@@ -126,16 +126,6 @@ const user2 = {
             },
         ],
     },
-    groups: {
-        relationships: [
-            {
-                entity: {
-                    urn: 'urn:li:corpgroup:group1',
-                    name: 'group1',
-                },
-            },
-        ],
-    },
     globalTags: {
         __typename: 'GlobalTags',
         tags: [
