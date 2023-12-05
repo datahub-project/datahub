@@ -181,8 +181,8 @@ clickhouse_common = {
 redshift_common = {
     # Clickhouse 0.8.3 adds support for SQLAlchemy 1.4.x
     "sqlalchemy-redshift>=0.8.3",
-    "psycopg2-binary",
     "GeoAlchemy2",
+    "redshift-connector",
     *sqllineage_lib,
     *path_spec_common,
 }
@@ -262,7 +262,8 @@ databricks = {
     "databricks-sdk>=0.9.0",
     "pyspark~=3.3.0",
     "requests",
-    "databricks-sql-connector>=2.8.0",  # Only added in 2.4.0, bug fixes since
+    # Version 2.4.0 includes sqlalchemy dialect, 2.8.0 includes some bug fixes
+    "databricks-sql-connector>=2.8.0",
 }
 
 mysql = sql_common | {"pymysql>=1.0.2"}
@@ -366,11 +367,7 @@ plugins: Dict[str, Set[str]] = {
     | {"psycopg2-binary", "pymysql>=1.0.2"},
     "pulsar": {"requests"},
     "redash": {"redash-toolbelt", "sql-metadata"} | sqllineage_lib,
-    "redshift": sql_common
-    | redshift_common
-    | usage_common
-    | {"redshift-connector"}
-    | sqlglot_lib,
+    "redshift": sql_common | redshift_common | usage_common | sqlglot_lib,
     "s3": {*s3_base, *data_lake_profiling},
     "gcs": {*s3_base, *data_lake_profiling},
     "sagemaker": aws_common,
