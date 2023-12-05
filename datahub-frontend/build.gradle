@@ -120,6 +120,8 @@ task cleanLocalDockerImages {
 }
 dockerClean.finalizedBy(cleanLocalDockerImages)
 
+def stageDatahub_frontendDist = tasks.findByName('stageDatahub-frontendDist')
+stageDatahub_frontendDist.dependsOn createMainStartScripts
 stageMainDist.dependsOn ':datahub-frontend:createDatahub-frontendStartScripts'
 spotlessJava.dependsOn stageMainDist
-spotlessJava.dependsOn ':datahub-frontend:stageDatahub-frontendDist'
+spotlessJava.dependsOn stageDatahub_frontendDist
