@@ -227,7 +227,6 @@ project.ext.externalDependency = [
     'common': 'commons-io:commons-io:2.7',
     'jline':'jline:jline:1.4.1',
     'jetbrains':' org.jetbrains.kotlin:kotlin-stdlib:1.6.0'
-
 ]
 
 allprojects {

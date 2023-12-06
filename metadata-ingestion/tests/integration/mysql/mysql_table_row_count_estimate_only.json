@@ -16,7 +16,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-2020_04_14-07_00_00"
+        "runId": "mysql-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -31,7 +32,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-2020_04_14-07_00_00"
+        "runId": "mysql-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -46,7 +48,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-2020_04_14-07_00_00"
+        "runId": "mysql-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -63,7 +66,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-2020_04_14-07_00_00"
+        "runId": "mysql-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -78,7 +82,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-2020_04_14-07_00_00"
+        "runId": "mysql-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -93,7 +98,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-2020_04_14-07_00_00"
+        "runId": "mysql-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -213,7 +219,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-2020_04_14-07_00_00"
+        "runId": "mysql-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -230,7 +237,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-2020_04_14-07_00_00"
+        "runId": "mysql-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -250,7 +258,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-2020_04_14-07_00_00"
+        "runId": "mysql-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -265,7 +274,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-2020_04_14-07_00_00"
+        "runId": "mysql-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -361,7 +371,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-2020_04_14-07_00_00"
+        "runId": "mysql-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -378,7 +389,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-2020_04_14-07_00_00"
+        "runId": "mysql-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -398,7 +410,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-2020_04_14-07_00_00"
+        "runId": "mysql-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -420,88 +433,44 @@
                     "fieldPath": "id",
                     "uniqueCount": 5,
                     "uniqueProportion": 1,
-                    "nullCount": 0,
-                    "min": "1",
-                    "max": "5",
-                    "mean": "3.0",
-                    "median": "3",
-                    "stdev": "1.5811388300841898",
-                    "sampleValues": [
-                        "1",
-                        "2",
-                        "3",
-                        "4",
-                        "5"
-                    ]
+                    "nullCount": 0
                 },
                 {
                     "fieldPath": "company",
                     "uniqueCount": 5,
                     "uniqueProportion": 1,
-                    "nullCount": 0,
-                    "sampleValues": [
-                        "Company A",
-                        "Company B",
-                        "Company C",
-                        "Company D",
-                        "Company E"
-                    ]
+                    "nullCount": 0
                 },
                 {
                     "fieldPath": "last_name",
                     "uniqueCount": 5,
                     "uniqueProportion": 1,
-                    "nullCount": 0,
-                    "sampleValues": [
-                        "Axen",
-                        "Bedecs",
-                        "Donnell",
-                        "Gratacos Solsona",
-                        "Lee"
-                    ]
+                    "nullCount": 0
                 },
                 {
                     "fieldPath": "first_name",
                     "uniqueCount": 5,
                     "uniqueProportion": 1,
-                    "nullCount": 0,
-                    "sampleValues": [
-                        "Anna",
-                        "Antonio",
-                        "Christina",
-                        "Martin",
-                        "Thomas"
-                    ]
+                    "nullCount": 0
                 },
                 {
                     "fieldPath": "email_address",
                     "uniqueCount": 0,
-                    "nullCount": 0,
-                    "sampleValues": []
+                    "nullCount": 0
                 },
                 {
                     "fieldPath": "priority",
                     "uniqueCount": 3,
                     "uniqueProportion": 0.75,
-                    "nullCount": 0,
-                    "min": "3.8",
-                    "max": "4.9",
-                    "mean": "4.175000011920929",
-                    "median": "4.0",
-                    "stdev": "0.49244294899530355",
-                    "sampleValues": [
-                        "4.0",
-                        "4.9",
-                        "4.0",
-                        "3.8"
-                    ]
+                    "nullCount": 0
                 }
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-2020_04_14-07_00_00"
+        "runId": "mysql-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -522,37 +491,25 @@
                 {
                     "fieldPath": "id",
                     "uniqueCount": 0,
-                    "nullCount": 0,
-                    "min": "None",
-                    "max": "None",
-                    "mean": "None",
-                    "median": "None",
-                    "stdev": "0.0",
-                    "sampleValues": []
+                    "nullCount": 0
                 },
                 {
                     "fieldPath": "description",
                     "uniqueCount": 0,
-                    "nullCount": 0,
-                    "sampleValues": []
+                    "nullCount": 0
                 },
                 {
                     "fieldPath": "customer_id",
                     "uniqueCount": 0,
-                    "nullCount": 0,
-                    "min": "None",
-                    "max": "None",
-                    "mean": "None",
-                    "median": "None",
-                    "stdev": "0.0",
-                    "sampleValues": []
+                    "nullCount": 0
                 }
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-2020_04_14-07_00_00"
+        "runId": "mysql-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 }
 ]

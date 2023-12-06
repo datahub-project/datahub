@@ -13,7 +13,6 @@ import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import javax.annotation.Nonnull;
 
-
 public class AssertionRunEventMapper
     implements TimeSeriesAspectMapper<com.linkedin.datahub.graphql.generated.AssertionRunEvent> {
 
@@ -29,8 +28,10 @@ public class AssertionRunEventMapper
       @Nonnull final EnvelopedAspect envelopedAspect) {
 
     AssertionRunEvent gmsAssertionRunEvent =
-        GenericRecordUtils.deserializeAspect(envelopedAspect.getAspect().getValue(),
-            envelopedAspect.getAspect().getContentType(), AssertionRunEvent.class);
+        GenericRecordUtils.deserializeAspect(
+            envelopedAspect.getAspect().getValue(),
+            envelopedAspect.getAspect().getContentType(),
+            AssertionRunEvent.class);
 
     final com.linkedin.datahub.graphql.generated.AssertionRunEvent assertionRunEvent =
         new com.linkedin.datahub.graphql.generated.AssertionRunEvent();
@@ -39,7 +40,8 @@ public class AssertionRunEventMapper
     assertionRunEvent.setAssertionUrn(gmsAssertionRunEvent.getAssertionUrn().toString());
     assertionRunEvent.setAsserteeUrn(gmsAssertionRunEvent.getAsserteeUrn().toString());
     assertionRunEvent.setRunId(gmsAssertionRunEvent.getRunId());
-    assertionRunEvent.setStatus(AssertionRunStatus.valueOf(gmsAssertionRunEvent.getStatus().name()));
+    assertionRunEvent.setStatus(
+        AssertionRunStatus.valueOf(gmsAssertionRunEvent.getStatus().name()));
     if (gmsAssertionRunEvent.hasBatchSpec()) {
       assertionRunEvent.setBatchSpec(mapBatchSpec(gmsAssertionRunEvent.getBatchSpec()));
     }
@@ -50,7 +52,8 @@ public class AssertionRunEventMapper
       assertionRunEvent.setResult(mapAssertionResult(gmsAssertionRunEvent.getResult()));
     }
     if (gmsAssertionRunEvent.hasRuntimeContext()) {
-      assertionRunEvent.setRuntimeContext(StringMapMapper.map(gmsAssertionRunEvent.getRuntimeContext()));
+      assertionRunEvent.setRuntimeContext(
+          StringMapMapper.map(gmsAssertionRunEvent.getRuntimeContext()));
     }
 
     return assertionRunEvent;

@@ -1,5 +1,10 @@
 package com.linkedin.metadata.search.transformer;
 
+import static com.linkedin.metadata.Constants.*;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
+
 import com.datahub.test.TestEntitySnapshot;
 import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -13,28 +18,29 @@ import com.linkedin.metadata.TestEntityUtil;
 import com.linkedin.metadata.models.EntitySpec;
 import java.io.IOException;
 import java.util.Optional;
-
 import org.testng.annotations.Test;
-
-import static com.linkedin.metadata.Constants.*;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
-
 
 public class SearchDocumentTransformerTest {
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+
   static {
-    int maxSize = Integer.parseInt(System.getenv().getOrDefault(INGESTION_MAX_SERIALIZED_STRING_LENGTH, MAX_JACKSON_STRING_SIZE));
-    OBJECT_MAPPER.getFactory().setStreamReadConstraints(StreamReadConstraints.builder().maxStringLength(maxSize).build());
+    int maxSize =
+        Integer.parseInt(
+            System.getenv()
+                .getOrDefault(INGESTION_MAX_SERIALIZED_STRING_LENGTH, MAX_JACKSON_STRING_SIZE));
+    OBJECT_MAPPER
+        .getFactory()
+        .setStreamReadConstraints(StreamReadConstraints.builder().maxStringLength(maxSize).build());
   }
 
   @Test
   public void testTransform() throws IOException {
-    SearchDocumentTransformer searchDocumentTransformer = new SearchDocumentTransformer(1000, 1000, 1000);
+    SearchDocumentTransformer searchDocumentTransformer =
+        new SearchDocumentTransformer(1000, 1000, 1000);
     TestEntitySnapshot snapshot = TestEntityUtil.getSnapshot();
     EntitySpec testEntitySpec = TestEntitySpecBuilder.getSpec();
-    Optional<String> result = searchDocumentTransformer.transformSnapshot(snapshot, testEntitySpec, false);
+    Optional<String> result =
+        searchDocumentTransformer.transformSnapshot(snapshot, testEntitySpec, false);
     assertTrue(result.isPresent());
     ObjectNode parsedJson = (ObjectNode) OBJECT_MAPPER.readTree(result.get());
     assertEquals(parsedJson.get("urn").asText(), snapshot.getUrn().toString());
@@ -65,10 +71,12 @@ public class SearchDocumentTransformerTest {
 
   @Test
   public void testTransformForDelete() throws IOException {
-    SearchDocumentTransformer searchDocumentTransformer = new SearchDocumentTransformer(1000, 1000, 1000);
+    SearchDocumentTransformer searchDocumentTransformer =
+        new SearchDocumentTransformer(1000, 1000, 1000);
     TestEntitySnapshot snapshot = TestEntityUtil.getSnapshot();
     EntitySpec testEntitySpec = TestEntitySpecBuilder.getSpec();
-    Optional<String> result = searchDocumentTransformer.transformSnapshot(snapshot, testEntitySpec, true);
+    Optional<String> result =
+        searchDocumentTransformer.transformSnapshot(snapshot, testEntitySpec, true);
     assertTrue(result.isPresent());
     ObjectNode parsedJson = (ObjectNode) OBJECT_MAPPER.readTree(result.get());
     assertEquals(parsedJson.get("urn").asText(), snapshot.getUrn().toString());
@@ -86,14 +94,18 @@ public class SearchDocumentTransformerTest {
 
   @Test
   public void testTransformMaxFieldValue() throws IOException {
-    SearchDocumentTransformer searchDocumentTransformer = new SearchDocumentTransformer(1000, 1000, 5);
+    SearchDocumentTransformer searchDocumentTransformer =
+        new SearchDocumentTransformer(1000, 1000, 5);
     TestEntitySnapshot snapshot = TestEntityUtil.getSnapshot();
     EntitySpec testEntitySpec = TestEntitySpecBuilder.getSpec();
-    Optional<String> result = searchDocumentTransformer.transformSnapshot(snapshot, testEntitySpec, false);
+    Optional<String> result =
+        searchDocumentTransformer.transformSnapshot(snapshot, testEntitySpec, false);
     assertTrue(result.isPresent());
     ObjectNode parsedJson = (ObjectNode) OBJECT_MAPPER.readTree(result.get());
 
-    assertEquals(parsedJson.get("customProperties"), JsonNodeFactory.instance.arrayNode().add("shortValue=123"));
+    assertEquals(
+        parsedJson.get("customProperties"),
+        JsonNodeFactory.instance.arrayNode().add("shortValue=123"));
     assertEquals(parsedJson.get("esObjectField"), JsonNodeFactory.instance.arrayNode().add("123"));
 
     searchDocumentTransformer = new SearchDocumentTransformer(1000, 1000, 20);
@@ -103,10 +115,21 @@ public class SearchDocumentTransformerTest {
     assertTrue(result.isPresent());
     parsedJson = (ObjectNode) OBJECT_MAPPER.readTree(result.get());
 
-
-    assertEquals(parsedJson.get("customProperties"), JsonNodeFactory.instance.arrayNode()
-            .add("key1=value1").add("key2=value2").add("shortValue=123").add("longValue=0123456789"));
-    assertEquals(parsedJson.get("esObjectField"), JsonNodeFactory.instance.arrayNode()
-            .add("value1").add("value2").add("123").add("0123456789"));
+    assertEquals(
+        parsedJson.get("customProperties"),
+        JsonNodeFactory.instance
+            .arrayNode()
+            .add("key1=value1")
+            .add("key2=value2")
+            .add("shortValue=123")
+            .add("longValue=0123456789"));
+    assertEquals(
+        parsedJson.get("esObjectField"),
+        JsonNodeFactory.instance
+            .arrayNode()
+            .add("value1")
+            .add("value2")
+            .add("123")
+            .add("0123456789"));
   }
 }

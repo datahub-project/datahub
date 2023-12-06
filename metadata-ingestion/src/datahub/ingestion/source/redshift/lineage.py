@@ -381,7 +381,8 @@ class RedshiftLineageExtractor:
                 qualified_table_name = dataset_urn.DatasetUrn.create_from_string(
                     source.urn
                 ).get_entity_id()[1]
-                db, schema, table = qualified_table_name.split(".")
+                # -3 because platform instance is optional and that can cause the split to have more than 3 elements
+                db, schema, table = qualified_table_name.split(".")[-3:]
                 if db == raw_db_name:
                     db = alias_db_name
                     path = f"{db}.{schema}.{table}"
