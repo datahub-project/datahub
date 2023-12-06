@@ -34,7 +34,7 @@
       - urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleHdfsDataset,PROD)
 - urn: "urn:li:form:917364"
   # id: 917364  # optional if urn is provided
-  type: COMPLETION
+  type: VERIFICATION
   name: "Governance Initiative"
   prompts:
     - id: "123"
@@ -48,8 +48,9 @@
       type: STRUCTURED_PROPERTY
       structured_property_id: io.acryl.dataManagement.certifier
       required: True
-  filters:
-    types:
-      - dataset
-    platforms:
-      - snowflake
+  entities:
+    filters:
+      types:
+        - dataset
+      platforms:
+        - snowflake

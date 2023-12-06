@@ -81,3 +81,10 @@
     meetings notes, etc."
   entity_types:
     - dataset
+- id: compliance_officer
+  qualified_name: compliance_officer
+  type: urn
+  cardinality: SINGLE
+  display_name: Compliance Officer
+  entity_types:
+    - dataset
