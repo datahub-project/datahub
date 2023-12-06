@@ -24,18 +24,21 @@ import org.springframework.boot.autoconfigure.kafka.KafkaProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-
 @Slf4j
 @Configuration
 public class SystemUpdateConfig {
   @Bean(name = "systemUpdate")
-  public SystemUpdate systemUpdate(final BuildIndices buildIndices, final CleanIndices cleanIndices,
-                                   @Qualifier("duheKafkaEventProducer") final KafkaEventProducer kafkaEventProducer,
-                                   final GitVersion gitVersion, @Qualifier("revision") String revision,
-                                   final BackfillBrowsePathsV2 backfillBrowsePathsV2) {
+  public SystemUpdate systemUpdate(
+      final BuildIndices buildIndices,
+      final CleanIndices cleanIndices,
+      @Qualifier("duheKafkaEventProducer") final KafkaEventProducer kafkaEventProducer,
+      final GitVersion gitVersion,
+      @Qualifier("revision") String revision,
+      final BackfillBrowsePathsV2 backfillBrowsePathsV2) {
 
     String version = String.format("%s-%s", gitVersion.getVersion(), revision);
-    return new SystemUpdate(buildIndices, cleanIndices, kafkaEventProducer, version, backfillBrowsePathsV2);
+    return new SystemUpdate(
+        buildIndices, cleanIndices, kafkaEventProducer, version, backfillBrowsePathsV2);
   }
 
   @Value("#{systemEnvironment['DATAHUB_REVISION'] ?: '0'}")
@@ -50,16 +53,18 @@ public class SystemUpdateConfig {
   @Qualifier(TopicConventionFactory.TOPIC_CONVENTION_BEAN)
   private TopicConvention topicConvention;
 
-  @Autowired
-  private KafkaHealthChecker kafkaHealthChecker;
+  @Autowired private KafkaHealthChecker kafkaHealthChecker;
 
   @Bean(name = "duheKafkaEventProducer")
-  protected KafkaEventProducer duheKafkaEventProducer(@Qualifier("configurationProvider") ConfigurationProvider provider,
-                                                      KafkaProperties properties,
-                                                      @Qualifier("duheSchemaRegistryConfig") SchemaRegistryConfig duheSchemaRegistryConfig) {
+  protected KafkaEventProducer duheKafkaEventProducer(
+      @Qualifier("configurationProvider") ConfigurationProvider provider,
+      KafkaProperties properties,
+      @Qualifier("duheSchemaRegistryConfig") SchemaRegistryConfig duheSchemaRegistryConfig) {
     KafkaConfiguration kafkaConfiguration = provider.getKafka();
-    Producer<String, IndexedRecord> producer = new KafkaProducer<>(
-            DataHubKafkaProducerFactory.buildProducerProperties(duheSchemaRegistryConfig, kafkaConfiguration, properties));
+    Producer<String, IndexedRecord> producer =
+        new KafkaProducer<>(
+            DataHubKafkaProducerFactory.buildProducerProperties(
+                duheSchemaRegistryConfig, kafkaConfiguration, properties));
     return new KafkaEventProducer(producer, topicConvention, kafkaHealthChecker);
   }
 }

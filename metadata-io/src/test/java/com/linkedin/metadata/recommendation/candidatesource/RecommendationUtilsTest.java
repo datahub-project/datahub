@@ -14,13 +14,12 @@ public class RecommendationUtilsTest {
   private void testIsSupportedEntityType() {
     Urn testUrn = UrnUtils.getUrn("urn:li:corpuser:john");
     Assert.assertTrue(
-        RecommendationUtils.isSupportedEntityType(testUrn, ImmutableSet.of(Constants.DATASET_ENTITY_NAME, Constants.CORP_USER_ENTITY_NAME))
-    );
+        RecommendationUtils.isSupportedEntityType(
+            testUrn,
+            ImmutableSet.of(Constants.DATASET_ENTITY_NAME, Constants.CORP_USER_ENTITY_NAME)));
     Assert.assertFalse(
-        RecommendationUtils.isSupportedEntityType(testUrn, ImmutableSet.of(Constants.DATASET_ENTITY_NAME))
-    );
-    Assert.assertFalse(
-        RecommendationUtils.isSupportedEntityType(testUrn, Collections.emptySet())
-    );
+        RecommendationUtils.isSupportedEntityType(
+            testUrn, ImmutableSet.of(Constants.DATASET_ENTITY_NAME)));
+    Assert.assertFalse(RecommendationUtils.isSupportedEntityType(testUrn, Collections.emptySet()));
   }
 }

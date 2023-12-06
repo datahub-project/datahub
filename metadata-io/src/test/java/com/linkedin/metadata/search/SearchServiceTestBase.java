@@ -1,5 +1,9 @@
 package com.linkedin.metadata.search;
 
+import static com.linkedin.metadata.Constants.ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH;
+import static io.datahubproject.test.search.SearchTestUtils.syncAfterWrite;
+import static org.testng.Assert.assertEquals;
+
 import com.datahub.test.Snapshot;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -32,6 +36,7 @@ import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
 import com.linkedin.metadata.search.ranker.SimpleRanker;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
+import javax.annotation.Nonnull;
 import org.opensearch.client.RestHighLevelClient;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.concurrent.ConcurrentMapCacheManager;
@@ -40,29 +45,22 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import javax.annotation.Nonnull;
-
-import static com.linkedin.metadata.Constants.ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH;
-import static io.datahubproject.test.search.SearchTestUtils.syncAfterWrite;
-import static org.testng.Assert.assertEquals;
-
-
-abstract public class SearchServiceTestBase extends AbstractTestNGSpringContextTests {
+public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextTests {
 
   @Nonnull
-  abstract protected RestHighLevelClient getSearchClient();
+  protected abstract RestHighLevelClient getSearchClient();
 
   @Nonnull
-  abstract protected ESBulkProcessor getBulkProcessor();
+  protected abstract ESBulkProcessor getBulkProcessor();
 
   @Nonnull
-  abstract protected ESIndexBuilder getIndexBuilder();
+  protected abstract ESIndexBuilder getIndexBuilder();
 
   @Nonnull
-  abstract protected SearchConfiguration getSearchConfiguration();
+  protected abstract SearchConfiguration getSearchConfiguration();
 
   @Nonnull
-  abstract protected CustomSearchConfiguration getCustomSearchConfiguration();
+  protected abstract CustomSearchConfiguration getCustomSearchConfiguration();
 
   private EntityRegistry _entityRegistry;
   private IndexConvention _indexConvention;
@@ -85,18 +83,18 @@ abstract public class SearchServiceTestBase extends AbstractTestNGSpringContextT
   }
 
   private void resetSearchService() {
-    CachingEntitySearchService cachingEntitySearchService = new CachingEntitySearchService(
-        _cacheManager,
-        _elasticSearchService,
-        100,
-        true);
+    CachingEntitySearchService cachingEntitySearchService =
+        new CachingEntitySearchService(_cacheManager, _elasticSearchService, 100, true);
 
-    EntityDocCountCacheConfiguration entityDocCountCacheConfiguration = new EntityDocCountCacheConfiguration();
+    EntityDocCountCacheConfiguration entityDocCountCacheConfiguration =
+        new EntityDocCountCacheConfiguration();
     entityDocCountCacheConfiguration.setTtlSeconds(600L);
-    _searchService = new SearchService(
-      new EntityDocCountCache(_entityRegistry, _elasticSearchService, entityDocCountCacheConfiguration),
-      cachingEntitySearchService,
-      new SimpleRanker());
+    _searchService =
+        new SearchService(
+            new EntityDocCountCache(
+                _entityRegistry, _elasticSearchService, entityDocCountCacheConfiguration),
+            cachingEntitySearchService,
+            new SimpleRanker());
   }
 
   @BeforeMethod
@@ -108,13 +106,26 @@ abstract public class SearchServiceTestBase extends AbstractTestNGSpringContextT
   @Nonnull
   private ElasticSearchService buildEntitySearchService() {
     EntityIndexBuilders indexBuilders =
-        new EntityIndexBuilders(getIndexBuilder(), _entityRegistry,
-            _indexConvention, _settingsBuilder);
-    ESSearchDAO searchDAO = new ESSearchDAO(_entityRegistry, getSearchClient(), _indexConvention, false,
-        ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH, getSearchConfiguration(), null);
-    ESBrowseDAO browseDAO = new ESBrowseDAO(_entityRegistry, getSearchClient(), _indexConvention, getSearchConfiguration(), getCustomSearchConfiguration());
-    ESWriteDAO writeDAO = new ESWriteDAO(_entityRegistry, getSearchClient(), _indexConvention,
-        getBulkProcessor(), 1);
+        new EntityIndexBuilders(
+            getIndexBuilder(), _entityRegistry, _indexConvention, _settingsBuilder);
+    ESSearchDAO searchDAO =
+        new ESSearchDAO(
+            _entityRegistry,
+            getSearchClient(),
+            _indexConvention,
+            false,
+            ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH,
+            getSearchConfiguration(),
+            null);
+    ESBrowseDAO browseDAO =
+        new ESBrowseDAO(
+            _entityRegistry,
+            getSearchClient(),
+            _indexConvention,
+            getSearchConfiguration(),
+            getCustomSearchConfiguration());
+    ESWriteDAO writeDAO =
+        new ESWriteDAO(_entityRegistry, getSearchClient(), _indexConvention, getBulkProcessor(), 1);
     return new ElasticSearchService(indexBuilders, searchDAO, browseDAO, writeDAO);
   }
 
@@ -126,11 +137,18 @@ abstract public class SearchServiceTestBase extends AbstractTestNGSpringContextT
   @Test
   public void testSearchService() throws Exception {
     SearchResult searchResult =
-        _searchService.searchAcrossEntities(ImmutableList.of(ENTITY_NAME), "test", null,
-                null, 0, 10, new SearchFlags().setFulltext(true).setSkipCache(true));
+        _searchService.searchAcrossEntities(
+            ImmutableList.of(ENTITY_NAME),
+            "test",
+            null,
+            null,
+            0,
+            10,
+            new SearchFlags().setFulltext(true).setSkipCache(true));
     assertEquals(searchResult.getNumEntities().intValue(), 0);
-    searchResult = _searchService.searchAcrossEntities(ImmutableList.of(), "test", null,
-            null, 0, 10, new SearchFlags().setFulltext(true));
+    searchResult =
+        _searchService.searchAcrossEntities(
+            ImmutableList.of(), "test", null, null, 0, 10, new SearchFlags().setFulltext(true));
     assertEquals(searchResult.getNumEntities().intValue(), 0);
     clearCache();
 
@@ -143,8 +161,9 @@ abstract public class SearchServiceTestBase extends AbstractTestNGSpringContextT
     _elasticSearchService.upsertDocument(ENTITY_NAME, document.toString(), urn.toString());
     syncAfterWrite(getBulkProcessor());
 
-    searchResult = _searchService.searchAcrossEntities(ImmutableList.of(), "test", null,
-            null, 0, 10, new SearchFlags().setFulltext(true));
+    searchResult =
+        _searchService.searchAcrossEntities(
+            ImmutableList.of(), "test", null, null, 0, 10, new SearchFlags().setFulltext(true));
     assertEquals(searchResult.getNumEntities().intValue(), 1);
     assertEquals(searchResult.getEntities().get(0).getEntity(), urn);
     clearCache();
@@ -158,8 +177,9 @@ abstract public class SearchServiceTestBase extends AbstractTestNGSpringContextT
     _elasticSearchService.upsertDocument(ENTITY_NAME, document2.toString(), urn2.toString());
     syncAfterWrite(getBulkProcessor());
 
-    searchResult = _searchService.searchAcrossEntities(ImmutableList.of(), "'test2'", null,
-            null, 0, 10, new SearchFlags().setFulltext(true));
+    searchResult =
+        _searchService.searchAcrossEntities(
+            ImmutableList.of(), "'test2'", null, null, 0, 10, new SearchFlags().setFulltext(true));
     assertEquals(searchResult.getNumEntities().intValue(), 1);
     assertEquals(searchResult.getEntities().get(0).getEntity(), urn2);
     clearCache();
@@ -170,37 +190,46 @@ abstract public class SearchServiceTestBase extends AbstractTestNGSpringContextT
     _elasticSearchService.deleteDocument(ENTITY_NAME, urn.toString());
     _elasticSearchService.deleteDocument(ENTITY_NAME, urn2.toString());
     syncAfterWrite(getBulkProcessor());
-    searchResult = _searchService.searchAcrossEntities(ImmutableList.of(), "'test2'", null,
-            null, 0, 10, new SearchFlags().setFulltext(true));
+    searchResult =
+        _searchService.searchAcrossEntities(
+            ImmutableList.of(), "'test2'", null, null, 0, 10, new SearchFlags().setFulltext(true));
     assertEquals(searchResult.getNumEntities().intValue(), 0);
   }
 
   @Test
   public void testAdvancedSearchOr() throws Exception {
-    final Criterion filterCriterion =  new Criterion()
-        .setField("platform")
-        .setCondition(Condition.EQUAL)
-        .setValue("hive")
-        .setValues(new StringArray(ImmutableList.of("hive")));
+    final Criterion filterCriterion =
+        new Criterion()
+            .setField("platform")
+            .setCondition(Condition.EQUAL)
+            .setValue("hive")
+            .setValues(new StringArray(ImmutableList.of("hive")));
 
-    final Criterion subtypeCriterion =  new Criterion()
-        .setField("subtypes")
-        .setCondition(Condition.EQUAL)
-        .setValue("")
-        .setValues(new StringArray(ImmutableList.of("view")));
+    final Criterion subtypeCriterion =
+        new Criterion()
+            .setField("subtypes")
+            .setCondition(Condition.EQUAL)
+            .setValue("")
+            .setValues(new StringArray(ImmutableList.of("view")));
 
-    final Filter filterWithCondition = new Filter().setOr(
-        new ConjunctiveCriterionArray(
-            new ConjunctiveCriterion().setAnd(
-                new CriterionArray(ImmutableList.of(filterCriterion))),
-            new ConjunctiveCriterion().setAnd(
-                new CriterionArray(ImmutableList.of(subtypeCriterion)))
-        ));
-
+    final Filter filterWithCondition =
+        new Filter()
+            .setOr(
+                new ConjunctiveCriterionArray(
+                    new ConjunctiveCriterion()
+                        .setAnd(new CriterionArray(ImmutableList.of(filterCriterion))),
+                    new ConjunctiveCriterion()
+                        .setAnd(new CriterionArray(ImmutableList.of(subtypeCriterion)))));
 
     SearchResult searchResult =
-        _searchService.searchAcrossEntities(ImmutableList.of(ENTITY_NAME), "test", filterWithCondition,
-                null, 0, 10, new SearchFlags().setFulltext(true));
+        _searchService.searchAcrossEntities(
+            ImmutableList.of(ENTITY_NAME),
+            "test",
+            filterWithCondition,
+            null,
+            0,
+            10,
+            new SearchFlags().setFulltext(true));
 
     assertEquals(searchResult.getNumEntities().intValue(), 0);
     clearCache();
@@ -237,8 +266,15 @@ abstract public class SearchServiceTestBase extends AbstractTestNGSpringContextT
 
     syncAfterWrite(getBulkProcessor());
 
-    searchResult = _searchService.searchAcrossEntities(ImmutableList.of(), "test", filterWithCondition,
-            null, 0, 10, new SearchFlags().setFulltext(true));
+    searchResult =
+        _searchService.searchAcrossEntities(
+            ImmutableList.of(),
+            "test",
+            filterWithCondition,
+            null,
+            0,
+            10,
+            new SearchFlags().setFulltext(true));
     assertEquals(searchResult.getNumEntities().intValue(), 2);
     assertEquals(searchResult.getEntities().get(0).getEntity(), urn);
     assertEquals(searchResult.getEntities().get(1).getEntity(), urn2);
@@ -247,28 +283,38 @@ abstract public class SearchServiceTestBase extends AbstractTestNGSpringContextT
 
   @Test
   public void testAdvancedSearchSoftDelete() throws Exception {
-    final Criterion filterCriterion =  new Criterion()
-        .setField("platform")
-        .setCondition(Condition.EQUAL)
-        .setValue("hive")
-        .setValues(new StringArray(ImmutableList.of("hive")));
+    final Criterion filterCriterion =
+        new Criterion()
+            .setField("platform")
+            .setCondition(Condition.EQUAL)
+            .setValue("hive")
+            .setValues(new StringArray(ImmutableList.of("hive")));
 
-    final Criterion removedCriterion =  new Criterion()
-        .setField("removed")
-        .setCondition(Condition.EQUAL)
-        .setValue("")
-        .setValues(new StringArray(ImmutableList.of("true")));
+    final Criterion removedCriterion =
+        new Criterion()
+            .setField("removed")
+            .setCondition(Condition.EQUAL)
+            .setValue("")
+            .setValues(new StringArray(ImmutableList.of("true")));
 
-    final Filter filterWithCondition = new Filter().setOr(
-        new ConjunctiveCriterionArray(
-            new ConjunctiveCriterion().setAnd(
-                new CriterionArray(ImmutableList.of(filterCriterion, removedCriterion)))
-        ));
-
+    final Filter filterWithCondition =
+        new Filter()
+            .setOr(
+                new ConjunctiveCriterionArray(
+                    new ConjunctiveCriterion()
+                        .setAnd(
+                            new CriterionArray(
+                                ImmutableList.of(filterCriterion, removedCriterion)))));
 
     SearchResult searchResult =
-        _searchService.searchAcrossEntities(ImmutableList.of(ENTITY_NAME), "test", filterWithCondition,
-                null, 0, 10, new SearchFlags().setFulltext(true));
+        _searchService.searchAcrossEntities(
+            ImmutableList.of(ENTITY_NAME),
+            "test",
+            filterWithCondition,
+            null,
+            0,
+            10,
+            new SearchFlags().setFulltext(true));
 
     assertEquals(searchResult.getNumEntities().intValue(), 0);
     clearCache();
@@ -308,8 +354,15 @@ abstract public class SearchServiceTestBase extends AbstractTestNGSpringContextT
 
     syncAfterWrite(getBulkProcessor());
 
-    searchResult = _searchService.searchAcrossEntities(ImmutableList.of(), "test", filterWithCondition,
-            null, 0, 10, new SearchFlags().setFulltext(true));
+    searchResult =
+        _searchService.searchAcrossEntities(
+            ImmutableList.of(),
+            "test",
+            filterWithCondition,
+            null,
+            0,
+            10,
+            new SearchFlags().setFulltext(true));
     assertEquals(searchResult.getNumEntities().intValue(), 1);
     assertEquals(searchResult.getEntities().get(0).getEntity(), urn);
     clearCache();
@@ -317,23 +370,30 @@ abstract public class SearchServiceTestBase extends AbstractTestNGSpringContextT
 
   @Test
   public void testAdvancedSearchNegated() throws Exception {
-    final Criterion filterCriterion =  new Criterion()
-        .setField("platform")
-        .setCondition(Condition.EQUAL)
-        .setValue("hive")
-        .setNegated(true)
-        .setValues(new StringArray(ImmutableList.of("hive")));
+    final Criterion filterCriterion =
+        new Criterion()
+            .setField("platform")
+            .setCondition(Condition.EQUAL)
+            .setValue("hive")
+            .setNegated(true)
+            .setValues(new StringArray(ImmutableList.of("hive")));
 
-    final Filter filterWithCondition = new Filter().setOr(
-        new ConjunctiveCriterionArray(
-            new ConjunctiveCriterion().setAnd(
-                new CriterionArray(ImmutableList.of(filterCriterion)))
-        ));
-
+    final Filter filterWithCondition =
+        new Filter()
+            .setOr(
+                new ConjunctiveCriterionArray(
+                    new ConjunctiveCriterion()
+                        .setAnd(new CriterionArray(ImmutableList.of(filterCriterion)))));
 
     SearchResult searchResult =
-        _searchService.searchAcrossEntities(ImmutableList.of(ENTITY_NAME), "test", filterWithCondition,
-                null, 0, 10, new SearchFlags().setFulltext(true));
+        _searchService.searchAcrossEntities(
+            ImmutableList.of(ENTITY_NAME),
+            "test",
+            filterWithCondition,
+            null,
+            0,
+            10,
+            new SearchFlags().setFulltext(true));
 
     assertEquals(searchResult.getNumEntities().intValue(), 0);
     clearCache();
@@ -373,8 +433,15 @@ abstract public class SearchServiceTestBase extends AbstractTestNGSpringContextT
 
     syncAfterWrite(getBulkProcessor());
 
-    searchResult = _searchService.searchAcrossEntities(ImmutableList.of(), "test", filterWithCondition,
-            null, 0, 10, new SearchFlags().setFulltext(true));
+    searchResult =
+        _searchService.searchAcrossEntities(
+            ImmutableList.of(),
+            "test",
+            filterWithCondition,
+            null,
+            0,
+            10,
+            new SearchFlags().setFulltext(true));
     assertEquals(searchResult.getNumEntities().intValue(), 1);
     assertEquals(searchResult.getEntities().get(0).getEntity(), urn3);
     clearCache();

@@ -12,9 +12,9 @@ import com.linkedin.metadata.version.GitVersion;
 import com.linkedin.util.Pair;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.time.ZoneId;
 import java.util.HashMap;
 import java.util.Map;
-import java.time.ZoneId;
 import javax.servlet.ServletContext;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
@@ -27,30 +27,46 @@ import org.springframework.web.context.support.WebApplicationContextUtils;
 
 public class Config extends HttpServlet {
 
-  Map<String, Object> config = new HashMap<String, Object>() {{
-    put("noCode", "true");
-    put("retention", "true");
-    put("statefulIngestionCapable", true);
-    put("patchCapable", true);
-    put("timeZone", ZoneId.systemDefault().toString());
-  }};
-  ObjectMapper objectMapper = new ObjectMapper().setSerializationInclusion(JsonInclude.Include.NON_NULL);
+  Map<String, Object> config =
+      new HashMap<String, Object>() {
+        {
+          put("noCode", "true");
+          put("retention", "true");
+          put("statefulIngestionCapable", true);
+          put("patchCapable", true);
+          put("timeZone", ZoneId.systemDefault().toString());
+        }
+      };
+  ObjectMapper objectMapper =
+      new ObjectMapper().setSerializationInclusion(JsonInclude.Include.NON_NULL);
 
-  private Map<String, Map<ComparableVersion, EntityRegistryLoadResult>> getPluginModels(ServletContext servletContext) {
-    WebApplicationContext ctx = WebApplicationContextUtils.getRequiredWebApplicationContext(servletContext);
+  private Map<String, Map<ComparableVersion, EntityRegistryLoadResult>> getPluginModels(
+      ServletContext servletContext) {
+    WebApplicationContext ctx =
+        WebApplicationContextUtils.getRequiredWebApplicationContext(servletContext);
     PluginEntityRegistryLoader pluginEntityRegistryLoader =
         (PluginEntityRegistryLoader) ctx.getBean("pluginEntityRegistry");
-    Map<String, Map<ComparableVersion, Pair<EntityRegistry, EntityRegistryLoadResult>>> patchRegistries =
-        pluginEntityRegistryLoader.getPatchRegistries();
-    Map<String, Map<ComparableVersion, EntityRegistryLoadResult>> patchDiagnostics = new HashMap<>();
+    Map<String, Map<ComparableVersion, Pair<EntityRegistry, EntityRegistryLoadResult>>>
+        patchRegistries = pluginEntityRegistryLoader.getPatchRegistries();
+    Map<String, Map<ComparableVersion, EntityRegistryLoadResult>> patchDiagnostics =
+        new HashMap<>();
     patchRegistries.keySet().forEach(name -> patchDiagnostics.put(name, new HashMap<>()));
 
-    patchRegistries.entrySet().forEach(entry -> {
-      entry.getValue()
-          .entrySet()
-          .forEach(versionLoadEntry -> patchDiagnostics.get(entry.getKey())
-              .put(versionLoadEntry.getKey(), versionLoadEntry.getValue().getSecond()));
-    });
+    patchRegistries
+        .entrySet()
+        .forEach(
+            entry -> {
+              entry
+                  .getValue()
+                  .entrySet()
+                  .forEach(
+                      versionLoadEntry ->
+                          patchDiagnostics
+                              .get(entry.getKey())
+                              .put(
+                                  versionLoadEntry.getKey(),
+                                  versionLoadEntry.getValue().getSecond()));
+            });
     return patchDiagnostics;
   }
 
@@ -74,7 +90,8 @@ public class Config extends HttpServlet {
   protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws IOException {
     config.put("noCode", "true");
 
-    WebApplicationContext ctx = WebApplicationContextUtils.getRequiredWebApplicationContext(req.getServletContext());
+    WebApplicationContext ctx =
+        WebApplicationContextUtils.getRequiredWebApplicationContext(req.getServletContext());
 
     config.put("supportsImpactAnalysis", checkImpactAnalysisSupport(ctx));
 
@@ -85,21 +102,30 @@ public class Config extends HttpServlet {
 
     ConfigurationProvider configProvider = getConfigProvider(ctx);
 
-    Map<String, Object> telemetryConfig = new HashMap<String, Object>() {{
-      put("enabledCli", configProvider.getTelemetry().enabledCli);
-      put("enabledIngestion", configProvider.getTelemetry().enabledIngestion);
-    }};
+    Map<String, Object> telemetryConfig =
+        new HashMap<String, Object>() {
+          {
+            put("enabledCli", configProvider.getTelemetry().enabledCli);
+            put("enabledIngestion", configProvider.getTelemetry().enabledIngestion);
+          }
+        };
     config.put("telemetry", telemetryConfig);
 
-    Map<String, Object> ingestionConfig = new HashMap<String, Object>() {{
-      put("enabled", configProvider.getIngestion().enabled);
-      put("defaultCliVersion", configProvider.getIngestion().defaultCliVersion);
-    }};
+    Map<String, Object> ingestionConfig =
+        new HashMap<String, Object>() {
+          {
+            put("enabled", configProvider.getIngestion().enabled);
+            put("defaultCliVersion", configProvider.getIngestion().defaultCliVersion);
+          }
+        };
     config.put("managedIngestion", ingestionConfig);
 
-    Map<String, Object> datahubConfig = new HashMap<String, Object>() {{
-      put("serverType", configProvider.getDatahub().serverType);
-    }};
+    Map<String, Object> datahubConfig =
+        new HashMap<String, Object>() {
+          {
+            put("serverType", configProvider.getDatahub().serverType);
+          }
+        };
     config.put("datahub", datahubConfig);
 
     resp.setContentType("application/json");
