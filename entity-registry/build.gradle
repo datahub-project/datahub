@@ -28,7 +28,7 @@ dependencies {
   testImplementation externalDependency.mockito
   testImplementation externalDependency.mockitoInline
   testImplementation externalDependency.swaggerCore
-  testImplementation spec.product.pegasus.dataAvro1_6
+  testImplementation spec.product.pegasus.dataAvro
   testImplementation('io.acryl:json-schema-avro:0.2.2') {
     exclude group: 'com.fasterxml.jackson.core', module: 'jackson-databind'
   }
