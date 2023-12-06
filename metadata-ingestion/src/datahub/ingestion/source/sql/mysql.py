@@ -2,7 +2,7 @@
 
 import pymysql  # noqa: F401
 from pydantic.fields import Field
-from sqlalchemy import create_engine, util
+from sqlalchemy import util
 from sqlalchemy.dialects.mysql import base
 from sqlalchemy.dialects.mysql.enumerated import SET
 from sqlalchemy.engine.reflection import Inspector
@@ -14,11 +14,6 @@ from datahub.ingestion.api.decorators import (
     config_class,
     platform_name,
     support_status,
-)
-from datahub.ingestion.api.source import (
-    CapabilityReport,
-    TestableSource,
-    TestConnectionReport,
 )
 from datahub.ingestion.source.sql.sql_common import (
     make_sqlalchemy_type,
@@ -69,7 +64,7 @@ class MySQLConfig(MySQLConnectionConfig, TwoTierSQLAlchemyConfig):
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
 @capability(SourceCapability.DELETION_DETECTION, "Enabled via stateful ingestion")
-class MySQLSource(TwoTierSQLAlchemySource, TestableSource):
+class MySQLSource(TwoTierSQLAlchemySource):
     """
     This plugin extracts the following:
 
@@ -88,21 +83,6 @@ class MySQLSource(TwoTierSQLAlchemySource, TestableSource):
     def create(cls, config_dict, ctx):
         config = MySQLConfig.parse_obj(config_dict)
         return cls(config, ctx)
-
-    @staticmethod
-    def test_connection(config_dict: dict) -> TestConnectionReport:
-        test_report = TestConnectionReport()
-        try:
-            source_config = MySQLConfig.parse_obj_allow_extras(config_dict)
-            url = source_config.get_sql_alchemy_url()
-            engine = create_engine(url, **source_config.options)
-            with engine.connect():
-                test_report.basic_connectivity = CapabilityReport(capable=True)
-        except Exception as e:
-            test_report.basic_connectivity = CapabilityReport(
-                capable=False, failure_reason=str(e)
-            )
-        return test_report
 
     def add_profile_metadata(self, inspector: Inspector) -> None:
         if not self.config.is_profiling_enabled():

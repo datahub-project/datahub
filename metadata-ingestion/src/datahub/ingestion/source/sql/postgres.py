@@ -29,11 +29,6 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import (
-    CapabilityReport,
-    TestableSource,
-    TestConnectionReport,
-)
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemySource,
@@ -137,7 +132,7 @@ class PostgresConfig(BasePostgresConfig):
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
 @capability(SourceCapability.LINEAGE_COARSE, "Optionally enabled via configuration")
-class PostgresSource(SQLAlchemySource, TestableSource):
+class PostgresSource(SQLAlchemySource):
     """
     This plugin extracts the following:
 
@@ -156,23 +151,6 @@ class PostgresSource(SQLAlchemySource, TestableSource):
     def create(cls, config_dict, ctx):
         config = PostgresConfig.parse_obj(config_dict)
         return cls(config, ctx)
-
-    @staticmethod
-    def test_connection(config_dict: dict) -> TestConnectionReport:
-        test_report = TestConnectionReport()
-        try:
-            source_config = PostgresConfig.parse_obj_allow_extras(config_dict)
-            url = source_config.get_sql_alchemy_url(
-                database=source_config.database or source_config.initial_database
-            )
-            engine = create_engine(url, **source_config.options)
-            with engine.connect():
-                test_report.basic_connectivity = CapabilityReport(capable=True)
-        except Exception as e:
-            test_report.basic_connectivity = CapabilityReport(
-                capable=False, failure_reason=str(e)
-            )
-        return test_report
 
     def get_inspectors(self) -> Iterable[Inspector]:
         # Note: get_sql_alchemy_url will choose `sqlalchemy_uri` over the passed in database
