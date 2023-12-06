@@ -181,7 +181,6 @@ clickhouse_common = {
 redshift_common = {
     # Clickhouse 0.8.3 adds support for SQLAlchemy 1.4.x
     "sqlalchemy-redshift>=0.8.3",
-    "psycopg2-binary",
     "GeoAlchemy2",
     "redshift-connector",
     *sqllineage_lib,
