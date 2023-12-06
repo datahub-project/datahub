@@ -44,6 +44,7 @@
   type_qualifier:
     allowed_types:
       - urn:li:entityType:datahub.corpuser
+      - urn:li:entityType:datahub.corpGroup
   display_name: Person Certifying the asset
   entity_types:
     - dataset
