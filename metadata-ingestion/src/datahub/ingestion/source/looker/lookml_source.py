@@ -1860,7 +1860,7 @@ class LookMLSource(StatefulIngestionSourceBase):
                         p_ref = p_checkout_dir.resolve()
                     except Exception as e:
                         logger.warning(
-                            f"Failed to clone remote project {project}. This can lead to failures in parsing lookml files later on: {e}",
+                            f"Failed to clone project dependency {project}. This can lead to failures in parsing lookml files later on: {e}",
                         )
                         visited_projects.add(project)
                         continue
@@ -1915,6 +1915,10 @@ class LookMLSource(StatefulIngestionSourceBase):
         # Clone the remote project dependencies.
         for remote_project in manifest.remote_dependencies:
             if remote_project.name in project_visited:
+                continue
+            if remote_project.name in self.base_projects_folder:
+                # In case a remote_dependency is specified in the project_dependencies config,
+                # we don't need to clone it again.
                 continue
 
             p_cloner = GitClone(f"{tmp_dir}/_remote_/{remote_project.name}")
