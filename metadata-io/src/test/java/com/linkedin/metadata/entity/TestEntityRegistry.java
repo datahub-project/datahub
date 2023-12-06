@@ -14,16 +14,15 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
-
 public class TestEntityRegistry implements EntityRegistry {
 
   private final Map<String, EntitySpec> entityNameToSpec;
 
   public TestEntityRegistry() {
-    entityNameToSpec = new EntitySpecBuilder(EntitySpecBuilder.AnnotationExtractionMode.IGNORE_ASPECT_FIELDS)
-        .buildEntitySpecs(new Snapshot().schema())
-        .stream()
-        .collect(Collectors.toMap(spec -> spec.getName().toLowerCase(), spec -> spec));
+    entityNameToSpec =
+        new EntitySpecBuilder(EntitySpecBuilder.AnnotationExtractionMode.IGNORE_ASPECT_FIELDS)
+            .buildEntitySpecs(new Snapshot().schema()).stream()
+                .collect(Collectors.toMap(spec -> spec.getName().toLowerCase(), spec -> spec));
   }
 
   @Nonnull

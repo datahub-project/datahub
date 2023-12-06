@@ -12,7 +12,6 @@ import java.util.concurrent.CompletableFuture;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
-
 @Slf4j
 @RequiredArgsConstructor
 public class DeleteOwnershipTypeResolver implements DataFetcher<CompletableFuture<Boolean>> {
@@ -26,21 +25,26 @@ public class DeleteOwnershipTypeResolver implements DataFetcher<CompletableFutur
     final Urn urn = UrnUtils.getUrn(ownershipTypeUrn);
     // By default, delete references
     final boolean deleteReferences =
-        environment.getArgument("deleteReferences") == null ? true : environment.getArgument("deleteReferences");
+        environment.getArgument("deleteReferences") == null
+            ? true
+            : environment.getArgument("deleteReferences");
 
     if (!AuthorizationUtils.canManageOwnershipTypes(context)) {
       throw new AuthorizationException(
           "Unauthorized to perform this action. Please contact your DataHub administrator.");
     }
 
-    return CompletableFuture.supplyAsync(() -> {
-      try {
-        _ownershipTypeService.deleteOwnershipType(urn, deleteReferences, context.getAuthentication());
-        log.info(String.format("Successfully deleted ownership type %s with urn", urn));
-        return true;
-      } catch (Exception e) {
-        throw new RuntimeException(String.format("Failed to delete ownership type with urn %s", ownershipTypeUrn), e);
-      }
-    });
+    return CompletableFuture.supplyAsync(
+        () -> {
+          try {
+            _ownershipTypeService.deleteOwnershipType(
+                urn, deleteReferences, context.getAuthentication());
+            log.info(String.format("Successfully deleted ownership type %s with urn", urn));
+            return true;
+          } catch (Exception e) {
+            throw new RuntimeException(
+                String.format("Failed to delete ownership type with urn %s", ownershipTypeUrn), e);
+          }
+        });
   }
 }

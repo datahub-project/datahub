@@ -14,7 +14,6 @@ import io.ebean.Database;
 import java.util.ArrayList;
 import java.util.List;
 
-
 public class RestoreIndices implements Upgrade {
   public static final String BATCH_SIZE_ARG_NAME = "batchSize";
   public static final String BATCH_DELAY_MS_ARG_NAME = "batchDelayMs";
@@ -29,8 +28,11 @@ public class RestoreIndices implements Upgrade {
 
   private final List<UpgradeStep> _steps;
 
-  public RestoreIndices(final Database server, final EntityService entityService,
-      final EntityRegistry entityRegistry, final EntitySearchService entitySearchService,
+  public RestoreIndices(
+      final Database server,
+      final EntityService entityService,
+      final EntityRegistry entityRegistry,
+      final EntitySearchService entitySearchService,
       final GraphService graphService) {
     _steps = buildSteps(server, entityService, entityRegistry, entitySearchService, graphService);
   }
@@ -45,8 +47,11 @@ public class RestoreIndices implements Upgrade {
     return _steps;
   }
 
-  private List<UpgradeStep> buildSteps(final Database server, final EntityService entityService,
-      final EntityRegistry entityRegistry, final EntitySearchService entitySearchService,
+  private List<UpgradeStep> buildSteps(
+      final Database server,
+      final EntityService entityService,
+      final EntityRegistry entityRegistry,
+      final EntitySearchService entitySearchService,
       final GraphService graphService) {
     final List<UpgradeStep> steps = new ArrayList<>();
     steps.add(new ClearSearchServiceStep(entitySearchService, false));
