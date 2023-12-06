@@ -1,5 +1,7 @@
 package com.linkedin.metadata.kafka.hydrator;
 
+import static com.linkedin.metadata.Constants.*;
+
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.data.DataMap;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
@@ -7,9 +9,6 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.metadata.key.DatasetKey;
 import lombok.extern.slf4j.Slf4j;
-
-import static com.linkedin.metadata.Constants.*;
-
 
 @Slf4j
 public class DatasetHydrator extends BaseHydrator {

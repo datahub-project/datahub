@@ -40,10 +40,10 @@ import org.opensearch.search.aggregations.bucket.terms.ParsedStringTerms;
 import org.opensearch.search.aggregations.bucket.terms.Terms;
 import org.opensearch.search.aggregations.metrics.ParsedMax;
 
-
 @Slf4j
 @RequiredArgsConstructor
-public class ElasticSearchSystemMetadataService implements SystemMetadataService, ElasticSearchIndexed {
+public class ElasticSearchSystemMetadataService
+    implements SystemMetadataService, ElasticSearchIndexed {
 
   private final ESBulkProcessor _esBulkProcessor;
   private final IndexConvention _indexConvention;
@@ -58,9 +58,15 @@ public class ElasticSearchSystemMetadataService implements SystemMetadataService
   private static final String FIELD_LAST_UPDATED = "lastUpdated";
   private static final String FIELD_REGISTRY_NAME = "registryName";
   private static final String FIELD_REGISTRY_VERSION = "registryVersion";
-  private static final Set<String> INDEX_FIELD_SET = new HashSet<>(
-      Arrays.asList(FIELD_URN, FIELD_ASPECT, FIELD_RUNID, FIELD_LAST_UPDATED, FIELD_REGISTRY_NAME,
-          FIELD_REGISTRY_VERSION));
+  private static final Set<String> INDEX_FIELD_SET =
+      new HashSet<>(
+          Arrays.asList(
+              FIELD_URN,
+              FIELD_ASPECT,
+              FIELD_RUNID,
+              FIELD_LAST_UPDATED,
+              FIELD_REGISTRY_NAME,
+              FIELD_REGISTRY_VERSION));
 
   private String toDocument(SystemMetadata systemMetadata, String urn, String aspect) {
     final ObjectNode document = JsonNodeFactory.instance.objectNode();
@@ -112,12 +118,13 @@ public class ElasticSearchSystemMetadataService implements SystemMetadataService
     final List<AspectRowSummary> aspectList =
         findByParams(ImmutableMap.of("urn", urn), !removed, 0, ESUtils.MAX_RESULT_SIZE);
     // for each -> toDocId and set removed to true for all
-    aspectList.forEach(aspect -> {
-      final String docId = toDocId(aspect.getUrn(), aspect.getAspectName());
-      final ObjectNode document = JsonNodeFactory.instance.objectNode();
-      document.put("removed", removed);
-      _esDAO.upsertDocument(docId, document.toString());
-    });
+    aspectList.forEach(
+        aspect -> {
+          final String docId = toDocId(aspect.getUrn(), aspect.getAspectName());
+          final ObjectNode document = JsonNodeFactory.instance.objectNode();
+          document.put("removed", removed);
+          _esDAO.upsertDocument(docId, document.toString());
+        });
   }
 
   @Override
@@ -133,36 +140,44 @@ public class ElasticSearchSystemMetadataService implements SystemMetadataService
   }
 
   @Override
-  public List<AspectRowSummary> findByRunId(String runId, boolean includeSoftDeleted, int from, int size) {
-    return findByParams(Collections.singletonMap(FIELD_RUNID, runId), includeSoftDeleted, from, size);
+  public List<AspectRowSummary> findByRunId(
+      String runId, boolean includeSoftDeleted, int from, int size) {
+    return findByParams(
+        Collections.singletonMap(FIELD_RUNID, runId), includeSoftDeleted, from, size);
   }
 
   @Override
-  public List<AspectRowSummary> findByUrn(String urn, boolean includeSoftDeleted, int from, int size) {
+  public List<AspectRowSummary> findByUrn(
+      String urn, boolean includeSoftDeleted, int from, int size) {
     return findByParams(Collections.singletonMap(FIELD_URN, urn), includeSoftDeleted, from, size);
   }
 
   @Override
-  public List<AspectRowSummary> findByParams(Map<String, String> systemMetaParams, boolean includeSoftDeleted, int from,
-      int size) {
-    SearchResponse searchResponse = _esDAO.findByParams(systemMetaParams, includeSoftDeleted, from, size);
+  public List<AspectRowSummary> findByParams(
+      Map<String, String> systemMetaParams, boolean includeSoftDeleted, int from, int size) {
+    SearchResponse searchResponse =
+        _esDAO.findByParams(systemMetaParams, includeSoftDeleted, from, size);
     if (searchResponse != null) {
       SearchHits hits = searchResponse.getHits();
-      List<AspectRowSummary> summaries = Arrays.stream(hits.getHits()).map(hit -> {
-        Map<String, Object> values = hit.getSourceAsMap();
-        AspectRowSummary summary = new AspectRowSummary();
-        summary.setRunId((String) values.get(FIELD_RUNID));
-        summary.setAspectName((String) values.get(FIELD_ASPECT));
-        summary.setUrn((String) values.get(FIELD_URN));
-        Object timestamp = values.get(FIELD_LAST_UPDATED);
-        if (timestamp instanceof Long) {
-          summary.setTimestamp((Long) timestamp);
-        } else if (timestamp instanceof Integer) {
-          summary.setTimestamp(Long.valueOf((Integer) timestamp));
-        }
-        summary.setKeyAspect(((String) values.get(FIELD_ASPECT)).endsWith("Key"));
-        return summary;
-      }).collect(Collectors.toList());
+      List<AspectRowSummary> summaries =
+          Arrays.stream(hits.getHits())
+              .map(
+                  hit -> {
+                    Map<String, Object> values = hit.getSourceAsMap();
+                    AspectRowSummary summary = new AspectRowSummary();
+                    summary.setRunId((String) values.get(FIELD_RUNID));
+                    summary.setAspectName((String) values.get(FIELD_ASPECT));
+                    summary.setUrn((String) values.get(FIELD_URN));
+                    Object timestamp = values.get(FIELD_LAST_UPDATED);
+                    if (timestamp instanceof Long) {
+                      summary.setTimestamp((Long) timestamp);
+                    } else if (timestamp instanceof Integer) {
+                      summary.setTimestamp(Long.valueOf((Integer) timestamp));
+                    }
+                    summary.setKeyAspect(((String) values.get(FIELD_ASPECT)).endsWith("Key"));
+                    return summary;
+                  })
+              .collect(Collectors.toList());
       return summaries;
     } else {
       return Collections.emptyList();
@@ -170,8 +185,8 @@ public class ElasticSearchSystemMetadataService implements SystemMetadataService
   }
 
   @Override
-  public List<AspectRowSummary> findByRegistry(String registryName, String registryVersion, boolean includeSoftDeleted,
-      int from, int size) {
+  public List<AspectRowSummary> findByRegistry(
+      String registryName, String registryVersion, boolean includeSoftDeleted, int from, int size) {
     Map<String, String> registryParams = new HashMap<>();
     registryParams.put(FIELD_REGISTRY_NAME, registryName);
     registryParams.put(FIELD_REGISTRY_VERSION, registryVersion);
@@ -179,26 +194,34 @@ public class ElasticSearchSystemMetadataService implements SystemMetadataService
   }
 
   @Override
-  public List<IngestionRunSummary> listRuns(Integer pageOffset, Integer pageSize, boolean includeSoftDeleted) {
+  public List<IngestionRunSummary> listRuns(
+      Integer pageOffset, Integer pageSize, boolean includeSoftDeleted) {
     SearchResponse response = _esDAO.findRuns(pageOffset, pageSize);
-    List<? extends Terms.Bucket> buckets = ((ParsedStringTerms) response.getAggregations().get("runId")).getBuckets();
+    List<? extends Terms.Bucket> buckets =
+        ((ParsedStringTerms) response.getAggregations().get("runId")).getBuckets();
 
     if (!includeSoftDeleted) {
-      buckets.removeIf(bucket -> {
-        long totalDocs = bucket.getDocCount();
-        long softDeletedDocs = ((ParsedFilter) bucket.getAggregations().get("removed")).getDocCount();
-        return totalDocs == softDeletedDocs;
-      });
+      buckets.removeIf(
+          bucket -> {
+            long totalDocs = bucket.getDocCount();
+            long softDeletedDocs =
+                ((ParsedFilter) bucket.getAggregations().get("removed")).getDocCount();
+            return totalDocs == softDeletedDocs;
+          });
     }
 
     // TODO(gabe-lyons): add sample urns
-    return buckets.stream().map(bucket -> {
-      IngestionRunSummary entry = new IngestionRunSummary();
-      entry.setRunId(bucket.getKeyAsString());
-      entry.setTimestamp((long) ((ParsedMax) bucket.getAggregations().get("maxTimestamp")).getValue());
-      entry.setRows(bucket.getDocCount());
-      return entry;
-    }).collect(Collectors.toList());
+    return buckets.stream()
+        .map(
+            bucket -> {
+              IngestionRunSummary entry = new IngestionRunSummary();
+              entry.setRunId(bucket.getKeyAsString());
+              entry.setTimestamp(
+                  (long) ((ParsedMax) bucket.getAggregations().get("maxTimestamp")).getValue());
+              entry.setRows(bucket.getDocCount());
+              return entry;
+            })
+        .collect(Collectors.toList());
   }
 
   @Override
@@ -215,8 +238,11 @@ public class ElasticSearchSystemMetadataService implements SystemMetadataService
 
   @Override
   public List<ReindexConfig> buildReindexConfigs() throws IOException {
-    return List.of(_indexBuilder.buildReindexState(_indexConvention.getIndexName(INDEX_NAME),
-            SystemMetadataMappingsBuilder.getMappings(), Collections.emptyMap()));
+    return List.of(
+        _indexBuilder.buildReindexState(
+            _indexConvention.getIndexName(INDEX_NAME),
+            SystemMetadataMappingsBuilder.getMappings(),
+            Collections.emptyMap()));
   }
 
   @Override
@@ -227,6 +253,7 @@ public class ElasticSearchSystemMetadataService implements SystemMetadataService
   @VisibleForTesting
   @Override
   public void clear() {
-    _esBulkProcessor.deleteByQuery(QueryBuilders.matchAllQuery(), true, _indexConvention.getIndexName(INDEX_NAME));
+    _esBulkProcessor.deleteByQuery(
+        QueryBuilders.matchAllQuery(), true, _indexConvention.getIndexName(INDEX_NAME));
   }
 }

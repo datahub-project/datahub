@@ -1,5 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.mutate;
 
+import static com.linkedin.metadata.Constants.*;
+
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.StringMap;
@@ -19,49 +21,56 @@ import com.linkedin.schema.SchemaMetadata;
 import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.metadata.Constants.*;
-
-
 @Slf4j
 public class MutationUtils {
 
-  private MutationUtils() { }
+  private MutationUtils() {}
 
-  public static void persistAspect(Urn urn, String aspectName, RecordTemplate aspect, Urn actor, EntityService entityService) {
-    final MetadataChangeProposal proposal = buildMetadataChangeProposalWithUrn(urn, aspectName, aspect);
+  public static void persistAspect(
+      Urn urn, String aspectName, RecordTemplate aspect, Urn actor, EntityService entityService) {
+    final MetadataChangeProposal proposal =
+        buildMetadataChangeProposalWithUrn(urn, aspectName, aspect);
     entityService.ingestProposal(proposal, EntityUtils.getAuditStamp(actor), false);
   }
 
   /**
-   * Only intended for use from GraphQL mutations, executes a different flow indicating a request sourced from the UI
+   * Only intended for use from GraphQL mutations, executes a different flow indicating a request
+   * sourced from the UI
+   *
    * @param urn
    * @param aspectName
    * @param aspect
    * @return
    */
-  public static MetadataChangeProposal buildMetadataChangeProposalWithUrn(Urn urn, String aspectName, RecordTemplate aspect) {
+  public static MetadataChangeProposal buildMetadataChangeProposalWithUrn(
+      Urn urn, String aspectName, RecordTemplate aspect) {
     final MetadataChangeProposal proposal = new MetadataChangeProposal();
     proposal.setEntityUrn(urn);
     return setProposalProperties(proposal, urn.getEntityType(), aspectName, aspect);
   }
 
   /**
-   * Only intended for use from GraphQL mutations, executes a different flow indicating a request sourced from the UI
+   * Only intended for use from GraphQL mutations, executes a different flow indicating a request
+   * sourced from the UI
+   *
    * @param entityKey
    * @param entityType
    * @param aspectName
    * @param aspect
    * @return
    */
-  public static MetadataChangeProposal buildMetadataChangeProposalWithKey(RecordTemplate entityKey, String entityType,
-      String aspectName, RecordTemplate aspect) {
+  public static MetadataChangeProposal buildMetadataChangeProposalWithKey(
+      RecordTemplate entityKey, String entityType, String aspectName, RecordTemplate aspect) {
     final MetadataChangeProposal proposal = new MetadataChangeProposal();
     proposal.setEntityKeyAspect(GenericRecordUtils.serializeAspect(entityKey));
     return setProposalProperties(proposal, entityType, aspectName, aspect);
   }
 
-  private static MetadataChangeProposal setProposalProperties(MetadataChangeProposal proposal,
-      String entityType, String aspectName, RecordTemplate aspect) {
+  private static MetadataChangeProposal setProposalProperties(
+      MetadataChangeProposal proposal,
+      String entityType,
+      String aspectName,
+      RecordTemplate aspect) {
     proposal.setEntityType(entityType);
     proposal.setAspectName(aspectName);
     proposal.setAspect(GenericRecordUtils.serializeAspect(aspect));
@@ -77,18 +86,16 @@ public class MutationUtils {
   }
 
   public static EditableSchemaFieldInfo getFieldInfoFromSchema(
-      EditableSchemaMetadata editableSchemaMetadata,
-      String fieldPath
-  ) {
+      EditableSchemaMetadata editableSchemaMetadata, String fieldPath) {
     if (!editableSchemaMetadata.hasEditableSchemaFieldInfo()) {
       editableSchemaMetadata.setEditableSchemaFieldInfo(new EditableSchemaFieldInfoArray());
     }
     EditableSchemaFieldInfoArray editableSchemaMetadataArray =
         editableSchemaMetadata.getEditableSchemaFieldInfo();
-    Optional<EditableSchemaFieldInfo> fieldMetadata = editableSchemaMetadataArray
-        .stream()
-        .filter(fieldInfo -> fieldInfo.getFieldPath().equals(fieldPath))
-        .findFirst();
+    Optional<EditableSchemaFieldInfo> fieldMetadata =
+        editableSchemaMetadataArray.stream()
+            .filter(fieldInfo -> fieldInfo.getFieldPath().equals(fieldPath))
+            .findFirst();
 
     if (fieldMetadata.isPresent()) {
       return fieldMetadata.get();
@@ -104,34 +111,37 @@ public class MutationUtils {
       Urn targetUrn,
       String subResource,
       SubResourceType subResourceType,
-      EntityService entityService
-  ) {
+      EntityService entityService) {
     if (subResourceType.equals(SubResourceType.DATASET_FIELD)) {
-      SchemaMetadata schemaMetadata = (SchemaMetadata) entityService.getAspect(targetUrn,
-              Constants.SCHEMA_METADATA_ASPECT_NAME, 0);
+      SchemaMetadata schemaMetadata =
+          (SchemaMetadata)
+              entityService.getAspect(targetUrn, Constants.SCHEMA_METADATA_ASPECT_NAME, 0);
 
       if (schemaMetadata == null) {
         throw new IllegalArgumentException(
-            String.format("Failed to update %s & field %s. %s has no schema.", targetUrn, subResource, targetUrn)
-        );
+            String.format(
+                "Failed to update %s & field %s. %s has no schema.",
+                targetUrn, subResource, targetUrn));
       }
 
       Optional<SchemaField> fieldMatch =
-          schemaMetadata.getFields().stream().filter(field -> field.getFieldPath().equals(subResource)).findFirst();
+          schemaMetadata.getFields().stream()
+              .filter(field -> field.getFieldPath().equals(subResource))
+              .findFirst();
 
       if (!fieldMatch.isPresent()) {
-        throw new IllegalArgumentException(String.format(
-            "Failed to update %s & field %s. Field %s does not exist in the datasets schema.",
-            targetUrn, subResource, subResource));
+        throw new IllegalArgumentException(
+            String.format(
+                "Failed to update %s & field %s. Field %s does not exist in the datasets schema.",
+                targetUrn, subResource, subResource));
       }
 
       return true;
     }
 
-    throw new IllegalArgumentException(String.format(
-        "Failed to update %s. SubResourceType (%s) is not valid. Types supported: %s.",
-        targetUrn, subResource, SubResourceType.values()
-    ));
+    throw new IllegalArgumentException(
+        String.format(
+            "Failed to update %s. SubResourceType (%s) is not valid. Types supported: %s.",
+            targetUrn, subResource, SubResourceType.values()));
   }
-
 }

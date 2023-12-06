@@ -1,5 +1,9 @@
 package com.linkedin.datahub.graphql.resolvers.step;
 
+import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
+import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.entity.AspectUtils.*;
+
 import com.datahub.authentication.Authentication;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
@@ -25,19 +29,15 @@ import javax.annotation.Nonnull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
-import static com.linkedin.metadata.Constants.*;
-import static com.linkedin.metadata.entity.AspectUtils.*;
-
-
 @Slf4j
 @RequiredArgsConstructor
-public class BatchUpdateStepStatesResolver implements DataFetcher<CompletableFuture<BatchUpdateStepStatesResult>> {
+public class BatchUpdateStepStatesResolver
+    implements DataFetcher<CompletableFuture<BatchUpdateStepStatesResult>> {
   private final EntityClient _entityClient;
 
   @Override
-  public CompletableFuture<BatchUpdateStepStatesResult> get(@Nonnull final DataFetchingEnvironment environment)
-      throws Exception {
+  public CompletableFuture<BatchUpdateStepStatesResult> get(
+      @Nonnull final DataFetchingEnvironment environment) throws Exception {
     final QueryContext context = environment.getContext();
     final Authentication authentication = context.getAuthentication();
 
@@ -46,20 +46,23 @@ public class BatchUpdateStepStatesResolver implements DataFetcher<CompletableFut
     final List<StepStateInput> states = input.getStates();
     final String actorUrnStr = authentication.getActor().toUrnStr();
 
-    return CompletableFuture.supplyAsync(() -> {
-      final Urn actorUrn = UrnUtils.getUrn(actorUrnStr);
-      final AuditStamp auditStamp = new AuditStamp().setActor(actorUrn).setTime(System.currentTimeMillis());
-      final List<UpdateStepStateResult> results = states
-          .stream()
-          .map(state -> buildUpdateStepStateResult(state, auditStamp, authentication))
-          .collect(Collectors.toList());
-      final BatchUpdateStepStatesResult result = new BatchUpdateStepStatesResult();
-      result.setResults(results);
-      return result;
-    });
+    return CompletableFuture.supplyAsync(
+        () -> {
+          final Urn actorUrn = UrnUtils.getUrn(actorUrnStr);
+          final AuditStamp auditStamp =
+              new AuditStamp().setActor(actorUrn).setTime(System.currentTimeMillis());
+          final List<UpdateStepStateResult> results =
+              states.stream()
+                  .map(state -> buildUpdateStepStateResult(state, auditStamp, authentication))
+                  .collect(Collectors.toList());
+          final BatchUpdateStepStatesResult result = new BatchUpdateStepStatesResult();
+          result.setResults(results);
+          return result;
+        });
   }
 
-  private UpdateStepStateResult buildUpdateStepStateResult(@Nonnull final StepStateInput state,
+  private UpdateStepStateResult buildUpdateStepStateResult(
+      @Nonnull final StepStateInput state,
       @Nonnull final AuditStamp auditStamp,
       @Nonnull final Authentication authentication) {
     final String id = state.getId();
@@ -70,19 +73,27 @@ public class BatchUpdateStepStatesResolver implements DataFetcher<CompletableFut
     return updateStepStateResult;
   }
 
-  private boolean updateStepState(@Nonnull final String id,
-      @Nonnull final List<StringMapEntryInput> inputProperties, @Nonnull final AuditStamp auditStamp,
+  private boolean updateStepState(
+      @Nonnull final String id,
+      @Nonnull final List<StringMapEntryInput> inputProperties,
+      @Nonnull final AuditStamp auditStamp,
       @Nonnull final Authentication authentication) {
     final Map<String, String> properties =
-        inputProperties.stream().collect(Collectors.toMap(StringMapEntryInput::getKey, StringMapEntryInput::getValue));
+        inputProperties.stream()
+            .collect(Collectors.toMap(StringMapEntryInput::getKey, StringMapEntryInput::getValue));
     try {
       final DataHubStepStateKey stepStateKey = new DataHubStepStateKey().setId(id);
       final DataHubStepStateProperties stepStateProperties =
-          new DataHubStepStateProperties().setProperties(new StringMap(properties)).setLastModified(auditStamp);
+          new DataHubStepStateProperties()
+              .setProperties(new StringMap(properties))
+              .setLastModified(auditStamp);
 
       final MetadataChangeProposal proposal =
-          buildMetadataChangeProposal(DATAHUB_STEP_STATE_ENTITY_NAME, stepStateKey,
-              DATAHUB_STEP_STATE_PROPERTIES_ASPECT_NAME, stepStateProperties);
+          buildMetadataChangeProposal(
+              DATAHUB_STEP_STATE_ENTITY_NAME,
+              stepStateKey,
+              DATAHUB_STEP_STATE_PROPERTIES_ASPECT_NAME,
+              stepStateProperties);
       _entityClient.ingestProposal(proposal, authentication, false);
       return true;
     } catch (Exception e) {

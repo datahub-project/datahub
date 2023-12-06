@@ -1,5 +1,8 @@
 package com.linkedin.datahub.graphql.resolvers.ingest.secret;
 
+import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
+import static com.linkedin.metadata.Constants.*;
+
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.GetMode;
@@ -31,13 +34,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
-import static com.linkedin.metadata.Constants.*;
-
-
-/**
- * Lists all secrets present within DataHub. Requires the MANAGE_SECRETS privilege.
- */
+/** Lists all secrets present within DataHub. Requires the MANAGE_SECRETS privilege. */
 @Slf4j
 public class ListSecretsResolver implements DataFetcher<CompletableFuture<ListSecretsResult>> {
 
@@ -52,55 +49,66 @@ public class ListSecretsResolver implements DataFetcher<CompletableFuture<ListSe
   }
 
   @Override
-  public CompletableFuture<ListSecretsResult> get(final DataFetchingEnvironment environment) throws Exception {
+  public CompletableFuture<ListSecretsResult> get(final DataFetchingEnvironment environment)
+      throws Exception {
 
     final QueryContext context = environment.getContext();
 
     if (IngestionAuthUtils.canManageSecrets(context)) {
-      final ListSecretsInput input = bindArgument(environment.getArgument("input"), ListSecretsInput.class);
+      final ListSecretsInput input =
+          bindArgument(environment.getArgument("input"), ListSecretsInput.class);
       final Integer start = input.getStart() == null ? DEFAULT_START : input.getStart();
       final Integer count = input.getCount() == null ? DEFAULT_COUNT : input.getCount();
       final String query = input.getQuery() == null ? DEFAULT_QUERY : input.getQuery();
 
-      return CompletableFuture.supplyAsync(() -> {
-        try {
-          // First, get all secrets
-          final SearchResult gmsResult = _entityClient.search(
-                  Constants.SECRETS_ENTITY_NAME,
-                  query,
-                  null,
-                  new SortCriterion().setField(DOMAIN_CREATED_TIME_INDEX_FIELD_NAME).setOrder(SortOrder.DESCENDING),
-                  start,
-                  count,
-                  context.getAuthentication(),
-                  new SearchFlags().setFulltext(true));
+      return CompletableFuture.supplyAsync(
+          () -> {
+            try {
+              // First, get all secrets
+              final SearchResult gmsResult =
+                  _entityClient.search(
+                      Constants.SECRETS_ENTITY_NAME,
+                      query,
+                      null,
+                      new SortCriterion()
+                          .setField(DOMAIN_CREATED_TIME_INDEX_FIELD_NAME)
+                          .setOrder(SortOrder.DESCENDING),
+                      start,
+                      count,
+                      context.getAuthentication(),
+                      new SearchFlags().setFulltext(true));
 
-          // Then, resolve all secrets
-          final Map<Urn, EntityResponse> entities = _entityClient.batchGetV2(
-              Constants.SECRETS_ENTITY_NAME,
-              new HashSet<>(gmsResult.getEntities().stream()
-                  .map(SearchEntity::getEntity)
-                  .collect(Collectors.toList())),
-              ImmutableSet.of(Constants.SECRET_VALUE_ASPECT_NAME),
-              context.getAuthentication());
+              // Then, resolve all secrets
+              final Map<Urn, EntityResponse> entities =
+                  _entityClient.batchGetV2(
+                      Constants.SECRETS_ENTITY_NAME,
+                      new HashSet<>(
+                          gmsResult.getEntities().stream()
+                              .map(SearchEntity::getEntity)
+                              .collect(Collectors.toList())),
+                      ImmutableSet.of(Constants.SECRET_VALUE_ASPECT_NAME),
+                      context.getAuthentication());
 
-          // Now that we have entities we can bind this to a result.
-          final ListSecretsResult result = new ListSecretsResult();
-          result.setStart(gmsResult.getFrom());
-          result.setCount(gmsResult.getPageSize());
-          result.setTotal(gmsResult.getNumEntities());
-          result.setSecrets(mapEntities(gmsResult.getEntities().stream()
-              .map(entity -> entities.get(entity.getEntity()))
-              .filter(Objects::nonNull)
-              .collect(Collectors.toList())));
-          return result;
+              // Now that we have entities we can bind this to a result.
+              final ListSecretsResult result = new ListSecretsResult();
+              result.setStart(gmsResult.getFrom());
+              result.setCount(gmsResult.getPageSize());
+              result.setTotal(gmsResult.getNumEntities());
+              result.setSecrets(
+                  mapEntities(
+                      gmsResult.getEntities().stream()
+                          .map(entity -> entities.get(entity.getEntity()))
+                          .filter(Objects::nonNull)
+                          .collect(Collectors.toList())));
+              return result;
 
-        } catch (Exception e) {
-          throw new RuntimeException("Failed to list secrets", e);
-        }
-      });
+            } catch (Exception e) {
+              throw new RuntimeException("Failed to list secrets", e);
+            }
+          });
     }
-    throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
+    throw new AuthorizationException(
+        "Unauthorized to perform this action. Please contact your DataHub administrator.");
   }
 
   private List<Secret> mapEntities(final List<EntityResponse> entities) {
@@ -113,7 +121,8 @@ public class ListSecretsResolver implements DataFetcher<CompletableFuture<ListSe
       final EnvelopedAspect envelopedInfo = aspects.get(Constants.SECRET_VALUE_ASPECT_NAME);
 
       // Bind into a strongly typed object.
-      final DataHubSecretValue secretValue = new DataHubSecretValue(envelopedInfo.getValue().data());
+      final DataHubSecretValue secretValue =
+          new DataHubSecretValue(envelopedInfo.getValue().data());
 
       // Map using the strongly typed object.
       results.add(mapSecretValue(entityUrn, secretValue));

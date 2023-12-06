@@ -21,6 +21,7 @@ buildscript {
   ext.kafkaVersion = '2.3.0'
   ext.hazelcastVersion = '5.3.6'
   ext.ebeanVersion = '12.16.1'
+  ext.googleJavaFormatVersion = '1.18.1'
 
   ext.docker_registry = 'linkedin'
 
@@ -42,6 +43,7 @@ plugins {
   id 'com.gorylenko.gradle-git-properties' version '2.4.0-rc2'
   id 'com.github.johnrengelman.shadow' version '6.1.0'
   id 'com.palantir.docker' version '0.35.0' apply false
+  id "com.diffplug.spotless" version "6.23.3"
   // https://blog.ltgt.net/javax-jakarta-mess-and-gradle-solution/
   // TODO id "org.gradlex.java-ecosystem-capabilities" version "1.0"
 }
@@ -225,13 +227,11 @@ project.ext.externalDependency = [
     'common': 'commons-io:commons-io:2.7',
     'jline':'jline:jline:1.4.1',
     'jetbrains':' org.jetbrains.kotlin:kotlin-stdlib:1.6.0'
-
 ]
 
 allprojects {
   apply plugin: 'idea'
   apply plugin: 'eclipse'
-  apply plugin: 'checkstyle'
   // apply plugin: 'org.gradlex.java-ecosystem-capabilities'
 }
 
@@ -253,6 +253,7 @@ subprojects {
 
   apply plugin: 'maven-publish'
   apply plugin: 'com.gorylenko.gradle-git-properties'
+  apply plugin: 'com.diffplug.spotless'
 
   gitProperties {
     keys = ['git.commit.id','git.commit.id.describe','git.commit.time']
@@ -266,6 +267,7 @@ subprojects {
   plugins.withType(JavaPlugin) {
     dependencies {
       constraints {
+        implementation("com.google.googlejavaformat:google-java-format:$googleJavaFormatVersion")
         implementation('io.netty:netty-all:4.1.100.Final')
         implementation('org.apache.commons:commons-compress:1.21')
         implementation('org.apache.velocity:velocity-engine-core:2.3')
@@ -274,13 +276,32 @@ subprojects {
         implementation("com.fasterxml.jackson.core:jackson-dataformat-cbor:$jacksonVersion")
       }
     }
-
-    checkstyle {
-      configDirectory = file("${project.rootDir}/gradle/checkstyle")
-      sourceSets = [ getProject().sourceSets.main, getProject().sourceSets.test ]
-      toolVersion = "8.0"
-      maxWarnings = 0
-      ignoreFailures = false
+    spotless {
+      java {
+        googleJavaFormat()
+        target project.fileTree(project.projectDir) {
+            include '**/*.java'
+            exclude 'build/**/*.java'
+            exclude '**/generated/**/*.*'
+            exclude '**/mainGeneratedDataTemplate/**/*.*'
+            exclude '**/mainGeneratedRest/**/*.*'
+        }
+      }
+    }
+    afterEvaluate {
+      def spotlessJavaTask = tasks.findByName('spotlessJava')
+      def processTask = tasks.findByName('processResources')
+      if (processTask != null) {
+        spotlessJavaTask.dependsOn processTask
+      }
+      def compileJavaTask = tasks.findByName('compileJava')
+      if (compileJavaTask != null) {
+        spotlessJavaTask.dependsOn compileJavaTask
+      }
+      // TODO - Do not run this in CI. How?
+      // tasks.withType(JavaCompile) {
+      //   finalizedBy(tasks.findByName('spotlessApply'))
+      // }
     }
   }
 
