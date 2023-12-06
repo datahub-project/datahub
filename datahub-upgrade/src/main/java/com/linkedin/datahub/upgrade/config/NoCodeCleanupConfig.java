@@ -1,5 +1,7 @@
 package com.linkedin.datahub.upgrade.config;
 
+import static com.linkedin.gms.factory.common.IndexConventionFactory.INDEX_CONVENTION_BEAN;
+
 import com.linkedin.datahub.upgrade.nocodecleanup.NoCodeCleanupUpgrade;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
@@ -12,17 +14,18 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.DependsOn;
 
-import static com.linkedin.gms.factory.common.IndexConventionFactory.INDEX_CONVENTION_BEAN;
-
-
 @Configuration
 public class NoCodeCleanupConfig {
 
-  @Autowired
-  ApplicationContext applicationContext;
+  @Autowired ApplicationContext applicationContext;
 
   @Bean(name = "noCodeCleanup")
-  @DependsOn({"ebeanServer", "graphService", "elasticSearchRestHighLevelClient", INDEX_CONVENTION_BEAN})
+  @DependsOn({
+    "ebeanServer",
+    "graphService",
+    "elasticSearchRestHighLevelClient",
+    INDEX_CONVENTION_BEAN
+  })
   @Nonnull
   public NoCodeCleanupUpgrade createInstance() {
     final Database ebeanServer = applicationContext.getBean(Database.class);

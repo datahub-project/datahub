@@ -1,5 +1,10 @@
 package com.linkedin.datahub.graphql.resolvers.domain;
 
+import static com.linkedin.datahub.graphql.TestUtils.*;
+import static com.linkedin.metadata.Constants.*;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertThrows;
+
 import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
@@ -20,46 +25,43 @@ import java.util.concurrent.CompletionException;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
-import static com.linkedin.datahub.graphql.TestUtils.*;
-import static com.linkedin.metadata.Constants.*;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertThrows;
-
-
 public class ListDomainsResolverTest {
 
   private static final Urn TEST_DOMAIN_URN = Urn.createFromTuple("domain", "test-id");
   private static final Urn TEST_PARENT_DOMAIN_URN = Urn.createFromTuple("domain", "test-parent-id");
 
-  private static final ListDomainsInput TEST_INPUT = new ListDomainsInput(
-      0, 20, null, TEST_PARENT_DOMAIN_URN.toString()
-  );
+  private static final ListDomainsInput TEST_INPUT =
+      new ListDomainsInput(0, 20, null, TEST_PARENT_DOMAIN_URN.toString());
 
-  private static final ListDomainsInput TEST_INPUT_NO_PARENT_DOMAIN = new ListDomainsInput(
-      0, 20, null, null
-  );
+  private static final ListDomainsInput TEST_INPUT_NO_PARENT_DOMAIN =
+      new ListDomainsInput(0, 20, null, null);
 
   @Test
   public void testGetSuccess() throws Exception {
     // Create resolver
     EntityClient mockClient = Mockito.mock(EntityClient.class);
 
-    Mockito.when(mockClient.search(
-        Mockito.eq(Constants.DOMAIN_ENTITY_NAME),
-        Mockito.eq(""),
-        Mockito.eq(DomainUtils.buildParentDomainFilter(TEST_PARENT_DOMAIN_URN)),
-        Mockito.eq(new SortCriterion().setField(DOMAIN_CREATED_TIME_INDEX_FIELD_NAME).setOrder(SortOrder.DESCENDING)),
-        Mockito.eq(0),
-        Mockito.eq(20),
-        Mockito.any(Authentication.class),
-        Mockito.eq(new SearchFlags().setFulltext(true))
-    )).thenReturn(
-        new SearchResult()
-            .setFrom(0)
-            .setPageSize(1)
-            .setNumEntities(1)
-            .setEntities(new SearchEntityArray(ImmutableSet.of(new SearchEntity().setEntity(TEST_DOMAIN_URN))))
-    );
+    Mockito.when(
+            mockClient.search(
+                Mockito.eq(Constants.DOMAIN_ENTITY_NAME),
+                Mockito.eq(""),
+                Mockito.eq(DomainUtils.buildParentDomainFilter(TEST_PARENT_DOMAIN_URN)),
+                Mockito.eq(
+                    new SortCriterion()
+                        .setField(DOMAIN_CREATED_TIME_INDEX_FIELD_NAME)
+                        .setOrder(SortOrder.DESCENDING)),
+                Mockito.eq(0),
+                Mockito.eq(20),
+                Mockito.any(Authentication.class),
+                Mockito.eq(new SearchFlags().setFulltext(true))))
+        .thenReturn(
+            new SearchResult()
+                .setFrom(0)
+                .setPageSize(1)
+                .setNumEntities(1)
+                .setEntities(
+                    new SearchEntityArray(
+                        ImmutableSet.of(new SearchEntity().setEntity(TEST_DOMAIN_URN)))));
 
     ListDomainsResolver resolver = new ListDomainsResolver(mockClient);
 
@@ -74,7 +76,8 @@ public class ListDomainsResolverTest {
     assertEquals((int) resolver.get(mockEnv).get().getCount(), 1);
     assertEquals((int) resolver.get(mockEnv).get().getTotal(), 1);
     assertEquals(resolver.get(mockEnv).get().getDomains().size(), 1);
-    assertEquals(resolver.get(mockEnv).get().getDomains().get(0).getUrn(), TEST_DOMAIN_URN.toString());
+    assertEquals(
+        resolver.get(mockEnv).get().getDomains().get(0).getUrn(), TEST_DOMAIN_URN.toString());
   }
 
   @Test
@@ -82,22 +85,27 @@ public class ListDomainsResolverTest {
     // Create resolver
     EntityClient mockClient = Mockito.mock(EntityClient.class);
 
-    Mockito.when(mockClient.search(
-        Mockito.eq(Constants.DOMAIN_ENTITY_NAME),
-        Mockito.eq(""),
-        Mockito.eq(DomainUtils.buildParentDomainFilter(null)),
-        Mockito.eq(new SortCriterion().setField(DOMAIN_CREATED_TIME_INDEX_FIELD_NAME).setOrder(SortOrder.DESCENDING)),
-        Mockito.eq(0),
-        Mockito.eq(20),
-        Mockito.any(Authentication.class),
-        Mockito.eq(new SearchFlags().setFulltext(true))
-    )).thenReturn(
-        new SearchResult()
-            .setFrom(0)
-            .setPageSize(1)
-            .setNumEntities(1)
-            .setEntities(new SearchEntityArray(ImmutableSet.of(new SearchEntity().setEntity(TEST_DOMAIN_URN))))
-    );
+    Mockito.when(
+            mockClient.search(
+                Mockito.eq(Constants.DOMAIN_ENTITY_NAME),
+                Mockito.eq(""),
+                Mockito.eq(DomainUtils.buildParentDomainFilter(null)),
+                Mockito.eq(
+                    new SortCriterion()
+                        .setField(DOMAIN_CREATED_TIME_INDEX_FIELD_NAME)
+                        .setOrder(SortOrder.DESCENDING)),
+                Mockito.eq(0),
+                Mockito.eq(20),
+                Mockito.any(Authentication.class),
+                Mockito.eq(new SearchFlags().setFulltext(true))))
+        .thenReturn(
+            new SearchResult()
+                .setFrom(0)
+                .setPageSize(1)
+                .setNumEntities(1)
+                .setEntities(
+                    new SearchEntityArray(
+                        ImmutableSet.of(new SearchEntity().setEntity(TEST_DOMAIN_URN)))));
 
     ListDomainsResolver resolver = new ListDomainsResolver(mockClient);
 
@@ -112,7 +120,8 @@ public class ListDomainsResolverTest {
     assertEquals((int) resolver.get(mockEnv).get().getCount(), 1);
     assertEquals((int) resolver.get(mockEnv).get().getTotal(), 1);
     assertEquals(resolver.get(mockEnv).get().getDomains().size(), 1);
-    assertEquals(resolver.get(mockEnv).get().getDomains().get(0).getUrn(), TEST_DOMAIN_URN.toString());
+    assertEquals(
+        resolver.get(mockEnv).get().getDomains().get(0).getUrn(), TEST_DOMAIN_URN.toString());
   }
 
   @Test
@@ -124,33 +133,35 @@ public class ListDomainsResolverTest {
     // Execute resolver
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     QueryContext mockContext = getMockDenyContext();
-    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(
-        TEST_INPUT);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(TEST_INPUT);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
-    Mockito.verify(mockClient, Mockito.times(0)).search(
-        Mockito.any(),
-        Mockito.eq("*"),
-        Mockito.anyMap(),
-        Mockito.anyInt(),
-        Mockito.anyInt(),
-        Mockito.any(Authentication.class),
-        Mockito.eq(new SearchFlags().setFulltext(true)));
+    Mockito.verify(mockClient, Mockito.times(0))
+        .search(
+            Mockito.any(),
+            Mockito.eq("*"),
+            Mockito.anyMap(),
+            Mockito.anyInt(),
+            Mockito.anyInt(),
+            Mockito.any(Authentication.class),
+            Mockito.eq(new SearchFlags().setFulltext(true)));
   }
 
   @Test
   public void testGetEntityClientException() throws Exception {
     // Create resolver
     EntityClient mockClient = Mockito.mock(EntityClient.class);
-    Mockito.doThrow(RemoteInvocationException.class).when(mockClient).search(
-        Mockito.any(),
-        Mockito.eq(""),
-        Mockito.anyMap(),
-        Mockito.anyInt(),
-        Mockito.anyInt(),
-        Mockito.any(Authentication.class),
-        Mockito.eq(new SearchFlags().setFulltext(true)));
+    Mockito.doThrow(RemoteInvocationException.class)
+        .when(mockClient)
+        .search(
+            Mockito.any(),
+            Mockito.eq(""),
+            Mockito.anyMap(),
+            Mockito.anyInt(),
+            Mockito.anyInt(),
+            Mockito.any(Authentication.class),
+            Mockito.eq(new SearchFlags().setFulltext(true)));
     ListDomainsResolver resolver = new ListDomainsResolver(mockClient);
 
     // Execute resolver

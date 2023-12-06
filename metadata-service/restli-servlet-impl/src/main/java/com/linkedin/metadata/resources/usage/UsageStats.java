@@ -1,10 +1,13 @@
 package com.linkedin.metadata.resources.usage;
 
+import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.resources.restli.RestliUtils.*;
+
 import com.codahale.metrics.MetricRegistry;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
-import com.datahub.plugins.auth.authorization.Authorizer;
 import com.datahub.authorization.EntitySpec;
+import com.datahub.plugins.auth.authorization.Authorizer;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -67,22 +70,23 @@ import javax.inject.Named;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.metadata.Constants.*;
-import static com.linkedin.metadata.resources.restli.RestliUtils.*;
-
-
-/**
- * Rest.li entry point: /usageStats
- */
+/** Rest.li entry point: /usageStats */
 @Slf4j
 @Deprecated
 @RestLiSimpleResource(name = "usageStats", namespace = "com.linkedin.usage")
 public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+
   static {
-    int maxSize = Integer.parseInt(System.getenv().getOrDefault(INGESTION_MAX_SERIALIZED_STRING_LENGTH, MAX_JACKSON_STRING_SIZE));
-    OBJECT_MAPPER.getFactory().setStreamReadConstraints(StreamReadConstraints.builder().maxStringLength(maxSize).build());
+    int maxSize =
+        Integer.parseInt(
+            System.getenv()
+                .getOrDefault(INGESTION_MAX_SERIALIZED_STRING_LENGTH, MAX_JACKSON_STRING_SIZE));
+    OBJECT_MAPPER
+        .getFactory()
+        .setStreamReadConstraints(StreamReadConstraints.builder().maxStringLength(maxSize).build());
   }
+
   private static final String ACTION_BATCH_INGEST = "batchIngest";
   private static final String PARAM_BUCKETS = "buckets";
 
@@ -122,18 +126,24 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
   @WithSpan
   public Task<Void> batchIngest(@ActionParam(PARAM_BUCKETS) @Nonnull UsageAggregation[] buckets) {
     log.info("Ingesting {} usage stats aggregations", buckets.length);
-    return RestliUtil.toTask(() -> {
-      Authentication auth = AuthenticationContext.getAuthentication();
-      if (Boolean.parseBoolean(System.getenv(REST_API_AUTHORIZATION_ENABLED_ENV))
-          && !isAuthorized(auth, _authorizer, ImmutableList.of(PoliciesConfig.EDIT_ENTITY_PRIVILEGE), (EntitySpec) null)) {
-        throw new RestLiServiceException(HttpStatus.S_401_UNAUTHORIZED,
-            "User is unauthorized to edit entities.");
-      }
-      for (UsageAggregation agg : buckets) {
-        this.ingest(agg);
-      }
-      return null;
-    }, MetricRegistry.name(this.getClass(), "batchIngest"));
+    return RestliUtil.toTask(
+        () -> {
+          Authentication auth = AuthenticationContext.getAuthentication();
+          if (Boolean.parseBoolean(System.getenv(REST_API_AUTHORIZATION_ENABLED_ENV))
+              && !isAuthorized(
+                  auth,
+                  _authorizer,
+                  ImmutableList.of(PoliciesConfig.EDIT_ENTITY_PRIVILEGE),
+                  (EntitySpec) null)) {
+            throw new RestLiServiceException(
+                HttpStatus.S_401_UNAUTHORIZED, "User is unauthorized to edit entities.");
+          }
+          for (UsageAggregation agg : buckets) {
+            this.ingest(agg);
+          }
+          return null;
+        },
+        MetricRegistry.name(this.getClass(), "batchIngest"));
   }
 
   private CalendarInterval windowToInterval(@Nonnull WindowDuration duration) {
@@ -153,35 +163,50 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
     }
   }
 
-  private UsageAggregationArray getBuckets(@Nonnull Filter filter, @Nonnull String resource,
-      @Nonnull WindowDuration duration) {
-    // NOTE: We will not populate the per-bucket userCounts and fieldCounts in this implementation because
-    // (a) it is very expensive to compute the un-explode equivalent queries for timeseries field collections, and
-    // (b) the equivalent data for the whole query will anyways be populated in the `aggregations` part of the results
+  private UsageAggregationArray getBuckets(
+      @Nonnull Filter filter, @Nonnull String resource, @Nonnull WindowDuration duration) {
+    // NOTE: We will not populate the per-bucket userCounts and fieldCounts in this implementation
+    // because
+    // (a) it is very expensive to compute the un-explode equivalent queries for timeseries field
+    // collections, and
+    // (b) the equivalent data for the whole query will anyways be populated in the `aggregations`
+    // part of the results
     // (see getAggregations).
 
-    // 1. Construct the aggregation specs for latest value of uniqueUserCount, totalSqlQueries & topSqlQueries.
+    // 1. Construct the aggregation specs for latest value of uniqueUserCount, totalSqlQueries &
+    // topSqlQueries.
     AggregationSpec uniqueUserCountAgg =
-        new AggregationSpec().setAggregationType(AggregationType.LATEST).setFieldPath("uniqueUserCount");
+        new AggregationSpec()
+            .setAggregationType(AggregationType.LATEST)
+            .setFieldPath("uniqueUserCount");
     AggregationSpec totalSqlQueriesAgg =
-        new AggregationSpec().setAggregationType(AggregationType.LATEST).setFieldPath("totalSqlQueries");
+        new AggregationSpec()
+            .setAggregationType(AggregationType.LATEST)
+            .setFieldPath("totalSqlQueries");
     AggregationSpec topSqlQueriesAgg =
-        new AggregationSpec().setAggregationType(AggregationType.LATEST).setFieldPath("topSqlQueries");
+        new AggregationSpec()
+            .setAggregationType(AggregationType.LATEST)
+            .setFieldPath("topSqlQueries");
     AggregationSpec[] aggregationSpecs =
-        new AggregationSpec[]{uniqueUserCountAgg, totalSqlQueriesAgg, topSqlQueriesAgg};
+        new AggregationSpec[] {uniqueUserCountAgg, totalSqlQueriesAgg, topSqlQueriesAgg};
 
     // 2. Construct the Grouping buckets with just the ts bucket.
 
     GroupingBucket timestampBucket = new GroupingBucket();
-    timestampBucket.setKey(ES_FIELD_TIMESTAMP)
+    timestampBucket
+        .setKey(ES_FIELD_TIMESTAMP)
         .setType(GroupingBucketType.DATE_GROUPING_BUCKET)
         .setTimeWindowSize(new TimeWindowSize().setMultiple(1).setUnit(windowToInterval(duration)));
-    GroupingBucket[] groupingBuckets = new GroupingBucket[]{timestampBucket};
+    GroupingBucket[] groupingBuckets = new GroupingBucket[] {timestampBucket};
 
     // 3. Query
     GenericTable result =
-        _timeseriesAspectService.getAggregatedStats(USAGE_STATS_ENTITY_NAME, USAGE_STATS_ASPECT_NAME, aggregationSpecs,
-            filter, groupingBuckets);
+        _timeseriesAspectService.getAggregatedStats(
+            USAGE_STATS_ENTITY_NAME,
+            USAGE_STATS_ASPECT_NAME,
+            aggregationSpecs,
+            filter,
+            groupingBuckets);
 
     // 4. Populate buckets from the result.
     UsageAggregationArray buckets = new UsageAggregationArray();
@@ -211,9 +236,11 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
       }
       if (!row.get(3).equals(ES_NULL_VALUE)) {
         try {
-          usageAggregationMetrics.setTopSqlQueries(OBJECT_MAPPER.readValue(row.get(3), StringArray.class));
+          usageAggregationMetrics.setTopSqlQueries(
+              OBJECT_MAPPER.readValue(row.get(3), StringArray.class));
         } catch (JsonProcessingException e) {
-          throw new IllegalArgumentException("Failed to convert topSqlQueries from ES to object", e);
+          throw new IllegalArgumentException(
+              "Failed to convert topSqlQueries from ES to object", e);
         }
       }
       usageAggregation.setMetrics(usageAggregationMetrics);
@@ -226,20 +253,31 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
   private List<UserUsageCounts> getUserUsageCounts(Filter filter) {
     // Sum aggregation on userCounts.count
     AggregationSpec sumUserCountsCountAggSpec =
-        new AggregationSpec().setAggregationType(AggregationType.SUM).setFieldPath("userCounts.count");
+        new AggregationSpec()
+            .setAggregationType(AggregationType.SUM)
+            .setFieldPath("userCounts.count");
     AggregationSpec latestUserEmailAggSpec =
-        new AggregationSpec().setAggregationType(AggregationType.LATEST).setFieldPath("userCounts.userEmail");
-    AggregationSpec[] aggregationSpecs = new AggregationSpec[]{sumUserCountsCountAggSpec, latestUserEmailAggSpec};
+        new AggregationSpec()
+            .setAggregationType(AggregationType.LATEST)
+            .setFieldPath("userCounts.userEmail");
+    AggregationSpec[] aggregationSpecs =
+        new AggregationSpec[] {sumUserCountsCountAggSpec, latestUserEmailAggSpec};
 
     // String grouping bucket on userCounts.user
     GroupingBucket userGroupingBucket =
-        new GroupingBucket().setKey("userCounts.user").setType(GroupingBucketType.STRING_GROUPING_BUCKET);
-    GroupingBucket[] groupingBuckets = new GroupingBucket[]{userGroupingBucket};
+        new GroupingBucket()
+            .setKey("userCounts.user")
+            .setType(GroupingBucketType.STRING_GROUPING_BUCKET);
+    GroupingBucket[] groupingBuckets = new GroupingBucket[] {userGroupingBucket};
 
     // Query backend
     GenericTable result =
-        _timeseriesAspectService.getAggregatedStats(USAGE_STATS_ENTITY_NAME, USAGE_STATS_ASPECT_NAME, aggregationSpecs,
-            filter, groupingBuckets);
+        _timeseriesAspectService.getAggregatedStats(
+            USAGE_STATS_ENTITY_NAME,
+            USAGE_STATS_ASPECT_NAME,
+            aggregationSpecs,
+            filter,
+            groupingBuckets);
     // Process response
     List<UserUsageCounts> userUsageCounts = new ArrayList<>();
     for (StringArray row : result.getRows()) {
@@ -253,7 +291,8 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
         try {
           userUsageCount.setCount(Integer.valueOf(row.get(1)));
         } catch (NumberFormatException e) {
-          throw new IllegalArgumentException("Failed to convert user usage count from ES to int", e);
+          throw new IllegalArgumentException(
+              "Failed to convert user usage count from ES to int", e);
         }
       }
       if (!row.get(2).equals(ES_NULL_VALUE)) {
@@ -267,18 +306,26 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
   private List<FieldUsageCounts> getFieldUsageCounts(Filter filter) {
     // Sum aggregation on fieldCounts.count
     AggregationSpec sumFieldCountAggSpec =
-        new AggregationSpec().setAggregationType(AggregationType.SUM).setFieldPath("fieldCounts.count");
-    AggregationSpec[] aggregationSpecs = new AggregationSpec[]{sumFieldCountAggSpec};
+        new AggregationSpec()
+            .setAggregationType(AggregationType.SUM)
+            .setFieldPath("fieldCounts.count");
+    AggregationSpec[] aggregationSpecs = new AggregationSpec[] {sumFieldCountAggSpec};
 
     // String grouping bucket on fieldCounts.fieldName
     GroupingBucket userGroupingBucket =
-        new GroupingBucket().setKey("fieldCounts.fieldPath").setType(GroupingBucketType.STRING_GROUPING_BUCKET);
-    GroupingBucket[] groupingBuckets = new GroupingBucket[]{userGroupingBucket};
+        new GroupingBucket()
+            .setKey("fieldCounts.fieldPath")
+            .setType(GroupingBucketType.STRING_GROUPING_BUCKET);
+    GroupingBucket[] groupingBuckets = new GroupingBucket[] {userGroupingBucket};
 
     // Query backend
     GenericTable result =
-        _timeseriesAspectService.getAggregatedStats(USAGE_STATS_ENTITY_NAME, USAGE_STATS_ASPECT_NAME, aggregationSpecs,
-            filter, groupingBuckets);
+        _timeseriesAspectService.getAggregatedStats(
+            USAGE_STATS_ENTITY_NAME,
+            USAGE_STATS_ASPECT_NAME,
+            aggregationSpecs,
+            filter,
+            groupingBuckets);
 
     // Process response
     List<FieldUsageCounts> fieldUsageCounts = new ArrayList<>();
@@ -289,7 +336,8 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
         try {
           fieldUsageCount.setCount(Integer.valueOf(row.get(1)));
         } catch (NumberFormatException e) {
-          throw new IllegalArgumentException("Failed to convert field usage count from ES to int", e);
+          throw new IllegalArgumentException(
+              "Failed to convert field usage count from ES to int", e);
         }
       }
       fieldUsageCounts.add(fieldUsageCount);
@@ -312,80 +360,100 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
   @Action(name = ACTION_QUERY)
   @Nonnull
   @WithSpan
-  public Task<UsageQueryResult> query(@ActionParam(PARAM_RESOURCE) @Nonnull String resource,
+  public Task<UsageQueryResult> query(
+      @ActionParam(PARAM_RESOURCE) @Nonnull String resource,
       @ActionParam(PARAM_DURATION) @Nonnull WindowDuration duration,
-      @ActionParam(PARAM_START_TIME) @com.linkedin.restli.server.annotations.Optional Long startTime,
+      @ActionParam(PARAM_START_TIME) @com.linkedin.restli.server.annotations.Optional
+          Long startTime,
       @ActionParam(PARAM_END_TIME) @com.linkedin.restli.server.annotations.Optional Long endTime,
-      @ActionParam(PARAM_MAX_BUCKETS) @com.linkedin.restli.server.annotations.Optional Integer maxBuckets) {
+      @ActionParam(PARAM_MAX_BUCKETS) @com.linkedin.restli.server.annotations.Optional
+          Integer maxBuckets) {
     log.info("Attempting to query usage stats");
-    return RestliUtil.toTask(() -> {
-      Authentication auth = AuthenticationContext.getAuthentication();
-      Urn resourceUrn = UrnUtils.getUrn(resource);
-      if (Boolean.parseBoolean(System.getenv(REST_API_AUTHORIZATION_ENABLED_ENV))
-          && !isAuthorized(auth, _authorizer, ImmutableList.of(PoliciesConfig.VIEW_DATASET_USAGE_PRIVILEGE),
-          new EntitySpec(resourceUrn.getEntityType(), resourceUrn.toString()))) {
-        throw new RestLiServiceException(HttpStatus.S_401_UNAUTHORIZED,
-            "User is unauthorized to query usage.");
-      }
-      // 1. Populate the filter. This is common for all queries.
-      Filter filter = new Filter();
-      ArrayList<Criterion> criteria = new ArrayList<>();
-      Criterion hasUrnCriterion = new Criterion().setField("urn").setCondition(Condition.EQUAL).setValue(resource);
-      criteria.add(hasUrnCriterion);
-      if (startTime != null) {
-        Criterion startTimeCriterion = new Criterion().setField(ES_FIELD_TIMESTAMP)
-            .setCondition(Condition.GREATER_THAN_OR_EQUAL_TO)
-            .setValue(startTime.toString());
-        criteria.add(startTimeCriterion);
-      }
-      if (endTime != null) {
-        Criterion endTimeCriterion = new Criterion().setField(ES_FIELD_TIMESTAMP)
-            .setCondition(Condition.LESS_THAN_OR_EQUAL_TO)
-            .setValue(endTime.toString());
-        criteria.add(endTimeCriterion);
-      }
-      
-      filter.setOr(new ConjunctiveCriterionArray(new ConjunctiveCriterion().setAnd(new CriterionArray(criteria))));
-
-      // 2. Get buckets.
-      UsageAggregationArray buckets = getBuckets(filter, resource, duration);
-
-      // 3. Get aggregations.
-      UsageQueryResultAggregations aggregations = getAggregations(filter);
-
-      // 4. Compute totalSqlQuery count from the buckets itself.
-      // We want to avoid issuing an additional query with a sum aggregation.
-      Integer totalQueryCount = null;
-      for (UsageAggregation bucket : buckets) {
-        if (bucket.getMetrics().getTotalSqlQueries() != null) {
-          if (totalQueryCount == null) {
-            totalQueryCount = 0;
+    return RestliUtil.toTask(
+        () -> {
+          Authentication auth = AuthenticationContext.getAuthentication();
+          Urn resourceUrn = UrnUtils.getUrn(resource);
+          if (Boolean.parseBoolean(System.getenv(REST_API_AUTHORIZATION_ENABLED_ENV))
+              && !isAuthorized(
+                  auth,
+                  _authorizer,
+                  ImmutableList.of(PoliciesConfig.VIEW_DATASET_USAGE_PRIVILEGE),
+                  new EntitySpec(resourceUrn.getEntityType(), resourceUrn.toString()))) {
+            throw new RestLiServiceException(
+                HttpStatus.S_401_UNAUTHORIZED, "User is unauthorized to query usage.");
           }
-          totalQueryCount += bucket.getMetrics().getTotalSqlQueries();
-        }
-      }
+          // 1. Populate the filter. This is common for all queries.
+          Filter filter = new Filter();
+          ArrayList<Criterion> criteria = new ArrayList<>();
+          Criterion hasUrnCriterion =
+              new Criterion().setField("urn").setCondition(Condition.EQUAL).setValue(resource);
+          criteria.add(hasUrnCriterion);
+          if (startTime != null) {
+            Criterion startTimeCriterion =
+                new Criterion()
+                    .setField(ES_FIELD_TIMESTAMP)
+                    .setCondition(Condition.GREATER_THAN_OR_EQUAL_TO)
+                    .setValue(startTime.toString());
+            criteria.add(startTimeCriterion);
+          }
+          if (endTime != null) {
+            Criterion endTimeCriterion =
+                new Criterion()
+                    .setField(ES_FIELD_TIMESTAMP)
+                    .setCondition(Condition.LESS_THAN_OR_EQUAL_TO)
+                    .setValue(endTime.toString());
+            criteria.add(endTimeCriterion);
+          }
 
-      if (totalQueryCount != null) {
-        aggregations.setTotalSqlQueries(totalQueryCount);
-      }
+          filter.setOr(
+              new ConjunctiveCriterionArray(
+                  new ConjunctiveCriterion().setAnd(new CriterionArray(criteria))));
 
-      // 5. Populate and return the result.
-      return new UsageQueryResult().setBuckets(buckets).setAggregations(aggregations);
-    }, MetricRegistry.name(this.getClass(), "query"));
+          // 2. Get buckets.
+          UsageAggregationArray buckets = getBuckets(filter, resource, duration);
+
+          // 3. Get aggregations.
+          UsageQueryResultAggregations aggregations = getAggregations(filter);
+
+          // 4. Compute totalSqlQuery count from the buckets itself.
+          // We want to avoid issuing an additional query with a sum aggregation.
+          Integer totalQueryCount = null;
+          for (UsageAggregation bucket : buckets) {
+            if (bucket.getMetrics().getTotalSqlQueries() != null) {
+              if (totalQueryCount == null) {
+                totalQueryCount = 0;
+              }
+              totalQueryCount += bucket.getMetrics().getTotalSqlQueries();
+            }
+          }
+
+          if (totalQueryCount != null) {
+            aggregations.setTotalSqlQueries(totalQueryCount);
+          }
+
+          // 5. Populate and return the result.
+          return new UsageQueryResult().setBuckets(buckets).setAggregations(aggregations);
+        },
+        MetricRegistry.name(this.getClass(), "query"));
   }
 
   @Action(name = ACTION_QUERY_RANGE)
   @Nonnull
   @WithSpan
-  public Task<UsageQueryResult> queryRange(@ActionParam(PARAM_RESOURCE) @Nonnull String resource,
-      @ActionParam(PARAM_DURATION) @Nonnull WindowDuration duration, @ActionParam(PARAM_RANGE) UsageTimeRange range) {
+  public Task<UsageQueryResult> queryRange(
+      @ActionParam(PARAM_RESOURCE) @Nonnull String resource,
+      @ActionParam(PARAM_DURATION) @Nonnull WindowDuration duration,
+      @ActionParam(PARAM_RANGE) UsageTimeRange range) {
     Authentication auth = AuthenticationContext.getAuthentication();
     Urn resourceUrn = UrnUtils.getUrn(resource);
     if (Boolean.parseBoolean(System.getenv(REST_API_AUTHORIZATION_ENABLED_ENV))
-        && !isAuthorized(auth, _authorizer, ImmutableList.of(PoliciesConfig.VIEW_DATASET_USAGE_PRIVILEGE),
+        && !isAuthorized(
+            auth,
+            _authorizer,
+            ImmutableList.of(PoliciesConfig.VIEW_DATASET_USAGE_PRIVILEGE),
             new EntitySpec(resourceUrn.getEntityType(), resourceUrn.toString()))) {
-      throw new RestLiServiceException(HttpStatus.S_401_UNAUTHORIZED,
-          "User is unauthorized to query usage.");
+      throw new RestLiServiceException(
+          HttpStatus.S_401_UNAUTHORIZED, "User is unauthorized to query usage.");
     }
     final long now = Instant.now().toEpochMilli();
     return this.query(resource, duration, convertRangeToStartTime(range, now), now, null);
@@ -418,7 +486,8 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
       datasetUsageStatistics.setUserCounts(datasetUserUsageCountsArray);
     }
     if (aggregationMetrics.hasFields()) {
-      DatasetFieldUsageCountsArray datasetFieldUsageCountsArray = new DatasetFieldUsageCountsArray();
+      DatasetFieldUsageCountsArray datasetFieldUsageCountsArray =
+          new DatasetFieldUsageCountsArray();
       for (FieldUsageCounts f : aggregationMetrics.getFields()) {
         DatasetFieldUsageCounts datasetFieldUsageCounts = new DatasetFieldUsageCounts();
         datasetFieldUsageCounts.setFieldPath(f.getFieldName());
@@ -431,17 +500,23 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
     Map<String, JsonNode> documents;
     try {
       documents =
-          TimeseriesAspectTransformer.transform(bucket.getResource(), datasetUsageStatistics, getUsageStatsAspectSpec(),
-              null);
+          TimeseriesAspectTransformer.transform(
+              bucket.getResource(), datasetUsageStatistics, getUsageStatsAspectSpec(), null);
     } catch (JsonProcessingException e) {
       log.error("Failed to generate timeseries document from aspect: {}", e.toString());
       return;
     }
     // 3. Upsert the exploded documents to timeseries aspect service.
-    documents.entrySet().forEach(document -> {
-      _timeseriesAspectService.upsertDocument(USAGE_STATS_ENTITY_NAME, USAGE_STATS_ASPECT_NAME, document.getKey(),
-          document.getValue());
-    });
+    documents
+        .entrySet()
+        .forEach(
+            document -> {
+              _timeseriesAspectService.upsertDocument(
+                  USAGE_STATS_ENTITY_NAME,
+                  USAGE_STATS_ASPECT_NAME,
+                  document.getKey(),
+                  document.getValue());
+            });
   }
 
   @Nonnull

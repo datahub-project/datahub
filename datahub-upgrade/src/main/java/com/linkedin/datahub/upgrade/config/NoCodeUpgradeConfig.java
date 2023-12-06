@@ -12,12 +12,10 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.DependsOn;
 
-
 @Configuration
 public class NoCodeUpgradeConfig {
 
-  @Autowired
-  ApplicationContext applicationContext;
+  @Autowired ApplicationContext applicationContext;
 
   @Bean(name = "noCodeUpgrade")
   @DependsOn({"ebeanServer", "entityService", "systemRestliEntityClient", "entityRegistry"})
@@ -25,7 +23,8 @@ public class NoCodeUpgradeConfig {
   public NoCodeUpgrade createInstance() {
     final Database ebeanServer = applicationContext.getBean(Database.class);
     final EntityService entityService = applicationContext.getBean(EntityService.class);
-    final SystemRestliEntityClient entityClient = applicationContext.getBean(SystemRestliEntityClient.class);
+    final SystemRestliEntityClient entityClient =
+        applicationContext.getBean(SystemRestliEntityClient.class);
     final EntityRegistry entityRegistry = applicationContext.getBean(EntityRegistry.class);
 
     return new NoCodeUpgrade(ebeanServer, entityService, entityRegistry, entityClient);

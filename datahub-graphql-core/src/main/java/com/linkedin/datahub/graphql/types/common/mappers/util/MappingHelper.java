@@ -7,14 +7,10 @@ import javax.annotation.Nonnull;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 
-
 @AllArgsConstructor
 public class MappingHelper<O> {
-  @Nonnull
-  private final EnvelopedAspectMap _aspectMap;
-  @Getter
-  @Nonnull
-  private final O result;
+  @Nonnull private final EnvelopedAspectMap _aspectMap;
+  @Getter @Nonnull private final O result;
 
   public void mapToResult(@Nonnull String aspectName, @Nonnull BiConsumer<O, DataMap> consumer) {
     if (_aspectMap.containsKey(aspectName)) {

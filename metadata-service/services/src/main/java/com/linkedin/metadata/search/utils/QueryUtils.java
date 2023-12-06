@@ -1,5 +1,7 @@
 package com.linkedin.metadata.search.utils;
 
+import static com.linkedin.metadata.Constants.*;
+
 import com.datahub.util.ModelUtils;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.data.template.RecordTemplate;
@@ -22,15 +24,11 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
-import static com.linkedin.metadata.Constants.*;
-
-
 public class QueryUtils {
 
   public static final Filter EMPTY_FILTER = new Filter().setOr(new ConjunctiveCriterionArray());
 
-  private QueryUtils() {
-  }
+  private QueryUtils() {}
 
   // Creates new Criterion with field and value, using EQUAL condition.
   @Nonnull
@@ -40,23 +38,31 @@ public class QueryUtils {
 
   // Creates new Criterion with field, value and condition.
   @Nonnull
-  public static Criterion newCriterion(@Nonnull String field, @Nonnull String value, @Nonnull Condition condition) {
-    return new Criterion().setField(field).setValue(value).setValues(new StringArray(ImmutableList.of(value))).setCondition(condition);
+  public static Criterion newCriterion(
+      @Nonnull String field, @Nonnull String value, @Nonnull Condition condition) {
+    return new Criterion()
+        .setField(field)
+        .setValue(value)
+        .setValues(new StringArray(ImmutableList.of(value)))
+        .setCondition(condition);
   }
 
-  // Creates new Filter from a map of Criteria by removing null-valued Criteria and using EQUAL condition (default).
+  // Creates new Filter from a map of Criteria by removing null-valued Criteria and using EQUAL
+  // condition (default).
   @Nonnull
   public static Filter newFilter(@Nullable Map<String, String> params) {
     if (params == null) {
       return EMPTY_FILTER;
     }
-    CriterionArray criteria = params.entrySet()
-        .stream()
-        .filter(e -> Objects.nonNull(e.getValue()))
-        .map(e -> newCriterion(e.getKey(), e.getValue()))
-        .collect(Collectors.toCollection(CriterionArray::new));
-    return new Filter().setOr(
-        new ConjunctiveCriterionArray(ImmutableList.of(new ConjunctiveCriterion().setAnd(criteria))));
+    CriterionArray criteria =
+        params.entrySet().stream()
+            .filter(e -> Objects.nonNull(e.getValue()))
+            .map(e -> newCriterion(e.getKey(), e.getValue()))
+            .collect(Collectors.toCollection(CriterionArray::new));
+    return new Filter()
+        .setOr(
+            new ConjunctiveCriterionArray(
+                ImmutableList.of(new ConjunctiveCriterion().setAnd(criteria))));
   }
 
   // Creates new Filter from a single Criterion with EQUAL condition (default).
@@ -68,8 +74,12 @@ public class QueryUtils {
   // Create singleton filter with one criterion
   @Nonnull
   public static Filter newFilter(@Nonnull Criterion criterion) {
-    return new Filter().setOr(new ConjunctiveCriterionArray(
-        ImmutableList.of(new ConjunctiveCriterion().setAnd(new CriterionArray(ImmutableList.of(criterion))))));
+    return new Filter()
+        .setOr(
+            new ConjunctiveCriterionArray(
+                ImmutableList.of(
+                    new ConjunctiveCriterion()
+                        .setAnd(new CriterionArray(ImmutableList.of(criterion))))));
   }
 
   @Nonnull
@@ -78,13 +88,18 @@ public class QueryUtils {
   }
 
   /**
-   * Converts a set of aspect classes to a set of {@link AspectVersion} with the version all set to latest.
+   * Converts a set of aspect classes to a set of {@link AspectVersion} with the version all set to
+   * latest.
    */
   @Nonnull
-  public static Set<AspectVersion> latestAspectVersions(@Nonnull Set<Class<? extends RecordTemplate>> aspectClasses) {
+  public static Set<AspectVersion> latestAspectVersions(
+      @Nonnull Set<Class<? extends RecordTemplate>> aspectClasses) {
     return aspectClasses.stream()
-        .map(aspectClass -> new AspectVersion().setAspect(ModelUtils.getAspectName(aspectClass))
-            .setVersion(LATEST_VERSION))
+        .map(
+            aspectClass ->
+                new AspectVersion()
+                    .setAspect(ModelUtils.getAspectName(aspectClass))
+                    .setVersion(LATEST_VERSION))
         .collect(Collectors.toSet());
   }
 
@@ -97,7 +112,9 @@ public class QueryUtils {
    * @return RelationshipFilter
    */
   @Nonnull
-  public static RelationshipFilter createRelationshipFilter(@Nonnull String field, @Nonnull String value,
+  public static RelationshipFilter createRelationshipFilter(
+      @Nonnull String field,
+      @Nonnull String value,
       @Nonnull RelationshipDirection relationshipDirection) {
     return createRelationshipFilter(newFilter(field, value), relationshipDirection);
   }
@@ -110,14 +127,14 @@ public class QueryUtils {
    * @return RelationshipFilter
    */
   @Nonnull
-  public static RelationshipFilter createRelationshipFilter(@Nonnull Filter filter,
-      @Nonnull RelationshipDirection relationshipDirection) {
+  public static RelationshipFilter createRelationshipFilter(
+      @Nonnull Filter filter, @Nonnull RelationshipDirection relationshipDirection) {
     return new RelationshipFilter().setOr(filter.getOr()).setDirection(relationshipDirection);
   }
 
   @Nonnull
-  public static RelationshipFilter newRelationshipFilter(@Nonnull Filter filter,
-      @Nonnull RelationshipDirection relationshipDirection) {
+  public static RelationshipFilter newRelationshipFilter(
+      @Nonnull Filter filter, @Nonnull RelationshipDirection relationshipDirection) {
     return new RelationshipFilter().setOr(filter.getOr()).setDirection(relationshipDirection);
   }
 
@@ -152,7 +169,9 @@ public class QueryUtils {
 
   @Nonnull
   public static Filter getFilterFromCriteria(List<Criterion> criteria) {
-    return new Filter().setOr(
-        new ConjunctiveCriterionArray(new ConjunctiveCriterion().setAnd(new CriterionArray(criteria))));
+    return new Filter()
+        .setOr(
+            new ConjunctiveCriterionArray(
+                new ConjunctiveCriterion().setAnd(new CriterionArray(criteria))));
   }
 }
