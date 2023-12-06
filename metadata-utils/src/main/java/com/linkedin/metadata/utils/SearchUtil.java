@@ -7,16 +7,22 @@ import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.query.filter.SortCriterion;
+import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.search.FilterValue;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import java.net.URISyntaxException;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.stream.Stream;
+
 import lombok.extern.slf4j.Slf4j;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
@@ -139,5 +145,25 @@ public class SearchUtil {
       filterQuery.mustNot(QueryBuilders.matchQuery(REMOVED, true));
     }
     return filterQuery;
+  }
+
+  public static SortCriterion sortBy(@Nonnull String field, @Nullable SortOrder direction) {
+    SortCriterion sortCriterion = new SortCriterion();
+    sortCriterion.setField(field);
+    sortCriterion.setOrder(com.linkedin.metadata.query.filter.SortOrder.valueOf(
+            Optional.ofNullable(direction).orElse(SortOrder.ASCENDING).toString()));
+    return sortCriterion;
+  }
+
+  public static Filter andFilter(Criterion... criteria) {
+    Filter filter = new Filter();
+    filter.setOr(andCriterion(Arrays.stream(criteria)));
+    return filter;
+  }
+
+  public static ConjunctiveCriterionArray andCriterion(Stream<Criterion> criteria) {
+    return new ConjunctiveCriterionArray(
+            new ConjunctiveCriterion()
+                    .setAnd(new CriterionArray(criteria.collect(Collectors.toList()))));
   }
 }
