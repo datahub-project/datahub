@@ -141,7 +141,7 @@ public class SettingsMapper {
     final OidcSettings result = new OidcSettings();
     result.setEnabled(input.isEnabled());
     result.setClientId(input.getClientId());
-    result.setClientSecret(_secretService.decrypt(input.getClientSecret()));
+    result.setClientSecret(input.getClientSecret());
     result.setDiscoveryUri(input.getDiscoveryUri());
     if (input.hasUserNameClaim()) {
       result.setUserNameClaim(input.getUserNameClaim());
