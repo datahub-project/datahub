@@ -696,7 +696,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        test_strategy: ["no_cypress", "cypress_suite1", "cypress_rest"]
+        test_strategy: [
+          "no_cypress_suite0",
+          "no_cypress_suite1",
+          "cypress_suite1", 
+          "cypress_rest"
+        ]
     needs:
       [
         setup,
@@ -792,11 +797,6 @@ jobs:
           ACTIONS_CONFIG: "https://raw.githubusercontent.com/acryldata/datahub-actions/main/docker/config/executor.yaml"
         run: |
           ./smoke-test/run-quickstart.sh
-      - name: sleep 60s
-        run: |
-          # we are doing this because gms takes time to get ready
-          # and we don't have a better readiness check when bootstrap is done
-          sleep 60s
       - name: Disk Check
         run: df -h . && docker images
       - name: Disable ES Disk Threshold
