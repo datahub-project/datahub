@@ -66,7 +66,8 @@ public class SearchableAnnotation {
     DATETIME,
     OBJECT,
     BROWSE_PATH_V2,
-    WORD_GRAM
+    WORD_GRAM,
+    DOUBLE
   }
 
   @Nonnull

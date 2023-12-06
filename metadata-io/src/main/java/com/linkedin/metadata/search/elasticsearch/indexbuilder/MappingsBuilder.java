@@ -134,6 +134,8 @@ public class MappingsBuilder {
       mappingForField.put(TYPE, ESUtils.DATE_FIELD_TYPE);
     } else if (fieldType == FieldType.OBJECT) {
       mappingForField.put(TYPE, ESUtils.OBJECT_FIELD_TYPE);
+    } else if (fieldType == FieldType.DOUBLE) {
+      mappingForField.put(TYPE, ESUtils.DOUBLE_FIELD_TYPE);
     } else {
       log.info("FieldType {} has no mappings implemented", fieldType);
     }

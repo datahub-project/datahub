@@ -1,7 +1,7 @@
 import logging
 import random
 from datetime import datetime, timedelta, timezone
-from typing import Iterable, cast
+from typing import Iterable
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -45,15 +45,16 @@ ACTOR_1, ACTOR_1_URN = "a@acryl.io", "urn:li:corpuser:a"
 ACTOR_2, ACTOR_2_URN = "b@acryl.io", "urn:li:corpuser:b"
 DATABASE_1 = Container("database_1")
 DATABASE_2 = Container("database_2")
-TABLE_1 = Table("table_1", DATABASE_1, ["id", "name", "age"], None)
-TABLE_2 = Table("table_2", DATABASE_1, ["id", "table_1_id", "value"], None)
+TABLE_1 = Table("table_1", DATABASE_1, columns=["id", "name", "age"], upstreams=[])
+TABLE_2 = Table(
+    "table_2", DATABASE_1, columns=["id", "table_1_id", "value"], upstreams=[]
+)
 VIEW_1 = View(
     name="view_1",
     container=DATABASE_1,
     columns=["id", "name", "total"],
     definition="VIEW DEFINITION 1",
-    parents=[TABLE_1, TABLE_2],
-    column_mapping=None,
+    upstreams=[TABLE_1, TABLE_2],
 )
 ALL_TABLES = [TABLE_1, TABLE_2, VIEW_1]
 
@@ -842,6 +843,7 @@ def test_usage_counts_no_columns(
             )
         ),
     ]
+    caplog.clear()
     with caplog.at_level(logging.WARNING):
         workunits = usage_extractor._get_workunits_internal(
             events, [TABLE_REFS[TABLE_1.name]]
@@ -938,7 +940,7 @@ def test_operational_stats(
                         ).to_urn("PROD")
                         for field in query.fields_accessed
                         if field.table.is_view()
-                        for parent in cast(View, field.table).parents
+                        for parent in field.table.upstreams
                     )
                 ),
             ),
