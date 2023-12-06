@@ -18,7 +18,6 @@ export const ProtectedRoutes = (): JSX.Element => {
             <Layout>
                 <Switch>
                     <Route exact path="/" render={() => <HomePage />} />
-                    <Route path={`${PageRoutes.EMBED_HEALTH}/:urn`} render={() => <EmbeddedHealthIcon />} />
                     <Route exact path={PageRoutes.EMBED_LOOKUP} render={() => <EmbedLookup />} />
                     {useEntityRegistry()
                         .getEntities()
