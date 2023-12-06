@@ -9,31 +9,29 @@ import com.linkedin.r2.transport.common.bridge.client.TransportClient;
 import com.linkedin.r2.transport.common.bridge.client.TransportClientAdapter;
 import com.linkedin.r2.transport.http.client.HttpClientFactory;
 import com.linkedin.restli.client.RestClient;
-import org.apache.commons.lang.StringUtils;
-
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
-import javax.net.ssl.SSLContext;
-import javax.net.ssl.SSLParameters;
 import java.net.URI;
 import java.security.InvalidParameterException;
 import java.security.NoSuchAlgorithmException;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
-
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLParameters;
+import org.apache.commons.lang.StringUtils;
 
 public class DefaultRestliClientFactory {
 
   private static final String DEFAULT_REQUEST_TIMEOUT_IN_MS = "10000";
 
-  private DefaultRestliClientFactory() {
-  }
+  private DefaultRestliClientFactory() {}
 
   @Nonnull
-  public static RestClient getRestLiD2Client(@Nonnull String restLiClientD2ZkHost,
-                                             @Nonnull String restLiClientD2ZkPath) {
-    final D2Client d2Client = new D2ClientBuilder()
+  public static RestClient getRestLiD2Client(
+      @Nonnull String restLiClientD2ZkHost, @Nonnull String restLiClientD2ZkPath) {
+    final D2Client d2Client =
+        new D2ClientBuilder()
             .setZkHosts(restLiClientD2ZkHost)
             .setBasePath(restLiClientD2ZkPath)
             .build();
@@ -42,18 +40,27 @@ public class DefaultRestliClientFactory {
   }
 
   @Nonnull
-  public static RestClient getRestLiClient(@Nonnull String restLiServerHost, int restLiServerPort, boolean useSSL,
-                                           @Nullable String sslProtocol) {
+  public static RestClient getRestLiClient(
+      @Nonnull String restLiServerHost,
+      int restLiServerPort,
+      boolean useSSL,
+      @Nullable String sslProtocol) {
     return getRestLiClient(restLiServerHost, restLiServerPort, useSSL, sslProtocol, null);
   }
 
   @Nonnull
-  public static RestClient getRestLiClient(@Nonnull String restLiServerHost, int restLiServerPort, boolean useSSL,
-                                           @Nullable String sslProtocol, @Nullable Map<String, String> params) {
+  public static RestClient getRestLiClient(
+      @Nonnull String restLiServerHost,
+      int restLiServerPort,
+      boolean useSSL,
+      @Nullable String sslProtocol,
+      @Nullable Map<String, String> params) {
     return getRestLiClient(
-            URI.create(String.format("%s://%s:%s", useSSL ? "https" : "http", restLiServerHost, restLiServerPort)),
-            sslProtocol,
-            params);
+        URI.create(
+            String.format(
+                "%s://%s:%s", useSSL ? "https" : "http", restLiServerHost, restLiServerPort)),
+        sslProtocol,
+        params);
   }
 
   @Nonnull
@@ -62,8 +69,10 @@ public class DefaultRestliClientFactory {
   }
 
   @Nonnull
-  public static RestClient getRestLiClient(@Nonnull URI gmsUri, @Nullable String sslProtocol,
-                                           @Nullable Map<String, String> inputParams) {
+  public static RestClient getRestLiClient(
+      @Nonnull URI gmsUri,
+      @Nullable String sslProtocol,
+      @Nullable Map<String, String> inputParams) {
     if (StringUtils.isBlank(gmsUri.getHost()) || gmsUri.getPort() <= 0) {
       throw new InvalidParameterException("Invalid restli server host name or port!");
     }
@@ -82,7 +91,7 @@ public class DefaultRestliClientFactory {
 
       SSLParameters sslParameters = new SSLParameters();
       if (sslProtocol != null) {
-        sslParameters.setProtocols(new String[]{sslProtocol});
+        sslParameters.setProtocols(new String[] {sslProtocol});
       }
       params.put(HttpClientFactory.HTTP_SSL_PARAMS, sslParameters);
     }
@@ -90,7 +99,8 @@ public class DefaultRestliClientFactory {
     return getHttpRestClient(gmsUri, params);
   }
 
-  private static RestClient getHttpRestClient(@Nonnull URI gmsUri, @Nonnull Map<String, Object> params) {
+  private static RestClient getHttpRestClient(
+      @Nonnull URI gmsUri, @Nonnull Map<String, Object> params) {
     Map<String, Object> finalParams = new HashMap<>();
     finalParams.put(HttpClientFactory.HTTP_REQUEST_TIMEOUT, DEFAULT_REQUEST_TIMEOUT_IN_MS);
     finalParams.putAll(params);

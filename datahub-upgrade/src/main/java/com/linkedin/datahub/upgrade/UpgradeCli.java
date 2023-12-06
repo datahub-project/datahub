@@ -1,14 +1,14 @@
 package com.linkedin.datahub.upgrade;
 
-import com.linkedin.datahub.upgrade.system.SystemUpdate;
-import com.linkedin.datahub.upgrade.system.elasticsearch.BuildIndices;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeManager;
-import com.linkedin.datahub.upgrade.system.elasticsearch.CleanIndices;
 import com.linkedin.datahub.upgrade.nocode.NoCodeUpgrade;
 import com.linkedin.datahub.upgrade.nocodecleanup.NoCodeCleanupUpgrade;
 import com.linkedin.datahub.upgrade.removeunknownaspects.RemoveUnknownAspects;
 import com.linkedin.datahub.upgrade.restorebackup.RestoreBackup;
 import com.linkedin.datahub.upgrade.restoreindices.RestoreIndices;
+import com.linkedin.datahub.upgrade.system.SystemUpdate;
+import com.linkedin.datahub.upgrade.system.elasticsearch.BuildIndices;
+import com.linkedin.datahub.upgrade.system.elasticsearch.CleanIndices;
 import java.util.List;
 import javax.inject.Inject;
 import javax.inject.Named;
@@ -16,7 +16,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
 import picocli.CommandLine;
-
 
 @Slf4j
 @Component

@@ -49,7 +49,6 @@ import org.opensearch.search.aggregations.pipeline.MaxBucketPipelineAggregationB
 import org.opensearch.search.aggregations.pipeline.ParsedBucketMetricValue;
 import org.opensearch.search.builder.SearchSourceBuilder;
 
-
 @Slf4j
 public class ESAggregatedStatsDAO {
   private static final String ES_AGGREGATION_PREFIX = "agg_";
@@ -66,7 +65,9 @@ public class ESAggregatedStatsDAO {
   private final RestHighLevelClient _searchClient;
   private final EntityRegistry _entityRegistry;
 
-  public ESAggregatedStatsDAO(@Nonnull IndexConvention indexConvention, @Nonnull RestHighLevelClient searchClient,
+  public ESAggregatedStatsDAO(
+      @Nonnull IndexConvention indexConvention,
+      @Nonnull RestHighLevelClient searchClient,
       @Nonnull EntityRegistry entityRegistry) {
     _indexConvention = indexConvention;
     _searchClient = searchClient;
@@ -94,7 +95,8 @@ public class ESAggregatedStatsDAO {
         prefix = "cardinality_";
         break;
       default:
-        throw new IllegalArgumentException("Unknown AggregationSpec type" + aggregationSpec.getAggregationType());
+        throw new IllegalArgumentException(
+            "Unknown AggregationSpec type" + aggregationSpec.getAggregationType());
     }
     return prefix + aggregationSpec.getFieldPath();
   }
@@ -103,12 +105,19 @@ public class ESAggregatedStatsDAO {
     if (groupingBucket.getType() == GroupingBucketType.DATE_GROUPING_BUCKET) {
       return toEsAggName(ES_AGGREGATION_PREFIX + groupingBucket.getKey());
     }
-    return toEsAggName(ES_AGGREGATION_PREFIX + ES_TERMS_AGGREGATION_PREFIX + groupingBucket.getKey());
+    return toEsAggName(
+        ES_AGGREGATION_PREFIX + ES_TERMS_AGGREGATION_PREFIX + groupingBucket.getKey());
   }
 
-  private static void rowGenHelper(final Aggregations lowestAggs, final int curLevel, final int lastLevel,
-      final List<StringArray> rows, final Stack<String> row, final ImmutableList<GroupingBucket> groupingBuckets,
-      final ImmutableList<AggregationSpec> aggregationSpecs, AspectSpec aspectSpec) {
+  private static void rowGenHelper(
+      final Aggregations lowestAggs,
+      final int curLevel,
+      final int lastLevel,
+      final List<StringArray> rows,
+      final Stack<String> row,
+      final ImmutableList<GroupingBucket> groupingBuckets,
+      final ImmutableList<AggregationSpec> aggregationSpecs,
+      AspectSpec aspectSpec) {
     if (curLevel == lastLevel) {
       // (Base-case): We are at the lowest level of nested bucket aggregations.
       // Append member aggregation values to the row and add the row to the output.
@@ -123,7 +132,7 @@ public class ESAggregatedStatsDAO {
         row.pop();
       }
     } else if (curLevel < lastLevel) {
-      //(Recursive-case): We are still processing the nested group-by multi-bucket aggregations.
+      // (Recursive-case): We are still processing the nested group-by multi-bucket aggregations.
       // For each bucket, add the key to the row and recur down for full row construction.
       GroupingBucket curGroupingBucket = groupingBuckets.get(curLevel);
       String curGroupingBucketAggName = getGroupingBucketAggName(curGroupingBucket);
@@ -136,7 +145,14 @@ public class ESAggregatedStatsDAO {
           row.push(b.getKeyAsString());
         }
         // Recur down
-        rowGenHelper(b.getAggregations(), curLevel + 1, lastLevel, rows, row, groupingBuckets, aggregationSpecs,
+        rowGenHelper(
+            b.getAggregations(),
+            curLevel + 1,
+            lastLevel,
+            rows,
+            row,
+            groupingBuckets,
+            aggregationSpecs,
             aspectSpec);
         // Remove the row value we have added for this level.
         row.pop();
@@ -179,11 +195,12 @@ public class ESAggregatedStatsDAO {
     if (fieldPath.equals(MappingsBuilder.EVENT_GRANULARITY)) {
       return DataSchema.Type.RECORD;
     }
-    
+
     String[] memberParts = fieldPath.split("\\.");
     if (memberParts.length == 1) {
       // Search in the timeseriesFieldSpecs.
-      TimeseriesFieldSpec timeseriesFieldSpec = aspectSpec.getTimeseriesFieldSpecMap().get(memberParts[0]);
+      TimeseriesFieldSpec timeseriesFieldSpec =
+          aspectSpec.getTimeseriesFieldSpecMap().get(memberParts[0]);
       if (timeseriesFieldSpec != null) {
         return timeseriesFieldSpec.getPegasusSchema().getType();
       }
@@ -196,8 +213,8 @@ public class ESAggregatedStatsDAO {
     } else if (memberParts.length == 2) {
       // Check if partitionSpec
       if (memberParts[0].equals(MappingsBuilder.PARTITION_SPEC)) {
-        if (memberParts[1].equals(MappingsBuilder.PARTITION_SPEC_PARTITION) || memberParts[1].equals(
-            MappingsBuilder.PARTITION_SPEC_TIME_PARTITION)) {
+        if (memberParts[1].equals(MappingsBuilder.PARTITION_SPEC_PARTITION)
+            || memberParts[1].equals(MappingsBuilder.PARTITION_SPEC_TIME_PARTITION)) {
           return DataSchema.Type.STRING;
         } else {
           throw new IllegalArgumentException("Unknown partitionSpec member" + memberParts[1]);
@@ -208,44 +225,53 @@ public class ESAggregatedStatsDAO {
       TimeseriesFieldCollectionSpec timeseriesFieldCollectionSpec =
           aspectSpec.getTimeseriesFieldCollectionSpecMap().get(memberParts[0]);
       if (timeseriesFieldCollectionSpec != null) {
-        if (timeseriesFieldCollectionSpec.getTimeseriesFieldCollectionAnnotation().getKey().equals(memberParts[1])) {
+        if (timeseriesFieldCollectionSpec
+            .getTimeseriesFieldCollectionAnnotation()
+            .getKey()
+            .equals(memberParts[1])) {
           // Matched against the collection stat key.
           return DataSchema.Type.STRING;
         }
-        TimeseriesFieldSpec tsFieldSpec = timeseriesFieldCollectionSpec.getTimeseriesFieldSpecMap().get(memberParts[1]);
+        TimeseriesFieldSpec tsFieldSpec =
+            timeseriesFieldCollectionSpec.getTimeseriesFieldSpecMap().get(memberParts[1]);
         if (tsFieldSpec != null) {
           // Matched against a collection stat field.
           return tsFieldSpec.getPegasusSchema().getType();
         }
       }
     }
-    throw new IllegalArgumentException("Unknown TimeseriesField or TimeseriesFieldCollection: " + fieldPath);
+    throw new IllegalArgumentException(
+        "Unknown TimeseriesField or TimeseriesFieldCollection: " + fieldPath);
   }
 
-  private static DataSchema.Type getGroupingBucketKeyType(@Nonnull AspectSpec aspectSpec,
-      @Nonnull GroupingBucket groupingBucket) {
+  private static DataSchema.Type getGroupingBucketKeyType(
+      @Nonnull AspectSpec aspectSpec, @Nonnull GroupingBucket groupingBucket) {
     return getTimeseriesFieldType(aspectSpec, groupingBucket.getKey());
   }
 
-  private static DataSchema.Type getAggregationSpecMemberType(@Nonnull AspectSpec aspectSpec,
-      @Nonnull AggregationSpec aggregationSpec) {
+  private static DataSchema.Type getAggregationSpecMemberType(
+      @Nonnull AspectSpec aspectSpec, @Nonnull AggregationSpec aggregationSpec) {
     return getTimeseriesFieldType(aspectSpec, aggregationSpec.getFieldPath());
   }
 
-  private static List<String> genColumnNames(GroupingBucket[] groupingBuckets, AggregationSpec[] aggregationSpecs) {
-    List<String> groupingBucketNames = Arrays.stream(groupingBuckets).map(t -> t.getKey()).collect(Collectors.toList());
+  private static List<String> genColumnNames(
+      GroupingBucket[] groupingBuckets, AggregationSpec[] aggregationSpecs) {
+    List<String> groupingBucketNames =
+        Arrays.stream(groupingBuckets).map(t -> t.getKey()).collect(Collectors.toList());
 
-    List<String> aggregationNames = Arrays.stream(aggregationSpecs)
-        .map(ESAggregatedStatsDAO::getAggregationSpecAggDisplayName)
-        .collect(Collectors.toList());
+    List<String> aggregationNames =
+        Arrays.stream(aggregationSpecs)
+            .map(ESAggregatedStatsDAO::getAggregationSpecAggDisplayName)
+            .collect(Collectors.toList());
 
     List<String> columnNames =
-        Stream.concat(groupingBucketNames.stream(), aggregationNames.stream()).collect(Collectors.toList());
+        Stream.concat(groupingBucketNames.stream(), aggregationNames.stream())
+            .collect(Collectors.toList());
     return columnNames;
   }
 
-  private static List<String> genColumnTypes(AspectSpec aspectSpec, GroupingBucket[] groupingBuckets,
-      AggregationSpec[] aggregationSpecs) {
+  private static List<String> genColumnTypes(
+      AspectSpec aspectSpec, GroupingBucket[] groupingBuckets, AggregationSpec[] aggregationSpecs) {
     List<String> columnTypes = new ArrayList<>();
     for (GroupingBucket g : groupingBuckets) {
       DataSchema.Type type = getGroupingBucketKeyType(aspectSpec, g);
@@ -282,14 +308,17 @@ public class ESAggregatedStatsDAO {
           break;
         default:
           throw new IllegalArgumentException(
-              "Type generation not yet supported for aggregation type: " + aggregationSpec.getAggregationType());
+              "Type generation not yet supported for aggregation type: "
+                  + aggregationSpec.getAggregationType());
       }
     }
     return columnTypes;
   }
 
-  private static String extractAggregationValue(@Nonnull final Aggregations aggregations,
-      @Nonnull final AspectSpec aspectSpec, @Nonnull final AggregationSpec aggregationSpec) {
+  private static String extractAggregationValue(
+      @Nonnull final Aggregations aggregations,
+      @Nonnull final AspectSpec aspectSpec,
+      @Nonnull final AggregationSpec aggregationSpec) {
     String memberAggName = getAggregationSpecAggESName(aggregationSpec);
     Object memberAgg = aggregations.get(memberAggName);
     DataSchema.Type memberType = getAggregationSpecMemberType(aspectSpec, aggregationSpec);
@@ -309,36 +338,42 @@ public class ESAggregatedStatsDAO {
         case FLOAT:
           return String.valueOf(((ParsedSum) memberAgg).getValue());
         default:
-          throw new IllegalArgumentException("Unexpected type encountered for sum aggregation: " + memberType);
+          throw new IllegalArgumentException(
+              "Unexpected type encountered for sum aggregation: " + memberType);
       }
     } else if (memberAgg instanceof ParsedCardinality) {
       // This will always be a long value as string.
       return String.valueOf(((ParsedCardinality) memberAgg).getValue());
     } else {
-      throw new UnsupportedOperationException("Member aggregations other than latest and sum not supported yet.");
+      throw new UnsupportedOperationException(
+          "Member aggregations other than latest and sum not supported yet.");
     }
     return defaultValue;
   }
 
-  private AspectSpec getTimeseriesAspectSpec(@Nonnull String entityName, @Nonnull String aspectName) {
+  private AspectSpec getTimeseriesAspectSpec(
+      @Nonnull String entityName, @Nonnull String aspectName) {
     EntitySpec entitySpec = _entityRegistry.getEntitySpec(entityName);
     AspectSpec aspectSpec = entitySpec.getAspectSpec(aspectName);
     if (aspectSpec == null) {
-      new IllegalArgumentException(String.format("Unrecognized aspect name {} for entity {}", aspectName, entityName));
+      new IllegalArgumentException(
+          String.format("Unrecognized aspect name {} for entity {}", aspectName, entityName));
     } else if (!aspectSpec.isTimeseries()) {
       new IllegalArgumentException(
-          String.format("aspect name {} for entity {} is not a timeseries aspect", aspectName, entityName));
+          String.format(
+              "aspect name {} for entity {} is not a timeseries aspect", aspectName, entityName));
     }
 
     return aspectSpec;
   }
 
-  /**
-   * Get the aggregated metrics for the given dataset or column from a time series aspect.
-   */
+  /** Get the aggregated metrics for the given dataset or column from a time series aspect. */
   @Nonnull
-  public GenericTable getAggregatedStats(@Nonnull String entityName, @Nonnull String aspectName,
-      @Nonnull AggregationSpec[] aggregationSpecs, @Nullable Filter filter,
+  public GenericTable getAggregatedStats(
+      @Nonnull String entityName,
+      @Nonnull String aspectName,
+      @Nonnull AggregationSpec[] aggregationSpecs,
+      @Nullable Filter filter,
       @Nullable GroupingBucket[] groupingBuckets) {
 
     // Setup the filter query builder using the input filter provided.
@@ -371,51 +406,62 @@ public class ESAggregatedStatsDAO {
     log.debug("Search request is: " + searchRequest);
 
     try {
-      final SearchResponse searchResponse = _searchClient.search(searchRequest, RequestOptions.DEFAULT);
-      return generateResponseFromElastic(searchResponse, groupingBuckets, aggregationSpecs, aspectSpec);
+      final SearchResponse searchResponse =
+          _searchClient.search(searchRequest, RequestOptions.DEFAULT);
+      return generateResponseFromElastic(
+          searchResponse, groupingBuckets, aggregationSpecs, aspectSpec);
     } catch (Exception e) {
       log.error("Search query failed: " + e.getMessage());
       throw new ESQueryException("Search query failed:", e);
     }
   }
 
-  private void addAggregationBuildersFromAggregationSpec(AspectSpec aspectSpec, AggregationBuilder baseAggregation,
-      AggregationSpec aggregationSpec) {
+  private void addAggregationBuildersFromAggregationSpec(
+      AspectSpec aspectSpec, AggregationBuilder baseAggregation, AggregationSpec aggregationSpec) {
     String fieldPath = aggregationSpec.getFieldPath();
     String esFieldName = fieldPath;
 
     switch (aggregationSpec.getAggregationType()) {
       case LATEST:
         // Construct the terms aggregation with a max timestamp sub-aggregation.
-        String termsAggName = toEsAggName(ES_AGGREGATION_PREFIX + ES_TERMS_AGGREGATION_PREFIX + fieldPath);
-        AggregationBuilder termsAgg = AggregationBuilders.terms(termsAggName)
-            .field(esFieldName)
-            .size(MAX_TERM_BUCKETS)
-            .subAggregation(AggregationBuilders.max(ES_AGG_MAX_TIMESTAMP).field(ES_FIELD_TIMESTAMP));
+        String termsAggName =
+            toEsAggName(ES_AGGREGATION_PREFIX + ES_TERMS_AGGREGATION_PREFIX + fieldPath);
+        AggregationBuilder termsAgg =
+            AggregationBuilders.terms(termsAggName)
+                .field(esFieldName)
+                .size(MAX_TERM_BUCKETS)
+                .subAggregation(
+                    AggregationBuilders.max(ES_AGG_MAX_TIMESTAMP).field(ES_FIELD_TIMESTAMP));
         baseAggregation.subAggregation(termsAgg);
         // Construct the max_bucket pipeline aggregation
         MaxBucketPipelineAggregationBuilder maxBucketPipelineAgg =
-            PipelineAggregatorBuilders.maxBucket(getAggregationSpecAggESName(aggregationSpec),
+            PipelineAggregatorBuilders.maxBucket(
+                getAggregationSpecAggESName(aggregationSpec),
                 termsAggName + ">" + ES_AGG_MAX_TIMESTAMP);
         baseAggregation.subAggregation(maxBucketPipelineAgg);
         break;
       case SUM:
         AggregationBuilder sumAgg =
-            AggregationBuilders.sum(getAggregationSpecAggESName(aggregationSpec)).field(esFieldName);
+            AggregationBuilders.sum(getAggregationSpecAggESName(aggregationSpec))
+                .field(esFieldName);
         baseAggregation.subAggregation(sumAgg);
         break;
       case CARDINALITY:
         AggregationBuilder cardinalityAgg =
-            AggregationBuilders.cardinality(getAggregationSpecAggESName(aggregationSpec)).field(esFieldName);
+            AggregationBuilders.cardinality(getAggregationSpecAggESName(aggregationSpec))
+                .field(esFieldName);
         baseAggregation.subAggregation(cardinalityAgg);
         break;
       default:
-        throw new IllegalStateException("Unexpected value: " + aggregationSpec.getAggregationType());
+        throw new IllegalStateException(
+            "Unexpected value: " + aggregationSpec.getAggregationType());
     }
   }
 
-  private Pair<AggregationBuilder, AggregationBuilder> makeGroupingAggregationBuilder(AspectSpec aspectSpec,
-      @Nullable AggregationBuilder baseAggregationBuilder, @Nullable GroupingBucket[] groupingBuckets) {
+  private Pair<AggregationBuilder, AggregationBuilder> makeGroupingAggregationBuilder(
+      AspectSpec aspectSpec,
+      @Nullable AggregationBuilder baseAggregationBuilder,
+      @Nullable GroupingBucket[] groupingBuckets) {
 
     AggregationBuilder firstAggregationBuilder = baseAggregationBuilder;
     AggregationBuilder lastAggregationBuilder = baseAggregationBuilder;
@@ -427,18 +473,20 @@ public class ESAggregatedStatsDAO {
           if (!curGroupingBucket.getKey().equals(ES_FIELD_TIMESTAMP)) {
             throw new IllegalArgumentException("Date Grouping bucket is not:" + ES_FIELD_TIMESTAMP);
           }
-          curAggregationBuilder = AggregationBuilders.dateHistogram(ES_AGG_TIMESTAMP)
-              .field(ES_FIELD_TIMESTAMP)
-              .calendarInterval(getHistogramInterval(curGroupingBucket.getTimeWindowSize()));
+          curAggregationBuilder =
+              AggregationBuilders.dateHistogram(ES_AGG_TIMESTAMP)
+                  .field(ES_FIELD_TIMESTAMP)
+                  .calendarInterval(getHistogramInterval(curGroupingBucket.getTimeWindowSize()));
         } else if (curGroupingBucket.getType() == GroupingBucketType.STRING_GROUPING_BUCKET) {
           // Process the string grouping bucket using the 'terms' aggregation.
           // The field can be Keyword, Numeric, ip, boolean, or binary.
           String fieldName = ESUtils.toKeywordField(curGroupingBucket.getKey(), true);
           DataSchema.Type fieldType = getGroupingBucketKeyType(aspectSpec, curGroupingBucket);
-          curAggregationBuilder = AggregationBuilders.terms(getGroupingBucketAggName(curGroupingBucket))
-              .field(fieldName)
-              .size(MAX_TERM_BUCKETS)
-              .order(BucketOrder.aggregation("_key", true));
+          curAggregationBuilder =
+              AggregationBuilders.terms(getGroupingBucketAggName(curGroupingBucket))
+                  .field(fieldName)
+                  .size(MAX_TERM_BUCKETS)
+                  .order(BucketOrder.aggregation("_key", true));
         }
         if (firstAggregationBuilder == null) {
           firstAggregationBuilder = curAggregationBuilder;
@@ -453,8 +501,11 @@ public class ESAggregatedStatsDAO {
     return Pair.of(firstAggregationBuilder, lastAggregationBuilder);
   }
 
-  private GenericTable generateResponseFromElastic(SearchResponse searchResponse, GroupingBucket[] groupingBuckets,
-      AggregationSpec[] aggregationSpecs, AspectSpec aspectSpec) {
+  private GenericTable generateResponseFromElastic(
+      SearchResponse searchResponse,
+      GroupingBucket[] groupingBuckets,
+      AggregationSpec[] aggregationSpecs,
+      AspectSpec aspectSpec) {
     GenericTable resultTable = new GenericTable();
 
     // 1. Generate the column names.
@@ -470,8 +521,15 @@ public class ESAggregatedStatsDAO {
 
     Aggregations aggregations = searchResponse.getAggregations();
     Stack<String> rowAcc = new Stack<>();
-    rowGenHelper(aggregations, 0, groupingBuckets.length, rows, rowAcc,
-        ImmutableList.copyOf(groupingBuckets), ImmutableList.copyOf(aggregationSpecs), aspectSpec);
+    rowGenHelper(
+        aggregations,
+        0,
+        groupingBuckets.length,
+        rows,
+        rowAcc,
+        ImmutableList.copyOf(groupingBuckets),
+        ImmutableList.copyOf(aggregationSpecs),
+        aspectSpec);
 
     if (!rowAcc.isEmpty()) {
       throw new IllegalStateException("Expected stack to be empty.");
