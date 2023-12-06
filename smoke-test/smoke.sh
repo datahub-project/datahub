@@ -24,12 +24,14 @@ source venv/bin/activate
 
 source ./set-cypress-creds.sh
 
-# no_cypress, cypress_suite1, cypress_rest
+# no_cypress_suite0, no_cypress_suite1, cypress_suite1, cypress_rest
 if [[ -z "${TEST_STRATEGY}" ]]; then
     pytest -rP --durations=20 -vv --continue-on-collection-errors --junit-xml=junit.smoke.xml
 else
-    if [ "$TEST_STRATEGY" == "no_cypress" ]; then
-        pytest -rP --durations=20 -vv --continue-on-collection-errors --junit-xml=junit.smoke_non_cypress.xml -k 'not test_run_cypress'
+    if [ "$TEST_STRATEGY" == "no_cypress_suite0" ]; then
+        pytest -rP --durations=20 -vv --continue-on-collection-errors --junit-xml=junit.smoke_non_cypress.xml -k 'not test_run_cypress' -m 'not no_cypress_suite1'
+    elif [ "$TEST_STRATEGY" == "no_cypress_suite1" ]; then
+        pytest -rP --durations=20 -vv --continue-on-collection-errors --junit-xml=junit.smoke_non_cypress.xml -m 'no_cypress_suite1'
     else
         pytest -rP --durations=20 -vv --continue-on-collection-errors --junit-xml=junit.smoke_cypress_${TEST_STRATEGY}.xml tests/cypress/integration_test.py
     fi

@@ -9,7 +9,6 @@ import com.linkedin.metadata.models.registry.template.ArrayMergingTemplate;
 import java.util.Collections;
 import javax.annotation.Nonnull;
 
-
 public class DatasetPropertiesTemplate implements ArrayMergingTemplate<DatasetProperties> {
 
   private static final String TAGS_FIELD_NAME = "tags";

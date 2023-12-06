@@ -11,7 +11,7 @@
                 "catchup": "False",
                 "description": "None",
                 "doc_md": "None",
-                "fileloc": "'/Users/shubham/airflow1/datahub/metadata-ingestion-modules/airflow-plugin/tests/integration/dags/snowflake_operator.py'",
+                "fileloc": "<fileloc>",
                 "is_paused_upon_creation": "None",
                 "start_date": "DateTime(2023, 1, 1, 0, 0, 0, tzinfo=Timezone('UTC'))",
                 "tags": "[]",
@@ -226,9 +226,9 @@
         "json": {
             "customProperties": {
                 "run_id": "manual_run_test",
-                "duration": "None",
-                "start_date": "2023-09-30 06:55:36.844976+00:00",
-                "end_date": "None",
+                "duration": "<duration>",
+                "start_date": "<start_date>",
+                "end_date": "<end_date>",
                 "execution_date": "2023-09-27 21:34:38+00:00",
                 "try_number": "0",
                 "max_tries": "0",
@@ -245,7 +245,7 @@
             "name": "snowflake_operator_transform_cost_table_manual_run_test",
             "type": "BATCH_AD_HOC",
             "created": {
-                "time": 1696056936844,
+                "time": 1701223475050,
                 "actor": "urn:li:corpuser:datahub"
             }
         }
@@ -318,7 +318,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1696056936844,
+            "timestampMillis": 1701223475050,
             "partitionSpec": {
                 "type": "FULL_TABLE",
                 "partition": "FULL_TABLE_SNAPSHOT"
@@ -496,7 +496,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1696056938096,
+            "timestampMillis": 1701223476665,
             "partitionSpec": {
                 "type": "FULL_TABLE",
                 "partition": "FULL_TABLE_SNAPSHOT"

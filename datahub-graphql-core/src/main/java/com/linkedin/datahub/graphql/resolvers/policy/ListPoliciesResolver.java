@@ -1,5 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.policy;
 
+import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
+
 import com.datahub.authorization.PolicyFetcher;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
@@ -14,9 +16,6 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
-import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
-
-
 public class ListPoliciesResolver implements DataFetcher<CompletableFuture<ListPoliciesResult>> {
 
   private static final Integer DEFAULT_START = 0;
@@ -30,18 +29,22 @@ public class ListPoliciesResolver implements DataFetcher<CompletableFuture<ListP
   }
 
   @Override
-  public CompletableFuture<ListPoliciesResult> get(final DataFetchingEnvironment environment) throws Exception {
+  public CompletableFuture<ListPoliciesResult> get(final DataFetchingEnvironment environment)
+      throws Exception {
 
     final QueryContext context = environment.getContext();
 
     if (PolicyAuthUtils.canManagePolicies(context)) {
-      final ListPoliciesInput input = bindArgument(environment.getArgument("input"), ListPoliciesInput.class);
+      final ListPoliciesInput input =
+          bindArgument(environment.getArgument("input"), ListPoliciesInput.class);
       final Integer start = input.getStart() == null ? DEFAULT_START : input.getStart();
       final Integer count = input.getCount() == null ? DEFAULT_COUNT : input.getCount();
       final String query = input.getQuery() == null ? DEFAULT_QUERY : input.getQuery();
 
-      return _policyFetcher.fetchPolicies(start, query, count, context.getAuthentication())
-              .thenApply(policyFetchResult -> {
+      return _policyFetcher
+          .fetchPolicies(start, query, count, context.getAuthentication())
+          .thenApply(
+              policyFetchResult -> {
                 final ListPoliciesResult result = new ListPoliciesResult();
                 result.setStart(start);
                 result.setCount(count);
@@ -50,14 +53,18 @@ public class ListPoliciesResolver implements DataFetcher<CompletableFuture<ListP
                 return result;
               });
     }
-    throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
+    throw new AuthorizationException(
+        "Unauthorized to perform this action. Please contact your DataHub administrator.");
   }
 
   private List<Policy> mapEntities(final List<PolicyFetcher.Policy> policies) {
-    return policies.stream().map(policy -> {
-      Policy mappedPolicy = PolicyInfoPolicyMapper.map(policy.getPolicyInfo());
-      mappedPolicy.setUrn(policy.getUrn().toString());
-      return mappedPolicy;
-    }).collect(Collectors.toList());
+    return policies.stream()
+        .map(
+            policy -> {
+              Policy mappedPolicy = PolicyInfoPolicyMapper.map(policy.getPolicyInfo());
+              mappedPolicy.setUrn(policy.getUrn().toString());
+              return mappedPolicy;
+            })
+        .collect(Collectors.toList());
   }
 }

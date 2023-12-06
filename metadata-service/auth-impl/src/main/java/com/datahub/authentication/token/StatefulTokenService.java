@@ -32,10 +32,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.lang.ArrayUtils;
 
-
 /**
- * Service responsible for generating JWT tokens & managing the associated metadata entities in GMS for use within
- * DataHub that are stored in the entity service so that we can list & revoke tokens as needed.
+ * Service responsible for generating JWT tokens & managing the associated metadata entities in GMS
+ * for use within DataHub that are stored in the entity service so that we can list & revoke tokens
+ * as needed.
  */
 @Slf4j
 public class StatefulTokenService extends StatelessTokenService {
@@ -44,47 +44,65 @@ public class StatefulTokenService extends StatelessTokenService {
   private final LoadingCache<String, Boolean> _revokedTokenCache;
   private final String salt;
 
-  public StatefulTokenService(@Nonnull final String signingKey, @Nonnull final String signingAlgorithm,
-      @Nullable final String iss, @Nonnull final EntityService entityService, @Nonnull final String salt) {
+  public StatefulTokenService(
+      @Nonnull final String signingKey,
+      @Nonnull final String signingAlgorithm,
+      @Nullable final String iss,
+      @Nonnull final EntityService entityService,
+      @Nonnull final String salt) {
     super(signingKey, signingAlgorithm, iss);
     this._entityService = entityService;
-    this._revokedTokenCache = CacheBuilder.newBuilder()
-        .maximumSize(10000)
-        .expireAfterWrite(5, TimeUnit.MINUTES)
-        .build(new CacheLoader<String, Boolean>() {
-          @Override
-          public Boolean load(final String key) {
-            final Urn accessUrn = Urn.createFromTuple(Constants.ACCESS_TOKEN_ENTITY_NAME, key);
-            return !_entityService.exists(accessUrn);
-          }
-        });
+    this._revokedTokenCache =
+        CacheBuilder.newBuilder()
+            .maximumSize(10000)
+            .expireAfterWrite(5, TimeUnit.MINUTES)
+            .build(
+                new CacheLoader<String, Boolean>() {
+                  @Override
+                  public Boolean load(final String key) {
+                    final Urn accessUrn =
+                        Urn.createFromTuple(Constants.ACCESS_TOKEN_ENTITY_NAME, key);
+                    return !_entityService.exists(accessUrn);
+                  }
+                });
     this.salt = salt;
   }
 
   /**
    * Generates a JWT for an actor with a default expiration time.
    *
-   * Note that the caller of this method is expected to authorize the action of generating a token.
-   *
+   * <p>Note that the caller of this method is expected to authorize the action of generating a
+   * token.
    */
   @Override
   public String generateAccessToken(@Nonnull final TokenType type, @Nonnull final Actor actor) {
-    throw new UnsupportedOperationException("Please use generateToken(Token, Actor, String, String, String) endpoint "
-        + "instead. Reason: StatefulTokenService requires that all tokens have a name & ownerUrn specified.");
+    throw new UnsupportedOperationException(
+        "Please use generateToken(Token, Actor, String, String, String) endpoint "
+            + "instead. Reason: StatefulTokenService requires that all tokens have a name & ownerUrn specified.");
   }
 
   @Nonnull
-  public String generateAccessToken(@Nonnull final TokenType type, @Nonnull final Actor actor,
-      @Nonnull final String name, final String description, final String actorUrn) {
+  public String generateAccessToken(
+      @Nonnull final TokenType type,
+      @Nonnull final Actor actor,
+      @Nonnull final String name,
+      final String description,
+      final String actorUrn) {
     Date date = new Date();
     long timeMilli = date.getTime();
-    return generateAccessToken(type, actor, DEFAULT_EXPIRES_IN_MS, timeMilli, name, description, actorUrn);
+    return generateAccessToken(
+        type, actor, DEFAULT_EXPIRES_IN_MS, timeMilli, name, description, actorUrn);
   }
 
   @Nonnull
-  public String generateAccessToken(@Nonnull final TokenType type, @Nonnull final Actor actor,
-      @Nullable final Long expiresInMs, @Nonnull final long createdAtInMs, @Nonnull final String tokenName,
-      @Nullable final String tokenDescription, final String actorUrn) {
+  public String generateAccessToken(
+      @Nonnull final TokenType type,
+      @Nonnull final Actor actor,
+      @Nullable final Long expiresInMs,
+      @Nonnull final long createdAtInMs,
+      @Nonnull final String tokenName,
+      @Nullable final String tokenDescription,
+      final String actorUrn) {
 
     Objects.requireNonNull(type);
     Objects.requireNonNull(actor);
@@ -101,7 +119,8 @@ public class StatefulTokenService extends StatelessTokenService {
 
     final MetadataChangeProposal proposal = new MetadataChangeProposal();
 
-    // Create the access token key --> use a hashed access token value as a unique id to ensure it's not duplicated.
+    // Create the access token key --> use a hashed access token value as a unique id to ensure it's
+    // not duplicated.
     final DataHubAccessTokenKey key = new DataHubAccessTokenKey();
     key.setId(tokenHash);
     proposal.setEntityKeyAspect(GenericRecordUtils.serializeAspect(key));
@@ -124,14 +143,20 @@ public class StatefulTokenService extends StatelessTokenService {
     proposal.setChangeType(ChangeType.UPSERT);
 
     log.info("About to ingest access token metadata {}", proposal);
-    final AuditStamp auditStamp = AuditStampUtils.createDefaultAuditStamp().setActor(UrnUtils.getUrn(actorUrn));
+    final AuditStamp auditStamp =
+        AuditStampUtils.createDefaultAuditStamp().setActor(UrnUtils.getUrn(actorUrn));
 
-    Stream<MetadataChangeProposal> proposalStream = Stream.concat(Stream.of(proposal),
+    Stream<MetadataChangeProposal> proposalStream =
+        Stream.concat(
+            Stream.of(proposal),
             AspectUtils.getAdditionalChanges(proposal, _entityService).stream());
 
-    _entityService.ingestProposal(AspectsBatchImpl.builder()
+    _entityService.ingestProposal(
+        AspectsBatchImpl.builder()
             .mcps(proposalStream.collect(Collectors.toList()), _entityService.getEntityRegistry())
-            .build(), auditStamp, false);
+            .build(),
+        auditStamp,
+        false);
 
     return accessToken;
   }
@@ -153,7 +178,8 @@ public class StatefulTokenService extends StatelessTokenService {
       this.revokeAccessToken(hash(accessToken));
       throw e;
     } catch (final ExecutionException e) {
-      throw new TokenException("Failed to validate DataHub token: Unable to load token information from store", e);
+      throw new TokenException(
+          "Failed to validate DataHub token: Unable to load token information from store", e);
     }
   }
 
@@ -171,9 +197,7 @@ public class StatefulTokenService extends StatelessTokenService {
     throw new TokenException("Access token no longer exists");
   }
 
-  /**
-   * Hashes the input after salting it.
-   */
+  /** Hashes the input after salting it. */
   public String hash(String input) {
     final byte[] saltingKeyBytes = this.salt.getBytes();
     final byte[] inputBytes = input.getBytes();
