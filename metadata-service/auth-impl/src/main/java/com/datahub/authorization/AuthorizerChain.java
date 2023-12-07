@@ -14,12 +14,13 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
-
 /**
- * A configurable chain of {@link Authorizer}s executed in series to attempt to authenticate an inbound request.
+ * A configurable chain of {@link Authorizer}s executed in series to attempt to authenticate an
+ * inbound request.
  *
- * Individual {@link Authorizer}s are registered with the chain using {@link #register(Authorizer)}.
- * The chain can be executed by invoking {@link #authorize(AuthorizationRequest)}.
+ * <p>Individual {@link Authorizer}s are registered with the chain using {@link
+ * #register(Authorizer)}. The chain can be executed by invoking {@link
+ * #authorize(AuthorizationRequest)}.
  */
 @Slf4j
 public class AuthorizerChain implements Authorizer {
@@ -41,7 +42,7 @@ public class AuthorizerChain implements Authorizer {
   /**
    * Executes a set of {@link Authorizer}s and returns the first successful authentication result.
    *
-   * Returns an instance of {@link AuthorizationResult}.
+   * <p>Returns an instance of {@link AuthorizationResult}.
    */
   @Nullable
   public AuthorizationResult authorize(@Nonnull final AuthorizationRequest request) {
@@ -51,10 +52,13 @@ public class AuthorizerChain implements Authorizer {
 
     for (final Authorizer authorizer : this.authorizers) {
       try {
-        log.debug("Executing Authorizer with class name {}", authorizer.getClass().getCanonicalName());
+        log.debug(
+            "Executing Authorizer with class name {}", authorizer.getClass().getCanonicalName());
         log.debug("Authorization Request: {}", request.toString());
-        // The library came with plugin can use the contextClassLoader to load the classes. For example apache-ranger library does this.
-        // Here we need to set our IsolatedClassLoader as contextClassLoader to resolve such class loading request from plugin's home directory,
+        // The library came with plugin can use the contextClassLoader to load the classes. For
+        // example apache-ranger library does this.
+        // Here we need to set our IsolatedClassLoader as contextClassLoader to resolve such class
+        // loading request from plugin's home directory,
         // otherwise plugin's internal library wouldn't be able to find their dependent classes
         Thread.currentThread().setContextClassLoader(authorizer.getClass().getClassLoader());
         AuthorizationResult result = authorizer.authorize(request);
@@ -67,12 +71,16 @@ public class AuthorizerChain implements Authorizer {
 
           return result;
         } else {
-          log.debug("Received DENY result from Authorizer with class name {}. message: {}",
-              authorizer.getClass().getCanonicalName(), result.getMessage());
+          log.debug(
+              "Received DENY result from Authorizer with class name {}. message: {}",
+              authorizer.getClass().getCanonicalName(),
+              result.getMessage());
         }
       } catch (Exception e) {
-        log.error("Caught exception while attempting to authorize request using Authorizer {}. Skipping authorizer.",
-            authorizer.getClass().getCanonicalName(), e);
+        log.error(
+            "Caught exception while attempting to authorize request using Authorizer {}. Skipping authorizer.",
+            authorizer.getClass().getCanonicalName(),
+            e);
       } finally {
         Thread.currentThread().setContextClassLoader(contextClassLoader);
       }
@@ -87,16 +95,19 @@ public class AuthorizerChain implements Authorizer {
       return null;
     }
 
-    AuthorizedActors finalAuthorizedActors = this.authorizers.get(0).authorizedActors(privilege, resourceSpec);
+    AuthorizedActors finalAuthorizedActors =
+        this.authorizers.get(0).authorizedActors(privilege, resourceSpec);
     for (int i = 1; i < this.authorizers.size(); i++) {
-      finalAuthorizedActors = mergeAuthorizedActors(finalAuthorizedActors,
-          this.authorizers.get(i).authorizedActors(privilege, resourceSpec));
+      finalAuthorizedActors =
+          mergeAuthorizedActors(
+              finalAuthorizedActors,
+              this.authorizers.get(i).authorizedActors(privilege, resourceSpec));
     }
     return finalAuthorizedActors;
   }
 
-  private AuthorizedActors mergeAuthorizedActors(@Nullable AuthorizedActors original,
-      @Nullable AuthorizedActors other) {
+  private AuthorizedActors mergeAuthorizedActors(
+      @Nullable AuthorizedActors original, @Nullable AuthorizedActors other) {
     if (original == null) {
       return other;
     }
@@ -139,9 +150,7 @@ public class AuthorizerChain implements Authorizer {
         .build();
   }
 
-  /**
-   * Returns an instance of default {@link DataHubAuthorizer}
-   */
+  /** Returns an instance of default {@link DataHubAuthorizer} */
   public DataHubAuthorizer getDefaultAuthorizer() {
     return (DataHubAuthorizer) defaultAuthorizer;
   }

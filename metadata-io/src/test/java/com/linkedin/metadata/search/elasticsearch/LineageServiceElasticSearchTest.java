@@ -1,8 +1,8 @@
 package com.linkedin.metadata.search.elasticsearch;
 
 import com.linkedin.metadata.config.search.SearchConfiguration;
-import com.linkedin.metadata.search.LineageServiceTestBase;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
+import com.linkedin.metadata.search.LineageServiceTestBase;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import io.datahubproject.test.search.config.SearchCommonTestConfiguration;
@@ -14,20 +14,18 @@ import org.springframework.context.annotation.Import;
 import org.testng.AssertJUnit;
 import org.testng.annotations.Test;
 
-
-@Import({ElasticSearchSuite.class, SearchCommonTestConfiguration.class, SearchTestContainerConfiguration.class})
+@Import({
+  ElasticSearchSuite.class,
+  SearchCommonTestConfiguration.class,
+  SearchTestContainerConfiguration.class
+})
 public class LineageServiceElasticSearchTest extends LineageServiceTestBase {
 
-  @Autowired
-  private RestHighLevelClient _searchClient;
-  @Autowired
-  private ESBulkProcessor _bulkProcessor;
-  @Autowired
-  private ESIndexBuilder _esIndexBuilder;
-  @Autowired
-  private SearchConfiguration _searchConfiguration;
-  @Autowired
-  private CustomSearchConfiguration _customSearchConfiguration;
+  @Autowired private RestHighLevelClient _searchClient;
+  @Autowired private ESBulkProcessor _bulkProcessor;
+  @Autowired private ESIndexBuilder _esIndexBuilder;
+  @Autowired private SearchConfiguration _searchConfiguration;
+  @Autowired private CustomSearchConfiguration _customSearchConfiguration;
 
   @NotNull
   @Override

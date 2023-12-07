@@ -1,5 +1,7 @@
 package datahub.client.patch;
 
+import static com.fasterxml.jackson.databind.node.JsonNodeFactory.*;
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.linkedin.common.urn.Urn;
@@ -13,9 +15,6 @@ import java.util.List;
 import org.apache.commons.lang3.tuple.ImmutableTriple;
 import org.apache.http.entity.ContentType;
 
-import static com.fasterxml.jackson.databind.node.JsonNodeFactory.*;
-
-
 public abstract class AbstractMultiFieldPatchBuilder<T extends AbstractMultiFieldPatchBuilder<T>> {
 
   public static final String OP_KEY = "op";
@@ -27,6 +26,7 @@ public abstract class AbstractMultiFieldPatchBuilder<T extends AbstractMultiFiel
 
   /**
    * Builder method
+   *
    * @return a {@link MetadataChangeProposal} constructed from the builder's properties
    */
   public MetadataChangeProposal build() {
@@ -41,6 +41,7 @@ public abstract class AbstractMultiFieldPatchBuilder<T extends AbstractMultiFiel
 
   /**
    * Sets the target entity urn to be updated by this patch
+   *
    * @param urn The target entity whose aspect is to be patched by this update
    * @return this PatchBuilder subtype's instance
    */
@@ -52,18 +53,21 @@ public abstract class AbstractMultiFieldPatchBuilder<T extends AbstractMultiFiel
 
   /**
    * The aspect name associated with this builder
+   *
    * @return aspect name
    */
   protected abstract String getAspectName();
 
   /**
    * Returns the String representation of the Entity type associated with this aspect
+   *
    * @return entity type name
    */
   protected abstract String getEntityType();
 
   /**
    * Overrides basic behavior to construct multiple patches based on properties
+   *
    * @return a JsonPatch wrapped by GenericAspect
    */
   protected GenericAspect buildPatch() {
@@ -73,9 +77,14 @@ public abstract class AbstractMultiFieldPatchBuilder<T extends AbstractMultiFiel
 
     ArrayNode patches = instance.arrayNode();
     List<ImmutableTriple<String, String, JsonNode>> triples = getPathValues();
-    triples.forEach(triple -> patches.add(instance.objectNode().put(OP_KEY, triple.left)
-        .put(PATH_KEY, triple.middle)
-        .set(VALUE_KEY, triple.right)));
+    triples.forEach(
+        triple ->
+            patches.add(
+                instance
+                    .objectNode()
+                    .put(OP_KEY, triple.left)
+                    .put(PATH_KEY, triple.middle)
+                    .set(VALUE_KEY, triple.right)));
 
     GenericAspect genericAspect = new GenericAspect();
     genericAspect.setContentType(ContentType.APPLICATION_JSON.getMimeType());
@@ -85,7 +94,9 @@ public abstract class AbstractMultiFieldPatchBuilder<T extends AbstractMultiFiel
   }
 
   /**
-   * Constructs a list of Op, Path, Value triples to create as patches. Not idempotent and should not be called more than once
+   * Constructs a list of Op, Path, Value triples to create as patches. Not idempotent and should
+   * not be called more than once
+   *
    * @return list of patch precursor triples
    */
   protected List<ImmutableTriple<String, String, JsonNode>> getPathValues() {

@@ -69,8 +69,8 @@ class GenericProfiler:
     def generate_profile_workunits(
         self,
         requests: List[TableProfilerRequest],
+        *,
         max_workers: int,
-        db_name: Optional[str] = None,
         platform: Optional[str] = None,
         profiler_args: Optional[Dict] = None,
     ) -> Iterable[MetadataWorkUnit]:
@@ -98,7 +98,7 @@ class GenericProfiler:
             return
 
         # Otherwise, if column level profiling is enabled, use  GE profiler.
-        ge_profiler = self.get_profiler_instance(db_name)
+        ge_profiler = self.get_profiler_instance()
 
         for ge_profiler_request, profile in ge_profiler.generate_profiles(
             ge_profile_requests, max_workers, platform, profiler_args
@@ -149,12 +149,18 @@ class GenericProfiler:
         profile_table_level_only = self.config.profiling.profile_table_level_only
         dataset_name = self.get_dataset_name(table.name, schema_name, db_name)
         if not self.is_dataset_eligible_for_profiling(
-            dataset_name, table.last_altered, table.size_in_bytes, table.rows_count
+            dataset_name,
+            last_altered=table.last_altered,
+            size_in_bytes=table.size_in_bytes,
+            rows_count=table.rows_count,
         ):
             # Profile only table level if dataset is filtered from profiling
             # due to size limits alone
             if self.is_dataset_eligible_for_profiling(
-                dataset_name, table.last_altered, 0, 0
+                dataset_name,
+                last_altered=table.last_altered,
+                size_in_bytes=None,
+                rows_count=None,
             ):
                 profile_table_level_only = True
             else:
@@ -199,9 +205,7 @@ class GenericProfiler:
             inspector = inspect(conn)
             yield inspector
 
-    def get_profiler_instance(
-        self, db_name: Optional[str] = None
-    ) -> "DatahubGEProfiler":
+    def get_profiler_instance(self) -> "DatahubGEProfiler":
         logger.debug(f"Getting profiler instance from {self.platform}")
         url = self.config.get_sql_alchemy_url()
 
@@ -221,9 +225,10 @@ class GenericProfiler:
     def is_dataset_eligible_for_profiling(
         self,
         dataset_name: str,
-        last_altered: Optional[datetime],
-        size_in_bytes: Optional[int],
-        rows_count: Optional[int],
+        *,
+        last_altered: Optional[datetime] = None,
+        size_in_bytes: Optional[int] = None,
+        rows_count: Optional[int] = None,
     ) -> bool:
         dataset_urn = make_dataset_urn_with_platform_instance(
             self.platform,

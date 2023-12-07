@@ -1,5 +1,8 @@
 package com.linkedin.metadata.models.registry;
 
+import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.models.registry.EntityRegistryUtils.*;
+
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.UnionTemplate;
 import com.linkedin.metadata.models.AspectSpec;
@@ -27,13 +30,9 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 
-import static com.linkedin.metadata.Constants.*;
-import static com.linkedin.metadata.models.registry.EntityRegistryUtils.*;
-
-
 /**
- * Implementation of {@link EntityRegistry} that builds {@link DefaultEntitySpec} objects
- * from the a {@link Snapshot} Record Template present on the classpath
+ * Implementation of {@link EntityRegistry} that builds {@link DefaultEntitySpec} objects from the a
+ * {@link Snapshot} Record Template present on the classpath
  */
 public class SnapshotEntityRegistry implements EntityRegistry {
 
@@ -45,36 +44,41 @@ public class SnapshotEntityRegistry implements EntityRegistry {
   private static final SnapshotEntityRegistry INSTANCE = new SnapshotEntityRegistry();
 
   public SnapshotEntityRegistry() {
-    entityNameToSpec = new EntitySpecBuilder().buildEntitySpecs(new Snapshot().schema())
-        .stream()
-        .collect(Collectors.toMap(spec -> spec.getName().toLowerCase(), spec -> spec));
+    entityNameToSpec =
+        new EntitySpecBuilder()
+            .buildEntitySpecs(new Snapshot().schema()).stream()
+                .collect(Collectors.toMap(spec -> spec.getName().toLowerCase(), spec -> spec));
     entitySpecs = new ArrayList<>(entityNameToSpec.values());
     _aspectNameToSpec = populateAspectMap(entitySpecs);
     _aspectTemplateEngine = populateTemplateEngine(_aspectNameToSpec);
   }
 
   public SnapshotEntityRegistry(UnionTemplate snapshot) {
-    entityNameToSpec = new EntitySpecBuilder().buildEntitySpecs(snapshot.schema())
-        .stream()
-        .collect(Collectors.toMap(spec -> spec.getName().toLowerCase(), spec -> spec));
+    entityNameToSpec =
+        new EntitySpecBuilder()
+            .buildEntitySpecs(snapshot.schema()).stream()
+                .collect(Collectors.toMap(spec -> spec.getName().toLowerCase(), spec -> spec));
     entitySpecs = new ArrayList<>(entityNameToSpec.values());
     _aspectNameToSpec = populateAspectMap(entitySpecs);
     _aspectTemplateEngine = populateTemplateEngine(_aspectNameToSpec);
   }
 
   private AspectTemplateEngine populateTemplateEngine(Map<String, AspectSpec> aspectSpecs) {
-    // TODO: This should be more dynamic ideally, "hardcoding" for now, passing in aspect spec map preemptively
+    // TODO: This should be more dynamic ideally, "hardcoding" for now, passing in aspect spec map
+    // preemptively
 
     Map<String, Template<? extends RecordTemplate>> aspectSpecTemplateMap = new HashMap<>();
     aspectSpecTemplateMap.put(OWNERSHIP_ASPECT_NAME, new OwnershipTemplate());
     aspectSpecTemplateMap.put(DATASET_PROPERTIES_ASPECT_NAME, new DatasetPropertiesTemplate());
     aspectSpecTemplateMap.put(UPSTREAM_LINEAGE_ASPECT_NAME, new UpstreamLineageTemplate());
     aspectSpecTemplateMap.put(GLOBAL_TAGS_ASPECT_NAME, new GlobalTagsTemplate());
-    aspectSpecTemplateMap.put(EDITABLE_SCHEMA_METADATA_ASPECT_NAME, new EditableSchemaMetadataTemplate());
+    aspectSpecTemplateMap.put(
+        EDITABLE_SCHEMA_METADATA_ASPECT_NAME, new EditableSchemaMetadataTemplate());
     aspectSpecTemplateMap.put(GLOSSARY_TERMS_ASPECT_NAME, new GlossaryTermsTemplate());
     aspectSpecTemplateMap.put(DATA_FLOW_INFO_ASPECT_NAME, new DataFlowInfoTemplate());
     aspectSpecTemplateMap.put(DATA_JOB_INFO_ASPECT_NAME, new DataJobInfoTemplate());
-    aspectSpecTemplateMap.put(DATA_PRODUCT_PROPERTIES_ASPECT_NAME, new DataProductPropertiesTemplate());
+    aspectSpecTemplateMap.put(
+        DATA_PRODUCT_PROPERTIES_ASPECT_NAME, new DataProductPropertiesTemplate());
     aspectSpecTemplateMap.put(DATA_JOB_INPUT_OUTPUT_ASPECT_NAME, new DataJobInputOutputTemplate());
     return new AspectTemplateEngine(aspectSpecTemplateMap);
   }
