@@ -124,7 +124,7 @@ export const ExecutionDetailsModal = ({ urn, visible, onClose }: Props) => {
         downloadFile(output, `exec-${urn}.log`);
     };
 
-    const logs = (showExpandedLogs && output) || output.slice(0, 250);
+    const logs = (showExpandedLogs && output) || output?.split('\n').slice(0, 5).join('\n');
     const result = data?.executionRequest?.result?.status;
 
     useEffect(() => {
@@ -154,10 +154,10 @@ export const ExecutionDetailsModal = ({ urn, visible, onClose }: Props) => {
     } catch (e) {
         recipeYaml = '';
     }
-    const recipe = showExpandedRecipe ? recipeYaml : recipeYaml?.slice(0, 150);
+    const recipe = showExpandedRecipe ? recipeYaml : recipeYaml?.split('\n').slice(0, 5).join('\n');
 
-    const areLogsExpandable = output?.length > 250;
-    const isRecipeExpandable = recipeYaml?.length > 150;
+    const areLogsExpandable = output?.split(/\r\n|\r|\n/)?.length > 5;
+    const isRecipeExpandable = recipeYaml?.split(/\r\n|\r|\n/)?.length > 5;
 
     return (
         <Modal
