@@ -164,6 +164,8 @@ class DataResolverBase(ABC):
         return self.__access_token
 
     def _is_access_token_expired(self) -> bool:
+        if not self.__access_token_expiry_time:
+            return True
         return self.__access_token_expiry_time < datetime.now()
 
     def get_dashboards(self, workspace: Workspace) -> List[Dashboard]:
