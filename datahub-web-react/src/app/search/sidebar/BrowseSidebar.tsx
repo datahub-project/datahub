@@ -1,12 +1,14 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 import { Typography } from 'antd';
+import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 import EntityNode from './EntityNode';
 import { BrowseProvider } from './BrowseContext';
 import SidebarLoadingError from './SidebarLoadingError';
 import { SEARCH_RESULTS_BROWSE_SIDEBAR_ID } from '../../onboarding/config/SearchOnboardingConfig';
 import useSidebarEntities from './useSidebarEntities';
 import { ANTD_GRAY_V2 } from '../../entity/shared/constants';
+
 
 const Sidebar = styled.div<{ visible: boolean; width: number }>`
     height: 100%;
@@ -40,6 +42,52 @@ type Props = {
     width: number;
 };
 
+const EntityAggregationsDraggableList = ({entityAggregations}: any) =>{
+    const [updateEntityAggregations, setupdateEntityAggregations] = useState(entityAggregations)
+
+    useEffect(()=>{
+        setupdateEntityAggregations(entityAggregations)
+    },[entityAggregations]);
+
+    function handleOnDragEnd(result) {
+        if (!result.destination) return;
+    
+        const items = Array.from(updateEntityAggregations);
+        const [reorderedItem] = items.splice(result.source.index, 1);
+        items.splice(result.destination.index, 0, reorderedItem);
+    
+        setupdateEntityAggregations(items);
+      }
+    return (
+        <DragDropContext onDragEnd={handleOnDragEnd}>
+            <Droppable droppableId="entity">
+                {(provided) => (
+                <div className="entity" {...provided.droppableProps} ref={provided.innerRef}>
+                    {updateEntityAggregations?.map((entityAggregation, index)=> {
+                    return (
+                        <Draggable key={entityAggregation.value} draggableId={entityAggregation.value} index={index}>
+                        {(dropProvided) => (
+                            <div 
+                                ref={dropProvided.innerRef} 
+                                {...dropProvided.draggableProps} 
+                                {...dropProvided.dragHandleProps}
+                             >
+                            <BrowseProvider key={entityAggregation.value} entityAggregation={entityAggregation}>
+                                <EntityNode />
+                            </BrowseProvider>
+                            </div>
+                        )}
+                        </Draggable>
+                    );
+                    })}
+                    {provided.placeholder}
+                </div>
+                )}
+            </Droppable>
+        </DragDropContext>
+    )
+}
+
 const BrowseSidebar = ({ visible, width }: Props) => {
     const { error, entityAggregations, retry } = useSidebarEntities({
         skip: !visible,
@@ -52,11 +100,7 @@ const BrowseSidebar = ({ visible, width }: Props) => {
             </SidebarHeader>
             <SidebarBody visible={visible}>
                 {entityAggregations && !entityAggregations.length && <div>No results found</div>}
-                {entityAggregations?.map((entityAggregation) => (
-                    <BrowseProvider key={entityAggregation.value} entityAggregation={entityAggregation}>
-                        <EntityNode />
-                    </BrowseProvider>
-                ))}
+                <EntityAggregationsDraggableList entityAggregations={entityAggregations}/>
                 {error && <SidebarLoadingError onClickRetry={retry} />}
             </SidebarBody>
         </Sidebar>
