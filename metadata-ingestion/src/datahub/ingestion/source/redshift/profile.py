@@ -60,6 +60,7 @@ class RedshiftProfiler(GenericProfiler):
             yield from self.generate_profile_workunits(
                 profile_requests,
                 max_workers=self.config.profiling.max_workers,
+                db_name=db,
                 platform=self.platform,
                 profiler_args=self.get_profile_args(),
             )
