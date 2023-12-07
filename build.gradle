@@ -16,7 +16,7 @@ buildscript {
   ext.playVersion = '2.8.18'
   ext.log4jVersion = '2.19.0'
   ext.slf4jVersion = '1.7.36'
-  ext.logbackClassic = '1.2.12'
+  ext.logbackClassic = '1.4.14'
   ext.hadoop3Version = '3.3.5'
   ext.kafkaVersion = '2.3.0'
   ext.hazelcastVersion = '5.3.6'
