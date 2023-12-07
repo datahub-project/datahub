@@ -509,6 +509,7 @@ class DBTNode:
             "table",
             "incremental",
             "snapshot",
+            "fc_insert_by_period",
         }:
             # upstream urns point to the target platform
             platform_value = target_platform
