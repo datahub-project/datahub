@@ -94,6 +94,14 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
                     {
                         name: 'Related Terms',
                         component: GlossayRelatedTerms,
+                        getDynamicName: (_, glossaryTerm) => {
+                            return `Related Terms (${
+                                glossaryTerm?.glossaryTerm?.isRelatedTerms?.total +
+                                glossaryTerm?.glossaryTerm?.hasRelatedTerms?.total +
+                                glossaryTerm?.glossaryTerm?.isAChildren?.total +
+                                glossaryTerm?.glossaryTerm?.containedBy?.total
+                            })`;
+                        },
                     },
                     {
                         name: 'Properties',
