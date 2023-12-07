@@ -6,7 +6,6 @@ import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import javax.annotation.Nonnull;
 
-
 public class DashboardUsageMetricMapper implements TimeSeriesAspectMapper<DashboardUsageMetrics> {
 
   public static final DashboardUsageMetricMapper INSTANCE = new DashboardUsageMetricMapper();
@@ -18,8 +17,10 @@ public class DashboardUsageMetricMapper implements TimeSeriesAspectMapper<Dashbo
   @Override
   public DashboardUsageMetrics apply(EnvelopedAspect envelopedAspect) {
     com.linkedin.dashboard.DashboardUsageStatistics gmsDashboardUsageStatistics =
-        GenericRecordUtils.deserializeAspect(envelopedAspect.getAspect().getValue(),
-            envelopedAspect.getAspect().getContentType(), com.linkedin.dashboard.DashboardUsageStatistics.class);
+        GenericRecordUtils.deserializeAspect(
+            envelopedAspect.getAspect().getValue(),
+            envelopedAspect.getAspect().getContentType(),
+            com.linkedin.dashboard.DashboardUsageStatistics.class);
 
     final com.linkedin.datahub.graphql.generated.DashboardUsageMetrics dashboardUsageMetrics =
         new com.linkedin.datahub.graphql.generated.DashboardUsageMetrics();

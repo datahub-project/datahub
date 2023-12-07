@@ -13,10 +13,7 @@ import java.util.stream.Collectors;
 import lombok.SneakyThrows;
 import lombok.Value;
 
-
-/**
- * In memory ranker that re-ranks results returned by the search backend
- */
+/** In memory ranker that re-ranks results returned by the search backend */
 public abstract class SearchRanker<U extends Comparable<? super U>> {
 
   /**
@@ -25,18 +22,19 @@ public abstract class SearchRanker<U extends Comparable<? super U>> {
   public abstract List<FeatureExtractor> getFeatureExtractors();
 
   /**
-   * Return a comparable score for each entity returned by search backend. The ranker will rank based on this score
+   * Return a comparable score for each entity returned by search backend. The ranker will rank
+   * based on this score
    */
   public abstract U score(SearchEntity searchEntity);
 
-  /**
-   * Rank the input list of entities
-   */
+  /** Rank the input list of entities */
   public List<SearchEntity> rank(List<SearchEntity> originalList) {
     List<SearchEntity> entitiesToRank = originalList;
     if (!getFeatureExtractors().isEmpty()) {
-      entitiesToRank = Streams.zip(originalList.stream(), fetchFeatures(originalList).stream(), this::updateFeatures)
-          .collect(Collectors.toList());
+      entitiesToRank =
+          Streams.zip(
+                  originalList.stream(), fetchFeatures(originalList).stream(), this::updateFeatures)
+              .collect(Collectors.toList());
     }
     return entitiesToRank.stream()
         .map(entity -> new ScoredEntity<>(entity, score(entity)))
@@ -45,26 +43,30 @@ public abstract class SearchRanker<U extends Comparable<? super U>> {
         .collect(Collectors.toList());
   }
 
-  /**
-   * Fetch features for each entity returned using the feature extractors
-   */
+  /** Fetch features for each entity returned using the feature extractors */
   private List<Features> fetchFeatures(List<SearchEntity> originalList) {
     List<Features> originalFeatures =
-        originalList.stream().map(SearchEntity::getFeatures).map(Features::from).collect(Collectors.toList());
-    return ConcurrencyUtils.transformAndCollectAsync(getFeatureExtractors(),
-        extractor -> extractor.extractFeatures(originalList)).stream().reduce(originalFeatures, Features::merge);
+        originalList.stream()
+            .map(SearchEntity::getFeatures)
+            .map(Features::from)
+            .collect(Collectors.toList());
+    return ConcurrencyUtils.transformAndCollectAsync(
+            getFeatureExtractors(), extractor -> extractor.extractFeatures(originalList))
+        .stream()
+        .reduce(originalFeatures, Features::merge);
   }
 
-  /**
-   * Add the extracted features into each search entity to return the features in the response
-   */
+  /** Add the extracted features into each search entity to return the features in the response */
   @SneakyThrows
   private SearchEntity updateFeatures(SearchEntity originalEntity, Features features) {
-    return originalEntity.clone()
-        .setFeatures(new DoubleMap(features.getNumericFeatures()
-            .entrySet()
-            .stream()
-            .collect(Collectors.toMap(entry -> entry.getKey().toString(), Map.Entry::getValue))));
+    return originalEntity
+        .clone()
+        .setFeatures(
+            new DoubleMap(
+                features.getNumericFeatures().entrySet().stream()
+                    .collect(
+                        Collectors.toMap(
+                            entry -> entry.getKey().toString(), Map.Entry::getValue))));
   }
 
   @Value

@@ -1,10 +1,8 @@
 package com.linkedin.gms.factory.common;
 
-import lombok.extern.slf4j.Slf4j;
-
 import java.util.HashMap;
 import java.util.Map;
-
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -36,14 +34,16 @@ public class LocalCassandraSessionConfigFactory {
 
   @Bean(name = "gmsCassandraServiceConfig")
   protected Map<String, String> createInstance() {
-    return new HashMap<String, String>() {{
-      put("username", datasourceUsername);
-      put("password", datasourcePassword);
-      put("hosts", hosts);
-      put("port", port);
-      put("datacenter", datacenter);
-      put("keyspace", keyspace);
-      put("useSsl", useSsl);
-    }};
+    return new HashMap<String, String>() {
+      {
+        put("username", datasourceUsername);
+        put("password", datasourcePassword);
+        put("hosts", hosts);
+        put("port", port);
+        put("datacenter", datacenter);
+        put("keyspace", keyspace);
+        put("useSsl", useSsl);
+      }
+    };
   }
 }
