@@ -1,5 +1,8 @@
 package com.linkedin.datahub.graphql.types.tag.mappers;
 
+import static com.linkedin.datahub.graphql.resolvers.mutate.util.OwnerUtils.*;
+import static com.linkedin.metadata.Constants.*;
+
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.Owner;
 import com.linkedin.common.OwnerArray;
@@ -19,24 +22,19 @@ import java.util.ArrayList;
 import java.util.Collection;
 import javax.annotation.Nonnull;
 
-import static com.linkedin.datahub.graphql.resolvers.mutate.util.OwnerUtils.*;
-import static com.linkedin.metadata.Constants.*;
-
-
-public class TagUpdateInputMapper implements InputModelMapper<TagUpdateInput, Collection<MetadataChangeProposal>, Urn> {
+public class TagUpdateInputMapper
+    implements InputModelMapper<TagUpdateInput, Collection<MetadataChangeProposal>, Urn> {
 
   public static final TagUpdateInputMapper INSTANCE = new TagUpdateInputMapper();
 
   public static Collection<MetadataChangeProposal> map(
-      @Nonnull final TagUpdateInput tagUpdate,
-      @Nonnull final Urn actor) {
+      @Nonnull final TagUpdateInput tagUpdate, @Nonnull final Urn actor) {
     return INSTANCE.apply(tagUpdate, actor);
   }
 
   @Override
   public Collection<MetadataChangeProposal> apply(
-      @Nonnull final TagUpdateInput tagUpdate,
-      @Nonnull final Urn actor) {
+      @Nonnull final TagUpdateInput tagUpdate, @Nonnull final Urn actor) {
     final Collection<MetadataChangeProposal> proposals = new ArrayList<>(2);
     final UpdateMappingHelper updateMappingHelper = new UpdateMappingHelper(TAG_ENTITY_NAME);
 
@@ -59,7 +57,8 @@ public class TagUpdateInputMapper implements InputModelMapper<TagUpdateInput, Co
       TagProperties tagProperties = new TagProperties();
       tagProperties.setName(tagUpdate.getName());
       tagProperties.setDescription(tagUpdate.getDescription());
-      proposals.add(updateMappingHelper.aspectToProposal(tagProperties, TAG_PROPERTIES_ASPECT_NAME));
+      proposals.add(
+          updateMappingHelper.aspectToProposal(tagProperties, TAG_PROPERTIES_ASPECT_NAME));
     }
 
     return proposals;

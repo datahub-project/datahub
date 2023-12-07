@@ -1,21 +1,20 @@
 package com.linkedin.datahub.graphql.types.ownership;
 
+import static com.linkedin.metadata.Constants.*;
+
 import com.linkedin.common.Status;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.template.GetMode;
 import com.linkedin.datahub.graphql.generated.AuditStamp;
+import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.OwnershipTypeEntity;
 import com.linkedin.datahub.graphql.generated.OwnershipTypeInfo;
-import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
 import javax.annotation.Nonnull;
-
-import static com.linkedin.metadata.Constants.*;
-
 
 public class OwnershipTypeMapper implements ModelMapper<EntityResponse, OwnershipTypeEntity> {
 
@@ -34,12 +33,14 @@ public class OwnershipTypeMapper implements ModelMapper<EntityResponse, Ownershi
     EnvelopedAspectMap aspectMap = input.getAspects();
     MappingHelper<OwnershipTypeEntity> mappingHelper = new MappingHelper<>(aspectMap, result);
     mappingHelper.mapToResult(OWNERSHIP_TYPE_INFO_ASPECT_NAME, this::mapOwnershipTypeInfo);
-    mappingHelper.mapToResult(STATUS_ASPECT_NAME,
+    mappingHelper.mapToResult(
+        STATUS_ASPECT_NAME,
         (dataset, dataMap) -> dataset.setStatus(StatusMapper.map(new Status(dataMap))));
     return mappingHelper.getResult();
   }
 
-  private void mapOwnershipTypeInfo(@Nonnull OwnershipTypeEntity ownershipTypeEntity, @Nonnull DataMap dataMap) {
+  private void mapOwnershipTypeInfo(
+      @Nonnull OwnershipTypeEntity ownershipTypeEntity, @Nonnull DataMap dataMap) {
     final com.linkedin.ownership.OwnershipTypeInfo gmsOwnershipTypeInfo =
         new com.linkedin.ownership.OwnershipTypeInfo(dataMap);
 

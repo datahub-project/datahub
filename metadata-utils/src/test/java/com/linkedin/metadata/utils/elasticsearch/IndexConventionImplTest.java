@@ -1,11 +1,10 @@
 package com.linkedin.metadata.utils.elasticsearch;
 
+import static org.testng.Assert.*;
+
 import com.linkedin.util.Pair;
 import java.util.Optional;
 import org.testng.annotations.Test;
-
-import static org.testng.Assert.*;
-
 
 public class IndexConventionImplTest {
 
@@ -19,7 +18,9 @@ public class IndexConventionImplTest {
     assertEquals(indexConventionNoPrefix.getEntityName(expectedIndexName), Optional.of(entityName));
     assertEquals(indexConventionNoPrefix.getEntityName("totally not an index"), Optional.empty());
     assertEquals(indexConventionNoPrefix.getEntityName("dataset_v2"), Optional.empty());
-    assertEquals(indexConventionNoPrefix.getEntityName("dashboardindex_v2_1683649932260"), Optional.of("dashboard"));
+    assertEquals(
+        indexConventionNoPrefix.getEntityName("dashboardindex_v2_1683649932260"),
+        Optional.of("dashboard"));
   }
 
   @Test
@@ -32,22 +33,32 @@ public class IndexConventionImplTest {
     assertEquals(indexConventionPrefix.getEntityName(expectedIndexName), Optional.of(entityName));
     assertEquals(indexConventionPrefix.getEntityName("totally not an index"), Optional.empty());
     assertEquals(indexConventionPrefix.getEntityName("prefix_dataset_v2"), Optional.empty());
-    assertEquals(indexConventionPrefix.getEntityName("prefix_dashboardindex_v2_1683649932260"), Optional.of("dashboard"));
-    assertEquals(indexConventionPrefix.getEntityName("dashboardindex_v2_1683649932260"), Optional.empty());
+    assertEquals(
+        indexConventionPrefix.getEntityName("prefix_dashboardindex_v2_1683649932260"),
+        Optional.of("dashboard"));
+    assertEquals(
+        indexConventionPrefix.getEntityName("dashboardindex_v2_1683649932260"), Optional.empty());
   }
+
   @Test
   public void testTimeseriesIndexConventionNoPrefix() {
     IndexConvention indexConventionNoPrefix = new IndexConventionImpl(null);
     String entityName = "dataset";
     String aspectName = "datasetusagestatistics";
     String expectedIndexName = "dataset_datasetusagestatisticsaspect_v1";
-    assertEquals(indexConventionNoPrefix.getTimeseriesAspectIndexName(entityName, aspectName), expectedIndexName);
+    assertEquals(
+        indexConventionNoPrefix.getTimeseriesAspectIndexName(entityName, aspectName),
+        expectedIndexName);
     assertEquals(indexConventionNoPrefix.getPrefix(), Optional.empty());
-    assertEquals(indexConventionNoPrefix.getEntityAndAspectName(expectedIndexName), Optional.of(
-        Pair.of(entityName, aspectName)));
-    assertEquals(indexConventionNoPrefix.getEntityAndAspectName("totally not an index"), Optional.empty());
+    assertEquals(
+        indexConventionNoPrefix.getEntityAndAspectName(expectedIndexName),
+        Optional.of(Pair.of(entityName, aspectName)));
+    assertEquals(
+        indexConventionNoPrefix.getEntityAndAspectName("totally not an index"), Optional.empty());
     assertEquals(indexConventionNoPrefix.getEntityAndAspectName("dataset_v2"), Optional.empty());
-    assertEquals(indexConventionNoPrefix.getEntityAndAspectName("dashboard_dashboardusagestatisticsaspect_v1"),
+    assertEquals(
+        indexConventionNoPrefix.getEntityAndAspectName(
+            "dashboard_dashboardusagestatisticsaspect_v1"),
         Optional.of(Pair.of("dashboard", "dashboardusagestatistics")));
   }
 
@@ -57,10 +68,17 @@ public class IndexConventionImplTest {
     String entityName = "dataset";
     String aspectName = "datasetusagestatistics";
     String expectedIndexName = "prefix_dataset_datasetusagestatisticsaspect_v1";
-    assertEquals(indexConventionPrefix.getTimeseriesAspectIndexName(entityName, aspectName), expectedIndexName);
+    assertEquals(
+        indexConventionPrefix.getTimeseriesAspectIndexName(entityName, aspectName),
+        expectedIndexName);
     assertEquals(indexConventionPrefix.getPrefix(), Optional.of("prefix"));
-    assertEquals(indexConventionPrefix.getEntityAndAspectName(expectedIndexName), Optional.of(Pair.of(entityName, aspectName)));
-    assertEquals(indexConventionPrefix.getEntityAndAspectName("totally not an index"), Optional.empty());
-    assertEquals(indexConventionPrefix.getEntityAndAspectName("prefix_datasetusagestatisticsaspect_v1"), Optional.empty());
+    assertEquals(
+        indexConventionPrefix.getEntityAndAspectName(expectedIndexName),
+        Optional.of(Pair.of(entityName, aspectName)));
+    assertEquals(
+        indexConventionPrefix.getEntityAndAspectName("totally not an index"), Optional.empty());
+    assertEquals(
+        indexConventionPrefix.getEntityAndAspectName("prefix_datasetusagestatisticsaspect_v1"),
+        Optional.empty());
   }
 }

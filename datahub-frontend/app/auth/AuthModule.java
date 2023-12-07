@@ -1,5 +1,9 @@
 package auth;
 
+import static auth.AuthUtils.*;
+import static auth.sso.oidc.OidcConfigs.*;
+import static utils.ConfigUtil.*;
+
 import auth.sso.SsoConfigs;
 import auth.sso.SsoManager;
 import auth.sso.oidc.OidcConfigs;
@@ -18,12 +22,10 @@ import com.linkedin.parseq.retry.backoff.ExponentialBackoff;
 import com.linkedin.util.Configuration;
 import config.ConfigurationProvider;
 import controllers.SsoCallbackController;
-
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
@@ -42,205 +44,227 @@ import play.Environment;
 import play.cache.SyncCacheApi;
 import utils.ConfigUtil;
 
-import static auth.AuthUtils.*;
-import static auth.sso.oidc.OidcConfigs.*;
-import static utils.ConfigUtil.*;
-
-
-/**
- * Responsible for configuring, validating, and providing authentication related components.
- */
+/** Responsible for configuring, validating, and providing authentication related components. */
 public class AuthModule extends AbstractModule {
 
+  /**
+   * Pac4j Stores Session State in a browser-side cookie in encrypted fashion. This configuration
+   * value provides a stable encryption base from which to derive the encryption key.
+   *
+   * <p>We hash this value (SHA256), then take the first 16 bytes as the AES key.
+   */
+  private static final String PAC4J_AES_KEY_BASE_CONF = "play.http.secret.key";
+
+  private static final String PAC4J_SESSIONSTORE_PROVIDER_CONF = "pac4j.sessionStore.provider";
+  private static final String ENTITY_CLIENT_RETRY_INTERVAL = "entityClient.retryInterval";
+  private static final String ENTITY_CLIENT_NUM_RETRIES = "entityClient.numRetries";
+
+  private final com.typesafe.config.Config _configs;
+
+  public AuthModule(final Environment environment, final com.typesafe.config.Config configs) {
+    _configs = configs;
+  }
+
+  @Override
+  protected void configure() {
     /**
-     * Pac4j Stores Session State in a browser-side cookie in encrypted fashion. This configuration
-     * value provides a stable encryption base from which to derive the encryption key.
-     *
-     * We hash this value (SHA256), then take the first 16 bytes as the AES key.
+     * In Pac4J, you are given the option to store the profiles of authenticated users in either (i)
+     * PlayCacheSessionStore - saves your data in the Play cache or (ii) PlayCookieSessionStore
+     * saves your data in the Play session cookie However there is problem
+     * (https://github.com/datahub-project/datahub/issues/4448) observed when storing the Pac4j
+     * profile in cookie. Whenever the profile returned by Pac4j is greater than 4096 characters,
+     * the response will be rejected by the browser. Default to PlayCacheCookieStore so that
+     * datahub-frontend container remains as a stateless service
      */
-    private static final String PAC4J_AES_KEY_BASE_CONF = "play.http.secret.key";
-    private static final String PAC4J_SESSIONSTORE_PROVIDER_CONF = "pac4j.sessionStore.provider";
-    private static final String ENTITY_CLIENT_RETRY_INTERVAL = "entityClient.retryInterval";
-    private static final String ENTITY_CLIENT_NUM_RETRIES = "entityClient.numRetries";
+    String sessionStoreProvider = _configs.getString(PAC4J_SESSIONSTORE_PROVIDER_CONF);
 
-    private final com.typesafe.config.Config _configs;
-
-    public AuthModule(final Environment environment, final com.typesafe.config.Config configs) {
-        _configs = configs;
+    if (sessionStoreProvider.equals("PlayCacheSessionStore")) {
+      final PlayCacheSessionStore playCacheSessionStore =
+          new PlayCacheSessionStore(getProvider(SyncCacheApi.class));
+      bind(SessionStore.class).toInstance(playCacheSessionStore);
+      bind(PlaySessionStore.class).toInstance(playCacheSessionStore);
+    } else {
+      PlayCookieSessionStore playCacheCookieStore;
+      try {
+        // To generate a valid encryption key from an input value, we first
+        // hash the input to generate a fixed-length string. Then, we convert
+        // it to hex and slice the first 16 bytes, because AES key length must strictly
+        // have a specific length.
+        final String aesKeyBase = _configs.getString(PAC4J_AES_KEY_BASE_CONF);
+        final String aesKeyHash =
+            DigestUtils.sha256Hex(aesKeyBase.getBytes(StandardCharsets.UTF_8));
+        final String aesEncryptionKey = aesKeyHash.substring(0, 16);
+        playCacheCookieStore =
+            new PlayCookieSessionStore(new ShiroAesDataEncrypter(aesEncryptionKey.getBytes()));
+      } catch (Exception e) {
+        throw new RuntimeException("Failed to instantiate Pac4j cookie session store!", e);
+      }
+      bind(SessionStore.class).toInstance(playCacheCookieStore);
+      bind(PlaySessionStore.class).toInstance(playCacheCookieStore);
     }
 
-    @Override
-    protected void configure() {
-        /**
-         * In Pac4J, you are given the option to store the profiles of authenticated users in either
-         * (i) PlayCacheSessionStore - saves your data in the Play cache or
-         * (ii) PlayCookieSessionStore saves your data in the Play session cookie
-         * However there is problem (https://github.com/datahub-project/datahub/issues/4448) observed when storing the Pac4j profile in cookie.
-         * Whenever the profile returned by Pac4j is greater than 4096 characters, the response will be rejected by the browser.
-         * Default to PlayCacheCookieStore so that datahub-frontend container remains as a stateless service
-         */
-        String sessionStoreProvider = _configs.getString(PAC4J_SESSIONSTORE_PROVIDER_CONF);
-
-        if (sessionStoreProvider.equals("PlayCacheSessionStore")) {
-            final PlayCacheSessionStore playCacheSessionStore = new PlayCacheSessionStore(getProvider(SyncCacheApi.class));
-            bind(SessionStore.class).toInstance(playCacheSessionStore);
-            bind(PlaySessionStore.class).toInstance(playCacheSessionStore);
-        } else {
-            PlayCookieSessionStore playCacheCookieStore;
-            try {
-                // To generate a valid encryption key from an input value, we first
-                // hash the input to generate a fixed-length string. Then, we convert
-                // it to hex and slice the first 16 bytes, because AES key length must strictly
-                // have a specific length.
-                final String aesKeyBase = _configs.getString(PAC4J_AES_KEY_BASE_CONF);
-                final String aesKeyHash = DigestUtils.sha256Hex(aesKeyBase.getBytes(StandardCharsets.UTF_8));
-                final String aesEncryptionKey = aesKeyHash.substring(0, 16);
-                playCacheCookieStore = new PlayCookieSessionStore(
-                        new ShiroAesDataEncrypter(aesEncryptionKey.getBytes()));
-            } catch (Exception e) {
-                throw new RuntimeException("Failed to instantiate Pac4j cookie session store!", e);
-            }
-            bind(SessionStore.class).toInstance(playCacheCookieStore);
-            bind(PlaySessionStore.class).toInstance(playCacheCookieStore);
-        }
-
-        try {
-            bind(SsoCallbackController.class).toConstructor(SsoCallbackController.class.getConstructor(
-                SsoManager.class,
-                Authentication.class,
-                SystemEntityClient.class,
-                AuthServiceClient.class,
-                com.typesafe.config.Config.class));
-        } catch (NoSuchMethodException | SecurityException e) {
-            throw new RuntimeException("Failed to bind to SsoCallbackController. Cannot find constructor", e);
-        }
-        // logout
-        final LogoutController logoutController = new LogoutController();
-        logoutController.setDefaultUrl("/");
-        bind(LogoutController.class).toInstance(logoutController);
+    try {
+      bind(SsoCallbackController.class)
+          .toConstructor(
+              SsoCallbackController.class.getConstructor(
+                  SsoManager.class,
+                  Authentication.class,
+                  SystemEntityClient.class,
+                  AuthServiceClient.class,
+                  com.typesafe.config.Config.class));
+    } catch (NoSuchMethodException | SecurityException e) {
+      throw new RuntimeException(
+          "Failed to bind to SsoCallbackController. Cannot find constructor", e);
     }
+    // logout
+    final LogoutController logoutController = new LogoutController();
+    logoutController.setDefaultUrl("/");
+    bind(LogoutController.class).toInstance(logoutController);
+  }
 
-    @Provides @Singleton
-    protected Config provideConfig(SsoManager ssoManager) {
-        if (ssoManager.isSsoEnabled()) {
-            final Clients clients = new Clients();
-            final List<Client> clientList = new ArrayList<>();
-            clientList.add(ssoManager.getSsoProvider().client());
-            clients.setClients(clientList);
-            final Config config = new Config(clients);
-            config.setHttpActionAdapter(new PlayHttpActionAdapter());
-            return config;
-        }
-        return new Config();
+  @Provides
+  @Singleton
+  protected Config provideConfig(SsoManager ssoManager) {
+    if (ssoManager.isSsoEnabled()) {
+      final Clients clients = new Clients();
+      final List<Client> clientList = new ArrayList<>();
+      clientList.add(ssoManager.getSsoProvider().client());
+      clients.setClients(clientList);
+      final Config config = new Config(clients);
+      config.setHttpActionAdapter(new PlayHttpActionAdapter());
+      return config;
     }
+    return new Config();
+  }
 
-    @Provides @Singleton
-    protected SsoManager provideSsoManager() {
-        SsoManager manager = new SsoManager();
-        // Seed the SSO manager with a default SSO provider.
-        if (isSsoEnabled(_configs)) {
-            SsoConfigs ssoConfigs = new SsoConfigs(_configs);
-            if (ssoConfigs.isOidcEnabled()) {
-                // Register OIDC Provider, add to list of managers.
-                OidcConfigs oidcConfigs = new OidcConfigs(_configs);
-                OidcProvider oidcProvider = new OidcProvider(oidcConfigs);
-                // Set the default SSO provider to this OIDC client.
-                manager.setSsoProvider(oidcProvider);
-            }
-        }
-        return manager;
+  @Provides
+  @Singleton
+  protected SsoManager provideSsoManager() {
+    SsoManager manager = new SsoManager();
+    // Seed the SSO manager with a default SSO provider.
+    if (isSsoEnabled(_configs)) {
+      SsoConfigs ssoConfigs = new SsoConfigs(_configs);
+      if (ssoConfigs.isOidcEnabled()) {
+        // Register OIDC Provider, add to list of managers.
+        OidcConfigs oidcConfigs = new OidcConfigs(_configs);
+        OidcProvider oidcProvider = new OidcProvider(oidcConfigs);
+        // Set the default SSO provider to this OIDC client.
+        manager.setSsoProvider(oidcProvider);
+      }
     }
+    return manager;
+  }
 
-    @Provides
-    @Singleton
-    protected Authentication provideSystemAuthentication() {
-        // Returns an instance of Authentication used to authenticate system initiated calls to Metadata Service.
-        String systemClientId = _configs.getString(SYSTEM_CLIENT_ID_CONFIG_PATH);
-        String systemSecret = _configs.getString(SYSTEM_CLIENT_SECRET_CONFIG_PATH);
-        final Actor systemActor =
-            new Actor(ActorType.USER, systemClientId); // TODO: Change to service actor once supported.
-        return new Authentication(systemActor, String.format("Basic %s:%s", systemClientId, systemSecret),
-            Collections.emptyMap());
-    }
+  @Provides
+  @Singleton
+  protected Authentication provideSystemAuthentication() {
+    // Returns an instance of Authentication used to authenticate system initiated calls to Metadata
+    // Service.
+    String systemClientId = _configs.getString(SYSTEM_CLIENT_ID_CONFIG_PATH);
+    String systemSecret = _configs.getString(SYSTEM_CLIENT_SECRET_CONFIG_PATH);
+    final Actor systemActor =
+        new Actor(ActorType.USER, systemClientId); // TODO: Change to service actor once supported.
+    return new Authentication(
+        systemActor,
+        String.format("Basic %s:%s", systemClientId, systemSecret),
+        Collections.emptyMap());
+  }
 
-    @Provides
-    @Singleton
-    protected ConfigurationProvider provideConfigurationProvider() {
-        AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext(ConfigurationProvider.class);
-        return context.getBean(ConfigurationProvider.class);
-    }
+  @Provides
+  @Singleton
+  protected ConfigurationProvider provideConfigurationProvider() {
+    AnnotationConfigApplicationContext context =
+        new AnnotationConfigApplicationContext(ConfigurationProvider.class);
+    return context.getBean(ConfigurationProvider.class);
+  }
 
-    @Provides
-    @Singleton
-    protected SystemEntityClient provideEntityClient(final Authentication systemAuthentication,
-                                                     final ConfigurationProvider configurationProvider) {
-        return new SystemRestliEntityClient(buildRestliClient(),
-                new ExponentialBackoff(_configs.getInt(ENTITY_CLIENT_RETRY_INTERVAL)),
-                _configs.getInt(ENTITY_CLIENT_NUM_RETRIES), systemAuthentication,
-                configurationProvider.getCache().getClient().getEntityClient());
-    }
+  @Provides
+  @Singleton
+  protected SystemEntityClient provideEntityClient(
+      final Authentication systemAuthentication,
+      final ConfigurationProvider configurationProvider) {
+    return new SystemRestliEntityClient(
+        buildRestliClient(),
+        new ExponentialBackoff(_configs.getInt(ENTITY_CLIENT_RETRY_INTERVAL)),
+        _configs.getInt(ENTITY_CLIENT_NUM_RETRIES),
+        systemAuthentication,
+        configurationProvider.getCache().getClient().getEntityClient());
+  }
 
-    @Provides
-    @Singleton
-    protected CloseableHttpClient provideHttpClient() {
-        return HttpClients.createDefault();
-    }
+  @Provides
+  @Singleton
+  protected CloseableHttpClient provideHttpClient() {
+    return HttpClients.createDefault();
+  }
 
-    @Provides
-    @Singleton
-    protected AuthServiceClient provideAuthClient(Authentication systemAuthentication, CloseableHttpClient httpClient) {
-        // Init a GMS auth client
-        final String metadataServiceHost =
-            _configs.hasPath(METADATA_SERVICE_HOST_CONFIG_PATH) ? _configs.getString(METADATA_SERVICE_HOST_CONFIG_PATH)
-                : Configuration.getEnvironmentVariable(GMS_HOST_ENV_VAR, DEFAULT_GMS_HOST);
+  @Provides
+  @Singleton
+  protected AuthServiceClient provideAuthClient(
+      Authentication systemAuthentication, CloseableHttpClient httpClient) {
+    // Init a GMS auth client
+    final String metadataServiceHost =
+        _configs.hasPath(METADATA_SERVICE_HOST_CONFIG_PATH)
+            ? _configs.getString(METADATA_SERVICE_HOST_CONFIG_PATH)
+            : Configuration.getEnvironmentVariable(GMS_HOST_ENV_VAR, DEFAULT_GMS_HOST);
 
-        final int metadataServicePort =
-            _configs.hasPath(METADATA_SERVICE_PORT_CONFIG_PATH) ? _configs.getInt(METADATA_SERVICE_PORT_CONFIG_PATH)
-                : Integer.parseInt(Configuration.getEnvironmentVariable(GMS_PORT_ENV_VAR, DEFAULT_GMS_PORT));
+    final int metadataServicePort =
+        _configs.hasPath(METADATA_SERVICE_PORT_CONFIG_PATH)
+            ? _configs.getInt(METADATA_SERVICE_PORT_CONFIG_PATH)
+            : Integer.parseInt(
+                Configuration.getEnvironmentVariable(GMS_PORT_ENV_VAR, DEFAULT_GMS_PORT));
 
-        final Boolean metadataServiceUseSsl =
-            _configs.hasPath(METADATA_SERVICE_USE_SSL_CONFIG_PATH) ? _configs.getBoolean(
-                METADATA_SERVICE_USE_SSL_CONFIG_PATH)
-                : Boolean.parseBoolean(Configuration.getEnvironmentVariable(GMS_USE_SSL_ENV_VAR, DEFAULT_GMS_USE_SSL));
+    final Boolean metadataServiceUseSsl =
+        _configs.hasPath(METADATA_SERVICE_USE_SSL_CONFIG_PATH)
+            ? _configs.getBoolean(METADATA_SERVICE_USE_SSL_CONFIG_PATH)
+            : Boolean.parseBoolean(
+                Configuration.getEnvironmentVariable(GMS_USE_SSL_ENV_VAR, DEFAULT_GMS_USE_SSL));
 
-        return new AuthServiceClient(metadataServiceHost, metadataServicePort, metadataServiceUseSsl,
-            systemAuthentication, httpClient);
-    }
+    return new AuthServiceClient(
+        metadataServiceHost,
+        metadataServicePort,
+        metadataServiceUseSsl,
+        systemAuthentication,
+        httpClient);
+  }
 
-    private com.linkedin.restli.client.Client buildRestliClient() {
-        final String metadataServiceHost = utils.ConfigUtil.getString(
+  private com.linkedin.restli.client.Client buildRestliClient() {
+    final String metadataServiceHost =
+        utils.ConfigUtil.getString(
             _configs,
             METADATA_SERVICE_HOST_CONFIG_PATH,
             utils.ConfigUtil.DEFAULT_METADATA_SERVICE_HOST);
-        final int metadataServicePort = utils.ConfigUtil.getInt(
+    final int metadataServicePort =
+        utils.ConfigUtil.getInt(
             _configs,
             utils.ConfigUtil.METADATA_SERVICE_PORT_CONFIG_PATH,
             utils.ConfigUtil.DEFAULT_METADATA_SERVICE_PORT);
-        final boolean metadataServiceUseSsl = utils.ConfigUtil.getBoolean(
+    final boolean metadataServiceUseSsl =
+        utils.ConfigUtil.getBoolean(
             _configs,
             utils.ConfigUtil.METADATA_SERVICE_USE_SSL_CONFIG_PATH,
-            ConfigUtil.DEFAULT_METADATA_SERVICE_USE_SSL
-        );
-        final String metadataServiceSslProtocol = utils.ConfigUtil.getString(
+            ConfigUtil.DEFAULT_METADATA_SERVICE_USE_SSL);
+    final String metadataServiceSslProtocol =
+        utils.ConfigUtil.getString(
             _configs,
             utils.ConfigUtil.METADATA_SERVICE_SSL_PROTOCOL_CONFIG_PATH,
-            ConfigUtil.DEFAULT_METADATA_SERVICE_SSL_PROTOCOL
-        );
-        return DefaultRestliClientFactory.getRestLiClient(metadataServiceHost, metadataServicePort, metadataServiceUseSsl, metadataServiceSslProtocol);
-    }
+            ConfigUtil.DEFAULT_METADATA_SERVICE_SSL_PROTOCOL);
+    return DefaultRestliClientFactory.getRestLiClient(
+        metadataServiceHost,
+        metadataServicePort,
+        metadataServiceUseSsl,
+        metadataServiceSslProtocol);
+  }
 
-    protected boolean isSsoEnabled(com.typesafe.config.Config configs) {
-        // If OIDC is enabled, we infer SSO to be enabled.
-        return configs.hasPath(OIDC_ENABLED_CONFIG_PATH)
-            && Boolean.TRUE.equals(
-            Boolean.parseBoolean(configs.getString(OIDC_ENABLED_CONFIG_PATH)));
-    }
+  protected boolean isSsoEnabled(com.typesafe.config.Config configs) {
+    // If OIDC is enabled, we infer SSO to be enabled.
+    return configs.hasPath(OIDC_ENABLED_CONFIG_PATH)
+        && Boolean.TRUE.equals(Boolean.parseBoolean(configs.getString(OIDC_ENABLED_CONFIG_PATH)));
+  }
 
-    protected boolean isMetadataServiceAuthEnabled(com.typesafe.config.Config configs) {
-        // If OIDC is enabled, we infer SSO to be enabled.
-        return configs.hasPath(METADATA_SERVICE_AUTH_ENABLED_CONFIG_PATH)
-            && Boolean.TRUE.equals(
+  protected boolean isMetadataServiceAuthEnabled(com.typesafe.config.Config configs) {
+    // If OIDC is enabled, we infer SSO to be enabled.
+    return configs.hasPath(METADATA_SERVICE_AUTH_ENABLED_CONFIG_PATH)
+        && Boolean.TRUE.equals(
             Boolean.parseBoolean(configs.getString(METADATA_SERVICE_AUTH_ENABLED_CONFIG_PATH)));
-    }
+  }
 }
-
