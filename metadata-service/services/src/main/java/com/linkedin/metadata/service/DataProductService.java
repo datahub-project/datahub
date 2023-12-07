@@ -29,7 +29,11 @@ import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+
+import com.linkedin.r2.RemoteInvocationException;
 import lombok.extern.slf4j.Slf4j;
+
+import static com.linkedin.metadata.Constants.DATA_PRODUCT_ENTITY_NAME;
 
 /**
  * This class is used to permit easy CRUD operations on a DataProduct
@@ -69,6 +73,15 @@ public class DataProductService {
       key.setId(id);
     } else {
       key.setId(UUID.randomUUID().toString());
+    }
+    try {
+      if (_entityClient.exists(
+              EntityKeyUtils.convertEntityKeyToUrn(key, DATA_PRODUCT_ENTITY_NAME),
+              authentication)) {
+        throw new IllegalArgumentException("This Data product already exists!");
+      }
+    } catch (RemoteInvocationException e) {
+      throw new RuntimeException("Unable to check for existence of Data Product!");
     }
 
     // 2. Create a new instance of DataProductProperties
