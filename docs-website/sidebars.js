@@ -10,7 +10,7 @@ module.exports = {
   overviewSidebar: [
     {
       type: "html",
-      value: "<div>Getting Started</bold></div>",
+      value: "<div>Getting Started</div>",
       defaultStyle: true,
     },
     {
