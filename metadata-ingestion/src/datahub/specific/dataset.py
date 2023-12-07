@@ -17,6 +17,7 @@ from datahub.metadata.schema_classes import (
     TagAssociationClass as Tag,
     UpstreamClass as Upstream,
     UpstreamLineageClass as UpstreamLineage,
+    FineGrainedLineageClass as FineGrainedLineage,
 )
 from datahub.specific.custom_properties import CustomPropertiesPatchHelper
 from datahub.specific.ownership import OwnershipPatchHelper
@@ -28,10 +29,10 @@ T = TypeVar("T", bound=MetadataPatchProposal)
 
 class FieldPatchHelper(Generic[T]):
     def __init__(
-        self,
-        parent: T,
-        field_path: str,
-        editable: bool = True,
+            self,
+            parent: T,
+            field_path: str,
+            editable: bool = True,
     ) -> None:
         self._parent: T = parent
         self.field_path = field_path
@@ -88,10 +89,10 @@ class FieldPatchHelper(Generic[T]):
 
 class DatasetPatchBuilder(MetadataPatchProposal):
     def __init__(
-        self,
-        urn: str,
-        system_metadata: Optional[SystemMetadataClass] = None,
-        audit_header: Optional[KafkaAuditHeaderClass] = None,
+            self,
+            urn: str,
+            system_metadata: Optional[SystemMetadataClass] = None,
+            audit_header: Optional[KafkaAuditHeaderClass] = None,
     ) -> None:
         super().__init__(
             urn, "dataset", system_metadata=system_metadata, audit_header=audit_header
@@ -106,7 +107,7 @@ class DatasetPatchBuilder(MetadataPatchProposal):
         return self
 
     def remove_owner(
-        self, owner: str, owner_type: Optional[OwnershipTypeClass] = None
+            self, owner: str, owner_type: Optional[OwnershipTypeClass] = None
     ) -> "DatasetPatchBuilder":
         """
         param: owner_type is optional
@@ -128,7 +129,7 @@ class DatasetPatchBuilder(MetadataPatchProposal):
         return self
 
     def remove_upstream_lineage(
-        self, dataset: Union[str, Urn]
+            self, dataset: Union[str, Urn]
     ) -> "DatasetPatchBuilder":
         self._add_patch(
             UpstreamLineage.ASPECT_NAME,
@@ -141,6 +142,46 @@ class DatasetPatchBuilder(MetadataPatchProposal):
     def set_upstream_lineages(self, upstreams: List[Upstream]) -> "DatasetPatchBuilder":
         self._add_patch(
             UpstreamLineage.ASPECT_NAME, "replace", path="/upstreams", value=upstreams
+        )
+        return self
+
+    def add_fine_grained_upstream_lineage(self, fineGrainedLineage: FineGrainedLineage) -> "DatasetPatchBuilder":
+        for upstream_urn in fineGrainedLineage.upstreams:
+            self._add_patch(
+                UpstreamLineage.ASPECT_NAME,
+                "add",
+                path=f"/fineGrainedLineages/{quote(fineGrainedLineage.transformationOperation, safe='')}/upstreamType/{quote(fineGrainedLineage.upstreamType, safe='')}/{quote(upstream_urn, safe='')}",
+                value=fineGrainedLineage.confidenceScore,
+            )
+        for downstream_urn in fineGrainedLineage.downstreams:
+            self._add_patch(
+                UpstreamLineage.ASPECT_NAME,
+                "add",
+                path=f"/fineGrainedLineages/{quote(fineGrainedLineage.transformationOperation, safe='')}/downstreamType/{quote(fineGrainedLineage.downstreamType, safe='')}/{quote(downstream_urn, safe='')}",
+                value=fineGrainedLineage.confidenceScore,
+            )
+        return self
+
+    def remove_fine_grained_upstream_lineage(
+            self, fineGrainedLineage: FineGrainedLineage
+    ) -> "DatasetPatchBuilder":
+        for upstream_urn in fineGrainedLineage.upstreams:
+            self._add_patch(
+                UpstreamLineage.ASPECT_NAME,
+                "remove",
+                path=f"/fineGrainedLineages/{quote(fineGrainedLineage.transformationOperation, safe='')}/upstreamType/{quote(fineGrainedLineage.upstreamType, safe='')}/{quote(upstream_urn, safe='')}",
+            )
+        for downstream_urn in fineGrainedLineage.downstreams:
+            self._add_patch(
+                UpstreamLineage.ASPECT_NAME,
+                "remove",
+                path=f"/fineGrainedLineages/{quote(fineGrainedLineage.transformationOperation, safe='')}/downstreamType/{quote(fineGrainedLineage.downstreamType, safe='')}/{quote(downstream_urn, safe='')}",
+            )
+        return self
+
+    def set_fine_grained_upstream_lineages(self, fineGrainedLineages: List[FineGrainedLineage]) -> "DatasetPatchBuilder":
+        self._add_patch(
+            UpstreamLineage.ASPECT_NAME, "add", path="/fineGrainedLineages", value=fineGrainedLineages
         )
         return self
 
@@ -171,7 +212,7 @@ class DatasetPatchBuilder(MetadataPatchProposal):
         return self
 
     def for_field(
-        self, field_path: str, editable: bool = True
+            self, field_path: str, editable: bool = True
     ) -> FieldPatchHelper["DatasetPatchBuilder"]:
         """
         Get a helper that can perform patches against fields in the dataset
@@ -186,7 +227,7 @@ class DatasetPatchBuilder(MetadataPatchProposal):
         )
 
     def set_description(
-        self, description: str, editable: bool = False
+            self, description: str, editable: bool = False
     ) -> "DatasetPatchBuilder":
         self._add_patch(
             DatasetProperties.ASPECT_NAME
@@ -199,7 +240,7 @@ class DatasetPatchBuilder(MetadataPatchProposal):
         return self
 
     def set_custom_properties(
-        self, custom_properties: Dict[str, str]
+            self, custom_properties: Dict[str, str]
     ) -> "DatasetPatchBuilder":
         self._add_patch(
             DatasetProperties.ASPECT_NAME,
