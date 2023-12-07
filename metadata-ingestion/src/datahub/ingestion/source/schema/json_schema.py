@@ -82,7 +82,7 @@ class JsonSchemaSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMix
     )
     inject_default_description: bool = Field(
         default=True,
-        description="When enabled, injects a default description if one is not present in the schema",
+        description="When enabled, includes the default value in the description.",
     )
     inject_empty_description: bool = Field(
         default=False,
