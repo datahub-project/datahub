@@ -481,7 +481,7 @@ module.exports = {
     {
       type: "doc",
       id: "docs/api/datahub-apis",
-      label: "Overview"
+      label: "Overview",
     },
     {
       type: "category",
