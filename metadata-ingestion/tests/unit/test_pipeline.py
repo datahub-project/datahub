@@ -1,3 +1,4 @@
+import pathlib
 from typing import Any, Iterable, List, Optional, cast
 from unittest.mock import patch
 
@@ -18,6 +19,7 @@ from datahub.metadata.schema_classes import (
     MetadataChangeEventClass,
     StatusClass,
 )
+from tests.test_helpers.click_helpers import run_datahub_cmd
 from tests.test_helpers.sink_helpers import RecordingSinkReport
 
 FROZEN_TIME = "2020-04-14 07:00:00"
@@ -219,6 +221,54 @@ class TestPipeline(object):
             }
         )
         assert pipeline
+
+    @pytest.mark.parametrize(
+        "source,strict_warnings,exit_code",
+        [
+            pytest.param(
+                "FakeSource",
+                False,
+                0,
+            ),
+            pytest.param(
+                "FakeSourceWithWarnings",
+                False,
+                0,
+            ),
+            pytest.param(
+                "FakeSourceWithWarnings",
+                True,
+                1,
+            ),
+        ],
+    )
+    @freeze_time(FROZEN_TIME)
+    def test_pipeline_return_code(self, tmp_path, source, strict_warnings, exit_code):
+        config_file: pathlib.Path = tmp_path / "test.yml"
+
+        config_file.write_text(
+            f"""
+---
+run_id: pipeline_test
+source:
+    type: tests.unit.test_pipeline.{source}
+    config: {{}}
+sink:
+    type: console
+"""
+        )
+
+        res = run_datahub_cmd(
+            [
+                "ingest",
+                "-c",
+                f"{config_file}",
+                *(("--strict-warnings",) if strict_warnings else ()),
+            ],
+            tmp_path=tmp_path,
+            check_result=False,
+        )
+        assert res.exit_code == exit_code, res.stdout
 
     @pytest.mark.parametrize(
         "commit_policy,source,should_commit",

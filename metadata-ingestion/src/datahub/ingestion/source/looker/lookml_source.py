@@ -6,7 +6,7 @@ import pathlib
 import re
 import tempfile
 from dataclasses import dataclass, field as dataclass_field, replace
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import (
     Any,
     ClassVar,
@@ -50,6 +50,7 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.git.git_import import GitClone
 from datahub.ingestion.source.looker.looker_common import (
+    CORPUSER_DATAHUB,
     LookerCommonConfig,
     LookerExplore,
     LookerUtil,
@@ -57,6 +58,7 @@ from datahub.ingestion.source.looker.looker_common import (
     ProjectInclude,
     ViewField,
     ViewFieldType,
+    ViewFieldValue,
 )
 from datahub.ingestion.source.looker.looker_lib_wrapper import (
     LookerAPI,
@@ -83,6 +85,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
+    AuditStampClass,
     DatasetPropertiesClass,
     FineGrainedLineageClass,
     FineGrainedLineageUpstreamTypeClass,
@@ -272,7 +275,7 @@ class LookMLSourceConfig(
                     )
         return conn_map
 
-    @root_validator()
+    @root_validator(skip_on_failure=True)
     def check_either_connection_map_or_connection_provided(cls, values):
         """Validate that we must either have a connection map or an api credential"""
         if not values.get("connection_to_platform_map", {}) and not values.get(
@@ -283,7 +286,7 @@ class LookMLSourceConfig(
             )
         return values
 
-    @root_validator()
+    @root_validator(skip_on_failure=True)
     def check_either_project_name_or_api_provided(cls, values):
         """Validate that we must either have a project name or an api credential to fetch project names"""
         if not values.get("project_name") and not values.get("api"):
@@ -547,7 +550,7 @@ class LookerModel:
 @dataclass
 class LookerViewFile:
     absolute_file_path: str
-    connection: Optional[str]
+    connection: Optional[LookerConnectionDefinition]
     includes: List[str]
     resolved_includes: List[ProjectInclude]
     views: List[Dict]
@@ -1064,9 +1067,28 @@ class LookerView:
         return fields
 
     @classmethod
+    def determine_view_file_path(
+        cls, base_folder_path: str, absolute_file_path: str
+    ) -> str:
+        splits: List[str] = absolute_file_path.split(base_folder_path, 1)
+        if len(splits) != 2:
+            logger.debug(
+                f"base_folder_path({base_folder_path}) and absolute_file_path({absolute_file_path}) not matching"
+            )
+            return ViewFieldValue.NOT_AVAILABLE.value
+
+        file_path: str = splits[1]
+        logger.debug(f"file_path={file_path}")
+
+        return file_path.strip(
+            "/"
+        )  # strip / from path to make it equivalent to source_file attribute of LookerModelExplore API
+
+    @classmethod
     def from_looker_dict(
         cls,
         project_name: str,
+        base_folder_path: str,
         model_name: str,
         looker_view: dict,
         connection: LookerConnectionDefinition,
@@ -1204,9 +1226,16 @@ class LookerView:
                 viewLanguage=VIEW_LANGUAGE_LOOKML,
             )
 
+        file_path = LookerView.determine_view_file_path(
+            base_folder_path, looker_viewfile.absolute_file_path
+        )
+
         return LookerView(
             id=LookerViewId(
-                project_name=project_name, model_name=model_name, view_name=view_name
+                project_name=project_name,
+                model_name=model_name,
+                view_name=view_name,
+                file_path=file_path,
             ),
             absolute_file_path=looker_viewfile.absolute_file_path,
             connection=connection,
@@ -1426,7 +1455,7 @@ class LookerManifest:
 @support_status(SupportStatus.CERTIFIED)
 @capability(
     SourceCapability.PLATFORM_INSTANCE,
-    "Supported using the `connection_to_platform_map`",
+    "Use the `platform_instance` and `connection_to_platform_map` fields",
 )
 @capability(SourceCapability.LINEAGE_COARSE, "Supported by default")
 @capability(
@@ -1542,6 +1571,7 @@ class LookMLSource(StatefulIngestionSourceBase):
                 project_name=looker_view.id.project_name,
                 model_name=looker_view.id.model_name,
                 view_name=sql_table_name,
+                file_path=looker_view.id.file_path,
             )
             return view_id.get_urn(self.source_config)
 
@@ -1615,11 +1645,16 @@ class LookMLSource(StatefulIngestionSourceBase):
 
         # Generate the upstream + fine grained lineage objects.
         upstreams = []
+        observed_lineage_ts = datetime.now(tz=timezone.utc)
         fine_grained_lineages: List[FineGrainedLineageClass] = []
         for upstream_dataset_urn in upstream_dataset_urns:
             upstream = UpstreamClass(
                 dataset=upstream_dataset_urn,
                 type=DatasetLineageTypeClass.VIEW,
+                auditStamp=AuditStampClass(
+                    time=int(observed_lineage_ts.timestamp() * 1000),
+                    actor=CORPUSER_DATAHUB,
+                ),
             )
             upstreams.append(upstream)
 
@@ -1853,6 +1888,13 @@ class LookMLSource(StatefulIngestionSourceBase):
 
             yield from self.get_internal_workunits()
 
+            if not self.report.events_produced and not self.report.failures:
+                # Don't pass if we didn't produce any events.
+                self.report.report_failure(
+                    "<main>",
+                    "No metadata was produced. Check the logs for more details.",
+                )
+
     def _recursively_check_manifests(
         self, tmp_dir: str, project_name: str, project_visited: Set[str]
     ) -> None:
@@ -1940,9 +1982,16 @@ class LookMLSource(StatefulIngestionSourceBase):
             self.reporter,
         )
 
-        # some views can be mentioned by multiple 'include' statements and can be included via different connections.
-        # So this set is used to prevent creating duplicate events
+        # Some views can be mentioned by multiple 'include' statements and can be included via different connections.
+
+        # This map is used to keep track of which views files have already been processed
+        # for a connection in order to prevent creating duplicate events.
+        # Key: connection name, Value: view file paths
         processed_view_map: Dict[str, Set[str]] = {}
+
+        # This map is used to keep track of the connection that a view is processed with.
+        # Key: view unique identifier - determined by variables present in config `view_naming_pattern`
+        # Value: Tuple(model file name, connection name)
         view_connection_map: Dict[str, Tuple[str, str]] = {}
 
         # The ** means "this directory and all subdirectories", and hence should
@@ -1976,7 +2025,7 @@ class LookMLSource(StatefulIngestionSourceBase):
             if connectionDefinition is None:
                 self.reporter.report_warning(
                     f"model-{model_name}",
-                    f"Failed to load connection {model.connection}. Check your API key permissions.",
+                    f"Failed to load connection {model.connection}. Check your API key permissions and/or connection_to_platform_map configuration.",
                 )
                 self.reporter.report_models_dropped(model_name)
                 continue
@@ -2063,22 +2112,36 @@ class LookMLSource(StatefulIngestionSourceBase):
                             raw_view = looker_refinement_resolver.apply_view_refinement(
                                 raw_view=raw_view,
                             )
-                            maybe_looker_view = LookerView.from_looker_dict(
+
+                            current_project_name: str = (
                                 include.project
                                 if include.project != _BASE_PROJECT_NAME
-                                else project_name,
-                                model_name,
-                                raw_view,
-                                connectionDefinition,
-                                looker_viewfile,
-                                viewfile_loader,
-                                looker_refinement_resolver,
-                                self.reporter,
-                                self.source_config.max_file_snippet_length,
-                                self.source_config.parse_table_names_from_sql,
-                                self.source_config.sql_parser,
-                                self.source_config.extract_column_level_lineage,
-                                self.source_config.populate_sql_logic_for_missing_descriptions,
+                                else project_name
+                            )
+
+                            # if project is base project then it is available as self.base_projects_folder[_BASE_PROJECT_NAME]
+                            base_folder_path: str = str(
+                                self.base_projects_folder.get(
+                                    current_project_name,
+                                    self.base_projects_folder[_BASE_PROJECT_NAME],
+                                )
+                            )
+
+                            maybe_looker_view = LookerView.from_looker_dict(
+                                project_name=current_project_name,
+                                base_folder_path=base_folder_path,
+                                model_name=model_name,
+                                looker_view=raw_view,
+                                connection=connectionDefinition,
+                                looker_viewfile=looker_viewfile,
+                                looker_viewfile_loader=viewfile_loader,
+                                looker_refinement_resolver=looker_refinement_resolver,
+                                reporter=self.reporter,
+                                max_file_snippet_length=self.source_config.max_file_snippet_length,
+                                parse_table_names_from_sql=self.source_config.parse_table_names_from_sql,
+                                sql_parser_path=self.source_config.sql_parser,
+                                extract_col_level_lineage=self.source_config.extract_column_level_lineage,
+                                populate_sql_logic_in_descriptions=self.source_config.populate_sql_logic_for_missing_descriptions,
                                 process_isolation_for_sql_parsing=self.source_config.process_isolation_for_sql_parsing,
                             )
                         except Exception as e:
@@ -2092,13 +2155,17 @@ class LookMLSource(StatefulIngestionSourceBase):
                             if self.source_config.view_pattern.allowed(
                                 maybe_looker_view.id.view_name
                             ):
+                                view_urn = maybe_looker_view.id.get_urn(
+                                    self.source_config
+                                )
                                 view_connection_mapping = view_connection_map.get(
-                                    maybe_looker_view.id.view_name
+                                    view_urn
                                 )
                                 if not view_connection_mapping:
-                                    view_connection_map[
-                                        maybe_looker_view.id.view_name
-                                    ] = (model_name, model.connection)
+                                    view_connection_map[view_urn] = (
+                                        model_name,
+                                        model.connection,
+                                    )
                                     # first time we are discovering this view
                                     logger.debug(
                                         f"Generating MCP for view {raw_view['name']}"
@@ -2112,10 +2179,7 @@ class LookMLSource(StatefulIngestionSourceBase):
                                     for mcp in self._build_dataset_mcps(
                                         maybe_looker_view
                                     ):
-                                        # We want to treat mcp aspects as optional, so allowing failures in this aspect to be treated as warnings rather than failures
-                                        yield mcp.as_workunit(
-                                            treat_errors_as_warnings=True
-                                        )
+                                        yield mcp.as_workunit()
                                 else:
                                     (
                                         prev_model_name,

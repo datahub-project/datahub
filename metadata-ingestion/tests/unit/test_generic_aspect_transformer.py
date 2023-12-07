@@ -2,6 +2,7 @@ import json
 import unittest
 from typing import Any, List, Optional
 
+from datahub.emitter.aspect import JSON_CONTENT_TYPE
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import EndOfStream, PipelineContext, RecordEnvelope
 from datahub.ingestion.transformer.generic_aspect_transformer import (
@@ -94,7 +95,7 @@ class DummyGenericAspectTransformer(GenericAspectTransformer):
             aspect.value if aspect else json.dumps({"customAspect": 10}).encode("utf-8")
         )
         result_aspect = GenericAspectClass(
-            contentType="application/json",
+            contentType=JSON_CONTENT_TYPE,
             value=value,
         )
         return result_aspect
@@ -183,7 +184,7 @@ class TestDummyGenericAspectTransformer(unittest.TestCase):
             entity_urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,example1,PROD)",
             aspect_name="customAspect",
             aspect=GenericAspectClass(
-                contentType="application/json",
+                contentType=JSON_CONTENT_TYPE,
                 value=json.dumps({"customAspect": 5}).encode("utf-8"),
             ),
         )
@@ -251,7 +252,7 @@ class TestDummyRemoveGenericAspectTransformer(unittest.TestCase):
             entity_urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,example1,PROD)",
             aspect_name="customAspect",
             aspect=GenericAspectClass(
-                contentType="application/json",
+                contentType=JSON_CONTENT_TYPE,
                 value=json.dumps({"customAspect": 5}).encode("utf-8"),
             ),
         )

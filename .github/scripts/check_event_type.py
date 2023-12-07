@@ -1,7 +1,7 @@
 import sys
 
 java_events = set()
-with open("./metadata-io/src/main/java/com/linkedin/metadata/datahubusage/DataHubUsageEventType.java") as java_file:
+with open("./metadata-service/services/src/main/java/com/linkedin/metadata/datahubusage/DataHubUsageEventType.java") as java_file:
     for line in java_file:
         if '''Event"''' not in line:
             continue

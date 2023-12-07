@@ -18,7 +18,7 @@ import { StyledTag } from '../entity/shared/components/styled/StyledTag';
 import { capitalizeFirstLetterOnly } from '../shared/textUtil';
 import { DomainLink } from '../shared/tags/DomainLink';
 import { useEntityRegistry } from '../useEntityRegistry';
-import { BROWSE_PATH_V2_FILTER_NAME, ENTITY_FILTER_NAME } from './utils/constants';
+import { BROWSE_PATH_V2_FILTER_NAME, ENTITY_FILTER_NAME, MAX_COUNT_VAL } from './utils/constants';
 import CustomAvatar from '../shared/avatar/CustomAvatar';
 import { IconStyleType } from '../entity/Entity';
 import { formatNumber } from '../shared/formatNumber';
@@ -39,8 +39,6 @@ const PreviewImage = styled.img`
     background-color: transparent;
     margin-right: 4px;
 `;
-
-const MAX_COUNT_VAL = 10000;
 
 // SearchFilterLabel renders custom labels for entity, tag, term & data platform filters. All other filters use the default behavior.
 export const SearchFilterLabel = ({ field, value, entity, count, hideCount }: Props) => {

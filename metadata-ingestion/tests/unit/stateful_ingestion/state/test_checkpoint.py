@@ -1,15 +1,16 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, List
 
 import pydantic
 import pytest
 
-from datahub.emitter.mce_builder import make_dataset_urn
 from datahub.ingestion.source.state.checkpoint import Checkpoint, CheckpointStateBase
 from datahub.ingestion.source.state.sql_common_state import (
     BaseSQLAlchemyCheckpointState,
 )
-from datahub.ingestion.source.state.usage_common_state import BaseUsageCheckpointState
+from datahub.ingestion.source.state.usage_common_state import (
+    BaseTimeWindowCheckpointState,
+)
 from datahub.metadata.schema_classes import (
     DatahubIngestionCheckpointClass,
     IngestionCheckpointStateClass,
@@ -27,7 +28,7 @@ def _assert_checkpoint_deserialization(
 ) -> Checkpoint:
     # Serialize a checkpoint aspect with the previous state.
     checkpoint_aspect = DatahubIngestionCheckpointClass(
-        timestampMillis=int(datetime.utcnow().timestamp() * 1000),
+        timestampMillis=int(datetime.now(tz=timezone.utc).timestamp() * 1000),
         pipelineName=test_pipeline_name,
         platformInstanceId="this-can-be-anything-and-will-be-ignored",
         config="this-is-also-ignored",
@@ -57,18 +58,21 @@ def _assert_checkpoint_deserialization(
 
 
 def _make_sql_alchemy_checkpoint_state() -> BaseSQLAlchemyCheckpointState:
+    # Note that the urns here purposely use a lowercase env, even though it's
+    # technically incorrect. This is purely for backwards compatibility testing, but
+    # all existing code uses correctly formed envs.
     base_sql_alchemy_checkpoint_state_obj = BaseSQLAlchemyCheckpointState()
     base_sql_alchemy_checkpoint_state_obj.add_checkpoint_urn(
-        type="table", urn=make_dataset_urn("mysql", "db1.t1", "prod")
+        type="table", urn="urn:li:dataset:(urn:li:dataPlatform:mysql,db1.t1,prod)"
     )
     base_sql_alchemy_checkpoint_state_obj.add_checkpoint_urn(
-        type="view", urn=make_dataset_urn("mysql", "db1.v1", "prod")
+        type="view", urn="urn:li:dataset:(urn:li:dataPlatform:mysql,db1.v1,prod)"
     )
     return base_sql_alchemy_checkpoint_state_obj
 
 
-def _make_usage_checkpoint_state() -> BaseUsageCheckpointState:
-    base_usage_checkpoint_state_obj = BaseUsageCheckpointState(
+def _make_usage_checkpoint_state() -> BaseTimeWindowCheckpointState:
+    base_usage_checkpoint_state_obj = BaseTimeWindowCheckpointState(
         version="2.0", begin_timestamp_millis=1, end_timestamp_millis=100
     )
     return base_usage_checkpoint_state_obj
@@ -77,8 +81,8 @@ def _make_usage_checkpoint_state() -> BaseUsageCheckpointState:
 _checkpoint_aspect_test_cases: Dict[str, CheckpointStateBase] = {
     # An instance of BaseSQLAlchemyCheckpointState.
     "BaseSQLAlchemyCheckpointState": _make_sql_alchemy_checkpoint_state(),
-    # An instance of BaseUsageCheckpointState.
-    "BaseUsageCheckpointState": _make_usage_checkpoint_state(),
+    # An instance of BaseTimeWindowCheckpointState.
+    "BaseTimeWindowCheckpointState": _make_usage_checkpoint_state(),
 }
 
 
@@ -141,7 +145,7 @@ def test_supported_encodings():
     """
     Tests utf-8 and base85-bz2-json encodings
     """
-    test_state = BaseUsageCheckpointState(
+    test_state = BaseTimeWindowCheckpointState(
         version="1.0", begin_timestamp_millis=1, end_timestamp_millis=100
     )
 

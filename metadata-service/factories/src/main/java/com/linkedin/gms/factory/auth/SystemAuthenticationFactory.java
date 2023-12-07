@@ -3,7 +3,7 @@ package com.linkedin.gms.factory.auth;
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
-import com.linkedin.gms.factory.spring.YamlPropertySourceFactory;
+import com.linkedin.metadata.spring.YamlPropertySourceFactory;
 import javax.annotation.Nonnull;
 import lombok.Data;
 import org.springframework.beans.factory.annotation.Value;
@@ -13,10 +13,9 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.PropertySource;
 import org.springframework.context.annotation.Scope;
 
-
 /**
- * Factory responsible for instantiating an instance of {@link Authentication} used to authenticate requests
- * made by the internal system.
+ * Factory responsible for instantiating an instance of {@link Authentication} used to authenticate
+ * requests made by the internal system.
  */
 @Configuration
 @ConfigurationProperties
@@ -37,7 +36,6 @@ public class SystemAuthenticationFactory {
     // TODO: Change to service
     final Actor systemActor = new Actor(ActorType.USER, this.systemClientId);
     return new Authentication(
-        systemActor, String.format("Basic %s:%s", this.systemClientId, this.systemSecret)
-    );
+        systemActor, String.format("Basic %s:%s", this.systemClientId, this.systemSecret));
   }
 }

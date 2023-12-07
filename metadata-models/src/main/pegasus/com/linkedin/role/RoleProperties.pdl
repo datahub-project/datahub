@@ -1,0 +1,43 @@
+namespace com.linkedin.role
+
+import com.linkedin.common.AuditStamp
+
+/**
+ * Information about a ExternalRoleProperties
+ */
+@Aspect = {
+  "name": "roleProperties"
+}
+record RoleProperties {
+
+  /**
+   * Display name of the IAM Role in the external system
+   */
+  @Searchable = {
+    "fieldType": "WORD_GRAM",
+    "enableAutocomplete": true,
+    "boostScore": 10.0,
+    "fieldNameAliases": [ "_entityName" ]
+  }
+  name: string
+
+  /**
+   * Description of the IAM Role
+   */
+  description: optional string
+
+  /**
+   * Can be READ, ADMIN, WRITE
+   */
+  type: string
+
+  /**
+   * Link to access external access management
+   */
+  requestUrl: optional string
+
+  /**
+   * Created Audit stamp
+   */
+   created: optional AuditStamp
+}

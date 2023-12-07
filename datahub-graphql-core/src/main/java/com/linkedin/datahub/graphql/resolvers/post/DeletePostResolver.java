@@ -13,17 +13,17 @@ import java.util.concurrent.CompletableFuture;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
-
 @Slf4j
 @RequiredArgsConstructor
 public class DeletePostResolver implements DataFetcher<CompletableFuture<Boolean>> {
   private final PostService _postService;
 
   @Override
-  public CompletableFuture<Boolean> get(final DataFetchingEnvironment environment) throws Exception {
+  public CompletableFuture<Boolean> get(final DataFetchingEnvironment environment)
+      throws Exception {
     final QueryContext context = environment.getContext();
 
-    if (!AuthorizationUtils.canCreateGlobalAnnouncements(context)) {
+    if (!AuthorizationUtils.canManageGlobalAnnouncements(context)) {
       throw new AuthorizationException(
           "Unauthorized to delete posts. Please contact your DataHub administrator if this needs corrective action.");
     }
@@ -31,12 +31,13 @@ public class DeletePostResolver implements DataFetcher<CompletableFuture<Boolean
     final Urn postUrn = UrnUtils.getUrn(environment.getArgument("urn"));
     final Authentication authentication = context.getAuthentication();
 
-    return CompletableFuture.supplyAsync(() -> {
-      try {
-        return _postService.deletePost(postUrn, authentication);
-      } catch (Exception e) {
-        throw new RuntimeException("Failed to create a new post", e);
-      }
-    });
+    return CompletableFuture.supplyAsync(
+        () -> {
+          try {
+            return _postService.deletePost(postUrn, authentication);
+          } catch (Exception e) {
+            throw new RuntimeException("Failed to create a new post", e);
+          }
+        });
   }
 }

@@ -24,7 +24,6 @@ fragment dataProductSearchFields on DataProduct {
         name
         description
         externalUrl
-        numAssets
     }
     ownership {
         ...ownershipFields
@@ -37,6 +36,9 @@ fragment dataProductSearchFields on DataProduct {
     }
     domain {
         ...entityDomain
+    }
+    entities(input: { start: 0, count: 0, query: "*" }) {
+        total
     }
 }
 

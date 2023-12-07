@@ -1,5 +1,8 @@
 package com.linkedin.metadata.entity;
 
+import static com.linkedin.metadata.Constants.*;
+import static org.testng.Assert.*;
+
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.AspectIngestionUtils;
@@ -18,11 +21,7 @@ import java.util.stream.Collectors;
 import org.testcontainers.shaded.com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
-import static com.linkedin.metadata.Constants.*;
-import static org.testng.Assert.*;
-
-
-abstract public class AspectMigrationsDaoTest<T extends AspectMigrationsDao> {
+public abstract class AspectMigrationsDaoTest<T extends AspectMigrationsDao> {
 
   protected T _migrationsDao;
 
@@ -31,14 +30,17 @@ abstract public class AspectMigrationsDaoTest<T extends AspectMigrationsDao> {
   protected final EntityRegistry _testEntityRegistry;
   protected EventProducer _mockProducer;
 
-  protected EntityService _entityService;
+  protected EntityServiceImpl _entityServiceImpl;
   protected RetentionService _retentionService;
   protected UpdateIndicesService _mockUpdateIndicesService;
 
   protected AspectMigrationsDaoTest() throws EntityRegistryException {
     _snapshotEntityRegistry = new TestEntityRegistry();
-    _configEntityRegistry = new ConfigEntityRegistry(Snapshot.class.getClassLoader().getResourceAsStream("entity-registry.yml"));
-    _testEntityRegistry = new MergedEntityRegistry(_snapshotEntityRegistry).apply(_configEntityRegistry);
+    _configEntityRegistry =
+        new ConfigEntityRegistry(
+            Snapshot.class.getClassLoader().getResourceAsStream("entity-registry.yml"));
+    _testEntityRegistry =
+        new MergedEntityRegistry(_snapshotEntityRegistry).apply(_configEntityRegistry);
   }
 
   @Test
@@ -46,8 +48,10 @@ abstract public class AspectMigrationsDaoTest<T extends AspectMigrationsDao> {
     final int totalAspects = 30;
     final int pageSize = 25;
     final int lastPageSize = 5;
-    Map<Urn, CorpUserKey> ingestedAspects = AspectIngestionUtils.ingestCorpUserKeyAspects(_entityService, totalAspects);
-    List<String> ingestedUrns = ingestedAspects.keySet().stream().map(Urn::toString).collect(Collectors.toList());
+    Map<Urn, CorpUserKey> ingestedAspects =
+        AspectIngestionUtils.ingestCorpUserKeyAspects(_entityServiceImpl, totalAspects);
+    List<String> ingestedUrns =
+        ingestedAspects.keySet().stream().map(Urn::toString).collect(Collectors.toList());
     List<String> seenUrns = new ArrayList<>();
 
     Iterable<String> page1 = _migrationsDao.listAllUrns(0, pageSize);
@@ -78,8 +82,8 @@ abstract public class AspectMigrationsDaoTest<T extends AspectMigrationsDao> {
 
   @Test
   public void testCountEntities() throws AssertionError {
-    AspectIngestionUtils.ingestCorpUserInfoAspects(_entityService, 11);
-    AspectIngestionUtils.ingestChartInfoAspects(_entityService, 22);
+    AspectIngestionUtils.ingestCorpUserInfoAspects(_entityServiceImpl, 11);
+    AspectIngestionUtils.ingestChartInfoAspects(_entityServiceImpl, 22);
     final int expected = 33;
 
     long actual = _migrationsDao.countEntities();
@@ -92,7 +96,7 @@ abstract public class AspectMigrationsDaoTest<T extends AspectMigrationsDao> {
     boolean actual = _migrationsDao.checkIfAspectExists(CORP_USER_INFO_ASPECT_NAME);
     assertFalse(actual);
 
-    AspectIngestionUtils.ingestCorpUserInfoAspects(_entityService, 1);
+    AspectIngestionUtils.ingestCorpUserInfoAspects(_entityServiceImpl, 1);
 
     actual = _migrationsDao.checkIfAspectExists(CORP_USER_INFO_ASPECT_NAME);
     assertTrue(actual);

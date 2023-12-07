@@ -19,10 +19,7 @@ import lombok.Getter;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 
-
-/**
- * Combines results from two entity registries, where the second takes precedence
- */
+/** Combines results from two entity registries, where the second takes precedence */
 @Slf4j
 public class MergedEntityRegistry implements EntityRegistry {
 
@@ -34,8 +31,14 @@ public class MergedEntityRegistry implements EntityRegistry {
   public MergedEntityRegistry(EntityRegistry baseEntityRegistry) {
     // baseEntityRegistry.get*Specs() can return immutable Collections.emptyMap() which fails
     // when this class attempts .put* operations on it.
-    entityNameToSpec = baseEntityRegistry.getEntitySpecs() != null ? new HashMap<>(baseEntityRegistry.getEntitySpecs()) : new HashMap<>();
-    eventNameToSpec = baseEntityRegistry.getEventSpecs() != null ? new HashMap<>(baseEntityRegistry.getEventSpecs()) : new HashMap<>();
+    entityNameToSpec =
+        baseEntityRegistry.getEntitySpecs() != null
+            ? new HashMap<>(baseEntityRegistry.getEntitySpecs())
+            : new HashMap<>();
+    eventNameToSpec =
+        baseEntityRegistry.getEventSpecs() != null
+            ? new HashMap<>(baseEntityRegistry.getEventSpecs())
+            : new HashMap<>();
     baseEntityRegistry.getAspectTemplateEngine();
     _aspectTemplateEngine = baseEntityRegistry.getAspectTemplateEngine();
     _aspectNameToSpec = baseEntityRegistry.getAspectSpecs();
@@ -44,22 +47,28 @@ public class MergedEntityRegistry implements EntityRegistry {
   private void validateEntitySpec(EntitySpec entitySpec, final ValidationResult validationResult) {
     if (entitySpec.getKeyAspectSpec() == null) {
       validationResult.setValid(false);
-      validationResult.getValidationFailures().add(String.format("Key aspect is missing in entity {}", entitySpec.getName()));
+      validationResult
+          .getValidationFailures()
+          .add(String.format("Key aspect is missing in entity {}", entitySpec.getName()));
     }
   }
 
-  public MergedEntityRegistry apply(EntityRegistry patchEntityRegistry) throws EntityRegistryException {
+  public MergedEntityRegistry apply(EntityRegistry patchEntityRegistry)
+      throws EntityRegistryException {
 
     ValidationResult validationResult = validatePatch(patchEntityRegistry);
     if (!validationResult.isValid()) {
-      throw new EntityRegistryException(String.format("Failed to validate new registry with %s", validationResult.validationFailures.stream().collect(
-          Collectors.joining("\n"))));
+      throw new EntityRegistryException(
+          String.format(
+              "Failed to validate new registry with %s",
+              validationResult.validationFailures.stream().collect(Collectors.joining("\n"))));
     }
 
     // Merge Entity Specs
     for (Map.Entry<String, EntitySpec> e2Entry : patchEntityRegistry.getEntitySpecs().entrySet()) {
       if (entityNameToSpec.containsKey(e2Entry.getKey())) {
-        EntitySpec mergeEntitySpec = mergeEntitySpecs(entityNameToSpec.get(e2Entry.getKey()), e2Entry.getValue());
+        EntitySpec mergeEntitySpec =
+            mergeEntitySpecs(entityNameToSpec.get(e2Entry.getKey()), e2Entry.getValue());
         entityNameToSpec.put(e2Entry.getKey(), mergeEntitySpec);
       } else {
         // We are inserting a new entity into the registry
@@ -71,40 +80,62 @@ public class MergedEntityRegistry implements EntityRegistry {
     if (patchEntityRegistry.getEventSpecs().size() > 0) {
       eventNameToSpec.putAll(patchEntityRegistry.getEventSpecs());
     }
-    //TODO: Validate that the entity registries don't have conflicts among each other
+    // TODO: Validate that the entity registries don't have conflicts among each other
     return this;
   }
 
   private ValidationResult validatePatch(EntityRegistry patchEntityRegistry) {
     ValidationResult validationResult = new ValidationResult();
     for (Map.Entry<String, EntitySpec> e2Entry : patchEntityRegistry.getEntitySpecs().entrySet()) {
-        checkMergeable(entityNameToSpec.getOrDefault(e2Entry.getKey(), null), e2Entry.getValue(), validationResult);
+      checkMergeable(
+          entityNameToSpec.getOrDefault(e2Entry.getKey(), null),
+          e2Entry.getValue(),
+          validationResult);
     }
     return validationResult;
   }
 
-  private void checkMergeable(EntitySpec existingEntitySpec, EntitySpec newEntitySpec, final ValidationResult validationResult) {
+  private void checkMergeable(
+      EntitySpec existingEntitySpec,
+      EntitySpec newEntitySpec,
+      final ValidationResult validationResult) {
     if (existingEntitySpec != null) {
-      existingEntitySpec.getAspectSpecMap().entrySet().forEach(aspectSpecEntry -> {
-        if (newEntitySpec.hasAspect(aspectSpecEntry.getKey())) {
-          CompatibilityResult result = CompatibilityChecker.checkCompatibility(aspectSpecEntry.getValue().getPegasusSchema(), newEntitySpec.getAspectSpec(
-              aspectSpecEntry.getKey()).getPegasusSchema(), new CompatibilityOptions());
-          if (result.isError()) {
-            log.error("{} schema is not compatible with previous schema due to {}", aspectSpecEntry.getKey(), result.getMessages());
-            // we want to continue processing all aspects to collect all failures
-            validationResult.setValid(false);
-            validationResult.getValidationFailures().add(
-                String.format("%s schema is not compatible with previous schema due to %s", aspectSpecEntry.getKey(), result.getMessages()));
-          } else {
-            log.info("{} schema is compatible with previous schema due to {}", aspectSpecEntry.getKey(), result.getMessages());
-          }
-        }
-      });
+      existingEntitySpec
+          .getAspectSpecMap()
+          .entrySet()
+          .forEach(
+              aspectSpecEntry -> {
+                if (newEntitySpec.hasAspect(aspectSpecEntry.getKey())) {
+                  CompatibilityResult result =
+                      CompatibilityChecker.checkCompatibility(
+                          aspectSpecEntry.getValue().getPegasusSchema(),
+                          newEntitySpec.getAspectSpec(aspectSpecEntry.getKey()).getPegasusSchema(),
+                          new CompatibilityOptions());
+                  if (result.isError()) {
+                    log.error(
+                        "{} schema is not compatible with previous schema due to {}",
+                        aspectSpecEntry.getKey(),
+                        result.getMessages());
+                    // we want to continue processing all aspects to collect all failures
+                    validationResult.setValid(false);
+                    validationResult
+                        .getValidationFailures()
+                        .add(
+                            String.format(
+                                "%s schema is not compatible with previous schema due to %s",
+                                aspectSpecEntry.getKey(), result.getMessages()));
+                  } else {
+                    log.info(
+                        "{} schema is compatible with previous schema due to {}",
+                        aspectSpecEntry.getKey(),
+                        result.getMessages());
+                  }
+                }
+              });
     } else {
       validateEntitySpec(newEntitySpec, validationResult);
     }
   }
-
 
   private EntitySpec mergeEntitySpecs(EntitySpec existingEntitySpec, EntitySpec newEntitySpec) {
     Map<String, AspectSpec> aspectSpecMap = new HashMap<>(existingEntitySpec.getAspectSpecMap());
@@ -116,8 +147,11 @@ public class MergedEntityRegistry implements EntityRegistry {
           existingEntitySpec.getEntityAnnotation().getKeyAspect(),
           aspectSpecMap.values());
     }
-    return new DefaultEntitySpec(aspectSpecMap.values(), existingEntitySpec.getEntityAnnotation(),
-        existingEntitySpec.getSnapshotSchema(), existingEntitySpec.getAspectTyperefSchema());
+    return new DefaultEntitySpec(
+        aspectSpecMap.values(),
+        existingEntitySpec.getEntityAnnotation(),
+        existingEntitySpec.getSnapshotSchema(),
+        existingEntitySpec.getAspectTyperefSchema());
   }
 
   @Nonnull

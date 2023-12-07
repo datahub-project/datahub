@@ -4,7 +4,7 @@ import pytest
 from pydantic import ValidationError
 
 from datahub.configuration.common import ConfigModel
-from datahub.configuration.pydantic_field_deprecation import pydantic_field_deprecated
+from datahub.configuration.validate_field_deprecation import pydantic_field_deprecated
 from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.utilities.global_warning_util import get_global_warnings

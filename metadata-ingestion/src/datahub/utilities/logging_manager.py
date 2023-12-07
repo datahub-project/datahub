@@ -139,6 +139,11 @@ _default_formatter = logging.Formatter(BASE_LOGGING_FORMAT)
 def configure_logging(debug: bool, log_file: Optional[str] = None) -> Iterator[None]:
     _log_buffer.clear()
 
+    if os.environ.get("DATAHUB_SUPPRESS_LOGGING_MANAGER") == "1":
+        # If we're running in pytest, we don't want to configure logging.
+        yield
+        return
+
     with contextlib.ExitStack() as stack:
         # Create stdout handler.
         stream_handler = logging.StreamHandler()
@@ -189,6 +194,13 @@ def configure_logging(debug: bool, log_file: Optional[str] = None) -> Iterator[N
                 lib_logger.addHandler(handler)
 
         yield
+
+        # Cleanup.
+        for handler in handlers:
+            root_logger.removeHandler(handler)
+            for lib in DATAHUB_PACKAGES:
+                lib_logger.removeHandler(handler)
+                lib_logger.propagate = True
 
 
 # Reduce logging from some particularly chatty libraries.

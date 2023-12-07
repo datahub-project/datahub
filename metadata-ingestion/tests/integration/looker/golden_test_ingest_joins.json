@@ -206,32 +206,32 @@
                         "upstreams": [
                             {
                                 "auditStamp": {
-                                    "time": 0,
-                                    "actor": "urn:li:corpuser:unknown"
+                                    "time": 1586847600000,
+                                    "actor": "urn:li:corpuser:datahub"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.my_joined_view,PROD)",
                                 "type": "VIEW"
                             },
                             {
                                 "auditStamp": {
-                                    "time": 0,
-                                    "actor": "urn:li:corpuser:unknown"
+                                    "time": 1586847600000,
+                                    "actor": "urn:li:corpuser:datahub"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.my_joined_view_original_name,PROD)",
                                 "type": "VIEW"
                             },
                             {
                                 "auditStamp": {
-                                    "time": 0,
-                                    "actor": "urn:li:corpuser:unknown"
+                                    "time": 1586847600000,
+                                    "actor": "urn:li:corpuser:datahub"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.my_view_has_no_fields,PROD)",
                                 "type": "VIEW"
                             },
                             {
                                 "auditStamp": {
-                                    "time": 0,
-                                    "actor": "urn:li:corpuser:unknown"
+                                    "time": 1586847600000,
+                                    "actor": "urn:li:corpuser:datahub"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.underlying_view,PROD)",
                                 "type": "VIEW"
@@ -352,20 +352,6 @@
             "urn": "urn:li:tag:Dimension",
             "aspects": [
                 {
-                    "com.linkedin.pegasus2avro.common.Ownership": {
-                        "owners": [
-                            {
-                                "owner": "urn:li:corpuser:datahub",
-                                "type": "DATAOWNER"
-                            }
-                        ],
-                        "lastModified": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
-                        }
-                    }
-                },
-                {
                     "com.linkedin.pegasus2avro.tag.TagProperties": {
                         "name": "Dimension",
                         "description": "A tag that is applied to all dimension fields."
@@ -385,20 +371,6 @@
             "urn": "urn:li:tag:Temporal",
             "aspects": [
                 {
-                    "com.linkedin.pegasus2avro.common.Ownership": {
-                        "owners": [
-                            {
-                                "owner": "urn:li:corpuser:datahub",
-                                "type": "DATAOWNER"
-                            }
-                        ],
-                        "lastModified": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
-                        }
-                    }
-                },
-                {
                     "com.linkedin.pegasus2avro.tag.TagProperties": {
                         "name": "Temporal",
                         "description": "A tag that is applied to all time-based (temporal) fields such as timestamps or durations."
@@ -417,20 +389,6 @@
         "com.linkedin.pegasus2avro.metadata.snapshot.TagSnapshot": {
             "urn": "urn:li:tag:Measure",
             "aspects": [
-                {
-                    "com.linkedin.pegasus2avro.common.Ownership": {
-                        "owners": [
-                            {
-                                "owner": "urn:li:corpuser:datahub",
-                                "type": "DATAOWNER"
-                            }
-                        ],
-                        "lastModified": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
-                        }
-                    }
-                },
                 {
                     "com.linkedin.pegasus2avro.tag.TagProperties": {
                         "name": "Measure",

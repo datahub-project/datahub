@@ -21,7 +21,7 @@ def mock_user_to_add(*args, **kwargs):
     return None
 
 
-def register_mock_api(request_mock):
+def register_mock_api(request_mock, override_mock_data={}):
     api_vs_response = {
         "https://host_port/Reports/api/v2.0/Reports": {
             "method": "GET",
@@ -48,37 +48,6 @@ def register_mock_api(request_mock):
                         "Roles": [],
                         "HasSharedDataSets": True,
                         "HasParameters": True,
-                    },
-                ]
-            },
-        },
-        "https://host_port/Reports/api/v2.0/MobileReports": {
-            "method": "GET",
-            "status_code": 200,
-            "json": {
-                "value": [
-                    {
-                        "Id": "ee56dc21-248a-4138-a446-ee5ab1fc938b",
-                        "Name": "Testb",
-                        "Description": None,
-                        "Path": "/path/to/Testb",
-                        "Type": "MobileReport",
-                        "Hidden": False,
-                        "Size": 1010101,
-                        "ModifiedBy": "TEST_USER",
-                        "ModifiedDate": str(datetime.now()),
-                        "CreatedBy": "TEST_USER",
-                        "CreatedDate": str(datetime.now()),
-                        "ParentFolderId": "47495172-89ab-455f-a446-fffd3cf239cb",
-                        "IsFavorite": False,
-                        "ContentType": None,
-                        "Content": "",
-                        "HasDataSources": True,
-                        "Roles": [],
-                        "HasSharedDataSets": True,
-                        "HasParameters": True,
-                        "AllowCaching": True,
-                        "Manifest": {"Resources": []},
                     },
                 ]
             },
@@ -141,6 +110,8 @@ def register_mock_api(request_mock):
         },
     }
 
+    api_vs_response.update(override_mock_data)
+
     for url in api_vs_response.keys():
         request_mock.register_uri(
             api_vs_response[url]["method"],
@@ -164,6 +135,30 @@ def default_source_config():
     }
 
 
+def get_default_recipe(output_path: str) -> dict:
+    return {
+        "run_id": "powerbi-report-server-test",
+        "source": {
+            "type": "powerbi-report-server",
+            "config": {
+                **default_source_config(),
+            },
+        },
+        "sink": {
+            "type": "file",
+            "config": {"filename": output_path},  # ,
+        },
+    }
+
+
+def add_mock_method_in_pipeline(pipeline: Pipeline) -> None:
+    pipeline.ctx.graph = mock.MagicMock()
+    pipeline.ctx.graph.get_ownership = mock.MagicMock()
+    pipeline.ctx.graph.get_ownership.side_effect = mock_existing_users
+    pipeline.ctx.graph.get_aspect_v2 = mock.MagicMock()
+    pipeline.ctx.graph.get_aspect_v2.side_effect = mock_user_to_add
+
+
 @freeze_time(FROZEN_TIME)
 @mock.patch("requests_ntlm.HttpNtlmAuth")
 def test_powerbi_ingest(mock_msal, pytestconfig, tmp_path, mock_time, requests_mock):
@@ -174,34 +169,54 @@ def test_powerbi_ingest(mock_msal, pytestconfig, tmp_path, mock_time, requests_m
     register_mock_api(request_mock=requests_mock)
 
     pipeline = Pipeline.create(
-        {
-            "run_id": "powerbi-report-server-test",
-            "source": {
-                "type": "powerbi-report-server",
-                "config": {
-                    **default_source_config(),
-                },
-            },
-            "sink": {
-                "type": "file",
-                "config": {
-                    "filename": f"{tmp_path}/powerbi_report_server_mces.json",
-                },
-            },
-        }
+        get_default_recipe(output_path=f"{tmp_path}/powerbi_report_server_mces.json")
     )
-    pipeline.ctx.graph = mock.MagicMock()
-    pipeline.ctx.graph.get_ownership = mock.MagicMock()
-    pipeline.ctx.graph.get_ownership.side_effect = mock_existing_users
-    pipeline.ctx.graph.get_aspect_v2 = mock.MagicMock()
-    pipeline.ctx.graph.get_aspect_v2.side_effect = mock_user_to_add
+
+    add_mock_method_in_pipeline(pipeline=pipeline)
 
     pipeline.run()
     pipeline.raise_from_status()
-    mce_out_file = "golden_test_ingest.json"
 
+    golden_file = "golden_test_ingest.json"
     mce_helpers.check_golden_file(
         pytestconfig,
         output_path=tmp_path / "powerbi_report_server_mces.json",
-        golden_path=f"{test_resources_dir}/{mce_out_file}",
+        golden_path=f"{test_resources_dir}/{golden_file}",
+    )
+
+
+@freeze_time(FROZEN_TIME)
+@mock.patch("requests_ntlm.HttpNtlmAuth")
+def test_powerbi_ingest_with_failure(
+    mock_msal, pytestconfig, tmp_path, mock_time, requests_mock
+):
+    test_resources_dir = (
+        pytestconfig.rootpath / "tests/integration/powerbi_report_server"
+    )
+
+    register_mock_api(
+        request_mock=requests_mock,
+        override_mock_data={
+            "https://host_port/Reports/api/v2.0/LinkedReports": {
+                "method": "GET",
+                "status_code": 404,
+                "json": {"error": "Request Failed"},
+            }
+        },
+    )
+
+    pipeline = Pipeline.create(
+        get_default_recipe(output_path=f"{tmp_path}/powerbi_report_server_mces.json")
+    )
+
+    add_mock_method_in_pipeline(pipeline=pipeline)
+
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    golden_file = "golden_test_fail_api_ingest.json"
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=tmp_path / "powerbi_report_server_mces.json",
+        golden_path=f"{test_resources_dir}/{golden_file}",
     )

@@ -48,7 +48,7 @@ services:
   mysql:
     container_name: mysql
     hostname: mysql
-    image: mysql:5.7
+    image: mysql:${DATAHUB_MYSQL_VERSION:-5.7}
     command: --character-set-server=utf8mb4 --collation-server=utf8mb4_bin --default-authentication-plugin=mysql_native_password
     ports:
       - ${DATAHUB_MAPPED_MYSQL_PORT:-3306}:3306
@@ -56,7 +56,7 @@ services:
     restart: on-failure
     healthcheck:
       test: mysqladmin ping -h mysql -u $$MYSQL_USER --password=$$MYSQL_PASSWORD
-      start_period: 2s
+      start_period: 20s
       interval: 1s
       retries: 5
       timeout: 5s

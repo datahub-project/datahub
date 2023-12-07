@@ -5,26 +5,10 @@ import React from 'react';
 import { FacetFilterInput, FacetMetadata } from '../../../types.generated';
 import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
 import OptionsDropdownMenu from './OptionsDropdownMenu';
-import { ANTD_GRAY } from '../../entity/shared/constants';
 import useSearchFilterDropdown from './useSearchFilterDropdown';
 import { IconWrapper } from './SearchFilterView';
 import { getFilterDropdownIcon } from './utils';
-
-const OptionWrapper = styled.div<{ isActive: boolean; isOpen: boolean }>`
-    padding: 5px 12px;
-    font-size: 14px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    cursor: pointer;
-
-    &:hover {
-        background-color: ${ANTD_GRAY[3]};
-    }
-
-    ${(props) => props.isActive && `color: ${props.theme.styles['primary-color']};`}
-    ${(props) => props.isOpen && `background-color: ${ANTD_GRAY[3]};`}
-`;
+import { MoreFilterOptionLabel } from './styledComponents';
 
 const IconNameWrapper = styled.span`
     display: flex;
@@ -72,7 +56,7 @@ export default function MoreFilterOption({ filter, activeFilters, onChangeFilter
                 />
             )}
         >
-            <OptionWrapper
+            <MoreFilterOptionLabel
                 onClick={() => updateIsMenuOpen(!isMenuOpen)}
                 isActive={!!numActiveFilters}
                 isOpen={isMenuOpen}
@@ -83,7 +67,7 @@ export default function MoreFilterOption({ filter, activeFilters, onChangeFilter
                     {capitalizeFirstLetterOnly(filter.displayName)} {numActiveFilters ? `(${numActiveFilters}) ` : ''}
                 </IconNameWrapper>
                 <RightOutlined style={{ fontSize: '12px', height: '12px' }} />
-            </OptionWrapper>
+            </MoreFilterOptionLabel>
         </Dropdown>
     );
 }

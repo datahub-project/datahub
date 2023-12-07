@@ -89,10 +89,13 @@ def get_swag_json(
 
 
 def get_url_basepath(sw_dict: dict) -> str:
-    try:
+    if "basePath" in sw_dict:
         return sw_dict["basePath"]
-    except KeyError:  # no base path defined
-        return ""
+    if "servers" in sw_dict:
+        # When the API path doesn't match the OAS path
+        return sw_dict["servers"][0]["url"]
+
+    return ""
 
 
 def check_sw_version(sw_dict: dict) -> None:
@@ -111,72 +114,78 @@ def check_sw_version(sw_dict: dict) -> None:
 
 def get_endpoints(sw_dict: dict) -> dict:  # noqa: C901
     """
-    Get all the URLs accepting the "GET" method, together with their description and the tags
+    Get all the URLs, together with their description and the tags
     """
     url_details = {}
 
     check_sw_version(sw_dict)
 
     for p_k, p_o in sw_dict["paths"].items():
-        # will track only the "get" methods, which are the ones that give us data
-        if "get" in p_o.keys():
-            if "200" in p_o["get"]["responses"].keys():
-                base_res = p_o["get"]["responses"]["200"]
-            elif 200 in p_o["get"]["responses"].keys():
-                # if you read a plain yml file the 200 will be an integer
-                base_res = p_o["get"]["responses"][200]
-            else:
-                # the endpoint does not have a 200 response
-                continue
+        method = list(p_o)[0]
+        if "200" in p_o[method]["responses"].keys():
+            base_res = p_o[method]["responses"]["200"]
+        elif 200 in p_o[method]["responses"].keys():
+            # if you read a plain yml file the 200 will be an integer
+            base_res = p_o[method]["responses"][200]
+        else:
+            # the endpoint does not have a 200 response
+            continue
 
-            if "description" in p_o["get"].keys():
-                desc = p_o["get"]["description"]
-            elif "summary" in p_o["get"].keys():
-                desc = p_o["get"]["summary"]
-            else:  # still testing
-                desc = ""
+        if "description" in p_o[method].keys():
+            desc = p_o[method]["description"]
+        elif "summary" in p_o[method].keys():
+            desc = p_o[method]["summary"]
+        else:  # still testing
+            desc = ""
 
-            try:
-                tags = p_o["get"]["tags"]
-            except KeyError:
-                tags = []
+        try:
+            tags = p_o[method]["tags"]
+        except KeyError:
+            tags = []
 
-            url_details[p_k] = {"description": desc, "tags": tags}
+        url_details[p_k] = {"description": desc, "tags": tags, "method": method}
 
-            # trying if dataset is defined in swagger...
-            if "content" in base_res.keys():
-                res_cont = base_res["content"]
-                if "application/json" in res_cont.keys():
-                    ex_field = None
-                    if "example" in res_cont["application/json"]:
-                        ex_field = "example"
-                    elif "examples" in res_cont["application/json"]:
-                        ex_field = "examples"
+        example_data = check_for_api_example_data(base_res, p_k)
+        if example_data:
+            url_details[p_k]["data"] = example_data
 
-                    if ex_field:
-                        if isinstance(res_cont["application/json"][ex_field], dict):
-                            url_details[p_k]["data"] = res_cont["application/json"][
-                                ex_field
-                            ]
-                        elif isinstance(res_cont["application/json"][ex_field], list):
-                            # taking the first example
-                            url_details[p_k]["data"] = res_cont["application/json"][
-                                ex_field
-                            ][0]
-                    else:
-                        logger.warning(
-                            f"Field in swagger file does not give consistent data --- {p_k}"
-                        )
-                elif "text/csv" in res_cont.keys():
-                    url_details[p_k]["data"] = res_cont["text/csv"]["schema"]
-            elif "examples" in base_res.keys():
-                url_details[p_k]["data"] = base_res["examples"]["application/json"]
-
-            # checking whether there are defined parameters to execute the call...
-            if "parameters" in p_o["get"].keys():
-                url_details[p_k]["parameters"] = p_o["get"]["parameters"]
+        # checking whether there are defined parameters to execute the call...
+        if "parameters" in p_o[method].keys():
+            url_details[p_k]["parameters"] = p_o[method]["parameters"]
 
     return dict(sorted(url_details.items()))
+
+
+def check_for_api_example_data(base_res: dict, key: str) -> dict:
+    """
+    Try to determine if example data is defined for the endpoint, and return it
+    """
+    data = {}
+    if "content" in base_res.keys():
+        res_cont = base_res["content"]
+        if "application/json" in res_cont.keys():
+            ex_field = None
+            if "example" in res_cont["application/json"]:
+                ex_field = "example"
+            elif "examples" in res_cont["application/json"]:
+                ex_field = "examples"
+
+            if ex_field:
+                if isinstance(res_cont["application/json"][ex_field], dict):
+                    data = res_cont["application/json"][ex_field]
+                elif isinstance(res_cont["application/json"][ex_field], list):
+                    # taking the first example
+                    data = res_cont["application/json"][ex_field][0]
+            else:
+                logger.warning(
+                    f"Field in swagger file does not give consistent data --- {key}"
+                )
+        elif "text/csv" in res_cont.keys():
+            data = res_cont["text/csv"]["schema"]
+    elif "examples" in base_res.keys():
+        data = base_res["examples"]["application/json"]
+
+    return data
 
 
 def guessing_url_name(url: str, examples: dict) -> str:
@@ -314,12 +323,10 @@ def extract_fields(
             return ["contains_a_string"], {"contains_a_string": dict_data[0]}
         else:
             raise ValueError("unknown format")
-    if len(dict_data.keys()) > 1:
+    if len(dict_data) > 1:
         # the elements are directly inside the dict
         return flatten2list(dict_data), dict_data
-    dst_key = list(dict_data.keys())[
-        0
-    ]  # the first and unique key is the dataset's name
+    dst_key = list(dict_data)[0]  # the first and unique key is the dataset's name
 
     try:
         return flatten2list(dict_data[dst_key]), dict_data[dst_key]

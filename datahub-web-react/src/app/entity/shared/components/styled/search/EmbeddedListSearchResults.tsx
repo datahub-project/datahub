@@ -1,13 +1,15 @@
 import React from 'react';
 import { Pagination, Typography } from 'antd';
+import { LoadingOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
 import { FacetFilterInput, FacetMetadata, SearchResults as SearchResultType } from '../../../../../../types.generated';
 import { SearchCfg } from '../../../../../../conf';
-import { EntityNameList } from '../../../../../recommendations/renderer/component/EntityNameList';
-import { ReactComponent as LoadingSvg } from '../../../../../../images/datahub-logo-color-loading_pendulum.svg';
 import { EntityAndType } from '../../../types';
 import { UnionType } from '../../../../../search/utils/constants';
 import { SearchFiltersSection } from '../../../../../search/SearchFiltersSection';
+import { EntitySearchResults, EntityActionProps } from './EntitySearchResults';
+import MatchingViewsLabel from './MatchingViewsLabel';
+import { ANTD_GRAY } from '../../../constants';
 
 const SearchBody = styled.div`
     height: 100%;
@@ -58,6 +60,12 @@ const LoadingContainer = styled.div`
     flex: 1;
 `;
 
+const StyledLoading = styled(LoadingOutlined)`
+    font-size: 36px;
+    color: ${ANTD_GRAY[7]};
+    padding-bottom: 18px;
+]`;
+
 interface Props {
     page: number;
     searchResponse?: SearchResultType | null;
@@ -74,6 +82,8 @@ interface Props {
     setSelectedEntities: (entities: EntityAndType[]) => any;
     numResultsPerPage: number;
     setNumResultsPerPage: (numResults: number) => void;
+    entityAction?: React.FC<EntityActionProps>;
+    applyView?: boolean;
 }
 
 export const EmbeddedListSearchResults = ({
@@ -92,6 +102,8 @@ export const EmbeddedListSearchResults = ({
     setSelectedEntities,
     numResultsPerPage,
     setNumResultsPerPage,
+    entityAction,
+    applyView,
 }: Props) => {
     const pageStart = searchResponse?.start || 0;
     const pageSize = searchResponse?.count || 0;
@@ -116,12 +128,12 @@ export const EmbeddedListSearchResults = ({
                 <ResultContainer>
                     {loading && (
                         <LoadingContainer>
-                            <LoadingSvg height={80} width={80} />
+                            <StyledLoading />
                         </LoadingContainer>
                     )}
                     {!loading && (
-                        <EntityNameList
-                            entities={searchResponse?.searchResults?.map((searchResult) => searchResult.entity) || []}
+                        <EntitySearchResults
+                            searchResults={searchResponse?.searchResults || []}
                             additionalPropertiesList={
                                 searchResponse?.searchResults?.map((searchResult) => ({
                                     // when we add impact analysis, we will want to pipe the path to each element to the result this
@@ -135,6 +147,7 @@ export const EmbeddedListSearchResults = ({
                             selectedEntities={selectedEntities}
                             setSelectedEntities={setSelectedEntities}
                             bordered={false}
+                            entityAction={entityAction}
                         />
                     )}
                 </ResultContainer>
@@ -156,7 +169,7 @@ export const EmbeddedListSearchResults = ({
                     onShowSizeChange={(_currNum, newNum) => setNumResultsPerPage(newNum)}
                     pageSizeOptions={['10', '20', '50', '100']}
                 />
-                <span />
+                {applyView ? <MatchingViewsLabel /> : <span />}
             </PaginationInfoContainer>
         </>
     );

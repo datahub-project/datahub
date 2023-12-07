@@ -3,8 +3,8 @@ package com.linkedin.gms.factory.kafka.schemaregistry;
 import com.linkedin.gms.factory.common.TopicConventionFactory;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.config.kafka.KafkaConfiguration;
-import com.linkedin.metadata.schema.registry.SchemaRegistryService;
-import com.linkedin.metadata.schema.registry.SchemaRegistryServiceImpl;
+import com.linkedin.metadata.registry.SchemaRegistryService;
+import com.linkedin.metadata.registry.SchemaRegistryServiceImpl;
 import com.linkedin.mxe.TopicConvention;
 import io.confluent.kafka.serializers.AbstractKafkaSchemaSerDeConfig;
 import io.confluent.kafka.serializers.KafkaAvroDeserializer;
@@ -19,27 +19,30 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.DependsOn;
 
-
 @Slf4j
 @Configuration
-@ConditionalOnProperty(name = "kafka.schemaRegistry.type", havingValue = InternalSchemaRegistryFactory.TYPE)
+@ConditionalOnProperty(
+    name = "kafka.schemaRegistry.type",
+    havingValue = InternalSchemaRegistryFactory.TYPE)
 public class InternalSchemaRegistryFactory {
 
   public static final String TYPE = "INTERNAL";
 
-  /**
-   * Configure Kafka Producer/Consumer processes with a custom schema registry.
-   */
+  /** Configure Kafka Producer/Consumer processes with a custom schema registry. */
   @Bean("schemaRegistryConfig")
   @Nonnull
-  protected SchemaRegistryConfig getInstance(@Qualifier("configurationProvider") ConfigurationProvider provider) {
+  protected SchemaRegistryConfig getInstance(
+      @Qualifier("configurationProvider") ConfigurationProvider provider) {
     Map<String, Object> props = new HashMap<>();
     KafkaConfiguration kafkaConfiguration = provider.getKafka();
 
-    props.put(AbstractKafkaSchemaSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG, kafkaConfiguration
-        .getSchemaRegistry().getUrl());
+    props.put(
+        AbstractKafkaSchemaSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG,
+        kafkaConfiguration.getSchemaRegistry().getUrl());
 
-    log.info("Creating internal registry configuration for url {}", kafkaConfiguration.getSchemaRegistry().getUrl());
+    log.info(
+        "Creating internal registry configuration for url {}",
+        kafkaConfiguration.getSchemaRegistry().getUrl());
     return new SchemaRegistryConfig(KafkaAvroSerializer.class, KafkaAvroDeserializer.class, props);
   }
 

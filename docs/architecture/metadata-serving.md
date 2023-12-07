@@ -6,7 +6,11 @@ title: "Serving Tier"
 
 The figure below shows the high-level system diagram for DataHub's Serving Tier. 
 
-![datahub-serving](../imgs/datahub-serving.png)
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/datahub-serving.png"/>
+</p>
+
 
 The primary component is called [the Metadata Service](../../metadata-service) and exposes a REST API and a GraphQL API for performing CRUD operations on metadata. The service also exposes search and graph query API-s to support secondary-index style queries, full-text search queries as well as relationship queries like lineage. In addition, the [datahub-frontend](../../datahub-frontend) service expose a GraphQL API on top of the metadata graph. 
 

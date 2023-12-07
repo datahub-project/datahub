@@ -22,7 +22,6 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.source import Source, SourceReport
-from datahub.ingestion.api.source_helpers import auto_workunit_reporter
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sql.clickhouse import ClickHouseConfig
 from datahub.ingestion.source.usage.usage_common import (
@@ -111,9 +110,6 @@ class ClickHouseUsageSource(Source):
         config = ClickHouseUsageConfig.parse_obj(config_dict)
         return cls(ctx, config)
 
-    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        return auto_workunit_reporter(self.report, self.get_workunits_internal())
-
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         """Gets ClickHouse usage stats as work units"""
         access_events = self._get_clickhouse_history()
@@ -147,11 +143,7 @@ class ClickHouseUsageSource(Source):
         results = engine.execute(query)
         events = []
         for row in results:
-            # minor type conversion
-            if hasattr(row, "_asdict"):
-                event_dict = row._asdict()
-            else:
-                event_dict = dict(row)
+            event_dict = row._asdict()
 
             # stripping extra spaces caused by above _asdict() conversion
             for k, v in event_dict.items():
@@ -252,6 +244,7 @@ class ClickHouseUsageSource(Source):
             self.config.top_n_queries,
             self.config.format_sql_queries,
             self.config.include_top_n_queries,
+            self.config.queries_character_limit,
         )
 
     def get_report(self) -> SourceReport:

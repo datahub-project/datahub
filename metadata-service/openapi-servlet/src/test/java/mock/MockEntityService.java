@@ -1,5 +1,7 @@
 package mock;
 
+import static entities.EntitiesControllerTest.*;
+
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.GlossaryTermAssociation;
@@ -21,11 +23,10 @@ import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.config.PreProcessHooks;
 import com.linkedin.metadata.entity.AspectDao;
-import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.EntityServiceImpl;
 import com.linkedin.metadata.entity.ListResult;
 import com.linkedin.metadata.entity.RollbackRunResult;
 import com.linkedin.metadata.event.EventProducer;
-import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.ListUrnsResult;
 import com.linkedin.metadata.run.AspectRowSummary;
@@ -39,36 +40,36 @@ import com.linkedin.schema.SchemaFieldArray;
 import com.linkedin.schema.SchemaFieldDataType;
 import com.linkedin.schema.SchemaMetadata;
 import com.linkedin.schema.StringType;
-import com.linkedin.util.Pair;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
-import java.util.function.Function;
 import javax.annotation.Nonnull;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import static entities.EntitiesControllerTest.*;
-
-
-public class MockEntityService extends EntityService {
-  public MockEntityService(@Nonnull AspectDao aspectDao, @Nonnull EventProducer producer, @Nonnull EntityRegistry entityRegistry, @Nonnull
-      UpdateIndicesService updateIndicesService, PreProcessHooks preProcessHooks) {
+public class MockEntityService extends EntityServiceImpl {
+  public MockEntityService(
+      @Nonnull AspectDao aspectDao,
+      @Nonnull EventProducer producer,
+      @Nonnull EntityRegistry entityRegistry,
+      @Nonnull UpdateIndicesService updateIndicesService,
+      PreProcessHooks preProcessHooks) {
     super(aspectDao, producer, entityRegistry, true, updateIndicesService, preProcessHooks);
   }
 
   @Override
-  public Map<Urn, List<RecordTemplate>> getLatestAspects(@Nonnull Set<Urn> urns, @Nonnull Set<String> aspectNames) {
+  public Map<Urn, List<RecordTemplate>> getLatestAspects(
+      @Nonnull Set<Urn> urns, @Nonnull Set<String> aspectNames) {
     return null;
   }
 
   @Override
-  public Map<String, RecordTemplate> getLatestAspectsForUrn(@Nonnull Urn urn, @Nonnull Set<String> aspectNames) {
+  public Map<String, RecordTemplate> getLatestAspectsForUrn(
+      @Nonnull Urn urn, @Nonnull Set<String> aspectNames) {
     return Collections.emptyMap();
   }
 
@@ -78,42 +79,58 @@ public class MockEntityService extends EntityService {
   }
 
   @Override
-  public Map<Urn, List<EnvelopedAspect>> getLatestEnvelopedAspects(@Nonnull String entityName, @Nonnull Set<Urn> urns,
-      @Nonnull Set<String> aspectNames) throws URISyntaxException {
+  public Map<Urn, List<EnvelopedAspect>> getLatestEnvelopedAspects(
+      @Nonnull String entityName, @Nonnull Set<Urn> urns, @Nonnull Set<String> aspectNames)
+      throws URISyntaxException {
     Urn urn = UrnUtils.getUrn(DATASET_URN);
     Map<Urn, List<EnvelopedAspect>> envelopedAspectMap = new HashMap<>();
     List<EnvelopedAspect> aspects = new ArrayList<>();
     EnvelopedAspect schemaMetadata = new EnvelopedAspect();
     SchemaMetadata pegasusSchemaMetadata = new SchemaMetadata();
-    pegasusSchemaMetadata.setDataset(DatasetUrn.createFromUrn(UrnUtils.getUrn(DATASET_URN)))
+    pegasusSchemaMetadata
+        .setDataset(DatasetUrn.createFromUrn(UrnUtils.getUrn(DATASET_URN)))
         .setVersion(0L)
-        .setCreated(new AuditStamp().setActor(UrnUtils.getUrn(CORPUSER_URN)).setTime(System.currentTimeMillis()))
+        .setCreated(
+            new AuditStamp()
+                .setActor(UrnUtils.getUrn(CORPUSER_URN))
+                .setTime(System.currentTimeMillis()))
         .setHash(S)
         .setCluster(S)
         .setPlatformSchema(SchemaMetadata.PlatformSchema.create(new MySqlDDL().setTableSchema(S)))
-        .setForeignKeys(new ForeignKeyConstraintArray(Collections.singletonList(
-            new ForeignKeyConstraint()
-                .setForeignDataset(urn)
-                .setName(S)
-                .setForeignFields(new UrnArray(Collections.singletonList(urn))))))
-        .setFields(new SchemaFieldArray(Collections.singletonList(
-            new SchemaField()
-                .setDescription(S)
-                .setFieldPath(S)
-                .setType(new SchemaFieldDataType().setType(SchemaFieldDataType.Type.create(new StringType())))
-                .setGlobalTags(
-                    new GlobalTags()
-                        .setTags(new TagAssociationArray(Collections.singletonList(
-                            new TagAssociation().setTag(TagUrn.createFromUrn(UrnUtils.getUrn(TAG_URN)))
-                        ))))
-                .setGlossaryTerms(new GlossaryTerms().setTerms(
-                    new GlossaryTermAssociationArray(Collections.singletonList(
-                        new GlossaryTermAssociation()
-                            .setUrn(GlossaryTermUrn.createFromUrn(UrnUtils.getUrn(GLOSSARY_TERM_URN)))
-                    )))
-                )
-            ))
-        );
+        .setForeignKeys(
+            new ForeignKeyConstraintArray(
+                Collections.singletonList(
+                    new ForeignKeyConstraint()
+                        .setForeignDataset(urn)
+                        .setName(S)
+                        .setForeignFields(new UrnArray(Collections.singletonList(urn))))))
+        .setFields(
+            new SchemaFieldArray(
+                Collections.singletonList(
+                    new SchemaField()
+                        .setDescription(S)
+                        .setFieldPath(S)
+                        .setType(
+                            new SchemaFieldDataType()
+                                .setType(SchemaFieldDataType.Type.create(new StringType())))
+                        .setGlobalTags(
+                            new GlobalTags()
+                                .setTags(
+                                    new TagAssociationArray(
+                                        Collections.singletonList(
+                                            new TagAssociation()
+                                                .setTag(
+                                                    TagUrn.createFromUrn(
+                                                        UrnUtils.getUrn(TAG_URN)))))))
+                        .setGlossaryTerms(
+                            new GlossaryTerms()
+                                .setTerms(
+                                    new GlossaryTermAssociationArray(
+                                        Collections.singletonList(
+                                            new GlossaryTermAssociation()
+                                                .setUrn(
+                                                    GlossaryTermUrn.createFromUrn(
+                                                        UrnUtils.getUrn(GLOSSARY_TERM_URN))))))))));
     schemaMetadata
         .setType(AspectType.VERSIONED)
         .setName("schemaMetadata")
@@ -124,35 +141,31 @@ public class MockEntityService extends EntityService {
   }
 
   @Override
-  public Map<Urn, List<EnvelopedAspect>> getVersionedEnvelopedAspects(@Nonnull Set<VersionedUrn> versionedUrns,
-      @Nonnull Set<String> aspectNames) throws URISyntaxException {
+  public Map<Urn, List<EnvelopedAspect>> getVersionedEnvelopedAspects(
+      @Nonnull Set<VersionedUrn> versionedUrns, @Nonnull Set<String> aspectNames)
+      throws URISyntaxException {
     return null;
   }
 
   @Override
-  public EnvelopedAspect getLatestEnvelopedAspect(@Nonnull String entityName, @Nonnull Urn urn,
-      @Nonnull String aspectName) throws Exception {
+  public EnvelopedAspect getLatestEnvelopedAspect(
+      @Nonnull String entityName, @Nonnull Urn urn, @Nonnull String aspectName) throws Exception {
     return null;
   }
 
   @Override
-  public EnvelopedAspect getEnvelopedAspect(@Nonnull String entityName, @Nonnull Urn urn, @Nonnull String aspectName,
-      long version) throws Exception {
+  public VersionedAspect getVersionedAspect(
+      @Nonnull Urn urn, @Nonnull String aspectName, long version) {
     return null;
   }
 
   @Override
-  public VersionedAspect getVersionedAspect(@Nonnull Urn urn, @Nonnull String aspectName, long version) {
+  public ListResult<RecordTemplate> listLatestAspects(
+      @Nonnull String entityName, @Nonnull String aspectName, int start, int count) {
     return null;
   }
 
-  @Override
-  public ListResult<RecordTemplate> listLatestAspects(@Nonnull String entityName, @Nonnull String aspectName, int start,
-      int count) {
-    return null;
-  }
-
-  @Nonnull
+  /*  @Nonnull
   @Override
   protected UpdateAspectResult ingestAspectToLocalDB(@Nonnull Urn urn, @Nonnull String aspectName,
       @Nonnull Function<Optional<RecordTemplate>, RecordTemplate> updateLambda, @Nonnull AuditStamp auditStamp,
@@ -167,19 +180,16 @@ public class MockEntityService extends EntityService {
       @Nonnull List<Pair<String, RecordTemplate>> aspectRecordsToIngest, @Nonnull AuditStamp auditStamp,
       @Nonnull SystemMetadata providedSystemMetadata) {
     return Collections.emptyList();
-  }
+  }*/
 
   @Nullable
   @Override
-  public RecordTemplate ingestAspectIfNotPresent(@NotNull Urn urn, @NotNull String aspectName,
-      @NotNull RecordTemplate newValue, @NotNull AuditStamp auditStamp, @Nullable SystemMetadata systemMetadata) {
-    return null;
-  }
-
-  @Override
-  public RecordTemplate updateAspect(@Nonnull Urn urn, @Nonnull String entityName, @Nonnull String aspectName,
-      @Nonnull AspectSpec aspectSpec, @Nonnull RecordTemplate newValue, @Nonnull AuditStamp auditStamp,
-      @Nonnull long version, @Nonnull boolean emitMae) {
+  public RecordTemplate ingestAspectIfNotPresent(
+      @NotNull Urn urn,
+      @NotNull String aspectName,
+      @NotNull RecordTemplate newValue,
+      @NotNull AuditStamp auditStamp,
+      @Nullable SystemMetadata systemMetadata) {
     return null;
   }
 
@@ -189,13 +199,11 @@ public class MockEntityService extends EntityService {
   }
 
   @Override
-  public void setWritable(boolean canWrite) {
-
-  }
+  public void setWritable(boolean canWrite) {}
 
   @Override
-  public RollbackRunResult rollbackWithConditions(List<AspectRowSummary> aspectRows, Map<String, String> conditions,
-      boolean hardDelete) {
+  public RollbackRunResult rollbackWithConditions(
+      List<AspectRowSummary> aspectRows, Map<String, String> conditions, boolean hardDelete) {
     return null;
   }
 

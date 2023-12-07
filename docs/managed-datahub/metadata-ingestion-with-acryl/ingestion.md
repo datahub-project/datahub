@@ -56,9 +56,17 @@ In Acryl DataHub deployments, you _must_ use a sink of type `datahub-rest`, whic
 2. **token**: a unique API key used to authenticate requests to your instance's REST API
 
 The token can be retrieved by logging in as admin. You can go to Settings page and generate a Personal Access Token with your desired expiration date.
-![](../imgs/saas/home-(1).png)
 
-![](../imgs/saas/settings.png)
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/home-(1).png"/>
+</p>
+
+
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/settings.png"/>
+</p>
+
 
 To configure your instance of DataHub as the destination for ingestion, set the "server" field of your recipe to point to your Acryl instance's domain suffixed by the path `/gms`, as shown below.
 A complete example of a DataHub recipe file, which reads from MySQL and writes into a DataHub instance:

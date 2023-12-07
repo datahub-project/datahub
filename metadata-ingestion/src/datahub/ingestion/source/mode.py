@@ -25,7 +25,6 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.source import Source, SourceReport
-from datahub.ingestion.api.source_helpers import auto_workunit_reporter
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
     AuditStamp,
@@ -99,6 +98,7 @@ class HTTPError429(HTTPError):
 @config_class(ModeConfig)
 @support_status(SupportStatus.CERTIFIED)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
+@capability(SourceCapability.LINEAGE_COARSE, "Supported by default")
 class ModeSource(Source):
     """
 
@@ -218,6 +218,8 @@ class ModeSource(Source):
         if creator is not None:
             modified_actor = builder.make_user_urn(creator)
             if report_info.get("last_saved_at") is None:
+                # Sometimes mode returns null for last_saved_at.
+                # In that case, we use the created_at timestamp instead.
                 report_info["last_saved_at"] = report_info.get("created_at")
 
             modified_ts = int(
@@ -747,7 +749,7 @@ class ModeSource(Source):
                     # respect Retry-After
                     sleep_time = error_response.headers.get("retry-after")
                     if sleep_time is not None:
-                        time.sleep(sleep_time)
+                        time.sleep(float(sleep_time))
                     raise HTTPError429
 
                 raise http_error
@@ -796,9 +798,6 @@ class ModeSource(Source):
     def create(cls, config_dict: dict, ctx: PipelineContext) -> Source:
         config = ModeConfig.parse_obj(config_dict)
         return cls(ctx, config)
-
-    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        return auto_workunit_reporter(self.report, self.get_workunits_internal())
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         yield from self.emit_dashboard_mces()

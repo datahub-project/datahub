@@ -1,0 +1,17 @@
+namespace com.linkedin.role
+
+import com.linkedin.common.Urn
+/**
+ * Provisioned users of a role
+ */
+record RoleUser {
+
+    /**
+     * Link provisioned corp user for a role
+     */
+    @Relationship = {
+      "name": "Has",
+      "entityTypes": [ "corpuser" ]
+    }
+    user: Urn
+}

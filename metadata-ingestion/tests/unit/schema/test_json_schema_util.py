@@ -712,6 +712,19 @@ def test_required_field():
     assert json.loads(fields[0].jsonProps or "{}")["required"] is False
 
 
+def test_non_str_enums():
+    schema = {
+        "$id": "test",
+        "$schema": "http://json-schema.org/draft-06/schema#",
+        "properties": {"bar": {"description": "Mixed enum", "enum": ["baz", 1, None]}},
+    }
+
+    fields = list(JsonSchemaTranslator.get_fields_from_schema(schema))
+    expected_field_paths: List[str] = ["[version=2.0].[type=object].[type=enum].bar"]
+    assert_field_paths_match(fields, expected_field_paths)
+    assert fields[0].description == 'One of: "baz", 1, null'
+
+
 def test_anyof_with_properties():
     # We expect the event / timestamp fields to be included in both branches of the anyOf.
 

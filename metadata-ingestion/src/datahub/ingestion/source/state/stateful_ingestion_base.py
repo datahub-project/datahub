@@ -1,25 +1,26 @@
 import logging
 from dataclasses import dataclass
-from typing import Any, Dict, Generic, Optional, Type, TypeVar, cast
+from typing import Any, Dict, Generic, Optional, Type, TypeVar
 
 import pydantic
 from pydantic import root_validator
 from pydantic.fields import Field
-from pydantic.generics import GenericModel
 
 from datahub.configuration.common import (
     ConfigModel,
     ConfigurationError,
     DynamicTypedConfig,
-    LineageConfig,
 )
+from datahub.configuration.pydantic_migration_helpers import GenericModel
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
+from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.decorators import capability
 from datahub.ingestion.api.ingestion_job_checkpointing_provider_base import (
     IngestionCheckpointingProviderBase,
     JobId,
 )
-from datahub.ingestion.api.source import Source, SourceReport
+from datahub.ingestion.api.source import Source, SourceCapability, SourceReport
 from datahub.ingestion.source.state.checkpoint import Checkpoint, StateType
 from datahub.ingestion.source.state.use_case_handler import (
     StatefulIngestionUsecaseHandlerBase,
@@ -38,10 +39,8 @@ class DynamicTypedStateProviderConfig(DynamicTypedConfig):
     type: str = Field(
         description="The type of the state provider to use. For DataHub use `datahub`",
     )
-    # This config type is declared Optional[Any] here. The eventual parser for the
-    # specified type is responsible for further validation.
-    config: Optional[Any] = Field(
-        default=None,
+    config: Dict[str, Any] = Field(
+        default={},
         description="The configuration required for initializing the state provider. Default: The datahub_api config if set at pipeline level. Otherwise, the default DatahubClientConfig. See the defaults (https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/src/datahub/ingestion/graph/client.py#L19).",
     )
 
@@ -68,18 +67,20 @@ class StatefulIngestionConfig(ConfigModel):
     ignore_old_state: bool = Field(
         default=False,
         description="If set to True, ignores the previous checkpoint state.",
+        hidden_from_docs=True,
     )
     ignore_new_state: bool = Field(
         default=False,
         description="If set to True, ignores the current checkpoint state.",
+        hidden_from_docs=True,
     )
 
-    @pydantic.root_validator()
+    @pydantic.root_validator(skip_on_failure=True)
     def validate_config(cls, values: Dict[str, Any]) -> Dict[str, Any]:
         if values.get("enabled"):
             if values.get("state_provider") is None:
                 values["state_provider"] = DynamicTypedStateProviderConfig(
-                    type="datahub", config=None
+                    type="datahub", config={}
                 )
         return values
 
@@ -97,58 +98,76 @@ class StatefulIngestionConfigBase(GenericModel, Generic[CustomConfig]):
     )
 
 
-class StatefulLineageConfigMixin(LineageConfig):
-    store_last_lineage_extraction_timestamp: bool = Field(
-        default=False,
-        description="Enable checking last lineage extraction date in store.",
+class StatefulLineageConfigMixin:
+    enable_stateful_lineage_ingestion: bool = Field(
+        default=True,
+        description="Enable stateful lineage ingestion."
+        " This will store lineage window timestamps after successful lineage ingestion. "
+        "and will not run lineage ingestion for same timestamps in subsequent run. ",
     )
 
-    @root_validator(pre=False)
+    _store_last_lineage_extraction_timestamp = pydantic_renamed_field(
+        "store_last_lineage_extraction_timestamp", "enable_stateful_lineage_ingestion"
+    )
+
+    @root_validator(skip_on_failure=True)
     def lineage_stateful_option_validator(cls, values: Dict) -> Dict:
         sti = values.get("stateful_ingestion")
         if not sti or not sti.enabled:
-            if values.get("store_last_lineage_extraction_timestamp"):
+            if values.get("enable_stateful_lineage_ingestion"):
                 logger.warning(
-                    "Stateful ingestion is disabled, disabling store_last_lineage_extraction_timestamp config option as well"
+                    "Stateful ingestion is disabled, disabling enable_stateful_lineage_ingestion config option as well"
                 )
-                values["store_last_lineage_extraction_timestamp"] = False
+                values["enable_stateful_lineage_ingestion"] = False
 
         return values
 
 
 class StatefulProfilingConfigMixin(ConfigModel):
-    store_last_profiling_timestamps: bool = Field(
-        default=False,
-        description="Enable storing last profile timestamp in store.",
+    enable_stateful_profiling: bool = Field(
+        default=True,
+        description="Enable stateful profiling."
+        " This will store profiling timestamps per dataset after successful profiling. "
+        "and will not run profiling again in subsequent run if table has not been updated. ",
     )
 
-    @root_validator(pre=False)
+    _store_last_profiling_timestamps = pydantic_renamed_field(
+        "store_last_profiling_timestamps", "enable_stateful_profiling"
+    )
+
+    @root_validator(skip_on_failure=True)
     def profiling_stateful_option_validator(cls, values: Dict) -> Dict:
         sti = values.get("stateful_ingestion")
         if not sti or not sti.enabled:
-            if values.get("store_last_profiling_timestamps"):
+            if values.get("enable_stateful_profiling"):
                 logger.warning(
-                    "Stateful ingestion is disabled, disabling store_last_profiling_timestamps config option as well"
+                    "Stateful ingestion is disabled, disabling enable_stateful_profiling config option as well"
                 )
-                values["store_last_profiling_timestamps"] = False
+                values["enable_stateful_profiling"] = False
         return values
 
 
 class StatefulUsageConfigMixin(BaseTimeWindowConfig):
-    store_last_usage_extraction_timestamp: bool = Field(
+    enable_stateful_usage_ingestion: bool = Field(
         default=True,
-        description="Enable checking last usage timestamp in store.",
+        description="Enable stateful lineage ingestion."
+        " This will store usage window timestamps after successful usage ingestion. "
+        "and will not run usage ingestion for same timestamps in subsequent run. ",
     )
 
-    @root_validator(pre=False)
+    _store_last_usage_extraction_timestamp = pydantic_renamed_field(
+        "store_last_usage_extraction_timestamp", "enable_stateful_usage_ingestion"
+    )
+
+    @root_validator(skip_on_failure=True)
     def last_usage_extraction_stateful_option_validator(cls, values: Dict) -> Dict:
         sti = values.get("stateful_ingestion")
         if not sti or not sti.enabled:
-            if values.get("store_last_usage_extraction_timestamp"):
+            if values.get("enable_stateful_usage_ingestion"):
                 logger.warning(
-                    "Stateful ingestion is disabled, disabling store_last_usage_extraction_timestamp config option as well"
+                    "Stateful ingestion is disabled, disabling enable_stateful_usage_ingestion config option as well"
                 )
-                values["store_last_usage_extraction_timestamp"] = False
+                values["enable_stateful_usage_ingestion"] = False
         return values
 
 
@@ -157,6 +176,11 @@ class StatefulIngestionReport(SourceReport):
     pass
 
 
+@capability(
+    SourceCapability.DELETION_DETECTION,
+    "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
+    supported=True,
+)
 class StatefulIngestionSourceBase(Source):
     """
     Defines the base class for all stateful sources.
@@ -226,15 +250,10 @@ class StateProviderWrapper:
                     f"Cannot find checkpoint provider class of type={self.stateful_ingestion_config.state_provider.type} "
                     " in the registry! Please check the type of the checkpointing provider in your config."
                 )
-            config_dict: Dict[str, Any] = cast(
-                Dict[str, Any],
-                self.stateful_ingestion_config.state_provider.dict().get("config", {}),
-            )
             self.ingestion_checkpointing_state_provider = (
                 checkpointing_state_provider_class.create(
-                    config_dict=config_dict,
+                    config_dict=self.stateful_ingestion_config.state_provider.config,
                     ctx=self.ctx,
-                    name=checkpointing_state_provider_class.__name__,
                 )
             )
             assert self.ingestion_checkpointing_state_provider

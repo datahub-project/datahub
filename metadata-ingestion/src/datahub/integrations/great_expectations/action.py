@@ -35,7 +35,10 @@ import datahub.emitter.mce_builder as builder
 from datahub.cli.cli_utils import get_boolean_env_variable
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
-from datahub.ingestion.source.sql.sql_common import get_platform_from_sqlalchemy_uri
+from datahub.emitter.serialization_helper import pre_json_transform
+from datahub.ingestion.source.sql.sqlalchemy_uri_mapper import (
+    get_platform_from_sqlalchemy_uri,
+)
 from datahub.metadata.com.linkedin.pegasus2avro.assertion import (
     AssertionInfo,
     AssertionResult,
@@ -251,13 +254,15 @@ class DataHubValidationAction(ValidationAction):
             # possibly for each validation run
             assertionUrn = builder.make_assertion_urn(
                 builder.datahub_guid(
-                    {
-                        "platform": GE_PLATFORM_NAME,
-                        "nativeType": expectation_type,
-                        "nativeParameters": kwargs,
-                        "dataset": assertion_datasets[0],
-                        "fields": assertion_fields,
-                    }
+                    pre_json_transform(
+                        {
+                            "platform": GE_PLATFORM_NAME,
+                            "nativeType": expectation_type,
+                            "nativeParameters": kwargs,
+                            "dataset": assertion_datasets[0],
+                            "fields": assertion_fields,
+                        }
+                    )
                 )
             )
             logger.debug(
@@ -317,9 +322,11 @@ class DataHubValidationAction(ValidationAction):
                     type=AssertionResultType.SUCCESS
                     if success
                     else AssertionResultType.FAILURE,
-                    rowCount=result.get("element_count"),
-                    missingCount=result.get("missing_count"),
-                    unexpectedCount=result.get("unexpected_count"),
+                    rowCount=parse_int_or_default(result.get("element_count")),
+                    missingCount=parse_int_or_default(result.get("missing_count")),
+                    unexpectedCount=parse_int_or_default(
+                        result.get("unexpected_count")
+                    ),
                     actualAggValue=actualAggValue,
                     externalUrl=docs_link,
                     nativeResults=nativeResults,
@@ -634,7 +641,7 @@ class DataHubValidationAction(ValidationAction):
                 ].batch_request.runtime_parameters["query"]
                 partitionSpec = PartitionSpecClass(
                     type=PartitionTypeClass.QUERY,
-                    partition=f"Query_{builder.datahub_guid(query)}",
+                    partition=f"Query_{builder.datahub_guid(pre_json_transform(query))}",
                 )
 
                 batchSpec = BatchSpec(
@@ -697,6 +704,13 @@ class DataHubValidationAction(ValidationAction):
                 f"Datasource {datasource_name} is not present in platform_instance_map"
             )
         return None
+
+
+def parse_int_or_default(value, default_value=None):
+    if value is None:
+        return default_value
+    else:
+        return int(value)
 
 
 def make_dataset_urn_from_sqlalchemy_uri(

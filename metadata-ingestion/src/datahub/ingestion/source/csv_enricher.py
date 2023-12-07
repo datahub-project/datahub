@@ -17,7 +17,6 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.source import Source, SourceReport
-from datahub.ingestion.api.source_helpers import auto_workunit_reporter
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source_config.csv_enricher import CSVEnricherConfig
 from datahub.metadata.schema_classes import (
@@ -46,6 +45,7 @@ from datahub.metadata.schema_classes import (
     TagAssociationClass,
 )
 from datahub.utilities.urns.dataset_urn import DatasetUrn
+from datahub.utilities.urns.field_paths import get_simple_field_path_from_v2_field_path
 from datahub.utilities.urns.urn import Urn, guess_entity_type
 
 DATASET_ENTITY_TYPE = DatasetUrn.ENTITY_TYPE
@@ -107,9 +107,9 @@ class CSVEnricherSource(Source):
 
     ```
     resource,subresource,glossary_terms,tags,owners,ownership_type,description,domain
-    "urn:li:dataset:(urn:li:dataPlatform:snowflake,datahub.growth.users,PROD",,[urn:li:glossaryTerm:Users],[urn:li:tag:HighQuality],[urn:li:corpuser:lfoe;urn:li:corpuser:jdoe],TECHNICAL_OWNER,"description for users table",urn:li:domain:Engineering
-    "urn:li:dataset:(urn:li:dataPlatform:hive,datahub.growth.users,PROD",first_name,[urn:li:glossaryTerm:FirstName],,,,"first_name description"
-    "urn:li:dataset:(urn:li:dataPlatform:hive,datahub.growth.users,PROD",last_name,[urn:li:glossaryTerm:LastName],,,,"last_name description"
+    "urn:li:dataset:(urn:li:dataPlatform:snowflake,datahub.growth.users,PROD)",,[urn:li:glossaryTerm:Users],[urn:li:tag:HighQuality],[urn:li:corpuser:lfoe|urn:li:corpuser:jdoe],TECHNICAL_OWNER,"description for users table",urn:li:domain:Engineering
+    "urn:li:dataset:(urn:li:dataPlatform:hive,datahub.growth.users,PROD)",first_name,[urn:li:glossaryTerm:FirstName],,,,"first_name description"
+    "urn:li:dataset:(urn:li:dataPlatform:hive,datahub.growth.users,PROD)",last_name,[urn:li:glossaryTerm:LastName],,,,"last_name description"
     ```
 
     Note that the first row does not have a subresource populated. That means any glossary terms, tags, and owners will
@@ -130,11 +130,9 @@ class CSVEnricherSource(Source):
         # Map from entity urn to a list of SubResourceRow.
         self.editable_schema_metadata_map: Dict[str, List[SubResourceRow]] = {}
         self.should_overwrite: bool = self.config.write_semantics == "OVERRIDE"
-        if not self.should_overwrite and not self.ctx.graph:
-            raise ConfigurationError(
-                "With PATCH semantics, the csv-enricher source requires a datahub_api to connect to. "
-                "Consider using the datahub-rest sink or provide a datahub_api: configuration on your ingestion recipe."
-            )
+
+        if not self.should_overwrite:
+            self.ctx.require_graph(operation="The csv-enricher's PATCH semantics flag")
 
     def get_resource_glossary_terms_work_unit(
         self,
@@ -439,9 +437,7 @@ class CSVEnricherSource(Source):
         field_match = False
         for field_info in current_editable_schema_metadata.editableSchemaFieldInfo:
             if (
-                DatasetUrn._get_simple_field_path_from_v2_field_path(
-                    field_info.fieldPath
-                )
+                get_simple_field_path_from_v2_field_path(field_info.fieldPath)
                 == field_path
             ):
                 # we have some editable schema metadata for this field
@@ -589,9 +585,6 @@ class CSVEnricherSource(Source):
             if owner_urn.startswith("urn:li:")
         ]
         return owners
-
-    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        return auto_workunit_reporter(self.report, self.get_workunits_internal())
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         # As per https://stackoverflow.com/a/49150749/5004662, we want to use

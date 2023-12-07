@@ -67,6 +67,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
     StatefulIngestionSourceBase,
 )
+from datahub.ingestion.source_config.operation_config import is_profiling_enabled
 from datahub.metadata.com.linkedin.pegasus2avro.common import Status, SubTypes
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
@@ -161,6 +162,11 @@ class GlueSourceConfig(
         default=None, description=""
     )
 
+    def is_profiling_enabled(self) -> bool:
+        return self.profiling is not None and is_profiling_enabled(
+            self.profiling.operation_config
+        )
+
     @property
     def glue_client(self):
         return self.get_glue_client()
@@ -215,6 +221,7 @@ class GlueSourceReport(StaleEntityRemovalSourceReport):
     SourceCapability.DELETION_DETECTION,
     "Enabled by default when stateful ingestion is turned on.",
 )
+@capability(SourceCapability.LINEAGE_COARSE, "Enabled by default")
 class GlueSource(StatefulIngestionSourceBase):
     """
     Note: if you also have files in S3 that you'd like to ingest, we recommend you use Glue's built-in data catalog. See [here](../../../../docs/generated/ingestion/sources/s3.md) for a quick guide on how to set up a crawler on Glue and ingest the outputs with DataHub.
@@ -813,7 +820,9 @@ class GlueSource(StatefulIngestionSourceBase):
     def get_profile_if_enabled(
         self, mce: MetadataChangeEventClass, database_name: str, table_name: str
     ) -> Iterable[MetadataWorkUnit]:
-        if self.source_config.profiling:
+        # We don't need both checks only the second one
+        # but then lint believes that GlueProfilingConfig can be None
+        if self.source_config.profiling and self.source_config.is_profiling_enabled():
             # for cross-account ingestion
             kwargs = dict(
                 DatabaseName=database_name,

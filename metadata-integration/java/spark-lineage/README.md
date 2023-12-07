@@ -83,8 +83,8 @@ The Spark agent can be configured using Databricks Cluster [Spark configuration]
 
     ```sh
     databricks fs mkdirs dbfs:/datahub
-    databricks fs --overwrite datahub-spark-lineage*.jar dbfs:/datahub
-    databricks fs --overwrite init.sh dbfs:/datahub
+    databricks fs cp --overwrite datahub-spark-lineage*.jar dbfs:/datahub
+    databricks fs cp --overwrite init.sh dbfs:/datahub
     ```
 
 - Open Databricks Cluster configuration page. Click the **Advanced Options** toggle. Click the **Spark** tab. Add below configurations under `Spark Config`.

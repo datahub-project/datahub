@@ -1,19 +1,26 @@
 import json
 import logging
 import os
-import pathlib
-import pprint
 import re
-import shutil
-import tempfile
-from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Type, Union
-
-import deepdiff
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    List,
+    Optional,
+    Sequence,
+    Set,
+    Tuple,
+    Type,
+    Union,
+)
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.sink.file import write_metadata_file
-from datahub.ingestion.source.file import read_metadata_file
 from datahub.metadata.schema_classes import MetadataChangeEventClass
+from datahub.testing.compare_metadata_json import (
+    assert_metadata_files_equal,
+    load_json_file,
+)
 from datahub.utilities.urns.urn import Urn
 from tests.test_helpers.type_helpers import PytestConfig
 
@@ -21,9 +28,6 @@ logger = logging.getLogger(__name__)
 
 IGNORE_PATH_TIMESTAMPS = [
     # Ignore timestamps from the ETL pipeline. A couple examples:
-    # root[0]['proposedSnapshot']['com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot']['aspects'][0]['com.linkedin.pegasus2avro.common.Ownership']['lastModified']['time']
-    # root[69]['proposedSnapshot']['com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot']['aspects'][0]['com.linkedin.pegasus2avro.schema.SchemaMetadata']['lastModified']['time']"
-    # root[0]['proposedSnapshot']['com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot']['aspects'][1]['com.linkedin.pegasus2avro.dataset.UpstreamLineage']['upstreams'][0]['auditStamp']['time']
     r"root\[\d+\]\['proposedSnapshot'\].+\['aspects'\].+\['created'\]\['time'\]",
     r"root\[\d+\]\['proposedSnapshot'\].+\['aspects'\].+\['lastModified'\]\['time'\]",
     r"root\[\d+\]\['proposedSnapshot'\].+\['aspects'\].+\['createStamp'\]\['time'\]",
@@ -56,12 +60,6 @@ class EntityType:
     GROUP = "corpGroup"
 
 
-def load_json_file(filename: Union[str, os.PathLike]) -> object:
-    with open(str(filename)) as f:
-        a = json.load(f)
-    return a
-
-
 def clean_nones(value):
     """
     Recursively remove all None values from dictionaries and lists, and returns
@@ -75,92 +73,21 @@ def clean_nones(value):
         return value
 
 
-def assert_mces_equal(
-    output: object, golden: object, ignore_paths: Optional[List[str]] = None
-) -> None:
-    # This method assumes we're given a list of MCE json objects.
-    diff = deepdiff.DeepDiff(
-        golden, output, exclude_regex_paths=ignore_paths, ignore_order=True
-    )
-    if diff:
-        # Attempt a clean diff (removing None-s)
-        assert isinstance(output, list)
-        assert isinstance(golden, list)
-        clean_output = [clean_nones(o) for o in output]
-        clean_golden = [clean_nones(g) for g in golden]
-        clean_diff = deepdiff.DeepDiff(
-            clean_golden,
-            clean_output,
-            exclude_regex_paths=ignore_paths,
-            ignore_order=True,
-        )
-        if not clean_diff:
-            logger.debug(f"MCE-s differ, clean MCE-s are fine\n{pprint.pformat(diff)}")
-        diff = clean_diff
-        if diff:
-            # do some additional processing to emit helpful messages
-            output_urns = _get_entity_urns(output)
-            golden_urns = _get_entity_urns(golden)
-            in_golden_but_not_in_output = golden_urns - output_urns
-            in_output_but_not_in_golden = output_urns - golden_urns
-            if in_golden_but_not_in_output:
-                logger.info(
-                    f"Golden file has {len(in_golden_but_not_in_output)} more urns: {in_golden_but_not_in_output}"
-                )
-            if in_output_but_not_in_golden:
-                logger.info(
-                    f"Golden file has {len(in_output_but_not_in_golden)} more urns: {in_output_but_not_in_golden}"
-                )
-
-    assert (
-        not diff
-    ), f"MCEs differ\n{pprint.pformat(diff)} \n output was: {json.dumps(output)}"
-
-
 def check_golden_file(
     pytestconfig: PytestConfig,
     output_path: Union[str, os.PathLike],
     golden_path: Union[str, os.PathLike],
-    ignore_paths: Optional[List[str]] = None,
+    ignore_paths: Sequence[str] = (),
 ) -> None:
     update_golden = pytestconfig.getoption("--update-golden-files")
     copy_output = pytestconfig.getoption("--copy-output-files")
-    golden_exists = os.path.isfile(golden_path)
-
-    if copy_output:
-        shutil.copyfile(str(output_path), str(golden_path) + ".output")
-        print(f"Copied output file to {golden_path}.output")
-
-    if not update_golden and not golden_exists:
-        raise FileNotFoundError(
-            "Golden file does not exist. Please run with the --update-golden-files option to create."
-        )
-
-    output = load_json_file(output_path)
-
-    # if updating a golden file that doesn't exist yet, load the output again
-    if update_golden and not golden_exists:
-        golden = load_json_file(output_path)
-        shutil.copyfile(str(output_path), str(golden_path))
-    else:
-        # We have to "normalize" the golden file by reading and writing it back out.
-        # This will clean up nulls, double serialization, and other formatting issues.
-        with tempfile.NamedTemporaryFile() as temp:
-            golden_metadata = read_metadata_file(pathlib.Path(golden_path))
-            write_metadata_file(pathlib.Path(temp.name), golden_metadata)
-            golden = load_json_file(temp.name)
-
-    try:
-        assert_mces_equal(output, golden, ignore_paths)
-
-    except AssertionError as e:
-        # only update golden files if the diffs are not empty
-        if update_golden:
-            shutil.copyfile(str(output_path), str(golden_path))
-
-        # raise the error if we're just running the test
-        else:
-            raise e
+    assert_metadata_files_equal(
+        output_path=output_path,
+        golden_path=golden_path,
+        update_golden=update_golden,
+        copy_output=copy_output,
+        ignore_paths=ignore_paths,
+    )
 
 
 def _get_field_for_entity_type_in_mce(entity_type: str) -> str:

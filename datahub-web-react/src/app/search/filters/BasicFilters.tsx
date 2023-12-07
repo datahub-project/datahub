@@ -22,6 +22,9 @@ import {
     SEARCH_RESULTS_ADVANCED_SEARCH_ID,
     SEARCH_RESULTS_FILTERS_ID,
 } from '../../onboarding/config/SearchOnboardingConfig';
+import { useFilterRendererRegistry } from './render/useFilterRenderer';
+import { FilterScenarioType } from './render/types';
+import BasicFiltersLoadingSection from './BasicFiltersLoadingSection';
 
 const NUM_VISIBLE_FILTER_DROPDOWNS = 5;
 
@@ -54,6 +57,7 @@ const FILTERS_TO_REMOVE = [
 ];
 
 interface Props {
+    loading: boolean;
     availableFilters: FacetMetadata[] | null;
     activeFilters: FacetFilterInput[];
     onChangeFilters: (newFilters: FacetFilterInput[]) => void;
@@ -62,6 +66,7 @@ interface Props {
 }
 
 export default function BasicFilters({
+    loading,
     availableFilters,
     activeFilters,
     onChangeFilters,
@@ -80,19 +85,30 @@ export default function BasicFilters({
     const shouldShowMoreDropdown = filters && filters.length > NUM_VISIBLE_FILTER_DROPDOWNS + 1;
     const visibleFilters = shouldShowMoreDropdown ? filters?.slice(0, NUM_VISIBLE_FILTER_DROPDOWNS) : filters;
     const hiddenFilters = shouldShowMoreDropdown ? filters?.slice(NUM_VISIBLE_FILTER_DROPDOWNS) : [];
+    const filterRendererRegistry = useFilterRendererRegistry();
 
     return (
         <span id={SEARCH_RESULTS_FILTERS_ID}>
             <FlexSpacer>
                 <FlexWrapper>
-                    {visibleFilters?.map((filter) => (
-                        <SearchFilter
-                            key={filter.field}
-                            filter={filter}
-                            activeFilters={activeFilters}
-                            onChangeFilters={onChangeFilters}
-                        />
-                    ))}
+                    {loading && !visibleFilters?.length && <BasicFiltersLoadingSection />}
+                    {visibleFilters?.map((filter) => {
+                        return filterRendererRegistry.hasRenderer(filter.field) ? (
+                            filterRendererRegistry.render(filter.field, {
+                                scenario: FilterScenarioType.SEARCH_V2_PRIMARY,
+                                filter,
+                                activeFilters,
+                                onChangeFilters,
+                            })
+                        ) : (
+                            <SearchFilter
+                                key={filter.field}
+                                filter={filter}
+                                activeFilters={activeFilters}
+                                onChangeFilters={onChangeFilters}
+                            />
+                        );
+                    })}
                     {hiddenFilters && hiddenFilters.length > 0 && (
                         <MoreFilters
                             filters={hiddenFilters}

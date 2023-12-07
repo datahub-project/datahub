@@ -1,24 +1,18 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { CSSProperties, useEffect, useRef, useState } from 'react';
 import { useHistory } from 'react-router';
 import { Select } from 'antd';
+import styled from 'styled-components';
+import { VscTriangleDown } from 'react-icons/vsc';
 import { useListMyViewsQuery, useListGlobalViewsQuery } from '../../../../graphql/view.generated';
 import { useUserContext } from '../../../context/useUserContext';
 import { DataHubView, DataHubViewType } from '../../../../types.generated';
 import { ViewBuilder } from '../builder/ViewBuilder';
 import { DEFAULT_LIST_VIEWS_PAGE_SIZE } from '../utils';
 import { PageRoutes } from '../../../../conf/Global';
-import { ViewSelectToolTip } from './ViewSelectToolTip';
 import { ViewBuilderMode } from '../builder/types';
 import { ViewSelectDropdown } from './ViewSelectDropdown';
 import { renderViewOptionGroup } from './renderViewOptionGroup';
-
-const selectStyle = {
-    width: 240,
-};
-
-const dropdownStyle = {
-    position: 'fixed',
-} as any;
+import { ANTD_GRAY_V2 } from '../../shared/constants';
 
 type ViewBuilderDisplayState = {
     mode: ViewBuilderMode;
@@ -26,10 +20,54 @@ type ViewBuilderDisplayState = {
     view?: DataHubView;
 };
 
+const TriangleIcon = styled(VscTriangleDown)<{ isOpen: boolean }>`
+    color: ${(props) => (props.isOpen ? props.theme.styles['primary-color'] : ANTD_GRAY_V2[10])};
+`;
+
 const DEFAULT_VIEW_BUILDER_DISPLAY_STATE = {
     mode: ViewBuilderMode.EDITOR,
     visible: false,
     view: undefined,
+};
+
+const ViewSelectContainer = styled.div`
+    &&& {
+        display: flex;
+        align-items: center;
+
+        .ant-select {
+            .ant-select-selection-search {
+                position: absolute;
+            }
+            &.ant-select-open {
+                .ant-select-selection-placeholder,
+                .ant-select-selection-item {
+                    color: ${(props) => props.theme.styles['primary-color']};
+                }
+            }
+            &:not(.ant-select-open) {
+                .ant-select-selection-placeholder,
+                .ant-select-selection-item {
+                    color: ${ANTD_GRAY_V2[10]};
+                }
+            }
+            .ant-select-selection-placeholder,
+            .ant-select-selection-item {
+                font-weight: 700;
+                font-size: 14px;
+                text-align: left;
+            }
+        }
+    }
+`;
+
+const SelectStyled = styled(Select)`
+    min-width: 90px;
+    max-width: 200px;
+`;
+
+type Props = {
+    dropdownStyle?: CSSProperties;
 };
 
 /**
@@ -41,9 +79,10 @@ const DEFAULT_VIEW_BUILDER_DISPLAY_STATE = {
  *
  * In the event that a user refreshes their browser, the state of the view should be saved as well.
  */
-export const ViewSelect = () => {
+export const ViewSelect = ({ dropdownStyle = {} }: Props) => {
     const history = useHistory();
     const userContext = useUserContext();
+    const [isOpen, setIsOpen] = useState(false);
     const [viewBuilderDisplayState, setViewBuilderDisplayState] = useState<ViewBuilderDisplayState>(
         DEFAULT_VIEW_BUILDER_DISPLAY_STATE,
     );
@@ -153,54 +192,61 @@ export const ViewSelect = () => {
         (publicViews.filter((view) => view.urn === selectedUrn)?.length || 0) > 0 ||
         false;
 
+    const handleDropdownVisibleChange = (isNowOpen: boolean) => {
+        setIsOpen(isNowOpen);
+    };
+
     return (
-        <>
-            <ViewSelectToolTip visible={selectedUrn === undefined}>
-                <Select
-                    data-testid="view-select"
-                    style={selectStyle}
-                    onChange={() => (selectRef?.current as any)?.blur()}
-                    value={(foundSelectedUrn && selectedUrn) || undefined}
-                    placeholder="Select a View"
-                    onSelect={onSelectView}
-                    onClear={onClear}
-                    allowClear
-                    ref={selectRef}
-                    optionLabelProp="label"
-                    dropdownStyle={dropdownStyle}
-                    dropdownRender={(menu) => (
-                        <ViewSelectDropdown
-                            menu={menu}
-                            hasViews={hasViews}
-                            onClickCreateView={onClickCreateView}
-                            onClickClear={onClear}
-                            onClickManageViews={onClickManageViews}
-                        />
-                    )}
-                >
-                    {privateViewCount > 0 &&
-                        renderViewOptionGroup({
-                            views: privateViews,
-                            label: 'Private',
-                            isOwnedByUser: true,
-                            userContext,
-                            hoverViewUrn,
-                            setHoverViewUrn,
-                            onClickEditView,
-                            onClickPreviewView,
-                        })}
-                    {publicViewCount > 0 &&
-                        renderViewOptionGroup({
-                            views: publicViews,
-                            label: 'Public',
-                            userContext,
-                            hoverViewUrn,
-                            setHoverViewUrn,
-                            onClickEditView,
-                            onClickPreviewView,
-                        })}
-                </Select>
-            </ViewSelectToolTip>
+        <ViewSelectContainer>
+            <SelectStyled
+                data-testid="view-select"
+                onChange={() => (selectRef?.current as any)?.blur()}
+                value={(foundSelectedUrn && selectedUrn) || undefined}
+                placeholder="View all"
+                onSelect={onSelectView}
+                onClear={onClear}
+                ref={selectRef}
+                optionLabelProp="label"
+                bordered={false}
+                dropdownMatchSelectWidth={false}
+                suffixIcon={<TriangleIcon isOpen={isOpen} />}
+                dropdownStyle={{
+                    paddingBottom: 0,
+                    ...dropdownStyle,
+                }}
+                onDropdownVisibleChange={handleDropdownVisibleChange}
+                dropdownRender={(menu) => (
+                    <ViewSelectDropdown
+                        menu={menu}
+                        hasViews={hasViews}
+                        onClickCreateView={onClickCreateView}
+                        onClickClear={onClear}
+                        onClickManageViews={onClickManageViews}
+                    />
+                )}
+            >
+                {privateViewCount > 0 &&
+                    renderViewOptionGroup({
+                        views: privateViews,
+                        label: 'Private',
+                        isOwnedByUser: true,
+                        userContext,
+                        hoverViewUrn,
+                        setHoverViewUrn,
+                        onClickEditView,
+                        onClickPreviewView,
+                    })}
+                {publicViewCount > 0 &&
+                    renderViewOptionGroup({
+                        views: publicViews,
+                        label: 'Public',
+                        userContext,
+                        hoverViewUrn,
+                        setHoverViewUrn,
+                        onClickEditView,
+                        onClickPreviewView,
+                    })}
+            </SelectStyled>
             {viewBuilderDisplayState.visible && (
                 <ViewBuilder
                     urn={viewBuilderDisplayState.view?.urn || undefined}
@@ -210,6 +256,6 @@ export const ViewSelect = () => {
                     onCancel={onCloseViewBuilder}
                 />
             )}
-        </>
+        </ViewSelectContainer>
     );
 };

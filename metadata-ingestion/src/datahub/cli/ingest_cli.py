@@ -1,10 +1,10 @@
 import asyncio
 import csv
-import functools
 import json
 import logging
 import os
 import sys
+import textwrap
 from datetime import datetime
 from typing import Optional
 
@@ -22,11 +22,11 @@ from datahub.cli.cli_utils import (
     post_rollback_endpoint,
 )
 from datahub.configuration.config_loader import load_config_file
+from datahub.ingestion.graph.client import get_default_graph
 from datahub.ingestion.run.connection import ConnectionManager
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.telemetry import telemetry
 from datahub.upgrade import upgrade
-from datahub.utilities import memory_leak_detector
 
 logger = logging.getLogger(__name__)
 
@@ -97,7 +97,6 @@ def ingest() -> None:
 @click.option(
     "--no-spinner", type=bool, is_flag=True, default=False, help="Turn off spinner"
 )
-@click.pass_context
 @telemetry.with_telemetry(
     capture_kwargs=[
         "dry_run",
@@ -108,9 +107,7 @@ def ingest() -> None:
         "no_spinner",
     ]
 )
-@memory_leak_detector.with_leak_detection
 def run(
-    ctx: click.Context,
     config: str,
     dry_run: bool,
     preview: bool,
@@ -123,9 +120,7 @@ def run(
 ) -> None:
     """Ingest metadata into DataHub."""
 
-    def run_pipeline_to_completion(
-        pipeline: Pipeline, structured_report: Optional[str] = None
-    ) -> int:
+    async def run_pipeline_to_completion(pipeline: Pipeline) -> int:
         logger.info("Starting metadata ingestion")
         with click_spinner.spinner(disable=no_spinner):
             try:
@@ -144,20 +139,47 @@ def run(
                 ret = pipeline.pretty_print_summary(warnings_as_failure=strict_warnings)
                 return ret
 
-    async def run_pipeline_async(pipeline: Pipeline) -> int:
-        loop = asyncio._get_running_loop()
-        return await loop.run_in_executor(
-            None, functools.partial(run_pipeline_to_completion, pipeline)
+    # main function begins
+    logger.info("DataHub CLI version: %s", datahub_package.nice_version_name())
+
+    pipeline_config = load_config_file(
+        config,
+        squirrel_original_config=True,
+        squirrel_field="__raw_config",
+        allow_stdin=True,
+        allow_remote=True,
+        process_directives=True,
+        resolve_env_vars=True,
+    )
+    raw_pipeline_config = pipeline_config.pop("__raw_config")
+
+    if test_source_connection:
+        _test_source_connection(report_to, pipeline_config)
+
+    async def run_ingestion_and_check_upgrade() -> int:
+        # TRICKY: We want to make sure that the Pipeline.create() call happens on the
+        # same thread as the rest of the ingestion. As such, we must initialize the
+        # pipeline inside the async function so that it happens on the same event
+        # loop, and hence the same thread.
+
+        # logger.debug(f"Using config: {pipeline_config}")
+        pipeline = Pipeline.create(
+            pipeline_config,
+            dry_run,
+            preview,
+            preview_workunits,
+            report_to,
+            no_default_report,
+            raw_pipeline_config,
         )
 
-    async def run_func_check_upgrade(pipeline: Pipeline) -> None:
         version_stats_future = asyncio.ensure_future(
             upgrade.retrieve_version_stats(pipeline.ctx.graph)
         )
-        the_one_future = asyncio.ensure_future(run_pipeline_async(pipeline))
-        ret = await the_one_future
+        ingestion_future = asyncio.ensure_future(run_pipeline_to_completion(pipeline))
+        ret = await ingestion_future
 
-        # the one future has returned
+        # The main ingestion has completed. If it was successful, potentially show an upgrade nudge message.
         if ret == 0:
             try:
                 # we check the other futures quickly on success
@@ -167,35 +189,166 @@ def run(
                 logger.debug(
                     f"timed out with {e} waiting for version stats to be computed... skipping ahead."
                 )
-        sys.exit(ret)
 
-    # main function begins
-    logger.info("DataHub CLI version: %s", datahub_package.nice_version_name())
+        return ret
+
+    loop = asyncio.get_event_loop()
+    ret = loop.run_until_complete(run_ingestion_and_check_upgrade())
+    if ret:
+        sys.exit(ret)
+    # don't raise SystemExit if there's no error
+
+
+@ingest.command()
+@upgrade.check_upgrade
+@telemetry.with_telemetry()
+@click.option(
+    "-n",
+    "--name",
+    type=str,
+    help="Recipe Name",
+    required=True,
+)
+@click.option(
+    "-c",
+    "--config",
+    type=click.Path(dir_okay=False),
+    help="Config file in .toml or .yaml format.",
+    required=True,
+)
+@click.option(
+    "--urn",
+    type=str,
+    help="Urn of recipe to update",
+    required=False,
+)
+@click.option(
+    "--executor-id",
+    type=str,
+    default="default",
+    help="Executor id to route execution requests to. Do not use this unless you have configured a custom executor.",
+    required=False,
+)
+@click.option(
+    "--cli-version",
+    type=str,
+    help="Provide a custom CLI version to use for ingestion. By default will use server default.",
+    required=False,
+    default=None,
+)
+@click.option(
+    "--schedule",
+    type=str,
+    help="Cron definition for schedule. If none is provided, ingestion recipe will not be scheduled",
+    required=False,
+    default=None,
+)
+@click.option(
+    "--time-zone",
+    type=str,
+    help="Timezone for the schedule in 'America/New_York' format. Uses UTC by default.",
+    required=False,
+    default="UTC",
+)
+def deploy(
+    name: str,
+    config: str,
+    urn: Optional[str],
+    executor_id: str,
+    cli_version: Optional[str],
+    schedule: Optional[str],
+    time_zone: str,
+) -> None:
+    """
+    Deploy an ingestion recipe to your DataHub instance.
+
+    The urn of the ingestion source will be based on the name parameter in the format:
+    urn:li:dataHubIngestionSource:<name>
+    """
+
+    datahub_graph = get_default_graph()
 
     pipeline_config = load_config_file(
         config,
-        squirrel_original_config=True,
-        squirrel_field="__raw_config",
         allow_stdin=True,
-    )
-    raw_pipeline_config = pipeline_config.pop("__raw_config")
-
-    if test_source_connection:
-        _test_source_connection(report_to, pipeline_config)
-
-    # logger.debug(f"Using config: {pipeline_config}")
-    pipeline = Pipeline.create(
-        pipeline_config,
-        dry_run,
-        preview,
-        preview_workunits,
-        report_to,
-        no_default_report,
-        raw_pipeline_config,
+        allow_remote=True,
+        resolve_env_vars=False,
     )
 
-    loop = asyncio.get_event_loop()
-    loop.run_until_complete(run_func_check_upgrade(pipeline))
+    variables: dict = {
+        "urn": urn,
+        "name": name,
+        "type": pipeline_config["source"]["type"],
+        "recipe": json.dumps(pipeline_config),
+        "executorId": executor_id,
+        "version": cli_version,
+    }
+
+    if schedule is not None:
+        variables["schedule"] = {"interval": schedule, "timezone": time_zone}
+
+    if urn:
+        if not datahub_graph.exists(urn):
+            logger.error(f"Could not find recipe for provided urn: {urn}")
+            exit()
+        logger.info("Found recipe URN, will update recipe.")
+
+        graphql_query: str = textwrap.dedent(
+            """
+            mutation updateIngestionSource(
+                $urn: String!,
+                $name: String!,
+                $type: String!,
+                $schedule: UpdateIngestionSourceScheduleInput,
+                $recipe: String!,
+                $executorId: String!
+                $version: String) {
+
+                updateIngestionSource(urn: $urn, input: {
+                    name: $name,
+                    type: $type,
+                    schedule: $schedule,
+                    config: {
+                        recipe: $recipe,
+                        executorId: $executorId,
+                        version: $version,
+                    }
+                })
+            }
+            """
+        )
+    else:
+        logger.info("No URN specified recipe urn, will create a new recipe.")
+        graphql_query = textwrap.dedent(
+            """
+            mutation createIngestionSource(
+                $name: String!,
+                $type: String!,
+                $schedule: UpdateIngestionSourceScheduleInput,
+                $recipe: String!,
+                $executorId: String!,
+                $version: String) {
+
+                createIngestionSource(input: {
+                    name: $name,
+                    type: $type,
+                    schedule: $schedule,
+                    config: {
+                        recipe: $recipe,
+                        executorId: $executorId,
+                        version: $version,
+                    }
+                })
+            }
+            """
+        )
+
+    response = datahub_graph.execute_graphql(graphql_query, variables=variables)
+
+    click.echo(
+        f"✅ Successfully wrote data ingestion source metadata for recipe {name}:"
+    )
+    click.echo(response)
 
 
 def _test_source_connection(report_to: Optional[str], pipeline_config: dict) -> None:
@@ -253,7 +406,7 @@ def mcps(path: str) -> None:
         },
     }
 
-    pipeline = Pipeline.create(recipe)
+    pipeline = Pipeline.create(recipe, no_default_report=True)
     pipeline.run()
     ret = pipeline.pretty_print_summary()
     sys.exit(ret)

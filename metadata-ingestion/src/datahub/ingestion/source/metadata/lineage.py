@@ -1,5 +1,6 @@
 import logging
 from dataclasses import dataclass, field
+from functools import partial
 from typing import Any, Dict, Iterable, List, Optional
 
 from pydantic import validator
@@ -22,12 +23,21 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
+    capability,
     config_class,
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import Source, SourceReport
-from datahub.ingestion.api.source_helpers import auto_workunit_reporter
+from datahub.ingestion.api.source import (
+    MetadataWorkUnitProcessor,
+    Source,
+    SourceCapability,
+    SourceReport,
+)
+from datahub.ingestion.api.source_helpers import (
+    auto_status_aspect,
+    auto_workunit_reporter,
+)
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     FineGrainedLineageDownstreamType,
@@ -117,6 +127,8 @@ class LineageConfig(VersionedConfig):
 @platform_name("File Based Lineage")
 @config_class(LineageFileSourceConfig)
 @support_status(SupportStatus.CERTIFIED)
+@capability(SourceCapability.LINEAGE_COARSE, "Specified in the lineage file.")
+@capability(SourceCapability.LINEAGE_FINE, "Specified in the lineage file.")
 @dataclass
 class LineageFileSource(Source):
     """
@@ -135,12 +147,15 @@ class LineageFileSource(Source):
 
     @staticmethod
     def load_lineage_config(file_name: str) -> LineageConfig:
-        config = load_config_file(file_name)
+        config = load_config_file(file_name, resolve_env_vars=True)
         lineage_config = LineageConfig.parse_obj(config)
         return lineage_config
 
-    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        return auto_workunit_reporter(self.report, self.get_workunits_internal())
+    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
+        return [
+            auto_status_aspect,
+            partial(auto_workunit_reporter, self.get_report()),
+        ]
 
     def get_workunits_internal(
         self,

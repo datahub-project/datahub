@@ -16,7 +16,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test"
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -31,7 +32,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test"
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -46,7 +48,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test"
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -63,7 +66,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test"
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -78,7 +82,75 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test"
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(mssql,localhost.Weekly Demo Data Backup,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataFlowInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "externalUrl": "",
+            "name": "localhost.Weekly Demo Data Backup"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(mssql,localhost.Weekly Demo Data Backup,PROD),localhost.Weekly Demo Data Backup)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "job_id": "1f2f14ba-db84-4fa1-910e-7df71bede642",
+                "job_name": "Weekly Demo Data Backup",
+                "description": "No description available.",
+                "date_created": "2023-10-27 10:11:55.540000",
+                "date_modified": "2023-10-27 10:11:55.667000",
+                "step_id": "1",
+                "step_name": "Set database to read only",
+                "subsystem": "TSQL",
+                "command": "ALTER DATABASE DemoData SET READ_ONLY"
+            },
+            "externalUrl": "",
+            "name": "localhost.Weekly Demo Data Backup.localhost.Weekly Demo Data Backup",
+            "type": {
+                "string": "MSSQL_JOB_STEP"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(mssql,localhost.Weekly Demo Data Backup,PROD),localhost.Weekly Demo Data Backup)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+        "json": {
+            "inputDatasets": [],
+            "outputDatasets": [],
+            "inputDatajobs": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -99,7 +171,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test"
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -114,7 +187,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test"
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -129,7 +203,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test"
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -146,7 +221,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test"
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -161,7 +237,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test"
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -181,7 +258,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test"
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -202,7 +280,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test"
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -217,7 +296,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test"
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -232,7 +312,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test"
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -249,7 +330,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test"
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -264,7 +346,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test"
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -284,7 +367,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test"
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -305,7 +389,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test"
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -320,7 +405,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test"
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -335,7 +421,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test"
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -352,7 +439,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test"
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -367,7 +455,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test"
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -387,7 +476,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test"
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -408,7 +498,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test"
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -423,7 +514,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test"
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -438,7 +530,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test"
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -455,7 +548,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test"
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -470,7 +564,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test"
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -490,7 +585,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test"
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -511,7 +607,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test"
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -526,7 +623,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test"
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -541,7 +639,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test"
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -558,7 +657,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test"
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -573,7 +673,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test"
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -593,7 +694,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test"
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -614,7 +716,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test"
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -629,7 +732,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test"
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -644,7 +748,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test"
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -661,7 +766,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test"
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -676,7 +782,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test"
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -696,7 +803,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test"
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -717,7 +825,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test"
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -732,7 +841,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test"
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -747,7 +857,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test"
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -764,7 +875,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test"
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -779,7 +891,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test"
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -799,7 +912,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test"
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -820,7 +934,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test"
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -835,7 +950,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test"
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -850,7 +966,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test"
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -867,7 +984,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test"
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -882,7 +1000,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test"
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -902,7 +1021,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test"
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -923,7 +1043,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test"
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -938,7 +1059,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test"
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -953,7 +1075,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test"
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -970,7 +1093,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test"
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -985,7 +1109,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test"
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1005,7 +1130,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test"
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1026,7 +1152,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test"
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1041,7 +1168,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test"
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1056,7 +1184,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test"
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1073,7 +1202,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test"
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1088,7 +1218,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test"
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1108,7 +1239,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test"
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1123,7 +1255,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test"
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1195,7 +1328,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test"
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1212,7 +1346,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test"
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1236,7 +1371,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test"
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1257,7 +1393,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test"
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1272,7 +1409,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test"
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1287,7 +1425,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test"
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1304,7 +1443,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test"
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1319,7 +1459,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test"
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1339,7 +1480,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test"
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1354,7 +1496,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test"
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1427,7 +1570,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test"
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1444,7 +1588,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test"
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1468,7 +1613,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test"
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1483,7 +1629,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test"
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1580,7 +1727,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test"
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1597,7 +1745,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test"
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1621,7 +1770,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test"
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1636,7 +1786,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test"
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1689,6 +1840,18 @@
                                 "isPartOfKey": true
                             },
                             {
+                                "fieldPath": "SomeId",
+                                "nullable": false,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "UNIQUEIDENTIFIER()",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
                                 "fieldPath": "Name",
                                 "nullable": true,
                                 "type": {
@@ -1720,7 +1883,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test"
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1737,7 +1901,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test"
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1761,7 +1926,73 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test"
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(mssql,localhost.demodata.Foo.stored_procedures,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataFlowInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "externalUrl": "",
+            "name": "localhost.demodata.Foo.stored_procedures"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(mssql,localhost.demodata.Foo.stored_procedures,PROD),Proc.With.SpecialChar)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "procedure_depends_on": "{}",
+                "depending_on_procedure": "{}",
+                "code": "CREATE PROCEDURE [Foo].[Proc.With.SpecialChar] @ID INT\nAS\n    SELECT @ID AS ThatDB;\n",
+                "input parameters": "['@ID']",
+                "parameter @ID": "{'type': 'int'}",
+                "date_created": "2023-10-27 10:11:55.460000",
+                "date_modified": "2023-10-27 10:11:55.460000"
+            },
+            "externalUrl": "",
+            "name": "demodata.Foo.Proc.With.SpecialChar",
+            "type": {
+                "string": "MSSQL_STORED_PROCEDURE"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(mssql,localhost.demodata.Foo.stored_procedures,PROD),Proc.With.SpecialChar)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+        "json": {
+            "inputDatasets": [],
+            "outputDatasets": [],
+            "inputDatajobs": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1782,7 +2013,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test"
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1797,7 +2029,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test"
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1812,7 +2045,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test"
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1829,7 +2063,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test"
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1844,7 +2079,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test"
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1864,7 +2100,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test"
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1885,7 +2122,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test"
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1900,7 +2138,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test"
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1915,7 +2154,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test"
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1932,7 +2172,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test"
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1947,7 +2188,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test"
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1967,7 +2209,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test"
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1988,7 +2231,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test"
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2003,7 +2247,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test"
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2018,7 +2263,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test"
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2035,7 +2281,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test"
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2050,7 +2297,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test"
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2070,7 +2318,72 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test"
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(mssql,localhost.Weekly Demo Data Backup,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(mssql,localhost.demodata.Foo.stored_procedures,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(mssql,localhost.Weekly Demo Data Backup,PROD),localhost.Weekly Demo Data Backup)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(mssql,localhost.demodata.Foo.stored_procedures,PROD),Proc.With.SpecialChar)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
     }
 }
 ]

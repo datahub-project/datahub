@@ -1,0 +1,184 @@
+[
+    {
+        "proposedSnapshot": {
+            "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+                "urn": "urn:li:dataset:(urn:li:dataPlatform:iceberg,test_platform_instance.nyc.another_taxis,PROD)",
+                "aspects": [
+                    {
+                        "com.linkedin.pegasus2avro.common.Status": {
+                            "removed": false
+                        }
+                    },
+                    {
+                        "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                            "customProperties": {
+                                "owner": "root",
+                                "created-at": "2023-07-04T14:23:10.457317300Z",
+                                "write.format.default": "parquet",
+                                "location": "s3a://warehouse/wh/nyc/another_taxis",
+                                "format-version": "1",
+                                "snapshot-id": "6904764113937987369",
+                                "manifest-list": "s3a://warehouse/wh/nyc/another_taxis/metadata/snap-6904764113937987369-1-f18ce54a-d59c-461a-a066-9d3085ccf2f2.avro"
+                            },
+                            "tags": []
+                        }
+                    },
+                    {
+                        "com.linkedin.pegasus2avro.common.Ownership": {
+                            "owners": [
+                                {
+                                    "owner": "urn:li:corpuser:root",
+                                    "type": "TECHNICAL_OWNER"
+                                },
+                                {
+                                    "owner": "urn:li:corpGroup:root",
+                                    "type": "TECHNICAL_OWNER"
+                                }
+                            ],
+                            "lastModified": {
+                                "time": 0,
+                                "actor": "urn:li:corpuser:unknown"
+                            }
+                        }
+                    },
+                    {
+                        "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                            "schemaName": "nyc.another_taxis",
+                            "platform": "urn:li:dataPlatform:iceberg",
+                            "version": 0,
+                            "created": {
+                                "time": 0,
+                                "actor": "urn:li:corpuser:unknown"
+                            },
+                            "lastModified": {
+                                "time": 0,
+                                "actor": "urn:li:corpuser:unknown"
+                            },
+                            "hash": "",
+                            "platformSchema": {
+                                "com.linkedin.pegasus2avro.schema.OtherSchema": {
+                                    "rawSchema": "table {\n  1: vendor_id: optional long\n  2: trip_date: optional timestamptz\n  3: trip_id: optional long\n  4: trip_distance: optional float\n  5: fare_amount: optional double\n  6: store_and_fwd_flag: optional string\n}"
+                                }
+                            },
+                            "fields": [
+                                {
+                                    "fieldPath": "[version=2.0].[type=struct].[type=long].vendor_id",
+                                    "nullable": true,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "long",
+                                    "recursive": false,
+                                    "isPartOfKey": false,
+                                    "jsonProps": "{\"native_data_type\": \"long\", \"_nullable\": true}"
+                                },
+                                {
+                                    "fieldPath": "[version=2.0].[type=struct].[type=long].trip_date",
+                                    "nullable": true,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.TimeType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "timestamptz",
+                                    "recursive": false,
+                                    "isPartOfKey": false,
+                                    "jsonProps": "{\"logicalType\": \"timestamp-micros\", \"native_data_type\": \"timestamptz\", \"_nullable\": true}"
+                                },
+                                {
+                                    "fieldPath": "[version=2.0].[type=struct].[type=long].trip_id",
+                                    "nullable": true,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "long",
+                                    "recursive": false,
+                                    "isPartOfKey": false,
+                                    "jsonProps": "{\"native_data_type\": \"long\", \"_nullable\": true}"
+                                },
+                                {
+                                    "fieldPath": "[version=2.0].[type=struct].[type=float].trip_distance",
+                                    "nullable": true,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "float",
+                                    "recursive": false,
+                                    "isPartOfKey": false,
+                                    "jsonProps": "{\"native_data_type\": \"float\", \"_nullable\": true}"
+                                },
+                                {
+                                    "fieldPath": "[version=2.0].[type=struct].[type=double].fare_amount",
+                                    "nullable": true,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "double",
+                                    "recursive": false,
+                                    "isPartOfKey": false,
+                                    "jsonProps": "{\"native_data_type\": \"double\", \"_nullable\": true}"
+                                },
+                                {
+                                    "fieldPath": "[version=2.0].[type=struct].[type=string].store_and_fwd_flag",
+                                    "nullable": true,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.StringType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "string",
+                                    "recursive": false,
+                                    "isPartOfKey": false,
+                                    "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                                }
+                            ]
+                        }
+                    }
+                ]
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1586847600000,
+            "runId": "iceberg-2020_04_14-07_00_00"
+        }
+    },
+    {
+        "entityType": "dataset",
+        "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:iceberg,test_platform_instance.nyc.another_taxis,PROD)",
+        "changeType": "UPSERT",
+        "aspectName": "dataPlatformInstance",
+        "aspect": {
+            "json": {
+                "platform": "urn:li:dataPlatform:iceberg",
+                "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:iceberg,test_platform_instance)"
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1586847600000,
+            "runId": "iceberg-2020_04_14-07_00_00"
+        }
+    },
+    {
+        "entityType": "dataset",
+        "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:iceberg,test_platform_instance.nyc.taxis,PROD)",
+        "changeType": "UPSERT",
+        "aspectName": "status",
+        "aspect": {
+            "json": {
+                "removed": true
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1586847600000,
+            "runId": "iceberg-2020_04_14-07_00_00"
+        }
+    }
+    ]

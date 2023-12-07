@@ -1,22 +1,22 @@
 package com.datahub.authorization.fieldresolverprovider;
 
+import com.datahub.authorization.EntityFieldType;
+import com.datahub.authorization.EntitySpec;
 import com.datahub.authorization.FieldResolver;
-import com.datahub.authorization.ResourceFieldType;
-import com.datahub.authorization.ResourceSpec;
+import com.datastax.oss.driver.shaded.guava.common.collect.ImmutableList;
 import java.util.Collections;
+import java.util.List;
 
+/** Provides field resolver for entity urn given entitySpec */
+public class EntityUrnFieldResolverProvider implements EntityFieldResolverProvider {
 
-/**
- * Provides field resolver for entity urn given resourceSpec
- */
-public class EntityUrnFieldResolverProvider implements ResourceFieldResolverProvider {
   @Override
-  public ResourceFieldType getFieldType() {
-    return ResourceFieldType.RESOURCE_URN;
+  public List<EntityFieldType> getFieldTypes() {
+    return ImmutableList.of(EntityFieldType.URN, EntityFieldType.RESOURCE_URN);
   }
 
   @Override
-  public FieldResolver getFieldResolver(ResourceSpec resourceSpec) {
-    return FieldResolver.getResolverFromValues(Collections.singleton(resourceSpec.getResource()));
+  public FieldResolver getFieldResolver(EntitySpec entitySpec) {
+    return FieldResolver.getResolverFromValues(Collections.singleton(entitySpec.getEntity()));
   }
 }

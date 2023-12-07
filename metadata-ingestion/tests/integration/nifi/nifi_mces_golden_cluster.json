@@ -652,5 +652,215 @@
         "lastObserved": 1638532800000,
         "runId": "nifi-test-cluster"
     }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638532800000,
+        "runId": "nifi-test-cluster"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,PROD),3ec2acd6-a0d4-3198-9066-a59fb757bc05)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638532800000,
+        "runId": "nifi-test-cluster"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,PROD),8eb5263d-017d-1000-ffff-ffff911b23aa)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638532800000,
+        "runId": "nifi-test-cluster"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,PROD),8a218b6e-e6a0-36b6-bc4b-79d202a80167)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638532800000,
+        "runId": "nifi-test-cluster"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,PROD),71bc17ed-a3bc-339a-a100-ebad434717d4)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638532800000,
+        "runId": "nifi-test-cluster"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,PROD),c5f6fc66-ffbb-3f60-9564-f2466ae32493)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638532800000,
+        "runId": "nifi-test-cluster"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,PROD),c8c73d4c-ebdd-1bee-9b46-629672cd11a0)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638532800000,
+        "runId": "nifi-test-cluster"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,PROD),8eb55aeb-017d-1000-ffff-fffff475768d)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638532800000,
+        "runId": "nifi-test-cluster"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,PROD),fed5914b-937b-37dd-89c0-b34ffbae9cf4)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638532800000,
+        "runId": "nifi-test-cluster"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,sftp_public_host,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638532800000,
+        "runId": "nifi-test-cluster"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:nifi,default.s3_data,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638532800000,
+        "runId": "nifi-test-cluster"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,sftp_public_host.temperature,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638532800000,
+        "runId": "nifi-test-cluster"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:nifi,default.sftp_files_out,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638532800000,
+        "runId": "nifi-test-cluster"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,enriched-topical-chat,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638532800000,
+        "runId": "nifi-test-cluster"
+    }
 }
 ]

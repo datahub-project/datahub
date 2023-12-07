@@ -185,7 +185,7 @@ export const useOnSelectBrowsePath = () => {
     const selectedFilters = useSelectedFilters();
     const onChangeFilters = useOnChangeFilters();
 
-    return (isSelected: boolean) => {
+    return (isSelected: boolean, removeFilters: string[] = []) => {
         const overrides: Array<FacetFilterInput> = [];
 
         // keep entity and subType filters for this given entity only if they exist, otherwise apply this entity filter
@@ -215,9 +215,9 @@ export const useOnSelectBrowsePath = () => {
             values: [browseSearchFilter],
         });
 
-        const filtersWithOverrides = applyFacetFilterOverrides(selectedFilters, overrides).filter(
-            (filter) => isSelected || !overrides.some((override) => override.field === filter.field),
-        );
+        const filtersWithOverrides = applyFacetFilterOverrides(selectedFilters, overrides)
+            .filter((filter) => !removeFilters.includes(filter.field))
+            .filter((filter) => isSelected || !overrides.some((override) => override.field === filter.field));
 
         onChangeFilters(filtersWithOverrides);
     };

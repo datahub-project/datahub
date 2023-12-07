@@ -55,8 +55,7 @@ def snowflake_pipeline_config(tmp_path):
                 schema_pattern=AllowDenyPattern(allow=["test_db.test_schema"]),
                 include_view_lineage=False,
                 include_usage_stats=False,
-                use_legacy_lineage_method=False,
-                start_time=datetime(2022, 6, 6, 7, 17, 0, 0).replace(
+                start_time=datetime(2022, 6, 6, 0, 0, 0, 0).replace(
                     tzinfo=timezone.utc
                 ),
                 end_time=datetime(2022, 6, 7, 7, 17, 0, 0).replace(tzinfo=timezone.utc),
@@ -228,7 +227,7 @@ def test_snowflake_missing_snowflake_lineage_permission_causes_pipeline_failure(
             default_query_results,
             [
                 snowflake_query.SnowflakeQuery.table_to_table_lineage_history_v2(
-                    start_time_millis=1654499820000,
+                    start_time_millis=1654473600000,
                     end_time_millis=1654586220000,
                     include_view_lineage=False,
                     include_column_lineage=True,
@@ -284,10 +283,13 @@ def test_snowflake_unexpected_snowflake_view_lineage_error_causes_pipeline_warni
         )
 
         snowflake_pipeline_config1 = snowflake_pipeline_config.copy()
-        cast(
+        config = cast(
             SnowflakeV2Config,
             cast(PipelineConfig, snowflake_pipeline_config1).source.config,
-        ).include_view_lineage = True
+        )
+        config.include_table_lineage = True
+        config.include_view_lineage = True
+
         pipeline = Pipeline(snowflake_pipeline_config1)
         pipeline.run()
         pipeline.raise_from_status()  # pipeline should not fail

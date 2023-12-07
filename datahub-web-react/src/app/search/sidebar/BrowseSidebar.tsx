@@ -6,13 +6,15 @@ import { BrowseProvider } from './BrowseContext';
 import SidebarLoadingError from './SidebarLoadingError';
 import { SEARCH_RESULTS_BROWSE_SIDEBAR_ID } from '../../onboarding/config/SearchOnboardingConfig';
 import useSidebarEntities from './useSidebarEntities';
+import { ANTD_GRAY_V2 } from '../../entity/shared/constants';
 
 const Sidebar = styled.div<{ visible: boolean; width: number }>`
     height: 100%;
     width: ${(props) => (props.visible ? `${props.width}px` : '0')};
     transition: width 250ms ease-in-out;
     border-right: 1px solid ${(props) => props.theme.styles['border-color-base']};
-    background-color: #f8f9fa;
+    background-color: ${ANTD_GRAY_V2[1]};
+    background: white;
 `;
 
 const SidebarHeader = styled.div`
@@ -24,12 +26,12 @@ const SidebarHeader = styled.div`
     white-space: nowrap;
 `;
 
-const SidebarBody = styled.div`
+const SidebarBody = styled.div<{ visible: boolean }>`
     height: calc(100% - 47px);
     padding-left: 16px;
     padding-right: 12px;
     padding-bottom: 200px;
-    overflow: auto;
+    overflow: ${(props) => (props.visible ? 'auto' : 'hidden')};
     white-space: nowrap;
 `;
 
@@ -48,7 +50,7 @@ const BrowseSidebar = ({ visible, width }: Props) => {
             <SidebarHeader>
                 <Typography.Text strong>Navigate</Typography.Text>
             </SidebarHeader>
-            <SidebarBody>
+            <SidebarBody visible={visible}>
                 {entityAggregations && !entityAggregations.length && <div>No results found</div>}
                 {entityAggregations?.map((entityAggregation) => (
                     <BrowseProvider key={entityAggregation.value} entityAggregation={entityAggregation}>

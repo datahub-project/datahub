@@ -1,7 +1,7 @@
 [
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:939ecec0f01fb6bb1ca15fe6f0ead918",
+    "entityUrn": "urn:li:container:1cfce89b5a05e1da5092d88ad9eb4589",
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
@@ -9,19 +9,20 @@
             "customProperties": {
                 "platform": "hive",
                 "env": "PROD",
-                "database": "hive"
+                "database": "metastore"
             },
-            "name": "hive"
+            "name": "metastore"
         }
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "presto-on-hive-test"
+        "runId": "presto-on-hive-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:939ecec0f01fb6bb1ca15fe6f0ead918",
+    "entityUrn": "urn:li:container:1cfce89b5a05e1da5092d88ad9eb4589",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -31,12 +32,13 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "presto-on-hive-test"
+        "runId": "presto-on-hive-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:939ecec0f01fb6bb1ca15fe6f0ead918",
+    "entityUrn": "urn:li:container:1cfce89b5a05e1da5092d88ad9eb4589",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -46,12 +48,13 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "presto-on-hive-test"
+        "runId": "presto-on-hive-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:939ecec0f01fb6bb1ca15fe6f0ead918",
+    "entityUrn": "urn:li:container:1cfce89b5a05e1da5092d88ad9eb4589",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -63,12 +66,13 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "presto-on-hive-test"
+        "runId": "presto-on-hive-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:939ecec0f01fb6bb1ca15fe6f0ead918",
+    "entityUrn": "urn:li:container:1cfce89b5a05e1da5092d88ad9eb4589",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
@@ -78,12 +82,13 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "presto-on-hive-test"
+        "runId": "presto-on-hive-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:f5e571e4a9acce86333e6b427ba1651f",
+    "entityUrn": "urn:li:container:9ba2e350c97c893a91bcaee4838cdcae",
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
@@ -91,7 +96,7 @@
             "customProperties": {
                 "platform": "hive",
                 "env": "PROD",
-                "database": "hive",
+                "database": "metastore",
                 "schema": "db1"
             },
             "name": "db1"
@@ -99,12 +104,13 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "presto-on-hive-test"
+        "runId": "presto-on-hive-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:f5e571e4a9acce86333e6b427ba1651f",
+    "entityUrn": "urn:li:container:9ba2e350c97c893a91bcaee4838cdcae",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -114,12 +120,13 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "presto-on-hive-test"
+        "runId": "presto-on-hive-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:f5e571e4a9acce86333e6b427ba1651f",
+    "entityUrn": "urn:li:container:9ba2e350c97c893a91bcaee4838cdcae",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -129,12 +136,13 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "presto-on-hive-test"
+        "runId": "presto-on-hive-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:f5e571e4a9acce86333e6b427ba1651f",
+    "entityUrn": "urn:li:container:9ba2e350c97c893a91bcaee4838cdcae",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -146,42 +154,45 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "presto-on-hive-test"
+        "runId": "presto-on-hive-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:f5e571e4a9acce86333e6b427ba1651f",
+    "entityUrn": "urn:li:container:9ba2e350c97c893a91bcaee4838cdcae",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:939ecec0f01fb6bb1ca15fe6f0ead918"
+            "container": "urn:li:container:1cfce89b5a05e1da5092d88ad9eb4589"
         }
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "presto-on-hive-test"
+        "runId": "presto-on-hive-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:f5e571e4a9acce86333e6b427ba1651f",
+    "entityUrn": "urn:li:container:9ba2e350c97c893a91bcaee4838cdcae",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
             "path": [
                 {
-                    "id": "urn:li:container:939ecec0f01fb6bb1ca15fe6f0ead918",
-                    "urn": "urn:li:container:939ecec0f01fb6bb1ca15fe6f0ead918"
+                    "id": "urn:li:container:1cfce89b5a05e1da5092d88ad9eb4589",
+                    "urn": "urn:li:container:1cfce89b5a05e1da5092d88ad9eb4589"
                 }
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "presto-on-hive-test"
+        "runId": "presto-on-hive-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -191,12 +202,13 @@
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:f5e571e4a9acce86333e6b427ba1651f"
+            "container": "urn:li:container:9ba2e350c97c893a91bcaee4838cdcae"
         }
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "presto-on-hive-test"
+        "runId": "presto-on-hive-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -264,9 +276,15 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_date": "2023-07-05",
+                            "totalSize": "0",
+                            "numRows": "0",
+                            "numFiles": "0",
+                            "COLUMN_STATS_ACCURATE": "{\"BASIC_STATS\":\"true\"}",
+                            "transient_lastDdlTime": "1700805676",
+                            "rawDataSize": "0",
                             "table_type": "MANAGED_TABLE",
-                            "table_location": "hdfs://namenode:8020/user/hive/warehouse/db1.db/map_test"
+                            "table_location": "hdfs://namenode:8020/user/hive/warehouse/db1.db/map_test",
+                            "create_date": "2023-11-24"
                         },
                         "name": "map_test",
                         "tags": []
@@ -277,7 +295,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "presto-on-hive-test"
+        "runId": "presto-on-hive-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -294,7 +313,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "presto-on-hive-test"
+        "runId": "presto-on-hive-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -306,19 +326,20 @@
         "json": {
             "path": [
                 {
-                    "id": "urn:li:container:939ecec0f01fb6bb1ca15fe6f0ead918",
-                    "urn": "urn:li:container:939ecec0f01fb6bb1ca15fe6f0ead918"
+                    "id": "urn:li:container:1cfce89b5a05e1da5092d88ad9eb4589",
+                    "urn": "urn:li:container:1cfce89b5a05e1da5092d88ad9eb4589"
                 },
                 {
-                    "id": "urn:li:container:f5e571e4a9acce86333e6b427ba1651f",
-                    "urn": "urn:li:container:f5e571e4a9acce86333e6b427ba1651f"
+                    "id": "urn:li:container:9ba2e350c97c893a91bcaee4838cdcae",
+                    "urn": "urn:li:container:9ba2e350c97c893a91bcaee4838cdcae"
                 }
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "presto-on-hive-test"
+        "runId": "presto-on-hive-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -328,12 +349,13 @@
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:f5e571e4a9acce86333e6b427ba1651f"
+            "container": "urn:li:container:9ba2e350c97c893a91bcaee4838cdcae"
         }
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "presto-on-hive-test"
+        "runId": "presto-on-hive-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -458,9 +480,15 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_date": "2023-07-05",
+                            "numRows": "0",
+                            "numFiles": "0",
+                            "COLUMN_STATS_ACCURATE": "{\"BASIC_STATS\":\"true\"}",
+                            "transient_lastDdlTime": "1700805676",
+                            "rawDataSize": "0",
+                            "totalSize": "0",
                             "table_type": "MANAGED_TABLE",
-                            "table_location": "hdfs://namenode:8020/user/hive/warehouse/db1.db/union_test"
+                            "table_location": "hdfs://namenode:8020/user/hive/warehouse/db1.db/union_test",
+                            "create_date": "2023-11-24"
                         },
                         "name": "union_test",
                         "tags": []
@@ -471,7 +499,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "presto-on-hive-test"
+        "runId": "presto-on-hive-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -488,7 +517,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "presto-on-hive-test"
+        "runId": "presto-on-hive-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -500,19 +530,20 @@
         "json": {
             "path": [
                 {
-                    "id": "urn:li:container:939ecec0f01fb6bb1ca15fe6f0ead918",
-                    "urn": "urn:li:container:939ecec0f01fb6bb1ca15fe6f0ead918"
+                    "id": "urn:li:container:1cfce89b5a05e1da5092d88ad9eb4589",
+                    "urn": "urn:li:container:1cfce89b5a05e1da5092d88ad9eb4589"
                 },
                 {
-                    "id": "urn:li:container:f5e571e4a9acce86333e6b427ba1651f",
-                    "urn": "urn:li:container:f5e571e4a9acce86333e6b427ba1651f"
+                    "id": "urn:li:container:9ba2e350c97c893a91bcaee4838cdcae",
+                    "urn": "urn:li:container:9ba2e350c97c893a91bcaee4838cdcae"
                 }
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "presto-on-hive-test"
+        "runId": "presto-on-hive-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -522,12 +553,13 @@
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:f5e571e4a9acce86333e6b427ba1651f"
+            "container": "urn:li:container:9ba2e350c97c893a91bcaee4838cdcae"
         }
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "presto-on-hive-test"
+        "runId": "presto-on-hive-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -644,9 +676,15 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_date": "2023-07-05",
+                            "totalSize": "0",
+                            "numFiles": "0",
+                            "COLUMN_STATS_ACCURATE": "{\"BASIC_STATS\":\"true\"}",
+                            "transient_lastDdlTime": "1700805676",
+                            "rawDataSize": "0",
+                            "numRows": "0",
                             "table_type": "MANAGED_TABLE",
-                            "table_location": "hdfs://namenode:8020/user/hive/warehouse/db1.db/nested_struct_test"
+                            "table_location": "hdfs://namenode:8020/user/hive/warehouse/db1.db/nested_struct_test",
+                            "create_date": "2023-11-24"
                         },
                         "name": "nested_struct_test",
                         "tags": []
@@ -657,7 +695,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "presto-on-hive-test"
+        "runId": "presto-on-hive-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -674,7 +713,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "presto-on-hive-test"
+        "runId": "presto-on-hive-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -686,19 +726,20 @@
         "json": {
             "path": [
                 {
-                    "id": "urn:li:container:939ecec0f01fb6bb1ca15fe6f0ead918",
-                    "urn": "urn:li:container:939ecec0f01fb6bb1ca15fe6f0ead918"
+                    "id": "urn:li:container:1cfce89b5a05e1da5092d88ad9eb4589",
+                    "urn": "urn:li:container:1cfce89b5a05e1da5092d88ad9eb4589"
                 },
                 {
-                    "id": "urn:li:container:f5e571e4a9acce86333e6b427ba1651f",
-                    "urn": "urn:li:container:f5e571e4a9acce86333e6b427ba1651f"
+                    "id": "urn:li:container:9ba2e350c97c893a91bcaee4838cdcae",
+                    "urn": "urn:li:container:9ba2e350c97c893a91bcaee4838cdcae"
                 }
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "presto-on-hive-test"
+        "runId": "presto-on-hive-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -708,12 +749,13 @@
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:f5e571e4a9acce86333e6b427ba1651f"
+            "container": "urn:li:container:9ba2e350c97c893a91bcaee4838cdcae"
         }
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "presto-on-hive-test"
+        "runId": "presto-on-hive-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -814,9 +856,17 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_date": "2023-07-05",
+                            "another.comment": "This table has no partitions",
+                            "numRows": "1",
+                            "rawDataSize": "32",
+                            "totalSize": "33",
+                            "numFiles": "1",
+                            "transient_lastDdlTime": "1700805674",
+                            "comment": "This table has array of structs",
+                            "COLUMN_STATS_ACCURATE": "{\"BASIC_STATS\":\"true\"}",
                             "table_type": "MANAGED_TABLE",
-                            "table_location": "hdfs://namenode:8020/user/hive/warehouse/db1.db/array_struct_test"
+                            "table_location": "hdfs://namenode:8020/user/hive/warehouse/db1.db/array_struct_test",
+                            "create_date": "2023-11-24"
                         },
                         "name": "array_struct_test",
                         "description": "This table has array of structs",
@@ -828,7 +878,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "presto-on-hive-test"
+        "runId": "presto-on-hive-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -845,7 +896,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "presto-on-hive-test"
+        "runId": "presto-on-hive-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -857,19 +909,20 @@
         "json": {
             "path": [
                 {
-                    "id": "urn:li:container:939ecec0f01fb6bb1ca15fe6f0ead918",
-                    "urn": "urn:li:container:939ecec0f01fb6bb1ca15fe6f0ead918"
+                    "id": "urn:li:container:1cfce89b5a05e1da5092d88ad9eb4589",
+                    "urn": "urn:li:container:1cfce89b5a05e1da5092d88ad9eb4589"
                 },
                 {
-                    "id": "urn:li:container:f5e571e4a9acce86333e6b427ba1651f",
-                    "urn": "urn:li:container:f5e571e4a9acce86333e6b427ba1651f"
+                    "id": "urn:li:container:9ba2e350c97c893a91bcaee4838cdcae",
+                    "urn": "urn:li:container:9ba2e350c97c893a91bcaee4838cdcae"
                 }
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "presto-on-hive-test"
+        "runId": "presto-on-hive-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -879,12 +932,13 @@
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:f5e571e4a9acce86333e6b427ba1651f"
+            "container": "urn:li:container:9ba2e350c97c893a91bcaee4838cdcae"
         }
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "presto-on-hive-test"
+        "runId": "presto-on-hive-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -979,9 +1033,15 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_date": "2023-07-05",
+                            "transient_lastDdlTime": "1700805671",
+                            "numFiles": "0",
+                            "COLUMN_STATS_ACCURATE": "{\"BASIC_STATS\":\"true\"}",
+                            "rawDataSize": "0",
+                            "numRows": "0",
+                            "totalSize": "0",
                             "table_type": "MANAGED_TABLE",
-                            "table_location": "hdfs://namenode:8020/user/hive/warehouse/db1.db/struct_test"
+                            "table_location": "hdfs://namenode:8020/user/hive/warehouse/db1.db/struct_test",
+                            "create_date": "2023-11-24"
                         },
                         "name": "struct_test",
                         "tags": []
@@ -992,7 +1052,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "presto-on-hive-test"
+        "runId": "presto-on-hive-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1009,7 +1070,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "presto-on-hive-test"
+        "runId": "presto-on-hive-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1021,19 +1083,20 @@
         "json": {
             "path": [
                 {
-                    "id": "urn:li:container:939ecec0f01fb6bb1ca15fe6f0ead918",
-                    "urn": "urn:li:container:939ecec0f01fb6bb1ca15fe6f0ead918"
+                    "id": "urn:li:container:1cfce89b5a05e1da5092d88ad9eb4589",
+                    "urn": "urn:li:container:1cfce89b5a05e1da5092d88ad9eb4589"
                 },
                 {
-                    "id": "urn:li:container:f5e571e4a9acce86333e6b427ba1651f",
-                    "urn": "urn:li:container:f5e571e4a9acce86333e6b427ba1651f"
+                    "id": "urn:li:container:9ba2e350c97c893a91bcaee4838cdcae",
+                    "urn": "urn:li:container:9ba2e350c97c893a91bcaee4838cdcae"
                 }
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "presto-on-hive-test"
+        "runId": "presto-on-hive-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1043,12 +1106,13 @@
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:f5e571e4a9acce86333e6b427ba1651f"
+            "container": "urn:li:container:9ba2e350c97c893a91bcaee4838cdcae"
         }
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "presto-on-hive-test"
+        "runId": "presto-on-hive-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1113,9 +1177,15 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_date": "2023-07-05",
+                            "transient_lastDdlTime": "1700805671",
+                            "numFiles": "0",
+                            "COLUMN_STATS_ACCURATE": "{\"BASIC_STATS\":\"true\"}",
+                            "rawDataSize": "0",
+                            "numRows": "0",
+                            "totalSize": "0",
                             "table_type": "MANAGED_TABLE",
-                            "table_location": "hdfs://namenode:8020/user/hive/warehouse/db1.db/_test_table_underscore"
+                            "table_location": "hdfs://namenode:8020/user/hive/warehouse/db1.db/_test_table_underscore",
+                            "create_date": "2023-11-24"
                         },
                         "name": "_test_table_underscore",
                         "tags": []
@@ -1126,7 +1196,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "presto-on-hive-test"
+        "runId": "presto-on-hive-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1143,7 +1214,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "presto-on-hive-test"
+        "runId": "presto-on-hive-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1155,19 +1227,20 @@
         "json": {
             "path": [
                 {
-                    "id": "urn:li:container:939ecec0f01fb6bb1ca15fe6f0ead918",
-                    "urn": "urn:li:container:939ecec0f01fb6bb1ca15fe6f0ead918"
+                    "id": "urn:li:container:1cfce89b5a05e1da5092d88ad9eb4589",
+                    "urn": "urn:li:container:1cfce89b5a05e1da5092d88ad9eb4589"
                 },
                 {
-                    "id": "urn:li:container:f5e571e4a9acce86333e6b427ba1651f",
-                    "urn": "urn:li:container:f5e571e4a9acce86333e6b427ba1651f"
+                    "id": "urn:li:container:9ba2e350c97c893a91bcaee4838cdcae",
+                    "urn": "urn:li:container:9ba2e350c97c893a91bcaee4838cdcae"
                 }
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "presto-on-hive-test"
+        "runId": "presto-on-hive-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1177,12 +1250,13 @@
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:f5e571e4a9acce86333e6b427ba1651f"
+            "container": "urn:li:container:9ba2e350c97c893a91bcaee4838cdcae"
         }
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "presto-on-hive-test"
+        "runId": "presto-on-hive-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1239,6 +1313,7 @@
                                 "nativeDataType": "string",
                                 "recursive": false,
                                 "isPartOfKey": false,
+                                "isPartitioningKey": true,
                                 "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
                             },
                             {
@@ -1260,9 +1335,10 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_date": "2023-07-05",
+                            "transient_lastDdlTime": "1700805669",
                             "table_type": "MANAGED_TABLE",
                             "table_location": "hdfs://namenode:8020/user/hive/warehouse/db1.db/pokes",
+                            "create_date": "2023-11-24",
                             "partitioned_columns": "baz"
                         },
                         "name": "pokes",
@@ -1274,7 +1350,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "presto-on-hive-test"
+        "runId": "presto-on-hive-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1291,7 +1368,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "presto-on-hive-test"
+        "runId": "presto-on-hive-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1303,19 +1381,20 @@
         "json": {
             "path": [
                 {
-                    "id": "urn:li:container:939ecec0f01fb6bb1ca15fe6f0ead918",
-                    "urn": "urn:li:container:939ecec0f01fb6bb1ca15fe6f0ead918"
+                    "id": "urn:li:container:1cfce89b5a05e1da5092d88ad9eb4589",
+                    "urn": "urn:li:container:1cfce89b5a05e1da5092d88ad9eb4589"
                 },
                 {
-                    "id": "urn:li:container:f5e571e4a9acce86333e6b427ba1651f",
-                    "urn": "urn:li:container:f5e571e4a9acce86333e6b427ba1651f"
+                    "id": "urn:li:container:9ba2e350c97c893a91bcaee4838cdcae",
+                    "urn": "urn:li:container:9ba2e350c97c893a91bcaee4838cdcae"
                 }
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "presto-on-hive-test"
+        "runId": "presto-on-hive-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1325,12 +1404,13 @@
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:f5e571e4a9acce86333e6b427ba1651f"
+            "container": "urn:li:container:9ba2e350c97c893a91bcaee4838cdcae"
         }
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "presto-on-hive-test"
+        "runId": "presto-on-hive-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1400,7 +1480,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "presto-on-hive-test"
+        "runId": "presto-on-hive-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1417,7 +1498,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "presto-on-hive-test"
+        "runId": "presto-on-hive-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1434,7 +1516,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "presto-on-hive-test"
+        "runId": "presto-on-hive-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1446,19 +1529,20 @@
         "json": {
             "path": [
                 {
-                    "id": "urn:li:container:939ecec0f01fb6bb1ca15fe6f0ead918",
-                    "urn": "urn:li:container:939ecec0f01fb6bb1ca15fe6f0ead918"
+                    "id": "urn:li:container:1cfce89b5a05e1da5092d88ad9eb4589",
+                    "urn": "urn:li:container:1cfce89b5a05e1da5092d88ad9eb4589"
                 },
                 {
-                    "id": "urn:li:container:f5e571e4a9acce86333e6b427ba1651f",
-                    "urn": "urn:li:container:f5e571e4a9acce86333e6b427ba1651f"
+                    "id": "urn:li:container:9ba2e350c97c893a91bcaee4838cdcae",
+                    "urn": "urn:li:container:9ba2e350c97c893a91bcaee4838cdcae"
                 }
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "presto-on-hive-test"
+        "runId": "presto-on-hive-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1468,12 +1552,13 @@
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:f5e571e4a9acce86333e6b427ba1651f"
+            "container": "urn:li:container:9ba2e350c97c893a91bcaee4838cdcae"
         }
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "presto-on-hive-test"
+        "runId": "presto-on-hive-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1590,7 +1675,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "presto-on-hive-test"
+        "runId": "presto-on-hive-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1607,7 +1693,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "presto-on-hive-test"
+        "runId": "presto-on-hive-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1624,7 +1711,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "presto-on-hive-test"
+        "runId": "presto-on-hive-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1636,19 +1724,20 @@
         "json": {
             "path": [
                 {
-                    "id": "urn:li:container:939ecec0f01fb6bb1ca15fe6f0ead918",
-                    "urn": "urn:li:container:939ecec0f01fb6bb1ca15fe6f0ead918"
+                    "id": "urn:li:container:1cfce89b5a05e1da5092d88ad9eb4589",
+                    "urn": "urn:li:container:1cfce89b5a05e1da5092d88ad9eb4589"
                 },
                 {
-                    "id": "urn:li:container:f5e571e4a9acce86333e6b427ba1651f",
-                    "urn": "urn:li:container:f5e571e4a9acce86333e6b427ba1651f"
+                    "id": "urn:li:container:9ba2e350c97c893a91bcaee4838cdcae",
+                    "urn": "urn:li:container:9ba2e350c97c893a91bcaee4838cdcae"
                 }
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "presto-on-hive-test"
+        "runId": "presto-on-hive-test",
+        "lastRunId": "no-run-id-provided"
     }
 }
 ]

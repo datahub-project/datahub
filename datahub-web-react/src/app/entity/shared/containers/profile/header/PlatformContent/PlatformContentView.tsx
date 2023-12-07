@@ -2,18 +2,20 @@ import React from 'react';
 import styled from 'styled-components';
 import { Typography, Image } from 'antd';
 import { Maybe } from 'graphql/jsutils/Maybe';
-import { Container, GlossaryNode } from '../../../../../../../types.generated';
+import { Container, Entity } from '../../../../../../../types.generated';
 import { ANTD_GRAY } from '../../../../constants';
 import ContainerLink from './ContainerLink';
-import ParentNodesView, {
+import {
     StyledRightOutlined,
     ParentNodesWrapper as ParentContainersWrapper,
     Ellipsis,
     StyledTooltip,
 } from './ParentNodesView';
+import ParentEntities from '../../../../../../search/filters/ParentEntities';
 
 const LogoIcon = styled.span`
     display: flex;
+    gap: 4px;
     margin-right: 8px;
 `;
 
@@ -74,14 +76,14 @@ interface Props {
     typeIcon?: JSX.Element;
     entityType?: string;
     parentContainers?: Maybe<Container>[] | null;
-    parentNodes?: GlossaryNode[] | null;
+    parentEntities?: Entity[] | null;
     parentContainersRef: React.RefObject<HTMLDivElement>;
     areContainersTruncated: boolean;
 }
 
 function PlatformContentView(props: Props) {
     const {
-        parentNodes,
+        parentEntities,
         platformName,
         platformLogoUrl,
         platformNames,
@@ -102,7 +104,7 @@ function PlatformContentView(props: Props) {
         <PlatformContentWrapper>
             {typeIcon && <LogoIcon>{typeIcon}</LogoIcon>}
             <PlatformText>{entityType}</PlatformText>
-            {(!!platformName || !!instanceId || !!parentContainers?.length || !!parentNodes?.length) && (
+            {(!!platformName || !!instanceId || !!parentContainers?.length || !!parentEntities?.length) && (
                 <PlatformDivider />
             )}
             {platformName && (
@@ -145,7 +147,7 @@ function PlatformContentView(props: Props) {
                 </ParentContainersWrapper>
                 {directParentContainer && <ContainerLink container={directParentContainer} />}
             </StyledTooltip>
-            <ParentNodesView parentNodes={parentNodes} />
+            <ParentEntities parentEntities={parentEntities || []} numVisible={3} />
         </PlatformContentWrapper>
     );
 }

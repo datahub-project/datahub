@@ -24,7 +24,6 @@ from datahub.ingestion.api.decorators import (  # SourceCapability,; capability,
 )
 from datahub.ingestion.api.registry import import_path
 from datahub.ingestion.api.source import Source, SourceReport
-from datahub.ingestion.api.source_helpers import auto_workunit_reporter
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
     AuditStamp,
@@ -775,9 +774,6 @@ class RedashSource(Source):
 
     def add_config_to_report(self) -> None:
         self.report.api_page_limit = self.config.api_page_limit
-
-    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        return auto_workunit_reporter(self.report, self.get_workunits_internal())
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         self.validate_connection()

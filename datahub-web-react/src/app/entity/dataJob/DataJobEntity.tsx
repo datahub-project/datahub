@@ -108,16 +108,16 @@ export class DataJobEntity implements Entity<DataJob> {
                     component: SidebarAboutSection,
                 },
                 {
+                    component: SidebarOwnerSection,
+                    properties: {
+                        defaultOwnerType: OwnershipType.TechnicalOwner,
+                    },
+                },
+                {
                     component: SidebarTagsSection,
                     properties: {
                         hasTags: true,
                         hasTerms: true,
-                    },
-                },
-                {
-                    component: SidebarOwnerSection,
-                    properties: {
-                        defaultOwnerType: OwnershipType.TechnicalOwner,
                     },
                 },
                 {
@@ -147,6 +147,7 @@ export class DataJobEntity implements Entity<DataJob> {
             <Preview
                 urn={data.urn}
                 name={data.properties?.name || ''}
+                subType={data.subTypes?.typeNames?.[0]}
                 description={data.editableProperties?.description || data.properties?.description}
                 platformName={getDataJobPlatformName(data)}
                 platformLogo={data?.dataFlow?.platform?.properties?.logoUrl || ''}
@@ -166,6 +167,7 @@ export class DataJobEntity implements Entity<DataJob> {
             <Preview
                 urn={data.urn}
                 name={data.properties?.name || ''}
+                subType={data.subTypes?.typeNames?.[0]}
                 description={data.editableProperties?.description || data.properties?.description}
                 platformName={getDataJobPlatformName(data)}
                 platformLogo={data?.dataFlow?.platform?.properties?.logoUrl || ''}
@@ -180,6 +182,8 @@ export class DataJobEntity implements Entity<DataJob> {
                 lastRunTimeMs={
                     ((data as any).lastRun?.runs?.length && (data as any).lastRun?.runs[0]?.created?.time) || undefined
                 }
+                degree={(result as any).degree}
+                paths={(result as any).paths}
             />
         );
     };

@@ -40,7 +40,7 @@ class DuckDBLiteConfigWrapper(DuckDBLiteConfig):
 
 class LiteCliConfig(DatahubConfig):
     lite: LiteLocalConfig = LiteLocalConfig(
-        type="duckdb", config=DuckDBLiteConfigWrapper()
+        type="duckdb", config=DuckDBLiteConfigWrapper().dict()
     )
 
 

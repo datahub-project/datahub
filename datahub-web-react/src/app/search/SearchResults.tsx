@@ -1,12 +1,10 @@
 import React from 'react';
 import { Pagination, Typography } from 'antd';
 import styled from 'styled-components/macro';
-import { Message } from '../shared/Message';
-import { Entity, FacetFilterInput, FacetMetadata, MatchedField } from '../../types.generated';
+import { Entity, FacetFilterInput, FacetMetadata, MatchedField, SearchSuggestion } from '../../types.generated';
 import { SearchCfg } from '../../conf';
 import { SearchResultsRecommendations } from './SearchResultsRecommendations';
 import SearchExtendedMenu from '../entity/shared/components/styled/search/SearchExtendedMenu';
-import { combineSiblingsInSearchResults } from '../entity/shared/siblingUtils';
 import { SearchSelectBar } from '../entity/shared/components/styled/search/SearchSelectBar';
 import { SearchResultList } from './SearchResultList';
 import { isListSubset } from '../entity/shared/utils';
@@ -25,13 +23,19 @@ import { SidebarProvider } from './sidebar/SidebarContext';
 import { BrowseProvider } from './sidebar/BrowseContext';
 import { useIsBrowseV2, useIsSearchV2 } from './useSearchAndBrowseVersion';
 import useToggleSidebar from './useToggleSidebar';
+import SearchSortSelect from './sorting/SearchSortSelect';
+import { combineSiblingsInSearchResults } from './utils/combineSiblingsInSearchResults';
+import SearchQuerySuggester from './suggestions/SearchQuerySugggester';
+import { ANTD_GRAY_V2 } from '../entity/shared/constants';
+import { formatNumberWithoutAbbreviation } from '../shared/formatNumber';
+import SearchResultsLoadingSection from './SearchResultsLoadingSection';
 
-const SearchResultsWrapper = styled.div<{ showUpdatedStyles: boolean }>`
+const SearchResultsWrapper = styled.div<{ v2Styles: boolean }>`
     display: flex;
     flex: 1;
 
     ${(props) =>
-        props.showUpdatedStyles &&
+        props.v2Styles &&
         `
         overflow: hidden;
     `}
@@ -45,13 +49,15 @@ const SearchBody = styled.div`
     overflow: auto;
 `;
 
-const ResultContainer = styled.div<{ displayUpdatedStyles: boolean }>`
+const ResultContainer = styled.div<{ v2Styles: boolean }>`
     flex: 1;
     overflow: auto;
     ${(props) =>
-        props.displayUpdatedStyles
+        props.v2Styles
             ? `
-        background-color: #F8F9FA;
+        display: flex;
+        flex-direction: column;
+        background-color: ${ANTD_GRAY_V2[1]};
     `
             : `
         max-width: calc(100% - 260px);
@@ -64,7 +70,7 @@ const PaginationControlContainer = styled.div`
     text-align: center;
 `;
 
-const PaginationInfoContainer = styled.div`
+const PaginationInfoContainer = styled.div<{ v2Styles: boolean }>`
     padding-left: 24px;
     padding-right: 32px;
     height: 47px;
@@ -73,6 +79,7 @@ const PaginationInfoContainer = styled.div`
     display: flex;
     justify-content: space-between;
     align-items: center;
+    ${({ v2Styles }) => v2Styles && `background-color: white;`}
 `;
 
 const LeftControlsContainer = styled.div`
@@ -92,7 +99,17 @@ const StyledTabToolbar = styled(TabToolbar)`
 
 const SearchMenuContainer = styled.div``;
 
+const SearchResultListContainer = styled.div<{ v2Styles: boolean }>`
+    ${({ v2Styles }) =>
+        v2Styles &&
+        `
+        flex: 1;
+        overflow: auto;
+    `}
+`;
+
 interface Props {
+    loading: boolean;
     unionType?: UnionType;
     query: string;
     viewUrn?: string;
@@ -108,7 +125,6 @@ interface Props {
     } | null;
     facets?: Array<FacetMetadata> | null;
     selectedFilters: Array<FacetFilterInput>;
-    loading: boolean;
     error: any;
     onChangeFilters: (filters: Array<FacetFilterInput>) => void;
     onChangeUnionType: (unionType: UnionType) => void;
@@ -118,6 +134,7 @@ interface Props {
     setNumResultsPerPage: (numResults: number) => void;
     isSelectMode: boolean;
     selectedEntities: EntityAndType[];
+    suggestions: SearchSuggestion[];
     setSelectedEntities: (entities: EntityAndType[]) => void;
     setIsSelectMode: (showSelectMode: boolean) => any;
     onChangeSelectAll: (selected: boolean) => void;
@@ -125,6 +142,7 @@ interface Props {
 }
 
 export const SearchResults = ({
+    loading,
     unionType = UnionType.AND,
     query,
     viewUrn,
@@ -132,7 +150,6 @@ export const SearchResults = ({
     searchResponse,
     facets,
     selectedFilters,
-    loading,
     error,
     onChangeUnionType,
     onChangeFilters,
@@ -142,6 +159,7 @@ export const SearchResults = ({
     setNumResultsPerPage,
     isSelectMode,
     selectedEntities,
+    suggestions,
     setIsSelectMode,
     setSelectedEntities,
     onChangeSelectAll,
@@ -162,8 +180,7 @@ export const SearchResults = ({
 
     return (
         <>
-            {loading && <Message type="loading" content="Loading..." style={{ marginTop: '10%' }} />}
-            <SearchResultsWrapper showUpdatedStyles={showSearchFiltersV2}>
+            <SearchResultsWrapper v2Styles={showSearchFiltersV2}>
                 <SearchBody>
                     {!showSearchFiltersV2 && (
                         <div id={SEARCH_RESULTS_FILTERS_ID} data-testid="search-filters-v1">
@@ -184,8 +201,8 @@ export const SearchResults = ({
                             </BrowseProvider>
                         </SidebarProvider>
                     )}
-                    <ResultContainer displayUpdatedStyles={showSearchFiltersV2}>
-                        <PaginationInfoContainer>
+                    <ResultContainer v2Styles={showSearchFiltersV2}>
+                        <PaginationInfoContainer v2Styles={showSearchFiltersV2}>
                             <LeftControlsContainer>
                                 {showBrowseV2 && <ToggleSidebarButton isOpen={isSidebarOpen} onClick={toggleSidebar} />}
                                 <Typography.Text>
@@ -193,10 +210,17 @@ export const SearchResults = ({
                                     <b>
                                         {lastResultIndex > 0 ? (page - 1) * pageSize + 1 : 0} - {lastResultIndex}
                                     </b>{' '}
-                                    of <b>{totalResults}</b> results
+                                    of{' '}
+                                    <b>
+                                        {totalResults >= 10000
+                                            ? `${formatNumberWithoutAbbreviation(10000)}+`
+                                            : formatNumberWithoutAbbreviation(totalResults)}
+                                    </b>{' '}
+                                    results
                                 </Typography.Text>
                             </LeftControlsContainer>
                             <SearchMenuContainer>
+                                <SearchSortSelect />
                                 <SearchExtendedMenu
                                     downloadSearchResults={downloadSearchResults}
                                     filters={generateOrFilters(unionType, selectedFilters)}
@@ -222,28 +246,34 @@ export const SearchResults = ({
                             </StyledTabToolbar>
                         )}
                         {(error && <ErrorSection />) ||
-                            (!loading && (
-                                <>
+                            (loading && !combinedSiblingSearchResults.length && <SearchResultsLoadingSection />) ||
+                            (combinedSiblingSearchResults && (
+                                <SearchResultListContainer v2Styles={showSearchFiltersV2}>
+                                    {totalResults > 0 && <SearchQuerySuggester suggestions={suggestions} />}
                                     <SearchResultList
+                                        loading={loading}
                                         query={query}
                                         searchResults={combinedSiblingSearchResults}
                                         totalResultCount={totalResults}
                                         isSelectMode={isSelectMode}
                                         selectedEntities={selectedEntities}
                                         setSelectedEntities={setSelectedEntities}
+                                        suggestions={suggestions}
                                     />
-                                    <PaginationControlContainer id="search-pagination">
-                                        <Pagination
-                                            current={page}
-                                            pageSize={numResultsPerPage}
-                                            total={totalResults}
-                                            showLessItems
-                                            onChange={onChangePage}
-                                            showSizeChanger={totalResults > SearchCfg.RESULTS_PER_PAGE}
-                                            onShowSizeChange={(_currNum, newNum) => setNumResultsPerPage(newNum)}
-                                            pageSizeOptions={['10', '20', '50', '100']}
-                                        />
-                                    </PaginationControlContainer>
+                                    {totalResults > 0 && (
+                                        <PaginationControlContainer id="search-pagination">
+                                            <Pagination
+                                                current={page}
+                                                pageSize={numResultsPerPage}
+                                                total={totalResults}
+                                                showLessItems
+                                                onChange={onChangePage}
+                                                showSizeChanger={totalResults > SearchCfg.RESULTS_PER_PAGE}
+                                                onShowSizeChange={(_currNum, newNum) => setNumResultsPerPage(newNum)}
+                                                pageSizeOptions={['10', '20', '50', '100']}
+                                            />
+                                        </PaginationControlContainer>
+                                    )}
                                     {authenticatedUserUrn && (
                                         <SearchResultsRecommendationsContainer>
                                             <SearchResultsRecommendations
@@ -253,7 +283,7 @@ export const SearchResults = ({
                                             />
                                         </SearchResultsRecommendationsContainer>
                                     )}
-                                </>
+                                </SearchResultListContainer>
                             ))}
                     </ResultContainer>
                 </SearchBody>

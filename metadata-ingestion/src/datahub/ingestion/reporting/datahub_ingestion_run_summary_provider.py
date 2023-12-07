@@ -10,6 +10,7 @@ from datahub.configuration.common import (
     IgnorableError,
     redact_raw_config,
 )
+from datahub.emitter.aspect import JSON_CONTENT_TYPE
 from datahub.emitter.mce_builder import datahub_guid
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import make_data_platform_urn
@@ -205,7 +206,7 @@ class DatahubIngestionRunSummaryProvider(PipelineRunListener):
         structured_report = StructuredExecutionReportClass(
             type="CLI_INGEST",
             serializedValue=structured_report_str,
-            contentType="application/json",
+            contentType=JSON_CONTENT_TYPE,
         )
         execution_result_aspect = ExecutionRequestResultClass(
             status=status,

@@ -11,7 +11,7 @@ describe("manage queries", () => {
     cy.openEntityTab("Queries")
   })
 
-  it("go to querys tab on dataset page then, create, edit, make default, delete a view", () => {
+  it("go to queries tab on dataset page then, create, edit, make default, delete a view", () => {
     const runId = Date.now()
 
     // Headers
@@ -27,6 +27,7 @@ describe("manage queries", () => {
     cy.get('.ProseMirror').click();
     cy.get('.ProseMirror').type(`Test Description-${runId}`);
     cy.get('[data-testid="query-builder-save-button"]').click();
+    cy.waitTextVisible("Created Query!");
 
     // Verify the card
     cy.waitTextVisible(`+ Test Query-${runId}`);
@@ -36,10 +37,10 @@ describe("manage queries", () => {
 
     // View the Query
     cy.get('[data-testid="query-content-0"]').click();
+    cy.get('.ant-modal-content').waitTextVisible(`+ Test Query-${runId}`);
+    cy.get('.ant-modal-content').waitTextVisible(`Test Table-${runId}`);
+    cy.get('.ant-modal-content').waitTextVisible(`Test Description-${runId}`);
     cy.get('[data-testid="query-modal-close-button"]').click();
-    cy.waitTextVisible(`+ Test Query-${runId}`);
-    cy.waitTextVisible(`Test Table-${runId}`);
-    cy.waitTextVisible(`Test Description-${runId}`);
 
     // Edit the Query
     cy.get('[data-testid="query-edit-button-0"]').click()
@@ -52,20 +53,23 @@ describe("manage queries", () => {
     cy.get('.ProseMirror').clear();
     cy.get('.ProseMirror').type(`Edited Description-${runId}`);
     cy.get('[data-testid="query-builder-save-button"]').click();
+    cy.waitTextVisible("Edited Query!");
 
-    // Verify the card
+    // Verify edited Query card
+    cy.get('[data-testid="query-content-0"]').scrollIntoView().should('be.visible');
     cy.waitTextVisible(`+ Test Query-${runId} + Edited Query-${runId}`);
-    cy.waitTextVisible(`Edited Description-${runId}`);
+    cy.waitTextVisible(`Edited Table-${runId}`);
     cy.waitTextVisible(`Edited Description-${runId}`);
 
     // Delete the Query
     cy.get('[data-testid="query-more-button-0"]').click();
     cy.get('[data-testid="query-delete-button-0"]').click();
     cy.contains('Yes').click();
+    cy.waitTextVisible("Deleted Query!");
 
     // Query should be gone
     cy.ensureTextNotPresent(`+ Test Query-${runId} + Edited Query-${runId}`);
-    cy.ensureTextNotPresent(`Edited Description-${runId}`);
+    cy.ensureTextNotPresent(`Edited Table-${runId}`);
     cy.ensureTextNotPresent(`Edited Description-${runId}`);
   });
 });

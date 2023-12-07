@@ -13,6 +13,8 @@ from datahub.ingestion.source.sql.trino import TrinoConfig
 from tests.test_helpers import fs_helpers, mce_helpers
 from tests.test_helpers.docker_helpers import wait_for_port
 
+pytestmark = pytest.mark.integration_batch_1
+
 FROZEN_TIME = "2021-09-23 12:00:00"
 
 data_platform = "trino"
@@ -51,7 +53,6 @@ def loaded_trino(trino_runner):
 
 
 @freeze_time(FROZEN_TIME)
-@pytest.mark.integration
 @pytest.mark.xfail
 def test_trino_ingest(
     loaded_trino, test_resources_dir, pytestconfig, tmp_path, mock_time
@@ -69,7 +70,6 @@ def test_trino_ingest(
                 "config": TrinoConfig(
                     host_port="localhost:5300",
                     database="postgresqldb",
-                    database_alias="library_catalog",
                     username="foo",
                     schema_pattern=AllowDenyPattern(allow=["^librarydb"]),
                     profile_pattern=AllowDenyPattern(
@@ -111,7 +111,6 @@ def test_trino_ingest(
 
 
 @freeze_time(FROZEN_TIME)
-@pytest.mark.integration
 def test_trino_hive_ingest(
     loaded_trino, test_resources_dir, pytestconfig, tmp_path, mock_time
 ):
@@ -167,7 +166,6 @@ def test_trino_hive_ingest(
 
 
 @freeze_time(FROZEN_TIME)
-@pytest.mark.integration
 def test_trino_instance_ingest(
     loaded_trino, test_resources_dir, pytestconfig, tmp_path, mock_time
 ):

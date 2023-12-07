@@ -8,6 +8,12 @@ def test_partition_comparator_numeric_folder_name():
     assert partitioned_folder_comparator(folder1, folder2) == -1
 
 
+def test_partition_multi_level_key():
+    folder1 = "backup/metadata_aspect_v2/year=2023/month=01"
+    folder2 = "backup/metadata_aspect_v2/year=2023/month=2"
+    assert partitioned_folder_comparator(folder1, folder2) == -1
+
+
 def test_partition_comparator_numeric_folder_name2():
     folder1 = "12"
     folder2 = "3"

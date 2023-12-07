@@ -48,6 +48,10 @@ def mysql_runner(docker_compose_runner, pytestconfig, test_resources_dir):
         ("mysql_to_file_with_db.yml", "mysql_mces_with_db_golden.json"),
         ("mysql_to_file_no_db.yml", "mysql_mces_no_db_golden.json"),
         ("mysql_profile_table_level_only.yml", "mysql_table_level_only.json"),
+        (
+            "mysql_profile_table_row_count_estimate_only.yml",
+            "mysql_table_row_count_estimate_only.json",
+        ),
     ],
 )
 @freeze_time(FROZEN_TIME)
@@ -70,28 +74,4 @@ def test_mysql_ingest_no_db(
         pytestconfig,
         output_path=tmp_path / "mysql_mces.json",
         golden_path=test_resources_dir / golden_file,
-    )
-
-
-@freeze_time(FROZEN_TIME)
-@pytest.mark.integration
-def test_mysql_ingest_with_db_alias(
-    mysql_runner, pytestconfig, test_resources_dir, tmp_path, mock_time
-):
-    # Run the metadata ingestion pipeline.
-    config_file = (test_resources_dir / "mysql_to_file_dbalias.yml").resolve()
-    run_datahub_cmd(["ingest", "-c", f"{config_file}"], tmp_path=tmp_path)
-
-    # Verify the output.
-    # Assert that all events generated have instance specific urns
-    import re
-
-    urn_pattern = "^" + re.escape(
-        "urn:li:dataset:(urn:li:dataPlatform:mysql,foogalaxy."
-    )
-    mce_helpers.assert_mcp_entity_urn(
-        filter="ALL",
-        entity_type="dataset",
-        regex_pattern=urn_pattern,
-        file=tmp_path / "mysql_mces_dbalias.json",
     )

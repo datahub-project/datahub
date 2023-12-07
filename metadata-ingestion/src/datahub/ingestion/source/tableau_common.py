@@ -1,11 +1,20 @@
 import html
+import logging
+from dataclasses import dataclass
 from functools import lru_cache
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 from pydantic.fields import Field
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import ConfigModel
+from datahub.ingestion.source import tableau_constant as c
+from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
+    DatasetLineageType,
+    FineGrainedLineage,
+    FineGrainedLineageDownstreamType,
+    FineGrainedLineageUpstreamType,
+)
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     ArrayTypeClass,
     BooleanTypeClass,
@@ -21,7 +30,11 @@ from datahub.metadata.schema_classes import (
     BytesTypeClass,
     GlobalTagsClass,
     TagAssociationClass,
+    UpstreamClass,
 )
+from datahub.utilities.sqlglot_lineage import ColumnLineageInfo, SqlParsingResult
+
+logger = logging.getLogger(__name__)
 
 
 class TableauLineageOverrides(ConfigModel):
@@ -529,12 +542,12 @@ def get_fully_qualified_table_name(
     platform: str,
     upstream_db: str,
     schema: str,
-    full_name: str,
+    table_name: str,
 ) -> str:
     if platform == "athena":
         upstream_db = ""
     database_name = f"{upstream_db}." if upstream_db else ""
-    final_name = full_name.replace("[", "").replace("]", "")
+    final_name = table_name.replace("[", "").replace("]", "")
 
     schema_name = f"{schema}." if schema else ""
 
@@ -565,24 +578,128 @@ def get_fully_qualified_table_name(
     return fully_qualified_table_name
 
 
-def get_platform_instance(
-    platform: str, platform_instance_map: Optional[Dict[str, str]]
-) -> Optional[str]:
-    if platform_instance_map is not None and platform in platform_instance_map.keys():
-        return platform_instance_map[platform]
+@dataclass
+class TableauUpstreamReference:
+    database: Optional[str]
+    schema: Optional[str]
+    table: str
 
-    return None
+    connection_type: str
+
+    @classmethod
+    def create(
+        cls, d: dict, default_schema_map: Optional[Dict[str, str]] = None
+    ) -> "TableauUpstreamReference":
+        # Values directly from `table` object from Tableau
+        database = t_database = d.get(c.DATABASE, {}).get(c.NAME)
+        schema = t_schema = d.get(c.SCHEMA)
+        table = t_table = d.get(c.NAME) or ""
+        t_full_name = d.get(c.FULL_NAME)
+        t_connection_type = d[c.CONNECTION_TYPE]  # required to generate urn
+        t_id = d[c.ID]
+
+        parsed_full_name = cls.parse_full_name(t_full_name)
+        if parsed_full_name and len(parsed_full_name) == 3:
+            database, schema, table = parsed_full_name
+        elif parsed_full_name and len(parsed_full_name) == 2:
+            schema, table = parsed_full_name
+        else:
+            logger.debug(
+                f"Upstream urn generation ({t_id}):"
+                f"  Did not parse full name {t_full_name}: unexpected number of values",
+            )
+
+        if not schema and default_schema_map and database in default_schema_map:
+            schema = default_schema_map[database]
+
+        if database != t_database:
+            logger.debug(
+                f"Upstream urn generation ({t_id}):"
+                f" replacing database {t_database} with {database} from full name {t_full_name}"
+            )
+        if schema != t_schema:
+            logger.debug(
+                f"Upstream urn generation ({t_id}):"
+                f" replacing schema {t_schema} with {schema} from full name {t_full_name}"
+            )
+        if table != t_table:
+            logger.debug(
+                f"Upstream urn generation ({t_id}):"
+                f" replacing table {t_table} with {table} from full name {t_full_name}"
+            )
+
+        # TODO: See if we can remove this -- made for redshift
+        if (
+            schema
+            and t_table
+            and t_full_name
+            and t_table == t_full_name
+            and schema in t_table
+        ):
+            logger.debug(
+                f"Omitting schema for upstream table {t_id}, schema included in table name"
+            )
+            schema = ""
+
+        return cls(
+            database=database,
+            schema=schema,
+            table=table,
+            connection_type=t_connection_type,
+        )
+
+    @staticmethod
+    def parse_full_name(full_name: Optional[str]) -> Optional[List[str]]:
+        # fullName is observed to be in formats:
+        #  [database].[schema].[table]
+        #  [schema].[table]
+        #  [table]
+        #  table
+        #  schema
+
+        # TODO: Validate the startswith check. Currently required for our integration tests
+        if full_name is None or not full_name.startswith("["):
+            return None
+
+        return full_name.replace("[", "").replace("]", "").split(".")
+
+    def make_dataset_urn(
+        self,
+        env: str,
+        platform_instance_map: Optional[Dict[str, str]],
+        lineage_overrides: Optional[TableauLineageOverrides] = None,
+    ) -> str:
+        (
+            upstream_db,
+            platform_instance,
+            platform,
+            original_platform,
+        ) = get_overridden_info(
+            connection_type=self.connection_type,
+            upstream_db=self.database,
+            lineage_overrides=lineage_overrides,
+            platform_instance_map=platform_instance_map,
+        )
+
+        table_name = get_fully_qualified_table_name(
+            original_platform,
+            upstream_db or "",
+            self.schema,
+            self.table,
+        )
+
+        return builder.make_dataset_urn_with_platform_instance(
+            platform, table_name, platform_instance, env
+        )
 
 
-def make_table_urn(
-    env: str,
+def get_overridden_info(
+    connection_type: Optional[str],
     upstream_db: Optional[str],
-    connection_type: str,
-    schema: str,
-    full_name: str,
     platform_instance_map: Optional[Dict[str, str]],
     lineage_overrides: Optional[TableauLineageOverrides] = None,
-) -> str:
+) -> Tuple[Optional[str], Optional[str], str, str]:
+
     original_platform = platform = get_platform(connection_type)
     if (
         lineage_overrides is not None
@@ -599,13 +716,14 @@ def make_table_urn(
     ):
         upstream_db = lineage_overrides.database_override_map[upstream_db]
 
-    table_name = get_fully_qualified_table_name(
-        original_platform, upstream_db, schema, full_name
+    platform_instance = (
+        platform_instance_map.get(original_platform) if platform_instance_map else None
     )
-    platform_instance = get_platform_instance(original_platform, platform_instance_map)
-    return builder.make_dataset_urn_with_platform_instance(
-        platform, table_name, platform_instance, env
-    )
+
+    if original_platform in ("athena", "hive", "mysql"):  # Two tier databases
+        upstream_db = None
+
+    return upstream_db, platform_instance, platform, original_platform
 
 
 def make_description_from_params(description, formula):
@@ -618,6 +736,57 @@ def make_description_from_params(description, formula):
     if formula:
         final_description += f"formula: {formula}"
     return final_description
+
+
+def make_upstream_class(
+    parsed_result: Optional[SqlParsingResult],
+) -> List[UpstreamClass]:
+    upstream_tables: List[UpstreamClass] = []
+
+    if parsed_result is None:
+        return upstream_tables
+
+    for dataset_urn in parsed_result.in_tables:
+        upstream_tables.append(
+            UpstreamClass(type=DatasetLineageType.TRANSFORMED, dataset=dataset_urn)
+        )
+    return upstream_tables
+
+
+def make_fine_grained_lineage_class(
+    parsed_result: Optional[SqlParsingResult], dataset_urn: str
+) -> List[FineGrainedLineage]:
+    fine_grained_lineages: List[FineGrainedLineage] = []
+
+    if parsed_result is None:
+        return fine_grained_lineages
+
+    cll: List[ColumnLineageInfo] = (
+        parsed_result.column_lineage if parsed_result.column_lineage is not None else []
+    )
+
+    for cll_info in cll:
+        downstream = (
+            [builder.make_schema_field_urn(dataset_urn, cll_info.downstream.column)]
+            if cll_info.downstream is not None
+            and cll_info.downstream.column is not None
+            else []
+        )
+        upstreams = [
+            builder.make_schema_field_urn(column_ref.table, column_ref.column)
+            for column_ref in cll_info.upstreams
+        ]
+
+        fine_grained_lineages.append(
+            FineGrainedLineage(
+                downstreamType=FineGrainedLineageDownstreamType.FIELD,
+                downstreams=downstream,
+                upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
+                upstreams=upstreams,
+            )
+        )
+
+    return fine_grained_lineages
 
 
 def get_unique_custom_sql(custom_sql_list: List[dict]) -> List[dict]:
