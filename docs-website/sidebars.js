@@ -479,9 +479,13 @@ module.exports = {
       defaultStyle: true,
     },
     {
+      type: "doc",
+      id: "docs/api/datahub-apis",
+      label: "Overview"
+    },
+    {
       type: "category",
       label: "API",
-      link: { type: "doc", id: "docs/api/datahub-apis" },
       items: [
         {
           "GraphQL API": [
@@ -605,7 +609,6 @@ module.exports = {
     {
       type: "category",
       label: "SDK",
-      link: { type: "doc", id: "docs/api/datahub-apis" },
       items: [
         {
           "Python SDK": [
