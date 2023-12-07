@@ -58,11 +58,16 @@ public class DataProductService {
    * @return the urn of the newly created DataProduct
    */
   public Urn createDataProduct(
-      @Nullable String name, @Nullable String description, @Nonnull Authentication authentication) {
+          @Nullable String id, @Nullable String name, @Nullable String description,
+          @Nonnull Authentication authentication) {
 
     // 1. Generate a unique id for the new DataProduct.
     final DataProductKey key = new DataProductKey();
-    key.setId(UUID.randomUUID().toString());
+    if (id != null && !id.isBlank()) {
+      key.setId(id);
+    } else {
+      key.setId(UUID.randomUUID().toString());
+    }
 
     // 2. Create a new instance of DataProductProperties
     final DataProductProperties properties = new DataProductProperties();
