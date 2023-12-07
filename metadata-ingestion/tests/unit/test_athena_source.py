@@ -166,7 +166,6 @@ def test_get_column_type_map():
 
 
 def test_column_type_struct():
-
     result = CustomAthenaRestDialect()._get_column_type(type_="struct<test:string>")
 
     assert isinstance(result, STRUCT)
@@ -175,8 +174,15 @@ def test_column_type_struct():
     assert isinstance(result._STRUCT_fields[0][1], types.String)
 
 
-def test_column_type_complex_combination():
+def test_column_type_decimal():
+    result = CustomAthenaRestDialect()._get_column_type(type_="decimal(10,2)")
 
+    assert isinstance(result, types.DECIMAL)
+    assert 10 == result.precision
+    assert 2 == result.scale
+
+
+def test_column_type_complex_combination():
     result = CustomAthenaRestDialect()._get_column_type(
         type_="struct<id:string,name:string,choices:array<struct<id:string,label:string>>>"
     )

@@ -1,5 +1,8 @@
 package com.datahub.authentication.invite;
 
+import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.entity.AspectUtils.*;
+
 import com.datahub.authentication.Authentication;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.EntityResponse;
@@ -24,10 +27,6 @@ import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.metadata.Constants.*;
-import static com.linkedin.metadata.entity.AspectUtils.*;
-
-
 @Slf4j
 @RequiredArgsConstructor
 public class InviteTokenService {
@@ -42,26 +41,33 @@ public class InviteTokenService {
     return Urn.createFromString(inviteTokenUrnStr);
   }
 
-  public boolean isInviteTokenValid(@Nonnull final Urn inviteTokenUrn, @Nonnull final Authentication authentication)
+  public boolean isInviteTokenValid(
+      @Nonnull final Urn inviteTokenUrn, @Nonnull final Authentication authentication)
       throws RemoteInvocationException {
     return _entityClient.exists(inviteTokenUrn, authentication);
   }
 
   @Nullable
-  public Urn getInviteTokenRole(@Nonnull final Urn inviteTokenUrn, @Nonnull final Authentication authentication)
+  public Urn getInviteTokenRole(
+      @Nonnull final Urn inviteTokenUrn, @Nonnull final Authentication authentication)
       throws URISyntaxException, RemoteInvocationException {
-    final com.linkedin.identity.InviteToken inviteToken = getInviteTokenEntity(inviteTokenUrn, authentication);
+    final com.linkedin.identity.InviteToken inviteToken =
+        getInviteTokenEntity(inviteTokenUrn, authentication);
     return inviteToken.hasRole() ? inviteToken.getRole() : null;
   }
 
   @Nonnull
-  public String getInviteToken(@Nullable final String roleUrnStr, boolean regenerate,
-      @Nonnull final Authentication authentication) throws Exception {
+  public String getInviteToken(
+      @Nullable final String roleUrnStr,
+      boolean regenerate,
+      @Nonnull final Authentication authentication)
+      throws Exception {
     final Filter inviteTokenFilter =
         roleUrnStr == null ? createInviteTokenFilter() : createInviteTokenFilter(roleUrnStr);
 
     final SearchResult searchResult =
-        _entityClient.filter(INVITE_TOKEN_ENTITY_NAME, inviteTokenFilter, null, 0, 10, authentication);
+        _entityClient.filter(
+            INVITE_TOKEN_ENTITY_NAME, inviteTokenFilter, null, 0, 10, authentication);
 
     final int numEntities = searchResult.getEntities().size();
     // If there is more than one invite token, wipe all of them and generate a fresh one
@@ -78,14 +84,19 @@ public class InviteTokenService {
     final SearchEntity searchEntity = searchResult.getEntities().get(0);
     final Urn inviteTokenUrn = searchEntity.getEntity();
 
-    com.linkedin.identity.InviteToken inviteToken = getInviteTokenEntity(inviteTokenUrn, authentication);
+    com.linkedin.identity.InviteToken inviteToken =
+        getInviteTokenEntity(inviteTokenUrn, authentication);
     return _secretService.decrypt(inviteToken.getToken());
   }
 
-  private com.linkedin.identity.InviteToken getInviteTokenEntity(@Nonnull final Urn inviteTokenUrn,
-      @Nonnull final Authentication authentication) throws RemoteInvocationException, URISyntaxException {
+  private com.linkedin.identity.InviteToken getInviteTokenEntity(
+      @Nonnull final Urn inviteTokenUrn, @Nonnull final Authentication authentication)
+      throws RemoteInvocationException, URISyntaxException {
     final EntityResponse inviteTokenEntity =
-        _entityClient.getV2(INVITE_TOKEN_ENTITY_NAME, inviteTokenUrn, Collections.singleton(INVITE_TOKEN_ASPECT_NAME),
+        _entityClient.getV2(
+            INVITE_TOKEN_ENTITY_NAME,
+            inviteTokenUrn,
+            Collections.singleton(INVITE_TOKEN_ASPECT_NAME),
             authentication);
 
     if (inviteTokenEntity == null) {
@@ -96,9 +107,12 @@ public class InviteTokenService {
     // If invite token aspect is not present, create a new one. Otherwise, return existing one.
     if (!aspectMap.containsKey(INVITE_TOKEN_ASPECT_NAME)) {
       throw new RuntimeException(
-          String.format("Invite token %s does not contain aspect %s", inviteTokenUrn, INVITE_TOKEN_ASPECT_NAME));
+          String.format(
+              "Invite token %s does not contain aspect %s",
+              inviteTokenUrn, INVITE_TOKEN_ASPECT_NAME));
     }
-    return new com.linkedin.identity.InviteToken(aspectMap.get(INVITE_TOKEN_ASPECT_NAME).getValue().data());
+    return new com.linkedin.identity.InviteToken(
+        aspectMap.get(INVITE_TOKEN_ASPECT_NAME).getValue().data());
   }
 
   private Filter createInviteTokenFilter() {
@@ -140,7 +154,8 @@ public class InviteTokenService {
   }
 
   @Nonnull
-  private String createInviteToken(@Nullable final String roleUrnStr, @Nonnull final Authentication authentication)
+  private String createInviteToken(
+      @Nullable final String roleUrnStr, @Nonnull final Authentication authentication)
       throws Exception {
     String inviteTokenStr = _secretService.generateUrlSafeToken(INVITE_TOKEN_LENGTH);
     String hashedInviteTokenStr = _secretService.hashString(inviteTokenStr);
@@ -155,21 +170,26 @@ public class InviteTokenService {
 
     // Ingest new InviteToken aspect
     final MetadataChangeProposal proposal =
-        buildMetadataChangeProposal(INVITE_TOKEN_ENTITY_NAME, inviteTokenKey, INVITE_TOKEN_ASPECT_NAME,
-            inviteTokenAspect);
+        buildMetadataChangeProposal(
+            INVITE_TOKEN_ENTITY_NAME, inviteTokenKey, INVITE_TOKEN_ASPECT_NAME, inviteTokenAspect);
     _entityClient.ingestProposal(proposal, authentication);
 
     return inviteTokenStr;
   }
 
-  private void deleteExistingInviteTokens(@Nonnull final SearchResult searchResult,
-      @Nonnull final Authentication authentication) {
-    searchResult.getEntities().forEach(entity -> {
-      try {
-        _entityClient.deleteEntity(entity.getEntity(), authentication);
-      } catch (RemoteInvocationException e) {
-        log.error(String.format("Failed to delete invite token entity %s", entity.getEntity()), e);
-      }
-    });
+  private void deleteExistingInviteTokens(
+      @Nonnull final SearchResult searchResult, @Nonnull final Authentication authentication) {
+    searchResult
+        .getEntities()
+        .forEach(
+            entity -> {
+              try {
+                _entityClient.deleteEntity(entity.getEntity(), authentication);
+              } catch (RemoteInvocationException e) {
+                log.error(
+                    String.format("Failed to delete invite token entity %s", entity.getEntity()),
+                    e);
+              }
+            });
   }
 }

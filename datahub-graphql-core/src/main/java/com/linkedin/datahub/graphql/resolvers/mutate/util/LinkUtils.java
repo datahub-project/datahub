@@ -1,7 +1,10 @@
 package com.linkedin.datahub.graphql.resolvers.mutate.util;
 
-import com.google.common.collect.ImmutableList;
+import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
 
+import com.datahub.authorization.ConjunctivePrivilegeGroup;
+import com.datahub.authorization.DisjunctivePrivilegeGroup;
+import com.google.common.collect.ImmutableList;
 import com.linkedin.common.InstitutionalMemory;
 import com.linkedin.common.InstitutionalMemoryMetadata;
 import com.linkedin.common.InstitutionalMemoryMetadataArray;
@@ -9,59 +12,59 @@ import com.linkedin.common.url.Url;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
-import com.datahub.authorization.ConjunctivePrivilegeGroup;
-import com.datahub.authorization.DisjunctivePrivilegeGroup;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
-import javax.annotation.Nonnull;
-
 import com.linkedin.metadata.entity.EntityUtils;
+import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
-
-import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
-
 
 @Slf4j
 public class LinkUtils {
-  private static final ConjunctivePrivilegeGroup ALL_PRIVILEGES_GROUP = new ConjunctivePrivilegeGroup(ImmutableList.of(
-      PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType()
-  ));
+  private static final ConjunctivePrivilegeGroup ALL_PRIVILEGES_GROUP =
+      new ConjunctivePrivilegeGroup(
+          ImmutableList.of(PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType()));
 
-  private LinkUtils() { }
+  private LinkUtils() {}
 
   public static void addLink(
-      String linkUrl,
-      String linkLabel,
-      Urn resourceUrn,
-      Urn actor,
-      EntityService entityService
-  ) {
-    InstitutionalMemory institutionalMemoryAspect = (InstitutionalMemory) EntityUtils.getAspectFromEntity(
-        resourceUrn.toString(),
-        Constants.INSTITUTIONAL_MEMORY_ASPECT_NAME,
-        entityService,
-        new InstitutionalMemory());
+      String linkUrl, String linkLabel, Urn resourceUrn, Urn actor, EntityService entityService) {
+    InstitutionalMemory institutionalMemoryAspect =
+        (InstitutionalMemory)
+            EntityUtils.getAspectFromEntity(
+                resourceUrn.toString(),
+                Constants.INSTITUTIONAL_MEMORY_ASPECT_NAME,
+                entityService,
+                new InstitutionalMemory());
     addLink(institutionalMemoryAspect, linkUrl, linkLabel, actor);
-    persistAspect(resourceUrn, Constants.INSTITUTIONAL_MEMORY_ASPECT_NAME, institutionalMemoryAspect, actor, entityService);
+    persistAspect(
+        resourceUrn,
+        Constants.INSTITUTIONAL_MEMORY_ASPECT_NAME,
+        institutionalMemoryAspect,
+        actor,
+        entityService);
   }
 
   public static void removeLink(
-      String linkUrl,
-      Urn resourceUrn,
-      Urn actor,
-      EntityService entityService
-  ) {
-    InstitutionalMemory institutionalMemoryAspect = (InstitutionalMemory) EntityUtils.getAspectFromEntity(
-        resourceUrn.toString(),
-        Constants.INSTITUTIONAL_MEMORY_ASPECT_NAME,
-        entityService,
-        new InstitutionalMemory());
+      String linkUrl, Urn resourceUrn, Urn actor, EntityService entityService) {
+    InstitutionalMemory institutionalMemoryAspect =
+        (InstitutionalMemory)
+            EntityUtils.getAspectFromEntity(
+                resourceUrn.toString(),
+                Constants.INSTITUTIONAL_MEMORY_ASPECT_NAME,
+                entityService,
+                new InstitutionalMemory());
     removeLink(institutionalMemoryAspect, linkUrl);
-    persistAspect(resourceUrn, Constants.INSTITUTIONAL_MEMORY_ASPECT_NAME, institutionalMemoryAspect, actor, entityService);
+    persistAspect(
+        resourceUrn,
+        Constants.INSTITUTIONAL_MEMORY_ASPECT_NAME,
+        institutionalMemoryAspect,
+        actor,
+        entityService);
   }
 
-  private static void addLink(InstitutionalMemory institutionalMemoryAspect, String linkUrl, String linkLabel, Urn actor) {
+  private static void addLink(
+      InstitutionalMemory institutionalMemoryAspect, String linkUrl, String linkLabel, Urn actor) {
     if (!institutionalMemoryAspect.hasElements()) {
       institutionalMemoryAspect.setElements(new InstitutionalMemoryMetadataArray());
     }
@@ -90,10 +93,12 @@ public class LinkUtils {
   }
 
   public static boolean isAuthorizedToUpdateLinks(@Nonnull QueryContext context, Urn resourceUrn) {
-    final DisjunctivePrivilegeGroup orPrivilegeGroups = new DisjunctivePrivilegeGroup(ImmutableList.of(
-        ALL_PRIVILEGES_GROUP,
-        new ConjunctivePrivilegeGroup(ImmutableList.of(PoliciesConfig.EDIT_ENTITY_DOC_LINKS_PRIVILEGE.getType()))
-    ));
+    final DisjunctivePrivilegeGroup orPrivilegeGroups =
+        new DisjunctivePrivilegeGroup(
+            ImmutableList.of(
+                ALL_PRIVILEGES_GROUP,
+                new ConjunctivePrivilegeGroup(
+                    ImmutableList.of(PoliciesConfig.EDIT_ENTITY_DOC_LINKS_PRIVILEGE.getType()))));
 
     return AuthorizationUtils.isAuthorized(
         context.getAuthorizer(),
@@ -104,21 +109,22 @@ public class LinkUtils {
   }
 
   public static Boolean validateAddRemoveInput(
-      String linkUrl,
-      Urn resourceUrn,
-      EntityService entityService
-  ) {
+      String linkUrl, Urn resourceUrn, EntityService entityService) {
 
     try {
       new Url(linkUrl);
     } catch (Exception e) {
       throw new IllegalArgumentException(
-          String.format("Failed to change institutional memory for resource %s. Expected a corp group urn.", resourceUrn));
+          String.format(
+              "Failed to change institutional memory for resource %s. Expected a corp group urn.",
+              resourceUrn));
     }
 
     if (!entityService.exists(resourceUrn)) {
       throw new IllegalArgumentException(
-          String.format("Failed to change institutional memory for resource %s. Resource does not exist.", resourceUrn));
+          String.format(
+              "Failed to change institutional memory for resource %s. Resource does not exist.",
+              resourceUrn));
     }
 
     return true;

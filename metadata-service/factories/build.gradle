@@ -63,4 +63,5 @@ dependencies {
 configurations.all{
   exclude group: "commons-io", module:"commons-io"
   exclude group: "jline", module:"jline"
+  exclude group: 'software.amazon.awssdk', module: 'third-party-jackson-core'
 }

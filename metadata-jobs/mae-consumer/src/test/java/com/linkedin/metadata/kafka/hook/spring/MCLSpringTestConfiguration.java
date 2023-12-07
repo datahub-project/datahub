@@ -19,40 +19,32 @@ import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 
-
 @Configuration
-@ComponentScan(basePackages = {
-    "com.linkedin.metadata.kafka",
-    "com.linkedin.gms.factory.entity.update.indices"
-})
+@ComponentScan(
+    basePackages = {
+      "com.linkedin.metadata.kafka",
+      "com.linkedin.gms.factory.entity.update.indices"
+    })
 public class MCLSpringTestConfiguration {
 
-  @MockBean
-  public EntityRegistry entityRegistry;
+  @MockBean public EntityRegistry entityRegistry;
 
-  @MockBean
-  public ElasticSearchGraphService graphService;
+  @MockBean public ElasticSearchGraphService graphService;
 
-  @MockBean
-  public TimeseriesAspectService timeseriesAspectService;
+  @MockBean public TimeseriesAspectService timeseriesAspectService;
 
-  @MockBean
-  public SystemMetadataService systemMetadataService;
+  @MockBean public SystemMetadataService systemMetadataService;
 
-  @MockBean
-  public SearchDocumentTransformer searchDocumentTransformer;
+  @MockBean public SearchDocumentTransformer searchDocumentTransformer;
 
-  @MockBean
-  public IngestionScheduler ingestionScheduler;
+  @MockBean public IngestionScheduler ingestionScheduler;
 
   @MockBean(name = "systemRestliEntityClient")
   public SystemRestliEntityClient entityClient;
 
-  @MockBean
-  public ElasticSearchService searchService;
+  @MockBean public ElasticSearchService searchService;
 
-  @MockBean
-  public Authentication systemAuthentication;
+  @MockBean public Authentication systemAuthentication;
 
   @MockBean(name = "dataHubUpgradeKafkaListener")
   public DataHubUpgradeKafkaListener dataHubUpgradeKafkaListener;
@@ -63,9 +55,7 @@ public class MCLSpringTestConfiguration {
   @MockBean(name = "duheKafkaConsumerFactory")
   public DefaultKafkaConsumerFactory<String, GenericRecord> defaultKafkaConsumerFactory;
 
-  @MockBean
-  public SchemaRegistryService schemaRegistryService;
+  @MockBean public SchemaRegistryService schemaRegistryService;
 
-  @MockBean
-  public EntityIndexBuilders entityIndexBuilders;
+  @MockBean public EntityIndexBuilders entityIndexBuilders;
 }

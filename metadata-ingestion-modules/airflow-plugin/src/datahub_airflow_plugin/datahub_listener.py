@@ -1,6 +1,7 @@
 import copy
 import functools
 import logging
+import os
 import threading
 from typing import TYPE_CHECKING, Callable, Dict, List, Optional, TypeVar, cast
 
@@ -55,7 +56,10 @@ logger = logging.getLogger(__name__)
 
 _airflow_listener_initialized = False
 _airflow_listener: Optional["DataHubListener"] = None
-_RUN_IN_THREAD = True
+_RUN_IN_THREAD = os.getenv("DATAHUB_AIRFLOW_PLUGIN_RUN_IN_THREAD", "true").lower() in (
+    "true",
+    "1",
+)
 _RUN_IN_THREAD_TIMEOUT = 30
 
 
@@ -133,7 +137,7 @@ class DataHubListener:
 
         self._emitter = config.make_emitter_hook().make_emitter()
         self._graph: Optional[DataHubGraph] = None
-        logger.info(f"DataHub plugin using {repr(self._emitter)}")
+        logger.info(f"DataHub plugin v2 using {repr(self._emitter)}")
 
         # See discussion here https://github.com/OpenLineage/OpenLineage/pull/508 for
         # why we need to keep track of tasks ourselves.
@@ -292,6 +296,7 @@ class DataHubListener:
             logger.debug("Merging start datajob into finish datajob")
             datajob.inlets.extend(original_datajob.inlets)
             datajob.outlets.extend(original_datajob.outlets)
+            datajob.upstream_urns.extend(original_datajob.upstream_urns)
             datajob.fine_grained_lineages.extend(original_datajob.fine_grained_lineages)
 
             for k, v in original_datajob.properties.items():
@@ -300,6 +305,9 @@ class DataHubListener:
         # Deduplicate inlets/outlets.
         datajob.inlets = list(sorted(set(datajob.inlets), key=lambda x: str(x)))
         datajob.outlets = list(sorted(set(datajob.outlets), key=lambda x: str(x)))
+        datajob.upstream_urns = list(
+            sorted(set(datajob.upstream_urns), key=lambda x: str(x))
+        )
 
         # Write all other OL facets as DataHub properties.
         if task_metadata:

@@ -37,7 +37,7 @@ from datahub.metadata.schema_classes import (
     TimeTypeClass,
 )
 from datahub.utilities.file_backed_collections import ConnectionWrapper, FileBackedDict
-from datahub.utilities.urns.dataset_urn import DatasetUrn
+from datahub.utilities.urns.field_paths import get_simple_field_path_from_v2_field_path
 
 logger = logging.getLogger(__name__)
 
@@ -260,6 +260,16 @@ class SqlParsingResult(_ParserBaseModel):
         exclude=True,
     )
 
+    @classmethod
+    def make_from_error(cls, error: Exception) -> "SqlParsingResult":
+        return cls(
+            in_tables=[],
+            out_tables=[],
+            debug_info=SqlParsingDebugInfo(
+                table_error=error,
+            ),
+        )
+
 
 def _parse_statement(sql: sqlglot.exp.ExpOrStr, dialect: str) -> sqlglot.Expression:
     statement: sqlglot.Expression = sqlglot.maybe_parse(
@@ -350,8 +360,12 @@ class SchemaResolver(Closeable):
         table_name = ".".join(
             filter(None, [table.database, table.db_schema, table.table])
         )
+
+        platform_instance = self.platform_instance
+
         if lower:
             table_name = table_name.lower()
+            platform_instance = platform_instance.lower() if platform_instance else None
 
         if self.platform == "bigquery":
             # Normalize shard numbers and other BigQuery weirdness.
@@ -362,7 +376,7 @@ class SchemaResolver(Closeable):
 
         urn = make_dataset_urn_with_platform_instance(
             platform=self.platform,
-            platform_instance=self.platform_instance,
+            platform_instance=platform_instance,
             env=self.env,
             name=table_name,
         )
@@ -429,15 +443,14 @@ class SchemaResolver(Closeable):
         cls, schema_metadata: SchemaMetadataClass
     ) -> SchemaInfo:
         return {
-            DatasetUrn.get_simple_field_path_from_v2_field_path(col.fieldPath): (
+            get_simple_field_path_from_v2_field_path(col.fieldPath): (
                 # The actual types are more of a "nice to have".
                 col.nativeDataType
                 or "str"
             )
             for col in schema_metadata.fields
             # TODO: We can't generate lineage to columns nested within structs yet.
-            if "."
-            not in DatasetUrn.get_simple_field_path_from_v2_field_path(col.fieldPath)
+            if "." not in get_simple_field_path_from_v2_field_path(col.fieldPath)
         }
 
     @classmethod
@@ -445,17 +458,14 @@ class SchemaResolver(Closeable):
         cls, schema: GraphQLSchemaMetadata
     ) -> SchemaInfo:
         return {
-            DatasetUrn.get_simple_field_path_from_v2_field_path(field["fieldPath"]): (
+            get_simple_field_path_from_v2_field_path(field["fieldPath"]): (
                 # The actual types are more of a "nice to have".
                 field["nativeDataType"]
                 or "str"
             )
             for field in schema["fields"]
             # TODO: We can't generate lineage to columns nested within structs yet.
-            if "."
-            not in DatasetUrn.get_simple_field_path_from_v2_field_path(
-                field["fieldPath"]
-            )
+            if "." not in get_simple_field_path_from_v2_field_path(field["fieldPath"])
         }
 
     def close(self) -> None:
@@ -952,6 +962,8 @@ def _get_dialect(platform: str) -> str:
         return "hive"
     if platform == "mssql":
         return "tsql"
+    if platform == "athena":
+        return "trino"
     else:
         return platform
 
@@ -1154,14 +1166,60 @@ def sqlglot_lineage(
             default_schema=default_schema,
         )
     except Exception as e:
-        return SqlParsingResult(
-            in_tables=[],
-            out_tables=[],
-            column_lineage=None,
-            debug_info=SqlParsingDebugInfo(
-                table_error=e,
-            ),
-        )
+        return SqlParsingResult.make_from_error(e)
+
+
+def detach_ctes(
+    sql: sqlglot.exp.ExpOrStr, platform: str, cte_mapping: Dict[str, str]
+) -> sqlglot.exp.Expression:
+    """Replace CTE references with table references.
+
+    For example, with cte_mapping = {"__cte_0": "_my_cte_table"}, the following SQL
+
+    WITH __cte_0 AS (SELECT * FROM table1) SELECT * FROM table2 JOIN __cte_0 ON table2.id = __cte_0.id
+
+    is transformed into
+
+    WITH __cte_0 AS (SELECT * FROM table1) SELECT * FROM table2 JOIN _my_cte_table ON table2.id = _my_cte_table.id
+
+    Note that the original __cte_0 definition remains in the query, but is simply not referenced.
+    The query optimizer should be able to remove it.
+
+    This method makes a major assumption: that no other table/column has the same name as a
+    key in the cte_mapping.
+    """
+
+    dialect = _get_dialect(platform)
+    statement = _parse_statement(sql, dialect=dialect)
+
+    def replace_cte_refs(node: sqlglot.exp.Expression) -> sqlglot.exp.Expression:
+        if (
+            isinstance(node, sqlglot.exp.Identifier)
+            and node.parent
+            and not isinstance(node.parent.parent, sqlglot.exp.CTE)
+            and node.name in cte_mapping
+        ):
+            full_new_name = cte_mapping[node.name]
+            table_expr = sqlglot.maybe_parse(
+                full_new_name, dialect=dialect, into=sqlglot.exp.Table
+            )
+
+            # We expect node.parent to be a Table or Column.
+            # Either way, it should support catalog/db/name.
+            parent = node.parent
+
+            if "catalog" in parent.arg_types:
+                parent.set("catalog", table_expr.catalog)
+            if "db" in parent.arg_types:
+                parent.set("db", table_expr.db)
+
+            new_node = sqlglot.exp.Identifier(this=table_expr.name)
+
+            return new_node
+        else:
+            return node
+
+    return statement.transform(replace_cte_refs, copy=False)
 
 
 def create_lineage_sql_parsed_result(
@@ -1197,14 +1255,7 @@ def create_lineage_sql_parsed_result(
             default_schema=schema,
         )
     except Exception as e:
-        return SqlParsingResult(
-            in_tables=[],
-            out_tables=[],
-            column_lineage=None,
-            debug_info=SqlParsingDebugInfo(
-                table_error=e,
-            ),
-        )
+        return SqlParsingResult.make_from_error(e)
     finally:
         if needs_close:
             schema_resolver.close()
