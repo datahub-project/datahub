@@ -8,6 +8,7 @@ import { QuestionCircleOutlined } from "@ant-design/icons";
 import styles from "./hero.module.scss";
 import CodeBlock from "@theme/CodeBlock";
 import CardCTAs from "../CardCTAs";
+import TownhallButton from "../TownhallButton";
 
 const HeroAnnouncement = ({ message, linkUrl, linkText }) => (
   <div className={clsx("hero__alert alert alert--primary", styles.hero__alert)}>
@@ -46,6 +47,7 @@ const Hero = ({}) => {
             <Link className="button button--secondary button--md" to="https://slack.datahubproject.io">
               Join our Slack
             </Link>
+            <TownhallButton />
           </div>
         </div>
         <CardCTAs />

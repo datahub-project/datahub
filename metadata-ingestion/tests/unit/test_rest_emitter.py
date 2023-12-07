@@ -20,6 +20,12 @@ def test_datahub_rest_emitter_timeout_construction():
     assert emitter._read_timeout_sec == 4
 
 
+def test_datahub_rest_emitter_general_timeout_construction():
+    emitter = DatahubRestEmitter(MOCK_GMS_ENDPOINT, timeout_sec=2, read_timeout_sec=4)
+    assert emitter._connect_timeout_sec == 2
+    assert emitter._read_timeout_sec == 4
+
+
 def test_datahub_rest_emitter_retry_construction():
     emitter = DatahubRestEmitter(
         MOCK_GMS_ENDPOINT,

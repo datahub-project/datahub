@@ -10,16 +10,24 @@ import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-
 @Configuration
 public class BuildIndicesConfig {
   @Bean(name = "buildIndices")
-  public BuildIndices buildIndices(final SystemMetadataService systemMetadataService, final TimeseriesAspectService timeseriesAspectService,
-                                   final EntitySearchService entitySearchService, final GraphService graphService,
-                                   final BaseElasticSearchComponentsFactory.BaseElasticSearchComponents baseElasticSearchComponents,
-                                   final ConfigurationProvider configurationProvider) {
+  public BuildIndices buildIndices(
+      final SystemMetadataService systemMetadataService,
+      final TimeseriesAspectService timeseriesAspectService,
+      final EntitySearchService entitySearchService,
+      final GraphService graphService,
+      final BaseElasticSearchComponentsFactory.BaseElasticSearchComponents
+          baseElasticSearchComponents,
+      final ConfigurationProvider configurationProvider) {
 
-    return new BuildIndices(systemMetadataService, timeseriesAspectService, entitySearchService, graphService,
-        baseElasticSearchComponents, configurationProvider);
+    return new BuildIndices(
+        systemMetadataService,
+        timeseriesAspectService,
+        entitySearchService,
+        graphService,
+        baseElasticSearchComponents,
+        configurationProvider);
   }
 }

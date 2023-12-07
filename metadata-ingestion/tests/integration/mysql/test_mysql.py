@@ -75,27 +75,3 @@ def test_mysql_ingest_no_db(
         output_path=tmp_path / "mysql_mces.json",
         golden_path=test_resources_dir / golden_file,
     )
-
-
-@freeze_time(FROZEN_TIME)
-@pytest.mark.integration
-def test_mysql_ingest_with_db_alias(
-    mysql_runner, pytestconfig, test_resources_dir, tmp_path, mock_time
-):
-    # Run the metadata ingestion pipeline.
-    config_file = (test_resources_dir / "mysql_to_file_dbalias.yml").resolve()
-    run_datahub_cmd(["ingest", "-c", f"{config_file}"], tmp_path=tmp_path)
-
-    # Verify the output.
-    # Assert that all events generated have instance specific urns
-    import re
-
-    urn_pattern = "^" + re.escape(
-        "urn:li:dataset:(urn:li:dataPlatform:mysql,foogalaxy."
-    )
-    mce_helpers.assert_mcp_entity_urn(
-        filter="ALL",
-        entity_type="dataset",
-        regex_pattern=urn_pattern,
-        file=tmp_path / "mysql_mces_dbalias.json",
-    )

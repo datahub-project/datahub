@@ -275,7 +275,7 @@ class LookMLSourceConfig(
                     )
         return conn_map
 
-    @root_validator()
+    @root_validator(skip_on_failure=True)
     def check_either_connection_map_or_connection_provided(cls, values):
         """Validate that we must either have a connection map or an api credential"""
         if not values.get("connection_to_platform_map", {}) and not values.get(
@@ -286,7 +286,7 @@ class LookMLSourceConfig(
             )
         return values
 
-    @root_validator()
+    @root_validator(skip_on_failure=True)
     def check_either_project_name_or_api_provided(cls, values):
         """Validate that we must either have a project name or an api credential to fetch project names"""
         if not values.get("project_name") and not values.get("api"):
@@ -550,7 +550,7 @@ class LookerModel:
 @dataclass
 class LookerViewFile:
     absolute_file_path: str
-    connection: Optional[str]
+    connection: Optional[LookerConnectionDefinition]
     includes: List[str]
     resolved_includes: List[ProjectInclude]
     views: List[Dict]
@@ -1070,7 +1070,6 @@ class LookerView:
     def determine_view_file_path(
         cls, base_folder_path: str, absolute_file_path: str
     ) -> str:
-
         splits: List[str] = absolute_file_path.split(base_folder_path, 1)
         if len(splits) != 2:
             logger.debug(
@@ -1104,7 +1103,6 @@ class LookerView:
         populate_sql_logic_in_descriptions: bool = False,
         process_isolation_for_sql_parsing: bool = False,
     ) -> Optional["LookerView"]:
-
         view_name = looker_view["name"]
         logger.debug(f"Handling view {view_name} in model {model_name}")
         # The sql_table_name might be defined in another view and this view is extending that view,
@@ -1457,7 +1455,7 @@ class LookerManifest:
 @support_status(SupportStatus.CERTIFIED)
 @capability(
     SourceCapability.PLATFORM_INSTANCE,
-    "Supported using the `connection_to_platform_map`",
+    "Use the `platform_instance` and `connection_to_platform_map` fields",
 )
 @capability(SourceCapability.LINEAGE_COARSE, "Supported by default")
 @capability(
@@ -1984,9 +1982,16 @@ class LookMLSource(StatefulIngestionSourceBase):
             self.reporter,
         )
 
-        # some views can be mentioned by multiple 'include' statements and can be included via different connections.
-        # So this set is used to prevent creating duplicate events
+        # Some views can be mentioned by multiple 'include' statements and can be included via different connections.
+
+        # This map is used to keep track of which views files have already been processed
+        # for a connection in order to prevent creating duplicate events.
+        # Key: connection name, Value: view file paths
         processed_view_map: Dict[str, Set[str]] = {}
+
+        # This map is used to keep track of the connection that a view is processed with.
+        # Key: view unique identifier - determined by variables present in config `view_naming_pattern`
+        # Value: Tuple(model file name, connection name)
         view_connection_map: Dict[str, Tuple[str, str]] = {}
 
         # The ** means "this directory and all subdirectories", and hence should
@@ -2087,7 +2092,6 @@ class LookMLSource(StatefulIngestionSourceBase):
                 )
 
                 if looker_viewfile is not None:
-
                     for raw_view in looker_viewfile.views:
                         raw_view_name = raw_view["name"]
                         if LookerRefinementResolver.is_refinement(raw_view_name):
@@ -2151,13 +2155,17 @@ class LookMLSource(StatefulIngestionSourceBase):
                             if self.source_config.view_pattern.allowed(
                                 maybe_looker_view.id.view_name
                             ):
+                                view_urn = maybe_looker_view.id.get_urn(
+                                    self.source_config
+                                )
                                 view_connection_mapping = view_connection_map.get(
-                                    maybe_looker_view.id.view_name
+                                    view_urn
                                 )
                                 if not view_connection_mapping:
-                                    view_connection_map[
-                                        maybe_looker_view.id.view_name
-                                    ] = (model_name, model.connection)
+                                    view_connection_map[view_urn] = (
+                                        model_name,
+                                        model.connection,
+                                    )
                                     # first time we are discovering this view
                                     logger.debug(
                                         f"Generating MCP for view {raw_view['name']}"
