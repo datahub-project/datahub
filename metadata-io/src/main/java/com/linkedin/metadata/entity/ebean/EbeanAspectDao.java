@@ -430,7 +430,12 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
     if (args.urnBasedPagination) {
       start = 0;
       if (args.lastUrn != null && !args.lastUrn.isEmpty()) {
-        exp = exp.where().gt(String.format("concat(%s, %s)", EbeanAspectV2.URN_COLUMN, EbeanAspectV2.ASPECT_COLUMN), args.lastUrn + args.lastAspect);
+        exp = exp.where().ge(EbeanAspectV2.URN_COLUMN, args.lastUrn);
+
+        // To prevent processing the same aspect multiple times in a restore, it compares against the last aspect if the urn matches the last urn
+        if (args.lastAspect != null && !args.lastAspect.isEmpty()) {
+          exp = exp.where().and().or().ne(EbeanAspectV2.URN_COLUMN, args.lastUrn).gt(EbeanAspectV2.ASPECT_COLUMN, args.lastAspect);
+        }
       }
     }
 
