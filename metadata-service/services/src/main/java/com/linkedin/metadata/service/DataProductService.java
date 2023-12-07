@@ -1,5 +1,7 @@
 package com.linkedin.metadata.service;
 
+import static com.linkedin.metadata.Constants.DATA_PRODUCT_ENTITY_NAME;
+
 import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -22,6 +24,7 @@ import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.utils.EntityKeyUtils;
+import com.linkedin.r2.RemoteInvocationException;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
@@ -29,11 +32,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-
-import com.linkedin.r2.RemoteInvocationException;
 import lombok.extern.slf4j.Slf4j;
-
-import static com.linkedin.metadata.Constants.DATA_PRODUCT_ENTITY_NAME;
 
 /**
  * This class is used to permit easy CRUD operations on a DataProduct
@@ -76,8 +75,7 @@ public class DataProductService {
     }
     try {
       if (_entityClient.exists(
-              EntityKeyUtils.convertEntityKeyToUrn(key, DATA_PRODUCT_ENTITY_NAME),
-              authentication)) {
+          EntityKeyUtils.convertEntityKeyToUrn(key, DATA_PRODUCT_ENTITY_NAME), authentication)) {
         throw new IllegalArgumentException("This Data product already exists!");
       }
     } catch (RemoteInvocationException e) {
