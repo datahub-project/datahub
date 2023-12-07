@@ -58,8 +58,10 @@ public class DataProductService {
    * @return the urn of the newly created DataProduct
    */
   public Urn createDataProduct(
-          @Nullable String id, @Nullable String name, @Nullable String description,
-          @Nonnull Authentication authentication) {
+      @Nullable String id,
+      @Nullable String name,
+      @Nullable String description,
+      @Nonnull Authentication authentication) {
 
     // 1. Generate a unique id for the new DataProduct.
     final DataProductKey key = new DataProductKey();
