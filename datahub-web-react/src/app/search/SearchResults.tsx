@@ -1,6 +1,11 @@
 import React from 'react';
 import { Pagination, Typography } from 'antd';
 import styled from 'styled-components/macro';
+import {
+    ReflexContainer,
+    ReflexSplitter,
+    ReflexElement
+  } from 'react-reflex'
 import { Entity, FacetFilterInput, FacetMetadata, MatchedField, SearchSuggestion } from '../../types.generated';
 import { SearchCfg } from '../../conf';
 import { SearchResultsRecommendations } from './SearchResultsRecommendations';
@@ -29,6 +34,8 @@ import SearchQuerySuggester from './suggestions/SearchQuerySugggester';
 import { ANTD_GRAY_V2 } from '../entity/shared/constants';
 import { formatNumberWithoutAbbreviation } from '../shared/formatNumber';
 import SearchResultsLoadingSection from './SearchResultsLoadingSection';
+  
+import 'react-reflex/styles.css'
 
 const SearchResultsWrapper = styled.div<{ v2Styles: boolean }>`
     display: flex;
@@ -194,98 +201,105 @@ export const SearchResults = ({
                             />
                         </div>
                     )}
-                    {showBrowseV2 && (
-                        <SidebarProvider selectedFilters={selectedFilters} onChangeFilters={onChangeFilters}>
-                            <BrowseProvider>
-                                <BrowseSidebar visible={isSidebarOpen} width={360} />
-                            </BrowseProvider>
-                        </SidebarProvider>
-                    )}
-                    <ResultContainer v2Styles={showSearchFiltersV2}>
-                        <PaginationInfoContainer v2Styles={showSearchFiltersV2}>
-                            <LeftControlsContainer>
-                                {showBrowseV2 && <ToggleSidebarButton isOpen={isSidebarOpen} onClick={toggleSidebar} />}
-                                <Typography.Text>
-                                    Showing{' '}
-                                    <b>
-                                        {lastResultIndex > 0 ? (page - 1) * pageSize + 1 : 0} - {lastResultIndex}
-                                    </b>{' '}
-                                    of{' '}
-                                    <b>
-                                        {totalResults >= 10000
-                                            ? `${formatNumberWithoutAbbreviation(10000)}+`
-                                            : formatNumberWithoutAbbreviation(totalResults)}
-                                    </b>{' '}
-                                    results
-                                </Typography.Text>
-                            </LeftControlsContainer>
-                            <SearchMenuContainer>
-                                <SearchSortSelect />
-                                <SearchExtendedMenu
-                                    downloadSearchResults={downloadSearchResults}
-                                    filters={generateOrFilters(unionType, selectedFilters)}
-                                    query={query}
-                                    viewUrn={viewUrn}
-                                    setShowSelectMode={setIsSelectMode}
-                                    totalResults={totalResults}
-                                />
-                            </SearchMenuContainer>
-                        </PaginationInfoContainer>
-                        {isSelectMode && (
-                            <StyledTabToolbar>
-                                <SearchSelectBar
-                                    isSelectAll={
-                                        selectedEntities.length > 0 &&
-                                        isListSubset(searchResultUrns, selectedEntityUrns)
-                                    }
-                                    selectedEntities={selectedEntities}
-                                    onChangeSelectAll={onChangeSelectAll}
-                                    onCancel={() => setIsSelectMode(false)}
-                                    refetch={refetch}
-                                />
-                            </StyledTabToolbar>
+                    <ReflexContainer orientation="vertical">
+                        {showBrowseV2 && isSidebarOpen && (
+                            <ReflexElement className="left-pane" flex={0.5}>
+                            <SidebarProvider selectedFilters={selectedFilters} onChangeFilters={onChangeFilters}>
+                                <BrowseProvider>
+                                    <BrowseSidebar visible={isSidebarOpen} width='100%' />
+                                </BrowseProvider>
+                            </SidebarProvider>
+                            </ReflexElement>
                         )}
-                        {(error && <ErrorSection />) ||
-                            (loading && !combinedSiblingSearchResults.length && <SearchResultsLoadingSection />) ||
-                            (combinedSiblingSearchResults && (
-                                <SearchResultListContainer v2Styles={showSearchFiltersV2}>
-                                    {totalResults > 0 && <SearchQuerySuggester suggestions={suggestions} />}
-                                    <SearchResultList
-                                        loading={loading}
-                                        query={query}
-                                        searchResults={combinedSiblingSearchResults}
-                                        totalResultCount={totalResults}
-                                        isSelectMode={isSelectMode}
-                                        selectedEntities={selectedEntities}
-                                        setSelectedEntities={setSelectedEntities}
-                                        suggestions={suggestions}
-                                    />
-                                    {totalResults > 0 && (
-                                        <PaginationControlContainer id="search-pagination">
-                                            <Pagination
-                                                current={page}
-                                                pageSize={numResultsPerPage}
-                                                total={totalResults}
-                                                showLessItems
-                                                onChange={onChangePage}
-                                                showSizeChanger={totalResults > SearchCfg.RESULTS_PER_PAGE}
-                                                onShowSizeChange={(_currNum, newNum) => setNumResultsPerPage(newNum)}
-                                                pageSizeOptions={['10', '20', '50', '100']}
-                                            />
-                                        </PaginationControlContainer>
-                                    )}
-                                    {authenticatedUserUrn && (
-                                        <SearchResultsRecommendationsContainer>
-                                            <SearchResultsRecommendations
-                                                userUrn={authenticatedUserUrn}
+                        {isSidebarOpen && <ReflexSplitter/>}
+                        <ReflexElement className="right-pane"flex={2} style={{ display: 'flex'}}>
+                            <ResultContainer v2Styles={showSearchFiltersV2}>
+                                <PaginationInfoContainer v2Styles={showSearchFiltersV2}>
+                                    <LeftControlsContainer>
+                                        {showBrowseV2 && <ToggleSidebarButton isOpen={isSidebarOpen} onClick={toggleSidebar} />}
+                                        <Typography.Text>
+                                            Showing{' '}
+                                            <b>
+                                                {lastResultIndex > 0 ? (page - 1) * pageSize + 1 : 0} - {lastResultIndex}
+                                            </b>{' '}
+                                            of{' '}
+                                            <b>
+                                                {totalResults >= 10000
+                                                    ? `${formatNumberWithoutAbbreviation(10000)}+`
+                                                    : formatNumberWithoutAbbreviation(totalResults)}
+                                            </b>{' '}
+                                            results
+                                        </Typography.Text>
+                                    </LeftControlsContainer>
+                                    <SearchMenuContainer>
+                                        <SearchSortSelect />
+                                        <SearchExtendedMenu
+                                            downloadSearchResults={downloadSearchResults}
+                                            filters={generateOrFilters(unionType, selectedFilters)}
+                                            query={query}
+                                            viewUrn={viewUrn}
+                                            setShowSelectMode={setIsSelectMode}
+                                            totalResults={totalResults}
+                                        />
+                                    </SearchMenuContainer>
+                                </PaginationInfoContainer>
+                                {isSelectMode && (
+                                    <StyledTabToolbar>
+                                        <SearchSelectBar
+                                            isSelectAll={
+                                                selectedEntities.length > 0 &&
+                                                isListSubset(searchResultUrns, selectedEntityUrns)
+                                            }
+                                            selectedEntities={selectedEntities}
+                                            onChangeSelectAll={onChangeSelectAll}
+                                            onCancel={() => setIsSelectMode(false)}
+                                            refetch={refetch}
+                                        />
+                                    </StyledTabToolbar>
+                                )}
+                                {(error && <ErrorSection />) ||
+                                    (loading && !combinedSiblingSearchResults.length && <SearchResultsLoadingSection />) ||
+                                    (combinedSiblingSearchResults && (
+                                        <SearchResultListContainer v2Styles={showSearchFiltersV2}>
+                                            {totalResults > 0 && <SearchQuerySuggester suggestions={suggestions} />}
+                                            <SearchResultList
+                                                loading={loading}
                                                 query={query}
-                                                filters={selectedFilters}
+                                                searchResults={combinedSiblingSearchResults}
+                                                totalResultCount={totalResults}
+                                                isSelectMode={isSelectMode}
+                                                selectedEntities={selectedEntities}
+                                                setSelectedEntities={setSelectedEntities}
+                                                suggestions={suggestions}
                                             />
-                                        </SearchResultsRecommendationsContainer>
-                                    )}
-                                </SearchResultListContainer>
-                            ))}
-                    </ResultContainer>
+                                            {totalResults > 0 && (
+                                                <PaginationControlContainer id="search-pagination">
+                                                    <Pagination
+                                                        current={page}
+                                                        pageSize={numResultsPerPage}
+                                                        total={totalResults}
+                                                        showLessItems
+                                                        onChange={onChangePage}
+                                                        showSizeChanger={totalResults > SearchCfg.RESULTS_PER_PAGE}
+                                                        onShowSizeChange={(_currNum, newNum) => setNumResultsPerPage(newNum)}
+                                                        pageSizeOptions={['10', '20', '50', '100']}
+                                                    />
+                                                </PaginationControlContainer>
+                                            )}
+                                            {authenticatedUserUrn && (
+                                                <SearchResultsRecommendationsContainer>
+                                                    <SearchResultsRecommendations
+                                                        userUrn={authenticatedUserUrn}
+                                                        query={query}
+                                                        filters={selectedFilters}
+                                                    />
+                                                </SearchResultsRecommendationsContainer>
+                                            )}
+                                        </SearchResultListContainer>
+                                    ))}
+                            </ResultContainer>
+                        </ReflexElement>
+                    </ReflexContainer>
                 </SearchBody>
             </SearchResultsWrapper>
         </>

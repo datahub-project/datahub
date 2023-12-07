@@ -10,9 +10,9 @@ import useSidebarEntities from './useSidebarEntities';
 import { ANTD_GRAY_V2 } from '../../entity/shared/constants';
 
 
-const Sidebar = styled.div<{ visible: boolean; width: number }>`
+const Sidebar = styled.div<{ visible: boolean; width: string }>`
     height: 100%;
-    width: ${(props) => (props.visible ? `${props.width}px` : '0')};
+    width: ${(props) => (`${props.width}px`)};
     transition: width 250ms ease-in-out;
     border-right: 1px solid ${(props) => props.theme.styles['border-color-base']};
     background-color: ${ANTD_GRAY_V2[1]};
@@ -39,7 +39,7 @@ const SidebarBody = styled.div<{ visible: boolean }>`
 
 type Props = {
     visible: boolean;
-    width: number;
+    width: string;
 };
 
 const EntityAggregationsDraggableList = ({entityAggregations}: any) =>{
