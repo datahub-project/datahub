@@ -1,6 +1,6 @@
 const glossaryTerm = "CypressGlosssaryNavigationTerm";
 const glossaryTermGroup = "CypressGlosssaryNavigationGroup";
-const glossaryParentGroup = "Cypress";
+const glossaryParentGroup = "CypressNode";
 
 describe("glossary sidebar navigation test", () => {
     it("create term and term parent group, move and delete term group", () => {
