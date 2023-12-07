@@ -24,6 +24,7 @@ from datahub.ingestion.source.snowflake.snowflake_usage_v2 import (
     SnowflakeObjectAccessEntry,
 )
 from datahub.ingestion.source.snowflake.snowflake_v2 import SnowflakeV2Source
+from tests.test_helpers import test_connection_helpers
 
 
 def test_snowflake_source_throws_error_on_account_id_missing():
@@ -338,12 +339,10 @@ def test_test_connection_failure(mock_connect):
         "warehouse": "COMPUTE_WH",
         "role": "sysadmin",
     }
-    report = SnowflakeV2Source.test_connection(config)
-    assert report is not None
-    assert report.basic_connectivity
-    assert not report.basic_connectivity.capable
-    assert report.basic_connectivity.failure_reason
-    assert "Failed to connect to snowflake" in report.basic_connectivity.failure_reason
+    report = test_connection_helpers.run_test_connection(SnowflakeV2Source, config)
+    test_connection_helpers.assert_basic_connectivity_failure(
+        report, "Failed to connect to snowflake"
+    )
 
 
 @patch("snowflake.connector.connect")
@@ -355,11 +354,8 @@ def test_test_connection_basic_success(mock_connect):
         "warehouse": "COMPUTE_WH",
         "role": "sysadmin",
     }
-    report = SnowflakeV2Source.test_connection(config)
-    assert report is not None
-    assert report.basic_connectivity
-    assert report.basic_connectivity.capable
-    assert report.basic_connectivity.failure_reason is None
+    report = test_connection_helpers.run_test_connection(SnowflakeV2Source, config)
+    test_connection_helpers.assert_basic_connectivity_success(report)
 
 
 def setup_mock_connect(mock_connect, query_results=None):
@@ -408,23 +404,15 @@ def test_test_connection_no_warehouse(mock_connect):
         "role": "sysadmin",
     }
     setup_mock_connect(mock_connect, query_results)
-    report = SnowflakeV2Source.test_connection(config)
-    assert report is not None
-    assert report.basic_connectivity
-    assert report.basic_connectivity.capable
-    assert report.basic_connectivity.failure_reason is None
+    report = test_connection_helpers.run_test_connection(SnowflakeV2Source, config)
+    test_connection_helpers.assert_basic_connectivity_success(report)
 
-    assert report.capability_report
-    assert report.capability_report[SourceCapability.CONTAINERS].capable
-    assert not report.capability_report[SourceCapability.SCHEMA_METADATA].capable
-    failure_reason = report.capability_report[
-        SourceCapability.SCHEMA_METADATA
-    ].failure_reason
-    assert failure_reason
-
-    assert (
-        "Current role TEST_ROLE does not have permissions to use warehouse"
-        in failure_reason
+    test_connection_helpers.assert_capability_report(
+        capability_report=report.capability_report,
+        success_capabilities=[SourceCapability.CONTAINERS],
+        failure_capabilities={
+            SourceCapability.SCHEMA_METADATA: "Current role TEST_ROLE does not have permissions to use warehouse"
+        },
     )
 
 
@@ -452,18 +440,15 @@ def test_test_connection_capability_schema_failure(mock_connect):
         "warehouse": "COMPUTE_WH",
         "role": "sysadmin",
     }
-    report = SnowflakeV2Source.test_connection(config)
-    assert report is not None
-    assert report.basic_connectivity
-    assert report.basic_connectivity.capable
-    assert report.basic_connectivity.failure_reason is None
-    assert report.capability_report
+    report = test_connection_helpers.run_test_connection(SnowflakeV2Source, config)
+    test_connection_helpers.assert_basic_connectivity_success(report)
 
-    assert report.capability_report[SourceCapability.CONTAINERS].capable
-    assert not report.capability_report[SourceCapability.SCHEMA_METADATA].capable
-    assert (
-        report.capability_report[SourceCapability.SCHEMA_METADATA].failure_reason
-        is not None
+    test_connection_helpers.assert_capability_report(
+        capability_report=report.capability_report,
+        success_capabilities=[SourceCapability.CONTAINERS],
+        failure_capabilities={
+            SourceCapability.SCHEMA_METADATA: "Either no tables exist or current role does not have permissions to access them"
+        },
     )
 
 
@@ -495,17 +480,17 @@ def test_test_connection_capability_schema_success(mock_connect):
         "warehouse": "COMPUTE_WH",
         "role": "sysadmin",
     }
-    report = SnowflakeV2Source.test_connection(config)
+    report = test_connection_helpers.run_test_connection(SnowflakeV2Source, config)
+    test_connection_helpers.assert_basic_connectivity_success(report)
 
-    assert report is not None
-    assert report.basic_connectivity
-    assert report.basic_connectivity.capable
-    assert report.basic_connectivity.failure_reason is None
-    assert report.capability_report
-
-    assert report.capability_report[SourceCapability.CONTAINERS].capable
-    assert report.capability_report[SourceCapability.SCHEMA_METADATA].capable
-    assert report.capability_report[SourceCapability.DESCRIPTIONS].capable
+    test_connection_helpers.assert_capability_report(
+        capability_report=report.capability_report,
+        success_capabilities=[
+            SourceCapability.CONTAINERS,
+            SourceCapability.SCHEMA_METADATA,
+            SourceCapability.DESCRIPTIONS,
+        ],
+    )
 
 
 @patch("snowflake.connector.connect")
@@ -545,18 +530,19 @@ def test_test_connection_capability_all_success(mock_connect):
         "warehouse": "COMPUTE_WH",
         "role": "sysadmin",
     }
-    report = SnowflakeV2Source.test_connection(config)
-    assert report is not None
-    assert report.basic_connectivity
-    assert report.basic_connectivity.capable
-    assert report.basic_connectivity.failure_reason is None
-    assert report.capability_report
+    report = test_connection_helpers.run_test_connection(SnowflakeV2Source, config)
+    test_connection_helpers.assert_basic_connectivity_success(report)
 
-    assert report.capability_report[SourceCapability.CONTAINERS].capable
-    assert report.capability_report[SourceCapability.SCHEMA_METADATA].capable
-    assert report.capability_report[SourceCapability.DATA_PROFILING].capable
-    assert report.capability_report[SourceCapability.DESCRIPTIONS].capable
-    assert report.capability_report[SourceCapability.LINEAGE_COARSE].capable
+    test_connection_helpers.assert_capability_report(
+        capability_report=report.capability_report,
+        success_capabilities=[
+            SourceCapability.CONTAINERS,
+            SourceCapability.SCHEMA_METADATA,
+            SourceCapability.DATA_PROFILING,
+            SourceCapability.DESCRIPTIONS,
+            SourceCapability.LINEAGE_COARSE,
+        ],
+    )
 
 
 def test_aws_cloud_region_from_snowflake_region_id():

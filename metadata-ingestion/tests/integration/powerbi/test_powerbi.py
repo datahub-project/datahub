@@ -19,7 +19,7 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
     Report,
     Workspace,
 )
-from tests.test_helpers import mce_helpers
+from tests.test_helpers import mce_helpers, test_connection_helpers
 
 pytestmark = pytest.mark.integration_batch_2
 FROZEN_TIME = "2022-02-03 07:00:00"
@@ -667,24 +667,20 @@ def test_powerbi_ingest(mock_msal, pytestconfig, tmp_path, mock_time, requests_m
 @mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
 @pytest.mark.integration
 def test_powerbi_test_connection_success(mock_msal):
-    report = PowerBiDashboardSource.test_connection(default_source_config())
-    assert report is not None
-    assert report.basic_connectivity
-    assert report.basic_connectivity.capable
-    assert report.basic_connectivity.failure_reason is None
+    report = test_connection_helpers.run_test_connection(
+        PowerBiDashboardSource, default_source_config()
+    )
+    test_connection_helpers.assert_basic_connectivity_success(report)
 
 
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration
 def test_powerbi_test_connection_failure():
-    report = PowerBiDashboardSource.test_connection(default_source_config())
-    assert report is not None
-    assert report.basic_connectivity
-    assert not report.basic_connectivity.capable
-    assert report.basic_connectivity.failure_reason
-    assert (
-        "Unable to get authority configuration"
-        in report.basic_connectivity.failure_reason
+    report = test_connection_helpers.run_test_connection(
+        PowerBiDashboardSource, default_source_config()
+    )
+    test_connection_helpers.assert_basic_connectivity_failure(
+        report, "Unable to get authority configuration"
     )
 
 

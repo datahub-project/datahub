@@ -28,7 +28,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
 )
 from datahub.metadata.schema_classes import MetadataChangeProposalClass, UpstreamClass
 from datahub.utilities.sqlglot_lineage import SqlParsingResult
-from tests.test_helpers import mce_helpers
+from tests.test_helpers import mce_helpers, test_connection_helpers
 from tests.test_helpers.state_helpers import (
     get_current_checkpoint_from_pipeline,
     validate_all_providers_have_committed_successfully,
@@ -294,22 +294,19 @@ def test_tableau_ingest(pytestconfig, tmp_path, mock_datahub_graph):
 @pytest.mark.integration
 def test_tableau_test_connection_success():
     with mock.patch("datahub.ingestion.source.tableau.Server"):
-        report = TableauSource.test_connection(config_source_default)
-        assert report is not None
-        assert report.basic_connectivity
-        assert report.basic_connectivity.capable
-        assert report.basic_connectivity.failure_reason is None
+        report = test_connection_helpers.run_test_connection(
+            TableauSource, config_source_default
+        )
+        test_connection_helpers.assert_basic_connectivity_success(report)
 
 
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration
 def test_tableau_test_connection_failure():
-    report = TableauSource.test_connection(config_source_default)
-    assert report is not None
-    assert report.basic_connectivity
-    assert not report.basic_connectivity.capable
-    assert report.basic_connectivity.failure_reason
-    assert "Unable to login" in report.basic_connectivity.failure_reason
+    report = test_connection_helpers.run_test_connection(
+        TableauSource, config_source_default
+    )
+    test_connection_helpers.assert_basic_connectivity_failure(report, "Unable to login")
 
 
 @freeze_time(FROZEN_TIME)
