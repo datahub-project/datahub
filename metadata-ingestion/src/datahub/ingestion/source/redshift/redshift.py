@@ -727,18 +727,27 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
         patch_builder = DatasetPatchBuilder(dataset_urn)
         patch_builder.set_display_name(table.name)
         patch_builder.set_description(table.comment)
-        # patch_builder.set_qualified_name(str(datahub_dataset_name))
+        patch_builder.set_created(
+            created=TimeStamp(time=int(table.created.timestamp() * 1000))
+            if table.created
+            else None
+        )
+        patch_builder.set_last_modified(
+            timestamp=TimeStamp(time=int(table.last_altered.timestamp() * 1000))
+            if table.last_altered
+            else TimeStamp(time=int(table.created.timestamp() * 1000))
+            if table.created
+            else None
+        )
+        patch_builder.set_qualified_name(str(datahub_dataset_name))
 
         if custom_properties:
-            patch_builder.set_custom_properties(custom_properties)
-            for patch_mcp in patch_builder.build():
-                yield MetadataWorkUnit(
-                    id=f"{dataset_urn}-{patch_mcp.aspectName}", mcp=patch_mcp
-                )
+            patch_builder.add_custom_properties(custom_properties)
 
-        # TODO: Check if needed
-        # if tags_to_add:
-        #    yield gen_tags_aspect_workunit(dataset_urn, tags_to_add)
+        for patch_mcp in patch_builder.build():
+            yield MetadataWorkUnit(
+                id=f"{dataset_urn}-{patch_mcp.aspectName}", mcp=patch_mcp
+            )
 
         schema_container_key = gen_schema_key(
             db_name=database,

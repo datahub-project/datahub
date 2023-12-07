@@ -18,6 +18,7 @@ from datahub.metadata.schema_classes import (
     UpstreamClass as Upstream,
     UpstreamLineageClass as UpstreamLineage,
 )
+from datahub.metadata.com.linkedin.pegasus2avro.common import TimeStamp
 from datahub.specific.custom_properties import CustomPropertiesPatchHelper
 from datahub.specific.ownership import OwnershipPatchHelper
 from datahub.utilities.urns.tag_urn import TagUrn
@@ -213,6 +214,13 @@ class DatasetPatchBuilder(MetadataPatchProposal):
         self.custom_properties_patch_helper.add_property(key, value)
         return self
 
+    def add_custom_properties(
+        self, custom_properties: Dict[str, str]
+    ) -> "DatasetPatchBuilder":
+        for key, value in custom_properties.items():
+            self.custom_properties_patch_helper.add_property(key, value)
+        return self
+
     def remove_custom_property(self, key: str) -> "DatasetPatchBuilder":
         self.custom_properties_patch_helper.remove_property(key)
         return self
@@ -226,3 +234,31 @@ class DatasetPatchBuilder(MetadataPatchProposal):
                 value=display_name,
             )
         return self
+
+    def set_qualified_name(self, qualified_name: str) -> "DatasetPatchBuilder":
+        if qualified_name is not None:
+            self._add_patch(
+                DatasetProperties.ASPECT_NAME,
+                "replace",
+                path="/qualifiedName",
+                value=qualified_name,
+            )
+        return self
+
+    def set_created(self, timestamp: TimeStamp) -> "DatasetPatchBuilder":
+        if timestamp is not None:
+            self._add_patch(
+                DatasetProperties.ASPECT_NAME,
+                "replace",
+                path="/created",
+                value=timestamp,
+            )
+
+    def set_last_modified(self, timestamp: TimeStamp) -> "DatasetPatchBuilder":
+        if timestamp is not None:
+            self._add_patch(
+                DatasetProperties.ASPECT_NAME,
+                "replace",
+                path="/lastModified",
+                value=timestamp,
+            )
