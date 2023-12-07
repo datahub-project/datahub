@@ -23,7 +23,8 @@ import org.testng.annotations.Test;
 
 public class ESGraphQueryDAOTest {
 
-  private static final String TEST_QUERY_FILE = "elasticsearch/sample_filters/lineage_query_filters_1.json";
+  private static final String TEST_QUERY_FILE =
+      "elasticsearch/sample_filters/lineage_query_filters_1.json";
 
   @Test
   private static void testGetQueryForLineageFullArguments() throws Exception {
@@ -32,20 +33,19 @@ public class ESGraphQueryDAOTest {
     String expectedQuery = Resources.toString(url, StandardCharsets.UTF_8);
 
     List<Urn> urns = new ArrayList<>();
-    List<LineageRegistry.EdgeInfo> edgeInfos = new ArrayList<>(ImmutableList.of(
-        new LineageRegistry.EdgeInfo("DownstreamOf", RelationshipDirection.INCOMING, Constants.DATASET_ENTITY_NAME)
-    ));
+    List<LineageRegistry.EdgeInfo> edgeInfos =
+        new ArrayList<>(
+            ImmutableList.of(
+                new LineageRegistry.EdgeInfo(
+                    "DownstreamOf",
+                    RelationshipDirection.INCOMING,
+                    Constants.DATASET_ENTITY_NAME)));
     GraphFilters graphFilters = new GraphFilters(ImmutableList.of(Constants.DATASET_ENTITY_NAME));
     Long startTime = 0L;
     Long endTime = 1L;
 
-    QueryBuilder builder = ESGraphQueryDAO.getQueryForLineage(
-        urns,
-        edgeInfos,
-        graphFilters,
-        startTime,
-        endTime
-    );
+    QueryBuilder builder =
+        ESGraphQueryDAO.getQueryForLineage(urns, edgeInfos, graphFilters, startTime, endTime);
 
     Assert.assertEquals(builder.toString(), expectedQuery);
   }
@@ -59,73 +59,51 @@ public class ESGraphQueryDAOTest {
     // Case 0: Add with no existing paths.
     Map<Urn, UrnArrayArray> nodePaths = new HashMap<>();
     ESGraphQueryDAO.addEdgeToPaths(nodePaths, testParent, testChild);
-    UrnArrayArray expectedPathsToChild = new UrnArrayArray(ImmutableList.of(
-        new UrnArray(ImmutableList.of(
-            testParent,
-            testChild
-        ))
-    ));
+    UrnArrayArray expectedPathsToChild =
+        new UrnArrayArray(ImmutableList.of(new UrnArray(ImmutableList.of(testParent, testChild))));
     Assert.assertEquals(nodePaths.get(testChild), expectedPathsToChild);
 
     // Case 1: No paths to parent.
     nodePaths = new HashMap<>();
-    nodePaths.put(UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,Other,PROD)"), new UrnArrayArray());
+    nodePaths.put(
+        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,Other,PROD)"),
+        new UrnArrayArray());
     ESGraphQueryDAO.addEdgeToPaths(nodePaths, testParent, testChild);
-    expectedPathsToChild = new UrnArrayArray(ImmutableList.of(
-        new UrnArray(ImmutableList.of(
-            testParent,
-            testChild
-        ))
-    ));
+    expectedPathsToChild =
+        new UrnArrayArray(ImmutableList.of(new UrnArray(ImmutableList.of(testParent, testChild))));
     Assert.assertEquals(nodePaths.get(testChild), expectedPathsToChild);
 
     // Case 2: 1 Existing Path to Parent Node
     nodePaths = new HashMap<>();
-    Urn testParentParent = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,TestParent,PROD)");
-    UrnArrayArray existingPathsToParent = new UrnArrayArray(ImmutableList.of(
-        new UrnArray(ImmutableList.of(
-            testParentParent,
-            testParent
-        ))
-    ));
+    Urn testParentParent =
+        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,TestParent,PROD)");
+    UrnArrayArray existingPathsToParent =
+        new UrnArrayArray(
+            ImmutableList.of(new UrnArray(ImmutableList.of(testParentParent, testParent))));
     nodePaths.put(testParent, existingPathsToParent);
     ESGraphQueryDAO.addEdgeToPaths(nodePaths, testParent, testChild);
-    expectedPathsToChild = new UrnArrayArray(ImmutableList.of(
-        new UrnArray(ImmutableList.of(
-            testParentParent,
-            testParent,
-            testChild
-        ))
-    ));
+    expectedPathsToChild =
+        new UrnArrayArray(
+            ImmutableList.of(
+                new UrnArray(ImmutableList.of(testParentParent, testParent, testChild))));
     Assert.assertEquals(nodePaths.get(testChild), expectedPathsToChild);
 
     // Case 3: > 1 Existing Paths to Parent Node
     nodePaths = new HashMap<>();
-    Urn testParentParent2 = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,TestParent2,PROD)");
-    UrnArrayArray existingPathsToParent2 = new UrnArrayArray(ImmutableList.of(
-        new UrnArray(ImmutableList.of(
-            testParentParent,
-            testParent
-        )),
-        new UrnArray(ImmutableList.of(
-            testParentParent2,
-            testParent
-        ))
-    ));
+    Urn testParentParent2 =
+        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,TestParent2,PROD)");
+    UrnArrayArray existingPathsToParent2 =
+        new UrnArrayArray(
+            ImmutableList.of(
+                new UrnArray(ImmutableList.of(testParentParent, testParent)),
+                new UrnArray(ImmutableList.of(testParentParent2, testParent))));
     nodePaths.put(testParent, existingPathsToParent2);
     ESGraphQueryDAO.addEdgeToPaths(nodePaths, testParent, testChild);
-    expectedPathsToChild = new UrnArrayArray(ImmutableList.of(
-        new UrnArray(ImmutableList.of(
-            testParentParent,
-            testParent,
-            testChild
-        )),
-        new UrnArray(ImmutableList.of(
-            testParentParent2,
-            testParent,
-            testChild
-        ))
-    ));
+    expectedPathsToChild =
+        new UrnArrayArray(
+            ImmutableList.of(
+                new UrnArray(ImmutableList.of(testParentParent, testParent, testChild)),
+                new UrnArray(ImmutableList.of(testParentParent2, testParent, testChild))));
     Assert.assertEquals(nodePaths.get(testChild), expectedPathsToChild);
 
     // Case 4: Build graph from empty by adding multiple edges
@@ -139,34 +117,23 @@ public class ESGraphQueryDAOTest {
     Assert.assertNull(nodePaths.get(testParentParent2));
 
     // Verify paths to testParent
-    UrnArrayArray expectedPathsToParent = new UrnArrayArray(ImmutableList.of(
-        new UrnArray(ImmutableList.of(
-            testParentParent,
-            testParent
-        )),
-        new UrnArray(ImmutableList.of(
-            testParentParent2,
-            testParent
-        ))
-    ));
+    UrnArrayArray expectedPathsToParent =
+        new UrnArrayArray(
+            ImmutableList.of(
+                new UrnArray(ImmutableList.of(testParentParent, testParent)),
+                new UrnArray(ImmutableList.of(testParentParent2, testParent))));
     Assert.assertEquals(nodePaths.get(testParent), expectedPathsToParent);
 
     // Verify paths to testChild
-    expectedPathsToChild = new UrnArrayArray(ImmutableList.of(
-        new UrnArray(ImmutableList.of(
-            testParentParent,
-            testParent,
-            testChild
-        )),
-        new UrnArray(ImmutableList.of(
-            testParentParent2,
-            testParent,
-            testChild
-        ))
-    ));
+    expectedPathsToChild =
+        new UrnArrayArray(
+            ImmutableList.of(
+                new UrnArray(ImmutableList.of(testParentParent, testParent, testChild)),
+                new UrnArray(ImmutableList.of(testParentParent2, testParent, testChild))));
     Assert.assertEquals(nodePaths.get(testChild), expectedPathsToChild);
 
-    // Case 5: Mainly documentation: Verify that if you build the graph out of order bad things happen.
+    // Case 5: Mainly documentation: Verify that if you build the graph out of order bad things
+    // happen.
     // Also test duplicate edge addition
     nodePaths = new HashMap<>();
     // Add edge to testChild first! Before path to testParent has been constructed.
@@ -182,29 +149,19 @@ public class ESGraphQueryDAOTest {
     Assert.assertNull(nodePaths.get(testParentParent2));
 
     // Verify paths to testParent
-    expectedPathsToParent = new UrnArrayArray(ImmutableList.of(
-        new UrnArray(ImmutableList.of(
-            testParentParent,
-            testParent
-        )),
-        new UrnArray(ImmutableList.of(
-            testParentParent2,
-            testParent
-        ))
-    ));
+    expectedPathsToParent =
+        new UrnArrayArray(
+            ImmutableList.of(
+                new UrnArray(ImmutableList.of(testParentParent, testParent)),
+                new UrnArray(ImmutableList.of(testParentParent2, testParent))));
     Assert.assertEquals(nodePaths.get(testParent), expectedPathsToParent);
 
     // Verify paths to testChild are INCORRECT: partial & duplicated
-    expectedPathsToChild = new UrnArrayArray(ImmutableList.of(
-        new UrnArray(ImmutableList.of(
-            testParent,
-            testChild
-        )),
-        new UrnArray(ImmutableList.of(
-            testParent,
-            testChild
-        ))
-    ));
+    expectedPathsToChild =
+        new UrnArrayArray(
+            ImmutableList.of(
+                new UrnArray(ImmutableList.of(testParent, testChild)),
+                new UrnArray(ImmutableList.of(testParent, testChild))));
     Assert.assertEquals(nodePaths.get(testChild), expectedPathsToChild);
   }
 }

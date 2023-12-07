@@ -17,49 +17,66 @@ import com.linkedin.mxe.SystemMetadata;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
-
-/**
- * Static utility class providing methods for extracting entity metadata from Pegasus models.
- */
+/** Static utility class providing methods for extracting entity metadata from Pegasus models. */
 @Slf4j
 public class PegasusUtils {
 
-  private PegasusUtils() {
-  }
+  private PegasusUtils() {}
 
   public static String getEntityNameFromSchema(final RecordDataSchema entitySnapshotSchema) {
-    final Object entityAnnotationObj = entitySnapshotSchema.getProperties().get(EntityAnnotation.ANNOTATION_NAME);
+    final Object entityAnnotationObj =
+        entitySnapshotSchema.getProperties().get(EntityAnnotation.ANNOTATION_NAME);
     if (entityAnnotationObj != null) {
-      return EntityAnnotation.fromSchemaProperty(entityAnnotationObj, entitySnapshotSchema.getFullName()).getName();
+      return EntityAnnotation.fromSchemaProperty(
+              entityAnnotationObj, entitySnapshotSchema.getFullName())
+          .getName();
     }
-    log.error(String.format("Failed to extract entity name from provided schema %s", entitySnapshotSchema.getName()));
+    log.error(
+        String.format(
+            "Failed to extract entity name from provided schema %s",
+            entitySnapshotSchema.getName()));
     throw new IllegalArgumentException(
-        String.format("Failed to extract entity name from provided schema %s", entitySnapshotSchema.getName()));
+        String.format(
+            "Failed to extract entity name from provided schema %s",
+            entitySnapshotSchema.getName()));
   }
 
   // TODO: Figure out a better iteration strategy.
-  public static String getAspectNameFromFullyQualifiedName(final String fullyQualifiedRecordTemplateName) {
-    final RecordTemplate template = RecordUtils.toRecordTemplate(fullyQualifiedRecordTemplateName, new DataMap());
+  public static String getAspectNameFromFullyQualifiedName(
+      final String fullyQualifiedRecordTemplateName) {
+    final RecordTemplate template =
+        RecordUtils.toRecordTemplate(fullyQualifiedRecordTemplateName, new DataMap());
     final RecordDataSchema aspectSchema = template.schema();
     return getAspectNameFromSchema(aspectSchema);
   }
 
   public static String getAspectNameFromSchema(final RecordDataSchema aspectSchema) {
-    final Object aspectAnnotationObj = aspectSchema.getProperties().get(AspectAnnotation.ANNOTATION_NAME);
+    final Object aspectAnnotationObj =
+        aspectSchema.getProperties().get(AspectAnnotation.ANNOTATION_NAME);
     if (aspectAnnotationObj != null) {
-      return AspectAnnotation.fromSchemaProperty(aspectAnnotationObj, aspectSchema.getFullName()).getName();
+      return AspectAnnotation.fromSchemaProperty(aspectAnnotationObj, aspectSchema.getFullName())
+          .getName();
     }
-    log.error(String.format("Failed to extract aspect name from provided schema %s", aspectSchema.getName()));
+    log.error(
+        String.format(
+            "Failed to extract aspect name from provided schema %s", aspectSchema.getName()));
     throw new IllegalArgumentException(
-        String.format("Failed to extract aspect name from provided schema %s", aspectSchema.getName()));
+        String.format(
+            "Failed to extract aspect name from provided schema %s", aspectSchema.getName()));
   }
 
-  public static <T> Class<? extends T> getDataTemplateClassFromSchema(final NamedDataSchema schema, final Class<T> clazz) {
+  public static <T> Class<? extends T> getDataTemplateClassFromSchema(
+      final NamedDataSchema schema, final Class<T> clazz) {
     try {
-        return Class.forName(schema.getFullName()).asSubclass(clazz);
+      return Class.forName(schema.getFullName()).asSubclass(clazz);
     } catch (ClassNotFoundException e) {
-      log.error("Unable to find class for RecordDataSchema named " + schema.getFullName() + " " + e.getMessage());
-      throw new ModelConversionException("Unable to find class for RecordDataSchema named " + schema.getFullName(), e);
+      log.error(
+          "Unable to find class for RecordDataSchema named "
+              + schema.getFullName()
+              + " "
+              + e.getMessage());
+      throw new ModelConversionException(
+          "Unable to find class for RecordDataSchema named " + schema.getFullName(), e);
     }
   }
 
@@ -67,9 +84,17 @@ public class PegasusUtils {
     return urn.getEntityType();
   }
 
-  public static MetadataChangeLog constructMCL(@Nullable MetadataChangeProposal base, String entityName, Urn urn, ChangeType changeType,
-      String aspectName, AuditStamp auditStamp, RecordTemplate newAspectValue, SystemMetadata newSystemMetadata,
-      RecordTemplate oldAspectValue, SystemMetadata oldSystemMetadata) {
+  public static MetadataChangeLog constructMCL(
+      @Nullable MetadataChangeProposal base,
+      String entityName,
+      Urn urn,
+      ChangeType changeType,
+      String aspectName,
+      AuditStamp auditStamp,
+      RecordTemplate newAspectValue,
+      SystemMetadata newSystemMetadata,
+      RecordTemplate oldAspectValue,
+      SystemMetadata oldSystemMetadata) {
     final MetadataChangeLog metadataChangeLog;
     if (base != null) {
       metadataChangeLog = new MetadataChangeLog(new DataMap(base.data()));

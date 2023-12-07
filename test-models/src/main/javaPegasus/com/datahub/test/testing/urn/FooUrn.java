@@ -3,11 +3,11 @@ package com.datahub.test.testing.urn;
 import com.linkedin.common.urn.Urn;
 import java.net.URISyntaxException;
 
-
 public final class FooUrn extends Urn {
 
   public static final String ENTITY_TYPE = "foo";
-  // Can be obtained via getEntityKey, but not in open source. We need to unify the internal / external URN definitions.
+  // Can be obtained via getEntityKey, but not in open source. We need to unify the internal /
+  // external URN definitions.
   private final int _id;
 
   public FooUrn(int id) throws URISyntaxException {
@@ -21,7 +21,8 @@ public final class FooUrn extends Urn {
 
   @Override
   public boolean equals(Object obj) {
-    // Override for find bugs, bug delegate to super implementation, both in open source and internally.
+    // Override for find bugs, bug delegate to super implementation, both in open source and
+    // internally.
     return super.equals(obj);
   }
 

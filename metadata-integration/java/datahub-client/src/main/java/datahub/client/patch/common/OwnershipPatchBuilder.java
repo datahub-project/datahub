@@ -1,5 +1,8 @@
 package datahub.client.patch.common;
 
+import static com.fasterxml.jackson.databind.node.JsonNodeFactory.*;
+import static com.linkedin.metadata.Constants.*;
+
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.common.OwnershipType;
 import com.linkedin.common.urn.Urn;
@@ -7,10 +10,6 @@ import datahub.client.patch.AbstractMultiFieldPatchBuilder;
 import datahub.client.patch.PatchOperationType;
 import javax.annotation.Nonnull;
 import org.apache.commons.lang3.tuple.ImmutableTriple;
-
-import static com.fasterxml.jackson.databind.node.JsonNodeFactory.*;
-import static com.linkedin.metadata.Constants.*;
-
 
 public class OwnershipPatchBuilder extends AbstractMultiFieldPatchBuilder<OwnershipPatchBuilder> {
 
@@ -23,33 +22,39 @@ public class OwnershipPatchBuilder extends AbstractMultiFieldPatchBuilder<Owners
     value.put(OWNER_KEY, owner.toString());
     value.put(TYPE_KEY, type.toString());
 
-    pathValues.add(ImmutableTriple.of(PatchOperationType.ADD.getValue(),
-        BASE_PATH + owner + "/" + type, value));
+    pathValues.add(
+        ImmutableTriple.of(
+            PatchOperationType.ADD.getValue(), BASE_PATH + owner + "/" + type, value));
 
     return this;
   }
 
   /**
    * Remove all ownership types for an owner
+   *
    * @param owner
    * @return
    */
   public OwnershipPatchBuilder removeOwner(@Nonnull Urn owner) {
-    pathValues.add(ImmutableTriple.of(PatchOperationType.REMOVE.getValue(),
-        BASE_PATH + owner, null));
+    pathValues.add(
+        ImmutableTriple.of(PatchOperationType.REMOVE.getValue(), BASE_PATH + owner, null));
 
     return this;
   }
 
   /**
-   * Removes a specific ownership type for a particular owner, a single owner may have multiple ownership types
+   * Removes a specific ownership type for a particular owner, a single owner may have multiple
+   * ownership types
+   *
    * @param owner
    * @param type
    * @return
    */
-  public OwnershipPatchBuilder removeOwnershipType(@Nonnull Urn owner, @Nonnull OwnershipType type) {
-    pathValues.add(ImmutableTriple.of(PatchOperationType.REMOVE.getValue(),
-        BASE_PATH + owner + "/" + type, null));
+  public OwnershipPatchBuilder removeOwnershipType(
+      @Nonnull Urn owner, @Nonnull OwnershipType type) {
+    pathValues.add(
+        ImmutableTriple.of(
+            PatchOperationType.REMOVE.getValue(), BASE_PATH + owner + "/" + type, null));
     return this;
   }
 
@@ -61,7 +66,8 @@ public class OwnershipPatchBuilder extends AbstractMultiFieldPatchBuilder<Owners
   @Override
   protected String getEntityType() {
     if (this.targetEntityUrn == null) {
-      throw new IllegalStateException("Target Entity Urn must be set to determine entity type before building Patch.");
+      throw new IllegalStateException(
+          "Target Entity Urn must be set to determine entity type before building Patch.");
     }
     return this.targetEntityUrn.getEntityType();
   }
