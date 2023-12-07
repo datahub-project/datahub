@@ -50,6 +50,7 @@ export default function GlossayRelatedTerms() {
                     {menuOptionsArray.map((option) => (
                         <Menu.Item data-testid={option} key={option}>
                             {RelatedTermTypes[option]}
+                            {entityData ? ` (${entityData[option]?.total})` : ''}
                         </Menu.Item>
                     ))}
                 </Menu>
