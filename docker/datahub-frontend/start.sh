@@ -43,8 +43,7 @@ fi
 
 # make sure there is no whitespace at the beginning and the end of 
 # this string
-export JAVA_OPTS="-Xms512m \
-   -Xmx1024m \
+export JAVA_OPTS="${JAVA_MEMORY_OPTS:-"-Xms512m -Xmx1024m"} \
    -Dhttp.port=$SERVER_PORT \
    -Dconfig.file=datahub-frontend/conf/application.conf \
    -Djava.security.auth.login.config=datahub-frontend/conf/jaas.conf \
