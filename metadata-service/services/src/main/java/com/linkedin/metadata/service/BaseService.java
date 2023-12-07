@@ -1,5 +1,7 @@
 package com.linkedin.metadata.service;
 
+import static com.linkedin.metadata.entity.AspectUtils.*;
+
 import com.datahub.authentication.Authentication;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.GlossaryTerms;
@@ -20,15 +22,14 @@ import java.util.Set;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.metadata.entity.AspectUtils.*;
-
 @Slf4j
 public class BaseService {
 
   protected final EntityClient entityClient;
   protected final Authentication systemAuthentication;
 
-  public BaseService(@Nonnull EntityClient entityClient, @Nonnull Authentication systemAuthentication) {
+  public BaseService(
+      @Nonnull EntityClient entityClient, @Nonnull Authentication systemAuthentication) {
     this.entityClient = Objects.requireNonNull(entityClient);
     this.systemAuthentication = Objects.requireNonNull(systemAuthentication);
   }
@@ -44,13 +45,13 @@ public class BaseService {
     }
 
     try {
-      Map<Urn, Aspect> aspects = batchGetLatestAspect(
-          entityUrns.stream().findFirst().get().getEntityType(), // TODO Improve this.
-          entityUrns,
-          Constants.GLOBAL_TAGS_ASPECT_NAME,
-          this.entityClient,
-          authentication
-      );
+      Map<Urn, Aspect> aspects =
+          batchGetLatestAspect(
+              entityUrns.stream().findFirst().get().getEntityType(), // TODO Improve this.
+              entityUrns,
+              Constants.GLOBAL_TAGS_ASPECT_NAME,
+              this.entityClient,
+              authentication);
 
       final Map<Urn, GlobalTags> finalResult = new HashMap<>();
       for (Urn entity : entityUrns) {
@@ -83,13 +84,13 @@ public class BaseService {
     }
 
     try {
-      Map<Urn, Aspect> aspects = batchGetLatestAspect(
-          entityUrns.stream().findFirst().get().getEntityType(), // TODO Improve this.
-          entityUrns,
-          Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME,
-          this.entityClient,
-          authentication
-      );
+      Map<Urn, Aspect> aspects =
+          batchGetLatestAspect(
+              entityUrns.stream().findFirst().get().getEntityType(), // TODO Improve this.
+              entityUrns,
+              Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME,
+              this.entityClient,
+              authentication);
 
       final Map<Urn, EditableSchemaMetadata> finalResult = new HashMap<>();
       for (Urn entity : entityUrns) {
@@ -122,13 +123,13 @@ public class BaseService {
     }
 
     try {
-      Map<Urn, Aspect> aspects = batchGetLatestAspect(
-          entityUrns.stream().findFirst().get().getEntityType(), // TODO Improve this.
-          entityUrns,
-          Constants.OWNERSHIP_ASPECT_NAME,
-          this.entityClient,
-          authentication
-      );
+      Map<Urn, Aspect> aspects =
+          batchGetLatestAspect(
+              entityUrns.stream().findFirst().get().getEntityType(), // TODO Improve this.
+              entityUrns,
+              Constants.OWNERSHIP_ASPECT_NAME,
+              this.entityClient,
+              authentication);
 
       final Map<Urn, Ownership> finalResult = new HashMap<>();
       for (Urn entity : entityUrns) {
@@ -161,13 +162,13 @@ public class BaseService {
     }
 
     try {
-      Map<Urn, Aspect> aspects = batchGetLatestAspect(
-          entityUrns.stream().findFirst().get().getEntityType(), // TODO Improve this.
-          entityUrns,
-          Constants.GLOSSARY_TERMS_ASPECT_NAME,
-          this.entityClient,
-          authentication
-      );
+      Map<Urn, Aspect> aspects =
+          batchGetLatestAspect(
+              entityUrns.stream().findFirst().get().getEntityType(), // TODO Improve this.
+              entityUrns,
+              Constants.GLOSSARY_TERMS_ASPECT_NAME,
+              this.entityClient,
+              authentication);
 
       final Map<Urn, GlossaryTerms> finalResult = new HashMap<>();
       for (Urn entity : entityUrns) {
@@ -200,13 +201,13 @@ public class BaseService {
     }
 
     try {
-      Map<Urn, Aspect> aspects = batchGetLatestAspect(
-          entityUrns.stream().findFirst().get().getEntityType(), // TODO Improve this.
-          entityUrns,
-          Constants.DOMAINS_ASPECT_NAME,
-          this.entityClient,
-          authentication
-      );
+      Map<Urn, Aspect> aspects =
+          batchGetLatestAspect(
+              entityUrns.stream().findFirst().get().getEntityType(), // TODO Improve this.
+              entityUrns,
+              Constants.DOMAINS_ASPECT_NAME,
+              this.entityClient,
+              authentication);
 
       final Map<Urn, Domains> finalResult = new HashMap<>();
       for (Urn entity : entityUrns) {
@@ -228,7 +229,9 @@ public class BaseService {
     }
   }
 
-  protected void ingestChangeProposals(@Nonnull List<MetadataChangeProposal> changes, @Nonnull Authentication authentication) throws Exception {
+  protected void ingestChangeProposals(
+      @Nonnull List<MetadataChangeProposal> changes, @Nonnull Authentication authentication)
+      throws Exception {
     // TODO: Replace this with a batch ingest proposals endpoint.
     for (MetadataChangeProposal change : changes) {
       this.entityClient.ingestProposal(change, authentication);

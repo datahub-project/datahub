@@ -4,14 +4,12 @@ import datahub.client.patch.AbstractMultiFieldPatchBuilder;
 import java.util.Map;
 import javax.annotation.Nonnull;
 
-
-/**
- * Interface to implement if an aspect supports custom properties changes
- */
+/** Interface to implement if an aspect supports custom properties changes */
 public interface CustomPropertiesPatchBuilderSupport<T extends AbstractMultiFieldPatchBuilder<T>> {
 
   /**
    * Adds a custom property
+   *
    * @param key
    * @param value
    * @return
@@ -20,6 +18,7 @@ public interface CustomPropertiesPatchBuilderSupport<T extends AbstractMultiFiel
 
   /**
    * Removes a custom property
+   *
    * @param key
    * @return
    */
@@ -27,6 +26,7 @@ public interface CustomPropertiesPatchBuilderSupport<T extends AbstractMultiFiel
 
   /**
    * Fully replace the custom properties
+   *
    * @param properties
    * @return
    */

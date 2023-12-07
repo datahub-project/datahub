@@ -20,7 +20,6 @@ import javax.annotation.Nullable;
 import static com.fasterxml.jackson.databind.node.JsonNodeFactory.*;
 import static com.linkedin.metadata.Constants.*;
 
-
 public class UpstreamLineageTemplate extends CompoundKeyTemplate<UpstreamLineage> {
 
   // Fields

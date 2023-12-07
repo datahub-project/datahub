@@ -35,10 +35,7 @@ import graphql.schema.DataFetchingEnvironment;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
-
-/**
- * Resolver responsible for serving app configurations to the React UI.
- */
+/** Resolver responsible for serving app configurations to the React UI. */
 public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfig>> {
 
   private final GitVersion _gitVersion;
@@ -82,7 +79,8 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
   }
 
   @Override
-  public CompletableFuture<AppConfig> get(final DataFetchingEnvironment environment) throws Exception {
+  public CompletableFuture<AppConfig> get(final DataFetchingEnvironment environment)
+      throws Exception {
 
     final QueryContext context = environment.getContext();
 
@@ -103,19 +101,20 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
     final PoliciesConfig policiesConfig = new PoliciesConfig();
     policiesConfig.setEnabled(_authorizationConfiguration.getDefaultAuthorizer().isEnabled());
 
-    policiesConfig.setPlatformPrivileges(com.linkedin.metadata.authorization.PoliciesConfig.PLATFORM_PRIVILEGES
-        .stream()
-        .map(this::mapPrivilege)
-        .collect(Collectors.toList()));
+    policiesConfig.setPlatformPrivileges(
+        com.linkedin.metadata.authorization.PoliciesConfig.PLATFORM_PRIVILEGES.stream()
+            .map(this::mapPrivilege)
+            .collect(Collectors.toList()));
 
-    policiesConfig.setResourcePrivileges(com.linkedin.metadata.authorization.PoliciesConfig.RESOURCE_PRIVILEGES
-        .stream()
-        .map(this::mapResourcePrivileges)
-        .collect(Collectors.toList())
-    );
+    policiesConfig.setResourcePrivileges(
+        com.linkedin.metadata.authorization.PoliciesConfig.RESOURCE_PRIVILEGES.stream()
+            .map(this::mapResourcePrivileges)
+            .collect(Collectors.toList()));
 
     final IdentityManagementConfig identityManagementConfig = new IdentityManagementConfig();
-    identityManagementConfig.setEnabled(true); // Identity Management always enabled. TODO: Understand if there's a case where this should change.
+    identityManagementConfig.setEnabled(
+        true); // Identity Management always enabled. TODO: Understand if there's a case where this
+    // should change.
 
     final ManagedIngestionConfig ingestionConfig = new ManagedIngestionConfig();
     ingestionConfig.setEnabled(_ingestionConfiguration.isEnabled());
@@ -133,7 +132,8 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
     }
     if (_visualConfiguration != null && _visualConfiguration.getQueriesTab() != null) {
       QueriesTabConfig queriesTabConfig = new QueriesTabConfig();
-      queriesTabConfig.setQueriesTabResultSize(_visualConfiguration.getQueriesTab().getQueriesTabResultSize());
+      queriesTabConfig.setQueriesTabResultSize(
+          _visualConfiguration.getQueriesTab().getQueriesTabResultSize());
       visualConfig.setQueriesTab(queriesTabConfig);
     }
     if (_visualConfiguration != null && _visualConfiguration.getEntityProfile() != null) {
@@ -148,7 +148,8 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
     if (_visualConfiguration != null && _visualConfiguration.getSearchResult() != null) {
       SearchResultsVisualConfig searchResultsVisualConfig = new SearchResultsVisualConfig();
       if (_visualConfiguration.getSearchResult().getEnableNameHighlight() != null) {
-        searchResultsVisualConfig.setEnableNameHighlight(_visualConfiguration.getSearchResult().getEnableNameHighlight());
+        searchResultsVisualConfig.setEnableNameHighlight(
+            _visualConfiguration.getSearchResult().getEnableNameHighlight());
       }
       visualConfig.setSearchResult(searchResultsVisualConfig);
     }
@@ -166,14 +167,15 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
     viewsConfig.setEnabled(_viewsConfiguration.isEnabled());
     appConfig.setViewsConfig(viewsConfig);
 
-    final FeatureFlagsConfig featureFlagsConfig = FeatureFlagsConfig.builder()
-      .setShowSearchFiltersV2(_featureFlags.isShowSearchFiltersV2())
-      .setReadOnlyModeEnabled(_featureFlags.isReadOnlyModeEnabled())
-      .setShowBrowseV2(_featureFlags.isShowBrowseV2())
-      .setShowAcrylInfo(_featureFlags.isShowAcrylInfo())
-      .setShowAccessManagement(_featureFlags.isShowAccessManagement())
-      .setNestedDomainsEnabled(_featureFlags.isNestedDomainsEnabled())
-      .build();
+    final FeatureFlagsConfig featureFlagsConfig =
+        FeatureFlagsConfig.builder()
+            .setShowSearchFiltersV2(_featureFlags.isShowSearchFiltersV2())
+            .setReadOnlyModeEnabled(_featureFlags.isReadOnlyModeEnabled())
+            .setShowBrowseV2(_featureFlags.isShowBrowseV2())
+            .setShowAcrylInfo(_featureFlags.isShowAcrylInfo())
+            .setShowAccessManagement(_featureFlags.isShowAccessManagement())
+            .setNestedDomainsEnabled(_featureFlags.isNestedDomainsEnabled())
+            .build();
 
     appConfig.setFeatureFlags(featureFlagsConfig);
 
@@ -185,14 +187,17 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
     final ResourcePrivileges graphQLPrivileges = new ResourcePrivileges();
     graphQLPrivileges.setResourceType(resourcePrivileges.getResourceType());
     graphQLPrivileges.setResourceTypeDisplayName(resourcePrivileges.getResourceTypeDisplayName());
-    graphQLPrivileges.setEntityType(mapResourceTypeToEntityType(resourcePrivileges.getResourceType()));
+    graphQLPrivileges.setEntityType(
+        mapResourceTypeToEntityType(resourcePrivileges.getResourceType()));
     graphQLPrivileges.setPrivileges(
-        resourcePrivileges.getPrivileges().stream().map(this::mapPrivilege).collect(Collectors.toList())
-    );
+        resourcePrivileges.getPrivileges().stream()
+            .map(this::mapPrivilege)
+            .collect(Collectors.toList()));
     return graphQLPrivileges;
   }
 
-  private Privilege mapPrivilege(com.linkedin.metadata.authorization.PoliciesConfig.Privilege privilege) {
+  private Privilege mapPrivilege(
+      com.linkedin.metadata.authorization.PoliciesConfig.Privilege privilege) {
     final Privilege graphQLPrivilege = new Privilege();
     graphQLPrivilege.setType(privilege.getType());
     graphQLPrivilege.setDisplayName(privilege.getDisplayName());
@@ -202,29 +207,53 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
 
   private EntityType mapResourceTypeToEntityType(final String resourceType) {
     // TODO: Is there a better way to instruct the UI to present a searchable resource?
-    if (com.linkedin.metadata.authorization.PoliciesConfig.DATASET_PRIVILEGES.getResourceType().equals(resourceType)) {
+    if (com.linkedin.metadata.authorization.PoliciesConfig.DATASET_PRIVILEGES
+        .getResourceType()
+        .equals(resourceType)) {
       return EntityType.DATASET;
-    } else if (com.linkedin.metadata.authorization.PoliciesConfig.DASHBOARD_PRIVILEGES.getResourceType().equals(resourceType)) {
+    } else if (com.linkedin.metadata.authorization.PoliciesConfig.DASHBOARD_PRIVILEGES
+        .getResourceType()
+        .equals(resourceType)) {
       return EntityType.DASHBOARD;
-    } else if (com.linkedin.metadata.authorization.PoliciesConfig.CHART_PRIVILEGES.getResourceType().equals(resourceType)) {
+    } else if (com.linkedin.metadata.authorization.PoliciesConfig.CHART_PRIVILEGES
+        .getResourceType()
+        .equals(resourceType)) {
       return EntityType.CHART;
-    } else if (com.linkedin.metadata.authorization.PoliciesConfig.DATA_FLOW_PRIVILEGES.getResourceType().equals(resourceType)) {
+    } else if (com.linkedin.metadata.authorization.PoliciesConfig.DATA_FLOW_PRIVILEGES
+        .getResourceType()
+        .equals(resourceType)) {
       return EntityType.DATA_FLOW;
-    } else if (com.linkedin.metadata.authorization.PoliciesConfig.DATA_JOB_PRIVILEGES.getResourceType().equals(resourceType)) {
+    } else if (com.linkedin.metadata.authorization.PoliciesConfig.DATA_JOB_PRIVILEGES
+        .getResourceType()
+        .equals(resourceType)) {
       return EntityType.DATA_JOB;
-    } else if (com.linkedin.metadata.authorization.PoliciesConfig.TAG_PRIVILEGES.getResourceType().equals(resourceType)) {
+    } else if (com.linkedin.metadata.authorization.PoliciesConfig.TAG_PRIVILEGES
+        .getResourceType()
+        .equals(resourceType)) {
       return EntityType.TAG;
-    } else if (com.linkedin.metadata.authorization.PoliciesConfig.GLOSSARY_TERM_PRIVILEGES.getResourceType().equals(resourceType)) {
+    } else if (com.linkedin.metadata.authorization.PoliciesConfig.GLOSSARY_TERM_PRIVILEGES
+        .getResourceType()
+        .equals(resourceType)) {
       return EntityType.GLOSSARY_TERM;
-    } else if (com.linkedin.metadata.authorization.PoliciesConfig.GLOSSARY_NODE_PRIVILEGES.getResourceType().equals(resourceType)) {
+    } else if (com.linkedin.metadata.authorization.PoliciesConfig.GLOSSARY_NODE_PRIVILEGES
+        .getResourceType()
+        .equals(resourceType)) {
       return EntityType.GLOSSARY_NODE;
-    } else if (com.linkedin.metadata.authorization.PoliciesConfig.DOMAIN_PRIVILEGES.getResourceType().equals(resourceType)) {
+    } else if (com.linkedin.metadata.authorization.PoliciesConfig.DOMAIN_PRIVILEGES
+        .getResourceType()
+        .equals(resourceType)) {
       return EntityType.DOMAIN;
-    } else if (com.linkedin.metadata.authorization.PoliciesConfig.CONTAINER_PRIVILEGES.getResourceType().equals(resourceType)) {
+    } else if (com.linkedin.metadata.authorization.PoliciesConfig.CONTAINER_PRIVILEGES
+        .getResourceType()
+        .equals(resourceType)) {
       return EntityType.CONTAINER;
-    } else if (com.linkedin.metadata.authorization.PoliciesConfig.CORP_GROUP_PRIVILEGES.getResourceType().equals(resourceType)) {
+    } else if (com.linkedin.metadata.authorization.PoliciesConfig.CORP_GROUP_PRIVILEGES
+        .getResourceType()
+        .equals(resourceType)) {
       return EntityType.CORP_GROUP;
-    } else if (com.linkedin.metadata.authorization.PoliciesConfig.CORP_USER_PRIVILEGES.getResourceType().equals(resourceType)) {
+    } else if (com.linkedin.metadata.authorization.PoliciesConfig.CORP_USER_PRIVILEGES
+        .getResourceType()
+        .equals(resourceType)) {
       return EntityType.CORP_USER;
     } else {
       return null;

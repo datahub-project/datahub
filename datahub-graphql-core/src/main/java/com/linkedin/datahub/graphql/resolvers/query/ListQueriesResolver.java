@@ -1,5 +1,8 @@
 package com.linkedin.datahub.graphql.resolvers.query;
 
+import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
+import static com.linkedin.metadata.Constants.*;
+
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -29,10 +32,6 @@ import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
-import static com.linkedin.metadata.Constants.*;
-
-
 @Slf4j
 @RequiredArgsConstructor
 public class ListQueriesResolver implements DataFetcher<CompletableFuture<ListQueriesResult>> {
@@ -48,38 +47,52 @@ public class ListQueriesResolver implements DataFetcher<CompletableFuture<ListQu
   private final EntityClient _entityClient;
 
   @Override
-  public CompletableFuture<ListQueriesResult> get(final DataFetchingEnvironment environment) throws Exception {
+  public CompletableFuture<ListQueriesResult> get(final DataFetchingEnvironment environment)
+      throws Exception {
     final QueryContext context = environment.getContext();
 
-    final ListQueriesInput input = bindArgument(environment.getArgument("input"), ListQueriesInput.class);
+    final ListQueriesInput input =
+        bindArgument(environment.getArgument("input"), ListQueriesInput.class);
     final Integer start = input.getStart() == null ? DEFAULT_START : input.getStart();
     final Integer count = input.getCount() == null ? DEFAULT_COUNT : input.getCount();
     final String query = input.getQuery() == null ? DEFAULT_QUERY : input.getQuery();
 
-    return CompletableFuture.supplyAsync(() -> {
-      try {
-        final SortCriterion sortCriterion =
-            new SortCriterion().setField(CREATED_AT_FIELD).setOrder(SortOrder.DESCENDING);
+    return CompletableFuture.supplyAsync(
+        () -> {
+          try {
+            final SortCriterion sortCriterion =
+                new SortCriterion().setField(CREATED_AT_FIELD).setOrder(SortOrder.DESCENDING);
 
-        // First, get all Query Urns.
-        final SearchResult gmsResult = _entityClient.search(QUERY_ENTITY_NAME, query, buildFilters(input), sortCriterion, start, count,
-            context.getAuthentication(), new SearchFlags().setFulltext(true).setSkipHighlighting(true));
+            // First, get all Query Urns.
+            final SearchResult gmsResult =
+                _entityClient.search(
+                    QUERY_ENTITY_NAME,
+                    query,
+                    buildFilters(input),
+                    sortCriterion,
+                    start,
+                    count,
+                    context.getAuthentication(),
+                    new SearchFlags().setFulltext(true).setSkipHighlighting(true));
 
-        final ListQueriesResult result = new ListQueriesResult();
-        result.setStart(gmsResult.getFrom());
-        result.setCount(gmsResult.getPageSize());
-        result.setTotal(gmsResult.getNumEntities());
-        result.setQueries(mapUnresolvedQueries(gmsResult.getEntities().stream()
-            .map(SearchEntity::getEntity)
-            .collect(Collectors.toList())));
-        return result;
-      } catch (Exception e) {
-        throw new RuntimeException("Failed to list Queries", e);
-      }
-    });
+            final ListQueriesResult result = new ListQueriesResult();
+            result.setStart(gmsResult.getFrom());
+            result.setCount(gmsResult.getPageSize());
+            result.setTotal(gmsResult.getNumEntities());
+            result.setQueries(
+                mapUnresolvedQueries(
+                    gmsResult.getEntities().stream()
+                        .map(SearchEntity::getEntity)
+                        .collect(Collectors.toList())));
+            return result;
+          } catch (Exception e) {
+            throw new RuntimeException("Failed to list Queries", e);
+          }
+        });
   }
 
-  // This method maps urns returned from the list endpoint into Partial Query objects which will be resolved be a separate Batch resolver.
+  // This method maps urns returned from the list endpoint into Partial Query objects which will be
+  // resolved be a separate Batch resolver.
   private List<QueryEntity> mapUnresolvedQueries(final List<Urn> queryUrns) {
     final List<QueryEntity> results = new ArrayList<>();
     for (final Urn urn : queryUrns) {
@@ -99,13 +112,23 @@ public class ListQueriesResolver implements DataFetcher<CompletableFuture<ListQu
     // Optionally add a source filter.
     if (input.getSource() != null) {
       andConditions.add(
-          new FacetFilterInput(QUERY_SOURCE_FIELD, null, ImmutableList.of(input.getSource().toString()), false, FilterOperator.EQUAL));
+          new FacetFilterInput(
+              QUERY_SOURCE_FIELD,
+              null,
+              ImmutableList.of(input.getSource().toString()),
+              false,
+              FilterOperator.EQUAL));
     }
 
     // Optionally add an entity type filter.
     if (input.getDatasetUrn() != null) {
       andConditions.add(
-          new FacetFilterInput(QUERY_ENTITIES_FIELD, null, ImmutableList.of(input.getDatasetUrn()), false, FilterOperator.EQUAL));
+          new FacetFilterInput(
+              QUERY_ENTITIES_FIELD,
+              null,
+              ImmutableList.of(input.getDatasetUrn()),
+              false,
+              FilterOperator.EQUAL));
     }
 
     criteria.setAnd(andConditions);

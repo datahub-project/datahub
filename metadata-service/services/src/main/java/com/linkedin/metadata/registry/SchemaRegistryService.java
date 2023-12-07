@@ -4,7 +4,8 @@ import java.util.Optional;
 import org.apache.avro.Schema;
 
 /**
- * Internal Service logic to be used to emulate Confluent's Schema Registry component within DataHub.
+ * Internal Service logic to be used to emulate Confluent's Schema Registry component within
+ * DataHub.
  */
 public interface SchemaRegistryService {
 

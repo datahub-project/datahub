@@ -1,5 +1,8 @@
 package datahub.client.patch.dataset;
 
+import static com.fasterxml.jackson.databind.node.JsonNodeFactory.*;
+import static com.linkedin.metadata.Constants.*;
+
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.common.urn.Urn;
@@ -14,12 +17,9 @@ import lombok.ToString;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.ImmutableTriple;
 
-import static com.fasterxml.jackson.databind.node.JsonNodeFactory.*;
-import static com.linkedin.metadata.Constants.*;
-
-
 @ToString
-public class UpstreamLineagePatchBuilder extends AbstractMultiFieldPatchBuilder<UpstreamLineagePatchBuilder> {
+public class UpstreamLineagePatchBuilder
+    extends AbstractMultiFieldPatchBuilder<UpstreamLineagePatchBuilder> {
 
   private static final String UPSTREAMS_PATH_START = "/upstreams/";
   private static final String FINE_GRAINED_PATH_START = "/fineGrainedLineages/";
@@ -29,15 +29,16 @@ public class UpstreamLineagePatchBuilder extends AbstractMultiFieldPatchBuilder<
   private static final String ACTOR_KEY = "actor";
   private static final String TYPE_KEY = "type";
 
-  public UpstreamLineagePatchBuilder addUpstream(@Nonnull DatasetUrn datasetUrn, @Nonnull DatasetLineageType lineageType) {
+  public UpstreamLineagePatchBuilder addUpstream(
+      @Nonnull DatasetUrn datasetUrn, @Nonnull DatasetLineageType lineageType) {
     ObjectNode value = instance.objectNode();
     ObjectNode auditStamp = instance.objectNode();
-    auditStamp.put(TIME_KEY, System.currentTimeMillis())
-        .put(ACTOR_KEY, UNKNOWN_ACTOR);
-    value.put(DATASET_KEY, datasetUrn.toString())
+    auditStamp.put(TIME_KEY, System.currentTimeMillis()).put(ACTOR_KEY, UNKNOWN_ACTOR);
+    value
+        .put(DATASET_KEY, datasetUrn.toString())
         .put(TYPE_KEY, lineageType.toString())
         .set(AUDIT_STAMP_KEY, auditStamp);
-
+    
     pathValues.add(ImmutableTriple.of(PatchOperationType.ADD.getValue(), UPSTREAMS_PATH_START + datasetUrn, value));
     return this;
   }

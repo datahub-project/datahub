@@ -40,24 +40,23 @@ import org.opensearch.search.aggregations.AggregationBuilders;
 import org.opensearch.search.aggregations.bucket.terms.ParsedTerms;
 import org.opensearch.search.builder.SearchSourceBuilder;
 
-
 @Slf4j
 @RequiredArgsConstructor
 public class MostPopularSource implements RecommendationSource {
-  /**
-   * Entity Types that should be in scope for this type of recommendation.
-   */
-  private static final Set<String> SUPPORTED_ENTITY_TYPES = ImmutableSet.of(Constants.DATASET_ENTITY_NAME,
-      Constants.DATA_FLOW_ENTITY_NAME,
-      Constants.DATA_JOB_ENTITY_NAME,
-      Constants.CONTAINER_ENTITY_NAME,
-      Constants.DASHBOARD_ENTITY_NAME,
-      Constants.CHART_ENTITY_NAME,
-      Constants.ML_MODEL_ENTITY_NAME,
-      Constants.ML_FEATURE_ENTITY_NAME,
-      Constants.ML_MODEL_GROUP_ENTITY_NAME,
-      Constants.ML_FEATURE_TABLE_ENTITY_NAME
-  );
+  /** Entity Types that should be in scope for this type of recommendation. */
+  private static final Set<String> SUPPORTED_ENTITY_TYPES =
+      ImmutableSet.of(
+          Constants.DATASET_ENTITY_NAME,
+          Constants.DATA_FLOW_ENTITY_NAME,
+          Constants.DATA_JOB_ENTITY_NAME,
+          Constants.CONTAINER_ENTITY_NAME,
+          Constants.DASHBOARD_ENTITY_NAME,
+          Constants.CHART_ENTITY_NAME,
+          Constants.ML_MODEL_ENTITY_NAME,
+          Constants.ML_FEATURE_ENTITY_NAME,
+          Constants.ML_MODEL_GROUP_ENTITY_NAME,
+          Constants.ML_FEATURE_TABLE_ENTITY_NAME);
+
   private final RestHighLevelClient _searchClient;
   private final IndexConvention _indexConvention;
   private final EntityService _entityService;
@@ -82,11 +81,16 @@ public class MostPopularSource implements RecommendationSource {
   }
 
   @Override
-  public boolean isEligible(@Nonnull Urn userUrn, @Nonnull RecommendationRequestContext requestContext) {
+  public boolean isEligible(
+      @Nonnull Urn userUrn, @Nonnull RecommendationRequestContext requestContext) {
     boolean analyticsEnabled = false;
     try {
-      analyticsEnabled = _searchClient.indices()
-          .exists(new GetIndexRequest(_indexConvention.getIndexName(DATAHUB_USAGE_INDEX)), RequestOptions.DEFAULT);
+      analyticsEnabled =
+          _searchClient
+              .indices()
+              .exists(
+                  new GetIndexRequest(_indexConvention.getIndexName(DATAHUB_USAGE_INDEX)),
+                  RequestOptions.DEFAULT);
     } catch (IOException e) {
       log.error("Failed to determine whether DataHub usage index exists");
     }
@@ -95,15 +99,15 @@ public class MostPopularSource implements RecommendationSource {
 
   @Override
   @WithSpan
-  public List<RecommendationContent> getRecommendations(@Nonnull Urn userUrn,
-      @Nonnull RecommendationRequestContext requestContext) {
+  public List<RecommendationContent> getRecommendations(
+      @Nonnull Urn userUrn, @Nonnull RecommendationRequestContext requestContext) {
     SearchRequest searchRequest = buildSearchRequest(userUrn);
     try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "getMostPopular").time()) {
-      final SearchResponse searchResponse = _searchClient.search(searchRequest, RequestOptions.DEFAULT);
+      final SearchResponse searchResponse =
+          _searchClient.search(searchRequest, RequestOptions.DEFAULT);
       // extract results
       ParsedTerms parsedTerms = searchResponse.getAggregations().get(ENTITY_AGG_NAME);
-      return parsedTerms.getBuckets()
-          .stream()
+      return parsedTerms.getBuckets().stream()
           .map(bucket -> buildContent(bucket.getKeyAsString()))
           .filter(Optional::isPresent)
           .map(Optional::get)
@@ -122,13 +126,15 @@ public class MostPopularSource implements RecommendationSource {
     BoolQueryBuilder query = QueryBuilders.boolQuery();
     // Filter for all entity view events
     query.must(
-        QueryBuilders.termQuery(DataHubUsageEventConstants.TYPE, DataHubUsageEventType.ENTITY_VIEW_EVENT.getType()));
+        QueryBuilders.termQuery(
+            DataHubUsageEventConstants.TYPE, DataHubUsageEventType.ENTITY_VIEW_EVENT.getType()));
     source.query(query);
 
     // Find the entities with the most views
-    AggregationBuilder aggregation = AggregationBuilders.terms(ENTITY_AGG_NAME)
-        .field(ESUtils.toKeywordField(DataHubUsageEventConstants.ENTITY_URN, false))
-        .size(MAX_CONTENT * 2);
+    AggregationBuilder aggregation =
+        AggregationBuilders.terms(ENTITY_AGG_NAME)
+            .field(ESUtils.toKeywordField(DataHubUsageEventConstants.ENTITY_URN, false))
+            .size(MAX_CONTENT * 2);
     source.aggregation(aggregation);
     source.size(0);
 
@@ -139,12 +145,17 @@ public class MostPopularSource implements RecommendationSource {
 
   private Optional<RecommendationContent> buildContent(@Nonnull String entityUrn) {
     Urn entity = UrnUtils.getUrn(entityUrn);
-    if (EntityUtils.checkIfRemoved(_entityService, entity) || !RecommendationUtils.isSupportedEntityType(entity, SUPPORTED_ENTITY_TYPES)) {
+    if (EntityUtils.checkIfRemoved(_entityService, entity)
+        || !RecommendationUtils.isSupportedEntityType(entity, SUPPORTED_ENTITY_TYPES)) {
       return Optional.empty();
     }
 
-    return Optional.of(new RecommendationContent().setEntity(entity)
-        .setValue(entityUrn)
-        .setParams(new RecommendationParams().setEntityProfileParams(new EntityProfileParams().setUrn(entity))));
+    return Optional.of(
+        new RecommendationContent()
+            .setEntity(entity)
+            .setValue(entityUrn)
+            .setParams(
+                new RecommendationParams()
+                    .setEntityProfileParams(new EntityProfileParams().setUrn(entity))));
   }
 }
