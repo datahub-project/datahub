@@ -299,9 +299,14 @@ class JsonSchemaSource(StatefulIngestionSourceBase):
                 if not all([external_url_parsed.scheme, external_url_parsed.netloc]):
                     external_url = None
                 else:
-                    dataset_patch_builder.add_custom_property(
-                        "externalUrl", external_url
-                    )
+                    yield MetadataChangeProposalWrapper(
+                        entityUrn=dataset_urn,
+                        aspect=models.DatasetPropertiesClass(
+                            externalUrl=JsonSchemaTranslator._get_id_from_any_schema(
+                                schema_dict
+                            )
+                        ),
+                    ).as_workunit()
             except:
                 # Nothing to do in this case
                 pass
@@ -309,7 +314,7 @@ class JsonSchemaSource(StatefulIngestionSourceBase):
                 schema_dict
             )
             if description:
-                dataset_patch_builder.add_custom_property("description", description)
+                dataset_patch_builder.set_description("description", description)
 
             for mcp in dataset_patch_builder.build():
                 yield MetadataWorkUnit(id=f"{dataset_urn}-properties", mcp_raw=mcp)
