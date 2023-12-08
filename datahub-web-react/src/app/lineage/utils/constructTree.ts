@@ -96,6 +96,7 @@ export default function constructTree(
         unexploredChildren: 0,
         siblingPlatforms: fetchedEntity?.siblingPlatforms,
         schemaMetadata: fetchedEntity?.schemaMetadata,
+        editableSchemaMetadata: fetchedEntity?.editableSchemaMetadata,
         inputFields: fetchedEntity?.inputFields,
         canEditLineage: fetchedEntity?.canEditLineage,
         upstreamRelationships: fetchedEntity?.upstreamRelationships || [],

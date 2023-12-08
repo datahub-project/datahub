@@ -6,6 +6,7 @@ import {
     EditableSchemaMetadataUpdate,
     SchemaField,
     PlatformSchema,
+    Maybe,
 } from '../../../../../../types.generated';
 import { convertTagsForUpdate } from '../../../../../shared/tags/utils/convertTagsForUpdate';
 import { SchemaDiffSummary } from '../components/SchemaVersionSummary';
@@ -66,6 +67,17 @@ export function downgradeV2FieldPath(fieldPath?: string | null) {
 
 export function pathMatchesNewPath(fieldPathA?: string | null, fieldPathB?: string | null) {
     return fieldPathA === fieldPathB || fieldPathA === downgradeV2FieldPath(fieldPathB);
+}
+
+export function getFieldRelevantDescription(
+    field: SchemaField,
+    editableSchemaMetadata: Maybe<EditableSchemaMetadata> | undefined,
+): Maybe<string> | undefined {
+    const relevantEditableFieldInfo = editableSchemaMetadata?.editableSchemaFieldInfo.find(
+        (candidateEditableFieldInfo) => pathMatchesNewPath(candidateEditableFieldInfo.fieldPath, field.fieldPath),
+    );
+
+    return relevantEditableFieldInfo?.description ?? field.description;
 }
 
 // group schema fields by fieldPath and grouping for hierarchy in schema table

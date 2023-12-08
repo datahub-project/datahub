@@ -9,6 +9,7 @@ import { ANTD_GRAY } from '../entity/shared/constants';
 import { centerY, COLUMN_HEIGHT, EXPAND_COLLAPSE_COLUMNS_TOGGLE_HEIGHT, iconX, width } from './constants';
 import { truncate } from '../entity/shared/utils';
 import { highlightColumnLineage } from './utils/highlightColumnLineage';
+import useFieldDescription from './utils/useFieldDescription';
 
 const MAX_NUM_FIELD_CHARACTERS = 25;
 const HOVER_TEXT_SHIFT = 10;
@@ -43,7 +44,8 @@ export default function ColumnNode({ field, index, node, titleHeight, onHover }:
         ((fineGrainedMap.forward[nodeUrn] && fineGrainedMap.forward[nodeUrn][field.fieldPath]) ||
             (fineGrainedMap.reverse[nodeUrn] && fineGrainedMap.reverse[nodeUrn][field.fieldPath]));
     const fieldPath = downgradeV2FieldPath(field.fieldPath);
-    const isTruncated = fieldPath && fieldPath.length > MAX_NUM_FIELD_CHARACTERS;
+    const fieldDescription = useFieldDescription(field, node.data.editableSchemaMetadata);
+    const fieldPathWithDescription = `${fieldPath} - ${fieldDescription}`;
     const titleAndToggleHeight = titleHeight + EXPAND_COLLAPSE_COLUMNS_TOGGLE_HEIGHT;
 
     return (
@@ -93,7 +95,7 @@ export default function ColumnNode({ field, index, node, titleHeight, onHover }:
                     <rect
                         x={iconX - 21 + HOVER_TEXT_SHIFT}
                         y={centerY + 30 + titleAndToggleHeight + index * COLUMN_HEIGHT}
-                        width={width + (fieldPath?.substring(MAX_NUM_FIELD_CHARACTERS).length || 0) * 7}
+                        width={width + (fieldPathWithDescription.substring(MAX_NUM_FIELD_CHARACTERS).length || 0) * 7}
                         height="29"
                         fill="white"
                         stroke={ANTD_GRAY[8]}
@@ -110,7 +112,7 @@ export default function ColumnNode({ field, index, node, titleHeight, onHover }:
                         fontFamily="'Roboto Mono',monospace"
                         fill={hasEdge ? 'black' : ANTD_GRAY[7]}
                     >
-                        {fieldPath}
+                        {fieldPathWithDescription}
                     </UnselectableText>
                 </>
             )}
@@ -121,9 +123,7 @@ export default function ColumnNode({ field, index, node, titleHeight, onHover }:
                 fontSize={12}
                 fontFamily="'Roboto Mono',monospace"
                 fill={hasEdge ? 'black' : ANTD_GRAY[7]}
-                onMouseEnter={() => {
-                    if (isTruncated) setShowHoverText(true);
-                }}
+                onMouseEnter={() => setShowHoverText(true)}
                 onMouseLeave={() => setShowHoverText(false)}
             >
                 {truncate(MAX_NUM_FIELD_CHARACTERS, fieldPath)}

@@ -20,6 +20,7 @@ import {
     LineageRelationship,
     SiblingProperties,
     Health,
+    EditableSchemaMetadata,
 } from '../../types.generated';
 
 export type EntitySelectParams = {
@@ -55,6 +56,7 @@ export type FetchedEntity = {
     fineGrainedLineages?: FineGrainedLineage[];
     siblings?: Maybe<SiblingProperties>;
     schemaMetadata?: SchemaMetadata;
+    editableSchemaMetadata?: EditableSchemaMetadata;
     inputFields?: InputFields;
     canEditLineage?: boolean;
     health?: Health[];
@@ -77,6 +79,7 @@ export type NodeData = {
     status?: Maybe<Status>;
     siblingPlatforms?: Maybe<DataPlatform[]>;
     schemaMetadata?: SchemaMetadata;
+    editableSchemaMetadata?: EditableSchemaMetadata;
     inputFields?: InputFields;
     canEditLineage?: boolean;
     upstreamRelationships?: Array<LineageRelationship>;
