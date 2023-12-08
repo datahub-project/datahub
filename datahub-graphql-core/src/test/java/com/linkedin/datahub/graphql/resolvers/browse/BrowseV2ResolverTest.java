@@ -247,17 +247,16 @@ public class BrowseV2ResolverTest {
       BrowseResultV2 result)
       throws Exception {
     EntityClient client = Mockito.mock(EntityClient.class);
-    Mockito.when(client.browseV2(
-        Mockito.eq(ImmutableList.of(entityName)),
-        Mockito.eq(path),
-        Mockito.eq(filter),
-        Mockito.eq(query),
-        Mockito.eq(start),
-        Mockito.eq(limit),
-        Mockito.any(Authentication.class)
-    )).thenReturn(
-        result
-    );
+    Mockito.when(
+            client.browseV2(
+                Mockito.eq(ImmutableList.of(entityName)),
+                Mockito.eq(path),
+                Mockito.eq(filter),
+                Mockito.eq(query),
+                Mockito.eq(start),
+                Mockito.eq(limit),
+                Mockito.any(Authentication.class)))
+        .thenReturn(result);
     return client;
   }
 

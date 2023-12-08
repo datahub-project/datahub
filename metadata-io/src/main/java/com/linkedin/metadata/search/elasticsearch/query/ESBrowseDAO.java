@@ -427,21 +427,34 @@ public class ESBrowseDAO {
     }
   }
 
-  public BrowseResultV2 browseV2(@Nonnull List<String> entities, @Nonnull String path, @Nullable Filter filter, @Nonnull String input, int start, int count) {
+  public BrowseResultV2 browseV2(
+      @Nonnull List<String> entities,
+      @Nonnull String path,
+      @Nullable Filter filter,
+      @Nonnull String input,
+      int start,
+      int count) {
     try {
       final SearchResponse groupsResponse;
 
       try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "esGroupSearch").time()) {
         final String finalInput = input.isEmpty() ? "*" : input;
         groupsResponse =
-            client.search(constructGroupsSearchRequestBrowseAcrossEntities(entities, path, filter, finalInput), RequestOptions.DEFAULT);
+            client.search(
+                constructGroupsSearchRequestBrowseAcrossEntities(
+                    entities, path, filter, finalInput),
+                RequestOptions.DEFAULT);
       }
 
-      final BrowseGroupsResultV2 browseGroupsResult = extractGroupsResponseV2(groupsResponse, path, start, count);
+      final BrowseGroupsResultV2 browseGroupsResult =
+          extractGroupsResponseV2(groupsResponse, path, start, count);
       final int numGroups = browseGroupsResult.getTotalGroups();
 
-      return new BrowseResultV2().setMetadata(
-          new BrowseResultMetadata().setTotalNumEntities(browseGroupsResult.getTotalNumEntities()).setPath(path))
+      return new BrowseResultV2()
+          .setMetadata(
+              new BrowseResultMetadata()
+                  .setTotalNumEntities(browseGroupsResult.getTotalNumEntities())
+                  .setPath(path))
           .setGroups(new BrowseResultGroupV2Array(browseGroupsResult.getGroups()))
           .setNumGroups(numGroups)
           .setFrom(start)
@@ -480,18 +493,21 @@ public class ESBrowseDAO {
       @Nullable Filter filter,
       @Nonnull String input) {
 
-    List<EntitySpec> entitySpecs = entities.stream()
-        .map(entityRegistry::getEntitySpec)
-        .collect(Collectors.toList());
+    List<EntitySpec> entitySpecs =
+        entities.stream().map(entityRegistry::getEntitySpec).collect(Collectors.toList());
 
-    String[] indexArray = entities.stream()
-        .map(indexConvention::getEntityIndexName)
-        .toArray(String[]::new);
+    String[] indexArray =
+        entities.stream().map(indexConvention::getEntityIndexName).toArray(String[]::new);
 
     final SearchRequest searchRequest = new SearchRequest(indexArray);
     final SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
     searchSourceBuilder.size(0);
-    searchSourceBuilder.query(buildQueryStringBrowseAcrossEntities(entitySpecs, path, SearchUtil.transformFilterForEntities(filter, indexConvention), input));
+    searchSourceBuilder.query(
+        buildQueryStringBrowseAcrossEntities(
+            entitySpecs,
+            path,
+            SearchUtil.transformFilterForEntities(filter, indexConvention),
+            input));
     searchSourceBuilder.aggregation(buildAggregationsV2(path));
     searchRequest.source(searchSourceBuilder);
     return searchRequest;
@@ -553,9 +569,9 @@ public class ESBrowseDAO {
 
     final BoolQueryBuilder queryBuilder = QueryBuilders.boolQuery();
 
-    QueryBuilder query = SearchRequestHandler
-        .getBuilder(entitySpecs, searchConfiguration, customSearchConfiguration)
-        .getQuery(input, false);
+    QueryBuilder query =
+        SearchRequestHandler.getBuilder(entitySpecs, searchConfiguration, customSearchConfiguration)
+            .getQuery(input, false);
     queryBuilder.must(query);
 
     if (!path.isEmpty()) {
