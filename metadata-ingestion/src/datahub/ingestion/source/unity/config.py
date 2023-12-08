@@ -129,6 +129,14 @@ class UnityCatalogSourceConfig(
     workspace_url: str = pydantic.Field(
         description="Databricks workspace url. e.g. https://my-workspace.cloud.databricks.com"
     )
+    warehouse_id: Optional[str] = pydantic.Field(
+        default=None,
+        description="SQL Warehouse id, for running queries. If not set, will use the default warehouse.",
+    )
+    include_hive_metastore: bool = pydantic.Field(
+        default=False,
+        description="Whether to ingest legacy `hive_metastore` catalog. This requires executing queries on SQL warehouse.",
+    )
     workspace_name: Optional[str] = pydantic.Field(
         default=None,
         description="Name of the workspace. Default to deployment name present in workspace_url",
@@ -254,16 +262,17 @@ class UnityCatalogSourceConfig(
 
     scheme: str = DATABRICKS
 
-    def get_sql_alchemy_url(self):
+    def get_sql_alchemy_url(self, database: Optional[str] = None) -> str:
+        uri_opts = {"http_path": f"/sql/1.0/warehouses/{self.warehouse_id}"}
+        if database:
+            uri_opts["catalog"] = database
         return make_sqlalchemy_uri(
             scheme=self.scheme,
             username="token",
             password=self.token,
             at=urlparse(self.workspace_url).netloc,
-            db=None,
-            uri_opts={
-                "http_path": f"/sql/1.0/warehouses/{self.profiling.warehouse_id}"
-            },
+            db=database,
+            uri_opts=uri_opts,
         )
 
     def is_profiling_enabled(self) -> bool:
@@ -303,4 +312,33 @@ class UnityCatalogSourceConfig(
             )
             logger.warning(msg)
             add_global_warning(msg)
+        return v
+
+    @pydantic.root_validator(skip_on_failure=True)
+    def set_warehouse_id_from_profiling(cls, values: Dict[str, Any]) -> Dict[str, Any]:
+        profiling: Optional[UnityCatalogProfilerConfig] = values.get("profiling")
+        if not values.get("warehouse_id") and profiling and profiling.warehouse_id:
+            values["warehouse_id"] = values["profiling"].warehouse_id
+        if (
+            values.get("warehouse_id")
+            and profiling
+            and profiling.warehouse_id
+            and values["warehouse_id"] != profiling.warehouse_id
+        ):
+            raise ValueError(
+                "When `warehouse_id` is set, it must match the `warehouse_id` in `profiling`."
+            )
+
+        if values.get("include_hive_metastore") and not values.get("warehouse_id"):
+            raise ValueError(
+                "When `include_hive_metastore` is set, `warehouse_id` must be set."
+            )
+
+        return values
+
+    @pydantic.validator("schema_pattern", always=True)
+    def schema_pattern_should__always_deny_information_schema(
+        cls, v: AllowDenyPattern
+    ) -> AllowDenyPattern:
+        v.deny.append(".*\\.information_schema")
         return v

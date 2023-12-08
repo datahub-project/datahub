@@ -16,6 +16,8 @@ class UnityCatalogReport(IngestionStageReport, ProfilingSqlReport):
     table_profiles: EntityFilterReport = EntityFilterReport.field(type="table profile")
     notebooks: EntityFilterReport = EntityFilterReport.field(type="notebook")
 
+    hive_metastore_catalog_found: bool = False
+
     num_column_lineage_skipped_column_count: int = 0
     num_external_upstreams_lacking_permissions: int = 0
     num_external_upstreams_unsupported: int = 0
