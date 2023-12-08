@@ -116,7 +116,9 @@ setup(
     click.echo()
     click.echo(f"Install the custom package locally with `pip install {package_path}`")
     click.echo(
-        f"To enable others to use it, share the file at {package_path}/dist/*.whl and have them install it with `pip install <wheel file>.whl`"
+        "To enable others to use it, share the file at "
+        f"{package_path}/dist/{package_name}-{package_version}-py3-none-any.whl "
+        "and have them install it with `pip install <wheel file>.whl`"
     )
     click.echo(
         f"Alternatively, publish it to PyPI with `twine upload {package_path}/dist/*`"

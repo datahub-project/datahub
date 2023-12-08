@@ -282,7 +282,7 @@ Generated package at custom-package/my-company-datahub-models
 This package should be installed alongside the main acryl-datahub package.
 
 Install the custom package locally with `pip install custom-package/my-company-datahub-models`
-To enable others to use it, share the file at custom-package/my-company-datahub-models/dist/*.whl and have them install it with `pip install <wheel file>.whl`
+To enable others to use it, share the file at custom-package/my-company-datahub-models/dist/<wheel file>.whl and have them install it with `pip install <wheel file>.whl`
 Alternatively, publish it to PyPI with `twine upload custom-package/my-company-datahub-models/dist/*`
 ```
 
