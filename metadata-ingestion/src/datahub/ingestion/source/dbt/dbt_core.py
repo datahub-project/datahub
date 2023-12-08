@@ -467,7 +467,11 @@ class DBTCoreSource(DBTSourceBase):
         ) = self.loadManifestAndCatalog()
 
         # If catalog_version is between 1.7.0 and 1.7.2, report a warning.
-        if catalog_version.startswith("1.7.") and catalog_version < "1.7.3":
+        if (
+            catalog_version
+            and catalog_version.startswith("1.7.")
+            and catalog_version < "1.7.3"
+        ):
             self.report.report_warning(
                 "dbt_catalog_version",
                 f"Due to a bug in dbt, dbt version {catalog_version} will have incomplete metadata on sources. "
