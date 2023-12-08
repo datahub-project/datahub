@@ -6,6 +6,7 @@ import traceback
 from collections import defaultdict
 from datetime import datetime, timedelta
 from typing import Dict, Iterable, List, Optional, Set, Type, Union, cast
+from unittest.mock import patch
 
 from google.cloud import bigquery
 from google.cloud.bigquery.table import TableListItem
@@ -1031,66 +1032,70 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
     def gen_schema_fields(self, columns: List[BigqueryColumn]) -> List[SchemaField]:
         schema_fields: List[SchemaField] = []
 
-        HiveColumnToAvroConverter._STRUCT_TYPE_SEPARATOR = " "
-        _COMPLEX_TYPE = re.compile("^(struct|array)")
-        last_id = -1
-        for col in columns:
-            # if col.data_type is empty that means this column is part of a complex type
-            if col.data_type is None or _COMPLEX_TYPE.match(col.data_type.lower()):
-                # If the we have seen the ordinal position that most probably means we already processed this complex type
-                if last_id != col.ordinal_position:
-                    schema_fields.extend(
-                        get_schema_fields_for_hive_column(
-                            col.name, col.data_type.lower(), description=col.comment
-                        )
-                    )
-
-                # We have to add complex type comments to the correct level
-                if col.comment:
-                    for idx, field in enumerate(schema_fields):
-                        # Remove all the [version=2.0].[type=struct]. tags to get the field path
-                        if (
-                            re.sub(
-                                r"\[.*?\]\.",
-                                "",
-                                field.fieldPath.lower(),
-                                0,
-                                re.MULTILINE,
-                            )
-                            == col.field_path.lower()
-                        ):
-                            field.description = col.comment
-                            schema_fields[idx] = field
-                            break
-            else:
-                tags = []
-                if col.is_partition_column:
-                    tags.append(
-                        TagAssociationClass(make_tag_urn(Constants.TAG_PARTITION_KEY))
-                    )
-
-                if col.cluster_column_position is not None:
-                    tags.append(
-                        TagAssociationClass(
-                            make_tag_urn(
-                                f"{CLUSTERING_COLUMN_TAG}_{col.cluster_column_position}"
+        with patch.object(HiveColumnToAvroConverter, "_STRUCT_TYPE_SEPARATOR", " "):
+            _COMPLEX_TYPE = re.compile("^(struct|array)")
+            last_id = -1
+            for col in columns:
+                # if col.data_type is empty that means this column is part of a complex type
+                if col.data_type is None or _COMPLEX_TYPE.match(col.data_type.lower()):
+                    # If the we have seen the ordinal position that most probably means we already processed this complex type
+                    if last_id != col.ordinal_position:
+                        schema_fields.extend(
+                            get_schema_fields_for_hive_column(
+                                col.name, col.data_type.lower(), description=col.comment
                             )
                         )
-                    )
 
-                field = SchemaField(
-                    fieldPath=col.name,
-                    type=SchemaFieldDataType(
-                        self.BIGQUERY_FIELD_TYPE_MAPPINGS.get(col.data_type, NullType)()
-                    ),
-                    # NOTE: nativeDataType will not be in sync with older connector
-                    nativeDataType=col.data_type,
-                    description=col.comment,
-                    nullable=col.is_nullable,
-                    globalTags=GlobalTagsClass(tags=tags),
-                )
-                schema_fields.append(field)
-            last_id = col.ordinal_position
+                    # We have to add complex type comments to the correct level
+                    if col.comment:
+                        for idx, field in enumerate(schema_fields):
+                            # Remove all the [version=2.0].[type=struct]. tags to get the field path
+                            if (
+                                re.sub(
+                                    r"\[.*?\]\.",
+                                    "",
+                                    field.fieldPath.lower(),
+                                    0,
+                                    re.MULTILINE,
+                                )
+                                == col.field_path.lower()
+                            ):
+                                field.description = col.comment
+                                schema_fields[idx] = field
+                                break
+                else:
+                    tags = []
+                    if col.is_partition_column:
+                        tags.append(
+                            TagAssociationClass(
+                                make_tag_urn(Constants.TAG_PARTITION_KEY)
+                            )
+                        )
+
+                    if col.cluster_column_position is not None:
+                        tags.append(
+                            TagAssociationClass(
+                                make_tag_urn(
+                                    f"{CLUSTERING_COLUMN_TAG}_{col.cluster_column_position}"
+                                )
+                            )
+                        )
+
+                    field = SchemaField(
+                        fieldPath=col.name,
+                        type=SchemaFieldDataType(
+                            self.BIGQUERY_FIELD_TYPE_MAPPINGS.get(
+                                col.data_type, NullType
+                            )()
+                        ),
+                        # NOTE: nativeDataType will not be in sync with older connector
+                        nativeDataType=col.data_type,
+                        description=col.comment,
+                        nullable=col.is_nullable,
+                        globalTags=GlobalTagsClass(tags=tags),
+                    )
+                    schema_fields.append(field)
+                last_id = col.ordinal_position
         return schema_fields
 
     def gen_schema_metadata(
