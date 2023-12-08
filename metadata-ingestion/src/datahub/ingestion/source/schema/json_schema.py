@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from os.path import basename, dirname
 from pathlib import Path
 from typing import Any, Iterable, List, Optional, Union
+from urllib.parse import urlparse
 
 import jsonref
 from pydantic import AnyHttpUrl, DirectoryPath, FilePath, validator
@@ -281,12 +282,16 @@ class JsonSchemaSource(StatefulIngestionSourceBase):
                 entityUrn=dataset_urn, aspect=models.StatusClass(removed=False)
             ).as_workunit()
 
+            external_url = JsonSchemaTranslator._get_id_from_any_schema(schema_dict)
+            try:
+                external_url_parsed = urlparse(external_url)
+            except:
+                external_url_parsed = None
+
             yield MetadataChangeProposalWrapper(
                 entityUrn=dataset_urn,
                 aspect=models.DatasetPropertiesClass(
-                    externalUrl=JsonSchemaTranslator._get_id_from_any_schema(
-                        schema_dict
-                    ),
+                    externalUrl=external_url_parsed,
                     name=dataset_simple_name,
                     description=JsonSchemaTranslator._get_description_from_any_schema(
                         schema_dict
