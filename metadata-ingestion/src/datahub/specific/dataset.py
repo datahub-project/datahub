@@ -187,9 +187,7 @@ class DatasetPatchBuilder(MetadataPatchProposal):
         self, fine_grained_lineage: FineGrainedLineage
     ) -> "DatasetPatchBuilder":
         transform_op = (
-            fine_grained_lineage.transformOperation
-            if fine_grained_lineage.transformOperation is not None
-            else "NONE"
+            fine_grained_lineage.transformOperation or "NONE"
         )
         upstream_type = (
             fine_grained_lineage.upstreamType
