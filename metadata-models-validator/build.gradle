@@ -10,6 +10,6 @@ dependencies {
   implementation externalDependency.guava
 
   implementation externalDependency.slf4jApi
-  runtimeOnly externalDependency.logbackClassic
+  runtimeOnly externalDependency.logbackClassicJava11
   compileOnly externalDependency.lombok
 }

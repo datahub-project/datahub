@@ -21,9 +21,9 @@ dependencies {
   implementation externalDependency.slf4jApi
   compileOnly externalDependency.lombok
   annotationProcessor externalDependency.lombok
-  runtimeOnly externalDependency.logbackClassic
+  runtimeOnly externalDependency.logbackClassicJava11
   testImplementation externalDependency.mockito
-  testRuntimeOnly externalDependency.logbackClassic
+  testRuntimeOnly externalDependency.logbackClassicJava11
 }
 
 task avroSchemaSources(type: Copy) {

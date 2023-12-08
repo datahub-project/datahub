@@ -84,7 +84,7 @@ dependencies {
   runtimeOnly externalDependency.playGuice
   implementation externalDependency.log4j2Api
 
-  implementation externalDependency.logbackClassic
+  implementation externalDependency.logbackClassicJava11
 
   annotationProcessor externalDependency.lombok
 }

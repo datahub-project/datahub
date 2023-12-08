@@ -37,9 +37,9 @@ dependencies {
 
   runtimeOnly externalDependency.log4jCore
   runtimeOnly externalDependency.log4j2Api
-  runtimeOnly externalDependency.logbackClassic
+  runtimeOnly externalDependency.logbackClassicJava11
   implementation externalDependency.awsMskIamAuth
-  testRuntimeOnly externalDependency.logbackClassic
+  testRuntimeOnly externalDependency.logbackClassicJava11
   implementation externalDependency.charle
 }
 configurations.all{

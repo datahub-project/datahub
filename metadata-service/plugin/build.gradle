@@ -9,7 +9,7 @@ dependencies {
   implementation externalDependency.jacksonDataFormatYaml
   implementation externalDependency.jacksonJDK8
   implementation externalDependency.jacksonDataPropertyFormat
-  implementation externalDependency.logbackClassic;
+  implementation externalDependency.logbackClassicJava11
   implementation externalDependency.slf4jApi
   
   compileOnly externalDependency.lombok

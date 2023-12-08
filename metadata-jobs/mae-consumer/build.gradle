@@ -39,14 +39,14 @@ dependencies {
 
     annotationProcessor externalDependency.lombok
 
-    runtimeOnly externalDependency.logbackClassic
+    runtimeOnly externalDependency.logbackClassicJava11
 
     testImplementation externalDependency.mockito
     implementation externalDependency.awsMskIamAuth
 
     testImplementation externalDependency.testng
     testImplementation externalDependency.springBootTest
-    testRuntimeOnly externalDependency.logbackClassic
+    testRuntimeOnly externalDependency.logbackClassicJava11
 }
 
 task avroSchemaSources(type: Copy) {

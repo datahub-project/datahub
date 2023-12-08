@@ -52,7 +52,7 @@ dependencies {
   implementation externalDependency.neo4jJavaDriver
   implementation externalDependency.opentelemetryAnnotations
 
-  runtimeOnly externalDependency.logbackClassic
+  runtimeOnly externalDependency.logbackClassicJava11
 
   annotationProcessor externalDependency.lombok
 

@@ -18,7 +18,7 @@ dependencies {
 
     implementation externalDependency.slf4jApi
     implementation externalDependency.swaggerAnnotations
-    runtimeOnly externalDependency.logbackClassic
+    runtimeOnly externalDependency.logbackClassicJava11
     compileOnly externalDependency.lombok
     implementation externalDependency.commonsCollections
     implementation externalDependency.javatuples

@@ -26,7 +26,7 @@ dependencies {
     implementation externalDependency.slf4jApi
     implementation externalDependency.log4j2Api
     compileOnly externalDependency.lombok
-    implementation externalDependency.logbackClassic
+    implementation externalDependency.logbackClassicJava11
 
     testImplementation project(':metadata-dao-impl:kafka-producer')
     testImplementation externalDependency.springBootTest

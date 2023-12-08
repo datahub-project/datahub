@@ -32,7 +32,7 @@ dependencies {
   testImplementation externalDependency.springKafka
   testImplementation externalDependency.testng
   testImplementation externalDependency.mockito
-  testImplementation externalDependency.logbackClassic
+  testImplementation externalDependency.logbackClassicJava11
   testImplementation externalDependency.jacksonCore
   testImplementation externalDependency.jacksonDataBind
   testImplementation externalDependency.springBootStarterWeb

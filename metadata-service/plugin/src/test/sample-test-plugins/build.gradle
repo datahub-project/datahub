@@ -6,7 +6,7 @@ jar {
 dependencies {
   implementation project(path: ':metadata-auth:auth-api')
   implementation externalDependency.lombok
-  implementation externalDependency.logbackClassic;
+  implementation externalDependency.logbackClassicJava11
   implementation 'com.google.code.findbugs:jsr305:3.0.2'
 
   testImplementation 'org.junit.jupiter:junit-jupiter-api:5.8.1'

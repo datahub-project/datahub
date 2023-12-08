@@ -55,7 +55,7 @@ dependencies {
   testImplementation externalDependency.mockServerClient
   testImplementation externalDependency.testContainers
   testImplementation externalDependency.httpAsyncClient
-  testRuntimeOnly externalDependency.logbackClassic
+  testRuntimeOnly externalDependency.logbackClassicJava8
 
   swaggerCodegen externalDependency.swaggerCli
 }

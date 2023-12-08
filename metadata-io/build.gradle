@@ -27,7 +27,7 @@ dependencies {
     exclude group: 'io.grpc', module: 'grpc-protobuf'
   }
   implementation externalDependency.slf4jApi
-  runtimeOnly externalDependency.logbackClassic
+  runtimeOnly externalDependency.logbackClassicJava11
   compileOnly externalDependency.lombok
   implementation externalDependency.commonsCollections
   api externalDependency.datastaxOssNativeProtocol

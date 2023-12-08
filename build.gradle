@@ -17,7 +17,8 @@ buildscript {
   ext.log4jVersion = '2.19.0'
   ext.slf4jVersion = '1.7.36'
   // 1.3.x support Java 8, 1.4.x requires Java 11 which causes issues with some submodules
-  ext.logbackClassic = '1.3.14'
+  ext.logbackClassicJava8 = '1.3.14'
+  ext.logbackClassicJava11 = '1.4.14'
   ext.hadoop3Version = '3.3.5'
   ext.kafkaVersion = '2.3.0'
   ext.hazelcastVersion = '5.3.6'
@@ -144,7 +145,8 @@ project.ext.externalDependency = [
     'kafkaAvroSerializer': 'io.confluent:kafka-avro-serializer:5.1.4',
     'kafkaClients': "org.apache.kafka:kafka-clients:$kafkaVersion",
     'snappy': 'org.xerial.snappy:snappy-java:1.1.10.4',
-    'logbackClassic': "ch.qos.logback:logback-classic:$logbackClassic",
+    'logbackClassicJava8': "ch.qos.logback:logback-classic:$logbackClassicJava8",
+    'logbackClassicJava11': "ch.qos.logback:logback-classic:$logbackClassicJava11",
     'slf4jApi': "org.slf4j:slf4j-api:$slf4jVersion",
     'log4jCore': "org.apache.logging.log4j:log4j-core:$log4jVersion",
     'log4jApi': "org.apache.logging.log4j:log4j-api:$log4jVersion",
