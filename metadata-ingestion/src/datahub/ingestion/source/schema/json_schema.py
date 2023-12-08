@@ -287,7 +287,7 @@ class JsonSchemaSource(StatefulIngestionSourceBase):
                 external_url_parsed = urlparse(external_url)
                 if not all([external_url_parsed.scheme, external_url_parsed.netloc]):
                     external_url_parsed = None
-            except:
+            except Exception:
                 external_url_parsed = None
 
             yield MetadataChangeProposalWrapper(
