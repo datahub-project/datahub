@@ -3,3 +3,8 @@ export type DataProductBuilderState = {
     id?: string;
     description?: string;
 };
+
+export type DataProductBuilderFormProps = {
+    builderState: DataProductBuilderState;
+    updateBuilderState: (newState: DataProductBuilderState) => void;
+};
