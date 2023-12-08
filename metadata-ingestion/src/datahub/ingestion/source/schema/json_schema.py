@@ -285,6 +285,8 @@ class JsonSchemaSource(StatefulIngestionSourceBase):
             external_url = JsonSchemaTranslator._get_id_from_any_schema(schema_dict)
             try:
                 external_url_parsed = urlparse(external_url)
+                if not all([external_url_parsed.scheme, external_url_parsed.netloc]):
+                    external_url_parsed = None
             except:
                 external_url_parsed = None
 
