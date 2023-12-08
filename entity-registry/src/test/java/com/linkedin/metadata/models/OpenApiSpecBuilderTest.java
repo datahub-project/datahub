@@ -8,6 +8,9 @@ import com.linkedin.data.avro.SchemaTranslator;
 import com.linkedin.data.schema.annotation.PathSpecBasedSchemaAnnotationVisitor;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.models.registry.MergedEntityRegistry;
+import com.linkedin.metadata.models.registry.PluginEntityRegistryLoader;
+import com.linkedin.metadata.models.registry.TestConstants;
 import io.swagger.v3.core.util.Json;
 import io.swagger.v3.core.util.Yaml;
 import io.swagger.v3.oas.models.Components;
@@ -40,7 +43,7 @@ import static org.testng.Assert.assertEquals;
 
 @SuppressWarnings({"rawtypes", "unchecked"})
 public class OpenApiSpecBuilderTest {
-    private final static String MODEL_VERSION = "_v2";
+    private final static String MODEL_VERSION = "_v3";
     private final static String TYPE_OBJECT = "object";
     private final static String TYPE_BOOLEAN = "boolean";
     private final static String TYPE_STRING = "string";
@@ -87,13 +90,15 @@ public class OpenApiSpecBuilderTest {
     public void testOpenApiSpecBuilder() throws Exception {
         ConfigEntityRegistry configEntityRegistry = new ConfigEntityRegistry(
                 TestEntityProfile.class.getClassLoader().getResourceAsStream("entity-registry.yml"));
+        MergedEntityRegistry er = new MergedEntityRegistry(configEntityRegistry);
+        new PluginEntityRegistryLoader(TestConstants.BASE_DIRECTORY).withBaseRegistry(er).start(true);
 
-        OpenAPI openAPI = generateOpenApiSpec(configEntityRegistry);
+        OpenAPI openAPI = generateOpenApiSpec(er);
         String openapiYaml = Yaml.pretty(openAPI);
         Files.write(Path.of(getClass().getResource("/").getPath(), "open-api.yaml"),
                 openapiYaml.getBytes(StandardCharsets.UTF_8));
 
-        assertEquals(openAPI.getComponents().getSchemas().size(), 816);
+        assertEquals(openAPI.getComponents().getSchemas().size(), 820);
         assertEquals(openAPI.getComponents().getParameters().size(), 50);
         assertEquals(openAPI.getPaths().size(), 90);
     }
@@ -110,7 +115,7 @@ public class OpenApiSpecBuilderTest {
         final Info info = new Info();
         info.setTitle("Entity API");
         info.setDescription("This is a service for DataHub Entities.");
-        info.setVersion("v2");
+        info.setVersion("v3");
         // Components
         final Components components = new Components();
         // --> Aspect components
@@ -270,10 +275,10 @@ public class OpenApiSpecBuilderTest {
 
     private Schema buildEntitySchema(final EntitySpec entity, Set<String> aspectNames,
                                      final boolean withSystemMetadata) {
-        final Map<String, Schema> properties = entity.getAspectSpecs().stream()
-                .filter(a -> aspectNames.contains(a.getName()))
-                .map(a -> a.getPegasusSchema().getName())
-                .collect(Collectors.toMap(n -> n, n -> buildAspectRef(n, withSystemMetadata)));
+        final Map<String, Schema> properties = entity.getAspectSpecMap().entrySet().stream()
+                .filter(a -> aspectNames.contains(a.getValue().getName()))
+                .collect(Collectors.toMap(Map.Entry::getKey,
+                        a -> buildAspectRef(a.getValue().getPegasusSchema().getName(), withSystemMetadata)));
         properties.put(PROPERTY_URN, new Schema<>().type(TYPE_STRING).description("Unique id for " + entity.getName()));
         properties.put(entity.getKeyAspectName(),
                 buildAspectRef(entity.getKeyAspectSpec().getPegasusSchema().getName(), withSystemMetadata));

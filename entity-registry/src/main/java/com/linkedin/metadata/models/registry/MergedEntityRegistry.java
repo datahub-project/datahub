@@ -67,8 +67,12 @@ public class MergedEntityRegistry implements EntityRegistry {
       }
     }
 
+    if (!patchEntityRegistry.getAspectSpecs().isEmpty()) {
+      _aspectNameToSpec.putAll(patchEntityRegistry.getAspectSpecs());
+    }
+
     // Merge Event Specs
-    if (patchEntityRegistry.getEventSpecs().size() > 0) {
+    if (!patchEntityRegistry.getEventSpecs().isEmpty()) {
       eventNameToSpec.putAll(patchEntityRegistry.getEventSpecs());
     }
     //TODO: Validate that the entity registries don't have conflicts among each other
