@@ -383,8 +383,14 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
 
   @Nonnull
   @Override
-  public BrowseResultV2 browseV2(@Nonnull List<String> entityNames, @Nonnull String path, @Nullable Filter filter,
-      @Nonnull String input, int start, int count, @Nonnull Authentication authentication)
+  public BrowseResultV2 browseV2(
+      @Nonnull List<String> entityNames,
+      @Nonnull String path,
+      @Nullable Filter filter,
+      @Nonnull String input,
+      int start,
+      int count,
+      @Nonnull Authentication authentication)
       throws RemoteInvocationException {
     throw new NotImplementedException("BrowseV2 is not implemented in Restli yet");
   }
