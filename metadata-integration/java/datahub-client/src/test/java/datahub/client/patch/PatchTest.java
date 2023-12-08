@@ -50,15 +50,22 @@ public class PatchTest {
   public void testLocalUpstream() {
     RestEmitter restEmitter = new RestEmitter(RestEmitterConfig.builder().build());
     try {
-      DatasetUrn upstreamUrn = DatasetUrn.createFromString("urn:li:dataset:(urn:li:dataPlatform:kafka,SampleKafkaDataset,PROD)");
-      Urn schemaFieldUrn = UrnUtils.getUrn("urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:kafka,SampleKafkaDataset,PROD), foo)");
-      MetadataChangeProposal upstreamPatch = new UpstreamLineagePatchBuilder()
-          .urn(UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)"))
-          .addUpstream(upstreamUrn, DatasetLineageType.TRANSFORMED)
-          .addFineGrainedUpstreamDataset(upstreamUrn, null, "TRANSFORM")
-          .addFineGrainedUpstreamField(schemaFieldUrn, null, "TRANSFORM", null)
-          .addFineGrainedDownstreamField(schemaFieldUrn, null, "TRANSFORM", null)
-          .build();
+      DatasetUrn upstreamUrn =
+          DatasetUrn.createFromString(
+              "urn:li:dataset:(urn:li:dataPlatform:kafka,SampleKafkaDataset,PROD)");
+      Urn schemaFieldUrn =
+          UrnUtils.getUrn(
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:kafka,SampleKafkaDataset,PROD), foo)");
+      MetadataChangeProposal upstreamPatch =
+          new UpstreamLineagePatchBuilder()
+              .urn(
+                  UrnUtils.getUrn(
+                      "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)"))
+              .addUpstream(upstreamUrn, DatasetLineageType.TRANSFORMED)
+              .addFineGrainedUpstreamDataset(upstreamUrn, null, "TRANSFORM")
+              .addFineGrainedUpstreamField(schemaFieldUrn, null, "TRANSFORM", null)
+              .addFineGrainedDownstreamField(schemaFieldUrn, null, "TRANSFORM", null)
+              .build();
       Future<MetadataWriteResponse> response = restEmitter.emit(upstreamPatch);
 
       System.out.println(response.get().getResponseContent());
@@ -73,15 +80,24 @@ public class PatchTest {
   public void testLocalUpstreamRemove() {
     RestEmitter restEmitter = new RestEmitter(RestEmitterConfig.builder().build());
     try {
-      DatasetUrn upstreamUrn = DatasetUrn.createFromString("urn:li:dataset:(urn:li:dataPlatform:kafka,SampleKafkaDataset,PROD)");
-      Urn schemaFieldUrn = UrnUtils.getUrn("urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:kafka,SampleKafkaDataset,PROD), foo)");
-      MetadataChangeProposal upstreamPatch = new UpstreamLineagePatchBuilder()
-          .urn(UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)"))
-          .removeUpstream(DatasetUrn.createFromString("urn:li:dataset:(urn:li:dataPlatform:kafka,SampleKafkaDataset,PROD)"))
-          .removeFineGrainedUpstreamDataset(upstreamUrn, "TRANSFORM")
-          .removeFineGrainedUpstreamField(schemaFieldUrn, "TRANSFORM", null)
-          .removeFineGrainedDownstreamField(schemaFieldUrn, "TRANSFORM", null)
-          .build();
+      DatasetUrn upstreamUrn =
+          DatasetUrn.createFromString(
+              "urn:li:dataset:(urn:li:dataPlatform:kafka,SampleKafkaDataset,PROD)");
+      Urn schemaFieldUrn =
+          UrnUtils.getUrn(
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:kafka,SampleKafkaDataset,PROD), foo)");
+      MetadataChangeProposal upstreamPatch =
+          new UpstreamLineagePatchBuilder()
+              .urn(
+                  UrnUtils.getUrn(
+                      "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)"))
+              .removeUpstream(
+                  DatasetUrn.createFromString(
+                      "urn:li:dataset:(urn:li:dataPlatform:kafka,SampleKafkaDataset,PROD)"))
+              .removeFineGrainedUpstreamDataset(upstreamUrn, "TRANSFORM")
+              .removeFineGrainedUpstreamField(schemaFieldUrn, "TRANSFORM", null)
+              .removeFineGrainedDownstreamField(schemaFieldUrn, "TRANSFORM", null)
+              .build();
       Future<MetadataWriteResponse> response = restEmitter.emit(upstreamPatch);
 
       System.out.println(response.get().getResponseContent());
