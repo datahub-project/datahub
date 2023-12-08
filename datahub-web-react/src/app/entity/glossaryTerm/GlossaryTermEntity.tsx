@@ -17,7 +17,7 @@ import { SidebarAboutSection } from '../shared/containers/profile/sidebar/AboutS
 import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
 import { EntityActionItem } from '../shared/entity/EntityActions';
 import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
-
+import { RelatedEntitiesTitle } from './profile/RelatedEntitiesTitle';
 /**
  * Definition of the DataHub Dataset entity.
  */
@@ -77,6 +77,9 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
                     {
                         name: 'Related Entities',
                         component: GlossaryRelatedEntity,
+                        getDynamicName: (_) => {
+                            return <RelatedEntitiesTitle />;
+                        },
                     },
                     {
                         name: 'Schema',

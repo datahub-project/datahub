@@ -50,7 +50,7 @@ export type EntityTab = {
     };
     properties?: any;
     id?: string;
-    getDynamicName?: (GenericEntityProperties, T) => string;
+    getDynamicName?: (GenericEntityProperties, T) => string | React.ReactNode;
 };
 
 export type EntitySidebarSection = {
