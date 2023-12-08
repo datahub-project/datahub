@@ -141,10 +141,13 @@ public class SettingsMapper {
     final OidcSettings result = new OidcSettings();
     result.setEnabled(input.isEnabled());
     result.setClientId(input.getClientId());
-    result.setClientSecret(_secretService.decrypt(input.getClientSecret()));
+    result.setClientSecret(input.getClientSecret());
     result.setDiscoveryUri(input.getDiscoveryUri());
     if (input.hasUserNameClaim()) {
       result.setUserNameClaim(input.getUserNameClaim());
+    }
+    if (input.hasUserNameClaimRegex()) {
+      result.setUserNameClaimRegex(input.getUserNameClaimRegex());
     }
     if (input.hasScope()) {
       result.setScope(input.getScope());
@@ -178,6 +181,9 @@ public class SettingsMapper {
     }
     if (input.hasExtractJwtAccessTokenClaims()) {
       result.setExtractJwtAccessTokenClaims(input.isExtractJwtAccessTokenClaims());
+    }
+    if (input.hasPreferredJwsAlgorithm()) {
+      result.setPreferredJwsAlgorithm(input.getPreferredJwsAlgorithm());
     }
     return result;
   }

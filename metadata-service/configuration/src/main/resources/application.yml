@@ -343,10 +343,10 @@ ingestionScheduler:
   enabled: ${ENABLE_INGESTION_SCHEDULER_HOOK:true} # enable to execute ingestion scheduling
 assertions:
   hook:
-    enabled: { ENABLE_ASSERTIONS_HOOK:true }
+    enabled: ${ENABLE_ASSERTIONS_HOOK:true}
 incidents:
   hook:
-    enabled: { ENABLE_INCIDENTS_HOOK:true }
+    enabled: ${ENABLE_INCIDENTS_HOOK:true}
 
 bootstrap:
   upgradeDefaultBrowsePaths:

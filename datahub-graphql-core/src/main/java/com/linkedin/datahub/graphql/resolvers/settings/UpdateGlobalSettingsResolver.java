@@ -146,6 +146,9 @@ public class UpdateGlobalSettingsResolver implements DataFetcher<CompletableFutu
     if (update.getUserNameClaim() != null) {
       oidcSettings.setUserNameClaim(update.getUserNameClaim());
     }
+    if (update.getUserNameClaimRegex() != null) {
+      oidcSettings.setUserNameClaimRegex(update.getUserNameClaimRegex());
+    }
     if (update.getScope() != null) {
       oidcSettings.setScope(update.getScope());
     }
@@ -178,6 +181,9 @@ public class UpdateGlobalSettingsResolver implements DataFetcher<CompletableFutu
     }
     if (update.getExtractJwtAccessTokenClaims() != null) {
       oidcSettings.setExtractJwtAccessTokenClaims(update.getExtractJwtAccessTokenClaims());
+    }
+    if (update.getPreferredJwsAlgorithm() != null) {
+      oidcSettings.setPreferredJwsAlgorithm(update.getPreferredJwsAlgorithm());
     }
   }
 

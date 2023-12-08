@@ -253,6 +253,26 @@ export const OidcIntegration = () => {
                                             />
                                         </SettingValueContainer>
                                     </Form.Item>
+
+                                    <Form.Item label={<Typography.Text strong>User Name Claim Regex</Typography.Text>}>
+                                        <Typography.Text type="secondary">
+                                            The regex used to parse the DataHub username from the user name claim.
+                                            Defaults to (.*) (all).
+                                        </Typography.Text>
+                                        <SettingValueContainer>
+                                            <StyledInput
+                                                value={oidcSettings?.userNameClaimRegex || '.*'}
+                                                placeholder="User Name Claim Regex"
+                                                onChange={(e) =>
+                                                    setOidcSettings({
+                                                        ...oidcSettings,
+                                                        userNameClaimRegex: e.target.value,
+                                                    })
+                                                }
+                                            />
+                                        </SettingValueContainer>
+                                    </Form.Item>
+
                                     <Form.Item label={<Typography.Text strong>Scope</Typography.Text>}>
                                         <Typography.Text type="secondary">
                                             String representing the requested scope from the IdP. Defaults to{' '}
@@ -305,6 +325,23 @@ export const OidcIntegration = () => {
                                                     setOidcSettings({
                                                         ...oidcSettings,
                                                         groupsClaim: e.target.value,
+                                                    })
+                                                }
+                                            />
+                                        </SettingValueContainer>
+                                    </Form.Item>
+                                    <Form.Item
+                                        label={<Typography.Text strong>Preferred Jws Algorithm</Typography.Text>}
+                                    >
+                                        <Typography.Text type="secondary">Which jws algorithm to use</Typography.Text>
+                                        <SettingValueContainer>
+                                            <StyledInput
+                                                value={oidcSettings?.preferredJwsAlgorithm || ''}
+                                                placeholder="Preferred Jws Algorithm"
+                                                onChange={(e) =>
+                                                    setOidcSettings({
+                                                        ...oidcSettings,
+                                                        preferredJwsAlgorithm: e.target.value,
                                                     })
                                                 }
                                             />

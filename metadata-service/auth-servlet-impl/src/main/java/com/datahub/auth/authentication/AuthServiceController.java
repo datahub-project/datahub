@@ -60,6 +60,7 @@ public class AuthServiceController {
   private static final String CLIENT_SECRET = "clientSecret";
   private static final String DISCOVERY_URI = "discoveryUri";
   private static final String USER_NAME_CLAIM = "userNameClaim";
+  private static final String USER_NAME_CLAIM_REGEX = "userNameClaimRegex";
   private static final String SCOPE = "scope";
   private static final String CLIENT_AUTHENTICATION_METHOD = "clientAuthenticationMethod";
   private static final String JIT_PROVISIONING_ENABLED = "jitProvisioningEnabled";
@@ -71,6 +72,7 @@ public class AuthServiceController {
   private static final String USE_NONCE = "useNonce";
   private static final String READ_TIMEOUT = "readTimeout";
   private static final String EXTRACT_JWT_ACCESS_TOKEN_CLAIMS = "extractJwtAccessTokenClaims";
+  private static final String PREFERRED_JWS_ALGORITHM = "preferredJwsAlgorithm";
 
   @Inject
   StatelessTokenService _statelessTokenService;
@@ -476,7 +478,9 @@ public class AuthServiceController {
     if (oidcSettings.hasUserNameClaim()) {
       json.put(USER_NAME_CLAIM, oidcSettings.getUserNameClaim());
     }
-    // TODO: Add user name claim Regex
+    if (oidcSettings.hasUserNameClaimRegex()) {
+      json.put(USER_NAME_CLAIM_REGEX, oidcSettings.getUserNameClaimRegex());
+    }
     if (oidcSettings.hasScope()) {
       json.put(SCOPE, oidcSettings.getScope());
     }
@@ -509,6 +513,9 @@ public class AuthServiceController {
     }
     if (oidcSettings.hasExtractJwtAccessTokenClaims()) {
       json.put(EXTRACT_JWT_ACCESS_TOKEN_CLAIMS, oidcSettings.isExtractJwtAccessTokenClaims());
+    }
+    if (oidcSettings.hasPreferredJwsAlgorithm()) {
+      json.put(PREFERRED_JWS_ALGORITHM, oidcSettings.getPreferredJwsAlgorithm());
     }
   }
 }
