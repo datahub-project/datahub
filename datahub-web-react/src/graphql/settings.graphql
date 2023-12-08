@@ -90,6 +90,8 @@ query getSsoSettings {
                 clientSecret
                 discoveryUri
                 userNameClaim
+                userNameClaimRegex
+                preferredJwsAlgorithm
                 scope
                 clientAuthenticationMethod
                 jitProvisioningEnabled

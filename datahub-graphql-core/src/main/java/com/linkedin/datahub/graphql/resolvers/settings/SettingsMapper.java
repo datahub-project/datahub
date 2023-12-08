@@ -146,6 +146,9 @@ public class SettingsMapper {
     if (input.hasUserNameClaim()) {
       result.setUserNameClaim(input.getUserNameClaim());
     }
+    if (input.hasUserNameClaimRegex()) {
+      result.setUserNameClaimRegex(input.getUserNameClaimRegex());
+    }
     if (input.hasScope()) {
       result.setScope(input.getScope());
     }
@@ -178,6 +181,9 @@ public class SettingsMapper {
     }
     if (input.hasExtractJwtAccessTokenClaims()) {
       result.setExtractJwtAccessTokenClaims(input.isExtractJwtAccessTokenClaims());
+    }
+    if (input.hasPreferredJwsAlgorithm()) {
+      result.setPreferredJwsAlgorithm(input.getPreferredJwsAlgorithm());
     }
     return result;
   }
