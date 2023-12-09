@@ -24,7 +24,7 @@ WORKDIR /go/src/github.com/jwilder/dockerize
 
 RUN go install github.com/jwilder/dockerize@$DOCKERIZE_VERSION
 
-FROM alpine:3 AS base
+FROM alpine:3.18 AS base
 
 # Upgrade Alpine and base packages
 ENV JMX_VERSION=0.18.0
