@@ -88,11 +88,25 @@ class SqlQueriesSourceReport(SourceReport):
 
 @platform_name("SQL Queries")
 @config_class(SqlQueriesSourceConfig)
-@support_status(SupportStatus.TESTING)
+@support_status(SupportStatus.INCUBATING)
 @capability(SourceCapability.LINEAGE_COARSE, "Parsed from SQL queries")
 @capability(SourceCapability.LINEAGE_FINE, "Parsed from SQL queries")
 class SqlQueriesSource(Source):
-    # TODO: Documentation
+    """
+    This source reads a specifically-formatted JSON file containing SQL queries and parses them to generate lineage.
+
+    This file should contain one JSON object per line, with the following fields:
+    - query: string - The SQL query to parse.
+    - timestamp (optional): number - The timestamp of the query, in seconds since the epoch.
+    - user (optional): string - The user who ran the query.
+    This user value will be directly converted into a DataHub user urn.
+    - operation_type (optional): string - Platform-specific operation type, used if the operation type can't be parsed.
+    - downstream_tables (optional): string[] - Fallback list of tables that the query writes to,
+     used if the query can't be parsed.
+    - upstream_tables (optional): string[] - Fallback list of tables the query reads from,
+     used if the query can't be parsed.
+    """
+
     urns: Optional[Set[str]]
     schema_resolver: SchemaResolver
     builder: SqlParsingBuilder

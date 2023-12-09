@@ -17,7 +17,7 @@ WORKDIR /go/src/github.com/jwilder/dockerize
 
 RUN go install github.com/jwilder/dockerize@$DOCKERIZE_VERSION
 
-FROM alpine:3
+FROM alpine:3.18
 COPY --from=binary /go/bin/dockerize /usr/local/bin
 
 ARG ALPINE_REPO_URL
