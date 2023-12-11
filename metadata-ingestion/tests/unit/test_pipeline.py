@@ -216,7 +216,7 @@ class TestPipeline(object):
                         "type": "simple_add_dataset_ownership",
                         "config": {
                             "owner_urns": ["urn:li:corpuser:foo"],
-                            "ownership_type_urn": "urn:li:ownershipType:__system__technical_owner",
+                            "ownership_type": "urn:li:ownershipType:__system__technical_owner",
                         },
                     }
                 ],
