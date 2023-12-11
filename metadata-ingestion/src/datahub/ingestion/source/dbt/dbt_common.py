@@ -461,7 +461,7 @@ def get_upstreams(
 
         materialized = upstream_manifest_node.materialization
 
-        if materialized in {"view", "table", "incremental", "snapshot"}:
+        if materialized in {"view", "materialized_view", "table", "incremental", "snapshot", "fc_insert_by_period"}:
             # upstream urns point to the target platform
             platform_value = target_platform
             platform_instance_value = target_platform_instance
@@ -729,7 +729,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 target_platform=self.config.target_platform,
                 target_platform_instance=self.config.target_platform_instance,
                 environment=self.config.env,
-                platform_instance=None,
+                platform_instance=self.config.platform_instance,
             )
 
             for upstream_urn in sorted(upstream_urns):
