@@ -6,6 +6,7 @@ import com.linkedin.common.IncidentsSummary;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -46,20 +47,32 @@ public class IncidentsSummaryUtils {
     }
   }
 
-  public static void addIncidentToResolvedSummary(@Nonnull final IncidentSummaryDetails details,  @Nonnull final IncidentsSummary summary) {
+  public static void addIncidentToResolvedSummary(@Nonnull final IncidentSummaryDetails details,  @Nonnull final IncidentsSummary summary,
+      int maxIncidentHistory) {
     final List<IncidentSummaryDetails> existingDetails = summary.getResolvedIncidentDetails();
     final List<IncidentSummaryDetails> newDetails = existingDetails.stream()
         .filter(existing -> !details.getUrn().equals(existing.getUrn()))
+        .sorted(Comparator.comparing(IncidentSummaryDetails::getCreatedAt))
         .collect(Collectors.toList());
+    while (newDetails.size() >= maxIncidentHistory && !newDetails.isEmpty()) {
+      // Removes oldest entry until size is less than max size
+      newDetails.remove(0);
+    }
     newDetails.add(details);
     summary.setResolvedIncidentDetails(new IncidentSummaryDetailsArray(newDetails));
   }
 
-  public static void addIncidentToActiveSummary(@Nonnull final IncidentSummaryDetails details,  @Nonnull final IncidentsSummary summary) {
+  public static void addIncidentToActiveSummary(@Nonnull final IncidentSummaryDetails details,  @Nonnull final IncidentsSummary summary,
+      int maxIncidentHistory) {
     final List<IncidentSummaryDetails> existingDetails = summary.getActiveIncidentDetails();
     final List<IncidentSummaryDetails> newDetails = existingDetails.stream()
         .filter(existing -> !details.getUrn().equals(existing.getUrn()))
+        .sorted(Comparator.comparing(IncidentSummaryDetails::getCreatedAt))
         .collect(Collectors.toList());
+    while (newDetails.size() >= maxIncidentHistory && !newDetails.isEmpty()) {
+      // Removes oldest entry until size is less than max size
+      newDetails.remove(0);
+    }
     newDetails.add(details);
     summary.setActiveIncidentDetails(new IncidentSummaryDetailsArray(newDetails));
   }

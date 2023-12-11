@@ -18,11 +18,10 @@ import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.service.IncidentService;
 import com.linkedin.metadata.service.IncidentsSummaryUtils;
 import java.util.Collections;
-import lombok.extern.slf4j.Slf4j;
-
-import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Upgrade step that migrates existing Incident Summary aspects to use the newer activeIncidentDetails and resolvedIncidentDetails
@@ -120,14 +119,14 @@ public class MigrateIncidentsSummaryStep extends UpgradeStep {
       IncidentsSummaryUtils.removeIncidentFromActiveSummary(incidentUrn, summary);
 
       // Then, add to active.
-      IncidentsSummaryUtils.addIncidentToActiveSummary(details, summary);
+      IncidentsSummaryUtils.addIncidentToActiveSummary(details, summary, 100);
     } else if (IncidentState.RESOLVED.equals(status.getState())) {
       // First, ensure this isn't in any summaries anymore.
       IncidentsSummaryUtils.removeIncidentFromActiveSummary(incidentUrn, summary);
       IncidentsSummaryUtils.removeIncidentFromResolvedSummary(incidentUrn, summary);
 
       // Then, add to resolved.
-      IncidentsSummaryUtils.addIncidentToResolvedSummary(details, summary);
+      IncidentsSummaryUtils.addIncidentToResolvedSummary(details, summary, 100);
     }
 
     // 3. Emit the change back!

@@ -11,7 +11,6 @@ import com.linkedin.data.template.SetMode;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
-
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
@@ -181,7 +180,7 @@ public class IncidentsSummaryUtilsTest {
         ImmutableList.of(existingDetails)
     );
     IncidentSummaryDetails newDetails = buildIncidentDetails(TEST_INCIDENT_URN_2, TEST_INCIDENT_TYPE);
-    IncidentsSummaryUtils.addIncidentToActiveSummary(newDetails, summary);
+    IncidentsSummaryUtils.addIncidentToActiveSummary(newDetails, summary, 100);
     IncidentsSummary expected = mockIncidentsSummary(Collections.emptyList(), ImmutableList.of(existingDetails, newDetails));
     Assert.assertEquals(new HashSet<>(summary.getActiveIncidentDetails()), new HashSet<>(expected.getActiveIncidentDetails())); // Set comparison
     Assert.assertEquals(new HashSet<>(summary.getResolvedIncidentDetails()), new HashSet<>(expected.getResolvedIncidentDetails())); // Set comparison
@@ -191,7 +190,7 @@ public class IncidentsSummaryUtilsTest {
         ImmutableList.of(existingDetails),
         Collections.emptyList()
     );
-    IncidentsSummaryUtils.addIncidentToActiveSummary(newDetails, summary);
+    IncidentsSummaryUtils.addIncidentToActiveSummary(newDetails, summary, 100);
     Assert.assertEquals(summary, mockIncidentsSummary(ImmutableList.of(existingDetails), ImmutableList.of(newDetails)));
 
     // Case 3: Does not have any incidents yet
@@ -199,7 +198,7 @@ public class IncidentsSummaryUtilsTest {
         Collections.emptyList(),
         Collections.emptyList()
     );
-    IncidentsSummaryUtils.addIncidentToActiveSummary(newDetails, summary);
+    IncidentsSummaryUtils.addIncidentToActiveSummary(newDetails, summary, 100);
     Assert.assertEquals(summary, mockIncidentsSummary(Collections.emptyList(), ImmutableList.of(newDetails)));
 
     // Case 4: Duplicate additions - already has the same incident in the list
@@ -208,8 +207,18 @@ public class IncidentsSummaryUtilsTest {
         ImmutableList.of(existingDetails)
     );
     newDetails = buildIncidentDetails(TEST_INCIDENT_URN, "type2");
-    IncidentsSummaryUtils.addIncidentToActiveSummary(newDetails, summary);
+    IncidentsSummaryUtils.addIncidentToActiveSummary(newDetails, summary, 100);
     Assert.assertEquals(summary, mockIncidentsSummary(Collections.emptyList(), ImmutableList.of(newDetails)));
+
+    // Test out max size, removes old and adds in new
+    summary = mockIncidentsSummary(
+        Collections.emptyList(),
+        ImmutableList.of(existingDetails)
+    );
+    newDetails = buildIncidentDetails(TEST_INCIDENT_URN_2, TEST_INCIDENT_TYPE);
+    IncidentsSummaryUtils.addIncidentToActiveSummary(newDetails, summary, 1);
+    Assert.assertEquals(summary, mockIncidentsSummary(Collections.emptyList(), ImmutableList.of(newDetails)));
+    Assert.assertEquals(summary.getActiveIncidentDetails().size(), 1);
   }
 
   @Test
@@ -221,7 +230,7 @@ public class IncidentsSummaryUtilsTest {
         Collections.emptyList()
     );
     IncidentSummaryDetails newDetails = buildIncidentDetails(TEST_INCIDENT_URN_2, TEST_INCIDENT_TYPE);
-    IncidentsSummaryUtils.addIncidentToResolvedSummary(newDetails, summary);
+    IncidentsSummaryUtils.addIncidentToResolvedSummary(newDetails, summary, 100);
     IncidentsSummary expected = mockIncidentsSummary(ImmutableList.of(existingDetails, newDetails), Collections.emptyList());
     Assert.assertEquals(new HashSet<>(summary.getActiveIncidentDetails()), new HashSet<>(expected.getActiveIncidentDetails())); // Set comparison
     Assert.assertEquals(new HashSet<>(summary.getResolvedIncidentDetails()), new HashSet<>(expected.getResolvedIncidentDetails())); // Set comparison
@@ -231,7 +240,7 @@ public class IncidentsSummaryUtilsTest {
         Collections.emptyList(),
         ImmutableList.of(existingDetails)
     );
-    IncidentsSummaryUtils.addIncidentToResolvedSummary(newDetails, summary);
+    IncidentsSummaryUtils.addIncidentToResolvedSummary(newDetails, summary, 100);
     Assert.assertEquals(summary, mockIncidentsSummary(ImmutableList.of(newDetails), ImmutableList.of(existingDetails)));
 
     // Case 3: Does not have any incidents yet
@@ -239,7 +248,7 @@ public class IncidentsSummaryUtilsTest {
         Collections.emptyList(),
         Collections.emptyList()
     );
-    IncidentsSummaryUtils.addIncidentToResolvedSummary(newDetails, summary);
+    IncidentsSummaryUtils.addIncidentToResolvedSummary(newDetails, summary, 100);
     Assert.assertEquals(summary, mockIncidentsSummary(ImmutableList.of(newDetails), Collections.emptyList()));
 
     // Case 4: Duplicate additions - already has the same incident
@@ -248,8 +257,18 @@ public class IncidentsSummaryUtilsTest {
         Collections.emptyList()
     );
     newDetails = buildIncidentDetails(TEST_INCIDENT_URN, "type2");
-    IncidentsSummaryUtils.addIncidentToResolvedSummary(newDetails, summary);
+    IncidentsSummaryUtils.addIncidentToResolvedSummary(newDetails, summary, 100);
     Assert.assertEquals(summary, mockIncidentsSummary(ImmutableList.of(newDetails), Collections.emptyList()));
+
+    // Test out max size, removes old and adds in new
+    summary = mockIncidentsSummary(
+        ImmutableList.of(existingDetails),
+        Collections.emptyList()
+    );
+    newDetails = buildIncidentDetails(TEST_INCIDENT_URN_2, TEST_INCIDENT_TYPE);
+    IncidentsSummaryUtils.addIncidentToResolvedSummary(newDetails, summary, 1);
+    Assert.assertEquals(summary, mockIncidentsSummary(ImmutableList.of(newDetails), Collections.emptyList()));
+    Assert.assertEquals(summary.getResolvedIncidentDetails().size(), 1);
   }
 
   private IncidentsSummary mockIncidentsSummaryLegacy(
