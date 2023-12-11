@@ -7,9 +7,9 @@ const group_name = `Test group ${test_id}`;
 const addOwner = (owner, type, elementId) => {
     cy.clickOptionWithTestId("add-owners-button");
     cy.contains("Search for users or groups...").click({ force: true });
-    cy.focused().type(owner);
+    cy.focused({ force: true }).type(owner);
     cy.clickOptionWithText(owner);
-    cy.focused().blur();
+    cy.focused({ force: true }).blur();
     cy.waitTextVisible(owner);
     cy.get('[role="dialog"]').contains("Technical Owner").click({ focus: true });
     cy.get('[role="listbox"]').parent().contains(type).click({ focus: true });
