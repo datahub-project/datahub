@@ -18,7 +18,7 @@ base_requirements = {
     # See https://github.com/samuelcolvin/pydantic/pull/3175#issuecomment-995382910.
     # pydantic 1.10.3 is incompatible with typing-extensions 4.1.1 - https://github.com/pydantic/pydantic/issues/4885
     # pydantic 2 makes major, backwards-incompatible changes - https://github.com/pydantic/pydantic/issues/4887
-    "pydantic>=1.10.0,!=1.10.3",
+    "pydantic>=1.10.0,!=1.10.3,<2",
     "mixpanel>=4.9.0",
     "sentry-sdk",
 }
@@ -53,6 +53,17 @@ framework_common = {
     "jsonschema<=4.17.3; python_version < '3.8'",
     "jsonschema; python_version >= '3.8'",
     "ruamel.yaml",
+}
+
+pydantic_no_v2 = {
+    # Tags sources that require the pydantic v2 API.
+    "pydantic<2",
+}
+
+plugin_common = {
+    # While pydantic v2 support is experimental, require that _ALL_ plugins
+    # continue to use v1. This will ensure that no ingestion recipes break.
+    *pydantic_no_v2,
 }
 
 rest_common = {"requests", "requests_file"}
@@ -101,11 +112,6 @@ kafka_protobuf = {
     # NOTE: potential conflict with feast also depending on grpcio
     "grpcio>=1.44.0,<2",
     "grpcio-tools>=1.44.0,<2",
-}
-
-pydantic_no_v2 = {
-    # Tags sources that require the pydantic v2 API.
-    "pydantic<2",
 }
 
 usage_common = {
@@ -735,7 +741,11 @@ See the [DataHub docs](https://datahubproject.io/docs/metadata-ingestion).
     extras_require={
         "base": list(framework_common),
         **{
-            plugin: list(framework_common | dependencies)
+            plugin: list(
+                framework_common
+                | (plugin_common if plugin != "airflow" else {})
+                | dependencies
+            )
             for (plugin, dependencies) in plugins.items()
         },
         "all": list(
