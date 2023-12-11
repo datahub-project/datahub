@@ -99,8 +99,18 @@ class ConfigModel(BaseModel):
 
     @classmethod
     def parse_obj_allow_extras(cls: Type[_ConfigSelf], obj: Any) -> _ConfigSelf:
-        with unittest.mock.patch.object(cls.Config, "extra", pydantic.Extra.allow):
-            return cls.parse_obj(obj)
+        if PYDANTIC_VERSION_2:
+            try:
+                with unittest.mock.patch.dict(
+                    cls.model_config, {"extra": "allow"}, clear=False
+                ):
+                    cls.model_rebuild(force=True)
+                    return cls.parse_obj(obj)
+            finally:
+                cls.model_rebuild(force=True)
+        else:
+            with unittest.mock.patch.object(cls.Config, "extra", pydantic.Extra.allow):
+                return cls.parse_obj(obj)
 
 
 class PermissiveConfigModel(ConfigModel):
