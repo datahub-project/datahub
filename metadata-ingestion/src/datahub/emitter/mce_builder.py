@@ -12,11 +12,12 @@ from typing import (
     Iterable,
     List,
     Optional,
+    Tuple,
     Type,
     TypeVar,
     Union,
     cast,
-    get_type_hints, Tuple,
+    get_type_hints,
 )
 
 import typing_inspect
