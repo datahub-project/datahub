@@ -743,7 +743,7 @@ See the [DataHub docs](https://datahubproject.io/docs/metadata-ingestion).
         **{
             plugin: list(
                 framework_common
-                | (plugin_common if plugin != "airflow" else {})
+                | (plugin_common if plugin != "airflow" else set())
                 | dependencies
             )
             for (plugin, dependencies) in plugins.items()
