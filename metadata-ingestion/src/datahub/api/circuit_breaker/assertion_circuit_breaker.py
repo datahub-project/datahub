@@ -12,7 +12,9 @@ from datahub.api.circuit_breaker.circuit_breaker import (
 from datahub.api.graphql import Assertion, Operation
 
 logger: logging.Logger = logging.getLogger(__name__)
+from gql.transport.requests import log as requests_logger
 
+requests_logger.setLevel(logging.WARNING)
 
 class AssertionCircuitBreakerConfig(CircuitBreakerConfig):
     verify_after_last_update: bool = Field(
