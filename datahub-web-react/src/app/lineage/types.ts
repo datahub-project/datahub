@@ -69,6 +69,7 @@ export type NodeData = {
     subtype?: string;
     children?: Array<NodeData>;
     unexploredChildren?: number;
+    isExplored?: boolean;
     icon?: string;
     // Hidden children are unexplored but in the opposite direction of the flow of the graph.
     // Currently our visualization does not support expanding in two directions
@@ -130,6 +131,7 @@ export type TreeProps = {
     onEntityClick: (EntitySelectParams) => void;
     onEntityCenter: (EntitySelectParams) => void;
     onLineageExpand: (data: EntityAndType) => void;
+    onLineageCollapse: (data: VizNode) => void;
     selectedEntity?: EntitySelectParams;
     hoveredEntity?: EntitySelectParams;
     fineGrainedMap?: any;

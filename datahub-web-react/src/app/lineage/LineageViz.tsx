@@ -18,6 +18,7 @@ export default function LineageViz({
     onEntityClick,
     onEntityCenter,
     onLineageExpand,
+    onLineageCollapse,
     selectedEntity,
     fineGrainedMap,
     refetchCenterNode,
@@ -54,6 +55,7 @@ export default function LineageViz({
                     onEntityClick={onEntityClick}
                     onEntityCenter={onEntityCenter}
                     onLineageExpand={onLineageExpand}
+                    onLineageCollapse={onLineageCollapse}
                     selectedEntity={selectedEntity}
                     zoom={zoom}
                     fetchedEntities={fetchedEntities}

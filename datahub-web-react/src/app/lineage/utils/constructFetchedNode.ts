@@ -54,6 +54,7 @@ export default function constructFetchedNode(
             icon: fetchedNode.icon,
             unexploredChildren:
                 fetchedNode?.[childrenKey]?.filter((childUrn) => !(childUrn.entity.urn in fetchedEntities)).length || 0,
+            isExplored: !!fetchedNode.fullyFetched && (fetchedNode?.[childrenKey]?.length ?? 0) > 0,
             countercurrentChildrenUrns:
                 fetchedNode?.[direction === Direction.Downstream ? 'upstreamChildren' : 'downstreamChildren']?.map(
                     (child) => child.entity.urn,

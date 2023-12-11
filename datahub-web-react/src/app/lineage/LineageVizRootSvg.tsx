@@ -4,7 +4,7 @@ import styled from 'styled-components/macro';
 
 import { useEntityRegistry } from '../useEntityRegistry';
 import LineageTree from './LineageTree';
-import { EntityAndType, FetchedEntity, EntitySelectParams, Direction, UpdatedLineages } from './types';
+import { EntityAndType, FetchedEntity, EntitySelectParams, Direction, UpdatedLineages, VizNode } from './types';
 import constructTree from './utils/constructTree';
 
 type Props = {
@@ -14,6 +14,7 @@ type Props = {
     onEntityClick: (EntitySelectParams) => void;
     onEntityCenter: (EntitySelectParams) => void;
     onLineageExpand: (data: EntityAndType) => void;
+    onLineageCollapse: (data: VizNode) => void;
     selectedEntity?: EntitySelectParams;
     zoom: ProvidedZoom<any> & {
         transformMatrix: TransformMatrix;
@@ -48,6 +49,7 @@ export default function LineageVizRootSvg({
     onEntityClick,
     onEntityCenter,
     onLineageExpand,
+    onLineageCollapse,
     selectedEntity,
     width,
     height,
@@ -180,6 +182,7 @@ export default function LineageVizRootSvg({
                     onEntityClick={onEntityClick}
                     onEntityCenter={onEntityCenter}
                     onLineageExpand={onLineageExpand}
+                    onLineageCollapse={onLineageCollapse}
                     margin={margin}
                     selectedEntity={selectedEntity}
                     hoveredEntity={hoveredEntity}

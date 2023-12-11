@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useMemo, useState } from 'react';
+import React, { useContext, useMemo, useState } from 'react';
 import { Group } from '@visx/group';
 import { LinkHorizontal } from '@visx/shape';
 import styled from 'styled-components';
@@ -46,6 +46,7 @@ export default function LineageEntityNode({
     onHover,
     onDrag,
     onExpandClick,
+    onLineageCollapse,
     isCenterNode,
     nodesToRenderByUrn,
     setUpdatedLineages,
@@ -59,6 +60,7 @@ export default function LineageEntityNode({
     onHover: (EntitySelectParams) => void;
     onDrag: (params: EntitySelectParams, event: React.MouseEvent) => void;
     onExpandClick: (data: EntityAndType) => void;
+    onLineageCollapse: (data: VizNode) => void;
     nodesToRenderByUrn: Record<string, VizNode>;
     setUpdatedLineages: React.Dispatch<React.SetStateAction<UpdatedLineages>>;
 }) {
@@ -68,7 +70,18 @@ export default function LineageEntityNode({
     const [hasExpanded, setHasExpanded] = useState(false);
     const [isExpanding, setIsExpanding] = useState(false);
     const [expandHover, setExpandHover] = useState(false);
-    const [getAsyncEntityLineage, { data: asyncLineageData, loading }] = useGetEntityLineageLazyQuery();
+    const [getAsyncEntityLineage, { loading }] = useGetEntityLineageLazyQuery({
+        onCompleted(asyncLineageData) {
+            if (asyncLineageData && asyncLineageData.entity && !hasExpanded && !loading) {
+                const entityAndType = {
+                    type: asyncLineageData.entity.type,
+                    entity: { ...asyncLineageData.entity },
+                } as EntityAndType;
+                onExpandClick(entityAndType);
+                setHasExpanded(true);
+            }
+        },
+    });
     const isHideSiblingMode = useIsSeparateSiblingsMode();
     const areColumnsCollapsed = !!collapsedColumnsNodes[node?.data?.urn || 'noop'];
 
@@ -91,17 +104,6 @@ export default function LineageEntityNode({
             }
         }
     }
-
-    useEffect(() => {
-        if (asyncLineageData && asyncLineageData.entity && !hasExpanded && !loading) {
-            const entityAndType = {
-                type: asyncLineageData.entity.type,
-                entity: { ...asyncLineageData.entity },
-            } as EntityAndType;
-            onExpandClick(entityAndType);
-            setHasExpanded(true);
-        }
-    }, [asyncLineageData, onExpandClick, hasExpanded, loading]);
 
     const entityRegistry = useEntityRegistry();
     const unexploredHiddenChildren =
@@ -170,6 +172,26 @@ export default function LineageEntityNode({
                     })}
                 </Group>
             ) : null}
+            {node.data.isExplored && (
+                <Group
+                    onClick={() => {
+                        setIsExpanding(false);
+                        setHasExpanded(false);
+
+                        onLineageCollapse(node);
+                    }}
+                    pointerEvents="bounding-box"
+                >
+                    <g
+                        fill={expandHover ? ANTD_GRAY[5] : ANTD_GRAY[6]}
+                        transform={`translate(${
+                            direction === Direction.Upstream ? centerX - 40 : width / 2 + 10
+                        } -40) scale(0.07 0.07)`}
+                    >
+                        <path d="M250 0C111.942 0 0 111.942 0 250s111.942 250 250 250 250-111.942 250-250S388.058 0 250 0Zm107.142 263.393a4.477 4.477 0 0 1-4.463 4.464H147.321a4.477 4.477 0 0 1-4.463-4.464v-26.786a4.477 4.477 0 0 1 4.463-4.464h205.358a4.477 4.477 0 0 1 4.463 4.464v26.786Z" />
+                    </g>
+                </Group>
+            )}
             {node.data.unexploredChildren &&
                 (!isExpanding ? (
                     <Group

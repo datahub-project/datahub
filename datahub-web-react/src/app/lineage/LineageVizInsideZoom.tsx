@@ -4,7 +4,7 @@ import styled from 'styled-components/macro';
 import { Button } from 'antd';
 import { ProvidedZoom, TransformMatrix } from '@visx/zoom/lib/types';
 
-import { ColumnEdge, EntityAndType, EntitySelectParams, FetchedEntity } from './types';
+import { ColumnEdge, EntityAndType, EntitySelectParams, FetchedEntity, VizNode } from './types';
 import { LineageExplorerContext } from './utils/LineageExplorerContext';
 import { SchemaField, SchemaFieldRef } from '../../types.generated';
 import { useIsShowColumnsMode } from './utils/useIsShowColumnsMode';
@@ -40,6 +40,7 @@ type Props = {
     onEntityClick: (EntitySelectParams) => void;
     onEntityCenter: (EntitySelectParams) => void;
     onLineageExpand: (data: EntityAndType) => void;
+    onLineageCollapse: (data: VizNode) => void;
     selectedEntity?: EntitySelectParams;
     zoom: ProvidedZoom<any> & {
         transformMatrix: TransformMatrix;
@@ -59,6 +60,7 @@ export default function LineageVizInsideZoom({
     onEntityClick,
     onEntityCenter,
     onLineageExpand,
+    onLineageCollapse,
     selectedEntity,
     width,
     height,
@@ -121,6 +123,7 @@ export default function LineageVizInsideZoom({
                         onEntityClick={onEntityClick}
                         onEntityCenter={onEntityCenter}
                         onLineageExpand={onLineageExpand}
+                        onLineageCollapse={onLineageCollapse}
                         selectedEntity={selectedEntity}
                         zoom={zoom}
                         fetchedEntities={fetchedEntities}
