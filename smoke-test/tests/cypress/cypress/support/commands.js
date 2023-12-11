@@ -329,7 +329,11 @@ Cypress.Commands.add("addGroupMember", (group_name, group_urn, member_name) => {
   cy.get('[role="dialog"] button').contains("Add").click({ force: true });
   cy.waitTextVisible("Group members added!");
   cy.contains(member_name, {timeout: 10000}).should("be.visible");
-})
+});
+
+Cypress.Commands.add("search", (placeholder, text) => {
+  cy.get('[data-testid="search-input"]').filter(`[placeholder="${placeholder}"]`).type(text);
+}) ;
 
 //
 //
