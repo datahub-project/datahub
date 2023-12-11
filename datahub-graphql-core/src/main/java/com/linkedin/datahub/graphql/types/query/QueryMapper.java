@@ -1,5 +1,7 @@
 package com.linkedin.datahub.graphql.types.query;
 
+import static com.linkedin.metadata.Constants.*;
+
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.template.GetMode;
@@ -20,9 +22,6 @@ import com.linkedin.query.QuerySubjects;
 import java.util.List;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
-
-import static com.linkedin.metadata.Constants.*;
-
 
 public class QueryMapper implements ModelMapper<EntityResponse, QueryEntity> {
 
@@ -47,13 +46,15 @@ public class QueryMapper implements ModelMapper<EntityResponse, QueryEntity> {
 
   private void mapQueryProperties(@Nonnull QueryEntity query, @Nonnull DataMap dataMap) {
     QueryProperties queryProperties = new QueryProperties(dataMap);
-    com.linkedin.datahub.graphql.generated.QueryProperties res = new com.linkedin.datahub.graphql.generated.QueryProperties();
+    com.linkedin.datahub.graphql.generated.QueryProperties res =
+        new com.linkedin.datahub.graphql.generated.QueryProperties();
 
     // Query Source must be kept in sync.
     res.setSource(QuerySource.valueOf(queryProperties.getSource().toString()));
-    res.setStatement(new QueryStatement(
-        queryProperties.getStatement().getValue(),
-        QueryLanguage.valueOf(queryProperties.getStatement().getLanguage().toString())));
+    res.setStatement(
+        new QueryStatement(
+            queryProperties.getStatement().getValue(),
+            QueryLanguage.valueOf(queryProperties.getStatement().getLanguage().toString())));
     res.setName(queryProperties.getName(GetMode.NULL));
     res.setDescription(queryProperties.getDescription(GetMode.NULL));
 
@@ -73,10 +74,10 @@ public class QueryMapper implements ModelMapper<EntityResponse, QueryEntity> {
   @Nonnull
   private void mapQuerySubjects(@Nonnull QueryEntity query, @Nonnull DataMap dataMap) {
     QuerySubjects querySubjects = new QuerySubjects(dataMap);
-    List<QuerySubject> res = querySubjects.getSubjects()
-        .stream()
-        .map(sub -> new QuerySubject(createPartialDataset(sub.getEntity())))
-        .collect(Collectors.toList());
+    List<QuerySubject> res =
+        querySubjects.getSubjects().stream()
+            .map(sub -> new QuerySubject(createPartialDataset(sub.getEntity())))
+            .collect(Collectors.toList());
 
     query.setSubjects(res);
   }

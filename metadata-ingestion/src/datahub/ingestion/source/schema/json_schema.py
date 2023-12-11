@@ -271,6 +271,7 @@ class JsonSchemaSource(StatefulIngestionSourceBase):
                 platform=self.config.platform,
                 name=dataset_name,
                 platform_instance=self.config.platform_instance,
+                env=self.config.env,
             )
             yield MetadataChangeProposalWrapper(
                 entityUrn=dataset_urn, aspect=meta

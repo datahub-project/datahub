@@ -1,5 +1,8 @@
 package com.linkedin.metadata.models.registry;
 
+import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.models.registry.EntityRegistryUtils.*;
+
 import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
@@ -32,13 +35,10 @@ import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.maven.artifact.versioning.ComparableVersion;
 
-import static com.linkedin.metadata.Constants.*;
-import static com.linkedin.metadata.models.registry.EntityRegistryUtils.*;
-
-
 /**
- * Implementation of {@link EntityRegistry} that is similar to {@link ConfigEntityRegistry} but different in one important way.
- * It builds potentially partially specified {@link com.linkedin.metadata.models.PartialEntitySpec} objects from an entity registry config yaml file
+ * Implementation of {@link EntityRegistry} that is similar to {@link ConfigEntityRegistry} but
+ * different in one important way. It builds potentially partially specified {@link
+ * com.linkedin.metadata.models.PartialEntitySpec} objects from an entity registry config yaml file
  */
 @Slf4j
 public class PatchEntityRegistry implements EntityRegistry {
@@ -53,37 +53,50 @@ public class PatchEntityRegistry implements EntityRegistry {
   private final String identifier;
 
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper(new YAMLFactory());
+
   static {
-    int maxSize = Integer.parseInt(System.getenv().getOrDefault(INGESTION_MAX_SERIALIZED_STRING_LENGTH, MAX_JACKSON_STRING_SIZE));
-    OBJECT_MAPPER.getFactory().setStreamReadConstraints(StreamReadConstraints.builder().maxStringLength(maxSize).build());
+    int maxSize =
+        Integer.parseInt(
+            System.getenv()
+                .getOrDefault(INGESTION_MAX_SERIALIZED_STRING_LENGTH, MAX_JACKSON_STRING_SIZE));
+    OBJECT_MAPPER
+        .getFactory()
+        .setStreamReadConstraints(StreamReadConstraints.builder().maxStringLength(maxSize).build());
   }
 
   @Override
   public String toString() {
     StringBuilder sb = new StringBuilder("PatchEntityRegistry[" + "identifier=" + identifier + ';');
-    entityNameToSpec.entrySet()
-        .stream()
-        .forEach(entry -> sb.append("[entityName=")
-            .append(entry.getKey())
-            .append(";aspects=[")
-            .append(
-                entry.getValue().getAspectSpecs().stream().map(spec -> spec.getName()).collect(Collectors.joining(",")))
-            .append("]]"));
-    eventNameToSpec.entrySet()
-        .stream()
-        .forEach(entry -> sb.append("[eventName=")
-            .append(entry.getKey())
-            .append("]"));
+    entityNameToSpec.entrySet().stream()
+        .forEach(
+            entry ->
+                sb.append("[entityName=")
+                    .append(entry.getKey())
+                    .append(";aspects=[")
+                    .append(
+                        entry.getValue().getAspectSpecs().stream()
+                            .map(spec -> spec.getName())
+                            .collect(Collectors.joining(",")))
+                    .append("]]"));
+    eventNameToSpec.entrySet().stream()
+        .forEach(entry -> sb.append("[eventName=").append(entry.getKey()).append("]"));
     return sb.toString();
   }
 
-  public PatchEntityRegistry(Pair<Path, Path> configFileClassPathPair, String registryName,
-      ComparableVersion registryVersion) throws IOException, EntityRegistryException {
-    this(DataSchemaFactory.withCustomClasspath(configFileClassPathPair.getSecond()), configFileClassPathPair.getFirst(),
-        registryName, registryVersion);
+  public PatchEntityRegistry(
+      Pair<Path, Path> configFileClassPathPair,
+      String registryName,
+      ComparableVersion registryVersion)
+      throws IOException, EntityRegistryException {
+    this(
+        DataSchemaFactory.withCustomClasspath(configFileClassPathPair.getSecond()),
+        configFileClassPathPair.getFirst(),
+        registryName,
+        registryVersion);
   }
 
-  public PatchEntityRegistry(String entityRegistryRoot, String registryName, ComparableVersion registryVersion)
+  public PatchEntityRegistry(
+      String entityRegistryRoot, String registryName, ComparableVersion registryVersion)
       throws EntityRegistryException, IOException {
     this(getFileAndClassPath(entityRegistryRoot), registryName, registryVersion);
   }
@@ -93,21 +106,28 @@ public class PatchEntityRegistry implements EntityRegistry {
     Path entityRegistryRootLoc = Paths.get(entityRegistryRoot);
     if (Files.isDirectory(entityRegistryRootLoc)) {
       // Look for entity-registry.yml or entity-registry.yaml in the root folder
-      List<Path> yamlFiles = Files.walk(entityRegistryRootLoc, 1)
-          .filter(Files::isRegularFile)
-          .filter(f -> f.endsWith("entity-registry.yml") || f.endsWith("entity-registry.yaml"))
-          .collect(Collectors.toList());
+      List<Path> yamlFiles =
+          Files.walk(entityRegistryRootLoc, 1)
+              .filter(Files::isRegularFile)
+              .filter(f -> f.endsWith("entity-registry.yml") || f.endsWith("entity-registry.yaml"))
+              .collect(Collectors.toList());
       if (yamlFiles.size() == 0) {
         throw new EntityRegistryException(
-            String.format("Did not find an entity registry (entity-registry.yaml/yml) under %s",
+            String.format(
+                "Did not find an entity registry (entity-registry.yaml/yml) under %s",
                 entityRegistryRootLoc));
       }
       if (yamlFiles.size() > 1) {
-        log.warn("Found more than one yaml file in the directory {}. Will pick the first {}", entityRegistryRootLoc,
+        log.warn(
+            "Found more than one yaml file in the directory {}. Will pick the first {}",
+            entityRegistryRootLoc,
             yamlFiles.get(0));
       }
       Path entityRegistryFile = yamlFiles.get(0);
-      log.info("Loading custom config entity file: {}, dir: {}", entityRegistryFile, entityRegistryRootLoc);
+      log.info(
+          "Loading custom config entity file: {}, dir: {}",
+          entityRegistryFile,
+          entityRegistryRootLoc);
       return new Pair<>(entityRegistryFile, entityRegistryRootLoc);
     } else {
       // We assume that the file being passed in is a bare entity registry yaml file
@@ -116,13 +136,25 @@ public class PatchEntityRegistry implements EntityRegistry {
     }
   }
 
-  public PatchEntityRegistry(DataSchemaFactory dataSchemaFactory, Path configFilePath, String registryName,
-      ComparableVersion registryVersion) throws FileNotFoundException, EntityRegistryException {
-    this(dataSchemaFactory, new FileInputStream(configFilePath.toString()), registryName, registryVersion);
+  public PatchEntityRegistry(
+      DataSchemaFactory dataSchemaFactory,
+      Path configFilePath,
+      String registryName,
+      ComparableVersion registryVersion)
+      throws FileNotFoundException, EntityRegistryException {
+    this(
+        dataSchemaFactory,
+        new FileInputStream(configFilePath.toString()),
+        registryName,
+        registryVersion);
   }
 
-  private PatchEntityRegistry(DataSchemaFactory dataSchemaFactory, InputStream configFileStream, String registryName,
-      ComparableVersion registryVersion) throws EntityRegistryException {
+  private PatchEntityRegistry(
+      DataSchemaFactory dataSchemaFactory,
+      InputStream configFileStream,
+      String registryName,
+      ComparableVersion registryVersion)
+      throws EntityRegistryException {
     this.dataSchemaFactory = dataSchemaFactory;
     this.registryName = registryName;
     this.registryVersion = registryVersion;
@@ -133,7 +165,8 @@ public class PatchEntityRegistry implements EntityRegistry {
     } catch (IOException e) {
       e.printStackTrace();
       throw new IllegalArgumentException(
-          String.format("Error while reading config file in path %s: %s", configFileStream, e.getMessage()));
+          String.format(
+              "Error while reading config file in path %s: %s", configFileStream, e.getMessage()));
     }
     if (entities.getId() != null) {
       identifier = entities.getId();
@@ -144,7 +177,9 @@ public class PatchEntityRegistry implements EntityRegistry {
     // Build Entity Specs
     EntitySpecBuilder entitySpecBuilder = new EntitySpecBuilder();
     for (Entity entity : entities.getEntities()) {
-      log.info("Discovered entity {} with aspects {}", entity.getName(),
+      log.info(
+          "Discovered entity {} with aspects {}",
+          entity.getName(),
           entity.getAspects().stream().collect(Collectors.joining()));
       List<AspectSpec> aspectSpecs = new ArrayList<>();
       if (entity.getKeyAspect() != null) {
@@ -152,16 +187,20 @@ public class PatchEntityRegistry implements EntityRegistry {
         log.info("Adding key aspect {} with spec {}", entity.getKeyAspect(), keyAspectSpec);
         aspectSpecs.add(keyAspectSpec);
       }
-      entity.getAspects().forEach(aspect -> {
-        if (!aspect.equals(entity.getKeyAspect())) {
-          AspectSpec aspectSpec = buildAspectSpec(aspect, entitySpecBuilder);
-          log.info("Adding aspect {} with spec {}", aspect, aspectSpec);
-          aspectSpecs.add(aspectSpec);
-        }
-      });
+      entity
+          .getAspects()
+          .forEach(
+              aspect -> {
+                if (!aspect.equals(entity.getKeyAspect())) {
+                  AspectSpec aspectSpec = buildAspectSpec(aspect, entitySpecBuilder);
+                  log.info("Adding aspect {} with spec {}", aspect, aspectSpec);
+                  aspectSpecs.add(aspectSpec);
+                }
+              });
 
       EntitySpec entitySpec =
-          entitySpecBuilder.buildPartialEntitySpec(entity.getName(), entity.getKeyAspect(), aspectSpecs);
+          entitySpecBuilder.buildPartialEntitySpec(
+              entity.getName(), entity.getKeyAspect(), aspectSpecs);
 
       entityNameToSpec.put(entity.getName().toLowerCase(), entitySpec);
     }
@@ -225,7 +264,7 @@ public class PatchEntityRegistry implements EntityRegistry {
   @Nonnull
   @Override
   public AspectTemplateEngine getAspectTemplateEngine() {
-    //TODO: support patch based templates
+    // TODO: support patch based templates
 
     return new AspectTemplateEngine();
   }
@@ -236,7 +275,8 @@ public class PatchEntityRegistry implements EntityRegistry {
     if (!aspectSchema.isPresent()) {
       throw new IllegalArgumentException(String.format("Aspect %s does not exist", aspectName));
     }
-    AspectSpec aspectSpec = entitySpecBuilder.buildAspectSpec(aspectSchema.get(), aspectClass.get());
+    AspectSpec aspectSpec =
+        entitySpecBuilder.buildAspectSpec(aspectSchema.get(), aspectClass.get());
     aspectSpec.setRegistryName(this.registryName);
     aspectSpec.setRegistryVersion(this.registryVersion);
     return aspectSpec;
@@ -249,5 +289,4 @@ public class PatchEntityRegistry implements EntityRegistry {
     }
     return new EventSpecBuilder().buildEventSpec(eventName, eventSchema.get());
   }
-
 }

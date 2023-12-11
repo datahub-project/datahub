@@ -10,7 +10,7 @@ from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import DatasetLineageProviderConfigBase
 from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.ingestion.source.data_lake_common.path_spec import PathSpec
-from datahub.ingestion.source.sql.postgres import BasePostgresConfig
+from datahub.ingestion.source.sql.sql_config import BasicSQLAlchemyConfig
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulLineageConfigMixin,
     StatefulProfilingConfigMixin,
@@ -64,7 +64,7 @@ class RedshiftUsageConfig(BaseUsageConfig, StatefulUsageConfigMixin):
 
 
 class RedshiftConfig(
-    BasePostgresConfig,
+    BasicSQLAlchemyConfig,
     DatasetLineageProviderConfigBase,
     S3DatasetLineageProviderConfigBase,
     RedshiftUsageConfig,
@@ -82,7 +82,7 @@ class RedshiftConfig(
     # large Redshift warehouses. As an example, see this query for the columns:
     # https://github.com/sqlalchemy-redshift/sqlalchemy-redshift/blob/60b4db04c1d26071c291aeea52f1dcb5dd8b0eb0/sqlalchemy_redshift/dialect.py#L745.
     scheme: str = Field(
-        default="redshift+psycopg2",
+        default="redshift+redshift_connector",
         description="",
         hidden_from_schema=True,
     )
@@ -169,4 +169,25 @@ class RedshiftConfig(
                 "Current default `match_fully_qualified_names: False` is only to maintain backward compatibility. "
                 "The config option `match_fully_qualified_names` will be deprecated in future and the default behavior will assume `match_fully_qualified_names: True`."
             )
+        return values
+
+    @root_validator(skip_on_failure=True)
+    def connection_config_compatibility_set(cls, values: Dict) -> Dict:
+        if (
+            ("options" in values and "connect_args" in values["options"])
+            and "extra_client_options" in values
+            and len(values["extra_client_options"]) > 0
+        ):
+            raise ValueError(
+                "Cannot set both `connect_args` and `extra_client_options` in the config. Please use `extra_client_options` only."
+            )
+
+        if "options" in values and "connect_args" in values["options"]:
+            values["extra_client_options"] = values["options"]["connect_args"]
+
+        if values["extra_client_options"]:
+            if values["options"]:
+                values["options"]["connect_args"] = values["extra_client_options"]
+            else:
+                values["options"] = {"connect_args": values["extra_client_options"]}
         return values

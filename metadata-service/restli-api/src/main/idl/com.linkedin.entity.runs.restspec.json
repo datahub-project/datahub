@@ -4,6 +4,7 @@
   "path" : "/runs",
   "schema" : "com.linkedin.metadata.aspect.VersionedAspect",
   "doc" : "resource for showing information and rolling back runs\n\ngenerated from: com.linkedin.metadata.resources.entity.BatchIngestionRunResource",
+  "resourceClass" : "com.linkedin.metadata.resources.entity.BatchIngestionRunResource",
   "collection" : {
     "identifier" : {
       "name" : "runsId",
@@ -12,6 +13,7 @@
     "supports" : [ ],
     "actions" : [ {
       "name" : "describe",
+      "javaMethodName" : "describe",
       "parameters" : [ {
         "name" : "runId",
         "type" : "string"
@@ -33,6 +35,7 @@
       "returns" : "{ \"type\" : \"array\", \"items\" : \"com.linkedin.metadata.run.AspectRowSummary\" }"
     }, {
       "name" : "list",
+      "javaMethodName" : "list",
       "doc" : "Retrieves the value for an entity that is made up of latest versions of specified aspects.",
       "parameters" : [ {
         "name" : "pageOffset",
@@ -50,6 +53,7 @@
       "returns" : "{ \"type\" : \"array\", \"items\" : \"com.linkedin.metadata.run.IngestionRunSummary\" }"
     }, {
       "name" : "rollback",
+      "javaMethodName" : "rollback",
       "doc" : "Rolls back an ingestion run",
       "parameters" : [ {
         "name" : "runId",

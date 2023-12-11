@@ -62,8 +62,8 @@ class SnowflakeProfiler(GenericProfiler, SnowflakeCommonMixin):
 
         yield from self.generate_profile_workunits(
             profile_requests,
-            self.config.profiling.max_workers,
-            database.name,
+            max_workers=self.config.profiling.max_workers,
+            db_name=database.name,
             platform=self.platform,
             profiler_args=self.get_profile_args(),
         )
