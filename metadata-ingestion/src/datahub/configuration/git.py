@@ -1,10 +1,12 @@
 import os
-from typing import Any, Dict, Optional
+import pathlib
+from typing import Any, Dict, Optional, Union
 
 from pydantic import Field, FilePath, SecretStr, validator
 
 from datahub.configuration.common import ConfigModel
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
+from datahub.ingestion.source.git.git_import import GitClone
 
 _GITHUB_PREFIX = "https://github.com/"
 _GITLAB_PREFIX = "https://gitlab.com/"
@@ -77,7 +79,9 @@ class GitInfo(GitReference):
 
     deploy_key_file: Optional[FilePath] = Field(
         None,
-        description="A private key file that contains an ssh key that has been configured as a deploy key for this repository. Use a file where possible, else see deploy_key for a config field that accepts a raw string.",
+        description="A private key file that contains an ssh key that has been configured as a deploy key for this repository. "
+        "Use a file where possible, else see deploy_key for a config field that accepts a raw string. "
+        "We expect the key not have a passphrase.",
     )
     deploy_key: Optional[SecretStr] = Field(
         None,
@@ -139,3 +143,22 @@ class GitInfo(GitReference):
         if "branch" in self.__fields_set__:
             return self.branch
         return None
+
+    def clone(
+        self,
+        tmp_path: Union[pathlib.Path, str],
+        fallback_deploy_key: Optional[SecretStr] = None,
+    ) -> pathlib.Path:
+        """Clones the repo into a temporary directory and returns the path to the checkout."""
+
+        assert self.repo_ssh_locator
+
+        git_clone = GitClone(str(tmp_path))
+
+        checkout_dir = git_clone.clone(
+            ssh_key=self.deploy_key or fallback_deploy_key,
+            repo_url=self.repo_ssh_locator,
+            branch=self.branch_for_clone,
+        )
+
+        return checkout_dir

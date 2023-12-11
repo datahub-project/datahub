@@ -54,6 +54,8 @@ class MetabaseConfig(DatasetLineageProviderConfigBase):
     password: Optional[pydantic.SecretStr] = Field(
         default=None, description="Metabase password."
     )
+    # TODO: Check and remove this if no longer needed.
+    # Config database_alias is removed from sql sources.
     database_alias_map: Optional[dict] = Field(
         default=None,
         description="Database name map to use when constructing dataset URN.",

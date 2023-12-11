@@ -16,7 +16,6 @@ from datahub.emitter import mce_builder
 from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.aws.s3_util import strip_s3_prefix
-from datahub.ingestion.source.redshift.common import get_db_name
 from datahub.ingestion.source.redshift.config import LineageMode, RedshiftConfig
 from datahub.ingestion.source.redshift.query import RedshiftQuery
 from datahub.ingestion.source.redshift.redshift_schema import (
@@ -266,7 +265,7 @@ class RedshiftLineageExtractor:
         try:
             cll: Optional[List[sqlglot_l.ColumnLineageInfo]] = None
             raw_db_name = database
-            alias_db_name = get_db_name(self.config)
+            alias_db_name = self.config.database
 
             for lineage_row in RedshiftDataDictionary.get_lineage_rows(
                 conn=connection, query=query
@@ -382,7 +381,8 @@ class RedshiftLineageExtractor:
                 qualified_table_name = dataset_urn.DatasetUrn.create_from_string(
                     source.urn
                 ).get_entity_id()[1]
-                db, schema, table = qualified_table_name.split(".")
+                # -3 because platform instance is optional and that can cause the split to have more than 3 elements
+                db, schema, table = qualified_table_name.split(".")[-3:]
                 if db == raw_db_name:
                     db = alias_db_name
                     path = f"{db}.{schema}.{table}"

@@ -67,6 +67,7 @@ entities:
       - institutionalMemory
       - dataPlatformInstance
       - browsePathsV2
+      - subTypes
   - name: dataFlow
     category: core
     keyAspect: dataFlowKey
@@ -400,7 +401,7 @@ entities:
       - dataHubUpgradeRequest
       - dataHubUpgradeResult
   - name: inviteToken
-    category: core
+    category: internal
     keyAspect: inviteTokenKey
     aspects:
       - inviteToken
@@ -425,7 +426,7 @@ entities:
     aspects:
       - postInfo
   - name: dataHubStepState
-    category: core
+    category: internal
     keyAspect: dataHubStepStateKey
     aspects:
       - dataHubStepStateProperties

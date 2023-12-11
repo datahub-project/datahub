@@ -1,5 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.browse;
 
+import static org.testng.Assert.*;
+
 import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
@@ -16,12 +18,10 @@ import org.mockito.Mockito;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
-import static org.testng.Assert.*;
-
-
 public class EntityBrowsePathsResolverTest {
 
-  private static final String TEST_ENTITY_URN = "urn:li:dataset:(urn:li:dataPlatform:mysql,my-test,PROD)";
+  private static final String TEST_ENTITY_URN =
+      "urn:li:dataset:(urn:li:dataPlatform:mysql,my-test,PROD)";
 
   @Test
   public void testGetSuccess() throws Exception {
@@ -30,9 +30,7 @@ public class EntityBrowsePathsResolverTest {
 
     List<String> path = ImmutableList.of("prod", "mysql");
     Mockito.when(mockType.browsePaths(Mockito.eq(TEST_ENTITY_URN), Mockito.any()))
-      .thenReturn(ImmutableList.of(
-          new BrowsePath(path))
-      );
+        .thenReturn(ImmutableList.of(new BrowsePath(path)));
 
     // Execute resolver
     QueryContext mockContext = Mockito.mock(QueryContext.class);
@@ -55,9 +53,9 @@ public class EntityBrowsePathsResolverTest {
   @Test
   public void testGetBrowsePathsException() throws Exception {
     BrowsableEntityType mockType = Mockito.mock(BrowsableEntityType.class);
-    Mockito.doThrow(RemoteInvocationException.class).when(mockType).browsePaths(
-        Mockito.any(),
-        Mockito.any());
+    Mockito.doThrow(RemoteInvocationException.class)
+        .when(mockType)
+        .browsePaths(Mockito.any(), Mockito.any());
 
     EntityBrowsePathsResolver resolver = new EntityBrowsePathsResolver(mockType);
 

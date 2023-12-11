@@ -4,6 +4,7 @@
   "path" : "/entitiesVersionedV2",
   "schema" : "com.linkedin.entity.EntityResponse",
   "doc" : "Single unified resource for fetching, updating, searching, & browsing versioned DataHub entities\n\ngenerated from: com.linkedin.metadata.resources.entity.EntityVersionedV2Resource",
+  "resourceClass" : "com.linkedin.metadata.resources.entity.EntityVersionedV2Resource",
   "collection" : {
     "identifier" : {
       "name" : "entitiesVersionedV2Id",
@@ -12,6 +13,7 @@
     "supports" : [ "batch_get" ],
     "methods" : [ {
       "method" : "batch_get",
+      "javaMethodName" : "batchGetVersioned",
       "parameters" : [ {
         "name" : "entityType",
         "type" : "string"

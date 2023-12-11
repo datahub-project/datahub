@@ -1,34 +1,30 @@
 package io.datahubproject.schema_registry.openapi.generated;
 
-import java.util.Objects;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonValue;
-import io.swagger.v3.oas.annotations.media.Schema;
-import org.springframework.validation.annotation.Validated;
-import javax.validation.Valid;
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonValue;
+import java.util.Objects;
 import javax.validation.constraints.*;
+import org.springframework.validation.annotation.Validated;
 
-/**
- * Schema Registry operating mode
- */
+/** Schema Registry operating mode */
 @io.swagger.v3.oas.annotations.media.Schema(description = "Schema Registry operating mode")
 @Validated
-@javax.annotation.Generated(value = "io.swagger.codegen.v3.generators.java.SpringCodegen", date = "2022-12-20T16:52:36.517693Z[Europe/Lisbon]")
+@javax.annotation.Generated(
+    value = "io.swagger.codegen.v3.generators.java.SpringCodegen",
+    date = "2022-12-20T16:52:36.517693Z[Europe/Lisbon]")
 @JsonInclude(JsonInclude.Include.NON_NULL)
-public class Mode   {
+public class Mode {
 
-  /**
-   * Schema Registry operating mode
-   */
+  /** Schema Registry operating mode */
   public enum ModeEnum {
     READWRITE("READWRITE"),
-    
+
     READONLY("READONLY"),
-    
+
     READONLY_OVERRIDE("READONLY_OVERRIDE"),
-    
+
     IMPORT("IMPORT");
 
     private String value;
@@ -53,6 +49,7 @@ public class Mode   {
       return null;
     }
   }
+
   @JsonProperty("mode")
   private ModeEnum mode = null;
 
@@ -63,18 +60,19 @@ public class Mode   {
 
   /**
    * Schema Registry operating mode
+   *
    * @return mode
-   **/
-  @io.swagger.v3.oas.annotations.media.Schema(example = "READWRITE", description = "Schema Registry operating mode")
-  
-    public ModeEnum getMode() {
+   */
+  @io.swagger.v3.oas.annotations.media.Schema(
+      example = "READWRITE",
+      description = "Schema Registry operating mode")
+  public ModeEnum getMode() {
     return mode;
   }
 
   public void setMode(ModeEnum mode) {
     this.mode = mode;
   }
-
 
   @Override
   public boolean equals(java.lang.Object o) {
@@ -97,15 +95,14 @@ public class Mode   {
   public String toString() {
     StringBuilder sb = new StringBuilder();
     sb.append("class Mode {\n");
-    
+
     sb.append("    mode: ").append(toIndentedString(mode)).append("\n");
     sb.append("}");
     return sb.toString();
   }
 
   /**
-   * Convert the given object to string with each line indented by 4 spaces
-   * (except the first line).
+   * Convert the given object to string with each line indented by 4 spaces (except the first line).
    */
   private String toIndentedString(java.lang.Object o) {
     if (o == null) {

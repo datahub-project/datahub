@@ -6,7 +6,6 @@ from typing import Dict, Iterable, List, Optional, Type, Union
 import humanfriendly
 
 # These imports verify that the dependencies are available.
-import psycopg2  # noqa: F401
 import pydantic
 import redshift_connector
 
@@ -38,7 +37,6 @@ from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
 )
-from datahub.ingestion.source.redshift.common import get_db_name
 from datahub.ingestion.source.redshift.config import RedshiftConfig
 from datahub.ingestion.source.redshift.lineage import RedshiftLineageExtractor
 from datahub.ingestion.source.redshift.profile import RedshiftProfiler
@@ -115,6 +113,10 @@ logger: logging.Logger = logging.getLogger(__name__)
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
 @capability(SourceCapability.LINEAGE_COARSE, "Optionally enabled via configuration")
+@capability(
+    SourceCapability.LINEAGE_FINE,
+    "Optionally enabled via configuration (`mixed` or `sql_based` lineage needs to be enabled)",
+)
 @capability(
     SourceCapability.USAGE_STATS,
     "Enabled by default, can be disabled via configuration `include_usage_statistics`",
@@ -349,7 +351,6 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
     def get_redshift_connection(
         config: RedshiftConfig,
     ) -> redshift_connector.Connection:
-        client_options = config.extra_client_options
         host, port = config.host_port.split(":")
         conn = redshift_connector.connect(
             host=host,
@@ -357,7 +358,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
             user=config.username,
             database=config.database,
             password=config.password.get_secret_value() if config.password else None,
-            **client_options,
+            **config.extra_client_options,
         )
 
         conn.autocommit = True
@@ -393,8 +394,8 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
 
     def get_workunits_internal(self) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
         connection = RedshiftSource.get_redshift_connection(self.config)
-        database = get_db_name(self.config)
-        logger.info(f"Processing db {self.config.database} with name {database}")
+        database = self.config.database
+        logger.info(f"Processing db {database}")
         self.report.report_ingestion_stage_start(METADATA_EXTRACTION)
         self.db_tables[database] = defaultdict()
         self.db_views[database] = defaultdict()
@@ -628,7 +629,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
     ) -> Iterable[MetadataWorkUnit]:
         yield from self.gen_dataset_workunits(
             table=view,
-            database=get_db_name(self.config),
+            database=self.config.database,
             schema=schema,
             sub_type=DatasetSubTypes.VIEW,
             custom_properties={},
@@ -638,7 +639,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
         dataset_urn = self.gen_dataset_urn(datahub_dataset_name)
         if view.ddl:
             view_properties_aspect = ViewProperties(
-                materialized=view.type == "VIEW_MATERIALIZED",
+                materialized=view.materialized,
                 viewLanguage="SQL",
                 viewLogic=view.ddl,
             )
