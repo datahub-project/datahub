@@ -262,7 +262,8 @@ databricks = {
     "databricks-sdk>=0.9.0",
     "pyspark~=3.3.0",
     "requests",
-    "databricks-sql-connector",
+    # Version 2.4.0 includes sqlalchemy dialect, 2.8.0 includes some bug fixes
+    "databricks-sql-connector>=2.8.0",
 }
 
 mysql = sql_common | {"pymysql>=1.0.2"}
@@ -393,7 +394,7 @@ plugins: Dict[str, Set[str]] = {
     "powerbi": microsoft_common | {"lark[regex]==1.1.4", "sqlparse"} | sqlglot_lib,
     "powerbi-report-server": powerbi_report_server,
     "vertica": sql_common | {"vertica-sqlalchemy-dialect[vertica-python]==0.0.8.1"},
-    "unity-catalog": databricks | sqllineage_lib,
+    "unity-catalog": databricks | sql_common | sqllineage_lib,
     "fivetran": snowflake_common,
 }
 
@@ -649,7 +650,7 @@ entry_points = {
         "simple_add_dataset_properties = datahub.ingestion.transformer.add_dataset_properties:SimpleAddDatasetProperties",
         "pattern_add_dataset_schema_terms = datahub.ingestion.transformer.add_dataset_schema_terms:PatternAddDatasetSchemaTerms",
         "pattern_add_dataset_schema_tags = datahub.ingestion.transformer.add_dataset_schema_tags:PatternAddDatasetSchemaTags",
-        "extract_owners_from_tags = datahub.ingestion.transformer.extract_ownership_from_tags:ExtractOwnersFromTagsTransformer",
+        "extract_ownership_from_tags = datahub.ingestion.transformer.extract_ownership_from_tags:ExtractOwnersFromTagsTransformer",
     ],
     "datahub.ingestion.sink.plugins": [
         "file = datahub.ingestion.sink.file:FileSink",

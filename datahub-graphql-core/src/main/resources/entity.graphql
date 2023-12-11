@@ -1789,12 +1789,13 @@ type DatasetProperties {
     """
     Last Modified timestamp millis associated with the Dataset
     """
-    lastModified: Long
+    lastModified: AuditStamp!
 
     """
-    Actor associated with the Dataset's lastModified timestamp
+    Actor associated with the Dataset's lastModified timestamp.
+    Deprecated - Use lastModified.actor instead.
     """
-    lastModifiedActor: String
+    lastModifiedActor: String @deprecated
 }
 
 
