@@ -95,6 +95,7 @@ import com.linkedin.datahub.graphql.generated.Test;
 import com.linkedin.datahub.graphql.generated.TestResult;
 import com.linkedin.datahub.graphql.generated.UserUsageCounts;
 import com.linkedin.datahub.graphql.plugins.AcrylGraphQLPlugin;
+import com.linkedin.datahub.graphql.plugins.action.ActionGraphQLPlugin;
 import com.linkedin.datahub.graphql.resolvers.MeResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.AssertionRunEventResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.DeleteAssertionResolver;
@@ -590,9 +591,11 @@ public class GmsGraphQLEngine {
 
         this.graphQLPlugins = ImmutableList.of(
             // Add new plugins here
-            new AcrylGraphQLPlugin()
+            new AcrylGraphQLPlugin(),
+            new ActionGraphQLPlugin()
         );
         this.graphQLPlugins.forEach(plugin -> plugin.init(args));
+
         // Extend loadable types with types from the plugins
         // This allows us to offer search and browse capabilities out of the box for those types
         for (GmsGraphQLPlugin plugin: this.graphQLPlugins) {

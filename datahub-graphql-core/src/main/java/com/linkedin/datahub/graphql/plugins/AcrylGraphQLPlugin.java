@@ -31,6 +31,7 @@ import com.linkedin.datahub.graphql.generated.SystemMonitor;
 import com.linkedin.datahub.graphql.generated.TagProposalParams;
 import com.linkedin.datahub.graphql.resolvers.actionrequest.ListActionRequestsResolver;
 import com.linkedin.datahub.graphql.resolvers.actionrequest.ListRejectedActionRequestsResolver;
+import com.linkedin.datahub.graphql.resolvers.ai.SuggestDescriptionResolver;
 import com.linkedin.datahub.graphql.resolvers.anomaly.EntityAnomaliesResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.CreateDatasetAssertionResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.CreateFieldAssertionResolver;
@@ -219,7 +220,8 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
         INTEGRATIONS_SCHEMA_FILE,
         NOTIFICATIONS_SCHEMA_FILE,
         SUBSCRIPTIONS_SCHEMA_FILE,
-        CONTRACTS_SCHEMA_FILE
+        CONTRACTS_SCHEMA_FILE,
+        AI_SCHEMA_FILE
     );
   }
 
@@ -296,6 +298,7 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
         .dataFetcher("updateSubscription", new UpdateSubscriptionResolver(this.subscriptionService))
         .dataFetcher("deleteSubscription",
             new DeleteSubscriptionResolver(this.subscriptionService, this.entityClient))
+        .dataFetcher("suggestDescription", new SuggestDescriptionResolver(this.integrationsService))
     );
   }
 

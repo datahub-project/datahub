@@ -1,0 +1,8 @@
+# Acryl's AI-powered features
+
+extend type Mutation {
+    """
+    Suggest a description for a given entity
+    """
+    suggestDescription(urn: String!): String
+}

@@ -552,6 +552,12 @@ entities:
     keyAspect: linkPreviewKey
     aspects:
       - linkPreviewInfo
+  #TODO: Move this out to acryl-entity-registry.yml
+  - name: dataHubAction
+    category: internal
+    keyAspect: dataHubActionKey
+    aspects:
+      - dataHubActionInfo
   - name: subscription
     category: core
     keyAspect: subscriptionKey

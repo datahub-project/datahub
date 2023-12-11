@@ -57,6 +57,7 @@ export const DEFAULT_APP_CONFIG = {
         showAccessManagement: false,
         nestedDomainsEnabled: true,
         dataContractsEnabled: false,
+        documentationAiEnabled: false,
     },
     chromeExtensionConfig: {
         enabled: false,

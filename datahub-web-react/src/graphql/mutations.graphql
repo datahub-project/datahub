@@ -135,3 +135,7 @@ mutation updateLineage($input: UpdateLineageInput!) {
 mutation updateEmbed($input: UpdateEmbedInput!) {
     updateEmbed(input: $input)
 }
+
+mutation suggestDescription($urn: String!) {
+    suggestDescription(urn: $urn)
+}

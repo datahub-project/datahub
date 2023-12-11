@@ -1,0 +1,35 @@
+namespace com.linkedin.action
+
+import com.linkedin.common.AuditStamp
+import com.linkedin.common.Urn
+
+/**
+ * Info about a DataHub Action Pipeline
+ */
+@Aspect = {
+  "name": "dataHubActionInfo"
+}
+record DataHubActionInfo {
+  /**
+   * The display name of the action
+   */
+  @Searchable = {
+   "fieldType": "TEXT_PARTIAL"
+  }
+  name: string
+
+  /**
+   * The type of the action itself, e.g. tag_propagation. Should match the recipe.
+   */
+  type: string
+
+  /**
+  * Parameters associated with the Action
+  */
+  config: record DataHubActionConfig {
+    /**
+     * The JSON recipe to use for ingestion
+     */
+     recipe: string
+  }
+}

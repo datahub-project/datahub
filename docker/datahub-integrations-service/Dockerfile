@@ -1,16 +1,8 @@
 # Defining environment
 ARG APP_ENV=prod
 
-FROM golang:1-alpine3.17 AS binary
-ENV DOCKERIZE_VERSION v0.6.1
-WORKDIR /go/src/github.com/jwilder
-RUN apk --no-cache --update add openssl git tar curl
-WORKDIR /go/src/github.com/jwilder/dockerize
-RUN go install github.com/jwilder/dockerize@$DOCKERIZE_VERSION
-
-
+# TODO: Switch to head-slim once that gets published.
 FROM acryldata/datahub-ingestion-base:head as base
-COPY --from=binary /go/bin/dockerize /usr/local/bin
 
 FROM eclipse-temurin:11 as prod-build
 COPY . /datahub-src
@@ -35,9 +27,9 @@ COPY --from=prod-codegen /datahub-src/metadata-ingestion /datahub-src/metadata-i
 COPY --from=prod-codegen /datahub-src/datahub-integrations-service /datahub-src/datahub-integrations-service
 COPY --from=prod-codegen /root/.cache/pip /root/.cache/pip
 RUN cd /datahub-src/datahub-integrations-service && \
-    sed -i.bak "s/__version__ = \"0.0.0.dev0\"/__version__ = \"$RELEASE_VERSION\"/" src/datahub_integrations/__init__.py && \
+    sed -i.bak "s/__version__ = \"1!0.0.0.dev0\"/__version__ = \"$RELEASE_VERSION\"/" src/datahub_integrations/__init__.py && \
     cat src/datahub_integrations/__init__.py && \
-    sed -i.bak "s/version = \"0.0.0.dev0\"/version = \"$RELEASE_VERSION\"/" pyproject.toml && \
+    sed -i.bak "s/version = \"1!0.0.0.dev0\"/version = \"$RELEASE_VERSION\"/" pyproject.toml && \
     pip install -r requirements.txt && \
     pip install -e . && \
     pip freeze
@@ -56,6 +48,10 @@ COPY ./datahub-integrations-service/src/datahub_integrations/__init__.py /datahu
 COPY ./metadata-ingestion/setup.py /datahub-src/metadata-ingestion/
 COPY ./metadata-ingestion/README.md /datahub-src/metadata-ingestion/
 COPY ./metadata-ingestion/src/datahub/__init__.py /datahub-src/metadata-ingestion/src/datahub/__init__.py
+# Bring in DataHub Actions
+# COPY ./datahub-actions/datahub-actions/setup.py /datahub-src/datahub-actions/datahub-actions/
+# COPY ./datahub-actions/datahub-actions/README.md /datahub-src/datahub-actions/datahub-actions/
+# COPY ./datahub-actions/datahub-actions/src/datahub_actions/__init__.py /datahub-src/datahub-actions/datahub-actions/src/datahub_actions/__init__.py
 RUN cd /datahub-src/datahub-integrations-service && \
     pip install -r requirements.txt && \
     pip install -e . && \

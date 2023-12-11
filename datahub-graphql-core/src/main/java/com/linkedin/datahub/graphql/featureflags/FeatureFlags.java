@@ -21,4 +21,5 @@ public class FeatureFlags {
   private boolean showAccessManagement = false;
   private boolean nestedDomainsEnabled = false;
   private boolean dataContractsEnabled = false;
+  private boolean documentationAiEnabled = false;
 }

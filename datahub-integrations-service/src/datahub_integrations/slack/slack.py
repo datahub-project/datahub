@@ -25,18 +25,13 @@ from datahub_integrations.slack.app_manifest import (
 from datahub_integrations.slack.config import SLACK_PROXY, SlackConnection, slack_config
 from datahub_integrations.slack.oauth_state_store import InMemoryStateStore
 
-external_router = fastapi.APIRouter()
-internal_router = fastapi.APIRouter(
-    dependencies=[
-        # TODO: Add middleware for requiring system auth here.
-    ]
-)
-
 _state_store = InMemoryStateStore(expiration_seconds=300)
 
 ACRYL_SLACK_ICON_URL = (
     f"{DATAHUB_FRONTEND_URL}/integrations/static/acryl-slack-icon.png"
 )
+private_router = fastapi.APIRouter()
+public_router = fastapi.APIRouter()
 
 
 def get_oauth_url_generator(config: SlackConnection) -> AuthorizeUrlGenerator:
@@ -49,14 +44,14 @@ def get_oauth_url_generator(config: SlackConnection) -> AuthorizeUrlGenerator:
     )
 
 
-@internal_router.post("/slack/reload_credentials")
+@private_router.post("/slack/reload_credentials")
 def reload_slack_credentials() -> None:
     """Reload Slack credentials from GMS and refreshes existing services appropriately."""
 
     slack_config.reload()
 
 
-@external_router.get("/slack/install")
+@public_router.get("/slack/install")
 def install_slack_app() -> RedirectResponse:
     config = slack_config.reload()
 
@@ -76,7 +71,7 @@ def install_slack_app() -> RedirectResponse:
     return RedirectResponse(url=url)
 
 
-@external_router.get("/slack/oauth_callback")
+@public_router.get("/slack/oauth_callback")
 def oauth_callback(
     state: str,
     code: Optional[str] = None,
@@ -244,7 +239,7 @@ def get_slack_request_handler() -> SlackRequestHandler:
     return app_handler
 
 
-@external_router.post("/slack/events")
+@public_router.post("/slack/events")
 async def slack_event_endpoint(req: fastapi.Request) -> fastapi.Response:
     body = await req.body()
     logger.debug(f"Received slack event: {body!r}\nHeaders: {req.headers}")
@@ -252,7 +247,7 @@ async def slack_event_endpoint(req: fastapi.Request) -> fastapi.Response:
     return await get_slack_request_handler().handle(req)
 
 
-@external_router.post("/slack/actions")
+@public_router.post("/slack/actions")
 async def slack_action_endpoint(req: fastapi.Request) -> fastapi.Response:
     body = await req.body()
     logger.debug(f"Received slack action: {body!r}\nHeaders: {req.headers}")
@@ -260,7 +255,7 @@ async def slack_action_endpoint(req: fastapi.Request) -> fastapi.Response:
     return await get_slack_request_handler().handle(req)
 
 
-@external_router.post("/slack/commands")
+@public_router.post("/slack/commands")
 async def slack_command_endpoint(req: fastapi.Request) -> fastapi.Response:
     body = await req.body()
     # Workaround issue in frontend proxy

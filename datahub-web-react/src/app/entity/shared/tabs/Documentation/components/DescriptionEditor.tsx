@@ -1,11 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import queryString from 'query-string';
 import DOMPurify from 'dompurify';
 import { message } from 'antd';
 import styled from 'styled-components/macro';
+import { useLocation, useHistory } from 'react-router';
 import analytics, { EventType, EntityActionType } from '../../../../../analytics';
 import { GenericEntityUpdate } from '../../../types';
 import { useEntityData, useEntityUpdate, useMutationUrn, useRefetch } from '../../../EntityContext';
-import { useUpdateDescriptionMutation } from '../../../../../../graphql/mutations.generated';
+import {
+    useSuggestDescriptionMutation,
+    useUpdateDescriptionMutation,
+} from '../../../../../../graphql/mutations.generated';
 import { DiscardDescriptionModal } from './DiscardDescriptionModal';
 import { EDITED_DESCRIPTIONS_CACHE_NAME } from '../../../utils';
 import { useProposeUpdateDescriptionMutation } from '../../../../../../graphql/proposals.generated';
@@ -13,11 +18,25 @@ import { EntityType } from '../../../../../../types.generated';
 import { DescriptionEditorToolbar } from './DescriptionEditorToolbar';
 import { Editor } from './editor/Editor';
 import SourceDescription from './SourceDesription';
+import { useAppConfig } from '../../../../../useAppConfig';
 
 const PROPOSAL_ENTITY_TYPES = [EntityType.GlossaryTerm, EntityType.GlossaryNode, EntityType.Dataset];
+const GENERATE_ENTITY_TYPES = [
+    EntityType.Dataset,
+    EntityType.Chart,
+    EntityType.Dashboard,
+    EntityType.DataJob,
+    EntityType.DataFlow,
+];
 
 export function getShouldShowProposeButton(entityType: EntityType) {
     return PROPOSAL_ENTITY_TYPES.includes(entityType);
+}
+
+export function useShouldShowGenerateButton(entityType: EntityType) {
+    const appConfig = useAppConfig();
+
+    return GENERATE_ENTITY_TYPES.includes(entityType) && appConfig.config.featureFlags?.documentationAiEnabled;
 }
 
 const EditorContainer = styled.div`
@@ -42,6 +61,7 @@ export const DescriptionEditor = ({ onComplete }: DescriptionEditorProps) => {
     const updateEntity = useEntityUpdate<GenericEntityUpdate>();
     const [updateDescriptionMutation] = useUpdateDescriptionMutation();
     const [proposeUpdateDescription] = useProposeUpdateDescriptionMutation();
+    const [suggestDescription] = useSuggestDescriptionMutation();
 
     const localStorageDictionary = localStorage.getItem(EDITED_DESCRIPTIONS_CACHE_NAME);
     const editedDescriptions = (localStorageDictionary && JSON.parse(localStorageDictionary)) || {};
@@ -145,6 +165,31 @@ export const DescriptionEditor = ({ onComplete }: DescriptionEditorProps) => {
             });
     }
 
+    const handleGenerate = useCallback(() => {
+        message.loading({ content: 'Generating...' });
+        suggestDescription({
+            variables: {
+                urn: mutationUrn,
+            },
+        })
+            .then(({ data, errors }) => {
+                if (errors) {
+                    // Errors are handled in the catch block.
+                    throw new Error(errors[0].message);
+                }
+                message.destroy();
+
+                const suggestedDescription = data?.suggestDescription || '';
+                // console.log('suggestedDescription', suggestedDescription);
+                setUpdatedDescription((prevDescription) => prevDescription + suggestedDescription);
+                setIsDescriptionUpdated(true);
+            })
+            .catch((e) => {
+                message.destroy();
+                message.error({ content: `Failed to generate: \n ${e.message || ''}`, duration: 3 });
+            });
+    }, [mutationUrn, suggestDescription, setUpdatedDescription, setIsDescriptionUpdated]);
+
     // Function to handle all changes in Editor
     const handleEditorChange = (editedDescription: string) => {
         setUpdatedDescription(editedDescription);
@@ -173,6 +218,27 @@ export const DescriptionEditor = ({ onComplete }: DescriptionEditorProps) => {
     };
 
     const shouldShowProposeButton = getShouldShowProposeButton(entityType);
+    const shouldShowGenerateButton = useShouldShowGenerateButton(entityType);
+
+    // If the generate param is set in the URL, run suggestion generation on load.
+    const location = useLocation();
+    const history = useHistory();
+    const needsGenerate = queryString.parse(location.search, { parseBooleans: true }).generate;
+
+    useEffect(() => {
+        if (shouldShowGenerateButton && needsGenerate) {
+            handleGenerate();
+
+            // Remove the generate param from the URL.
+            history.replace({
+                pathname: location.pathname,
+                search: queryString.stringify({
+                    ...queryString.parse(location.search, { parseBooleans: true }),
+                    generate: undefined,
+                }),
+            });
+        }
+    }, [shouldShowGenerateButton, needsGenerate, history, location, handleGenerate]);
 
     return entityData ? (
         <>
@@ -180,8 +246,10 @@ export const DescriptionEditor = ({ onComplete }: DescriptionEditorProps) => {
                 onSave={handleSave}
                 onPropose={proposeUpdate}
                 onClose={handleConfirmClose}
+                onGenerate={handleGenerate}
                 disableSave={!isDescriptionUpdated}
                 showPropose={shouldShowProposeButton}
+                showGenerate={shouldShowGenerateButton}
             />
             <EditorSourceWrapper>
                 <EditorContainer>

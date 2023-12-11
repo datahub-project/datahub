@@ -88,6 +88,11 @@ public class AuthorizationUtils {
     return isAuthorized(context, Optional.empty(), PoliciesConfig.MANAGE_TAGS_PRIVILEGE);
   }
 
+  public static boolean canViewEntity(@Nonnull Urn entityUrn, @Nonnull QueryContext context) {
+    return isAuthorized(context, Optional.of(new EntitySpec(entityUrn.getEntityType(), entityUrn.toString())), PoliciesConfig.VIEW_ENTITY_PAGE_PRIVILEGE);
+  }
+
+
   public static boolean canDeleteEntity(@Nonnull Urn entityUrn, @Nonnull QueryContext context) {
     return isAuthorized(context, Optional.of(new EntitySpec(entityUrn.getEntityType(), entityUrn.toString())), PoliciesConfig.DELETE_ENTITY_PRIVILEGE);
   }

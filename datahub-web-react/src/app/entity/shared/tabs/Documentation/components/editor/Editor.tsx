@@ -1,4 +1,4 @@
-import React, { forwardRef, useEffect, useImperativeHandle } from 'react';
+import React, { forwardRef, useEffect, useImperativeHandle, useState } from 'react';
 import DOMPurify from 'dompurify';
 import {
     BlockquoteExtension,
@@ -79,9 +79,20 @@ export const Editor = forwardRef((props: EditorProps, ref) => {
             manager.view.focus();
         }
     });
+
+    // We need to track the modified content that we expect to be in the editor.
+    // This way, if the content prop changes, we can update the editor content to match
+    // if needed. However, we don't want to update the editor content on normal typing
+    // changes because that would cause the cursor to jump around unexpectedly.
+    const [modifiedContent, setModifiedContent] = useState(content);
     useEffect(() => {
-        if (readOnly && content) {
+        if (readOnly && content !== undefined) {
             manager.store.commands.setContent(content);
+        } else if (!readOnly && content !== undefined && modifiedContent !== content) {
+            // If we get a content change that doesn't match what we're tracking to be in the editor,
+            // then we need to update the editor content to match the new props content.
+            manager.store.commands.setContent(content);
+            setModifiedContent(content);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [readOnly, content]);
@@ -97,7 +108,14 @@ export const Editor = forwardRef((props: EditorProps, ref) => {
                             <FloatingToolbar />
                             <TableComponents tableCellMenuProps={{ Component: TableCellMenu }} />
                             <MentionsComponent />
-                            {onChange && <OnChangeMarkdown onChange={onChange} />}
+                            {onChange && (
+                                <OnChangeMarkdown
+                                    onChange={(md: string) => {
+                                        setModifiedContent(md);
+                                        onChange(md);
+                                    }}
+                                />
+                            )}
                         </>
                     )}
                     <EditorComponent />

@@ -3,12 +3,23 @@ package com.linkedin.metadata.integration;
 import com.datahub.authentication.Authentication;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.google.common.collect.ImmutableList;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.link.LinkPreviewInfo;
 import com.linkedin.link.LinkPreviewType;
-import com.linkedin.parseq.retry.backoff.BackoffPolicy;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
+import com.linkedin.parseq.retry.backoff.BackoffPolicy;
 import com.linkedin.parseq.retry.backoff.ExponentialBackoff;
+import io.datahubproject.integrations.api.ActionsApi;
+import io.datahubproject.integrations.api.AiApi;
+import io.datahubproject.integrations.invoker.ApiClient;
+import io.datahubproject.integrations.invoker.ApiException;
+import io.datahubproject.integrations.invoker.ApiResponse;
+import io.datahubproject.integrations.invoker.ServerConfiguration;
+import io.datahubproject.integrations.model.BodyRegisterActionPrivateActionsRegisterPost;
+import io.datahubproject.integrations.model.SuggestedDescription;
 import java.nio.charset.StandardCharsets;
+import java.util.Collections;
 import java.util.Objects;
 import java.util.regex.Pattern;
 import javax.annotation.Nonnull;
@@ -24,7 +35,6 @@ import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.util.EntityUtils;
 
-
 /**
  * This class is responsible for coordinating authentication with the backend Metadata Service.
  */
@@ -36,6 +46,8 @@ public class IntegrationsService {
   private static final String REFRESH_SETTINGS_ENDPOINT = "private/reload_credentials";
   private static final String SLACK_MESSAGE_URL_PATTERN = ".*.slack.com/archives/.*";
 
+  private static final String REGISTER_ACTION_ENDPOINT = "private/actions/register";
+
   private final String integrationsServiceHost;
   private final Integer integrationsServicePort;
   private final Authentication systemAuthentication;
@@ -43,6 +55,10 @@ public class IntegrationsService {
   private final String protocol;
   private final BackoffPolicy backoffPolicy;
   private final int retryCount;
+
+
+  private final ActionsApi actionsApi;
+  private final AiApi aiApi;
 
   public IntegrationsService(
       @Nonnull final String integrationsServiceHost,
@@ -75,6 +91,13 @@ public class IntegrationsService {
     this.protocol = useSsl ? "https" : "http";
     this.backoffPolicy = backoffPolicy;
     this.retryCount = retryCount;
+    ApiClient okHttpClient = new ApiClient();  // TODO: configure retries, backoff, etc.
+    okHttpClient.setServers(ImmutableList.of(
+        new ServerConfiguration(String.format("%s://%s:%d", this.protocol, this.integrationsServiceHost, this.integrationsServicePort),
+            "", Collections.EMPTY_MAP)
+    ));
+    this.actionsApi = new ActionsApi(okHttpClient);
+    this.aiApi = new AiApi(okHttpClient);
   }
 
   /**
@@ -241,6 +264,58 @@ public class IntegrationsService {
       return LinkPreviewType.SLACK_MESSAGE;
     } else {
       log.warn(String.format("Received request to provide link preview for unsupported URL %s. Skipping link preview", url));
+      return null;
+    }
+  }
+
+  private static String buildRegisterActionBodyJson(
+      @Nonnull final Urn actionUrn,
+      @Nonnull final String recipe
+  ) throws Exception {
+    final ObjectMapper objectMapper = new ObjectMapper();
+    final ObjectNode objectNode = objectMapper.createObjectNode();
+    objectNode.put("action_urn", actionUrn.toString());
+    objectNode.put("action_config", recipe);
+    return objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(objectNode);
+  }
+
+
+  public boolean registerAction(Urn actionPipelineUrn, String recipe) {
+
+
+    //CloseableHttpResponse response = null;
+    ApiResponse<Object> response = null;
+    try {
+      response =
+          this.actionsApi.registerActionWithHttpInfo(
+              new BodyRegisterActionPrivateActionsRegisterPost().actionUrn(actionPipelineUrn.toString())
+                  .actionConfig(recipe));
+
+      if (response.getStatusCode() != HttpStatus.SC_OK) {
+        log.error("Failed to register action! Integrations service returned non-200 error code!");
+        log.error(String.valueOf(response.getData().toString()));
+        return false;
+      }
+      return true;
+    } catch (Exception e) {
+      log.error("Failed to register action after retrying! Exceptions encountered when trying to access integrations service");
+      return false;
+    } finally {
+    }
+  }
+
+  public SuggestedDescription suggestDescription(Urn entity) {
+    try {
+      var response = this.aiApi.suggestDescriptionWithHttpInfo(entity.toString());
+      if (response.getStatusCode() != HttpStatus.SC_OK) {
+        log.error("Failed to suggest description for entity! Integrations service returned non-200 error code!");
+        log.error(String.valueOf(response.getData().toString()));
+        return null;
+      }
+
+      return response.getData();
+    } catch (ApiException e) {
+      log.error("Failed to suggest description for entity: " + entity.toString(), e);
       return null;
     }
   }

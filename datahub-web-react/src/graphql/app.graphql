@@ -73,6 +73,7 @@ query appConfig {
             showAccessManagement
             nestedDomainsEnabled
             dataContractsEnabled
+            documentationAiEnabled
         }
         chromeExtensionConfig {
             enabled

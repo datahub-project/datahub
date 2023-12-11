@@ -16,7 +16,9 @@
 - In Docker, no venv is created. Instead, dependencies are installed into the global environment.
 - In Docker development mode, the file mounts are set up so that any code changes are detected and the server automatically hot reloads accordingly. Note that the image will still need to be rebuilt if the dependencies change.
 
-## Adding dependencies
+## Dependency management
+
+### Adding dependencies
 
 We use [pip-tools](https://github.com/jazzband/pip-tools) (`pip-compile` and `pip-sync`) to manage dependencies. To add a new dependency:
 
@@ -27,11 +29,32 @@ We use [pip-tools](https://github.com/jazzband/pip-tools) (`pip-compile` and `pi
 ./scripts/lockfile.sh
 
 # Finally, update the venv.
-pip-sync requirements.txt requirements-dev.txt
-pip install -e .
+pip-sync requirements.txt requirements-dev.txt && pip install -e .
 ```
 
-## Updating lockfiles after a merge
+### Updating dependencies
+
+```sh
+# First, update the dependency's lower bound in pyproject.toml
+
+# Update the lockfiles and venv:
+./scripts/lockfile.sh
+pip-sync requirements.txt requirements-dev.txt && pip install -e .
+```
+
+Alternative approach: updating requirements without updating pyproject.toml.
+
+```sh
+# Upgrade a single package:
+pip-compile -o requirements.txt pyproject.toml requirements-local.in --upgrade-package <package>
+
+# Upgrade all packages:
+pip-compile -o requirements.txt pyproject.toml requirements-local.in --upgrade
+
+# Either way, run the same lockfile and venv update commands as above.
+```
+
+### Updating lockfiles after a merge
 
 ```sh
 ./scripts/lockfile.sh

@@ -8,15 +8,21 @@
     # via
     #   -r requirements-local.in
     #   -r requirements.txt
+    #   acryl-datahub-actions
     #   acryl-datahub-integrations (pyproject.toml)
 accumulation-tree==0.6.2
     # via
     #   -r requirements.txt
     #   tdigest
+acryl-datahub-actions==0.0.14
+    # via
+    #   -r requirements.txt
+    #   acryl-datahub-integrations (pyproject.toml)
 aiohttp==3.8.5
     # via
     #   -r requirements.txt
     #   acryl-datahub
+    #   openai
 aiosignal==1.3.1
     # via
     #   -r requirements.txt
@@ -65,6 +71,7 @@ click==8.1.7
     # via
     #   -r requirements.txt
     #   acryl-datahub
+    #   acryl-datahub-actions
     #   black
     #   click-default-group
     #   uvicorn
@@ -72,7 +79,12 @@ click-default-group==1.2.4
     # via
     #   -r requirements.txt
     #   acryl-datahub
+    #   acryl-datahub-actions
 click-spinner==0.1.10
+    # via
+    #   -r requirements.txt
+    #   acryl-datahub
+confluent-kafka==2.3.0
     # via
     #   -r requirements.txt
     #   acryl-datahub
@@ -84,10 +96,19 @@ deprecated==1.2.14
     # via
     #   -r requirements.txt
     #   acryl-datahub
+dictdiffer==0.9.0
+    # via
+    #   -r requirements.txt
+    #   acryl-datahub-actions
 docker==6.1.3
     # via
     #   -r requirements.txt
     #   acryl-datahub
+    #   acryl-datahub-actions
+entrypoints==0.4
+    # via
+    #   -r requirements.txt
+    #   acryl-datahub-actions
 exceptiongroup==1.1.3
     # via
     #   -r requirements.txt
@@ -97,15 +118,29 @@ expandvars==0.11.0
     # via
     #   -r requirements.txt
     #   acryl-datahub
+    #   acryl-datahub-actions
 fastapi==0.103.1
     # via
     #   -r requirements.txt
     #   acryl-datahub-integrations (pyproject.toml)
+fastavro==1.9.0
+    # via
+    #   -r requirements.txt
+    #   acryl-datahub
 frozenlist==1.4.0
     # via
     #   -r requirements.txt
     #   aiohttp
     #   aiosignal
+grpcio==1.59.0
+    # via
+    #   -r requirements.txt
+    #   acryl-datahub
+    #   grpcio-tools
+grpcio-tools==1.59.0
+    # via
+    #   -r requirements.txt
+    #   acryl-datahub
 h11==0.14.0
     # via
     #   -r requirements.txt
@@ -159,9 +194,23 @@ mypy-extensions==1.0.0
     # via
     #   -r requirements.txt
     #   acryl-datahub
+    #   acryl-datahub-actions
     #   black
     #   mypy
     #   typing-inspect
+networkx==3.2.1
+    # via
+    #   -r requirements.txt
+    #   acryl-datahub
+openai==0.27.10
+    # via
+    #   -r requirements.txt
+    #   acryl-datahub-integrations (pyproject.toml)
+    #   openai-function-call
+openai-function-call==0.1.2
+    # via
+    #   -r requirements.txt
+    #   acryl-datahub-integrations (pyproject.toml)
 packaging==23.1
     # via
     #   -r requirements.txt
@@ -179,6 +228,15 @@ progressbar2==4.2.0
     # via
     #   -r requirements.txt
     #   acryl-datahub
+    #   acryl-datahub-actions
+prometheus-client==0.17.1
+    # via
+    #   -r requirements.txt
+    #   acryl-datahub-actions
+protobuf==4.24.4
+    # via
+    #   -r requirements.txt
+    #   grpcio-tools
 psutil==5.9.5
     # via
     #   -r requirements.txt
@@ -187,7 +245,9 @@ pydantic==1.10.12
     # via
     #   -r requirements.txt
     #   acryl-datahub
+    #   acryl-datahub-actions
     #   fastapi
+    #   openai-function-call
 pyrsistent==0.19.3
     # via
     #   -r requirements.txt
@@ -202,6 +262,7 @@ python-dateutil==2.8.2
     # via
     #   -r requirements.txt
     #   acryl-datahub
+    #   acryl-datahub-actions
 python-dotenv==1.0.0
     # via
     #   -r requirements.txt
@@ -218,12 +279,18 @@ pyyaml==6.0.1
     # via
     #   -r requirements.txt
     #   acryl-datahub
+    #   acryl-datahub-actions
     #   uvicorn
+ratelimit==2.2.1
+    # via
+    #   -r requirements.txt
+    #   acryl-datahub-actions
 requests==2.31.0
     # via
     #   -r requirements.txt
     #   docker
     #   mixpanel
+    #   openai
     #   requests-file
 requests-file==1.5.1
     # via
@@ -262,6 +329,10 @@ sniffio==1.3.0
     # via
     #   -r requirements.txt
     #   anyio
+stackprinter==0.2.10
+    # via
+    #   -r requirements.txt
+    #   acryl-datahub-actions
 starlette==0.27.0
     # via
     #   -r requirements.txt
@@ -270,6 +341,7 @@ tabulate==0.9.0
     # via
     #   -r requirements.txt
     #   acryl-datahub
+    #   acryl-datahub-actions
 tdigest==0.5.2.2
     # via
     #   -r requirements.txt
@@ -282,12 +354,17 @@ toml==0.10.2
     # via
     #   -r requirements.txt
     #   acryl-datahub
+    #   acryl-datahub-actions
 tomli==2.0.1
     # via
     #   black
     #   coverage
     #   mypy
     #   pytest
+tqdm==4.66.1
+    # via
+    #   -r requirements.txt
+    #   openai
 types-setuptools==68.2.0.0
     # via acryl-datahub-integrations (pyproject.toml)
 typing-extensions==4.5.0
@@ -304,6 +381,7 @@ typing-inspect==0.9.0
     # via
     #   -r requirements.txt
     #   acryl-datahub
+    #   acryl-datahub-actions
 urllib3==2.0.4
     # via
     #   -r requirements.txt
@@ -340,3 +418,6 @@ yarl==1.9.2
     # via
     #   -r requirements.txt
     #   aiohttp
+
+# The following packages are considered to be unsafe in a requirements file:
+# setuptools

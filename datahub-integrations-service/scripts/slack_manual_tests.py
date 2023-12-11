@@ -4,7 +4,7 @@ from datahub_integrations.slack.config import slack_config
 from datahub_integrations.slack.slack import get_slack_app, get_slack_link_preview
 
 
-def _send_test_message():
+def _send_test_message() -> None:
     config = slack_config.get_config()
     app = get_slack_app(config)
 

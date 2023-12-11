@@ -1,10 +1,15 @@
-import { CheckOutlined, MailOutlined } from '@ant-design/icons';
+import Icon, { CheckOutlined, MailOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
 import { Button } from 'antd';
 import React from 'react';
 import TabToolbar from '../../../components/styled/TabToolbar';
+import { ReactComponent as SparklesIcon } from '../../../../../../images/sparkles.svg';
 
 const ProposeButton = styled(Button)`
+    margin-right: 10px;
+`;
+
+const GenerateButton = styled(Button)`
     margin-right: 10px;
 `;
 
@@ -13,7 +18,9 @@ type DescriptionEditorToolbarProps = {
     onClose: () => void;
     onSave: () => void;
     onPropose: () => void;
+    onGenerate: () => void;
     showPropose: boolean;
+    showGenerate: boolean;
 };
 
 export const DescriptionEditorToolbar = ({
@@ -21,7 +28,9 @@ export const DescriptionEditorToolbar = ({
     onClose,
     onSave,
     onPropose,
+    onGenerate,
     showPropose,
+    showGenerate,
 }: DescriptionEditorToolbarProps) => {
     return (
         <TabToolbar>
@@ -29,6 +38,11 @@ export const DescriptionEditorToolbar = ({
                 Back
             </Button>
             <div>
+                {showGenerate && (
+                    <GenerateButton data-testid="description-editor-generate-button" onClick={onGenerate}>
+                        <Icon component={SparklesIcon} /> Generate
+                    </GenerateButton>
+                )}
                 {showPropose && (
                     <ProposeButton data-testid="propose-description" onClick={onPropose} disabled={disableSave}>
                         <MailOutlined /> Propose

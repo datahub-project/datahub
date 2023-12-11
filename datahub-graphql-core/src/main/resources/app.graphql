@@ -949,6 +949,11 @@ type FeatureFlagsConfig {
   Whether data contracts should be enabled
   """
   dataContractsEnabled: Boolean!
+
+  """
+  Whether AI-powered documentation should be enabled
+  """
+  documentationAiEnabled: Boolean!
 }
 
 """

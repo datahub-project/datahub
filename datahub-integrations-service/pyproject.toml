@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "acryl-datahub-integrations"
-version = "0.0.0.dev0"
+version = "1!0.0.0.dev0"
 description = ""
 authors = [
 	{ name="Acryl Data", email="eng@acryl.io" },
@@ -17,6 +17,9 @@ dependencies = [
 	"uvicorn[standard]",
 	"loguru",
 	"slack-bolt",
+	"acryl-datahub-actions==0.0.14",
+	"openai",
+	"openai_function_call",
 ]
 
 [project.optional-dependencies]

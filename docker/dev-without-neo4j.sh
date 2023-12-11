@@ -26,6 +26,7 @@ set -x
 # Launches dev instances of DataHub images. See documentation for more details.
 # YOU MUST BUILD VIA GRADLE BEFORE RUNNING THIS.
 cd $DIR && \
+  touch "${DIR}/../datahub-integrations-service/.env" && \
   { [[ -n "$SKIP_PULL" ]] || \
   COMPOSE_DOCKER_CLI_BUILD=1 DOCKER_BUILDKIT=1 DOCKER_DEFAULT_PLATFORM="linux/$(uname -m)" docker compose \
     -f "${DIR}/docker-compose-without-neo4j.yml" \

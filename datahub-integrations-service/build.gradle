@@ -16,6 +16,7 @@
 
 plugins {
     id 'base'
+    id("org.openapi.generator") version "6.6.0"
 }
 
 ext {
@@ -93,3 +94,31 @@ clean {
     delete 'dist'
 }
 clean.dependsOn cleanPythonCache
+
+
+openApiGenerate {
+    generatorName.set("java")
+    inputSpec.set("$rootDir/datahub-integrations-service/generated/openapi/openapi.json")
+    outputDir.set("$buildDir/generated/openapi/java")
+    cleanupOutput.set(true)
+    apiPackage.set("io.datahubproject.integrations.api")
+    invokerPackage.set("io.datahubproject.integrations.invoker")
+    modelPackage.set("io.datahubproject.integrations.model")
+    generateApiTests.set(false)
+    generateModelTests.set(false)
+    configOptions.set([
+        dateLibrary: "java8"
+    ])
+
+}
+
+task codegen(type: Exec, dependsOn: [install]) {
+    commandLine 'bash', '-c',
+        "set -x &&" +
+        "${venv_name}/bin/python ./scripts/generate_openapi_spec.py"
+}
+
+tasks.openApiGenerate.dependsOn codegen
+tasks.codegen.dependsOn installDev
+
+build.dependsOn tasks.openApiGenerate

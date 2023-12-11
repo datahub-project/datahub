@@ -4,18 +4,19 @@ import { useLocation } from 'react-router-dom';
 
 import styled from 'styled-components';
 import { Button, Divider, Typography } from 'antd';
-import { EditOutlined, ExpandAltOutlined } from '@ant-design/icons';
+import Icon, { EditOutlined, ExpandAltOutlined } from '@ant-design/icons';
 
 import TabToolbar from '../../components/styled/TabToolbar';
 import { AddLinkModal } from '../../components/styled/AddLinkModal';
 import { EmptyTab } from '../../components/styled/EmptyTab';
-import { DescriptionEditor } from './components/DescriptionEditor';
+import { DescriptionEditor, useShouldShowGenerateButton } from './components/DescriptionEditor';
 import { LinkList } from './components/LinkList';
 
 import { useEntityData, useRefetch, useRouteToTab } from '../../EntityContext';
 import { EDITED_DESCRIPTIONS_CACHE_NAME } from '../../utils';
 import { Editor } from './components/editor/Editor';
 import { DescriptionPreviewModal } from './components/DescriptionPreviewModal';
+import { ReactComponent as SparklesIcon } from '../../../../../images/sparkles.svg';
 
 const DocumentationContainer = styled.div`
     margin: 0 32px;
@@ -29,7 +30,7 @@ interface Props {
 
 export const DocumentationTab = ({ properties }: { properties?: Props }) => {
     const hideLinksButton = properties?.hideLinksButton;
-    const { urn, entityData } = useEntityData();
+    const { urn, entityData, entityType } = useEntityData();
     const refetch = useRefetch();
     const description = entityData?.editableProperties?.description || entityData?.properties?.description || '';
     const links = entityData?.institutionalMemory?.elements || [];
@@ -38,6 +39,8 @@ export const DocumentationTab = ({ properties }: { properties?: Props }) => {
     const routeToTab = useRouteToTab();
     const isEditing = queryString.parse(useLocation().search, { parseBooleans: true }).editing;
     const showModal = queryString.parse(useLocation().search, { parseBooleans: true }).modal;
+
+    const shouldShowGenerateButton = useShouldShowGenerateButton(entityType);
 
     useEffect(() => {
         const editedDescriptions = (localStorageDictionary && JSON.parse(localStorageDictionary)) || {};
@@ -106,6 +109,16 @@ export const DocumentationTab = ({ properties }: { properties?: Props }) => {
                     >
                         <EditOutlined /> Add Documentation
                     </Button>
+                    {shouldShowGenerateButton && (
+                        <Button
+                            data-testid="generate-documentation"
+                            onClick={() =>
+                                routeToTab({ tabName: 'Documentation', tabParams: { editing: true, generate: true } })
+                            }
+                        >
+                            <Icon component={SparklesIcon} /> Generate Documentation
+                        </Button>
+                    )}
                     {!hideLinksButton && <AddLinkModal refetch={refetch} />}
                 </EmptyTab>
             )}

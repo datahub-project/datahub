@@ -23,6 +23,7 @@ fi
 # YOU MUST BUILD VIA GRADLE BEFORE RUNNING THIS.
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 cd $DIR && \
+  touch "${DIR}/../datahub-integrations-service/.env" && \
   COMPOSE_DOCKER_CLI_BUILD=1 DOCKER_BUILDKIT=1 DOCKER_DEFAULT_PLATFORM="$(uname -m)" docker-compose \
     -f docker-compose.yml \
     -f docker-compose.acryl.yml \

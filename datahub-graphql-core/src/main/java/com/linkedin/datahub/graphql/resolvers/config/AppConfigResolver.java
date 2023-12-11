@@ -193,6 +193,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
       .setShowAccessManagement(_featureFlags.isShowAccessManagement())
       .setNestedDomainsEnabled(_featureFlags.isNestedDomainsEnabled())
       .setDataContractsEnabled(_featureFlags.isDataContractsEnabled())
+      .setDocumentationAiEnabled(_featureFlags.isDocumentationAiEnabled())
       .build();
 
     appConfig.setFeatureFlags(featureFlagsConfig);
