@@ -29,7 +29,8 @@ class RedshiftReport(ProfilingSqlReport, IngestionStageReport, BaseTimeWindowRep
     lineage_mem_size: Dict[str, str] = field(default_factory=TopKDict)
     tables_in_mem_size: Dict[str, str] = field(default_factory=TopKDict)
     views_in_mem_size: Dict[str, str] = field(default_factory=TopKDict)
-    num_operational_stats_skipped: int = 0
+    num_operational_stats_filtered: int = 0
+    num_repeated_operations_dropped: int = 0
     num_usage_stat_skipped: int = 0
     num_lineage_tables_dropped: int = 0
     num_lineage_dropped_query_parser: int = 0
