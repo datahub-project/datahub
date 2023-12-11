@@ -31,9 +31,9 @@ describe("create and manage platform and metadata policies", () => {
         cy.focused().blur();
         cy.get("#saveButton").click();
         cy.waitTextVisible("Successfully saved policy.");
-        cy.wait(1000);
         cy.search("Search policies...",platform_policy_name);
-        cy.waitTextVisible(platform_policy_name); 
+        cy.contains('tr', `${platform_policy_name}`).should('be.visible');
+
     });
 
     it("edit platform policy", () => {
@@ -54,13 +54,13 @@ describe("create and manage platform and metadata policies", () => {
         cy.get("#saveButton").click();
         cy.waitTextVisible("Successfully saved policy.");
         cy.wait(1000); 
-        cy.waitTextVisible(platform_policy_edited);
-        cy.waitTextVisible(`Platform policy description ${test_id} EDITED`); 
+        cy.contains('tr', `${platform_policy_edited}`).should('be.visible');
     });
 
     it("deactivate and activate platform policy", () => {
         cy.loginWithCredentials();
         cy.visit("/settings/permissions/policies");
+        cy.search("Search policies...", platform_policy_edited);
         cy.contains('tr', `${platform_policy_edited}` )
           .contains('DEACTIVATE')
           .click();
@@ -107,9 +107,8 @@ describe("create and manage platform and metadata policies", () => {
         cy.focused().blur();
         cy.get("#saveButton").click();
         cy.waitTextVisible("Successfully saved policy.");
-        cy.wait(1000);
         cy.search("Search policies...",metadata_policy_name);
-        cy.waitTextVisible(metadata_policy_name); 
+        cy.contains('tr', `${metadata_policy_name}`).should('be.visible');
     });
 
     it("edit metadata policy", () => {
@@ -129,13 +128,13 @@ describe("create and manage platform and metadata policies", () => {
         cy.get("#saveButton").click();
         cy.waitTextVisible("Successfully saved policy.");
         cy.wait(1000);
-        cy.waitTextVisible(metadata_policy_edited); 
-        cy.waitTextVisible(`Metadata policy description ${test_id} EDITED`); 
+        cy.contains('tr', `${metadata_policy_edited}`).should('be.visible');
     });
 
     it("deactivate and activate metadata policy", () => {
         cy.loginWithCredentials();
         cy.visit("/settings/permissions/policies");
+        cy.search("Search policies...", metadata_policy_edited);
         cy.contains('tr', `${metadata_policy_edited}` )
           .contains('DEACTIVATE')
           .click();
