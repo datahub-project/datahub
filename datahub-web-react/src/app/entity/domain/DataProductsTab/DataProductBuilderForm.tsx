@@ -4,7 +4,7 @@ import styled from 'styled-components';
 import { Editor as MarkdownEditor } from '../../shared/tabs/Documentation/components/editor/Editor';
 import { ANTD_GRAY } from '../../shared/constants';
 import { DataProductBuilderFormProps } from './types';
-import { DataProductAdvanceOption } from './DataProductAdvanceOption';
+import { DataProductAdvancedOption } from './DataProductAdvancedOption';
 
 const StyledEditor = styled(MarkdownEditor)`
     border: 1px solid ${ANTD_GRAY[4]};
@@ -43,7 +43,7 @@ export default function DataProductBuilderForm({ builderState, updateBuilderStat
             <Form.Item label={<Typography.Text strong>Description</Typography.Text>}>
                 <StyledEditor doNotFocus content={builderState.description} onChange={updateDescription} />
             </Form.Item>
-            <DataProductAdvanceOption builderState={builderState} updateBuilderState={updateBuilderState}/>
+            <DataProductAdvancedOption builderState={builderState} updateBuilderState={updateBuilderState}/>
         </Form>
     );
 }

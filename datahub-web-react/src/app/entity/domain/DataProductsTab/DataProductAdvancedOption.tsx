@@ -23,7 +23,7 @@ const AdvancedLabel = styled(Typography.Text)`
     color: #373d44;
 `;
 
-export function DataProductAdvanceOption({builderState, updateBuilderState }:DataProductBuilderFormProps){
+export function DataProductAdvancedOption({builderState, updateBuilderState }: DataProductBuilderFormProps){
 
     function updateDataProductId(id: string) {
         updateBuilderState({

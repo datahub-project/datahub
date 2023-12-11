@@ -11056,9 +11056,9 @@ input CreateDataProductInput {
     """
     domainUrn: String!
     """
-    An id for the DataProduct
+    An optional id for the new data product
     """
-    id : String
+    id: String
 }
 
 """
