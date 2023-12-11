@@ -14,9 +14,11 @@ base_requirements = {
     "mypy_extensions>=0.4.3",
     # Actual dependencies.
     "typing-inspect",
+    # pydantic 1.8.2 is incompatible with mypy 0.910.
+    # See https://github.com/samuelcolvin/pydantic/pull/3175#issuecomment-995382910.
     # pydantic 1.10.3 is incompatible with typing-extensions 4.1.1 - https://github.com/pydantic/pydantic/issues/4885
     # pydantic 2 makes major, backwards-incompatible changes - https://github.com/pydantic/pydantic/issues/4887
-    "pydantic>=1.5.1,!=1.10.3,<2",
+    "pydantic>=1.10.0,!=1.10.3",
     "mixpanel>=4.9.0",
     "sentry-sdk",
 }
@@ -466,9 +468,6 @@ base_dev_requirements = {
     "flake8-bugbear==23.3.12",
     "isort>=5.7.0",
     "mypy==1.0.0",
-    # pydantic 1.8.2 is incompatible with mypy 0.910.
-    # See https://github.com/samuelcolvin/pydantic/pull/3175#issuecomment-995382910.
-    "pydantic>=1.10.0",
     *test_api_requirements,
     pytest_dep,
     "pytest-asyncio>=0.16.0",
