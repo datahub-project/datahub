@@ -205,7 +205,7 @@ mutation updateDataset {
     urn:"urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)",
     input: {
       editableProperties: {
-          description: "## The Real Estate Sales Dataset\nThis is a really important Dataset that contains all the relevant information about sales that have happened organized by address.\n"
+          description: "## The Real Estate Sales Dataset\\nThis is a really important Dataset that contains all the relevant information about sales that have happened organized by address.\\n"
       }
       institutionalMemory: {
         elements: {
