@@ -99,7 +99,6 @@ class AddDatasetOwnership(DatasetOwnershipTransformer):
 
 class DatasetOwnershipBaseConfig(TransformerSemanticsConfigModel):
     ownership_type: Optional[str]
-    ownership_type_urn: Optional[str]
 
 
 class SimpleDatasetOwnershipConfig(DatasetOwnershipBaseConfig):
@@ -111,14 +110,14 @@ class SimpleAddDatasetOwnership(AddDatasetOwnership):
     """Transformer that adds a specified set of owners to each dataset."""
 
     def __init__(self, config: SimpleDatasetOwnershipConfig, ctx: PipelineContext):
-        ownership_type = builder.validate_ownership_type(
-            config.ownership_type, config.ownership_type_urn
+        ownership_type, ownership_type_urn = builder.validate_ownership_type(
+            config.ownership_type
         )
         owners = [
             OwnerClass(
                 owner=owner,
                 type=ownership_type,
-                typeUrn=config.ownership_type_urn,
+                typeUrn=ownership_type_urn,
             )
             for owner in config.owner_urns
         ]
@@ -149,15 +148,15 @@ class PatternAddDatasetOwnership(AddDatasetOwnership):
 
     def __init__(self, config: PatternDatasetOwnershipConfig, ctx: PipelineContext):
         owner_pattern = config.owner_pattern
-        ownership_type = builder.validate_ownership_type(
-            config.ownership_type, config.ownership_type_urn
+        ownership_type, ownership_type_urn = builder.validate_ownership_type(
+            config.ownership_type
         )
         generic_config = AddDatasetOwnershipConfig(
             get_owners_to_add=lambda urn: [
                 OwnerClass(
                     owner=owner,
                     type=ownership_type,
-                    typeUrn=config.ownership_type_urn,
+                    typeUrn=ownership_type_urn,
                 )
                 for owner in owner_pattern.value(urn)
             ],

@@ -16,7 +16,7 @@ from typing import (
     TypeVar,
     Union,
     cast,
-    get_type_hints,
+    get_type_hints, Tuple,
 )
 
 import typing_inspect
@@ -351,15 +351,15 @@ def get_class_fields(_class: Type[object]) -> Iterable[str]:
     ]
 
 
-def validate_ownership_type(
-    ownership_type: Optional[str], ownership_type_urn: Optional[str]
-) -> str:
+def validate_ownership_type(ownership_type: Optional[str]) -> Tuple[str, Optional[str]]:
+    if ownership_type is None:
+        return OwnershipTypeClass.DATAOWNER, None
     try:
         ownership_type_str = cast(str, ownership_type)
-        if not ownership_type_str and ownership_type_urn:
-            ownership_type_str = OwnershipTypeClass.CUSTOM
+        if ownership_type_str.startswith("urn:li:"):
+            return OwnershipTypeClass.CUSTOM, ownership_type_str
         if ownership_type_str in get_class_fields(OwnershipTypeClass):
-            return ownership_type_str
+            return ownership_type_str, None
         raise ValueError
     except ValueError:
         raise ValueError(f"Unexpected ownership type: {ownership_type}")

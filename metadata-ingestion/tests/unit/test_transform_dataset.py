@@ -302,8 +302,7 @@ def test_simple_dataset_ownership_with_type_urn_transformation(mock_time):
             "owner_urns": [
                 builder.make_user_urn("person1"),
             ],
-            "ownership_type": OwnershipTypeClass.CUSTOM,
-            "ownership_type_urn": "urn:li:ownershipType:__system__technical_owner",
+            "ownership_type": "urn:li:ownershipType:__system__technical_owner",
         },
         PipelineContext(run_id="test"),
     )
