@@ -1,5 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.mutate;
 
+import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
+
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -18,9 +20,6 @@ import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
-
-
 @Slf4j
 @RequiredArgsConstructor
 public class BatchUpdateDeprecationResolver implements DataFetcher<CompletableFuture<Boolean>> {
@@ -30,23 +29,32 @@ public class BatchUpdateDeprecationResolver implements DataFetcher<CompletableFu
   @Override
   public CompletableFuture<Boolean> get(DataFetchingEnvironment environment) throws Exception {
     final QueryContext context = environment.getContext();
-    final BatchUpdateDeprecationInput input = bindArgument(environment.getArgument("input"), BatchUpdateDeprecationInput.class);
+    final BatchUpdateDeprecationInput input =
+        bindArgument(environment.getArgument("input"), BatchUpdateDeprecationInput.class);
     final List<ResourceRefInput> resources = input.getResources();
 
-    return CompletableFuture.supplyAsync(() -> {
+    return CompletableFuture.supplyAsync(
+        () -> {
 
-      // First, validate the resources
-      validateInputResources(resources, context);
+          // First, validate the resources
+          validateInputResources(resources, context);
 
-      try {
-        // Then execute the bulk update
-        batchUpdateDeprecation(input.getDeprecated(), input.getNote(), input.getDecommissionTime(), resources, context);
-        return true;
-      } catch (Exception e) {
-        log.error("Failed to perform update against input {}, {}", input.toString(), e.getMessage());
-        throw new RuntimeException(String.format("Failed to perform update against input %s", input.toString()), e);
-      }
-    });
+          try {
+            // Then execute the bulk update
+            batchUpdateDeprecation(
+                input.getDeprecated(),
+                input.getNote(),
+                input.getDecommissionTime(),
+                resources,
+                context);
+            return true;
+          } catch (Exception e) {
+            log.error(
+                "Failed to perform update against input {}, {}", input.toString(), e.getMessage());
+            throw new RuntimeException(
+                String.format("Failed to perform update against input %s", input.toString()), e);
+          }
+        });
   }
 
   private void validateInputResources(List<ResourceRefInput> resources, QueryContext context) {
@@ -58,17 +66,25 @@ public class BatchUpdateDeprecationResolver implements DataFetcher<CompletableFu
   private void validateInputResource(ResourceRefInput resource, QueryContext context) {
     final Urn resourceUrn = UrnUtils.getUrn(resource.getResourceUrn());
     if (!DeprecationUtils.isAuthorizedToUpdateDeprecationForEntity(context, resourceUrn)) {
-      throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
+      throw new AuthorizationException(
+          "Unauthorized to perform this action. Please contact your DataHub administrator.");
     }
-    LabelUtils.validateResource(resourceUrn, resource.getSubResource(), resource.getSubResourceType(), _entityService);
+    LabelUtils.validateResource(
+        resourceUrn, resource.getSubResource(), resource.getSubResourceType(), _entityService);
   }
 
-  private void batchUpdateDeprecation(boolean deprecated,
+  private void batchUpdateDeprecation(
+      boolean deprecated,
       @Nullable String note,
       @Nullable Long decommissionTime,
       List<ResourceRefInput> resources,
       QueryContext context) {
-    log.debug("Batch updating deprecation. deprecated: {}, note: {}, decommissionTime: {}, resources: {}", deprecated, note, decommissionTime, resources);
+    log.debug(
+        "Batch updating deprecation. deprecated: {}, note: {}, decommissionTime: {}, resources: {}",
+        deprecated,
+        note,
+        decommissionTime,
+        resources);
     try {
       DeprecationUtils.updateDeprecationForResources(
           deprecated,
@@ -78,9 +94,13 @@ public class BatchUpdateDeprecationResolver implements DataFetcher<CompletableFu
           UrnUtils.getUrn(context.getActorUrn()),
           _entityService);
     } catch (Exception e) {
-      throw new RuntimeException(String.format("Failed to batch update deprecated to %s for resources with urns %s!",
-          deprecated,
-          resources.stream().map(ResourceRefInput::getResourceUrn).collect(Collectors.toList())),
+      throw new RuntimeException(
+          String.format(
+              "Failed to batch update deprecated to %s for resources with urns %s!",
+              deprecated,
+              resources.stream()
+                  .map(ResourceRefInput::getResourceUrn)
+                  .collect(Collectors.toList())),
           e);
     }
   }

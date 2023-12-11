@@ -1,5 +1,7 @@
 package com.datahub.telemetry;
 
+import static com.linkedin.metadata.Constants.*;
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectWriter;
@@ -27,9 +29,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-import static com.linkedin.metadata.Constants.*;
-
-
 @Slf4j
 @RequiredArgsConstructor
 public class TrackingService {
@@ -56,11 +55,29 @@ public class TrackingService {
   private static final String INTERVAL_FIELD = "interval";
   private static final String VIEW_TYPE_FIELD = "viewType";
 
-  private static final Set<String> ALLOWED_EVENT_FIELDS = new HashSet<>(
-      ImmutableList.of(EVENT_TYPE_FIELD, ENTITY_TYPE_FIELD, ENTITY_TYPE_FILTER_FIELD,
-          PAGE_NUMBER_FIELD, PAGE_FIELD, TOTAL_FIELD, INDEX_FIELD, RESULT_TYPE_FIELD, RENDER_ID_FIELD, MODULE_ID_FIELD,
-          RENDER_TYPE_FIELD, SCENARIO_TYPE_FIELD, SECTION_FIELD, ACCESS_TOKEN_TYPE_FIELD, DURATION_FIELD,
-          ROLE_URN_FIELD, POLICY_URN_FIELD, SOURCE_TYPE_FIELD, INTERVAL_FIELD, VIEW_TYPE_FIELD));
+  private static final Set<String> ALLOWED_EVENT_FIELDS =
+      new HashSet<>(
+          ImmutableList.of(
+              EVENT_TYPE_FIELD,
+              ENTITY_TYPE_FIELD,
+              ENTITY_TYPE_FILTER_FIELD,
+              PAGE_NUMBER_FIELD,
+              PAGE_FIELD,
+              TOTAL_FIELD,
+              INDEX_FIELD,
+              RESULT_TYPE_FIELD,
+              RENDER_ID_FIELD,
+              MODULE_ID_FIELD,
+              RENDER_TYPE_FIELD,
+              SCENARIO_TYPE_FIELD,
+              SECTION_FIELD,
+              ACCESS_TOKEN_TYPE_FIELD,
+              DURATION_FIELD,
+              ROLE_URN_FIELD,
+              POLICY_URN_FIELD,
+              SOURCE_TYPE_FIELD,
+              INTERVAL_FIELD,
+              VIEW_TYPE_FIELD));
 
   private static final String ACTOR_URN_FIELD = "actorUrn";
   private static final String ORIGIN_FIELD = "origin";
@@ -72,9 +89,20 @@ public class TrackingService {
   private static final String USER_URN_FIELD = "userUrn";
   private static final String USER_URNS_FIELD = "userUrns";
   private static final String PARENT_NODE_URN_FIELD = "parentNodeUrn";
-  private static final Set<String> ALLOWED_OBFUSCATED_EVENT_FIELDS = new HashSet<>(
-      ImmutableList.of(ACTOR_URN_FIELD, ORIGIN_FIELD, ENTITY_URN_FIELD, ENTITY_URNS_FIELD, GROUP_NAME_FIELD,
-          SECTION_FIELD, ENTITY_PAGE_FILTER_FIELD, PATH_FIELD, USER_URN_FIELD, USER_URNS_FIELD, PARENT_NODE_URN_FIELD));
+  private static final Set<String> ALLOWED_OBFUSCATED_EVENT_FIELDS =
+      new HashSet<>(
+          ImmutableList.of(
+              ACTOR_URN_FIELD,
+              ORIGIN_FIELD,
+              ENTITY_URN_FIELD,
+              ENTITY_URNS_FIELD,
+              GROUP_NAME_FIELD,
+              SECTION_FIELD,
+              ENTITY_PAGE_FILTER_FIELD,
+              PATH_FIELD,
+              USER_URN_FIELD,
+              USER_URNS_FIELD,
+              PARENT_NODE_URN_FIELD));
 
   private final MixpanelAPI _mixpanelAPI;
   private final MessageBuilder _mixpanelMessageBuilder;
@@ -100,9 +128,11 @@ public class TrackingService {
     }
 
     try {
-      _mixpanelAPI.sendMessage(_mixpanelMessageBuilder.event(getClientId(), eventType, sanitizedEvent));
+      _mixpanelAPI.sendMessage(
+          _mixpanelMessageBuilder.event(getClientId(), eventType, sanitizedEvent));
     } catch (IOException e) {
-      log.info("Failed to send event to Mixpanel; this does not affect the functionality of the application");
+      log.info(
+          "Failed to send event to Mixpanel; this does not affect the functionality of the application");
       log.debug("Failed to send event to Mixpanel", e);
     }
   }
@@ -134,7 +164,8 @@ public class TrackingService {
 
     final JSONObject unsanitizedEventObj;
     try {
-      unsanitizedEventObj = new JSONObject(_objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(event));
+      unsanitizedEventObj =
+          new JSONObject(_objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(event));
     } catch (Exception e) {
       log.warn("Failed to serialize event", e);
       return createFailedEvent();
@@ -145,18 +176,25 @@ public class TrackingService {
       return createFailedEvent();
     }
 
-    unsanitizedEventObj.keys().forEachRemaining(key -> {
-      String keyString = (String) key;
-      try {
-        if (ALLOWED_EVENT_FIELDS.contains(keyString)) {
-          sanitizedEventObj.put(keyString, unsanitizedEventObj.get(keyString).toString());
-        } else if (ALLOWED_OBFUSCATED_EVENT_FIELDS.contains(keyString)) {
-          sanitizedEventObj.put(keyString, _secretService.hashString(unsanitizedEventObj.get(keyString).toString()));
-        }
-      } catch (JSONException e) {
-        log.warn(String.format("Failed to sanitize field %s. Skipping this field.", keyString), e);
-      }
-    });
+    unsanitizedEventObj
+        .keys()
+        .forEachRemaining(
+            key -> {
+              String keyString = (String) key;
+              try {
+                if (ALLOWED_EVENT_FIELDS.contains(keyString)) {
+                  sanitizedEventObj.put(keyString, unsanitizedEventObj.get(keyString).toString());
+                } else if (ALLOWED_OBFUSCATED_EVENT_FIELDS.contains(keyString)) {
+                  sanitizedEventObj.put(
+                      keyString,
+                      _secretService.hashString(unsanitizedEventObj.get(keyString).toString()));
+                }
+              } catch (JSONException e) {
+                log.warn(
+                    String.format("Failed to sanitize field %s. Skipping this field.", keyString),
+                    e);
+              }
+            });
 
     return transformObjectNodeToJSONObject(sanitizedEventObj);
   }
@@ -189,8 +227,8 @@ public class TrackingService {
     final AuditStamp clientIdStamp = new AuditStamp();
     clientIdStamp.setActor(UrnUtils.getUrn(Constants.SYSTEM_ACTOR));
     clientIdStamp.setTime(System.currentTimeMillis());
-    entityService.ingestAspectIfNotPresent(UrnUtils.getUrn(CLIENT_ID_URN), CLIENT_ID_ASPECT, clientId, clientIdStamp,
-        null);
+    entityService.ingestAspectIfNotPresent(
+        UrnUtils.getUrn(CLIENT_ID_URN), CLIENT_ID_ASPECT, clientId, clientIdStamp, null);
     return uuid;
   }
 }

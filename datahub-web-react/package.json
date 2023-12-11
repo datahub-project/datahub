@@ -80,7 +80,7 @@
         "reactour": "1.18.7",
         "remirror": "^2.0.23",
         "sinon": "^11.1.1",
-        "start-server-and-test": "1.12.2",
+        "start-server-and-test": "^2.0.3",
         "styled-components": "^5.2.1",
         "turndown-plugin-gfm": "^1.0.2",
         "typescript": "^4.8.4",
@@ -92,6 +92,7 @@
     "scripts": {
         "analyze": "source-map-explorer 'dist/static/js/*.js'",
         "start": "yarn run generate && BROWSER=none REACT_APP_MOCK=false craco start",
+        "start:dev": "yarn run generate && DISABLE_ESLINT_PLUGIN=true BROWSER=none REACT_APP_MOCK=false craco start",
         "start:mock": "yarn run generate && BROWSER=none REACT_APP_MOCK=true craco start",
         "start:e2e": "REACT_APP_MOCK=cy BROWSER=none PORT=3010 craco start",
         "ec2-dev": "yarn run generate && CI=true;export CI;BROWSER=none craco start",
@@ -124,7 +125,7 @@
     },
     "devDependencies": {
         "@babel/plugin-proposal-private-property-in-object": "^7.21.11",
-        "@graphql-codegen/cli": "1.20.0",
+        "@graphql-codegen/cli": "^5.0.0",
         "@graphql-codegen/near-operation-file-preset": "^1.17.13",
         "@graphql-codegen/typescript-operations": "1.17.13",
         "@graphql-codegen/typescript-react-apollo": "2.2.1",
@@ -150,6 +151,9 @@
         "@ant-design/colors": "6.0.0",
         "refractor": "3.3.1",
         "json-schema": "0.4.0",
+        "@babel/traverse": ">=7.23.2",
+        "ansi-regex": "3.0.1",
+        "minimatch": "3.0.5",
         "prismjs": "^1.27.0",
         "nth-check": "^2.0.1"
     }

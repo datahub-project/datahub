@@ -301,13 +301,13 @@ class LookMLSourceConfig(
     ) -> Optional[pydantic.DirectoryPath]:
         if v is None:
             git_info: Optional[GitInfo] = values.get("git_info")
-            if git_info and git_info.deploy_key:
-                # We have git_info populated correctly, base folder is not needed
-                pass
+            if git_info:
+                if not git_info.deploy_key:
+                    logger.warning(
+                        "git_info is provided, but no SSH key is present. If the repo is not public, we'll fail to clone it."
+                    )
             else:
-                raise ValueError(
-                    "base_folder is not provided. Neither has a github deploy_key or deploy_key_file been provided"
-                )
+                raise ValueError("Neither base_folder nor git_info has been provided.")
         return v
 
 
@@ -550,7 +550,7 @@ class LookerModel:
 @dataclass
 class LookerViewFile:
     absolute_file_path: str
-    connection: Optional[str]
+    connection: Optional[LookerConnectionDefinition]
     includes: List[str]
     resolved_includes: List[ProjectInclude]
     views: List[Dict]
@@ -1455,7 +1455,7 @@ class LookerManifest:
 @support_status(SupportStatus.CERTIFIED)
 @capability(
     SourceCapability.PLATFORM_INSTANCE,
-    "Supported using the `connection_to_platform_map`",
+    "Use the `platform_instance` and `connection_to_platform_map` fields",
 )
 @capability(SourceCapability.LINEAGE_COARSE, "Supported by default")
 @capability(
@@ -1831,14 +1831,8 @@ class LookMLSource(StatefulIngestionSourceBase):
                 assert self.source_config.git_info
                 # we don't have a base_folder, so we need to clone the repo and process it locally
                 start_time = datetime.now()
-                git_clone = GitClone(tmp_dir)
-                # Github info deploy key is always populated
-                assert self.source_config.git_info.deploy_key
-                assert self.source_config.git_info.repo_ssh_locator
-                checkout_dir = git_clone.clone(
-                    ssh_key=self.source_config.git_info.deploy_key,
-                    repo_url=self.source_config.git_info.repo_ssh_locator,
-                    branch=self.source_config.git_info.branch_for_clone,
+                checkout_dir = self.source_config.git_info.clone(
+                    tmp_path=tmp_dir,
                 )
                 self.reporter.git_clone_latency = datetime.now() - start_time
                 self.source_config.base_folder = checkout_dir.resolve()
@@ -1853,29 +1847,20 @@ class LookMLSource(StatefulIngestionSourceBase):
             for project, p_ref in self.source_config.project_dependencies.items():
                 # If we were given GitHub info, we need to clone the project.
                 if isinstance(p_ref, GitInfo):
-                    assert p_ref.repo_ssh_locator
-
-                    p_cloner = GitClone(f"{tmp_dir}/_included_/{project}")
                     try:
-                        p_checkout_dir = p_cloner.clone(
-                            ssh_key=(
-                                # If a deploy key was provided, use it. Otherwise, fall back
-                                # to the main project deploy key.
-                                p_ref.deploy_key
-                                or (
-                                    self.source_config.git_info.deploy_key
-                                    if self.source_config.git_info
-                                    else None
-                                )
-                            ),
-                            repo_url=p_ref.repo_ssh_locator,
-                            branch=p_ref.branch_for_clone,
+                        p_checkout_dir = p_ref.clone(
+                            tmp_path=f"{tmp_dir}/_included_/{project}",
+                            # If a deploy key was provided, use it. Otherwise, fall back
+                            # to the main project deploy key, if present.
+                            fallback_deploy_key=self.source_config.git_info.deploy_key
+                            if self.source_config.git_info
+                            else None,
                         )
 
                         p_ref = p_checkout_dir.resolve()
                     except Exception as e:
                         logger.warning(
-                            f"Failed to clone remote project {project}. This can lead to failures in parsing lookml files later on: {e}",
+                            f"Failed to clone project dependency {project}. This can lead to failures in parsing lookml files later on: {e}",
                         )
                         visited_projects.add(project)
                         continue
@@ -1910,68 +1895,73 @@ class LookMLSource(StatefulIngestionSourceBase):
             return
 
         manifest = self.get_manifest_if_present(project_path)
-        if manifest:
-            # Special case handling if the root project has a name in the manifest file.
-            if project_name == _BASE_PROJECT_NAME and manifest.project_name:
-                if (
-                    self.source_config.project_name is not None
-                    and manifest.project_name != self.source_config.project_name
-                ):
-                    logger.warning(
-                        f"The project name in the manifest file '{manifest.project_name}'"
-                        f"does not match the configured project name '{self.source_config.project_name}'. "
-                        "This can lead to failures in LookML include resolution and lineage generation."
-                    )
-                elif self.source_config.project_name is None:
-                    self.source_config.project_name = manifest.project_name
+        if not manifest:
+            return
 
-            # Clone the remote project dependencies.
-            for remote_project in manifest.remote_dependencies:
-                if remote_project.name in project_visited:
-                    continue
+        # Special case handling if the root project has a name in the manifest file.
+        if project_name == _BASE_PROJECT_NAME and manifest.project_name:
+            if (
+                self.source_config.project_name is not None
+                and manifest.project_name != self.source_config.project_name
+            ):
+                logger.warning(
+                    f"The project name in the manifest file '{manifest.project_name}'"
+                    f"does not match the configured project name '{self.source_config.project_name}'. "
+                    "This can lead to failures in LookML include resolution and lineage generation."
+                )
+            elif self.source_config.project_name is None:
+                self.source_config.project_name = manifest.project_name
 
-                p_cloner = GitClone(f"{tmp_dir}/_remote_/{project_name}")
-                try:
-                    # TODO: For 100% correctness, we should be consulting
-                    # the manifest lock file for the exact ref to use.
+        # Clone the remote project dependencies.
+        for remote_project in manifest.remote_dependencies:
+            if remote_project.name in project_visited:
+                continue
+            if remote_project.name in self.base_projects_folder:
+                # In case a remote_dependency is specified in the project_dependencies config,
+                # we don't need to clone it again.
+                continue
 
-                    p_checkout_dir = p_cloner.clone(
-                        ssh_key=(
-                            self.source_config.git_info.deploy_key
-                            if self.source_config.git_info
-                            else None
-                        ),
-                        repo_url=remote_project.url,
-                    )
+            p_cloner = GitClone(f"{tmp_dir}/_remote_/{remote_project.name}")
+            try:
+                # TODO: For 100% correctness, we should be consulting
+                # the manifest lock file for the exact ref to use.
 
-                    self.base_projects_folder[
-                        remote_project.name
-                    ] = p_checkout_dir.resolve()
-                    repo = p_cloner.get_last_repo_cloned()
-                    assert repo
-                    remote_git_info = GitInfo(
-                        url_template=remote_project.url,
-                        repo="dummy/dummy",  # set to dummy values to bypass validation
-                        branch=repo.active_branch.name,
-                    )
-                    remote_git_info.repo = (
-                        ""  # set to empty because url already contains the full path
-                    )
-                    self.remote_projects_git_info[remote_project.name] = remote_git_info
+                p_checkout_dir = p_cloner.clone(
+                    ssh_key=(
+                        self.source_config.git_info.deploy_key
+                        if self.source_config.git_info
+                        else None
+                    ),
+                    repo_url=remote_project.url,
+                )
 
-                except Exception as e:
-                    logger.warning(
-                        f"Failed to clone remote project {project_name}. This can lead to failures in parsing lookml files later on",
-                        e,
-                    )
-                    project_visited.add(project_name)
-                else:
-                    self._recursively_check_manifests(
-                        tmp_dir, remote_project.name, project_visited
-                    )
+                self.base_projects_folder[
+                    remote_project.name
+                ] = p_checkout_dir.resolve()
+                repo = p_cloner.get_last_repo_cloned()
+                assert repo
+                remote_git_info = GitInfo(
+                    url_template=remote_project.url,
+                    repo="dummy/dummy",  # set to dummy values to bypass validation
+                    branch=repo.active_branch.name,
+                )
+                remote_git_info.repo = (
+                    ""  # set to empty because url already contains the full path
+                )
+                self.remote_projects_git_info[remote_project.name] = remote_git_info
 
-            for project in manifest.local_dependencies:
-                self._recursively_check_manifests(tmp_dir, project, project_visited)
+            except Exception as e:
+                logger.warning(
+                    f"Failed to clone remote project {project_name}. This can lead to failures in parsing lookml files later on: {e}",
+                )
+                project_visited.add(project_name)
+            else:
+                self._recursively_check_manifests(
+                    tmp_dir, remote_project.name, project_visited
+                )
+
+        for project in manifest.local_dependencies:
+            self._recursively_check_manifests(tmp_dir, project, project_visited)
 
     def get_internal_workunits(self) -> Iterable[MetadataWorkUnit]:  # noqa: C901
         assert self.source_config.base_folder

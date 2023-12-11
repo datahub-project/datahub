@@ -1,5 +1,7 @@
 package com.linkedin.metadata.models.registry.template;
 
+import static com.linkedin.metadata.Constants.*;
+
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.github.fge.jsonpatch.JsonPatchException;
 import com.github.fge.jsonpatch.Patch;
@@ -13,25 +15,25 @@ import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
-import static com.linkedin.metadata.Constants.*;
-
-
 /**
- * Holds connection between aspect specs and their templates and drives the generation from templates
+ * Holds connection between aspect specs and their templates and drives the generation from
+ * templates
  */
 public class AspectTemplateEngine {
 
-  public static final Set<String> SUPPORTED_TEMPLATES = Stream.of(
-      DATASET_PROPERTIES_ASPECT_NAME,
-      EDITABLE_SCHEMA_METADATA_ASPECT_NAME,
-      GLOBAL_TAGS_ASPECT_NAME,
-      GLOSSARY_TERMS_ASPECT_NAME,
-      OWNERSHIP_ASPECT_NAME,
-      UPSTREAM_LINEAGE_ASPECT_NAME,
-      DATA_FLOW_INFO_ASPECT_NAME,
-      DATA_JOB_INFO_ASPECT_NAME,
-      DATA_PRODUCT_PROPERTIES_ASPECT_NAME,
-      DATA_JOB_INPUT_OUTPUT_ASPECT_NAME).collect(Collectors.toSet());
+  public static final Set<String> SUPPORTED_TEMPLATES =
+      Stream.of(
+              DATASET_PROPERTIES_ASPECT_NAME,
+              EDITABLE_SCHEMA_METADATA_ASPECT_NAME,
+              GLOBAL_TAGS_ASPECT_NAME,
+              GLOSSARY_TERMS_ASPECT_NAME,
+              OWNERSHIP_ASPECT_NAME,
+              UPSTREAM_LINEAGE_ASPECT_NAME,
+              DATA_FLOW_INFO_ASPECT_NAME,
+              DATA_JOB_INFO_ASPECT_NAME,
+              DATA_PRODUCT_PROPERTIES_ASPECT_NAME,
+              DATA_JOB_INPUT_OUTPUT_ASPECT_NAME)
+          .collect(Collectors.toSet());
 
   private final Map<String, Template<? extends RecordTemplate>> _aspectTemplateMap;
 
@@ -45,11 +47,14 @@ public class AspectTemplateEngine {
 
   @Nullable
   public RecordTemplate getDefaultTemplate(String aspectSpecName) {
-    return _aspectTemplateMap.containsKey(aspectSpecName) ? _aspectTemplateMap.get(aspectSpecName).getDefault() : null;
+    return _aspectTemplateMap.containsKey(aspectSpecName)
+        ? _aspectTemplateMap.get(aspectSpecName).getDefault()
+        : null;
   }
 
   /**
    * Applies a json patch to a record, optionally merging array fields as necessary
+   *
    * @param recordTemplate original template to be updated
    * @param jsonPatch patch to apply
    * @param aspectSpec aspectSpec of the template
@@ -58,7 +63,8 @@ public class AspectTemplateEngine {
    * @throws JsonPatchException if there is an issue with applying the json patch
    */
   @Nonnull
-  public <T extends RecordTemplate> RecordTemplate applyPatch(RecordTemplate recordTemplate, Patch jsonPatch, AspectSpec aspectSpec)
+  public <T extends RecordTemplate> RecordTemplate applyPatch(
+      RecordTemplate recordTemplate, Patch jsonPatch, AspectSpec aspectSpec)
       throws JsonProcessingException, JsonPatchException {
 
     Template<T> template = getTemplate(aspectSpec);

@@ -12,32 +12,35 @@ import org.springframework.context.annotation.Import;
 import org.testng.AssertJUnit;
 import org.testng.annotations.Test;
 
-
-@Import({OpenSearchSuite.class, SearchLineageFixtureConfiguration.class, SearchTestContainerConfiguration.class})
+@Import({
+  OpenSearchSuite.class,
+  SearchLineageFixtureConfiguration.class,
+  SearchTestContainerConfiguration.class
+})
 public class LineageDataFixtureOpenSearchTest extends LineageDataFixtureTestBase {
 
-    @Autowired
-    @Qualifier("searchLineageSearchService")
-    protected SearchService searchService;
+  @Autowired
+  @Qualifier("searchLineageSearchService")
+  protected SearchService searchService;
 
-    @Autowired
-    @Qualifier("searchLineageLineageSearchService")
-    protected LineageSearchService lineageService;
+  @Autowired
+  @Qualifier("searchLineageLineageSearchService")
+  protected LineageSearchService lineageService;
 
-    @NotNull
-    @Override
-    protected LineageSearchService getLineageService() {
-        return lineageService;
-    }
+  @NotNull
+  @Override
+  protected LineageSearchService getLineageService() {
+    return lineageService;
+  }
 
-    @NotNull
-    @Override
-    protected SearchService getSearchService() {
-        return searchService;
-    }
+  @NotNull
+  @Override
+  protected SearchService getSearchService() {
+    return searchService;
+  }
 
-    @Test
-    public void initTest() {
-        AssertJUnit.assertNotNull(lineageService);
-    }
+  @Test
+  public void initTest() {
+    AssertJUnit.assertNotNull(lineageService);
+  }
 }

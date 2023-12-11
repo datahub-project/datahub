@@ -13,7 +13,6 @@ import javax.annotation.Nonnull;
 import javax.crypto.Cipher;
 import javax.crypto.spec.SecretKeySpec;
 
-
 public class SecretService {
   private static final int LOWERCASE_ASCII_START = 97;
   private static final int LOWERCASE_ASCII_END = 122;
@@ -82,7 +81,8 @@ public class SecretService {
   }
 
   public String generateUrlSafeToken(int length) {
-    return _secureRandom.ints(length, LOWERCASE_ASCII_START, LOWERCASE_ASCII_END + 1)
+    return _secureRandom
+        .ints(length, LOWERCASE_ASCII_START, LOWERCASE_ASCII_END + 1)
         .mapToObj(i -> String.valueOf((char) i))
         .collect(Collectors.joining());
   }
@@ -98,7 +98,8 @@ public class SecretService {
     return randomBytes;
   }
 
-  public String getHashedPassword(@Nonnull byte[] salt, @Nonnull String password) throws IOException {
+  public String getHashedPassword(@Nonnull byte[] salt, @Nonnull String password)
+      throws IOException {
     byte[] saltedPassword = saltPassword(salt, password);
     byte[] hashedPassword = _messageDigest.digest(saltedPassword);
     return _encoder.encodeToString(hashedPassword);

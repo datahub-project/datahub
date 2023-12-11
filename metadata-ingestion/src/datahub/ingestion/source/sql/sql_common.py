@@ -393,6 +393,8 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         engine = inspector.engine
 
         if engine and hasattr(engine, "url") and hasattr(engine.url, "database"):
+            if engine.url.database is None:
+                return ""
             return str(engine.url.database).strip('"').lower()
         else:
             raise Exception("Unable to get database name from Sqlalchemy inspector")

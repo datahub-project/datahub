@@ -14,29 +14,29 @@ import java.util.List;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
-
 @Slf4j
 public class TopPlatformsSource extends EntitySearchAggregationSource {
 
   /**
-   * Set of entities that we want to consider for defining the top platform sources.
-   * This must match SearchUtils.SEARCHABLE_ENTITY_TYPES
+   * Set of entities that we want to consider for defining the top platform sources. This must match
+   * SearchUtils.SEARCHABLE_ENTITY_TYPES
    */
-  private static final List<String> SEARCHABLE_ENTITY_TYPES = ImmutableList.of(
-      Constants.DATASET_ENTITY_NAME,
-      Constants.DASHBOARD_ENTITY_NAME,
-      Constants.CHART_ENTITY_NAME,
-      Constants.ML_MODEL_ENTITY_NAME,
-      Constants.ML_MODEL_GROUP_ENTITY_NAME,
-      Constants.ML_FEATURE_TABLE_ENTITY_NAME,
-      Constants.ML_FEATURE_ENTITY_NAME,
-      Constants.ML_PRIMARY_KEY_ENTITY_NAME,
-      Constants.DATA_FLOW_ENTITY_NAME,
-      Constants.DATA_JOB_ENTITY_NAME,
-      Constants.TAG_ENTITY_NAME,
-      Constants.CONTAINER_ENTITY_NAME,
-      Constants.NOTEBOOK_ENTITY_NAME
-  );
+  private static final List<String> SEARCHABLE_ENTITY_TYPES =
+      ImmutableList.of(
+          Constants.DATASET_ENTITY_NAME,
+          Constants.DASHBOARD_ENTITY_NAME,
+          Constants.CHART_ENTITY_NAME,
+          Constants.ML_MODEL_ENTITY_NAME,
+          Constants.ML_MODEL_GROUP_ENTITY_NAME,
+          Constants.ML_FEATURE_TABLE_ENTITY_NAME,
+          Constants.ML_FEATURE_ENTITY_NAME,
+          Constants.ML_PRIMARY_KEY_ENTITY_NAME,
+          Constants.DATA_FLOW_ENTITY_NAME,
+          Constants.DATA_JOB_ENTITY_NAME,
+          Constants.TAG_ENTITY_NAME,
+          Constants.CONTAINER_ENTITY_NAME,
+          Constants.NOTEBOOK_ENTITY_NAME);
+
   private final EntityService _entityService;
   private static final String PLATFORM = "platform";
 
@@ -61,7 +61,8 @@ public class TopPlatformsSource extends EntitySearchAggregationSource {
   }
 
   @Override
-  public boolean isEligible(@Nonnull Urn userUrn, @Nonnull RecommendationRequestContext requestContext) {
+  public boolean isEligible(
+      @Nonnull Urn userUrn, @Nonnull RecommendationRequestContext requestContext) {
     return requestContext.getScenario() == ScenarioType.HOME;
   }
 

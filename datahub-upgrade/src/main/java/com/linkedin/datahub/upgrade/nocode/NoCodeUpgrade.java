@@ -30,10 +30,7 @@ public class NoCodeUpgrade implements Upgrade {
       final EntityService entityService,
       final EntityRegistry entityRegistry,
       final SystemRestliEntityClient entityClient) {
-    _steps = buildUpgradeSteps(
-        server, entityService,
-        entityRegistry,
-        entityClient);
+    _steps = buildUpgradeSteps(server, entityService, entityRegistry, entityClient);
     _cleanupSteps = buildCleanupSteps();
   }
 

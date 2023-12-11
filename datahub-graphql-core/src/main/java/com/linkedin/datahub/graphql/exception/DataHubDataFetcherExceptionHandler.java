@@ -13,7 +13,8 @@ import lombok.extern.slf4j.Slf4j;
 public class DataHubDataFetcherExceptionHandler implements DataFetcherExceptionHandler {
 
   @Override
-  public DataFetcherExceptionHandlerResult onException(DataFetcherExceptionHandlerParameters handlerParameters) {
+  public DataFetcherExceptionHandlerResult onException(
+      DataFetcherExceptionHandlerParameters handlerParameters) {
     Throwable exception = handlerParameters.getException();
     SourceLocation sourceLocation = handlerParameters.getSourceLocation();
     ResultPath path = handlerParameters.getPath();
