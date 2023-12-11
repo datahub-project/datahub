@@ -160,7 +160,7 @@ Cypress.Commands.add("openThreeDotDropdown", () => {
 });
 
 Cypress.Commands.add("clickOptionWithText", (text) => {
-  cy.contains(text).click({ force: true });
+  cy.contains(text).click();
 });
 
 Cypress.Commands.add("deleteFromDropdown", () => {
@@ -330,13 +330,6 @@ Cypress.Commands.add("addGroupMember", (group_name, group_urn, member_name) => {
   cy.waitTextVisible("Group members added!");
   cy.contains(member_name, {timeout: 10000}).should("be.visible");
 })
-
-Cypress.Commands.add("removeTermGroup", (termGroup) => {
-  cy.clickOptionWithText(termGroup).wait(10000);
-  cy.deleteFromDropdown();
-  cy.waitTextVisible("Deleted Term Group!");
-})
-
 
 //
 //
