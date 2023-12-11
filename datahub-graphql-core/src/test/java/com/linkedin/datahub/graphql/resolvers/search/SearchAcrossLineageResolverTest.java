@@ -1,5 +1,9 @@
 package com.linkedin.datahub.graphql.resolvers.search;
 
+import static com.linkedin.datahub.graphql.TestUtils.*;
+import static org.mockito.Mockito.*;
+import static org.testng.Assert.*;
+
 import com.datahub.authentication.Authentication;
 import com.linkedin.common.UrnArrayArray;
 import com.linkedin.common.urn.UrnUtils;
@@ -23,15 +27,12 @@ import java.util.List;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import static com.linkedin.datahub.graphql.TestUtils.*;
-import static org.mockito.Mockito.*;
-import static org.testng.Assert.*;
-
-
 // Initialize this class in the style of SearchAcrossEntitiesResolverTest.java
 public class SearchAcrossLineageResolverTest {
-  private static final String SOURCE_URN_STRING = "urn:li:dataset:(urn:li:dataPlatform:foo,bar,PROD)";
-  private static final String TARGET_URN_STRING = "urn:li:dataset:(urn:li:dataPlatform:foo,baz,PROD)";
+  private static final String SOURCE_URN_STRING =
+      "urn:li:dataset:(urn:li:dataPlatform:foo,bar,PROD)";
+  private static final String TARGET_URN_STRING =
+      "urn:li:dataset:(urn:li:dataPlatform:foo,baz,PROD)";
   private static final String QUERY = "";
   private static final int START = 0;
   private static final int COUNT = 10;
@@ -87,19 +88,20 @@ public class SearchAcrossLineageResolverTest {
     lineageSearchResult.setEntities(new LineageSearchEntityArray(lineageSearchEntity));
 
     when(_entityClient.searchAcrossLineage(
-        eq(UrnUtils.getUrn(SOURCE_URN_STRING)),
-        eq(com.linkedin.metadata.graph.LineageDirection.DOWNSTREAM),
-        anyList(),
-        eq(QUERY),
-        eq(null),
-        any(),
-        eq(null),
-        eq(START),
-        eq(COUNT),
-        eq(START_TIMESTAMP_MILLIS),
-        eq(END_TIMESTAMP_MILLIS),
-        eq(new SearchFlags().setFulltext(true).setSkipHighlighting(true)),
-        eq(_authentication))).thenReturn(lineageSearchResult);
+            eq(UrnUtils.getUrn(SOURCE_URN_STRING)),
+            eq(com.linkedin.metadata.graph.LineageDirection.DOWNSTREAM),
+            anyList(),
+            eq(QUERY),
+            eq(null),
+            any(),
+            eq(null),
+            eq(START),
+            eq(COUNT),
+            eq(START_TIMESTAMP_MILLIS),
+            eq(END_TIMESTAMP_MILLIS),
+            eq(new SearchFlags().setFulltext(true).setSkipHighlighting(true)),
+            eq(_authentication)))
+        .thenReturn(lineageSearchResult);
 
     final SearchAcrossLineageResults results = _resolver.get(_dataFetchingEnvironment).join();
     assertEquals(results.getCount(), 10);

@@ -1,6 +1,7 @@
-const glossaryTerm = `CypressGlosssaryNavigationTerm_${new Date().getTime()}`;
-const glossaryTermGroup = `CypressGlosssaryNavigationGroup_${new Date().getTime()}`;
-const glossaryParentGroup = `Cypress_${new Date().getTime()}`;
+
+const glossaryTerm = "CypressGlosssaryNavigationTerm";
+const glossaryTermGroup = "CypressGlosssaryNavigationGroup";
+const glossaryParentGroup = "CypressNode";
 
 describe("glossary sidebar navigation test", () => {
     it("create term and term parent group, move and delete term group", () => {
@@ -43,6 +44,7 @@ describe("glossary sidebar navigation test", () => {
         // Move a term group from the root level to be under a parent term group
         cy.goToGlossaryList();
         cy.clickOptionWithText(glossaryTermGroup);
+        cy.wait(3000)
         cy.openThreeDotDropdown();
         cy.clickOptionWithText("Move");
         cy.get('[data-testid="move-glossary-entity-modal"]').contains(glossaryParentGroup).click({force: true});

@@ -17,23 +17,32 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 
-
 @Configuration
 @Import(EntityIndexBuildersFactory.class)
 public class UpdateIndicesServiceFactory {
-  @Autowired
-  private ApplicationContext context;
+  @Autowired private ApplicationContext context;
+
   @Value("${entityClient.preferredImpl:java}")
   private String entityClientImpl;
 
   @Bean
-  public UpdateIndicesService updateIndicesService(GraphService graphService, EntitySearchService entitySearchService,
-                                                   TimeseriesAspectService timeseriesAspectService,
-                                                   SystemMetadataService systemMetadataService,
-                                                   EntityRegistry entityRegistry, SearchDocumentTransformer searchDocumentTransformer,
-                                                   EntityIndexBuilders entityIndexBuilders) {
-    UpdateIndicesService updateIndicesService = new UpdateIndicesService(graphService, entitySearchService, timeseriesAspectService,
-            systemMetadataService, entityRegistry, searchDocumentTransformer, entityIndexBuilders);
+  public UpdateIndicesService updateIndicesService(
+      GraphService graphService,
+      EntitySearchService entitySearchService,
+      TimeseriesAspectService timeseriesAspectService,
+      SystemMetadataService systemMetadataService,
+      EntityRegistry entityRegistry,
+      SearchDocumentTransformer searchDocumentTransformer,
+      EntityIndexBuilders entityIndexBuilders) {
+    UpdateIndicesService updateIndicesService =
+        new UpdateIndicesService(
+            graphService,
+            entitySearchService,
+            timeseriesAspectService,
+            systemMetadataService,
+            entityRegistry,
+            searchDocumentTransformer,
+            entityIndexBuilders);
 
     if ("restli".equals(entityClientImpl)) {
       updateIndicesService.setSystemEntityClient(context.getBean(SystemRestliEntityClient.class));

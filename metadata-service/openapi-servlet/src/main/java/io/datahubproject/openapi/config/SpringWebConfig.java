@@ -5,7 +5,6 @@ import io.swagger.v3.oas.annotations.OpenAPIDefinition;
 import io.swagger.v3.oas.annotations.info.Info;
 import io.swagger.v3.oas.annotations.servers.Server;
 import java.util.List;
-
 import org.springdoc.core.GroupedOpenApi;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -18,10 +17,10 @@ import org.springframework.http.converter.json.MappingJackson2HttpMessageConvert
 import org.springframework.web.servlet.config.annotation.EnableWebMvc;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
-
 @EnableWebMvc
-@OpenAPIDefinition(info = @Info(title = "DataHub OpenAPI", version = "2.0.0"),
-        servers = {@Server(url = "/openapi/", description = "Default Server URL")})
+@OpenAPIDefinition(
+    info = @Info(title = "DataHub OpenAPI", version = "2.0.0"),
+    servers = {@Server(url = "/openapi/", description = "Default Server URL")})
 @Configuration
 public class SpringWebConfig implements WebMvcConfigurer {
 
@@ -41,20 +40,17 @@ public class SpringWebConfig implements WebMvcConfigurer {
   @Bean
   public GroupedOpenApi defaultOpenApiGroup() {
     return GroupedOpenApi.builder()
-            .group("default")
-            .packagesToExclude(
-                    "io.datahubproject.openapi.operations",
-                    "io.datahubproject.openapi.health"
-            ).build();
+        .group("default")
+        .packagesToExclude(
+            "io.datahubproject.openapi.operations", "io.datahubproject.openapi.health")
+        .build();
   }
 
   @Bean
   public GroupedOpenApi operationsOpenApiGroup() {
     return GroupedOpenApi.builder()
-            .group("operations")
-            .packagesToScan(
-                    "io.datahubproject.openapi.operations",
-                    "io.datahubproject.openapi.health"
-            ).build();
+        .group("operations")
+        .packagesToScan("io.datahubproject.openapi.operations", "io.datahubproject.openapi.health")
+        .build();
   }
 }

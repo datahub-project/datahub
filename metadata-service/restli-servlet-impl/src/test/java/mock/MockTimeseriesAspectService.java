@@ -16,7 +16,6 @@ import java.util.List;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
-
 public class MockTimeseriesAspectService implements TimeseriesAspectService {
 
   public static final long DEFAULT_COUNT = 30;
@@ -32,6 +31,7 @@ public class MockTimeseriesAspectService implements TimeseriesAspectService {
     this._filteredCount = DEFAULT_FILTERED_COUNT;
     this._taskId = DEFAULT_TASK_ID;
   }
+
   public MockTimeseriesAspectService(long count, long filteredCount, String taskId) {
     this._count = count;
     this._filteredCount = filteredCount;
@@ -39,12 +39,11 @@ public class MockTimeseriesAspectService implements TimeseriesAspectService {
   }
 
   @Override
-  public void configure() {
-
-  }
+  public void configure() {}
 
   @Override
-  public long countByFilter(@Nonnull String entityName, @Nonnull String aspectName, @Nullable Filter filter) {
+  public long countByFilter(
+      @Nonnull String entityName, @Nonnull String aspectName, @Nullable Filter filter) {
     if (filter != null && !filter.equals(new Filter())) {
       return _filteredCount;
     }
@@ -53,36 +52,51 @@ public class MockTimeseriesAspectService implements TimeseriesAspectService {
 
   @Nonnull
   @Override
-  public List<EnvelopedAspect> getAspectValues(@Nonnull Urn urn, @Nonnull String entityName,
-      @Nonnull String aspectName, @Nullable Long startTimeMillis, @Nullable Long endTimeMillis,
-      @Nullable Integer limit, @Nullable Filter filter, @Nullable SortCriterion sort) {
+  public List<EnvelopedAspect> getAspectValues(
+      @Nonnull Urn urn,
+      @Nonnull String entityName,
+      @Nonnull String aspectName,
+      @Nullable Long startTimeMillis,
+      @Nullable Long endTimeMillis,
+      @Nullable Integer limit,
+      @Nullable Filter filter,
+      @Nullable SortCriterion sort) {
     return List.of();
   }
 
   @Nonnull
   @Override
-  public GenericTable getAggregatedStats(@Nonnull String entityName, @Nonnull String aspectName,
-      @Nonnull AggregationSpec[] aggregationSpecs, @Nullable Filter filter,
+  public GenericTable getAggregatedStats(
+      @Nonnull String entityName,
+      @Nonnull String aspectName,
+      @Nonnull AggregationSpec[] aggregationSpecs,
+      @Nullable Filter filter,
       @Nullable GroupingBucket[] groupingBuckets) {
     return new GenericTable();
   }
 
   @Nonnull
   @Override
-  public DeleteAspectValuesResult deleteAspectValues(@Nonnull String entityName, @Nonnull String aspectName,
-      @Nonnull Filter filter) {
+  public DeleteAspectValuesResult deleteAspectValues(
+      @Nonnull String entityName, @Nonnull String aspectName, @Nonnull Filter filter) {
     return new DeleteAspectValuesResult();
   }
 
   @Nonnull
   @Override
-  public String deleteAspectValuesAsync(@Nonnull String entityName, @Nonnull String aspectName,
-      @Nonnull Filter filter, @Nonnull BatchWriteOperationsOptions options) {
+  public String deleteAspectValuesAsync(
+      @Nonnull String entityName,
+      @Nonnull String aspectName,
+      @Nonnull Filter filter,
+      @Nonnull BatchWriteOperationsOptions options) {
     return _taskId;
   }
 
   @Override
-  public String reindexAsync(@Nonnull String entityName, @Nonnull String aspectName, @Nonnull Filter filter,
+  public String reindexAsync(
+      @Nonnull String entityName,
+      @Nonnull String aspectName,
+      @Nonnull Filter filter,
       @Nonnull BatchWriteOperationsOptions options) {
     return _taskId;
   }
@@ -94,10 +108,11 @@ public class MockTimeseriesAspectService implements TimeseriesAspectService {
   }
 
   @Override
-  public void upsertDocument(@Nonnull String entityName, @Nonnull String aspectName, @Nonnull String docId,
-      @Nonnull JsonNode document) {
-
-  }
+  public void upsertDocument(
+      @Nonnull String entityName,
+      @Nonnull String aspectName,
+      @Nonnull String docId,
+      @Nonnull JsonNode document) {}
 
   @Override
   public List<TimeseriesIndexSizeResult> getIndexSizes() {

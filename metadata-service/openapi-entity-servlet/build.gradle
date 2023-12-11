@@ -78,5 +78,3 @@ task openApiGenerate(type: GenerateSwaggerCode, dependsOn: [mergeApiComponents, 
   ]
 }
 tasks.getByName("compileJava").dependsOn(openApiGenerate)
-
-checkstyleMain.exclude '**/generated/**'
