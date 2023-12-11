@@ -77,8 +77,8 @@ def test_field_remove():
 
 def test_field_deprecated():
     class TestModel(ConfigModel):
-        d1: Optional[str]
-        d2: Optional[str]
+        d1: Optional[str] = None
+        d2: Optional[str] = None
         b: str
 
         _validate_deprecated_d1 = pydantic_field_deprecated("d1")

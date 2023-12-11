@@ -103,6 +103,11 @@ kafka_protobuf = {
     "grpcio-tools>=1.44.0,<2",
 }
 
+pydantic_no_v2 = {
+    # Tags sources that require the pydantic v2 API.
+    "pydantic<2",
+}
+
 usage_common = {
     "sqlparse",
 }
@@ -120,6 +125,7 @@ sql_common = (
         "sqlalchemy>=1.4.39, <2",
         # Required for SQL profiling.
         "great-expectations>=0.15.12, <=0.15.50",
+        *pydantic_no_v2,  # because of great-expectations
         # scipy version restricted to reduce backtracking, used by great-expectations,
         "scipy>=1.7.2",
         # GE added handling for higher version of jinja2
@@ -231,6 +237,7 @@ microsoft_common = {"msal==1.22.0"}
 iceberg_common = {
     # Iceberg Python SDK
     "pyiceberg",
+    *pydantic_no_v2,  # because of pyiceberg
     "pyarrow>=9.0.0, <13.0.0",
 }
 
