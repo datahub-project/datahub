@@ -37,6 +37,7 @@ describe("create and manage platform and metadata policies", () => {
     it("edit platform policy", () => {
         cy.loginWithCredentials();
         cy.visit("/settings/permissions/policies");
+        cy.get('[data-testid="search-input"]').filter('[placeholder="Search policies..."]').type(platform_policy_name);
         cy.contains('tr', `${platform_policy_name}` )
           .contains('EDIT')
           .click();
@@ -107,6 +108,7 @@ describe("create and manage platform and metadata policies", () => {
     it("edit metadata policy", () => {
         cy.loginWithCredentials();
         cy.visit("/settings/permissions/policies");
+        cy.get('[data-testid="search-input"]').filter('[placeholder="Search policies..."]').type(metadata_policy_name);
         cy.contains('tr', `${metadata_policy_name}` )
           .contains('EDIT')
           .click();
