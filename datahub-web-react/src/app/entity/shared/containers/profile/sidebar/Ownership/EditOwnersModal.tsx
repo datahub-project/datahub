@@ -356,6 +356,7 @@ export const EditOwnersModal = ({
                     <Typography.Paragraph>Find a user or group</Typography.Paragraph>
                     <Form.Item name="owner">
                         <SelectInput
+                            id="owner-search-input"
                             labelInValue
                             autoFocus
                             defaultOpen

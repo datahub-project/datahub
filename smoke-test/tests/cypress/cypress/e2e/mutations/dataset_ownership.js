@@ -6,10 +6,8 @@ const group_name = `Test group ${test_id}`;
 
 const addOwner = (owner, type, elementId) => {
     cy.clickOptionWithTestId("add-owners-button");
-    cy.focused().type(owner);
+    cy.get('[id="owner-search-input"]').type(owner);
     cy.clickOptionWithText(owner);
-    cy.focused().blur();
-    cy.waitTextVisible(owner);
     cy.get('[role="dialog"]').contains("Technical Owner").click();
     cy.get('[role="listbox"]').parent().contains(type).click();
     cy.get('[role="dialog"]').contains(type).should("be.visible");
@@ -32,12 +30,6 @@ describe("add, remove ownership for dataset", () => {
         cy.on('uncaught:exception', (err, runnable) => { return false; });
       });
 
-    it("create test user and test group, add user to a group", () => {
-        cy.loginWithCredentials();
-        cy.createUser(username, password, email);
-        cy.createGroup(group_name, "Test group description", test_id);
-        cy.addGroupMember(group_name, `/group/urn:li:corpGroup:${test_id}/assets`, username);
-    });
 
     it("open test dataset page, add and remove user ownership(test every type)", () => {
         cy.loginWithCredentials();
