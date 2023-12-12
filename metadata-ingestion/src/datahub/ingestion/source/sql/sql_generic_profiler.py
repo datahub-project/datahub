@@ -274,15 +274,15 @@ class GenericProfiler:
             return False
 
         if self.config.profiling.profile_table_size_limit is not None and (
-            size_in_bytes is None
-            or size_in_bytes / (2**30)
+            size_in_bytes is not None
+            and size_in_bytes / (2**30)
             > self.config.profiling.profile_table_size_limit
         ):
             self.report.profiling_skipped_size_limit[schema_name] += 1
             return False
 
         if self.config.profiling.profile_table_row_limit is not None and (
-            rows_count is None
+            rows_count is not None
             or rows_count > self.config.profiling.profile_table_row_limit
         ):
             self.report.profiling_skipped_row_limit[schema_name] += 1
