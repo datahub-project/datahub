@@ -1,6 +1,7 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
+from datahub.ingestion.source.snowflake.snowflake_utils import SnowflakeCommonMixin
 from pydantic import ValidationError
 
 from datahub.configuration.common import AllowDenyPattern
@@ -11,6 +12,7 @@ from datahub.ingestion.source.snowflake.constants import (
     CLIENT_PREFETCH_THREADS,
     CLIENT_SESSION_KEEP_ALIVE,
     SnowflakeCloudProvider,
+    SNOWFLAKE_DEFAULT_CLOUD,
 )
 from datahub.ingestion.source.snowflake.snowflake_config import (
     DEFAULT_TABLES_DENY_LIST,
@@ -704,3 +706,15 @@ def test_email_filter_query_generation_with_case_insensitive_filter():
         filter_query
         == "AND (rlike(user_name, '.*@example.com','c')) AND NOT (rlike(user_name, '.*@example2.com','c'))"
     )
+
+
+def test_create_snowsight_base_url():
+    (
+        cloud,
+        cloud_region_id,
+    ) = SnowflakeCommonMixin.get_cloud_region_from_snowflake_region_id("aws_us_west_2")
+
+    result = SnowflakeCommonMixin.create_snowsight_base_url(
+        "account_locator", cloud_region_id, cloud, False
+    )
+    assert result == "https://app.snowflake.com/us-west-2.aws/account_locator/"
