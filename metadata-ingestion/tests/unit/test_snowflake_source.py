@@ -1,7 +1,6 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
-from datahub.ingestion.source.snowflake.snowflake_utils import SnowflakeCommonMixin
 from pydantic import ValidationError
 
 from datahub.configuration.common import AllowDenyPattern
@@ -11,8 +10,8 @@ from datahub.ingestion.api.source import SourceCapability
 from datahub.ingestion.source.snowflake.constants import (
     CLIENT_PREFETCH_THREADS,
     CLIENT_SESSION_KEEP_ALIVE,
-    SnowflakeCloudProvider,
     SNOWFLAKE_DEFAULT_CLOUD,
+    SnowflakeCloudProvider,
 )
 from datahub.ingestion.source.snowflake.snowflake_config import (
     DEFAULT_TABLES_DENY_LIST,
@@ -25,6 +24,7 @@ from datahub.ingestion.source.snowflake.snowflake_query import (
 from datahub.ingestion.source.snowflake.snowflake_usage_v2 import (
     SnowflakeObjectAccessEntry,
 )
+from datahub.ingestion.source.snowflake.snowflake_utils import SnowflakeCommonMixin
 from datahub.ingestion.source.snowflake.snowflake_v2 import SnowflakeV2Source
 
 
