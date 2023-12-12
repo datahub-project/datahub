@@ -124,3 +124,18 @@ def test_warehouse_id_must_be_set_if_include_hive_metastore_is_true():
                 "include_hive_metastore": True,
             }
         )
+
+
+def test_set_profiling_warehouse_id_from_global():
+    config = UnityCatalogSourceConfig.parse_obj(
+        {
+            "token": "token",
+            "workspace_url": "https://XXXXXXXXXXXXXXXXXXXXX",
+            "warehouse_id": "my_global_warehouse_id",
+            "profiling": {
+                "method": "ge",
+                "enabled": True,
+            },
+        }
+    )
+    assert config.profiling.warehouse_id == "my_global_warehouse_id"

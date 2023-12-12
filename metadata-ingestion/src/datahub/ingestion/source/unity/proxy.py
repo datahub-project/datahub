@@ -26,10 +26,7 @@ from databricks.sdk.service.sql import (
 from databricks.sdk.service.workspace import ObjectType
 
 import datahub
-from datahub.ingestion.source.unity.hive_metastore_proxy import (
-    HIVE_METASTORE,
-    HiveMetastoreProxy,
-)
+from datahub.ingestion.source.unity.hive_metastore_proxy import HiveMetastoreProxy
 from datahub.ingestion.source.unity.proxy_profiling import (
     UnityCatalogProxyProfilingMixin,
 )
@@ -266,6 +263,9 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         )
 
     def table_lineage(self, table: Table, include_entity_lineage: bool) -> None:
+        if table.schema.catalog.type == CustomCatalogType.HIVE_METASTORE_CATALOG:
+            # Lineage is not available for Hive Metastore Tables.
+            return None
         # Lineage endpoint doesn't exists on 2.1 version
         try:
             response: dict = self.list_lineages_by_table(
@@ -294,11 +294,9 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                 for notebook in item.get("notebookInfos") or []:
                     table.downstream_notebooks.add(notebook["notebook_id"])
         except Exception as e:
-            if table.schema.catalog.name == HIVE_METASTORE:
-                log_error = logger.debug
-            else:
-                log_error = logger.warning
-            log_error(f"Error getting lineage on table {table.ref}: {e}", exc_info=True)
+            logger.warning(
+                f"Error getting lineage on table {table.ref}: {e}", exc_info=True
+            )
 
     def get_column_lineage(self, table: Table, column_name: str) -> None:
         try:

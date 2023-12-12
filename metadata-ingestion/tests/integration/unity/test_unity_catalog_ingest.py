@@ -3,6 +3,7 @@ from unittest import mock
 from unittest.mock import patch
 
 import databricks
+import pytest
 from databricks.sdk.service.catalog import (
     CatalogInfo,
     GetMetastoreSummaryResponse,
@@ -18,6 +19,8 @@ from tests.test_helpers import mce_helpers
 FROZEN_TIME = "2021-12-07 07:00:00"
 SERVICE_PRINCIPAL_ID_1 = str(uuid.uuid4())
 SERVICE_PRINCIPAL_ID_2 = str(uuid.uuid4())
+
+pytestmark = pytest.mark.integration_batch_1
 
 
 def register_mock_api(request_mock):

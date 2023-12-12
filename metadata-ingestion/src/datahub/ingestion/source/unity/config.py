@@ -318,7 +318,7 @@ class UnityCatalogSourceConfig(
     def set_warehouse_id_from_profiling(cls, values: Dict[str, Any]) -> Dict[str, Any]:
         profiling: Optional[UnityCatalogProfilerConfig] = values.get("profiling")
         if not values.get("warehouse_id") and profiling and profiling.warehouse_id:
-            values["warehouse_id"] = values["profiling"].warehouse_id
+            values["warehouse_id"] = profiling.warehouse_id
         if (
             values.get("warehouse_id")
             and profiling
@@ -333,6 +333,9 @@ class UnityCatalogSourceConfig(
             raise ValueError(
                 "When `include_hive_metastore` is set, `warehouse_id` must be set."
             )
+
+        if values.get("warehouse_id") and profiling and not profiling.warehouse_id:
+            profiling.warehouse_id = values["warehouse_id"]
 
         return values
 
