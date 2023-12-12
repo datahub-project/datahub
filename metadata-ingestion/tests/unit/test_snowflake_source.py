@@ -10,7 +10,6 @@ from datahub.ingestion.api.source import SourceCapability
 from datahub.ingestion.source.snowflake.constants import (
     CLIENT_PREFETCH_THREADS,
     CLIENT_SESSION_KEEP_ALIVE,
-    SNOWFLAKE_DEFAULT_CLOUD,
     SnowflakeCloudProvider,
 )
 from datahub.ingestion.source.snowflake.snowflake_config import (
