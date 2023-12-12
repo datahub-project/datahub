@@ -16,6 +16,7 @@ from gql.transport.requests import log as requests_logger
 
 requests_logger.setLevel(logging.WARNING)
 
+
 class AssertionCircuitBreakerConfig(CircuitBreakerConfig):
     verify_after_last_update: bool = Field(
         default=True,
