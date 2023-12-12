@@ -93,8 +93,9 @@ class SqlQueriesSourceReport(SourceReport):
 @capability(SourceCapability.LINEAGE_FINE, "Parsed from SQL queries")
 class SqlQueriesSource(Source):
     """
-    This source reads a specifically-formatted JSON file containing SQL queries and parses them to generate lineage.
+    This source reads a newline-delimited JSON file containing SQL queries and parses them to generate lineage.
 
+    ### Query File Format
     This file should contain one JSON object per line, with the following fields:
     - query: string - The SQL query to parse.
     - timestamp (optional): number - The timestamp of the query, in seconds since the epoch.
