@@ -6,7 +6,6 @@ from pydantic import Field, FilePath, SecretStr, validator
 
 from datahub.configuration.common import ConfigModel
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
-from datahub.ingestion.source.git.git_import import GitClone
 
 _GITHUB_PREFIX = "https://github.com/"
 _GITLAB_PREFIX = "https://gitlab.com/"
@@ -150,6 +149,9 @@ class GitInfo(GitReference):
         fallback_deploy_key: Optional[SecretStr] = None,
     ) -> pathlib.Path:
         """Clones the repo into a temporary directory and returns the path to the checkout."""
+
+        # We import this here to avoid a hard dependency on gitpython.
+        from datahub.ingestion.source.git.git_import import GitClone
 
         assert self.repo_ssh_locator
 
