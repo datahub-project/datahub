@@ -102,12 +102,14 @@ class ConfigModel(BaseModel):
         if PYDANTIC_VERSION_2:
             try:
                 with unittest.mock.patch.dict(
-                    cls.model_config, {"extra": "allow"}, clear=False
+                    cls.model_config,  # type: ignore
+                    {"extra": "allow"},
+                    clear=False,
                 ):
-                    cls.model_rebuild(force=True)
+                    cls.model_rebuild(force=True)  # type: ignore
                     return cls.parse_obj(obj)
             finally:
-                cls.model_rebuild(force=True)
+                cls.model_rebuild(force=True)  # type: ignore
         else:
             with unittest.mock.patch.object(cls.Config, "extra", pydantic.Extra.allow):
                 return cls.parse_obj(obj)
