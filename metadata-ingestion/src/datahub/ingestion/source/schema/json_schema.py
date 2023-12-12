@@ -54,6 +54,14 @@ from datahub.utilities.urns.data_platform_urn import DataPlatformUrn
 logger = logging.getLogger(__name__)
 
 
+def is_url_valid(url: str) -> bool:
+    try:
+        result = urlparse(url)
+        return all([result.scheme, result.netloc])
+    except Exception:
+        return False
+
+
 class URIReplacePattern(ConfigModel):
     match: str = Field(
         description="Pattern to match on uri-s as part of reference resolution. See replace field",
@@ -283,17 +291,13 @@ class JsonSchemaSource(StatefulIngestionSourceBase):
             ).as_workunit()
 
             external_url = JsonSchemaTranslator._get_id_from_any_schema(schema_dict)
-            try:
-                external_url_parsed = urlparse(external_url)
-                if not all([external_url_parsed.scheme, external_url_parsed.netloc]):
-                    external_url_parsed = None
-            except Exception:
-                external_url_parsed = None
+            if not is_url_valid(external_url):
+                external_url = None
 
             yield MetadataChangeProposalWrapper(
                 entityUrn=dataset_urn,
                 aspect=models.DatasetPropertiesClass(
-                    externalUrl=external_url_parsed,
+                    externalUrl=external_url,
                     name=dataset_simple_name,
                     description=JsonSchemaTranslator._get_description_from_any_schema(
                         schema_dict
