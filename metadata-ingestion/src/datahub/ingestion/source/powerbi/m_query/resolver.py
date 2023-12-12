@@ -617,16 +617,25 @@ class MSSqlDataPlatformTableCreator(DefaultTwoStepDataAccessSources):
 
         tables: List[str] = native_sql_parser.get_tables(query)
 
-        for table in tables:
-            schema_and_table: List[str] = table.split(".")
-            if len(schema_and_table) == 1:
-                # schema name is not present. set default schema
-                schema_and_table.insert(0, MSSqlDataPlatformTableCreator.DEFAULT_SCHEMA)
+        for parsed_table in tables:
+            # components: List[str] = [v.strip("[]") for v in parsed_table.split(".")]
+            components = [v.strip("[]") for v in parsed_table.split(".")]
+            if len(components) == 3:
+                database, schema, table = components
+            elif len(components) == 2:
+                schema, table = components
+                database = db_name
+            elif len(components) == 1:
+                (table,) = components
+                database = db_name
+                schema = MSSqlDataPlatformTableCreator.DEFAULT_SCHEMA
+            else:
+                logger.warning(
+                    f"Unsupported table format found {parsed_table} in query {query}"
+                )
+                continue
 
-            qualified_table_name = (
-                f"{db_name}.{schema_and_table[0]}.{schema_and_table[1]}"
-            )
-
+            qualified_table_name = f"{database}.{schema}.{table}"
             urn = urn_creator(
                 config=self.config,
                 platform_instance_resolver=self.platform_instance_resolver,
@@ -634,7 +643,6 @@ class MSSqlDataPlatformTableCreator(DefaultTwoStepDataAccessSources):
                 server=server,
                 qualified_table_name=qualified_table_name,
             )
-
             dataplatform_tables.append(
                 DataPlatformTable(
                     data_platform_pair=self.get_platform_pair(),

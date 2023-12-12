@@ -11,16 +11,12 @@ import org.springframework.context.annotation.Import;
 import org.testng.AssertJUnit;
 import org.testng.annotations.Test;
 
-
 @Import({OpenSearchSuite.class, SearchTestContainerConfiguration.class})
 public class SystemMetadataServiceOpenSearchTest extends SystemMetadataServiceTestBase {
 
-  @Autowired
-  private RestHighLevelClient _searchClient;
-  @Autowired
-  private ESBulkProcessor _bulkProcessor;
-  @Autowired
-  private ESIndexBuilder _esIndexBuilder;
+  @Autowired private RestHighLevelClient _searchClient;
+  @Autowired private ESBulkProcessor _bulkProcessor;
+  @Autowired private ESIndexBuilder _esIndexBuilder;
 
   @NotNull
   @Override

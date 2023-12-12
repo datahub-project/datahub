@@ -1,5 +1,8 @@
 package com.linkedin.metadata.kafka.transformer;
 
+import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.datahubusage.DataHubUsageEventConstants.*;
+
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -16,24 +19,28 @@ import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
-import static com.linkedin.metadata.Constants.*;
-import static com.linkedin.metadata.datahubusage.DataHubUsageEventConstants.*;
-
-
-/**
- * Transformer that transforms usage event (schema defined HERE) into a search document
- */
+/** Transformer that transforms usage event (schema defined HERE) into a search document */
 @Slf4j
 @Component
 public class DataHubUsageEventTransformer {
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+
   static {
-    int maxSize = Integer.parseInt(System.getenv().getOrDefault(INGESTION_MAX_SERIALIZED_STRING_LENGTH, MAX_JACKSON_STRING_SIZE));
-    OBJECT_MAPPER.getFactory().setStreamReadConstraints(StreamReadConstraints.builder().maxStringLength(maxSize).build());
+    int maxSize =
+        Integer.parseInt(
+            System.getenv()
+                .getOrDefault(INGESTION_MAX_SERIALIZED_STRING_LENGTH, MAX_JACKSON_STRING_SIZE));
+    OBJECT_MAPPER
+        .getFactory()
+        .setStreamReadConstraints(StreamReadConstraints.builder().maxStringLength(maxSize).build());
   }
+
   private static final Set<DataHubUsageEventType> EVENTS_WITH_ENTITY_URN =
-      ImmutableSet.of(DataHubUsageEventType.SEARCH_RESULT_CLICK_EVENT, DataHubUsageEventType.BROWSE_RESULT_CLICK_EVENT,
-          DataHubUsageEventType.ENTITY_VIEW_EVENT, DataHubUsageEventType.ENTITY_SECTION_VIEW_EVENT,
+      ImmutableSet.of(
+          DataHubUsageEventType.SEARCH_RESULT_CLICK_EVENT,
+          DataHubUsageEventType.BROWSE_RESULT_CLICK_EVENT,
+          DataHubUsageEventType.ENTITY_VIEW_EVENT,
+          DataHubUsageEventType.ENTITY_SECTION_VIEW_EVENT,
           DataHubUsageEventType.ENTITY_ACTION_EVENT);
 
   private final EntityHydrator _entityHydrator;
@@ -97,7 +104,8 @@ public class DataHubUsageEventTransformer {
 
     try {
       return Optional.of(
-          new TransformedDocument(getId(eventDocument), OBJECT_MAPPER.writeValueAsString(eventDocument)));
+          new TransformedDocument(
+              getId(eventDocument), OBJECT_MAPPER.writeValueAsString(eventDocument)));
     } catch (JsonProcessingException e) {
       log.info("Failed to package document: {}", eventDocument);
       return Optional.empty();
@@ -128,13 +136,21 @@ public class DataHubUsageEventTransformer {
       log.info("No matches for urn {}", urn);
       return;
     }
-    entityObject.get().fieldNames()
+    entityObject
+        .get()
+        .fieldNames()
         .forEachRemaining(
-            key -> searchObject.put(entityType.name().toLowerCase() + "_" + key, entityObject.get().get(key).asText()));
+            key ->
+                searchObject.put(
+                    entityType.name().toLowerCase() + "_" + key,
+                    entityObject.get().get(key).asText()));
   }
 
   private String getId(final ObjectNode eventDocument) {
-    return eventDocument.get(TYPE).asText() + "_" + eventDocument.get(ACTOR_URN).asText() + "_" + eventDocument.get(
-        TIMESTAMP).asText();
+    return eventDocument.get(TYPE).asText()
+        + "_"
+        + eventDocument.get(ACTOR_URN).asText()
+        + "_"
+        + eventDocument.get(TIMESTAMP).asText();
   }
 }

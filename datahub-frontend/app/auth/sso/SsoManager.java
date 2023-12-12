@@ -2,19 +2,16 @@ package auth.sso;
 
 import javax.annotation.Nonnull;
 
-
-/**
- * Singleton class that stores & serves reference to a single {@link SsoProvider} if one exists.
- */
+/** Singleton class that stores & serves reference to a single {@link SsoProvider} if one exists. */
 public class SsoManager {
 
   private SsoProvider<?> _provider; // Only one active provider at a time.
 
-  public SsoManager() { }
+  public SsoManager() {}
 
   /**
-   * Returns true if SSO is enabled, meaning a non-null {@link SsoProvider} has been
-   * provided to the manager.
+   * Returns true if SSO is enabled, meaning a non-null {@link SsoProvider} has been provided to the
+   * manager.
    *
    * @return true if SSO logic is enabled, false otherwise.
    */
@@ -34,8 +31,8 @@ public class SsoManager {
   /**
    * Gets the active {@link SsoProvider} instance.
    *
-   * @return the {@SsoProvider} that should be used during authentication and on
-   * IdP callback, or null if SSO is not enabled.
+   * @return the {@SsoProvider} that should be used during authentication and on IdP callback, or
+   *     null if SSO is not enabled.
    */
   public SsoProvider<?> getSsoProvider() {
     return _provider;

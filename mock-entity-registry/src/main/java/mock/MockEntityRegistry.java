@@ -11,7 +11,6 @@ import java.util.Map;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
-
 public class MockEntityRegistry implements EntityRegistry {
   @Nonnull
   @Override
@@ -48,5 +47,4 @@ public class MockEntityRegistry implements EntityRegistry {
   public Map<String, AspectSpec> getAspectSpecs() {
     return new HashMap<>();
   }
-
 }

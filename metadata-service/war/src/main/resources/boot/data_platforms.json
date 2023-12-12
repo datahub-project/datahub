@@ -574,5 +574,15 @@
       "type": "OTHERS",
       "logoUrl": "/assets/platforms/fivetranlogo.png"
     }
+  },
+  {
+    "urn": "urn:li:dataPlatform:csv",
+    "aspect": {
+      "datasetNameDelimiter": ".",
+      "name": "csv",
+      "displayName": "CSV",
+      "type": "OTHERS",
+      "logoUrl": "/assets/platforms/csv-logo.png"
+    }
   }
 ]

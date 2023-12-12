@@ -292,6 +292,8 @@ bootstrap:
     file: ${BOOTSTRAP_POLICIES_FILE:classpath:boot/policies.json}
     # eg for local file
     # file: "file:///datahub/datahub-gms/resources/custom-policies.json"
+  ownershipTypes:
+    file: ${BOOTSTRAP_OWNERSHIP_TYPES_FILE:classpath:boot/ownership_types.json}
   servlets:
     waitTimeout: ${BOOTSTRAP_SERVLETS_WAITTIMEOUT:60} # Total waiting time in seconds for servlets to initialize
 
@@ -332,7 +334,8 @@ entityClient:
 
 usageClient:
   retryInterval: ${USAGE_CLIENT_RETRY_INTERVAL:2}
-  numRetries: ${USAGE_CLIENT_NUM_RETRIES:3}
+  numRetries: ${USAGE_CLIENT_NUM_RETRIES:0}
+  timeoutMs: ${USAGE_CLIENT_TIMEOUT_MS:3000}
 
 cache:
   primary:

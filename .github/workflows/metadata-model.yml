@@ -37,6 +37,19 @@ jobs:
         run: ./metadata-ingestion/scripts/install_deps.sh
       - name: Run model generation
         run: ./gradlew :metadata-models:build
+      - name: Generate metadata files
+        if: ${{ needs.setup.outputs.publish == 'true' }}
+        run: ./gradlew :metadata-ingestion:modelDocGen
+      - name: Configure AWS Credentials
+        if: ${{ needs.setup.outputs.publish == 'true' }}
+        uses: aws-actions/configure-aws-credentials@v3
+        with:
+          aws-access-key-id: ${{ secrets.ACRYL_CI_ARTIFACTS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.ACRYL_CI_ARTIFACTS_ACCESS_KEY }}
+          aws-region: us-west-2
+      - name: Upload metadata to S3
+        if: ${{ needs.setup.outputs.publish == 'true' }}
+        run: aws s3 cp ./metadata-ingestion/generated/docs/metadata_model_mces.json s3://${{ secrets.ACRYL_CI_ARTIFACTS_BUCKET }}/datahub/demo/metadata/
       - name: Upload metadata to DataHub
         if: ${{ needs.setup.outputs.publish == 'true' }}
         env:

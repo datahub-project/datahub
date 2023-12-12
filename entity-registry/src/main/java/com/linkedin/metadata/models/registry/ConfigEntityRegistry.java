@@ -1,5 +1,8 @@
 package com.linkedin.metadata.models.registry;
 
+import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.models.registry.EntityRegistryUtils.*;
+
 import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
@@ -32,13 +35,9 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.metadata.Constants.*;
-import static com.linkedin.metadata.models.registry.EntityRegistryUtils.*;
-
-
 /**
- * Implementation of {@link EntityRegistry} that builds {@link DefaultEntitySpec} objects
- * from an entity registry config yaml file
+ * Implementation of {@link EntityRegistry} that builds {@link DefaultEntitySpec} objects from an
+ * entity registry config yaml file
  */
 @Slf4j
 public class ConfigEntityRegistry implements EntityRegistry {
@@ -51,37 +50,55 @@ public class ConfigEntityRegistry implements EntityRegistry {
   private final Map<String, AspectSpec> _aspectNameToSpec;
 
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper(new YAMLFactory());
+
   static {
-    int maxSize = Integer.parseInt(System.getenv().getOrDefault(INGESTION_MAX_SERIALIZED_STRING_LENGTH, MAX_JACKSON_STRING_SIZE));
-    OBJECT_MAPPER.getFactory().setStreamReadConstraints(StreamReadConstraints.builder().maxStringLength(maxSize).build());
+    int maxSize =
+        Integer.parseInt(
+            System.getenv()
+                .getOrDefault(INGESTION_MAX_SERIALIZED_STRING_LENGTH, MAX_JACKSON_STRING_SIZE));
+    OBJECT_MAPPER
+        .getFactory()
+        .setStreamReadConstraints(StreamReadConstraints.builder().maxStringLength(maxSize).build());
   }
 
   public ConfigEntityRegistry(Pair<Path, Path> configFileClassPathPair) throws IOException {
-    this(DataSchemaFactory.withCustomClasspath(configFileClassPathPair.getSecond()), configFileClassPathPair.getFirst());
+    this(
+        DataSchemaFactory.withCustomClasspath(configFileClassPathPair.getSecond()),
+        configFileClassPathPair.getFirst());
   }
 
-  public ConfigEntityRegistry(String entityRegistryRoot) throws EntityRegistryException, IOException {
+  public ConfigEntityRegistry(String entityRegistryRoot)
+      throws EntityRegistryException, IOException {
     this(getFileAndClassPath(entityRegistryRoot));
   }
 
-  private static Pair<Path, Path> getFileAndClassPath(String entityRegistryRoot) throws IOException, EntityRegistryException {
+  private static Pair<Path, Path> getFileAndClassPath(String entityRegistryRoot)
+      throws IOException, EntityRegistryException {
     Path entityRegistryRootLoc = Paths.get(entityRegistryRoot);
     if (Files.isDirectory(entityRegistryRootLoc)) {
       // Look for entity_registry.yml or entity_registry.yaml in the root folder
-      List<Path> yamlFiles = Files.walk(entityRegistryRootLoc, 1)
-          .filter(Files::isRegularFile)
-          .filter(f -> f.endsWith("entity-registry.yml") || f.endsWith("entity-registry.yaml"))
-          .collect(Collectors.toList());
+      List<Path> yamlFiles =
+          Files.walk(entityRegistryRootLoc, 1)
+              .filter(Files::isRegularFile)
+              .filter(f -> f.endsWith("entity-registry.yml") || f.endsWith("entity-registry.yaml"))
+              .collect(Collectors.toList());
       if (yamlFiles.size() == 0) {
         throw new EntityRegistryException(
-            String.format("Did not find an entity registry (entity_registry.yaml/yml) under %s", entityRegistryRootLoc));
+            String.format(
+                "Did not find an entity registry (entity_registry.yaml/yml) under %s",
+                entityRegistryRootLoc));
       }
       if (yamlFiles.size() > 1) {
-        log.warn("Found more than one yaml file in the directory {}. Will pick the first {}",
-            entityRegistryRootLoc, yamlFiles.get(0));
+        log.warn(
+            "Found more than one yaml file in the directory {}. Will pick the first {}",
+            entityRegistryRootLoc,
+            yamlFiles.get(0));
       }
       Path entityRegistryFile = yamlFiles.get(0);
-      log.info("Loading custom config entity file: {}, dir: {}", entityRegistryFile, entityRegistryRootLoc);
+      log.info(
+          "Loading custom config entity file: {}, dir: {}",
+          entityRegistryFile,
+          entityRegistryRootLoc);
       return new Pair<>(entityRegistryFile, entityRegistryRootLoc);
     } else {
       // We assume that the file being passed in is a bare entity registry yaml file
@@ -94,7 +111,8 @@ public class ConfigEntityRegistry implements EntityRegistry {
     this(DataSchemaFactory.getInstance(), configFileInputStream);
   }
 
-  public ConfigEntityRegistry(DataSchemaFactory dataSchemaFactory, Path configFilePath) throws FileNotFoundException {
+  public ConfigEntityRegistry(DataSchemaFactory dataSchemaFactory, Path configFilePath)
+      throws FileNotFoundException {
     this(dataSchemaFactory, new FileInputStream(configFilePath.toString()));
   }
 
@@ -106,7 +124,8 @@ public class ConfigEntityRegistry implements EntityRegistry {
     } catch (IOException e) {
       e.printStackTrace();
       throw new IllegalArgumentException(
-          String.format("Error while reading config file in path %s: %s", configFileStream, e.getMessage()));
+          String.format(
+              "Error while reading config file in path %s: %s", configFileStream, e.getMessage()));
     }
     if (entities.getId() != null) {
       identifier = entities.getId();
@@ -120,12 +139,16 @@ public class ConfigEntityRegistry implements EntityRegistry {
     for (Entity entity : entities.getEntities()) {
       List<AspectSpec> aspectSpecs = new ArrayList<>();
       aspectSpecs.add(buildAspectSpec(entity.getKeyAspect(), entitySpecBuilder));
-      entity.getAspects().forEach(aspect -> aspectSpecs.add(buildAspectSpec(aspect, entitySpecBuilder)));
+      entity
+          .getAspects()
+          .forEach(aspect -> aspectSpecs.add(buildAspectSpec(aspect, entitySpecBuilder)));
 
       EntitySpec entitySpec;
       Optional<DataSchema> entitySchema = dataSchemaFactory.getEntitySchema(entity.getName());
       if (!entitySchema.isPresent()) {
-        entitySpec = entitySpecBuilder.buildConfigEntitySpec(entity.getName(), entity.getKeyAspect(), aspectSpecs);
+        entitySpec =
+            entitySpecBuilder.buildConfigEntitySpec(
+                entity.getName(), entity.getKeyAspect(), aspectSpecs);
       } else {
         entitySpec = entitySpecBuilder.buildEntitySpec(entitySchema.get(), aspectSpecs);
       }
@@ -210,7 +233,7 @@ public class ConfigEntityRegistry implements EntityRegistry {
   @Override
   public AspectTemplateEngine getAspectTemplateEngine() {
 
-    //TODO: add support for config based aspect templates
+    // TODO: add support for config based aspect templates
     return new AspectTemplateEngine();
   }
 }

@@ -4,18 +4,12 @@ import com.datahub.plugins.auth.authorization.Authorizer;
 import java.util.List;
 import lombok.Data;
 
-
-/**
- * POJO representing the "authentication" configuration block in application.yml.
- */
+/** POJO representing the "authentication" configuration block in application.yml. */
 @Data
 public class AuthorizationConfiguration {
-  /**
-   * Configuration for the default DataHub Policies-based authorizer.
-   */
+  /** Configuration for the default DataHub Policies-based authorizer. */
   private DefaultAuthorizerConfiguration defaultAuthorizer;
-  /**
-   * List of configurations for {@link Authorizer}s to be registered
-   */
+
+  /** List of configurations for {@link Authorizer}s to be registered */
   private List<AuthorizerConfiguration> authorizers;
 }

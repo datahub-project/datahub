@@ -1,5 +1,9 @@
 package com.datahub.authentication.user;
 
+import static com.linkedin.metadata.Constants.*;
+import static org.mockito.Mockito.*;
+import static org.testng.Assert.*;
+
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
@@ -14,11 +18,6 @@ import java.time.Instant;
 import java.util.concurrent.TimeUnit;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
-
-import static com.linkedin.metadata.Constants.*;
-import static org.mockito.Mockito.*;
-import static org.testng.Assert.*;
-
 
 public class NativeUserServiceTest {
   private static final String DATAHUB_SYSTEM_CLIENT_ID = "__datahub_system";
@@ -52,39 +51,60 @@ public class NativeUserServiceTest {
     AuthenticationConfiguration authenticationConfiguration = new AuthenticationConfiguration();
     authenticationConfiguration.setSystemClientId("someCustomId");
 
-    _nativeUserService = new NativeUserService(_entityService, _entityClient, _secretService, authenticationConfiguration);
+    _nativeUserService =
+        new NativeUserService(
+            _entityService, _entityClient, _secretService, authenticationConfiguration);
   }
 
   @Test
   public void testCreateNativeUserNullArguments() {
     assertThrows(
-        () -> _nativeUserService.createNativeUser(null, FULL_NAME, EMAIL, TITLE, PASSWORD, SYSTEM_AUTHENTICATION));
-    assertThrows(() -> _nativeUserService.createNativeUser(USER_URN_STRING, null, EMAIL, TITLE, PASSWORD,
-        SYSTEM_AUTHENTICATION));
-    assertThrows(() -> _nativeUserService.createNativeUser(USER_URN_STRING, FULL_NAME, null, TITLE, PASSWORD,
-        SYSTEM_AUTHENTICATION));
-    assertThrows(() -> _nativeUserService.createNativeUser(USER_URN_STRING, FULL_NAME, EMAIL, null, PASSWORD,
-        SYSTEM_AUTHENTICATION));
-    assertThrows(() -> _nativeUserService.createNativeUser(USER_URN_STRING, FULL_NAME, EMAIL, TITLE, null,
-        SYSTEM_AUTHENTICATION));
+        () ->
+            _nativeUserService.createNativeUser(
+                null, FULL_NAME, EMAIL, TITLE, PASSWORD, SYSTEM_AUTHENTICATION));
+    assertThrows(
+        () ->
+            _nativeUserService.createNativeUser(
+                USER_URN_STRING, null, EMAIL, TITLE, PASSWORD, SYSTEM_AUTHENTICATION));
+    assertThrows(
+        () ->
+            _nativeUserService.createNativeUser(
+                USER_URN_STRING, FULL_NAME, null, TITLE, PASSWORD, SYSTEM_AUTHENTICATION));
+    assertThrows(
+        () ->
+            _nativeUserService.createNativeUser(
+                USER_URN_STRING, FULL_NAME, EMAIL, null, PASSWORD, SYSTEM_AUTHENTICATION));
+    assertThrows(
+        () ->
+            _nativeUserService.createNativeUser(
+                USER_URN_STRING, FULL_NAME, EMAIL, TITLE, null, SYSTEM_AUTHENTICATION));
   }
 
-  @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "This user already exists! Cannot create a new user.")
+  @Test(
+      expectedExceptions = RuntimeException.class,
+      expectedExceptionsMessageRegExp = "This user already exists! Cannot create a new user.")
   public void testCreateNativeUserUserAlreadyExists() throws Exception {
     // The user already exists
     when(_entityService.exists(any())).thenReturn(true);
 
-    _nativeUserService.createNativeUser(USER_URN_STRING, FULL_NAME, EMAIL, TITLE, PASSWORD, SYSTEM_AUTHENTICATION);
+    _nativeUserService.createNativeUser(
+        USER_URN_STRING, FULL_NAME, EMAIL, TITLE, PASSWORD, SYSTEM_AUTHENTICATION);
   }
 
-  @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "This user already exists! Cannot create a new user.")
+  @Test(
+      expectedExceptions = RuntimeException.class,
+      expectedExceptionsMessageRegExp = "This user already exists! Cannot create a new user.")
   public void testCreateNativeUserUserDatahub() throws Exception {
-    _nativeUserService.createNativeUser(DATAHUB_ACTOR, FULL_NAME, EMAIL, TITLE, PASSWORD, SYSTEM_AUTHENTICATION);
+    _nativeUserService.createNativeUser(
+        DATAHUB_ACTOR, FULL_NAME, EMAIL, TITLE, PASSWORD, SYSTEM_AUTHENTICATION);
   }
 
-  @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "This user already exists! Cannot create a new user.")
+  @Test(
+      expectedExceptions = RuntimeException.class,
+      expectedExceptionsMessageRegExp = "This user already exists! Cannot create a new user.")
   public void testCreateNativeUserUserSystemUser() throws Exception {
-    _nativeUserService.createNativeUser(SYSTEM_ACTOR, FULL_NAME, EMAIL, TITLE, PASSWORD, SYSTEM_AUTHENTICATION);
+    _nativeUserService.createNativeUser(
+        SYSTEM_ACTOR, FULL_NAME, EMAIL, TITLE, PASSWORD, SYSTEM_AUTHENTICATION);
   }
 
   @Test
@@ -94,7 +114,8 @@ public class NativeUserServiceTest {
     when(_secretService.encrypt(any())).thenReturn(ENCRYPTED_SALT);
     when(_secretService.getHashedPassword(any(), any())).thenReturn(HASHED_PASSWORD);
 
-    _nativeUserService.createNativeUser(USER_URN_STRING, FULL_NAME, EMAIL, TITLE, PASSWORD, SYSTEM_AUTHENTICATION);
+    _nativeUserService.createNativeUser(
+        USER_URN_STRING, FULL_NAME, EMAIL, TITLE, PASSWORD, SYSTEM_AUTHENTICATION);
   }
 
   @Test
@@ -121,13 +142,17 @@ public class NativeUserServiceTest {
 
   @Test
   public void testGenerateNativeUserResetTokenNullArguments() {
-    assertThrows(() -> _nativeUserService.generateNativeUserPasswordResetToken(null, SYSTEM_AUTHENTICATION));
+    assertThrows(
+        () -> _nativeUserService.generateNativeUserPasswordResetToken(null, SYSTEM_AUTHENTICATION));
   }
 
-  @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "User does not exist or is a non-native user!")
+  @Test(
+      expectedExceptions = RuntimeException.class,
+      expectedExceptionsMessageRegExp = "User does not exist or is a non-native user!")
   public void testGenerateNativeUserResetTokenNotNativeUser() throws Exception {
     // Nonexistent corpUserCredentials
-    when(_entityService.getLatestAspect(any(), eq(CORP_USER_CREDENTIALS_ASPECT_NAME))).thenReturn(null);
+    when(_entityService.getLatestAspect(any(), eq(CORP_USER_CREDENTIALS_ASPECT_NAME)))
+        .thenReturn(null);
 
     _nativeUserService.generateNativeUserPasswordResetToken(USER_URN_STRING, SYSTEM_AUTHENTICATION);
   }
@@ -135,8 +160,8 @@ public class NativeUserServiceTest {
   @Test
   public void testGenerateNativeUserResetToken() throws Exception {
     CorpUserCredentials mockCorpUserCredentialsAspect = mock(CorpUserCredentials.class);
-    when(_entityService.getLatestAspect(any(), eq(CORP_USER_CREDENTIALS_ASPECT_NAME))).thenReturn(
-        mockCorpUserCredentialsAspect);
+    when(_entityService.getLatestAspect(any(), eq(CORP_USER_CREDENTIALS_ASPECT_NAME)))
+        .thenReturn(mockCorpUserCredentialsAspect);
     when(mockCorpUserCredentialsAspect.hasSalt()).thenReturn(true);
     when(mockCorpUserCredentialsAspect.hasHashedPassword()).thenReturn(true);
 
@@ -148,80 +173,101 @@ public class NativeUserServiceTest {
 
   @Test
   public void testResetCorpUserCredentialsNullArguments() {
-    assertThrows(() -> _nativeUserService.resetCorpUserCredentials(null, PASSWORD, RESET_TOKEN, SYSTEM_AUTHENTICATION));
     assertThrows(
-        () -> _nativeUserService.resetCorpUserCredentials(USER_URN_STRING, null, RESET_TOKEN, SYSTEM_AUTHENTICATION));
+        () ->
+            _nativeUserService.resetCorpUserCredentials(
+                null, PASSWORD, RESET_TOKEN, SYSTEM_AUTHENTICATION));
     assertThrows(
-        () -> _nativeUserService.resetCorpUserCredentials(USER_URN_STRING, PASSWORD, null, SYSTEM_AUTHENTICATION));
+        () ->
+            _nativeUserService.resetCorpUserCredentials(
+                USER_URN_STRING, null, RESET_TOKEN, SYSTEM_AUTHENTICATION));
+    assertThrows(
+        () ->
+            _nativeUserService.resetCorpUserCredentials(
+                USER_URN_STRING, PASSWORD, null, SYSTEM_AUTHENTICATION));
   }
 
-  @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "User has not generated a password reset token!")
+  @Test(
+      expectedExceptions = RuntimeException.class,
+      expectedExceptionsMessageRegExp = "User has not generated a password reset token!")
   public void testResetCorpUserCredentialsNoPasswordResetToken() throws Exception {
     CorpUserCredentials mockCorpUserCredentialsAspect = mock(CorpUserCredentials.class);
-    when(_entityService.getLatestAspect(any(), eq(CORP_USER_CREDENTIALS_ASPECT_NAME))).thenReturn(
-        mockCorpUserCredentialsAspect);
+    when(_entityService.getLatestAspect(any(), eq(CORP_USER_CREDENTIALS_ASPECT_NAME)))
+        .thenReturn(mockCorpUserCredentialsAspect);
     when(mockCorpUserCredentialsAspect.hasSalt()).thenReturn(true);
     when(mockCorpUserCredentialsAspect.hasHashedPassword()).thenReturn(true);
     // No password reset token
     when(mockCorpUserCredentialsAspect.hasPasswordResetToken()).thenReturn(false);
 
-    _nativeUserService.resetCorpUserCredentials(USER_URN_STRING, PASSWORD, RESET_TOKEN, SYSTEM_AUTHENTICATION);
+    _nativeUserService.resetCorpUserCredentials(
+        USER_URN_STRING, PASSWORD, RESET_TOKEN, SYSTEM_AUTHENTICATION);
   }
 
-  @Test(expectedExceptions = RuntimeException.class,
-      expectedExceptionsMessageRegExp = "Invalid reset token. Please ask your administrator to send you an updated link!")
+  @Test(
+      expectedExceptions = RuntimeException.class,
+      expectedExceptionsMessageRegExp =
+          "Invalid reset token. Please ask your administrator to send you an updated link!")
   public void testResetCorpUserCredentialsBadResetToken() throws Exception {
     CorpUserCredentials mockCorpUserCredentialsAspect = mock(CorpUserCredentials.class);
-    when(_entityService.getLatestAspect(any(), eq(CORP_USER_CREDENTIALS_ASPECT_NAME))).thenReturn(
-        mockCorpUserCredentialsAspect);
+    when(_entityService.getLatestAspect(any(), eq(CORP_USER_CREDENTIALS_ASPECT_NAME)))
+        .thenReturn(mockCorpUserCredentialsAspect);
     when(mockCorpUserCredentialsAspect.hasSalt()).thenReturn(true);
     when(mockCorpUserCredentialsAspect.hasHashedPassword()).thenReturn(true);
     when(mockCorpUserCredentialsAspect.hasPasswordResetToken()).thenReturn(true);
     when(mockCorpUserCredentialsAspect.getPasswordResetToken()).thenReturn(ENCRYPTED_RESET_TOKEN);
-    when(mockCorpUserCredentialsAspect.hasPasswordResetTokenExpirationTimeMillis()).thenReturn(true);
-    when(mockCorpUserCredentialsAspect.getPasswordResetTokenExpirationTimeMillis()).thenReturn(
-        Instant.now().toEpochMilli());
+    when(mockCorpUserCredentialsAspect.hasPasswordResetTokenExpirationTimeMillis())
+        .thenReturn(true);
+    when(mockCorpUserCredentialsAspect.getPasswordResetTokenExpirationTimeMillis())
+        .thenReturn(Instant.now().toEpochMilli());
     // Reset token won't match
     when(_secretService.decrypt(eq(ENCRYPTED_RESET_TOKEN))).thenReturn("badResetToken");
 
-    _nativeUserService.resetCorpUserCredentials(USER_URN_STRING, PASSWORD, RESET_TOKEN, SYSTEM_AUTHENTICATION);
+    _nativeUserService.resetCorpUserCredentials(
+        USER_URN_STRING, PASSWORD, RESET_TOKEN, SYSTEM_AUTHENTICATION);
   }
 
-  @Test(expectedExceptions = RuntimeException.class,
-      expectedExceptionsMessageRegExp = "Reset token has expired! Please ask your administrator to create a new one")
+  @Test(
+      expectedExceptions = RuntimeException.class,
+      expectedExceptionsMessageRegExp =
+          "Reset token has expired! Please ask your administrator to create a new one")
   public void testResetCorpUserCredentialsExpiredResetToken() throws Exception {
     CorpUserCredentials mockCorpUserCredentialsAspect = mock(CorpUserCredentials.class);
-    when(_entityService.getLatestAspect(any(), eq(CORP_USER_CREDENTIALS_ASPECT_NAME))).thenReturn(
-        mockCorpUserCredentialsAspect);
+    when(_entityService.getLatestAspect(any(), eq(CORP_USER_CREDENTIALS_ASPECT_NAME)))
+        .thenReturn(mockCorpUserCredentialsAspect);
     when(mockCorpUserCredentialsAspect.hasSalt()).thenReturn(true);
     when(mockCorpUserCredentialsAspect.hasHashedPassword()).thenReturn(true);
     when(mockCorpUserCredentialsAspect.hasPasswordResetToken()).thenReturn(true);
     when(mockCorpUserCredentialsAspect.getPasswordResetToken()).thenReturn(ENCRYPTED_RESET_TOKEN);
-    when(mockCorpUserCredentialsAspect.hasPasswordResetTokenExpirationTimeMillis()).thenReturn(true);
-    // Reset token expiration time will be before the system time when we run resetCorpUserCredentials
+    when(mockCorpUserCredentialsAspect.hasPasswordResetTokenExpirationTimeMillis())
+        .thenReturn(true);
+    // Reset token expiration time will be before the system time when we run
+    // resetCorpUserCredentials
     when(mockCorpUserCredentialsAspect.getPasswordResetTokenExpirationTimeMillis()).thenReturn(0L);
     when(_secretService.decrypt(eq(ENCRYPTED_RESET_TOKEN))).thenReturn(RESET_TOKEN);
 
-    _nativeUserService.resetCorpUserCredentials(USER_URN_STRING, PASSWORD, RESET_TOKEN, SYSTEM_AUTHENTICATION);
+    _nativeUserService.resetCorpUserCredentials(
+        USER_URN_STRING, PASSWORD, RESET_TOKEN, SYSTEM_AUTHENTICATION);
   }
 
   @Test
   public void testResetCorpUserCredentialsPasses() throws Exception {
     CorpUserCredentials mockCorpUserCredentialsAspect = mock(CorpUserCredentials.class);
-    when(_entityService.getLatestAspect(any(), eq(CORP_USER_CREDENTIALS_ASPECT_NAME))).thenReturn(
-        mockCorpUserCredentialsAspect);
+    when(_entityService.getLatestAspect(any(), eq(CORP_USER_CREDENTIALS_ASPECT_NAME)))
+        .thenReturn(mockCorpUserCredentialsAspect);
     when(mockCorpUserCredentialsAspect.hasSalt()).thenReturn(true);
     when(mockCorpUserCredentialsAspect.hasHashedPassword()).thenReturn(true);
     when(mockCorpUserCredentialsAspect.hasPasswordResetToken()).thenReturn(true);
     when(mockCorpUserCredentialsAspect.getPasswordResetToken()).thenReturn(ENCRYPTED_RESET_TOKEN);
-    when(mockCorpUserCredentialsAspect.hasPasswordResetTokenExpirationTimeMillis()).thenReturn(true);
-    when(mockCorpUserCredentialsAspect.getPasswordResetTokenExpirationTimeMillis()).thenReturn(
-        Instant.now().plusMillis(ONE_DAY_MILLIS).toEpochMilli());
+    when(mockCorpUserCredentialsAspect.hasPasswordResetTokenExpirationTimeMillis())
+        .thenReturn(true);
+    when(mockCorpUserCredentialsAspect.getPasswordResetTokenExpirationTimeMillis())
+        .thenReturn(Instant.now().plusMillis(ONE_DAY_MILLIS).toEpochMilli());
     when(_secretService.decrypt(eq(ENCRYPTED_RESET_TOKEN))).thenReturn(RESET_TOKEN);
     when(_secretService.generateSalt(anyInt())).thenReturn(SALT);
     when(_secretService.encrypt(any())).thenReturn(ENCRYPTED_SALT);
 
-    _nativeUserService.resetCorpUserCredentials(USER_URN_STRING, PASSWORD, RESET_TOKEN, SYSTEM_AUTHENTICATION);
+    _nativeUserService.resetCorpUserCredentials(
+        USER_URN_STRING, PASSWORD, RESET_TOKEN, SYSTEM_AUTHENTICATION);
     verify(_entityClient).ingestProposal(any(), any());
   }
 
@@ -233,7 +279,8 @@ public class NativeUserServiceTest {
 
   @Test
   public void testDoesPasswordMatchNoCorpUserCredentials() throws Exception {
-    when(_entityService.getLatestAspect(any(), eq(CORP_USER_CREDENTIALS_ASPECT_NAME))).thenReturn(null);
+    when(_entityService.getLatestAspect(any(), eq(CORP_USER_CREDENTIALS_ASPECT_NAME)))
+        .thenReturn(null);
 
     assertFalse(_nativeUserService.doesPasswordMatch(USER_URN_STRING, PASSWORD));
   }

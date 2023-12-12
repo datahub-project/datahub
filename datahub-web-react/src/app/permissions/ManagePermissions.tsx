@@ -8,6 +8,9 @@ import { ManageRoles } from './roles/ManageRoles';
 const PageContainer = styled.div`
     padding-top: 20px;
     width: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow: auto;
 `;
 
 const PageHeaderContainer = styled.div`
@@ -27,7 +30,9 @@ const Content = styled.div`
         margin: 0;
     }
     color: #262626;
-    height: calc(100vh - 60px);
+    display: flex;
+    flex-direction: column;
+    overflow: auto;
 
     &&& .ant-tabs > .ant-tabs-nav .ant-tabs-nav-wrap {
         padding-left: 28px;
