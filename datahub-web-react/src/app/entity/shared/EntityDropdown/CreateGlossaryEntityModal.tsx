@@ -35,7 +35,7 @@ interface Props {
     entityType: EntityType;
     onClose: () => void;
     refetchData?: () => void;
-    clone?: boolean;
+    isCloning?: boolean;
 }
 
 function CreateGlossaryEntityModal(props: Props) {
@@ -46,7 +46,7 @@ function CreateGlossaryEntityModal(props: Props) {
     const entityRegistry = useEntityRegistry();
     const [stagedId, setStagedId] = useState<string | undefined>(undefined);
     const [stagedName, setStagedName] = useState('');
-    const [selectedParentUrn, setSelectedParentUrn] = useState<string>(props.clone ? '' : entityData.urn);
+    const [selectedParentUrn, setSelectedParentUrn] = useState<string>(props.isCloning ? '' : entityData.urn);
     const [documentation, setDocumentation] = useState('');
     const [isDocumentationModalVisible, setIsDocumentationModalVisible] = useState(false);
     const [createButtonDisabled, setCreateButtonDisabled] = useState(true);
@@ -57,7 +57,7 @@ function CreateGlossaryEntityModal(props: Props) {
     const [createGlossaryNodeMutation] = useCreateGlossaryNodeMutation();
 
     useEffect(() => {
-        if (props.clone && entityData.entityData) {
+        if (props.isCloning && entityData.entityData) {
             const { properties } = entityData.entityData;
 
             if (properties?.name) {
@@ -69,7 +69,7 @@ function CreateGlossaryEntityModal(props: Props) {
                 setDocumentation(properties.description);
             }
         }
-    }, [props.clone, entityData.entityData, form]);
+    }, [props.isCloning, entityData.entityData, form]);
 
     function createGlossaryEntity() {
         const mutation =
@@ -101,7 +101,7 @@ function CreateGlossaryEntityModal(props: Props) {
                     refetch();
                     if (isInGlossaryContext) {
                         // either refresh this current glossary node or the root nodes or root terms
-                        const nodeToUpdate = props.clone
+                        const nodeToUpdate = props.isCloning
                             ? getGlossaryRootToUpdate(entityType)
                             : entityData?.urn || getGlossaryRootToUpdate(entityType);
                         updateGlossarySidebar([nodeToUpdate], urnsToUpdate, setUrnsToUpdate);
@@ -109,7 +109,7 @@ function CreateGlossaryEntityModal(props: Props) {
                     if (refetchData) {
                         refetchData();
                     }
-                    if (props.clone) {
+                    if (props.isCloning) {
                         const redirectUrn =
                             entityType === EntityType.GlossaryTerm
                                 ? res.data?.createGlossaryTerm

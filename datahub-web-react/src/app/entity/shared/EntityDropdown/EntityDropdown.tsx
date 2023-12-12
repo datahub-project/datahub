@@ -269,7 +269,7 @@ function EntityDropdown(props: Props) {
                     entityType={entityType}
                     onClose={() => setIsCloneEntityModalVisible(false)}
                     refetchData={entityType === EntityType.GlossaryTerm ? refetchForTerms : refetchForNodes}
-                    clone
+                    isCloning
                 />
             )}
             {isDeprecationModalVisible && (
