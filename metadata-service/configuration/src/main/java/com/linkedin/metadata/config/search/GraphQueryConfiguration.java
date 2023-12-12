@@ -2,7 +2,6 @@ package com.linkedin.metadata.config.search;
 
 import lombok.Data;
 
-
 @Data
 public class GraphQueryConfiguration {
 
@@ -11,6 +10,7 @@ public class GraphQueryConfiguration {
   private int maxResult;
 
   public static GraphQueryConfiguration testDefaults;
+
   static {
     testDefaults = new GraphQueryConfiguration();
     testDefaults.setBatchSize(1000);

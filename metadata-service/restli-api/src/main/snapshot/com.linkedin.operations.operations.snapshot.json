@@ -3690,6 +3690,7 @@
     "path" : "/operations",
     "schema" : "com.linkedin.metadata.aspect.VersionedAspect",
     "doc" : "Endpoints for performing maintenance operations\n\ngenerated from: com.linkedin.metadata.resources.operations.OperationsResource",
+    "resourceClass" : "com.linkedin.metadata.resources.operations.OperationsResource",
     "collection" : {
       "identifier" : {
         "name" : "operationsId",
@@ -3698,6 +3699,7 @@
       "supports" : [ ],
       "actions" : [ {
         "name" : "getEsTaskStatus",
+        "javaMethodName" : "getTaskStatus",
         "parameters" : [ {
           "name" : "nodeId",
           "type" : "string",
@@ -3714,9 +3716,11 @@
         "returns" : "string"
       }, {
         "name" : "getIndexSizes",
+        "javaMethodName" : "getIndexSizes",
         "returns" : "com.linkedin.timeseries.TimeseriesIndicesSizesResult"
       }, {
         "name" : "restoreIndices",
+        "javaMethodName" : "restoreIndices",
         "parameters" : [ {
           "name" : "aspect",
           "type" : "string",
@@ -3741,6 +3745,7 @@
         "returns" : "string"
       }, {
         "name" : "truncateTimeseriesAspect",
+        "javaMethodName" : "truncateTimeseriesAspect",
         "parameters" : [ {
           "name" : "entityType",
           "type" : "string"

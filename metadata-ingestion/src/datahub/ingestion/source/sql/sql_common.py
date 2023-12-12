@@ -371,6 +371,8 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         engine = inspector.engine
 
         if engine and hasattr(engine, "url") and hasattr(engine.url, "database"):
+            if engine.url.database is None:
+                return ""
             return str(engine.url.database).strip('"').lower()
         else:
             raise Exception("Unable to get database name from Sqlalchemy inspector")
@@ -1054,7 +1056,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         return view_definition_lineage_helper(raw_lineage, view_urn)
 
     def get_db_schema(self, dataset_identifier: str) -> Tuple[Optional[str], str]:
-        database, schema, _view = dataset_identifier.split(".")
+        database, schema, _view = dataset_identifier.split(".", 2)
         return database, schema
 
     def get_profiler_instance(self, inspector: Inspector) -> "DatahubGEProfiler":

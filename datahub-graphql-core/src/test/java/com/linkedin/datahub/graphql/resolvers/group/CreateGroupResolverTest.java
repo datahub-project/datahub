@@ -1,5 +1,9 @@
 package com.linkedin.datahub.graphql.resolvers.group;
 
+import static com.linkedin.datahub.graphql.TestUtils.*;
+import static org.mockito.Mockito.*;
+import static org.testng.Assert.*;
+
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.group.GroupService;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -7,11 +11,6 @@ import com.linkedin.datahub.graphql.generated.CreateGroupInput;
 import graphql.schema.DataFetchingEnvironment;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
-
-import static com.linkedin.datahub.graphql.TestUtils.*;
-import static org.mockito.Mockito.*;
-import static org.testng.Assert.*;
-
 
 public class CreateGroupResolverTest {
   private static final String GROUP_ID = "id";

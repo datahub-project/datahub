@@ -81,7 +81,7 @@ describe("create and manage group", () => {
         cy.focused().type(expected_name);
         cy.get(".ant-select-item-option").contains(expected_name, { matchCase: false }).click();
         cy.focused().blur();
-        cy.contains(expected_name).should("have.length", 1);
+        cy.contains(expected_name, { matchCase: false }).should("have.length", 1);
         cy.get('[role="dialog"] button').contains("Done").click();
         cy.waitTextVisible("Owners Added");
         cy.contains(expected_name, { matchCase: false }).should("be.visible");
@@ -96,7 +96,7 @@ describe("create and manage group", () => {
     });
 
     it("test user verify group participation", () => {
-        cy.loginWithCredentials(email,password);
+        cy.loginWithCredentials();
         cy.visit("/settings/identities/groups");
         cy.hideOnboardingTour();
         cy.clickOptionWithText(`Test group EDITED ${test_id}`);

@@ -5,14 +5,12 @@ import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.ForeignKeyConstraint;
 import com.linkedin.datahub.graphql.generated.SchemaFieldEntity;
 import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
-import lombok.extern.slf4j.Slf4j;
-
 import java.util.stream.Collectors;
-
+import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 public class ForeignKeyConstraintMapper {
-  private ForeignKeyConstraintMapper() { }
+  private ForeignKeyConstraintMapper() {}
 
   public static ForeignKeyConstraint map(com.linkedin.schema.ForeignKeyConstraint constraint) {
     ForeignKeyConstraint result = new ForeignKeyConstraint();
@@ -22,15 +20,15 @@ public class ForeignKeyConstraintMapper {
     }
     if (constraint.hasSourceFields()) {
       result.setSourceFields(
-          constraint.getSourceFields().stream().map(
-              schemaFieldUrn -> mapSchemaFieldEntity(schemaFieldUrn)
-          ).collect(Collectors.toList()));
+          constraint.getSourceFields().stream()
+              .map(schemaFieldUrn -> mapSchemaFieldEntity(schemaFieldUrn))
+              .collect(Collectors.toList()));
     }
     if (constraint.hasForeignFields()) {
       result.setForeignFields(
-          constraint.getForeignFields().stream().map(
-              schemaFieldUrn -> mapSchemaFieldEntity(schemaFieldUrn)
-          ).collect(Collectors.toList()));
+          constraint.getForeignFields().stream()
+              .map(schemaFieldUrn -> mapSchemaFieldEntity(schemaFieldUrn))
+              .collect(Collectors.toList()));
     }
     return result;
   }

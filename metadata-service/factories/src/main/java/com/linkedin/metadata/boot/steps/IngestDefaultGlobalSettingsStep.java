@@ -1,5 +1,7 @@
 package com.linkedin.metadata.boot.steps;
 
+import static com.linkedin.metadata.Constants.*;
+
 import com.datahub.util.RecordUtils;
 import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -28,14 +30,12 @@ import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.ClassPathResource;
 
-import static com.linkedin.metadata.Constants.*;
-
-
 /**
- * This bootstrap step is responsible for ingesting a default Global Settings object if it does not already exist.
+ * This bootstrap step is responsible for ingesting a default Global Settings object if it does not
+ * already exist.
  *
- * If settings already exist, we merge the defaults and the existing settings such that the container will also
- * get new settings when they are added.
+ * <p>If settings already exist, we merge the defaults and the existing settings such that the
+ * container will also get new settings when they are added.
  */
 @Slf4j
 public class IngestDefaultGlobalSettingsStep implements BootstrapStep {
@@ -49,8 +49,7 @@ public class IngestDefaultGlobalSettingsStep implements BootstrapStep {
   }
 
   public IngestDefaultGlobalSettingsStep(
-      @Nonnull final EntityService entityService,
-      @Nonnull final String resourcePath) {
+      @Nonnull final EntityService entityService, @Nonnull final String resourcePath) {
     _entityService = Objects.requireNonNull(entityService);
     _resourcePath = Objects.requireNonNull(resourcePath);
   }
@@ -64,9 +63,13 @@ public class IngestDefaultGlobalSettingsStep implements BootstrapStep {
   public void execute() throws IOException, URISyntaxException {
 
     final ObjectMapper mapper = new ObjectMapper();
-    int maxSize = Integer.parseInt(System.getenv().getOrDefault(INGESTION_MAX_SERIALIZED_STRING_LENGTH, MAX_JACKSON_STRING_SIZE));
-    mapper.getFactory().setStreamReadConstraints(StreamReadConstraints.builder()
-        .maxStringLength(maxSize).build());
+    int maxSize =
+        Integer.parseInt(
+            System.getenv()
+                .getOrDefault(INGESTION_MAX_SERIALIZED_STRING_LENGTH, MAX_JACKSON_STRING_SIZE));
+    mapper
+        .getFactory()
+        .setStreamReadConstraints(StreamReadConstraints.builder().maxStringLength(maxSize).build());
 
     log.info("Ingesting default global settings...");
 
@@ -76,37 +79,45 @@ public class IngestDefaultGlobalSettingsStep implements BootstrapStep {
       defaultSettingsObj = mapper.readTree(new ClassPathResource(_resourcePath).getFile());
     } catch (Exception e) {
       throw new RuntimeException(
-          String.format("Failed to parse global settings file. Could not parse valid json at resource path %s",
-            _resourcePath),
-            e);
+          String.format(
+              "Failed to parse global settings file. Could not parse valid json at resource path %s",
+              _resourcePath),
+          e);
     }
 
     if (!defaultSettingsObj.isObject()) {
-      throw new RuntimeException(String.format("Found malformed global settings info file, expected an Object but found %s",
-          defaultSettingsObj.getNodeType()));
+      throw new RuntimeException(
+          String.format(
+              "Found malformed global settings info file, expected an Object but found %s",
+              defaultSettingsObj.getNodeType()));
     }
 
     // 2. Bind the global settings json into a GlobalSettingsInfo aspect.
     GlobalSettingsInfo defaultSettings;
-    defaultSettings = RecordUtils.toRecordTemplate(GlobalSettingsInfo.class, defaultSettingsObj.toString());
-    ValidationResult result = ValidateDataAgainstSchema.validate(
-        defaultSettings,
-        new ValidationOptions(
-            RequiredMode.CAN_BE_ABSENT_IF_HAS_DEFAULT,
-            CoercionMode.NORMAL,
-            UnrecognizedFieldMode.DISALLOW
-        ));
+    defaultSettings =
+        RecordUtils.toRecordTemplate(GlobalSettingsInfo.class, defaultSettingsObj.toString());
+    ValidationResult result =
+        ValidateDataAgainstSchema.validate(
+            defaultSettings,
+            new ValidationOptions(
+                RequiredMode.CAN_BE_ABSENT_IF_HAS_DEFAULT,
+                CoercionMode.NORMAL,
+                UnrecognizedFieldMode.DISALLOW));
 
     if (!result.isValid()) {
-      throw new RuntimeException(String.format(
-          "Failed to parse global settings file. Provided JSON does not match GlobalSettingsInfo.pdl model. %s", result.getMessages()));
+      throw new RuntimeException(
+          String.format(
+              "Failed to parse global settings file. Provided JSON does not match GlobalSettingsInfo.pdl model. %s",
+              result.getMessages()));
     }
 
     // 3. Get existing settings or empty settings object
     final GlobalSettingsInfo existingSettings = getExistingGlobalSettingsOrEmpty();
 
-    // 4. Merge existing settings onto previous settings. Be careful - if we change the settings schema dramatically in future we may need to account for that.
-    final GlobalSettingsInfo newSettings = new GlobalSettingsInfo(mergeDataMaps(defaultSettings.data(), existingSettings.data()));
+    // 4. Merge existing settings onto previous settings. Be careful - if we change the settings
+    // schema dramatically in future we may need to account for that.
+    final GlobalSettingsInfo newSettings =
+        new GlobalSettingsInfo(mergeDataMaps(defaultSettings.data(), existingSettings.data()));
 
     // 5. Ingest into DataHub.
     final MetadataChangeProposal proposal = new MetadataChangeProposal();
@@ -118,12 +129,15 @@ public class IngestDefaultGlobalSettingsStep implements BootstrapStep {
 
     _entityService.ingestProposal(
         proposal,
-        new AuditStamp().setActor(Urn.createFromString(Constants.SYSTEM_ACTOR)).setTime(System.currentTimeMillis()),
+        new AuditStamp()
+            .setActor(Urn.createFromString(Constants.SYSTEM_ACTOR))
+            .setTime(System.currentTimeMillis()),
         false);
   }
 
-  private GlobalSettingsInfo getExistingGlobalSettingsOrEmpty()  {
-    RecordTemplate aspect = _entityService.getAspect(GLOBAL_SETTINGS_URN, GLOBAL_SETTINGS_INFO_ASPECT_NAME, 0);
+  private GlobalSettingsInfo getExistingGlobalSettingsOrEmpty() {
+    RecordTemplate aspect =
+        _entityService.getAspect(GLOBAL_SETTINGS_URN, GLOBAL_SETTINGS_INFO_ASPECT_NAME, 0);
     return aspect != null ? (GlobalSettingsInfo) aspect : new GlobalSettingsInfo();
   }
 

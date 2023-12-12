@@ -145,6 +145,9 @@ fragment entityPreview on Entity {
         deprecation {
             ...deprecationFields
         }
+        subTypes {
+            typeNames
+        }
     }
     ... on DataFlow {
         urn
@@ -209,6 +212,9 @@ fragment entityPreview on Entity {
         ...entityDataProduct
         deprecation {
             ...deprecationFields
+        }
+        subTypes {
+            typeNames
         }
     }
     ... on GlossaryTerm {

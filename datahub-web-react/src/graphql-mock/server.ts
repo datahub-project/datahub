@@ -69,6 +69,7 @@ export function makeServerForCypress() {
             routes() {
                 for (const domain of ['/*', ...otherDomains]) {
                     for (const method of methods) {
+                        // eslint-disable-next-line @typescript-eslint/no-loop-func
                         this[method](`${domain}`, async (_schema, request) => {
                             // eslint-disable-next-line @typescript-eslint/ban-ts-comment
                             // @ts-ignore

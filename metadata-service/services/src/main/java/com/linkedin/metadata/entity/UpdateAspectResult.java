@@ -6,11 +6,9 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.entity.transactions.AbstractBatchItem;
 import com.linkedin.mxe.MetadataAuditOperation;
 import com.linkedin.mxe.SystemMetadata;
+import java.util.concurrent.Future;
 import lombok.Builder;
 import lombok.Value;
-
-import java.util.concurrent.Future;
-
 
 @Builder(toBuilder = true)
 @Value
