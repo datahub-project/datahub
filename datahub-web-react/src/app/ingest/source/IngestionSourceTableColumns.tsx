@@ -61,6 +61,14 @@ const CliBadge = styled.span`
         margin-right: 5px;
     }
 `;
+const StatusText = styled(Typography.Text)`
+    font-weight: bold;
+    margin-left: 8px;
+    color: ${(props) => props.color};
+    &:hover {
+        text-decoration: underline;
+      },
+`;
 interface TypeColumnProps {
     type: string;
     record: any;
@@ -124,9 +132,7 @@ export function LastStatusColumn({ status, record, setFocusExecutionUrn }: LastS
                 type="link"
                 onClick={() => setFocusExecutionUrn(record.lastExecUrn)}
             >
-                <Typography.Text strong style={{ color, marginLeft: 8 }}>
-                    {text || 'Pending...'}
-                </Typography.Text>
+                <StatusText color={color}>{text || 'Pending...'}</StatusText>
             </StatusButton>
         </StatusContainer>
     );

@@ -8,15 +8,14 @@ import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.ToString;
 
-
 /**
- * Wrapper around authorization request with field resolvers for lazily fetching the field values for each field type
+ * Wrapper around authorization request with field resolvers for lazily fetching the field values
+ * for each field type
  */
 @RequiredArgsConstructor
 @ToString
 public class ResolvedEntitySpec {
-  @Getter
-  private final EntitySpec spec;
+  @Getter private final EntitySpec spec;
   private final Map<EntityFieldType, FieldResolver> fieldResolvers;
 
   public Set<String> getFieldValues(EntityFieldType entityFieldType) {
@@ -28,6 +27,7 @@ public class ResolvedEntitySpec {
 
   /**
    * Fetch the owners for an entity.
+   *
    * @return a set of owner urns, or empty set if none exist.
    */
   public Set<String> getOwners() {
@@ -39,6 +39,7 @@ public class ResolvedEntitySpec {
 
   /**
    * Fetch the platform instance for a Resolved Resource Spec
+   *
    * @return a Platform Instance or null if one does not exist.
    */
   @Nullable
@@ -46,7 +47,12 @@ public class ResolvedEntitySpec {
     if (!fieldResolvers.containsKey(EntityFieldType.DATA_PLATFORM_INSTANCE)) {
       return null;
     }
-    Set<String> dataPlatformInstance = fieldResolvers.get(EntityFieldType.DATA_PLATFORM_INSTANCE).getFieldValuesFuture().join().getValues();
+    Set<String> dataPlatformInstance =
+        fieldResolvers
+            .get(EntityFieldType.DATA_PLATFORM_INSTANCE)
+            .getFieldValuesFuture()
+            .join()
+            .getValues();
     if (dataPlatformInstance.size() > 0) {
       return dataPlatformInstance.stream().findFirst().get();
     }
@@ -55,12 +61,17 @@ public class ResolvedEntitySpec {
 
   /**
    * Fetch the group membership for an entity.
+   *
    * @return a set of groups urns, or empty set if none exist.
    */
   public Set<String> getGroupMembership() {
     if (!fieldResolvers.containsKey(EntityFieldType.GROUP_MEMBERSHIP)) {
       return Collections.emptySet();
     }
-    return fieldResolvers.get(EntityFieldType.GROUP_MEMBERSHIP).getFieldValuesFuture().join().getValues();
+    return fieldResolvers
+        .get(EntityFieldType.GROUP_MEMBERSHIP)
+        .getFieldValuesFuture()
+        .join()
+        .getValues();
   }
 }

@@ -8,7 +8,6 @@ import com.linkedin.entity.client.SystemRestliEntityClient;
 import java.util.function.Function;
 import lombok.RequiredArgsConstructor;
 
-
 @RequiredArgsConstructor
 public class GMSEnableWriteModeStep implements UpgradeStep {
   private final SystemRestliEntityClient _entityClient;

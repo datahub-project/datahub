@@ -1,21 +1,17 @@
 package datahub.client.kafka.containers;
 
+import static datahub.client.kafka.containers.Utils.CONFLUENT_PLATFORM_VERSION;
+
 import com.github.dockerjava.api.command.InspectContainerResponse;
+import java.nio.charset.StandardCharsets;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.wait.strategy.HostPortWaitStrategy;
 import org.testcontainers.images.builder.Transferable;
 import org.testcontainers.utility.TestcontainersConfiguration;
 
-import java.nio.charset.StandardCharsets;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
-
-import static datahub.client.kafka.containers.Utils.CONFLUENT_PLATFORM_VERSION;
-
-/**
- * This container wraps Confluent Kafka.
- *
- */
+/** This container wraps Confluent Kafka. */
 public class KafkaContainer extends GenericContainer<KafkaContainer> {
 
   private static final String STARTER_SCRIPT = "/testcontainers_start.sh";
@@ -47,11 +43,17 @@ public class KafkaContainer extends GenericContainer<KafkaContainer> {
     // with itself via internal
     // listener when KAFKA_INTER_BROKER_LISTENER_NAME is set, otherwise Kafka will
     // try to use the advertised listener
-    withEnv("KAFKA_LISTENERS",
-        "PLAINTEXT://0.0.0.0:" + KAFKA_INTERNAL_ADVERTISED_LISTENERS_PORT
-                + ",BROKER://0.0.0.0:" + KAFKA_INTERNAL_PORT
-                + ",BROKER_LOCAL://0.0.0.0:" + KAFKA_LOCAL_PORT);
-    withEnv("KAFKA_LISTENER_SECURITY_PROTOCOL_MAP", "BROKER:PLAINTEXT,PLAINTEXT:PLAINTEXT,BROKER_LOCAL:PLAINTEXT");
+    withEnv(
+        "KAFKA_LISTENERS",
+        "PLAINTEXT://0.0.0.0:"
+            + KAFKA_INTERNAL_ADVERTISED_LISTENERS_PORT
+            + ",BROKER://0.0.0.0:"
+            + KAFKA_INTERNAL_PORT
+            + ",BROKER_LOCAL://0.0.0.0:"
+            + KAFKA_LOCAL_PORT);
+    withEnv(
+        "KAFKA_LISTENER_SECURITY_PROTOCOL_MAP",
+        "BROKER:PLAINTEXT,PLAINTEXT:PLAINTEXT,BROKER_LOCAL:PLAINTEXT");
     withEnv("KAFKA_INTER_BROKER_LISTENER_NAME", "BROKER");
 
     withEnv("KAFKA_BROKER_ID", "1");
@@ -68,8 +70,9 @@ public class KafkaContainer extends GenericContainer<KafkaContainer> {
     if (port == PORT_NOT_ASSIGNED) {
       throw new IllegalStateException("You should start Kafka container first");
     }
-    return Stream.of(String.format("PLAINTEXT://%s:%s", getHost(), port),
-            String.format("PLAINTEXT://localhost:%s", getMappedPort(KAFKA_LOCAL_PORT)));
+    return Stream.of(
+        String.format("PLAINTEXT://%s:%s", getHost(), port),
+        String.format("PLAINTEXT://localhost:%s", getMappedPort(KAFKA_LOCAL_PORT)));
   }
 
   public String getInternalBootstrapServers() {
@@ -78,7 +81,10 @@ public class KafkaContainer extends GenericContainer<KafkaContainer> {
 
   @Override
   protected void doStart() {
-    withCommand("sh", "-c", "while [ ! -f " + STARTER_SCRIPT + " ]; do sleep 0.1; done; " + "sh " + STARTER_SCRIPT);
+    withCommand(
+        "sh",
+        "-c",
+        "while [ ! -f " + STARTER_SCRIPT + " ]; do sleep 0.1; done; " + "sh " + STARTER_SCRIPT);
 
     super.doStart();
   }
@@ -100,22 +106,33 @@ public class KafkaContainer extends GenericContainer<KafkaContainer> {
 
     String command = "#!/bin/bash \n";
     command += "export KAFKA_ZOOKEEPER_CONNECT='" + zookeeperConnect + "'\n";
-    command += "export KAFKA_ADVERTISED_LISTENERS='" + Stream
-        .concat(Stream.of("PLAINTEXT://" + networkAlias + ":" + KAFKA_INTERNAL_ADVERTISED_LISTENERS_PORT,
+    command +=
+        "export KAFKA_ADVERTISED_LISTENERS='"
+            + Stream.concat(
+                    Stream.of(
+                        "PLAINTEXT://"
+                            + networkAlias
+                            + ":"
+                            + KAFKA_INTERNAL_ADVERTISED_LISTENERS_PORT,
                         "BROKER_LOCAL://localhost:" + getMappedPort(KAFKA_LOCAL_PORT)),
-            containerInfo.getNetworkSettings().getNetworks().values().stream()
-                .map(it -> "BROKER://" + it.getIpAddress() + ":" + KAFKA_INTERNAL_PORT))
-        .collect(Collectors.joining(",")) + "'\n";
+                    containerInfo.getNetworkSettings().getNetworks().values().stream()
+                        .map(it -> "BROKER://" + it.getIpAddress() + ":" + KAFKA_INTERNAL_PORT))
+                .collect(Collectors.joining(","))
+            + "'\n";
 
     command += ". /etc/confluent/docker/bash-config \n";
     command += "/etc/confluent/docker/configure \n";
     command += "/etc/confluent/docker/launch \n";
 
-    copyFileToContainer(Transferable.of(command.getBytes(StandardCharsets.UTF_8), 700), STARTER_SCRIPT);
+    copyFileToContainer(
+        Transferable.of(command.getBytes(StandardCharsets.UTF_8), 700), STARTER_SCRIPT);
   }
 
   private static String getKafkaContainerImage(String confluentPlatformVersion) {
-    return (String) TestcontainersConfiguration.getInstance().getProperties().getOrDefault("kafka.container.image",
-        "confluentinc/cp-kafka:" + confluentPlatformVersion);
+    return (String)
+        TestcontainersConfiguration.getInstance()
+            .getProperties()
+            .getOrDefault(
+                "kafka.container.image", "confluentinc/cp-kafka:" + confluentPlatformVersion);
   }
 }

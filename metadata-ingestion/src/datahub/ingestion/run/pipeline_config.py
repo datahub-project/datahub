@@ -72,7 +72,7 @@ class PipelineConfig(ConfigModel):
 
     source: SourceConfig
     sink: DynamicTypedConfig
-    transformers: Optional[List[DynamicTypedConfig]]
+    transformers: Optional[List[DynamicTypedConfig]] = None
     flags: FlagsConfig = Field(default=FlagsConfig(), hidden_from_docs=True)
     reporting: List[ReporterConfig] = []
     run_id: str = DEFAULT_RUN_ID

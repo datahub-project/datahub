@@ -17,7 +17,7 @@ export default defineConfig(({ mode }) => {
     const mockServer = process.env.REACT_APP_MOCK;
     if (mockServer !== 'true' && mockServer !== 'cy') {
         const frontendProxy = {
-            target: 'http://localhost:9002',
+            target: process.env.REACT_APP_PROXY_TARGET || 'http://localhost:9002',
             changeOrigin: true,
         };
 

@@ -40,7 +40,8 @@ class DataJob:
         group_owners Set[str]): A list of group ids that own this job.
         inlets (List[str]): List of urns the DataProcessInstance consumes
         outlets (List[str]): List of urns the DataProcessInstance produces
-        input_datajob_urns: List[DataJobUrn] = field(default_factory=list)
+        fine_grained_lineages: Column lineage for the inlets and outlets
+        upstream_urns: List[DataJobUrn] = field(default_factory=list)
     """
 
     id: str
@@ -100,7 +101,9 @@ class DataJob:
         )
         return [tags]
 
-    def generate_mcp(self) -> Iterable[MetadataChangeProposalWrapper]:
+    def generate_mcp(
+        self, materialize_iolets: bool = True
+    ) -> Iterable[MetadataChangeProposalWrapper]:
         mcp = MetadataChangeProposalWrapper(
             entityUrn=str(self.urn),
             aspect=DataJobInfoClass(
@@ -113,7 +116,9 @@ class DataJob:
         )
         yield mcp
 
-        yield from self.generate_data_input_output_mcp()
+        yield from self.generate_data_input_output_mcp(
+            materialize_iolets=materialize_iolets
+        )
 
         for owner in self.generate_ownership_aspect():
             mcp = MetadataChangeProposalWrapper(
@@ -144,7 +149,9 @@ class DataJob:
         for mcp in self.generate_mcp():
             emitter.emit(mcp, callback)
 
-    def generate_data_input_output_mcp(self) -> Iterable[MetadataChangeProposalWrapper]:
+    def generate_data_input_output_mcp(
+        self, materialize_iolets: bool
+    ) -> Iterable[MetadataChangeProposalWrapper]:
         mcp = MetadataChangeProposalWrapper(
             entityUrn=str(self.urn),
             aspect=DataJobInputOutputClass(
@@ -157,10 +164,9 @@ class DataJob:
         yield mcp
 
         # Force entity materialization
-        for iolet in self.inlets + self.outlets:
-            mcp = MetadataChangeProposalWrapper(
-                entityUrn=str(iolet),
-                aspect=StatusClass(removed=False),
-            )
-
-            yield mcp
+        if materialize_iolets:
+            for iolet in self.inlets + self.outlets:
+                yield MetadataChangeProposalWrapper(
+                    entityUrn=str(iolet),
+                    aspect=StatusClass(removed=False),
+                )

@@ -188,6 +188,7 @@ export const EmbeddedListSearch = ({
         variables: {
             input: searchInput,
         },
+        fetchPolicy: 'cache-first',
     });
 
     useEffect(() => {

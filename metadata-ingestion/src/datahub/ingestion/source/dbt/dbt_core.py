@@ -171,7 +171,8 @@ def extract_dbt_entities(
         catalog_type = None
 
         if catalog_node is None:
-            if materialization != "test":
+            if materialization not in {"test", "ephemeral"}:
+                # Test and ephemeral nodes will never show up in the catalog.
                 report.report_warning(
                     key,
                     f"Entity {key} ({name}) is in manifest but missing from catalog",
@@ -464,6 +465,19 @@ class DBTCoreSource(DBTSourceBase):
             catalog_schema,
             catalog_version,
         ) = self.loadManifestAndCatalog()
+
+        # If catalog_version is between 1.7.0 and 1.7.2, report a warning.
+        if (
+            catalog_version
+            and catalog_version.startswith("1.7.")
+            and catalog_version < "1.7.3"
+        ):
+            self.report.report_warning(
+                "dbt_catalog_version",
+                f"Due to a bug in dbt, dbt version {catalog_version} will have incomplete metadata on sources. "
+                "Please upgrade to dbt version 1.7.3 or later. "
+                "See https://github.com/dbt-labs/dbt-core/issues/9119 for details on the bug.",
+            )
 
         additional_custom_props = {
             "manifest_schema": manifest_schema,

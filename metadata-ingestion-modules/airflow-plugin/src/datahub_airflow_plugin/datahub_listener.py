@@ -1,6 +1,7 @@
 import copy
 import functools
 import logging
+import os
 import threading
 from typing import TYPE_CHECKING, Callable, Dict, List, Optional, TypeVar, cast
 
@@ -17,7 +18,6 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.telemetry import telemetry
 from datahub.utilities.sqlglot_lineage import SqlParsingResult
-from datahub.utilities.urns.dataset_urn import DatasetUrn
 from openlineage.airflow.listener import TaskHolder
 from openlineage.airflow.utils import redact_with_exclusions
 from openlineage.client.serde import Serde
@@ -32,7 +32,11 @@ from datahub_airflow_plugin._config import DatahubLineageConfig, get_lineage_con
 from datahub_airflow_plugin._datahub_ol_adapter import translate_ol_to_datahub_urn
 from datahub_airflow_plugin._extractors import SQL_PARSING_RESULT_KEY, ExtractorManager
 from datahub_airflow_plugin.client.airflow_generator import AirflowGenerator
-from datahub_airflow_plugin.entities import _Entity
+from datahub_airflow_plugin.entities import (
+    _Entity,
+    entities_to_datajob_urn_list,
+    entities_to_dataset_urn_list,
+)
 
 _F = TypeVar("_F", bound=Callable[..., None])
 if TYPE_CHECKING:
@@ -52,7 +56,10 @@ logger = logging.getLogger(__name__)
 
 _airflow_listener_initialized = False
 _airflow_listener: Optional["DataHubListener"] = None
-_RUN_IN_THREAD = True
+_RUN_IN_THREAD = os.getenv("DATAHUB_AIRFLOW_PLUGIN_RUN_IN_THREAD", "true").lower() in (
+    "true",
+    "1",
+)
 _RUN_IN_THREAD_TIMEOUT = 30
 
 
@@ -130,7 +137,7 @@ class DataHubListener:
 
         self._emitter = config.make_emitter_hook().make_emitter()
         self._graph: Optional[DataHubGraph] = None
-        logger.info(f"DataHub plugin using {repr(self._emitter)}")
+        logger.info(f"DataHub plugin v2 using {repr(self._emitter)}")
 
         # See discussion here https://github.com/OpenLineage/OpenLineage/pull/508 for
         # why we need to keep track of tasks ourselves.
@@ -272,10 +279,9 @@ class DataHubListener:
         )
 
         # Write the lineage to the datajob object.
-        datajob.inlets.extend(DatasetUrn.create_from_string(urn) for urn in input_urns)
-        datajob.outlets.extend(
-            DatasetUrn.create_from_string(urn) for urn in output_urns
-        )
+        datajob.inlets.extend(entities_to_dataset_urn_list(input_urns))
+        datajob.outlets.extend(entities_to_dataset_urn_list(output_urns))
+        datajob.upstream_urns.extend(entities_to_datajob_urn_list(input_urns))
         datajob.fine_grained_lineages.extend(fine_grained_lineages)
 
         # Merge in extra stuff that was present in the DataJob we constructed
@@ -290,6 +296,7 @@ class DataHubListener:
             logger.debug("Merging start datajob into finish datajob")
             datajob.inlets.extend(original_datajob.inlets)
             datajob.outlets.extend(original_datajob.outlets)
+            datajob.upstream_urns.extend(original_datajob.upstream_urns)
             datajob.fine_grained_lineages.extend(original_datajob.fine_grained_lineages)
 
             for k, v in original_datajob.properties.items():
@@ -298,6 +305,9 @@ class DataHubListener:
         # Deduplicate inlets/outlets.
         datajob.inlets = list(sorted(set(datajob.inlets), key=lambda x: str(x)))
         datajob.outlets = list(sorted(set(datajob.outlets), key=lambda x: str(x)))
+        datajob.upstream_urns = list(
+            sorted(set(datajob.upstream_urns), key=lambda x: str(x))
+        )
 
         # Write all other OL facets as DataHub properties.
         if task_metadata:
