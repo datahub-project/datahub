@@ -283,7 +283,7 @@ class GenericProfiler:
 
         if self.config.profiling.profile_table_row_limit is not None and (
             rows_count is not None
-            or rows_count > self.config.profiling.profile_table_row_limit
+            and rows_count > self.config.profiling.profile_table_row_limit
         ):
             self.report.profiling_skipped_row_limit[schema_name] += 1
             return False
