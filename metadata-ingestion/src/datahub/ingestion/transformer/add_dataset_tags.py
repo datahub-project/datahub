@@ -32,11 +32,13 @@ class AddDatasetTags(DatasetTagsTransformer):
 
     ctx: PipelineContext
     config: AddDatasetTagsConfig
+    processed_tags: List[TagAssociationClass]
 
     def __init__(self, config: AddDatasetTagsConfig, ctx: PipelineContext):
         super().__init__()
         self.ctx = ctx
         self.config = config
+        self.processed_tags = []
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "AddDatasetTags":
@@ -55,24 +57,21 @@ class AddDatasetTags(DatasetTagsTransformer):
         tags_to_add = self.config.get_tags_to_add(entity_urn)
         if tags_to_add is not None:
             out_global_tags_aspect.tags.extend(tags_to_add)
+            self.processed_tags.extend(
+                tags_to_add
+            )  # Keep track of tags added so that we can create them in handle_end_of_stream
 
         return self.get_result_semantics(
             self.config, self.ctx.graph, entity_urn, out_global_tags_aspect
         )
 
-    def handle_end_of_stream(
-        self, entity_urn: str
-    ) -> List[MetadataChangeProposalWrapper]:
-        tags_to_add: List[TagAssociationClass] = self.config.get_tags_to_add(entity_urn)
+    def handle_end_of_stream(self) -> List[MetadataChangeProposalWrapper]:
 
         mcps: List[MetadataChangeProposalWrapper] = []
 
-        if tags_to_add is None:
-            return mcps
-
         logger.debug("Generating tags")
 
-        for tag_association in tags_to_add:
+        for tag_association in self.processed_tags:
             ids: List[str] = TagUrn.create_from_string(
                 tag_association.tag
             ).get_entity_id()
@@ -122,6 +121,7 @@ class PatternAddDatasetTags(AddDatasetTags):
     """Transformer that adds a specified set of tags to each dataset."""
 
     def __init__(self, config: PatternDatasetTagsConfig, ctx: PipelineContext):
+        config.tag_pattern.all
         tag_pattern = config.tag_pattern
         generic_config = AddDatasetTagsConfig(
             get_tags_to_add=lambda _: [
