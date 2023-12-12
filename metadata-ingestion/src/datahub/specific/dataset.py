@@ -249,10 +249,11 @@ class DatasetPatchBuilder(MetadataPatchProposal):
         if timestamp is not None:
             self._add_patch(
                 DatasetProperties.ASPECT_NAME,
-                "replace",
+                "add",
                 path="/created",
                 value=timestamp,
             )
+        return self
 
     def set_last_modified(self, timestamp: TimeStamp) -> "DatasetPatchBuilder":
         if timestamp is not None:
@@ -262,3 +263,4 @@ class DatasetPatchBuilder(MetadataPatchProposal):
                 path="/lastModified",
                 value=timestamp,
             )
+        return self

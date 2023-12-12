@@ -728,7 +728,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
         patch_builder.set_display_name(table.name)
         patch_builder.set_description(table.comment)
         patch_builder.set_created(
-            created=TimeStamp(time=int(table.created.timestamp() * 1000))
+            timestamp=TimeStamp(time=int(table.created.timestamp() * 1000))
             if table.created
             else None
         )
