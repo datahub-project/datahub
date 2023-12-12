@@ -105,3 +105,4 @@ FROM ${APP_ENV}-install
 
 USER datahub
 ENV PATH="/datahub-ingestion/.local/bin:$PATH"
+
