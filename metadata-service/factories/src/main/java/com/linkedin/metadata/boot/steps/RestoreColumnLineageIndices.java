@@ -13,14 +13,13 @@ import com.linkedin.metadata.entity.ListResult;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.ExtraInfo;
-import lombok.extern.slf4j.Slf4j;
-
-import javax.annotation.Nonnull;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
+import javax.annotation.Nonnull;
+import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 public class RestoreColumnLineageIndices extends UpgradeStep {
@@ -30,7 +29,8 @@ public class RestoreColumnLineageIndices extends UpgradeStep {
 
   private final EntityRegistry _entityRegistry;
 
-  public RestoreColumnLineageIndices(@Nonnull final EntityService entityService, @Nonnull final EntityRegistry entityRegistry) {
+  public RestoreColumnLineageIndices(
+      @Nonnull final EntityService entityService, @Nonnull final EntityRegistry entityRegistry) {
     super(entityService, VERSION, UPGRADE_ID);
     _entityRegistry = Objects.requireNonNull(entityRegistry, "entityRegistry must not be null");
   }
@@ -38,7 +38,9 @@ public class RestoreColumnLineageIndices extends UpgradeStep {
   @Override
   public void upgrade() throws Exception {
     final AuditStamp auditStamp =
-        new AuditStamp().setActor(Urn.createFromString(Constants.SYSTEM_ACTOR)).setTime(System.currentTimeMillis());
+        new AuditStamp()
+            .setActor(Urn.createFromString(Constants.SYSTEM_ACTOR))
+            .setTime(System.currentTimeMillis());
 
     final int totalUpstreamLineageCount = getAndRestoreUpstreamLineageIndices(0, auditStamp);
     int upstreamLineageCount = BATCH_SIZE;
@@ -47,17 +49,21 @@ public class RestoreColumnLineageIndices extends UpgradeStep {
       upstreamLineageCount += BATCH_SIZE;
     }
 
-    final int totalChartInputFieldsCount = getAndRestoreInputFieldsIndices(Constants.CHART_ENTITY_NAME, 0, auditStamp);
+    final int totalChartInputFieldsCount =
+        getAndRestoreInputFieldsIndices(Constants.CHART_ENTITY_NAME, 0, auditStamp);
     int chartInputFieldsCount = BATCH_SIZE;
     while (chartInputFieldsCount < totalChartInputFieldsCount) {
-      getAndRestoreInputFieldsIndices(Constants.CHART_ENTITY_NAME, chartInputFieldsCount, auditStamp);
+      getAndRestoreInputFieldsIndices(
+          Constants.CHART_ENTITY_NAME, chartInputFieldsCount, auditStamp);
       chartInputFieldsCount += BATCH_SIZE;
     }
 
-    final int totalDashboardInputFieldsCount = getAndRestoreInputFieldsIndices(Constants.DASHBOARD_ENTITY_NAME, 0, auditStamp);
+    final int totalDashboardInputFieldsCount =
+        getAndRestoreInputFieldsIndices(Constants.DASHBOARD_ENTITY_NAME, 0, auditStamp);
     int dashboardInputFieldsCount = BATCH_SIZE;
     while (dashboardInputFieldsCount < totalDashboardInputFieldsCount) {
-      getAndRestoreInputFieldsIndices(Constants.DASHBOARD_ENTITY_NAME, dashboardInputFieldsCount, auditStamp);
+      getAndRestoreInputFieldsIndices(
+          Constants.DASHBOARD_ENTITY_NAME, dashboardInputFieldsCount, auditStamp);
       dashboardInputFieldsCount += BATCH_SIZE;
     }
   }
@@ -69,23 +75,29 @@ public class RestoreColumnLineageIndices extends UpgradeStep {
   }
 
   private int getAndRestoreUpstreamLineageIndices(int start, AuditStamp auditStamp) {
-    final AspectSpec upstreamLineageAspectSpec = _entityRegistry.getEntitySpec(Constants.DATASET_ENTITY_NAME)
-        .getAspectSpec(Constants.UPSTREAM_LINEAGE_ASPECT_NAME);
+    final AspectSpec upstreamLineageAspectSpec =
+        _entityRegistry
+            .getEntitySpec(Constants.DATASET_ENTITY_NAME)
+            .getAspectSpec(Constants.UPSTREAM_LINEAGE_ASPECT_NAME);
 
-    final ListResult<RecordTemplate> latestAspects = _entityService.listLatestAspects(
-        Constants.DATASET_ENTITY_NAME,
-        Constants.UPSTREAM_LINEAGE_ASPECT_NAME,
-        start,
-        BATCH_SIZE);
+    final ListResult<RecordTemplate> latestAspects =
+        _entityService.listLatestAspects(
+            Constants.DATASET_ENTITY_NAME,
+            Constants.UPSTREAM_LINEAGE_ASPECT_NAME,
+            start,
+            BATCH_SIZE);
 
-    if (latestAspects.getTotalCount() == 0 || latestAspects.getValues() == null || latestAspects.getMetadata() == null) {
+    if (latestAspects.getTotalCount() == 0
+        || latestAspects.getValues() == null
+        || latestAspects.getMetadata() == null) {
       log.debug("Found 0 upstreamLineage aspects for datasets. Skipping migration.");
       return 0;
     }
 
     if (latestAspects.getValues().size() != latestAspects.getMetadata().getExtraInfos().size()) {
       // Bad result -- we should log that we cannot migrate this batch of upstreamLineages.
-      log.warn("Failed to match upstreamLineage aspects with corresponding urns. Found mismatched length between aspects ({})"
+      log.warn(
+          "Failed to match upstreamLineage aspects with corresponding urns. Found mismatched length between aspects ({})"
               + "and metadata ({}) for metadata {}",
           latestAspects.getValues().size(),
           latestAspects.getMetadata().getExtraInfos().size(),
@@ -104,48 +116,56 @@ public class RestoreColumnLineageIndices extends UpgradeStep {
         continue;
       }
 
-      futures.add(_entityService.alwaysProduceMCLAsync(
-          urn,
-          Constants.DATASET_ENTITY_NAME,
-          Constants.UPSTREAM_LINEAGE_ASPECT_NAME,
-          upstreamLineageAspectSpec,
-          null,
-          upstreamLineage,
-          null,
-          null,
-          auditStamp,
-          ChangeType.RESTATE).getFirst());
+      futures.add(
+          _entityService
+              .alwaysProduceMCLAsync(
+                  urn,
+                  Constants.DATASET_ENTITY_NAME,
+                  Constants.UPSTREAM_LINEAGE_ASPECT_NAME,
+                  upstreamLineageAspectSpec,
+                  null,
+                  upstreamLineage,
+                  null,
+                  null,
+                  auditStamp,
+                  ChangeType.RESTATE)
+              .getFirst());
     }
 
-    futures.stream().filter(Objects::nonNull).forEach(f -> {
-      try {
-        f.get();
-      } catch (InterruptedException | ExecutionException e) {
-        throw new RuntimeException(e);
-      }
-    });
+    futures.stream()
+        .filter(Objects::nonNull)
+        .forEach(
+            f -> {
+              try {
+                f.get();
+              } catch (InterruptedException | ExecutionException e) {
+                throw new RuntimeException(e);
+              }
+            });
 
     return latestAspects.getTotalCount();
   }
 
-  private int getAndRestoreInputFieldsIndices(String entityName, int start, AuditStamp auditStamp) throws Exception {
-    final AspectSpec inputFieldsAspectSpec = _entityRegistry.getEntitySpec(entityName)
-        .getAspectSpec(Constants.INPUT_FIELDS_ASPECT_NAME);
+  private int getAndRestoreInputFieldsIndices(String entityName, int start, AuditStamp auditStamp)
+      throws Exception {
+    final AspectSpec inputFieldsAspectSpec =
+        _entityRegistry.getEntitySpec(entityName).getAspectSpec(Constants.INPUT_FIELDS_ASPECT_NAME);
 
-    final ListResult<RecordTemplate> latestAspects = _entityService.listLatestAspects(
-        entityName,
-        Constants.INPUT_FIELDS_ASPECT_NAME,
-        start,
-        BATCH_SIZE);
+    final ListResult<RecordTemplate> latestAspects =
+        _entityService.listLatestAspects(
+            entityName, Constants.INPUT_FIELDS_ASPECT_NAME, start, BATCH_SIZE);
 
-    if (latestAspects.getTotalCount() == 0 || latestAspects.getValues() == null || latestAspects.getMetadata() == null) {
+    if (latestAspects.getTotalCount() == 0
+        || latestAspects.getValues() == null
+        || latestAspects.getMetadata() == null) {
       log.debug("Found 0 inputFields aspects. Skipping migration.");
       return 0;
     }
 
     if (latestAspects.getValues().size() != latestAspects.getMetadata().getExtraInfos().size()) {
       // Bad result -- we should log that we cannot migrate this batch of inputFields.
-      log.warn("Failed to match inputFields aspects with corresponding urns. Found mismatched length between aspects ({})"
+      log.warn(
+          "Failed to match inputFields aspects with corresponding urns. Found mismatched length between aspects ({})"
               + "and metadata ({}) for metadata {}",
           latestAspects.getValues().size(),
           latestAspects.getMetadata().getExtraInfos().size(),
@@ -164,26 +184,32 @@ public class RestoreColumnLineageIndices extends UpgradeStep {
         continue;
       }
 
-      futures.add(_entityService.alwaysProduceMCLAsync(
-          urn,
-          entityName,
-          Constants.INPUT_FIELDS_ASPECT_NAME,
-          inputFieldsAspectSpec,
-          null,
-          inputFields,
-          null,
-          null,
-          auditStamp,
-          ChangeType.RESTATE).getFirst());
+      futures.add(
+          _entityService
+              .alwaysProduceMCLAsync(
+                  urn,
+                  entityName,
+                  Constants.INPUT_FIELDS_ASPECT_NAME,
+                  inputFieldsAspectSpec,
+                  null,
+                  inputFields,
+                  null,
+                  null,
+                  auditStamp,
+                  ChangeType.RESTATE)
+              .getFirst());
     }
 
-    futures.stream().filter(Objects::nonNull).forEach(f -> {
-      try {
-        f.get();
-      } catch (InterruptedException | ExecutionException e) {
-        throw new RuntimeException(e);
-      }
-    });
+    futures.stream()
+        .filter(Objects::nonNull)
+        .forEach(
+            f -> {
+              try {
+                f.get();
+              } catch (InterruptedException | ExecutionException e) {
+                throw new RuntimeException(e);
+              }
+            });
 
     return latestAspects.getTotalCount();
   }

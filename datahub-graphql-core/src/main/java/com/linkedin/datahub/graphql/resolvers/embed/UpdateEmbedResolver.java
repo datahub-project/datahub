@@ -1,5 +1,9 @@
 package com.linkedin.datahub.graphql.resolvers.embed;
 
+import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
+import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
+import static com.linkedin.metadata.Constants.*;
+
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.Embed;
 import com.linkedin.common.urn.Urn;
@@ -19,14 +23,7 @@ import javax.annotation.Nonnull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
-import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
-import static com.linkedin.metadata.Constants.*;
-
-
-/**
- * Resolver used for updating the embed render URL for an asset.
- */
+/** Resolver used for updating the embed render URL for an asset. */
 @Slf4j
 @RequiredArgsConstructor
 public class UpdateEmbedResolver implements DataFetcher<CompletableFuture<Boolean>> {
@@ -37,62 +34,70 @@ public class UpdateEmbedResolver implements DataFetcher<CompletableFuture<Boolea
   public CompletableFuture<Boolean> get(DataFetchingEnvironment environment) throws Exception {
 
     final QueryContext context = environment.getContext();
-    final UpdateEmbedInput input = bindArgument(environment.getArgument("input"), UpdateEmbedInput.class);
+    final UpdateEmbedInput input =
+        bindArgument(environment.getArgument("input"), UpdateEmbedInput.class);
     final Urn entityUrn = UrnUtils.getUrn(input.getUrn());
 
-    return CompletableFuture.supplyAsync(() -> {
+    return CompletableFuture.supplyAsync(
+        () -> {
+          if (!EmbedUtils.isAuthorizedToUpdateEmbedForEntity(entityUrn, environment.getContext())) {
+            throw new AuthorizationException(
+                "Unauthorized to perform this action. Please contact your DataHub administrator.");
+          }
+          validateUpdateEmbedInput(input, _entityService);
+          try {
+            final Embed embed =
+                (Embed)
+                    EntityUtils.getAspectFromEntity(
+                        entityUrn.toString(), EMBED_ASPECT_NAME, _entityService, new Embed());
 
-      if (!EmbedUtils.isAuthorizedToUpdateEmbedForEntity(entityUrn, environment.getContext())) {
-        throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
-      }
-      validateUpdateEmbedInput(
-          input,
-          _entityService
-      );
-      try {
-        final Embed embed = (Embed) EntityUtils.getAspectFromEntity(
-            entityUrn.toString(),
-            EMBED_ASPECT_NAME,
-            _entityService,
-            new Embed());
+            updateEmbed(embed, input);
 
-        updateEmbed(embed, input);
-
-        final MetadataChangeProposal proposal = buildMetadataChangeProposalWithUrn(entityUrn, EMBED_ASPECT_NAME, embed);
-        _entityService.ingestProposal(
-            proposal,
-            new AuditStamp().setActor(UrnUtils.getUrn(context.getActorUrn())).setTime(System.currentTimeMillis()),
-            false
-        );
-        return true;
-      } catch (Exception e) {
-        throw new RuntimeException(String.format("Failed to update Embed for to resource with entity urn %s", entityUrn), e);
-      }
-    });
+            final MetadataChangeProposal proposal =
+                buildMetadataChangeProposalWithUrn(entityUrn, EMBED_ASPECT_NAME, embed);
+            _entityService.ingestProposal(
+                proposal,
+                new AuditStamp()
+                    .setActor(UrnUtils.getUrn(context.getActorUrn()))
+                    .setTime(System.currentTimeMillis()),
+                false);
+            return true;
+          } catch (Exception e) {
+            throw new RuntimeException(
+                String.format(
+                    "Failed to update Embed for to resource with entity urn %s", entityUrn),
+                e);
+          }
+        });
   }
 
   /**
-   * Validates an instance of {@link UpdateEmbedInput}, and throws an {@link IllegalArgumentException} if the input
-   * is not valid.
+   * Validates an instance of {@link UpdateEmbedInput}, and throws an {@link
+   * IllegalArgumentException} if the input is not valid.
    *
-   * For an input to be valid, the target URN must exist.
+   * <p>For an input to be valid, the target URN must exist.
    *
    * @param input the input to validate
    * @param entityService an instance of {@link EntityService} used to validate the input.
    */
-  private static void validateUpdateEmbedInput(@Nonnull final UpdateEmbedInput input, @Nonnull final EntityService entityService) {
+  private static void validateUpdateEmbedInput(
+      @Nonnull final UpdateEmbedInput input, @Nonnull final EntityService entityService) {
     if (!entityService.exists(UrnUtils.getUrn(input.getUrn()))) {
       throw new IllegalArgumentException(
-          String.format("Failed to update embed for entity with urn %s. Entity does not exist!", input.getUrn()));
+          String.format(
+              "Failed to update embed for entity with urn %s. Entity does not exist!",
+              input.getUrn()));
     }
   }
 
   /**
    * Applies an instance of {@link UpdateEmbedInput} to a base instance of {@link Embed}.
+   *
    * @param embed an embed to update
    * @param input the updates to apply
    */
-  private static void updateEmbed(@Nonnull final Embed embed, @Nonnull final UpdateEmbedInput input) {
+  private static void updateEmbed(
+      @Nonnull final Embed embed, @Nonnull final UpdateEmbedInput input) {
     embed.setRenderUrl(input.getRenderUrl(), SetMode.IGNORE_NULL);
   }
 }

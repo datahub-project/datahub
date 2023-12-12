@@ -21,7 +21,6 @@ import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.util.Pair;
-
 import java.lang.reflect.InvocationTargetException;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
@@ -35,7 +34,6 @@ import java.util.concurrent.Future;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-
 public class RestoreStorageStep implements UpgradeStep {
 
   private static final int REPORT_BATCH_SIZE = 1000;
@@ -43,11 +41,13 @@ public class RestoreStorageStep implements UpgradeStep {
 
   private final EntityService _entityService;
   private final EntityRegistry _entityRegistry;
-  private final Map<String, Class<? extends BackupReader<? extends ReaderWrapper<?>>>> _backupReaders;
+  private final Map<String, Class<? extends BackupReader<? extends ReaderWrapper<?>>>>
+      _backupReaders;
   private final ExecutorService _fileReaderThreadPool;
   private final ExecutorService _gmsThreadPool;
 
-  public RestoreStorageStep(final EntityService entityService, final EntityRegistry entityRegistry) {
+  public RestoreStorageStep(
+      final EntityService entityService, final EntityRegistry entityRegistry) {
     _entityService = entityService;
     _entityRegistry = entityRegistry;
     _backupReaders = ImmutableBiMap.of(LocalParquetReader.READER_NAME, LocalParquetReader.class);
@@ -82,7 +82,6 @@ public class RestoreStorageStep implements UpgradeStep {
   @Override
   public Function<UpgradeContext, UpgradeStepResult> executable() {
     return (context) -> {
-
       context.report().addLine("Starting backup restore...");
       int numRows = 0;
       Optional<String> backupReaderName = context.parsedArgs().get("BACKUP_READER");
@@ -93,19 +92,32 @@ public class RestoreStorageStep implements UpgradeStep {
         return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.FAILED);
       }
 
-      Class<? extends BackupReader<? extends ReaderWrapper>> clazz = _backupReaders.get(backupReaderName.get());
+      Class<? extends BackupReader<? extends ReaderWrapper>> clazz =
+          _backupReaders.get(backupReaderName.get());
       List<String> argNames = BackupReaderArgs.getArgNames(clazz);
-      List<Optional<String>> args = argNames.stream().map(argName -> context.parsedArgs().get(argName)).collect(
-          Collectors.toList());
+      List<Optional<String>> args =
+          argNames.stream()
+              .map(argName -> context.parsedArgs().get(argName))
+              .collect(Collectors.toList());
       BackupReader<? extends ReaderWrapper> backupReader;
       try {
         backupReader = clazz.getConstructor(List.class).newInstance(args);
-      } catch (InstantiationException | InvocationTargetException | IllegalAccessException | NoSuchMethodException e) {
+      } catch (InstantiationException
+          | InvocationTargetException
+          | IllegalAccessException
+          | NoSuchMethodException e) {
         e.printStackTrace();
-        context.report().addLine("Invalid BackupReader, not able to construct instance of " + clazz.getSimpleName());
-        throw new IllegalArgumentException("Invalid BackupReader: " + clazz.getSimpleName() + ", need to implement proper constructor.");
+        context
+            .report()
+            .addLine(
+                "Invalid BackupReader, not able to construct instance of " + clazz.getSimpleName());
+        throw new IllegalArgumentException(
+            "Invalid BackupReader: "
+                + clazz.getSimpleName()
+                + ", need to implement proper constructor.");
       }
-      EbeanAspectBackupIterator<? extends ReaderWrapper> iterator = backupReader.getBackupIterator(context);
+      EbeanAspectBackupIterator<? extends ReaderWrapper> iterator =
+          backupReader.getBackupIterator(context);
       ReaderWrapper reader;
       List<Future<?>> futureList = new ArrayList<>();
       while ((reader = iterator.getNextReader()) != null) {
@@ -138,9 +150,12 @@ public class RestoreStorageStep implements UpgradeStep {
       try {
         urn = Urn.createFromString(aspect.getKey().getUrn());
       } catch (Exception e) {
-        context.report()
+        context
+            .report()
             .addLine(
-                String.format("Failed to bind Urn with value %s into Urn object", aspect.getKey().getUrn()), e);
+                String.format(
+                    "Failed to bind Urn with value %s into Urn object", aspect.getKey().getUrn()),
+                e);
         continue;
       }
 
@@ -150,8 +165,11 @@ public class RestoreStorageStep implements UpgradeStep {
       try {
         entitySpec = _entityRegistry.getEntitySpec(entityName);
       } catch (Exception e) {
-        context.report()
-            .addLine(String.format("Failed to find Entity with name %s in Entity Registry", entityName), e);
+        context
+            .report()
+            .addLine(
+                String.format("Failed to find Entity with name %s in Entity Registry", entityName),
+                e);
         continue;
       }
       final String aspectName = aspect.getKey().getAspect();
@@ -160,11 +178,16 @@ public class RestoreStorageStep implements UpgradeStep {
       final RecordTemplate aspectRecord;
       try {
         aspectRecord =
-            EntityUtils.toAspectRecord(entityName, aspectName, aspect.getMetadata(), _entityRegistry);
+            EntityUtils.toAspectRecord(
+                entityName, aspectName, aspect.getMetadata(), _entityRegistry);
       } catch (Exception e) {
-        context.report()
-            .addLine(String.format("Failed to create aspect record with name %s associated with entity named %s",
-                aspectName, entityName), e);
+        context
+            .report()
+            .addLine(
+                String.format(
+                    "Failed to create aspect record with name %s associated with entity named %s",
+                    aspectName, entityName),
+                e);
         continue;
       }
 
@@ -173,17 +196,27 @@ public class RestoreStorageStep implements UpgradeStep {
       try {
         aspectSpec = entitySpec.getAspectSpec(aspectName);
       } catch (Exception e) {
-        context.report()
-            .addLine(String.format("Failed to find aspect spec with name %s associated with entity named %s",
-                aspectName, entityName), e);
+        context
+            .report()
+            .addLine(
+                String.format(
+                    "Failed to find aspect spec with name %s associated with entity named %s",
+                    aspectName, entityName),
+                e);
         continue;
       }
 
       // 5. Write the row back using the EntityService
       final long version = aspect.getKey().getVersion();
       final AuditStamp auditStamp = toAuditStamp(aspect);
-      futureList.add(_gmsThreadPool.submit(() ->
-          _entityService.ingestAspects(urn, List.of(Pair.of(aspectName, aspectRecord)), auditStamp, null).get(0).getNewValue()));
+      futureList.add(
+          _gmsThreadPool.submit(
+              () ->
+                  _entityService
+                      .ingestAspects(
+                          urn, List.of(Pair.of(aspectName, aspectRecord)), auditStamp, null)
+                      .get(0)
+                      .getNewValue()));
       if (numRows % REPORT_BATCH_SIZE == 0) {
         for (Future<?> future : futureList) {
           try {

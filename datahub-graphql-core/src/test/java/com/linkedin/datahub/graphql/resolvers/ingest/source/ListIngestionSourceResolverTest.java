@@ -1,5 +1,8 @@
 package com.linkedin.datahub.graphql.resolvers.ingest.source;
 
+import static com.linkedin.datahub.graphql.resolvers.ingest.IngestTestUtils.*;
+import static org.testng.Assert.*;
+
 import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -23,13 +26,10 @@ import java.util.HashSet;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
-import static com.linkedin.datahub.graphql.resolvers.ingest.IngestTestUtils.*;
-import static org.testng.Assert.*;
-
-
 public class ListIngestionSourceResolverTest {
 
-  private static final ListIngestionSourcesInput TEST_INPUT = new ListIngestionSourcesInput(0, 20, null, null);
+  private static final ListIngestionSourcesInput TEST_INPUT =
+      new ListIngestionSourcesInput(0, 20, null, null);
 
   @Test
   public void testGetSuccess() throws Exception {
@@ -40,41 +40,47 @@ public class ListIngestionSourceResolverTest {
     final DataHubIngestionSourceKey key = new DataHubIngestionSourceKey();
     key.setId("test");
 
-    Mockito.when(mockClient.search(
-        Mockito.eq(Constants.INGESTION_SOURCE_ENTITY_NAME),
-        Mockito.eq(""),
-        Mockito.any(),
-        Mockito.any(),
-        Mockito.eq(0),
-        Mockito.eq(20),
-        Mockito.any(Authentication.class),
-        Mockito.eq(new SearchFlags().setFulltext(true)))).thenReturn(
-        new SearchResult()
-        .setFrom(0)
-        .setPageSize(1)
-        .setNumEntities(1)
-        .setEntities(new SearchEntityArray(ImmutableSet.of(new SearchEntity().setEntity(TEST_INGESTION_SOURCE_URN))))
-    );
+    Mockito.when(
+            mockClient.search(
+                Mockito.eq(Constants.INGESTION_SOURCE_ENTITY_NAME),
+                Mockito.eq(""),
+                Mockito.any(),
+                Mockito.any(),
+                Mockito.eq(0),
+                Mockito.eq(20),
+                Mockito.any(Authentication.class),
+                Mockito.eq(new SearchFlags().setFulltext(true))))
+        .thenReturn(
+            new SearchResult()
+                .setFrom(0)
+                .setPageSize(1)
+                .setNumEntities(1)
+                .setEntities(
+                    new SearchEntityArray(
+                        ImmutableSet.of(new SearchEntity().setEntity(TEST_INGESTION_SOURCE_URN)))));
 
-    Mockito.when(mockClient.batchGetV2(
-        Mockito.eq(Constants.INGESTION_SOURCE_ENTITY_NAME),
-        Mockito.eq(new HashSet<>(ImmutableSet.of(TEST_INGESTION_SOURCE_URN))),
-        Mockito.eq(ImmutableSet.of(Constants.INGESTION_INFO_ASPECT_NAME, Constants.INGESTION_SOURCE_KEY_ASPECT_NAME)),
-        Mockito.any(Authentication.class)
-    )).thenReturn(
-        ImmutableMap.of(
-            TEST_INGESTION_SOURCE_URN,
-            new EntityResponse()
-                .setEntityName(Constants.INGESTION_SOURCE_ENTITY_NAME)
-                .setUrn(TEST_INGESTION_SOURCE_URN)
-                .setAspects(new EnvelopedAspectMap(ImmutableMap.of(
-                    Constants.INGESTION_INFO_ASPECT_NAME,
-                    new EnvelopedAspect().setValue(new Aspect(returnedInfo.data())),
-                    Constants.INGESTION_SOURCE_KEY_ASPECT_NAME,
-                    new EnvelopedAspect().setValue(new Aspect(key.data()))
-                )))
-        )
-    );
+    Mockito.when(
+            mockClient.batchGetV2(
+                Mockito.eq(Constants.INGESTION_SOURCE_ENTITY_NAME),
+                Mockito.eq(new HashSet<>(ImmutableSet.of(TEST_INGESTION_SOURCE_URN))),
+                Mockito.eq(
+                    ImmutableSet.of(
+                        Constants.INGESTION_INFO_ASPECT_NAME,
+                        Constants.INGESTION_SOURCE_KEY_ASPECT_NAME)),
+                Mockito.any(Authentication.class)))
+        .thenReturn(
+            ImmutableMap.of(
+                TEST_INGESTION_SOURCE_URN,
+                new EntityResponse()
+                    .setEntityName(Constants.INGESTION_SOURCE_ENTITY_NAME)
+                    .setUrn(TEST_INGESTION_SOURCE_URN)
+                    .setAspects(
+                        new EnvelopedAspectMap(
+                            ImmutableMap.of(
+                                Constants.INGESTION_INFO_ASPECT_NAME,
+                                new EnvelopedAspect().setValue(new Aspect(returnedInfo.data())),
+                                Constants.INGESTION_SOURCE_KEY_ASPECT_NAME,
+                                new EnvelopedAspect().setValue(new Aspect(key.data())))))));
     ListIngestionSourcesResolver resolver = new ListIngestionSourcesResolver(mockClient);
 
     // Execute resolver
@@ -88,7 +94,8 @@ public class ListIngestionSourceResolverTest {
     assertEquals(resolver.get(mockEnv).get().getCount(), 1);
     assertEquals(resolver.get(mockEnv).get().getTotal(), 1);
     assertEquals(resolver.get(mockEnv).get().getIngestionSources().size(), 1);
-    verifyTestIngestionSourceGraphQL(resolver.get(mockEnv).get().getIngestionSources().get(0), returnedInfo);
+    verifyTestIngestionSourceGraphQL(
+        resolver.get(mockEnv).get().getIngestionSources().get(0), returnedInfo);
   }
 
   @Test
@@ -100,35 +107,32 @@ public class ListIngestionSourceResolverTest {
     // Execute resolver
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     QueryContext mockContext = getMockDenyContext();
-    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(
-        TEST_INPUT);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(TEST_INPUT);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     assertThrows(RuntimeException.class, () -> resolver.get(mockEnv).join());
-    Mockito.verify(mockClient, Mockito.times(0)).batchGetV2(
-        Mockito.any(),
-        Mockito.anySet(),
-        Mockito.anySet(),
-        Mockito.any(Authentication.class));
-    Mockito.verify(mockClient, Mockito.times(0)).search(
-        Mockito.any(),
-        Mockito.eq(""),
-        Mockito.anyMap(),
-        Mockito.anyInt(),
-        Mockito.anyInt(),
-        Mockito.any(Authentication.class),
-        Mockito.eq(new SearchFlags().setFulltext(true)));
+    Mockito.verify(mockClient, Mockito.times(0))
+        .batchGetV2(
+            Mockito.any(), Mockito.anySet(), Mockito.anySet(), Mockito.any(Authentication.class));
+    Mockito.verify(mockClient, Mockito.times(0))
+        .search(
+            Mockito.any(),
+            Mockito.eq(""),
+            Mockito.anyMap(),
+            Mockito.anyInt(),
+            Mockito.anyInt(),
+            Mockito.any(Authentication.class),
+            Mockito.eq(new SearchFlags().setFulltext(true)));
   }
 
   @Test
   public void testGetEntityClientException() throws Exception {
     // Create resolver
     EntityClient mockClient = Mockito.mock(EntityClient.class);
-    Mockito.doThrow(RemoteInvocationException.class).when(mockClient).batchGetV2(
-        Mockito.any(),
-        Mockito.anySet(),
-        Mockito.anySet(),
-        Mockito.any(Authentication.class));
+    Mockito.doThrow(RemoteInvocationException.class)
+        .when(mockClient)
+        .batchGetV2(
+            Mockito.any(), Mockito.anySet(), Mockito.anySet(), Mockito.any(Authentication.class));
     ListIngestionSourcesResolver resolver = new ListIngestionSourcesResolver(mockClient);
 
     // Execute resolver

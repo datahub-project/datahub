@@ -1,5 +1,7 @@
 package com.datahub.graphql;
 
+import static java.nio.charset.StandardCharsets.*;
+
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.Reader;
@@ -13,9 +15,6 @@ import org.springframework.stereotype.Controller;
 import org.springframework.util.FileCopyUtils;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ResponseBody;
-
-import static java.nio.charset.StandardCharsets.*;
-
 
 @Slf4j
 @Controller
