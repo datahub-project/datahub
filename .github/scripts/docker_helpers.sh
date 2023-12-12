@@ -1,7 +1,7 @@
 echo "GITHUB_REF: $GITHUB_REF"
 echo "GITHUB_SHA: $GITHUB_SHA"
 
-export MAIN_BRANCH="master"
+export MAIN_BRANCH="ak--ingestion-base-fix"
 export MAIN_BRANCH_TAG="head"
 
 function get_short_sha {
