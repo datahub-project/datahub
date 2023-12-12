@@ -21,14 +21,13 @@ public class DataHubDataFetcherExceptionHandler implements DataFetcherExceptionH
     SourceLocation sourceLocation = handlerParameters.getSourceLocation();
     ResultPath path = handlerParameters.getPath();
 
-    log.error("Failed to execute DataFetcher", exception);
-
     DataHubGraphQLErrorCode errorCode = DataHubGraphQLErrorCode.SERVER_ERROR;
     String message = DEFAULT_ERROR_MESSAGE;
 
     IllegalArgumentException illException =
         findFirstThrowableCauseOfClass(exception, IllegalArgumentException.class);
     if (illException != null) {
+      log.error("Failed to execute", illException);
       errorCode = DataHubGraphQLErrorCode.BAD_REQUEST;
       message = illException.getMessage();
     }
@@ -36,10 +35,14 @@ public class DataHubDataFetcherExceptionHandler implements DataFetcherExceptionH
     DataHubGraphQLException graphQLException =
         findFirstThrowableCauseOfClass(exception, DataHubGraphQLException.class);
     if (graphQLException != null) {
+      log.error("Failed to execute", graphQLException);
       errorCode = graphQLException.errorCode();
       message = graphQLException.getMessage();
     }
 
+    if (illException == null && graphQLException == null) {
+      log.error("Failed to execute", exception);
+    }
     DataHubGraphQLError error = new DataHubGraphQLError(message, path, sourceLocation, errorCode);
     return DataFetcherExceptionHandlerResult.newResult().error(error).build();
   }
