@@ -101,9 +101,7 @@ function CreateGlossaryEntityModal(props: Props) {
                     refetch();
                     if (isInGlossaryContext) {
                         // either refresh this current glossary node or the root nodes or root terms
-                        const nodeToUpdate = props.isCloning
-                            ? getGlossaryRootToUpdate(entityType)
-                            : entityData?.urn || getGlossaryRootToUpdate(entityType);
+                        const nodeToUpdate = selectedParentUrn || getGlossaryRootToUpdate(entityType);
                         updateGlossarySidebar([nodeToUpdate], urnsToUpdate, setUrnsToUpdate);
                     }
                     if (refetchData) {
