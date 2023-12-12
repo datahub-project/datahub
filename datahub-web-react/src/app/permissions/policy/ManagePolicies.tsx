@@ -4,6 +4,7 @@ import styled from 'styled-components/macro';
 import * as QueryString from 'query-string';
 import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
 import { useLocation } from 'react-router';
+import { useApolloClient } from '@apollo/client';
 import PolicyBuilderModal from './PolicyBuilderModal';
 import {
     Policy,
@@ -26,7 +27,7 @@ import {
     useUpdatePolicyMutation,
 } from '../../../graphql/policy.generated';
 import { Message } from '../../shared/Message';
-import { EMPTY_POLICY } from './policyUtils';
+import { EMPTY_POLICY, removeFromListPoliciesCache, updateListPoliciesCache } from './policyUtils';
 import TabToolbar from '../../entity/shared/components/styled/TabToolbar';
 import { StyledTable } from '../../entity/shared/components/styled/StyledTable';
 import AvatarsGroup from '../AvatarsGroup';
@@ -141,6 +142,7 @@ const toPolicyInput = (policy: Omit<Policy, 'urn'>): PolicyUpdateInput => {
 export const ManagePolicies = () => {
     const entityRegistry = useEntityRegistry();
     const location = useLocation();
+    const client = useApolloClient();
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
     const paramsQuery = (params?.query as string) || undefined;
     const [query, setQuery] = useState<undefined | string>(undefined);
@@ -258,17 +260,21 @@ export const ManagePolicies = () => {
             title: `Delete ${policy?.name}`,
             content: `Are you sure you want to remove policy?`,
             onOk() {
-                deletePolicy({ variables: { urn: policy?.urn as string } }); // There must be a focus policy urn.
-                analytics.event({
-                    type: EventType.DeleteEntityEvent,
-                    entityUrn: policy?.urn,
-                    entityType: EntityType.DatahubPolicy,
-                });
-                message.success('Successfully removed policy.');
-                setTimeout(() => {
-                    policiesRefetch();
-                }, 3000);
-                onCancelViewPolicy();
+                deletePolicy({ variables: { urn: policy?.urn as string } })
+                .then(()=>{
+                    // There must be a focus policy urn.
+                    analytics.event({
+                        type: EventType.DeleteEntityEvent,
+                        entityUrn: policy?.urn,
+                        entityType: EntityType.DatahubPolicy,
+                    });
+                    message.success('Successfully removed policy.');
+                    removeFromListPoliciesCache(client,policy?.urn, DEFAULT_PAGE_SIZE);
+                    setTimeout(() => {
+                        policiesRefetch();
+                    }, 3000);
+                    onCancelViewPolicy();
+                })
             },
             onCancel() {},
             okText: 'Yes',
@@ -289,11 +295,18 @@ export const ManagePolicies = () => {
                 urn: policy?.urn as string, // There must be a focus policy urn.
                 input: toPolicyInput(newPolicy),
             },
-        });
-        message.success(`Successfully ${newState === PolicyState.Active ? 'activated' : 'deactivated'} policy.`);
-        setTimeout(() => {
-            policiesRefetch();
-        }, 3000);
+        }).then(()=>{
+            const updatePolicies= {
+                ...newPolicy,
+                __typename: 'ListPoliciesResult',
+            }
+            updateListPoliciesCache(client,updatePolicies,DEFAULT_PAGE_SIZE);
+            message.success(`Successfully ${newState === PolicyState.Active ? 'activated' : 'deactivated'} policy.`);
+            setTimeout(() => {
+                policiesRefetch();
+            }, 3000);
+        })
+        
         setShowViewPolicyModal(false);
     };
 
@@ -301,17 +314,46 @@ export const ManagePolicies = () => {
     const onSavePolicy = (savePolicy: Omit<Policy, 'urn'>) => {
         if (focusPolicyUrn) {
             // If there's an URN associated with the focused policy, then we are editing an existing policy.
-            updatePolicy({ variables: { urn: focusPolicyUrn, input: toPolicyInput(savePolicy) } });
-            analytics.event({
-                type: EventType.UpdatePolicyEvent,
-                policyUrn: focusPolicyUrn,
-            });
+            updatePolicy({ variables: { urn: focusPolicyUrn, input: toPolicyInput(savePolicy) } })
+            .then(()=>{
+                const newPolicy = {
+                    __typename: 'ListPoliciesResult',
+                    urn: focusPolicyUrn,
+                    ...savePolicy,
+                };
+                analytics.event({
+                    type: EventType.UpdatePolicyEvent,
+                    policyUrn: focusPolicyUrn,
+                });
+                message.success('Successfully saved policy.');
+                updateListPoliciesCache(client,newPolicy,DEFAULT_PAGE_SIZE);
+                setTimeout(() => {
+                    policiesRefetch();
+                }, 1000);
+                onClosePolicyBuilder();
+            })
         } else {
             // If there's no URN associated with the focused policy, then we are creating.
-            createPolicy({ variables: { input: toPolicyInput(savePolicy) } });
-            analytics.event({
-                type: EventType.CreatePolicyEvent,
-            });
+            createPolicy({ variables: { input: toPolicyInput(savePolicy) } })
+            .then((result)=>{
+                const newPolicy = {
+                    __typename: 'ListPoliciesResult',
+                    urn: result?.data?.createPolicy,
+                    ...savePolicy,
+                    type: null,
+                    actors: null,
+                    resources: null,
+                };
+                analytics.event({
+                    type: EventType.CreatePolicyEvent,
+                });
+                message.success('Successfully saved policy.');
+                setTimeout(() => {
+                    policiesRefetch();
+                }, 1000);
+                updateListPoliciesCache(client,newPolicy,DEFAULT_PAGE_SIZE);
+                onClosePolicyBuilder();
+            })
         }
         message.success('Successfully saved policy.');
         setTimeout(() => {

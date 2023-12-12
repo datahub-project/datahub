@@ -10,6 +10,7 @@ import {
     ResourceFilter,
     ResourcePrivileges,
 } from '../../../types.generated';
+import { ListPoliciesDocument, ListPoliciesQuery } from '../../../graphql/policy.generated';
 
 export const EMPTY_POLICY = {
     type: PolicyType.Metadata,
@@ -125,4 +126,99 @@ export const setFieldValues = (
         return { ...filter, criteria: restCriteria };
     }
     return { ...filter, criteria: [...restCriteria, createCriterion(resourceFieldType, fieldValues)] };
+};
+
+const addOrUpdatePoliciesInList = (existingPolicies, newPolicies) => {
+    const policies = [...existingPolicies];
+    let didUpdate = false;
+    const updatedPolicies = policies.map((test) => {
+        if (test.urn === newPolicies.urn) {
+            didUpdate = true;
+            return newPolicies;
+        }
+        return test;
+    });
+    return didUpdate ? updatedPolicies : [newPolicies, ...existingPolicies];
+};
+
+/**
+ * Add an entry to the ListPolicies cache.
+ */
+export const updateListPoliciesCache = (client, policies, pageSize) => {
+    // Read the data from our cache for this query.
+    const currData: ListPoliciesQuery | null = client.readQuery({
+        query: ListPoliciesDocument,
+        variables: {
+            input: {
+                start: 0,
+                count: pageSize,
+                query: undefined,
+            },
+        },
+    });
+
+    // Add our new test into the existing list.
+    const existingPolicies = [...(currData?.listPolicies?.policies || [])];
+    const newPolicies = addOrUpdatePoliciesInList(existingPolicies, policies);
+    const didAddTest = newPolicies.length > existingPolicies.length;
+
+    // Write our data back to the cache.
+    client.writeQuery({
+        query: ListPoliciesDocument,
+        variables: {
+            input: {
+                start: 0,
+                count: pageSize,
+                query: undefined,
+            },
+        },
+        data: {
+            
+            listPolicies: {
+                __typename: 'ListPoliciesResult',
+                start: 0,
+                count: didAddTest ? (currData?.listPolicies?.count || 0) + 1 : currData?.listPolicies?.count,
+                total: didAddTest ? (currData?.listPolicies?.total || 0) + 1 : currData?.listPolicies?.total,
+                policies: newPolicies,
+            },
+        },
+    });
+};
+
+/**
+ * Remove an entry from the ListTests cache.
+ */
+export const removeFromListPoliciesCache = (client, urn, pageSize) => {
+    // Read the data from our cache for this query.
+    const currData: ListPoliciesQuery | null = client.readQuery({
+        query: ListPoliciesDocument,
+        variables: {
+            input: {
+                start: 0,
+                count: pageSize,
+            },
+        },
+    });
+
+    // Remove the test from the existing tests set.
+    const newPolicies = [...(currData?.listPolicies?.policies || []).filter((policy) => policy.urn !== urn)];
+
+    // Write our data back to the cache.
+    client.writeQuery({
+        query: ListPoliciesDocument,
+        variables: {
+            input: {
+                start: 0,
+                count: pageSize,
+            },
+        },
+        data: {
+            listPolicies: {
+                start: currData?.listPolicies?.start || 0,
+                count: (currData?.listPolicies?.count || 1) - 1,
+                total: (currData?.listPolicies?.total || 1) - 1,
+                policies: newPolicies,
+            },
+        },
+    });
 };
