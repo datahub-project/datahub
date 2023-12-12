@@ -54,7 +54,9 @@ from datahub.utilities.urns.data_platform_urn import DataPlatformUrn
 logger = logging.getLogger(__name__)
 
 
-def is_url_valid(url: str) -> bool:
+def is_url_valid(url: Optional[str]) -> bool:
+    if url is None:
+        return False
     try:
         result = urlparse(url)
         return all([result.scheme, result.netloc])
