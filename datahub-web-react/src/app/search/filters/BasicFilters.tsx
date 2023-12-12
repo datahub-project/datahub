@@ -119,7 +119,7 @@ export default function BasicFilters({
                         id={SEARCH_RESULTS_ADVANCED_SEARCH_ID}
                         type="text"
                         onClick={showAdvancedFilters}
-                        $marginTop={0}
+                        marginTop={0}
                     >
                         Advanced Filters
                     </TextButton>
@@ -140,7 +140,7 @@ export default function BasicFilters({
                                 />
                             ))}
                         </FlexWrapper>
-                        <TextButton type="text" onClick={onClearFilters} $height={14} data-testid="clear-all-filters">
+                        <TextButton type="text" onClick={onClearFilters} height={14} data-testid="clear-all-filters">
                             clear all
                         </TextButton>
                     </FlexSpacer>
