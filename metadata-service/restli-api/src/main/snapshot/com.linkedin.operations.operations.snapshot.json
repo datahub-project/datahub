@@ -3668,6 +3668,11 @@
       "name" : "sizeMb",
       "type" : "float",
       "doc" : "Size",
+      "default" : 0.0,
+      "deprecated" : "use sizeInMb instead"
+    }, {
+      "name" : "sizeInMb",
+      "type" : "double",
       "default" : 0.0
     } ]
   }, {
