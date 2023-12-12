@@ -355,11 +355,6 @@ export const ManagePolicies = () => {
                 onClosePolicyBuilder();
             })
         }
-        message.success('Successfully saved policy.');
-        setTimeout(() => {
-            policiesRefetch();
-        }, 3000);
-        onClosePolicyBuilder();
     };
 
     const tableColumns = [

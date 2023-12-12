@@ -128,15 +128,15 @@ export const setFieldValues = (
     return { ...filter, criteria: [...restCriteria, createCriterion(resourceFieldType, fieldValues)] };
 };
 
-const addOrUpdatePoliciesInList = (existingPolicies, newPolicies) => {
+export const addOrUpdatePoliciesInList = (existingPolicies, newPolicies) => {
     const policies = [...existingPolicies];
     let didUpdate = false;
-    const updatedPolicies = policies.map((test) => {
-        if (test.urn === newPolicies.urn) {
+    const updatedPolicies = policies.map((policy) => {
+        if (policy.urn === newPolicies.urn) {
             didUpdate = true;
             return newPolicies;
         }
-        return test;
+        return policy;
     });
     return didUpdate ? updatedPolicies : [newPolicies, ...existingPolicies];
 };
@@ -157,7 +157,7 @@ export const updateListPoliciesCache = (client, policies, pageSize) => {
         },
     });
 
-    // Add our new test into the existing list.
+    // Add our new policy into the existing list.
     const existingPolicies = [...(currData?.listPolicies?.policies || [])];
     const newPolicies = addOrUpdatePoliciesInList(existingPolicies, policies);
     const didAddTest = newPolicies.length > existingPolicies.length;
@@ -200,7 +200,7 @@ export const removeFromListPoliciesCache = (client, urn, pageSize) => {
         },
     });
 
-    // Remove the test from the existing tests set.
+    // Remove the policy from the existing tests set.
     const newPolicies = [...(currData?.listPolicies?.policies || []).filter((policy) => policy.urn !== urn)];
 
     // Write our data back to the cache.
