@@ -33,6 +33,7 @@ import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapp
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.CustomPropertiesMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.SubTypesMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.SystemMetadataUtils;
 import com.linkedin.datahub.graphql.types.domain.DomainAssociationMapper;
@@ -91,7 +92,8 @@ public class DashboardMapper implements ModelMapper<EntityResponse, Dashboard> {
             dataset.setDataPlatformInstance(DataPlatformInstanceAspectMapper.map(new DataPlatformInstance(dataMap))));
         mappingHelper.mapToResult(INPUT_FIELDS_ASPECT_NAME, (dashboard, dataMap) ->
             dashboard.setInputFields(InputFieldsMapper.map(new InputFields(dataMap), entityUrn)));
-        mappingHelper.mapToResult(SUB_TYPES_ASPECT_NAME, this::mapSubTypes);
+      mappingHelper.mapToResult(SUB_TYPES_ASPECT_NAME, (dashboard, dataMap) ->
+            dashboard.setSubTypes(SubTypesMapper.map(new SubTypes(dataMap))));
         mappingHelper.mapToResult(EMBED_ASPECT_NAME, (dashboard, dataMap) ->
             dashboard.setEmbed(EmbedMapper.map(new Embed(dataMap))));
         mappingHelper.mapToResult(BROWSE_PATHS_V2_ASPECT_NAME, (dashboard, dataMap) ->
@@ -203,14 +205,5 @@ public class DashboardMapper implements ModelMapper<EntityResponse, Dashboard> {
     private void mapDomains(@Nonnull Dashboard dashboard, @Nonnull DataMap dataMap) {
         final Domains domains = new Domains(dataMap);
         dashboard.setDomain(DomainAssociationMapper.map(domains, dashboard.getUrn()));
-    }
-    
-    private void mapSubTypes(@Nonnull Dashboard dashboard, DataMap dataMap) {
-        SubTypes pegasusSubTypes = new SubTypes(dataMap);
-        if (pegasusSubTypes.hasTypeNames()) {
-              com.linkedin.datahub.graphql.generated.SubTypes subTypes = new com.linkedin.datahub.graphql.generated.SubTypes();
-              subTypes.setTypeNames(pegasusSubTypes.getTypeNames().stream().collect(Collectors.toList()));
-              dashboard.setSubTypes(subTypes);
-        }
     }
 }

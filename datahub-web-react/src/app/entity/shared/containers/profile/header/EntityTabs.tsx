@@ -39,15 +39,17 @@ export const EntityTabs = <T,>({ tabs, selectedTab }: Props) => {
 
     return (
         <UnborderedTabs
+            animated={false}
             activeKey={selectedTab?.name || ''}
             size="large"
             onTabClick={(tab: string) => routeToTab({ tabName: tab })}
         >
             {tabs.map((tab) => {
+                const tabName = (tab.getDynamicName && tab.getDynamicName(entityData, baseEntity)) || tab.name;
                 if (!tab.display?.enabled(entityData, baseEntity)) {
-                    return <Tab tab={tab.name} key={tab.name} disabled />;
+                    return <Tab tab={tabName} key={tab.name} disabled />;
                 }
-                return <Tab tab={tab.name} key={tab.name} />;
+                return <Tab tab={tabName} key={tab.name} />;
             })}
         </UnborderedTabs>
     );

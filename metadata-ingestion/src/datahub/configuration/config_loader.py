@@ -11,6 +11,7 @@ import requests
 from expandvars import UnboundVariable, expandvars
 
 from datahub.configuration.common import ConfigurationError, ConfigurationMechanism
+from datahub.configuration.json_loader import JsonConfigurationMechanism
 from datahub.configuration.toml import TomlConfigurationMechanism
 from datahub.configuration.yaml import YamlConfigurationMechanism
 
@@ -100,33 +101,42 @@ def load_config_file(
     squirrel_original_config: bool = False,
     squirrel_field: str = "__orig_config",
     allow_stdin: bool = False,
-    resolve_env_vars: bool = True,
-    process_directives: bool = True,
+    allow_remote: bool = True,  # TODO: Change the default to False.
+    resolve_env_vars: bool = True,  # TODO: Change the default to False.
+    process_directives: bool = False,
 ) -> dict:
     config_mech: ConfigurationMechanism
     if allow_stdin and config_file == "-":
         # If we're reading from stdin, we assume that the input is a YAML file.
+        # Note that YAML is a superset of JSON, so this will also read JSON files.
         config_mech = YamlConfigurationMechanism()
         raw_config_file = sys.stdin.read()
     else:
         config_file_path = pathlib.Path(config_file)
         if config_file_path.suffix in {".yaml", ".yml"}:
             config_mech = YamlConfigurationMechanism()
+        elif config_file_path.suffix == ".json":
+            config_mech = JsonConfigurationMechanism()
         elif config_file_path.suffix == ".toml":
             config_mech = TomlConfigurationMechanism()
         else:
             raise ConfigurationError(
-                f"Only .toml and .yml are supported. Cannot process file type {config_file_path.suffix}"
+                f"Only .toml, .yml, and .json are supported. Cannot process file type {config_file_path.suffix}"
             )
+
         url_parsed = parse.urlparse(str(config_file))
-        if url_parsed.scheme in ("http", "https"):  # URLs will return http/https
+        if allow_remote and url_parsed.scheme in (
+            "http",
+            "https",
+        ):  # URLs will return http/https
+            # If the URL is remote, we need to fetch it.
             try:
                 response = requests.get(str(config_file))
                 raw_config_file = response.text
             except Exception as e:
                 raise ConfigurationError(
-                    f"Cannot read remote file {config_file_path}, error:{e}"
-                )
+                    f"Cannot read remote file {config_file_path}: {e}"
+                ) from e
         else:
             if not config_file_path.is_file():
                 raise ConfigurationError(f"Cannot open config file {config_file_path}")

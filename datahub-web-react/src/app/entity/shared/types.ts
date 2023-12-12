@@ -54,6 +54,7 @@ export type EntityTab = {
     };
     properties?: any;
     id?: string;
+    getDynamicName?: (GenericEntityProperties, T) => string;
 };
 
 export type EntitySidebarSection = {
