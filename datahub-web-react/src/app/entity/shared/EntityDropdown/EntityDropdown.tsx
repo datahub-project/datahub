@@ -200,21 +200,10 @@ function EntityDropdown(props: Props) {
                                 </MenuItem>
                             </StyledMenuItem>
                         )}
-                        {menuItems.has(EntityMenuItems.CLONE) && (
-                            <StyledMenuItem
-                                key="4"
-                                disabled={!entityData?.privileges?.canManageEntity}
-                                onClick={() => setIsCloneEntityModalVisible(true)}
-                            >
-                                <MenuItem>
-                                    <CopyOutlined /> &nbsp;Clone
-                                </MenuItem>
-                            </StyledMenuItem>
-                        )}
                         {!isDomainMoveHidden && menuItems.has(EntityMenuItems.MOVE) && (
                             <StyledMenuItem
                                 data-testid="entity-menu-move-button"
-                                key="5"
+                                key="4"
                                 disabled={isMoveDisabled(entityType, entityData, me.platformPrivileges)}
                                 onClick={() => setIsMoveModalVisible(true)}
                             >
@@ -225,7 +214,7 @@ function EntityDropdown(props: Props) {
                         )}
                         {menuItems.has(EntityMenuItems.DELETE) && (
                             <StyledMenuItem
-                                key="6"
+                                key="5"
                                 disabled={isDeleteDisabled(entityType, entityData, me.platformPrivileges)}
                                 onClick={onDeleteEntity}
                             >
@@ -242,6 +231,17 @@ function EntityDropdown(props: Props) {
                                         <DeleteOutlined /> &nbsp;Delete
                                     </MenuItem>
                                 </Tooltip>
+                            </StyledMenuItem>
+                        )}
+                        {menuItems.has(EntityMenuItems.CLONE) && (
+                            <StyledMenuItem
+                                key="6"
+                                disabled={!entityData?.privileges?.canManageEntity}
+                                onClick={() => setIsCloneEntityModalVisible(true)}
+                            >
+                                <MenuItem>
+                                    <CopyOutlined /> &nbsp;Clone
+                                </MenuItem>
                             </StyledMenuItem>
                         )}
                     </Menu>
