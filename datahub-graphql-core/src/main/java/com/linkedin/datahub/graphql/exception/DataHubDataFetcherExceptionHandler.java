@@ -12,6 +12,8 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class DataHubDataFetcherExceptionHandler implements DataFetcherExceptionHandler {
 
+  private static final String DEFAULT_ERROR_MESSAGE = "An unknown error occurred.";
+
   @Override
   public DataFetcherExceptionHandlerResult onException(
       DataFetcherExceptionHandlerParameters handlerParameters) {
@@ -22,12 +24,11 @@ public class DataHubDataFetcherExceptionHandler implements DataFetcherExceptionH
     log.error("Failed to execute DataFetcher", exception);
 
     DataHubGraphQLErrorCode errorCode = DataHubGraphQLErrorCode.SERVER_ERROR;
-    String message = "An unknown error occurred.";
+    String message = DEFAULT_ERROR_MESSAGE;
 
     IllegalArgumentException illException =
         findFirstThrowableCauseOfClass(exception, IllegalArgumentException.class);
     if (illException != null) {
-      log.error("Illegal Argument Exception");
       errorCode = DataHubGraphQLErrorCode.BAD_REQUEST;
       message = illException.getMessage();
     }
@@ -37,6 +38,13 @@ public class DataHubDataFetcherExceptionHandler implements DataFetcherExceptionH
     if (graphQLException != null) {
       errorCode = graphQLException.errorCode();
       message = graphQLException.getMessage();
+    }
+
+    if (DEFAULT_ERROR_MESSAGE.equals(message)
+        && exception.getCause() != null
+        && exception.getCause() instanceof DataHubGraphQLException) {
+      errorCode = ((DataHubGraphQLException) exception.getCause()).errorCode();
+      message = exception.getCause().getMessage();
     }
 
     DataHubGraphQLError error = new DataHubGraphQLError(message, path, sourceLocation, errorCode);
