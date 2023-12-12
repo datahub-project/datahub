@@ -1,29 +1,48 @@
 import time
+import logging
 import uuid
 from typing import Dict, Optional
 
-from datahub.emitter.mce_builder import (make_dataset_urn, make_tag_urn,
-                                         make_term_urn, make_user_urn)
+from datahub.utilities.time import datetime_to_ts_millis
+from datetime import datetime as dt
+from datahub.metadata.com.linkedin.pegasus2avro.common import TimeStamp
+from datahub.emitter.mce_builder import (
+    make_dataset_urn,
+    make_tag_urn,
+    make_term_urn,
+    make_user_urn,
+)
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DataHubGraph, DataHubGraphConfig
-from datahub.metadata.schema_classes import (AuditStampClass,
-                                             DatasetLineageTypeClass,
-                                             DatasetPropertiesClass,
-                                             EditableSchemaFieldInfoClass,
-                                             EditableSchemaMetadataClass,
-                                             GlobalTagsClass,
-                                             GlossaryTermAssociationClass,
-                                             GlossaryTermsClass, OwnerClass,
-                                             OwnershipClass,
-                                             OwnershipTypeClass,
-                                             TagAssociationClass,
-                                             UpstreamClass,
-                                             UpstreamLineageClass)
+from datahub.metadata.schema_classes import (
+    AuditStampClass,
+    DatasetLineageTypeClass,
+    DatasetPropertiesClass,
+    EditableSchemaFieldInfoClass,
+    EditableSchemaMetadataClass,
+    GlobalTagsClass,
+    GlossaryTermAssociationClass,
+    GlossaryTermsClass,
+    OwnerClass,
+    OwnershipClass,
+    OwnershipTypeClass,
+    TagAssociationClass,
+    UpstreamClass,
+    UpstreamLineageClass,
+)
 from datahub.specific.dataset import DatasetPatchBuilder
 
 from tests.patch.common_patch_tests import (
-    helper_test_custom_properties_patch, helper_test_dataset_tags_patch,
-    helper_test_entity_terms_patch, helper_test_ownership_patch)
+    get_dataset_property,
+    helper_test_custom_properties_patch,
+    helper_test_dataset_tags_patch,
+    helper_test_entity_terms_patch,
+    helper_test_ownership_patch,
+)
+
+
+log = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
 
 
 # Common Aspect Patch Tests
@@ -135,7 +154,6 @@ def get_field_info(
 
 
 def test_field_terms_patch(wait_for_healthchecks):
-
     dataset_urn = make_dataset_urn(
         platform="hive", name=f"SampleHiveDataset-{uuid.uuid4()}", env="PROD"
     )
@@ -195,7 +213,6 @@ def test_field_terms_patch(wait_for_healthchecks):
 
 
 def test_field_tags_patch(wait_for_healthchecks):
-
     dataset_urn = make_dataset_urn(
         platform="hive", name=f"SampleHiveDataset-{uuid.uuid4()}", env="PROD"
     )
@@ -285,7 +302,6 @@ def get_custom_properties(
 
 
 def test_custom_properties_patch(wait_for_healthchecks):
-
     dataset_urn = make_dataset_urn(
         platform="hive", name=f"SampleHiveDataset-{uuid.uuid4()}", env="PROD"
     )
@@ -324,3 +340,98 @@ def test_custom_properties_patch(wait_for_healthchecks):
         assert (
             custom_properties["test_description_property"] == "test_description_value"
         )
+
+
+def test_qualified_name_patch(wait_for_healthchecks):
+    dataset_urn = make_dataset_urn(
+        platform="hive", name=f"SampleHiveDataset-{uuid.uuid4()}", env="PROD"
+    )
+    orig_dataset_properties = DatasetPropertiesClass(
+        name="test_name", qualifiedName="to_be_replaced"
+    )
+
+    mcpw = MetadataChangeProposalWrapper(
+        entityUrn=dataset_urn, aspect=orig_dataset_properties
+    )
+
+    with DataHubGraph(DataHubGraphConfig()) as graph:
+        graph.emit(mcpw)
+        # assert qualfied name looks as expected
+        qualified_name = get_dataset_property(graph, dataset_urn, "qualifiedName")
+        assert qualified_name
+        assert qualified_name == "to_be_replaced"
+
+    with DataHubGraph(DataHubGraphConfig()) as graph:
+        for patch_mcp in (
+            DatasetPatchBuilder(dataset_urn)
+            .set_qualified_name("new_qualified_name")
+            .build()
+        ):
+            graph.emit_mcp(patch_mcp)
+
+    get_dataset_property(graph, dataset_urn, "qualifiedName") == "new_qualified_name"
+
+
+def test_created_patch(wait_for_healthchecks):
+    test_time = datetime_to_ts_millis(dt.now())
+
+    log.error("hello world above")
+    dataset_urn = make_dataset_urn(
+        platform="hive", name=f"SampleHiveDataset-{uuid.uuid4()}", env="PROD"
+    )
+    orig_dataset_properties = DatasetPropertiesClass(
+        name="test_name", created=TimeStamp(test_time)
+    )
+
+    mcpw = MetadataChangeProposalWrapper(
+        entityUrn=dataset_urn, aspect=orig_dataset_properties
+    )
+
+    with DataHubGraph(DataHubGraphConfig()) as graph:
+        graph.emit(mcpw)
+    log.error("hello world above")
+    test_time = datetime_to_ts_millis(dt.now())
+    with DataHubGraph(DataHubGraphConfig()) as graph:
+        for patch_mcp in (
+            DatasetPatchBuilder(dataset_urn).set_created(TimeStamp(test_time)).build()
+        ):
+            graph.emit_mcp(patch_mcp)
+
+    assert get_dataset_property(graph, dataset_urn, "created").time == test_time
+
+
+def test_last_modified_patch(wait_for_healthchecks):
+    test_time = datetime_to_ts_millis(dt.now())
+
+    dataset_urn = make_dataset_urn(
+        platform="hive", name=f"SampleHiveDataset-{uuid.uuid4()}", env="PROD"
+    )
+    orig_dataset_properties = DatasetPropertiesClass(
+        name="test_name", lastModified=TimeStamp(test_time)
+    )
+    # STOPPED HERE -- also need to fix test_created_patch -- also need to run these to test!
+
+    mcpw = MetadataChangeProposalWrapper(
+        entityUrn=dataset_urn, aspect=orig_dataset_properties
+    )
+
+    with DataHubGraph(DataHubGraphConfig()) as graph:
+        graph.emit(mcpw)
+        # assert qualfied name looks as expected
+        last_modified = get_dataset_property(graph, dataset_urn, "lastModified")
+        assert last_modified
+        assert last_modified.time == test_time
+
+    new_test_time = datetime_to_ts_millis(dt.now())
+
+    with DataHubGraph(DataHubGraphConfig()) as graph:
+        for patch_mcp in (
+            DatasetPatchBuilder(dataset_urn)
+            .set_last_modified(TimeStamp(new_test_time))
+            .build()
+        ):
+            graph.emit_mcp(patch_mcp)
+
+    assert (
+        get_dataset_property(graph, dataset_urn, "lastModified").time == new_test_time
+    )
