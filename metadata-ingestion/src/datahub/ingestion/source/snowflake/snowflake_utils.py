@@ -9,7 +9,6 @@ from datahub.configuration.common import MetaError
 from datahub.configuration.pattern_utils import is_schema_allowed
 from datahub.ingestion.source.snowflake.constants import (
     GENERIC_PERMISSION_ERROR_KEY,
-    SNOWFLAKE_DEFAULT_CLOUD,
     SNOWFLAKE_REGION_CLOUD_REGION_MAPPING,
     SnowflakeCloudProvider,
     SnowflakeObjectDomain,
