@@ -1,4 +1,3 @@
-import logging
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
@@ -12,9 +11,6 @@ from datahub.api.circuit_breaker.circuit_breaker import (
 from datahub.api.graphql import Assertion, Operation
 
 logger: logging.Logger = logging.getLogger(__name__)
-from gql.transport.requests import log as requests_logger
-
-requests_logger.setLevel(logging.WARNING)
 
 
 class AssertionCircuitBreakerConfig(CircuitBreakerConfig):
