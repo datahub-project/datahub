@@ -707,7 +707,7 @@ def test_email_filter_query_generation_with_case_insensitive_filter():
     )
 
 
-def test_create_snowsight_base_url():
+def test_create_snowsight_base_url_us_west():
     (
         cloud,
         cloud_region_id,
@@ -716,4 +716,18 @@ def test_create_snowsight_base_url():
     result = SnowflakeCommonMixin.create_snowsight_base_url(
         "account_locator", cloud_region_id, cloud, False
     )
-    assert result == "https://app.snowflake.com/us-west-2.aws/account_locator/"
+    assert result == "https://app.snowflake.com/us-west-2/account_locator/"
+
+
+def test_create_snowsight_base_url_ap_northeast_1():
+    (
+        cloud,
+        cloud_region_id,
+    ) = SnowflakeCommonMixin.get_cloud_region_from_snowflake_region_id(
+        "aws_ap_northeast_1"
+    )
+
+    result = SnowflakeCommonMixin.create_snowsight_base_url(
+        "account_locator", cloud_region_id, cloud, False
+    )
+    assert result == "https://app.snowflake.com/ap-northeast-1.aws/account_locator/"

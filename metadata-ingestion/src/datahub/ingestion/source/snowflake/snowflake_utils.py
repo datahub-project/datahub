@@ -11,6 +11,7 @@ from datahub.ingestion.source.snowflake.constants import (
     GENERIC_PERMISSION_ERROR_KEY,
     SNOWFLAKE_DEFAULT_CLOUD,
     SNOWFLAKE_REGION_CLOUD_REGION_MAPPING,
+    SnowflakeCloudProvider,
     SnowflakeObjectDomain,
 )
 from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
@@ -79,12 +80,25 @@ class SnowflakeCommonMixin:
         cloud: str,
         privatelink: bool = False,
     ) -> Optional[str]:
+        if cloud:
+            url_cloud_provider_suffix = f".{cloud}"
+
+        if cloud == SnowflakeCloudProvider.AWS:
+            if cloud_region_id in [
+                "us-west-2",
+                "us-east-1",
+                "eu-west-1",
+                "eu-central-1",
+                "ap-southeast-1",
+                "ap-southeast-2",
+            ]:
+                url_cloud_provider_suffix = ""
+            else:
+                url_cloud_provider_suffix = f".{cloud}"
         if privatelink:
             url = f"https://app.{account_locator}.{cloud_region_id}.privatelink.snowflakecomputing.com/"
-        elif cloud == SNOWFLAKE_DEFAULT_CLOUD:
-            url = f"https://app.snowflake.com/{cloud_region_id}.{SNOWFLAKE_DEFAULT_CLOUD}/{account_locator}/"
         else:
-            url = f"https://app.snowflake.com/{cloud_region_id}.{cloud}/{account_locator}/"
+            url = f"https://app.snowflake.com/{cloud_region_id}{url_cloud_provider_suffix}/{account_locator}/"
         return url
 
     @staticmethod
