@@ -1,4 +1,5 @@
 import logging
+
 from gql.transport.requests import log as requests_logger
 
 requests_logger.setLevel(logging.WARNING)
