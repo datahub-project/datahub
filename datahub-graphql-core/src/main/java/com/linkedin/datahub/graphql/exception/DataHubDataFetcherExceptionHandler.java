@@ -40,21 +40,14 @@ public class DataHubDataFetcherExceptionHandler implements DataFetcherExceptionH
       message = graphQLException.getMessage();
     }
 
-    if (DEFAULT_ERROR_MESSAGE.equals(message)
-        && exception.getCause() != null
-        && exception.getCause() instanceof DataHubGraphQLException) {
-      errorCode = ((DataHubGraphQLException) exception.getCause()).errorCode();
-      message = exception.getCause().getMessage();
-    }
-
     DataHubGraphQLError error = new DataHubGraphQLError(message, path, sourceLocation, errorCode);
     return DataFetcherExceptionHandlerResult.newResult().error(error).build();
   }
 
   <T extends Throwable> T findFirstThrowableCauseOfClass(Throwable throwable, Class<T> clazz) {
-    while (throwable != null && throwable.getCause() != null) {
-      if (throwable.getCause().getClass().equals(clazz)) {
-        return (T) throwable.getCause();
+    while (throwable != null) {
+      if (clazz.isInstance(throwable)) {
+        return (T) throwable;
       } else {
         throwable = throwable.getCause();
       }
