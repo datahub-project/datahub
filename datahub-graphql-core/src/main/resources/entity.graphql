@@ -11055,6 +11055,10 @@ input CreateDataProductInput {
     The primary key of the Domain
     """
     domainUrn: String!
+    """
+    An optional id for the new data product
+    """
+    id: String
 }
 
 """
