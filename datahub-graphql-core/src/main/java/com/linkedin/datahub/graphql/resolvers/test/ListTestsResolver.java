@@ -2,9 +2,13 @@ package com.linkedin.datahub.graphql.resolvers.test;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 import static com.linkedin.datahub.graphql.resolvers.test.TestUtils.*;
+<<<<<<< HEAD
 import static com.linkedin.metadata.AcrylConstants.*;
 
 import com.datahub.authentication.Authentication;
+=======
+
+>>>>>>> oss_master
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
@@ -44,6 +48,10 @@ public class ListTestsResolver implements DataFetcher<CompletableFuture<ListTest
   @Override
   public CompletableFuture<ListTestsResult> get(final DataFetchingEnvironment environment)
       throws Exception {
+<<<<<<< HEAD
+=======
+
+>>>>>>> oss_master
     final QueryContext context = environment.getContext();
     final Authentication authentication = context.getAuthentication();
 
@@ -62,10 +70,14 @@ public class ListTestsResolver implements DataFetcher<CompletableFuture<ListTest
                   _entityClient.search(
                       Constants.TEST_ENTITY_NAME,
                       query,
+<<<<<<< HEAD
                       null,
                       new SortCriterion()
                           .setField(TESTS_LAST_UPDATED_TIME_INDEX_FIELD_NAME)
                           .setOrder(SortOrder.DESCENDING),
+=======
+                      Collections.emptyMap(),
+>>>>>>> oss_master
                       start,
                       count,
                       context.getAuthentication(),

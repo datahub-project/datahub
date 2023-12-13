@@ -1,8 +1,18 @@
 package com.linkedin.datahub.graphql.resolvers.assertion;
 
+<<<<<<< HEAD
 import com.linkedin.assertion.AssertionInfo;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+=======
+import com.datahub.authorization.ConjunctivePrivilegeGroup;
+import com.datahub.authorization.DisjunctivePrivilegeGroup;
+import com.google.common.collect.ImmutableList;
+import com.linkedin.assertion.AssertionInfo;
+import com.linkedin.common.urn.Urn;
+import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+>>>>>>> oss_master
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
@@ -44,7 +54,10 @@ public class DeleteAssertionResolver implements DataFetcher<CompletableFuture<Bo
               _entityClient.deleteEntity(assertionUrn, context.getAuthentication());
 
               // Asynchronously Delete all references to the entity (to return quickly)
+<<<<<<< HEAD
               // TODO: Actually delete any monitors associated with the assertion.
+=======
+>>>>>>> oss_master
               CompletableFuture.runAsync(
                   () -> {
                     try {
@@ -93,4 +106,33 @@ public class DeleteAssertionResolver implements DataFetcher<CompletableFuture<Bo
 
     return true;
   }
+<<<<<<< HEAD
+=======
+
+  private boolean isAuthorizedToDeleteAssertionFromAssertee(
+      final QueryContext context, final Urn asserteeUrn) {
+    final DisjunctivePrivilegeGroup orPrivilegeGroups =
+        new DisjunctivePrivilegeGroup(
+            ImmutableList.of(
+                AuthUtils.ALL_PRIVILEGES_GROUP,
+                new ConjunctivePrivilegeGroup(
+                    ImmutableList.of(PoliciesConfig.EDIT_ENTITY_ASSERTIONS_PRIVILEGE.getType()))));
+    return AuthorizationUtils.isAuthorized(
+        context.getAuthorizer(),
+        context.getActorUrn(),
+        asserteeUrn.getEntityType(),
+        asserteeUrn.toString(),
+        orPrivilegeGroups);
+  }
+
+  private Urn getAsserteeUrnFromInfo(final AssertionInfo info) {
+    switch (info.getType()) {
+      case DATASET:
+        return info.getDatasetAssertion().getDataset();
+      default:
+        throw new RuntimeException(
+            String.format("Unsupported Assertion Type %s provided", info.getType()));
+    }
+  }
+>>>>>>> oss_master
 }

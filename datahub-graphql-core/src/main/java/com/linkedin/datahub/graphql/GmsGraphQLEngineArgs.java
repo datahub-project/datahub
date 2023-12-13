@@ -83,6 +83,7 @@ public class GmsGraphQLEngineArgs {
   QueryService queryService;
   FeatureFlags featureFlags;
   DataProductService dataProductService;
+<<<<<<< HEAD
   ChromeExtensionConfiguration chromeExtensionConfiguration;
   AssertionService assertionService;
 
@@ -95,4 +96,8 @@ public class GmsGraphQLEngineArgs {
   ConnectionService connectionService;
   ActionPipelineConfiguration actionPipelineConfiguration;
   SubscriptionService subscriptionService;
+=======
+
+  // any fork specific args should go below this line
+>>>>>>> oss_master
 }

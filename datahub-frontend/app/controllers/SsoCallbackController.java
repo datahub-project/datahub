@@ -133,6 +133,7 @@ public class SsoCallbackController extends CallbackController {
   }
 
   private boolean shouldHandleCallback(final String protocol) {
+<<<<<<< HEAD
     if (!_ssoManager.isSsoEnabled()) {
       return false;
     }
@@ -146,5 +147,9 @@ public class SsoCallbackController extends CallbackController {
     clientList.add(_ssoManager.getSsoProvider().client());
     clients.setClients(clientList);
     _config.setClients(clients);
+=======
+    return _ssoManager.isSsoEnabled()
+        && _ssoManager.getSsoProvider().protocol().getCommonName().equals(protocol);
+>>>>>>> oss_master
   }
 }

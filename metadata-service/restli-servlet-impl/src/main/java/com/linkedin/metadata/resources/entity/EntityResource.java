@@ -788,7 +788,11 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
                   _entityService.getEntityRegistry(), urn.getEntityType());
           if (aspectName != null && !timeseriesAspectNames.contains(aspectName)) {
             throw new UnsupportedOperationException(
+<<<<<<< HEAD
                 String.format("Not supported for non-timeseries aspect %s.", aspectName));
+=======
+                String.format("Not supported for non-timeseries aspect '{}'.", aspectName));
+>>>>>>> oss_master
           }
           List<String> timeseriesAspectsToDelete =
               (aspectName == null) ? timeseriesAspectNames : ImmutableList.of(aspectName);

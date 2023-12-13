@@ -46,6 +46,14 @@ public class RAPServletFactory {
           SpringInjectResourceFactory springInjectResourceFactory,
       @Qualifier("parseqEngineThreads") int threads) {
     log.info("Starting restli servlet with {} threads.", threads);
+<<<<<<< HEAD
+=======
+    Engine parseqEngine =
+        new EngineBuilder()
+            .setTaskExecutor(Executors.newFixedThreadPool(threads))
+            .setTimerScheduler(Executors.newSingleThreadScheduledExecutor())
+            .build();
+>>>>>>> oss_master
 
     // !!!!!!! IMPORTANT !!!!!!!
     // This effectively sets the max aspect size to 16 MB. Used in deserialization of messages.
@@ -55,6 +63,7 @@ public class RAPServletFactory {
         StreamReadConstraints.builder().maxStringLength(maxSerializedStringLength).build());
     // !!!!!!! IMPORTANT !!!!!!!
 
+<<<<<<< HEAD
     Engine parseqEngine =
         new EngineBuilder()
             .setTaskExecutor(Executors.newFixedThreadPool(threads))
@@ -69,6 +78,8 @@ public class RAPServletFactory {
         StreamReadConstraints.builder().maxStringLength(maxSerializedStringLength).build());
     // !!!!!!! IMPORTANT !!!!!!!
 
+=======
+>>>>>>> oss_master
     RestLiConfig config = new RestLiConfig();
     config.setDocumentationRequestHandler(new DefaultDocumentationRequestHandler());
     config.setResourcePackageNames("com.linkedin.metadata.resources");

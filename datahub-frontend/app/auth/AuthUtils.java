@@ -56,6 +56,7 @@ public class AuthUtils {
   public static final String TITLE = "title";
   public static final String INVITE_TOKEN = "inviteToken";
   public static final String RESET_TOKEN = "resetToken";
+<<<<<<< HEAD
   public static final String BASE_URL = "baseUrl";
   public static final String OIDC_ENABLED = "oidcEnabled";
   public static final String CLIENT_ID = "clientId";
@@ -77,6 +78,9 @@ public class AuthUtils {
   public static final String READ_TIMEOUT = "readTimeout";
   public static final String EXTRACT_JWT_ACCESS_TOKEN_CLAIMS = "extractJwtAccessTokenClaims";
 
+=======
+
+>>>>>>> oss_master
   /**
    * Determines whether the inbound request should be forward to downstream Metadata Service. Today,
    * this simply checks for the presence of an "Authorization" header or the presence of a valid

@@ -79,7 +79,11 @@ public class EntityChangeEventGeneratorRegistryFactory {
     // Assertion change event generators
     registry.register(ASSERTION_RUN_EVENT_ASPECT_NAME, new AssertionRunEventChangeEventGenerator());
 
+<<<<<<< HEAD
     // Data Process Instance change event generators
+=======
+    // Data Process Instance differs
+>>>>>>> oss_master
     registry.register(
         DATA_PROCESS_INSTANCE_RUN_EVENT_ASPECT_NAME,
         new DataProcessInstanceRunEventChangeEventGenerator(entityClient));

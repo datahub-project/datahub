@@ -365,6 +365,7 @@ import org.dataloader.DataLoaderOptions;
 public class GmsGraphQLEngine {
 
   private final EntityClient entityClient;
+<<<<<<< HEAD
 
   @Getter private final GraphClient graphClient;
   private final SystemEntityClient systemEntityClient;
@@ -392,6 +393,35 @@ public class GmsGraphQLEngine {
   private final LineageService lineageService;
   private final QueryService queryService;
   private final DataProductService dataProductService;
+=======
+  private final SystemEntityClient systemEntityClient;
+  private final GraphClient graphClient;
+  private final UsageClient usageClient;
+  private final SiblingGraphService siblingGraphService;
+
+  private final EntityService entityService;
+  private final AnalyticsService analyticsService;
+  private final RecommendationsService recommendationsService;
+  private final EntityRegistry entityRegistry;
+  private final StatefulTokenService statefulTokenService;
+  private final SecretService secretService;
+  private final GitVersion gitVersion;
+  private final boolean supportsImpactAnalysis;
+  private final TimeseriesAspectService timeseriesAspectService;
+  private final TimelineService timelineService;
+  private final NativeUserService nativeUserService;
+  private final GroupService groupService;
+  private final RoleService roleService;
+  private final InviteTokenService inviteTokenService;
+  private final PostService postService;
+  private final SettingsService settingsService;
+  private final ViewService viewService;
+  private final OwnershipTypeService ownershipTypeService;
+  private final LineageService lineageService;
+  private final QueryService queryService;
+  private final DataProductService dataProductService;
+
+>>>>>>> oss_master
   private final FeatureFlags featureFlags;
 
   private final IngestionConfiguration ingestionConfiguration;
@@ -402,17 +432,28 @@ public class GmsGraphQLEngine {
   private final TestsConfiguration testsConfiguration;
   private final DataHubConfiguration datahubConfiguration;
   private final ViewsConfiguration viewsConfiguration;
+<<<<<<< HEAD
   private final ChromeExtensionConfiguration chromeExtensionConfiguration;
+=======
+>>>>>>> oss_master
 
   private final DatasetType datasetType;
 
   private final RoleType roleType;
 
+<<<<<<< HEAD
   @Getter private final CorpUserType corpUserType;
   private final CorpGroupType corpGroupType;
   private final ChartType chartType;
   private final DashboardType dashboardType;
   @Getter private final DataPlatformType dataPlatformType;
+=======
+  private final CorpUserType corpUserType;
+  private final CorpGroupType corpGroupType;
+  private final ChartType chartType;
+  private final DashboardType dashboardType;
+  private final DataPlatformType dataPlatformType;
+>>>>>>> oss_master
   private final TagType tagType;
   private final MLModelType mlModelType;
   private final MLModelGroupType mlModelGroupType;
@@ -427,6 +468,7 @@ public class GmsGraphQLEngine {
   private final ContainerType containerType;
   private final DomainType domainType;
   private final NotebookType notebookType;
+<<<<<<< HEAD
 
   @Getter private final AssertionType assertionType;
   private final VersionedDatasetType versionedDatasetType;
@@ -582,6 +624,159 @@ public class GmsGraphQLEngine {
     // This allows us to offer search and browse capabilities out of the box for those types
     for (GmsGraphQLPlugin plugin : this.graphQLPlugins) {
       this.entityTypes.addAll(plugin.getEntityTypes());
+=======
+  private final AssertionType assertionType;
+  private final VersionedDatasetType versionedDatasetType;
+  private final DataPlatformInstanceType dataPlatformInstanceType;
+  private final AccessTokenMetadataType accessTokenMetadataType;
+  private final TestType testType;
+  private final DataHubPolicyType dataHubPolicyType;
+  private final DataHubRoleType dataHubRoleType;
+  private final SchemaFieldType schemaFieldType;
+  private final DataHubViewType dataHubViewType;
+  private final QueryType queryType;
+  private final DataProductType dataProductType;
+  private final OwnershipType ownershipType;
+
+  /** A list of GraphQL Plugins that extend the core engine */
+  private final List<GmsGraphQLPlugin> graphQLPlugins;
+
+  /** Configures the graph objects that can be fetched primary key. */
+  public final List<EntityType<?, ?>> entityTypes;
+
+  /** Configures all graph objects */
+  public final List<LoadableType<?, ?>> loadableTypes;
+
+  /** Configures the graph objects for owner */
+  public final List<LoadableType<?, ?>> ownerTypes;
+
+  /** Configures the graph objects that can be searched. */
+  public final List<SearchableEntityType<?, ?>> searchableTypes;
+
+  /** Configures the graph objects that can be browsed. */
+  public final List<BrowsableEntityType<?, ?>> browsableTypes;
+
+  public GmsGraphQLEngine(final GmsGraphQLEngineArgs args) {
+
+    this.graphQLPlugins =
+        List.of(
+            // Add new plugins here
+            );
+
+    this.graphQLPlugins.forEach(plugin -> plugin.init(args));
+
+    this.entityClient = args.entityClient;
+    this.systemEntityClient = args.systemEntityClient;
+    this.graphClient = args.graphClient;
+    this.usageClient = args.usageClient;
+    this.siblingGraphService = args.siblingGraphService;
+
+    this.analyticsService = args.analyticsService;
+    this.entityService = args.entityService;
+    this.recommendationsService = args.recommendationsService;
+    this.statefulTokenService = args.statefulTokenService;
+    this.secretService = args.secretService;
+    this.entityRegistry = args.entityRegistry;
+    this.gitVersion = args.gitVersion;
+    this.supportsImpactAnalysis = args.supportsImpactAnalysis;
+    this.timeseriesAspectService = args.timeseriesAspectService;
+    this.timelineService = args.timelineService;
+    this.nativeUserService = args.nativeUserService;
+    this.groupService = args.groupService;
+    this.roleService = args.roleService;
+    this.inviteTokenService = args.inviteTokenService;
+    this.postService = args.postService;
+    this.viewService = args.viewService;
+    this.ownershipTypeService = args.ownershipTypeService;
+    this.settingsService = args.settingsService;
+    this.lineageService = args.lineageService;
+    this.queryService = args.queryService;
+    this.dataProductService = args.dataProductService;
+
+    this.ingestionConfiguration = Objects.requireNonNull(args.ingestionConfiguration);
+    this.authenticationConfiguration = Objects.requireNonNull(args.authenticationConfiguration);
+    this.authorizationConfiguration = Objects.requireNonNull(args.authorizationConfiguration);
+    this.visualConfiguration = args.visualConfiguration;
+    this.telemetryConfiguration = args.telemetryConfiguration;
+    this.testsConfiguration = args.testsConfiguration;
+    this.datahubConfiguration = args.datahubConfiguration;
+    this.viewsConfiguration = args.viewsConfiguration;
+    this.featureFlags = args.featureFlags;
+
+    this.datasetType = new DatasetType(entityClient);
+    this.roleType = new RoleType(entityClient);
+    this.corpUserType = new CorpUserType(entityClient, featureFlags);
+    this.corpGroupType = new CorpGroupType(entityClient);
+    this.chartType = new ChartType(entityClient);
+    this.dashboardType = new DashboardType(entityClient);
+    this.dataPlatformType = new DataPlatformType(entityClient);
+    this.tagType = new TagType(entityClient);
+    this.mlModelType = new MLModelType(entityClient);
+    this.mlModelGroupType = new MLModelGroupType(entityClient);
+    this.mlFeatureType = new MLFeatureType(entityClient);
+    this.mlFeatureTableType = new MLFeatureTableType(entityClient);
+    this.mlPrimaryKeyType = new MLPrimaryKeyType(entityClient);
+    this.dataFlowType = new DataFlowType(entityClient);
+    this.dataJobType = new DataJobType(entityClient);
+    this.glossaryTermType = new GlossaryTermType(entityClient);
+    this.glossaryNodeType = new GlossaryNodeType(entityClient);
+    this.aspectType = new AspectType(entityClient);
+    this.containerType = new ContainerType(entityClient);
+    this.domainType = new DomainType(entityClient);
+    this.notebookType = new NotebookType(entityClient);
+    this.assertionType = new AssertionType(entityClient);
+    this.versionedDatasetType = new VersionedDatasetType(entityClient);
+    this.dataPlatformInstanceType = new DataPlatformInstanceType(entityClient);
+    this.accessTokenMetadataType = new AccessTokenMetadataType(entityClient);
+    this.testType = new TestType(entityClient);
+    this.dataHubPolicyType = new DataHubPolicyType(entityClient);
+    this.dataHubRoleType = new DataHubRoleType(entityClient);
+    this.schemaFieldType = new SchemaFieldType();
+    this.dataHubViewType = new DataHubViewType(entityClient);
+    this.queryType = new QueryType(entityClient);
+    this.dataProductType = new DataProductType(entityClient);
+    this.ownershipType = new OwnershipType(entityClient);
+
+    // Init Lists
+    this.entityTypes =
+        ImmutableList.of(
+            datasetType,
+            roleType,
+            corpUserType,
+            corpGroupType,
+            dataPlatformType,
+            chartType,
+            dashboardType,
+            tagType,
+            mlModelType,
+            mlModelGroupType,
+            mlFeatureType,
+            mlFeatureTableType,
+            mlPrimaryKeyType,
+            dataFlowType,
+            dataJobType,
+            glossaryTermType,
+            glossaryNodeType,
+            containerType,
+            notebookType,
+            domainType,
+            assertionType,
+            versionedDatasetType,
+            dataPlatformInstanceType,
+            accessTokenMetadataType,
+            testType,
+            dataHubPolicyType,
+            dataHubRoleType,
+            schemaFieldType,
+            dataHubViewType,
+            queryType,
+            dataProductType,
+            ownershipType);
+    this.loadableTypes = new ArrayList<>(entityTypes);
+    // Extend loadable types with types from the plugins
+    // This allows us to offer search and browse capabilities out of the box for those types
+    for (GmsGraphQLPlugin plugin : this.graphQLPlugins) {
+>>>>>>> oss_master
       Collection<? extends LoadableType<?, ?>> pluginLoadableTypes = plugin.getLoadableTypes();
       if (pluginLoadableTypes != null) {
         this.loadableTypes.addAll(pluginLoadableTypes);
@@ -830,8 +1025,12 @@ public class GmsGraphQLEngine {
                         this.testsConfiguration,
                         this.datahubConfiguration,
                         this.viewsConfiguration,
+<<<<<<< HEAD
                         this.featureFlags,
                         this.chromeExtensionConfiguration))
+=======
+                        this.featureFlags))
+>>>>>>> oss_master
                 .dataFetcher("me", new MeResolver(this.entityClient, featureFlags))
                 .dataFetcher("search", new SearchResolver(this.entityClient))
                 .dataFetcher(
@@ -932,10 +1131,15 @@ public class GmsGraphQLEngine {
                     "listDataProductAssets", new ListDataProductAssetsResolver(this.entityClient))
                 .dataFetcher(
                     "listOwnershipTypes", new ListOwnershipTypesResolver(this.entityClient))
+<<<<<<< HEAD
                 .dataFetcher("browseV2", new BrowseV2Resolver(this.entityClient, this.viewService))
                 .dataFetcher(
                     "ingestionSourceForEntity",
                     new IngestionSourceForEntityResolver(this.entityClient)));
+=======
+                .dataFetcher(
+                    "browseV2", new BrowseV2Resolver(this.entityClient, this.viewService)));
+>>>>>>> oss_master
   }
 
   private DataFetcher getEntitiesResolver() {
@@ -970,7 +1174,11 @@ public class GmsGraphQLEngine {
         });
   }
 
+<<<<<<< HEAD
   public DataFetcher getResolver(LoadableType<?, String> loadableType) {
+=======
+  private DataFetcher getResolver(LoadableType<?, String> loadableType) {
+>>>>>>> oss_master
     return getResolver(loadableType, this::getUrnField);
   }
 
@@ -1075,6 +1283,12 @@ public class GmsGraphQLEngine {
                 .dataFetcher(
                     "deleteAssertion",
                     new DeleteAssertionResolver(this.entityClient, this.entityService))
+<<<<<<< HEAD
+=======
+                .dataFetcher("createTest", new CreateTestResolver(this.entityClient))
+                .dataFetcher("updateTest", new UpdateTestResolver(this.entityClient))
+                .dataFetcher("deleteTest", new DeleteTestResolver(this.entityClient))
+>>>>>>> oss_master
                 .dataFetcher("reportOperation", new ReportOperationResolver(this.entityClient))
                 .dataFetcher(
                     "createGlossaryTerm",
@@ -1101,12 +1315,19 @@ public class GmsGraphQLEngine {
                     new BatchUpdateSoftDeletedResolver(this.entityService))
                 .dataFetcher("updateUserSetting", new UpdateUserSettingResolver(this.entityService))
                 .dataFetcher("rollbackIngestion", new RollbackIngestionResolver(this.entityClient))
+<<<<<<< HEAD
+=======
+                .dataFetcher("batchAssignRole", new BatchAssignRoleResolver(this.roleService))
+>>>>>>> oss_master
                 .dataFetcher(
                     "createInviteToken", new CreateInviteTokenResolver(this.inviteTokenService))
                 .dataFetcher(
                     "acceptRole", new AcceptRoleResolver(this.roleService, this.inviteTokenService))
                 .dataFetcher("createPost", new CreatePostResolver(this.postService))
+<<<<<<< HEAD
                 .dataFetcher("batchAssignRole", new BatchAssignRoleResolver(this.roleService))
+=======
+>>>>>>> oss_master
                 .dataFetcher("deletePost", new DeletePostResolver(this.postService))
                 .dataFetcher(
                     "batchUpdateStepStates", new BatchUpdateStepStatesResolver(this.entityClient))
@@ -1405,18 +1626,26 @@ public class GmsGraphQLEngine {
                                 .setField(OPERATION_EVENT_TIME_FIELD_NAME)
                                 .setOrder(SortOrder.DESCENDING)))
                     .dataFetcher("usageStats", new DatasetUsageStatsResolver(this.usageClient))
+<<<<<<< HEAD
                     // .dataFetcher("statsSummary", new
                     // DatasetStatsSummaryResolver(this.usageClient)) // statsSummary was modified
                     .dataFetcher(
                         "statsSummary",
                         new DatasetStatsSummaryResolver(this.entityClient, this.usageClient))
+=======
+                    .dataFetcher("statsSummary", new DatasetStatsSummaryResolver(this.usageClient))
+>>>>>>> oss_master
                     .dataFetcher(
                         "health", new DatasetHealthResolver(graphClient, timeseriesAspectService))
                     .dataFetcher("schemaMetadata", new AspectResolver())
                     .dataFetcher(
                         "assertions", new EntityAssertionsResolver(entityClient, graphClient))
+<<<<<<< HEAD
                     // .dataFetcher("testResults", new TestResultsResolver(entityClient))
                     // TestResultsResolver has been renamed to EntityTestResultsResolver
+=======
+                    .dataFetcher("testResults", new TestResultsResolver(entityClient))
+>>>>>>> oss_master
                     .dataFetcher(
                         "aspects", new WeaklyTypedAspectsResolver(entityClient, entityRegistry))
                     .dataFetcher("exists", new EntityExistsResolver(entityService))
@@ -1726,8 +1955,12 @@ public class GmsGraphQLEngine {
                 .dataFetcher("parentContainers", new ParentContainersResolver(entityClient))
                 .dataFetcher("usageStats", new DashboardUsageStatsResolver(timeseriesAspectService))
                 .dataFetcher(
+<<<<<<< HEAD
                     "statsSummary",
                     new DashboardStatsSummaryResolver(entityClient, timeseriesAspectService))
+=======
+                    "statsSummary", new DashboardStatsSummaryResolver(timeseriesAspectService))
+>>>>>>> oss_master
                 .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
                 .dataFetcher("exists", new EntityExistsResolver(entityService)));
     builder.type(
@@ -1806,8 +2039,12 @@ public class GmsGraphQLEngine {
                         }))
                 .dataFetcher("parentContainers", new ParentContainersResolver(entityClient))
                 .dataFetcher(
+<<<<<<< HEAD
                     "statsSummary",
                     new ChartStatsSummaryResolver(entityClient, this.timeseriesAspectService))
+=======
+                    "statsSummary", new ChartStatsSummaryResolver(this.timeseriesAspectService))
+>>>>>>> oss_master
                 .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
                 .dataFetcher("exists", new EntityExistsResolver(entityService)));
     builder.type(

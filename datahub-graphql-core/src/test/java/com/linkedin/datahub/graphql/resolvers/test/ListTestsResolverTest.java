@@ -1,7 +1,10 @@
 package com.linkedin.datahub.graphql.resolvers.test;
 
 import static com.linkedin.datahub.graphql.TestUtils.*;
+<<<<<<< HEAD
 import static org.mockito.Mockito.*;
+=======
+>>>>>>> oss_master
 import static org.testng.Assert.*;
 
 import com.datahub.authentication.Authentication;
@@ -28,6 +31,7 @@ public class ListTestsResolverTest {
   private static final Urn TEST_URN = Urn.createFromTuple("test", "test-id");
 
   private static final ListTestsInput TEST_INPUT = new ListTestsInput(0, 20, null);
+<<<<<<< HEAD
 
   private EntityClient mockClient;
   private ListTestsResolver resolver;
@@ -44,12 +48,24 @@ public class ListTestsResolverTest {
 
   @Test
   public void testGetSuccess() throws Exception {
+=======
+
+  @Test
+  public void testGetSuccess() throws Exception {
+    // Create resolver
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+
+>>>>>>> oss_master
     Mockito.when(
             mockClient.search(
                 Mockito.eq(Constants.TEST_ENTITY_NAME),
                 Mockito.eq(""),
+<<<<<<< HEAD
                 Mockito.eq(null),
                 any(SortCriterion.class),
+=======
+                Mockito.eq(Collections.emptyMap()),
+>>>>>>> oss_master
                 Mockito.eq(0),
                 Mockito.eq(20),
                 Mockito.any(Authentication.class),
@@ -62,6 +78,11 @@ public class ListTestsResolverTest {
                 .setEntities(
                     new SearchEntityArray(
                         ImmutableSet.of(new SearchEntity().setEntity(TEST_URN)))));
+<<<<<<< HEAD
+=======
+
+    ListTestsResolver resolver = new ListTestsResolver(mockClient);
+>>>>>>> oss_master
 
     // Execute resolver
     QueryContext mockContext = getMockAllowContext();
@@ -97,6 +118,11 @@ public class ListTestsResolverTest {
 
   @Test
   public void testGetEntityClientException() throws Exception {
+<<<<<<< HEAD
+=======
+    // Create resolver
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+>>>>>>> oss_master
     Mockito.doThrow(RemoteInvocationException.class)
         .when(mockClient)
         .search(

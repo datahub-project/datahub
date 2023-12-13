@@ -1,7 +1,10 @@
 package com.linkedin.metadata.service;
 
 import static com.linkedin.metadata.entity.AspectUtils.*;
+<<<<<<< HEAD
 import static com.linkedin.metadata.service.util.MetadataTestServiceUtils.*;
+=======
+>>>>>>> oss_master
 
 import com.datahub.authentication.Authentication;
 import com.google.common.annotations.VisibleForTesting;
@@ -58,8 +61,12 @@ public class DomainService extends BaseService {
   public void batchSetDomain(
       @Nonnull Urn domainUrn,
       @Nonnull List<ResourceReference> resources,
+<<<<<<< HEAD
       @Nonnull Authentication authentication,
       @Nullable String appSource) {
+=======
+      @Nonnull Authentication authentication) {
+>>>>>>> oss_master
     log.debug("Batch setting Domain to entities. domain: {}, resources: {}", resources, domainUrn);
     try {
       setDomainForResources(domainUrn, resources, authentication, appSource);
@@ -82,10 +89,15 @@ public class DomainService extends BaseService {
    *     processing logic when matching particular sources
    */
   public void batchAddDomains(
+<<<<<<< HEAD
       @Nonnull List<Urn> domainUrns,
       @Nonnull List<ResourceReference> resources,
       @Nullable String appSource) {
     batchAddDomains(domainUrns, resources, this.systemAuthentication, appSource);
+=======
+      @Nonnull List<Urn> domainUrns, @Nonnull List<ResourceReference> resources) {
+    batchAddDomains(domainUrns, resources, this.systemAuthentication);
+>>>>>>> oss_master
   }
 
   /**
@@ -100,8 +112,12 @@ public class DomainService extends BaseService {
   public void batchAddDomains(
       @Nonnull List<Urn> domainUrns,
       @Nonnull List<ResourceReference> resources,
+<<<<<<< HEAD
       @Nonnull Authentication authentication,
       @Nullable String appSource) {
+=======
+      @Nonnull Authentication authentication) {
+>>>>>>> oss_master
     log.debug(
         "Batch adding Domains to entities. domains: {}, resources: {}", resources, domainUrns);
     try {
@@ -137,9 +153,13 @@ public class DomainService extends BaseService {
    *     processing logic when matching particular sources
    */
   public void batchUnsetDomain(
+<<<<<<< HEAD
       @Nonnull List<ResourceReference> resources,
       @Nullable Authentication authentication,
       @Nullable String appSource) {
+=======
+      @Nonnull List<ResourceReference> resources, @Nullable Authentication authentication) {
+>>>>>>> oss_master
     log.debug("Batch unsetting Domains to entities. resources: {}", resources);
     try {
       unsetDomainForResources(resources, authentication, appSource);
@@ -161,10 +181,15 @@ public class DomainService extends BaseService {
    *     processing logic when matching particular sources
    */
   public void batchRemoveDomains(
+<<<<<<< HEAD
       @Nonnull List<Urn> domainUrns,
       @Nonnull List<ResourceReference> resources,
       @Nullable String appSource) {
     batchRemoveDomains(domainUrns, resources, this.systemAuthentication, appSource);
+=======
+      @Nonnull List<Urn> domainUrns, @Nonnull List<ResourceReference> resources) {
+    batchRemoveDomains(domainUrns, resources, this.systemAuthentication);
+>>>>>>> oss_master
   }
 
   /**
@@ -179,8 +204,12 @@ public class DomainService extends BaseService {
   public void batchRemoveDomains(
       @Nonnull List<Urn> domainUrns,
       @Nonnull List<ResourceReference> resources,
+<<<<<<< HEAD
       @Nonnull Authentication authentication,
       @Nullable String appSource) {
+=======
+      @Nullable Authentication authentication) {
+>>>>>>> oss_master
     log.debug(
         "Batch adding Domains to entities. domains: {}, resources: {}", resources, domainUrns);
     try {
@@ -198,8 +227,12 @@ public class DomainService extends BaseService {
   private void setDomainForResources(
       com.linkedin.common.urn.Urn domainUrn,
       List<ResourceReference> resources,
+<<<<<<< HEAD
       @Nonnull Authentication authentication,
       @Nullable String appSource)
+=======
+      @Nullable Authentication authentication)
+>>>>>>> oss_master
       throws Exception {
     final List<MetadataChangeProposal> changes = buildSetDomainProposals(domainUrn, resources);
     if (appSource != null) {
@@ -211,6 +244,7 @@ public class DomainService extends BaseService {
   private void addDomainsToResources(
       List<com.linkedin.common.urn.Urn> domainUrns,
       List<ResourceReference> resources,
+<<<<<<< HEAD
       @Nonnull Authentication authentication,
       @Nullable String appSource)
       throws Exception {
@@ -219,14 +253,24 @@ public class DomainService extends BaseService {
     if (appSource != null) {
       applyAppSource(changes, appSource);
     }
+=======
+      @Nonnull Authentication authentication)
+      throws Exception {
+    final List<MetadataChangeProposal> changes =
+        buildAddDomainsProposals(domainUrns, resources, authentication);
+>>>>>>> oss_master
     ingestChangeProposals(changes, authentication);
   }
 
   private void unsetDomainForResources(
+<<<<<<< HEAD
       List<ResourceReference> resources,
       @Nonnull Authentication authentication,
       @Nullable String appSource)
       throws Exception {
+=======
+      List<ResourceReference> resources, @Nonnull Authentication authentication) throws Exception {
+>>>>>>> oss_master
     final List<MetadataChangeProposal> changes = buildUnsetDomainProposals(resources);
     if (appSource != null) {
       applyAppSource(changes, appSource);
@@ -235,6 +279,7 @@ public class DomainService extends BaseService {
   }
 
   public void removeDomainsFromResources(
+<<<<<<< HEAD
       List<Urn> domains,
       List<ResourceReference> resources,
       @Nonnull Authentication authentication,
@@ -245,6 +290,12 @@ public class DomainService extends BaseService {
     if (appSource != null) {
       applyAppSource(changes, appSource);
     }
+=======
+      List<Urn> domains, List<ResourceReference> resources, @Nonnull Authentication authentication)
+      throws Exception {
+    final List<MetadataChangeProposal> changes =
+        buildRemoveDomainsProposals(domains, resources, authentication);
+>>>>>>> oss_master
     ingestChangeProposals(changes, authentication);
   }
 

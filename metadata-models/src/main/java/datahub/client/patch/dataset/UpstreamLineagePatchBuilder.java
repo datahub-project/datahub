@@ -1,9 +1,14 @@
 package datahub.client.patch.dataset;
 
+<<<<<<< HEAD:metadata-models/src/main/java/datahub/client/patch/dataset/UpstreamLineagePatchBuilder.java
 import static com.fasterxml.jackson.databind.node.JsonNodeFactory.instance;
 import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.UNKNOWN_ACTOR;
 import static com.linkedin.metadata.Constants.UPSTREAM_LINEAGE_ASPECT_NAME;
+=======
+import static com.fasterxml.jackson.databind.node.JsonNodeFactory.*;
+import static com.linkedin.metadata.Constants.*;
+>>>>>>> oss_master:metadata-integration/java/datahub-client/src/main/java/datahub/client/patch/dataset/UpstreamLineagePatchBuilder.java
 
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.common.urn.DatasetUrn;

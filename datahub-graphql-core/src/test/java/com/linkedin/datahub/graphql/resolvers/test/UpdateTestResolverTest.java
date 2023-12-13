@@ -1,12 +1,17 @@
 package com.linkedin.datahub.graphql.resolvers.test;
 
 import static com.linkedin.datahub.graphql.TestUtils.*;
+<<<<<<< HEAD
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
+=======
+import static org.testng.Assert.*;
+
+>>>>>>> oss_master
 import com.datahub.authentication.Authentication;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -36,6 +41,7 @@ public class UpdateTestResolverTest {
   private static final UpdateTestInput TEST_INPUT =
       new UpdateTestInput(
           "test-name", "test-category", "test-description", new TestDefinitionInput("{}"));
+<<<<<<< HEAD
 
   private EntityClient mockClient;
   private TestEngine mockEngine;
@@ -51,6 +57,8 @@ public class UpdateTestResolverTest {
     authentication = mock(Authentication.class);
     resolver = new UpdateTestResolver(mockClient, mockEngine);
   }
+=======
+>>>>>>> oss_master
 
   @Test
   public void testGetSuccess() throws Exception {
@@ -65,7 +73,10 @@ public class UpdateTestResolverTest {
 
     resolver.get(mockEnv).get();
 
+<<<<<<< HEAD
     // Not ideal to match against "any", but we don't know the auto-generated execution request id
+=======
+>>>>>>> oss_master
     ArgumentCaptor<MetadataChangeProposal> proposalCaptor =
         ArgumentCaptor.forClass(MetadataChangeProposal.class);
     Mockito.verify(mockClient, Mockito.times(1))
@@ -112,11 +123,25 @@ public class UpdateTestResolverTest {
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
     Mockito.verify(mockClient, Mockito.times(0))
+<<<<<<< HEAD
         .ingestProposal(Mockito.any(), Mockito.any(Authentication.class), Mockito.eq(false));
+=======
+        .ingestProposal(Mockito.any(), Mockito.any(Authentication.class));
+>>>>>>> oss_master
   }
 
   @Test
   public void testGetEntityClientException() throws Exception {
+<<<<<<< HEAD
+=======
+    // Update resolver
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    Mockito.doThrow(RemoteInvocationException.class)
+        .when(mockClient)
+        .ingestProposal(Mockito.any(), Mockito.any(Authentication.class));
+    UpdateTestResolver resolver = new UpdateTestResolver(mockClient);
+
+>>>>>>> oss_master
     // Execute resolver
     Mockito.doThrow(RemoteInvocationException.class)
         .when(mockClient)

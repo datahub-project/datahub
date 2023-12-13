@@ -260,7 +260,10 @@ public class SchemaMetadataChangeEventGenerator extends EntityChangeEventGenerat
                     .fieldPath(curBaseField.getFieldPath())
                     .fieldUrn(getSchemaFieldUrn(datasetUrn, curBaseField))
                     .nullable(curBaseField.isNullable())
+<<<<<<< HEAD
                     .modificationCategory(SchemaFieldModificationCategory.TYPE_CHANGE)
+=======
+>>>>>>> oss_master
                     .auditStamp(auditStamp)
                     .build());
           }
@@ -293,10 +296,14 @@ public class SchemaMetadataChangeEventGenerator extends EntityChangeEventGenerat
           processRemoval(changeCategory, changeEvents, datasetUrn, curBaseField, auditStamp);
           ++baseFieldIdx;
         } else {
+<<<<<<< HEAD
           if (ChangeCategory.TECHNICAL_SCHEMA.equals(changeCategory)) {
             changeEvents.add(
                 generateRenameEvent(datasetUrn, curBaseField, renamedField, auditStamp));
           }
+=======
+          changeEvents.add(generateRenameEvent(datasetUrn, curBaseField, renamedField, auditStamp));
+>>>>>>> oss_master
           List<ChangeEvent> propChangeEvents =
               getFieldPropertyChangeEvents(
                   curBaseField, curTargetField, datasetUrn, changeCategory, auditStamp);
@@ -314,10 +321,15 @@ public class SchemaMetadataChangeEventGenerator extends EntityChangeEventGenerat
           processAdd(changeCategory, changeEvents, datasetUrn, curTargetField, auditStamp);
           ++targetFieldIdx;
         } else {
+<<<<<<< HEAD
           if (ChangeCategory.TECHNICAL_SCHEMA.equals(changeCategory)) {
             changeEvents.add(
                 generateRenameEvent(datasetUrn, renamedField, curTargetField, auditStamp));
           }
+=======
+          changeEvents.add(
+              generateRenameEvent(datasetUrn, renamedField, curTargetField, auditStamp));
+>>>>>>> oss_master
           List<ChangeEvent> propChangeEvents =
               getFieldPropertyChangeEvents(
                   curBaseField, curTargetField, datasetUrn, changeCategory, auditStamp);
@@ -476,7 +488,10 @@ public class SchemaMetadataChangeEventGenerator extends EntityChangeEventGenerat
         .fieldPath(curBaseField.getFieldPath())
         .fieldUrn(getSchemaFieldUrn(datasetUrn, curBaseField))
         .nullable(curBaseField.isNullable())
+<<<<<<< HEAD
         .modificationCategory(SchemaFieldModificationCategory.RENAME)
+=======
+>>>>>>> oss_master
         .auditStamp(auditStamp)
         .build();
   }

@@ -178,6 +178,7 @@ public class GroupService {
     userUrnList.forEach(userUrn -> addUserToNativeGroup(userUrn, groupUrn, authentication));
   }
 
+<<<<<<< HEAD
   public List<Urn> getGroupsForUser(
       @Nonnull final Urn userUrn, @Nonnull final Authentication authentication) throws Exception {
     final NativeGroupMembership nativeGroupMembership =
@@ -201,6 +202,20 @@ public class GroupService {
             .get(userUrn);
 
     final NativeGroupMembership nativeGroupMembership;
+=======
+  NativeGroupMembership getExistingNativeGroupMembership(
+      @Nonnull final Urn userUrn, final Authentication authentication) throws Exception {
+    final EntityResponse entityResponse =
+        _entityClient
+            .batchGetV2(
+                CORP_USER_ENTITY_NAME,
+                Collections.singleton(userUrn),
+                Collections.singleton(NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME),
+                authentication)
+            .get(userUrn);
+
+    NativeGroupMembership nativeGroupMembership;
+>>>>>>> oss_master
     if (entityResponse == null
         || !entityResponse.getAspects().containsKey(NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME)) {
       // If the user doesn't have the NativeGroupMembership aspect, create one.
@@ -218,6 +233,7 @@ public class GroupService {
     return nativeGroupMembership;
   }
 
+<<<<<<< HEAD
   GroupMembership getExistingGroupMembership(
       @Nonnull final Urn userUrn, @Nonnull final Authentication authentication)
       throws RemoteInvocationException, URISyntaxException {
@@ -244,6 +260,8 @@ public class GroupService {
     return groupMembership;
   }
 
+=======
+>>>>>>> oss_master
   String createGroupInfo(
       @Nonnull final CorpGroupKey corpGroupKey,
       @Nonnull final String groupName,

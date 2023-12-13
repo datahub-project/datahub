@@ -27,6 +27,7 @@ public class UpgradeUtils {
     return parsedArgs;
   }
 
+<<<<<<< HEAD
   public static List<String> parseListArgs(final List<String> args, final String key) {
     if (args == null) {
       return Collections.emptyList();
@@ -42,5 +43,7 @@ public class UpgradeUtils {
     return argValues;
   }
 
+=======
+>>>>>>> oss_master
   private UpgradeUtils() {}
 }

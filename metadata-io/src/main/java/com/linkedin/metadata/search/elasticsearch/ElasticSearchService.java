@@ -154,6 +154,7 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
 
   @Nonnull
   @Override
+<<<<<<< HEAD
   public ScrollResult scroll(
       @Nonnull List<String> entities,
       @Nullable Filter filters,
@@ -173,6 +174,8 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
 
   @Nonnull
   @Override
+=======
+>>>>>>> oss_master
   public AutoCompleteResult autoComplete(
       @Nonnull String entityName,
       @Nonnull String query,

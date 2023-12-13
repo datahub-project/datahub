@@ -3,16 +3,25 @@ package com.linkedin.gms.factory.graphql;
 import com.datahub.authentication.group.GroupService;
 import com.datahub.authentication.invite.InviteTokenService;
 import com.datahub.authentication.post.PostService;
+<<<<<<< HEAD
 import com.datahub.authentication.proposal.ProposalService;
 import com.datahub.authentication.token.StatefulTokenService;
 import com.datahub.authentication.user.NativeUserService;
 import com.datahub.authorization.role.RoleService;
 import com.datahub.subscription.SubscriptionService;
+=======
+import com.datahub.authentication.token.StatefulTokenService;
+import com.datahub.authentication.user.NativeUserService;
+import com.datahub.authorization.role.RoleService;
+>>>>>>> oss_master
 import com.linkedin.datahub.graphql.GmsGraphQLEngine;
 import com.linkedin.datahub.graphql.GmsGraphQLEngineArgs;
 import com.linkedin.datahub.graphql.GraphQLEngine;
 import com.linkedin.datahub.graphql.analytics.service.AnalyticsService;
+<<<<<<< HEAD
 import com.linkedin.gms.factory.assertions.AssertionServiceFactory;
+=======
+>>>>>>> oss_master
 import com.linkedin.gms.factory.auth.DataHubTokenServiceFactory;
 import com.linkedin.gms.factory.common.GitVersionFactory;
 import com.linkedin.gms.factory.common.IndexConventionFactory;
@@ -21,10 +30,14 @@ import com.linkedin.gms.factory.common.SiblingGraphServiceFactory;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.entity.RestliEntityClientFactory;
 import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
+<<<<<<< HEAD
 import com.linkedin.gms.factory.integration.IntegrationsServiceFactory;
 import com.linkedin.gms.factory.recommendation.RecommendationServiceFactory;
 import com.linkedin.gms.factory.search.EntitySearchServiceFactory;
 import com.linkedin.gms.factory.test.TestEngineFactory;
+=======
+import com.linkedin.gms.factory.recommendation.RecommendationServiceFactory;
+>>>>>>> oss_master
 import com.linkedin.metadata.client.JavaEntityClient;
 import com.linkedin.metadata.client.SystemJavaEntityClient;
 import com.linkedin.metadata.connection.ConnectionService;
@@ -40,12 +53,18 @@ import com.linkedin.metadata.secret.SecretService;
 import com.linkedin.metadata.service.AssertionService;
 import com.linkedin.metadata.service.DataProductService;
 import com.linkedin.metadata.service.LineageService;
+<<<<<<< HEAD
 import com.linkedin.metadata.service.MonitorService;
+=======
+>>>>>>> oss_master
 import com.linkedin.metadata.service.OwnershipTypeService;
 import com.linkedin.metadata.service.QueryService;
 import com.linkedin.metadata.service.SettingsService;
 import com.linkedin.metadata.service.ViewService;
+<<<<<<< HEAD
 import com.linkedin.metadata.test.TestEngine;
+=======
+>>>>>>> oss_master
 import com.linkedin.metadata.timeline.TimelineService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
@@ -69,11 +88,15 @@ import org.springframework.context.annotation.Import;
   EntityRegistryFactory.class,
   DataHubTokenServiceFactory.class,
   GitVersionFactory.class,
+<<<<<<< HEAD
   SiblingGraphServiceFactory.class,
   TestEngineFactory.class,
   EntitySearchServiceFactory.class,
   AssertionServiceFactory.class,
   IntegrationsServiceFactory.class
+=======
+  SiblingGraphServiceFactory.class
+>>>>>>> oss_master
 })
 public class GraphQLEngineFactory {
   @Autowired
@@ -266,6 +289,7 @@ public class GraphQLEngineFactory {
     args.setQueryService(_queryService);
     args.setFeatureFlags(_configProvider.getFeatureFlags());
     args.setDataProductService(_dataProductService);
+<<<<<<< HEAD
     args.setChromeExtensionConfiguration(_configProvider.getChromeExtension());
 
     // Saas Only
@@ -278,6 +302,8 @@ public class GraphQLEngineFactory {
     args.setConnectionService(_connectionService);
     args.setSubscriptionService(_subscriptionService);
 
+=======
+>>>>>>> oss_master
     return new GmsGraphQLEngine(args).builder().build();
   }
 }

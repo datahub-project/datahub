@@ -54,6 +54,17 @@ public class MappingsBuilderTest {
     Map<String, Object> keyPart3FieldSubfields = (Map<String, Object>) keyPart3Field.get("fields");
     assertEquals(keyPart3FieldSubfields.size(), 1);
     assertTrue(keyPart3FieldSubfields.containsKey("keyword"));
+<<<<<<< HEAD
+=======
+    Map<String, Object> customPropertiesField =
+        (Map<String, Object>) properties.get("customProperties");
+    assertEquals(customPropertiesField.get("type"), "keyword");
+    assertEquals(customPropertiesField.get("normalizer"), "keyword_normalizer");
+    Map<String, Object> customPropertiesFieldSubfields =
+        (Map<String, Object>) customPropertiesField.get("fields");
+    assertEquals(customPropertiesFieldSubfields.size(), 1);
+    assertTrue(customPropertiesFieldSubfields.containsKey("keyword"));
+>>>>>>> oss_master
     // TEXT
     Map<String, Object> nestedArrayStringField =
         (Map<String, Object>) properties.get("nestedArrayStringField");

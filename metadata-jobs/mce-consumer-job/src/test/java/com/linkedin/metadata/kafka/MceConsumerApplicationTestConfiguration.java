@@ -52,7 +52,10 @@ public class MceConsumerApplicationTestConfiguration {
   @MockBean protected SiblingGraphService siblingGraphService;
 
   @MockBean public EntityIndexBuilders entityIndexBuilders;
+<<<<<<< HEAD
 
   // Saas Only
   @MockBean protected TestEngine testEngine;
+=======
+>>>>>>> oss_master
 }

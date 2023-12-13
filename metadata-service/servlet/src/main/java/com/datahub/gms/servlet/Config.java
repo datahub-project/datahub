@@ -102,8 +102,11 @@ public class Config extends HttpServlet {
 
     ConfigurationProvider configProvider = getConfigProvider(ctx);
 
+<<<<<<< HEAD
     config.put("baseUrl", configProvider.getBaseUrl());
 
+=======
+>>>>>>> oss_master
     Map<String, Object> telemetryConfig =
         new HashMap<String, Object>() {
           {

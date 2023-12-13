@@ -176,6 +176,7 @@ public class EntitiesController {
       throw new UnauthorizedException(actorUrnStr + " is unauthorized to edit entities.");
     }
 
+<<<<<<< HEAD
     boolean asyncBool =
         Objects.requireNonNullElseGet(
             async, () -> Boolean.parseBoolean(System.getenv("ASYNC_INGEST_DEFAULT")));
@@ -184,6 +185,11 @@ public class EntitiesController {
             .map(
                 proposal ->
                     MappingUtil.ingestProposal(proposal, actorUrnStr, _entityService, asyncBool))
+=======
+    List<Pair<String, Boolean>> responses =
+        proposals.stream()
+            .map(proposal -> MappingUtil.ingestProposal(proposal, actorUrnStr, _entityService))
+>>>>>>> oss_master
             .collect(Collectors.toList());
     if (responses.stream().anyMatch(Pair::getSecond)) {
       return ResponseEntity.status(HttpStatus.CREATED)
@@ -212,8 +218,12 @@ public class EntitiesController {
               description =
                   "Determines whether the delete will be soft or hard, defaults to true for soft delete")
           @RequestParam(value = "soft", defaultValue = "true")
+<<<<<<< HEAD
           boolean soft,
       @RequestParam(required = false, name = "async") Boolean async) {
+=======
+          boolean soft) {
+>>>>>>> oss_master
     Throwable exceptionally = null;
     try (Timer.Context context = MetricUtils.timer("deleteEntities").time()) {
       Authentication authentication = AuthenticationContext.getAuthentication();
@@ -258,9 +268,12 @@ public class EntitiesController {
                 .map(entityUrn -> MappingUtil.createStatusRemoval(entityUrn, _entityService))
                 .collect(Collectors.toList());
 
+<<<<<<< HEAD
         boolean asyncBool =
             Objects.requireNonNullElseGet(
                 async, () -> Boolean.parseBoolean(System.getenv("ASYNC_INGEST_DEFAULT")));
+=======
+>>>>>>> oss_master
         return ResponseEntity.ok(
             Collections.singletonList(
                 RollbackRunResultDto.builder()
@@ -273,7 +286,11 @@ public class EntitiesController {
                             .map(
                                 proposal ->
                                     MappingUtil.ingestProposal(
+<<<<<<< HEAD
                                         proposal, actorUrnStr, _entityService, asyncBool))
+=======
+                                        proposal, actorUrnStr, _entityService))
+>>>>>>> oss_master
                             .filter(Pair::getSecond)
                             .map(Pair::getFirst)
                             .map(urnString -> AspectRowSummary.builder().urn(urnString).build())

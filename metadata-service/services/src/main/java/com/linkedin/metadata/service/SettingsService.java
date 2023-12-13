@@ -1,7 +1,10 @@
 package com.linkedin.metadata.service;
 
 import static com.linkedin.metadata.Constants.*;
+<<<<<<< HEAD
 import static com.linkedin.metadata.entity.AspectUtils.*;
+=======
+>>>>>>> oss_master
 
 import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableSet;
@@ -51,6 +54,7 @@ public class SettingsService extends BaseService {
    */
   @Nullable
   public CorpUserSettings getCorpUserSettings(
+<<<<<<< HEAD
       @Nonnull final Urn userUrn, @Nonnull final Authentication authentication) {
     Objects.requireNonNull(userUrn, "userUrn must not be null");
     Objects.requireNonNull(authentication, "authentication must not be null");
@@ -63,17 +67,32 @@ public class SettingsService extends BaseService {
           this.entityClient.getV2(
               CORP_USER_ENTITY_NAME,
               userUrn,
+=======
+      @Nonnull final Urn user, @Nonnull final Authentication authentication) {
+    Objects.requireNonNull(user, "user must not be null");
+    Objects.requireNonNull(authentication, "authentication must not be null");
+    try {
+      EntityResponse response =
+          this.entityClient.getV2(
+              CORP_USER_ENTITY_NAME,
+              user,
+>>>>>>> oss_master
               ImmutableSet.of(CORP_USER_SETTINGS_ASPECT_NAME),
               authentication);
       if (response != null
           && response.getAspects().containsKey(Constants.CORP_USER_SETTINGS_ASPECT_NAME)) {
         return new CorpUserSettings(
+<<<<<<< HEAD
             getDataMapFromEntityResponse(response, CORP_USER_SETTINGS_ASPECT_NAME));
+=======
+            response.getAspects().get(Constants.CORP_USER_SETTINGS_ASPECT_NAME).getValue().data());
+>>>>>>> oss_master
       }
       // No aspect found
       return null;
     } catch (Exception e) {
       throw new RuntimeException(
+<<<<<<< HEAD
           String.format("Failed to get CorpUserSettings for user with urn %s", userUrn), e);
     }
   }
@@ -112,6 +131,9 @@ public class SettingsService extends BaseService {
     } catch (Exception e) {
       throw new RuntimeException(
           String.format("Failed to get CorpGroupSettings for group with urn %s", groupUrn), e);
+=======
+          String.format("Failed to retrieve Corp User settings for user with urn %s", user), e);
+>>>>>>> oss_master
     }
   }
 
@@ -132,6 +154,7 @@ public class SettingsService extends BaseService {
     Objects.requireNonNull(newSettings, "newSettings must not be null");
     Objects.requireNonNull(authentication, "authentication must not be null");
     try {
+<<<<<<< HEAD
       if (!entityClient.exists(userUrn, authentication)) {
         throw new RuntimeException(String.format("User %s does not exist", userUrn));
       }
@@ -143,6 +166,15 @@ public class SettingsService extends BaseService {
     } catch (Exception e) {
       throw new RuntimeException(
           String.format("Failed to update CorpUserSettings for user with urn %s", userUrn), e);
+=======
+      MetadataChangeProposal proposal =
+          AspectUtils.buildMetadataChangeProposal(
+              user, CORP_USER_SETTINGS_ASPECT_NAME, newSettings);
+      this.entityClient.ingestProposal(proposal, authentication, false);
+    } catch (Exception e) {
+      throw new RuntimeException(
+          String.format("Failed to update Corp User settings for user with urn %s", user), e);
+>>>>>>> oss_master
     }
   }
 

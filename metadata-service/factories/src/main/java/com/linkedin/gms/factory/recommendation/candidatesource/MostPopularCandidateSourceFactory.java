@@ -15,7 +15,10 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
+<<<<<<< HEAD
 import org.springframework.context.annotation.PropertySource;
+=======
+>>>>>>> oss_master
 
 @Configuration
 @Import({
@@ -23,7 +26,10 @@ import org.springframework.context.annotation.PropertySource;
   IndexConventionFactory.class,
   EntityServiceFactory.class
 })
+<<<<<<< HEAD
 @PropertySource(value = "classpath:/application.yml", factory = YamlPropertySourceFactory.class)
+=======
+>>>>>>> oss_master
 public class MostPopularCandidateSourceFactory {
   @Autowired
   @Qualifier("elasticSearchRestHighLevelClient")

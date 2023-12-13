@@ -26,9 +26,17 @@ public abstract class CompoundKeyTemplate<T extends RecordTemplate>
    */
   public JsonNode populateTopLevelKeys(JsonNode transformedNode, Patch jsonPatch) {
     JsonNode transformedNodeClone = transformedNode.deepCopy();
+<<<<<<< HEAD
     List<Pair<PatchOperationType, String>> paths = getPaths(jsonPatch);
     for (Pair<PatchOperationType, String> operationPath : paths) {
       String[] keys = operationPath.getSecond().split("/");
+=======
+    List<String> paths = getPaths(jsonPatch);
+    for (String path : paths) {
+      String[] keys = path.split("/");
+      // Skip first as it will always be blank due to path starting with /, skip last key as we only
+      // need to populate top level
+>>>>>>> oss_master
       JsonNode parent = transformedNodeClone;
 
       // if not remove, skip last key as we only need to populate top level

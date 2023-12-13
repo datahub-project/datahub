@@ -1,6 +1,10 @@
 package datahub.client.patch;
 
+<<<<<<< HEAD:metadata-models/src/main/java/datahub/client/patch/AbstractMultiFieldPatchBuilder.java
 import static com.fasterxml.jackson.databind.node.JsonNodeFactory.instance;
+=======
+import static com.fasterxml.jackson.databind.node.JsonNodeFactory.*;
+>>>>>>> oss_master:metadata-integration/java/datahub-client/src/main/java/datahub/client/patch/AbstractMultiFieldPatchBuilder.java
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -13,6 +17,10 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import org.apache.commons.lang3.tuple.ImmutableTriple;
+<<<<<<< HEAD:metadata-models/src/main/java/datahub/client/patch/AbstractMultiFieldPatchBuilder.java
+=======
+import org.apache.http.entity.ContentType;
+>>>>>>> oss_master:metadata-integration/java/datahub-client/src/main/java/datahub/client/patch/AbstractMultiFieldPatchBuilder.java
 
 public abstract class AbstractMultiFieldPatchBuilder<T extends AbstractMultiFieldPatchBuilder<T>> {
 

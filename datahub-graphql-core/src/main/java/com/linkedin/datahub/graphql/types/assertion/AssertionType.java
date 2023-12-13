@@ -27,8 +27,12 @@ public class AssertionType
       ImmutableSet.of(
           Constants.ASSERTION_KEY_ASPECT_NAME,
           Constants.ASSERTION_INFO_ASPECT_NAME,
+<<<<<<< HEAD
           Constants.DATA_PLATFORM_INSTANCE_ASPECT_NAME,
           Constants.ASSERTION_ACTIONS_ASPECT_NAME);
+=======
+          Constants.DATA_PLATFORM_INSTANCE_ASPECT_NAME);
+>>>>>>> oss_master
   private final EntityClient _entityClient;
 
   public AssertionType(final EntityClient entityClient) {

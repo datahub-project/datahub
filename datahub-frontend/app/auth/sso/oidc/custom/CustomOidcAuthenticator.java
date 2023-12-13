@@ -34,8 +34,15 @@ import org.pac4j.core.util.CommonHelper;
 import org.pac4j.oidc.client.OidcClient;
 import org.pac4j.oidc.config.OidcConfiguration;
 import org.pac4j.oidc.credentials.OidcCredentials;
+<<<<<<< HEAD
 
 @Slf4j
+=======
+import org.pac4j.oidc.credentials.authenticator.OidcAuthenticator;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+>>>>>>> oss_master
 public class CustomOidcAuthenticator implements Authenticator<OidcCredentials> {
 
   private static final Collection<ClientAuthenticationMethod> SUPPORTED_METHODS =
@@ -84,7 +91,11 @@ public class CustomOidcAuthenticator implements Authenticator<OidcCredentials> {
     } else {
       chosenMethod =
           preferredMethod != null ? preferredMethod : ClientAuthenticationMethod.getDefault();
+<<<<<<< HEAD
       log.info(
+=======
+      logger.info(
+>>>>>>> oss_master
           "Provider metadata does not provide Token endpoint authentication methods. Using: {}",
           chosenMethod);
     }
@@ -164,17 +175,24 @@ public class CustomOidcAuthenticator implements Authenticator<OidcCredentials> {
         tokenHttpRequest.setReadTimeout(configuration.getReadTimeout());
 
         final HTTPResponse httpResponse = tokenHttpRequest.send();
+<<<<<<< HEAD
         log.info(
+=======
+        logger.debug(
+>>>>>>> oss_master
             "Token response: status={}, content={}",
             httpResponse.getStatusCode(),
             httpResponse.getContent());
 
         final TokenResponse response = OIDCTokenResponseParser.parse(httpResponse);
         if (response instanceof TokenErrorResponse) {
+<<<<<<< HEAD
           log.error(
               String.format(
                   "Received bad token response from IdP: %s",
                   response.toErrorResponse().toJSONObject().toString()));
+=======
+>>>>>>> oss_master
           throw new TechnicalException(
               "Bad token response, error=" + ((TokenErrorResponse) response).getErrorObject());
         }

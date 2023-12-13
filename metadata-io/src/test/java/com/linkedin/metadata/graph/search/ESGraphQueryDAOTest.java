@@ -23,6 +23,7 @@ import org.testng.annotations.Test;
 
 public class ESGraphQueryDAOTest {
 
+<<<<<<< HEAD
   private static final String TEST_QUERY_FILE_LIMITED =
       "elasticsearch/sample_filters/lineage_query_filters_limited.json";
   private static final String TEST_QUERY_FILE_FULL =
@@ -31,6 +32,10 @@ public class ESGraphQueryDAOTest {
       "elasticsearch/sample_filters/lineage_query_filters_full_empty_filters.json";
   private static final String TEST_QUERY_FILE_FULL_MULTIPLE_FILTERS =
       "elasticsearch/sample_filters/lineage_query_filters_full_multiple_filters.json";
+=======
+  private static final String TEST_QUERY_FILE =
+      "elasticsearch/sample_filters/lineage_query_filters_1.json";
+>>>>>>> oss_master
 
   @Test
   private static void testGetQueryForLineageFullArguments() throws Exception {
@@ -46,6 +51,7 @@ public class ESGraphQueryDAOTest {
     String expectedQueryFullMultipleFilters =
         Resources.toString(urlFullMultipleFilters, StandardCharsets.UTF_8);
 
+<<<<<<< HEAD
     List<Urn> urns = List.of(Urn.createFromString("urn:li:dataset:test-urn"));
     List<Urn> urnsMultiple1 =
         ImmutableList.of(
@@ -57,6 +63,9 @@ public class ESGraphQueryDAOTest {
             UrnUtils.getUrn("urn:li:chart:test-urn"),
             UrnUtils.getUrn("urn:li:chart:test-urn2"),
             UrnUtils.getUrn("urn:li:chart:test-urn3"));
+=======
+    List<Urn> urns = new ArrayList<>();
+>>>>>>> oss_master
     List<LineageRegistry.EdgeInfo> edgeInfos =
         new ArrayList<>(
             ImmutableList.of(
@@ -64,6 +73,7 @@ public class ESGraphQueryDAOTest {
                     "DownstreamOf",
                     RelationshipDirection.INCOMING,
                     Constants.DATASET_ENTITY_NAME)));
+<<<<<<< HEAD
     List<LineageRegistry.EdgeInfo> edgeInfosMultiple1 =
         ImmutableList.of(
             new LineageRegistry.EdgeInfo(
@@ -89,6 +99,8 @@ public class ESGraphQueryDAOTest {
         Map.of(
             Constants.DATASET_ENTITY_NAME, edgeInfosMultiple1,
             Constants.DATA_JOB_ENTITY_NAME, edgeInfosMultiple2);
+=======
+>>>>>>> oss_master
     GraphFilters graphFilters = new GraphFilters(ImmutableList.of(Constants.DATASET_ENTITY_NAME));
     GraphFilters graphFiltersMultiple =
         new GraphFilters(
@@ -99,8 +111,13 @@ public class ESGraphQueryDAOTest {
     Long startTime = 0L;
     Long endTime = 1L;
 
+<<<<<<< HEAD
     QueryBuilder limitedBuilder =
         ESGraphQueryDAO.getLineageQueryForEntityType(urns, edgeInfos, graphFilters);
+=======
+    QueryBuilder builder =
+        ESGraphQueryDAO.getQueryForLineage(urns, edgeInfos, graphFilters, startTime, endTime);
+>>>>>>> oss_master
 
     QueryBuilder fullBuilder =
         ESGraphQueryDAO.getLineageQuery(

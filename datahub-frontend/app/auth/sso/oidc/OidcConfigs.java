@@ -1,6 +1,9 @@
 package auth.sso.oidc;
 
+<<<<<<< HEAD
 import static auth.AuthUtils.*;
+=======
+>>>>>>> oss_master
 import static auth.ConfigUtil.*;
 
 import auth.sso.SsoConfigs;
@@ -41,6 +44,7 @@ public class OidcConfigs extends SsoConfigs {
   public static final String OIDC_EXTRACT_JWT_ACCESS_TOKEN_CLAIMS =
       "auth.oidc.extractJwtAccessTokenClaims";
   public static final String OIDC_PREFERRED_JWS_ALGORITHM = "auth.oidc.preferredJwsAlgorithm";
+<<<<<<< HEAD
 
   /** Default values */
   private static final String DEFAULT_OIDC_USERNAME_CLAIM = "email";
@@ -245,5 +249,86 @@ public class OidcConfigs extends SsoConfigs {
 
       return new OidcConfigs(this);
     }
+=======
+
+  /** Default values */
+  private static final String DEFAULT_OIDC_USERNAME_CLAIM = "email";
+
+  private static final String DEFAULT_OIDC_USERNAME_CLAIM_REGEX = "(.*)";
+  private static final String DEFAULT_OIDC_SCOPE =
+      "openid profile email"; // Often "group" must be included for groups.
+  private static final String DEFAULT_OIDC_CLIENT_NAME = "oidc";
+  private static final String DEFAULT_OIDC_CLIENT_AUTHENTICATION_METHOD = "client_secret_basic";
+  private static final String DEFAULT_OIDC_JIT_PROVISIONING_ENABLED = "true";
+  private static final String DEFAULT_OIDC_PRE_PROVISIONING_REQUIRED = "false";
+  private static final String DEFAULT_OIDC_EXTRACT_GROUPS_ENABLED =
+      "false"; // False since extraction of groups can overwrite existing group membership.
+  private static final String DEFAULT_OIDC_GROUPS_CLAIM = "groups";
+  private static final String DEFAULT_OIDC_READ_TIMEOUT = "5000";
+
+  private String clientId;
+  private String clientSecret;
+  private String discoveryUri;
+  private String userNameClaim;
+  private String userNameClaimRegex;
+  private String scope;
+  private String clientName;
+  private String clientAuthenticationMethod;
+  private boolean jitProvisioningEnabled;
+  private boolean preProvisioningRequired;
+  private boolean extractGroupsEnabled;
+  private String groupsClaimName;
+  private Optional<String> responseType;
+  private Optional<String> responseMode;
+  private Optional<Boolean> useNonce;
+  private Optional<String> customParamResource;
+  private String readTimeout;
+  private Optional<Boolean> extractJwtAccessTokenClaims;
+  private Optional<String> preferredJwsAlgorithm;
+
+  public OidcConfigs(final com.typesafe.config.Config configs) {
+    super(configs);
+    clientId = getRequired(configs, OIDC_CLIENT_ID_CONFIG_PATH);
+    clientSecret = getRequired(configs, OIDC_CLIENT_SECRET_CONFIG_PATH);
+    discoveryUri = getRequired(configs, OIDC_DISCOVERY_URI_CONFIG_PATH);
+    userNameClaim =
+        getOptional(configs, OIDC_USERNAME_CLAIM_CONFIG_PATH, DEFAULT_OIDC_USERNAME_CLAIM);
+    userNameClaimRegex =
+        getOptional(
+            configs, OIDC_USERNAME_CLAIM_REGEX_CONFIG_PATH, DEFAULT_OIDC_USERNAME_CLAIM_REGEX);
+    scope = getOptional(configs, OIDC_SCOPE_CONFIG_PATH, DEFAULT_OIDC_SCOPE);
+    clientName = getOptional(configs, OIDC_CLIENT_NAME_CONFIG_PATH, DEFAULT_OIDC_CLIENT_NAME);
+    clientAuthenticationMethod =
+        getOptional(
+            configs,
+            OIDC_CLIENT_AUTHENTICATION_METHOD_CONFIG_PATH,
+            DEFAULT_OIDC_CLIENT_AUTHENTICATION_METHOD);
+    jitProvisioningEnabled =
+        Boolean.parseBoolean(
+            getOptional(
+                configs,
+                OIDC_JIT_PROVISIONING_ENABLED_CONFIG_PATH,
+                DEFAULT_OIDC_JIT_PROVISIONING_ENABLED));
+    preProvisioningRequired =
+        Boolean.parseBoolean(
+            getOptional(
+                configs,
+                OIDC_PRE_PROVISIONING_REQUIRED_CONFIG_PATH,
+                DEFAULT_OIDC_PRE_PROVISIONING_REQUIRED));
+    extractGroupsEnabled =
+        Boolean.parseBoolean(
+            getOptional(configs, OIDC_EXTRACT_GROUPS_ENABLED, DEFAULT_OIDC_EXTRACT_GROUPS_ENABLED));
+    groupsClaimName =
+        getOptional(configs, OIDC_GROUPS_CLAIM_CONFIG_PATH_CONFIG_PATH, DEFAULT_OIDC_GROUPS_CLAIM);
+    responseType = getOptional(configs, OIDC_RESPONSE_TYPE);
+    responseMode = getOptional(configs, OIDC_RESPONSE_MODE);
+    useNonce = getOptional(configs, OIDC_USE_NONCE).map(Boolean::parseBoolean);
+    customParamResource = getOptional(configs, OIDC_CUSTOM_PARAM_RESOURCE);
+    readTimeout = getOptional(configs, OIDC_READ_TIMEOUT, DEFAULT_OIDC_READ_TIMEOUT);
+    extractJwtAccessTokenClaims =
+        getOptional(configs, OIDC_EXTRACT_JWT_ACCESS_TOKEN_CLAIMS).map(Boolean::parseBoolean);
+    preferredJwsAlgorithm =
+        Optional.ofNullable(getOptional(configs, OIDC_PREFERRED_JWS_ALGORITHM, null));
+>>>>>>> oss_master
   }
 }

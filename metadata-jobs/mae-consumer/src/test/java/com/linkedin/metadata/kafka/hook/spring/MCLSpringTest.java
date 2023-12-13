@@ -1,8 +1,13 @@
 package com.linkedin.metadata.kafka.hook.spring;
 
+<<<<<<< HEAD
 import static org.testng.AssertJUnit.assertEquals;
 
 import com.linkedin.data.schema.annotation.PathSpecBasedSchemaAnnotationVisitor;
+=======
+import static org.testng.AssertJUnit.*;
+
+>>>>>>> oss_master
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.kafka.MetadataChangeLogProcessor;
 import com.linkedin.metadata.kafka.hook.UpdateIndicesHook;
@@ -44,6 +49,7 @@ public class MCLSpringTest extends AbstractTestNGSpringContextTests {
   public void testHooks() {
     MetadataChangeLogProcessor metadataChangeLogProcessor =
         applicationContext.getBean(MetadataChangeLogProcessor.class);
+<<<<<<< HEAD
 
     assertEquals(
         0,
@@ -90,5 +96,19 @@ public class MCLSpringTest extends AbstractTestNGSpringContextTests {
         metadataChangeLogProcessor.getHooks().stream()
             .filter(hook -> hook instanceof AssertionActionsHook)
             .count());
+=======
+    assertTrue(
+        metadataChangeLogProcessor.getHooks().stream()
+            .noneMatch(hook -> hook instanceof IngestionSchedulerHook));
+    assertTrue(
+        metadataChangeLogProcessor.getHooks().stream()
+            .anyMatch(hook -> hook instanceof UpdateIndicesHook));
+    assertTrue(
+        metadataChangeLogProcessor.getHooks().stream()
+            .anyMatch(hook -> hook instanceof SiblingAssociationHook));
+    assertTrue(
+        metadataChangeLogProcessor.getHooks().stream()
+            .anyMatch(hook -> hook instanceof EntityChangeEventGeneratorHook));
+>>>>>>> oss_master
   }
 }

@@ -29,8 +29,11 @@ import com.linkedin.metadata.search.elasticsearch.query.request.SearchQueryBuild
 import com.linkedin.util.Pair;
 import io.datahubproject.test.search.config.SearchCommonTestConfiguration;
 import java.io.IOException;
+<<<<<<< HEAD
 import java.util.Arrays;
 import java.util.HashSet;
+=======
+>>>>>>> oss_master
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -46,7 +49,10 @@ import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryStringQueryBuilder;
 import org.opensearch.index.query.SimpleQueryStringBuilder;
 import org.opensearch.index.query.TermQueryBuilder;
+<<<<<<< HEAD
 import org.opensearch.index.query.functionscore.FieldValueFactorFunctionBuilder;
+=======
+>>>>>>> oss_master
 import org.opensearch.index.query.functionscore.FunctionScoreQueryBuilder;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Import;
@@ -143,9 +149,13 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
             "urn.delimited", 7.0f,
             "textArrayField.delimited", 0.4f,
             "nestedArrayStringField.delimited", 0.4f,
+<<<<<<< HEAD
             "wordGramField.delimited", 0.4f,
             "customProperties.delimited", 0.4f // Saas only?
             ));
+=======
+            "wordGramField.delimited", 0.4f));
+>>>>>>> oss_master
 
     BoolQueryBuilder boolPrefixQuery = (BoolQueryBuilder) shouldQueries.get(1);
     assertTrue(boolPrefixQuery.should().size() > 0);
@@ -267,8 +277,12 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
 
   @Test
   public void testCustomExactMatch() {
+<<<<<<< HEAD
     // Exact match query (uses quotes)
     for (String triggerQuery : List.of("'single quoted'", "\"double quoted\"")) {
+=======
+    for (String triggerQuery : List.of("test_table", "'single quoted'", "\"double quoted\"")) {
+>>>>>>> oss_master
       FunctionScoreQueryBuilder result =
           (FunctionScoreQueryBuilder)
               TEST_CUSTOM_BUILDER.buildQuery(
@@ -460,7 +474,11 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
   public void testGetStandardFields() {
     Set<SearchFieldConfig> fieldConfigs =
         TEST_CUSTOM_BUILDER.getStandardFields(ImmutableList.of(TestEntitySpecBuilder.getSpec()));
+<<<<<<< HEAD
     assertEquals(fieldConfigs.size(), 22);
+=======
+    assertEquals(fieldConfigs.size(), 21);
+>>>>>>> oss_master
     assertEquals(
         fieldConfigs.stream().map(SearchFieldConfig::fieldName).collect(Collectors.toSet()),
         Set.of(
@@ -565,9 +583,15 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
     fieldConfigs =
         TEST_CUSTOM_BUILDER.getStandardFields(
             ImmutableList.of(TestEntitySpecBuilder.getSpec(), mockEntitySpec));
+<<<<<<< HEAD
     // Same 22 from the original entity + newFieldNotInOriginal + 3 word gram fields from the
     // textFieldOverride
     assertEquals(fieldConfigs.size(), 27);
+=======
+    // Same 21 from the original entity + newFieldNotInOriginal + 3 word gram fields from the
+    // textFieldOverride
+    assertEquals(fieldConfigs.size(), 26);
+>>>>>>> oss_master
     assertEquals(
         fieldConfigs.stream().map(SearchFieldConfig::fieldName).collect(Collectors.toSet()),
         Set.of(

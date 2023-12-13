@@ -84,6 +84,7 @@ public class OwnerUtils {
                 entityService,
                 new Ownership());
     for (OwnerInput input : owners) {
+<<<<<<< HEAD
       final OwnershipType ownershipType =
           input.getType() != null
               ? OwnershipType.valueOf(input.getType().toString())
@@ -92,6 +93,12 @@ public class OwnerUtils {
           ownershipAspect,
           UrnUtils.getUrn(input.getOwnerUrn()),
           ownershipType,
+=======
+      addOwner(
+          ownershipAspect,
+          UrnUtils.getUrn(input.getOwnerUrn()),
+          input.getType(),
+>>>>>>> oss_master
           UrnUtils.getUrn(input.getOwnershipTypeUrn()));
     }
     return buildMetadataChangeProposalWithUrn(

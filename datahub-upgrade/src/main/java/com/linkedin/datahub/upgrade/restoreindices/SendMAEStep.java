@@ -25,7 +25,10 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.function.Function;
 import lombok.extern.slf4j.Slf4j;
 
+<<<<<<< HEAD
 @Slf4j
+=======
+>>>>>>> oss_master
 public class SendMAEStep implements UpgradeStep {
 
   private static final int DEFAULT_BATCH_SIZE = 1000;
@@ -52,6 +55,7 @@ public class SendMAEStep implements UpgradeStep {
     }
   }
 
+<<<<<<< HEAD
   @Override
   public boolean skip(UpgradeContext context) {
     if (Boolean.parseBoolean(System.getenv(RestoreIndices.RESTORE_FROM_PARQUET))) {
@@ -62,6 +66,8 @@ public class SendMAEStep implements UpgradeStep {
     return false;
   }
 
+=======
+>>>>>>> oss_master
   public SendMAEStep(
       final Database server,
       final EntityService entityService,

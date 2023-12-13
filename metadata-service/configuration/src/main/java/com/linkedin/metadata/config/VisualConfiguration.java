@@ -11,12 +11,15 @@ public class VisualConfiguration {
   /** Queries tab related configurations */
   public QueriesTabConfig queriesTab;
 
+<<<<<<< HEAD
   /**
    * Boolean flag disabling viewing the Business Glossary page for users without the 'Manage
    * Glossaries' privilege
    */
   public boolean hideGlossary;
 
+=======
+>>>>>>> oss_master
   /** Queries tab related configurations */
   public EntityProfileConfig entityProfile;
 

@@ -311,13 +311,21 @@ public class DataHubAuthorizer implements Authorizer {
       }
     }
 
+<<<<<<< HEAD
     private static void addPoliciesToCache(
+=======
+    private void addPoliciesToCache(
+>>>>>>> oss_master
         final Map<String, List<DataHubPolicyInfo>> cache,
         final List<PolicyFetcher.Policy> policies) {
       policies.forEach(policy -> addPolicyToCache(cache, policy.getPolicyInfo()));
     }
 
+<<<<<<< HEAD
     private static void addPolicyToCache(
+=======
+    private void addPolicyToCache(
+>>>>>>> oss_master
         final Map<String, List<DataHubPolicyInfo>> cache, final DataHubPolicyInfo policy) {
       final List<String> privileges = policy.getPrivileges();
       for (String privilege : privileges) {

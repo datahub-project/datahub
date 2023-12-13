@@ -1,7 +1,10 @@
 package com.linkedin.metadata.service;
 
 import static com.linkedin.metadata.entity.AspectUtils.*;
+<<<<<<< HEAD
 import static com.linkedin.metadata.service.util.MetadataTestServiceUtils.*;
+=======
+>>>>>>> oss_master
 
 import com.datahub.authentication.Authentication;
 import com.google.common.annotations.VisibleForTesting;
@@ -28,7 +31,10 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
+<<<<<<< HEAD
 import org.apache.commons.lang3.StringUtils;
+=======
+>>>>>>> oss_master
 
 @Slf4j
 public class TagService extends BaseService {
@@ -57,14 +63,21 @@ public class TagService extends BaseService {
    * @param tagUrns the urns of the tags to add
    * @param resources references to the resources to change
    * @param authentication authentication to use when making the change
+<<<<<<< HEAD
    * @param appSource optional indication of the origin for this request, used for additional
    *     processing logic when matching particular sources
+=======
+>>>>>>> oss_master
    */
   public void batchAddTags(
       @Nonnull List<Urn> tagUrns,
       @Nonnull List<ResourceReference> resources,
+<<<<<<< HEAD
       @Nonnull Authentication authentication,
       @Nullable String appSource) {
+=======
+      @Nonnull Authentication authentication) {
+>>>>>>> oss_master
     log.debug("Batch adding Tags to entities. tags: {}, resources: {}", resources, tagUrns);
     try {
       addTagsToResources(tagUrns, resources, authentication, appSource);
@@ -83,6 +96,7 @@ public class TagService extends BaseService {
    *
    * @param tagUrns the urns of the tags to remove
    * @param resources references to the resources to change
+<<<<<<< HEAD
    * @param appSource optional indication of the origin for this request, used for additional
    *     processing logic when matching particular sources
    */
@@ -91,6 +105,12 @@ public class TagService extends BaseService {
       @Nonnull List<ResourceReference> resources,
       @Nullable String appSource) {
     batchRemoveTags(tagUrns, resources, this.systemAuthentication, appSource);
+=======
+   */
+  public void batchRemoveTags(
+      @Nonnull List<Urn> tagUrns, @Nonnull List<ResourceReference> resources) {
+    batchRemoveTags(tagUrns, resources, this.systemAuthentication);
+>>>>>>> oss_master
   }
 
   /**
@@ -99,14 +119,21 @@ public class TagService extends BaseService {
    * @param tagUrns the urns of the tags to remove
    * @param resources references to the resources to change
    * @param authentication authentication to use when making the change
+<<<<<<< HEAD
    * @param appSource optional indication of the origin for this request, used for additional
    *     processing logic when matching particular sources
+=======
+>>>>>>> oss_master
    */
   public void batchRemoveTags(
       @Nonnull List<Urn> tagUrns,
       @Nonnull List<ResourceReference> resources,
+<<<<<<< HEAD
       @Nonnull Authentication authentication,
       @Nullable String appSource) {
+=======
+      @Nonnull Authentication authentication) {
+>>>>>>> oss_master
     log.debug("Batch adding Tags to entities. tags: {}, resources: {}", resources, tagUrns);
     try {
       removeTagsFromResources(tagUrns, resources, authentication, appSource);
@@ -123,6 +150,7 @@ public class TagService extends BaseService {
   private void addTagsToResources(
       List<com.linkedin.common.urn.Urn> tagUrns,
       List<ResourceReference> resources,
+<<<<<<< HEAD
       @Nonnull Authentication authentication,
       @Nullable String appSource)
       throws Exception {
@@ -131,10 +159,17 @@ public class TagService extends BaseService {
     if (StringUtils.isNotBlank(appSource)) {
       applyAppSource(changes, appSource);
     }
+=======
+      @Nonnull Authentication authentication)
+      throws Exception {
+    final List<MetadataChangeProposal> changes =
+        buildAddTagsProposals(tagUrns, resources, authentication);
+>>>>>>> oss_master
     ingestChangeProposals(changes, authentication);
   }
 
   private void removeTagsFromResources(
+<<<<<<< HEAD
       List<Urn> tags,
       List<ResourceReference> resources,
       @Nonnull Authentication authentication,
@@ -145,6 +180,12 @@ public class TagService extends BaseService {
     if (StringUtils.isNotBlank(appSource)) {
       applyAppSource(changes, appSource);
     }
+=======
+      List<Urn> tags, List<ResourceReference> resources, @Nonnull Authentication authentication)
+      throws Exception {
+    final List<MetadataChangeProposal> changes =
+        buildRemoveTagsProposals(tags, resources, authentication);
+>>>>>>> oss_master
     ingestChangeProposals(changes, authentication);
   }
 

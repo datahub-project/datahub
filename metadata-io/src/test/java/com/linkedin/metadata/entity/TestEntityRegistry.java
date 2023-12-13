@@ -20,7 +20,11 @@ public class TestEntityRegistry implements EntityRegistry {
 
   public TestEntityRegistry() {
     entityNameToSpec =
+<<<<<<< HEAD
         new EntitySpecBuilder()
+=======
+        new EntitySpecBuilder(EntitySpecBuilder.AnnotationExtractionMode.IGNORE_ASPECT_FIELDS)
+>>>>>>> oss_master
             .buildEntitySpecs(new Snapshot().schema()).stream()
                 .collect(Collectors.toMap(spec -> spec.getName().toLowerCase(), spec -> spec));
   }

@@ -5,8 +5,12 @@ import com.linkedin.datahub.graphql.generated.SearchInsight;
 // import com.linkedin.metadata.search.features.Features;
 import java.util.ArrayList;
 import java.util.List;
+<<<<<<< HEAD
 // import java.util.Optional;
 import javax.annotation.Nonnull;
+=======
+import javax.annotation.Nullable;
+>>>>>>> oss_master
 
 public class SearchInsightsUtil {
 
@@ -20,6 +24,7 @@ public class SearchInsightsUtil {
     return insights;
   }
 
+<<<<<<< HEAD
   /*@Nonnull
   private static Optional<SearchInsight> extractQueryCountInsight(final DoubleMap features) {
     if (features.containsKey(Features.Name.QUERY_COUNT.toString())) {
@@ -34,5 +39,7 @@ public class SearchInsightsUtil {
     return Optional.empty();
   }*/
 
+=======
+>>>>>>> oss_master
   private SearchInsightsUtil() {}
 }

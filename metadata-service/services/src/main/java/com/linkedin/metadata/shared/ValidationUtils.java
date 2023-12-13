@@ -26,6 +26,7 @@ public class ValidationUtils {
 
   public static SearchResult validateSearchResult(
       final SearchResult searchResult, @Nonnull final EntityService entityService) {
+<<<<<<< HEAD
     try (Timer.Context ignored =
         MetricUtils.timer(ValidationUtils.class, "validateSearchResult").time()) {
       if (searchResult == null) {
@@ -48,6 +49,27 @@ public class ValidationUtils {
 
       return validatedSearchResult;
     }
+=======
+    if (searchResult == null) {
+      return null;
+    }
+    Objects.requireNonNull(entityService, "entityService must not be null");
+
+    SearchResult validatedSearchResult =
+        new SearchResult()
+            .setFrom(searchResult.getFrom())
+            .setMetadata(searchResult.getMetadata())
+            .setPageSize(searchResult.getPageSize())
+            .setNumEntities(searchResult.getNumEntities());
+
+    SearchEntityArray validatedEntities =
+        searchResult.getEntities().stream()
+            .filter(searchEntity -> entityService.exists(searchEntity.getEntity()))
+            .collect(Collectors.toCollection(SearchEntityArray::new));
+    validatedSearchResult.setEntities(validatedEntities);
+
+    return validatedSearchResult;
+>>>>>>> oss_master
   }
 
   public static ScrollResult validateScrollResult(
@@ -77,6 +99,7 @@ public class ValidationUtils {
 
   public static BrowseResult validateBrowseResult(
       final BrowseResult browseResult, @Nonnull final EntityService entityService) {
+<<<<<<< HEAD
     try (Timer.Context ignored =
         MetricUtils.timer(ValidationUtils.class, "validateBrowseResult").time()) {
       if (browseResult == null) {
@@ -102,10 +125,35 @@ public class ValidationUtils {
 
       return validatedBrowseResult;
     }
+=======
+    if (browseResult == null) {
+      return null;
+    }
+    Objects.requireNonNull(entityService, "entityService must not be null");
+
+    BrowseResult validatedBrowseResult =
+        new BrowseResult()
+            .setGroups(browseResult.getGroups())
+            .setMetadata(browseResult.getMetadata())
+            .setFrom(browseResult.getFrom())
+            .setPageSize(browseResult.getPageSize())
+            .setNumGroups(browseResult.getNumGroups())
+            .setNumEntities(browseResult.getNumEntities())
+            .setNumElements(browseResult.getNumElements());
+
+    BrowseResultEntityArray validatedEntities =
+        browseResult.getEntities().stream()
+            .filter(browseResultEntity -> entityService.exists(browseResultEntity.getUrn()))
+            .collect(Collectors.toCollection(BrowseResultEntityArray::new));
+    validatedBrowseResult.setEntities(validatedEntities);
+
+    return validatedBrowseResult;
+>>>>>>> oss_master
   }
 
   public static ListResult validateListResult(
       final ListResult listResult, @Nonnull final EntityService entityService) {
+<<<<<<< HEAD
     try (Timer.Context ignored =
         MetricUtils.timer(ValidationUtils.class, "validateListResult").time()) {
       if (listResult == null) {
@@ -127,10 +175,31 @@ public class ValidationUtils {
 
       return validatedListResult;
     }
+=======
+    if (listResult == null) {
+      return null;
+    }
+    Objects.requireNonNull(entityService, "entityService must not be null");
+
+    ListResult validatedListResult =
+        new ListResult()
+            .setStart(listResult.getStart())
+            .setCount(listResult.getCount())
+            .setTotal(listResult.getTotal());
+
+    UrnArray validatedEntities =
+        listResult.getEntities().stream()
+            .filter(entityService::exists)
+            .collect(Collectors.toCollection(UrnArray::new));
+    validatedListResult.setEntities(validatedEntities);
+
+    return validatedListResult;
+>>>>>>> oss_master
   }
 
   public static LineageSearchResult validateLineageSearchResult(
       final LineageSearchResult lineageSearchResult, @Nonnull final EntityService entityService) {
+<<<<<<< HEAD
     try (Timer.Context ignored =
         MetricUtils.timer(ValidationUtils.class, "validateLineageResult").time()) {
       if (lineageSearchResult == null) {
@@ -154,6 +223,27 @@ public class ValidationUtils {
       log.debug("Returning validated lineage search results");
       return validatedLineageSearchResult;
     }
+=======
+    if (lineageSearchResult == null) {
+      return null;
+    }
+    Objects.requireNonNull(entityService, "entityService must not be null");
+
+    LineageSearchResult validatedLineageSearchResult =
+        new LineageSearchResult()
+            .setMetadata(lineageSearchResult.getMetadata())
+            .setFrom(lineageSearchResult.getFrom())
+            .setPageSize(lineageSearchResult.getPageSize())
+            .setNumEntities(lineageSearchResult.getNumEntities());
+
+    LineageSearchEntityArray validatedEntities =
+        lineageSearchResult.getEntities().stream()
+            .filter(entity -> entityService.exists(entity.getEntity()))
+            .collect(Collectors.toCollection(LineageSearchEntityArray::new));
+    validatedLineageSearchResult.setEntities(validatedEntities);
+
+    return validatedLineageSearchResult;
+>>>>>>> oss_master
   }
 
   public static EntityLineageResult validateEntityLineageResult(

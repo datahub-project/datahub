@@ -2,7 +2,10 @@ package com.linkedin.datahub.graphql.resolvers.test;
 
 import static com.linkedin.datahub.graphql.resolvers.test.TestUtils.*;
 
+<<<<<<< HEAD
 import com.linkedin.common.Status;
+=======
+>>>>>>> oss_master
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
@@ -16,8 +19,11 @@ import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.concurrent.CompletableFuture;
+<<<<<<< HEAD
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+=======
+>>>>>>> oss_master
 
 /**
  * Resolver responsible for soft-deleting a particular DataHub Test. Requires MANAGE_TESTS
@@ -43,6 +49,7 @@ public class DeleteTestResolver implements DataFetcher<CompletableFuture<Boolean
         () -> {
           if (canManageTests(context)) {
             try {
+<<<<<<< HEAD
 
               if (!_entityClient.exists(urn, context.getAuthentication())) {
                 throw new DataHubGraphQLException(
@@ -74,6 +81,9 @@ public class DeleteTestResolver implements DataFetcher<CompletableFuture<Boolean
                           e);
                     }
                   });
+=======
+              _entityClient.deleteEntity(urn, context.getAuthentication());
+>>>>>>> oss_master
               return true;
             } catch (Exception e) {
               throw new RuntimeException(

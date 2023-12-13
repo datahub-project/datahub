@@ -189,6 +189,7 @@ public class DashboardStatsSummaryTest {
 
     return mockClient;
   }
+<<<<<<< HEAD
 
   private EntityClient initMockEntityClient() throws Exception {
     EntityClient client = Mockito.mock(EntityClient.class);
@@ -201,4 +202,6 @@ public class DashboardStatsSummaryTest {
         .thenReturn(null);
     return client;
   }
+=======
+>>>>>>> oss_master
 }

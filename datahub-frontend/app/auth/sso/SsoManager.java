@@ -6,6 +6,7 @@ import com.datahub.authentication.Authentication;
 import java.util.Objects;
 import java.util.Optional;
 import javax.annotation.Nonnull;
+<<<<<<< HEAD
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.http.HttpEntity;
@@ -23,6 +24,10 @@ import play.mvc.Http;
  * well.
  */
 @Slf4j
+=======
+
+/** Singleton class that stores & serves reference to a single {@link SsoProvider} if one exists. */
+>>>>>>> oss_master
 public class SsoManager {
 
   private SsoProvider<?> _provider; // Only one active provider at a time.
@@ -32,6 +37,7 @@ public class SsoManager {
   private final CloseableHttpClient _httpClient; // HTTP client for making requests to GMS.
   private com.typesafe.config.Config _configs;
 
+<<<<<<< HEAD
   public SsoManager(
       com.typesafe.config.Config configs,
       Authentication authentication,
@@ -44,6 +50,9 @@ public class SsoManager {
     _httpClient = Objects.requireNonNull(httpClient, "httpClient cannot be null");
     _provider = null;
   }
+=======
+  public SsoManager() {}
+>>>>>>> oss_master
 
   /**
    * Returns true if SSO is enabled, meaning a non-null {@link SsoProvider} has been provided to the

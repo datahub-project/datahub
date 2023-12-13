@@ -3,7 +3,10 @@ package client;
 import com.datahub.authentication.Authentication;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+<<<<<<< HEAD
 import com.google.inject.Inject;
+=======
+>>>>>>> oss_master
 import java.nio.charset.StandardCharsets;
 import java.util.Objects;
 import javax.annotation.Nonnull;
@@ -48,7 +51,10 @@ public class AuthServiceClient {
   private final Authentication systemAuthentication;
   private final CloseableHttpClient httpClient;
 
+<<<<<<< HEAD
   @Inject
+=======
+>>>>>>> oss_master
   public AuthServiceClient(
       @Nonnull final String metadataServiceHost,
       @Nonnull final Integer metadataServicePort,

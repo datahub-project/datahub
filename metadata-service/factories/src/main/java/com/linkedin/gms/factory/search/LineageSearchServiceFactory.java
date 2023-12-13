@@ -33,7 +33,11 @@ public class LineageSearchServiceFactory {
     return new LineageSearchService(
         searchService,
         graphService,
+<<<<<<< HEAD
         cacheEnabled ? cacheManager.getCache(LINEAGE_SEARCH_SERVICE_CACHE_NAME) : null,
+=======
+        cacheEnabled ? cacheManager.getCache("relationshipSearchService") : null,
+>>>>>>> oss_master
         cacheEnabled,
         configurationProvider.getCache().getSearch().getLineage());
   }

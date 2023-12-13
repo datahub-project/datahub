@@ -2,6 +2,7 @@ package auth.sso;
 
 import static auth.AuthUtils.*;
 
+<<<<<<< HEAD
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -10,6 +11,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
  * Refactor SsoConfigs to have OidcConfigs and other identity provider specific configs as instance
  * variables. SSoManager should ideally not know about identity provider specific configs.
  */
+=======
+/** Class responsible for extracting and validating top-level SSO related configurations. */
+>>>>>>> oss_master
 public class SsoConfigs {
 
   /** Required configs */
@@ -29,11 +33,24 @@ public class SsoConfigs {
   private final String _authSuccessRedirectPath;
   private final Boolean _oidcEnabled;
 
+<<<<<<< HEAD
   public SsoConfigs(Builder<?> builder) {
     _authBaseUrl = builder._authBaseUrl;
     _authBaseCallbackPath = builder._authBaseCallbackPath;
     _authSuccessRedirectPath = builder._authSuccessRedirectPath;
     _oidcEnabled = builder._oidcEnabled;
+=======
+  public SsoConfigs(final com.typesafe.config.Config configs) {
+    _authBaseUrl = getRequired(configs, AUTH_BASE_URL_CONFIG_PATH);
+    _authBaseCallbackPath =
+        getOptional(configs, AUTH_BASE_CALLBACK_PATH_CONFIG_PATH, DEFAULT_BASE_CALLBACK_PATH);
+    _authSuccessRedirectPath =
+        getOptional(configs, AUTH_SUCCESS_REDIRECT_PATH_CONFIG_PATH, DEFAULT_SUCCESS_REDIRECT_PATH);
+    _oidcEnabled =
+        configs.hasPath(OIDC_ENABLED_CONFIG_PATH)
+            && Boolean.TRUE.equals(
+                Boolean.parseBoolean(configs.getString(OIDC_ENABLED_CONFIG_PATH)));
+>>>>>>> oss_master
   }
 
   public String getAuthBaseUrl() {

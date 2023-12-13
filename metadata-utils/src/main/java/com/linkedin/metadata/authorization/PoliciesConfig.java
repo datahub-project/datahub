@@ -56,6 +56,7 @@ public class PoliciesConfig {
           "Generate Personal Access Tokens",
           "Generate personal access tokens for use with DataHub APIs.");
 
+<<<<<<< HEAD
   public static final Privilege VIEW_METADATA_PROPOSALS_PRIVILEGE =
       Privilege.of(
           "VIEW_METADATA_PROPOSALS",
@@ -85,6 +86,27 @@ public class PoliciesConfig {
   public static final Privilege MANAGE_TESTS_PRIVILEGE =
       Privilege.of("MANAGE_TESTS", "Manage Tests", "Create and remove Asset Tests.");
 
+=======
+  public static final Privilege MANAGE_ACCESS_TOKENS =
+      Privilege.of(
+          "MANAGE_ACCESS_TOKENS",
+          "Manage All Access Tokens",
+          "Create, list and revoke access tokens on behalf of users in DataHub. Be careful - Actors with this "
+              + "privilege are effectively super users that can impersonate other users.");
+
+  public static final Privilege MANAGE_DOMAINS_PRIVILEGE =
+      Privilege.of("MANAGE_DOMAINS", "Manage Domains", "Create and remove Asset Domains.");
+
+  public static final Privilege MANAGE_GLOBAL_ANNOUNCEMENTS_PRIVILEGE =
+      Privilege.of(
+          "MANAGE_GLOBAL_ANNOUNCEMENTS",
+          "Manage Home Page Posts",
+          "Create and delete home page posts");
+
+  public static final Privilege MANAGE_TESTS_PRIVILEGE =
+      Privilege.of("MANAGE_TESTS", "Manage Tests", "Create and remove Asset Tests.");
+
+>>>>>>> oss_master
   public static final Privilege MANAGE_GLOSSARIES_PRIVILEGE =
       Privilege.of(
           "MANAGE_GLOSSARIES", "Manage Glossaries", "Create, edit, and remove Glossary Entities");
@@ -110,11 +132,14 @@ public class PoliciesConfig {
           "Create Global Announcements",
           "Create new Global Announcements.");
 
+<<<<<<< HEAD
   public static final Privilege MANAGE_GLOBAL_SETTINGS =
       Privilege.of(
           "MANAGE_GLOBAL_SETTINGS",
           "Manage Platform Settings",
           "View and change platform-level settings, like integrations & notifications.");
+=======
+>>>>>>> oss_master
   public static final Privilege MANAGE_GLOBAL_VIEWS =
       Privilege.of(
           "MANAGE_GLOBAL_VIEWS",
@@ -127,6 +152,7 @@ public class PoliciesConfig {
           "Manage Ownership Types",
           "Create, update and delete Ownership Types.");
 
+<<<<<<< HEAD
   public static final Privilege MANAGE_CONNECTIONS_PRIVILEGE =
       Privilege.of(
           "MANAGE_CONNECTIONS", "Manage Connections", "Manage connections to external platforms.");
@@ -138,14 +164,19 @@ public class PoliciesConfig {
           "Manage Monitors",
           "Create, update, and delete any data asset monitors, including Custom SQL monitors. Grant with care.");
 
+=======
+>>>>>>> oss_master
   public static final List<Privilege> PLATFORM_PRIVILEGES =
       ImmutableList.of(
           MANAGE_POLICIES_PRIVILEGE,
           MANAGE_USERS_AND_GROUPS_PRIVILEGE,
           VIEW_ANALYTICS_PRIVILEGE,
           GET_ANALYTICS_PRIVILEGE,
+<<<<<<< HEAD
           VIEW_METADATA_PROPOSALS_PRIVILEGE,
           CREATE_CONSTRAINTS_PRIVILEGE,
+=======
+>>>>>>> oss_master
           MANAGE_DOMAINS_PRIVILEGE,
           MANAGE_GLOBAL_ANNOUNCEMENTS_PRIVILEGE,
           MANAGE_INGESTION_PRIVILEGE,
@@ -160,10 +191,14 @@ public class PoliciesConfig {
           CREATE_DOMAINS_PRIVILEGE,
           CREATE_GLOBAL_ANNOUNCEMENTS_PRIVILEGE,
           MANAGE_GLOBAL_VIEWS,
+<<<<<<< HEAD
           MANAGE_GLOBAL_OWNERSHIP_TYPES,
           MANAGE_GLOBAL_SETTINGS,
           MANAGE_CONNECTIONS_PRIVILEGE,
           MANAGE_MONITORS);
+=======
+          MANAGE_GLOBAL_OWNERSHIP_TYPES);
+>>>>>>> oss_master
 
   // Resource Privileges //
 
@@ -174,6 +209,7 @@ public class PoliciesConfig {
       Privilege.of(
           "EDIT_ENTITY_TAGS", "Edit Tags", "The ability to add and remove tags to an asset.");
 
+<<<<<<< HEAD
   public static final Privilege PROPOSE_ENTITY_TAGS_PRIVILEGE =
       Privilege.of(
           "PROPOSE_ENTITY_TAGS",
@@ -295,14 +331,98 @@ public class PoliciesConfig {
           "Edit Embedded Content",
           "The ability to edit the embedded content for an entity.");
 
+=======
+  public static final Privilege EDIT_ENTITY_GLOSSARY_TERMS_PRIVILEGE =
+      Privilege.of(
+          "EDIT_ENTITY_GLOSSARY_TERMS",
+          "Edit Glossary Terms",
+          "The ability to add and remove glossary terms to an asset.");
+
+  public static final Privilege EDIT_ENTITY_OWNERS_PRIVILEGE =
+      Privilege.of(
+          "EDIT_ENTITY_OWNERS",
+          "Edit Owners",
+          "The ability to add and remove owners of an entity.");
+
+  public static final Privilege EDIT_ENTITY_DOCS_PRIVILEGE =
+      Privilege.of(
+          "EDIT_ENTITY_DOCS",
+          "Edit Description",
+          "The ability to edit the description (documentation) of an entity.");
+
+  public static final Privilege EDIT_ENTITY_DOC_LINKS_PRIVILEGE =
+      Privilege.of(
+          "EDIT_ENTITY_DOC_LINKS",
+          "Edit Links",
+          "The ability to edit links associated with an entity.");
+
+  public static final Privilege EDIT_ENTITY_STATUS_PRIVILEGE =
+      Privilege.of(
+          "EDIT_ENTITY_STATUS",
+          "Edit Status",
+          "The ability to edit the status of an entity (soft deleted or not).");
+
+  public static final Privilege EDIT_ENTITY_DOMAINS_PRIVILEGE =
+      Privilege.of(
+          "EDIT_DOMAINS_PRIVILEGE", "Edit Domain", "The ability to edit the Domain of an entity.");
+
+  public static final Privilege EDIT_ENTITY_DATA_PRODUCTS_PRIVILEGE =
+      Privilege.of(
+          "EDIT_ENTITY_DATA_PRODUCTS",
+          "Edit Data Product",
+          "The ability to edit the Data Product of an entity.");
+
+  public static final Privilege EDIT_ENTITY_DEPRECATION_PRIVILEGE =
+      Privilege.of(
+          "EDIT_DEPRECATION_PRIVILEGE",
+          "Edit Deprecation",
+          "The ability to edit the Deprecation status of an entity.");
+
+  public static final Privilege EDIT_ENTITY_ASSERTIONS_PRIVILEGE =
+      Privilege.of(
+          "EDIT_ENTITY_ASSERTIONS",
+          "Edit Assertions",
+          "The ability to add and remove assertions from an entity.");
+
+  public static final Privilege EDIT_ENTITY_OPERATIONS_PRIVILEGE =
+      Privilege.of(
+          "EDIT_ENTITY_OPERATIONS",
+          "Edit Operations",
+          "The ability to report or edit operations information about an entity.");
+
+  public static final Privilege EDIT_ENTITY_PRIVILEGE =
+      Privilege.of(
+          "EDIT_ENTITY",
+          "Edit Entity",
+          "The ability to edit any information about an entity. Super user privileges for the entity.");
+
+  public static final Privilege DELETE_ENTITY_PRIVILEGE =
+      Privilege.of("DELETE_ENTITY", "Delete", "The ability to delete the delete this entity.");
+
+  public static final Privilege EDIT_LINEAGE_PRIVILEGE =
+      Privilege.of(
+          "EDIT_LINEAGE",
+          "Edit Lineage",
+          "The ability to add and remove lineage edges for this entity.");
+
+  public static final Privilege EDIT_ENTITY_EMBED_PRIVILEGE =
+      Privilege.of(
+          "EDIT_ENTITY_EMBED",
+          "Edit Embedded Content",
+          "The ability to edit the embedded content for an entity.");
+
+>>>>>>> oss_master
   public static final List<Privilege> COMMON_ENTITY_PRIVILEGES =
       ImmutableList.of(
           VIEW_ENTITY_PAGE_PRIVILEGE,
           EDIT_ENTITY_TAGS_PRIVILEGE,
+<<<<<<< HEAD
           PROPOSE_ENTITY_TAGS_PRIVILEGE,
           PROPOSE_ENTITY_GLOSSARY_TERMS_PRIVILEGE,
           MANAGE_ENTITY_TAGS_PRIVILEGE,
           MANAGE_ENTITY_GLOSSARY_TERMS_PRIVILEGE,
+=======
+>>>>>>> oss_master
           EDIT_ENTITY_GLOSSARY_TERMS_PRIVILEGE,
           EDIT_ENTITY_OWNERS_PRIVILEGE,
           EDIT_ENTITY_DOCS_PRIVILEGE,
@@ -311,11 +431,16 @@ public class PoliciesConfig {
           EDIT_ENTITY_DOMAINS_PRIVILEGE,
           EDIT_ENTITY_DATA_PRODUCTS_PRIVILEGE,
           EDIT_ENTITY_DEPRECATION_PRIVILEGE,
+<<<<<<< HEAD
           EDIT_ENTITY_INCIDENTS_PRIVILEGE,
           EDIT_ENTITY_PRIVILEGE,
           DELETE_ENTITY_PRIVILEGE,
           PROPOSE_ENTITY_DOCS_PRIVILEGE,
           MANAGE_ENTITY_DOCS_PROPOSALS_PRIVILEGE);
+=======
+          EDIT_ENTITY_PRIVILEGE,
+          DELETE_ENTITY_PRIVILEGE);
+>>>>>>> oss_master
 
   // Dataset Privileges
   public static final Privilege EDIT_DATASET_COL_TAGS_PRIVILEGE =
@@ -324,6 +449,7 @@ public class PoliciesConfig {
           "Edit Dataset Column Tags",
           "The ability to edit the column (field) tags associated with a dataset schema.");
 
+<<<<<<< HEAD
   public static final Privilege PROPOSE_DATASET_COL_TAGS_PRIVILEGE =
       Privilege.of(
           "PROPOSE_DATASET_COL_TAGS",
@@ -336,12 +462,15 @@ public class PoliciesConfig {
           "Manage Dataset Column Tag Proposals",
           "The ability to manage column (field) tag proposals associated with a dataset schema.");
 
+=======
+>>>>>>> oss_master
   public static final Privilege EDIT_DATASET_COL_GLOSSARY_TERMS_PRIVILEGE =
       Privilege.of(
           "EDIT_DATASET_COL_GLOSSARY_TERMS",
           "Edit Dataset Column Glossary Terms",
           "The ability to edit the column (field) glossary terms associated with a dataset schema.");
 
+<<<<<<< HEAD
   public static final Privilege PROPOSE_DATASET_COL_GLOSSARY_TERMS_PRIVILEGE =
       Privilege.of(
           "PROPOSE_DATASET_COL_GLOSSARY_TERMS",
@@ -354,18 +483,23 @@ public class PoliciesConfig {
           "Manage Dataset Column Glossary Terms",
           "The ability to manage column (field) glossary term proposals associated with a dataset schema.");
 
+=======
+>>>>>>> oss_master
   public static final Privilege EDIT_DATASET_COL_DESCRIPTION_PRIVILEGE =
       Privilege.of(
           "EDIT_DATASET_COL_DESCRIPTION",
           "Edit Dataset Column Descriptions",
           "The ability to edit the column (field) descriptions associated with a dataset schema.");
 
+<<<<<<< HEAD
   public static final Privilege PROPOSE_DATASET_COL_DESCRIPTION_PRIVILEGE =
       Privilege.of(
           "PROPOSE_DATASET_COL_DESCRIPTION_PRIVILEGE",
           "Propose Dataset Column Descriptions",
           "The ability to propose new descriptions associated with a dataset schema.");
 
+=======
+>>>>>>> oss_master
   public static final Privilege VIEW_DATASET_USAGE_PRIVILEGE =
       Privilege.of(
           "VIEW_DATASET_USAGE",
@@ -384,6 +518,7 @@ public class PoliciesConfig {
           "Edit Dataset Queries",
           "The ability to edit the Queries for a Dataset.");
 
+<<<<<<< HEAD
   // Acryl-main Only
   public static final Privilege EDIT_ENTITY_MONITORS =
       Privilege.of(
@@ -721,6 +856,296 @@ public class PoliciesConfig {
               EDIT_USER_PROFILE_PRIVILEGE,
               EDIT_ENTITY_PRIVILEGE));
 
+=======
+  // Tag Privileges
+  public static final Privilege EDIT_TAG_COLOR_PRIVILEGE =
+      Privilege.of("EDIT_TAG_COLOR", "Edit Tag Color", "The ability to change the color of a Tag.");
+
+  // Group Privileges
+  public static final Privilege EDIT_GROUP_MEMBERS_PRIVILEGE =
+      Privilege.of(
+          "EDIT_GROUP_MEMBERS",
+          "Edit Group Members",
+          "The ability to add and remove members to a group.");
+
+  // User Privileges
+  public static final Privilege EDIT_USER_PROFILE_PRIVILEGE =
+      Privilege.of(
+          "EDIT_USER_PROFILE",
+          "Edit User Profile",
+          "The ability to change the user's profile including display name, bio, title, profile image, etc.");
+
+  // User + Group Privileges
+  public static final Privilege EDIT_CONTACT_INFO_PRIVILEGE =
+      Privilege.of(
+          "EDIT_CONTACT_INFO",
+          "Edit Contact Information",
+          "The ability to change the contact information such as email & chat handles.");
+
+  // Glossary Node Privileges
+  public static final Privilege MANAGE_GLOSSARY_CHILDREN_PRIVILEGE =
+      Privilege.of(
+          "MANAGE_GLOSSARY_CHILDREN",
+          "Manage Direct Glossary Children",
+          "The ability to create and delete the direct children of this entity.");
+
+  // Glossary Node Privileges
+  public static final Privilege MANAGE_ALL_GLOSSARY_CHILDREN_PRIVILEGE =
+      Privilege.of(
+          "MANAGE_ALL_GLOSSARY_CHILDREN",
+          "Manage All Glossary Children",
+          "The ability to create and delete everything underneath this entity.");
+
+  // REST API Specific Privileges (not adding to lists of privileges above as those affect GraphQL
+  // as well)
+  public static final Privilege GET_TIMELINE_PRIVILEGE =
+      Privilege.of(
+          "GET_TIMELINE_PRIVILEGE", "Get Timeline API", "The ability to use the GET Timeline API.");
+
+  public static final Privilege GET_ENTITY_PRIVILEGE =
+      Privilege.of(
+          "GET_ENTITY_PRIVILEGE",
+          "Get Entity + Relationships API",
+          "The ability to use the GET Entity and Relationships API.");
+
+  public static final Privilege GET_TIMESERIES_ASPECT_PRIVILEGE =
+      Privilege.of(
+          "GET_TIMESERIES_ASPECT_PRIVILEGE",
+          "Get Timeseries Aspect API",
+          "The ability to use the GET Timeseries Aspect API.");
+
+  public static final Privilege GET_COUNTS_PRIVILEGE =
+      Privilege.of(
+          "GET_COUNTS_PRIVILEGE",
+          "Get Aspect/Entity Count APIs",
+          "The ability to use the GET Aspect/Entity Count APIs.");
+
+  public static final Privilege RESTORE_INDICES_PRIVILEGE =
+      Privilege.of(
+          "RESTORE_INDICES_PRIVILEGE",
+          "Restore Indicies API",
+          "The ability to use the Restore Indices API.");
+
+  public static final Privilege GET_TIMESERIES_INDEX_SIZES_PRIVILEGE =
+      Privilege.of(
+          "GET_TIMESERIES_INDEX_SIZES_PRIVILEGE",
+          "Get Timeseries index sizes API",
+          "The ability to use the get Timeseries indices size API.");
+
+  public static final Privilege TRUNCATE_TIMESERIES_INDEX_PRIVILEGE =
+      Privilege.of(
+          "TRUNCATE_TIMESERIES_INDEX_PRIVILEGE",
+          "Truncate timeseries aspect index size API",
+          "The ability to use the API to truncate a timeseries index.");
+
+  public static final Privilege GET_ES_TASK_STATUS_PRIVILEGE =
+      Privilege.of(
+          "GET_ES_TASK_STATUS_PRIVILEGE",
+          "Get ES task status API",
+          "The ability to use the get task status API for an ElasticSearch task.");
+
+  public static final Privilege SEARCH_PRIVILEGE =
+      Privilege.of("SEARCH_PRIVILEGE", "Search API", "The ability to access search APIs.");
+
+  public static final Privilege SET_WRITEABLE_PRIVILEGE =
+      Privilege.of(
+          "SET_WRITEABLE_PRIVILEGE",
+          "Enable/Disable Writeability API",
+          "The ability to enable or disable GMS writeability for data migrations.");
+
+  public static final Privilege APPLY_RETENTION_PRIVILEGE =
+      Privilege.of(
+          "APPLY_RETENTION_PRIVILEGE",
+          "Apply Retention API",
+          "The ability to apply retention using the API.");
+
+  public static final Privilege PRODUCE_PLATFORM_EVENT_PRIVILEGE =
+      Privilege.of(
+          "PRODUCE_PLATFORM_EVENT_PRIVILEGE",
+          "Produce Platform Event API",
+          "The ability to produce Platform Events using the API.");
+
+  public static final ResourcePrivileges DATASET_PRIVILEGES =
+      ResourcePrivileges.of(
+          "dataset",
+          "Datasets",
+          "Datasets indexed by DataHub",
+          Stream.of(
+                  COMMON_ENTITY_PRIVILEGES,
+                  ImmutableList.of(
+                      VIEW_DATASET_USAGE_PRIVILEGE,
+                      VIEW_DATASET_PROFILE_PRIVILEGE,
+                      EDIT_DATASET_COL_DESCRIPTION_PRIVILEGE,
+                      EDIT_DATASET_COL_TAGS_PRIVILEGE,
+                      EDIT_DATASET_COL_GLOSSARY_TERMS_PRIVILEGE,
+                      EDIT_ENTITY_ASSERTIONS_PRIVILEGE,
+                      EDIT_LINEAGE_PRIVILEGE,
+                      EDIT_ENTITY_EMBED_PRIVILEGE,
+                      EDIT_QUERIES_PRIVILEGE))
+              .flatMap(Collection::stream)
+              .collect(Collectors.toList()));
+
+  // Charts Privileges
+  public static final ResourcePrivileges CHART_PRIVILEGES =
+      ResourcePrivileges.of(
+          "chart",
+          "Charts",
+          "Charts indexed by DataHub",
+          Stream.concat(
+                  COMMON_ENTITY_PRIVILEGES.stream(),
+                  ImmutableList.of(EDIT_LINEAGE_PRIVILEGE, EDIT_ENTITY_EMBED_PRIVILEGE).stream())
+              .collect(Collectors.toList()));
+
+  // Dashboard Privileges
+  public static final ResourcePrivileges DASHBOARD_PRIVILEGES =
+      ResourcePrivileges.of(
+          "dashboard",
+          "Dashboards",
+          "Dashboards indexed by DataHub",
+          Stream.concat(
+                  COMMON_ENTITY_PRIVILEGES.stream(),
+                  ImmutableList.of(EDIT_LINEAGE_PRIVILEGE, EDIT_ENTITY_EMBED_PRIVILEGE).stream())
+              .collect(Collectors.toList()));
+
+  // Data Doc Privileges
+  public static final ResourcePrivileges NOTEBOOK_PRIVILEGES =
+      ResourcePrivileges.of(
+          "notebook", "Notebook", "Notebook indexed by DataHub", COMMON_ENTITY_PRIVILEGES);
+
+  // Data Flow Privileges
+  public static final ResourcePrivileges DATA_FLOW_PRIVILEGES =
+      ResourcePrivileges.of(
+          "dataFlow",
+          "Data Pipelines",
+          "Data Pipelines indexed by DataHub",
+          COMMON_ENTITY_PRIVILEGES);
+
+  // Data Job Privileges
+  public static final ResourcePrivileges DATA_JOB_PRIVILEGES =
+      ResourcePrivileges.of(
+          "dataJob",
+          "Data Tasks",
+          "Data Tasks indexed by DataHub",
+          Stream.concat(
+                  COMMON_ENTITY_PRIVILEGES.stream(),
+                  ImmutableList.of(EDIT_LINEAGE_PRIVILEGE).stream())
+              .collect(Collectors.toList()));
+
+  // Tag Privileges
+  public static final ResourcePrivileges TAG_PRIVILEGES =
+      ResourcePrivileges.of(
+          "tag",
+          "Tags",
+          "Tags indexed by DataHub",
+          ImmutableList.of(
+              VIEW_ENTITY_PAGE_PRIVILEGE,
+              EDIT_ENTITY_OWNERS_PRIVILEGE,
+              EDIT_TAG_COLOR_PRIVILEGE,
+              EDIT_ENTITY_DOCS_PRIVILEGE,
+              EDIT_ENTITY_PRIVILEGE,
+              DELETE_ENTITY_PRIVILEGE));
+
+  // Container Privileges
+  public static final ResourcePrivileges CONTAINER_PRIVILEGES =
+      ResourcePrivileges.of(
+          "container", "Containers", "Containers indexed by DataHub", COMMON_ENTITY_PRIVILEGES);
+
+  // Domain Privileges
+  public static final Privilege MANAGE_DATA_PRODUCTS_PRIVILEGE =
+      Privilege.of(
+          "MANAGE_DATA_PRODUCTS",
+          "Manage Data Products",
+          "The ability to create, edit, and delete Data Products within a Domain");
+
+  // Domain Privileges
+  public static final ResourcePrivileges DOMAIN_PRIVILEGES =
+      ResourcePrivileges.of(
+          "domain",
+          "Domains",
+          "Domains created on DataHub",
+          ImmutableList.of(
+              VIEW_ENTITY_PAGE_PRIVILEGE,
+              EDIT_ENTITY_OWNERS_PRIVILEGE,
+              EDIT_ENTITY_DOCS_PRIVILEGE,
+              EDIT_ENTITY_DOC_LINKS_PRIVILEGE,
+              EDIT_ENTITY_PRIVILEGE,
+              DELETE_ENTITY_PRIVILEGE,
+              MANAGE_DATA_PRODUCTS_PRIVILEGE));
+
+  // Data Product Privileges
+  public static final ResourcePrivileges DATA_PRODUCT_PRIVILEGES =
+      ResourcePrivileges.of(
+          "dataProduct",
+          "Data Products",
+          "Data Products created on DataHub",
+          ImmutableList.of(
+              VIEW_ENTITY_PAGE_PRIVILEGE,
+              EDIT_ENTITY_OWNERS_PRIVILEGE,
+              EDIT_ENTITY_DOCS_PRIVILEGE,
+              EDIT_ENTITY_DOC_LINKS_PRIVILEGE,
+              EDIT_ENTITY_PRIVILEGE,
+              DELETE_ENTITY_PRIVILEGE,
+              EDIT_ENTITY_TAGS_PRIVILEGE,
+              EDIT_ENTITY_GLOSSARY_TERMS_PRIVILEGE,
+              EDIT_ENTITY_DOMAINS_PRIVILEGE));
+
+  // Glossary Term Privileges
+  public static final ResourcePrivileges GLOSSARY_TERM_PRIVILEGES =
+      ResourcePrivileges.of(
+          "glossaryTerm",
+          "Glossary Terms",
+          "Glossary Terms created on DataHub",
+          ImmutableList.of(
+              VIEW_ENTITY_PAGE_PRIVILEGE,
+              EDIT_ENTITY_OWNERS_PRIVILEGE,
+              EDIT_ENTITY_DOCS_PRIVILEGE,
+              EDIT_ENTITY_DOC_LINKS_PRIVILEGE,
+              EDIT_ENTITY_DEPRECATION_PRIVILEGE,
+              EDIT_ENTITY_PRIVILEGE));
+
+  // Glossary Node Privileges
+  public static final ResourcePrivileges GLOSSARY_NODE_PRIVILEGES =
+      ResourcePrivileges.of(
+          "glossaryNode",
+          "Glossary Term Groups",
+          "Glossary Term Groups created on DataHub",
+          ImmutableList.of(
+              VIEW_ENTITY_PAGE_PRIVILEGE,
+              EDIT_ENTITY_OWNERS_PRIVILEGE,
+              EDIT_ENTITY_DOCS_PRIVILEGE,
+              EDIT_ENTITY_DOC_LINKS_PRIVILEGE,
+              EDIT_ENTITY_DEPRECATION_PRIVILEGE,
+              EDIT_ENTITY_PRIVILEGE,
+              MANAGE_GLOSSARY_CHILDREN_PRIVILEGE,
+              MANAGE_ALL_GLOSSARY_CHILDREN_PRIVILEGE));
+
+  // Group Privileges
+  public static final ResourcePrivileges CORP_GROUP_PRIVILEGES =
+      ResourcePrivileges.of(
+          "corpGroup",
+          "Groups",
+          "Groups on DataHub",
+          ImmutableList.of(
+              VIEW_ENTITY_PAGE_PRIVILEGE,
+              EDIT_ENTITY_OWNERS_PRIVILEGE,
+              EDIT_GROUP_MEMBERS_PRIVILEGE,
+              EDIT_CONTACT_INFO_PRIVILEGE,
+              EDIT_ENTITY_DOCS_PRIVILEGE,
+              EDIT_ENTITY_PRIVILEGE));
+
+  // User Privileges
+  public static final ResourcePrivileges CORP_USER_PRIVILEGES =
+      ResourcePrivileges.of(
+          "corpuser",
+          "Users",
+          "Users on DataHub",
+          ImmutableList.of(
+              VIEW_ENTITY_PAGE_PRIVILEGE,
+              EDIT_CONTACT_INFO_PRIVILEGE,
+              EDIT_USER_PROFILE_PRIVILEGE,
+              EDIT_ENTITY_PRIVILEGE));
+
+>>>>>>> oss_master
   public static final List<ResourcePrivileges> ENTITY_RESOURCE_PRIVILEGES =
       ImmutableList.of(
           DATASET_PRIVILEGES,

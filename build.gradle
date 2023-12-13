@@ -240,7 +240,6 @@ project.ext.externalDependency = [
     'common': 'commons-io:commons-io:2.7',
     'jline':'jline:jline:1.4.1',
     'jetbrains':' org.jetbrains.kotlin:kotlin-stdlib:1.6.0'
-
 ]
 
 allprojects {
@@ -279,9 +278,13 @@ subprojects {
 
   apply plugin: 'maven-publish'
   apply plugin: 'com.gorylenko.gradle-git-properties'
+<<<<<<< HEAD
   if (shouldApplySpotless(project)) {
   apply plugin: 'com.diffplug.spotless'
   }
+=======
+  apply plugin: 'com.diffplug.spotless'
+>>>>>>> oss_master
 
   gitProperties {
     keys = ['git.commit.id','git.commit.id.describe','git.commit.time']
@@ -304,16 +307,27 @@ subprojects {
         implementation("com.fasterxml.jackson.core:jackson-dataformat-cbor:$jacksonVersion")
       }
     }
+<<<<<<< HEAD
     if (shouldApplySpotless(project)) {
+=======
+>>>>>>> oss_master
     spotless {
       java {
         googleJavaFormat()
         target project.fileTree(project.projectDir) {
+<<<<<<< HEAD
           include '**/*.java'
           exclude 'build/**/*.java'
           exclude '**/generated/**/*.*'
           exclude '**/mainGeneratedDataTemplate/**/*.*'
           exclude '**/mainGeneratedRest/**/*.*'
+=======
+            include '**/*.java'
+            exclude 'build/**/*.java'
+            exclude '**/generated/**/*.*'
+            exclude '**/mainGeneratedDataTemplate/**/*.*'
+            exclude '**/mainGeneratedRest/**/*.*'
+>>>>>>> oss_master
         }
       }
     }
@@ -331,7 +345,10 @@ subprojects {
       // tasks.withType(JavaCompile) {
       //   finalizedBy(tasks.findByName('spotlessApply'))
       // }
+<<<<<<< HEAD
     }
+=======
+>>>>>>> oss_master
     }
   }
 

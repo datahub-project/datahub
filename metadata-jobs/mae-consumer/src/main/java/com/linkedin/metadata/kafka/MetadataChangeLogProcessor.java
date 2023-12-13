@@ -40,11 +40,15 @@ import org.springframework.stereotype.Component;
   IngestionSchedulerHook.class,
   EntityChangeEventGeneratorHook.class,
   KafkaEventConsumerFactory.class,
+<<<<<<< HEAD
   SiblingAssociationHook.class,
   MetadataTestHook.class,
   AssertionsSummaryHook.class,
   IncidentsSummaryHook.class,
   AssertionActionsHook.class
+=======
+  SiblingAssociationHook.class
+>>>>>>> oss_master
 })
 @EnableKafka
 public class MetadataChangeLogProcessor {

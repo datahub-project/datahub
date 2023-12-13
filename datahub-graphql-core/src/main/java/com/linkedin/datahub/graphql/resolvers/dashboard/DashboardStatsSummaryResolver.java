@@ -67,6 +67,7 @@ public class DashboardStatsSummaryResolver
 
           try {
 
+<<<<<<< HEAD
             // acryl-main only - first see if we can populate stats based on the UsageFeatures
             // aspect
             UsageFeatures maybeUsageFeatures = getUsageFeatures(resourceUrn, context);
@@ -97,6 +98,30 @@ public class DashboardStatsSummaryResolver
             this.summaryCache.put(resourceUrn, result);
             return result;
 
+=======
+            final DashboardStatsSummary result = new DashboardStatsSummary();
+
+            // Obtain total dashboard view count, by viewing the latest reported dashboard metrics.
+            List<DashboardUsageMetrics> dashboardUsageMetrics =
+                getDashboardUsageMetrics(
+                    resourceUrn.toString(), null, null, 1, this.timeseriesAspectService);
+            if (dashboardUsageMetrics.size() > 0) {
+              result.setViewCount(getDashboardViewCount(resourceUrn));
+            }
+
+            // Obtain unique user statistics, by rolling up unique users over the past month.
+            List<DashboardUserUsageCounts> userUsageCounts = getDashboardUsagePerUser(resourceUrn);
+            result.setUniqueUserCountLast30Days(userUsageCounts.size());
+            result.setTopUsersLast30Days(
+                trimUsers(
+                    userUsageCounts.stream()
+                        .map(DashboardUserUsageCounts::getUser)
+                        .collect(Collectors.toList())));
+
+            this.summaryCache.put(resourceUrn, result);
+            return result;
+
+>>>>>>> oss_master
           } catch (Exception e) {
             log.error(
                 String.format(
@@ -129,6 +154,7 @@ public class DashboardStatsSummaryResolver
     }
     return originalUsers;
   }
+<<<<<<< HEAD
 
   @Nullable
   private UsageFeatures getUsageFeatures(final Urn datasetUrn, final QueryContext context) {
@@ -203,4 +229,6 @@ public class DashboardStatsSummaryResolver
     result.setUrn(userUrn.toString());
     return result;
   }
+=======
+>>>>>>> oss_master
 }

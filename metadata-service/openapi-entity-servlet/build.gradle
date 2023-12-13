@@ -77,4 +77,8 @@ task openApiGenerate(type: GenerateSwaggerCode, dependsOn: [mergeApiComponents, 
           'delegatePattern'    : "false"
   ]
 }
+<<<<<<< HEAD
 tasks.getByName("compileJava").dependsOn(openApiGenerate)
+=======
+tasks.getByName("compileJava").dependsOn(openApiGenerate)
+>>>>>>> oss_master
