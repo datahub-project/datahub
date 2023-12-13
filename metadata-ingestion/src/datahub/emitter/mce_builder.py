@@ -9,12 +9,13 @@ from enum import Enum
 from typing import (
     TYPE_CHECKING,
     Any,
+    Iterable,
     List,
     Optional,
+    Tuple,
     Type,
     TypeVar,
     Union,
-    cast,
     get_type_hints,
 )
 
@@ -342,26 +343,20 @@ def make_ml_model_group_urn(platform: str, group_name: str, env: str) -> str:
     )
 
 
-def is_valid_ownership_type(ownership_type: Optional[str]) -> bool:
-    return ownership_type is not None and ownership_type in [
-        OwnershipTypeClass.TECHNICAL_OWNER,
-        OwnershipTypeClass.BUSINESS_OWNER,
-        OwnershipTypeClass.DATA_STEWARD,
-        OwnershipTypeClass.NONE,
-        OwnershipTypeClass.DEVELOPER,
-        OwnershipTypeClass.DATAOWNER,
-        OwnershipTypeClass.DELEGATE,
-        OwnershipTypeClass.PRODUCER,
-        OwnershipTypeClass.CONSUMER,
-        OwnershipTypeClass.STAKEHOLDER,
+def get_class_fields(_class: Type[object]) -> Iterable[str]:
+    return [
+        f
+        for f in dir(_class)
+        if not callable(getattr(_class, f)) and not f.startswith("_")
     ]
 
 
-def validate_ownership_type(ownership_type: Optional[str]) -> str:
-    if is_valid_ownership_type(ownership_type):
-        return cast(str, ownership_type)
-    else:
-        raise ValueError(f"Unexpected ownership type: {ownership_type}")
+def validate_ownership_type(ownership_type: str) -> Tuple[str, Optional[str]]:
+    if ownership_type.startswith("urn:li:"):
+        return OwnershipTypeClass.CUSTOM, ownership_type
+    if ownership_type in get_class_fields(OwnershipTypeClass):
+        return ownership_type, None
+    raise ValueError(f"Unexpected ownership type: {ownership_type}")
 
 
 def make_lineage_mce(
