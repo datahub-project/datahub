@@ -12,6 +12,8 @@ import {
 } from '../../../types.generated';
 import { ListPoliciesDocument, ListPoliciesQuery } from '../../../graphql/policy.generated';
 
+export const DEFAULT_PAGE_SIZE = 10;
+
 export const EMPTY_POLICY = {
     type: PolicyType.Metadata,
     name: '',
