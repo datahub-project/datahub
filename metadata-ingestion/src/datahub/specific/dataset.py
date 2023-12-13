@@ -2,6 +2,7 @@ from typing import Dict, Generic, List, Optional, TypeVar, Union
 from urllib.parse import quote
 
 from datahub.emitter.mcp_patch_builder import MetadataPatchProposal
+from datahub.metadata.com.linkedin.pegasus2avro.common import TimeStamp
 from datahub.metadata.schema_classes import (
     DatasetPropertiesClass as DatasetProperties,
     EditableDatasetPropertiesClass as EditableDatasetProperties,
@@ -18,7 +19,6 @@ from datahub.metadata.schema_classes import (
     UpstreamClass as Upstream,
     UpstreamLineageClass as UpstreamLineage,
 )
-from datahub.metadata.com.linkedin.pegasus2avro.common import TimeStamp
 from datahub.specific.custom_properties import CustomPropertiesPatchHelper
 from datahub.specific.ownership import OwnershipPatchHelper
 from datahub.utilities.urns.tag_urn import TagUrn

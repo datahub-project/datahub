@@ -99,11 +99,11 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     TimeType,
 )
 from datahub.metadata.schema_classes import GlobalTagsClass, TagAssociationClass
+from datahub.specific.dataset import DatasetPatchBuilder
 from datahub.utilities import memory_footprint
 from datahub.utilities.mapping import Constants
 from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.registries.domain_registry import DomainRegistry
-from datahub.specific.dataset import DatasetPatchBuilder
 
 logger: logging.Logger = logging.getLogger(__name__)
 
