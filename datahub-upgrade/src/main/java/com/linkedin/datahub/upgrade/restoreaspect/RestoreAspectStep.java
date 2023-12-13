@@ -30,7 +30,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.function.Function;
 
-
 public class RestoreAspectStep implements UpgradeStep {
 
   private final EntityService _entityService;
@@ -65,7 +64,6 @@ public class RestoreAspectStep implements UpgradeStep {
   @Override
   public Function<UpgradeContext, UpgradeStepResult> executable() {
     return (context) -> {
-
       context.report().addLine("Starting aspect restore...");
 
       Optional<String> urnToRestore = context.parsedArgs().get("URN");
@@ -73,8 +71,14 @@ public class RestoreAspectStep implements UpgradeStep {
       Optional<String> bucket = context.parsedArgs().get("BACKUP_S3_BUCKET");
       Optional<String> path = context.parsedArgs().get("BACKUP_S3_PATH");
 
-      if (!urnToRestore.isPresent() || !aspectToRestore.isPresent() || !bucket.isPresent() || !path.isPresent()) {
-        context.report().addLine("Missing required arguments. This upgrade requires URN, ASPECT_NAME, BACKUP_S3_BUCKET, BACKUP_S3_PATH");
+      if (!urnToRestore.isPresent()
+          || !aspectToRestore.isPresent()
+          || !bucket.isPresent()
+          || !path.isPresent()) {
+        context
+            .report()
+            .addLine(
+                "Missing required arguments. This upgrade requires URN, ASPECT_NAME, BACKUP_S3_BUCKET, BACKUP_S3_PATH");
         return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.FAILED);
       }
 
@@ -85,7 +89,9 @@ public class RestoreAspectStep implements UpgradeStep {
       List<Future<UpgradeStepResult>> futureList = new ArrayList<>();
       while ((reader = iterator.getNextReader()) != null) {
         final ParquetReaderWrapper readerRef = reader;
-        futureList.add(_fileReaderThreadPool.submit(() -> readerExecutable(readerRef, context, urnToRestore, aspectToRestore)));
+        futureList.add(
+            _fileReaderThreadPool.submit(
+                () -> readerExecutable(readerRef, context, urnToRestore, aspectToRestore)));
       }
 
       for (Future<UpgradeStepResult> future : futureList) {
@@ -106,8 +112,11 @@ public class RestoreAspectStep implements UpgradeStep {
     };
   }
 
-  private UpgradeStepResult readerExecutable(ParquetReaderWrapper reader, UpgradeContext context,
-      Optional<String> urnToRestore, Optional<String> aspectToRestore) {
+  private UpgradeStepResult readerExecutable(
+      ParquetReaderWrapper reader,
+      UpgradeContext context,
+      Optional<String> urnToRestore,
+      Optional<String> aspectToRestore) {
     EbeanAspectV2 aspect;
     while ((aspect = reader.next()) != null) {
 
@@ -115,9 +124,12 @@ public class RestoreAspectStep implements UpgradeStep {
       try {
         urn = Urn.createFromString(aspect.getKey().getUrn());
       } catch (Exception e) {
-        context.report()
+        context
+            .report()
             .addLine(
-                String.format("Failed to bind Urn with value %s into Urn object: %s", aspect.getKey().getUrn(), e));
+                String.format(
+                    "Failed to bind Urn with value %s into Urn object: %s",
+                    aspect.getKey().getUrn(), e));
         return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.FAILED);
       }
 
@@ -132,40 +144,53 @@ public class RestoreAspectStep implements UpgradeStep {
         try {
           entitySpec = _entityRegistry.getEntitySpec(entityName);
         } catch (Exception e) {
-          context.report()
-              .addLine(String.format("Failed to find Entity with name %s in Entity Registry: %s", entityName, e));
+          context
+              .report()
+              .addLine(
+                  String.format(
+                      "Failed to find Entity with name %s in Entity Registry: %s", entityName, e));
           return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.FAILED);
         }
 
         // 3. Create record from json aspect
         final RecordTemplate aspectRecord =
-            EntityUtils.toAspectRecord(entityName, aspectName, aspect.getMetadata(), _entityRegistry);
+            EntityUtils.toAspectRecord(
+                entityName, aspectName, aspect.getMetadata(), _entityRegistry);
 
         // 4. Verify that the aspect is a valid aspect associated with the entity
         AspectSpec aspectSpec;
         try {
           aspectSpec = entitySpec.getAspectSpec(aspectName);
         } catch (Exception e) {
-          context.report()
-              .addLine(String.format("Failed to find aspect spec with name %s associated with entity named %s: %s",
-                  aspectName, entityName, e));
+          context
+              .report()
+              .addLine(
+                  String.format(
+                      "Failed to find aspect spec with name %s associated with entity named %s: %s",
+                      aspectName, entityName, e));
           return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.FAILED);
         }
 
         // 5. Write the row back using the EntityService
-        context.report().addLine(String.format("Found aspect to restore with version %s. Restoring..", aspect.getKey().getVersion()));
+        context
+            .report()
+            .addLine(
+                String.format(
+                    "Found aspect to restore with version %s. Restoring..",
+                    aspect.getKey().getVersion()));
 
         boolean emitMae = aspect.getKey().getVersion() == 0L;
 
-        List<UpsertBatchItem> items = List.of(
+        List<UpsertBatchItem> items =
+            List.of(
                 UpsertBatchItem.builder()
-                        .urn(urn)
-                        .aspectName(aspectName)
-                        .aspect(aspectRecord)
-                        .build(_entityRegistry)
-        );
+                    .urn(urn)
+                    .aspectName(aspectName)
+                    .aspect(aspectRecord)
+                    .build(_entityRegistry));
 
-        _entityService.ingestAspects(AspectsBatchImpl.builder().items(items).build(), toAuditStamp(aspect), emitMae, true);
+        _entityService.ingestAspects(
+            AspectsBatchImpl.builder().items(items).build(), toAuditStamp(aspect), emitMae, true);
       }
     }
     return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.SUCCEEDED);

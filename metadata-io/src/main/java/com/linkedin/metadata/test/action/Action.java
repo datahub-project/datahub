@@ -9,16 +9,12 @@ import com.linkedin.metadata.test.exception.InvalidOperandException;
 import java.util.List;
 import java.util.stream.Collectors;
 
-
-/**
- * An Action Applier is responsible for executing an action of a specific {@link ActionType}
- */
+/** An Action Applier is responsible for executing an action of a specific {@link ActionType} */
 public interface Action {
 
   Urn METADATA_TEST_ACTOR_URN = EntityUtils.getUrnFromString(Constants.METATDATA_TEST_ACTOR);
-  /**
-   * Action being applied
-   */
+
+  /** Action being applied */
   ActionType getActionType();
 
   /**
@@ -29,14 +25,12 @@ public interface Action {
    */
   void validate(ActionParameters params) throws InvalidActionParamsException;
 
-  /**
-   * Apply the actions to a given set of urns.
-   */
+  /** Apply the actions to a given set of urns. */
   void apply(List<Urn> urns, ActionParameters params) throws InvalidOperandException;
 
   default List<ResourceReference> getResourceReferences(List<Urn> urns) {
     return urns.stream()
-            .map(urn -> new ResourceReference(urn, null, null))
-            .collect(Collectors.toList());
+        .map(urn -> new ResourceReference(urn, null, null))
+        .collect(Collectors.toList());
   }
 }

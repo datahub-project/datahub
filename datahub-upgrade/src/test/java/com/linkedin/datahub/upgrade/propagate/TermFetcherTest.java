@@ -26,15 +26,24 @@ import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
 public class TermFetcherTest {
-  private static final Urn ALLOWED_TERM_1 = UrnUtils.getUrn("urn:li:glossaryTerm:d206c230-93b9-4cff-8389-f459c03b32cb");
-  private static final Urn ALLOWED_TERM_2 = UrnUtils.getUrn("urn:li:glossaryTerm:d206c230-93b9-4cff-8389-f459c03b32cc");
-  private static final Urn NOT_ALLOWED_TERM_1 = UrnUtils.getUrn("urn:li:glossaryTerm:d206c230-93b9-4cff-8389-f459c03b32cd");
-  private static final Urn NOT_ALLOWED_TERM_2 = UrnUtils.getUrn("urn:li:glossaryTerm:d206c230-93b9-4cff-8389-f459c03b32ce");
-  private static final Urn ALLOWED_NODE_1 = UrnUtils.getUrn("urn:li:glossaryNode:d206c230-93b9-4cff-8389-f459c03b32cb");
-  private static final Urn ALLOWED_NODE_2 = UrnUtils.getUrn("urn:li:glossaryNode:d206c230-93b9-4cff-8389-f459c03b32cc");
-  private static final Urn NOT_ALLOWED_NODE_1 = UrnUtils.getUrn("urn:li:glossaryNode:d206c230-93b9-4cff-8389-f459c03b32cd");
-  private static final Urn NOT_ALLOWED_NODE_2 = UrnUtils.getUrn("urn:li:glossaryNode:d206c230-93b9-4cff-8389-f459c03b32ce");
+  private static final Urn ALLOWED_TERM_1 =
+      UrnUtils.getUrn("urn:li:glossaryTerm:d206c230-93b9-4cff-8389-f459c03b32cb");
+  private static final Urn ALLOWED_TERM_2 =
+      UrnUtils.getUrn("urn:li:glossaryTerm:d206c230-93b9-4cff-8389-f459c03b32cc");
+  private static final Urn NOT_ALLOWED_TERM_1 =
+      UrnUtils.getUrn("urn:li:glossaryTerm:d206c230-93b9-4cff-8389-f459c03b32cd");
+  private static final Urn NOT_ALLOWED_TERM_2 =
+      UrnUtils.getUrn("urn:li:glossaryTerm:d206c230-93b9-4cff-8389-f459c03b32ce");
+  private static final Urn ALLOWED_NODE_1 =
+      UrnUtils.getUrn("urn:li:glossaryNode:d206c230-93b9-4cff-8389-f459c03b32cb");
+  private static final Urn ALLOWED_NODE_2 =
+      UrnUtils.getUrn("urn:li:glossaryNode:d206c230-93b9-4cff-8389-f459c03b32cc");
+  private static final Urn NOT_ALLOWED_NODE_1 =
+      UrnUtils.getUrn("urn:li:glossaryNode:d206c230-93b9-4cff-8389-f459c03b32cd");
+  private static final Urn NOT_ALLOWED_NODE_2 =
+      UrnUtils.getUrn("urn:li:glossaryNode:d206c230-93b9-4cff-8389-f459c03b32ce");
   private static final String SCROLL_ID = "test123";
+
   @Test
   public void testFetchAllowedTerms() throws URISyntaxException {
     final EntityService entityService = mock(EntityService.class);
@@ -43,39 +52,53 @@ public class TermFetcherTest {
     configureEntitySearchServiceMock(entitySearchService);
     Set<String> allowedGlossaryNodes = Set.of(ALLOWED_NODE_1.toString(), ALLOWED_NODE_2.toString());
 
-    TermFetcher termFetcher = new TermFetcher(entityService, entitySearchService, allowedGlossaryNodes);
+    TermFetcher termFetcher =
+        new TermFetcher(entityService, entitySearchService, allowedGlossaryNodes);
     Set<Urn> fetchedAllowedNodes = termFetcher.fetchAllowedTerms();
     assertEquals(Set.of(ALLOWED_TERM_1, ALLOWED_TERM_2), fetchedAllowedNodes);
   }
 
-  private static EntityResponse createEntityResponse(Urn entityUrn, Urn nodeUrn) throws URISyntaxException {
-    return new EntityResponse().setUrn(entityUrn).setAspects(new EnvelopedAspectMap(
-        Map.of(
-            Constants.GLOSSARY_TERM_INFO_ASPECT_NAME,
-            new EnvelopedAspect().setValue(
-                new Aspect(new GlossaryTermInfo().setParentNode(GlossaryNodeUrn.createFromUrn(nodeUrn)).data())))));
+  private static EntityResponse createEntityResponse(Urn entityUrn, Urn nodeUrn)
+      throws URISyntaxException {
+    return new EntityResponse()
+        .setUrn(entityUrn)
+        .setAspects(
+            new EnvelopedAspectMap(
+                Map.of(
+                    Constants.GLOSSARY_TERM_INFO_ASPECT_NAME,
+                    new EnvelopedAspect()
+                        .setValue(
+                            new Aspect(
+                                new GlossaryTermInfo()
+                                    .setParentNode(GlossaryNodeUrn.createFromUrn(nodeUrn))
+                                    .data())))));
   }
 
-  private static void configureEntityServiceMock(final EntityService mockEntityService) throws URISyntaxException {
+  private static void configureEntityServiceMock(final EntityService mockEntityService)
+      throws URISyntaxException {
 
-    Mockito.when(mockEntityService.getEntitiesV2(Constants.GLOSSARY_TERM_ENTITY_NAME,
-            Set.of(ALLOWED_TERM_1, NOT_ALLOWED_TERM_1),
-            Set.of(Constants.GLOSSARY_TERM_INFO_ASPECT_NAME)))
-        .thenReturn(Map.of(
-            ALLOWED_TERM_1, createEntityResponse(ALLOWED_TERM_1, ALLOWED_NODE_1),
-            NOT_ALLOWED_TERM_1, createEntityResponse(NOT_ALLOWED_TERM_1, NOT_ALLOWED_NODE_1)
-        ));
-    Mockito.when(mockEntityService.getEntitiesV2(Constants.GLOSSARY_TERM_ENTITY_NAME,
-            Set.of(ALLOWED_TERM_2, NOT_ALLOWED_TERM_2),
-            Set.of(Constants.GLOSSARY_TERM_INFO_ASPECT_NAME)))
-        .thenReturn(Map.of(
+    Mockito.when(
+            mockEntityService.getEntitiesV2(
+                Constants.GLOSSARY_TERM_ENTITY_NAME,
+                Set.of(ALLOWED_TERM_1, NOT_ALLOWED_TERM_1),
+                Set.of(Constants.GLOSSARY_TERM_INFO_ASPECT_NAME)))
+        .thenReturn(
+            Map.of(
+                ALLOWED_TERM_1, createEntityResponse(ALLOWED_TERM_1, ALLOWED_NODE_1),
+                NOT_ALLOWED_TERM_1, createEntityResponse(NOT_ALLOWED_TERM_1, NOT_ALLOWED_NODE_1)));
+    Mockito.when(
+            mockEntityService.getEntitiesV2(
+                Constants.GLOSSARY_TERM_ENTITY_NAME,
+                Set.of(ALLOWED_TERM_2, NOT_ALLOWED_TERM_2),
+                Set.of(Constants.GLOSSARY_TERM_INFO_ASPECT_NAME)))
+        .thenReturn(
+            Map.of(
                 ALLOWED_TERM_2, createEntityResponse(ALLOWED_TERM_2, ALLOWED_NODE_2),
-                NOT_ALLOWED_TERM_2, createEntityResponse(NOT_ALLOWED_TERM_2, NOT_ALLOWED_NODE_2)
-            )
-        );
+                NOT_ALLOWED_TERM_2, createEntityResponse(NOT_ALLOWED_TERM_2, NOT_ALLOWED_NODE_2)));
   }
 
-  private static void configureEntitySearchServiceMock(final EntitySearchService mockSearchService) {
+  private static void configureEntitySearchServiceMock(
+      final EntitySearchService mockSearchService) {
     SearchEntity datasetSearchEntry = new SearchEntity();
     datasetSearchEntry.setEntity(ALLOWED_TERM_1);
     SearchEntity datasetSearchEntry2 = new SearchEntity();
@@ -87,14 +110,15 @@ public class TermFetcherTest {
     scrollResult.setEntities(datasetSearchArray);
     scrollResult.setScrollId(SCROLL_ID);
 
-    Mockito.when(mockSearchService.scroll(
-        Mockito.eq(Collections.singletonList(Constants.GLOSSARY_TERM_ENTITY_NAME)),
-        Mockito.eq(null),
-        Mockito.eq(null),
-        Mockito.eq(1000),
-        Mockito.eq(null),
-        Mockito.eq(ELASTIC_TIMEOUT)
-    )).thenReturn(scrollResult);
+    Mockito.when(
+            mockSearchService.scroll(
+                Mockito.eq(Collections.singletonList(Constants.GLOSSARY_TERM_ENTITY_NAME)),
+                Mockito.eq(null),
+                Mockito.eq(null),
+                Mockito.eq(1000),
+                Mockito.eq(null),
+                Mockito.eq(ELASTIC_TIMEOUT)))
+        .thenReturn(scrollResult);
 
     SearchEntity datasetSearchEntry3 = new SearchEntity();
     datasetSearchEntry3.setEntity(NOT_ALLOWED_TERM_2);
@@ -107,14 +131,14 @@ public class TermFetcherTest {
     scrollResult2.setEntities(datasetSearchArray2);
     // Null scroll ID
 
-    Mockito.when(mockSearchService.scroll(
-        Mockito.eq(Collections.singletonList(Constants.GLOSSARY_TERM_ENTITY_NAME)),
-        Mockito.eq(null),
-        Mockito.eq(null),
-        Mockito.eq(1000),
-        Mockito.eq(SCROLL_ID),
-        Mockito.eq(ELASTIC_TIMEOUT)
-    )).thenReturn(scrollResult2);
+    Mockito.when(
+            mockSearchService.scroll(
+                Mockito.eq(Collections.singletonList(Constants.GLOSSARY_TERM_ENTITY_NAME)),
+                Mockito.eq(null),
+                Mockito.eq(null),
+                Mockito.eq(1000),
+                Mockito.eq(SCROLL_ID),
+                Mockito.eq(ELASTIC_TIMEOUT)))
+        .thenReturn(scrollResult2);
   }
-
 }

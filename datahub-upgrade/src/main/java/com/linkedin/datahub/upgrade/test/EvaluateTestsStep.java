@@ -34,13 +34,11 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
-
 @Slf4j
 public class EvaluateTestsStep implements UpgradeStep {
 
-  private static final String ELASTIC_TIMEOUT = System.getenv()
-      .getOrDefault(EvaluateTests.ELASTIC_TIMEOUT_ENV_NAME,
-          "5m");
+  private static final String ELASTIC_TIMEOUT =
+      System.getenv().getOrDefault(EvaluateTests.ELASTIC_TIMEOUT_ENV_NAME, "5m");
 
   private final EntityClient _entityClient;
   private final EntitySearchService _entitySearchService;
@@ -58,8 +56,12 @@ public class EvaluateTestsStep implements UpgradeStep {
     _testEngine = testEngine;
     _systemAuthentication = systemAuthentication;
 
-    int numThreads = Integer.parseInt(System.getenv().getOrDefault(EvaluateTests.EXECUTOR_POOL_SIZE,
-        String.valueOf(Runtime.getRuntime().availableProcessors() + 1)));
+    int numThreads =
+        Integer.parseInt(
+            System.getenv()
+                .getOrDefault(
+                    EvaluateTests.EXECUTOR_POOL_SIZE,
+                    String.valueOf(Runtime.getRuntime().availableProcessors() + 1)));
     _executorService = Executors.newFixedThreadPool(numThreads);
   }
 
@@ -76,7 +78,6 @@ public class EvaluateTestsStep implements UpgradeStep {
   @Override
   public Function<UpgradeContext, UpgradeStepResult> executable() {
     return (context) -> {
-
       context.report().addLine("Starting to evaluate tests...");
       BatchTestResultAggregator resultAggregator = new BatchTestResultAggregator();
 
@@ -85,34 +86,62 @@ public class EvaluateTestsStep implements UpgradeStep {
         _testEngine.loadTests();
 
         int batchSize =
-            context.parsedArgs().getOrDefault("BATCH_SIZE", Optional.empty()).map(Integer::parseInt).orElse(1000);
+            context
+                .parsedArgs()
+                .getOrDefault("BATCH_SIZE", Optional.empty())
+                .map(Integer::parseInt)
+                .orElse(1000);
 
         Set<String> entityTypesToEvaluate = new HashSet<>(_testEngine.getEntityTypesToEvaluate());
 
-        context.report().addLine(String.format("Evaluating tests for entities %s", entityTypesToEvaluate));
+        context
+            .report()
+            .addLine(String.format("Evaluating tests for entities %s", entityTypesToEvaluate));
 
         List<Future<Map<Urn, TestResults>>> futures = new ArrayList<>();
         for (String entityType : entityTypesToEvaluate) {
           int batch = 1;
           String nextScrollId = null;
           do {
-            context.report().addLine(String.format("Fetching batch %d of %s entities", batch, entityType));
-            ScrollResult scrollResult = _entitySearchService.scroll(
-                Collections.singletonList(entityType), null, null, batchSize, nextScrollId, ELASTIC_TIMEOUT);
+            context
+                .report()
+                .addLine(String.format("Fetching batch %d of %s entities", batch, entityType));
+            ScrollResult scrollResult =
+                _entitySearchService.scroll(
+                    Collections.singletonList(entityType),
+                    null,
+                    null,
+                    batchSize,
+                    nextScrollId,
+                    ELASTIC_TIMEOUT);
             nextScrollId = scrollResult.getScrollId();
-            context.report().addLine(String.format("Processing batch %d of %s entities", batch, entityType));
+            context
+                .report()
+                .addLine(String.format("Processing batch %d of %s entities", batch, entityType));
             List<Urn> entitiesInBatch =
-                scrollResult.getEntities().stream().map(SearchEntity::getEntity).collect(Collectors.toList());
+                scrollResult.getEntities().stream()
+                    .map(SearchEntity::getEntity)
+                    .collect(Collectors.toList());
             final int batchNumber = batch;
-            futures.add(_executorService.submit(() -> processBatch(entitiesInBatch, batchNumber, entityType, resultAggregator, context)));
+            futures.add(
+                _executorService.submit(
+                    () ->
+                        processBatch(
+                            entitiesInBatch, batchNumber, entityType, resultAggregator, context)));
             batch++;
           } while (nextScrollId != null);
 
-          context.report().addLine(String.format("Finished submitting test evaluation for %s entities to worker pool.", entityType));
+          context
+              .report()
+              .addLine(
+                  String.format(
+                      "Finished submitting test evaluation for %s entities to worker pool.",
+                      entityType));
         }
 
         for (Future<Map<Urn, TestResults>> results : futures) {
-          // Wait for processing, we don't actually use the result currently for anything for now, so treat as void
+          // Wait for processing, we don't actually use the result currently for anything for now,
+          // so treat as void
           try {
             results.get();
           } catch (InterruptedException | ExecutionException e) {
@@ -124,7 +153,9 @@ public class EvaluateTestsStep implements UpgradeStep {
         reportTestRunResults(resultAggregator.getTestResultSummaries().values());
         return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.SUCCEEDED);
       } catch (Exception e) {
-        log.error("Failed to complete test evaluation! Caught an exception while running the test. This may mean that the test run was incomplete.", e);
+        log.error(
+            "Failed to complete test evaluation! Caught an exception while running the test. This may mean that the test run was incomplete.",
+            e);
         return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.FAILED);
       }
     };
@@ -139,49 +170,56 @@ public class EvaluateTestsStep implements UpgradeStep {
     {
       Map<Urn, TestResults> result;
       try {
-        result = _testEngine.batchEvaluateTestsForEntities(entitiesInBatch, TestEngine.EvaluationMode.DEFAULT);
-        context.report()
-            .addLine(String.format("Pushed %d test results for batch %d of %s entities", result.size(), batchNumber,
-                entityType));
+        result =
+            _testEngine.batchEvaluateTestsForEntities(
+                entitiesInBatch, TestEngine.EvaluationMode.DEFAULT);
+        context
+            .report()
+            .addLine(
+                String.format(
+                    "Pushed %d test results for batch %d of %s entities",
+                    result.size(), batchNumber, entityType));
         incrementBatchCounters(entitiesInBatch, result, resultAggregator);
         return result;
       } catch (Exception e) {
-        context.report().addLine(String.format("Error while processing batch %d of %s entities", batchNumber, entityType));
+        context
+            .report()
+            .addLine(
+                String.format(
+                    "Error while processing batch %d of %s entities", batchNumber, entityType));
         log.error("Error while processing batch {} of {} entities", batchNumber, entityType, e);
       }
       return null;
     }
   }
 
-  /**
-   * Increment the counters used to report results for the metadata test
-   */
+  /** Increment the counters used to report results for the metadata test */
   private void incrementBatchCounters(
-      @Nonnull final List<Urn> entitiesInBatch, 
-      @Nonnull final Map<Urn, TestResults> results, 
+      @Nonnull final List<Urn> entitiesInBatch,
+      @Nonnull final Map<Urn, TestResults> results,
       @Nonnull final BatchTestResultAggregator resultAggregator) {
-    for (Urn entityUrn: entitiesInBatch) {
+    for (Urn entityUrn : entitiesInBatch) {
       TestResults result = results.get(entityUrn);
       if (result != null) {
         if (result.hasPassing()) {
-          result.getPassing().forEach(passingTest ->
-              resultAggregator.incrementPass(passingTest.getTest())
-          );
+          result
+              .getPassing()
+              .forEach(passingTest -> resultAggregator.incrementPass(passingTest.getTest()));
         }
         if (result.hasFailing()) {
-          result.getFailing().forEach(failingTest ->
-              resultAggregator.incrementFail(failingTest.getTest())
-          );
+          result
+              .getFailing()
+              .forEach(failingTest -> resultAggregator.incrementFail(failingTest.getTest()));
         }
       }
     }
   }
 
   /**
-   * In this method we produce a BatchTestRunResult aspect for each test that should have been executed
-   * by this process.
+   * In this method we produce a BatchTestRunResult aspect for each test that should have been
+   * executed by this process.
    *
-   * To do so, we also issue a query to count the number of entities with a given run result.
+   * <p>To do so, we also issue a query to count the number of entities with a given run result.
    */
   private void reportTestRunResults(@Nonnull final Collection<BatchTestResult> results) {
     try {
@@ -197,27 +235,24 @@ public class EvaluateTestsStep implements UpgradeStep {
     }
   }
 
-  private void reportTestRunResult(
-      @Nonnull final BatchTestResult result,
-      final long currentTime) {
+  private void reportTestRunResult(@Nonnull final BatchTestResult result, final long currentTime) {
     Urn testUrn = result.getUrn();
     BatchTestRunEvent event = new BatchTestRunEvent();
     event.setTimestampMillis(currentTime);
     event.setStatus(BatchTestRunStatus.COMPLETE);
-    event.setResult(new BatchTestRunResult()
-        .setPassingCount(result.getPassCount())
-        .setFailingCount(result.getFailCount()));
+    event.setResult(
+        new BatchTestRunResult()
+            .setPassingCount(result.getPassCount())
+            .setFailingCount(result.getFailCount()));
     try {
       _entityClient.ingestProposal(
           AspectUtils.buildMetadataChangeProposal(
-              testUrn,
-              AcrylConstants.BATCH_TEST_RUN_EVENT_ASPECT_NAME,
-              event
-          ),
-          _systemAuthentication
-      );
+              testUrn, AcrylConstants.BATCH_TEST_RUN_EVENT_ASPECT_NAME, event),
+          _systemAuthentication);
     } catch (Exception e) {
-      log.error("Failed to produce Metadata Test Run Result aspect! This may mean that the results shown in the UI are stale!", e);
+      log.error(
+          "Failed to produce Metadata Test Run Result aspect! This may mean that the results shown in the UI are stale!",
+          e);
     }
   }
 }

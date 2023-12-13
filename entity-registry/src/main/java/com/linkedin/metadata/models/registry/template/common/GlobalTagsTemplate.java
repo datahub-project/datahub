@@ -8,7 +8,6 @@ import com.linkedin.metadata.models.registry.template.ArrayMergingTemplate;
 import java.util.Collections;
 import javax.annotation.Nonnull;
 
-
 public class GlobalTagsTemplate implements ArrayMergingTemplate<GlobalTags> {
 
   private static final String TAGS_FIELD_NAME = "tags";
@@ -45,6 +44,7 @@ public class GlobalTagsTemplate implements ArrayMergingTemplate<GlobalTags> {
   @Nonnull
   @Override
   public JsonNode rebaseFields(JsonNode patched) {
-    return transformedMapToArray(patched, TAGS_FIELD_NAME, Collections.singletonList(TAG_FIELD_NAME));
+    return transformedMapToArray(
+        patched, TAGS_FIELD_NAME, Collections.singletonList(TAG_FIELD_NAME));
   }
 }

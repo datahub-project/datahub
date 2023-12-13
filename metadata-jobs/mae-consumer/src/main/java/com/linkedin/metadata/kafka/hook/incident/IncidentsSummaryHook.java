@@ -1,5 +1,7 @@
 package com.linkedin.metadata.kafka.hook.incident;
 
+import static com.linkedin.metadata.Constants.*;
+
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.IncidentSummaryDetails;
 import com.linkedin.common.IncidentSummaryDetailsArray;
@@ -32,25 +34,28 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Import;
 import org.springframework.stereotype.Component;
 
-import static com.linkedin.metadata.Constants.*;
-
-
 /**
- * This hook is responsible for maintaining the IncidentsSummary.pdl aspect of entities
- * on which Incidents may be raised. It handles both incident updates and incident soft deletions
- * to ensure that this aspect reflects the latest state of the incident.
+ * This hook is responsible for maintaining the IncidentsSummary.pdl aspect of entities on which
+ * Incidents may be raised. It handles both incident updates and incident soft deletions to ensure
+ * that this aspect reflects the latest state of the incident.
  *
- * Hard deletes of incidents are not handled within this hook because the expectation is that deleteReferences will be invoked
- * to clean up references.
+ * <p>Hard deletes of incidents are not handled within this hook because the expectation is that
+ * deleteReferences will be invoked to clean up references.
  */
 @Slf4j
 @Component
 @Singleton
-@Import({EntityRegistryFactory.class, IncidentServiceFactory.class, SystemAuthenticationFactory.class})
+@Import({
+  EntityRegistryFactory.class,
+  IncidentServiceFactory.class,
+  SystemAuthenticationFactory.class
+})
 public class IncidentsSummaryHook implements MetadataChangeLogHook {
 
-  private static final Set<ChangeType> SUPPORTED_UPDATE_TYPES = ImmutableSet.of(ChangeType.UPSERT, ChangeType.CREATE, ChangeType.RESTATE);
-  private static final Set<String> SUPPORTED_UPDATE_ASPECTS = ImmutableSet.of(INCIDENT_INFO_ASPECT_NAME, STATUS_ASPECT_NAME);
+  private static final Set<ChangeType> SUPPORTED_UPDATE_TYPES =
+      ImmutableSet.of(ChangeType.UPSERT, ChangeType.CREATE, ChangeType.RESTATE);
+  private static final Set<String> SUPPORTED_UPDATE_ASPECTS =
+      ImmutableSet.of(INCIDENT_INFO_ASPECT_NAME, STATUS_ASPECT_NAME);
 
   private final EntityRegistry _entityRegistry;
   private final IncidentService _incidentService;
@@ -60,16 +65,14 @@ public class IncidentsSummaryHook implements MetadataChangeLogHook {
   public IncidentsSummaryHook(
       @Nonnull final EntityRegistry entityRegistry,
       @Nonnull final IncidentService incidentService,
-      @Nonnull @Value("${incidents.hook.enabled:true}") Boolean isEnabled
-  ) {
+      @Nonnull @Value("${incidents.hook.enabled:true}") Boolean isEnabled) {
     _entityRegistry = Objects.requireNonNull(entityRegistry, "entityRegistry is required");
     _incidentService = Objects.requireNonNull(incidentService, "incidentService is required");
     _isEnabled = isEnabled;
   }
 
   @Override
-  public void init() {
-  }
+  public void init() {}
 
   @Override
   public boolean isEnabled() {
@@ -101,7 +104,8 @@ public class IncidentsSummaryHook implements MetadataChangeLogHook {
     if (incidentInfo != null) {
       final List<Urn> incidentEntities = incidentInfo.getEntities();
 
-      // 3. For each urn, resolve the entity incidents aspect and remove from active and resolved incidents.
+      // 3. For each urn, resolve the entity incidents aspect and remove from active and resolved
+      // incidents.
       for (Urn entityUrn : incidentEntities) {
         removeIncidentFromSummary(incidentUrn, entityUrn);
       }
@@ -113,9 +117,7 @@ public class IncidentsSummaryHook implements MetadataChangeLogHook {
     }
   }
 
-  /**
-   * Handle an incident update by adding to either resolved or active incidents for an entity.
-   */
+  /** Handle an incident update by adding to either resolved or active incidents for an entity. */
   private void handleIncidentUpdated(@Nonnull final Urn incidentUrn) {
     // 1. Fetch incident info + status
     IncidentInfo incidentInfo = _incidentService.getIncidentInfo(incidentUrn);
@@ -124,7 +126,8 @@ public class IncidentsSummaryHook implements MetadataChangeLogHook {
     if (incidentInfo != null) {
       final List<Urn> incidentEntities = incidentInfo.getEntities();
 
-      // 3. For each urn, resolve the entity incidents aspect and add to active or resolved incidents.
+      // 3. For each urn, resolve the entity incidents aspect and add to active or resolved
+      // incidents.
       for (Urn entityUrn : incidentEntities) {
         addIncidentToSummary(incidentUrn, entityUrn, incidentInfo);
       }
@@ -136,10 +139,9 @@ public class IncidentsSummaryHook implements MetadataChangeLogHook {
     }
   }
 
-  /**
-   * Removes an incident to the IncidentSummary aspect for a related entity.
-   */
-  private void removeIncidentFromSummary(@Nonnull final Urn incidentUrn, @Nonnull final Urn entityUrn) {
+  /** Removes an incident to the IncidentSummary aspect for a related entity. */
+  private void removeIncidentFromSummary(
+      @Nonnull final Urn incidentUrn, @Nonnull final Urn entityUrn) {
     // 1. Fetch the latest incident summary for the entity
     IncidentsSummary summary = getIncidentsSummary(entityUrn);
 
@@ -152,10 +154,13 @@ public class IncidentsSummaryHook implements MetadataChangeLogHook {
   }
 
   /**
-   * Adds an incident to the IncidentSummary aspect for a related entity.
-   * This is used to search for entity by active and resolved incidents.
+   * Adds an incident to the IncidentSummary aspect for a related entity. This is used to search for
+   * entity by active and resolved incidents.
    */
-  private void addIncidentToSummary(@Nonnull final Urn incidentUrn, @Nonnull final Urn entityUrn, @Nonnull final IncidentInfo info) {
+  private void addIncidentToSummary(
+      @Nonnull final Urn incidentUrn,
+      @Nonnull final Urn entityUrn,
+      @Nonnull final IncidentInfo info) {
     // 1. Fetch the latest incident summary for the entity
     IncidentsSummary summary = getIncidentsSummary(entityUrn);
     IncidentStatus status = info.getStatus();
@@ -186,15 +191,14 @@ public class IncidentsSummaryHook implements MetadataChangeLogHook {
     IncidentsSummary maybeIncidentsSummary = _incidentService.getIncidentsSummary(entityUrn);
     return maybeIncidentsSummary == null
         ? new IncidentsSummary()
-          .setResolvedIncidentDetails(new IncidentSummaryDetailsArray())
-          .setActiveIncidentDetails(new IncidentSummaryDetailsArray())
+            .setResolvedIncidentDetails(new IncidentSummaryDetailsArray())
+            .setActiveIncidentDetails(new IncidentSummaryDetailsArray())
         : maybeIncidentsSummary;
   }
 
   @Nonnull
   private IncidentSummaryDetails buildIncidentSummaryDetails(
-      @Nonnull final Urn urn,
-      @Nonnull final IncidentInfo info) {
+      @Nonnull final Urn urn, @Nonnull final IncidentInfo info) {
     IncidentSummaryDetails incidentSummaryDetails = new IncidentSummaryDetails();
     incidentSummaryDetails.setUrn(urn);
     incidentSummaryDetails.setCreatedAt(info.getCreated().getTime());
@@ -213,49 +217,48 @@ public class IncidentsSummaryHook implements MetadataChangeLogHook {
   }
 
   /**
-   * Returns true if the event should be processed, which is only true if the change is on the incident status aspect
+   * Returns true if the event should be processed, which is only true if the change is on the
+   * incident status aspect
    */
   private boolean isEligibleForProcessing(@Nonnull final MetadataChangeLog event) {
     return isIncidentSoftDeleted(event) || isIncidentUpdate(event);
   }
 
-  /**
-   * Returns true if an incident is being soft-deleted.
-   */
+  /** Returns true if an incident is being soft-deleted. */
   private boolean isIncidentSoftDeleted(@Nonnull final MetadataChangeLog event) {
     return INCIDENT_ENTITY_NAME.equals(event.getEntityType())
-        && SUPPORTED_UPDATE_TYPES.contains(event.getChangeType()) && isSoftDeletionEvent(event);
+        && SUPPORTED_UPDATE_TYPES.contains(event.getChangeType())
+        && isSoftDeletionEvent(event);
   }
 
   private boolean isSoftDeletionEvent(@Nonnull final MetadataChangeLog event) {
     if (STATUS_ASPECT_NAME.equals(event.getAspectName()) && event.getAspect() != null) {
-      final Status status = GenericRecordUtils.deserializeAspect(
-          event.getAspect().getValue(),
-          event.getAspect().getContentType(),
-          Status.class);
+      final Status status =
+          GenericRecordUtils.deserializeAspect(
+              event.getAspect().getValue(), event.getAspect().getContentType(), Status.class);
       return status.hasRemoved() && status.isRemoved();
     }
     return false;
   }
 
-  /**
-   * Returns true if the event represents an incident deletion event.
-   */
+  /** Returns true if the event represents an incident deletion event. */
   private boolean isIncidentUpdate(@Nonnull final MetadataChangeLog event) {
     return INCIDENT_ENTITY_NAME.equals(event.getEntityType())
         && SUPPORTED_UPDATE_TYPES.contains(event.getChangeType())
         && SUPPORTED_UPDATE_ASPECTS.contains(event.getAspectName());
   }
 
-  /**
-   * Updates the incidents summary for a given entity
-   */
-  private void updateIncidentSummary(@Nonnull final Urn entityUrn, @Nonnull final IncidentsSummary newSummary) {
+  /** Updates the incidents summary for a given entity */
+  private void updateIncidentSummary(
+      @Nonnull final Urn entityUrn, @Nonnull final IncidentsSummary newSummary) {
     try {
       _incidentService.updateIncidentsSummary(entityUrn, newSummary);
     } catch (Exception e) {
       log.error(
-          String.format("Failed to updated incidents summary for entity with urn %s! Skipping updating the summary", entityUrn), e);
+          String.format(
+              "Failed to updated incidents summary for entity with urn %s! Skipping updating the summary",
+              entityUrn),
+          e);
     }
   }
 }

@@ -1,5 +1,10 @@
 package com.datahub.subscription;
 
+import static com.linkedin.metadata.AcrylConstants.*;
+import static com.linkedin.metadata.Constants.*;
+import static org.mockito.Mockito.*;
+import static org.testng.Assert.*;
+
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
@@ -29,12 +34,6 @@ import java.util.Set;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import static com.linkedin.metadata.AcrylConstants.*;
-import static com.linkedin.metadata.Constants.*;
-import static org.mockito.Mockito.*;
-import static org.testng.Assert.*;
-
-
 public class SubscriptionServiceTest {
   private static final String USER_URN_STRING = "urn:li:corpuser:testUser";
   private static final Urn USER_URN = UrnUtils.getUrn(USER_URN_STRING);
@@ -52,38 +51,51 @@ public class SubscriptionServiceTest {
       new SubscriptionNotificationConfig().setNotificationSettings(NOTIFICATION_SETTINGS);
 
   private static final SubscriptionTypeArray SUBSCRIPTION_TYPES_1 =
-      new SubscriptionTypeArray(SubscriptionType.ENTITY_CHANGE, SubscriptionType.UPSTREAM_ENTITY_CHANGE);
-  public static final EntityChangeDetailsArray ENTITY_CHANGE_TYPES_1 = new EntityChangeDetailsArray(
-      new EntityChangeDetails().setEntityChangeType(com.linkedin.subscription.EntityChangeType.DEPRECATED),
-      new EntityChangeDetails().setEntityChangeType(com.linkedin.subscription.EntityChangeType.ASSERTION_FAILED)
-  );
-  private static final SubscriptionInfo SUBSCRIPTION_INFO_1 = new SubscriptionInfo().setActorUrn(USER_URN)
-      .setActorType(CORP_USER_ENTITY_NAME)
-      .setTypes(SUBSCRIPTION_TYPES_1)
-      .setEntityUrn(ENTITY_URN_1)
-      .setEntityChangeTypes(ENTITY_CHANGE_TYPES_1)
-      .setNotificationConfig(NOTIFICATION_CONFIG);
-  private static final EntityResponse ENTITY_RESPONSE_1 = AspectUtils.createEntityResponseFromAspects(ImmutableMap.of(
-      SUBSCRIPTION_INFO_ASPECT_NAME, SUBSCRIPTION_INFO_1));
+      new SubscriptionTypeArray(
+          SubscriptionType.ENTITY_CHANGE, SubscriptionType.UPSTREAM_ENTITY_CHANGE);
+  public static final EntityChangeDetailsArray ENTITY_CHANGE_TYPES_1 =
+      new EntityChangeDetailsArray(
+          new EntityChangeDetails()
+              .setEntityChangeType(com.linkedin.subscription.EntityChangeType.DEPRECATED),
+          new EntityChangeDetails()
+              .setEntityChangeType(com.linkedin.subscription.EntityChangeType.ASSERTION_FAILED));
+  private static final SubscriptionInfo SUBSCRIPTION_INFO_1 =
+      new SubscriptionInfo()
+          .setActorUrn(USER_URN)
+          .setActorType(CORP_USER_ENTITY_NAME)
+          .setTypes(SUBSCRIPTION_TYPES_1)
+          .setEntityUrn(ENTITY_URN_1)
+          .setEntityChangeTypes(ENTITY_CHANGE_TYPES_1)
+          .setNotificationConfig(NOTIFICATION_CONFIG);
+  private static final EntityResponse ENTITY_RESPONSE_1 =
+      AspectUtils.createEntityResponseFromAspects(
+          ImmutableMap.of(SUBSCRIPTION_INFO_ASPECT_NAME, SUBSCRIPTION_INFO_1));
   private static final SubscriptionTypeArray SUBSCRIPTION_TYPES_2 =
       new SubscriptionTypeArray(SubscriptionType.ENTITY_CHANGE);
-  public static final EntityChangeDetailsArray ENTITY_CHANGE_TYPES_2 = new EntityChangeDetailsArray(
-      new EntityChangeDetails().setEntityChangeType(com.linkedin.subscription.EntityChangeType.GLOSSARY_TERM_ADDED),
-      new EntityChangeDetails().setEntityChangeType(com.linkedin.subscription.EntityChangeType.TAG_ADDED)
-  );
-  private static final SubscriptionInfo SUBSCRIPTION_INFO_2 = new SubscriptionInfo().setActorUrn(USER_URN)
-      .setActorType(CORP_USER_ENTITY_NAME)
-      .setTypes(SUBSCRIPTION_TYPES_2)
-      .setEntityUrn(ENTITY_URN_2)
-      .setEntityChangeTypes(ENTITY_CHANGE_TYPES_2)
-      .setNotificationConfig(NOTIFICATION_CONFIG);
-  private static final EntityResponse ENTITY_RESPONSE_2 = AspectUtils.createEntityResponseFromAspects(ImmutableMap.of(
-      SUBSCRIPTION_INFO_ASPECT_NAME, SUBSCRIPTION_INFO_2));
+  public static final EntityChangeDetailsArray ENTITY_CHANGE_TYPES_2 =
+      new EntityChangeDetailsArray(
+          new EntityChangeDetails()
+              .setEntityChangeType(com.linkedin.subscription.EntityChangeType.GLOSSARY_TERM_ADDED),
+          new EntityChangeDetails()
+              .setEntityChangeType(com.linkedin.subscription.EntityChangeType.TAG_ADDED));
+  private static final SubscriptionInfo SUBSCRIPTION_INFO_2 =
+      new SubscriptionInfo()
+          .setActorUrn(USER_URN)
+          .setActorType(CORP_USER_ENTITY_NAME)
+          .setTypes(SUBSCRIPTION_TYPES_2)
+          .setEntityUrn(ENTITY_URN_2)
+          .setEntityChangeTypes(ENTITY_CHANGE_TYPES_2)
+          .setNotificationConfig(NOTIFICATION_CONFIG);
+  private static final EntityResponse ENTITY_RESPONSE_2 =
+      AspectUtils.createEntityResponseFromAspects(
+          ImmutableMap.of(SUBSCRIPTION_INFO_ASPECT_NAME, SUBSCRIPTION_INFO_2));
 
   private static final String SUBSCRIPTION_URN_2_STRING = "urn:li:subscription:2";
   private static final Urn SUBSCRIPTION_URN_2 = UrnUtils.getUrn(SUBSCRIPTION_URN_2_STRING);
-  private static final Set<Urn> SUBSCRIPTION_URNS = ImmutableSet.of(SUBSCRIPTION_URN_1, SUBSCRIPTION_URN_2);
-  private static final Set<String> SUBSCRIPTION_ASPECTS = Collections.singleton(SUBSCRIPTION_INFO_ASPECT_NAME);
+  private static final Set<Urn> SUBSCRIPTION_URNS =
+      ImmutableSet.of(SUBSCRIPTION_URN_1, SUBSCRIPTION_URN_2);
+  private static final Set<String> SUBSCRIPTION_ASPECTS =
+      Collections.singleton(SUBSCRIPTION_INFO_ASPECT_NAME);
 
   private static final String DATAHUB_SYSTEM_CLIENT_ID = "__datahub_system";
   private static final Authentication SYSTEM_AUTHENTICATION =
@@ -102,8 +114,15 @@ public class SubscriptionServiceTest {
   public void testCreateSubscriptionMissingActor() throws Exception {
     when(_entityClient.exists(eq(USER_URN), eq(SYSTEM_AUTHENTICATION))).thenReturn(false);
 
-    assertThrows(() -> _subscriptionService.createSubscription(USER_URN, ENTITY_URN_1, SUBSCRIPTION_TYPES_1,
-        ENTITY_CHANGE_TYPES_1, NOTIFICATION_CONFIG, SYSTEM_AUTHENTICATION));
+    assertThrows(
+        () ->
+            _subscriptionService.createSubscription(
+                USER_URN,
+                ENTITY_URN_1,
+                SUBSCRIPTION_TYPES_1,
+                ENTITY_CHANGE_TYPES_1,
+                NOTIFICATION_CONFIG,
+                SYSTEM_AUTHENTICATION));
   }
 
   @Test
@@ -111,34 +130,57 @@ public class SubscriptionServiceTest {
     when(_entityClient.exists(eq(USER_URN), eq(SYSTEM_AUTHENTICATION))).thenReturn(true);
     when(_entityClient.exists(eq(ENTITY_URN_1), eq(SYSTEM_AUTHENTICATION))).thenReturn(false);
 
-    assertThrows(() -> _subscriptionService.createSubscription(USER_URN, ENTITY_URN_1, SUBSCRIPTION_TYPES_1,
-        ENTITY_CHANGE_TYPES_1, NOTIFICATION_CONFIG, SYSTEM_AUTHENTICATION));
+    assertThrows(
+        () ->
+            _subscriptionService.createSubscription(
+                USER_URN,
+                ENTITY_URN_1,
+                SUBSCRIPTION_TYPES_1,
+                ENTITY_CHANGE_TYPES_1,
+                NOTIFICATION_CONFIG,
+                SYSTEM_AUTHENTICATION));
   }
 
   @Test
   public void testCreateSubscriptionInvalidActorType() throws Exception {
     when(_entityClient.exists(eq(ENTITY_URN_1), eq(SYSTEM_AUTHENTICATION))).thenReturn(true);
 
-    assertThrows(() -> _subscriptionService.createSubscription(ENTITY_URN_1, ENTITY_URN_1, SUBSCRIPTION_TYPES_1,
-        ENTITY_CHANGE_TYPES_1, NOTIFICATION_CONFIG, SYSTEM_AUTHENTICATION));
+    assertThrows(
+        () ->
+            _subscriptionService.createSubscription(
+                ENTITY_URN_1,
+                ENTITY_URN_1,
+                SUBSCRIPTION_TYPES_1,
+                ENTITY_CHANGE_TYPES_1,
+                NOTIFICATION_CONFIG,
+                SYSTEM_AUTHENTICATION));
   }
 
   @Test
   public void testCreateSubscription() throws Exception {
     when(_entityClient.exists(eq(USER_URN), eq(SYSTEM_AUTHENTICATION))).thenReturn(true);
     when(_entityClient.exists(eq(ENTITY_URN_1), eq(SYSTEM_AUTHENTICATION))).thenReturn(true);
-    when(_entityClient.ingestProposal(any(MetadataChangeProposal.class), eq(SYSTEM_AUTHENTICATION), anyBoolean()))
+    when(_entityClient.ingestProposal(
+            any(MetadataChangeProposal.class), eq(SYSTEM_AUTHENTICATION), anyBoolean()))
         .thenReturn(SUBSCRIPTION_URN_1_STRING);
 
     final Map.Entry<Urn, SubscriptionInfo> subscription =
-        _subscriptionService.createSubscription(USER_URN, ENTITY_URN_1, SUBSCRIPTION_TYPES_1, ENTITY_CHANGE_TYPES_1,
-            NOTIFICATION_CONFIG, SYSTEM_AUTHENTICATION);
+        _subscriptionService.createSubscription(
+            USER_URN,
+            ENTITY_URN_1,
+            SUBSCRIPTION_TYPES_1,
+            ENTITY_CHANGE_TYPES_1,
+            NOTIFICATION_CONFIG,
+            SYSTEM_AUTHENTICATION);
     assertEquals(subscription.getKey(), SUBSCRIPTION_URN_1);
     assertEquals(subscription.getValue().getActorType(), SUBSCRIPTION_INFO_1.getActorType());
     assertEquals(subscription.getValue().getActorUrn(), SUBSCRIPTION_INFO_1.getActorUrn());
-    assertEquals(subscription.getValue().getEntityChangeTypes(), SUBSCRIPTION_INFO_1.getEntityChangeTypes());
+    assertEquals(
+        subscription.getValue().getEntityChangeTypes(), SUBSCRIPTION_INFO_1.getEntityChangeTypes());
     assertEquals(subscription.getValue().getEntityUrn(), SUBSCRIPTION_INFO_1.getEntityUrn());
-    assertEquals(subscription.getValue().getNotificationConfig(), SUBSCRIPTION_INFO_1.getNotificationConfig());
+    assertEquals(
+        subscription.getValue().getNotificationConfig(),
+        SUBSCRIPTION_INFO_1.getNotificationConfig());
     assertEquals(subscription.getValue().getTypes(), SUBSCRIPTION_INFO_1.getTypes());
   }
 
@@ -146,27 +188,36 @@ public class SubscriptionServiceTest {
   public void testGetSubscriptionInfoMissingSubscription() throws Exception {
     when(_entityClient.exists(eq(SUBSCRIPTION_URN_1), eq(SYSTEM_AUTHENTICATION))).thenReturn(false);
 
-    assertThrows(() -> _subscriptionService.getSubscriptionInfo(SUBSCRIPTION_URN_1, SYSTEM_AUTHENTICATION));
+    assertThrows(
+        () -> _subscriptionService.getSubscriptionInfo(SUBSCRIPTION_URN_1, SYSTEM_AUTHENTICATION));
   }
 
   @Test
   public void testGetSubscriptionInfoMissingEntityResponse() throws Exception {
     when(_entityClient.exists(eq(SUBSCRIPTION_URN_1), eq(SYSTEM_AUTHENTICATION))).thenReturn(true);
-    when(_entityClient.getV2(eq(SUBSCRIPTION_ENTITY_NAME), eq(SUBSCRIPTION_URN_1), eq(SUBSCRIPTION_ASPECTS),
-        eq(SYSTEM_AUTHENTICATION)))
+    when(_entityClient.getV2(
+            eq(SUBSCRIPTION_ENTITY_NAME),
+            eq(SUBSCRIPTION_URN_1),
+            eq(SUBSCRIPTION_ASPECTS),
+            eq(SYSTEM_AUTHENTICATION)))
         .thenReturn(null);
 
-    assertThrows(() -> _subscriptionService.getSubscriptionInfo(SUBSCRIPTION_URN_1, SYSTEM_AUTHENTICATION));
+    assertThrows(
+        () -> _subscriptionService.getSubscriptionInfo(SUBSCRIPTION_URN_1, SYSTEM_AUTHENTICATION));
   }
 
   @Test
   public void testGetSubscriptionInfo() throws Exception {
     when(_entityClient.exists(eq(SUBSCRIPTION_URN_1), eq(SYSTEM_AUTHENTICATION))).thenReturn(true);
-    when(_entityClient.getV2(eq(SUBSCRIPTION_ENTITY_NAME), eq(SUBSCRIPTION_URN_1), eq(SUBSCRIPTION_ASPECTS),
-        eq(SYSTEM_AUTHENTICATION)))
+    when(_entityClient.getV2(
+            eq(SUBSCRIPTION_ENTITY_NAME),
+            eq(SUBSCRIPTION_URN_1),
+            eq(SUBSCRIPTION_ASPECTS),
+            eq(SYSTEM_AUTHENTICATION)))
         .thenReturn(ENTITY_RESPONSE_1);
 
-    assertEquals(SUBSCRIPTION_INFO_1,
+    assertEquals(
+        SUBSCRIPTION_INFO_1,
         _subscriptionService.getSubscriptionInfo(SUBSCRIPTION_URN_1, SYSTEM_AUTHENTICATION));
   }
 
@@ -175,9 +226,15 @@ public class SubscriptionServiceTest {
     when(_entityClient.exists(eq(SUBSCRIPTION_URN_1), eq(SYSTEM_AUTHENTICATION))).thenReturn(false);
 
     assertThrows(
-        () -> _subscriptionService.updateSubscription(USER_URN, SUBSCRIPTION_URN_1, SUBSCRIPTION_INFO_1,
-            SUBSCRIPTION_TYPES_1,
-            ENTITY_CHANGE_TYPES_1, NOTIFICATION_CONFIG, SYSTEM_AUTHENTICATION));
+        () ->
+            _subscriptionService.updateSubscription(
+                USER_URN,
+                SUBSCRIPTION_URN_1,
+                SUBSCRIPTION_INFO_1,
+                SUBSCRIPTION_TYPES_1,
+                ENTITY_CHANGE_TYPES_1,
+                NOTIFICATION_CONFIG,
+                SYSTEM_AUTHENTICATION));
   }
 
   @Test
@@ -185,12 +242,17 @@ public class SubscriptionServiceTest {
     when(_entityClient.exists(eq(SUBSCRIPTION_URN_1), eq(SYSTEM_AUTHENTICATION))).thenReturn(true);
 
     final Map.Entry<Urn, SubscriptionInfo> subscription =
-        _subscriptionService.updateSubscription(USER_URN, SUBSCRIPTION_URN_1, SUBSCRIPTION_INFO_1, SUBSCRIPTION_TYPES_1,
+        _subscriptionService.updateSubscription(
+            USER_URN,
+            SUBSCRIPTION_URN_1,
+            SUBSCRIPTION_INFO_1,
+            SUBSCRIPTION_TYPES_1,
             ENTITY_CHANGE_TYPES_1,
-            NOTIFICATION_CONFIG, SYSTEM_AUTHENTICATION);
+            NOTIFICATION_CONFIG,
+            SYSTEM_AUTHENTICATION);
 
-    verify(_entityClient, times(1)).ingestProposal(any(MetadataChangeProposal.class), eq(SYSTEM_AUTHENTICATION),
-        anyBoolean());
+    verify(_entityClient, times(1))
+        .ingestProposal(any(MetadataChangeProposal.class), eq(SYSTEM_AUTHENTICATION), anyBoolean());
     assertEquals(subscription, Map.entry(SUBSCRIPTION_URN_1, SUBSCRIPTION_INFO_1));
   }
 
@@ -198,19 +260,22 @@ public class SubscriptionServiceTest {
   public void testgetSubscriptionSearchResultMissingActor() throws Exception {
     when(_entityClient.exists(eq(USER_URN), eq(SYSTEM_AUTHENTICATION))).thenReturn(false);
 
-    assertThrows(() -> _subscriptionService.getSubscriptionsSearchResult(USER_URN, 0, 10, SYSTEM_AUTHENTICATION));
+    assertThrows(
+        () ->
+            _subscriptionService.getSubscriptionsSearchResult(
+                USER_URN, 0, 10, SYSTEM_AUTHENTICATION));
   }
 
   @Test
   public void testListSubscriptionsNoSearchResults() throws Exception {
     when(_entityClient.exists(eq(USER_URN), eq(SYSTEM_AUTHENTICATION))).thenReturn(true);
     when(_entityClient.filter(
-        eq(SUBSCRIPTION_ENTITY_NAME),
-        any(),
-        any(),
-        anyInt(),
-        anyInt(),
-        eq(SYSTEM_AUTHENTICATION)))
+            eq(SUBSCRIPTION_ENTITY_NAME),
+            any(),
+            any(),
+            anyInt(),
+            anyInt(),
+            eq(SYSTEM_AUTHENTICATION)))
         .thenReturn(new SearchResult().setEntities(new SearchEntityArray()));
 
     final SearchResult searchResult = new SearchResult();
@@ -224,30 +289,36 @@ public class SubscriptionServiceTest {
   public void testListSubscriptions() throws Exception {
     when(_entityClient.exists(eq(USER_URN), eq(SYSTEM_AUTHENTICATION))).thenReturn(true);
     when(_entityClient.filter(
-        eq(SUBSCRIPTION_ENTITY_NAME),
-        any(),
-        any(),
-        anyInt(),
-        anyInt(),
-        eq(SYSTEM_AUTHENTICATION)))
-        .thenReturn(new SearchResult().setEntities(new SearchEntityArray(
-            new SearchEntity().setEntity(SUBSCRIPTION_URN_1),
-            new SearchEntity().setEntity(SUBSCRIPTION_URN_2))));
+            eq(SUBSCRIPTION_ENTITY_NAME),
+            any(),
+            any(),
+            anyInt(),
+            anyInt(),
+            eq(SYSTEM_AUTHENTICATION)))
+        .thenReturn(
+            new SearchResult()
+                .setEntities(
+                    new SearchEntityArray(
+                        new SearchEntity().setEntity(SUBSCRIPTION_URN_1),
+                        new SearchEntity().setEntity(SUBSCRIPTION_URN_2))));
     when(_entityClient.batchGetV2(
-        eq(SUBSCRIPTION_ENTITY_NAME),
-        eq(SUBSCRIPTION_URNS),
-        eq(SUBSCRIPTION_ASPECTS),
-        eq(SYSTEM_AUTHENTICATION)))
-        .thenReturn(ImmutableMap.of(
-            SUBSCRIPTION_URN_1, ENTITY_RESPONSE_1,
-            SUBSCRIPTION_URN_2, ENTITY_RESPONSE_2));
+            eq(SUBSCRIPTION_ENTITY_NAME),
+            eq(SUBSCRIPTION_URNS),
+            eq(SUBSCRIPTION_ASPECTS),
+            eq(SYSTEM_AUTHENTICATION)))
+        .thenReturn(
+            ImmutableMap.of(
+                SUBSCRIPTION_URN_1, ENTITY_RESPONSE_1,
+                SUBSCRIPTION_URN_2, ENTITY_RESPONSE_2));
 
-    final SearchResult searchResult = _subscriptionService.getSubscriptionsSearchResult(USER_URN, 0, 10, SYSTEM_AUTHENTICATION);
+    final SearchResult searchResult =
+        _subscriptionService.getSubscriptionsSearchResult(USER_URN, 0, 10, SYSTEM_AUTHENTICATION);
     final Map<Urn, SubscriptionInfo> subscriptions =
         _subscriptionService.listSubscriptions(searchResult, SYSTEM_AUTHENTICATION);
-    final Map<Urn, SubscriptionInfo> expectedSubscriptions = ImmutableMap.of(
-        SUBSCRIPTION_URN_1, SUBSCRIPTION_INFO_1,
-        SUBSCRIPTION_URN_2, SUBSCRIPTION_INFO_2);
+    final Map<Urn, SubscriptionInfo> expectedSubscriptions =
+        ImmutableMap.of(
+            SUBSCRIPTION_URN_1, SUBSCRIPTION_INFO_1,
+            SUBSCRIPTION_URN_2, SUBSCRIPTION_INFO_2);
     assertEquals(subscriptions, expectedSubscriptions);
   }
 }

@@ -1,5 +1,7 @@
 package com.linkedin.metadata.graph;
 
+import static com.linkedin.metadata.Constants.*;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.Siblings;
@@ -20,9 +22,6 @@ import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.metadata.Constants.*;
-
-
 @Slf4j
 @RequiredArgsConstructor
 public class SiblingGraphService {
@@ -31,58 +30,55 @@ public class SiblingGraphService {
   private final GraphService _graphService;
 
   @Nonnull
-  public EntityLineageResult getLineage(@Nonnull Urn entityUrn, @Nonnull LineageDirection direction, int offset,
-      int count, int maxHops) {
-    return ValidationUtils.validateEntityLineageResult(getLineage(
-            entityUrn,
-            direction,
-            offset,
-            count,
-            maxHops,
-            false,
-            new HashSet<>(),
-            null,
-            null),
-            _entityService);
+  public EntityLineageResult getLineage(
+      @Nonnull Urn entityUrn,
+      @Nonnull LineageDirection direction,
+      int offset,
+      int count,
+      int maxHops) {
+    return ValidationUtils.validateEntityLineageResult(
+        getLineage(
+            entityUrn, direction, offset, count, maxHops, false, new HashSet<>(), null, null),
+        _entityService);
   }
 
   /**
-   * Traverse from the entityUrn towards the input direction up to maxHops number of hops
-   * Abstracts away the concept of relationship types
+   * Traverse from the entityUrn towards the input direction up to maxHops number of hops Abstracts
+   * away the concept of relationship types
    *
-   * Unless overridden, it uses the lineage registry to fetch valid edge types and queries for them
+   * <p>Unless overridden, it uses the lineage registry to fetch valid edge types and queries for
+   * them
    */
   @Nonnull
-  public EntityLineageResult getLineage(@Nonnull Urn entityUrn, @Nonnull LineageDirection direction,
-      int offset, int count, int maxHops, boolean separateSiblings, @Nonnull Set<Urn> visitedUrns,
-      @Nullable Long startTimeMillis, @Nullable Long endTimeMillis) {
+  public EntityLineageResult getLineage(
+      @Nonnull Urn entityUrn,
+      @Nonnull LineageDirection direction,
+      int offset,
+      int count,
+      int maxHops,
+      boolean separateSiblings,
+      @Nonnull Set<Urn> visitedUrns,
+      @Nullable Long startTimeMillis,
+      @Nullable Long endTimeMillis) {
     if (separateSiblings) {
-      return ValidationUtils.validateEntityLineageResult(_graphService.getLineage(
-          entityUrn,
-          direction,
-          offset,
-          count,
-          maxHops,
-          startTimeMillis,
-          endTimeMillis), _entityService);
+      return ValidationUtils.validateEntityLineageResult(
+          _graphService.getLineage(
+              entityUrn, direction, offset, count, maxHops, startTimeMillis, endTimeMillis),
+          _entityService);
     }
 
     if (maxHops > 1) {
       throw new UnsupportedOperationException(
-          String.format("More than 1 hop is not supported for %s", this.getClass().getSimpleName()));
+          String.format(
+              "More than 1 hop is not supported for %s", this.getClass().getSimpleName()));
     }
 
     EntityLineageResult entityLineage =
         _graphService.getLineage(
-            entityUrn,
-            direction,
-            offset,
-            count,
-            maxHops,
-            startTimeMillis,
-            endTimeMillis);
+            entityUrn, direction, offset, count, maxHops, startTimeMillis, endTimeMillis);
 
-    Siblings siblingAspectOfEntity = (Siblings) _entityService.getLatestAspect(entityUrn, SIBLINGS_ASPECT_NAME);
+    Siblings siblingAspectOfEntity =
+        (Siblings) _entityService.getLatestAspect(entityUrn, SIBLINGS_ASPECT_NAME);
 
     // if you have siblings, we want to fetch their lineage too and merge it in
     if (siblingAspectOfEntity != null && siblingAspectOfEntity.hasSiblings()) {
@@ -104,19 +100,23 @@ public class SiblingGraphService {
         if (visitedUrns.contains(siblingUrn)) {
           continue;
         }
-        // need to call siblingGraphService to get sibling results for this sibling entity in case there is more than one sibling
-        EntityLineageResult nextEntityLineage = filterLineageResultFromSiblings(siblingUrn, allSiblingsInGroup,
-            getLineage(
+        // need to call siblingGraphService to get sibling results for this sibling entity in case
+        // there is more than one sibling
+        EntityLineageResult nextEntityLineage =
+            filterLineageResultFromSiblings(
                 siblingUrn,
-                direction,
-                offset,
-                count,
-                maxHops,
-                false,
-                visitedUrns,
-                startTimeMillis,
-                endTimeMillis),
-            entityLineage);
+                allSiblingsInGroup,
+                getLineage(
+                    siblingUrn,
+                    direction,
+                    offset,
+                    count,
+                    maxHops,
+                    false,
+                    visitedUrns,
+                    startTimeMillis,
+                    endTimeMillis),
+                entityLineage);
 
         // Update offset and count to fetch the correct number of edges from the next sibling node
         offset = Math.max(0, offset - nextEntityLineage.getTotal());
@@ -124,86 +124,116 @@ public class SiblingGraphService {
 
         entityLineage.setFiltered(getFiltered(entityLineage) + getFiltered(nextEntityLineage));
         entityLineage = nextEntityLineage;
-      };
+      }
+      ;
     }
 
     return ValidationUtils.validateEntityLineageResult(entityLineage, _entityService);
   }
 
   private int getFiltered(@Nullable EntityLineageResult entityLineageResult) {
-    return (entityLineageResult != null && entityLineageResult.getFiltered() != null ? entityLineageResult.getFiltered() : 0);
+    return (entityLineageResult != null && entityLineageResult.getFiltered() != null
+        ? entityLineageResult.getFiltered()
+        : 0);
   }
 
-  // takes a lineage result and removes any nodes that are siblings of some other node already in the result
+  // takes a lineage result and removes any nodes that are siblings of some other node already in
+  // the result
   private EntityLineageResult filterLineageResultFromSiblings(
       @Nonnull final Urn urn,
       @Nonnull final Set<Urn> allSiblingsInGroup,
       @Nonnull final EntityLineageResult entityLineageResult,
-      @Nullable final EntityLineageResult existingResult
-  ) {
+      @Nullable final EntityLineageResult existingResult) {
     int numFiltered = 0;
 
     // 1) remove the source entities siblings from this entity's downstreams
-    final Map<Boolean, List<LineageRelationship>> partitionedFilteredRelationships = entityLineageResult.getRelationships()
-        .stream().collect(Collectors.partitioningBy(
-            lineageRelationship -> !allSiblingsInGroup.contains(lineageRelationship.getEntity())
-        || lineageRelationship.getEntity().equals(urn)));
+    final Map<Boolean, List<LineageRelationship>> partitionedFilteredRelationships =
+        entityLineageResult.getRelationships().stream()
+            .collect(
+                Collectors.partitioningBy(
+                    lineageRelationship ->
+                        !allSiblingsInGroup.contains(lineageRelationship.getEntity())
+                            || lineageRelationship.getEntity().equals(urn)));
     numFiltered += partitionedFilteredRelationships.get(Boolean.FALSE).size();
 
-    final List<LineageRelationship> filteredRelationships = partitionedFilteredRelationships.get(Boolean.TRUE);
+    final List<LineageRelationship> filteredRelationships =
+        partitionedFilteredRelationships.get(Boolean.TRUE);
 
     // 2) filter out existing lineage to avoid duplicates in our combined result
-    final Set<Urn> existingUrns = existingResult != null
-        ? existingResult.getRelationships().stream().map(LineageRelationship::getEntity).collect(Collectors.toSet())
-        : new HashSet<>();
+    final Set<Urn> existingUrns =
+        existingResult != null
+            ? existingResult.getRelationships().stream()
+                .map(LineageRelationship::getEntity)
+                .collect(Collectors.toSet())
+            : new HashSet<>();
 
-    Map<Boolean, List<LineageRelationship>> partitionedUniqueFilteredRelationships = filteredRelationships.stream().collect(
-        Collectors.partitioningBy(lineageRelationship -> !existingUrns.contains(lineageRelationship.getEntity())));
+    Map<Boolean, List<LineageRelationship>> partitionedUniqueFilteredRelationships =
+        filteredRelationships.stream()
+            .collect(
+                Collectors.partitioningBy(
+                    lineageRelationship ->
+                        !existingUrns.contains(lineageRelationship.getEntity())));
     numFiltered += partitionedUniqueFilteredRelationships.get(Boolean.FALSE).size();
 
-    List<LineageRelationship> uniqueFilteredRelationships = partitionedUniqueFilteredRelationships.get(Boolean.TRUE);
+    List<LineageRelationship> uniqueFilteredRelationships =
+        partitionedUniqueFilteredRelationships.get(Boolean.TRUE);
 
     // 3) combine this entity's lineage with the lineage we've already seen
-    final List<LineageRelationship> combinedResults = Stream.concat(
-            uniqueFilteredRelationships.stream(),
-            existingResult != null ? existingResult.getRelationships().stream() : ImmutableList.<LineageRelationship>of().stream())
-        .collect(Collectors.toList());
+    final List<LineageRelationship> combinedResults =
+        Stream.concat(
+                uniqueFilteredRelationships.stream(),
+                existingResult != null
+                    ? existingResult.getRelationships().stream()
+                    : ImmutableList.<LineageRelationship>of().stream())
+            .collect(Collectors.toList());
 
     // 4) fetch the siblings of each lineage result
-    final Set<Urn> combinedResultUrns = combinedResults.stream().map(LineageRelationship::getEntity).collect(Collectors.toSet());
+    final Set<Urn> combinedResultUrns =
+        combinedResults.stream().map(LineageRelationship::getEntity).collect(Collectors.toSet());
 
     final Map<Urn, List<RecordTemplate>> siblingAspects =
         _entityService.getLatestAspects(combinedResultUrns, ImmutableSet.of(SIBLINGS_ASPECT_NAME));
 
-    // 5) if you are not primary & your sibling is in the results, filter yourself out of the return set
-    Map<Boolean, List<LineageRelationship>> partitionedFilteredSiblings = combinedResults.stream().collect(Collectors.partitioningBy(result -> {
-      Optional<RecordTemplate> optionalSiblingsAspect = siblingAspects.get(result.getEntity()).stream().filter(
-          aspect -> aspect instanceof Siblings
-      ).findAny();
+    // 5) if you are not primary & your sibling is in the results, filter yourself out of the return
+    // set
+    Map<Boolean, List<LineageRelationship>> partitionedFilteredSiblings =
+        combinedResults.stream()
+            .collect(
+                Collectors.partitioningBy(
+                    result -> {
+                      Optional<RecordTemplate> optionalSiblingsAspect =
+                          siblingAspects.get(result.getEntity()).stream()
+                              .filter(aspect -> aspect instanceof Siblings)
+                              .findAny();
 
-      if (optionalSiblingsAspect.isEmpty()) {
-        return true;
-      }
+                      if (optionalSiblingsAspect.isEmpty()) {
+                        return true;
+                      }
 
-      final Siblings siblingsAspect = (Siblings) optionalSiblingsAspect.get();
+                      final Siblings siblingsAspect = (Siblings) optionalSiblingsAspect.get();
 
-      if (siblingsAspect.isPrimary()) {
-        return true;
-      }
+                      if (siblingsAspect.isPrimary()) {
+                        return true;
+                      }
 
-      // if you are not primary and your sibling exists in the result set, filter yourself out
-      return siblingsAspect.getSiblings().stream().noneMatch(combinedResultUrns::contains);
-    }));
+                      // if you are not primary and your sibling exists in the result set, filter
+                      // yourself out
+                      return siblingsAspect.getSiblings().stream()
+                          .noneMatch(combinedResultUrns::contains);
+                    }));
 
     numFiltered += partitionedFilteredSiblings.get(Boolean.FALSE).size();
     uniqueFilteredRelationships = partitionedFilteredSiblings.get(Boolean.TRUE);
 
     EntityLineageResult combinedLineageResult = new EntityLineageResult();
     combinedLineageResult.setStart(entityLineageResult.getStart());
-    combinedLineageResult.setRelationships(new LineageRelationshipArray(uniqueFilteredRelationships));
-    combinedLineageResult.setTotal(entityLineageResult.getTotal() + (existingResult != null ? existingResult.getTotal() : 0));
+    combinedLineageResult.setRelationships(
+        new LineageRelationshipArray(uniqueFilteredRelationships));
+    combinedLineageResult.setTotal(
+        entityLineageResult.getTotal() + (existingResult != null ? existingResult.getTotal() : 0));
     combinedLineageResult.setCount(uniqueFilteredRelationships.size());
-    combinedLineageResult.setFiltered(numFiltered + getFiltered(existingResult) + getFiltered(entityLineageResult));
+    combinedLineageResult.setFiltered(
+        numFiltered + getFiltered(existingResult) + getFiltered(entityLineageResult));
     return ValidationUtils.validateEntityLineageResult(combinedLineageResult, _entityService);
   }
 }

@@ -1,5 +1,7 @@
 package com.linkedin.metadata.timeline.eventgenerator;
 
+import static com.linkedin.metadata.Constants.*;
+
 import com.datahub.util.RecordUtils;
 import com.github.fge.jsonpatch.JsonPatch;
 import com.linkedin.common.AuditStamp;
@@ -16,30 +18,37 @@ import java.util.Comparator;
 import java.util.List;
 import javax.annotation.Nonnull;
 
-import static com.linkedin.metadata.Constants.*;
-
-
 public class EditableDatasetPropertiesChangeEventGenerator
     extends EntityChangeEventGenerator<EditableDatasetProperties> {
   public static final String DESCRIPTION_ADDED = "Documentation for '%s' has been added: '%s'.";
   public static final String DESCRIPTION_REMOVED = "Documentation for '%s' has been removed: '%s'.";
-  public static final String DESCRIPTION_CHANGED = "Documentation of '%s' has been changed from '%s' to '%s'.";
+  public static final String DESCRIPTION_CHANGED =
+      "Documentation of '%s' has been changed from '%s' to '%s'.";
 
-  private static List<ChangeEvent> computeDiffs(EditableDatasetProperties baseDatasetProperties,
-      EditableDatasetProperties targetDatasetProperties, String entityUrn, AuditStamp auditStamp) {
+  private static List<ChangeEvent> computeDiffs(
+      EditableDatasetProperties baseDatasetProperties,
+      EditableDatasetProperties targetDatasetProperties,
+      String entityUrn,
+      AuditStamp auditStamp) {
     List<ChangeEvent> changeEvents = new ArrayList<>();
     ChangeEvent descriptionChangeEvent =
-        getDescriptionChangeEvent(baseDatasetProperties, targetDatasetProperties, entityUrn, auditStamp);
+        getDescriptionChangeEvent(
+            baseDatasetProperties, targetDatasetProperties, entityUrn, auditStamp);
     if (descriptionChangeEvent != null) {
       changeEvents.add(descriptionChangeEvent);
     }
     return changeEvents;
   }
 
-  private static ChangeEvent getDescriptionChangeEvent(EditableDatasetProperties baseDatasetProperties,
-      EditableDatasetProperties targetDatasetProperties, String entityUrn, AuditStamp auditStamp) {
-    String baseDescription = (baseDatasetProperties != null) ? baseDatasetProperties.getDescription() : null;
-    String targetDescription = (targetDatasetProperties != null) ? targetDatasetProperties.getDescription() : null;
+  private static ChangeEvent getDescriptionChangeEvent(
+      EditableDatasetProperties baseDatasetProperties,
+      EditableDatasetProperties targetDatasetProperties,
+      String entityUrn,
+      AuditStamp auditStamp) {
+    String baseDescription =
+        (baseDatasetProperties != null) ? baseDatasetProperties.getDescription() : null;
+    String targetDescription =
+        (targetDatasetProperties != null) ? targetDatasetProperties.getDescription() : null;
     if (baseDescription == null && targetDescription != null) {
       // Description added
       return ChangeEvent.builder()
@@ -60,45 +69,59 @@ public class EditableDatasetPropertiesChangeEventGenerator
           .description(String.format(DESCRIPTION_REMOVED, entityUrn, baseDescription))
           .auditStamp(auditStamp)
           .build();
-    } else if (baseDescription != null && targetDescription != null && !baseDescription.equals(targetDescription)) {
+    } else if (baseDescription != null
+        && targetDescription != null
+        && !baseDescription.equals(targetDescription)) {
       // Description has been modified.
       return ChangeEvent.builder()
           .entityUrn(entityUrn)
           .category(ChangeCategory.DOCUMENTATION)
           .operation(ChangeOperation.MODIFY)
           .semVerChange(SemanticChangeType.MINOR)
-          .description(String.format(DESCRIPTION_CHANGED, entityUrn, baseDescription, targetDescription))
+          .description(
+              String.format(DESCRIPTION_CHANGED, entityUrn, baseDescription, targetDescription))
           .auditStamp(auditStamp)
           .build();
     }
     return null;
   }
 
-  private static EditableDatasetProperties getEditableDatasetPropertiesFromAspect(EntityAspect entityAspect) {
+  private static EditableDatasetProperties getEditableDatasetPropertiesFromAspect(
+      EntityAspect entityAspect) {
     if (entityAspect != null && entityAspect.getMetadata() != null) {
-      return RecordUtils.toRecordTemplate(EditableDatasetProperties.class, entityAspect.getMetadata());
+      return RecordUtils.toRecordTemplate(
+          EditableDatasetProperties.class, entityAspect.getMetadata());
     }
     return null;
   }
 
   @Override
-  public ChangeTransaction getSemanticDiff(EntityAspect previousValue, EntityAspect currentValue,
-      ChangeCategory element, JsonPatch rawDiff, boolean rawDiffsRequested) {
+  public ChangeTransaction getSemanticDiff(
+      EntityAspect previousValue,
+      EntityAspect currentValue,
+      ChangeCategory element,
+      JsonPatch rawDiff,
+      boolean rawDiffsRequested) {
 
     if (currentValue == null) {
       throw new IllegalArgumentException("EntityAspect currentValue should not be null");
     }
 
-    if (!previousValue.getAspect().equals(EDITABLE_DATASET_PROPERTIES_ASPECT_NAME) || !currentValue.getAspect()
-        .equals(EDITABLE_DATASET_PROPERTIES_ASPECT_NAME)) {
-      throw new IllegalArgumentException("Aspect is not " + EDITABLE_DATASET_PROPERTIES_ASPECT_NAME);
+    if (!previousValue.getAspect().equals(EDITABLE_DATASET_PROPERTIES_ASPECT_NAME)
+        || !currentValue.getAspect().equals(EDITABLE_DATASET_PROPERTIES_ASPECT_NAME)) {
+      throw new IllegalArgumentException(
+          "Aspect is not " + EDITABLE_DATASET_PROPERTIES_ASPECT_NAME);
     }
 
     List<ChangeEvent> changeEvents = new ArrayList<>();
     if (element == ChangeCategory.DOCUMENTATION) {
-      EditableDatasetProperties baseDatasetProperties = getEditableDatasetPropertiesFromAspect(previousValue);
-      EditableDatasetProperties targetDatasetProperties = getEditableDatasetPropertiesFromAspect(currentValue);
-      changeEvents.addAll(computeDiffs(baseDatasetProperties, targetDatasetProperties, currentValue.getUrn(), null));
+      EditableDatasetProperties baseDatasetProperties =
+          getEditableDatasetPropertiesFromAspect(previousValue);
+      EditableDatasetProperties targetDatasetProperties =
+          getEditableDatasetPropertiesFromAspect(currentValue);
+      changeEvents.addAll(
+          computeDiffs(
+              baseDatasetProperties, targetDatasetProperties, currentValue.getUrn(), null));
     }
 
     // Assess the highest change at the transaction(schema) level.

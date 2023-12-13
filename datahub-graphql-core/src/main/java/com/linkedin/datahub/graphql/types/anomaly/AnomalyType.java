@@ -20,15 +20,12 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 
-
 public class AnomalyType implements com.linkedin.datahub.graphql.types.EntityType<Anomaly, String> {
 
-  static final Set<String> ASPECTS_TO_FETCH = ImmutableSet.of(
-      Constants.ANOMALY_INFO_ASPECT_NAME
-  );
+  static final Set<String> ASPECTS_TO_FETCH = ImmutableSet.of(Constants.ANOMALY_INFO_ASPECT_NAME);
   private final EntityClient _entityClient;
 
-  public AnomalyType(final EntityClient entityClient)  {
+  public AnomalyType(final EntityClient entityClient) {
     _entityClient = entityClient;
   }
 
@@ -48,28 +45,30 @@ public class AnomalyType implements com.linkedin.datahub.graphql.types.EntityTyp
   }
 
   @Override
-  public List<DataFetcherResult<Anomaly>> batchLoad(@Nonnull List<String> urns, @Nonnull QueryContext context) throws Exception {
-    final List<Urn> anomalyUrns = urns.stream()
-        .map(UrnUtils::getUrn)
-        .collect(Collectors.toList());
+  public List<DataFetcherResult<Anomaly>> batchLoad(
+      @Nonnull List<String> urns, @Nonnull QueryContext context) throws Exception {
+    final List<Urn> anomalyUrns = urns.stream().map(UrnUtils::getUrn).collect(Collectors.toList());
 
     try {
-      final Map<Urn, EntityResponse> entities = _entityClient.batchGetV2(
-          Constants.ANOMALY_ENTITY_NAME,
-          new HashSet<>(anomalyUrns),
-          ASPECTS_TO_FETCH,
-          context.getAuthentication());
+      final Map<Urn, EntityResponse> entities =
+          _entityClient.batchGetV2(
+              Constants.ANOMALY_ENTITY_NAME,
+              new HashSet<>(anomalyUrns),
+              ASPECTS_TO_FETCH,
+              context.getAuthentication());
 
       final List<EntityResponse> gmsResults = new ArrayList<>();
       for (Urn urn : anomalyUrns) {
         gmsResults.add(entities.getOrDefault(urn, null));
       }
       return gmsResults.stream()
-          .map(gmsResult ->
-              gmsResult == null ? null : DataFetcherResult.<Anomaly>newResult()
-                  .data(AnomalyMapper.map(gmsResult))
-                  .build()
-          )
+          .map(
+              gmsResult ->
+                  gmsResult == null
+                      ? null
+                      : DataFetcherResult.<Anomaly>newResult()
+                          .data(AnomalyMapper.map(gmsResult))
+                          .build())
           .collect(Collectors.toList());
     } catch (Exception e) {
       throw new RuntimeException("Failed to batch load Anomalies", e);

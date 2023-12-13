@@ -8,6 +8,7 @@ import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.test.definition.ValidationResult;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
+import com.linkedin.mxe.SystemMetadata;
 import java.net.URISyntaxException;
 import java.util.Collections;
 import java.util.HashMap;
@@ -17,15 +18,12 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
-
-import com.linkedin.mxe.SystemMetadata;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
-
 /**
- * Evaluator that supports resolving the '__firstSynchronized', '__lastSynchronized', '__lastObserved', '__created'
- * system queries for a given URN.
+ * Evaluator that supports resolving the '__firstSynchronized', '__lastSynchronized',
+ * '__lastObserved', '__created' system queries for a given URN.
  *
  * @implNote These queries do not support Timeseries Aspects.
  */
@@ -51,38 +49,51 @@ public class SystemAspectEvaluator extends BaseQueryEvaluator {
 
     final String queryName = query.getQuery();
     return FIRST_SYNCHRONIZED_FIELD_NAME.equalsIgnoreCase(queryName)
-            || LAST_SYNCHRONIZED_FIELD_NAME.equalsIgnoreCase(queryName)
-            || LAST_OBSERVED_FIELD_NAME.equalsIgnoreCase(queryName)
-            || CREATED_FIELD_NAME.equalsIgnoreCase(queryName);
+        || LAST_SYNCHRONIZED_FIELD_NAME.equalsIgnoreCase(queryName)
+        || LAST_OBSERVED_FIELD_NAME.equalsIgnoreCase(queryName)
+        || CREATED_FIELD_NAME.equalsIgnoreCase(queryName);
   }
 
   @Override
   @Nonnull
-  public ValidationResult validateQuery(@Nonnull final String entityType, @Nonnull final TestQuery query)
+  public ValidationResult validateQuery(
+      @Nonnull final String entityType, @Nonnull final TestQuery query)
       throws IllegalArgumentException {
     return new ValidationResult(isEligible(entityType, query), Collections.emptyList());
   }
 
   @Override
   @Nonnull
-  public Map<Urn, Map<TestQuery, TestQueryResponse>> evaluate(@Nonnull final String entityType,
-      @Nonnull final Set<Urn> urns, @Nonnull final Set<TestQuery> queries) {
+  public Map<Urn, Map<TestQuery, TestQueryResponse>> evaluate(
+      @Nonnull final String entityType,
+      @Nonnull final Set<Urn> urns,
+      @Nonnull final Set<TestQuery> queries) {
     final Map<Urn, Map<TestQuery, TestQueryResponse>> result = new HashMap<>();
     for (TestQuery query : queries) {
       try {
         final EntitySpec entitySpec = entityService.getEntityRegistry().getEntitySpec(entityType);
         final Set<String> aspectSpecNames =
-            query.getQuery().equalsIgnoreCase(FIRST_SYNCHRONIZED_FIELD_NAME) ? Set.of(entitySpec.getKeyAspectName())
-                : entitySpec.getAspectSpecs().stream().map(AspectSpec::getName).collect(Collectors.toSet());
+            query.getQuery().equalsIgnoreCase(FIRST_SYNCHRONIZED_FIELD_NAME)
+                ? Set.of(entitySpec.getKeyAspectName())
+                : entitySpec.getAspectSpecs().stream()
+                    .map(AspectSpec::getName)
+                    .collect(Collectors.toSet());
 
-        entityService.getEntitiesV2(entityType, urns, aspectSpecNames).forEach((urn, response) -> {
-          result.putIfAbsent(urn, new HashMap<>());
-          try {
-            result.get(urn).put(query, buildSystemQueryResponse(query, urn, response));
-          } catch (RuntimeException e) {
-            log.error("RuntimeException for urn: {} for query {}. Skipping running test for urn", urn, query, e);
-          }
-        });
+        entityService
+            .getEntitiesV2(entityType, urns, aspectSpecNames)
+            .forEach(
+                (urn, response) -> {
+                  result.putIfAbsent(urn, new HashMap<>());
+                  try {
+                    result.get(urn).put(query, buildSystemQueryResponse(query, urn, response));
+                  } catch (RuntimeException e) {
+                    log.error(
+                        "RuntimeException for urn: {} for query {}. Skipping running test for urn",
+                        urn,
+                        query,
+                        e);
+                  }
+                });
       } catch (URISyntaxException e) {
         log.error("Error while fetching aspects for urns {}", urns, e);
         throw new RuntimeException(String.format("Error while fetching aspects for urns %s", urns));
@@ -91,7 +102,9 @@ public class SystemAspectEvaluator extends BaseQueryEvaluator {
     return result;
   }
 
-  private TestQueryResponse buildSystemQueryResponse(@Nonnull final TestQuery query, @Nonnull final Urn urn,
+  private TestQueryResponse buildSystemQueryResponse(
+      @Nonnull final TestQuery query,
+      @Nonnull final Urn urn,
       @Nonnull final EntityResponse entityResponse) {
     final String queryName = query.getQuery();
     switch (queryName) {
@@ -117,38 +130,42 @@ public class SystemAspectEvaluator extends BaseQueryEvaluator {
   }
 
   @Nonnull
-  private static Stream<EnvelopedAspect> getAspectsForProcessing(@Nonnull EntityResponse entityResponse) {
-    return entityResponse.getAspects()
-            .values()
-            .stream()
-            .filter(aspect -> !aspect.getName().equalsIgnoreCase("testResults")
-              && !aspect.getName().equalsIgnoreCase("storageFeatures")
-                    && !aspect.getName().equalsIgnoreCase("usageFeatures")
-            );
+  private static Stream<EnvelopedAspect> getAspectsForProcessing(
+      @Nonnull EntityResponse entityResponse) {
+    return entityResponse.getAspects().values().stream()
+        .filter(
+            aspect ->
+                !aspect.getName().equalsIgnoreCase("testResults")
+                    && !aspect.getName().equalsIgnoreCase("storageFeatures")
+                    && !aspect.getName().equalsIgnoreCase("usageFeatures"));
   }
 
   private static String computeLastObserved(Urn urn, EntityResponse entityResponse) {
     return getAspectsForProcessing(entityResponse)
-            .map(EnvelopedAspect::getSystemMetadata)
-            .filter(Objects::nonNull)
-            .map(SystemMetadata::getLastObserved)
-            .filter(Objects::nonNull)
-            .max(Long::compareTo)
-            .orElseThrow(() -> {
+        .map(EnvelopedAspect::getSystemMetadata)
+        .filter(Objects::nonNull)
+        .map(SystemMetadata::getLastObserved)
+        .filter(Objects::nonNull)
+        .max(Long::compareTo)
+        .orElseThrow(
+            () -> {
               log.error("Unable to compute max aspect lastObserved for urn: {}", urn);
-              return new RuntimeException(String.format("Unable to compute max aspect lastObserved for urn %s", urn));
+              return new RuntimeException(
+                  String.format("Unable to compute max aspect lastObserved for urn %s", urn));
             })
-            .toString();
+        .toString();
   }
 
   private static String computeLastUpdated(Urn urn, EntityResponse entityResponse) {
     return getAspectsForProcessing(entityResponse)
-        .map(aspect ->  aspect.getCreated().getTime())
+        .map(aspect -> aspect.getCreated().getTime())
         .max(Long::compareTo)
-        .orElseThrow(() -> {
-          log.error("Unable to compute max aspect createdAt for urn: {}", urn);
-          return new RuntimeException(String.format("Unable to compute max aspect createdAt for urn %s", urn));
-        })
+        .orElseThrow(
+            () -> {
+              log.error("Unable to compute max aspect createdAt for urn: {}", urn);
+              return new RuntimeException(
+                  String.format("Unable to compute max aspect createdAt for urn %s", urn));
+            })
         .toString();
   }
 
@@ -157,10 +174,11 @@ public class SystemAspectEvaluator extends BaseQueryEvaluator {
         entityService.getEntityRegistry().getEntitySpec(urn.getEntityType()).getKeyAspectName();
     final EnvelopedAspect keyAspect = entityResponse.getAspects().get(keyAspectName);
     if (keyAspect == null) {
-      log.error("Unable to retrieve key aspect for urn: {}. Maybe this entity was recently deleted?", urn);
+      log.error(
+          "Unable to retrieve key aspect for urn: {}. Maybe this entity was recently deleted?",
+          urn);
       throw new RuntimeException(String.format("Unable to retrieve key aspect for urn: %s", urn));
     }
     return keyAspect.getCreated().getTime().toString();
   }
 }
-

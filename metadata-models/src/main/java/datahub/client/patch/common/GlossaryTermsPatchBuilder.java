@@ -1,19 +1,18 @@
 package datahub.client.patch.common;
 
+import static com.fasterxml.jackson.databind.node.JsonNodeFactory.instance;
+import static com.linkedin.metadata.Constants.GLOSSARY_TERMS_ASPECT_NAME;
+
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.common.urn.GlossaryTermUrn;
 import datahub.client.patch.AbstractMultiFieldPatchBuilder;
 import datahub.client.patch.PatchOperationType;
-import org.apache.commons.lang3.tuple.ImmutableTriple;
-
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import org.apache.commons.lang3.tuple.ImmutableTriple;
 
-import static com.fasterxml.jackson.databind.node.JsonNodeFactory.instance;
-import static com.linkedin.metadata.Constants.GLOSSARY_TERMS_ASPECT_NAME;
-
-
-public class GlossaryTermsPatchBuilder extends AbstractMultiFieldPatchBuilder<GlossaryTermsPatchBuilder> {
+public class GlossaryTermsPatchBuilder
+    extends AbstractMultiFieldPatchBuilder<GlossaryTermsPatchBuilder> {
 
   private static final String BASE_PATH = "/glossaryTerms/";
   private static final String URN_KEY = "urn";
@@ -21,6 +20,7 @@ public class GlossaryTermsPatchBuilder extends AbstractMultiFieldPatchBuilder<Gl
 
   /**
    * Adds a term with an optional context string
+   *
    * @param urn required
    * @param context optional
    * @return
@@ -50,7 +50,8 @@ public class GlossaryTermsPatchBuilder extends AbstractMultiFieldPatchBuilder<Gl
   @Override
   protected String getEntityType() {
     if (this.targetEntityUrn == null) {
-      throw new IllegalStateException("Target Entity Urn must be set to determine entity type before building Patch.");
+      throw new IllegalStateException(
+          "Target Entity Urn must be set to determine entity type before building Patch.");
     }
     return this.targetEntityUrn.getEntityType();
   }

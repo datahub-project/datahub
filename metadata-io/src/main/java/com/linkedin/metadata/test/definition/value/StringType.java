@@ -17,5 +17,4 @@ public class StringType implements ValueType {
   public static StringType get() {
     return INSTANCE;
   }
-
 }

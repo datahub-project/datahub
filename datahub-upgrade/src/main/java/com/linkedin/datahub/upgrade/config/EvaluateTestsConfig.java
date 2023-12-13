@@ -12,18 +12,23 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.DependsOn;
 
-
 @Configuration
 public class EvaluateTestsConfig {
-  @Autowired
-  ApplicationContext applicationContext;
+  @Autowired ApplicationContext applicationContext;
 
   @Bean(name = "evaluateTests")
-  @DependsOn({"entitySearchService", "testEngine", "systemRestliEntityClient", "systemAuthentication"})
+  @DependsOn({
+    "entitySearchService",
+    "testEngine",
+    "systemRestliEntityClient",
+    "systemAuthentication"
+  })
   @Nonnull
   public EvaluateTests createInstance() {
-    final SystemEntityClient entityClient = applicationContext.getBean("systemRestliEntityClient", SystemEntityClient.class);
-    final EntitySearchService entitySearchService = applicationContext.getBean(EntitySearchService.class);
+    final SystemEntityClient entityClient =
+        applicationContext.getBean("systemRestliEntityClient", SystemEntityClient.class);
+    final EntitySearchService entitySearchService =
+        applicationContext.getBean(EntitySearchService.class);
     final TestEngine testEngine = applicationContext.getBean(TestEngine.class);
     final Authentication systemAuthentication = applicationContext.getBean(Authentication.class);
     return new EvaluateTests(entityClient, entitySearchService, testEngine, systemAuthentication);

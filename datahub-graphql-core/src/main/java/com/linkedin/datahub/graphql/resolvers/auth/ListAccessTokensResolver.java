@@ -1,5 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.auth;
 
+import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
+
 import com.google.common.collect.ImmutableList;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
@@ -23,14 +25,10 @@ import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
-
-
-/**
- * Resolver for listing personal & service principal v2-type (stateful) access tokens.
- */
+/** Resolver for listing personal & service principal v2-type (stateful) access tokens. */
 @Slf4j
-public class ListAccessTokensResolver implements DataFetcher<CompletableFuture<ListAccessTokenResult>> {
+public class ListAccessTokensResolver
+    implements DataFetcher<CompletableFuture<ListAccessTokenResult>> {
 
   private static final String EXPIRES_AT_FIELD_NAME = "expiresAt";
 
@@ -41,60 +39,87 @@ public class ListAccessTokensResolver implements DataFetcher<CompletableFuture<L
   }
 
   @Override
-  public CompletableFuture<ListAccessTokenResult> get(DataFetchingEnvironment environment) throws Exception {
-    return CompletableFuture.supplyAsync(() -> {
-      final QueryContext context = environment.getContext();
-      final ListAccessTokenInput input = bindArgument(environment.getArgument("input"), ListAccessTokenInput.class);
-      final Integer start = input.getStart();
-      final Integer count = input.getCount();
-      final List<FacetFilterInput> filters = input.getFilters() == null ? Collections.emptyList() : input.getFilters();
+  public CompletableFuture<ListAccessTokenResult> get(DataFetchingEnvironment environment)
+      throws Exception {
+    return CompletableFuture.supplyAsync(
+        () -> {
+          final QueryContext context = environment.getContext();
+          final ListAccessTokenInput input =
+              bindArgument(environment.getArgument("input"), ListAccessTokenInput.class);
+          final Integer start = input.getStart();
+          final Integer count = input.getCount();
+          final List<FacetFilterInput> filters =
+              input.getFilters() == null ? Collections.emptyList() : input.getFilters();
 
-      log.info("User {} listing access tokens with filters {}", context.getActorUrn(), filters.toString());
+          log.info(
+              "User {} listing access tokens with filters {}",
+              context.getActorUrn(),
+              filters.toString());
 
-      if (AuthorizationUtils.canManageTokens(context) || isListingSelfTokens(filters, context)) {
-        try {
-          final SortCriterion sortCriterion =
-              new SortCriterion().setField(EXPIRES_AT_FIELD_NAME).setOrder(SortOrder.DESCENDING);
-          final SearchResult searchResult = _entityClient.search(Constants.ACCESS_TOKEN_ENTITY_NAME, "",
-              buildFilter(filters, Collections.emptyList()), sortCriterion, start, count,
-              getAuthentication(environment), new SearchFlags().setFulltext(true));
+          if (AuthorizationUtils.canManageTokens(context)
+              || isListingSelfTokens(filters, context)) {
+            try {
+              final SortCriterion sortCriterion =
+                  new SortCriterion()
+                      .setField(EXPIRES_AT_FIELD_NAME)
+                      .setOrder(SortOrder.DESCENDING);
+              final SearchResult searchResult =
+                  _entityClient.search(
+                      Constants.ACCESS_TOKEN_ENTITY_NAME,
+                      "",
+                      buildFilter(filters, Collections.emptyList()),
+                      sortCriterion,
+                      start,
+                      count,
+                      getAuthentication(environment),
+                      new SearchFlags().setFulltext(true));
 
-          final List<AccessTokenMetadata> tokens = searchResult.getEntities().stream().map(entity -> {
-            final AccessTokenMetadata metadata = new AccessTokenMetadata();
-            metadata.setUrn(entity.getEntity().toString());
-            metadata.setType(EntityType.ACCESS_TOKEN);
-            return metadata;
-          }).collect(Collectors.toList());
+              final List<AccessTokenMetadata> tokens =
+                  searchResult.getEntities().stream()
+                      .map(
+                          entity -> {
+                            final AccessTokenMetadata metadata = new AccessTokenMetadata();
+                            metadata.setUrn(entity.getEntity().toString());
+                            metadata.setType(EntityType.ACCESS_TOKEN);
+                            return metadata;
+                          })
+                      .collect(Collectors.toList());
 
-          final ListAccessTokenResult result = new ListAccessTokenResult();
-          result.setTokens(tokens);
-          result.setStart(searchResult.getFrom());
-          result.setCount(searchResult.getPageSize());
-          result.setTotal(searchResult.getNumEntities());
+              final ListAccessTokenResult result = new ListAccessTokenResult();
+              result.setTokens(tokens);
+              result.setStart(searchResult.getFrom());
+              result.setCount(searchResult.getPageSize());
+              result.setTotal(searchResult.getNumEntities());
 
-          return result;
-        } catch (Exception e) {
-          throw new RuntimeException("Failed to list access tokens", e);
-        }
-      }
-      throw new AuthorizationException(
-          "Unauthorized to perform this action. Please contact your DataHub administrator.");
-    });
+              return result;
+            } catch (Exception e) {
+              throw new RuntimeException("Failed to list access tokens", e);
+            }
+          }
+          throw new AuthorizationException(
+              "Unauthorized to perform this action. Please contact your DataHub administrator.");
+        });
   }
 
   /**
-   * Utility method to answer: Does the existing security context have permissions to generate their personal tokens
-   * AND is the request coming in requesting those personal tokens?
-   * <p>
-   * Note: We look for the actorUrn field because a token generated by someone else means that the generator actor has
-   * manage all access token privileges which means that he/she will be bound to just listing their own tokens.
+   * Utility method to answer: Does the existing security context have permissions to generate their
+   * personal tokens AND is the request coming in requesting those personal tokens?
+   *
+   * <p>Note: We look for the actorUrn field because a token generated by someone else means that
+   * the generator actor has manage all access token privileges which means that he/she will be
+   * bound to just listing their own tokens.
    *
    * @param filters The filters being used in the request.
    * @param context Current security context.
    * @return A boolean stating if the current user can list its personal tokens.
    */
-  private boolean isListingSelfTokens(final List<FacetFilterInput> filters, final QueryContext context) {
-    return AuthorizationUtils.canGeneratePersonalAccessToken(context) && filters.stream()
-        .anyMatch(filter -> filter.getField().equals("ownerUrn") && filter.getValues().equals(ImmutableList.of(context.getActorUrn())));
+  private boolean isListingSelfTokens(
+      final List<FacetFilterInput> filters, final QueryContext context) {
+    return AuthorizationUtils.canGeneratePersonalAccessToken(context)
+        && filters.stream()
+            .anyMatch(
+                filter ->
+                    filter.getField().equals("ownerUrn")
+                        && filter.getValues().equals(ImmutableList.of(context.getActorUrn())));
   }
 }

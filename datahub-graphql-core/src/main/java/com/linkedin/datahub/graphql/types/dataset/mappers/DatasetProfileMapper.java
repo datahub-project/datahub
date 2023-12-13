@@ -8,20 +8,22 @@ import com.linkedin.metadata.utils.GenericRecordUtils;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 
-
-public class DatasetProfileMapper implements TimeSeriesAspectMapper<com.linkedin.datahub.graphql.generated.DatasetProfile> {
+public class DatasetProfileMapper
+    implements TimeSeriesAspectMapper<com.linkedin.datahub.graphql.generated.DatasetProfile> {
 
   public static final DatasetProfileMapper INSTANCE = new DatasetProfileMapper();
 
-  public static com.linkedin.datahub.graphql.generated.DatasetProfile map(@Nonnull final EnvelopedAspect envelopedAspect) {
+  public static com.linkedin.datahub.graphql.generated.DatasetProfile map(
+      @Nonnull final EnvelopedAspect envelopedAspect) {
     return INSTANCE.apply(envelopedAspect);
   }
 
   @Override
-  public com.linkedin.datahub.graphql.generated.DatasetProfile apply(@Nonnull final EnvelopedAspect envelopedAspect) {
+  public com.linkedin.datahub.graphql.generated.DatasetProfile apply(
+      @Nonnull final EnvelopedAspect envelopedAspect) {
 
-    DatasetProfile gmsProfile = GenericRecordUtils
-        .deserializeAspect(
+    DatasetProfile gmsProfile =
+        GenericRecordUtils.deserializeAspect(
             envelopedAspect.getAspect().getValue(),
             envelopedAspect.getAspect().getContentType(),
             DatasetProfile.class);
@@ -35,13 +37,16 @@ public class DatasetProfileMapper implements TimeSeriesAspectMapper<com.linkedin
     result.setTimestampMillis(gmsProfile.getTimestampMillis());
     if (gmsProfile.hasFieldProfiles()) {
       result.setFieldProfiles(
-          gmsProfile.getFieldProfiles().stream().map(DatasetProfileMapper::mapFieldProfile).collect(Collectors.toList()));
+          gmsProfile.getFieldProfiles().stream()
+              .map(DatasetProfileMapper::mapFieldProfile)
+              .collect(Collectors.toList()));
     }
 
     return result;
   }
 
-  private static com.linkedin.datahub.graphql.generated.DatasetFieldProfile mapFieldProfile(DatasetFieldProfile gmsProfile) {
+  private static com.linkedin.datahub.graphql.generated.DatasetFieldProfile mapFieldProfile(
+      DatasetFieldProfile gmsProfile) {
     final com.linkedin.datahub.graphql.generated.DatasetFieldProfile result =
         new com.linkedin.datahub.graphql.generated.DatasetFieldProfile();
     result.setFieldPath(gmsProfile.getFieldPath());

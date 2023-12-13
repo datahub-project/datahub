@@ -10,12 +10,10 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 
-
 @Configuration
 @Import(TimeseriesAspectServiceFactory.class)
 public class UsageFeatureFactory {
-  @Autowired
-  private TimeseriesAspectService timeseriesAspectService;
+  @Autowired private TimeseriesAspectService timeseriesAspectService;
 
   @Value("${USAGE_FEATURE_BATCH_SIZE:500}")
   private Integer batchSize;

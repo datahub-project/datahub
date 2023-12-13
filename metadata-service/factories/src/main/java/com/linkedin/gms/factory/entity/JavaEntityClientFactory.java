@@ -1,10 +1,10 @@
 package com.linkedin.gms.factory.entity;
 
 import com.datahub.authentication.Authentication;
-import com.linkedin.gms.factory.config.ConfigurationProvider;
-import com.linkedin.metadata.client.JavaEntityClient;
 import com.linkedin.entity.client.RestliEntityClient;
+import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.kafka.DataHubKafkaProducerFactory;
+import com.linkedin.metadata.client.JavaEntityClient;
 import com.linkedin.metadata.client.SystemJavaEntityClient;
 import com.linkedin.metadata.entity.DeleteEntityService;
 import com.linkedin.metadata.entity.EntityService;
@@ -20,7 +20,6 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
-
 
 @Configuration
 @ConditionalOnExpression("'${entityClient.preferredImpl:java}'.equals('java')")
@@ -60,7 +59,8 @@ public class JavaEntityClientFactory {
   private EventProducer _eventProducer;
 
   @Bean("javaEntityClient")
-  public JavaEntityClient getJavaEntityClient(@Qualifier("restliEntityClient") final RestliEntityClient restliEntityClient) {
+  public JavaEntityClient getJavaEntityClient(
+      @Qualifier("restliEntityClient") final RestliEntityClient restliEntityClient) {
     return new JavaEntityClient(
         _entityService,
         _deleteEntityService,
@@ -74,10 +74,12 @@ public class JavaEntityClientFactory {
   }
 
   @Bean("systemJavaEntityClient")
-  public SystemJavaEntityClient systemJavaEntityClient(@Qualifier("configurationProvider") final ConfigurationProvider configurationProvider,
-                                                       @Qualifier("systemAuthentication") final Authentication systemAuthentication,
-                                                       @Qualifier("systemRestliEntityClient") final RestliEntityClient restliEntityClient) {
-    SystemJavaEntityClient systemJavaEntityClient = new SystemJavaEntityClient(
+  public SystemJavaEntityClient systemJavaEntityClient(
+      @Qualifier("configurationProvider") final ConfigurationProvider configurationProvider,
+      @Qualifier("systemAuthentication") final Authentication systemAuthentication,
+      @Qualifier("systemRestliEntityClient") final RestliEntityClient restliEntityClient) {
+    SystemJavaEntityClient systemJavaEntityClient =
+        new SystemJavaEntityClient(
             _entityService,
             _deleteEntityService,
             _entitySearchService,

@@ -1,5 +1,7 @@
 package com.linkedin.datahub.graphql.types.role;
 
+import static com.linkedin.metadata.Constants.*;
+
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -21,11 +23,9 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.RequiredArgsConstructor;
 
-import static com.linkedin.metadata.Constants.*;
-
-
 @RequiredArgsConstructor
-public class DataHubRoleType implements com.linkedin.datahub.graphql.types.EntityType<DataHubRole, String> {
+public class DataHubRoleType
+    implements com.linkedin.datahub.graphql.types.EntityType<DataHubRole, String> {
   static final Set<String> ASPECTS_TO_FETCH = ImmutableSet.of(DATAHUB_ROLE_INFO_ASPECT_NAME);
   private final EntityClient _entityClient;
 
@@ -45,13 +45,16 @@ public class DataHubRoleType implements com.linkedin.datahub.graphql.types.Entit
   }
 
   @Override
-  public List<DataFetcherResult<DataHubRole>> batchLoad(@Nonnull List<String> urns, @Nonnull QueryContext context)
-      throws Exception {
+  public List<DataFetcherResult<DataHubRole>> batchLoad(
+      @Nonnull List<String> urns, @Nonnull QueryContext context) throws Exception {
     final List<Urn> roleUrns = urns.stream().map(this::getUrn).collect(Collectors.toList());
 
     try {
       final Map<Urn, EntityResponse> entities =
-          _entityClient.batchGetV2(DATAHUB_ROLE_ENTITY_NAME, new HashSet<>(roleUrns), ASPECTS_TO_FETCH,
+          _entityClient.batchGetV2(
+              DATAHUB_ROLE_ENTITY_NAME,
+              new HashSet<>(roleUrns),
+              ASPECTS_TO_FETCH,
               context.getAuthentication());
 
       final List<EntityResponse> gmsResults = new ArrayList<>();
@@ -59,8 +62,13 @@ public class DataHubRoleType implements com.linkedin.datahub.graphql.types.Entit
         gmsResults.add(entities.getOrDefault(urn, null));
       }
       return gmsResults.stream()
-          .map(gmsResult -> gmsResult == null ? null
-              : DataFetcherResult.<DataHubRole>newResult().data(DataHubRoleMapper.map(gmsResult)).build())
+          .map(
+              gmsResult ->
+                  gmsResult == null
+                      ? null
+                      : DataFetcherResult.<DataHubRole>newResult()
+                          .data(DataHubRoleMapper.map(gmsResult))
+                          .build())
           .collect(Collectors.toList());
     } catch (Exception e) {
       throw new RuntimeException("Failed to batch load Roles", e);

@@ -1,5 +1,8 @@
 package com.linkedin.datahub.graphql.resolvers.domain;
 
+import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
+import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.*;
+
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.Domain;
 import com.linkedin.datahub.graphql.generated.DomainEntitiesInput;
@@ -19,13 +22,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
-import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.*;
-
-
-/**
- * Resolves the entities in a particular Domain.
- */
+/** Resolves the entities in a particular Domain. */
 @Slf4j
 public class DomainEntitiesResolver implements DataFetcher<CompletableFuture<SearchResults>> {
 
@@ -49,50 +46,65 @@ public class DomainEntitiesResolver implements DataFetcher<CompletableFuture<Sea
   }
 
   @Override
-  public CompletableFuture<SearchResults> get(final DataFetchingEnvironment environment) throws Exception {
+  public CompletableFuture<SearchResults> get(final DataFetchingEnvironment environment)
+      throws Exception {
 
     final QueryContext context = environment.getContext();
     final String urn = ((Domain) environment.getSource()).getUrn();
 
-    final DomainEntitiesInput input = environment.getArgument(INPUT_ARG_NAME) != null
-        ? bindArgument(environment.getArgument(INPUT_ARG_NAME), DomainEntitiesInput.class)
-        : DEFAULT_ENTITIES_INPUT;
+    final DomainEntitiesInput input =
+        environment.getArgument(INPUT_ARG_NAME) != null
+            ? bindArgument(environment.getArgument(INPUT_ARG_NAME), DomainEntitiesInput.class)
+            : DEFAULT_ENTITIES_INPUT;
 
     final String query = input.getQuery() != null ? input.getQuery() : DEFAULT_QUERY;
     final int start = input.getStart() != null ? input.getStart() : DEFAULT_START;
     final int count = input.getCount() != null ? input.getCount() : DEFAULT_COUNT;
 
-    return CompletableFuture.supplyAsync(() -> {
+    return CompletableFuture.supplyAsync(
+        () -> {
+          try {
 
-      try {
+            final CriterionArray criteria = new CriterionArray();
+            final Criterion filterCriterion =
+                new Criterion()
+                    .setField(DOMAINS_FIELD_NAME + ".keyword")
+                    .setCondition(Condition.EQUAL)
+                    .setValue(urn);
+            criteria.add(filterCriterion);
+            if (input.getFilters() != null) {
+              input
+                  .getFilters()
+                  .forEach(
+                      filter -> {
+                        criteria.add(
+                            new Criterion()
+                                .setField(filter.getField())
+                                .setValue(filter.getValue()));
+                      });
+            }
 
-        final CriterionArray criteria = new CriterionArray();
-        final Criterion filterCriterion =  new Criterion()
-            .setField(DOMAINS_FIELD_NAME + ".keyword")
-            .setCondition(Condition.EQUAL)
-            .setValue(urn);
-        criteria.add(filterCriterion);
-        if (input.getFilters() != null) {
-          input.getFilters().forEach(filter -> {
-            criteria.add(new Criterion().setField(filter.getField()).setValue(filter.getValue()));
-          });
-        }
+            return UrnSearchResultsMapper.map(
+                _entityClient.searchAcrossEntities(
+                    SEARCHABLE_ENTITY_TYPES.stream()
+                        .map(EntityTypeMapper::getName)
+                        .collect(Collectors.toList()),
+                    query,
+                    new Filter()
+                        .setOr(
+                            new ConjunctiveCriterionArray(
+                                new ConjunctiveCriterion().setAnd(criteria))),
+                    start,
+                    count,
+                    null,
+                    null,
+                    context.getAuthentication()));
 
-        return UrnSearchResultsMapper.map(_entityClient.searchAcrossEntities(
-            SEARCHABLE_ENTITY_TYPES.stream().map(EntityTypeMapper::getName).collect(Collectors.toList()),
-            query,
-            new Filter().setOr(new ConjunctiveCriterionArray(new ConjunctiveCriterion().setAnd(criteria))),
-            start,
-            count,
-            null,
-            null,
-            context.getAuthentication()
-        ));
-
-      } catch (Exception e) {
-        throw new RuntimeException(
-            String.format("Failed to resolve entities associated with Domain with urn %s", urn), e);
-      }
-    });
+          } catch (Exception e) {
+            throw new RuntimeException(
+                String.format("Failed to resolve entities associated with Domain with urn %s", urn),
+                e);
+          }
+        });
   }
 }

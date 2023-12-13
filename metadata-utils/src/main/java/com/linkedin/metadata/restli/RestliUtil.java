@@ -11,7 +11,6 @@ import java.util.function.Supplier;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
-
 public class RestliUtil {
 
   private RestliUtil() {
@@ -19,8 +18,9 @@ public class RestliUtil {
   }
 
   /**
-   * Executes the provided supplier and convert the results to a {@link Task}.
-   * Exceptions thrown during the execution will be properly wrapped in {@link RestLiServiceException}.
+   * Executes the provided supplier and convert the results to a {@link Task}. Exceptions thrown
+   * during the execution will be properly wrapped in {@link RestLiServiceException}.
+   *
    * @param supplier The supplier to execute
    * @return A parseq {@link Task}
    */
@@ -31,7 +31,8 @@ public class RestliUtil {
     } catch (Throwable throwable) {
 
       // Convert IllegalArgumentException to BAD REQUEST
-      if (throwable instanceof IllegalArgumentException || throwable.getCause() instanceof IllegalArgumentException) {
+      if (throwable instanceof IllegalArgumentException
+          || throwable.getCause() instanceof IllegalArgumentException) {
         throwable = badRequestException(throwable.getMessage());
       }
 
@@ -47,20 +48,24 @@ public class RestliUtil {
   public static <T> Task<T> toTask(@Nonnull Supplier<T> supplier, String metricName) {
     Timer.Context context = MetricUtils.timer(metricName).time();
     // Stop timer on success and failure
-    return toTask(supplier).transform(orig -> {
-      context.stop();
-      if (orig.isFailed()) {
-        MetricUtils.counter(MetricRegistry.name(metricName, "failed")).inc();
-      } else {
-        MetricUtils.counter(MetricRegistry.name(metricName, "success")).inc();
-      }
-      return orig;
-    });
+    return toTask(supplier)
+        .transform(
+            orig -> {
+              context.stop();
+              if (orig.isFailed()) {
+                MetricUtils.counter(MetricRegistry.name(metricName, "failed")).inc();
+              } else {
+                MetricUtils.counter(MetricRegistry.name(metricName, "success")).inc();
+              }
+              return orig;
+            });
   }
 
   /**
-   * Similar to {@link #toTask(Supplier)} but the supplier is expected to return an {@link Optional} instead.
-   * A {@link RestLiServiceException} with 404 HTTP status code will be thrown if the optional is emtpy.
+   * Similar to {@link #toTask(Supplier)} but the supplier is expected to return an {@link Optional}
+   * instead. A {@link RestLiServiceException} with 404 HTTP status code will be thrown if the
+   * optional is emtpy.
+   *
    * @param supplier The supplier to execute
    * @return A parseq {@link Task}
    */

@@ -19,10 +19,7 @@ import lombok.NoArgsConstructor;
 import lombok.NonNull;
 import lombok.Setter;
 
-
-/**
- * Schema definition for the new aspect table.
- */
+/** Schema definition for the new aspect table. */
 @Getter
 @Setter
 @NoArgsConstructor
@@ -45,9 +42,7 @@ public class EbeanAspectV2 extends Model {
 
   public static final String SYSTEM_METADATA_COLUMN = "systemmetadata";
 
-  /**
-   * Key for an aspect in the table.
-   */
+  /** Key for an aspect in the table. */
   @Embeddable
   @Getter
   @AllArgsConstructor
@@ -80,10 +75,7 @@ public class EbeanAspectV2 extends Model {
     }
   }
 
-  @NonNull
-  @EmbeddedId
-  @Index
-  protected PrimaryKey key;
+  @NonNull @EmbeddedId @Index protected PrimaryKey key;
 
   @NonNull
   @Column(name = URN_COLUMN, length = 500, nullable = false)
@@ -115,9 +107,24 @@ public class EbeanAspectV2 extends Model {
   @Column(name = SYSTEM_METADATA_COLUMN, nullable = true)
   protected String systemMetadata;
 
-  public EbeanAspectV2(String urn, String aspect, long version, String metadata, Timestamp createdOn, String createdBy,
-      String createdFor, String systemMetadata) {
-    this(new PrimaryKey(urn, aspect, version), urn, aspect, version, metadata, createdOn, createdBy, createdFor,
+  public EbeanAspectV2(
+      String urn,
+      String aspect,
+      long version,
+      String metadata,
+      Timestamp createdOn,
+      String createdBy,
+      String createdFor,
+      String systemMetadata) {
+    this(
+        new PrimaryKey(urn, aspect, version),
+        urn,
+        aspect,
+        version,
+        metadata,
+        createdOn,
+        createdBy,
+        createdFor,
         systemMetadata);
   }
 
@@ -131,8 +138,7 @@ public class EbeanAspectV2 extends Model {
         getSystemMetadata(),
         getCreatedOn(),
         getCreatedBy(),
-        getCreatedFor()
-    );
+        getCreatedFor());
   }
 
   public static EbeanAspectV2 fromEntityAspect(EntityAspect aspect) {
@@ -144,7 +150,6 @@ public class EbeanAspectV2 extends Model {
         aspect.getCreatedOn(),
         aspect.getCreatedBy(),
         aspect.getCreatedFor(),
-        aspect.getSystemMetadata()
-    );
+        aspect.getSystemMetadata());
   }
 }

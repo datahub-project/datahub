@@ -1,5 +1,7 @@
 package com.linkedin.metadata.timeline.eventgenerator;
 
+import static com.linkedin.metadata.AcrylConstants.*;
+
 import com.linkedin.actionrequest.ActionRequestInfo;
 import com.linkedin.actionrequest.ActionRequestParams;
 import com.linkedin.actionrequest.CreateGlossaryNodeProposal;
@@ -18,13 +20,15 @@ import java.util.List;
 import java.util.Map;
 import javax.annotation.Nonnull;
 
-import static com.linkedin.metadata.AcrylConstants.*;
-
-
-public class ActionRequestInfoChangeEventGenerator extends EntityChangeEventGenerator<ActionRequestInfo> {
+public class ActionRequestInfoChangeEventGenerator
+    extends EntityChangeEventGenerator<ActionRequestInfo> {
   @Override
-  public List<ChangeEvent> getChangeEvents(@Nonnull Urn urn, @Nonnull String entity, @Nonnull String aspect,
-      @Nonnull Aspect<ActionRequestInfo> from, @Nonnull Aspect<ActionRequestInfo> to,
+  public List<ChangeEvent> getChangeEvents(
+      @Nonnull Urn urn,
+      @Nonnull String entity,
+      @Nonnull String aspect,
+      @Nonnull Aspect<ActionRequestInfo> from,
+      @Nonnull Aspect<ActionRequestInfo> to,
       @Nonnull AuditStamp auditStamp) {
     return computeDiffs(from.getValue(), to.getValue(), urn.toString(), auditStamp);
   }
@@ -41,13 +45,14 @@ public class ActionRequestInfoChangeEventGenerator extends EntityChangeEventGene
       return Collections.emptyList();
     }
 
-    return Collections.singletonList(ChangeEvent.builder()
-        .category(ChangeCategory.LIFECYCLE)
-        .operation(ChangeOperation.CREATE)
-        .auditStamp(auditStamp)
-        .entityUrn(entityUrn)
-        .parameters(buildParameters(newAspect))
-        .build());
+    return Collections.singletonList(
+        ChangeEvent.builder()
+            .category(ChangeCategory.LIFECYCLE)
+            .operation(ChangeOperation.CREATE)
+            .auditStamp(auditStamp)
+            .entityUrn(entityUrn)
+            .parameters(buildParameters(newAspect))
+            .build());
   }
 
   @Nonnull
@@ -97,15 +102,18 @@ public class ActionRequestInfoChangeEventGenerator extends EntityChangeEventGene
     }
 
     if (actionRequestParams.hasCreateGlossaryNodeProposal()) {
-      return buildCreateGlossaryNodeProposalParameters(actionRequestParams.getCreateGlossaryNodeProposal());
+      return buildCreateGlossaryNodeProposalParameters(
+          actionRequestParams.getCreateGlossaryNodeProposal());
     }
 
     if (actionRequestParams.hasCreateGlossaryTermProposal()) {
-      return buildCreateGlossaryTermProposalParameters(actionRequestParams.getCreateGlossaryTermProposal());
+      return buildCreateGlossaryTermProposalParameters(
+          actionRequestParams.getCreateGlossaryTermProposal());
     }
 
     if (actionRequestParams.hasUpdateDescriptionProposal()) {
-      return buildUpdateDescriptionProposalParameters(actionRequestParams.getUpdateDescriptionProposal());
+      return buildUpdateDescriptionProposalParameters(
+          actionRequestParams.getUpdateDescriptionProposal());
     }
 
     return Collections.emptyMap();
@@ -120,8 +128,7 @@ public class ActionRequestInfoChangeEventGenerator extends EntityChangeEventGene
   }
 
   @Nonnull
-  private Map<String, Object> buildTagProposalParameters(
-      @Nonnull final TagProposal proposal) {
+  private Map<String, Object> buildTagProposalParameters(@Nonnull final TagProposal proposal) {
     Map<String, Object> parameters = new HashMap<>();
     parameters.put(TAG_URN_KEY, proposal.getTag().toString());
     return parameters;

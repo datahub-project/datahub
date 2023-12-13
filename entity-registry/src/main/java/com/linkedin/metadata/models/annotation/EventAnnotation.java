@@ -6,10 +6,7 @@ import java.util.Optional;
 import javax.annotation.Nonnull;
 import lombok.Value;
 
-
-/**
- * An annotation associated with a DataHub Event.
- */
+/** An annotation associated with a DataHub Event. */
 @Value
 public class EventAnnotation {
 
@@ -20,15 +17,12 @@ public class EventAnnotation {
 
   @Nonnull
   public static EventAnnotation fromPegasusAnnotationObject(
-      @Nonnull final Object annotationObj,
-      @Nonnull final String context
-  ) {
+      @Nonnull final Object annotationObj, @Nonnull final String context) {
     if (!Map.class.isAssignableFrom(annotationObj.getClass())) {
-      throw new ModelValidationException(String.format(
-          "Failed to validate @%s annotation declared at %s: Invalid value type provided (Expected Map)",
-          ANNOTATION_NAME,
-          context
-      ));
+      throw new ModelValidationException(
+          String.format(
+              "Failed to validate @%s annotation declared at %s: Invalid value type provided (Expected Map)",
+              ANNOTATION_NAME, context));
     }
 
     Map map = (Map) annotationObj;
@@ -37,10 +31,7 @@ public class EventAnnotation {
       throw new ModelValidationException(
           String.format(
               "Failed to validate @%s annotation at %s: Invalid field '%s'. Expected type String",
-              ANNOTATION_NAME,
-              context,
-              NAME_FIELD
-          ));
+              ANNOTATION_NAME, context, NAME_FIELD));
     }
     return new EventAnnotation(name.get());
   }

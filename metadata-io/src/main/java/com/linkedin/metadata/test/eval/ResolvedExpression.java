@@ -4,18 +4,14 @@ import com.linkedin.metadata.test.definition.expression.Expression;
 import com.linkedin.metadata.test.definition.expression.ExpressionType;
 import lombok.Getter;
 
-
 /**
- * A wrapper around {@link Expression} which contains its resolved value, represented
- * as an {@link Object}.
+ * A wrapper around {@link Expression} which contains its resolved value, represented as an {@link
+ * Object}.
  */
 public class ResolvedExpression {
-  @Getter
-  private final Expression expression; // The original expression.
+  @Getter private final Expression expression; // The original expression.
 
-  /**
-   * The resolved value
-   */
+  /** The resolved value */
   private Object resolvedValue;
 
   // Constructor for predicate param

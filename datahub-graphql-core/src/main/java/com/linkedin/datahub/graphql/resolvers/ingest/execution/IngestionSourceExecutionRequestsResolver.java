@@ -29,11 +29,10 @@ import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 
-/**
- * Retrieves a list of historical executions for a particular source.
- */
+/** Retrieves a list of historical executions for a particular source. */
 @Slf4j
-public class IngestionSourceExecutionRequestsResolver implements DataFetcher<CompletableFuture<IngestionSourceExecutionRequests>> {
+public class IngestionSourceExecutionRequestsResolver
+    implements DataFetcher<CompletableFuture<IngestionSourceExecutionRequests>> {
 
   private static final String INGESTION_SOURCE_FIELD_NAME = "ingestionSource";
   private static final String REQUEST_TIME_MS_FIELD_NAME = "requestTimeMs";
@@ -45,64 +44,77 @@ public class IngestionSourceExecutionRequestsResolver implements DataFetcher<Com
   }
 
   @Override
-  public CompletableFuture<IngestionSourceExecutionRequests> get(final DataFetchingEnvironment environment) throws Exception {
+  public CompletableFuture<IngestionSourceExecutionRequests> get(
+      final DataFetchingEnvironment environment) throws Exception {
 
     final QueryContext context = environment.getContext();
     final String urn = ((IngestionSource) environment.getSource()).getUrn();
-    final Integer start = environment.getArgument("start") != null ? environment.getArgument("start") : 0;
-    final Integer count = environment.getArgument("count") != null ? environment.getArgument("count") : 10;
+    final Integer start =
+        environment.getArgument("start") != null ? environment.getArgument("start") : 0;
+    final Integer count =
+        environment.getArgument("count") != null ? environment.getArgument("count") : 10;
 
-    return CompletableFuture.supplyAsync(() -> {
+    return CompletableFuture.supplyAsync(
+        () -> {
+          try {
 
-      try {
+            // 1. Fetch the related edges
+            final Criterion filterCriterion =
+                new Criterion()
+                    .setField(INGESTION_SOURCE_FIELD_NAME)
+                    .setCondition(Condition.EQUAL)
+                    .setValue(urn);
 
-        // 1. Fetch the related edges
-        final Criterion filterCriterion =  new Criterion()
-            .setField(INGESTION_SOURCE_FIELD_NAME)
-            .setCondition(Condition.EQUAL)
-            .setValue(urn);
+            final SearchResult executionsSearchResult =
+                _entityClient.filter(
+                    Constants.EXECUTION_REQUEST_ENTITY_NAME,
+                    new Filter()
+                        .setOr(
+                            new ConjunctiveCriterionArray(
+                                new ConjunctiveCriterion()
+                                    .setAnd(
+                                        new CriterionArray(ImmutableList.of(filterCriterion))))),
+                    new SortCriterion()
+                        .setField(REQUEST_TIME_MS_FIELD_NAME)
+                        .setOrder(SortOrder.DESCENDING),
+                    start,
+                    count,
+                    context.getAuthentication());
 
-        final SearchResult executionsSearchResult = _entityClient.filter(
-            Constants.EXECUTION_REQUEST_ENTITY_NAME,
-            new Filter().setOr(new ConjunctiveCriterionArray(
-                new ConjunctiveCriterion().setAnd(new CriterionArray(ImmutableList.of(filterCriterion)))
-            )),
-            new SortCriterion().setField(REQUEST_TIME_MS_FIELD_NAME).setOrder(SortOrder.DESCENDING),
-            start,
-            count,
-            context.getAuthentication()
-        );
+            // 2. Batch fetch the related ExecutionRequests
+            final Set<Urn> relatedExecRequests =
+                executionsSearchResult.getEntities().stream()
+                    .map(SearchEntity::getEntity)
+                    .collect(Collectors.toSet());
 
-        // 2. Batch fetch the related ExecutionRequests
-        final Set<Urn> relatedExecRequests = executionsSearchResult.getEntities().stream()
-            .map(SearchEntity::getEntity)
-            .collect(Collectors.toSet());
+            final Map<Urn, EntityResponse> entities =
+                _entityClient.batchGetV2(
+                    Constants.EXECUTION_REQUEST_ENTITY_NAME,
+                    relatedExecRequests,
+                    ImmutableSet.of(
+                        Constants.EXECUTION_REQUEST_INPUT_ASPECT_NAME,
+                        Constants.EXECUTION_REQUEST_RESULT_ASPECT_NAME),
+                    context.getAuthentication());
 
-        final Map<Urn, EntityResponse> entities = _entityClient.batchGetV2(
-            Constants.EXECUTION_REQUEST_ENTITY_NAME,
-            relatedExecRequests,
-            ImmutableSet.of(
-                Constants.EXECUTION_REQUEST_INPUT_ASPECT_NAME,
-                Constants.EXECUTION_REQUEST_RESULT_ASPECT_NAME),
-            context.getAuthentication());
-
-        // 3. Map the GMS ExecutionRequests into GraphQL Execution Requests
-        final IngestionSourceExecutionRequests result = new IngestionSourceExecutionRequests();
-        result.setStart(executionsSearchResult.getFrom());
-        result.setCount(executionsSearchResult.getPageSize());
-        result.setTotal(executionsSearchResult.getNumEntities());
-        result.setExecutionRequests(IngestionResolverUtils.mapExecutionRequests(
-            executionsSearchResult.getEntities()
-              .stream()
-              .map(searchResult -> entities.get(searchResult.getEntity()))
-              .filter(Objects::nonNull)
-              .collect(Collectors.toList())
-        ));
-        return result;
-      } catch (Exception e) {
-        throw new RuntimeException(
-            String.format("Failed to resolve executions associated with ingestion source with urn %s", urn), e);
-      }
-    });
+            // 3. Map the GMS ExecutionRequests into GraphQL Execution Requests
+            final IngestionSourceExecutionRequests result = new IngestionSourceExecutionRequests();
+            result.setStart(executionsSearchResult.getFrom());
+            result.setCount(executionsSearchResult.getPageSize());
+            result.setTotal(executionsSearchResult.getNumEntities());
+            result.setExecutionRequests(
+                IngestionResolverUtils.mapExecutionRequests(
+                    executionsSearchResult.getEntities().stream()
+                        .map(searchResult -> entities.get(searchResult.getEntity()))
+                        .filter(Objects::nonNull)
+                        .collect(Collectors.toList())));
+            return result;
+          } catch (Exception e) {
+            throw new RuntimeException(
+                String.format(
+                    "Failed to resolve executions associated with ingestion source with urn %s",
+                    urn),
+                e);
+          }
+        });
   }
 }

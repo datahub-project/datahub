@@ -1,19 +1,18 @@
 package com.linkedin.metadata.entity;
 
+import java.sql.Timestamp;
+import javax.annotation.Nonnull;
 import lombok.AllArgsConstructor;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-import javax.annotation.Nonnull;
-import java.sql.Timestamp;
-
 /**
- * This is an internal representation of an entity aspect record {@link EntityServiceImpl} and {@link AspectDao}
- * implementations are using. While {@link AspectDao} implementations have their own aspect record implementations,
- * they cary implementation details that should not leak outside. Therefore, this is the type to use in public
- * {@link AspectDao} methods.
+ * This is an internal representation of an entity aspect record {@link EntityServiceImpl} and
+ * {@link AspectDao} implementations are using. While {@link AspectDao} implementations have their
+ * own aspect record implementations, they cary implementation details that should not leak outside.
+ * Therefore, this is the type to use in public {@link AspectDao} methods.
  */
 @Getter
 @Setter
@@ -22,25 +21,23 @@ import java.sql.Timestamp;
 @EqualsAndHashCode
 public class EntityAspect {
 
-    @Nonnull
-    private String urn;
+  @Nonnull private String urn;
 
-    @Nonnull
-    private String aspect;
+  @Nonnull private String aspect;
 
-    private long version;
+  private long version;
 
-    private String metadata;
+  private String metadata;
 
-    private String systemMetadata;
+  private String systemMetadata;
 
-    private Timestamp createdOn;
+  private Timestamp createdOn;
 
-    private String createdBy;
+  private String createdBy;
 
-    private String createdFor;
+  private String createdFor;
 
-    public EntityAspectIdentifier toAspectIdentifier() {
-        return new EntityAspectIdentifier(getUrn(), getAspect(), getVersion());
-    }
+  public EntityAspectIdentifier toAspectIdentifier() {
+    return new EntityAspectIdentifier(getUrn(), getAspect(), getVersion());
+  }
 }

@@ -9,10 +9,10 @@ import com.linkedin.gms.factory.common.GraphClientFactory;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.entity.RestliEntityClientFactory;
 import com.linkedin.gms.factory.notifications.SettingsProviderFactory;
-import com.linkedin.metadata.spring.YamlPropertySourceFactory;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.kafka.hook.notification.proposal.ProposalNotificationGenerator;
+import com.linkedin.metadata.spring.YamlPropertySourceFactory;
 import javax.annotation.Nonnull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -23,8 +23,12 @@ import org.springframework.context.annotation.PropertySource;
 import org.springframework.context.annotation.Scope;
 
 @Configuration
-@Import({SystemAuthenticationFactory.class, RestliEntityClientFactory.class, GraphClientFactory.class,
-    SettingsProviderFactory.class})
+@Import({
+  SystemAuthenticationFactory.class,
+  RestliEntityClientFactory.class,
+  GraphClientFactory.class,
+  SettingsProviderFactory.class
+})
 @PropertySource(value = "classpath:/application.yml", factory = YamlPropertySourceFactory.class)
 public class ProposalNotificationGeneratorFactory {
 
@@ -67,7 +71,6 @@ public class ProposalNotificationGeneratorFactory {
         _settingsProvider,
         _systemAuthentication,
         _slackNotificationRecipientBuilder,
-        _configProvider.getFeatureFlags()
-    );
+        _configProvider.getFeatureFlags());
   }
 }

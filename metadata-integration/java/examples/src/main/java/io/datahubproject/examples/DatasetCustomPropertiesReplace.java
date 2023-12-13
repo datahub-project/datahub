@@ -11,17 +11,15 @@ import java.util.Map;
 import java.util.concurrent.Future;
 import lombok.extern.slf4j.Slf4j;
 
-
 @Slf4j
 class DatasetCustomPropertiesReplace {
 
-  private DatasetCustomPropertiesReplace() {
-
-  }
+  private DatasetCustomPropertiesReplace() {}
 
   /**
-   * Replaces the existing custom properties map with a new map.
-   * Fields like dataset name, description etc remain unchanged.
+   * Replaces the existing custom properties map with a new map. Fields like dataset name,
+   * description etc remain unchanged.
+   *
    * @param args
    * @throws IOException
    */
@@ -29,16 +27,14 @@ class DatasetCustomPropertiesReplace {
     Map<String, String> customPropsMap = new HashMap<>();
     customPropsMap.put("cluster_name", "datahubproject.acryl.io");
     customPropsMap.put("retention_time", "2 years");
-    MetadataChangeProposal datasetPropertiesProposal = new DatasetPropertiesPatchBuilder()
-        .urn(UrnUtils.toDatasetUrn("hive", "fct_users_deleted", "PROD"))
-        .setCustomProperties(customPropsMap)
-        .build();
+    MetadataChangeProposal datasetPropertiesProposal =
+        new DatasetPropertiesPatchBuilder()
+            .urn(UrnUtils.toDatasetUrn("hive", "fct_users_deleted", "PROD"))
+            .setCustomProperties(customPropsMap)
+            .build();
 
     String token = "";
-    RestEmitter emitter = RestEmitter.create(
-     b -> b.server("http://localhost:8080")
-     .token(token)
-     );
+    RestEmitter emitter = RestEmitter.create(b -> b.server("http://localhost:8080").token(token));
 
     try {
       Future<MetadataWriteResponse> response = emitter.emit(datasetPropertiesProposal);
@@ -48,9 +44,5 @@ class DatasetCustomPropertiesReplace {
     } finally {
       emitter.close();
     }
-
   }
-
 }
-
-

@@ -1,9 +1,12 @@
 package com.linkedin.datahub.graphql.resolvers.anomaly;
 
+import static com.linkedin.datahub.graphql.resolvers.anomaly.EntityAnomaliesResolver.*;
+import static org.testng.Assert.*;
+
 import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableSet;
-import com.linkedin.common.AuditStamp;
 import com.linkedin.anomaly.AnomalyInfo;
+import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -27,10 +30,6 @@ import java.util.Map;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
-import static com.linkedin.datahub.graphql.resolvers.anomaly.EntityAnomaliesResolver.*;
-import static org.testng.Assert.*;
-
-
 public class EntityAnomaliesResolverTest {
 
   private static final Urn TEST_USER_URN = UrnUtils.getUrn("urn:li:corpuser:test");
@@ -44,30 +43,29 @@ public class EntityAnomaliesResolverTest {
     Map<String, com.linkedin.entity.EnvelopedAspect> anomalyAspects = new HashMap<>();
     anomalyAspects.put(
         Constants.ANOMALY_KEY_ASPECT_NAME,
-        new com.linkedin.entity.EnvelopedAspect().setValue(new Aspect(
-            new AnomalyKey().setId("test-guid").data()
-        ))
-    );
+        new com.linkedin.entity.EnvelopedAspect()
+            .setValue(new Aspect(new AnomalyKey().setId("test-guid").data())));
 
-    AnomalyInfo expectedInfo = new AnomalyInfo()
-        .setType(com.linkedin.anomaly.AnomalyType.DATASET_COLUMN)
-        .setEntity(TEST_DATASET_URN)
-        .setStatus(new com.linkedin.anomaly.AnomalyStatus()
-            .setState(com.linkedin.anomaly.AnomalyState.ACTIVE)
-            .setLastUpdated(new AuditStamp().setTime(0L).setActor(TEST_USER_URN)))
-        .setReview(new com.linkedin.anomaly.AnomalyReview()
-            .setState(com.linkedin.anomaly.AnomalyReviewState.PENDING)
-            .setLastUpdated(new AuditStamp().setTime(0L).setActor(TEST_USER_URN)))
-        .setSource(new com.linkedin.anomaly.AnomalySource()
-            .setType(com.linkedin.anomaly.AnomalySourceType.INFERRED_ASSERTION_FAILURE))
-        .setCreated(new AuditStamp().setTime(0L).setActor(TEST_USER_URN));
+    AnomalyInfo expectedInfo =
+        new AnomalyInfo()
+            .setType(com.linkedin.anomaly.AnomalyType.DATASET_COLUMN)
+            .setEntity(TEST_DATASET_URN)
+            .setStatus(
+                new com.linkedin.anomaly.AnomalyStatus()
+                    .setState(com.linkedin.anomaly.AnomalyState.ACTIVE)
+                    .setLastUpdated(new AuditStamp().setTime(0L).setActor(TEST_USER_URN)))
+            .setReview(
+                new com.linkedin.anomaly.AnomalyReview()
+                    .setState(com.linkedin.anomaly.AnomalyReviewState.PENDING)
+                    .setLastUpdated(new AuditStamp().setTime(0L).setActor(TEST_USER_URN)))
+            .setSource(
+                new com.linkedin.anomaly.AnomalySource()
+                    .setType(com.linkedin.anomaly.AnomalySourceType.INFERRED_ASSERTION_FAILURE))
+            .setCreated(new AuditStamp().setTime(0L).setActor(TEST_USER_URN));
 
     anomalyAspects.put(
         Constants.ANOMALY_INFO_ASPECT_NAME,
-        new com.linkedin.entity.EnvelopedAspect().setValue(new Aspect(
-            expectedInfo.data()
-        ))
-    );
+        new com.linkedin.entity.EnvelopedAspect().setValue(new Aspect(expectedInfo.data())));
 
     final Map<String, String> criterionMap = new HashMap<>();
     criterionMap.put(ANOMALY_ENTITIES_SEARCH_INDEX_FIELD_NAME, TEST_DATASET_URN.toString());
@@ -77,19 +75,22 @@ public class EntityAnomaliesResolverTest {
     expectedSort.setField(CREATED_TIME_SEARCH_INDEX_FIELD_NAME);
     expectedSort.setOrder(SortOrder.DESCENDING);
 
-    Mockito.when(mockClient.filter(
-        Mockito.eq(Constants.ANOMALY_ENTITY_NAME),
-        Mockito.eq(expectedFilter),
-        Mockito.eq(expectedSort),
-        Mockito.eq(0),
-        Mockito.eq(10),
-        Mockito.any(Authentication.class))).thenReturn(
-        new SearchResult()
-            .setFrom(0)
-            .setPageSize(1)
-            .setNumEntities(1)
-            .setEntities(new SearchEntityArray(ImmutableSet.of(new SearchEntity().setEntity(TEST_ANOMALY_URN))))
-    );
+    Mockito.when(
+            mockClient.filter(
+                Mockito.eq(Constants.ANOMALY_ENTITY_NAME),
+                Mockito.eq(expectedFilter),
+                Mockito.eq(expectedSort),
+                Mockito.eq(0),
+                Mockito.eq(10),
+                Mockito.any(Authentication.class)))
+        .thenReturn(
+            new SearchResult()
+                .setFrom(0)
+                .setPageSize(1)
+                .setNumEntities(1)
+                .setEntities(
+                    new SearchEntityArray(
+                        ImmutableSet.of(new SearchEntity().setEntity(TEST_ANOMALY_URN)))));
 
     EntityAnomaliesResolver resolver = new EntityAnomaliesResolver(mockClient);
 
@@ -113,7 +114,8 @@ public class EntityAnomaliesResolverTest {
     assertEquals(result.getCount(), 1);
     assertEquals(result.getTotal(), 1);
 
-    com.linkedin.datahub.graphql.generated.Anomaly anomaly = resolver.get(mockEnv).get().getAnomalies().get(0);
+    com.linkedin.datahub.graphql.generated.Anomaly anomaly =
+        resolver.get(mockEnv).get().getAnomalies().get(0);
     assertEquals(anomaly.getUrn(), TEST_ANOMALY_URN.toString());
     assertEquals(anomaly.getType(), EntityType.ANOMALY);
   }

@@ -1,9 +1,9 @@
 package com.linkedin.metadata.models.registry.config;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
 import lombok.Value;
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 @Value
 @NoArgsConstructor(force = true, access = AccessLevel.PRIVATE)

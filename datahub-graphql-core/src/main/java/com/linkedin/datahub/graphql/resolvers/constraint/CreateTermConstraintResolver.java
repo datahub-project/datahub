@@ -1,5 +1,9 @@
 package com.linkedin.datahub.graphql.resolvers.constraint;
 
+import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
+import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
+import static com.linkedin.metadata.Constants.*;
+
 import com.linkedin.common.urn.Urn;
 import com.linkedin.constraint.ConstraintInfo;
 import com.linkedin.constraint.ConstraintParams;
@@ -18,11 +22,6 @@ import graphql.schema.DataFetchingEnvironment;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
-import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
-import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
-import static com.linkedin.metadata.Constants.*;
-
-
 public class CreateTermConstraintResolver implements DataFetcher<CompletableFuture<String>> {
 
   private final EntityClient _aspectClient;
@@ -37,44 +36,54 @@ public class CreateTermConstraintResolver implements DataFetcher<CompletableFutu
     final QueryContext context = environment.getContext();
 
     if (ConstraintUtils.isAuthorizedToCreateConstraints(context)) {
-      final CreateTermConstraintInput input = bindArgument(environment.getArgument("input"), CreateTermConstraintInput.class);
+      final CreateTermConstraintInput input =
+          bindArgument(environment.getArgument("input"), CreateTermConstraintInput.class);
 
       Urn nodeUrn = Urn.createFromString(input.getNodeUrn());
       if (!nodeUrn.getEntityType().equals("glossaryNode")) {
-        throw new DataHubGraphQLException("Provided Urn is not an instance of a glossaryNode", DataHubGraphQLErrorCode.BAD_REQUEST);
+        throw new DataHubGraphQLException(
+            "Provided Urn is not an instance of a glossaryNode",
+            DataHubGraphQLErrorCode.BAD_REQUEST);
       }
-      if (_aspectClient.getAspectOrNull(nodeUrn.toString(), "glossaryNodeKey", 0L, context.getAuthentication()) == null) {
-        throw new DataHubGraphQLException(String.format("Failed to create constraint. %s does not exist.", nodeUrn), DataHubGraphQLErrorCode.BAD_REQUEST);
+      if (_aspectClient.getAspectOrNull(
+              nodeUrn.toString(), "glossaryNodeKey", 0L, context.getAuthentication())
+          == null) {
+        throw new DataHubGraphQLException(
+            String.format("Failed to create constraint. %s does not exist.", nodeUrn),
+            DataHubGraphQLErrorCode.BAD_REQUEST);
       }
-      return CompletableFuture.supplyAsync(() -> {
+      return CompletableFuture.supplyAsync(
+          () -> {
+            try {
+              // Create the Constraint key.
+              final ConstraintKey key = new ConstraintKey();
+              key.setId(UUID.randomUUID().toString());
 
-        try {
-          // Create the Constraint key.
-          final ConstraintKey key = new ConstraintKey();
-          key.setId(UUID.randomUUID().toString());
+              // Create the constraint info.
+              final ConstraintInfo info = new ConstraintInfo();
+              info.setDisplayName(input.getName());
+              info.setDescription(input.getDescription());
+              info.setType(ConstraintType.HAS_GLOSSARY_TERM_IN_NODE.toString());
 
-          // Create the constraint info.
-          final ConstraintInfo info = new ConstraintInfo();
-          info.setDisplayName(input.getName());
-          info.setDescription(input.getDescription());
-          info.setType(ConstraintType.HAS_GLOSSARY_TERM_IN_NODE.toString());
+              ConstraintParams params = new ConstraintParams();
+              GlossaryTermInNodeConstraint glossaryNodeConstraint =
+                  new GlossaryTermInNodeConstraint();
+              glossaryNodeConstraint.setGlossaryNode(Urn.createFromString(input.getNodeUrn()));
+              params.setHasGlossaryTermInNodeParams(glossaryNodeConstraint);
 
-          ConstraintParams params = new ConstraintParams();
-          GlossaryTermInNodeConstraint glossaryNodeConstraint = new GlossaryTermInNodeConstraint();
-          glossaryNodeConstraint.setGlossaryNode(Urn.createFromString(input.getNodeUrn()));
-          params.setHasGlossaryTermInNodeParams(glossaryNodeConstraint);
+              info.setParams(params);
 
-          info.setParams(params);
-
-          // Finally, create the MetadataChangeProposal.
-          final MetadataChangeProposal proposal = buildMetadataChangeProposalWithKey(key, CONSTRAINT_ENTITY_NAME,
-              CONSTRAINT_INFO_ASPECT_NAME, info);
-          return _aspectClient.ingestProposal(proposal, context.getAuthentication(), false);
-        } catch (Exception e) {
-          throw new RuntimeException("Failed to create constraint", e);
-        }
-      });
+              // Finally, create the MetadataChangeProposal.
+              final MetadataChangeProposal proposal =
+                  buildMetadataChangeProposalWithKey(
+                      key, CONSTRAINT_ENTITY_NAME, CONSTRAINT_INFO_ASPECT_NAME, info);
+              return _aspectClient.ingestProposal(proposal, context.getAuthentication(), false);
+            } catch (Exception e) {
+              throw new RuntimeException("Failed to create constraint", e);
+            }
+          });
     }
-    throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
+    throw new AuthorizationException(
+        "Unauthorized to perform this action. Please contact your DataHub administrator.");
   }
 }

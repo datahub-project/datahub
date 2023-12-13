@@ -5,12 +5,11 @@ import com.linkedin.metadata.entity.AspectMigrationsDao;
 import com.linkedin.metadata.entity.cassandra.CassandraAspectDao;
 import com.linkedin.metadata.entity.ebean.EbeanAspectDao;
 import io.ebean.Database;
+import javax.annotation.Nonnull;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.DependsOn;
-
-import javax.annotation.Nonnull;
 
 @Configuration
 public class EntityAspectMigrationsDaoFactory {

@@ -1,30 +1,27 @@
 package auth.sso;
 
+import static auth.AuthUtils.*;
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import static auth.AuthUtils.*;
-
-
 /**
- * Class responsible for extracting and validating top-level SSO related configurations.
- * TODO: Refactor SsoConfigs to have OidcConfigs and other identity provider specific configs as instance variables.
- * SSoManager should ideally not know about identity provider specific configs.
+ * Class responsible for extracting and validating top-level SSO related configurations. TODO:
+ * Refactor SsoConfigs to have OidcConfigs and other identity provider specific configs as instance
+ * variables. SSoManager should ideally not know about identity provider specific configs.
  */
 public class SsoConfigs {
 
-  /**
-   * Required configs
-   */
+  /** Required configs */
   private static final String AUTH_BASE_URL_CONFIG_PATH = "auth.baseUrl";
+
   private static final String AUTH_BASE_CALLBACK_PATH_CONFIG_PATH = "auth.baseCallbackPath";
   private static final String AUTH_SUCCESS_REDIRECT_PATH_CONFIG_PATH = "auth.successRedirectPath";
   public static final String OIDC_ENABLED_CONFIG_PATH = "auth.oidc.enabled";
 
-  /**
-   * Default values
-   */
+  /** Default values */
   private static final String DEFAULT_BASE_CALLBACK_PATH = "/callback";
+
   private static final String DEFAULT_SUCCESS_REDIRECT_PATH = "/";
 
   private final String _authBaseUrl;
@@ -72,7 +69,8 @@ public class SsoConfigs {
         _authBaseCallbackPath = configs.getString(AUTH_BASE_CALLBACK_PATH_CONFIG_PATH);
       }
       if (configs.hasPath(OIDC_ENABLED_CONFIG_PATH)) {
-        _oidcEnabled = Boolean.TRUE.equals(Boolean.parseBoolean(configs.getString(OIDC_ENABLED_CONFIG_PATH)));
+        _oidcEnabled =
+            Boolean.TRUE.equals(Boolean.parseBoolean(configs.getString(OIDC_ENABLED_CONFIG_PATH)));
       }
       if (configs.hasPath(AUTH_SUCCESS_REDIRECT_PATH_CONFIG_PATH)) {
         _authSuccessRedirectPath = configs.getString(AUTH_SUCCESS_REDIRECT_PATH_CONFIG_PATH);

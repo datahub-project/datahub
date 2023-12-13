@@ -1,13 +1,18 @@
 package com.linkedin.metadata.service;
 
+import static com.linkedin.metadata.entity.AspectUtils.*;
+import static com.linkedin.metadata.service.util.MetadataTestServiceUtils.*;
+
+import com.datahub.authentication.Authentication;
 import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.common.AuditStamp;
-import com.linkedin.common.GlossaryTerms;
 import com.linkedin.common.GlossaryTermAssociation;
 import com.linkedin.common.GlossaryTermAssociationArray;
+import com.linkedin.common.GlossaryTerms;
 import com.linkedin.common.urn.GlossaryTermUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.resource.ResourceReference;
 import com.linkedin.metadata.resource.SubResourceType;
@@ -21,20 +26,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
-import  com.linkedin.entity.client.EntityClient;
-import com.datahub.authentication.Authentication;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.metadata.entity.AspectUtils.*;
-import static com.linkedin.metadata.service.util.MetadataTestServiceUtils.*;
-
-
 @Slf4j
 public class GlossaryTermService extends BaseService {
 
-  public GlossaryTermService(@Nonnull EntityClient entityClient, @Nonnull Authentication systemAuthentication) {
+  public GlossaryTermService(
+      @Nonnull EntityClient entityClient, @Nonnull Authentication systemAuthentication) {
     super(entityClient, systemAuthentication);
   }
 
@@ -43,8 +43,8 @@ public class GlossaryTermService extends BaseService {
    *
    * @param glossaryTermUrns the urns of the terms to add
    * @param resources references to the resources to change
-   * @param appSource optional indication of the origin for this request, used for additional processing logic when matching particular sources
-   *
+   * @param appSource optional indication of the origin for this request, used for additional
+   *     processing logic when matching particular sources
    */
   public void batchAddGlossaryTerms(
       @Nonnull List<Urn> glossaryTermUrns,
@@ -59,21 +59,26 @@ public class GlossaryTermService extends BaseService {
    * @param glossaryTermUrns the urns of the terms to add
    * @param resources references to the resources to change
    * @param authentication authentication to use when making the change
-   * @param appSource optional indication of the origin for this request, used for additional processing logic when matching particular sources
-   *
+   * @param appSource optional indication of the origin for this request, used for additional
+   *     processing logic when matching particular sources
    */
   public void batchAddGlossaryTerms(
       @Nonnull List<Urn> glossaryTermUrns,
       @Nonnull List<ResourceReference> resources,
       @Nonnull Authentication authentication,
       @Nullable String appSource) {
-    log.debug("Batch adding GlossaryTerms to entities. glossaryTerms: {}, resources: {}", resources, glossaryTermUrns);
+    log.debug(
+        "Batch adding GlossaryTerms to entities. glossaryTerms: {}, resources: {}",
+        resources,
+        glossaryTermUrns);
     try {
       addGlossaryTermsToResources(glossaryTermUrns, resources, authentication, appSource);
     } catch (Exception e) {
-      throw new RuntimeException(String.format("Failed to batch add GlossaryTerms %s to resources with urns %s!",
-          glossaryTermUrns,
-          resources.stream().map(ResourceReference::getUrn).collect(Collectors.toList())),
+      throw new RuntimeException(
+          String.format(
+              "Failed to batch add GlossaryTerms %s to resources with urns %s!",
+              glossaryTermUrns,
+              resources.stream().map(ResourceReference::getUrn).collect(Collectors.toList())),
           e);
     }
   }
@@ -83,8 +88,8 @@ public class GlossaryTermService extends BaseService {
    *
    * @param glossaryTermUrns the urns of the terms to remove
    * @param resources references to the resources to change
-   * @param appSource optional indication of the origin for this request, used for additional processing logic when matching particular sources
-   *
+   * @param appSource optional indication of the origin for this request, used for additional
+   *     processing logic when matching particular sources
    */
   public void batchRemoveGlossaryTerms(
       @Nonnull List<Urn> glossaryTermUrns,
@@ -99,21 +104,26 @@ public class GlossaryTermService extends BaseService {
    * @param glossaryTermUrns the urns of the terms to remove
    * @param resources references to the resources to change
    * @param authentication authentication to use when making the change
-   * @param appSource optional indication of the origin for this request, used for additional processing logic when matching particular sources
-   *
+   * @param appSource optional indication of the origin for this request, used for additional
+   *     processing logic when matching particular sources
    */
   public void batchRemoveGlossaryTerms(
       @Nonnull List<Urn> glossaryTermUrns,
       @Nonnull List<ResourceReference> resources,
       @Nonnull Authentication authentication,
       @Nullable String appSource) {
-    log.debug("Batch adding GlossaryTerms to entities. glossaryTerms: {}, resources: {}", resources, glossaryTermUrns);
+    log.debug(
+        "Batch adding GlossaryTerms to entities. glossaryTerms: {}, resources: {}",
+        resources,
+        glossaryTermUrns);
     try {
       removeGlossaryTermsFromResources(glossaryTermUrns, resources, authentication, appSource);
     } catch (Exception e) {
-      throw new RuntimeException(String.format("Failed to batch add GlossaryTerms %s to resources with urns %s!",
-          glossaryTermUrns,
-          resources.stream().map(ResourceReference::getUrn).collect(Collectors.toList())),
+      throw new RuntimeException(
+          String.format(
+              "Failed to batch add GlossaryTerms %s to resources with urns %s!",
+              glossaryTermUrns,
+              resources.stream().map(ResourceReference::getUrn).collect(Collectors.toList())),
           e);
     }
   }
@@ -122,9 +132,10 @@ public class GlossaryTermService extends BaseService {
       List<Urn> glossaryTerms,
       List<ResourceReference> resources,
       Authentication authentication,
-      @Nullable String appSource
-  ) throws Exception {
-    List<MetadataChangeProposal> changes = buildAddGlossaryTermsProposals(glossaryTerms, resources, authentication);
+      @Nullable String appSource)
+      throws Exception {
+    List<MetadataChangeProposal> changes =
+        buildAddGlossaryTermsProposals(glossaryTerms, resources, authentication);
     if (appSource != null) {
       applyAppSource(changes, appSource);
     }
@@ -135,9 +146,10 @@ public class GlossaryTermService extends BaseService {
       List<Urn> glossaryTerms,
       List<ResourceReference> resources,
       Authentication authentication,
-      @Nullable String appSource
-  ) throws Exception {
-    List<MetadataChangeProposal> changes = buildRemoveGlossaryTermsProposals(glossaryTerms, resources, authentication);
+      @Nullable String appSource)
+      throws Exception {
+    List<MetadataChangeProposal> changes =
+        buildRemoveGlossaryTermsProposals(glossaryTerms, resources, authentication);
     if (appSource != null) {
       applyAppSource(changes, appSource);
     }
@@ -146,22 +158,30 @@ public class GlossaryTermService extends BaseService {
 
   @VisibleForTesting
   List<MetadataChangeProposal> buildAddGlossaryTermsProposals(
-      List<Urn> glossaryTermUrns,
-      List<ResourceReference> resources,
-      Authentication authentication
-  ) throws URISyntaxException {
+      List<Urn> glossaryTermUrns, List<ResourceReference> resources, Authentication authentication)
+      throws URISyntaxException {
 
     final List<MetadataChangeProposal> changes = new ArrayList<>();
 
-    final List<ResourceReference> entityRefs = resources.stream()
-        .filter(resource -> resource.getSubResource() == null || resource.getSubResource().equals(""))
-        .collect(Collectors.toList());
-    final List<MetadataChangeProposal> entityProposals = buildAddGlossaryTermsToEntityProposals(glossaryTermUrns, entityRefs, authentication);
+    final List<ResourceReference> entityRefs =
+        resources.stream()
+            .filter(
+                resource ->
+                    resource.getSubResource() == null || resource.getSubResource().equals(""))
+            .collect(Collectors.toList());
+    final List<MetadataChangeProposal> entityProposals =
+        buildAddGlossaryTermsToEntityProposals(glossaryTermUrns, entityRefs, authentication);
 
-    final List<ResourceReference> schemaFieldRefs = resources.stream()
-        .filter(resource -> resource.getSubResourceType() != null && resource.getSubResourceType().equals(SubResourceType.DATASET_FIELD))
-        .collect(Collectors.toList());
-    final List<MetadataChangeProposal> schemaFieldProposals = buildAddGlossaryTermsToSubResourceProposals(glossaryTermUrns, schemaFieldRefs, authentication);
+    final List<ResourceReference> schemaFieldRefs =
+        resources.stream()
+            .filter(
+                resource ->
+                    resource.getSubResourceType() != null
+                        && resource.getSubResourceType().equals(SubResourceType.DATASET_FIELD))
+            .collect(Collectors.toList());
+    final List<MetadataChangeProposal> schemaFieldProposals =
+        buildAddGlossaryTermsToSubResourceProposals(
+            glossaryTermUrns, schemaFieldRefs, authentication);
 
     changes.addAll(entityProposals);
     changes.addAll(schemaFieldProposals);
@@ -173,20 +193,29 @@ public class GlossaryTermService extends BaseService {
   List<MetadataChangeProposal> buildRemoveGlossaryTermsProposals(
       List<Urn> glossaryTermUrns,
       List<ResourceReference> resources,
-      Authentication authentication
-  ) {
+      Authentication authentication) {
 
     final List<MetadataChangeProposal> changes = new ArrayList<>();
 
-    final List<ResourceReference> entityRefs = resources.stream()
-        .filter(resource -> resource.getSubResource() == null || resource.getSubResource().equals(""))
-        .collect(Collectors.toList());
-    final List<MetadataChangeProposal> entityProposals = buildRemoveGlossaryTermsToEntityProposals(glossaryTermUrns, entityRefs, authentication);
+    final List<ResourceReference> entityRefs =
+        resources.stream()
+            .filter(
+                resource ->
+                    resource.getSubResource() == null || resource.getSubResource().equals(""))
+            .collect(Collectors.toList());
+    final List<MetadataChangeProposal> entityProposals =
+        buildRemoveGlossaryTermsToEntityProposals(glossaryTermUrns, entityRefs, authentication);
 
-    final List<ResourceReference> schemaFieldRefs = resources.stream()
-        .filter(resource -> resource.getSubResourceType() != null && resource.getSubResourceType().equals(SubResourceType.DATASET_FIELD))
-        .collect(Collectors.toList());
-    final List<MetadataChangeProposal> schemaFieldProposals = buildRemoveGlossaryTermsToSubResourceProposals(glossaryTermUrns, schemaFieldRefs, authentication);
+    final List<ResourceReference> schemaFieldRefs =
+        resources.stream()
+            .filter(
+                resource ->
+                    resource.getSubResourceType() != null
+                        && resource.getSubResourceType().equals(SubResourceType.DATASET_FIELD))
+            .collect(Collectors.toList());
+    final List<MetadataChangeProposal> schemaFieldProposals =
+        buildRemoveGlossaryTermsToSubResourceProposals(
+            glossaryTermUrns, schemaFieldRefs, authentication);
 
     changes.addAll(entityProposals);
     changes.addAll(schemaFieldProposals);
@@ -198,14 +227,14 @@ public class GlossaryTermService extends BaseService {
   List<MetadataChangeProposal> buildAddGlossaryTermsToEntityProposals(
       List<com.linkedin.common.urn.Urn> glossaryTermUrns,
       List<ResourceReference> resources,
-      Authentication authentication
-  ) throws URISyntaxException {
+      Authentication authentication)
+      throws URISyntaxException {
 
-    final Map<Urn, GlossaryTerms> glossaryTermAspects = getGlossaryTermsAspects(
-        resources.stream().map(ResourceReference::getUrn).collect(Collectors.toSet()),
-        new GlossaryTerms(),
-        authentication
-    );
+    final Map<Urn, GlossaryTerms> glossaryTermAspects =
+        getGlossaryTermsAspects(
+            resources.stream().map(ResourceReference::getUrn).collect(Collectors.toSet()),
+            new GlossaryTerms(),
+            authentication);
 
     final List<MetadataChangeProposal> changes = new ArrayList<>();
     for (ResourceReference resource : resources) {
@@ -217,10 +246,15 @@ public class GlossaryTermService extends BaseService {
 
       if (!glossaryTerms.hasTerms()) {
         glossaryTerms.setTerms(new GlossaryTermAssociationArray());
-        glossaryTerms.setAuditStamp(new AuditStamp().setTime(System.currentTimeMillis()).setActor(UrnUtils.getUrn(authentication.getActor().toUrnStr())));
+        glossaryTerms.setAuditStamp(
+            new AuditStamp()
+                .setTime(System.currentTimeMillis())
+                .setActor(UrnUtils.getUrn(authentication.getActor().toUrnStr())));
       }
       addGlossaryTermsIfNotExists(glossaryTerms, glossaryTermUrns);
-      changes.add(buildMetadataChangeProposal(resource.getUrn(), Constants.GLOSSARY_TERMS_ASPECT_NAME, glossaryTerms));
+      changes.add(
+          buildMetadataChangeProposal(
+              resource.getUrn(), Constants.GLOSSARY_TERMS_ASPECT_NAME, glossaryTerms));
     }
     return changes;
   }
@@ -229,31 +263,36 @@ public class GlossaryTermService extends BaseService {
   List<MetadataChangeProposal> buildAddGlossaryTermsToSubResourceProposals(
       final List<Urn> glossaryTermUrns,
       final List<ResourceReference> resources,
-      final Authentication authentication
-  ) throws URISyntaxException {
-    final Map<Urn, EditableSchemaMetadata> editableSchemaMetadataAspects = getEditableSchemaMetadataAspects(
-        resources.stream().map(ResourceReference::getUrn).collect(Collectors.toSet()),
-        new EditableSchemaMetadata(),
-        authentication
-    );
+      final Authentication authentication)
+      throws URISyntaxException {
+    final Map<Urn, EditableSchemaMetadata> editableSchemaMetadataAspects =
+        getEditableSchemaMetadataAspects(
+            resources.stream().map(ResourceReference::getUrn).collect(Collectors.toSet()),
+            new EditableSchemaMetadata(),
+            authentication);
 
     final List<MetadataChangeProposal> changes = new ArrayList<>();
     for (ResourceReference resource : resources) {
 
-      EditableSchemaMetadata editableSchemaMetadata = editableSchemaMetadataAspects.get(resource.getUrn());
+      EditableSchemaMetadata editableSchemaMetadata =
+          editableSchemaMetadataAspects.get(resource.getUrn());
       if (editableSchemaMetadata == null) {
         continue; // Something went wrong.
       }
 
-      EditableSchemaFieldInfo editableFieldInfo = getFieldInfoFromSchema(editableSchemaMetadata, resource.getSubResource());
+      EditableSchemaFieldInfo editableFieldInfo =
+          getFieldInfoFromSchema(editableSchemaMetadata, resource.getSubResource());
 
       if (!editableFieldInfo.hasGlossaryTerms()) {
         editableFieldInfo.setGlossaryTerms(new GlossaryTerms());
       }
 
       addGlossaryTermsIfNotExists(editableFieldInfo.getGlossaryTerms(), glossaryTermUrns);
-      changes.add(buildMetadataChangeProposal(resource.getUrn(), Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME,
-          editableSchemaMetadata));
+      changes.add(
+          buildMetadataChangeProposal(
+              resource.getUrn(),
+              Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME,
+              editableSchemaMetadata));
     }
 
     return changes;
@@ -263,14 +302,13 @@ public class GlossaryTermService extends BaseService {
   List<MetadataChangeProposal> buildRemoveGlossaryTermsToEntityProposals(
       List<Urn> glossaryTermUrns,
       List<ResourceReference> resources,
-      Authentication authentication
-  ) {
+      Authentication authentication) {
 
-    final Map<Urn, GlossaryTerms> glossaryTermAspects = getGlossaryTermsAspects(
-        resources.stream().map(ResourceReference::getUrn).collect(Collectors.toSet()),
-        new GlossaryTerms(),
-        authentication
-    );
+    final Map<Urn, GlossaryTerms> glossaryTermAspects =
+        getGlossaryTermsAspects(
+            resources.stream().map(ResourceReference::getUrn).collect(Collectors.toSet()),
+            new GlossaryTerms(),
+            authentication);
 
     final List<MetadataChangeProposal> changes = new ArrayList<>();
     for (ResourceReference resource : resources) {
@@ -280,15 +318,15 @@ public class GlossaryTermService extends BaseService {
       }
       if (!glossaryTerms.hasTerms()) {
         glossaryTerms.setTerms(new GlossaryTermAssociationArray());
-        glossaryTerms.setAuditStamp(new AuditStamp()
-            .setTime(System.currentTimeMillis())
-            .setActor(UrnUtils.getUrn(authentication.getActor().toUrnStr())));
+        glossaryTerms.setAuditStamp(
+            new AuditStamp()
+                .setTime(System.currentTimeMillis())
+                .setActor(UrnUtils.getUrn(authentication.getActor().toUrnStr())));
       }
       removeGlossaryTermsIfExists(glossaryTerms, glossaryTermUrns);
-      MetadataChangeProposal proposal = buildMetadataChangeProposal(
-          resource.getUrn(),
-          Constants.GLOSSARY_TERMS_ASPECT_NAME, glossaryTerms
-      );
+      MetadataChangeProposal proposal =
+          buildMetadataChangeProposal(
+              resource.getUrn(), Constants.GLOSSARY_TERMS_ASPECT_NAME, glossaryTerms);
 
       changes.add(proposal);
     }
@@ -299,37 +337,42 @@ public class GlossaryTermService extends BaseService {
   List<MetadataChangeProposal> buildRemoveGlossaryTermsToSubResourceProposals(
       List<Urn> glossaryTermUrns,
       List<ResourceReference> resources,
-      Authentication authentication
-  ) {
+      Authentication authentication) {
 
-    final Map<Urn, EditableSchemaMetadata> editableSchemaMetadataAspects = getEditableSchemaMetadataAspects(
-        resources.stream().map(ResourceReference::getUrn).collect(Collectors.toSet()),
-        new EditableSchemaMetadata(),
-        authentication
-    );
+    final Map<Urn, EditableSchemaMetadata> editableSchemaMetadataAspects =
+        getEditableSchemaMetadataAspects(
+            resources.stream().map(ResourceReference::getUrn).collect(Collectors.toSet()),
+            new EditableSchemaMetadata(),
+            authentication);
 
     final List<MetadataChangeProposal> changes = new ArrayList<>();
     for (ResourceReference resource : resources) {
 
-      EditableSchemaMetadata editableSchemaMetadata = editableSchemaMetadataAspects.get(resource.getUrn());
+      EditableSchemaMetadata editableSchemaMetadata =
+          editableSchemaMetadataAspects.get(resource.getUrn());
       if (editableSchemaMetadata == null) {
         continue; // Something went wrong.
       }
 
-      EditableSchemaFieldInfo editableFieldInfo = getFieldInfoFromSchema(editableSchemaMetadata, resource.getSubResource());
+      EditableSchemaFieldInfo editableFieldInfo =
+          getFieldInfoFromSchema(editableSchemaMetadata, resource.getSubResource());
 
       if (!editableFieldInfo.hasGlossaryTerms()) {
         editableFieldInfo.setGlossaryTerms(new GlossaryTerms());
       }
       removeGlossaryTermsIfExists(editableFieldInfo.getGlossaryTerms(), glossaryTermUrns);
-       changes.add(buildMetadataChangeProposal(resource.getUrn(), Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME,
-          editableSchemaMetadata));
+      changes.add(
+          buildMetadataChangeProposal(
+              resource.getUrn(),
+              Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME,
+              editableSchemaMetadata));
     }
 
     return changes;
   }
 
-  private void addGlossaryTermsIfNotExists(GlossaryTerms glossaryTerms, List<Urn> glossaryTermUrns) throws URISyntaxException {
+  private void addGlossaryTermsIfNotExists(GlossaryTerms glossaryTerms, List<Urn> glossaryTermUrns)
+      throws URISyntaxException {
     if (!glossaryTerms.hasTerms()) {
       glossaryTerms.setTerms(new GlossaryTermAssociationArray());
     }
@@ -338,7 +381,8 @@ public class GlossaryTermService extends BaseService {
 
     List<Urn> glossaryTermsToAdd = new ArrayList<>();
     for (Urn glossaryTermUrn : glossaryTermUrns) {
-      if (glossaryTermAssociationArray.stream().anyMatch(association -> association.getUrn().equals(glossaryTermUrn))) {
+      if (glossaryTermAssociationArray.stream()
+          .anyMatch(association -> association.getUrn().equals(glossaryTermUrn))) {
         continue;
       }
       glossaryTermsToAdd.add(glossaryTermUrn);
@@ -356,30 +400,30 @@ public class GlossaryTermService extends BaseService {
     }
   }
 
-  private static GlossaryTermAssociationArray removeGlossaryTermsIfExists(GlossaryTerms glossaryTerms, List<Urn> glossaryTermUrns) {
+  private static GlossaryTermAssociationArray removeGlossaryTermsIfExists(
+      GlossaryTerms glossaryTerms, List<Urn> glossaryTermUrns) {
     if (!glossaryTerms.hasTerms()) {
       glossaryTerms.setTerms(new GlossaryTermAssociationArray());
     }
     GlossaryTermAssociationArray glossaryTermAssociationArray = glossaryTerms.getTerms();
     for (Urn glossaryTermUrn : glossaryTermUrns) {
-      glossaryTermAssociationArray.removeIf(association -> association.getUrn().equals(glossaryTermUrn));
+      glossaryTermAssociationArray.removeIf(
+          association -> association.getUrn().equals(glossaryTermUrn));
     }
     return glossaryTermAssociationArray;
   }
 
   private static EditableSchemaFieldInfo getFieldInfoFromSchema(
-      EditableSchemaMetadata editableSchemaMetadata,
-      String fieldPath
-  ) {
+      EditableSchemaMetadata editableSchemaMetadata, String fieldPath) {
     if (!editableSchemaMetadata.hasEditableSchemaFieldInfo()) {
       editableSchemaMetadata.setEditableSchemaFieldInfo(new EditableSchemaFieldInfoArray());
     }
     EditableSchemaFieldInfoArray editableSchemaMetadataArray =
         editableSchemaMetadata.getEditableSchemaFieldInfo();
-    Optional<EditableSchemaFieldInfo> fieldMetadata = editableSchemaMetadataArray
-        .stream()
-        .filter(fieldInfo -> fieldInfo.getFieldPath().equals(fieldPath))
-        .findFirst();
+    Optional<EditableSchemaFieldInfo> fieldMetadata =
+        editableSchemaMetadataArray.stream()
+            .filter(fieldInfo -> fieldInfo.getFieldPath().equals(fieldPath))
+            .findFirst();
 
     if (fieldMetadata.isPresent()) {
       return fieldMetadata.get();

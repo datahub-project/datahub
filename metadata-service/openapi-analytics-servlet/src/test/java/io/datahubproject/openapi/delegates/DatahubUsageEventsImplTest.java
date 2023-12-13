@@ -1,5 +1,8 @@
 package io.datahubproject.openapi.delegates;
 
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotNull;
+
 import com.linkedin.data.schema.annotation.PathSpecBasedSchemaAnnotationVisitor;
 import io.datahubproject.openapi.config.OpenAPIAnalyticsTestConfiguration;
 import io.datahubproject.openapi.config.SpringWebConfig;
@@ -14,31 +17,27 @@ import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNotNull;
-
-
 @SpringBootTest(classes = {SpringWebConfig.class})
 @ComponentScan(basePackages = {"io.datahubproject.openapi.generated.controller"})
 @Import({DatahubUsageEventsImpl.class, OpenAPIAnalyticsTestConfiguration.class})
 public class DatahubUsageEventsImplTest extends AbstractTestNGSpringContextTests {
-    @BeforeTest
-    public void disableAssert() {
-        PathSpecBasedSchemaAnnotationVisitor.class.getClassLoader()
-                .setClassAssertionStatus(PathSpecBasedSchemaAnnotationVisitor.class.getName(), false);
-    }
+  @BeforeTest
+  public void disableAssert() {
+    PathSpecBasedSchemaAnnotationVisitor.class
+        .getClassLoader()
+        .setClassAssertionStatus(PathSpecBasedSchemaAnnotationVisitor.class.getName(), false);
+  }
 
-    @Autowired
-    private DatahubUsageEventsApiController analyticsController;
+  @Autowired private DatahubUsageEventsApiController analyticsController;
 
-    @Test
-    public void initTest() {
-        assertNotNull(analyticsController);
-    }
+  @Test
+  public void initTest() {
+    assertNotNull(analyticsController);
+  }
 
-    @Test
-    public void analyticsControllerTest() {
-        ResponseEntity<String> resp = analyticsController.raw("");
-        assertEquals(resp.getStatusCode(), HttpStatus.OK);
-    }
+  @Test
+  public void analyticsControllerTest() {
+    ResponseEntity<String> resp = analyticsController.raw("");
+    assertEquals(resp.getStatusCode(), HttpStatus.OK);
+  }
 }

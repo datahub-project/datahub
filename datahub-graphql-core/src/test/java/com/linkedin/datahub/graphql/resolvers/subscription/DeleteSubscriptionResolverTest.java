@@ -1,5 +1,10 @@
 package com.linkedin.datahub.graphql.resolvers.subscription;
 
+import static com.linkedin.datahub.graphql.TestUtils.*;
+import static com.linkedin.datahub.graphql.resolvers.subscription.SubscriptionTestUtils.*;
+import static org.mockito.Mockito.*;
+import static org.testng.Assert.*;
+
 import com.datahub.authentication.Authentication;
 import com.datahub.subscription.SubscriptionService;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -8,12 +13,6 @@ import com.linkedin.entity.client.EntityClient;
 import graphql.schema.DataFetchingEnvironment;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
-
-import static com.linkedin.datahub.graphql.TestUtils.*;
-import static com.linkedin.datahub.graphql.resolvers.subscription.SubscriptionTestUtils.*;
-import static org.mockito.Mockito.*;
-import static org.testng.Assert.*;
-
 
 public class DeleteSubscriptionResolverTest {
   private DeleteSubscriptionResolver _resolver;
@@ -43,8 +42,8 @@ public class DeleteSubscriptionResolverTest {
 
   @Test
   public void testDeleteSubscriptionExceptionThrown() {
-    when(_subscriptionService.getSubscriptionInfo(eq(SUBSCRIPTION_URN_1), eq(_authentication))).thenThrow(
-        new RuntimeException());
+    when(_subscriptionService.getSubscriptionInfo(eq(SUBSCRIPTION_URN_1), eq(_authentication)))
+        .thenThrow(new RuntimeException());
 
     assertThrows(() -> _resolver.get(_dataFetchingEnvironment).join());
   }
@@ -55,17 +54,16 @@ public class DeleteSubscriptionResolverTest {
     when(_dataFetchingEnvironment.getContext()).thenReturn(mockContext);
     when(mockContext.getAuthentication()).thenReturn(_authentication);
     when(mockContext.getActorUrn()).thenReturn(USER_2_URN_STRING);
-    when(_subscriptionService.getSubscriptionInfo(eq(SUBSCRIPTION_URN_1), eq(_authentication))).thenReturn(
-        SUBSCRIPTION_INFO_1);
+    when(_subscriptionService.getSubscriptionInfo(eq(SUBSCRIPTION_URN_1), eq(_authentication)))
+        .thenReturn(SUBSCRIPTION_INFO_1);
 
     assertThrows(() -> _resolver.get(_dataFetchingEnvironment).join());
   }
 
-
   @Test
   public void testDeleteSubscription() throws Exception {
-    when(_subscriptionService.getSubscriptionInfo(eq(SUBSCRIPTION_URN_1), eq(_authentication))).thenReturn(
-        SUBSCRIPTION_INFO_1);
+    when(_subscriptionService.getSubscriptionInfo(eq(SUBSCRIPTION_URN_1), eq(_authentication)))
+        .thenReturn(SUBSCRIPTION_INFO_1);
 
     assertTrue(_resolver.get(_dataFetchingEnvironment).join());
     verify(_entityClient, times(1)).deleteEntity(eq(SUBSCRIPTION_URN_1), eq(_authentication));

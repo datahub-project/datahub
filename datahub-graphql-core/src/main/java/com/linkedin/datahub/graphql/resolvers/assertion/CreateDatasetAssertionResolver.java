@@ -15,11 +15,10 @@ import com.linkedin.metadata.service.AssertionService;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
-
-import java.util.concurrent.CompletableFuture;
 
 @Slf4j
 public class CreateDatasetAssertionResolver implements DataFetcher<CompletableFuture<Assertion>> {
@@ -31,32 +30,47 @@ public class CreateDatasetAssertionResolver implements DataFetcher<CompletableFu
   }
 
   @Override
-  public CompletableFuture<Assertion> get(final DataFetchingEnvironment environment) throws Exception {
+  public CompletableFuture<Assertion> get(final DataFetchingEnvironment environment)
+      throws Exception {
     final QueryContext context = environment.getContext();
-    final CreateDatasetAssertionInput
-        input = ResolverUtils.bindArgument(environment.getArgument("input"), CreateDatasetAssertionInput.class);
+    final CreateDatasetAssertionInput input =
+        ResolverUtils.bindArgument(
+            environment.getArgument("input"), CreateDatasetAssertionInput.class);
     final Urn asserteeUrn = UrnUtils.getUrn(input.getDatasetUrn());
 
-    return CompletableFuture.supplyAsync(() -> {
+    return CompletableFuture.supplyAsync(
+        () -> {
+          if (AssertionUtils.isAuthorizedToEditAssertionFromAssertee(context, asserteeUrn)) {
 
-      if (AssertionUtils.isAuthorizedToEditAssertionFromAssertee(context, asserteeUrn)) {
+            // First create the new assertion.
+            final Urn assertionUrn =
+                _assertionService.createDatasetAssertion(
+                    asserteeUrn,
+                    DatasetAssertionScope.valueOf(input.getScope().toString()),
+                    input.getFieldUrns() != null
+                        ? input.getFieldUrns().stream()
+                            .map(UrnUtils::getUrn)
+                            .collect(Collectors.toList())
+                        : null,
+                    input.getAggregation() != null
+                        ? AssertionStdAggregation.valueOf(input.getAggregation().toString())
+                        : null,
+                    AssertionStdOperator.valueOf(input.getOperator().toString()),
+                    input.getParameters() != null
+                        ? AssertionUtils.createDatasetAssertionParameters(input.getParameters())
+                        : null,
+                    input.getActions() != null
+                        ? AssertionUtils.createAssertionActions(input.getActions())
+                        : null,
+                    context.getAuthentication());
 
-        // First create the new assertion.
-        final Urn assertionUrn = _assertionService.createDatasetAssertion(
-            asserteeUrn,
-            DatasetAssertionScope.valueOf(input.getScope().toString()),
-            input.getFieldUrns() != null ? input.getFieldUrns().stream().map(UrnUtils::getUrn).collect(Collectors.toList()) : null,
-            input.getAggregation() != null ? AssertionStdAggregation.valueOf(input.getAggregation().toString()) : null,
-            AssertionStdOperator.valueOf(input.getOperator().toString()),
-            input.getParameters() != null ? AssertionUtils.createDatasetAssertionParameters(input.getParameters()) : null,
-            input.getActions() != null ? AssertionUtils.createAssertionActions(input.getActions()) : null,
-            context.getAuthentication()
-        );
-
-        // Then, return the new assertion
-        return AssertionMapper.map(_assertionService.getAssertionEntityResponse(assertionUrn, context.getAuthentication()));
-      }
-      throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
-    });
+            // Then, return the new assertion
+            return AssertionMapper.map(
+                _assertionService.getAssertionEntityResponse(
+                    assertionUrn, context.getAuthentication()));
+          }
+          throw new AuthorizationException(
+              "Unauthorized to perform this action. Please contact your DataHub administrator.");
+        });
   }
 }

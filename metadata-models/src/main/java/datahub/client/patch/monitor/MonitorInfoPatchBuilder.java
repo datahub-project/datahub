@@ -1,5 +1,9 @@
 package datahub.client.patch.monitor;
 
+import static com.fasterxml.jackson.databind.node.JsonNodeFactory.instance;
+import static com.linkedin.metadata.Constants.MONITOR_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.MONITOR_INFO_ASPECT_NAME;
+
 import com.datahub.util.RecordUtils;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -11,16 +15,10 @@ import datahub.client.patch.AbstractMultiFieldPatchBuilder;
 import datahub.client.patch.PatchOperationType;
 import datahub.client.patch.common.CustomPropertiesPatchBuilder;
 import datahub.client.patch.subtypesupport.CustomPropertiesPatchBuilderSupport;
-import org.apache.commons.lang3.tuple.ImmutableTriple;
-
-import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Map;
-
-import static com.fasterxml.jackson.databind.node.JsonNodeFactory.instance;
-import static com.linkedin.metadata.Constants.MONITOR_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.MONITOR_INFO_ASPECT_NAME;
-
+import javax.annotation.Nonnull;
+import org.apache.commons.lang3.tuple.ImmutableTriple;
 
 public class MonitorInfoPatchBuilder extends AbstractMultiFieldPatchBuilder<MonitorInfoPatchBuilder>
     implements CustomPropertiesPatchBuilderSupport<MonitorInfoPatchBuilder> {
@@ -29,12 +27,15 @@ public class MonitorInfoPatchBuilder extends AbstractMultiFieldPatchBuilder<Moni
   public static final String ASSERTION_STATUS_KEY = "status";
   public static final String ASSERTION_MONITOR_KEY = "assertionMonitor";
 
-  private CustomPropertiesPatchBuilder<MonitorInfoPatchBuilder> customPropertiesPatchBuilder = new CustomPropertiesPatchBuilder<>(this);
+  private CustomPropertiesPatchBuilder<MonitorInfoPatchBuilder> customPropertiesPatchBuilder =
+      new CustomPropertiesPatchBuilder<>(this);
 
   public MonitorInfoPatchBuilder setStatus(@Nonnull MonitorStatus status) {
     ObjectNode statusNode = instance.objectNode();
     statusNode.put("mode", status.getMode().toString());
-    pathValues.add(ImmutableTriple.of(PatchOperationType.ADD.getValue(), BASE_PATH + ASSERTION_STATUS_KEY, statusNode));
+    pathValues.add(
+        ImmutableTriple.of(
+            PatchOperationType.ADD.getValue(), BASE_PATH + ASSERTION_STATUS_KEY, statusNode));
     return this;
   }
 
@@ -42,10 +43,15 @@ public class MonitorInfoPatchBuilder extends AbstractMultiFieldPatchBuilder<Moni
     try {
       ObjectNode assertionMonitorNode =
           (ObjectNode) new ObjectMapper().readTree(RecordUtils.toJsonString(assertionMonitor));
-      pathValues.add(ImmutableTriple.of(PatchOperationType.ADD.getValue(), BASE_PATH + ASSERTION_MONITOR_KEY, assertionMonitorNode));
+      pathValues.add(
+          ImmutableTriple.of(
+              PatchOperationType.ADD.getValue(),
+              BASE_PATH + ASSERTION_MONITOR_KEY,
+              assertionMonitorNode));
       return this;
     } catch (JsonProcessingException e) {
-      throw new IllegalArgumentException("Failed to set Assertion Monitor, failed to parse provided aspect json", e);
+      throw new IllegalArgumentException(
+          "Failed to set Assertion Monitor, failed to parse provided aspect json", e);
     }
   }
 
@@ -83,4 +89,3 @@ public class MonitorInfoPatchBuilder extends AbstractMultiFieldPatchBuilder<Moni
     return this;
   }
 }
-

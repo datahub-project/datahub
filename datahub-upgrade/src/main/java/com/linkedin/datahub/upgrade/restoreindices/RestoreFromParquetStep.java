@@ -1,5 +1,7 @@
 package com.linkedin.datahub.upgrade.restoreindices;
 
+import static com.linkedin.metadata.Constants.*;
+
 import com.google.common.collect.ImmutableBiMap;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
@@ -39,8 +41,6 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.metadata.Constants.*;
-
 @Slf4j
 public class RestoreFromParquetStep implements UpgradeStep {
 
@@ -54,11 +54,16 @@ public class RestoreFromParquetStep implements UpgradeStep {
   private AtomicInteger _numRows = new AtomicInteger(0);
   private ConcurrentHashMap<String, AtomicInteger> _entityCounts = new ConcurrentHashMap<>();
 
-  public RestoreFromParquetStep(final EntityService entityService, final EntityRegistry entityRegistry) {
+  public RestoreFromParquetStep(
+      final EntityService entityService, final EntityRegistry entityRegistry) {
     _entityService = entityService;
     _entityRegistry = entityRegistry;
-    _backupReaders = ImmutableBiMap.of(LocalParquetReader.READER_NAME, LocalParquetReader.class,
-        S3BackupReader.READER_NAME, S3BackupReader.class);
+    _backupReaders =
+        ImmutableBiMap.of(
+            LocalParquetReader.READER_NAME,
+            LocalParquetReader.class,
+            S3BackupReader.READER_NAME,
+            S3BackupReader.class);
     String poolSize = System.getenv(RestoreIndices.READER_POOL_SIZE);
     int intPoolSize;
     try {
@@ -91,7 +96,6 @@ public class RestoreFromParquetStep implements UpgradeStep {
   @Override
   public Function<UpgradeContext, UpgradeStepResult> executable() {
     return (context) -> {
-
       context.report().addLine("Restoring indices from parquet file...");
       int numRows = 0;
       long initialStartTime = System.currentTimeMillis();
@@ -101,19 +105,34 @@ public class RestoreFromParquetStep implements UpgradeStep {
         return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.FAILED);
       }
 
-      Class<? extends BackupReader<ParquetReaderWrapper>> clazz = _backupReaders.get(backupReaderName);
+      Class<? extends BackupReader<ParquetReaderWrapper>> clazz =
+          _backupReaders.get(backupReaderName);
       List<String> argNames = BackupReaderArgs.getArgNames(clazz);
-      List<String> args = argNames.stream().map(System::getenv).filter(Objects::nonNull).collect(
-          Collectors.toList());
+      List<String> args =
+          argNames.stream()
+              .map(System::getenv)
+              .filter(Objects::nonNull)
+              .collect(Collectors.toList());
       BackupReader<ParquetReaderWrapper> backupReader;
       try {
         backupReader = clazz.getConstructor(List.class).newInstance(args);
-      } catch (InstantiationException | InvocationTargetException | IllegalAccessException | NoSuchMethodException e) {
-        context.report().addLine("Invalid BackupReader, not able to construct instance of " + clazz.getSimpleName());
-        throw new IllegalArgumentException("Invalid BackupReader: " + clazz.getSimpleName()
-            + ", need to implement proper constructor: " + args, e);
+      } catch (InstantiationException
+          | InvocationTargetException
+          | IllegalAccessException
+          | NoSuchMethodException e) {
+        context
+            .report()
+            .addLine(
+                "Invalid BackupReader, not able to construct instance of " + clazz.getSimpleName());
+        throw new IllegalArgumentException(
+            "Invalid BackupReader: "
+                + clazz.getSimpleName()
+                + ", need to implement proper constructor: "
+                + args,
+            e);
       }
-      EbeanAspectBackupIterator<ParquetReaderWrapper> iterator = backupReader.getBackupIterator(context);
+      EbeanAspectBackupIterator<ParquetReaderWrapper> iterator =
+          backupReader.getBackupIterator(context);
       ParquetReaderWrapper reader;
       List<Future<Integer>> futureList = new ArrayList<>();
       while ((reader = iterator.getNextReader()) != null) {
@@ -122,25 +141,32 @@ public class RestoreFromParquetStep implements UpgradeStep {
       }
       for (Future<Integer> future : futureList) {
         try {
-         numRows = numRows + future.get();
+          numRows = numRows + future.get();
         } catch (InterruptedException | ExecutionException e) {
           context.report().addLine("Reading interrupted, not able to finish processing.");
           throw new RuntimeException(e);
         }
       }
 
-      context.report().addLine(String.format("Added %d rows to the aspect v2 table, took %s ms", numRows,
-          System.currentTimeMillis() - initialStartTime));
-      context.report().addLine("Entity counts: " + _entityCounts
-          .entrySet()
-          .stream()
-          .map(entry -> entry.getKey() + "->" + entry.getValue().get())
-          .collect(Collectors.joining("\n\t")));
+      context
+          .report()
+          .addLine(
+              String.format(
+                  "Added %d rows to the aspect v2 table, took %s ms",
+                  numRows, System.currentTimeMillis() - initialStartTime));
+      context
+          .report()
+          .addLine(
+              "Entity counts: "
+                  + _entityCounts.entrySet().stream()
+                      .map(entry -> entry.getKey() + "->" + entry.getValue().get())
+                      .collect(Collectors.joining("\n\t")));
       return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.SUCCEEDED);
     };
   }
 
-  private Integer readerExecutable(ParquetReaderWrapper reader, UpgradeContext context) throws ExecutionException, InterruptedException {
+  private Integer readerExecutable(ParquetReaderWrapper reader, UpgradeContext context)
+      throws ExecutionException, InterruptedException {
 
     EbeanAspectV2 aspect;
     long startTime = System.currentTimeMillis();
@@ -155,9 +181,12 @@ public class RestoreFromParquetStep implements UpgradeStep {
 
       if (Boolean.parseBoolean(System.getenv(RestoreIndices.DRY_RUN))) {
         if (numRows % 100 == 0) {
-          context.report()
-              .addLine(String.format("Dry run enabled, continuing. Took %s ms to read %s aspects from parquet.",
-                  System.currentTimeMillis() - startTime, 100));
+          context
+              .report()
+              .addLine(
+                  String.format(
+                      "Dry run enabled, continuing. Took %s ms to read %s aspects from parquet.",
+                      System.currentTimeMillis() - startTime, 100));
           startTime = System.currentTimeMillis();
         }
       }
@@ -167,9 +196,12 @@ public class RestoreFromParquetStep implements UpgradeStep {
       try {
         urn = Urn.createFromString(aspect.getKey().getUrn());
       } catch (Exception e) {
-        context.report()
-            .addLine(String.format("Failed to bind Urn with value %s into Urn object: %s. Ignoring row.",
-                aspect.getKey().getUrn(), e));
+        context
+            .report()
+            .addLine(
+                String.format(
+                    "Failed to bind Urn with value %s into Urn object: %s. Ignoring row.",
+                    aspect.getKey().getUrn(), e));
         continue;
       }
 
@@ -179,9 +211,12 @@ public class RestoreFromParquetStep implements UpgradeStep {
       try {
         entitySpec = _entityRegistry.getEntitySpec(entityName);
       } catch (Exception e) {
-        context.report()
-            .addLine(String.format("Failed to find entity with name %s in Entity Registry: %s. Ignoring row.",
-                entityName, e));
+        context
+            .report()
+            .addLine(
+                String.format(
+                    "Failed to find entity with name %s in Entity Registry: %s. Ignoring row.",
+                    entityName, e));
         continue;
       }
       final String aspectName = aspect.getKey().getAspect();
@@ -189,57 +224,81 @@ public class RestoreFromParquetStep implements UpgradeStep {
       // 3. Verify that the aspect is a valid aspect associated with the entity
       AspectSpec aspectSpec = entitySpec.getAspectSpec(aspectName);
       if (aspectSpec == null) {
-        context.report()
-            .addLine(String.format("Failed to find aspect with name %s associated with entity named %s", aspectName,
-                entityName));
+        context
+            .report()
+            .addLine(
+                String.format(
+                    "Failed to find aspect with name %s associated with entity named %s",
+                    aspectName, entityName));
         continue;
       }
 
       // 4. Create record from json aspect
       final RecordTemplate aspectRecord;
       try {
-        aspectRecord = EntityUtils.toAspectRecord(entityName, aspectName, aspect.getMetadata(), _entityRegistry);
+        aspectRecord =
+            EntityUtils.toAspectRecord(
+                entityName, aspectName, aspect.getMetadata(), _entityRegistry);
       } catch (Exception e) {
-        context.report()
-            .addLine(String.format("Failed to deserialize row %s for entity %s, aspect %s: %s. Ignoring row.",
-                aspect.getMetadata(), entityName, aspectName, e));
+        context
+            .report()
+            .addLine(
+                String.format(
+                    "Failed to deserialize row %s for entity %s, aspect %s: %s. Ignoring row.",
+                    aspect.getMetadata(), entityName, aspectName, e));
         continue;
       }
 
-      SystemMetadata latestSystemMetadata = EntityUtils.parseSystemMetadata(aspect.getSystemMetadata());
+      SystemMetadata latestSystemMetadata =
+          EntityUtils.parseSystemMetadata(aspect.getSystemMetadata());
 
       // 5. Produce MAE events for the aspect record
-      _entityService.alwaysProduceMCLAsync(urn, entityName, aspectName, aspectSpec, null, aspectRecord, null,
-          latestSystemMetadata,
-          new AuditStamp().setActor(UrnUtils.getUrn(SYSTEM_ACTOR)).setTime(System.currentTimeMillis()),
-          ChangeType.RESTATE).getFirst().get();
+      _entityService
+          .alwaysProduceMCLAsync(
+              urn,
+              entityName,
+              aspectName,
+              aspectSpec,
+              null,
+              aspectRecord,
+              null,
+              latestSystemMetadata,
+              new AuditStamp()
+                  .setActor(UrnUtils.getUrn(SYSTEM_ACTOR))
+                  .setTime(System.currentTimeMillis()),
+              ChangeType.RESTATE)
+          .getFirst()
+          .get();
 
       try {
-        this._entityCounts.compute(entityName, (key, count) -> {
-          if (count == null) {
-            return new AtomicInteger(1);
-          } else {
-            //Update data, this part its ok!
-            count.incrementAndGet();
-            return count;
-          }
-        });
+        this._entityCounts.compute(
+            entityName,
+            (key, count) -> {
+              if (count == null) {
+                return new AtomicInteger(1);
+              } else {
+                // Update data, this part its ok!
+                count.incrementAndGet();
+                return count;
+              }
+            });
       } catch (Exception e) {
 
       }
       entityUrnMap.put(entityName, urn.toString());
     }
     _numRows.addAndGet(numRows);
-    String entityUrnString = entityUrnMap.entrySet()
-        .stream()
-        .map(entry -> entry.getKey() + "->" + entry.getValue())
-        .collect(Collectors.joining(","));
-    context.report()
-        .addLine(String.format("Took %s ms to produce %s MCLs.",
-            System.currentTimeMillis() - startTime, numRows));
+    String entityUrnString =
+        entityUrnMap.entrySet().stream()
+            .map(entry -> entry.getKey() + "->" + entry.getValue())
+            .collect(Collectors.joining(","));
+    context
+        .report()
+        .addLine(
+            String.format(
+                "Took %s ms to produce %s MCLs.", System.currentTimeMillis() - startTime, numRows));
     log.info("Latest urns: {}", entityUrnString);
 
     return numRows;
   }
-
 }

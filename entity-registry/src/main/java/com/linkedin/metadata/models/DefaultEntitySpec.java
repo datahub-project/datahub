@@ -11,7 +11,6 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-
 import lombok.ToString;
 
 @ToString
@@ -31,7 +30,8 @@ public class DefaultEntitySpec implements EntitySpec {
       @Nonnull final EntityAnnotation entityAnnotation,
       @Nonnull final RecordDataSchema snapshotSchema,
       @Nullable final TyperefDataSchema aspectTyperefSchema) {
-    _aspectSpecs = aspectSpecs.stream().collect(Collectors.toMap(AspectSpec::getName, Function.identity()));
+    _aspectSpecs =
+        aspectSpecs.stream().collect(Collectors.toMap(AspectSpec::getName, Function.identity()));
     _entityAnnotation = entityAnnotation;
     _snapshotSchema = snapshotSchema;
     _aspectTyperefSchema = aspectTyperefSchema;
@@ -102,5 +102,4 @@ public class DefaultEntitySpec implements EntitySpec {
 
     return _searchableFieldSpecs;
   }
-
 }

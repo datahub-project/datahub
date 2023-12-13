@@ -1,8 +1,6 @@
 package com.linkedin.metadata.test.definition.value;
 
-/**
- * Marker class
- */
+/** Marker class */
 public class ListType implements ValueType {
 
   private final ValueType itemType;

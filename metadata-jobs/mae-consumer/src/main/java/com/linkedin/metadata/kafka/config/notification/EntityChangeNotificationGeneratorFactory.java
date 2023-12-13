@@ -11,13 +11,13 @@ import com.linkedin.gms.factory.entity.RestliEntityClientFactory;
 import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
 import com.linkedin.gms.factory.notifications.SettingsProviderFactory;
 import com.linkedin.gms.factory.notifications.recipient.SlackNotificationRecipientBuilderFactory;
-import com.linkedin.metadata.service.AssertionService;
-import com.linkedin.metadata.spring.YamlPropertySourceFactory;
 import com.linkedin.gms.factory.timeline.EntityChangeEventGeneratorRegistryFactory;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.kafka.hook.notification.change.EntityChangeNotificationGenerator;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.service.AssertionService;
+import com.linkedin.metadata.spring.YamlPropertySourceFactory;
 import com.linkedin.metadata.timeline.eventgenerator.EntityChangeEventGeneratorRegistry;
 import javax.annotation.Nonnull;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -29,9 +29,15 @@ import org.springframework.context.annotation.PropertySource;
 import org.springframework.context.annotation.Scope;
 
 @Configuration
-@Import({SystemAuthenticationFactory.class, RestliEntityClientFactory.class, GraphClientFactory.class,
-    SettingsProviderFactory.class, EntityRegistryFactory.class, EntityChangeEventGeneratorRegistryFactory.class,
-    SlackNotificationRecipientBuilderFactory.class})
+@Import({
+  SystemAuthenticationFactory.class,
+  RestliEntityClientFactory.class,
+  GraphClientFactory.class,
+  SettingsProviderFactory.class,
+  EntityRegistryFactory.class,
+  EntityChangeEventGeneratorRegistryFactory.class,
+  SlackNotificationRecipientBuilderFactory.class
+})
 @PropertySource(value = "classpath:/application.yml", factory = YamlPropertySourceFactory.class)
 public class EntityChangeNotificationGeneratorFactory {
   @Autowired
@@ -88,7 +94,6 @@ public class EntityChangeNotificationGeneratorFactory {
         _assertionService,
         _systemAuthentication,
         _slackNotificationRecipientBuilder,
-        _configProvider.getFeatureFlags()
-    );
+        _configProvider.getFeatureFlags());
   }
 }

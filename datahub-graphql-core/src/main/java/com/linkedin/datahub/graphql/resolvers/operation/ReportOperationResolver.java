@@ -1,5 +1,12 @@
 package com.linkedin.datahub.graphql.resolvers.operation;
 
+import static com.linkedin.datahub.graphql.resolvers.AuthUtils.*;
+import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
+import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
+import static com.linkedin.metadata.Constants.*;
+
+import com.datahub.authorization.ConjunctivePrivilegeGroup;
+import com.datahub.authorization.DisjunctivePrivilegeGroup;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.Operation;
 import com.linkedin.common.OperationSourceType;
@@ -10,8 +17,6 @@ import com.linkedin.data.template.SetMode;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
-import com.datahub.authorization.ConjunctivePrivilegeGroup;
-import com.datahub.authorization.DisjunctivePrivilegeGroup;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
@@ -30,22 +35,12 @@ import java.util.concurrent.CompletableFuture;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.datahub.graphql.resolvers.AuthUtils.*;
-import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
-import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
-import static com.linkedin.metadata.Constants.*;
-
-
-/**
- * Resolver used for reporting Asset Operations
- */
+/** Resolver used for reporting Asset Operations */
 @Slf4j
 @RequiredArgsConstructor
 public class ReportOperationResolver implements DataFetcher<CompletableFuture<Boolean>> {
 
-  private static final List<String> SUPPORTED_ENTITY_TYPES = ImmutableList.of(
-      DATASET_ENTITY_NAME
-  );
+  private static final List<String> SUPPORTED_ENTITY_TYPES = ImmutableList.of(DATASET_ENTITY_NAME);
 
   private final EntityClient _entityClient;
 
@@ -53,32 +48,36 @@ public class ReportOperationResolver implements DataFetcher<CompletableFuture<Bo
   public CompletableFuture<Boolean> get(DataFetchingEnvironment environment) throws Exception {
 
     final QueryContext context = environment.getContext();
-    final ReportOperationInput input = bindArgument(environment.getArgument("input"), ReportOperationInput.class);
+    final ReportOperationInput input =
+        bindArgument(environment.getArgument("input"), ReportOperationInput.class);
 
-    return CompletableFuture.supplyAsync(() -> {
+    return CompletableFuture.supplyAsync(
+        () -> {
+          Urn entityUrn = UrnUtils.getUrn(input.getUrn());
 
-      Urn entityUrn = UrnUtils.getUrn(input.getUrn());
+          if (!isAuthorizedToReportOperationForResource(entityUrn, context)) {
+            throw new AuthorizationException(
+                "Unauthorized to perform this action. Please contact your DataHub administrator.");
+          }
 
-      if (!isAuthorizedToReportOperationForResource(entityUrn, context)) {
-        throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
-      }
+          validateInput(entityUrn, input);
 
-      validateInput(entityUrn, input);
-
-      try {
-        // Create an MCP to emit the operation
-        final MetadataChangeProposal proposal = buildMetadataChangeProposalWithUrn(entityUrn, OPERATION_ASPECT_NAME,
-            mapOperation(input, context));
-        _entityClient.ingestProposal(proposal, context.getAuthentication(), false);
-        return true;
-      } catch (Exception e) {
-        log.error("Failed to report operation. {}", e.getMessage());
-        throw new RuntimeException("Failed to report operation", e);
-      }
-    });
+          try {
+            // Create an MCP to emit the operation
+            final MetadataChangeProposal proposal =
+                buildMetadataChangeProposalWithUrn(
+                    entityUrn, OPERATION_ASPECT_NAME, mapOperation(input, context));
+            _entityClient.ingestProposal(proposal, context.getAuthentication(), false);
+            return true;
+          } catch (Exception e) {
+            log.error("Failed to report operation. {}", e.getMessage());
+            throw new RuntimeException("Failed to report operation", e);
+          }
+        });
   }
 
-  private Operation mapOperation(final ReportOperationInput input, final QueryContext context) throws URISyntaxException {
+  private Operation mapOperation(final ReportOperationInput input, final QueryContext context)
+      throws URISyntaxException {
 
     final Operation result = new Operation();
     result.setActor(UrnUtils.getUrn(context.getActorUrn()));
@@ -86,13 +85,17 @@ public class ReportOperationResolver implements DataFetcher<CompletableFuture<Bo
     result.setCustomOperationType(input.getCustomOperationType(), SetMode.IGNORE_NULL);
     result.setNumAffectedRows(input.getNumAffectedRows(), SetMode.IGNORE_NULL);
 
-    long timestampMillis = input.getTimestampMillis() != null ? input.getTimestampMillis() : System.currentTimeMillis();
+    long timestampMillis =
+        input.getTimestampMillis() != null
+            ? input.getTimestampMillis()
+            : System.currentTimeMillis();
     result.setLastUpdatedTimestamp(timestampMillis);
     result.setTimestampMillis(timestampMillis);
     result.setSourceType(OperationSourceType.valueOf(input.getSourceType().toString()));
 
     if (input.getPartition() != null) {
-      result.setPartitionSpec(new PartitionSpec().setType(PartitionType.PARTITION).setPartition(input.getPartition()));
+      result.setPartitionSpec(
+          new PartitionSpec().setType(PartitionType.PARTITION).setPartition(input.getPartition()));
     }
 
     if (input.getCustomProperties() != null) {
@@ -102,7 +105,8 @@ public class ReportOperationResolver implements DataFetcher<CompletableFuture<Bo
     return result;
   }
 
-  private StringMap mapCustomProperties(final List<StringMapEntryInput> properties) throws URISyntaxException {
+  private StringMap mapCustomProperties(final List<StringMapEntryInput> properties)
+      throws URISyntaxException {
     final StringMap result = new StringMap();
     for (StringMapEntryInput entry : properties) {
       result.put(entry.getKey(), entry.getValue());
@@ -113,16 +117,21 @@ public class ReportOperationResolver implements DataFetcher<CompletableFuture<Bo
   private void validateInput(final Urn entityUrn, final ReportOperationInput input) {
     if (!SUPPORTED_ENTITY_TYPES.contains(entityUrn.getEntityType())) {
       throw new DataHubGraphQLException(
-          String.format("Unable to report operation. Invalid entity type %s provided.", entityUrn.getEntityType()),
+          String.format(
+              "Unable to report operation. Invalid entity type %s provided.",
+              entityUrn.getEntityType()),
           DataHubGraphQLErrorCode.BAD_REQUEST);
     }
   }
 
-  private boolean isAuthorizedToReportOperationForResource(final Urn resourceUrn, final QueryContext context) {
-    final DisjunctivePrivilegeGroup orPrivilegeGroups = new DisjunctivePrivilegeGroup(ImmutableList.of(
-        ALL_PRIVILEGES_GROUP,
-        new ConjunctivePrivilegeGroup(ImmutableList.of(PoliciesConfig.EDIT_ENTITY_OPERATIONS_PRIVILEGE.getType()))
-    ));
+  private boolean isAuthorizedToReportOperationForResource(
+      final Urn resourceUrn, final QueryContext context) {
+    final DisjunctivePrivilegeGroup orPrivilegeGroups =
+        new DisjunctivePrivilegeGroup(
+            ImmutableList.of(
+                ALL_PRIVILEGES_GROUP,
+                new ConjunctivePrivilegeGroup(
+                    ImmutableList.of(PoliciesConfig.EDIT_ENTITY_OPERATIONS_PRIVILEGE.getType()))));
 
     return AuthorizationUtils.isAuthorized(
         context.getAuthorizer(),

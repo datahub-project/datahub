@@ -1,5 +1,8 @@
 package com.linkedin.datahub.graphql.resolvers.entity;
 
+import static com.linkedin.datahub.graphql.TestUtils.*;
+import static org.testng.Assert.*;
+
 import com.datahub.authentication.Authentication;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.Chart;
@@ -14,13 +17,9 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetchingEnvironment;
+import java.util.concurrent.CompletionException;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
-
-import java.util.concurrent.CompletionException;
-
-import static com.linkedin.datahub.graphql.TestUtils.*;
-import static org.testng.Assert.*;
 
 public class EntityPrivilegesResolverTest {
 
@@ -29,7 +28,8 @@ public class EntityPrivilegesResolverTest {
   final String datasetUrn = "urn:li:dataset:(urn:li:dataPlatform:kafka,protobuf.MessageA,TEST)";
   final String chartUrn = "urn:li:chart:(looker,baz1)";
   final String dashboardUrn = "urn:li:dashboard:(looker,dashboards.1)";
-  final String dataJobUrn = "urn:li:dataJob:(urn:li:dataFlow:(spark,test_machine.sparkTestApp,local),QueryExecId_31)";
+  final String dataJobUrn =
+      "urn:li:dataJob:(urn:li:dataFlow:(spark,test_machine.sparkTestApp,local),QueryExecId_31)";
 
   private DataFetchingEnvironment setUpTestWithPermissions(Entity entity) {
     QueryContext mockContext = getMockAllowContext();
@@ -115,11 +115,13 @@ public class EntityPrivilegesResolverTest {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     DataFetchingEnvironment mockEnv = setUpTestWithoutPermissions(glossaryNode);
 
-    Mockito.doThrow(RemoteInvocationException.class).when(mockClient).getV2(
-        Mockito.eq(Constants.GLOSSARY_NODE_ENTITY_NAME),
-        Mockito.any(),
-        Mockito.any(),
-        Mockito.any(Authentication.class));
+    Mockito.doThrow(RemoteInvocationException.class)
+        .when(mockClient)
+        .getV2(
+            Mockito.eq(Constants.GLOSSARY_NODE_ENTITY_NAME),
+            Mockito.any(),
+            Mockito.any(),
+            Mockito.any(Authentication.class));
 
     EntityPrivilegesResolver resolver = new EntityPrivilegesResolver(mockClient);
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());

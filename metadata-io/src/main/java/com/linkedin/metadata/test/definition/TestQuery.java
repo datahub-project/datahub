@@ -5,7 +5,6 @@ import java.util.List;
 import java.util.Objects;
 import lombok.Getter;
 
-
 @Getter
 public class TestQuery {
   private final String query;

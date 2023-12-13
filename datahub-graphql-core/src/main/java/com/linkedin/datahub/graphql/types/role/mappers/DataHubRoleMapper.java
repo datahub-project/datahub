@@ -1,5 +1,7 @@
 package com.linkedin.datahub.graphql.types.role.mappers;
 
+import static com.linkedin.metadata.Constants.*;
+
 import com.linkedin.data.DataMap;
 import com.linkedin.datahub.graphql.generated.DataHubRole;
 import com.linkedin.datahub.graphql.generated.EntityType;
@@ -9,9 +11,6 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.policy.DataHubRoleInfo;
 import javax.annotation.Nonnull;
-
-import static com.linkedin.metadata.Constants.*;
-
 
 public class DataHubRoleMapper implements ModelMapper<EntityResponse, DataHubRole> {
 

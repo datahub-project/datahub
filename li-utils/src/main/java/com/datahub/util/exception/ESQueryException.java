@@ -1,8 +1,6 @@
 package com.datahub.util.exception;
 
-/**
- * An exception to be thrown when elastic search query fails.
- */
+/** An exception to be thrown when elastic search query fails. */
 public class ESQueryException extends RuntimeException {
 
   public ESQueryException(String message) {

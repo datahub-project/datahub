@@ -1,5 +1,8 @@
 package com.linkedin.metadata.kafka.hook.notification;
 
+import static com.linkedin.metadata.AcrylConstants.*;
+import static com.linkedin.metadata.Constants.DEFAULT_RUN_ID;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
@@ -17,7 +20,6 @@ import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.pegasus2avro.subscription.SubscriptionType;
 import com.linkedin.subscription.EntityChangeType;
 import com.linkedin.subscription.SubscriptionInfo;
-
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.HashSet;
@@ -26,19 +28,12 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 
-import static com.linkedin.metadata.AcrylConstants.*;
-import static com.linkedin.metadata.Constants.DEFAULT_RUN_ID;
-
-
 public class NotificationUtils {
 
-  private static final Set<String> INGESTION_EXECUTION_REQUEST_ASPECTS = ImmutableSet.of(
-    Constants.EXECUTION_REQUEST_RESULT_ASPECT_NAME
-  );
+  private static final Set<String> INGESTION_EXECUTION_REQUEST_ASPECTS =
+      ImmutableSet.of(Constants.EXECUTION_REQUEST_RESULT_ASPECT_NAME);
 
-  /**
-   * Given an Entity Urn, generates a relative path from it (for rendering in the UI)
-   */
+  /** Given an Entity Urn, generates a relative path from it (for rendering in the UI) */
   @Nonnull
   public static String generateEntityPath(final Urn entityUrn) {
     final String encodedEntityUrn = URLEncoder.encode(entityUrn.toString(), StandardCharsets.UTF_8);
@@ -70,9 +65,7 @@ public class NotificationUtils {
     }
   }
 
-  /**
-   * Given an Entity Urn, get the type of the entity
-   */
+  /** Given an Entity Urn, get the type of the entity */
   @Nonnull
   public static String getEntityType(final Urn entityUrn) {
     switch (entityUrn.getEntityType()) {
@@ -121,21 +114,25 @@ public class NotificationUtils {
 
   @Nonnull
   public static SubscriptionInfo mapSubscriptionInfo(@Nonnull final EntityResponse entityResponse) {
-    return new SubscriptionInfo(entityResponse.getAspects().get(SUBSCRIPTION_INFO_ASPECT_NAME).getValue().data());
+    return new SubscriptionInfo(
+        entityResponse.getAspects().get(SUBSCRIPTION_INFO_ASPECT_NAME).getValue().data());
   }
 
   @Nonnull
-  public static Filter createSubscriberFilter(@Nonnull final Urn entityUrn, @Nonnull final EntityChangeType changeType) {
+  public static Filter createSubscriberFilter(
+      @Nonnull final Urn entityUrn, @Nonnull final EntityChangeType changeType) {
     final Criterion entityCriterion = buildEntityCriterion(entityUrn);
     final Criterion changeTypeCriterion = buildChangeTypeCriterion(changeType);
-    final CriterionArray criterionArray = new CriterionArray(ImmutableList.of(entityCriterion, changeTypeCriterion));
+    final CriterionArray criterionArray =
+        new CriterionArray(ImmutableList.of(entityCriterion, changeTypeCriterion));
 
-    return new Filter().setOr(new ConjunctiveCriterionArray(new ConjunctiveCriterion().setAnd(criterionArray)));
+    return new Filter()
+        .setOr(new ConjunctiveCriterionArray(new ConjunctiveCriterion().setAnd(criterionArray)));
   }
 
   @Nonnull
-  public static Filter createDownstreamSubscriberFilter(@Nonnull final Set<Urn> entityUrns,
-      @Nonnull final EntityChangeType changeType) {
+  public static Filter createDownstreamSubscriberFilter(
+      @Nonnull final Set<Urn> entityUrns, @Nonnull final EntityChangeType changeType) {
     final Filter filter = new Filter();
     final ConjunctiveCriterionArray disjunction = new ConjunctiveCriterionArray();
     final ConjunctiveCriterion conjunction = new ConjunctiveCriterion();
@@ -200,20 +197,24 @@ public class NotificationUtils {
   }
 
   /**
-   * Takes in an MCL and determines whether it is eligible to have notifications generated based on it.
-   * Returns true if the MCL is eligible for notifications, false otherwise.
+   * Takes in an MCL and determines whether it is eligible to have notifications generated based on
+   * it. Returns true if the MCL is eligible for notifications, false otherwise.
    *
-   * Events are eligible for notification generation if the event is NOT coming from an initial ingestion run (first time we're hearing about this entity)
-   * OR it is but it's an ingestion related notification.
-   * OR if they are assertion run events.
+   * <p>Events are eligible for notification generation if the event is NOT coming from an initial
+   * ingestion run (first time we're hearing about this entity) OR it is but it's an ingestion
+   * related notification. OR if they are assertion run events.
    */
-  public static boolean isEligibleForNotificationGeneration(@Nonnull final MetadataChangeLog event) {
-    return !isFromInitialIngestionRun(event) || isIngestionRunResultEvent(event) || isAssertionRunEvent(event);
+  public static boolean isEligibleForNotificationGeneration(
+      @Nonnull final MetadataChangeLog event) {
+    return !isFromInitialIngestionRun(event)
+        || isIngestionRunResultEvent(event)
+        || isAssertionRunEvent(event);
   }
 
   /**
-   * This is an initial ingestion run if there is no previous aspect and this MCL has a run ID not equal to DEFAULT_RUN_ID (coming from ingestion).
-   * This isn't perfect as it is possible that we run ingestion and then run ingestion again later and add a new aspect like owner or tags.
+   * This is an initial ingestion run if there is no previous aspect and this MCL has a run ID not
+   * equal to DEFAULT_RUN_ID (coming from ingestion). This isn't perfect as it is possible that we
+   * run ingestion and then run ingestion again later and add a new aspect like owner or tags.
    */
   public static boolean isFromInitialIngestionRun(@Nonnull final MetadataChangeLog event) {
     return event.getPreviousAspectValue() == null
@@ -222,9 +223,12 @@ public class NotificationUtils {
         && !event.getSystemMetadata().getRunId().equals(DEFAULT_RUN_ID);
   }
 
-  public static List<NotificationRecipient> getUniqueRecipients(List<NotificationRecipient> recipients) {
+  public static List<NotificationRecipient> getUniqueRecipients(
+      List<NotificationRecipient> recipients) {
     HashSet<String> existingIds = new HashSet<>();
-    return recipients.stream().filter(recipient -> existingIds.add(recipient.getId())).collect(Collectors.toList());
+    return recipients.stream()
+        .filter(recipient -> existingIds.add(recipient.getId()))
+        .collect(Collectors.toList());
   }
 
   private static boolean isIngestionRunResultEvent(@Nonnull final MetadataChangeLog event) {
@@ -235,6 +239,5 @@ public class NotificationUtils {
     return Constants.ASSERTION_RUN_EVENT_ASPECT_NAME.equals(event.getAspectName());
   }
 
-  private NotificationUtils() { }
-
+  private NotificationUtils() {}
 }

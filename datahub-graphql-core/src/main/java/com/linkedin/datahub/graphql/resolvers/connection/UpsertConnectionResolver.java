@@ -1,5 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.connection;
 
+import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
+
 import com.datahub.authentication.Authentication;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -19,9 +21,6 @@ import java.util.concurrent.CompletableFuture;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
-
-
 @Slf4j
 public class UpsertConnectionResolver implements DataFetcher<CompletableFuture<DataHubConnection>> {
 
@@ -31,44 +30,48 @@ public class UpsertConnectionResolver implements DataFetcher<CompletableFuture<D
   public UpsertConnectionResolver(
       @Nonnull final ConnectionService connectionService,
       @Nonnull final SecretService secretService) {
-    _connectionService = Objects.requireNonNull(connectionService, "connectionService cannot be null");
+    _connectionService =
+        Objects.requireNonNull(connectionService, "connectionService cannot be null");
     _secretService = Objects.requireNonNull(secretService, "secretService cannot be null");
   }
 
   @Override
-  public CompletableFuture<DataHubConnection> get(final DataFetchingEnvironment environment) throws Exception {
+  public CompletableFuture<DataHubConnection> get(final DataFetchingEnvironment environment)
+      throws Exception {
 
     final QueryContext context = environment.getContext();
-    final UpsertDataHubConnectionInput input = bindArgument(environment.getArgument("input"), UpsertDataHubConnectionInput.class);
+    final UpsertDataHubConnectionInput input =
+        bindArgument(environment.getArgument("input"), UpsertDataHubConnectionInput.class);
     final Authentication authentication = context.getAuthentication();
 
-    return CompletableFuture.supplyAsync(() -> {
+    return CompletableFuture.supplyAsync(
+        () -> {
+          if (!ConnectionUtils.canManageConnections(context)) {
+            throw new AuthorizationException(
+                "Unauthorized to upsert Connection. Please contact your DataHub administrator for more information.");
+          }
 
-      if (!ConnectionUtils.canManageConnections(context)) {
-        throw new AuthorizationException(
-            "Unauthorized to upsert Connection. Please contact your DataHub administrator for more information.");
-      }
+          try {
+            final Urn connectionUrn =
+                _connectionService.upsertConnection(
+                    input.getId(),
+                    UrnUtils.getUrn(input.getPlatformUrn()),
+                    DataHubConnectionDetailsType.valueOf(input.getType().toString()),
+                    input.getJson() != null
+                        // Encrypt payload
+                        ? new DataHubJsonConnection()
+                            .setEncryptedBlob(_secretService.encrypt(input.getJson().getBlob()))
+                        : null,
+                    authentication);
 
-      try {
-        final Urn connectionUrn = _connectionService.upsertConnection(
-            input.getId(),
-            UrnUtils.getUrn(input.getPlatformUrn()),
-            DataHubConnectionDetailsType.valueOf(input.getType().toString()),
-            input.getJson() != null
-                // Encrypt payload
-                ? new DataHubJsonConnection().setEncryptedBlob(_secretService.encrypt(input.getJson().getBlob()))
-                : null,
-            authentication
-        );
-
-        final EntityResponse connectionResponse = _connectionService.getConnectionEntityResponse(
-            connectionUrn,
-            context.getAuthentication()
-        );
-        return ConnectionMapper.map(connectionResponse, _secretService);
-      } catch (Exception e) {
-        throw new RuntimeException(String.format("Failed to upsert a Connection from input %s", input), e);
-      }
-    });
+            final EntityResponse connectionResponse =
+                _connectionService.getConnectionEntityResponse(
+                    connectionUrn, context.getAuthentication());
+            return ConnectionMapper.map(connectionResponse, _secretService);
+          } catch (Exception e) {
+            throw new RuntimeException(
+                String.format("Failed to upsert a Connection from input %s", input), e);
+          }
+        });
   }
 }

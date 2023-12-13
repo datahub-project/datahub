@@ -29,7 +29,6 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import org.reflections.Reflections;
 
-
 public class ModelUtils {
 
   private static final ClassLoader CLASS_LOADER = DummySnapshot.class.getClassLoader();
@@ -69,13 +68,15 @@ public class ModelUtils {
    * @return a set of supported aspects
    */
   @Nonnull
-  public static <ASPECT_UNION extends UnionTemplate> Set<Class<? extends RecordTemplate>> getValidAspectTypes(
-      @Nonnull Class<ASPECT_UNION> aspectUnionClass) {
+  public static <ASPECT_UNION extends UnionTemplate>
+      Set<Class<? extends RecordTemplate>> getValidAspectTypes(
+          @Nonnull Class<ASPECT_UNION> aspectUnionClass) {
 
     AspectValidator.validateAspectUnionSchema(aspectUnionClass);
 
     Set<Class<? extends RecordTemplate>> validTypes = new HashSet<>();
-    for (UnionDataSchema.Member member : ValidationUtils.getUnionSchema(aspectUnionClass).getMembers()) {
+    for (UnionDataSchema.Member member :
+        ValidationUtils.getUnionSchema(aspectUnionClass).getMembers()) {
       if (member.getType().getType() == DataSchema.Type.RECORD) {
         String fqcn = ((RecordDataSchema) member.getType()).getBindingName();
         try {
@@ -89,11 +90,10 @@ public class ModelUtils {
     return validTypes;
   }
 
-  /**
-   * Gets a {@link Class} from its FQCN.
-   */
+  /** Gets a {@link Class} from its FQCN. */
   @Nonnull
-  public static <T> Class<? extends T> getClassFromName(@Nonnull String className, @Nonnull Class<T> parentClass) {
+  public static <T> Class<? extends T> getClassFromName(
+      @Nonnull String className, @Nonnull Class<T> parentClass) {
     try {
       return CLASS_LOADER.loadClass(className).asSubclass(parentClass);
     } catch (ClassNotFoundException e) {
@@ -108,8 +108,10 @@ public class ModelUtils {
    * @return snapshot class that extends {@link RecordTemplate}, associated with className
    */
   @Nonnull
-  public static Class<? extends RecordTemplate> getMetadataSnapshotClassFromName(@Nonnull String className) {
-    Class<? extends RecordTemplate> snapshotClass = getClassFromName(className, RecordTemplate.class);
+  public static Class<? extends RecordTemplate> getMetadataSnapshotClassFromName(
+      @Nonnull String className) {
+    Class<? extends RecordTemplate> snapshotClass =
+        getClassFromName(className, RecordTemplate.class);
     SnapshotValidator.validateSnapshotSchema(snapshotClass);
     return snapshotClass;
   }
@@ -122,13 +124,16 @@ public class ModelUtils {
    * @return the extracted {@link Urn}
    */
   @Nonnull
-  public static <SNAPSHOT extends RecordTemplate> Urn getUrnFromSnapshot(@Nonnull SNAPSHOT snapshot) {
+  public static <SNAPSHOT extends RecordTemplate> Urn getUrnFromSnapshot(
+      @Nonnull SNAPSHOT snapshot) {
     SnapshotValidator.validateSnapshotSchema(snapshot.getClass());
-    return RecordUtils.getRecordTemplateField(snapshot, "urn", urnClassForSnapshot(snapshot.getClass()));
+    return RecordUtils.getRecordTemplateField(
+        snapshot, "urn", urnClassForSnapshot(snapshot.getClass()));
   }
 
   /**
-   * Similar to {@link #getUrnFromSnapshot(RecordTemplate)} but extracts from a Snapshot union instead.
+   * Similar to {@link #getUrnFromSnapshot(RecordTemplate)} but extracts from a Snapshot union
+   * instead.
    */
   @Nonnull
   public static Urn getUrnFromSnapshotUnion(@Nonnull UnionTemplate snapshotUnion) {
@@ -164,9 +169,11 @@ public class ModelUtils {
    * @return the extracted {@link Urn}
    */
   @Nonnull
-  public static <DOCUMENT extends RecordTemplate> Urn getUrnFromDocument(@Nonnull DOCUMENT document) {
+  public static <DOCUMENT extends RecordTemplate> Urn getUrnFromDocument(
+      @Nonnull DOCUMENT document) {
     DocumentValidator.validateDocumentSchema(document.getClass());
-    return RecordUtils.getRecordTemplateField(document, "urn", urnClassForDocument(document.getClass()));
+    return RecordUtils.getRecordTemplateField(
+        document, "urn", urnClassForDocument(document.getClass()));
   }
 
   /**
@@ -179,37 +186,35 @@ public class ModelUtils {
   @Nonnull
   public static <ENTITY extends RecordTemplate> Urn getUrnFromEntity(@Nonnull ENTITY entity) {
     EntityValidator.validateEntitySchema(entity.getClass());
-    return RecordUtils.getRecordTemplateField(entity, "urn", urnClassForDocument(entity.getClass()));
+    return RecordUtils.getRecordTemplateField(
+        entity, "urn", urnClassForDocument(entity.getClass()));
   }
 
   /**
    * Extracts the fields with type urn from a relationship.
    *
    * @param relationship the relationship to extract urn from
-   * @param <RELATIONSHIP> must be a valid relationship model defined in com.linkedin.metadata.relationship
+   * @param <RELATIONSHIP> must be a valid relationship model defined in
+   *     com.linkedin.metadata.relationship
    * @param fieldName name of the field with type urn
    * @return the extracted {@link Urn}
    */
   @Nonnull
-  private static <RELATIONSHIP extends RecordTemplate> Urn getUrnFromRelationship(@Nonnull RELATIONSHIP relationship,
-      @Nonnull String fieldName) {
+  private static <RELATIONSHIP extends RecordTemplate> Urn getUrnFromRelationship(
+      @Nonnull RELATIONSHIP relationship, @Nonnull String fieldName) {
     RelationshipValidator.validateRelationshipSchema(relationship.getClass());
-    return RecordUtils.getRecordTemplateField(relationship, fieldName,
-        urnClassForRelationship(relationship.getClass(), fieldName));
+    return RecordUtils.getRecordTemplateField(
+        relationship, fieldName, urnClassForRelationship(relationship.getClass(), fieldName));
   }
 
-  /**
-   * Similar to {@link #getUrnFromRelationship} but extracts from a delta union instead.
-   */
+  /** Similar to {@link #getUrnFromRelationship} but extracts from a delta union instead. */
   @Nonnull
   public static <RELATIONSHIP extends RecordTemplate> Urn getSourceUrnFromRelationship(
       @Nonnull RELATIONSHIP relationship) {
     return getUrnFromRelationship(relationship, "source");
   }
 
-  /**
-   * Similar to {@link #getUrnFromRelationship} but extracts from a delta union instead.
-   */
+  /** Similar to {@link #getUrnFromRelationship} but extracts from a delta union instead. */
   @Nonnull
   public static <RELATIONSHIP extends RecordTemplate> Urn getDestinationUrnFromRelationship(
       @Nonnull RELATIONSHIP relationship) {
@@ -240,8 +245,9 @@ public class ModelUtils {
    * @return the extracted aspect
    */
   @Nonnull
-  public static <SNAPSHOT extends RecordTemplate, ASPECT extends DataTemplate> Optional<ASPECT> getAspectFromSnapshot(
-      @Nonnull SNAPSHOT snapshot, @Nonnull Class<ASPECT> aspectClass) {
+  public static <SNAPSHOT extends RecordTemplate, ASPECT extends DataTemplate>
+      Optional<ASPECT> getAspectFromSnapshot(
+          @Nonnull SNAPSHOT snapshot, @Nonnull Class<ASPECT> aspectClass) {
 
     return getAspectsFromSnapshot(snapshot).stream()
         .filter(aspect -> aspect.getClass().equals(aspectClass))
@@ -250,10 +256,12 @@ public class ModelUtils {
   }
 
   /**
-   * Similar to {@link #getAspectsFromSnapshot(RecordTemplate)} but extracts from a snapshot union instead.
+   * Similar to {@link #getAspectsFromSnapshot(RecordTemplate)} but extracts from a snapshot union
+   * instead.
    */
   @Nonnull
-  public static List<RecordTemplate> getAspectsFromSnapshotUnion(@Nonnull UnionTemplate snapshotUnion) {
+  public static List<RecordTemplate> getAspectsFromSnapshotUnion(
+      @Nonnull UnionTemplate snapshotUnion) {
     return getAspects(RecordUtils.getSelectedRecordTemplateFromUnion(snapshotUnion));
   }
 
@@ -261,10 +269,12 @@ public class ModelUtils {
   private static List<RecordTemplate> getAspects(@Nonnull RecordTemplate snapshot) {
     final Class<? extends WrappingArrayTemplate> clazz = getAspectsArrayClass(snapshot.getClass());
 
-    WrappingArrayTemplate aspectArray = RecordUtils.getRecordTemplateWrappedField(snapshot, "aspects", clazz);
+    WrappingArrayTemplate aspectArray =
+        RecordUtils.getRecordTemplateWrappedField(snapshot, "aspects", clazz);
 
     final List<RecordTemplate> aspects = new ArrayList<>();
-    aspectArray.forEach(item -> aspects.add(RecordUtils.getSelectedRecordTemplateFromUnion((UnionTemplate) item)));
+    aspectArray.forEach(
+        item -> aspects.add(RecordUtils.getSelectedRecordTemplateFromUnion((UnionTemplate) item)));
     return aspects;
   }
 
@@ -280,12 +290,17 @@ public class ModelUtils {
    * @return the created snapshot
    */
   @Nonnull
-  public static <SNAPSHOT extends RecordTemplate, ASPECT_UNION extends UnionTemplate, URN extends Urn> SNAPSHOT newSnapshot(
-      @Nonnull Class<SNAPSHOT> snapshotClass, @Nonnull URN urn, @Nonnull List<ASPECT_UNION> aspects) {
+  public static <
+          SNAPSHOT extends RecordTemplate, ASPECT_UNION extends UnionTemplate, URN extends Urn>
+      SNAPSHOT newSnapshot(
+          @Nonnull Class<SNAPSHOT> snapshotClass,
+          @Nonnull URN urn,
+          @Nonnull List<ASPECT_UNION> aspects) {
 
     SnapshotValidator.validateSnapshotSchema(snapshotClass);
 
-    final Class<? extends WrappingArrayTemplate> aspectArrayClass = getAspectsArrayClass(snapshotClass);
+    final Class<? extends WrappingArrayTemplate> aspectArrayClass =
+        getAspectsArrayClass(snapshotClass);
 
     try {
       final SNAPSHOT snapshot = snapshotClass.newInstance();
@@ -300,11 +315,15 @@ public class ModelUtils {
   }
 
   @Nonnull
-  private static <SNAPSHOT extends RecordTemplate> Class<? extends WrappingArrayTemplate> getAspectsArrayClass(
-      @Nonnull Class<SNAPSHOT> snapshotClass) {
+  private static <SNAPSHOT extends RecordTemplate>
+      Class<? extends WrappingArrayTemplate> getAspectsArrayClass(
+          @Nonnull Class<SNAPSHOT> snapshotClass) {
 
     try {
-      return snapshotClass.getMethod("getAspects").getReturnType().asSubclass(WrappingArrayTemplate.class);
+      return snapshotClass
+          .getMethod("getAspects")
+          .getReturnType()
+          .asSubclass(WrappingArrayTemplate.class);
     } catch (NoSuchMethodException | ClassCastException e) {
       throw new RuntimeException((e));
     }
@@ -320,8 +339,9 @@ public class ModelUtils {
    * @return the created aspect union
    */
   @Nonnull
-  public static <ASPECT_UNION extends UnionTemplate, ASPECT extends RecordTemplate> ASPECT_UNION newAspectUnion(
-      @Nonnull Class<ASPECT_UNION> aspectUnionClass, @Nonnull ASPECT aspect) {
+  public static <ASPECT_UNION extends UnionTemplate, ASPECT extends RecordTemplate>
+      ASPECT_UNION newAspectUnion(
+          @Nonnull Class<ASPECT_UNION> aspectUnionClass, @Nonnull ASPECT aspect) {
 
     AspectValidator.validateAspectUnionSchema(aspectUnionClass);
 
@@ -334,60 +354,57 @@ public class ModelUtils {
     }
   }
 
-  /**
-   * Gets the expected aspect class for a specific kind of snapshot.
-   */
+  /** Gets the expected aspect class for a specific kind of snapshot. */
   @Nonnull
   public static Class<? extends UnionTemplate> aspectClassForSnapshot(
       @Nonnull Class<? extends RecordTemplate> snapshotClass) {
     SnapshotValidator.validateSnapshotSchema(snapshotClass);
 
-    String aspectClassName = ((TyperefDataSchema) ((ArrayDataSchema) ValidationUtils.getRecordSchema(snapshotClass)
-        .getField("aspects")
-        .getType()).getItems()).getBindingName();
+    String aspectClassName =
+        ((TyperefDataSchema)
+                ((ArrayDataSchema)
+                        ValidationUtils.getRecordSchema(snapshotClass)
+                            .getField("aspects")
+                            .getType())
+                    .getItems())
+            .getBindingName();
 
     return getClassFromName(aspectClassName, UnionTemplate.class);
   }
 
-  /**
-   * Gets the expected {@link Urn} class for a specific kind of entity.
-   */
+  /** Gets the expected {@link Urn} class for a specific kind of entity. */
   @Nonnull
-  public static Class<? extends Urn> urnClassForEntity(@Nonnull Class<? extends RecordTemplate> entityClass) {
+  public static Class<? extends Urn> urnClassForEntity(
+      @Nonnull Class<? extends RecordTemplate> entityClass) {
     EntityValidator.validateEntitySchema(entityClass);
     return urnClassForField(entityClass, "urn");
   }
 
-  /**
-   * Gets the expected {@link Urn} class for a specific kind of snapshot.
-   */
+  /** Gets the expected {@link Urn} class for a specific kind of snapshot. */
   @Nonnull
-  public static Class<? extends Urn> urnClassForSnapshot(@Nonnull Class<? extends RecordTemplate> snapshotClass) {
+  public static Class<? extends Urn> urnClassForSnapshot(
+      @Nonnull Class<? extends RecordTemplate> snapshotClass) {
     SnapshotValidator.validateSnapshotSchema(snapshotClass);
     return urnClassForField(snapshotClass, "urn");
   }
 
-  /**
-   * Gets the expected {@link Urn} class for a specific kind of delta.
-   */
+  /** Gets the expected {@link Urn} class for a specific kind of delta. */
   @Nonnull
-  public static Class<? extends Urn> urnClassForDelta(@Nonnull Class<? extends RecordTemplate> deltaClass) {
+  public static Class<? extends Urn> urnClassForDelta(
+      @Nonnull Class<? extends RecordTemplate> deltaClass) {
     DeltaValidator.validateDeltaSchema(deltaClass);
     return urnClassForField(deltaClass, "urn");
   }
 
-  /**
-   * Gets the expected {@link Urn} class for a specific kind of search document.
-   */
+  /** Gets the expected {@link Urn} class for a specific kind of search document. */
   @Nonnull
-  public static Class<? extends Urn> urnClassForDocument(@Nonnull Class<? extends RecordTemplate> documentClass) {
+  public static Class<? extends Urn> urnClassForDocument(
+      @Nonnull Class<? extends RecordTemplate> documentClass) {
     DocumentValidator.validateDocumentSchema(documentClass);
     return urnClassForField(documentClass, "urn");
   }
 
-  /**
-   * Gets the expected {@link Urn} class for a specific kind of relationship.
-   */
+  /** Gets the expected {@link Urn} class for a specific kind of relationship. */
   @Nonnull
   private static Class<? extends Urn> urnClassForRelationship(
       @Nonnull Class<? extends RecordTemplate> relationshipClass, @Nonnull String fieldName) {
@@ -405,7 +422,8 @@ public class ModelUtils {
   }
 
   /**
-   * Gets the expected {@link Urn} class for the destination field of a specific kind of relationship.
+   * Gets the expected {@link Urn} class for the destination field of a specific kind of
+   * relationship.
    */
   @Nonnull
   public static Class<? extends Urn> destinationUrnClassForRelationship(
@@ -414,35 +432,37 @@ public class ModelUtils {
   }
 
   @Nonnull
-  private static Class<? extends Urn> urnClassForField(@Nonnull Class<? extends RecordTemplate> recordClass,
-      @Nonnull String fieldName) {
-    String urnClassName = ((DataMap) ValidationUtils.getRecordSchema(recordClass)
-        .getField(fieldName)
-        .getType()
-        .getProperties()
-        .get("java")).getString("class");
+  private static Class<? extends Urn> urnClassForField(
+      @Nonnull Class<? extends RecordTemplate> recordClass, @Nonnull String fieldName) {
+    String urnClassName =
+        ((DataMap)
+                ValidationUtils.getRecordSchema(recordClass)
+                    .getField(fieldName)
+                    .getType()
+                    .getProperties()
+                    .get("java"))
+            .getString("class");
 
     return getClassFromName(urnClassName, Urn.class);
   }
 
-  /**
-   * Validates a specific snapshot-aspect combination.
-   */
-  public static <SNAPSHOT extends RecordTemplate, ASPECT_UNION extends UnionTemplate> void validateSnapshotAspect(
-      @Nonnull Class<SNAPSHOT> snapshotClass, @Nonnull Class<ASPECT_UNION> aspectUnionClass) {
+  /** Validates a specific snapshot-aspect combination. */
+  public static <SNAPSHOT extends RecordTemplate, ASPECT_UNION extends UnionTemplate>
+      void validateSnapshotAspect(
+          @Nonnull Class<SNAPSHOT> snapshotClass, @Nonnull Class<ASPECT_UNION> aspectUnionClass) {
     SnapshotValidator.validateSnapshotSchema(snapshotClass);
     AspectValidator.validateAspectUnionSchema(aspectUnionClass);
 
     // Make sure that SNAPSHOT's "aspects" array field contains ASPECT_UNION type.
     if (!aspectClassForSnapshot(snapshotClass).equals(aspectUnionClass)) {
-      throw new InvalidSchemaException(aspectUnionClass.getCanonicalName() + " is not a supported aspect class of "
-          + snapshotClass.getCanonicalName());
+      throw new InvalidSchemaException(
+          aspectUnionClass.getCanonicalName()
+              + " is not a supported aspect class of "
+              + snapshotClass.getCanonicalName());
     }
   }
 
-  /**
-   * Validates a specific snapshot-URN combination.
-   */
+  /** Validates a specific snapshot-URN combination. */
   public static <SNAPSHOT extends RecordTemplate, URN extends Urn> void validateSnapshotUrn(
       @Nonnull Class<SNAPSHOT> snapshotClass, @Nonnull Class<URN> urnClass) {
     SnapshotValidator.validateSnapshotSchema(snapshotClass);
@@ -450,7 +470,9 @@ public class ModelUtils {
     // Make sure that SNAPSHOT's "urn" field uses the correct class or subclasses
     if (!urnClassForSnapshot(snapshotClass).isAssignableFrom(urnClass)) {
       throw new InvalidSchemaException(
-          urnClass.getCanonicalName() + " is not a supported URN class of " + snapshotClass.getCanonicalName());
+          urnClass.getCanonicalName()
+              + " is not a supported URN class of "
+              + snapshotClass.getCanonicalName());
     }
   }
 
@@ -459,13 +481,16 @@ public class ModelUtils {
    *
    * @param relationshipUnionClass the type of relationship union to create
    * @param relationship the relationship to set
-   * @param <RELATIONSHIP_UNION> must be a valid relationship union defined in com.linkedin.metadata.relationship
+   * @param <RELATIONSHIP_UNION> must be a valid relationship union defined in
+   *     com.linkedin.metadata.relationship
    * @param <RELATIONSHIP> must be a supported relationship type in ASPECT_UNION
    * @return the created relationship union
    */
   @Nonnull
-  public static <RELATIONSHIP_UNION extends UnionTemplate, RELATIONSHIP extends RecordTemplate> RELATIONSHIP_UNION newRelationshipUnion(
-      @Nonnull Class<RELATIONSHIP_UNION> relationshipUnionClass, @Nonnull RELATIONSHIP relationship) {
+  public static <RELATIONSHIP_UNION extends UnionTemplate, RELATIONSHIP extends RecordTemplate>
+      RELATIONSHIP_UNION newRelationshipUnion(
+          @Nonnull Class<RELATIONSHIP_UNION> relationshipUnionClass,
+          @Nonnull RELATIONSHIP relationship) {
 
     RelationshipValidator.validateRelationshipUnionSchema(relationshipUnionClass);
 
@@ -478,20 +503,16 @@ public class ModelUtils {
     }
   }
 
-  /**
-   * Returns all entity classes.
-   */
+  /** Returns all entity classes. */
   @Nonnull
   public static Set<Class<? extends RecordTemplate>> getAllEntities() {
-    return new Reflections("com.linkedin.metadata.entity").getSubTypesOf(RecordTemplate.class)
-        .stream()
-        .filter(EntityValidator::isValidEntitySchema)
-        .collect(Collectors.toSet());
+    return new Reflections("com.linkedin.metadata.entity")
+        .getSubTypesOf(RecordTemplate.class).stream()
+            .filter(EntityValidator::isValidEntitySchema)
+            .collect(Collectors.toSet());
   }
 
-  /**
-   * Get entity type from urn class.
-   */
+  /** Get entity type from urn class. */
   @Nonnull
   public static String getEntityTypeFromUrnClass(@Nonnull Class<? extends Urn> urnClass) {
     try {
@@ -501,13 +522,14 @@ public class ModelUtils {
     }
   }
 
-  /**
-   * Get aspect specific kafka topic name from urn and aspect classes.
-   */
+  /** Get aspect specific kafka topic name from urn and aspect classes. */
   @Nonnull
-  public static <URN extends Urn, ASPECT extends RecordTemplate> String getAspectSpecificMAETopicName(@Nonnull URN urn,
-      @Nonnull ASPECT newValue) {
-    return String.format("%s_%s_%s", METADATA_AUDIT_EVENT_PREFIX, urn.getEntityType().toUpperCase(),
+  public static <URN extends Urn, ASPECT extends RecordTemplate>
+      String getAspectSpecificMAETopicName(@Nonnull URN urn, @Nonnull ASPECT newValue) {
+    return String.format(
+        "%s_%s_%s",
+        METADATA_AUDIT_EVENT_PREFIX,
+        urn.getEntityType().toUpperCase(),
         newValue.getClass().getSimpleName().toUpperCase());
   }
 
@@ -521,8 +543,9 @@ public class ModelUtils {
    * @return the created entity union
    */
   @Nonnull
-  public static <ENTITY_UNION extends UnionTemplate, ENTITY extends RecordTemplate> ENTITY_UNION newEntityUnion(
-      @Nonnull Class<ENTITY_UNION> entityUnionClass, @Nonnull ENTITY entity) {
+  public static <ENTITY_UNION extends UnionTemplate, ENTITY extends RecordTemplate>
+      ENTITY_UNION newEntityUnion(
+          @Nonnull Class<ENTITY_UNION> entityUnionClass, @Nonnull ENTITY entity) {
 
     EntityValidator.validateEntityUnionSchema(entityUnionClass);
 

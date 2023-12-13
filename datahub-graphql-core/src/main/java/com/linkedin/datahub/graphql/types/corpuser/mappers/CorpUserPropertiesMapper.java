@@ -3,18 +3,16 @@ package com.linkedin.datahub.graphql.types.corpuser.mappers;
 import com.linkedin.datahub.graphql.generated.CorpUser;
 import com.linkedin.datahub.graphql.generated.CorpUserProperties;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
-
 import javax.annotation.Nonnull;
 
-/**
- * Maps Pegasus {@link RecordTemplate} objects to objects conforming to the GQL schema.
- *
- */
-public class CorpUserPropertiesMapper implements ModelMapper<com.linkedin.identity.CorpUserInfo, CorpUserProperties> {
+/** Maps Pegasus {@link RecordTemplate} objects to objects conforming to the GQL schema. */
+public class CorpUserPropertiesMapper
+    implements ModelMapper<com.linkedin.identity.CorpUserInfo, CorpUserProperties> {
 
   public static final CorpUserPropertiesMapper INSTANCE = new CorpUserPropertiesMapper();
 
-  public static CorpUserProperties map(@Nonnull final com.linkedin.identity.CorpUserInfo corpUserInfo) {
+  public static CorpUserProperties map(
+      @Nonnull final com.linkedin.identity.CorpUserInfo corpUserInfo) {
     return INSTANCE.apply(corpUserInfo);
   }
 

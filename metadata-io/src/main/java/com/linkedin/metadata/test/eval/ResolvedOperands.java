@@ -6,15 +6,14 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-
 /**
- * A wrapper around {@link ResolvedExpression} which contains named operands and their resolved value.
+ * A wrapper around {@link ResolvedExpression} which contains named operands and their resolved
+ * value.
  */
 public class ResolvedOperands {
-  /**
-   * The list of operands.
-   */
+  /** The list of operands. */
   private final List<ResolvedOperand> operands;
+
   private final Map<String, ResolvedOperand> nameToOperand;
 
   public ResolvedOperands(final List<ResolvedOperand> operands) {
@@ -22,11 +21,10 @@ public class ResolvedOperands {
     this.nameToOperand = initNameToOperands(operands);
   }
 
-  /**
-   * Utility function to check whether there is a param of with input key of input type
-   */
+  /** Utility function to check whether there is a param of with input key of input type */
   public boolean hasKeyOfType(String key, ExpressionType type) {
-    return nameToOperand.containsKey(key) && nameToOperand.get(key).getExpression().getExpressionType() == type;
+    return nameToOperand.containsKey(key)
+        && nameToOperand.get(key).getExpression().getExpressionType() == type;
   }
 
   public ResolvedOperand get(String name) {
@@ -35,7 +33,8 @@ public class ResolvedOperands {
 
   public ResolvedOperand get(int index) {
     if (index >= this.operands.size()) {
-      throw new IllegalArgumentException(String.format("Index out of bounds: Illegal operand index %s provided!", index));
+      throw new IllegalArgumentException(
+          String.format("Index out of bounds: Illegal operand index %s provided!", index));
     }
     return this.operands.get(index);
   }
@@ -49,21 +48,20 @@ public class ResolvedOperands {
   }
 
   /**
-   * Utility function to get param with input key of input paramClass. Returns empty if there is none
+   * Utility function to get param with input key of input paramClass. Returns empty if there is
+   * none
    */
   public <T> Optional<T> getOperandOfType(String key, Class<T> paramClass) {
-    if (!nameToOperand.containsKey(key) || !paramClass.isAssignableFrom(nameToOperand.get(key).getExpression().getClass())) {
+    if (!nameToOperand.containsKey(key)
+        || !paramClass.isAssignableFrom(nameToOperand.get(key).getExpression().getClass())) {
       return Optional.empty();
     }
     return Optional.of(paramClass.cast(nameToOperand.get(key).getExpression()));
   }
 
-  /**
-   * Utility function to get all parameters with the input paramClass type
-   */
+  /** Utility function to get all parameters with the input paramClass type */
   public <T> List<T> getOperandsOfType(Class<T> clazz) {
-    return operands
-        .stream()
+    return operands.stream()
         .map(ResolvedOperand::getExpression)
         .filter(exp -> clazz.isAssignableFrom(exp.getClass()))
         .map(clazz::cast)

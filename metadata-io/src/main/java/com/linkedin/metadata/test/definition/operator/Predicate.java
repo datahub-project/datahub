@@ -9,9 +9,7 @@ import java.util.List;
 import lombok.ToString;
 import lombok.Value;
 
-/**
- * This represents an {@link Operator} which returns a boolean (true / false) value.
- */
+/** This represents an {@link Operator} which returns a boolean (true / false) value. */
 @Value
 @ToString
 public class Predicate implements Operator {
@@ -23,7 +21,8 @@ public class Predicate implements Operator {
     return Predicate.of(operatorType, expressions, false);
   }
 
-  public static Predicate of(OperatorType operatorType, List<Expression> expressions, boolean negated) {
+  public static Predicate of(
+      OperatorType operatorType, List<Expression> expressions, boolean negated) {
     return new Predicate(operatorType, convertExpListToOperands(expressions), negated);
   }
 

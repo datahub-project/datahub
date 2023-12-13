@@ -2,7 +2,6 @@ package com.linkedin.datahub.graphql.types.common.mappers;
 
 import com.linkedin.datahub.graphql.generated.Embed;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
-
 import javax.annotation.Nonnull;
 
 public class EmbedMapper implements ModelMapper<com.linkedin.common.Embed, Embed> {

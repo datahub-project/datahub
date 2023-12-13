@@ -4,24 +4,20 @@ import com.linkedin.metadata.test.definition.expression.Expression;
 import lombok.Getter;
 import lombok.ToString;
 
-
-/**
- * An operand serves as input to an {@link Operator}
- */
+/** An operand serves as input to an {@link Operator} */
 @Getter
 @ToString
 public class Operand {
   /**
-   * The index of the operand -- TODO: Determine whether this is really necessary beyond convenience.
+   * The index of the operand -- TODO: Determine whether this is really necessary beyond
+   * convenience.
    */
   private final int index;
-  /**
-   * An optional name for the operand.
-   */
+
+  /** An optional name for the operand. */
   private final String name;
-  /**
-   * The expression associated with the operand.
-   */
+
+  /** The expression associated with the operand. */
   private final Expression expression;
 
   public Operand(final int index, final Expression expression) {

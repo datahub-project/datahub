@@ -1,5 +1,8 @@
 package com.linkedin.datahub.graphql.resolvers.monitor;
 
+import static com.linkedin.datahub.graphql.TestUtils.*;
+import static org.testng.Assert.*;
+
 import com.datahub.authentication.Authentication;
 import com.datahub.authorization.AuthorizationRequest;
 import com.datahub.authorization.EntitySpec;
@@ -52,167 +55,188 @@ import java.util.concurrent.CompletionException;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
-import static com.linkedin.datahub.graphql.TestUtils.*;
-import static org.testng.Assert.*;
-
-
 public class CreateAssertionMonitorResolverTest {
 
   private static final Urn TEST_ASSERTION_URN = UrnUtils.getUrn("urn:li:assertion:test");
   private static final Urn TEST_ENTITY_URN = UrnUtils.getUrn("urn:li:dataset:test");
-  private static final Urn TEST_MONITOR_URN = UrnUtils.getUrn(String.format("urn:li:monitor:(%s,test)", TEST_ENTITY_URN));
+  private static final Urn TEST_MONITOR_URN =
+      UrnUtils.getUrn(String.format("urn:li:monitor:(%s,test)", TEST_ENTITY_URN));
   private static final String TEST_EXECUTOR_ID = "testExecutorId";
 
-  private static final MonitorKey TEST_MONITOR_KEY = new MonitorKey()
-      .setEntity(UrnUtils.getUrn(TEST_MONITOR_URN.getEntityKey().get(0)))
-      .setId(TEST_MONITOR_URN.getEntityKey().get(1)
-  );
+  private static final MonitorKey TEST_MONITOR_KEY =
+      new MonitorKey()
+          .setEntity(UrnUtils.getUrn(TEST_MONITOR_URN.getEntityKey().get(0)))
+          .setId(TEST_MONITOR_URN.getEntityKey().get(1));
 
-  private static final CreateAssertionMonitorInput TEST_FRESHNESS_INPUT = new CreateAssertionMonitorInput(
-      TEST_ENTITY_URN.toString(),
-      TEST_ASSERTION_URN.toString(),
-      new CronScheduleInput("1 * * * *", "America/Los_Angeles"),
-      new AssertionEvaluationParametersInput(
-          AssertionEvaluationParametersType.DATASET_FRESHNESS,
-          new DatasetFreshnessAssertionParametersInput(
-              DatasetFreshnessSourceType.AUDIT_LOG,
+  private static final CreateAssertionMonitorInput TEST_FRESHNESS_INPUT =
+      new CreateAssertionMonitorInput(
+          TEST_ENTITY_URN.toString(),
+          TEST_ASSERTION_URN.toString(),
+          new CronScheduleInput("1 * * * *", "America/Los_Angeles"),
+          new AssertionEvaluationParametersInput(
+              AssertionEvaluationParametersType.DATASET_FRESHNESS,
+              new DatasetFreshnessAssertionParametersInput(
+                  DatasetFreshnessSourceType.AUDIT_LOG,
+                  null,
+                  new AuditLogSpecInput(ImmutableList.of("INSERT"), "testUser"),
+                  null),
               null,
-              new AuditLogSpecInput(ImmutableList.of("INSERT"), "testUser"),
-              null
-          ),
-          null,
-          null
-      ),
-      TEST_EXECUTOR_ID
-  );
+              null),
+          TEST_EXECUTOR_ID);
 
-  private static final MonitorInfo TEST_MONITOR_INFO_FRESHNESS = new MonitorInfo()
-      .setType(MonitorType.ASSERTION)
-      .setStatus(new MonitorStatus().setMode(MonitorMode.ACTIVE))
-      .setExecutorId(TEST_EXECUTOR_ID)
-      .setAssertionMonitor(
-        new AssertionMonitor()
-          .setAssertions(new AssertionEvaluationSpecArray(
-              ImmutableList.of(
-                  new AssertionEvaluationSpec()
-                    .setAssertion(TEST_ASSERTION_URN)
-                    .setSchedule(new CronSchedule().setCron("1 * * * *").setTimezone("America/Los_Angeles"))
-                    .setParameters(new AssertionEvaluationParameters()
-                      .setType(com.linkedin.monitor.AssertionEvaluationParametersType.DATASET_FRESHNESS)
-                      .setDatasetFreshnessParameters(new DatasetFreshnessAssertionParameters()
-                        .setSourceType(com.linkedin.monitor.DatasetFreshnessSourceType.AUDIT_LOG)
-                        .setAuditLog(new AuditLogSpec().setOperationTypes(new StringArray(ImmutableList.of("INSERT"))).setUserName("testUser"))
-                      )
-                  )
-              )
-          ))
-      );
+  private static final MonitorInfo TEST_MONITOR_INFO_FRESHNESS =
+      new MonitorInfo()
+          .setType(MonitorType.ASSERTION)
+          .setStatus(new MonitorStatus().setMode(MonitorMode.ACTIVE))
+          .setExecutorId(TEST_EXECUTOR_ID)
+          .setAssertionMonitor(
+              new AssertionMonitor()
+                  .setAssertions(
+                      new AssertionEvaluationSpecArray(
+                          ImmutableList.of(
+                              new AssertionEvaluationSpec()
+                                  .setAssertion(TEST_ASSERTION_URN)
+                                  .setSchedule(
+                                      new CronSchedule()
+                                          .setCron("1 * * * *")
+                                          .setTimezone("America/Los_Angeles"))
+                                  .setParameters(
+                                      new AssertionEvaluationParameters()
+                                          .setType(
+                                              com.linkedin.monitor.AssertionEvaluationParametersType
+                                                  .DATASET_FRESHNESS)
+                                          .setDatasetFreshnessParameters(
+                                              new DatasetFreshnessAssertionParameters()
+                                                  .setSourceType(
+                                                      com.linkedin.monitor
+                                                          .DatasetFreshnessSourceType.AUDIT_LOG)
+                                                  .setAuditLog(
+                                                      new AuditLogSpec()
+                                                          .setOperationTypes(
+                                                              new StringArray(
+                                                                  ImmutableList.of("INSERT")))
+                                                          .setUserName("testUser"))))))));
 
-  private static final CreateAssertionMonitorInput TEST_VOLUME_INPUT = new CreateAssertionMonitorInput(
-      TEST_ENTITY_URN.toString(),
-      TEST_ASSERTION_URN.toString(),
-      new CronScheduleInput("1 * * * *", "America/Los_Angeles"),
-      new AssertionEvaluationParametersInput(
-          AssertionEvaluationParametersType.DATASET_VOLUME,
-          null,
-          new DatasetVolumeAssertionParametersInput(DatasetVolumeSourceType.DATAHUB_DATASET_PROFILE),
-          null
-      ),
-      TEST_EXECUTOR_ID
-  );
+  private static final CreateAssertionMonitorInput TEST_VOLUME_INPUT =
+      new CreateAssertionMonitorInput(
+          TEST_ENTITY_URN.toString(),
+          TEST_ASSERTION_URN.toString(),
+          new CronScheduleInput("1 * * * *", "America/Los_Angeles"),
+          new AssertionEvaluationParametersInput(
+              AssertionEvaluationParametersType.DATASET_VOLUME,
+              null,
+              new DatasetVolumeAssertionParametersInput(
+                  DatasetVolumeSourceType.DATAHUB_DATASET_PROFILE),
+              null),
+          TEST_EXECUTOR_ID);
 
-  private static final MonitorInfo TEST_MONITOR_INFO_VOLUME = new MonitorInfo()
-      .setType(MonitorType.ASSERTION)
-      .setStatus(new MonitorStatus().setMode(MonitorMode.ACTIVE))
-      .setExecutorId(TEST_EXECUTOR_ID)
-      .setAssertionMonitor(
-          new AssertionMonitor()
-              .setAssertions(new AssertionEvaluationSpecArray(
-                  ImmutableList.of(
-                      new AssertionEvaluationSpec()
-                          .setAssertion(TEST_ASSERTION_URN)
-                          .setSchedule(new CronSchedule().setCron("1 * * * *").setTimezone("America/Los_Angeles"))
-                          .setParameters(new AssertionEvaluationParameters()
-                              .setType(com.linkedin.monitor.AssertionEvaluationParametersType.DATASET_VOLUME)
-                              .setDatasetVolumeParameters(new DatasetVolumeAssertionParameters()
-                                  .setSourceType(com.linkedin.monitor.DatasetVolumeSourceType.DATAHUB_DATASET_PROFILE)
-                              )
-                          )
-                  )
-              ))
-      );
+  private static final MonitorInfo TEST_MONITOR_INFO_VOLUME =
+      new MonitorInfo()
+          .setType(MonitorType.ASSERTION)
+          .setStatus(new MonitorStatus().setMode(MonitorMode.ACTIVE))
+          .setExecutorId(TEST_EXECUTOR_ID)
+          .setAssertionMonitor(
+              new AssertionMonitor()
+                  .setAssertions(
+                      new AssertionEvaluationSpecArray(
+                          ImmutableList.of(
+                              new AssertionEvaluationSpec()
+                                  .setAssertion(TEST_ASSERTION_URN)
+                                  .setSchedule(
+                                      new CronSchedule()
+                                          .setCron("1 * * * *")
+                                          .setTimezone("America/Los_Angeles"))
+                                  .setParameters(
+                                      new AssertionEvaluationParameters()
+                                          .setType(
+                                              com.linkedin.monitor.AssertionEvaluationParametersType
+                                                  .DATASET_VOLUME)
+                                          .setDatasetVolumeParameters(
+                                              new DatasetVolumeAssertionParameters()
+                                                  .setSourceType(
+                                                      com.linkedin.monitor.DatasetVolumeSourceType
+                                                          .DATAHUB_DATASET_PROFILE)))))));
 
-  private static final CreateAssertionMonitorInput TEST_SQL_INPUT = new CreateAssertionMonitorInput(
-      TEST_ENTITY_URN.toString(),
-      TEST_ASSERTION_URN.toString(),
-      new CronScheduleInput("1 * * * *", "America/Los_Angeles"),
-      new AssertionEvaluationParametersInput(
-          AssertionEvaluationParametersType.DATASET_SQL,
-          null,
-          null,
-          null
-      ),
-      TEST_EXECUTOR_ID
-  );
+  private static final CreateAssertionMonitorInput TEST_SQL_INPUT =
+      new CreateAssertionMonitorInput(
+          TEST_ENTITY_URN.toString(),
+          TEST_ASSERTION_URN.toString(),
+          new CronScheduleInput("1 * * * *", "America/Los_Angeles"),
+          new AssertionEvaluationParametersInput(
+              AssertionEvaluationParametersType.DATASET_SQL, null, null, null),
+          TEST_EXECUTOR_ID);
 
-  private static final MonitorInfo TEST_MONITOR_INFO_SQL = new MonitorInfo()
-      .setType(MonitorType.ASSERTION)
-      .setStatus(new MonitorStatus().setMode(MonitorMode.ACTIVE))
-      .setExecutorId(TEST_EXECUTOR_ID)
-      .setAssertionMonitor(
-          new AssertionMonitor()
-              .setAssertions(new AssertionEvaluationSpecArray(
-                  ImmutableList.of(
-                      new AssertionEvaluationSpec()
-                          .setAssertion(TEST_ASSERTION_URN)
-                          .setSchedule(new CronSchedule().setCron("1 * * * *").setTimezone("America/Los_Angeles"))
-                          .setParameters(new AssertionEvaluationParameters()
-                              .setType(com.linkedin.monitor.AssertionEvaluationParametersType.DATASET_SQL)
-                          )
-                  )
-              ))
-      );
+  private static final MonitorInfo TEST_MONITOR_INFO_SQL =
+      new MonitorInfo()
+          .setType(MonitorType.ASSERTION)
+          .setStatus(new MonitorStatus().setMode(MonitorMode.ACTIVE))
+          .setExecutorId(TEST_EXECUTOR_ID)
+          .setAssertionMonitor(
+              new AssertionMonitor()
+                  .setAssertions(
+                      new AssertionEvaluationSpecArray(
+                          ImmutableList.of(
+                              new AssertionEvaluationSpec()
+                                  .setAssertion(TEST_ASSERTION_URN)
+                                  .setSchedule(
+                                      new CronSchedule()
+                                          .setCron("1 * * * *")
+                                          .setTimezone("America/Los_Angeles"))
+                                  .setParameters(
+                                      new AssertionEvaluationParameters()
+                                          .setType(
+                                              com.linkedin.monitor.AssertionEvaluationParametersType
+                                                  .DATASET_SQL))))));
 
-  private static final CreateAssertionMonitorInput TEST_FIELD_INPUT = new CreateAssertionMonitorInput(
-      TEST_ENTITY_URN.toString(),
-      TEST_ASSERTION_URN.toString(),
-      new CronScheduleInput("1 * * * *", "America/Los_Angeles"),
-      new AssertionEvaluationParametersInput(
-          AssertionEvaluationParametersType.DATASET_FIELD,
-          null,
-          null,
-          new DatasetFieldAssertionParametersInput(DatasetFieldAssertionSourceType.ALL_ROWS_QUERY, null)
-      ),
-      TEST_EXECUTOR_ID
-  );
+  private static final CreateAssertionMonitorInput TEST_FIELD_INPUT =
+      new CreateAssertionMonitorInput(
+          TEST_ENTITY_URN.toString(),
+          TEST_ASSERTION_URN.toString(),
+          new CronScheduleInput("1 * * * *", "America/Los_Angeles"),
+          new AssertionEvaluationParametersInput(
+              AssertionEvaluationParametersType.DATASET_FIELD,
+              null,
+              null,
+              new DatasetFieldAssertionParametersInput(
+                  DatasetFieldAssertionSourceType.ALL_ROWS_QUERY, null)),
+          TEST_EXECUTOR_ID);
 
-  private static final MonitorInfo TEST_MONITOR_INFO_FIELD = new MonitorInfo()
-      .setType(MonitorType.ASSERTION)
-      .setStatus(new MonitorStatus().setMode(MonitorMode.ACTIVE))
-      .setExecutorId(TEST_EXECUTOR_ID)
-      .setAssertionMonitor(
-          new AssertionMonitor()
-              .setAssertions(new AssertionEvaluationSpecArray(
-                  ImmutableList.of(
-                      new AssertionEvaluationSpec()
-                          .setAssertion(TEST_ASSERTION_URN)
-                          .setSchedule(new CronSchedule().setCron("1 * * * *").setTimezone("America/Los_Angeles"))
-                          .setParameters(new AssertionEvaluationParameters()
-                              .setType(com.linkedin.monitor.AssertionEvaluationParametersType.DATASET_FIELD)
-                              .setDatasetFieldParameters(new DatasetFieldAssertionParameters()
-                                  .setSourceType(com.linkedin.monitor.DatasetFieldAssertionSourceType.ALL_ROWS_QUERY)
-                              )
-                          )
-                  )
-              ))
-      );
+  private static final MonitorInfo TEST_MONITOR_INFO_FIELD =
+      new MonitorInfo()
+          .setType(MonitorType.ASSERTION)
+          .setStatus(new MonitorStatus().setMode(MonitorMode.ACTIVE))
+          .setExecutorId(TEST_EXECUTOR_ID)
+          .setAssertionMonitor(
+              new AssertionMonitor()
+                  .setAssertions(
+                      new AssertionEvaluationSpecArray(
+                          ImmutableList.of(
+                              new AssertionEvaluationSpec()
+                                  .setAssertion(TEST_ASSERTION_URN)
+                                  .setSchedule(
+                                      new CronSchedule()
+                                          .setCron("1 * * * *")
+                                          .setTimezone("America/Los_Angeles"))
+                                  .setParameters(
+                                      new AssertionEvaluationParameters()
+                                          .setType(
+                                              com.linkedin.monitor.AssertionEvaluationParametersType
+                                                  .DATASET_FIELD)
+                                          .setDatasetFieldParameters(
+                                              new DatasetFieldAssertionParameters()
+                                                  .setSourceType(
+                                                      com.linkedin.monitor
+                                                          .DatasetFieldAssertionSourceType
+                                                          .ALL_ROWS_QUERY)))))));
 
   @Test
   public void testGetSuccessFreshnessAssertion() throws Exception {
     // Create resolver
     MonitorService mockService = initMockMonitorService(TEST_MONITOR_INFO_FRESHNESS);
-    AssertionService mockAssertionService = initMockAssertionsService(TEST_ASSERTION_URN, AssertionType.FRESHNESS);
-    CreateAssertionMonitorResolver resolver = new CreateAssertionMonitorResolver(mockService, mockAssertionService);
+    AssertionService mockAssertionService =
+        initMockAssertionsService(TEST_ASSERTION_URN, AssertionType.FRESHNESS);
+    CreateAssertionMonitorResolver resolver =
+        new CreateAssertionMonitorResolver(mockService, mockAssertionService);
 
     // Execute resolver
     QueryContext mockContext = getMockAllowContext();
@@ -228,22 +252,26 @@ public class CreateAssertionMonitorResolverTest {
     assertEquals(monitor.getEntity().getUrn(), TEST_ENTITY_URN.toString());
 
     // Validate that we created the assertion
-    AssertionEvaluationSpec evaluationSpec = TEST_MONITOR_INFO_FRESHNESS.getAssertionMonitor().getAssertions().get(0);
-    Mockito.verify(mockService, Mockito.times(1)).createAssertionMonitor(
-        Mockito.eq(TEST_ENTITY_URN),
-        Mockito.eq(evaluationSpec.getAssertion()),
-        Mockito.eq(evaluationSpec.getSchedule()),
-        Mockito.eq(evaluationSpec.getParameters()),
-        Mockito.eq(TEST_EXECUTOR_ID),
-        Mockito.any(Authentication.class));
+    AssertionEvaluationSpec evaluationSpec =
+        TEST_MONITOR_INFO_FRESHNESS.getAssertionMonitor().getAssertions().get(0);
+    Mockito.verify(mockService, Mockito.times(1))
+        .createAssertionMonitor(
+            Mockito.eq(TEST_ENTITY_URN),
+            Mockito.eq(evaluationSpec.getAssertion()),
+            Mockito.eq(evaluationSpec.getSchedule()),
+            Mockito.eq(evaluationSpec.getParameters()),
+            Mockito.eq(TEST_EXECUTOR_ID),
+            Mockito.any(Authentication.class));
   }
 
   @Test
   public void testGetSuccessVolumeAssertion() throws Exception {
     // Create resolver
     MonitorService mockService = initMockMonitorService(TEST_MONITOR_INFO_VOLUME);
-    AssertionService mockAssertionService = initMockAssertionsService(TEST_ASSERTION_URN, AssertionType.VOLUME);
-    CreateAssertionMonitorResolver resolver = new CreateAssertionMonitorResolver(mockService, mockAssertionService);
+    AssertionService mockAssertionService =
+        initMockAssertionsService(TEST_ASSERTION_URN, AssertionType.VOLUME);
+    CreateAssertionMonitorResolver resolver =
+        new CreateAssertionMonitorResolver(mockService, mockAssertionService);
 
     // Execute resolver
     QueryContext mockContext = getMockAllowContext();
@@ -259,22 +287,26 @@ public class CreateAssertionMonitorResolverTest {
     assertEquals(monitor.getEntity().getUrn(), TEST_ENTITY_URN.toString());
 
     // Validate that we created the assertion
-    AssertionEvaluationSpec evaluationSpec = TEST_MONITOR_INFO_VOLUME.getAssertionMonitor().getAssertions().get(0);
-    Mockito.verify(mockService, Mockito.times(1)).createAssertionMonitor(
-        Mockito.eq(TEST_ENTITY_URN),
-        Mockito.eq(evaluationSpec.getAssertion()),
-        Mockito.eq(evaluationSpec.getSchedule()),
-        Mockito.eq(evaluationSpec.getParameters()),
-        Mockito.eq(TEST_EXECUTOR_ID),
-        Mockito.any(Authentication.class));
+    AssertionEvaluationSpec evaluationSpec =
+        TEST_MONITOR_INFO_VOLUME.getAssertionMonitor().getAssertions().get(0);
+    Mockito.verify(mockService, Mockito.times(1))
+        .createAssertionMonitor(
+            Mockito.eq(TEST_ENTITY_URN),
+            Mockito.eq(evaluationSpec.getAssertion()),
+            Mockito.eq(evaluationSpec.getSchedule()),
+            Mockito.eq(evaluationSpec.getParameters()),
+            Mockito.eq(TEST_EXECUTOR_ID),
+            Mockito.any(Authentication.class));
   }
 
   @Test
   public void testGetSuccessSqlAssertion() throws Exception {
     // Create resolver
     MonitorService mockService = initMockMonitorService(TEST_MONITOR_INFO_SQL);
-    AssertionService mockAssertionService = initMockAssertionsService(TEST_ASSERTION_URN, AssertionType.SQL);
-    CreateAssertionMonitorResolver resolver = new CreateAssertionMonitorResolver(mockService, mockAssertionService);
+    AssertionService mockAssertionService =
+        initMockAssertionsService(TEST_ASSERTION_URN, AssertionType.SQL);
+    CreateAssertionMonitorResolver resolver =
+        new CreateAssertionMonitorResolver(mockService, mockAssertionService);
 
     // Execute resolver
     QueryContext mockContext = getMockAllowContext();
@@ -290,36 +322,39 @@ public class CreateAssertionMonitorResolverTest {
     assertEquals(monitor.getEntity().getUrn(), TEST_ENTITY_URN.toString());
 
     // Validate that we created the assertion
-    AssertionEvaluationSpec evaluationSpec = TEST_MONITOR_INFO_SQL.getAssertionMonitor().getAssertions().get(0);
-    Mockito.verify(mockService, Mockito.times(1)).createAssertionMonitor(
-        Mockito.eq(TEST_ENTITY_URN),
-        Mockito.eq(evaluationSpec.getAssertion()),
-        Mockito.eq(evaluationSpec.getSchedule()),
-        Mockito.eq(evaluationSpec.getParameters()),
-        Mockito.eq(TEST_EXECUTOR_ID),
-        Mockito.any(Authentication.class));
-
+    AssertionEvaluationSpec evaluationSpec =
+        TEST_MONITOR_INFO_SQL.getAssertionMonitor().getAssertions().get(0);
+    Mockito.verify(mockService, Mockito.times(1))
+        .createAssertionMonitor(
+            Mockito.eq(TEST_ENTITY_URN),
+            Mockito.eq(evaluationSpec.getAssertion()),
+            Mockito.eq(evaluationSpec.getSchedule()),
+            Mockito.eq(evaluationSpec.getParameters()),
+            Mockito.eq(TEST_EXECUTOR_ID),
+            Mockito.any(Authentication.class));
 
     // Ensure that we retrieved the assertion info to check whether it is of type SQL.
-    Mockito.verify(mockAssertionService, Mockito.times(1)).getAssertionInfo(
-        Mockito.eq(TEST_ASSERTION_URN));
+    Mockito.verify(mockAssertionService, Mockito.times(1))
+        .getAssertionInfo(Mockito.eq(TEST_ASSERTION_URN));
 
     // Ensure that we authorized the SQL create.
-    Mockito.verify(mockContext.getAuthorizer(),
-        Mockito.times(1)).authorize(
-        Mockito.eq(new AuthorizationRequest(
-            "urn:li:corpuser:test",
-            PoliciesConfig.EDIT_ENTITY_SQL_ASSERTION_MONITORS.getType(),
-            Optional.of(new EntitySpec("dataset", TEST_ENTITY_URN.toString()))
-        )));
+    Mockito.verify(mockContext.getAuthorizer(), Mockito.times(1))
+        .authorize(
+            Mockito.eq(
+                new AuthorizationRequest(
+                    "urn:li:corpuser:test",
+                    PoliciesConfig.EDIT_ENTITY_SQL_ASSERTION_MONITORS.getType(),
+                    Optional.of(new EntitySpec("dataset", TEST_ENTITY_URN.toString())))));
   }
 
   @Test
   public void testGetSuccessFieldAssertion() throws Exception {
     // Create resolver
     MonitorService mockService = initMockMonitorService(TEST_MONITOR_INFO_VOLUME);
-    AssertionService mockAssertionService = initMockAssertionsService(TEST_ASSERTION_URN, AssertionType.FIELD);
-    CreateAssertionMonitorResolver resolver = new CreateAssertionMonitorResolver(mockService, mockAssertionService);
+    AssertionService mockAssertionService =
+        initMockAssertionsService(TEST_ASSERTION_URN, AssertionType.FIELD);
+    CreateAssertionMonitorResolver resolver =
+        new CreateAssertionMonitorResolver(mockService, mockAssertionService);
 
     // Execute resolver
     QueryContext mockContext = getMockAllowContext();
@@ -335,14 +370,16 @@ public class CreateAssertionMonitorResolverTest {
     assertEquals(monitor.getEntity().getUrn(), TEST_ENTITY_URN.toString());
 
     // Validate that we created the assertion
-    AssertionEvaluationSpec evaluationSpec = TEST_MONITOR_INFO_FIELD.getAssertionMonitor().getAssertions().get(0);
-    Mockito.verify(mockService, Mockito.times(1)).createAssertionMonitor(
-        Mockito.eq(TEST_ENTITY_URN),
-        Mockito.eq(evaluationSpec.getAssertion()),
-        Mockito.eq(evaluationSpec.getSchedule()),
-        Mockito.eq(evaluationSpec.getParameters()),
-        Mockito.eq(TEST_EXECUTOR_ID),
-        Mockito.any(Authentication.class));
+    AssertionEvaluationSpec evaluationSpec =
+        TEST_MONITOR_INFO_FIELD.getAssertionMonitor().getAssertions().get(0);
+    Mockito.verify(mockService, Mockito.times(1))
+        .createAssertionMonitor(
+            Mockito.eq(TEST_ENTITY_URN),
+            Mockito.eq(evaluationSpec.getAssertion()),
+            Mockito.eq(evaluationSpec.getSchedule()),
+            Mockito.eq(evaluationSpec.getParameters()),
+            Mockito.eq(TEST_EXECUTOR_ID),
+            Mockito.any(Authentication.class));
   }
 
   @Test
@@ -350,8 +387,10 @@ public class CreateAssertionMonitorResolverTest {
     // Create resolver
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     MonitorService mockService = initMockMonitorService(TEST_MONITOR_INFO_FRESHNESS);
-    AssertionService mockAssertionService = initMockAssertionsService(TEST_ASSERTION_URN, AssertionType.FRESHNESS);
-    CreateAssertionMonitorResolver resolver = new CreateAssertionMonitorResolver(mockService, mockAssertionService);
+    AssertionService mockAssertionService =
+        initMockAssertionsService(TEST_ASSERTION_URN, AssertionType.FRESHNESS);
+    CreateAssertionMonitorResolver resolver =
+        new CreateAssertionMonitorResolver(mockService, mockAssertionService);
 
     // Execute resolver
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
@@ -360,26 +399,29 @@ public class CreateAssertionMonitorResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
-    Mockito.verify(mockClient, Mockito.times(0)).ingestProposal(
-        Mockito.any(),
-        Mockito.any(Authentication.class));
+    Mockito.verify(mockClient, Mockito.times(0))
+        .ingestProposal(Mockito.any(), Mockito.any(Authentication.class));
   }
 
   @Test
   public void testGetAssertionServiceException() throws Exception {
     // Create resolver
     MonitorService mockService = initMockMonitorService(TEST_MONITOR_INFO_FRESHNESS);
-    AssertionService mockAssertionService = initMockAssertionsService(TEST_ASSERTION_URN, AssertionType.FRESHNESS);
+    AssertionService mockAssertionService =
+        initMockAssertionsService(TEST_ASSERTION_URN, AssertionType.FRESHNESS);
 
-    Mockito.doThrow(RuntimeException.class).when(mockService).createAssertionMonitor(
-        Mockito.any(),
-        Mockito.any(),
-        Mockito.any(),
-        Mockito.any(),
-        Mockito.any(),
-        Mockito.any(Authentication.class));
+    Mockito.doThrow(RuntimeException.class)
+        .when(mockService)
+        .createAssertionMonitor(
+            Mockito.any(),
+            Mockito.any(),
+            Mockito.any(),
+            Mockito.any(),
+            Mockito.any(),
+            Mockito.any(Authentication.class));
 
-    CreateAssertionMonitorResolver resolver = new CreateAssertionMonitorResolver(mockService, mockAssertionService);
+    CreateAssertionMonitorResolver resolver =
+        new CreateAssertionMonitorResolver(mockService, mockAssertionService);
 
     // Execute resolver
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
@@ -392,42 +434,41 @@ public class CreateAssertionMonitorResolverTest {
 
   private MonitorService initMockMonitorService(MonitorInfo monitorInfo) throws Exception {
     MonitorService service = Mockito.mock(MonitorService.class);
-    Mockito.when(service.createAssertionMonitor(
-        Mockito.any(),
-        Mockito.any(),
-        Mockito.any(),
-        Mockito.any(),
-        Mockito.any(),
-        Mockito.any(Authentication.class)
-    )).thenReturn(TEST_MONITOR_URN);
+    Mockito.when(
+            service.createAssertionMonitor(
+                Mockito.any(),
+                Mockito.any(),
+                Mockito.any(),
+                Mockito.any(),
+                Mockito.any(),
+                Mockito.any(Authentication.class)))
+        .thenReturn(TEST_MONITOR_URN);
 
-    Mockito.when(service.getMonitorEntityResponse(
-        Mockito.eq(TEST_MONITOR_URN),
-        Mockito.any(Authentication.class)
-    )).thenReturn(new EntityResponse()
-        .setAspects(new EnvelopedAspectMap(
-            ImmutableMap.of(
-                Constants.MONITOR_KEY_ASPECT_NAME,
-                new EnvelopedAspect().setValue(new Aspect(TEST_MONITOR_KEY.data())),
-                Constants.MONITOR_INFO_ASPECT_NAME,
-                new EnvelopedAspect().setValue(new Aspect(monitorInfo.data()))
-            )
-        ))
-        .setEntityName(Constants.MONITOR_ENTITY_NAME)
-        .setUrn(TEST_MONITOR_URN)
-    );
+    Mockito.when(
+            service.getMonitorEntityResponse(
+                Mockito.eq(TEST_MONITOR_URN), Mockito.any(Authentication.class)))
+        .thenReturn(
+            new EntityResponse()
+                .setAspects(
+                    new EnvelopedAspectMap(
+                        ImmutableMap.of(
+                            Constants.MONITOR_KEY_ASPECT_NAME,
+                            new EnvelopedAspect().setValue(new Aspect(TEST_MONITOR_KEY.data())),
+                            Constants.MONITOR_INFO_ASPECT_NAME,
+                            new EnvelopedAspect().setValue(new Aspect(monitorInfo.data())))))
+                .setEntityName(Constants.MONITOR_ENTITY_NAME)
+                .setUrn(TEST_MONITOR_URN));
     return service;
   }
 
-  private AssertionService initMockAssertionsService(Urn assertionUrn, AssertionType assertionType) {
+  private AssertionService initMockAssertionsService(
+      Urn assertionUrn, AssertionType assertionType) {
     AssertionService service = Mockito.mock(AssertionService.class);
 
     AssertionInfo nonSqlAssertion = new AssertionInfo();
     nonSqlAssertion.setType(assertionType);
 
-    Mockito.when(service.getAssertionInfo(
-        Mockito.eq(assertionUrn)
-    )).thenReturn(nonSqlAssertion);
+    Mockito.when(service.getAssertionInfo(Mockito.eq(assertionUrn))).thenReturn(nonSqlAssertion);
 
     return service;
   }

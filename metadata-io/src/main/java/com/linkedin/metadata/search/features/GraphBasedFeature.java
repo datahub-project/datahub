@@ -15,29 +15,39 @@ import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
-
 @Slf4j
 @RequiredArgsConstructor
 public class GraphBasedFeature implements FeatureExtractor {
 
   private final GraphService _graphService;
 
-  private static final List<String> RELEVANT_RELATIONSHIP_TYPES = ImmutableList.of("DownstreamOf", "Consumes");
+  private static final List<String> RELEVANT_RELATIONSHIP_TYPES =
+      ImmutableList.of("DownstreamOf", "Consumes");
 
   @Override
   public List<Features> extractFeatures(List<SearchEntity> entities) {
     return ConcurrencyUtils.transformAndCollectAsync(
-        entities.stream().map(SearchEntity::getEntity).collect(Collectors.toList()), this::getOutDegree)
+            entities.stream().map(SearchEntity::getEntity).collect(Collectors.toList()),
+            this::getOutDegree)
         .stream()
-        .map(outDegree -> new Features(ImmutableMap.of(Features.Name.OUT_DEGREE, outDegree.doubleValue())))
+        .map(
+            outDegree ->
+                new Features(ImmutableMap.of(Features.Name.OUT_DEGREE, outDegree.doubleValue())))
         .collect(Collectors.toList());
   }
 
   private int getOutDegree(Urn urn) {
     RelatedEntitiesResult graphResult =
-        _graphService.findRelatedEntities(null, QueryUtils.EMPTY_FILTER, null, QueryUtils.newFilter("urn", urn.toString()),
+        _graphService.findRelatedEntities(
+            null,
+            QueryUtils.EMPTY_FILTER,
+            null,
+            QueryUtils.newFilter("urn", urn.toString()),
             RELEVANT_RELATIONSHIP_TYPES,
-            Neo4jUtil.newRelationshipFilter(QueryUtils.EMPTY_FILTER, RelationshipDirection.OUTGOING), 0, 1000);
+            Neo4jUtil.newRelationshipFilter(
+                QueryUtils.EMPTY_FILTER, RelationshipDirection.OUTGOING),
+            0,
+            1000);
     return graphResult.getCount();
   }
 }

@@ -1,5 +1,7 @@
 package com.datahub.notification.provider;
 
+import static com.linkedin.metadata.Constants.*;
+
 import com.datahub.authentication.Authentication;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableSet;
@@ -10,8 +12,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
-
-import static com.linkedin.metadata.Constants.*;
 
 @Slf4j
 public class SettingsProvider {
@@ -26,23 +26,20 @@ public class SettingsProvider {
     _entityClient = entityClient;
     _systemAuthentication = systemAuthentication;
     // Only refetch settings every 1 minutes.
-    _globalSettingsSupplier = Suppliers.memoizeWithExpiration(
-        this::getLatestSettings,
-        1,
-        TimeUnit.MINUTES
-    );
+    _globalSettingsSupplier =
+        Suppliers.memoizeWithExpiration(this::getLatestSettings, 1, TimeUnit.MINUTES);
   }
 
   /**
    * Returns an instance of {@link GlobalSettingsInfo} if it can be resolved, null otherwise.
    *
-   * These settings are refreshed each minute, so the recommendation is not to cache the setting you retrieve
-   * using this method.
+   * <p>These settings are refreshed each minute, so the recommendation is not to cache the setting
+   * you retrieve using this method.
    *
    * @throws {@link RuntimeException} if Global Settings are unable to be fetched.
    */
   public GlobalSettingsInfo getGlobalSettings() {
-      return _globalSettingsSupplier.get();
+    return _globalSettingsSupplier.get();
   }
 
   private GlobalSettingsInfo getLatestSettings() {
@@ -55,7 +52,8 @@ public class SettingsProvider {
               ImmutableSet.of(GLOBAL_SETTINGS_INFO_ASPECT_NAME),
               _systemAuthentication);
 
-      // If there's no global settings, log and return null for now. Could be that bootstrap steps have not yet completed.
+      // If there's no global settings, log and return null for now. Could be that bootstrap steps
+      // have not yet completed.
       if (response == null || response.getAspects().get(GLOBAL_SETTINGS_INFO_ASPECT_NAME) == null) {
         log.error("Failed to find global settings in GMS!");
         return null;
@@ -63,13 +61,11 @@ public class SettingsProvider {
 
       log.debug("Successfully refreshed global settings.");
       return new GlobalSettingsInfo(
-          response
-              .getAspects()
-              .get(GLOBAL_SETTINGS_INFO_ASPECT_NAME).getValue()
-              .data());
+          response.getAspects().get(GLOBAL_SETTINGS_INFO_ASPECT_NAME).getValue().data());
 
     } catch (Exception e) {
-      throw new RuntimeException("Caught exception while attempting to refresh global settings!", e);
+      throw new RuntimeException(
+          "Caught exception while attempting to refresh global settings!", e);
     }
   }
 }

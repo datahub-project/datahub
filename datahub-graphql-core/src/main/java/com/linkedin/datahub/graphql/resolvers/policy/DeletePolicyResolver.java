@@ -9,10 +9,7 @@ import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.concurrent.CompletableFuture;
 
-
-/**
- * Resolver responsible for hard deleting a particular DataHub access control policy.
- */
+/** Resolver responsible for hard deleting a particular DataHub access control policy. */
 public class DeletePolicyResolver implements DataFetcher<CompletableFuture<String>> {
 
   private final EntityClient _entityClient;
@@ -27,18 +24,24 @@ public class DeletePolicyResolver implements DataFetcher<CompletableFuture<Strin
     if (PolicyAuthUtils.canManagePolicies(context)) {
       final String policyUrn = environment.getArgument("urn");
       final Urn urn = Urn.createFromString(policyUrn);
-      return CompletableFuture.supplyAsync(() -> {
-        try {
-          _entityClient.deleteEntity(urn, context.getAuthentication());
-          if (context.getAuthorizer() instanceof AuthorizerChain) {
-            ((AuthorizerChain) context.getAuthorizer()).getDefaultAuthorizer().invalidateCache();
-          }
-          return policyUrn;
-        } catch (Exception e) {
-          throw new RuntimeException(String.format("Failed to perform delete against policy with urn %s", policyUrn), e);
-        }
-      });
+      return CompletableFuture.supplyAsync(
+          () -> {
+            try {
+              _entityClient.deleteEntity(urn, context.getAuthentication());
+              if (context.getAuthorizer() instanceof AuthorizerChain) {
+                ((AuthorizerChain) context.getAuthorizer())
+                    .getDefaultAuthorizer()
+                    .invalidateCache();
+              }
+              return policyUrn;
+            } catch (Exception e) {
+              throw new RuntimeException(
+                  String.format("Failed to perform delete against policy with urn %s", policyUrn),
+                  e);
+            }
+          });
     }
-    throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
+    throw new AuthorizationException(
+        "Unauthorized to perform this action. Please contact your DataHub administrator.");
   }
 }

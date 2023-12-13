@@ -1,5 +1,9 @@
 package io.datahubproject.openapi.metadatatests.config;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
@@ -36,84 +40,75 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
 
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
-
-
 @TestConfiguration
 public class MetadataTestsTestConfiguration {
 
-    @Bean
-    public ObjectMapper objectMapper() {
-        return new ObjectMapper(new YAMLFactory());
-    }
+  @Bean
+  public ObjectMapper objectMapper() {
+    return new ObjectMapper(new YAMLFactory());
+  }
 
-    @Bean
-    @Primary
-    public EntityService entityService(final EntityRegistry mockRegistry) {
-        EntityService entityService = mock(EntityServiceImpl.class);
-        when(entityService.getEntityRegistry()).thenReturn(mockRegistry);
-        return entityService;
-    }
+  @Bean
+  @Primary
+  public EntityService entityService(final EntityRegistry mockRegistry) {
+    EntityService entityService = mock(EntityServiceImpl.class);
+    when(entityService.getEntityRegistry()).thenReturn(mockRegistry);
+    return entityService;
+  }
 
-    @MockBean
-    public SearchService searchService;
+  @MockBean public SearchService searchService;
 
-    @MockBean
-    public EntitySearchService entitySearchService;
+  @MockBean public EntitySearchService entitySearchService;
 
-    @MockBean
-    public QueryEngine queryEngine;
+  @MockBean public QueryEngine queryEngine;
 
-    @MockBean
-    public ActionApplier actionApplier;
+  @MockBean public ActionApplier actionApplier;
 
-    @MockBean
-    public GraphService graphService;
+  @MockBean public GraphService graphService;
 
-    @Bean
-    public AuthorizerChain authorizerChain() {
-        AuthorizerChain authorizerChain = Mockito.mock(AuthorizerChain.class);
+  @Bean
+  public AuthorizerChain authorizerChain() {
+    AuthorizerChain authorizerChain = Mockito.mock(AuthorizerChain.class);
 
-        Authentication authentication = Mockito.mock(Authentication.class);
-        when(authentication.getActor()).thenReturn(new Actor(ActorType.USER, "datahub"));
-        when(authorizerChain.authorize(any())).thenReturn(new AuthorizationResult(null,
-                AuthorizationResult.Type.ALLOW, ""));
-        AuthenticationContext.setAuthentication(authentication);
+    Authentication authentication = Mockito.mock(Authentication.class);
+    when(authentication.getActor()).thenReturn(new Actor(ActorType.USER, "datahub"));
+    when(authorizerChain.authorize(any()))
+        .thenReturn(new AuthorizationResult(null, AuthorizationResult.Type.ALLOW, ""));
+    AuthenticationContext.setAuthentication(authentication);
 
-        return authorizerChain;
-    }
+    return authorizerChain;
+  }
 
-    @MockBean(name = "elasticSearchSystemMetadataService")
-    public SystemMetadataService systemMetadataService;
+  @MockBean(name = "elasticSearchSystemMetadataService")
+  public SystemMetadataService systemMetadataService;
 
-    @MockBean
-    public TimelineService timelineService;
+  @MockBean public TimelineService timelineService;
 
-    @MockBean
-    public CachingEntitySearchService cachingEntitySearchService;
+  @MockBean public CachingEntitySearchService cachingEntitySearchService;
 
-    @Bean("entityRegistry")
-    @Primary
-    public EntityRegistry entityRegistry() throws EntityRegistryException {
-        ConfigEntityRegistry standard = new ConfigEntityRegistry(
-                MetadataTestsTestConfiguration.class.getClassLoader().getResourceAsStream("entity-registry.yml"));
-        MergedEntityRegistry entityRegistry = new MergedEntityRegistry(SnapshotEntityRegistry.getInstance()).apply(standard);
+  @Bean("entityRegistry")
+  @Primary
+  public EntityRegistry entityRegistry() throws EntityRegistryException {
+    ConfigEntityRegistry standard =
+        new ConfigEntityRegistry(
+            MetadataTestsTestConfiguration.class
+                .getClassLoader()
+                .getResourceAsStream("entity-registry.yml"));
+    MergedEntityRegistry entityRegistry =
+        new MergedEntityRegistry(SnapshotEntityRegistry.getInstance()).apply(standard);
 
-        return entityRegistry;
-    }
+    return entityRegistry;
+  }
 
-    /* Controllers not under this module */
-    @MockBean
-    public EntityApiDelegateImpl<TestEntityRequestV2, TestEntityResponseV2, ScrollTestEntityResponseV2> entityApiDelegate;
+  /* Controllers not under this module */
+  @MockBean
+  public EntityApiDelegateImpl<
+          TestEntityRequestV2, TestEntityResponseV2, ScrollTestEntityResponseV2>
+      entityApiDelegate;
 
-    @MockBean
-    public TimelineController timelineController;
+  @MockBean public TimelineController timelineController;
 
-    @MockBean
-    public RelationshipsController relationshipsController;
+  @MockBean public RelationshipsController relationshipsController;
 
-    @MockBean
-    public HealthCheckController healthCheckController;
+  @MockBean public HealthCheckController healthCheckController;
 }

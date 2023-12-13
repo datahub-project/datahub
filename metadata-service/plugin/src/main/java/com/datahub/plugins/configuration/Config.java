@@ -10,17 +10,13 @@ import javax.annotation.Nonnull;
 import lombok.Builder;
 import lombok.Getter;
 
-
-/**
- * {@link Config} is getting loaded from /etc/datahub/plugins/auth/config.yaml
- */
+/** {@link Config} is getting loaded from /etc/datahub/plugins/auth/config.yaml */
 @Getter
 @Builder
 @JsonDeserialize(builder = Config.CustomBuilder.class)
 public class Config {
-  public static final String FIELD_PLUGINS = "plugins";  // for validation error messages
-  @Nonnull
-  private List<PluginConfig> plugins;
+  public static final String FIELD_PLUGINS = "plugins"; // for validation error messages
+  @Nonnull private List<PluginConfig> plugins;
 
   public static CustomBuilder builder() {
     return new CustomBuilder();
@@ -29,12 +25,14 @@ public class Config {
   @JsonPOJOBuilder(withPrefix = "")
   public static class CustomBuilder extends ConfigBuilder {
     public Config build() {
-      ConfigValidationUtils.listShouldNotBeEmpty(FIELD_PLUGINS, Collections.singletonList(super.plugins));
+      ConfigValidationUtils.listShouldNotBeEmpty(
+          FIELD_PLUGINS, Collections.singletonList(super.plugins));
 
       List<String> list = new ArrayList<>(super.plugins.size());
-      super.plugins.forEach((pluginConfig) -> {
-        list.add(pluginConfig.getName());
-      });
+      super.plugins.forEach(
+          (pluginConfig) -> {
+            list.add(pluginConfig.getName());
+          });
 
       ConfigValidationUtils.listShouldNotHaveDuplicate(FIELD_PLUGINS, list);
 

@@ -9,11 +9,9 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.DependsOn;
 
-
 @Configuration
 public class RotateSecretsConfig {
-  @Autowired
-  ApplicationContext applicationContext;
+  @Autowired ApplicationContext applicationContext;
 
   @Bean(name = "rotateSecrets")
   @DependsOn({"entityService"})

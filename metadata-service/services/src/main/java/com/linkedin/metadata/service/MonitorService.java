@@ -17,6 +17,7 @@ import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.key.MonitorKey;
 import com.linkedin.metadata.service.util.MonitorServiceUtils;
 import com.linkedin.metadata.utils.EntityKeyUtils;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.monitor.AssertionEvaluationParameters;
 import com.linkedin.monitor.AssertionEvaluationSpec;
 import com.linkedin.monitor.AssertionEvaluationSpecArray;
@@ -27,7 +28,6 @@ import com.linkedin.monitor.MonitorStatus;
 import com.linkedin.monitor.MonitorType;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.parseq.retry.backoff.BackoffPolicy;
-import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.parseq.retry.backoff.ExponentialBackoff;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -47,7 +47,6 @@ import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.util.EntityUtils;
-
 
 @Slf4j
 public class MonitorService extends BaseService {
@@ -78,19 +77,18 @@ public class MonitorService extends BaseService {
         systemAuthentication,
         HttpClients.createDefault(),
         new ExponentialBackoff(DEFAULT_RETRY_INTERVAL),
-        3
-    );
+        3);
   }
 
   public MonitorService(
-    @Nonnull final String monitorServiceHost,
-    @Nonnull final Integer monitorServicePort,
-    @Nonnull final Boolean useSsl,
-    @Nonnull final EntityClient entityClient,
-    @Nonnull final Authentication systemAuthentication,
-    @Nonnull final CloseableHttpClient httpClient,
-    @Nonnull final BackoffPolicy backoffPolicy,
-    final int retryCount) {
+      @Nonnull final String monitorServiceHost,
+      @Nonnull final Integer monitorServicePort,
+      @Nonnull final Boolean useSsl,
+      @Nonnull final EntityClient entityClient,
+      @Nonnull final Authentication systemAuthentication,
+      @Nonnull final CloseableHttpClient httpClient,
+      @Nonnull final BackoffPolicy backoffPolicy,
+      final int retryCount) {
 
     super(entityClient, systemAuthentication);
 
@@ -104,11 +102,10 @@ public class MonitorService extends BaseService {
   }
 
   /**
-   * Returns an instance of {@link MonitorInfo} for the specified Monitor urn,
-   * or null if one cannot be found.
+   * Returns an instance of {@link MonitorInfo} for the specified Monitor urn, or null if one cannot
+   * be found.
    *
    * @param monitorUrn the urn of the Monitor
-   *
    * @return an instance of {@link MonitorInfo} for the Monitor, null if it does not exist.
    */
   @Nullable
@@ -116,23 +113,24 @@ public class MonitorService extends BaseService {
     Objects.requireNonNull(monitorUrn, "monitorUrn must not be null");
     final EntityResponse response = getMonitorEntityResponse(monitorUrn, this.systemAuthentication);
     if (response != null && response.getAspects().containsKey(Constants.MONITOR_INFO_ASPECT_NAME)) {
-      return new MonitorInfo(response.getAspects().get(Constants.MONITOR_INFO_ASPECT_NAME).getValue().data());
+      return new MonitorInfo(
+          response.getAspects().get(Constants.MONITOR_INFO_ASPECT_NAME).getValue().data());
     }
     // No aspect found
     return null;
   }
 
   /**
-   * Returns an instance of {@link EntityResponse} for the specified View urn,
-   * or null if one cannot be found.
+   * Returns an instance of {@link EntityResponse} for the specified View urn, or null if one cannot
+   * be found.
    *
    * @param monitorUrn the urn of the View
    * @param authentication the authentication to use
-   *
    * @return an instance of {@link EntityResponse} for the View, null if it does not exist.
    */
   @Nullable
-  public EntityResponse getMonitorEntityResponse(@Nonnull final Urn monitorUrn, @Nonnull final Authentication authentication) {
+  public EntityResponse getMonitorEntityResponse(
+      @Nonnull final Urn monitorUrn, @Nonnull final Authentication authentication) {
     Objects.requireNonNull(monitorUrn, "monitorUrn must not be null");
     Objects.requireNonNull(authentication, "authentication must not be null");
     try {
@@ -140,18 +138,18 @@ public class MonitorService extends BaseService {
           Constants.MONITOR_ENTITY_NAME,
           monitorUrn,
           ImmutableSet.of(Constants.MONITOR_INFO_ASPECT_NAME),
-          authentication
-      );
+          authentication);
     } catch (Exception e) {
-      throw new RuntimeException(String.format("Failed to retrieve Monitor with urn %s", monitorUrn), e);
+      throw new RuntimeException(
+          String.format("Failed to retrieve Monitor with urn %s", monitorUrn), e);
     }
   }
 
   /**
-   * Creates a new Dataset or DataJob Freshness Monitor for native execution by DataHub.
-   * Assumes that the caller has already performed the required authorization.
+   * Creates a new Dataset or DataJob Freshness Monitor for native execution by DataHub. Assumes
+   * that the caller has already performed the required authorization.
    *
-   * Throws an exception if the provided assertion urn does not exist.
+   * <p>Throws an exception if the provided assertion urn does not exist.
    */
   @Nonnull
   public Urn createAssertionMonitor(
@@ -160,7 +158,8 @@ public class MonitorService extends BaseService {
       @Nonnull final CronSchedule schedule,
       @Nonnull final AssertionEvaluationParameters parameters,
       @Nullable final String executorId,
-      @Nonnull final Authentication authentication) throws Exception {
+      @Nonnull final Authentication authentication)
+      throws Exception {
     Objects.requireNonNull(entityUrn, "entityUrn must not be null");
     Objects.requireNonNull(assertionUrn, "assertionUrn must not be null");
     Objects.requireNonNull(schedule, "schedule must not be null");
@@ -186,41 +185,41 @@ public class MonitorService extends BaseService {
     }
 
     final AssertionMonitor assertionMonitor = new AssertionMonitor();
-    assertionMonitor.setAssertions(new AssertionEvaluationSpecArray(
-        ImmutableList.of(
-            new AssertionEvaluationSpec()
-                .setAssertion(assertionUrn)
-                .setSchedule(schedule)
-                .setParameters(parameters)
-        )
-    ));
+    assertionMonitor.setAssertions(
+        new AssertionEvaluationSpecArray(
+            ImmutableList.of(
+                new AssertionEvaluationSpec()
+                    .setAssertion(assertionUrn)
+                    .setSchedule(schedule)
+                    .setParameters(parameters))));
     monitorInfo.setAssertionMonitor(assertionMonitor);
 
     final List<MetadataChangeProposal> aspects = new ArrayList<>();
-    aspects.add(AspectUtils.buildMetadataChangeProposal(monitorUrn, Constants.MONITOR_INFO_ASPECT_NAME, monitorInfo));
+    aspects.add(
+        AspectUtils.buildMetadataChangeProposal(
+            monitorUrn, Constants.MONITOR_INFO_ASPECT_NAME, monitorInfo));
 
     try {
-      this.entityClient.batchIngestProposals(
-          aspects,
-          authentication,
-          false
-      );
+      this.entityClient.batchIngestProposals(aspects, authentication, false);
       return monitorUrn;
     } catch (Exception e) {
-      throw new RuntimeException(String.format("Failed to create new Monitor for Assertion with urn %s", assertionUrn), e);
+      throw new RuntimeException(
+          String.format("Failed to create new Monitor for Assertion with urn %s", assertionUrn), e);
     }
   }
 
   /**
    * Upserts the mode of a particular monitor, to enable or disable it's operation.
    *
-   * If the monitor does not yet have an info aspect, a default will be minted for the provided urn.
+   * <p>If the monitor does not yet have an info aspect, a default will be minted for the provided
+   * urn.
    */
   @Nonnull
   public Urn upsertMonitorMode(
       @Nonnull final Urn monitorUrn,
       @Nonnull final MonitorMode monitorMode,
-      @Nonnull final Authentication authentication) throws Exception {
+      @Nonnull final Authentication authentication)
+      throws Exception {
     Objects.requireNonNull(monitorUrn, "monitorUrn must not be null");
     Objects.requireNonNull(monitorMode, "monitorMode must not be null");
     Objects.requireNonNull(authentication, "authentication must not be null");
@@ -229,10 +228,12 @@ public class MonitorService extends BaseService {
 
     // If monitor info does not yet exist, then mint a default info aspect
     if (info == null) {
-      info = new MonitorInfo()
-          .setType(DEFAULT_MONITOR_TYPE)
-          .setAssertionMonitor(
-              new AssertionMonitor().setAssertions(new AssertionEvaluationSpecArray(Collections.emptyList())));
+      info =
+          new MonitorInfo()
+              .setType(DEFAULT_MONITOR_TYPE)
+              .setAssertionMonitor(
+                  new AssertionMonitor()
+                      .setAssertions(new AssertionEvaluationSpecArray(Collections.emptyList())));
     }
 
     // Update the status to have the new Monitor Mode
@@ -240,24 +241,26 @@ public class MonitorService extends BaseService {
 
     // Write the info back!
     final List<MetadataChangeProposal> aspects = new ArrayList<>();
-    aspects.add(AspectUtils.buildMetadataChangeProposal(monitorUrn, Constants.MONITOR_INFO_ASPECT_NAME, info));
+    aspects.add(
+        AspectUtils.buildMetadataChangeProposal(
+            monitorUrn, Constants.MONITOR_INFO_ASPECT_NAME, info));
 
     try {
-      this.entityClient.batchIngestProposals(
-          aspects,
-          authentication,
-          false
-      );
+      this.entityClient.batchIngestProposals(aspects, authentication, false);
       return monitorUrn;
     } catch (Exception e) {
-      throw new RuntimeException(String.format("Failed to upsert Monitor Mode for monitor with urn %s", monitorUrn), e);
+      throw new RuntimeException(
+          String.format("Failed to upsert Monitor Mode for monitor with urn %s", monitorUrn), e);
     }
   }
 
-  private void validateEntity(@Nonnull final Urn entityUrn, @Nonnull final Authentication authentication) throws Exception {
+  private void validateEntity(
+      @Nonnull final Urn entityUrn, @Nonnull final Authentication authentication) throws Exception {
     if (!this.entityClient.exists(entityUrn, authentication)) {
-      throw new IllegalArgumentException(String.format("Failed to edit Monitor. %s with urn %s does not exist.", entityUrn
-          .getEntityType(), entityUrn));
+      throw new IllegalArgumentException(
+          String.format(
+              "Failed to edit Monitor. %s with urn %s does not exist.",
+              entityUrn.getEntityType(), entityUrn));
     }
   }
 
@@ -270,13 +273,17 @@ public class MonitorService extends BaseService {
     return EntityKeyUtils.convertEntityKeyToUrn(key, Constants.MONITOR_ENTITY_NAME);
   }
 
-  private CloseableHttpResponse executeRequest(@Nonnull final HttpUriRequest request) throws Exception {
+  private CloseableHttpResponse executeRequest(@Nonnull final HttpUriRequest request)
+      throws Exception {
     int attemptCount = 0;
     while (attemptCount < this.retryCount) {
       try {
         return httpClient.execute(request);
       } catch (Exception ex) {
-        MetricUtils.counter(MonitorService.class, "exception" + MetricUtils.DELIMITER + ex.getClass().getName().toLowerCase()).inc();
+        MetricUtils.counter(
+                MonitorService.class,
+                "exception" + MetricUtils.DELIMITER + ex.getClass().getName().toLowerCase())
+            .inc();
         if (attemptCount == this.retryCount - 1) {
           throw ex;
         } else {
@@ -295,17 +302,18 @@ public class MonitorService extends BaseService {
     request.addHeader("Content-Type", "application/json");
   }
 
-  private AssertionResult testAssertion(
-    @Nonnull final String jsonBody
-  ) {
+  private AssertionResult testAssertion(@Nonnull final String jsonBody) {
     CloseableHttpResponse response = null;
     try {
       // Build request
-      final HttpPost request = new HttpPost(String.format("%s://%s:%s/%s",
-          protocol,
-          this.monitorServiceHost,
-          this.monitorServicePort,
-          TEST_ASSERTION_ENDPOINT));
+      final HttpPost request =
+          new HttpPost(
+              String.format(
+                  "%s://%s:%s/%s",
+                  protocol,
+                  this.monitorServiceHost,
+                  this.monitorServicePort,
+                  TEST_ASSERTION_ENDPOINT));
 
       addRequestHeaders(request);
 
@@ -321,7 +329,9 @@ public class MonitorService extends BaseService {
       }
       // Otherwise, something went wrong!
       log.error(
-          String.format("Bad response from the Monitors Service: %s %s", response.getStatusLine().toString(), EntityUtils.toString(entity, "UTF-8")));
+          String.format(
+              "Bad response from the Monitors Service: %s %s",
+              response.getStatusLine().toString(), EntityUtils.toString(entity, "UTF-8")));
       return null;
     } catch (Exception e) {
       log.error("Failed to test assertion.", e);
@@ -349,13 +359,13 @@ public class MonitorService extends BaseService {
     Objects.requireNonNull(parameters, "parameters must not be null");
 
     try {
-      final String jsonBody = MonitorServiceUtils.buildTestFreshnessAssertionBodyJson(
-        "FRESHNESS",
-        asserteeUrn.toString(),
-        connectionUrn.toString(),
-        freshnessAssertionInfo,
-        parameters
-      );
+      final String jsonBody =
+          MonitorServiceUtils.buildTestFreshnessAssertionBodyJson(
+              "FRESHNESS",
+              asserteeUrn.toString(),
+              connectionUrn.toString(),
+              freshnessAssertionInfo,
+              parameters);
       return testAssertion(jsonBody);
     } catch (Exception e) {
       log.error("Failed to test Freshness assertion.", e);
@@ -375,13 +385,13 @@ public class MonitorService extends BaseService {
     Objects.requireNonNull(parameters, "parameters must not be null");
 
     try {
-      final String jsonBody = MonitorServiceUtils.buildTestVolumeAssertionBodyJson(
-        "VOLUME",
-        asserteeUrn.toString(),
-        connectionUrn.toString(),
-        volumeAssertionInfo,
-        parameters
-      );
+      final String jsonBody =
+          MonitorServiceUtils.buildTestVolumeAssertionBodyJson(
+              "VOLUME",
+              asserteeUrn.toString(),
+              connectionUrn.toString(),
+              volumeAssertionInfo,
+              parameters);
       return testAssertion(jsonBody);
     } catch (Exception e) {
       log.error("Failed to test Volume assertion.", e);
@@ -399,12 +409,9 @@ public class MonitorService extends BaseService {
     Objects.requireNonNull(sqlAssertionInfo, "sqlAssertionInfo must not be null");
 
     try {
-      final String jsonBody = MonitorServiceUtils.buildTestSqlAssertionBodyJson(
-        "SQL",
-        asserteeUrn.toString(),
-        connectionUrn.toString(),
-        sqlAssertionInfo
-      );
+      final String jsonBody =
+          MonitorServiceUtils.buildTestSqlAssertionBodyJson(
+              "SQL", asserteeUrn.toString(), connectionUrn.toString(), sqlAssertionInfo);
       return testAssertion(jsonBody);
     } catch (Exception e) {
       log.error("Failed to test SQL assertion.", e);
@@ -424,13 +431,13 @@ public class MonitorService extends BaseService {
     Objects.requireNonNull(parameters, "parameters must not be null");
 
     try {
-      final String jsonBody = MonitorServiceUtils.buildTestFieldAssertionBodyJson(
-        "FIELD",
-        asserteeUrn.toString(),
-        connectionUrn.toString(),
-        fieldAssertionInfo,
-        parameters
-      );
+      final String jsonBody =
+          MonitorServiceUtils.buildTestFieldAssertionBodyJson(
+              "FIELD",
+              asserteeUrn.toString(),
+              connectionUrn.toString(),
+              fieldAssertionInfo,
+              parameters);
       return testAssertion(jsonBody);
     } catch (Exception e) {
       log.error("Failed to test FIELD assertion.", e);

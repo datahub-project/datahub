@@ -1,5 +1,7 @@
 package com.linkedin.metadata.boot.steps;
 
+import static com.linkedin.metadata.Constants.*;
+
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.DataPlatformInstance;
 import com.linkedin.common.urn.Urn;
@@ -13,16 +15,12 @@ import com.linkedin.metadata.entity.ebean.transactions.UpsertBatchItem;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.utils.DataPlatformInstanceUtils;
 import com.linkedin.metadata.utils.EntityKeyUtils;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-
-import javax.annotation.Nonnull;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
-
-import static com.linkedin.metadata.Constants.*;
-
+import javax.annotation.Nonnull;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @RequiredArgsConstructor
@@ -62,7 +60,9 @@ public class IngestDataPlatformInstancesStep implements BootstrapStep {
     int start = 0;
 
     while (start < numEntities) {
-      log.info("Reading urns {} to {} from the aspects table to generate dataplatform instance aspects", start,
+      log.info(
+          "Reading urns {} to {} from the aspects table to generate dataplatform instance aspects",
+          start,
           start + BATCH_SIZE);
 
       List<UpsertBatchItem> items = new LinkedList<>();
@@ -71,7 +71,8 @@ public class IngestDataPlatformInstancesStep implements BootstrapStep {
         Urn urn = Urn.createFromString(urnStr);
         Optional<DataPlatformInstance> dataPlatformInstance = getDataPlatformInstance(urn);
         if (dataPlatformInstance.isPresent()) {
-          items.add(UpsertBatchItem.builder()
+          items.add(
+              UpsertBatchItem.builder()
                   .urn(urn)
                   .aspectName(DATA_PLATFORM_INSTANCE_ASPECT_NAME)
                   .aspect(dataPlatformInstance.get())
@@ -80,10 +81,14 @@ public class IngestDataPlatformInstancesStep implements BootstrapStep {
       }
 
       final AuditStamp aspectAuditStamp =
-              new AuditStamp().setActor(Urn.createFromString(Constants.SYSTEM_ACTOR)).setTime(System.currentTimeMillis());
-      _entityService.ingestAspects(AspectsBatchImpl.builder().items(items).build(), aspectAuditStamp, true, true);
+          new AuditStamp()
+              .setActor(Urn.createFromString(Constants.SYSTEM_ACTOR))
+              .setTime(System.currentTimeMillis());
+      _entityService.ingestAspects(
+          AspectsBatchImpl.builder().items(items).build(), aspectAuditStamp, true, true);
 
-      log.info("Finished ingesting DataPlatformInstance for urn {} to {}", start, start + BATCH_SIZE);
+      log.info(
+          "Finished ingesting DataPlatformInstance for urn {} to {}", start, start + BATCH_SIZE);
       start += BATCH_SIZE;
     }
     log.info("Finished ingesting DataPlatformInstance for all entities");

@@ -1,5 +1,7 @@
 package com.linkedin.metadata.boot.steps;
 
+import static com.linkedin.metadata.Constants.*;
+
 import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -31,16 +33,13 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.ClassPathResource;
 
-import static com.linkedin.metadata.Constants.*;
-
-
 /**
  * This bootstrap step is responsible for ingesting default metadata tests
  *
- * For each metadata test defined in the yaml file, it checks whether the urn exists.
- * If not, it ingests the metadata test into DataHub.
+ * <p>For each metadata test defined in the yaml file, it checks whether the urn exists. If not, it
+ * ingests the metadata test into DataHub.
  *
- * Note that if a Metadata Tests is soft-deleted by a user, this will NOT re-create the test.
+ * <p>Note that if a Metadata Tests is soft-deleted by a user, this will NOT re-create the test.
  */
 @Slf4j
 @RequiredArgsConstructor
@@ -51,13 +50,20 @@ public class IngestMetadataTestsStep implements BootstrapStep {
 
   private static final ObjectMapper YAML_MAPPER = new ObjectMapper(new YAMLFactory());
   private static final ObjectMapper JSON_MAPPER = new ObjectMapper();
+
   static {
-    int maxSize = Integer.parseInt(System.getenv().getOrDefault(INGESTION_MAX_SERIALIZED_STRING_LENGTH, MAX_JACKSON_STRING_SIZE));
-    YAML_MAPPER.getFactory().setStreamReadConstraints(StreamReadConstraints.builder()
-        .maxStringLength(maxSize).build());
-    JSON_MAPPER.getFactory().setStreamReadConstraints(StreamReadConstraints.builder()
-        .maxStringLength(maxSize).build());
+    int maxSize =
+        Integer.parseInt(
+            System.getenv()
+                .getOrDefault(INGESTION_MAX_SERIALIZED_STRING_LENGTH, MAX_JACKSON_STRING_SIZE));
+    YAML_MAPPER
+        .getFactory()
+        .setStreamReadConstraints(StreamReadConstraints.builder().maxStringLength(maxSize).build());
+    JSON_MAPPER
+        .getFactory()
+        .setStreamReadConstraints(StreamReadConstraints.builder().maxStringLength(maxSize).build());
   }
+
   private static final String UPGRADE_ID = "ingest-default-metadata-policies";
   private static final Urn UPGRADE_ID_URN = BootstrapStep.getUpgradeUrn(UPGRADE_ID);
 
@@ -106,7 +112,8 @@ public class IngestMetadataTestsStep implements BootstrapStep {
     // Check if test exists
     try {
       RecordTemplate aspect =
-          _entityService.getLatestEnvelopedAspect(Constants.TEST_ENTITY_NAME, testUrn, Constants.TEST_INFO_ASPECT_NAME);
+          _entityService.getLatestEnvelopedAspect(
+              Constants.TEST_ENTITY_NAME, testUrn, Constants.TEST_INFO_ASPECT_NAME);
       return aspect != null;
     } catch (Exception e) {
       return false;
@@ -117,16 +124,21 @@ public class IngestMetadataTestsStep implements BootstrapStep {
     // 3. Write key & aspect
     final MetadataChangeProposal keyAspectProposal = new MetadataChangeProposal();
     final AspectSpec keyAspectSpec = _entityService.getKeyAspectSpec(testUrn);
-    GenericAspect aspect = GenericRecordUtils.serializeAspect(
-        EntityKeyUtils.convertUrnToEntityKey(testUrn, keyAspectSpec));
+    GenericAspect aspect =
+        GenericRecordUtils.serializeAspect(
+            EntityKeyUtils.convertUrnToEntityKey(testUrn, keyAspectSpec));
     keyAspectProposal.setAspect(aspect);
     keyAspectProposal.setAspectName(keyAspectSpec.getName());
     keyAspectProposal.setEntityType(Constants.TEST_ENTITY_NAME);
     keyAspectProposal.setChangeType(ChangeType.UPSERT);
     keyAspectProposal.setEntityUrn(testUrn);
 
-    _entityService.ingestProposal(keyAspectProposal,
-        new AuditStamp().setActor(UrnUtils.getUrn(SYSTEM_ACTOR)).setTime(System.currentTimeMillis()), false);
+    _entityService.ingestProposal(
+        keyAspectProposal,
+        new AuditStamp()
+            .setActor(UrnUtils.getUrn(SYSTEM_ACTOR))
+            .setTime(System.currentTimeMillis()),
+        false);
 
     final MetadataChangeProposal proposal = new MetadataChangeProposal();
     proposal.setEntityUrn(testUrn);
@@ -135,30 +147,38 @@ public class IngestMetadataTestsStep implements BootstrapStep {
     proposal.setAspect(GenericRecordUtils.serializeAspect(testInfo));
     proposal.setChangeType(ChangeType.UPSERT);
 
-    _entityService.ingestProposal(proposal,
-        new AuditStamp().setActor(UrnUtils.getUrn(SYSTEM_ACTOR)).setTime(System.currentTimeMillis()), false);
+    _entityService.ingestProposal(
+        proposal,
+        new AuditStamp()
+            .setActor(UrnUtils.getUrn(SYSTEM_ACTOR))
+            .setTime(System.currentTimeMillis()),
+        false);
   }
 
   /**
    * Parse yaml metadata test config
    *
-   * The structure of yaml must be a list of metadata tests with the necessary fields and test definition.
+   * <p>The structure of yaml must be a list of metadata tests with the necessary fields and test
+   * definition.
    */
-  private Map<Urn, TestInfo> parseYamlMetadataTestConfig(File metadataTestsFile) throws IOException {
+  private Map<Urn, TestInfo> parseYamlMetadataTestConfig(File metadataTestsFile)
+      throws IOException {
     // If path does not exist, return empty
     if (!metadataTestsFile.exists()) {
       return Collections.emptyMap();
     }
 
     // If file is not a yaml file, return empty
-    if (!metadataTestsFile.getPath().endsWith(".yaml") && metadataTestsFile.getPath().endsWith(".yml")) {
+    if (!metadataTestsFile.getPath().endsWith(".yaml")
+        && metadataTestsFile.getPath().endsWith(".yml")) {
       log.info("File {} is not a YAML file. Skipping", metadataTestsFile.getPath());
       return Collections.emptyMap();
     }
 
     final JsonNode metadataTests = YAML_MAPPER.readTree(metadataTestsFile);
     if (!metadataTests.isArray()) {
-      throw new IllegalArgumentException("Metadata test config file must contain an array of metadata tests");
+      throw new IllegalArgumentException(
+          "Metadata test config file must contain an array of metadata tests");
     }
 
     Map<Urn, TestInfo> metadataTestsMap = new HashMap<>();
@@ -168,20 +188,23 @@ public class IngestMetadataTestsStep implements BootstrapStep {
 
     for (JsonNode metadataTest : metadataTests) {
       if (!metadataTest.has("urn")) {
-        throw new IllegalArgumentException("Each element in the retention config must contain field urn.");
+        throw new IllegalArgumentException(
+            "Each element in the retention config must contain field urn.");
       }
       Urn testUrn = UrnUtils.getUrn(metadataTest.get("urn").asText());
       TestInfo testInfo = new TestInfo();
       if (metadataTest.has("name")) {
         testInfo.setName(metadataTest.get("name").asText());
       } else {
-        throw new IllegalArgumentException("Each element in the retention config must contain field name.");
+        throw new IllegalArgumentException(
+            "Each element in the retention config must contain field name.");
       }
 
       if (metadataTest.has("category")) {
         testInfo.setCategory(metadataTest.get("category").asText());
       } else {
-        throw new IllegalArgumentException("Each element in the retention config must contain field category.");
+        throw new IllegalArgumentException(
+            "Each element in the retention config must contain field category.");
       }
 
       if (metadataTest.has("description")) {
@@ -189,8 +212,10 @@ public class IngestMetadataTestsStep implements BootstrapStep {
       }
 
       if (metadataTest.has("definition")) {
-        testInfo.setDefinition(new TestDefinition().setType(TestDefinitionType.JSON)
-            .setJson(JSON_MAPPER.writeValueAsString(metadataTest.get("definition"))));
+        testInfo.setDefinition(
+            new TestDefinition()
+                .setType(TestDefinitionType.JSON)
+                .setJson(JSON_MAPPER.writeValueAsString(metadataTest.get("definition"))));
       } else {
         throw new IllegalArgumentException(
             "Each element in the retention config must contain field definition with the test definition.");

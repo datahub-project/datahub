@@ -7,24 +7,21 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
-import java.util.Collections;
-import java.util.Set;
-import java.util.stream.Collectors;
-
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
-import lombok.extern.slf4j.Slf4j;
-
+import java.util.Collections;
+import java.util.Set;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
-
+import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 public class TestUtils {
 
   /**
-   * Returns the entity types that support Metadata Tests,
-   * based on the presence of the required "testResults" aspect.
+   * Returns the entity types that support Metadata Tests, based on the presence of the required
+   * "testResults" aspect.
    *
    * @param entityRegistry the entity registry
    */
@@ -32,34 +29,26 @@ public class TestUtils {
     if (entityRegistry == null) {
       return Collections.emptySet();
     }
-    return entityRegistry.getEntitySpecs().values().stream().filter(value -> value.hasAspect(Constants.TEST_RESULTS_ASPECT_NAME))
-      .map(EntitySpec::getName)
-      .collect(Collectors.toSet());
+    return entityRegistry.getEntitySpecs().values().stream()
+        .filter(value -> value.hasAspect(Constants.TEST_RESULTS_ASPECT_NAME))
+        .map(EntitySpec::getName)
+        .collect(Collectors.toSet());
   }
 
   @Nonnull
   public static MetadataChangeProposal buildProposalForUrn(
-          Urn entityUrn,
-          String aspectName,
-          RecordTemplate recordTemplate
-  ) {
+      Urn entityUrn, String aspectName, RecordTemplate recordTemplate) {
     final MetadataChangeProposal proposal = new MetadataChangeProposal();
     proposal.setEntityUrn(entityUrn);
-    return setProposalProperties(
-            proposal,
-            entityUrn.getEntityType(),
-            aspectName,
-            recordTemplate
-    );
+    return setProposalProperties(proposal, entityUrn.getEntityType(), aspectName, recordTemplate);
   }
 
   @Nonnull
   private static MetadataChangeProposal setProposalProperties(
-          @Nonnull MetadataChangeProposal proposal,
-          @Nonnull String entityType,
-          @Nonnull String aspectName,
-          @Nonnull RecordTemplate aspect
-  ) {
+      @Nonnull MetadataChangeProposal proposal,
+      @Nonnull String entityType,
+      @Nonnull String aspectName,
+      @Nonnull RecordTemplate aspect) {
     proposal.setEntityType(entityType);
     proposal.setAspectName(aspectName);
     proposal.setAspect(GenericRecordUtils.serializeAspect(aspect));
@@ -74,7 +63,5 @@ public class TestUtils {
     return proposal;
   }
 
-  private TestUtils() {
-  }
-
+  private TestUtils() {}
 }

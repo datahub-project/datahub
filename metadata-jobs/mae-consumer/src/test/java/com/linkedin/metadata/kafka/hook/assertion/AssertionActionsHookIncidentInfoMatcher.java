@@ -7,7 +7,8 @@ import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeProposal;
 import org.mockito.ArgumentMatcher;
 
-public class AssertionActionsHookIncidentInfoMatcher implements ArgumentMatcher<MetadataChangeProposal> {
+public class AssertionActionsHookIncidentInfoMatcher
+    implements ArgumentMatcher<MetadataChangeProposal> {
 
   private MetadataChangeProposal left;
 
@@ -24,17 +25,13 @@ public class AssertionActionsHookIncidentInfoMatcher implements ArgumentMatcher<
   }
 
   private boolean incidentInfoMatches(GenericAspect left, GenericAspect right) {
-    IncidentInfo leftProps = GenericRecordUtils.deserializeAspect(
-        left.getValue(),
-        "application/json",
-        IncidentInfo.class
-    );
+    IncidentInfo leftProps =
+        GenericRecordUtils.deserializeAspect(
+            left.getValue(), "application/json", IncidentInfo.class);
 
-    IncidentInfo rightProps = GenericRecordUtils.deserializeAspect(
-        right.getValue(),
-        "application/json",
-        IncidentInfo.class
-    );
+    IncidentInfo rightProps =
+        GenericRecordUtils.deserializeAspect(
+            right.getValue(), "application/json", IncidentInfo.class);
 
     // Omit timestamp comparison.
     return leftProps.getTitle(GetMode.NULL).equals(rightProps.getTitle(GetMode.NULL))
@@ -43,10 +40,20 @@ public class AssertionActionsHookIncidentInfoMatcher implements ArgumentMatcher<
         && leftProps.getPriority(GetMode.NULL).equals(rightProps.getPriority(GetMode.NULL))
         && leftProps.getEntities(GetMode.NULL).equals(rightProps.getEntities(GetMode.NULL))
         && leftProps.getStatus().getState().equals(rightProps.getStatus().getState())
-        && leftProps.getStatus().getMessage(GetMode.NULL).equals(rightProps.getStatus().getMessage(GetMode.NULL))
-        && leftProps.getStatus().getLastUpdated().getActor().equals(rightProps.getStatus().getLastUpdated().getActor())
+        && leftProps
+            .getStatus()
+            .getMessage(GetMode.NULL)
+            .equals(rightProps.getStatus().getMessage(GetMode.NULL))
+        && leftProps
+            .getStatus()
+            .getLastUpdated()
+            .getActor()
+            .equals(rightProps.getStatus().getLastUpdated().getActor())
         && leftProps.getSource().getType().equals(rightProps.getSource().getType())
-        && leftProps.getSource().getSourceUrn(GetMode.NULL).equals(rightProps.getSource().getSourceUrn(GetMode.NULL))
+        && leftProps
+            .getSource()
+            .getSourceUrn(GetMode.NULL)
+            .equals(rightProps.getSource().getSourceUrn(GetMode.NULL))
         && leftProps.getCreated().getActor().equals(rightProps.getCreated().getActor());
   }
 }

@@ -1,5 +1,8 @@
 package com.linkedin.metadata.timeline.eventgenerator;
 
+import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.timeline.eventgenerator.EditableDatasetPropertiesChangeEventGenerator.*;
+
 import com.datahub.util.RecordUtils;
 import com.github.fge.jsonpatch.JsonPatch;
 import com.linkedin.common.AuditStamp;
@@ -17,46 +20,55 @@ import java.util.List;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
-import static com.linkedin.metadata.Constants.*;
-import static com.linkedin.metadata.timeline.eventgenerator.EditableDatasetPropertiesChangeEventGenerator.*;
-
-
-public class DatasetPropertiesChangeEventGenerator extends EntityChangeEventGenerator<DatasetProperties> {
-  private static List<ChangeEvent> computeDiffs(DatasetProperties baseDatasetProperties,
-      @Nonnull DatasetProperties targetDatasetProperties, @Nonnull String entityUrn, AuditStamp auditStamp) {
+public class DatasetPropertiesChangeEventGenerator
+    extends EntityChangeEventGenerator<DatasetProperties> {
+  private static List<ChangeEvent> computeDiffs(
+      DatasetProperties baseDatasetProperties,
+      @Nonnull DatasetProperties targetDatasetProperties,
+      @Nonnull String entityUrn,
+      AuditStamp auditStamp) {
     List<ChangeEvent> changeEvents = new ArrayList<>();
-    String baseDescription = (baseDatasetProperties != null) ? baseDatasetProperties.getDescription() : null;
-    String targetDescription = (targetDatasetProperties != null) ? targetDatasetProperties.getDescription() : null;
+    String baseDescription =
+        (baseDatasetProperties != null) ? baseDatasetProperties.getDescription() : null;
+    String targetDescription =
+        (targetDatasetProperties != null) ? targetDatasetProperties.getDescription() : null;
 
     if (baseDescription == null && targetDescription != null) {
       // Description added
-      changeEvents.add(ChangeEvent.builder().entityUrn(entityUrn)
-          .category(ChangeCategory.DOCUMENTATION)
-          .operation(ChangeOperation.ADD)
-          .semVerChange(SemanticChangeType.MINOR)
-          .description(String.format(DESCRIPTION_ADDED, entityUrn, targetDescription))
-          .auditStamp(auditStamp)
-          .build());
+      changeEvents.add(
+          ChangeEvent.builder()
+              .entityUrn(entityUrn)
+              .category(ChangeCategory.DOCUMENTATION)
+              .operation(ChangeOperation.ADD)
+              .semVerChange(SemanticChangeType.MINOR)
+              .description(String.format(DESCRIPTION_ADDED, entityUrn, targetDescription))
+              .auditStamp(auditStamp)
+              .build());
     } else if (baseDescription != null && targetDescription == null) {
       // Description removed.
-      changeEvents.add(ChangeEvent.builder()
-          .entityUrn(entityUrn)
-          .category(ChangeCategory.DOCUMENTATION)
-          .operation(ChangeOperation.REMOVE)
-          .semVerChange(SemanticChangeType.MINOR)
-          .description(String.format(DESCRIPTION_REMOVED, entityUrn, baseDescription))
-          .auditStamp(auditStamp)
-          .build());
-    } else if (baseDescription != null && targetDescription != null && !baseDescription.equals(targetDescription)) {
+      changeEvents.add(
+          ChangeEvent.builder()
+              .entityUrn(entityUrn)
+              .category(ChangeCategory.DOCUMENTATION)
+              .operation(ChangeOperation.REMOVE)
+              .semVerChange(SemanticChangeType.MINOR)
+              .description(String.format(DESCRIPTION_REMOVED, entityUrn, baseDescription))
+              .auditStamp(auditStamp)
+              .build());
+    } else if (baseDescription != null
+        && targetDescription != null
+        && !baseDescription.equals(targetDescription)) {
       // Description has been modified.
-      changeEvents.add(ChangeEvent.builder()
-          .entityUrn(entityUrn)
-          .category(ChangeCategory.DOCUMENTATION)
-          .operation(ChangeOperation.MODIFY)
-          .semVerChange(SemanticChangeType.MINOR)
-          .description(String.format(DESCRIPTION_CHANGED, entityUrn, baseDescription, targetDescription))
-          .auditStamp(auditStamp)
-          .build());
+      changeEvents.add(
+          ChangeEvent.builder()
+              .entityUrn(entityUrn)
+              .category(ChangeCategory.DOCUMENTATION)
+              .operation(ChangeOperation.MODIFY)
+              .semVerChange(SemanticChangeType.MINOR)
+              .description(
+                  String.format(DESCRIPTION_CHANGED, entityUrn, baseDescription, targetDescription))
+              .auditStamp(auditStamp)
+              .build());
     }
     return changeEvents;
   }
@@ -70,17 +82,23 @@ public class DatasetPropertiesChangeEventGenerator extends EntityChangeEventGene
   }
 
   @Override
-  public ChangeTransaction getSemanticDiff(EntityAspect previousValue, EntityAspect currentValue,
-      ChangeCategory element, JsonPatch rawDiff, boolean rawDiffsRequested) {
-    if (!previousValue.getAspect().equals(DATASET_PROPERTIES_ASPECT_NAME) || !currentValue.getAspect()
-        .equals(DATASET_PROPERTIES_ASPECT_NAME)) {
+  public ChangeTransaction getSemanticDiff(
+      EntityAspect previousValue,
+      EntityAspect currentValue,
+      ChangeCategory element,
+      JsonPatch rawDiff,
+      boolean rawDiffsRequested) {
+    if (!previousValue.getAspect().equals(DATASET_PROPERTIES_ASPECT_NAME)
+        || !currentValue.getAspect().equals(DATASET_PROPERTIES_ASPECT_NAME)) {
       throw new IllegalArgumentException("Aspect is not " + DATASET_PROPERTIES_ASPECT_NAME);
     }
     List<ChangeEvent> changeEvents = new ArrayList<>();
     if (element == ChangeCategory.DOCUMENTATION) {
       DatasetProperties baseDatasetProperties = getDatasetPropertiesFromAspect(previousValue);
       DatasetProperties targetDatasetProperties = getDatasetPropertiesFromAspect(currentValue);
-      changeEvents.addAll(computeDiffs(baseDatasetProperties, targetDatasetProperties, currentValue.getUrn(), null));
+      changeEvents.addAll(
+          computeDiffs(
+              baseDatasetProperties, targetDatasetProperties, currentValue.getUrn(), null));
     }
 
     // Assess the highest change at the transaction(schema) level.

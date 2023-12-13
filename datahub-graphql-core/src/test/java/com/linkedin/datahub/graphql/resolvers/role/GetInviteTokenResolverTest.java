@@ -1,5 +1,9 @@
 package com.linkedin.datahub.graphql.resolvers.role;
 
+import static com.linkedin.datahub.graphql.TestUtils.*;
+import static org.mockito.Mockito.*;
+import static org.testng.Assert.*;
+
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.invite.InviteTokenService;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -7,11 +11,6 @@ import com.linkedin.datahub.graphql.generated.GetInviteTokenInput;
 import graphql.schema.DataFetchingEnvironment;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
-
-import static com.linkedin.datahub.graphql.TestUtils.*;
-import static org.mockito.Mockito.*;
-import static org.testng.Assert.*;
-
 
 public class GetInviteTokenResolverTest {
   private static final String ROLE_URN_STRING = "urn:li:dataHubRole:Admin";
@@ -43,12 +42,14 @@ public class GetInviteTokenResolverTest {
     QueryContext mockContext = getMockAllowContext();
     when(_dataFetchingEnvironment.getContext()).thenReturn(mockContext);
     when(mockContext.getAuthentication()).thenReturn(_authentication);
-    when(_inviteTokenService.getInviteToken(any(), eq(false), eq(_authentication))).thenReturn(INVITE_TOKEN_STRING);
+    when(_inviteTokenService.getInviteToken(any(), eq(false), eq(_authentication)))
+        .thenReturn(INVITE_TOKEN_STRING);
 
     GetInviteTokenInput input = new GetInviteTokenInput();
     input.setRoleUrn(ROLE_URN_STRING);
     when(_dataFetchingEnvironment.getArgument(eq("input"))).thenReturn(input);
 
-    assertEquals(_resolver.get(_dataFetchingEnvironment).join().getInviteToken(), INVITE_TOKEN_STRING);
+    assertEquals(
+        _resolver.get(_dataFetchingEnvironment).join().getInviteToken(), INVITE_TOKEN_STRING);
   }
 }

@@ -1,5 +1,7 @@
 package com.linkedin.metadata.boot.steps;
 
+import static com.linkedin.metadata.service.AssertionsSummaryUtils.*;
+
 import com.linkedin.assertion.AssertionInfo;
 import com.linkedin.assertion.AssertionResult;
 import com.linkedin.assertion.AssertionResultType;
@@ -20,19 +22,15 @@ import com.linkedin.metadata.service.AssertionService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import java.util.Collections;
-import lombok.extern.slf4j.Slf4j;
-
-import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
-
-import static com.linkedin.metadata.service.AssertionsSummaryUtils.*;
-
+import javax.annotation.Nonnull;
+import lombok.extern.slf4j.Slf4j;
 
 /**
- * Upgrade step that creates and/or updates AssertionsSummary aspects for datasets that the assertions are on.
- * This allows us to search and query for datasets by passing/failing assertions.
+ * Upgrade step that creates and/or updates AssertionsSummary aspects for datasets that the
+ * assertions are on. This allows us to search and query for datasets by passing/failing assertions.
  */
 @Slf4j
 public class MigrateAssertionsSummaryStep extends UpgradeStep {
@@ -50,8 +48,7 @@ public class MigrateAssertionsSummaryStep extends UpgradeStep {
       EntitySearchService entitySearchService,
       AssertionService assertionService,
       TimeseriesAspectService timeseriesAspectService,
-      ConfigurationProvider configurationProvider
-  ) {
+      ConfigurationProvider configurationProvider) {
     super(entityService, VERSION, UPGRADE_ID);
     _entitySearchService = entitySearchService;
     _assertionService = assertionService;
@@ -73,11 +70,20 @@ public class MigrateAssertionsSummaryStep extends UpgradeStep {
     String nextScrollId = null;
 
     do {
-      ScrollResult scrollResult = _entitySearchService.scroll(Collections.singletonList(Constants.ASSERTION_ENTITY_NAME),
-          null, null, BATCH_SIZE, nextScrollId, _configurationProvider.getElasticSearch().getScroll().getTimeout());
+      ScrollResult scrollResult =
+          _entitySearchService.scroll(
+              Collections.singletonList(Constants.ASSERTION_ENTITY_NAME),
+              null,
+              null,
+              BATCH_SIZE,
+              nextScrollId,
+              _configurationProvider.getElasticSearch().getScroll().getTimeout());
       nextScrollId = scrollResult.getScrollId();
 
-      List<Urn> assertionsInBatch =  scrollResult.getEntities().stream().map(SearchEntity::getEntity).collect(Collectors.toList());
+      List<Urn> assertionsInBatch =
+          scrollResult.getEntities().stream()
+              .map(SearchEntity::getEntity)
+              .collect(Collectors.toList());
 
       try {
         batchAddAssertionsSummary(assertionsInBatch);
@@ -107,30 +113,37 @@ public class MigrateAssertionsSummaryStep extends UpgradeStep {
     }
 
     if (!assertionInfo.hasDatasetAssertion()) {
-      log.warn(String.format("AssertionInfo does not have datasetAssertion. Skipping upgrade for assertion %s", assertionUrn));
+      log.warn(
+          String.format(
+              "AssertionInfo does not have datasetAssertion. Skipping upgrade for assertion %s",
+              assertionUrn));
       return;
     }
 
     Urn datasetUrn = assertionInfo.getDatasetAssertion().getDataset();
 
     // 2. get most recent assertion run event
-    List<EnvelopedAspect> mostRecentRunEvents = _timeseriesAspectService.getAspectValues(
-        assertionUrn,
-        Constants.ASSERTION_ENTITY_NAME,
-        Constants.ASSERTION_RUN_EVENT_ASPECT_NAME,
-        null,
-        null,
-        1,
-        null,
-        null);
+    List<EnvelopedAspect> mostRecentRunEvents =
+        _timeseriesAspectService.getAspectValues(
+            assertionUrn,
+            Constants.ASSERTION_ENTITY_NAME,
+            Constants.ASSERTION_RUN_EVENT_ASPECT_NAME,
+            null,
+            null,
+            1,
+            null,
+            null);
 
     // we're only fetching 1 and only fetching the latest value, so findFirst
     Optional<EnvelopedAspect> runEvent = mostRecentRunEvents.stream().findFirst();
 
     // 3. convert runEvent to aspect value and add the assertion to the summary aspect
     if (runEvent.isPresent()) {
-      AssertionRunEvent assertionRunEvent = GenericRecordUtils.deserializeAspect(runEvent.get().getAspect().getValue(),
-          runEvent.get().getAspect().getContentType(), AssertionRunEvent.class);
+      AssertionRunEvent assertionRunEvent =
+          GenericRecordUtils.deserializeAspect(
+              runEvent.get().getAspect().getValue(),
+              runEvent.get().getAspect().getContentType(),
+              AssertionRunEvent.class);
       if (assertionRunEvent.hasResult()) {
         addAssertionToSummary(datasetUrn, assertionUrn, assertionInfo, assertionRunEvent);
       }
@@ -138,8 +151,8 @@ public class MigrateAssertionsSummaryStep extends UpgradeStep {
   }
 
   /**
-   * Adds an assertion to the AssertionSummary aspect for a related entity.
-   * This is used to search for entity by active and resolved assertions.
+   * Adds an assertion to the AssertionSummary aspect for a related entity. This is used to search
+   * for entity by active and resolved assertions.
    */
   private void addAssertionToSummary(
       @Nonnull final Urn entityUrn,
@@ -194,15 +207,17 @@ public class MigrateAssertionsSummaryStep extends UpgradeStep {
     return assertionSummaryDetails;
   }
 
-  /**
-   * Updates the assertions summary for a given entity
-   */
-  private void updateAssertionSummary(@Nonnull final Urn entityUrn, @Nonnull final AssertionsSummary newSummary) {
+  /** Updates the assertions summary for a given entity */
+  private void updateAssertionSummary(
+      @Nonnull final Urn entityUrn, @Nonnull final AssertionsSummary newSummary) {
     try {
       _assertionService.updateAssertionsSummary(entityUrn, newSummary);
     } catch (Exception e) {
       log.error(
-          String.format("Failed to updated assertions summary for entity with urn %s! Skipping updating the summary", entityUrn), e);
+          String.format(
+              "Failed to updated assertions summary for entity with urn %s! Skipping updating the summary",
+              entityUrn),
+          e);
     }
   }
 }

@@ -10,32 +10,34 @@ import graphql.schema.DataFetchingEnvironment;
 import java.util.concurrent.CompletableFuture;
 import lombok.extern.slf4j.Slf4j;
 
-/**
- * Gets a particular Ingestion Source by urn.
- */
+/** Gets a particular Ingestion Source by urn. */
 @Slf4j
 public class GlobalSettingsResolver implements DataFetcher<CompletableFuture<GlobalSettings>> {
 
   private final EntityClient _entityClient;
   private final SettingsMapper _settingsMapper;
 
-  public GlobalSettingsResolver(final EntityClient entityClient, final SecretService secretService) {
+  public GlobalSettingsResolver(
+      final EntityClient entityClient, final SecretService secretService) {
     _entityClient = entityClient;
     _settingsMapper = new SettingsMapper(secretService);
   }
 
   @Override
-  public CompletableFuture<GlobalSettings> get(final DataFetchingEnvironment environment) throws Exception {
+  public CompletableFuture<GlobalSettings> get(final DataFetchingEnvironment environment)
+      throws Exception {
 
     final QueryContext context = environment.getContext();
 
-    return CompletableFuture.supplyAsync(() -> {
-        try {
-          GlobalSettingsInfo globalSettings = SettingsMapper.getGlobalSettings(_entityClient, context.getAuthentication());
-          return _settingsMapper.mapGlobalSettings(globalSettings);
-        } catch (Exception e) {
-          throw new RuntimeException("Failed to retrieve Global Settings", e);
-        }
-      });
+    return CompletableFuture.supplyAsync(
+        () -> {
+          try {
+            GlobalSettingsInfo globalSettings =
+                SettingsMapper.getGlobalSettings(_entityClient, context.getAuthentication());
+            return _settingsMapper.mapGlobalSettings(globalSettings);
+          } catch (Exception e) {
+            throw new RuntimeException("Failed to retrieve Global Settings", e);
+          }
+        });
   }
 }

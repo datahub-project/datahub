@@ -11,11 +11,11 @@ import com.linkedin.gms.factory.entity.RestliEntityClientFactory;
 import com.linkedin.gms.factory.kafka.DataHubKafkaEventProducerFactory;
 import com.linkedin.gms.factory.notifications.SettingsProviderFactory;
 import com.linkedin.gms.factory.notifications.recipient.SlackNotificationRecipientBuilderFactory;
-import com.linkedin.metadata.spring.YamlPropertySourceFactory;
 import com.linkedin.metadata.dao.producer.KafkaHealthChecker;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.kafka.hook.notification.incident.IncidentNotificationGenerator;
+import com.linkedin.metadata.spring.YamlPropertySourceFactory;
 import javax.annotation.Nonnull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -26,8 +26,15 @@ import org.springframework.context.annotation.PropertySource;
 import org.springframework.context.annotation.Scope;
 
 @Configuration
-@Import({SystemAuthenticationFactory.class, RestliEntityClientFactory.class, GraphClientFactory.class,
-    SettingsProviderFactory.class, DataHubKafkaEventProducerFactory.class, KafkaHealthChecker.class, SlackNotificationRecipientBuilderFactory.class})
+@Import({
+  SystemAuthenticationFactory.class,
+  RestliEntityClientFactory.class,
+  GraphClientFactory.class,
+  SettingsProviderFactory.class,
+  DataHubKafkaEventProducerFactory.class,
+  KafkaHealthChecker.class,
+  SlackNotificationRecipientBuilderFactory.class
+})
 @PropertySource(value = "classpath:/application.yml", factory = YamlPropertySourceFactory.class)
 public class IncidentNotificationGeneratorFactory {
 
@@ -70,7 +77,6 @@ public class IncidentNotificationGeneratorFactory {
         _settingsProvider,
         _systemAuthentication,
         _slackNotificationRecipientBuilder,
-        _configProvider.getFeatureFlags()
-    );
+        _configProvider.getFeatureFlags());
   }
 }

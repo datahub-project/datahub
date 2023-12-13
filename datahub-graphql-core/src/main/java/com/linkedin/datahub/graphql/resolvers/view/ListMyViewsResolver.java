@@ -1,5 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.view;
 
+import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
+
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -30,21 +32,15 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
-
-
-/**
- * Resolver used for listing the current user's DataHub Views.
- */
+/** Resolver used for listing the current user's DataHub Views. */
 @Slf4j
 public class ListMyViewsResolver implements DataFetcher<CompletableFuture<ListViewsResult>> {
 
   private static final String CREATED_AT_FIELD = "createdAt";
   private static final String VIEW_TYPE_FIELD = "type";
   private static final String CREATOR_URN_FIELD = "createdBy";
-  private static final SortCriterion DEFAULT_SORT_CRITERION = new SortCriterion()
-      .setField(CREATED_AT_FIELD)
-      .setOrder(SortOrder.DESCENDING);
+  private static final SortCriterion DEFAULT_SORT_CRITERION =
+      new SortCriterion().setField(CREATED_AT_FIELD).setOrder(SortOrder.DESCENDING);
   private static final Integer DEFAULT_START = 0;
   private static final Integer DEFAULT_COUNT = 20;
   private static final String DEFAULT_QUERY = "";
@@ -56,44 +52,52 @@ public class ListMyViewsResolver implements DataFetcher<CompletableFuture<ListVi
   }
 
   @Override
-  public CompletableFuture<ListViewsResult> get(final DataFetchingEnvironment environment) throws Exception {
+  public CompletableFuture<ListViewsResult> get(final DataFetchingEnvironment environment)
+      throws Exception {
 
     final QueryContext context = environment.getContext();
-    final ListMyViewsInput input = bindArgument(environment.getArgument("input"), ListMyViewsInput.class);
+    final ListMyViewsInput input =
+        bindArgument(environment.getArgument("input"), ListMyViewsInput.class);
 
-    return CompletableFuture.supplyAsync(() -> {
-      final Integer start = input.getStart() == null ? DEFAULT_START : input.getStart();
-      final Integer count = input.getCount() == null ? DEFAULT_COUNT : input.getCount();
-      final String query = input.getQuery() == null ? DEFAULT_QUERY : input.getQuery();
-      final String viewType = input.getViewType() == null ? null : input.getViewType().toString();
+    return CompletableFuture.supplyAsync(
+        () -> {
+          final Integer start = input.getStart() == null ? DEFAULT_START : input.getStart();
+          final Integer count = input.getCount() == null ? DEFAULT_COUNT : input.getCount();
+          final String query = input.getQuery() == null ? DEFAULT_QUERY : input.getQuery();
+          final String viewType =
+              input.getViewType() == null ? null : input.getViewType().toString();
 
-      try {
+          try {
 
-        final SearchResult gmsResult = _entityClient.search(
-                Constants.DATAHUB_VIEW_ENTITY_NAME,
-                query,
-                buildFilters(viewType, context.getActorUrn()),
-                DEFAULT_SORT_CRITERION,
-                start,
-                count,
-                context.getAuthentication(),
-                new SearchFlags().setFulltext(true));
+            final SearchResult gmsResult =
+                _entityClient.search(
+                    Constants.DATAHUB_VIEW_ENTITY_NAME,
+                    query,
+                    buildFilters(viewType, context.getActorUrn()),
+                    DEFAULT_SORT_CRITERION,
+                    start,
+                    count,
+                    context.getAuthentication(),
+                    new SearchFlags().setFulltext(true));
 
-        final ListViewsResult result = new ListViewsResult();
-        result.setStart(gmsResult.getFrom());
-        result.setCount(gmsResult.getPageSize());
-        result.setTotal(gmsResult.getNumEntities());
-        result.setViews(mapUnresolvedViews(gmsResult.getEntities().stream()
-            .map(SearchEntity::getEntity)
-            .collect(Collectors.toList())));
-        return result;
-      } catch (Exception e) {
-        throw new RuntimeException("Failed to list Views", e);
-      }
-    });
+            final ListViewsResult result = new ListViewsResult();
+            result.setStart(gmsResult.getFrom());
+            result.setCount(gmsResult.getPageSize());
+            result.setTotal(gmsResult.getNumEntities());
+            result.setViews(
+                mapUnresolvedViews(
+                    gmsResult.getEntities().stream()
+                        .map(SearchEntity::getEntity)
+                        .collect(Collectors.toList())));
+            return result;
+          } catch (Exception e) {
+            throw new RuntimeException("Failed to list Views", e);
+          }
+        });
   }
 
-  // This method maps urns returned from the list endpoint into Partial View objects which will be resolved be a separate Batch resolver.
+  // This method maps urns returned from the list endpoint into Partial View objects which will be
+  // resolved be a separate Batch resolver.
   private List<DataHubView> mapUnresolvedViews(final List<Urn> entityUrns) {
     final List<DataHubView> results = new ArrayList<>();
     for (final Urn urn : entityUrns) {
@@ -110,14 +114,12 @@ public class ListMyViewsResolver implements DataFetcher<CompletableFuture<ListVi
     final AndFilterInput filterCriteria = new AndFilterInput();
     final List<FacetFilterInput> andConditions = new ArrayList<>();
     andConditions.add(
-        new FacetFilterInput(CREATOR_URN_FIELD,
-            null,
-            ImmutableList.of(creatorUrn),
-            false,
-            FilterOperator.EQUAL));
+        new FacetFilterInput(
+            CREATOR_URN_FIELD, null, ImmutableList.of(creatorUrn), false, FilterOperator.EQUAL));
     if (viewType != null) {
       andConditions.add(
-          new FacetFilterInput(VIEW_TYPE_FIELD, null, ImmutableList.of(viewType), false, FilterOperator.EQUAL));
+          new FacetFilterInput(
+              VIEW_TYPE_FIELD, null, ImmutableList.of(viewType), false, FilterOperator.EQUAL));
     }
     filterCriteria.setAnd(andConditions);
 

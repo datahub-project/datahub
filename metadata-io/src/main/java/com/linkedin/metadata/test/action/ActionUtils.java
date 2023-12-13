@@ -6,7 +6,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-
 public class ActionUtils {
 
   public static Map<String, List<Urn>> getEntityTypeToUrns(List<Urn> urns) {
@@ -18,7 +17,5 @@ public class ActionUtils {
     return result;
   }
 
-  private ActionUtils() {
-
-  }
+  private ActionUtils() {}
 }

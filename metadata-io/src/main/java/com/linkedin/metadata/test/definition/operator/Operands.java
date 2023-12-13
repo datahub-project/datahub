@@ -7,15 +7,11 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-
-/**
- * A set of named {@link Expression}s.
- */
+/** A set of named {@link Expression}s. */
 public class Operands {
-  /**
-   * The list of operands.
-   */
+  /** The list of operands. */
   private final List<Operand> operands;
+
   private final Map<String, Operand> nameToOperand;
 
   public Operands(final List<Operand> operands) {
@@ -23,11 +19,10 @@ public class Operands {
     this.nameToOperand = initNameToOperands(operands);
   }
 
-  /**
-   * Utility function to check whether there is a param of with input key of input type
-   */
+  /** Utility function to check whether there is a param of with input key of input type */
   public boolean hasKeyOfType(String key, ExpressionType type) {
-    return nameToOperand.containsKey(key) && nameToOperand.get(key).getExpression().expressionType() == type;
+    return nameToOperand.containsKey(key)
+        && nameToOperand.get(key).getExpression().expressionType() == type;
   }
 
   public Operand get(String name) {
@@ -36,7 +31,8 @@ public class Operands {
 
   public Operand get(int index) {
     if (index >= this.operands.size()) {
-      throw new IllegalArgumentException(String.format("Index out of bounds: Illegal operand index %s provided!", index));
+      throw new IllegalArgumentException(
+          String.format("Index out of bounds: Illegal operand index %s provided!", index));
     }
     return this.operands.get(index);
   }
@@ -50,21 +46,20 @@ public class Operands {
   }
 
   /**
-   * Utility function to get param with input key of input paramClass. Returns empty if there is none
+   * Utility function to get param with input key of input paramClass. Returns empty if there is
+   * none
    */
   public <T> Optional<T> getOperandOfType(String key, Class<T> paramClass) {
-    if (!nameToOperand.containsKey(key) || !paramClass.isAssignableFrom(nameToOperand.get(key).getExpression().getClass())) {
+    if (!nameToOperand.containsKey(key)
+        || !paramClass.isAssignableFrom(nameToOperand.get(key).getExpression().getClass())) {
       return Optional.empty();
     }
     return Optional.of(paramClass.cast(nameToOperand.get(key).getExpression()));
   }
 
-  /**
-   * Utility function to get all parameters with the input paramClass type
-   */
+  /** Utility function to get all parameters with the input paramClass type */
   public <T> List<T> getOperandsOfType(Class<T> clazz) {
-    return operands
-        .stream()
+    return operands.stream()
         .map(Operand::getExpression)
         .filter(exp -> clazz.isAssignableFrom(exp.getClass()))
         .map(clazz::cast)

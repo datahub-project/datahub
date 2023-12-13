@@ -1,5 +1,7 @@
 package com.datahub.notification;
 
+import static com.linkedin.metadata.Constants.*;
+
 import com.datahub.authentication.Authentication;
 import com.datahub.notification.provider.IdentityProvider;
 import com.google.common.collect.ImmutableMap;
@@ -21,33 +23,26 @@ import org.mockito.Mockito;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
-import static com.linkedin.metadata.Constants.*;
-
-
 public class IdentityProviderTest {
 
   private static final Urn TEST_USER_1 = Urn.createFromTuple(CORP_USER_ENTITY_NAME, "test");
   private static final Urn TEST_USER_2 = Urn.createFromTuple(CORP_USER_ENTITY_NAME, "test2");
-  private static final Set<Urn> TEST_USER_URNS = ImmutableSet.of(
-      TEST_USER_1,
-      TEST_USER_2
-  );
+  private static final Set<Urn> TEST_USER_URNS = ImmutableSet.of(TEST_USER_1, TEST_USER_2);
 
   @Test
   public void testGetUser() throws Exception {
     final EntityClient mockClient = Mockito.mock(EntityClient.class);
-    Mockito.when(mockClient.batchGetV2(
-        Mockito.eq(CORP_USER_ENTITY_NAME),
-        Mockito.eq(ImmutableSet.of(TEST_USER_1)),
-        Mockito.eq(ImmutableSet.of(
-            CORP_USER_INFO_ASPECT_NAME,
-            CORP_USER_EDITABLE_INFO_NAME,
-            CORP_USER_STATUS_ASPECT_NAME
-        )),
-        Mockito.any(Authentication.class)
-    )).thenReturn(
-        ImmutableMap.of(TEST_USER_1, mockTestUser1Response())
-    );
+    Mockito.when(
+            mockClient.batchGetV2(
+                Mockito.eq(CORP_USER_ENTITY_NAME),
+                Mockito.eq(ImmutableSet.of(TEST_USER_1)),
+                Mockito.eq(
+                    ImmutableSet.of(
+                        CORP_USER_INFO_ASPECT_NAME,
+                        CORP_USER_EDITABLE_INFO_NAME,
+                        CORP_USER_STATUS_ASPECT_NAME)),
+                Mockito.any(Authentication.class)))
+        .thenReturn(ImmutableMap.of(TEST_USER_1, mockTestUser1Response()));
 
     final Authentication mockAuthentication = Mockito.mock(Authentication.class);
     final IdentityProvider identityProvider = new IdentityProvider(mockClient, mockAuthentication);
@@ -60,19 +55,17 @@ public class IdentityProviderTest {
   @Test
   public void testBatchGetUsers() throws Exception {
     final EntityClient mockClient = Mockito.mock(EntityClient.class);
-    Mockito.when(mockClient.batchGetV2(
-        Mockito.eq(CORP_USER_ENTITY_NAME),
-        Mockito.eq(TEST_USER_URNS),
-        Mockito.eq(ImmutableSet.of(
-            CORP_USER_INFO_ASPECT_NAME,
-            CORP_USER_EDITABLE_INFO_NAME,
-            CORP_USER_STATUS_ASPECT_NAME
-        )),
-        Mockito.any(Authentication.class)
-    )).thenReturn(
-        mockTestUsersResponse()
-    );
-
+    Mockito.when(
+            mockClient.batchGetV2(
+                Mockito.eq(CORP_USER_ENTITY_NAME),
+                Mockito.eq(TEST_USER_URNS),
+                Mockito.eq(
+                    ImmutableSet.of(
+                        CORP_USER_INFO_ASPECT_NAME,
+                        CORP_USER_EDITABLE_INFO_NAME,
+                        CORP_USER_STATUS_ASPECT_NAME)),
+                Mockito.any(Authentication.class)))
+        .thenReturn(mockTestUsersResponse());
 
     final Authentication mockAuthentication = Mockito.mock(Authentication.class);
     final IdentityProvider identityProvider = new IdentityProvider(mockClient, mockAuthentication);
@@ -107,36 +100,41 @@ public class IdentityProviderTest {
     return mockTestUsersResponse("Test", "User 2", "Test User 2", "testuser2@gmail.com", "Sales");
   }
 
-  private EntityResponse mockTestUsersResponse(String firstName, String lastName, String displayName, String email, String title) {
+  private EntityResponse mockTestUsersResponse(
+      String firstName, String lastName, String displayName, String email, String title) {
     final EntityResponse user = new EntityResponse();
     user.setUrn(TEST_USER_1);
     user.setEntityName(CORP_USER_ENTITY_NAME);
     final EnvelopedAspectMap testUser1Aspects = new EnvelopedAspectMap();
-    testUser1Aspects.put(CORP_USER_INFO_ASPECT_NAME, new EnvelopedAspect()
-        .setName(CORP_USER_INFO_ASPECT_NAME)
-        .setType(AspectType.VERSIONED)
-        .setCreated(mockAuditStamp())
-        .setValue(new Aspect(
-            new CorpUserInfo()
-                .setActive(true)
-                .setEmail(email)
-                .setFirstName(firstName)
-                .setLastName(lastName)
-                .setDisplayName(displayName)
-                .setFullName(firstName + lastName)
-                .setTitle(title).data()
-        ))
-    );
-    testUser1Aspects.put(CORP_USER_EDITABLE_INFO_NAME, new EnvelopedAspect()
-        .setName(CORP_USER_EDITABLE_INFO_NAME)
-        .setType(AspectType.VERSIONED)
-        .setCreated(mockAuditStamp())
-        .setValue(new Aspect(
-            new CorpUserEditableInfo()
-                .setEmail(email)
-                .setDisplayName(displayName).data()
-        ))
-    );
+    testUser1Aspects.put(
+        CORP_USER_INFO_ASPECT_NAME,
+        new EnvelopedAspect()
+            .setName(CORP_USER_INFO_ASPECT_NAME)
+            .setType(AspectType.VERSIONED)
+            .setCreated(mockAuditStamp())
+            .setValue(
+                new Aspect(
+                    new CorpUserInfo()
+                        .setActive(true)
+                        .setEmail(email)
+                        .setFirstName(firstName)
+                        .setLastName(lastName)
+                        .setDisplayName(displayName)
+                        .setFullName(firstName + lastName)
+                        .setTitle(title)
+                        .data())));
+    testUser1Aspects.put(
+        CORP_USER_EDITABLE_INFO_NAME,
+        new EnvelopedAspect()
+            .setName(CORP_USER_EDITABLE_INFO_NAME)
+            .setType(AspectType.VERSIONED)
+            .setCreated(mockAuditStamp())
+            .setValue(
+                new Aspect(
+                    new CorpUserEditableInfo()
+                        .setEmail(email)
+                        .setDisplayName(displayName)
+                        .data())));
     user.setAspects(testUser1Aspects);
     return user;
   }

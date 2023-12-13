@@ -1,5 +1,7 @@
 package com.datahub.auth.authentication;
 
+import static org.mockito.Mockito.*;
+
 import com.datahub.auth.authentication.filter.AuthenticationFilter;
 import com.datahub.authentication.AuthenticationConfiguration;
 import com.datahub.authentication.AuthenticatorConfiguration;
@@ -17,11 +19,8 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.DependsOn;
 
-import static org.mockito.Mockito.*;
-
 @Configuration
 public class AuthTestConfiguration {
-
 
   @Bean
   public EntityService entityService() {
@@ -29,15 +28,16 @@ public class AuthTestConfiguration {
   }
 
   @Bean("dataHubTokenService")
-  public StatefulTokenService statefulTokenService(ConfigurationProvider configurationProvider, EntityService entityService) {
-    TokenServiceConfiguration tokenServiceConfiguration = configurationProvider.getAuthentication().getTokenService();
+  public StatefulTokenService statefulTokenService(
+      ConfigurationProvider configurationProvider, EntityService entityService) {
+    TokenServiceConfiguration tokenServiceConfiguration =
+        configurationProvider.getAuthentication().getTokenService();
     return new StatefulTokenService(
         tokenServiceConfiguration.getSigningKey(),
         tokenServiceConfiguration.getSigningAlgorithm(),
         tokenServiceConfiguration.getIssuer(),
         entityService,
-        tokenServiceConfiguration.getSalt()
-    );
+        tokenServiceConfiguration.getSalt());
   }
 
   @Bean
@@ -59,8 +59,12 @@ public class AuthTestConfiguration {
     authenticationConfiguration.setTokenService(tokenServiceConfiguration);
     AuthenticatorConfiguration authenticator = new AuthenticatorConfiguration();
     authenticator.setType("com.datahub.authentication.authenticator.DataHubTokenAuthenticator");
-    authenticator.setConfigs(Map.of("signingKey", "WnEdIeTG/VVCLQqGwC/BAkqyY0k+H8NEAtWGejrBI94=",
-        "salt", "ohDVbJBvHHVJh9S/UA4BYF9COuNnqqVhr9MLKEGXk1O="));
+    authenticator.setConfigs(
+        Map.of(
+            "signingKey",
+            "WnEdIeTG/VVCLQqGwC/BAkqyY0k+H8NEAtWGejrBI94=",
+            "salt",
+            "ohDVbJBvHHVJh9S/UA4BYF9COuNnqqVhr9MLKEGXk1O="));
     List<AuthenticatorConfiguration> authenticators = List.of(authenticator);
     authenticationConfiguration.setAuthenticators(authenticators);
     authPluginConfiguration.setPath("");

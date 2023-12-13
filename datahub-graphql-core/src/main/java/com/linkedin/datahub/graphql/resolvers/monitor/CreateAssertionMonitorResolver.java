@@ -1,5 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.monitor;
 
+import static com.linkedin.datahub.graphql.resolvers.monitor.MonitorUtils.*;
+
 import com.linkedin.assertion.AssertionInfo;
 import com.linkedin.assertion.AssertionType;
 import com.linkedin.common.urn.Urn;
@@ -17,13 +19,9 @@ import com.linkedin.metadata.service.MonitorService;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
-
-import java.util.concurrent.CompletableFuture;
-
-import static com.linkedin.datahub.graphql.resolvers.monitor.MonitorUtils.*;
-
 
 @Slf4j
 public class CreateAssertionMonitorResolver implements DataFetcher<CompletableFuture<Monitor>> {
@@ -31,45 +29,57 @@ public class CreateAssertionMonitorResolver implements DataFetcher<CompletableFu
   private final MonitorService _monitorService;
   private final AssertionService _assertionService;
 
-  public CreateAssertionMonitorResolver(@Nonnull final MonitorService monitorService, @Nonnull final AssertionService assertionService) {
+  public CreateAssertionMonitorResolver(
+      @Nonnull final MonitorService monitorService,
+      @Nonnull final AssertionService assertionService) {
     _monitorService = Objects.requireNonNull(monitorService, "monitorService is required");
     _assertionService = Objects.requireNonNull(assertionService, "assertionService is required");
   }
 
   @Override
-  public CompletableFuture<Monitor> get(final DataFetchingEnvironment environment) throws Exception {
+  public CompletableFuture<Monitor> get(final DataFetchingEnvironment environment)
+      throws Exception {
     final QueryContext context = environment.getContext();
-    final CreateAssertionMonitorInput
-        input = ResolverUtils.bindArgument(environment.getArgument("input"), CreateAssertionMonitorInput.class);
+    final CreateAssertionMonitorInput input =
+        ResolverUtils.bindArgument(
+            environment.getArgument("input"), CreateAssertionMonitorInput.class);
     final Urn assertionUrn = UrnUtils.getUrn(input.getAssertionUrn());
     final Urn entityUrn = UrnUtils.getUrn(input.getEntityUrn());
 
-    return CompletableFuture.supplyAsync(() -> {
+    return CompletableFuture.supplyAsync(
+        () -> {
+          if (isAuthorizedToCreateMonitor(entityUrn, assertionUrn, context)) {
+            try {
+              // First create the new monitor
+              final Urn monitorUrn =
+                  _monitorService.createAssertionMonitor(
+                      entityUrn,
+                      assertionUrn,
+                      createCronSchedule(input.getSchedule()),
+                      createAssertionEvaluationParameters(input.getParameters()),
+                      input.getExecutorId(),
+                      context.getAuthentication());
 
-      if (isAuthorizedToCreateMonitor(entityUrn, assertionUrn, context)) {
-        try {
-          // First create the new monitor
-          final Urn monitorUrn = _monitorService.createAssertionMonitor(
-              entityUrn,
-              assertionUrn,
-              createCronSchedule(input.getSchedule()),
-              createAssertionEvaluationParameters(input.getParameters()),
-              input.getExecutorId(),
-              context.getAuthentication()
-          );
-
-          // Then, return the new monitor
-          return MonitorMapper.map(_monitorService.getMonitorEntityResponse(monitorUrn, context.getAuthentication()));
-        } catch (Exception e) {
-          log.error("Failed to create Assertion monitor!", e);
-          throw new DataHubGraphQLException("Failed to create Assertion Monitor! An unknown error occurred.", DataHubGraphQLErrorCode.SERVER_ERROR);
-        }
-      }
-      throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
-    });
+              // Then, return the new monitor
+              return MonitorMapper.map(
+                  _monitorService.getMonitorEntityResponse(
+                      monitorUrn, context.getAuthentication()));
+            } catch (Exception e) {
+              log.error("Failed to create Assertion monitor!", e);
+              throw new DataHubGraphQLException(
+                  "Failed to create Assertion Monitor! An unknown error occurred.",
+                  DataHubGraphQLErrorCode.SERVER_ERROR);
+            }
+          }
+          throw new AuthorizationException(
+              "Unauthorized to perform this action. Please contact your DataHub administrator.");
+        });
   }
 
-  private boolean isAuthorizedToCreateMonitor(@Nonnull final Urn entityUrn, @Nonnull final Urn assertionUrn, @Nonnull final QueryContext context) {
+  private boolean isAuthorizedToCreateMonitor(
+      @Nonnull final Urn entityUrn,
+      @Nonnull final Urn assertionUrn,
+      @Nonnull final QueryContext context) {
     // If the monitor requires heightened checks (SQL monitors), then we require them here.
     AssertionInfo assertion = _assertionService.getAssertionInfo(assertionUrn);
     if (assertion != null) {
@@ -79,6 +89,8 @@ public class CreateAssertionMonitorResolver implements DataFetcher<CompletableFu
       // User is authorized - non sensitive assertion.
       return isAuthorizedToUpdateEntityMonitors(entityUrn, context);
     }
-    throw new DataHubGraphQLException(String.format("Assertion with urn %s does not exist!", assertionUrn), DataHubGraphQLErrorCode.BAD_REQUEST);
+    throw new DataHubGraphQLException(
+        String.format("Assertion with urn %s does not exist!", assertionUrn),
+        DataHubGraphQLErrorCode.BAD_REQUEST);
   }
 }

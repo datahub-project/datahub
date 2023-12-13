@@ -7,11 +7,13 @@ import java.util.List;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
-
 public class SimpleRecommendationRanker implements RecommendationModuleRanker {
   @Override
-  public List<RecommendationModule> rank(@Nonnull List<RecommendationModule> candidates, @Nonnull Urn userUrn,
-      @Nullable RecommendationRequestContext requestContext, int limit) {
+  public List<RecommendationModule> rank(
+      @Nonnull List<RecommendationModule> candidates,
+      @Nonnull Urn userUrn,
+      @Nullable RecommendationRequestContext requestContext,
+      int limit) {
     return candidates.subList(0, Math.min(candidates.size(), limit));
   }
 }

@@ -3,7 +3,6 @@ package com.linkedin.datahub.upgrade.impl;
 import com.linkedin.datahub.upgrade.UpgradeReport;
 import com.linkedin.datahub.upgrade.UpgradeResult;
 
-
 public class DefaultUpgradeResult implements UpgradeResult {
 
   private final Result _result;

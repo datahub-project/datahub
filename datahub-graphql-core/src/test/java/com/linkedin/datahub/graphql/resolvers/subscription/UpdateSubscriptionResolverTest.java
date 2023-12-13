@@ -1,5 +1,13 @@
 package com.linkedin.datahub.graphql.resolvers.subscription;
 
+import static com.linkedin.datahub.graphql.TestUtils.*;
+import static com.linkedin.datahub.graphql.resolvers.settings.NotificationSettingsTestUtils.SLACK_USER_HANDLE;
+import static com.linkedin.datahub.graphql.resolvers.subscription.SubscriptionTestUtils.*;
+import static com.linkedin.datahub.graphql.resolvers.subscription.SubscriptionTestUtils.USER_URN;
+import static com.linkedin.datahub.graphql.resolvers.subscription.SubscriptionTestUtils.USER_URN_STRING;
+import static org.mockito.Mockito.*;
+import static org.testng.Assert.*;
+
 import com.datahub.authentication.Authentication;
 import com.datahub.subscription.SubscriptionService;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -12,15 +20,6 @@ import graphql.schema.DataFetchingEnvironment;
 import java.util.Map;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
-
-import static com.linkedin.datahub.graphql.TestUtils.*;
-import static com.linkedin.datahub.graphql.resolvers.settings.NotificationSettingsTestUtils.SLACK_USER_HANDLE;
-import static com.linkedin.datahub.graphql.resolvers.subscription.SubscriptionTestUtils.USER_URN;
-import static com.linkedin.datahub.graphql.resolvers.subscription.SubscriptionTestUtils.USER_URN_STRING;
-import static com.linkedin.datahub.graphql.resolvers.subscription.SubscriptionTestUtils.*;
-import static org.mockito.Mockito.*;
-import static org.testng.Assert.*;
-
 
 public class UpdateSubscriptionResolverTest {
   private static final DataHubSubscription MAPPED_SUBSCRIPTION_1 = getMappedSubscription1();
@@ -45,7 +44,8 @@ public class UpdateSubscriptionResolverTest {
     input.setSubscriptionTypes(SUBSCRIPTION_GRAPHQL_TYPES_1);
     input.setEntityChangeTypes(ENTITY_CHANGE_GRAPHQL_TYPES_1);
 
-    final SubscriptionNotificationConfigInput notificationConfigInput = new SubscriptionNotificationConfigInput();
+    final SubscriptionNotificationConfigInput notificationConfigInput =
+        new SubscriptionNotificationConfigInput();
     final NotificationSettingsInput notificationSettings = new NotificationSettingsInput();
     notificationSettings.setSinkTypes(NOTIFICATION_SINK_GRAPHQL_TYPES);
     final SlackNotificationSettingsInput slackSettings = new SlackNotificationSettingsInput();
@@ -81,9 +81,7 @@ public class UpdateSubscriptionResolverTest {
 
   @Test
   public void testGetSubscriptionExceptionThrown() {
-    when(_subscriptionService.getSubscriptionInfo(
-        eq(SUBSCRIPTION_URN_1),
-        eq(_authentication)))
+    when(_subscriptionService.getSubscriptionInfo(eq(SUBSCRIPTION_URN_1), eq(_authentication)))
         .thenThrow(new RuntimeException());
 
     assertThrows(() -> _resolver.get(_dataFetchingEnvironment).join());
@@ -91,18 +89,16 @@ public class UpdateSubscriptionResolverTest {
 
   @Test
   public void testUpdateSubscriptionExceptionThrown() {
-    when(_subscriptionService.getSubscriptionInfo(
-        eq(SUBSCRIPTION_URN_1),
-        eq(_authentication)))
+    when(_subscriptionService.getSubscriptionInfo(eq(SUBSCRIPTION_URN_1), eq(_authentication)))
         .thenReturn(SUBSCRIPTION_INFO_1);
     when(_subscriptionService.updateSubscription(
-        eq(USER_URN),
-        eq(SUBSCRIPTION_URN_1),
-        eq(SUBSCRIPTION_INFO_1),
-        eq(SUBSCRIPTION_TYPES_1),
-        eq(ENTITY_CHANGE_TYPES_1),
-        eq(NOTIFICATION_CONFIG),
-        eq(_authentication)))
+            eq(USER_URN),
+            eq(SUBSCRIPTION_URN_1),
+            eq(SUBSCRIPTION_INFO_1),
+            eq(SUBSCRIPTION_TYPES_1),
+            eq(ENTITY_CHANGE_TYPES_1),
+            eq(NOTIFICATION_CONFIG),
+            eq(_authentication)))
         .thenThrow(new RuntimeException());
 
     assertThrows(() -> _resolver.get(_dataFetchingEnvironment).join());
@@ -110,22 +106,21 @@ public class UpdateSubscriptionResolverTest {
 
   @Test
   public void testUpdateSubscription() throws Exception {
-    when(_subscriptionService.getSubscriptionInfo(
-        eq(SUBSCRIPTION_URN_1),
-        eq(_authentication)))
+    when(_subscriptionService.getSubscriptionInfo(eq(SUBSCRIPTION_URN_1), eq(_authentication)))
         .thenReturn(SUBSCRIPTION_INFO_1);
     when(_subscriptionService.updateSubscription(
-        eq(USER_URN),
-        eq(SUBSCRIPTION_URN_1),
-        eq(SUBSCRIPTION_INFO_1),
-        eq(SUBSCRIPTION_TYPES_1),
-        eq(ENTITY_CHANGE_TYPES_1),
-        eq(NOTIFICATION_CONFIG),
-        eq(_authentication)))
+            eq(USER_URN),
+            eq(SUBSCRIPTION_URN_1),
+            eq(SUBSCRIPTION_INFO_1),
+            eq(SUBSCRIPTION_TYPES_1),
+            eq(ENTITY_CHANGE_TYPES_1),
+            eq(NOTIFICATION_CONFIG),
+            eq(_authentication)))
         .thenReturn(Map.entry(SUBSCRIPTION_URN_1, SUBSCRIPTION_INFO_1));
 
     final DataHubSubscription subscription = _resolver.get(_dataFetchingEnvironment).join();
-    final DataHubSubscriptionMatcher matcher1 = new DataHubSubscriptionMatcher(MAPPED_SUBSCRIPTION_1);
+    final DataHubSubscriptionMatcher matcher1 =
+        new DataHubSubscriptionMatcher(MAPPED_SUBSCRIPTION_1);
     assertTrue(matcher1.matches(subscription));
   }
 }

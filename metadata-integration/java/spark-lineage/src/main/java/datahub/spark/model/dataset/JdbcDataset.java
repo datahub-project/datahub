@@ -1,17 +1,16 @@
 package datahub.spark.model.dataset;
 
+import com.linkedin.common.FabricType;
+import io.opentracing.contrib.jdbc.parser.URLParser;
 import java.util.HashMap;
 import java.util.Map;
-
-import com.linkedin.common.FabricType;
-
-import io.opentracing.contrib.jdbc.parser.URLParser;
 import lombok.ToString;
 
 @ToString
 public class JdbcDataset extends SparkDataset {
-  //TODO: Should map to the central location on datahub for platform names
+  // TODO: Should map to the central location on datahub for platform names
   private static final Map<String, String> PLATFORM_NAME_MAPPING = new HashMap<>();
+
   static {
     PLATFORM_NAME_MAPPING.put("postgresql", "postgres");
   }

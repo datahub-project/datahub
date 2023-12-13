@@ -1,5 +1,8 @@
 package com.linkedin.metadata.test.action.owner;
 
+import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.test.action.ActionUtils.*;
+
 import com.linkedin.common.OwnershipType;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -14,10 +17,6 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-
-import static com.linkedin.metadata.Constants.*;
-import static com.linkedin.metadata.test.action.ActionUtils.*;
-
 
 @Slf4j
 @RequiredArgsConstructor
@@ -38,12 +37,11 @@ public class AddOwnersAction extends ValuesAction {
     // For each entity type, group then apply the action.
     List<String> ownerUrnStrs = params.getParams().get(VALUES_PARAM);
     List<String> ownershipTypes = params.getParams().get(OWNERSHIP_TYPE_PARAM);
-    com.linkedin.common.OwnershipType ownershipType = ownershipTypes != null && ownershipTypes.size() == 1
-        ? OwnershipType.valueOf(ownershipTypes.get(0))
-        : OwnershipType.NONE;
-    List<Urn> ownerUrns = ownerUrnStrs.stream()
-        .map(UrnUtils::getUrn)
-        .collect(Collectors.toList());
+    com.linkedin.common.OwnershipType ownershipType =
+        ownershipTypes != null && ownershipTypes.size() == 1
+            ? OwnershipType.valueOf(ownershipTypes.get(0))
+            : OwnershipType.NONE;
+    List<Urn> ownerUrns = ownerUrnStrs.stream().map(UrnUtils::getUrn).collect(Collectors.toList());
 
     final Map<String, List<Urn>> entityTypesToUrns = getEntityTypeToUrns(urns);
     for (Map.Entry<String, List<Urn>> entityTypeToUrns : entityTypesToUrns.entrySet()) {
@@ -56,8 +54,8 @@ public class AddOwnersAction extends ValuesAction {
       @Nonnull final List<Urn> urns,
       @Nonnull final OwnershipType ownershipType) {
     if (!urns.isEmpty()) {
-      this.ownerService.batchAddOwners(ownerUrns, getResourceReferences(urns),
-          ownershipType, METADATA_TESTS_SOURCE);
+      this.ownerService.batchAddOwners(
+          ownerUrns, getResourceReferences(urns), ownershipType, METADATA_TESTS_SOURCE);
     }
   }
 }

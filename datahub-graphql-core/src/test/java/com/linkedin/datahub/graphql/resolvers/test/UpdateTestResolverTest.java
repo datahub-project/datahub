@@ -1,5 +1,10 @@
 package com.linkedin.datahub.graphql.resolvers.test;
 
+import static com.linkedin.datahub.graphql.TestUtils.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
+import static org.testng.Assert.*;
+
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
@@ -25,21 +30,12 @@ import org.mockito.Mockito;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import static com.linkedin.datahub.graphql.TestUtils.*;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
-import static org.testng.Assert.*;
-
-
 public class UpdateTestResolverTest {
 
   private static final String TEST_URN = "urn:li:test:test-id";
-  private static final UpdateTestInput TEST_INPUT = new UpdateTestInput(
-      "test-name",
-      "test-category",
-      "test-description",
-      new TestDefinitionInput("{}")
-  );
+  private static final UpdateTestInput TEST_INPUT =
+      new UpdateTestInput(
+          "test-name", "test-category", "test-description", new TestDefinitionInput("{}"));
 
   private EntityClient mockClient;
   private TestEngine mockEngine;
@@ -70,16 +66,21 @@ public class UpdateTestResolverTest {
     resolver.get(mockEnv).get();
 
     // Not ideal to match against "any", but we don't know the auto-generated execution request id
-    ArgumentCaptor<MetadataChangeProposal> proposalCaptor = ArgumentCaptor.forClass(MetadataChangeProposal.class);
+    ArgumentCaptor<MetadataChangeProposal> proposalCaptor =
+        ArgumentCaptor.forClass(MetadataChangeProposal.class);
     Mockito.verify(mockClient, Mockito.times(1))
-        .ingestProposal(proposalCaptor.capture(), Mockito.any(Authentication.class), Mockito.eq(false));
+        .ingestProposal(
+            proposalCaptor.capture(), Mockito.any(Authentication.class), Mockito.eq(false));
     MetadataChangeProposal resultProposal = proposalCaptor.getValue();
     assertEquals(resultProposal.getEntityType(), Constants.TEST_ENTITY_NAME);
     assertEquals(resultProposal.getAspectName(), Constants.TEST_INFO_ASPECT_NAME);
     assertEquals(resultProposal.getChangeType(), ChangeType.UPSERT);
     assertEquals(resultProposal.getEntityUrn(), UrnUtils.getUrn(TEST_URN));
-    TestInfo resultInfo = GenericRecordUtils.deserializeAspect(resultProposal.getAspect().getValue(),
-        resultProposal.getAspect().getContentType(), TestInfo.class);
+    TestInfo resultInfo =
+        GenericRecordUtils.deserializeAspect(
+            resultProposal.getAspect().getValue(),
+            resultProposal.getAspect().getContentType(),
+            TestInfo.class);
     assertEquals(resultInfo.getName(), "test-name");
     assertEquals(resultInfo.getCategory(), "test-category");
     assertEquals(resultInfo.getDescription(), "test-description");
@@ -93,7 +94,8 @@ public class UpdateTestResolverTest {
     QueryContext mockContext = getMockAllowContext();
     Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(TEST_INPUT);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
-    Mockito.when(mockEngine.validateJson(anyString())).thenReturn(new ValidationResult(false, Collections.emptyList()));
+    Mockito.when(mockEngine.validateJson(anyString()))
+        .thenReturn(new ValidationResult(false, Collections.emptyList()));
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
     Mockito.verify(mockClient, Mockito.times(0))
@@ -109,19 +111,16 @@ public class UpdateTestResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
-    Mockito.verify(mockClient, Mockito.times(0)).ingestProposal(
-        Mockito.any(),
-        Mockito.any(Authentication.class),
-        Mockito.eq(false));
+    Mockito.verify(mockClient, Mockito.times(0))
+        .ingestProposal(Mockito.any(), Mockito.any(Authentication.class), Mockito.eq(false));
   }
 
   @Test
   public void testGetEntityClientException() throws Exception {
     // Execute resolver
-    Mockito.doThrow(RemoteInvocationException.class).when(mockClient).ingestProposal(
-        Mockito.any(),
-        Mockito.any(Authentication.class),
-        Mockito.eq(false));
+    Mockito.doThrow(RemoteInvocationException.class)
+        .when(mockClient)
+        .ingestProposal(Mockito.any(), Mockito.any(Authentication.class), Mockito.eq(false));
     QueryContext mockContext = getMockAllowContext();
     Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(TEST_INPUT);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);

@@ -1,5 +1,8 @@
 package com.linkedin.metadata.test.action.owner;
 
+import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.test.action.ActionUtils.*;
+
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.service.OwnerService;
@@ -12,10 +15,6 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-
-import static com.linkedin.metadata.Constants.*;
-import static com.linkedin.metadata.test.action.ActionUtils.*;
-
 
 @Slf4j
 @RequiredArgsConstructor
@@ -32,9 +31,7 @@ public class RemoveOwnersAction extends ValuesAction {
   public void apply(List<Urn> urns, ActionParameters params) throws InvalidOperandException {
     // For each entity type, group then apply the action.
     List<String> ownerUrnStrs = params.getParams().get(VALUES_PARAM);
-    List<Urn> ownerUrns = ownerUrnStrs.stream()
-        .map(UrnUtils::getUrn)
-        .collect(Collectors.toList());
+    List<Urn> ownerUrns = ownerUrnStrs.stream().map(UrnUtils::getUrn).collect(Collectors.toList());
 
     final Map<String, List<Urn>> entityTypesToUrns = getEntityTypeToUrns(urns);
     for (Map.Entry<String, List<Urn>> entityTypeToUrns : entityTypesToUrns.entrySet()) {
@@ -44,7 +41,8 @@ public class RemoveOwnersAction extends ValuesAction {
 
   private void applyInternal(List<Urn> ownerUrns, List<Urn> urns) {
     if (!urns.isEmpty()) {
-      this.ownerService.batchRemoveOwners(ownerUrns, getResourceReferences(urns), METADATA_TESTS_SOURCE);
+      this.ownerService.batchRemoveOwners(
+          ownerUrns, getResourceReferences(urns), METADATA_TESTS_SOURCE);
     }
   }
 }

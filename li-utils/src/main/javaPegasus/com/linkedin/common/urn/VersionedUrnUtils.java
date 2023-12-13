@@ -5,11 +5,9 @@ import java.util.Map;
 import java.util.SortedMap;
 import org.apache.commons.lang3.StringUtils;
 
-
 public class VersionedUrnUtils {
 
-  private VersionedUrnUtils() {
-  }
+  private VersionedUrnUtils() {}
 
   public static Map<String, Long> convertVersionStamp(String versionStamp) {
     Map<String, Long> aspectVersionMap = new HashMap<>();
@@ -20,7 +18,8 @@ public class VersionedUrnUtils {
     for (String pair : aspectNameVersionPairs) {
       String[] tokens = pair.split(":");
       if (tokens.length != 2) {
-        throw new IllegalArgumentException("Invalid version stamp cannot be parsed: " + versionStamp);
+        throw new IllegalArgumentException(
+            "Invalid version stamp cannot be parsed: " + versionStamp);
       }
       try {
         aspectVersionMap.put(tokens[0], Long.valueOf(tokens[1]));
@@ -33,10 +32,13 @@ public class VersionedUrnUtils {
   }
 
   public static String constructVersionStamp(SortedMap<String, Long> versionStampMap) {
-    StringBuilder versionStamp = versionStampMap.entrySet().stream()
-        .collect(StringBuilder::new, (builder, entry) -> builder.append(entry.getKey())
-            .append(":")
-            .append(entry.getValue()).append(";"), StringBuilder::append);
+    StringBuilder versionStamp =
+        versionStampMap.entrySet().stream()
+            .collect(
+                StringBuilder::new,
+                (builder, entry) ->
+                    builder.append(entry.getKey()).append(":").append(entry.getValue()).append(";"),
+                StringBuilder::append);
     // trim off last ;
     return versionStamp.substring(0, versionStamp.length() - 1);
   }

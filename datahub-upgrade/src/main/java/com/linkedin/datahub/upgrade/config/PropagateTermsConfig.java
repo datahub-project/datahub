@@ -10,18 +10,17 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.DependsOn;
 
-
 @Configuration
 public class PropagateTermsConfig {
-  @Autowired
-  ApplicationContext applicationContext;
+  @Autowired ApplicationContext applicationContext;
 
   @Bean(name = "propagateTerms")
   @DependsOn({"entityService", "entitySearchService"})
   @Nonnull
   public PropagateTerms createInstance() {
     final EntityService entityService = applicationContext.getBean(EntityService.class);
-    final EntitySearchService entitySearchService = applicationContext.getBean(EntitySearchService.class);
+    final EntitySearchService entitySearchService =
+        applicationContext.getBean(EntitySearchService.class);
     return new PropagateTerms(entityService, entitySearchService);
   }
 }

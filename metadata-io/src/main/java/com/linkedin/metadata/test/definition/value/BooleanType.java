@@ -1,8 +1,6 @@
 package com.linkedin.metadata.test.definition.value;
 
-/**
- * Marker class
- */
+/** Marker class */
 public class BooleanType implements ValueType {
 
   private static final BooleanType INSTANCE = new BooleanType();

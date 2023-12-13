@@ -10,11 +10,10 @@ import com.linkedin.metadata.test.query.TestQuery;
 import lombok.ToString;
 import lombok.Value;
 
-
 /**
  * Parameter with a query that is resolved to return a query response.
  *
- * It always resolves to a string list of values.
+ * <p>It always resolves to a string list of values.
  */
 @Value
 @ToString

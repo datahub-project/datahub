@@ -1,5 +1,8 @@
 package com.linkedin.metadata.test.action.tag;
 
+import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.test.action.ActionUtils.*;
+
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.service.TagService;
@@ -12,10 +15,6 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-
-import static com.linkedin.metadata.Constants.*;
-import static com.linkedin.metadata.test.action.ActionUtils.*;
-
 
 @Slf4j
 @RequiredArgsConstructor
@@ -31,9 +30,7 @@ public class AddTagsAction extends ValuesAction {
   @Override
   public void apply(List<Urn> urns, ActionParameters params) throws InvalidOperandException {
     List<String> tagUrnStrs = params.getParams().get(VALUES_PARAM);
-    List<Urn> tagUrns = tagUrnStrs.stream()
-        .map(UrnUtils::getUrn)
-        .collect(Collectors.toList());
+    List<Urn> tagUrns = tagUrnStrs.stream().map(UrnUtils::getUrn).collect(Collectors.toList());
 
     final Map<String, List<Urn>> entityTypesToUrns = getEntityTypeToUrns(urns);
     for (Map.Entry<String, List<Urn>> entityTypeToUrns : entityTypesToUrns.entrySet()) {

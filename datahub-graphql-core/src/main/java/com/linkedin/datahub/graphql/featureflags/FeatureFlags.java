@@ -3,7 +3,6 @@ package com.linkedin.datahub.graphql.featureflags;
 import com.linkedin.metadata.config.PreProcessHooks;
 import lombok.Data;
 
-
 @Data
 public class FeatureFlags {
   private boolean showSimplifiedHomepageByDefault = false;

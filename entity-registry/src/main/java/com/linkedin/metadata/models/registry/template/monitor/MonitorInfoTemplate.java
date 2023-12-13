@@ -10,7 +10,6 @@ import com.linkedin.monitor.MonitorStatus;
 import com.linkedin.monitor.MonitorType;
 import javax.annotation.Nonnull;
 
-
 public class MonitorInfoTemplate implements Template<MonitorInfo> {
 
   @Override

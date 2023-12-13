@@ -1,5 +1,7 @@
 package com.linkedin.datahub.graphql.types.view;
 
+import static com.linkedin.metadata.Constants.*;
+
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -20,11 +22,9 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.RequiredArgsConstructor;
 
-import static com.linkedin.metadata.Constants.*;
-
-
 @RequiredArgsConstructor
-public class DataHubViewType implements com.linkedin.datahub.graphql.types.EntityType<DataHubView, String> {
+public class DataHubViewType
+    implements com.linkedin.datahub.graphql.types.EntityType<DataHubView, String> {
   public static final Set<String> ASPECTS_TO_FETCH = ImmutableSet.of(DATAHUB_VIEW_INFO_ASPECT_NAME);
   private final EntityClient _entityClient;
 
@@ -44,13 +44,16 @@ public class DataHubViewType implements com.linkedin.datahub.graphql.types.Entit
   }
 
   @Override
-  public List<DataFetcherResult<DataHubView>> batchLoad(@Nonnull List<String> urns, @Nonnull QueryContext context)
-      throws Exception {
+  public List<DataFetcherResult<DataHubView>> batchLoad(
+      @Nonnull List<String> urns, @Nonnull QueryContext context) throws Exception {
     final List<Urn> viewUrns = urns.stream().map(this::getUrn).collect(Collectors.toList());
 
     try {
       final Map<Urn, EntityResponse> entities =
-          _entityClient.batchGetV2(DATAHUB_VIEW_ENTITY_NAME, new HashSet<>(viewUrns), ASPECTS_TO_FETCH,
+          _entityClient.batchGetV2(
+              DATAHUB_VIEW_ENTITY_NAME,
+              new HashSet<>(viewUrns),
+              ASPECTS_TO_FETCH,
               context.getAuthentication());
 
       final List<EntityResponse> gmsResults = new ArrayList<>();
@@ -58,8 +61,13 @@ public class DataHubViewType implements com.linkedin.datahub.graphql.types.Entit
         gmsResults.add(entities.getOrDefault(urn, null));
       }
       return gmsResults.stream()
-          .map(gmsResult -> gmsResult == null ? null
-              : DataFetcherResult.<DataHubView>newResult().data(DataHubViewMapper.map(gmsResult)).build())
+          .map(
+              gmsResult ->
+                  gmsResult == null
+                      ? null
+                      : DataFetcherResult.<DataHubView>newResult()
+                          .data(DataHubViewMapper.map(gmsResult))
+                          .build())
           .collect(Collectors.toList());
     } catch (Exception e) {
       throw new RuntimeException("Failed to batch load Views", e);

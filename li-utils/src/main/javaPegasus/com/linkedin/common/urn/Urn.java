@@ -8,34 +8,30 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nullable;
 
-
 /**
- * Represents a URN (Uniform Resource Name) for a Linkedin entity, in the spirit of RFC 2141.
- * Our default URN format uses the non-standard namespace identifier "li", and hence default URNs
- * begin with "urn:li:". Note that the namespace according to
- * <a href="https://www.ietf.org/rfc/rfc2141.txt">RFC 2141</a> [Section 2.1] is case-insensitive and
+ * Represents a URN (Uniform Resource Name) for a Linkedin entity, in the spirit of RFC 2141. Our
+ * default URN format uses the non-standard namespace identifier "li", and hence default URNs begin
+ * with "urn:li:". Note that the namespace according to <a
+ * href="https://www.ietf.org/rfc/rfc2141.txt">RFC 2141</a> [Section 2.1] is case-insensitive and
  * for safety we only allow lower-case letters in our implementation.
  *
- * <p>Our URNs all consist of an "entity type", which denotes an internal namespace for the resource,
- * as well as an entity key, formatted as a tuple of parts.  The full format of a URN is:
+ * <p>Our URNs all consist of an "entity type", which denotes an internal namespace for the
+ * resource, as well as an entity key, formatted as a tuple of parts. The full format of a URN is:
  *
  * <p>&lt;URN> ::= urn:&lt;namespace>:&lt;entityType>:&lt;entityKey>
  *
- * <p>The entity key is represented as a tuple of strings.  If the tuple is of length 1, the
- * key is encoded directly.  If the tuple has multiple parts, the parts are enclosed in
- * parenthesizes and comma-delimited, e.g., a URN whose key is the tuple [1, 2, 3] would be
- * encoded as:
+ * <p>The entity key is represented as a tuple of strings. If the tuple is of length 1, the key is
+ * encoded directly. If the tuple has multiple parts, the parts are enclosed in parenthesizes and
+ * comma-delimited, e.g., a URN whose key is the tuple [1, 2, 3] would be encoded as:
  *
  * <p>urn:li:example:(1,2,3)
  */
 public class Urn {
   /**
-   *
-   * @deprecated Don't create the Urn string manually, use Typed Urns or {@link #create(String entityType, Object...
-   * tupleParts)}
+   * @deprecated Don't create the Urn string manually, use Typed Urns or {@link #create(String
+   *     entityType, Object... tupleParts)}
    */
-  @Deprecated
-  public static final String URN_PREFIX = "urn:li:";
+  @Deprecated public static final String URN_PREFIX = "urn:li:";
 
   private static final String URN_START = "urn:";
   private static final String DEFAULT_NAMESPACE = "li";
@@ -46,29 +42,28 @@ public class Urn {
 
   // Used to speed up toString() in the common case where the Urn is built up
   // from parsing an input string.
-  @Nullable
-  private String _cachedStringUrn;
+  @Nullable private String _cachedStringUrn;
 
   static {
     Custom.registerCoercer(new UrnCoercer(), Urn.class);
   }
 
   /**
-   * Customized interner for all strings that may be used for _entityType.
-   * Urn._entityType is by nature a pretty small set of values, such as "member",
-   * "company" etc. Due to this fact, when an app creates and keeps in memory a
-   * large number of Urn's, it may end up with a very big number of identical strings.
-   * Thus it's worth saving memory by interning _entityType when an Urn is instantiated.
-   * String.intern() would be a natural choice, but it takes a few microseconds, and
-   * thus may become too expensive when many (temporary) Urns are generated in very
-   * quick succession. Thus we use a faster CHM below. Compared to the internal table
-   * used by String.intern() it has a bigger memory overhead per each interned string,
-   * but for a small set of canonical strings it doesn't matter.
+   * Customized interner for all strings that may be used for _entityType. Urn._entityType is by
+   * nature a pretty small set of values, such as "member", "company" etc. Due to this fact, when an
+   * app creates and keeps in memory a large number of Urn's, it may end up with a very big number
+   * of identical strings. Thus it's worth saving memory by interning _entityType when an Urn is
+   * instantiated. String.intern() would be a natural choice, but it takes a few microseconds, and
+   * thus may become too expensive when many (temporary) Urns are generated in very quick
+   * succession. Thus we use a faster CHM below. Compared to the internal table used by
+   * String.intern() it has a bigger memory overhead per each interned string, but for a small set
+   * of canonical strings it doesn't matter.
    */
   private static final Map<String, String> ENTITY_TYPE_INTERNER = new ConcurrentHashMap<>();
 
   /**
    * Create a Urn given its raw String representation.
+   *
    * @param rawUrn - the String representation of a Urn.
    * @throws URISyntaxException - if the String is not a valid Urn.
    */
@@ -77,10 +72,7 @@ public class Urn {
     _cachedStringUrn = rawUrn;
 
     if (!rawUrn.startsWith(URN_START)) {
-      throw new URISyntaxException(
-          rawUrn,
-          "Urn doesn't start with 'urn:'. Urn: " + rawUrn,
-          0);
+      throw new URISyntaxException(rawUrn, "Urn doesn't start with 'urn:'. Urn: " + rawUrn, 0);
     }
 
     int secondColonIndex = rawUrn.indexOf(':', URN_START.length() + 1);
@@ -89,9 +81,7 @@ public class Urn {
     // First char of entityType must be [a-z]
     if (!charIsLowerCaseAlphabet(rawUrn, secondColonIndex + 1)) {
       throw new URISyntaxException(
-          rawUrn,
-          "First char of entityType must be [a-z]! Urn: " + rawUrn,
-          secondColonIndex + 1);
+          rawUrn, "First char of entityType must be [a-z]! Urn: " + rawUrn, secondColonIndex + 1);
     }
 
     int thirdColonIndex = rawUrn.indexOf(':', secondColonIndex + 2);
@@ -101,8 +91,7 @@ public class Urn {
       _entityType = rawUrn.substring(secondColonIndex + 1);
       if (!charsAreWordClass(_entityType)) {
         throw new URISyntaxException(
-            rawUrn,
-            "entityType must have only [a-zA-Z0-9] chars. Urn: " + rawUrn);
+            rawUrn, "entityType must have only [a-zA-Z0-9] chars. Urn: " + rawUrn);
       }
       _entityKey = new TupleKey();
       return;
@@ -111,15 +100,13 @@ public class Urn {
     String entityType = rawUrn.substring(secondColonIndex + 1, thirdColonIndex);
     if (!charsAreWordClass(entityType)) {
       throw new URISyntaxException(
-          rawUrn,
-          "entityType must have only [a-zA-Z_0-9] chars. Urn: " + rawUrn);
+          rawUrn, "entityType must have only [a-zA-Z_0-9] chars. Urn: " + rawUrn);
     }
 
     int numEntityKeyChars = rawUrn.length() - (thirdColonIndex + 1);
     if (numEntityKeyChars <= 0) {
       throw new URISyntaxException(
-          rawUrn,
-          "Urns with empty entityKey are not allowed. Urn: " + rawUrn);
+          rawUrn, "Urns with empty entityKey are not allowed. Urn: " + rawUrn);
     }
 
     _entityType = internEntityType(entityType);
@@ -135,8 +122,8 @@ public class Urn {
   }
 
   /**
-   * Create a Urn from an entity type and an encoded String key.  The key is converted to a
-   * Tuple by parsing using @see TupleKey#fromString
+   * Create a Urn from an entity type and an encoded String key. The key is converted to a Tuple by
+   * parsing using @see TupleKey#fromString
    *
    * @param entityType - the entity type for the Urn
    * @param typeSpecificString - the encoded string representation of a TupleKey
@@ -158,9 +145,8 @@ public class Urn {
   }
 
   /**
-   * DEPRECATED - use {@link #createFromTuple(String, Object...)}
-   * Create a Urn from an entity type and a sequence of key parts.  The key parts are converted
-   * to a tuple using @see TupleKey#create
+   * DEPRECATED - use {@link #createFromTuple(String, Object...)} Create a Urn from an entity type
+   * and a sequence of key parts. The key parts are converted to a tuple using @see TupleKey#create
    *
    * @param entityType - the entity type for the Urn
    * @param tupleParts - a sequence of objects representing the key of the Urn
@@ -172,9 +158,9 @@ public class Urn {
   }
 
   /**
-   * DEPRECATED - use {@link #createFromTuple(String, java.util.Collection)}
-   * Create a Urn from an entity type and a sequence of key parts.  The key parts are converted
-   * to a tuple using @see TupleKey#create
+   * DEPRECATED - use {@link #createFromTuple(String, java.util.Collection)} Create a Urn from an
+   * entity type and a sequence of key parts. The key parts are converted to a tuple using @see
+   * TupleKey#create
    *
    * @param entityType - the entity type for the Urn
    * @param tupleParts - a sequence of objects representing the key of the Urn
@@ -186,8 +172,8 @@ public class Urn {
   }
 
   /**
-   * Create a Urn from an entity type and a sequence of key parts.  The key parts are converted
-   * to a tuple using @see TupleKey#create
+   * Create a Urn from an entity type and a sequence of key parts. The key parts are converted to a
+   * tuple using @see TupleKey#create
    *
    * @param entityType - the entity type for the Urn
    * @param tupleParts - a sequence of objects representing the key of the Urn
@@ -198,21 +184,22 @@ public class Urn {
   }
 
   /**
-   * Create a Urn from an namespace, entity type and a sequence of key parts.  The key parts are converted
-   * to a tuple using @see TupleKey#create
+   * Create a Urn from an namespace, entity type and a sequence of key parts. The key parts are
+   * converted to a tuple using @see TupleKey#create
    *
    * @param namespace - The namespace of this urn.
    * @param entityType - the entity type for the Urn
    * @param tupleParts - a sequence of objects representing the key of the Urn
    * @return - a new Urn object
    */
-  public static Urn createFromTupleWithNamespace(String namespace, String entityType, Object... tupleParts) {
+  public static Urn createFromTupleWithNamespace(
+      String namespace, String entityType, Object... tupleParts) {
     return new Urn(namespace, entityType, TupleKey.create(tupleParts));
   }
 
   /**
-   * Create a Urn from an entity type and a sequence of key parts.  The key parts are converted
-   * to a tuple using @see TupleKey#create
+   * Create a Urn from an entity type and a sequence of key parts. The key parts are converted to a
+   * tuple using @see TupleKey#create
    *
    * @param entityType - the entity type for the Urn
    * @param tupleParts - a sequence of objects representing the key of the Urn
@@ -224,6 +211,7 @@ public class Urn {
 
   /**
    * Create a Urn given its raw String representation.
+   *
    * @param rawUrn - the String representation of a Urn.
    * @throws URISyntaxException - if the String is not a valid Urn.
    */
@@ -233,6 +221,7 @@ public class Urn {
 
   /**
    * Create a Urn given its raw CharSequence representation.
+   *
    * @param rawUrn - the Char Sequence representation of a Urn.
    * @throws URISyntaxException - if the String is not a valid Urn.
    */
@@ -242,8 +231,8 @@ public class Urn {
   }
 
   /**
-   * Create a Urn from an entity type and an encoded String key.  The key is converted to a
-   * Tuple by parsing using @see TupleKey#fromString
+   * Create a Urn from an entity type and an encoded String key. The key is converted to a Tuple by
+   * parsing using @see TupleKey#fromString
    *
    * @param entityType - the entity type for the Urn
    * @param typeSpecificString - the encoded string representation of a TupleKey
@@ -298,8 +287,8 @@ public class Urn {
   }
 
   /**
-   * Return the namespace-specific string portion of this URN, i.e.,
-   * everything following the "urn:&lt;namespace>:" prefix.
+   * Return the namespace-specific string portion of this URN, i.e., everything following the
+   * "urn:&lt;namespace>:" prefix.
    *
    * @return The namespace-specific string portion of this URN
    */
@@ -344,28 +333,21 @@ public class Urn {
     return result;
   }
 
-  private static String validateAndExtractNamespace(String rawUrn,
-      int secondColonIndex)
+  private static String validateAndExtractNamespace(String rawUrn, int secondColonIndex)
       throws URISyntaxException {
     if (!charIsLowerCaseAlphabet(rawUrn, URN_START.length())) {
       throw new URISyntaxException(
-          rawUrn,
-          "First char of Urn namespace must be [a-z]! Urn: " + rawUrn,
-          URN_START.length());
+          rawUrn, "First char of Urn namespace must be [a-z]! Urn: " + rawUrn, URN_START.length());
     }
 
     if (secondColonIndex == -1) {
-      throw new URISyntaxException(
-          rawUrn,
-          "Missing second ':' char. Urn: " + rawUrn);
+      throw new URISyntaxException(rawUrn, "Missing second ':' char. Urn: " + rawUrn);
     }
 
     int namespaceLen = secondColonIndex - URN_START.length();
     if (namespaceLen > 32) {
       throw new URISyntaxException(
-          rawUrn,
-          "Namespace length > 32 chars. Urn: " + rawUrn,
-          secondColonIndex);
+          rawUrn, "Namespace length > 32 chars. Urn: " + rawUrn, secondColonIndex);
     }
 
     if (namespaceLen == 2
@@ -377,9 +359,7 @@ public class Urn {
 
     String namespace = rawUrn.substring(URN_START.length(), secondColonIndex);
     if (!charsAreValidNamespace(namespace)) {
-      throw new URISyntaxException(
-          rawUrn,
-          "Chars in namespace must be [a-z0-9-]!. Urn: " + rawUrn);
+      throw new URISyntaxException(rawUrn, "Chars in namespace must be [a-z0-9-]!. Urn: " + rawUrn);
     }
     return namespace;
   }
@@ -414,17 +394,17 @@ public class Urn {
       char c = input.charAt(index);
       // Not using Character.isLowerCase etc on purpose because that is
       // unicode-aware and we only need ASCII. Handling only ASCII is faster.
-      if (!((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')
-          || (c >= '0' && c <= '9') || c == '_')) {
+      if (!((c >= 'a' && c <= 'z')
+          || (c >= 'A' && c <= 'Z')
+          || (c >= '0' && c <= '9')
+          || c == '_')) {
         return false;
       }
     }
     return true;
   }
 
-  /**
-   * Intern a string to be assigned to the _entityType field.
-   */
+  /** Intern a string to be assigned to the _entityType field. */
   private static String internEntityType(String et) {
     // Most of the times this method is called, the canonical string is already
     // in the table, so let's do a quick get() first.

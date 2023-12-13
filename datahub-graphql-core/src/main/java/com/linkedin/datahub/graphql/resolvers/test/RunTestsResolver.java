@@ -9,10 +9,7 @@ import graphql.schema.DataFetchingEnvironment;
 import java.util.concurrent.CompletableFuture;
 import lombok.RequiredArgsConstructor;
 
-
-/**
- * Runs tests for a given entity.
- */
+/** Runs tests for a given entity. */
 @RequiredArgsConstructor
 public class RunTestsResolver implements DataFetcher<CompletableFuture<Boolean>> {
 
@@ -20,19 +17,21 @@ public class RunTestsResolver implements DataFetcher<CompletableFuture<Boolean>>
   private final TestEngine _testEngine;
 
   @Override
-  public CompletableFuture<Boolean> get(final DataFetchingEnvironment environment) throws Exception {
+  public CompletableFuture<Boolean> get(final DataFetchingEnvironment environment)
+      throws Exception {
 
-    return CompletableFuture.supplyAsync(() -> {
+    return CompletableFuture.supplyAsync(
+        () -> {
+          final String urnStr = environment.getArgument("urn");
+          final Urn urn = UrnUtils.getUrn(urnStr);
+          final TestEngine.EvaluationMode evaluationMode =
+              environment.getArgument(MODE_ARG_NAME) != null
+                  ? TestEngine.EvaluationMode.valueOf(environment.getArgument(MODE_ARG_NAME))
+                  : TestEngine.EvaluationMode.DEFAULT;
 
-      final String urnStr = environment.getArgument("urn");
-      final Urn urn = UrnUtils.getUrn(urnStr);
-      final TestEngine.EvaluationMode evaluationMode = environment.getArgument(MODE_ARG_NAME) != null
-          ? TestEngine.EvaluationMode.valueOf(environment.getArgument(MODE_ARG_NAME))
-          : TestEngine.EvaluationMode.DEFAULT;
+          TestResults testResults = _testEngine.evaluateTestsForEntity(urn, evaluationMode);
 
-      TestResults testResults = _testEngine.evaluateTestsForEntity(urn, evaluationMode);
-
-      return testResults.getFailing().isEmpty();
-    });
+          return testResults.getFailing().isEmpty();
+        });
   }
 }

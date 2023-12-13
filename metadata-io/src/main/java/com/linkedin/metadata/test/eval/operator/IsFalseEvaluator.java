@@ -15,15 +15,15 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-
 /**
- * Supports two operands, both list of string. Returns true
- * if any string on the left hand side matches "false" in case insensitive manner or is missing.
+ * Supports two operands, both list of string. Returns true if any string on the left hand side
+ * matches "false" in case insensitive manner or is missing.
  */
 public class IsFalseEvaluator extends BaseOperatorEvaluator {
 
   private static final String FALSE = "false";
-  private static final Set<ValueType> SUPPORTED_OPERAND_TYPES = ImmutableSet.of(new ListType(new StringType()));
+  private static final Set<ValueType> SUPPORTED_OPERAND_TYPES =
+      ImmutableSet.of(new ListType(new StringType()));
 
   @Override
   public OperatorType getOperatorType() {
@@ -33,17 +33,20 @@ public class IsFalseEvaluator extends BaseOperatorEvaluator {
   @Override
   public void validate(Operands operands) throws InvalidOperandException {
     if (operands.size() != 1) {
-      throw new InvalidOperandException("Invalid params for the operation: Requires 1 input operands");
+      throw new InvalidOperandException(
+          "Invalid params for the operation: Requires 1 input operands");
     }
     // Validate that both input types are string lists.
     if (!isSupportedOperandType(operands.get(0).getExpression())) {
-      throw new InvalidOperandException("Invalid params for the operation: Requires 1 string list operands");
+      throw new InvalidOperandException(
+          "Invalid params for the operation: Requires 1 string list operands");
     }
   }
 
   @Override
   public Object evaluate(ResolvedOperands resolvedOperands) throws InvalidOperandException {
-    ResolvedOperand operand = resolvedOperands.get(0); // Query response -> This will be list of string.
+    ResolvedOperand operand =
+        resolvedOperands.get(0); // Query response -> This will be list of string.
     Set<String> operandValues = toStringSet(operand);
     return operandValues.isEmpty()
         || operandValues.stream().anyMatch(value -> value.equalsIgnoreCase(FALSE))
@@ -56,9 +59,10 @@ public class IsFalseEvaluator extends BaseOperatorEvaluator {
     } else if (operand.getExpression().getValue() instanceof List) {
       return new HashSet<>((List<String>) operand.getExpression().getValue());
     } else {
-      throw new IllegalArgumentException(String.format(
-          "Failed to evaluate ContainsStr operator against operand of type %s. Expected string or string list.",
-          operand.getExpression().getValue().getClass()));
+      throw new IllegalArgumentException(
+          String.format(
+              "Failed to evaluate ContainsStr operator against operand of type %s. Expected string or string list.",
+              operand.getExpression().getValue().getClass()));
     }
   }
 

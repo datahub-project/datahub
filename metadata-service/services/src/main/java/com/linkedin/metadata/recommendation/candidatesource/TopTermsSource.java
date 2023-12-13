@@ -12,9 +12,9 @@ import com.linkedin.metadata.utils.EntityKeyUtils;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
-
 @Slf4j
-public class TopTermsSource extends EntitySearchAggregationSource implements RecommendationSourceWithOffline {
+public class TopTermsSource extends EntitySearchAggregationSource
+    implements RecommendationSourceWithOffline {
 
   private final EntityService _entityService;
   private final boolean _fetchOffline;
@@ -23,10 +23,12 @@ public class TopTermsSource extends EntitySearchAggregationSource implements Rec
 
   private static final String MODULE_ID = "TopTerms";
   private static final Urn MODULE_URN =
-      EntityKeyUtils.convertEntityKeyToUrn(new RecommendationModuleKey().setModuleId(MODULE_ID).setIdentifier("GLOBAL"),
+      EntityKeyUtils.convertEntityKeyToUrn(
+          new RecommendationModuleKey().setModuleId(MODULE_ID).setIdentifier("GLOBAL"),
           Constants.RECOMMENDATION_MODULE_ENTITY_NAME);
 
-  public TopTermsSource(EntitySearchService entitySearchService, EntityService entityService, boolean fetchOffline) {
+  public TopTermsSource(
+      EntitySearchService entitySearchService, EntityService entityService, boolean fetchOffline) {
     super(entitySearchService);
     _entityService = entityService;
     _fetchOffline = fetchOffline;
@@ -48,7 +50,8 @@ public class TopTermsSource extends EntitySearchAggregationSource implements Rec
   }
 
   @Override
-  public boolean isEligible(@Nonnull Urn userUrn, @Nonnull RecommendationRequestContext requestContext) {
+  public boolean isEligible(
+      @Nonnull Urn userUrn, @Nonnull RecommendationRequestContext requestContext) {
     return requestContext.getScenario() == ScenarioType.HOME
         || requestContext.getScenario() == ScenarioType.SEARCH_RESULTS;
   }
@@ -79,7 +82,8 @@ public class TopTermsSource extends EntitySearchAggregationSource implements Rec
   }
 
   @Override
-  public Urn getRecommendationModuleUrn(@Nonnull Urn userUrn, @Nonnull RecommendationRequestContext requestContext) {
+  public Urn getRecommendationModuleUrn(
+      @Nonnull Urn userUrn, @Nonnull RecommendationRequestContext requestContext) {
     return MODULE_URN;
   }
 }

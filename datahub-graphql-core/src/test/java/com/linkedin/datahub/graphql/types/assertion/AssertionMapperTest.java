@@ -9,13 +9,13 @@ import com.linkedin.assertion.AssertionStdParameter;
 import com.linkedin.assertion.AssertionStdParameterType;
 import com.linkedin.assertion.AssertionStdParameters;
 import com.linkedin.assertion.AssertionType;
-import com.linkedin.assertion.FreshnessCronSchedule;
 import com.linkedin.assertion.DatasetAssertionInfo;
 import com.linkedin.assertion.DatasetAssertionScope;
 import com.linkedin.assertion.FreshnessAssertionInfo;
 import com.linkedin.assertion.FreshnessAssertionSchedule;
 import com.linkedin.assertion.FreshnessAssertionScheduleType;
 import com.linkedin.assertion.FreshnessAssertionType;
+import com.linkedin.assertion.FreshnessCronSchedule;
 import com.linkedin.assertion.SchemaAssertionInfo;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.UrnUtils;
@@ -52,7 +52,8 @@ public class AssertionMapperTest {
 
     // Case 2: With nullable fields
     input = createFreshnessAssertionInfoWithNullableFields();
-    EntityResponse datasetAssertionEntityResponseWithNullables = createAssertionInfoEntityResponse(input);
+    EntityResponse datasetAssertionEntityResponseWithNullables =
+        createAssertionInfoEntityResponse(input);
     output = AssertionMapper.map(datasetAssertionEntityResponseWithNullables);
     verifyAssertion(input, output);
   }
@@ -67,7 +68,8 @@ public class AssertionMapperTest {
 
     // Case 2: With nullable fields
     input = createDatasetAssertionInfoWithNullableFields();
-    EntityResponse freshnessAssertionEntityResponseWithNullables = createAssertionInfoEntityResponse(input);
+    EntityResponse freshnessAssertionEntityResponseWithNullables =
+        createAssertionInfoEntityResponse(input);
     output = AssertionMapper.map(freshnessAssertionEntityResponseWithNullables);
     verifyAssertion(input, output);
   }
@@ -83,14 +85,16 @@ public class AssertionMapperTest {
   private void verifyAssertion(AssertionInfo input, Assertion output) {
     Assert.assertNotNull(output);
     Assert.assertNotNull(output.getInfo());
-    Assert.assertEquals(output.getInfo().getType().toString(), output.getInfo().getType().toString());
+    Assert.assertEquals(
+        output.getInfo().getType().toString(), output.getInfo().getType().toString());
 
     if (input.hasDatasetAssertion()) {
       verifyDatasetAssertion(input.getDatasetAssertion(), output.getInfo().getDatasetAssertion());
     }
 
     if (input.hasFreshnessAssertion()) {
-      verifyFreshnessAssertion(input.getFreshnessAssertion(), output.getInfo().getFreshnessAssertion());
+      verifyFreshnessAssertion(
+          input.getFreshnessAssertion(), output.getInfo().getFreshnessAssertion());
     }
 
     if (input.hasSchemaAssertion()) {
@@ -102,7 +106,9 @@ public class AssertionMapperTest {
     }
   }
 
-  private void verifyDatasetAssertion(DatasetAssertionInfo input, com.linkedin.datahub.graphql.generated.DatasetAssertionInfo output) {
+  private void verifyDatasetAssertion(
+      DatasetAssertionInfo input,
+      com.linkedin.datahub.graphql.generated.DatasetAssertionInfo output) {
     Assert.assertEquals(output.getOperator().toString(), input.getOperator().toString());
     Assert.assertEquals(output.getOperator().toString(), input.getOperator().toString());
     Assert.assertEquals(output.getScope().toString(), input.getScope().toString());
@@ -117,12 +123,18 @@ public class AssertionMapperTest {
       Assert.assertEquals(output.getLogic(), input.getLogic());
     }
     if (input.hasFields()) {
-      Assert.assertTrue(input.getFields().stream()
-          .allMatch(field -> output.getFields().stream().anyMatch(outField -> field.toString().equals(outField.getUrn()))));
+      Assert.assertTrue(
+          input.getFields().stream()
+              .allMatch(
+                  field ->
+                      output.getFields().stream()
+                          .anyMatch(outField -> field.toString().equals(outField.getUrn()))));
     }
   }
 
-  private void verifyFreshnessAssertion(FreshnessAssertionInfo input, com.linkedin.datahub.graphql.generated.FreshnessAssertionInfo output) {
+  private void verifyFreshnessAssertion(
+      FreshnessAssertionInfo input,
+      com.linkedin.datahub.graphql.generated.FreshnessAssertionInfo output) {
     Assert.assertEquals(output.getType().toString(), input.getType().toString());
     Assert.assertEquals(output.getEntityUrn(), input.getEntity().toString());
     if (input.hasSchedule()) {
@@ -130,12 +142,17 @@ public class AssertionMapperTest {
     }
   }
 
-  private void verifySchemaAssertion(SchemaAssertionInfo input, com.linkedin.datahub.graphql.generated.SchemaAssertionInfo output) {
+  private void verifySchemaAssertion(
+      SchemaAssertionInfo input,
+      com.linkedin.datahub.graphql.generated.SchemaAssertionInfo output) {
     Assert.assertEquals(output.getEntityUrn(), input.getEntity().toString());
-    Assert.assertEquals(output.getSchema().getFields().size(), input.getSchema().getFields().size());
+    Assert.assertEquals(
+        output.getSchema().getFields().size(), input.getSchema().getFields().size());
   }
 
-  private void verifyCronSchedule(FreshnessCronSchedule input, com.linkedin.datahub.graphql.generated.FreshnessCronSchedule output) {
+  private void verifyCronSchedule(
+      FreshnessCronSchedule input,
+      com.linkedin.datahub.graphql.generated.FreshnessCronSchedule output) {
     Assert.assertEquals(output.getCron(), input.getCron());
     Assert.assertEquals(output.getTimezone(), input.getTimezone());
     if (input.hasWindowStartOffsetMs()) {
@@ -143,7 +160,9 @@ public class AssertionMapperTest {
     }
   }
 
-  private void verifyFreshnessSchedule(FreshnessAssertionSchedule input, com.linkedin.datahub.graphql.generated.FreshnessAssertionSchedule output) {
+  private void verifyFreshnessSchedule(
+      FreshnessAssertionSchedule input,
+      com.linkedin.datahub.graphql.generated.FreshnessAssertionSchedule output) {
     Assert.assertEquals(output.getType().toString(), input.getType().toString());
     if (input.hasCron()) {
       verifyCronSchedule(input.getCron(), output.getCron());
@@ -153,12 +172,14 @@ public class AssertionMapperTest {
     }
   }
 
-  private void verifyFixedIntervalSchedule(com.linkedin.assertion.FixedIntervalSchedule input, FixedIntervalSchedule output) {
+  private void verifyFixedIntervalSchedule(
+      com.linkedin.assertion.FixedIntervalSchedule input, FixedIntervalSchedule output) {
     Assert.assertEquals(output.getMultiple(), (int) input.getMultiple());
     Assert.assertEquals(output.getUnit().toString(), input.getUnit().toString());
   }
 
-  private void verifySource(AssertionSource input, com.linkedin.datahub.graphql.generated.AssertionSource output) {
+  private void verifySource(
+      AssertionSource input, com.linkedin.datahub.graphql.generated.AssertionSource output) {
     Assert.assertEquals(output.getType().toString(), input.getType().toString());
   }
 
@@ -195,15 +216,18 @@ public class AssertionMapperTest {
   private AssertionInfo createDatasetAssertionInfoWithNullableFields() {
     AssertionInfo infoWithoutNullables = createDatasetAssertionInfoWithoutNullableFields();
     DatasetAssertionInfo baseInfo = infoWithoutNullables.getDatasetAssertion();
-    baseInfo.setFields(new UrnArray(Arrays.asList(UrnUtils.getUrn("urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,name,PROD),field)"))));
+    baseInfo.setFields(
+        new UrnArray(
+            Arrays.asList(
+                UrnUtils.getUrn(
+                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,name,PROD),field)"))));
     baseInfo.setAggregation(AssertionStdAggregation.SUM);
     baseInfo.setParameters(createAssertionStdParameters());
     baseInfo.setNativeType("native_type");
     baseInfo.setNativeParameters(new StringMap(Collections.singletonMap("key", "value")));
     baseInfo.setLogic("sample_logic");
-    infoWithoutNullables.setSource(new AssertionSource()
-        .setType(com.linkedin.assertion.AssertionSourceType.INFERRED)
-    );
+    infoWithoutNullables.setSource(
+        new AssertionSource().setType(com.linkedin.assertion.AssertionSourceType.INFERRED));
     return infoWithoutNullables;
   }
 
@@ -211,7 +235,8 @@ public class AssertionMapperTest {
     AssertionInfo info = new AssertionInfo();
     info.setType(AssertionType.FRESHNESS);
     FreshnessAssertionInfo freshnessAssertionInfo = new FreshnessAssertionInfo();
-    freshnessAssertionInfo.setEntity(UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,name,PROD)"));
+    freshnessAssertionInfo.setEntity(
+        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,name,PROD)"));
     freshnessAssertionInfo.setType(FreshnessAssertionType.DATASET_CHANGE);
     info.setFreshnessAssertion(freshnessAssertionInfo);
     return info;
@@ -221,9 +246,8 @@ public class AssertionMapperTest {
     AssertionInfo infoWithoutNullables = createFreshnessAssertionInfoWithoutNullableFields();
     FreshnessAssertionInfo baseInfo = infoWithoutNullables.getFreshnessAssertion();
     baseInfo.setSchedule(createFreshnessAssertionSchedule());
-    infoWithoutNullables.setSource(new AssertionSource()
-      .setType(com.linkedin.assertion.AssertionSourceType.INFERRED)
-    );
+    infoWithoutNullables.setSource(
+        new AssertionSource().setType(com.linkedin.assertion.AssertionSourceType.INFERRED));
     return infoWithoutNullables;
   }
 
@@ -232,18 +256,21 @@ public class AssertionMapperTest {
     info.setType(AssertionType.DATA_SCHEMA);
     SchemaAssertionInfo schemaAssertionInfo = new SchemaAssertionInfo();
     schemaAssertionInfo.setEntity(UrnUtils.getUrn("urn:li:dataset:1"));
-    schemaAssertionInfo.setSchema(new SchemaMetadata()
-      .setCluster("Test")
-      .setHash("Test")
-      .setPlatformSchema(SchemaMetadata.PlatformSchema.create(new MySqlDDL()))
-      .setFields(new SchemaFieldArray(ImmutableList.of(
-          new SchemaField()
-            .setType(new SchemaFieldDataType().setType(SchemaFieldDataType.Type.create(new StringType())))
-            .setNullable(false)
-            .setNativeDataType("string")
-            .setFieldPath("test")
-      )))
-    );
+    schemaAssertionInfo.setSchema(
+        new SchemaMetadata()
+            .setCluster("Test")
+            .setHash("Test")
+            .setPlatformSchema(SchemaMetadata.PlatformSchema.create(new MySqlDDL()))
+            .setFields(
+                new SchemaFieldArray(
+                    ImmutableList.of(
+                        new SchemaField()
+                            .setType(
+                                new SchemaFieldDataType()
+                                    .setType(SchemaFieldDataType.Type.create(new StringType())))
+                            .setNullable(false)
+                            .setNativeDataType("string")
+                            .setFieldPath("test")))));
     return info;
   }
 

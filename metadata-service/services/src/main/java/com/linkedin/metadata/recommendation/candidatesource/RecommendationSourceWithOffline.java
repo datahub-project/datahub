@@ -9,23 +9,20 @@ import com.linkedin.metadata.recommendation.RecommendationRequestContext;
 import java.util.Optional;
 import javax.annotation.Nonnull;
 
-
-/**
- * Base interface for defining a candidate source for recommendation module
- */
+/** Base interface for defining a candidate source for recommendation module */
 public interface RecommendationSourceWithOffline extends RecommendationSource {
 
   EntityService getEntityService();
 
-  /**
-   * Whether or not to fetch recommendations from offline source
-   */
+  /** Whether or not to fetch recommendations from offline source */
   boolean shouldFetchFromOffline();
 
   /**
-   * Get the recommendation module urn given the input userUrn and request context to be used when fetching recommendation module offline
+   * Get the recommendation module urn given the input userUrn and request context to be used when
+   * fetching recommendation module offline
    */
-  Urn getRecommendationModuleUrn(@Nonnull Urn userUrn, @Nonnull RecommendationRequestContext requestContext);
+  Urn getRecommendationModuleUrn(
+      @Nonnull Urn userUrn, @Nonnull RecommendationRequestContext requestContext);
 
   /**
    * Get the full recommendations module itself provided the request context.
@@ -35,8 +32,8 @@ public interface RecommendationSourceWithOffline extends RecommendationSource {
    * @return list of recommendation candidates
    */
   @Override
-  default Optional<RecommendationModule> getRecommendationModule(@Nonnull Urn userUrn,
-      @Nonnull RecommendationRequestContext requestContext) {
+  default Optional<RecommendationModule> getRecommendationModule(
+      @Nonnull Urn userUrn, @Nonnull RecommendationRequestContext requestContext) {
     if (!isEligible(userUrn, requestContext)) {
       return Optional.empty();
     }
@@ -45,8 +42,12 @@ public interface RecommendationSourceWithOffline extends RecommendationSource {
     if (shouldFetchFromOffline()) {
       EnvelopedAspect moduleAspect;
       try {
-        moduleAspect = getEntityService().getLatestEnvelopedAspect(Constants.RECOMMENDATION_MODULE_ENTITY_NAME,
-            getRecommendationModuleUrn(userUrn, requestContext), Constants.RECOMMENDATION_MODULE_ASPECT_NAME);
+        moduleAspect =
+            getEntityService()
+                .getLatestEnvelopedAspect(
+                    Constants.RECOMMENDATION_MODULE_ENTITY_NAME,
+                    getRecommendationModuleUrn(userUrn, requestContext),
+                    Constants.RECOMMENDATION_MODULE_ASPECT_NAME);
       } catch (Exception e) {
         return Optional.empty();
       }

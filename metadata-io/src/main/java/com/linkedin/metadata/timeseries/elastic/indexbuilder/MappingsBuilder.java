@@ -8,7 +8,6 @@ import java.util.HashMap;
 import java.util.Map;
 import javax.annotation.Nonnull;
 
-
 public class MappingsBuilder {
 
   public static final String URN_FIELD = "urn";
@@ -24,13 +23,14 @@ public class MappingsBuilder {
   public static final String PARTITION_SPEC_TIME_PARTITION = "timePartition";
   public static final String RUN_ID_FIELD = "runId";
 
-  private MappingsBuilder() {
-  }
+  private MappingsBuilder() {}
 
   public static Map<String, Object> getMappings(@Nonnull final AspectSpec aspectSpec) {
     if (!aspectSpec.isTimeseries()) {
       throw new IllegalArgumentException(
-          String.format("Cannot apply timeseries field indexing for a non-timeseries aspect %s", aspectSpec.getName()));
+          String.format(
+              "Cannot apply timeseries field indexing for a non-timeseries aspect %s",
+              aspectSpec.getName()));
     }
 
     Map<String, Object> mappings = new HashMap<>();
@@ -41,16 +41,24 @@ public class MappingsBuilder {
     mappings.put(TIMESTAMP_FIELD, ImmutableMap.of("type", "date"));
     mappings.put(TIMESTAMP_MILLIS_FIELD, ImmutableMap.of("type", "date"));
     mappings.put(EVENT_GRANULARITY, ImmutableMap.of("type", "keyword"));
-    mappings.put(PARTITION_SPEC, ImmutableMap.of("properties",
-        ImmutableMap.of(PARTITION_SPEC_PARTITION, ImmutableMap.of("type", "keyword"), PARTITION_SPEC_TIME_PARTITION,
-            ImmutableMap.of("type", "keyword"))));
+    mappings.put(
+        PARTITION_SPEC,
+        ImmutableMap.of(
+            "properties",
+            ImmutableMap.of(
+                PARTITION_SPEC_PARTITION,
+                ImmutableMap.of("type", "keyword"),
+                PARTITION_SPEC_TIME_PARTITION,
+                ImmutableMap.of("type", "keyword"))));
     mappings.put(EVENT_FIELD, ImmutableMap.of("type", "object", "enabled", false));
     mappings.put(SYSTEM_METADATA_FIELD, ImmutableMap.of("type", "object", "enabled", false));
     mappings.put(IS_EXPLODED_FIELD, ImmutableMap.of("type", "boolean"));
 
-    aspectSpec.getTimeseriesFieldSpecs()
+    aspectSpec
+        .getTimeseriesFieldSpecs()
         .forEach(x -> mappings.put(x.getName(), getFieldMapping(x.getPegasusSchema().getType())));
-    aspectSpec.getTimeseriesFieldCollectionSpecs()
+    aspectSpec
+        .getTimeseriesFieldCollectionSpecs()
         .forEach(x -> mappings.put(x.getName(), getTimeseriesFieldCollectionSpecMapping(x)));
 
     return ImmutableMap.of("properties", mappings);
@@ -59,11 +67,16 @@ public class MappingsBuilder {
   private static Map<String, Object> getTimeseriesFieldCollectionSpecMapping(
       TimeseriesFieldCollectionSpec timeseriesFieldCollectionSpec) {
     Map<String, Object> collectionMappings = new HashMap<>();
-    collectionMappings.put(timeseriesFieldCollectionSpec.getTimeseriesFieldCollectionAnnotation().getKey(),
+    collectionMappings.put(
+        timeseriesFieldCollectionSpec.getTimeseriesFieldCollectionAnnotation().getKey(),
         getFieldMapping(DataSchema.Type.STRING));
-    timeseriesFieldCollectionSpec.getTimeseriesFieldSpecMap()
+    timeseriesFieldCollectionSpec
+        .getTimeseriesFieldSpecMap()
         .values()
-        .forEach(x -> collectionMappings.put(x.getName(), getFieldMapping(x.getPegasusSchema().getType())));
+        .forEach(
+            x ->
+                collectionMappings.put(
+                    x.getName(), getFieldMapping(x.getPegasusSchema().getType())));
     return ImmutableMap.of("properties", collectionMappings);
   }
 

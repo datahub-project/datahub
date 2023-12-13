@@ -18,8 +18,8 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.query.AutoCompleteResult;
-import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.SearchFlags;
+import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.SearchResult;
 import graphql.execution.DataFetcherResult;
 import java.net.URISyntaxException;
@@ -33,31 +33,31 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
-
-public class ContainerType implements SearchableEntityType<Container, String>,
+public class ContainerType
+    implements SearchableEntityType<Container, String>,
         com.linkedin.datahub.graphql.types.EntityType<Container, String> {
 
-  static final Set<String> ASPECTS_TO_FETCH = ImmutableSet.of(
-      Constants.DATA_PLATFORM_INSTANCE_ASPECT_NAME,
-      Constants.CONTAINER_PROPERTIES_ASPECT_NAME,
-      Constants.CONTAINER_EDITABLE_PROPERTIES_ASPECT_NAME,
-      Constants.OWNERSHIP_ASPECT_NAME,
-      Constants.INSTITUTIONAL_MEMORY_ASPECT_NAME,
-      Constants.STATUS_ASPECT_NAME,
-      Constants.SUB_TYPES_ASPECT_NAME,
-      Constants.GLOBAL_TAGS_ASPECT_NAME,
-      Constants.GLOSSARY_TERMS_ASPECT_NAME,
-      Constants.CONTAINER_ASPECT_NAME,
-      Constants.DOMAINS_ASPECT_NAME,
-      Constants.DEPRECATION_ASPECT_NAME,
-      Constants.DATA_PRODUCTS_ASPECT_NAME
-  );
+  static final Set<String> ASPECTS_TO_FETCH =
+      ImmutableSet.of(
+          Constants.DATA_PLATFORM_INSTANCE_ASPECT_NAME,
+          Constants.CONTAINER_PROPERTIES_ASPECT_NAME,
+          Constants.CONTAINER_EDITABLE_PROPERTIES_ASPECT_NAME,
+          Constants.OWNERSHIP_ASPECT_NAME,
+          Constants.INSTITUTIONAL_MEMORY_ASPECT_NAME,
+          Constants.STATUS_ASPECT_NAME,
+          Constants.SUB_TYPES_ASPECT_NAME,
+          Constants.GLOBAL_TAGS_ASPECT_NAME,
+          Constants.GLOSSARY_TERMS_ASPECT_NAME,
+          Constants.CONTAINER_ASPECT_NAME,
+          Constants.DOMAINS_ASPECT_NAME,
+          Constants.DEPRECATION_ASPECT_NAME,
+          Constants.DATA_PRODUCTS_ASPECT_NAME);
 
   private static final Set<String> FACET_FIELDS = ImmutableSet.of("origin", "platform");
   private static final String ENTITY_NAME = "container";
   private final EntityClient _entityClient;
 
-  public ContainerType(final EntityClient entityClient)  {
+  public ContainerType(final EntityClient entityClient) {
     _entityClient = entityClient;
   }
 
@@ -77,28 +77,30 @@ public class ContainerType implements SearchableEntityType<Container, String>,
   }
 
   @Override
-  public List<DataFetcherResult<Container>> batchLoad(@Nonnull List<String> urns, @Nonnull QueryContext context) throws Exception {
-    final List<Urn> containerUrns = urns.stream()
-        .map(this::getUrn)
-        .collect(Collectors.toList());
+  public List<DataFetcherResult<Container>> batchLoad(
+      @Nonnull List<String> urns, @Nonnull QueryContext context) throws Exception {
+    final List<Urn> containerUrns = urns.stream().map(this::getUrn).collect(Collectors.toList());
 
     try {
-      final Map<Urn, EntityResponse> entities = _entityClient.batchGetV2(
-          Constants.CONTAINER_ENTITY_NAME,
-          new HashSet<>(containerUrns),
-          ASPECTS_TO_FETCH,
-          context.getAuthentication());
+      final Map<Urn, EntityResponse> entities =
+          _entityClient.batchGetV2(
+              Constants.CONTAINER_ENTITY_NAME,
+              new HashSet<>(containerUrns),
+              ASPECTS_TO_FETCH,
+              context.getAuthentication());
 
       final List<EntityResponse> gmsResults = new ArrayList<>();
       for (Urn urn : containerUrns) {
         gmsResults.add(entities.getOrDefault(urn, null));
       }
       return gmsResults.stream()
-          .map(gmsResult ->
-              gmsResult == null ? null : DataFetcherResult.<Container>newResult()
-                  .data(ContainerMapper.map(gmsResult))
-                  .build()
-          )
+          .map(
+              gmsResult ->
+                  gmsResult == null
+                      ? null
+                      : DataFetcherResult.<Container>newResult()
+                          .data(ContainerMapper.map(gmsResult))
+                          .build())
           .collect(Collectors.toList());
     } catch (Exception e) {
       throw new RuntimeException("Failed to batch load Container", e);
@@ -114,24 +116,36 @@ public class ContainerType implements SearchableEntityType<Container, String>,
   }
 
   @Override
-  public SearchResults search(@Nonnull String query,
-                              @Nullable List<FacetFilterInput> filters,
-                              int start,
-                              int count,
-                              @Nonnull final QueryContext context) throws Exception {
+  public SearchResults search(
+      @Nonnull String query,
+      @Nullable List<FacetFilterInput> filters,
+      int start,
+      int count,
+      @Nonnull final QueryContext context)
+      throws Exception {
     final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
-    final SearchResult searchResult = _entityClient.search(ENTITY_NAME, query, facetFilters, start, count,
-            context.getAuthentication(), new SearchFlags().setFulltext(true));
+    final SearchResult searchResult =
+        _entityClient.search(
+            ENTITY_NAME,
+            query,
+            facetFilters,
+            start,
+            count,
+            context.getAuthentication(),
+            new SearchFlags().setFulltext(true));
     return UrnSearchResultsMapper.map(searchResult);
   }
 
   @Override
-  public AutoCompleteResults autoComplete(@Nonnull String query,
-                                          @Nullable String field,
-                                          @Nullable Filter filters,
-                                          int limit,
-                                          @Nonnull final QueryContext context) throws Exception {
-    final AutoCompleteResult result = _entityClient.autoComplete(ENTITY_NAME, query, filters, limit, context.getAuthentication());
+  public AutoCompleteResults autoComplete(
+      @Nonnull String query,
+      @Nullable String field,
+      @Nullable Filter filters,
+      int limit,
+      @Nonnull final QueryContext context)
+      throws Exception {
+    final AutoCompleteResult result =
+        _entityClient.autoComplete(ENTITY_NAME, query, filters, limit, context.getAuthentication());
     return AutoCompleteResultsMapper.map(result);
   }
 }

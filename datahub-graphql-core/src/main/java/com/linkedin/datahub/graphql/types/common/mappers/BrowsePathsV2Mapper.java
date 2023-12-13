@@ -4,10 +4,9 @@ import com.linkedin.common.BrowsePathsV2;
 import com.linkedin.datahub.graphql.generated.BrowsePathEntry;
 import com.linkedin.datahub.graphql.generated.BrowsePathV2;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
-
-import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
 
 public class BrowsePathsV2Mapper implements ModelMapper<BrowsePathsV2, BrowsePathV2> {
 
@@ -20,7 +19,8 @@ public class BrowsePathsV2Mapper implements ModelMapper<BrowsePathsV2, BrowsePat
   @Override
   public BrowsePathV2 apply(@Nonnull final BrowsePathsV2 input) {
     final BrowsePathV2 result = new BrowsePathV2();
-    final List<BrowsePathEntry> path = input.getPath().stream().map(this::mapBrowsePathEntry).collect(Collectors.toList());
+    final List<BrowsePathEntry> path =
+        input.getPath().stream().map(this::mapBrowsePathEntry).collect(Collectors.toList());
     result.setPath(path);
     return result;
   }

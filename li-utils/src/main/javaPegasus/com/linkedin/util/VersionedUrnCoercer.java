@@ -5,7 +5,6 @@ import com.linkedin.data.template.Custom;
 import com.linkedin.data.template.DirectCoercer;
 import com.linkedin.data.template.TemplateOutputCastException;
 
-
 public class VersionedUrnCoercer implements DirectCoercer<VersionedUrn> {
   static {
     Custom.registerCoercer(new VersionedUrnCoercer(), VersionedUrn.class);

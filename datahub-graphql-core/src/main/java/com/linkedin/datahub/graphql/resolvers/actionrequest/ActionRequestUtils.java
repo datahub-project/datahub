@@ -1,5 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.actionrequest;
 
+import static com.linkedin.metadata.Constants.*;
+
 import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.actionrequest.ActionRequestInfo;
@@ -29,12 +31,12 @@ import com.linkedin.datahub.graphql.generated.DataContractProposalOperationType;
 import com.linkedin.datahub.graphql.generated.DataContractProposalParams;
 import com.linkedin.datahub.graphql.generated.DataQualityContract;
 import com.linkedin.datahub.graphql.generated.EditableSchemaFieldInfo;
+import com.linkedin.datahub.graphql.generated.FreshnessContract;
 import com.linkedin.datahub.graphql.generated.GlossaryNode;
 import com.linkedin.datahub.graphql.generated.GlossaryTerm;
 import com.linkedin.datahub.graphql.generated.GlossaryTermProposalParams;
 import com.linkedin.datahub.graphql.generated.ResolvedAuditStamp;
 import com.linkedin.datahub.graphql.generated.SchemaContract;
-import com.linkedin.datahub.graphql.generated.FreshnessContract;
 import com.linkedin.datahub.graphql.generated.Tag;
 import com.linkedin.datahub.graphql.generated.TagProposalParams;
 import com.linkedin.datahub.graphql.generated.UpdateDescriptionProposalParams;
@@ -68,9 +70,6 @@ import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import lombok.Value;
 
-import static com.linkedin.metadata.Constants.*;
-
-
 public class ActionRequestUtils {
   private static final String STATUS_FIELD_NAME = "status";
   private static final String TYPE_FIELD_NAME = "type";
@@ -88,23 +87,34 @@ public class ActionRequestUtils {
         actionRequest.setType(ActionRequestType.valueOf(actionRequestInfo.getType()));
 
         actionRequest.setDueDate(actionRequestInfo.getDueDate());
-        actionRequest.setAssignedUsers(actionRequestInfo.getAssignedUsers().stream().map(Urn::toString).collect(
-            Collectors.toList()));
-        actionRequest.setAssignedGroups(actionRequestInfo.getAssignedGroups().stream().map(Urn::toString).collect(
-            Collectors.toList()));
+        actionRequest.setAssignedUsers(
+            actionRequestInfo.getAssignedUsers().stream()
+                .map(Urn::toString)
+                .collect(Collectors.toList()));
+        actionRequest.setAssignedGroups(
+            actionRequestInfo.getAssignedGroups().stream()
+                .map(Urn::toString)
+                .collect(Collectors.toList()));
 
-        List<String> roles = actionRequestInfo.hasAssignedRoles() ? actionRequestInfo.getAssignedRoles()
-            .stream().map(Urn::toString).collect(Collectors.toList()) : ImmutableList.of();
+        List<String> roles =
+            actionRequestInfo.hasAssignedRoles()
+                ? actionRequestInfo.getAssignedRoles().stream()
+                    .map(Urn::toString)
+                    .collect(Collectors.toList())
+                : ImmutableList.of();
         actionRequest.setAssignedRoles(roles);
 
         if (actionRequestInfo.hasResource()) {
-          // For now, resource must be of Urn type to qualify. This assumption needs to be documented explicitly somewhere.
+          // For now, resource must be of Urn type to qualify. This assumption needs to be
+          // documented explicitly somewhere.
           try {
             Urn resourceUrn = Urn.createFromString(actionRequestInfo.getResource());
             actionRequest.setEntity(UrnToEntityMapper.map(resourceUrn));
           } catch (URISyntaxException e) {
             throw new RuntimeException(
-                String.format("Failed to convert ActionRequest Resource field into an Entity URN %s", actionRequestInfo.getResource()));
+                String.format(
+                    "Failed to convert ActionRequest Resource field into an Entity URN %s",
+                    actionRequestInfo.getResource()));
           }
         }
 
@@ -123,7 +133,8 @@ public class ActionRequestUtils {
         }
 
       } else if (aspect.isActionRequestStatus()) {
-        com.linkedin.actionrequest.ActionRequestStatus actionRequestStatus = aspect.getActionRequestStatus();
+        com.linkedin.actionrequest.ActionRequestStatus actionRequestStatus =
+            aspect.getActionRequestStatus();
         actionRequest.setStatus(ActionRequestStatus.valueOf(actionRequestStatus.getStatus()));
         if (actionRequestStatus.hasResult() && actionRequestStatus.getResult().length() > 0) {
           actionRequest.setResult(ActionRequestResult.valueOf(actionRequestStatus.getResult()));
@@ -141,45 +152,66 @@ public class ActionRequestUtils {
     return actionRequest;
   }
 
-  public static ActionRequest mapRejectedActionRequest(final ActionRequestSnapshot snapshot,
-      final EntityService entityService, final @Nullable ActionRequestType type) {
+  public static ActionRequest mapRejectedActionRequest(
+      final ActionRequestSnapshot snapshot,
+      final EntityService entityService,
+      final @Nullable ActionRequestType type) {
     final ActionRequest rejectedActionRequest = mapActionRequest(snapshot);
 
     if (rejectedActionRequest.getEntity() != null) {
       ActionRequestResourceProperties resourceProperties = new ActionRequestResourceProperties();
-      ActionRequestSubResourceProperties subResourceProperties = new ActionRequestSubResourceProperties();
+      ActionRequestSubResourceProperties subResourceProperties =
+          new ActionRequestSubResourceProperties();
 
       if (type == null || type == ActionRequestType.TERM_ASSOCIATION) {
-        if (rejectedActionRequest.getSubResource() != null && rejectedActionRequest.getSubResourceType() != null) {
+        if (rejectedActionRequest.getSubResource() != null
+            && rejectedActionRequest.getSubResourceType() != null) {
           com.linkedin.schema.EditableSchemaMetadata editableSchemaMetadataAspect =
-              (EditableSchemaMetadata) EntityUtils.getAspectFromEntity(rejectedActionRequest.getEntity().getUrn(),
-                  EDITABLE_SCHEMA_METADATA_ASPECT_NAME, entityService, null);
+              (EditableSchemaMetadata)
+                  EntityUtils.getAspectFromEntity(
+                      rejectedActionRequest.getEntity().getUrn(),
+                      EDITABLE_SCHEMA_METADATA_ASPECT_NAME,
+                      entityService,
+                      null);
 
-          if (editableSchemaMetadataAspect != null && editableSchemaMetadataAspect.hasEditableSchemaFieldInfo()) {
-            EditableSchemaMetadataMapper editableSchemaMetadataMapper = new EditableSchemaMetadataMapper();
+          if (editableSchemaMetadataAspect != null
+              && editableSchemaMetadataAspect.hasEditableSchemaFieldInfo()) {
+            EditableSchemaMetadataMapper editableSchemaMetadataMapper =
+                new EditableSchemaMetadataMapper();
             com.linkedin.datahub.graphql.generated.EditableSchemaMetadata editableSchemaMetadata =
-                editableSchemaMetadataMapper.apply(editableSchemaMetadataAspect, UrnUtils.getUrn(rejectedActionRequest.getEntity().getUrn()));
+                editableSchemaMetadataMapper.apply(
+                    editableSchemaMetadataAspect,
+                    UrnUtils.getUrn(rejectedActionRequest.getEntity().getUrn()));
 
             Optional<EditableSchemaFieldInfo> editableSchemaFieldInfoOptional =
-                editableSchemaMetadata.getEditableSchemaFieldInfo()
-                    .stream()
-                    .filter(editableSchemaFieldInfo -> editableSchemaFieldInfo.getFieldPath()
-                        .equals(rejectedActionRequest.getSubResource()))
+                editableSchemaMetadata.getEditableSchemaFieldInfo().stream()
+                    .filter(
+                        editableSchemaFieldInfo ->
+                            editableSchemaFieldInfo
+                                .getFieldPath()
+                                .equals(rejectedActionRequest.getSubResource()))
                     .findFirst();
 
             if (editableSchemaFieldInfoOptional.isPresent()) {
-              subResourceProperties.setGlossaryTerms(editableSchemaFieldInfoOptional.get().getGlossaryTerms());
+              subResourceProperties.setGlossaryTerms(
+                  editableSchemaFieldInfoOptional.get().getGlossaryTerms());
             }
           }
         } else {
           com.linkedin.common.GlossaryTerms glossaryTermsAspect =
-              (GlossaryTerms) EntityUtils.getAspectFromEntity(rejectedActionRequest.getEntity().getUrn(),
-                  GLOSSARY_TERMS_ASPECT_NAME, entityService, null);
+              (GlossaryTerms)
+                  EntityUtils.getAspectFromEntity(
+                      rejectedActionRequest.getEntity().getUrn(),
+                      GLOSSARY_TERMS_ASPECT_NAME,
+                      entityService,
+                      null);
 
           if (glossaryTermsAspect != null && glossaryTermsAspect.hasTerms()) {
             GlossaryTermsMapper glossaryTermsMapper = new GlossaryTermsMapper();
             com.linkedin.datahub.graphql.generated.GlossaryTerms glossaryTerms =
-                glossaryTermsMapper.apply(glossaryTermsAspect, UrnUtils.getUrn(rejectedActionRequest.getEntity().getUrn()));
+                glossaryTermsMapper.apply(
+                    glossaryTermsAspect,
+                    UrnUtils.getUrn(rejectedActionRequest.getEntity().getUrn()));
 
             resourceProperties.setGlossaryTerms(glossaryTerms);
           }
@@ -187,22 +219,32 @@ public class ActionRequestUtils {
       }
 
       if (type == null || type == ActionRequestType.TAG_ASSOCIATION) {
-        if (rejectedActionRequest.getSubResource() != null && rejectedActionRequest.getSubResourceType() != null) {
+        if (rejectedActionRequest.getSubResource() != null
+            && rejectedActionRequest.getSubResourceType() != null) {
           com.linkedin.schema.EditableSchemaMetadata editableSchemaMetadataAspect =
-              (EditableSchemaMetadata) EntityUtils.getAspectFromEntity(rejectedActionRequest.getEntity().getUrn(),
-                  EDITABLE_SCHEMA_METADATA_ASPECT_NAME, entityService, null);
+              (EditableSchemaMetadata)
+                  EntityUtils.getAspectFromEntity(
+                      rejectedActionRequest.getEntity().getUrn(),
+                      EDITABLE_SCHEMA_METADATA_ASPECT_NAME,
+                      entityService,
+                      null);
 
-          if (editableSchemaMetadataAspect != null && editableSchemaMetadataAspect.hasEditableSchemaFieldInfo()) {
-            EditableSchemaMetadataMapper editableSchemaMetadataMapper = new EditableSchemaMetadataMapper();
+          if (editableSchemaMetadataAspect != null
+              && editableSchemaMetadataAspect.hasEditableSchemaFieldInfo()) {
+            EditableSchemaMetadataMapper editableSchemaMetadataMapper =
+                new EditableSchemaMetadataMapper();
             com.linkedin.datahub.graphql.generated.EditableSchemaMetadata editableSchemaMetadata =
-                editableSchemaMetadataMapper.apply(editableSchemaMetadataAspect,
+                editableSchemaMetadataMapper.apply(
+                    editableSchemaMetadataAspect,
                     UrnUtils.getUrn(rejectedActionRequest.getEntity().getUrn()));
 
             Optional<EditableSchemaFieldInfo> editableSchemaFieldInfoOptional =
-                editableSchemaMetadata.getEditableSchemaFieldInfo()
-                    .stream()
-                    .filter(editableSchemaFieldInfo -> editableSchemaFieldInfo.getFieldPath()
-                        .equals(rejectedActionRequest.getSubResource()))
+                editableSchemaMetadata.getEditableSchemaFieldInfo().stream()
+                    .filter(
+                        editableSchemaFieldInfo ->
+                            editableSchemaFieldInfo
+                                .getFieldPath()
+                                .equals(rejectedActionRequest.getSubResource()))
                     .findFirst();
 
             if (editableSchemaFieldInfoOptional.isPresent()) {
@@ -211,14 +253,18 @@ public class ActionRequestUtils {
           }
         } else {
           com.linkedin.common.GlobalTags globalTagsAspect =
-              (GlobalTags) EntityUtils.getAspectFromEntity(rejectedActionRequest.getEntity().getUrn(), GLOBAL_TAGS_ASPECT_NAME,
-                  entityService, null);
+              (GlobalTags)
+                  EntityUtils.getAspectFromEntity(
+                      rejectedActionRequest.getEntity().getUrn(),
+                      GLOBAL_TAGS_ASPECT_NAME,
+                      entityService,
+                      null);
 
           if (globalTagsAspect != null && globalTagsAspect.hasTags()) {
             GlobalTagsMapper globalTagsMapper = new GlobalTagsMapper();
-            com.linkedin.datahub.graphql.generated.GlobalTags globalTags = globalTagsMapper.apply(
-                globalTagsAspect,
-                UrnUtils.getUrn(rejectedActionRequest.getEntity().getUrn()));
+            com.linkedin.datahub.graphql.generated.GlobalTags globalTags =
+                globalTagsMapper.apply(
+                    globalTagsAspect, UrnUtils.getUrn(rejectedActionRequest.getEntity().getUrn()));
 
             resourceProperties.setTags(globalTags);
           }
@@ -230,7 +276,8 @@ public class ActionRequestUtils {
     return rejectedActionRequest;
   }
 
-  public static ActionRequestParams mapParams(final com.linkedin.actionrequest.ActionRequestParams params) {
+  public static ActionRequestParams mapParams(
+      final com.linkedin.actionrequest.ActionRequestParams params) {
     final ActionRequestParams result = new ActionRequestParams();
     if (params.hasGlossaryTermProposal()) {
       result.setGlossaryTermProposal(mapGlossaryTermProposal(params.getGlossaryTermProposal()));
@@ -239,13 +286,16 @@ public class ActionRequestUtils {
       result.setTagProposal(mapTagProposal(params.getTagProposal()));
     }
     if (params.hasCreateGlossaryTermProposal()) {
-      result.setCreateGlossaryTermProposal(mapCreateGlossaryTermProposal(params.getCreateGlossaryTermProposal()));
+      result.setCreateGlossaryTermProposal(
+          mapCreateGlossaryTermProposal(params.getCreateGlossaryTermProposal()));
     }
     if (params.hasCreateGlossaryNodeProposal()) {
-      result.setCreateGlossaryNodeProposal(mapCreateGlossaryNodeProposal(params.getCreateGlossaryNodeProposal()));
+      result.setCreateGlossaryNodeProposal(
+          mapCreateGlossaryNodeProposal(params.getCreateGlossaryNodeProposal()));
     }
     if (params.hasUpdateDescriptionProposal()) {
-      result.setUpdateDescriptionProposal(mapUpdateDescriptionProposal(params.getUpdateDescriptionProposal()));
+      result.setUpdateDescriptionProposal(
+          mapUpdateDescriptionProposal(params.getUpdateDescriptionProposal()));
     }
     if (params.hasDataContractProposal()) {
       result.setDataContractProposal(mapDataContractProposal(params.getDataContractProposal()));
@@ -253,7 +303,8 @@ public class ActionRequestUtils {
     return result;
   }
 
-  public static GlossaryTermProposalParams mapGlossaryTermProposal(final GlossaryTermProposal proposal) {
+  public static GlossaryTermProposalParams mapGlossaryTermProposal(
+      final GlossaryTermProposal proposal) {
     final GlossaryTermProposalParams params = new GlossaryTermProposalParams();
     final GlossaryTerm emptyTerm = new GlossaryTerm();
     emptyTerm.setUrn(proposal.getGlossaryTerm().toString());
@@ -269,9 +320,11 @@ public class ActionRequestUtils {
     return params;
   }
 
-  public static CreateGlossaryTermProposalParams mapCreateGlossaryTermProposal(final CreateGlossaryTermProposal proposal) {
+  public static CreateGlossaryTermProposalParams mapCreateGlossaryTermProposal(
+      final CreateGlossaryTermProposal proposal) {
     final CreateGlossaryTermProposalParams params = new CreateGlossaryTermProposalParams();
-    final CreateGlossaryEntityProposalProperties glossaryEntity = new CreateGlossaryEntityProposalProperties();
+    final CreateGlossaryEntityProposalProperties glossaryEntity =
+        new CreateGlossaryEntityProposalProperties();
     glossaryEntity.setName(proposal.getName());
     if (proposal.hasParentNode()) {
       final GlossaryNode parentNode = new GlossaryNode();
@@ -285,9 +338,11 @@ public class ActionRequestUtils {
     return params;
   }
 
-  public static CreateGlossaryNodeProposalParams mapCreateGlossaryNodeProposal(final CreateGlossaryNodeProposal proposal) {
+  public static CreateGlossaryNodeProposalParams mapCreateGlossaryNodeProposal(
+      final CreateGlossaryNodeProposal proposal) {
     final CreateGlossaryNodeProposalParams params = new CreateGlossaryNodeProposalParams();
-    final CreateGlossaryEntityProposalProperties glossaryEntity = new CreateGlossaryEntityProposalProperties();
+    final CreateGlossaryEntityProposalProperties glossaryEntity =
+        new CreateGlossaryEntityProposalProperties();
     glossaryEntity.setName(proposal.getName());
     if (proposal.hasParentNode()) {
       final GlossaryNode parentNode = new GlossaryNode();
@@ -301,30 +356,35 @@ public class ActionRequestUtils {
     return params;
   }
 
-  public static UpdateDescriptionProposalParams mapUpdateDescriptionProposal(final DescriptionProposal proposal) {
+  public static UpdateDescriptionProposalParams mapUpdateDescriptionProposal(
+      final DescriptionProposal proposal) {
     final UpdateDescriptionProposalParams params = new UpdateDescriptionProposalParams();
     params.setDescription(proposal.getDescription());
     return params;
   }
 
-  public static DataContractProposalParams mapDataContractProposal(final DataContractProposal proposal) {
+  public static DataContractProposalParams mapDataContractProposal(
+      final DataContractProposal proposal) {
     final DataContractProposalParams params = new DataContractProposalParams();
-    params.setOperationType(DataContractProposalOperationType.valueOf(proposal.getType().toString()));
+    params.setOperationType(
+        DataContractProposalOperationType.valueOf(proposal.getType().toString()));
     if (proposal.hasSchema()) {
       params.setSchema(
-          proposal.getSchema().stream().map(ActionRequestUtils::mapSchemaContract)
-          .collect(Collectors.toList()));
+          proposal.getSchema().stream()
+              .map(ActionRequestUtils::mapSchemaContract)
+              .collect(Collectors.toList()));
     }
     if (proposal.hasFreshness()) {
       params.setFreshness(
-          proposal.getFreshness().stream().map(ActionRequestUtils::mapFreshnessContract)
-          .collect(Collectors.toList())
-      );
+          proposal.getFreshness().stream()
+              .map(ActionRequestUtils::mapFreshnessContract)
+              .collect(Collectors.toList()));
     }
     if (proposal.hasDataQuality()) {
       params.setDataQuality(
-          proposal.getDataQuality().stream().map(ActionRequestUtils::mapDataQualityContract)
-          .collect(Collectors.toList()));
+          proposal.getDataQuality().stream()
+              .map(ActionRequestUtils::mapDataQualityContract)
+              .collect(Collectors.toList()));
     }
     return params;
   }
@@ -394,8 +454,10 @@ public class ActionRequestUtils {
     return results;
   }
 
-  public static List<ActionRequest> mapRejectedActionRequests(final Collection<Entity> entities,
-      final EntityService entityService, final @Nullable ActionRequestType type) {
+  public static List<ActionRequest> mapRejectedActionRequests(
+      final Collection<Entity> entities,
+      final EntityService entityService,
+      final @Nullable ActionRequestType type) {
     final List<ActionRequest> results = new ArrayList<>();
     for (final Entity entity : entities) {
       final ActionRequestSnapshot snapshot = entity.getValue().getActionRequestSnapshot();
@@ -406,12 +468,14 @@ public class ActionRequestUtils {
         .collect(Collectors.toList());
   }
 
-  public static AssignedUrns getGroupAndRoleUrns(final Urn actor, final Authentication authentication,
-      EntityClient entityClient) throws Exception {
+  public static AssignedUrns getGroupAndRoleUrns(
+      final Urn actor, final Authentication authentication, EntityClient entityClient)
+      throws Exception {
     List<Urn> groupUrns = new ArrayList<>();
     List<Urn> roleUrns = new ArrayList<>();
     try {
-      final EntityResponse response = entityClient.getV2(CORP_USER_ENTITY_NAME, actor, null, authentication);
+      final EntityResponse response =
+          entityClient.getV2(CORP_USER_ENTITY_NAME, actor, null, authentication);
       final EnvelopedAspectMap aspects = response.getAspects();
 
       if (aspects.get(GROUP_MEMBERSHIP_ASPECT_NAME) != null) {
@@ -421,7 +485,8 @@ public class ActionRequestUtils {
       }
       if (aspects.get(NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME) != null) {
         EnvelopedAspect aspect = aspects.get(NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME);
-        final NativeGroupMembership nativeGroupMembership = new NativeGroupMembership(aspect.getValue().data());
+        final NativeGroupMembership nativeGroupMembership =
+            new NativeGroupMembership(aspect.getValue().data());
         groupUrns.addAll(nativeGroupMembership.getNativeGroups());
       }
       if (aspects.get(ROLE_MEMBERSHIP_ASPECT_NAME) != null) {
@@ -441,7 +506,8 @@ public class ActionRequestUtils {
     List<Urn> roleUrns;
   }
 
-  private static SchemaContract mapSchemaContract(final com.linkedin.datacontract.SchemaContract schemaContract) {
+  private static SchemaContract mapSchemaContract(
+      final com.linkedin.datacontract.SchemaContract schemaContract) {
     final SchemaContract result = new SchemaContract();
     final Assertion partialAssertion = new Assertion();
     partialAssertion.setUrn(schemaContract.getAssertion().toString());
@@ -449,7 +515,8 @@ public class ActionRequestUtils {
     return result;
   }
 
-  private static FreshnessContract mapFreshnessContract(final com.linkedin.datacontract.FreshnessContract freshnessContract) {
+  private static FreshnessContract mapFreshnessContract(
+      final com.linkedin.datacontract.FreshnessContract freshnessContract) {
     final FreshnessContract result = new FreshnessContract();
     final Assertion partialAssertion = new Assertion();
     partialAssertion.setUrn(freshnessContract.getAssertion().toString());
@@ -457,16 +524,14 @@ public class ActionRequestUtils {
     return result;
   }
 
-  private static DataQualityContract mapDataQualityContract(final com.linkedin.datacontract.DataQualityContract qualityContract) {
+  private static DataQualityContract mapDataQualityContract(
+      final com.linkedin.datacontract.DataQualityContract qualityContract) {
     final DataQualityContract result = new DataQualityContract();
     final Assertion partialAssertion = new Assertion();
     partialAssertion.setUrn(qualityContract.getAssertion().toString());
     result.setAssertion(partialAssertion);
     return result;
-
   }
 
-  private ActionRequestUtils() {
-
-  }
+  private ActionRequestUtils() {}
 }

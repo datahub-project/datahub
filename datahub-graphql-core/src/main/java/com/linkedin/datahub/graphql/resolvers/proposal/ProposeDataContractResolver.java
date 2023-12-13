@@ -1,5 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.proposal;
 
+import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
+
 import com.datahub.authentication.proposal.ProposalService;
 import com.linkedin.actionrequest.DataContractProposalOperationType;
 import com.linkedin.common.urn.CorpuserUrn;
@@ -23,9 +25,6 @@ import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
-
-
 @Slf4j
 @RequiredArgsConstructor
 public class ProposeDataContractResolver implements DataFetcher<CompletableFuture<Boolean>> {
@@ -38,25 +37,30 @@ public class ProposeDataContractResolver implements DataFetcher<CompletableFutur
         bindArgument(environment.getArgument("input"), ProposeDataContractInput.class);
     final QueryContext context = environment.getContext();
     final Urn entityUrn = UrnUtils.getUrn(input.getEntityUrn());
-    final DataContractProposalOperationType opType = DataContractProposalOperationType.valueOf(input.getOperationType().toString());
+    final DataContractProposalOperationType opType =
+        DataContractProposalOperationType.valueOf(input.getOperationType().toString());
     final List<FreshnessContract> freshness = mapFreshnessContracts(input.getFreshness());
     final List<SchemaContract> schema = mapSchemaContracts(input.getSchema());
     final List<DataQualityContract> quality = mapQualityContracts(input.getDataQuality());
     final Urn actorUrn = CorpuserUrn.createFromString(context.getActorUrn());
 
-    return CompletableFuture.supplyAsync(() -> {
-      try {
-        log.info("Proposing change to data contract. input: {}", input);
-        return _proposalService.proposeDataContract(actorUrn, entityUrn, opType, freshness, schema, quality, context.getAuthorizer());
-      } catch (Exception e) {
-        log.error("Failed to perform update against input {}, {}", input, e.getMessage());
-        throw new RuntimeException(String.format("Failed to perform update against input %s", input), e);
-      }
-    });
+    return CompletableFuture.supplyAsync(
+        () -> {
+          try {
+            log.info("Proposing change to data contract. input: {}", input);
+            return _proposalService.proposeDataContract(
+                actorUrn, entityUrn, opType, freshness, schema, quality, context.getAuthorizer());
+          } catch (Exception e) {
+            log.error("Failed to perform update against input {}, {}", input, e.getMessage());
+            throw new RuntimeException(
+                String.format("Failed to perform update against input %s", input), e);
+          }
+        });
   }
 
   @Nullable
-  private List<FreshnessContract> mapFreshnessContracts(@Nullable final List<FreshnessContractInput> input) {
+  private List<FreshnessContract> mapFreshnessContracts(
+      @Nullable final List<FreshnessContractInput> input) {
     if (input == null) {
       return null;
     }
@@ -86,7 +90,8 @@ public class ProposeDataContractResolver implements DataFetcher<CompletableFutur
   }
 
   @Nullable
-  private List<DataQualityContract> mapQualityContracts(@Nullable final List<DataQualityContractInput> input) {
+  private List<DataQualityContract> mapQualityContracts(
+      @Nullable final List<DataQualityContractInput> input) {
     if (input == null) {
       return null;
     }

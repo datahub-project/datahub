@@ -5,7 +5,6 @@ import com.linkedin.metadata.search.SearchEntity;
 import java.util.List;
 import java.util.stream.Collectors;
 
-
 public class MatchMetadataFeature implements FeatureExtractor {
   private static final String CUSTOM_PROPERTIES = "customProperties";
 
@@ -16,12 +15,14 @@ public class MatchMetadataFeature implements FeatureExtractor {
 
   private Features getFeature(SearchEntity entity) {
     return new Features(
-        ImmutableMap.of(Features.Name.ONLY_MATCH_CUSTOM_PROPERTIES, onlyMatchCustomProperties(entity) ? 1.0 : 0.0));
+        ImmutableMap.of(
+            Features.Name.ONLY_MATCH_CUSTOM_PROPERTIES,
+            onlyMatchCustomProperties(entity) ? 1.0 : 0.0));
   }
 
   private boolean onlyMatchCustomProperties(SearchEntity entity) {
-    return !entity.getMatchedFields().isEmpty() && entity.getMatchedFields()
-        .stream()
-        .allMatch(field -> field.getName().equals(CUSTOM_PROPERTIES));
+    return !entity.getMatchedFields().isEmpty()
+        && entity.getMatchedFields().stream()
+            .allMatch(field -> field.getName().equals(CUSTOM_PROPERTIES));
   }
 }

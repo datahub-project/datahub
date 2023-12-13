@@ -6,9 +6,9 @@ import com.linkedin.metadata.search.features.FeatureExtractor;
 import java.util.List;
 import java.util.Optional;
 
-
 /**
- * Simple ranker that diversifies the results between different entities. For the same entity, returns the same order from elasticsearch
+ * Simple ranker that diversifies the results between different entities. For the same entity,
+ * returns the same order from elasticsearch
  */
 public class SimpleRanker extends SearchRanker<Double> {
 

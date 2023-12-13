@@ -8,7 +8,6 @@ import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.neo4j.Neo4jGraphService;
 import java.util.function.Function;
 
-
 public class DeleteGraphRelationshipsStep implements UpgradeStep {
 
   private final String deletePattern = ".*";
@@ -35,10 +34,10 @@ public class DeleteGraphRelationshipsStep implements UpgradeStep {
       try {
         ((Neo4jGraphService) _graphClient).removeNodesMatchingLabel(deletePattern);
       } catch (Exception e) {
-        context.report().addLine(String.format("Failed to delete legacy data from graph: %s", e.toString()));
-        return new DefaultUpgradeStepResult(
-            id(),
-            UpgradeStepResult.Result.FAILED);
+        context
+            .report()
+            .addLine(String.format("Failed to delete legacy data from graph: %s", e.toString()));
+        return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.FAILED);
       }
       return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.SUCCEEDED);
     };

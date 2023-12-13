@@ -4,14 +4,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-
-/**
- * Retains a map of what arguments are passed in to a backup reader
- */
+/** Retains a map of what arguments are passed in to a backup reader */
 public final class BackupReaderArgs {
-  private BackupReaderArgs() {
-
-  }
+  private BackupReaderArgs() {}
 
   private static final Map<Class<? extends BackupReader>, List<String>> ARGS_MAP;
 

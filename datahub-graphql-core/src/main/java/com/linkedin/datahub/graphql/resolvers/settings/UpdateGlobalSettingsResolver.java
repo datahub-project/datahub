@@ -1,5 +1,9 @@
 package com.linkedin.datahub.graphql.resolvers.settings;
 
+import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
+import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
+import static com.linkedin.metadata.Constants.*;
+
 import com.linkedin.data.template.StringMap;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
@@ -28,59 +32,66 @@ import graphql.schema.DataFetchingEnvironment;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
-import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
-import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
-import static com.linkedin.metadata.Constants.*;
-
-
 public class UpdateGlobalSettingsResolver implements DataFetcher<CompletableFuture<Boolean>> {
 
   private final EntityClient _entityClient;
   private final SecretService _secretService;
 
-  public UpdateGlobalSettingsResolver(final EntityClient entityClient, final SecretService secretService) {
+  public UpdateGlobalSettingsResolver(
+      final EntityClient entityClient, final SecretService secretService) {
     _entityClient = entityClient;
     _secretService = secretService;
   }
 
   @Override
-  public CompletableFuture<Boolean> get(final DataFetchingEnvironment environment) throws Exception {
+  public CompletableFuture<Boolean> get(final DataFetchingEnvironment environment)
+      throws Exception {
     final QueryContext context = environment.getContext();
 
+    return CompletableFuture.supplyAsync(
+        () -> {
+          if (SettingsMapper.canManageGlobalSettings(context)) {
 
-    return CompletableFuture.supplyAsync(() -> {
-      if (SettingsMapper.canManageGlobalSettings(context)) {
+            final UpdateGlobalSettingsInput input =
+                bindArgument(environment.getArgument("input"), UpdateGlobalSettingsInput.class);
 
-        final UpdateGlobalSettingsInput input = bindArgument(environment.getArgument("input"), UpdateGlobalSettingsInput.class);
+            // First, fetch the existing global settings.
+            GlobalSettingsInfo globalSettings =
+                SettingsMapper.getGlobalSettings(_entityClient, context.getAuthentication());
 
-        // First, fetch the existing global settings.
-        GlobalSettingsInfo globalSettings = SettingsMapper.getGlobalSettings(_entityClient, context.getAuthentication());
+            // Next, patch the global settings.
+            updateSettings(globalSettings, input);
 
-        // Next, patch the global settings.
-        updateSettings(globalSettings, input);
-
-        // Finally, write it back in a new aspect.
-        final MetadataChangeProposal proposal = buildMetadataChangeProposalWithUrn(GLOBAL_SETTINGS_URN, GLOBAL_SETTINGS_INFO_ASPECT_NAME, globalSettings);
-          try {
-            _entityClient.ingestProposal(proposal, context.getAuthentication(), false);
-            return true;
-          } catch (Exception e) {
-            throw new RuntimeException(String.format("Failed to update global settings! %s", input), e);
+            // Finally, write it back in a new aspect.
+            final MetadataChangeProposal proposal =
+                buildMetadataChangeProposalWithUrn(
+                    GLOBAL_SETTINGS_URN, GLOBAL_SETTINGS_INFO_ASPECT_NAME, globalSettings);
+            try {
+              _entityClient.ingestProposal(proposal, context.getAuthentication(), false);
+              return true;
+            } catch (Exception e) {
+              throw new RuntimeException(
+                  String.format("Failed to update global settings! %s", input), e);
+            }
           }
-      }
-      throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
-    });
+          throw new AuthorizationException(
+              "Unauthorized to perform this action. Please contact your DataHub administrator.");
+        });
   }
 
-  private void updateSettings(final GlobalSettingsInfo existingSettings, final UpdateGlobalSettingsInput update) {
+  private void updateSettings(
+      final GlobalSettingsInfo existingSettings, final UpdateGlobalSettingsInput update) {
     if (update.getIntegrationSettings() != null) {
-      updateGlobalIntegrationSettings(existingSettings.getIntegrations(), update.getIntegrationSettings());
+      updateGlobalIntegrationSettings(
+          existingSettings.getIntegrations(), update.getIntegrationSettings());
     }
     if (update.getNotificationSettings() != null) {
-      updateGlobalNotificationSettings(existingSettings.getNotifications(), update.getNotificationSettings());
+      updateGlobalNotificationSettings(
+          existingSettings.getNotifications(), update.getNotificationSettings());
     }
     if (update.getSsoSettings() != null) {
-      SsoSettings existingSsoSettings = existingSettings.hasSso() ? existingSettings.getSso() : new SsoSettings();
+      SsoSettings existingSsoSettings =
+          existingSettings.hasSso() ? existingSettings.getSso() : new SsoSettings();
       updateSsoSettings(existingSsoSettings, update.getSsoSettings());
       existingSettings.setSso(existingSsoSettings);
     }
@@ -90,21 +101,18 @@ public class UpdateGlobalSettingsResolver implements DataFetcher<CompletableFutu
       final GlobalIntegrationSettings existingSettings,
       final UpdateGlobalIntegrationSettingsInput update) {
     if (update.getSlackSettings() != null) {
-      SlackIntegrationSettings existingSlackSettings = existingSettings.hasSlackSettings()
-          ? existingSettings.getSlackSettings()
-          : new SlackIntegrationSettings();
-      updateSlackIntegrationSettings(
-          existingSlackSettings,
-          update.getSlackSettings()
-      );
+      SlackIntegrationSettings existingSlackSettings =
+          existingSettings.hasSlackSettings()
+              ? existingSettings.getSlackSettings()
+              : new SlackIntegrationSettings();
+      updateSlackIntegrationSettings(existingSlackSettings, update.getSlackSettings());
       existingSettings.setSlackSettings(existingSlackSettings);
     }
   }
 
   private void updateSlackIntegrationSettings(
       final SlackIntegrationSettings existingSettings,
-      final UpdateSlackIntegrationSettingsInput update
-  ) {
+      final UpdateSlackIntegrationSettingsInput update) {
     existingSettings.setEnabled(true);
     if (update.getDefaultChannelName() != null) {
       existingSettings.setDefaultChannelName(update.getDefaultChannelName());
@@ -128,17 +136,20 @@ public class UpdateGlobalSettingsResolver implements DataFetcher<CompletableFutu
     }
   }
 
-  private void updateSsoSettings(final SsoSettings ssoSettings, final UpdateSsoSettingsInput update) {
+  private void updateSsoSettings(
+      final SsoSettings ssoSettings, final UpdateSsoSettingsInput update) {
     ssoSettings.setBaseUrl(update.getBaseUrl());
 
     if (update.getOidcSettings() != null) {
-      OidcSettings oidcSettings = ssoSettings.hasOidcSettings() ? ssoSettings.getOidcSettings() : new OidcSettings();
+      OidcSettings oidcSettings =
+          ssoSettings.hasOidcSettings() ? ssoSettings.getOidcSettings() : new OidcSettings();
       updateOidcSettings(oidcSettings, update.getOidcSettings());
       ssoSettings.setOidcSettings(oidcSettings);
     }
   }
 
-  private void updateOidcSettings(final OidcSettings oidcSettings, final UpdateOidcSettingsInput update) {
+  private void updateOidcSettings(
+      final OidcSettings oidcSettings, final UpdateOidcSettingsInput update) {
     oidcSettings.setEnabled(update.getEnabled());
     oidcSettings.setClientId(update.getClientId());
     oidcSettings.setClientSecret(_secretService.encrypt(update.getClientSecret()));

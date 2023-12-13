@@ -28,10 +28,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
-
-/**
- * Provider of basic information about a Tag entity.
- */
+/** Provider of basic information about a Tag entity. */
 @Slf4j
 public class EntityNameProvider {
 
@@ -50,7 +47,7 @@ public class EntityNameProvider {
   /**
    * Returns the name for use when displaying a glossary term.
    *
-   * Returns the urn of the term if one cannot be resolved.
+   * <p>Returns the urn of the term if one cannot be resolved.
    */
   public String getName(@Nonnull final Urn entityUrn) {
     switch (entityUrn.getEntityType()) {
@@ -101,7 +98,9 @@ public class EntityNameProvider {
     DataMap data = getAspectData(datasetUrn, Constants.DATASET_PROPERTIES_ASPECT_NAME);
     if (data != null) {
       DatasetProperties datasetProperties = new DatasetProperties(data);
-      return datasetProperties.hasName() ? datasetProperties.getName() : datasetUrn.getEntityKey().get(1);
+      return datasetProperties.hasName()
+          ? datasetProperties.getName()
+          : datasetUrn.getEntityKey().get(1);
     }
     return datasetUrn.getEntityKey().get(1);
   }
@@ -187,7 +186,6 @@ public class EntityNameProvider {
     return dataPlatformUrn.toString();
   }
 
-
   private String getSchemaFieldName(Urn schemaFieldUrn) {
     return schemaFieldUrn.getEntityKey().get(1);
   }
@@ -258,20 +256,21 @@ public class EntityNameProvider {
   @Nullable
   private DataMap getAspectData(Urn urn, String aspectName) {
     try {
-      EntityResponse response = _entityClient.getV2(
-          urn.getEntityType(),
-          urn,
-          ImmutableSet.of(aspectName),
-          _systemAuthentication
-      );
+      EntityResponse response =
+          _entityClient.getV2(
+              urn.getEntityType(), urn, ImmutableSet.of(aspectName), _systemAuthentication);
       if (response != null && response.getAspects().containsKey(aspectName)) {
         return response.getAspects().get(aspectName).getValue().data();
       } else {
-        log.warn(String.format("Failed to get aspect data for  urn %s aspect %s", urn.toString(), aspectName));
+        log.warn(
+            String.format(
+                "Failed to get aspect data for  urn %s aspect %s", urn.toString(), aspectName));
         return null;
       }
     } catch (Exception e) {
-      log.error(String.format("Failed to get aspect data for  urn %s aspect %s", urn.toString(), aspectName));
+      log.error(
+          String.format(
+              "Failed to get aspect data for  urn %s aspect %s", urn.toString(), aspectName));
       return null;
     }
   }

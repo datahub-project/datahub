@@ -8,7 +8,6 @@ import com.linkedin.metadata.search.features.MatchMetadataFeature;
 import java.util.List;
 import org.javatuples.Pair;
 
-
 public class DefaultRanker extends SearchRanker {
 
   private final List<FeatureExtractor> featureExtractors;
@@ -25,8 +24,8 @@ public class DefaultRanker extends SearchRanker {
   @Override
   public Comparable<?> score(SearchEntity searchEntity) {
     Features features = Features.from(searchEntity.getFeatures());
-    return Pair.with(-features.getNumericFeature(
-        Features.Name.ONLY_MATCH_CUSTOM_PROPERTIES, 0.0),
+    return Pair.with(
+        -features.getNumericFeature(Features.Name.ONLY_MATCH_CUSTOM_PROPERTIES, 0.0),
         features.getNumericFeature(Features.Name.SEARCH_BACKEND_SCORE, 0.0));
   }
 }

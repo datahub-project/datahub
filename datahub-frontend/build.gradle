@@ -55,8 +55,6 @@ tasks.withType(Checkstyle) {
   exclude "**/generated/**"
 }
 
-checkstyleMain.source = "app/"
-
 
 /*
 PLAY UPGRADE NOTE

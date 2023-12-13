@@ -1,5 +1,10 @@
 package com.linkedin.datahub.graphql.resolvers.settings.user;
 
+import static com.linkedin.datahub.graphql.TestUtils.*;
+import static com.linkedin.datahub.graphql.resolvers.settings.NotificationSettingsTestUtils.*;
+import static org.mockito.Mockito.*;
+import static org.testng.Assert.*;
+
 import com.datahub.authentication.Authentication;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.NotificationSettings;
@@ -8,12 +13,6 @@ import com.linkedin.metadata.service.SettingsService;
 import graphql.schema.DataFetchingEnvironment;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
-
-import static com.linkedin.datahub.graphql.TestUtils.*;
-import static com.linkedin.datahub.graphql.resolvers.settings.NotificationSettingsTestUtils.*;
-import static org.mockito.Mockito.*;
-import static org.testng.Assert.*;
-
 
 public class GetUserNotificationSettingsResolverTest {
   private SettingsService _settingsService;
@@ -37,17 +36,20 @@ public class GetUserNotificationSettingsResolverTest {
 
   @Test
   public void testExceptionThrown() {
-    when(_settingsService.getCorpUserSettings(eq(USER_URN), eq(_authentication))).thenThrow(new RuntimeException());
+    when(_settingsService.getCorpUserSettings(eq(USER_URN), eq(_authentication)))
+        .thenThrow(new RuntimeException());
 
     assertThrows(() -> _resolver.get(_dataFetchingEnvironment).join());
   }
 
   @Test
   public void testGetUserNotificationSettingPasses() throws Exception {
-    when(_settingsService.getCorpUserSettings(eq(USER_URN), eq(_authentication))).thenReturn(CORP_USER_SETTINGS);
+    when(_settingsService.getCorpUserSettings(eq(USER_URN), eq(_authentication)))
+        .thenReturn(CORP_USER_SETTINGS);
 
     final NotificationSettings result = _resolver.get(_dataFetchingEnvironment).join();
-    final NotificationSettingsMatcher matcher = new NotificationSettingsMatcher(getMappedUserNotificationSettings());
+    final NotificationSettingsMatcher matcher =
+        new NotificationSettingsMatcher(getMappedUserNotificationSettings());
     assertTrue(matcher.matches(result));
   }
 }

@@ -1,5 +1,9 @@
 package com.datahub.authentication.group;
 
+import static com.linkedin.metadata.Constants.*;
+import static org.mockito.Mockito.*;
+import static org.testng.Assert.*;
+
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
@@ -29,11 +33,6 @@ import java.util.List;
 import java.util.Map;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
-
-import static com.linkedin.metadata.Constants.*;
-import static org.mockito.Mockito.*;
-import static org.testng.Assert.*;
-
 
 public class GroupServiceTest {
   private static final String DATAHUB_SYSTEM_CLIENT_ID = "__datahub_system";
@@ -67,20 +66,36 @@ public class GroupServiceTest {
     _groupKey.setName(GROUP_ID);
 
     NativeGroupMembership nativeGroupMembership = new NativeGroupMembership();
-    nativeGroupMembership.setNativeGroups(new UrnArray(Urn.createFromString(NATIVE_GROUP_URN_STRING)));
+    nativeGroupMembership.setNativeGroups(
+        new UrnArray(Urn.createFromString(NATIVE_GROUP_URN_STRING)));
     GroupMembership groupMembership = new GroupMembership();
     groupMembership.setGroups(new UrnArray(Urn.createFromString(EXTERNAL_GROUP_URN_STRING)));
-    _entityResponseMap = ImmutableMap.of(USER_URN, new EntityResponse().setEntityName(CORP_USER_ENTITY_NAME)
-        .setUrn(USER_URN)
-        .setAspects(new EnvelopedAspectMap(ImmutableMap.of(NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME,
-            new EnvelopedAspect().setValue(new Aspect(nativeGroupMembership.data())), GROUP_MEMBERSHIP_ASPECT_NAME,
-            new EnvelopedAspect().setValue(new Aspect(groupMembership.data()))))));
+    _entityResponseMap =
+        ImmutableMap.of(
+            USER_URN,
+            new EntityResponse()
+                .setEntityName(CORP_USER_ENTITY_NAME)
+                .setUrn(USER_URN)
+                .setAspects(
+                    new EnvelopedAspectMap(
+                        ImmutableMap.of(
+                            NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME,
+                            new EnvelopedAspect()
+                                .setValue(new Aspect(nativeGroupMembership.data())),
+                            GROUP_MEMBERSHIP_ASPECT_NAME,
+                            new EnvelopedAspect().setValue(new Aspect(groupMembership.data()))))));
 
-    _entityRelationships = new EntityRelationships().setStart(0)
-        .setCount(1)
-        .setTotal(1)
-        .setRelationships(new EntityRelationshipArray(ImmutableList.of(
-            new EntityRelationship().setEntity(USER_URN).setType(IS_MEMBER_OF_GROUP_RELATIONSHIP_NAME))));
+    _entityRelationships =
+        new EntityRelationships()
+            .setStart(0)
+            .setCount(1)
+            .setTotal(1)
+            .setRelationships(
+                new EntityRelationshipArray(
+                    ImmutableList.of(
+                        new EntityRelationship()
+                            .setEntity(USER_URN)
+                            .setType(IS_MEMBER_OF_GROUP_RELATIONSHIP_NAME))));
 
     _entityClient = mock(EntityClient.class);
     _entityService = mock(EntityService.class);
@@ -118,7 +133,8 @@ public class GroupServiceTest {
   @Test
   public void testGetGroupOriginPasses() {
     Origin groupOrigin = mock(Origin.class);
-    when(_entityService.getLatestAspect(eq(_groupUrn), eq(ORIGIN_ASPECT_NAME))).thenReturn(groupOrigin);
+    when(_entityService.getLatestAspect(eq(_groupUrn), eq(ORIGIN_ASPECT_NAME)))
+        .thenReturn(groupOrigin);
 
     assertEquals(groupOrigin, _groupService.getGroupOrigin(_groupUrn));
   }
@@ -132,8 +148,9 @@ public class GroupServiceTest {
   @Test
   public void testAddUserToNativeGroupPasses() throws Exception {
     when(_entityService.exists(USER_URN)).thenReturn(true);
-    when(_entityClient.batchGetV2(eq(CORP_USER_ENTITY_NAME), any(), any(), eq(SYSTEM_AUTHENTICATION))).thenReturn(
-        _entityResponseMap);
+    when(_entityClient.batchGetV2(
+            eq(CORP_USER_ENTITY_NAME), any(), any(), eq(SYSTEM_AUTHENTICATION)))
+        .thenReturn(_entityResponseMap);
 
     _groupService.addUserToNativeGroup(USER_URN, _groupUrn, SYSTEM_AUTHENTICATION);
     verify(_entityClient).ingestProposal(any(), eq(SYSTEM_AUTHENTICATION));
@@ -141,68 +158,101 @@ public class GroupServiceTest {
 
   @Test
   public void testCreateNativeGroupNullArguments() {
-    assertThrows(() -> _groupService.createNativeGroup(null, GROUP_NAME, GROUP_DESCRIPTION, SYSTEM_AUTHENTICATION));
-    assertThrows(() -> _groupService.createNativeGroup(_groupKey, null, GROUP_DESCRIPTION, SYSTEM_AUTHENTICATION));
-    assertThrows(() -> _groupService.createNativeGroup(_groupKey, GROUP_NAME, null, SYSTEM_AUTHENTICATION));
+    assertThrows(
+        () ->
+            _groupService.createNativeGroup(
+                null, GROUP_NAME, GROUP_DESCRIPTION, SYSTEM_AUTHENTICATION));
+    assertThrows(
+        () ->
+            _groupService.createNativeGroup(
+                _groupKey, null, GROUP_DESCRIPTION, SYSTEM_AUTHENTICATION));
+    assertThrows(
+        () -> _groupService.createNativeGroup(_groupKey, GROUP_NAME, null, SYSTEM_AUTHENTICATION));
   }
 
   @Test
   public void testCreateNativeGroupPasses() throws Exception {
-    _groupService.createNativeGroup(_groupKey, GROUP_NAME, GROUP_DESCRIPTION, SYSTEM_AUTHENTICATION);
+    _groupService.createNativeGroup(
+        _groupKey, GROUP_NAME, GROUP_DESCRIPTION, SYSTEM_AUTHENTICATION);
     verify(_entityClient, times(2)).ingestProposal(any(), eq(SYSTEM_AUTHENTICATION));
   }
 
   @Test
   public void testRemoveExistingNativeGroupMembersNullArguments() {
-    assertThrows(() -> _groupService.removeExistingNativeGroupMembers(null, USER_URN_LIST, SYSTEM_AUTHENTICATION));
-    assertThrows(() -> _groupService.removeExistingNativeGroupMembers(_groupUrn, null, SYSTEM_AUTHENTICATION));
+    assertThrows(
+        () ->
+            _groupService.removeExistingNativeGroupMembers(
+                null, USER_URN_LIST, SYSTEM_AUTHENTICATION));
+    assertThrows(
+        () ->
+            _groupService.removeExistingNativeGroupMembers(_groupUrn, null, SYSTEM_AUTHENTICATION));
   }
 
   @Test
-  public void testRemoveExistingNativeGroupMembersGroupNotInNativeGroupMembership() throws Exception {
-    when(_entityClient.batchGetV2(eq(CORP_USER_ENTITY_NAME), any(), any(), eq(SYSTEM_AUTHENTICATION))).thenReturn(
-        _entityResponseMap);
+  public void testRemoveExistingNativeGroupMembersGroupNotInNativeGroupMembership()
+      throws Exception {
+    when(_entityClient.batchGetV2(
+            eq(CORP_USER_ENTITY_NAME), any(), any(), eq(SYSTEM_AUTHENTICATION)))
+        .thenReturn(_entityResponseMap);
 
-    _groupService.removeExistingNativeGroupMembers(Urn.createFromString(EXTERNAL_GROUP_URN_STRING), USER_URN_LIST,
-        SYSTEM_AUTHENTICATION);
+    _groupService.removeExistingNativeGroupMembers(
+        Urn.createFromString(EXTERNAL_GROUP_URN_STRING), USER_URN_LIST, SYSTEM_AUTHENTICATION);
     verify(_entityClient, never()).ingestProposal(any(), eq(SYSTEM_AUTHENTICATION));
   }
 
   @Test
   public void testRemoveExistingNativeGroupMembersPasses() throws Exception {
-    when(_entityClient.batchGetV2(eq(CORP_USER_ENTITY_NAME), any(), any(), eq(SYSTEM_AUTHENTICATION))).thenReturn(
-        _entityResponseMap);
+    when(_entityClient.batchGetV2(
+            eq(CORP_USER_ENTITY_NAME), any(), any(), eq(SYSTEM_AUTHENTICATION)))
+        .thenReturn(_entityResponseMap);
 
-    _groupService.removeExistingNativeGroupMembers(Urn.createFromString(NATIVE_GROUP_URN_STRING), USER_URN_LIST,
-        SYSTEM_AUTHENTICATION);
+    _groupService.removeExistingNativeGroupMembers(
+        Urn.createFromString(NATIVE_GROUP_URN_STRING), USER_URN_LIST, SYSTEM_AUTHENTICATION);
     verify(_entityClient).ingestProposal(any(), eq(SYSTEM_AUTHENTICATION));
   }
 
   @Test
   public void testMigrateGroupMembershipToNativeGroupMembershipNullArguments() {
-    assertThrows(() -> _groupService.migrateGroupMembershipToNativeGroupMembership(null, USER_URN.toString(),
-        SYSTEM_AUTHENTICATION));
+    assertThrows(
+        () ->
+            _groupService.migrateGroupMembershipToNativeGroupMembership(
+                null, USER_URN.toString(), SYSTEM_AUTHENTICATION));
   }
 
   @Test
   public void testMigrateGroupMembershipToNativeGroupMembershipPasses() throws Exception {
-    when(_graphClient.getRelatedEntities(eq(EXTERNAL_GROUP_URN_STRING),
-        eq(ImmutableList.of(IS_MEMBER_OF_GROUP_RELATIONSHIP_NAME)), eq(RelationshipDirection.INCOMING), anyInt(),
-        anyInt(), any())).thenReturn(_entityRelationships);
-    when(_entityClient.batchGetV2(eq(CORP_USER_ENTITY_NAME), any(), any(), eq(SYSTEM_AUTHENTICATION))).thenReturn(
-        _entityResponseMap);
+    when(_graphClient.getRelatedEntities(
+            eq(EXTERNAL_GROUP_URN_STRING),
+            eq(ImmutableList.of(IS_MEMBER_OF_GROUP_RELATIONSHIP_NAME)),
+            eq(RelationshipDirection.INCOMING),
+            anyInt(),
+            anyInt(),
+            any()))
+        .thenReturn(_entityRelationships);
+    when(_entityClient.batchGetV2(
+            eq(CORP_USER_ENTITY_NAME), any(), any(), eq(SYSTEM_AUTHENTICATION)))
+        .thenReturn(_entityResponseMap);
     when(_entityService.exists(USER_URN)).thenReturn(true);
 
-    _groupService.migrateGroupMembershipToNativeGroupMembership(Urn.createFromString(EXTERNAL_GROUP_URN_STRING),
-        USER_URN.toString(), SYSTEM_AUTHENTICATION);
+    _groupService.migrateGroupMembershipToNativeGroupMembership(
+        Urn.createFromString(EXTERNAL_GROUP_URN_STRING),
+        USER_URN.toString(),
+        SYSTEM_AUTHENTICATION);
     verify(_entityClient, times(3)).ingestProposal(any(), eq(SYSTEM_AUTHENTICATION));
   }
 
   @Test
   public void testCreateGroupInfoNullArguments() {
-    assertThrows(() -> _groupService.createGroupInfo(null, GROUP_NAME, GROUP_DESCRIPTION, SYSTEM_AUTHENTICATION));
-    assertThrows(() -> _groupService.createGroupInfo(_groupKey, null, GROUP_DESCRIPTION, SYSTEM_AUTHENTICATION));
-    assertThrows(() -> _groupService.createGroupInfo(_groupKey, GROUP_NAME, null, SYSTEM_AUTHENTICATION));
+    assertThrows(
+        () ->
+            _groupService.createGroupInfo(
+                null, GROUP_NAME, GROUP_DESCRIPTION, SYSTEM_AUTHENTICATION));
+    assertThrows(
+        () ->
+            _groupService.createGroupInfo(
+                _groupKey, null, GROUP_DESCRIPTION, SYSTEM_AUTHENTICATION));
+    assertThrows(
+        () -> _groupService.createGroupInfo(_groupKey, GROUP_NAME, null, SYSTEM_AUTHENTICATION));
   }
 
   @Test
@@ -229,36 +279,46 @@ public class GroupServiceTest {
 
   @Test
   public void testGetExistingGroupMembersPasses() {
-    when(_graphClient.getRelatedEntities(eq(GROUP_URN_STRING),
-        eq(ImmutableList.of(IS_MEMBER_OF_GROUP_RELATIONSHIP_NAME)), eq(RelationshipDirection.INCOMING), anyInt(),
-        anyInt(), any())).thenReturn(_entityRelationships);
+    when(_graphClient.getRelatedEntities(
+            eq(GROUP_URN_STRING),
+            eq(ImmutableList.of(IS_MEMBER_OF_GROUP_RELATIONSHIP_NAME)),
+            eq(RelationshipDirection.INCOMING),
+            anyInt(),
+            anyInt(),
+            any()))
+        .thenReturn(_entityRelationships);
 
-    assertEquals(USER_URN_LIST, _groupService.getExistingGroupMembers(_groupUrn, USER_URN.toString()));
+    assertEquals(
+        USER_URN_LIST, _groupService.getExistingGroupMembers(_groupUrn, USER_URN.toString()));
   }
 
   @Test
   public void testRemoveExistingGroupMembersNullArguments() {
-    assertThrows(() -> _groupService.removeExistingGroupMembers(null, USER_URN_LIST, SYSTEM_AUTHENTICATION));
-    assertThrows(() -> _groupService.removeExistingGroupMembers(_groupUrn, null, SYSTEM_AUTHENTICATION));
+    assertThrows(
+        () -> _groupService.removeExistingGroupMembers(null, USER_URN_LIST, SYSTEM_AUTHENTICATION));
+    assertThrows(
+        () -> _groupService.removeExistingGroupMembers(_groupUrn, null, SYSTEM_AUTHENTICATION));
   }
 
   @Test
   public void testRemoveExistingGroupMembersGroupNotInGroupMembership() throws Exception {
-    when(_entityClient.batchGetV2(eq(CORP_USER_ENTITY_NAME), any(), any(), eq(SYSTEM_AUTHENTICATION))).thenReturn(
-        _entityResponseMap);
+    when(_entityClient.batchGetV2(
+            eq(CORP_USER_ENTITY_NAME), any(), any(), eq(SYSTEM_AUTHENTICATION)))
+        .thenReturn(_entityResponseMap);
 
-    _groupService.removeExistingGroupMembers(Urn.createFromString(NATIVE_GROUP_URN_STRING), USER_URN_LIST,
-        SYSTEM_AUTHENTICATION);
+    _groupService.removeExistingGroupMembers(
+        Urn.createFromString(NATIVE_GROUP_URN_STRING), USER_URN_LIST, SYSTEM_AUTHENTICATION);
     verify(_entityClient, never()).ingestProposal(any(), eq(SYSTEM_AUTHENTICATION));
   }
 
   @Test
   public void testRemoveExistingGroupMembersPasses() throws Exception {
-    when(_entityClient.batchGetV2(eq(CORP_USER_ENTITY_NAME), any(), any(), eq(SYSTEM_AUTHENTICATION))).thenReturn(
-        _entityResponseMap);
+    when(_entityClient.batchGetV2(
+            eq(CORP_USER_ENTITY_NAME), any(), any(), eq(SYSTEM_AUTHENTICATION)))
+        .thenReturn(_entityResponseMap);
 
-    _groupService.removeExistingGroupMembers(Urn.createFromString(EXTERNAL_GROUP_URN_STRING), USER_URN_LIST,
-        SYSTEM_AUTHENTICATION);
+    _groupService.removeExistingGroupMembers(
+        Urn.createFromString(EXTERNAL_GROUP_URN_STRING), USER_URN_LIST, SYSTEM_AUTHENTICATION);
     verify(_entityClient).ingestProposal(any(), eq(SYSTEM_AUTHENTICATION));
   }
 }

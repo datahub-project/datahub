@@ -1,5 +1,8 @@
 package com.linkedin.datahub.graphql.resolvers.monitor;
 
+import static com.linkedin.datahub.graphql.TestUtils.*;
+import static org.testng.Assert.*;
+
 import com.datahub.authentication.Authentication;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -19,22 +22,22 @@ import java.util.concurrent.CompletionException;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
-import static com.linkedin.datahub.graphql.TestUtils.*;
-import static org.testng.Assert.*;
-
-
 public class SystemMonitorsResolverTest {
 
   private static final Urn TEST_ENTITY_URN = UrnUtils.getUrn("urn:li:dataset:test");
-  private static final Urn TEST_MONITOR_URN = UrnUtils.getUrn(
-      String.format("urn:li:monitor:(%s,%s)", TEST_ENTITY_URN.toString(), AcrylConstants.FRESHNESS_SYSTEM_MONITOR_ID));
-  private static final MonitorKey TEST_MONITOR_KEY = new MonitorKey()
-      .setEntity(UrnUtils.getUrn(TEST_MONITOR_URN.getEntityKey().get(0)))
-      .setId(TEST_MONITOR_URN.getEntityKey().get(1)
-      );
-  private static final MonitorInfo TEST_MONITOR_INFO = new MonitorInfo()
-      .setType(MonitorType.ASSERTION)
-      .setStatus(new MonitorStatus().setMode(MonitorMode.ACTIVE));
+  private static final Urn TEST_MONITOR_URN =
+      UrnUtils.getUrn(
+          String.format(
+              "urn:li:monitor:(%s,%s)",
+              TEST_ENTITY_URN.toString(), AcrylConstants.FRESHNESS_SYSTEM_MONITOR_ID));
+  private static final MonitorKey TEST_MONITOR_KEY =
+      new MonitorKey()
+          .setEntity(UrnUtils.getUrn(TEST_MONITOR_URN.getEntityKey().get(0)))
+          .setId(TEST_MONITOR_URN.getEntityKey().get(1));
+  private static final MonitorInfo TEST_MONITOR_INFO =
+      new MonitorInfo()
+          .setType(MonitorType.ASSERTION)
+          .setStatus(new MonitorStatus().setMode(MonitorMode.ACTIVE));
 
   @Test
   public void testGetSuccess() throws Exception {
@@ -51,7 +54,8 @@ public class SystemMonitorsResolverTest {
 
     SystemMonitorsResult result = resolver.get(mockEnv).get();
     assertNotNull(result);
-    assertEquals(result.getMonitors().get(0).getType().toString(), SystemMonitorType.FRESHNESS.toString());
+    assertEquals(
+        result.getMonitors().get(0).getType().toString(), SystemMonitorType.FRESHNESS.toString());
     assertEquals(result.getMonitors().get(0).getMonitor().getUrn(), TEST_MONITOR_URN.toString());
   }
 
@@ -92,9 +96,8 @@ public class SystemMonitorsResolverTest {
   private MonitorService initMockService() throws Exception {
     MonitorService service = Mockito.mock(MonitorService.class);
 
-    Mockito.when(service.getMonitorInfo(
-        Mockito.eq(TEST_MONITOR_URN)
-    )).thenReturn(TEST_MONITOR_INFO);
+    Mockito.when(service.getMonitorInfo(Mockito.eq(TEST_MONITOR_URN)))
+        .thenReturn(TEST_MONITOR_INFO);
 
     return service;
   }
@@ -102,15 +105,11 @@ public class SystemMonitorsResolverTest {
   private EntityClient initMockClient(boolean exists) throws Exception {
     EntityClient client = Mockito.mock(EntityClient.class);
     if (exists) {
-      Mockito.when(client.exists(
-          Mockito.eq(TEST_ENTITY_URN),
-          Mockito.any(Authentication.class)
-      )).thenReturn(true);
+      Mockito.when(client.exists(Mockito.eq(TEST_ENTITY_URN), Mockito.any(Authentication.class)))
+          .thenReturn(true);
     } else {
-      Mockito.when(client.exists(
-          Mockito.eq(TEST_ENTITY_URN),
-          Mockito.any(Authentication.class)
-      )).thenReturn(false);
+      Mockito.when(client.exists(Mockito.eq(TEST_ENTITY_URN), Mockito.any(Authentication.class)))
+          .thenReturn(false);
     }
     return client;
   }

@@ -8,10 +8,7 @@ import com.linkedin.metadata.test.exception.InvalidOperandException;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 
-
-/**
- * Exists operation evaluator. Checks whether the query response exists
- */
+/** Exists operation evaluator. Checks whether the query response exists */
 @Slf4j
 public class ExistsEvaluator extends BaseOperatorEvaluator {
   @Override
@@ -29,9 +26,13 @@ public class ExistsEvaluator extends BaseOperatorEvaluator {
 
   @Override
   public Object evaluate(ResolvedOperands resolvedOperands) throws InvalidOperandException {
-    ResolvedOperand operand = resolvedOperands.get(0); // Query response -> This will be list of string or string.
+    ResolvedOperand operand =
+        resolvedOperands.get(0); // Query response -> This will be list of string or string.
 
-    log.debug(String.format("Invoking 'exists' operator with resolved operand %s", operand.getExpression().getValue()));
+    log.debug(
+        String.format(
+            "Invoking 'exists' operator with resolved operand %s",
+            operand.getExpression().getValue()));
 
     return exists(operand.getExpression().getValue());
   }

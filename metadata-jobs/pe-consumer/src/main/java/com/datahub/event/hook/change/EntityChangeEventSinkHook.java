@@ -13,10 +13,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Import;
 import org.springframework.stereotype.Component;
 
-
 /**
- * A {@link PlatformEventHook} that is responsible for sinking {@link com.linkedin.platform.event.v1.EntityChangeEvent}s
- * to external platforms (like AWS Event Bridge)
+ * A {@link PlatformEventHook} that is responsible for sinking {@link
+ * com.linkedin.platform.event.v1.EntityChangeEvent}s to external platforms (like AWS Event Bridge)
  */
 @Slf4j
 @Component
@@ -38,11 +37,11 @@ public class EntityChangeEventSinkHook implements PlatformEventHook {
   @Override
   public void invoke(@Nonnull PlatformEvent event) {
     if (Constants.CHANGE_EVENT_PLATFORM_EVENT_NAME.equals(event.getName())) {
-      final EntityChangeEvent changeEvent = GenericRecordUtils.deserializePayload(
-          event.getPayload().getValue(),
-          event.getPayload().getContentType(),
-          EntityChangeEvent.class
-      );
+      final EntityChangeEvent changeEvent =
+          GenericRecordUtils.deserializePayload(
+              event.getPayload().getValue(),
+              event.getPayload().getContentType(),
+              EntityChangeEvent.class);
       log.debug(String.format("Received entity change event %s", event));
       // Errors are caught at the nested task level.
       _sinkManager.handle(changeEvent).join();

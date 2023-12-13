@@ -1,5 +1,8 @@
 package com.linkedin.common.util;
 
+import static com.datahub.utils.TestUtils.*;
+import static org.testng.Assert.*;
+
 import com.datahub.test.testing.AspectBar;
 import com.datahub.test.testing.AspectFoo;
 import com.datahub.test.testing.DeltaUnion;
@@ -39,10 +42,6 @@ import java.util.Set;
 import org.testng.annotations.Test;
 import org.testng.collections.Lists;
 
-import static com.datahub.utils.TestUtils.*;
-import static org.testng.Assert.*;
-
-
 public class ModelUtilsTest {
 
   class ChildUrn extends Urn {
@@ -71,7 +70,8 @@ public class ModelUtilsTest {
 
   @Test
   public void testGetValidAspectTypes() {
-    Set<Class<? extends RecordTemplate>> validTypes = ModelUtils.getValidAspectTypes(EntityAspectUnion.class);
+    Set<Class<? extends RecordTemplate>> validTypes =
+        ModelUtils.getValidAspectTypes(EntityAspectUnion.class);
 
     assertEquals(validTypes, ImmutableSet.of(AspectFoo.class, AspectBar.class));
   }
@@ -172,7 +172,8 @@ public class ModelUtilsTest {
   public void testGetUrnFromRelationship() {
     FooUrn expectedSource = makeFooUrn(1);
     BarUrn expectedDestination = makeBarUrn(1);
-    RelationshipFoo relationship = new RelationshipFoo().setSource(expectedSource).setDestination(expectedDestination);
+    RelationshipFoo relationship =
+        new RelationshipFoo().setSource(expectedSource).setDestination(expectedDestination);
 
     Urn sourceUrn = ModelUtils.getSourceUrnFromRelationship(relationship);
     Urn destinationUrn = ModelUtils.getDestinationUrnFromRelationship(relationship);
@@ -269,7 +270,8 @@ public class ModelUtilsTest {
     EntityAspectUnion aspectUnion = new EntityAspectUnion();
     aspectUnion.setAspectFoo(foo);
 
-    EntitySnapshot snapshot = ModelUtils.newSnapshot(EntitySnapshot.class, urn, Lists.newArrayList(aspectUnion));
+    EntitySnapshot snapshot =
+        ModelUtils.newSnapshot(EntitySnapshot.class, urn, Lists.newArrayList(aspectUnion));
 
     assertEquals(snapshot.getUrn(), urn);
     assertEquals(snapshot.getAspects().size(), 1);
@@ -289,7 +291,8 @@ public class ModelUtilsTest {
   public void testNewAspectAlias() {
     AspectFoo foo = new AspectFoo().setValue("foo");
 
-    EntityAspectUnionAlias aspectUnion = ModelUtils.newAspectUnion(EntityAspectUnionAlias.class, foo);
+    EntityAspectUnionAlias aspectUnion =
+        ModelUtils.newAspectUnion(EntityAspectUnionAlias.class, foo);
 
     assertEquals(aspectUnion.getFoo(), foo);
   }
@@ -337,18 +340,22 @@ public class ModelUtilsTest {
 
   @Test
   public void testNewRelatioshipUnion() {
-    RelationshipFoo foo = new RelationshipFoo().setDestination(makeFooUrn(1)).setSource(makeFooUrn(2));
+    RelationshipFoo foo =
+        new RelationshipFoo().setDestination(makeFooUrn(1)).setSource(makeFooUrn(2));
 
-    RelationshipUnion relationshipUnion = ModelUtils.newRelationshipUnion(RelationshipUnion.class, foo);
+    RelationshipUnion relationshipUnion =
+        ModelUtils.newRelationshipUnion(RelationshipUnion.class, foo);
 
     assertEquals(relationshipUnion.getRelationshipFoo(), foo);
   }
 
   @Test
   public void testNewRelatioshipUnionAlias() {
-    RelationshipFoo foo = new RelationshipFoo().setDestination(makeFooUrn(1)).setSource(makeFooUrn(2));
+    RelationshipFoo foo =
+        new RelationshipFoo().setDestination(makeFooUrn(1)).setSource(makeFooUrn(2));
 
-    RelationshipUnionAlias relationshipUnion = ModelUtils.newRelationshipUnion(RelationshipUnionAlias.class, foo);
+    RelationshipUnionAlias relationshipUnion =
+        ModelUtils.newRelationshipUnion(RelationshipUnionAlias.class, foo);
 
     assertEquals(relationshipUnion.getFoo(), foo);
   }
@@ -358,11 +365,14 @@ public class ModelUtilsTest {
     FooUrn urn = new FooUrn(1);
     AspectFoo foo = new AspectFoo().setValue("foo");
 
-    assertEquals(ModelUtils.getAspectSpecificMAETopicName(urn, foo), "METADATA_AUDIT_EVENT_FOO_ASPECTFOO");
+    assertEquals(
+        ModelUtils.getAspectSpecificMAETopicName(urn, foo), "METADATA_AUDIT_EVENT_FOO_ASPECTFOO");
 
     PizzaUrn pizza = new PizzaUrn(1);
     AspectBar bar = new AspectBar().setValue("bar");
-    assertEquals(ModelUtils.getAspectSpecificMAETopicName(pizza, bar), "METADATA_AUDIT_EVENT_PIZZA_ASPECTBAR");
+    assertEquals(
+        ModelUtils.getAspectSpecificMAETopicName(pizza, bar),
+        "METADATA_AUDIT_EVENT_PIZZA_ASPECTBAR");
   }
 
   @Test

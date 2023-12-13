@@ -20,38 +20,34 @@ public class DataContractUtilsTest {
   @Test
   public void testCanEditDataContract() {
     Urn testUrn = UrnUtils.getUrn("urn:li:dataContract:test");
-    boolean result = DataContractUtils.canEditDataContract(new QueryContext() {
-      @Override
-      public boolean isAuthenticated() {
-        return true;
-      }
+    boolean result =
+        DataContractUtils.canEditDataContract(
+            new QueryContext() {
+              @Override
+              public boolean isAuthenticated() {
+                return true;
+              }
 
-      @Override
-      public Authentication getAuthentication() {
-        Authentication auth = new Authentication(
-            new Actor(ActorType.USER, "test"),
-            "TEST"
-        );
-        return auth;
-      }
+              @Override
+              public Authentication getAuthentication() {
+                Authentication auth = new Authentication(new Actor(ActorType.USER, "test"), "TEST");
+                return auth;
+              }
 
-      @Override
-      public Authorizer getAuthorizer() {
-        Authorizer authorizer = Mockito.mock(Authorizer.class);
-        Mockito.when(authorizer.authorize(Mockito.any(AuthorizationRequest.class))).thenReturn(
-            new AuthorizationResult(
-                new AuthorizationRequest(
-                    "TEST",
-                    "test",
-                    Optional.of(new EntitySpec("dataset", "test"))
-                ),
-                AuthorizationResult.Type.ALLOW,
-                "TEST"
-            )
-        );
-        return authorizer;
-      }
-    }, testUrn);
+              @Override
+              public Authorizer getAuthorizer() {
+                Authorizer authorizer = Mockito.mock(Authorizer.class);
+                Mockito.when(authorizer.authorize(Mockito.any(AuthorizationRequest.class)))
+                    .thenReturn(
+                        new AuthorizationResult(
+                            new AuthorizationRequest(
+                                "TEST", "test", Optional.of(new EntitySpec("dataset", "test"))),
+                            AuthorizationResult.Type.ALLOW,
+                            "TEST"));
+                return authorizer;
+              }
+            },
+            testUrn);
     Assert.assertTrue(result);
   }
 }

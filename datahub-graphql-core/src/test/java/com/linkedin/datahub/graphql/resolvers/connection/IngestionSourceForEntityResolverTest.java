@@ -1,34 +1,35 @@
 package com.linkedin.datahub.graphql.resolvers.connection;
 
+import static com.linkedin.datahub.graphql.TestUtils.getMockAllowContext;
+import static com.linkedin.metadata.Constants.*;
+import static org.mockito.Mockito.*;
+import static org.testng.Assert.*;
+
 import com.datahub.authentication.Authentication;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.resolvers.ingest.source.IngestionSourceForEntityResolver;
-import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
+import com.linkedin.entity.client.EntityClient;
 import com.linkedin.execution.ExecutionRequestInput;
 import com.linkedin.execution.ExecutionRequestSource;
 import com.linkedin.ingestion.DataHubIngestionSourceConfig;
 import com.linkedin.ingestion.DataHubIngestionSourceInfo;
 import com.linkedin.ingestion.DataHubIngestionSourceSchedule;
+import com.linkedin.metadata.Constants;
 import com.linkedin.mxe.SystemMetadata;
 import graphql.schema.DataFetchingEnvironment;
+import java.util.Collections;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
-import java.util.Collections;
-import com.linkedin.metadata.Constants;
-import static com.linkedin.metadata.Constants.*;
-
-import static com.linkedin.datahub.graphql.TestUtils.getMockAllowContext;
-import static org.mockito.Mockito.*;
-import static org.testng.Assert.*;
 
 public class IngestionSourceForEntityResolverTest {
-  private static final String ENTITY_URN_STRING = "urn:li:dataset:(urn:li:dataPlatform:bigquery,test1,DEV)";
+  private static final String ENTITY_URN_STRING =
+      "urn:li:dataset:(urn:li:dataPlatform:bigquery,test1,DEV)";
   private static final String INGESTION_SOURCE_URN_STRING = "urn:li:dataHubIngestionSource:test";
   private static final String EXECUTION_REQUEST_URN_STRING = "urn:li:dataHubExecutionRequest:test";
 
@@ -55,43 +56,48 @@ public class IngestionSourceForEntityResolverTest {
     }
 
     EnvelopedAspectMap aspectMap = new EnvelopedAspectMap();
-    aspectMap.put("real-run-id", new EnvelopedAspect().setSystemMetadata(
-        new SystemMetadata().setRunId("real-id-1").setLastObserved(1659107340747L)
-    ));
-    _entityResponse = new EntityResponse()
-        .setAspects(aspectMap);
+    aspectMap.put(
+        "real-run-id",
+        new EnvelopedAspect()
+            .setSystemMetadata(
+                new SystemMetadata().setRunId("real-id-1").setLastObserved(1659107340747L)));
+    _entityResponse = new EntityResponse().setAspects(aspectMap);
 
     EnvelopedAspectMap executionRequestAspects = new EnvelopedAspectMap();
     final ExecutionRequestInput execInput = new ExecutionRequestInput();
-    execInput.setSource(new ExecutionRequestSource().setType("INGESTION_SOURCE").setIngestionSource(UrnUtils.getUrn(INGESTION_SOURCE_URN_STRING)));
-    EnvelopedAspect executionRequestEnvelopedInput = new EnvelopedAspect().setValue(new Aspect(execInput.data()));
+    execInput.setSource(
+        new ExecutionRequestSource()
+            .setType("INGESTION_SOURCE")
+            .setIngestionSource(UrnUtils.getUrn(INGESTION_SOURCE_URN_STRING)));
+    EnvelopedAspect executionRequestEnvelopedInput =
+        new EnvelopedAspect().setValue(new Aspect(execInput.data()));
     executionRequestAspects.put(
-      Constants.EXECUTION_REQUEST_INPUT_ASPECT_NAME, executionRequestEnvelopedInput
-    );
-    _executionRequestEntityResponse = new EntityResponse()
-        .setUrn(UrnUtils.getUrn(EXECUTION_REQUEST_URN_STRING))
-        .setAspects(executionRequestAspects);
+        Constants.EXECUTION_REQUEST_INPUT_ASPECT_NAME, executionRequestEnvelopedInput);
+    _executionRequestEntityResponse =
+        new EntityResponse()
+            .setUrn(UrnUtils.getUrn(EXECUTION_REQUEST_URN_STRING))
+            .setAspects(executionRequestAspects);
 
     EnvelopedAspectMap ingestionInfoAspects = new EnvelopedAspectMap();
     DataHubIngestionSourceInfo ingestionSourceInfo = new DataHubIngestionSourceInfo();
     ingestionSourceInfo.setType("bigquery");
     ingestionSourceInfo.setName("BigQuery");
-    ingestionSourceInfo.setSchedule(new DataHubIngestionSourceSchedule()
-      .setTimezone("America / Los Angeles")
-      .setInterval("* * * * *")
-    );
-    ingestionSourceInfo.setConfig(new DataHubIngestionSourceConfig()
-      .setExecutorId("default")
-      .setVersion("v0.10.5")
-      .setRecipe("{}")
-    );
-    EnvelopedAspect ingestionSourceEnvelopedInfo = new EnvelopedAspect().setValue(new Aspect(ingestionSourceInfo.data()));
-    ingestionInfoAspects.put(
-      Constants.INGESTION_INFO_ASPECT_NAME, ingestionSourceEnvelopedInfo
-    );
-    _ingestionSourceEntityResponse = new EntityResponse()
-        .setUrn(UrnUtils.getUrn(INGESTION_SOURCE_URN_STRING))
-        .setAspects(ingestionInfoAspects);
+    ingestionSourceInfo.setSchedule(
+        new DataHubIngestionSourceSchedule()
+            .setTimezone("America / Los Angeles")
+            .setInterval("* * * * *"));
+    ingestionSourceInfo.setConfig(
+        new DataHubIngestionSourceConfig()
+            .setExecutorId("default")
+            .setVersion("v0.10.5")
+            .setRecipe("{}"));
+    EnvelopedAspect ingestionSourceEnvelopedInfo =
+        new EnvelopedAspect().setValue(new Aspect(ingestionSourceInfo.data()));
+    ingestionInfoAspects.put(Constants.INGESTION_INFO_ASPECT_NAME, ingestionSourceEnvelopedInfo);
+    _ingestionSourceEntityResponse =
+        new EntityResponse()
+            .setUrn(UrnUtils.getUrn(INGESTION_SOURCE_URN_STRING))
+            .setAspects(ingestionInfoAspects);
 
     when(_dataFetchingEnvironment.getContext()).thenReturn(_mockContext);
     when(_dataFetchingEnvironment.getArgument("urn")).thenReturn(ENTITY_URN_STRING);
@@ -107,37 +113,32 @@ public class IngestionSourceForEntityResolverTest {
   @Test
   public void testSuccess() throws Exception {
     when(_entityClient.getV2(
-      eq(_entityUrn.getEntityType()),
-      eq(_entityUrn),
-      isNull(),
-      any(Authentication.class)
-    )).thenReturn(_entityResponse);
+            eq(_entityUrn.getEntityType()), eq(_entityUrn), isNull(), any(Authentication.class)))
+        .thenReturn(_entityResponse);
 
     when(_entityClient.getV2(
-      eq(Constants.EXECUTION_REQUEST_ENTITY_NAME),
-      any(),
-      eq(Collections.singleton(EXECUTION_REQUEST_INPUT_ASPECT_NAME)),
-      any(Authentication.class)
-    )).thenReturn(_executionRequestEntityResponse);
+            eq(Constants.EXECUTION_REQUEST_ENTITY_NAME),
+            any(),
+            eq(Collections.singleton(EXECUTION_REQUEST_INPUT_ASPECT_NAME)),
+            any(Authentication.class)))
+        .thenReturn(_executionRequestEntityResponse);
 
     when(_entityClient.getV2(
-      eq(Constants.INGESTION_SOURCE_ENTITY_NAME),
-      eq(UrnUtils.getUrn(INGESTION_SOURCE_URN_STRING)),
-      eq(Collections.singleton(INGESTION_INFO_ASPECT_NAME)),
-      any(Authentication.class)
-    )).thenReturn(_ingestionSourceEntityResponse);
+            eq(Constants.INGESTION_SOURCE_ENTITY_NAME),
+            eq(UrnUtils.getUrn(INGESTION_SOURCE_URN_STRING)),
+            eq(Collections.singleton(INGESTION_INFO_ASPECT_NAME)),
+            any(Authentication.class)))
+        .thenReturn(_ingestionSourceEntityResponse);
 
-    assertEquals(_resolver.get(_dataFetchingEnvironment).join().getUrn(), INGESTION_SOURCE_URN_STRING);
+    assertEquals(
+        _resolver.get(_dataFetchingEnvironment).join().getUrn(), INGESTION_SOURCE_URN_STRING);
   }
 
   @Test
   public void testFailsNoEntity() throws Exception {
     when(_entityClient.getV2(
-      eq(_entityUrn.getEntityType()),
-      eq(_entityUrn),
-      isNull(),
-      any(Authentication.class)
-    )).thenReturn(null);
+            eq(_entityUrn.getEntityType()), eq(_entityUrn), isNull(), any(Authentication.class)))
+        .thenReturn(null);
 
     assertNull(_resolver.get(_dataFetchingEnvironment).join());
   }
@@ -148,14 +149,8 @@ public class IngestionSourceForEntityResolverTest {
     aspectMap.put("blank-run-id", new EnvelopedAspect());
 
     when(_entityClient.getV2(
-      eq(_entityUrn.getEntityType()),
-      eq(_entityUrn),
-      isNull(),
-      any(Authentication.class)
-    )).thenReturn(
-      new EntityResponse()
-        .setAspects(aspectMap)
-    );
+            eq(_entityUrn.getEntityType()), eq(_entityUrn), isNull(), any(Authentication.class)))
+        .thenReturn(new EntityResponse().setAspects(aspectMap));
 
     assertNull(_resolver.get(_dataFetchingEnvironment).join());
   }
@@ -163,18 +158,15 @@ public class IngestionSourceForEntityResolverTest {
   @Test
   public void testFailsNoExecutionRequestEntityResponse() throws Exception {
     when(_entityClient.getV2(
-      eq(_entityUrn.getEntityType()),
-      eq(_entityUrn),
-      isNull(),
-      any(Authentication.class)
-    )).thenReturn(_entityResponse);
+            eq(_entityUrn.getEntityType()), eq(_entityUrn), isNull(), any(Authentication.class)))
+        .thenReturn(_entityResponse);
 
     when(_entityClient.getV2(
-      eq(Constants.EXECUTION_REQUEST_ENTITY_NAME),
-      any(),
-      eq(Collections.singleton(EXECUTION_REQUEST_INPUT_ASPECT_NAME)),
-      any(Authentication.class)
-    )).thenReturn(null);
+            eq(Constants.EXECUTION_REQUEST_ENTITY_NAME),
+            any(),
+            eq(Collections.singleton(EXECUTION_REQUEST_INPUT_ASPECT_NAME)),
+            any(Authentication.class)))
+        .thenReturn(null);
 
     assertNull(_resolver.get(_dataFetchingEnvironment).join());
   }
@@ -182,46 +174,40 @@ public class IngestionSourceForEntityResolverTest {
   @Test
   public void testFailsNoExecutionRequestAspects() throws Exception {
     when(_entityClient.getV2(
-      eq(_entityUrn.getEntityType()),
-      eq(_entityUrn),
-      isNull(),
-      any(Authentication.class)
-    )).thenReturn(_entityResponse);
+            eq(_entityUrn.getEntityType()), eq(_entityUrn), isNull(), any(Authentication.class)))
+        .thenReturn(_entityResponse);
 
     when(_entityClient.getV2(
-      eq(Constants.EXECUTION_REQUEST_ENTITY_NAME),
-      any(),
-      eq(Collections.singleton(EXECUTION_REQUEST_INPUT_ASPECT_NAME)),
-      any(Authentication.class)
-    )).thenReturn(new EntityResponse());
+            eq(Constants.EXECUTION_REQUEST_ENTITY_NAME),
+            any(),
+            eq(Collections.singleton(EXECUTION_REQUEST_INPUT_ASPECT_NAME)),
+            any(Authentication.class)))
+        .thenReturn(new EntityResponse());
 
     assertNull(_resolver.get(_dataFetchingEnvironment).join());
   }
 
   @Test
-  public void testFailsExecutionRequestAspectDoesNotContainExecutionRequestAspect() throws Exception {
+  public void testFailsExecutionRequestAspectDoesNotContainExecutionRequestAspect()
+      throws Exception {
     when(_entityClient.getV2(
-      eq(_entityUrn.getEntityType()),
-      eq(_entityUrn),
-      isNull(),
-      any(Authentication.class)
-    )).thenReturn(_entityResponse);
+            eq(_entityUrn.getEntityType()), eq(_entityUrn), isNull(), any(Authentication.class)))
+        .thenReturn(_entityResponse);
 
     EnvelopedAspectMap executionRequestAspects = new EnvelopedAspectMap();
     final ExecutionRequestInput execInput = new ExecutionRequestInput();
-    EnvelopedAspect executionRequestEnvelopedInput = new EnvelopedAspect().setValue(new Aspect(execInput.data()));
+    EnvelopedAspect executionRequestEnvelopedInput =
+        new EnvelopedAspect().setValue(new Aspect(execInput.data()));
     executionRequestAspects.put(
-      Constants.EXECUTION_REQUEST_SIGNAL_ASPECT_NAME, executionRequestEnvelopedInput
-    );
-    _executionRequestEntityResponse = new EntityResponse()
-        .setAspects(executionRequestAspects);
+        Constants.EXECUTION_REQUEST_SIGNAL_ASPECT_NAME, executionRequestEnvelopedInput);
+    _executionRequestEntityResponse = new EntityResponse().setAspects(executionRequestAspects);
 
     when(_entityClient.getV2(
-      eq(Constants.EXECUTION_REQUEST_ENTITY_NAME),
-      any(),
-      eq(Collections.singleton(EXECUTION_REQUEST_INPUT_ASPECT_NAME)),
-      any(Authentication.class)
-    )).thenReturn(_executionRequestEntityResponse);
+            eq(Constants.EXECUTION_REQUEST_ENTITY_NAME),
+            any(),
+            eq(Collections.singleton(EXECUTION_REQUEST_INPUT_ASPECT_NAME)),
+            any(Authentication.class)))
+        .thenReturn(_executionRequestEntityResponse);
 
     assertNull(_resolver.get(_dataFetchingEnvironment).join());
   }
@@ -229,25 +215,22 @@ public class IngestionSourceForEntityResolverTest {
   @Test
   public void testFailsNoIngestionSourceEntityResponse() throws Exception {
     when(_entityClient.getV2(
-      eq(_entityUrn.getEntityType()),
-      eq(_entityUrn),
-      isNull(),
-      any(Authentication.class)
-    )).thenReturn(_entityResponse);
+            eq(_entityUrn.getEntityType()), eq(_entityUrn), isNull(), any(Authentication.class)))
+        .thenReturn(_entityResponse);
 
     when(_entityClient.getV2(
-      eq(Constants.EXECUTION_REQUEST_ENTITY_NAME),
-      any(),
-      eq(Collections.singleton(EXECUTION_REQUEST_INPUT_ASPECT_NAME)),
-      any(Authentication.class)
-    )).thenReturn(_executionRequestEntityResponse);
+            eq(Constants.EXECUTION_REQUEST_ENTITY_NAME),
+            any(),
+            eq(Collections.singleton(EXECUTION_REQUEST_INPUT_ASPECT_NAME)),
+            any(Authentication.class)))
+        .thenReturn(_executionRequestEntityResponse);
 
     when(_entityClient.getV2(
-      eq(Constants.INGESTION_SOURCE_ENTITY_NAME),
-      any(),
-      eq(Collections.singleton(INGESTION_INFO_ASPECT_NAME)),
-      any(Authentication.class)
-    )).thenReturn(null);
+            eq(Constants.INGESTION_SOURCE_ENTITY_NAME),
+            any(),
+            eq(Collections.singleton(INGESTION_INFO_ASPECT_NAME)),
+            any(Authentication.class)))
+        .thenReturn(null);
 
     assertNull(_resolver.get(_dataFetchingEnvironment).join());
   }
@@ -255,25 +238,22 @@ public class IngestionSourceForEntityResolverTest {
   @Test
   public void testFailsNoIngestionInfoAspect() throws Exception {
     when(_entityClient.getV2(
-      eq(_entityUrn.getEntityType()),
-      eq(_entityUrn),
-      isNull(),
-      any(Authentication.class)
-    )).thenReturn(_entityResponse);
+            eq(_entityUrn.getEntityType()), eq(_entityUrn), isNull(), any(Authentication.class)))
+        .thenReturn(_entityResponse);
 
     when(_entityClient.getV2(
-      eq(Constants.EXECUTION_REQUEST_ENTITY_NAME),
-      any(),
-      eq(Collections.singleton(EXECUTION_REQUEST_INPUT_ASPECT_NAME)),
-      any(Authentication.class)
-    )).thenReturn(_executionRequestEntityResponse);
+            eq(Constants.EXECUTION_REQUEST_ENTITY_NAME),
+            any(),
+            eq(Collections.singleton(EXECUTION_REQUEST_INPUT_ASPECT_NAME)),
+            any(Authentication.class)))
+        .thenReturn(_executionRequestEntityResponse);
 
     when(_entityClient.getV2(
-      eq(Constants.INGESTION_SOURCE_ENTITY_NAME),
-      any(),
-      eq(Collections.singleton(INGESTION_INFO_ASPECT_NAME)),
-      any(Authentication.class)
-    )).thenReturn(new EntityResponse());
+            eq(Constants.INGESTION_SOURCE_ENTITY_NAME),
+            any(),
+            eq(Collections.singleton(INGESTION_INFO_ASPECT_NAME)),
+            any(Authentication.class)))
+        .thenReturn(new EntityResponse());
 
     assertNull(_resolver.get(_dataFetchingEnvironment).join());
   }
@@ -281,32 +261,26 @@ public class IngestionSourceForEntityResolverTest {
   @Test
   public void testFailsNoIngestionSourceEnvelopedInfo() throws Exception {
     when(_entityClient.getV2(
-      eq(_entityUrn.getEntityType()),
-      eq(_entityUrn),
-      isNull(),
-      any(Authentication.class)
-    )).thenReturn(_entityResponse);
+            eq(_entityUrn.getEntityType()), eq(_entityUrn), isNull(), any(Authentication.class)))
+        .thenReturn(_entityResponse);
 
     when(_entityClient.getV2(
-      eq(Constants.EXECUTION_REQUEST_ENTITY_NAME),
-      any(),
-      eq(Collections.singleton(EXECUTION_REQUEST_INPUT_ASPECT_NAME)),
-      any(Authentication.class)
-    )).thenReturn(_executionRequestEntityResponse);
+            eq(Constants.EXECUTION_REQUEST_ENTITY_NAME),
+            any(),
+            eq(Collections.singleton(EXECUTION_REQUEST_INPUT_ASPECT_NAME)),
+            any(Authentication.class)))
+        .thenReturn(_executionRequestEntityResponse);
 
     EnvelopedAspectMap ingestionInfoAspects = new EnvelopedAspectMap();
-    ingestionInfoAspects.put(
-      Constants.INGESTION_INFO_ASPECT_NAME, new EnvelopedAspect()
-    );
-    _ingestionSourceEntityResponse = new EntityResponse()
-        .setAspects(ingestionInfoAspects);
+    ingestionInfoAspects.put(Constants.INGESTION_INFO_ASPECT_NAME, new EnvelopedAspect());
+    _ingestionSourceEntityResponse = new EntityResponse().setAspects(ingestionInfoAspects);
 
     when(_entityClient.getV2(
-      eq(Constants.INGESTION_SOURCE_ENTITY_NAME),
-      any(),
-      eq(Collections.singleton(INGESTION_INFO_ASPECT_NAME)),
-      any(Authentication.class)
-    )).thenReturn(new EntityResponse());
+            eq(Constants.INGESTION_SOURCE_ENTITY_NAME),
+            any(),
+            eq(Collections.singleton(INGESTION_INFO_ASPECT_NAME)),
+            any(Authentication.class)))
+        .thenReturn(new EntityResponse());
 
     assertNull(_resolver.get(_dataFetchingEnvironment).join());
   }
@@ -314,35 +288,30 @@ public class IngestionSourceForEntityResolverTest {
   @Test
   public void testFailsNoIngestionSourceConfig() throws Exception {
     when(_entityClient.getV2(
-      eq(_entityUrn.getEntityType()),
-      eq(_entityUrn),
-      isNull(),
-      any(Authentication.class)
-    )).thenReturn(_entityResponse);
+            eq(_entityUrn.getEntityType()), eq(_entityUrn), isNull(), any(Authentication.class)))
+        .thenReturn(_entityResponse);
 
     when(_entityClient.getV2(
-      eq(Constants.EXECUTION_REQUEST_ENTITY_NAME),
-      any(),
-      eq(Collections.singleton(EXECUTION_REQUEST_INPUT_ASPECT_NAME)),
-      any(Authentication.class)
-    )).thenReturn(_executionRequestEntityResponse);
+            eq(Constants.EXECUTION_REQUEST_ENTITY_NAME),
+            any(),
+            eq(Collections.singleton(EXECUTION_REQUEST_INPUT_ASPECT_NAME)),
+            any(Authentication.class)))
+        .thenReturn(_executionRequestEntityResponse);
 
     EnvelopedAspectMap ingestionInfoAspects = new EnvelopedAspectMap();
     DataHubIngestionSourceInfo ingestionSourceInfo = new DataHubIngestionSourceInfo();
     ingestionSourceInfo.setType("bigquery");
-    EnvelopedAspect ingestionSourceEnvelopedInfo = new EnvelopedAspect().setValue(new Aspect(ingestionSourceInfo.data()));
-    ingestionInfoAspects.put(
-      Constants.INGESTION_INFO_ASPECT_NAME, ingestionSourceEnvelopedInfo
-    );
-    _ingestionSourceEntityResponse = new EntityResponse()
-        .setAspects(ingestionInfoAspects);
+    EnvelopedAspect ingestionSourceEnvelopedInfo =
+        new EnvelopedAspect().setValue(new Aspect(ingestionSourceInfo.data()));
+    ingestionInfoAspects.put(Constants.INGESTION_INFO_ASPECT_NAME, ingestionSourceEnvelopedInfo);
+    _ingestionSourceEntityResponse = new EntityResponse().setAspects(ingestionInfoAspects);
 
     when(_entityClient.getV2(
-      eq(Constants.INGESTION_SOURCE_ENTITY_NAME),
-      any(),
-      eq(Collections.singleton(INGESTION_INFO_ASPECT_NAME)),
-      any(Authentication.class)
-    )).thenReturn(new EntityResponse());
+            eq(Constants.INGESTION_SOURCE_ENTITY_NAME),
+            any(),
+            eq(Collections.singleton(INGESTION_INFO_ASPECT_NAME)),
+            any(Authentication.class)))
+        .thenReturn(new EntityResponse());
 
     assertNull(_resolver.get(_dataFetchingEnvironment).join());
   }

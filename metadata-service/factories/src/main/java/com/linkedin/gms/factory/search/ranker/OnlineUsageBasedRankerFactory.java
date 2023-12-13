@@ -10,12 +10,10 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 
-
 @Configuration
 @Import({UsageFeatureFactory.class, GraphBasedFeatureFactory.class})
 public class OnlineUsageBasedRankerFactory {
-  @Autowired
-  private UsageFeature usageFeature;
+  @Autowired private UsageFeature usageFeature;
 
   @Bean(name = "usageBasedRanker")
   @Nonnull

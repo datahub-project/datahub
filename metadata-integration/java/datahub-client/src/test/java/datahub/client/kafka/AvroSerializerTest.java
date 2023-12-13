@@ -14,14 +14,12 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 
-
 public class AvroSerializerTest {
 
+  @Rule public TemporaryFolder tempFolder = new TemporaryFolder();
 
-  @Rule
-  public TemporaryFolder tempFolder = new TemporaryFolder();
-
-  private MetadataChangeProposalWrapper getMetadataChangeProposalWrapper(String description, String entityUrn) {
+  private MetadataChangeProposalWrapper getMetadataChangeProposalWrapper(
+      String description, String entityUrn) {
     return MetadataChangeProposalWrapper.builder()
         .entityType("dataset")
         .entityUrn(entityUrn)
@@ -35,12 +33,14 @@ public class AvroSerializerTest {
 
     AvroSerializer avroSerializer = new AvroSerializer();
     File file = tempFolder.newFile("data.avro");
-    DatumWriter<GenericRecord> writer = new GenericDatumWriter<GenericRecord>(avroSerializer.getRecordSchema());
+    DatumWriter<GenericRecord> writer =
+        new GenericDatumWriter<GenericRecord>(avroSerializer.getRecordSchema());
     DataFileWriter<GenericRecord> dataFileWriter = new DataFileWriter<GenericRecord>(writer);
     dataFileWriter.create(avroSerializer.getRecordSchema(), file);
     String entityUrn = "urn:li:dataset:(urn:li:dataPlatform:hive,logging_events,PROD)";
     for (int i = 0; i < 10; ++i) {
-      MetadataChangeProposalWrapper metadataChangeProposalWrapper = getMetadataChangeProposalWrapper("Test description - " + i, entityUrn);
+      MetadataChangeProposalWrapper metadataChangeProposalWrapper =
+          getMetadataChangeProposalWrapper("Test description - " + i, entityUrn);
       GenericRecord record = avroSerializer.serialize(metadataChangeProposalWrapper);
       dataFileWriter.append(record);
     }
@@ -48,7 +48,8 @@ public class AvroSerializerTest {
 
     File readerFile = file;
     DatumReader<GenericRecord> reader = new GenericDatumReader<>(avroSerializer.getRecordSchema());
-    DataFileReader<GenericRecord> dataFileReader = new DataFileReader<GenericRecord>(readerFile, reader);
+    DataFileReader<GenericRecord> dataFileReader =
+        new DataFileReader<GenericRecord>(readerFile, reader);
     while (dataFileReader.hasNext()) {
       GenericRecord record = dataFileReader.next();
       System.out.println(record.get("entityUrn"));

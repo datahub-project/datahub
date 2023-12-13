@@ -14,40 +14,36 @@ import org.mockito.Mockito;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
-
 public class NotificationSinkManagerTest {
 
   @Test
   public void testHandleEnabledEligibleTemplate() throws Exception {
     NotificationSink notificationSink = Mockito.mock(NotificationSink.class);
-    Mockito.when(notificationSink.templates()).thenReturn(ImmutableList.of(
-       NotificationTemplateType.CUSTOM
-    ));
+    Mockito.when(notificationSink.templates())
+        .thenReturn(ImmutableList.of(NotificationTemplateType.CUSTOM));
     Mockito.when(notificationSink.type()).thenReturn(NotificationSinkType.SLACK);
 
-    NotificationSinkManager manager = new NotificationSinkManager(
-      NotificationSinkManager.NotificationManagerMode.ENABLED,
-      ImmutableList.of(notificationSink)
-    );
+    NotificationSinkManager manager =
+        new NotificationSinkManager(
+            NotificationSinkManager.NotificationManagerMode.ENABLED,
+            ImmutableList.of(notificationSink));
 
     // Test Handle
     NotificationRequest request = new NotificationRequest();
-    request.setMessage(new NotificationMessage()
-      .setTemplate(com.linkedin.event.notification.template.NotificationTemplateType.CUSTOM)
-      .setParameters(new StringMap(
-          ImmutableMap.of(
-              "title", "Test Title",
-              "body", "Test Body"
-          )
-      ))
-    );
-    request.setRecipients(new NotificationRecipientArray(
-        ImmutableList.of(
-            new NotificationRecipient()
-              .setType(NotificationRecipientType.USER)
-              .setId("urn:li:corpuser:test")
-        )
-    ));
+    request.setMessage(
+        new NotificationMessage()
+            .setTemplate(com.linkedin.event.notification.template.NotificationTemplateType.CUSTOM)
+            .setParameters(
+                new StringMap(
+                    ImmutableMap.of(
+                        "title", "Test Title",
+                        "body", "Test Body"))));
+    request.setRecipients(
+        new NotificationRecipientArray(
+            ImmutableList.of(
+                new NotificationRecipient()
+                    .setType(NotificationRecipientType.USER)
+                    .setId("urn:li:corpuser:test"))));
 
     manager.handle(request).join();
 
@@ -58,32 +54,31 @@ public class NotificationSinkManagerTest {
   @Test
   public void testHandleEnabledTemplateNotSupported() throws Exception {
     NotificationSink notificationSink = Mockito.mock(NotificationSink.class);
-    Mockito.when(notificationSink.templates()).thenReturn(Collections.emptyList()); // Sink doesn't support any templates!
+    Mockito.when(notificationSink.templates())
+        .thenReturn(Collections.emptyList()); // Sink doesn't support any templates!
     Mockito.when(notificationSink.type()).thenReturn(NotificationSinkType.SLACK);
 
-    NotificationSinkManager manager = new NotificationSinkManager(
-        NotificationSinkManager.NotificationManagerMode.ENABLED,
-        ImmutableList.of(notificationSink)
-    );
+    NotificationSinkManager manager =
+        new NotificationSinkManager(
+            NotificationSinkManager.NotificationManagerMode.ENABLED,
+            ImmutableList.of(notificationSink));
 
     // Test Handle
     NotificationRequest request = new NotificationRequest();
-    request.setMessage(new NotificationMessage()
-        .setTemplate(com.linkedin.event.notification.template.NotificationTemplateType.CUSTOM)
-        .setParameters(new StringMap(
-            ImmutableMap.of(
-                "title", "Test Title",
-                "body", "Test Body"
-            )
-        ))
-    );
-    request.setRecipients(new NotificationRecipientArray(
-        ImmutableList.of(
-            new NotificationRecipient()
-                .setType(NotificationRecipientType.USER)
-                .setId("urn:li:corpuser:test")
-        )
-    ));
+    request.setMessage(
+        new NotificationMessage()
+            .setTemplate(com.linkedin.event.notification.template.NotificationTemplateType.CUSTOM)
+            .setParameters(
+                new StringMap(
+                    ImmutableMap.of(
+                        "title", "Test Title",
+                        "body", "Test Body"))));
+    request.setRecipients(
+        new NotificationRecipientArray(
+            ImmutableList.of(
+                new NotificationRecipient()
+                    .setType(NotificationRecipientType.USER)
+                    .setId("urn:li:corpuser:test"))));
 
     manager.handle(request).join();
 
@@ -97,29 +92,28 @@ public class NotificationSinkManagerTest {
     Mockito.when(notificationSink.templates()).thenReturn(Collections.emptyList());
     Mockito.when(notificationSink.type()).thenReturn(NotificationSinkType.SLACK);
 
-    NotificationSinkManager manager = new NotificationSinkManager(
-        NotificationSinkManager.NotificationManagerMode.ENABLED,
-        ImmutableList.of(notificationSink)
-    );
+    NotificationSinkManager manager =
+        new NotificationSinkManager(
+            NotificationSinkManager.NotificationManagerMode.ENABLED,
+            ImmutableList.of(notificationSink));
 
     // Test Handle
     NotificationRequest request = new NotificationRequest();
-    request.setMessage(new NotificationMessage()
-        .setTemplate(com.linkedin.event.notification.template.NotificationTemplateType.INVALID_TEMPLATE)
-        .setParameters(new StringMap(
-            ImmutableMap.of(
-                "title", "Test Title",
-                "body", "Test Body"
-            )
-        ))
-    );
-    request.setRecipients(new NotificationRecipientArray(
-        ImmutableList.of(
-            new NotificationRecipient()
-                .setType(NotificationRecipientType.USER)
-                .setId("urn:li:corpuser:test")
-        )
-    ));
+    request.setMessage(
+        new NotificationMessage()
+            .setTemplate(
+                com.linkedin.event.notification.template.NotificationTemplateType.INVALID_TEMPLATE)
+            .setParameters(
+                new StringMap(
+                    ImmutableMap.of(
+                        "title", "Test Title",
+                        "body", "Test Body"))));
+    request.setRecipients(
+        new NotificationRecipientArray(
+            ImmutableList.of(
+                new NotificationRecipient()
+                    .setType(NotificationRecipientType.USER)
+                    .setId("urn:li:corpuser:test"))));
 
     Assert.assertThrows(RuntimeException.class, () -> manager.handle(request));
   }
@@ -127,32 +121,34 @@ public class NotificationSinkManagerTest {
   @Test
   public void testHandleEnabledMissingRequiredTemplateParams() {
     NotificationSink notificationSink = Mockito.mock(NotificationSink.class);
-    Mockito.when(notificationSink.templates()).thenReturn(ImmutableList.of(NotificationTemplateType.CUSTOM));
+    Mockito.when(notificationSink.templates())
+        .thenReturn(ImmutableList.of(NotificationTemplateType.CUSTOM));
     Mockito.when(notificationSink.type()).thenReturn(NotificationSinkType.SLACK);
 
-    NotificationSinkManager manager = new NotificationSinkManager(
-        NotificationSinkManager.NotificationManagerMode.ENABLED,
-        ImmutableList.of(notificationSink)
-    );
+    NotificationSinkManager manager =
+        new NotificationSinkManager(
+            NotificationSinkManager.NotificationManagerMode.ENABLED,
+            ImmutableList.of(notificationSink));
 
     // Test Handle
     NotificationRequest request = new NotificationRequest();
-    request.setMessage(new NotificationMessage()
-        .setTemplate(com.linkedin.event.notification.template.NotificationTemplateType.INVALID_TEMPLATE)
-        .setParameters(new StringMap(
-            ImmutableMap.of(
-                "title", "Test Title"
-                // "body", "Test Body" // Missing required "body" parameter for template type CUSTOM
-            )
-        ))
-    );
-    request.setRecipients(new NotificationRecipientArray(
-        ImmutableList.of(
-            new NotificationRecipient()
-                .setType(NotificationRecipientType.USER)
-                .setId("urn:li:corpuser:test")
-        )
-    ));
+    request.setMessage(
+        new NotificationMessage()
+            .setTemplate(
+                com.linkedin.event.notification.template.NotificationTemplateType.INVALID_TEMPLATE)
+            .setParameters(
+                new StringMap(
+                    ImmutableMap.of(
+                        "title", "Test Title"
+                        // "body", "Test Body" // Missing required "body" parameter for template
+                        // type CUSTOM
+                        ))));
+    request.setRecipients(
+        new NotificationRecipientArray(
+            ImmutableList.of(
+                new NotificationRecipient()
+                    .setType(NotificationRecipientType.USER)
+                    .setId("urn:li:corpuser:test"))));
 
     Assert.assertThrows(RuntimeException.class, () -> manager.handle(request));
   }
@@ -160,36 +156,34 @@ public class NotificationSinkManagerTest {
   @Test
   public void testHandleManagerDisabled() throws Exception {
     NotificationSink notificationSink = Mockito.mock(NotificationSink.class);
-    Mockito.when(notificationSink.templates()).thenReturn(ImmutableList.of(
-        NotificationTemplateType.CUSTOM
-    ));
+    Mockito.when(notificationSink.templates())
+        .thenReturn(ImmutableList.of(NotificationTemplateType.CUSTOM));
     Mockito.when(notificationSink.type()).thenReturn(NotificationSinkType.SLACK);
 
     // Create manager in "disabled" state.
-    NotificationSinkManager manager = new NotificationSinkManager(
-        NotificationSinkManager.NotificationManagerMode.DISABLED,
-        ImmutableList.of(notificationSink)
-    );
+    NotificationSinkManager manager =
+        new NotificationSinkManager(
+            NotificationSinkManager.NotificationManagerMode.DISABLED,
+            ImmutableList.of(notificationSink));
 
     // Test Handle
     NotificationRequest request = new NotificationRequest();
-    request.setMessage(new NotificationMessage()
-        .setTemplate(com.linkedin.event.notification.template.NotificationTemplateType.valueOf(
-            NotificationTemplateType.CUSTOM.toString()))
-        .setParameters(new StringMap(
-            ImmutableMap.of(
-                "title", "Test Title",
-                "body", "Test Body"
-            )
-        ))
-    );
-    request.setRecipients(new NotificationRecipientArray(
-        ImmutableList.of(
-            new NotificationRecipient()
-                .setType(NotificationRecipientType.USER)
-                .setId("urn:li:corpuser:test")
-        )
-    ));
+    request.setMessage(
+        new NotificationMessage()
+            .setTemplate(
+                com.linkedin.event.notification.template.NotificationTemplateType.valueOf(
+                    NotificationTemplateType.CUSTOM.toString()))
+            .setParameters(
+                new StringMap(
+                    ImmutableMap.of(
+                        "title", "Test Title",
+                        "body", "Test Body"))));
+    request.setRecipients(
+        new NotificationRecipientArray(
+            ImmutableList.of(
+                new NotificationRecipient()
+                    .setType(NotificationRecipientType.USER)
+                    .setId("urn:li:corpuser:test"))));
 
     manager.handle(request);
 

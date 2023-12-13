@@ -24,17 +24,13 @@ public class IncidentInfoArgumentMatcher implements ArgumentMatcher<MetadataChan
   }
 
   private boolean incidentInfoMatches(GenericAspect left, GenericAspect right) {
-    IncidentInfo leftProps = GenericRecordUtils.deserializeAspect(
-        left.getValue(),
-        "application/json",
-        IncidentInfo.class
-    );
+    IncidentInfo leftProps =
+        GenericRecordUtils.deserializeAspect(
+            left.getValue(), "application/json", IncidentInfo.class);
 
-    IncidentInfo rightProps = GenericRecordUtils.deserializeAspect(
-        right.getValue(),
-        "application/json",
-        IncidentInfo.class
-    );
+    IncidentInfo rightProps =
+        GenericRecordUtils.deserializeAspect(
+            right.getValue(), "application/json", IncidentInfo.class);
 
     // Verify optional fields.
     if (leftProps.hasTitle()) {
@@ -71,7 +67,11 @@ public class IncidentInfoArgumentMatcher implements ArgumentMatcher<MetadataChan
     return leftProps.getType().equals(rightProps.getType())
         && leftProps.getEntities(GetMode.NULL).equals(rightProps.getEntities(GetMode.NULL))
         && leftProps.getStatus().getState().equals(rightProps.getStatus().getState())
-        && leftProps.getStatus().getLastUpdated().getActor().equals(rightProps.getStatus().getLastUpdated().getActor())
+        && leftProps
+            .getStatus()
+            .getLastUpdated()
+            .getActor()
+            .equals(rightProps.getStatus().getLastUpdated().getActor())
         && leftProps.getCreated().getActor().equals(rightProps.getCreated().getActor());
   }
 }

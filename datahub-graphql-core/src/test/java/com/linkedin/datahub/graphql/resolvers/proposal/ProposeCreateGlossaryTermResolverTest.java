@@ -1,5 +1,9 @@
 package com.linkedin.datahub.graphql.resolvers.proposal;
 
+import static com.linkedin.datahub.graphql.TestUtils.*;
+import static org.mockito.Mockito.*;
+import static org.testng.Assert.*;
+
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.proposal.ProposalService;
 import com.datahub.plugins.auth.authorization.Authorizer;
@@ -8,11 +12,6 @@ import com.linkedin.datahub.graphql.generated.CreateGlossaryEntityInput;
 import graphql.schema.DataFetchingEnvironment;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
-
-import static com.linkedin.datahub.graphql.TestUtils.*;
-import static org.mockito.Mockito.*;
-import static org.testng.Assert.*;
-
 
 public class ProposeCreateGlossaryTermResolverTest {
   private static final String ACTOR_URN_STRING = "urn:li:corpuser:test";
@@ -62,8 +61,9 @@ public class ProposeCreateGlossaryTermResolverTest {
     CreateGlossaryEntityInput input = new CreateGlossaryEntityInput();
     input.setName(GLOSSARY_TERM_NAME);
     when(_dataFetchingEnvironment.getArgument(eq("input"))).thenReturn(input);
-    when(_proposalService.proposeCreateGlossaryTerm(any(), eq(GLOSSARY_TERM_NAME), any(), any(), eq(_authorizer))).thenReturn(
-        true);
+    when(_proposalService.proposeCreateGlossaryTerm(
+            any(), eq(GLOSSARY_TERM_NAME), any(), any(), eq(_authorizer)))
+        .thenReturn(true);
 
     assertTrue(_resolver.get(_dataFetchingEnvironment).join());
   }

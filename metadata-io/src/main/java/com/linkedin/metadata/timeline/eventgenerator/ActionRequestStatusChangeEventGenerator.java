@@ -1,5 +1,7 @@
 package com.linkedin.metadata.timeline.eventgenerator;
 
+import static com.linkedin.metadata.AcrylConstants.*;
+
 import com.linkedin.actionrequest.ActionRequestStatus;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
@@ -13,14 +15,16 @@ import java.util.Map;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
-import static com.linkedin.metadata.AcrylConstants.*;
-
-
-public class ActionRequestStatusChangeEventGenerator extends EntityChangeEventGenerator<ActionRequestStatus> {
+public class ActionRequestStatusChangeEventGenerator
+    extends EntityChangeEventGenerator<ActionRequestStatus> {
 
   @Override
-  public List<ChangeEvent> getChangeEvents(@Nonnull Urn urn, @Nonnull String entity, @Nonnull String aspect,
-      @Nonnull Aspect<ActionRequestStatus> from, @Nonnull Aspect<ActionRequestStatus> to,
+  public List<ChangeEvent> getChangeEvents(
+      @Nonnull Urn urn,
+      @Nonnull String entity,
+      @Nonnull String aspect,
+      @Nonnull Aspect<ActionRequestStatus> from,
+      @Nonnull Aspect<ActionRequestStatus> to,
       @Nonnull AuditStamp auditStamp) {
     return computeDiffs(from.getValue(), to.getValue(), urn.toString(), auditStamp);
   }
@@ -42,17 +46,19 @@ public class ActionRequestStatusChangeEventGenerator extends EntityChangeEventGe
       return Collections.emptyList();
     }
 
-    return Collections.singletonList(ChangeEvent.builder()
-        .category(ChangeCategory.LIFECYCLE)
-        .operation(ChangeOperation.valueOf(newAspect.getStatus()))
-        .auditStamp(auditStamp)
-        .entityUrn(entityUrn)
-        .parameters(buildParameters(newAspect))
-        .build());
+    return Collections.singletonList(
+        ChangeEvent.builder()
+            .category(ChangeCategory.LIFECYCLE)
+            .operation(ChangeOperation.valueOf(newAspect.getStatus()))
+            .auditStamp(auditStamp)
+            .entityUrn(entityUrn)
+            .parameters(buildParameters(newAspect))
+            .build());
   }
 
   @Nullable
-  private ChangeOperation getChangeOperation(@Nonnull final ActionRequestStatus actionRequestStatus) {
+  private ChangeOperation getChangeOperation(
+      @Nonnull final ActionRequestStatus actionRequestStatus) {
     if (actionRequestStatus.getStatus().equals(ACTION_REQUEST_STATUS_PENDING)) {
       return ChangeOperation.CREATE;
     }
@@ -63,7 +69,8 @@ public class ActionRequestStatusChangeEventGenerator extends EntityChangeEventGe
   }
 
   @Nonnull
-  private Map<String, Object> buildParameters(@Nonnull final ActionRequestStatus actionRequestStatus) {
+  private Map<String, Object> buildParameters(
+      @Nonnull final ActionRequestStatus actionRequestStatus) {
     Map<String, Object> parameters = new HashMap<>();
     parameters.put(ACTION_REQUEST_STATUS_KEY, actionRequestStatus.getStatus());
     if (actionRequestStatus.hasResult()) {

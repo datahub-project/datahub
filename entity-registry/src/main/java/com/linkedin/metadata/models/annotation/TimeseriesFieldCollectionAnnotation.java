@@ -6,7 +6,6 @@ import java.util.Optional;
 import javax.annotation.Nonnull;
 import lombok.Value;
 
-
 @Value
 public class TimeseriesFieldCollectionAnnotation {
   public static final String ANNOTATION_NAME = "TimeseriesFieldCollection";
@@ -15,11 +14,14 @@ public class TimeseriesFieldCollectionAnnotation {
   String key;
 
   @Nonnull
-  public static TimeseriesFieldCollectionAnnotation fromPegasusAnnotationObject(@Nonnull final Object annotationObj,
-      @Nonnull final String schemaFieldName, @Nonnull final String context) {
+  public static TimeseriesFieldCollectionAnnotation fromPegasusAnnotationObject(
+      @Nonnull final Object annotationObj,
+      @Nonnull final String schemaFieldName,
+      @Nonnull final String context) {
     if (!Map.class.isAssignableFrom(annotationObj.getClass())) {
       throw new ModelValidationException(
-          String.format("Failed to validate @%s annotation declared at %s: Invalid value type provided (Expected Map)",
+          String.format(
+              "Failed to validate @%s annotation declared at %s: Invalid value type provided (Expected Map)",
               ANNOTATION_NAME, context));
     }
 
@@ -28,10 +30,12 @@ public class TimeseriesFieldCollectionAnnotation {
     final Optional<String> key = AnnotationUtils.getField(map, "key", String.class);
     if (!key.isPresent()) {
       throw new ModelValidationException(
-          String.format("Failed to validate @%s annotation declared at %s: 'key' field is required", ANNOTATION_NAME,
-              context));
+          String.format(
+              "Failed to validate @%s annotation declared at %s: 'key' field is required",
+              ANNOTATION_NAME, context));
     }
 
-    return new TimeseriesFieldCollectionAnnotation(collectionName.orElse(schemaFieldName), key.get());
+    return new TimeseriesFieldCollectionAnnotation(
+        collectionName.orElse(schemaFieldName), key.get());
   }
 }

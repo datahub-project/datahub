@@ -16,7 +16,6 @@ import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.PropertySource;
 import org.springframework.context.annotation.Scope;
 
-
 @Import({SystemAuthenticationFactory.class, RestliEntityClientFactory.class})
 @PropertySource(value = "classpath:/application.yml", factory = YamlPropertySourceFactory.class)
 public class IngestionSchedulerFactory {
@@ -33,17 +32,23 @@ public class IngestionSchedulerFactory {
   @Qualifier("configurationProvider")
   private ConfigurationProvider _configProvider;
 
-  @Value("${ingestion.scheduler.delayIntervalSeconds:45}") // Boot up ingestion source cache after waiting 45 seconds for startup.
+  @Value("${ingestion.scheduler.delayIntervalSeconds:45}") // Boot up ingestion source cache after
+  // waiting 45 seconds for startup.
   private Integer _delayIntervalSeconds;
 
-  @Value("${ingestion.scheduler.refreshIntervalSeconds:43200}") // By default, refresh ingestion sources 2 times per day.
+  @Value("${ingestion.scheduler.refreshIntervalSeconds:43200}") // By default, refresh ingestion
+  // sources 2 times per day.
   private Integer _refreshIntervalSeconds;
 
   @Bean(name = "ingestionScheduler")
   @Scope("singleton")
   @Nonnull
   protected IngestionScheduler getInstance() {
-    return new IngestionScheduler(_systemAuthentication, _entityClient, _configProvider.getIngestion(),
-        _delayIntervalSeconds, _refreshIntervalSeconds);
+    return new IngestionScheduler(
+        _systemAuthentication,
+        _entityClient,
+        _configProvider.getIngestion(),
+        _delayIntervalSeconds,
+        _refreshIntervalSeconds);
   }
 }

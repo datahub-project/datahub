@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.types.anomaly;
 
+import com.linkedin.anomaly.AnomalyInfo;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.GetMode;
 import com.linkedin.datahub.graphql.generated.Anomaly;
@@ -17,11 +18,8 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.metadata.Constants;
-import com.linkedin.anomaly.AnomalyInfo;
 
-/**
- * Maps a GMS {@link EntityResponse} to a GraphQL Anomaly.
- */
+/** Maps a GMS {@link EntityResponse} to a GraphQL Anomaly. */
 public class AnomalyMapper {
 
   public static Anomaly map(final EntityResponse entityResponse) {
@@ -71,7 +69,8 @@ public class AnomalyMapper {
     return result;
   }
 
-  private static AnomalySource mapAnomalySource(final com.linkedin.anomaly.AnomalySource anomalySource) {
+  private static AnomalySource mapAnomalySource(
+      final com.linkedin.anomaly.AnomalySource anomalySource) {
     final AnomalySource result = new AnomalySource();
     result.setType(AnomalySourceType.valueOf(anomalySource.getType().name()));
     if (anomalySource.hasSourceUrn()) {
@@ -80,6 +79,5 @@ public class AnomalyMapper {
     return result;
   }
 
-  private AnomalyMapper() {
-  }
+  private AnomalyMapper() {}
 }

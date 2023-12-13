@@ -17,7 +17,6 @@ import io.ebean.Database;
 import java.util.ArrayList;
 import java.util.List;
 
-
 public class RestoreBackup implements Upgrade {
 
   private final List<UpgradeStep> _steps;
@@ -29,7 +28,8 @@ public class RestoreBackup implements Upgrade {
       final SystemRestliEntityClient entityClient,
       final GraphService graphClient,
       final EntitySearchService searchClient) {
-    _steps = buildSteps(server, entityService, entityRegistry, entityClient, graphClient, searchClient);
+    _steps =
+        buildSteps(server, entityService, entityRegistry, entityClient, graphClient, searchClient);
   }
 
   @Override

@@ -1,12 +1,15 @@
 package com.datahub.notification.slack;
 
+import static com.datahub.notification.NotificationUtils.*;
+import static com.linkedin.metadata.AcrylConstants.*;
+
 import com.datahub.notification.NotificationContext;
 import com.datahub.notification.NotificationSink;
 import com.datahub.notification.NotificationSinkConfig;
 import com.datahub.notification.NotificationTemplateType;
+import com.datahub.notification.provider.IdentityProvider;
 import com.datahub.notification.provider.SecretProvider;
 import com.datahub.notification.provider.SettingsProvider;
-import com.datahub.notification.provider.IdentityProvider;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.annotations.VisibleForTesting;
@@ -48,37 +51,35 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.datahub.notification.NotificationUtils.*;
-import static com.linkedin.metadata.AcrylConstants.*;
-
-
 /**
- * An implementation of {@link com.datahub.notification.NotificationSink} which sends messages to Slack.
+ * An implementation of {@link com.datahub.notification.NotificationSink} which sends messages to
+ * Slack.
  *
- * As configuration, the following is required:
+ * <p>As configuration, the following is required:
  *
- *    baseUrl (string): the base url where the datahub app is hosted, e.g. https://www.staging.acryl.io
+ * <p>baseUrl (string): the base url where the datahub app is hosted, e.g.
+ * https://www.staging.acryl.io
  *
- * # TODO: Make this a templatized Notification Sink.
+ * <p># TODO: Make this a templatized Notification Sink.
  */
 @Slf4j
 public class SlackNotificationSink implements NotificationSink {
 
-  static final Urn SLACK_CONNECTION_URN = UrnUtils.getUrn("urn:li:dataHubConnection:__system_slack-0");
+  static final Urn SLACK_CONNECTION_URN =
+      UrnUtils.getUrn("urn:li:dataHubConnection:__system_slack-0");
 
-  /**
-   * A list of notification templates supported by this sink.
-   */
-  private static final List<NotificationTemplateType> SUPPORTED_TEMPLATES = ImmutableList.of(
-      NotificationTemplateType.CUSTOM,
-      NotificationTemplateType.BROADCAST_NEW_INCIDENT,
-      NotificationTemplateType.BROADCAST_INCIDENT_STATUS_CHANGE,
-      NotificationTemplateType.BROADCAST_NEW_PROPOSAL,
-      NotificationTemplateType.BROADCAST_PROPOSAL_STATUS_CHANGE,
-      NotificationTemplateType.BROADCAST_ENTITY_CHANGE,
-      NotificationTemplateType.BROADCAST_INGESTION_RUN_CHANGE,
-      NotificationTemplateType.BROADCAST_ASSERTION_STATUS_CHANGE
-  );
+  /** A list of notification templates supported by this sink. */
+  private static final List<NotificationTemplateType> SUPPORTED_TEMPLATES =
+      ImmutableList.of(
+          NotificationTemplateType.CUSTOM,
+          NotificationTemplateType.BROADCAST_NEW_INCIDENT,
+          NotificationTemplateType.BROADCAST_INCIDENT_STATUS_CHANGE,
+          NotificationTemplateType.BROADCAST_NEW_PROPOSAL,
+          NotificationTemplateType.BROADCAST_PROPOSAL_STATUS_CHANGE,
+          NotificationTemplateType.BROADCAST_ENTITY_CHANGE,
+          NotificationTemplateType.BROADCAST_INGESTION_RUN_CHANGE,
+          NotificationTemplateType.BROADCAST_ASSERTION_STATUS_CHANGE);
+
   // TODO: consolidate this fricken duplicated mess
   private static final String SLACK_CHANNEL_RECIPIENT_TYPE = "SLACK_CHANNEL";
   private static final String SLACK_DM_CUSTOM_TYPE = "SLACK_DM";
@@ -109,8 +110,7 @@ public class SlackNotificationSink implements NotificationSink {
   private Integer maxRetries;
   private long retryAfterTimestamp;
 
-  @VisibleForTesting
-  MethodsClient slackClient;
+  @VisibleForTesting MethodsClient slackClient;
 
   @VisibleForTesting
   SlackNotificationSink(MethodsClient slackClient) {
@@ -122,7 +122,7 @@ public class SlackNotificationSink implements NotificationSink {
     this.slack = slack;
   }
 
-  public SlackNotificationSink() { }
+  public SlackNotificationSink() {}
 
   @Override
   public NotificationSinkType type() {
@@ -150,34 +150,38 @@ public class SlackNotificationSink implements NotificationSink {
     if (cfg.getStaticConfig().containsKey(BOT_TOKEN_CONFIG_NAME)) {
       botToken = (String) cfg.getStaticConfig().get(BOT_TOKEN_CONFIG_NAME);
     }
-    // Optional -- Provide the default channel directly in config. Used until this is available inside UI.
+    // Optional -- Provide the default channel directly in config. Used until this is available
+    // inside UI.
     if (cfg.getStaticConfig().containsKey(DEFAULT_CHANNEL_CONFIG_NAME)) {
       defaultChannel = (String) cfg.getStaticConfig().get(DEFAULT_CHANNEL_CONFIG_NAME);
     }
-    retryEnabled = Boolean.parseBoolean((String) cfg.getStaticConfig().getOrDefault(RETRY_ENABLED_CONFIG_NAME, "true"));
-    maxRetries = Integer.parseInt((String) cfg.getStaticConfig().getOrDefault(MAX_NUM_RETRIES_CONFIG_NAME, "2"));
+    retryEnabled =
+        Boolean.parseBoolean(
+            (String) cfg.getStaticConfig().getOrDefault(RETRY_ENABLED_CONFIG_NAME, "true"));
+    maxRetries =
+        Integer.parseInt(
+            (String) cfg.getStaticConfig().getOrDefault(MAX_NUM_RETRIES_CONFIG_NAME, "2"));
     retryAfterTimestamp = 0;
   }
 
   @Override
   public void send(
-      @Nonnull final NotificationRequest request,
-      @Nonnull final NotificationContext context) {
-      if (isEnabled()) {
-        sendNotifications(request);
-      } else {
-        log.debug("Skipping sending notification for request {}. Slack sink not enabled.", request);
-      }
+      @Nonnull final NotificationRequest request, @Nonnull final NotificationContext context) {
+    if (isEnabled()) {
+      sendNotifications(request);
+    } else {
+      log.debug("Skipping sending notification for request {}. Slack sink not enabled.", request);
+    }
   }
 
   /**
    * Returns true if slack notifications are enabled, false otherwise.
    *
-   * If Slack integration is ENABLED in Global Settings and a Slack Client can be instantiated,
+   * <p>If Slack integration is ENABLED in Global Settings and a Slack Client can be instantiated,
    * then this method returns true.
    *
-   * Instantiation of the slack client simply depends on a "bot token" config being resolvable from global
-   * settings or from static configuration.
+   * <p>Instantiation of the slack client simply depends on a "bot token" config being resolvable
+   * from global settings or from static configuration.
    */
   @VisibleForTesting
   boolean isEnabled() {
@@ -185,7 +189,8 @@ public class SlackNotificationSink implements NotificationSink {
     final GlobalSettingsInfo globalSettings = this.settingsProvider.getGlobalSettings();
 
     if (globalSettings == null) {
-      // Unable to resolve global settings. Cannot determine whether Slack should be enabled. Return disabled.
+      // Unable to resolve global settings. Cannot determine whether Slack should be enabled. Return
+      // disabled.
       log.warn("Unable to resolve global settings. Slack is currently disabled.");
       return false;
     }
@@ -206,7 +211,8 @@ public class SlackNotificationSink implements NotificationSink {
       if (this.slackClient != null) {
         return true;
       } else {
-        log.error("Slack is enabled, but failed to create slack client! Missing required bot token.");
+        log.error(
+            "Slack is enabled, but failed to create slack client! Missing required bot token.");
       }
     }
     // Slack is disabled in settings. Return false.
@@ -221,31 +227,52 @@ public class SlackNotificationSink implements NotificationSink {
         sendCustomNotification(notificationRequest);
         break;
       case BROADCAST_NEW_INCIDENT:
-        sendBroadcastNotification(notificationRequest.getRecipients(), buildNewIncidentMessage(notificationRequest), RetryMode.ENABLED);
+        sendBroadcastNotification(
+            notificationRequest.getRecipients(),
+            buildNewIncidentMessage(notificationRequest),
+            RetryMode.ENABLED);
         break;
       case BROADCAST_INCIDENT_STATUS_CHANGE:
-        sendBroadcastNotification(notificationRequest.getRecipients(), buildIncidentStatusChangeMessage(notificationRequest), RetryMode.ENABLED);
+        sendBroadcastNotification(
+            notificationRequest.getRecipients(),
+            buildIncidentStatusChangeMessage(notificationRequest),
+            RetryMode.ENABLED);
         break;
       case BROADCAST_NEW_PROPOSAL:
-        sendBroadcastNotification(notificationRequest.getRecipients(), buildNewProposalMessage(notificationRequest), RetryMode.DISABLED);
+        sendBroadcastNotification(
+            notificationRequest.getRecipients(),
+            buildNewProposalMessage(notificationRequest),
+            RetryMode.DISABLED);
         break;
       case BROADCAST_PROPOSAL_STATUS_CHANGE:
-        sendBroadcastNotification(notificationRequest.getRecipients(), buildProposalStatusChangeMessage(notificationRequest), RetryMode.DISABLED);
+        sendBroadcastNotification(
+            notificationRequest.getRecipients(),
+            buildProposalStatusChangeMessage(notificationRequest),
+            RetryMode.DISABLED);
         break;
       case BROADCAST_ENTITY_CHANGE:
-        sendBroadcastNotification(notificationRequest.getRecipients(), buildEntityChangeMessage(notificationRequest), RetryMode.DISABLED);
+        sendBroadcastNotification(
+            notificationRequest.getRecipients(),
+            buildEntityChangeMessage(notificationRequest),
+            RetryMode.DISABLED);
         break;
       case BROADCAST_INGESTION_RUN_CHANGE:
-        sendBroadcastNotification(notificationRequest.getRecipients(), buildIngestionRunChangeMessage(notificationRequest), RetryMode.DISABLED);
+        sendBroadcastNotification(
+            notificationRequest.getRecipients(),
+            buildIngestionRunChangeMessage(notificationRequest),
+            RetryMode.DISABLED);
         break;
       case BROADCAST_ASSERTION_STATUS_CHANGE:
-        sendBroadcastNotification(notificationRequest.getRecipients(), buildAssertionStatusChangeMessage(notificationRequest), RetryMode.ENABLED);
+        sendBroadcastNotification(
+            notificationRequest.getRecipients(),
+            buildAssertionStatusChangeMessage(notificationRequest),
+            RetryMode.ENABLED);
         break;
       default:
-        throw new UnsupportedOperationException(String.format(
-            "Unsupported template type %s providing to %s",
-            templateType,
-            this.getClass().getCanonicalName()));
+        throw new UnsupportedOperationException(
+            String.format(
+                "Unsupported template type %s providing to %s",
+                templateType, this.getClass().getCanonicalName()));
     }
   }
 
@@ -259,11 +286,13 @@ public class SlackNotificationSink implements NotificationSink {
   private String buildEntityChangeMessage(NotificationRequest request) {
     final String actorName = getUserName(request.getMessage().getParameters().get("actorUrn"));
     final String entityName = request.getMessage().getParameters().get("entityName");
-    final String entityUrl = String.format("%s%s", this.baseUrl, request.getMessage().getParameters().get("entityPath"));
+    final String entityUrl =
+        String.format("%s%s", this.baseUrl, request.getMessage().getParameters().get("entityPath"));
     final String entityType = request.getMessage().getParameters().get("entityType");
     final String operation = request.getMessage().getParameters().get("operation");
     final String modifierType = request.getMessage().getParameters().get("modifierType");
-    final String modifierStr = buildEntityChangeModifierString(request.getMessage().getParameters());
+    final String modifierStr =
+        buildEntityChangeModifierString(request.getMessage().getParameters());
 
     // TODO: Handle Sub-resources (fields, etc)
     /*
@@ -272,20 +301,15 @@ public class SlackNotificationSink implements NotificationSink {
      *     - John Joyce has updated deprecation for SampleKafkaDataset.
      *     - John Joyce has removed glossary term(s) a, b for SampleKafkaDataset.
      */
-    return String.format(">:pencil2:  *%s* has %s %s%s for %s *<%s|%s>*.",
-        actorName,
-        operation,
-        modifierType,
-        modifierStr,
-        entityType,
-        entityUrl,
-        entityName
-    );
+    return String.format(
+        ">:pencil2:  *%s* has %s %s%s for %s *<%s|%s>*.",
+        actorName, operation, modifierType, modifierStr, entityType, entityUrl, entityName);
   }
 
   private String buildEntityChangeModifierString(Map<String, String> params) {
     // Handle multiple modifiers.
-    final Integer modifierCount = params.get("modifierCount") != null ? Integer.valueOf(params.get("modifierCount")) : null;
+    final Integer modifierCount =
+        params.get("modifierCount") != null ? Integer.valueOf(params.get("modifierCount")) : null;
     if (modifierCount != null && modifierCount > 0) {
       // There are modifiers.
       StringBuilder builder = new StringBuilder(" ");
@@ -311,8 +335,11 @@ public class SlackNotificationSink implements NotificationSink {
   private String buildNewProposalMessage(NotificationRequest request) {
     final String actorName = getUserName(request.getMessage().getParameters().get("actorUrn"));
     final String entityName = request.getMessage().getParameters().get("entityName");
-    final String entityUrl = String.format("%s%s", this.baseUrl, request.getMessage().getParameters().get("entityPath"));
-    final String modifierUrl = String.format("%s%s", this.baseUrl, request.getMessage().getParameters().get("modifierPath"));
+    final String entityUrl =
+        String.format("%s%s", this.baseUrl, request.getMessage().getParameters().get("entityPath"));
+    final String modifierUrl =
+        String.format(
+            "%s%s", this.baseUrl, request.getMessage().getParameters().get("modifierPath"));
     final String entityType = request.getMessage().getParameters().get("entityType");
     final String modifierType = request.getMessage().getParameters().get("modifierType");
     final String modifierName = request.getMessage().getParameters().get("modifierName");
@@ -327,7 +354,8 @@ public class SlackNotificationSink implements NotificationSink {
        *     - John Joyce has proposed tag PII for schema field foo of SampleKafkaDataset.
        *     - John Joyce has proposed glossary term FOOBAR for schema field bar of SampleKafkaDataset.
        */
-      return String.format(":incoming_envelope: *New Proposal Raised*\n\n*%s* has proposed %s *<%s|%s>* for *%s* of %s *<%s|%s>*.",
+      return String.format(
+          ":incoming_envelope: *New Proposal Raised*\n\n*%s* has proposed %s *<%s|%s>* for *%s* of %s *<%s|%s>*.",
           actorName,
           modifierType,
           modifierUrl,
@@ -335,8 +363,7 @@ public class SlackNotificationSink implements NotificationSink {
           maybeSubResource,
           entityType,
           entityUrl,
-          entityName
-      );
+          entityName);
     }
     /*
      * Examples:
@@ -344,23 +371,20 @@ public class SlackNotificationSink implements NotificationSink {
      *     - John Joyce has proposed tag PII for SampleKafkaDataset.
      *     - John Joyce has proposed glossary term FOOBAR for SampleKafkaDataset.
      */
-    return String.format(":incoming_envelope: *New Proposal Raised*\n\n*%s* has proposed %s *<%s|%s>* for %s *<%s|%s>*.",
-        actorName,
-        modifierType,
-        modifierUrl,
-        modifierName,
-        entityType,
-        entityUrl,
-        entityName
-    );
+    return String.format(
+        ":incoming_envelope: *New Proposal Raised*\n\n*%s* has proposed %s *<%s|%s>* for %s *<%s|%s>*.",
+        actorName, modifierType, modifierUrl, modifierName, entityType, entityUrl, entityName);
   }
 
   private String buildProposalStatusChangeMessage(NotificationRequest request) {
     // Fetch each user's email, this is required to understand their slack ids.
     final String actorName = getUserName(request.getMessage().getParameters().get("actorUrn"));
     final String entityName = request.getMessage().getParameters().get("entityName");
-    final String entityUrl = String.format("%s%s", this.baseUrl, request.getMessage().getParameters().get("entityPath"));
-    final String modifierUrl = String.format("%s%s", this.baseUrl, request.getMessage().getParameters().get("modifierPath"));
+    final String entityUrl =
+        String.format("%s%s", this.baseUrl, request.getMessage().getParameters().get("entityPath"));
+    final String modifierUrl =
+        String.format(
+            "%s%s", this.baseUrl, request.getMessage().getParameters().get("modifierPath"));
     final String entityType = request.getMessage().getParameters().get("entityType");
     final String modifierType = request.getMessage().getParameters().get("modifierType");
     final String modifierName = request.getMessage().getParameters().get("modifierName");
@@ -371,7 +395,8 @@ public class SlackNotificationSink implements NotificationSink {
     final String maybeSubResource = request.getMessage().getParameters().get("subResource");
 
     if (maybeSubResource != null && maybeSubResourceType != null) {
-      return String.format(":incoming_envelope: *Proposal Status Changed*\n\n*%s* has %s proposal to %s %s *<%s|%s>* for *%s* of %s *<%s|%s>*.",
+      return String.format(
+          ":incoming_envelope: *Proposal Status Changed*\n\n*%s* has %s proposal to %s %s *<%s|%s>* for *%s* of %s *<%s|%s>*.",
           actorName,
           action,
           operation,
@@ -381,10 +406,10 @@ public class SlackNotificationSink implements NotificationSink {
           maybeSubResource,
           entityType,
           entityUrl,
-          entityName
-      );
+          entityName);
     }
-    return String.format(":incoming_envelope: *Proposal Status Changed*\n\n*%s* has %s proposal to %s %s *<%s|%s>* for %s *<%s|%s>*.",
+    return String.format(
+        ":incoming_envelope: *Proposal Status Changed*\n\n*%s* has %s proposal to %s %s *<%s|%s>* for %s *<%s|%s>*.",
         actorName,
         action,
         operation,
@@ -393,26 +418,21 @@ public class SlackNotificationSink implements NotificationSink {
         modifierName,
         entityType,
         entityUrl,
-        entityName
-    );
+        entityName);
   }
 
   private String buildNewIncidentMessage(NotificationRequest request) {
 
     // Extract owner urns, downstream owner urns.
-    final List<Urn> ownerUrns = jsonToStrList(request.getMessage()
-        .getParameters()
-        .get("owners"))
-        .stream()
-        .map(UrnUtils::getUrn)
-        .collect(Collectors.toList());
+    final List<Urn> ownerUrns =
+        jsonToStrList(request.getMessage().getParameters().get("owners")).stream()
+            .map(UrnUtils::getUrn)
+            .collect(Collectors.toList());
 
-    final List<Urn> downstreamOwnerUrns = jsonToStrList(request.getMessage()
-        .getParameters()
-        .get("downstreamOwners"))
-        .stream()
-        .map(UrnUtils::getUrn)
-        .collect(Collectors.toList());
+    final List<Urn> downstreamOwnerUrns =
+        jsonToStrList(request.getMessage().getParameters().get("downstreamOwners")).stream()
+            .map(UrnUtils::getUrn)
+            .collect(Collectors.toList());
 
     // Fetch each user's email, this is required to understand their slack ids.
     final Set<Urn> allUsers = new HashSet<>();
@@ -420,9 +440,7 @@ public class SlackNotificationSink implements NotificationSink {
     allUsers.addAll(downstreamOwnerUrns);
     Map<Urn, IdentityProvider.User> users = Collections.emptyMap();
     try {
-      users = this.identityProvider.batchGetUsers(
-          allUsers
-      );
+      users = this.identityProvider.batchGetUsers(allUsers);
     } catch (Exception e) {
       // If we cannot resolve the users, still broadcast the message.
       log.warn("Failed to resolve users from GMS. Skipping tagging them in Slack broadcast.");
@@ -430,52 +448,48 @@ public class SlackNotificationSink implements NotificationSink {
 
     // Build the message.
     // TODO: Replace this with a template DSL (e.g. Jinja)
-    final String url = String.format("%s%s", this.baseUrl, request.getMessage().getParameters().get("entityPath"));
+    final String url =
+        String.format("%s%s", this.baseUrl, request.getMessage().getParameters().get("entityPath"));
     final String entityName = request.getMessage().getParameters().get("entityName");
     final String title = request.getMessage().getParameters().get("incidentTitle");
     final String description = request.getMessage().getParameters().get("incidentDescription");
     final String actorName = getUserName(request.getMessage().getParameters().get("actorUrn"));
-    final String ownersStr = createUsersTagString(
-        users.keySet()
-            .stream()
-            .filter(ownerUrns::contains)
-            .map(users::get)
-            .collect(Collectors.toList()));
-    final String downstreamOwnersStr = createUsersTagString(
-        users.keySet()
-            .stream()
-            .filter(downstreamOwnerUrns::contains)
-            .map(users::get)
-            .collect(Collectors.toList()));
+    final String ownersStr =
+        createUsersTagString(
+            users.keySet().stream()
+                .filter(ownerUrns::contains)
+                .map(users::get)
+                .collect(Collectors.toList()));
+    final String downstreamOwnersStr =
+        createUsersTagString(
+            users.keySet().stream()
+                .filter(downstreamOwnerUrns::contains)
+                .map(users::get)
+                .collect(Collectors.toList()));
 
-    return String.format("%s%s",
-        String.format(":warning: *New Incident Raised* \n\nA new incident has been raised on asset <%s|%s>%s.",
-            url,
-            entityName,
-            actorName != null ? String.format(" by *%s*", actorName) : ""),
-        String.format("\n\n*Incident Name*: %s\n*Incident Description*: %s\n\n*Asset Owners*: %s\n*Downstream Asset Owners*: %s",
+    return String.format(
+        "%s%s",
+        String.format(
+            ":warning: *New Incident Raised* \n\nA new incident has been raised on asset <%s|%s>%s.",
+            url, entityName, actorName != null ? String.format(" by *%s*", actorName) : ""),
+        String.format(
+            "\n\n*Incident Name*: %s\n*Incident Description*: %s\n\n*Asset Owners*: %s\n*Downstream Asset Owners*: %s",
             title != null ? title : "None",
             description != null ? description : "None",
             ownersStr.length() > 0 ? ownersStr : "None",
-            downstreamOwnersStr.length() > 0 ? downstreamOwnersStr : "None"
-        )
-    );
+            downstreamOwnersStr.length() > 0 ? downstreamOwnersStr : "None"));
   }
 
   private String buildIncidentStatusChangeMessage(NotificationRequest request) {
-    final List<Urn> ownerUrns = jsonToStrList(request.getMessage()
-        .getParameters()
-        .get("owners"))
-        .stream()
-        .map(UrnUtils::getUrn)
-        .collect(Collectors.toList());
+    final List<Urn> ownerUrns =
+        jsonToStrList(request.getMessage().getParameters().get("owners")).stream()
+            .map(UrnUtils::getUrn)
+            .collect(Collectors.toList());
 
-    final List<Urn> downstreamOwnerUrns = jsonToStrList(request.getMessage()
-        .getParameters()
-        .get("downstreamOwners"))
-        .stream()
-        .map(UrnUtils::getUrn)
-        .collect(Collectors.toList());
+    final List<Urn> downstreamOwnerUrns =
+        jsonToStrList(request.getMessage().getParameters().get("downstreamOwners")).stream()
+            .map(UrnUtils::getUrn)
+            .collect(Collectors.toList());
 
     // Fetch each user's email, this is required to understand their slack ids.
     final Set<Urn> allUsers = new HashSet<>();
@@ -483,15 +497,14 @@ public class SlackNotificationSink implements NotificationSink {
     allUsers.addAll(downstreamOwnerUrns);
     Map<Urn, IdentityProvider.User> users = Collections.emptyMap();
     try {
-      users = this.identityProvider.batchGetUsers(
-          allUsers
-      );
+      users = this.identityProvider.batchGetUsers(allUsers);
     } catch (Exception e) {
       log.warn("Failed to resolve users from GMS. Skipping adding them to notification.");
     }
 
     // Build the message. TODO: Use a template here.
-    final String url = String.format("%s%s", this.baseUrl, request.getMessage().getParameters().get("entityPath"));
+    final String url =
+        String.format("%s%s", this.baseUrl, request.getMessage().getParameters().get("entityPath"));
     final String entityName = request.getMessage().getParameters().get("entityName");
     final String message = request.getMessage().getParameters().get("message");
     final String title = request.getMessage().getParameters().get("incidentTitle");
@@ -499,22 +512,24 @@ public class SlackNotificationSink implements NotificationSink {
     final String prevStatus = request.getMessage().getParameters().get("prevStatus");
     final String newStatus = request.getMessage().getParameters().get("newStatus");
     final String actorName = getUserName(request.getMessage().getParameters().get("actorUrn"));
-    final String ownersStr = createUsersTagString(
-        users.keySet()
-            .stream()
-            .filter(ownerUrns::contains)
-            .map(users::get)
-            .collect(Collectors.toList()));
-    final String downstreamOwnersStr = createUsersTagString(
-        users.keySet()
-            .stream()
-            .filter(downstreamOwnerUrns::contains)
-            .map(users::get)
-            .collect(Collectors.toList()));
+    final String ownersStr =
+        createUsersTagString(
+            users.keySet().stream()
+                .filter(ownerUrns::contains)
+                .map(users::get)
+                .collect(Collectors.toList()));
+    final String downstreamOwnersStr =
+        createUsersTagString(
+            users.keySet().stream()
+                .filter(downstreamOwnerUrns::contains)
+                .map(users::get)
+                .collect(Collectors.toList()));
 
     final String icon = newStatus.equals("RESOLVED") ? ":white_check_mark:" : ":warning:";
-    return String.format("%s%s%s",
-        String.format("%s *Incident Status Changed*\n\nThe status of incident *%s* on asset <%s|%s> has changed from *%s* to *%s*%s.",
+    return String.format(
+        "%s%s%s",
+        String.format(
+            "%s *Incident Status Changed*\n\nThe status of incident *%s* on asset <%s|%s> has changed from *%s* to *%s*%s.",
             icon,
             title != null ? title : "None",
             url,
@@ -522,16 +537,13 @@ public class SlackNotificationSink implements NotificationSink {
             prevStatus,
             newStatus,
             actorName != null ? String.format(" by *%s*", actorName) : ""),
-        String.format("\n\n*Message*: %s\n",
-            message != null ? message : "None"
-        ),
-        String.format("\n\n*Incident Name*: %s\n*Incident Description*: %s\n\n*Asset Owners*: %s\n*Downstream Asset Owners*: %s",
+        String.format("\n\n*Message*: %s\n", message != null ? message : "None"),
+        String.format(
+            "\n\n*Incident Name*: %s\n*Incident Description*: %s\n\n*Asset Owners*: %s\n*Downstream Asset Owners*: %s",
             title != null ? title : "None",
             description != null ? description : "None",
             ownersStr.length() > 0 ? ownersStr : "None",
-            downstreamOwnersStr.length() > 0 ? downstreamOwnersStr : "None"
-        )
-    );
+            downstreamOwnersStr.length() > 0 ? downstreamOwnersStr : "None"));
   }
 
   private String buildIngestionRunChangeMessage(NotificationRequest request) {
@@ -548,15 +560,12 @@ public class SlackNotificationSink implements NotificationSink {
      *     - Ingestion source my-ingestion-source of type okta has timed out!
      *     - Ingestion source my-ingestion-source of type snowflake has started!
      */
-    return String.format(">:electric_plug:   Ingestion source *%s* of type *%s* has %s! <%s|View ingestion sources>.",
-        sourceName,
-        sourceType,
-        statusText,
-        ingestionUrl
-    );
+    return String.format(
+        ">:electric_plug:   Ingestion source *%s* of type *%s* has %s! <%s|View ingestion sources>.",
+        sourceName, sourceType, statusText, ingestionUrl);
   }
 
-private String buildAssertionStatusChangeMessage(NotificationRequest request) {
+  private String buildAssertionStatusChangeMessage(NotificationRequest request) {
     final String assertionType = request.getMessage().getParameters().get("assertionType");
     final String entityName = request.getMessage().getParameters().get("entityName");
     final String entityPath = request.getMessage().getParameters().get("entityPath");
@@ -564,115 +573,144 @@ private String buildAssertionStatusChangeMessage(NotificationRequest request) {
     final String resultsUrl = String.format("%s%s/Validation/Assertions", this.baseUrl, entityPath);
     final String result = request.getMessage().getParameters().get("result");
     final String description = request.getMessage().getParameters().get("description");
-    final String maybeExternalUrl = request.getMessage().getParameters().getOrDefault("externalUrl", null);
-    final String maybeExternalPlatform = request.getMessage().getParameters().getOrDefault("externalPlatform", null);
-    final String maybeSourceType = request.getMessage().getParameters().getOrDefault("sourceType", null);
-    final String assertionTypeText = AssertionSourceType.INFERRED.toString().equals(maybeSourceType)
-      ? "Smart Assertion"
-      : String.format("%s Assertion", AssertionUtils.getAssertionTypeName(assertionType));
+    final String maybeExternalUrl =
+        request.getMessage().getParameters().getOrDefault("externalUrl", null);
+    final String maybeExternalPlatform =
+        request.getMessage().getParameters().getOrDefault("externalPlatform", null);
+    final String maybeSourceType =
+        request.getMessage().getParameters().getOrDefault("sourceType", null);
+    final String assertionTypeText =
+        AssertionSourceType.INFERRED.toString().equals(maybeSourceType)
+            ? "Smart Assertion"
+            : String.format("%s Assertion", AssertionUtils.getAssertionTypeName(assertionType));
     final String resultString = AssertionUtils.getAssertionResultString(result);
-  final String resultEmoji = AssertionUtils.getAssertionResultEmoji(result);
-  final String resultsLink = maybeExternalUrl != null
-        ? maybeExternalPlatform != null
-          ? String.format("<%s|View results in %s>", maybeExternalUrl, maybeExternalPlatform)
-          : String.format("<%s|View original results>", maybeExternalUrl)
-        : String.format("<%s|View results>", resultsUrl);
+    final String resultEmoji = AssertionUtils.getAssertionResultEmoji(result);
+    final String resultsLink =
+        maybeExternalUrl != null
+            ? maybeExternalPlatform != null
+                ? String.format("<%s|View results in %s>", maybeExternalUrl, maybeExternalPlatform)
+                : String.format("<%s|View original results>", maybeExternalUrl)
+            : String.format("<%s|View results>", resultsUrl);
 
     /*
      * Example: Assertion `column x must not be null` has failed for Dataset SampleHiveDataset! View results in dbt
      */
-    return String.format(">%s  *%s* `%s` has *%s* for *<%s|%s>*! %s",
+    return String.format(
+        ">%s  *%s* `%s` has *%s* for *<%s|%s>*! %s",
         resultEmoji,
         assertionTypeText,
         description,
         resultString,
         entityUrl,
         entityName,
-        resultsLink
-    );
+        resultsLink);
   }
 
-  private void sendNotificationToRecipients(final List<NotificationRecipient> recipients, final String text, RetryMode retryMode) {
+  private void sendNotificationToRecipients(
+      final List<NotificationRecipient> recipients, final String text, RetryMode retryMode) {
     // Send each recipient a message.
     for (NotificationRecipient recipient : recipients) {
       sendNotificationToRecipient(recipient, text, retryMode);
     }
   }
 
-  private void sendNotificationToRecipient(final NotificationRecipient recipient, final String text, RetryMode retryMode) {
+  private void sendNotificationToRecipient(
+      final NotificationRecipient recipient, final String text, RetryMode retryMode) {
     // Try to sink message to each user.
     try {
       if (NotificationRecipientType.USER.equals(recipient.getType())) {
         sendNotificationToUser(UrnUtils.getUrn(recipient.getId()), text, retryMode);
-      } else if (NotificationRecipientType.CUSTOM.equals(recipient.getType()) && SLACK_DM_CUSTOM_TYPE.equals(recipient.getCustomType())) {
+      } else if (NotificationRecipientType.CUSTOM.equals(recipient.getType())
+          && SLACK_DM_CUSTOM_TYPE.equals(recipient.getCustomType())) {
         if (!recipient.hasId() || recipient.getId() == null) {
-          throw new UnsupportedOperationException(String.format("Tried to send a DM to user without ID set", recipient.getType()));
+          throw new UnsupportedOperationException(
+              String.format("Tried to send a DM to user without ID set", recipient.getType()));
         }
         sendMessage(recipient.getId(), text, retryMode);
-      } else if (NotificationRecipientType.CUSTOM.equals(recipient.getType()) && SLACK_CHANNEL_RECIPIENT_TYPE.equals(recipient.getCustomType())) {
+      } else if (NotificationRecipientType.CUSTOM.equals(recipient.getType())
+          && SLACK_CHANNEL_RECIPIENT_TYPE.equals(recipient.getCustomType())) {
         // We only support "SLACK_CHANNEL" as a custom type.
         String channel = getRecipientChannelOrDefault(recipient.getId(GetMode.NULL));
         if (channel != null) {
           sendMessage(channel, text, retryMode);
         } else {
-          log.warn(String.format(
-              "Failed to resolve channel for recipient of type %s. No default or provided channel.",
-              SLACK_CHANNEL_RECIPIENT_TYPE));
+          log.warn(
+              String.format(
+                  "Failed to resolve channel for recipient of type %s. No default or provided channel.",
+                  SLACK_CHANNEL_RECIPIENT_TYPE));
         }
       } else {
         throw new UnsupportedOperationException(
-            String.format("Failed to send Slack notification. Unsupported recipient type %s provided.", recipient.getType()));
+            String.format(
+                "Failed to send Slack notification. Unsupported recipient type %s provided.",
+                recipient.getType()));
       }
     } catch (Exception e) {
       log.error("Caught exception while attempting to send custom slack notification", e);
     }
   }
 
-  private void sendNotificationToUser(final Urn userUrn, final String text, RetryMode retryMode) throws Exception {
-    final IdentityProvider.User user = this.identityProvider.getUser(userUrn); // Retrieve DataHub User
+  private void sendNotificationToUser(final Urn userUrn, final String text, RetryMode retryMode)
+      throws Exception {
+    final IdentityProvider.User user =
+        this.identityProvider.getUser(userUrn); // Retrieve DataHub User
     if (user != null && user.getEmail() != null) {
       User slackUser = getSlackUserFromEmail(user.getEmail());
       if (slackUser != null) {
         sendMessage(slackUser.getId(), text, retryMode);
       }
     } else {
-      log.warn(String.format("Failed to send notification to user with urn %s. Failed to find user with valid email in DataHub.", userUrn));
+      log.warn(
+          String.format(
+              "Failed to send notification to user with urn %s. Failed to find user with valid email in DataHub.",
+              userUrn));
     }
   }
 
-  private void sendBroadcastNotification(final List<NotificationRecipient> recipients, final String text, RetryMode retryMode) {
-    // In the case of a broadcast, if there are no recipients explicitly provided we fallback to sending to the default configured channel.
+  private void sendBroadcastNotification(
+      final List<NotificationRecipient> recipients, final String text, RetryMode retryMode) {
+    // In the case of a broadcast, if there are no recipients explicitly provided we fallback to
+    // sending to the default configured channel.
     if (recipients.size() > 0) {
       // Send to each recipient in the list as normal.
       sendNotificationToRecipients(recipients, text, retryMode);
     } else {
       // Broadcast to the default configured channel.
-      NotificationRecipient defaultChannelRecipient = new NotificationRecipient()
-          .setType(NotificationRecipientType.CUSTOM)
-          .setCustomType(SLACK_CHANNEL_RECIPIENT_TYPE);
+      NotificationRecipient defaultChannelRecipient =
+          new NotificationRecipient()
+              .setType(NotificationRecipientType.CUSTOM)
+              .setCustomType(SLACK_CHANNEL_RECIPIENT_TYPE);
       sendNotificationToRecipient(defaultChannelRecipient, text, retryMode);
     }
   }
 
-  private void sendMessage(@Nonnull final String channel, @Nonnull final String text, RetryMode retryMode) throws Exception {
-    final ChatPostMessageRequest msgRequest = ChatPostMessageRequest.builder()
-        .channel(channel)
-        .text(text)
-        .iconUrl(String.format("%s%s", this.baseUrl, ACRYL_LOGO_FILE_PATH))
-        .build();
+  private void sendMessage(
+      @Nonnull final String channel, @Nonnull final String text, RetryMode retryMode)
+      throws Exception {
+    final ChatPostMessageRequest msgRequest =
+        ChatPostMessageRequest.builder()
+            .channel(channel)
+            .text(text)
+            .iconUrl(String.format("%s%s", this.baseUrl, ACRYL_LOGO_FILE_PATH))
+            .build();
     final ChatPostMessageResponse response = sendMessage(msgRequest, retryMode);
-    // if response is null, the message has been dropped due to rate limiting. It has already been logged.
+    // if response is null, the message has been dropped due to rate limiting. It has already been
+    // logged.
     if (response != null) {
       if (response.isOk()) {
         log.debug(String.format("Successfully sent Slack notification to channel %s", channel));
       } else {
-        log.error(String.format("Failed to sink Slack notification to channel %s. Received error from Slack API: %s", channel, response.getError()));
+        log.error(
+            String.format(
+                "Failed to sink Slack notification to channel %s. Received error from Slack API: %s",
+                channel, response.getError()));
       }
     }
   }
 
   @Nullable
-  private ChatPostMessageResponse sendMessage(final ChatPostMessageRequest request, RetryMode retryMode) throws Exception {
+  private ChatPostMessageResponse sendMessage(
+      final ChatPostMessageRequest request, RetryMode retryMode) throws Exception {
     return sendMessage(request, 0, retryMode);
   }
 
@@ -681,7 +719,9 @@ private String buildAssertionStatusChangeMessage(NotificationRequest request) {
    * rate limited. Returns null if the message was dropped due to rate limiting.
    */
   @Nullable
-  private ChatPostMessageResponse sendMessage(final ChatPostMessageRequest request, int retryAttempt, RetryMode retryMode) throws Exception {
+  private ChatPostMessageResponse sendMessage(
+      final ChatPostMessageRequest request, int retryAttempt, RetryMode retryMode)
+      throws Exception {
     long currentTime = System.currentTimeMillis();
     if (currentTime < this.retryAfterTimestamp) {
       return optionallyRetrySendMessage(request, retryAttempt, retryMode, currentTime);
@@ -689,7 +729,8 @@ private String buildAssertionStatusChangeMessage(NotificationRequest request) {
     try {
       return slackClient.chatPostMessage(request);
     } catch (IOException | SlackApiException e) {
-      if (e instanceof SlackApiException && ((SlackApiException) e).getResponse().code() == RATE_LIMIT_ERROR_CODE) {
+      if (e instanceof SlackApiException
+          && ((SlackApiException) e).getResponse().code() == RATE_LIMIT_ERROR_CODE) {
         return handleRateLimitResponse((SlackApiException) e, request, retryAttempt, retryMode);
       } else {
         throw new Exception("Caught exception while attempting to send slack message", e);
@@ -701,10 +742,13 @@ private String buildAssertionStatusChangeMessage(NotificationRequest request) {
       SlackApiException e,
       final ChatPostMessageRequest request,
       int retryAttempt,
-      RetryMode retryMode
-  ) throws Exception {
+      RetryMode retryMode)
+      throws Exception {
     String retryAfter = e.getResponse().header(RETRY_AFTER_HEADER);
-    log.info(String.format("Reached Slack API rate limit. No new notifications will be sent for %s second(s)", retryAfter));
+    log.info(
+        String.format(
+            "Reached Slack API rate limit. No new notifications will be sent for %s second(s)",
+            retryAfter));
     if (retryAfter != null) {
       try {
         long currentTime = System.currentTimeMillis();
@@ -720,16 +764,15 @@ private String buildAssertionStatusChangeMessage(NotificationRequest request) {
   }
 
   private ChatPostMessageResponse optionallyRetrySendMessage(
-      final ChatPostMessageRequest request,
-      int retryAttempt,
-      RetryMode retryMode,
-      long currentTime
-  ) throws Exception {
+      final ChatPostMessageRequest request, int retryAttempt, RetryMode retryMode, long currentTime)
+      throws Exception {
     if (this.retryEnabled && retryMode.equals(RetryMode.ENABLED) && retryAttempt < maxRetries) {
       Thread.sleep(this.retryAfterTimestamp - currentTime);
       return sendMessage(request, retryAttempt + 1, retryMode);
     }
-    log.debug("Skipping sending notification for request {}. Pausing due to hitting our rate limit", request);
+    log.debug(
+        "Skipping sending notification for request {}. Pausing due to hitting our rate limit",
+        request);
     MetricUtils.counter(this.getClass(), NOTIFICATION_DROPPED_METRIC).inc();
     return null;
   }
@@ -747,7 +790,8 @@ private String buildAssertionStatusChangeMessage(NotificationRequest request) {
   }
 
   /**
-   * Returns a formatted slack user tag string, e.g. <@JohnJoyce> if the user can be resolved to a slack id, null if not.
+   * Returns a formatted slack user tag string, e.g. <@JohnJoyce> if the user can be resolved to a
+   * slack id, null if not.
    */
   @Nullable
   private String createUserTagString(final IdentityProvider.User user) {
@@ -760,11 +804,16 @@ private String buildAssertionStatusChangeMessage(NotificationRequest request) {
           return String.format("<@%s>", slackUser.getId());
         } else {
           log.warn(
-              String.format("Skipping adding user with email %s to tag string. No corresponding slack user found.", user.getEmail()));
+              String.format(
+                  "Skipping adding user with email %s to tag string. No corresponding slack user found.",
+                  user.getEmail()));
         }
       } catch (Exception e) {
-        log.error(String.format(
-            "Caught exception while attempting to resolve user with email %s to slack user. Skipping adding user to tag string.", user.getEmail()), e);
+        log.error(
+            String.format(
+                "Caught exception while attempting to resolve user with email %s to slack user. Skipping adding user to tag string.",
+                user.getEmail()),
+            e);
       }
     } else {
       log.warn("Failed to resolve DataHub user to slack user by email. No email found for user!");
@@ -784,9 +833,10 @@ private String buildAssertionStatusChangeMessage(NotificationRequest request) {
         this.emailToSlackUser.put(email, slackUser); // Store in cache.
         return slackUser;
       } else {
-        log.warn(String.format("Received API error while attempting to resolve a Slack user with email %s. Error: %s",
-            email,
-            response.getError()));
+        log.warn(
+            String.format(
+                "Received API error while attempting to resolve a Slack user with email %s. Error: %s",
+                email, response.getError()));
       }
     }
     return null;
@@ -803,10 +853,10 @@ private String buildAssertionStatusChangeMessage(NotificationRequest request) {
     }
   }
 
-  private UsersLookupByEmailResponse getSlackUserLookupResponseFromEmail(@Nonnull final String email) throws Exception {
-    final UsersLookupByEmailRequest request = UsersLookupByEmailRequest.builder()
-        .email(email)
-        .build();
+  private UsersLookupByEmailResponse getSlackUserLookupResponseFromEmail(
+      @Nonnull final String email) throws Exception {
+    final UsersLookupByEmailRequest request =
+        UsersLookupByEmailRequest.builder().email(email).build();
     try {
       return slackClient.usersLookupByEmail(request);
     } catch (IOException | SlackApiException e) {
@@ -820,34 +870,43 @@ private String buildAssertionStatusChangeMessage(NotificationRequest request) {
   }
 
   private Optional<String> getDefaultChannelName() {
-    // Resolves a fallback channel to send the notification to, in the case that a channel is not provided.
-    // Default channel provided in dynamic settings takes precedence over that provided in static sink config.
+    // Resolves a fallback channel to send the notification to, in the case that a channel is not
+    // provided.
+    // Default channel provided in dynamic settings takes precedence over that provided in static
+    // sink config.
     GlobalSettingsInfo globalSettings = this.settingsProvider.getGlobalSettings();
     return globalSettings != null
-        && globalSettings.getIntegrations().hasSlackSettings()
-        && globalSettings.getIntegrations().getSlackSettings().hasDefaultChannelName()
-        ? Optional.ofNullable(globalSettings.getIntegrations().getSlackSettings().getDefaultChannelName())
+            && globalSettings.getIntegrations().hasSlackSettings()
+            && globalSettings.getIntegrations().getSlackSettings().hasDefaultChannelName()
+        ? Optional.ofNullable(
+            globalSettings.getIntegrations().getSlackSettings().getDefaultChannelName())
         : Optional.ofNullable(this.defaultChannel);
   }
 
   private void initSlackClientFromGlobalSettings(@Nonnull final GlobalSettingsInfo globalSettings) {
     // Attempt to init the slack client from static config or local configuration.
     if (slackClient == null) {
-      // Next, attempt to instantiate a slack client using a bot token from static config or settings. Bot token provided in dynamic settings
+      // Next, attempt to instantiate a slack client using a bot token from static config or
+      // settings. Bot token provided in dynamic settings
       // takes precedence over that provided in static sink config.
       if (globalSettings.getIntegrations().hasSlackSettings()
           && globalSettings.getIntegrations().getSlackSettings().hasEncryptedBotToken()) {
         try {
-          final String botToken = this.secretProvider.decryptSecret(globalSettings.getIntegrations().getSlackSettings().getEncryptedBotToken());
+          final String botToken =
+              this.secretProvider.decryptSecret(
+                  globalSettings.getIntegrations().getSlackSettings().getEncryptedBotToken());
           this.slackClient = slack.methods(botToken);
         } catch (Exception e) {
-          log.error("Caught exception while attempting to resolve bot token secret. Failed to create slack client.", e);
+          log.error(
+              "Caught exception while attempting to resolve bot token secret. Failed to create slack client.",
+              e);
         }
       } else if (this.botToken != null) {
         // Bot token provided in static configuration.
         this.slackClient = slack.methods(this.botToken);
       } else {
-        log.warn("Failed to create Slack client - could not resolve a bot token from static config or global settings!");
+        log.warn(
+            "Failed to create Slack client - could not resolve a bot token from static config or global settings!");
       }
     }
   }
@@ -855,30 +914,40 @@ private String buildAssertionStatusChangeMessage(NotificationRequest request) {
   private void initSlackClientFromConnection(@Nonnull final ObjectNode jsonConnection) {
     // Attempt to init the slack client from the connection object
     if (slackClient == null) {
-      // Next, attempt to instantiate a slack client using a bot token from static config or settings. Bot token provided in dynamic settings
+      // Next, attempt to instantiate a slack client using a bot token from static config or
+      // settings. Bot token provided in dynamic settings
       // takes precedence over that provided in static sink config.
       if (jsonConnection.has("bot_token")) {
         try {
           this.slackClient = slack.methods(jsonConnection.get("bot_token").asText());
         } catch (Exception e) {
-          log.error("Caught exception while attempting to resolve bot token secret. Failed to create slack client.", e);
+          log.error(
+              "Caught exception while attempting to resolve bot token secret. Failed to create slack client.",
+              e);
         }
       } else {
-        log.warn("Failed to create Slack client using Connection JSON! Falling back to legacy settings.");
+        log.warn(
+            "Failed to create Slack client using Connection JSON! Falling back to legacy settings.");
       }
     }
   }
 
   @Nullable
   private ObjectNode getSlackConnection() {
-    final DataHubConnectionDetails details = this.connectionService.getConnectionDetails(SLACK_CONNECTION_URN);
-    if (details != null && DataHubConnectionDetailsType.JSON.equals(details.getType()) && details.hasJson()) {
+    final DataHubConnectionDetails details =
+        this.connectionService.getConnectionDetails(SLACK_CONNECTION_URN);
+    if (details != null
+        && DataHubConnectionDetailsType.JSON.equals(details.getType())
+        && details.hasJson()) {
       try {
-        final String jsonStr = this.secretProvider.decryptSecret(details.getJson().getEncryptedBlob());
+        final String jsonStr =
+            this.secretProvider.decryptSecret(details.getJson().getEncryptedBlob());
         return new ObjectMapper().readValue(jsonStr, ObjectNode.class);
       } catch (Exception e) {
-        log.error(String.format("Failed to decode Slack Connection details from connection %s. Falling back to global settings.",
-            details));
+        log.error(
+            String.format(
+                "Failed to decode Slack Connection details from connection %s. Falling back to global settings.",
+                details));
       }
     }
     return null;

@@ -1,5 +1,8 @@
 package com.linkedin.datahub.graphql.types.anomaly;
 
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNull;
+
 import com.linkedin.anomaly.AnomalyInfo;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
@@ -12,8 +15,6 @@ import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.metadata.Constants;
 import org.testng.annotations.Test;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNull;
 
 public class AnomalyMapperTest {
 
@@ -114,11 +115,19 @@ public class AnomalyMapperTest {
     assertEquals(output.getCreated().getActor(), input.getCreated().getActor().toString());
     assertEquals(output.getEntity().getUrn(), input.getEntity().toString());
     assertEquals(output.getStatus().getState().toString(), input.getStatus().getState().toString());
-    assertEquals(output.getStatus().getLastUpdated().getTime(), input.getStatus().getLastUpdated().getTime());
-    assertEquals(output.getStatus().getLastUpdated().getActor(), input.getStatus().getLastUpdated().getActor().toString());
+    assertEquals(
+        output.getStatus().getLastUpdated().getTime(),
+        input.getStatus().getLastUpdated().getTime());
+    assertEquals(
+        output.getStatus().getLastUpdated().getActor(),
+        input.getStatus().getLastUpdated().getActor().toString());
     assertEquals(output.getSource().getType().toString(), input.getSource().getType().toString());
     assertEquals(output.getReview().getState().toString(), input.getReview().getState().toString());
-    assertEquals(output.getReview().getLastUpdated().getTime(), input.getReview().getLastUpdated().getTime());
-    assertEquals(output.getReview().getLastUpdated().getActor(), input.getReview().getLastUpdated().getActor().toString());
+    assertEquals(
+        output.getReview().getLastUpdated().getTime(),
+        input.getReview().getLastUpdated().getTime());
+    assertEquals(
+        output.getReview().getLastUpdated().getActor(),
+        input.getReview().getLastUpdated().getActor().toString());
   }
 }

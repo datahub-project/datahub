@@ -3,10 +3,10 @@ package com.linkedin.gms.factory.test;
 import com.linkedin.gms.factory.entity.EntityServiceFactory;
 import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
 import com.linkedin.gms.factory.search.EntitySearchServiceFactory;
-import com.linkedin.metadata.spring.YamlPropertySourceFactory;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.EntitySearchService;
+import com.linkedin.metadata.spring.YamlPropertySourceFactory;
 import com.linkedin.metadata.test.TestEngine;
 import com.linkedin.metadata.test.TestFetcher;
 import com.linkedin.metadata.test.action.ActionApplier;
@@ -21,7 +21,6 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.PropertySource;
-
 
 @Configuration
 @Import({EntityRegistryFactory.class, EntityServiceFactory.class, EntitySearchServiceFactory.class})
@@ -54,8 +53,14 @@ public class TestEngineFactory {
   @Nonnull
   protected TestEngine getInstance() {
     PredicateEvaluator predicateEvaluator = PredicateEvaluator.getInstance();
-    return new TestEngine(entityService, new TestFetcher(entityService, entitySearchService),
-        new TestDefinitionParser(predicateEvaluator), queryEngine, predicateEvaluator, this.actionApplier,
-        10, testCacheRefreshIntervalSeconds);
+    return new TestEngine(
+        entityService,
+        new TestFetcher(entityService, entitySearchService),
+        new TestDefinitionParser(predicateEvaluator),
+        queryEngine,
+        predicateEvaluator,
+        this.actionApplier,
+        10,
+        testCacheRefreshIntervalSeconds);
   }
 }

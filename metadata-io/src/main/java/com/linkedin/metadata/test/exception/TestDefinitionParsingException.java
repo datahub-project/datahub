@@ -1,8 +1,6 @@
 package com.linkedin.metadata.test.exception;
 
-/**
- * An exception to be thrown when failing to parse test definition
- */
+/** An exception to be thrown when failing to parse test definition */
 public class TestDefinitionParsingException extends RuntimeException {
 
   public TestDefinitionParsingException(String message) {

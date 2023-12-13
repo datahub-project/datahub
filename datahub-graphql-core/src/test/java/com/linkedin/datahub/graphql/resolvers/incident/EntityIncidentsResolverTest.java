@@ -1,11 +1,13 @@
 package com.linkedin.datahub.graphql.resolvers.incident;
 
+import static com.linkedin.datahub.graphql.resolvers.incident.EntityIncidentsResolver.*;
+import static org.testng.Assert.*;
+
 import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.AuditStamp;
-import com.linkedin.incident.IncidentInfo;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -16,6 +18,7 @@ import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.incident.IncidentInfo;
 import com.linkedin.incident.IncidentSource;
 import com.linkedin.incident.IncidentSourceType;
 import com.linkedin.incident.IncidentState;
@@ -36,10 +39,6 @@ import java.util.Map;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
-import static com.linkedin.datahub.graphql.resolvers.incident.EntityIncidentsResolver.*;
-import static org.testng.Assert.*;
-
-
 public class EntityIncidentsResolverTest {
   @Test
   public void testGetSuccess() throws Exception {
@@ -53,30 +52,31 @@ public class EntityIncidentsResolverTest {
     Map<String, com.linkedin.entity.EnvelopedAspect> incidentAspects = new HashMap<>();
     incidentAspects.put(
         Constants.INCIDENT_KEY_ASPECT_NAME,
-        new com.linkedin.entity.EnvelopedAspect().setValue(new Aspect(
-            new IncidentKey().setId("test-guid").data()
-        ))
-    );
+        new com.linkedin.entity.EnvelopedAspect()
+            .setValue(new Aspect(new IncidentKey().setId("test-guid").data())));
 
-    IncidentInfo expectedInfo = new IncidentInfo()
-      .setType(IncidentType.DATASET_COLUMN)
-      .setCustomType("Custom Type")
-      .setDescription("Description")
-      .setPriority(5)
-      .setTitle("Title")
-      .setEntities(new UrnArray(ImmutableList.of(datasetUrn)))
-      .setSource(new IncidentSource().setType(IncidentSourceType.ASSERTION_FAILURE).setSourceUrn(assertionUrn))
-      .setStatus(new IncidentStatus().setState(IncidentState.ACTIVE).setMessage("Message").setLastUpdated(
-          new AuditStamp().setTime(1L).setActor(userUrn)
-      ))
-      .setCreated(new AuditStamp().setTime(0L).setActor(userUrn));
+    IncidentInfo expectedInfo =
+        new IncidentInfo()
+            .setType(IncidentType.DATASET_COLUMN)
+            .setCustomType("Custom Type")
+            .setDescription("Description")
+            .setPriority(5)
+            .setTitle("Title")
+            .setEntities(new UrnArray(ImmutableList.of(datasetUrn)))
+            .setSource(
+                new IncidentSource()
+                    .setType(IncidentSourceType.ASSERTION_FAILURE)
+                    .setSourceUrn(assertionUrn))
+            .setStatus(
+                new IncidentStatus()
+                    .setState(IncidentState.ACTIVE)
+                    .setMessage("Message")
+                    .setLastUpdated(new AuditStamp().setTime(1L).setActor(userUrn)))
+            .setCreated(new AuditStamp().setTime(0L).setActor(userUrn));
 
     incidentAspects.put(
         Constants.INCIDENT_INFO_ASPECT_NAME,
-        new com.linkedin.entity.EnvelopedAspect().setValue(new Aspect(
-            expectedInfo.data()
-        ))
-    );
+        new com.linkedin.entity.EnvelopedAspect().setValue(new Aspect(expectedInfo.data())));
 
     final Map<String, String> criterionMap = new HashMap<>();
     criterionMap.put(INCIDENT_ENTITIES_SEARCH_INDEX_FIELD_NAME, datasetUrn.toString());
@@ -86,31 +86,36 @@ public class EntityIncidentsResolverTest {
     expectedSort.setField(CREATED_TIME_SEARCH_INDEX_FIELD_NAME);
     expectedSort.setOrder(SortOrder.DESCENDING);
 
-    Mockito.when(mockClient.filter(
-        Mockito.eq(Constants.INCIDENT_ENTITY_NAME),
-        Mockito.eq(expectedFilter),
-        Mockito.eq(expectedSort),
-        Mockito.eq(0),
-        Mockito.eq(10),
-        Mockito.any(Authentication.class))).thenReturn(
-        new SearchResult()
-            .setFrom(0)
-            .setPageSize(1)
-            .setNumEntities(1)
-            .setEntities(new SearchEntityArray(ImmutableSet.of(new SearchEntity().setEntity(incidentUrn))))
-    );
+    Mockito.when(
+            mockClient.filter(
+                Mockito.eq(Constants.INCIDENT_ENTITY_NAME),
+                Mockito.eq(expectedFilter),
+                Mockito.eq(expectedSort),
+                Mockito.eq(0),
+                Mockito.eq(10),
+                Mockito.any(Authentication.class)))
+        .thenReturn(
+            new SearchResult()
+                .setFrom(0)
+                .setPageSize(1)
+                .setNumEntities(1)
+                .setEntities(
+                    new SearchEntityArray(
+                        ImmutableSet.of(new SearchEntity().setEntity(incidentUrn)))));
 
-    Mockito.when(mockClient.batchGetV2(
-        Mockito.eq(Constants.INCIDENT_ENTITY_NAME),
-        Mockito.eq(ImmutableSet.of(incidentUrn)),
-        Mockito.eq(null),
-        Mockito.any(Authentication.class)
-    )).thenReturn(ImmutableMap.of(
-        incidentUrn,
-        new EntityResponse()
-            .setEntityName(Constants.INCIDENT_ENTITY_NAME)
-            .setUrn(incidentUrn)
-            .setAspects(new EnvelopedAspectMap(incidentAspects))));
+    Mockito.when(
+            mockClient.batchGetV2(
+                Mockito.eq(Constants.INCIDENT_ENTITY_NAME),
+                Mockito.eq(ImmutableSet.of(incidentUrn)),
+                Mockito.eq(null),
+                Mockito.any(Authentication.class)))
+        .thenReturn(
+            ImmutableMap.of(
+                incidentUrn,
+                new EntityResponse()
+                    .setEntityName(Constants.INCIDENT_ENTITY_NAME)
+                    .setUrn(incidentUrn)
+                    .setAspects(new EnvelopedAspectMap(incidentAspects))));
 
     EntityIncidentsResolver resolver = new EntityIncidentsResolver(mockClient);
 
@@ -134,19 +139,28 @@ public class EntityIncidentsResolverTest {
     assertEquals(result.getCount(), 1);
     assertEquals(result.getTotal(), 1);
 
-    com.linkedin.datahub.graphql.generated.Incident incident = resolver.get(mockEnv).get().getIncidents().get(0);
+    com.linkedin.datahub.graphql.generated.Incident incident =
+        resolver.get(mockEnv).get().getIncidents().get(0);
     assertEquals(incident.getUrn(), incidentUrn.toString());
     assertEquals(incident.getType(), EntityType.INCIDENT);
     assertEquals(incident.getIncidentType().toString(), expectedInfo.getType().toString());
     assertEquals(incident.getTitle(), expectedInfo.getTitle());
     assertEquals(incident.getDescription(), expectedInfo.getDescription());
     assertEquals(incident.getCustomType(), expectedInfo.getCustomType());
-    assertEquals(incident.getStatus().getState().toString(), expectedInfo.getStatus().getState().toString());
+    assertEquals(
+        incident.getStatus().getState().toString(), expectedInfo.getStatus().getState().toString());
     assertEquals(incident.getStatus().getMessage(), expectedInfo.getStatus().getMessage());
-    assertEquals(incident.getStatus().getLastUpdated().getTime(), expectedInfo.getStatus().getLastUpdated().getTime());
-    assertEquals(incident.getStatus().getLastUpdated().getActor(), expectedInfo.getStatus().getLastUpdated().getActor().toString());
-    assertEquals(incident.getSource().getType().toString(), expectedInfo.getSource().getType().toString());
-    assertEquals(incident.getSource().getSource().getUrn(), expectedInfo.getSource().getSourceUrn().toString());
+    assertEquals(
+        incident.getStatus().getLastUpdated().getTime(),
+        expectedInfo.getStatus().getLastUpdated().getTime());
+    assertEquals(
+        incident.getStatus().getLastUpdated().getActor(),
+        expectedInfo.getStatus().getLastUpdated().getActor().toString());
+    assertEquals(
+        incident.getSource().getType().toString(), expectedInfo.getSource().getType().toString());
+    assertEquals(
+        incident.getSource().getSource().getUrn(),
+        expectedInfo.getSource().getSourceUrn().toString());
     assertEquals(incident.getCreated().getActor(), expectedInfo.getCreated().getActor().toString());
     assertEquals(incident.getCreated().getTime(), expectedInfo.getCreated().getTime());
   }

@@ -4,12 +4,13 @@ import com.linkedin.datahub.graphql.generated.FieldUsageCounts;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import javax.annotation.Nonnull;
 
-
-public class FieldUsageCountsMapper implements ModelMapper<com.linkedin.usage.FieldUsageCounts, FieldUsageCounts> {
+public class FieldUsageCountsMapper
+    implements ModelMapper<com.linkedin.usage.FieldUsageCounts, FieldUsageCounts> {
 
   public static final FieldUsageCountsMapper INSTANCE = new FieldUsageCountsMapper();
 
-  public static FieldUsageCounts map(@Nonnull final com.linkedin.usage.FieldUsageCounts usageCounts) {
+  public static FieldUsageCounts map(
+      @Nonnull final com.linkedin.usage.FieldUsageCounts usageCounts) {
     return INSTANCE.apply(usageCounts);
   }
 

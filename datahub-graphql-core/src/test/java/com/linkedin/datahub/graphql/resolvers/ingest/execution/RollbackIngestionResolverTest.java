@@ -1,5 +1,8 @@
 package com.linkedin.datahub.graphql.resolvers.ingest.execution;
 
+import static com.linkedin.datahub.graphql.resolvers.ingest.IngestTestUtils.*;
+import static org.testng.Assert.*;
+
 import com.datahub.authentication.Authentication;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.RollbackIngestionInput;
@@ -7,10 +10,6 @@ import com.linkedin.entity.client.EntityClient;
 import graphql.schema.DataFetchingEnvironment;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
-
-import static com.linkedin.datahub.graphql.resolvers.ingest.IngestTestUtils.*;
-import static org.testng.Assert.*;
-
 
 public class RollbackIngestionResolverTest {
 
@@ -46,9 +45,8 @@ public class RollbackIngestionResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     assertThrows(RuntimeException.class, () -> resolver.get(mockEnv).join());
-    Mockito.verify(mockClient, Mockito.times(0)).rollbackIngestion(
-        Mockito.eq(RUN_ID),
-        Mockito.any(Authentication.class));
+    Mockito.verify(mockClient, Mockito.times(0))
+        .rollbackIngestion(Mockito.eq(RUN_ID), Mockito.any(Authentication.class));
   }
 
   @Test
@@ -59,24 +57,22 @@ public class RollbackIngestionResolverTest {
     QueryContext mockContext = getMockAllowContext();
     resolver.rollbackIngestion(RUN_ID, mockContext).get();
 
-    Mockito.verify(mockClient, Mockito.times(1)).rollbackIngestion(
-        Mockito.eq(RUN_ID),
-        Mockito.any(Authentication.class)
-    );
+    Mockito.verify(mockClient, Mockito.times(1))
+        .rollbackIngestion(Mockito.eq(RUN_ID), Mockito.any(Authentication.class));
   }
 
   @Test
   public void testGetEntityClientException() throws Exception {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
-    Mockito.doThrow(RuntimeException.class).when(mockClient).rollbackIngestion(
-        Mockito.any(),
-        Mockito.any(Authentication.class));
+    Mockito.doThrow(RuntimeException.class)
+        .when(mockClient)
+        .rollbackIngestion(Mockito.any(), Mockito.any(Authentication.class));
 
     RollbackIngestionResolver resolver = new RollbackIngestionResolver(mockClient);
 
     QueryContext mockContext = getMockAllowContext();
 
-    assertThrows(RuntimeException.class, () -> resolver.rollbackIngestion(RUN_ID, mockContext).join());
+    assertThrows(
+        RuntimeException.class, () -> resolver.rollbackIngestion(RUN_ID, mockContext).join());
   }
 }
-

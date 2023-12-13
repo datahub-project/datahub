@@ -1,5 +1,9 @@
 package app.auth.sso;
 
+import static auth.AuthUtils.*;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
+
 import auth.sso.SsoManager;
 import auth.sso.oidc.OidcProvider;
 import com.datahub.authentication.Authentication;
@@ -14,18 +18,14 @@ import org.json.JSONObject;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import static auth.AuthUtils.*;
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
-
-
 public class SsoManagerTest {
 
   private static final String SSO_SETTINGS_REQUEST_URL = "http://localhost:9002/sso/settings";
   private static final String BASE_URL_VALUE = "http://localhost:9002";
   private static final String CLIENT_ID_VALUE = "clientId";
   private static final String CLIENT_SECRET_VALUE = "clientSecret";
-  private static final String DISCOVERY_URI_VALUE = "https://idp.com/.well-known/openid-configuration";
+  private static final String DISCOVERY_URI_VALUE =
+      "https://idp.com/.well-known/openid-configuration";
   private static final String AUTH_BASE_URL_CONFIG_PATH = "auth.baseUrl";
   public static final String OIDC_CLIENT_ID_CONFIG_PATH = "auth.oidc.clientId";
   public static final String OIDC_CLIENT_SECRET_CONFIG_PATH = "auth.oidc.clientSecret";
@@ -54,7 +54,8 @@ public class SsoManagerTest {
     when(_httpResponse.getStatusLine()).thenReturn(statusLine);
     when(statusLine.getStatusCode()).thenReturn(HttpStatus.SC_OK);
 
-    _ssoManager = new SsoManager(mock(Config.class), authentication, SSO_SETTINGS_REQUEST_URL, httpClient);
+    _ssoManager =
+        new SsoManager(mock(Config.class), authentication, SSO_SETTINGS_REQUEST_URL, httpClient);
   }
 
   @Test
@@ -123,8 +124,8 @@ public class SsoManagerTest {
   }
 
   /*
-    Appears to be testing missing base url
-   */
+   Appears to be testing missing base url
+  */
   @Test
   public void testParseConfigsMissingSsoValue() {
     com.typesafe.config.Config configs = mock(com.typesafe.config.Config.class);

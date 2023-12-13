@@ -7,7 +7,6 @@ import com.linkedin.datajob.DataFlowInfo;
 import com.linkedin.metadata.models.registry.template.Template;
 import javax.annotation.Nonnull;
 
-
 public class DataFlowInfoTemplate implements Template<DataFlowInfo> {
 
   @Override

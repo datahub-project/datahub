@@ -3,9 +3,9 @@ package com.linkedin.gms.factory.recommendation.candidatesource;
 import com.linkedin.gms.factory.common.IndexConventionFactory;
 import com.linkedin.gms.factory.common.RestHighLevelClientFactory;
 import com.linkedin.gms.factory.entity.EntityServiceFactory;
-import com.linkedin.metadata.spring.YamlPropertySourceFactory;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.recommendation.candidatesource.MostPopularSource;
+import com.linkedin.metadata.spring.YamlPropertySourceFactory;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import javax.annotation.Nonnull;
 import org.opensearch.client.RestHighLevelClient;
@@ -17,9 +17,12 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.PropertySource;
 
-
 @Configuration
-@Import({RestHighLevelClientFactory.class, IndexConventionFactory.class, EntityServiceFactory.class})
+@Import({
+  RestHighLevelClientFactory.class,
+  IndexConventionFactory.class,
+  EntityServiceFactory.class
+})
 @PropertySource(value = "classpath:/application.yml", factory = YamlPropertySourceFactory.class)
 public class MostPopularCandidateSourceFactory {
   @Autowired
@@ -43,4 +46,3 @@ public class MostPopularCandidateSourceFactory {
     return new MostPopularSource(searchClient, indexConvention, entityService, fetchOffline);
   }
 }
-

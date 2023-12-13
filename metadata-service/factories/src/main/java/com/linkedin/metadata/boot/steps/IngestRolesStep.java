@@ -1,5 +1,7 @@
 package com.linkedin.metadata.boot.steps;
 
+import static com.linkedin.metadata.Constants.*;
+
 import com.datahub.util.RecordUtils;
 import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -25,9 +27,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.ClassPathResource;
 
-import static com.linkedin.metadata.Constants.*;
-
-
 @Slf4j
 @RequiredArgsConstructor
 public class IngestRolesStep implements BootstrapStep {
@@ -49,9 +48,13 @@ public class IngestRolesStep implements BootstrapStep {
   @Override
   public void execute() throws Exception {
     final ObjectMapper mapper = new ObjectMapper();
-    int maxSize = Integer.parseInt(System.getenv().getOrDefault(INGESTION_MAX_SERIALIZED_STRING_LENGTH, MAX_JACKSON_STRING_SIZE));
-    mapper.getFactory().setStreamReadConstraints(StreamReadConstraints.builder()
-        .maxStringLength(maxSize).build());
+    int maxSize =
+        Integer.parseInt(
+            System.getenv()
+                .getOrDefault(INGESTION_MAX_SERIALIZED_STRING_LENGTH, MAX_JACKSON_STRING_SIZE));
+    mapper
+        .getFactory()
+        .setStreamReadConstraints(StreamReadConstraints.builder().maxStringLength(maxSize).build());
 
     // Sleep to ensure deployment process finishes.
     Thread.sleep(SLEEP_SECONDS * 1000);
@@ -64,13 +67,19 @@ public class IngestRolesStep implements BootstrapStep {
 
     if (!rolesObj.isArray()) {
       throw new RuntimeException(
-          String.format("Found malformed roles file, expected an Array but found %s", rolesObj.getNodeType()));
+          String.format(
+              "Found malformed roles file, expected an Array but found %s",
+              rolesObj.getNodeType()));
     }
 
     final AspectSpec roleInfoAspectSpec =
-        _entityRegistry.getEntitySpec(DATAHUB_ROLE_ENTITY_NAME).getAspectSpec(DATAHUB_ROLE_INFO_ASPECT_NAME);
+        _entityRegistry
+            .getEntitySpec(DATAHUB_ROLE_ENTITY_NAME)
+            .getAspectSpec(DATAHUB_ROLE_INFO_ASPECT_NAME);
     final AuditStamp auditStamp =
-        new AuditStamp().setActor(Urn.createFromString(Constants.SYSTEM_ACTOR)).setTime(System.currentTimeMillis());
+        new AuditStamp()
+            .setActor(Urn.createFromString(Constants.SYSTEM_ACTOR))
+            .setTime(System.currentTimeMillis());
 
     for (final JsonNode roleObj : rolesObj) {
       final Urn urn = Urn.createFromString(roleObj.get("urn").asText());
@@ -81,20 +90,26 @@ public class IngestRolesStep implements BootstrapStep {
         continue;
       }
 
-      final DataHubRoleInfo info = RecordUtils.toRecordTemplate(DataHubRoleInfo.class, roleObj.get("info").toString());
+      final DataHubRoleInfo info =
+          RecordUtils.toRecordTemplate(DataHubRoleInfo.class, roleObj.get("info").toString());
       ingestRole(urn, info, auditStamp, roleInfoAspectSpec);
     }
 
     log.info("Successfully ingested default Roles.");
   }
 
-  private void ingestRole(final Urn roleUrn, final DataHubRoleInfo dataHubRoleInfo, final AuditStamp auditStamp,
-      final AspectSpec roleInfoAspectSpec) throws URISyntaxException {
+  private void ingestRole(
+      final Urn roleUrn,
+      final DataHubRoleInfo dataHubRoleInfo,
+      final AuditStamp auditStamp,
+      final AspectSpec roleInfoAspectSpec)
+      throws URISyntaxException {
     // 3. Write key & aspect
     final MetadataChangeProposal keyAspectProposal = new MetadataChangeProposal();
     final AspectSpec keyAspectSpec = _entityService.getKeyAspectSpec(roleUrn);
     GenericAspect aspect =
-        GenericRecordUtils.serializeAspect(EntityKeyUtils.convertUrnToEntityKey(roleUrn, keyAspectSpec));
+        GenericRecordUtils.serializeAspect(
+            EntityKeyUtils.convertUrnToEntityKey(roleUrn, keyAspectSpec));
     keyAspectProposal.setAspect(aspect);
     keyAspectProposal.setAspectName(keyAspectSpec.getName());
     keyAspectProposal.setEntityType(DATAHUB_ROLE_ENTITY_NAME);
@@ -108,12 +123,25 @@ public class IngestRolesStep implements BootstrapStep {
     proposal.setAspect(GenericRecordUtils.serializeAspect(dataHubRoleInfo));
     proposal.setChangeType(ChangeType.UPSERT);
 
-    _entityService.ingestProposal(AspectsBatchImpl.builder()
-            .mcps(List.of(keyAspectProposal, proposal), _entityRegistry).build(),
-            new AuditStamp().setActor(Urn.createFromString(SYSTEM_ACTOR)).setTime(System.currentTimeMillis()),
-            false);
+    _entityService.ingestProposal(
+        AspectsBatchImpl.builder()
+            .mcps(List.of(keyAspectProposal, proposal), _entityRegistry)
+            .build(),
+        new AuditStamp()
+            .setActor(Urn.createFromString(SYSTEM_ACTOR))
+            .setTime(System.currentTimeMillis()),
+        false);
 
-    _entityService.alwaysProduceMCLAsync(roleUrn, DATAHUB_ROLE_ENTITY_NAME, DATAHUB_ROLE_INFO_ASPECT_NAME,
-        roleInfoAspectSpec, null, dataHubRoleInfo, null, null, auditStamp, ChangeType.RESTATE);
+    _entityService.alwaysProduceMCLAsync(
+        roleUrn,
+        DATAHUB_ROLE_ENTITY_NAME,
+        DATAHUB_ROLE_INFO_ASPECT_NAME,
+        roleInfoAspectSpec,
+        null,
+        dataHubRoleInfo,
+        null,
+        null,
+        auditStamp,
+        ChangeType.RESTATE);
   }
 }

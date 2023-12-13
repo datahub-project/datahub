@@ -45,5 +45,3 @@ tasks.register('generateOpenApiPojos', GenerateSwaggerCode) {
 
 sourceSets.main.java.srcDirs "${generateOpenApiPojos.outputDir}/src/main/java"
 sourceSets.main.resources.srcDir "${generateOpenApiPojos.outputDir}/src/main/resources"
-// Disable checkstyle for this module.
-checkstyleMain.source = "${projectDir}/src/main/java"

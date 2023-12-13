@@ -17,11 +17,9 @@ import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 
-
-/**
- * GraphQL Resolver used for fetching BatchTestRunEvents.
- */
-public class BatchTestRunEventsResolver implements DataFetcher<CompletableFuture<BatchTestRunEventsResult>> {
+/** GraphQL Resolver used for fetching BatchTestRunEvents. */
+public class BatchTestRunEventsResolver
+    implements DataFetcher<CompletableFuture<BatchTestRunEventsResult>> {
 
   private final EntityClient _client;
 
@@ -31,36 +29,39 @@ public class BatchTestRunEventsResolver implements DataFetcher<CompletableFuture
 
   @Override
   public CompletableFuture<BatchTestRunEventsResult> get(DataFetchingEnvironment environment) {
-    return CompletableFuture.supplyAsync(() -> {
+    return CompletableFuture.supplyAsync(
+        () -> {
+          final QueryContext context = environment.getContext();
+          final String urn = ((Test) environment.getSource()).getUrn();
+          final Long maybeStartTimeMillis =
+              environment.getArgumentOrDefault("startTimeMillis", null);
+          final Long maybeEndTimeMillis = environment.getArgumentOrDefault("endTimeMillis", null);
+          final Integer maybeLimit = environment.getArgumentOrDefault("limit", null);
 
-      final QueryContext context = environment.getContext();
-      final String urn = ((Test) environment.getSource()).getUrn();
-      final Long maybeStartTimeMillis = environment.getArgumentOrDefault("startTimeMillis", null);
-      final Long maybeEndTimeMillis = environment.getArgumentOrDefault("endTimeMillis", null);
-      final Integer maybeLimit = environment.getArgumentOrDefault("limit", null);
+          try {
+            // Step 1: Fetch aspects from GMS
+            List<EnvelopedAspect> aspects =
+                _client.getTimeseriesAspectValues(
+                    urn,
+                    Constants.TEST_ENTITY_NAME,
+                    AcrylConstants.BATCH_TEST_RUN_EVENT_ASPECT_NAME,
+                    maybeStartTimeMillis,
+                    maybeEndTimeMillis,
+                    maybeLimit,
+                    null,
+                    context.getAuthentication());
 
-      try {
-        // Step 1: Fetch aspects from GMS
-        List<EnvelopedAspect> aspects = _client.getTimeseriesAspectValues(
-            urn,
-            Constants.TEST_ENTITY_NAME,
-            AcrylConstants.BATCH_TEST_RUN_EVENT_ASPECT_NAME,
-            maybeStartTimeMillis,
-            maybeEndTimeMillis,
-            maybeLimit,
-            null,
-            context.getAuthentication());
+            // Step 2: Bind profiles into GraphQL strong types.
+            List<BatchTestRunEvent> runEvents =
+                aspects.stream().map(BatchTestRunEventMapper::map).collect(Collectors.toList());
 
-        // Step 2: Bind profiles into GraphQL strong types.
-        List<BatchTestRunEvent> runEvents = aspects.stream().map(BatchTestRunEventMapper::map).collect(Collectors.toList());
-
-        // Step 3: Package and return response.
-        final BatchTestRunEventsResult result = new BatchTestRunEventsResult();
-        result.setBatchRunEvents(runEvents);
-        return result;
-      } catch (RemoteInvocationException e) {
-        throw new RuntimeException("Failed to retrieve Batch Test  Run Events from GMS", e);
-      }
-    });
+            // Step 3: Package and return response.
+            final BatchTestRunEventsResult result = new BatchTestRunEventsResult();
+            result.setBatchRunEvents(runEvents);
+            return result;
+          } catch (RemoteInvocationException e) {
+            throw new RuntimeException("Failed to retrieve Batch Test  Run Events from GMS", e);
+          }
+        });
   }
 }

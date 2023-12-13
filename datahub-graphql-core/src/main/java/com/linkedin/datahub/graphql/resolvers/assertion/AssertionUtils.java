@@ -27,12 +27,13 @@ import com.linkedin.metadata.authorization.PoliciesConfig;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 
-
 public class AssertionUtils {
 
   @Nonnull
-  public static com.linkedin.assertion.AssertionStdParameters createDatasetAssertionParameters(@Nonnull final AssertionStdParametersInput parameters) {
-    final com.linkedin.assertion.AssertionStdParameters result = new com.linkedin.assertion.AssertionStdParameters();
+  public static com.linkedin.assertion.AssertionStdParameters createDatasetAssertionParameters(
+      @Nonnull final AssertionStdParametersInput parameters) {
+    final com.linkedin.assertion.AssertionStdParameters result =
+        new com.linkedin.assertion.AssertionStdParameters();
     if (parameters.getValue() != null) {
       result.setValue(createDatasetAssertionParameter(parameters.getValue()));
     }
@@ -46,20 +47,24 @@ public class AssertionUtils {
   }
 
   @Nonnull
-  public static com.linkedin.assertion.AssertionStdParameter createDatasetAssertionParameter(@Nonnull final AssertionStdParameterInput parameter) {
-    final com.linkedin.assertion.AssertionStdParameter result = new com.linkedin.assertion.AssertionStdParameter();
+  public static com.linkedin.assertion.AssertionStdParameter createDatasetAssertionParameter(
+      @Nonnull final AssertionStdParameterInput parameter) {
+    final com.linkedin.assertion.AssertionStdParameter result =
+        new com.linkedin.assertion.AssertionStdParameter();
     result.setType(AssertionStdParameterType.valueOf(parameter.getType().toString()));
     result.setValue(parameter.getValue(), SetMode.IGNORE_NULL);
     return result;
   }
 
   @Nonnull
-  public static com.linkedin.assertion.AssertionStdOperator createAssertionStdOperator(@Nonnull final AssertionStdOperator operator) {
+  public static com.linkedin.assertion.AssertionStdOperator createAssertionStdOperator(
+      @Nonnull final AssertionStdOperator operator) {
     return com.linkedin.assertion.AssertionStdOperator.valueOf(operator.toString());
   }
 
   @Nonnull
-  public static com.linkedin.schema.SchemaFieldSpec createSchemaFieldSpec(@Nonnull final SchemaFieldSpecInput input) {
+  public static com.linkedin.schema.SchemaFieldSpec createSchemaFieldSpec(
+      @Nonnull final SchemaFieldSpecInput input) {
     final com.linkedin.schema.SchemaFieldSpec result = new com.linkedin.schema.SchemaFieldSpec();
     result.setType(input.getType());
     result.setNativeType(input.getNativeType());
@@ -68,7 +73,8 @@ public class AssertionUtils {
   }
 
   @Nonnull
-  public static com.linkedin.dataset.DatasetFilter createAssertionFilter(@Nonnull final DatasetFilterInput filter) {
+  public static com.linkedin.dataset.DatasetFilter createAssertionFilter(
+      @Nonnull final DatasetFilterInput filter) {
     final com.linkedin.dataset.DatasetFilter result = new com.linkedin.dataset.DatasetFilter();
     result.setType(DatasetFilterType.valueOf(filter.getType().toString()));
 
@@ -85,22 +91,36 @@ public class AssertionUtils {
   }
 
   @Nonnull
-  public static AssertionActions createAssertionActions(@Nonnull final com.linkedin.datahub.graphql.generated.AssertionActionsInput actions) {
+  public static AssertionActions createAssertionActions(
+      @Nonnull final com.linkedin.datahub.graphql.generated.AssertionActionsInput actions) {
     final AssertionActions result = new AssertionActions();
-    result.setOnSuccess(new AssertionActionArray(actions.getOnSuccess().stream()
-        .map(action -> new AssertionAction().setType(AssertionActionType.valueOf(action.getType().toString())))
-        .collect(Collectors.toList())));
-    result.setOnFailure(new AssertionActionArray(actions.getOnFailure().stream()
-        .map(action -> new AssertionAction().setType(AssertionActionType.valueOf(action.getType().toString())))
-        .collect(Collectors.toList())));
+    result.setOnSuccess(
+        new AssertionActionArray(
+            actions.getOnSuccess().stream()
+                .map(
+                    action ->
+                        new AssertionAction()
+                            .setType(AssertionActionType.valueOf(action.getType().toString())))
+                .collect(Collectors.toList())));
+    result.setOnFailure(
+        new AssertionActionArray(
+            actions.getOnFailure().stream()
+                .map(
+                    action ->
+                        new AssertionAction()
+                            .setType(AssertionActionType.valueOf(action.getType().toString())))
+                .collect(Collectors.toList())));
     return result;
   }
 
-  public static boolean isAuthorizedToEditAssertionFromAssertee(final QueryContext context, final Urn asserteeUrn) {
-    final DisjunctivePrivilegeGroup orPrivilegeGroups = new DisjunctivePrivilegeGroup(ImmutableList.of(
-        AuthUtils.ALL_PRIVILEGES_GROUP,
-        new ConjunctivePrivilegeGroup(ImmutableList.of(PoliciesConfig.EDIT_ENTITY_ASSERTIONS_PRIVILEGE.getType()))
-    ));
+  public static boolean isAuthorizedToEditAssertionFromAssertee(
+      final QueryContext context, final Urn asserteeUrn) {
+    final DisjunctivePrivilegeGroup orPrivilegeGroups =
+        new DisjunctivePrivilegeGroup(
+            ImmutableList.of(
+                AuthUtils.ALL_PRIVILEGES_GROUP,
+                new ConjunctivePrivilegeGroup(
+                    ImmutableList.of(PoliciesConfig.EDIT_ENTITY_ASSERTIONS_PRIVILEGE.getType()))));
     return AuthorizationUtils.isAuthorized(
         context.getAuthorizer(),
         context.getActorUrn(),
@@ -122,7 +142,8 @@ public class AssertionUtils {
       case FIELD:
         return info.getFieldAssertion().getEntity();
       default:
-        throw new RuntimeException(String.format("Unsupported Assertion Type %s provided", info.getType()));
+        throw new RuntimeException(
+            String.format("Unsupported Assertion Type %s provided", info.getType()));
     }
   }
 
@@ -149,9 +170,10 @@ public class AssertionUtils {
         }
         throw new RuntimeException("Field Test Input is required for Field Assertion");
       default:
-        throw new RuntimeException(String.format("Unsupported Assertion Type %s provided", input.getType()));
+        throw new RuntimeException(
+            String.format("Unsupported Assertion Type %s provided", input.getType()));
     }
   }
 
-  private AssertionUtils() { }
+  private AssertionUtils() {}
 }

@@ -19,17 +19,16 @@ import java.net.URISyntaxException;
 import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
 
-
 @Slf4j
 public class DataPlatformInstanceUtils {
-  private DataPlatformInstanceUtils() {
-  }
+  private DataPlatformInstanceUtils() {}
 
   private static DataPlatformUrn getPlatformUrn(String name) {
     return new DataPlatformUrn(name.toLowerCase());
   }
 
-  private static Urn getDefaultDataPlatform(String entityType, RecordTemplate keyAspect) throws URISyntaxException {
+  private static Urn getDefaultDataPlatform(String entityType, RecordTemplate keyAspect)
+      throws URISyntaxException {
     switch (entityType) {
       case "dataset":
         return ((DatasetKey) keyAspect).getPlatform();
@@ -40,7 +39,8 @@ public class DataPlatformInstanceUtils {
       case "dataFlow":
         return getPlatformUrn(((DataFlowKey) keyAspect).getOrchestrator());
       case "dataJob":
-        return getPlatformUrn(DataFlowUrn.createFromUrn(((DataJobKey) keyAspect).getFlow()).getOrchestratorEntity());
+        return getPlatformUrn(
+            DataFlowUrn.createFromUrn(((DataJobKey) keyAspect).getFlow()).getOrchestratorEntity());
       case "dataProcess":
         return getPlatformUrn(((DataProcessKey) keyAspect).getOrchestrator());
       case "mlModel":
@@ -52,17 +52,23 @@ public class DataPlatformInstanceUtils {
       case "mlModelGroup":
         return ((MLModelGroupKey) keyAspect).getPlatform();
       default:
-        log.debug(String.format("Failed to generate default platform for unknown entity type %s", entityType));
+        log.debug(
+            String.format(
+                "Failed to generate default platform for unknown entity type %s", entityType));
         return null;
     }
   }
 
-  public static Optional<DataPlatformInstance> buildDataPlatformInstance(String entityType, RecordTemplate keyAspect) {
+  public static Optional<DataPlatformInstance> buildDataPlatformInstance(
+      String entityType, RecordTemplate keyAspect) {
     try {
       return Optional.ofNullable(getDefaultDataPlatform(entityType, keyAspect))
           .map(platform -> new DataPlatformInstance().setPlatform(platform));
     } catch (URISyntaxException e) {
-      log.error("Failed to generate data platform instance for entity {}, keyAspect {}", entityType, keyAspect);
+      log.error(
+          "Failed to generate data platform instance for entity {}, keyAspect {}",
+          entityType,
+          keyAspect);
       return Optional.empty();
     }
   }

@@ -1,5 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.recommendation;
 
+import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
+
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.generated.ContentParams;
@@ -31,12 +33,10 @@ import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
-
-
 @Slf4j
 @RequiredArgsConstructor
-public class ListRecommendationsResolver implements DataFetcher<CompletableFuture<ListRecommendationsResult>> {
+public class ListRecommendationsResolver
+    implements DataFetcher<CompletableFuture<ListRecommendationsResult>> {
 
   private static final ListRecommendationsResult EMPTY_RECOMMENDATIONS =
       new ListRecommendationsResult(Collections.emptyList());
@@ -49,24 +49,28 @@ public class ListRecommendationsResolver implements DataFetcher<CompletableFutur
     final ListRecommendationsInput input =
         bindArgument(environment.getArgument("input"), ListRecommendationsInput.class);
 
-    return CompletableFuture.supplyAsync(() -> {
-      try {
-        log.debug("Listing recommendations for input {}", input);
-        List<com.linkedin.metadata.recommendation.RecommendationModule> modules =
-            _recommendationsService.listRecommendations(Urn.createFromString(input.getUserUrn()),
-                mapRequestContext(input.getRequestContext()), input.getLimit());
-        return ListRecommendationsResult.builder()
-            .setModules(modules.stream()
-                .map(this::mapRecommendationModule)
-                .filter(Optional::isPresent)
-                .map(Optional::get)
-                .collect(Collectors.toList()))
-            .build();
-      } catch (Exception e) {
-        log.error("Failed to get recommendations for input {}", input, e);
-        return EMPTY_RECOMMENDATIONS;
-      }
-    });
+    return CompletableFuture.supplyAsync(
+        () -> {
+          try {
+            log.debug("Listing recommendations for input {}", input);
+            List<com.linkedin.metadata.recommendation.RecommendationModule> modules =
+                _recommendationsService.listRecommendations(
+                    Urn.createFromString(input.getUserUrn()),
+                    mapRequestContext(input.getRequestContext()),
+                    input.getLimit());
+            return ListRecommendationsResult.builder()
+                .setModules(
+                    modules.stream()
+                        .map(this::mapRecommendationModule)
+                        .filter(Optional::isPresent)
+                        .map(Optional::get)
+                        .collect(Collectors.toList()))
+                .build();
+          } catch (Exception e) {
+            log.error("Failed to get recommendations for input {}", input, e);
+            return EMPTY_RECOMMENDATIONS;
+          }
+        });
   }
 
   private com.linkedin.metadata.recommendation.RecommendationRequestContext mapRequestContext(
@@ -74,22 +78,24 @@ public class ListRecommendationsResolver implements DataFetcher<CompletableFutur
     com.linkedin.metadata.recommendation.ScenarioType mappedScenarioType;
     try {
       mappedScenarioType =
-          com.linkedin.metadata.recommendation.ScenarioType.valueOf(requestContext.getScenario().toString());
+          com.linkedin.metadata.recommendation.ScenarioType.valueOf(
+              requestContext.getScenario().toString());
     } catch (IllegalArgumentException e) {
       log.error("Failed to map scenario type: {}", requestContext.getScenario(), e);
       throw e;
     }
     com.linkedin.metadata.recommendation.RecommendationRequestContext mappedRequestContext =
-        new com.linkedin.metadata.recommendation.RecommendationRequestContext().setScenario(mappedScenarioType);
+        new com.linkedin.metadata.recommendation.RecommendationRequestContext()
+            .setScenario(mappedScenarioType);
     if (requestContext.getSearchRequestContext() != null) {
       SearchRequestContext searchRequestContext =
           new SearchRequestContext().setQuery(requestContext.getSearchRequestContext().getQuery());
       if (requestContext.getSearchRequestContext().getFilters() != null) {
-        searchRequestContext.setFilters(new CriterionArray(requestContext.getSearchRequestContext()
-            .getFilters()
-            .stream()
-            .map(facetField -> criterionFromFilter(facetField))
-            .collect(Collectors.toList())));
+        searchRequestContext.setFilters(
+            new CriterionArray(
+                requestContext.getSearchRequestContext().getFilters().stream()
+                    .map(facetField -> criterionFromFilter(facetField))
+                    .collect(Collectors.toList())));
       }
       mappedRequestContext.setSearchRequestContext(searchRequestContext);
     }
@@ -98,12 +104,17 @@ public class ListRecommendationsResolver implements DataFetcher<CompletableFutur
       try {
         entityUrn = Urn.createFromString(requestContext.getEntityRequestContext().getUrn());
       } catch (URISyntaxException e) {
-        log.error("Malformed URN while mapping recommendations request: {}",
-            requestContext.getEntityRequestContext().getUrn(), e);
+        log.error(
+            "Malformed URN while mapping recommendations request: {}",
+            requestContext.getEntityRequestContext().getUrn(),
+            e);
         throw new IllegalArgumentException(e);
       }
-      EntityRequestContext entityRequestContext = new EntityRequestContext().setUrn(entityUrn)
-          .setType(EntityTypeMapper.getName(requestContext.getEntityRequestContext().getType()));
+      EntityRequestContext entityRequestContext =
+          new EntityRequestContext()
+              .setUrn(entityUrn)
+              .setType(
+                  EntityTypeMapper.getName(requestContext.getEntityRequestContext().getType()));
       mappedRequestContext.setEntityRequestContext(entityRequestContext);
     }
     return mappedRequestContext;
@@ -115,13 +126,16 @@ public class ListRecommendationsResolver implements DataFetcher<CompletableFutur
     mappedModule.setTitle(module.getTitle());
     mappedModule.setModuleId(module.getModuleId());
     try {
-      mappedModule.setRenderType(RecommendationRenderType.valueOf(module.getRenderType().toString()));
+      mappedModule.setRenderType(
+          RecommendationRenderType.valueOf(module.getRenderType().toString()));
     } catch (IllegalArgumentException e) {
       log.error("Failed to map render type: {}", module.getRenderType(), e);
       throw e;
     }
     mappedModule.setContent(
-        module.getContent().stream().map(this::mapRecommendationContent).collect(Collectors.toList()));
+        module.getContent().stream()
+            .map(this::mapRecommendationContent)
+            .collect(Collectors.toList()));
     return Optional.of(mappedModule);
   }
 
@@ -145,26 +159,31 @@ public class ListRecommendationsResolver implements DataFetcher<CompletableFutur
       SearchParams searchParams = new SearchParams();
       searchParams.setQuery(params.getSearchParams().getQuery());
       if (!params.getSearchParams().getFilters().isEmpty()) {
-        searchParams.setFilters(params.getSearchParams()
-            .getFilters()
-            .stream()
-            .map(criterion -> FacetFilter.builder().setField(criterion.getField()).setValues(
-                ImmutableList.of(criterion.getValue())).build())
-            .collect(Collectors.toList()));
+        searchParams.setFilters(
+            params.getSearchParams().getFilters().stream()
+                .map(
+                    criterion ->
+                        FacetFilter.builder()
+                            .setField(criterion.getField())
+                            .setValues(ImmutableList.of(criterion.getValue()))
+                            .build())
+                .collect(Collectors.toList()));
       }
       mappedParams.setSearchParams(searchParams);
     }
 
     if (params.hasEntityProfileParams()) {
       Urn profileUrn = params.getEntityProfileParams().getUrn();
-      mappedParams.setEntityProfileParams(EntityProfileParams.builder()
-          .setUrn(profileUrn.toString())
-          .setType(EntityTypeMapper.getType(profileUrn.getEntityType()))
-          .build());
+      mappedParams.setEntityProfileParams(
+          EntityProfileParams.builder()
+              .setUrn(profileUrn.toString())
+              .setType(EntityTypeMapper.getType(profileUrn.getEntityType()))
+              .build());
     }
 
     if (params.hasContentParams()) {
-      mappedParams.setContentParams(ContentParams.builder().setCount(params.getContentParams().getCount()).build());
+      mappedParams.setContentParams(
+          ContentParams.builder().setCount(params.getContentParams().getCount()).build());
     }
 
     return mappedParams;

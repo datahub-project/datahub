@@ -16,27 +16,19 @@ import org.springframework.context.annotation.Import;
 @Import(value = {SystemAuthenticationFactory.class})
 public class UpgradeCliApplicationTestConfiguration {
 
-    @MockBean
-    private UpgradeCli upgradeCli;
+  @MockBean private UpgradeCli upgradeCli;
 
-    @MockBean
-    private Database ebeanServer;
+  @MockBean private Database ebeanServer;
 
-    @MockBean
-    private EntityService _entityService;
+  @MockBean private EntityService _entityService;
 
-    @MockBean
-    private SearchService searchService;
+  @MockBean private SearchService searchService;
 
-    @MockBean
-    private GraphService graphService;
+  @MockBean private GraphService graphService;
 
-    @MockBean
-    private EntityRegistry entityRegistry;
+  @MockBean private EntityRegistry entityRegistry;
 
-    @MockBean
-    ConfigEntityRegistry configEntityRegistry;
+  @MockBean ConfigEntityRegistry configEntityRegistry;
 
-    @MockBean
-    public EntityIndexBuilders entityIndexBuilders;
+  @MockBean public EntityIndexBuilders entityIndexBuilders;
 }

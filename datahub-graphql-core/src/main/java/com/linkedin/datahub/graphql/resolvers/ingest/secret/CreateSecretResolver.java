@@ -1,5 +1,9 @@
 package com.linkedin.datahub.graphql.resolvers.ingest.secret;
 
+import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
+import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
+import static com.linkedin.metadata.Constants.*;
+
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.SetMode;
@@ -17,23 +21,16 @@ import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.concurrent.CompletableFuture;
 
-import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
-import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
-import static com.linkedin.metadata.Constants.*;
-
-
 /**
- * Creates an encrypted DataHub secret. Uses AES symmetric encryption / decryption. Requires the MANAGE_SECRETS privilege.
+ * Creates an encrypted DataHub secret. Uses AES symmetric encryption / decryption. Requires the
+ * MANAGE_SECRETS privilege.
  */
 public class CreateSecretResolver implements DataFetcher<CompletableFuture<String>> {
 
   private final EntityClient _entityClient;
   private final SecretService _secretService;
 
-  public CreateSecretResolver(
-      final EntityClient entityClient,
-      final SecretService secretService
-  ) {
+  public CreateSecretResolver(final EntityClient entityClient, final SecretService secretService) {
     _entityClient = entityClient;
     _secretService = secretService;
   }
@@ -41,36 +38,46 @@ public class CreateSecretResolver implements DataFetcher<CompletableFuture<Strin
   @Override
   public CompletableFuture<String> get(final DataFetchingEnvironment environment) throws Exception {
     final QueryContext context = environment.getContext();
-    final CreateSecretInput input = bindArgument(environment.getArgument("input"), CreateSecretInput.class);
+    final CreateSecretInput input =
+        bindArgument(environment.getArgument("input"), CreateSecretInput.class);
 
-    return CompletableFuture.supplyAsync(() -> {
+    return CompletableFuture.supplyAsync(
+        () -> {
+          if (IngestionAuthUtils.canManageSecrets(context)) {
 
-      if (IngestionAuthUtils.canManageSecrets(context)) {
+            try {
+              // Create the Ingestion source key --> use the display name as a unique id to ensure
+              // it's not duplicated.
+              final DataHubSecretKey key = new DataHubSecretKey();
+              key.setId(input.getName());
 
-        try {
-          // Create the Ingestion source key --> use the display name as a unique id to ensure it's not duplicated.
-          final DataHubSecretKey key = new DataHubSecretKey();
-          key.setId(input.getName());
+              if (_entityClient.exists(
+                  EntityKeyUtils.convertEntityKeyToUrn(key, SECRETS_ENTITY_NAME),
+                  context.getAuthentication())) {
+                throw new IllegalArgumentException("This Secret already exists!");
+              }
 
-          if (_entityClient.exists(EntityKeyUtils.convertEntityKeyToUrn(key, SECRETS_ENTITY_NAME), context.getAuthentication())) {
-            throw new IllegalArgumentException("This Secret already exists!");
+              // Create the secret value.
+              final DataHubSecretValue value = new DataHubSecretValue();
+              value.setName(input.getName());
+              value.setValue(_secretService.encrypt(input.getValue()));
+              value.setDescription(input.getDescription(), SetMode.IGNORE_NULL);
+              value.setCreated(
+                  new AuditStamp()
+                      .setActor(UrnUtils.getUrn(context.getActorUrn()))
+                      .setTime(System.currentTimeMillis()));
+
+              final MetadataChangeProposal proposal =
+                  buildMetadataChangeProposalWithKey(
+                      key, SECRETS_ENTITY_NAME, SECRET_VALUE_ASPECT_NAME, value);
+              return _entityClient.ingestProposal(proposal, context.getAuthentication(), false);
+            } catch (Exception e) {
+              throw new RuntimeException(
+                  String.format("Failed to create new secret with name %s", input.getName()), e);
+            }
           }
-
-          // Create the secret value.
-          final DataHubSecretValue value = new DataHubSecretValue();
-          value.setName(input.getName());
-          value.setValue(_secretService.encrypt(input.getValue()));
-          value.setDescription(input.getDescription(), SetMode.IGNORE_NULL);
-          value.setCreated(new AuditStamp().setActor(UrnUtils.getUrn(context.getActorUrn())).setTime(System.currentTimeMillis()));
-
-          final MetadataChangeProposal proposal = buildMetadataChangeProposalWithKey(key, SECRETS_ENTITY_NAME,
-              SECRET_VALUE_ASPECT_NAME, value);
-          return _entityClient.ingestProposal(proposal, context.getAuthentication(), false);
-        } catch (Exception e) {
-          throw new RuntimeException(String.format("Failed to create new secret with name %s", input.getName()), e);
-        }
-      }
-      throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
-    });
+          throw new AuthorizationException(
+              "Unauthorized to perform this action. Please contact your DataHub administrator.");
+        });
   }
 }

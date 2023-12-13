@@ -10,16 +10,13 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.DependsOn;
 
-
 @Configuration
 public class RestoreAspectConfig {
-  @Autowired
-  ApplicationContext applicationContext;
+  @Autowired ApplicationContext applicationContext;
 
   @Bean(name = "restoreAspect")
   @DependsOn({"entityService", "entityRegistry"})
   @Nonnull
-
   public RestoreAspect createInstance() {
     final EntityService entityService = applicationContext.getBean(EntityService.class);
     final EntityRegistry entityRegistry = applicationContext.getBean(EntityRegistry.class);

@@ -1,10 +1,13 @@
 package com.linkedin.metadata.resources.entity;
 
+import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.resources.restli.RestliUtils.*;
+
 import com.codahale.metrics.MetricRegistry;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
-import com.datahub.plugins.auth.authorization.Authorizer;
 import com.datahub.authorization.EntitySpec;
+import com.datahub.plugins.auth.authorization.Authorizer;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
@@ -53,16 +56,11 @@ import javax.inject.Inject;
 import javax.inject.Named;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.metadata.Constants.*;
-import static com.linkedin.metadata.resources.restli.RestliUtils.*;
-
-
-/**
- * resource for showing information and rolling back runs
- */
+/** resource for showing information and rolling back runs */
 @Slf4j
 @RestLiCollection(name = "runs", namespace = "com.linkedin.entity")
-public class BatchIngestionRunResource extends CollectionResourceTaskTemplate<String, VersionedAspect> {
+public class BatchIngestionRunResource
+    extends CollectionResourceTaskTemplate<String, VersionedAspect> {
 
   private static final Integer DEFAULT_OFFSET = 0;
   private static final Integer DEFAULT_PAGE_SIZE = 100;
@@ -91,173 +89,239 @@ public class BatchIngestionRunResource extends CollectionResourceTaskTemplate<St
   @Named("authorizerChain")
   private Authorizer _authorizer;
 
-  /**
-   * Rolls back an ingestion run
-   */
+  /** Rolls back an ingestion run */
   @Action(name = "rollback")
   @Nonnull
   @WithSpan
-  public Task<RollbackResponse> rollback(@ActionParam("runId") @Nonnull String runId,
+  public Task<RollbackResponse> rollback(
+      @ActionParam("runId") @Nonnull String runId,
       @ActionParam("dryRun") @Optional Boolean dryRun,
       @Deprecated @ActionParam("hardDelete") @Optional Boolean hardDelete,
-      @ActionParam("safe") @Optional Boolean safe) throws Exception {
+      @ActionParam("safe") @Optional Boolean safe)
+      throws Exception {
     log.info("ROLLBACK RUN runId: {} dry run: {}", runId, dryRun);
 
-    boolean doHardDelete = safe != null ? !safe : hardDelete != null ? hardDelete : DEFAULT_HARD_DELETE;
+    boolean doHardDelete =
+        safe != null ? !safe : hardDelete != null ? hardDelete : DEFAULT_HARD_DELETE;
 
     if (safe != null && hardDelete != null) {
-      log.warn("Both Safe & hardDelete flags were defined, honouring safe flag as hardDelete is deprecated");
+      log.warn(
+          "Both Safe & hardDelete flags were defined, honouring safe flag as hardDelete is deprecated");
     }
     try {
-      return RestliUtil.toTask(() -> {
-        if (runId.equals(DEFAULT_RUN_ID)) {
-          throw new IllegalArgumentException(String.format(
-              "%s is a default run-id provided for non labeled ingestion runs. You cannot delete using this reserved run-id",
-              runId));
-        }
-        if (!dryRun) {
-          updateExecutionRequestStatus(runId, ROLLING_BACK_STATUS);
-        }
+      return RestliUtil.toTask(
+          () -> {
+            if (runId.equals(DEFAULT_RUN_ID)) {
+              throw new IllegalArgumentException(
+                  String.format(
+                      "%s is a default run-id provided for non labeled ingestion runs. You cannot delete using this reserved run-id",
+                      runId));
+            }
+            if (!dryRun) {
+              updateExecutionRequestStatus(runId, ROLLING_BACK_STATUS);
+            }
 
-        RollbackResponse response = new RollbackResponse();
-        List<AspectRowSummary> aspectRowsToDelete;
-        aspectRowsToDelete = _systemMetadataService.findByRunId(runId, doHardDelete, 0, ESUtils.MAX_RESULT_SIZE);
-        Set<String> urns = aspectRowsToDelete.stream().collect(Collectors.groupingBy(AspectRowSummary::getUrn)).keySet();
-        List<java.util.Optional<EntitySpec>> resourceSpecs = urns.stream()
-            .map(UrnUtils::getUrn)
-            .map(urn -> java.util.Optional.of(new EntitySpec(urn.getEntityType(), urn.toString())))
-            .collect(Collectors.toList());
-        Authentication auth = AuthenticationContext.getAuthentication();
-        if (Boolean.parseBoolean(System.getenv(REST_API_AUTHORIZATION_ENABLED_ENV))
-            && !isAuthorized(auth, _authorizer, ImmutableList.of(PoliciesConfig.DELETE_ENTITY_PRIVILEGE), resourceSpecs)) {
-          throw new RestLiServiceException(HttpStatus.S_401_UNAUTHORIZED,
-              "User is unauthorized to delete entities.");
-        }
-        log.info("found {} rows to delete...", stringifyRowCount(aspectRowsToDelete.size()));
-        if (dryRun) {
+            RollbackResponse response = new RollbackResponse();
+            List<AspectRowSummary> aspectRowsToDelete;
+            aspectRowsToDelete =
+                _systemMetadataService.findByRunId(runId, doHardDelete, 0, ESUtils.MAX_RESULT_SIZE);
+            Set<String> urns =
+                aspectRowsToDelete.stream()
+                    .collect(Collectors.groupingBy(AspectRowSummary::getUrn))
+                    .keySet();
+            List<java.util.Optional<EntitySpec>> resourceSpecs =
+                urns.stream()
+                    .map(UrnUtils::getUrn)
+                    .map(
+                        urn ->
+                            java.util.Optional.of(
+                                new EntitySpec(urn.getEntityType(), urn.toString())))
+                    .collect(Collectors.toList());
+            Authentication auth = AuthenticationContext.getAuthentication();
+            if (Boolean.parseBoolean(System.getenv(REST_API_AUTHORIZATION_ENABLED_ENV))
+                && !isAuthorized(
+                    auth,
+                    _authorizer,
+                    ImmutableList.of(PoliciesConfig.DELETE_ENTITY_PRIVILEGE),
+                    resourceSpecs)) {
+              throw new RestLiServiceException(
+                  HttpStatus.S_401_UNAUTHORIZED, "User is unauthorized to delete entities.");
+            }
+            log.info("found {} rows to delete...", stringifyRowCount(aspectRowsToDelete.size()));
+            if (dryRun) {
 
-          final Map<Boolean, List<AspectRowSummary>> aspectsSplitByIsKeyAspects =
-              aspectRowsToDelete.stream().collect(Collectors.partitioningBy(AspectRowSummary::isKeyAspect));
+              final Map<Boolean, List<AspectRowSummary>> aspectsSplitByIsKeyAspects =
+                  aspectRowsToDelete.stream()
+                      .collect(Collectors.partitioningBy(AspectRowSummary::isKeyAspect));
 
-          final List<AspectRowSummary> keyAspects = aspectsSplitByIsKeyAspects.get(true);
+              final List<AspectRowSummary> keyAspects = aspectsSplitByIsKeyAspects.get(true);
 
-          long entitiesDeleted = keyAspects.size();
-          long aspectsReverted = aspectRowsToDelete.size();
+              long entitiesDeleted = keyAspects.size();
+              long aspectsReverted = aspectRowsToDelete.size();
 
-          final long affectedEntities =
-              aspectRowsToDelete.stream().collect(Collectors.groupingBy(AspectRowSummary::getUrn)).keySet().size();
+              final long affectedEntities =
+                  aspectRowsToDelete.stream()
+                      .collect(Collectors.groupingBy(AspectRowSummary::getUrn))
+                      .keySet()
+                      .size();
 
-          final AspectRowSummaryArray rowSummaries =
-              new AspectRowSummaryArray(aspectRowsToDelete.subList(0, Math.min(100, aspectRowsToDelete.size())));
+              final AspectRowSummaryArray rowSummaries =
+                  new AspectRowSummaryArray(
+                      aspectRowsToDelete.subList(0, Math.min(100, aspectRowsToDelete.size())));
 
-          // If we are soft deleting, remove key aspects from count of aspects being deleted
-          if (!doHardDelete) {
-            aspectsReverted -= keyAspects.size();
-            rowSummaries.removeIf(AspectRowSummary::isKeyAspect);
-          }
-          // Compute the aspects that exist referencing the key aspects we are deleting
-          final List<AspectRowSummary> affectedAspectsList = keyAspects.stream()
-              .map((AspectRowSummary urn) -> _systemMetadataService.findByUrn(urn.getUrn(), false, 0,
-                  ESUtils.MAX_RESULT_SIZE))
-              .flatMap(List::stream)
-              .filter(row -> !row.getRunId().equals(runId) && !row.isKeyAspect() && !row.getAspectName()
-                  .equals(Constants.STATUS_ASPECT_NAME))
-              .collect(Collectors.toList());
+              // If we are soft deleting, remove key aspects from count of aspects being deleted
+              if (!doHardDelete) {
+                aspectsReverted -= keyAspects.size();
+                rowSummaries.removeIf(AspectRowSummary::isKeyAspect);
+              }
+              // Compute the aspects that exist referencing the key aspects we are deleting
+              final List<AspectRowSummary> affectedAspectsList =
+                  keyAspects.stream()
+                      .map(
+                          (AspectRowSummary urn) ->
+                              _systemMetadataService.findByUrn(
+                                  urn.getUrn(), false, 0, ESUtils.MAX_RESULT_SIZE))
+                      .flatMap(List::stream)
+                      .filter(
+                          row ->
+                              !row.getRunId().equals(runId)
+                                  && !row.isKeyAspect()
+                                  && !row.getAspectName().equals(Constants.STATUS_ASPECT_NAME))
+                      .collect(Collectors.toList());
 
-          long affectedAspects = affectedAspectsList.size();
-          long unsafeEntitiesCount =
-              affectedAspectsList.stream().collect(Collectors.groupingBy(AspectRowSummary::getUrn)).keySet().size();
+              long affectedAspects = affectedAspectsList.size();
+              long unsafeEntitiesCount =
+                  affectedAspectsList.stream()
+                      .collect(Collectors.groupingBy(AspectRowSummary::getUrn))
+                      .keySet()
+                      .size();
 
-          final List<UnsafeEntityInfo> unsafeEntityInfos =
-              affectedAspectsList.stream().map(AspectRowSummary::getUrn).distinct().map(urn -> {
-                    UnsafeEntityInfo unsafeEntityInfo = new UnsafeEntityInfo();
-                    unsafeEntityInfo.setUrn(urn);
-                    return unsafeEntityInfo;
-                  })
-                  // Return at most 1 million rows
-                  .limit(DEFAULT_UNSAFE_ENTITIES_PAGE_SIZE).collect(Collectors.toList());
+              final List<UnsafeEntityInfo> unsafeEntityInfos =
+                  affectedAspectsList.stream()
+                      .map(AspectRowSummary::getUrn)
+                      .distinct()
+                      .map(
+                          urn -> {
+                            UnsafeEntityInfo unsafeEntityInfo = new UnsafeEntityInfo();
+                            unsafeEntityInfo.setUrn(urn);
+                            return unsafeEntityInfo;
+                          })
+                      // Return at most 1 million rows
+                      .limit(DEFAULT_UNSAFE_ENTITIES_PAGE_SIZE)
+                      .collect(Collectors.toList());
 
-          return response.setAspectsAffected(affectedAspects)
-              .setAspectsReverted(aspectsReverted)
-              .setEntitiesAffected(affectedEntities)
-              .setEntitiesDeleted(entitiesDeleted)
-              .setUnsafeEntitiesCount(unsafeEntitiesCount)
-              .setUnsafeEntities(new UnsafeEntityInfoArray(unsafeEntityInfos))
-              .setAspectRowSummaries(rowSummaries);
-        }
+              return response
+                  .setAspectsAffected(affectedAspects)
+                  .setAspectsReverted(aspectsReverted)
+                  .setEntitiesAffected(affectedEntities)
+                  .setEntitiesDeleted(entitiesDeleted)
+                  .setUnsafeEntitiesCount(unsafeEntitiesCount)
+                  .setUnsafeEntities(new UnsafeEntityInfoArray(unsafeEntityInfos))
+                  .setAspectRowSummaries(rowSummaries);
+            }
 
-        RollbackRunResult rollbackRunResult = _entityService.rollbackRun(aspectRowsToDelete, runId, doHardDelete);
-        final List<AspectRowSummary> deletedRows = rollbackRunResult.getRowsRolledBack();
-        int rowsDeletedFromEntityDeletion = rollbackRunResult.getRowsDeletedFromEntityDeletion();
+            RollbackRunResult rollbackRunResult =
+                _entityService.rollbackRun(aspectRowsToDelete, runId, doHardDelete);
+            final List<AspectRowSummary> deletedRows = rollbackRunResult.getRowsRolledBack();
+            int rowsDeletedFromEntityDeletion =
+                rollbackRunResult.getRowsDeletedFromEntityDeletion();
 
-        // since elastic limits how many rows we can access at once, we need to iteratively delete
-        while (aspectRowsToDelete.size() >= ELASTIC_MAX_PAGE_SIZE) {
-          sleep(ELASTIC_BATCH_DELETE_SLEEP_SEC);
-          aspectRowsToDelete = _systemMetadataService.findByRunId(runId, doHardDelete, 0, ESUtils.MAX_RESULT_SIZE);
-          log.info("{} remaining rows to delete...", stringifyRowCount(aspectRowsToDelete.size()));
-          log.info("deleting...");
-          rollbackRunResult = _entityService.rollbackRun(aspectRowsToDelete, runId, doHardDelete);
-          deletedRows.addAll(rollbackRunResult.getRowsRolledBack());
-          rowsDeletedFromEntityDeletion += rollbackRunResult.getRowsDeletedFromEntityDeletion();
-        }
+            // since elastic limits how many rows we can access at once, we need to iteratively
+            // delete
+            while (aspectRowsToDelete.size() >= ELASTIC_MAX_PAGE_SIZE) {
+              sleep(ELASTIC_BATCH_DELETE_SLEEP_SEC);
+              aspectRowsToDelete =
+                  _systemMetadataService.findByRunId(
+                      runId, doHardDelete, 0, ESUtils.MAX_RESULT_SIZE);
+              log.info(
+                  "{} remaining rows to delete...", stringifyRowCount(aspectRowsToDelete.size()));
+              log.info("deleting...");
+              rollbackRunResult =
+                  _entityService.rollbackRun(aspectRowsToDelete, runId, doHardDelete);
+              deletedRows.addAll(rollbackRunResult.getRowsRolledBack());
+              rowsDeletedFromEntityDeletion += rollbackRunResult.getRowsDeletedFromEntityDeletion();
+            }
 
-        // Rollback timeseries aspects
-        DeleteAspectValuesResult timeseriesRollbackResult = _timeseriesAspectService.rollbackTimeseriesAspects(runId);
-        rowsDeletedFromEntityDeletion += timeseriesRollbackResult.getNumDocsDeleted();
+            // Rollback timeseries aspects
+            DeleteAspectValuesResult timeseriesRollbackResult =
+                _timeseriesAspectService.rollbackTimeseriesAspects(runId);
+            rowsDeletedFromEntityDeletion += timeseriesRollbackResult.getNumDocsDeleted();
 
-        log.info("finished deleting {} rows", deletedRows.size());
-        int aspectsReverted = deletedRows.size() + rowsDeletedFromEntityDeletion;
+            log.info("finished deleting {} rows", deletedRows.size());
+            int aspectsReverted = deletedRows.size() + rowsDeletedFromEntityDeletion;
 
-        final Map<Boolean, List<AspectRowSummary>> aspectsSplitByIsKeyAspects =
-            aspectRowsToDelete.stream().collect(Collectors.partitioningBy(AspectRowSummary::isKeyAspect));
+            final Map<Boolean, List<AspectRowSummary>> aspectsSplitByIsKeyAspects =
+                aspectRowsToDelete.stream()
+                    .collect(Collectors.partitioningBy(AspectRowSummary::isKeyAspect));
 
-        final List<AspectRowSummary> keyAspects = aspectsSplitByIsKeyAspects.get(true);
+            final List<AspectRowSummary> keyAspects = aspectsSplitByIsKeyAspects.get(true);
 
-        final long entitiesDeleted = keyAspects.size();
-        final long affectedEntities =
-            deletedRows.stream().collect(Collectors.groupingBy(AspectRowSummary::getUrn)).keySet().size();
+            final long entitiesDeleted = keyAspects.size();
+            final long affectedEntities =
+                deletedRows.stream()
+                    .collect(Collectors.groupingBy(AspectRowSummary::getUrn))
+                    .keySet()
+                    .size();
 
-        final AspectRowSummaryArray rowSummaries =
-            new AspectRowSummaryArray(aspectRowsToDelete.subList(0, Math.min(100, aspectRowsToDelete.size())));
+            final AspectRowSummaryArray rowSummaries =
+                new AspectRowSummaryArray(
+                    aspectRowsToDelete.subList(0, Math.min(100, aspectRowsToDelete.size())));
 
-        log.info("computing aspects affected by this rollback...");
-        // Compute the aspects that exist referencing the key aspects we are deleting
-        final List<AspectRowSummary> affectedAspectsList = keyAspects.stream()
-            .map((AspectRowSummary urn) -> _systemMetadataService.findByUrn(urn.getUrn(), false, 0,
-                ESUtils.MAX_RESULT_SIZE))
-            .flatMap(List::stream)
-            .filter(row -> !row.getRunId().equals(runId) && !row.isKeyAspect() && !row.getAspectName()
-                .equals(Constants.STATUS_ASPECT_NAME))
-            .collect(Collectors.toList());
+            log.info("computing aspects affected by this rollback...");
+            // Compute the aspects that exist referencing the key aspects we are deleting
+            final List<AspectRowSummary> affectedAspectsList =
+                keyAspects.stream()
+                    .map(
+                        (AspectRowSummary urn) ->
+                            _systemMetadataService.findByUrn(
+                                urn.getUrn(), false, 0, ESUtils.MAX_RESULT_SIZE))
+                    .flatMap(List::stream)
+                    .filter(
+                        row ->
+                            !row.getRunId().equals(runId)
+                                && !row.isKeyAspect()
+                                && !row.getAspectName().equals(Constants.STATUS_ASPECT_NAME))
+                    .collect(Collectors.toList());
 
-        long affectedAspects = affectedAspectsList.size();
-        long unsafeEntitiesCount =
-            affectedAspectsList.stream().collect(Collectors.groupingBy(AspectRowSummary::getUrn)).keySet().size();
+            long affectedAspects = affectedAspectsList.size();
+            long unsafeEntitiesCount =
+                affectedAspectsList.stream()
+                    .collect(Collectors.groupingBy(AspectRowSummary::getUrn))
+                    .keySet()
+                    .size();
 
-        final List<UnsafeEntityInfo> unsafeEntityInfos =
-            affectedAspectsList.stream().map(AspectRowSummary::getUrn).distinct().map(urn -> {
-                  UnsafeEntityInfo unsafeEntityInfo = new UnsafeEntityInfo();
-                  unsafeEntityInfo.setUrn(urn);
-                  return unsafeEntityInfo;
-                })
-                // Return at most 1 million rows
-                .limit(DEFAULT_UNSAFE_ENTITIES_PAGE_SIZE).collect(Collectors.toList());
+            final List<UnsafeEntityInfo> unsafeEntityInfos =
+                affectedAspectsList.stream()
+                    .map(AspectRowSummary::getUrn)
+                    .distinct()
+                    .map(
+                        urn -> {
+                          UnsafeEntityInfo unsafeEntityInfo = new UnsafeEntityInfo();
+                          unsafeEntityInfo.setUrn(urn);
+                          return unsafeEntityInfo;
+                        })
+                    // Return at most 1 million rows
+                    .limit(DEFAULT_UNSAFE_ENTITIES_PAGE_SIZE)
+                    .collect(Collectors.toList());
 
-        log.info("calculation done.");
+            log.info("calculation done.");
 
-        updateExecutionRequestStatus(runId, ROLLED_BACK_STATUS);
+            updateExecutionRequestStatus(runId, ROLLED_BACK_STATUS);
 
-        return response.setAspectsAffected(affectedAspects)
-            .setAspectsReverted(aspectsReverted)
-            .setEntitiesAffected(affectedEntities)
-            .setEntitiesDeleted(entitiesDeleted)
-            .setUnsafeEntitiesCount(unsafeEntitiesCount)
-            .setUnsafeEntities(new UnsafeEntityInfoArray(unsafeEntityInfos))
-            .setAspectRowSummaries(rowSummaries);
-      }, MetricRegistry.name(this.getClass(), "rollback"));
+            return response
+                .setAspectsAffected(affectedAspects)
+                .setAspectsReverted(aspectsReverted)
+                .setEntitiesAffected(affectedEntities)
+                .setEntitiesDeleted(entitiesDeleted)
+                .setUnsafeEntitiesCount(unsafeEntitiesCount)
+                .setUnsafeEntities(new UnsafeEntityInfoArray(unsafeEntityInfos))
+                .setAspectRowSummaries(rowSummaries);
+          },
+          MetricRegistry.name(this.getClass(), "rollback"));
     } catch (Exception e) {
       updateExecutionRequestStatus(runId, ROLLBACK_FAILED_STATUS);
-      throw new RuntimeException(String.format("There was an issue rolling back ingestion run with runId %s", runId), e);
+      throw new RuntimeException(
+          String.format("There was an issue rolling back ingestion run with runId %s", runId), e);
     }
   }
 
@@ -279,9 +343,14 @@ public class BatchIngestionRunResource extends CollectionResourceTaskTemplate<St
 
   private void updateExecutionRequestStatus(String runId, String status) {
     try {
-      final Urn executionRequestUrn = EntityKeyUtils.convertEntityKeyToUrn(new ExecutionRequestKey().setId(runId), Constants.EXECUTION_REQUEST_ENTITY_NAME);
+      final Urn executionRequestUrn =
+          EntityKeyUtils.convertEntityKeyToUrn(
+              new ExecutionRequestKey().setId(runId), Constants.EXECUTION_REQUEST_ENTITY_NAME);
       EnvelopedAspect aspect =
-          _entityService.getLatestEnvelopedAspect(executionRequestUrn.getEntityType(), executionRequestUrn, Constants.EXECUTION_REQUEST_RESULT_ASPECT_NAME);
+          _entityService.getLatestEnvelopedAspect(
+              executionRequestUrn.getEntityType(),
+              executionRequestUrn,
+              Constants.EXECUTION_REQUEST_RESULT_ASPECT_NAME);
       if (aspect == null) {
         log.warn("Aspect for execution request with runId {} not found", runId);
       } else {
@@ -294,65 +363,82 @@ public class BatchIngestionRunResource extends CollectionResourceTaskTemplate<St
         proposal.setAspect(GenericRecordUtils.serializeAspect(requestResult));
         proposal.setChangeType(ChangeType.UPSERT);
 
-        _entityService.ingestProposal(proposal,
-            new AuditStamp().setActor(UrnUtils.getUrn(Constants.SYSTEM_ACTOR)).setTime(System.currentTimeMillis()), false);
+        _entityService.ingestProposal(
+            proposal,
+            new AuditStamp()
+                .setActor(UrnUtils.getUrn(Constants.SYSTEM_ACTOR))
+                .setTime(System.currentTimeMillis()),
+            false);
       }
     } catch (Exception e) {
-      log.error(String.format("Not able to update execution result aspect with runId %s and new status %s.", runId, status), e);
+      log.error(
+          String.format(
+              "Not able to update execution result aspect with runId %s and new status %s.",
+              runId, status),
+          e);
     }
   }
 
-  /**
-   * Retrieves the value for an entity that is made up of latest versions of specified aspects.
-   */
+  /** Retrieves the value for an entity that is made up of latest versions of specified aspects. */
   @Action(name = "list")
   @Nonnull
   @WithSpan
-  public Task<IngestionRunSummaryArray> list(@ActionParam("pageOffset") @Optional @Nullable Integer pageOffset,
+  public Task<IngestionRunSummaryArray> list(
+      @ActionParam("pageOffset") @Optional @Nullable Integer pageOffset,
       @ActionParam("pageSize") @Optional @Nullable Integer pageSize,
       @ActionParam("includeSoft") @Optional @Nullable Boolean includeSoft) {
     log.info("LIST RUNS offset: {} size: {}", pageOffset, pageSize);
 
-    return RestliUtil.toTask(() -> {
-      List<IngestionRunSummary> summaries =
-          _systemMetadataService.listRuns(pageOffset != null ? pageOffset : DEFAULT_OFFSET,
-              pageSize != null ? pageSize : DEFAULT_PAGE_SIZE,
-              includeSoft != null ? includeSoft : DEFAULT_INCLUDE_SOFT_DELETED);
+    return RestliUtil.toTask(
+        () -> {
+          List<IngestionRunSummary> summaries =
+              _systemMetadataService.listRuns(
+                  pageOffset != null ? pageOffset : DEFAULT_OFFSET,
+                  pageSize != null ? pageSize : DEFAULT_PAGE_SIZE,
+                  includeSoft != null ? includeSoft : DEFAULT_INCLUDE_SOFT_DELETED);
 
-      return new IngestionRunSummaryArray(summaries);
-    }, MetricRegistry.name(this.getClass(), "list"));
+          return new IngestionRunSummaryArray(summaries);
+        },
+        MetricRegistry.name(this.getClass(), "list"));
   }
 
   @Action(name = "describe")
   @Nonnull
   @WithSpan
-  public Task<AspectRowSummaryArray> describe(@ActionParam("runId") @Nonnull String runId,
-      @ActionParam("start") Integer start, @ActionParam("count") Integer count,
+  public Task<AspectRowSummaryArray> describe(
+      @ActionParam("runId") @Nonnull String runId,
+      @ActionParam("start") Integer start,
+      @ActionParam("count") Integer count,
       @ActionParam("includeSoft") @Optional @Nullable Boolean includeSoft,
       @ActionParam("includeAspect") @Optional @Nullable Boolean includeAspect) {
     log.info("DESCRIBE RUN runId: {}, start: {}, count: {}", runId, start, count);
 
-    return RestliUtil.toTask(() -> {
-      List<AspectRowSummary> summaries =
-          _systemMetadataService.findByRunId(runId, includeSoft != null && includeSoft, start, count);
+    return RestliUtil.toTask(
+        () -> {
+          List<AspectRowSummary> summaries =
+              _systemMetadataService.findByRunId(
+                  runId, includeSoft != null && includeSoft, start, count);
 
-      if (includeAspect != null && includeAspect) {
-        summaries.forEach(summary -> {
-          Urn urn = UrnUtils.getUrn(summary.getUrn());
-          try {
-            EnvelopedAspect aspect =
-                _entityService.getLatestEnvelopedAspect(urn.getEntityType(), urn, summary.getAspectName());
-            if (aspect == null) {
-              log.error("Aspect for summary {} not found", summary);
-            } else {
-              summary.setAspect(aspect.getValue());
-            }
-          } catch (Exception e) {
-            log.error("Error while fetching aspect for summary {}", summary, e);
+          if (includeAspect != null && includeAspect) {
+            summaries.forEach(
+                summary -> {
+                  Urn urn = UrnUtils.getUrn(summary.getUrn());
+                  try {
+                    EnvelopedAspect aspect =
+                        _entityService.getLatestEnvelopedAspect(
+                            urn.getEntityType(), urn, summary.getAspectName());
+                    if (aspect == null) {
+                      log.error("Aspect for summary {} not found", summary);
+                    } else {
+                      summary.setAspect(aspect.getValue());
+                    }
+                  } catch (Exception e) {
+                    log.error("Error while fetching aspect for summary {}", summary, e);
+                  }
+                });
           }
-        });
-      }
-      return new AspectRowSummaryArray(summaries);
-    }, MetricRegistry.name(this.getClass(), "describe"));
+          return new AspectRowSummaryArray(summaries);
+        },
+        MetricRegistry.name(this.getClass(), "describe"));
   }
 }

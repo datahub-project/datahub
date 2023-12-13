@@ -17,7 +17,6 @@ import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
-
 @Slf4j
 @RequiredArgsConstructor
 class TermFetcher {
@@ -25,7 +24,8 @@ class TermFetcher {
   private final EntitySearchService _entitySearchService;
   private final Set<String> allowedGlossaryNodes;
 
-  private static final Set<String> ASPECTS_TO_FETCH = ImmutableSet.of(Constants.GLOSSARY_TERM_INFO_ASPECT_NAME);
+  private static final Set<String> ASPECTS_TO_FETCH =
+      ImmutableSet.of(Constants.GLOSSARY_TERM_INFO_ASPECT_NAME);
 
   public Set<Urn> fetchAllowedTerms() {
     log.info("Fetching all terms");
@@ -35,12 +35,20 @@ class TermFetcher {
     do {
       batch++;
       ScrollResult scrollResult =
-          _entitySearchService.scroll(Collections.singletonList(Constants.GLOSSARY_TERM_ENTITY_NAME),
-              null, null, 1000, nextScrollId, PropagateTerms.ELASTIC_TIMEOUT);
+          _entitySearchService.scroll(
+              Collections.singletonList(Constants.GLOSSARY_TERM_ENTITY_NAME),
+              null,
+              null,
+              1000,
+              nextScrollId,
+              PropagateTerms.ELASTIC_TIMEOUT);
       nextScrollId = scrollResult.getScrollId();
       log.info("Processing term batch {}", batch);
-      Set<Urn> allowedTermsInBatch = filterAllowedTerms(
-          scrollResult.getEntities().stream().map(SearchEntity::getEntity).collect(Collectors.toSet()));
+      Set<Urn> allowedTermsInBatch =
+          filterAllowedTerms(
+              scrollResult.getEntities().stream()
+                  .map(SearchEntity::getEntity)
+                  .collect(Collectors.toSet()));
       log.info("Found {} allowed terms", allowedTermsInBatch.size());
       allowedTerms.addAll(allowedTermsInBatch);
     } while (nextScrollId != null);
@@ -53,8 +61,13 @@ class TermFetcher {
     if (!entityResponse.getAspects().containsKey(Constants.GLOSSARY_TERM_INFO_ASPECT_NAME)) {
       return false;
     }
-    GlossaryTermInfo glossaryTermInfo = new GlossaryTermInfo(
-        entityResponse.getAspects().get(Constants.GLOSSARY_TERM_INFO_ASPECT_NAME).getValue().data());
+    GlossaryTermInfo glossaryTermInfo =
+        new GlossaryTermInfo(
+            entityResponse
+                .getAspects()
+                .get(Constants.GLOSSARY_TERM_INFO_ASPECT_NAME)
+                .getValue()
+                .data());
     if (glossaryTermInfo.getParentNode() == null) {
       return false;
     }
@@ -63,7 +76,8 @@ class TermFetcher {
 
   private Set<Urn> filterAllowedTerms(Set<Urn> terms) {
     try {
-      return _entityService.getEntitiesV2(Constants.GLOSSARY_TERM_ENTITY_NAME, terms, ASPECTS_TO_FETCH)
+      return _entityService
+          .getEntitiesV2(Constants.GLOSSARY_TERM_ENTITY_NAME, terms, ASPECTS_TO_FETCH)
           .values()
           .stream()
           .filter(this::isAllowed)

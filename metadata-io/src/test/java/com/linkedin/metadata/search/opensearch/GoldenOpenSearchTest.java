@@ -1,5 +1,7 @@
 package com.linkedin.metadata.search.opensearch;
 
+import static org.testng.AssertJUnit.assertNotNull;
+
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.fixtures.GoldenTestBase;
@@ -11,34 +13,35 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Import;
 import org.testng.annotations.Test;
 
-import static org.testng.AssertJUnit.assertNotNull;
-
-@Import({OpenSearchSuite.class, SampleDataFixtureConfiguration.class, SearchTestContainerConfiguration.class})
+@Import({
+  OpenSearchSuite.class,
+  SampleDataFixtureConfiguration.class,
+  SearchTestContainerConfiguration.class
+})
 public class GoldenOpenSearchTest extends GoldenTestBase {
 
-    @Autowired
-    @Qualifier("longTailSearchService")
-    protected SearchService searchService;
+  @Autowired
+  @Qualifier("longTailSearchService")
+  protected SearchService searchService;
 
-    @Autowired
-    @Qualifier("entityRegistry")
-    private EntityRegistry entityRegistry;
+  @Autowired
+  @Qualifier("entityRegistry")
+  private EntityRegistry entityRegistry;
 
+  @NotNull
+  @Override
+  protected EntityRegistry getEntityRegistry() {
+    return entityRegistry;
+  }
 
-    @NotNull
-    @Override
-    protected EntityRegistry getEntityRegistry() {
-        return entityRegistry;
-    }
+  @NotNull
+  @Override
+  protected SearchService getSearchService() {
+    return searchService;
+  }
 
-    @NotNull
-    @Override
-    protected SearchService getSearchService() {
-        return searchService;
-    }
-
-    @Test
-    public void initTest() {
-        assertNotNull(searchService);
-    }
+  @Test
+  public void initTest() {
+    assertNotNull(searchService);
+  }
 }

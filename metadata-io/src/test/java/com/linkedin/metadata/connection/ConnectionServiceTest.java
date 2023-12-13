@@ -1,5 +1,8 @@
 package com.linkedin.metadata.connection;
 
+import static org.mockito.Mockito.*;
+import static org.testng.Assert.*;
+
 import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -23,9 +26,6 @@ import org.mockito.Mockito;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import static org.mockito.Mockito.*;
-import static org.testng.Assert.*;
-
 public class ConnectionServiceTest {
 
   private EntityClient entityClient;
@@ -44,11 +44,11 @@ public class ConnectionServiceTest {
     final String id = "testId";
     final Urn platformUrn = UrnUtils.getUrn("urn:li:dataPlatform:slack");
     final DataHubConnectionDetailsType type = DataHubConnectionDetailsType.JSON;
-    final DataHubJsonConnection json = new DataHubJsonConnection()
-        .setEncryptedBlob("blob");
+    final DataHubJsonConnection json = new DataHubJsonConnection().setEncryptedBlob("blob");
     final Authentication authentication = Mockito.mock(Authentication.class);
     final DataHubConnectionKey key = new DataHubConnectionKey().setId(id);
-    final Urn connectionUrn = EntityKeyUtils.convertEntityKeyToUrn(key, Constants.DATAHUB_CONNECTION_ENTITY_NAME);
+    final Urn connectionUrn =
+        EntityKeyUtils.convertEntityKeyToUrn(key, Constants.DATAHUB_CONNECTION_ENTITY_NAME);
 
     // Execute and assert
     Urn result = connectionService.upsertConnection(id, platformUrn, type, json, authentication);
@@ -56,22 +56,20 @@ public class ConnectionServiceTest {
     DataHubConnectionDetails expectedDetails = mockConnectionDetails(id);
     DataPlatformInstance expectedDataPlatformInstance = mockPlatformInstance(platformUrn);
 
-    verify(entityClient).batchIngestProposals(
-        Mockito.eq(ImmutableList.of(
-          AspectUtils.buildMetadataChangeProposal(
-              connectionUrn,
-              Constants.DATAHUB_CONNECTION_DETAILS_ASPECT_NAME,
-              expectedDetails
-          ),
-          AspectUtils.buildMetadataChangeProposal(
-              connectionUrn,
-              Constants.DATA_PLATFORM_INSTANCE_ASPECT_NAME,
-              expectedDataPlatformInstance
-          )
-        )),
-        Mockito.any(Authentication.class),
-        Mockito.eq(false)
-    );
+    verify(entityClient)
+        .batchIngestProposals(
+            Mockito.eq(
+                ImmutableList.of(
+                    AspectUtils.buildMetadataChangeProposal(
+                        connectionUrn,
+                        Constants.DATAHUB_CONNECTION_DETAILS_ASPECT_NAME,
+                        expectedDetails),
+                    AspectUtils.buildMetadataChangeProposal(
+                        connectionUrn,
+                        Constants.DATA_PLATFORM_INSTANCE_ASPECT_NAME,
+                        expectedDataPlatformInstance))),
+            Mockito.any(Authentication.class),
+            Mockito.eq(false));
     assertEquals(result, connectionUrn);
   }
 
@@ -80,26 +78,33 @@ public class ConnectionServiceTest {
     final Urn connectionUrn = Mockito.mock(Urn.class);
 
     final DataHubConnectionDetails connectionDetails = mockConnectionDetails("testId");
-    final DataPlatformInstance platformInstance = mockPlatformInstance(UrnUtils.getUrn("urn:li:dataPlatform:slack"));
+    final DataPlatformInstance platformInstance =
+        mockPlatformInstance(UrnUtils.getUrn("urn:li:dataPlatform:slack"));
 
-    EntityResponse response = new EntityResponse()
-        .setEntityName(Constants.DATAHUB_CONNECTION_ENTITY_NAME)
-        .setUrn(connectionUrn)
-        .setAspects(new EnvelopedAspectMap(ImmutableMap.of(
-            Constants.DATAHUB_CONNECTION_DETAILS_ASPECT_NAME,
-            new EnvelopedAspect()
-                .setName(Constants.DATAHUB_CONNECTION_ENTITY_NAME)
-                .setValue(new Aspect(connectionDetails.data())),
-            Constants.DATA_PLATFORM_INSTANCE_ASPECT_NAME,
-            new EnvelopedAspect()
-                .setName(Constants.DATA_PLATFORM_INSTANCE_ASPECT_NAME)
-                .setValue(new Aspect(platformInstance.data()))
-        )));
+    EntityResponse response =
+        new EntityResponse()
+            .setEntityName(Constants.DATAHUB_CONNECTION_ENTITY_NAME)
+            .setUrn(connectionUrn)
+            .setAspects(
+                new EnvelopedAspectMap(
+                    ImmutableMap.of(
+                        Constants.DATAHUB_CONNECTION_DETAILS_ASPECT_NAME,
+                        new EnvelopedAspect()
+                            .setName(Constants.DATAHUB_CONNECTION_ENTITY_NAME)
+                            .setValue(new Aspect(connectionDetails.data())),
+                        Constants.DATA_PLATFORM_INSTANCE_ASPECT_NAME,
+                        new EnvelopedAspect()
+                            .setName(Constants.DATA_PLATFORM_INSTANCE_ASPECT_NAME)
+                            .setValue(new Aspect(platformInstance.data())))));
     when(entityClient.getV2(
-        Mockito.eq(Constants.DATAHUB_CONNECTION_ENTITY_NAME),
-        Mockito.eq(connectionUrn),
-        Mockito.eq(ImmutableSet.of(Constants.DATAHUB_CONNECTION_DETAILS_ASPECT_NAME, Constants.DATA_PLATFORM_INSTANCE_ASPECT_NAME)),
-        Mockito.any(Authentication.class))).thenReturn(response);
+            Mockito.eq(Constants.DATAHUB_CONNECTION_ENTITY_NAME),
+            Mockito.eq(connectionUrn),
+            Mockito.eq(
+                ImmutableSet.of(
+                    Constants.DATAHUB_CONNECTION_DETAILS_ASPECT_NAME,
+                    Constants.DATA_PLATFORM_INSTANCE_ASPECT_NAME)),
+            Mockito.any(Authentication.class)))
+        .thenReturn(response);
 
     // Execute and assert
     DataHubConnectionDetails details = connectionService.getConnectionDetails(connectionUrn);
@@ -111,25 +116,28 @@ public class ConnectionServiceTest {
     final Urn connectionUrn = Mockito.mock(Urn.class);
     EntityResponse response = Mockito.mock(EntityResponse.class);
     when(entityClient.getV2(
-        Mockito.eq(Constants.DATAHUB_CONNECTION_ENTITY_NAME),
-        Mockito.eq(connectionUrn),
-        Mockito.eq(ImmutableSet.of(Constants.DATAHUB_CONNECTION_DETAILS_ASPECT_NAME, Constants.DATA_PLATFORM_INSTANCE_ASPECT_NAME)),
-        Mockito.any(Authentication.class)))
+            Mockito.eq(Constants.DATAHUB_CONNECTION_ENTITY_NAME),
+            Mockito.eq(connectionUrn),
+            Mockito.eq(
+                ImmutableSet.of(
+                    Constants.DATAHUB_CONNECTION_DETAILS_ASPECT_NAME,
+                    Constants.DATA_PLATFORM_INSTANCE_ASPECT_NAME)),
+            Mockito.any(Authentication.class)))
         .thenReturn(response);
     // Execute and assert
-    assertEquals(connectionService.getConnectionEntityResponse(connectionUrn, systemAuthentication), response);
+    assertEquals(
+        connectionService.getConnectionEntityResponse(connectionUrn, systemAuthentication),
+        response);
   }
 
   private DataHubConnectionDetails mockConnectionDetails(String id) {
     return new DataHubConnectionDetails()
         .setType(DataHubConnectionDetailsType.JSON)
         .setName(id)
-        .setJson(new DataHubJsonConnection()
-            .setEncryptedBlob("blob"));
+        .setJson(new DataHubJsonConnection().setEncryptedBlob("blob"));
   }
 
   private DataPlatformInstance mockPlatformInstance(Urn platformUrn) {
-    return new DataPlatformInstance()
-        .setPlatform(platformUrn);
+    return new DataPlatformInstance().setPlatform(platformUrn);
   }
 }

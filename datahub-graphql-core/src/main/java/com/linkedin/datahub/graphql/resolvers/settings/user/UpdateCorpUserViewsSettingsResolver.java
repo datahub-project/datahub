@@ -1,5 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.settings.user;
 
+import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
+
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.SetMode;
@@ -16,58 +18,61 @@ import javax.annotation.Nonnull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
-
-/**
- * Resolver responsible for updating the authenticated user's View-specific settings.
- */
+/** Resolver responsible for updating the authenticated user's View-specific settings. */
 @Slf4j
 @RequiredArgsConstructor
-public class UpdateCorpUserViewsSettingsResolver implements DataFetcher<CompletableFuture<Boolean>> {
+public class UpdateCorpUserViewsSettingsResolver
+    implements DataFetcher<CompletableFuture<Boolean>> {
 
   private final SettingsService _settingsService;
 
   @Override
   public CompletableFuture<Boolean> get(DataFetchingEnvironment environment) throws Exception {
     final QueryContext context = environment.getContext();
-    final UpdateCorpUserViewsSettingsInput input = bindArgument(environment.getArgument("input"), UpdateCorpUserViewsSettingsInput.class);
+    final UpdateCorpUserViewsSettingsInput input =
+        bindArgument(environment.getArgument("input"), UpdateCorpUserViewsSettingsInput.class);
 
-    return CompletableFuture.supplyAsync(() -> {
-      try {
+    return CompletableFuture.supplyAsync(
+        () -> {
+          try {
 
-        final Urn userUrn = UrnUtils.getUrn(context.getActorUrn());
+            final Urn userUrn = UrnUtils.getUrn(context.getActorUrn());
 
-        final CorpUserSettings maybeSettings = _settingsService.getCorpUserSettings(
-            userUrn,
-            context.getAuthentication()
-        );
+            final CorpUserSettings maybeSettings =
+                _settingsService.getCorpUserSettings(userUrn, context.getAuthentication());
 
-        final CorpUserSettings newSettings = maybeSettings == null
-            ? new CorpUserSettings().setAppearance(new CorpUserAppearanceSettings().setShowSimplifiedHomepage(false))
-            : maybeSettings;
+            final CorpUserSettings newSettings =
+                maybeSettings == null
+                    ? new CorpUserSettings()
+                        .setAppearance(
+                            new CorpUserAppearanceSettings().setShowSimplifiedHomepage(false))
+                    : maybeSettings;
 
-        // Patch the new corp user settings. This does a R-M-F.
-        updateCorpUserSettings(newSettings, input);
+            // Patch the new corp user settings. This does a R-M-F.
+            updateCorpUserSettings(newSettings, input);
 
-        _settingsService.updateCorpUserSettings(
-            userUrn,
-            newSettings,
-            context.getAuthentication()
-        );
-        return true;
-      } catch (Exception e) {
-        log.error("Failed to perform user view settings update against input {}, {}", input.toString(), e.getMessage());
-        throw new RuntimeException(String.format("Failed to perform update to user view settings against input %s", input.toString()), e);
-      }
-    });
+            _settingsService.updateCorpUserSettings(
+                userUrn, newSettings, context.getAuthentication());
+            return true;
+          } catch (Exception e) {
+            log.error(
+                "Failed to perform user view settings update against input {}, {}",
+                input.toString(),
+                e.getMessage());
+            throw new RuntimeException(
+                String.format(
+                    "Failed to perform update to user view settings against input %s",
+                    input.toString()),
+                e);
+          }
+        });
   }
 
   private static void updateCorpUserSettings(
       @Nonnull final CorpUserSettings settings,
       @Nonnull final UpdateCorpUserViewsSettingsInput input) {
-    final CorpUserViewsSettings newViewSettings = settings.hasViews()
-        ? settings.getViews()
-        : new CorpUserViewsSettings();
+    final CorpUserViewsSettings newViewSettings =
+        settings.hasViews() ? settings.getViews() : new CorpUserViewsSettings();
     updateCorpUserViewsSettings(newViewSettings, input);
     settings.setViews(newViewSettings);
   }
@@ -75,9 +80,8 @@ public class UpdateCorpUserViewsSettingsResolver implements DataFetcher<Completa
   private static void updateCorpUserViewsSettings(
       @Nonnull final CorpUserViewsSettings settings,
       @Nonnull final UpdateCorpUserViewsSettingsInput input) {
-    settings.setDefaultView(input.getDefaultView() != null
-        ? UrnUtils.getUrn(input.getDefaultView())
-        : null,
+    settings.setDefaultView(
+        input.getDefaultView() != null ? UrnUtils.getUrn(input.getDefaultView()) : null,
         SetMode.REMOVE_IF_NULL);
   }
 }
