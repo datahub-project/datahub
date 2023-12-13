@@ -1,5 +1,7 @@
 package com.linkedin.metadata.service;
 
+import static com.linkedin.metadata.Constants.DATA_PRODUCT_ENTITY_NAME;
+
 import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -22,6 +24,7 @@ import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.utils.EntityKeyUtils;
+import com.linkedin.r2.RemoteInvocationException;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
@@ -58,11 +61,26 @@ public class DataProductService {
    * @return the urn of the newly created DataProduct
    */
   public Urn createDataProduct(
-      @Nullable String name, @Nullable String description, @Nonnull Authentication authentication) {
+      @Nullable String id,
+      @Nullable String name,
+      @Nullable String description,
+      @Nonnull Authentication authentication) {
 
     // 1. Generate a unique id for the new DataProduct.
     final DataProductKey key = new DataProductKey();
-    key.setId(UUID.randomUUID().toString());
+    if (id != null && !id.isBlank()) {
+      key.setId(id);
+    } else {
+      key.setId(UUID.randomUUID().toString());
+    }
+    try {
+      if (_entityClient.exists(
+          EntityKeyUtils.convertEntityKeyToUrn(key, DATA_PRODUCT_ENTITY_NAME), authentication)) {
+        throw new IllegalArgumentException("This Data product already exists!");
+      }
+    } catch (RemoteInvocationException e) {
+      throw new RuntimeException("Unable to check for existence of Data Product!");
+    }
 
     // 2. Create a new instance of DataProductProperties
     final DataProductProperties properties = new DataProductProperties();

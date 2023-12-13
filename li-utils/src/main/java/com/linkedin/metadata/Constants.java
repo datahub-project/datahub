@@ -125,6 +125,11 @@ public class Constants {
   public static final String VIEW_PROPERTIES_ASPECT_NAME = "viewProperties";
   public static final String DATASET_PROFILE_ASPECT_NAME = "datasetProfile";
 
+  // Aspect support
+  public static final String FINE_GRAINED_LINEAGE_DATASET_TYPE = "DATASET";
+  public static final String FINE_GRAINED_LINEAGE_FIELD_SET_TYPE = "FIELD_SET";
+  public static final String FINE_GRAINED_LINEAGE_FIELD_TYPE = "FIELD";
+
   // Chart
   public static final String CHART_KEY_ASPECT_NAME = "chartKey";
   public static final String CHART_INFO_ASPECT_NAME = "chartInfo";
