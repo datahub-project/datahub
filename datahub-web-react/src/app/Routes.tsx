@@ -1,5 +1,5 @@
 import React from 'react';
-import { Switch, Route, RouteProps, Redirect } from 'react-router-dom';
+import { Switch, Route, RouteProps } from 'react-router-dom';
 import { useReactiveVar } from '@apollo/client';
 import { LogIn } from './auth/LogIn';
 import { SignUp } from './auth/SignUp';
