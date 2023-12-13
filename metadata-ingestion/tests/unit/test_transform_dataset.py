@@ -1363,7 +1363,7 @@ def test_mcp_add_tags_existing(mock_time):
     outputs = list(transformer.transform(input_stream))
 
     assert len(outputs) == 4
-    
+
     # Check that tags were added, this will be the second result
     tags_aspect = outputs[0].record.aspect
     assert tags_aspect
@@ -1372,12 +1372,11 @@ def test_mcp_add_tags_existing(mock_time):
     assert tags_aspect.tags[1].tag == builder.make_tag_urn("NeedsDocumentation")
     assert tags_aspect.tags[2].tag == builder.make_tag_urn("Legacy")
 
-    # Check tag entities got added 
-    outputs[1].record.entityType == "tag"
-    outputs[1].record.entityUrn == builder.make_tag_urn("NeedsDocumentation")
-    outputs[2].record.entityType == "tag"
-    outputs[2].record.entityUrn == builder.make_tag_urn("Legacy")
-
+    # Check tag entities got added
+    assert outputs[1].record.entityType == "tag"
+    assert outputs[1].record.entityUrn == builder.make_tag_urn("NeedsDocumentation")
+    assert outputs[2].record.entityType == "tag"
+    assert outputs[2].record.entityUrn == builder.make_tag_urn("Legacy")
 
     assert isinstance(outputs[-1].record, EndOfStream)
 
