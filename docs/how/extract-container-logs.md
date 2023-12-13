@@ -15,8 +15,8 @@ To do so, you can view all containers that Docker knows about by running the fol
 ```
 johnjoyce@Johns-MBP datahub-fork % docker container ls
 CONTAINER ID   IMAGE                                   COMMAND                  CREATED      STATUS                  PORTS                                                      NAMES
-6c4a280bc457   linkedin/datahub-frontend-react   "datahub-frontend/bi…"   5 days ago   Up 46 hours (healthy)   0.0.0.0:9002->9002/tcp                                     datahub-frontend-react
-122a2488ab63   linkedin/datahub-gms              "/bin/sh -c /datahub…"   5 days ago   Up 5 days (healthy)     0.0.0.0:8080->8080/tcp                                     datahub-gms
+6c4a280bc457   acryldata/datahub-frontend-react   "datahub-frontend/bi…"   5 days ago   Up 46 hours (healthy)   0.0.0.0:9002->9002/tcp                                     datahub-frontend-react
+122a2488ab63   acryldata/datahub-gms              "/bin/sh -c /datahub…"   5 days ago   Up 5 days (healthy)     0.0.0.0:8080->8080/tcp                                     datahub-gms
 7682dcc64afa   confluentinc/cp-schema-registry:5.4.0   "/etc/confluent/dock…"   5 days ago   Up 5 days               0.0.0.0:8081->8081/tcp                                     schema-registry
 3680fcaef3ed   confluentinc/cp-kafka:5.4.0             "/etc/confluent/dock…"   5 days ago   Up 5 days               0.0.0.0:9092->9092/tcp, 0.0.0.0:29092->29092/tcp           broker
 9d6730ddd4c4   neo4j:4.0.6                             "/sbin/tini -g -- /d…"   5 days ago   Up 5 days               0.0.0.0:7474->7474/tcp, 7473/tcp, 0.0.0.0:7687->7687/tcp   neo4j
