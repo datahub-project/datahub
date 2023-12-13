@@ -352,18 +352,12 @@ def get_class_fields(_class: Type[object]) -> Iterable[str]:
     ]
 
 
-def validate_ownership_type(ownership_type: Optional[str]) -> Tuple[str, Optional[str]]:
-    if ownership_type is None:
-        return OwnershipTypeClass.DATAOWNER, None
-    try:
-        ownership_type_str = cast(str, ownership_type)
-        if ownership_type_str.startswith("urn:li:"):
-            return OwnershipTypeClass.CUSTOM, ownership_type_str
-        if ownership_type_str in get_class_fields(OwnershipTypeClass):
-            return ownership_type_str, None
-        raise ValueError
-    except ValueError:
-        raise ValueError(f"Unexpected ownership type: {ownership_type}")
+def validate_ownership_type(ownership_type: str) -> Tuple[str, Optional[str]]:
+    if ownership_type.startswith("urn:li:"):
+        return OwnershipTypeClass.CUSTOM, ownership_type
+    if ownership_type in get_class_fields(OwnershipTypeClass):
+        return ownership_type, None
+    raise ValueError(f"Unexpected ownership type: {ownership_type}")
 
 
 def make_lineage_mce(

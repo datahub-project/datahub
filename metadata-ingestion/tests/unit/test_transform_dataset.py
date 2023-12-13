@@ -210,8 +210,7 @@ def test_simple_dataset_ownership_transformation(mock_time):
             "owner_urns": [
                 builder.make_user_urn("person1"),
                 builder.make_user_urn("person2"),
-            ],
-            "ownership_type": "DATAOWNER",
+            ]
         },
         PipelineContext(run_id="test"),
     )
