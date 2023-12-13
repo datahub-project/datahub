@@ -37,7 +37,7 @@ from datahub.metadata.schema_classes import (
     TimeTypeClass,
 )
 from datahub.utilities.file_backed_collections import ConnectionWrapper, FileBackedDict
-from datahub.utilities.urns.dataset_urn import DatasetUrn
+from datahub.utilities.urns.field_paths import get_simple_field_path_from_v2_field_path
 
 logger = logging.getLogger(__name__)
 
@@ -360,8 +360,12 @@ class SchemaResolver(Closeable):
         table_name = ".".join(
             filter(None, [table.database, table.db_schema, table.table])
         )
+
+        platform_instance = self.platform_instance
+
         if lower:
             table_name = table_name.lower()
+            platform_instance = platform_instance.lower() if platform_instance else None
 
         if self.platform == "bigquery":
             # Normalize shard numbers and other BigQuery weirdness.
@@ -372,7 +376,7 @@ class SchemaResolver(Closeable):
 
         urn = make_dataset_urn_with_platform_instance(
             platform=self.platform,
-            platform_instance=self.platform_instance,
+            platform_instance=platform_instance,
             env=self.env,
             name=table_name,
         )
@@ -439,15 +443,14 @@ class SchemaResolver(Closeable):
         cls, schema_metadata: SchemaMetadataClass
     ) -> SchemaInfo:
         return {
-            DatasetUrn.get_simple_field_path_from_v2_field_path(col.fieldPath): (
+            get_simple_field_path_from_v2_field_path(col.fieldPath): (
                 # The actual types are more of a "nice to have".
                 col.nativeDataType
                 or "str"
             )
             for col in schema_metadata.fields
             # TODO: We can't generate lineage to columns nested within structs yet.
-            if "."
-            not in DatasetUrn.get_simple_field_path_from_v2_field_path(col.fieldPath)
+            if "." not in get_simple_field_path_from_v2_field_path(col.fieldPath)
         }
 
     @classmethod
@@ -455,17 +458,14 @@ class SchemaResolver(Closeable):
         cls, schema: GraphQLSchemaMetadata
     ) -> SchemaInfo:
         return {
-            DatasetUrn.get_simple_field_path_from_v2_field_path(field["fieldPath"]): (
+            get_simple_field_path_from_v2_field_path(field["fieldPath"]): (
                 # The actual types are more of a "nice to have".
                 field["nativeDataType"]
                 or "str"
             )
             for field in schema["fields"]
             # TODO: We can't generate lineage to columns nested within structs yet.
-            if "."
-            not in DatasetUrn.get_simple_field_path_from_v2_field_path(
-                field["fieldPath"]
-            )
+            if "." not in get_simple_field_path_from_v2_field_path(field["fieldPath"])
         }
 
     def close(self) -> None:
@@ -962,6 +962,8 @@ def _get_dialect(platform: str) -> str:
         return "hive"
     if platform == "mssql":
         return "tsql"
+    if platform == "athena":
+        return "trino"
     else:
         return platform
 

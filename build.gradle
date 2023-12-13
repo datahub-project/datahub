@@ -16,11 +16,12 @@ buildscript {
   ext.playVersion = '2.8.18'
   ext.log4jVersion = '2.19.0'
   ext.slf4jVersion = '1.7.36'
-  ext.logbackClassic = '1.2.12'
+  ext.logbackClassic = '1.2.13'
   ext.hadoop3Version = '3.3.5'
   ext.kafkaVersion = '2.3.0'
   ext.hazelcastVersion = '5.3.6'
   ext.ebeanVersion = '12.16.1'
+  ext.googleJavaFormatVersion = '1.18.1'
 
   ext.docker_registry = 'linkedin'
 
@@ -42,6 +43,7 @@ plugins {
   id 'com.gorylenko.gradle-git-properties' version '2.4.0-rc2'
   id 'com.github.johnrengelman.shadow' version '6.1.0'
   id 'com.palantir.docker' version '0.35.0' apply false
+  id "com.diffplug.spotless" version "6.23.3"
   // https://blog.ltgt.net/javax-jakarta-mess-and-gradle-solution/
   // TODO id "org.gradlex.java-ecosystem-capabilities" version "1.0"
 }
@@ -82,6 +84,7 @@ project.ext.externalDependency = [
     'commonsLang': 'commons-lang:commons-lang:2.6',
     'commonsText': 'org.apache.commons:commons-text:1.10.0',
     'commonsCollections': 'commons-collections:commons-collections:3.2.2',
+    'caffeine': 'com.github.ben-manes.caffeine:caffeine:3.1.8',
     'datastaxOssNativeProtocol': 'com.datastax.oss:native-protocol:1.5.1',
     'datastaxOssCore': 'com.datastax.oss:java-driver-core:4.14.1',
     'datastaxOssQueryBuilder': 'com.datastax.oss:java-driver-query-builder:4.14.1',
@@ -166,6 +169,7 @@ project.ext.externalDependency = [
     'parquetHadoop': 'org.apache.parquet:parquet-hadoop:1.13.1',
     'picocli': 'info.picocli:picocli:4.5.0',
     'playCache': "com.typesafe.play:play-cache_2.12:$playVersion",
+    'playCaffeineCache': "com.typesafe.play:play-caffeine-cache_2.12:$playVersion",
     'playWs': 'com.typesafe.play:play-ahc-ws-standalone_2.12:2.1.10',
     'playDocs': "com.typesafe.play:play-docs_2.12:$playVersion",
     'playGuice': "com.typesafe.play:play-guice_2.12:$playVersion",
@@ -223,13 +227,11 @@ project.ext.externalDependency = [
     'common': 'commons-io:commons-io:2.7',
     'jline':'jline:jline:1.4.1',
     'jetbrains':' org.jetbrains.kotlin:kotlin-stdlib:1.6.0'
-
 ]
 
 allprojects {
   apply plugin: 'idea'
   apply plugin: 'eclipse'
-  apply plugin: 'checkstyle'
   // apply plugin: 'org.gradlex.java-ecosystem-capabilities'
 }
 
@@ -251,6 +253,7 @@ subprojects {
 
   apply plugin: 'maven-publish'
   apply plugin: 'com.gorylenko.gradle-git-properties'
+  apply plugin: 'com.diffplug.spotless'
 
   gitProperties {
     keys = ['git.commit.id','git.commit.id.describe','git.commit.time']
@@ -264,6 +267,7 @@ subprojects {
   plugins.withType(JavaPlugin) {
     dependencies {
       constraints {
+        implementation("com.google.googlejavaformat:google-java-format:$googleJavaFormatVersion")
         implementation('io.netty:netty-all:4.1.100.Final')
         implementation('org.apache.commons:commons-compress:1.21')
         implementation('org.apache.velocity:velocity-engine-core:2.3')
@@ -272,13 +276,32 @@ subprojects {
         implementation("com.fasterxml.jackson.core:jackson-dataformat-cbor:$jacksonVersion")
       }
     }
-
-    checkstyle {
-      configDirectory = file("${project.rootDir}/gradle/checkstyle")
-      sourceSets = [ getProject().sourceSets.main, getProject().sourceSets.test ]
-      toolVersion = "8.0"
-      maxWarnings = 0
-      ignoreFailures = false
+    spotless {
+      java {
+        googleJavaFormat()
+        target project.fileTree(project.projectDir) {
+            include '**/*.java'
+            exclude 'build/**/*.java'
+            exclude '**/generated/**/*.*'
+            exclude '**/mainGeneratedDataTemplate/**/*.*'
+            exclude '**/mainGeneratedRest/**/*.*'
+        }
+      }
+    }
+    afterEvaluate {
+      def spotlessJavaTask = tasks.findByName('spotlessJava')
+      def processTask = tasks.findByName('processResources')
+      if (processTask != null) {
+        spotlessJavaTask.dependsOn processTask
+      }
+      def compileJavaTask = tasks.findByName('compileJava')
+      if (compileJavaTask != null) {
+        spotlessJavaTask.dependsOn compileJavaTask
+      }
+      // TODO - Do not run this in CI. How?
+      // tasks.withType(JavaCompile) {
+      //   finalizedBy(tasks.findByName('spotlessApply'))
+      // }
     }
   }
 

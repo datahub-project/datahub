@@ -1,5 +1,8 @@
 package com.linkedin.metadata.entity;
 
+import static com.linkedin.metadata.Constants.*;
+import static org.testng.Assert.*;
+
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.AspectIngestionUtils;
@@ -18,11 +21,7 @@ import java.util.stream.Collectors;
 import org.testcontainers.shaded.com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
-import static com.linkedin.metadata.Constants.*;
-import static org.testng.Assert.*;
-
-
-abstract public class AspectMigrationsDaoTest<T extends AspectMigrationsDao> {
+public abstract class AspectMigrationsDaoTest<T extends AspectMigrationsDao> {
 
   protected T _migrationsDao;
 
@@ -37,8 +36,11 @@ abstract public class AspectMigrationsDaoTest<T extends AspectMigrationsDao> {
 
   protected AspectMigrationsDaoTest() throws EntityRegistryException {
     _snapshotEntityRegistry = new TestEntityRegistry();
-    _configEntityRegistry = new ConfigEntityRegistry(Snapshot.class.getClassLoader().getResourceAsStream("entity-registry.yml"));
-    _testEntityRegistry = new MergedEntityRegistry(_snapshotEntityRegistry).apply(_configEntityRegistry);
+    _configEntityRegistry =
+        new ConfigEntityRegistry(
+            Snapshot.class.getClassLoader().getResourceAsStream("entity-registry.yml"));
+    _testEntityRegistry =
+        new MergedEntityRegistry(_snapshotEntityRegistry).apply(_configEntityRegistry);
   }
 
   @Test
@@ -46,8 +48,10 @@ abstract public class AspectMigrationsDaoTest<T extends AspectMigrationsDao> {
     final int totalAspects = 30;
     final int pageSize = 25;
     final int lastPageSize = 5;
-    Map<Urn, CorpUserKey> ingestedAspects = AspectIngestionUtils.ingestCorpUserKeyAspects(_entityServiceImpl, totalAspects);
-    List<String> ingestedUrns = ingestedAspects.keySet().stream().map(Urn::toString).collect(Collectors.toList());
+    Map<Urn, CorpUserKey> ingestedAspects =
+        AspectIngestionUtils.ingestCorpUserKeyAspects(_entityServiceImpl, totalAspects);
+    List<String> ingestedUrns =
+        ingestedAspects.keySet().stream().map(Urn::toString).collect(Collectors.toList());
     List<String> seenUrns = new ArrayList<>();
 
     Iterable<String> page1 = _migrationsDao.listAllUrns(0, pageSize);

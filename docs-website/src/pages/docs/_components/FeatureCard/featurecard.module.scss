@@ -1,0 +1,38 @@
+.feature {
+  flex-direction: row;
+  padding: 1.75rem;
+  color: var(--ifm-hero-text-color);
+  margin: 0rem 2rem 1rem 0rem;
+  min-height: 14rem;
+  max-height: 15rem; 
+  overflow: hidden;
+  text-decoration: none !important;
+
+  img {
+    width: 1.5rem;
+    height: 1.5rem;
+    margin-right: 0.75rem;
+  }
+  svg {
+    width: 1.5rem;
+    height: 1.5rem;
+    margin-right: 0.75rem;
+  }
+  strong,
+  span {
+    display: block;
+    margin-bottom: 0.75rem;
+  }
+  strong {
+    font-weight: 600;
+    font-size: 1.1rem;
+  }
+
+  span {
+    font-size: 1rem;
+    line-height: 1.25em;
+  }
+  &:hover {
+    border-color: var(--ifm-color-primary);
+  }
+}

@@ -8,13 +8,13 @@ import com.linkedin.datahub.upgrade.nocode.NoCodeUpgrade;
 import com.linkedin.metadata.search.EntitySearchService;
 import java.util.function.Function;
 
-
 public class ClearSearchServiceStep implements UpgradeStep {
 
   private final EntitySearchService _entitySearchService;
   private final boolean _alwaysRun;
 
-  public ClearSearchServiceStep(final EntitySearchService entitySearchService, final boolean alwaysRun) {
+  public ClearSearchServiceStep(
+      final EntitySearchService entitySearchService, final boolean alwaysRun) {
     _entitySearchService = entitySearchService;
     _alwaysRun = alwaysRun;
   }

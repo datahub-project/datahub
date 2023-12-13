@@ -17,7 +17,11 @@ import { SearchBar } from '../../search/SearchBar';
 import { StyledTable } from '../../entity/shared/components/styled/StyledTable';
 import { POST_TYPE_TO_DISPLAY_TEXT } from './constants';
 
-const PostsContainer = styled.div``;
+const PostsContainer = styled.div`
+    display: flex;
+    flex-direction: column;
+    overflow: auto;
+`;
 
 export const PostsPaginationContainer = styled.div`
     display: flex;

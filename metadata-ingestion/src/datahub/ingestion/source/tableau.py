@@ -21,7 +21,7 @@ import dateutil.parser as dp
 import tableauserverclient as TSC
 from pydantic import root_validator, validator
 from pydantic.fields import Field
-from requests.adapters import ConnectionError
+from requests.adapters import ConnectionError, HTTPAdapter
 from tableauserverclient import (
     PersonalAccessTokenAuth,
     Server,
@@ -29,6 +29,7 @@ from tableauserverclient import (
     TableauAuth,
 )
 from tableauserverclient.server.endpoint.exceptions import NonXMLResponseError
+from urllib3 import Retry
 
 import datahub.emitter.mce_builder as builder
 import datahub.utilities.sqlglot_lineage as sqlglot_l
@@ -174,6 +175,7 @@ class TableauConnectionConfig(ConfigModel):
         description="Unique relationship between the Tableau Server and site",
     )
 
+    max_retries: int = Field(3, description="Number of retries for failed requests.")
     ssl_verify: Union[bool, str] = Field(
         default=True,
         description="Whether to verify SSL certificates. If using self-signed certificates, set to false or provide the path to the .pem certificate bundle.",
@@ -223,6 +225,17 @@ class TableauConnectionConfig(ConfigModel):
 
             # From https://stackoverflow.com/a/50159273/5004662.
             server._session.trust_env = False
+
+            # Setup request retries.
+            adapter = HTTPAdapter(
+                max_retries=Retry(
+                    total=self.max_retries,
+                    backoff_factor=1,
+                    status_forcelist=[429, 500, 502, 503, 504],
+                )
+            )
+            server._session.mount("http://", adapter)
+            server._session.mount("https://", adapter)
 
             server.auth.sign_in(authentication)
             return server
@@ -1086,9 +1099,7 @@ class TableauSource(StatefulIngestionSourceBase):
 
     def is_snowflake_urn(self, urn: str) -> bool:
         return (
-            DatasetUrn.create_from_string(urn)
-            .get_data_platform_urn()
-            .get_platform_name()
+            DatasetUrn.create_from_string(urn).get_data_platform_urn().platform_name
             == "snowflake"
         )
 

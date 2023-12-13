@@ -25,13 +25,13 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
-
 @Slf4j
 public class TestAuthenticator implements Authenticator {
   private AuthenticatorContext _authenticatorContext;
 
   @Override
-  public void init(@Nonnull Map<String, Object> authenticatorConfig, @Nullable AuthenticatorContext context) {
+  public void init(
+      @Nonnull Map<String, Object> authenticatorConfig, @Nullable AuthenticatorContext context) {
     /*
      * authenticatorConfig contains key, value pairs set in plugins[].params.configs of config.yml
      */
@@ -48,7 +48,8 @@ public class TestAuthenticator implements Authenticator {
 
   private void readInputStream() {
     // Test resource as stream is working
-    try (InputStream inputStream = this.getClass().getClassLoader().getResourceAsStream("foo_bar.json")) {
+    try (InputStream inputStream =
+        this.getClass().getClassLoader().getResourceAsStream("foo_bar.json")) {
       assert inputStream != null;
       BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
       assert reader.readLine() != null;
@@ -59,9 +60,12 @@ public class TestAuthenticator implements Authenticator {
   }
 
   private void accessFile() {
-    // Try to create a file on PLUGIN_DIRECTORY to test plugin should have permission to read/write on plugin directory
+    // Try to create a file on PLUGIN_DIRECTORY to test plugin should have permission to read/write
+    // on plugin directory
     Path pluginDirectory =
-        Paths.get((String) this._authenticatorContext.data().get(PluginConstant.PLUGIN_HOME), "tmp_file1.txt");
+        Paths.get(
+            (String) this._authenticatorContext.data().get(PluginConstant.PLUGIN_HOME),
+            "tmp_file1.txt");
     try {
 
       try (BufferedWriter writer = new BufferedWriter(new FileWriter(pluginDirectory.toString()))) {
@@ -79,7 +83,8 @@ public class TestAuthenticator implements Authenticator {
   public void accessSystemProperty() {
     try {
       System.getProperty("user.home");
-      throw new RuntimeException("Plugin is able to access system properties"); // we should not reach here
+      throw new RuntimeException(
+          "Plugin is able to access system properties"); // we should not reach here
     } catch (AccessControlException accessControlException) {
       log.info("Expected: Don't have permission to read system properties");
     }

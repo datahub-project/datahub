@@ -1,10 +1,13 @@
 package com.linkedin.datahub.graphql.resolvers.test;
 
+import static com.linkedin.datahub.graphql.TestUtils.*;
+import static org.testng.Assert.*;
+
 import com.datahub.authentication.Authentication;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
-import com.linkedin.datahub.graphql.generated.UpdateTestInput;
 import com.linkedin.datahub.graphql.generated.TestDefinitionInput;
+import com.linkedin.datahub.graphql.generated.UpdateTestInput;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
@@ -19,19 +22,12 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
-import static com.linkedin.datahub.graphql.TestUtils.*;
-import static org.testng.Assert.*;
-
-
 public class UpdateTestResolverTest {
 
   private static final String TEST_URN = "urn:li:test:test-id";
-  private static final UpdateTestInput TEST_INPUT = new UpdateTestInput(
-      "test-name",
-      "test-category",
-      "test-description",
-      new TestDefinitionInput("{}")
-  );
+  private static final UpdateTestInput TEST_INPUT =
+      new UpdateTestInput(
+          "test-name", "test-category", "test-description", new TestDefinitionInput("{}"));
 
   @Test
   public void testGetSuccess() throws Exception {
@@ -48,16 +44,21 @@ public class UpdateTestResolverTest {
 
     resolver.get(mockEnv).get();
 
-    ArgumentCaptor<MetadataChangeProposal> proposalCaptor = ArgumentCaptor.forClass(MetadataChangeProposal.class);
+    ArgumentCaptor<MetadataChangeProposal> proposalCaptor =
+        ArgumentCaptor.forClass(MetadataChangeProposal.class);
     Mockito.verify(mockClient, Mockito.times(1))
-        .ingestProposal(proposalCaptor.capture(), Mockito.any(Authentication.class), Mockito.eq(false));
+        .ingestProposal(
+            proposalCaptor.capture(), Mockito.any(Authentication.class), Mockito.eq(false));
     MetadataChangeProposal resultProposal = proposalCaptor.getValue();
     assertEquals(resultProposal.getEntityType(), Constants.TEST_ENTITY_NAME);
     assertEquals(resultProposal.getAspectName(), Constants.TEST_INFO_ASPECT_NAME);
     assertEquals(resultProposal.getChangeType(), ChangeType.UPSERT);
     assertEquals(resultProposal.getEntityUrn(), UrnUtils.getUrn(TEST_URN));
-    TestInfo resultInfo = GenericRecordUtils.deserializeAspect(resultProposal.getAspect().getValue(),
-        resultProposal.getAspect().getContentType(), TestInfo.class);
+    TestInfo resultInfo =
+        GenericRecordUtils.deserializeAspect(
+            resultProposal.getAspect().getValue(),
+            resultProposal.getAspect().getContentType(),
+            TestInfo.class);
     assertEquals(resultInfo.getName(), "test-name");
     assertEquals(resultInfo.getCategory(), "test-category");
     assertEquals(resultInfo.getDescription(), "test-description");
@@ -79,18 +80,17 @@ public class UpdateTestResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
-    Mockito.verify(mockClient, Mockito.times(0)).ingestProposal(
-        Mockito.any(),
-        Mockito.any(Authentication.class));
+    Mockito.verify(mockClient, Mockito.times(0))
+        .ingestProposal(Mockito.any(), Mockito.any(Authentication.class));
   }
 
   @Test
   public void testGetEntityClientException() throws Exception {
     // Update resolver
     EntityClient mockClient = Mockito.mock(EntityClient.class);
-    Mockito.doThrow(RemoteInvocationException.class).when(mockClient).ingestProposal(
-        Mockito.any(),
-        Mockito.any(Authentication.class));
+    Mockito.doThrow(RemoteInvocationException.class)
+        .when(mockClient)
+        .ingestProposal(Mockito.any(), Mockito.any(Authentication.class));
     UpdateTestResolver resolver = new UpdateTestResolver(mockClient);
 
     // Execute resolver

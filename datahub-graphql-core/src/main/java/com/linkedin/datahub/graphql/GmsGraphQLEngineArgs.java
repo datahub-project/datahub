@@ -38,41 +38,41 @@ import lombok.Data;
 
 @Data
 public class GmsGraphQLEngineArgs {
-    EntityClient entityClient;
-    SystemEntityClient systemEntityClient;
-    GraphClient graphClient;
-    UsageClient usageClient;
-    AnalyticsService analyticsService;
-    EntityService entityService;
-    RecommendationsService recommendationsService;
-    StatefulTokenService statefulTokenService;
-    TimeseriesAspectService timeseriesAspectService;
-    EntityRegistry entityRegistry;
-    SecretService secretService;
-    NativeUserService nativeUserService;
-    IngestionConfiguration ingestionConfiguration;
-    AuthenticationConfiguration authenticationConfiguration;
-    AuthorizationConfiguration authorizationConfiguration;
-    GitVersion gitVersion;
-    TimelineService timelineService;
-    boolean supportsImpactAnalysis;
-    VisualConfiguration visualConfiguration;
-    TelemetryConfiguration telemetryConfiguration;
-    TestsConfiguration testsConfiguration;
-    DataHubConfiguration datahubConfiguration;
-    ViewsConfiguration viewsConfiguration;
-    SiblingGraphService siblingGraphService;
-    GroupService groupService;
-    RoleService roleService;
-    InviteTokenService inviteTokenService;
-    PostService postService;
-    ViewService viewService;
-    OwnershipTypeService ownershipTypeService;
-    SettingsService settingsService;
-    LineageService lineageService;
-    QueryService queryService;
-    FeatureFlags featureFlags;
-    DataProductService dataProductService;
+  EntityClient entityClient;
+  SystemEntityClient systemEntityClient;
+  GraphClient graphClient;
+  UsageClient usageClient;
+  AnalyticsService analyticsService;
+  EntityService entityService;
+  RecommendationsService recommendationsService;
+  StatefulTokenService statefulTokenService;
+  TimeseriesAspectService timeseriesAspectService;
+  EntityRegistry entityRegistry;
+  SecretService secretService;
+  NativeUserService nativeUserService;
+  IngestionConfiguration ingestionConfiguration;
+  AuthenticationConfiguration authenticationConfiguration;
+  AuthorizationConfiguration authorizationConfiguration;
+  GitVersion gitVersion;
+  TimelineService timelineService;
+  boolean supportsImpactAnalysis;
+  VisualConfiguration visualConfiguration;
+  TelemetryConfiguration telemetryConfiguration;
+  TestsConfiguration testsConfiguration;
+  DataHubConfiguration datahubConfiguration;
+  ViewsConfiguration viewsConfiguration;
+  SiblingGraphService siblingGraphService;
+  GroupService groupService;
+  RoleService roleService;
+  InviteTokenService inviteTokenService;
+  PostService postService;
+  ViewService viewService;
+  OwnershipTypeService ownershipTypeService;
+  SettingsService settingsService;
+  LineageService lineageService;
+  QueryService queryService;
+  FeatureFlags featureFlags;
+  DataProductService dataProductService;
 
-    //any fork specific args should go below this line
+  // any fork specific args should go below this line
 }

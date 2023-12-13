@@ -1,5 +1,8 @@
 package com.linkedin.datahub.graphql.resolvers.test;
 
+import static com.linkedin.datahub.graphql.TestUtils.*;
+import static org.testng.Assert.*;
+
 import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
@@ -18,37 +21,34 @@ import java.util.concurrent.CompletionException;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
-import static com.linkedin.datahub.graphql.TestUtils.*;
-import static org.testng.Assert.*;
-
-
 public class ListTestsResolverTest {
 
   private static final Urn TEST_URN = Urn.createFromTuple("test", "test-id");
 
-  private static final ListTestsInput TEST_INPUT = new ListTestsInput(
-      0, 20, null
-  );
+  private static final ListTestsInput TEST_INPUT = new ListTestsInput(0, 20, null);
 
   @Test
   public void testGetSuccess() throws Exception {
     // Create resolver
     EntityClient mockClient = Mockito.mock(EntityClient.class);
 
-    Mockito.when(mockClient.search(
-        Mockito.eq(Constants.TEST_ENTITY_NAME),
-        Mockito.eq(""),
-        Mockito.eq(Collections.emptyMap()),
-        Mockito.eq(0),
-        Mockito.eq(20),
-        Mockito.any(Authentication.class),
-        Mockito.eq(new SearchFlags().setFulltext(true)))).thenReturn(
-        new SearchResult()
-            .setFrom(0)
-            .setPageSize(1)
-            .setNumEntities(1)
-            .setEntities(new SearchEntityArray(ImmutableSet.of(new SearchEntity().setEntity(TEST_URN))))
-    );
+    Mockito.when(
+            mockClient.search(
+                Mockito.eq(Constants.TEST_ENTITY_NAME),
+                Mockito.eq(""),
+                Mockito.eq(Collections.emptyMap()),
+                Mockito.eq(0),
+                Mockito.eq(20),
+                Mockito.any(Authentication.class),
+                Mockito.eq(new SearchFlags().setFulltext(true))))
+        .thenReturn(
+            new SearchResult()
+                .setFrom(0)
+                .setPageSize(1)
+                .setNumEntities(1)
+                .setEntities(
+                    new SearchEntityArray(
+                        ImmutableSet.of(new SearchEntity().setEntity(TEST_URN)))));
 
     ListTestsResolver resolver = new ListTestsResolver(mockClient);
 
@@ -75,33 +75,35 @@ public class ListTestsResolverTest {
     // Execute resolver
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     QueryContext mockContext = getMockDenyContext();
-    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(
-        TEST_INPUT);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(TEST_INPUT);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
-    Mockito.verify(mockClient, Mockito.times(0)).search(
-        Mockito.any(),
-        Mockito.eq(""),
-        Mockito.anyMap(),
-        Mockito.anyInt(),
-        Mockito.anyInt(),
-        Mockito.any(Authentication.class),
-        Mockito.eq(new SearchFlags().setFulltext(true)));
+    Mockito.verify(mockClient, Mockito.times(0))
+        .search(
+            Mockito.any(),
+            Mockito.eq(""),
+            Mockito.anyMap(),
+            Mockito.anyInt(),
+            Mockito.anyInt(),
+            Mockito.any(Authentication.class),
+            Mockito.eq(new SearchFlags().setFulltext(true)));
   }
 
   @Test
   public void testGetEntityClientException() throws Exception {
     // Create resolver
     EntityClient mockClient = Mockito.mock(EntityClient.class);
-    Mockito.doThrow(RemoteInvocationException.class).when(mockClient).search(
-        Mockito.any(),
-        Mockito.eq(""),
-        Mockito.anyMap(),
-        Mockito.anyInt(),
-        Mockito.anyInt(),
-        Mockito.any(Authentication.class),
-        Mockito.eq(new SearchFlags().setFulltext(true)));
+    Mockito.doThrow(RemoteInvocationException.class)
+        .when(mockClient)
+        .search(
+            Mockito.any(),
+            Mockito.eq(""),
+            Mockito.anyMap(),
+            Mockito.anyInt(),
+            Mockito.anyInt(),
+            Mockito.any(Authentication.class),
+            Mockito.eq(new SearchFlags().setFulltext(true)));
     ListTestsResolver resolver = new ListTestsResolver(mockClient);
 
     // Execute resolver
