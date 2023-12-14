@@ -36,7 +36,10 @@ class JsonSchemaContract(BaseAssertion):
         )
 
 
-class FieldListSchemaContract(BaseAssertion, arbitrary_types_allowed=True):
+class FieldListSchemaContract(BaseAssertion):
+    class Config:
+        arbitrary_types_allowed = True
+
     type: Literal["field-list"]
 
     fields: List[SchemaFieldClass]

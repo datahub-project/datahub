@@ -59,7 +59,7 @@ class DataContract(v1_ConfigModel):
 
     _original_yaml_dict: Optional[dict] = None
 
-    @v1_validator("data_quality")
+    @v1_validator("data_quality")  # type: ignore
     def validate_data_quality(
         cls, data_quality: Optional[List[DataQualityAssertion]]
     ) -> Optional[List[DataQualityAssertion]]:
