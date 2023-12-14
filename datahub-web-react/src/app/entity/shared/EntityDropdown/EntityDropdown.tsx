@@ -288,6 +288,7 @@ function EntityDropdown(props: Props) {
             {isCloneEntityModalVisible && (
                 <CreateGlossaryEntityModal
                     entityType={entityType}
+                    canCreateGlossaryEntity={canCreateGlossaryEntity}
                     onClose={() => setIsCloneEntityModalVisible(false)}
                     refetchData={entityType === EntityType.GlossaryTerm ? refetchForTerms : refetchForNodes}
                     isCloning
