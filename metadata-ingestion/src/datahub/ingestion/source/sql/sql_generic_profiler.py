@@ -35,6 +35,9 @@ class DetailedProfilerReportMixin:
     profiling_skipped_row_limit: TopKDict[str, int] = field(
         default_factory=int_top_k_dict
     )
+
+    profiling_skipped_other: TopKDict[str, int] = field(default_factory=int_top_k_dict)
+
     num_tables_not_eligible_profiling: Dict[str, int] = field(
         default_factory=int_top_k_dict
     )
