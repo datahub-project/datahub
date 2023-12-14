@@ -26,7 +26,6 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
-import lombok.extern.slf4j.Slf4j;
 import org.pac4j.core.context.WebContext;
 import org.pac4j.core.credentials.authenticator.Authenticator;
 import org.pac4j.core.exception.TechnicalException;
@@ -34,9 +33,13 @@ import org.pac4j.core.util.CommonHelper;
 import org.pac4j.oidc.client.OidcClient;
 import org.pac4j.oidc.config.OidcConfiguration;
 import org.pac4j.oidc.credentials.OidcCredentials;
+import org.pac4j.oidc.credentials.authenticator.OidcAuthenticator;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-@Slf4j
 public class CustomOidcAuthenticator implements Authenticator<OidcCredentials> {
+
+  private static final Logger logger = LoggerFactory.getLogger(OidcAuthenticator.class);
 
   private static final Collection<ClientAuthenticationMethod> SUPPORTED_METHODS =
       Arrays.asList(
@@ -84,7 +87,7 @@ public class CustomOidcAuthenticator implements Authenticator<OidcCredentials> {
     } else {
       chosenMethod =
           preferredMethod != null ? preferredMethod : ClientAuthenticationMethod.getDefault();
-      log.info(
+      logger.info(
           "Provider metadata does not provide Token endpoint authentication methods. Using: {}",
           chosenMethod);
     }
@@ -164,21 +167,16 @@ public class CustomOidcAuthenticator implements Authenticator<OidcCredentials> {
         tokenHttpRequest.setReadTimeout(configuration.getReadTimeout());
 
         final HTTPResponse httpResponse = tokenHttpRequest.send();
-        log.info(
+        logger.debug(
             "Token response: status={}, content={}",
             httpResponse.getStatusCode(),
             httpResponse.getContent());
 
         final TokenResponse response = OIDCTokenResponseParser.parse(httpResponse);
         if (response instanceof TokenErrorResponse) {
-          log.error(
-              String.format(
-                  "Received bad token response from IdP: %s",
-                  response.toErrorResponse().toJSONObject().toString()));
           throw new TechnicalException(
               "Bad token response, error=" + ((TokenErrorResponse) response).getErrorObject());
         }
-        log.debug("Token response successful");
         final OIDCTokenResponse tokenSuccessResponse = (OIDCTokenResponse) response;
 
         // save tokens in credentials

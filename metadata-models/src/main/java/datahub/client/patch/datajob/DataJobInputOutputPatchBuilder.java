@@ -1,10 +1,7 @@
 package datahub.client.patch.datajob;
 
-import static com.fasterxml.jackson.databind.node.JsonNodeFactory.instance;
-import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.DATA_JOB_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.DATA_JOB_INPUT_OUTPUT_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.UNKNOWN_ACTOR;
+import static com.fasterxml.jackson.databind.node.JsonNodeFactory.*;
+import static com.linkedin.metadata.Constants.*;
 
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.node.TextNode;

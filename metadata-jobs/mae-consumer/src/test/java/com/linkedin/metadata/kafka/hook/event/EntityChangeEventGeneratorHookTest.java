@@ -127,7 +127,6 @@ public class EntityChangeEventGeneratorHookTest {
     actorUrn = Urn.createFromString(TEST_ACTOR_URN);
     _mockClient = Mockito.mock(SystemRestliEntityClient.class);
     _mockEntityService = Mockito.mock(EntityService.class);
-
     EntityChangeEventGeneratorRegistry entityChangeEventGeneratorRegistry =
         createEntityChangeEventGeneratorRegistry();
     _entityChangeEventHook =

@@ -1,6 +1,6 @@
 package datahub.client.patch.common;
 
-import static com.fasterxml.jackson.databind.node.JsonNodeFactory.instance;
+import static com.fasterxml.jackson.databind.node.JsonNodeFactory.*;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;

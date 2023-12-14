@@ -1,8 +1,7 @@
 package datahub.client.patch.dataset;
 
-import static com.fasterxml.jackson.databind.node.JsonNodeFactory.instance;
-import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME;
+import static com.fasterxml.jackson.databind.node.JsonNodeFactory.*;
+import static com.linkedin.metadata.Constants.*;
 
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.common.GlossaryTermAssociation;

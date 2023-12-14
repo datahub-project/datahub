@@ -1,8 +1,7 @@
 package datahub.client.patch.dataset;
 
-import static com.fasterxml.jackson.databind.node.JsonNodeFactory.instance;
-import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.DATASET_PROPERTIES_ASPECT_NAME;
+import static com.fasterxml.jackson.databind.node.JsonNodeFactory.*;
+import static com.linkedin.metadata.Constants.*;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import datahub.client.patch.AbstractMultiFieldPatchBuilder;

@@ -22,5 +22,6 @@ public class Constants {
   public static final String BROWSE_PATH_DELIMITER = "/";
   public static final String BROWSE_PATH_V2_DELIMITER = "␟";
   public static final String VERSION_STAMP_FIELD_NAME = "versionStamp";
+
   public static final String ENTITY_FILTER_NAME = "_entityType";
 }

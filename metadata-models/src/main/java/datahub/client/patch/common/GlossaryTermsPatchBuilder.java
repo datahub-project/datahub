@@ -1,7 +1,7 @@
 package datahub.client.patch.common;
 
-import static com.fasterxml.jackson.databind.node.JsonNodeFactory.instance;
-import static com.linkedin.metadata.Constants.GLOSSARY_TERMS_ASPECT_NAME;
+import static com.fasterxml.jackson.databind.node.JsonNodeFactory.*;
+import static com.linkedin.metadata.Constants.*;
 
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.common.urn.GlossaryTermUrn;

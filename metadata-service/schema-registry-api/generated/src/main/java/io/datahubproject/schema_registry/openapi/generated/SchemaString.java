@@ -1,25 +1,22 @@
 package io.datahubproject.schema_registry.openapi.generated;
 
-import java.util.Objects;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.annotation.JsonCreator;
-import io.datahubproject.schema_registry.openapi.generated.SchemaReference;
-import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.ArrayList;
 import java.util.List;
-import org.springframework.validation.annotation.Validated;
+import java.util.Objects;
 import javax.validation.Valid;
-import com.fasterxml.jackson.annotation.JsonInclude;
 import javax.validation.constraints.*;
+import org.springframework.validation.annotation.Validated;
 
-/**
- * Schema definition
- */
+/** Schema definition */
 @io.swagger.v3.oas.annotations.media.Schema(description = "Schema definition")
 @Validated
-@javax.annotation.Generated(value = "io.swagger.codegen.v3.generators.java.SpringCodegen", date = "2022-12-20T16:52:36.517693Z[Europe/Lisbon]")
+@javax.annotation.Generated(
+    value = "io.swagger.codegen.v3.generators.java.SpringCodegen",
+    date = "2022-12-20T16:52:36.517693Z[Europe/Lisbon]")
 @JsonInclude(JsonInclude.Include.NON_NULL)
-public class SchemaString   {
+public class SchemaString {
 
   @JsonProperty("schemaType")
   private String schemaType = null;
@@ -41,11 +38,11 @@ public class SchemaString   {
 
   /**
    * Schema type
+   *
    * @return schemaType
-   **/
+   */
   @io.swagger.v3.oas.annotations.media.Schema(example = "AVRO", description = "Schema type")
-  
-    public String getSchemaType() {
+  public String getSchemaType() {
     return schemaType;
   }
 
@@ -60,11 +57,13 @@ public class SchemaString   {
 
   /**
    * Schema string identified by the ID
+   *
    * @return schema
-   **/
-  @io.swagger.v3.oas.annotations.media.Schema(example = "{\"schema\": \"{\"type\": \"string\"}\"}", description = "Schema string identified by the ID")
-  
-    public String getSchema() {
+   */
+  @io.swagger.v3.oas.annotations.media.Schema(
+      example = "{\"schema\": \"{\"type\": \"string\"}\"}",
+      description = "Schema string identified by the ID")
+  public String getSchema() {
     return schema;
   }
 
@@ -87,11 +86,12 @@ public class SchemaString   {
 
   /**
    * References to other schemas
+   *
    * @return references
-   **/
+   */
   @io.swagger.v3.oas.annotations.media.Schema(description = "References to other schemas")
-      @Valid
-    public List<SchemaReference> getReferences() {
+  @Valid
+  public List<SchemaReference> getReferences() {
     return references;
   }
 
@@ -106,18 +106,17 @@ public class SchemaString   {
 
   /**
    * Maximum ID
+   *
    * @return maxId
-   **/
+   */
   @io.swagger.v3.oas.annotations.media.Schema(example = "1", description = "Maximum ID")
-  
-    public Integer getMaxId() {
+  public Integer getMaxId() {
     return maxId;
   }
 
   public void setMaxId(Integer maxId) {
     this.maxId = maxId;
   }
-
 
   @Override
   public boolean equals(java.lang.Object o) {
@@ -128,10 +127,10 @@ public class SchemaString   {
       return false;
     }
     SchemaString schemaString = (SchemaString) o;
-    return Objects.equals(this.schemaType, schemaString.schemaType) &&
-        Objects.equals(this.schema, schemaString.schema) &&
-        Objects.equals(this.references, schemaString.references) &&
-        Objects.equals(this.maxId, schemaString.maxId);
+    return Objects.equals(this.schemaType, schemaString.schemaType)
+        && Objects.equals(this.schema, schemaString.schema)
+        && Objects.equals(this.references, schemaString.references)
+        && Objects.equals(this.maxId, schemaString.maxId);
   }
 
   @Override
@@ -143,7 +142,7 @@ public class SchemaString   {
   public String toString() {
     StringBuilder sb = new StringBuilder();
     sb.append("class SchemaString {\n");
-    
+
     sb.append("    schemaType: ").append(toIndentedString(schemaType)).append("\n");
     sb.append("    schema: ").append(toIndentedString(schema)).append("\n");
     sb.append("    references: ").append(toIndentedString(references)).append("\n");
@@ -153,8 +152,7 @@ public class SchemaString   {
   }
 
   /**
-   * Convert the given object to string with each line indented by 4 spaces
-   * (except the first line).
+   * Convert the given object to string with each line indented by 4 spaces (except the first line).
    */
   private String toIndentedString(java.lang.Object o) {
     if (o == null) {
