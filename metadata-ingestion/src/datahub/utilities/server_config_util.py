@@ -1,7 +1,10 @@
+import logging
 from typing import Any, Dict
 
 # Only to be written to for logging server related information
 global_debug: Dict[str, Any] = {}
+
+logger = logging.getLogger(__name__)
 
 
 def set_gms_config(config: Dict) -> Any:
@@ -21,5 +24,5 @@ def change_telemetry() -> None:
     if is_enabled:
         telemetry_lib.telemetry_instance.enable()
     else:
-        # server requires telemetry to be disabled on client
+        logger.debug("Disabling telemetry as per server configs")
         telemetry_lib.suppress_telemetry()
