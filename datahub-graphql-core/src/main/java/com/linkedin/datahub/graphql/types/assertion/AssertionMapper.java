@@ -53,7 +53,6 @@ public class AssertionMapper {
     if (envelopedAssertionInfo != null) {
       result.setInfo(mapAssertionInfo(new AssertionInfo(envelopedAssertionInfo.getValue().data())));
     }
-<<<<<<< HEAD
 
     final EnvelopedAspect envelopedAssertionActions =
         aspects.get(Constants.ASSERTION_ACTIONS_ASPECT_NAME);
@@ -62,8 +61,6 @@ public class AssertionMapper {
           mapAssertionActions(new AssertionActions(envelopedAssertionActions.getValue().data())));
     }
 
-=======
->>>>>>> oss_master
     final EnvelopedAspect envelopedPlatformInstance =
         aspects.get(Constants.DATA_PLATFORM_INSTANCE_ASPECT_NAME);
     if (envelopedPlatformInstance != null) {
@@ -213,11 +210,7 @@ public class AssertionMapper {
     return new SchemaFieldRef(schemaFieldUrn.toString(), schemaFieldUrn.getEntityKey().get(1));
   }
 
-<<<<<<< HEAD
   protected static AssertionStdParameters mapParameters(
-=======
-  private static AssertionStdParameters mapParameters(
->>>>>>> oss_master
       final com.linkedin.assertion.AssertionStdParameters params) {
     final AssertionStdParameters result = new AssertionStdParameters();
     if (params.hasValue()) {
@@ -240,7 +233,6 @@ public class AssertionMapper {
     return result;
   }
 
-<<<<<<< HEAD
   protected static FixedIntervalSchedule mapFixedIntervalSchedule(
       com.linkedin.assertion.FixedIntervalSchedule gmsFixedIntervalSchedule) {
     FixedIntervalSchedule fixedIntervalSchedule = new FixedIntervalSchedule();
@@ -275,7 +267,4 @@ public class AssertionMapper {
   }
 
   protected AssertionMapper() {}
-=======
-  private AssertionMapper() {}
->>>>>>> oss_master
 }

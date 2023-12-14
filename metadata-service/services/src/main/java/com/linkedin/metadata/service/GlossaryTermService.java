@@ -1,10 +1,7 @@
 package com.linkedin.metadata.service;
 
 import static com.linkedin.metadata.entity.AspectUtils.*;
-<<<<<<< HEAD
 import static com.linkedin.metadata.service.util.MetadataTestServiceUtils.*;
-=======
->>>>>>> oss_master
 
 import com.datahub.authentication.Authentication;
 import com.google.common.annotations.VisibleForTesting;
@@ -46,7 +43,6 @@ public class GlossaryTermService extends BaseService {
    *
    * @param glossaryTermUrns the urns of the terms to add
    * @param resources references to the resources to change
-<<<<<<< HEAD
    * @param appSource optional indication of the origin for this request, used for additional
    *     processing logic when matching particular sources
    */
@@ -55,12 +51,6 @@ public class GlossaryTermService extends BaseService {
       @Nonnull List<ResourceReference> resources,
       @Nullable String appSource) {
     batchAddGlossaryTerms(glossaryTermUrns, resources, this.systemAuthentication, appSource);
-=======
-   */
-  public void batchAddGlossaryTerms(
-      @Nonnull List<Urn> glossaryTermUrns, @Nonnull List<ResourceReference> resources) {
-    batchAddGlossaryTerms(glossaryTermUrns, resources, this.systemAuthentication);
->>>>>>> oss_master
   }
 
   /**
@@ -69,21 +59,14 @@ public class GlossaryTermService extends BaseService {
    * @param glossaryTermUrns the urns of the terms to add
    * @param resources references to the resources to change
    * @param authentication authentication to use when making the change
-<<<<<<< HEAD
    * @param appSource optional indication of the origin for this request, used for additional
    *     processing logic when matching particular sources
-=======
->>>>>>> oss_master
    */
   public void batchAddGlossaryTerms(
       @Nonnull List<Urn> glossaryTermUrns,
       @Nonnull List<ResourceReference> resources,
-<<<<<<< HEAD
       @Nonnull Authentication authentication,
       @Nullable String appSource) {
-=======
-      @Nonnull Authentication authentication) {
->>>>>>> oss_master
     log.debug(
         "Batch adding GlossaryTerms to entities. glossaryTerms: {}, resources: {}",
         resources,
@@ -105,7 +88,6 @@ public class GlossaryTermService extends BaseService {
    *
    * @param glossaryTermUrns the urns of the terms to remove
    * @param resources references to the resources to change
-<<<<<<< HEAD
    * @param appSource optional indication of the origin for this request, used for additional
    *     processing logic when matching particular sources
    */
@@ -114,12 +96,6 @@ public class GlossaryTermService extends BaseService {
       @Nonnull List<ResourceReference> resources,
       @Nullable String appSource) {
     batchRemoveGlossaryTerms(glossaryTermUrns, resources, this.systemAuthentication, appSource);
-=======
-   */
-  public void batchRemoveGlossaryTerms(
-      @Nonnull List<Urn> glossaryTermUrns, @Nonnull List<ResourceReference> resources) {
-    batchRemoveGlossaryTerms(glossaryTermUrns, resources, this.systemAuthentication);
->>>>>>> oss_master
   }
 
   /**
@@ -128,21 +104,14 @@ public class GlossaryTermService extends BaseService {
    * @param glossaryTermUrns the urns of the terms to remove
    * @param resources references to the resources to change
    * @param authentication authentication to use when making the change
-<<<<<<< HEAD
    * @param appSource optional indication of the origin for this request, used for additional
    *     processing logic when matching particular sources
-=======
->>>>>>> oss_master
    */
   public void batchRemoveGlossaryTerms(
       @Nonnull List<Urn> glossaryTermUrns,
       @Nonnull List<ResourceReference> resources,
-<<<<<<< HEAD
       @Nonnull Authentication authentication,
       @Nullable String appSource) {
-=======
-      @Nonnull Authentication authentication) {
->>>>>>> oss_master
     log.debug(
         "Batch adding GlossaryTerms to entities. glossaryTerms: {}, resources: {}",
         resources,
@@ -160,7 +129,6 @@ public class GlossaryTermService extends BaseService {
   }
 
   private void addGlossaryTermsToResources(
-<<<<<<< HEAD
       List<Urn> glossaryTerms,
       List<ResourceReference> resources,
       Authentication authentication,
@@ -171,17 +139,10 @@ public class GlossaryTermService extends BaseService {
     if (appSource != null) {
       applyAppSource(changes, appSource);
     }
-=======
-      List<Urn> glossaryTerms, List<ResourceReference> resources, Authentication authentication)
-      throws Exception {
-    List<MetadataChangeProposal> changes =
-        buildAddGlossaryTermsProposals(glossaryTerms, resources, authentication);
->>>>>>> oss_master
     ingestChangeProposals(changes, authentication);
   }
 
   private void removeGlossaryTermsFromResources(
-<<<<<<< HEAD
       List<Urn> glossaryTerms,
       List<ResourceReference> resources,
       Authentication authentication,
@@ -192,12 +153,6 @@ public class GlossaryTermService extends BaseService {
     if (appSource != null) {
       applyAppSource(changes, appSource);
     }
-=======
-      List<Urn> glossaryTerms, List<ResourceReference> resources, Authentication authentication)
-      throws Exception {
-    List<MetadataChangeProposal> changes =
-        buildRemoveGlossaryTermsProposals(glossaryTerms, resources, authentication);
->>>>>>> oss_master
     ingestChangeProposals(changes, authentication);
   }
 

@@ -1,12 +1,7 @@
 package datahub.client.patch.common;
 
-<<<<<<< HEAD:metadata-models/src/main/java/datahub/client/patch/common/GlossaryTermsPatchBuilder.java
-import static com.fasterxml.jackson.databind.node.JsonNodeFactory.instance;
-import static com.linkedin.metadata.Constants.GLOSSARY_TERMS_ASPECT_NAME;
-=======
 import static com.fasterxml.jackson.databind.node.JsonNodeFactory.*;
 import static com.linkedin.metadata.Constants.*;
->>>>>>> oss_master:metadata-integration/java/datahub-client/src/main/java/datahub/client/patch/common/GlossaryTermsPatchBuilder.java
 
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.common.urn.GlossaryTermUrn;

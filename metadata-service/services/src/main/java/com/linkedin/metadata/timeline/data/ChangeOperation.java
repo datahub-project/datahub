@@ -17,13 +17,8 @@ public enum ChangeOperation {
   REINSTATE,
   /** Run has STARTED */
   STARTED,
-<<<<<<< HEAD
   /** Run or Proposal is completed */
   COMPLETED,
   /** Proposal is pending */
   PENDING,
-=======
-  /** Run is completed */
-  COMPLETED
->>>>>>> oss_master
 }

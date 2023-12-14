@@ -82,7 +82,6 @@ public class PlatformEntitiesController {
       throw new UnauthorizedException(actorUrnStr + " is unauthorized to edit entities.");
     }
 
-<<<<<<< HEAD
     boolean asyncBool =
         Objects.requireNonNullElseGet(
             async, () -> Boolean.parseBoolean(System.getenv("ASYNC_INGEST_DEFAULT")));
@@ -91,11 +90,6 @@ public class PlatformEntitiesController {
             .map(
                 proposal ->
                     MappingUtil.ingestProposal(proposal, actorUrnStr, _entityService, asyncBool))
-=======
-    List<Pair<String, Boolean>> responses =
-        proposals.stream()
-            .map(proposal -> MappingUtil.ingestProposal(proposal, actorUrnStr, _entityService))
->>>>>>> oss_master
             .collect(Collectors.toList());
     if (responses.stream().anyMatch(Pair::getSecond)) {
       return ResponseEntity.status(HttpStatus.CREATED)

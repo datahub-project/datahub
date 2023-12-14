@@ -1,16 +1,12 @@
 package com.linkedin.metadata.service;
 
 import static com.linkedin.metadata.Constants.*;
-<<<<<<< HEAD
 import static com.linkedin.metadata.entity.AspectUtils.*;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
-=======
-
->>>>>>> oss_master
 import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -86,7 +82,6 @@ public class SettingsServiceTest {
   }
 
   @Test
-<<<<<<< HEAD
   public void testGetCorpUserSettingsMissingActor() throws Exception {
     when(_entityClient.exists(eq(USER_URN), eq(SYSTEM_AUTHENTICATION))).thenReturn(false);
 
@@ -157,19 +152,10 @@ public class SettingsServiceTest {
 
     final CorpGroupSettings res =
         _settingsService.getCorpGroupSettings(GROUP_URN, SYSTEM_AUTHENTICATION);
-=======
-  private static void testGetCorpUserSettingsNullSettings() throws Exception {
-    final SettingsService service =
-        new SettingsService(
-            getCorpUserSettingsEntityClientMock(null), Mockito.mock(Authentication.class));
-    final CorpUserSettings res =
-        service.getCorpUserSettings(TEST_USER_URN, Mockito.mock(Authentication.class));
->>>>>>> oss_master
     Assert.assertNull(res);
   }
 
   @Test
-<<<<<<< HEAD
   public void testGetCorpGroupSettingsValidSettings() throws Exception {
     when(_entityClient.exists(eq(GROUP_URN), eq(SYSTEM_AUTHENTICATION))).thenReturn(true);
     when(_entityClient.getV2(
@@ -182,22 +168,6 @@ public class SettingsServiceTest {
     final CorpGroupSettings res =
         _settingsService.getCorpGroupSettings(GROUP_URN, SYSTEM_AUTHENTICATION);
     assertEquals(CORP_GROUP_SETTINGS, res);
-=======
-  private static void testGetCorpUserSettingsValidSettings() throws Exception {
-    final CorpUserSettings existingSettings =
-        new CorpUserSettings()
-            .setViews(new CorpUserViewsSettings().setDefaultView(TEST_VIEW_URN))
-            .setAppearance(new CorpUserAppearanceSettings().setShowSimplifiedHomepage(true));
-
-    final SettingsService service =
-        new SettingsService(
-            getCorpUserSettingsEntityClientMock(existingSettings),
-            Mockito.mock(Authentication.class));
-
-    final CorpUserSettings res =
-        service.getCorpUserSettings(TEST_USER_URN, Mockito.mock(Authentication.class));
-    Assert.assertEquals(existingSettings, res);
->>>>>>> oss_master
   }
 
   @Test
@@ -210,26 +180,9 @@ public class SettingsServiceTest {
             eq(SYSTEM_AUTHENTICATION)))
         .thenThrow(new RemoteInvocationException());
 
-<<<<<<< HEAD
     assertThrows(
         RuntimeException.class,
         () -> _settingsService.getCorpUserSettings(USER_URN, SYSTEM_AUTHENTICATION));
-=======
-    Mockito.when(
-            mockClient.getV2(
-                Mockito.eq(Constants.CORP_USER_ENTITY_NAME),
-                Mockito.eq(TEST_USER_URN),
-                Mockito.eq(ImmutableSet.of(Constants.CORP_USER_SETTINGS_ASPECT_NAME)),
-                Mockito.any(Authentication.class)))
-        .thenThrow(new RemoteInvocationException());
-
-    final SettingsService service =
-        new SettingsService(mockClient, Mockito.mock(Authentication.class));
-
-    Assert.assertThrows(
-        RuntimeException.class,
-        () -> service.getCorpUserSettings(TEST_USER_URN, Mockito.mock(Authentication.class)));
->>>>>>> oss_master
   }
 
   @Test
@@ -237,7 +190,6 @@ public class SettingsServiceTest {
     final MetadataChangeProposal expectedProposal =
         buildUpdateCorpUserSettingsChangeProposal(USER_URN, UPDATED_CORP_USER_SETTINGS);
 
-<<<<<<< HEAD
     when(_entityClient.exists(eq(USER_URN), eq(SYSTEM_AUTHENTICATION))).thenReturn(true);
     when(_entityClient.ingestProposal(eq(expectedProposal), any(Authentication.class), eq(false)))
         .thenReturn(USER_URN.toString());
@@ -247,30 +199,6 @@ public class SettingsServiceTest {
 
     verify(_entityClient, times(1))
         .ingestProposal(eq(expectedProposal), any(Authentication.class), eq(true));
-=======
-    final CorpUserSettings newSettings =
-        new CorpUserSettings()
-            .setViews(new CorpUserViewsSettings().setDefaultView(TEST_VIEW_URN))
-            .setAppearance(new CorpUserAppearanceSettings().setShowSimplifiedHomepage(true));
-
-    final MetadataChangeProposal expectedProposal =
-        buildUpdateCorpUserSettingsChangeProposal(TEST_USER_URN, newSettings);
-
-    final EntityClient mockClient = Mockito.mock(EntityClient.class);
-    Mockito.when(
-            mockClient.ingestProposal(
-                Mockito.eq(expectedProposal), Mockito.any(Authentication.class), Mockito.eq(false)))
-        .thenReturn(TEST_USER_URN.toString());
-
-    final SettingsService service =
-        new SettingsService(mockClient, Mockito.mock(Authentication.class));
-
-    service.updateCorpUserSettings(TEST_USER_URN, newSettings, Mockito.mock(Authentication.class));
-
-    Mockito.verify(mockClient, Mockito.times(1))
-        .ingestProposal(
-            Mockito.eq(expectedProposal), Mockito.any(Authentication.class), Mockito.eq(false));
->>>>>>> oss_master
   }
 
   @Test
@@ -278,7 +206,6 @@ public class SettingsServiceTest {
     final MetadataChangeProposal expectedProposal =
         buildUpdateCorpUserSettingsChangeProposal(USER_URN, UPDATED_CORP_USER_SETTINGS);
 
-<<<<<<< HEAD
     when(_entityClient.exists(eq(USER_URN), eq(SYSTEM_AUTHENTICATION))).thenReturn(true);
     when(_entityClient.ingestProposal(eq(expectedProposal), any(Authentication.class), eq(true)))
         .thenThrow(new RemoteInvocationException());
@@ -347,43 +274,10 @@ public class SettingsServiceTest {
   @Test
   public void testGetGlobalSettingsNullSettings() {
     final GlobalSettingsInfo res = _settingsService.getGlobalSettings(SYSTEM_AUTHENTICATION);
-=======
-    final CorpUserSettings newSettings =
-        new CorpUserSettings()
-            .setViews(new CorpUserViewsSettings().setDefaultView(TEST_VIEW_URN))
-            .setAppearance(new CorpUserAppearanceSettings().setShowSimplifiedHomepage(true));
-
-    final MetadataChangeProposal expectedProposal =
-        buildUpdateCorpUserSettingsChangeProposal(TEST_USER_URN, newSettings);
-
-    final EntityClient mockClient = Mockito.mock(EntityClient.class);
-    Mockito.when(
-            mockClient.ingestProposal(
-                Mockito.eq(expectedProposal), Mockito.any(Authentication.class), Mockito.eq(false)))
-        .thenThrow(new RemoteInvocationException());
-
-    final SettingsService service =
-        new SettingsService(mockClient, Mockito.mock(Authentication.class));
-
-    Assert.assertThrows(
-        RuntimeException.class,
-        () ->
-            service.updateCorpUserSettings(
-                TEST_USER_URN, newSettings, Mockito.mock(Authentication.class)));
-  }
-
-  @Test
-  private static void testGetGlobalSettingsNullSettings() throws Exception {
-    final SettingsService service =
-        new SettingsService(
-            getGlobalSettingsEntityClientMock(null), Mockito.mock(Authentication.class));
-    final GlobalSettingsInfo res = service.getGlobalSettings(Mockito.mock(Authentication.class));
->>>>>>> oss_master
     Assert.assertNull(res);
   }
 
   @Test
-<<<<<<< HEAD
   public void testGetGlobalSettingsValidSettings() throws Exception {
     final GlobalSettingsInfo existingSettings =
         new GlobalSettingsInfo().setViews(new GlobalViewsSettings().setDefaultView(TEST_VIEW_URN));
@@ -398,19 +292,6 @@ public class SettingsServiceTest {
 
     final GlobalSettingsInfo res = _settingsService.getGlobalSettings(SYSTEM_AUTHENTICATION);
     assertEquals(existingSettings, res);
-=======
-  private static void testGetGlobalSettingsValidSettings() throws Exception {
-    final GlobalSettingsInfo existingSettings =
-        new GlobalSettingsInfo().setViews(new GlobalViewsSettings().setDefaultView(TEST_VIEW_URN));
-
-    final SettingsService service =
-        new SettingsService(
-            getGlobalSettingsEntityClientMock(existingSettings),
-            Mockito.mock(Authentication.class));
-
-    final GlobalSettingsInfo res = service.getGlobalSettings(Mockito.mock(Authentication.class));
-    Assert.assertEquals(existingSettings, res);
->>>>>>> oss_master
   }
 
   @Test
@@ -422,25 +303,8 @@ public class SettingsServiceTest {
             any(Authentication.class)))
         .thenThrow(new RemoteInvocationException());
 
-<<<<<<< HEAD
     assertThrows(
         RuntimeException.class, () -> _settingsService.getGlobalSettings(SYSTEM_AUTHENTICATION));
-=======
-    Mockito.when(
-            mockClient.getV2(
-                Mockito.eq(GLOBAL_SETTINGS_ENTITY_NAME),
-                Mockito.eq(GLOBAL_SETTINGS_URN),
-                Mockito.eq(ImmutableSet.of(GLOBAL_SETTINGS_INFO_ASPECT_NAME)),
-                Mockito.any(Authentication.class)))
-        .thenThrow(new RemoteInvocationException());
-
-    final SettingsService service =
-        new SettingsService(mockClient, Mockito.mock(Authentication.class));
-
-    Assert.assertThrows(
-        RuntimeException.class,
-        () -> service.getGlobalSettings(Mockito.mock(Authentication.class)));
->>>>>>> oss_master
   }
 
   @Test
@@ -448,7 +312,6 @@ public class SettingsServiceTest {
     final GlobalSettingsInfo newSettings =
         new GlobalSettingsInfo().setViews(new GlobalViewsSettings().setDefaultView(TEST_VIEW_URN));
 
-<<<<<<< HEAD
     final MetadataChangeProposal expectedProposal =
         buildUpdateGlobalSettingsChangeProposal(newSettings);
 
@@ -459,28 +322,6 @@ public class SettingsServiceTest {
 
     verify(_entityClient, times(1))
         .ingestProposal(eq(expectedProposal), any(Authentication.class), eq(false));
-=======
-    final GlobalSettingsInfo newSettings =
-        new GlobalSettingsInfo().setViews(new GlobalViewsSettings().setDefaultView(TEST_VIEW_URN));
-
-    final MetadataChangeProposal expectedProposal =
-        buildUpdateGlobalSettingsChangeProposal(newSettings);
-
-    final EntityClient mockClient = Mockito.mock(EntityClient.class);
-    Mockito.when(
-            mockClient.ingestProposal(
-                Mockito.eq(expectedProposal), Mockito.any(Authentication.class), Mockito.eq(false)))
-        .thenReturn(GLOBAL_SETTINGS_URN.toString());
-
-    final SettingsService service =
-        new SettingsService(mockClient, Mockito.mock(Authentication.class));
-
-    service.updateGlobalSettings(newSettings, Mockito.mock(Authentication.class));
-
-    Mockito.verify(mockClient, Mockito.times(1))
-        .ingestProposal(
-            Mockito.eq(expectedProposal), Mockito.any(Authentication.class), Mockito.eq(false));
->>>>>>> oss_master
   }
 
   @Test
@@ -488,7 +329,6 @@ public class SettingsServiceTest {
     final GlobalSettingsInfo newSettings =
         new GlobalSettingsInfo().setViews(new GlobalViewsSettings().setDefaultView(TEST_VIEW_URN));
 
-<<<<<<< HEAD
     final MetadataChangeProposal expectedProposal =
         buildUpdateGlobalSettingsChangeProposal(newSettings);
 
@@ -498,78 +338,6 @@ public class SettingsServiceTest {
     assertThrows(
         RuntimeException.class,
         () -> _settingsService.updateGlobalSettings(newSettings, SYSTEM_AUTHENTICATION));
-=======
-    final GlobalSettingsInfo newSettings =
-        new GlobalSettingsInfo().setViews(new GlobalViewsSettings().setDefaultView(TEST_VIEW_URN));
-
-    final MetadataChangeProposal expectedProposal =
-        buildUpdateGlobalSettingsChangeProposal(newSettings);
-
-    final EntityClient mockClient = Mockito.mock(EntityClient.class);
-    Mockito.when(
-            mockClient.ingestProposal(
-                Mockito.eq(expectedProposal), Mockito.any(Authentication.class), Mockito.eq(false)))
-        .thenThrow(new RemoteInvocationException());
-
-    final SettingsService service =
-        new SettingsService(mockClient, Mockito.mock(Authentication.class));
-
-    Assert.assertThrows(
-        RuntimeException.class,
-        () -> service.updateGlobalSettings(newSettings, Mockito.mock(Authentication.class)));
-  }
-
-  private static EntityClient getCorpUserSettingsEntityClientMock(
-      @Nullable final CorpUserSettings settings) throws Exception {
-    EntityClient mockClient = Mockito.mock(EntityClient.class);
-
-    EnvelopedAspectMap aspectMap =
-        settings != null
-            ? new EnvelopedAspectMap(
-                ImmutableMap.of(
-                    Constants.CORP_USER_SETTINGS_ASPECT_NAME,
-                    new EnvelopedAspect().setValue(new Aspect(settings.data()))))
-            : new EnvelopedAspectMap();
-
-    Mockito.when(
-            mockClient.getV2(
-                Mockito.eq(Constants.CORP_USER_ENTITY_NAME),
-                Mockito.eq(TEST_USER_URN),
-                Mockito.eq(ImmutableSet.of(Constants.CORP_USER_SETTINGS_ASPECT_NAME)),
-                Mockito.any(Authentication.class)))
-        .thenReturn(
-            new EntityResponse()
-                .setEntityName(Constants.CORP_USER_ENTITY_NAME)
-                .setUrn(TEST_USER_URN)
-                .setAspects(aspectMap));
-    return mockClient;
-  }
-
-  private static EntityClient getGlobalSettingsEntityClientMock(
-      @Nullable final GlobalSettingsInfo settings) throws Exception {
-    EntityClient mockClient = Mockito.mock(EntityClient.class);
-
-    EnvelopedAspectMap aspectMap =
-        settings != null
-            ? new EnvelopedAspectMap(
-                ImmutableMap.of(
-                    GLOBAL_SETTINGS_INFO_ASPECT_NAME,
-                    new EnvelopedAspect().setValue(new Aspect(settings.data()))))
-            : new EnvelopedAspectMap();
-
-    Mockito.when(
-            mockClient.getV2(
-                Mockito.eq(GLOBAL_SETTINGS_ENTITY_NAME),
-                Mockito.eq(GLOBAL_SETTINGS_URN),
-                Mockito.eq(ImmutableSet.of(GLOBAL_SETTINGS_INFO_ASPECT_NAME)),
-                Mockito.any(Authentication.class)))
-        .thenReturn(
-            new EntityResponse()
-                .setEntityName(Constants.GLOBAL_SETTINGS_INFO_ASPECT_NAME)
-                .setUrn(GLOBAL_SETTINGS_URN)
-                .setAspects(aspectMap));
-    return mockClient;
->>>>>>> oss_master
   }
 
   private static MetadataChangeProposal buildUpdateCorpUserSettingsChangeProposal(
@@ -581,7 +349,6 @@ public class SettingsServiceTest {
     mcp.setChangeType(ChangeType.UPSERT);
     mcp.setAspect(GenericRecordUtils.serializeAspect(newSettings));
     return mcp;
-<<<<<<< HEAD
   }
 
   private static MetadataChangeProposal buildUpdateCorpGroupSettingsChangeProposal(
@@ -593,8 +360,6 @@ public class SettingsServiceTest {
     mcp.setChangeType(ChangeType.UPSERT);
     mcp.setAspect(GenericRecordUtils.serializeAspect(newSettings));
     return mcp;
-=======
->>>>>>> oss_master
   }
 
   private static MetadataChangeProposal buildUpdateGlobalSettingsChangeProposal(

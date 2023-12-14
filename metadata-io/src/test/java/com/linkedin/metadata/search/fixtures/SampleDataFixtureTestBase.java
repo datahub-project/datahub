@@ -85,7 +85,6 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
   @Nonnull
   protected abstract RestHighLevelClient getSearchClient();
 
-<<<<<<< HEAD
   @Autowired
   @Qualifier("sampleDataEntitySearchService")
   private EntitySearchService _entitySearchService;
@@ -208,126 +207,6 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
                   ? (String) actualSubfield.get("search_analyzer")
                   : "keyword";
 
-=======
-  @Test
-  public void testSearchFieldConfig() throws IOException {
-    /*
-     For every field in every entity fixture, ensure proper detection of field types and analyzers
-    */
-    Map<EntitySpec, String> fixtureEntities = new HashMap<>();
-    fixtureEntities.put(getEntityRegistry().getEntitySpec("dataset"), "smpldat_datasetindex_v2");
-    fixtureEntities.put(getEntityRegistry().getEntitySpec("chart"), "smpldat_chartindex_v2");
-    fixtureEntities.put(
-        getEntityRegistry().getEntitySpec("container"), "smpldat_containerindex_v2");
-    fixtureEntities.put(
-        getEntityRegistry().getEntitySpec("corpgroup"), "smpldat_corpgroupindex_v2");
-    fixtureEntities.put(getEntityRegistry().getEntitySpec("corpuser"), "smpldat_corpuserindex_v2");
-    fixtureEntities.put(
-        getEntityRegistry().getEntitySpec("dashboard"), "smpldat_dashboardindex_v2");
-    fixtureEntities.put(getEntityRegistry().getEntitySpec("dataflow"), "smpldat_dataflowindex_v2");
-    fixtureEntities.put(getEntityRegistry().getEntitySpec("datajob"), "smpldat_datajobindex_v2");
-    fixtureEntities.put(getEntityRegistry().getEntitySpec("domain"), "smpldat_domainindex_v2");
-    fixtureEntities.put(
-        getEntityRegistry().getEntitySpec("glossarynode"), "smpldat_glossarynodeindex_v2");
-    fixtureEntities.put(
-        getEntityRegistry().getEntitySpec("glossaryterm"), "smpldat_glossarytermindex_v2");
-    fixtureEntities.put(
-        getEntityRegistry().getEntitySpec("mlfeature"), "smpldat_mlfeatureindex_v2");
-    fixtureEntities.put(
-        getEntityRegistry().getEntitySpec("mlfeaturetable"), "smpldat_mlfeaturetableindex_v2");
-    fixtureEntities.put(
-        getEntityRegistry().getEntitySpec("mlmodelgroup"), "smpldat_mlmodelgroupindex_v2");
-    fixtureEntities.put(getEntityRegistry().getEntitySpec("mlmodel"), "smpldat_mlmodelindex_v2");
-    fixtureEntities.put(
-        getEntityRegistry().getEntitySpec("mlprimarykey"), "smpldat_mlprimarykeyindex_v2");
-    fixtureEntities.put(getEntityRegistry().getEntitySpec("tag"), "smpldat_tagindex_v2");
-
-    for (Map.Entry<EntitySpec, String> entry : fixtureEntities.entrySet()) {
-      EntitySpec entitySpec = entry.getKey();
-      GetMappingsRequest req = new GetMappingsRequest().indices(entry.getValue());
-
-      GetMappingsResponse resp =
-          getSearchClient().indices().getMapping(req, RequestOptions.DEFAULT);
-      Map<String, Map<String, Object>> mappings =
-          (Map<String, Map<String, Object>>)
-              resp.mappings().get(entry.getValue()).sourceAsMap().get("properties");
-
-      // For every fieldSpec determine whether the SearchFieldConfig is accurate
-      for (SearchableFieldSpec fieldSpec : entitySpec.getSearchableFieldSpecs()) {
-        SearchFieldConfig test = SearchFieldConfig.detectSubFieldType(fieldSpec);
-
-        if (!test.fieldName().contains(".")) {
-          Map<String, Object> actual = mappings.get(test.fieldName());
-
-          final String expectedAnalyzer;
-          if (actual.get("search_analyzer") != null) {
-            expectedAnalyzer = (String) actual.get("search_analyzer");
-          } else if (actual.get("analyzer") != null) {
-            expectedAnalyzer = (String) actual.get("analyzer");
-          } else {
-            expectedAnalyzer = "keyword";
-          }
-
-          assertEquals(
-              test.analyzer(),
-              expectedAnalyzer,
-              String.format(
-                  "Expected search analyzer to match for entity: `%s`field: `%s`",
-                  entitySpec.getName(), test.fieldName()));
-
-          if (test.hasDelimitedSubfield()) {
-            assertTrue(
-                ((Map<String, Map<String, String>>) actual.get("fields")).containsKey("delimited"),
-                String.format(
-                    "Expected entity: `%s` field to have .delimited subfield: `%s`",
-                    entitySpec.getName(), test.fieldName()));
-          } else {
-            boolean nosubfield =
-                !actual.containsKey("fields")
-                    || !((Map<String, Map<String, String>>) actual.get("fields"))
-                        .containsKey("delimited");
-            assertTrue(
-                nosubfield,
-                String.format(
-                    "Expected entity: `%s` field to NOT have .delimited subfield: `%s`",
-                    entitySpec.getName(), test.fieldName()));
-          }
-          if (test.hasKeywordSubfield()) {
-            assertTrue(
-                ((Map<String, Map<String, String>>) actual.get("fields")).containsKey("keyword"),
-                String.format(
-                    "Expected entity: `%s` field to have .keyword subfield: `%s`",
-                    entitySpec.getName(), test.fieldName()));
-          } else {
-            boolean nosubfield =
-                !actual.containsKey("fields")
-                    || !((Map<String, Map<String, String>>) actual.get("fields"))
-                        .containsKey("keyword");
-            assertTrue(
-                nosubfield,
-                String.format(
-                    "Expected entity: `%s` field to NOT have .keyword subfield: `%s`",
-                    entitySpec.getName(), test.fieldName()));
-          }
-        } else {
-          // this is a subfield therefore cannot have a subfield
-          assertFalse(test.hasKeywordSubfield());
-          assertFalse(test.hasDelimitedSubfield());
-          assertFalse(test.hasWordGramSubfields());
-
-          String[] fieldAndSubfield = test.fieldName().split("[.]", 2);
-
-          Map<String, Object> actualParent = mappings.get(fieldAndSubfield[0]);
-          Map<String, Object> actualSubfield =
-              ((Map<String, Map<String, Object>>) actualParent.get("fields"))
-                  .get(fieldAndSubfield[0]);
-
-          String expectedAnalyzer =
-              actualSubfield.get("search_analyzer") != null
-                  ? (String) actualSubfield.get("search_analyzer")
-                  : "keyword";
-
->>>>>>> oss_master
           assertEquals(
               test.analyzer(),
               expectedAnalyzer,
@@ -1439,7 +1318,6 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
   }
 
   @Test
-<<<<<<< HEAD
   public void testEntityServiceScroll() throws IOException {
     // Find expected number of entities by doing a * search
     SearchResult totalResult = search(getSearchService(), "*");
@@ -1459,8 +1337,6 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
   }
 
   @Test
-=======
->>>>>>> oss_master
   public void testSearchAcrossMultipleEntities() {
     String query = "logging_events";
     SearchResult result = search(getSearchService(), query);

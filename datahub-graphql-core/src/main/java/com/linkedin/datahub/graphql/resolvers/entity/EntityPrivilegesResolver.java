@@ -9,11 +9,8 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityPrivileges;
-<<<<<<< HEAD
 import com.linkedin.datahub.graphql.resolvers.assertion.AssertionUtils;
 import com.linkedin.datahub.graphql.resolvers.monitor.MonitorUtils;
-=======
->>>>>>> oss_master
 import com.linkedin.datahub.graphql.resolvers.mutate.util.EmbedUtils;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.GlossaryUtils;
 import com.linkedin.entity.client.EntityClient;

@@ -1,10 +1,6 @@
 package datahub.client.patch.common;
 
-<<<<<<< HEAD:metadata-models/src/main/java/datahub/client/patch/common/CustomPropertiesPatchBuilder.java
-import static com.fasterxml.jackson.databind.node.JsonNodeFactory.instance;
-=======
 import static com.fasterxml.jackson.databind.node.JsonNodeFactory.*;
->>>>>>> oss_master:metadata-integration/java/datahub-client/src/main/java/datahub/client/patch/common/CustomPropertiesPatchBuilder.java
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;

@@ -30,10 +30,7 @@ import org.springframework.context.annotation.PropertySource;
       "com.linkedin.gms.factory.kafka",
       "com.linkedin.gms.factory.search",
       "com.linkedin.gms.factory.secret",
-<<<<<<< HEAD
       "com.linkedin.gms.factory.test",
-=======
->>>>>>> oss_master
       "com.linkedin.gms.factory.timeseries",
       "com.linkedin.restli.server",
       "com.linkedin.metadata.restli",

@@ -1340,13 +1340,10 @@ public class PolicyEngineTest {
             ImmutableList.of(
                 Urn.createFromString("urn:li:corpGroup:group1"),
                 Urn.createFromString("urn:li:corpGroup:group2"))));
-<<<<<<< HEAD
     actorFilter.setRoles(
         new UrnArray(
             com.datastax.oss.driver.shaded.guava.common.collect.ImmutableList.of(
                 Urn.createFromString("urn:li:role:Admin"))));
-=======
->>>>>>> oss_master
     dataHubPolicyInfo.setActors(actorFilter);
 
     final DataHubResourceFilter resourceFilter = new DataHubResourceFilter();
@@ -1367,11 +1364,7 @@ public class PolicyEngineTest {
     assertFalse(actors.getAllGroups());
     assertEquals(actors.getUsers(), Collections.emptyList());
     assertEquals(actors.getGroups(), Collections.emptyList());
-<<<<<<< HEAD
     assertEquals(actors.getRoles(), Collections.emptyList());
-=======
-    // assertEquals(actors.getRoles(), Collections.emptyList());
->>>>>>> oss_master
 
     // Verify no network calls
     verify(_entityClient, times(0)).batchGetV2(any(), any(), any(), any());
@@ -1421,10 +1414,6 @@ public class PolicyEngineTest {
     assertEquals(actors.getGroups(), ImmutableList.of());
     assertEquals(
         actors.getRoles(), ImmutableList.of(Urn.createFromString("urn:li:dataHubRole:Editor")));
-<<<<<<< HEAD
-=======
-
->>>>>>> oss_master
     // Verify aspect client called, entity client not called.
     verify(_entityClient, times(0))
         .batchGetV2(

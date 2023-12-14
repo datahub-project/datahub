@@ -123,7 +123,6 @@ public class AuthorizationUtils {
         CORP_GROUP_ENTITY_NAME,
         groupUrnStr,
         orPrivilegeGroups);
-<<<<<<< HEAD
   }
 
   public static boolean canManageGroupNotificationSettings(
@@ -160,8 +159,6 @@ public class AuthorizationUtils {
         CORP_GROUP_ENTITY_NAME,
         groupUrnStr,
         orPrivilegeGroups);
-=======
->>>>>>> oss_master
   }
 
   public static boolean canCreateGlobalAnnouncements(@Nonnull QueryContext context) {

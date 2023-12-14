@@ -1,10 +1,7 @@
 package com.linkedin.metadata.service;
 
 import static com.linkedin.metadata.entity.AspectUtils.*;
-<<<<<<< HEAD
 import static com.linkedin.metadata.service.util.MetadataTestServiceUtils.*;
-=======
->>>>>>> oss_master
 
 import com.datahub.authentication.Authentication;
 import com.google.common.annotations.VisibleForTesting;
@@ -49,14 +46,9 @@ public class OwnerService extends BaseService {
   public void batchAddOwners(
       @Nonnull List<Urn> ownerUrns,
       @Nonnull List<ResourceReference> resources,
-<<<<<<< HEAD
       @Nonnull OwnershipType ownershipType,
       @Nullable String appSource) {
     batchAddOwners(ownerUrns, resources, ownershipType, this.systemAuthentication, appSource);
-=======
-      @Nonnull OwnershipType ownershipType) {
-    batchAddOwners(ownerUrns, resources, ownershipType, this.systemAuthentication);
->>>>>>> oss_master
   }
 
   /**
@@ -97,15 +89,10 @@ public class OwnerService extends BaseService {
    *     processing logic when matching particular sources
    */
   public void batchRemoveOwners(
-<<<<<<< HEAD
       @Nonnull List<Urn> ownerUrns,
       @Nonnull List<ResourceReference> resources,
       @Nullable String appSource) {
     batchRemoveOwners(ownerUrns, resources, this.systemAuthentication, appSource);
-=======
-      @Nonnull List<Urn> ownerUrns, @Nonnull List<ResourceReference> resources) {
-    batchRemoveOwners(ownerUrns, resources, this.systemAuthentication);
->>>>>>> oss_master
   }
 
   /**
@@ -139,7 +126,6 @@ public class OwnerService extends BaseService {
       List<com.linkedin.common.urn.Urn> ownerUrns,
       List<ResourceReference> resources,
       OwnershipType ownershipType,
-<<<<<<< HEAD
       Authentication authentication,
       @Nullable String appSource)
       throws Exception {
@@ -148,17 +134,10 @@ public class OwnerService extends BaseService {
     if (appSource != null) {
       applyAppSource(changes, appSource);
     }
-=======
-      Authentication authentication)
-      throws Exception {
-    final List<MetadataChangeProposal> changes =
-        buildAddOwnersProposals(ownerUrns, resources, ownershipType, authentication);
->>>>>>> oss_master
     ingestChangeProposals(changes, authentication);
   }
 
   private void removeOwnersFromResources(
-<<<<<<< HEAD
       List<Urn> owners,
       List<ResourceReference> resources,
       Authentication authentication,
@@ -169,12 +148,6 @@ public class OwnerService extends BaseService {
     if (appSource != null) {
       applyAppSource(changes, appSource);
     }
-=======
-      List<Urn> owners, List<ResourceReference> resources, Authentication authentication)
-      throws Exception {
-    final List<MetadataChangeProposal> changes =
-        buildRemoveOwnersProposals(owners, resources, authentication);
->>>>>>> oss_master
     ingestChangeProposals(changes, authentication);
   }
 

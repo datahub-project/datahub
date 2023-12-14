@@ -446,10 +446,6 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
             .inputParam(input)
             .filterParam(newFilter(requestFilters))
             .startParam(start)
-<<<<<<< HEAD
-=======
-            .fulltextParam(searchFlags != null ? searchFlags.isFulltext() : null)
->>>>>>> oss_master
             .countParam(count);
     if (searchFlags != null) {
       requestBuilder.searchFlagsParam(searchFlags);

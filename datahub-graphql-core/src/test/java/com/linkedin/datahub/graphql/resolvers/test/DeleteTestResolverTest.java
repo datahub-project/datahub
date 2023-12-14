@@ -4,7 +4,6 @@ import static com.linkedin.datahub.graphql.TestUtils.*;
 import static org.testng.Assert.*;
 
 import com.datahub.authentication.Authentication;
-<<<<<<< HEAD
 import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -13,11 +12,6 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.test.TestEngine;
 import com.linkedin.mxe.MetadataChangeProposal;
-=======
-import com.linkedin.common.urn.Urn;
-import com.linkedin.datahub.graphql.QueryContext;
-import com.linkedin.entity.client.EntityClient;
->>>>>>> oss_master
 import graphql.schema.DataFetchingEnvironment;
 import java.util.concurrent.CompletionException;
 import org.mockito.Mockito;
@@ -44,7 +38,6 @@ public class DeleteTestResolverTest {
 
     assertTrue(resolver.get(mockEnv).join());
 
-<<<<<<< HEAD
     MetadataChangeProposal expectedChangeProposal =
         AspectUtils.buildMetadataChangeProposal(
             urn, Constants.STATUS_ASPECT_NAME, new Status().setRemoved(true));
@@ -80,11 +73,6 @@ public class DeleteTestResolverTest {
         .exists(Mockito.eq(urn), Mockito.any(Authentication.class));
 
     Mockito.verifyNoMoreInteractions(mockClient);
-=======
-    Mockito.verify(mockClient, Mockito.times(1))
-        .deleteEntity(
-            Mockito.eq(Urn.createFromString(TEST_URN)), Mockito.any(Authentication.class));
->>>>>>> oss_master
   }
 
   @Test

@@ -13,10 +13,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.util.Pair;
 import com.typesafe.config.Config;
 import java.io.InputStream;
-<<<<<<< HEAD
 import java.net.URI;
-=======
->>>>>>> oss_master
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
@@ -129,15 +126,12 @@ public class Application extends Controller {
       headers.put(Http.HeaderNames.X_FORWARDED_HOST, headers.get(Http.HeaderNames.HOST));
     }
 
-<<<<<<< HEAD
     if (!headers.containsKey(Http.HeaderNames.X_FORWARDED_PROTO)) {
       final String schema =
           Optional.ofNullable(URI.create(request.uri()).getScheme()).orElse("http");
       headers.put(Http.HeaderNames.X_FORWARDED_PROTO, List.of(schema));
     }
 
-=======
->>>>>>> oss_master
     return _ws.url(
             String.format(
                 "%s://%s:%s%s", protocol, metadataServiceHost, metadataServicePort, resolvedUri))

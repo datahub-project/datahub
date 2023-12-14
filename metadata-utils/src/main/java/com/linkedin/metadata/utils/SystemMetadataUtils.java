@@ -18,7 +18,6 @@ public class SystemMetadataUtils {
         .setRunId(Constants.DEFAULT_RUN_ID)
         .setLastObserved(System.currentTimeMillis());
   }
-<<<<<<< HEAD
 
   public static Long getLastIngested(@Nonnull EnvelopedAspectMap aspectMap) {
     Long lastIngested = null;
@@ -37,6 +36,4 @@ public class SystemMetadataUtils {
     }
     return lastIngested;
   }
-=======
->>>>>>> oss_master
 }

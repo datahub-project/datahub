@@ -185,7 +185,6 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
 
     final FeatureFlagsConfig featureFlagsConfig =
         FeatureFlagsConfig.builder()
-<<<<<<< HEAD
             .setAssertionMonitorsEnabled(_featureFlags.isAssertionMonitorsEnabled())
             .setShowSearchFiltersV2(_featureFlags.isShowSearchFiltersV2())
             .setReadOnlyModeEnabled(_featureFlags.isReadOnlyModeEnabled())
@@ -197,14 +196,6 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
             .setNestedDomainsEnabled(_featureFlags.isNestedDomainsEnabled())
             .setDataContractsEnabled(_featureFlags.isDataContractsEnabled())
             .setDocumentationAiEnabled(_featureFlags.isDocumentationAiEnabled())
-=======
-            .setShowSearchFiltersV2(_featureFlags.isShowSearchFiltersV2())
-            .setReadOnlyModeEnabled(_featureFlags.isReadOnlyModeEnabled())
-            .setShowBrowseV2(_featureFlags.isShowBrowseV2())
-            .setShowAcrylInfo(_featureFlags.isShowAcrylInfo())
-            .setShowAccessManagement(_featureFlags.isShowAccessManagement())
-            .setNestedDomainsEnabled(_featureFlags.isNestedDomainsEnabled())
->>>>>>> oss_master
             .build();
 
     appConfig.setFeatureFlags(featureFlagsConfig);

@@ -86,10 +86,6 @@ public class SearchRequestHandler {
           .setSkipHighlighting(false);
   private static final Map<List<EntitySpec>, SearchRequestHandler> REQUEST_HANDLER_BY_ENTITY_NAME =
       new ConcurrentHashMap<>();
-<<<<<<< HEAD
-=======
-  private static final String REMOVED = "removed";
->>>>>>> oss_master
   private static final String URN_FILTER = "urn";
   private static final String[] FIELDS_TO_FETCH = new String[] {"urn", "usageCountLast30Days"};
   private static final String[] URN_FIELD = new String[] {"urn"};
@@ -559,7 +555,6 @@ public class SearchRequestHandler {
   }
 
   private Map<String, Double> extractFeatures(@Nonnull SearchHit searchHit) {
-<<<<<<< HEAD
     Map<String, Double> features = new HashMap<>();
     features.put(Features.Name.SEARCH_BACKEND_SCORE.toString(), (double) searchHit.getScore());
     Optional.ofNullable(searchHit.getSourceAsMap().get("usageCountLast30Days"))
@@ -567,10 +562,6 @@ public class SearchRequestHandler {
             value ->
                 features.put(Features.Name.QUERY_COUNT.toString(), ((Number) value).doubleValue()));
     return features;
-=======
-    return ImmutableMap.of(
-        Features.Name.SEARCH_BACKEND_SCORE.toString(), (double) searchHit.getScore());
->>>>>>> oss_master
   }
 
   private SearchEntity getResult(@Nonnull SearchHit hit) {

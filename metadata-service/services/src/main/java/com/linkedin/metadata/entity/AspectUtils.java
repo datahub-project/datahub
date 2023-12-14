@@ -177,7 +177,6 @@ public class AspectUtils {
     auditStamp.setActor(actor);
     return auditStamp;
   }
-<<<<<<< HEAD
 
   @Nonnull
   public static DataMap getDataMapFromEntityResponse(
@@ -226,6 +225,4 @@ public class AspectUtils {
     entityResponse.setAspects(aspectMap);
     return entityResponse;
   }
-=======
->>>>>>> oss_master
 }

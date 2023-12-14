@@ -29,23 +29,15 @@ public class TemplateUtil {
 
   public static List<Pair<PatchOperationType, String>> getPaths(Patch jsonPatch) {
     JsonNode patchNode = OBJECT_MAPPER.valueToTree(jsonPatch);
-<<<<<<< HEAD
     List<Pair<PatchOperationType, String>> paths = new ArrayList<>();
-=======
-    List<String> paths = new ArrayList<>();
->>>>>>> oss_master
     patchNode
         .elements()
         .forEachRemaining(
             node -> {
-<<<<<<< HEAD
               paths.add(
                   Pair.of(
                       PatchOperationType.valueOf(node.get("op").asText().toUpperCase()),
                       node.get("path").asText()));
-=======
-              paths.add(node.get("path").asText());
->>>>>>> oss_master
             });
     return paths;
   }

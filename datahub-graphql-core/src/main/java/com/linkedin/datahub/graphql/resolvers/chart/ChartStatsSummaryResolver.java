@@ -47,7 +47,6 @@ public class ChartStatsSummaryResolver
   @Override
   public CompletableFuture<ChartStatsSummary> get(DataFetchingEnvironment environment)
       throws Exception {
-<<<<<<< HEAD
     final Urn resourceUrn = UrnUtils.getUrn(((Entity) environment.getSource()).getUrn());
     final QueryContext context = environment.getContext();
 
@@ -154,9 +153,4 @@ public class ChartStatsSummaryResolver
     result.setUrn(userUrn.toString());
     return result;
   }
-=======
-    // Not yet implemented
-    return CompletableFuture.completedFuture(null);
-  }
->>>>>>> oss_master
 }

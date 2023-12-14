@@ -1,10 +1,6 @@
 package com.linkedin.metadata.graph.elastic;
 
-<<<<<<< HEAD
 import static com.linkedin.metadata.graph.elastic.ElasticSearchGraphService.INDEX_NAME;
-=======
-import static com.linkedin.metadata.graph.elastic.ElasticSearchGraphService.*;
->>>>>>> oss_master
 
 import com.codahale.metrics.Timer;
 import com.datahub.util.exception.ESQueryException;
@@ -340,24 +336,10 @@ public class ESGraphQueryDAO {
                 Collectors.toMap(
                     Function.identity(),
                     entityType -> lineageRegistry.getLineageRelationships(entityType, direction)));
-<<<<<<< HEAD
 
     QueryBuilder finalQuery =
         getLineageQuery(
             urnsPerEntityType, edgesPerEntityType, graphFilters, startTimeMillis, endTimeMillis);
-=======
-    BoolQueryBuilder finalQuery = QueryBuilders.boolQuery();
-    // Get all relation types relevant to the set of urns to hop from
-    urnsPerEntityType.forEach(
-        (entityType, urns) ->
-            finalQuery.should(
-                getQueryForLineage(
-                    urns,
-                    edgesPerEntityType.getOrDefault(entityType, Collections.emptyList()),
-                    graphFilters,
-                    startTimeMillis,
-                    endTimeMillis)));
->>>>>>> oss_master
     SearchResponse response =
         executeSearchQuery(finalQuery, 0, graphQueryConfiguration.getMaxResult());
     Set<Urn> entityUrnSet = new HashSet<>(entityUrns);
@@ -370,7 +352,6 @@ public class ESGraphQueryDAO {
             .collect(Collectors.toSet());
     return extractRelationships(
         entityUrnSet, response, validEdges, visitedEntities, numHops, existingPaths);
-<<<<<<< HEAD
   }
 
   @VisibleForTesting
@@ -411,25 +392,14 @@ public class ESGraphQueryDAO {
     }
 
     return finalQuery;
-=======
->>>>>>> oss_master
   }
 
   // Get search query for given list of edges and source urns
   @VisibleForTesting
-<<<<<<< HEAD
   public static QueryBuilder getLineageQueryForEntityType(
       @Nonnull List<Urn> urns,
       @Nonnull List<EdgeInfo> lineageEdges,
       @Nonnull GraphFilters graphFilters) {
-=======
-  public static QueryBuilder getQueryForLineage(
-      @Nonnull List<Urn> urns,
-      @Nonnull List<EdgeInfo> lineageEdges,
-      @Nonnull GraphFilters graphFilters,
-      @Nullable Long startTimeMillis,
-      @Nullable Long endTimeMillis) {
->>>>>>> oss_master
     BoolQueryBuilder query = QueryBuilders.boolQuery();
     Map<RelationshipDirection, List<EdgeInfo>> edgesByDirection =
         lineageEdges.stream().collect(Collectors.groupingBy(EdgeInfo::getDirection));
@@ -446,21 +416,6 @@ public class ESGraphQueryDAO {
       query.should(getIncomingEdgeQuery(urns, incomingEdges, graphFilters));
     }
 
-<<<<<<< HEAD
-=======
-    /*
-     * Optional - Add edge filtering based on time windows.
-     */
-    if (startTimeMillis != null && endTimeMillis != null) {
-      query.must(TimeFilterUtils.getEdgeTimeFilterQuery(startTimeMillis, endTimeMillis));
-    } else {
-      log.debug(
-          String.format(
-              "Empty time filter range provided: start time %s, end time: %s. Skipping application of time filters",
-              startTimeMillis, endTimeMillis));
-    }
-
->>>>>>> oss_master
     return query;
   }
 
@@ -662,12 +617,6 @@ public class ESGraphQueryDAO {
     BoolQueryBuilder outgoingEdgeQuery = QueryBuilders.boolQuery();
     outgoingEdgeQuery.must(buildUrnFilters(urns, SOURCE));
     outgoingEdgeQuery.must(buildEdgeFilters(outgoingEdges));
-<<<<<<< HEAD
-=======
-    outgoingEdgeQuery.must(buildEntityTypesFilter(graphFilters.getAllowedEntityTypes(), SOURCE));
-    outgoingEdgeQuery.must(
-        buildEntityTypesFilter(graphFilters.getAllowedEntityTypes(), DESTINATION));
->>>>>>> oss_master
     return outgoingEdgeQuery;
   }
 
@@ -676,12 +625,6 @@ public class ESGraphQueryDAO {
     BoolQueryBuilder incomingEdgeQuery = QueryBuilders.boolQuery();
     incomingEdgeQuery.must(buildUrnFilters(urns, DESTINATION));
     incomingEdgeQuery.must(buildEdgeFilters(incomingEdges));
-<<<<<<< HEAD
-=======
-    incomingEdgeQuery.must(buildEntityTypesFilter(graphFilters.getAllowedEntityTypes(), SOURCE));
-    incomingEdgeQuery.must(
-        buildEntityTypesFilter(graphFilters.getAllowedEntityTypes(), DESTINATION));
->>>>>>> oss_master
     return incomingEdgeQuery;
   }
 

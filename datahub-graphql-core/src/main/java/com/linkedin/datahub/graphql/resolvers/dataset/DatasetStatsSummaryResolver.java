@@ -72,10 +72,6 @@ public class DatasetStatsSummaryResolver
           }
 
           try {
-<<<<<<< HEAD
-=======
-
->>>>>>> oss_master
             if (!isAuthorized(resourceUrn, context)) {
               log.debug(
                   "User {} is not authorized to view profile information for dataset {}",
@@ -83,7 +79,6 @@ public class DatasetStatsSummaryResolver
                   resourceUrn.toString());
               return null;
             }
-<<<<<<< HEAD
             final EntityResponse response = getOfflineFeatures(resourceUrn, context);
 
             final UsageFeatures maybeUsageFeatures =
@@ -116,42 +111,16 @@ public class DatasetStatsSummaryResolver
 
             // acryl-main only - first see if we can populate stats based on the UsageFeatures
             // aspect
-=======
-
-            com.linkedin.usage.UsageQueryResult usageQueryResult =
-                usageClient.getUsageStats(resourceUrn.toString(), UsageTimeRange.MONTH);
-
-            final DatasetStatsSummary result = new DatasetStatsSummary();
-            result.setQueryCountLast30Days(usageQueryResult.getAggregations().getTotalSqlQueries());
-            result.setUniqueUserCountLast30Days(
-                usageQueryResult.getAggregations().getUniqueUserCount());
-            if (usageQueryResult.getAggregations().hasUsers()) {
-              result.setTopUsersLast30Days(
-                  trimUsers(
-                      usageQueryResult.getAggregations().getUsers().stream()
-                          .filter(UserUsageCounts::hasUser)
-                          .sorted((a, b) -> (b.getCount() - a.getCount()))
-                          .map(
-                              userCounts ->
-                                  createPartialUser(Objects.requireNonNull(userCounts.getUser())))
-                          .collect(Collectors.toList())));
-            }
->>>>>>> oss_master
             this.summaryCache.put(resourceUrn, result);
             return result;
           } catch (Exception e) {
             log.error(
                 String.format(
-<<<<<<< HEAD
                     "Failed to load Stats summary for resource %s", resourceUrn.toString()),
-=======
-                    "Failed to load Usage Stats summary for resource %s", resourceUrn.toString()),
->>>>>>> oss_master
                 e);
             return null; // Do not throw when loading usage summary fails.
           }
         });
-<<<<<<< HEAD
   }
 
   private void addUsageFeatures(
@@ -193,8 +162,6 @@ public class DatasetStatsSummaryResolver
       // Do not cache to ensure we're up to date.
       addSummaryFromOfflineStorageFeatures(maybeStorageFeatures, result);
     }
-=======
->>>>>>> oss_master
   }
 
   private List<CorpUser> trimUsers(final List<CorpUser> originalUsers) {

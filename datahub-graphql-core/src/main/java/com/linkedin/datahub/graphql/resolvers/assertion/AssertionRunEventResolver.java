@@ -95,7 +95,6 @@ public class AssertionRunEventResolver
                                     && AssertionResultType.SUCCESS.equals(
                                         runEvent.getResult().getType()))
                         .count()));
-<<<<<<< HEAD
             result.setErrored(
                 Math.toIntExact(
                     runEvents.stream()
@@ -106,8 +105,6 @@ public class AssertionRunEventResolver
                                     && AssertionResultType.ERROR.equals(
                                         runEvent.getResult().getType()))
                         .count()));
-=======
->>>>>>> oss_master
             result.setRunEvents(runEvents);
             return result;
           } catch (RemoteInvocationException e) {

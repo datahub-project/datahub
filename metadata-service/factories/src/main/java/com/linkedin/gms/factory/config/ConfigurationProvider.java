@@ -3,10 +3,7 @@ package com.linkedin.gms.factory.config;
 import com.datahub.authentication.AuthenticationConfiguration;
 import com.datahub.authorization.AuthorizationConfiguration;
 import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
-<<<<<<< HEAD
 import com.linkedin.metadata.config.ChromeExtensionConfiguration;
-=======
->>>>>>> oss_master
 import com.linkedin.metadata.config.DataHubConfiguration;
 import com.linkedin.metadata.config.IngestionConfiguration;
 import com.linkedin.metadata.config.IntegrationsServiceConfiguration;
@@ -68,7 +65,6 @@ public class ConfigurationProvider {
   /** System Update configurations */
   private SystemUpdateConfiguration systemUpdate;
 
-<<<<<<< HEAD
   // fork related configs go below this line
   /** The base URL where DataHub is hosted. */
   private String baseUrl;
@@ -85,11 +81,6 @@ public class ConfigurationProvider {
   /** Configuration for the chrome extension */
   private ChromeExtensionConfiguration chromeExtension;
 
-=======
-  /** Configuration for caching */
-  private CacheConfiguration cache;
-
->>>>>>> oss_master
   /** Configuration for the health check server */
   private HealthCheckConfiguration healthCheck;
 

@@ -50,7 +50,6 @@ public class AssertionTypeTest {
       new DataPlatformInstance()
           .setPlatform(new DataPlatformUrn("snowflake"))
           .setInstance(null, SetMode.IGNORE_NULL);
-<<<<<<< HEAD
   // Acryl SaaS Only
   private static final AssertionActions TEST_ASSERTION_ACTIONS =
       new AssertionActions()
@@ -62,8 +61,6 @@ public class AssertionTypeTest {
               new AssertionActionArray(
                   ImmutableList.of(
                       new AssertionAction().setType(AssertionActionType.RESOLVE_INCIDENT))));
-=======
->>>>>>> oss_master
 
   private static final String TEST_ASSERTION_URN_2 = "urn:li:assertion:guid-2";
 
@@ -85,12 +82,9 @@ public class AssertionTypeTest {
     assertion1Aspects.put(
         Constants.ASSERTION_INFO_ASPECT_NAME,
         new EnvelopedAspect().setValue(new Aspect(TEST_ASSERTION_INFO.data())));
-<<<<<<< HEAD
     assertion1Aspects.put(
         Constants.ASSERTION_ACTIONS_ASPECT_NAME,
         new EnvelopedAspect().setValue(new Aspect(TEST_ASSERTION_ACTIONS.data())));
-=======
->>>>>>> oss_master
     Mockito.when(
             client.batchGetV2(
                 Mockito.eq(Constants.ASSERTION_ENTITY_NAME),

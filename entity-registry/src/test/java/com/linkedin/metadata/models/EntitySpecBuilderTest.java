@@ -198,11 +198,7 @@ public class EntitySpecBuilderTest {
             .getSearchableAnnotation()
             .getFieldName());
     assertEquals(
-<<<<<<< HEAD
         SearchableAnnotation.FieldType.TEXT,
-=======
-        SearchableAnnotation.FieldType.KEYWORD,
->>>>>>> oss_master
         testEntityInfo
             .getSearchableFieldSpecMap()
             .get(new PathSpec("customProperties").toString())

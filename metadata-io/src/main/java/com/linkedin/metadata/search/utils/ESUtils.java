@@ -1,9 +1,6 @@
 package com.linkedin.metadata.search.utils;
 
-<<<<<<< HEAD
 import static com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder.*;
-=======
->>>>>>> oss_master
 import static com.linkedin.metadata.search.elasticsearch.query.request.SearchFieldConfig.KEYWORD_FIELDS;
 import static com.linkedin.metadata.search.elasticsearch.query.request.SearchFieldConfig.PATH_HIERARCHY_FIELDS;
 import static com.linkedin.metadata.search.utils.SearchUtils.isUrn;
@@ -101,7 +98,6 @@ public class ESUtils {
         }
       };
 
-<<<<<<< HEAD
   public static final Set<String> BOOLEAN_FIELDS =
       ImmutableSet.of(
           "removed",
@@ -119,9 +115,6 @@ public class ESUtils {
           "hasFailingTests",
           "hasTags",
           "hasGlossaryTerms");
-=======
-  public static final Set<String> BOOLEAN_FIELDS = ImmutableSet.of("removed");
->>>>>>> oss_master
 
   /*
    * Refer to https://www.elastic.co/guide/en/elasticsearch/reference/current/regexp-syntax.html for list of reserved
@@ -364,11 +357,7 @@ public class ESUtils {
 
   @Nonnull
   public static String toKeywordField(
-<<<<<<< HEAD
       @Nonnull final String filterField, final boolean skipKeywordSuffix) {
-=======
-      @Nonnull final String filterField, @Nonnull final boolean skipKeywordSuffix) {
->>>>>>> oss_master
     return skipKeywordSuffix
             || KEYWORD_FIELDS.contains(filterField)
             || PATH_HIERARCHY_FIELDS.contains(filterField)

@@ -112,14 +112,11 @@ public class SearchTestUtils {
         new SearchFlags().setFulltext(true).setSkipCache(true));
   }
 
-<<<<<<< HEAD
   public static ScrollResult scroll(
       EntitySearchService entitySearchService, int batchSize, @Nullable String scrollId) {
     return entitySearchService.scroll(SEARCHABLE_ENTITIES, null, null, batchSize, scrollId, "3m");
   }
 
-=======
->>>>>>> oss_master
   public static SearchResult searchStructured(SearchService searchService, String query) {
     return searchService.searchAcrossEntities(
         SEARCHABLE_ENTITIES,

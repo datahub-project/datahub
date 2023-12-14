@@ -65,10 +65,7 @@ public class MeResolver implements DataFetcher<CompletableFuture<AuthenticatedUs
             final PlatformPrivileges platformPrivileges = new PlatformPrivileges();
             platformPrivileges.setViewAnalytics(canViewAnalytics(context));
             platformPrivileges.setManagePolicies(canManagePolicies(context));
-<<<<<<< HEAD
             platformPrivileges.setViewMetadataProposals(canViewMetadataProposals(context));
-=======
->>>>>>> oss_master
             platformPrivileges.setManageIdentities(canManageUsersGroups(context));
             platformPrivileges.setGeneratePersonalAccessTokens(
                 canGeneratePersonalAccessToken(context));
@@ -89,13 +86,10 @@ public class MeResolver implements DataFetcher<CompletableFuture<AuthenticatedUs
             platformPrivileges.setManageGlobalAnnouncements(
                 AuthorizationUtils.canManageGlobalAnnouncements(context));
 
-<<<<<<< HEAD
             // Settings not in OSS (yet)
             platformPrivileges.setManageGlobalSettings(
                 canManageGlobalSettings(context)); // SaaS-Only.
 
-=======
->>>>>>> oss_master
             // Construct and return authenticated user object.
             final AuthenticatedUser authUser = new AuthenticatedUser();
             authUser.setCorpUser(corpUser);
@@ -119,7 +113,6 @@ public class MeResolver implements DataFetcher<CompletableFuture<AuthenticatedUs
         context.getAuthorizer(), context.getActorUrn(), PoliciesConfig.MANAGE_POLICIES_PRIVILEGE);
   }
 
-<<<<<<< HEAD
   /** Returns true if the authenticated user has privileges to view metadata proposals. */
   private boolean canViewMetadataProposals(final QueryContext context) {
     return isAuthorized(
@@ -128,8 +121,6 @@ public class MeResolver implements DataFetcher<CompletableFuture<AuthenticatedUs
         PoliciesConfig.VIEW_METADATA_PROPOSALS_PRIVILEGE);
   }
 
-=======
->>>>>>> oss_master
   /** Returns true if the authenticated user has privileges to manage users & groups. */
   private boolean canManageUsersGroups(final QueryContext context) {
     return isAuthorized(
@@ -170,15 +161,12 @@ public class MeResolver implements DataFetcher<CompletableFuture<AuthenticatedUs
         context.getAuthorizer(), context.getActorUrn(), PoliciesConfig.MANAGE_GLOSSARIES_PRIVILEGE);
   }
 
-<<<<<<< HEAD
   /** Returns true if the authenticated user has privileges to manage global access tokens */
   private boolean canManageGlobalSettings(final QueryContext context) {
     return isAuthorized(
         context.getAuthorizer(), context.getActorUrn(), PoliciesConfig.MANAGE_GLOBAL_SETTINGS);
   }
 
-=======
->>>>>>> oss_master
   /** Returns true if the authenticated user has privileges to manage user credentials */
   private boolean canManageUserCredentials(@Nonnull QueryContext context) {
     return isAuthorized(

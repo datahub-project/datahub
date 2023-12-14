@@ -74,11 +74,7 @@ public class Neo4jGraphServiceTest extends GraphServiceTestBase {
   @Override
   protected void assertEqualsAnyOrder(
       RelatedEntitiesResult actual, RelatedEntitiesResult expected) {
-<<<<<<< HEAD
     // https://github.com/linkedin/datahub/issues/3118
-=======
-    // https://github.com/datahub-project/datahub/issues/3118
->>>>>>> oss_master
     // Neo4jGraphService produces duplicates, which is here ignored until fixed
     // actual.count and actual.total not tested due to duplicates
     assertEquals(actual.getStart(), expected.getStart());
@@ -88,11 +84,7 @@ public class Neo4jGraphServiceTest extends GraphServiceTestBase {
   @Override
   protected <T> void assertEqualsAnyOrder(
       List<T> actual, List<T> expected, Comparator<T> comparator) {
-<<<<<<< HEAD
     // https://github.com/linkedin/datahub/issues/3118
-=======
-    // https://github.com/datahub-project/datahub/issues/3118
->>>>>>> oss_master
     // Neo4jGraphService produces duplicates, which is here ignored until fixed
     assertEquals(new HashSet<>(actual), new HashSet<>(expected));
   }
@@ -168,11 +160,7 @@ public class Neo4jGraphServiceTest extends GraphServiceTestBase {
   @Test
   @Override
   public void testConcurrentAddEdge() {
-<<<<<<< HEAD
     // https://github.com/linkedin/datahub/issues/3141
-=======
-    // https://github.com/datahub-project/datahub/issues/3141
->>>>>>> oss_master
     throw new SkipException(
         "Neo4jGraphService does not manage to add all edges added concurrently");
   }

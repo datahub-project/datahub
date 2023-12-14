@@ -36,13 +36,9 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
-<<<<<<< HEAD
 import com.linkedin.metadata.service.AssertionService;
 import com.linkedin.metadata.service.IncidentService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
-=======
-import java.util.ArrayList;
->>>>>>> oss_master
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
@@ -62,13 +58,9 @@ import org.springframework.core.io.Resource;
   EntityServiceFactory.class,
   EntityRegistryFactory.class,
   EntitySearchServiceFactory.class,
-<<<<<<< HEAD
   SearchDocumentTransformerFactory.class,
   AssertionServiceFactory.class,
   IncidentServiceFactory.class
-=======
-  SearchDocumentTransformerFactory.class
->>>>>>> oss_master
 })
 public class BootstrapManagerFactory {
 
@@ -168,7 +160,6 @@ public class BootstrapManagerFactory {
         new WaitForSystemUpdateStep(_dataHubUpgradeKafkaListener, _configurationProvider);
     final IngestOwnershipTypesStep ingestOwnershipTypesStep =
         new IngestOwnershipTypesStep(_entityService, _ownershipTypesResource);
-<<<<<<< HEAD
     final IngestDefaultTagsStep ingestDefaultTagsStep = new IngestDefaultTagsStep(_entityService);
 
     final MigrateAssertionsSummaryStep assertionsSummaryStep =
@@ -183,12 +174,6 @@ public class BootstrapManagerFactory {
 
     final List<BootstrapStep> finalSteps =
         Stream.of(
-=======
-
-    final List<BootstrapStep> finalSteps =
-        new ArrayList<>(
-            ImmutableList.of(
->>>>>>> oss_master
                 waitForSystemUpdateStep,
                 ingestRootUserStep,
                 ingestPoliciesStep,
@@ -202,7 +187,6 @@ public class BootstrapManagerFactory {
                 removeClientIdAspectStep,
                 restoreDbtSiblingsIndices,
                 indexDataPlatformsStep,
-<<<<<<< HEAD
                 restoreColumnLineageIndices,
                 assertionsSummaryStep,
                 incidentsSummaryStep,
@@ -211,9 +195,6 @@ public class BootstrapManagerFactory {
                 ingestDefaultTagsStep)
             .filter(Objects::nonNull)
             .collect(Collectors.toList());
-=======
-                restoreColumnLineageIndices));
->>>>>>> oss_master
 
     if (_upgradeDefaultBrowsePathsEnabled) {
       finalSteps.add(new UpgradeDefaultBrowsePathsStep(_entityService));

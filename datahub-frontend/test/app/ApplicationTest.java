@@ -61,10 +61,7 @@ public class ApplicationTest extends WithBrowser {
             "http://localhost:"
                 + oauthServerPort()
                 + "/testIssuer/.well-known/openid-configuration")
-<<<<<<< HEAD
         .configure("integrationsService.port", String.valueOf(integrationsServerPort()))
-=======
->>>>>>> oss_master
         .in(new Environment(Mode.TEST))
         .build();
   }

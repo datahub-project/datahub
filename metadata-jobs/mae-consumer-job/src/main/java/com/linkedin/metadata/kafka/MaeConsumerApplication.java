@@ -19,22 +19,14 @@ import org.springframework.context.annotation.FilterType;
     })
 @ComponentScan(
     basePackages = {
-<<<<<<< HEAD
-=======
-      // "com.linkedin.gms.factory.config",
-      // "com.linkedin.gms.factory.common",
->>>>>>> oss_master
       "com.linkedin.gms.factory.kafka",
       "com.linkedin.metadata.boot.kafka",
       "com.linkedin.metadata.kafka",
       "com.linkedin.metadata.dao.producer",
-<<<<<<< HEAD
       "com.datahub.event",
       "com.linkedin.gms.factory.notifications",
       "com.linkedin.gms.factory.incident",
       "com.linkedin.gms.factory.assertion",
-=======
->>>>>>> oss_master
       "com.linkedin.gms.factory.config",
       "com.linkedin.gms.factory.entity.update.indices"
     },

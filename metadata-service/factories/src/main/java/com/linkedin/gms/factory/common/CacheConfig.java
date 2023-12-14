@@ -20,10 +20,7 @@ import org.springframework.cache.CacheManager;
 import org.springframework.cache.caffeine.CaffeineCacheManager;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-<<<<<<< HEAD
 import org.springframework.context.annotation.Primary;
-=======
->>>>>>> oss_master
 
 @Configuration
 public class CacheConfig {
@@ -59,11 +56,8 @@ public class CacheConfig {
   @Primary
   public CacheManager hazelcastCacheManager(ConfigurationProvider configurationProvider) {
     Config config = new Config();
-<<<<<<< HEAD
 
     // Set up default map configuration
-=======
->>>>>>> oss_master
     // TODO: This setting is equivalent to expireAfterAccess, refreshes timer after a get, put,
     // containsKey etc.
     //       is this behavior what we actually desire? Should we change it now?
@@ -93,7 +87,6 @@ public class CacheConfig {
 
     return new HazelcastCacheManager(hazelcastInstance);
   }
-<<<<<<< HEAD
 
   private MapConfig lineageCacheConfig(ConfigurationProvider configurationProvider) {
     CacheConfiguration cacheConfiguration = configurationProvider.getCache();
@@ -125,6 +118,4 @@ public class CacheConfig {
     lineageMapConfig.setName(LINEAGE_SEARCH_SERVICE_CACHE_NAME);
     return lineageMapConfig;
   }
-=======
->>>>>>> oss_master
 }

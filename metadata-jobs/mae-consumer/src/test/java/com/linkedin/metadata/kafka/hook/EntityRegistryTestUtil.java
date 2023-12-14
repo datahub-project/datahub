@@ -10,11 +10,7 @@ public class EntityRegistryTestUtil {
   public static final EntityRegistry ENTITY_REGISTRY;
 
   static {
-<<<<<<< HEAD
     PathSpecBasedSchemaAnnotationVisitor.class
-=======
-    EntityRegistryTestUtil.class
->>>>>>> oss_master
         .getClassLoader()
         .setClassAssertionStatus(PathSpecBasedSchemaAnnotationVisitor.class.getName(), false);
     ENTITY_REGISTRY =

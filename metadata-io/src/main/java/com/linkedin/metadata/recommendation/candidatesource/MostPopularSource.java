@@ -44,11 +44,7 @@ import org.opensearch.search.builder.SearchSourceBuilder;
 
 @Slf4j
 @RequiredArgsConstructor
-<<<<<<< HEAD
 public class MostPopularSource implements RecommendationSourceWithOffline {
-=======
-public class MostPopularSource implements RecommendationSource {
->>>>>>> oss_master
   /** Entity Types that should be in scope for this type of recommendation. */
   private static final Set<String> SUPPORTED_ENTITY_TYPES =
       ImmutableSet.of(
@@ -170,7 +166,6 @@ public class MostPopularSource implements RecommendationSource {
             .setParams(
                 new RecommendationParams()
                     .setEntityProfileParams(new EntityProfileParams().setUrn(entity))));
-<<<<<<< HEAD
   }
 
   @Override
@@ -187,7 +182,5 @@ public class MostPopularSource implements RecommendationSource {
   public Urn getRecommendationModuleUrn(
       @Nonnull Urn userUrn, @Nonnull RecommendationRequestContext requestContext) {
     return MODULE_URN;
-=======
->>>>>>> oss_master
   }
 }

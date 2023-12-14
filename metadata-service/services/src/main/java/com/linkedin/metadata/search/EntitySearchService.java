@@ -131,7 +131,6 @@ public interface EntitySearchService {
       @Nullable SortCriterion sortCriterion,
       int from,
       int size);
-<<<<<<< HEAD
 
   /**
    * Scroll through documents that matches the input filters. By using the returned scroll ID, we
@@ -158,8 +157,6 @@ public interface EntitySearchService {
       int size,
       @Nullable String scrollId,
       @Nonnull String keepAliveDuration);
-=======
->>>>>>> oss_master
 
   /**
    * Returns a list of suggestions given type ahead query.

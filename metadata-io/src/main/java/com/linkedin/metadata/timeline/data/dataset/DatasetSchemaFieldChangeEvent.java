@@ -27,19 +27,14 @@ public class DatasetSchemaFieldChangeEvent extends ChangeEvent {
       String description,
       String fieldPath,
       Urn fieldUrn,
-<<<<<<< HEAD
       boolean nullable,
       SchemaFieldModificationCategory modificationCategory) {
-=======
-      boolean nullable) {
->>>>>>> oss_master
     super(
         entityUrn,
         category,
         operation,
         modifier,
         ImmutableMap.of(
-<<<<<<< HEAD
             "fieldPath",
             fieldPath,
             "fieldUrn",
@@ -50,11 +45,6 @@ public class DatasetSchemaFieldChangeEvent extends ChangeEvent {
             modificationCategory != null
                 ? modificationCategory.toString()
                 : SchemaFieldModificationCategory.OTHER.toString()),
-=======
-            "fieldPath", fieldPath,
-            "fieldUrn", fieldUrn.toString(),
-            "nullable", nullable),
->>>>>>> oss_master
         auditStamp,
         semVerChange,
         description);

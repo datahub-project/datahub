@@ -73,18 +73,11 @@ public final class GetChartsResolver implements DataFetcher<List<AnalyticsChartG
             _analyticsService.getUsageIndexName(),
             dateRange,
             interval,
-<<<<<<< HEAD
             // Changed from browserId in OSS to actorUrn in SaaS
             Optional.empty(),
             ImmutableMap.of(),
             Collections.emptyMap(),
             Optional.of("actorUrn.keyword"));
-=======
-            Optional.empty(),
-            ImmutableMap.of(),
-            Collections.emptyMap(),
-            Optional.of("browserId"));
->>>>>>> oss_master
     return TimeSeriesChart.builder()
         .setTitle(title)
         .setDateRange(dateRange)

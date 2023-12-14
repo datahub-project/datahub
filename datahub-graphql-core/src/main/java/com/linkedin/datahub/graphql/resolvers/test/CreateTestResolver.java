@@ -5,10 +5,7 @@ import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
 import static com.linkedin.datahub.graphql.resolvers.test.TestUtils.*;
 import static com.linkedin.metadata.Constants.*;
 
-<<<<<<< HEAD
 import com.datahub.authentication.Actor;
-=======
->>>>>>> oss_master
 import com.datahub.authentication.Authentication;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.UrnUtils;
@@ -30,10 +27,7 @@ import java.util.concurrent.CompletableFuture;
 import lombok.RequiredArgsConstructor;
 
 /** Creates or updates a Test. Requires the MANAGE_TESTS privilege. */
-<<<<<<< HEAD
 @RequiredArgsConstructor
-=======
->>>>>>> oss_master
 public class CreateTestResolver implements DataFetcher<CompletableFuture<String>> {
 
   private final EntityClient _entityClient;
@@ -43,10 +37,7 @@ public class CreateTestResolver implements DataFetcher<CompletableFuture<String>
   public CompletableFuture<String> get(final DataFetchingEnvironment environment) throws Exception {
     final QueryContext context = environment.getContext();
     final Authentication authentication = context.getAuthentication();
-<<<<<<< HEAD
     final Actor actor = authentication.getActor();
-=======
->>>>>>> oss_master
     final CreateTestInput input =
         bindArgument(environment.getArgument("input"), CreateTestInput.class);
 
@@ -71,7 +62,6 @@ public class CreateTestResolver implements DataFetcher<CompletableFuture<String>
               }
 
               // Create the Test info.
-<<<<<<< HEAD
               final TestInfo info = mapCreateTestInput(input, actor);
 
               // Validate test info
@@ -82,14 +72,10 @@ public class CreateTestResolver implements DataFetcher<CompletableFuture<String>
                     "Failed to validate test definition: \n"
                         + String.join("\n", validationResult.getMessages()));
               }
-=======
-              final TestInfo info = mapCreateTestInput(input);
->>>>>>> oss_master
 
               final MetadataChangeProposal proposal =
                   buildMetadataChangeProposalWithKey(
                       key, TEST_ENTITY_NAME, TEST_INFO_ASPECT_NAME, info);
-<<<<<<< HEAD
               String ingestResult;
               try {
                 ingestResult =
@@ -105,12 +91,6 @@ public class CreateTestResolver implements DataFetcher<CompletableFuture<String>
             } catch (Exception e) {
               throw new RuntimeException(
                   String.format("Failed to create test with urn %s", input), e);
-=======
-              return _entityClient.ingestProposal(proposal, context.getAuthentication(), false);
-            } catch (Exception e) {
-              throw new RuntimeException(
-                  String.format("Failed to perform update against Test with urn %s", input), e);
->>>>>>> oss_master
             }
           }
           throw new AuthorizationException(

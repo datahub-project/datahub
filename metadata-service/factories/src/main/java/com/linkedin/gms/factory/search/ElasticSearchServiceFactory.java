@@ -1,11 +1,8 @@
 package com.linkedin.gms.factory.search;
 
-<<<<<<< HEAD
 import static com.linkedin.metadata.Constants.*;
 
 import com.fasterxml.jackson.core.StreamReadConstraints;
-=======
->>>>>>> oss_master
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
 import com.linkedin.gms.factory.config.ConfigurationProvider;

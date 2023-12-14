@@ -189,7 +189,6 @@ public class ESSearchDAO {
 
   @Nonnull
   @WithSpan
-<<<<<<< HEAD
   private ScrollResult executeSearchScrollRequestAndExtract(
       @Nonnull List<EntitySpec> entitySpecs,
       @Nullable Filter filters,
@@ -254,19 +253,6 @@ public class ESSearchDAO {
         MetricUtils.timer(this.getClass(), "executeAndExtract_scroll").time()) {
       final SearchResponse searchResponse = client.search(searchRequest, RequestOptions.DEFAULT);
       // extract results, validated against document model as well
-=======
-  private ScrollResult executeAndExtract(
-      @Nonnull List<EntitySpec> entitySpecs,
-      @Nonnull SearchRequest searchRequest,
-      @Nullable Filter filter,
-      @Nullable String scrollId,
-      @Nullable String keepAlive,
-      int size) {
-    try (Timer.Context ignored =
-        MetricUtils.timer(this.getClass(), "executeAndExtract_scroll").time()) {
-      final SearchResponse searchResponse = client.search(searchRequest, RequestOptions.DEFAULT);
-      // extract results, validated against document model as well
->>>>>>> oss_master
       return transformIndexIntoEntityName(
           SearchRequestHandler.getBuilder(
                   entitySpecs, searchConfiguration, customSearchConfiguration)

@@ -55,22 +55,14 @@ public final class GetHighlightsResolver implements DataFetcher<List<Highlight>>
             Optional.of(dateRangeThis),
             ImmutableMap.of(),
             ImmutableMap.of(),
-<<<<<<< HEAD
             Optional.of("actorUrn.keyword"));
-=======
-            Optional.of("browserId"));
->>>>>>> oss_master
     int activeUsersLastRange =
         _analyticsService.getHighlights(
             _analyticsService.getUsageIndexName(),
             Optional.of(dateRangeLast),
             ImmutableMap.of(),
             ImmutableMap.of(),
-<<<<<<< HEAD
             Optional.of("actorUrn.keyword"));
-=======
-            Optional.of("browserId"));
->>>>>>> oss_master
 
     String bodyText = "";
     if (activeUsersLastRange > 0) {

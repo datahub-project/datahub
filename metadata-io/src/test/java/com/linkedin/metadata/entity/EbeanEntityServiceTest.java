@@ -73,11 +73,7 @@ public class EbeanEntityServiceTest
             _aspectDao,
             _mockProducer,
             _testEntityRegistry,
-<<<<<<< HEAD
             false,
-=======
-            true,
->>>>>>> oss_master
             _mockUpdateIndicesService,
             preProcessHooks);
     _retentionService = new EbeanRetentionService(_entityServiceImpl, server, 1000);

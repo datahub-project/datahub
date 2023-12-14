@@ -84,17 +84,12 @@ public class AuthServiceController {
 
   @Inject NativeUserService _nativeUserService;
 
-<<<<<<< HEAD
   @Inject EntityService _entityService;
 
   @Inject SecretService _secretService;
 
   @Inject InviteTokenService _inviteTokenService;
 
-=======
-  @Inject InviteTokenService _inviteTokenService;
-
->>>>>>> oss_master
   @Inject @Nullable TrackingService _trackingService;
 
   /**
@@ -393,7 +388,6 @@ public class AuthServiceController {
             return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
           }
         });
-<<<<<<< HEAD
   }
 
   /**
@@ -429,8 +423,6 @@ public class AuthServiceController {
             return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
           }
         });
-=======
->>>>>>> oss_master
   }
 
   // Currently, only internal system is authorized to generate a token on behalf of a user!

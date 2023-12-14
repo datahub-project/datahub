@@ -8,17 +8,11 @@ import com.linkedin.datahub.upgrade.removeunknownaspects.RemoveUnknownAspects;
 import com.linkedin.datahub.upgrade.restoreaspect.RestoreAspect;
 import com.linkedin.datahub.upgrade.restorebackup.RestoreBackup;
 import com.linkedin.datahub.upgrade.restoreindices.RestoreIndices;
-<<<<<<< HEAD
 import com.linkedin.datahub.upgrade.secret.RotateSecrets;
 import com.linkedin.datahub.upgrade.system.SystemUpdate;
 import com.linkedin.datahub.upgrade.system.elasticsearch.BuildIndices;
 import com.linkedin.datahub.upgrade.system.elasticsearch.CleanIndices;
 import com.linkedin.datahub.upgrade.test.EvaluateTests;
-=======
-import com.linkedin.datahub.upgrade.system.SystemUpdate;
-import com.linkedin.datahub.upgrade.system.elasticsearch.BuildIndices;
-import com.linkedin.datahub.upgrade.system.elasticsearch.CleanIndices;
->>>>>>> oss_master
 import java.util.List;
 import javax.inject.Inject;
 import javax.inject.Named;

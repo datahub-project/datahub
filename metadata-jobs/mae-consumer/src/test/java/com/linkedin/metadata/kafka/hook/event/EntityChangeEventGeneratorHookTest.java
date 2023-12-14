@@ -1,9 +1,6 @@
 package com.linkedin.metadata.kafka.hook.event;
 
-<<<<<<< HEAD
 import static com.linkedin.metadata.AcrylConstants.*;
-=======
->>>>>>> oss_master
 import static com.linkedin.metadata.Constants.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
@@ -82,10 +79,7 @@ import com.linkedin.platform.event.v1.Parameters;
 import java.net.URISyntaxException;
 import java.util.HashMap;
 import java.util.Map;
-<<<<<<< HEAD
 import javax.annotation.Nonnull;
-=======
->>>>>>> oss_master
 import org.mockito.Mockito;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -133,10 +127,6 @@ public class EntityChangeEventGeneratorHookTest {
     actorUrn = Urn.createFromString(TEST_ACTOR_URN);
     _mockClient = Mockito.mock(SystemRestliEntityClient.class);
     _mockEntityService = Mockito.mock(EntityService.class);
-<<<<<<< HEAD
-
-=======
->>>>>>> oss_master
     EntityChangeEventGeneratorRegistry entityChangeEventGeneratorRegistry =
         createEntityChangeEventGeneratorRegistry();
     _entityChangeEventHook =
@@ -681,7 +671,6 @@ public class EntityChangeEventGeneratorHookTest {
             null,
             parameters,
             actorUrn);
-<<<<<<< HEAD
 
     verifyProducePlatformEvent(_mockClient, platformEvent, false);
   }
@@ -993,8 +982,6 @@ public class EntityChangeEventGeneratorHookTest {
             null,
             parameters,
             actorUrn);
-=======
->>>>>>> oss_master
 
     verifyProducePlatformEvent(_mockClient, platformEvent, false);
   }
@@ -1126,7 +1113,6 @@ public class EntityChangeEventGeneratorHookTest {
 
     Mockito.when(registry.getEntitySpec(DATA_PROCESS_INSTANCE_ENTITY_NAME))
         .thenReturn(dataProcessInstanceSpec);
-<<<<<<< HEAD
 
     Mockito.when(registry.getEntitySpec(eq(DATASET_ENTITY_NAME))).thenReturn(datasetSpec);
 
@@ -1142,8 +1128,6 @@ public class EntityChangeEventGeneratorHookTest {
         .thenReturn(mockActionRequestInfo);
 
     Mockito.when(registry.getEntitySpec(ACTION_REQUEST_ENTITY_NAME)).thenReturn(actionRequestSpec);
-=======
->>>>>>> oss_master
 
     return registry;
   }
@@ -1184,7 +1168,6 @@ public class EntityChangeEventGeneratorHookTest {
     entityResponse.setAspects(aspectMap);
     return entityResponse;
   }
-<<<<<<< HEAD
 
   // SaaS only
   private ActionRequestInfo buildActionRequestInfo(
@@ -1204,6 +1187,4 @@ public class EntityChangeEventGeneratorHookTest {
     parameters.put(RESOURCE_TYPE_KEY, resourceType);
     return parameters;
   }
-=======
->>>>>>> oss_master
 }

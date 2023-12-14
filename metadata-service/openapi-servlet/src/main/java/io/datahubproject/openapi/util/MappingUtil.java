@@ -329,11 +329,7 @@ public class MappingUtil {
         Schema avroSchema = (Schema) getClassSchema.invoke(null);
         Schema.Field avroField = avroSchema.getField(fieldName);
 
-<<<<<<< HEAD
         if (avroField.schema().getType() == Schema.Type.UNION) {
-=======
-        if (avroField.schema().isUnion()) {
->>>>>>> oss_master
           Class<?> discriminatedClazz =
               REFLECT_AVRO.lookupClass(node.get(DISCRIMINATOR).asText(), true);
           return Optional.of(discriminatedClazz.getName().replace(".pegasus2avro", ""));
@@ -445,12 +441,8 @@ public class MappingUtil {
   public static Pair<String, Boolean> ingestProposal(
       com.linkedin.mxe.MetadataChangeProposal serviceProposal,
       String actorUrn,
-<<<<<<< HEAD
       EntityService entityService,
       boolean async) {
-=======
-      EntityService entityService) {
->>>>>>> oss_master
     // TODO: Use the actor present in the IC.
     Timer.Context context = MetricUtils.timer("postEntity").time();
     final com.linkedin.common.AuditStamp auditStamp =
@@ -471,11 +463,7 @@ public class MappingUtil {
               .mcps(proposalStream.collect(Collectors.toList()), entityService.getEntityRegistry())
               .build();
 
-<<<<<<< HEAD
       Set<IngestResult> proposalResult = entityService.ingestProposal(batch, auditStamp, async);
-=======
-      Set<IngestResult> proposalResult = entityService.ingestProposal(batch, auditStamp, false);
->>>>>>> oss_master
 
       Urn urn = proposalResult.stream().findFirst().get().getUrn();
       return new Pair<>(

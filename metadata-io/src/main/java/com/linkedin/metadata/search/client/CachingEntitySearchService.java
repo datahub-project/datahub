@@ -342,15 +342,10 @@ public class CachingEntitySearchService {
       final int count,
       @Nullable final SearchFlags searchFlags,
       @Nullable final List<String> facets) {
-<<<<<<< HEAD
     try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "getRawSearchResults").time()) {
       return entitySearchService.search(
           entityNames, input, filters, sortCriterion, start, count, searchFlags, facets);
     }
-=======
-    return entitySearchService.search(
-        entityNames, input, filters, sortCriterion, start, count, searchFlags, facets);
->>>>>>> oss_master
   }
 
   /** Executes the expensive autocomplete query using the {@link EntitySearchService} */
@@ -360,14 +355,10 @@ public class CachingEntitySearchService {
       final String field,
       final Filter filters,
       final int limit) {
-<<<<<<< HEAD
     try (Timer.Context ignored =
         MetricUtils.timer(this.getClass(), "getRawAutoCompleteResults").time()) {
       return entitySearchService.autoComplete(entityName, input, field, filters, limit);
     }
-=======
-    return entitySearchService.autoComplete(entityName, input, field, filters, limit);
->>>>>>> oss_master
   }
 
   /** Executes the expensive autocomplete query using the {@link EntitySearchService} */
@@ -377,13 +368,9 @@ public class CachingEntitySearchService {
       final Filter filters,
       final int start,
       final int count) {
-<<<<<<< HEAD
     try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "getRawBrowseResults").time()) {
       return entitySearchService.browse(entityName, input, filters, start, count);
     }
-=======
-    return entitySearchService.browse(entityName, input, filters, start, count);
->>>>>>> oss_master
   }
 
   /** Executes the expensive search query using the {@link EntitySearchService} */

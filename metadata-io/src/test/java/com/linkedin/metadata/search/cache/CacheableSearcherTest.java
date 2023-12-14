@@ -1,11 +1,6 @@
 package com.linkedin.metadata.search.cache;
 
-<<<<<<< HEAD
 import static org.testng.Assert.*;
-=======
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
->>>>>>> oss_master
 
 import com.google.common.collect.Streams;
 import com.linkedin.common.urn.TestEntityUrn;

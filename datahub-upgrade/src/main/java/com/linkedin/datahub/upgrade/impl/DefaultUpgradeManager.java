@@ -18,10 +18,7 @@ import java.util.Map;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
-<<<<<<< HEAD
 @Slf4j
-=======
->>>>>>> oss_master
 public class DefaultUpgradeManager implements UpgradeManager {
 
   private final Map<String, Upgrade> _upgrades = new HashMap<>();
@@ -142,10 +139,7 @@ public class DefaultUpgradeManager implements UpgradeManager {
           break;
         }
       } catch (Exception e) {
-<<<<<<< HEAD
         log.error("Caught exception during attempt {} of Step with id {}", i, step.id(), e);
-=======
->>>>>>> oss_master
         context
             .report()
             .addLine(
