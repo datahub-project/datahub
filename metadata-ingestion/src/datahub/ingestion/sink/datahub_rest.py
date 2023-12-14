@@ -25,7 +25,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeEvent,
     MetadataChangeProposal,
 )
-from datahub.utilities.server_config_util import set_gms_config
 
 logger = logging.getLogger(__name__)
 
@@ -119,7 +118,6 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
         logger.debug("Setting env variables to override config")
         set_env_variables_override_config(self.config.server, self.config.token)
         logger.debug("Setting gms config")
-        set_gms_config(gms_config)
         self.executor = BoundedExecutor(
             max_workers=self.config.max_threads,
             bound=self.config.max_pending_requests,

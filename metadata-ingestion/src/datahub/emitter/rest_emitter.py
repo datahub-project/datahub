@@ -22,6 +22,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeProposal,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.usage import UsageAggregation
+from datahub.utilities.server_config_util import set_gms_config
 
 if TYPE_CHECKING:
     from datahub.ingestion.graph.client import DataHubGraph
@@ -165,6 +166,8 @@ class DataHubRestEmitter(Closeable, Emitter):
             config: dict = response.json()
             if config.get("noCode") == "true":
                 self.server_config = config
+
+                set_gms_config(config)
                 return config
 
             else:
