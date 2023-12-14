@@ -53,13 +53,16 @@ public class IncidentsSummaryUtils {
     }
   }
 
-  public static void addIncidentToResolvedSummary(@Nonnull final IncidentSummaryDetails details,  @Nonnull final IncidentsSummary summary,
+  public static void addIncidentToResolvedSummary(
+      @Nonnull final IncidentSummaryDetails details,
+      @Nonnull final IncidentsSummary summary,
       int maxIncidentHistory) {
     final List<IncidentSummaryDetails> existingDetails = summary.getResolvedIncidentDetails();
-    final List<IncidentSummaryDetails> newDetails = existingDetails.stream()
-        .filter(existing -> !details.getUrn().equals(existing.getUrn()))
-        .sorted(Comparator.comparing(IncidentSummaryDetails::getCreatedAt))
-        .collect(Collectors.toList());
+    final List<IncidentSummaryDetails> newDetails =
+        existingDetails.stream()
+            .filter(existing -> !details.getUrn().equals(existing.getUrn()))
+            .sorted(Comparator.comparing(IncidentSummaryDetails::getCreatedAt))
+            .collect(Collectors.toList());
     while (newDetails.size() >= maxIncidentHistory && !newDetails.isEmpty()) {
       // Removes oldest entry until size is less than max size
       newDetails.remove(0);
@@ -68,13 +71,16 @@ public class IncidentsSummaryUtils {
     summary.setResolvedIncidentDetails(new IncidentSummaryDetailsArray(newDetails));
   }
 
-  public static void addIncidentToActiveSummary(@Nonnull final IncidentSummaryDetails details,  @Nonnull final IncidentsSummary summary,
+  public static void addIncidentToActiveSummary(
+      @Nonnull final IncidentSummaryDetails details,
+      @Nonnull final IncidentsSummary summary,
       int maxIncidentHistory) {
     final List<IncidentSummaryDetails> existingDetails = summary.getActiveIncidentDetails();
-    final List<IncidentSummaryDetails> newDetails = existingDetails.stream()
-        .filter(existing -> !details.getUrn().equals(existing.getUrn()))
-        .sorted(Comparator.comparing(IncidentSummaryDetails::getCreatedAt))
-        .collect(Collectors.toList());
+    final List<IncidentSummaryDetails> newDetails =
+        existingDetails.stream()
+            .filter(existing -> !details.getUrn().equals(existing.getUrn()))
+            .sorted(Comparator.comparing(IncidentSummaryDetails::getCreatedAt))
+            .collect(Collectors.toList());
     while (newDetails.size() >= maxIncidentHistory && !newDetails.isEmpty()) {
       // Removes oldest entry until size is less than max size
       newDetails.remove(0);

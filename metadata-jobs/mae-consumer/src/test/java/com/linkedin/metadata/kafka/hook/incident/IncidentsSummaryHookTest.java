@@ -1,6 +1,7 @@
 package com.linkedin.metadata.kafka.hook.incident;
 
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.kafka.hook.EntityRegistryTestUtil.*;
 import static com.linkedin.metadata.kafka.hook.EntityRegistryTestUtil.ENTITY_REGISTRY;
 
 import com.google.common.collect.ImmutableList;
@@ -29,9 +30,6 @@ import org.mockito.Mockito;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
-import static com.linkedin.metadata.Constants.*;
-import static com.linkedin.metadata.kafka.hook.EntityRegistryTestUtil.*;
-
 public class IncidentsSummaryHookTest {
   private static final Urn TEST_EXISTING_INCIDENT_URN = UrnUtils.getUrn("urn:li:incident:existing");
   private static final Urn TEST_INCIDENT_URN = UrnUtils.getUrn("urn:li:incident:test");
@@ -48,11 +46,9 @@ public class IncidentsSummaryHookTest {
             ImmutableList.of(TEST_DATASET_URN, TEST_DATASET_2_URN), IncidentState.ACTIVE);
     IncidentService service = mockIncidentService(new IncidentsSummary(), incidentInfo);
     IncidentsSummaryHook hook = new IncidentsSummaryHook(ENTITY_REGISTRY, service, false, 100);
-    final MetadataChangeLog event = buildMetadataChangeLog(
-        TEST_INCIDENT_URN,
-        INCIDENT_INFO_ASPECT_NAME,
-        ChangeType.UPSERT,
-        incidentInfo);
+    final MetadataChangeLog event =
+        buildMetadataChangeLog(
+            TEST_INCIDENT_URN, INCIDENT_INFO_ASPECT_NAME, ChangeType.UPSERT, incidentInfo);
     hook.invoke(event);
     Mockito.verify(service, Mockito.times(0)).getIncidentInfo(Mockito.any());
   }
@@ -138,11 +134,9 @@ public class IncidentsSummaryHookTest {
             ImmutableList.of(TEST_DATASET_URN, TEST_DATASET_2_URN), IncidentState.ACTIVE);
     IncidentService service = mockIncidentService(summary, info);
     IncidentsSummaryHook hook = new IncidentsSummaryHook(ENTITY_REGISTRY, service, true, 100);
-    final MetadataChangeLog event = buildMetadataChangeLog(
-        TEST_INCIDENT_URN,
-        INCIDENT_INFO_ASPECT_NAME,
-        ChangeType.UPSERT,
-        info);
+    final MetadataChangeLog event =
+        buildMetadataChangeLog(
+            TEST_INCIDENT_URN, INCIDENT_INFO_ASPECT_NAME, ChangeType.UPSERT, info);
     hook.invoke(event);
     Mockito.verify(service, Mockito.times(1)).getIncidentInfo(Mockito.eq(TEST_INCIDENT_URN));
     Mockito.verify(service, Mockito.times(1)).getIncidentsSummary(Mockito.eq(TEST_DATASET_URN));
@@ -180,11 +174,9 @@ public class IncidentsSummaryHookTest {
             ImmutableList.of(TEST_DATASET_URN, TEST_DATASET_2_URN), IncidentState.RESOLVED);
     IncidentService service = mockIncidentService(summary, info);
     IncidentsSummaryHook hook = new IncidentsSummaryHook(ENTITY_REGISTRY, service, true, 100);
-    final MetadataChangeLog event = buildMetadataChangeLog(
-        TEST_INCIDENT_URN,
-        INCIDENT_INFO_ASPECT_NAME,
-        ChangeType.UPSERT,
-        info);
+    final MetadataChangeLog event =
+        buildMetadataChangeLog(
+            TEST_INCIDENT_URN, INCIDENT_INFO_ASPECT_NAME, ChangeType.UPSERT, info);
     hook.invoke(event);
     Mockito.verify(service, Mockito.times(1)).getIncidentInfo(Mockito.eq(TEST_INCIDENT_URN));
     Mockito.verify(service, Mockito.times(1)).getIncidentsSummary(Mockito.eq(TEST_DATASET_URN));
@@ -222,11 +214,9 @@ public class IncidentsSummaryHookTest {
             ImmutableList.of(TEST_DATASET_URN, TEST_DATASET_2_URN), IncidentState.RESOLVED);
     IncidentService service = mockIncidentService(summary, info);
     IncidentsSummaryHook hook = new IncidentsSummaryHook(ENTITY_REGISTRY, service, true, 100);
-    final MetadataChangeLog event = buildMetadataChangeLog(
-        TEST_INCIDENT_URN,
-        STATUS_ASPECT_NAME,
-        ChangeType.UPSERT,
-        mockIncidentSoftDeleted());
+    final MetadataChangeLog event =
+        buildMetadataChangeLog(
+            TEST_INCIDENT_URN, STATUS_ASPECT_NAME, ChangeType.UPSERT, mockIncidentSoftDeleted());
     hook.invoke(event);
 
     Mockito.verify(service, Mockito.times(1)).getIncidentInfo(Mockito.eq(TEST_INCIDENT_URN));

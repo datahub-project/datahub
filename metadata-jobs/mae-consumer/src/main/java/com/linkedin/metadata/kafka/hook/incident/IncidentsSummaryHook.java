@@ -60,9 +60,8 @@ public class IncidentsSummaryHook implements MetadataChangeLogHook {
   private final EntityRegistry _entityRegistry;
   private final IncidentService _incidentService;
   private final boolean _isEnabled;
-  /**
-   * Max number of incidents to allow in incident summary, limited to prevent HTTP errors
-   */
+
+  /** Max number of incidents to allow in incident summary, limited to prevent HTTP errors */
   private final int _maxIncidentHistory;
 
   @Autowired
@@ -70,8 +69,7 @@ public class IncidentsSummaryHook implements MetadataChangeLogHook {
       @Nonnull final EntityRegistry entityRegistry,
       @Nonnull final IncidentService incidentService,
       @Nonnull @Value("${incidents.hook.enabled:true}") Boolean isEnabled,
-      @Nonnull @Value("${incidents.hook.maxIncidentHistory:100}") Integer maxIncidentHistory
-  ) {
+      @Nonnull @Value("${incidents.hook.maxIncidentHistory:100}") Integer maxIncidentHistory) {
     _entityRegistry = Objects.requireNonNull(entityRegistry, "entityRegistry is required");
     _incidentService = Objects.requireNonNull(incidentService, "incidentService is required");
     _isEnabled = isEnabled;
