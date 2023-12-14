@@ -218,8 +218,13 @@ public interface EntitySearchService {
    * @param count max number of results requested
    */
   @Nonnull
-  public BrowseResultV2 browseV2(@Nonnull List<String> entityNames, @Nonnull String path, @Nullable Filter filter,
-      @Nonnull String input, int start, int count);
+  public BrowseResultV2 browseV2(
+      @Nonnull List<String> entityNames,
+      @Nonnull String path,
+      @Nullable Filter filter,
+      @Nonnull String input,
+      int start,
+      int count);
 
   /**
    * Gets a list of paths for a given urn.
