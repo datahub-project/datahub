@@ -27,18 +27,22 @@ export const EntityHealth = ({ health, baseUrl, fontSize, tooltipPlacement }: Pr
     const unhealthy = isUnhealthy(health);
     const healthy = isHealthy(health);
     const icon = getHealthSummaryIcon(health, HealthSummaryIconType.FILLED, fontSize);
+
     return (
         <>
-            {((unhealthy || healthy) && (
+            {(unhealthy || healthy) && (
                 <Link to={`${baseUrl}/Validation`}>
                     <Container>
-                        <EntityHealthPopover health={health} baseUrl={baseUrl} placement={tooltipPlacement}>
+                        <EntityHealthPopover
+                            health={health.filter((h) => h.message)}
+                            baseUrl={baseUrl}
+                            placement={tooltipPlacement}
+                        >
                             {icon}
                         </EntityHealthPopover>
                     </Container>
                 </Link>
-            )) ||
-                undefined}
+            )}
         </>
     );
 };

@@ -1,5 +1,5 @@
 import {
-    CheckCircleFilled,
+    CheckCircleOutlined,
     CheckOutlined,
     CloseOutlined,
     ExclamationCircleOutlined,
@@ -74,7 +74,7 @@ export const getHealthSummaryIcon = (
     }
 
     if (healthy) {
-        return <CheckCircleFilled style={{ color: SUCCESS_COLOR_HEX, fontSize }} />;
+        return <CheckCircleOutlined style={{ color: SUCCESS_COLOR_HEX, fontSize }} />;
     }
 
     return undefined;
