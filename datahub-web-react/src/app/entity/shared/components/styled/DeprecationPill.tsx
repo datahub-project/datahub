@@ -155,7 +155,7 @@ export const DeprecationPill = ({ deprecation, urn, refetch, showUndeprecate }: 
 
     return (
         <Popover
-        overlayStyle={{ maxWidth: 480 }}
+            overlayStyle={{ maxWidth: 480 }}
             placement="right"
             content={
                 hasDetails ? (
@@ -165,20 +165,23 @@ export const DeprecationPill = ({ deprecation, urn, refetch, showUndeprecate }: 
                         <DescriptionContainer>
                             {expanded || !overLimit ? (
                                 <>
-                                    {deprecation?.note && deprecation?.note !== '' && <StyledViewer content={deprecation.note} readOnly />}
-                                    {deprecation?.note && deprecation?.note !== '' && (
-                                        <ExpandedActions>
-                                            {overLimit && (
-                                                <ReadLessText
-                                                    onClick={() => {
-                                                        setExpanded(false);
-                                                    }}
-                                                >
-                                                    Read Less
-                                                </ReadLessText>
-                                            )}
-                                        </ExpandedActions>
-                                    )}
+                                    {
+                                        deprecation?.note && deprecation?.note !== '' &&
+                                        <>
+                                            <StyledViewer content={deprecation.note} readOnly />
+                                            <ExpandedActions>
+                                                {overLimit && (
+                                                    <ReadLessText
+                                                        onClick={() => {
+                                                            setExpanded(false);
+                                                        }}
+                                                    >
+                                                        Read Less
+                                                    </ReadLessText>
+                                                )}
+                                            </ExpandedActions>
+                                        </>
+                                    }
                                 </>
                             ) : (
                                 <>
