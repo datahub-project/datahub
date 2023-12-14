@@ -118,6 +118,8 @@ class FivetranLogAPI:
         return jobs
 
     def _get_user_name(self, user_id: str) -> str:
+        if user_id is None:
+            return "User information not found for connector"
         user_details = self._query(FivetranLogQuery.get_user_query(user_id=user_id))[0]
         return (
             f"{user_details[Constant.GIVEN_NAME]} {user_details[Constant.FAMILY_NAME]}"
