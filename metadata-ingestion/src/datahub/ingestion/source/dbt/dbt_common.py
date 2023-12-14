@@ -696,7 +696,10 @@ def get_column_type(
 @support_status(SupportStatus.CERTIFIED)
 @capability(SourceCapability.DELETION_DETECTION, "Enabled via stateful ingestion")
 @capability(SourceCapability.LINEAGE_COARSE, "Enabled by default")
-@capability(SourceCapability.LINEAGE_FINE, "Enabled by default, configure using `include_column_lineage`")
+@capability(
+    SourceCapability.LINEAGE_FINE,
+    "Enabled by default, configure using `include_column_lineage`",
+)
 class DBTSourceBase(StatefulIngestionSourceBase):
     def __init__(self, config: DBTCommonConfig, ctx: PipelineContext, platform: str):
         super().__init__(config, ctx)
