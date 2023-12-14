@@ -1,9 +1,9 @@
 apply plugin: 'java'
 
 dependencies {
-  implementation project(':metadata-events:mxe-avro-1.7')
+  implementation project(':metadata-events:mxe-avro')
   implementation project(':metadata-events:mxe-registration')
-  implementation project(':metadata-events:mxe-utils-avro-1.7')
+  implementation project(':metadata-events:mxe-utils-avro')
   implementation project(':entity-registry')
   implementation project(':metadata-io')
 

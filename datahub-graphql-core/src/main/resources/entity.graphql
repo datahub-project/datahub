@@ -226,6 +226,11 @@ type Query {
     listOwnershipTypes(
         "Input required for listing custom ownership types"
         input: ListOwnershipTypesInput!): ListOwnershipTypesResult!
+
+    """
+    Fetch a Data Platform Instance by primary key (urn)
+    """
+    dataPlatformInstance(urn: String!): DataPlatformInstance
 }
 
 """
@@ -1784,12 +1789,13 @@ type DatasetProperties {
     """
     Last Modified timestamp millis associated with the Dataset
     """
-    lastModified: Long
+    lastModified: AuditStamp!
 
     """
-    Actor associated with the Dataset's lastModified timestamp
+    Actor associated with the Dataset's lastModified timestamp.
+    Deprecated - Use lastModified.actor instead.
     """
-    lastModifiedActor: String
+    lastModifiedActor: String @deprecated
 }
 
 
@@ -3783,6 +3789,11 @@ type CorpGroup implements Entity {
     Additional read only info about the group
     """
     info: CorpGroupInfo @deprecated
+
+    """
+    Whether or not this entity exists on DataHub
+    """
+    exists: Boolean
 }
 
 """
@@ -5239,6 +5250,11 @@ type Chart implements EntityWithRelationships & Entity & BrowsableEntity {
     Whether or not this entity exists on DataHub
     """
     exists: Boolean
+
+    """
+    Sub Types that this entity implements
+    """
+    subTypes: SubTypes
 }
 
 """
@@ -5673,6 +5689,11 @@ type DataJob implements EntityWithRelationships & Entity & BrowsableEntity {
     A standard Entity Type
     """
     type: EntityType!
+
+    """
+    Sub Types that this entity implements
+    """
+    subTypes: SubTypes
 
     """
     The timestamp for the last time this entity was ingested
@@ -11034,6 +11055,10 @@ input CreateDataProductInput {
     The primary key of the Domain
     """
     domainUrn: String!
+    """
+    An optional id for the new data product
+    """
+    id: String
 }
 
 """

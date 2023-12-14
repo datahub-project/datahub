@@ -3,13 +3,14 @@ import logging
 import os
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
-from typing import Any, Dict, Optional, cast
+from typing import Any, Dict, List, Optional, cast
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 from google.api_core.exceptions import GoogleAPICallError
 from google.cloud.bigquery.table import Row, TableListItem
 
+from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.bigquery_v2.bigquery import BigqueryV2Source
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import (
@@ -17,9 +18,13 @@ from datahub.ingestion.source.bigquery_v2.bigquery_audit import (
     BigqueryTableIdentifier,
     BigQueryTableRef,
 )
-from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
+from datahub.ingestion.source.bigquery_v2.bigquery_config import (
+    BigQueryConnectionConfig,
+    BigQueryV2Config,
+)
 from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Report
 from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
+    BigqueryDataset,
     BigqueryProject,
     BigQuerySchemaApi,
     BigqueryView,
@@ -46,6 +51,59 @@ def test_bigquery_uri_on_behalf():
         {"project_id": "test-project", "project_on_behalf": "test-project-on-behalf"}
     )
     assert config.get_sql_alchemy_url() == "bigquery://test-project-on-behalf"
+
+
+def test_bigquery_dataset_pattern():
+    config = BigQueryV2Config.parse_obj(
+        {
+            "dataset_pattern": {
+                "allow": [
+                    "test-dataset",
+                    "test-project.test-dataset",
+                    ".*test-dataset",
+                ],
+                "deny": [
+                    "^test-dataset-2$",
+                    "project\\.second_dataset",
+                ],
+            },
+        }
+    )
+    assert config.dataset_pattern.allow == [
+        r".*\.test-dataset",
+        r"test-project.test-dataset",
+        r".*test-dataset",
+    ]
+    assert config.dataset_pattern.deny == [
+        r"^.*\.test-dataset-2$",
+        r"project\.second_dataset",
+    ]
+
+    config = BigQueryV2Config.parse_obj(
+        {
+            "dataset_pattern": {
+                "allow": [
+                    "test-dataset",
+                    "test-project.test-dataset",
+                    ".*test-dataset",
+                ],
+                "deny": [
+                    "^test-dataset-2$",
+                    "project\\.second_dataset",
+                ],
+            },
+            "match_fully_qualified_names": False,
+        }
+    )
+    assert config.dataset_pattern.allow == [
+        r"test-dataset",
+        r"test-project.test-dataset",
+        r".*test-dataset",
+    ]
+    assert config.dataset_pattern.deny == [
+        r"^test-dataset-2$",
+        r"project\.second_dataset",
+    ]
 
 
 def test_bigquery_uri_with_credential():
@@ -266,7 +324,7 @@ def test_get_projects_list_failure(
         {"project_id_pattern": {"deny": ["^test-project$"]}}
     )
     source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
-    caplog.records.clear()
+    caplog.clear()
     with caplog.at_level(logging.ERROR):
         projects = source._get_projects()
         assert len(caplog.records) == 1
@@ -760,11 +818,14 @@ def test_gen_view_dataset_workunits(
         ("project.dataset.table_20231215", "project.dataset.table", "20231215"),
         ("project.dataset.table_2023", "project.dataset.table_2023", None),
         # incorrectly handled special case where dataset itself is a sharded table if full name is specified
-        ("project.dataset.20231215", "project.dataset.20231215", None),
+        ("project.dataset.20231215", "project.dataset.20231215", "20231215"),
+        ("project1.dataset2.20231215", "project1.dataset2.20231215", "20231215"),
         # Cases with Just the table name as input
         ("table", "table", None),
-        ("table20231215", "table20231215", None),
+        ("table20231215", "table", "20231215"),
         ("table_20231215", "table", "20231215"),
+        ("table2_20231215", "table2", "20231215"),
+        ("table220231215", "table220231215", None),
         ("table_1624046611000_name", "table_1624046611000_name", None),
         ("table_1624046611000", "table_1624046611000", None),
         # Special case where dataset itself is a sharded table
@@ -796,7 +857,6 @@ def test_get_table_and_shard_default(
         ("project.dataset.2023", "project.dataset.2023", None),
         # Cases with Just the table name as input
         ("table", "table", None),
-        ("table20231215", "table20231215", None),
         ("table_20231215", "table", "20231215"),
         ("table_2023", "table", "2023"),
         ("table_1624046611000_name", "table_1624046611000_name", None),
@@ -837,7 +897,7 @@ def test_get_table_and_shard_custom_shard_pattern(
             "project.dataset.table_1624046611000_name",
         ),
         ("project.dataset.table_1624046611000", "project.dataset.table_1624046611000"),
-        ("project.dataset.table20231215", "project.dataset.table20231215"),
+        ("project.dataset.table20231215", "project.dataset.table"),
         ("project.dataset.table_*", "project.dataset.table"),
         ("project.dataset.table_2023*", "project.dataset.table"),
         ("project.dataset.table_202301*", "project.dataset.table"),
@@ -854,3 +914,47 @@ def test_get_table_name(full_table_name: str, datahub_full_table_name: str) -> N
             BigqueryTableIdentifier.from_string_name(full_table_name).get_table_name()
             == datahub_full_table_name
         )
+
+
+def test_default_config_for_excluding_projects_and_datasets():
+    config = BigQueryV2Config.parse_obj({})
+    assert config.exclude_empty_projects is False
+    config = BigQueryV2Config.parse_obj({"exclude_empty_projects": True})
+    assert config.exclude_empty_projects
+
+
+@patch.object(BigQueryConnectionConfig, "get_bigquery_client", new=lambda self: None)
+@patch.object(BigQuerySchemaApi, "get_datasets_for_project_id")
+def test_excluding_empty_projects_from_ingestion(
+    get_datasets_for_project_id_mock,
+):
+    project_id_with_datasets = "project-id-with-datasets"
+    project_id_without_datasets = "project-id-without-datasets"
+
+    def get_datasets_for_project_id_side_effect(
+        project_id: str,
+    ) -> List[BigqueryDataset]:
+        return (
+            []
+            if project_id == project_id_without_datasets
+            else [BigqueryDataset("some-dataset")]
+        )
+
+    get_datasets_for_project_id_mock.side_effect = (
+        get_datasets_for_project_id_side_effect
+    )
+
+    base_config = {
+        "project_ids": [project_id_with_datasets, project_id_without_datasets],
+        "schema_pattern": AllowDenyPattern(deny=[".*"]),
+        "include_usage_statistics": False,
+        "include_table_lineage": False,
+    }
+
+    config = BigQueryV2Config.parse_obj(base_config)
+    source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test-1"))
+    assert len({wu.metadata.entityUrn for wu in source.get_workunits()}) == 2  # type: ignore
+
+    config = BigQueryV2Config.parse_obj({**base_config, "exclude_empty_projects": True})
+    source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test-2"))
+    assert len({wu.metadata.entityUrn for wu in source.get_workunits()}) == 1  # type: ignore

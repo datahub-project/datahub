@@ -23,6 +23,7 @@ dependencies {
       }
     }
   api project(':li-utils')
+  api project(path: ':li-utils', configuration: "dataTemplate")
   dataModel project(':li-utils')
 
   compileOnly externalDependency.lombok
@@ -74,11 +75,7 @@ task openApiGenerate(type: GenerateSwaggerCode, dependsOn: 'generateJsonSchema')
 }
 tasks.getByName("compileJava").dependsOn(openApiGenerate)
 
-checkstyleMain.exclude '**/generated/**'
-
 task cleanExtraDirs {
   delete "$projectDir/src/generatedJsonSchema"
 }
 clean.finalizedBy(cleanExtraDirs)
-
-checkstyleMain.exclude '**/generated/**'

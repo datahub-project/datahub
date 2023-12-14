@@ -7,13 +7,35 @@ The below table shows transformer which can transform aspects of entity [Dataset
 | Dataset Aspect      | Transformer                                                                                                                                                                                                       |                                                                                               
 |---------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `status`            | - [Mark Dataset status](#mark-dataset-status)                                                                                                                                                                     |
-| `ownership`         | - [Simple Add Dataset ownership](#simple-add-dataset-ownership)<br/> - [Pattern Add Dataset ownership](#pattern-add-dataset-ownership)<br/> - [Simple Remove Dataset Ownership](#simple-remove-dataset-ownership) |
+| `ownership`         | - [Simple Add Dataset ownership](#simple-add-dataset-ownership)<br/> - [Pattern Add Dataset ownership](#pattern-add-dataset-ownership)<br/> - [Simple Remove Dataset Ownership](#simple-remove-dataset-ownership)<br/> - [Extract Ownership from Tags](#extract-ownership-from-tags) |
 | `globalTags`        | - [Simple Add Dataset globalTags ](#simple-add-dataset-globaltags)<br/> - [Pattern Add Dataset globalTags](#pattern-add-dataset-globaltags)<br/> - [Add Dataset globalTags](#add-dataset-globaltags)              |
 | `browsePaths`       | - [Set Dataset browsePath](#set-dataset-browsepath)                                                                                                                                                               |
 | `glossaryTerms`     | - [Simple Add Dataset glossaryTerms ](#simple-add-dataset-glossaryterms)<br/> - [Pattern Add Dataset glossaryTerms](#pattern-add-dataset-glossaryterms)                                                           |
 | `schemaMetadata`    | - [Pattern Add Dataset Schema Field glossaryTerms](#pattern-add-dataset-schema-field-glossaryterms)<br/> - [Pattern Add Dataset Schema Field globalTags](#pattern-add-dataset-schema-field-globaltags)            |
 | `datasetProperties` | - [Simple Add Dataset datasetProperties](#simple-add-dataset-datasetproperties)<br/> - [Add Dataset datasetProperties](#add-dataset-datasetproperties)                                                            |
 | `domains`           | - [Simple Add Dataset domains](#simple-add-dataset-domains)<br/> - [Pattern Add Dataset domains](#pattern-add-dataset-domains)                                                                                      | 
+
+## Extract Ownership from Tags
+### Config Details
+| Field                       | Required | Type    | Default       | Description                                 |
+|-----------------------------|----------|---------|---------------|---------------------------------------------|
+| `semantics`                 |          | enum    | `OVERWRITE`   | Whether to OVERWRITE or PATCH the entity present on DataHub GMS. |
+| `tag_prefix`                |          | str     |               | Regex to use for tags to match against. Supports Regex to match a prefix which is used to remove content. Rest of string is considered owner ID for creating owner URN. |
+| `is_user`                 |          | bool    | `true`   | Whether should be consider a user or not. If `false` then considered a group. |
+| `email_domain` |          | str    |    | If set then this is appended to create owner URN. |
+| `owner_type` |          | str    |  `TECHNICAL_OWNER`   | Ownership type. |
+| `owner_type_urn` |          | str    |  `None`   | Set to a custom ownership type's URN if using custom ownership. |
+
+Matches against a tag prefix and considers string in tags after that prefix as owner to create ownership.
+
+```yaml
+transformers:
+  - type: "extract_ownership_from_tags"
+    config:
+      tag_prefix: "dbt:techno-genie:"
+      is_user: true
+      email_domain: "coolcompany.com"
+```
 
 ## Mark Dataset Status
 ### Config Details
@@ -33,12 +55,12 @@ transformers:
 ```
 ## Simple Add Dataset ownership 
 ### Config Details
-| Field                       | Required | Type         | Default       | Description                                                      |
-|-----------------------------|----------|--------------|---------------|------------------------------------------------------------------|
-| `owner_urns`                | ✅        | list[string] |               | List of owner urns.                                              |
-| `ownership_type`            |          | string       | `DATAOWNER`   | ownership type of the owners.                                    |
-| `replace_existing`          |          | boolean      | `false`       | Whether to remove owners from entity sent by ingestion source.   |
-| `semantics`                 |          | enum         | `OVERWRITE`   | Whether to OVERWRITE or PATCH the entity present on DataHub GMS. |
+| Field              | Required | Type         | Default     | Description                                                         |
+|--------------------|----------|--------------|-------------|---------------------------------------------------------------------|
+| `owner_urns`       | ✅        | list[string] |             | List of owner urns.                                                 |
+| `ownership_type`   |          | string       | "DATAOWNER" | ownership type of the owners (either as enum or ownership type urn) |
+| `replace_existing` |          | boolean      | `false`     | Whether to remove owners from entity sent by ingestion source.      |
+| `semantics`        |          | enum         | `OVERWRITE` | Whether to OVERWRITE or PATCH the entity present on DataHub GMS.    |
 
 For transformer behaviour on `replace_existing` and `semantics`, please refer section [Relationship Between replace_existing And semantics](#relationship-between-replace_existing-and-semantics).
 
@@ -73,7 +95,7 @@ transformers:
             - "urn:li:corpuser:username1"
             - "urn:li:corpuser:username2"
             - "urn:li:corpGroup:groupname"
-          ownership_type: "PRODUCER"
+          ownership_type: "urn:li:ownershipType:__system__producer"
     ```
 - Add owners, however overwrite the owners available for the dataset on DataHub GMS
     ```yaml
@@ -85,7 +107,7 @@ transformers:
             - "urn:li:corpuser:username1"
             - "urn:li:corpuser:username2"
             - "urn:li:corpGroup:groupname"
-          ownership_type: "PRODUCER"
+          ownership_type: "urn:li:ownershipType:__system__producer" 
     ```
 - Add owners, however keep the owners available for the dataset on DataHub GMS
     ```yaml
@@ -102,12 +124,12 @@ transformers:
 
 ## Pattern Add Dataset ownership 
 ### Config Details
-| Field                       | Required | Type                  | Default          | Description                                                                             |
-|-----------------------------|--------- |-----------------------|------------------|-----------------------------------------------------------------------------------------|
-| `owner_pattern`             | ✅        | map[regx, list[urn]]  |                  | entity urn with regular expression and list of owners urn apply to matching entity urn. |
-| `ownership_type`            |          | string                | `DATAOWNER`      | ownership type of the owners.                                                           |
-| `replace_existing`          |          | boolean               | `false`          | Whether to remove owners from entity sent by ingestion source.                          |
-| `semantics`                 |          | enum                  | `OVERWRITE`      | Whether to OVERWRITE or PATCH the entity present on DataHub GMS.                        |
+| Field              | Required | Type                 | Default     | Description                                                                             |
+|--------------------|----------|----------------------|-------------|-----------------------------------------------------------------------------------------|
+| `owner_pattern`    | ✅        | map[regx, list[urn]] |             | entity urn with regular expression and list of owners urn apply to matching entity urn. |
+| `ownership_type`   |          | string               | "DATAOWNER" | ownership type of the owners (either as enum or ownership type urn)                     |
+| `replace_existing` |          | boolean              | `false`     | Whether to remove owners from entity sent by ingestion source.                          |
+| `semantics`        |          | enum                 | `OVERWRITE` | Whether to OVERWRITE or PATCH the entity present on DataHub GMS.                        |
 
 let’s suppose we’d like to append a series of users who we know to own a different dataset from a data source but aren't detected during normal ingestion. To do so, we can use the `pattern_add_dataset_ownership` module that’s included in the ingestion framework.  This will match the pattern to `urn` of the dataset and assign the respective owners.
 
@@ -136,7 +158,7 @@ The config, which we’d append to our ingestion recipe YAML, would look like th
             rules:
               ".*example1.*": ["urn:li:corpuser:username1"]
               ".*example2.*": ["urn:li:corpuser:username2"]
-          ownership_type: "PRODUCER"
+          ownership_type: "urn:li:ownershipType:__system__producer"
     ```
 - Add owner, however overwrite the owners available for the dataset on DataHub GMS
     ```yaml
@@ -148,7 +170,7 @@ The config, which we’d append to our ingestion recipe YAML, would look like th
             rules:
               ".*example1.*": ["urn:li:corpuser:username1"]
               ".*example2.*": ["urn:li:corpuser:username2"]
-          ownership_type: "PRODUCER"
+          ownership_type: "urn:li:ownershipType:__system__producer" 
     ```
 - Add owner, however keep the owners available for the dataset on DataHub GMS
     ```yaml

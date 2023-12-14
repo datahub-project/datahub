@@ -67,6 +67,7 @@ entities:
       - institutionalMemory
       - dataPlatformInstance
       - browsePathsV2
+      - subTypes
   - name: dataFlow
     category: core
     keyAspect: dataFlowKey
@@ -120,6 +121,7 @@ entities:
       - globalTags
       - glossaryTerms
       - browsePathsV2
+      - subTypes
   - name: dashboard
     keyAspect: dashboardKey
     aspects:
@@ -262,6 +264,7 @@ entities:
       - assertionInfo
       - dataPlatformInstance
       - assertionRunEvent
+      - assertionActions
       - status
   - name: dataHubRetention
     category: internal
@@ -398,7 +401,7 @@ entities:
       - dataHubUpgradeRequest
       - dataHubUpgradeResult
   - name: inviteToken
-    category: core
+    category: internal
     keyAspect: inviteTokenKey
     aspects:
       - inviteToken
@@ -423,7 +426,7 @@ entities:
     aspects:
       - postInfo
   - name: dataHubStepState
-    category: core
+    category: internal
     keyAspect: dataHubStepStateKey
     aspects:
       - dataHubStepStateProperties
@@ -457,4 +460,12 @@ entities:
     aspects:
       - ownershipTypeInfo
       - status
+  - name: dataContract
+    category: core
+    keyAspect: dataContractKey
+    aspects:
+      - dataContractProperties
+      - dataContractStatus
+      - status
+
 events:

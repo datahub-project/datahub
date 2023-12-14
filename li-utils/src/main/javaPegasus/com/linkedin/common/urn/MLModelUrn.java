@@ -1,14 +1,10 @@
 package com.linkedin.common.urn;
 
+import com.linkedin.common.FabricType;
 import com.linkedin.data.template.Custom;
 import com.linkedin.data.template.DirectCoercer;
 import com.linkedin.data.template.TemplateOutputCastException;
 import java.net.URISyntaxException;
-
-import com.linkedin.common.FabricType;
-
-import static com.linkedin.common.urn.UrnUtils.toFabricType;
-
 
 public final class MLModelUrn extends Urn {
 
@@ -52,8 +48,10 @@ public final class MLModelUrn extends Urn {
         throw new URISyntaxException(urn.toString(), "Invalid number of keys.");
       } else {
         try {
-          return new MLModelUrn((DataPlatformUrn) key.getAs(0, DataPlatformUrn.class),
-              (String) key.getAs(1, String.class), (FabricType) key.getAs(2, FabricType.class));
+          return new MLModelUrn(
+              (DataPlatformUrn) key.getAs(0, DataPlatformUrn.class),
+              (String) key.getAs(1, String.class),
+              (FabricType) key.getAs(2, FabricType.class));
         } catch (Exception e) {
           throw new URISyntaxException(urn.toString(), "Invalid URN Parameter: '" + e.getMessage());
         }
@@ -68,18 +66,20 @@ public final class MLModelUrn extends Urn {
   static {
     Custom.initializeCustomClass(DataPlatformUrn.class);
     Custom.initializeCustomClass(FabricType.class);
-    Custom.registerCoercer(new DirectCoercer<MLModelUrn>() {
-      public Object coerceInput(MLModelUrn object) throws ClassCastException {
-        return object.toString();
-      }
+    Custom.registerCoercer(
+        new DirectCoercer<MLModelUrn>() {
+          public Object coerceInput(MLModelUrn object) throws ClassCastException {
+            return object.toString();
+          }
 
-      public MLModelUrn coerceOutput(Object object) throws TemplateOutputCastException {
-        try {
-          return MLModelUrn.createFromString((String) object);
-        } catch (URISyntaxException e) {
-          throw new TemplateOutputCastException("Invalid URN syntax: " + e.getMessage(), e);
-        }
-      }
-    }, MLModelUrn.class);
+          public MLModelUrn coerceOutput(Object object) throws TemplateOutputCastException {
+            try {
+              return MLModelUrn.createFromString((String) object);
+            } catch (URISyntaxException e) {
+              throw new TemplateOutputCastException("Invalid URN syntax: " + e.getMessage(), e);
+            }
+          }
+        },
+        MLModelUrn.class);
   }
 }

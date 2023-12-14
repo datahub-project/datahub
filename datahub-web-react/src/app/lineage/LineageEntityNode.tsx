@@ -1,6 +1,6 @@
 import React, { useContext, useEffect, useMemo, useState } from 'react';
-import { Group } from '@vx/group';
-import { LinkHorizontal } from '@vx/shape';
+import { Group } from '@visx/group';
+import { LinkHorizontal } from '@visx/shape';
 import styled from 'styled-components';
 
 import { useEntityRegistry } from '../useEntityRegistry';

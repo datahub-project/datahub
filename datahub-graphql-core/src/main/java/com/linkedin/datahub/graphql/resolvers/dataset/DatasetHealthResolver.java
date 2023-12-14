@@ -39,13 +39,11 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 
-
 /**
  * Resolver used for resolving the Health state of a Dataset.
  *
- * Currently, the health status is calculated via the validation on a Dataset. If there are no validations found, the
- * health status will be undefined for the Dataset.
- *
+ * <p>Currently, the health status is calculated via the validation on a Dataset. If there are no
+ * validations found, the health status will be undefined for the Dataset.
  */
 @Slf4j
 public class DatasetHealthResolver implements DataFetcher<CompletableFuture<List<Health>>> {
@@ -60,47 +58,48 @@ public class DatasetHealthResolver implements DataFetcher<CompletableFuture<List
   private final Cache<String, CachedHealth> _statusCache;
 
   public DatasetHealthResolver(
-      final GraphClient graphClient,
-      final TimeseriesAspectService timeseriesAspectService) {
+      final GraphClient graphClient, final TimeseriesAspectService timeseriesAspectService) {
     this(graphClient, timeseriesAspectService, new Config(true));
-
   }
+
   public DatasetHealthResolver(
       final GraphClient graphClient,
       final TimeseriesAspectService timeseriesAspectService,
       final Config config) {
     _graphClient = graphClient;
     _timeseriesAspectService = timeseriesAspectService;
-    _statusCache = CacheBuilder.newBuilder()
-        .maximumSize(10000)
-        .expireAfterWrite(1, TimeUnit.MINUTES)
-        .build();
+    _statusCache =
+        CacheBuilder.newBuilder().maximumSize(10000).expireAfterWrite(1, TimeUnit.MINUTES).build();
     _config = config;
   }
 
   @Override
-  public CompletableFuture<List<Health>> get(final DataFetchingEnvironment environment) throws Exception {
+  public CompletableFuture<List<Health>> get(final DataFetchingEnvironment environment)
+      throws Exception {
     final Dataset parent = environment.getSource();
-    return CompletableFuture.supplyAsync(() -> {
-        try {
-          final CachedHealth cachedStatus = _statusCache.get(parent.getUrn(), () -> (
-              computeHealthStatusForDataset(parent.getUrn(), environment.getContext())));
-          return cachedStatus.healths;
-        } catch (Exception e) {
-          throw new RuntimeException("Failed to resolve dataset's health status.", e);
-        }
-    });
+    return CompletableFuture.supplyAsync(
+        () -> {
+          try {
+            final CachedHealth cachedStatus =
+                _statusCache.get(
+                    parent.getUrn(),
+                    () ->
+                        (computeHealthStatusForDataset(parent.getUrn(), environment.getContext())));
+            return cachedStatus.healths;
+          } catch (Exception e) {
+            throw new RuntimeException("Failed to resolve dataset's health status.", e);
+          }
+        });
   }
 
   /**
    * Computes the "resolved health status" for a Dataset by
    *
-   *  - fetching active (non-deleted) assertions
-   *  - fetching latest assertion run for each
-   *  - checking whether any of the assertions latest runs are failing
-   *
+   * <p>- fetching active (non-deleted) assertions - fetching latest assertion run for each -
+   * checking whether any of the assertions latest runs are failing
    */
-  private CachedHealth computeHealthStatusForDataset(final String datasetUrn, final QueryContext context) {
+  private CachedHealth computeHealthStatusForDataset(
+      final String datasetUrn, final QueryContext context) {
     final List<Health> healthStatuses = new ArrayList<>();
 
     if (_config.getAssertionsEnabled()) {
@@ -113,31 +112,33 @@ public class DatasetHealthResolver implements DataFetcher<CompletableFuture<List
   }
 
   /**
-   * Returns the resolved "assertions health", which is currently a static function of whether the most recent run of
-   * all dataset assertions has succeeded.
+   * Returns the resolved "assertions health", which is currently a static function of whether the
+   * most recent run of all dataset assertions has succeeded.
    *
    * @param datasetUrn the dataset to compute health for
    * @param context the query context
    * @return an instance of {@link Health} for the Dataset, null if one cannot be computed.
    */
   @Nullable
-  private Health computeAssertionHealthForDataset(final String datasetUrn, final QueryContext context) {
+  private Health computeAssertionHealthForDataset(
+      final String datasetUrn, final QueryContext context) {
     // Get active assertion urns
-    final EntityRelationships relationships = _graphClient.getRelatedEntities(
-        datasetUrn,
-        ImmutableList.of(ASSERTS_RELATIONSHIP_NAME),
-        RelationshipDirection.INCOMING,
-        0,
-        500,
-        context.getActorUrn()
-    );
+    final EntityRelationships relationships =
+        _graphClient.getRelatedEntities(
+            datasetUrn,
+            ImmutableList.of(ASSERTS_RELATIONSHIP_NAME),
+            RelationshipDirection.INCOMING,
+            0,
+            500,
+            context.getActorUrn());
 
     if (relationships.getTotal() > 0) {
 
       // If there are assertions defined, then we should return a non-null health for this asset.
-      final Set<String> activeAssertionUrns = relationships.getRelationships()
-          .stream()
-          .map(relationship -> relationship.getEntity().toString()).collect(Collectors.toSet());
+      final Set<String> activeAssertionUrns =
+          relationships.getRelationships().stream()
+              .map(relationship -> relationship.getEntity().toString())
+              .collect(Collectors.toSet());
 
       final GenericTable assertionRunResults = getAssertionRunsTable(datasetUrn);
 
@@ -146,22 +147,24 @@ public class DatasetHealthResolver implements DataFetcher<CompletableFuture<List
         return null;
       }
 
-      final List<String> failingAssertionUrns = getFailingAssertionUrns(assertionRunResults, activeAssertionUrns);
+      final List<String> failingAssertionUrns =
+          getFailingAssertionUrns(assertionRunResults, activeAssertionUrns);
 
       // Finally compute & return the health.
       final Health health = new Health();
       health.setType(HealthStatusType.ASSERTIONS);
       if (failingAssertionUrns.size() > 0) {
         health.setStatus(HealthStatus.FAIL);
-        health.setMessage(String.format("%s of %s assertions are failing", failingAssertionUrns.size(),
-            activeAssertionUrns.size()));
+        health.setMessage(
+            String.format(
+                "%s of %s assertions are failing",
+                failingAssertionUrns.size(), activeAssertionUrns.size()));
         health.setCauses(failingAssertionUrns);
       } else {
         health.setStatus(HealthStatus.PASS);
         health.setMessage("All assertions are passing");
       }
       return health;
-
     }
     return null;
   }
@@ -175,7 +178,8 @@ public class DatasetHealthResolver implements DataFetcher<CompletableFuture<List
         createAssertionGroupingBuckets());
   }
 
-  private List<String> getFailingAssertionUrns(final GenericTable assertionRunsResult, final Set<String> candidateAssertionUrns) {
+  private List<String> getFailingAssertionUrns(
+      final GenericTable assertionRunsResult, final Set<String> candidateAssertionUrns) {
     // Create the buckets based on the result
     return resultToFailedAssertionUrns(assertionRunsResult.getRows(), candidateAssertionUrns);
   }
@@ -191,12 +195,15 @@ public class DatasetHealthResolver implements DataFetcher<CompletableFuture<List
 
     // Add filter for result == result
     Criterion startTimeCriterion =
-        new Criterion().setField("status").setCondition(Condition.EQUAL).setValue(Constants.ASSERTION_RUN_EVENT_STATUS_COMPLETE);
+        new Criterion()
+            .setField("status")
+            .setCondition(Condition.EQUAL)
+            .setValue(Constants.ASSERTION_RUN_EVENT_STATUS_COMPLETE);
     criteria.add(startTimeCriterion);
 
-    filter.setOr(new ConjunctiveCriterionArray(ImmutableList.of(
-        new ConjunctiveCriterion().setAnd(new CriterionArray(criteria))
-    )));
+    filter.setOr(
+        new ConjunctiveCriterionArray(
+            ImmutableList.of(new ConjunctiveCriterion().setAnd(new CriterionArray(criteria)))));
     return filter;
   }
 
@@ -205,31 +212,38 @@ public class DatasetHealthResolver implements DataFetcher<CompletableFuture<List
     AggregationSpec resultTypeAggregation =
         new AggregationSpec().setAggregationType(AggregationType.LATEST).setFieldPath("type");
     AggregationSpec timestampAggregation =
-        new AggregationSpec().setAggregationType(AggregationType.LATEST).setFieldPath("timestampMillis");
-    return new AggregationSpec[]{resultTypeAggregation, timestampAggregation};
+        new AggregationSpec()
+            .setAggregationType(AggregationType.LATEST)
+            .setFieldPath("timestampMillis");
+    return new AggregationSpec[] {resultTypeAggregation, timestampAggregation};
   }
 
   private GroupingBucket[] createAssertionGroupingBuckets() {
     // String grouping bucket on "assertionUrn"
     GroupingBucket assertionUrnBucket = new GroupingBucket();
     assertionUrnBucket.setKey("assertionUrn").setType(GroupingBucketType.STRING_GROUPING_BUCKET);
-    return new GroupingBucket[]{assertionUrnBucket};
+    return new GroupingBucket[] {assertionUrnBucket};
   }
 
-  private List<String> resultToFailedAssertionUrns(final StringArrayArray rows, final Set<String> activeAssertionUrns) {
+  private List<String> resultToFailedAssertionUrns(
+      final StringArrayArray rows, final Set<String> activeAssertionUrns) {
     final List<String> failedAssertionUrns = new ArrayList<>();
     for (StringArray row : rows) {
       // Result structure should be assertionUrn, event.result.type, timestampMillis
       if (row.size() != 3) {
-        throw new RuntimeException(String.format(
-            "Failed to fetch assertion run events from Timeseries index! Expected row of size 3, found %s", row.size()));
+        throw new RuntimeException(
+            String.format(
+                "Failed to fetch assertion run events from Timeseries index! Expected row of size 3, found %s",
+                row.size()));
       }
 
       final String assertionUrn = row.get(0);
       final String resultType = row.get(1);
 
-      // If assertion is "active" (not deleted) & is failing, then we report a degradation in health.
-      if (activeAssertionUrns.contains(assertionUrn) && !ASSERTION_RUN_EVENT_SUCCESS_TYPE.equals(resultType)) {
+      // If assertion is "active" (not deleted) & is failing, then we report a degradation in
+      // health.
+      if (activeAssertionUrns.contains(assertionUrn)
+          && !ASSERTION_RUN_EVENT_SUCCESS_TYPE.equals(resultType)) {
         failedAssertionUrns.add(assertionUrn);
       }
     }
