@@ -396,7 +396,7 @@ class RedshiftUsageExtractor:
             return -timestamp_low_watermark
 
         # dict of entity urn -> last event's actor, operation type
-        last_events = cachetools.TTLCache(
+        last_events = cachetools.TTLCache[str](
             maxsize=OPERATION_CACHE_MAXSIZE, ttl=DROP_WINDOW_SEC * 1000, timer=timer
         )
 
