@@ -36,13 +36,9 @@ def test_create_dataset_urn_with_reserved_chars() -> None:
 
 
 def test_make_user_urn() -> None:
+    assert builder.make_user_urn("someUser") == "urn:li:corpuser:someUser"
     assert (
-        builder.make_user_urn("someUser")
-        == "urn:li:corpuser:someUser"
-    )
-    assert (
-        builder.make_user_urn("urn:li:corpuser:someUser")
-        == "urn:li:corpuser:someUser"
+        builder.make_user_urn("urn:li:corpuser:someUser") == "urn:li:corpuser:someUser"
     )
     assert (
         builder.make_user_urn("urn:li:corpGroup:someGroup")
@@ -51,15 +47,11 @@ def test_make_user_urn() -> None:
 
 
 def test_make_group_urn() -> None:
-    assert (
-        builder.make_group_urn("someGroup")
-        == "urn:li:corpGroup:someGroup"
-    )
+    assert builder.make_group_urn("someGroup") == "urn:li:corpGroup:someGroup"
     assert (
         builder.make_group_urn("urn:li:corpGroup:someGroup")
         == "urn:li:corpGroup:someGroup"
     )
     assert (
-        builder.make_group_urn("urn:li:corpuser:someUser")
-        == "urn:li:corpuser:someUser"
+        builder.make_group_urn("urn:li:corpuser:someUser") == "urn:li:corpuser:someUser"
     )
