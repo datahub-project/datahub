@@ -279,7 +279,7 @@ class Telemetry:
             graph = get_default_graph()
             server_config = graph.test_connection()
             set_gms_config(server_config)
-        except Exception as e:
+        except Exception:
             # If we are not able to connect to server nothing to do here
             pass
         if not self.enabled or self.mp is None or self.tracking_init is True:
