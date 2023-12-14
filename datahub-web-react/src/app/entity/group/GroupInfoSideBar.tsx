@@ -270,27 +270,25 @@ export default function GroupInfoSidebar({ sideBarData, refetch }: Props) {
                         <Row>
                             <Col span={22}>{TITLES.about}</Col>
                             <Col span={2}>
-                                <EditIcon color="red" onClick={() => SetIsUpdatingDescription(true)} />
+                                <EditIcon onClick={() => SetIsUpdatingDescription(true)} data-testid="edit-icon" />
                             </Col>
                         </Row>
                     </AboutSection>
                     <DescriptionContainer>
-                        {expanded || !overLimit ? (
+                        {(aboutText && expanded) || !overLimit ? (
                             <>
-                                {!!aboutText && <StyledViewer content={aboutText} readOnly />}
-                                {!!aboutText && (
-                                    <ExpandedActions>
-                                        {overLimit && (
-                                            <ReadLessText
-                                                onClick={() => {
-                                                    setExpanded(false);
-                                                }}
-                                            >
-                                                Read Less
-                                            </ReadLessText>
-                                        )}
-                                    </ExpandedActions>
-                                )}
+                                <StyledViewer content={aboutText} readOnly />
+                                <ExpandedActions>
+                                    {overLimit && (
+                                        <ReadLessText
+                                            onClick={() => {
+                                                setExpanded(false);
+                                            }}
+                                        >
+                                            Read Less
+                                        </ReadLessText>
+                                    )}
+                                </ExpandedActions>
                             </>
                         ) : (
                             <>
@@ -322,7 +320,7 @@ export default function GroupInfoSidebar({ sideBarData, refetch }: Props) {
                             }}
                             onSaveAboutMe={onSaveAboutMe}
                             setStagedDescription={setStagedDescription}
-                            stagedDescription={aboutText}
+                            stagedDescription={stagedDescription}
                         />
                     )}
                     <Divider className="divider-groupsSection" />
