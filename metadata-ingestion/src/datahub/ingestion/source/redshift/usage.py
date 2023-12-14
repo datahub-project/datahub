@@ -395,8 +395,8 @@ class RedshiftUsageExtractor:
         def timer():
             return -timestamp_low_watermark
 
-        # dict of entity urn -> last event's actor, operation type
-        last_events = cachetools.TTLCache[str](
+        # dict of entity urn -> (last event's actor, operation type)
+        last_events = cachetools.TTLCache[str, Tuple[Optional[str], str]](
             maxsize=OPERATION_CACHE_MAXSIZE, ttl=DROP_WINDOW_SEC * 1000, timer=timer
         )
 
@@ -408,7 +408,12 @@ class RedshiftUsageExtractor:
             )
 
             urn = event.entityUrn
-            value = (event.aspect.actor, event.aspect.operationType)
+            assert urn
+            assert isinstance(event.aspect.operationType, str)
+            value: Tuple[Optional[str], str] = (
+                event.aspect.actor,
+                event.aspect.operationType,
+            )
             if urn in last_events and last_events[urn] == value:
                 self.report.num_repeated_operations_dropped += 1
                 continue
