@@ -386,7 +386,8 @@ class RedshiftUsageExtractor:
         that are all really part of the same overall operation.
         """
 
-        DROP_WINDOW_SEC = 60
+        OPERATION_CACHE_MAXSIZE = 1000
+        DROP_WINDOW_SEC = 10
 
         # All timestamps are in milliseconds.
         timestamp_low_watermark = 0
@@ -395,7 +396,9 @@ class RedshiftUsageExtractor:
             return -timestamp_low_watermark
 
         # dict of entity urn -> last event's actor, operation type
-        last_events = cachetools.TTLCache(ttl=DROP_WINDOW_SEC * 1000, timer=timer)
+        last_events = cachetools.TTLCache(
+            maxsize=OPERATION_CACHE_MAXSIZE, ttl=DROP_WINDOW_SEC * 1000, timer=timer
+        )
 
         for event in events:
             assert isinstance(event.aspect, OperationClass)
