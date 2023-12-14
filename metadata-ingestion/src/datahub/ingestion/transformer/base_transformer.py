@@ -19,7 +19,7 @@ log = logging.getLogger(__name__)
 
 def _update_work_unit_id(
     envelope: RecordEnvelope, urn: str, aspect_name: str
-) -> dict[Any, Any]:
+) -> Dict[Any, Any]:
     structured_urn = Urn.create_from_string(urn)
     simple_name = "-".join(structured_urn.get_entity_id())
     record_metadata = envelope.metadata.copy()
