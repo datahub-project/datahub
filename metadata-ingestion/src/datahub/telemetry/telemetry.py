@@ -15,8 +15,9 @@ from typing_extensions import ParamSpec
 import datahub as datahub_package
 from datahub.cli.cli_utils import DATAHUB_ROOT_FOLDER, get_boolean_env_variable
 from datahub.configuration.common import ExceptionWithProps
-from datahub.ingestion.graph.client import DataHubGraph
+from datahub.ingestion.graph.client import DataHubGraph, get_default_graph
 from datahub.utilities.perf_timer import PerfTimer
+from datahub.utilities.server_config_util import set_gms_config
 
 logger = logging.getLogger(__name__)
 
@@ -274,6 +275,13 @@ class Telemetry:
             logger.warning("Failed to capture exception in Sentry.", exc_info=e)
 
     def init_tracking(self) -> None:
+        try:
+            graph = get_default_graph()
+            server_config = graph.test_connection()
+            set_gms_config(server_config)
+        except Exception as e:
+            # If we are not able to connect to server nothing to do here
+            pass
         if not self.enabled or self.mp is None or self.tracking_init is True:
             return
 
@@ -342,7 +350,7 @@ def suppress_telemetry() -> None:
     """disables telemetry for this invocation, doesn't affect persistent client settings"""
     if telemetry_instance.enabled:
         logger.debug("Disabling telemetry locally due to server config")
-    telemetry_instance.enabled = False
+    telemetry_instance.disable()
 
 
 def get_full_class_name(obj):
