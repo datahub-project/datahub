@@ -234,7 +234,7 @@ def test_simple_dataset_ownership_transformation(mock_time):
     assert last_event.entityUrn == outputs[0].record.proposedSnapshot.urn
     assert all(
         [
-            owner.type == models.OwnershipTypeClass.DATAOWNER
+            owner.type == models.OwnershipTypeClass.DATAOWNER and owner.typeUrn is None
             for owner in last_event.aspect.owners
         ]
     )
@@ -247,7 +247,7 @@ def test_simple_dataset_ownership_transformation(mock_time):
     assert len(second_ownership_aspect.owners) == 3
     assert all(
         [
-            owner.type == models.OwnershipTypeClass.DATAOWNER
+            owner.type == models.OwnershipTypeClass.DATAOWNER and owner.typeUrn is None
             for owner in second_ownership_aspect.owners
         ]
     )
@@ -291,6 +291,44 @@ def test_simple_dataset_ownership_with_type_transformation(mock_time):
     assert isinstance(ownership_aspect, OwnershipClass)
     assert len(ownership_aspect.owners) == 1
     assert ownership_aspect.owners[0].type == models.OwnershipTypeClass.PRODUCER
+
+
+def test_simple_dataset_ownership_with_type_urn_transformation(mock_time):
+    input = make_generic_dataset()
+
+    transformer = SimpleAddDatasetOwnership.create(
+        {
+            "owner_urns": [
+                builder.make_user_urn("person1"),
+            ],
+            "ownership_type": "urn:li:ownershipType:__system__technical_owner",
+        },
+        PipelineContext(run_id="test"),
+    )
+
+    output = list(
+        transformer.transform(
+            [
+                RecordEnvelope(input, metadata={}),
+                RecordEnvelope(EndOfStream(), metadata={}),
+            ]
+        )
+    )
+
+    assert len(output) == 3
+
+    # original MCE is unchanged
+    assert input == output[0].record
+
+    ownership_aspect = output[1].record.aspect
+
+    assert isinstance(ownership_aspect, OwnershipClass)
+    assert len(ownership_aspect.owners) == 1
+    assert ownership_aspect.owners[0].type == OwnershipTypeClass.CUSTOM
+    assert (
+        ownership_aspect.owners[0].typeUrn
+        == "urn:li:ownershipType:__system__technical_owner"
+    )
 
 
 def _test_extract_tags(in_urn: str, regex_str: str, out_tag: str) -> None:
@@ -888,6 +926,7 @@ def test_pattern_dataset_ownership_transformation(mock_time):
                     ".*example2.*": [builder.make_user_urn("person2")],
                 }
             },
+            "ownership_type": "DATAOWNER",
         },
         PipelineContext(run_id="test"),
     )
@@ -2248,6 +2287,7 @@ def test_simple_dataset_ownership_transformer_semantics_patch(mock_datahub_graph
             "replace_existing": False,
             "semantics": TransformerSemantics.PATCH,
             "owner_urns": [owner2],
+            "ownership_type": "DATAOWNER",
         },
         pipeline_context=pipeline_context,
     )
