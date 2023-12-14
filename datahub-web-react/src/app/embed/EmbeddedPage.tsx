@@ -39,11 +39,11 @@ export default function EmbeddedPage({ entityType }: Props) {
         });
     }, [entityType, urn]);
 
-        const {urn : authenticatedUserUrn} = useUserContext();
+    const { urn : authenticatedUserUrn } = useUserContext();
     const { data } = useGetGrantedPrivilegesQuery({
         variables: {
             input: {
-                actorUrn: authenticatedUserUrn || '',
+                actorUrn: authenticatedUserUrn as string,
                 resourceSpec: { resourceType: entityType, resourceUrn: urn },
             },
         },
