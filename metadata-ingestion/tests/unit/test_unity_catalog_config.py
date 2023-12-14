@@ -38,7 +38,11 @@ def test_profiling_requires_warehouses_id():
         {
             "token": "token",
             "workspace_url": "https://workspace_url",
-            "profiling": {"enabled": True, "warehouse_id": "my_warehouse_id"},
+            "profiling": {
+                "enabled": True,
+                "method": "ge",
+                "warehouse_id": "my_warehouse_id",
+            },
         }
     )
     assert config.profiling.enabled is True
@@ -47,7 +51,7 @@ def test_profiling_requires_warehouses_id():
         {
             "token": "token",
             "workspace_url": "https://workspace_url",
-            "profiling": {"enabled": False},
+            "profiling": {"enabled": False, "method": "ge"},
         }
     )
     assert config.profiling.enabled is False

@@ -1,4 +1,4 @@
-from typing import Dict, Generic, List, Optional, TypeVar, Union
+from typing import Dict, Generic, List, Optional, Tuple, TypeVar, Union
 from urllib.parse import quote
 
 from datahub.emitter.mcp_patch_builder import MetadataPatchProposal
@@ -6,6 +6,9 @@ from datahub.metadata.schema_classes import (
     DatasetPropertiesClass as DatasetProperties,
     EditableDatasetPropertiesClass as EditableDatasetProperties,
     EditableSchemaMetadataClass as EditableSchemaMetadata,
+    FineGrainedLineageClass as FineGrainedLineage,
+    FineGrainedLineageDownstreamTypeClass as FineGrainedLineageDownstreamType,
+    FineGrainedLineageUpstreamTypeClass as FineGrainedLineageUpstreamType,
     GlobalTagsClass as GlobalTags,
     GlossaryTermAssociationClass as Term,
     GlossaryTermsClass as GlossaryTerms,
@@ -141,6 +144,108 @@ class DatasetPatchBuilder(MetadataPatchProposal):
     def set_upstream_lineages(self, upstreams: List[Upstream]) -> "DatasetPatchBuilder":
         self._add_patch(
             UpstreamLineage.ASPECT_NAME, "replace", path="/upstreams", value=upstreams
+        )
+        return self
+
+    def add_fine_grained_upstream_lineage(
+        self, fine_grained_lineage: FineGrainedLineage
+    ) -> "DatasetPatchBuilder":
+        (
+            transform_op,
+            upstream_type,
+            downstream_type,
+        ) = DatasetPatchBuilder.get_fine_grained_key(fine_grained_lineage)
+        for upstream_urn in fine_grained_lineage.upstreams or []:
+            self._add_patch(
+                UpstreamLineage.ASPECT_NAME,
+                "add",
+                path=DatasetPatchBuilder.quote_fine_grained_upstream_path(
+                    transform_op, upstream_type, upstream_urn
+                ),
+                value=fine_grained_lineage.confidenceScore,
+            )
+        for downstream_urn in fine_grained_lineage.downstreams or []:
+            self._add_patch(
+                UpstreamLineage.ASPECT_NAME,
+                "add",
+                path=DatasetPatchBuilder.quote_fine_grained_downstream_path(
+                    transform_op, downstream_type, downstream_urn
+                ),
+                value=fine_grained_lineage.confidenceScore,
+            )
+        return self
+
+    @staticmethod
+    def get_fine_grained_key(
+        fine_grained_lineage: FineGrainedLineage,
+    ) -> Tuple[str, str, str]:
+        transform_op = fine_grained_lineage.transformOperation or "NONE"
+        upstream_type = (
+            fine_grained_lineage.upstreamType
+            if isinstance(fine_grained_lineage.upstreamType, str)
+            else FineGrainedLineageUpstreamType.FIELD_SET
+        )
+        downstream_type = (
+            fine_grained_lineage.downstreamType
+            if isinstance(fine_grained_lineage.downstreamType, str)
+            else FineGrainedLineageDownstreamType.FIELD_SET
+        )
+        return transform_op, upstream_type, downstream_type
+
+    @staticmethod
+    def quote_fine_grained_downstream_path(
+        transform_op: str, downstream_type: str, downstream_urn: str
+    ) -> str:
+        return (
+            f"/fineGrainedLineages/{quote(transform_op, safe='')}/downstreamType/"
+            f"{quote(downstream_type, safe='')}/{quote(downstream_urn, safe='')}"
+        )
+
+    @staticmethod
+    def quote_fine_grained_upstream_path(
+        transform_op: str, upstream_type: str, upstream_urn: str
+    ) -> str:
+        return (
+            f"/fineGrainedLineages/{quote(transform_op, safe='')}/upstreamType/"
+            f"{quote(upstream_type, safe='')}/{quote(upstream_urn, safe='')}"
+        )
+
+    def remove_fine_grained_upstream_lineage(
+        self, fine_grained_lineage: FineGrainedLineage
+    ) -> "DatasetPatchBuilder":
+        (
+            transform_op,
+            upstream_type,
+            downstream_type,
+        ) = DatasetPatchBuilder.get_fine_grained_key(fine_grained_lineage)
+        for upstream_urn in fine_grained_lineage.upstreams or []:
+            self._add_patch(
+                UpstreamLineage.ASPECT_NAME,
+                "remove",
+                path=DatasetPatchBuilder.quote_fine_grained_upstream_path(
+                    transform_op, upstream_type, upstream_urn
+                ),
+                value={},
+            )
+        for downstream_urn in fine_grained_lineage.downstreams or []:
+            self._add_patch(
+                UpstreamLineage.ASPECT_NAME,
+                "remove",
+                path=DatasetPatchBuilder.quote_fine_grained_downstream_path(
+                    transform_op, downstream_type, downstream_urn
+                ),
+                value={},
+            )
+        return self
+
+    def set_fine_grained_upstream_lineages(
+        self, fine_grained_lineages: List[FineGrainedLineage]
+    ) -> "DatasetPatchBuilder":
+        self._add_patch(
+            UpstreamLineage.ASPECT_NAME,
+            "add",
+            path="/fineGrainedLineages",
+            value=fine_grained_lineages,
         )
         return self
 

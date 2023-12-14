@@ -256,7 +256,7 @@ to deploy during development. This will allow Datahub to read and write your new
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
-<Tabs>
+<Tabs queryString="python-custom-models">
 <TabItem value="local" label="Local CLI" default>
 
 If you're purely using the custom models locally, you can use a local development-mode install of the DataHub CLI.
@@ -273,12 +273,21 @@ If you want to use your custom models beyond your local machine without forking 
 This package should be installed alongside the base `acryl-datahub` package, and its metadata models will take precedence over the default ones.
 
 ```bash
-cd metadata-ingestion
-../gradlew customPackageGenerate -Ppackage_name=my-company-datahub-models -Ppackage_version="0.0.1"
+$ cd metadata-ingestion
+$ ../gradlew customPackageGenerate -Ppackage_name=my-company-datahub-models -Ppackage_version="0.0.1"
+<bunch of log lines>
+Successfully built my-company-datahub-models-0.0.1.tar.gz and acryl_datahub_cloud-0.0.1-py3-none-any.whl
+
+Generated package at custom-package/my-company-datahub-models
+This package should be installed alongside the main acryl-datahub package.
+
+Install the custom package locally with `pip install custom-package/my-company-datahub-models`
+To enable others to use it, share the file at custom-package/my-company-datahub-models/dist/<wheel file>.whl and have them install it with `pip install <wheel file>.whl`
+Alternatively, publish it to PyPI with `twine upload custom-package/my-company-datahub-models/dist/*`
 ```
 
 This will generate some Python build artifacts, which you can distribute within your team or publish to PyPI.
-The command output will contain additional details and exact CLI commands you can use.
+The command output contains additional details and exact CLI commands you can use.
 
 </TabItem>
 </Tabs>

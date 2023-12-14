@@ -1,10 +1,12 @@
 import logging
 import os
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
+from urllib.parse import urlparse
 
 import pydantic
 from pydantic import Field
+from typing_extensions import Literal
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.source_common import (
@@ -13,6 +15,9 @@ from datahub.configuration.source_common import (
 )
 from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
+from datahub.ingestion.source.ge_data_profiler import DATABRICKS
+from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
+from datahub.ingestion.source.sql.sql_config import SQLCommonConfig, make_sqlalchemy_uri
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
 )
@@ -31,22 +36,18 @@ logger = logging.getLogger(__name__)
 
 
 class UnityCatalogProfilerConfig(ConfigModel):
-    # TODO: Reduce duplicate code with DataLakeProfilerConfig, GEProfilingConfig, SQLAlchemyConfig
-    enabled: bool = Field(
-        default=False, description="Whether profiling should be done."
-    )
-    operation_config: OperationConfig = Field(
-        default_factory=OperationConfig,
-        description="Experimental feature. To specify operation configs.",
+    method: str = Field(
+        description=(
+            "Profiling method to use."
+            " Options supported are `ge` and `analyze`."
+            " `ge` uses Great Expectations and runs SELECT SQL queries on profiled tables."
+            " `analyze` calls ANALYZE TABLE on profiled tables. Only works for delta tables."
+        ),
     )
 
+    # TODO: Support cluster compute as well, for ge profiling
     warehouse_id: Optional[str] = Field(
         default=None, description="SQL Warehouse id, for running profiling queries."
-    )
-
-    profile_table_level_only: bool = Field(
-        default=False,
-        description="Whether to perform profiling at table-level only or include column-level profiling as well.",
     )
 
     pattern: AllowDenyPattern = Field(
@@ -56,6 +57,24 @@ class UnityCatalogProfilerConfig(ConfigModel):
             "Specify regex to match the `catalog.schema.table` format. "
             "Note that only tables allowed by the `table_pattern` will be considered."
         ),
+    )
+
+
+class UnityCatalogAnalyzeProfilerConfig(UnityCatalogProfilerConfig):
+    method: Literal["analyze"] = "analyze"
+
+    # TODO: Reduce duplicate code with DataLakeProfilerConfig, GEProfilingConfig, SQLAlchemyConfig
+    enabled: bool = Field(
+        default=False, description="Whether profiling should be done."
+    )
+    operation_config: OperationConfig = Field(
+        default_factory=OperationConfig,
+        description="Experimental feature. To specify operation configs.",
+    )
+
+    profile_table_level_only: bool = Field(
+        default=False,
+        description="Whether to perform profiling at table-level only or include column-level profiling as well.",
     )
 
     call_analyze: bool = Field(
@@ -89,7 +108,17 @@ class UnityCatalogProfilerConfig(ConfigModel):
         return not self.profile_table_level_only
 
 
+class UnityCatalogGEProfilerConfig(UnityCatalogProfilerConfig, GEProfilingConfig):
+    method: Literal["ge"] = "ge"
+
+    max_wait_secs: Optional[int] = Field(
+        default=None,
+        description="Maximum time to wait for a table to be profiled.",
+    )
+
+
 class UnityCatalogSourceConfig(
+    SQLCommonConfig,
     StatefulIngestionConfigBase,
     BaseUsageConfig,
     DatasetSourceConfigMixin,
@@ -217,14 +246,33 @@ class UnityCatalogSourceConfig(
         description="Generate usage statistics.",
     )
 
-    profiling: UnityCatalogProfilerConfig = Field(
-        default=UnityCatalogProfilerConfig(), description="Data profiling configuration"
+    profiling: Union[UnityCatalogGEProfilerConfig, UnityCatalogAnalyzeProfilerConfig] = Field(  # type: ignore
+        default=UnityCatalogGEProfilerConfig(),
+        description="Data profiling configuration",
+        discriminator="method",
     )
+
+    scheme: str = DATABRICKS
+
+    def get_sql_alchemy_url(self):
+        return make_sqlalchemy_uri(
+            scheme=self.scheme,
+            username="token",
+            password=self.token,
+            at=urlparse(self.workspace_url).netloc,
+            db=None,
+            uri_opts={
+                "http_path": f"/sql/1.0/warehouses/{self.profiling.warehouse_id}"
+            },
+        )
 
     def is_profiling_enabled(self) -> bool:
         return self.profiling.enabled and is_profiling_enabled(
             self.profiling.operation_config
         )
+
+    def is_ge_profiling(self) -> bool:
+        return self.profiling.method == "ge"
 
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = pydantic.Field(
         default=None, description="Unity Catalog Stateful Ingestion Config."

@@ -528,29 +528,6 @@
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,dummy.acryl_metastore.main.default.quickstart_table,PROD)",
     "changeType": "UPSERT",
-    "aspectName": "operation",
-    "aspect": {
-        "json": {
-            "timestampMillis": 1638860400000,
-            "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
-            },
-            "actor": "urn:li:corpuser:abc@acryl.io",
-            "operationType": "UPDATE",
-            "lastUpdatedTimestamp": 1666186049633
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,dummy.acryl_metastore.main.default.quickstart_table,PROD)",
-    "changeType": "UPSERT",
     "aspectName": "ownership",
     "aspect": {
         "json": {
@@ -881,29 +858,6 @@
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,dummy.acryl_metastore.main.information_schema.quickstart_table,PROD)",
     "changeType": "UPSERT",
-    "aspectName": "operation",
-    "aspect": {
-        "json": {
-            "timestampMillis": 1638860400000,
-            "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
-            },
-            "actor": "urn:li:corpuser:abc@acryl.io",
-            "operationType": "UPDATE",
-            "lastUpdatedTimestamp": 1666186049633
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,dummy.acryl_metastore.main.information_schema.quickstart_table,PROD)",
-    "changeType": "UPSERT",
     "aspectName": "ownership",
     "aspect": {
         "json": {
@@ -1222,29 +1176,6 @@
                     "isPartOfKey": false
                 }
             ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,dummy.acryl_metastore.main.quickstart_schema.quickstart_table,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "operation",
-    "aspect": {
-        "json": {
-            "timestampMillis": 1638860400000,
-            "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
-            },
-            "actor": "urn:li:corpuser:abc@acryl.io",
-            "operationType": "UPDATE",
-            "lastUpdatedTimestamp": 1666186049633
         }
     },
     "systemMetadata": {
@@ -1723,29 +1654,6 @@
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,dummy.acryl_metastore.quickstart_catalog.default.quickstart_table,PROD)",
     "changeType": "UPSERT",
-    "aspectName": "operation",
-    "aspect": {
-        "json": {
-            "timestampMillis": 1638860400000,
-            "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
-            },
-            "actor": "urn:li:corpuser:abc@acryl.io",
-            "operationType": "UPDATE",
-            "lastUpdatedTimestamp": 1666186049633
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,dummy.acryl_metastore.quickstart_catalog.default.quickstart_table,PROD)",
-    "changeType": "UPSERT",
     "aspectName": "ownership",
     "aspect": {
         "json": {
@@ -2076,29 +1984,6 @@
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,dummy.acryl_metastore.quickstart_catalog.information_schema.quickstart_table,PROD)",
     "changeType": "UPSERT",
-    "aspectName": "operation",
-    "aspect": {
-        "json": {
-            "timestampMillis": 1638860400000,
-            "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
-            },
-            "actor": "urn:li:corpuser:abc@acryl.io",
-            "operationType": "UPDATE",
-            "lastUpdatedTimestamp": 1666186049633
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,dummy.acryl_metastore.quickstart_catalog.information_schema.quickstart_table,PROD)",
-    "changeType": "UPSERT",
     "aspectName": "ownership",
     "aspect": {
         "json": {
@@ -2417,29 +2302,6 @@
                     "isPartOfKey": false
                 }
             ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,dummy.acryl_metastore.quickstart_catalog.quickstart_schema.quickstart_table,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "operation",
-    "aspect": {
-        "json": {
-            "timestampMillis": 1638860400000,
-            "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
-            },
-            "actor": "urn:li:corpuser:abc@acryl.io",
-            "operationType": "UPDATE",
-            "lastUpdatedTimestamp": 1666186049633
         }
     },
     "systemMetadata": {
@@ -2918,29 +2780,6 @@
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,dummy.acryl_metastore.system.default.quickstart_table,PROD)",
     "changeType": "UPSERT",
-    "aspectName": "operation",
-    "aspect": {
-        "json": {
-            "timestampMillis": 1638860400000,
-            "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
-            },
-            "actor": "urn:li:corpuser:abc@acryl.io",
-            "operationType": "UPDATE",
-            "lastUpdatedTimestamp": 1666186049633
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,dummy.acryl_metastore.system.default.quickstart_table,PROD)",
-    "changeType": "UPSERT",
     "aspectName": "ownership",
     "aspect": {
         "json": {
@@ -3271,29 +3110,6 @@
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,dummy.acryl_metastore.system.information_schema.quickstart_table,PROD)",
     "changeType": "UPSERT",
-    "aspectName": "operation",
-    "aspect": {
-        "json": {
-            "timestampMillis": 1638860400000,
-            "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
-            },
-            "actor": "urn:li:corpuser:abc@acryl.io",
-            "operationType": "UPDATE",
-            "lastUpdatedTimestamp": 1666186049633
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,dummy.acryl_metastore.system.information_schema.quickstart_table,PROD)",
-    "changeType": "UPSERT",
     "aspectName": "ownership",
     "aspect": {
         "json": {
@@ -3612,29 +3428,6 @@
                     "isPartOfKey": false
                 }
             ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,dummy.acryl_metastore.system.quickstart_schema.quickstart_table,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "operation",
-    "aspect": {
-        "json": {
-            "timestampMillis": 1638860400000,
-            "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
-            },
-            "actor": "urn:li:corpuser:abc@acryl.io",
-            "operationType": "UPDATE",
-            "lastUpdatedTimestamp": 1666186049633
         }
     },
     "systemMetadata": {

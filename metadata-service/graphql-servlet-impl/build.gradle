@@ -20,7 +20,7 @@ dependencies {
 
   implementation externalDependency.charle
   implementation externalDependency.jetbrains
-
+  implementation externalDependency.opentelemetryApi
 }
 
 configurations.all{

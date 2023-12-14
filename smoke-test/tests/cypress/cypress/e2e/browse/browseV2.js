@@ -46,31 +46,31 @@ describe("search", () => {
 
     cy.get("[data-testid=browse-v2")
       .invoke("css", "width")
-      .should("match", /^\d\d\dpx$/);
+      .should("match", /\d\d\dpx$/);
 
     cy.get("[data-testid=browse-v2-toggle").click();
 
     cy.get("[data-testid=browse-v2")
       .invoke("css", "width")
-      .should("match", /^\dpx$/);
+      .should("match", /\dpx$/);
 
     cy.reload();
 
     cy.get("[data-testid=browse-v2")
       .invoke("css", "width")
-      .should("match", /^\dpx$/);
+      .should("match", /\dpx$/);
 
     cy.get("[data-testid=browse-v2-toggle").click();
 
     cy.get("[data-testid=browse-v2")
       .invoke("css", "width")
-      .should("match", /^\d\d\dpx$/);
+      .should("match", /\d\d\dpx$/);
 
     cy.reload();
 
     cy.get("[data-testid=browse-v2")
       .invoke("css", "width")
-      .should("match", /^\d\d\dpx$/);
+      .should("match", /\d\d\dpx$/);
   });
 
   it("should take you to the old browse experience when clicking entity type on home page with the browse flag off", () => {

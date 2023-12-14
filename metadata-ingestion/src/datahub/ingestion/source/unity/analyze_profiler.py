@@ -6,7 +6,7 @@ from typing import Callable, Collection, Iterable, Optional
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.unity.config import UnityCatalogProfilerConfig
+from datahub.ingestion.source.unity.config import UnityCatalogAnalyzeProfilerConfig
 from datahub.ingestion.source.unity.proxy import UnityCatalogApiProxy
 from datahub.ingestion.source.unity.proxy_types import (
     ColumnProfile,
@@ -23,8 +23,8 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass
-class UnityCatalogProfiler:
-    config: UnityCatalogProfilerConfig
+class UnityCatalogAnalyzeProfiler:
+    config: UnityCatalogAnalyzeProfilerConfig
     report: UnityCatalogReport
     proxy: UnityCatalogApiProxy
     dataset_urn_builder: Callable[[TableReference], str]

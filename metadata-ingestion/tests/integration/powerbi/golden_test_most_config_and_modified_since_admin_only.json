@@ -866,9 +866,6 @@
             },
             "inputs": [
                 {
-                    "string": "urn:li:container:977b804137a1d2bf897ff1bbf440a1cc"
-                },
-                {
                     "string": "urn:li:dataset:(urn:li:dataPlatform:powerbi,hr_pbi_test.dbo_book_issue,DEV)"
                 },
                 {

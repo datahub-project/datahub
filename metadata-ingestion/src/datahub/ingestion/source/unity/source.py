@@ -1,8 +1,6 @@
 import logging
 import re
-import time
 from concurrent.futures import ThreadPoolExecutor
-from datetime import timedelta
 from typing import Dict, Iterable, List, Optional, Set, Union
 from urllib.parse import urljoin
 
@@ -52,9 +50,14 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
-from datahub.ingestion.source.unity.config import UnityCatalogSourceConfig
+from datahub.ingestion.source.unity.analyze_profiler import UnityCatalogAnalyzeProfiler
+from datahub.ingestion.source.unity.config import (
+    UnityCatalogAnalyzeProfilerConfig,
+    UnityCatalogGEProfilerConfig,
+    UnityCatalogSourceConfig,
+)
 from datahub.ingestion.source.unity.connection_test import UnityCatalogConnectionTest
-from datahub.ingestion.source.unity.profiler import UnityCatalogProfiler
+from datahub.ingestion.source.unity.ge_profiler import UnityCatalogGEProfiler
 from datahub.ingestion.source.unity.proxy import UnityCatalogApiProxy
 from datahub.ingestion.source.unity.proxy_types import (
     DATA_TYPE_REGISTRY,
@@ -83,8 +86,6 @@ from datahub.metadata.schema_classes import (
     DomainsClass,
     MySqlDDLClass,
     NullTypeClass,
-    OperationClass,
-    OperationTypeClass,
     OwnerClass,
     OwnershipClass,
     OwnershipTypeClass,
@@ -170,6 +171,9 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         self.view_refs: Set[TableReference] = set()
         self.notebooks: FileBackedDict[Notebook] = FileBackedDict()
 
+        # Global map of tables, for profiling
+        self.tables: FileBackedDict[Table] = FileBackedDict()
+
     @staticmethod
     def test_connection(config_dict: dict) -> TestConnectionReport:
         return UnityCatalogConnectionTest(config_dict).get_connection_test()
@@ -233,16 +237,24 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         if self.config.is_profiling_enabled():
             self.report.report_ingestion_stage_start("Wait on warehouse")
             assert wait_on_warehouse
-            timeout = timedelta(seconds=self.config.profiling.max_wait_secs)
-            wait_on_warehouse.result(timeout)
-            profiling_extractor = UnityCatalogProfiler(
-                self.config.profiling,
-                self.report,
-                self.unity_catalog_api_proxy,
-                self.gen_dataset_urn,
-            )
+            wait_on_warehouse.result()
+
             self.report.report_ingestion_stage_start("Profiling")
-            yield from profiling_extractor.get_workunits(self.table_refs)
+            if isinstance(self.config.profiling, UnityCatalogAnalyzeProfilerConfig):
+                yield from UnityCatalogAnalyzeProfiler(
+                    self.config.profiling,
+                    self.report,
+                    self.unity_catalog_api_proxy,
+                    self.gen_dataset_urn,
+                ).get_workunits(self.table_refs)
+            elif isinstance(self.config.profiling, UnityCatalogGEProfilerConfig):
+                yield from UnityCatalogGEProfiler(
+                    sql_common_config=self.config,
+                    profiling_config=self.config.profiling,
+                    report=self.report,
+                ).get_workunits(list(self.tables.values()))
+            else:
+                raise ValueError("Unknown profiling config method")
 
     def build_service_principal_map(self) -> None:
         try:
@@ -358,6 +370,16 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 self.report.tables.dropped(table.id, f"table ({table.table_type})")
                 continue
 
+            if (
+                self.config.is_profiling_enabled()
+                and self.config.is_ge_profiling()
+                and self.config.profiling.pattern.allowed(
+                    table.ref.qualified_table_name
+                )
+                and not table.is_view
+            ):
+                self.tables[table.ref.qualified_table_name] = table
+
             if table.is_view:
                 self.view_refs.add(table.ref)
             else:
@@ -377,7 +399,6 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
 
         sub_type = self._create_table_sub_type_aspect(table)
         schema_metadata = self._create_schema_metadata_aspect(table)
-        operation = self._create_table_operation_aspect(table)
         domain = self._get_domain_aspect(dataset_name=table.ref.qualified_table_name)
         ownership = self._create_table_ownership_aspect(table)
         data_platform_instance = self._create_data_platform_instance_aspect()
@@ -399,7 +420,6 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                     view_props,
                     sub_type,
                     schema_metadata,
-                    operation,
                     domain,
                     ownership,
                     data_platform_instance,
@@ -671,10 +691,10 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             int(table.created_at.timestamp() * 1000), make_user_urn(table.created_by)
         )
         last_modified = created
-        if table.updated_at and table.updated_by is not None:
+        if table.updated_at:
             last_modified = TimeStampClass(
                 int(table.updated_at.timestamp() * 1000),
-                make_user_urn(table.updated_by),
+                table.updated_by and make_user_urn(table.updated_by),
             )
 
         return DatasetPropertiesClass(
@@ -686,35 +706,6 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             lastModified=last_modified,
             externalUrl=f"{self.external_url_base}/{table.ref.external_path}",
         )
-
-    def _create_table_operation_aspect(self, table: Table) -> OperationClass:
-        """Produce an operation aspect for a table.
-
-        If a last updated time is present, we produce an update operation.
-        Otherwise, we produce a create operation. We do this in addition to
-        setting the last updated time in the dataset properties aspect, as
-        the UI is currently missing the ability to display the last updated
-        from the properties aspect.
-        """
-
-        reported_time = int(time.time() * 1000)
-
-        operation = OperationClass(
-            timestampMillis=reported_time,
-            lastUpdatedTimestamp=int(table.created_at.timestamp() * 1000),
-            actor=make_user_urn(table.created_by),
-            operationType=OperationTypeClass.CREATE,
-        )
-
-        if table.updated_at and table.updated_by is not None:
-            operation = OperationClass(
-                timestampMillis=reported_time,
-                lastUpdatedTimestamp=int(table.updated_at.timestamp() * 1000),
-                actor=make_user_urn(table.updated_by),
-                operationType=OperationTypeClass.UPDATE,
-            )
-
-        return operation
 
     def _create_table_ownership_aspect(self, table: Table) -> Optional[OwnershipClass]:
         owner_urn = self.get_owner_urn(table.owner)

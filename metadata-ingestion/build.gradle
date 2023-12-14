@@ -57,7 +57,10 @@ task installPackage(type: Exec, dependsOn: installPackageOnly) {
 }
 
 task codegen(type: Exec, dependsOn: [environmentSetup, installPackage, ':metadata-events:mxe-schemas:build']) {
-  inputs.files(project.fileTree(dir: "../metadata-events/mxe-schemas/src/", include: "**/*.avsc"))
+  inputs.files(
+    project.fileTree(dir: "../metadata-events/mxe-schemas/src/", include: "**/*.avsc"),
+    project.fileTree(dir: "scripts"),
+  )
   outputs.dir('src/datahub/metadata')
   commandLine 'bash', '-c', "source ${venv_name}/bin/activate && ./scripts/codegen.sh"
 }

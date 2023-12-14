@@ -1315,8 +1315,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             self.config.strip_user_ids_from_email,
         )
 
-        # TODO if infer_dbt_schemas, load from saved schemas too
-
         canonical_schema: List[SchemaField] = []
         for column in node.columns:
             description = None

@@ -4,9 +4,9 @@ import { Menu } from 'antd';
 import styled from 'styled-components';
 import { BankOutlined, BarChartOutlined, MenuOutlined } from '@ant-design/icons';
 import Sider from 'antd/lib/layout/Sider';
-import { useGetAuthenticatedUser } from './useGetAuthenticatedUser';
 import { useAppConfig } from './useAppConfig';
 import { ANTD_GRAY } from './entity/shared/constants';
+import { useUserContext } from './context/useUserContext';
 
 const ToggleContainer = styled.div`
     background-color: ${ANTD_GRAY[4]};
@@ -32,7 +32,7 @@ const ControlSlideOut = styled(Sider)`
  * Container for all views behind an authentication wall.
  */
 export const AdminConsole = (): JSX.Element => {
-    const me = useGetAuthenticatedUser();
+    const me = useUserContext();
 
     const [adminConsoleOpen, setAdminConsoleOpen] = useState(false);
     const { config } = useAppConfig();
@@ -42,10 +42,9 @@ export const AdminConsole = (): JSX.Element => {
     // Currently we only have a flag for metadata proposals.
     // In the future, we may add configs for alerts, announcements, etc.
     const isActionRequestsEnabled = config?.actionRequestsConfig.enabled;
-
-    const showAnalytics = (isAnalyticsEnabled && me && me.platformPrivileges.viewAnalytics) || false;
-    const showPolicyBuilder = (isPoliciesEnabled && me && me.platformPrivileges.managePolicies) || false;
-    const showActionRequests = (isActionRequestsEnabled && me && me.platformPrivileges.viewMetadataProposals) || false;
+    const showAnalytics = (isAnalyticsEnabled && me && me?.platformPrivileges.viewAnalytics) || false;
+    const showPolicyBuilder = (isPoliciesEnabled && me && me?.platformPrivileges.managePolicies) || false;
+    const showActionRequests = (isActionRequestsEnabled && me && me?.platformPrivileges.viewMetadataProposals) || false;
     const showAdminConsole = showAnalytics || showPolicyBuilder || showActionRequests;
 
     const onMenuItemClick = () => {

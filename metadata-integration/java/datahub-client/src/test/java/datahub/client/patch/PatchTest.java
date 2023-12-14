@@ -14,6 +14,7 @@ import com.linkedin.common.urn.DataPlatformUrn;
 import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.common.urn.GlossaryTermUrn;
 import com.linkedin.common.urn.TagUrn;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.dataset.DatasetLineageType;
 import com.linkedin.metadata.graph.LineageDirection;
@@ -49,15 +50,21 @@ public class PatchTest {
   public void testLocalUpstream() {
     RestEmitter restEmitter = new RestEmitter(RestEmitterConfig.builder().build());
     try {
+      DatasetUrn upstreamUrn =
+          DatasetUrn.createFromString(
+              "urn:li:dataset:(urn:li:dataPlatform:kafka,SampleKafkaDataset,PROD)");
+      Urn schemaFieldUrn =
+          UrnUtils.getUrn(
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:kafka,SampleKafkaDataset,PROD), foo)");
       MetadataChangeProposal upstreamPatch =
           new UpstreamLineagePatchBuilder()
               .urn(
                   UrnUtils.getUrn(
                       "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)"))
-              .addUpstream(
-                  DatasetUrn.createFromString(
-                      "urn:li:dataset:(urn:li:dataPlatform:kafka,SampleKafkaDataset,PROD)"),
-                  DatasetLineageType.TRANSFORMED)
+              .addUpstream(upstreamUrn, DatasetLineageType.TRANSFORMED)
+              .addFineGrainedUpstreamDataset(upstreamUrn, null, "TRANSFORM")
+              .addFineGrainedUpstreamField(schemaFieldUrn, null, "TRANSFORM", null)
+              .addFineGrainedDownstreamField(schemaFieldUrn, null, "TRANSFORM", null)
               .build();
       Future<MetadataWriteResponse> response = restEmitter.emit(upstreamPatch);
 
@@ -73,6 +80,12 @@ public class PatchTest {
   public void testLocalUpstreamRemove() {
     RestEmitter restEmitter = new RestEmitter(RestEmitterConfig.builder().build());
     try {
+      DatasetUrn upstreamUrn =
+          DatasetUrn.createFromString(
+              "urn:li:dataset:(urn:li:dataPlatform:kafka,SampleKafkaDataset,PROD)");
+      Urn schemaFieldUrn =
+          UrnUtils.getUrn(
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:kafka,SampleKafkaDataset,PROD), foo)");
       MetadataChangeProposal upstreamPatch =
           new UpstreamLineagePatchBuilder()
               .urn(
@@ -81,6 +94,9 @@ public class PatchTest {
               .removeUpstream(
                   DatasetUrn.createFromString(
                       "urn:li:dataset:(urn:li:dataPlatform:kafka,SampleKafkaDataset,PROD)"))
+              .removeFineGrainedUpstreamDataset(upstreamUrn, "TRANSFORM")
+              .removeFineGrainedUpstreamField(schemaFieldUrn, "TRANSFORM", null)
+              .removeFineGrainedDownstreamField(schemaFieldUrn, "TRANSFORM", null)
               .build();
       Future<MetadataWriteResponse> response = restEmitter.emit(upstreamPatch);
 

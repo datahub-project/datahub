@@ -799,7 +799,7 @@ def test_lookml_base_folder():
     )
 
     with pytest.raises(
-        pydantic.ValidationError, match=r"base_folder.+not provided.+deploy_key"
+        pydantic.ValidationError, match=r"base_folder.+nor.+git_info.+provided"
     ):
         LookMLSourceConfig.parse_obj({"api": fake_api})
 

@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.types.dataset.mappers;
 
 import com.linkedin.common.TimeStamp;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.datahub.graphql.generated.AuditStamp;
 import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.DatasetProperties;
 import com.linkedin.entity.Aspect;
@@ -58,7 +59,8 @@ public class DatasetMapperTest {
     expectedDatasetProperties.setQualifiedName("Test QualifiedName");
     expectedDatasetProperties.setLastModifiedActor(TEST_LAST_MODIFIED_ACTOR_URN.toString());
     expectedDatasetProperties.setCreatedActor(TEST_CREATED_ACTOR_URN.toString());
-    expectedDatasetProperties.setLastModified(20L);
+    expectedDatasetProperties.setLastModified(
+        new AuditStamp(20L, TEST_LAST_MODIFIED_ACTOR_URN.toString()));
     expectedDatasetProperties.setCreated(10L);
     expected.setProperties(expectedDatasetProperties);
 
@@ -68,7 +70,11 @@ public class DatasetMapperTest {
         actual.getProperties().getQualifiedName(), expected.getProperties().getQualifiedName());
 
     Assert.assertEquals(
-        actual.getProperties().getLastModified(), expected.getProperties().getLastModified());
+        actual.getProperties().getLastModified().getTime(),
+        expected.getProperties().getLastModified().getTime());
+    Assert.assertEquals(
+        actual.getProperties().getLastModified().getActor(),
+        expected.getProperties().getLastModified().getActor());
     Assert.assertEquals(actual.getProperties().getCreated(), expected.getProperties().getCreated());
 
     Assert.assertEquals(
@@ -102,7 +108,7 @@ public class DatasetMapperTest {
     expectedDatasetProperties.setName("Test");
     expectedDatasetProperties.setLastModifiedActor(null);
     expectedDatasetProperties.setCreatedActor(null);
-    expectedDatasetProperties.setLastModified(null);
+    expectedDatasetProperties.setLastModified(new AuditStamp(0L, null));
     expectedDatasetProperties.setCreated(null);
     expected.setProperties(expectedDatasetProperties);
 
@@ -110,7 +116,11 @@ public class DatasetMapperTest {
     Assert.assertEquals(actual.getProperties().getName(), expected.getProperties().getName());
 
     Assert.assertEquals(
-        actual.getProperties().getLastModified(), expected.getProperties().getLastModified());
+        actual.getProperties().getLastModified().getTime(),
+        expected.getProperties().getLastModified().getTime());
+    Assert.assertEquals(
+        actual.getProperties().getLastModified().getActor(),
+        expected.getProperties().getLastModified().getActor());
     Assert.assertEquals(actual.getProperties().getCreated(), expected.getProperties().getCreated());
 
     Assert.assertEquals(
@@ -152,7 +162,7 @@ public class DatasetMapperTest {
     expectedDatasetProperties.setName("Test");
     expectedDatasetProperties.setLastModifiedActor(null);
     expectedDatasetProperties.setCreatedActor(null);
-    expectedDatasetProperties.setLastModified(20L);
+    expectedDatasetProperties.setLastModified(new AuditStamp(20L, null));
     expectedDatasetProperties.setCreated(10L);
     expected.setProperties(expectedDatasetProperties);
 
@@ -160,7 +170,11 @@ public class DatasetMapperTest {
     Assert.assertEquals(actual.getProperties().getName(), expected.getProperties().getName());
 
     Assert.assertEquals(
-        actual.getProperties().getLastModified(), expected.getProperties().getLastModified());
+        actual.getProperties().getLastModified().getTime(),
+        expected.getProperties().getLastModified().getTime());
+    Assert.assertEquals(
+        actual.getProperties().getLastModified().getActor(),
+        expected.getProperties().getLastModified().getActor());
     Assert.assertEquals(actual.getProperties().getCreated(), expected.getProperties().getCreated());
 
     Assert.assertEquals(

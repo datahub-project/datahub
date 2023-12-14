@@ -1401,9 +1401,6 @@
             },
             "inputs": [
                 {
-                    "string": "urn:li:container:6ac0662f0f2fc3a9196ac505da2182b2"
-                },
-                {
                     "string": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.public_issue_history,DEV)"
                 },
                 {
@@ -1546,9 +1543,6 @@
                 }
             },
             "inputs": [
-                {
-                    "string": "urn:li:container:977b804137a1d2bf897ff1bbf440a1cc"
-                },
                 {
                     "string": "urn:li:dataset:(urn:li:dataPlatform:powerbi,hr_pbi_test.dbo_book_issue,DEV)"
                 },
@@ -2388,9 +2382,6 @@
             },
             "inputs": [
                 {
-                    "string": "urn:li:container:6ac0662f0f2fc3a9196ac505da2182b2"
-                },
-                {
                     "string": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.public_issue_history,DEV)"
                 },
                 {
@@ -2514,9 +2505,6 @@
                 }
             },
             "inputs": [
-                {
-                    "string": "urn:li:container:6ac0662f0f2fc3a9196ac505da2182b2"
-                },
                 {
                     "string": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.public_issue_history,DEV)"
                 },
