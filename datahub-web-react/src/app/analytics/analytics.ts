@@ -30,16 +30,17 @@ export function getMergedTrackingOptions(options?: any) {
 
 export default {
     page: (data?: PageData, options?: any, callback?: (...params: any[]) => any) => {
+        const actorUrn = Cookies.get(CLIENT_AUTH_COOKIE) || undefined;
         const modifiedData = {
             ...data,
             type: EventType[EventType.PageViewEvent],
-            actorUrn: Cookies.get(CLIENT_AUTH_COOKIE) || undefined,
+            actorUrn,
             timestamp: Date.now(),
             date: new Date().toString(),
             userAgent: navigator.userAgent,
             browserId: getBrowserId(),
         };
-        if (NODE_ENV === 'test') {
+        if (NODE_ENV === 'test' || !actorUrn) {
             return null;
         }
         const trackingOptions = getMergedTrackingOptions(options);
