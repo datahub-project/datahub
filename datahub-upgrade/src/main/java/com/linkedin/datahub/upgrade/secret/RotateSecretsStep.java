@@ -23,7 +23,6 @@ import java.util.function.Function;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
-
 @Slf4j
 public class RotateSecretsStep implements UpgradeStep {
 
@@ -44,17 +43,11 @@ public class RotateSecretsStep implements UpgradeStep {
   private RotationMode _mode;
 
   enum RotationMode {
-    /**
-     * Fail the step on any failures.
-     */
+    /** Fail the step on any failures. */
     DEFAULT,
-    /**
-     * Ignore cases where decryption fails. This is useful in partial rotation scenarios.
-     */
+    /** Ignore cases where decryption fails. This is useful in partial rotation scenarios. */
     IGNORE_DECRYPT_FAILURE,
-    /**
-     * Guess similar keys on decrypt failure.
-     */
+    /** Guess similar keys on decrypt failure. */
     GUESS_ON_DECRYPT_FAILURE
   }
 
@@ -77,42 +70,54 @@ public class RotateSecretsStep implements UpgradeStep {
     return (context) -> {
 
       // Verify arguments.
-      _existingKey = context.parsedArgs().containsKey(EXISTING_KEY_ARG)
-        ? context.parsedArgs().get(EXISTING_KEY_ARG).get()
-        : Objects.requireNonNull(System.getenv(EXISTING_KEY_ARG));
+      _existingKey =
+          context.parsedArgs().containsKey(EXISTING_KEY_ARG)
+              ? context.parsedArgs().get(EXISTING_KEY_ARG).get()
+              : Objects.requireNonNull(System.getenv(EXISTING_KEY_ARG));
       // Will throw if not provided.
-      _newKey = context.parsedArgs().containsKey(NEW_KEY_ARG)
-          ? context.parsedArgs().get(NEW_KEY_ARG).get()
-          : Objects.requireNonNull(System.getenv(NEW_KEY_ARG));
+      _newKey =
+          context.parsedArgs().containsKey(NEW_KEY_ARG)
+              ? context.parsedArgs().get(NEW_KEY_ARG).get()
+              : Objects.requireNonNull(System.getenv(NEW_KEY_ARG));
       // Will throw if not provided.
       _existingSecretService = new SecretService(_existingKey);
       _newSecretService = new SecretService(_newKey);
-      _mode = context.parsedArgs().containsKey(MODE_ARG) && context.parsedArgs().get(MODE_ARG).isPresent()
-          ? RotationMode.valueOf(context.parsedArgs().get(MODE_ARG).get())
-          : System.getenv().containsKey(MODE_ARG) ? RotationMode.valueOf(System.getenv(MODE_ARG)) : RotationMode.DEFAULT;
-
+      _mode =
+          context.parsedArgs().containsKey(MODE_ARG)
+                  && context.parsedArgs().get(MODE_ARG).isPresent()
+              ? RotationMode.valueOf(context.parsedArgs().get(MODE_ARG).get())
+              : System.getenv().containsKey(MODE_ARG)
+                  ? RotationMode.valueOf(System.getenv(MODE_ARG))
+                  : RotationMode.DEFAULT;
 
       context.report().addLine("Preparing to rotate secrets...");
 
       // 1. Fetch urns for all secrets. We support maximum of 10k secrets for this upgrade.
-      ListUrnsResult result = _entityService.listUrns(Constants.SECRETS_ENTITY_NAME, 0, MAX_SUPPORTED_SECRETS);
+      ListUrnsResult result =
+          _entityService.listUrns(Constants.SECRETS_ENTITY_NAME, 0, MAX_SUPPORTED_SECRETS);
 
       if (result.getTotal() > MAX_SUPPORTED_SECRETS) {
         // We don't have > 10k, since this is currently unrealistic.
-        throw new UnsupportedOperationException("Instance has more than 10,000 secrets. Aborting...");
+        throw new UnsupportedOperationException(
+            "Instance has more than 10,000 secrets. Aborting...");
       }
 
       int totalRotated = 0;
       int start = 0;
       while (start < result.getTotal()) {
 
-        context.report()
-            .addLine(String.format("Reading secrets %s through %s from the aspects table.", 0, BATCH_SIZE));
+        context
+            .report()
+            .addLine(
+                String.format(
+                    "Reading secrets %s through %s from the aspects table.", 0, BATCH_SIZE));
 
         try {
           // 2. Fetch the values for each in batches of 1000.
           Map<Urn, EntityResponse> secretResponse =
-              _entityService.getEntitiesV2(Constants.SECRETS_ENTITY_NAME, new HashSet<>(result.getEntities()),
+              _entityService.getEntitiesV2(
+                  Constants.SECRETS_ENTITY_NAME,
+                  new HashSet<>(result.getEntities()),
                   ImmutableSet.of(Constants.SECRET_VALUE_ASPECT_NAME));
 
           // 3. For each value, attempt to decrypt the secret, and generate a new secret value.
@@ -121,11 +126,18 @@ public class RotateSecretsStep implements UpgradeStep {
             if (entry.getValue().getAspects().containsKey(Constants.SECRET_VALUE_ASPECT_NAME)) {
 
               // a. Get existing secret value.
-              DataHubSecretValue existingSecretValue = new DataHubSecretValue(
-                  entry.getValue().getAspects().get(Constants.SECRET_VALUE_ASPECT_NAME).getValue().data());
+              DataHubSecretValue existingSecretValue =
+                  new DataHubSecretValue(
+                      entry
+                          .getValue()
+                          .getAspects()
+                          .get(Constants.SECRET_VALUE_ASPECT_NAME)
+                          .getValue()
+                          .data());
 
               // b. Rotate to create new secret value.
-              DataHubSecretValue newSecretValue = createNewSecretValue(entry.getKey(), existingSecretValue);
+              DataHubSecretValue newSecretValue =
+                  createNewSecretValue(entry.getKey(), existingSecretValue);
 
               if (newSecretValue != null) {
                 // Secret has been rotated successfully.
@@ -135,7 +147,10 @@ public class RotateSecretsStep implements UpgradeStep {
               // Secret has been skipped without error.
 
             } else {
-              log.warn(String.format("Failed to resolve value aspect for secret with urn %s", entry.getKey().toString()));
+              log.warn(
+                  String.format(
+                      "Failed to resolve value aspect for secret with urn %s",
+                      entry.getKey().toString()));
             }
           }
 
@@ -148,25 +163,37 @@ public class RotateSecretsStep implements UpgradeStep {
             proposal.setAspect(GenericRecordUtils.serializeAspect(entry.getValue()));
             proposal.setChangeType(ChangeType.UPSERT);
             try {
-              _entityService.ingestProposal(proposal,
-                  secretResponse.get(entry.getKey()).getAspects().get(Constants.SECRET_VALUE_ASPECT_NAME).getCreated(),
+              _entityService.ingestProposal(
+                  proposal,
+                  secretResponse
+                      .get(entry.getKey())
+                      .getAspects()
+                      .get(Constants.SECRET_VALUE_ASPECT_NAME)
+                      .getCreated(),
                   false);
             } catch (Exception e) {
-              throw new RuntimeException(String.format("Failed to create rotated secret with urn %s", entry.getKey()), e);
+              throw new RuntimeException(
+                  String.format("Failed to create rotated secret with urn %s", entry.getKey()), e);
             }
           }
           start = start + BATCH_SIZE;
           Thread.sleep(BATCH_DELAY);
         } catch (Exception e) {
-          throw new RuntimeException("Caught exception while attempting to rotate secrets! Exiting..", e);
+          throw new RuntimeException(
+              "Caught exception while attempting to rotate secrets! Exiting..", e);
         }
       }
-      context.report().addLine(String.format("Successfully rotated %s / %s total secrets!", totalRotated, result.getTotal()));
+      context
+          .report()
+          .addLine(
+              String.format(
+                  "Successfully rotated %s / %s total secrets!", totalRotated, result.getTotal()));
       return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.SUCCEEDED);
     };
   }
 
-  private DataHubSecretValue createNewSecretValue(final Urn secretUrn, final DataHubSecretValue value) {
+  private DataHubSecretValue createNewSecretValue(
+      final Urn secretUrn, final DataHubSecretValue value) {
 
     // 1. Attempt to decrypt the secret
     final String decryptedSecret = decryptExistingSecret(secretUrn, value.getValue());
@@ -185,7 +212,6 @@ public class RotateSecretsStep implements UpgradeStep {
     DataHubSecretValue newValue = new DataHubSecretValue(value.data());
     newValue.setValue(encryptedKey);
     return newValue;
-
   }
 
   private String decryptExistingSecret(final Urn secretUrn, final String secretValue) {
@@ -195,7 +221,7 @@ public class RotateSecretsStep implements UpgradeStep {
       log.warn("Failed to decrypt secret with urn {} using existing key.", secretUrn.toString());
       if (RotationMode.GUESS_ON_DECRYPT_FAILURE.equals(_mode)) {
         log.info("Attempting to guess encryption key value...");
-        return  guessEncryptionKeyAndDecrypt(secretUrn, secretValue);
+        return guessEncryptionKeyAndDecrypt(secretUrn, secretValue);
       } else if (RotationMode.IGNORE_DECRYPT_FAILURE.equals(_mode)) {
         log.info("Skipping decrypt failure for urn {}..", secretUrn.toString());
         return null;
@@ -220,7 +246,9 @@ public class RotateSecretsStep implements UpgradeStep {
       final String keyToTry = new StringBuilder(secretValue).deleteCharAt(i).toString();
       final String res2 = tryDecryptSecret(secretValue, keyToTry);
       if (res2 != null) {
-        log.info(String.format("Successfully guessed existing encryption key %s for urn %s", keyToTry, secretUrn));
+        log.info(
+            String.format(
+                "Successfully guessed existing encryption key %s for urn %s", keyToTry, secretUrn));
         return res2;
       }
     }

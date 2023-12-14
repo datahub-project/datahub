@@ -2,7 +2,6 @@ package com.linkedin.gms.factory.common;
 
 import com.linkedin.metadata.spring.YamlPropertySourceFactory;
 import java.util.concurrent.TimeUnit;
-
 import org.neo4j.driver.AuthTokens;
 import org.neo4j.driver.Config;
 import org.neo4j.driver.Driver;
@@ -11,7 +10,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.PropertySource;
-
 
 @Configuration
 @PropertySource(value = "classpath:/application.yml", factory = YamlPropertySourceFactory.class)
@@ -49,10 +47,12 @@ public class Neo4jDriverFactory {
 
     Config.ConfigBuilder builder = Config.builder();
     builder.withMaxConnectionPoolSize(neo4jMaxConnectionPoolSize);
-    builder.withConnectionAcquisitionTimeout(neo4jMaxConnectionAcquisitionTimeout, TimeUnit.SECONDS);
+    builder.withConnectionAcquisitionTimeout(
+        neo4jMaxConnectionAcquisitionTimeout, TimeUnit.SECONDS);
     builder.withMaxConnectionLifetime(neo4jMaxConnectionLifetime(), TimeUnit.SECONDS);
     builder.withMaxTransactionRetryTime(neo4jMaxTransactionRetryTime, TimeUnit.SECONDS);
-    builder.withConnectionLivenessCheckTimeout(neo4jConnectionLivenessCheckTimeout, TimeUnit.SECONDS);
+    builder.withConnectionLivenessCheckTimeout(
+        neo4jConnectionLivenessCheckTimeout, TimeUnit.SECONDS);
 
     return GraphDatabase.driver(uri, AuthTokens.basic(username, password), builder.build());
   }

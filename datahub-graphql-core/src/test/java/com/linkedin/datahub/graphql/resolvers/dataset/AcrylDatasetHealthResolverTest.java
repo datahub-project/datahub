@@ -1,5 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.dataset;
 
+import static org.testng.Assert.*;
+
 import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -23,46 +25,44 @@ import java.util.List;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
-import static org.testng.Assert.*;
-
-
 public class AcrylDatasetHealthResolverTest {
 
   private static final String TEST_DATASET_URN = "urn:li:dataset:(test,test,test)";
   private static final String TEST_ASSERTION_URN = "urn:li:assertion:test-guid";
   private static final String TEST_ASSERTION_URN_2 = "urn:li:assertion:test-guid-2";
 
-
   @Test
   public void testGetSuccessHealthyPassingOnly() throws Exception {
     EntityClient entityClient = Mockito.mock(EntityClient.class);
 
-    AcrylDatasetHealthResolver resolver = new AcrylDatasetHealthResolver(entityClient,
-        new AcrylDatasetHealthResolver.Config(true, false, false));
+    AcrylDatasetHealthResolver resolver =
+        new AcrylDatasetHealthResolver(
+            entityClient, new AcrylDatasetHealthResolver.Config(true, false, false));
 
     AssertionsSummary summary = new AssertionsSummary();
-    summary.setPassingAssertionDetails(new AssertionSummaryDetailsArray(ImmutableList.of(
-        new AssertionSummaryDetails()
-          .setUrn(UrnUtils.getUrn(TEST_ASSERTION_URN))
-          .setType("type")
-          .setSource("test")
-          .setLastResultAt(0L)))
-    );
+    summary.setPassingAssertionDetails(
+        new AssertionSummaryDetailsArray(
+            ImmutableList.of(
+                new AssertionSummaryDetails()
+                    .setUrn(UrnUtils.getUrn(TEST_ASSERTION_URN))
+                    .setType("type")
+                    .setSource("test")
+                    .setLastResultAt(0L))));
 
-    Mockito.when(entityClient.getV2(
-      Mockito.eq(Constants.DATASET_ENTITY_NAME),
-      Mockito.eq(UrnUtils.getUrn(TEST_DATASET_URN)),
-      Mockito.eq(ImmutableSet.of(Constants.ASSERTIONS_SUMMARY_ASPECT_NAME)),
-      Mockito.any()
-    ))
-    .thenReturn(new EntityResponse()
-        .setUrn(UrnUtils.getUrn(TEST_ASSERTION_URN))
-        .setAspects(new EnvelopedAspectMap(ImmutableMap.of(
-            Constants.ASSERTIONS_SUMMARY_ASPECT_NAME,
-            new EnvelopedAspect()
-               .setValue(new Aspect(summary.data()))
-        )))
-    );
+    Mockito.when(
+            entityClient.getV2(
+                Mockito.eq(Constants.DATASET_ENTITY_NAME),
+                Mockito.eq(UrnUtils.getUrn(TEST_DATASET_URN)),
+                Mockito.eq(ImmutableSet.of(Constants.ASSERTIONS_SUMMARY_ASPECT_NAME)),
+                Mockito.any()))
+        .thenReturn(
+            new EntityResponse()
+                .setUrn(UrnUtils.getUrn(TEST_ASSERTION_URN))
+                .setAspects(
+                    new EnvelopedAspectMap(
+                        ImmutableMap.of(
+                            Constants.ASSERTIONS_SUMMARY_ASPECT_NAME,
+                            new EnvelopedAspect().setValue(new Aspect(summary.data()))))));
 
     // Execute resolver
     QueryContext mockContext = Mockito.mock(QueryContext.class);
@@ -81,38 +81,39 @@ public class AcrylDatasetHealthResolverTest {
     assertEquals(result.get(0).getStatus(), HealthStatus.PASS);
   }
 
-
   @Test
   public void testGetSuccessHealthyPassingEmptyFailing() throws Exception {
     EntityClient entityClient = Mockito.mock(EntityClient.class);
 
-    AcrylDatasetHealthResolver resolver = new AcrylDatasetHealthResolver(entityClient,
-        new AcrylDatasetHealthResolver.Config(true, false, false));
+    AcrylDatasetHealthResolver resolver =
+        new AcrylDatasetHealthResolver(
+            entityClient, new AcrylDatasetHealthResolver.Config(true, false, false));
 
     AssertionsSummary summary = new AssertionsSummary();
-    summary.setPassingAssertionDetails(new AssertionSummaryDetailsArray(ImmutableList.of(
-        new AssertionSummaryDetails()
-            .setUrn(UrnUtils.getUrn(TEST_ASSERTION_URN))
-            .setType("type")
-            .setSource("test")
-            .setLastResultAt(0L)))
-    );
+    summary.setPassingAssertionDetails(
+        new AssertionSummaryDetailsArray(
+            ImmutableList.of(
+                new AssertionSummaryDetails()
+                    .setUrn(UrnUtils.getUrn(TEST_ASSERTION_URN))
+                    .setType("type")
+                    .setSource("test")
+                    .setLastResultAt(0L))));
     summary.setFailingAssertionDetails(new AssertionSummaryDetailsArray());
 
-    Mockito.when(entityClient.getV2(
-        Mockito.eq(Constants.DATASET_ENTITY_NAME),
-        Mockito.eq(UrnUtils.getUrn(TEST_DATASET_URN)),
-        Mockito.eq(ImmutableSet.of(Constants.ASSERTIONS_SUMMARY_ASPECT_NAME)),
-        Mockito.any()
-    ))
-        .thenReturn(new EntityResponse()
-            .setUrn(UrnUtils.getUrn(TEST_ASSERTION_URN))
-            .setAspects(new EnvelopedAspectMap(ImmutableMap.of(
-                Constants.ASSERTIONS_SUMMARY_ASPECT_NAME,
-                new EnvelopedAspect()
-                    .setValue(new Aspect(summary.data()))
-            )))
-        );
+    Mockito.when(
+            entityClient.getV2(
+                Mockito.eq(Constants.DATASET_ENTITY_NAME),
+                Mockito.eq(UrnUtils.getUrn(TEST_DATASET_URN)),
+                Mockito.eq(ImmutableSet.of(Constants.ASSERTIONS_SUMMARY_ASPECT_NAME)),
+                Mockito.any()))
+        .thenReturn(
+            new EntityResponse()
+                .setUrn(UrnUtils.getUrn(TEST_ASSERTION_URN))
+                .setAspects(
+                    new EnvelopedAspectMap(
+                        ImmutableMap.of(
+                            Constants.ASSERTIONS_SUMMARY_ASPECT_NAME,
+                            new EnvelopedAspect().setValue(new Aspect(summary.data()))))));
 
     // Execute resolver
     QueryContext mockContext = Mockito.mock(QueryContext.class);
@@ -135,16 +136,17 @@ public class AcrylDatasetHealthResolverTest {
   public void testGetSuccessNullHealthMissingAspect() throws Exception {
     EntityClient entityClient = Mockito.mock(EntityClient.class);
 
-    AcrylDatasetHealthResolver resolver = new AcrylDatasetHealthResolver(entityClient,
-        new AcrylDatasetHealthResolver.Config(true, false, false));
+    AcrylDatasetHealthResolver resolver =
+        new AcrylDatasetHealthResolver(
+            entityClient, new AcrylDatasetHealthResolver.Config(true, false, false));
 
-    Mockito.when(entityClient.getV2(
-        Mockito.eq(Constants.DATASET_ENTITY_NAME),
-        Mockito.eq(UrnUtils.getUrn(TEST_DATASET_URN)),
-        Mockito.eq(ImmutableSet.of(Constants.ASSERTIONS_SUMMARY_ASPECT_NAME)),
-        Mockito.any()
-    )).thenReturn(null);
-
+    Mockito.when(
+            entityClient.getV2(
+                Mockito.eq(Constants.DATASET_ENTITY_NAME),
+                Mockito.eq(UrnUtils.getUrn(TEST_DATASET_URN)),
+                Mockito.eq(ImmutableSet.of(Constants.ASSERTIONS_SUMMARY_ASPECT_NAME)),
+                Mockito.any()))
+        .thenReturn(null);
 
     // Execute resolver
     QueryContext mockContext = Mockito.mock(QueryContext.class);
@@ -165,25 +167,26 @@ public class AcrylDatasetHealthResolverTest {
   public void testGetSuccessNullHealthMissingAspectFields() throws Exception {
     EntityClient entityClient = Mockito.mock(EntityClient.class);
 
-    AcrylDatasetHealthResolver resolver = new AcrylDatasetHealthResolver(entityClient,
-        new AcrylDatasetHealthResolver.Config(true, false, false));
+    AcrylDatasetHealthResolver resolver =
+        new AcrylDatasetHealthResolver(
+            entityClient, new AcrylDatasetHealthResolver.Config(true, false, false));
 
     AssertionsSummary summary = new AssertionsSummary();
 
-    Mockito.when(entityClient.getV2(
-        Mockito.eq(Constants.DATASET_ENTITY_NAME),
-        Mockito.eq(UrnUtils.getUrn(TEST_DATASET_URN)),
-        Mockito.eq(ImmutableSet.of(Constants.ASSERTIONS_SUMMARY_ASPECT_NAME)),
-        Mockito.any()
-    ))
-        .thenReturn(new EntityResponse()
-            .setUrn(UrnUtils.getUrn(TEST_ASSERTION_URN))
-            .setAspects(new EnvelopedAspectMap(ImmutableMap.of(
-                Constants.ASSERTIONS_SUMMARY_ASPECT_NAME,
-                new EnvelopedAspect()
-                    .setValue(new Aspect(summary.data()))
-            )))
-        );
+    Mockito.when(
+            entityClient.getV2(
+                Mockito.eq(Constants.DATASET_ENTITY_NAME),
+                Mockito.eq(UrnUtils.getUrn(TEST_DATASET_URN)),
+                Mockito.eq(ImmutableSet.of(Constants.ASSERTIONS_SUMMARY_ASPECT_NAME)),
+                Mockito.any()))
+        .thenReturn(
+            new EntityResponse()
+                .setUrn(UrnUtils.getUrn(TEST_ASSERTION_URN))
+                .setAspects(
+                    new EnvelopedAspectMap(
+                        ImmutableMap.of(
+                            Constants.ASSERTIONS_SUMMARY_ASPECT_NAME,
+                            new EnvelopedAspect().setValue(new Aspect(summary.data()))))));
 
     // Execute resolver
     QueryContext mockContext = Mockito.mock(QueryContext.class);
@@ -204,27 +207,28 @@ public class AcrylDatasetHealthResolverTest {
   public void testGetSuccessNullHealthEmptyAspectFields() throws Exception {
     EntityClient entityClient = Mockito.mock(EntityClient.class);
 
-    AcrylDatasetHealthResolver resolver = new AcrylDatasetHealthResolver(entityClient,
-        new AcrylDatasetHealthResolver.Config(true, false, false));
+    AcrylDatasetHealthResolver resolver =
+        new AcrylDatasetHealthResolver(
+            entityClient, new AcrylDatasetHealthResolver.Config(true, false, false));
 
     AssertionsSummary summary = new AssertionsSummary();
     summary.setPassingAssertionDetails(new AssertionSummaryDetailsArray());
     summary.setFailingAssertionDetails(new AssertionSummaryDetailsArray());
 
-    Mockito.when(entityClient.getV2(
-        Mockito.eq(Constants.DATASET_ENTITY_NAME),
-        Mockito.eq(UrnUtils.getUrn(TEST_DATASET_URN)),
-        Mockito.eq(ImmutableSet.of(Constants.ASSERTIONS_SUMMARY_ASPECT_NAME)),
-        Mockito.any()
-    ))
-        .thenReturn(new EntityResponse()
-            .setUrn(UrnUtils.getUrn(TEST_DATASET_URN))
-            .setAspects(new EnvelopedAspectMap(ImmutableMap.of(
-                Constants.ASSERTIONS_SUMMARY_ASPECT_NAME,
-                new EnvelopedAspect()
-                    .setValue(new Aspect(summary.data()))
-            )))
-        );
+    Mockito.when(
+            entityClient.getV2(
+                Mockito.eq(Constants.DATASET_ENTITY_NAME),
+                Mockito.eq(UrnUtils.getUrn(TEST_DATASET_URN)),
+                Mockito.eq(ImmutableSet.of(Constants.ASSERTIONS_SUMMARY_ASPECT_NAME)),
+                Mockito.any()))
+        .thenReturn(
+            new EntityResponse()
+                .setUrn(UrnUtils.getUrn(TEST_DATASET_URN))
+                .setAspects(
+                    new EnvelopedAspectMap(
+                        ImmutableMap.of(
+                            Constants.ASSERTIONS_SUMMARY_ASPECT_NAME,
+                            new EnvelopedAspect().setValue(new Aspect(summary.data()))))));
 
     // Execute resolver
     QueryContext mockContext = Mockito.mock(QueryContext.class);
@@ -241,37 +245,38 @@ public class AcrylDatasetHealthResolverTest {
     assertEquals(result.size(), 0);
   }
 
-
   @Test
   public void testGetSuccessUnhealthyFailingOnly() throws Exception {
     EntityClient entityClient = Mockito.mock(EntityClient.class);
 
-    AcrylDatasetHealthResolver resolver = new AcrylDatasetHealthResolver(entityClient,
-        new AcrylDatasetHealthResolver.Config(true, false, false));
+    AcrylDatasetHealthResolver resolver =
+        new AcrylDatasetHealthResolver(
+            entityClient, new AcrylDatasetHealthResolver.Config(true, false, false));
 
     AssertionsSummary summary = new AssertionsSummary();
-    summary.setFailingAssertionDetails(new AssertionSummaryDetailsArray(ImmutableList.of(
-        new AssertionSummaryDetails()
-            .setUrn(UrnUtils.getUrn(TEST_ASSERTION_URN))
-            .setType("type")
-            .setSource("test")
-            .setLastResultAt(0L)))
-    );
+    summary.setFailingAssertionDetails(
+        new AssertionSummaryDetailsArray(
+            ImmutableList.of(
+                new AssertionSummaryDetails()
+                    .setUrn(UrnUtils.getUrn(TEST_ASSERTION_URN))
+                    .setType("type")
+                    .setSource("test")
+                    .setLastResultAt(0L))));
 
-    Mockito.when(entityClient.getV2(
-        Mockito.eq(Constants.DATASET_ENTITY_NAME),
-        Mockito.eq(UrnUtils.getUrn(TEST_DATASET_URN)),
-        Mockito.eq(ImmutableSet.of(Constants.ASSERTIONS_SUMMARY_ASPECT_NAME)),
-        Mockito.any()
-    ))
-        .thenReturn(new EntityResponse()
-            .setUrn(UrnUtils.getUrn(TEST_DATASET_URN))
-            .setAspects(new EnvelopedAspectMap(ImmutableMap.of(
-                Constants.ASSERTIONS_SUMMARY_ASPECT_NAME,
-                new EnvelopedAspect()
-                    .setValue(new Aspect(summary.data()))
-            )))
-        );
+    Mockito.when(
+            entityClient.getV2(
+                Mockito.eq(Constants.DATASET_ENTITY_NAME),
+                Mockito.eq(UrnUtils.getUrn(TEST_DATASET_URN)),
+                Mockito.eq(ImmutableSet.of(Constants.ASSERTIONS_SUMMARY_ASPECT_NAME)),
+                Mockito.any()))
+        .thenReturn(
+            new EntityResponse()
+                .setUrn(UrnUtils.getUrn(TEST_DATASET_URN))
+                .setAspects(
+                    new EnvelopedAspectMap(
+                        ImmutableMap.of(
+                            Constants.ASSERTIONS_SUMMARY_ASPECT_NAME,
+                            new EnvelopedAspect().setValue(new Aspect(summary.data()))))));
 
     // Execute resolver
     QueryContext mockContext = Mockito.mock(QueryContext.class);
@@ -295,33 +300,35 @@ public class AcrylDatasetHealthResolverTest {
   public void testGetSuccessUnhealthyFailingPassingEmpty() throws Exception {
     EntityClient entityClient = Mockito.mock(EntityClient.class);
 
-    AcrylDatasetHealthResolver resolver = new AcrylDatasetHealthResolver(entityClient,
-        new AcrylDatasetHealthResolver.Config(true, false, false));
+    AcrylDatasetHealthResolver resolver =
+        new AcrylDatasetHealthResolver(
+            entityClient, new AcrylDatasetHealthResolver.Config(true, false, false));
 
     AssertionsSummary summary = new AssertionsSummary();
-    summary.setFailingAssertionDetails(new AssertionSummaryDetailsArray(ImmutableList.of(
-        new AssertionSummaryDetails()
-            .setUrn(UrnUtils.getUrn(TEST_ASSERTION_URN))
-            .setType("type")
-            .setSource("test")
-            .setLastResultAt(0L)))
-    );
+    summary.setFailingAssertionDetails(
+        new AssertionSummaryDetailsArray(
+            ImmutableList.of(
+                new AssertionSummaryDetails()
+                    .setUrn(UrnUtils.getUrn(TEST_ASSERTION_URN))
+                    .setType("type")
+                    .setSource("test")
+                    .setLastResultAt(0L))));
     summary.setPassingAssertionDetails(new AssertionSummaryDetailsArray());
 
-    Mockito.when(entityClient.getV2(
-        Mockito.eq(Constants.DATASET_ENTITY_NAME),
-        Mockito.eq(UrnUtils.getUrn(TEST_DATASET_URN)),
-        Mockito.eq(ImmutableSet.of(Constants.ASSERTIONS_SUMMARY_ASPECT_NAME)),
-        Mockito.any()
-    ))
-        .thenReturn(new EntityResponse()
-            .setUrn(UrnUtils.getUrn(TEST_DATASET_URN))
-            .setAspects(new EnvelopedAspectMap(ImmutableMap.of(
-                Constants.ASSERTIONS_SUMMARY_ASPECT_NAME,
-                new EnvelopedAspect()
-                    .setValue(new Aspect(summary.data()))
-            )))
-        );
+    Mockito.when(
+            entityClient.getV2(
+                Mockito.eq(Constants.DATASET_ENTITY_NAME),
+                Mockito.eq(UrnUtils.getUrn(TEST_DATASET_URN)),
+                Mockito.eq(ImmutableSet.of(Constants.ASSERTIONS_SUMMARY_ASPECT_NAME)),
+                Mockito.any()))
+        .thenReturn(
+            new EntityResponse()
+                .setUrn(UrnUtils.getUrn(TEST_DATASET_URN))
+                .setAspects(
+                    new EnvelopedAspectMap(
+                        ImmutableMap.of(
+                            Constants.ASSERTIONS_SUMMARY_ASPECT_NAME,
+                            new EnvelopedAspect().setValue(new Aspect(summary.data()))))));
 
     // Execute resolver
     QueryContext mockContext = Mockito.mock(QueryContext.class);
@@ -340,44 +347,46 @@ public class AcrylDatasetHealthResolverTest {
     assertEquals(result.get(0).getStatus(), HealthStatus.FAIL);
   }
 
-
   @Test
   public void testGetSuccessUnhealthyFailingAndPassing() throws Exception {
     EntityClient entityClient = Mockito.mock(EntityClient.class);
 
-    AcrylDatasetHealthResolver resolver = new AcrylDatasetHealthResolver(entityClient,
-        new AcrylDatasetHealthResolver.Config(true, false, false));
+    AcrylDatasetHealthResolver resolver =
+        new AcrylDatasetHealthResolver(
+            entityClient, new AcrylDatasetHealthResolver.Config(true, false, false));
 
     AssertionsSummary summary = new AssertionsSummary();
-    summary.setFailingAssertionDetails(new AssertionSummaryDetailsArray(ImmutableList.of(
-        new AssertionSummaryDetails()
-            .setUrn(UrnUtils.getUrn(TEST_ASSERTION_URN))
-            .setType("type")
-            .setSource("test")
-            .setLastResultAt(0L)))
-    );
-    summary.setPassingAssertionDetails(new AssertionSummaryDetailsArray(ImmutableList.of(
-        new AssertionSummaryDetails()
-            .setUrn(UrnUtils.getUrn(TEST_ASSERTION_URN_2))
-            .setType("type")
-            .setSource("test")
-            .setLastResultAt(0L)))
-    );
+    summary.setFailingAssertionDetails(
+        new AssertionSummaryDetailsArray(
+            ImmutableList.of(
+                new AssertionSummaryDetails()
+                    .setUrn(UrnUtils.getUrn(TEST_ASSERTION_URN))
+                    .setType("type")
+                    .setSource("test")
+                    .setLastResultAt(0L))));
+    summary.setPassingAssertionDetails(
+        new AssertionSummaryDetailsArray(
+            ImmutableList.of(
+                new AssertionSummaryDetails()
+                    .setUrn(UrnUtils.getUrn(TEST_ASSERTION_URN_2))
+                    .setType("type")
+                    .setSource("test")
+                    .setLastResultAt(0L))));
 
-    Mockito.when(entityClient.getV2(
-        Mockito.eq(Constants.DATASET_ENTITY_NAME),
-        Mockito.eq(UrnUtils.getUrn(TEST_DATASET_URN)),
-        Mockito.eq(ImmutableSet.of(Constants.ASSERTIONS_SUMMARY_ASPECT_NAME)),
-        Mockito.any()
-    ))
-        .thenReturn(new EntityResponse()
-            .setUrn(UrnUtils.getUrn(TEST_DATASET_URN))
-            .setAspects(new EnvelopedAspectMap(ImmutableMap.of(
-                Constants.ASSERTIONS_SUMMARY_ASPECT_NAME,
-                new EnvelopedAspect()
-                    .setValue(new Aspect(summary.data()))
-            )))
-        );
+    Mockito.when(
+            entityClient.getV2(
+                Mockito.eq(Constants.DATASET_ENTITY_NAME),
+                Mockito.eq(UrnUtils.getUrn(TEST_DATASET_URN)),
+                Mockito.eq(ImmutableSet.of(Constants.ASSERTIONS_SUMMARY_ASPECT_NAME)),
+                Mockito.any()))
+        .thenReturn(
+            new EntityResponse()
+                .setUrn(UrnUtils.getUrn(TEST_DATASET_URN))
+                .setAspects(
+                    new EnvelopedAspectMap(
+                        ImmutableMap.of(
+                            Constants.ASSERTIONS_SUMMARY_ASPECT_NAME,
+                            new EnvelopedAspect().setValue(new Aspect(summary.data()))))));
 
     // Execute resolver
     QueryContext mockContext = Mockito.mock(QueryContext.class);

@@ -1,5 +1,9 @@
 package com.linkedin.datahub.graphql.resolvers.settings;
 
+import static com.linkedin.datahub.graphql.resolvers.ingest.IngestTestUtils.*;
+import static com.linkedin.metadata.Constants.*;
+import static org.testng.Assert.*;
+
 import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -39,25 +43,26 @@ import org.mockito.Mockito;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import static com.linkedin.datahub.graphql.resolvers.ingest.IngestTestUtils.*;
-import static com.linkedin.metadata.Constants.*;
-import static org.testng.Assert.*;
-
-
 public class UpdateGlobalSettingsResolverTest {
   private static final String BASE_URL_VALUE = "http://localhost:9002";
   private static final String CLIENT_ID_VALUE = "clientId";
   private static final String CLIENT_SECRET_VALUE = "clientSecret";
-  private static final String DISCOVERY_URI_VALUE = "https://idp.com/.well-known/openid-configuration";
+  private static final String DISCOVERY_URI_VALUE =
+      "https://idp.com/.well-known/openid-configuration";
   private static final UpdateGlobalSettingsInput TEST_INPUT = new UpdateGlobalSettingsInput();
 
   @BeforeMethod
   public void setUp() {
     TEST_INPUT.setIntegrationSettings(
-        new UpdateGlobalIntegrationSettingsInput(new UpdateSlackIntegrationSettingsInput("channel", "token")));
-    TEST_INPUT.setNotificationSettings(new UpdateGlobalNotificationSettingsInput(ImmutableList.of(
-        new NotificationSettingInput(NotificationScenarioType.DATASET_SCHEMA_CHANGE, NotificationSettingValue.ENABLED,
-            ImmutableList.of(new StringMapEntryInput("key", "value"))))));
+        new UpdateGlobalIntegrationSettingsInput(
+            new UpdateSlackIntegrationSettingsInput("channel", "token")));
+    TEST_INPUT.setNotificationSettings(
+        new UpdateGlobalNotificationSettingsInput(
+            ImmutableList.of(
+                new NotificationSettingInput(
+                    NotificationScenarioType.DATASET_SCHEMA_CHANGE,
+                    NotificationSettingValue.ENABLED,
+                    ImmutableList.of(new StringMapEntryInput("key", "value"))))));
 
     final UpdateSsoSettingsInput updateSsoSettingsInput = new UpdateSsoSettingsInput();
     updateSsoSettingsInput.setBaseUrl(BASE_URL_VALUE);
@@ -80,26 +85,33 @@ public class UpdateGlobalSettingsResolverTest {
 
     GlobalSettingsInfo returnedInfo = getGlobalSettingsInfo();
 
-    Mockito.when(mockClient.getV2(
-        Mockito.eq(Constants.GLOBAL_SETTINGS_ENTITY_NAME),
-        Mockito.eq(Constants.GLOBAL_SETTINGS_URN),
-        Mockito.eq(ImmutableSet.of(
-            Constants.GLOBAL_SETTINGS_INFO_ASPECT_NAME)),
-        Mockito.any(Authentication.class)))
-        .thenReturn(new EntityResponse().setEntityName(Constants.GLOBAL_SETTINGS_ENTITY_NAME)
-            .setUrn(Constants.GLOBAL_SETTINGS_URN)
-            .setAspects(new EnvelopedAspectMap(ImmutableMap.of(
-                Constants.GLOBAL_SETTINGS_INFO_ASPECT_NAME,
-                new EnvelopedAspect().setValue(new Aspect(returnedInfo.data()))
-                    .setCreated(new AuditStamp()
-                        .setTime(0L)
-                        .setActor(Urn.createFromString("urn:li:corpuser:test"))
-                    )))));
+    Mockito.when(
+            mockClient.getV2(
+                Mockito.eq(Constants.GLOBAL_SETTINGS_ENTITY_NAME),
+                Mockito.eq(Constants.GLOBAL_SETTINGS_URN),
+                Mockito.eq(ImmutableSet.of(Constants.GLOBAL_SETTINGS_INFO_ASPECT_NAME)),
+                Mockito.any(Authentication.class)))
+        .thenReturn(
+            new EntityResponse()
+                .setEntityName(Constants.GLOBAL_SETTINGS_ENTITY_NAME)
+                .setUrn(Constants.GLOBAL_SETTINGS_URN)
+                .setAspects(
+                    new EnvelopedAspectMap(
+                        ImmutableMap.of(
+                            Constants.GLOBAL_SETTINGS_INFO_ASPECT_NAME,
+                            new EnvelopedAspect()
+                                .setValue(new Aspect(returnedInfo.data()))
+                                .setCreated(
+                                    new AuditStamp()
+                                        .setTime(0L)
+                                        .setActor(
+                                            Urn.createFromString("urn:li:corpuser:test")))))));
 
     Mockito.when(mockSecretService.encrypt("token")).thenReturn("token");
     Mockito.when(mockSecretService.encrypt(CLIENT_SECRET_VALUE)).thenReturn(CLIENT_SECRET_VALUE);
 
-    UpdateGlobalSettingsResolver resolver = new UpdateGlobalSettingsResolver(mockClient, mockSecretService);
+    UpdateGlobalSettingsResolver resolver =
+        new UpdateGlobalSettingsResolver(mockClient, mockSecretService);
 
     // Execute resolver
     QueryContext mockContext = getMockAllowContext();
@@ -109,19 +121,18 @@ public class UpdateGlobalSettingsResolverTest {
 
     resolver.get(mockEnv).get();
 
-    MetadataChangeProposal expectedProposal = MutationUtils.buildMetadataChangeProposalWithUrn(GLOBAL_SETTINGS_URN,
-        GLOBAL_SETTINGS_INFO_ASPECT_NAME, returnedInfo);
+    MetadataChangeProposal expectedProposal =
+        MutationUtils.buildMetadataChangeProposalWithUrn(
+            GLOBAL_SETTINGS_URN, GLOBAL_SETTINGS_INFO_ASPECT_NAME, returnedInfo);
     expectedProposal.setEntityUrn(Constants.GLOBAL_SETTINGS_URN);
     expectedProposal.setChangeType(ChangeType.UPSERT);
     expectedProposal.setAspectName(Constants.GLOBAL_SETTINGS_INFO_ASPECT_NAME);
     expectedProposal.setEntityType(Constants.GLOBAL_SETTINGS_ENTITY_NAME);
     expectedProposal.setAspect(GenericRecordUtils.serializeAspect(returnedInfo));
 
-    Mockito.verify(mockClient, Mockito.times(1)).ingestProposal(
-        Mockito.eq(expectedProposal),
-        Mockito.any(Authentication.class),
-        Mockito.eq(false)
-    );
+    Mockito.verify(mockClient, Mockito.times(1))
+        .ingestProposal(
+            Mockito.eq(expectedProposal), Mockito.any(Authentication.class), Mockito.eq(false));
   }
 
   @Test
@@ -130,7 +141,8 @@ public class UpdateGlobalSettingsResolverTest {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     SecretService mockSecretService = Mockito.mock(SecretService.class);
 
-    UpdateGlobalSettingsResolver resolver = new UpdateGlobalSettingsResolver(mockClient, mockSecretService);
+    UpdateGlobalSettingsResolver resolver =
+        new UpdateGlobalSettingsResolver(mockClient, mockSecretService);
 
     // Execute resolver
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
@@ -139,9 +151,8 @@ public class UpdateGlobalSettingsResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     assertThrows(RuntimeException.class, () -> resolver.get(mockEnv).join());
-    Mockito.verify(mockClient, Mockito.times(0)).ingestProposal(
-        Mockito.any(),
-        Mockito.any(Authentication.class));
+    Mockito.verify(mockClient, Mockito.times(0))
+        .ingestProposal(Mockito.any(), Mockito.any(Authentication.class));
   }
 
   @Test
@@ -150,11 +161,12 @@ public class UpdateGlobalSettingsResolverTest {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     SecretService mockSecretService = Mockito.mock(SecretService.class);
 
-    Mockito.doThrow(RemoteInvocationException.class).when(mockClient).ingestProposal(
-        Mockito.any(),
-        Mockito.any(Authentication.class));
+    Mockito.doThrow(RemoteInvocationException.class)
+        .when(mockClient)
+        .ingestProposal(Mockito.any(), Mockito.any(Authentication.class));
 
-    UpdateGlobalSettingsResolver resolver = new UpdateGlobalSettingsResolver(mockClient, mockSecretService);
+    UpdateGlobalSettingsResolver resolver =
+        new UpdateGlobalSettingsResolver(mockClient, mockSecretService);
 
     // Execute resolver
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
@@ -167,19 +179,20 @@ public class UpdateGlobalSettingsResolverTest {
 
   public static GlobalSettingsInfo getGlobalSettingsInfo() {
     GlobalSettingsInfo globalSettingsInfo = new GlobalSettingsInfo();
-    globalSettingsInfo.setIntegrations(new GlobalIntegrationSettings()
-        .setSlackSettings(new SlackIntegrationSettings()
-            .setEnabled(true)
-            .setDefaultChannelName("test")
-        )
-    );
+    globalSettingsInfo.setIntegrations(
+        new GlobalIntegrationSettings()
+            .setSlackSettings(
+                new SlackIntegrationSettings().setEnabled(true).setDefaultChannelName("test")));
     NotificationSettingMap map = new NotificationSettingMap();
-    map.put(NotificationScenarioType.INGESTION_RUN_CHANGE.toString(),
-        new com.linkedin.settings.NotificationSetting().setValue(com.linkedin.settings.NotificationSettingValue.ENABLED));
-    map.put(NotificationScenarioType.ENTITY_DEPRECATION_CHANGE.toString(),
-        new com.linkedin.settings.NotificationSetting().setValue(com.linkedin.settings.NotificationSettingValue.DISABLED));
+    map.put(
+        NotificationScenarioType.INGESTION_RUN_CHANGE.toString(),
+        new com.linkedin.settings.NotificationSetting()
+            .setValue(com.linkedin.settings.NotificationSettingValue.ENABLED));
+    map.put(
+        NotificationScenarioType.ENTITY_DEPRECATION_CHANGE.toString(),
+        new com.linkedin.settings.NotificationSetting()
+            .setValue(com.linkedin.settings.NotificationSettingValue.DISABLED));
     globalSettingsInfo.setNotifications(new GlobalNotificationSettings().setSettings(map));
     return globalSettingsInfo;
   }
 }
-

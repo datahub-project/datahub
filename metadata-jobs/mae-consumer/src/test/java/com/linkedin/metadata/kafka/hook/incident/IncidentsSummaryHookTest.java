@@ -1,5 +1,8 @@
 package com.linkedin.metadata.kafka.hook.incident;
 
+import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.kafka.hook.EntityRegistryTestUtil.ENTITY_REGISTRY;
+
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.IncidentSummaryDetails;
@@ -29,17 +32,20 @@ import org.testng.annotations.Test;
 import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.kafka.hook.EntityRegistryTestUtil.*;
 
-
 public class IncidentsSummaryHookTest {
   private static final Urn TEST_EXISTING_INCIDENT_URN = UrnUtils.getUrn("urn:li:incident:existing");
   private static final Urn TEST_INCIDENT_URN = UrnUtils.getUrn("urn:li:incident:test");
-  private static final Urn TEST_DATASET_URN = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,name,PROD)");
-  private static final Urn TEST_DATASET_2_URN = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,name2,PROD)");
+  private static final Urn TEST_DATASET_URN =
+      UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,name,PROD)");
+  private static final Urn TEST_DATASET_2_URN =
+      UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,name2,PROD)");
   private static final String TEST_INCIDENT_TYPE = "TestType";
 
   @Test
   public void testInvokeNotEnabled() throws Exception {
-    IncidentInfo incidentInfo = mockIncidentInfo(ImmutableList.of(TEST_DATASET_URN, TEST_DATASET_2_URN), IncidentState.ACTIVE);
+    IncidentInfo incidentInfo =
+        mockIncidentInfo(
+            ImmutableList.of(TEST_DATASET_URN, TEST_DATASET_2_URN), IncidentState.ACTIVE);
     IncidentService service = mockIncidentService(new IncidentsSummary(), incidentInfo);
     IncidentsSummaryHook hook = new IncidentsSummaryHook(ENTITY_REGISTRY, service, false, 100);
     final MetadataChangeLog event = buildMetadataChangeLog(
@@ -53,25 +59,23 @@ public class IncidentsSummaryHookTest {
 
   @Test
   public void testInvokeNotEligibleChange() throws Exception {
-    IncidentInfo info = mockIncidentInfo(ImmutableList.of(TEST_DATASET_URN, TEST_DATASET_2_URN), IncidentState.ACTIVE);
+    IncidentInfo info =
+        mockIncidentInfo(
+            ImmutableList.of(TEST_DATASET_URN, TEST_DATASET_2_URN), IncidentState.ACTIVE);
     IncidentService service = mockIncidentService(new IncidentsSummary(), info);
     IncidentsSummaryHook hook = new IncidentsSummaryHook(ENTITY_REGISTRY, service, true, 100);
 
     // Case 1: Incorrect aspect
-    MetadataChangeLog event = buildMetadataChangeLog(
-        TEST_INCIDENT_URN,
-        INCIDENT_KEY_ASPECT_NAME,
-        ChangeType.UPSERT,
-        new IncidentInfo());
+    MetadataChangeLog event =
+        buildMetadataChangeLog(
+            TEST_INCIDENT_URN, INCIDENT_KEY_ASPECT_NAME, ChangeType.UPSERT, new IncidentInfo());
     hook.invoke(event);
     Mockito.verify(service, Mockito.times(0)).getIncidentInfo(Mockito.any());
 
     // Case 2: Run Event But Delete
-    event = buildMetadataChangeLog(
-        TEST_INCIDENT_URN,
-        INCIDENT_INFO_ASPECT_NAME,
-        ChangeType.DELETE,
-        info);
+    event =
+        buildMetadataChangeLog(
+            TEST_INCIDENT_URN, INCIDENT_INFO_ASPECT_NAME, ChangeType.DELETE, info);
     hook.invoke(event);
     Mockito.verify(service, Mockito.times(0)).getIncidentInfo(Mockito.any());
   }
@@ -79,55 +83,59 @@ public class IncidentsSummaryHookTest {
   @DataProvider(name = "incidentsSummaryBaseProvider")
   static Object[][] incidentsSummaryBaseProvider() {
     return new Object[][] {
-        new Object[] {
-            null
-        },
-        new Object[] {
-            new IncidentsSummary()
-                .setActiveIncidentDetails(new IncidentSummaryDetailsArray())
-                .setResolvedIncidentDetails(new IncidentSummaryDetailsArray())
-        },
-        new Object[] {
-            new IncidentsSummary()
-                .setActiveIncidentDetails(new IncidentSummaryDetailsArray(ImmutableList.of(
-                    new IncidentSummaryDetails()
-                      .setUrn(TEST_EXISTING_INCIDENT_URN)
-                      .setType(TEST_INCIDENT_TYPE)
-                      .setCreatedAt(0L)
-                )))
-                .setResolvedIncidentDetails(new IncidentSummaryDetailsArray())
-        },
-        new Object[] {
-            new IncidentsSummary()
-                .setActiveIncidentDetails(new IncidentSummaryDetailsArray())
-                .setResolvedIncidentDetails(new IncidentSummaryDetailsArray(ImmutableList.of(
-                  new IncidentSummaryDetails()
-                      .setUrn(TEST_EXISTING_INCIDENT_URN)
-                      .setType(TEST_INCIDENT_TYPE)
-                      .setCreatedAt(0L)
-                )))
-        },
-        new Object[] {
-            new IncidentsSummary()
-                .setActiveIncidentDetails(new IncidentSummaryDetailsArray(ImmutableList.of(
-                    new IncidentSummaryDetails()
-                        .setUrn(TEST_INCIDENT_URN)
-                        .setType(TEST_INCIDENT_TYPE)
-                        .setCreatedAt(0L)
-                )))
-                .setResolvedIncidentDetails(new IncidentSummaryDetailsArray(ImmutableList.of(
-                  new IncidentSummaryDetails()
-                      .setUrn(TEST_INCIDENT_URN)
-                      .setType(TEST_INCIDENT_TYPE)
-                      .setCreatedAt(0L)
-               )))
-        }
+      new Object[] {null},
+      new Object[] {
+        new IncidentsSummary()
+            .setActiveIncidentDetails(new IncidentSummaryDetailsArray())
+            .setResolvedIncidentDetails(new IncidentSummaryDetailsArray())
+      },
+      new Object[] {
+        new IncidentsSummary()
+            .setActiveIncidentDetails(
+                new IncidentSummaryDetailsArray(
+                    ImmutableList.of(
+                        new IncidentSummaryDetails()
+                            .setUrn(TEST_EXISTING_INCIDENT_URN)
+                            .setType(TEST_INCIDENT_TYPE)
+                            .setCreatedAt(0L))))
+            .setResolvedIncidentDetails(new IncidentSummaryDetailsArray())
+      },
+      new Object[] {
+        new IncidentsSummary()
+            .setActiveIncidentDetails(new IncidentSummaryDetailsArray())
+            .setResolvedIncidentDetails(
+                new IncidentSummaryDetailsArray(
+                    ImmutableList.of(
+                        new IncidentSummaryDetails()
+                            .setUrn(TEST_EXISTING_INCIDENT_URN)
+                            .setType(TEST_INCIDENT_TYPE)
+                            .setCreatedAt(0L))))
+      },
+      new Object[] {
+        new IncidentsSummary()
+            .setActiveIncidentDetails(
+                new IncidentSummaryDetailsArray(
+                    ImmutableList.of(
+                        new IncidentSummaryDetails()
+                            .setUrn(TEST_INCIDENT_URN)
+                            .setType(TEST_INCIDENT_TYPE)
+                            .setCreatedAt(0L))))
+            .setResolvedIncidentDetails(
+                new IncidentSummaryDetailsArray(
+                    ImmutableList.of(
+                        new IncidentSummaryDetails()
+                            .setUrn(TEST_INCIDENT_URN)
+                            .setType(TEST_INCIDENT_TYPE)
+                            .setCreatedAt(0L))))
+      }
     };
   }
 
   @Test(dataProvider = "incidentsSummaryBaseProvider")
   public void testInvokeIncidentRunEventActive(IncidentsSummary summary) throws Exception {
-    IncidentInfo info = mockIncidentInfo(ImmutableList.of(TEST_DATASET_URN, TEST_DATASET_2_URN), IncidentState.ACTIVE);
+    IncidentInfo info =
+        mockIncidentInfo(
+            ImmutableList.of(TEST_DATASET_URN, TEST_DATASET_2_URN), IncidentState.ACTIVE);
     IncidentService service = mockIncidentService(summary, info);
     IncidentsSummaryHook hook = new IncidentsSummaryHook(ENTITY_REGISTRY, service, true, 100);
     final MetadataChangeLog event = buildMetadataChangeLog(
@@ -145,32 +153,31 @@ public class IncidentsSummaryHookTest {
     }
     IncidentsSummary expectedSummary = new IncidentsSummary(summary.data());
     expectedSummary.setActiveIncidentDetails(
-        new IncidentSummaryDetailsArray(expectedSummary.getActiveIncidentDetails()
-            .stream()
-            .filter(details -> !details.getUrn().equals(TEST_INCIDENT_URN))
-            .collect(Collectors.toList())));
+        new IncidentSummaryDetailsArray(
+            expectedSummary.getActiveIncidentDetails().stream()
+                .filter(details -> !details.getUrn().equals(TEST_INCIDENT_URN))
+                .collect(Collectors.toList())));
     expectedSummary.setResolvedIncidentDetails(
-        new IncidentSummaryDetailsArray(expectedSummary.getResolvedIncidentDetails()
-            .stream()
-            .filter(details -> !details.getUrn().equals(TEST_INCIDENT_URN))
-            .collect(Collectors.toList())));
-    expectedSummary.getActiveIncidentDetails().add(buildIncidentSummaryDetails(TEST_INCIDENT_URN, info));
+        new IncidentSummaryDetailsArray(
+            expectedSummary.getResolvedIncidentDetails().stream()
+                .filter(details -> !details.getUrn().equals(TEST_INCIDENT_URN))
+                .collect(Collectors.toList())));
+    expectedSummary
+        .getActiveIncidentDetails()
+        .add(buildIncidentSummaryDetails(TEST_INCIDENT_URN, info));
 
     // Ensure we ingested a new aspect.
-    Mockito.verify(service, Mockito.times(1)).updateIncidentsSummary(
-        Mockito.eq(TEST_DATASET_URN),
-        Mockito.eq(expectedSummary));
-    Mockito.verify(service, Mockito.times(1)).updateIncidentsSummary(
-        Mockito.eq(TEST_DATASET_2_URN),
-        Mockito.eq(expectedSummary));
+    Mockito.verify(service, Mockito.times(1))
+        .updateIncidentsSummary(Mockito.eq(TEST_DATASET_URN), Mockito.eq(expectedSummary));
+    Mockito.verify(service, Mockito.times(1))
+        .updateIncidentsSummary(Mockito.eq(TEST_DATASET_2_URN), Mockito.eq(expectedSummary));
   }
-
 
   @Test(dataProvider = "incidentsSummaryBaseProvider")
   public void testInvokeIncidentRunEventResolved(IncidentsSummary summary) throws Exception {
-    IncidentInfo info = mockIncidentInfo(
-        ImmutableList.of(TEST_DATASET_URN, TEST_DATASET_2_URN),
-        IncidentState.RESOLVED);
+    IncidentInfo info =
+        mockIncidentInfo(
+            ImmutableList.of(TEST_DATASET_URN, TEST_DATASET_2_URN), IncidentState.RESOLVED);
     IncidentService service = mockIncidentService(summary, info);
     IncidentsSummaryHook hook = new IncidentsSummaryHook(ENTITY_REGISTRY, service, true, 100);
     final MetadataChangeLog event = buildMetadataChangeLog(
@@ -188,32 +195,31 @@ public class IncidentsSummaryHookTest {
     }
     IncidentsSummary expectedSummary = new IncidentsSummary(summary.data());
     expectedSummary.setActiveIncidentDetails(
-        new IncidentSummaryDetailsArray(expectedSummary.getActiveIncidentDetails()
-            .stream()
-            .filter(details -> !details.getUrn().equals(TEST_INCIDENT_URN))
-            .collect(Collectors.toList())));
+        new IncidentSummaryDetailsArray(
+            expectedSummary.getActiveIncidentDetails().stream()
+                .filter(details -> !details.getUrn().equals(TEST_INCIDENT_URN))
+                .collect(Collectors.toList())));
     expectedSummary.setResolvedIncidentDetails(
-        new IncidentSummaryDetailsArray(expectedSummary.getResolvedIncidentDetails()
-            .stream()
-            .filter(details -> !details.getUrn().equals(TEST_INCIDENT_URN))
-            .collect(Collectors.toList())));
-    expectedSummary.getResolvedIncidentDetails().add(buildIncidentSummaryDetails(TEST_INCIDENT_URN, info));
+        new IncidentSummaryDetailsArray(
+            expectedSummary.getResolvedIncidentDetails().stream()
+                .filter(details -> !details.getUrn().equals(TEST_INCIDENT_URN))
+                .collect(Collectors.toList())));
+    expectedSummary
+        .getResolvedIncidentDetails()
+        .add(buildIncidentSummaryDetails(TEST_INCIDENT_URN, info));
 
     // Ensure we ingested a new aspect.
-    Mockito.verify(service, Mockito.times(1)).updateIncidentsSummary(
-        Mockito.eq(TEST_DATASET_URN),
-        Mockito.eq(expectedSummary));
-    Mockito.verify(service, Mockito.times(1)).updateIncidentsSummary(
-        Mockito.eq(TEST_DATASET_2_URN),
-        Mockito.eq(expectedSummary));
+    Mockito.verify(service, Mockito.times(1))
+        .updateIncidentsSummary(Mockito.eq(TEST_DATASET_URN), Mockito.eq(expectedSummary));
+    Mockito.verify(service, Mockito.times(1))
+        .updateIncidentsSummary(Mockito.eq(TEST_DATASET_2_URN), Mockito.eq(expectedSummary));
   }
-
 
   @Test(dataProvider = "incidentsSummaryBaseProvider")
   public void testInvokeIncidentSoftDeleted(IncidentsSummary summary) throws Exception {
-    IncidentInfo info = mockIncidentInfo(
-        ImmutableList.of(TEST_DATASET_URN, TEST_DATASET_2_URN),
-        IncidentState.RESOLVED);
+    IncidentInfo info =
+        mockIncidentInfo(
+            ImmutableList.of(TEST_DATASET_URN, TEST_DATASET_2_URN), IncidentState.RESOLVED);
     IncidentService service = mockIncidentService(summary, info);
     IncidentsSummaryHook hook = new IncidentsSummaryHook(ENTITY_REGISTRY, service, true, 100);
     final MetadataChangeLog event = buildMetadataChangeLog(
@@ -232,23 +238,21 @@ public class IncidentsSummaryHookTest {
     }
     IncidentsSummary expectedSummary = new IncidentsSummary(summary.data());
     expectedSummary.setResolvedIncidentDetails(
-        new IncidentSummaryDetailsArray(expectedSummary.getResolvedIncidentDetails()
-            .stream()
-            .filter(details -> !details.getUrn().equals(TEST_INCIDENT_URN))
-            .collect(Collectors.toList())));
+        new IncidentSummaryDetailsArray(
+            expectedSummary.getResolvedIncidentDetails().stream()
+                .filter(details -> !details.getUrn().equals(TEST_INCIDENT_URN))
+                .collect(Collectors.toList())));
     expectedSummary.setActiveIncidentDetails(
-        new IncidentSummaryDetailsArray(expectedSummary.getActiveIncidentDetails()
-            .stream()
-            .filter(details -> !details.getUrn().equals(TEST_INCIDENT_URN))
-            .collect(Collectors.toList())));
+        new IncidentSummaryDetailsArray(
+            expectedSummary.getActiveIncidentDetails().stream()
+                .filter(details -> !details.getUrn().equals(TEST_INCIDENT_URN))
+                .collect(Collectors.toList())));
 
     // Ensure we ingested a new aspect.
-    Mockito.verify(service, Mockito.times(1)).updateIncidentsSummary(
-        Mockito.eq(TEST_DATASET_URN),
-        Mockito.eq(expectedSummary));
-    Mockito.verify(service, Mockito.times(1)).updateIncidentsSummary(
-        Mockito.eq(TEST_DATASET_2_URN),
-        Mockito.eq(expectedSummary));
+    Mockito.verify(service, Mockito.times(1))
+        .updateIncidentsSummary(Mockito.eq(TEST_DATASET_URN), Mockito.eq(expectedSummary));
+    Mockito.verify(service, Mockito.times(1))
+        .updateIncidentsSummary(Mockito.eq(TEST_DATASET_2_URN), Mockito.eq(expectedSummary));
   }
 
   private IncidentInfo mockIncidentInfo(final List<Urn> entityUrns, final IncidentState state) {
@@ -256,10 +260,13 @@ public class IncidentsSummaryHookTest {
     event.setEntities(new UrnArray(entityUrns));
     event.setType(IncidentType.OPERATIONAL);
     event.setSource(new IncidentSource().setType(IncidentSourceType.MANUAL));
-    event.setStatus(new IncidentStatus().setState(state)
-        .setLastUpdated(new AuditStamp().setTime(1L)
-        .setActor(UrnUtils.getUrn("urn:li:corpuser:test"))));
-    event.setCreated(new AuditStamp().setTime(0L).setActor(UrnUtils.getUrn("urn:li:corpuser:test")));
+    event.setStatus(
+        new IncidentStatus()
+            .setState(state)
+            .setLastUpdated(
+                new AuditStamp().setTime(1L).setActor(UrnUtils.getUrn("urn:li:corpuser:test"))));
+    event.setCreated(
+        new AuditStamp().setTime(0L).setActor(UrnUtils.getUrn("urn:li:corpuser:test")));
     return event;
   }
 
@@ -272,8 +279,7 @@ public class IncidentsSummaryHookTest {
   private IncidentService mockIncidentService(IncidentsSummary summary, IncidentInfo info) {
     IncidentService mockService = Mockito.mock(IncidentService.class);
 
-    Mockito.when(mockService.getIncidentInfo(TEST_INCIDENT_URN))
-      .thenReturn(info);
+    Mockito.when(mockService.getIncidentInfo(TEST_INCIDENT_URN)).thenReturn(info);
 
     Mockito.when(mockService.getIncidentsSummary(TEST_DATASET_URN)).thenReturn(summary);
     Mockito.when(mockService.getIncidentsSummary(TEST_DATASET_2_URN)).thenReturn(summary);
@@ -281,7 +287,8 @@ public class IncidentsSummaryHookTest {
     return mockService;
   }
 
-  private IncidentSummaryDetails buildIncidentSummaryDetails(final Urn incidentUrn, final IncidentInfo info) {
+  private IncidentSummaryDetails buildIncidentSummaryDetails(
+      final Urn incidentUrn, final IncidentInfo info) {
     IncidentSummaryDetails incidentSummaryDetails = new IncidentSummaryDetails();
     incidentSummaryDetails.setUrn(incidentUrn);
     incidentSummaryDetails.setCreatedAt(info.getCreated().getTime());
@@ -299,7 +306,8 @@ public class IncidentsSummaryHookTest {
     return incidentSummaryDetails;
   }
 
-  private MetadataChangeLog buildMetadataChangeLog(Urn urn, String aspectName, ChangeType changeType, RecordTemplate aspect) throws Exception {
+  private MetadataChangeLog buildMetadataChangeLog(
+      Urn urn, String aspectName, ChangeType changeType, RecordTemplate aspect) throws Exception {
     MetadataChangeLog event = new MetadataChangeLog();
     event.setEntityUrn(urn);
     event.setEntityType(INCIDENT_ENTITY_NAME);

@@ -4,9 +4,9 @@ import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.generated.AccessTokenMetadata;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityType;
-import com.linkedin.datahub.graphql.generated.AccessTokenMetadata;
 import com.linkedin.datahub.graphql.types.auth.mappers.AccessTokenMetadataMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
@@ -20,7 +20,6 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
-
 
 public class AccessTokenMetadataType
     implements com.linkedin.datahub.graphql.types.EntityType<AccessTokenMetadata, String> {
@@ -48,13 +47,17 @@ public class AccessTokenMetadataType
   }
 
   @Override
-  public List<DataFetcherResult<AccessTokenMetadata>> batchLoad(@Nonnull List<String> keys,
-      @Nonnull QueryContext context) throws Exception {
-    final List<Urn> tokenInfoUrns = keys.stream().map(UrnUtils::getUrn).collect(Collectors.toList());
+  public List<DataFetcherResult<AccessTokenMetadata>> batchLoad(
+      @Nonnull List<String> keys, @Nonnull QueryContext context) throws Exception {
+    final List<Urn> tokenInfoUrns =
+        keys.stream().map(UrnUtils::getUrn).collect(Collectors.toList());
 
     try {
       final Map<Urn, EntityResponse> entities =
-          _entityClient.batchGetV2(Constants.ACCESS_TOKEN_ENTITY_NAME, new HashSet<>(tokenInfoUrns), ASPECTS_TO_FETCH,
+          _entityClient.batchGetV2(
+              Constants.ACCESS_TOKEN_ENTITY_NAME,
+              new HashSet<>(tokenInfoUrns),
+              ASPECTS_TO_FETCH,
               context.getAuthentication());
 
       final List<EntityResponse> gmsResults = new ArrayList<>();
@@ -62,9 +65,13 @@ public class AccessTokenMetadataType
         gmsResults.add(entities.getOrDefault(urn, null));
       }
       return gmsResults.stream()
-          .map(gmsResult -> gmsResult == null ? null : DataFetcherResult.<AccessTokenMetadata>newResult()
-              .data(AccessTokenMetadataMapper.map(gmsResult))
-              .build())
+          .map(
+              gmsResult ->
+                  gmsResult == null
+                      ? null
+                      : DataFetcherResult.<AccessTokenMetadata>newResult()
+                          .data(AccessTokenMetadataMapper.map(gmsResult))
+                          .build())
           .collect(Collectors.toList());
     } catch (Exception e) {
       throw new RuntimeException("Failed to batch load Access Token Info", e);

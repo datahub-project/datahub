@@ -1,5 +1,7 @@
 package com.linkedin.metadata.search.utils;
 
+import static com.linkedin.metadata.search.utils.QueryUtils.*;
+
 import com.datahub.util.RecordUtils;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.template.RecordTemplate;
@@ -19,9 +21,6 @@ import org.neo4j.driver.types.Node;
 import org.neo4j.driver.types.Path;
 import org.neo4j.driver.types.Relationship;
 
-import static com.linkedin.metadata.search.utils.QueryUtils.*;
-
-
 public class Neo4jUtil {
 
   public static final String URN_FIELD = "urn";
@@ -39,7 +38,8 @@ public class Neo4jUtil {
    * @return unmodifiable field value map
    */
   @Nonnull
-  public static <ENTITY extends RecordTemplate> Map<String, Object> entityToNode(@Nonnull ENTITY entity) {
+  public static <ENTITY extends RecordTemplate> Map<String, Object> entityToNode(
+      @Nonnull ENTITY entity) {
     final Map<String, Object> fields = new HashMap<>();
 
     // put all field values
@@ -60,17 +60,21 @@ public class Neo4jUtil {
     final Map<String, Object> fields = new HashMap<>();
 
     // put all field values except source and destination
-    relationship.data().forEach((k, v) -> {
-      if (!SOURCE_FIELD.equals(k) && !DESTINATION_FIELD.equals(k)) {
-        fields.put(k, toValueObject(v));
-      }
-    });
+    relationship
+        .data()
+        .forEach(
+            (k, v) -> {
+              if (!SOURCE_FIELD.equals(k) && !DESTINATION_FIELD.equals(k)) {
+                fields.put(k, toValueObject(v));
+              }
+            });
 
     return Collections.unmodifiableMap(fields);
   }
 
   /**
-   * Converts RELATIONSHIP to cypher matching criteria, excluding source and destination, e.g. {key: "value"}.
+   * Converts RELATIONSHIP to cypher matching criteria, excluding source and destination, e.g. {key:
+   * "value"}.
    *
    * @param relationship RELATIONSHIP defined in models
    * @return Criteria String, or "" if no additional fields in relationship
@@ -81,11 +85,14 @@ public class Neo4jUtil {
     final StringJoiner joiner = new StringJoiner(",", "{", "}");
 
     // put all field values except source and destination
-    relationship.data().forEach((k, v) -> {
-      if (!SOURCE_FIELD.equals(k) && !DESTINATION_FIELD.equals(k)) {
-        joiner.add(toCriterionString(k, v));
-      }
-    });
+    relationship
+        .data()
+        .forEach(
+            (k, v) -> {
+              if (!SOURCE_FIELD.equals(k) && !DESTINATION_FIELD.equals(k)) {
+                joiner.add(toCriterionString(k, v));
+              }
+            });
 
     return joiner.length() <= 2 ? "" : joiner.toString();
   }
@@ -118,8 +125,8 @@ public class Neo4jUtil {
    * @return ENTITY
    */
   @Nonnull
-  public static <ENTITY extends RecordTemplate> ENTITY nodeToEntity(@Nonnull Class<ENTITY> entityClass,
-      @Nonnull Node node) {
+  public static <ENTITY extends RecordTemplate> ENTITY nodeToEntity(
+      @Nonnull Class<ENTITY> entityClass, @Nonnull Node node) {
     return RecordUtils.toRecordTemplate(entityClass, new DataMap(node.asMap()));
   }
 
@@ -150,8 +157,7 @@ public class Neo4jUtil {
     return Arrays.asList(
         nodeToEntity(startNode),
         edgeToRelationship(startNode, endNode, edge),
-        nodeToEntity(endNode)
-    );
+        nodeToEntity(endNode));
   }
 
   /**
@@ -165,7 +171,9 @@ public class Neo4jUtil {
    */
   @Nonnull
   public static <RELATIONSHIP extends RecordTemplate> RELATIONSHIP edgeToRelationship(
-      @Nonnull Class<RELATIONSHIP> relationshipClass, @Nonnull Node source, @Nonnull Node destination,
+      @Nonnull Class<RELATIONSHIP> relationshipClass,
+      @Nonnull Node source,
+      @Nonnull Node destination,
       @Nonnull Relationship relationship) {
 
     final DataMap dataMap = relationshipDataMap(source, destination, relationship);
@@ -181,8 +189,8 @@ public class Neo4jUtil {
    * @return ENTITY RecordTemplate
    */
   @Nonnull
-  public static RecordTemplate edgeToRelationship(@Nonnull Node source, @Nonnull Node destination,
-      @Nonnull Relationship relationship) {
+  public static RecordTemplate edgeToRelationship(
+      @Nonnull Node source, @Nonnull Node destination, @Nonnull Relationship relationship) {
 
     final String className = relationship.type();
     final DataMap dataMap = relationshipDataMap(source, destination, relationship);
@@ -190,8 +198,8 @@ public class Neo4jUtil {
   }
 
   @Nonnull
-  private static DataMap relationshipDataMap(@Nonnull Node source, @Nonnull Node destination,
-      @Nonnull Relationship relationship) {
+  private static DataMap relationshipDataMap(
+      @Nonnull Node source, @Nonnull Node destination, @Nonnull Relationship relationship) {
 
     final DataMap dataMap = new DataMap(relationship.asMap());
     dataMap.put(SOURCE_FIELD, source.get(URN_FIELD).asString());
@@ -225,14 +233,14 @@ public class Neo4jUtil {
    * @return RelationshipFilter
    */
   @Nonnull
-  public static RelationshipFilter createRelationshipFilter(@Nonnull Filter filter,
-      @Nonnull RelationshipDirection relationshipDirection) {
+  public static RelationshipFilter createRelationshipFilter(
+      @Nonnull Filter filter, @Nonnull RelationshipDirection relationshipDirection) {
     return new RelationshipFilter().setOr(filter.getOr()).setDirection(relationshipDirection);
   }
 
   @Nonnull
-  public static RelationshipFilter newRelationshipFilter(@Nonnull Filter filter,
-      @Nonnull RelationshipDirection relationshipDirection) {
+  public static RelationshipFilter newRelationshipFilter(
+      @Nonnull Filter filter, @Nonnull RelationshipDirection relationshipDirection) {
     return new RelationshipFilter().setOr(filter.getOr()).setDirection(relationshipDirection);
   }
 
@@ -245,7 +253,9 @@ public class Neo4jUtil {
    * @return RelationshipFilter
    */
   @Nonnull
-  public static RelationshipFilter createRelationshipFilter(@Nonnull String field, @Nonnull String value,
+  public static RelationshipFilter createRelationshipFilter(
+      @Nonnull String field,
+      @Nonnull String value,
       @Nonnull RelationshipDirection relationshipDirection) {
     return createRelationshipFilter(newFilter(field, value), relationshipDirection);
   }

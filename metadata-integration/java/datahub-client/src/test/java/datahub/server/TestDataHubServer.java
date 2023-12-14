@@ -1,11 +1,10 @@
 package datahub.server;
 
-import org.mockserver.integration.ClientAndServer;
-import org.mockserver.matchers.Times;
-
 import static org.mockserver.integration.ClientAndServer.startClientAndServer;
 import static org.mockserver.model.HttpRequest.*;
 
+import org.mockserver.integration.ClientAndServer;
+import org.mockserver.matchers.Times;
 
 public class TestDataHubServer {
 
@@ -26,17 +25,12 @@ public class TestDataHubServer {
 
   public void init() {
     mockServer
-    .when(
-        request()
-            .withMethod("GET")
-            .withPath("/config")
-            .withHeader("Content-type", "application/json"),
-        Times.unlimited()
-    ).respond(
-        org.mockserver.model.HttpResponse.response()
-            .withBody("{\"noCode\": true }")
-    );
+        .when(
+            request()
+                .withMethod("GET")
+                .withPath("/config")
+                .withHeader("Content-type", "application/json"),
+            Times.unlimited())
+        .respond(org.mockserver.model.HttpResponse.response().withBody("{\"noCode\": true }"));
   }
-
-
 }

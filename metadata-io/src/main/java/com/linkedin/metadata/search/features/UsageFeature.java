@@ -23,7 +23,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.joda.time.DateTime;
 
-
 @Slf4j
 @RequiredArgsConstructor
 public class UsageFeature extends BatchFeatureExtractor {
@@ -38,45 +37,73 @@ public class UsageFeature extends BatchFeatureExtractor {
 
   @Override
   public List<Features> extractFeaturesForBatch(List<SearchEntity> entities) {
-    Map<String, Long> urnToUsageCount = getUrnToUsageCount(
-        entities.stream().map(SearchEntity::getEntity).map(Object::toString).collect(Collectors.toSet()));
+    Map<String, Long> urnToUsageCount =
+        getUrnToUsageCount(
+            entities.stream()
+                .map(SearchEntity::getEntity)
+                .map(Object::toString)
+                .collect(Collectors.toSet()));
     return entities.stream()
-        .map(entity -> new Features(ImmutableMap.of(Features.Name.QUERY_COUNT,
-            urnToUsageCount.getOrDefault(entity.getEntity().toString(), 0L).doubleValue())))
+        .map(
+            entity ->
+                new Features(
+                    ImmutableMap.of(
+                        Features.Name.QUERY_COUNT,
+                        urnToUsageCount
+                            .getOrDefault(entity.getEntity().toString(), 0L)
+                            .doubleValue())))
         .collect(Collectors.toList());
   }
 
   private Map<String, Long> getUrnToUsageCount(Set<String> urnsToQuery) {
 
     AggregationSpec queryCountAggregation =
-        new AggregationSpec().setAggregationType(AggregationType.SUM).setFieldPath("totalSqlQueries");
+        new AggregationSpec()
+            .setAggregationType(AggregationType.SUM)
+            .setFieldPath("totalSqlQueries");
 
-    GroupingBucket groupByUrn = new GroupingBucket().setKey("urn").setType(GroupingBucketType.STRING_GROUPING_BUCKET);
-    GenericTable usageStatsTable = _timeseriesAspectService.getAggregatedStats("dataset", "datasetUsageStatistics",
-        new AggregationSpec[]{queryCountAggregation}, getFilterForUrn(urnsToQuery), new GroupingBucket[]{groupByUrn});
+    GroupingBucket groupByUrn =
+        new GroupingBucket().setKey("urn").setType(GroupingBucketType.STRING_GROUPING_BUCKET);
+    GenericTable usageStatsTable =
+        _timeseriesAspectService.getAggregatedStats(
+            "dataset",
+            "datasetUsageStatistics",
+            new AggregationSpec[] {queryCountAggregation},
+            getFilterForUrn(urnsToQuery),
+            new GroupingBucket[] {groupByUrn});
 
     if (!usageStatsTable.hasRows()) {
       return Collections.emptyMap();
     }
 
-    return usageStatsTable.getRows()
-        .stream()
+    return usageStatsTable.getRows().stream()
         .collect(Collectors.toMap(row -> row.get(0), row -> Long.parseLong(row.get(1))));
   }
 
   private Filter getFilterForUrn(Set<String> urns) {
     DateTime now = DateTime.now();
     DateTime monthAgo = now.minusMonths(1);
-    Criterion startTimeCriterion = new Criterion().setField("timestampMillis")
-        .setCondition(Condition.GREATER_THAN_OR_EQUAL_TO)
-        .setValue(Long.toString(monthAgo.getMillis()));
-    Criterion endTimeCriterion = new Criterion().setField("timestampMillis")
-        .setCondition(Condition.LESS_THAN_OR_EQUAL_TO)
-        .setValue(Long.toString(now.getMillis()));
-    List<ConjunctiveCriterion> urnMatchCriterion = urns.stream()
-        .map(urn -> new ConjunctiveCriterion().setAnd(
-            new CriterionArray(startTimeCriterion, endTimeCriterion, new Criterion().setField("urn").setValue(urn))))
-        .collect(Collectors.toList());
+    Criterion startTimeCriterion =
+        new Criterion()
+            .setField("timestampMillis")
+            .setCondition(Condition.GREATER_THAN_OR_EQUAL_TO)
+            .setValue(Long.toString(monthAgo.getMillis()));
+    Criterion endTimeCriterion =
+        new Criterion()
+            .setField("timestampMillis")
+            .setCondition(Condition.LESS_THAN_OR_EQUAL_TO)
+            .setValue(Long.toString(now.getMillis()));
+    List<ConjunctiveCriterion> urnMatchCriterion =
+        urns.stream()
+            .map(
+                urn ->
+                    new ConjunctiveCriterion()
+                        .setAnd(
+                            new CriterionArray(
+                                startTimeCriterion,
+                                endTimeCriterion,
+                                new Criterion().setField("urn").setValue(urn))))
+            .collect(Collectors.toList());
     return new Filter().setOr(new ConjunctiveCriterionArray(urnMatchCriterion));
   }
 }

@@ -4,6 +4,6 @@ import lombok.Data;
 
 @Data
 public class ClientCacheConfiguration {
-    EntityClientCacheConfig entityClient;
-    UsageClientCacheConfig usageClient;
+  EntityClientCacheConfig entityClient;
+  UsageClientCacheConfig usageClient;
 }

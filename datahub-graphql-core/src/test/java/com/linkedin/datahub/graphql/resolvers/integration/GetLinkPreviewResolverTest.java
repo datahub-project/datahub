@@ -1,18 +1,18 @@
 package com.linkedin.datahub.graphql.resolvers.integration;
 
+import static org.mockito.Mockito.when;
+import static org.testng.Assert.assertEquals;
+
 import com.linkedin.datahub.graphql.generated.GetLinkPreviewInput;
 import com.linkedin.datahub.graphql.generated.LinkPreview;
 import com.linkedin.datahub.graphql.generated.LinkPreviewType;
 import com.linkedin.link.LinkPreviewInfo;
 import com.linkedin.metadata.integration.IntegrationsService;
 import graphql.schema.DataFetchingEnvironment;
+import java.util.concurrent.Future;
 import org.mockito.Mockito;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
-import java.util.concurrent.Future;
-
-import static org.mockito.Mockito.when;
-import static org.testng.Assert.assertEquals;
 
 public class GetLinkPreviewResolverTest {
 

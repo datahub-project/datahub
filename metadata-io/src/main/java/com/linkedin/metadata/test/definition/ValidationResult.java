@@ -4,7 +4,6 @@ import java.util.Collections;
 import java.util.List;
 import lombok.Value;
 
-
 @Value
 public class ValidationResult {
   boolean isValid;

@@ -11,25 +11,25 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nonnull;
 
-
-/**
- * Utility class to validate entity schemas.
- */
+/** Utility class to validate entity schemas. */
 public final class EntityValidator {
 
   // Allowed non-optional fields. All other fields must be optional.
-  private static final Set<String> NON_OPTIONAL_FIELDS = Collections.unmodifiableSet(new HashSet<String>() {
-    {
-      add("urn");
-    }
-  });
+  private static final Set<String> NON_OPTIONAL_FIELDS =
+      Collections.unmodifiableSet(
+          new HashSet<String>() {
+            {
+              add("urn");
+            }
+          });
 
   // A cache of validated classes
-  private static final Set<Class<? extends RecordTemplate>> VALIDATED = ConcurrentHashMap.newKeySet();
+  private static final Set<Class<? extends RecordTemplate>> VALIDATED =
+      ConcurrentHashMap.newKeySet();
 
   // A cache of validated classes
-  private static final Set<Class<? extends UnionTemplate>> UNION_VALIDATED = ConcurrentHashMap.newKeySet();
-
+  private static final Set<Class<? extends UnionTemplate>> UNION_VALIDATED =
+      ConcurrentHashMap.newKeySet();
 
   private EntityValidator() {
     // Util class
@@ -45,21 +45,29 @@ public final class EntityValidator {
     final String className = schema.getBindingName();
 
     if (!ValidationUtils.schemaHasExactlyOneSuchField(schema, ValidationUtils::isValidUrnField)) {
-      ValidationUtils.invalidSchema("Entity '%s' must contain a non-optional 'urn' field of URN type", className);
+      ValidationUtils.invalidSchema(
+          "Entity '%s' must contain a non-optional 'urn' field of URN type", className);
     }
 
-    ValidationUtils.fieldsUsingInvalidType(schema, ValidationUtils.PRIMITIVE_TYPES).forEach(field -> {
-      ValidationUtils.invalidSchema("Entity '%s' contains a field '%s' that makes use of a disallowed type '%s'.",
-          className, field.getName(), field.getType().getType());
-    });
+    ValidationUtils.fieldsUsingInvalidType(schema, ValidationUtils.PRIMITIVE_TYPES)
+        .forEach(
+            field -> {
+              ValidationUtils.invalidSchema(
+                  "Entity '%s' contains a field '%s' that makes use of a disallowed type '%s'.",
+                  className, field.getName(), field.getType().getType());
+            });
 
-    ValidationUtils.nonOptionalFields(schema, NON_OPTIONAL_FIELDS).forEach(field -> {
-      ValidationUtils.invalidSchema("Entity '%s' must contain an optional '%s' field", className, field.getName());
-    });
+    ValidationUtils.nonOptionalFields(schema, NON_OPTIONAL_FIELDS)
+        .forEach(
+            field -> {
+              ValidationUtils.invalidSchema(
+                  "Entity '%s' must contain an optional '%s' field", className, field.getName());
+            });
   }
 
   /**
-   * Similar to {@link #validateEntitySchema(RecordDataSchema)} but take a {@link Class} instead and caches results.
+   * Similar to {@link #validateEntitySchema(RecordDataSchema)} but take a {@link Class} instead and
+   * caches results.
    */
   public static void validateEntitySchema(@Nonnull Class<? extends RecordTemplate> clazz) {
     if (VALIDATED.contains(clazz)) {
@@ -71,8 +79,8 @@ public final class EntityValidator {
   }
 
   /**
-   * Similar to {@link #validateEntityUnionSchema(UnionDataSchema, String)} but take a {@link Class} instead and caches
-   * results.
+   * Similar to {@link #validateEntityUnionSchema(UnionDataSchema, String)} but take a {@link Class}
+   * instead and caches results.
    */
   public static void validateEntityUnionSchema(@Nonnull Class<? extends UnionTemplate> clazz) {
     if (UNION_VALIDATED.contains(clazz)) {
@@ -88,16 +96,16 @@ public final class EntityValidator {
    *
    * @param schema schema for the model
    */
-  public static void validateEntityUnionSchema(@Nonnull UnionDataSchema schema, @Nonnull String entityClassName) {
+  public static void validateEntityUnionSchema(
+      @Nonnull UnionDataSchema schema, @Nonnull String entityClassName) {
 
     if (!ValidationUtils.isUnionWithOnlyComplexMembers(schema)) {
-      ValidationUtils.invalidSchema("Entity '%s' must be a union containing only record type members", entityClassName);
+      ValidationUtils.invalidSchema(
+          "Entity '%s' must be a union containing only record type members", entityClassName);
     }
   }
 
-  /**
-   * Checks if an entity schema is valid.
-   */
+  /** Checks if an entity schema is valid. */
   public static boolean isValidEntitySchema(@Nonnull Class<? extends RecordTemplate> clazz) {
     if (!VALIDATED.contains(clazz)) {
       try {

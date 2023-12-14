@@ -1,5 +1,8 @@
 package com.linkedin.datahub.graphql.types.incident;
 
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotNull;
+
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
@@ -17,12 +20,8 @@ import com.linkedin.incident.IncidentState;
 import com.linkedin.incident.IncidentStatus;
 import com.linkedin.incident.IncidentType;
 import com.linkedin.metadata.Constants;
-import org.testng.annotations.Test;
-
 import java.util.Collections;
-
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNotNull;
+import org.testng.annotations.Test;
 
 public class IncidentMapperTest {
 
@@ -67,8 +66,7 @@ public class IncidentMapperTest {
     envelopedIncidentInfo.setValue(new Aspect(incidentInfo.data()));
     entityResponse.setAspects(
         new EnvelopedAspectMap(
-            Collections.singletonMap(Constants.INCIDENT_INFO_ASPECT_NAME,
-            envelopedIncidentInfo)));
+            Collections.singletonMap(Constants.INCIDENT_INFO_ASPECT_NAME, envelopedIncidentInfo)));
 
     Incident incident = IncidentMapper.map(entityResponse);
 
@@ -82,14 +80,17 @@ public class IncidentMapperTest {
     assertEquals(incident.getTitle(), "Test Incident");
     assertEquals(incident.getDescription(), "This is a test incident");
     assertEquals(incident.getPriority().intValue(), 1);
-    assertEquals(incident.getSource().getType().toString(), com.linkedin.datahub.graphql.generated.IncidentSourceType.ASSERTION_FAILURE.toString());
+    assertEquals(
+        incident.getSource().getType().toString(),
+        com.linkedin.datahub.graphql.generated.IncidentSourceType.ASSERTION_FAILURE.toString());
     assertEquals(incident.getSource().getSource().getUrn(), assertionUrn.toString());
-    assertEquals(incident.getStatus().getState().toString(), com.linkedin.datahub.graphql.generated.IncidentState.ACTIVE.toString());
+    assertEquals(
+        incident.getStatus().getState().toString(),
+        com.linkedin.datahub.graphql.generated.IncidentState.ACTIVE.toString());
     assertEquals(incident.getStatus().getMessage(), "This incident is open.");
     assertEquals(incident.getStatus().getLastUpdated().getTime().longValue(), 1000L);
     assertEquals(incident.getStatus().getLastUpdated().getActor(), userUrn.toString());
     assertEquals(incident.getCreated().getTime().longValue(), 1000L);
     assertEquals(incident.getCreated().getActor(), userUrn.toString());
-
   }
 }

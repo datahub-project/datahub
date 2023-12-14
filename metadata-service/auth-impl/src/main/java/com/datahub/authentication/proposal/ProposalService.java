@@ -1,5 +1,7 @@
 package com.datahub.authentication.proposal;
 
+import static com.linkedin.metadata.Constants.*;
+
 import com.datahub.authentication.Authentication;
 import com.datahub.authorization.AuthorizedActors;
 import com.datahub.authorization.EntitySpec;
@@ -65,14 +67,10 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
-
 import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
-
-import static com.linkedin.metadata.Constants.*;
-
 
 @Slf4j
 @RequiredArgsConstructor
@@ -88,19 +86,25 @@ public class ProposalService {
   private final EntityClient _entityClient;
   private final GraphClient _graphClient;
 
-  public boolean proposeCreateGlossaryNode(@Nonnull final Urn actorUrn, @Nonnull final String name,
-      @Nonnull final Optional<Urn> parentNode, final String description, final Authorizer dataHubAuthorizer) {
+  public boolean proposeCreateGlossaryNode(
+      @Nonnull final Urn actorUrn,
+      @Nonnull final String name,
+      @Nonnull final Optional<Urn> parentNode,
+      final String description,
+      final Authorizer dataHubAuthorizer) {
     Objects.requireNonNull(actorUrn, "actorUrn cannot be null");
     Objects.requireNonNull(name, "name cannot be null");
     Objects.requireNonNull(parentNode, "parentNode cannot be null");
 
     AssignedActors actors =
-        getAssignedUsersAndGroups(PoliciesConfig.MANAGE_GLOSSARIES_PRIVILEGE.getType(), parentNode, dataHubAuthorizer);
+        getAssignedUsersAndGroups(
+            PoliciesConfig.MANAGE_GLOSSARIES_PRIVILEGE.getType(), parentNode, dataHubAuthorizer);
     List<Urn> assignedUsers = actors.getUsers();
     List<Urn> assignedGroups = actors.getGroups();
     List<Urn> assignedRoles = actors.getRoles();
     ActionRequestSnapshot snapshot =
-        createCreateGlossaryNodeProposalActionRequest(actorUrn, assignedUsers, assignedGroups, assignedRoles, name, parentNode, description);
+        createCreateGlossaryNodeProposalActionRequest(
+            actorUrn, assignedUsers, assignedGroups, assignedRoles, name, parentNode, description);
 
     final AuditStamp auditStamp = new AuditStamp();
     auditStamp.setActor(actorUrn, SetMode.IGNORE_NULL);
@@ -113,20 +117,26 @@ public class ProposalService {
     return true;
   }
 
-  public boolean proposeCreateGlossaryTerm(@Nonnull final Urn actorUrn, @Nonnull final String name,
-      @Nonnull final Optional<Urn> parentNode, final String description, final Authorizer dataHubAuthorizer) {
+  public boolean proposeCreateGlossaryTerm(
+      @Nonnull final Urn actorUrn,
+      @Nonnull final String name,
+      @Nonnull final Optional<Urn> parentNode,
+      final String description,
+      final Authorizer dataHubAuthorizer) {
     Objects.requireNonNull(actorUrn, "actorUrn cannot be null");
     Objects.requireNonNull(name, "name cannot be null");
     Objects.requireNonNull(parentNode, "parentNode cannot be null");
 
     AssignedActors actors =
-        getAssignedUsersAndGroups(PoliciesConfig.MANAGE_GLOSSARIES_PRIVILEGE.getType(), parentNode, dataHubAuthorizer);
+        getAssignedUsersAndGroups(
+            PoliciesConfig.MANAGE_GLOSSARIES_PRIVILEGE.getType(), parentNode, dataHubAuthorizer);
     List<Urn> assignedUsers = actors.getUsers();
     List<Urn> assignedGroups = actors.getGroups();
     List<Urn> assignedRoles = actors.getRoles();
 
     ActionRequestSnapshot snapshot =
-        createCreateGlossaryTermProposalActionRequest(actorUrn, assignedUsers, assignedGroups, assignedRoles, name, parentNode, description);
+        createCreateGlossaryTermProposalActionRequest(
+            actorUrn, assignedUsers, assignedGroups, assignedRoles, name, parentNode, description);
 
     final AuditStamp auditStamp = new AuditStamp();
     auditStamp.setActor(actorUrn, SetMode.IGNORE_NULL);
@@ -143,8 +153,7 @@ public class ProposalService {
       @Nonnull final Urn actorUrn,
       @Nonnull final Urn resourceUrn,
       @Nonnull final String description,
-      final Authorizer dataHubAuthorizer
-  ) {
+      final Authorizer dataHubAuthorizer) {
     Objects.requireNonNull(actorUrn, "actorUrn cannot be null");
     Objects.requireNonNull(resourceUrn, "resourceUrn cannot be null");
     Objects.requireNonNull(description, "description cannot be null");
@@ -158,24 +167,28 @@ public class ProposalService {
     List<Urn> assignedRoles;
     EntitySpec spec = new EntitySpec(resourceUrn.getEntityType(), resourceUrn.toString());
 
-    if (resourceUrn.getEntityType().equals(GLOSSARY_TERM_ENTITY_NAME) || resourceUrn.getEntityType().equals(GLOSSARY_NODE_ENTITY_NAME)) {
+    if (resourceUrn.getEntityType().equals(GLOSSARY_TERM_ENTITY_NAME)
+        || resourceUrn.getEntityType().equals(GLOSSARY_NODE_ENTITY_NAME)) {
       AssignedActors actors =
-          getAssignedUsersAndGroups(PoliciesConfig.MANAGE_GLOSSARIES_PRIVILEGE.getType(), Optional.of(resourceUrn),
+          getAssignedUsersAndGroups(
+              PoliciesConfig.MANAGE_GLOSSARIES_PRIVILEGE.getType(),
+              Optional.of(resourceUrn),
               dataHubAuthorizer);
       assignedUsers = actors.getUsers();
       assignedGroups = actors.getGroups();
       assignedRoles = actors.getRoles();
     } else {
-      AuthorizedActors actors = dataHubAuthorizer.authorizedActors(PoliciesConfig.MANAGE_ENTITY_DOCS_PROPOSALS_PRIVILEGE.getType(),
-          Optional.of(spec));
+      AuthorizedActors actors =
+          dataHubAuthorizer.authorizedActors(
+              PoliciesConfig.MANAGE_ENTITY_DOCS_PROPOSALS_PRIVILEGE.getType(), Optional.of(spec));
       assignedUsers = actors.getUsers();
       assignedGroups = actors.getGroups();
       assignedRoles = actors.getRoles();
     }
 
     ActionRequestSnapshot snapshot =
-        createUpdateDescriptionProposalActionRequest(actorUrn, resourceUrn, assignedUsers, assignedGroups, assignedRoles,
-            description);
+        createUpdateDescriptionProposalActionRequest(
+            actorUrn, resourceUrn, assignedUsers, assignedGroups, assignedRoles, description);
 
     final AuditStamp auditStamp = new AuditStamp();
     auditStamp.setActor(actorUrn, SetMode.IGNORE_NULL);
@@ -195,8 +208,7 @@ public class ProposalService {
       @Nullable final List<FreshnessContract> freshness,
       @Nullable final List<SchemaContract> schema,
       @Nullable final List<DataQualityContract> quality,
-      final Authorizer dataHubAuthorizer
-  ) {
+      final Authorizer dataHubAuthorizer) {
     Objects.requireNonNull(actorUrn, "actorUrn cannot be null");
     Objects.requireNonNull(entityUrn, "entityUrn cannot be null");
     Objects.requireNonNull(opType, "opType cannot be null");
@@ -206,29 +218,34 @@ public class ProposalService {
     }
 
     if (freshness != null) {
-      verifyAssertionsExist(freshness.stream().map(FreshnessContract::getAssertion).collect(Collectors.toList()));
+      verifyAssertionsExist(
+          freshness.stream().map(FreshnessContract::getAssertion).collect(Collectors.toList()));
     }
 
     if (schema != null) {
-      verifyAssertionsExist(schema.stream().map(SchemaContract::getAssertion).collect(Collectors.toList()));
+      verifyAssertionsExist(
+          schema.stream().map(SchemaContract::getAssertion).collect(Collectors.toList()));
     }
 
     if (quality != null) {
-      verifyAssertionsExist(quality.stream().map(DataQualityContract::getAssertion).collect(Collectors.toList()));
+      verifyAssertionsExist(
+          quality.stream().map(DataQualityContract::getAssertion).collect(Collectors.toList()));
     }
 
     List<Urn> assignedUsers;
     List<Urn> assignedGroups;
     EntitySpec spec = new EntitySpec(entityUrn.getEntityType(), entityUrn.toString());
 
-    AuthorizedActors actors = dataHubAuthorizer.authorizedActors(
-        PoliciesConfig.MANAGE_ENTITY_DATA_CONTRACT_PROPOSALS_PRIVILEGE.getType(),
-        Optional.of(spec));
+    AuthorizedActors actors =
+        dataHubAuthorizer.authorizedActors(
+            PoliciesConfig.MANAGE_ENTITY_DATA_CONTRACT_PROPOSALS_PRIVILEGE.getType(),
+            Optional.of(spec));
     assignedUsers = actors.getUsers();
     assignedGroups = actors.getGroups();
 
     ActionRequestSnapshot snapshot =
-        createDataContractActionRequest(actorUrn, assignedUsers, assignedGroups, entityUrn, opType, freshness, schema, quality);
+        createDataContractActionRequest(
+            actorUrn, assignedUsers, assignedGroups, entityUrn, opType, freshness, schema, quality);
 
     final AuditStamp auditStamp = new AuditStamp();
     auditStamp.setActor(actorUrn, SetMode.IGNORE_NULL);
@@ -241,7 +258,8 @@ public class ProposalService {
     return true;
   }
 
-  public boolean isAuthorizedToResolveGlossaryEntityAsOwner(@Nonnull Urn actorUrn, Optional<Urn> parentNode) {
+  public boolean isAuthorizedToResolveGlossaryEntityAsOwner(
+      @Nonnull Urn actorUrn, Optional<Urn> parentNode) {
     Objects.requireNonNull(actorUrn, "actorUrn cannot be null");
 
     if (!parentNode.isPresent()) {
@@ -264,9 +282,12 @@ public class ProposalService {
     return !actorGroups.isEmpty();
   }
 
-  public void acceptCreateGlossaryNodeProposal(@Nonnull final Urn actorUrn,
-      @Nonnull final ActionRequestSnapshot actionRequestSnapshot, final boolean canManageGlossaries,
-      final Authentication authentication) throws Exception {
+  public void acceptCreateGlossaryNodeProposal(
+      @Nonnull final Urn actorUrn,
+      @Nonnull final ActionRequestSnapshot actionRequestSnapshot,
+      final boolean canManageGlossaries,
+      final Authentication authentication)
+      throws Exception {
     Objects.requireNonNull(actorUrn, "actorUrn cannot be null");
     Objects.requireNonNull(actionRequestSnapshot, "actionRequestSnapshot cannot be null");
 
@@ -275,21 +296,28 @@ public class ProposalService {
         actionRequestInfo.getParams().getCreateGlossaryNodeProposal();
     String name = createGlossaryNodeProposal.getName();
     Optional<Urn> parentNode =
-        createGlossaryNodeProposal.hasParentNode() && createGlossaryNodeProposal.getParentNode() != null ? Optional.of(
-            createGlossaryNodeProposal.getParentNode()) : Optional.empty();
-    Optional<String> description = createGlossaryNodeProposal.hasDescription()
-        ? Optional.ofNullable(createGlossaryNodeProposal.getDescription()) : Optional.empty();
-      if (!canManageGlossaries && !isAuthorizedToResolveGlossaryEntityAsOwner(actorUrn, parentNode)) {
-        throw new RuntimeException(
-            "Unauthorized to accept creating this Glossary Node. Please contact your DataHub administrator.");
-      }
+        createGlossaryNodeProposal.hasParentNode()
+                && createGlossaryNodeProposal.getParentNode() != null
+            ? Optional.of(createGlossaryNodeProposal.getParentNode())
+            : Optional.empty();
+    Optional<String> description =
+        createGlossaryNodeProposal.hasDescription()
+            ? Optional.ofNullable(createGlossaryNodeProposal.getDescription())
+            : Optional.empty();
+    if (!canManageGlossaries && !isAuthorizedToResolveGlossaryEntityAsOwner(actorUrn, parentNode)) {
+      throw new RuntimeException(
+          "Unauthorized to accept creating this Glossary Node. Please contact your DataHub administrator.");
+    }
 
-      createGlossaryNodeEntity(name, parentNode, description, authentication);
+    createGlossaryNodeEntity(name, parentNode, description, authentication);
   }
 
-  public void acceptCreateGlossaryTermProposal(@Nonnull final Urn actorUrn,
-      @Nonnull final ActionRequestSnapshot actionRequestSnapshot, final boolean canManageGlossaries,
-      final Authentication authentication) throws Exception {
+  public void acceptCreateGlossaryTermProposal(
+      @Nonnull final Urn actorUrn,
+      @Nonnull final ActionRequestSnapshot actionRequestSnapshot,
+      final boolean canManageGlossaries,
+      final Authentication authentication)
+      throws Exception {
     Objects.requireNonNull(actorUrn, "actorUrn cannot be null");
     Objects.requireNonNull(actionRequestSnapshot, "actionRequestSnapshot cannot be null");
 
@@ -298,20 +326,26 @@ public class ProposalService {
         actionRequestInfo.getParams().getCreateGlossaryTermProposal();
     String name = createGlossaryTermProposal.getName();
     Optional<Urn> parentNode =
-        createGlossaryTermProposal.hasParentNode() && createGlossaryTermProposal.getParentNode() != null ? Optional.of(
-            createGlossaryTermProposal.getParentNode()) : Optional.empty();
-    Optional<String> description = createGlossaryTermProposal.hasDescription()
-        ? Optional.ofNullable(createGlossaryTermProposal.getDescription()) : Optional.empty();
-      if (!canManageGlossaries && !isAuthorizedToResolveGlossaryEntityAsOwner(actorUrn, parentNode)) {
-        throw new RuntimeException(
-            "Unauthorized to accept creating this Glossary Node. Please contact your DataHub administrator.");
-      }
+        createGlossaryTermProposal.hasParentNode()
+                && createGlossaryTermProposal.getParentNode() != null
+            ? Optional.of(createGlossaryTermProposal.getParentNode())
+            : Optional.empty();
+    Optional<String> description =
+        createGlossaryTermProposal.hasDescription()
+            ? Optional.ofNullable(createGlossaryTermProposal.getDescription())
+            : Optional.empty();
+    if (!canManageGlossaries && !isAuthorizedToResolveGlossaryEntityAsOwner(actorUrn, parentNode)) {
+      throw new RuntimeException(
+          "Unauthorized to accept creating this Glossary Node. Please contact your DataHub administrator.");
+    }
 
-      createGlossaryTermEntity(name, parentNode, description, authentication);
+    createGlossaryTermEntity(name, parentNode, description, authentication);
   }
 
-  public boolean canResolveGlossaryNodeProposal(@Nonnull final Urn actorUrn,
-      @Nonnull final ActionRequestSnapshot actionRequestSnapshot, final boolean canManageGlossaries) {
+  public boolean canResolveGlossaryNodeProposal(
+      @Nonnull final Urn actorUrn,
+      @Nonnull final ActionRequestSnapshot actionRequestSnapshot,
+      final boolean canManageGlossaries) {
     Objects.requireNonNull(actorUrn, "actorUrn cannot be null");
     Objects.requireNonNull(actionRequestSnapshot, "actionRequestSnapshot cannot be null");
 
@@ -324,16 +358,20 @@ public class ProposalService {
       CreateGlossaryNodeProposal createGlossaryNodeProposal =
           actionRequestInfo.getParams().getCreateGlossaryNodeProposal();
       Optional<Urn> parentNode =
-          createGlossaryNodeProposal.hasParentNode() && createGlossaryNodeProposal.getParentNode() != null
-              ? Optional.of(createGlossaryNodeProposal.getParentNode()) : Optional.empty();
+          createGlossaryNodeProposal.hasParentNode()
+                  && createGlossaryNodeProposal.getParentNode() != null
+              ? Optional.of(createGlossaryNodeProposal.getParentNode())
+              : Optional.empty();
       return isAuthorizedToResolveGlossaryEntityAsOwner(actorUrn, parentNode);
     } catch (Exception e) {
       throw new RuntimeException("Failed to create glossary term entity");
     }
   }
 
-  public boolean canResolveGlossaryTermProposal(@Nonnull final Urn actorUrn,
-      @Nonnull final ActionRequestSnapshot actionRequestSnapshot, final boolean canManageGlossaries) {
+  public boolean canResolveGlossaryTermProposal(
+      @Nonnull final Urn actorUrn,
+      @Nonnull final ActionRequestSnapshot actionRequestSnapshot,
+      final boolean canManageGlossaries) {
     Objects.requireNonNull(actorUrn, "actorUrn cannot be null");
     Objects.requireNonNull(actionRequestSnapshot, "actionRequestSnapshot cannot be null");
 
@@ -346,16 +384,20 @@ public class ProposalService {
       CreateGlossaryTermProposal createGlossaryTermProposal =
           actionRequestInfo.getParams().getCreateGlossaryTermProposal();
       Optional<Urn> parentNode =
-          createGlossaryTermProposal.hasParentNode() && createGlossaryTermProposal.getParentNode() != null
-              ? Optional.of(createGlossaryTermProposal.getParentNode()) : Optional.empty();
+          createGlossaryTermProposal.hasParentNode()
+                  && createGlossaryTermProposal.getParentNode() != null
+              ? Optional.of(createGlossaryTermProposal.getParentNode())
+              : Optional.empty();
       return isAuthorizedToResolveGlossaryEntityAsOwner(actorUrn, parentNode);
     } catch (Exception e) {
       throw new RuntimeException("Failed to create glossary term entity");
     }
   }
 
-  public void acceptUpdateResourceDescriptionProposal(@Nonnull final ActionRequestSnapshot actionRequestSnapshot,
-      final Authentication authentication) throws Exception {
+  public void acceptUpdateResourceDescriptionProposal(
+      @Nonnull final ActionRequestSnapshot actionRequestSnapshot,
+      final Authentication authentication)
+      throws Exception {
     Objects.requireNonNull(actionRequestSnapshot, "actionRequestSnapshot cannot be null");
 
     ActionRequestInfo actionRequestInfo = findActionRequestInfoAspect(actionRequestSnapshot);
@@ -363,7 +405,8 @@ public class ProposalService {
       throw new RuntimeException("actionRequestInfo is missing resource");
     }
     Urn resourceUrn = Urn.createFromString(actionRequestInfo.getResource());
-    DescriptionProposal descriptionProposal = actionRequestInfo.getParams().getUpdateDescriptionProposal();
+    DescriptionProposal descriptionProposal =
+        actionRequestInfo.getParams().getUpdateDescriptionProposal();
     String description = descriptionProposal.getDescription();
     switch (resourceUrn.getEntityType()) {
       case GLOSSARY_NODE_ENTITY_NAME:
@@ -376,45 +419,51 @@ public class ProposalService {
         updateDatasetDescription(resourceUrn, description, authentication);
         break;
       default:
-        log.warn(String.format("Proposing an update to a description is currently not supported for entity type %s",
-            resourceUrn.getEntityType()));
+        log.warn(
+            String.format(
+                "Proposing an update to a description is currently not supported for entity type %s",
+                resourceUrn.getEntityType()));
         break;
     }
   }
 
   public void acceptDataContractProposal(
       @Nonnull final ActionRequestSnapshot actionRequestSnapshot,
-      @Nonnull final Authentication authentication) throws Exception {
+      @Nonnull final Authentication authentication)
+      throws Exception {
     Objects.requireNonNull(actionRequestSnapshot, "actionRequestSnapshot cannot be null");
     Objects.requireNonNull(authentication, "authentication cannot be null");
 
     ActionRequestInfo actionRequestInfo = findActionRequestInfoAspect(actionRequestSnapshot);
-    DataContractProposal dataContractProposal = actionRequestInfo.getParams().getDataContractProposal();
+    DataContractProposal dataContractProposal =
+        actionRequestInfo.getParams().getDataContractProposal();
     if (dataContractProposal != null) {
       final Urn entityUrn = UrnUtils.getUrn(actionRequestInfo.getResource());
       final Urn existingContractUrn = getDataContractUrn(entityUrn, authentication);
-      final DataContractProperties existingProperties = existingContractUrn != null
-          ? getDataContractProperties(existingContractUrn, authentication)
-          : null;
-      final Urn finalContractUrn = existingContractUrn != null 
-        ? existingContractUrn 
-        : Urn.createFromString(String.format("urn:li:dataContract:%s", UUID.randomUUID()));
-      final DataContractProperties newProperties = new DataContractProperties()
-          .setEntity(entityUrn)
-          .setFreshness(dataContractProposal.getFreshness(GetMode.NULL), SetMode.IGNORE_NULL)
-          .setDataQuality(dataContractProposal.getDataQuality(GetMode.NULL), SetMode.IGNORE_NULL)
-          .setSchema(dataContractProposal.getSchema(GetMode.NULL), SetMode.IGNORE_NULL);
-      final DataContractProperties finalProperties = existingProperties != null
-          ? mergeDataContractProperties(
-            dataContractProposal.getType(),
-            existingProperties,
-            newProperties
-          )
-          : newProperties;
+      final DataContractProperties existingProperties =
+          existingContractUrn != null
+              ? getDataContractProperties(existingContractUrn, authentication)
+              : null;
+      final Urn finalContractUrn =
+          existingContractUrn != null
+              ? existingContractUrn
+              : Urn.createFromString(String.format("urn:li:dataContract:%s", UUID.randomUUID()));
+      final DataContractProperties newProperties =
+          new DataContractProperties()
+              .setEntity(entityUrn)
+              .setFreshness(dataContractProposal.getFreshness(GetMode.NULL), SetMode.IGNORE_NULL)
+              .setDataQuality(
+                  dataContractProposal.getDataQuality(GetMode.NULL), SetMode.IGNORE_NULL)
+              .setSchema(dataContractProposal.getSchema(GetMode.NULL), SetMode.IGNORE_NULL);
+      final DataContractProperties finalProperties =
+          existingProperties != null
+              ? mergeDataContractProperties(
+                  dataContractProposal.getType(), existingProperties, newProperties)
+              : newProperties;
 
       // TODO: If the contract contains external assertions, then mark it as pending.
-      final DataContractStatus status = new DataContractStatus()
-          .setState(getStateForContract(entityUrn, dataContractProposal));
+      final DataContractStatus status =
+          new DataContractStatus().setState(getStateForContract(entityUrn, dataContractProposal));
 
       final MetadataChangeProposal propertiesProposal = new MetadataChangeProposal();
       propertiesProposal.setEntityUrn(finalContractUrn);
@@ -433,26 +482,31 @@ public class ProposalService {
       // TODO: In the future, we may need to mint Monitors to execute the assertions if they
       // are executable.
       // Currently, we are expecting that the assertions will be purely external.
-      _entityClient.batchIngestProposals(ImmutableList.of(propertiesProposal, statusProposal), authentication);
+      _entityClient.batchIngestProposals(
+          ImmutableList.of(propertiesProposal, statusProposal), authentication);
     } else {
-      throw new IllegalArgumentException("Failed to accept Data Contract Proposal. Action Request is missing required parameters.");
+      throw new IllegalArgumentException(
+          "Failed to accept Data Contract Proposal. Action Request is missing required parameters.");
     }
   }
 
   @Nullable
   private Urn getDataContractUrn(final Urn entityUrn, final Authentication authentication) {
-    EntityRelationships relationships = _graphClient.getRelatedEntities(
-        entityUrn.toString(),
-        ImmutableList.of("ContractFor"),
-        RelationshipDirection.INCOMING,
-        0,
-        1,
-        authentication.getActor().toUrnStr()
-    );
+    EntityRelationships relationships =
+        _graphClient.getRelatedEntities(
+            entityUrn.toString(),
+            ImmutableList.of("ContractFor"),
+            RelationshipDirection.INCOMING,
+            0,
+            1,
+            authentication.getActor().toUrnStr());
 
     if (relationships.getTotal() > 1) {
       // Bad state - There are multiple contracts for a single entity! Cannot update.
-      log.warn(String.format("Found entity with multiple data contracts! urn: %s, num contracts: %s", entityUrn, relationships.getTotal()));
+      log.warn(
+          String.format(
+              "Found entity with multiple data contracts! urn: %s, num contracts: %s",
+              entityUrn, relationships.getTotal()));
     }
 
     if (relationships.getRelationships().size() >= 1) {
@@ -462,20 +516,25 @@ public class ProposalService {
   }
 
   @Nullable
-  private DataContractProperties getDataContractProperties(Urn contractUrn, Authentication authentication) {
+  private DataContractProperties getDataContractProperties(
+      Urn contractUrn, Authentication authentication) {
     try {
-      EntityResponse response = _entityClient.getV2(
-          DATA_CONTRACT_ENTITY_NAME,
-          contractUrn,
-          ImmutableSet.of(DATA_CONTRACT_PROPERTIES_ASPECT_NAME),
-          authentication
-      );
-      if (response != null && response.getAspects().containsKey(DATA_CONTRACT_PROPERTIES_ASPECT_NAME)) {
-        return new DataContractProperties(response.getAspects().get(DATA_CONTRACT_PROPERTIES_ASPECT_NAME).data());
+      EntityResponse response =
+          _entityClient.getV2(
+              DATA_CONTRACT_ENTITY_NAME,
+              contractUrn,
+              ImmutableSet.of(DATA_CONTRACT_PROPERTIES_ASPECT_NAME),
+              authentication);
+      if (response != null
+          && response.getAspects().containsKey(DATA_CONTRACT_PROPERTIES_ASPECT_NAME)) {
+        return new DataContractProperties(
+            response.getAspects().get(DATA_CONTRACT_PROPERTIES_ASPECT_NAME).data());
       }
       return null;
     } catch (Exception e) {
-      log.error(String.format("Failed to retrieve data contract properties for contract urn %s", contractUrn));
+      log.error(
+          String.format(
+              "Failed to retrieve data contract properties for contract urn %s", contractUrn));
       return null;
     }
   }
@@ -514,8 +573,11 @@ public class ProposalService {
     return properties;
   }
 
-  public void completeProposal(@Nonnull final Urn actorUrn, @Nonnull final String actionRequestStatus,
-      @Nonnull final String actionRequestResult, @Nonnull final Entity proposalEntity) {
+  public void completeProposal(
+      @Nonnull final Urn actorUrn,
+      @Nonnull final String actionRequestStatus,
+      @Nonnull final String actionRequestResult,
+      @Nonnull final Entity proposalEntity) {
     Objects.requireNonNull(actorUrn, "actorUrn cannot be null");
     Objects.requireNonNull(actionRequestStatus, "actionRequestStatus cannot be null");
     Objects.requireNonNull(actionRequestResult, "actionRequestResult cannot be null");
@@ -532,15 +594,22 @@ public class ProposalService {
     _entityService.ingestEntity(entity, auditStamp);
   }
 
-  AssignedActors getAssignedUsersAndGroups(@Nonnull final String privilegeType,
-      @Nonnull final Optional<Urn> urnOptional, Authorizer dataHubAuthorizer) {
-    AuthorizedActors authorizedActors = dataHubAuthorizer.authorizedActors(privilegeType, Optional.empty());
+  AssignedActors getAssignedUsersAndGroups(
+      @Nonnull final String privilegeType,
+      @Nonnull final Optional<Urn> urnOptional,
+      Authorizer dataHubAuthorizer) {
+    AuthorizedActors authorizedActors =
+        dataHubAuthorizer.authorizedActors(privilegeType, Optional.empty());
 
-    List<Urn> assignedUsers = authorizedActors == null ? new ArrayList<>() : authorizedActors.getUsers();
-    List<Urn> assignedGroups = authorizedActors == null ? new ArrayList<>() : authorizedActors.getGroups();
-    List<Urn> assignedRoles = authorizedActors == null ? new ArrayList<>() : authorizedActors.getRoles();
+    List<Urn> assignedUsers =
+        authorizedActors == null ? new ArrayList<>() : authorizedActors.getUsers();
+    List<Urn> assignedGroups =
+        authorizedActors == null ? new ArrayList<>() : authorizedActors.getGroups();
+    List<Urn> assignedRoles =
+        authorizedActors == null ? new ArrayList<>() : authorizedActors.getRoles();
     if (urnOptional.isPresent()) {
-      Ownership ownership = (Ownership) _entityService.getLatestAspect(urnOptional.get(), OWNERSHIP_ASPECT_NAME);
+      Ownership ownership =
+          (Ownership) _entityService.getLatestAspect(urnOptional.get(), OWNERSHIP_ASPECT_NAME);
       if (ownership != null && ownership.hasOwners()) {
         Pair<List<Urn>, List<Urn>> urnOwners = getUrnOwners(urnOptional.get());
         List<Urn> userOwners = urnOwners.getFirst();
@@ -562,23 +631,26 @@ public class ProposalService {
 
   Pair<List<Urn>, List<Urn>> getUrnOwners(@Nonnull final Urn urn) {
     Ownership ownership = (Ownership) _entityService.getLatestAspect(urn, OWNERSHIP_ASPECT_NAME);
-    List<Urn> userOwners = ownership.getOwners()
-        .stream()
-        .map(Owner::getOwner)
-        .filter(owner -> owner.getEntityType().equals(CORP_USER_ENTITY_NAME))
-        .collect(Collectors.toList());
-    List<Urn> groupOwners = ownership.getOwners()
-        .stream()
-        .map(Owner::getOwner)
-        .filter(owner -> owner.getEntityType().equals(CORP_GROUP_ENTITY_NAME))
-        .collect(Collectors.toList());
+    List<Urn> userOwners =
+        ownership.getOwners().stream()
+            .map(Owner::getOwner)
+            .filter(owner -> owner.getEntityType().equals(CORP_USER_ENTITY_NAME))
+            .collect(Collectors.toList());
+    List<Urn> groupOwners =
+        ownership.getOwners().stream()
+            .map(Owner::getOwner)
+            .filter(owner -> owner.getEntityType().equals(CORP_GROUP_ENTITY_NAME))
+            .collect(Collectors.toList());
 
     return Pair.of(userOwners, groupOwners);
   }
 
-  static ActionRequestInfo findActionRequestInfoAspect(@Nonnull final ActionRequestSnapshot actionRequestSnapshot) {
+  static ActionRequestInfo findActionRequestInfoAspect(
+      @Nonnull final ActionRequestSnapshot actionRequestSnapshot) {
     Optional<ActionRequestAspect> actionRequestInfoOptional =
-        actionRequestSnapshot.getAspects().stream().filter(ActionRequestAspect::isActionRequestInfo).findFirst();
+        actionRequestSnapshot.getAspects().stream()
+            .filter(ActionRequestAspect::isActionRequestInfo)
+            .findFirst();
     if (!actionRequestInfoOptional.isPresent()) {
       throw new RuntimeException("Could not find ActionRequestInfo");
     }
@@ -593,16 +665,17 @@ public class ProposalService {
     return actionRequestInfo;
   }
 
-  static ActionRequestSnapshot setStatusSnapshot(@Nonnull final Urn actorUrn, @Nonnull final String actionRequestStatus,
-      @Nonnull final String actionRequestResult, @Nonnull final Entity proposalEntity) {
-    ActionRequestStatus statusAspect = proposalEntity.getValue()
-        .getActionRequestSnapshot()
-        .getAspects()
-        .stream()
-        .filter(ActionRequestAspect::isActionRequestStatus)
-        .findFirst()
-        .orElse(ActionRequestAspect.create(createActionRequestStatus(actorUrn)))
-        .getActionRequestStatus();
+  static ActionRequestSnapshot setStatusSnapshot(
+      @Nonnull final Urn actorUrn,
+      @Nonnull final String actionRequestStatus,
+      @Nonnull final String actionRequestResult,
+      @Nonnull final Entity proposalEntity) {
+    ActionRequestStatus statusAspect =
+        proposalEntity.getValue().getActionRequestSnapshot().getAspects().stream()
+            .filter(ActionRequestAspect::isActionRequestStatus)
+            .findFirst()
+            .orElse(ActionRequestAspect.create(createActionRequestStatus(actorUrn)))
+            .getActionRequestStatus();
 
     statusAspect.setStatus(actionRequestStatus);
     statusAspect.setResult(actionRequestResult);
@@ -637,9 +710,13 @@ public class ProposalService {
     return status;
   }
 
-  static ActionRequestSnapshot createCreateGlossaryNodeProposalActionRequest(@Nonnull final Urn actorUrn,
-      @Nonnull final List<Urn> assignedUsers, @Nonnull final List<Urn> assignedGroups,
-      @Nonnull final List<Urn> assignedRoles, @Nonnull final String name, @Nonnull final Optional<Urn> parentNode,
+  static ActionRequestSnapshot createCreateGlossaryNodeProposalActionRequest(
+      @Nonnull final Urn actorUrn,
+      @Nonnull final List<Urn> assignedUsers,
+      @Nonnull final List<Urn> assignedGroups,
+      @Nonnull final List<Urn> assignedRoles,
+      @Nonnull final String name,
+      @Nonnull final Optional<Urn> parentNode,
       final String description) {
     final ActionRequestSnapshot result = new ActionRequestSnapshot();
 
@@ -649,17 +726,30 @@ public class ProposalService {
 
     final ActionRequestAspectArray aspects = new ActionRequestAspectArray();
     aspects.add(ActionRequestAspect.create(createActionRequestStatus(actorUrn)));
-    aspects.add(ActionRequestAspect.create(
-        createCreateGlossaryNodeActionRequestInfo(actorUrn, assignedUsers, assignedGroups, assignedRoles, name, parentNode, description)));
+    aspects.add(
+        ActionRequestAspect.create(
+            createCreateGlossaryNodeActionRequestInfo(
+                actorUrn,
+                assignedUsers,
+                assignedGroups,
+                assignedRoles,
+                name,
+                parentNode,
+                description)));
 
     result.setAspects(aspects);
 
     return result;
   }
 
-  static ActionRequestSnapshot createCreateGlossaryTermProposalActionRequest(@Nonnull final Urn actorUrn,
-      @Nonnull final List<Urn> assignedUsers, @Nonnull final List<Urn> assignedGroups, @Nonnull final List<Urn> assignedRoles,
-      @Nonnull final String name, @Nonnull final Optional<Urn> parentNode, final String description) {
+  static ActionRequestSnapshot createCreateGlossaryTermProposalActionRequest(
+      @Nonnull final Urn actorUrn,
+      @Nonnull final List<Urn> assignedUsers,
+      @Nonnull final List<Urn> assignedGroups,
+      @Nonnull final List<Urn> assignedRoles,
+      @Nonnull final String name,
+      @Nonnull final Optional<Urn> parentNode,
+      final String description) {
     final ActionRequestSnapshot result = new ActionRequestSnapshot();
 
     final UUID uuid = UUID.randomUUID();
@@ -668,17 +758,29 @@ public class ProposalService {
 
     final ActionRequestAspectArray aspects = new ActionRequestAspectArray();
     aspects.add(ActionRequestAspect.create(createActionRequestStatus(actorUrn)));
-    aspects.add(ActionRequestAspect.create(
-        createCreateGlossaryTermActionRequestInfo(actorUrn, assignedUsers, assignedGroups, assignedRoles, name, parentNode, description)));
+    aspects.add(
+        ActionRequestAspect.create(
+            createCreateGlossaryTermActionRequestInfo(
+                actorUrn,
+                assignedUsers,
+                assignedGroups,
+                assignedRoles,
+                name,
+                parentNode,
+                description)));
 
     result.setAspects(aspects);
 
     return result;
   }
 
-  static ActionRequestSnapshot createUpdateDescriptionProposalActionRequest(@Nonnull final Urn actorUrn,
-      @Nonnull final Urn resourceUrn, @Nonnull final List<Urn> assignedUsers, @Nonnull final List<Urn> assignedGroups,
-      @Nonnull final List<Urn> assignedRoles, @Nonnull final String description) {
+  static ActionRequestSnapshot createUpdateDescriptionProposalActionRequest(
+      @Nonnull final Urn actorUrn,
+      @Nonnull final Urn resourceUrn,
+      @Nonnull final List<Urn> assignedUsers,
+      @Nonnull final List<Urn> assignedGroups,
+      @Nonnull final List<Urn> assignedRoles,
+      @Nonnull final String description) {
     final ActionRequestSnapshot result = new ActionRequestSnapshot();
 
     final UUID uuid = UUID.randomUUID();
@@ -687,9 +789,10 @@ public class ProposalService {
 
     final ActionRequestAspectArray aspects = new ActionRequestAspectArray();
     aspects.add(ActionRequestAspect.create(createActionRequestStatus(actorUrn)));
-    aspects.add(ActionRequestAspect.create(
-        createUpdateDescriptionActionRequestInfo(actorUrn, resourceUrn, assignedUsers, assignedGroups, assignedRoles,
-            description)));
+    aspects.add(
+        ActionRequestAspect.create(
+            createUpdateDescriptionActionRequestInfo(
+                actorUrn, resourceUrn, assignedUsers, assignedGroups, assignedRoles, description)));
 
     result.setAspects(aspects);
 
@@ -713,16 +816,29 @@ public class ProposalService {
 
     final ActionRequestAspectArray aspects = new ActionRequestAspectArray();
     aspects.add(ActionRequestAspect.create(createActionRequestStatus(actorUrn)));
-    aspects.add(ActionRequestAspect.create(
-        createDataContractActionRequestInfo(actorUrn, assignedUsers, assignedGroups, entityUrn, opType, freshness, schema, quality)));
+    aspects.add(
+        ActionRequestAspect.create(
+            createDataContractActionRequestInfo(
+                actorUrn,
+                assignedUsers,
+                assignedGroups,
+                entityUrn,
+                opType,
+                freshness,
+                schema,
+                quality)));
     result.setAspects(aspects);
 
     return result;
   }
 
-
-  static ActionRequestInfo createCreateGlossaryNodeActionRequestInfo(final Urn creator, final List<Urn> assignedUsers,
-      final List<Urn> assignedGroups, final List<Urn> assignedRoles, final String name, final Optional<Urn> parentNode,
+  static ActionRequestInfo createCreateGlossaryNodeActionRequestInfo(
+      final Urn creator,
+      final List<Urn> assignedUsers,
+      final List<Urn> assignedGroups,
+      final List<Urn> assignedRoles,
+      final String name,
+      final Optional<Urn> parentNode,
       final String description) {
     final ActionRequestInfo info = new ActionRequestInfo();
     info.setType(CREATE_GLOSSARY_NODE_ACTION_REQUEST_TYPE);
@@ -738,9 +854,14 @@ public class ProposalService {
     return info;
   }
 
-  static ActionRequestInfo createCreateGlossaryTermActionRequestInfo(@Nonnull final Urn actorUrn,
-      @Nonnull final List<Urn> assignedUsers, @Nonnull final List<Urn> assignedGroups, @Nonnull final List<Urn> assignedRoles,
-      @Nonnull final String name, @Nonnull final Optional<Urn> parentNode, final String description) {
+  static ActionRequestInfo createCreateGlossaryTermActionRequestInfo(
+      @Nonnull final Urn actorUrn,
+      @Nonnull final List<Urn> assignedUsers,
+      @Nonnull final List<Urn> assignedGroups,
+      @Nonnull final List<Urn> assignedRoles,
+      @Nonnull final String name,
+      @Nonnull final Optional<Urn> parentNode,
+      final String description) {
     final ActionRequestInfo info = new ActionRequestInfo();
     info.setType(CREATE_GLOSSARY_TERM_ACTION_REQUEST_TYPE);
     info.setAssignedUsers(new UrnArray(assignedUsers));
@@ -755,9 +876,13 @@ public class ProposalService {
     return info;
   }
 
-  static ActionRequestInfo createUpdateDescriptionActionRequestInfo(@Nonnull final Urn actorUrn,
-      @Nonnull final Urn resourceUrn, @Nonnull final List<Urn> assignedUsers, @Nonnull final List<Urn> assignedGroups,
-      @Nonnull final List<Urn> assignedRoles, @Nonnull final String description) {
+  static ActionRequestInfo createUpdateDescriptionActionRequestInfo(
+      @Nonnull final Urn actorUrn,
+      @Nonnull final Urn resourceUrn,
+      @Nonnull final List<Urn> assignedUsers,
+      @Nonnull final List<Urn> assignedGroups,
+      @Nonnull final List<Urn> assignedRoles,
+      @Nonnull final String description) {
     final ActionRequestInfo info = new ActionRequestInfo();
     info.setType(UPDATE_DESCRIPTION_ACTION_REQUEST_TYPE);
     info.setResource(resourceUrn.toString());
@@ -794,8 +919,10 @@ public class ProposalService {
     return info;
   }
 
-  static ActionRequestParams createCreateGlossaryNodeActionRequestParams(@Nonnull final String name,
-      @Nonnull final Optional<Urn> parentNode, final String description) {
+  static ActionRequestParams createCreateGlossaryNodeActionRequestParams(
+      @Nonnull final String name,
+      @Nonnull final Optional<Urn> parentNode,
+      final String description) {
     CreateGlossaryNodeProposal createGlossaryNodeProposal = new CreateGlossaryNodeProposal();
     createGlossaryNodeProposal.setName(name);
     parentNode.ifPresent(createGlossaryNodeProposal::setParentNode);
@@ -808,8 +935,10 @@ public class ProposalService {
     return actionRequestParams;
   }
 
-  static ActionRequestParams createCreateGlossaryTermActionRequestParams(@Nonnull final String name,
-      @Nonnull final Optional<Urn> parentNode, final String description) {
+  static ActionRequestParams createCreateGlossaryTermActionRequestParams(
+      @Nonnull final String name,
+      @Nonnull final Optional<Urn> parentNode,
+      final String description) {
     CreateGlossaryTermProposal createGlossaryTermProposal = new CreateGlossaryTermProposal();
     createGlossaryTermProposal.setName(name);
     parentNode.ifPresent(createGlossaryTermProposal::setParentNode);
@@ -822,7 +951,8 @@ public class ProposalService {
     return actionRequestParams;
   }
 
-  static ActionRequestParams createUpdateDescriptionActionRequestParams(@Nonnull final String description) {
+  static ActionRequestParams createUpdateDescriptionActionRequestParams(
+      @Nonnull final String description) {
     DescriptionProposal descriptionProposal = new DescriptionProposal();
     descriptionProposal.setDescription(description);
 
@@ -854,31 +984,39 @@ public class ProposalService {
 
   @Nullable
   private Urn getEntityContractUrn(@Nonnull Urn entityUrn, @Nonnull Urn actorUrn) {
-    EntityRelationships relationships = _graphClient.getRelatedEntities(
-        entityUrn.toString(),
-        ImmutableList.of("ContractFor"),
-        RelationshipDirection.INCOMING,
-        0,
-        1,
-        actorUrn.toString()
-    );
+    EntityRelationships relationships =
+        _graphClient.getRelatedEntities(
+            entityUrn.toString(),
+            ImmutableList.of("ContractFor"),
+            RelationshipDirection.INCOMING,
+            0,
+            1,
+            actorUrn.toString());
     if (relationships.getRelationships().size() == 1) {
       return relationships.getRelationships().get(0).getEntity();
     } else if (relationships.getTotal() > 1) {
       // Bad state - There are multiple contracts for a single entity! Cannot update.
-      log.warn(String.format("Found entity with multiple data contracts! urn: %s, num contracts: %s", entityUrn, relationships.getTotal()));
+      log.warn(
+          String.format(
+              "Found entity with multiple data contracts! urn: %s, num contracts: %s",
+              entityUrn, relationships.getTotal()));
     }
     return null;
   }
 
-  void createGlossaryNodeEntity(@Nonnull final String name, @Nonnull final Optional<Urn> parentNode,
-      @Nonnull final Optional<String> description, final Authentication authentication) throws Exception {
+  void createGlossaryNodeEntity(
+      @Nonnull final String name,
+      @Nonnull final Optional<Urn> parentNode,
+      @Nonnull final Optional<String> description,
+      final Authentication authentication)
+      throws Exception {
     final GlossaryNodeKey key = new GlossaryNodeKey();
 
     final String id = UUID.randomUUID().toString();
     key.setName(id);
 
-    if (_entityClient.exists(EntityKeyUtils.convertEntityKeyToUrn(key, Constants.GLOSSARY_NODE_ENTITY_NAME),
+    if (_entityClient.exists(
+        EntityKeyUtils.convertEntityKeyToUrn(key, Constants.GLOSSARY_NODE_ENTITY_NAME),
         authentication)) {
       throw new IllegalArgumentException("This Glossary Node already exists!");
     }
@@ -887,20 +1025,26 @@ public class ProposalService {
     proposal.setEntityKeyAspect(GenericRecordUtils.serializeAspect(key));
     proposal.setEntityType(Constants.GLOSSARY_NODE_ENTITY_NAME);
     proposal.setAspectName(Constants.GLOSSARY_NODE_INFO_ASPECT_NAME);
-    proposal.setAspect(GenericRecordUtils.serializeAspect(mapGlossaryNodeInfo(name, parentNode, description)));
+    proposal.setAspect(
+        GenericRecordUtils.serializeAspect(mapGlossaryNodeInfo(name, parentNode, description)));
     proposal.setChangeType(ChangeType.UPSERT);
 
     _entityClient.ingestProposal(proposal, authentication);
   }
 
-  void createGlossaryTermEntity(@Nonnull final String name, @Nonnull final Optional<Urn> parentNode,
-      @Nonnull final Optional<String> description, final Authentication authentication) throws Exception {
+  void createGlossaryTermEntity(
+      @Nonnull final String name,
+      @Nonnull final Optional<Urn> parentNode,
+      @Nonnull final Optional<String> description,
+      final Authentication authentication)
+      throws Exception {
     final GlossaryTermKey key = new GlossaryTermKey();
 
     final String id = UUID.randomUUID().toString();
     key.setName(id);
 
-    if (_entityClient.exists(EntityKeyUtils.convertEntityKeyToUrn(key, Constants.GLOSSARY_TERM_ENTITY_NAME),
+    if (_entityClient.exists(
+        EntityKeyUtils.convertEntityKeyToUrn(key, Constants.GLOSSARY_TERM_ENTITY_NAME),
         authentication)) {
       throw new IllegalArgumentException("This Glossary Term already exists!");
     }
@@ -909,46 +1053,67 @@ public class ProposalService {
     proposal.setEntityKeyAspect(GenericRecordUtils.serializeAspect(key));
     proposal.setEntityType(Constants.GLOSSARY_TERM_ENTITY_NAME);
     proposal.setAspectName(Constants.GLOSSARY_TERM_INFO_ASPECT_NAME);
-    proposal.setAspect(GenericRecordUtils.serializeAspect(mapGlossaryTermInfo(name, parentNode, description)));
+    proposal.setAspect(
+        GenericRecordUtils.serializeAspect(mapGlossaryTermInfo(name, parentNode, description)));
     proposal.setChangeType(ChangeType.UPSERT);
 
     _entityClient.ingestProposal(proposal, authentication);
   }
 
-  void updateGlossaryNodeDescription(@Nonnull final Urn resourceUrn, @Nonnull final String description,
-      final Authentication authentication) throws Exception {
+  void updateGlossaryNodeDescription(
+      @Nonnull final Urn resourceUrn,
+      @Nonnull final String description,
+      final Authentication authentication)
+      throws Exception {
     GlossaryNodeInfo glossaryNodeInfo =
-        (GlossaryNodeInfo) _entityService.getLatestAspect(resourceUrn, GLOSSARY_NODE_INFO_ASPECT_NAME);
+        (GlossaryNodeInfo)
+            _entityService.getLatestAspect(resourceUrn, GLOSSARY_NODE_INFO_ASPECT_NAME);
     Objects.requireNonNull(glossaryNodeInfo, "glossaryNodeInfo cannot be null");
 
-    final MetadataChangeProposal proposal = DescriptionUtils.createGlossaryNodeDescriptionChangeProposal(glossaryNodeInfo, resourceUrn, description);
+    final MetadataChangeProposal proposal =
+        DescriptionUtils.createGlossaryNodeDescriptionChangeProposal(
+            glossaryNodeInfo, resourceUrn, description);
     _entityClient.ingestProposal(proposal, authentication);
   }
 
-  void updateGlossaryTermDescription(@Nonnull final Urn resourceUrn, @Nonnull final String description,
-      final Authentication authentication) throws Exception {
+  void updateGlossaryTermDescription(
+      @Nonnull final Urn resourceUrn,
+      @Nonnull final String description,
+      final Authentication authentication)
+      throws Exception {
     GlossaryTermInfo glossaryTermInfo =
-        (GlossaryTermInfo) _entityService.getLatestAspect(resourceUrn, GLOSSARY_TERM_INFO_ASPECT_NAME);
+        (GlossaryTermInfo)
+            _entityService.getLatestAspect(resourceUrn, GLOSSARY_TERM_INFO_ASPECT_NAME);
 
-    final MetadataChangeProposal proposal = DescriptionUtils.createGlossaryTermDescriptionChangeProposal(glossaryTermInfo, resourceUrn, description);
+    final MetadataChangeProposal proposal =
+        DescriptionUtils.createGlossaryTermDescriptionChangeProposal(
+            glossaryTermInfo, resourceUrn, description);
     _entityClient.ingestProposal(proposal, authentication);
   }
 
-  void updateDatasetDescription(@Nonnull final Urn resourceUrn, @Nonnull final String description,
-      final Authentication authentication) throws Exception {
+  void updateDatasetDescription(
+      @Nonnull final Urn resourceUrn,
+      @Nonnull final String description,
+      final Authentication authentication)
+      throws Exception {
     EditableDatasetProperties editableDatasetProperties =
-        (EditableDatasetProperties) _entityService.getLatestAspect(resourceUrn, EDITABLE_DATASET_PROPERTIES_ASPECT_NAME);
+        (EditableDatasetProperties)
+            _entityService.getLatestAspect(resourceUrn, EDITABLE_DATASET_PROPERTIES_ASPECT_NAME);
     if (editableDatasetProperties == null) {
       editableDatasetProperties = new EditableDatasetProperties();
     }
 
     final MetadataChangeProposal proposal =
-        DescriptionUtils.createDatasetDescriptionChangeProposal(editableDatasetProperties, resourceUrn, description, authentication.getActor());
+        DescriptionUtils.createDatasetDescriptionChangeProposal(
+            editableDatasetProperties, resourceUrn, description, authentication.getActor());
     _entityClient.ingestProposal(proposal, authentication);
   }
 
-  GlossaryNodeInfo mapGlossaryNodeInfo(@Nonnull final String name, @Nonnull final Optional<Urn> parentNode,
-     @Nonnull final Optional<String> description) throws Exception {
+  GlossaryNodeInfo mapGlossaryNodeInfo(
+      @Nonnull final String name,
+      @Nonnull final Optional<Urn> parentNode,
+      @Nonnull final Optional<String> description)
+      throws Exception {
     final GlossaryNodeInfo result = new GlossaryNodeInfo();
     result.setName(name);
     result.setDefinition("");
@@ -961,8 +1126,11 @@ public class ProposalService {
     return result;
   }
 
-  GlossaryTermInfo mapGlossaryTermInfo(@Nonnull final String name, @Nonnull final Optional<Urn> parentNode,
-     @Nonnull final Optional<String> description) throws Exception {
+  GlossaryTermInfo mapGlossaryTermInfo(
+      @Nonnull final String name,
+      @Nonnull final Optional<Urn> parentNode,
+      @Nonnull final Optional<String> description)
+      throws Exception {
     final GlossaryTermInfo result = new GlossaryTermInfo();
     result.setName(name);
     result.setDefinition("");
@@ -977,8 +1145,7 @@ public class ProposalService {
   }
 
   private DataContractState getStateForContract(
-      @Nonnull final Urn entityUrn,
-      @Nonnull final DataContractProposal proposal) {
+      @Nonnull final Urn entityUrn, @Nonnull final DataContractProposal proposal) {
     // TOTAL HACK
     if (entityUrn.toString().contains("urn:li:dataPlatform:dbt")) {
       // Assertions must be provisioned for this contract.

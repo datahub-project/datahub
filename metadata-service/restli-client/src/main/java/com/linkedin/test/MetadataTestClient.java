@@ -12,7 +12,6 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
-
 public class MetadataTestClient extends BaseClient {
 
   private static final TestRequestBuilders TEST_REQUEST_BUILDERS = new TestRequestBuilders();
@@ -22,7 +21,8 @@ public class MetadataTestClient extends BaseClient {
   }
 
   /**
-   * Evaluate tests for the given urn and return the test results. If shouldPush is set to true, ingest the test results into DataHub
+   * Evaluate tests for the given urn and return the test results. If shouldPush is set to true,
+   * ingest the test results into DataHub
    *
    * @param urn Urn of the entity being evaluated
    * @param tests List of tests being evaluated. If null, runs all tests
@@ -30,12 +30,17 @@ public class MetadataTestClient extends BaseClient {
    * @return
    */
   @Nonnull
-  public TestResults evaluate(@Nonnull final Urn urn, @Nullable List<Urn> tests, boolean shouldPush,
-      @Nonnull final Authentication authentication) throws RemoteInvocationException {
+  public TestResults evaluate(
+      @Nonnull final Urn urn,
+      @Nullable List<Urn> tests,
+      boolean shouldPush,
+      @Nonnull final Authentication authentication)
+      throws RemoteInvocationException {
     TestDoEvaluateRequestBuilder requestBuilder =
         TEST_REQUEST_BUILDERS.actionEvaluate().urnParam(urn.toString()).pushParam(shouldPush);
     if (tests != null) {
-      requestBuilder.testsParam(new StringArray(tests.stream().map(Urn::toString).collect(Collectors.toList())));
+      requestBuilder.testsParam(
+          new StringArray(tests.stream().map(Urn::toString).collect(Collectors.toList())));
     }
     return sendClientRequest(requestBuilder, authentication).getEntity();
   }

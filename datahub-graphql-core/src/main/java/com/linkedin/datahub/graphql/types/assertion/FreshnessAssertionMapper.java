@@ -10,41 +10,47 @@ import com.linkedin.datahub.graphql.types.dataset.mappers.DatasetFilterMapper;
 
 public class FreshnessAssertionMapper extends AssertionMapper {
 
-    public static FreshnessAssertionInfo mapFreshnessAssertionInfo(final com.linkedin.assertion.FreshnessAssertionInfo gmsFreshnessAssertionInfo) {
-        FreshnessAssertionInfo freshnessAssertionInfo = new FreshnessAssertionInfo();
-        freshnessAssertionInfo.setEntityUrn(gmsFreshnessAssertionInfo.getEntity().toString());
-        freshnessAssertionInfo.setType(FreshnessAssertionType.valueOf(gmsFreshnessAssertionInfo.getType().name()));
-        if (gmsFreshnessAssertionInfo.hasSchedule()) {
-            freshnessAssertionInfo.setSchedule(mapFreshnessAssertionSchedule(gmsFreshnessAssertionInfo.getSchedule()));
-        }
-        if (gmsFreshnessAssertionInfo.hasFilter()) {
-            freshnessAssertionInfo.setFilter(DatasetFilterMapper.map(gmsFreshnessAssertionInfo.getFilter()));
-        }
-        return freshnessAssertionInfo;
+  public static FreshnessAssertionInfo mapFreshnessAssertionInfo(
+      final com.linkedin.assertion.FreshnessAssertionInfo gmsFreshnessAssertionInfo) {
+    FreshnessAssertionInfo freshnessAssertionInfo = new FreshnessAssertionInfo();
+    freshnessAssertionInfo.setEntityUrn(gmsFreshnessAssertionInfo.getEntity().toString());
+    freshnessAssertionInfo.setType(
+        FreshnessAssertionType.valueOf(gmsFreshnessAssertionInfo.getType().name()));
+    if (gmsFreshnessAssertionInfo.hasSchedule()) {
+      freshnessAssertionInfo.setSchedule(
+          mapFreshnessAssertionSchedule(gmsFreshnessAssertionInfo.getSchedule()));
     }
-
-    private static FreshnessCronSchedule mapFreshnessCronSchedule(final com.linkedin.assertion.FreshnessCronSchedule gmsCronSchedule) {
-        FreshnessCronSchedule cronSchedule = new FreshnessCronSchedule();
-        cronSchedule.setCron(gmsCronSchedule.getCron());
-        cronSchedule.setTimezone(gmsCronSchedule.getTimezone());
-        cronSchedule.setWindowStartOffsetMs(gmsCronSchedule.getWindowStartOffsetMs(GetMode.NULL));
-        return cronSchedule;
+    if (gmsFreshnessAssertionInfo.hasFilter()) {
+      freshnessAssertionInfo.setFilter(
+          DatasetFilterMapper.map(gmsFreshnessAssertionInfo.getFilter()));
     }
+    return freshnessAssertionInfo;
+  }
 
-    private static FreshnessAssertionSchedule mapFreshnessAssertionSchedule(
-            final com.linkedin.assertion.FreshnessAssertionSchedule gmsFreshnessAssertionSchedule) {
-        FreshnessAssertionSchedule freshnessAssertionSchedule = new FreshnessAssertionSchedule();
-        freshnessAssertionSchedule
-                .setType(FreshnessAssertionScheduleType.valueOf(gmsFreshnessAssertionSchedule.getType().name()));
-        if (gmsFreshnessAssertionSchedule.hasCron()) {
-            freshnessAssertionSchedule.setCron(mapFreshnessCronSchedule(gmsFreshnessAssertionSchedule.getCron()));
-        }
-        if (gmsFreshnessAssertionSchedule.hasFixedInterval()) {
-            freshnessAssertionSchedule
-                    .setFixedInterval(mapFixedIntervalSchedule(gmsFreshnessAssertionSchedule.getFixedInterval()));
-        }
-        return freshnessAssertionSchedule;
+  private static FreshnessCronSchedule mapFreshnessCronSchedule(
+      final com.linkedin.assertion.FreshnessCronSchedule gmsCronSchedule) {
+    FreshnessCronSchedule cronSchedule = new FreshnessCronSchedule();
+    cronSchedule.setCron(gmsCronSchedule.getCron());
+    cronSchedule.setTimezone(gmsCronSchedule.getTimezone());
+    cronSchedule.setWindowStartOffsetMs(gmsCronSchedule.getWindowStartOffsetMs(GetMode.NULL));
+    return cronSchedule;
+  }
+
+  private static FreshnessAssertionSchedule mapFreshnessAssertionSchedule(
+      final com.linkedin.assertion.FreshnessAssertionSchedule gmsFreshnessAssertionSchedule) {
+    FreshnessAssertionSchedule freshnessAssertionSchedule = new FreshnessAssertionSchedule();
+    freshnessAssertionSchedule.setType(
+        FreshnessAssertionScheduleType.valueOf(gmsFreshnessAssertionSchedule.getType().name()));
+    if (gmsFreshnessAssertionSchedule.hasCron()) {
+      freshnessAssertionSchedule.setCron(
+          mapFreshnessCronSchedule(gmsFreshnessAssertionSchedule.getCron()));
     }
+    if (gmsFreshnessAssertionSchedule.hasFixedInterval()) {
+      freshnessAssertionSchedule.setFixedInterval(
+          mapFixedIntervalSchedule(gmsFreshnessAssertionSchedule.getFixedInterval()));
+    }
+    return freshnessAssertionSchedule;
+  }
 
-    private FreshnessAssertionMapper() { }
+  private FreshnessAssertionMapper() {}
 }

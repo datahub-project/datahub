@@ -1,5 +1,8 @@
 package com.linkedin.datahub.graphql.types.mappers;
 
+import static com.linkedin.datahub.graphql.types.mappers.MapperUtils.*;
+import static com.linkedin.datahub.graphql.util.SearchInsightsUtil.*;
+
 import com.linkedin.common.UrnArray;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.datahub.graphql.generated.Entity;
@@ -11,10 +14,6 @@ import com.linkedin.metadata.search.LineageScrollResult;
 import com.linkedin.metadata.search.LineageSearchEntity;
 import com.linkedin.metadata.search.SearchResultMetadata;
 import java.util.stream.Collectors;
-
-import static com.linkedin.datahub.graphql.types.mappers.MapperUtils.*;
-import static com.linkedin.datahub.graphql.util.SearchInsightsUtil.*;
-
 
 public class UrnScrollAcrossLineageResultsMapper<T extends RecordTemplate, E extends Entity> {
   public static <T extends RecordTemplate, E extends Entity> ScrollAcrossLineageResults map(
@@ -30,8 +29,12 @@ public class UrnScrollAcrossLineageResultsMapper<T extends RecordTemplate, E ext
     result.setTotal(input.getNumEntities());
 
     final SearchResultMetadata searchResultMetadata = input.getMetadata();
-    result.setSearchResults(input.getEntities().stream().map(this::mapResult).collect(Collectors.toList()));
-    result.setFacets(searchResultMetadata.getAggregations().stream().map(MapperUtils::mapFacet).collect(Collectors.toList()));
+    result.setSearchResults(
+        input.getEntities().stream().map(this::mapResult).collect(Collectors.toList()));
+    result.setFacets(
+        searchResultMetadata.getAggregations().stream()
+            .map(MapperUtils::mapFacet)
+            .collect(Collectors.toList()));
 
     return result;
   }

@@ -22,15 +22,13 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
-
 @Slf4j
 public class AssertionUtils {
 
   private static final int MAX_SQL_PREVIEW_LENGTH = 50;
 
   public static String buildAssertionDescription(
-      @Nonnull final Urn assertionUrn,
-      @Nonnull final AssertionInfo info) {
+      @Nonnull final Urn assertionUrn, @Nonnull final AssertionInfo info) {
 
     // If assertion has a description, always just use that!
     if (info.hasDescription()) {
@@ -51,18 +49,25 @@ public class AssertionUtils {
         return assertionUrn.toString(); // TODO build richer preview.
       default:
         // Unknown type - return the raw urn.
-        log.warn(String.format(
-            "Attempted to generate description for unsupported assertion of type %s. Returning the raw urn %s", info.getType(), assertionUrn));
+        log.warn(
+            String.format(
+                "Attempted to generate description for unsupported assertion of type %s. Returning the raw urn %s",
+                info.getType(), assertionUrn));
         return assertionUrn.toString();
     }
   }
 
-  private static String buildFreshnessAssertionDescription(@Nonnull final FreshnessAssertionInfo info) {
+  private static String buildFreshnessAssertionDescription(
+      @Nonnull final FreshnessAssertionInfo info) {
     FreshnessAssertionSchedule schedule = info.getSchedule();
     FreshnessAssertionScheduleType type = info.getSchedule().getType();
-    String freshnessText = FreshnessAssertionScheduleType.FIXED_INTERVAL.equals(type)
-        ? String.format("in the past %s %s", schedule.getFixedInterval().getMultiple(), getUnitText(schedule.getFixedInterval().getUnit()))
-        : "since the previous check"; // Cron schedule.
+    String freshnessText =
+        FreshnessAssertionScheduleType.FIXED_INTERVAL.equals(type)
+            ? String.format(
+                "in the past %s %s",
+                schedule.getFixedInterval().getMultiple(),
+                getUnitText(schedule.getFixedInterval().getUnit()))
+            : "since the previous check"; // Cron schedule.
     return String.format("Dataset was updated %s", freshnessText);
   }
 
@@ -90,51 +95,68 @@ public class AssertionUtils {
 
   private static String buildVolumeAssertionDescription(@Nonnull final VolumeAssertionInfo info) {
     VolumeAssertionType type = info.getType();
-    String volumeTypeChange = VolumeAssertionType.ROW_COUNT_CHANGE.equals(type)
-        ? AssertionValueChangeType.ABSOLUTE.equals(info.getRowCountChange().getType()) ? "change " : "percentage change "
-        : "";
-    String operatorText = info.hasRowCountChange()
-        ? getOperatorText(info.getRowCountChange().getOperator())
-        : getOperatorText(info.getRowCountTotal().getOperator());
-    String parameterText = info.hasRowCountChange()
-        ? getParameterText(info.getRowCountChange().getParameters())
-        : getParameterText(info.getRowCountTotal().getParameters());
+    String volumeTypeChange =
+        VolumeAssertionType.ROW_COUNT_CHANGE.equals(type)
+            ? AssertionValueChangeType.ABSOLUTE.equals(info.getRowCountChange().getType())
+                ? "change "
+                : "percentage change "
+            : "";
+    String operatorText =
+        info.hasRowCountChange()
+            ? getOperatorText(info.getRowCountChange().getOperator())
+            : getOperatorText(info.getRowCountTotal().getOperator());
+    String parameterText =
+        info.hasRowCountChange()
+            ? getParameterText(info.getRowCountChange().getParameters())
+            : getParameterText(info.getRowCountTotal().getParameters());
     return "Row count " + volumeTypeChange + operatorText + " " + parameterText;
   }
 
   private static String buildFieldAssertionDescription(@Nonnull final FieldAssertionInfo info) {
     FieldAssertionType type = info.getType();
-    String columnName = info.hasFieldValuesAssertion()
-        ? info.getFieldValuesAssertion().getField().getPath()
-        : info.getFieldMetricAssertion().getField().getPath();
-    String columnType = info.hasFieldValuesAssertion()
-        ? info.getFieldValuesAssertion().getField().getNativeType()
-        : info.getFieldMetricAssertion().getField().getNativeType();
-    String operatorText = info.hasFieldValuesAssertion()
-        ? getOperatorText(info.getFieldValuesAssertion().getOperator())
-        : getOperatorText(info.getFieldMetricAssertion().getOperator());
-    String parameterText = info.hasFieldValuesAssertion()
-        ? getParameterText(info.getFieldValuesAssertion().getParameters())
-        : getParameterText(info.getFieldMetricAssertion().getParameters());
-    String columnMetric = FieldAssertionType.FIELD_METRIC.equals(type)
-        ? getMetricText(info.getFieldMetricAssertion().getMetric())
-        : null;
+    String columnName =
+        info.hasFieldValuesAssertion()
+            ? info.getFieldValuesAssertion().getField().getPath()
+            : info.getFieldMetricAssertion().getField().getPath();
+    String columnType =
+        info.hasFieldValuesAssertion()
+            ? info.getFieldValuesAssertion().getField().getNativeType()
+            : info.getFieldMetricAssertion().getField().getNativeType();
+    String operatorText =
+        info.hasFieldValuesAssertion()
+            ? getOperatorText(info.getFieldValuesAssertion().getOperator())
+            : getOperatorText(info.getFieldMetricAssertion().getOperator());
+    String parameterText =
+        info.hasFieldValuesAssertion()
+            ? getParameterText(info.getFieldValuesAssertion().getParameters())
+            : getParameterText(info.getFieldMetricAssertion().getParameters());
+    String columnMetric =
+        FieldAssertionType.FIELD_METRIC.equals(type)
+            ? getMetricText(info.getFieldMetricAssertion().getMetric())
+            : null;
 
     return FieldAssertionType.FIELD_VALUES.equals(type)
-        ? String.format("Column '%s' (%s) %s %s", columnName, columnType, operatorText, parameterText)
-        : String.format("*%s* of column '%s' (%s) %s %s", columnMetric, columnName, columnType, operatorText, parameterText);
+        ? String.format(
+            "Column '%s' (%s) %s %s", columnName, columnType, operatorText, parameterText)
+        : String.format(
+            "*%s* of column '%s' (%s) %s %s",
+            columnMetric, columnName, columnType, operatorText, parameterText);
   }
 
   private static String buildSqlAssertionDescription(@Nonnull final SqlAssertionInfo info) {
     String sql = info.getStatement();
-    String truncatedSql = sql.length() > MAX_SQL_PREVIEW_LENGTH
-        ? String.format("%s...", sql.substring(0, MAX_SQL_PREVIEW_LENGTH))
-        : sql;
+    String truncatedSql =
+        sql.length() > MAX_SQL_PREVIEW_LENGTH
+            ? String.format("%s...", sql.substring(0, MAX_SQL_PREVIEW_LENGTH))
+            : sql;
     SqlAssertionType type = info.getType();
     AssertionValueChangeType changeType = info.getChangeType();
-    String sqlTypeText = SqlAssertionType.METRIC_CHANGE.equals(type)
-        ? AssertionValueChangeType.ABSOLUTE.equals(changeType) ? "change " : "percentage change "
-        : "";
+    String sqlTypeText =
+        SqlAssertionType.METRIC_CHANGE.equals(type)
+            ? AssertionValueChangeType.ABSOLUTE.equals(changeType)
+                ? "change "
+                : "percentage change "
+            : "";
     String operatorText = getOperatorText(info.getOperator());
     String parameterText = getParameterText(info.getParameters());
     return truncatedSql + " " + sqlTypeText + operatorText + " " + parameterText;
@@ -228,7 +250,8 @@ public class AssertionUtils {
       if (parameters.hasValue()) {
         return parameters.getValue().getValue();
       } else if (parameters.hasMinValue() && parameters.hasMaxValue()) {
-        return String.format("%s and %s", parameters.getMinValue().getValue(), parameters.getMaxValue().getValue());
+        return String.format(
+            "%s and %s", parameters.getMinValue().getValue(), parameters.getMaxValue().getValue());
       }
     }
     return "";
@@ -277,5 +300,5 @@ public class AssertionUtils {
     }
   }
 
-  private AssertionUtils() { }
+  private AssertionUtils() {}
 }

@@ -1,11 +1,14 @@
 package com.linkedin.datahub.graphql.resolvers.proposal;
 
+import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
+import static com.linkedin.metadata.Constants.*;
+
 import com.datahub.authentication.Authentication;
 import com.datahub.authorization.AuthorizedActors;
 import com.datahub.authorization.ConjunctivePrivilegeGroup;
 import com.datahub.authorization.DisjunctivePrivilegeGroup;
-import com.datahub.plugins.auth.authorization.Authorizer;
 import com.datahub.authorization.EntitySpec;
+import com.datahub.plugins.auth.authorization.Authorizer;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.actionrequest.ActionRequestInfo;
 import com.linkedin.actionrequest.ActionRequestParams;
@@ -66,9 +69,6 @@ import javax.annotation.Nullable;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
-import static com.linkedin.metadata.Constants.*;
-
 @Slf4j
 // TODO(Gabe): Unit test this file
 public class ProposalUtils {
@@ -76,21 +76,26 @@ public class ProposalUtils {
   public static final String SCHEMA_PROPOSALS_ASPECT_NAME = "schemaProposals";
   public static final String CONTAINER_ASPECT_NAME = "container";
 
-  private static final ConjunctivePrivilegeGroup ALL_PRIVILEGES_GROUP = new ConjunctivePrivilegeGroup(ImmutableList.of(
-      PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType()
-  ));
+  private static final ConjunctivePrivilegeGroup ALL_PRIVILEGES_GROUP =
+      new ConjunctivePrivilegeGroup(
+          ImmutableList.of(PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType()));
 
-  public static boolean isAuthorizedToProposeTags(@Nonnull QueryContext context, Urn targetUrn, String subResource) {
+  public static boolean isAuthorizedToProposeTags(
+      @Nonnull QueryContext context, Urn targetUrn, String subResource) {
 
     Boolean isTargetingSchema = subResource != null && subResource.length() > 0;
     // Decide whether the current principal should be allowed to update the Dataset.
-    // If you either have all entity privileges, or have the specific privileges required, you are authorized.
-    final DisjunctivePrivilegeGroup orPrivilegeGroups = new DisjunctivePrivilegeGroup(ImmutableList.of(
-        ALL_PRIVILEGES_GROUP,
-        new ConjunctivePrivilegeGroup(ImmutableList.of(isTargetingSchema
-            ? PoliciesConfig.PROPOSE_DATASET_COL_TAGS_PRIVILEGE.getType()
-            : PoliciesConfig.PROPOSE_ENTITY_TAGS_PRIVILEGE.getType()))
-    ));
+    // If you either have all entity privileges, or have the specific privileges required, you are
+    // authorized.
+    final DisjunctivePrivilegeGroup orPrivilegeGroups =
+        new DisjunctivePrivilegeGroup(
+            ImmutableList.of(
+                ALL_PRIVILEGES_GROUP,
+                new ConjunctivePrivilegeGroup(
+                    ImmutableList.of(
+                        isTargetingSchema
+                            ? PoliciesConfig.PROPOSE_DATASET_COL_TAGS_PRIVILEGE.getType()
+                            : PoliciesConfig.PROPOSE_ENTITY_TAGS_PRIVILEGE.getType()))));
 
     return AuthorizationUtils.isAuthorized(
         context.getAuthorizer(),
@@ -100,17 +105,22 @@ public class ProposalUtils {
         orPrivilegeGroups);
   }
 
-  public static boolean isAuthorizedToProposeTerms(@Nonnull QueryContext context, Urn targetUrn, String subResource) {
+  public static boolean isAuthorizedToProposeTerms(
+      @Nonnull QueryContext context, Urn targetUrn, String subResource) {
 
     Boolean isTargetingSchema = subResource != null && subResource.length() > 0;
     // Decide whether the current principal should be allowed to update the Dataset.
-    // If you either have all entity privileges, or have the specific privileges required, you are authorized.
-    final DisjunctivePrivilegeGroup orPrivilegeGroups = new DisjunctivePrivilegeGroup(ImmutableList.of(
-        ALL_PRIVILEGES_GROUP,
-        new ConjunctivePrivilegeGroup(ImmutableList.of(isTargetingSchema
-            ? PoliciesConfig.PROPOSE_DATASET_COL_GLOSSARY_TERMS_PRIVILEGE.getType()
-            : PoliciesConfig.PROPOSE_ENTITY_GLOSSARY_TERMS_PRIVILEGE.getType()))
-    ));
+    // If you either have all entity privileges, or have the specific privileges required, you are
+    // authorized.
+    final DisjunctivePrivilegeGroup orPrivilegeGroups =
+        new DisjunctivePrivilegeGroup(
+            ImmutableList.of(
+                ALL_PRIVILEGES_GROUP,
+                new ConjunctivePrivilegeGroup(
+                    ImmutableList.of(
+                        isTargetingSchema
+                            ? PoliciesConfig.PROPOSE_DATASET_COL_GLOSSARY_TERMS_PRIVILEGE.getType()
+                            : PoliciesConfig.PROPOSE_ENTITY_GLOSSARY_TERMS_PRIVILEGE.getType()))));
 
     return AuthorizationUtils.isAuthorized(
         context.getAuthorizer(),
@@ -120,13 +130,17 @@ public class ProposalUtils {
         orPrivilegeGroups);
   }
 
-  public static boolean isAuthorizedToProposeDescription(@Nonnull QueryContext context, Urn targetUrn) {
+  public static boolean isAuthorizedToProposeDescription(
+      @Nonnull QueryContext context, Urn targetUrn) {
 
-    // If you either have all entity privileges, or have the specific privileges required, you are authorized.
-    final DisjunctivePrivilegeGroup orPrivilegeGroups = new DisjunctivePrivilegeGroup(ImmutableList.of(
-        ALL_PRIVILEGES_GROUP,
-        new ConjunctivePrivilegeGroup(ImmutableList.of(PoliciesConfig.PROPOSE_ENTITY_DOCS_PRIVILEGE.getType()))
-    ));
+    // If you either have all entity privileges, or have the specific privileges required, you are
+    // authorized.
+    final DisjunctivePrivilegeGroup orPrivilegeGroups =
+        new DisjunctivePrivilegeGroup(
+            ImmutableList.of(
+                ALL_PRIVILEGES_GROUP,
+                new ConjunctivePrivilegeGroup(
+                    ImmutableList.of(PoliciesConfig.PROPOSE_ENTITY_DOCS_PRIVILEGE.getType()))));
 
     return AuthorizationUtils.isAuthorized(
         context.getAuthorizer(),
@@ -137,11 +151,7 @@ public class ProposalUtils {
   }
 
   public static boolean isAuthorizedToAcceptProposal(
-      @Nonnull QueryContext context,
-      ActionRequestType type,
-      Urn targetUrn,
-      String subResource
-  ) {
+      @Nonnull QueryContext context, ActionRequestType type, Urn targetUrn, String subResource) {
     if (type.equals(ActionRequestType.TAG_ASSOCIATION)) {
       return isAuthorizedToAcceptTags(context, targetUrn, subResource);
     }
@@ -157,17 +167,22 @@ public class ProposalUtils {
     return false;
   }
 
-  public static boolean isAuthorizedToAcceptTerms(@Nonnull QueryContext context, Urn targetUrn, String subResource) {
+  public static boolean isAuthorizedToAcceptTerms(
+      @Nonnull QueryContext context, Urn targetUrn, String subResource) {
 
     Boolean isTargetingSchema = subResource != null && subResource.length() > 0;
     // Decide whether the current principal should be allowed to update the Dataset.
-    // If you either have all entity privileges, or have the specific privileges required, you are authorized.
-    final DisjunctivePrivilegeGroup orPrivilegeGroups = new DisjunctivePrivilegeGroup(ImmutableList.of(
-        ALL_PRIVILEGES_GROUP,
-        new ConjunctivePrivilegeGroup(ImmutableList.of(isTargetingSchema
-            ? PoliciesConfig.MANAGE_DATASET_COL_GLOSSARY_TERMS_PRIVILEGE.getType()
-            : PoliciesConfig.MANAGE_ENTITY_GLOSSARY_TERMS_PRIVILEGE.getType()))
-    ));
+    // If you either have all entity privileges, or have the specific privileges required, you are
+    // authorized.
+    final DisjunctivePrivilegeGroup orPrivilegeGroups =
+        new DisjunctivePrivilegeGroup(
+            ImmutableList.of(
+                ALL_PRIVILEGES_GROUP,
+                new ConjunctivePrivilegeGroup(
+                    ImmutableList.of(
+                        isTargetingSchema
+                            ? PoliciesConfig.MANAGE_DATASET_COL_GLOSSARY_TERMS_PRIVILEGE.getType()
+                            : PoliciesConfig.MANAGE_ENTITY_GLOSSARY_TERMS_PRIVILEGE.getType()))));
 
     return AuthorizationUtils.isAuthorized(
         context.getAuthorizer(),
@@ -177,17 +192,22 @@ public class ProposalUtils {
         orPrivilegeGroups);
   }
 
-  public static boolean isAuthorizedToAcceptTags(@Nonnull QueryContext context, Urn targetUrn, String subResource) {
+  public static boolean isAuthorizedToAcceptTags(
+      @Nonnull QueryContext context, Urn targetUrn, String subResource) {
 
     Boolean isTargetingSchema = subResource != null && subResource.length() > 0;
     // Decide whether the current principal should be allowed to update the Dataset.
-    // If you either have all entity privileges, or have the specific privileges required, you are authorized.
-    final DisjunctivePrivilegeGroup orPrivilegeGroups = new DisjunctivePrivilegeGroup(ImmutableList.of(
-        ALL_PRIVILEGES_GROUP,
-        new ConjunctivePrivilegeGroup(ImmutableList.of(isTargetingSchema
-            ? PoliciesConfig.MANAGE_DATASET_COL_TAGS_PRIVILEGE.getType()
-            : PoliciesConfig.MANAGE_ENTITY_TAGS_PRIVILEGE.getType()))
-    ));
+    // If you either have all entity privileges, or have the specific privileges required, you are
+    // authorized.
+    final DisjunctivePrivilegeGroup orPrivilegeGroups =
+        new DisjunctivePrivilegeGroup(
+            ImmutableList.of(
+                ALL_PRIVILEGES_GROUP,
+                new ConjunctivePrivilegeGroup(
+                    ImmutableList.of(
+                        isTargetingSchema
+                            ? PoliciesConfig.MANAGE_DATASET_COL_TAGS_PRIVILEGE.getType()
+                            : PoliciesConfig.MANAGE_ENTITY_TAGS_PRIVILEGE.getType()))));
 
     return AuthorizationUtils.isAuthorized(
         context.getAuthorizer(),
@@ -197,20 +217,30 @@ public class ProposalUtils {
         orPrivilegeGroups);
   }
 
-  public static boolean isAuthorizedToAcceptDescriptionProposals(@Nonnull QueryContext context, Urn targetUrn, String subResource) {
+  public static boolean isAuthorizedToAcceptDescriptionProposals(
+      @Nonnull QueryContext context, Urn targetUrn, String subResource) {
 
-    boolean isGlossaryEntity = targetUrn.getEntityType().equals(GLOSSARY_TERM_ENTITY_NAME) || targetUrn.getEntityType().equals(GLOSSARY_NODE_ENTITY_NAME);
+    boolean isGlossaryEntity =
+        targetUrn.getEntityType().equals(GLOSSARY_TERM_ENTITY_NAME)
+            || targetUrn.getEntityType().equals(GLOSSARY_NODE_ENTITY_NAME);
     // Decide whether the current principal should be allowed to update the Dataset.
-    // If you either have all entity privileges, or have the specific privileges required, you are authorized.
-    final DisjunctivePrivilegeGroup orPrivilegeGroups = new DisjunctivePrivilegeGroup(new ArrayList<>(Arrays.asList(
-        ALL_PRIVILEGES_GROUP,
-        new ConjunctivePrivilegeGroup(List.of(PoliciesConfig.MANAGE_ENTITY_DOCS_PROPOSALS_PRIVILEGE.getType()))
-    )));
+    // If you either have all entity privileges, or have the specific privileges required, you are
+    // authorized.
+    final DisjunctivePrivilegeGroup orPrivilegeGroups =
+        new DisjunctivePrivilegeGroup(
+            new ArrayList<>(
+                Arrays.asList(
+                    ALL_PRIVILEGES_GROUP,
+                    new ConjunctivePrivilegeGroup(
+                        List.of(
+                            PoliciesConfig.MANAGE_ENTITY_DOCS_PROPOSALS_PRIVILEGE.getType())))));
 
     if (isGlossaryEntity) {
-      orPrivilegeGroups.getAuthorizedPrivilegeGroups().add(
-          new ConjunctivePrivilegeGroup(ImmutableList.of(PoliciesConfig.MANAGE_GLOSSARIES_PRIVILEGE.getType()))
-      );
+      orPrivilegeGroups
+          .getAuthorizedPrivilegeGroups()
+          .add(
+              new ConjunctivePrivilegeGroup(
+                  ImmutableList.of(PoliciesConfig.MANAGE_GLOSSARIES_PRIVILEGE.getType())));
     }
 
     // TODO: Add these new privileges to default places like superuser as well as roles
@@ -223,13 +253,16 @@ public class ProposalUtils {
         orPrivilegeGroups);
   }
 
+  public static boolean isAuthorizedToAcceptDataContractProposals(
+      @Nonnull QueryContext context, Urn targetUrn, String subResource) {
 
-  public static boolean isAuthorizedToAcceptDataContractProposals(@Nonnull QueryContext context, Urn targetUrn, String subResource) {
-
-    final DisjunctivePrivilegeGroup orPrivilegeGroups = new DisjunctivePrivilegeGroup(new ArrayList<>(Arrays.asList(
-        ALL_PRIVILEGES_GROUP,
-        new ConjunctivePrivilegeGroup(List.of(PoliciesConfig.EDIT_ENTITY_DATA_CONTRACT_PRIVILEGE.getType()))
-    )));
+    final DisjunctivePrivilegeGroup orPrivilegeGroups =
+        new DisjunctivePrivilegeGroup(
+            new ArrayList<>(
+                Arrays.asList(
+                    ALL_PRIVILEGES_GROUP,
+                    new ConjunctivePrivilegeGroup(
+                        List.of(PoliciesConfig.EDIT_ENTITY_DATA_CONTRACT_PRIVILEGE.getType())))));
 
     return AuthorizationUtils.isAuthorized(
         context.getAuthorizer(),
@@ -239,21 +272,27 @@ public class ProposalUtils {
         orPrivilegeGroups);
   }
 
-  public static boolean proposeTag(Urn creator, Urn tagUrn, Urn targetUrn, String subResource,
-      SubResourceType subResourceType, EntityService entityService, Authorizer dataHubAuthorizer) {
+  public static boolean proposeTag(
+      Urn creator,
+      Urn tagUrn,
+      Urn targetUrn,
+      String subResource,
+      SubResourceType subResourceType,
+      EntityService entityService,
+      Authorizer dataHubAuthorizer) {
     AuthorizedActors actors;
 
     EntitySpec spec = new EntitySpec(targetUrn.getEntityType(), targetUrn.toString());
     if (subResource != null && subResource.length() > 0) {
-      actors = dataHubAuthorizer.authorizedActors(PoliciesConfig.MANAGE_DATASET_COL_TAGS_PRIVILEGE.getType(),
-          Optional.of(spec));
+      actors =
+          dataHubAuthorizer.authorizedActors(
+              PoliciesConfig.MANAGE_DATASET_COL_TAGS_PRIVILEGE.getType(), Optional.of(spec));
 
       addTagToSchemaProposalsAspect(creator, tagUrn, targetUrn, subResource, entityService);
     } else {
-      actors = dataHubAuthorizer.authorizedActors(
-          PoliciesConfig.MANAGE_ENTITY_TAGS_PRIVILEGE.getType(),
-          Optional.of(spec)
-      );
+      actors =
+          dataHubAuthorizer.authorizedActors(
+              PoliciesConfig.MANAGE_ENTITY_TAGS_PRIVILEGE.getType(), Optional.of(spec));
 
       addTagToEntityProposalsAspect(creator, tagUrn, targetUrn, entityService);
     }
@@ -268,16 +307,16 @@ public class ProposalUtils {
       assignedRoles = actors.getRoles();
     }
 
-    ActionRequestSnapshot snapshot = createTagProposalRequest(
-        creator,
-        assignedUsers,
-        assignedGroups,
-        assignedRoles,
-        tagUrn,
-        targetUrn,
-        subResource,
-        subResourceType
-    );
+    ActionRequestSnapshot snapshot =
+        createTagProposalRequest(
+            creator,
+            assignedUsers,
+            assignedGroups,
+            assignedRoles,
+            tagUrn,
+            targetUrn,
+            subResource,
+            subResourceType);
 
     final AuditStamp auditStamp = new AuditStamp();
     auditStamp.setActor(creator, SetMode.IGNORE_NULL);
@@ -298,8 +337,7 @@ public class ProposalUtils {
       Urn tagUrn,
       Urn targetUrn,
       String subResource,
-      SubResourceType subResourceType
-  ) {
+      SubResourceType subResourceType) {
     final ActionRequestSnapshot result = new ActionRequestSnapshot();
 
     final UUID uuid = UUID.randomUUID();
@@ -308,35 +346,47 @@ public class ProposalUtils {
 
     final ActionRequestAspectArray aspects = new ActionRequestAspectArray();
     aspects.add(ActionRequestAspect.create(createActionRequestStatus(creator)));
-    aspects.add(ActionRequestAspect.create(createActionRequestInfo(
-        ActionRequestType.TAG_ASSOCIATION,
-        creator,
-        assignedUsers,
-        assignedGroups,
-        assignedRoles,
-        tagUrn, targetUrn, subResource, subResourceType)));
+    aspects.add(
+        ActionRequestAspect.create(
+            createActionRequestInfo(
+                ActionRequestType.TAG_ASSOCIATION,
+                creator,
+                assignedUsers,
+                assignedGroups,
+                assignedRoles,
+                tagUrn,
+                targetUrn,
+                subResource,
+                subResourceType)));
 
     result.setAspects(aspects);
 
     return result;
   }
 
-  public static boolean proposeTerm(Urn creator, Urn termUrn, Urn targetUrn, String subResource,
-      SubResourceType subResourceType, EntityService entityService, Authorizer dataHubAuthorizer) {
+  public static boolean proposeTerm(
+      Urn creator,
+      Urn termUrn,
+      Urn targetUrn,
+      String subResource,
+      SubResourceType subResourceType,
+      EntityService entityService,
+      Authorizer dataHubAuthorizer) {
     AuthorizedActors actors;
 
     if (subResource != null && subResource.length() > 0) {
       EntitySpec spec = new EntitySpec(targetUrn.getEntityType(), targetUrn.toString());
-      actors = dataHubAuthorizer.authorizedActors(PoliciesConfig.MANAGE_DATASET_COL_GLOSSARY_TERMS_PRIVILEGE.getType(),
-          Optional.of(spec));
+      actors =
+          dataHubAuthorizer.authorizedActors(
+              PoliciesConfig.MANAGE_DATASET_COL_GLOSSARY_TERMS_PRIVILEGE.getType(),
+              Optional.of(spec));
 
       addTermToSchemaProposalsAspect(creator, termUrn, targetUrn, subResource, entityService);
     } else {
       EntitySpec spec = new EntitySpec(targetUrn.getEntityType(), targetUrn.toString());
-      actors = dataHubAuthorizer.authorizedActors(
-          PoliciesConfig.MANAGE_ENTITY_GLOSSARY_TERMS_PRIVILEGE.getType(),
-          Optional.of(spec)
-      );
+      actors =
+          dataHubAuthorizer.authorizedActors(
+              PoliciesConfig.MANAGE_ENTITY_GLOSSARY_TERMS_PRIVILEGE.getType(), Optional.of(spec));
 
       addTermToEntityProposalsAspect(creator, termUrn, targetUrn, entityService);
     }
@@ -355,21 +405,30 @@ public class ProposalUtils {
     if (assignedUsers.isEmpty() && assignedGroups.isEmpty() && assignedRoles.isEmpty()) {
       // also potentially fetch the owners of the dataset's container
       Container containerAspect =
-          (Container) EntityUtils.getAspectFromEntity(targetUrn.toString(), CONTAINER_ASPECT_NAME, entityService, new Container());
+          (Container)
+              EntityUtils.getAspectFromEntity(
+                  targetUrn.toString(), CONTAINER_ASPECT_NAME, entityService, new Container());
 
       if (containerAspect.hasContainer()) {
         // the dataset has a container- fetch the container's owners
         Ownership ownership =
-            (Ownership) EntityUtils.getAspectFromEntity(containerAspect.getContainer().toString(), OWNERSHIP_ASPECT_NAME, entityService, new Ownership());
+            (Ownership)
+                EntityUtils.getAspectFromEntity(
+                    containerAspect.getContainer().toString(),
+                    OWNERSHIP_ASPECT_NAME,
+                    entityService,
+                    new Ownership());
         if (ownership.hasOwners()) {
-          List<Urn> usersToAdd = ownership.getOwners().stream()
-              .filter(owner -> owner.getOwner().getEntityType().equals(CORP_USER_ENTITY_NAME))
-              .map(owner -> owner.getOwner())
-              .collect(Collectors.toList());
-          List<Urn> groupsToAdd = ownership.getOwners().stream()
-              .filter(owner -> owner.getOwner().getEntityType().equals(CORP_GROUP_ENTITY_NAME))
-              .map(owner -> owner.getOwner())
-              .collect(Collectors.toList());
+          List<Urn> usersToAdd =
+              ownership.getOwners().stream()
+                  .filter(owner -> owner.getOwner().getEntityType().equals(CORP_USER_ENTITY_NAME))
+                  .map(owner -> owner.getOwner())
+                  .collect(Collectors.toList());
+          List<Urn> groupsToAdd =
+              ownership.getOwners().stream()
+                  .filter(owner -> owner.getOwner().getEntityType().equals(CORP_GROUP_ENTITY_NAME))
+                  .map(owner -> owner.getOwner())
+                  .collect(Collectors.toList());
 
           assignedUsers.addAll(usersToAdd);
           assignedGroups.addAll(groupsToAdd);
@@ -377,17 +436,18 @@ public class ProposalUtils {
       }
     }
 
-    // TODO: ActionRequest is using old snapshot model, this should get updated to use ingestProposal
-    ActionRequestSnapshot snapshot = createTermProposalRequest(
-        creator,
-        assignedUsers,
-        assignedGroups,
-        assignedRoles,
-        termUrn,
-        targetUrn,
-        subResource,
-        subResourceType
-    );
+    // TODO: ActionRequest is using old snapshot model, this should get updated to use
+    // ingestProposal
+    ActionRequestSnapshot snapshot =
+        createTermProposalRequest(
+            creator,
+            assignedUsers,
+            assignedGroups,
+            assignedRoles,
+            termUrn,
+            targetUrn,
+            subResource,
+            subResourceType);
 
     final AuditStamp auditStamp = new AuditStamp();
     auditStamp.setActor(creator, SetMode.IGNORE_NULL);
@@ -400,15 +460,16 @@ public class ProposalUtils {
     return true;
   }
 
-  private static void ingestEntityProposalsUpdate(Urn creator, Urn targetUrn, EntityService entityService,
-      Proposals proposals) {
-    final MetadataChangeProposal metadataChangeProposal = buildMetadataChangeProposalWithUrn(targetUrn, PROPOSALS_ASPECT_NAME, proposals);
+  private static void ingestEntityProposalsUpdate(
+      Urn creator, Urn targetUrn, EntityService entityService, Proposals proposals) {
+    final MetadataChangeProposal metadataChangeProposal =
+        buildMetadataChangeProposalWithUrn(targetUrn, PROPOSALS_ASPECT_NAME, proposals);
 
     ingestMetadataChangeProposal(creator, entityService, metadataChangeProposal);
   }
 
-  private static void ingestSchemaProposalsUpdate(Urn creator, Urn targetUrn, EntityService entityService,
-      SchemaProposals schemaProposals) {
+  private static void ingestSchemaProposalsUpdate(
+      Urn creator, Urn targetUrn, EntityService entityService, SchemaProposals schemaProposals) {
     final MetadataChangeProposal metadataChangeProposal = new MetadataChangeProposal();
     metadataChangeProposal.setAspect(GenericRecordUtils.serializeAspect(schemaProposals));
     metadataChangeProposal.setEntityUrn(targetUrn);
@@ -423,8 +484,8 @@ public class ProposalUtils {
     ingestMetadataChangeProposal(creator, entityService, metadataChangeProposal);
   }
 
-  private static void ingestMetadataChangeProposal(Urn creator, EntityService entityService,
-      MetadataChangeProposal metadataChangeProposal) {
+  private static void ingestMetadataChangeProposal(
+      Urn creator, EntityService entityService, MetadataChangeProposal metadataChangeProposal) {
     final AuditStamp auditStamp = new AuditStamp();
     auditStamp.setActor(creator, SetMode.IGNORE_NULL);
     auditStamp.setTime(System.currentTimeMillis());
@@ -437,10 +498,12 @@ public class ProposalUtils {
     }
   }
 
-  private static void addTagToEntityProposalsAspect(Urn creator, Urn tagUrn, Urn targetUrn,
-      EntityService entityService) {
+  private static void addTagToEntityProposalsAspect(
+      Urn creator, Urn tagUrn, Urn targetUrn, EntityService entityService) {
     Proposals proposals =
-        (Proposals) EntityUtils.getAspectFromEntity(targetUrn.toString(), PROPOSALS_ASPECT_NAME, entityService, new Proposals());
+        (Proposals)
+            EntityUtils.getAspectFromEntity(
+                targetUrn.toString(), PROPOSALS_ASPECT_NAME, entityService, new Proposals());
     if (!proposals.hasProposedTags()) {
       proposals.setProposedTags(new UrnArray());
     }
@@ -454,19 +517,25 @@ public class ProposalUtils {
     ingestEntityProposalsUpdate(creator, targetUrn, entityService, proposals);
   }
 
-  private static void addTagToSchemaProposalsAspect(Urn creator, Urn tagUrn, Urn targetUrn, String subResource,
-      EntityService entityService) {
+  private static void addTagToSchemaProposalsAspect(
+      Urn creator, Urn tagUrn, Urn targetUrn, String subResource, EntityService entityService) {
 
     SchemaProposals schemaProposals =
-        (SchemaProposals) EntityUtils.getAspectFromEntity(targetUrn.toString(), SCHEMA_PROPOSALS_ASPECT_NAME, entityService,
-            new SchemaProposals());
+        (SchemaProposals)
+            EntityUtils.getAspectFromEntity(
+                targetUrn.toString(),
+                SCHEMA_PROPOSALS_ASPECT_NAME,
+                entityService,
+                new SchemaProposals());
 
     if (!schemaProposals.hasSchemaProposals()) {
       schemaProposals.setSchemaProposals(new SchemaProposalArray());
     }
 
     Optional<SchemaProposal> schemaProposalOptional =
-        schemaProposals.getSchemaProposals().stream().filter(s -> s.getFieldPath().equals(subResource)).findFirst();
+        schemaProposals.getSchemaProposals().stream()
+            .filter(s -> s.getFieldPath().equals(subResource))
+            .findFirst();
 
     SchemaProposal schemaProposal;
     if (schemaProposalOptional.isPresent()) {
@@ -490,8 +559,8 @@ public class ProposalUtils {
     ingestSchemaProposalsUpdate(creator, targetUrn, entityService, schemaProposals);
   }
 
-  public static void deleteTagFromEntityOrSchemaProposalsAspect(Urn creator, Urn tagUrn, Urn targetUrn,
-      String subResource, EntityService entityService) {
+  public static void deleteTagFromEntityOrSchemaProposalsAspect(
+      Urn creator, Urn tagUrn, Urn targetUrn, String subResource, EntityService entityService) {
     if (subResource != null && subResource.length() > 0) {
       deleteTagFromSchemaProposalsAspect(creator, tagUrn, targetUrn, subResource, entityService);
     } else {
@@ -499,10 +568,12 @@ public class ProposalUtils {
     }
   }
 
-  private static void deleteTagFromEntityProposalsAspect(Urn creator, Urn tagUrn, Urn targetUrn,
-      EntityService entityService) {
+  private static void deleteTagFromEntityProposalsAspect(
+      Urn creator, Urn tagUrn, Urn targetUrn, EntityService entityService) {
     Proposals proposals =
-        (Proposals) EntityUtils.getAspectFromEntity(targetUrn.toString(), PROPOSALS_ASPECT_NAME, entityService, new Proposals());
+        (Proposals)
+            EntityUtils.getAspectFromEntity(
+                targetUrn.toString(), PROPOSALS_ASPECT_NAME, entityService, new Proposals());
     if (!proposals.hasProposedTags()) {
       return;
     }
@@ -514,17 +585,23 @@ public class ProposalUtils {
     ingestEntityProposalsUpdate(creator, targetUrn, entityService, proposals);
   }
 
-  private static void deleteTagFromSchemaProposalsAspect(Urn creator, Urn tagUrn, Urn targetUrn, String subResource,
-      EntityService entityService) {
+  private static void deleteTagFromSchemaProposalsAspect(
+      Urn creator, Urn tagUrn, Urn targetUrn, String subResource, EntityService entityService) {
     SchemaProposals schemaProposals =
-        (SchemaProposals) EntityUtils.getAspectFromEntity(targetUrn.toString(), SCHEMA_PROPOSALS_ASPECT_NAME, entityService,
-            new SchemaProposals());
+        (SchemaProposals)
+            EntityUtils.getAspectFromEntity(
+                targetUrn.toString(),
+                SCHEMA_PROPOSALS_ASPECT_NAME,
+                entityService,
+                new SchemaProposals());
     if (!schemaProposals.hasSchemaProposals()) {
       return;
     }
 
     Optional<SchemaProposal> schemaProposalOptional =
-        schemaProposals.getSchemaProposals().stream().filter(s -> s.getFieldPath().equals(subResource)).findFirst();
+        schemaProposals.getSchemaProposals().stream()
+            .filter(s -> s.getFieldPath().equals(subResource))
+            .findFirst();
     if (!schemaProposalOptional.isPresent()) {
       return;
     }
@@ -537,16 +614,19 @@ public class ProposalUtils {
     ingestSchemaProposalsUpdate(creator, targetUrn, entityService, schemaProposals);
   }
 
-  private static void addTermToEntityProposalsAspect(Urn creator, Urn termUrn, Urn targetUrn,
-      EntityService entityService) {
+  private static void addTermToEntityProposalsAspect(
+      Urn creator, Urn termUrn, Urn targetUrn, EntityService entityService) {
     Proposals proposals =
-        (Proposals) EntityUtils.getAspectFromEntity(targetUrn.toString(), PROPOSALS_ASPECT_NAME, entityService, new Proposals());
+        (Proposals)
+            EntityUtils.getAspectFromEntity(
+                targetUrn.toString(), PROPOSALS_ASPECT_NAME, entityService, new Proposals());
     if (!proposals.hasProposedGlossaryTerms()) {
       proposals.setProposedGlossaryTerms(new UrnArray());
     }
 
     UrnArray glossaryTermUrnArray = proposals.getProposedGlossaryTerms();
-    if (glossaryTermUrnArray.stream().anyMatch(proposedGlossaryTerm -> proposedGlossaryTerm.equals(termUrn))) {
+    if (glossaryTermUrnArray.stream()
+        .anyMatch(proposedGlossaryTerm -> proposedGlossaryTerm.equals(termUrn))) {
       return;
     }
     glossaryTermUrnArray.add(termUrn);
@@ -554,19 +634,25 @@ public class ProposalUtils {
     ingestEntityProposalsUpdate(creator, targetUrn, entityService, proposals);
   }
 
-  private static void addTermToSchemaProposalsAspect(Urn creator, Urn termUrn, Urn targetUrn, String subResource,
-      EntityService entityService) {
+  private static void addTermToSchemaProposalsAspect(
+      Urn creator, Urn termUrn, Urn targetUrn, String subResource, EntityService entityService) {
 
     SchemaProposals schemaProposals =
-        (SchemaProposals) EntityUtils.getAspectFromEntity(targetUrn.toString(), SCHEMA_PROPOSALS_ASPECT_NAME, entityService,
-            new SchemaProposals());
+        (SchemaProposals)
+            EntityUtils.getAspectFromEntity(
+                targetUrn.toString(),
+                SCHEMA_PROPOSALS_ASPECT_NAME,
+                entityService,
+                new SchemaProposals());
 
     if (!schemaProposals.hasSchemaProposals()) {
       schemaProposals.setSchemaProposals(new SchemaProposalArray());
     }
 
     Optional<SchemaProposal> schemaProposalOptional =
-        schemaProposals.getSchemaProposals().stream().filter(s -> s.getFieldPath().equals(subResource)).findFirst();
+        schemaProposals.getSchemaProposals().stream()
+            .filter(s -> s.getFieldPath().equals(subResource))
+            .findFirst();
 
     SchemaProposal schemaProposal;
     if (schemaProposalOptional.isPresent()) {
@@ -582,7 +668,8 @@ public class ProposalUtils {
     }
 
     UrnArray glossaryTermUrnArray = schemaProposal.getProposedSchemaGlossaryTerms();
-    if (glossaryTermUrnArray.stream().anyMatch(proposedGlossaryTerm -> proposedGlossaryTerm.equals(termUrn))) {
+    if (glossaryTermUrnArray.stream()
+        .anyMatch(proposedGlossaryTerm -> proposedGlossaryTerm.equals(termUrn))) {
       return;
     }
     glossaryTermUrnArray.add(termUrn);
@@ -590,8 +677,8 @@ public class ProposalUtils {
     ingestSchemaProposalsUpdate(creator, targetUrn, entityService, schemaProposals);
   }
 
-  public static void deleteTermFromEntityOrSchemaProposalsAspect(Urn creator, Urn termUrn, Urn targetUrn,
-      String subResource, EntityService entityService) {
+  public static void deleteTermFromEntityOrSchemaProposalsAspect(
+      Urn creator, Urn termUrn, Urn targetUrn, String subResource, EntityService entityService) {
     if (subResource != null && subResource.length() > 0) {
       deleteTermFromSchemaProposalsAspect(creator, termUrn, targetUrn, subResource, entityService);
     } else {
@@ -599,10 +686,12 @@ public class ProposalUtils {
     }
   }
 
-  private static void deleteTermFromEntityProposalsAspect(Urn creator, Urn termUrn, Urn targetUrn,
-      EntityService entityService) {
+  private static void deleteTermFromEntityProposalsAspect(
+      Urn creator, Urn termUrn, Urn targetUrn, EntityService entityService) {
     Proposals proposals =
-        (Proposals) EntityUtils.getAspectFromEntity(targetUrn.toString(), PROPOSALS_ASPECT_NAME, entityService, new Proposals());
+        (Proposals)
+            EntityUtils.getAspectFromEntity(
+                targetUrn.toString(), PROPOSALS_ASPECT_NAME, entityService, new Proposals());
     if (!proposals.hasProposedGlossaryTerms()) {
       return;
     }
@@ -614,17 +703,23 @@ public class ProposalUtils {
     ingestEntityProposalsUpdate(creator, targetUrn, entityService, proposals);
   }
 
-  private static void deleteTermFromSchemaProposalsAspect(Urn creator, Urn termUrn, Urn targetUrn, String subResource,
-      EntityService entityService) {
+  private static void deleteTermFromSchemaProposalsAspect(
+      Urn creator, Urn termUrn, Urn targetUrn, String subResource, EntityService entityService) {
     SchemaProposals schemaProposals =
-        (SchemaProposals) EntityUtils.getAspectFromEntity(targetUrn.toString(), SCHEMA_PROPOSALS_ASPECT_NAME, entityService,
-            new SchemaProposals());
+        (SchemaProposals)
+            EntityUtils.getAspectFromEntity(
+                targetUrn.toString(),
+                SCHEMA_PROPOSALS_ASPECT_NAME,
+                entityService,
+                new SchemaProposals());
     if (!schemaProposals.hasSchemaProposals()) {
       return;
     }
 
     Optional<SchemaProposal> schemaProposalOptional =
-        schemaProposals.getSchemaProposals().stream().filter(s -> s.getFieldPath().equals(subResource)).findFirst();
+        schemaProposals.getSchemaProposals().stream()
+            .filter(s -> s.getFieldPath().equals(subResource))
+            .findFirst();
     if (!schemaProposalOptional.isPresent()) {
       return;
     }
@@ -646,8 +741,7 @@ public class ProposalUtils {
       Urn termUrn,
       Urn targetUrn,
       String subResource,
-      SubResourceType subResourceType
-  ) {
+      SubResourceType subResourceType) {
     final ActionRequestSnapshot result = new ActionRequestSnapshot();
 
     final UUID uuid = UUID.randomUUID();
@@ -656,17 +750,18 @@ public class ProposalUtils {
 
     final ActionRequestAspectArray aspects = new ActionRequestAspectArray();
     aspects.add(ActionRequestAspect.create(createActionRequestStatus(creator)));
-    aspects.add(ActionRequestAspect.create(createActionRequestInfo(
-        ActionRequestType.TERM_ASSOCIATION,
-        creator,
-        assignedUsers,
-        assignedGroups,
-        assignedRoles,
-        termUrn,
-        targetUrn,
-        subResource,
-        subResourceType
-    )));
+    aspects.add(
+        ActionRequestAspect.create(
+            createActionRequestInfo(
+                ActionRequestType.TERM_ASSOCIATION,
+                creator,
+                assignedUsers,
+                assignedGroups,
+                assignedRoles,
+                termUrn,
+                targetUrn,
+                subResource,
+                subResourceType)));
 
     result.setAspects(aspects);
 
@@ -696,8 +791,7 @@ public class ProposalUtils {
       Urn labelUrn,
       Urn targetUrn,
       String subResource,
-      SubResourceType subResourceType
-  ) {
+      SubResourceType subResourceType) {
     final ActionRequestInfo info = new ActionRequestInfo();
     info.setType(type.toString());
     info.setAssignedUsers(new UrnArray(assignedUsers));
@@ -740,18 +834,15 @@ public class ProposalUtils {
       Urn actor,
       com.linkedin.datahub.graphql.generated.ActionRequestStatus status,
       ActionRequestResult result,
-      Entity proposalEntity
-  ) {
+      Entity proposalEntity) {
     Optional<ActionRequestAspect> actionRequestStatusWrapper =
-        proposalEntity.getValue()
-            .getActionRequestSnapshot()
-            .getAspects()
-            .stream()
+        proposalEntity.getValue().getActionRequestSnapshot().getAspects().stream()
             .filter(actionRequestAspect -> actionRequestAspect.isActionRequestStatus())
             .findFirst();
 
     if (!actionRequestStatusWrapper.isPresent()) {
-      actionRequestStatusWrapper = Optional.of(ActionRequestAspect.create(ProposalUtils.createActionRequestStatus(actor)));
+      actionRequestStatusWrapper =
+          Optional.of(ActionRequestAspect.create(ProposalUtils.createActionRequestStatus(actor)));
     }
 
     ActionRequestStatus statusAspect = actionRequestStatusWrapper.get().getActionRequestStatus();
@@ -780,21 +871,25 @@ public class ProposalUtils {
       Urn targetUrn,
       String subResource,
       EntityClient entityClient,
-      Authentication authentication
-  ) {
-    Filter filter = createActionRequestFilter(
-        ActionRequestType.TAG_ASSOCIATION,
-        com.linkedin.datahub.graphql.generated.ActionRequestStatus.PENDING,
-        targetUrn.toString(),
-        subResource
-    );
+      Authentication authentication) {
+    Filter filter =
+        createActionRequestFilter(
+            ActionRequestType.TAG_ASSOCIATION,
+            com.linkedin.datahub.graphql.generated.ActionRequestStatus.PENDING,
+            targetUrn.toString(),
+            subResource);
 
-    return getActionRequestInfosFromFilter(filter, authentication, entityClient).filter(actionRequestInfo ->
-        (subResource != null ? actionRequestInfo.getSubResource().equals(subResource) : !actionRequestInfo.hasSubResource())
-            && actionRequestInfo.getResource().equals(targetUrn.toString())
-            && actionRequestInfo.getParams().hasTagProposal()
-            && actionRequestInfo.getParams().getTagProposal().getTag().equals(labelUrn)
-    ).count() > 0;
+    return getActionRequestInfosFromFilter(filter, authentication, entityClient)
+            .filter(
+                actionRequestInfo ->
+                    (subResource != null
+                            ? actionRequestInfo.getSubResource().equals(subResource)
+                            : !actionRequestInfo.hasSubResource())
+                        && actionRequestInfo.getResource().equals(targetUrn.toString())
+                        && actionRequestInfo.getParams().hasTagProposal()
+                        && actionRequestInfo.getParams().getTagProposal().getTag().equals(labelUrn))
+            .count()
+        > 0;
   }
 
   @SneakyThrows
@@ -803,60 +898,62 @@ public class ProposalUtils {
       Urn targetUrn,
       String subResource,
       EntityClient entityClient,
-      Authentication authentication
-  ) {
-    Filter filter = createActionRequestFilter(
-        ActionRequestType.TERM_ASSOCIATION,
-        com.linkedin.datahub.graphql.generated.ActionRequestStatus.PENDING,
-        targetUrn.toString(),
-        subResource
-    );
+      Authentication authentication) {
+    Filter filter =
+        createActionRequestFilter(
+            ActionRequestType.TERM_ASSOCIATION,
+            com.linkedin.datahub.graphql.generated.ActionRequestStatus.PENDING,
+            targetUrn.toString(),
+            subResource);
 
-    return getActionRequestInfosFromFilter(filter, authentication, entityClient).filter(actionRequestInfo ->
-        (subResource != null ? actionRequestInfo.getSubResource().equals(subResource) : !actionRequestInfo.hasSubResource())
-            && actionRequestInfo.getResource().equals(targetUrn.toString())
-            && actionRequestInfo.getParams().hasGlossaryTermProposal()
-            && actionRequestInfo.getParams().getGlossaryTermProposal().getGlossaryTerm().equals(labelUrn)
-    ).count() > 0;
+    return getActionRequestInfosFromFilter(filter, authentication, entityClient)
+            .filter(
+                actionRequestInfo ->
+                    (subResource != null
+                            ? actionRequestInfo.getSubResource().equals(subResource)
+                            : !actionRequestInfo.hasSubResource())
+                        && actionRequestInfo.getResource().equals(targetUrn.toString())
+                        && actionRequestInfo.getParams().hasGlossaryTermProposal()
+                        && actionRequestInfo
+                            .getParams()
+                            .getGlossaryTermProposal()
+                            .getGlossaryTerm()
+                            .equals(labelUrn))
+            .count()
+        > 0;
   }
 
   public static Stream<ActionRequestInfo> getActionRequestInfosFromFilter(
-      Filter filter,
-      Authentication authentication,
-      EntityClient entityClient
-  ) throws RemoteInvocationException {
-    final SearchResult searchResult = entityClient.filter(
-        ACTION_REQUEST_ENTITY_NAME,
-        filter,
-        null,
-        0,
-        20,
-        authentication);
-    final Map<Urn, Entity> entities = entityClient.batchGet(new HashSet<>(searchResult.getEntities()
-        .stream().map(result -> result.getEntity()).collect(Collectors.toList())), authentication);
+      Filter filter, Authentication authentication, EntityClient entityClient)
+      throws RemoteInvocationException {
+    final SearchResult searchResult =
+        entityClient.filter(ACTION_REQUEST_ENTITY_NAME, filter, null, 0, 20, authentication);
+    final Map<Urn, Entity> entities =
+        entityClient.batchGet(
+            new HashSet<>(
+                searchResult.getEntities().stream()
+                    .map(result -> result.getEntity())
+                    .collect(Collectors.toList())),
+            authentication);
 
-    return entities.values()
-        .stream()
-        .map(entity -> entity.getValue()
-            .getActionRequestSnapshot()
-            .getAspects()
-            .stream()
-            .filter(aspect -> aspect.isActionRequestInfo())
-            .map(aspect -> aspect.getActionRequestInfo())
-            .findFirst())
+    return entities.values().stream()
+        .map(
+            entity ->
+                entity.getValue().getActionRequestSnapshot().getAspects().stream()
+                    .filter(aspect -> aspect.isActionRequestInfo())
+                    .map(aspect -> aspect.getActionRequestInfo())
+                    .findFirst())
         .filter(maybeActionRequestInfo -> maybeActionRequestInfo.isPresent())
         .map(maybeActionRequestInfo -> maybeActionRequestInfo.get());
   }
 
   public static Boolean isTagAlreadyAttachedToTarget(
-      Urn labelUrn,
-      Urn targetUrn,
-      String subResource,
-      EntityService entityService
-  ) {
+      Urn labelUrn, Urn targetUrn, String subResource, EntityService entityService) {
     if (subResource == null || subResource.equals("")) {
       com.linkedin.common.GlobalTags tags =
-          (com.linkedin.common.GlobalTags) EntityUtils.getAspectFromEntity(targetUrn.toString(), GLOBAL_TAGS_ASPECT_NAME, entityService, new GlobalTags());
+          (com.linkedin.common.GlobalTags)
+              EntityUtils.getAspectFromEntity(
+                  targetUrn.toString(), GLOBAL_TAGS_ASPECT_NAME, entityService, new GlobalTags());
 
       if (!tags.hasTags()) {
         return false;
@@ -865,9 +962,14 @@ public class ProposalUtils {
       return doesTagsListContainTag(tags, labelUrn);
     } else {
       com.linkedin.schema.EditableSchemaMetadata editableSchemaMetadata =
-          (com.linkedin.schema.EditableSchemaMetadata) EntityUtils.getAspectFromEntity(
-              targetUrn.toString(), EDITABLE_SCHEMA_METADATA_ASPECT_NAME, entityService, new EditableSchemaMetadata());
-      EditableSchemaFieldInfo editableFieldInfo = getFieldInfoFromSchema(editableSchemaMetadata, subResource);
+          (com.linkedin.schema.EditableSchemaMetadata)
+              EntityUtils.getAspectFromEntity(
+                  targetUrn.toString(),
+                  EDITABLE_SCHEMA_METADATA_ASPECT_NAME,
+                  entityService,
+                  new EditableSchemaMetadata());
+      EditableSchemaFieldInfo editableFieldInfo =
+          getFieldInfoFromSchema(editableSchemaMetadata, subResource);
 
       if (!editableFieldInfo.hasGlobalTags()) {
         return false;
@@ -878,16 +980,15 @@ public class ProposalUtils {
   }
 
   public static Boolean isTermAlreadyAttachedToTarget(
-      Urn labelUrn,
-      Urn targetUrn,
-      String subResource,
-      EntityService entityService
-  ) {
+      Urn labelUrn, Urn targetUrn, String subResource, EntityService entityService) {
     if (subResource == null || subResource.equals("")) {
       com.linkedin.common.GlossaryTerms terms =
-          (com.linkedin.common.GlossaryTerms) EntityUtils.getAspectFromEntity(
-              targetUrn.toString(), GLOSSARY_TERMS_ASPECT_NAME, entityService, new GlossaryTerms()
-          );
+          (com.linkedin.common.GlossaryTerms)
+              EntityUtils.getAspectFromEntity(
+                  targetUrn.toString(),
+                  GLOSSARY_TERMS_ASPECT_NAME,
+                  entityService,
+                  new GlossaryTerms());
 
       if (!terms.hasTerms()) {
         return false;
@@ -896,10 +997,15 @@ public class ProposalUtils {
       return doesTermsListContainTerm(terms, labelUrn);
     } else {
       com.linkedin.schema.EditableSchemaMetadata editableSchemaMetadata =
-          (com.linkedin.schema.EditableSchemaMetadata) EntityUtils.getAspectFromEntity(
-              targetUrn.toString(), GLOSSARY_TERMS_ASPECT_NAME, entityService, new EditableSchemaMetadata());
+          (com.linkedin.schema.EditableSchemaMetadata)
+              EntityUtils.getAspectFromEntity(
+                  targetUrn.toString(),
+                  GLOSSARY_TERMS_ASPECT_NAME,
+                  entityService,
+                  new EditableSchemaMetadata());
 
-      EditableSchemaFieldInfo editableFieldInfo = getFieldInfoFromSchema(editableSchemaMetadata, subResource);
+      EditableSchemaFieldInfo editableFieldInfo =
+          getFieldInfoFromSchema(editableSchemaMetadata, subResource);
       if (!editableFieldInfo.hasGlossaryTerms()) {
         return false;
       }
@@ -923,15 +1029,15 @@ public class ProposalUtils {
     }
 
     TagAssociationArray tagAssociationArray = tags.getTags();
-    return tagAssociationArray.stream().anyMatch(association -> association.getTag().equals(tagUrn));
+    return tagAssociationArray.stream()
+        .anyMatch(association -> association.getTag().equals(tagUrn));
   }
 
   public static Filter createActionRequestFilter(
       final @Nullable ActionRequestType type,
       final @Nullable com.linkedin.datahub.graphql.generated.ActionRequestStatus status,
       final @Nonnull String targetUrn,
-      final @Nullable String targetSubresource
-  ) {
+      final @Nullable String targetSubresource) {
     final Filter filter = new Filter();
     final ConjunctiveCriterionArray disjunction = new ConjunctiveCriterionArray();
 
@@ -955,5 +1061,5 @@ public class ProposalUtils {
     return filter;
   }
 
-  private ProposalUtils() { }
+  private ProposalUtils() {}
 }

@@ -1,18 +1,23 @@
 package com.linkedin.gms.factory.search;
 
+import static com.linkedin.gms.factory.common.IndexConventionFactory.INDEX_CONVENTION_BEAN;
+
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import com.linkedin.gms.factory.common.GitVersionFactory;
 import com.linkedin.gms.factory.common.IndexConventionFactory;
 import com.linkedin.gms.factory.common.RestHighLevelClientFactory;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
-import com.linkedin.metadata.spring.YamlPropertySourceFactory;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
+import com.linkedin.metadata.spring.YamlPropertySourceFactory;
+import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.version.GitVersion;
+import java.util.Map;
+import java.util.Optional;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-
-import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import org.opensearch.client.RestHighLevelClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -21,14 +26,6 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.PropertySource;
-
-import java.util.Map;
-import java.util.Optional;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
-
-import static com.linkedin.gms.factory.common.IndexConventionFactory.INDEX_CONVENTION_BEAN;
-
 
 @Configuration
 @Import({RestHighLevelClientFactory.class, IndexConventionFactory.class, GitVersionFactory.class})
@@ -66,30 +63,41 @@ public class ElasticSearchIndexBuilderFactory {
   @Bean(name = "elasticSearchIndexSettingsOverrides")
   @Nonnull
   protected Map<String, Map<String, String>> getIndexSettingsOverrides(
-          @Qualifier(INDEX_CONVENTION_BEAN) IndexConvention indexConvention) {
+      @Qualifier(INDEX_CONVENTION_BEAN) IndexConvention indexConvention) {
 
     return Stream.concat(
             parseIndexSettingsMap(indexSettingOverrides).entrySet().stream()
-                    .map(e -> Map.entry(indexConvention.getIndexName(e.getKey()), e.getValue())),
-                    parseIndexSettingsMap(entityIndexSettingOverrides).entrySet().stream()
-                            .map(e -> Map.entry(indexConvention.getEntityIndexName(e.getKey()), e.getValue())))
-            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+                .map(e -> Map.entry(indexConvention.getIndexName(e.getKey()), e.getValue())),
+            parseIndexSettingsMap(entityIndexSettingOverrides).entrySet().stream()
+                .map(e -> Map.entry(indexConvention.getEntityIndexName(e.getKey()), e.getValue())))
+        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
   }
 
   @Bean(name = "elasticSearchIndexBuilder")
   @Nonnull
   protected ESIndexBuilder getInstance(
-          @Qualifier("elasticSearchIndexSettingsOverrides") Map<String, Map<String, String>> overrides,
-          final ConfigurationProvider configurationProvider, final GitVersion gitVersion) {
-    return new ESIndexBuilder(searchClient, numShards, numReplicas, numRetries, refreshIntervalSeconds, overrides,
-            enableSettingsReindex, enableMappingsReindex, configurationProvider.getElasticSearch(), gitVersion);
+      @Qualifier("elasticSearchIndexSettingsOverrides") Map<String, Map<String, String>> overrides,
+      final ConfigurationProvider configurationProvider,
+      final GitVersion gitVersion) {
+    return new ESIndexBuilder(
+        searchClient,
+        numShards,
+        numReplicas,
+        numRetries,
+        refreshIntervalSeconds,
+        overrides,
+        enableSettingsReindex,
+        enableMappingsReindex,
+        configurationProvider.getElasticSearch(),
+        gitVersion);
   }
 
   @Nonnull
   private static Map<String, Map<String, String>> parseIndexSettingsMap(@Nullable String json) {
-    Optional<Map<String, Map<String, String>>> parseOpt = Optional.ofNullable(
-            new Gson().fromJson(json,
-                    new TypeToken<Map<String, Map<String, String>>>() { }.getType()));
+    Optional<Map<String, Map<String, String>>> parseOpt =
+        Optional.ofNullable(
+            new Gson()
+                .fromJson(json, new TypeToken<Map<String, Map<String, String>>>() {}.getType()));
     return parseOpt.orElse(Map.of());
   }
 }

@@ -12,7 +12,6 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 
-
 @Configuration
 @Import({GraphServiceFactory.class, EntityServiceFactory.class})
 public class SiblingGraphServiceFactory {

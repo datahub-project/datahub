@@ -1,5 +1,8 @@
 package com.linkedin.datahub.graphql.resolvers.assertion;
 
+import static com.linkedin.datahub.graphql.TestUtils.*;
+import static org.testng.Assert.*;
+
 import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -30,64 +33,63 @@ import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
-import com.linkedin.metadata.service.AssertionService;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.service.AssertionService;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.Collections;
 import java.util.concurrent.CompletionException;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
-import static com.linkedin.datahub.graphql.TestUtils.*;
-import static org.testng.Assert.*;
-
-
 public class UpdateFreshnessAssertionResolverTest {
 
-  private static final Urn TEST_DATASET_URN = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,name,PROD)");
+  private static final Urn TEST_DATASET_URN =
+      UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,name,PROD)");
   private static final Urn TEST_ASSERTION_URN = UrnUtils.getUrn("urn:li:assertion:test");
 
-  private static final UpdateFreshnessAssertionInput TEST_INPUT = new UpdateFreshnessAssertionInput(
-      new FreshnessAssertionScheduleInput(
-          FreshnessAssertionScheduleType.CRON,
-          new FreshnessCronScheduleInput("* * * * *", "America / Los Angeles", null),
-          null
-      ),
-      new DatasetFilterInput(
-          DatasetFilterType.SQL,
-          "some_condition = True"
-      ),
-      new AssertionActionsInput(
-          ImmutableList.of(new AssertionActionInput(AssertionActionType.RESOLVE_INCIDENT)),
-          ImmutableList.of(new AssertionActionInput(AssertionActionType.RAISE_INCIDENT))
-      )
-  );
+  private static final UpdateFreshnessAssertionInput TEST_INPUT =
+      new UpdateFreshnessAssertionInput(
+          new FreshnessAssertionScheduleInput(
+              FreshnessAssertionScheduleType.CRON,
+              new FreshnessCronScheduleInput("* * * * *", "America / Los Angeles", null),
+              null),
+          new DatasetFilterInput(DatasetFilterType.SQL, "some_condition = True"),
+          new AssertionActionsInput(
+              ImmutableList.of(new AssertionActionInput(AssertionActionType.RESOLVE_INCIDENT)),
+              ImmutableList.of(new AssertionActionInput(AssertionActionType.RAISE_INCIDENT))));
 
-  private static final AssertionInfo TEST_ASSERTION_INFO = new AssertionInfo()
-      .setType(AssertionType.FRESHNESS)
-      .setFreshnessAssertion(
-          new FreshnessAssertionInfo()
-              .setEntity(TEST_DATASET_URN)
-              .setType(FreshnessAssertionType.DATASET_CHANGE)
-              .setSchedule(new FreshnessAssertionSchedule()
-                  .setType(com.linkedin.assertion.FreshnessAssertionScheduleType.CRON)
-                  .setCron(new FreshnessCronSchedule()
-                      .setCron("* * * * *")
-                      .setTimezone("America / Los Angeles")
-                  )
-              )
-              .setFilter(new DatasetFilter()
-                  .setType(com.linkedin.dataset.DatasetFilterType.SQL)
-                  .setSql("some_condition = True")
-              )
-      );
+  private static final AssertionInfo TEST_ASSERTION_INFO =
+      new AssertionInfo()
+          .setType(AssertionType.FRESHNESS)
+          .setFreshnessAssertion(
+              new FreshnessAssertionInfo()
+                  .setEntity(TEST_DATASET_URN)
+                  .setType(FreshnessAssertionType.DATASET_CHANGE)
+                  .setSchedule(
+                      new FreshnessAssertionSchedule()
+                          .setType(com.linkedin.assertion.FreshnessAssertionScheduleType.CRON)
+                          .setCron(
+                              new FreshnessCronSchedule()
+                                  .setCron("* * * * *")
+                                  .setTimezone("America / Los Angeles")))
+                  .setFilter(
+                      new DatasetFilter()
+                          .setType(com.linkedin.dataset.DatasetFilterType.SQL)
+                          .setSql("some_condition = True")));
 
-  private static final AssertionActions TEST_ASSERTION_ACTIONS = new AssertionActions()
-      .setOnSuccess(new AssertionActionArray(ImmutableList.of(new AssertionAction().setType(
-          com.linkedin.assertion.AssertionActionType.RESOLVE_INCIDENT))))
-      .setOnFailure(new AssertionActionArray(ImmutableList.of(new AssertionAction().setType(
-          com.linkedin.assertion.AssertionActionType.RAISE_INCIDENT))));
+  private static final AssertionActions TEST_ASSERTION_ACTIONS =
+      new AssertionActions()
+          .setOnSuccess(
+              new AssertionActionArray(
+                  ImmutableList.of(
+                      new AssertionAction()
+                          .setType(com.linkedin.assertion.AssertionActionType.RESOLVE_INCIDENT))))
+          .setOnFailure(
+              new AssertionActionArray(
+                  ImmutableList.of(
+                      new AssertionAction()
+                          .setType(com.linkedin.assertion.AssertionActionType.RAISE_INCIDENT))));
 
   @Test
   public void testGetSuccess() throws Exception {
@@ -109,12 +111,13 @@ public class UpdateFreshnessAssertionResolverTest {
     assertEquals(assertion.getUrn(), TEST_ASSERTION_URN.toString());
 
     // Validate that we created the assertion
-    Mockito.verify(mockService, Mockito.times(1)).updateFreshnessAssertion(
-        Mockito.eq(TEST_ASSERTION_URN),
-        Mockito.eq(TEST_ASSERTION_INFO.getFreshnessAssertion().getSchedule()),
-        Mockito.eq(TEST_ASSERTION_INFO.getFreshnessAssertion().getFilter()),
-        Mockito.eq(TEST_ASSERTION_ACTIONS),
-        Mockito.any(Authentication.class));
+    Mockito.verify(mockService, Mockito.times(1))
+        .updateFreshnessAssertion(
+            Mockito.eq(TEST_ASSERTION_URN),
+            Mockito.eq(TEST_ASSERTION_INFO.getFreshnessAssertion().getSchedule()),
+            Mockito.eq(TEST_ASSERTION_INFO.getFreshnessAssertion().getFilter()),
+            Mockito.eq(TEST_ASSERTION_ACTIONS),
+            Mockito.any(Authentication.class));
   }
 
   @Test
@@ -132,24 +135,22 @@ public class UpdateFreshnessAssertionResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
-    Mockito.verify(mockClient, Mockito.times(0)).ingestProposal(
-        Mockito.any(),
-        Mockito.any(Authentication.class));
+    Mockito.verify(mockClient, Mockito.times(0))
+        .ingestProposal(Mockito.any(), Mockito.any(Authentication.class));
   }
-
 
   @Test
   public void testGetAssertionDoesNotExistException() throws Exception {
     // Update resolver
     AssertionService mockService = Mockito.mock(AssertionService.class);
-    Mockito.when(mockService.getAssertionEntityResponse(
-        Mockito.eq(TEST_ASSERTION_URN),
-        Mockito.any(Authentication.class)
-    )).thenReturn(new EntityResponse()
-        .setAspects(new EnvelopedAspectMap(Collections.emptyMap()))
-        .setEntityName(Constants.ASSERTION_ENTITY_NAME)
-        .setUrn(TEST_ASSERTION_URN)
-    );
+    Mockito.when(
+            mockService.getAssertionEntityResponse(
+                Mockito.eq(TEST_ASSERTION_URN), Mockito.any(Authentication.class)))
+        .thenReturn(
+            new EntityResponse()
+                .setAspects(new EnvelopedAspectMap(Collections.emptyMap()))
+                .setEntityName(Constants.ASSERTION_ENTITY_NAME)
+                .setUrn(TEST_ASSERTION_URN));
 
     UpdateFreshnessAssertionResolver resolver = new UpdateFreshnessAssertionResolver(mockService);
 
@@ -163,18 +164,19 @@ public class UpdateFreshnessAssertionResolverTest {
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
   }
 
-
   @Test
   public void testGetAssertionServiceException() throws Exception {
     // Update resolver
     AssertionService mockService = Mockito.mock(AssertionService.class);
-    Mockito.doThrow(RuntimeException.class).when(mockService).createFreshnessAssertion(
-        Mockito.any(),
-        Mockito.any(),
-        Mockito.any(),
-        Mockito.any(),
-        Mockito.any(),
-        Mockito.any(Authentication.class));
+    Mockito.doThrow(RuntimeException.class)
+        .when(mockService)
+        .createFreshnessAssertion(
+            Mockito.any(),
+            Mockito.any(),
+            Mockito.any(),
+            Mockito.any(),
+            Mockito.any(),
+            Mockito.any(Authentication.class));
 
     UpdateFreshnessAssertionResolver resolver = new UpdateFreshnessAssertionResolver(mockService);
 
@@ -190,33 +192,33 @@ public class UpdateFreshnessAssertionResolverTest {
 
   private AssertionService initMockService() {
     AssertionService service = Mockito.mock(AssertionService.class);
-    Mockito.when(service.updateFreshnessAssertion(
-        Mockito.any(),
-        Mockito.any(),
-        Mockito.any(),
-        Mockito.any(),
-        Mockito.any(Authentication.class)
-    )).thenReturn(TEST_ASSERTION_URN);
+    Mockito.when(
+            service.updateFreshnessAssertion(
+                Mockito.any(),
+                Mockito.any(),
+                Mockito.any(),
+                Mockito.any(),
+                Mockito.any(Authentication.class)))
+        .thenReturn(TEST_ASSERTION_URN);
 
-    Mockito.when(service.getAssertionEntityResponse(
-        Mockito.eq(TEST_ASSERTION_URN),
-        Mockito.any(Authentication.class)
-    )).thenReturn(new EntityResponse()
-        .setAspects(new EnvelopedAspectMap(
-            ImmutableMap.of(
-                Constants.ASSERTION_INFO_ASPECT_NAME,
-                new EnvelopedAspect().setValue(new Aspect(TEST_ASSERTION_INFO.data())),
-                Constants.ASSERTION_ACTIONS_ASPECT_NAME,
-                new EnvelopedAspect().setValue(new Aspect(TEST_ASSERTION_ACTIONS.data()))
-            )
-        ))
-        .setEntityName(Constants.ASSERTION_ENTITY_NAME)
-        .setUrn(TEST_ASSERTION_URN)
-    );
+    Mockito.when(
+            service.getAssertionEntityResponse(
+                Mockito.eq(TEST_ASSERTION_URN), Mockito.any(Authentication.class)))
+        .thenReturn(
+            new EntityResponse()
+                .setAspects(
+                    new EnvelopedAspectMap(
+                        ImmutableMap.of(
+                            Constants.ASSERTION_INFO_ASPECT_NAME,
+                            new EnvelopedAspect().setValue(new Aspect(TEST_ASSERTION_INFO.data())),
+                            Constants.ASSERTION_ACTIONS_ASPECT_NAME,
+                            new EnvelopedAspect()
+                                .setValue(new Aspect(TEST_ASSERTION_ACTIONS.data())))))
+                .setEntityName(Constants.ASSERTION_ENTITY_NAME)
+                .setUrn(TEST_ASSERTION_URN));
 
-    Mockito.when(service.getAssertionInfo(
-        Mockito.eq(TEST_ASSERTION_URN)
-    )).thenReturn(TEST_ASSERTION_INFO);
+    Mockito.when(service.getAssertionInfo(Mockito.eq(TEST_ASSERTION_URN)))
+        .thenReturn(TEST_ASSERTION_INFO);
 
     return service;
   }

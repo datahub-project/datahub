@@ -14,10 +14,9 @@ import com.linkedin.metadata.service.MonitorService;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
-
-import java.util.concurrent.CompletableFuture;
 
 @Slf4j
 public class TestAssertionResolver implements DataFetcher<CompletableFuture<AssertionResult>> {
@@ -29,57 +28,65 @@ public class TestAssertionResolver implements DataFetcher<CompletableFuture<Asse
   }
 
   @Override
-  public CompletableFuture<AssertionResult> get(final DataFetchingEnvironment environment) throws Exception {
+  public CompletableFuture<AssertionResult> get(final DataFetchingEnvironment environment)
+      throws Exception {
     final QueryContext context = environment.getContext();
-    final TestAssertionInput
-        input = ResolverUtils.bindArgument(environment.getArgument("input"), TestAssertionInput.class);
-    
+    final TestAssertionInput input =
+        ResolverUtils.bindArgument(environment.getArgument("input"), TestAssertionInput.class);
+
     final Urn asserteeUrn = UrnUtils.getUrn(AssertionUtils.getAsserteeUrnFromTestInput(input));
     final Urn connectionUrn = UrnUtils.getUrn(input.getConnectionUrn());
 
-    return CompletableFuture.supplyAsync(() -> {
-      if (isAuthorizedToTestAssertion(asserteeUrn, input, context)) {
-        switch (input.getType()) {
-          case FRESHNESS:
-            final com.linkedin.assertion.AssertionResult freshnessResult = _monitorService.testFreshnessAssertion(
-                asserteeUrn,
-                connectionUrn,
-                FreshnessAssertionUtils.createFreshnessAssertionInfo(input.getFreshnessTestInput()),
-                MonitorUtils.createAssertionEvaluationParameters(input.getParameters())
-            );
-            return AssertionRunEventMapper.mapResult(freshnessResult);
-          case VOLUME:
-            final com.linkedin.assertion.AssertionResult volumeResult = _monitorService.testVolumeAssertion(
-                asserteeUrn,
-                connectionUrn,
-                VolumeAssertionUtils.createVolumeAssertionInfo(input.getVolumeTestInput()),
-                MonitorUtils.createAssertionEvaluationParameters(input.getParameters())
-            );
-            return AssertionRunEventMapper.mapResult(volumeResult);
-          case SQL:
-            final com.linkedin.assertion.AssertionResult sqlResult = _monitorService.testSqlAssertion(
-                asserteeUrn,
-                connectionUrn,
-                SqlAssertionUtils.createSqlAssertionInfo(input.getSqlTestInput())
-            );
-            return AssertionRunEventMapper.mapResult(sqlResult);
-          case FIELD:
-            final com.linkedin.assertion.AssertionResult fieldResult = _monitorService.testFieldAssertion(
-                asserteeUrn,
-                connectionUrn,
-                FieldAssertionUtils.createFieldAssertionInfo(input.getFieldTestInput()),
-                MonitorUtils.createAssertionEvaluationParameters(input.getParameters())
-            );
-            return AssertionRunEventMapper.mapResult(fieldResult);
-          default:
-            throw new IllegalArgumentException("Unsupported assertion type: " + input.getType());
-        }
-      }
-      throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
-    });
+    return CompletableFuture.supplyAsync(
+        () -> {
+          if (isAuthorizedToTestAssertion(asserteeUrn, input, context)) {
+            switch (input.getType()) {
+              case FRESHNESS:
+                final com.linkedin.assertion.AssertionResult freshnessResult =
+                    _monitorService.testFreshnessAssertion(
+                        asserteeUrn,
+                        connectionUrn,
+                        FreshnessAssertionUtils.createFreshnessAssertionInfo(
+                            input.getFreshnessTestInput()),
+                        MonitorUtils.createAssertionEvaluationParameters(input.getParameters()));
+                return AssertionRunEventMapper.mapResult(freshnessResult);
+              case VOLUME:
+                final com.linkedin.assertion.AssertionResult volumeResult =
+                    _monitorService.testVolumeAssertion(
+                        asserteeUrn,
+                        connectionUrn,
+                        VolumeAssertionUtils.createVolumeAssertionInfo(input.getVolumeTestInput()),
+                        MonitorUtils.createAssertionEvaluationParameters(input.getParameters()));
+                return AssertionRunEventMapper.mapResult(volumeResult);
+              case SQL:
+                final com.linkedin.assertion.AssertionResult sqlResult =
+                    _monitorService.testSqlAssertion(
+                        asserteeUrn,
+                        connectionUrn,
+                        SqlAssertionUtils.createSqlAssertionInfo(input.getSqlTestInput()));
+                return AssertionRunEventMapper.mapResult(sqlResult);
+              case FIELD:
+                final com.linkedin.assertion.AssertionResult fieldResult =
+                    _monitorService.testFieldAssertion(
+                        asserteeUrn,
+                        connectionUrn,
+                        FieldAssertionUtils.createFieldAssertionInfo(input.getFieldTestInput()),
+                        MonitorUtils.createAssertionEvaluationParameters(input.getParameters()));
+                return AssertionRunEventMapper.mapResult(fieldResult);
+              default:
+                throw new IllegalArgumentException(
+                    "Unsupported assertion type: " + input.getType());
+            }
+          }
+          throw new AuthorizationException(
+              "Unauthorized to perform this action. Please contact your DataHub administrator.");
+        });
   }
 
-  private boolean isAuthorizedToTestAssertion(@Nonnull final Urn asserteeUrn, @Nonnull final TestAssertionInput input, @Nonnull final QueryContext context) {
+  private boolean isAuthorizedToTestAssertion(
+      @Nonnull final Urn asserteeUrn,
+      @Nonnull final TestAssertionInput input,
+      @Nonnull final QueryContext context) {
     // We must be able to both create assertions + monitors.
     if (AssertionUtils.isAuthorizedToEditAssertionFromAssertee(context, asserteeUrn)) {
       // Check whether we are allowed to test sensitive monitor types (Custom SQL).

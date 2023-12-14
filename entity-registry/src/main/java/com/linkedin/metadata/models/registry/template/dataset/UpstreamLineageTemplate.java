@@ -9,11 +9,11 @@ import com.linkedin.metadata.models.registry.template.ArrayMergingTemplate;
 import java.util.Collections;
 import javax.annotation.Nonnull;
 
-
 public class UpstreamLineageTemplate implements ArrayMergingTemplate<UpstreamLineage> {
 
   private static final String UPSTREAMS_FIELD_NAME = "upstreams";
   private static final String DATASET_FIELD_NAME = "dataset";
+
   // TODO: Fine Grained Lineages not patchable at this time, they don't have a well established key
 
   @Override
@@ -42,12 +42,14 @@ public class UpstreamLineageTemplate implements ArrayMergingTemplate<UpstreamLin
   @Nonnull
   @Override
   public JsonNode transformFields(JsonNode baseNode) {
-    return arrayFieldToMap(baseNode, UPSTREAMS_FIELD_NAME, Collections.singletonList(DATASET_FIELD_NAME));
+    return arrayFieldToMap(
+        baseNode, UPSTREAMS_FIELD_NAME, Collections.singletonList(DATASET_FIELD_NAME));
   }
 
   @Nonnull
   @Override
   public JsonNode rebaseFields(JsonNode patched) {
-    return transformedMapToArray(patched, UPSTREAMS_FIELD_NAME, Collections.singletonList(DATASET_FIELD_NAME));
+    return transformedMapToArray(
+        patched, UPSTREAMS_FIELD_NAME, Collections.singletonList(DATASET_FIELD_NAME));
   }
 }

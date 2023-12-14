@@ -8,10 +8,7 @@ import com.linkedin.metadata.test.exception.InvalidOperandException;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 
-
-/**
- * and operation evaluator. Checks whether any of input predicates returns true
- */
+/** and operation evaluator. Checks whether any of input predicates returns true */
 @Slf4j
 public class AndEvaluator extends BaseOperatorEvaluator {
 
@@ -22,24 +19,23 @@ public class AndEvaluator extends BaseOperatorEvaluator {
 
   @Override
   public void validate(Operands operands) throws InvalidOperandException {
-    if (!operands.get()
-        .stream()
+    if (!operands.get().stream()
         .allMatch(operand -> BooleanType.get().equals(operand.getExpression().valueType()))) {
-      throw new InvalidOperandException(
-          "and operator requires boolean input operands");
+      throw new InvalidOperandException("and operator requires boolean input operands");
     }
   }
 
   @Override
   public Object evaluate(ResolvedOperands resolvedOperands) throws InvalidOperandException {
 
-    log.debug(String.format("Invoking 'and' operator with operands %s", resolvedOperands.get()
-        .stream()
-        .map(op -> op.getExpression().getValue())
-        .collect(Collectors.toList())));
+    log.debug(
+        String.format(
+            "Invoking 'and' operator with operands %s",
+            resolvedOperands.get().stream()
+                .map(op -> op.getExpression().getValue())
+                .collect(Collectors.toList())));
 
-    return resolvedOperands.get()
-        .stream()
+    return resolvedOperands.get().stream()
         .allMatch(operand -> Boolean.TRUE.equals(operand.getExpression().getValue()));
   }
 }

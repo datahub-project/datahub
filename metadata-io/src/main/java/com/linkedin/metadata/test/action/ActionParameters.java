@@ -5,12 +5,9 @@ import java.util.Map;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 
-
 @Data
 @RequiredArgsConstructor
 public class ActionParameters {
-  /**
-   * The raw parameters provided to an {@link Action}.
-   */
+  /** The raw parameters provided to an {@link Action}. */
   private final Map<String, List<String>> params;
 }

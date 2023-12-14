@@ -15,7 +15,6 @@ import org.opensearch.client.indices.GetIndexResponse;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.index.reindex.DeleteByQueryRequest;
 
-
 public class DeleteSearchIndicesStep implements UpgradeStep {
 
   private final String _deletePattern;
@@ -43,11 +42,14 @@ public class DeleteSearchIndicesStep implements UpgradeStep {
     return (context) -> {
       DeleteIndexRequest request = new DeleteIndexRequest(_deletePattern);
       String[] indices = getIndices(context);
-      DeleteByQueryRequest deleteRequest = new DeleteByQueryRequest(indices).setQuery(QueryBuilders.matchAllQuery());
+      DeleteByQueryRequest deleteRequest =
+          new DeleteByQueryRequest(indices).setQuery(QueryBuilders.matchAllQuery());
       try {
         _searchClient.deleteByQuery(deleteRequest, RequestOptions.DEFAULT);
       } catch (Exception e) {
-        context.report().addLine(String.format("Failed to delete content of search indices: %s", e.toString()));
+        context
+            .report()
+            .addLine(String.format("Failed to delete content of search indices: %s", e.toString()));
         return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.FAILED);
       }
       return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.SUCCEEDED);
@@ -60,8 +62,10 @@ public class DeleteSearchIndicesStep implements UpgradeStep {
           _searchClient.indices().get(new GetIndexRequest(_deletePattern), RequestOptions.DEFAULT);
       return response.getIndices();
     } catch (IOException e) {
-      context.report().addLine(String.format("Failed to fetch indices matching pattern %s", _deletePattern));
-      return new String[]{};
+      context
+          .report()
+          .addLine(String.format("Failed to fetch indices matching pattern %s", _deletePattern));
+      return new String[] {};
     }
   }
 }

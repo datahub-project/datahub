@@ -17,31 +17,37 @@ import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.util.EntityUtils;
 import play.mvc.Http;
 
-
 /**
  * Singleton class that stores & serves reference to a single {@link SsoProvider} if one exists.
- * TODO: Refactor SsoManager to only accept SsoConfigs when initialized. See SsoConfigs TODO as well.
+ * TODO: Refactor SsoManager to only accept SsoConfigs when initialized. See SsoConfigs TODO as
+ * well.
  */
 @Slf4j
 public class SsoManager {
 
   private SsoProvider<?> _provider; // Only one active provider at a time.
-  private final Authentication _authentication; // Authentication used to fetch SSO settings from GMS
+  private final Authentication
+      _authentication; // Authentication used to fetch SSO settings from GMS
   private final String _ssoSettingsRequestUrl; // SSO settings request URL.
   private final CloseableHttpClient _httpClient; // HTTP client for making requests to GMS.
   private com.typesafe.config.Config _configs;
 
-  public SsoManager(com.typesafe.config.Config configs, Authentication authentication, String ssoSettingsRequestUrl, CloseableHttpClient httpClient) {
+  public SsoManager(
+      com.typesafe.config.Config configs,
+      Authentication authentication,
+      String ssoSettingsRequestUrl,
+      CloseableHttpClient httpClient) {
     _configs = configs;
     _authentication = Objects.requireNonNull(authentication, "authentication cannot be null");
-    _ssoSettingsRequestUrl = Objects.requireNonNull(ssoSettingsRequestUrl, "ssoSettingsRequestUrl cannot be null");
+    _ssoSettingsRequestUrl =
+        Objects.requireNonNull(ssoSettingsRequestUrl, "ssoSettingsRequestUrl cannot be null");
     _httpClient = Objects.requireNonNull(httpClient, "httpClient cannot be null");
     _provider = null;
   }
 
   /**
-   * Returns true if SSO is enabled, meaning a non-null {@link SsoProvider} has been
-   * provided to the manager.
+   * Returns true if SSO is enabled, meaning a non-null {@link SsoProvider} has been provided to the
+   * manager.
    *
    * @return true if SSO logic is enabled, false otherwise.
    */
@@ -70,8 +76,8 @@ public class SsoManager {
   /**
    * Gets the active {@link SsoProvider} instance.
    *
-   * @return the {@SsoProvider} that should be used during authentication and on
-   * IdP callback, or null if SSO is not enabled.
+   * @return the {@SsoProvider} that should be used during authentication and on IdP callback, or
+   *     null if SSO is not enabled.
    */
   @Nullable
   public SsoProvider<?> getSsoProvider() {
@@ -115,18 +121,25 @@ public class SsoManager {
     try {
       ssoConfigs = new SsoConfigs.Builder().from(ssoSettingsJsonStr).build();
     } catch (Exception e) {
-      log.error(String.format("Error building SsoConfigs from invalid json %s, reusing previous settings", ssoSettingsJsonStr),
+      log.error(
+          String.format(
+              "Error building SsoConfigs from invalid json %s, reusing previous settings",
+              ssoSettingsJsonStr),
           e);
       return;
     }
 
     if (ssoConfigs != null && ssoConfigs.isOidcEnabled()) {
       try {
-        OidcConfigs oidcConfigs = new OidcConfigs.Builder().from(_configs, ssoSettingsJsonStr).build();
+        OidcConfigs oidcConfigs =
+            new OidcConfigs.Builder().from(_configs, ssoSettingsJsonStr).build();
         maybeUpdateOidcProvider(oidcConfigs);
       } catch (Exception e) {
         log.error(
-            String.format("Error building OidcConfigs from invalid json %s, reusing previous settings", ssoSettingsJsonStr), e);
+            String.format(
+                "Error building OidcConfigs from invalid json %s, reusing previous settings",
+                ssoSettingsJsonStr),
+            e);
       }
     } else {
       // Clear the SSO Provider since no SSO is enabled.
@@ -148,9 +161,7 @@ public class SsoManager {
     setSsoProvider(oidcProvider);
   }
 
-  /**
-   * Call the Auth Service to get SSO settings
-   */
+  /** Call the Auth Service to get SSO settings */
   @Nonnull
   private Optional<String> getDynamicSsoSettings() {
     CloseableHttpResponse response = null;

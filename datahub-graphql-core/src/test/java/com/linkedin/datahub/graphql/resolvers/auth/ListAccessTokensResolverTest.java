@@ -1,5 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.auth;
 
+import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
+
 import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -17,9 +19,6 @@ import graphql.schema.DataFetchingEnvironment;
 import java.util.Collections;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
-
-import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
-
 
 public class ListAccessTokensResolverTest {
 
@@ -42,16 +41,22 @@ public class ListAccessTokensResolverTest {
 
     final EntityClient mockClient = Mockito.mock(EntityClient.class);
     final Authentication testAuth = getAuthentication(mockEnv);
-    Mockito.when(mockClient.search(
-                    Mockito.eq(Constants.ACCESS_TOKEN_ENTITY_NAME),
-                    Mockito.eq(""),
-                    Mockito.eq(buildFilter(filters, Collections.emptyList())),
-                    Mockito.any(SortCriterion.class),
-                    Mockito.eq(input.getStart()),
-                    Mockito.eq(input.getCount()),
-                    Mockito.eq(testAuth),
-                    Mockito.any(SearchFlags.class)))
-            .thenReturn(new SearchResult().setFrom(0).setNumEntities(0).setPageSize(0).setEntities(new SearchEntityArray()));
+    Mockito.when(
+            mockClient.search(
+                Mockito.eq(Constants.ACCESS_TOKEN_ENTITY_NAME),
+                Mockito.eq(""),
+                Mockito.eq(buildFilter(filters, Collections.emptyList())),
+                Mockito.any(SortCriterion.class),
+                Mockito.eq(input.getStart()),
+                Mockito.eq(input.getCount()),
+                Mockito.eq(testAuth),
+                Mockito.any(SearchFlags.class)))
+        .thenReturn(
+            new SearchResult()
+                .setFrom(0)
+                .setNumEntities(0)
+                .setPageSize(0)
+                .setEntities(new SearchEntityArray()));
 
     final ListAccessTokensResolver resolver = new ListAccessTokensResolver(mockClient);
     final ListAccessTokenResult listAccessTokenResult = resolver.get(mockEnv).get();

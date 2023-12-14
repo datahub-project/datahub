@@ -1,5 +1,10 @@
 package com.linkedin.datahub.graphql.resolvers.post;
 
+import static com.linkedin.datahub.graphql.TestUtils.*;
+import static com.linkedin.metadata.Constants.*;
+import static org.mockito.Mockito.*;
+import static org.testng.Assert.*;
+
 import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -28,16 +33,9 @@ import com.linkedin.post.PostType;
 import graphql.schema.DataFetchingEnvironment;
 import java.net.URISyntaxException;
 import java.util.Map;
-
 import org.mockito.Mockito;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
-
-import static com.linkedin.datahub.graphql.TestUtils.*;
-import static com.linkedin.metadata.Constants.*;
-import static org.mockito.Mockito.*;
-import static org.testng.Assert.*;
-
 
 public class ListPostsResolverTest {
   private static Map<Urn, EntityResponse> _entityResponseMap;
@@ -49,12 +47,15 @@ public class ListPostsResolverTest {
   private static final String POST_TITLE = "title";
   private static final String POST_DESCRIPTION = "description";
   private static final String POST_LINK = "https://datahubproject.io";
-  private static final Media MEDIA = new Media().setType(POST_MEDIA_TYPE).setLocation(new Url(POST_MEDIA_LOCATION));
-  private static final PostContent POST_CONTENT = new PostContent().setType(POST_CONTENT_TYPE)
-      .setTitle(POST_TITLE)
-      .setDescription(POST_DESCRIPTION)
-      .setLink(new Url(POST_LINK))
-      .setMedia(MEDIA);
+  private static final Media MEDIA =
+      new Media().setType(POST_MEDIA_TYPE).setLocation(new Url(POST_MEDIA_LOCATION));
+  private static final PostContent POST_CONTENT =
+      new PostContent()
+          .setType(POST_CONTENT_TYPE)
+          .setTitle(POST_TITLE)
+          .setDescription(POST_DESCRIPTION)
+          .setLink(new Url(POST_LINK))
+          .setMedia(MEDIA);
   private static final PostType POST_TYPE = PostType.HOME_PAGE_ANNOUNCEMENT;
 
   private EntityClient _entityClient;
@@ -72,8 +73,11 @@ public class ListPostsResolverTest {
     DataHubRoleInfo dataHubRoleInfo = new DataHubRoleInfo();
     dataHubRoleInfo.setDescription(postUrn.toString());
     dataHubRoleInfo.setName(postUrn.toString());
-    entityResponse.setAspects(new EnvelopedAspectMap(ImmutableMap.of(DATAHUB_ROLE_INFO_ASPECT_NAME,
-        new EnvelopedAspect().setValue(new Aspect(dataHubRoleInfo.data())))));
+    entityResponse.setAspects(
+        new EnvelopedAspectMap(
+            ImmutableMap.of(
+                DATAHUB_ROLE_INFO_ASPECT_NAME,
+                new EnvelopedAspect().setValue(new Aspect(dataHubRoleInfo.data())))));
 
     return ImmutableMap.of(postUrn, entityResponse);
   }
@@ -106,13 +110,27 @@ public class ListPostsResolverTest {
     ListPostsInput input = new ListPostsInput();
     when(_dataFetchingEnvironment.getArgument("input")).thenReturn(input);
     final SearchResult roleSearchResult =
-        new SearchResult().setMetadata(new SearchResultMetadata()).setFrom(0).setPageSize(10).setNumEntities(1);
+        new SearchResult()
+            .setMetadata(new SearchResultMetadata())
+            .setFrom(0)
+            .setPageSize(10)
+            .setNumEntities(1);
     roleSearchResult.setEntities(
-        new SearchEntityArray(ImmutableList.of(new SearchEntity().setEntity(Urn.createFromString(POST_URN_STRING)))));
+        new SearchEntityArray(
+            ImmutableList.of(new SearchEntity().setEntity(Urn.createFromString(POST_URN_STRING)))));
 
-    when(_entityClient.search(eq(POST_ENTITY_NAME), any(), eq(null), any(), anyInt(), anyInt(),
-        eq(_authentication), Mockito.eq(new SearchFlags().setFulltext(true)))).thenReturn(roleSearchResult);
-    when(_entityClient.batchGetV2(eq(POST_ENTITY_NAME), any(), any(), any())).thenReturn(_entityResponseMap);
+    when(_entityClient.search(
+            eq(POST_ENTITY_NAME),
+            any(),
+            eq(null),
+            any(),
+            anyInt(),
+            anyInt(),
+            eq(_authentication),
+            Mockito.eq(new SearchFlags().setFulltext(true))))
+        .thenReturn(roleSearchResult);
+    when(_entityClient.batchGetV2(eq(POST_ENTITY_NAME), any(), any(), any()))
+        .thenReturn(_entityResponseMap);
 
     ListPostsResult result = _resolver.get(_dataFetchingEnvironment).join();
     assertEquals(result.getStart(), 0);

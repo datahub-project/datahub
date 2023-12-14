@@ -23,7 +23,9 @@
       }
     },
     "settings": {
-      "index.lifecycle.name": "PREFIXdatahub_usage_event_policy"
+      "index.lifecycle.name": "PREFIXdatahub_usage_event_policy",
+      "index.number_of_shards": DUE_SHARDS,
+      "index.number_of_replicas": DUE_REPLICAS
     }
   }
 }

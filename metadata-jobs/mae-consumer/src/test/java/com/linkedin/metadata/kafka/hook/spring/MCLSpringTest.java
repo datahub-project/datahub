@@ -1,5 +1,7 @@
 package com.linkedin.metadata.kafka.hook.spring;
 
+import static org.testng.AssertJUnit.assertEquals;
+
 import com.linkedin.data.schema.annotation.PathSpecBasedSchemaAnnotationVisitor;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.kafka.MetadataChangeLogProcessor;
@@ -19,50 +21,74 @@ import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.testng.annotations.Test;
 
-import static org.testng.AssertJUnit.assertEquals;
-
-
-@SpringBootTest(classes = {
-    MCLSpringTestConfiguration.class, ConfigurationProvider.class
-  },
+@SpringBootTest(
+    classes = {MCLSpringTestConfiguration.class, ConfigurationProvider.class},
     properties = {
       "ingestionScheduler.enabled=false",
       "configEntityRegistry.path=../../metadata-jobs/mae-consumer/src/test/resources/test-entity-registry.yml",
       "kafka.schemaRegistry.type=INTERNAL"
-  })
-@TestPropertySource(locations = "classpath:/application.yml", properties = {
-    "MCL_CONSUMER_ENABLED=true"
-})
+    })
+@TestPropertySource(
+    locations = "classpath:/application.yml",
+    properties = {"MCL_CONSUMER_ENABLED=true"})
 @EnableAutoConfiguration(exclude = {CassandraAutoConfiguration.class})
 public class MCLSpringTest extends AbstractTestNGSpringContextTests {
 
   static {
-    PathSpecBasedSchemaAnnotationVisitor.class.getClassLoader().setClassAssertionStatus(
-            PathSpecBasedSchemaAnnotationVisitor.class.getName(), false);
+    PathSpecBasedSchemaAnnotationVisitor.class
+        .getClassLoader()
+        .setClassAssertionStatus(PathSpecBasedSchemaAnnotationVisitor.class.getName(), false);
   }
 
   @Test
   public void testHooks() {
-    MetadataChangeLogProcessor metadataChangeLogProcessor = applicationContext.getBean(MetadataChangeLogProcessor.class);
+    MetadataChangeLogProcessor metadataChangeLogProcessor =
+        applicationContext.getBean(MetadataChangeLogProcessor.class);
 
-    assertEquals(0,
-        metadataChangeLogProcessor.getHooks().stream().filter(hook -> hook instanceof IngestionSchedulerHook).count());
-    assertEquals(1,
-        metadataChangeLogProcessor.getHooks().stream().filter(hook -> hook instanceof UpdateIndicesHook).count());
-    assertEquals(1,
-        metadataChangeLogProcessor.getHooks().stream().filter(hook -> hook instanceof SiblingAssociationHook).count());
-    assertEquals(1, metadataChangeLogProcessor.getHooks()
-        .stream().filter(hook -> hook instanceof EntityChangeEventGeneratorHook).count());
-    assertEquals(1, metadataChangeLogProcessor.getHooks()
-        .stream().filter(hook -> hook instanceof NotificationGeneratorHook).count());
-    assertEquals(1,
-        metadataChangeLogProcessor.getHooks().stream().filter(hook -> hook instanceof IncidentsSummaryHook).count());
-    assertEquals(1,
-        metadataChangeLogProcessor.getHooks().stream().filter(hook -> hook instanceof MetadataTestHook).count());
-    assertEquals(1,
-        metadataChangeLogProcessor.getHooks().stream().filter(hook -> hook instanceof AssertionsSummaryHook).count());
-    assertEquals(1,
-        metadataChangeLogProcessor.getHooks().stream().filter(hook -> hook instanceof AssertionActionsHook).count());
-
+    assertEquals(
+        0,
+        metadataChangeLogProcessor.getHooks().stream()
+            .filter(hook -> hook instanceof IngestionSchedulerHook)
+            .count());
+    assertEquals(
+        1,
+        metadataChangeLogProcessor.getHooks().stream()
+            .filter(hook -> hook instanceof UpdateIndicesHook)
+            .count());
+    assertEquals(
+        1,
+        metadataChangeLogProcessor.getHooks().stream()
+            .filter(hook -> hook instanceof SiblingAssociationHook)
+            .count());
+    assertEquals(
+        1,
+        metadataChangeLogProcessor.getHooks().stream()
+            .filter(hook -> hook instanceof EntityChangeEventGeneratorHook)
+            .count());
+    assertEquals(
+        1,
+        metadataChangeLogProcessor.getHooks().stream()
+            .filter(hook -> hook instanceof NotificationGeneratorHook)
+            .count());
+    assertEquals(
+        1,
+        metadataChangeLogProcessor.getHooks().stream()
+            .filter(hook -> hook instanceof IncidentsSummaryHook)
+            .count());
+    assertEquals(
+        1,
+        metadataChangeLogProcessor.getHooks().stream()
+            .filter(hook -> hook instanceof MetadataTestHook)
+            .count());
+    assertEquals(
+        1,
+        metadataChangeLogProcessor.getHooks().stream()
+            .filter(hook -> hook instanceof AssertionsSummaryHook)
+            .count());
+    assertEquals(
+        1,
+        metadataChangeLogProcessor.getHooks().stream()
+            .filter(hook -> hook instanceof AssertionActionsHook)
+            .count());
   }
 }

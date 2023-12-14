@@ -1,5 +1,8 @@
 package com.linkedin.datahub.graphql.resolvers.monitor;
 
+import static com.linkedin.datahub.graphql.TestUtils.*;
+import static org.testng.Assert.*;
+
 import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.urn.Urn;
@@ -23,25 +26,25 @@ import java.util.concurrent.CompletionException;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
-import static com.linkedin.datahub.graphql.TestUtils.*;
-import static org.testng.Assert.*;
-
-
 public class UpdateMonitorStatusResolverTest {
 
-  private static final Urn TEST_ENTITY_URN = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:snowflake,test,PROD)");
-  private static final Urn TEST_MONITOR_URN = UrnUtils.getUrn(
-      String.format("urn:li:monitor:(%s,%s)", TEST_ENTITY_URN.toString(), AcrylConstants.FRESHNESS_SYSTEM_MONITOR_ID));
+  private static final Urn TEST_ENTITY_URN =
+      UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:snowflake,test,PROD)");
+  private static final Urn TEST_MONITOR_URN =
+      UrnUtils.getUrn(
+          String.format(
+              "urn:li:monitor:(%s,%s)",
+              TEST_ENTITY_URN.toString(), AcrylConstants.FRESHNESS_SYSTEM_MONITOR_ID));
 
-  private static final UpdateMonitorStatusInput TEST_INPUT = new UpdateMonitorStatusInput(
-      TEST_MONITOR_URN.toString(),
-      com.linkedin.datahub.graphql.generated.MonitorMode.INACTIVE
-  );
+  private static final UpdateMonitorStatusInput TEST_INPUT =
+      new UpdateMonitorStatusInput(
+          TEST_MONITOR_URN.toString(), com.linkedin.datahub.graphql.generated.MonitorMode.INACTIVE);
 
   @Test
   public void testGetSuccess() throws Exception {
     // Create resolver
-    MonitorService mockService = initMockService(MonitorMode.valueOf(TEST_INPUT.getMode().toString()));
+    MonitorService mockService =
+        initMockService(MonitorMode.valueOf(TEST_INPUT.getMode().toString()));
     EntityClient mockClient = initMockClient(true);
     UpdateMonitorStatusResolver resolver = new UpdateMonitorStatusResolver(mockService, mockClient);
 
@@ -56,10 +59,11 @@ public class UpdateMonitorStatusResolverTest {
     assertEquals(result.getInfo().getStatus().getMode(), TEST_INPUT.getMode());
 
     // Validate that we updated the monitor
-    Mockito.verify(mockService, Mockito.times(1)).upsertMonitorMode(
-        Mockito.eq(TEST_MONITOR_URN),
-        Mockito.eq(MonitorMode.INACTIVE),
-        Mockito.any(Authentication.class));
+    Mockito.verify(mockService, Mockito.times(1))
+        .upsertMonitorMode(
+            Mockito.eq(TEST_MONITOR_URN),
+            Mockito.eq(MonitorMode.INACTIVE),
+            Mockito.any(Authentication.class));
   }
 
   @Test
@@ -100,10 +104,9 @@ public class UpdateMonitorStatusResolverTest {
     // Create resolver
     MonitorService mockService = initMockService(MonitorMode.INACTIVE);
     EntityClient mockClient = initMockClient(true);
-    Mockito.doThrow(RuntimeException.class).when(mockService).upsertMonitorMode(
-        Mockito.any(),
-        Mockito.any(),
-        Mockito.any(Authentication.class));
+    Mockito.doThrow(RuntimeException.class)
+        .when(mockService)
+        .upsertMonitorMode(Mockito.any(), Mockito.any(), Mockito.any(Authentication.class));
 
     UpdateMonitorStatusResolver resolver = new UpdateMonitorStatusResolver(mockService, mockClient);
 
@@ -119,31 +122,30 @@ public class UpdateMonitorStatusResolverTest {
   private MonitorService initMockService(MonitorMode expectedMode) throws Exception {
     MonitorService service = Mockito.mock(MonitorService.class);
 
-    Mockito.when(service.upsertMonitorMode(
-        Mockito.any(),
-        Mockito.any(),
-        Mockito.any(Authentication.class)
-    )).thenReturn(TEST_MONITOR_URN);
+    Mockito.when(
+            service.upsertMonitorMode(
+                Mockito.any(), Mockito.any(), Mockito.any(Authentication.class)))
+        .thenReturn(TEST_MONITOR_URN);
 
-    MonitorInfo info = new MonitorInfo()
-        .setType(MonitorType.ASSERTION)
-        .setStatus(new com.linkedin.monitor.MonitorStatus()
-          .setMode(expectedMode)
-        );
+    MonitorInfo info =
+        new MonitorInfo()
+            .setType(MonitorType.ASSERTION)
+            .setStatus(new com.linkedin.monitor.MonitorStatus().setMode(expectedMode));
 
-    Mockito.when(service.getMonitorEntityResponse(
-        Mockito.eq(TEST_MONITOR_URN),
-        Mockito.any(Authentication.class)
-    )).thenReturn(new EntityResponse()
-      .setUrn(TEST_MONITOR_URN)
-      .setAspects(new EnvelopedAspectMap(ImmutableMap.of(
-          Constants.MONITOR_INFO_ASPECT_NAME,
-          new EnvelopedAspect()
-            .setName(Constants.MONITOR_INFO_ASPECT_NAME)
-            .setVersion(0L)
-            .setValue(new Aspect(info.data()))
-      )))
-    );
+    Mockito.when(
+            service.getMonitorEntityResponse(
+                Mockito.eq(TEST_MONITOR_URN), Mockito.any(Authentication.class)))
+        .thenReturn(
+            new EntityResponse()
+                .setUrn(TEST_MONITOR_URN)
+                .setAspects(
+                    new EnvelopedAspectMap(
+                        ImmutableMap.of(
+                            Constants.MONITOR_INFO_ASPECT_NAME,
+                            new EnvelopedAspect()
+                                .setName(Constants.MONITOR_INFO_ASPECT_NAME)
+                                .setVersion(0L)
+                                .setValue(new Aspect(info.data()))))));
 
     return service;
   }
@@ -151,15 +153,11 @@ public class UpdateMonitorStatusResolverTest {
   private EntityClient initMockClient(boolean exists) throws Exception {
     EntityClient client = Mockito.mock(EntityClient.class);
     if (exists) {
-      Mockito.when(client.exists(
-          Mockito.eq(TEST_ENTITY_URN),
-          Mockito.any(Authentication.class)
-      )).thenReturn(true);
+      Mockito.when(client.exists(Mockito.eq(TEST_ENTITY_URN), Mockito.any(Authentication.class)))
+          .thenReturn(true);
     } else {
-      Mockito.when(client.exists(
-          Mockito.eq(TEST_ENTITY_URN),
-          Mockito.any(Authentication.class)
-      )).thenReturn(false);
+      Mockito.when(client.exists(Mockito.eq(TEST_ENTITY_URN), Mockito.any(Authentication.class)))
+          .thenReturn(false);
     }
     return client;
   }

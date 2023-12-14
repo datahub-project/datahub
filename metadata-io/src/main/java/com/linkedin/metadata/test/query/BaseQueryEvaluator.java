@@ -6,7 +6,5 @@ import lombok.Setter;
 
 @RequiredArgsConstructor
 public abstract class BaseQueryEvaluator implements QueryEvaluator {
-  @Getter
-  @Setter
-  QueryEngine queryEngine;
+  @Getter @Setter QueryEngine queryEngine;
 }

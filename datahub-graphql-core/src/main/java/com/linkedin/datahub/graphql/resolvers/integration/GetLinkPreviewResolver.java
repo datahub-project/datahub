@@ -1,5 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.integration;
 
+import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
+
 import com.linkedin.datahub.graphql.generated.GetLinkPreviewInput;
 import com.linkedin.datahub.graphql.generated.LinkPreviewType;
 import com.linkedin.link.LinkPreviewInfo;
@@ -11,10 +13,9 @@ import java.util.concurrent.CompletableFuture;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
-
 @Slf4j
-public class GetLinkPreviewResolver implements DataFetcher<CompletableFuture<com.linkedin.datahub.graphql.generated.LinkPreview>> {
+public class GetLinkPreviewResolver
+    implements DataFetcher<CompletableFuture<com.linkedin.datahub.graphql.generated.LinkPreview>> {
 
   private final IntegrationsService service;
 
@@ -23,16 +24,21 @@ public class GetLinkPreviewResolver implements DataFetcher<CompletableFuture<com
   }
 
   @Override
-  public CompletableFuture<com.linkedin.datahub.graphql.generated.LinkPreview> get(DataFetchingEnvironment environment) throws Exception {
-    final GetLinkPreviewInput input = bindArgument(environment.getArgument("input"), GetLinkPreviewInput.class);
-    return CompletableFuture.supplyAsync(() -> {
-      final LinkPreviewInfo result = this.service.getLinkPreview(input.getUrl());
-      return result == null ? null : mapResult(result);
-    });
+  public CompletableFuture<com.linkedin.datahub.graphql.generated.LinkPreview> get(
+      DataFetchingEnvironment environment) throws Exception {
+    final GetLinkPreviewInput input =
+        bindArgument(environment.getArgument("input"), GetLinkPreviewInput.class);
+    return CompletableFuture.supplyAsync(
+        () -> {
+          final LinkPreviewInfo result = this.service.getLinkPreview(input.getUrl());
+          return result == null ? null : mapResult(result);
+        });
   }
 
-  private com.linkedin.datahub.graphql.generated.LinkPreview mapResult(@Nonnull final LinkPreviewInfo original) {
-    final com.linkedin.datahub.graphql.generated.LinkPreview result = new com.linkedin.datahub.graphql.generated.LinkPreview();
+  private com.linkedin.datahub.graphql.generated.LinkPreview mapResult(
+      @Nonnull final LinkPreviewInfo original) {
+    final com.linkedin.datahub.graphql.generated.LinkPreview result =
+        new com.linkedin.datahub.graphql.generated.LinkPreview();
     result.setType(LinkPreviewType.valueOf(original.getType().toString()));
     result.setLastRefreshed(original.getLastRefreshedMs());
     result.setJson(original.getJson());

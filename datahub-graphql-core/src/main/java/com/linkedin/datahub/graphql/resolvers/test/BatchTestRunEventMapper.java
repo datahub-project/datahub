@@ -8,7 +8,6 @@ import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.test.BatchTestRunEvent;
 import javax.annotation.Nonnull;
 
-
 public class BatchTestRunEventMapper
     implements TimeSeriesAspectMapper<com.linkedin.datahub.graphql.generated.BatchTestRunEvent> {
 
@@ -24,8 +23,10 @@ public class BatchTestRunEventMapper
       @Nonnull final EnvelopedAspect envelopedAspect) {
 
     BatchTestRunEvent gmsRunEvent =
-        GenericRecordUtils.deserializeAspect(envelopedAspect.getAspect().getValue(),
-            envelopedAspect.getAspect().getContentType(), BatchTestRunEvent.class);
+        GenericRecordUtils.deserializeAspect(
+            envelopedAspect.getAspect().getValue(),
+            envelopedAspect.getAspect().getContentType(),
+            BatchTestRunEvent.class);
 
     final com.linkedin.datahub.graphql.generated.BatchTestRunEvent runEvent =
         new com.linkedin.datahub.graphql.generated.BatchTestRunEvent();

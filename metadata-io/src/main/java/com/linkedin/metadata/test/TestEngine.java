@@ -1,5 +1,7 @@
 package com.linkedin.metadata.test;
 
+import static com.linkedin.metadata.test.TestConstants.*;
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
@@ -54,18 +56,14 @@ import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
-
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-
-import static com.linkedin.metadata.test.TestConstants.*;
-
 
 /**
  * Main engine responsible for evaluating all tests for all entities or for a given entity
  *
- * Currently, the engine is implemented as a spring-instantiated Singleton
- * which manages its own thread-pool used for resolving tests.
+ * <p>Currently, the engine is implemented as a spring-instantiated Singleton which manages its own
+ * thread-pool used for resolving tests.
  */
 @Slf4j
 public class TestEngine {
@@ -90,29 +88,23 @@ public class TestEngine {
   private final TestRefreshRunnable _testRefreshRunnable;
   private final Set<String> _supportedEntityTypes;
 
-  /**
-   * The test engine evaluation mode.
-   */
+  /** The test engine evaluation mode. */
   public enum EvaluationMode {
     /**
-     * A transient evaluation, where Test Results are not stored anywhere,
-     * actions are not applied, and results are simply returned to the client.
+     * A transient evaluation, where Test Results are not stored anywhere, actions are not applied,
+     * and results are simply returned to the client.
      *
-     * This is useful for trying out a Metadata Test definition before it's
-     * configured completely.
+     * <p>This is useful for trying out a Metadata Test definition before it's configured
+     * completely.
      */
     EVALUATE_ONLY,
 
     /**
-     * Default evaluation mode, where results are saved to storage async and
-     * actions are applied.
+     * Default evaluation mode, where results are saved to storage async and actions are applied.
      */
     DEFAULT,
 
-    /**
-     * Default evaluation mode, where results are saved to storage sync and
-     * actions are applied.
-     */
+    /** Default evaluation mode, where results are saved to storage sync and actions are applied. */
     SYNC
   }
 
@@ -126,28 +118,33 @@ public class TestEngine {
       final int delayIntervalSeconds,
       final int refreshIntervalSeconds) {
 
-      _entityService = entityService;
-      _queryEngine = queryEngine;
-      _predicateEvaluator = predicateEvaluator;
-      _testDefinitionParser = testDefinitionParser;
-      _actionApplier = actionApplier;
-      _testRefreshRunnable =
-              new TestRefreshRunnable(testFetcher, testDefinitionParser, _testCache, _testPerEntityTypeCache, cacheReadWriteLock.writeLock());
+    _entityService = entityService;
+    _queryEngine = queryEngine;
+    _predicateEvaluator = predicateEvaluator;
+    _testDefinitionParser = testDefinitionParser;
+    _actionApplier = actionApplier;
+    _testRefreshRunnable =
+        new TestRefreshRunnable(
+            testFetcher,
+            testDefinitionParser,
+            _testCache,
+            _testPerEntityTypeCache,
+            cacheReadWriteLock.writeLock());
 
-      if (refreshIntervalSeconds > 0) {
-        _refreshExecutorService = Executors.newScheduledThreadPool(1);
-        _refreshExecutorService.scheduleAtFixedRate(_testRefreshRunnable, delayIntervalSeconds, refreshIntervalSeconds,
-                TimeUnit.SECONDS);
-        _refreshExecutorService.execute(_testRefreshRunnable);
-      } else {
-        loadTests();
-      }
-      _supportedEntityTypes = TestUtils.getSupportedEntityTypes(entityService.getEntityRegistry());
+    if (refreshIntervalSeconds > 0) {
+      _refreshExecutorService = Executors.newScheduledThreadPool(1);
+      _refreshExecutorService.scheduleAtFixedRate(
+          _testRefreshRunnable, delayIntervalSeconds, refreshIntervalSeconds, TimeUnit.SECONDS);
+      _refreshExecutorService.execute(_testRefreshRunnable);
+    } else {
+      loadTests();
+    }
+    _supportedEntityTypes = TestUtils.getSupportedEntityTypes(entityService.getEntityRegistry());
   }
 
   /**
-   * Invalidates the test cache and fires off a refresh thread. Should be invoked
-   * when a test is created, modified, or deleted.
+   * Invalidates the test cache and fires off a refresh thread. Should be invoked when a test is
+   * created, modified, or deleted.
    */
   public void invalidateCache() {
     if (_refreshExecutorService != null) {
@@ -155,9 +152,7 @@ public class TestEngine {
     }
   }
 
-  /**
-   * Synchronously refresh the Metadata Tests cache.
-   */
+  /** Synchronously refresh the Metadata Tests cache. */
   public void loadTests() {
     _testRefreshRunnable.run();
   }
@@ -166,7 +161,9 @@ public class TestEngine {
   public List<TestDefinition> getTestDefinitions() {
     cacheReadLock.lock();
     try {
-      return _testPerEntityTypeCache.values().stream().flatMap(Collection::stream).collect(Collectors.toList());
+      return _testPerEntityTypeCache.values().stream()
+          .flatMap(Collection::stream)
+          .collect(Collectors.toList());
     } finally {
       // To unlock the acquired read thread
       cacheReadLock.unlock();
@@ -208,26 +205,30 @@ public class TestEngine {
   }
 
   /**
-   * Evaluate all eligible tests for the given urn, optionally write the results to GMS.
-   * If no eligible tests are found for the urn, an empty set of test results will be returned.
+   * Evaluate all eligible tests for the given urn, optionally write the results to GMS. If no
+   * eligible tests are found for the urn, an empty set of test results will be returned.
    *
    * @param urn Entity urn to evaluate
    * @param mode The evaluation mode.
    * @return Test results
-   *
    * @throws UnsupportedOperationException if the provided entity type is not supported.
    */
   @Nonnull
   public TestResults evaluateTestsForEntity(@Nonnull final Urn urn, EvaluationMode mode) {
     if (!_supportedEntityTypes.contains(urn.getEntityType())) {
-      log.warn(String.format("Attempted to evaluate tests for an unsupported entity type %s. Returning null results.", urn.getEntityType()));
+      log.warn(
+          String.format(
+              "Attempted to evaluate tests for an unsupported entity type %s. Returning null results.",
+              urn.getEntityType()));
       throw new UnsupportedOperationException(
-          String.format("Attempted to evaluate tests for an unsupported entity type %s. Returning null results.",
+          String.format(
+              "Attempted to evaluate tests for an unsupported entity type %s. Returning null results.",
               urn.getEntityType()));
     }
 
     // Step 1: Retrieve eligible tests.
-    List<TestDefinition> testsEligibleForEntityType = getOrDefault(urn.getEntityType(), Collections.emptyList());
+    List<TestDefinition> testsEligibleForEntityType =
+        getOrDefault(urn.getEntityType(), Collections.emptyList());
 
     // Step 2: Evaluate all tests for entity
     TestResults results = evaluateTests(urn, testsEligibleForEntityType);
@@ -241,23 +242,26 @@ public class TestEngine {
   }
 
   /**
-   * Evaluate input tests for the given urn, then optionally write results to GMS.
-   * If no eligible tests are found for the urn, an empty set of test results will be returned.
+   * Evaluate input tests for the given urn, then optionally write results to GMS. If no eligible
+   * tests are found for the urn, an empty set of test results will be returned.
    *
    * @param urn Entity urn to evaluate
    * @param testUrns Tests to evaluate
    * @param mode Whether or not to push the test results into DataHub
    * @return Test results.
-   *
    * @throws UnsupportedOperationException if the provided entity type is not supported.
    */
   @Nonnull
   public TestResults evaluateTests(Urn urn, List<Urn> testUrns, EvaluationMode mode) {
     if (!_supportedEntityTypes.contains(urn.getEntityType())) {
-      log.warn(String.format("Attempted to evaluate tests for an unsupported entity type %s. Returning null results.", urn.getEntityType()));
+      log.warn(
+          String.format(
+              "Attempted to evaluate tests for an unsupported entity type %s. Returning null results.",
+              urn.getEntityType()));
       throw new UnsupportedOperationException(
-          String.format("Attempted to evaluate tests for an unsupported entity type %s. Returning null results.",
-          urn.getEntityType()));
+          String.format(
+              "Attempted to evaluate tests for an unsupported entity type %s. Returning null results.",
+              urn.getEntityType()));
     }
     TestResults results = evaluateTests(urn, fetchDefinitions(testUrns));
     if (!EvaluationMode.EVALUATE_ONLY.equals(mode)) {
@@ -270,7 +274,7 @@ public class TestEngine {
   /**
    * Evaluate a specific set of tests for a given entity urn, then return the results.
    *
-   * TODO: Combine this with batchEvaluateTests
+   * <p>TODO: Combine this with batchEvaluateTests
    *
    * @param urn the urn to test
    * @param tests the list of tests to execute against the urn
@@ -278,7 +282,8 @@ public class TestEngine {
    */
   @WithSpan
   @Nonnull
-  public TestResults evaluateTests(@Nonnull final Urn urn, @Nonnull final List<TestDefinition> tests) {
+  public TestResults evaluateTests(
+      @Nonnull final Urn urn, @Nonnull final List<TestDefinition> tests) {
     if (tests.isEmpty()) {
       return EMPTY_RESULTS;
     }
@@ -289,23 +294,32 @@ public class TestEngine {
 
     log.debug(String.format("Found eligible tests for urn %s, tests: %s", urn, eligibleTests));
 
-    TestResults result = new TestResults().setPassing(new TestResultArray()).setFailing(new TestResultArray());
+    TestResults result =
+        new TestResults().setPassing(new TestResultArray()).setFailing(new TestResultArray());
 
     // Batch evaluate all queries in the main rules
-    Map<TestQuery, TestQueryResponse> mainRulesQueryResponses = batchQuery(ImmutableList.of(urn),
-        eligibleTests.stream().map(TestDefinition::getRules).collect(Collectors.toList())).getOrDefault(urn,
-        Collections.emptyMap());
+    Map<TestQuery, TestQueryResponse> mainRulesQueryResponses =
+        batchQuery(
+                ImmutableList.of(urn),
+                eligibleTests.stream().map(TestDefinition::getRules).collect(Collectors.toList()))
+            .getOrDefault(urn, Collections.emptyMap());
 
-    // Evaluate whether each test passes using the query evaluation result above (no service calls. pure computation)
+    // Evaluate whether each test passes using the query evaluation result above (no service calls.
+    // pure computation)
     for (TestDefinition eligibleTest : eligibleTests) {
       if (_predicateEvaluator.evaluatePredicate(eligibleTest.getRules(), mainRulesQueryResponses)) {
-        result.getPassing().add(new TestResult().setTest(eligibleTest.getUrn()).setType(TestResultType.SUCCESS));
+        result
+            .getPassing()
+            .add(new TestResult().setTest(eligibleTest.getUrn()).setType(TestResultType.SUCCESS));
       } else {
-        result.getFailing().add(new TestResult().setTest(eligibleTest.getUrn()).setType(TestResultType.FAILURE));
+        result
+            .getFailing()
+            .add(new TestResult().setTest(eligibleTest.getUrn()).setType(TestResultType.FAILURE));
       }
     }
 
-    log.debug(String.format("Finished executing eligible tests for urn %s, results: %s", urn, result));
+    log.debug(
+        String.format("Finished executing eligible tests for urn %s, results: %s", urn, result));
 
     return result;
   }
@@ -318,19 +332,21 @@ public class TestEngine {
    * @return Test results per entity urn
    */
   public Map<Urn, TestResults> batchEvaluateTestsForEntities(
-      @Nonnull final List<Urn> urns,
-      @Nonnull final EvaluationMode mode) {
-    Map<String, List<Urn>> urnsPerEntityType = urns.stream().collect(Collectors.groupingBy(Urn::getEntityType));
+      @Nonnull final List<Urn> urns, @Nonnull final EvaluationMode mode) {
+    Map<String, List<Urn>> urnsPerEntityType =
+        urns.stream().collect(Collectors.groupingBy(Urn::getEntityType));
     Map<Urn, TestResults> finalTestResults = new HashMap<>();
 
     for (String entityType : urnsPerEntityType.keySet()) {
-      List<TestDefinition> testsEligibleForEntityType = getOrDefault(entityType, Collections.emptyList());
+      List<TestDefinition> testsEligibleForEntityType =
+          getOrDefault(entityType, Collections.emptyList());
       if (testsEligibleForEntityType.isEmpty()) {
         continue;
       }
 
       // TODO: Evaluate whether the next line has a bug in the urns to evaluate.
-      Map<Urn, TestResults> resultsForEntityType = batchEvaluateTests(urns, testsEligibleForEntityType);
+      Map<Urn, TestResults> resultsForEntityType =
+          batchEvaluateTests(urns, testsEligibleForEntityType);
       finalTestResults.putAll(resultsForEntityType);
     }
 
@@ -354,7 +370,8 @@ public class TestEngine {
       @Nonnull final List<Urn> urns,
       @Nonnull final List<Urn> testUrns,
       @Nonnull final EvaluationMode mode) {
-    final Map<Urn, TestResults> resultsPerUrn = batchEvaluateTests(urns, fetchDefinitions(testUrns));
+    final Map<Urn, TestResults> resultsPerUrn =
+        batchEvaluateTests(urns, fetchDefinitions(testUrns));
     if (!EvaluationMode.EVALUATE_ONLY.equals(mode)) {
       resultsPerUrn.forEach((urn, results) -> ingestPartialResults(urn, testUrns, results, mode));
       batchApplyActions(resultsPerUrn);
@@ -374,24 +391,28 @@ public class TestEngine {
 
     // Validate 'on' block queries.
     if (testDefinition.getOn().getConditions() != null) {
-      queries.addAll(_predicateEvaluator.extractQueriesForPredicate(testDefinition.getOn().getConditions()));
+      queries.addAll(
+          _predicateEvaluator.extractQueriesForPredicate(testDefinition.getOn().getConditions()));
     }
 
     // Validate 'rules' block queries.
     queries.addAll(_predicateEvaluator.extractQueriesForPredicate(testDefinition.getRules()));
 
     // Verify that each defined query is valid. If multiple are invalid, merge the error messages
-    List<ValidationResult> invalidResults = queries.stream()
-        .map(query -> _queryEngine.validateQuery(query, entityTypes))
-        .filter(result -> !result.isValid())
-        .collect(Collectors.toList());
+    List<ValidationResult> invalidResults =
+        queries.stream()
+            .map(query -> _queryEngine.validateQuery(query, entityTypes))
+            .filter(result -> !result.isValid())
+            .collect(Collectors.toList());
 
     if (invalidResults.isEmpty()) {
       return ValidationResult.validResult();
     }
     return new ValidationResult(
         false,
-        invalidResults.stream().flatMap(result -> result.getMessages().stream()).collect(Collectors.toList()));
+        invalidResults.stream()
+            .flatMap(result -> result.getMessages().stream())
+            .collect(Collectors.toList()));
   }
 
   /**
@@ -402,7 +423,8 @@ public class TestEngine {
    * @return a map of urn to the corresponding test results.
    */
   @WithSpan
-  private Map<Urn, TestResults> batchEvaluateTests(@Nonnull final List<Urn> urns, @Nonnull final List<TestDefinition> tests) {
+  private Map<Urn, TestResults> batchEvaluateTests(
+      @Nonnull final List<Urn> urns, @Nonnull final List<TestDefinition> tests) {
     if (tests.isEmpty()) {
       return urns.stream().collect(Collectors.toMap(Function.identity(), urn -> EMPTY_RESULTS));
     }
@@ -410,33 +432,49 @@ public class TestEngine {
     // Get a map of test definition -> urns which match select conditions
     Map<TestDefinition, List<Urn>> eligibleTestsPerEntity = getEligibleEntitiesPerTest(urns, tests);
 
-    Map<Urn, TestResults> finalTestResults = urns.stream()
-        .collect(Collectors.toMap(Function.identity(),
-            urn -> new TestResults().setPassing(new TestResultArray()).setFailing(new TestResultArray())));
+    Map<Urn, TestResults> finalTestResults =
+        urns.stream()
+            .collect(
+                Collectors.toMap(
+                    Function.identity(),
+                    urn ->
+                        new TestResults()
+                            .setPassing(new TestResultArray())
+                            .setFailing(new TestResultArray())));
 
     // For each test with eligible entities
     for (TestDefinition testDefinition : eligibleTestsPerEntity.keySet()) {
       List<Urn> urnsToTest = eligibleTestsPerEntity.get(testDefinition);
 
       // Batch evaluate all queries in the main rules for all eligible entities
-      Map<Urn, Map<TestQuery, TestQueryResponse>> rulesQueryResponses = batchQuery(urnsToTest, ImmutableList.of(testDefinition.getRules()));
+      Map<Urn, Map<TestQuery, TestQueryResponse>> rulesQueryResponses =
+          batchQuery(urnsToTest, ImmutableList.of(testDefinition.getRules()));
 
       // For each entity, evaluate whether it passes the test using the query evaluation results
       for (Urn urn : urnsToTest) {
 
         // Run the test!
-        final boolean isUrnPassingTest = _predicateEvaluator.evaluatePredicate(
-            testDefinition.getRules(),
-            rulesQueryResponses.getOrDefault(urn, Collections.emptyMap()));
+        final boolean isUrnPassingTest =
+            _predicateEvaluator.evaluatePredicate(
+                testDefinition.getRules(),
+                rulesQueryResponses.getOrDefault(urn, Collections.emptyMap()));
 
         if (isUrnPassingTest) {
-          finalTestResults.get(urn)
+          finalTestResults
+              .get(urn)
               .getPassing()
-              .add(new TestResult().setTest(testDefinition.getUrn()).setType(TestResultType.SUCCESS));
+              .add(
+                  new TestResult()
+                      .setTest(testDefinition.getUrn())
+                      .setType(TestResultType.SUCCESS));
         } else {
-          finalTestResults.get(urn)
+          finalTestResults
+              .get(urn)
               .getFailing()
-              .add(new TestResult().setTest(testDefinition.getUrn()).setType(TestResultType.FAILURE));
+              .add(
+                  new TestResult()
+                      .setTest(testDefinition.getUrn())
+                      .setType(TestResultType.FAILURE));
         }
       }
     }
@@ -444,44 +482,54 @@ public class TestEngine {
   }
 
   /**
-   * For each test, return the list of eligible entities based on matching against the select conditions.
+   * For each test, return the list of eligible entities based on matching against the select
+   * conditions.
    *
    * @param urns the entity urns
    * @param tests the list of test definitions
    * @return a map of the test definition to the URNs which should be evaluated.
    */
-  private Map<TestDefinition, List<Urn>> getEligibleEntitiesPerTest(@Nonnull List<Urn> urns, @Nonnull List<TestDefinition> tests) {
+  private Map<TestDefinition, List<Urn>> getEligibleEntitiesPerTest(
+      @Nonnull List<Urn> urns, @Nonnull List<TestDefinition> tests) {
     // First batch evaluate all queries in the targeting rules
     // Always make sure we batch queries together as much as possible to reduce calls
-    Map<Urn, Map<TestQuery, TestQueryResponse>> selectConditionQueryResponse = batchQuery(urns, getPredicatesFromSelectConditions(tests));
+    Map<Urn, Map<TestQuery, TestQueryResponse>> selectConditionQueryResponse =
+        batchQuery(urns, getPredicatesFromSelectConditions(tests));
     Map<TestDefinition, List<Urn>> eligibleTestsPerEntity = new HashMap<>();
 
     // Using the query evaluation result, find the set of eligible tests per entity.
     // Reverse map to get the list of entities eligible for each test
     for (Urn urn : urns) {
-      Map<TestQuery, TestQueryResponse> queryResponseForUrn = selectConditionQueryResponse.getOrDefault(urn, Collections.emptyMap());
-      tests.stream().filter(test -> evaluateSelectConditions(urn, queryResponseForUrn, test)).forEach(test -> {
-        if (!eligibleTestsPerEntity.containsKey(test)) {
-          eligibleTestsPerEntity.put(test, new ArrayList<>());
-        }
-        eligibleTestsPerEntity.get(test).add(urn);
-      });
+      Map<TestQuery, TestQueryResponse> queryResponseForUrn =
+          selectConditionQueryResponse.getOrDefault(urn, Collections.emptyMap());
+      tests.stream()
+          .filter(test -> evaluateSelectConditions(urn, queryResponseForUrn, test))
+          .forEach(
+              test -> {
+                if (!eligibleTestsPerEntity.containsKey(test)) {
+                  eligibleTestsPerEntity.put(test, new ArrayList<>());
+                }
+                eligibleTestsPerEntity.get(test).add(urn);
+              });
     }
     return eligibleTestsPerEntity;
   }
 
   @WithSpan
-  private Map<Urn, Map<TestQuery, TestQueryResponse>> batchQuery(@Nonnull final List<Urn> urns, @Nonnull final List<Predicate> rules) {
+  private Map<Urn, Map<TestQuery, TestQueryResponse>> batchQuery(
+      @Nonnull final List<Urn> urns, @Nonnull final List<Predicate> rules) {
     if (rules.isEmpty()) {
       return Collections.emptyMap();
     }
-    Set<TestQuery> requiredQueries = rules.stream()
-        .flatMap(rule -> _predicateEvaluator.extractQueriesForPredicate(rule).stream())
-        .collect(Collectors.toSet());
+    Set<TestQuery> requiredQueries =
+        rules.stream()
+            .flatMap(rule -> _predicateEvaluator.extractQueriesForPredicate(rule).stream())
+            .collect(Collectors.toSet());
     return _queryEngine.batchEvaluateQueries(new HashSet<>(urns), requiredQueries);
   }
 
-  private List<Predicate> getPredicatesFromSelectConditions(@Nonnull final List<TestDefinition> tests) {
+  private List<Predicate> getPredicatesFromSelectConditions(
+      @Nonnull final List<TestDefinition> tests) {
     return tests.stream()
         .map(test -> test.getOn().getConditions())
         .filter(Objects::nonNull)
@@ -509,20 +557,21 @@ public class TestEngine {
   }
 
   // Get eligible tests for the given entity based on the select conditions
-  private List<TestDefinition> evaluateSelect(@Nonnull final Urn urn, @Nonnull final List<TestDefinition> tests) {
+  private List<TestDefinition> evaluateSelect(
+      @Nonnull final Urn urn, @Nonnull final List<TestDefinition> tests) {
 
     // First test against the 'types' in the on clause.
-    final List<TestDefinition> testsToExecute = tests.stream()
-        .filter(test -> evaluateSelectTypes(urn, test))
-        .collect(Collectors.toList());
+    final List<TestDefinition> testsToExecute =
+        tests.stream().filter(test -> evaluateSelectTypes(urn, test)).collect(Collectors.toList());
 
     // Then, resolve queries required in select conditions
     // Always make sure we batch queries together as much as possible to reduce calls
-    Map<TestQuery, TestQueryResponse> selectConditionsQueryResponse = batchQuery(
-        ImmutableList.of(urn),
-        getPredicatesFromSelectConditions(testsToExecute)).getOrDefault(urn, Collections.emptyMap());
+    Map<TestQuery, TestQueryResponse> selectConditionsQueryResponse =
+        batchQuery(ImmutableList.of(urn), getPredicatesFromSelectConditions(testsToExecute))
+            .getOrDefault(urn, Collections.emptyMap());
 
-    // Based on the query evaluation result, find the list of tests that are eligible for the given urn
+    // Based on the query evaluation result, find the list of tests that are eligible for the given
+    // urn
     return testsToExecute.stream()
         .filter(test -> evaluateSelectConditions(urn, selectConditionsQueryResponse, test))
         .collect(Collectors.toList());
@@ -540,17 +589,20 @@ public class TestEngine {
   }
 
   /**
-   * Evaluate whether the entity passes the select rules in the test.
-   * Note, we batch evaluate queries before calling this function, and the results are inputted as arguments
-   * This function purely uses the query evaluation results and checks whether it passes the targeting rules or not
+   * Evaluate whether the entity passes the select rules in the test. Note, we batch evaluate
+   * queries before calling this function, and the results are inputted as arguments This function
+   * purely uses the query evaluation results and checks whether it passes the targeting rules or
+   * not
    *
    * @param urn Entity urn in question
-   * @param targetingRulesQueryResponses Batch query evaluation results.
-   *                                     Contains the result of all queries in the targeting rules
+   * @param targetingRulesQueryResponses Batch query evaluation results. Contains the result of all
+   *     queries in the targeting rules
    * @param test Test that we are trying to evaluate
    * @return Whether or not the entity passes the targeting rules of the test
    */
-  private boolean evaluateSelectConditions(Urn urn, Map<TestQuery, TestQueryResponse> targetingRulesQueryResponses,
+  private boolean evaluateSelectConditions(
+      Urn urn,
+      Map<TestQuery, TestQueryResponse> targetingRulesQueryResponses,
       TestDefinition test) {
 
     // If the URN is not eligible, return false.
@@ -573,33 +625,37 @@ public class TestEngine {
    * @param testUrns the test urns
    * @param results the test results
    */
-  private void ingestPartialResults(Urn urn, List<Urn> testUrns, TestResults results, EvaluationMode mode) {
+  private void ingestPartialResults(
+      Urn urn, List<Urn> testUrns, TestResults results, EvaluationMode mode) {
     EntityResponse entityResponse;
     try {
       entityResponse =
-          _entityService.getEntityV2(urn.getEntityType(), urn, ImmutableSet.of(Constants.TEST_RESULTS_ASPECT_NAME));
+          _entityService.getEntityV2(
+              urn.getEntityType(), urn, ImmutableSet.of(Constants.TEST_RESULTS_ASPECT_NAME));
     } catch (URISyntaxException e) {
       log.error("Failed to fetch TestResults aspect for urn {}", urn, e);
       return;
     }
     // If TestResults aspect does not exist, do a simple ingest
-    if (entityResponse == null || !entityResponse.getAspects().containsKey(Constants.TEST_RESULTS_ASPECT_NAME)) {
+    if (entityResponse == null
+        || !entityResponse.getAspects().containsKey(Constants.TEST_RESULTS_ASPECT_NAME)) {
       batchIngestResults(urn, results, mode);
       return;
     }
-    TestResults prevResults = new TestResults(entityResponse.getAspects().get(Constants.TEST_RESULTS_ASPECT_NAME).getValue().data());
-    TestResults mergedResults = new TestResults().setPassing(new TestResultArray()).setFailing(new TestResultArray());
+    TestResults prevResults =
+        new TestResults(
+            entityResponse.getAspects().get(Constants.TEST_RESULTS_ASPECT_NAME).getValue().data());
+    TestResults mergedResults =
+        new TestResults().setPassing(new TestResultArray()).setFailing(new TestResultArray());
     // Add in current results
     mergedResults.getPassing().addAll(results.getPassing());
     mergedResults.getFailing().addAll(results.getFailing());
     // Add in previous results filtering out the tests that were just evaluated
     Set<Urn> testSet = new HashSet<>(testUrns);
-    prevResults.getPassing()
-        .stream()
+    prevResults.getPassing().stream()
         .filter(test -> !testSet.contains(test.getTest()))
         .forEach(mergedResults.getPassing()::add);
-    prevResults.getFailing()
-        .stream()
+    prevResults.getFailing().stream()
         .filter(test -> !testSet.contains(test.getTest()))
         .forEach(mergedResults.getFailing()::add);
     batchIngestResults(urn, mergedResults, mode);
@@ -615,34 +671,44 @@ public class TestEngine {
     batchIngestResults(Map.of(urn, results), mode);
   }
 
-  private void batchIngestResults(@Nonnull  Map<Urn, TestResults> testResults, EvaluationMode mode) {
-    List<MetadataChangeProposal> mcps = testResults.entrySet().stream()
-            .map(entry -> new TestResultsPatchBuilder()
-                    .urn(entry.getKey())
-                    .updateTestResults(entry.getValue())
-                    .build())
+  private void batchIngestResults(@Nonnull Map<Urn, TestResults> testResults, EvaluationMode mode) {
+    List<MetadataChangeProposal> mcps =
+        testResults.entrySet().stream()
+            .map(
+                entry ->
+                    new TestResultsPatchBuilder()
+                        .urn(entry.getKey())
+                        .updateTestResults(entry.getValue())
+                        .build())
             .collect(Collectors.toList());
 
-    AspectsBatchImpl batch = AspectsBatchImpl.builder()
-            .mcps(mcps, _entityService.getEntityRegistry())
-            .build();
+    AspectsBatchImpl batch =
+        AspectsBatchImpl.builder().mcps(mcps, _entityService.getEntityRegistry()).build();
 
-    AuditStamp auditStamp = new AuditStamp().setActor(UrnUtils.getUrn(Constants.SYSTEM_ACTOR)).setTime(System.currentTimeMillis());
+    AuditStamp auditStamp =
+        new AuditStamp()
+            .setActor(UrnUtils.getUrn(Constants.SYSTEM_ACTOR))
+            .setTime(System.currentTimeMillis());
     _entityService.ingestProposal(batch, auditStamp, mode != EvaluationMode.SYNC);
   }
 
   private static JsonNode asPatch(TestResults testResults) {
-    ArrayNode node = JsonNodeFactory.instance.arrayNode(testResults.getPassing().size() + testResults.getFailing().size());
+    ArrayNode node =
+        JsonNodeFactory.instance.arrayNode(
+            testResults.getPassing().size() + testResults.getFailing().size());
 
     // { "op": "add", "path": "/hello", "value": ["world"] },
-    BiConsumer<String, TestResult> addOp = (path, result) -> {
-      node.add(JsonNodeFactory.instance.objectNode()
-              .put("op", "add")
-              .put("path", path)
-              .putObject("value")
-              .put("test", result.getTest().toString())
-              .put("type", result.getType().toString()));
-    };
+    BiConsumer<String, TestResult> addOp =
+        (path, result) -> {
+          node.add(
+              JsonNodeFactory.instance
+                  .objectNode()
+                  .put("op", "add")
+                  .put("path", path)
+                  .putObject("value")
+                  .put("test", result.getTest().toString())
+                  .put("type", result.getType().toString()));
+        };
 
     testResults.getPassing().forEach(passing -> addOp.accept("/passing", passing));
     testResults.getFailing().forEach(failing -> addOp.accept("/failing", failing));
@@ -653,26 +719,29 @@ public class TestEngine {
   /**
    * Batch applies actions for an set of entities.
    *
-   * To do this, we first group by the Action -> entity URNs requiring the action.
-   * Then, we batch apply the action to all entity URNs in the set using an {@link ActionApplier}.
+   * <p>To do this, we first group by the Action -> entity URNs requiring the action. Then, we batch
+   * apply the action to all entity URNs in the set using an {@link ActionApplier}.
    */
   private void batchApplyActions(@Nonnull final Map<Urn, TestResults> entityUrnToResults) {
     // First, aggregate by Action -> URNs, so we can batch the action execution itself.
     Map<TestAction, Set<Urn>> actionToEntityUrns = new HashMap<>();
     for (Map.Entry<Urn, TestResults> entry : entityUrnToResults.entrySet()) {
-      addActionsToEntityMap(entry.getKey(), entry.getValue().getPassing(), actionToEntityUrns); // Passing Actions
-      addActionsToEntityMap(entry.getKey(), entry.getValue().getFailing(), actionToEntityUrns); // Failing Actions
+      addActionsToEntityMap(
+          entry.getKey(), entry.getValue().getPassing(), actionToEntityUrns); // Passing Actions
+      addActionsToEntityMap(
+          entry.getKey(), entry.getValue().getFailing(), actionToEntityUrns); // Failing Actions
     }
 
     // Apply the action for each batch.
     for (Map.Entry<TestAction, Set<Urn>> entry : actionToEntityUrns.entrySet()) {
-      _actionApplier.apply(entry.getKey().getType(), new ArrayList<>(entry.getValue()), new ActionParameters(entry.getKey().getParams()));
+      _actionApplier.apply(
+          entry.getKey().getType(),
+          new ArrayList<>(entry.getValue()),
+          new ActionParameters(entry.getKey().getParams()));
     }
   }
 
-  /**
-   * Batch applies actions for an entity.
-   */
+  /** Batch applies actions for an entity. */
   private void addActionsToEntityMap(
       @Nonnull final Urn entityUrn,
       @Nonnull final List<TestResult> testResults,
@@ -682,7 +751,8 @@ public class TestEngine {
     try {
       for (TestResult result : testResults) {
         TestDefinition definition = _testCache.get(result.getTest());
-        List<TestAction> eligibleActions = TestResultType.FAILURE.equals(result.getType())
+        List<TestAction> eligibleActions =
+            TestResultType.FAILURE.equals(result.getType())
                 ? definition.getActions().getFailing()
                 : definition.getActions().getPassing();
         for (TestAction action : eligibleActions) {
@@ -694,7 +764,6 @@ public class TestEngine {
       // To unlock the acquired read thread
       cacheReadLock.unlock();
     }
-
   }
 
   private List<TestDefinition> getOrDefault(String key, List<TestDefinition> defaultValue) {
@@ -710,8 +779,8 @@ public class TestEngine {
   /**
    * A {@link Runnable} used to periodically fetch a new instance of the test Cache.
    *
-   * Currently, the refresh logic is not very smart. When the cache is invalidated, we simply re-fetch the
-   * entire cache using Tests stored in the backend.
+   * <p>Currently, the refresh logic is not very smart. When the cache is invalidated, we simply
+   * re-fetch the entire cache using Tests stored in the backend.
    */
   @VisibleForTesting
   @RequiredArgsConstructor
@@ -745,7 +814,9 @@ public class TestEngine {
           } catch (Exception e) {
             log.error(
                 "Failed to retrieve test urns! Skipping updating test cache until next refresh. start: {}, count: {}",
-                start, count, e);
+                start,
+                count,
+                e);
             return;
           }
         }
@@ -763,28 +834,38 @@ public class TestEngine {
 
         log.debug(String.format("Successfully fetched %s tests.", total));
       } catch (Exception e) {
-        log.error("Caught exception while loading Test cache. Will retry on next scheduled attempt.", e);
+        log.error(
+            "Caught exception while loading Test cache. Will retry on next scheduled attempt.", e);
       }
     }
 
-    private void addTestsToCache(final Map<Urn, TestDefinition> testCache,
-        final Map<String, List<TestDefinition>> testPerEntityTypeCache, final List<TestFetcher.Test> tests) {
+    private void addTestsToCache(
+        final Map<Urn, TestDefinition> testCache,
+        final Map<String, List<TestDefinition>> testPerEntityTypeCache,
+        final List<TestFetcher.Test> tests) {
       tests.forEach(test -> addTestToCache(testCache, testPerEntityTypeCache, test));
     }
 
-    private void addTestToCache(final Map<Urn, TestDefinition> testCache, final Map<String, List<TestDefinition>> cache,
+    private void addTestToCache(
+        final Map<Urn, TestDefinition> testCache,
+        final Map<String, List<TestDefinition>> cache,
         final TestFetcher.Test test) {
       TestDefinition testDefinition;
       try {
         testDefinition =
-            _testDefinitionParser.deserialize(test.getUrn(), test.getTestInfo().getDefinition().getJson());
+            _testDefinitionParser.deserialize(
+                test.getUrn(), test.getTestInfo().getDefinition().getJson());
       } catch (TestDefinitionParsingException e) {
-        log.error("Issue while deserializing test definition {}", test.getTestInfo().getDefinition().getJson(), e);
+        log.error(
+            "Issue while deserializing test definition {}",
+            test.getTestInfo().getDefinition().getJson(),
+            e);
         return;
       }
       testCache.put(test.getUrn(), testDefinition);
       for (String entityType : testDefinition.getOn().getEntityTypes()) {
-        List<TestDefinition> existingTestsForEntityType = cache.getOrDefault(entityType, new ArrayList<>());
+        List<TestDefinition> existingTestsForEntityType =
+            cache.getOrDefault(entityType, new ArrayList<>());
         existingTestsForEntityType.add(testDefinition);
         cache.put(entityType, existingTestsForEntityType);
       }

@@ -1,5 +1,9 @@
 package com.linkedin.datahub.graphql.resolvers.domain;
 
+import static com.linkedin.datahub.graphql.TestUtils.*;
+import static com.linkedin.metadata.Constants.DOMAIN_PROPERTIES_ASPECT_NAME;
+import static org.testng.Assert.*;
+
 import com.datahub.authentication.Authentication;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
@@ -15,48 +19,34 @@ import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.key.DomainKey;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.utils.GenericRecordUtils;
-import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetchingEnvironment;
-
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletionException;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
-import static com.linkedin.datahub.graphql.TestUtils.*;
-import static com.linkedin.metadata.Constants.DOMAIN_PROPERTIES_ASPECT_NAME;
-import static org.testng.Assert.*;
-
-
 public class CreateDomainResolverTest {
 
   private static final Urn TEST_DOMAIN_URN = Urn.createFromTuple("domain", "test-id");
   private static final Urn TEST_PARENT_DOMAIN_URN = Urn.createFromTuple("domain", "test-parent-id");
 
-  private static final CreateDomainInput TEST_INPUT = new CreateDomainInput(
-      "test-id",
-      "test-name",
-      "test-description",
-      TEST_PARENT_DOMAIN_URN.toString()
-  );
+  private static final CreateDomainInput TEST_INPUT =
+      new CreateDomainInput(
+          "test-id", "test-name", "test-description", TEST_PARENT_DOMAIN_URN.toString());
 
-  private static final CreateDomainInput TEST_INPUT_NO_PARENT_DOMAIN = new CreateDomainInput(
-      "test-id",
-      "test-name",
-      "test-description",
-      null
-  );
+  private static final CreateDomainInput TEST_INPUT_NO_PARENT_DOMAIN =
+      new CreateDomainInput("test-id", "test-name", "test-description", null);
 
   private static final Urn TEST_ACTOR_URN = UrnUtils.getUrn("urn:li:corpuser:test");
-
 
   @Test
   public void testGetSuccess() throws Exception {
@@ -65,15 +55,13 @@ public class CreateDomainResolverTest {
     EntityService mockService = getMockEntityService();
     CreateDomainResolver resolver = new CreateDomainResolver(mockClient, mockService);
 
-    Mockito.when(mockClient.exists(
-        Mockito.eq(TEST_DOMAIN_URN),
-        Mockito.any(Authentication.class)
-    )).thenReturn(false);
+    Mockito.when(mockClient.exists(Mockito.eq(TEST_DOMAIN_URN), Mockito.any(Authentication.class)))
+        .thenReturn(false);
 
-    Mockito.when(mockClient.exists(
-        Mockito.eq(TEST_PARENT_DOMAIN_URN),
-        Mockito.any(Authentication.class)
-    )).thenReturn(true);
+    Mockito.when(
+            mockClient.exists(
+                Mockito.eq(TEST_PARENT_DOMAIN_URN), Mockito.any(Authentication.class)))
+        .thenReturn(true);
 
     // Execute resolver
     QueryContext mockContext = getMockAllowContext();
@@ -81,14 +69,17 @@ public class CreateDomainResolverTest {
     Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(TEST_INPUT);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
-    Mockito.when(mockClient.filter(
-        Mockito.eq(Constants.DOMAIN_ENTITY_NAME),
-        Mockito.eq(DomainUtils.buildNameAndParentDomainFilter(TEST_INPUT.getName(), TEST_PARENT_DOMAIN_URN)),
-        Mockito.eq(null),
-        Mockito.any(Integer.class),
-        Mockito.any(Integer.class),
-        Mockito.any(Authentication.class)
-    )).thenReturn(new SearchResult().setEntities(new SearchEntityArray()));
+    Mockito.when(
+            mockClient.filter(
+                Mockito.eq(Constants.DOMAIN_ENTITY_NAME),
+                Mockito.eq(
+                    DomainUtils.buildNameAndParentDomainFilter(
+                        TEST_INPUT.getName(), TEST_PARENT_DOMAIN_URN)),
+                Mockito.eq(null),
+                Mockito.any(Integer.class),
+                Mockito.any(Integer.class),
+                Mockito.any(Authentication.class)))
+        .thenReturn(new SearchResult().setEntities(new SearchEntityArray()));
 
     resolver.get(mockEnv).get();
 
@@ -107,11 +98,11 @@ public class CreateDomainResolverTest {
     proposal.setChangeType(ChangeType.UPSERT);
 
     // Not ideal to match against "any", but we don't know the auto-generated execution request id
-    Mockito.verify(mockClient, Mockito.times(1)).ingestProposal(
-        Mockito.argThat(new CreateDomainProposalMatcher(proposal)),
-        Mockito.any(Authentication.class),
-        Mockito.eq(false)
-    );
+    Mockito.verify(mockClient, Mockito.times(1))
+        .ingestProposal(
+            Mockito.argThat(new CreateDomainProposalMatcher(proposal)),
+            Mockito.any(Authentication.class),
+            Mockito.eq(false));
   }
 
   @Test
@@ -120,24 +111,23 @@ public class CreateDomainResolverTest {
     EntityService mockService = Mockito.mock(EntityService.class);
     CreateDomainResolver resolver = new CreateDomainResolver(mockClient, mockService);
 
-    Mockito.when(mockClient.exists(
-        Mockito.eq(TEST_DOMAIN_URN),
-        Mockito.any(Authentication.class)
-    )).thenReturn(false);
+    Mockito.when(mockClient.exists(Mockito.eq(TEST_DOMAIN_URN), Mockito.any(Authentication.class)))
+        .thenReturn(false);
 
     QueryContext mockContext = getMockAllowContext();
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(TEST_INPUT_NO_PARENT_DOMAIN);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
-    Mockito.when(mockClient.filter(
-        Mockito.eq(Constants.DOMAIN_ENTITY_NAME),
-        Mockito.eq(DomainUtils.buildNameAndParentDomainFilter(TEST_INPUT.getName(), null)),
-        Mockito.eq(null),
-        Mockito.any(Integer.class),
-        Mockito.any(Integer.class),
-        Mockito.any(Authentication.class)
-    )).thenReturn(new SearchResult().setEntities(new SearchEntityArray()));
+    Mockito.when(
+            mockClient.filter(
+                Mockito.eq(Constants.DOMAIN_ENTITY_NAME),
+                Mockito.eq(DomainUtils.buildNameAndParentDomainFilter(TEST_INPUT.getName(), null)),
+                Mockito.eq(null),
+                Mockito.any(Integer.class),
+                Mockito.any(Integer.class),
+                Mockito.any(Authentication.class)))
+        .thenReturn(new SearchResult().setEntities(new SearchEntityArray()));
 
     resolver.get(mockEnv).get();
 
@@ -154,11 +144,11 @@ public class CreateDomainResolverTest {
     proposal.setAspect(GenericRecordUtils.serializeAspect(props));
     proposal.setChangeType(ChangeType.UPSERT);
 
-    Mockito.verify(mockClient, Mockito.times(1)).ingestProposal(
-        Mockito.argThat(new CreateDomainProposalMatcher(proposal)),
-        Mockito.any(Authentication.class),
-        Mockito.eq(false)
-    );
+    Mockito.verify(mockClient, Mockito.times(1))
+        .ingestProposal(
+            Mockito.argThat(new CreateDomainProposalMatcher(proposal)),
+            Mockito.any(Authentication.class),
+            Mockito.eq(false));
   }
 
   @Test
@@ -167,15 +157,13 @@ public class CreateDomainResolverTest {
     EntityService mockService = Mockito.mock(EntityService.class);
     CreateDomainResolver resolver = new CreateDomainResolver(mockClient, mockService);
 
-    Mockito.when(mockClient.exists(
-        Mockito.eq(TEST_DOMAIN_URN),
-        Mockito.any(Authentication.class)
-    )).thenReturn(false);
+    Mockito.when(mockClient.exists(Mockito.eq(TEST_DOMAIN_URN), Mockito.any(Authentication.class)))
+        .thenReturn(false);
 
-    Mockito.when(mockClient.exists(
-        Mockito.eq(TEST_PARENT_DOMAIN_URN),
-        Mockito.any(Authentication.class)
-    )).thenReturn(false);
+    Mockito.when(
+            mockClient.exists(
+                Mockito.eq(TEST_PARENT_DOMAIN_URN), Mockito.any(Authentication.class)))
+        .thenReturn(false);
 
     QueryContext mockContext = getMockAllowContext();
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
@@ -191,31 +179,32 @@ public class CreateDomainResolverTest {
     EntityService mockService = Mockito.mock(EntityService.class);
     CreateDomainResolver resolver = new CreateDomainResolver(mockClient, mockService);
 
-    Mockito.when(mockClient.exists(
-        Mockito.eq(TEST_DOMAIN_URN),
-        Mockito.any(Authentication.class)
-    )).thenReturn(false);
+    Mockito.when(mockClient.exists(Mockito.eq(TEST_DOMAIN_URN), Mockito.any(Authentication.class)))
+        .thenReturn(false);
 
-    Mockito.when(mockClient.exists(
-        Mockito.eq(TEST_PARENT_DOMAIN_URN),
-        Mockito.any(Authentication.class)
-    )).thenReturn(true);
+    Mockito.when(
+            mockClient.exists(
+                Mockito.eq(TEST_PARENT_DOMAIN_URN), Mockito.any(Authentication.class)))
+        .thenReturn(true);
 
     QueryContext mockContext = getMockAllowContext();
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(TEST_INPUT);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
-    Mockito.when(mockClient.filter(
-        Mockito.eq(Constants.DOMAIN_ENTITY_NAME),
-        Mockito.eq(DomainUtils.buildNameAndParentDomainFilter(TEST_INPUT.getName(), TEST_PARENT_DOMAIN_URN)),
-        Mockito.eq(null),
-        Mockito.any(Integer.class),
-        Mockito.any(Integer.class),
-        Mockito.any(Authentication.class)
-    )).thenReturn(new SearchResult().setEntities(
-        new SearchEntityArray(new SearchEntity().setEntity(TEST_DOMAIN_URN))
-    ));
+    Mockito.when(
+            mockClient.filter(
+                Mockito.eq(Constants.DOMAIN_ENTITY_NAME),
+                Mockito.eq(
+                    DomainUtils.buildNameAndParentDomainFilter(
+                        TEST_INPUT.getName(), TEST_PARENT_DOMAIN_URN)),
+                Mockito.eq(null),
+                Mockito.any(Integer.class),
+                Mockito.any(Integer.class),
+                Mockito.any(Authentication.class)))
+        .thenReturn(
+            new SearchResult()
+                .setEntities(new SearchEntityArray(new SearchEntity().setEntity(TEST_DOMAIN_URN))));
 
     DomainProperties domainProperties = new DomainProperties();
     domainProperties.setDescription(TEST_INPUT.getDescription());
@@ -225,18 +214,21 @@ public class CreateDomainResolverTest {
 
     EntityResponse entityResponse = new EntityResponse();
     EnvelopedAspectMap envelopedAspectMap = new EnvelopedAspectMap();
-    envelopedAspectMap.put(DOMAIN_PROPERTIES_ASPECT_NAME, new EnvelopedAspect().setValue(new Aspect(domainProperties.data())));
+    envelopedAspectMap.put(
+        DOMAIN_PROPERTIES_ASPECT_NAME,
+        new EnvelopedAspect().setValue(new Aspect(domainProperties.data())));
     entityResponse.setAspects(envelopedAspectMap);
 
     Map<Urn, EntityResponse> entityResponseMap = new HashMap<>();
     entityResponseMap.put(TEST_DOMAIN_URN, entityResponse);
 
-    Mockito.when(mockClient.batchGetV2(
-        Mockito.eq(Constants.DOMAIN_ENTITY_NAME),
-        Mockito.any(),
-        Mockito.any(),
-        Mockito.any(Authentication.class)
-    )).thenReturn(entityResponseMap);
+    Mockito.when(
+            mockClient.batchGetV2(
+                Mockito.eq(Constants.DOMAIN_ENTITY_NAME),
+                Mockito.any(),
+                Mockito.any(),
+                Mockito.any(Authentication.class)))
+        .thenReturn(entityResponseMap);
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
   }
@@ -255,9 +247,8 @@ public class CreateDomainResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
-    Mockito.verify(mockClient, Mockito.times(0)).ingestProposal(
-        Mockito.any(),
-        Mockito.any(Authentication.class));
+    Mockito.verify(mockClient, Mockito.times(0))
+        .ingestProposal(Mockito.any(), Mockito.any(Authentication.class));
   }
 
   @Test
@@ -265,9 +256,9 @@ public class CreateDomainResolverTest {
     // Create resolver
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     EntityService mockService = getMockEntityService();
-    Mockito.doThrow(RemoteInvocationException.class).when(mockClient).ingestProposal(
-        Mockito.any(),
-        Mockito.any(Authentication.class), Mockito.eq(false));
+    Mockito.doThrow(RemoteInvocationException.class)
+        .when(mockClient)
+        .ingestProposal(Mockito.any(), Mockito.any(Authentication.class), Mockito.eq(false));
     CreateDomainResolver resolver = new CreateDomainResolver(mockClient, mockService);
 
     // Execute resolver

@@ -16,32 +16,36 @@ import java.util.List;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
-
 @Slf4j
 public class SubscriptionResolverUtils {
   @Nonnull
-  public static SubscriptionTypeArray mapSubscriptionTypes(@Nonnull List<SubscriptionType> subscriptionTypes) {
+  public static SubscriptionTypeArray mapSubscriptionTypes(
+      @Nonnull List<SubscriptionType> subscriptionTypes) {
     final SubscriptionTypeArray result = new SubscriptionTypeArray();
     for (SubscriptionType subscriptionType : subscriptionTypes) {
       try {
         result.add(com.linkedin.subscription.SubscriptionType.valueOf(subscriptionType.toString()));
       } catch (IllegalArgumentException e) {
-        log.warn(String.format("Unable to map subscription type: %s. Skipping...", subscriptionType));
+        log.warn(
+            String.format("Unable to map subscription type: %s. Skipping...", subscriptionType));
       }
     }
     return result;
   }
 
   @Nonnull
-  public static EntityChangeDetailsArray mapEntityChangeTypes(@Nonnull List<EntityChangeDetailsInput> entityChangeDetails) {
+  public static EntityChangeDetailsArray mapEntityChangeTypes(
+      @Nonnull List<EntityChangeDetailsInput> entityChangeDetails) {
     final EntityChangeDetailsArray result = new EntityChangeDetailsArray();
     for (EntityChangeDetailsInput entityChangeDetail : entityChangeDetails) {
       try {
         EntityChangeDetails changeDetails = new EntityChangeDetails();
-        changeDetails.setEntityChangeType(EntityChangeType.valueOf(entityChangeDetail.getEntityChangeType().toString()));
+        changeDetails.setEntityChangeType(
+            EntityChangeType.valueOf(entityChangeDetail.getEntityChangeType().toString()));
         result.add(changeDetails);
       } catch (IllegalArgumentException e) {
-        log.warn(String.format("Unable to map entity change type: %s. Skipping...", entityChangeDetail));
+        log.warn(
+            String.format("Unable to map entity change type: %s. Skipping...", entityChangeDetail));
       }
     }
     return result;
@@ -49,7 +53,9 @@ public class SubscriptionResolverUtils {
 
   @Nonnull
   public static SubscriptionNotificationConfig mapSubscriptionNotificationConfig(
-      @Nonnull com.linkedin.datahub.graphql.generated.SubscriptionNotificationConfigInput notificationConfig) {
+      @Nonnull
+          com.linkedin.datahub.graphql.generated.SubscriptionNotificationConfigInput
+              notificationConfig) {
     final SubscriptionNotificationConfig result = new SubscriptionNotificationConfig();
 
     if (notificationConfig.getNotificationSettings() != null) {
@@ -63,23 +69,27 @@ public class SubscriptionResolverUtils {
 
   @Nonnull
   public static NotificationSettings mapNotificationSettings(
-      @Nonnull com.linkedin.datahub.graphql.generated.NotificationSettingsInput notificationSettings) {
+      @Nonnull
+          com.linkedin.datahub.graphql.generated.NotificationSettingsInput notificationSettings) {
     final NotificationSettings result = new NotificationSettings();
     final NotificationSinkTypeArray sinkTypes = new NotificationSinkTypeArray();
 
     if (notificationSettings.getSinkTypes() != null) {
-      for (com.linkedin.datahub.graphql.generated.NotificationSinkType sinkType : notificationSettings.getSinkTypes()) {
+      for (com.linkedin.datahub.graphql.generated.NotificationSinkType sinkType :
+          notificationSettings.getSinkTypes()) {
         try {
           sinkTypes.add(NotificationSinkType.valueOf(sinkType.toString()));
         } catch (IllegalArgumentException e) {
-          log.warn(String.format("Unable to map notification sink type: %s. Skipping...", sinkType));
+          log.warn(
+              String.format("Unable to map notification sink type: %s. Skipping...", sinkType));
         }
       }
       result.setSinkTypes(sinkTypes);
     }
 
     if (notificationSettings.getSlackSettings() != null) {
-      result.setSlackSettings(mapSlackNotificationSettings(notificationSettings.getSlackSettings()));
+      result.setSlackSettings(
+          mapSlackNotificationSettings(notificationSettings.getSlackSettings()));
     }
 
     return result;
@@ -87,7 +97,8 @@ public class SubscriptionResolverUtils {
 
   @Nonnull
   public static SlackNotificationSettings mapSlackNotificationSettings(
-      @Nonnull com.linkedin.datahub.graphql.generated.SlackNotificationSettingsInput slackSettings) {
+      @Nonnull
+          com.linkedin.datahub.graphql.generated.SlackNotificationSettingsInput slackSettings) {
     final SlackNotificationSettings result = new SlackNotificationSettings();
     if (slackSettings.getUserHandle() != null) {
       result.setUserHandle(slackSettings.getUserHandle());
@@ -99,6 +110,5 @@ public class SubscriptionResolverUtils {
     return result;
   }
 
-  private SubscriptionResolverUtils() {
-  }
+  private SubscriptionResolverUtils() {}
 }

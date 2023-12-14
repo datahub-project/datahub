@@ -6,12 +6,9 @@ import com.linkedin.schema.SchemaMetadata;
 import javax.annotation.Nullable;
 import lombok.Value;
 
-
 @Value
 public class EntityDetails {
   Urn urn;
-  @Nullable
-  SchemaMetadata schemaMetadata;
-  @Nullable
-  EditableSchemaMetadata editableSchemaMetadata;
+  @Nullable SchemaMetadata schemaMetadata;
+  @Nullable EditableSchemaMetadata editableSchemaMetadata;
 }

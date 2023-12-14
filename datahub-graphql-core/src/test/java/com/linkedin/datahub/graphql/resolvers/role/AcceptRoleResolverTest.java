@@ -1,5 +1,9 @@
 package com.linkedin.datahub.graphql.resolvers.role;
 
+import static com.linkedin.datahub.graphql.TestUtils.*;
+import static org.mockito.Mockito.*;
+import static org.testng.Assert.*;
+
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.invite.InviteTokenService;
@@ -10,11 +14,6 @@ import com.linkedin.datahub.graphql.generated.AcceptRoleInput;
 import graphql.schema.DataFetchingEnvironment;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
-
-import static com.linkedin.datahub.graphql.TestUtils.*;
-import static org.mockito.Mockito.*;
-import static org.testng.Assert.*;
-
 
 public class AcceptRoleResolverTest {
   private static final String INVITE_TOKEN_URN_STRING = "urn:li:inviteToken:admin-invite-token";
@@ -54,7 +53,8 @@ public class AcceptRoleResolverTest {
     QueryContext mockContext = getMockAllowContext();
     when(_dataFetchingEnvironment.getContext()).thenReturn(mockContext);
     when(mockContext.getAuthentication()).thenReturn(_authentication);
-    when(_inviteTokenService.isInviteTokenValid(eq(inviteTokenUrn), eq(_authentication))).thenReturn(false);
+    when(_inviteTokenService.isInviteTokenValid(eq(inviteTokenUrn), eq(_authentication)))
+        .thenReturn(false);
 
     AcceptRoleInput input = new AcceptRoleInput();
     input.setInviteToken(INVITE_TOKEN_STRING);
@@ -69,8 +69,10 @@ public class AcceptRoleResolverTest {
     when(_dataFetchingEnvironment.getContext()).thenReturn(mockContext);
     when(mockContext.getAuthentication()).thenReturn(_authentication);
     when(_inviteTokenService.getInviteTokenUrn(eq(INVITE_TOKEN_STRING))).thenReturn(inviteTokenUrn);
-    when(_inviteTokenService.isInviteTokenValid(eq(inviteTokenUrn), eq(_authentication))).thenReturn(true);
-    when(_inviteTokenService.getInviteTokenRole(eq(inviteTokenUrn), eq(_authentication))).thenReturn(null);
+    when(_inviteTokenService.isInviteTokenValid(eq(inviteTokenUrn), eq(_authentication)))
+        .thenReturn(true);
+    when(_inviteTokenService.getInviteTokenRole(eq(inviteTokenUrn), eq(_authentication)))
+        .thenReturn(null);
     Actor actor = mock(Actor.class);
     when(_authentication.getActor()).thenReturn(actor);
     when(actor.toUrnStr()).thenReturn(ACTOR_URN_STRING);
@@ -89,8 +91,10 @@ public class AcceptRoleResolverTest {
     when(_dataFetchingEnvironment.getContext()).thenReturn(mockContext);
     when(mockContext.getAuthentication()).thenReturn(_authentication);
     when(_inviteTokenService.getInviteTokenUrn(eq(INVITE_TOKEN_STRING))).thenReturn(inviteTokenUrn);
-    when(_inviteTokenService.isInviteTokenValid(eq(inviteTokenUrn), eq(_authentication))).thenReturn(true);
-    when(_inviteTokenService.getInviteTokenRole(eq(inviteTokenUrn), eq(_authentication))).thenReturn(roleUrn);
+    when(_inviteTokenService.isInviteTokenValid(eq(inviteTokenUrn), eq(_authentication)))
+        .thenReturn(true);
+    when(_inviteTokenService.getInviteTokenRole(eq(inviteTokenUrn), eq(_authentication)))
+        .thenReturn(roleUrn);
     Actor actor = mock(Actor.class);
     when(_authentication.getActor()).thenReturn(actor);
     when(actor.toUrnStr()).thenReturn(ACTOR_URN_STRING);

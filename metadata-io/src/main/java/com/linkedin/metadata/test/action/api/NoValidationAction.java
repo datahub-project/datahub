@@ -6,8 +6,8 @@ import com.linkedin.metadata.test.exception.InvalidActionParamsException;
 
 public abstract class NoValidationAction implements Action {
 
-    @Override
-    public void validate(ActionParameters params) throws InvalidActionParamsException {
-        // Nothing to do as there are no params
-    }
+  @Override
+  public void validate(ActionParameters params) throws InvalidActionParamsException {
+    // Nothing to do as there are no params
+  }
 }

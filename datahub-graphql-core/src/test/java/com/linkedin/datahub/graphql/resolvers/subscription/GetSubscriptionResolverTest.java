@@ -1,5 +1,10 @@
 package com.linkedin.datahub.graphql.resolvers.subscription;
 
+import static com.linkedin.datahub.graphql.TestUtils.*;
+import static com.linkedin.datahub.graphql.resolvers.subscription.SubscriptionTestUtils.*;
+import static org.mockito.Mockito.*;
+import static org.testng.Assert.*;
+
 import com.datahub.authentication.Authentication;
 import com.datahub.subscription.SubscriptionService;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -10,12 +15,6 @@ import graphql.schema.DataFetchingEnvironment;
 import java.util.Map;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
-
-import static com.linkedin.datahub.graphql.TestUtils.*;
-import static com.linkedin.datahub.graphql.resolvers.subscription.SubscriptionTestUtils.*;
-import static org.mockito.Mockito.*;
-import static org.testng.Assert.*;
-
 
 public class GetSubscriptionResolverTest {
   private static final DataHubSubscription MAPPED_SUBSCRIPTION_1 = getMappedSubscription1();
@@ -44,20 +43,21 @@ public class GetSubscriptionResolverTest {
 
   @Test
   public void testGetSubscriptionExceptionThrown() {
-    when(_subscriptionService.getSubscription(eq(ENTITY_URN_1), eq(USER_URN), eq(_authentication))).thenThrow(
-        new RuntimeException());
+    when(_subscriptionService.getSubscription(eq(ENTITY_URN_1), eq(USER_URN), eq(_authentication)))
+        .thenThrow(new RuntimeException());
 
     assertThrows(() -> _resolver.get(_dataFetchingEnvironment).join());
   }
 
   @Test
   public void testGetSubscription() throws Exception {
-    when(_subscriptionService.getSubscription(eq(ENTITY_URN_1), eq(USER_URN), eq(_authentication))).thenReturn(
-        Map.entry(SUBSCRIPTION_URN_1, SUBSCRIPTION_INFO_1));
+    when(_subscriptionService.getSubscription(eq(ENTITY_URN_1), eq(USER_URN), eq(_authentication)))
+        .thenReturn(Map.entry(SUBSCRIPTION_URN_1, SUBSCRIPTION_INFO_1));
 
     final GetSubscriptionResult result = _resolver.get(_dataFetchingEnvironment).join();
     assertTrue(result.getPrivileges().getCanManageEntity());
-    final DataHubSubscriptionMatcher matcher1 = new DataHubSubscriptionMatcher(MAPPED_SUBSCRIPTION_1);
+    final DataHubSubscriptionMatcher matcher1 =
+        new DataHubSubscriptionMatcher(MAPPED_SUBSCRIPTION_1);
     assertTrue(matcher1.matches(result.getSubscription()));
   }
 }

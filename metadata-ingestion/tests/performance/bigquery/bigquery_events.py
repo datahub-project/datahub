@@ -2,7 +2,7 @@ import dataclasses
 import random
 import uuid
 from collections import defaultdict
-from typing import Dict, Iterable, List, cast
+from typing import Dict, Iterable, List, Set
 
 from typing_extensions import get_args
 
@@ -15,7 +15,7 @@ from datahub.ingestion.source.bigquery_v2.bigquery_audit import (
 )
 from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
 from datahub.ingestion.source.bigquery_v2.usage import OPERATION_STATEMENT_TYPES
-from tests.performance.data_model import Query, StatementType, Table, View
+from tests.performance.data_model import Query, StatementType, Table
 
 # https://cloud.google.com/bigquery/docs/reference/auditlogs/rest/Shared.Types/BigQueryAuditMetadata.TableDataRead.Reason
 READ_REASONS = [
@@ -86,7 +86,7 @@ def generate_events(
                         ref_from_table(parent, table_to_project)
                         for field in query.fields_accessed
                         if field.table.is_view()
-                        for parent in cast(View, field.table).parents
+                        for parent in field.table.upstreams
                     )
                 ),
                 referencedViews=referencedViews,
@@ -96,7 +96,7 @@ def generate_events(
                 query_on_view=True if referencedViews else False,
             )
         )
-        table_accesses = defaultdict(set)
+        table_accesses: Dict[BigQueryTableRef, Set[str]] = defaultdict(set)
         for field in query.fields_accessed:
             if not field.table.is_view():
                 table_accesses[ref_from_table(field.table, table_to_project)].add(
@@ -104,7 +104,7 @@ def generate_events(
                 )
             else:
                 # assuming that same fields are accessed in parent tables
-                for parent in cast(View, field.table).parents:
+                for parent in field.table.upstreams:
                     table_accesses[ref_from_table(parent, table_to_project)].add(
                         field.column
                     )

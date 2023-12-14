@@ -1,5 +1,8 @@
 package com.linkedin.metadata.entity;
 
+import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.utils.PegasusUtils.urnToEntityName;
+
 import com.datahub.util.RecordUtils;
 import com.google.common.base.Preconditions;
 import com.linkedin.common.AuditStamp;
@@ -18,24 +21,17 @@ import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.PegasusUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
-
-import lombok.extern.slf4j.Slf4j;
-
 import java.net.URISyntaxException;
 import java.net.URLEncoder;
 import java.util.List;
-
-import static com.linkedin.metadata.Constants.*;
-import static com.linkedin.metadata.utils.PegasusUtils.urnToEntityName;
-
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 public class EntityUtils {
 
-  private EntityUtils() {
-  }
+  private EntityUtils() {}
 
   public static final int URN_NUM_BYTES_LIMIT = 512;
   public static final String URN_DELIMITER_SEPARATOR = "␟";
@@ -63,17 +59,19 @@ public class EntityUtils {
   }
 
   public static void ingestChangeProposals(
-          @Nonnull List<MetadataChangeProposal> changes,
-          @Nonnull EntityService entityService,
-          @Nonnull Urn actor,
-          @Nonnull Boolean async
-  ) {
-    entityService.ingestProposal(AspectsBatchImpl.builder()
-            .mcps(changes, entityService.getEntityRegistry()).build(), getAuditStamp(actor), async);
+      @Nonnull List<MetadataChangeProposal> changes,
+      @Nonnull EntityService entityService,
+      @Nonnull Urn actor,
+      @Nonnull Boolean async) {
+    entityService.ingestProposal(
+        AspectsBatchImpl.builder().mcps(changes, entityService.getEntityRegistry()).build(),
+        getAuditStamp(actor),
+        async);
   }
 
   /**
    * Get aspect from entity
+   *
    * @param entityUrn URN of the entity
    * @param aspectName aspect name string
    * @param entityService EntityService obj
@@ -82,11 +80,10 @@ public class EntityUtils {
    */
   @Nullable
   public static RecordTemplate getAspectFromEntity(
-          String entityUrn,
-          String aspectName,
-          EntityService entityService,
-          RecordTemplate defaultValue
-  ) {
+      String entityUrn,
+      String aspectName,
+      EntityService entityService,
+      RecordTemplate defaultValue) {
     Urn urn = getUrnFromString(entityUrn);
     if (urn == null) {
       return defaultValue;
@@ -99,11 +96,10 @@ public class EntityUtils {
       return aspect;
     } catch (Exception e) {
       log.error(
-              "Error constructing aspect from entity. Entity: {} aspect: {}. Error: {}",
-              entityUrn,
-              aspectName,
-              e.toString()
-      );
+          "Error constructing aspect from entity. Entity: {} aspect: {}. Error: {}",
+          entityUrn,
+          aspectName,
+          e.toString());
       return null;
     }
   }
@@ -114,7 +110,8 @@ public class EntityUtils {
       @Nonnull final String aspectName,
       @Nonnull final String jsonAspect,
       @Nonnull final EntityRegistry entityRegistry) {
-    return toAspectRecord(PegasusUtils.urnToEntityName(entityUrn), aspectName, jsonAspect, entityRegistry);
+    return toAspectRecord(
+        PegasusUtils.urnToEntityName(entityUrn), aspectName, jsonAspect, entityRegistry);
   }
 
   /**
@@ -131,13 +128,17 @@ public class EntityUtils {
       @Nonnull final EntityRegistry entityRegistry) {
     final EntitySpec entitySpec = entityRegistry.getEntitySpec(entityName);
     final AspectSpec aspectSpec = entitySpec.getAspectSpec(aspectName);
-    //TODO: aspectSpec can be null here
-    Preconditions.checkState(aspectSpec != null, String.format("Aspect %s could not be found", aspectName));
+    // TODO: aspectSpec can be null here
+    Preconditions.checkState(
+        aspectSpec != null, String.format("Aspect %s could not be found", aspectName));
     final RecordDataSchema aspectSchema = aspectSpec.getPegasusSchema();
-    RecordTemplate aspectRecord = RecordUtils.toRecordTemplate(aspectSpec.getDataTemplateClass(), jsonAspect);
-    RecordTemplateValidator.validate(aspectRecord, validationFailure -> {
-      log.warn(String.format("Failed to validate record %s against its schema.", aspectRecord));
-    });
+    RecordTemplate aspectRecord =
+        RecordUtils.toRecordTemplate(aspectSpec.getDataTemplateClass(), jsonAspect);
+    RecordTemplateValidator.validate(
+        aspectRecord,
+        validationFailure -> {
+          log.warn(String.format("Failed to validate record %s against its schema.", aspectRecord));
+        });
     return aspectRecord;
   }
 
@@ -151,16 +152,14 @@ public class EntityUtils {
     return RecordUtils.toRecordTemplate(SystemMetadata.class, jsonSystemMetadata);
   }
 
-  /**
-   * Check if entity is removed (removed=true in Status aspect) and exists 
-   */
+  /** Check if entity is removed (removed=true in Status aspect) and exists */
   public static boolean checkIfRemoved(EntityService entityService, Urn entityUrn) {
     try {
-      
+
       if (!entityService.exists(entityUrn)) {
         return false;
       }
-      
+
       EnvelopedAspect statusAspect =
           entityService.getLatestEnvelopedAspect(entityUrn.getEntityType(), entityUrn, "status");
       if (statusAspect == null) {
@@ -174,7 +173,8 @@ public class EntityUtils {
     }
   }
 
-  public static RecordTemplate buildKeyAspect(@Nonnull EntityRegistry entityRegistry, @Nonnull final Urn urn) {
+  public static RecordTemplate buildKeyAspect(
+      @Nonnull EntityRegistry entityRegistry, @Nonnull final Urn urn) {
     final EntitySpec spec = entityRegistry.getEntitySpec(urnToEntityName(urn));
     final AspectSpec keySpec = spec.getKeyAspectSpec();
     return EntityKeyUtils.convertUrnToEntityKey(urn, keySpec);
@@ -183,18 +183,27 @@ public class EntityUtils {
   public static void validateUrn(@Nonnull EntityRegistry entityRegistry, @Nonnull final Urn urn) {
     EntityRegistryUrnValidator validator = new EntityRegistryUrnValidator(entityRegistry);
     validator.setCurrentEntitySpec(entityRegistry.getEntitySpec(urn.getEntityType()));
-    RecordTemplateValidator.validate(EntityUtils.buildKeyAspect(entityRegistry, urn), validationResult -> {
-      throw new IllegalArgumentException("Invalid urn: " + urn + "\n Cause: "
-              + validationResult.getMessages()); }, validator);
+    RecordTemplateValidator.validate(
+        EntityUtils.buildKeyAspect(entityRegistry, urn),
+        validationResult -> {
+          throw new IllegalArgumentException(
+              "Invalid urn: " + urn + "\n Cause: " + validationResult.getMessages());
+        },
+        validator);
 
     if (urn.toString().trim().length() != urn.toString().length()) {
-      throw new IllegalArgumentException("Error: cannot provide an URN with leading or trailing whitespace");
+      throw new IllegalArgumentException(
+          "Error: cannot provide an URN with leading or trailing whitespace");
     }
     if (URLEncoder.encode(urn.toString()).length() > URN_NUM_BYTES_LIMIT) {
-      throw new IllegalArgumentException("Error: cannot provide an URN longer than " + Integer.toString(URN_NUM_BYTES_LIMIT) + " bytes (when URL encoded)");
+      throw new IllegalArgumentException(
+          "Error: cannot provide an URN longer than "
+              + Integer.toString(URN_NUM_BYTES_LIMIT)
+              + " bytes (when URL encoded)");
     }
     if (urn.toString().contains(URN_DELIMITER_SEPARATOR)) {
-      throw new IllegalArgumentException("Error: URN cannot contain " + URN_DELIMITER_SEPARATOR + " character");
+      throw new IllegalArgumentException(
+          "Error: URN cannot contain " + URN_DELIMITER_SEPARATOR + " character");
     }
     try {
       Urn.createFromString(urn.toString());
@@ -202,5 +211,4 @@ public class EntityUtils {
       throw new IllegalArgumentException(e);
     }
   }
-
 }

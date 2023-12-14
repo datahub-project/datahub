@@ -1,7 +1,11 @@
 package com.linkedin.metadata.kafka.hook.assertion;
 
+import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.service.AssertionsSummaryUtils.*;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.linkedin.assertion.AssertionInfo;
 import com.linkedin.assertion.AssertionResult;
 import com.linkedin.assertion.AssertionResultType;
 import com.linkedin.assertion.AssertionRunEvent;
@@ -20,7 +24,6 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.gms.factory.assertions.AssertionServiceFactory;
 import com.linkedin.gms.factory.auth.SystemAuthenticationFactory;
 import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
-import com.linkedin.assertion.AssertionInfo;
 import com.linkedin.metadata.kafka.hook.HookUtils;
 import com.linkedin.metadata.kafka.hook.MetadataChangeLogHook;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -39,26 +42,28 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Import;
 import org.springframework.stereotype.Component;
 
-import static com.linkedin.metadata.Constants.*;
-import static com.linkedin.metadata.service.AssertionsSummaryUtils.*;
-
-
 /**
- * This hook is responsible for maintaining the AssertionsSummary.pdl aspect of entities
- * on which Assertions may be raised. It handles both assertion updates and assertion soft deletions
- * to ensure that this aspect reflects the latest state of the assertion.
+ * This hook is responsible for maintaining the AssertionsSummary.pdl aspect of entities on which
+ * Assertions may be raised. It handles both assertion updates and assertion soft deletions to
+ * ensure that this aspect reflects the latest state of the assertion.
  *
- * Hard deletes of assertions are not handled within this hook because the expectation is that deleteReferences will be invoked
- * to clean up references.
+ * <p>Hard deletes of assertions are not handled within this hook because the expectation is that
+ * deleteReferences will be invoked to clean up references.
  */
 @Slf4j
 @Component
 @Singleton
-@Import({EntityRegistryFactory.class, AssertionServiceFactory.class, SystemAuthenticationFactory.class})
+@Import({
+  EntityRegistryFactory.class,
+  AssertionServiceFactory.class,
+  SystemAuthenticationFactory.class
+})
 public class AssertionsSummaryHook implements MetadataChangeLogHook {
 
-  private static final Set<ChangeType> SUPPORTED_UPDATE_TYPES = ImmutableSet.of(ChangeType.UPSERT, ChangeType.CREATE, ChangeType.RESTATE);
-  private static final Set<String> SUPPORTED_UPDATE_ASPECTS = ImmutableSet.of(ASSERTION_RUN_EVENT_ASPECT_NAME);
+  private static final Set<ChangeType> SUPPORTED_UPDATE_TYPES =
+      ImmutableSet.of(ChangeType.UPSERT, ChangeType.CREATE, ChangeType.RESTATE);
+  private static final Set<String> SUPPORTED_UPDATE_ASPECTS =
+      ImmutableSet.of(ASSERTION_RUN_EVENT_ASPECT_NAME);
 
   private final EntityRegistry _entityRegistry;
   private final AssertionService _assertionService;
@@ -68,8 +73,7 @@ public class AssertionsSummaryHook implements MetadataChangeLogHook {
   public AssertionsSummaryHook(
       @Nonnull final EntityRegistry entityRegistry,
       @Nonnull final AssertionService assertionService,
-      @Nonnull @Value("${assertions.hook.enabled:true}") Boolean isEnabled
-  ) {
+      @Nonnull @Value("${assertions.hook.enabled:true}") Boolean isEnabled) {
     _entityRegistry = Objects.requireNonNull(entityRegistry, "entityRegistry is required");
     _assertionService = Objects.requireNonNull(assertionService, "assertionService is required");
     _isEnabled = isEnabled;
@@ -101,7 +105,8 @@ public class AssertionsSummaryHook implements MetadataChangeLogHook {
   }
 
   /**
-   * Handles an assertion deletion by removing the assertion from either resolved or active assertions.
+   * Handles an assertion deletion by removing the assertion from either resolved or active
+   * assertions.
    */
   private void handleAssertionSoftDeleted(@Nonnull final Urn assertionUrn) {
     // 1. Fetch assertion info.
@@ -112,12 +117,15 @@ public class AssertionsSummaryHook implements MetadataChangeLogHook {
       final List<Urn> assertionEntities = extractAssertionEntities(assertionInfo);
 
       if (assertionEntities.size() <= 0) {
-        log.warn(String.format(
-            "Failed to find entities associated with assertion with urn %s. Skipping updating run summaries...", assertionUrn));
+        log.warn(
+            String.format(
+                "Failed to find entities associated with assertion with urn %s. Skipping updating run summaries...",
+                assertionUrn));
         return;
       }
 
-      // 3. For each urn, resolve the entity assertions aspect and remove from failing and passing assertions.
+      // 3. For each urn, resolve the entity assertions aspect and remove from failing and passing
+      // assertions.
       for (Urn entityUrn : assertionEntities) {
         removeAssertionFromSummary(assertionUrn, entityUrn);
       }
@@ -129,10 +137,9 @@ public class AssertionsSummaryHook implements MetadataChangeLogHook {
     }
   }
 
-  /**
-   * Handle an assertion update by adding to either resolved or active assertions for an entity.
-   */
-  private void handleAssertionRunCompleted(@Nonnull final Urn assertionUrn, @Nonnull final AssertionRunEvent runEvent) {
+  /** Handle an assertion update by adding to either resolved or active assertions for an entity. */
+  private void handleAssertionRunCompleted(
+      @Nonnull final Urn assertionUrn, @Nonnull final AssertionRunEvent runEvent) {
 
     // 1. Fetch assertion info.
     AssertionInfo assertionInfo = _assertionService.getAssertionInfo(assertionUrn);
@@ -143,12 +150,15 @@ public class AssertionsSummaryHook implements MetadataChangeLogHook {
       final List<Urn> assertionEntities = extractAssertionEntities(assertionInfo);
 
       if (assertionEntities.size() <= 0) {
-        log.warn(String.format(
-            "Failed to find entities associated with assertion with urn %s. Skipping updating run summaries...", assertionUrn));
+        log.warn(
+            String.format(
+                "Failed to find entities associated with assertion with urn %s. Skipping updating run summaries...",
+                assertionUrn));
         return;
       }
 
-      // 3. For each urn, resolve the entity assertions aspect and add to failing or passing assertions.
+      // 3. For each urn, resolve the entity assertions aspect and add to failing or passing
+      // assertions.
       for (Urn entityUrn : assertionEntities) {
         addAssertionToSummary(entityUrn, assertionUrn, assertionInfo, runEvent);
       }
@@ -160,10 +170,9 @@ public class AssertionsSummaryHook implements MetadataChangeLogHook {
     }
   }
 
-  /**
-   * Removes an assertion to the AssertionSummary aspect for a related entity.
-   */
-  private void removeAssertionFromSummary(@Nonnull final Urn assertionUrn, @Nonnull final Urn entityUrn) {
+  /** Removes an assertion to the AssertionSummary aspect for a related entity. */
+  private void removeAssertionFromSummary(
+      @Nonnull final Urn assertionUrn, @Nonnull final Urn entityUrn) {
     // 1. Fetch the latest assertion summary for the entity
     AssertionsSummary summary = getAssertionsSummary(entityUrn);
 
@@ -176,8 +185,8 @@ public class AssertionsSummaryHook implements MetadataChangeLogHook {
   }
 
   /**
-   * Adds an assertion to the AssertionSummary aspect for a related entity.
-   * This is used to search for entity by active and resolved assertions.
+   * Adds an assertion to the AssertionSummary aspect for a related entity. This is used to search
+   * for entity by active and resolved assertions.
    */
   private void addAssertionToSummary(
       @Nonnull final Urn entityUrn,
@@ -211,7 +220,9 @@ public class AssertionsSummaryHook implements MetadataChangeLogHook {
   private AssertionsSummary getAssertionsSummary(@Nonnull final Urn entityUrn) {
     AssertionsSummary maybeAssertionsSummary = _assertionService.getAssertionsSummary(entityUrn);
     return maybeAssertionsSummary == null
-        ? new AssertionsSummary().setFailingAssertionDetails(new AssertionSummaryDetailsArray()).setPassingAssertionDetails(new AssertionSummaryDetailsArray())
+        ? new AssertionsSummary()
+            .setFailingAssertionDetails(new AssertionSummaryDetailsArray())
+            .setPassingAssertionDetails(new AssertionSummaryDetailsArray())
         : maybeAssertionsSummary;
   }
 
@@ -231,15 +242,14 @@ public class AssertionsSummaryHook implements MetadataChangeLogHook {
   }
 
   /**
-   * Returns true if the event should be processed, which is only true if the change is on the assertion status aspect
+   * Returns true if the event should be processed, which is only true if the change is on the
+   * assertion status aspect
    */
   private boolean isEligibleForProcessing(@Nonnull final MetadataChangeLog event) {
     return isAssertionSoftDeleted(event) || isAssertionRunCompleteEvent(event);
   }
 
-  /**
-   * Returns true if an assertion is being soft-deleted.
-   */
+  /** Returns true if an assertion is being soft-deleted. */
   private boolean isAssertionSoftDeleted(@Nonnull final MetadataChangeLog event) {
     return ASSERTION_ENTITY_NAME.equals(event.getEntityType())
         && SUPPORTED_UPDATE_TYPES.contains(event.getChangeType())
@@ -248,10 +258,9 @@ public class AssertionsSummaryHook implements MetadataChangeLogHook {
 
   private boolean isSoftDeletionEvent(@Nonnull final MetadataChangeLog event) {
     if (STATUS_ASPECT_NAME.equals(event.getAspectName()) && event.getAspect() != null) {
-      final Status status = GenericRecordUtils.deserializeAspect(
-          event.getAspect().getValue(),
-          event.getAspect().getContentType(),
-          Status.class);
+      final Status status =
+          GenericRecordUtils.deserializeAspect(
+              event.getAspect().getValue(), event.getAspect().getContentType(), Status.class);
       return status.hasRemoved() && status.isRemoved();
     }
     return false;
@@ -275,9 +284,7 @@ public class AssertionsSummaryHook implements MetadataChangeLogHook {
   @Nonnull
   private AssertionRunEvent extractAssertionRunEvent(@Nonnull final MetadataChangeLog event) {
     return GenericRecordUtils.deserializeAspect(
-        event.getAspect().getValue(),
-        event.getAspect().getContentType(),
-        AssertionRunEvent.class);
+        event.getAspect().getValue(), event.getAspect().getContentType(), AssertionRunEvent.class);
   }
 
   @Nonnull
@@ -315,15 +322,17 @@ public class AssertionsSummaryHook implements MetadataChangeLogHook {
     return Collections.emptyList();
   }
 
-  /**
-   * Updates the assertions summary for a given entity
-   */
-  private void updateAssertionSummary(@Nonnull final Urn entityUrn, @Nonnull final AssertionsSummary newSummary) {
+  /** Updates the assertions summary for a given entity */
+  private void updateAssertionSummary(
+      @Nonnull final Urn entityUrn, @Nonnull final AssertionsSummary newSummary) {
     try {
       _assertionService.updateAssertionsSummary(entityUrn, newSummary);
     } catch (Exception e) {
       log.error(
-          String.format("Failed to updated assertions summary for entity with urn %s! Skipping updating the summary", entityUrn), e);
+          String.format(
+              "Failed to updated assertions summary for entity with urn %s! Skipping updating the summary",
+              entityUrn),
+          e);
     }
   }
 }

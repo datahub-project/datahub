@@ -13,22 +13,27 @@ import java.util.List;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
-
 /**
- * This is a simple differ that compares to Domains aspects and assumes that each domain
- * will have a single domain (currently the semantic contract).
+ * This is a simple differ that compares to Domains aspects and assumes that each domain will have a
+ * single domain (currently the semantic contract).
  */
 public class SingleDomainChangeEventGenerator extends EntityChangeEventGenerator<Domains> {
   @Override
-  public List<ChangeEvent> getChangeEvents(@Nonnull Urn urn, @Nonnull String entity, @Nonnull String aspect,
-      @Nonnull Aspect<Domains> from, @Nonnull Aspect<Domains> to, @Nonnull AuditStamp auditStamp) {
+  public List<ChangeEvent> getChangeEvents(
+      @Nonnull Urn urn,
+      @Nonnull String entity,
+      @Nonnull String aspect,
+      @Nonnull Aspect<Domains> from,
+      @Nonnull Aspect<Domains> to,
+      @Nonnull AuditStamp auditStamp) {
     return computeDiffs(from.getValue(), to.getValue(), urn.toString(), auditStamp);
   }
 
-  private List<ChangeEvent> computeDiffs(Domains baseDomains, Domains targetDomains, String entityUrn,
-      AuditStamp auditStamp) {
+  private List<ChangeEvent> computeDiffs(
+      Domains baseDomains, Domains targetDomains, String entityUrn, AuditStamp auditStamp) {
 
-    // Simply fetch the first element from each domains list and compare. If they are different, emit
+    // Simply fetch the first element from each domains list and compare. If they are different,
+    // emit
     // a domain ADD / REMOVE event.
     if (isDomainSet(baseDomains, targetDomains)) {
       return Collections.singletonList(
@@ -72,8 +77,7 @@ public class SingleDomainChangeEventGenerator extends EntityChangeEventGenerator
               .modifier(targetDomains.getDomains().get(0).toString())
               .domainUrn(targetDomains.getDomains().get(0))
               .auditStamp(auditStamp)
-              .build()
-          );
+              .build());
     }
 
     return Collections.emptyList();
@@ -88,7 +92,9 @@ public class SingleDomainChangeEventGenerator extends EntityChangeEventGenerator
   }
 
   private boolean isDomainChanged(@Nullable final Domains from, @Nullable final Domains to) {
-    return !isDomainEmpty(from) && !isDomainEmpty(to) && !from.getDomains().get(0).equals(to.getDomains().get(0));
+    return !isDomainEmpty(from)
+        && !isDomainEmpty(to)
+        && !from.getDomains().get(0).equals(to.getDomains().get(0));
   }
 
   private boolean isDomainEmpty(@Nullable final Domains domains) {

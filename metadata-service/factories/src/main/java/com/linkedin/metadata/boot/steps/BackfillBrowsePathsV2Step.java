@@ -1,5 +1,7 @@
 package com.linkedin.metadata.boot.steps;
 
+import static com.linkedin.metadata.Constants.*;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.AuditStamp;
@@ -21,28 +23,24 @@ import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
-import lombok.extern.slf4j.Slf4j;
-
-import javax.annotation.Nonnull;
 import java.util.Set;
-
-import static com.linkedin.metadata.Constants.*;
-
+import javax.annotation.Nonnull;
+import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 public class BackfillBrowsePathsV2Step extends UpgradeStep {
 
-  private static final Set<String> ENTITY_TYPES_TO_MIGRATE = ImmutableSet.of(
-      Constants.DATASET_ENTITY_NAME,
-      Constants.DASHBOARD_ENTITY_NAME,
-      Constants.CHART_ENTITY_NAME,
-      Constants.DATA_JOB_ENTITY_NAME,
-      Constants.DATA_FLOW_ENTITY_NAME,
-      Constants.ML_MODEL_ENTITY_NAME,
-      Constants.ML_MODEL_GROUP_ENTITY_NAME,
-      Constants.ML_FEATURE_TABLE_ENTITY_NAME,
-      Constants.ML_FEATURE_ENTITY_NAME
-  );
+  private static final Set<String> ENTITY_TYPES_TO_MIGRATE =
+      ImmutableSet.of(
+          Constants.DATASET_ENTITY_NAME,
+          Constants.DASHBOARD_ENTITY_NAME,
+          Constants.CHART_ENTITY_NAME,
+          Constants.DATA_JOB_ENTITY_NAME,
+          Constants.DATA_FLOW_ENTITY_NAME,
+          Constants.ML_MODEL_ENTITY_NAME,
+          Constants.ML_MODEL_GROUP_ENTITY_NAME,
+          Constants.ML_FEATURE_TABLE_ENTITY_NAME,
+          Constants.ML_FEATURE_ENTITY_NAME);
   private static final String VERSION = "2";
   private static final String UPGRADE_ID = "backfill-default-browse-paths-v2-step";
   private static final Integer BATCH_SIZE = 5000;
@@ -63,14 +61,18 @@ public class BackfillBrowsePathsV2Step extends UpgradeStep {
   @Override
   public void upgrade() throws Exception {
     final AuditStamp auditStamp =
-        new AuditStamp().setActor(Urn.createFromString(Constants.SYSTEM_ACTOR)).setTime(System.currentTimeMillis());
+        new AuditStamp()
+            .setActor(Urn.createFromString(Constants.SYSTEM_ACTOR))
+            .setTime(System.currentTimeMillis());
 
     String scrollId = null;
     for (String entityType : ENTITY_TYPES_TO_MIGRATE) {
       int migratedCount = 0;
       do {
-        log.info(String.format("Upgrading batch %s-%s of browse paths for entity type %s",
-            migratedCount, migratedCount + BATCH_SIZE, entityType));
+        log.info(
+            String.format(
+                "Upgrading batch %s-%s of browse paths for entity type %s",
+                migratedCount, migratedCount + BATCH_SIZE, entityType));
         scrollId = backfillBrowsePathsV2(entityType, auditStamp, scrollId);
         migratedCount += BATCH_SIZE;
       } while (scrollId != null);
@@ -78,7 +80,7 @@ public class BackfillBrowsePathsV2Step extends UpgradeStep {
   }
 
   private String backfillBrowsePathsV2(String entityType, AuditStamp auditStamp, String scrollId)
-          throws Exception {
+      throws Exception {
 
     // Condition: has `browsePaths` AND does NOT have `browsePathV2`
     Criterion missingBrowsePathV2 = new Criterion();
@@ -102,16 +104,9 @@ public class BackfillBrowsePathsV2Step extends UpgradeStep {
     Filter filter = new Filter();
     filter.setOr(conjunctiveCriterionArray);
 
-    final ScrollResult scrollResult = _searchService.scrollAcrossEntities(
-            ImmutableList.of(entityType),
-            "*",
-            filter,
-            null,
-            scrollId,
-            "5m",
-            BATCH_SIZE,
-            null
-    );
+    final ScrollResult scrollResult =
+        _searchService.scrollAcrossEntities(
+            ImmutableList.of(entityType), "*", filter, null, scrollId, "5m", BATCH_SIZE, null);
     if (scrollResult.getNumEntities() == 0 || scrollResult.getEntities().size() == 0) {
       return null;
     }
@@ -121,7 +116,11 @@ public class BackfillBrowsePathsV2Step extends UpgradeStep {
         ingestBrowsePathsV2(searchEntity.getEntity(), auditStamp);
       } catch (Exception e) {
         // don't stop the whole step because of one bad urn or one bad ingestion
-        log.error(String.format("Error ingesting default browsePathsV2 aspect for urn %s", searchEntity.getEntity()), e);
+        log.error(
+            String.format(
+                "Error ingesting default browsePathsV2 aspect for urn %s",
+                searchEntity.getEntity()),
+            e);
       }
     }
 
@@ -136,12 +135,9 @@ public class BackfillBrowsePathsV2Step extends UpgradeStep {
     proposal.setEntityType(urn.getEntityType());
     proposal.setAspectName(Constants.BROWSE_PATHS_V2_ASPECT_NAME);
     proposal.setChangeType(ChangeType.UPSERT);
-    proposal.setSystemMetadata(new SystemMetadata().setRunId(DEFAULT_RUN_ID).setLastObserved(System.currentTimeMillis()));
+    proposal.setSystemMetadata(
+        new SystemMetadata().setRunId(DEFAULT_RUN_ID).setLastObserved(System.currentTimeMillis()));
     proposal.setAspect(GenericRecordUtils.serializeAspect(browsePathsV2));
-    _entityService.ingestProposal(
-        proposal,
-        auditStamp,
-        false
-    );
+    _entityService.ingestProposal(proposal, auditStamp, false);
   }
 }

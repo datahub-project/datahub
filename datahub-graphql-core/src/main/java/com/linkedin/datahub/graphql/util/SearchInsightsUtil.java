@@ -34,5 +34,5 @@ public class SearchInsightsUtil {
     return Optional.empty();
   }*/
 
-  private SearchInsightsUtil() { }
+  private SearchInsightsUtil() {}
 }

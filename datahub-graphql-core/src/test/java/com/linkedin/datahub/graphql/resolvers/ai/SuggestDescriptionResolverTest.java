@@ -1,19 +1,18 @@
 package com.linkedin.datahub.graphql.resolvers.ai;
 
+import static com.linkedin.datahub.graphql.TestUtils.getMockAllowContext;
+import static org.mockito.Mockito.when;
+import static org.testng.Assert.assertEquals;
+
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.metadata.integration.IntegrationsService;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.integrations.model.SuggestedDescription;
+import java.util.concurrent.Future;
 import org.mockito.Mockito;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
-import io.datahubproject.integrations.model.SuggestedDescription;
-
-import java.util.concurrent.Future;
-
-import static com.linkedin.datahub.graphql.TestUtils.getMockAllowContext;
-import static org.mockito.Mockito.when;
-import static org.testng.Assert.assertEquals;
 
 public class SuggestDescriptionResolverTest {
 
@@ -31,7 +30,8 @@ public class SuggestDescriptionResolverTest {
   @Test
   public void testGet() throws Exception {
     // Mock inputs
-    final Urn urn = Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:kafka,TestDataset,PROD)");
+    final Urn urn =
+        Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:kafka,TestDataset,PROD)");
     final String mockDescription = "test generated description";
     final SuggestedDescription suggestedDescription = new SuggestedDescription();
     suggestedDescription.setEntityDescription(mockDescription);

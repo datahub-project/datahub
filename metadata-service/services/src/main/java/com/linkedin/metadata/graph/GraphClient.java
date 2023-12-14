@@ -6,13 +6,12 @@ import java.util.List;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
-
 public interface GraphClient {
   public static final Integer DEFAULT_PAGE_SIZE = 100;
 
   /**
-   * Returns a list of related entities for a given entity, set of edge types, and direction relative to the
-   * source node
+   * Returns a list of related entities for a given entity, set of edge types, and direction
+   * relative to the source node
    */
   @Nonnull
   EntityRelationships getRelatedEntities(
@@ -24,10 +23,15 @@ public interface GraphClient {
       String actor);
 
   /**
-   * Returns lineage relationships for given entity in the DataHub graph.
-   * Lineage relationship denotes whether an entity is directly upstream or downstream of another entity
+   * Returns lineage relationships for given entity in the DataHub graph. Lineage relationship
+   * denotes whether an entity is directly upstream or downstream of another entity
    */
   @Nonnull
-  EntityLineageResult getLineageEntities(String rawUrn, LineageDirection direction, @Nullable Integer start,
-      @Nullable Integer count, int maxHops, String actor);
+  EntityLineageResult getLineageEntities(
+      String rawUrn,
+      LineageDirection direction,
+      @Nullable Integer start,
+      @Nullable Integer count,
+      int maxHops,
+      String actor);
 }

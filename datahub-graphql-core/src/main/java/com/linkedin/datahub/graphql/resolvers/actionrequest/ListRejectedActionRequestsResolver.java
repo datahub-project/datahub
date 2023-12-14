@@ -1,5 +1,8 @@
 package com.linkedin.datahub.graphql.resolvers.actionrequest;
 
+import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
+import static com.linkedin.metadata.Constants.*;
+
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.ActionRequestResult;
@@ -24,13 +27,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
-import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
-import static com.linkedin.metadata.Constants.*;
-
-
-/**
- * Resolver responsible for resolving the 'listRejectedActionRequests' Query.
- */
+/** Resolver responsible for resolving the 'listRejectedActionRequests' Query. */
 public class ListRejectedActionRequestsResolver
     implements DataFetcher<CompletableFuture<ListRejectedActionRequestsResult>> {
   private static final String LAST_MODIFIED_FIELD_NAME = "lastModified";
@@ -41,14 +38,15 @@ public class ListRejectedActionRequestsResolver
   private final EntityClient _entityClient;
   private final EntityService _entityService;
 
-  public ListRejectedActionRequestsResolver(final EntityClient entityClient, final EntityService entityService) {
+  public ListRejectedActionRequestsResolver(
+      final EntityClient entityClient, final EntityService entityService) {
     _entityClient = entityClient;
     _entityService = entityService;
   }
 
   @Override
-  public CompletableFuture<ListRejectedActionRequestsResult> get(final DataFetchingEnvironment environment)
-      throws Exception {
+  public CompletableFuture<ListRejectedActionRequestsResult> get(
+      final DataFetchingEnvironment environment) throws Exception {
     final QueryContext context = environment.getContext();
 
     final ListRejectedActionRequestsInput input =
@@ -56,39 +54,56 @@ public class ListRejectedActionRequestsResolver
     final Integer start = input.getStart() == null ? DEFAULT_START : input.getStart();
     final Integer count = input.getCount() == null ? DEFAULT_COUNT : input.getCount();
     final ActionRequestType type = input.getType() == null ? null : input.getType();
-    final Long startTimestampMillis = input.getStartTimestampMillis() == null ? null : input.getStartTimestampMillis();
-    final Long endTimestampMillis = input.getEndTimestampMillis() == null ? null : input.getEndTimestampMillis();
+    final Long startTimestampMillis =
+        input.getStartTimestampMillis() == null ? null : input.getStartTimestampMillis();
+    final Long endTimestampMillis =
+        input.getEndTimestampMillis() == null ? null : input.getEndTimestampMillis();
 
-    return CompletableFuture.supplyAsync(() -> {
-      try {
+    return CompletableFuture.supplyAsync(
+        () -> {
+          try {
 
-        final Filter filter = createFilter(type, startTimestampMillis, endTimestampMillis);
+            final Filter filter = createFilter(type, startTimestampMillis, endTimestampMillis);
 
-        final SortCriterion sortCriterion =
-            new SortCriterion().setField(LAST_MODIFIED_FIELD_NAME).setOrder(SortOrder.DESCENDING);
+            final SortCriterion sortCriterion =
+                new SortCriterion()
+                    .setField(LAST_MODIFIED_FIELD_NAME)
+                    .setOrder(SortOrder.DESCENDING);
 
-        final SearchResult searchResult =
-            _entityClient.filter(ACTION_REQUEST_ENTITY_NAME, filter, sortCriterion, start, count,
-                context.getAuthentication());
+            final SearchResult searchResult =
+                _entityClient.filter(
+                    ACTION_REQUEST_ENTITY_NAME,
+                    filter,
+                    sortCriterion,
+                    start,
+                    count,
+                    context.getAuthentication());
 
-        final Map<Urn, Entity> entities = _entityClient.batchGet(new HashSet<>(
-                searchResult.getEntities().stream().map(result -> result.getEntity()).collect(Collectors.toList())),
-            context.getAuthentication());
+            final Map<Urn, Entity> entities =
+                _entityClient.batchGet(
+                    new HashSet<>(
+                        searchResult.getEntities().stream()
+                            .map(result -> result.getEntity())
+                            .collect(Collectors.toList())),
+                    context.getAuthentication());
 
-        final ListRejectedActionRequestsResult result = new ListRejectedActionRequestsResult();
-        result.setStart(searchResult.getFrom());
-        result.setCount(searchResult.getPageSize());
-        result.setTotal(searchResult.getNumEntities());
-        result.setRejectedActionRequests(
-            ActionRequestUtils.mapRejectedActionRequests(entities.values(), _entityService, type));
-        return result;
-      } catch (Exception e) {
-        throw new RuntimeException("Failed to list rejected action requests", e);
-      }
-    });
+            final ListRejectedActionRequestsResult result = new ListRejectedActionRequestsResult();
+            result.setStart(searchResult.getFrom());
+            result.setCount(searchResult.getPageSize());
+            result.setTotal(searchResult.getNumEntities());
+            result.setRejectedActionRequests(
+                ActionRequestUtils.mapRejectedActionRequests(
+                    entities.values(), _entityService, type));
+            return result;
+          } catch (Exception e) {
+            throw new RuntimeException("Failed to list rejected action requests", e);
+          }
+        });
   }
 
-  private Filter createFilter(final @Nullable ActionRequestType type, final @Nullable Long startTimestampMillis,
+  private Filter createFilter(
+      final @Nullable ActionRequestType type,
+      final @Nullable Long startTimestampMillis,
       final @Nullable Long endTimestampMillis) {
     final Filter filter = new Filter();
     final ConjunctiveCriterionArray disjunction = new ConjunctiveCriterionArray();

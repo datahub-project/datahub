@@ -1,5 +1,8 @@
 package com.linkedin.datahub.graphql.resolvers.test;
 
+import static com.linkedin.datahub.graphql.TestUtils.*;
+import static org.testng.Assert.*;
+
 import com.datahub.authentication.Authentication;
 import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
@@ -13,10 +16,6 @@ import graphql.schema.DataFetchingEnvironment;
 import java.util.concurrent.CompletionException;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
-
-import static com.linkedin.datahub.graphql.TestUtils.*;
-import static org.testng.Assert.*;
-
 
 public class DeleteTestResolverTest {
 
@@ -34,26 +33,23 @@ public class DeleteTestResolverTest {
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     Mockito.when(mockEnv.getArgument(Mockito.eq("urn"))).thenReturn(TEST_URN);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
-    Mockito.when(mockClient.exists(Mockito.eq(urn), Mockito.any(Authentication.class))).thenReturn(true);
+    Mockito.when(mockClient.exists(Mockito.eq(urn), Mockito.any(Authentication.class)))
+        .thenReturn(true);
 
     assertTrue(resolver.get(mockEnv).join());
 
-    MetadataChangeProposal expectedChangeProposal = AspectUtils.buildMetadataChangeProposal(
-        urn,
-        Constants.STATUS_ASPECT_NAME,
-        new Status().setRemoved(true)
-    );
+    MetadataChangeProposal expectedChangeProposal =
+        AspectUtils.buildMetadataChangeProposal(
+            urn, Constants.STATUS_ASPECT_NAME, new Status().setRemoved(true));
 
-    Mockito.verify(mockClient, Mockito.times(1)).exists(
-        Mockito.eq(urn),
-        Mockito.any(Authentication.class)
-    );
+    Mockito.verify(mockClient, Mockito.times(1))
+        .exists(Mockito.eq(urn), Mockito.any(Authentication.class));
 
-    Mockito.verify(mockClient, Mockito.times(1)).ingestProposal(
-        Mockito.eq(expectedChangeProposal),
-        Mockito.any(Authentication.class),
-        Mockito.eq(true)
-    );
+    Mockito.verify(mockClient, Mockito.times(1))
+        .ingestProposal(
+            Mockito.eq(expectedChangeProposal),
+            Mockito.any(Authentication.class),
+            Mockito.eq(true));
   }
 
   @Test
@@ -68,14 +64,13 @@ public class DeleteTestResolverTest {
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     Mockito.when(mockEnv.getArgument(Mockito.eq("urn"))).thenReturn(TEST_URN);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
-    Mockito.when(mockClient.exists(Mockito.eq(urn), Mockito.any(Authentication.class))).thenReturn(false);
+    Mockito.when(mockClient.exists(Mockito.eq(urn), Mockito.any(Authentication.class)))
+        .thenReturn(false);
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
 
-    Mockito.verify(mockClient, Mockito.times(1)).exists(
-        Mockito.eq(urn),
-        Mockito.any(Authentication.class)
-    );
+    Mockito.verify(mockClient, Mockito.times(1))
+        .exists(Mockito.eq(urn), Mockito.any(Authentication.class));
 
     Mockito.verifyNoMoreInteractions(mockClient);
   }
@@ -94,8 +89,7 @@ public class DeleteTestResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
-    Mockito.verify(mockClient, Mockito.times(0)).deleteEntity(
-        Mockito.any(),
-        Mockito.any(Authentication.class));
+    Mockito.verify(mockClient, Mockito.times(0))
+        .deleteEntity(Mockito.any(), Mockito.any(Authentication.class));
   }
 }

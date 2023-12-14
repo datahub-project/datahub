@@ -3,8 +3,8 @@ package com.linkedin.datahub.graphql.types.common.mappers;
 import com.linkedin.datahub.graphql.generated.ChangeAuditStamps;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 
-
-public class ChangeAuditStampsMapper implements ModelMapper<com.linkedin.common.ChangeAuditStamps, ChangeAuditStamps> {
+public class ChangeAuditStampsMapper
+    implements ModelMapper<com.linkedin.common.ChangeAuditStamps, ChangeAuditStamps> {
   public static final ChangeAuditStampsMapper INSTANCE = new ChangeAuditStampsMapper();
 
   public static ChangeAuditStamps map(com.linkedin.common.ChangeAuditStamps input) {

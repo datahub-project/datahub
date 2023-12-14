@@ -324,7 +324,7 @@ def test_get_projects_list_failure(
         {"project_id_pattern": {"deny": ["^test-project$"]}}
     )
     source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
-    caplog.records.clear()
+    caplog.clear()
     with caplog.at_level(logging.ERROR):
         projects = source._get_projects()
         assert len(caplog.records) == 1

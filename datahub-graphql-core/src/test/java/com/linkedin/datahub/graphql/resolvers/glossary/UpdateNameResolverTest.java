@@ -1,5 +1,9 @@
 package com.linkedin.datahub.graphql.resolvers.glossary;
 
+import static com.linkedin.datahub.graphql.TestUtils.*;
+import static com.linkedin.metadata.Constants.*;
+import static org.testng.Assert.assertThrows;
+import static org.testng.Assert.assertTrue;
 
 import com.datahub.authentication.Authentication;
 import com.linkedin.common.urn.CorpuserUrn;
@@ -19,15 +23,9 @@ import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetchingEnvironment;
+import java.util.concurrent.CompletionException;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
-
-import java.util.concurrent.CompletionException;
-
-import static com.linkedin.datahub.graphql.TestUtils.*;
-import static com.linkedin.metadata.Constants.*;
-import static org.testng.Assert.assertThrows;
-import static org.testng.Assert.assertTrue;
 
 public class UpdateNameResolverTest {
 
@@ -40,23 +38,23 @@ public class UpdateNameResolverTest {
   private static final UpdateNameInput INPUT_FOR_DOMAIN = new UpdateNameInput(NEW_NAME, DOMAIN_URN);
   private static final CorpuserUrn TEST_ACTOR_URN = new CorpuserUrn("test");
 
-  private MetadataChangeProposal setupTests(DataFetchingEnvironment mockEnv, EntityService mockService) throws Exception {
+  private MetadataChangeProposal setupTests(
+      DataFetchingEnvironment mockEnv, EntityService mockService) throws Exception {
     QueryContext mockContext = getMockAllowContext();
     Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
     Mockito.when(mockContext.getActorUrn()).thenReturn(TEST_ACTOR_URN.toString());
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     final String name = "test name";
-    Mockito.when(mockService.getAspect(
-            Urn.createFromString(TERM_URN),
-            Constants.GLOSSARY_TERM_INFO_ASPECT_NAME,
-            0))
+    Mockito.when(
+            mockService.getAspect(
+                Urn.createFromString(TERM_URN), Constants.GLOSSARY_TERM_INFO_ASPECT_NAME, 0))
         .thenReturn(new GlossaryTermInfo().setName(name));
 
     GlossaryTermInfo info = new GlossaryTermInfo();
     info.setName(NEW_NAME);
-    return MutationUtils.buildMetadataChangeProposalWithUrn(Urn.createFromString(TERM_URN),
-        GLOSSARY_TERM_INFO_ASPECT_NAME, info);
+    return MutationUtils.buildMetadataChangeProposalWithUrn(
+        Urn.createFromString(TERM_URN), GLOSSARY_TERM_INFO_ASPECT_NAME, info);
   }
 
   @Test
@@ -88,16 +86,16 @@ public class UpdateNameResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     final String name = "test name";
-    Mockito.when(mockService.getAspect(
-            Urn.createFromString(NODE_URN),
-            Constants.GLOSSARY_NODE_INFO_ASPECT_NAME,
-            0))
+    Mockito.when(
+            mockService.getAspect(
+                Urn.createFromString(NODE_URN), Constants.GLOSSARY_NODE_INFO_ASPECT_NAME, 0))
         .thenReturn(new GlossaryNodeInfo().setName(name));
 
     GlossaryNodeInfo info = new GlossaryNodeInfo();
     info.setName(NEW_NAME);
-    final MetadataChangeProposal proposal = MutationUtils.buildMetadataChangeProposalWithUrn(Urn.createFromString(NODE_URN),
-        GLOSSARY_NODE_INFO_ASPECT_NAME, info);
+    final MetadataChangeProposal proposal =
+        MutationUtils.buildMetadataChangeProposalWithUrn(
+            Urn.createFromString(NODE_URN), GLOSSARY_NODE_INFO_ASPECT_NAME, info);
     UpdateNameResolver resolver = new UpdateNameResolver(mockService, mockClient);
 
     assertTrue(resolver.get(mockEnv).get());
@@ -118,25 +116,27 @@ public class UpdateNameResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     final String name = "test name";
-    Mockito.when(mockService.getAspect(
-            Urn.createFromString(DOMAIN_URN),
-            Constants.DOMAIN_PROPERTIES_ASPECT_NAME,
-            0))
+    Mockito.when(
+            mockService.getAspect(
+                Urn.createFromString(DOMAIN_URN), Constants.DOMAIN_PROPERTIES_ASPECT_NAME, 0))
         .thenReturn(new DomainProperties().setName(name));
 
-    Mockito.when(mockClient.filter(
-        Mockito.eq(Constants.DOMAIN_ENTITY_NAME),
-        Mockito.eq(DomainUtils.buildNameAndParentDomainFilter(INPUT_FOR_DOMAIN.getName(), null)),
-        Mockito.eq(null),
-        Mockito.any(Integer.class),
-        Mockito.any(Integer.class),
-        Mockito.any(Authentication.class)
-    )).thenReturn(new SearchResult().setEntities(new SearchEntityArray()));
+    Mockito.when(
+            mockClient.filter(
+                Mockito.eq(Constants.DOMAIN_ENTITY_NAME),
+                Mockito.eq(
+                    DomainUtils.buildNameAndParentDomainFilter(INPUT_FOR_DOMAIN.getName(), null)),
+                Mockito.eq(null),
+                Mockito.any(Integer.class),
+                Mockito.any(Integer.class),
+                Mockito.any(Authentication.class)))
+        .thenReturn(new SearchResult().setEntities(new SearchEntityArray()));
 
     DomainProperties properties = new DomainProperties();
     properties.setName(NEW_NAME);
-    final MetadataChangeProposal proposal = MutationUtils.buildMetadataChangeProposalWithUrn(Urn.createFromString(DOMAIN_URN),
-        DOMAIN_PROPERTIES_ASPECT_NAME, properties);
+    final MetadataChangeProposal proposal =
+        MutationUtils.buildMetadataChangeProposalWithUrn(
+            Urn.createFromString(DOMAIN_URN), DOMAIN_PROPERTIES_ASPECT_NAME, properties);
 
     UpdateNameResolver resolver = new UpdateNameResolver(mockService, mockClient);
 

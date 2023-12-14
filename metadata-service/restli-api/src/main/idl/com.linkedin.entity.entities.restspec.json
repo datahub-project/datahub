@@ -128,7 +128,7 @@
         "name" : "aspectName",
         "type" : "string",
         "optional" : true,
-        "doc" : "- the optional aspect name if only want to delete the aspect (applicable only for timeseries aspects)."
+        "doc" : "- the optional aspect name if only want to delete the aspect (applicable only\n     for timeseries aspects)."
       }, {
         "name" : "startTimeMillis",
         "type" : "long",

@@ -6,10 +6,7 @@ import com.linkedin.metadata.utils.ConcurrencyUtils;
 import java.util.List;
 import java.util.stream.Collectors;
 
-
-/**
- * Base class to extract features in batches
- */
+/** Base class to extract features in batches */
 public abstract class BatchFeatureExtractor implements FeatureExtractor {
 
   public abstract int getBatchSize();
@@ -18,7 +15,10 @@ public abstract class BatchFeatureExtractor implements FeatureExtractor {
 
   @Override
   public List<Features> extractFeatures(List<SearchEntity> entities) {
-    return ConcurrencyUtils.transformAndCollectAsync(Lists.partition(entities, getBatchSize()),
-        this::extractFeaturesForBatch).stream().flatMap(List::stream).collect(Collectors.toList());
+    return ConcurrencyUtils.transformAndCollectAsync(
+            Lists.partition(entities, getBatchSize()), this::extractFeaturesForBatch)
+        .stream()
+        .flatMap(List::stream)
+        .collect(Collectors.toList());
   }
 }

@@ -1,5 +1,7 @@
 package com.linkedin.metadata.search.elasticsearch.query.request;
 
+import static com.linkedin.metadata.models.SearchableFieldSpecExtractor.PRIMARY_URN_SEARCH_PROPERTIES;
+
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringArray;
@@ -34,33 +36,32 @@ import org.opensearch.search.SearchHit;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.search.fetch.subphase.highlight.HighlightBuilder;
 
-import static com.linkedin.metadata.models.SearchableFieldSpecExtractor.PRIMARY_URN_SEARCH_PROPERTIES;
-
-
 @Slf4j
 public class AutocompleteRequestHandler {
 
   private final List<String> _defaultAutocompleteFields;
 
-  private static final Map<EntitySpec, AutocompleteRequestHandler> AUTOCOMPLETE_QUERY_BUILDER_BY_ENTITY_NAME =
-      new ConcurrentHashMap<>();
+  private static final Map<EntitySpec, AutocompleteRequestHandler>
+      AUTOCOMPLETE_QUERY_BUILDER_BY_ENTITY_NAME = new ConcurrentHashMap<>();
 
   public AutocompleteRequestHandler(@Nonnull EntitySpec entitySpec) {
-    _defaultAutocompleteFields = Stream.concat(entitySpec.getSearchableFieldSpecs()
-        .stream()
-        .map(SearchableFieldSpec::getSearchableAnnotation)
-        .filter(SearchableAnnotation::isEnableAutocomplete)
-        .map(SearchableAnnotation::getFieldName),
-                    Stream.of("urn"))
-        .collect(Collectors.toList());
+    _defaultAutocompleteFields =
+        Stream.concat(
+                entitySpec.getSearchableFieldSpecs().stream()
+                    .map(SearchableFieldSpec::getSearchableAnnotation)
+                    .filter(SearchableAnnotation::isEnableAutocomplete)
+                    .map(SearchableAnnotation::getFieldName),
+                Stream.of("urn"))
+            .collect(Collectors.toList());
   }
 
   public static AutocompleteRequestHandler getBuilder(@Nonnull EntitySpec entitySpec) {
-    return AUTOCOMPLETE_QUERY_BUILDER_BY_ENTITY_NAME.computeIfAbsent(entitySpec,
-        k -> new AutocompleteRequestHandler(entitySpec));
+    return AUTOCOMPLETE_QUERY_BUILDER_BY_ENTITY_NAME.computeIfAbsent(
+        entitySpec, k -> new AutocompleteRequestHandler(entitySpec));
   }
 
-  public SearchRequest getSearchRequest(@Nonnull String input, @Nullable String field, @Nullable Filter filter, int limit) {
+  public SearchRequest getSearchRequest(
+      @Nonnull String input, @Nullable String field, @Nullable Filter filter, int limit) {
     SearchRequest searchRequest = new SearchRequest();
     SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
     searchSourceBuilder.size(limit);
@@ -78,25 +79,27 @@ public class AutocompleteRequestHandler {
   public static QueryBuilder getQuery(List<String> autocompleteFields, @Nonnull String query) {
     BoolQueryBuilder finalQuery = QueryBuilders.boolQuery();
     // Search for exact matches with higher boost and ngram matches
-    MultiMatchQueryBuilder autocompleteQueryBuilder = QueryBuilders.multiMatchQuery(query)
-            .type(MultiMatchQueryBuilder.Type.BOOL_PREFIX);
+    MultiMatchQueryBuilder autocompleteQueryBuilder =
+        QueryBuilders.multiMatchQuery(query).type(MultiMatchQueryBuilder.Type.BOOL_PREFIX);
 
-    final float urnBoost = Float.parseFloat((String) PRIMARY_URN_SEARCH_PROPERTIES.get("boostScore"));
-    autocompleteFields.forEach(fieldName -> {
-      if ("urn".equals(fieldName)) {
-        autocompleteQueryBuilder.field(fieldName + ".ngram", urnBoost);
-        autocompleteQueryBuilder.field(fieldName + ".ngram._2gram", urnBoost);
-        autocompleteQueryBuilder.field(fieldName + ".ngram._3gram", urnBoost);
-        autocompleteQueryBuilder.field(fieldName + ".ngram._4gram", urnBoost);
-      } else {
-        autocompleteQueryBuilder.field(fieldName + ".ngram");
-        autocompleteQueryBuilder.field(fieldName + ".ngram._2gram");
-        autocompleteQueryBuilder.field(fieldName + ".ngram._3gram");
-        autocompleteQueryBuilder.field(fieldName + ".ngram._4gram");
-      }
+    final float urnBoost =
+        Float.parseFloat((String) PRIMARY_URN_SEARCH_PROPERTIES.get("boostScore"));
+    autocompleteFields.forEach(
+        fieldName -> {
+          if ("urn".equals(fieldName)) {
+            autocompleteQueryBuilder.field(fieldName + ".ngram", urnBoost);
+            autocompleteQueryBuilder.field(fieldName + ".ngram._2gram", urnBoost);
+            autocompleteQueryBuilder.field(fieldName + ".ngram._3gram", urnBoost);
+            autocompleteQueryBuilder.field(fieldName + ".ngram._4gram", urnBoost);
+          } else {
+            autocompleteQueryBuilder.field(fieldName + ".ngram");
+            autocompleteQueryBuilder.field(fieldName + ".ngram._2gram");
+            autocompleteQueryBuilder.field(fieldName + ".ngram._3gram");
+            autocompleteQueryBuilder.field(fieldName + ".ngram._4gram");
+          }
 
-      finalQuery.should(QueryBuilders.matchPhrasePrefixQuery(fieldName + ".delimited", query));
-    });
+          finalQuery.should(QueryBuilders.matchPhrasePrefixQuery(fieldName + ".delimited", query));
+        });
 
     finalQuery.should(autocompleteQueryBuilder);
 
@@ -111,11 +114,14 @@ public class AutocompleteRequestHandler {
     highlightBuilder.preTags("");
     highlightBuilder.postTags("");
     // Check for each field name and any subfields
-    getAutocompleteFields(field).forEach(fieldName -> highlightBuilder
-            .field(fieldName)
-            .field(fieldName + ".*")
-            .field(fieldName + ".ngram")
-            .field(fieldName + ".delimited"));
+    getAutocompleteFields(field)
+        .forEach(
+            fieldName ->
+                highlightBuilder
+                    .field(fieldName)
+                    .field(fieldName + ".*")
+                    .field(fieldName + ".ngram")
+                    .field(fieldName + ".delimited"));
     return highlightBuilder;
   }
 
@@ -126,19 +132,20 @@ public class AutocompleteRequestHandler {
     return _defaultAutocompleteFields;
   }
 
-  public AutoCompleteResult extractResult(@Nonnull SearchResponse searchResponse, @Nonnull String input) {
+  public AutoCompleteResult extractResult(
+      @Nonnull SearchResponse searchResponse, @Nonnull String input) {
     Set<String> results = new LinkedHashSet<>();
     Set<AutoCompleteEntity> entityResults = new HashSet<>();
     for (SearchHit hit : searchResponse.getHits()) {
-      Optional<String> matchedFieldValue = hit.getHighlightFields()
-          .entrySet()
-          .stream()
-          .findFirst()
-          .map(entry -> entry.getValue().getFragments()[0].string());
+      Optional<String> matchedFieldValue =
+          hit.getHighlightFields().entrySet().stream()
+              .findFirst()
+              .map(entry -> entry.getValue().getFragments()[0].string());
       Optional<String> matchedUrn = Optional.ofNullable((String) hit.getSourceAsMap().get("urn"));
       try {
         if (matchedUrn.isPresent()) {
-          entityResults.add(new AutoCompleteEntity().setUrn(Urn.createFromString(matchedUrn.get())));
+          entityResults.add(
+              new AutoCompleteEntity().setUrn(Urn.createFromString(matchedUrn.get())));
         }
       } catch (URISyntaxException e) {
         throw new RuntimeException(String.format("Failed to create urn %s", matchedUrn.get()), e);

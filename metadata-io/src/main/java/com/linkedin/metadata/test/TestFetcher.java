@@ -1,5 +1,7 @@
 package com.linkedin.metadata.test;
 
+import static com.linkedin.metadata.Constants.*;
+
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.EntityResponse;
@@ -24,9 +26,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.metadata.Constants.*;
-
-
 @Slf4j
 @RequiredArgsConstructor
 public class TestFetcher {
@@ -39,7 +38,8 @@ public class TestFetcher {
   private static final SortCriterion SORT_CRITERION =
       new SortCriterion().setField(LAST_UPDATED_TIME_FIELD).setOrder(SortOrder.DESCENDING);
 
-  public TestFetchResult fetch(int start, int count) throws RemoteInvocationException, URISyntaxException {
+  public TestFetchResult fetch(int start, int count)
+      throws RemoteInvocationException, URISyntaxException {
     return fetch(start, count, "");
   }
 
@@ -47,15 +47,17 @@ public class TestFetcher {
       throws RemoteInvocationException, URISyntaxException {
     log.debug("Batch fetching tests. start: {}, count: {}", start, count);
     // First fetch all test urns from start - start + count
-    SearchResult result = _entitySearchService.search(
-        List.of(TEST_ENTITY_NAME),
-        query,
-        null,
-        SORT_CRITERION,
-        start,
-        count,
-        new SearchFlags().setFulltext(false));
-    List<Urn> testUrns = result.getEntities().stream().map(SearchEntity::getEntity).collect(Collectors.toList());
+    SearchResult result =
+        _entitySearchService.search(
+            List.of(TEST_ENTITY_NAME),
+            query,
+            null,
+            SORT_CRITERION,
+            start,
+            count,
+            new SearchFlags().setFulltext(false));
+    List<Urn> testUrns =
+        result.getEntities().stream().map(SearchEntity::getEntity).collect(Collectors.toList());
 
     if (testUrns.isEmpty()) {
       return new TestFetchResult(Collections.emptyList(), 0);
@@ -63,25 +65,29 @@ public class TestFetcher {
 
     // Fetch aspects for each urn
     final Map<Urn, EntityResponse> testEntities =
-        _entityService.getEntitiesV2(TEST_ENTITY_NAME,
-            new HashSet<>(testUrns), ImmutableSet.of(
-                TEST_INFO_ASPECT_NAME));
-    return new TestFetchResult(testUrns.stream()
-        .map(testEntities::get)
-        .filter(Objects::nonNull)
-        .map(this::extractTest)
-        .filter(Objects::nonNull)
-        .collect(Collectors.toList()), result.getNumEntities());
+        _entityService.getEntitiesV2(
+            TEST_ENTITY_NAME, new HashSet<>(testUrns), ImmutableSet.of(TEST_INFO_ASPECT_NAME));
+    return new TestFetchResult(
+        testUrns.stream()
+            .map(testEntities::get)
+            .filter(Objects::nonNull)
+            .map(this::extractTest)
+            .filter(Objects::nonNull)
+            .collect(Collectors.toList()),
+        result.getNumEntities());
   }
 
   protected Test extractTest(EntityResponse entityResponse) {
     EnvelopedAspectMap aspectMap = entityResponse.getAspects();
     if (!aspectMap.containsKey(TEST_INFO_ASPECT_NAME)) {
-      // Right after deleting the policy, there could be a small time frame where search and local db is not consistent.
+      // Right after deleting the policy, there could be a small time frame where search and local
+      // db is not consistent.
       // Simply return null in that case
       return null;
     }
-    return new Test(entityResponse.getUrn(), new TestInfo(aspectMap.get(TEST_INFO_ASPECT_NAME).getValue().data()));
+    return new Test(
+        entityResponse.getUrn(),
+        new TestInfo(aspectMap.get(TEST_INFO_ASPECT_NAME).getValue().data()));
   }
 
   @Value

@@ -10,29 +10,19 @@ import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.upgrade.DataHubUpgradeResult;
-
-import javax.annotation.Nonnull;
 import java.net.URISyntaxException;
+import javax.annotation.Nonnull;
 
-
-/**
- * A single step in the Bootstrap process.
- */
+/** A single step in the Bootstrap process. */
 public interface BootstrapStep {
 
-  /**
-   * A human-readable name for the boot step.
-   */
+  /** A human-readable name for the boot step. */
   String name();
 
-  /**
-   * Execute a boot-time step, or throw an exception on failure.
-   */
+  /** Execute a boot-time step, or throw an exception on failure. */
   void execute() throws Exception;
 
-  /**
-   * Return the execution mode of this step
-   */
+  /** Return the execution mode of this step */
   @Nonnull
   default ExecutionMode getExecutionMode() {
     return ExecutionMode.BLOCKING;
@@ -46,16 +36,17 @@ public interface BootstrapStep {
   }
 
   static Urn getUpgradeUrn(String upgradeId) {
-    return EntityKeyUtils.convertEntityKeyToUrn(new DataHubUpgradeKey().setId(upgradeId),
-            Constants.DATA_HUB_UPGRADE_ENTITY_NAME);
+    return EntityKeyUtils.convertEntityKeyToUrn(
+        new DataHubUpgradeKey().setId(upgradeId), Constants.DATA_HUB_UPGRADE_ENTITY_NAME);
   }
 
   static void setUpgradeResult(Urn urn, EntityService entityService) throws URISyntaxException {
-    final AuditStamp auditStamp = new AuditStamp()
+    final AuditStamp auditStamp =
+        new AuditStamp()
             .setActor(Urn.createFromString(Constants.SYSTEM_ACTOR))
             .setTime(System.currentTimeMillis());
-    final DataHubUpgradeResult upgradeResult = new DataHubUpgradeResult()
-            .setTimestampMs(System.currentTimeMillis());
+    final DataHubUpgradeResult upgradeResult =
+        new DataHubUpgradeResult().setTimestampMs(System.currentTimeMillis());
 
     final MetadataChangeProposal upgradeProposal = new MetadataChangeProposal();
     upgradeProposal.setEntityUrn(urn);

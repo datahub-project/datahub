@@ -25,17 +25,18 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 
+public class DataHubConnectionType
+    implements com.linkedin.datahub.graphql.types.EntityType<DataHubConnection, String> {
 
-public class DataHubConnectionType implements com.linkedin.datahub.graphql.types.EntityType<DataHubConnection, String> {
-
-  static final Set<String> ASPECTS_TO_FETCH = ImmutableSet.of(
-      Constants.DATAHUB_CONNECTION_DETAILS_ASPECT_NAME,
-      Constants.DATA_PLATFORM_INSTANCE_ASPECT_NAME
-  );
+  static final Set<String> ASPECTS_TO_FETCH =
+      ImmutableSet.of(
+          Constants.DATAHUB_CONNECTION_DETAILS_ASPECT_NAME,
+          Constants.DATA_PLATFORM_INSTANCE_ASPECT_NAME);
   private final EntityClient _entityClient;
   private final SecretService _secretService;
 
-  public DataHubConnectionType(@Nonnull final EntityClient entityClient, @Nonnull final SecretService secretService)  {
+  public DataHubConnectionType(
+      @Nonnull final EntityClient entityClient, @Nonnull final SecretService secretService) {
     _entityClient = Objects.requireNonNull(entityClient, "entityClient must not be null");
     _secretService = Objects.requireNonNull(secretService, "secretService must not be null");
   }
@@ -56,33 +57,37 @@ public class DataHubConnectionType implements com.linkedin.datahub.graphql.types
   }
 
   @Override
-  public List<DataFetcherResult<DataHubConnection>> batchLoad(@Nonnull List<String> urns, @Nonnull QueryContext context) throws Exception {
+  public List<DataFetcherResult<DataHubConnection>> batchLoad(
+      @Nonnull List<String> urns, @Nonnull QueryContext context) throws Exception {
     if (ConnectionUtils.canManageConnections(context)) {
-      final List<Urn> connectionUrns = urns.stream()
-          .map(UrnUtils::getUrn)
-          .collect(Collectors.toList());
+      final List<Urn> connectionUrns =
+          urns.stream().map(UrnUtils::getUrn).collect(Collectors.toList());
       try {
-        final Map<Urn, EntityResponse> entities = _entityClient.batchGetV2(
-            Constants.DATAHUB_CONNECTION_ENTITY_NAME,
-            new HashSet<>(connectionUrns),
-            ASPECTS_TO_FETCH,
-            context.getAuthentication());
+        final Map<Urn, EntityResponse> entities =
+            _entityClient.batchGetV2(
+                Constants.DATAHUB_CONNECTION_ENTITY_NAME,
+                new HashSet<>(connectionUrns),
+                ASPECTS_TO_FETCH,
+                context.getAuthentication());
 
         final List<EntityResponse> gmsResults = new ArrayList<>();
         for (Urn urn : connectionUrns) {
           gmsResults.add(entities.getOrDefault(urn, null));
         }
         return gmsResults.stream()
-            .map(gmsResult ->
-                gmsResult == null ? null : DataFetcherResult.<DataHubConnection>newResult()
-                    .data(ConnectionMapper.map(gmsResult, _secretService))
-                    .build()
-            )
+            .map(
+                gmsResult ->
+                    gmsResult == null
+                        ? null
+                        : DataFetcherResult.<DataHubConnection>newResult()
+                            .data(ConnectionMapper.map(gmsResult, _secretService))
+                            .build())
             .collect(Collectors.toList());
       } catch (Exception e) {
         throw new RuntimeException("Failed to batch load Connections", e);
       }
     }
-    throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
+    throw new AuthorizationException(
+        "Unauthorized to perform this action. Please contact your DataHub administrator.");
   }
 }

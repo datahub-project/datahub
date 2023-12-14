@@ -15,14 +15,14 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-
 /**
- * Supports two operands, both of type list of string. Returns true if the left
- * hand side operator contains any values from the right hand side set.
+ * Supports two operands, both of type list of string. Returns true if the left hand side operator
+ * contains any values from the right hand side set.
  */
 public class ContainsAnyEvaluator extends BaseOperatorEvaluator {
 
-  private static final Set<ValueType> SUPPORTED_OPERAND_TYPES = ImmutableSet.of(new ListType(new StringType()));
+  private static final Set<ValueType> SUPPORTED_OPERAND_TYPES =
+      ImmutableSet.of(new ListType(new StringType()));
 
   @Override
   public OperatorType getOperatorType() {
@@ -32,19 +32,22 @@ public class ContainsAnyEvaluator extends BaseOperatorEvaluator {
   @Override
   public void validate(Operands operands) throws InvalidOperandException {
     if (operands.size() != 2) {
-      throw new InvalidOperandException("Invalid params for the operation: Requires 2 input operands");
+      throw new InvalidOperandException(
+          "Invalid params for the operation: Requires 2 input operands");
     }
     // Validate that both input types are string lists.
-    if (!isSupportedOperandType(operands.get(0).getExpression()) || !isSupportedOperandType(
-        operands.get(1).getExpression())) {
-      throw new InvalidOperandException("Invalid params for the operation: Requires 2 string list operands");
+    if (!isSupportedOperandType(operands.get(0).getExpression())
+        || !isSupportedOperandType(operands.get(1).getExpression())) {
+      throw new InvalidOperandException(
+          "Invalid params for the operation: Requires 2 string list operands");
     }
   }
 
   @Override
   public Object evaluate(ResolvedOperands resolvedOperands) throws InvalidOperandException {
 
-    ResolvedOperand operand1 = resolvedOperands.get(0); // Query response -> This will be list of string.
+    ResolvedOperand operand1 =
+        resolvedOperands.get(0); // Query response -> This will be list of string.
     ResolvedOperand operand2 = resolvedOperands.get(1); // -> This will be user provided or list.
 
     Set<String> operand1Values = toStringSet(operand1);
@@ -59,9 +62,10 @@ public class ContainsAnyEvaluator extends BaseOperatorEvaluator {
     } else if (operand.getExpression().getValue() instanceof List) {
       return new HashSet<>((List<String>) operand.getExpression().getValue());
     } else {
-      throw new IllegalArgumentException(String.format(
-          "Failed to evaluate ContainsAny operator against operand of type %s. Expected string or string list.",
-          operand.getExpression().getValue().getClass()));
+      throw new IllegalArgumentException(
+          String.format(
+              "Failed to evaluate ContainsAny operator against operand of type %s. Expected string or string list.",
+              operand.getExpression().getValue().getClass()));
     }
   }
 

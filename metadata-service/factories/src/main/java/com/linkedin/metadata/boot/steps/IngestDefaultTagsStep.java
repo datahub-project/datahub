@@ -1,5 +1,7 @@
 package com.linkedin.metadata.boot.steps;
 
+import static com.linkedin.metadata.Constants.*;
+
 import com.datahub.util.RecordUtils;
 import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -17,9 +19,6 @@ import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.ClassPathResource;
 
-import static com.linkedin.metadata.Constants.*;
-
-
 @Slf4j
 public class IngestDefaultTagsStep implements BootstrapStep {
 
@@ -31,7 +30,8 @@ public class IngestDefaultTagsStep implements BootstrapStep {
     this(entityService, DEFAULT_FILE_PATH);
   }
 
-  public IngestDefaultTagsStep(@Nonnull final EntityService entityService, @Nonnull final String filePath) {
+  public IngestDefaultTagsStep(
+      @Nonnull final EntityService entityService, @Nonnull final String filePath) {
     _entityService = entityService;
     _filePath = filePath;
   }
@@ -45,9 +45,13 @@ public class IngestDefaultTagsStep implements BootstrapStep {
   public void execute() throws IOException, URISyntaxException {
 
     final ObjectMapper mapper = new ObjectMapper();
-    int maxSize = Integer.parseInt(System.getenv().getOrDefault(INGESTION_MAX_SERIALIZED_STRING_LENGTH, MAX_JACKSON_STRING_SIZE));
-    mapper.getFactory().setStreamReadConstraints(StreamReadConstraints.builder()
-        .maxStringLength(maxSize).build());
+    int maxSize =
+        Integer.parseInt(
+            System.getenv()
+                .getOrDefault(INGESTION_MAX_SERIALIZED_STRING_LENGTH, MAX_JACKSON_STRING_SIZE));
+    mapper
+        .getFactory()
+        .setStreamReadConstraints(StreamReadConstraints.builder().maxStringLength(maxSize).build());
 
     try {
 
@@ -55,7 +59,9 @@ public class IngestDefaultTagsStep implements BootstrapStep {
       final JsonNode tags = mapper.readTree(new ClassPathResource(_filePath).getFile());
 
       if (!tags.isArray()) {
-        throw new RuntimeException(String.format("Found malformed tags file, expected an Array but found %s", tags.getNodeType()));
+        throw new RuntimeException(
+            String.format(
+                "Found malformed tags file, expected an Array but found %s", tags.getNodeType()));
       }
 
       // 2. For each JSON object, cast into a Tag Properties object.
@@ -70,20 +76,31 @@ public class IngestDefaultTagsStep implements BootstrapStep {
           throw new RuntimeException("Malformed urn", e);
         }
 
-        final TagProperties tagProperties = (TagProperties) _entityService.getLatestAspect(urn, Constants.TAG_PROPERTIES_ASPECT_NAME);
+        final TagProperties tagProperties =
+            (TagProperties)
+                _entityService.getLatestAspect(urn, Constants.TAG_PROPERTIES_ASPECT_NAME);
         // Skip ingesting for this JSON object if info already exists.
         if (tagProperties != null) {
-          log.debug(String.format("%s already exists for %s. Skipping...", Constants.TAG_PROPERTIES_ASPECT_NAME, urnString));
+          log.debug(
+              String.format(
+                  "%s already exists for %s. Skipping...",
+                  Constants.TAG_PROPERTIES_ASPECT_NAME, urnString));
           continue;
         }
 
-        final TagProperties properties = RecordUtils.toRecordTemplate(TagProperties.class, tag.get("properties").toString());
+        final TagProperties properties =
+            RecordUtils.toRecordTemplate(TagProperties.class, tag.get("properties").toString());
 
         final AuditStamp aspectAuditStamp =
-            new AuditStamp().setActor(Urn.createFromString(Constants.SYSTEM_ACTOR)).setTime(System.currentTimeMillis());
+            new AuditStamp()
+                .setActor(Urn.createFromString(Constants.SYSTEM_ACTOR))
+                .setTime(System.currentTimeMillis());
 
-        _entityService.ingestProposal(AspectUtils.buildMetadataChangeProposal(urn, Constants.TAG_PROPERTIES_ASPECT_NAME, properties),
-            aspectAuditStamp, false);
+        _entityService.ingestProposal(
+            AspectUtils.buildMetadataChangeProposal(
+                urn, Constants.TAG_PROPERTIES_ASPECT_NAME, properties),
+            aspectAuditStamp,
+            false);
       }
     } catch (Exception e) {
       throw new RuntimeException("Failed to ingest default tags! Aborting startup...", e);

@@ -4,10 +4,7 @@ import com.linkedin.metadata.event.EventSink;
 import com.linkedin.platform.event.v1.EntityChangeEvent;
 import javax.annotation.Nonnull;
 
-
-/**
- * An {@link EventSink} responsible for sinking change events to external systems.
- */
+/** An {@link EventSink} responsible for sinking change events to external systems. */
 public interface EntityChangeEventSink extends EventSink<EntityChangeEvent> {
   /**
    * Sink a change event to an external sink.

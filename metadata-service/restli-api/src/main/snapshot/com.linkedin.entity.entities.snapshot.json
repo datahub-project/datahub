@@ -207,7 +207,11 @@
                   "fields" : [ {
                     "name" : "assertion",
                     "type" : "com.linkedin.common.Urn",
-                    "doc" : "The assertion representing the schema contract."
+                    "doc" : "The assertion representing the schema contract.",
+                    "Relationship" : {
+                      "entityTypes" : [ "assertion" ],
+                      "name" : "IncludesSchemaAssertion"
+                    }
                   } ]
                 }
               },
@@ -243,7 +247,11 @@
                   "fields" : [ {
                     "name" : "assertion",
                     "type" : "com.linkedin.common.Urn",
-                    "doc" : "The assertion representing the Data Quality contract.\nE.g. a table or column-level assertion."
+                    "doc" : "The assertion representing the Data Quality contract.\nE.g. a table or column-level assertion.",
+                    "Relationship" : {
+                      "entityTypes" : [ "assertion" ],
+                      "name" : "IncludesDataQualityAssertion"
+                    }
                   } ]
                 }
               },
@@ -6765,7 +6773,7 @@
           "name" : "aspectName",
           "type" : "string",
           "optional" : true,
-          "doc" : "- the optional aspect name if only want to delete the aspect (applicable only for timeseries aspects)."
+          "doc" : "- the optional aspect name if only want to delete the aspect (applicable only\n     for timeseries aspects)."
         }, {
           "name" : "startTimeMillis",
           "type" : "long",

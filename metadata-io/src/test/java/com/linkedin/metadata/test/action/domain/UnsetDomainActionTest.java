@@ -1,5 +1,7 @@
 package com.linkedin.metadata.test.action.domain;
 
+import static com.linkedin.metadata.Constants.*;
+
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.resource.ResourceReference;
@@ -14,27 +16,22 @@ import org.testcontainers.shaded.com.google.common.collect.ImmutableList;
 import org.testcontainers.shaded.com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
-import static com.linkedin.metadata.Constants.*;
-
-
 public class UnsetDomainActionTest {
 
   private static final Urn TEST_DOMAIN_URN = UrnUtils.getUrn("urn:li:domain:test");
 
-  private static final List<Urn> DATASET_URNS = ImmutableList.of(
-      UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:kafka,test,PROD)"),
-      UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:kafka,test1,PROD)")
-  );
+  private static final List<Urn> DATASET_URNS =
+      ImmutableList.of(
+          UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:kafka,test,PROD)"),
+          UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:kafka,test1,PROD)"));
 
-  private static final List<Urn> DASHBOARD_URNS = ImmutableList.of(
-      UrnUtils.getUrn("urn:li:dashboard:(looker,1)"),
-      UrnUtils.getUrn("urn:li:dashboard:(looker,2)")
-  );
+  private static final List<Urn> DASHBOARD_URNS =
+      ImmutableList.of(
+          UrnUtils.getUrn("urn:li:dashboard:(looker,1)"),
+          UrnUtils.getUrn("urn:li:dashboard:(looker,2)"));
 
-  private static final Map<String, List<String>> VALID_PARAMS = ImmutableMap.of(
-          "values",
-          ImmutableList.of(TEST_DOMAIN_URN.toString())
-  );
+  private static final Map<String, List<String>> VALID_PARAMS =
+      ImmutableMap.of("values", ImmutableList.of(TEST_DOMAIN_URN.toString()));
 
   private static final List<Urn> ALL_URNS = new ArrayList<>();
 
@@ -43,13 +40,15 @@ public class UnsetDomainActionTest {
     ALL_URNS.addAll(DASHBOARD_URNS);
   }
 
-  private static final List<ResourceReference> DATASET_REFERENCES = DATASET_URNS.stream().map(
-      urn -> new ResourceReference(urn, null, null)
-  ).collect(Collectors.toList());
+  private static final List<ResourceReference> DATASET_REFERENCES =
+      DATASET_URNS.stream()
+          .map(urn -> new ResourceReference(urn, null, null))
+          .collect(Collectors.toList());
 
-  private static final List<ResourceReference> DASHBOARD_REFERENCES = DASHBOARD_URNS.stream().map(
-      urn -> new ResourceReference(urn, null, null)
-  ).collect(Collectors.toList());
+  private static final List<ResourceReference> DASHBOARD_REFERENCES =
+      DASHBOARD_URNS.stream()
+          .map(urn -> new ResourceReference(urn, null, null))
+          .collect(Collectors.toList());
 
   @Test
   private void testApply() throws Exception {
@@ -59,16 +58,16 @@ public class UnsetDomainActionTest {
     ActionParameters params = new ActionParameters(VALID_PARAMS);
     action.apply(ALL_URNS, params);
 
-    Mockito.verify(service, Mockito.atLeastOnce()).batchRemoveDomains(
-        Mockito.eq(ImmutableList.of(TEST_DOMAIN_URN)),
-        Mockito.eq(DASHBOARD_REFERENCES),
-        Mockito.eq(METADATA_TESTS_SOURCE)
-    );
-    Mockito.verify(service, Mockito.atLeastOnce()).batchRemoveDomains(
-        Mockito.eq(ImmutableList.of(TEST_DOMAIN_URN)),
-        Mockito.eq(DATASET_REFERENCES),
-        Mockito.eq(METADATA_TESTS_SOURCE)
-    );
+    Mockito.verify(service, Mockito.atLeastOnce())
+        .batchRemoveDomains(
+            Mockito.eq(ImmutableList.of(TEST_DOMAIN_URN)),
+            Mockito.eq(DASHBOARD_REFERENCES),
+            Mockito.eq(METADATA_TESTS_SOURCE));
+    Mockito.verify(service, Mockito.atLeastOnce())
+        .batchRemoveDomains(
+            Mockito.eq(ImmutableList.of(TEST_DOMAIN_URN)),
+            Mockito.eq(DATASET_REFERENCES),
+            Mockito.eq(METADATA_TESTS_SOURCE));
 
     Mockito.verifyNoMoreInteractions(service);
   }

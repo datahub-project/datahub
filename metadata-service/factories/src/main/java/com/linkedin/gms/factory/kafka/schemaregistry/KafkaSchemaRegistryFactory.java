@@ -21,7 +21,9 @@ import org.springframework.context.annotation.PropertySource;
 @Slf4j
 @Configuration
 @PropertySource(value = "classpath:/application.yml", factory = YamlPropertySourceFactory.class)
-@ConditionalOnProperty(name = "kafka.schemaRegistry.type", havingValue = KafkaSchemaRegistryFactory.TYPE)
+@ConditionalOnProperty(
+    name = "kafka.schemaRegistry.type",
+    havingValue = KafkaSchemaRegistryFactory.TYPE)
 public class KafkaSchemaRegistryFactory {
 
   public static final String TYPE = "KAFKA";
@@ -48,7 +50,8 @@ public class KafkaSchemaRegistryFactory {
   @Nonnull
   protected SchemaRegistryConfig getInstance(ConfigurationProvider configurationProvider) {
     Map<String, Object> props = new HashMap<>();
-    // FIXME: Properties for this factory should come from ConfigurationProvider object, specifically under the
+    // FIXME: Properties for this factory should come from ConfigurationProvider object,
+    // specifically under the
     // KafkaConfiguration class. See InternalSchemaRegistryFactory as an example.
     props.put(AbstractKafkaSchemaSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG, kafkaSchemaRegistryUrl);
     props.put(withNamespace(SslConfigs.SSL_TRUSTSTORE_LOCATION_CONFIG), sslTruststoreLocation);
@@ -60,8 +63,11 @@ public class KafkaSchemaRegistryFactory {
     if (sslKeystoreLocation.isEmpty()) {
       log.info("creating schema registry config using url: {}", kafkaSchemaRegistryUrl);
     } else {
-      log.info("creating schema registry config using url: {}, keystore location: {} and truststore location: {}",
-          kafkaSchemaRegistryUrl, sslTruststoreLocation, sslKeystoreLocation);
+      log.info(
+          "creating schema registry config using url: {}, keystore location: {} and truststore location: {}",
+          kafkaSchemaRegistryUrl,
+          sslTruststoreLocation,
+          sslKeystoreLocation);
     }
 
     return new SchemaRegistryConfig(KafkaAvroSerializer.class, KafkaAvroDeserializer.class, props);

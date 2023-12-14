@@ -1,6 +1,9 @@
 package com.linkedin.metadata.kafka.hook.notification.proposal;
 
+import static com.linkedin.metadata.kafka.hook.notification.NotificationUtils.*;
+
 import com.datahub.authentication.Authentication;
+import com.datahub.notification.NotificationScenarioType;
 import com.datahub.notification.NotificationTemplateType;
 import com.datahub.notification.provider.EntityNameProvider;
 import com.datahub.notification.provider.SettingsProvider;
@@ -24,31 +27,23 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.kafka.hook.notification.BaseMclNotificationGenerator;
-import com.datahub.notification.NotificationScenarioType;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeLog;
-
+import com.linkedin.subscription.EntityChangeType;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nonnull;
-
-import com.linkedin.subscription.EntityChangeType;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Import;
 
-import static com.linkedin.metadata.kafka.hook.notification.NotificationUtils.*;
-
-
 /**
- * An extension of {@link BaseMclNotificationGenerator} which generates notifications
- * on incident creation and status changes.
+ * An extension of {@link BaseMclNotificationGenerator} which generates notifications on incident
+ * creation and status changes.
  */
 @Slf4j
-@Import({
-    SlackNotificationRecipientBuilder.class
-})
+@Import({SlackNotificationRecipientBuilder.class})
 public class ProposalNotificationGenerator extends BaseMclNotificationGenerator {
 
   private final EntityNameProvider entityNameProvider;
@@ -61,16 +56,14 @@ public class ProposalNotificationGenerator extends BaseMclNotificationGenerator 
       @Nonnull final SettingsProvider settingsProvider,
       @Nonnull final Authentication systemAuthentication,
       @Nonnull final SlackNotificationRecipientBuilder slackNotificationRecipientBuilder,
-      @Nonnull final FeatureFlags featureFlags
-      ) {
+      @Nonnull final FeatureFlags featureFlags) {
     super(
         eventProducer,
         entityClient,
         graphClient,
         settingsProvider,
         systemAuthentication,
-        ImmutableMap.of(NotificationSinkType.SLACK, slackNotificationRecipientBuilder)
-    );
+        ImmutableMap.of(NotificationSinkType.SLACK, slackNotificationRecipientBuilder));
     this.entityNameProvider = new EntityNameProvider(entityClient, systemAuthentication);
     _featureFlags = featureFlags;
   }
@@ -93,16 +86,20 @@ public class ProposalNotificationGenerator extends BaseMclNotificationGenerator 
     log.debug(String.format("Found eligible Action Request MCL. urn: %s", event.getEntityUrn()));
 
     if (isNewProposal(event)) {
-      final ActionRequestInfo info = GenericRecordUtils.deserializeAspect(
-          event.getAspect().getValue(),
-          event.getAspect().getContentType(),
-          ActionRequestInfo.class);
+      final ActionRequestInfo info =
+          GenericRecordUtils.deserializeAspect(
+              event.getAspect().getValue(),
+              event.getAspect().getContentType(),
+              ActionRequestInfo.class);
 
       if (!isEligibleForProcessingActionRequestInfo(info)) {
         return;
       }
 
-      log.debug(String.format("Found eligible new proposal event to notify. urn: %s", event.getEntityUrn().toString()));
+      log.debug(
+          String.format(
+              "Found eligible new proposal event to notify. urn: %s",
+              event.getEntityUrn().toString()));
 
       generateNewProposalNotifications(event.getEntityUrn(), info, event.getCreated());
     } else if (isProposalStatusChange(event)) {
@@ -113,16 +110,20 @@ public class ProposalNotificationGenerator extends BaseMclNotificationGenerator 
         return;
       }
 
-      final ActionRequestStatus status = GenericRecordUtils.deserializeAspect(
-          event.getAspect().getValue(),
-          event.getAspect().getContentType(),
-          ActionRequestStatus.class);
+      final ActionRequestStatus status =
+          GenericRecordUtils.deserializeAspect(
+              event.getAspect().getValue(),
+              event.getAspect().getContentType(),
+              ActionRequestStatus.class);
 
       if (!isEligibleForProcessingActionRequestStatus(status)) {
         return;
       }
 
-      log.debug(String.format("Found eligible proposal change event to notify. urn: %s", event.getEntityUrn().toString()));
+      log.debug(
+          String.format(
+              "Found eligible proposal change event to notify. urn: %s",
+              event.getEntityUrn().toString()));
 
       generateUpdatedProposalNotifications(event.getEntityUrn(), info, status, event.getCreated());
     }
@@ -130,8 +131,9 @@ public class ProposalNotificationGenerator extends BaseMclNotificationGenerator 
 
   private boolean isEligibleForProcessingEvent(final MetadataChangeLog event) {
     return (Constants.ACTION_REQUEST_INFO_ASPECT_NAME.equals(event.getAspectName())
-        || Constants.ACTION_REQUEST_STATUS_ASPECT_NAME.equals(event.getAspectName()))
-        && (ChangeType.UPSERT.equals(event.getChangeType()) || ChangeType.CREATE.equals(event.getChangeType()));
+            || Constants.ACTION_REQUEST_STATUS_ASPECT_NAME.equals(event.getAspectName()))
+        && (ChangeType.UPSERT.equals(event.getChangeType())
+            || ChangeType.CREATE.equals(event.getChangeType()));
   }
 
   private boolean isEligibleForProcessingActionRequestInfo(final ActionRequestInfo info) {
@@ -140,7 +142,8 @@ public class ProposalNotificationGenerator extends BaseMclNotificationGenerator 
   }
 
   private boolean isEligibleForProcessingActionRequestStatus(final ActionRequestStatus status) {
-    // We only support rejected for now because we don't want to send both "tag added" and "accepted" notifications
+    // We only support rejected for now because we don't want to send both "tag added" and
+    // "accepted" notifications
     return AcrylConstants.ACTION_REQUEST_RESULT_REJECTED.equals(status.getResult());
   }
 
@@ -148,8 +151,8 @@ public class ProposalNotificationGenerator extends BaseMclNotificationGenerator 
       @Nonnull final Urn urn,
       @Nonnull final ActionRequestInfo info,
       @Nonnull final AuditStamp auditStamp) {
-      // Broadcast new incident.
-      trySendNewProposalNotifications(urn, info, auditStamp);
+    // Broadcast new incident.
+    trySendNewProposalNotifications(urn, info, auditStamp);
   }
 
   public void generateUpdatedProposalNotifications(
@@ -157,13 +160,11 @@ public class ProposalNotificationGenerator extends BaseMclNotificationGenerator 
       @Nonnull final ActionRequestInfo info,
       @Nonnull final ActionRequestStatus newStatus,
       @Nonnull final AuditStamp auditStamp) {
-      // Broadcast incident status change.
-      trySendProposalStatusChangeNotifications(urn, info, newStatus, auditStamp);
+    // Broadcast incident status change.
+    trySendProposalStatusChangeNotifications(urn, info, newStatus, auditStamp);
   }
 
-  /**
-   * Sends a notification of template type "BROADCAST_NEW_PROPOSAL" when an proposal is created.
-   */
+  /** Sends a notification of template type "BROADCAST_NEW_PROPOSAL" when an proposal is created. */
   private void trySendNewProposalNotifications(
       @Nonnull final Urn urn,
       @Nonnull final ActionRequestInfo info,
@@ -172,7 +173,8 @@ public class ProposalNotificationGenerator extends BaseMclNotificationGenerator 
     final EntityChangeType entityChangeType = getEntityChangeType(info);
 
     Set<NotificationRecipient> recipients =
-        new HashSet<>(buildRecipients(NotificationScenarioType.NEW_PROPOSAL, entityUrn, entityChangeType));
+        new HashSet<>(
+            buildRecipients(NotificationScenarioType.NEW_PROPOSAL, entityUrn, entityChangeType));
     if (recipients.isEmpty()) {
       return;
     }
@@ -199,18 +201,20 @@ public class ProposalNotificationGenerator extends BaseMclNotificationGenerator 
       templateParams.put("subResource", subResource);
     }
 
-    final NotificationRequest notificationRequest = buildNotificationRequest(
-        NotificationTemplateType.BROADCAST_NEW_PROPOSAL.name(),
-        templateParams,
-        recipients
-    );
+    final NotificationRequest notificationRequest =
+        buildNotificationRequest(
+            NotificationTemplateType.BROADCAST_NEW_PROPOSAL.name(), templateParams, recipients);
 
-    log.debug(String.format("Broadcasting new proposal change for entity %s, action request %s...", entityUrn, urn));
+    log.debug(
+        String.format(
+            "Broadcasting new proposal change for entity %s, action request %s...",
+            entityUrn, urn));
     sendNotificationRequest(notificationRequest);
   }
 
   /**
-   * Sends a notification of template type "BROADCAST_PROPOSAL_STATUS_CHANGE" when an proposal's status is changed.
+   * Sends a notification of template type "BROADCAST_PROPOSAL_STATUS_CHANGE" when an proposal's
+   * status is changed.
    */
   private void trySendProposalStatusChangeNotifications(
       @Nonnull final Urn urn,
@@ -219,16 +223,19 @@ public class ProposalNotificationGenerator extends BaseMclNotificationGenerator 
       @Nonnull final AuditStamp auditStamp) {
 
     if (!info.hasResource()) {
-      log.warn(String.format(
-          "Failed to find Action Request info for action request with urn %s. Skipping broadcasting status change",
-          urn));
+      log.warn(
+          String.format(
+              "Failed to find Action Request info for action request with urn %s. Skipping broadcasting status change",
+              urn));
       return;
     }
     final Urn entityUrn = UrnUtils.getUrn(info.getResource());
     final EntityChangeType entityChangeType = getEntityChangeType(info);
 
     Set<NotificationRecipient> recipients =
-        new HashSet<>(buildRecipients(NotificationScenarioType.PROPOSAL_STATUS_CHANGE, entityUrn, entityChangeType));
+        new HashSet<>(
+            buildRecipients(
+                NotificationScenarioType.PROPOSAL_STATUS_CHANGE, entityUrn, entityChangeType));
     if (recipients.isEmpty()) {
       return;
     }
@@ -258,16 +265,18 @@ public class ProposalNotificationGenerator extends BaseMclNotificationGenerator 
       templateParams.put("subResource", subResource);
     }
 
-    final NotificationRequest notificationRequest = buildNotificationRequest(
-        NotificationTemplateType.BROADCAST_PROPOSAL_STATUS_CHANGE.name(),
-        templateParams,
-        recipients
-    );
+    final NotificationRequest notificationRequest =
+        buildNotificationRequest(
+            NotificationTemplateType.BROADCAST_PROPOSAL_STATUS_CHANGE.name(),
+            templateParams,
+            recipients);
 
     // TODO: Remove this log once we've validated.
-    log.info(String.format("Broadcasting proposal status change for entity %s, action request %s...", entityUrn, urn));
+    log.info(
+        String.format(
+            "Broadcasting proposal status change for entity %s, action request %s...",
+            entityUrn, urn));
     sendNotificationRequest(notificationRequest);
-
   }
 
   private EntityChangeType getEntityChangeType(@Nonnull final ActionRequestInfo info) {
@@ -277,20 +286,28 @@ public class ProposalNotificationGenerator extends BaseMclNotificationGenerator 
       case (AcrylConstants.ACTION_REQUEST_TYPE_TERM_PROPOSAL):
         return EntityChangeType.GLOSSARY_TERM_PROPOSED;
       default:
-        throw new IllegalArgumentException(String.format("Unsupported action request type %s provided!", info.getType()));
+        throw new IllegalArgumentException(
+            String.format("Unsupported action request type %s provided!", info.getType()));
     }
   }
 
   private ActionRequestInfo getActionRequestInfo(final Urn actionRequestUrn) {
     try {
-      EntityResponse entityResponse = _entityClient.getV2(
-          Constants.ACTION_REQUEST_ENTITY_NAME,
-          actionRequestUrn,
-          ImmutableSet.of(Constants.ACTION_REQUEST_INFO_ASPECT_NAME),
-          _systemAuthentication
-      );
-      if (entityResponse != null && entityResponse.hasAspects() && entityResponse.getAspects().containsKey(Constants.ACTION_REQUEST_INFO_ASPECT_NAME)) {
-        return new ActionRequestInfo(entityResponse.getAspects().get(Constants.ACTION_REQUEST_INFO_ASPECT_NAME).getValue().data());
+      EntityResponse entityResponse =
+          _entityClient.getV2(
+              Constants.ACTION_REQUEST_ENTITY_NAME,
+              actionRequestUrn,
+              ImmutableSet.of(Constants.ACTION_REQUEST_INFO_ASPECT_NAME),
+              _systemAuthentication);
+      if (entityResponse != null
+          && entityResponse.hasAspects()
+          && entityResponse.getAspects().containsKey(Constants.ACTION_REQUEST_INFO_ASPECT_NAME)) {
+        return new ActionRequestInfo(
+            entityResponse
+                .getAspects()
+                .get(Constants.ACTION_REQUEST_INFO_ASPECT_NAME)
+                .getValue()
+                .data());
       } else {
         return null;
       }
@@ -300,27 +317,31 @@ public class ProposalNotificationGenerator extends BaseMclNotificationGenerator 
   }
 
   private boolean isNewProposal(final MetadataChangeLog event) {
-    return Constants.ACTION_REQUEST_INFO_ASPECT_NAME.equals(event.getAspectName()) && event.getPreviousAspectValue() == null;
+    return Constants.ACTION_REQUEST_INFO_ASPECT_NAME.equals(event.getAspectName())
+        && event.getPreviousAspectValue() == null;
   }
 
   private boolean isProposalStatusChange(final MetadataChangeLog event) {
-    if (event.getAspect() == null || !Constants.ACTION_REQUEST_STATUS_ASPECT_NAME.equals(event.getAspectName())) {
+    if (event.getAspect() == null
+        || !Constants.ACTION_REQUEST_STATUS_ASPECT_NAME.equals(event.getAspectName())) {
       return false;
     }
-    final ActionRequestStatus newStatus = GenericRecordUtils.deserializeAspect(
-        event.getAspect().getValue(),
-        event.getAspect().getContentType(),
-        ActionRequestStatus.class);
+    final ActionRequestStatus newStatus =
+        GenericRecordUtils.deserializeAspect(
+            event.getAspect().getValue(),
+            event.getAspect().getContentType(),
+            ActionRequestStatus.class);
 
     // If new status is not complete, we simply ignore for now.
     if (!AcrylConstants.ACTION_REQUEST_STATUS_COMPLETE.equals(newStatus.getStatus())) {
       return false;
     }
 
-    final ActionRequestStatus prevStatus = GenericRecordUtils.deserializeAspect(
-        event.getPreviousAspectValue().getValue(),
-        event.getPreviousAspectValue().getContentType(),
-        ActionRequestStatus.class);
+    final ActionRequestStatus prevStatus =
+        GenericRecordUtils.deserializeAspect(
+            event.getPreviousAspectValue().getValue(),
+            event.getPreviousAspectValue().getContentType(),
+            ActionRequestStatus.class);
     return !prevStatus.getStatus().equals(newStatus.getStatus());
   }
 
@@ -330,7 +351,8 @@ public class ProposalNotificationGenerator extends BaseMclNotificationGenerator 
       case AcrylConstants.ACTION_REQUEST_TYPE_TERM_PROPOSAL:
         return "add";
       default:
-        throw new IllegalArgumentException(String.format("Unsupported action request type %s provided!", info.getType()));
+        throw new IllegalArgumentException(
+            String.format("Unsupported action request type %s provided!", info.getType()));
     }
   }
 
@@ -341,7 +363,8 @@ public class ProposalNotificationGenerator extends BaseMclNotificationGenerator 
       case AcrylConstants.ACTION_REQUEST_TYPE_TERM_PROPOSAL:
         return "Glossary Term";
       default:
-        throw new IllegalArgumentException(String.format("Unsupported action request type %s provided!", info.getType()));
+        throw new IllegalArgumentException(
+            String.format("Unsupported action request type %s provided!", info.getType()));
     }
   }
 
@@ -358,7 +381,8 @@ public class ProposalNotificationGenerator extends BaseMclNotificationGenerator 
         // Resolve and present the name of the term.
         return info.getParams().getGlossaryTermProposal().getGlossaryTerm();
       default:
-        throw new IllegalArgumentException(String.format("Unsupported action request type %s provided!", info.getType()));
+        throw new IllegalArgumentException(
+            String.format("Unsupported action request type %s provided!", info.getType()));
     }
   }
 
@@ -371,7 +395,8 @@ public class ProposalNotificationGenerator extends BaseMclNotificationGenerator 
         // Resolve and present the name of the term.
         return "rejected";
       default:
-        throw new IllegalArgumentException(String.format("Unsupported action request type %s provided!", status.getResult()));
+        throw new IllegalArgumentException(
+            String.format("Unsupported action request type %s provided!", status.getResult()));
     }
   }
 }

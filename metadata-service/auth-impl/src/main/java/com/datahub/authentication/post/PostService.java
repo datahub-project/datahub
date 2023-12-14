@@ -1,5 +1,8 @@
 package com.datahub.authentication.post;
 
+import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.entity.AspectUtils.*;
+
 import com.datahub.authentication.Authentication;
 import com.linkedin.common.Media;
 import com.linkedin.common.MediaType;
@@ -20,10 +23,6 @@ import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.metadata.Constants.*;
-import static com.linkedin.metadata.entity.AspectUtils.*;
-
-
 @Slf4j
 @RequiredArgsConstructor
 public class PostService {
@@ -38,9 +37,14 @@ public class PostService {
   }
 
   @Nonnull
-  public PostContent mapPostContent(@Nonnull String contentType, @Nonnull String title, @Nullable String description, @Nullable String link,
+  public PostContent mapPostContent(
+      @Nonnull String contentType,
+      @Nonnull String title,
+      @Nullable String description,
+      @Nullable String link,
       @Nullable Media media) {
-    final PostContent postContent = new PostContent().setType(PostContentType.valueOf(contentType)).setTitle(title);
+    final PostContent postContent =
+        new PostContent().setType(PostContentType.valueOf(contentType)).setTitle(title);
     if (description != null) {
       postContent.setDescription(description);
     }
@@ -53,15 +57,20 @@ public class PostService {
     return postContent;
   }
 
-  public boolean createPost(@Nonnull String postType, @Nonnull PostContent postContent,
-      @Nonnull Authentication authentication) throws RemoteInvocationException {
+  public boolean createPost(
+      @Nonnull String postType,
+      @Nonnull PostContent postContent,
+      @Nonnull Authentication authentication)
+      throws RemoteInvocationException {
     final String uuid = UUID.randomUUID().toString();
     final PostKey postKey = new PostKey().setId(uuid);
     final long currentTimeMillis = Instant.now().toEpochMilli();
-    final PostInfo postInfo = new PostInfo().setType(PostType.valueOf(postType))
-        .setContent(postContent)
-        .setCreated(currentTimeMillis)
-        .setLastModified(currentTimeMillis);
+    final PostInfo postInfo =
+        new PostInfo()
+            .setType(PostType.valueOf(postType))
+            .setContent(postContent)
+            .setCreated(currentTimeMillis)
+            .setLastModified(currentTimeMillis);
 
     final MetadataChangeProposal proposal =
         buildMetadataChangeProposal(POST_ENTITY_NAME, postKey, POST_INFO_ASPECT_NAME, postInfo);

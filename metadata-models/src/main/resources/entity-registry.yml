@@ -81,6 +81,7 @@ entities:
       - dataPlatformInstance
       - browsePathsV2
       - anomaliesSummary
+      - subTypes
   - name: dataFlow
     category: core
     keyAspect: dataFlowKey

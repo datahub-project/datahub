@@ -1,24 +1,21 @@
 package io.datahubproject.schema_registry.openapi.generated;
 
-import java.util.Objects;
-import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.annotation.JsonCreator;
-import io.swagger.v3.oas.annotations.media.Schema;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import org.springframework.validation.annotation.Validated;
-import javax.validation.Valid;
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Objects;
+import javax.validation.Valid;
 import javax.validation.constraints.*;
+import org.springframework.validation.annotation.Validated;
 
-/**
- * ServerClusterId
- */
+/** ServerClusterId */
 @Validated
-@javax.annotation.Generated(value = "io.swagger.codegen.v3.generators.java.SpringCodegen", date = "2022-12-20T16:52:36.517693Z[Europe/Lisbon]")
+@javax.annotation.Generated(
+    value = "io.swagger.codegen.v3.generators.java.SpringCodegen",
+    date = "2022-12-20T16:52:36.517693Z[Europe/Lisbon]")
 @JsonInclude(JsonInclude.Include.NON_NULL)
-public class ServerClusterId   {
+public class ServerClusterId {
 
   @JsonProperty("scope")
   @Valid
@@ -42,11 +39,11 @@ public class ServerClusterId   {
 
   /**
    * Get scope
+   *
    * @return scope
-   **/
+   */
   @io.swagger.v3.oas.annotations.media.Schema(description = "")
-  
-    public Map<String, Object> getScope() {
+  public Map<String, Object> getScope() {
     return scope;
   }
 
@@ -61,18 +58,17 @@ public class ServerClusterId   {
 
   /**
    * Get id
+   *
    * @return id
-   **/
+   */
   @io.swagger.v3.oas.annotations.media.Schema(description = "")
-  
-    public String getId() {
+  public String getId() {
     return id;
   }
 
   public void setId(String id) {
     this.id = id;
   }
-
 
   @Override
   public boolean equals(java.lang.Object o) {
@@ -83,8 +79,8 @@ public class ServerClusterId   {
       return false;
     }
     ServerClusterId serverClusterId = (ServerClusterId) o;
-    return Objects.equals(this.scope, serverClusterId.scope) &&
-        Objects.equals(this.id, serverClusterId.id);
+    return Objects.equals(this.scope, serverClusterId.scope)
+        && Objects.equals(this.id, serverClusterId.id);
   }
 
   @Override
@@ -96,7 +92,7 @@ public class ServerClusterId   {
   public String toString() {
     StringBuilder sb = new StringBuilder();
     sb.append("class ServerClusterId {\n");
-    
+
     sb.append("    scope: ").append(toIndentedString(scope)).append("\n");
     sb.append("    id: ").append(toIndentedString(id)).append("\n");
     sb.append("}");
@@ -104,8 +100,7 @@ public class ServerClusterId   {
   }
 
   /**
-   * Convert the given object to string with each line indented by 4 spaces
-   * (except the first line).
+   * Convert the given object to string with each line indented by 4 spaces (except the first line).
    */
   private String toIndentedString(java.lang.Object o) {
     if (o == null) {

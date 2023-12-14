@@ -23,7 +23,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 
-
 @Slf4j
 public class EntityDataContractResolver implements DataFetcher<CompletableFuture<DataContract>> {
   static final String CONTRACT_FOR_RELATIONSHIP = "ContractFor";
@@ -31,62 +30,67 @@ public class EntityDataContractResolver implements DataFetcher<CompletableFuture
   private final EntityClient _entityClient;
   private final GraphClient _graphClient;
 
-  public EntityDataContractResolver(final EntityClient entityClient, final GraphClient graphClient) {
+  public EntityDataContractResolver(
+      final EntityClient entityClient, final GraphClient graphClient) {
     _entityClient = Objects.requireNonNull(entityClient, "entityClient must not be null");
     _graphClient = Objects.requireNonNull(graphClient, "graphClient must not be null");
   }
 
   @Override
   public CompletableFuture<DataContract> get(DataFetchingEnvironment environment) {
-    return CompletableFuture.supplyAsync(() -> {
+    return CompletableFuture.supplyAsync(
+        () -> {
+          final QueryContext context = environment.getContext();
+          final String entityUrn = ((Entity) environment.getSource()).getUrn();
 
-      final QueryContext context = environment.getContext();
-      final String entityUrn = ((Entity) environment.getSource()).getUrn();
+          try {
+            // Step 1: Fetch the contract associated with the dataset.
+            final EntityRelationships relationships =
+                _graphClient.getRelatedEntities(
+                    entityUrn,
+                    ImmutableList.of(CONTRACT_FOR_RELATIONSHIP),
+                    RelationshipDirection.INCOMING,
+                    0,
+                    1,
+                    context.getActorUrn());
 
-      try {
-        // Step 1: Fetch the contract associated with the dataset.
-        final EntityRelationships relationships = _graphClient.getRelatedEntities(
-            entityUrn,
-            ImmutableList.of(CONTRACT_FOR_RELATIONSHIP),
-            RelationshipDirection.INCOMING,
-            0,
-            1,
-            context.getActorUrn()
-        );
+            // If we found multiple contracts for same entity, we have an invalid system state. Log
+            // a warning.
+            if (relationships.getTotal() > 1) {
+              // Someone created 2 contracts for the same entity. Currently we do not handle this in
+              // the UI.
+              log.warn(
+                  String.format(
+                      "Unexpectedly found multiple contracts (%s) for entity with urn %s! This may lead to inconsistent behavior.",
+                      relationships.getRelationships(), entityUrn));
+            }
 
-        // If we found multiple contracts for same entity, we have an invalid system state. Log a warning.
-        if (relationships.getTotal() > 1) {
-          // Someone created 2 contracts for the same entity. Currently we do not handle this in the UI.
-          log.warn(
-              String.format("Unexpectedly found multiple contracts (%s) for entity with urn %s! This may lead to inconsistent behavior.",
-                  relationships.getRelationships(),
-                  entityUrn));
-        }
+            final List<Urn> contractUrns =
+                relationships.getRelationships().stream()
+                    .map(EntityRelationship::getEntity)
+                    .collect(Collectors.toList());
 
-        final List<Urn> contractUrns = relationships.getRelationships().stream()
-            .map(EntityRelationship::getEntity)
-            .collect(Collectors.toList());
+            if (contractUrns.size() >= 1) {
+              final Urn contractUrn = contractUrns.get(0);
 
-        if (contractUrns.size() >= 1) {
-          final Urn contractUrn = contractUrns.get(0);
+              // Step 2: Hydrate the contract entities based on the urns from step 1
+              final EntityResponse entityResponse =
+                  _entityClient.getV2(
+                      Constants.DATA_CONTRACT_ENTITY_NAME,
+                      contractUrn,
+                      null,
+                      context.getAuthentication());
 
-          // Step 2: Hydrate the contract entities based on the urns from step 1
-          final EntityResponse entityResponse = _entityClient.getV2(
-              Constants.DATA_CONTRACT_ENTITY_NAME,
-              contractUrn,
-              null,
-              context.getAuthentication());
-
-          if (entityResponse != null) {
-            // Step 4: Package and return result
-            return DataContractMapper.mapContract(entityResponse);
+              if (entityResponse != null) {
+                // Step 4: Package and return result
+                return DataContractMapper.mapContract(entityResponse);
+              }
+            }
+            // No contract found
+            return null;
+          } catch (URISyntaxException | RemoteInvocationException e) {
+            throw new RuntimeException("Failed to retrieve Assertion Run Events from GMS", e);
           }
-        }
-        // No contract found
-        return null;
-      } catch (URISyntaxException | RemoteInvocationException e) {
-        throw new RuntimeException("Failed to retrieve Assertion Run Events from GMS", e);
-      }
-    });
+        });
   }
 }

@@ -7,14 +7,12 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nonnull;
 
-
-/**
- * Utility class to validate delta event schemas.
- */
+/** Utility class to validate delta event schemas. */
 public final class DeltaValidator {
 
   // A cache of validated classes
-  private static final Set<Class<? extends RecordTemplate>> VALIDATED = ConcurrentHashMap.newKeySet();
+  private static final Set<Class<? extends RecordTemplate>> VALIDATED =
+      ConcurrentHashMap.newKeySet();
 
   private DeltaValidator() {
     // Util class
@@ -30,17 +28,19 @@ public final class DeltaValidator {
     final String className = schema.getBindingName();
 
     if (!ValidationUtils.schemaHasExactlyOneSuchField(schema, ValidationUtils::isValidUrnField)) {
-      ValidationUtils.invalidSchema("Delta '%s' must contain an non-optional 'urn' field of URN type", className);
+      ValidationUtils.invalidSchema(
+          "Delta '%s' must contain an non-optional 'urn' field of URN type", className);
     }
 
     if (!ValidationUtils.schemaHasExactlyOneSuchField(schema, DeltaValidator::isValidDeltaField)) {
-      ValidationUtils.invalidSchema("Delta '%s' must contain an non-optional 'delta' field of UNION type",
-          className);
+      ValidationUtils.invalidSchema(
+          "Delta '%s' must contain an non-optional 'delta' field of UNION type", className);
     }
   }
 
   /**
-   * Similar to {@link #validateDeltaSchema(RecordDataSchema)} but take a {@link Class} instead and caches results.
+   * Similar to {@link #validateDeltaSchema(RecordDataSchema)} but take a {@link Class} instead and
+   * caches results.
    */
   public static void validateDeltaSchema(@Nonnull Class<? extends RecordTemplate> clazz) {
     if (VALIDATED.contains(clazz)) {
@@ -52,7 +52,8 @@ public final class DeltaValidator {
   }
 
   private static boolean isValidDeltaField(@Nonnull RecordDataSchema.Field field) {
-    return field.getName().equals("delta") && !field.getOptional()
+    return field.getName().equals("delta")
+        && !field.getOptional()
         && field.getType().getType() == DataSchema.Type.UNION;
   }
 }

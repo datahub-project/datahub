@@ -5,7 +5,6 @@ import com.linkedin.data.template.DirectCoercer;
 import com.linkedin.data.template.TemplateOutputCastException;
 import java.net.URISyntaxException;
 
-
 public class NotebookUrn extends Urn {
   public static final String ENTITY_TYPE = "notebook";
 
@@ -41,7 +40,8 @@ public class NotebookUrn extends Urn {
         throw new URISyntaxException(urn.toString(), "Invalid number of keys.");
       } else {
         try {
-          return new NotebookUrn((String) key.getAs(0, String.class), (String) key.getAs(1, String.class));
+          return new NotebookUrn(
+              (String) key.getAs(0, String.class), (String) key.getAs(1, String.class));
         } catch (Exception e) {
           throw new URISyntaxException(urn.toString(), "Invalid URN Parameter: '" + e.getMessage());
         }
@@ -54,18 +54,20 @@ public class NotebookUrn extends Urn {
   }
 
   static {
-    Custom.registerCoercer(new DirectCoercer<NotebookUrn>() {
-      public Object coerceInput(NotebookUrn object) throws ClassCastException {
-        return object.toString();
-      }
+    Custom.registerCoercer(
+        new DirectCoercer<NotebookUrn>() {
+          public Object coerceInput(NotebookUrn object) throws ClassCastException {
+            return object.toString();
+          }
 
-      public NotebookUrn coerceOutput(Object object) throws TemplateOutputCastException {
-        try {
-          return NotebookUrn.createFromString((String) object);
-        } catch (URISyntaxException e) {
-          throw new TemplateOutputCastException("Invalid URN syntax: " + e.getMessage(), e);
-        }
-      }
-    }, NotebookUrn.class);
+          public NotebookUrn coerceOutput(Object object) throws TemplateOutputCastException {
+            try {
+              return NotebookUrn.createFromString((String) object);
+            } catch (URISyntaxException e) {
+              throw new TemplateOutputCastException("Invalid URN syntax: " + e.getMessage(), e);
+            }
+          }
+        },
+        NotebookUrn.class);
   }
 }

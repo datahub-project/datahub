@@ -20,9 +20,9 @@ import com.linkedin.datahub.graphql.generated.FreshnessFieldKind;
 import com.linkedin.datahub.graphql.generated.FreshnessFieldSpec;
 import com.linkedin.datahub.graphql.generated.Monitor;
 import com.linkedin.datahub.graphql.generated.MonitorInfo;
-import com.linkedin.datahub.graphql.generated.MonitorType;
-import com.linkedin.datahub.graphql.generated.MonitorStatus;
 import com.linkedin.datahub.graphql.generated.MonitorMode;
+import com.linkedin.datahub.graphql.generated.MonitorStatus;
+import com.linkedin.datahub.graphql.generated.MonitorType;
 import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
@@ -33,7 +33,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
-
 
 public class MonitorMapper {
 
@@ -54,7 +53,9 @@ public class MonitorMapper {
 
     final EnvelopedAspect envelopedMonitorInfo = aspects.get(Constants.MONITOR_INFO_ASPECT_NAME);
     if (envelopedMonitorInfo != null) {
-      result.setInfo(mapMonitorInfo(new com.linkedin.monitor.MonitorInfo(envelopedMonitorInfo.getValue().data())));
+      result.setInfo(
+          mapMonitorInfo(
+              new com.linkedin.monitor.MonitorInfo(envelopedMonitorInfo.getValue().data())));
     }
 
     return result;
@@ -64,7 +65,8 @@ public class MonitorMapper {
     MonitorInfo monitorInfo = new MonitorInfo();
     monitorInfo.setType(MonitorType.valueOf(backendMonitorInfo.getType().name()));
     if (backendMonitorInfo.hasAssertionMonitor()) {
-      monitorInfo.setAssertionMonitor(mapAssertionMonitor(backendMonitorInfo.getAssertionMonitor()));
+      monitorInfo.setAssertionMonitor(
+          mapAssertionMonitor(backendMonitorInfo.getAssertionMonitor()));
     }
     if (backendMonitorInfo.hasExecutorId()) {
       monitorInfo.setExecutorId(backendMonitorInfo.getExecutorId());
@@ -73,24 +75,29 @@ public class MonitorMapper {
     return monitorInfo;
   }
 
-  private static AssertionMonitor mapAssertionMonitor(com.linkedin.monitor.AssertionMonitor backendAssertionMonitor) {
+  private static AssertionMonitor mapAssertionMonitor(
+      com.linkedin.monitor.AssertionMonitor backendAssertionMonitor) {
     AssertionMonitor assertionMonitor = new AssertionMonitor();
-    List<AssertionEvaluationSpec> assertionEvaluationSpecs = backendAssertionMonitor.getAssertions().stream()
-        .map(MonitorMapper::mapAssertionEvaluationSpec)
-        .collect(Collectors.toList());
+    List<AssertionEvaluationSpec> assertionEvaluationSpecs =
+        backendAssertionMonitor.getAssertions().stream()
+            .map(MonitorMapper::mapAssertionEvaluationSpec)
+            .collect(Collectors.toList());
     assertionMonitor.setAssertions(assertionEvaluationSpecs);
     return assertionMonitor;
   }
 
-  private static AssertionEvaluationSpec mapAssertionEvaluationSpec(com.linkedin.monitor.AssertionEvaluationSpec backendAssertionEvaluationSpec) {
+  private static AssertionEvaluationSpec mapAssertionEvaluationSpec(
+      com.linkedin.monitor.AssertionEvaluationSpec backendAssertionEvaluationSpec) {
     final AssertionEvaluationSpec assertionEvaluationSpec = new AssertionEvaluationSpec();
     final Assertion partialAssertion = new Assertion();
     partialAssertion.setUrn(backendAssertionEvaluationSpec.getAssertion().toString());
     partialAssertion.setType(EntityType.ASSERTION);
     assertionEvaluationSpec.setAssertion(partialAssertion);
-    assertionEvaluationSpec.setSchedule(mapCronSchedule(backendAssertionEvaluationSpec.getSchedule()));
+    assertionEvaluationSpec.setSchedule(
+        mapCronSchedule(backendAssertionEvaluationSpec.getSchedule()));
     if (backendAssertionEvaluationSpec.hasParameters()) {
-      assertionEvaluationSpec.setParameters(mapAssertionEvaluationParameters(backendAssertionEvaluationSpec.getParameters()));
+      assertionEvaluationSpec.setParameters(
+          mapAssertionEvaluationParameters(backendAssertionEvaluationSpec.getParameters()));
     }
     return assertionEvaluationSpec;
   }
@@ -104,73 +111,93 @@ public class MonitorMapper {
 
   private static AssertionEvaluationParameters mapAssertionEvaluationParameters(
       com.linkedin.monitor.AssertionEvaluationParameters backendAssertionEvaluationParameters) {
-    final AssertionEvaluationParameters assertionEvaluationParameters = new AssertionEvaluationParameters();
+    final AssertionEvaluationParameters assertionEvaluationParameters =
+        new AssertionEvaluationParameters();
     assertionEvaluationParameters.setType(
-        AssertionEvaluationParametersType.valueOf(backendAssertionEvaluationParameters.getType().name()));
+        AssertionEvaluationParametersType.valueOf(
+            backendAssertionEvaluationParameters.getType().name()));
     if (backendAssertionEvaluationParameters.getDatasetFreshnessParameters() != null) {
-      assertionEvaluationParameters.setDatasetFreshnessParameters(mapDatasetFreshnessAssertionParameters(
-          backendAssertionEvaluationParameters.getDatasetFreshnessParameters()));
+      assertionEvaluationParameters.setDatasetFreshnessParameters(
+          mapDatasetFreshnessAssertionParameters(
+              backendAssertionEvaluationParameters.getDatasetFreshnessParameters()));
     }
     if (backendAssertionEvaluationParameters.getDatasetVolumeParameters() != null) {
-      assertionEvaluationParameters.setDatasetVolumeParameters(mapDatasetVolumeAssertionParameters(
-          backendAssertionEvaluationParameters.getDatasetVolumeParameters()));
+      assertionEvaluationParameters.setDatasetVolumeParameters(
+          mapDatasetVolumeAssertionParameters(
+              backendAssertionEvaluationParameters.getDatasetVolumeParameters()));
     }
     if (backendAssertionEvaluationParameters.getDatasetFieldParameters() != null) {
-      assertionEvaluationParameters.setDatasetFieldParameters(mapDatasetFieldAssertionParameters(
-          backendAssertionEvaluationParameters.getDatasetFieldParameters()));
+      assertionEvaluationParameters.setDatasetFieldParameters(
+          mapDatasetFieldAssertionParameters(
+              backendAssertionEvaluationParameters.getDatasetFieldParameters()));
     }
     return assertionEvaluationParameters;
   }
 
   private static DatasetFreshnessAssertionParameters mapDatasetFreshnessAssertionParameters(
-      com.linkedin.monitor.DatasetFreshnessAssertionParameters backendDatasetFreshnessAssertionParameters) {
-    final DatasetFreshnessAssertionParameters datasetFreshnessAssertionParameters = new DatasetFreshnessAssertionParameters();
+      com.linkedin.monitor.DatasetFreshnessAssertionParameters
+          backendDatasetFreshnessAssertionParameters) {
+    final DatasetFreshnessAssertionParameters datasetFreshnessAssertionParameters =
+        new DatasetFreshnessAssertionParameters();
     datasetFreshnessAssertionParameters.setSourceType(
-        DatasetFreshnessSourceType.valueOf(backendDatasetFreshnessAssertionParameters.getSourceType().name()));
+        DatasetFreshnessSourceType.valueOf(
+            backendDatasetFreshnessAssertionParameters.getSourceType().name()));
     if (backendDatasetFreshnessAssertionParameters.hasField()) {
-      datasetFreshnessAssertionParameters.setField(mapFreshnessFieldSpec(backendDatasetFreshnessAssertionParameters.getField()));
+      datasetFreshnessAssertionParameters.setField(
+          mapFreshnessFieldSpec(backendDatasetFreshnessAssertionParameters.getField()));
     }
     if (backendDatasetFreshnessAssertionParameters.hasAuditLog()) {
-      datasetFreshnessAssertionParameters.setAuditLog(mapAuditLogSpec(backendDatasetFreshnessAssertionParameters.getAuditLog()));
+      datasetFreshnessAssertionParameters.setAuditLog(
+          mapAuditLogSpec(backendDatasetFreshnessAssertionParameters.getAuditLog()));
     }
     if (backendDatasetFreshnessAssertionParameters.hasDataHubOperation()) {
-      datasetFreshnessAssertionParameters.setDataHubOperation(mapDataHubOperationSpec(backendDatasetFreshnessAssertionParameters.getDataHubOperation()));
+      datasetFreshnessAssertionParameters.setDataHubOperation(
+          mapDataHubOperationSpec(
+              backendDatasetFreshnessAssertionParameters.getDataHubOperation()));
     }
     return datasetFreshnessAssertionParameters;
   }
 
   private static DatasetVolumeAssertionParameters mapDatasetVolumeAssertionParameters(
-      com.linkedin.monitor.DatasetVolumeAssertionParameters backendDatasetVolumeAssertionParameters) {
-    final DatasetVolumeAssertionParameters datasetVolumeAssertionParameters = new DatasetVolumeAssertionParameters();
+      com.linkedin.monitor.DatasetVolumeAssertionParameters
+          backendDatasetVolumeAssertionParameters) {
+    final DatasetVolumeAssertionParameters datasetVolumeAssertionParameters =
+        new DatasetVolumeAssertionParameters();
     datasetVolumeAssertionParameters.setSourceType(
-        DatasetVolumeSourceType.valueOf(backendDatasetVolumeAssertionParameters.getSourceType().name()));
+        DatasetVolumeSourceType.valueOf(
+            backendDatasetVolumeAssertionParameters.getSourceType().name()));
     return datasetVolumeAssertionParameters;
   }
 
   private static DatasetFieldAssertionParameters mapDatasetFieldAssertionParameters(
       com.linkedin.monitor.DatasetFieldAssertionParameters backendDatasetFieldAssertionParameters) {
-    final DatasetFieldAssertionParameters datasetFieldAssertionParameters = new DatasetFieldAssertionParameters();
+    final DatasetFieldAssertionParameters datasetFieldAssertionParameters =
+        new DatasetFieldAssertionParameters();
     datasetFieldAssertionParameters.setSourceType(
-        DatasetFieldAssertionSourceType.valueOf(backendDatasetFieldAssertionParameters.getSourceType().name()));
+        DatasetFieldAssertionSourceType.valueOf(
+            backendDatasetFieldAssertionParameters.getSourceType().name()));
     if (backendDatasetFieldAssertionParameters.hasChangedRowsField()) {
-      datasetFieldAssertionParameters
-          .setChangedRowsField(mapFreshnessFieldSpec(backendDatasetFieldAssertionParameters.getChangedRowsField()));
+      datasetFieldAssertionParameters.setChangedRowsField(
+          mapFreshnessFieldSpec(backendDatasetFieldAssertionParameters.getChangedRowsField()));
     }
     return datasetFieldAssertionParameters;
   }
 
-  private static FreshnessFieldSpec mapFreshnessFieldSpec(com.linkedin.assertion.FreshnessFieldSpec backendFreshnessFieldSpec) {
+  private static FreshnessFieldSpec mapFreshnessFieldSpec(
+      com.linkedin.assertion.FreshnessFieldSpec backendFreshnessFieldSpec) {
     FreshnessFieldSpec freshnessFieldSpec = new FreshnessFieldSpec();
     freshnessFieldSpec.setPath(backendFreshnessFieldSpec.getPath());
     freshnessFieldSpec.setType(backendFreshnessFieldSpec.getType());
     freshnessFieldSpec.setNativeType(backendFreshnessFieldSpec.getNativeType());
     if (backendFreshnessFieldSpec.hasKind()) {
-      freshnessFieldSpec.setKind(FreshnessFieldKind.valueOf(backendFreshnessFieldSpec.getKind().name()));
+      freshnessFieldSpec.setKind(
+          FreshnessFieldKind.valueOf(backendFreshnessFieldSpec.getKind().name()));
     }
     return freshnessFieldSpec;
   }
 
-  private static AuditLogSpec mapAuditLogSpec(com.linkedin.monitor.AuditLogSpec backendAuditLogSpec) {
+  private static AuditLogSpec mapAuditLogSpec(
+      com.linkedin.monitor.AuditLogSpec backendAuditLogSpec) {
     AuditLogSpec auditLogSpec = new AuditLogSpec();
     if (backendAuditLogSpec.hasOperationTypes()) {
       auditLogSpec.setOperationTypes(new ArrayList<>(backendAuditLogSpec.getOperationTypes()));
@@ -181,7 +208,8 @@ public class MonitorMapper {
     return auditLogSpec;
   }
 
-  private static DataHubOperationSpec mapDataHubOperationSpec(com.linkedin.monitor.DataHubOperationSpec backendOperationSpec) {
+  private static DataHubOperationSpec mapDataHubOperationSpec(
+      com.linkedin.monitor.DataHubOperationSpec backendOperationSpec) {
     DataHubOperationSpec result = new DataHubOperationSpec();
     if (backendOperationSpec.hasOperationTypes()) {
       result.setOperationTypes(backendOperationSpec.getOperationTypes());
@@ -198,5 +226,5 @@ public class MonitorMapper {
     return monitorStatus;
   }
 
-  private MonitorMapper() { }
+  private MonitorMapper() {}
 }

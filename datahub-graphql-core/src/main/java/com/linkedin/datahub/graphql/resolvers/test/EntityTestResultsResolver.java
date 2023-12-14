@@ -25,10 +25,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
-
-/**
- * GraphQL Resolver used for fetching the list of tests for an entity
- */
+/** GraphQL Resolver used for fetching the list of tests for an entity */
 @Slf4j
 public class EntityTestResultsResolver implements DataFetcher<CompletableFuture<TestResults>> {
 
@@ -43,28 +40,33 @@ public class EntityTestResultsResolver implements DataFetcher<CompletableFuture<
     final QueryContext context = environment.getContext();
     final Urn entityUrn = Urn.createFromString(((Entity) environment.getSource()).getUrn());
 
-    return CompletableFuture.supplyAsync(() -> {
+    return CompletableFuture.supplyAsync(
+        () -> {
+          final com.linkedin.test.TestResults gmsTestResults = getTestResults(entityUrn, context);
 
-      final com.linkedin.test.TestResults gmsTestResults = getTestResults(entityUrn, context);
+          if (gmsTestResults == null) {
+            return null;
+          }
 
-      if (gmsTestResults == null) {
-        return null;
-      }
-
-      TestResults testResults = new TestResults();
-      testResults.setPassing(mapTestResults(gmsTestResults.getPassing(), context));
-      testResults.setFailing(mapTestResults(gmsTestResults.getFailing(), context));
-      return testResults;
-    });
+          TestResults testResults = new TestResults();
+          testResults.setPassing(mapTestResults(gmsTestResults.getPassing(), context));
+          testResults.setFailing(mapTestResults(gmsTestResults.getFailing(), context));
+          return testResults;
+        });
   }
 
   @Nullable
-  private com.linkedin.test.TestResults getTestResults(final Urn entityUrn, final QueryContext context) {
+  private com.linkedin.test.TestResults getTestResults(
+      final Urn entityUrn, final QueryContext context) {
     try {
       final EntityResponse entityResponse =
-          _entityClient.getV2(entityUrn.getEntityType(), entityUrn, ImmutableSet.of(Constants.TEST_RESULTS_ASPECT_NAME),
+          _entityClient.getV2(
+              entityUrn.getEntityType(),
+              entityUrn,
+              ImmutableSet.of(Constants.TEST_RESULTS_ASPECT_NAME),
               context.getAuthentication());
-      if (entityResponse.hasAspects() && entityResponse.getAspects().containsKey(Constants.TEST_RESULTS_ASPECT_NAME)) {
+      if (entityResponse.hasAspects()
+          && entityResponse.getAspects().containsKey(Constants.TEST_RESULTS_ASPECT_NAME)) {
         return new com.linkedin.test.TestResults(
             entityResponse.getAspects().get(Constants.TEST_RESULTS_ASPECT_NAME).getValue().data());
       }
@@ -74,8 +76,8 @@ public class EntityTestResultsResolver implements DataFetcher<CompletableFuture<
     }
   }
 
-  private List<TestResult> mapTestResults(final @Nonnull List<com.linkedin.test.TestResult> gmsResults,
-      final QueryContext context) {
+  private List<TestResult> mapTestResults(
+      final @Nonnull List<com.linkedin.test.TestResult> gmsResults, final QueryContext context) {
     final List<TestResult> results = new ArrayList<>();
     final Set<Urn> testUrns =
         gmsResults.stream().map(com.linkedin.test.TestResult::getTest).collect(Collectors.toSet());
@@ -93,14 +95,17 @@ public class EntityTestResultsResolver implements DataFetcher<CompletableFuture<
   private Set<Urn> getExistingTestUrns(final Set<Urn> testUrns, final QueryContext context) {
     Map<Urn, EntityResponse> batchGetResponse;
     try {
-      batchGetResponse = _entityClient.batchGetV2(Constants.TEST_ENTITY_NAME, testUrns,
-          Collections.singleton(Constants.TEST_INFO_ASPECT_NAME), context.getAuthentication());
+      batchGetResponse =
+          _entityClient.batchGetV2(
+              Constants.TEST_ENTITY_NAME,
+              testUrns,
+              Collections.singleton(Constants.TEST_INFO_ASPECT_NAME),
+              context.getAuthentication());
     } catch (Exception e) {
       log.error("Error while fetching test info aspects for the given test results", e);
       return testUrns;
     }
-    return batchGetResponse.entrySet()
-        .stream()
+    return batchGetResponse.entrySet().stream()
         .filter(entry -> isNotEmpty(entry.getValue()))
         .map(Map.Entry::getKey)
         .collect(Collectors.toSet());

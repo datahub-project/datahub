@@ -1,5 +1,9 @@
 package com.linkedin.datahub.graphql.resolvers.actionrequest;
 
+import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
+import static com.linkedin.datahub.graphql.resolvers.actionrequest.ActionRequestUtils.*;
+import static com.linkedin.metadata.Constants.*;
+
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -31,15 +35,9 @@ import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
-import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
-import static com.linkedin.datahub.graphql.resolvers.actionrequest.ActionRequestUtils.*;
-import static com.linkedin.metadata.Constants.*;
-
-
-/**
- * Resolver responsible for resolving the 'listActionRequests' Query.
- */
-public class ListActionRequestsResolver implements DataFetcher<CompletableFuture<ListActionRequestsResult>> {
+/** Resolver responsible for resolving the 'listActionRequests' Query. */
+public class ListActionRequestsResolver
+    implements DataFetcher<CompletableFuture<ListActionRequestsResult>> {
 
   private static final String CREATED_FIELD_NAME = "created";
   private static final String ASSIGNED_USERS_FIELD_NAME = "assignedUsers";
@@ -56,99 +54,133 @@ public class ListActionRequestsResolver implements DataFetcher<CompletableFuture
   }
 
   @Override
-  public CompletableFuture<ListActionRequestsResult> get(final DataFetchingEnvironment environment) throws Exception {
+  public CompletableFuture<ListActionRequestsResult> get(final DataFetchingEnvironment environment)
+      throws Exception {
 
     final QueryContext context = environment.getContext();
 
-    final ListActionRequestsInput input = bindArgument(environment.getArgument("input"), ListActionRequestsInput.class);
+    final ListActionRequestsInput input =
+        bindArgument(environment.getArgument("input"), ListActionRequestsInput.class);
     final Integer start = input.getStart() == null ? DEFAULT_START : input.getStart();
     final Integer count = input.getCount() == null ? DEFAULT_COUNT : input.getCount();
     final ActionRequestType type = input.getType() == null ? null : input.getType();
     final ActionRequestStatus status = input.getStatus() == null ? null : input.getStatus();
     final ActionRequestAssignee assignee = input.getAssignee() == null ? null : input.getAssignee();
-    final Urn resourceUrn = input.getResourceUrn() == null ? null : UrnUtils.getUrn(input.getResourceUrn());
-    final Long startTimestampMillis = input.getStartTimestampMillis() == null ? null : input.getStartTimestampMillis();
-    final Long endTimestampMillis = input.getEndTimestampMillis() == null ? null : input.getEndTimestampMillis();
+    final Urn resourceUrn =
+        input.getResourceUrn() == null ? null : UrnUtils.getUrn(input.getResourceUrn());
+    final Long startTimestampMillis =
+        input.getStartTimestampMillis() == null ? null : input.getStartTimestampMillis();
+    final Long endTimestampMillis =
+        input.getEndTimestampMillis() == null ? null : input.getEndTimestampMillis();
 
-    return CompletableFuture.supplyAsync(() -> {
-      try {
+    return CompletableFuture.supplyAsync(
+        () -> {
+          try {
 
-        Urn actorUrn = null;
-        List<Urn> groupUrns = null;
-        List<Urn> roleUrns = null;
+            Urn actorUrn = null;
+            List<Urn> groupUrns = null;
+            List<Urn> roleUrns = null;
 
-        if (assignee == null) {
-          // Case 1: If no assignee filter provided, fall back to filtering for current user and their groups.
-          actorUrn = Urn.createFromString(context.getActorUrn());
-          AssignedUrns groupAndRoleUrns = getGroupAndRoleUrns(actorUrn, context.getAuthentication(), _entityClient);
-          groupUrns = groupAndRoleUrns.getGroupUrns();
-          roleUrns = groupAndRoleUrns.getRoleUrns();
-        } else {
-          // Case 2: Caller provided a user or group assignee filter.
-          final Urn assigneeUrn = Urn.createFromString(assignee.getUrn());
-          if (AssigneeType.GROUP.equals(assignee.getType())) {
-            // We do not compute role urns from group urns because only users are assigned to roles.
-            groupUrns = Collections.singletonList(assigneeUrn);
-          } else {
-            actorUrn = assigneeUrn;
-            AssignedUrns groupAndRoleUrns = getGroupAndRoleUrns(actorUrn, context.getAuthentication(), _entityClient);
-            groupUrns = groupAndRoleUrns.getGroupUrns();
-            roleUrns = groupAndRoleUrns.getRoleUrns();
+            if (assignee == null) {
+              // Case 1: If no assignee filter provided, fall back to filtering for current user and
+              // their groups.
+              actorUrn = Urn.createFromString(context.getActorUrn());
+              AssignedUrns groupAndRoleUrns =
+                  getGroupAndRoleUrns(actorUrn, context.getAuthentication(), _entityClient);
+              groupUrns = groupAndRoleUrns.getGroupUrns();
+              roleUrns = groupAndRoleUrns.getRoleUrns();
+            } else {
+              // Case 2: Caller provided a user or group assignee filter.
+              final Urn assigneeUrn = Urn.createFromString(assignee.getUrn());
+              if (AssigneeType.GROUP.equals(assignee.getType())) {
+                // We do not compute role urns from group urns because only users are assigned to
+                // roles.
+                groupUrns = Collections.singletonList(assigneeUrn);
+              } else {
+                actorUrn = assigneeUrn;
+                AssignedUrns groupAndRoleUrns =
+                    getGroupAndRoleUrns(actorUrn, context.getAuthentication(), _entityClient);
+                groupUrns = groupAndRoleUrns.getGroupUrns();
+                roleUrns = groupAndRoleUrns.getRoleUrns();
+              }
+            }
+
+            final Filter filter =
+                createFilter(
+                    actorUrn,
+                    groupUrns,
+                    roleUrns,
+                    type,
+                    status,
+                    resourceUrn,
+                    startTimestampMillis,
+                    endTimestampMillis);
+
+            final SortCriterion sortCriterion =
+                new SortCriterion().setField(CREATED_FIELD_NAME).setOrder(SortOrder.DESCENDING);
+
+            final SearchResult searchResult =
+                _entityClient.filter(
+                    ACTION_REQUEST_ENTITY_NAME,
+                    filter,
+                    sortCriterion,
+                    start,
+                    count,
+                    context.getAuthentication());
+
+            final Map<Urn, Entity> entities =
+                _entityClient.batchGet(
+                    new HashSet<>(
+                        searchResult.getEntities().stream()
+                            .map(result -> result.getEntity())
+                            .collect(Collectors.toList())),
+                    context.getAuthentication());
+
+            final ListActionRequestsResult result = new ListActionRequestsResult();
+            result.setStart(searchResult.getFrom());
+            result.setCount(searchResult.getPageSize());
+            result.setTotal(searchResult.getNumEntities());
+            result.setActionRequests(ActionRequestUtils.mapActionRequests(entities.values()));
+            return result;
+          } catch (Exception e) {
+            throw new RuntimeException("Failed to list action requests", e);
           }
-        }
-
-        final Filter filter = createFilter(actorUrn, groupUrns, roleUrns, type, status, resourceUrn, startTimestampMillis, endTimestampMillis);
-
-        final SortCriterion sortCriterion = new SortCriterion()
-            .setField(CREATED_FIELD_NAME)
-            .setOrder(SortOrder.DESCENDING);
-
-        final SearchResult searchResult = _entityClient.filter(
-            ACTION_REQUEST_ENTITY_NAME,
-            filter,
-            sortCriterion,
-            start,
-            count,
-            context.getAuthentication());
-
-        final Map<Urn, Entity> entities = _entityClient.batchGet(new HashSet<>(searchResult.getEntities().stream().map(result -> result.getEntity()).collect(
-            Collectors.toList())), context.getAuthentication());
-
-        final ListActionRequestsResult result = new ListActionRequestsResult();
-        result.setStart(searchResult.getFrom());
-        result.setCount(searchResult.getPageSize());
-        result.setTotal(searchResult.getNumEntities());
-        result.setActionRequests(ActionRequestUtils.mapActionRequests(entities.values()));
-        return result;
-      } catch (Exception e) {
-        throw new RuntimeException("Failed to list action requests", e);
-      }
-    });
+        });
   }
 
-  private Filter createFilter(final @Nullable Urn actorUrn, final @Nullable List<Urn> groupUrns,
-      final @Nullable List<Urn> roleUrns, final @Nullable ActionRequestType type,
-      final @Nullable ActionRequestStatus status, final @Nullable Urn resourceUrn,
-      final @Nullable Long startTimestampMillis, final @Nullable Long endTimestampMillis) {
+  private Filter createFilter(
+      final @Nullable Urn actorUrn,
+      final @Nullable List<Urn> groupUrns,
+      final @Nullable List<Urn> roleUrns,
+      final @Nullable ActionRequestType type,
+      final @Nullable ActionRequestStatus status,
+      final @Nullable Urn resourceUrn,
+      final @Nullable Long startTimestampMillis,
+      final @Nullable Long endTimestampMillis) {
     final Filter filter = new Filter();
     final ConjunctiveCriterionArray disjunction = new ConjunctiveCriterionArray();
     // If more than 1 different type of urn are provided, "or" the results.
     if (actorUrn != null) {
-      disjunction.add(createUserFilterConjunction(actorUrn, type, status, resourceUrn, startTimestampMillis, endTimestampMillis));
+      disjunction.add(
+          createUserFilterConjunction(
+              actorUrn, type, status, resourceUrn, startTimestampMillis, endTimestampMillis));
     }
     if (groupUrns != null) {
       disjunction.addAll(
-          createGroupFilterDisjunction(groupUrns, type, status, resourceUrn, startTimestampMillis, endTimestampMillis));
+          createGroupFilterDisjunction(
+              groupUrns, type, status, resourceUrn, startTimestampMillis, endTimestampMillis));
     }
     if (roleUrns != null) {
       disjunction.addAll(
-          createRoleFilterDisjunction(roleUrns, type, status, startTimestampMillis, endTimestampMillis));
+          createRoleFilterDisjunction(
+              roleUrns, type, status, startTimestampMillis, endTimestampMillis));
     }
     filter.setOr(disjunction);
     return filter;
   }
 
-  private ConjunctiveCriterion createUserFilterConjunction(final Urn userUrn,
+  private ConjunctiveCriterion createUserFilterConjunction(
+      final Urn userUrn,
       final @Nullable ActionRequestType type,
       final @Nullable ActionRequestStatus status,
       final @Nullable Urn resourceUrn,
@@ -180,7 +212,8 @@ public class ListActionRequestsResolver implements DataFetcher<CompletableFuture
     return conjunction;
   }
 
-  private List<ConjunctiveCriterion> createGroupFilterDisjunction(final List<Urn> groupUrns,
+  private List<ConjunctiveCriterion> createGroupFilterDisjunction(
+      final List<Urn> groupUrns,
       final @Nullable ActionRequestType type,
       final @Nullable ActionRequestStatus status,
       final @Nullable Urn resourceUrn,
@@ -216,9 +249,13 @@ public class ListActionRequestsResolver implements DataFetcher<CompletableFuture
     }
     return disjunction;
   }
-  private List<ConjunctiveCriterion> createRoleFilterDisjunction(final List<Urn> roleUrns,
-      final @Nullable ActionRequestType type, final @Nullable ActionRequestStatus status,
-      final @Nullable Long startTimestampMillis, final @Nullable Long endTimestampMillis) {
+
+  private List<ConjunctiveCriterion> createRoleFilterDisjunction(
+      final List<Urn> roleUrns,
+      final @Nullable ActionRequestType type,
+      final @Nullable ActionRequestStatus status,
+      final @Nullable Long startTimestampMillis,
+      final @Nullable Long endTimestampMillis) {
     final List<ConjunctiveCriterion> disjunction = new ArrayList<>();
     // Create a new filter for each role urn, where the urn, type, and status must all match.
     for (Urn groupUrn : roleUrns) {

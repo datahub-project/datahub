@@ -3,13 +3,13 @@ package datahub.spark;
 import static org.mockserver.integration.ClientAndServer.startClientAndServer;
 import static org.mockserver.model.HttpRequest.request;
 
+import com.linkedin.common.FabricType;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.List;
 import java.util.Properties;
-
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SparkSession;
@@ -28,8 +28,6 @@ import org.mockserver.model.HttpResponse;
 import org.mockserver.model.JsonBody;
 import org.mockserver.socket.PortFactory;
 import org.mockserver.verify.VerificationTimes;
-
-import com.linkedin.common.FabricType;
 
 public class TestCoalesceJobLineage {
   private static final boolean MOCK_GMS = Boolean.valueOf("true");
@@ -59,29 +57,42 @@ public class TestCoalesceJobLineage {
   private static SparkSession spark;
   private static Properties jdbcConnnProperties;
   private static ClientAndServer mockServer;
-  @Rule
-  public TestRule mockServerWatcher = new TestWatcher() {
 
-    @Override
-    protected void finished(Description description) {
-      if (!VERIFY_EXPECTED) {
-        return;
-      }
-      verifyTestScenario(description.getMethodName());
-      clear();
-      super.finished(description);
-    }
-  };
+  @Rule
+  public TestRule mockServerWatcher =
+      new TestWatcher() {
+
+        @Override
+        protected void finished(Description description) {
+          if (!VERIFY_EXPECTED) {
+            return;
+          }
+          verifyTestScenario(description.getMethodName());
+          clear();
+          super.finished(description);
+        }
+      };
 
   private static String addLocalPath(String s) {
-    return s.replaceAll("file:/" + RESOURCE_DIR, "file://" + Paths.get(RESOURCE_DIR).toAbsolutePath().toString());
+    return s.replaceAll(
+        "file:/" + RESOURCE_DIR, "file://" + Paths.get(RESOURCE_DIR).toAbsolutePath().toString());
   }
 
   public static void resetBaseExpectations() {
-    mockServer.when(request().withMethod("GET").withPath("/config").withHeader("Content-type", "application/json"),
-        Times.unlimited()).respond(org.mockserver.model.HttpResponse.response().withBody("{\"noCode\": true }"));
     mockServer
-        .when(request().withMethod("POST").withPath("/aspects").withQueryStringParameter("action", "ingestProposal"),
+        .when(
+            request()
+                .withMethod("GET")
+                .withPath("/config")
+                .withHeader("Content-type", "application/json"),
+            Times.unlimited())
+        .respond(org.mockserver.model.HttpResponse.response().withBody("{\"noCode\": true }"));
+    mockServer
+        .when(
+            request()
+                .withMethod("POST")
+                .withPath("/aspects")
+                .withQueryStringParameter("action", "ingestProposal"),
             Times.unlimited())
         .respond(HttpResponse.response().withStatusCode(200));
   }
@@ -95,11 +106,16 @@ public class TestCoalesceJobLineage {
   public static void verifyTestScenario(String testName) {
     String expectationFileName = testName + ".json";
     try {
-      List<String> expected = Files.readAllLines(Paths.get(EXPECTED_JSON_ROOT, expectationFileName).toAbsolutePath());
+      List<String> expected =
+          Files.readAllLines(Paths.get(EXPECTED_JSON_ROOT, expectationFileName).toAbsolutePath());
       for (String content : expected) {
         String swappedContent = addLocalPath(content);
-        mockServer.verify(request().withMethod("POST").withPath("/aspects")
-            .withQueryStringParameter("action", "ingestProposal").withBody(new JsonBody(swappedContent)),
+        mockServer.verify(
+            request()
+                .withMethod("POST")
+                .withPath("/aspects")
+                .withQueryStringParameter("action", "ingestProposal")
+                .withBody(new JsonBody(swappedContent)),
             VerificationTimes.atLeast(1));
       }
     } catch (IOException ioe) {
@@ -112,23 +128,33 @@ public class TestCoalesceJobLineage {
 
     resetBaseExpectations();
     System.setProperty("user.dir", Paths.get("coalesce-test").toAbsolutePath().toString());
-    spark = SparkSession.builder().appName(APP_NAME).config("spark.master", MASTER)
-        .config("spark.extraListeners", "datahub.spark.DatahubSparkListener")
-        .config("spark.datahub.rest.server", "http://localhost:" + mockServer.getPort())
-        .config("spark.datahub.metadata.pipeline.platformInstance", PIPELINE_PLATFORM_INSTANCE)
-        .config("spark.datahub.metadata.dataset.platformInstance", DATASET_PLATFORM_INSTANCE)
-        .config("spark.datahub.metadata.dataset.env", DATASET_ENV.name()).config("spark.datahub.coalesce_jobs", "true")
-        .config("spark.datahub.parent.datajob_urn",
-            "urn:li:dataJob:(urn:li:dataFlow:(airflow,datahub_analytics_refresh,prod),load_dashboard_info_to_snowflake)")
-        .config("spark.sql.warehouse.dir", new File(WAREHOUSE_LOC).getAbsolutePath()).enableHiveSupport().getOrCreate();
+    spark =
+        SparkSession.builder()
+            .appName(APP_NAME)
+            .config("spark.master", MASTER)
+            .config("spark.extraListeners", "datahub.spark.DatahubSparkListener")
+            .config("spark.datahub.rest.server", "http://localhost:" + mockServer.getPort())
+            .config("spark.datahub.metadata.pipeline.platformInstance", PIPELINE_PLATFORM_INSTANCE)
+            .config("spark.datahub.metadata.dataset.platformInstance", DATASET_PLATFORM_INSTANCE)
+            .config("spark.datahub.metadata.dataset.env", DATASET_ENV.name())
+            .config("spark.datahub.coalesce_jobs", "true")
+            .config(
+                "spark.datahub.parent.datajob_urn",
+                "urn:li:dataJob:(urn:li:dataFlow:(airflow,datahub_analytics_refresh,prod),load_dashboard_info_to_snowflake)")
+            .config("spark.sql.warehouse.dir", new File(WAREHOUSE_LOC).getAbsolutePath())
+            .enableHiveSupport()
+            .getOrCreate();
 
     spark.sql("drop database if exists " + TEST_DB + " cascade");
     spark.sql("create database " + TEST_DB);
   }
 
   private static void clear() {
-    mockServer
-        .clear(request().withMethod("POST").withPath("/aspects").withQueryStringParameter("action", "ingestProposal"));
+    mockServer.clear(
+        request()
+            .withMethod("POST")
+            .withPath("/aspects")
+            .withQueryStringParameter("action", "ingestProposal"));
   }
 
   @After
@@ -150,27 +176,44 @@ public class TestCoalesceJobLineage {
       return;
     }
     mockServer.verify(
-        request().withMethod("POST").withPath("/aspects").withQueryStringParameter("action", "ingestProposal"),
+        request()
+            .withMethod("POST")
+            .withPath("/aspects")
+            .withQueryStringParameter("action", "ingestProposal"),
         VerificationTimes.exactly(numRequests));
   }
 
   @Test
   public void testHiveInHiveOutCoalesce() throws Exception {
-    Dataset<Row> df1 = spark.read().option("header", "true").csv(new File(DATA_DIR + "/in1.csv").getAbsolutePath()).withColumnRenamed("c1", "a")
-        .withColumnRenamed("c2", "b");
+    Dataset<Row> df1 =
+        spark
+            .read()
+            .option("header", "true")
+            .csv(new File(DATA_DIR + "/in1.csv").getAbsolutePath())
+            .withColumnRenamed("c1", "a")
+            .withColumnRenamed("c2", "b");
 
-    Dataset<Row> df2 = spark.read().option("header", "true").csv(new File(DATA_DIR + "/in2.csv").getAbsolutePath()).withColumnRenamed("c1", "c")
-        .withColumnRenamed("c2", "d");
+    Dataset<Row> df2 =
+        spark
+            .read()
+            .option("header", "true")
+            .csv(new File(DATA_DIR + "/in2.csv").getAbsolutePath())
+            .withColumnRenamed("c1", "c")
+            .withColumnRenamed("c2", "d");
 
     df1.createOrReplaceTempView("v1");
     df2.createOrReplaceTempView("v2");
 
     // CreateHiveTableAsSelectCommand
     spark.sql(
-        "create table " + tbl("foo_coalesce") + " as " + "(select v1.a, v1.b, v2.c, v2.d from v1 join v2 on v1.id = v2.id)");
+        "create table "
+            + tbl("foo_coalesce")
+            + " as "
+            + "(select v1.a, v1.b, v2.c, v2.d from v1 join v2 on v1.id = v2.id)");
 
     // CreateHiveTableAsSelectCommand
-    spark.sql("create table " + tbl("hivetab") + " as " + "(select * from " + tbl("foo_coalesce") + ")");
+    spark.sql(
+        "create table " + tbl("hivetab") + " as " + "(select * from " + tbl("foo_coalesce") + ")");
 
     // InsertIntoHiveTable
     spark.sql("insert into " + tbl("hivetab") + " (select * from " + tbl("foo_coalesce") + ")");
@@ -181,5 +224,4 @@ public class TestCoalesceJobLineage {
     df.write().insertInto(tbl("hivetab"));
     Thread.sleep(5000);
   }
-
 }

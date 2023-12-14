@@ -1,5 +1,8 @@
 package com.linkedin.datahub.graphql.resolvers.search;
 
+import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
+import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.*;
+
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
@@ -25,13 +28,7 @@ import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
-import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.*;
-
-
-/**
- * Resolver responsible for resolving 'searchAcrossEntities' field of the Query type
- */
+/** Resolver responsible for resolving 'searchAcrossEntities' field of the Query type */
 @Slf4j
 @RequiredArgsConstructor
 public class SearchAcrossLineageResolver
@@ -54,76 +51,95 @@ public class SearchAcrossLineageResolver
     final LineageDirection lineageDirection = input.getDirection();
 
     List<EntityType> entityTypes =
-        (input.getTypes() == null || input.getTypes().isEmpty()) ? SEARCHABLE_ENTITY_TYPES : input.getTypes();
-    List<String> entityNames = entityTypes.stream().map(EntityTypeMapper::getName).collect(Collectors.toList());
+        (input.getTypes() == null || input.getTypes().isEmpty())
+            ? SEARCHABLE_ENTITY_TYPES
+            : input.getTypes();
+    List<String> entityNames =
+        entityTypes.stream().map(EntityTypeMapper::getName).collect(Collectors.toList());
 
     // escape forward slash since it is a reserved character in Elasticsearch
-    final String sanitizedQuery = input.getQuery() != null ? ResolverUtils.escapeForwardSlash(input.getQuery()) : null;
+    final String sanitizedQuery =
+        input.getQuery() != null ? ResolverUtils.escapeForwardSlash(input.getQuery()) : null;
 
     final int start = input.getStart() != null ? input.getStart() : DEFAULT_START;
     final int count = input.getCount() != null ? input.getCount() : DEFAULT_COUNT;
-    final List<FacetFilterInput> filters = input.getFilters() != null ? input.getFilters() : new ArrayList<>();
+    final List<FacetFilterInput> filters =
+        input.getFilters() != null ? input.getFilters() : new ArrayList<>();
     final Integer maxHops = getMaxHops(filters);
 
     @Nullable
-    final Long startTimeMillis = input.getStartTimeMillis() == null ? null : input.getStartTimeMillis();
+    final Long startTimeMillis =
+        input.getStartTimeMillis() == null ? null : input.getStartTimeMillis();
     @Nullable
     final Long endTimeMillis = input.getEndTimeMillis() == null ? null : input.getEndTimeMillis();
 
     com.linkedin.metadata.graph.LineageDirection resolvedDirection =
         com.linkedin.metadata.graph.LineageDirection.valueOf(lineageDirection.toString());
-    return CompletableFuture.supplyAsync(() -> {
-      try {
-        log.debug(
-            "Executing search across relationships: source urn {}, direction {}, entity types {}, query {}, filters: {}, start: {}, count: {}",
-            urn,
-            resolvedDirection,
-            input.getTypes(),
-            input.getQuery(),
-            filters,
-            start,
-            count);
-
-        final Filter filter =
-            ResolverUtils.buildFilter(
-                filters,
-                input.getOrFilters());
-        SearchFlags searchFlags = null;
-        com.linkedin.datahub.graphql.generated.SearchFlags inputFlags = input.getSearchFlags();
-        if (inputFlags != null) {
-          searchFlags = SearchFlagsInputMapper.INSTANCE.apply(inputFlags);
-          if (inputFlags.getSkipHighlighting() == null) {
-            searchFlags.setSkipHighlighting(true);
-          }
-        } else {
-          searchFlags = new SearchFlags().setFulltext(true).setSkipHighlighting(true);
-        }
-
-        return UrnSearchAcrossLineageResultsMapper.map(
-            _entityClient.searchAcrossLineage(
+    return CompletableFuture.supplyAsync(
+        () -> {
+          try {
+            log.debug(
+                "Executing search across relationships: source urn {}, direction {}, entity types {}, query {}, filters: {}, start: {}, count: {}",
                 urn,
                 resolvedDirection,
-                entityNames,
-                sanitizedQuery,
-                maxHops,
-                filter,
-                null,
+                input.getTypes(),
+                input.getQuery(),
+                filters,
                 start,
-                count,
-                startTimeMillis,
-                endTimeMillis,
-                searchFlags,
-                ResolverUtils.getAuthentication(environment)));
-      } catch (RemoteInvocationException e) {
-        log.error(
-            "Failed to execute search across relationships: source urn {}, direction {}, entity types {}, query {}, filters: {}, start: {}, count: {}",
-            urn, resolvedDirection, input.getTypes(), input.getQuery(), filters, start, count);
-        throw new RuntimeException("Failed to execute search across relationships: " + String.format(
-            "source urn %s, direction %s, entity types %s, query %s, filters: %s, start: %s, count: %s", urn,
-            resolvedDirection, input.getTypes(), input.getQuery(), filters, start, count), e);
-      } finally {
-        log.debug("Returning from search across lineage resolver");
-      }
-    });
+                count);
+
+            final Filter filter = ResolverUtils.buildFilter(filters, input.getOrFilters());
+            SearchFlags searchFlags = null;
+            com.linkedin.datahub.graphql.generated.SearchFlags inputFlags = input.getSearchFlags();
+            if (inputFlags != null) {
+              searchFlags = SearchFlagsInputMapper.INSTANCE.apply(inputFlags);
+              if (inputFlags.getSkipHighlighting() == null) {
+                searchFlags.setSkipHighlighting(true);
+              }
+            } else {
+              searchFlags = new SearchFlags().setFulltext(true).setSkipHighlighting(true);
+            }
+
+            return UrnSearchAcrossLineageResultsMapper.map(
+                _entityClient.searchAcrossLineage(
+                    urn,
+                    resolvedDirection,
+                    entityNames,
+                    sanitizedQuery,
+                    maxHops,
+                    filter,
+                    null,
+                    start,
+                    count,
+                    startTimeMillis,
+                    endTimeMillis,
+                    searchFlags,
+                    ResolverUtils.getAuthentication(environment)));
+          } catch (RemoteInvocationException e) {
+            log.error(
+                "Failed to execute search across relationships: source urn {}, direction {}, entity types {}, query {}, filters: {}, start: {}, count: {}",
+                urn,
+                resolvedDirection,
+                input.getTypes(),
+                input.getQuery(),
+                filters,
+                start,
+                count);
+            throw new RuntimeException(
+                "Failed to execute search across relationships: "
+                    + String.format(
+                        "source urn %s, direction %s, entity types %s, query %s, filters: %s, start: %s, count: %s",
+                        urn,
+                        resolvedDirection,
+                        input.getTypes(),
+                        input.getQuery(),
+                        filters,
+                        start,
+                        count),
+                e);
+          } finally {
+            log.debug("Returning from search across lineage resolver");
+          }
+        });
   }
 }

@@ -1,5 +1,7 @@
 package com.linkedin.metadata.kafka;
 
+import static com.linkedin.metadata.Constants.*;
+
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.StreamReadConstraints;
@@ -13,9 +15,6 @@ import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ResponseBody;
 
-import static com.linkedin.metadata.Constants.*;
-
-
 @Controller
 @Import(GitVersionFactory.class)
 public class McpConsumerConfig {
@@ -24,10 +23,15 @@ public class McpConsumerConfig {
 
   private static final ObjectMapper OBJECT_MAPPER =
       new ObjectMapper().setSerializationInclusion(JsonInclude.Include.NON_NULL);
+
   static {
-    int maxSize = Integer.parseInt(System.getenv().getOrDefault(INGESTION_MAX_SERIALIZED_STRING_LENGTH, MAX_JACKSON_STRING_SIZE));
-    OBJECT_MAPPER.getFactory().setStreamReadConstraints(StreamReadConstraints.builder()
-        .maxStringLength(maxSize).build());
+    int maxSize =
+        Integer.parseInt(
+            System.getenv()
+                .getOrDefault(INGESTION_MAX_SERIALIZED_STRING_LENGTH, MAX_JACKSON_STRING_SIZE));
+    OBJECT_MAPPER
+        .getFactory()
+        .setStreamReadConstraints(StreamReadConstraints.builder().maxStringLength(maxSize).build());
   }
 
   public McpConsumerConfig(GitVersion gitVersion) throws JsonProcessingException {

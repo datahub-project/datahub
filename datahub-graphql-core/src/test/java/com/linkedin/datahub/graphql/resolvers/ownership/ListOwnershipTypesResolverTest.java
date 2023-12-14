@@ -1,5 +1,8 @@
 package com.linkedin.datahub.graphql.resolvers.ownership;
 
+import static com.linkedin.datahub.graphql.TestUtils.*;
+import static org.testng.Assert.*;
+
 import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
@@ -18,16 +21,13 @@ import graphql.schema.DataFetchingEnvironment;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
-import static com.linkedin.datahub.graphql.TestUtils.*;
-import static org.testng.Assert.*;
-
-
 public class ListOwnershipTypesResolverTest {
 
   private static final Urn TEST_OWNERSHIP_TYPE_URN =
       Urn.createFromTuple(Constants.OWNERSHIP_TYPE_ENTITY_NAME, "test");
 
-  private static final ListOwnershipTypesInput TEST_INPUT = new ListOwnershipTypesInput(0, 20, "", null);
+  private static final ListOwnershipTypesInput TEST_INPUT =
+      new ListOwnershipTypesInput(0, 20, "", null);
 
   @Test
   public void testGetSuccess() throws Exception {
@@ -38,21 +38,24 @@ public class ListOwnershipTypesResolverTest {
     final OwnershipTypeKey key = new OwnershipTypeKey();
     key.setId("test");
 
-    Mockito.when(mockClient.search(
-        Mockito.eq(Constants.OWNERSHIP_TYPE_ENTITY_NAME),
-        Mockito.eq(""),
-        Mockito.eq(null),
-        Mockito.any(),
-        Mockito.eq(0),
-        Mockito.eq(20),
-        Mockito.any(Authentication.class),
-        Mockito.eq(new SearchFlags().setFulltext(true)))).thenReturn(
-        new SearchResult()
-            .setFrom(0)
-            .setPageSize(1)
-            .setNumEntities(1)
-            .setEntities(new SearchEntityArray(ImmutableSet.of(new SearchEntity().setEntity(TEST_OWNERSHIP_TYPE_URN))))
-    );
+    Mockito.when(
+            mockClient.search(
+                Mockito.eq(Constants.OWNERSHIP_TYPE_ENTITY_NAME),
+                Mockito.eq(""),
+                Mockito.eq(null),
+                Mockito.any(),
+                Mockito.eq(0),
+                Mockito.eq(20),
+                Mockito.any(Authentication.class),
+                Mockito.eq(new SearchFlags().setFulltext(true))))
+        .thenReturn(
+            new SearchResult()
+                .setFrom(0)
+                .setPageSize(1)
+                .setNumEntities(1)
+                .setEntities(
+                    new SearchEntityArray(
+                        ImmutableSet.of(new SearchEntity().setEntity(TEST_OWNERSHIP_TYPE_URN)))));
 
     ListOwnershipTypesResolver resolver = new ListOwnershipTypesResolver(mockClient);
 
@@ -78,35 +81,32 @@ public class ListOwnershipTypesResolverTest {
     // Execute resolver
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     QueryContext mockContext = getMockDenyContext();
-    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(
-        TEST_INPUT);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(TEST_INPUT);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     assertThrows(RuntimeException.class, () -> resolver.get(mockEnv).join());
-    Mockito.verify(mockClient, Mockito.times(0)).batchGetV2(
-        Mockito.any(),
-        Mockito.anySet(),
-        Mockito.anySet(),
-        Mockito.any(Authentication.class));
-    Mockito.verify(mockClient, Mockito.times(0)).search(
-        Mockito.any(),
-        Mockito.eq(""),
-        Mockito.anyMap(),
-        Mockito.anyInt(),
-        Mockito.anyInt(),
-        Mockito.any(Authentication.class),
-        Mockito.eq(new SearchFlags().setFulltext(true)));
+    Mockito.verify(mockClient, Mockito.times(0))
+        .batchGetV2(
+            Mockito.any(), Mockito.anySet(), Mockito.anySet(), Mockito.any(Authentication.class));
+    Mockito.verify(mockClient, Mockito.times(0))
+        .search(
+            Mockito.any(),
+            Mockito.eq(""),
+            Mockito.anyMap(),
+            Mockito.anyInt(),
+            Mockito.anyInt(),
+            Mockito.any(Authentication.class),
+            Mockito.eq(new SearchFlags().setFulltext(true)));
   }
 
   @Test
   public void testGetEntityClientException() throws Exception {
     // Create resolver
     EntityClient mockClient = Mockito.mock(EntityClient.class);
-    Mockito.doThrow(RemoteInvocationException.class).when(mockClient).batchGetV2(
-        Mockito.any(),
-        Mockito.anySet(),
-        Mockito.anySet(),
-        Mockito.any(Authentication.class));
+    Mockito.doThrow(RemoteInvocationException.class)
+        .when(mockClient)
+        .batchGetV2(
+            Mockito.any(), Mockito.anySet(), Mockito.anySet(), Mockito.any(Authentication.class));
     ListOwnershipTypesResolver resolver = new ListOwnershipTypesResolver(mockClient);
 
     // Execute resolver

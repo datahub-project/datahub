@@ -1,5 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.proposal;
 
+import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
+
 import com.datahub.authentication.proposal.ProposalService;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.GlossaryNodeUrn;
@@ -12,9 +14,6 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-
-import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
-
 
 @Slf4j
 @RequiredArgsConstructor
@@ -36,17 +35,22 @@ public class ProposeCreateGlossaryNodeResolver implements DataFetcher<Completabl
 
     Urn actor = CorpuserUrn.createFromString(context.getActorUrn());
     Optional<Urn> parentNode =
-        parentNodeUrnStr == null ? Optional.empty() : Optional.of(GlossaryNodeUrn.createFromString(parentNodeUrnStr));
+        parentNodeUrnStr == null
+            ? Optional.empty()
+            : Optional.of(GlossaryNodeUrn.createFromString(parentNodeUrnStr));
 
-    return CompletableFuture.supplyAsync(() -> {
-      try {
-        log.info("Proposing Creation of Glossary Node. input: {}", input);
+    return CompletableFuture.supplyAsync(
+        () -> {
+          try {
+            log.info("Proposing Creation of Glossary Node. input: {}", input);
 
-        return _proposalService.proposeCreateGlossaryNode(actor, name, parentNode, description, context.getAuthorizer());
-      } catch (Exception e) {
-        log.error("Failed to perform update against input {}, {}", input, e.getMessage());
-        throw new RuntimeException(String.format("Failed to perform update against input %s", input), e);
-      }
-    });
+            return _proposalService.proposeCreateGlossaryNode(
+                actor, name, parentNode, description, context.getAuthorizer());
+          } catch (Exception e) {
+            log.error("Failed to perform update against input {}, {}", input, e.getMessage());
+            throw new RuntimeException(
+                String.format("Failed to perform update against input %s", input), e);
+          }
+        });
   }
 }

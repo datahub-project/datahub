@@ -8,11 +8,11 @@ import lombok.Value;
 @Builder(toBuilder = true)
 @Value
 public class IngestResult {
-    Urn urn;
-    AbstractBatchItem request;
-    boolean publishedMCL;
-    boolean processedMCL;
-    boolean publishedMCP;
-    boolean sqlCommitted;
-    boolean isUpdate; // update else insert
+  Urn urn;
+  AbstractBatchItem request;
+  boolean publishedMCL;
+  boolean processedMCL;
+  boolean publishedMCP;
+  boolean sqlCommitted;
+  boolean isUpdate; // update else insert
 }

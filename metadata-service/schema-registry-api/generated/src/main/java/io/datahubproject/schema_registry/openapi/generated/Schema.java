@@ -8,14 +8,14 @@ import java.util.Objects;
 import javax.validation.Valid;
 import org.springframework.validation.annotation.Validated;
 
-/**
- * Schema
- */
+/** Schema */
 @io.swagger.v3.oas.annotations.media.Schema(description = "Schema")
 @Validated
-@javax.annotation.Generated(value = "io.swagger.codegen.v3.generators.java.SpringCodegen", date = "2022-12-20T16:52:36.517693Z[Europe/Lisbon]")
+@javax.annotation.Generated(
+    value = "io.swagger.codegen.v3.generators.java.SpringCodegen",
+    date = "2022-12-20T16:52:36.517693Z[Europe/Lisbon]")
 @JsonInclude(JsonInclude.Include.NON_NULL)
-public class Schema   {
+public class Schema {
 
   @JsonProperty("subject")
   private String subject = null;
@@ -43,11 +43,11 @@ public class Schema   {
 
   /**
    * Name of the subject
+   *
    * @return subject
-   **/
+   */
   @io.swagger.v3.oas.annotations.media.Schema(example = "User", description = "Name of the subject")
-  
-    public String getSubject() {
+  public String getSubject() {
     return subject;
   }
 
@@ -62,11 +62,11 @@ public class Schema   {
 
   /**
    * Version number
+   *
    * @return version
-   **/
+   */
   @io.swagger.v3.oas.annotations.media.Schema(example = "1", description = "Version number")
-  
-    public Integer getVersion() {
+  public Integer getVersion() {
     return version;
   }
 
@@ -81,11 +81,13 @@ public class Schema   {
 
   /**
    * Globally unique identifier of the schema
+   *
    * @return id
-   **/
-  @io.swagger.v3.oas.annotations.media.Schema(example = "100001", description = "Globally unique identifier of the schema")
-  
-    public Integer getId() {
+   */
+  @io.swagger.v3.oas.annotations.media.Schema(
+      example = "100001",
+      description = "Globally unique identifier of the schema")
+  public Integer getId() {
     return id;
   }
 
@@ -100,11 +102,11 @@ public class Schema   {
 
   /**
    * Schema type
+   *
    * @return schemaType
-   **/
+   */
   @io.swagger.v3.oas.annotations.media.Schema(example = "AVRO", description = "Schema type")
-  
-    public String getSchemaType() {
+  public String getSchemaType() {
     return schemaType;
   }
 
@@ -127,11 +129,12 @@ public class Schema   {
 
   /**
    * References to other schemas
+   *
    * @return references
-   **/
+   */
   @io.swagger.v3.oas.annotations.media.Schema(description = "References to other schemas")
-      @Valid
-    public List<SchemaReference> getReferences() {
+  @Valid
+  public List<SchemaReference> getReferences() {
     return references;
   }
 
@@ -146,18 +149,19 @@ public class Schema   {
 
   /**
    * Schema definition string
+   *
    * @return schema
-   **/
-  @io.swagger.v3.oas.annotations.media.Schema(example = "{\"schema\": \"{\"type\": \"string\"}\"}", description = "Schema definition string")
-  
-    public String getSchema() {
+   */
+  @io.swagger.v3.oas.annotations.media.Schema(
+      example = "{\"schema\": \"{\"type\": \"string\"}\"}",
+      description = "Schema definition string")
+  public String getSchema() {
     return schema;
   }
 
   public void setSchema(String schema) {
     this.schema = schema;
   }
-
 
   @Override
   public boolean equals(java.lang.Object o) {
@@ -168,12 +172,12 @@ public class Schema   {
       return false;
     }
     Schema schema = (Schema) o;
-    return Objects.equals(this.subject, schema.subject) &&
-        Objects.equals(this.version, schema.version) &&
-        Objects.equals(this.id, schema.id) &&
-        Objects.equals(this.schemaType, schema.schemaType) &&
-        Objects.equals(this.references, schema.references) &&
-        Objects.equals(this.schema, schema.schema);
+    return Objects.equals(this.subject, schema.subject)
+        && Objects.equals(this.version, schema.version)
+        && Objects.equals(this.id, schema.id)
+        && Objects.equals(this.schemaType, schema.schemaType)
+        && Objects.equals(this.references, schema.references)
+        && Objects.equals(this.schema, schema.schema);
   }
 
   @Override
@@ -185,7 +189,7 @@ public class Schema   {
   public String toString() {
     StringBuilder sb = new StringBuilder();
     sb.append("class Schema {\n");
-    
+
     sb.append("    subject: ").append(toIndentedString(subject)).append("\n");
     sb.append("    version: ").append(toIndentedString(version)).append("\n");
     sb.append("    id: ").append(toIndentedString(id)).append("\n");
@@ -197,8 +201,7 @@ public class Schema   {
   }
 
   /**
-   * Convert the given object to string with each line indented by 4 spaces
-   * (except the first line).
+   * Convert the given object to string with each line indented by 4 spaces (except the first line).
    */
   private String toIndentedString(java.lang.Object o) {
     if (o == null) {

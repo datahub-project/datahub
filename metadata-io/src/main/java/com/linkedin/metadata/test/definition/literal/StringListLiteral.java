@@ -7,17 +7,12 @@ import java.util.List;
 import lombok.ToString;
 import lombok.Value;
 
-
-/**
- * Parameter with a list of simple string values (no resolution required)
- */
+/** Parameter with a list of simple string values (no resolution required) */
 @Value
 @ToString
 public class StringListLiteral implements Literal {
 
-  /**
-   * The actual literal values
-   */
+  /** The actual literal values */
   List<String> values;
 
   @Override

@@ -15,21 +15,23 @@ import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
-
 @Slf4j
 @RequiredArgsConstructor
 class EntityFetcher {
   private final EntityService _entityService;
 
   private static final Set<String> ASPECTS_TO_FETCH =
-      ImmutableSet.of(Constants.SCHEMA_METADATA_ASPECT_NAME, Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME);
+      ImmutableSet.of(
+          Constants.SCHEMA_METADATA_ASPECT_NAME, Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME);
 
   Map<Urn, EntityDetails> fetchSchema(Set<Urn> urns) {
     try {
-      return _entityService.getEntitiesV2(Constants.DATASET_ENTITY_NAME, urns, ASPECTS_TO_FETCH)
+      return _entityService
+          .getEntitiesV2(Constants.DATASET_ENTITY_NAME, urns, ASPECTS_TO_FETCH)
           .entrySet()
           .stream()
-          .collect(Collectors.toMap(Map.Entry::getKey, entry -> transformResponse(entry.getValue())));
+          .collect(
+              Collectors.toMap(Map.Entry::getKey, entry -> transformResponse(entry.getValue())));
     } catch (URISyntaxException e) {
       log.error("Error while fetching schema for a batch of urns", e);
       return Collections.emptyMap();
@@ -41,13 +43,23 @@ class EntityFetcher {
       return new EntityDetails(entityResponse.getUrn(), null, null);
     }
     SchemaMetadata schemaMetadata =
-        new SchemaMetadata(entityResponse.getAspects().get(Constants.SCHEMA_METADATA_ASPECT_NAME).getValue().data());
+        new SchemaMetadata(
+            entityResponse
+                .getAspects()
+                .get(Constants.SCHEMA_METADATA_ASPECT_NAME)
+                .getValue()
+                .data());
 
     if (!entityResponse.getAspects().containsKey(Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME)) {
       return new EntityDetails(entityResponse.getUrn(), schemaMetadata, null);
     }
-    EditableSchemaMetadata editableSchemaMetadata = new EditableSchemaMetadata(
-        entityResponse.getAspects().get(Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME).getValue().data());
+    EditableSchemaMetadata editableSchemaMetadata =
+        new EditableSchemaMetadata(
+            entityResponse
+                .getAspects()
+                .get(Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME)
+                .getValue()
+                .data());
     return new EntityDetails(entityResponse.getUrn(), schemaMetadata, editableSchemaMetadata);
   }
 }

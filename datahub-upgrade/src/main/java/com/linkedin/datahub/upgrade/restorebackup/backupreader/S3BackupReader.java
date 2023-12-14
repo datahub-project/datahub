@@ -21,6 +21,7 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.parquet.avro.AvroParquetReader;
 import software.amazon.awssdk.auth.credentials.WebIdentityTokenFileCredentialsProvider;
+import software.amazon.awssdk.awscore.exception.AwsServiceException;
 import software.amazon.awssdk.core.ResponseInputStream;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
@@ -29,8 +30,6 @@ import software.amazon.awssdk.services.s3.model.GetObjectResponse;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
 import software.amazon.awssdk.services.s3.model.S3Object;
 import software.amazon.awssdk.services.s3.paginators.ListObjectsV2Iterable;
-import software.amazon.awssdk.awscore.exception.AwsServiceException;
-
 
 @Slf4j
 public class S3BackupReader implements BackupReader<ParquetReaderWrapper> {
@@ -57,14 +56,13 @@ public class S3BackupReader implements BackupReader<ParquetReaderWrapper> {
     int downloadPoolSize = DEFAULT_DOWNLOAD_POOL_SIZE;
     String envDownloadPoolSize = System.getenv(DOWNLOAD_POOL_SIZE);
     if (envDownloadPoolSize != null) {
-        try {
-          downloadPoolSize = Integer.parseInt(envDownloadPoolSize);
-        } catch (Exception e) {
-          log.warn("DOWNLOAD_POOL_SIZE improperly set, falling back to default.");
-        }
+      try {
+        downloadPoolSize = Integer.parseInt(envDownloadPoolSize);
+      } catch (Exception e) {
+        log.warn("DOWNLOAD_POOL_SIZE improperly set, falling back to default.");
+      }
     }
     downloaderThreadPool = Executors.newFixedThreadPool(downloadPoolSize);
-
 
     if (arg == null) {
       log.warn("Region not provided, defaulting to us-west-2");
@@ -79,13 +77,15 @@ public class S3BackupReader implements BackupReader<ParquetReaderWrapper> {
       region = Region.of(Region.US_WEST_2.id());
     }
 
-    System.setProperty("software.amazon.awssdk.http.service.impl",
+    System.setProperty(
+        "software.amazon.awssdk.http.service.impl",
         "software.amazon.awssdk.http.apache.ApacheSdkHttpService");
 
-    _client = S3Client.builder()
-        .region(region)
-        .credentialsProvider(WebIdentityTokenFileCredentialsProvider.create())
-        .build();
+    _client =
+        S3Client.builder()
+            .region(region)
+            .credentialsProvider(WebIdentityTokenFileCredentialsProvider.create())
+            .build();
     // Need below to solve issue with hadoop path class not working in linux systems
     // https://stackoverflow.com/questions/41864985/hadoop-ioexception-failure-to-login
     UserGroupInformation.setLoginUser(UserGroupInformation.createRemoteUser("hduser"));
@@ -111,56 +111,68 @@ public class S3BackupReader implements BackupReader<ParquetReaderWrapper> {
           "BACKUP_S3_BUCKET and BACKUP_S3_PATH must be set to run RestoreBackup through S3");
     }
     List<String> s3Keys = getFileKey(bucket, path);
-    List<Future<Optional<String>>> s3Downloads = s3Keys
-        .stream()
-        .filter(key -> !key.endsWith("_SUCCESS"))
-        .map(key -> this.downloaderThreadPool.submit(() -> saveFile(bucket, key)))
-        .collect(Collectors.toList());
+    List<Future<Optional<String>>> s3Downloads =
+        s3Keys.stream()
+            .filter(key -> !key.endsWith("_SUCCESS"))
+            .map(key -> this.downloaderThreadPool.submit(() -> saveFile(bucket, key)))
+            .collect(Collectors.toList());
 
-    final List<String> localFiles = s3Downloads.stream()
-        .map(key -> {
-          try {
-            return key.get();
-          } catch (InterruptedException | ExecutionException e) {
-            return Optional.<String>empty();
-          }
-        })
-        .filter(Optional::isPresent)
-        .map(Optional::get)
-        .collect(Collectors.toList());
+    final List<String> localFiles =
+        s3Downloads.stream()
+            .map(
+                key -> {
+                  try {
+                    return key.get();
+                  } catch (InterruptedException | ExecutionException e) {
+                    return Optional.<String>empty();
+                  }
+                })
+            .filter(Optional::isPresent)
+            .map(Optional::get)
+            .collect(Collectors.toList());
     long downloadEndTime = System.currentTimeMillis();
     log.info("Download time: {} milli-seconds", downloadEndTime - downloadStartTime);
-    final List<ParquetReaderWrapper> readers = localFiles
-        .stream()
-        .map(filePath -> {
-        try {
-          // Try to read a record, only way to check if it is indeed a Parquet file
-          AvroParquetReader.<GenericRecord>builder(new Path(filePath)).build().read();
-          return new ParquetReaderWrapper(
-              AvroParquetReader.<GenericRecord>builder(new Path(filePath)).build(), filePath);
-        } catch (IOException e) {
-          log.warn("Unable to read {} as parquet, this may or may not be important.", filePath);
-          return null;
-        } catch (RuntimeException e) {
-          log.warn("Unable to read {} as parquet, this may or may not be important: {}", filePath, e.getCause());
-          return null;
-        }
-      }).filter(Objects::nonNull).collect(Collectors.toList());
+    final List<ParquetReaderWrapper> readers =
+        localFiles.stream()
+            .map(
+                filePath -> {
+                  try {
+                    // Try to read a record, only way to check if it is indeed a Parquet file
+                    AvroParquetReader.<GenericRecord>builder(new Path(filePath)).build().read();
+                    return new ParquetReaderWrapper(
+                        AvroParquetReader.<GenericRecord>builder(new Path(filePath)).build(),
+                        filePath);
+                  } catch (IOException e) {
+                    log.warn(
+                        "Unable to read {} as parquet, this may or may not be important.",
+                        filePath);
+                    return null;
+                  } catch (RuntimeException e) {
+                    log.warn(
+                        "Unable to read {} as parquet, this may or may not be important: {}",
+                        filePath,
+                        e.getCause());
+                    return null;
+                  }
+                })
+            .filter(Objects::nonNull)
+            .collect(Collectors.toList());
 
     if (readers.isEmpty()) {
-      log.error("No backup files on path {} in bucket {} were found. Did you mis-configure something?", path, bucket);
+      log.error(
+          "No backup files on path {} in bucket {} were found. Did you mis-configure something?",
+          path,
+          bucket);
     }
 
     return new EbeanAspectBackupIterator<>(readers);
   }
 
   private List<String> getFileKey(String bucket, String path) {
-    ListObjectsV2Request request = ListObjectsV2Request.builder().bucket(bucket).prefix(path).build();
+    ListObjectsV2Request request =
+        ListObjectsV2Request.builder().bucket(bucket).prefix(path).build();
     ListObjectsV2Iterable objectListResult = _client.listObjectsV2Paginator(request);
-    return objectListResult.contents()
-        .stream()
-        .map(S3Object::key)
-        .collect(Collectors.toList());
+    return objectListResult.contents().stream().map(S3Object::key).collect(Collectors.toList());
   }
 
   private Optional<String> saveFile(String bucket, String key) {
@@ -175,7 +187,7 @@ public class S3BackupReader implements BackupReader<ParquetReaderWrapper> {
     }
 
     try (ResponseInputStream<GetObjectResponse> o =
-        _client.getObject(GetObjectRequest.builder().bucket(bucket).key(key).build());
+            _client.getObject(GetObjectRequest.builder().bucket(bucket).key(key).build());
         FileOutputStream fos = FileUtils.openOutputStream(new File(localFilePath))) {
       byte[] readBuf = new byte[1024];
       int readLen = 0;

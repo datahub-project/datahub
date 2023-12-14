@@ -10,8 +10,9 @@ public class TestUtilsTest {
 
   @Test
   public void testGetSupportedEntityTypes() {
-    EntityRegistry registry = new ConfigEntityRegistry(
-        TestUtilsTest.class.getClassLoader().getResourceAsStream("test-entity-registry.yml"));
+    EntityRegistry registry =
+        new ConfigEntityRegistry(
+            TestUtilsTest.class.getClassLoader().getResourceAsStream("test-entity-registry.yml"));
     Assert.assertEquals(ImmutableSet.of("testEntity"), TestUtils.getSupportedEntityTypes(registry));
   }
 }

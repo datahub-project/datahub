@@ -1,5 +1,9 @@
 package com.linkedin.datahub.graphql.resolvers.group;
 
+import static com.linkedin.datahub.graphql.TestUtils.*;
+import static org.mockito.Mockito.*;
+import static org.testng.Assert.*;
+
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.group.GroupService;
 import com.linkedin.common.Origin;
@@ -12,11 +16,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
-
-import static com.linkedin.datahub.graphql.TestUtils.*;
-import static org.mockito.Mockito.*;
-import static org.testng.Assert.*;
-
 
 public class AddGroupMembersResolverTest {
   private static final String GROUP_URN_STRING = "urn:li:corpGroup:testNewGroup";

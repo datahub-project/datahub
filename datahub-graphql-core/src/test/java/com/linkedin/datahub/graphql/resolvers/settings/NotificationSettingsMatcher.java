@@ -7,7 +7,6 @@ import java.util.List;
 import javax.annotation.Nonnull;
 import org.mockito.ArgumentMatcher;
 
-
 public class NotificationSettingsMatcher implements ArgumentMatcher<NotificationSettings> {
   private final NotificationSettings _expected;
 
@@ -26,7 +25,10 @@ public class NotificationSettingsMatcher implements ArgumentMatcher<Notification
     final List<NotificationSinkType> expectedSinkTypes = _expected.getSinkTypes();
     final List<NotificationSinkType> actualSinkTypes = actual.getSinkTypes();
 
-    if (expectedSlackSettings == null && actualSlackSettings == null && expectedSinkTypes == null && actualSinkTypes == null) {
+    if (expectedSlackSettings == null
+        && actualSlackSettings == null
+        && expectedSinkTypes == null
+        && actualSinkTypes == null) {
       return true;
     }
 
@@ -38,8 +40,10 @@ public class NotificationSettingsMatcher implements ArgumentMatcher<Notification
       return false;
     }
 
-    if (actualSinkTypes != null && expectedSinkTypes != null && (!actualSinkTypes.containsAll(expectedSinkTypes)
-        || !expectedSinkTypes.containsAll(actualSinkTypes))) {
+    if (actualSinkTypes != null
+        && expectedSinkTypes != null
+        && (!actualSinkTypes.containsAll(expectedSinkTypes)
+            || !expectedSinkTypes.containsAll(actualSinkTypes))) {
       return false;
     }
 
@@ -49,7 +53,9 @@ public class NotificationSettingsMatcher implements ArgumentMatcher<Notification
       return false;
     }
 
-    if (actualUserHandle != null && expectedUserHandle != null && !actualUserHandle.equals(expectedUserHandle)) {
+    if (actualUserHandle != null
+        && expectedUserHandle != null
+        && !actualUserHandle.equals(expectedUserHandle)) {
       return false;
     }
 
@@ -60,8 +66,10 @@ public class NotificationSettingsMatcher implements ArgumentMatcher<Notification
       return false;
     }
 
-    if (actualChannels != null && expectedChannels != null && (!actualChannels.containsAll(expectedChannels)
-        || !expectedChannels.containsAll(actualChannels))) {
+    if (actualChannels != null
+        && expectedChannels != null
+        && (!actualChannels.containsAll(expectedChannels)
+            || !expectedChannels.containsAll(actualChannels))) {
       return false;
     }
 

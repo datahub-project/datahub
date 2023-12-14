@@ -4,7 +4,6 @@ import com.linkedin.common.urn.Urn;
 import java.util.Set;
 import javax.annotation.Nonnull;
 
-
 public class RecommendationUtils {
 
   /**
@@ -14,10 +13,11 @@ public class RecommendationUtils {
    * @param entityTypes the set of valid entity types
    * @return true if the type of the urn is in the set of valid entity types, false otherwise.
    */
-  public static boolean isSupportedEntityType(@Nonnull final Urn urn, @Nonnull final Set<String> entityTypes) {
+  public static boolean isSupportedEntityType(
+      @Nonnull final Urn urn, @Nonnull final Set<String> entityTypes) {
     final String entityType = urn.getEntityType();
     return entityTypes.contains(entityType);
   }
-  
-  private RecommendationUtils() { }
+
+  private RecommendationUtils() {}
 }

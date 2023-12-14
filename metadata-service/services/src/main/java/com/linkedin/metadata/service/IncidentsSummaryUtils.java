@@ -15,7 +15,8 @@ import javax.annotation.Nonnull;
 
 public class IncidentsSummaryUtils {
 
-  public static void removeIncidentFromResolvedSummary(@Nonnull final Urn incidentUrn, @Nonnull final IncidentsSummary summary) {
+  public static void removeIncidentFromResolvedSummary(
+      @Nonnull final Urn incidentUrn, @Nonnull final IncidentsSummary summary) {
     // Legacy - remove from deprecated field.
     if (summary.hasResolvedIncidents()) {
       final Set<Urn> resolvedIncidents = new HashSet<>(summary.getResolvedIncidents());
@@ -24,14 +25,17 @@ public class IncidentsSummaryUtils {
     }
     // New - remove from new field.
     if (summary.hasResolvedIncidentDetails()) {
-      final Set<IncidentSummaryDetails> filteredDetails = summary.getResolvedIncidentDetails().stream()
-          .filter(details -> !incidentUrn.equals(details.getUrn()))
-          .collect(Collectors.toSet());
-      summary.setResolvedIncidentDetails(new IncidentSummaryDetailsArray(new ArrayList<>(filteredDetails)));
+      final Set<IncidentSummaryDetails> filteredDetails =
+          summary.getResolvedIncidentDetails().stream()
+              .filter(details -> !incidentUrn.equals(details.getUrn()))
+              .collect(Collectors.toSet());
+      summary.setResolvedIncidentDetails(
+          new IncidentSummaryDetailsArray(new ArrayList<>(filteredDetails)));
     }
   }
 
-  public static void removeIncidentFromActiveSummary(@Nonnull final Urn incidentUrn,  @Nonnull final IncidentsSummary summary) {
+  public static void removeIncidentFromActiveSummary(
+      @Nonnull final Urn incidentUrn, @Nonnull final IncidentsSummary summary) {
     // Legacy - remove the deprecated field.
     if (summary.hasActiveIncidents()) {
       final Set<Urn> activeIncidents = new HashSet<>(summary.getActiveIncidents());
@@ -40,10 +44,12 @@ public class IncidentsSummaryUtils {
     }
     // New - remove from the new field.
     if (summary.hasActiveIncidentDetails()) {
-      final Set<IncidentSummaryDetails> filteredDetails = summary.getActiveIncidentDetails().stream()
-          .filter(details -> !incidentUrn.equals(details.getUrn()))
-          .collect(Collectors.toSet());
-      summary.setActiveIncidentDetails(new IncidentSummaryDetailsArray(new ArrayList<>(filteredDetails)));
+      final Set<IncidentSummaryDetails> filteredDetails =
+          summary.getActiveIncidentDetails().stream()
+              .filter(details -> !incidentUrn.equals(details.getUrn()))
+              .collect(Collectors.toSet());
+      summary.setActiveIncidentDetails(
+          new IncidentSummaryDetailsArray(new ArrayList<>(filteredDetails)));
     }
   }
 
@@ -77,5 +83,5 @@ public class IncidentsSummaryUtils {
     summary.setActiveIncidentDetails(new IncidentSummaryDetailsArray(newDetails));
   }
 
-  private IncidentsSummaryUtils() { }
+  private IncidentsSummaryUtils() {}
 }

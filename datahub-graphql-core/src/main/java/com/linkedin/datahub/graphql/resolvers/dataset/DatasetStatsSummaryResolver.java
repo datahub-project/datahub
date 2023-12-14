@@ -14,9 +14,9 @@ import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.search.features.StorageFeatures;
 import com.linkedin.metadata.search.features.UsageFeatures;
-import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.usage.UsageClient;
 import com.linkedin.usage.UsageTimeRange;
 import com.linkedin.usage.UserUsageCounts;
@@ -32,13 +32,13 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
-
 /**
  * This resolver is a thin wrapper around the {@link DatasetUsageStatsResolver} which simply
  * computes some aggregate usage metrics for a Dashboard.
  */
 @Slf4j
-public class DatasetStatsSummaryResolver implements DataFetcher<CompletableFuture<DatasetStatsSummary>>  {
+public class DatasetStatsSummaryResolver
+    implements DataFetcher<CompletableFuture<DatasetStatsSummary>> {
 
   // The maximum number of top users to show in the summary stats
   private static final Integer MAX_TOP_USERS = 5;
@@ -47,64 +47,88 @@ public class DatasetStatsSummaryResolver implements DataFetcher<CompletableFutur
   private final UsageClient usageClient;
   private final Cache<Urn, DatasetStatsSummary> summaryCache;
 
-  public DatasetStatsSummaryResolver(final EntityClient entityClient, final UsageClient usageClient) {
+  public DatasetStatsSummaryResolver(
+      final EntityClient entityClient, final UsageClient usageClient) {
     this.entityClient = entityClient;
     this.usageClient = usageClient;
-    this.summaryCache = CacheBuilder.newBuilder()
-        .maximumSize(10000)
-        .expireAfterWrite(6, TimeUnit.HOURS) // TODO: Make caching duration configurable externally.
-        .build();
+    this.summaryCache =
+        CacheBuilder.newBuilder()
+            .maximumSize(10000)
+            .expireAfterWrite(
+                6, TimeUnit.HOURS) // TODO: Make caching duration configurable externally.
+            .build();
   }
 
   @Override
-  public CompletableFuture<DatasetStatsSummary> get(DataFetchingEnvironment environment) throws Exception {
+  public CompletableFuture<DatasetStatsSummary> get(DataFetchingEnvironment environment)
+      throws Exception {
     final QueryContext context = environment.getContext();
     final Urn resourceUrn = UrnUtils.getUrn(((Entity) environment.getSource()).getUrn());
 
-    return CompletableFuture.supplyAsync(() -> {
+    return CompletableFuture.supplyAsync(
+        () -> {
+          if (this.summaryCache.getIfPresent(resourceUrn) != null) {
+            return this.summaryCache.getIfPresent(resourceUrn);
+          }
 
-      if (this.summaryCache.getIfPresent(resourceUrn) != null) {
-        return this.summaryCache.getIfPresent(resourceUrn);
-      }
-
-      try {
-        if (!isAuthorized(resourceUrn, context)) {
-          log.debug("User {} is not authorized to view profile information for dataset {}",
+          try {
+            if (!isAuthorized(resourceUrn, context)) {
+              log.debug(
+                  "User {} is not authorized to view profile information for dataset {}",
                   context.getActorUrn(),
                   resourceUrn.toString());
-          return null;
-        }
-        final EntityResponse response = getOfflineFeatures(resourceUrn, context);
+              return null;
+            }
+            final EntityResponse response = getOfflineFeatures(resourceUrn, context);
 
-        final UsageFeatures maybeUsageFeatures = response != null && response.getAspects().containsKey(Constants.USAGE_FEATURES_ASPECT_NAME)
-            ? new UsageFeatures(response.getAspects().get(Constants.USAGE_FEATURES_ASPECT_NAME).getValue().data())
-            : null;
-        final StorageFeatures maybeStorageFeatures = response != null && response.getAspects().containsKey(Constants.STORAGE_FEATURES_ASPECT_NAME)
-            ? new StorageFeatures(response.getAspects().get(Constants.STORAGE_FEATURES_ASPECT_NAME).getValue().data())
-            : null;
+            final UsageFeatures maybeUsageFeatures =
+                response != null
+                        && response.getAspects().containsKey(Constants.USAGE_FEATURES_ASPECT_NAME)
+                    ? new UsageFeatures(
+                        response
+                            .getAspects()
+                            .get(Constants.USAGE_FEATURES_ASPECT_NAME)
+                            .getValue()
+                            .data())
+                    : null;
+            final StorageFeatures maybeStorageFeatures =
+                response != null
+                        && response.getAspects().containsKey(Constants.STORAGE_FEATURES_ASPECT_NAME)
+                    ? new StorageFeatures(
+                        response
+                            .getAspects()
+                            .get(Constants.STORAGE_FEATURES_ASPECT_NAME)
+                            .getValue()
+                            .data())
+                    : null;
 
-        com.linkedin.usage.UsageQueryResult
-            usageQueryResult = usageClient.getUsageStats(resourceUrn.toString(), UsageTimeRange.MONTH);
+            com.linkedin.usage.UsageQueryResult usageQueryResult =
+                usageClient.getUsageStats(resourceUrn.toString(), UsageTimeRange.MONTH);
 
-        final DatasetStatsSummary result = new DatasetStatsSummary();
-        addUsageFeatures(result, maybeUsageFeatures, resourceUrn, context);
-        addStorageFeatures(result, maybeStorageFeatures);
+            final DatasetStatsSummary result = new DatasetStatsSummary();
+            addUsageFeatures(result, maybeUsageFeatures, resourceUrn, context);
+            addStorageFeatures(result, maybeStorageFeatures);
 
-        // acryl-main only - first see if we can populate stats based on the UsageFeatures aspect
-        this.summaryCache.put(resourceUrn, result);
-        return result;
-      } catch (Exception e) {
-          log.error(String.format("Failed to load Stats summary for resource %s", resourceUrn.toString()), e);
-          return null; // Do not throw when loading usage summary fails.
-      }
-    });
+            // acryl-main only - first see if we can populate stats based on the UsageFeatures
+            // aspect
+            this.summaryCache.put(resourceUrn, result);
+            return result;
+          } catch (Exception e) {
+            log.error(
+                String.format(
+                    "Failed to load Stats summary for resource %s", resourceUrn.toString()),
+                e);
+            return null; // Do not throw when loading usage summary fails.
+          }
+        });
   }
 
   private void addUsageFeatures(
       @Nonnull final DatasetStatsSummary result,
       @Nullable final UsageFeatures maybeUsageFeatures,
       @Nonnull final Urn resourceUrn,
-      @Nonnull final QueryContext context) throws Exception {
+      @Nonnull final QueryContext context)
+      throws Exception {
     // If we have offline-computed usage features, use those to avoid the expensive query.
     if (maybeUsageFeatures != null) {
       // Do not cache to ensure we're up to date.
@@ -113,23 +137,26 @@ public class DatasetStatsSummaryResolver implements DataFetcher<CompletableFutur
     }
 
     // else compute usage features normally
-    com.linkedin.usage.UsageQueryResult
-        usageQueryResult = usageClient.getUsageStats(resourceUrn.toString(), UsageTimeRange.MONTH);
+    com.linkedin.usage.UsageQueryResult usageQueryResult =
+        usageClient.getUsageStats(resourceUrn.toString(), UsageTimeRange.MONTH);
     result.setQueryCountLast30Days(usageQueryResult.getAggregations().getTotalSqlQueries());
     result.setUniqueUserCountLast30Days(usageQueryResult.getAggregations().getUniqueUserCount());
     if (usageQueryResult.getAggregations().hasUsers()) {
-      result.setTopUsersLast30Days(trimUsers(usageQueryResult.getAggregations().getUsers()
-          .stream()
-          .filter(UserUsageCounts::hasUser)
-          .sorted((a, b) -> (b.getCount() - a.getCount()))
-          .map(userCounts -> createPartialUser(Objects.requireNonNull(userCounts.getUser())))
-          .collect(Collectors.toList())));
+      result.setTopUsersLast30Days(
+          trimUsers(
+              usageQueryResult.getAggregations().getUsers().stream()
+                  .filter(UserUsageCounts::hasUser)
+                  .sorted((a, b) -> (b.getCount() - a.getCount()))
+                  .map(
+                      userCounts -> createPartialUser(Objects.requireNonNull(userCounts.getUser())))
+                  .collect(Collectors.toList())));
     }
   }
 
   private void addStorageFeatures(
       @Nonnull final DatasetStatsSummary result,
-      @Nullable final StorageFeatures maybeStorageFeatures) throws Exception {
+      @Nullable final StorageFeatures maybeStorageFeatures)
+      throws Exception {
     // We only add storage features if we have them.
     if (maybeStorageFeatures != null) {
       // Do not cache to ensure we're up to date.
@@ -156,10 +183,14 @@ public class DatasetStatsSummaryResolver implements DataFetcher<CompletableFutur
       return this.entityClient.getV2(
           Constants.DATASET_ENTITY_NAME,
           datasetUrn,
-          ImmutableSet.of(Constants.USAGE_FEATURES_ASPECT_NAME, Constants.STORAGE_FEATURES_ASPECT_NAME),
+          ImmutableSet.of(
+              Constants.USAGE_FEATURES_ASPECT_NAME, Constants.STORAGE_FEATURES_ASPECT_NAME),
           context.getAuthentication());
     } catch (Exception e) {
-      log.error(String.format("Failed to retrieve usage features aspect for dataset urn %s. Returning null...", datasetUrn));
+      log.error(
+          String.format(
+              "Failed to retrieve usage features aspect for dataset urn %s. Returning null...",
+              datasetUrn));
       return null;
     }
   }
@@ -168,7 +199,8 @@ public class DatasetStatsSummaryResolver implements DataFetcher<CompletableFutur
    * Saas-Only: Adds to Dataset Stats Summary using the UsageFeatures aspect which computed
    * asynchronously and stored in GMS. This helps to reduce computation latency on the read side.
    */
-  private void addSummaryFromOfflineUsageFeatures(@Nonnull final UsageFeatures usageFeatures, @Nullable final DatasetStatsSummary result) {
+  private void addSummaryFromOfflineUsageFeatures(
+      @Nonnull final UsageFeatures usageFeatures, @Nullable final DatasetStatsSummary result) {
 
     // Query stats
     if (usageFeatures.hasUsageCountLast30Days()) {
@@ -200,10 +232,11 @@ public class DatasetStatsSummaryResolver implements DataFetcher<CompletableFutur
 
     // Top users
     if (usageFeatures.hasTopUsersLast30Days()) {
-      result.setTopUsersLast30Days(trimUsers(usageFeatures.getTopUsersLast30Days()
-          .stream()
-          .map(userUrn -> createPartialUser(Objects.requireNonNull(userUrn)))
-          .collect(Collectors.toList())));
+      result.setTopUsersLast30Days(
+          trimUsers(
+              usageFeatures.getTopUsersLast30Days().stream()
+                  .map(userUrn -> createPartialUser(Objects.requireNonNull(userUrn)))
+                  .collect(Collectors.toList())));
     }
   }
 
@@ -211,7 +244,8 @@ public class DatasetStatsSummaryResolver implements DataFetcher<CompletableFutur
    * Saas-Only: Adds to Dataset Stats Summary using the StorageFeatures aspect which computed
    * asynchronously and stored in GMS. This helps to reduce computation latency on the read side.
    */
-  private void addSummaryFromOfflineStorageFeatures(@Nonnull final StorageFeatures storageFeatures, @Nullable final DatasetStatsSummary result) {
+  private void addSummaryFromOfflineStorageFeatures(
+      @Nonnull final StorageFeatures storageFeatures, @Nullable final DatasetStatsSummary result) {
     // Query stats
     if (storageFeatures.hasRowCount()) {
       result.setRowCount(storageFeatures.getRowCount());
@@ -228,8 +262,9 @@ public class DatasetStatsSummaryResolver implements DataFetcher<CompletableFutur
   }
 
   private boolean isAuthorized(final Urn resourceUrn, final QueryContext context) {
-    return AuthorizationUtils.isAuthorized(context,
-            Optional.of(new EntitySpec(resourceUrn.getEntityType(), resourceUrn.toString())),
-            PoliciesConfig.VIEW_DATASET_USAGE_PRIVILEGE);
+    return AuthorizationUtils.isAuthorized(
+        context,
+        Optional.of(new EntitySpec(resourceUrn.getEntityType(), resourceUrn.toString())),
+        PoliciesConfig.VIEW_DATASET_USAGE_PRIVILEGE);
   }
 }

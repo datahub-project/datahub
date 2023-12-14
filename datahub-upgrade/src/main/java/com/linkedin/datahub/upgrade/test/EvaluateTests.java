@@ -12,10 +12,7 @@ import com.linkedin.metadata.test.TestEngine;
 import java.util.ArrayList;
 import java.util.List;
 
-
-/**
- * This upgrade evaluates tests for all entities
- */
+/** This upgrade evaluates tests for all entities */
 public class EvaluateTests implements Upgrade {
 
   public static final String ELASTIC_TIMEOUT_ENV_NAME = "METADATA_TEST_ELASTIC_TIMEOUT";
@@ -28,11 +25,7 @@ public class EvaluateTests implements Upgrade {
       final EntitySearchService entitySearchService,
       final TestEngine testEngine,
       final Authentication systemAuthentication) {
-    _steps = buildSteps(
-        entityClient,
-        entitySearchService,
-        testEngine,
-        systemAuthentication);
+    _steps = buildSteps(entityClient, entitySearchService, testEngine, systemAuthentication);
   }
 
   @Override
@@ -51,7 +44,8 @@ public class EvaluateTests implements Upgrade {
       final TestEngine testEngine,
       final Authentication systemAuthentication) {
     final List<UpgradeStep> steps = new ArrayList<>();
-    steps.add(new EvaluateTestsStep(entityClient, entitySearchService, testEngine, systemAuthentication));
+    steps.add(
+        new EvaluateTestsStep(entityClient, entitySearchService, testEngine, systemAuthentication));
     return steps;
   }
 
@@ -60,4 +54,3 @@ public class EvaluateTests implements Upgrade {
     return ImmutableList.of();
   }
 }
-

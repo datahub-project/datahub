@@ -1,5 +1,9 @@
 package com.linkedin.datahub.graphql.types.datacontract;
 
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertNull;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.urn.Urn;
@@ -20,13 +24,8 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.metadata.Constants;
-import org.testng.annotations.Test;
-
 import java.util.Collections;
-
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertNull;
+import org.testng.annotations.Test;
 
 public class DataContractMapperTest {
 
@@ -39,25 +38,23 @@ public class DataContractMapperTest {
 
     Urn freshnessAssertionUrn = Urn.createFromString("urn:li:assertion:freshness");
     Urn schemaAssertionUrn = Urn.createFromString("urn:li:assertion:schema");
-    Urn datasetUrn = Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:snowflake,test,PROD)");
+    Urn datasetUrn =
+        Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:snowflake,test,PROD)");
     entityResponse.setUrn(urn);
 
     EnvelopedAspect envelopedDataContractProperties = new EnvelopedAspect();
     DataContractProperties dataContractProperties = new DataContractProperties();
-    dataContractProperties.setDataQuality(new DataQualityContractArray(ImmutableList.of(
-        new DataQualityContract()
-          .setAssertion(dataQualityAssertionUrn),
-        new DataQualityContract()
-          .setAssertion(dataQualityAssertionUrn2)
-    )));
-    dataContractProperties.setFreshness(new FreshnessContractArray(ImmutableList.of(
-        new FreshnessContract()
-          .setAssertion(freshnessAssertionUrn)
-    )));
-    dataContractProperties.setSchema(new SchemaContractArray(ImmutableList.of(
-        new SchemaContract()
-            .setAssertion(schemaAssertionUrn)
-    )));
+    dataContractProperties.setDataQuality(
+        new DataQualityContractArray(
+            ImmutableList.of(
+                new DataQualityContract().setAssertion(dataQualityAssertionUrn),
+                new DataQualityContract().setAssertion(dataQualityAssertionUrn2))));
+    dataContractProperties.setFreshness(
+        new FreshnessContractArray(
+            ImmutableList.of(new FreshnessContract().setAssertion(freshnessAssertionUrn))));
+    dataContractProperties.setSchema(
+        new SchemaContractArray(
+            ImmutableList.of(new SchemaContract().setAssertion(schemaAssertionUrn))));
 
     dataContractProperties.setEntity(datasetUrn);
 
@@ -71,8 +68,8 @@ public class DataContractMapperTest {
     envelopedDataContractStatus.setValue(new Aspect(status.data()));
     entityResponse.setAspects(
         new EnvelopedAspectMap(
-            Collections.singletonMap(Constants.DATA_CONTRACT_PROPERTIES_ASPECT_NAME,
-                envelopedDataContractProperties)));
+            Collections.singletonMap(
+                Constants.DATA_CONTRACT_PROPERTIES_ASPECT_NAME, envelopedDataContractProperties)));
 
     entityResponse.setAspects(
         new EnvelopedAspectMap(
@@ -86,22 +83,33 @@ public class DataContractMapperTest {
     assertNotNull(dataContract);
     assertEquals(dataContract.getUrn(), urn.toString());
     assertEquals(dataContract.getType(), EntityType.DATA_CONTRACT);
-    assertEquals(dataContract.getStatus().getState(), com.linkedin.datahub.graphql.generated.DataContractState.PENDING);
+    assertEquals(
+        dataContract.getStatus().getState(),
+        com.linkedin.datahub.graphql.generated.DataContractState.PENDING);
     assertEquals(dataContract.getProperties().getEntityUrn(), datasetUrn.toString());
     assertEquals(dataContract.getProperties().getDataQuality().size(), 2);
-    assertEquals(dataContract.getProperties().getDataQuality().get(0).getAssertion().getUrn(), dataQualityAssertionUrn.toString());
-    assertEquals(dataContract.getProperties().getDataQuality().get(1).getAssertion().getUrn(), dataQualityAssertionUrn2.toString());
+    assertEquals(
+        dataContract.getProperties().getDataQuality().get(0).getAssertion().getUrn(),
+        dataQualityAssertionUrn.toString());
+    assertEquals(
+        dataContract.getProperties().getDataQuality().get(1).getAssertion().getUrn(),
+        dataQualityAssertionUrn2.toString());
     assertEquals(dataContract.getProperties().getFreshness().size(), 1);
-    assertEquals(dataContract.getProperties().getFreshness().get(0).getAssertion().getUrn(), freshnessAssertionUrn.toString());
+    assertEquals(
+        dataContract.getProperties().getFreshness().get(0).getAssertion().getUrn(),
+        freshnessAssertionUrn.toString());
     assertEquals(dataContract.getProperties().getSchema().size(), 1);
-    assertEquals(dataContract.getProperties().getSchema().get(0).getAssertion().getUrn(), schemaAssertionUrn.toString());
+    assertEquals(
+        dataContract.getProperties().getSchema().get(0).getAssertion().getUrn(),
+        schemaAssertionUrn.toString());
   }
 
   @Test
   public void testMapRequiredFields() throws Exception {
     EntityResponse entityResponse = new EntityResponse();
     Urn urn = Urn.createFromString("urn:li:dataContract:1");
-    Urn datasetUrn = Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:snowflake,test,PROD)");
+    Urn datasetUrn =
+        Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:snowflake,test,PROD)");
     entityResponse.setUrn(urn);
 
     EnvelopedAspect envelopedDataContractProperties = new EnvelopedAspect();
@@ -117,8 +125,8 @@ public class DataContractMapperTest {
     envelopedDataContractStatus.setValue(new Aspect(status.data()));
     entityResponse.setAspects(
         new EnvelopedAspectMap(
-            Collections.singletonMap(Constants.DATA_CONTRACT_PROPERTIES_ASPECT_NAME,
-                envelopedDataContractProperties)));
+            Collections.singletonMap(
+                Constants.DATA_CONTRACT_PROPERTIES_ASPECT_NAME, envelopedDataContractProperties)));
 
     entityResponse.setAspects(
         new EnvelopedAspectMap(
@@ -132,7 +140,9 @@ public class DataContractMapperTest {
     assertNotNull(dataContract);
     assertEquals(dataContract.getUrn(), urn.toString());
     assertEquals(dataContract.getType(), EntityType.DATA_CONTRACT);
-    assertEquals(dataContract.getStatus().getState(), com.linkedin.datahub.graphql.generated.DataContractState.PENDING);
+    assertEquals(
+        dataContract.getStatus().getState(),
+        com.linkedin.datahub.graphql.generated.DataContractState.PENDING);
     assertEquals(dataContract.getProperties().getEntityUrn(), datasetUrn.toString());
     assertNull(dataContract.getProperties().getDataQuality());
     assertNull(dataContract.getProperties().getSchema());
@@ -143,7 +153,8 @@ public class DataContractMapperTest {
   public void testMapNoStatus() throws Exception {
     EntityResponse entityResponse = new EntityResponse();
     Urn urn = Urn.createFromString("urn:li:dataContract:1");
-    Urn datasetUrn = Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:snowflake,test,PROD)");
+    Urn datasetUrn =
+        Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:snowflake,test,PROD)");
     entityResponse.setUrn(urn);
 
     EnvelopedAspect envelopedDataContractProperties = new EnvelopedAspect();
@@ -154,8 +165,7 @@ public class DataContractMapperTest {
     entityResponse.setAspects(
         new EnvelopedAspectMap(
             ImmutableMap.of(
-                Constants.DATA_CONTRACT_PROPERTIES_ASPECT_NAME,
-                envelopedDataContractProperties)));
+                Constants.DATA_CONTRACT_PROPERTIES_ASPECT_NAME, envelopedDataContractProperties)));
 
     DataContract dataContract = DataContractMapper.mapContract(entityResponse);
     assertNotNull(dataContract);

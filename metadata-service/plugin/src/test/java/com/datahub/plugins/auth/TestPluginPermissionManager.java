@@ -14,19 +14,23 @@ import java.util.List;
 import java.util.Map;
 import org.testng.annotations.Test;
 
-
 @Test
 public class TestPluginPermissionManager {
   @Test
   public void testRestrictedMode() throws MalformedURLException {
-    PluginPermissionManagerImpl pluginPermissionManager = new PluginPermissionManagerImpl(SecurityMode.RESTRICTED);
+    PluginPermissionManagerImpl pluginPermissionManager =
+        new PluginPermissionManagerImpl(SecurityMode.RESTRICTED);
 
-    Path pluginHome = Paths.get("src", "test", "resources", "valid-base-plugin-dir1", "apache-ranger-authenticator");
+    Path pluginHome =
+        Paths.get(
+            "src", "test", "resources", "valid-base-plugin-dir1", "apache-ranger-authenticator");
 
-    ProtectionDomain protectionDomain = pluginPermissionManager.createProtectionDomain(pluginHome.toAbsolutePath());
+    ProtectionDomain protectionDomain =
+        pluginPermissionManager.createProtectionDomain(pluginHome.toAbsolutePath());
 
     // provided pluginHome and codeSource in protection domain should be equal
-    assert pluginHome.toUri()
+    assert pluginHome
+        .toUri()
         .toURL()
         .toExternalForm()
         .equals(protectionDomain.getCodeSource().getLocation().toExternalForm());
@@ -43,21 +47,27 @@ public class TestPluginPermissionManager {
     map.put(pluginHome.toAbsolutePath() + "/*", "read,write,delete");
 
     // Compare actual with expected
-    permissions.forEach(permission -> {
-      assert map.keySet().contains(permission.getName());
-      assert map.values().contains(permission.getActions());
-    });
+    permissions.forEach(
+        permission -> {
+          assert map.keySet().contains(permission.getName());
+          assert map.values().contains(permission.getActions());
+        });
   }
 
   public void testLenientMode() throws MalformedURLException {
-    PluginPermissionManagerImpl pluginPermissionManager = new PluginPermissionManagerImpl(SecurityMode.LENIENT);
+    PluginPermissionManagerImpl pluginPermissionManager =
+        new PluginPermissionManagerImpl(SecurityMode.LENIENT);
 
-    Path pluginHome = Paths.get("src", "test", "resources", "valid-base-plugin-dir1", "apache-ranger-authenticator");
+    Path pluginHome =
+        Paths.get(
+            "src", "test", "resources", "valid-base-plugin-dir1", "apache-ranger-authenticator");
 
-    ProtectionDomain protectionDomain = pluginPermissionManager.createProtectionDomain(pluginHome.toAbsolutePath());
+    ProtectionDomain protectionDomain =
+        pluginPermissionManager.createProtectionDomain(pluginHome.toAbsolutePath());
 
     // provided pluginHome and codeSource in protection domain should be equal
-    assert pluginHome.toUri()
+    assert pluginHome
+        .toUri()
         .toURL()
         .toExternalForm()
         .equals(protectionDomain.getCodeSource().getLocation().toExternalForm());
@@ -68,8 +78,9 @@ public class TestPluginPermissionManager {
     // It should have 1 permission
     assert permissions.size() == 1;
 
-    permissions.forEach(permission -> {
-      assert permission.getName().equals("<all permissions>");
-    });
+    permissions.forEach(
+        permission -> {
+          assert permission.getName().equals("<all permissions>");
+        });
   }
 }

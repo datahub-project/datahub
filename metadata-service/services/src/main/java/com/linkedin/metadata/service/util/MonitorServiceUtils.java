@@ -1,9 +1,5 @@
 package com.linkedin.metadata.service.util;
 
-import java.util.Map;
-
-import javax.annotation.Nonnull;
-
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -32,9 +28,12 @@ import com.linkedin.monitor.DataHubOperationSpec;
 import com.linkedin.monitor.DatasetFieldAssertionParameters;
 import com.linkedin.monitor.DatasetFreshnessAssertionParameters;
 import com.linkedin.schema.SchemaFieldSpec;
+import java.util.Map;
+import javax.annotation.Nonnull;
 
 public class MonitorServiceUtils {
-  public static ObjectNode buildAssertionStdParametersJson(@Nonnull final AssertionStdParameters parameters) {
+  public static ObjectNode buildAssertionStdParametersJson(
+      @Nonnull final AssertionStdParameters parameters) {
     final ObjectMapper objectMapper = new ObjectMapper();
     final ObjectNode objectNode = objectMapper.createObjectNode();
 
@@ -116,7 +115,8 @@ public class MonitorServiceUtils {
     return objectNode;
   }
 
-  public static ObjectNode buildFreshnessCronScheduleJson(@Nonnull final FreshnessCronSchedule field) {
+  public static ObjectNode buildFreshnessCronScheduleJson(
+      @Nonnull final FreshnessCronSchedule field) {
     final ObjectMapper objectMapper = new ObjectMapper();
     final ObjectNode objectNode = objectMapper.createObjectNode();
 
@@ -129,7 +129,8 @@ public class MonitorServiceUtils {
     return objectNode;
   }
 
-  public static ObjectNode buildFixedIntervalScheduleJson(@Nonnull final FixedIntervalSchedule field) {
+  public static ObjectNode buildFixedIntervalScheduleJson(
+      @Nonnull final FixedIntervalSchedule field) {
     final ObjectMapper objectMapper = new ObjectMapper();
     final ObjectNode objectNode = objectMapper.createObjectNode();
 
@@ -139,7 +140,8 @@ public class MonitorServiceUtils {
     return objectNode;
   }
 
-  public static ObjectNode buildFieldValuesAssertionJson(@Nonnull final FieldValuesAssertion fieldValuesAssertion) {
+  public static ObjectNode buildFieldValuesAssertionJson(
+      @Nonnull final FieldValuesAssertion fieldValuesAssertion) {
     final ObjectMapper objectMapper = new ObjectMapper();
     final ObjectNode objectNode = objectMapper.createObjectNode();
 
@@ -159,13 +161,15 @@ public class MonitorServiceUtils {
     }
 
     if (fieldValuesAssertion.hasParameters()) {
-      objectNode.put("parameters", buildAssertionStdParametersJson(fieldValuesAssertion.getParameters()));
+      objectNode.put(
+          "parameters", buildAssertionStdParametersJson(fieldValuesAssertion.getParameters()));
     }
 
     return objectNode;
   }
 
-  public static ObjectNode buildFreshnessAssertionScheduleJson(@Nonnull final FreshnessAssertionSchedule freshnessAssertionSchedule) {
+  public static ObjectNode buildFreshnessAssertionScheduleJson(
+      @Nonnull final FreshnessAssertionSchedule freshnessAssertionSchedule) {
     final ObjectMapper objectMapper = new ObjectMapper();
     final ObjectNode objectNode = objectMapper.createObjectNode();
 
@@ -174,13 +178,16 @@ public class MonitorServiceUtils {
       objectNode.put("cron", buildFreshnessCronScheduleJson(freshnessAssertionSchedule.getCron()));
     }
     if (freshnessAssertionSchedule.hasFixedInterval()) {
-      objectNode.put("fixedInterval", buildFixedIntervalScheduleJson(freshnessAssertionSchedule.getFixedInterval()));
+      objectNode.put(
+          "fixedInterval",
+          buildFixedIntervalScheduleJson(freshnessAssertionSchedule.getFixedInterval()));
     }
 
     return objectNode;
   }
 
-  public static ObjectNode buildIncrementingSegmentSpecJson(@Nonnull final IncrementingSegmentSpec field) {
+  public static ObjectNode buildIncrementingSegmentSpecJson(
+      @Nonnull final IncrementingSegmentSpec field) {
     final ObjectMapper objectMapper = new ObjectMapper();
     final ObjectNode objectNode = objectMapper.createObjectNode();
 
@@ -197,7 +204,8 @@ public class MonitorServiceUtils {
     return objectNode;
   }
 
-  public static ObjectNode buildFieldMetricAssertionJson(@Nonnull final FieldMetricAssertion fieldMetricAssertion) {
+  public static ObjectNode buildFieldMetricAssertionJson(
+      @Nonnull final FieldMetricAssertion fieldMetricAssertion) {
     final ObjectMapper objectMapper = new ObjectMapper();
     final ObjectNode objectNode = objectMapper.createObjectNode();
 
@@ -206,13 +214,15 @@ public class MonitorServiceUtils {
     objectNode.put("field", buildSchemaFieldSpecJson(fieldMetricAssertion.getField()));
 
     if (fieldMetricAssertion.hasParameters()) {
-      objectNode.put("parameters", buildAssertionStdParametersJson(fieldMetricAssertion.getParameters()));
+      objectNode.put(
+          "parameters", buildAssertionStdParametersJson(fieldMetricAssertion.getParameters()));
     }
 
     return objectNode;
   }
 
-  public static ObjectNode buildDatasetFreshnessParametersJson(@Nonnull final DatasetFreshnessAssertionParameters parameters) {
+  public static ObjectNode buildDatasetFreshnessParametersJson(
+      @Nonnull final DatasetFreshnessAssertionParameters parameters) {
     final ObjectMapper objectMapper = new ObjectMapper();
     final ObjectNode objectNode = objectMapper.createObjectNode();
 
@@ -224,39 +234,48 @@ public class MonitorServiceUtils {
       objectNode.put("auditLog", buildAuditLogSpecJson(parameters.getAuditLog()));
     }
     if (parameters.hasDataHubOperation()) {
-      objectNode.put("dataHubOperation", buildDataHubOperationJson(parameters.getDataHubOperation()));
+      objectNode.put(
+          "dataHubOperation", buildDataHubOperationJson(parameters.getDataHubOperation()));
     }
 
     return objectNode;
   }
 
-  public static ObjectNode buildDatasetFieldParametersJson(@Nonnull final DatasetFieldAssertionParameters parameters) {
+  public static ObjectNode buildDatasetFieldParametersJson(
+      @Nonnull final DatasetFieldAssertionParameters parameters) {
     final ObjectMapper objectMapper = new ObjectMapper();
     final ObjectNode objectNode = objectMapper.createObjectNode();
 
     objectNode.put("sourceType", parameters.getSourceType().toString());
     if (parameters.hasChangedRowsField()) {
-      objectNode.put("changedRowsField", buildFreshnessFieldSpecJson(parameters.getChangedRowsField()));
+      objectNode.put(
+          "changedRowsField", buildFreshnessFieldSpecJson(parameters.getChangedRowsField()));
     }
 
     return objectNode;
   }
 
-  public static ObjectNode buildAssertionEvaluationParametersJson(@Nonnull final AssertionEvaluationParameters parameters) {
+  public static ObjectNode buildAssertionEvaluationParametersJson(
+      @Nonnull final AssertionEvaluationParameters parameters) {
     final ObjectMapper objectMapper = new ObjectMapper();
     final ObjectNode objectNode = objectMapper.createObjectNode();
 
     objectNode.put("type", parameters.getType().toString());
     if (parameters.hasDatasetFreshnessParameters()) {
-      objectNode.put("datasetFreshnessParameters", buildDatasetFreshnessParametersJson(parameters.getDatasetFreshnessParameters()));
+      objectNode.put(
+          "datasetFreshnessParameters",
+          buildDatasetFreshnessParametersJson(parameters.getDatasetFreshnessParameters()));
     }
     if (parameters.hasDatasetVolumeParameters()) {
       final ObjectNode datasetVolumeParametersNode = objectMapper.createObjectNode();
-      datasetVolumeParametersNode.put("sourceType", parameters.getDatasetVolumeParameters().getSourceType().toString());
+      datasetVolumeParametersNode.put(
+          "sourceType", parameters.getDatasetVolumeParameters().getSourceType().toString());
       objectNode.put("datasetVolumeParameters", datasetVolumeParametersNode);
     }
     if (parameters.hasDatasetFieldParameters()) {
-      objectNode.put("datasetFieldParameters", buildDatasetFieldParametersJson(parameters.getDatasetFieldParameters()));
+      objectNode.put(
+          "datasetFieldParameters",
+          buildDatasetFieldParametersJson(parameters.getDatasetFieldParameters()));
     }
 
     return objectNode;
@@ -267,8 +286,8 @@ public class MonitorServiceUtils {
       @Nonnull final String asserteeUrn,
       @Nonnull final String connectionUrn,
       @Nonnull final FreshnessAssertionInfo freshnessAssertionInfo,
-      @Nonnull final AssertionEvaluationParameters parameters
-  ) throws Exception {
+      @Nonnull final AssertionEvaluationParameters parameters)
+      throws Exception {
     final ObjectMapper objectMapper = new ObjectMapper();
     final ObjectNode objectNode = objectMapper.createObjectNode();
     final ObjectNode assertionNode = objectMapper.createObjectNode();
@@ -276,7 +295,8 @@ public class MonitorServiceUtils {
     final ObjectNode paramNode = objectMapper.createObjectNode();
 
     freshnessAssertionNode.put("type", freshnessAssertionInfo.getType().toString());
-    freshnessAssertionNode.put("schedule", buildFreshnessAssertionScheduleJson(freshnessAssertionInfo.getSchedule()));
+    freshnessAssertionNode.put(
+        "schedule", buildFreshnessAssertionScheduleJson(freshnessAssertionInfo.getSchedule()));
 
     if (freshnessAssertionInfo.hasFilter()) {
       final ObjectNode filterNode = objectMapper.createObjectNode();
@@ -302,8 +322,8 @@ public class MonitorServiceUtils {
       @Nonnull final String asserteeUrn,
       @Nonnull final String connectionUrn,
       @Nonnull final VolumeAssertionInfo volumeAssertionInfo,
-      @Nonnull final AssertionEvaluationParameters parameters
-  ) throws Exception {
+      @Nonnull final AssertionEvaluationParameters parameters)
+      throws Exception {
     final ObjectMapper objectMapper = new ObjectMapper();
     final ObjectNode objectNode = objectMapper.createObjectNode();
     final ObjectNode assertionNode = objectMapper.createObjectNode();
@@ -313,30 +333,53 @@ public class MonitorServiceUtils {
     volumeAssertionNode.put("type", volumeAssertionInfo.getType().toString());
     if (volumeAssertionInfo.hasRowCountTotal()) {
       final ObjectNode rowCountTotalNode = objectMapper.createObjectNode();
-      rowCountTotalNode.put("operator", volumeAssertionInfo.getRowCountTotal().getOperator().toString());
-      rowCountTotalNode.put("parameters", buildAssertionStdParametersJson(volumeAssertionInfo.getRowCountTotal().getParameters()));
+      rowCountTotalNode.put(
+          "operator", volumeAssertionInfo.getRowCountTotal().getOperator().toString());
+      rowCountTotalNode.put(
+          "parameters",
+          buildAssertionStdParametersJson(volumeAssertionInfo.getRowCountTotal().getParameters()));
       volumeAssertionNode.put("rowCountTotal", rowCountTotalNode);
     }
     if (volumeAssertionInfo.hasRowCountChange()) {
       final ObjectNode rowCountChangeNode = objectMapper.createObjectNode();
       rowCountChangeNode.put("type", volumeAssertionInfo.getRowCountChange().getType().toString());
-      rowCountChangeNode.put("operator", volumeAssertionInfo.getRowCountChange().getOperator().toString());
-      rowCountChangeNode.put("parameters", buildAssertionStdParametersJson(volumeAssertionInfo.getRowCountChange().getParameters()));
+      rowCountChangeNode.put(
+          "operator", volumeAssertionInfo.getRowCountChange().getOperator().toString());
+      rowCountChangeNode.put(
+          "parameters",
+          buildAssertionStdParametersJson(volumeAssertionInfo.getRowCountChange().getParameters()));
       volumeAssertionNode.put("rowCountChange", rowCountChangeNode);
     }
     if (volumeAssertionInfo.hasIncrementingSegmentRowCountTotal()) {
       final ObjectNode incRowCountTotalNode = objectMapper.createObjectNode();
-      incRowCountTotalNode.put("segment", buildIncrementingSegmentSpecJson(volumeAssertionInfo.getIncrementingSegmentRowCountTotal().getSegment()));
-      incRowCountTotalNode.put("operator", volumeAssertionInfo.getIncrementingSegmentRowCountTotal().getOperator().toString());
-      incRowCountTotalNode.put("parameters", buildAssertionStdParametersJson(volumeAssertionInfo.getIncrementingSegmentRowCountTotal().getParameters()));
+      incRowCountTotalNode.put(
+          "segment",
+          buildIncrementingSegmentSpecJson(
+              volumeAssertionInfo.getIncrementingSegmentRowCountTotal().getSegment()));
+      incRowCountTotalNode.put(
+          "operator",
+          volumeAssertionInfo.getIncrementingSegmentRowCountTotal().getOperator().toString());
+      incRowCountTotalNode.put(
+          "parameters",
+          buildAssertionStdParametersJson(
+              volumeAssertionInfo.getIncrementingSegmentRowCountTotal().getParameters()));
       volumeAssertionNode.put("incrementingSegmentRowCountTotal", incRowCountTotalNode);
     }
     if (volumeAssertionInfo.hasIncrementingSegmentRowCountChange()) {
       final ObjectNode incRowCountChangeNode = objectMapper.createObjectNode();
-      incRowCountChangeNode.put("segment", buildIncrementingSegmentSpecJson(volumeAssertionInfo.getIncrementingSegmentRowCountChange().getSegment()));
-      incRowCountChangeNode.put("type", volumeAssertionInfo.getIncrementingSegmentRowCountChange().getType().toString());
-      incRowCountChangeNode.put("operator", volumeAssertionInfo.getIncrementingSegmentRowCountChange().getOperator().toString());
-      incRowCountChangeNode.put("parameters", buildAssertionStdParametersJson(volumeAssertionInfo.getIncrementingSegmentRowCountChange().getParameters()));
+      incRowCountChangeNode.put(
+          "segment",
+          buildIncrementingSegmentSpecJson(
+              volumeAssertionInfo.getIncrementingSegmentRowCountChange().getSegment()));
+      incRowCountChangeNode.put(
+          "type", volumeAssertionInfo.getIncrementingSegmentRowCountChange().getType().toString());
+      incRowCountChangeNode.put(
+          "operator",
+          volumeAssertionInfo.getIncrementingSegmentRowCountChange().getOperator().toString());
+      incRowCountChangeNode.put(
+          "parameters",
+          buildAssertionStdParametersJson(
+              volumeAssertionInfo.getIncrementingSegmentRowCountChange().getParameters()));
       volumeAssertionNode.put("incrementingSegmentRowCountChange", incRowCountChangeNode);
     }
 
@@ -362,8 +405,8 @@ public class MonitorServiceUtils {
       @Nonnull final String type,
       @Nonnull final String asserteeUrn,
       @Nonnull final String connectionUrn,
-      @Nonnull final SqlAssertionInfo sqlAssertionInfo
-  ) throws Exception {
+      @Nonnull final SqlAssertionInfo sqlAssertionInfo)
+      throws Exception {
     final ObjectMapper objectMapper = new ObjectMapper();
     final ObjectNode objectNode = objectMapper.createObjectNode();
     final ObjectNode assertionNode = objectMapper.createObjectNode();
@@ -376,7 +419,8 @@ public class MonitorServiceUtils {
       sqlAssertionNode.put("changeType", sqlAssertionInfo.getChangeType().toString());
     }
     sqlAssertionNode.put("operator", sqlAssertionInfo.getOperator().toString());
-    sqlAssertionNode.put("parameters", buildAssertionStdParametersJson(sqlAssertionInfo.getParameters()));
+    sqlAssertionNode.put(
+        "parameters", buildAssertionStdParametersJson(sqlAssertionInfo.getParameters()));
     assertionNode.put("sqlAssertion", sqlAssertionNode);
 
     paramNode.put("type", "DATASET_SQL");
@@ -395,8 +439,8 @@ public class MonitorServiceUtils {
       @Nonnull final String asserteeUrn,
       @Nonnull final String connectionUrn,
       @Nonnull final FieldAssertionInfo fieldAssertionInfo,
-      @Nonnull final AssertionEvaluationParameters parameters
-  ) throws Exception {
+      @Nonnull final AssertionEvaluationParameters parameters)
+      throws Exception {
     final ObjectMapper objectMapper = new ObjectMapper();
     final ObjectNode objectNode = objectMapper.createObjectNode();
     final ObjectNode assertionNode = objectMapper.createObjectNode();
@@ -413,17 +457,23 @@ public class MonitorServiceUtils {
 
     if (fieldAssertionInfo.getType() == FieldAssertionType.FIELD_VALUES) {
       if (fieldAssertionInfo.hasFieldValuesAssertion()) {
-        fieldAssertionNode.put("fieldValuesAssertion", buildFieldValuesAssertionJson(fieldAssertionInfo.getFieldValuesAssertion()));
+        fieldAssertionNode.put(
+            "fieldValuesAssertion",
+            buildFieldValuesAssertionJson(fieldAssertionInfo.getFieldValuesAssertion()));
       } else {
-        throw new IllegalArgumentException("fieldValuesAssertion is required when type is FIELD_VALUES");
+        throw new IllegalArgumentException(
+            "fieldValuesAssertion is required when type is FIELD_VALUES");
       }
     }
 
     if (fieldAssertionInfo.getType() == FieldAssertionType.FIELD_METRIC) {
       if (fieldAssertionInfo.hasFieldMetricAssertion()) {
-        fieldAssertionNode.put("fieldMetricAssertion", buildFieldMetricAssertionJson(fieldAssertionInfo.getFieldMetricAssertion()));
+        fieldAssertionNode.put(
+            "fieldMetricAssertion",
+            buildFieldMetricAssertionJson(fieldAssertionInfo.getFieldMetricAssertion()));
       } else {
-        throw new IllegalArgumentException("fieldMetricAssertion is required when type is FIELD_METRIC");
+        throw new IllegalArgumentException(
+            "fieldMetricAssertion is required when type is FIELD_METRIC");
       }
     }
 
@@ -461,14 +511,19 @@ public class MonitorServiceUtils {
         assertionResult.setExternalUrl(json.get("externalUrl").asText());
       }
       if (json.has("nativeResults") && !json.get("nativeResults").isNull()) {
-        Map<String, String> properties = mapper.convertValue(json.get("nativeResults"), new TypeReference<Map<String, String>>() { });
+        Map<String, String> properties =
+            mapper.convertValue(
+                json.get("nativeResults"), new TypeReference<Map<String, String>>() {});
         assertionResult.setNativeResults(new StringMap(properties));
       }
       if (json.has("error") && !json.get("error").isNull()) {
         final AssertionResultError assertionResultError = new AssertionResultError();
-        assertionResultError.setType(AssertionResultErrorType.valueOf(json.get("error").get("type").asText()));
+        assertionResultError.setType(
+            AssertionResultErrorType.valueOf(json.get("error").get("type").asText()));
         if (json.get("error").has("properties") && !json.get("error").get("properties").isNull()) {
-          Map<String, String> properties = mapper.convertValue(json.get("error").get("properties"), new TypeReference<Map<String, String>>() { });
+          Map<String, String> properties =
+              mapper.convertValue(
+                  json.get("error").get("properties"), new TypeReference<Map<String, String>>() {});
           assertionResultError.setProperties(new StringMap(properties));
         }
         assertionResult.setError(assertionResultError);
@@ -476,9 +531,10 @@ public class MonitorServiceUtils {
 
       return assertionResult;
     } catch (Exception e) {
-      throw new IllegalArgumentException("Failed to parse JSON received from the Monitors service! %s");
+      throw new IllegalArgumentException(
+          "Failed to parse JSON received from the Monitors service! %s");
     }
   }
-    
-    private MonitorServiceUtils() { }
+
+  private MonitorServiceUtils() {}
 }

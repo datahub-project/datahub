@@ -16,17 +16,16 @@ import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-
 @Slf4j
 public class EntityKeyUtils {
 
   private static final Logger logger = LoggerFactory.getLogger(EntityKeyUtils.class);
 
-  private EntityKeyUtils() {
-  }
+  private EntityKeyUtils() {}
 
   @Nonnull
-  public static Urn getUrnFromProposal(MetadataChangeProposal metadataChangeProposal, AspectSpec keyAspectSpec) {
+  public static Urn getUrnFromProposal(
+      MetadataChangeProposal metadataChangeProposal, AspectSpec keyAspectSpec) {
 
     if (metadataChangeProposal.hasEntityUrn()) {
       Urn urn = metadataChangeProposal.getEntityUrn();
@@ -39,11 +38,13 @@ public class EntityKeyUtils {
       return urn;
     }
     if (metadataChangeProposal.hasEntityKeyAspect()) {
-      RecordTemplate keyAspectRecord = GenericRecordUtils.deserializeAspect(
+      RecordTemplate keyAspectRecord =
+          GenericRecordUtils.deserializeAspect(
               metadataChangeProposal.getEntityKeyAspect().getValue(),
               metadataChangeProposal.getEntityKeyAspect().getContentType(),
               keyAspectSpec);
-      return EntityKeyUtils.convertEntityKeyToUrn(keyAspectRecord, metadataChangeProposal.getEntityType());
+      return EntityKeyUtils.convertEntityKeyToUrn(
+          keyAspectRecord, metadataChangeProposal.getEntityType());
     }
     throw new IllegalArgumentException("One of urn and keyAspect must be set");
   }
@@ -61,39 +62,46 @@ public class EntityKeyUtils {
       return urn;
     }
     if (metadataChangeLog.hasEntityKeyAspect()) {
-      RecordTemplate keyAspectRecord = GenericRecordUtils.deserializeAspect(
-          metadataChangeLog.getEntityKeyAspect().getValue(),
-          metadataChangeLog.getEntityKeyAspect().getContentType(),
-          keyAspectSpec);
-      return EntityKeyUtils.convertEntityKeyToUrn(keyAspectRecord, metadataChangeLog.getEntityType());
+      RecordTemplate keyAspectRecord =
+          GenericRecordUtils.deserializeAspect(
+              metadataChangeLog.getEntityKeyAspect().getValue(),
+              metadataChangeLog.getEntityKeyAspect().getContentType(),
+              keyAspectSpec);
+      return EntityKeyUtils.convertEntityKeyToUrn(
+          keyAspectRecord, metadataChangeLog.getEntityType());
     }
     throw new IllegalArgumentException("One of urn and keyAspect must be set");
   }
 
   /**
-   * Implicitly converts a normal {@link Urn} into a {@link RecordTemplate} Entity Key given
-   * the urn & the {@link AspectSpec} of the key.
+   * Implicitly converts a normal {@link Urn} into a {@link RecordTemplate} Entity Key given the urn
+   * & the {@link AspectSpec} of the key.
    *
-   * Parts of the urn are bound into fields in the keySchema based on field <b>index</b>. If the
-   * number of urn key parts does not match the number of fields in the key schema, an {@link IllegalArgumentException} will be thrown.
+   * <p>Parts of the urn are bound into fields in the keySchema based on field <b>index</b>. If the
+   * number of urn key parts does not match the number of fields in the key schema, an {@link
+   * IllegalArgumentException} will be thrown.
    *
    * @param urn raw entity urn
    * @param keyAspectSpec key aspect spec
-   * @return a {@link RecordTemplate} created by mapping the fields of the urn to fields of
-   * the provided key schema in order.
-   * @throws {@link IllegalArgumentException} if the urn cannot be converted into the key schema (field number or type mismatch)
+   * @return a {@link RecordTemplate} created by mapping the fields of the urn to fields of the
+   *     provided key schema in order.
+   * @throws {@link IllegalArgumentException} if the urn cannot be converted into the key schema
+   *     (field number or type mismatch)
    */
   @Nonnull
-  public static RecordTemplate convertUrnToEntityKey(@Nonnull final Urn urn, @Nonnull final AspectSpec keyAspectSpec) {
+  public static RecordTemplate convertUrnToEntityKey(
+      @Nonnull final Urn urn, @Nonnull final AspectSpec keyAspectSpec) {
     RecordDataSchema keySchema = keyAspectSpec.getPegasusSchema();
 
     // #1. Ensure we have a class to bind into.
-    Class<? extends RecordTemplate> clazz = keyAspectSpec.getDataTemplateClass().asSubclass(RecordTemplate.class);
+    Class<? extends RecordTemplate> clazz =
+        keyAspectSpec.getDataTemplateClass().asSubclass(RecordTemplate.class);
 
     // #2. Bind fields into a DataMap
     if (urn.getEntityKey().getParts().size() != keySchema.getFields().size()) {
       throw new IllegalArgumentException(
-          "Failed to convert urn to entity key: urns parts and key fields do not have same length for " + urn);
+          "Failed to convert urn to entity key: urns parts and key fields do not have same length for "
+              + urn);
     }
     final DataMap dataMap = new DataMap();
     for (int i = 0; i < urn.getEntityKey().getParts().size(); i++) {
@@ -107,28 +115,35 @@ public class EntityKeyUtils {
     try {
       constructor = clazz.getConstructor(DataMap.class);
       return constructor.newInstance(dataMap);
-    } catch (NoSuchMethodException | InstantiationException | IllegalAccessException | InvocationTargetException e) {
+    } catch (NoSuchMethodException
+        | InstantiationException
+        | IllegalAccessException
+        | InvocationTargetException e) {
       throw new IllegalArgumentException(
-          String.format("Failed to instantiate RecordTemplate with name %s. Missing constructor taking DataMap as arg.",
+          String.format(
+              "Failed to instantiate RecordTemplate with name %s. Missing constructor taking DataMap as arg.",
               clazz.getName()));
     }
   }
 
   /**
-   * Implicitly converts a normal {@link Urn} into a {@link RecordTemplate} Entity Key given
-   * the urn & the {@link RecordDataSchema} of the key.
+   * Implicitly converts a normal {@link Urn} into a {@link RecordTemplate} Entity Key given the urn
+   * & the {@link RecordDataSchema} of the key.
    *
-   * Parts of the urn are bound into fields in the keySchema based on field <b>index</b>. If the
-   * number of urn key parts does not match the number of fields in the key schema, an {@link IllegalArgumentException} will be thrown.
+   * <p>Parts of the urn are bound into fields in the keySchema based on field <b>index</b>. If the
+   * number of urn key parts does not match the number of fields in the key schema, an {@link
+   * IllegalArgumentException} will be thrown.
    *
    * @param urn raw entity urn
    * @param keySchema schema of the entity key
-   * @return a {@link RecordTemplate} created by mapping the fields of the urn to fields of
-   * the provided key schema in order.
-   * @throws {@link IllegalArgumentException} if the urn cannot be converted into the key schema (field number or type mismatch)
+   * @return a {@link RecordTemplate} created by mapping the fields of the urn to fields of the
+   *     provided key schema in order.
+   * @throws {@link IllegalArgumentException} if the urn cannot be converted into the key schema
+   *     (field number or type mismatch)
    */
   @Nonnull
-  public static RecordTemplate convertUrnToEntityKeyInternal(@Nonnull final Urn urn, @Nonnull final RecordDataSchema keySchema) {
+  public static RecordTemplate convertUrnToEntityKeyInternal(
+      @Nonnull final Urn urn, @Nonnull final RecordDataSchema keySchema) {
 
     // #1. Ensure we have a class to bind into.
     Class<? extends RecordTemplate> clazz;
@@ -136,8 +151,10 @@ public class EntityKeyUtils {
       clazz = Class.forName(keySchema.getFullName()).asSubclass(RecordTemplate.class);
     } catch (ClassNotFoundException e) {
       throw new IllegalArgumentException(
-          String.format("Failed to find RecordTemplate class associated with provided RecordDataSchema named %s",
-              keySchema.getFullName()), e);
+          String.format(
+              "Failed to find RecordTemplate class associated with provided RecordDataSchema named %s",
+              keySchema.getFullName()),
+          e);
     }
 
     // #2. Bind fields into a DataMap
@@ -157,29 +174,37 @@ public class EntityKeyUtils {
     try {
       constructor = clazz.getConstructor(DataMap.class);
       return constructor.newInstance(dataMap);
-    } catch (NoSuchMethodException | InstantiationException | IllegalAccessException | InvocationTargetException e) {
+    } catch (NoSuchMethodException
+        | InstantiationException
+        | IllegalAccessException
+        | InvocationTargetException e) {
       throw new IllegalArgumentException(
-          String.format("Failed to instantiate RecordTemplate with name %s. Missing constructor taking DataMap as arg.",
+          String.format(
+              "Failed to instantiate RecordTemplate with name %s. Missing constructor taking DataMap as arg.",
               clazz.getName()));
     }
   }
 
   /**
-   * Implicitly converts an Entity Key {@link RecordTemplate} into the corresponding {@link Urn} string.
+   * Implicitly converts an Entity Key {@link RecordTemplate} into the corresponding {@link Urn}
+   * string.
    *
-   * Parts of the key record are bound into fields in the urn based on field <b>index</b>.
+   * <p>Parts of the key record are bound into fields in the urn based on field <b>index</b>.
    *
    * @param keyAspect a {@link RecordTemplate} representing the key.
    * @param entityName name of the entity to use during Urn construction
    * @return an {@link Urn} created by binding the fields of the key aspect to an Urn.
    */
   @Nonnull
-  public static Urn convertEntityKeyToUrn(@Nonnull final RecordTemplate keyAspect, @Nonnull final String entityName) {
+  public static Urn convertEntityKeyToUrn(
+      @Nonnull final RecordTemplate keyAspect, @Nonnull final String entityName) {
     final List<String> urnParts = new ArrayList<>();
     for (RecordDataSchema.Field field : keyAspect.schema().getFields()) {
       Object value = keyAspect.data().get(field.getName());
       String valueString = value == null ? "" : value.toString();
-      urnParts.add(valueString); // TODO: Determine whether all fields, including urns, should be URL encoded.
+      urnParts.add(
+          valueString); // TODO: Determine whether all fields, including urns, should be URL
+      // encoded.
     }
     return Urn.createFromTuple(entityName, urnParts);
   }

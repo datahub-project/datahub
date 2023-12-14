@@ -4,8 +4,8 @@ import com.codahale.metrics.Histogram;
 import com.codahale.metrics.MetricRegistry;
 import com.linkedin.entity.client.SystemRestliEntityClient;
 import com.linkedin.gms.factory.entity.RestliEntityClientFactory;
-import com.linkedin.gms.factory.kafka.KafkaEventConsumerFactory;
 import com.linkedin.gms.factory.kafka.DataHubKafkaProducerFactory;
+import com.linkedin.gms.factory.kafka.KafkaEventConsumerFactory;
 import com.linkedin.metadata.EventUtils;
 import com.linkedin.metadata.kafka.config.MetadataChangeProposalProcessorCondition;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
@@ -14,7 +14,6 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.Topics;
 import java.io.IOException;
 import javax.annotation.Nonnull;
-
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.GenericRecord;
@@ -30,10 +29,13 @@ import org.springframework.kafka.annotation.EnableKafka;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 
-
 @Slf4j
 @Component
-@Import({RestliEntityClientFactory.class, KafkaEventConsumerFactory.class, DataHubKafkaProducerFactory.class})
+@Import({
+  RestliEntityClientFactory.class,
+  KafkaEventConsumerFactory.class,
+  DataHubKafkaProducerFactory.class
+})
 @Conditional(MetadataChangeProposalProcessorCondition.class)
 @EnableKafka
 @RequiredArgsConstructor
@@ -42,14 +44,19 @@ public class MetadataChangeProposalsProcessor {
   private final SystemRestliEntityClient entityClient;
   private final Producer<String, IndexedRecord> kafkaProducer;
 
-  private final Histogram kafkaLagStats = MetricUtils.get().histogram(MetricRegistry.name(this.getClass(), "kafkaLag"));
+  private final Histogram kafkaLagStats =
+      MetricUtils.get().histogram(MetricRegistry.name(this.getClass(), "kafkaLag"));
 
-  @Value("${FAILED_METADATA_CHANGE_PROPOSAL_TOPIC_NAME:" + Topics.FAILED_METADATA_CHANGE_PROPOSAL + "}")
+  @Value(
+      "${FAILED_METADATA_CHANGE_PROPOSAL_TOPIC_NAME:"
+          + Topics.FAILED_METADATA_CHANGE_PROPOSAL
+          + "}")
   private String fmcpTopicName;
 
-  @KafkaListener(id = "${METADATA_CHANGE_PROPOSAL_KAFKA_CONSUMER_GROUP_ID:generic-mce-consumer-job-client}", topics =
-      "${METADATA_CHANGE_PROPOSAL_TOPIC_NAME:" + Topics.METADATA_CHANGE_PROPOSAL
-          + "}", containerFactory = "kafkaEventConsumer")
+  @KafkaListener(
+      id = "${METADATA_CHANGE_PROPOSAL_KAFKA_CONSUMER_GROUP_ID:generic-mce-consumer-job-client}",
+      topics = "${METADATA_CHANGE_PROPOSAL_TOPIC_NAME:" + Topics.METADATA_CHANGE_PROPOSAL + "}",
+      containerFactory = "kafkaEventConsumer")
   public void consume(final ConsumerRecord<String, GenericRecord> consumerRecord) {
     kafkaLagStats.update(System.currentTimeMillis() - consumerRecord.timestamp());
     final GenericRecord record = consumerRecord.value();
@@ -69,21 +76,27 @@ public class MetadataChangeProposalsProcessor {
   }
 
   private void sendFailedMCP(@Nonnull MetadataChangeProposal event, @Nonnull Throwable throwable) {
-    final FailedMetadataChangeProposal failedMetadataChangeProposal = createFailedMCPEvent(event, throwable);
+    final FailedMetadataChangeProposal failedMetadataChangeProposal =
+        createFailedMCPEvent(event, throwable);
     try {
-      final GenericRecord genericFailedMCERecord = EventUtils.pegasusToAvroFailedMCP(failedMetadataChangeProposal);
+      final GenericRecord genericFailedMCERecord =
+          EventUtils.pegasusToAvroFailedMCP(failedMetadataChangeProposal);
       log.debug("Sending FailedMessages to topic - {}", fmcpTopicName);
-      log.info("Error while processing FMCP: FailedMetadataChangeProposal - {}", failedMetadataChangeProposal);
+      log.info(
+          "Error while processing FMCP: FailedMetadataChangeProposal - {}",
+          failedMetadataChangeProposal);
       kafkaProducer.send(new ProducerRecord<>(fmcpTopicName, genericFailedMCERecord));
     } catch (IOException e) {
-      log.error("Error while sending FailedMetadataChangeProposal: Exception  - {}, FailedMetadataChangeProposal - {}",
-          e.getStackTrace(), failedMetadataChangeProposal);
+      log.error(
+          "Error while sending FailedMetadataChangeProposal: Exception  - {}, FailedMetadataChangeProposal - {}",
+          e.getStackTrace(),
+          failedMetadataChangeProposal);
     }
   }
 
   @Nonnull
-  private FailedMetadataChangeProposal createFailedMCPEvent(@Nonnull MetadataChangeProposal event,
-      @Nonnull Throwable throwable) {
+  private FailedMetadataChangeProposal createFailedMCPEvent(
+      @Nonnull MetadataChangeProposal event, @Nonnull Throwable throwable) {
     final FailedMetadataChangeProposal fmcp = new FailedMetadataChangeProposal();
     fmcp.setError(ExceptionUtils.getStackTrace(throwable));
     fmcp.setMetadataChangeProposal(event);

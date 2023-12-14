@@ -16,9 +16,9 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 
-
 /**
- * Engine for batch evaluating metadata test queries. It ties together internal evaluators to achieve it's goal
+ * Engine for batch evaluating metadata test queries. It ties together internal evaluators to
+ * achieve it's goal
  */
 public class QueryEngine {
   private final List<QueryEvaluator> _queryEvaluators;
@@ -30,18 +30,18 @@ public class QueryEngine {
 
   // Batch evaluate a single query for the given entity urns
   public Map<Urn, TestQueryResponse> batchEvaluateQuery(Set<Urn> urns, TestQuery query) {
-    return batchEvaluateQueries(urns, Collections.singleton(query)).entrySet()
-        .stream()
+    return batchEvaluateQueries(urns, Collections.singleton(query)).entrySet().stream()
         .filter(entry -> entry.getValue().containsKey(query))
         .collect(Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue().get(query)));
   }
 
   @WithSpan
   // Batch evaluate multiple queries for the given entity urns
-  public Map<Urn, Map<TestQuery, TestQueryResponse>> batchEvaluateQueries(Collection<Urn> urns,
-      Collection<TestQuery> queries) {
+  public Map<Urn, Map<TestQuery, TestQueryResponse>> batchEvaluateQueries(
+      Collection<Urn> urns, Collection<TestQuery> queries) {
     queries.forEach(this::validateQuery);
-    // First group urns by entity type - different entity types are eligible for different types of queries
+    // First group urns by entity type - different entity types are eligible for different types of
+    // queries
     Map<String, Set<Urn>> urnsPerEntityType =
         urns.stream().collect(Collectors.groupingBy(Urn::getEntityType, Collectors.toSet()));
     Map<Urn, Map<TestQuery, TestQueryResponse>> finalResult = new HashMap<>();
@@ -50,7 +50,9 @@ public class QueryEngine {
 
       // For each query, map it to the correct query evaluator
       List<Set<TestQuery>> queriesPerEvaluator =
-          _queryEvaluators.stream().map(evaluator -> new HashSet<TestQuery>()).collect(Collectors.toList());
+          _queryEvaluators.stream()
+              .map(evaluator -> new HashSet<TestQuery>())
+              .collect(Collectors.toList());
       for (TestQuery query : queries) {
         int eligibleEvaluatorIndex = -1;
         for (int i = 0; i < _queryEvaluators.size(); i++) {
@@ -61,28 +63,34 @@ public class QueryEngine {
         }
         if (eligibleEvaluatorIndex < 0) {
           throw new UnsupportedOperationException(
-              String.format("Unsupported query %s. No eligible query evaluator for the given query", query));
+              String.format(
+                  "Unsupported query %s. No eligible query evaluator for the given query", query));
         }
         queriesPerEvaluator.get(eligibleEvaluatorIndex).add(query);
       }
 
       // Batch evaluate queries per evaluator
       List<Map<Urn, Map<TestQuery, TestQueryResponse>>> batchedResponse =
-          Streams.zip(_queryEvaluators.stream(), queriesPerEvaluator.stream(), (evaluator, queryBatch) -> {
-            if (queryBatch.isEmpty()) {
-              return Collections.<Urn, Map<TestQuery, TestQueryResponse>>emptyMap();
-            }
-            return evaluator.evaluate(entityType, urnsOfType, queryBatch);
-          }).collect(Collectors.toList());
+          Streams.zip(
+                  _queryEvaluators.stream(),
+                  queriesPerEvaluator.stream(),
+                  (evaluator, queryBatch) -> {
+                    if (queryBatch.isEmpty()) {
+                      return Collections.<Urn, Map<TestQuery, TestQueryResponse>>emptyMap();
+                    }
+                    return evaluator.evaluate(entityType, urnsOfType, queryBatch);
+                  })
+              .collect(Collectors.toList());
 
       // Merge results back into finalResult
       for (Map<Urn, Map<TestQuery, TestQueryResponse>> responseFromEvaluator : batchedResponse) {
-        responseFromEvaluator.forEach((urn, responses) -> {
-          if (!finalResult.containsKey(urn)) {
-            finalResult.put(urn, new HashMap<>());
-          }
-          finalResult.get(urn).putAll(responses);
-        });
+        responseFromEvaluator.forEach(
+            (urn, responses) -> {
+              if (!finalResult.containsKey(urn)) {
+                finalResult.put(urn, new HashMap<>());
+              }
+              finalResult.get(urn).putAll(responses);
+            });
       }
     }
     return finalResult;
@@ -101,11 +109,14 @@ public class QueryEngine {
     List<String> messages = new ArrayList<>();
     for (String entityType : entityTypes) {
       Optional<QueryEvaluator> eligibleEvaluator =
-          _queryEvaluators.stream().filter(evaluator -> evaluator.isEligible(entityType, query)).findFirst();
+          _queryEvaluators.stream()
+              .filter(evaluator -> evaluator.isEligible(entityType, query))
+              .findFirst();
       if (!eligibleEvaluator.isPresent()) {
-        messages.add(String.format(
-            "Query %s is invalid for entity type %s: No eligible query evaluator found. Make sure the %s is a valid aspect",
-            query, entityType, query.getQueryParts().get(0)));
+        messages.add(
+            String.format(
+                "Query %s is invalid for entity type %s: No eligible query evaluator found. Make sure the %s is a valid aspect",
+                query, entityType, query.getQueryParts().get(0)));
         continue;
       }
       ValidationResult validationResult = eligibleEvaluator.get().validateQuery(entityType, query);

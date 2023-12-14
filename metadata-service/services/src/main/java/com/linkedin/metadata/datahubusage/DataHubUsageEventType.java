@@ -2,7 +2,6 @@ package com.linkedin.metadata.datahubusage;
 
 import lombok.Getter;
 
-
 @Getter
 public enum DataHubUsageEventType {
   PAGE_VIEW_EVENT("PageViewEvent"),

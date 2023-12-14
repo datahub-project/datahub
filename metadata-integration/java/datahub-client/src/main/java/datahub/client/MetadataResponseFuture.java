@@ -9,15 +9,16 @@ import java.util.concurrent.atomic.AtomicReference;
 import lombok.SneakyThrows;
 import org.apache.http.HttpResponse;
 
-
 public class MetadataResponseFuture implements Future<MetadataWriteResponse> {
   private final Future<HttpResponse> requestFuture;
   private final AtomicReference<MetadataWriteResponse> responseReference;
   private final CountDownLatch responseLatch;
   private final ResponseMapper mapper;
 
-  public MetadataResponseFuture(Future<HttpResponse> underlyingFuture,
-      AtomicReference<MetadataWriteResponse> responseAtomicReference, CountDownLatch responseLatch) {
+  public MetadataResponseFuture(
+      Future<HttpResponse> underlyingFuture,
+      AtomicReference<MetadataWriteResponse> responseAtomicReference,
+      CountDownLatch responseLatch) {
     this.requestFuture = underlyingFuture;
     this.responseReference = responseAtomicReference;
     this.responseLatch = responseLatch;

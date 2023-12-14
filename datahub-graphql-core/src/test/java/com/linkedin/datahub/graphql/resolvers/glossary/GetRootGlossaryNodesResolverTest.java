@@ -1,5 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.glossary;
 
+import static org.testng.Assert.*;
+
 import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -22,15 +24,10 @@ import graphql.schema.DataFetchingEnvironment;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
-import static org.testng.Assert.*;
-
 public class GetRootGlossaryNodesResolverTest {
-  final GetRootGlossaryEntitiesInput testInput = new GetRootGlossaryEntitiesInput(
-      0, 100
-  );
+  final GetRootGlossaryEntitiesInput testInput = new GetRootGlossaryEntitiesInput(0, 100);
   final String glossaryNodeUrn1 = "urn:li:glossaryNode:11115397daf94708a8822b8106cfd451";
   final String glossaryNodeUrn2 = "urn:li:glossaryNode:22225397daf94708a8822b8106cfd451";
-
 
   @Test
   public void testGetSuccess() throws Exception {
@@ -42,21 +39,23 @@ public class GetRootGlossaryNodesResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
     Mockito.when(mockEnv.getArgument("input")).thenReturn(testInput);
 
-    Mockito.when(mockClient.filter(
-        Mockito.eq(Constants.GLOSSARY_NODE_ENTITY_NAME),
-        Mockito.eq(buildGlossaryEntitiesFilter()),
-        Mockito.eq(null),
-        Mockito.eq(0),
-        Mockito.eq(100),
-        Mockito.any(Authentication.class)
-    )).thenReturn(
-        new SearchResult().setEntities(new SearchEntityArray(ImmutableSet.of(
-            new SearchEntity()
-                .setEntity(Urn.createFromString(glossaryNodeUrn1)),
-            new SearchEntity()
-                .setEntity(Urn.createFromString(glossaryNodeUrn2))
-        ))).setFrom(0).setNumEntities(2)
-    );
+    Mockito.when(
+            mockClient.filter(
+                Mockito.eq(Constants.GLOSSARY_NODE_ENTITY_NAME),
+                Mockito.eq(buildGlossaryEntitiesFilter()),
+                Mockito.eq(null),
+                Mockito.eq(0),
+                Mockito.eq(100),
+                Mockito.any(Authentication.class)))
+        .thenReturn(
+            new SearchResult()
+                .setEntities(
+                    new SearchEntityArray(
+                        ImmutableSet.of(
+                            new SearchEntity().setEntity(Urn.createFromString(glossaryNodeUrn1)),
+                            new SearchEntity().setEntity(Urn.createFromString(glossaryNodeUrn2)))))
+                .setFrom(0)
+                .setNumEntities(2));
 
     GetRootGlossaryNodesResolver resolver = new GetRootGlossaryNodesResolver(mockClient);
     GetRootGlossaryNodesResult result = resolver.get(mockEnv).get();
@@ -64,24 +63,23 @@ public class GetRootGlossaryNodesResolverTest {
     assertEquals(result.getCount(), 2);
     assertEquals(result.getStart(), 0);
     assertEquals(result.getTotal(), 2);
-    assertEquals(result.getNodes().get(0).getUrn(), Urn.createFromString(glossaryNodeUrn1).toString());
-    assertEquals(result.getNodes().get(1).getUrn(), Urn.createFromString(glossaryNodeUrn2).toString());
+    assertEquals(
+        result.getNodes().get(0).getUrn(), Urn.createFromString(glossaryNodeUrn1).toString());
+    assertEquals(
+        result.getNodes().get(1).getUrn(), Urn.createFromString(glossaryNodeUrn2).toString());
   }
 
   private Filter buildGlossaryEntitiesFilter() {
-    CriterionArray array = new CriterionArray(
-        ImmutableList.of(
-            new Criterion()
-                .setField("hasParentNode")
-                .setValue("false")
-                .setCondition(Condition.EQUAL)
-        ));
+    CriterionArray array =
+        new CriterionArray(
+            ImmutableList.of(
+                new Criterion()
+                    .setField("hasParentNode")
+                    .setValue("false")
+                    .setCondition(Condition.EQUAL)));
     final Filter filter = new Filter();
-    filter.setOr(new ConjunctiveCriterionArray(ImmutableList.of(
-        new ConjunctiveCriterion()
-            .setAnd(array)
-    )));
+    filter.setOr(
+        new ConjunctiveCriterionArray(ImmutableList.of(new ConjunctiveCriterion().setAnd(array))));
     return filter;
   }
 }
-

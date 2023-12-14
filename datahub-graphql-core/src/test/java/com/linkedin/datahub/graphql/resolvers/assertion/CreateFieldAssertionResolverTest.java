@@ -1,5 +1,8 @@
 package com.linkedin.datahub.graphql.resolvers.assertion;
 
+import static com.linkedin.datahub.graphql.TestUtils.*;
+import static org.testng.Assert.*;
+
 import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -32,83 +35,79 @@ import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
-import com.linkedin.metadata.service.AssertionService;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.service.AssertionService;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.concurrent.CompletionException;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
-import static com.linkedin.datahub.graphql.TestUtils.*;
-import static org.testng.Assert.*;
-
-
 public class CreateFieldAssertionResolverTest {
 
-  private static final Urn TEST_DATASET_URN = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,name,PROD)");
+  private static final Urn TEST_DATASET_URN =
+      UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,name,PROD)");
   private static final Urn TEST_ASSERTION_URN = UrnUtils.getUrn("urn:li:assertion:test");
 
-  private static final CreateFieldAssertionInput TEST_INPUT = new CreateFieldAssertionInput(
-      FieldAssertionType.FIELD_METRIC,
-      TEST_DATASET_URN.toString(),
-      null,
-      new FieldMetricAssertionInput(
-          new SchemaFieldSpecInput("path", "INTEGER", "INTEGER"),
-          FieldMetricType.UNIQUE_COUNT,
-          AssertionStdOperator.EQUAL_TO,
-          new AssertionStdParametersInput(
-              new AssertionStdParameterInput("100", AssertionStdParameterType.NUMBER),
-              null,
-              null
-          )
-      ),
-      new DatasetFilterInput(
-          DatasetFilterType.SQL,
-          "some_condition = True"
-      ),
-      new AssertionActionsInput(
-          ImmutableList.of(new AssertionActionInput(AssertionActionType.RESOLVE_INCIDENT)),
-          ImmutableList.of(new AssertionActionInput(AssertionActionType.RAISE_INCIDENT))
-      )
-  );
+  private static final CreateFieldAssertionInput TEST_INPUT =
+      new CreateFieldAssertionInput(
+          FieldAssertionType.FIELD_METRIC,
+          TEST_DATASET_URN.toString(),
+          null,
+          new FieldMetricAssertionInput(
+              new SchemaFieldSpecInput("path", "INTEGER", "INTEGER"),
+              FieldMetricType.UNIQUE_COUNT,
+              AssertionStdOperator.EQUAL_TO,
+              new AssertionStdParametersInput(
+                  new AssertionStdParameterInput("100", AssertionStdParameterType.NUMBER),
+                  null,
+                  null)),
+          new DatasetFilterInput(DatasetFilterType.SQL, "some_condition = True"),
+          new AssertionActionsInput(
+              ImmutableList.of(new AssertionActionInput(AssertionActionType.RESOLVE_INCIDENT)),
+              ImmutableList.of(new AssertionActionInput(AssertionActionType.RAISE_INCIDENT))));
 
-  private static final AssertionInfo TEST_ASSERTION_INFO = new AssertionInfo()
-      .setType(AssertionType.FIELD)
-      .setFieldAssertion(
-          new FieldAssertionInfo()
-              .setEntity(TEST_DATASET_URN)
-              .setType(com.linkedin.assertion.FieldAssertionType.FIELD_METRIC)
-              .setFilter(new DatasetFilter()
-                  .setType(com.linkedin.dataset.DatasetFilterType.SQL)
-                  .setSql("some_condition = True")
-              )
-              .setFieldMetricAssertion(
-                  new com.linkedin.assertion.FieldMetricAssertion()
-                      .setField(
-                          new com.linkedin.schema.SchemaFieldSpec()
-                              .setPath("path")
-                              .setType("INTEGER")
-                              .setNativeType("INTEGER")
-                      )
-                      .setMetric(com.linkedin.assertion.FieldMetricType.UNIQUE_COUNT)
-                      .setOperator(com.linkedin.assertion.AssertionStdOperator.EQUAL_TO)
-                      .setParameters(
-                          new com.linkedin.assertion.AssertionStdParameters()
-                              .setValue(
-                                  new com.linkedin.assertion.AssertionStdParameter()
-                                      .setValue("100")
-                                      .setType(com.linkedin.assertion.AssertionStdParameterType.NUMBER)
-                              )
-                      )
-              )
-        );
+  private static final AssertionInfo TEST_ASSERTION_INFO =
+      new AssertionInfo()
+          .setType(AssertionType.FIELD)
+          .setFieldAssertion(
+              new FieldAssertionInfo()
+                  .setEntity(TEST_DATASET_URN)
+                  .setType(com.linkedin.assertion.FieldAssertionType.FIELD_METRIC)
+                  .setFilter(
+                      new DatasetFilter()
+                          .setType(com.linkedin.dataset.DatasetFilterType.SQL)
+                          .setSql("some_condition = True"))
+                  .setFieldMetricAssertion(
+                      new com.linkedin.assertion.FieldMetricAssertion()
+                          .setField(
+                              new com.linkedin.schema.SchemaFieldSpec()
+                                  .setPath("path")
+                                  .setType("INTEGER")
+                                  .setNativeType("INTEGER"))
+                          .setMetric(com.linkedin.assertion.FieldMetricType.UNIQUE_COUNT)
+                          .setOperator(com.linkedin.assertion.AssertionStdOperator.EQUAL_TO)
+                          .setParameters(
+                              new com.linkedin.assertion.AssertionStdParameters()
+                                  .setValue(
+                                      new com.linkedin.assertion.AssertionStdParameter()
+                                          .setValue("100")
+                                          .setType(
+                                              com.linkedin.assertion.AssertionStdParameterType
+                                                  .NUMBER)))));
 
-  private static final AssertionActions TEST_ASSERTION_ACTIONS = new AssertionActions()
-      .setOnSuccess(new AssertionActionArray(ImmutableList.of(new AssertionAction().setType(
-          com.linkedin.assertion.AssertionActionType.RESOLVE_INCIDENT))))
-      .setOnFailure(new AssertionActionArray(ImmutableList.of(new AssertionAction().setType(
-          com.linkedin.assertion.AssertionActionType.RAISE_INCIDENT))));
+  private static final AssertionActions TEST_ASSERTION_ACTIONS =
+      new AssertionActions()
+          .setOnSuccess(
+              new AssertionActionArray(
+                  ImmutableList.of(
+                      new AssertionAction()
+                          .setType(com.linkedin.assertion.AssertionActionType.RESOLVE_INCIDENT))))
+          .setOnFailure(
+              new AssertionActionArray(
+                  ImmutableList.of(
+                      new AssertionAction()
+                          .setType(com.linkedin.assertion.AssertionActionType.RAISE_INCIDENT))));
 
   @Test
   public void testGetSuccess() throws Exception {
@@ -129,11 +128,12 @@ public class CreateFieldAssertionResolverTest {
     assertEquals(assertion.getUrn(), TEST_ASSERTION_URN.toString());
 
     // Validate that we created the assertion
-    Mockito.verify(mockService, Mockito.times(1)).createFieldAssertion(
-        Mockito.eq(TEST_ASSERTION_INFO.getFieldAssertion().getEntity()),
-        Mockito.eq(TEST_ASSERTION_INFO.getFieldAssertion()),
-        Mockito.eq(TEST_ASSERTION_ACTIONS),
-        Mockito.any(Authentication.class));
+    Mockito.verify(mockService, Mockito.times(1))
+        .createFieldAssertion(
+            Mockito.eq(TEST_ASSERTION_INFO.getFieldAssertion().getEntity()),
+            Mockito.eq(TEST_ASSERTION_INFO.getFieldAssertion()),
+            Mockito.eq(TEST_ASSERTION_ACTIONS),
+            Mockito.any(Authentication.class));
   }
 
   @Test
@@ -150,20 +150,18 @@ public class CreateFieldAssertionResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
-    Mockito.verify(mockClient, Mockito.times(0)).ingestProposal(
-        Mockito.any(),
-        Mockito.any(Authentication.class));
+    Mockito.verify(mockClient, Mockito.times(0))
+        .ingestProposal(Mockito.any(), Mockito.any(Authentication.class));
   }
 
   @Test
   public void testGetAssertionServiceException() throws Exception {
     // Create resolver
     AssertionService mockService = Mockito.mock(AssertionService.class);
-    Mockito.doThrow(RuntimeException.class).when(mockService).createFieldAssertion(
-        Mockito.any(),
-        Mockito.any(),
-        Mockito.any(),
-        Mockito.any(Authentication.class));
+    Mockito.doThrow(RuntimeException.class)
+        .when(mockService)
+        .createFieldAssertion(
+            Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(Authentication.class));
 
     CreateFieldAssertionResolver resolver = new CreateFieldAssertionResolver(mockService);
 
@@ -178,28 +176,26 @@ public class CreateFieldAssertionResolverTest {
 
   private AssertionService initMockService() {
     AssertionService service = Mockito.mock(AssertionService.class);
-    Mockito.when(service.createFieldAssertion(
-        Mockito.any(),
-        Mockito.any(),
-        Mockito.any(),
-        Mockito.any(Authentication.class)
-    )).thenReturn(TEST_ASSERTION_URN);
+    Mockito.when(
+            service.createFieldAssertion(
+                Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(Authentication.class)))
+        .thenReturn(TEST_ASSERTION_URN);
 
-    Mockito.when(service.getAssertionEntityResponse(
-        Mockito.eq(TEST_ASSERTION_URN),
-        Mockito.any(Authentication.class)
-    )).thenReturn(new EntityResponse()
-        .setAspects(new EnvelopedAspectMap(
-            ImmutableMap.of(
-                Constants.ASSERTION_INFO_ASPECT_NAME,
-                new EnvelopedAspect().setValue(new Aspect(TEST_ASSERTION_INFO.data())),
-                Constants.ASSERTION_ACTIONS_ASPECT_NAME,
-                new EnvelopedAspect().setValue(new Aspect(TEST_ASSERTION_ACTIONS.data()))
-            )
-        ))
-        .setEntityName(Constants.ASSERTION_ENTITY_NAME)
-        .setUrn(TEST_ASSERTION_URN)
-    );
+    Mockito.when(
+            service.getAssertionEntityResponse(
+                Mockito.eq(TEST_ASSERTION_URN), Mockito.any(Authentication.class)))
+        .thenReturn(
+            new EntityResponse()
+                .setAspects(
+                    new EnvelopedAspectMap(
+                        ImmutableMap.of(
+                            Constants.ASSERTION_INFO_ASPECT_NAME,
+                            new EnvelopedAspect().setValue(new Aspect(TEST_ASSERTION_INFO.data())),
+                            Constants.ASSERTION_ACTIONS_ASPECT_NAME,
+                            new EnvelopedAspect()
+                                .setValue(new Aspect(TEST_ASSERTION_ACTIONS.data())))))
+                .setEntityName(Constants.ASSERTION_ENTITY_NAME)
+                .setUrn(TEST_ASSERTION_URN));
     return service;
   }
 }

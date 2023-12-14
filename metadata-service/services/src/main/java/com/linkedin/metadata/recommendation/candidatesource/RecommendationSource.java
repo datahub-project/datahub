@@ -11,25 +11,16 @@ import java.util.List;
 import java.util.Optional;
 import javax.annotation.Nonnull;
 
-
-/**
- * Base interface for defining a candidate source for recommendation module
- */
+/** Base interface for defining a candidate source for recommendation module */
 public interface RecommendationSource {
 
-  /**
-   * Returns the title of the module that is sourced (used in rendering)
-   */
+  /** Returns the title of the module that is sourced (used in rendering) */
   String getTitle();
 
-  /**
-   * Returns a unique module id associated with the module
-   */
+  /** Returns a unique module id associated with the module */
   String getModuleId();
 
-  /**
-   * Returns the template type used for rendering recommendations from this module
-   */
+  /** Returns the template type used for rendering recommendations from this module */
   RecommendationRenderType getRenderType();
 
   /**
@@ -49,7 +40,8 @@ public interface RecommendationSource {
    * @return list of recommendation candidates
    */
   @WithSpan
-  List<RecommendationContent> getRecommendations(@Nonnull Urn userUrn, @Nonnull RecommendationRequestContext requestContext);
+  List<RecommendationContent> getRecommendations(
+      @Nonnull Urn userUrn, @Nonnull RecommendationRequestContext requestContext);
 
   /**
    * Get the full recommendations module itself provided the request context.
@@ -59,8 +51,7 @@ public interface RecommendationSource {
    * @return list of recommendation candidates
    */
   default Optional<RecommendationModule> getRecommendationModule(
-      @Nonnull Urn userUrn,
-      @Nonnull RecommendationRequestContext requestContext) {
+      @Nonnull Urn userUrn, @Nonnull RecommendationRequestContext requestContext) {
     if (!isEligible(userUrn, requestContext)) {
       return Optional.empty();
     }
@@ -70,9 +61,11 @@ public interface RecommendationSource {
       return Optional.empty();
     }
 
-    return Optional.of(new RecommendationModule().setTitle(getTitle())
-        .setModuleId(getModuleId())
-        .setRenderType(getRenderType())
-        .setContent(new RecommendationContentArray(recommendations)));
+    return Optional.of(
+        new RecommendationModule()
+            .setTitle(getTitle())
+            .setModuleId(getModuleId())
+            .setRenderType(getRenderType())
+            .setContent(new RecommendationContentArray(recommendations)));
   }
 }

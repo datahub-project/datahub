@@ -1,8 +1,6 @@
 package com.linkedin.datahub.graphql;
 
-/**
- * Acryl-specific constants relating to GraphQL type system & execution.
- */
+/** Acryl-specific constants relating to GraphQL type system & execution. */
 public class AcrylConstants {
 
   public static final String CONNECTIONS_SCHEMA_FILE = "connection.graphql";
@@ -19,5 +17,6 @@ public class AcrylConstants {
   public static final String CONTRACTS_SCHEMA_FILE = "contract.graphql";
   public static final String AI_SCHEMA_FILE = "ai.graphql";
 
-  private AcrylConstants() { };
+  private AcrylConstants() {}
+  ;
 }

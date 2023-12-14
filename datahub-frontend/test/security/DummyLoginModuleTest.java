@@ -1,14 +1,12 @@
 package security;
 
-import com.sun.security.auth.callback.TextCallbackHandler;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.*;
 
+import com.sun.security.auth.callback.TextCallbackHandler;
 import java.util.HashMap;
 import javax.security.auth.Subject;
 import javax.security.auth.login.LoginException;
-
-import static org.junit.jupiter.api.Assertions.*;
-
+import org.junit.jupiter.api.Test;
 
 public class DummyLoginModuleTest {
 

@@ -11,19 +11,17 @@ import com.linkedin.glossary.GlossaryTermInfo;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
-
-import javax.annotation.Nonnull;
 import java.util.Objects;
+import javax.annotation.Nonnull;
 
 public class DescriptionUtils {
 
-  private DescriptionUtils() { }
+  private DescriptionUtils() {}
 
   public static MetadataChangeProposal createGlossaryNodeDescriptionChangeProposal(
       @Nonnull final GlossaryNodeInfo glossaryNodeInfo,
       @Nonnull final Urn resourceUrn,
-      @Nonnull final String description
-  ) {
+      @Nonnull final String description) {
     Objects.requireNonNull(glossaryNodeInfo, "glossaryNodeInfo cannot be null");
 
     glossaryNodeInfo.setDefinition(description);
@@ -41,8 +39,7 @@ public class DescriptionUtils {
   public static MetadataChangeProposal createGlossaryTermDescriptionChangeProposal(
       @Nonnull final GlossaryTermInfo glossaryTermInfo,
       @Nonnull final Urn resourceUrn,
-      @Nonnull final String description
-  ) {
+      @Nonnull final String description) {
     Objects.requireNonNull(glossaryTermInfo, "glossaryTermInfo cannot be null");
 
     glossaryTermInfo.setDefinition(description);
@@ -61,8 +58,7 @@ public class DescriptionUtils {
       @Nonnull final EditableDatasetProperties editableDatasetProperties,
       @Nonnull final Urn resourceUrn,
       @Nonnull final String description,
-      @Nonnull final Actor actor
-      ) {
+      @Nonnull final Actor actor) {
     Objects.requireNonNull(editableDatasetProperties, "editableDatasetProperties cannot be null");
 
     AuditStamp auditStamp = getAuditStamp(UrnUtils.getUrn(actor.toUrnStr()));

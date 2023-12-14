@@ -21,16 +21,13 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 
-
 public class MonitorType implements com.linkedin.datahub.graphql.types.EntityType<Monitor, String> {
 
-  static final Set<String> ASPECTS_TO_FETCH = ImmutableSet.of(
-      Constants.MONITOR_KEY_ASPECT_NAME,
-      Constants.MONITOR_INFO_ASPECT_NAME
-  );
+  static final Set<String> ASPECTS_TO_FETCH =
+      ImmutableSet.of(Constants.MONITOR_KEY_ASPECT_NAME, Constants.MONITOR_INFO_ASPECT_NAME);
   private final EntityClient _entityClient;
 
-  public MonitorType(final EntityClient entityClient)  {
+  public MonitorType(final EntityClient entityClient) {
     _entityClient = Objects.requireNonNull(entityClient, "entityClient cannot be null");
   }
 
@@ -50,28 +47,30 @@ public class MonitorType implements com.linkedin.datahub.graphql.types.EntityTyp
   }
 
   @Override
-  public List<DataFetcherResult<Monitor>> batchLoad(@Nonnull List<String> urns, @Nonnull QueryContext context) throws Exception {
-    final List<Urn> monitorUrns = urns.stream()
-        .map(this::getUrn)
-        .collect(Collectors.toList());
+  public List<DataFetcherResult<Monitor>> batchLoad(
+      @Nonnull List<String> urns, @Nonnull QueryContext context) throws Exception {
+    final List<Urn> monitorUrns = urns.stream().map(this::getUrn).collect(Collectors.toList());
 
     try {
-      final Map<Urn, EntityResponse> entities = _entityClient.batchGetV2(
-          Constants.MONITOR_ENTITY_NAME,
-          new HashSet<>(monitorUrns),
-          ASPECTS_TO_FETCH,
-          context.getAuthentication());
+      final Map<Urn, EntityResponse> entities =
+          _entityClient.batchGetV2(
+              Constants.MONITOR_ENTITY_NAME,
+              new HashSet<>(monitorUrns),
+              ASPECTS_TO_FETCH,
+              context.getAuthentication());
 
       final List<EntityResponse> gmsResults = new ArrayList<>();
       for (Urn urn : monitorUrns) {
         gmsResults.add(entities.getOrDefault(urn, null));
       }
       return gmsResults.stream()
-          .map(gmsResult ->
-              gmsResult == null ? null : DataFetcherResult.<Monitor>newResult()
-                  .data(MonitorMapper.map(gmsResult))
-                  .build()
-          )
+          .map(
+              gmsResult ->
+                  gmsResult == null
+                      ? null
+                      : DataFetcherResult.<Monitor>newResult()
+                          .data(MonitorMapper.map(gmsResult))
+                          .build())
           .collect(Collectors.toList());
     } catch (Exception e) {
       throw new RuntimeException("Failed to batch load Monitors", e);

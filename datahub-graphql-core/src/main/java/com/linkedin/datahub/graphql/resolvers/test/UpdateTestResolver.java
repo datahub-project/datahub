@@ -1,5 +1,10 @@
 package com.linkedin.datahub.graphql.resolvers.test;
 
+import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
+import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
+import static com.linkedin.datahub.graphql.resolvers.test.TestUtils.*;
+import static com.linkedin.metadata.Constants.*;
+
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.Authentication;
 import com.linkedin.common.AuditStamp;
@@ -18,15 +23,7 @@ import graphql.schema.DataFetchingEnvironment;
 import java.util.concurrent.CompletableFuture;
 import lombok.RequiredArgsConstructor;
 
-import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
-import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
-import static com.linkedin.datahub.graphql.resolvers.test.TestUtils.*;
-import static com.linkedin.metadata.Constants.*;
-
-
-/**
- * Updates or updates a Test. Requires the MANAGE_TESTS privilege.
- */
+/** Updates or updates a Test. Requires the MANAGE_TESTS privilege. */
 @RequiredArgsConstructor
 public class UpdateTestResolver implements DataFetcher<CompletableFuture<String>> {
 
@@ -39,37 +36,41 @@ public class UpdateTestResolver implements DataFetcher<CompletableFuture<String>
     final Authentication authentication = context.getAuthentication();
     final Actor actor = authentication.getActor();
 
-    return CompletableFuture.supplyAsync(() -> {
+    return CompletableFuture.supplyAsync(
+        () -> {
+          if (canManageTests(context)) {
 
-      if (canManageTests(context)) {
+            final String urn = environment.getArgument("urn");
+            final UpdateTestInput input =
+                bindArgument(environment.getArgument("input"), UpdateTestInput.class);
 
-        final String urn = environment.getArgument("urn");
-        final UpdateTestInput input = bindArgument(environment.getArgument("input"), UpdateTestInput.class);
+            // Update the Test info - currently this simply creates a new test with same urn.
+            final TestInfo info = mapUpdateTestInput(input, actor);
 
-        // Update the Test info - currently this simply creates a new test with same urn.
-        final TestInfo info = mapUpdateTestInput(input, actor);
+            // Validate test info
+            ValidationResult validationResult =
+                _testEngine.validateJson(info.getDefinition().getJson());
+            if (!validationResult.isValid()) {
+              throw new RuntimeException(String.join("\n", validationResult.getMessages()));
+            }
 
-        // Validate test info
-        ValidationResult validationResult = _testEngine.validateJson(info.getDefinition().getJson());
-        if (!validationResult.isValid()) {
-          throw new RuntimeException(String.join("\n", validationResult.getMessages()));
-        }
+            final MetadataChangeProposal proposal =
+                buildMetadataChangeProposalWithUrn(
+                    UrnUtils.getUrn(urn), TEST_INFO_ASPECT_NAME, info);
+            String ingestResult;
+            try {
+              ingestResult = _entityClient.ingestProposal(proposal, authentication, false);
+            } catch (Exception e) {
+              throw new RuntimeException(
+                  String.format("Failed to perform update against Test with urn %s", input), e);
+            }
 
-        final MetadataChangeProposal proposal = buildMetadataChangeProposalWithUrn(UrnUtils.getUrn(urn), TEST_INFO_ASPECT_NAME, info);
-        String ingestResult;
-        try {
-          ingestResult = _entityClient.ingestProposal(proposal, authentication, false);
-        } catch (Exception e) {
-          throw new RuntimeException(
-              String.format("Failed to perform update against Test with urn %s", input), e);
-        }
-
-        _testEngine.invalidateCache();
-        return ingestResult;
-      }
-      throw new AuthorizationException(
-          "Unauthorized to perform this action. Please contact your DataHub administrator.");
-    });
+            _testEngine.invalidateCache();
+            return ingestResult;
+          }
+          throw new AuthorizationException(
+              "Unauthorized to perform this action. Please contact your DataHub administrator.");
+        });
   }
 
   private static TestInfo mapUpdateTestInput(final UpdateTestInput input, final Actor actor) {

@@ -3,9 +3,11 @@
 set -e
 eval "$(sentry-cli bash-hook)"
 
-: "${DATAHUB_ANALYTICS_ENABLED:=true}"
-: "${USE_AWS_ELASTICSEARCH:=false}"
-: "${ELASTICSEARCH_INSECURE:=false}"
+: ${DATAHUB_ANALYTICS_ENABLED:=true}
+: ${USE_AWS_ELASTICSEARCH:=false}
+: ${ELASTICSEARCH_INSECURE:=false}
+: ${DUE_SHARDS:=1}
+: ${DUE_REPLICAS:=1}
 
 # protocol: http or https?
 if [[ $ELASTICSEARCH_USE_SSL == true ]]; then
@@ -82,7 +84,10 @@ function create_if_not_exists() {
     # use the file at given path as definition, but first replace all occurences of `PREFIX`
     # placeholder within the file with the actual prefix value
     TMP_SOURCE_PATH="/tmp/$RESOURCE_DEFINITION_NAME"
-    sed -e "s/PREFIX/$PREFIX/g; s/ELASTICSEARCH_PASSWORD/$ELASTICSEARCH_PASSWORD/g; s/ROLE/$ROLE/g" "$INDEX_DEFINITIONS_ROOT/$RESOURCE_DEFINITION_NAME" | tee -a "$TMP_SOURCE_PATH"
+    sed -e "s/PREFIX/$PREFIX/g; s/ELASTICSEARCH_PASSWORD/$ELASTICSEARCH_PASSWORD/g; s/ROLE/$ROLE/g" "$INDEX_DEFINITIONS_ROOT/$RESOURCE_DEFINITION_NAME" \
+       | sed -e "s/DUE_SHARDS/$DUE_SHARDS/g" \
+       | sed -e "s/DUE_REPLICAS/$DUE_REPLICAS/g" \
+       | tee -a "$TMP_SOURCE_PATH"
     curl "${CURL_ARGS[@]}" -XPUT "$ELASTICSEARCH_URL/$RESOURCE_ADDRESS" -H 'Content-Type: application/json' --data "@$TMP_SOURCE_PATH"
 
   elif [ "$RESOURCE_STATUS" -eq 403 ]; then

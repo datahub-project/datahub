@@ -207,7 +207,11 @@
                   "fields" : [ {
                     "name" : "assertion",
                     "type" : "com.linkedin.common.Urn",
-                    "doc" : "The assertion representing the schema contract."
+                    "doc" : "The assertion representing the schema contract.",
+                    "Relationship" : {
+                      "entityTypes" : [ "assertion" ],
+                      "name" : "IncludesSchemaAssertion"
+                    }
                   } ]
                 }
               },
@@ -243,7 +247,11 @@
                   "fields" : [ {
                     "name" : "assertion",
                     "type" : "com.linkedin.common.Urn",
-                    "doc" : "The assertion representing the Data Quality contract.\nE.g. a table or column-level assertion."
+                    "doc" : "The assertion representing the Data Quality contract.\nE.g. a table or column-level assertion.",
+                    "Relationship" : {
+                      "entityTypes" : [ "assertion" ],
+                      "name" : "IncludesDataQualityAssertion"
+                    }
                   } ]
                 }
               },

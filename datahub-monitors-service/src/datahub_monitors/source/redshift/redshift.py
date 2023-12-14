@@ -293,7 +293,7 @@ class RedshiftSource(Source):
             current_field_value,
         )
         resp = self._execute_fetchone_query(get_count_query)
-        return resp[0] if resp else 0
+        return int(resp[0]) if resp else 0
 
     def _get_num_rows_via_stats_table(self, database_params: DatabaseParams) -> int:
         query = f"""
@@ -305,7 +305,7 @@ class RedshiftSource(Source):
 
         logger.debug(query)
         resp = self._execute_fetchone_query(query)
-        return resp[0] if resp else 0
+        return int(resp[0]) if resp else 0
 
     def _get_num_rows_via_count(
         self, database_params: DatabaseParams, filter_sql: str
@@ -317,4 +317,4 @@ class RedshiftSource(Source):
 
         logger.debug(query)
         resp = self._execute_fetchone_query(query)
-        return resp[0] if resp else 0
+        return int(resp[0]) if resp else 0

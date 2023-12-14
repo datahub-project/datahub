@@ -1,5 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.test;
 
+import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
+
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -14,28 +16,29 @@ import graphql.schema.DataFetchingEnvironment;
 import java.util.concurrent.CompletableFuture;
 import lombok.RequiredArgsConstructor;
 
-import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
-
-
-/**
- * Runs tests for a given entity.
- */
+/** Runs tests for a given entity. */
 @RequiredArgsConstructor
-public class RunTestDefinitionResolver implements DataFetcher<CompletableFuture<RunTestDefinitionResult>> {
+public class RunTestDefinitionResolver
+    implements DataFetcher<CompletableFuture<RunTestDefinitionResult>> {
 
   private static final Urn TEST_URN = UrnUtils.getUrn("urn:li:test:test");
   private final TestEngine _testEngine;
 
   @Override
-  public CompletableFuture<RunTestDefinitionResult> get(final DataFetchingEnvironment environment) throws Exception {
+  public CompletableFuture<RunTestDefinitionResult> get(final DataFetchingEnvironment environment)
+      throws Exception {
     final String urnStr = environment.getArgument("urn");
     final Urn urn = UrnUtils.getUrn(urnStr);
-    final TestDefinitionInput test = bindArgument(environment.getArgument("test"), TestDefinitionInput.class);
-    return CompletableFuture.supplyAsync(() -> {
-      final TestDefinition parsedDefinition = _testEngine.getParser().deserialize(TEST_URN, test.getJson());
-      final TestResults testResults = _testEngine.evaluateTests(urn, ImmutableList.of(parsedDefinition));
-      return mapToResult(testResults);
-    });
+    final TestDefinitionInput test =
+        bindArgument(environment.getArgument("test"), TestDefinitionInput.class);
+    return CompletableFuture.supplyAsync(
+        () -> {
+          final TestDefinition parsedDefinition =
+              _testEngine.getParser().deserialize(TEST_URN, test.getJson());
+          final TestResults testResults =
+              _testEngine.evaluateTests(urn, ImmutableList.of(parsedDefinition));
+          return mapToResult(testResults);
+        });
   }
 
   private RunTestDefinitionResult mapToResult(final TestResults testResults) {

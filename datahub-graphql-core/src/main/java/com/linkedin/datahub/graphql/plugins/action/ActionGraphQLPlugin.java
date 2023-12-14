@@ -17,7 +17,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
-
 public class ActionGraphQLPlugin implements GmsGraphQLPlugin {
 
   private static final String ACTION_ENTITY_TYPE = "DataHubAction";
@@ -38,6 +37,7 @@ public class ActionGraphQLPlugin implements GmsGraphQLPlugin {
     this.integrationsService = args.getIntegrationsService();
     this.initialized = true;
   }
+
   @Override
   public List<String> getSchemaFiles() {
     return List.of(ACTION_SCHEMA_FILE);
@@ -45,11 +45,10 @@ public class ActionGraphQLPlugin implements GmsGraphQLPlugin {
 
   public Map<String, DataFetcher> getMutationDataFetchers() {
     return Map.of(
-        "createActionExecutionRequest", new CreateActionExecutionRequestResolver(this.entityClient,
-        this.integrationsService,
-        this.actionConfiguration),
-        "createActionPipeline", new CreateActionPipelineResolver(this.entityClient)
-    );
+        "createActionExecutionRequest",
+            new CreateActionExecutionRequestResolver(
+                this.entityClient, this.integrationsService, this.actionConfiguration),
+        "createActionPipeline", new CreateActionPipelineResolver(this.entityClient));
   }
 
   @Override
@@ -66,16 +65,14 @@ public class ActionGraphQLPlugin implements GmsGraphQLPlugin {
     return Collections.EMPTY_MAP;
   }
 
-
   @Override
-  public void configureExtraResolvers(final RuntimeWiring.Builder wiringBuilder, final GmsGraphQLEngine baseEngine) {
+  public void configureExtraResolvers(
+      final RuntimeWiring.Builder wiringBuilder, final GmsGraphQLEngine baseEngine) {
     assert this.initialized;
     // Query
-    wiringBuilder.type("Query", typeWiring -> typeWiring
-        .dataFetchers(getQueryDataFetchers())
-    );
+    wiringBuilder.type("Query", typeWiring -> typeWiring.dataFetchers(getQueryDataFetchers()));
     // Mutations
-    wiringBuilder.type("Mutation", typeWiring -> typeWiring
-        .dataFetchers(getMutationDataFetchers()));
+    wiringBuilder.type(
+        "Mutation", typeWiring -> typeWiring.dataFetchers(getMutationDataFetchers()));
   }
 }

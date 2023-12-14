@@ -4,11 +4,9 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.linkedin.metadata.models.registry.template.CompoundKeyTemplate;
 import com.linkedin.test.TestResultArray;
 import com.linkedin.test.TestResults;
-
-import javax.annotation.Nonnull;
 import java.util.Arrays;
 import java.util.List;
-
+import javax.annotation.Nonnull;
 
 public class TestResultsTemplate extends CompoundKeyTemplate<TestResults> {
 
@@ -34,12 +32,16 @@ public class TestResultsTemplate extends CompoundKeyTemplate<TestResults> {
   @Nonnull
   @Override
   public JsonNode transformFields(JsonNode baseNode) {
-    return arrayFieldToMap(arrayFieldToMap(baseNode, PASSING_FIELD_NAME, KEY_FIELDS), FAILING_FIELD_NAME, KEY_FIELDS);
+    return arrayFieldToMap(
+        arrayFieldToMap(baseNode, PASSING_FIELD_NAME, KEY_FIELDS), FAILING_FIELD_NAME, KEY_FIELDS);
   }
 
   @Nonnull
   @Override
   public JsonNode rebaseFields(JsonNode patched) {
-    return transformedMapToArray(transformedMapToArray(patched, PASSING_FIELD_NAME, KEY_FIELDS), FAILING_FIELD_NAME, KEY_FIELDS);
+    return transformedMapToArray(
+        transformedMapToArray(patched, PASSING_FIELD_NAME, KEY_FIELDS),
+        FAILING_FIELD_NAME,
+        KEY_FIELDS);
   }
 }

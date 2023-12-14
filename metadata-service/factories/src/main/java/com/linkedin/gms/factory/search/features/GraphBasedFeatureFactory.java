@@ -9,12 +9,10 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 
-
 @Configuration
 @Import(GraphServiceFactory.class)
 public class GraphBasedFeatureFactory {
-  @Autowired
-  private GraphService graphService;
+  @Autowired private GraphService graphService;
 
   @Bean(name = "graphBasedFeature")
   @Nonnull

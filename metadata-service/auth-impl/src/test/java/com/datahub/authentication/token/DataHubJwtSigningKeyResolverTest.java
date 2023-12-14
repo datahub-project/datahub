@@ -1,5 +1,7 @@
 package com.datahub.authentication.token;
 
+import static org.testng.AssertJUnit.*;
+
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwsHeader;
 import java.math.BigInteger;
@@ -20,13 +22,9 @@ import org.mockito.InjectMocks;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
-import static org.testng.AssertJUnit.*;
-
-
 public class DataHubJwtSigningKeyResolverTest {
 
-  @InjectMocks
-  private DataHubJwtSigningKeyResolver resolver;
+  @InjectMocks private DataHubJwtSigningKeyResolver resolver;
 
   @Test
   public void testResolveSigningKeyWithPublicKey() throws Exception {
@@ -55,11 +53,12 @@ public class DataHubJwtSigningKeyResolverTest {
     HttpResponse<String> httpResponse = Mockito.mock(HttpResponse.class);
 
     Mockito.when(httpResponse.statusCode()).thenReturn(200);
-    JSONObject token = new JSONObject(
-        "{\"kty\": \"RSA\", \"kid\": \"test_key\", \"n\": \"ueXyoaxgWhMTLwkowaskhiV85rbN9n_nLft8CxFUY3nbMpNybAWsWuhJ4SYLT4U-GbKdL-h-NYgBXKn"
-            + "GK1ieG6qSC25T3hWXTb3cNe73ZQUcZSivAV2tZouPYcb1XKSyKd-PsK8NsCpq1NHsJsrXSKq-7YCaf4MxIUaFXSZTE7ZNC0fPVqYH71jnyOU9FA_KJm0IC-x_Bs2g"
-            + "Ak3Eq1_6pZ_0VeYpczv82LACAUzi1vuU1gbbZLNHHl4DHwWb98eI1aCbWHNMux70Ba4aREOdKOWrxZ066W_NKUVtPY_njW66NvgBujxqHD2EQUc87KPAL6rYOH"
-            + "0hWWPEzencGdYj2w\", \"e\": \"AQAB\"}");
+    JSONObject token =
+        new JSONObject(
+            "{\"kty\": \"RSA\", \"kid\": \"test_key\", \"n\": \"ueXyoaxgWhMTLwkowaskhiV85rbN9n_nLft8CxFUY3nbMpNybAWsWuhJ4SYLT4U-GbKdL-h-NYgBXKn"
+                + "GK1ieG6qSC25T3hWXTb3cNe73ZQUcZSivAV2tZouPYcb1XKSyKd-PsK8NsCpq1NHsJsrXSKq-7YCaf4MxIUaFXSZTE7ZNC0fPVqYH71jnyOU9FA_KJm0IC-x_Bs2g"
+                + "Ak3Eq1_6pZ_0VeYpczv82LACAUzi1vuU1gbbZLNHHl4DHwWb98eI1aCbWHNMux70Ba4aREOdKOWrxZ066W_NKUVtPY_njW66NvgBujxqHD2EQUc87KPAL6rYOH"
+                + "0hWWPEzencGdYj2w\", \"e\": \"AQAB\"}");
     PublicKey expectedKey = getPublicKey(token);
 
     String responseJson =
@@ -69,11 +68,14 @@ public class DataHubJwtSigningKeyResolverTest {
             + "KUVtPY_njW66NvgBujxqHD2EQUc87KPAL6rYOH0hWWPEzencGdYj2w\", \"e\": \"AQAB\"}]}";
     Mockito.when(httpResponse.body()).thenReturn(responseJson);
 
-    Mockito.when(httpClient.send(Mockito.any(HttpRequest.class), Mockito.any(HttpResponse.BodyHandler.class)))
+    Mockito.when(
+            httpClient.send(
+                Mockito.any(HttpRequest.class), Mockito.any(HttpResponse.BodyHandler.class)))
         .thenReturn(httpResponse);
     HashSet<String> trustedIssuers = new HashSet<>();
     trustedIssuers.add("https://example.com");
-    DataHubJwtSigningKeyResolver resolver = new DataHubJwtSigningKeyResolver(trustedIssuers, null, "RSA");
+    DataHubJwtSigningKeyResolver resolver =
+        new DataHubJwtSigningKeyResolver(trustedIssuers, null, "RSA");
     resolver.client = httpClient;
     JwsHeader mockJwsHeader = Mockito.mock(JwsHeader.class);
     Mockito.when(mockJwsHeader.getKeyId()).thenReturn("test_key");
@@ -88,7 +90,8 @@ public class DataHubJwtSigningKeyResolverTest {
   void testInvalidIssuer() throws Exception {
 
     HashSet<String> trustedIssuers = new HashSet<>();
-    DataHubJwtSigningKeyResolver resolver = new DataHubJwtSigningKeyResolver(trustedIssuers, null, "RSA");
+    DataHubJwtSigningKeyResolver resolver =
+        new DataHubJwtSigningKeyResolver(trustedIssuers, null, "RSA");
     JwsHeader mockJwsHeader = Mockito.mock(JwsHeader.class);
     Claims mockClaims = Mockito.mock(Claims.class);
     resolver.resolveSigningKey(mockJwsHeader, mockClaims);
@@ -120,8 +123,10 @@ public class DataHubJwtSigningKeyResolverTest {
     if (token.get("kty").toString().equals("RSA")) {
       try {
         KeyFactory kf = KeyFactory.getInstance("RSA");
-        BigInteger modulus = new BigInteger(1, Base64.getUrlDecoder().decode(token.get("n").toString()));
-        BigInteger exponent = new BigInteger(1, Base64.getUrlDecoder().decode(token.get("e").toString()));
+        BigInteger modulus =
+            new BigInteger(1, Base64.getUrlDecoder().decode(token.get("n").toString()));
+        BigInteger exponent =
+            new BigInteger(1, Base64.getUrlDecoder().decode(token.get("e").toString()));
         publicKey = kf.generatePublic(new RSAPublicKeySpec(modulus, exponent));
       } catch (InvalidKeySpecException e) {
         throw new InvalidKeySpecException("Invalid public key", e);

@@ -17,10 +17,7 @@ import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.incident.IncidentInfo;
 import com.linkedin.metadata.Constants;
 
-
-/**
- * Maps a GMS {@link EntityResponse} to a GraphQL incident.
- */
+/** Maps a GMS {@link EntityResponse} to a GraphQL incident. */
 public class IncidentMapper {
 
   public static Incident map(final EntityResponse entityResponse) {
@@ -54,7 +51,8 @@ public class IncidentMapper {
     return result;
   }
 
-  private static IncidentStatus mapStatus(final com.linkedin.incident.IncidentStatus incidentStatus) {
+  private static IncidentStatus mapStatus(
+      final com.linkedin.incident.IncidentStatus incidentStatus) {
     final IncidentStatus result = new IncidentStatus();
     result.setState(IncidentState.valueOf(incidentStatus.getState().name()));
     result.setMessage(incidentStatus.getMessage(GetMode.NULL));
@@ -62,7 +60,8 @@ public class IncidentMapper {
     return result;
   }
 
-  private static IncidentSource mapIncidentSource(final com.linkedin.incident.IncidentSource incidentSource) {
+  private static IncidentSource mapIncidentSource(
+      final com.linkedin.incident.IncidentSource incidentSource) {
     final IncidentSource result = new IncidentSource();
     result.setType(IncidentSourceType.valueOf(incidentSource.getType().name()));
     if (incidentSource.hasSourceUrn()) {
@@ -71,6 +70,5 @@ public class IncidentMapper {
     return result;
   }
 
-  private IncidentMapper() {
-  }
+  private IncidentMapper() {}
 }

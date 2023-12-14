@@ -1,5 +1,12 @@
 package com.linkedin.datahub.graphql.types.dataproduct.mappers;
 
+import static com.linkedin.metadata.Constants.DATA_PRODUCT_PROPERTIES_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.DOMAINS_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.GLOBAL_TAGS_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.GLOSSARY_TERMS_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.INSTITUTIONAL_MEMORY_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.OWNERSHIP_ASPECT_NAME;
+
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.GlossaryTerms;
 import com.linkedin.common.InstitutionalMemory;
@@ -21,16 +28,7 @@ import com.linkedin.dataproduct.DataProductProperties;
 import com.linkedin.domain.Domains;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
-
 import javax.annotation.Nonnull;
-
-import static com.linkedin.metadata.Constants.DATA_PRODUCT_PROPERTIES_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.DOMAINS_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.GLOBAL_TAGS_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.GLOSSARY_TERMS_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.INSTITUTIONAL_MEMORY_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.OWNERSHIP_ASPECT_NAME;
-
 
 public class DataProductMapper implements ModelMapper<EntityResponse, DataProduct> {
 
@@ -50,27 +48,44 @@ public class DataProductMapper implements ModelMapper<EntityResponse, DataProduc
 
     EnvelopedAspectMap aspectMap = entityResponse.getAspects();
     MappingHelper<DataProduct> mappingHelper = new MappingHelper<>(aspectMap, result);
-    mappingHelper.mapToResult(DATA_PRODUCT_PROPERTIES_ASPECT_NAME, (dataProduct, dataMap) ->
-        mapDataProductProperties(dataProduct, dataMap, entityUrn));
-    mappingHelper.mapToResult(GLOBAL_TAGS_ASPECT_NAME, (dataProduct, dataMap) ->
-        dataProduct.setTags(GlobalTagsMapper.map(new GlobalTags(dataMap), entityUrn)));
-    mappingHelper.mapToResult(GLOSSARY_TERMS_ASPECT_NAME, (dataProduct, dataMap) ->
-        dataProduct.setGlossaryTerms(GlossaryTermsMapper.map(new GlossaryTerms(dataMap), entityUrn)));
-    mappingHelper.mapToResult(DOMAINS_ASPECT_NAME, (dataProduct, dataMap) ->
-        dataProduct.setDomain(DomainAssociationMapper.map(new Domains(dataMap), dataProduct.getUrn())));
-    mappingHelper.mapToResult(OWNERSHIP_ASPECT_NAME, (dataProduct, dataMap) ->
-        dataProduct.setOwnership(OwnershipMapper.map(new Ownership(dataMap), entityUrn)));
-    mappingHelper.mapToResult(INSTITUTIONAL_MEMORY_ASPECT_NAME, (dataProduct, dataMap) ->
-        dataProduct.setInstitutionalMemory(InstitutionalMemoryMapper.map(new InstitutionalMemory(dataMap), entityUrn)));
+    mappingHelper.mapToResult(
+        DATA_PRODUCT_PROPERTIES_ASPECT_NAME,
+        (dataProduct, dataMap) -> mapDataProductProperties(dataProduct, dataMap, entityUrn));
+    mappingHelper.mapToResult(
+        GLOBAL_TAGS_ASPECT_NAME,
+        (dataProduct, dataMap) ->
+            dataProduct.setTags(GlobalTagsMapper.map(new GlobalTags(dataMap), entityUrn)));
+    mappingHelper.mapToResult(
+        GLOSSARY_TERMS_ASPECT_NAME,
+        (dataProduct, dataMap) ->
+            dataProduct.setGlossaryTerms(
+                GlossaryTermsMapper.map(new GlossaryTerms(dataMap), entityUrn)));
+    mappingHelper.mapToResult(
+        DOMAINS_ASPECT_NAME,
+        (dataProduct, dataMap) ->
+            dataProduct.setDomain(
+                DomainAssociationMapper.map(new Domains(dataMap), dataProduct.getUrn())));
+    mappingHelper.mapToResult(
+        OWNERSHIP_ASPECT_NAME,
+        (dataProduct, dataMap) ->
+            dataProduct.setOwnership(OwnershipMapper.map(new Ownership(dataMap), entityUrn)));
+    mappingHelper.mapToResult(
+        INSTITUTIONAL_MEMORY_ASPECT_NAME,
+        (dataProduct, dataMap) ->
+            dataProduct.setInstitutionalMemory(
+                InstitutionalMemoryMapper.map(new InstitutionalMemory(dataMap), entityUrn)));
 
     return result;
   }
 
-  private void mapDataProductProperties(@Nonnull DataProduct dataProduct, @Nonnull DataMap dataMap, @Nonnull Urn urn) {
+  private void mapDataProductProperties(
+      @Nonnull DataProduct dataProduct, @Nonnull DataMap dataMap, @Nonnull Urn urn) {
     DataProductProperties dataProductProperties = new DataProductProperties(dataMap);
-    com.linkedin.datahub.graphql.generated.DataProductProperties properties = new com.linkedin.datahub.graphql.generated.DataProductProperties();
+    com.linkedin.datahub.graphql.generated.DataProductProperties properties =
+        new com.linkedin.datahub.graphql.generated.DataProductProperties();
 
-    final String name = dataProductProperties.hasName() ? dataProductProperties.getName() : urn.getId();
+    final String name =
+        dataProductProperties.hasName() ? dataProductProperties.getName() : urn.getId();
     properties.setName(name);
     properties.setDescription(dataProductProperties.getDescription());
     if (dataProductProperties.hasExternalUrl()) {
@@ -81,7 +96,9 @@ public class DataProductMapper implements ModelMapper<EntityResponse, DataProduc
     } else {
       properties.setNumAssets(0);
     }
-    properties.setCustomProperties(CustomPropertiesMapper.map(dataProductProperties.getCustomProperties(), UrnUtils.getUrn(dataProduct.getUrn())));
+    properties.setCustomProperties(
+        CustomPropertiesMapper.map(
+            dataProductProperties.getCustomProperties(), UrnUtils.getUrn(dataProduct.getUrn())));
 
     dataProduct.setProperties(properties);
   }

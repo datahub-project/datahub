@@ -1,5 +1,9 @@
 package com.linkedin.datahub.graphql.resolvers.proposal;
 
+import static com.linkedin.datahub.graphql.TestUtils.*;
+import static org.mockito.Mockito.*;
+import static org.testng.Assert.*;
+
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.proposal.ProposalService;
 import com.datahub.plugins.auth.authorization.Authorizer;
@@ -9,18 +13,16 @@ import graphql.schema.DataFetchingEnvironment;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import static com.linkedin.datahub.graphql.TestUtils.*;
-import static org.mockito.Mockito.*;
-import static org.testng.Assert.*;
-
-
 public class ProposeUpdateDescriptionResolverTest {
   private static final String ACTOR_URN_STRING = "urn:li:corpuser:test";
   private static final String UNSUPPORTED_ENTITY_URN_STRING = "urn:li:chart:(looker,baz1)";
 
-  private static final String GLOSSARY_NODE_URN_STRING = "urn:li:glossaryNode:12372c2ec7754c308993202dc44f548b";
-  private static final String GLOSSARY_TERM_URN_STRING = "urn:li:glossaryTerm:12372c2ec7754c308993202dc44f548b";
-  private static final String DATASET_URN_STRING = "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-project.my-dataset.user-table,PROD)";
+  private static final String GLOSSARY_NODE_URN_STRING =
+      "urn:li:glossaryNode:12372c2ec7754c308993202dc44f548b";
+  private static final String GLOSSARY_TERM_URN_STRING =
+      "urn:li:glossaryTerm:12372c2ec7754c308993202dc44f548b";
+  private static final String DATASET_URN_STRING =
+      "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-project.my-dataset.user-table,PROD)";
   private static final String DESCRIPTION = "description";
 
   private ProposalService _proposalService;
@@ -69,7 +71,9 @@ public class ProposeUpdateDescriptionResolverTest {
     input.setDescription(DESCRIPTION);
     input.setResourceUrn(GLOSSARY_NODE_URN_STRING);
     when(_dataFetchingEnvironment.getArgument(eq("input"))).thenReturn(input);
-    when(_proposalService.proposeUpdateResourceDescription(any(), any(), any(), any(Authorizer.class))).thenReturn(true);
+    when(_proposalService.proposeUpdateResourceDescription(
+            any(), any(), any(), any(Authorizer.class)))
+        .thenReturn(true);
 
     assertTrue(_resolver.get(_dataFetchingEnvironment).join());
   }
@@ -84,7 +88,9 @@ public class ProposeUpdateDescriptionResolverTest {
     input.setDescription(DESCRIPTION);
     input.setResourceUrn(GLOSSARY_TERM_URN_STRING);
     when(_dataFetchingEnvironment.getArgument(eq("input"))).thenReturn(input);
-    when(_proposalService.proposeUpdateResourceDescription(any(), any(), any(), any(Authorizer.class))).thenReturn(true);
+    when(_proposalService.proposeUpdateResourceDescription(
+            any(), any(), any(), any(Authorizer.class)))
+        .thenReturn(true);
 
     assertTrue(_resolver.get(_dataFetchingEnvironment).join());
   }
@@ -99,7 +105,9 @@ public class ProposeUpdateDescriptionResolverTest {
     input.setDescription(DESCRIPTION);
     input.setResourceUrn(DATASET_URN_STRING);
     when(_dataFetchingEnvironment.getArgument(eq("input"))).thenReturn(input);
-    when(_proposalService.proposeUpdateResourceDescription(any(), any(), any(), any(Authorizer.class))).thenReturn(true);
+    when(_proposalService.proposeUpdateResourceDescription(
+            any(), any(), any(), any(Authorizer.class)))
+        .thenReturn(true);
 
     assertTrue(_resolver.get(_dataFetchingEnvironment).join());
   }

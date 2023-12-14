@@ -1,5 +1,9 @@
 package com.datahub.authentication.authenticator;
 
+import static com.datahub.authentication.AuthenticationConstants.*;
+import static com.datahub.authentication.authenticator.DataHubTokenAuthenticator.*;
+import static org.testng.Assert.*;
+
 import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationException;
@@ -17,11 +21,6 @@ import java.util.UUID;
 import javax.crypto.spec.SecretKeySpec;
 import org.testng.annotations.Test;
 
-import static com.datahub.authentication.AuthenticationConstants.*;
-import static com.datahub.authentication.authenticator.DataHubTokenAuthenticator.*;
-import static org.testng.Assert.*;
-
-
 public class LegacyTokenAuthenticatorTest {
 
   private static final String TEST_SIGNING_KEY = "WnEdIeTG/VVCLQqGwC/BAkqyY0k+H8NEAtWGejrBI94=";
@@ -35,7 +34,8 @@ public class LegacyTokenAuthenticatorTest {
     assertThrows(() -> authenticator.init(Collections.emptyMap(), authenticatorContext));
 
     // Correct configs provided.
-    authenticator.init(ImmutableMap.of(SIGNING_KEY_CONFIG_NAME, TEST_SIGNING_KEY), authenticatorContext);
+    authenticator.init(
+        ImmutableMap.of(SIGNING_KEY_CONFIG_NAME, TEST_SIGNING_KEY), authenticatorContext);
   }
 
   @Test
@@ -43,7 +43,8 @@ public class LegacyTokenAuthenticatorTest {
     final LegacyTokenAuthenticator authenticator = new LegacyTokenAuthenticator();
     final AuthenticatorContext authenticatorContext =
         new AuthenticatorContext(Collections.emptyMap());
-    authenticator.init(ImmutableMap.of(SIGNING_KEY_CONFIG_NAME, TEST_SIGNING_KEY), authenticatorContext);
+    authenticator.init(
+        ImmutableMap.of(SIGNING_KEY_CONFIG_NAME, TEST_SIGNING_KEY), authenticatorContext);
 
     final AuthenticationRequest request = new AuthenticationRequest(Collections.emptyMap());
     assertThrows(AuthenticationException.class, () -> authenticator.authenticate(request));
@@ -54,11 +55,12 @@ public class LegacyTokenAuthenticatorTest {
     final LegacyTokenAuthenticator authenticator = new LegacyTokenAuthenticator();
     final AuthenticatorContext authenticatorContext =
         new AuthenticatorContext(Collections.emptyMap());
-    authenticator.init(ImmutableMap.of(SIGNING_KEY_CONFIG_NAME, TEST_SIGNING_KEY), authenticatorContext);
+    authenticator.init(
+        ImmutableMap.of(SIGNING_KEY_CONFIG_NAME, TEST_SIGNING_KEY), authenticatorContext);
 
-    final AuthenticationRequest request = new AuthenticationRequest(
-        ImmutableMap.of(AUTHORIZATION_HEADER_NAME, "Basic username:password")
-    );
+    final AuthenticationRequest request =
+        new AuthenticationRequest(
+            ImmutableMap.of(AUTHORIZATION_HEADER_NAME, "Basic username:password"));
     assertThrows(AuthenticationException.class, () -> authenticator.authenticate(request));
   }
 
@@ -67,11 +69,12 @@ public class LegacyTokenAuthenticatorTest {
     final LegacyTokenAuthenticator authenticator = new LegacyTokenAuthenticator();
     final AuthenticatorContext authenticatorContext =
         new AuthenticatorContext(Collections.emptyMap());
-    authenticator.init(ImmutableMap.of(SIGNING_KEY_CONFIG_NAME, TEST_SIGNING_KEY), authenticatorContext);
+    authenticator.init(
+        ImmutableMap.of(SIGNING_KEY_CONFIG_NAME, TEST_SIGNING_KEY), authenticatorContext);
 
-    final AuthenticationRequest request = new AuthenticationRequest(
-        ImmutableMap.of(AUTHORIZATION_HEADER_NAME, "Bearer someRandomToken")
-    );
+    final AuthenticationRequest request =
+        new AuthenticationRequest(
+            ImmutableMap.of(AUTHORIZATION_HEADER_NAME, "Bearer someRandomToken"));
     assertThrows(AuthenticationException.class, () -> authenticator.authenticate(request));
   }
 
@@ -80,21 +83,24 @@ public class LegacyTokenAuthenticatorTest {
     final LegacyTokenAuthenticator authenticator = new LegacyTokenAuthenticator();
     final AuthenticatorContext authenticatorContext =
         new AuthenticatorContext(Collections.emptyMap());
-    authenticator.init(ImmutableMap.of(SIGNING_KEY_CONFIG_NAME, TEST_SIGNING_KEY), authenticatorContext);
+    authenticator.init(
+        ImmutableMap.of(SIGNING_KEY_CONFIG_NAME, TEST_SIGNING_KEY), authenticatorContext);
 
-    final JwtBuilder builder = Jwts.builder()
-        .setIssuer("admin.acryl.io")
-        .setExpiration(new Date(System.currentTimeMillis() + 10000))
-        .setId(UUID.randomUUID().toString())
-        .setSubject("organization");
-    byte [] apiKeySecretBytes = TEST_SIGNING_KEY.getBytes(StandardCharsets.UTF_8);
-    final Key signingKey = new SecretKeySpec(apiKeySecretBytes, SignatureAlgorithm.HS256.getJcaName());
+    final JwtBuilder builder =
+        Jwts.builder()
+            .setIssuer("admin.acryl.io")
+            .setExpiration(new Date(System.currentTimeMillis() + 10000))
+            .setId(UUID.randomUUID().toString())
+            .setSubject("organization");
+    byte[] apiKeySecretBytes = TEST_SIGNING_KEY.getBytes(StandardCharsets.UTF_8);
+    final Key signingKey =
+        new SecretKeySpec(apiKeySecretBytes, SignatureAlgorithm.HS256.getJcaName());
     final String validToken = builder.signWith(signingKey, SignatureAlgorithm.HS256).compact();
 
     final String authorizationHeaderValue = String.format("Bearer %s", validToken);
-    final AuthenticationRequest request = new AuthenticationRequest(
-        ImmutableMap.of(AUTHORIZATION_HEADER_NAME, authorizationHeaderValue)
-    );
+    final AuthenticationRequest request =
+        new AuthenticationRequest(
+            ImmutableMap.of(AUTHORIZATION_HEADER_NAME, authorizationHeaderValue));
 
     final Authentication authentication = authenticator.authenticate(request);
 

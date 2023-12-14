@@ -9,21 +9,20 @@ import com.linkedin.metadata.search.EntitySearchService;
 import java.util.ArrayList;
 import java.util.List;
 
-
 /**
- * This job propagates the terms of a predefined set of datasets to all other datasets which have similar schema to the
- * source dataset
+ * This job propagates the terms of a predefined set of datasets to all other datasets which have
+ * similar schema to the source dataset
  */
 public class PropagateTerms implements Upgrade {
 
   public static final String ELASTIC_TIMEOUT_ENV_NAME = "PROPAGATE_TERMS_ELASTIC_TIMEOUT";
-  public static final String ELASTIC_TIMEOUT = System.getenv()
-      .getOrDefault(ELASTIC_TIMEOUT_ENV_NAME,
-          "5m");
+  public static final String ELASTIC_TIMEOUT =
+      System.getenv().getOrDefault(ELASTIC_TIMEOUT_ENV_NAME, "5m");
 
   private final List<UpgradeStep> _steps;
 
-  public PropagateTerms(final EntityService entityService, final EntitySearchService entitySearchService) {
+  public PropagateTerms(
+      final EntityService entityService, final EntitySearchService entitySearchService) {
     _steps = buildSteps(entityService, entitySearchService);
   }
 
@@ -37,8 +36,8 @@ public class PropagateTerms implements Upgrade {
     return _steps;
   }
 
-  private List<UpgradeStep> buildSteps(final EntityService entityService,
-      final EntitySearchService entitySearchService) {
+  private List<UpgradeStep> buildSteps(
+      final EntityService entityService, final EntitySearchService entitySearchService) {
     final List<UpgradeStep> steps = new ArrayList<>();
     steps.add(new PropagateTermsStep(entityService, entitySearchService));
     return steps;
@@ -49,4 +48,3 @@ public class PropagateTerms implements Upgrade {
     return ImmutableList.of();
   }
 }
-

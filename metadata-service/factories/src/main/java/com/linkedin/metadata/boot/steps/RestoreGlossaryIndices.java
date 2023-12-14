@@ -16,7 +16,6 @@ import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchResult;
-
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -29,7 +28,6 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
-
 @Slf4j
 public class RestoreGlossaryIndices extends UpgradeStep {
   private static final String VERSION = "1";
@@ -39,7 +37,9 @@ public class RestoreGlossaryIndices extends UpgradeStep {
   private final EntitySearchService _entitySearchService;
   private final EntityRegistry _entityRegistry;
 
-  public RestoreGlossaryIndices(EntityService entityService, EntitySearchService entitySearchService,
+  public RestoreGlossaryIndices(
+      EntityService entityService,
+      EntitySearchService entitySearchService,
       EntityRegistry entityRegistry) {
     super(entityService, VERSION, UPGRADE_ID);
     _entitySearchService = entitySearchService;
@@ -48,12 +48,18 @@ public class RestoreGlossaryIndices extends UpgradeStep {
 
   @Override
   public void upgrade() throws Exception {
-    final AspectSpec termAspectSpec = _entityRegistry.getEntitySpec(Constants.GLOSSARY_TERM_ENTITY_NAME)
-        .getAspectSpec(Constants.GLOSSARY_TERM_INFO_ASPECT_NAME);
-    final AspectSpec nodeAspectSpec = _entityRegistry.getEntitySpec(Constants.GLOSSARY_NODE_ENTITY_NAME)
-        .getAspectSpec(Constants.GLOSSARY_NODE_INFO_ASPECT_NAME);
+    final AspectSpec termAspectSpec =
+        _entityRegistry
+            .getEntitySpec(Constants.GLOSSARY_TERM_ENTITY_NAME)
+            .getAspectSpec(Constants.GLOSSARY_TERM_INFO_ASPECT_NAME);
+    final AspectSpec nodeAspectSpec =
+        _entityRegistry
+            .getEntitySpec(Constants.GLOSSARY_NODE_ENTITY_NAME)
+            .getAspectSpec(Constants.GLOSSARY_NODE_INFO_ASPECT_NAME);
     final AuditStamp auditStamp =
-        new AuditStamp().setActor(Urn.createFromString(Constants.SYSTEM_ACTOR)).setTime(System.currentTimeMillis());
+        new AuditStamp()
+            .setActor(Urn.createFromString(Constants.SYSTEM_ACTOR))
+            .setTime(System.currentTimeMillis());
 
     final int totalTermsCount = getAndRestoreTermAspectIndices(0, auditStamp, termAspectSpec);
     int termsCount = BATCH_SIZE;
@@ -76,20 +82,29 @@ public class RestoreGlossaryIndices extends UpgradeStep {
     return ExecutionMode.ASYNC;
   }
 
-  private int getAndRestoreTermAspectIndices(int start, AuditStamp auditStamp, AspectSpec termAspectSpec)
-      throws Exception {
+  private int getAndRestoreTermAspectIndices(
+      int start, AuditStamp auditStamp, AspectSpec termAspectSpec) throws Exception {
     SearchResult termsResult =
-        _entitySearchService.search(List.of(Constants.GLOSSARY_TERM_ENTITY_NAME), "", null,
-                null, start, BATCH_SIZE, new SearchFlags().setFulltext(false)
-                        .setSkipAggregates(true).setSkipHighlighting(true));
-    List<Urn> termUrns = termsResult.getEntities().stream().map(SearchEntity::getEntity).collect(Collectors.toList());
+        _entitySearchService.search(
+            List.of(Constants.GLOSSARY_TERM_ENTITY_NAME),
+            "",
+            null,
+            null,
+            start,
+            BATCH_SIZE,
+            new SearchFlags().setFulltext(false).setSkipAggregates(true).setSkipHighlighting(true));
+    List<Urn> termUrns =
+        termsResult.getEntities().stream()
+            .map(SearchEntity::getEntity)
+            .collect(Collectors.toList());
     if (termUrns.size() == 0) {
       return 0;
     }
     final Map<Urn, EntityResponse> termInfoResponses =
-        _entityService.getEntitiesV2(Constants.GLOSSARY_TERM_ENTITY_NAME, new HashSet<>(termUrns),
-        Collections.singleton(Constants.GLOSSARY_TERM_INFO_ASPECT_NAME)
-    );
+        _entityService.getEntitiesV2(
+            Constants.GLOSSARY_TERM_ENTITY_NAME,
+            new HashSet<>(termUrns),
+            Collections.singleton(Constants.GLOSSARY_TERM_INFO_ASPECT_NAME));
 
     //  Loop over Terms and produce changelog
     List<Future<?>> futures = new LinkedList<>();
@@ -105,43 +120,59 @@ public class RestoreGlossaryIndices extends UpgradeStep {
         continue;
       }
 
-      futures.add(_entityService.alwaysProduceMCLAsync(
-          termUrn,
-          Constants.GLOSSARY_TERM_ENTITY_NAME,
-          Constants.GLOSSARY_TERM_INFO_ASPECT_NAME,
-          termAspectSpec,
-          null,
-          termInfo,
-          null,
-          null,
-          auditStamp,
-          ChangeType.RESTATE).getFirst());
+      futures.add(
+          _entityService
+              .alwaysProduceMCLAsync(
+                  termUrn,
+                  Constants.GLOSSARY_TERM_ENTITY_NAME,
+                  Constants.GLOSSARY_TERM_INFO_ASPECT_NAME,
+                  termAspectSpec,
+                  null,
+                  termInfo,
+                  null,
+                  null,
+                  auditStamp,
+                  ChangeType.RESTATE)
+              .getFirst());
     }
 
-    futures.stream().filter(Objects::nonNull).forEach(f -> {
-      try {
-        f.get();
-      } catch (InterruptedException | ExecutionException e) {
-        throw new RuntimeException(e);
-      }
-    });
+    futures.stream()
+        .filter(Objects::nonNull)
+        .forEach(
+            f -> {
+              try {
+                f.get();
+              } catch (InterruptedException | ExecutionException e) {
+                throw new RuntimeException(e);
+              }
+            });
 
     return termsResult.getNumEntities();
   }
 
-  private int getAndRestoreNodeAspectIndices(int start, AuditStamp auditStamp, AspectSpec nodeAspectSpec) throws Exception {
-    SearchResult nodesResult = _entitySearchService.search(List.of(Constants.GLOSSARY_NODE_ENTITY_NAME), "",
-            null, null, start, BATCH_SIZE,  new SearchFlags().setFulltext(false)
-                    .setSkipAggregates(true).setSkipHighlighting(true));
-    List<Urn> nodeUrns = nodesResult.getEntities().stream().map(SearchEntity::getEntity).collect(Collectors.toList());
+  private int getAndRestoreNodeAspectIndices(
+      int start, AuditStamp auditStamp, AspectSpec nodeAspectSpec) throws Exception {
+    SearchResult nodesResult =
+        _entitySearchService.search(
+            List.of(Constants.GLOSSARY_NODE_ENTITY_NAME),
+            "",
+            null,
+            null,
+            start,
+            BATCH_SIZE,
+            new SearchFlags().setFulltext(false).setSkipAggregates(true).setSkipHighlighting(true));
+    List<Urn> nodeUrns =
+        nodesResult.getEntities().stream()
+            .map(SearchEntity::getEntity)
+            .collect(Collectors.toList());
     if (nodeUrns.size() == 0) {
       return 0;
     }
-    final Map<Urn, EntityResponse> nodeInfoResponses = _entityService.getEntitiesV2(
-        Constants.GLOSSARY_NODE_ENTITY_NAME,
-        new HashSet<>(nodeUrns),
-        Collections.singleton(Constants.GLOSSARY_NODE_INFO_ASPECT_NAME)
-    );
+    final Map<Urn, EntityResponse> nodeInfoResponses =
+        _entityService.getEntitiesV2(
+            Constants.GLOSSARY_NODE_ENTITY_NAME,
+            new HashSet<>(nodeUrns),
+            Collections.singleton(Constants.GLOSSARY_NODE_INFO_ASPECT_NAME));
 
     //  Loop over Nodes and produce changelog
     List<Future<?>> futures = new LinkedList<>();
@@ -157,26 +188,32 @@ public class RestoreGlossaryIndices extends UpgradeStep {
         continue;
       }
 
-      futures.add(_entityService.alwaysProduceMCLAsync(
-          nodeUrn,
-          Constants.GLOSSARY_NODE_ENTITY_NAME,
-          Constants.GLOSSARY_NODE_INFO_ASPECT_NAME,
-          nodeAspectSpec,
-          null,
-          nodeInfo,
-          null,
-          null,
-          auditStamp,
-          ChangeType.RESTATE).getFirst());
+      futures.add(
+          _entityService
+              .alwaysProduceMCLAsync(
+                  nodeUrn,
+                  Constants.GLOSSARY_NODE_ENTITY_NAME,
+                  Constants.GLOSSARY_NODE_INFO_ASPECT_NAME,
+                  nodeAspectSpec,
+                  null,
+                  nodeInfo,
+                  null,
+                  null,
+                  auditStamp,
+                  ChangeType.RESTATE)
+              .getFirst());
     }
 
-    futures.stream().filter(Objects::nonNull).forEach(f -> {
-      try {
-        f.get();
-      } catch (InterruptedException | ExecutionException e) {
-        throw new RuntimeException(e);
-      }
-    });
+    futures.stream()
+        .filter(Objects::nonNull)
+        .forEach(
+            f -> {
+              try {
+                f.get();
+              } catch (InterruptedException | ExecutionException e) {
+                throw new RuntimeException(e);
+              }
+            });
 
     return nodesResult.getNumEntities();
   }
@@ -187,7 +224,8 @@ public class RestoreGlossaryIndices extends UpgradeStep {
       return null;
     }
 
-    return new GlossaryTermInfo(aspectMap.get(Constants.GLOSSARY_TERM_INFO_ASPECT_NAME).getValue().data());
+    return new GlossaryTermInfo(
+        aspectMap.get(Constants.GLOSSARY_TERM_INFO_ASPECT_NAME).getValue().data());
   }
 
   private GlossaryNodeInfo mapNodeInfo(EntityResponse entityResponse) {
@@ -196,6 +234,7 @@ public class RestoreGlossaryIndices extends UpgradeStep {
       return null;
     }
 
-    return new GlossaryNodeInfo(aspectMap.get(Constants.GLOSSARY_NODE_INFO_ASPECT_NAME).getValue().data());
+    return new GlossaryNodeInfo(
+        aspectMap.get(Constants.GLOSSARY_NODE_INFO_ASPECT_NAME).getValue().data());
   }
 }

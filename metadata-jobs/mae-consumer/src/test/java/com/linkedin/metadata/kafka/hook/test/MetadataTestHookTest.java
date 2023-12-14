@@ -1,5 +1,8 @@
 package com.linkedin.metadata.kafka.hook.test;
 
+import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.kafka.hook.EntityRegistryTestUtil.ENTITY_REGISTRY;
+
 import com.datahub.authentication.Authentication;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringMap;
@@ -17,12 +20,7 @@ import com.linkedin.test.TestResults;
 import java.util.concurrent.TimeUnit;
 import org.mockito.Mockito;
 import org.testng.annotations.BeforeMethod;
-
 import org.testng.annotations.Test;
-
-import static com.linkedin.metadata.Constants.*;
-import static com.linkedin.metadata.kafka.hook.EntityRegistryTestUtil.ENTITY_REGISTRY;
-
 
 public class MetadataTestHookTest {
   private MetadataTestClient _mockTestClient;
@@ -32,7 +30,9 @@ public class MetadataTestHookTest {
   public void setupTest() throws Exception {
     Authentication mockAuthentication = Mockito.mock(Authentication.class);
     _mockTestClient = initTestClientMock();
-    _metadataTestHook = new MetadataTestHook(ENTITY_REGISTRY, _mockTestClient, mockAuthentication, true, 1, TimeUnit.MILLISECONDS);
+    _metadataTestHook =
+        new MetadataTestHook(
+            ENTITY_REGISTRY, _mockTestClient, mockAuthentication, true, 1, TimeUnit.MILLISECONDS);
   }
 
   @Test
@@ -42,14 +42,17 @@ public class MetadataTestHookTest {
     event.setAspectName(INGESTION_INFO_ASPECT_NAME);
     event.setChangeType(ChangeType.UPSERT);
     final DataHubIngestionSourceInfo newInfo = new DataHubIngestionSourceInfo();
-    newInfo.setSchedule(new DataHubIngestionSourceSchedule().setInterval("0 1 1 * *").setTimezone("UTC")); // Run every monday
+    newInfo.setSchedule(
+        new DataHubIngestionSourceSchedule()
+            .setInterval("0 1 1 * *")
+            .setTimezone("UTC")); // Run every monday
     newInfo.setType("redshift");
     newInfo.setName("My Redshift Source");
-    newInfo.setConfig(new DataHubIngestionSourceConfig()
-        .setExecutorId("default")
-        .setRecipe("{ type }")
-        .setVersion("0.8.18")
-    );
+    newInfo.setConfig(
+        new DataHubIngestionSourceConfig()
+            .setExecutorId("default")
+            .setRecipe("{ type }")
+            .setVersion("0.8.18"));
     event.setAspect(GenericRecordUtils.serializeAspect(newInfo));
     event.setEntityUrn(Urn.createFromString("urn:li:dataHubIngestionSourceUrn:0"));
     _metadataTestHook.invoke(event);
@@ -58,7 +61,11 @@ public class MetadataTestHookTest {
     Thread.sleep(500); // Wait for async thread to execute
     // Ensure that we do not attempt to run tests
     Mockito.verify(_mockTestClient, Mockito.times(0))
-        .evaluate(Mockito.any(Urn.class), Mockito.anyList(), Mockito.anyBoolean(), Mockito.any(Authentication.class));
+        .evaluate(
+            Mockito.any(Urn.class),
+            Mockito.anyList(),
+            Mockito.anyBoolean(),
+            Mockito.any(Authentication.class));
   }
 
   @Test
@@ -76,11 +83,12 @@ public class MetadataTestHookTest {
     _metadataTestHook.cleanUpCache();
     Thread.sleep(500); // Wait for async thread to execute
     // Ensure that we do not attempt to run tests
-    Mockito.verify(_mockTestClient, Mockito.times(1)).evaluate(
-        Mockito.eq(event.getEntityUrn()),
-        Mockito.eq(null),
-        Mockito.eq(true),
-        Mockito.any(Authentication.class));
+    Mockito.verify(_mockTestClient, Mockito.times(1))
+        .evaluate(
+            Mockito.eq(event.getEntityUrn()),
+            Mockito.eq(null),
+            Mockito.eq(true),
+            Mockito.any(Authentication.class));
   }
 
   @Test
@@ -95,14 +103,17 @@ public class MetadataTestHookTest {
     event.setSystemMetadata(systemMetadata);
     properties.put(APP_SOURCE, METADATA_TESTS_SOURCE);
     final DataHubIngestionSourceInfo newInfo = new DataHubIngestionSourceInfo();
-    newInfo.setSchedule(new DataHubIngestionSourceSchedule().setInterval("0 1 1 * *").setTimezone("UTC")); // Run every monday
+    newInfo.setSchedule(
+        new DataHubIngestionSourceSchedule()
+            .setInterval("0 1 1 * *")
+            .setTimezone("UTC")); // Run every monday
     newInfo.setType("redshift");
     newInfo.setName("My Redshift Source");
-    newInfo.setConfig(new DataHubIngestionSourceConfig()
-        .setExecutorId("default")
-        .setRecipe("{ type }")
-        .setVersion("0.8.18")
-    );
+    newInfo.setConfig(
+        new DataHubIngestionSourceConfig()
+            .setExecutorId("default")
+            .setRecipe("{ type }")
+            .setVersion("0.8.18"));
     event.setAspect(GenericRecordUtils.serializeAspect(newInfo));
     event.setEntityUrn(Urn.createFromString("urn:li:dataHubIngestionSourceUrn:0"));
     _metadataTestHook.invoke(event);
@@ -111,17 +122,23 @@ public class MetadataTestHookTest {
     Thread.sleep(500); // Wait for async thread to execute
     // Ensure that we do not attempt to run tests
     Mockito.verify(_mockTestClient, Mockito.times(0))
-        .evaluate(Mockito.any(Urn.class), Mockito.anyList(), Mockito.anyBoolean(), Mockito.any(Authentication.class));
+        .evaluate(
+            Mockito.any(Urn.class),
+            Mockito.anyList(),
+            Mockito.anyBoolean(),
+            Mockito.any(Authentication.class));
   }
 
   private MetadataTestClient initTestClientMock() throws Exception {
     MetadataTestClient client = Mockito.mock(MetadataTestClient.class);
-    Mockito.when(client.evaluate(
-        Mockito.eq(Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:hive,test,PROD)")),
-        Mockito.eq(null),
-        Mockito.eq(true),
-        Mockito.any()
-    )).thenReturn(new TestResults());
+    Mockito.when(
+            client.evaluate(
+                Mockito.eq(
+                    Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:hive,test,PROD)")),
+                Mockito.eq(null),
+                Mockito.eq(true),
+                Mockito.any()))
+        .thenReturn(new TestResults());
     return client;
   }
 }

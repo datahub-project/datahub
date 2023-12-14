@@ -8,10 +8,7 @@ import com.linkedin.metadata.test.exception.InvalidOperandException;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 
-
-/**
- * Or operation evaluator. Checks whether any of input predicates returns true
- */
+/** Or operation evaluator. Checks whether any of input predicates returns true */
 @Slf4j
 public class OrEvaluator extends BaseOperatorEvaluator {
 
@@ -23,25 +20,23 @@ public class OrEvaluator extends BaseOperatorEvaluator {
   @Override
   public void validate(Operands operands) throws InvalidOperandException {
     // Only predicates can be considered truthy :(
-    if (!operands
-        .get()
-        .stream()
+    if (!operands.get().stream()
         .allMatch(operand -> BooleanType.get().equals(operand.getExpression().valueType()))) {
-      throw new InvalidOperandException(
-          "or operator requires boolean input operands");
+      throw new InvalidOperandException("or operator requires boolean input operands");
     }
   }
 
   @Override
   public Object evaluate(ResolvedOperands resolvedOperands) throws InvalidOperandException {
 
-    log.debug(String.format("Invoking 'or' operator with operands %s", resolvedOperands.get()
-        .stream()
-        .map(op -> op.getExpression().getValue())
-        .collect(Collectors.toList())));
+    log.debug(
+        String.format(
+            "Invoking 'or' operator with operands %s",
+            resolvedOperands.get().stream()
+                .map(op -> op.getExpression().getValue())
+                .collect(Collectors.toList())));
 
-    return resolvedOperands.get()
-        .stream()
+    return resolvedOperands.get().stream()
         .anyMatch(operand -> Boolean.TRUE.equals(operand.getExpression().getValue()));
   }
 }

@@ -1,5 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.monitor;
 
+import static com.linkedin.metadata.AcrylConstants.*;
+
 import com.datahub.authorization.ConjunctivePrivilegeGroup;
 import com.datahub.authorization.DisjunctivePrivilegeGroup;
 import com.google.common.collect.ImmutableList;
@@ -25,6 +27,7 @@ import com.linkedin.datahub.graphql.generated.FreshnessFieldSpecInput;
 import com.linkedin.datahub.graphql.generated.SystemMonitorType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.authorization.PoliciesConfig;
+import com.linkedin.metadata.key.MonitorKey;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.monitor.AssertionEvaluationParameters;
 import com.linkedin.monitor.AssertionEvaluationParametersType;
@@ -36,91 +39,96 @@ import com.linkedin.monitor.DatasetFreshnessAssertionParameters;
 import com.linkedin.monitor.DatasetFreshnessSourceType;
 import com.linkedin.monitor.DatasetVolumeAssertionParameters;
 import com.linkedin.monitor.DatasetVolumeSourceType;
-import com.linkedin.metadata.key.MonitorKey;
 import java.util.Optional;
 import java.util.Set;
 import javax.annotation.Nonnull;
 
-import static com.linkedin.metadata.AcrylConstants.*;
-
-
 public class MonitorUtils {
 
   // Entity types that have system monitors enabled.
-  public static final Set<String> ENTITY_TYPES_WITH_SYSTEM_MONITORS = ImmutableSet.of(
-      Constants.DATASET_ENTITY_NAME
-  );
+  public static final Set<String> ENTITY_TYPES_WITH_SYSTEM_MONITORS =
+      ImmutableSet.of(Constants.DATASET_ENTITY_NAME);
 
   /**
-   * Converts the URN for an entity and the type of a system monitor into a unique monitor urn, using a pre-defined
-   * convention.
+   * Converts the URN for an entity and the type of a system monitor into a unique monitor urn,
+   * using a pre-defined convention.
    *
-   * For each monitor, the Monitor Urn is composed of 2 parts: a) an entity urn, and b) a unique monitor id.
+   * <p>For each monitor, the Monitor Urn is composed of 2 parts: a) an entity urn, and b) a unique
+   * monitor id.
    *
-   * For system monitors, we simply use a reserved set of "system" ids for each system monitor type that is supported.
-   * For the full list, see {@link com.linkedin.metadata.AcrylConstants}.
+   * <p>For system monitors, we simply use a reserved set of "system" ids for each system monitor
+   * type that is supported. For the full list, see {@link com.linkedin.metadata.AcrylConstants}.
    */
-  public static Urn getMonitorUrnForSystemMonitorType(@Nonnull final Urn entityUrn, @Nonnull final SystemMonitorType type) {
+  public static Urn getMonitorUrnForSystemMonitorType(
+      @Nonnull final Urn entityUrn, @Nonnull final SystemMonitorType type) {
     final MonitorKey key = new MonitorKey();
     key.setEntity(entityUrn);
     key.setId(MonitorUtils.getIdForSystemMonitorType(type));
     return EntityKeyUtils.convertEntityKeyToUrn(key, Constants.MONITOR_ENTITY_NAME);
   }
 
-  /**
-   * Converts the system monitor type into a monitor id that is unique for the specified entity.
-   */
+  /** Converts the system monitor type into a monitor id that is unique for the specified entity. */
   public static String getIdForSystemMonitorType(@Nonnull final SystemMonitorType type) {
     switch (type) {
       case FRESHNESS:
         return FRESHNESS_SYSTEM_MONITOR_ID;
       default:
-        throw new IllegalArgumentException(String.format("Unrecognized SystemMonitorType %s provided!", type));
+        throw new IllegalArgumentException(
+            String.format("Unrecognized SystemMonitorType %s provided!", type));
     }
   }
 
   /**
    * Determine whether the current user is allowed to change an entity's monitors.
    *
-   * This is determined by either having the MANAGE_MONITORS platform privilege, to edit
-   * monitors for all assets, or the EDIT_MONITORs entity privilege for the target entity.
+   * <p>This is determined by either having the MANAGE_MONITORS platform privilege, to edit monitors
+   * for all assets, or the EDIT_MONITORs entity privilege for the target entity.
    */
   public static boolean isAuthorizedToUpdateEntityMonitors(
-      @Nonnull final Urn entityUrn,
-      @Nonnull final QueryContext context) {
+      @Nonnull final Urn entityUrn, @Nonnull final QueryContext context) {
     // For monitors, you must explicitly be granted the privilege to create them.
-    // The classic ALL ENTITY privilege will not get you access, because of their heightened sensitivity.
-    final DisjunctivePrivilegeGroup orPrivilegeGroups = new DisjunctivePrivilegeGroup(
-        ImmutableList.of(
-            new ConjunctivePrivilegeGroup(ImmutableList.of(PoliciesConfig.EDIT_ENTITY_MONITORS.getType()))));
-    return AuthorizationUtils.isAuthorized(context, Optional.empty(), PoliciesConfig.MANAGE_MONITORS)
+    // The classic ALL ENTITY privilege will not get you access, because of their heightened
+    // sensitivity.
+    final DisjunctivePrivilegeGroup orPrivilegeGroups =
+        new DisjunctivePrivilegeGroup(
+            ImmutableList.of(
+                new ConjunctivePrivilegeGroup(
+                    ImmutableList.of(PoliciesConfig.EDIT_ENTITY_MONITORS.getType()))));
+    return AuthorizationUtils.isAuthorized(
+            context, Optional.empty(), PoliciesConfig.MANAGE_MONITORS)
         || AuthorizationUtils.isAuthorized(
-        context.getAuthorizer(),
-        context.getActorUrn(),
-        entityUrn.getEntityType(),
-        entityUrn.toString(),
-        orPrivilegeGroups);
+            context.getAuthorizer(),
+            context.getActorUrn(),
+            entityUrn.getEntityType(),
+            entityUrn.toString(),
+            orPrivilegeGroups);
   }
 
   /**
-   * Determine whether the current user is allowed to update a SQL assertion monitor for a given entity.
+   * Determine whether the current user is allowed to update a SQL assertion monitor for a given
+   * entity.
    *
-   * SQL assertion monitors allow users to run arbitrary SQL, and are thus controlled more tightly than the other types
-   * of monitors.
+   * <p>SQL assertion monitors allow users to run arbitrary SQL, and are thus controlled more
+   * tightly than the other types of monitors.
    */
-  public static boolean isAuthorizedToUpdateSqlAssertionMonitors(@Nonnull final Urn entityUrn, @Nonnull final QueryContext context) {
+  public static boolean isAuthorizedToUpdateSqlAssertionMonitors(
+      @Nonnull final Urn entityUrn, @Nonnull final QueryContext context) {
     // For SQL assertion monitors, you must explicitly be granted the privilege to create them.
     // The classic ALL ENTITY privilege will not get you access.
-    final DisjunctivePrivilegeGroup orPrivilegeGroups = new DisjunctivePrivilegeGroup(ImmutableList.of(
-        new ConjunctivePrivilegeGroup(ImmutableList.of(PoliciesConfig.EDIT_ENTITY_SQL_ASSERTION_MONITORS.getType()))
-    ));
+    final DisjunctivePrivilegeGroup orPrivilegeGroups =
+        new DisjunctivePrivilegeGroup(
+            ImmutableList.of(
+                new ConjunctivePrivilegeGroup(
+                    ImmutableList.of(
+                        PoliciesConfig.EDIT_ENTITY_SQL_ASSERTION_MONITORS.getType()))));
     return AuthorizationUtils.isAuthorized(
-          context.getAuthorizer(),
-          context.getActorUrn(),
-          entityUrn.getEntityType(),
-          entityUrn.toString(),
-          orPrivilegeGroups)
-        || AuthorizationUtils.isAuthorized(context, Optional.empty(), PoliciesConfig.MANAGE_MONITORS);
+            context.getAuthorizer(),
+            context.getActorUrn(),
+            entityUrn.getEntityType(),
+            entityUrn.toString(),
+            orPrivilegeGroups)
+        || AuthorizationUtils.isAuthorized(
+            context, Optional.empty(), PoliciesConfig.MANAGE_MONITORS);
   }
 
   public static CronSchedule createCronSchedule(@Nonnull final CronScheduleInput input) {
@@ -130,13 +138,15 @@ public class MonitorUtils {
     return result;
   }
 
-  public static AssertionEvaluationParameters createAssertionEvaluationParameters(@Nonnull final AssertionEvaluationParametersInput input) {
+  public static AssertionEvaluationParameters createAssertionEvaluationParameters(
+      @Nonnull final AssertionEvaluationParametersInput input) {
     final AssertionEvaluationParameters result = new AssertionEvaluationParameters();
     result.setType(AssertionEvaluationParametersType.valueOf(input.getType().toString()));
 
     if (AssertionEvaluationParametersType.DATASET_FRESHNESS.equals(result.getType())) {
       if (input.getDatasetFreshnessParameters() != null) {
-        result.setDatasetFreshnessParameters(createDatasetFreshnessParameters(input.getDatasetFreshnessParameters()));
+        result.setDatasetFreshnessParameters(
+            createDatasetFreshnessParameters(input.getDatasetFreshnessParameters()));
       } else {
         throw new DataHubGraphQLException(
             "Invalid input. Dataset Freshness Parameters are required when type is DATASET_FRESHNESS.",
@@ -145,7 +155,8 @@ public class MonitorUtils {
     }
     if (AssertionEvaluationParametersType.DATASET_VOLUME.equals(result.getType())) {
       if (input.getDatasetVolumeParameters() != null) {
-        result.setDatasetVolumeParameters(createDatasetVolumeParameters(input.getDatasetVolumeParameters()));
+        result.setDatasetVolumeParameters(
+            createDatasetVolumeParameters(input.getDatasetVolumeParameters()));
       } else {
         throw new DataHubGraphQLException(
             "Invalid input. Dataset Volume Parameters are required when type is DATASET_VOLUME.",
@@ -154,7 +165,8 @@ public class MonitorUtils {
     }
     if (AssertionEvaluationParametersType.DATASET_FIELD.equals(result.getType())) {
       if (input.getDatasetFieldParameters() != null) {
-        result.setDatasetFieldParameters(createDatasetFieldParameters(input.getDatasetFieldParameters()));
+        result.setDatasetFieldParameters(
+            createDatasetFieldParameters(input.getDatasetFieldParameters()));
       } else {
         throw new DataHubGraphQLException(
             "Invalid input. Dataset Field Parameters are required when type is DATASET_FIELD.",
@@ -165,7 +177,8 @@ public class MonitorUtils {
     return result;
   }
 
-  public static DatasetFreshnessAssertionParameters createDatasetFreshnessParameters(@Nonnull final DatasetFreshnessAssertionParametersInput input) {
+  public static DatasetFreshnessAssertionParameters createDatasetFreshnessParameters(
+      @Nonnull final DatasetFreshnessAssertionParametersInput input) {
     final DatasetFreshnessAssertionParameters result = new DatasetFreshnessAssertionParameters();
     result.setSourceType(DatasetFreshnessSourceType.valueOf(input.getSourceType().toString()));
     if (DatasetFreshnessSourceType.AUDIT_LOG.equals(result.getSourceType())) {
@@ -192,15 +205,17 @@ public class MonitorUtils {
       }
     }
     return result;
-   }
+  }
 
-  public static DatasetVolumeAssertionParameters createDatasetVolumeParameters(@Nonnull final DatasetVolumeAssertionParametersInput input) {
+  public static DatasetVolumeAssertionParameters createDatasetVolumeParameters(
+      @Nonnull final DatasetVolumeAssertionParametersInput input) {
     final DatasetVolumeAssertionParameters result = new DatasetVolumeAssertionParameters();
     result.setSourceType(DatasetVolumeSourceType.valueOf(input.getSourceType().toString()));
     return result;
   }
 
-  public static DatasetFieldAssertionParameters createDatasetFieldParameters(@Nonnull final DatasetFieldAssertionParametersInput input) {
+  public static DatasetFieldAssertionParameters createDatasetFieldParameters(
+      @Nonnull final DatasetFieldAssertionParametersInput input) {
     final DatasetFieldAssertionParameters result = new DatasetFieldAssertionParameters();
     result.setSourceType(DatasetFieldAssertionSourceType.valueOf(input.getSourceType().toString()));
     if (DatasetFieldAssertionSourceType.CHANGED_ROWS_QUERY.equals(result.getSourceType())
@@ -221,24 +236,26 @@ public class MonitorUtils {
     return result;
   }
 
-  public static FreshnessFieldSpec createFreshnessFieldSpec(@Nonnull final FreshnessFieldSpecInput input) {
+  public static FreshnessFieldSpec createFreshnessFieldSpec(
+      @Nonnull final FreshnessFieldSpecInput input) {
     final FreshnessFieldSpec result = new FreshnessFieldSpec();
     result.setType(input.getType());
     result.setNativeType(input.getNativeType(), SetMode.IGNORE_NULL);
     result.setPath(input.getPath(), SetMode.IGNORE_NULL);
 
     if (input.getKind() != null) {
-        result.setKind(FreshnessFieldKind.valueOf(input.getKind().toString()));
+      result.setKind(FreshnessFieldKind.valueOf(input.getKind().toString()));
     } else {
-        throw new DataHubGraphQLException(
-            "Invalid input. Freshness Field Kind info is required if type Freshness source type is FIELD_VALUE.",
-            DataHubGraphQLErrorCode.BAD_REQUEST);
+      throw new DataHubGraphQLException(
+          "Invalid input. Freshness Field Kind info is required if type Freshness source type is FIELD_VALUE.",
+          DataHubGraphQLErrorCode.BAD_REQUEST);
     }
-  
+
     return result;
   }
 
-  public static DataHubOperationSpec createDataHubOperationSpec(@Nonnull final DataHubOperationSpecInput input) {
+  public static DataHubOperationSpec createDataHubOperationSpec(
+      @Nonnull final DataHubOperationSpecInput input) {
     final DataHubOperationSpec result = new DataHubOperationSpec();
     if (input.getOperationTypes() != null) {
       result.setOperationTypes(new StringArray(input.getOperationTypes()));
@@ -249,6 +266,5 @@ public class MonitorUtils {
     return result;
   }
 
-  private MonitorUtils() { }
-
+  private MonitorUtils() {}
 }

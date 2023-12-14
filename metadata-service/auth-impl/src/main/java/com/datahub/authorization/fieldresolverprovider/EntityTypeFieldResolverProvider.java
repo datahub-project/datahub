@@ -1,16 +1,13 @@
 package com.datahub.authorization.fieldresolverprovider;
 
-import com.datahub.authorization.FieldResolver;
 import com.datahub.authorization.EntityFieldType;
 import com.datahub.authorization.EntitySpec;
+import com.datahub.authorization.FieldResolver;
 import com.datastax.oss.driver.shaded.guava.common.collect.ImmutableList;
 import java.util.Collections;
 import java.util.List;
 
-
-/**
- * Provides field resolver for entity type given entitySpec
- */
+/** Provides field resolver for entity type given entitySpec */
 public class EntityTypeFieldResolverProvider implements EntityFieldResolverProvider {
 
   @Override

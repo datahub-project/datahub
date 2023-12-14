@@ -13,7 +13,6 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.PropertySource;
 import org.springframework.context.annotation.Scope;
 
-
 @Configuration
 @PropertySource(value = "classpath:/application.yml", factory = YamlPropertySourceFactory.class)
 public class SlackNotificationRecipientBuilderFactory {
@@ -33,6 +32,7 @@ public class SlackNotificationRecipientBuilderFactory {
   @Scope("singleton")
   @Nonnull
   protected SlackNotificationRecipientBuilder getInstance() {
-    return new SlackNotificationRecipientBuilder(this.settingsProvider, this.entityClient, this.systemAuthentication);
+    return new SlackNotificationRecipientBuilder(
+        this.settingsProvider, this.entityClient, this.systemAuthentication);
   }
 }

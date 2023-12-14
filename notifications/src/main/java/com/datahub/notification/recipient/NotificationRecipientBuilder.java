@@ -1,5 +1,7 @@
 package com.datahub.notification.recipient;
 
+import static com.linkedin.metadata.Constants.*;
+
 import com.datahub.authentication.Authentication;
 import com.datahub.notification.NotificationScenarioType;
 import com.datahub.notification.provider.SettingsProvider;
@@ -25,9 +27,6 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.metadata.Constants.*;
-
-
 @Slf4j
 public abstract class NotificationRecipientBuilder {
   final SettingsProvider _settingsProvider;
@@ -35,24 +34,24 @@ public abstract class NotificationRecipientBuilder {
   final Authentication _authentication;
   final Predicate<? super NotificationSettings> _predicate;
 
-  protected NotificationRecipientBuilder(@Nonnull final SettingsProvider settingsProvider,
+  protected NotificationRecipientBuilder(
+      @Nonnull final SettingsProvider settingsProvider,
       @Nonnull final EntityClient entityClient,
-      @Nonnull final Authentication authentication, @Nonnull final Predicate<? super NotificationSettings> predicate) {
+      @Nonnull final Authentication authentication,
+      @Nonnull final Predicate<? super NotificationSettings> predicate) {
     _settingsProvider = settingsProvider;
     _entityClient = entityClient;
     _authentication = authentication;
     _predicate = predicate;
   }
 
-  /**
-   * Builds a list of global recipients.
-   */
-  public abstract List<NotificationRecipient> buildGlobalRecipients(@Nonnull final NotificationScenarioType type);
+  /** Builds a list of global recipients. */
+  public abstract List<NotificationRecipient> buildGlobalRecipients(
+      @Nonnull final NotificationScenarioType type);
 
-  /**
-   * Builds a list of recipients based on subscriber information.
-   */
-  public List<NotificationRecipient> buildSubscriberRecipients(@Nonnull Map<Urn, SubscriptionInfo> subscriptions) {
+  /** Builds a list of recipients based on subscriber information. */
+  public List<NotificationRecipient> buildSubscriberRecipients(
+      @Nonnull Map<Urn, SubscriptionInfo> subscriptions) {
     final Map<Urn, SubscriptionInfo> userToSubscriptionMap = new HashMap<>();
     final Map<Urn, SubscriptionInfo> groupToSubscriptionMap = new HashMap<>();
     for (Map.Entry<Urn, SubscriptionInfo> entry : subscriptions.entrySet()) {
@@ -74,10 +73,14 @@ public abstract class NotificationRecipientBuilder {
     final Set<Urn> userUrns = new HashSet<>(userToSubscriptionMap.keySet());
     final Set<Urn> groupUrns = new HashSet<>(groupToSubscriptionMap.keySet());
 
-    final Map<Urn, NotificationSettings> userToNotificationSettings = getNotificationSettings(CORP_USER_ENTITY_NAME, userUrns);
-    final Map<Urn, NotificationSettings> groupToNotificationSettings = getNotificationSettings(CORP_GROUP_ENTITY_NAME, groupUrns);
-    final List<NotificationRecipient> userRecipients = buildUserSubscriberRecipients(userToSubscriptionMap, userToNotificationSettings);
-    final List<NotificationRecipient> groupRecipients = buildGroupSubscriberRecipients(groupToSubscriptionMap, groupToNotificationSettings);
+    final Map<Urn, NotificationSettings> userToNotificationSettings =
+        getNotificationSettings(CORP_USER_ENTITY_NAME, userUrns);
+    final Map<Urn, NotificationSettings> groupToNotificationSettings =
+        getNotificationSettings(CORP_GROUP_ENTITY_NAME, groupUrns);
+    final List<NotificationRecipient> userRecipients =
+        buildUserSubscriberRecipients(userToSubscriptionMap, userToNotificationSettings);
+    final List<NotificationRecipient> groupRecipients =
+        buildGroupSubscriberRecipients(groupToSubscriptionMap, groupToNotificationSettings);
 
     final List<NotificationRecipient> notificationRecipients =
         new ArrayList<>(userRecipients.size() + groupRecipients.size());
@@ -87,27 +90,33 @@ public abstract class NotificationRecipientBuilder {
     return notificationRecipients;
   }
 
-  public Map<Urn, NotificationSettings> getNotificationSettings(@Nonnull final String entityName, @Nonnull final Set<Urn> actorUrns) {
+  public Map<Urn, NotificationSettings> getNotificationSettings(
+      @Nonnull final String entityName, @Nonnull final Set<Urn> actorUrns) {
     Map<Urn, EntityResponse> notificationSettingsMap;
-    String aspectName = entityName.equals(CORP_USER_ENTITY_NAME) ? CORP_USER_SETTINGS_ASPECT_NAME : CORP_GROUP_SETTINGS_ASPECT_NAME;
+    String aspectName =
+        entityName.equals(CORP_USER_ENTITY_NAME)
+            ? CORP_USER_SETTINGS_ASPECT_NAME
+            : CORP_GROUP_SETTINGS_ASPECT_NAME;
     try {
-      notificationSettingsMap = Objects.requireNonNull(_entityClient.batchGetV2(entityName,
-          actorUrns,
-          ImmutableSet.of(aspectName),
-          _authentication));
+      notificationSettingsMap =
+          Objects.requireNonNull(
+              _entityClient.batchGetV2(
+                  entityName, actorUrns, ImmutableSet.of(aspectName), _authentication));
     } catch (Exception e) {
       log.error("Failed to fetch notification settings for actors {}", actorUrns, e);
       return Collections.emptyMap();
     }
 
-    return notificationSettingsMap
-        .entrySet()
-        .stream()
+    return notificationSettingsMap.entrySet().stream()
         .filter(entry -> entry.getValue().getAspects().containsKey(aspectName))
-        .collect(Collectors.toMap(entry -> entry.getKey(), entry -> mapToNotificationSettings(aspectName, entry.getValue())));
+        .collect(
+            Collectors.toMap(
+                entry -> entry.getKey(),
+                entry -> mapToNotificationSettings(aspectName, entry.getValue())));
   }
 
-  private NotificationSettings mapToNotificationSettings(@Nonnull final String aspectName, @Nonnull final EntityResponse entityResponse) {
+  private NotificationSettings mapToNotificationSettings(
+      @Nonnull final String aspectName, @Nonnull final EntityResponse entityResponse) {
     if (aspectName.equals(CORP_USER_SETTINGS_ASPECT_NAME)) {
       return mapUserToNotificationSettings(entityResponse);
     } else if (aspectName.equals(CORP_GROUP_SETTINGS_ASPECT_NAME)) {
@@ -116,16 +125,22 @@ public abstract class NotificationRecipientBuilder {
     return new NotificationSettings();
   }
 
-  private NotificationSettings mapUserToNotificationSettings(@Nonnull final EntityResponse entityResponse) {
-    CorpUserSettings corpUserSettings = new CorpUserSettings(entityResponse.getAspects().get(CORP_USER_SETTINGS_ASPECT_NAME).getValue().data());
+  private NotificationSettings mapUserToNotificationSettings(
+      @Nonnull final EntityResponse entityResponse) {
+    CorpUserSettings corpUserSettings =
+        new CorpUserSettings(
+            entityResponse.getAspects().get(CORP_USER_SETTINGS_ASPECT_NAME).getValue().data());
     if (corpUserSettings.hasNotificationSettings()) {
       return new NotificationSettings(corpUserSettings.getNotificationSettings().data());
     }
     return new NotificationSettings();
   }
 
-  private NotificationSettings mapGroupToNotificationSettings(@Nonnull final EntityResponse entityResponse) {
-    CorpGroupSettings corpGroupSettings = new CorpGroupSettings(entityResponse.getAspects().get(CORP_GROUP_SETTINGS_ASPECT_NAME).getValue().data());
+  private NotificationSettings mapGroupToNotificationSettings(
+      @Nonnull final EntityResponse entityResponse) {
+    CorpGroupSettings corpGroupSettings =
+        new CorpGroupSettings(
+            entityResponse.getAspects().get(CORP_GROUP_SETTINGS_ASPECT_NAME).getValue().data());
     if (corpGroupSettings.hasNotificationSettings()) {
       return new NotificationSettings(corpGroupSettings.getNotificationSettings().data());
     }

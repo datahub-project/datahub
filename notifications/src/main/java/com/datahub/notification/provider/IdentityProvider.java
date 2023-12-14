@@ -1,5 +1,7 @@
 package com.datahub.notification.provider;
 
+import static com.linkedin.metadata.Constants.*;
+
 import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
@@ -21,12 +23,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.metadata.Constants.*;
-
-
-/**
- * Provider of basic identity (user + group) information.
- */
+/** Provider of basic identity (user + group) information. */
 @Slf4j
 public class IdentityProvider {
 
@@ -40,23 +37,22 @@ public class IdentityProvider {
     _systemAuthentication = systemAuthentication;
   }
 
-  /**
-   * Returns a single user
-   */
+  /** Returns a single user */
   public User getUser(final Urn userUrn) {
     return batchGetUsers(ImmutableSet.of(userUrn)).get(userUrn);
   }
 
-  /**
-   * Returns a list of User objects by URN.
-   */
+  /** Returns a list of User objects by URN. */
   public Map<Urn, User> batchGetUsers(final Set<Urn> userUrns) {
     try {
       final Map<Urn, EntityResponse> response =
           _entityClient.batchGetV2(
               CORP_USER_ENTITY_NAME,
               userUrns,
-              ImmutableSet.of(CORP_USER_INFO_ASPECT_NAME, CORP_USER_EDITABLE_INFO_NAME, CORP_USER_STATUS_ASPECT_NAME),
+              ImmutableSet.of(
+                  CORP_USER_INFO_ASPECT_NAME,
+                  CORP_USER_EDITABLE_INFO_NAME,
+                  CORP_USER_STATUS_ASPECT_NAME),
               _systemAuthentication);
       final Map<Urn, User> result = new HashMap<>();
       for (Urn urn : userUrns) {
@@ -75,7 +71,8 @@ public class IdentityProvider {
     user.setUrn(response.getUrn());
 
     if (response.getAspects().containsKey(CORP_USER_INFO_ASPECT_NAME)) {
-      final CorpUserInfo info = new CorpUserInfo(response.getAspects().get(CORP_USER_INFO_ASPECT_NAME).getValue().data());
+      final CorpUserInfo info =
+          new CorpUserInfo(response.getAspects().get(CORP_USER_INFO_ASPECT_NAME).getValue().data());
       user.setTitle(info.getTitle(GetMode.NULL));
       user.setEmail(info.getEmail(GetMode.NULL));
       user.setDisplayName(info.getDisplayName(GetMode.NULL));
@@ -84,7 +81,9 @@ public class IdentityProvider {
     }
 
     if (response.getAspects().containsKey(CORP_USER_EDITABLE_INFO_NAME)) {
-      final CorpUserEditableInfo editableInfo = new CorpUserEditableInfo(response.getAspects().get(CORP_USER_EDITABLE_INFO_NAME).getValue().data());
+      final CorpUserEditableInfo editableInfo =
+          new CorpUserEditableInfo(
+              response.getAspects().get(CORP_USER_EDITABLE_INFO_NAME).getValue().data());
       if (editableInfo.hasDisplayName()) {
         user.setDisplayName(editableInfo.getDisplayName());
       }
@@ -103,16 +102,16 @@ public class IdentityProvider {
     }
 
     if (response.getAspects().containsKey(CORP_USER_STATUS_ASPECT_NAME)) {
-      final CorpUserStatus status = new CorpUserStatus(response.getAspects().get(CORP_USER_STATUS_ASPECT_NAME).getValue().data());
+      final CorpUserStatus status =
+          new CorpUserStatus(
+              response.getAspects().get(CORP_USER_STATUS_ASPECT_NAME).getValue().data());
       user.setActive(CORP_USER_STATUS_ACTIVE.equals(status.getStatus(GetMode.NULL)));
     }
 
     return user;
   }
 
-  /**
-   * A basic representation of a user.
-   */
+  /** A basic representation of a user. */
   @Data
   @Getter
   @Setter
@@ -127,11 +126,10 @@ public class IdentityProvider {
     private String slack;
     private String title;
     private boolean isActive;
+
     // TODO: User Preferences
 
-    /**
-     * Returns the appropriate display name to use from the set of user fields available.
-     */
+    /** Returns the appropriate display name to use from the set of user fields available. */
     public String getResolvedDisplayName() {
       if (displayName != null) {
         return displayName;

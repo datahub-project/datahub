@@ -1,5 +1,9 @@
 package com.linkedin.metadata.kafka.hook.notification;
 
+import static com.linkedin.metadata.Constants.DEFAULT_RUN_ID;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
+
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -11,13 +15,10 @@ import com.linkedin.mxe.SystemMetadata;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
-import static com.linkedin.metadata.Constants.DEFAULT_RUN_ID;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
-
 public class NotificationUtilsTest {
 
-  private static final String DATASET_URN = "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-proj.jaffle_shop.customers,PROD)";
+  private static final String DATASET_URN =
+      "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-proj.jaffle_shop.customers,PROD)";
   private static final String ACTOR_URN = "urn:li:corpuser:creating";
   private static final long CREATED_EVENT_TIME = 123L;
 
@@ -62,7 +63,8 @@ public class NotificationUtilsTest {
     systemMetadata.setLastObserved(CREATED_EVENT_TIME);
     systemMetadata.setRunId("non-default-run-id");
     event.setSystemMetadata(systemMetadata);
-    event.setCreated(new AuditStamp().setActor(UrnUtils.getUrn(ACTOR_URN)).setTime(CREATED_EVENT_TIME));
+    event.setCreated(
+        new AuditStamp().setActor(UrnUtils.getUrn(ACTOR_URN)).setTime(CREATED_EVENT_TIME));
 
     boolean isEligible = NotificationUtils.isEligibleForNotificationGeneration(event);
     assertTrue(isEligible);
@@ -81,7 +83,8 @@ public class NotificationUtilsTest {
     systemMetadata.setLastObserved(CREATED_EVENT_TIME);
     systemMetadata.setRunId("non-default-run-id");
     event.setSystemMetadata(systemMetadata);
-    event.setCreated(new AuditStamp().setActor(UrnUtils.getUrn(ACTOR_URN)).setTime(CREATED_EVENT_TIME));
+    event.setCreated(
+        new AuditStamp().setActor(UrnUtils.getUrn(ACTOR_URN)).setTime(CREATED_EVENT_TIME));
 
     boolean isEligible = NotificationUtils.isEligibleForNotificationGeneration(event);
     assertTrue(isEligible);
@@ -111,7 +114,8 @@ public class NotificationUtilsTest {
       systemMetadata.setRunId(runId);
     }
     event.setSystemMetadata(systemMetadata);
-    event.setCreated(new AuditStamp().setActor(UrnUtils.getUrn(ACTOR_URN)).setTime(CREATED_EVENT_TIME));
+    event.setCreated(
+        new AuditStamp().setActor(UrnUtils.getUrn(ACTOR_URN)).setTime(CREATED_EVENT_TIME));
 
     return event;
   }

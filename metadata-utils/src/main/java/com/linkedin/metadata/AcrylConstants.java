@@ -4,8 +4,10 @@ public class AcrylConstants {
 
   public static final String ACTION_REQUEST_TYPE_TERM_PROPOSAL = "TERM_ASSOCIATION";
   public static final String ACTION_REQUEST_TYPE_TAG_PROPOSAL = "TAG_ASSOCIATION";
-  public static final String ACTION_REQUEST_TYPE_CREATE_GLOSSARY_NODE_PROPOSAL = "CREATE_GLOSSARY_NODE";
-  public static final String ACTION_REQUEST_TYPE_CREATE_GLOSSARY_TERM_PROPOSAL = "CREATE_GLOSSARY_TERM";
+  public static final String ACTION_REQUEST_TYPE_CREATE_GLOSSARY_NODE_PROPOSAL =
+      "CREATE_GLOSSARY_NODE";
+  public static final String ACTION_REQUEST_TYPE_CREATE_GLOSSARY_TERM_PROPOSAL =
+      "CREATE_GLOSSARY_TERM";
   public static final String ACTION_REQUEST_TYPE_UPDATE_DESCRIPTION_PROPOSAL = "UPDATE_DESCRIPTION";
   public static final String ACTION_REQUEST_STATUS_PENDING = "PENDING";
   public static final String ACTION_REQUEST_STATUS_COMPLETE = "COMPLETED";
@@ -48,7 +50,5 @@ public class AcrylConstants {
   // For notifications
   public static final String NOTIFICATION_SETTINGS_ASPECT_NAME = "notificationSettings";
 
-  private AcrylConstants() {
-  }
+  private AcrylConstants() {}
 }
-

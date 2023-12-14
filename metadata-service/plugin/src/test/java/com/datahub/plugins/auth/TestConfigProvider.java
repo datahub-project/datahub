@@ -11,7 +11,6 @@ import java.util.List;
 import java.util.function.Consumer;
 import org.testng.annotations.Test;
 
-
 @Test
 public class TestConfigProvider {
   @Test
@@ -26,45 +25,57 @@ public class TestConfigProvider {
     List<PluginConfig> authenticators =
         authenticatorPluginPluginConfigFactory.loadPluginConfigs(PluginType.AUTHENTICATOR);
 
-    List<PluginConfig> authorizers = authenticatorPluginPluginConfigFactory.loadPluginConfigs(PluginType.AUTHORIZER);
+    List<PluginConfig> authorizers =
+        authenticatorPluginPluginConfigFactory.loadPluginConfigs(PluginType.AUTHORIZER);
 
     assert authenticators.size() != 0;
     assert authorizers.size() != 0;
 
-    Consumer<PluginConfig> validateAuthenticationPlugin = (plugin) -> {
-      assert plugin.getName().equals("apache-ranger-authenticator");
+    Consumer<PluginConfig> validateAuthenticationPlugin =
+        (plugin) -> {
+          assert plugin.getName().equals("apache-ranger-authenticator");
 
-      assert "com.datahub.ranger.Authenticator".equals(plugin.getClassName());
+          assert "com.datahub.ranger.Authenticator".equals(plugin.getClassName());
 
-      assert plugin.getEnabled();
+          assert plugin.getEnabled();
 
-      String pluginJarPath =
-          Paths.get(pluginBaseDirectory.toString(), "apache-ranger-authenticator", "apache-ranger-authenticator.jar")
+          String pluginJarPath =
+              Paths.get(
+                      pluginBaseDirectory.toString(),
+                      "apache-ranger-authenticator",
+                      "apache-ranger-authenticator.jar")
+                  .toAbsolutePath()
+                  .toString();
+          assert pluginJarPath.equals(plugin.getPluginJarPath().toString());
+
+          String pluginDirectory =
+              Paths.get(pluginBaseDirectory.toString(), plugin.getName())
+                  .toAbsolutePath()
+                  .toString();
+          assert pluginDirectory.equals(plugin.getPluginHomeDirectory().toString());
+        };
+
+    Consumer<PluginConfig> validateAuthorizationPlugin =
+        (plugin) -> {
+          assert plugin.getName().equals("apache-ranger-authorizer");
+
+          assert "com.datahub.ranger.Authorizer".equals(plugin.getClassName());
+
+          assert plugin.getEnabled();
+
+          assert Paths.get(
+                  pluginBaseDirectory.toString(),
+                  "apache-ranger-authorizer",
+                  "apache-ranger-authorizer.jar")
               .toAbsolutePath()
-              .toString();
-      assert pluginJarPath.equals(plugin.getPluginJarPath().toString());
+              .toString()
+              .equals(plugin.getPluginJarPath().toString());
 
-      String pluginDirectory = Paths.get(pluginBaseDirectory.toString(), plugin.getName()).toAbsolutePath().toString();
-      assert pluginDirectory.equals(plugin.getPluginHomeDirectory().toString());
-    };
-
-    Consumer<PluginConfig> validateAuthorizationPlugin = (plugin) -> {
-      assert plugin.getName().equals("apache-ranger-authorizer");
-
-      assert "com.datahub.ranger.Authorizer".equals(plugin.getClassName());
-
-      assert plugin.getEnabled();
-
-      assert Paths.get(pluginBaseDirectory.toString(), "apache-ranger-authorizer", "apache-ranger-authorizer.jar")
-          .toAbsolutePath()
-          .toString()
-          .equals(plugin.getPluginJarPath().toString());
-
-      assert Paths.get(pluginBaseDirectory.toString(), plugin.getName())
-          .toAbsolutePath()
-          .toString()
-          .equals(plugin.getPluginHomeDirectory().toString());
-    };
+          assert Paths.get(pluginBaseDirectory.toString(), plugin.getName())
+              .toAbsolutePath()
+              .toString()
+              .equals(plugin.getPluginHomeDirectory().toString());
+        };
 
     authenticators.forEach(validateAuthenticationPlugin);
     authorizers.forEach(validateAuthorizationPlugin);

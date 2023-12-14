@@ -1,11 +1,11 @@
 package com.linkedin.gms.factory.change;
 
 import com.linkedin.gms.factory.config.ConfigurationProvider;
-import com.linkedin.metadata.spring.YamlPropertySourceFactory;
 import com.linkedin.metadata.config.events.EntityChangeEventSinkConfiguration;
 import com.linkedin.metadata.event.change.EntityChangeEventSink;
 import com.linkedin.metadata.event.change.EntityChangeEventSinkConfig;
 import com.linkedin.metadata.event.change.EntityChangeEventSinkManager;
+import com.linkedin.metadata.spring.YamlPropertySourceFactory;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -23,8 +23,7 @@ import org.springframework.context.annotation.PropertySource;
 @PropertySource(value = "classpath:/application.yml", factory = YamlPropertySourceFactory.class)
 public class EntityChangeEventSinkManagerFactory {
 
-  @Autowired
-  private ConfigurationProvider configurationProvider;
+  @Autowired private ConfigurationProvider configurationProvider;
 
   @Bean(name = "changeEventSinkManager")
   @Singleton
@@ -33,7 +32,8 @@ public class EntityChangeEventSinkManagerFactory {
 
     final List<EntityChangeEventSink> configuredSinks = new ArrayList<>();
     final List<EntityChangeEventSinkConfiguration> sinkConfigurations =
-        this.configurationProvider.getEventSinks() != null && this.configurationProvider.getEventSinks().getEntityChangeEvent() != null
+        this.configurationProvider.getEventSinks() != null
+                && this.configurationProvider.getEventSinks().getEntityChangeEvent() != null
             ? this.configurationProvider.getEventSinks().getEntityChangeEvent().getSinks()
             : Collections.emptyList();
     for (EntityChangeEventSinkConfiguration sink : sinkConfigurations) {
@@ -42,9 +42,11 @@ public class EntityChangeEventSinkManagerFactory {
 
       if (isSinkEnabled) {
         final String type = sink.getType();
-        final Map<String, Object> configs = sink.getConfigs() != null ? sink.getConfigs() : Collections.emptyMap();
+        final Map<String, Object> configs =
+            sink.getConfigs() != null ? sink.getConfigs() : Collections.emptyMap();
 
-        log.debug(String.format("Found configs for change event sink of type %s: %s ", type, configs));
+        log.debug(
+            String.format("Found configs for change event sink of type %s: %s ", type, configs));
 
         // Instantiate the Change event Sink.
         Class<? extends EntityChangeEventSink> clazz = null;
@@ -52,21 +54,25 @@ public class EntityChangeEventSinkManagerFactory {
           clazz = (Class<? extends EntityChangeEventSink>) Class.forName(type);
         } catch (ClassNotFoundException e) {
           throw new RuntimeException(
-              String.format("Failed to find ChangeEventSink class with name %s on the classpath.", type));
+              String.format(
+                  "Failed to find ChangeEventSink class with name %s on the classpath.", type));
         }
 
         // Else construct an instance of the class, each class should have an empty constructor.
         try {
           final EntityChangeEventSink changeEventSink = clazz.newInstance();
-          changeEventSink.init(new EntityChangeEventSinkConfig(
-              configs
-          ));
+          changeEventSink.init(new EntityChangeEventSinkConfig(configs));
           configuredSinks.add(changeEventSink);
         } catch (Exception e) {
-          throw new RuntimeException(String.format("Failed to instantiate ChangeEventSink with class name %s", clazz.getCanonicalName()), e);
+          throw new RuntimeException(
+              String.format(
+                  "Failed to instantiate ChangeEventSink with class name %s",
+                  clazz.getCanonicalName()),
+              e);
         }
       } else {
-        log.info(String.format("Skipping disabled change event sink sink with type %s", sink.getType()));
+        log.info(
+            String.format("Skipping disabled change event sink sink with type %s", sink.getType()));
       }
     }
     log.info(String.format("Creating ChangeEventSink. sinks: %s", configuredSinks));

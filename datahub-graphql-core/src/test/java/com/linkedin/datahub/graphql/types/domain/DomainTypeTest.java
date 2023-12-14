@@ -1,5 +1,8 @@
 package com.linkedin.datahub.graphql.types.domain;
 
+import static com.linkedin.datahub.graphql.TestUtils.*;
+import static org.testng.Assert.*;
+
 import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -30,33 +33,34 @@ import graphql.execution.DataFetcherResult;
 import java.util.HashSet;
 import java.util.List;
 import org.mockito.Mockito;
-
 import org.testng.annotations.Test;
-
-import static com.linkedin.datahub.graphql.TestUtils.*;
-import static org.testng.Assert.*;
 
 public class DomainTypeTest {
 
   private static final String TEST_DOMAIN_1_URN = "urn:li:domain:id-1";
-  private static final DomainKey TEST_DOMAIN_1_KEY = new DomainKey()
-      .setId("id-1");
-  private static final DomainProperties TEST_DOMAIN_1_PROPERTIES = new DomainProperties()
-      .setDescription("test description")
-      .setName("Test Domain");
-  private static final Ownership TEST_DOMAIN_1_OWNERSHIP = new Ownership()
-      .setOwners(
-          new OwnerArray(ImmutableList.of(
-              new Owner()
-                  .setType(OwnershipType.DATAOWNER)
-                  .setOwner(Urn.createFromTuple("corpuser", "test")))));
-  private static final InstitutionalMemory TEST_DOMAIN_1_INSTITUTIONAL_MEMORY = new InstitutionalMemory()
-      .setElements(
-          new InstitutionalMemoryMetadataArray(ImmutableList.of(
-              new InstitutionalMemoryMetadata()
-                  .setUrl(new Url("https://www.test.com"))
-                  .setDescription("test description")
-                  .setCreateStamp(new AuditStamp().setTime(0L).setActor(Urn.createFromTuple("corpuser", "test"))))));
+  private static final DomainKey TEST_DOMAIN_1_KEY = new DomainKey().setId("id-1");
+  private static final DomainProperties TEST_DOMAIN_1_PROPERTIES =
+      new DomainProperties().setDescription("test description").setName("Test Domain");
+  private static final Ownership TEST_DOMAIN_1_OWNERSHIP =
+      new Ownership()
+          .setOwners(
+              new OwnerArray(
+                  ImmutableList.of(
+                      new Owner()
+                          .setType(OwnershipType.DATAOWNER)
+                          .setOwner(Urn.createFromTuple("corpuser", "test")))));
+  private static final InstitutionalMemory TEST_DOMAIN_1_INSTITUTIONAL_MEMORY =
+      new InstitutionalMemory()
+          .setElements(
+              new InstitutionalMemoryMetadataArray(
+                  ImmutableList.of(
+                      new InstitutionalMemoryMetadata()
+                          .setUrl(new Url("https://www.test.com"))
+                          .setDescription("test description")
+                          .setCreateStamp(
+                              new AuditStamp()
+                                  .setTime(0L)
+                                  .setActor(Urn.createFromTuple("corpuser", "test"))))));
 
   private static final String TEST_DOMAIN_2_URN = "urn:li:domain:id-2";
 
@@ -68,39 +72,48 @@ public class DomainTypeTest {
     Urn domainUrn1 = Urn.createFromString(TEST_DOMAIN_1_URN);
     Urn domainUrn2 = Urn.createFromString(TEST_DOMAIN_2_URN);
 
-    Mockito.when(client.batchGetV2(
-        Mockito.eq(Constants.DOMAIN_ENTITY_NAME),
-        Mockito.eq(new HashSet<>(ImmutableSet.of(domainUrn1, domainUrn2))),
-        Mockito.eq(DomainType.ASPECTS_TO_FETCH),
-        Mockito.any(Authentication.class)))
-        .thenReturn(ImmutableMap.of(
-            domainUrn1,
-            new EntityResponse()
-                .setEntityName(Constants.DOMAIN_ENTITY_NAME)
-                .setUrn(domainUrn1)
-                .setAspects(new EnvelopedAspectMap(ImmutableMap.of(
-                    Constants.DOMAIN_KEY_ASPECT_NAME,
-                    new EnvelopedAspect().setValue(new Aspect(TEST_DOMAIN_1_KEY.data())),
-                    Constants.DOMAIN_PROPERTIES_ASPECT_NAME,
-                    new EnvelopedAspect().setValue(new Aspect(TEST_DOMAIN_1_PROPERTIES.data())),
-                    Constants.OWNERSHIP_ASPECT_NAME,
-                    new EnvelopedAspect().setValue(new Aspect(TEST_DOMAIN_1_OWNERSHIP.data())),
-                    Constants.INSTITUTIONAL_MEMORY_ASPECT_NAME,
-                    new EnvelopedAspect().setValue(new Aspect(TEST_DOMAIN_1_INSTITUTIONAL_MEMORY.data()))
-                )))));
+    Mockito.when(
+            client.batchGetV2(
+                Mockito.eq(Constants.DOMAIN_ENTITY_NAME),
+                Mockito.eq(new HashSet<>(ImmutableSet.of(domainUrn1, domainUrn2))),
+                Mockito.eq(DomainType.ASPECTS_TO_FETCH),
+                Mockito.any(Authentication.class)))
+        .thenReturn(
+            ImmutableMap.of(
+                domainUrn1,
+                new EntityResponse()
+                    .setEntityName(Constants.DOMAIN_ENTITY_NAME)
+                    .setUrn(domainUrn1)
+                    .setAspects(
+                        new EnvelopedAspectMap(
+                            ImmutableMap.of(
+                                Constants.DOMAIN_KEY_ASPECT_NAME,
+                                new EnvelopedAspect()
+                                    .setValue(new Aspect(TEST_DOMAIN_1_KEY.data())),
+                                Constants.DOMAIN_PROPERTIES_ASPECT_NAME,
+                                new EnvelopedAspect()
+                                    .setValue(new Aspect(TEST_DOMAIN_1_PROPERTIES.data())),
+                                Constants.OWNERSHIP_ASPECT_NAME,
+                                new EnvelopedAspect()
+                                    .setValue(new Aspect(TEST_DOMAIN_1_OWNERSHIP.data())),
+                                Constants.INSTITUTIONAL_MEMORY_ASPECT_NAME,
+                                new EnvelopedAspect()
+                                    .setValue(
+                                        new Aspect(TEST_DOMAIN_1_INSTITUTIONAL_MEMORY.data())))))));
 
     DomainType type = new DomainType(client);
 
     QueryContext mockContext = getMockAllowContext();
-    List<DataFetcherResult<Domain>> result = type.batchLoad(ImmutableList.of(TEST_DOMAIN_1_URN, TEST_DOMAIN_2_URN), mockContext);
+    List<DataFetcherResult<Domain>> result =
+        type.batchLoad(ImmutableList.of(TEST_DOMAIN_1_URN, TEST_DOMAIN_2_URN), mockContext);
 
     // Verify response
-    Mockito.verify(client, Mockito.times(1)).batchGetV2(
-        Mockito.eq(Constants.DOMAIN_ENTITY_NAME),
-        Mockito.eq(ImmutableSet.of(domainUrn1, domainUrn2)),
-        Mockito.eq(DomainType.ASPECTS_TO_FETCH),
-        Mockito.any(Authentication.class)
-    );
+    Mockito.verify(client, Mockito.times(1))
+        .batchGetV2(
+            Mockito.eq(Constants.DOMAIN_ENTITY_NAME),
+            Mockito.eq(ImmutableSet.of(domainUrn1, domainUrn2)),
+            Mockito.eq(DomainType.ASPECTS_TO_FETCH),
+            Mockito.any(Authentication.class));
 
     assertEquals(result.size(), 2);
 
@@ -120,17 +133,20 @@ public class DomainTypeTest {
   @Test
   public void testBatchLoadClientException() throws Exception {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
-    Mockito.doThrow(RemoteInvocationException.class).when(mockClient).batchGetV2(
-        Mockito.anyString(),
-        Mockito.anySet(),
-        Mockito.anySet(),
-        Mockito.any(Authentication.class));
+    Mockito.doThrow(RemoteInvocationException.class)
+        .when(mockClient)
+        .batchGetV2(
+            Mockito.anyString(),
+            Mockito.anySet(),
+            Mockito.anySet(),
+            Mockito.any(Authentication.class));
     DomainType type = new DomainType(mockClient);
 
     // Execute Batch load
     QueryContext context = Mockito.mock(QueryContext.class);
     Mockito.when(context.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
-    assertThrows(RuntimeException.class, () -> type.batchLoad(ImmutableList.of(TEST_DOMAIN_1_URN, TEST_DOMAIN_2_URN),
-        context));
+    assertThrows(
+        RuntimeException.class,
+        () -> type.batchLoad(ImmutableList.of(TEST_DOMAIN_1_URN, TEST_DOMAIN_2_URN), context));
   }
 }

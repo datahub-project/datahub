@@ -11,7 +11,6 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 
-
 @Configuration
 @Import({RestliEntityClientFactory.class})
 public class EntityHydratorConfig {
@@ -20,13 +19,16 @@ public class EntityHydratorConfig {
   @Qualifier("systemRestliEntityClient")
   private SystemRestliEntityClient _entityClient;
 
-  @Autowired
-  private EntityRegistry _entityRegistry;
+  @Autowired private EntityRegistry _entityRegistry;
 
-  public final static ImmutableSet<String> EXCLUDED_ASPECTS = ImmutableSet.<String>builder()
+  public static final ImmutableSet<String> EXCLUDED_ASPECTS =
+      ImmutableSet.<String>builder()
           .add("datasetUpstreamLineage", "upstreamLineage")
           .add("dataJobInputOutput")
-          .add("dataProcessInstanceRelationships", "dataProcessInstanceInput", "dataProcessInstanceOutput")
+          .add(
+              "dataProcessInstanceRelationships",
+              "dataProcessInstanceInput",
+              "dataProcessInstanceOutput")
           .add("inputFields")
           .build();
 

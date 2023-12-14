@@ -16,7 +16,6 @@ import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.script.Script;
 
-
 @Slf4j
 @RequiredArgsConstructor
 public class ESWriteDAO {
@@ -34,10 +33,11 @@ public class ESWriteDAO {
    * @param document the document to update / insert
    * @param docId the ID of the document
    */
-  public void upsertDocument(@Nonnull String entityName, @Nonnull String document, @Nonnull String docId) {
+  public void upsertDocument(
+      @Nonnull String entityName, @Nonnull String document, @Nonnull String docId) {
     final String indexName = indexConvention.getIndexName(entityRegistry.getEntitySpec(entityName));
-    final UpdateRequest updateRequest = new UpdateRequest(
-            indexName, docId)
+    final UpdateRequest updateRequest =
+        new UpdateRequest(indexName, docId)
             .detectNoop(false)
             .docAsUpsert(true)
             .doc(document, XContentType.JSON)
@@ -57,12 +57,12 @@ public class ESWriteDAO {
     bulkProcessor.add(new DeleteRequest(indexName).id(docId));
   }
 
-  /**
-   * Applies a script to a particular document
-   */
-  public void applyScriptUpdate(@Nonnull String entityName, @Nonnull String docId, @Nonnull String script) {
+  /** Applies a script to a particular document */
+  public void applyScriptUpdate(
+      @Nonnull String entityName, @Nonnull String docId, @Nonnull String script) {
     final String indexName = indexConvention.getIndexName(entityRegistry.getEntitySpec(entityName));
-    UpdateRequest updateRequest = new UpdateRequest(indexName, docId)
+    UpdateRequest updateRequest =
+        new UpdateRequest(indexName, docId)
             .detectNoop(false)
             .scriptedUpsert(true)
             .retryOnConflict(numRetries)
@@ -70,9 +70,7 @@ public class ESWriteDAO {
     bulkProcessor.add(updateRequest);
   }
 
-  /**
-   * Clear all documents in all the indices
-   */
+  /** Clear all documents in all the indices */
   public void clear() {
     String[] indices = getIndices(indexConvention.getAllEntityIndicesPattern());
     bulkProcessor.deleteByQuery(QueryBuilders.matchAllQuery(), indices);
@@ -80,11 +78,12 @@ public class ESWriteDAO {
 
   private String[] getIndices(String pattern) {
     try {
-      GetIndexResponse response = searchClient.indices().get(new GetIndexRequest(pattern), RequestOptions.DEFAULT);
+      GetIndexResponse response =
+          searchClient.indices().get(new GetIndexRequest(pattern), RequestOptions.DEFAULT);
       return response.getIndices();
     } catch (IOException e) {
       log.error("Failed to get indices using pattern {}", pattern);
-      return new String[]{};
+      return new String[] {};
     }
   }
 }

@@ -1,5 +1,8 @@
 package com.linkedin.metadata.resources.operations;
 
+import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.resources.restli.RestliUtils.*;
+
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.EntitySpec;
@@ -19,14 +22,11 @@ import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 
-import static com.linkedin.metadata.Constants.*;
-import static com.linkedin.metadata.resources.restli.RestliUtils.*;
-
-
 @Slf4j
 public class Utils {
 
-  private Utils() { }
+  private Utils() {}
+
   public static String restoreIndices(
       @Nonnull String aspectName,
       @Nullable String urn,
@@ -34,8 +34,7 @@ public class Utils {
       @Nullable Integer start,
       @Nullable Integer batchSize,
       @Nonnull Authorizer authorizer,
-      @Nonnull EntityService entityService
-  ) {
+      @Nonnull EntityService entityService) {
     Authentication authentication = AuthenticationContext.getAuthentication();
     EntitySpec resourceSpec = null;
     if (StringUtils.isNotBlank(urn)) {
@@ -43,16 +42,21 @@ public class Utils {
       resourceSpec = new EntitySpec(resource.getEntityType(), resource.toString());
     }
     if (Boolean.parseBoolean(System.getenv(REST_API_AUTHORIZATION_ENABLED_ENV))
-        && !isAuthorized(authentication, authorizer, ImmutableList.of(PoliciesConfig.RESTORE_INDICES_PRIVILEGE),
-        resourceSpec)) {
-      throw new RestLiServiceException(HttpStatus.S_401_UNAUTHORIZED, "User is unauthorized to restore indices.");
+        && !isAuthorized(
+            authentication,
+            authorizer,
+            ImmutableList.of(PoliciesConfig.RESTORE_INDICES_PRIVILEGE),
+            resourceSpec)) {
+      throw new RestLiServiceException(
+          HttpStatus.S_401_UNAUTHORIZED, "User is unauthorized to restore indices.");
     }
-    RestoreIndicesArgs args = new RestoreIndicesArgs()
-        .setAspectName(aspectName)
-        .setUrnLike(urnLike)
-        .setUrn(urn)
-        .setStart(start)
-        .setBatchSize(batchSize);
+    RestoreIndicesArgs args =
+        new RestoreIndicesArgs()
+            .setAspectName(aspectName)
+            .setUrnLike(urnLike)
+            .setUrn(urn)
+            .setStart(start)
+            .setBatchSize(batchSize);
     Map<String, Object> result = new HashMap<>();
     result.put("args", args);
     result.put("result", entityService.restoreIndices(args, log::info));

@@ -1,11 +1,22 @@
 package app;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static play.mvc.Http.Status.NOT_FOUND;
+import static play.mvc.Http.Status.OK;
+import static play.test.Helpers.fakeRequest;
+import static play.test.Helpers.route;
+
 import com.nimbusds.jwt.JWT;
 import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.JWTParser;
 import controllers.routes;
+import java.io.IOException;
+import java.net.InetAddress;
 import java.text.ParseException;
 import java.util.Date;
+import java.util.List;
+import java.util.Map;
 import no.nav.security.mock.oauth2.MockOAuth2Server;
 import no.nav.security.mock.oauth2.token.DefaultOAuth2TokenCallback;
 import okhttp3.mockwebserver.MockResponse;
@@ -26,22 +37,8 @@ import play.inject.guice.GuiceApplicationBuilder;
 import play.mvc.Http;
 import play.mvc.Result;
 import play.test.Helpers;
-
 import play.test.TestBrowser;
 import play.test.WithBrowser;
-
-import java.io.IOException;
-import java.net.InetAddress;
-import java.util.List;
-import java.util.Map;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static play.mvc.Http.Status.NOT_FOUND;
-import static play.mvc.Http.Status.OK;
-import static play.test.Helpers.fakeRequest;
-import static play.test.Helpers.route;
-
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @SetEnvironmentVariable(key = "DATAHUB_SECRET", value = "test")
@@ -57,13 +54,16 @@ public class ApplicationTest extends WithBrowser {
   @Override
   protected Application provideApplication() {
     return new GuiceApplicationBuilder()
-            .configure("metadataService.port", String.valueOf(gmsServerPort()))
-            .configure("auth.baseUrl", "http://localhost:" +  providePort())
-            .configure("auth.oidc.discoveryUri", "http://localhost:" + oauthServerPort()
-                       + "/testIssuer/.well-known/openid-configuration")
-            .configure("integrationsService.port", String.valueOf(integrationsServerPort()))
-
-            .in(new Environment(Mode.TEST)).build();
+        .configure("metadataService.port", String.valueOf(gmsServerPort()))
+        .configure("auth.baseUrl", "http://localhost:" + providePort())
+        .configure(
+            "auth.oidc.discoveryUri",
+            "http://localhost:"
+                + oauthServerPort()
+                + "/testIssuer/.well-known/openid-configuration")
+        .configure("integrationsService.port", String.valueOf(integrationsServerPort()))
+        .in(new Environment(Mode.TEST))
+        .build();
   }
 
   @Override
@@ -104,20 +104,25 @@ public class ApplicationTest extends WithBrowser {
     _gmsServer.enqueue(new MockResponse().setResponseCode(404)); // dynamic settings - not tested
     _gmsServer.enqueue(new MockResponse().setResponseCode(404)); // dynamic settings - not tested
     _integrationsServer = new MockWebServer();
-    _integrationsServer.enqueue(new MockResponse().setBody(String.format("{\"proxyResponse\":\"%s\"}", "test")));
+    _integrationsServer.enqueue(
+        new MockResponse().setBody(String.format("{\"proxyResponse\":\"%s\"}", "test")));
     _integrationsServer.start(integrationsServerPort());
     /* End Saas Only */
     _gmsServer.enqueue(new MockResponse().setBody(String.format("{\"value\":\"%s\"}", TEST_USER)));
-    _gmsServer.enqueue(new MockResponse().setBody(String.format("{\"accessToken\":\"%s\"}", TEST_TOKEN)));
+    _gmsServer.enqueue(
+        new MockResponse().setBody(String.format("{\"accessToken\":\"%s\"}", TEST_TOKEN)));
     _gmsServer.start(gmsServerPort());
 
     _oauthServer = new MockOAuth2Server();
     _oauthServer.enqueueCallback(
-            new DefaultOAuth2TokenCallback(ISSUER_ID, "testUser", List.of(), Map.of(
-                    "email", "testUser@myCompany.com",
-                    "groups", "myGroup"
-            ), 600)
-    );
+        new DefaultOAuth2TokenCallback(
+            ISSUER_ID,
+            "testUser",
+            List.of(),
+            Map.of(
+                "email", "testUser@myCompany.com",
+                "groups", "myGroup"),
+            600));
     _oauthServer.start(InetAddress.getByName("localhost"), oauthServerPort());
 
     // Discovery url to authorization server metadata
@@ -169,8 +174,9 @@ public class ApplicationTest extends WithBrowser {
 
   @Test
   public void testOpenIdConfig() {
-    assertEquals("http://localhost:" + oauthServerPort()
-            + "/testIssuer/.well-known/openid-configuration", _wellKnownUrl);
+    assertEquals(
+        "http://localhost:" + oauthServerPort() + "/testIssuer/.well-known/openid-configuration",
+        _wellKnownUrl);
   }
 
   @Test
@@ -188,8 +194,13 @@ public class ApplicationTest extends WithBrowser {
     Map<String, String> data = (Map<String, String>) claims.getClaim("data");
     assertEquals(TEST_TOKEN, data.get("token"));
     assertEquals(TEST_USER, data.get("actor"));
-    // Default expiration is 24h, so should always be less than current time + 1 day since it stamps the time before this executes
-    assertTrue(claims.getExpirationTime().compareTo(new Date(System.currentTimeMillis() + (24 * 60 * 60 * 1000))) < 0);
+    // Default expiration is 24h, so should always be less than current time + 1 day since it stamps
+    // the time before this executes
+    assertTrue(
+        claims
+                .getExpirationTime()
+                .compareTo(new Date(System.currentTimeMillis() + (24 * 60 * 60 * 1000)))
+            < 0);
   }
 
   @Test
@@ -210,7 +221,9 @@ public class ApplicationTest extends WithBrowser {
   // Start saas only
   @Test
   public void testProxy() {
-    Http.RequestBuilder request = fakeRequest(routes.IntegrationsController.proxyToIntegrationsService("/integrations/oauth"));
+    Http.RequestBuilder request =
+        fakeRequest(
+            routes.IntegrationsController.proxyToIntegrationsService("/integrations/oauth"));
     Result result = route(app, request);
     assertEquals(OK, result.status());
   }

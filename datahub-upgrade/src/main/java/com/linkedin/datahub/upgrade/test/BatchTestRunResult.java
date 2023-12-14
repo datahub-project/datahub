@@ -6,10 +6,8 @@ import java.util.Map;
 import java.util.Objects;
 import javax.annotation.Nonnull;
 
-
 /**
- * Stores the results of running a batch Metadata Test by Metadata Urn.
- * Used for reporting purposes.
+ * Stores the results of running a batch Metadata Test by Metadata Urn. Used for reporting purposes.
  */
 class BatchTestResult {
 
@@ -42,12 +40,9 @@ class BatchTestResult {
   public int getFailCount() {
     return failCount;
   }
-
 }
 
-/**
- * Thread-safe object for storing the results of running a batch Metadata Test.
- */
+/** Thread-safe object for storing the results of running a batch Metadata Test. */
 class BatchTestResultAggregator {
   private Map<Urn, BatchTestResult> tests;
 

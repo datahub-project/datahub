@@ -172,6 +172,9 @@ fragment downloadSearchResults on Entity {
             viewCount
             uniqueUserCountLast30Days
         }
+        subTypes {
+            typeNames
+        }
     }
     ... on DataFlow {
         flowId
@@ -239,6 +242,9 @@ fragment downloadSearchResults on Entity {
         }
         dataPlatformInstance {
             ...dataPlatformInstanceFields
+        }
+        subTypes {
+            typeNames
         }
     }
     ... on GlossaryTerm {

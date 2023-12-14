@@ -1,5 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.settings;
 
+import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.*;
+
 import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -26,12 +28,7 @@ import java.util.List;
 import java.util.Optional;
 import javax.annotation.Nonnull;
 
-import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.*;
-
-
-/**
- * Utility functions useful for Settings resolvers.
- */
+/** Utility functions useful for Settings resolvers. */
 public class SettingsMapper {
 
   private final SecretService _secretService;
@@ -40,35 +37,39 @@ public class SettingsMapper {
     _secretService = secretService;
   }
 
-  /**
-   * Returns true if the authenticated user is able to manage global settings.
-   */
+  /** Returns true if the authenticated user is able to manage global settings. */
   public static boolean canManageGlobalSettings(@Nonnull QueryContext context) {
     return isAuthorized(context, Optional.empty(), PoliciesConfig.MANAGE_GLOBAL_SETTINGS);
   }
 
-  public static GlobalSettingsInfo getGlobalSettings(final EntityClient entityClient,
-      final Authentication authentication) {
+  public static GlobalSettingsInfo getGlobalSettings(
+      final EntityClient entityClient, final Authentication authentication) {
     try {
       final EntityResponse entityResponse =
-          entityClient.getV2(Constants.GLOBAL_SETTINGS_ENTITY_NAME, Constants.GLOBAL_SETTINGS_URN,
-              ImmutableSet.of(Constants.GLOBAL_SETTINGS_INFO_ASPECT_NAME), authentication);
+          entityClient.getV2(
+              Constants.GLOBAL_SETTINGS_ENTITY_NAME,
+              Constants.GLOBAL_SETTINGS_URN,
+              ImmutableSet.of(Constants.GLOBAL_SETTINGS_INFO_ASPECT_NAME),
+              authentication);
 
-      if (entityResponse == null || !entityResponse.getAspects()
-          .containsKey(Constants.GLOBAL_SETTINGS_INFO_ASPECT_NAME)) {
-        throw new RuntimeException("Failed to retrieve global settings! Global settings not found, but are required.");
+      if (entityResponse == null
+          || !entityResponse.getAspects().containsKey(Constants.GLOBAL_SETTINGS_INFO_ASPECT_NAME)) {
+        throw new RuntimeException(
+            "Failed to retrieve global settings! Global settings not found, but are required.");
       }
 
       return new GlobalSettingsInfo(
-          entityResponse.getAspects().get(Constants.GLOBAL_SETTINGS_INFO_ASPECT_NAME).getValue().data());
+          entityResponse
+              .getAspects()
+              .get(Constants.GLOBAL_SETTINGS_INFO_ASPECT_NAME)
+              .getValue()
+              .data());
     } catch (Exception e) {
       throw new RuntimeException("Failed to retrieve global settings!", e);
     }
   }
 
-  /**
-   * Maps GMS settings into GraphQL global settings.
-   */
+  /** Maps GMS settings into GraphQL global settings. */
   public GlobalSettings mapGlobalSettings(@Nonnull GlobalSettingsInfo input) {
     final GlobalSettings result = new GlobalSettings();
     result.setIntegrationSettings(mapGlobalIntegrationSettings(input.getIntegrations()));
@@ -118,8 +119,8 @@ public class SettingsMapper {
     return result;
   }
 
-  private NotificationSetting mapNotificationSetting(String typeStr,
-      com.linkedin.settings.NotificationSetting setting) {
+  private NotificationSetting mapNotificationSetting(
+      String typeStr, com.linkedin.settings.NotificationSetting setting) {
     final NotificationSetting result = new NotificationSetting();
     result.setType(NotificationScenarioType.valueOf(typeStr));
     result.setValue(NotificationSettingValue.valueOf(setting.getValue().name()));
@@ -188,4 +189,3 @@ public class SettingsMapper {
     return result;
   }
 }
-

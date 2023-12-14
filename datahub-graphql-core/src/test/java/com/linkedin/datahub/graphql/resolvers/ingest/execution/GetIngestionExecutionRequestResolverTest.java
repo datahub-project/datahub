@@ -1,5 +1,8 @@
 package com.linkedin.datahub.graphql.resolvers.ingest.execution;
 
+import static com.linkedin.datahub.graphql.resolvers.ingest.IngestTestUtils.*;
+import static org.testng.Assert.*;
+
 import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -20,9 +23,6 @@ import java.util.HashSet;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
-import static org.testng.Assert.*;
-import static com.linkedin.datahub.graphql.resolvers.ingest.IngestTestUtils.*;
-
 public class GetIngestionExecutionRequestResolverTest {
 
   @Test
@@ -33,32 +33,48 @@ public class GetIngestionExecutionRequestResolverTest {
     ExecutionRequestInput returnedInput = getTestExecutionRequestInput();
     ExecutionRequestResult returnedResult = getTestExecutionRequestResult();
 
-    Mockito.when(mockClient.batchGetV2(
-        Mockito.eq(Constants.EXECUTION_REQUEST_ENTITY_NAME),
-        Mockito.eq(new HashSet<>(ImmutableSet.of(TEST_EXECUTION_REQUEST_URN))),
-        Mockito.eq(ImmutableSet.of(
-            Constants.EXECUTION_REQUEST_INPUT_ASPECT_NAME,
-            Constants.EXECUTION_REQUEST_RESULT_ASPECT_NAME)),
-        Mockito.any(Authentication.class)))
-      .thenReturn(ImmutableMap.of(TEST_EXECUTION_REQUEST_URN,
-            new EntityResponse().setEntityName(Constants.EXECUTION_REQUEST_ENTITY_NAME)
-                .setUrn(TEST_EXECUTION_REQUEST_URN)
-                .setAspects(new EnvelopedAspectMap(ImmutableMap.of(
-                    Constants.EXECUTION_REQUEST_INPUT_ASPECT_NAME,
-                    new EnvelopedAspect().setValue(new Aspect(returnedInput.data()))                      .setCreated(new AuditStamp()
-                        .setTime(0L)
-                        .setActor(Urn.createFromString("urn:li:corpuser:test"))),
-                    Constants.EXECUTION_REQUEST_RESULT_ASPECT_NAME,
-                    new EnvelopedAspect().setValue(new Aspect(returnedResult.data()))                      .setCreated(new AuditStamp()
-                        .setTime(0L)
-                        .setActor(Urn.createFromString("urn:li:corpuser:test")))
-            )))));
-    GetIngestionExecutionRequestResolver resolver = new GetIngestionExecutionRequestResolver(mockClient);
+    Mockito.when(
+            mockClient.batchGetV2(
+                Mockito.eq(Constants.EXECUTION_REQUEST_ENTITY_NAME),
+                Mockito.eq(new HashSet<>(ImmutableSet.of(TEST_EXECUTION_REQUEST_URN))),
+                Mockito.eq(
+                    ImmutableSet.of(
+                        Constants.EXECUTION_REQUEST_INPUT_ASPECT_NAME,
+                        Constants.EXECUTION_REQUEST_RESULT_ASPECT_NAME)),
+                Mockito.any(Authentication.class)))
+        .thenReturn(
+            ImmutableMap.of(
+                TEST_EXECUTION_REQUEST_URN,
+                new EntityResponse()
+                    .setEntityName(Constants.EXECUTION_REQUEST_ENTITY_NAME)
+                    .setUrn(TEST_EXECUTION_REQUEST_URN)
+                    .setAspects(
+                        new EnvelopedAspectMap(
+                            ImmutableMap.of(
+                                Constants.EXECUTION_REQUEST_INPUT_ASPECT_NAME,
+                                new EnvelopedAspect()
+                                    .setValue(new Aspect(returnedInput.data()))
+                                    .setCreated(
+                                        new AuditStamp()
+                                            .setTime(0L)
+                                            .setActor(
+                                                Urn.createFromString("urn:li:corpuser:test"))),
+                                Constants.EXECUTION_REQUEST_RESULT_ASPECT_NAME,
+                                new EnvelopedAspect()
+                                    .setValue(new Aspect(returnedResult.data()))
+                                    .setCreated(
+                                        new AuditStamp()
+                                            .setTime(0L)
+                                            .setActor(
+                                                Urn.createFromString("urn:li:corpuser:test"))))))));
+    GetIngestionExecutionRequestResolver resolver =
+        new GetIngestionExecutionRequestResolver(mockClient);
 
     // Execute resolver
     QueryContext mockContext = getMockAllowContext();
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
-    Mockito.when(mockEnv.getArgument(Mockito.eq("urn"))).thenReturn(TEST_EXECUTION_REQUEST_URN.toString());
+    Mockito.when(mockEnv.getArgument(Mockito.eq("urn")))
+        .thenReturn(TEST_EXECUTION_REQUEST_URN.toString());
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     // Data Assertions
@@ -69,7 +85,8 @@ public class GetIngestionExecutionRequestResolverTest {
   public void testGetUnauthorized() throws Exception {
     // Create resolver
     EntityClient mockClient = Mockito.mock(EntityClient.class);
-    GetIngestionExecutionRequestResolver resolver = new GetIngestionExecutionRequestResolver(mockClient);
+    GetIngestionExecutionRequestResolver resolver =
+        new GetIngestionExecutionRequestResolver(mockClient);
 
     // Execute resolver
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
@@ -78,7 +95,9 @@ public class GetIngestionExecutionRequestResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     assertThrows(RuntimeException.class, () -> resolver.get(mockEnv).join());
-    Mockito.verify(mockClient, Mockito.times(0)).batchGetV2(Mockito.any(), Mockito.anySet(), Mockito.anySet(), Mockito.any(Authentication.class));
+    Mockito.verify(mockClient, Mockito.times(0))
+        .batchGetV2(
+            Mockito.any(), Mockito.anySet(), Mockito.anySet(), Mockito.any(Authentication.class));
   }
 
   @Test
@@ -87,13 +106,16 @@ public class GetIngestionExecutionRequestResolverTest {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     Mockito.doThrow(RemoteInvocationException.class)
         .when(mockClient)
-        .batchGetV2(Mockito.any(), Mockito.anySet(), Mockito.anySet(), Mockito.any(Authentication.class));
-    GetIngestionExecutionRequestResolver resolver = new GetIngestionExecutionRequestResolver(mockClient);
+        .batchGetV2(
+            Mockito.any(), Mockito.anySet(), Mockito.anySet(), Mockito.any(Authentication.class));
+    GetIngestionExecutionRequestResolver resolver =
+        new GetIngestionExecutionRequestResolver(mockClient);
 
     // Execute resolver
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     QueryContext mockContext = getMockAllowContext();
-    Mockito.when(mockEnv.getArgument(Mockito.eq("urn"))).thenReturn(TEST_EXECUTION_REQUEST_URN.toString());
+    Mockito.when(mockEnv.getArgument(Mockito.eq("urn")))
+        .thenReturn(TEST_EXECUTION_REQUEST_URN.toString());
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     assertThrows(RuntimeException.class, () -> resolver.get(mockEnv).join());

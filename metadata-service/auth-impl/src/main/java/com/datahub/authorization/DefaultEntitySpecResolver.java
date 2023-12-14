@@ -15,13 +15,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-
 public class DefaultEntitySpecResolver implements EntitySpecResolver {
   private final List<EntityFieldResolverProvider> _entityFieldResolverProviders;
 
   public DefaultEntitySpecResolver(Authentication systemAuthentication, EntityClient entityClient) {
     _entityFieldResolverProviders =
-        ImmutableList.of(new EntityTypeFieldResolverProvider(), new EntityUrnFieldResolverProvider(),
+        ImmutableList.of(
+            new EntityTypeFieldResolverProvider(),
+            new EntityUrnFieldResolverProvider(),
             new DomainFieldResolverProvider(entityClient, systemAuthentication),
             new OwnerFieldResolverProvider(entityClient, systemAuthentication),
             new DataPlatformInstanceFieldResolverProvider(entityClient, systemAuthentication),
@@ -35,7 +36,10 @@ public class DefaultEntitySpecResolver implements EntitySpecResolver {
 
   private Map<EntityFieldType, FieldResolver> getFieldResolvers(EntitySpec entitySpec) {
     return _entityFieldResolverProviders.stream()
-        .flatMap(resolver -> resolver.getFieldTypes().stream().map(fieldType -> Pair.of(fieldType, resolver)))
-        .collect(Collectors.toMap(Pair::getKey, pair -> pair.getValue().getFieldResolver(entitySpec)));
+        .flatMap(
+            resolver ->
+                resolver.getFieldTypes().stream().map(fieldType -> Pair.of(fieldType, resolver)))
+        .collect(
+            Collectors.toMap(Pair::getKey, pair -> pair.getValue().getFieldResolver(entitySpec)));
   }
 }

@@ -1,5 +1,7 @@
 package com.datahub.notification;
 
+import static com.linkedin.metadata.Constants.*;
+
 import com.datahub.authentication.Authentication;
 import com.datahub.notification.provider.SettingsProvider;
 import com.google.common.collect.ImmutableSet;
@@ -20,22 +22,18 @@ import org.mockito.Mockito;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
-import static com.linkedin.metadata.Constants.*;
-
-
 public class SettingsProviderTest {
 
   @Test
   public void testGetGlobalSettings() throws Exception {
     final EntityClient mockClient = Mockito.mock(EntityClient.class);
-    Mockito.when(mockClient.getV2(
-        Mockito.eq(GLOBAL_SETTINGS_ENTITY_NAME),
-        Mockito.eq(GLOBAL_SETTINGS_URN),
-        Mockito.eq(ImmutableSet.of(GLOBAL_SETTINGS_INFO_ASPECT_NAME)),
-        Mockito.any(Authentication.class)
-    )).thenReturn(
-        mockSettingsResponse()
-    );
+    Mockito.when(
+            mockClient.getV2(
+                Mockito.eq(GLOBAL_SETTINGS_ENTITY_NAME),
+                Mockito.eq(GLOBAL_SETTINGS_URN),
+                Mockito.eq(ImmutableSet.of(GLOBAL_SETTINGS_INFO_ASPECT_NAME)),
+                Mockito.any(Authentication.class)))
+        .thenReturn(mockSettingsResponse());
 
     final Authentication mockAuthentication = Mockito.mock(Authentication.class);
     final SettingsProvider settingsProvider = new SettingsProvider(mockClient, mockAuthentication);
@@ -49,14 +47,13 @@ public class SettingsProviderTest {
   @Test
   public void testGetGlobalSettingsFailure() throws Exception {
     final EntityClient mockClient = Mockito.mock(EntityClient.class);
-    Mockito.when(mockClient.getV2(
-        Mockito.eq(GLOBAL_SETTINGS_ENTITY_NAME),
-        Mockito.eq(GLOBAL_SETTINGS_URN),
-        Mockito.eq(ImmutableSet.of(GLOBAL_SETTINGS_INFO_ASPECT_NAME)),
-        Mockito.any(Authentication.class)
-    )).thenThrow(
-        new RemoteInvocationException()
-    );
+    Mockito.when(
+            mockClient.getV2(
+                Mockito.eq(GLOBAL_SETTINGS_ENTITY_NAME),
+                Mockito.eq(GLOBAL_SETTINGS_URN),
+                Mockito.eq(ImmutableSet.of(GLOBAL_SETTINGS_INFO_ASPECT_NAME)),
+                Mockito.any(Authentication.class)))
+        .thenThrow(new RemoteInvocationException());
 
     final Authentication mockAuthentication = Mockito.mock(Authentication.class);
     final SettingsProvider settingsProvider = new SettingsProvider(mockClient, mockAuthentication);
@@ -74,25 +71,28 @@ public class SettingsProviderTest {
     user.setUrn(GLOBAL_SETTINGS_URN);
     user.setEntityName(GLOBAL_SETTINGS_ENTITY_NAME);
     final EnvelopedAspectMap globalSettingsAspects = new EnvelopedAspectMap();
-    globalSettingsAspects.put(GLOBAL_SETTINGS_INFO_ASPECT_NAME, new EnvelopedAspect()
-        .setName(GLOBAL_SETTINGS_INFO_ASPECT_NAME)
-        .setType(AspectType.VERSIONED)
-        .setCreated(mockAuditStamp())
-        .setValue(new Aspect(
-            mockSettings().data()
-        ))
-    );
+    globalSettingsAspects.put(
+        GLOBAL_SETTINGS_INFO_ASPECT_NAME,
+        new EnvelopedAspect()
+            .setName(GLOBAL_SETTINGS_INFO_ASPECT_NAME)
+            .setType(AspectType.VERSIONED)
+            .setCreated(mockAuditStamp())
+            .setValue(new Aspect(mockSettings().data())));
     user.setAspects(globalSettingsAspects);
     return user;
   }
 
   private GlobalSettingsInfo mockSettings() {
     return new GlobalSettingsInfo()
-        .setIntegrations(new GlobalIntegrationSettings().setSlackSettings(new SlackIntegrationSettings().setEnabled(true)))
+        .setIntegrations(
+            new GlobalIntegrationSettings()
+                .setSlackSettings(new SlackIntegrationSettings().setEnabled(true)))
         .setNotifications(new GlobalNotificationSettings());
   }
 
   private AuditStamp mockAuditStamp() {
-    return new AuditStamp().setActor(Urn.createFromTuple(CORP_USER_ENTITY_NAME, "test")).setTime(0L);
+    return new AuditStamp()
+        .setActor(Urn.createFromTuple(CORP_USER_ENTITY_NAME, "test"))
+        .setTime(0L);
   }
 }

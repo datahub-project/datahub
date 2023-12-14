@@ -5,7 +5,6 @@ import com.linkedin.data.template.DirectCoercer;
 import com.linkedin.data.template.TemplateOutputCastException;
 import java.net.URISyntaxException;
 
-
 public final class MLFeatureUrn extends Urn {
 
   public static final String ENTITY_TYPE = "mlFeature";
@@ -43,7 +42,8 @@ public final class MLFeatureUrn extends Urn {
         throw new URISyntaxException(urn.toString(), "Invalid number of keys.");
       } else {
         try {
-          return new MLFeatureUrn((String) key.getAs(0, String.class), (String) key.getAs(1, String.class));
+          return new MLFeatureUrn(
+              (String) key.getAs(0, String.class), (String) key.getAs(1, String.class));
         } catch (Exception e) {
           throw new URISyntaxException(urn.toString(), "Invalid URN Parameter: '" + e.getMessage());
         }
@@ -52,18 +52,20 @@ public final class MLFeatureUrn extends Urn {
   }
 
   static {
-    Custom.registerCoercer(new DirectCoercer<MLFeatureUrn>() {
-      public Object coerceInput(MLFeatureUrn object) throws ClassCastException {
-        return object.toString();
-      }
+    Custom.registerCoercer(
+        new DirectCoercer<MLFeatureUrn>() {
+          public Object coerceInput(MLFeatureUrn object) throws ClassCastException {
+            return object.toString();
+          }
 
-      public MLFeatureUrn coerceOutput(Object object) throws TemplateOutputCastException {
-        try {
-          return MLFeatureUrn.createFromString((String) object);
-        } catch (URISyntaxException e) {
-          throw new TemplateOutputCastException("Invalid URN syntax: " + e.getMessage(), e);
-        }
-      }
-    }, MLFeatureUrn.class);
+          public MLFeatureUrn coerceOutput(Object object) throws TemplateOutputCastException {
+            try {
+              return MLFeatureUrn.createFromString((String) object);
+            } catch (URISyntaxException e) {
+              throw new TemplateOutputCastException("Invalid URN syntax: " + e.getMessage(), e);
+            }
+          }
+        },
+        MLFeatureUrn.class);
   }
 }

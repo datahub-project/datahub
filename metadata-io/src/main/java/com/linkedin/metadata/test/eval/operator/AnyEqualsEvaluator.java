@@ -18,15 +18,13 @@ import java.util.Set;
 /**
  * Any equals operation evaluator.
  *
- * Accepts strings, or string lists as operands and returns whether there are any
- * equivalence matches between the two sets as a boolean.
+ * <p>Accepts strings, or string lists as operands and returns whether there are any equivalence
+ * matches between the two sets as a boolean.
  */
 public class AnyEqualsEvaluator extends BaseOperatorEvaluator {
 
-  private static final Set<ValueType> SUPPORTED_OPERAND_TYPES = ImmutableSet.of(
-      new StringType(),
-      new ListType(new StringType())
-  );
+  private static final Set<ValueType> SUPPORTED_OPERAND_TYPES =
+      ImmutableSet.of(new StringType(), new ListType(new StringType()));
 
   @Override
   public OperatorType getOperatorType() {
@@ -40,7 +38,8 @@ public class AnyEqualsEvaluator extends BaseOperatorEvaluator {
           "Invalid params for the equals operation: Requires 2 input operands");
     }
     // Validate that both input types are string lists.
-    if (!isSupportedOperandType(operands.get(0).getExpression()) || !isSupportedOperandType(operands.get(1).getExpression())) {
+    if (!isSupportedOperandType(operands.get(0).getExpression())
+        || !isSupportedOperandType(operands.get(1).getExpression())) {
       throw new InvalidOperandException(
           "Invalid params for the equals operation: Requires 2 string list operands");
     }
@@ -49,7 +48,8 @@ public class AnyEqualsEvaluator extends BaseOperatorEvaluator {
   @Override
   public Object evaluate(ResolvedOperands resolvedOperands) throws InvalidOperandException {
 
-    ResolvedOperand operand1 = resolvedOperands.get(0); // Query response -> This will be list of string.
+    ResolvedOperand operand1 =
+        resolvedOperands.get(0); // Query response -> This will be list of string.
     ResolvedOperand operand2 = resolvedOperands.get(1); // -> This will be user provided or list.
 
     Set<String> operand1Values = toStringSet(operand1);
@@ -65,7 +65,8 @@ public class AnyEqualsEvaluator extends BaseOperatorEvaluator {
       return new HashSet<>((List<String>) operand.getExpression().getValue());
     } else {
       throw new IllegalArgumentException(
-          String.format("Failed to evaluate AnyEquals operator against operand of type %s. Expected string or string list.",
+          String.format(
+              "Failed to evaluate AnyEquals operator against operand of type %s. Expected string or string list.",
               operand.getExpression().getValue().getClass()));
     }
   }
