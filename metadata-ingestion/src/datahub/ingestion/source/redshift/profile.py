@@ -48,8 +48,6 @@ class RedshiftProfiler(GenericProfiler):
                 if not self.config.schema_pattern.allowed(schema):
                     continue
                 for table in tables[db].get(schema, {}):
-                    if not self.config.table_pattern.allowed(table.name):
-                        continue
                     if (
                         not self.config.profiling.profile_external_tables
                         and table.type == "EXTERNAL_TABLE"
