@@ -396,7 +396,8 @@ class RedshiftUsageExtractor:
             return -timestamp_low_watermark
 
         # dict of entity urn -> (last event's actor, operation type)
-        last_events = cachetools.TTLCache[str, Tuple[Optional[str], str]](
+        # TODO: Remove the type ignore and use TTLCache[key_type, value_type] directly once that's supported in Python 3.9.
+        last_events: Dict[str, Tuple[Optional[str], str]] = cachetools.TTLCache(  # type: ignore[assignment]
             maxsize=OPERATION_CACHE_MAXSIZE, ttl=DROP_WINDOW_SEC * 1000, timer=timer
         )
 
