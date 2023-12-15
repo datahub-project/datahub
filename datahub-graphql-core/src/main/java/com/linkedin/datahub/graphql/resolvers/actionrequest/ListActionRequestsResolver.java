@@ -23,6 +23,7 @@ import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
+import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchResult;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -128,19 +129,22 @@ public class ListActionRequestsResolver
                     count,
                     context.getAuthentication());
 
-            final Map<Urn, Entity> entities =
-                _entityClient.batchGet(
-                    new HashSet<>(
-                        searchResult.getEntities().stream()
-                            .map(result -> result.getEntity())
-                            .collect(Collectors.toList())),
-                    context.getAuthentication());
+            final List<Urn> entityUrns =
+                searchResult.getEntities().stream()
+                    .map(SearchEntity::getEntity)
+                    .collect(Collectors.toList());
+
+            final Map<Urn, Entity> entityMap =
+                _entityClient.batchGet(new HashSet<>(entityUrns), context.getAuthentication());
+
+            final List<Entity> entities = new ArrayList<>();
+            entityUrns.forEach((urn) -> entities.add(entityMap.get(urn)));
 
             final ListActionRequestsResult result = new ListActionRequestsResult();
             result.setStart(searchResult.getFrom());
             result.setCount(searchResult.getPageSize());
             result.setTotal(searchResult.getNumEntities());
-            result.setActionRequests(ActionRequestUtils.mapActionRequests(entities.values()));
+            result.setActionRequests(ActionRequestUtils.mapActionRequests(entities));
             return result;
           } catch (Exception e) {
             throw new RuntimeException("Failed to list action requests", e);
