@@ -25,13 +25,16 @@ export default function CreateGroupModal({ onClose, onCreate }: Props) {
     const [createGroupMutation] = useCreateGroupMutation();
     const [createButtonEnabled, setCreateButtonEnabled] = useState(true);
     const [form] = Form.useForm();
+
+    // Reference to the styled editor for handling focus
     const styledEditorRef = useRef<HTMLDivElement>(null);
 
     const onCreateGroup = () => {
-        const preventEnterModal =
+        // Check if the Enter key was pressed inside the styled editor to prevent unintended form submission
+        const preventEnterKeyPressModal =
             document.activeElement !== styledEditorRef.current &&
             !styledEditorRef.current?.contains(document.activeElement);
-        if (preventEnterModal) {
+        if (preventEnterKeyPressModal) {
             createGroupMutation({
                 variables: {
                     input: {
@@ -131,6 +134,7 @@ export default function CreateGroupModal({ onClose, onCreate }: Props) {
                 <Form.Item label={<Typography.Text strong>Description</Typography.Text>}>
                     <Typography.Paragraph>An optional description for your new group.</Typography.Paragraph>
                     <Form.Item name="description" rules={[{ whitespace: true }]} hasFeedback>
+                        {/* Styled editor for the group description */}
                         <div ref={styledEditorRef}>
                             <StyledEditor doNotFocus content={stagedDescription} onChange={updateDescription} />
                         </div>

@@ -277,6 +277,7 @@ export default function GroupInfoSidebar({ sideBarData, refetch }: Props) {
                     <DescriptionContainer>
                         {(aboutText && expanded) || !overLimit ? (
                             <>
+                                {/* Read only viewer for displaying group description */}
                                 <StyledViewer content={aboutText} readOnly />
                                 <ExpandedActions>
                                     {overLimit && (
@@ -292,6 +293,7 @@ export default function GroupInfoSidebar({ sideBarData, refetch }: Props) {
                             </>
                         ) : (
                             <>
+                                {/* Display abbreviated description with option to read more */}
                                 <StripMarkdownText
                                     limit={ABBREVIATED_LIMIT}
                                     readMore={
@@ -312,6 +314,7 @@ export default function GroupInfoSidebar({ sideBarData, refetch }: Props) {
                             </>
                         )}
                     </DescriptionContainer>
+                    {/* Modal for updating group description */}
                     {isUpdatingDescription && (
                         <EditGroupDescriptionModal
                             onClose={() => {
