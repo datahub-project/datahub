@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Tuple
+from typing import Optional, Tuple
 
 from datahub.ingestion.api.report import EntityFilterReport
 from datahub.ingestion.source.sql.sql_generic_profiler import ProfilingSqlReport
@@ -15,6 +15,8 @@ class UnityCatalogReport(IngestionStageReport, ProfilingSqlReport):
     tables: EntityFilterReport = EntityFilterReport.field(type="table/view")
     table_profiles: EntityFilterReport = EntityFilterReport.field(type="table profile")
     notebooks: EntityFilterReport = EntityFilterReport.field(type="notebook")
+
+    hive_metastore_catalog_found: Optional[bool] = None
 
     num_column_lineage_skipped_column_count: int = 0
     num_external_upstreams_lacking_permissions: int = 0

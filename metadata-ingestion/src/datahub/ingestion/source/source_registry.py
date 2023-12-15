@@ -14,3 +14,12 @@ source_registry.register_alias(
     "mssql-odbc",
     "mssql",
 )
+
+# Use databricks as alias for unity-catalog ingestion source.
+# As mentioned here - https://docs.databricks.com/en/data-governance/unity-catalog/enable-workspaces.html,
+# Databricks is rolling out Unity Catalog gradually across accounts.
+# TODO: Rename unity-catalog source to databricks source, once it is rolled out for all accounts
+source_registry.register_alias(
+    "databricks",
+    "unity-catalog",
+)

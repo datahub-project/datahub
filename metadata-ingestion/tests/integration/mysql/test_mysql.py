@@ -3,7 +3,8 @@ import subprocess
 import pytest
 from freezegun import freeze_time
 
-from tests.test_helpers import mce_helpers
+from datahub.ingestion.source.sql.mysql import MySQLSource
+from tests.test_helpers import mce_helpers, test_connection_helpers
 from tests.test_helpers.click_helpers import run_datahub_cmd
 from tests.test_helpers.docker_helpers import wait_for_port
 
@@ -75,3 +76,38 @@ def test_mysql_ingest_no_db(
         output_path=tmp_path / "mysql_mces.json",
         golden_path=test_resources_dir / golden_file,
     )
+
+
+@pytest.mark.parametrize(
+    "config_dict, is_success",
+    [
+        (
+            {
+                "host_port": "localhost:53307",
+                "database": "northwind",
+                "username": "root",
+                "password": "example",
+            },
+            True,
+        ),
+        (
+            {
+                "host_port": "localhost:5330",
+                "database": "wrong_db",
+                "username": "wrong_user",
+                "password": "wrong_pass",
+            },
+            False,
+        ),
+    ],
+)
+@freeze_time(FROZEN_TIME)
+@pytest.mark.integration
+def test_mysql_test_connection(mysql_runner, config_dict, is_success):
+    report = test_connection_helpers.run_test_connection(MySQLSource, config_dict)
+    if is_success:
+        test_connection_helpers.assert_basic_connectivity_success(report)
+    else:
+        test_connection_helpers.assert_basic_connectivity_failure(
+            report, "Connection refused"
+        )

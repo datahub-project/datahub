@@ -79,6 +79,7 @@ def default_query_results(  # noqa: C901
             {
                 "TABLE_SCHEMA": "TEST_SCHEMA",
                 "TABLE_NAME": "TABLE_{}".format(tbl_idx),
+                "TABLE_TYPE": "BASE TABLE",
                 "CREATED": datetime(2021, 6, 8, 0, 0, 0, 0),
                 "LAST_ALTERED": datetime(2021, 6, 8, 0, 0, 0, 0),
                 "BYTES": 1024,

@@ -193,20 +193,20 @@ def assertion_urn_to_key(assertion_urn: str) -> Optional[AssertionKeyClass]:
 
 def make_user_urn(username: str) -> str:
     """
-    Makes a user urn if the input is not a user urn already
+    Makes a user urn if the input is not a user or group urn already
     """
     return (
         f"urn:li:corpuser:{username}"
-        if not username.startswith("urn:li:corpuser:")
+        if not username.startswith(("urn:li:corpuser:", "urn:li:corpGroup:"))
         else username
     )
 
 
 def make_group_urn(groupname: str) -> str:
     """
-    Makes a group urn if the input is not a group urn already
+    Makes a group urn if the input is not a user or group urn already
     """
-    if groupname and groupname.startswith("urn:li:corpGroup:"):
+    if groupname and groupname.startswith(("urn:li:corpGroup:", "urn:li:corpuser:")):
         return groupname
     else:
         return f"urn:li:corpGroup:{groupname}"

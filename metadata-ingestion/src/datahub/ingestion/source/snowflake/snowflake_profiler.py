@@ -50,6 +50,16 @@ class SnowflakeProfiler(GenericProfiler, SnowflakeCommonMixin):
         profile_requests = []
         for schema in database.schemas:
             for table in db_tables[schema.name]:
+                if (
+                    not self.config.profiling.profile_external_tables
+                    and table.type == "EXTERNAL TABLE"
+                ):
+                    logger.info(
+                        f"Skipping profiling of external table {database.name}.{schema.name}.{table.name}"
+                    )
+                    self.report.profiling_skipped_other[schema.name] += 1
+                    continue
+
                 profile_request = self.get_profile_request(
                     table, schema.name, database.name
                 )

@@ -26,6 +26,7 @@ from databricks.sdk.service.sql import (
 from databricks.sdk.service.workspace import ObjectType
 
 import datahub
+from datahub.ingestion.source.unity.hive_metastore_proxy import HiveMetastoreProxy
 from datahub.ingestion.source.unity.proxy_profiling import (
     UnityCatalogProxyProfilingMixin,
 )
@@ -33,6 +34,7 @@ from datahub.ingestion.source.unity.proxy_types import (
     ALLOWED_STATEMENT_TYPES,
     Catalog,
     Column,
+    CustomCatalogType,
     ExternalTableReference,
     Metastore,
     Notebook,
@@ -87,6 +89,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         personal_access_token: str,
         warehouse_id: Optional[str],
         report: UnityCatalogReport,
+        hive_metastore_proxy: Optional[HiveMetastoreProxy] = None,
     ):
         self._workspace_client = WorkspaceClient(
             host=workspace_url,
@@ -96,6 +99,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         )
         self.warehouse_id = warehouse_id or ""
         self.report = report
+        self.hive_metastore_proxy = hive_metastore_proxy
 
     def check_basic_connectivity(self) -> bool:
         return bool(self._workspace_client.catalogs.list())
@@ -105,6 +109,9 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         return self._create_metastore(response)
 
     def catalogs(self, metastore: Optional[Metastore]) -> Iterable[Catalog]:
+        if self.hive_metastore_proxy:
+            yield self.hive_metastore_proxy.hive_metastore_catalog(metastore)
+
         response = self._workspace_client.catalogs.list()
         if not response:
             logger.info("Catalogs not found")
@@ -122,6 +129,12 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         return self._create_catalog(metastore, response)
 
     def schemas(self, catalog: Catalog) -> Iterable[Schema]:
+        if (
+            self.hive_metastore_proxy
+            and catalog.type == CustomCatalogType.HIVE_METASTORE_CATALOG
+        ):
+            yield from self.hive_metastore_proxy.hive_metastore_schemas(catalog)
+            return
         response = self._workspace_client.schemas.list(catalog_name=catalog.name)
         if not response:
             logger.info(f"Schemas not found for catalog {catalog.id}")
@@ -130,6 +143,12 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             yield self._create_schema(catalog, schema)
 
     def tables(self, schema: Schema) -> Iterable[Table]:
+        if (
+            self.hive_metastore_proxy
+            and schema.catalog.type == CustomCatalogType.HIVE_METASTORE_CATALOG
+        ):
+            yield from self.hive_metastore_proxy.hive_metastore_tables(schema)
+            return
         with patch("databricks.sdk.service.catalog.TableInfo", TableInfoWithGeneration):
             response = self._workspace_client.tables.list(
                 catalog_name=schema.catalog.name, schema_name=schema.name
@@ -244,6 +263,9 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         )
 
     def table_lineage(self, table: Table, include_entity_lineage: bool) -> None:
+        if table.schema.catalog.type == CustomCatalogType.HIVE_METASTORE_CATALOG:
+            # Lineage is not available for Hive Metastore Tables.
+            return None
         # Lineage endpoint doesn't exists on 2.1 version
         try:
             response: dict = self.list_lineages_by_table(

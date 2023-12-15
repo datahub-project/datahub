@@ -813,13 +813,25 @@ def test_simple_dataset_tags_transformation(mock_time):
             ]
         )
     )
-    assert len(outputs) == 3
+
+    assert len(outputs) == 5
 
     # Check that tags were added.
     tags_aspect = outputs[1].record.aspect
+    assert tags_aspect.tags[0].tag == builder.make_tag_urn("NeedsDocumentation")
     assert tags_aspect
     assert len(tags_aspect.tags) == 2
-    assert tags_aspect.tags[0].tag == builder.make_tag_urn("NeedsDocumentation")
+
+    # Check new tag entity should be there
+    assert outputs[2].record.aspectName == "tagKey"
+    assert outputs[2].record.aspect.name == "NeedsDocumentation"
+    assert outputs[2].record.entityUrn == builder.make_tag_urn("NeedsDocumentation")
+
+    assert outputs[3].record.aspectName == "tagKey"
+    assert outputs[3].record.aspect.name == "Legacy"
+    assert outputs[3].record.entityUrn == builder.make_tag_urn("Legacy")
+
+    assert isinstance(outputs[4].record, EndOfStream)
 
 
 def dummy_tag_resolver_method(dataset_snapshot):
@@ -853,7 +865,7 @@ def test_pattern_dataset_tags_transformation(mock_time):
         )
     )
 
-    assert len(outputs) == 3
+    assert len(outputs) == 5
     tags_aspect = outputs[1].record.aspect
     assert tags_aspect
     assert len(tags_aspect.tags) == 2
@@ -1363,7 +1375,7 @@ def test_mcp_add_tags_missing(mock_time):
     ]
     input_stream.append(RecordEnvelope(record=EndOfStream(), metadata={}))
     outputs = list(transformer.transform(input_stream))
-    assert len(outputs) == 3
+    assert len(outputs) == 5
     assert outputs[0].record == dataset_mcp
     # Check that tags were added, this will be the second result
     tags_aspect = outputs[1].record.aspect
@@ -1395,13 +1407,23 @@ def test_mcp_add_tags_existing(mock_time):
     ]
     input_stream.append(RecordEnvelope(record=EndOfStream(), metadata={}))
     outputs = list(transformer.transform(input_stream))
-    assert len(outputs) == 2
+
+    assert len(outputs) == 4
+
     # Check that tags were added, this will be the second result
     tags_aspect = outputs[0].record.aspect
     assert tags_aspect
     assert len(tags_aspect.tags) == 3
     assert tags_aspect.tags[0].tag == builder.make_tag_urn("Test")
     assert tags_aspect.tags[1].tag == builder.make_tag_urn("NeedsDocumentation")
+    assert tags_aspect.tags[2].tag == builder.make_tag_urn("Legacy")
+
+    # Check tag entities got added
+    assert outputs[1].record.entityType == "tag"
+    assert outputs[1].record.entityUrn == builder.make_tag_urn("NeedsDocumentation")
+    assert outputs[2].record.entityType == "tag"
+    assert outputs[2].record.entityUrn == builder.make_tag_urn("Legacy")
+
     assert isinstance(outputs[-1].record, EndOfStream)
 
 
