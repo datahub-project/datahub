@@ -61,14 +61,19 @@ public class IncidentsSummaryHook implements MetadataChangeLogHook {
   private final IncidentService _incidentService;
   private final boolean _isEnabled;
 
+  /** Max number of incidents to allow in incident summary, limited to prevent HTTP errors */
+  private final int _maxIncidentHistory;
+
   @Autowired
   public IncidentsSummaryHook(
       @Nonnull final EntityRegistry entityRegistry,
       @Nonnull final IncidentService incidentService,
-      @Nonnull @Value("${incidents.hook.enabled:true}") Boolean isEnabled) {
+      @Nonnull @Value("${incidents.hook.enabled:true}") Boolean isEnabled,
+      @Nonnull @Value("${incidents.hook.maxIncidentHistory:100}") Integer maxIncidentHistory) {
     _entityRegistry = Objects.requireNonNull(entityRegistry, "entityRegistry is required");
     _incidentService = Objects.requireNonNull(incidentService, "incidentService is required");
     _isEnabled = isEnabled;
+    _maxIncidentHistory = maxIncidentHistory;
   }
 
   @Override
@@ -172,14 +177,14 @@ public class IncidentsSummaryHook implements MetadataChangeLogHook {
       IncidentsSummaryUtils.removeIncidentFromResolvedSummary(incidentUrn, summary);
 
       // Then, add to active.
-      IncidentsSummaryUtils.addIncidentToActiveSummary(details, summary);
+      IncidentsSummaryUtils.addIncidentToActiveSummary(details, summary, _maxIncidentHistory);
 
     } else if (IncidentState.RESOLVED.equals(status.getState())) {
       // First, ensure this isn't in any summaries anymore.
       IncidentsSummaryUtils.removeIncidentFromActiveSummary(incidentUrn, summary);
 
       // Then, add to resolved.
-      IncidentsSummaryUtils.addIncidentToResolvedSummary(details, summary);
+      IncidentsSummaryUtils.addIncidentToResolvedSummary(details, summary, _maxIncidentHistory);
     }
 
     // 3. Emit the change back!
