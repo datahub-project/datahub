@@ -4,7 +4,6 @@ import { EducationStepsProvider } from '../providers/EducationStepsProvider';
 import UserContextProvider from './context/UserContextProvider';
 import QuickFiltersProvider from '../providers/QuickFiltersProvider';
 import SearchContextProvider from './search/context/SearchContextProvider';
-import { BrowserTitleProvider } from './shared/BrowserTabTitleContext';
 import EntityRegistryProvider from './EntityRegistryProvider';
 import { BrowserTitleProvider } from './shared/BrowserTabTitleContext';
 
