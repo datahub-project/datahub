@@ -191,6 +191,9 @@ public class TestSparkJobsLineage {
             .config("spark.datahub.metadata.dataset.platformInstance", DATASET_PLATFORM_INSTANCE)
             .config("spark.datahub.metadata.dataset.env", DATASET_ENV.name())
             .config("spark.sql.warehouse.dir", new File(WAREHOUSE_LOC).getAbsolutePath())
+            .config(
+                "javax.jdo.option.ConnectionURL",
+                "jdbc:derby:;databaseName=build/tmp/metastore_db_spark;create=true")
             .enableHiveSupport()
             .getOrCreate();
 
