@@ -1,7 +1,6 @@
 #!/bin/bash
 
 set -e
-eval "$(sentry-cli bash-hook)"
 
 : ${DATAHUB_ANALYTICS_ENABLED:=true}
 : ${USE_AWS_ELASTICSEARCH:=false}
