@@ -6,6 +6,7 @@ import QuickFiltersProvider from '../providers/QuickFiltersProvider';
 import SearchContextProvider from './search/context/SearchContextProvider';
 import { BrowserTitleProvider } from './shared/BrowserTabTitleContext';
 import EntityRegistryProvider from './EntityRegistryProvider';
+import { BrowserTitleProvider } from './shared/BrowserTabTitleContext';
 
 interface Props {
     children: React.ReactNode;
