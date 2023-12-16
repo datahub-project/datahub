@@ -4,11 +4,28 @@ from typing import Any, Dict, List, Optional
 from datahub_classify.helper_classes import ColumnInfo
 from datahub_classify.infotype_predictor import predict_infotypes
 from datahub_classify.reference_input import input1 as default_config
-from pydantic import validator
+from pydantic import BaseModel, validator
 from pydantic.fields import Field
 
 from datahub.configuration.common import ConfigModel
 from datahub.ingestion.glossary.classifier import Classifier
+
+
+class ExcludeNameFactorConfig(BaseModel):
+    __root__: List[str] = Field(
+        default=[],
+        description="List of exact column names to exclude from classification for this info type",
+    )
+
+    def __iter__(self):
+        return iter(self.__root__)
+
+    def __getitem__(self, item):
+        return self.__root__[item]
+
+    @property
+    def names(self):
+        return self.__root__
 
 
 class NameFactorConfig(ConfigModel):
@@ -65,6 +82,9 @@ class InfoTypeConfig(ConfigModel):
     Prediction_Factors_and_Weights: PredictionFactorsAndWeights = Field(
         description="Factors and their weights to consider when predicting info types",
         alias="prediction_factors_and_weights",
+    )
+    ExcludeName: Optional[ExcludeNameFactorConfig] = Field(
+        default=None, alias="ExcludeName"
     )
     Name: Optional[NameFactorConfig] = Field(default=None, alias="name")
 
