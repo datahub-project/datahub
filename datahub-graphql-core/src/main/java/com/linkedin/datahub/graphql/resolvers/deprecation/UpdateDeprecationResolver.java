@@ -18,13 +18,17 @@ import com.linkedin.metadata.entity.EntityUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+
 import java.net.URISyntaxException;
 import java.util.concurrent.CompletableFuture;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
+
 import com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils;
+
 import static com.linkedin.metadata.Constants.*;
 
 
@@ -35,89 +39,89 @@ import static com.linkedin.metadata.Constants.*;
 @RequiredArgsConstructor
 public class UpdateDeprecationResolver implements DataFetcher<CompletableFuture<Boolean>> {
 
-  private static final String EMPTY_STRING = "";
-  private final EntityClient _entityClient;
-  private final EntityService _entityService;  // TODO: Remove this when 'exists' added to EntityClient
+    private static final String EMPTY_STRING = "";
+    private final EntityClient _entityClient;
+    private final EntityService _entityService;  // TODO: Remove this when 'exists' added to EntityClient
 
-  @Override
-  public CompletableFuture<Boolean> get(DataFetchingEnvironment environment) throws Exception {
+    @Override
+    public CompletableFuture<Boolean> get(DataFetchingEnvironment environment) throws Exception {
 
-    final QueryContext context = environment.getContext();
-    final UpdateDeprecationInput input = bindArgument(environment.getArgument("input"), UpdateDeprecationInput.class);
-    final Urn entityUrn = Urn.createFromString(input.getUrn());
+        final QueryContext context = environment.getContext();
+        final UpdateDeprecationInput input = bindArgument(environment.getArgument("input"), UpdateDeprecationInput.class);
+        final Urn entityUrn = Urn.createFromString(input.getUrn());
 
-    return CompletableFuture.supplyAsync(() -> {
+        return CompletableFuture.supplyAsync(() -> {
 
-      if (!isAuthorizedToUpdateDeprecationForEntity(environment.getContext(), entityUrn)) {
-        throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
-      }
-      validateUpdateDeprecationInput(
-          entityUrn,
-          _entityService
-      );
-      try {
-        Deprecation deprecation = (Deprecation) EntityUtils.getAspectFromEntity(
-            entityUrn.toString(),
-            DEPRECATION_ASPECT_NAME,
-            _entityService,
-            new Deprecation());
-        updateDeprecation(deprecation, input, context);
+            if (!isAuthorizedToUpdateDeprecationForEntity(environment.getContext(), entityUrn)) {
+                throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
+            }
+            validateUpdateDeprecationInput(
+                    entityUrn,
+                    _entityService
+            );
+            try {
+                Deprecation deprecation = (Deprecation) EntityUtils.getAspectFromEntity(
+                        entityUrn.toString(),
+                        DEPRECATION_ASPECT_NAME,
+                        _entityService,
+                        new Deprecation());
+                updateDeprecation(deprecation, input, context);
 
-        // Create the Deprecation aspect
-        final MetadataChangeProposal proposal = MutationUtils.buildMetadataChangeProposalWithUrn(entityUrn, DEPRECATION_ASPECT_NAME, deprecation);
-        _entityClient.ingestProposal(proposal, context.getAuthentication(), false);
+                // Create the Deprecation aspect
+                final MetadataChangeProposal proposal = MutationUtils.buildMetadataChangeProposalWithUrn(entityUrn, DEPRECATION_ASPECT_NAME, deprecation);
+                _entityClient.ingestProposal(proposal, context.getAuthentication(), false);
+                return true;
+            } catch (Exception e) {
+                log.error("Failed to update Deprecation for resource with entity urn {}: {}", entityUrn, e.getMessage());
+                throw new RuntimeException(String.format("Failed to update Deprecation for resource with entity urn %s", entityUrn), e);
+            }
+        });
+    }
+
+    private boolean isAuthorizedToUpdateDeprecationForEntity(final QueryContext context, final Urn entityUrn) {
+        final DisjunctivePrivilegeGroup orPrivilegeGroups = new DisjunctivePrivilegeGroup(ImmutableList.of(
+                AuthUtils.ALL_PRIVILEGES_GROUP,
+                new ConjunctivePrivilegeGroup(ImmutableList.of(PoliciesConfig.EDIT_ENTITY_DEPRECATION_PRIVILEGE.getType()))
+        ));
+
+        return AuthorizationUtils.isAuthorized(
+                context.getAuthorizer(),
+                context.getActorUrn(),
+                entityUrn.getEntityType(),
+                entityUrn.toString(),
+                orPrivilegeGroups);
+    }
+
+    public static Boolean validateUpdateDeprecationInput(
+            Urn entityUrn,
+            EntityService entityService
+    ) {
+
+        if (!entityService.exists(entityUrn)) {
+            throw new IllegalArgumentException(
+                    String.format("Failed to update deprecation for Entity %s. Entity does not exist.", entityUrn));
+        }
+
         return true;
-      } catch (Exception e) {
-        log.error("Failed to update Deprecation for resource with entity urn {}: {}", entityUrn, e.getMessage());
-        throw new RuntimeException(String.format("Failed to update Deprecation for resource with entity urn %s", entityUrn), e);
-      }
-    });
-  }
-
-  private boolean isAuthorizedToUpdateDeprecationForEntity(final QueryContext context, final Urn entityUrn) {
-    final DisjunctivePrivilegeGroup orPrivilegeGroups = new DisjunctivePrivilegeGroup(ImmutableList.of(
-        AuthUtils.ALL_PRIVILEGES_GROUP,
-        new ConjunctivePrivilegeGroup(ImmutableList.of(PoliciesConfig.EDIT_ENTITY_DEPRECATION_PRIVILEGE.getType()))
-    ));
-
-    return AuthorizationUtils.isAuthorized(
-        context.getAuthorizer(),
-        context.getActorUrn(),
-        entityUrn.getEntityType(),
-        entityUrn.toString(),
-        orPrivilegeGroups);
-  }
-
-  public static Boolean validateUpdateDeprecationInput(
-      Urn entityUrn,
-      EntityService entityService
-  ) {
-
-    if (!entityService.exists(entityUrn)) {
-      throw new IllegalArgumentException(
-          String.format("Failed to update deprecation for Entity %s. Entity does not exist.", entityUrn));
     }
 
-    return true;
-  }
-
-  private static void updateDeprecation(Deprecation deprecation, UpdateDeprecationInput input, QueryContext context) {
-    deprecation.setDeprecated(input.getDeprecated());
-    deprecation.setDecommissionTime(input.getDecommissionTime(), SetMode.REMOVE_IF_NULL);
-    if (input.getNote() != null) {
-      deprecation.setNote(input.getNote());
-    } else {
-      // Note is required field in GMS. Set to empty string if not provided.
-      deprecation.setNote(EMPTY_STRING);
+    private static void updateDeprecation(Deprecation deprecation, UpdateDeprecationInput input, QueryContext context) {
+        deprecation.setDeprecated(input.getDeprecated());
+        deprecation.setDecommissionTime(input.getDecommissionTime(), SetMode.REMOVE_IF_NULL);
+        if (input.getNote() != null) {
+            deprecation.setNote(input.getNote());
+        } else {
+            // Note is required field in GMS. Set to empty string if not provided.
+            deprecation.setNote(EMPTY_STRING);
+        }
+        try {
+            deprecation.setActor(Urn.createFromString(context.getActorUrn()));
+        } catch (URISyntaxException e) {
+            // Should never happen.
+            throw new RuntimeException(
+                    String.format("Failed to convert authorized actor into an Urn. actor urn: %s",
+                            context.getActorUrn()),
+                    e);
+        }
     }
-    try {
-      deprecation.setActor(Urn.createFromString(context.getActorUrn()));
-    } catch (URISyntaxException e) {
-      // Should never happen.
-      throw new RuntimeException(
-          String.format("Failed to convert authorized actor into an Urn. actor urn: %s",
-          context.getActorUrn()),
-          e);
-    }
-  }
 }

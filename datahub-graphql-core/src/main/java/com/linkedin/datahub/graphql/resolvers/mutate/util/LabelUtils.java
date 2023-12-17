@@ -1,6 +1,9 @@
 package com.linkedin.datahub.graphql.resolvers.mutate.util;
 
+import com.datahub.authorization.ConjunctivePrivilegeGroup;
+import com.datahub.authorization.DisjunctivePrivilegeGroup;
 import com.google.common.collect.ImmutableList;
+import com.linkedin.businessattribute.BusinessAttributeInfo;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.GlossaryTermAssociation;
 import com.linkedin.common.GlossaryTermAssociationArray;
@@ -13,8 +16,6 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
-import com.datahub.authorization.ConjunctivePrivilegeGroup;
-import com.datahub.authorization.DisjunctivePrivilegeGroup;
 import com.linkedin.datahub.graphql.generated.ResourceRefInput;
 import com.linkedin.datahub.graphql.generated.SubResourceType;
 import com.linkedin.metadata.Constants;
@@ -24,13 +25,17 @@ import com.linkedin.metadata.entity.EntityUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.schema.EditableSchemaFieldInfo;
 import com.linkedin.schema.EditableSchemaMetadata;
+import lombok.extern.slf4j.Slf4j;
+
+import javax.annotation.Nonnull;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.List;
-import javax.annotation.Nonnull;
-import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
+import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.buildMetadataChangeProposalWithUrn;
+import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.getFieldInfoFromSchema;
+import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.persistAspect;
+import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.validateSubresourceExists;
 
 
 // TODO: Move to consuming GlossaryTermService, TagService.
@@ -289,6 +294,10 @@ public class LabelUtils {
   ) throws URISyntaxException {
     if (resource.getSubResource() == null || resource.getSubResource().equals("")) {
       // Case 1: Adding tags to a top-level entity
+      Urn targetUrn = Urn.createFromString(resource.getResourceUrn());
+      if (targetUrn.getEntityType().equals(Constants.BUSINESS_ATTRIBUTE_ENTITY_NAME)) {
+        return buildAddTagsToBusinessAttributeProposal(tagUrns, resource, actor, entityService);
+      }
       return buildAddTagsToEntityProposal(tagUrns, resource, actor, entityService);
     } else {
       // Case 2: Adding tags to subresource (e.g. schema fields)
@@ -304,6 +313,10 @@ public class LabelUtils {
   ) throws URISyntaxException {
     if (resource.getSubResource() == null || resource.getSubResource().equals("")) {
       // Case 1: Adding tags to a top-level entity
+      Urn targetUrn = Urn.createFromString(resource.getResourceUrn());
+      if (targetUrn.getEntityType().equals(Constants.BUSINESS_ATTRIBUTE_ENTITY_NAME)) {
+        return buildRemoveTagsToBusinessAttributeProposal(tagUrns, resource, actor, entityService);
+      }
       return buildRemoveTagsToEntityProposal(tagUrns, resource, actor, entityService);
     } else {
       // Case 2: Adding tags to subresource (e.g. schema fields)
@@ -422,6 +435,10 @@ public class LabelUtils {
   ) throws URISyntaxException {
     if (resource.getSubResource() == null || resource.getSubResource().equals("")) {
       // Case 1: Adding terms to a top-level entity
+      Urn targetUrn = Urn.createFromString(resource.getResourceUrn());
+      if (targetUrn.getEntityType().equals(Constants.BUSINESS_ATTRIBUTE_ENTITY_NAME)) {
+        return buildAddTermsToBusinessAttributeProposal(termUrns, resource, actor, entityService);
+      }
       return buildAddTermsToEntityProposal(termUrns, resource, actor, entityService);
     } else {
       // Case 2: Adding terms to subresource (e.g. schema fields)
@@ -437,6 +454,10 @@ public class LabelUtils {
   ) throws URISyntaxException {
     if (resource.getSubResource() == null || resource.getSubResource().equals("")) {
       // Case 1: Removing terms from a top-level entity
+      Urn targetUrn = Urn.createFromString(resource.getResourceUrn());
+      if (targetUrn.getEntityType().equals(Constants.BUSINESS_ATTRIBUTE_ENTITY_NAME)) {
+        return buildRemoveTermsToBusinessAttributeProposal(termUrns, resource, actor, entityService);
+      }
       return buildRemoveTermsToEntityProposal(termUrns, resource, actor, entityService);
     } else {
       // Case 2: Removing terms from subresource (e.g. schema fields)
@@ -557,4 +578,70 @@ public class LabelUtils {
     }
     return termAssociationArray;
   }
+
+  private static MetadataChangeProposal buildAddTagsToBusinessAttributeProposal(
+          List<Urn> tagUrns,
+          ResourceRefInput resource,
+          Urn actor,
+          EntityService entityService
+  ) throws URISyntaxException {
+    BusinessAttributeInfo businessAttributeInfo =
+            (BusinessAttributeInfo) EntityUtils.getAspectFromEntity(resource.getResourceUrn(), Constants.BUSINESS_ATTRIBUTE_INFO_ASPECT_NAME,
+                    entityService, new GlobalTags());
+
+    if (!businessAttributeInfo.hasGlobalTags()) {
+      businessAttributeInfo.setGlobalTags(new GlobalTags());
+    }
+    addTagsIfNotExists(businessAttributeInfo.getGlobalTags(), tagUrns);
+    return buildMetadataChangeProposalWithUrn(UrnUtils.getUrn(resource.getResourceUrn()), Constants.BUSINESS_ATTRIBUTE_INFO_ASPECT_NAME, businessAttributeInfo);
+  }
+
+  private static MetadataChangeProposal buildAddTermsToBusinessAttributeProposal(
+          List<Urn> termUrns,
+          ResourceRefInput resource,
+          Urn actor,
+          EntityService entityService
+  ) throws URISyntaxException {
+    BusinessAttributeInfo businessAttributeInfo =
+            (BusinessAttributeInfo) EntityUtils.getAspectFromEntity(resource.getResourceUrn(), Constants.BUSINESS_ATTRIBUTE_INFO_ASPECT_NAME,
+                    entityService, new GlossaryTerms());
+    if (!businessAttributeInfo.hasGlossaryTerms()) {
+      businessAttributeInfo.setGlossaryTerms(new GlossaryTerms());
+    }
+    businessAttributeInfo.getGlossaryTerms().setAuditStamp(EntityUtils.getAuditStamp(actor));
+    addTermsIfNotExists(businessAttributeInfo.getGlossaryTerms(), termUrns);
+    return buildMetadataChangeProposalWithUrn(UrnUtils.getUrn(resource.getResourceUrn()), Constants.BUSINESS_ATTRIBUTE_INFO_ASPECT_NAME, businessAttributeInfo);
+  }
+
+  private static MetadataChangeProposal buildRemoveTagsToBusinessAttributeProposal(
+          List<Urn> tagUrns,
+          ResourceRefInput resource,
+          Urn actor,
+          EntityService entityService) {
+    BusinessAttributeInfo businessAttributeInfo =
+            (BusinessAttributeInfo) EntityUtils.getAspectFromEntity(resource.getResourceUrn(), Constants.BUSINESS_ATTRIBUTE_INFO_ASPECT_NAME,
+                    entityService, new GlobalTags());
+
+    if (!businessAttributeInfo.hasGlobalTags()) {
+      businessAttributeInfo.setGlobalTags(new GlobalTags());
+    }
+    removeTagsIfExists(businessAttributeInfo.getGlobalTags(), tagUrns);
+    return buildMetadataChangeProposalWithUrn(UrnUtils.getUrn(resource.getResourceUrn()), Constants.BUSINESS_ATTRIBUTE_INFO_ASPECT_NAME, businessAttributeInfo);
+  }
+
+  private static MetadataChangeProposal buildRemoveTermsToBusinessAttributeProposal(
+          List<Urn> termUrns,
+          ResourceRefInput resource,
+          Urn actor,
+          EntityService entityService) {
+    BusinessAttributeInfo businessAttributeInfo =
+            (BusinessAttributeInfo) EntityUtils.getAspectFromEntity(resource.getResourceUrn(), Constants.BUSINESS_ATTRIBUTE_INFO_ASPECT_NAME,
+                    entityService, new GlossaryTerms());
+    if (!businessAttributeInfo.hasGlossaryTerms()) {
+      businessAttributeInfo.setGlossaryTerms(new GlossaryTerms());
+    }
+    removeTermsIfExists(businessAttributeInfo.getGlossaryTerms(), termUrns);
+    return buildMetadataChangeProposalWithUrn(UrnUtils.getUrn(resource.getResourceUrn()), Constants.BUSINESS_ATTRIBUTE_INFO_ASPECT_NAME, businessAttributeInfo);
+  }
+
 }

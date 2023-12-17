@@ -76,6 +76,8 @@ public class SearchUtils {
           EntityType.DATA_PRODUCT,
           EntityType.NOTEBOOK);
 
+  //TODO: add business attributes to the list of searchable fields
+
 
   /**
    * Entities that are part of autocomplete by default in Auto Complete Across Entities

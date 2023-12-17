@@ -54,6 +54,7 @@ public class BatchAddTagsResolver implements DataFetcher<CompletableFuture<Boole
       validateInputResources(resources, context);
 
       try {
+
         // Then execute the bulk add
         batchAddTags(tagUrns, resources, context);
         return true;

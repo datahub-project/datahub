@@ -2,7 +2,6 @@ package com.linkedin.datahub.graphql.resolvers.mutate;
 
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.CorpuserUrn;
-
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -14,13 +13,14 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
-import java.util.List;
-import java.util.concurrent.CompletableFuture;
-import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
+
+import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
 
 
 @Slf4j

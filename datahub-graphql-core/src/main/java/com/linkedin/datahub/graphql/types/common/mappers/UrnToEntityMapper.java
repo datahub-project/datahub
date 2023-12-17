@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.types.common.mappers;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.generated.Assertion;
+import com.linkedin.datahub.graphql.generated.BusinessAttribute;
 import com.linkedin.datahub.graphql.generated.Chart;
 import com.linkedin.datahub.graphql.generated.Container;
 import com.linkedin.datahub.graphql.generated.CorpGroup;
@@ -192,6 +193,11 @@ public class UrnToEntityMapper implements ModelMapper<com.linkedin.common.urn.Ur
       partialEntity = new OwnershipTypeEntity();
       ((OwnershipTypeEntity) partialEntity).setUrn(input.toString());
       ((OwnershipTypeEntity) partialEntity).setType(EntityType.CUSTOM_OWNERSHIP_TYPE);
+    }
+    if (input.getEntityType().equals(BUSINESS_ATTRIBUTE_ENTITY_NAME)) {
+      partialEntity = new BusinessAttribute();
+      ((BusinessAttribute) partialEntity).setUrn(input.toString());
+      ((BusinessAttribute) partialEntity).setType(EntityType.BUSINESS_ATTRIBUTE);
     }
     return partialEntity;
   }

@@ -118,6 +118,16 @@ public class PoliciesConfig {
       "Manage Ownership Types",
       "Create, update and delete Ownership Types.");
 
+  public static final Privilege CREATE_BUSINESS_ATTRIBUTE_PRIVILEGE = Privilege.of(
+      "CREATE_BUSINESS_ATTRIBUTE",
+      "Create Business Attribute",
+      "Create new Business Attribute.");
+
+  public static final Privilege MANAGE_BUSINESS_ATTRIBUTE_PRIVILEGE = Privilege.of(
+      "MANAGE_BUSINESS_ATTRIBUTE",
+      "Manage Business Attribute",
+      "Create, update, delete Business Attribute");
+
   public static final List<Privilege> PLATFORM_PRIVILEGES = ImmutableList.of(
       MANAGE_POLICIES_PRIVILEGE,
       MANAGE_USERS_AND_GROUPS_PRIVILEGE,
@@ -137,7 +147,9 @@ public class PoliciesConfig {
       CREATE_DOMAINS_PRIVILEGE,
       CREATE_GLOBAL_ANNOUNCEMENTS_PRIVILEGE,
       MANAGE_GLOBAL_VIEWS,
-      MANAGE_GLOBAL_OWNERSHIP_TYPES
+      MANAGE_GLOBAL_OWNERSHIP_TYPES,
+      CREATE_BUSINESS_ATTRIBUTE_PRIVILEGE,
+      MANAGE_BUSINESS_ATTRIBUTE_PRIVILEGE
   );
 
   // Resource Privileges //
