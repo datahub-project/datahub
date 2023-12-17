@@ -84,7 +84,7 @@ class InfoTypeConfig(ConfigModel):
         alias="prediction_factors_and_weights",
     )
     ExcludeName: Optional[ExcludeNameFactorConfig] = Field(
-        default=None, alias="ExcludeName"
+        default=None, alias="excludeName"
     )
     Name: Optional[NameFactorConfig] = Field(default=None, alias="name")
 
