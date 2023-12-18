@@ -8,7 +8,7 @@ dependencies {
   api project(path: ':metadata-models', configuration: "dataTemplate")
   api spec.product.pegasus.dataAvro
 
-  testImplementation externalDependency.testngJava8
+  testImplementation externalDependency.testng
   testImplementation project(':test-models')
   testImplementation project(path: ':test-models', configuration: 'testDataTemplate')
 

@@ -58,7 +58,7 @@ dependencies {
     exclude group: "com.fasterxml.jackson.core"
   }
 
-  testImplementation externalDependency.testngJava8
+  testImplementation externalDependency.testng
   testImplementation externalDependency.mockito
 
   testImplementation(externalDependency.mockServer){

@@ -183,8 +183,5 @@ nexusStaging {
   username = System.getenv("NEXUS_USERNAME")
   password = System.getenv("NEXUS_PASSWORD")
 }
-<<<<<<< HEAD
-=======
 
 startScripts.dependsOn shadowJar
->>>>>>> oss_master
