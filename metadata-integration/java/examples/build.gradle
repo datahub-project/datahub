@@ -1,16 +1,6 @@
-apply plugin: 'java'
-apply plugin: 'jacoco'
-
-
-tasks.withType(JavaCompile).configureEach {
-    javaCompiler = javaToolchains.compilerFor {
-        languageVersion = JavaLanguageVersion.of(8)
-    }
-}
-tasks.withType(Test).configureEach {
-    javaLauncher = javaToolchains.launcherFor {
-        languageVersion = JavaLanguageVersion.of(8)
-    }
+plugins {
+  id 'java'
+  id 'jacoco'
 }
 
 dependencies {

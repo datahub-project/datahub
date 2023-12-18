@@ -31,7 +31,7 @@ LABEL name="kafka" version=${KAFKA_VERSION}
 RUN if [ "${ALPINE_REPO_URL}" != "http://dl-cdn.alpinelinux.org/alpine" ] ; then sed -i "s#http.*://dl-cdn.alpinelinux.org/alpine#${ALPINE_REPO_URL}#g" /etc/apk/repositories ; fi
 
 RUN apk add --no-cache bash coreutils
-RUN apk --no-cache add openjdk11-jre-headless --repository=${ALPINE_REPO_URL}/edge/community
+RUN apk --no-cache add openjdk17-jre-headless --repository=${ALPINE_REPO_URL}/edge/community
 
 RUN apk add --no-cache -t .build-deps git curl ca-certificates jq gcc musl-dev libffi-dev zip
 RUN mkdir -p /opt \

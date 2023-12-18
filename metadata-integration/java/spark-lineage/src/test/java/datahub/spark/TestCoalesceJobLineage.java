@@ -37,7 +37,7 @@ public class TestCoalesceJobLineage {
 
   private static final String APP_NAME = "sparkCoalesceTestApp";
 
-  private static final String TEST_RELATIVE_PATH = "../";
+  private static final String TEST_RELATIVE_PATH = "";
   private static final String RESOURCE_DIR = "src/test/resources";
   private static final String DATA_DIR = TEST_RELATIVE_PATH + RESOURCE_DIR + "/data";
   private static final String WAREHOUSE_LOC = DATA_DIR + "/hive/warehouse/coalesce";
@@ -142,6 +142,9 @@ public class TestCoalesceJobLineage {
                 "spark.datahub.parent.datajob_urn",
                 "urn:li:dataJob:(urn:li:dataFlow:(airflow,datahub_analytics_refresh,prod),load_dashboard_info_to_snowflake)")
             .config("spark.sql.warehouse.dir", new File(WAREHOUSE_LOC).getAbsolutePath())
+            .config(
+                "javax.jdo.option.ConnectionURL",
+                "jdbc:derby:;databaseName=build/tmp/metastore_db_coalesce;create=true")
             .enableHiveSupport()
             .getOrCreate();
 

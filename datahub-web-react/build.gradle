@@ -1,8 +1,8 @@
 plugins {
   id 'java'
+  id 'distribution'
+  id 'com.github.node-gradle.node'
 }
-apply plugin: 'distribution'
-apply plugin: 'com.github.node-gradle.node'
 
 node {
 
@@ -35,7 +35,7 @@ node {
   yarnWorkDir = file("${project.projectDir}/.gradle/yarn")
 
   // Set the work directory where node_modules should be located
-  nodeModulesDir = file("${project.projectDir}")
+  nodeProjectDir = file("${project.projectDir}")
 
 }
 
@@ -94,7 +94,7 @@ configurations {
 
 distZip {
   dependsOn yarnQuickBuild
-  baseName 'datahub-web-react'
+  archiveFileName = "datahub-web-react-${archiveVersion}.${archiveExtension}"
   from 'dist'
 }
 
@@ -112,5 +112,5 @@ jar {
   into('public') {
     from zipTree(distZip.outputs.files.first())
   }
-  classifier = 'assets'
+  archiveClassifier = 'assets'
 }

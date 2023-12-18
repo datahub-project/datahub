@@ -1,20 +1,11 @@
-apply plugin: 'java-library'
-apply plugin: 'java'
-tasks.withType(JavaCompile).configureEach {
-    javaCompiler = javaToolchains.compilerFor {
-        languageVersion = JavaLanguageVersion.of(8)
-    }
+plugins {
+  id 'java-library'
 }
-tasks.withType(Test).configureEach {
-    javaLauncher = javaToolchains.launcherFor {
-        languageVersion = JavaLanguageVersion.of(8)
-    }
-}
-
 
 dependencies {
   api project(':metadata-events:mxe-avro')
   api project(':metadata-models')
+  api project(path: ':metadata-models', configuration: "dataTemplate")
   api spec.product.pegasus.dataAvro
 
   testImplementation externalDependency.testngJava8

@@ -15,13 +15,12 @@ test {
 }
 
 jar {
-  archiveName = "$project.name-lib.jar"
+  archiveClassifier = "lib"
 }
 
 shadowJar {
   zip64 true
-  classifier = null
-  archiveName = "$project.name-${version}.jar"
+  archiveClassifier = ""
   exclude "META-INF/*.RSA", "META-INF/*.SF","META-INF/*.DSA"
 }
 
@@ -39,12 +38,12 @@ dependencies() {
 }
 
 task sourcesJar(type: Jar) {
-  classifier 'sources'
+  archiveClassifier = 'sources'
   from sourceSets.main.allJava
 }
 
 task javadocJar(type: Jar, dependsOn: javadoc) {
-  classifier 'javadoc'
+  archiveClassifier = 'javadoc'
   from javadoc.destinationDir
 }
 

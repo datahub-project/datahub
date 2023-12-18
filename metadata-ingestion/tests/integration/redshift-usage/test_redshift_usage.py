@@ -2,11 +2,11 @@ import json
 import pathlib
 from pathlib import Path
 from typing import Dict, List, Union
-from unittest.mock import Mock, patch
+from unittest.mock import MagicMock, Mock, patch
 
 from freezegun import freeze_time
 
-from datahub.emitter.mce_builder import make_dataset_urn
+from datahub.emitter.mce_builder import make_dataset_urn, make_user_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.sink.file import write_metadata_file
 from datahub.ingestion.source.redshift.config import RedshiftConfig
@@ -20,6 +20,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeEvent,
     MetadataChangeProposal,
 )
+from datahub.metadata.schema_classes import OperationClass, OperationTypeClass
 from tests.test_helpers import mce_helpers
 
 FROZEN_TIME = "2021-09-15 09:00:00"
@@ -243,3 +244,52 @@ def load_access_events(test_resources_dir: pathlib.Path) -> List[Dict]:
     with access_events_history_file.open() as access_events_json:
         access_events = json.loads(access_events_json.read())
     return access_events
+
+
+def test_duplicate_operations_dropped():
+    report = RedshiftReport()
+    usage_extractor = RedshiftUsageExtractor(
+        config=MagicMock(),
+        connection=MagicMock(),
+        report=report,
+        dataset_urn_builder=MagicMock(),
+        redundant_run_skip_handler=None,
+    )
+
+    user = make_user_urn("jdoe")
+    urnA = "urn:li:dataset:(urn:li:dataPlatform:redshift,db.schema.tableA,PROD)"
+    urnB = "urn:li:dataset:(urn:li:dataPlatform:redshift,db.schema.tableB,PROD)"
+
+    opA1 = MetadataChangeProposalWrapper(
+        entityUrn=urnA,
+        aspect=OperationClass(
+            timestampMillis=100 * 1000,
+            lastUpdatedTimestamp=95 * 1000,
+            actor=user,
+            operationType=OperationTypeClass.INSERT,
+        ),
+    )
+    opB1 = MetadataChangeProposalWrapper(
+        entityUrn=urnB,
+        aspect=OperationClass(
+            timestampMillis=101 * 1000,
+            lastUpdatedTimestamp=94 * 1000,
+            actor=user,
+            operationType=OperationTypeClass.INSERT,
+        ),
+    )
+    opA2 = MetadataChangeProposalWrapper(
+        entityUrn=urnA,
+        aspect=OperationClass(
+            timestampMillis=102 * 1000,
+            lastUpdatedTimestamp=90 * 1000,
+            actor=user,
+            operationType=OperationTypeClass.INSERT,
+        ),
+    )
+
+    dedups = list(usage_extractor._drop_repeated_operations([opA1, opB1, opA2]))
+    assert dedups == [
+        opA1,
+        opB1,
+    ]
