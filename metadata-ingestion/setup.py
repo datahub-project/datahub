@@ -356,8 +356,7 @@ plugins: Dict[str, Set[str]] = {
     "mongodb": {"pymongo[srv]>=3.11", "packaging"},
     "mssql": sql_common
     | {
-        "sqlalchemy-pytds>=0.3,<1.14.0; python_version < '3.8'",
-        "sqlalchemy-pytds>=0.3; python_version >= '3.8'",
+        "sqlalchemy-pytds>=0.3",
         "pyOpenSSL",
     },
     "mssql-odbc": sql_common | {"pyodbc"},
@@ -564,7 +563,7 @@ full_test_dev_requirements = {
             "kafka-connect",
             "ldap",
             "mongodb",
-            "mssql",
+            "mssql" if sys.version_info >= (3, 8) else None,
             "mysql",
             "mariadb",
             "redash",
