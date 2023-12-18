@@ -1,4 +1,5 @@
 import React from 'react';
+import { CloseCircleOutlined, WarningOutlined } from '@ant-design/icons';
 import { FacetMetadata, EntityType } from '../../types.generated';
 import { ContainerSelectModal } from '../entity/shared/containers/profile/sidebar/Container/ContainerSelectModal';
 import { SetDomainModal } from '../entity/shared/containers/profile/sidebar/Domain/SetDomainModal';
@@ -17,6 +18,8 @@ import {
     FIELD_PATHS_FILTER_NAME,
     FIELD_TAGS_FILTER_NAME,
     GLOSSARY_TERMS_FILTER_NAME,
+    HAS_ACTIVE_INCIDENTS_FILTER_NAME,
+    HAS_FAILING_ASSERTIONS_FILTER_NAME,
     ORIGIN_FILTER_NAME,
     OWNERS_FILTER_NAME,
     PLATFORM_FILTER_NAME,
@@ -24,6 +27,7 @@ import {
     TAGS_FILTER_NAME,
     TYPE_NAMES_FILTER_NAME,
 } from './utils/constants';
+import { SelectHasActiveIncidentsFailingAssertionsModal } from '../entity/shared/containers/profile/sidebar/HasActiveIncidentsFailingAssertions/SelectHasActiveIncidentsFailingAssertionsModal';
 
 type Props = {
     facet?: FacetMetadata | null;
@@ -199,6 +203,39 @@ export const AdvancedFilterSelectValueModal = ({
                 }))}
             />
         );
+    }
+
+    if (filterField === HAS_ACTIVE_INCIDENTS_FILTER_NAME) {
+        return (
+            <SelectHasActiveIncidentsFailingAssertionsModal
+                titleOverride="Select Incidents"
+                onCloseModal={onCloseModal}
+                filter={facet}
+                onOk={(incidentsValue) => {
+                    onSelect(incidentsValue);
+                    onCloseModal();
+                }}
+                dropdownTitle="Incidents"
+                dropdownOptions="Has active incidents"
+                icon={<WarningOutlined />}
+            />
+        )
+    }
+    if (filterField === HAS_FAILING_ASSERTIONS_FILTER_NAME) {
+        return (
+            <SelectHasActiveIncidentsFailingAssertionsModal
+                titleOverride="Select Assertions"
+                onCloseModal={onCloseModal}
+                filter={facet}
+                onOk={(incidentsValue) => {
+                    onSelect(incidentsValue);
+                    onCloseModal();
+                }}
+                dropdownTitle="Assertions"
+                dropdownOptions="Has failing assertions"
+                icon={<CloseCircleOutlined />}
+            />
+        )
     }
 
     if (filterField === REMOVED_FILTER_NAME) {
