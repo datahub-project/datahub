@@ -12,12 +12,6 @@ apply from: '../versioning.gradle'
 
 jar.enabled = false // Since we only want to build shadow jars, disabling the regular jar creation
 
-afterEvaluate {
-    if (project.plugins.hasPlugin('java')) {
-        sourceCompatibility = 11
-        targetCompatibility = 11
-    }
-}
 ext {
    javaMainClass = "datahub.protobuf.Proto2DataHub"
 }
@@ -211,4 +205,4 @@ nexusStaging {
     password = System.getenv("NEXUS_PASSWORD")
 }
 
-
+startScripts.dependsOn shadowJar
