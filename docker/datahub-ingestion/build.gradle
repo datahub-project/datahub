@@ -45,9 +45,9 @@ docker {
 
     buildArgs(dockerBuildArgs)
 }
-tasks.getByName('docker').dependsOn(['build',
-                                     ':docker:datahub-ingestion-base:docker',
-                                     ':metadata-ingestion:codegen'])
+tasks.getByName('dockerPrepare').dependsOn(['build',
+                                            ':docker:datahub-ingestion-base:docker',
+                                            ':metadata-ingestion:codegen'])
 
 task mkdirBuildDocker {
     doFirst {
