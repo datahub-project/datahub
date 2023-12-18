@@ -143,7 +143,7 @@ class BaseSnowflakeConfig(ConfigModel):
                 "'oauth_config' is none but should be set when using OAUTH_AUTHENTICATOR authentication"
             )
         if oauth_config.use_certificate is True:
-            if oauth_config.provider == OAuthIdentityProvider.OKTA.value:
+            if oauth_config.provider == OAuthIdentityProvider.OKTA:
                 raise ValueError(
                     "Certificate authentication is not supported for Okta."
                 )

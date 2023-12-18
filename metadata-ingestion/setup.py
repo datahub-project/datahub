@@ -278,7 +278,8 @@ databricks = {
     "pyspark~=3.3.0",
     "requests",
     # Version 2.4.0 includes sqlalchemy dialect, 2.8.0 includes some bug fixes
-    "databricks-sql-connector>=2.8.0",
+    # Version 3.0.0 required SQLAlchemy > 2.0.21
+    "databricks-sql-connector>=2.8.0,<3.0.0",
 }
 
 mysql = sql_common | {"pymysql>=1.0.2"}
@@ -382,7 +383,11 @@ plugins: Dict[str, Set[str]] = {
     | {"psycopg2-binary", "pymysql>=1.0.2"},
     "pulsar": {"requests"},
     "redash": {"redash-toolbelt", "sql-metadata"} | sqllineage_lib,
-    "redshift": sql_common | redshift_common | usage_common | sqlglot_lib,
+    "redshift": sql_common
+    | redshift_common
+    | usage_common
+    | sqlglot_lib
+    | {"cachetools"},
     "s3": {*s3_base, *data_lake_profiling},
     "gcs": {*s3_base, *data_lake_profiling},
     "sagemaker": aws_common,
@@ -410,6 +415,8 @@ plugins: Dict[str, Set[str]] = {
     "powerbi-report-server": powerbi_report_server,
     "vertica": sql_common | {"vertica-sqlalchemy-dialect[vertica-python]==0.0.8.1"},
     "unity-catalog": databricks | sql_common | sqllineage_lib,
+    # databricks is alias for unity-catalog and needs to be kept in sync
+    "databricks": databricks | sql_common | sqllineage_lib,
     "fivetran": snowflake_common,
 }
 

@@ -62,7 +62,10 @@ dependencies {
   testImplementation externalDependency.h2
   testImplementation externalDependency.mysqlConnector
   testImplementation externalDependency.neo4jHarness
-  testImplementation (externalDependency.neo4jApoc) {
+  testImplementation (externalDependency.neo4jApocCore) {
+    exclude group: 'org.yaml', module: 'snakeyaml'
+  }
+  testImplementation (externalDependency.neo4jApocCommon) {
     exclude group: 'org.yaml', module: 'snakeyaml'
   }
   testImplementation externalDependency.mockito
