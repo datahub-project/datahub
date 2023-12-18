@@ -758,6 +758,7 @@ See the [DataHub docs](https://datahubproject.io/docs/metadata-ingestion).
                         "datahub-rest",
                         "datahub-kafka",
                         "sync-file-emitter",
+                        "sql-parser",
                     }
                     else set()
                 )
