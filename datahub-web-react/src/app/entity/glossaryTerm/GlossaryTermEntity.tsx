@@ -65,7 +65,12 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
                 useEntityQuery={useGetGlossaryTermQuery as any}
                 headerActionItems={new Set([EntityActionItem.BATCH_ADD_GLOSSARY_TERM])}
                 headerDropdownItems={
-                    new Set([EntityMenuItems.UPDATE_DEPRECATION, EntityMenuItems.MOVE, EntityMenuItems.DELETE])
+                    new Set([
+                        EntityMenuItems.UPDATE_DEPRECATION,
+                        EntityMenuItems.CLONE,
+                        EntityMenuItems.MOVE,
+                        EntityMenuItems.DELETE,
+                    ])
                 }
                 isNameEditable
                 hideBrowseBar

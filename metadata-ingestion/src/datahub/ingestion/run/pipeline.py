@@ -173,6 +173,7 @@ class Pipeline:
         preview_workunits: int = 10,
         report_to: Optional[str] = None,
         no_default_report: bool = False,
+        no_progress: bool = False,
     ):
         self.config = config
         self.dry_run = dry_run
@@ -180,6 +181,7 @@ class Pipeline:
         self.preview_workunits = preview_workunits
         self.report_to = report_to
         self.reporters: List[PipelineRunListener] = []
+        self.no_progress = no_progress
         self.num_intermediate_workunits = 0
         self.last_time_printed = int(time.time())
         self.cli_report = CliReport()
@@ -330,6 +332,7 @@ class Pipeline:
         preview_workunits: int = 10,
         report_to: Optional[str] = "datahub",
         no_default_report: bool = False,
+        no_progress: bool = False,
         raw_config: Optional[dict] = None,
     ) -> "Pipeline":
         config = PipelineConfig.from_dict(config_dict, raw_config)
@@ -340,6 +343,7 @@ class Pipeline:
             preview_workunits=preview_workunits,
             report_to=report_to,
             no_default_report=no_default_report,
+            no_progress=no_progress,
         )
 
     def _time_to_print(self) -> bool:
@@ -379,7 +383,7 @@ class Pipeline:
                     self.preview_workunits if self.preview_mode else None,
                 ):
                     try:
-                        if self._time_to_print():
+                        if self._time_to_print() and not self.no_progress:
                             self.pretty_print_summary(currently_running=True)
                     except Exception as e:
                         logger.warning(f"Failed to print summary {e}")

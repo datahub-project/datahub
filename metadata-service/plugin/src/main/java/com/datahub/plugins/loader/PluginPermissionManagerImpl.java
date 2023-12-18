@@ -11,7 +11,6 @@ import java.security.ProtectionDomain;
 import java.security.cert.Certificate;
 import javax.annotation.Nonnull;
 
-
 public class PluginPermissionManagerImpl implements PluginPermissionManager {
 
   private final SecurityMode _securityMode;
@@ -21,7 +20,9 @@ public class PluginPermissionManagerImpl implements PluginPermissionManager {
   }
 
   /**
-   * Create codeSource instance for the location of pluginHome to apply SecurityMode restriction to the plugin code
+   * Create codeSource instance for the location of pluginHome to apply SecurityMode restriction to
+   * the plugin code
+   *
    * @param pluginHome
    * @return ProtectionDomain
    */

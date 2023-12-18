@@ -7,10 +7,7 @@ import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
 import io.ebean.Database;
 import java.util.function.Function;
 
-
-/**
- * Optional step for removing Aspect V2 table.
- */
+/** Optional step for removing Aspect V2 table. */
 public class RemoveAspectV2TableStep implements UpgradeStep {
 
   private final Database _server;

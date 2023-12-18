@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 import { FacetFilterInput, FacetMetadata } from '../../../types.generated';
 import { ANTD_GRAY } from '../../entity/shared/constants';
@@ -13,6 +13,7 @@ const SearchFiltersWrapper = styled.div<{ removePadding: boolean }>`
 `;
 
 interface Props {
+    loading: boolean;
     mode: FilterMode;
     availableFilters: FacetMetadata[];
     activeFilters: FacetFilterInput[];
@@ -24,6 +25,7 @@ interface Props {
 }
 
 export default function SearchFilters({
+    loading,
     mode,
     availableFilters,
     activeFilters,
@@ -33,6 +35,17 @@ export default function SearchFilters({
     onChangeUnionType,
     onChangeMode,
 }: Props) {
+    const [finalAvailableFilters, setFinalAvailableFilters] = useState(availableFilters);
+
+    /**
+     * Only update the active filters if we are done loading. Prevents jitter!
+     */
+    useEffect(() => {
+        if (!loading && finalAvailableFilters !== availableFilters) {
+            setFinalAvailableFilters(availableFilters);
+        }
+    }, [availableFilters, loading, finalAvailableFilters]);
+
     const isShowingBasicFilters = mode === FilterModes.BASIC;
     return (
         <SearchFiltersWrapper
@@ -42,7 +55,8 @@ export default function SearchFilters({
         >
             {isShowingBasicFilters && (
                 <BasicFilters
-                    availableFilters={availableFilters}
+                    loading={loading}
+                    availableFilters={finalAvailableFilters}
                     activeFilters={activeFilters}
                     onChangeFilters={onChangeFilters}
                     onClearFilters={onClearFilters}
@@ -51,7 +65,7 @@ export default function SearchFilters({
             )}
             {!isShowingBasicFilters && (
                 <AdvancedFilters
-                    availableFilters={availableFilters}
+                    availableFilters={finalAvailableFilters}
                     activeFilters={activeFilters}
                     unionType={unionType}
                     onChangeFilters={onChangeFilters}

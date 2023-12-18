@@ -92,6 +92,7 @@
     "scripts": {
         "analyze": "source-map-explorer 'dist/static/js/*.js'",
         "start": "yarn run generate && BROWSER=none REACT_APP_MOCK=false craco start",
+        "start:dev": "yarn run generate && DISABLE_ESLINT_PLUGIN=true BROWSER=none REACT_APP_MOCK=false craco start",
         "start:mock": "yarn run generate && BROWSER=none REACT_APP_MOCK=true craco start",
         "start:e2e": "REACT_APP_MOCK=cy BROWSER=none PORT=3010 craco start",
         "ec2-dev": "yarn run generate && CI=true;export CI;BROWSER=none craco start",
@@ -124,7 +125,7 @@
     },
     "devDependencies": {
         "@babel/plugin-proposal-private-property-in-object": "^7.21.11",
-        "@graphql-codegen/cli": "1.20.0",
+        "@graphql-codegen/cli": "^5.0.0",
         "@graphql-codegen/near-operation-file-preset": "^1.17.13",
         "@graphql-codegen/typescript-operations": "1.17.13",
         "@graphql-codegen/typescript-react-apollo": "2.2.1",
