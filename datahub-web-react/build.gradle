@@ -55,7 +55,8 @@ task yarnServe(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
 }
 
 task yarnTest(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
-  args = ['run', 'test', '--watchAll', 'false']
+  // Explicitly runs in non-watch mode.
+  args = ['run', 'test', 'run']
 }
 
 task yarnLint(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
