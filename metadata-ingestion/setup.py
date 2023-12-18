@@ -750,7 +750,17 @@ See the [DataHub docs](https://datahubproject.io/docs/metadata-ingestion).
         **{
             plugin: list(
                 framework_common
-                | (plugin_common if plugin != "airflow" else set())
+                | (
+                    plugin_common
+                    if plugin
+                    not in {
+                        "airflow",
+                        "datahub-rest",
+                        "datahub-kafka",
+                        "sync-file-emitter",
+                    }
+                    else set()
+                )
                 | dependencies
             )
             for (plugin, dependencies) in plugins.items()
