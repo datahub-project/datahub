@@ -34,6 +34,7 @@ export default function EditGroupDescriptionModal({
         onSaveAboutMe();
         onClose();
     };
+    
     return (
         <Modal
             width={700}

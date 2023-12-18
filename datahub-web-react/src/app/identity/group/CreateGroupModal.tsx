@@ -31,10 +31,10 @@ export default function CreateGroupModal({ onClose, onCreate }: Props) {
 
     const onCreateGroup = () => {
         // Check if the Enter key was pressed inside the styled editor to prevent unintended form submission
-        const preventEnterKeyPressModal =
+        const isEditorNewlineKeypress =
             document.activeElement !== styledEditorRef.current &&
             !styledEditorRef.current?.contains(document.activeElement);
-        if (preventEnterKeyPressModal) {
+        if (isEditorNewlineKeypress) {
             createGroupMutation({
                 variables: {
                     input: {
