@@ -12,9 +12,9 @@ import lombok.AllArgsConstructor;
 import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 
-
 /**
  * A class that makes it easy to create new {@link MetadataChangeProposal} events
+ *
  * @param <T>
  */
 @Value
@@ -53,7 +53,11 @@ public class MetadataChangeProposalWrapper<T extends DataTemplate> {
   }
 
   public static class MetadataChangeProposalWrapperBuilder
-      implements EntityUrnStepBuilder, EntityTypeStepBuilder, ChangeStepBuilder, AspectStepBuilder, Build {
+      implements EntityUrnStepBuilder,
+          EntityTypeStepBuilder,
+          ChangeStepBuilder,
+          AspectStepBuilder,
+          Build {
 
     private String entityUrn;
     private String entityType;
@@ -116,9 +120,11 @@ public class MetadataChangeProposalWrapper<T extends DataTemplate> {
     @Override
     public MetadataChangeProposalWrapper build() {
       try {
-        Objects.requireNonNull(this.aspectName,
+        Objects.requireNonNull(
+            this.aspectName,
             "aspectName could not be inferred from provided aspect and was not explicitly provided as an override");
-        return new MetadataChangeProposalWrapper(entityType, entityUrn, changeType, aspect, aspectName);
+        return new MetadataChangeProposalWrapper(
+            entityType, entityUrn, changeType, aspect, aspectName);
       } catch (Exception e) {
         throw new EventValidationException("Failed to create a metadata change proposal event", e);
       }
@@ -131,7 +137,8 @@ public class MetadataChangeProposalWrapper<T extends DataTemplate> {
     }
   }
 
-  public static MetadataChangeProposalWrapper create(Consumer<EntityTypeStepBuilder> builderConsumer) {
+  public static MetadataChangeProposalWrapper create(
+      Consumer<EntityTypeStepBuilder> builderConsumer) {
     MetadataChangeProposalWrapperBuilder builder = new MetadataChangeProposalWrapperBuilder();
     builderConsumer.accept(builder);
     return builder.build();

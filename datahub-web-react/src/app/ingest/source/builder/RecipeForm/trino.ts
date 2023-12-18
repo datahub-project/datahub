@@ -6,7 +6,7 @@ export const TRINO_HOST_PORT: RecipeField = {
     name: 'host_port',
     label: 'Host and Port',
     tooltip:
-        "The host and port where Trino is running. For example, 'trino-server:5432'. Note: this host must be accessible on the network where DataHub is running (or allowed via an IP Allow List, AWS PrivateLink, etc).",
+        "The host (without protocol and ://) and port where Trino is running. For example, 'trino-server:5432'. Note: this host must be accessible on the network where DataHub is running (or allowed via an IP Allow List, AWS PrivateLink, etc).",
     type: FieldType.TEXT,
     fieldPath: 'source.config.host_port',
     placeholder: 'trino-server:5432',

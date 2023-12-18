@@ -32,12 +32,13 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/platform/entities/v1")
 @Slf4j
-@Tag(name = "Platform Entities", description = "Platform level APIs intended for lower level access to entities")
+@Tag(
+    name = "Platform Entities",
+    description = "Platform level APIs intended for lower level access to entities")
 public class PlatformEntitiesController {
 
   private final EntityService _entityService;
@@ -60,24 +61,33 @@ public class PlatformEntitiesController {
     Authentication authentication = AuthenticationContext.getAuthentication();
     String actorUrnStr = authentication.getActor().toUrnStr();
 
-    List<com.linkedin.mxe.MetadataChangeProposal> proposals = metadataChangeProposals.stream()
-        .map(proposal -> MappingUtil.mapToServiceProposal(proposal, _objectMapper))
-        .collect(Collectors.toList());
-    DisjunctivePrivilegeGroup
-        orGroup = new DisjunctivePrivilegeGroup(ImmutableList.of(new ConjunctivePrivilegeGroup(
-        ImmutableList.of(PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType())
-    )));
+    List<com.linkedin.mxe.MetadataChangeProposal> proposals =
+        metadataChangeProposals.stream()
+            .map(proposal -> MappingUtil.mapToServiceProposal(proposal, _objectMapper))
+            .collect(Collectors.toList());
+    DisjunctivePrivilegeGroup orGroup =
+        new DisjunctivePrivilegeGroup(
+            ImmutableList.of(
+                new ConjunctivePrivilegeGroup(
+                    ImmutableList.of(PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType()))));
 
-    if (restApiAuthorizationEnabled && !MappingUtil.authorizeProposals(proposals, _entityService, _authorizerChain, actorUrnStr, orGroup)) {
+    if (restApiAuthorizationEnabled
+        && !MappingUtil.authorizeProposals(
+            proposals, _entityService, _authorizerChain, actorUrnStr, orGroup)) {
       throw new UnauthorizedException(actorUrnStr + " is unauthorized to edit entities.");
     }
 
-    List<Pair<String, Boolean>> responses = proposals.stream()
-        .map(proposal -> MappingUtil.ingestProposal(proposal, actorUrnStr, _entityService))
-        .collect(Collectors.toList());
+    List<Pair<String, Boolean>> responses =
+        proposals.stream()
+            .map(proposal -> MappingUtil.ingestProposal(proposal, actorUrnStr, _entityService))
+            .collect(Collectors.toList());
     if (responses.stream().anyMatch(Pair::getSecond)) {
       return ResponseEntity.status(HttpStatus.CREATED)
-          .body(responses.stream().filter(Pair::getSecond).map(Pair::getFirst).collect(Collectors.toList()));
+          .body(
+              responses.stream()
+                  .filter(Pair::getSecond)
+                  .map(Pair::getFirst)
+                  .collect(Collectors.toList()));
     } else {
       return ResponseEntity.ok(Collections.emptyList());
     }

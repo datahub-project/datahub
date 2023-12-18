@@ -12,7 +12,6 @@ import com.linkedin.metadata.models.registry.template.ArrayMergingTemplate;
 import java.util.Collections;
 import javax.annotation.Nonnull;
 
-
 public class DataJobInputOutputTemplate implements ArrayMergingTemplate<DataJobInputOutput> {
 
   private static final String INPUT_DATA_JOB_EDGES_FIELD_NAME = "inputDatajobEdges";
@@ -23,6 +22,7 @@ public class DataJobInputOutputTemplate implements ArrayMergingTemplate<DataJobI
 
   private static final String INPUT_DATASET_FIELDS_FIELD_NAME = "inputDatasetFields";
   private static final String OUTPUT_DATASET_FIELDS_FIELD_NAME = "outputDatasetFields";
+
   // TODO: Fine Grained Lineages not patchable at this time, they don't have a well established key
 
   @Override
@@ -60,17 +60,28 @@ public class DataJobInputOutputTemplate implements ArrayMergingTemplate<DataJobI
   @Nonnull
   @Override
   public JsonNode transformFields(JsonNode baseNode) {
-    JsonNode transformedNode = arrayFieldToMap(baseNode, INPUT_DATA_JOB_EDGES_FIELD_NAME,
-        Collections.singletonList(DESTINATION_URN_FIELD_NAME));
+    JsonNode transformedNode =
+        arrayFieldToMap(
+            baseNode,
+            INPUT_DATA_JOB_EDGES_FIELD_NAME,
+            Collections.singletonList(DESTINATION_URN_FIELD_NAME));
 
-    transformedNode = arrayFieldToMap(transformedNode, INPUT_DATASET_EDGES_FIELD_NAME,
-        Collections.singletonList(DESTINATION_URN_FIELD_NAME));
+    transformedNode =
+        arrayFieldToMap(
+            transformedNode,
+            INPUT_DATASET_EDGES_FIELD_NAME,
+            Collections.singletonList(DESTINATION_URN_FIELD_NAME));
 
-    transformedNode = arrayFieldToMap(transformedNode, OUTPUT_DATASET_EDGES_FIELD_NAME,
-        Collections.singletonList(DESTINATION_URN_FIELD_NAME));
+    transformedNode =
+        arrayFieldToMap(
+            transformedNode,
+            OUTPUT_DATASET_EDGES_FIELD_NAME,
+            Collections.singletonList(DESTINATION_URN_FIELD_NAME));
 
-    transformedNode = arrayFieldToMap(transformedNode, INPUT_DATASET_FIELDS_FIELD_NAME, Collections.emptyList());
-    transformedNode = arrayFieldToMap(transformedNode, OUTPUT_DATASET_FIELDS_FIELD_NAME, Collections.emptyList());
+    transformedNode =
+        arrayFieldToMap(transformedNode, INPUT_DATASET_FIELDS_FIELD_NAME, Collections.emptyList());
+    transformedNode =
+        arrayFieldToMap(transformedNode, OUTPUT_DATASET_FIELDS_FIELD_NAME, Collections.emptyList());
 
     return transformedNode;
   }
@@ -78,17 +89,30 @@ public class DataJobInputOutputTemplate implements ArrayMergingTemplate<DataJobI
   @Nonnull
   @Override
   public JsonNode rebaseFields(JsonNode patched) {
-    JsonNode rebasedNode = transformedMapToArray(patched, INPUT_DATA_JOB_EDGES_FIELD_NAME,
-        Collections.singletonList(DESTINATION_URN_FIELD_NAME));
+    JsonNode rebasedNode =
+        transformedMapToArray(
+            patched,
+            INPUT_DATA_JOB_EDGES_FIELD_NAME,
+            Collections.singletonList(DESTINATION_URN_FIELD_NAME));
 
-    rebasedNode = transformedMapToArray(rebasedNode, INPUT_DATASET_EDGES_FIELD_NAME,
-        Collections.singletonList(DESTINATION_URN_FIELD_NAME));
+    rebasedNode =
+        transformedMapToArray(
+            rebasedNode,
+            INPUT_DATASET_EDGES_FIELD_NAME,
+            Collections.singletonList(DESTINATION_URN_FIELD_NAME));
 
-    rebasedNode = transformedMapToArray(rebasedNode, OUTPUT_DATASET_EDGES_FIELD_NAME,
-        Collections.singletonList(DESTINATION_URN_FIELD_NAME));
+    rebasedNode =
+        transformedMapToArray(
+            rebasedNode,
+            OUTPUT_DATASET_EDGES_FIELD_NAME,
+            Collections.singletonList(DESTINATION_URN_FIELD_NAME));
 
-    rebasedNode = transformedMapToArray(rebasedNode, INPUT_DATASET_FIELDS_FIELD_NAME, Collections.emptyList());
-    rebasedNode = transformedMapToArray(rebasedNode, OUTPUT_DATASET_FIELDS_FIELD_NAME, Collections.emptyList());
+    rebasedNode =
+        transformedMapToArray(
+            rebasedNode, INPUT_DATASET_FIELDS_FIELD_NAME, Collections.emptyList());
+    rebasedNode =
+        transformedMapToArray(
+            rebasedNode, OUTPUT_DATASET_FIELDS_FIELD_NAME, Collections.emptyList());
 
     return rebasedNode;
   }

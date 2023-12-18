@@ -181,8 +181,8 @@ clickhouse_common = {
 redshift_common = {
     # Clickhouse 0.8.3 adds support for SQLAlchemy 1.4.x
     "sqlalchemy-redshift>=0.8.3",
-    "psycopg2-binary",
     "GeoAlchemy2",
+    "redshift-connector",
     *sqllineage_lib,
     *path_spec_common,
 }
@@ -214,7 +214,8 @@ pyhive_common = {
     # - 0.6.13 adds a small fix for Databricks
     # - 0.6.14 uses pure-sasl instead of sasl so it builds on Python 3.11
     # - 0.6.15 adds support for thrift > 0.14 (cherry-picked from https://github.com/apache/thrift/pull/2491)
-    "acryl-pyhive[hive_pure_sasl]==0.6.15",
+    # - 0.6.16 fixes a regression in 0.6.15 (https://github.com/acryldata/PyHive/pull/9)
+    "acryl-pyhive[hive-pure-sasl]==0.6.16",
     # As per https://github.com/datahub-project/datahub/issues/8405
     # and https://github.com/dropbox/PyHive/issues/417, version 0.14.0
     # of thrift broke PyHive's hive+http transport.
@@ -261,6 +262,9 @@ databricks = {
     "databricks-sdk>=0.9.0",
     "pyspark~=3.3.0",
     "requests",
+    # Version 2.4.0 includes sqlalchemy dialect, 2.8.0 includes some bug fixes
+    # Version 3.0.0 required SQLAlchemy > 2.0.21
+    "databricks-sql-connector>=2.8.0,<3.0.0",
 }
 
 mysql = sql_common | {"pymysql>=1.0.2"}
@@ -350,7 +354,7 @@ plugins: Dict[str, Set[str]] = {
     "mlflow": {"mlflow-skinny>=2.3.0"},
     "mode": {"requests", "tenacity>=8.0.1"} | sqllineage_lib,
     "mongodb": {"pymongo[srv]>=3.11", "packaging"},
-    "mssql": sql_common | {"sqlalchemy-pytds>=0.3"},
+    "mssql": sql_common | {"sqlalchemy-pytds>=0.3", "pyOpenSSL"},
     "mssql-odbc": sql_common | {"pyodbc"},
     "mysql": mysql,
     # mariadb should have same dependency as mysql
@@ -367,8 +371,8 @@ plugins: Dict[str, Set[str]] = {
     "redshift": sql_common
     | redshift_common
     | usage_common
-    | {"redshift-connector"}
-    | sqlglot_lib,
+    | sqlglot_lib
+    | {"cachetools"},
     "s3": {*s3_base, *data_lake_profiling},
     "gcs": {*s3_base, *data_lake_profiling},
     "sagemaker": aws_common,
@@ -395,7 +399,9 @@ plugins: Dict[str, Set[str]] = {
     "powerbi": microsoft_common | {"lark[regex]==1.1.4", "sqlparse"} | sqlglot_lib,
     "powerbi-report-server": powerbi_report_server,
     "vertica": sql_common | {"vertica-sqlalchemy-dialect[vertica-python]==0.0.8.1"},
-    "unity-catalog": databricks | sqllineage_lib,
+    "unity-catalog": databricks | sql_common | sqllineage_lib,
+    # databricks is alias for unity-catalog and needs to be kept in sync
+    "databricks": databricks | sql_common | sqllineage_lib,
     "fivetran": snowflake_common,
 }
 
@@ -651,7 +657,7 @@ entry_points = {
         "simple_add_dataset_properties = datahub.ingestion.transformer.add_dataset_properties:SimpleAddDatasetProperties",
         "pattern_add_dataset_schema_terms = datahub.ingestion.transformer.add_dataset_schema_terms:PatternAddDatasetSchemaTerms",
         "pattern_add_dataset_schema_tags = datahub.ingestion.transformer.add_dataset_schema_tags:PatternAddDatasetSchemaTags",
-        "extract_owners_from_tags = datahub.ingestion.transformer.extract_ownership_from_tags:ExtractOwnersFromTagsTransformer",
+        "extract_ownership_from_tags = datahub.ingestion.transformer.extract_ownership_from_tags:ExtractOwnersFromTagsTransformer",
     ],
     "datahub.ingestion.sink.plugins": [
         "file = datahub.ingestion.sink.file:FileSink",

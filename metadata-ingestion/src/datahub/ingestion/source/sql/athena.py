@@ -8,7 +8,8 @@ import pydantic
 from pyathena.common import BaseCursor
 from pyathena.model import AthenaTableMetadata
 from pyathena.sqlalchemy_athena import AthenaRestDialect
-from sqlalchemy import create_engine, inspect, types
+from sqlalchemy import create_engine, exc, inspect, text, types
+from sqlalchemy.engine import reflection
 from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.types import TypeEngine
 from sqlalchemy_bigquery import STRUCT
@@ -63,6 +64,22 @@ class CustomAthenaRestDialect(AthenaRestDialect):
 
     # regex to identify complex types in DDL strings which are embedded in `<>`.
     _complex_type_pattern = re.compile(r"(<.+>)")
+
+    @typing.no_type_check
+    @reflection.cache
+    def get_view_definition(self, connection, view_name, schema=None, **kw):
+        # This method was backported from PyAthena v3.0.7 to allow to retrieve the view definition
+        # from Athena. This is required until we support sqlalchemy > 2.0
+        # https://github.com/laughingman7743/PyAthena/blob/509dd37d0fd15ad603993482cc47b8549b82facd/pyathena/sqlalchemy/base.py#L1118
+        raw_connection = self._raw_connection(connection)
+        schema = schema if schema else raw_connection.schema_name  # type: ignore
+        query = f"""SHOW CREATE VIEW "{schema}"."{view_name}";"""
+        try:
+            res = connection.scalars(text(query))
+        except exc.OperationalError as e:
+            raise exc.NoSuchTableError(f"{schema}.{view_name}") from e
+        else:
+            return "\n".join([r for r in res])
 
     @typing.no_type_check
     def _get_column_type(
@@ -236,7 +253,7 @@ class AthenaConfig(SQLCommonConfig):
 
     # overwrite default behavior of SQLAlchemyConfing
     include_views: Optional[bool] = pydantic.Field(
-        default=False, description="Whether views should be ingested."
+        default=True, description="Whether views should be ingested."
     )
 
     _s3_staging_dir_population = pydantic_renamed_field(
@@ -302,6 +319,10 @@ class AthenaSource(SQLAlchemySource):
         with engine.connect() as conn:
             inspector = inspect(conn)
             yield inspector
+
+    def get_db_schema(self, dataset_identifier: str) -> Tuple[Optional[str], str]:
+        schema, _view = dataset_identifier.split(".", 1)
+        return None, schema
 
     def get_table_properties(
         self, inspector: Inspector, schema: str, table: str

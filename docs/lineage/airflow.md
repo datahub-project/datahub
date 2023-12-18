@@ -8,7 +8,7 @@ If you're looking to schedule DataHub ingestion using Airflow, see the guide on 
 
 The DataHub Airflow plugin supports:
 
-- Automatic column-level lineage extraction from various operators e.g. `SqlOperator`s (including `MySqlOperator`, `PostgresOperator`, `SnowflakeOperator`, and more), `S3FileTransformOperator`, and a few others.
+- Automatic column-level lineage extraction from various operators e.g. SQL operators (including `MySqlOperator`, `PostgresOperator`, `SnowflakeOperator`, and more), `S3FileTransformOperator`, and more.
 - Airflow DAG and tasks, including properties, ownership, and tags.
 - Task run information, including task successes and failures.
 - Manual lineage annotations using `inlets` and `outlets` on Airflow operators.
@@ -75,12 +75,6 @@ enabled = True  # default
 | disable_openlineage_plugin | true                 | Disable the OpenLineage plugin to avoid duplicative processing.                          |
 | log_level                  | _no change_          | [debug] Set the log level for the plugin.                                                |
 | debug_emitter              | false                | [debug] If true, the plugin will log the emitted events.                                 |
-
-### Automatic lineage extraction
-
-To automatically extract lineage information, the v2 plugin builds on top of Airflow's built-in [OpenLineage extractors](https://openlineage.io/docs/integrations/airflow/default-extractors).
-
-The SQL-related extractors have been updated to use DataHub's SQL parser, which is more robust than the built-in one and uses DataHub's metadata information to generate column-level lineage. We discussed the DataHub SQL parser, including why schema-aware parsing works better and how it performs on benchmarks, during the [June 2023 community town hall](https://youtu.be/1QVcUmRQK5E?si=U27zygR7Gi_KdkzE&t=2309).
 
 ## DataHub Plugin v1
 
@@ -152,6 +146,40 @@ conn_id = datahub_rest_default  # or datahub_kafka_default
 Emitting DataHub ...
 ```
 
+## Automatic lineage extraction
+
+Only the v2 plugin supports automatic lineage extraction. If you're using the v1 plugin, you must use manual lineage annotation or emit lineage directly.
+
+To automatically extract lineage information, the v2 plugin builds on top of Airflow's built-in [OpenLineage extractors](https://openlineage.io/docs/integrations/airflow/default-extractors).
+As such, we support a superset of the default operators that Airflow/OpenLineage supports.
+
+The SQL-related extractors have been updated to use [DataHub's SQL lineage parser](https://blog.datahubproject.io/extracting-column-level-lineage-from-sql-779b8ce17567), which is more robust than the built-in one and uses DataHub's metadata information to generate column-level lineage.
+
+Supported operators:
+
+- `SQLExecuteQueryOperator`, including any subclasses. Note that in newer versions of Airflow (generally Airflow 2.5+), most SQL operators inherit from this class.
+- `AthenaOperator` and `AWSAthenaOperator`
+- `BigQueryOperator` and `BigQueryExecuteQueryOperator`
+- `MySqlOperator`
+- `PostgresOperator`
+- `RedshiftSQLOperator`
+- `SnowflakeOperator` and `SnowflakeOperatorAsync`
+- `SqliteOperator`
+- `TrinoOperator`
+
+<!--
+These operators are supported by OpenLineage, but we haven't tested them yet:
+- `SQLCheckOperator`, `SQLValueCheckOperator`, `SQLThresholdCheckOperator`, `SQLIntervalCheckOperator`, `SQLColumnCheckOperator`, `BigQueryColumnCheckOperator`
+- `FTPFileTransmitOperator`
+- `GCSToGCSOperator`
+- `S3CopyObjectOperator`
+- `S3FileTransformOperator`
+- `SageMakerProcessingOperator` and `SageMakerProcessingOperatorAsync`
+- `SFTPOperator`
+
+There's also a few operators (e.g. BashOperator, PythonOperator) that have custom extractors, but those extractors don't generate lineage.
+-->
+
 ## Manual Lineage Annotation
 
 ### Using `inlets` and `outlets`
@@ -217,6 +245,20 @@ If your URLs aren't being generated correctly (usually they'll start with `http:
 [webserver]
 base_url = http://airflow.mycorp.example.com
 ```
+
+### TypeError ... missing 3 required positional arguments
+
+If you see errors like the following with the v2 plugin:
+
+```shell
+ERROR - on_task_instance_success() missing 3 required positional arguments: 'previous_state', 'task_instance', and 'session'
+Traceback (most recent call last):
+  File "/home/airflow/.local/lib/python3.8/site-packages/datahub_airflow_plugin/datahub_listener.py", line 124, in wrapper
+    f(*args, **kwargs)
+TypeError: on_task_instance_success() missing 3 required positional arguments: 'previous_state', 'task_instance', and 'session'
+```
+
+The solution is to upgrade `acryl-datahub-airflow-plugin>=0.12.0.4` or upgrade `pluggy>=1.2.0`. See this [PR](https://github.com/datahub-project/datahub/pull/9365) for details.
 
 ## Compatibility
 

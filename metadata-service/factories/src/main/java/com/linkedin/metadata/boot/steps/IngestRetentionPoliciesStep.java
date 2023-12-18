@@ -1,12 +1,14 @@
 package com.linkedin.metadata.boot.steps;
 
+import static com.linkedin.metadata.Constants.*;
+
+import com.datahub.util.RecordUtils;
 import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.boot.BootstrapStep;
-import com.datahub.util.RecordUtils;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.RetentionService;
 import com.linkedin.metadata.key.DataHubRetentionKey;
@@ -22,9 +24,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.ClassPathResource;
 
-import static com.linkedin.metadata.Constants.*;
-
-
 @Slf4j
 @RequiredArgsConstructor
 public class IngestRetentionPoliciesStep implements BootstrapStep {
@@ -36,10 +35,17 @@ public class IngestRetentionPoliciesStep implements BootstrapStep {
   private final String pluginPath;
 
   private static final ObjectMapper YAML_MAPPER = new ObjectMapper(new YAMLFactory());
+
   static {
-    int maxSize = Integer.parseInt(System.getenv().getOrDefault(INGESTION_MAX_SERIALIZED_STRING_LENGTH, MAX_JACKSON_STRING_SIZE));
-    YAML_MAPPER.getFactory().setStreamReadConstraints(StreamReadConstraints.builder().maxStringLength(maxSize).build());
+    int maxSize =
+        Integer.parseInt(
+            System.getenv()
+                .getOrDefault(INGESTION_MAX_SERIALIZED_STRING_LENGTH, MAX_JACKSON_STRING_SIZE));
+    YAML_MAPPER
+        .getFactory()
+        .setStreamReadConstraints(StreamReadConstraints.builder().maxStringLength(maxSize).build());
   }
+
   private static final String UPGRADE_ID = "ingest-retention-policies";
   private static final Urn UPGRADE_ID_URN = BootstrapStep.getUpgradeUrn(UPGRADE_ID);
 
@@ -80,7 +86,8 @@ public class IngestRetentionPoliciesStep implements BootstrapStep {
     log.info("Setting {} policies", retentionPolicyMap.size());
     boolean hasUpdate = false;
     for (DataHubRetentionKey key : retentionPolicyMap.keySet()) {
-      if (_retentionService.setRetention(key.getEntityName(), key.getAspectName(), retentionPolicyMap.get(key))) {
+      if (_retentionService.setRetention(
+          key.getEntityName(), key.getAspectName(), retentionPolicyMap.get(key))) {
         hasUpdate = true;
       }
     }
@@ -95,7 +102,8 @@ public class IngestRetentionPoliciesStep implements BootstrapStep {
   }
 
   // Parse input yaml file or yaml files in the input directory to generate a retention policy map
-  private Map<DataHubRetentionKey, DataHubRetentionConfig> parseFileOrDir(File retentionFileOrDir) throws IOException {
+  private Map<DataHubRetentionKey, DataHubRetentionConfig> parseFileOrDir(File retentionFileOrDir)
+      throws IOException {
     // If path does not exist return empty
     if (!retentionFileOrDir.exists()) {
       return Collections.emptyMap();
@@ -107,7 +115,9 @@ public class IngestRetentionPoliciesStep implements BootstrapStep {
 
       for (File retentionFile : retentionFileOrDir.listFiles()) {
         if (!retentionFile.isFile()) {
-          log.info("Element {} in plugin directory {} is not a file. Skipping", retentionFile.getPath(),
+          log.info(
+              "Element {} in plugin directory {} is not a file. Skipping",
+              retentionFile.getPath(),
               retentionFileOrDir.getPath());
           continue;
         }
@@ -116,7 +126,8 @@ public class IngestRetentionPoliciesStep implements BootstrapStep {
       return result;
     }
     // If file, parse the yaml file and return result;
-    if (!retentionFileOrDir.getPath().endsWith(".yaml") && retentionFileOrDir.getPath().endsWith(".yml")) {
+    if (!retentionFileOrDir.getPath().endsWith(".yaml")
+        && retentionFileOrDir.getPath().endsWith(".yml")) {
       log.info("File {} is not a YAML file. Skipping", retentionFileOrDir.getPath());
       return Collections.emptyMap();
     }
@@ -126,15 +137,16 @@ public class IngestRetentionPoliciesStep implements BootstrapStep {
   /**
    * Parse yaml retention config
    *
-   * The structure of yaml must be a list of retention policies where each element specifies the entity, aspect
-   * to apply the policy to and the policy definition. The policy definition is converted into the
-   * {@link com.linkedin.retention.DataHubRetentionConfig} class.
+   * <p>The structure of yaml must be a list of retention policies where each element specifies the
+   * entity, aspect to apply the policy to and the policy definition. The policy definition is
+   * converted into the {@link com.linkedin.retention.DataHubRetentionConfig} class.
    */
-  private Map<DataHubRetentionKey, DataHubRetentionConfig> parseYamlRetentionConfig(File retentionConfigFile)
-      throws IOException {
+  private Map<DataHubRetentionKey, DataHubRetentionConfig> parseYamlRetentionConfig(
+      File retentionConfigFile) throws IOException {
     final JsonNode retentionPolicies = YAML_MAPPER.readTree(retentionConfigFile);
     if (!retentionPolicies.isArray()) {
-      throw new IllegalArgumentException("Retention config file must contain an array of retention policies");
+      throw new IllegalArgumentException(
+          "Retention config file must contain an array of retention policies");
     }
 
     Map<DataHubRetentionKey, DataHubRetentionConfig> retentionPolicyMap = new HashMap<>();
@@ -158,9 +170,11 @@ public class IngestRetentionPoliciesStep implements BootstrapStep {
       DataHubRetentionConfig retentionInfo;
       if (retentionPolicy.has("config")) {
         retentionInfo =
-            RecordUtils.toRecordTemplate(DataHubRetentionConfig.class, retentionPolicy.get("config").toString());
+            RecordUtils.toRecordTemplate(
+                DataHubRetentionConfig.class, retentionPolicy.get("config").toString());
       } else {
-        throw new IllegalArgumentException("Each element in the retention config must contain field config");
+        throw new IllegalArgumentException(
+            "Each element in the retention config must contain field config");
       }
 
       retentionPolicyMap.put(key, retentionInfo);
