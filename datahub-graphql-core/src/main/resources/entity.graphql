@@ -707,7 +707,7 @@ type Mutation {
     """
     createBusinessAttribute(
           "Inputs required to create a new BusinessAttribute."
-          input: CreateBusinessAttributeInput!): String
+          input: CreateBusinessAttributeInput!): BusinessAttribute
 
     """
     Delete a Business Attribute by urn.

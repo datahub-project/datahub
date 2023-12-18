@@ -3,19 +3,23 @@ package com.linkedin.datahub.graphql.resolvers.businessattribute;
 import com.linkedin.businessattribute.BusinessAttributeInfo;
 import com.linkedin.businessattribute.BusinessAttributeKey;
 import com.linkedin.common.AuditStamp;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
+import com.linkedin.datahub.graphql.generated.BusinessAttribute;
 import com.linkedin.datahub.graphql.generated.CreateBusinessAttributeInput;
 import com.linkedin.datahub.graphql.generated.OwnerEntityType;
 import com.linkedin.datahub.graphql.generated.OwnershipType;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.BusinessAttributeUtils;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.OwnerUtils;
+import com.linkedin.datahub.graphql.types.businessattribute.mappers.BusinessAttributeMapper;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.service.BusinessAttributeService;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetcher;
@@ -34,12 +38,13 @@ import static com.linkedin.metadata.Constants.BUSINESS_ATTRIBUTE_INFO_ASPECT_NAM
 
 @Slf4j
 @RequiredArgsConstructor
-public class CreateBusinessAttributeResolver implements DataFetcher<CompletableFuture<String>> {
+public class CreateBusinessAttributeResolver implements DataFetcher<CompletableFuture<BusinessAttribute>> {
     private final EntityClient _entityClient;
     private final EntityService _entityService;
+    private final BusinessAttributeService businessAttributeService;
 
     @Override
-    public CompletableFuture<String> get(DataFetchingEnvironment environment) throws Exception {
+    public CompletableFuture<BusinessAttribute> get(DataFetchingEnvironment environment) throws Exception {
         final QueryContext context = environment.getContext();
         CreateBusinessAttributeInput input = bindArgument(environment.getArgument("input"), CreateBusinessAttributeInput.class);
 
@@ -72,14 +77,13 @@ public class CreateBusinessAttributeResolver implements DataFetcher<CompletableF
                 );
 
                 // Ingest the MCP
-                String businessAttributeUrn = _entityClient.ingestProposal(changeProposal, context.getAuthentication());
-                OwnershipType ownershipType = OwnershipType.TECHNICAL_OWNER;
-                if (!_entityService.exists(UrnUtils.getUrn(mapOwnershipTypeToEntity(ownershipType.name())))) {
-                    log.warn("Technical owner does not exist, defaulting to None ownership.");
-                    ownershipType = OwnershipType.NONE;
-                }
-                OwnerUtils.addCreatorAsOwner(context, businessAttributeUrn, OwnerEntityType.CORP_USER, ownershipType, _entityService);
-                return businessAttributeUrn;
+                Urn businessAttributeUrn = UrnUtils.getUrn(_entityClient.ingestProposal(changeProposal, context.getAuthentication()));
+                addOwnerToBusinessAttribute(context, businessAttributeUrn.toString());
+                return BusinessAttributeMapper.map(
+                        businessAttributeService.getBusinessAttributeEntityResponse(
+                                businessAttributeUrn, context.getAuthentication()
+                        )
+                );
 
             } catch (DataHubGraphQLException e) {
                 throw e;
@@ -100,4 +104,12 @@ public class CreateBusinessAttributeResolver implements DataFetcher<CompletableF
         return info;
     }
 
+    private void addOwnerToBusinessAttribute(QueryContext context, String businessAttributeUrn) {
+        OwnershipType ownershipType = OwnershipType.TECHNICAL_OWNER;
+        if (!_entityService.exists(UrnUtils.getUrn(mapOwnershipTypeToEntity(ownershipType.name())))) {
+            log.warn("Technical owner does not exist, defaulting to None ownership.");
+            ownershipType = OwnershipType.NONE;
+        }
+        OwnerUtils.addCreatorAsOwner(context, businessAttributeUrn, OwnerEntityType.CORP_USER, ownershipType, _entityService);
+    }
 }

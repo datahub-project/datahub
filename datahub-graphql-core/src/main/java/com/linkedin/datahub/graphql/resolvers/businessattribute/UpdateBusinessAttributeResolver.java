@@ -11,10 +11,12 @@ import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
 import com.linkedin.datahub.graphql.generated.BusinessAttribute;
 import com.linkedin.datahub.graphql.generated.UpdateBusinessAttributeInput;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.BusinessAttributeUtils;
+import com.linkedin.datahub.graphql.types.businessattribute.mappers.BusinessAttributeMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.AspectUtils;
+import com.linkedin.metadata.service.BusinessAttributeService;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import lombok.RequiredArgsConstructor;
@@ -23,7 +25,6 @@ import lombok.extern.slf4j.Slf4j;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Objects;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
@@ -33,6 +34,7 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
 public class UpdateBusinessAttributeResolver implements DataFetcher<CompletableFuture<BusinessAttribute>> {
 
     private final EntityClient _entityClient;
+    private final BusinessAttributeService businessAttributeService;
 
     @Override
     public CompletableFuture<BusinessAttribute> get(DataFetchingEnvironment environment) throws Exception {
@@ -47,13 +49,14 @@ public class UpdateBusinessAttributeResolver implements DataFetcher<CompletableF
                 if (!_entityClient.exists(businessAttributeUrn, context.getAuthentication())) {
                     throw new IllegalArgumentException("The Business Attribute provided dos not exist");
                 }
-                updateBusinessAttribute(input, businessAttributeUrn, context);
+                Urn updatedBusinessAttributeUrn = updateBusinessAttribute(input, businessAttributeUrn, context);
+                return BusinessAttributeMapper.map(
+                        businessAttributeService.getBusinessAttributeEntityResponse(updatedBusinessAttributeUrn, context.getAuthentication()));
             } catch (DataHubGraphQLException e) {
                 throw e;
             } catch (Exception e) {
                 throw new RuntimeException(String.format("Failed to update Business Attribute with urn %s", businessAttributeUrn), e);
             }
-            return null;
         });
     }
 
@@ -70,7 +73,7 @@ public class UpdateBusinessAttributeResolver implements DataFetcher<CompletableF
             if (Objects.nonNull(input.getName())) {
                 if (BusinessAttributeUtils.hasNameConflict(input.getName(), context, _entityClient)) {
                     throw new DataHubGraphQLException(
-                        String.format("\"%s\" already exists as Business Attribute. Please pick a unique name.", input.getName()),
+                            String.format("\"%s\" already exists as Business Attribute. Please pick a unique name.", input.getName()),
                             DataHubGraphQLErrorCode.CONFLICT);
                 }
                 businessAttributeInfo.setName(input.getName());
@@ -100,7 +103,7 @@ public class UpdateBusinessAttributeResolver implements DataFetcher<CompletableF
     public BusinessAttributeInfo getBusinessAttributeInfo(@Nonnull final Urn businessAttributeUrn, @Nonnull final Authentication authentication) {
         Objects.requireNonNull(businessAttributeUrn, "businessAttributeUrn must not be null");
         Objects.requireNonNull(authentication, "authentication must not be null");
-        final EntityResponse response = getBusinessAttributeEntityResponse(businessAttributeUrn, authentication);
+        final EntityResponse response = businessAttributeService.getBusinessAttributeEntityResponse(businessAttributeUrn, authentication);
         if (response != null && response.getAspects().containsKey(Constants.BUSINESS_ATTRIBUTE_INFO_ASPECT_NAME)) {
             return new BusinessAttributeInfo(response.getAspects().get(Constants.BUSINESS_ATTRIBUTE_INFO_ASPECT_NAME).getValue().data());
         }
@@ -108,17 +111,4 @@ public class UpdateBusinessAttributeResolver implements DataFetcher<CompletableF
         return null;
     }
 
-    private EntityResponse getBusinessAttributeEntityResponse(@Nonnull final Urn businessAttributeUrn, @Nonnull final Authentication authentication) {
-        Objects.requireNonNull(businessAttributeUrn, "business attribute must not be null");
-        Objects.requireNonNull(authentication, "authentication must not be null");
-        try {
-            return _entityClient.batchGetV2(
-                    Constants.BUSINESS_ATTRIBUTE_ENTITY_NAME,
-                    Set.of(businessAttributeUrn),
-                    Set.of(Constants.BUSINESS_ATTRIBUTE_INFO_ASPECT_NAME),
-                    authentication).get(businessAttributeUrn);
-        } catch (Exception e) {
-            throw new RuntimeException(String.format("Failed to retrieve Business Attribute with urn %s", businessAttributeUrn), e);
-        }
-    }
 }

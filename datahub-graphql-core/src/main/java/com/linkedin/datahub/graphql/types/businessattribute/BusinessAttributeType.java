@@ -4,16 +4,26 @@ import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.generated.AutoCompleteResults;
 import com.linkedin.datahub.graphql.generated.BusinessAttribute;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityType;
+import com.linkedin.datahub.graphql.generated.FacetFilterInput;
+import com.linkedin.datahub.graphql.generated.SearchResults;
+import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
+import com.linkedin.datahub.graphql.types.SearchableEntityType;
 import com.linkedin.datahub.graphql.types.businessattribute.mappers.BusinessAttributeMapper;
+import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.query.SearchFlags;
+import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.search.SearchResult;
 import graphql.execution.DataFetcherResult;
 import lombok.RequiredArgsConstructor;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -30,7 +40,7 @@ import static com.linkedin.metadata.Constants.OWNERSHIP_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.STATUS_ASPECT_NAME;
 
 @RequiredArgsConstructor
-public class BusinessAttributeType implements com.linkedin.datahub.graphql.types.EntityType<BusinessAttribute, String> {
+public class BusinessAttributeType implements SearchableEntityType<BusinessAttribute, String> {
 
     public static final Set<String> ASPECTS_TO_FETCH = ImmutableSet.of(
             BUSINESS_ATTRIBUTE_INFO_ASPECT_NAME,
@@ -39,7 +49,7 @@ public class BusinessAttributeType implements com.linkedin.datahub.graphql.types
             INSTITUTIONAL_MEMORY_ASPECT_NAME,
             STATUS_ASPECT_NAME
     );
-
+    private static final Set<String> FACET_FIELDS = ImmutableSet.of("");
     private final EntityClient _entityClient;
 
     @Override
@@ -80,5 +90,20 @@ public class BusinessAttributeType implements com.linkedin.datahub.graphql.types
         } catch (Exception e) {
             throw new RuntimeException("Failed to batch load Business Attributes", e);
         }
+    }
+
+    @Override
+    public SearchResults search(@Nonnull String query, @Nullable List<FacetFilterInput> filters,
+                                int start, int count, @Nonnull QueryContext context) throws Exception {
+        final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
+        final SearchResult searchResult = _entityClient.search(
+                "businessAttribute", query, facetFilters, start, count, context.getAuthentication(), new SearchFlags().setFulltext(true));
+        return UrnSearchResultsMapper.map(searchResult);
+    }
+
+    @Override
+    public AutoCompleteResults autoComplete(@Nonnull String query, @Nullable String field,
+                                            @Nullable Filter filters, int limit, @Nonnull QueryContext context) throws Exception {
+        return null;
     }
 }

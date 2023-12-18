@@ -322,6 +322,7 @@ import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.recommendation.RecommendationsService;
 import com.linkedin.metadata.secret.SecretService;
+import com.linkedin.metadata.service.BusinessAttributeService;
 import com.linkedin.metadata.service.DataProductService;
 import com.linkedin.metadata.service.LineageService;
 import com.linkedin.metadata.service.OwnershipTypeService;
@@ -411,7 +412,7 @@ public class GmsGraphQLEngine {
     private final LineageService lineageService;
     private final QueryService queryService;
     private final DataProductService dataProductService;
-
+    private final BusinessAttributeService businessAttributeService;
     private final FeatureFlags featureFlags;
 
     private final IngestionConfiguration ingestionConfiguration;
@@ -527,6 +528,8 @@ public class GmsGraphQLEngine {
         this.lineageService = args.lineageService;
         this.queryService = args.queryService;
         this.dataProductService = args.dataProductService;
+        this.businessAttributeService = args.businessAttributeService;
+
 
         this.ingestionConfiguration = Objects.requireNonNull(args.ingestionConfiguration);
         this.authenticationConfiguration = Objects.requireNonNull(args.authenticationConfiguration);
@@ -1036,8 +1039,8 @@ public class GmsGraphQLEngine {
             .dataFetcher("createOwnershipType", new CreateOwnershipTypeResolver(this.ownershipTypeService))
             .dataFetcher("updateOwnershipType", new UpdateOwnershipTypeResolver(this.ownershipTypeService))
             .dataFetcher("deleteOwnershipType", new DeleteOwnershipTypeResolver(this.ownershipTypeService))
-            .dataFetcher("createBusinessAttribute", new CreateBusinessAttributeResolver(this.entityClient, this.entityService))
-            .dataFetcher("updateBusinessAttribute", new UpdateBusinessAttributeResolver(this.entityClient))
+            .dataFetcher("createBusinessAttribute", new CreateBusinessAttributeResolver(this.entityClient, this.entityService, this.businessAttributeService))
+            .dataFetcher("updateBusinessAttribute", new UpdateBusinessAttributeResolver(this.entityClient, this.businessAttributeService))
             .dataFetcher("deleteBusinessAttribute", new DeleteBusinessAttributeResolver(this.entityClient))
         );
     }
