@@ -17,8 +17,7 @@ base_requirements = {
     # pydantic 1.8.2 is incompatible with mypy 0.910.
     # See https://github.com/samuelcolvin/pydantic/pull/3175#issuecomment-995382910.
     # pydantic 1.10.3 is incompatible with typing-extensions 4.1.1 - https://github.com/pydantic/pydantic/issues/4885
-    # pydantic 2 makes major, backwards-incompatible changes - https://github.com/pydantic/pydantic/issues/4887
-    "pydantic>=1.10.0,!=1.10.3,<2",
+    "pydantic>=1.10.0,!=1.10.3",
     "mixpanel>=4.9.0",
     "sentry-sdk",
 }
@@ -56,12 +55,13 @@ framework_common = {
 }
 
 pydantic_no_v2 = {
+    # pydantic 2 makes major, backwards-incompatible changes - https://github.com/pydantic/pydantic/issues/4887
     # Tags sources that require the pydantic v2 API.
     "pydantic<2",
 }
 
 plugin_common = {
-    # While pydantic v2 support is experimental, require that _ALL_ plugins
+    # While pydantic v2 support is experimental, require that all plugins
     # continue to use v1. This will ensure that no ingestion recipes break.
     *pydantic_no_v2,
 }
