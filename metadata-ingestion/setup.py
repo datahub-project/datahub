@@ -356,7 +356,7 @@ plugins: Dict[str, Set[str]] = {
     "mongodb": {"pymongo[srv]>=3.11", "packaging"},
     "mssql": sql_common
     | {
-        "sqlalchemy-pytds>=0.3<1.14.0; python_version < '3.8'",
+        "sqlalchemy-pytds>=0.3,<1.14.0; python_version < '3.8'",
         "sqlalchemy-pytds>=0.3; python_version >= '3.8'",
         "pyOpenSSL",
     },
