@@ -19,10 +19,9 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.stream.Stream;
-
 import lombok.extern.slf4j.Slf4j;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
@@ -150,7 +149,8 @@ public class SearchUtil {
   public static SortCriterion sortBy(@Nonnull String field, @Nullable SortOrder direction) {
     SortCriterion sortCriterion = new SortCriterion();
     sortCriterion.setField(field);
-    sortCriterion.setOrder(com.linkedin.metadata.query.filter.SortOrder.valueOf(
+    sortCriterion.setOrder(
+        com.linkedin.metadata.query.filter.SortOrder.valueOf(
             Optional.ofNullable(direction).orElse(SortOrder.ASCENDING).toString()));
     return sortCriterion;
   }
@@ -163,7 +163,7 @@ public class SearchUtil {
 
   public static ConjunctiveCriterionArray andCriterion(Stream<Criterion> criteria) {
     return new ConjunctiveCriterionArray(
-            new ConjunctiveCriterion()
-                    .setAnd(new CriterionArray(criteria.collect(Collectors.toList()))));
+        new ConjunctiveCriterion()
+            .setAnd(new CriterionArray(criteria.collect(Collectors.toList()))));
   }
 }

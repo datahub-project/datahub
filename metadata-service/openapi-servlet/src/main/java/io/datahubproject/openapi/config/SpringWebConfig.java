@@ -57,9 +57,8 @@ public class SpringWebConfig implements WebMvcConfigurer {
   @Bean
   public GroupedOpenApi openApiGroupV2() {
     return GroupedOpenApi.builder()
-            .group("v3")
-            .packagesToScan(
-                    "io.datahubproject.openapi.v3"
-            ).build();
+        .group("v3")
+        .packagesToScan("io.datahubproject.openapi.v3")
+        .build();
   }
 }
