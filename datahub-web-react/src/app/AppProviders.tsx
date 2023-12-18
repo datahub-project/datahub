@@ -16,13 +16,13 @@ export default function AppProviders({ children }: Props) {
         <AppConfigProvider>
             <UserContextProvider>
                 <EntityRegistryProvider>
-                <BrowserTitleProvider>
-                    <EducationStepsProvider>
-                        <QuickFiltersProvider>
-                            <SearchContextProvider>{children}</SearchContextProvider>
-                        </QuickFiltersProvider>
-                    </EducationStepsProvider>
-                </BrowserTitleProvider>
+                    <BrowserTitleProvider>
+                        <EducationStepsProvider>
+                            <QuickFiltersProvider>
+                                <SearchContextProvider>{children}</SearchContextProvider>
+                            </QuickFiltersProvider>
+                        </EducationStepsProvider>
+                    </BrowserTitleProvider>
                 </EntityRegistryProvider>
             </UserContextProvider>
         </AppConfigProvider>
