@@ -125,7 +125,10 @@ def test_multiline_string_fixer():
     assert v.s == "foo\nbar"
 
     v = TestModel.parse_obj({"s": "normal", "m": "foo\\nbar"})
+    assert v.s == "normal"
+    assert v.m
     assert v.m.get_secret_value() == "foo\nbar"
 
     v = TestModel.parse_obj({"s": "normal", "m": pydantic.SecretStr("foo\\nbar")})
+    assert v.m
     assert v.m.get_secret_value() == "foo\nbar"
