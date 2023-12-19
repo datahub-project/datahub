@@ -1,22 +1,25 @@
 buildscript {
+  ext.jdkVersion = 17
+  ext.javaClassVersion = 11
+
   ext.junitJupiterVersion = '5.6.1'
   // Releases: https://github.com/linkedin/rest.li/blob/master/CHANGELOG.md
-  ext.pegasusVersion = '29.46.8'
+  ext.pegasusVersion = '29.48.4'
   ext.mavenVersion = '3.6.3'
   ext.springVersion = '5.3.29'
   ext.springBootVersion = '2.7.14'
   ext.openTelemetryVersion = '1.18.0'
-  ext.neo4jVersion = '4.4.9'
-  ext.neo4jTestVersion = '4.4.25'
-  ext.neo4jApocVersion = '4.4.0.20:all'
+  ext.neo4jVersion = '5.14.0'
+  ext.neo4jTestVersion = '5.14.0'
+  ext.neo4jApocVersion = '5.14.0'
   ext.testContainersVersion = '1.17.4'
   ext.elasticsearchVersion = '2.9.0' // ES 7.10, Opensearch 1.x, 2.x
-  ext.jacksonVersion = '2.15.2'
+  ext.jacksonVersion = '2.15.3'
   ext.jettyVersion = '9.4.46.v20220331'
   ext.playVersion = '2.8.18'
   ext.log4jVersion = '2.19.0'
   ext.slf4jVersion = '1.7.36'
-  ext.logbackClassic = '1.2.12'
+  ext.logbackClassic = '1.2.13'
   ext.hadoop3Version = '3.3.5'
   ext.kafkaVersion = '2.3.0'
   ext.hazelcastVersion = '5.3.6'
@@ -29,19 +32,19 @@ buildscript {
   buildscript.repositories.addAll(project.repositories)
   dependencies {
     classpath 'com.linkedin.pegasus:gradle-plugins:' + pegasusVersion
-    classpath 'com.github.node-gradle:gradle-node-plugin:2.2.4'
+    classpath 'com.github.node-gradle:gradle-node-plugin:7.0.1'
     classpath 'io.acryl.gradle.plugin:gradle-avro-plugin:0.2.0'
     classpath 'org.springframework.boot:spring-boot-gradle-plugin:' + springBootVersion
     classpath "io.codearte.gradle.nexus:gradle-nexus-staging-plugin:0.30.0"
     classpath "com.palantir.gradle.gitversion:gradle-git-version:3.0.0"
     classpath "org.gradle.playframework:gradle-playframework:0.14"
-    classpath "gradle.plugin.org.hidetake:gradle-swagger-generator-plugin:2.19.1"
+    classpath "gradle.plugin.org.hidetake:gradle-swagger-generator-plugin:2.19.2"
   }
 }
 
 plugins {
-  id 'com.gorylenko.gradle-git-properties' version '2.4.0-rc2'
-  id 'com.github.johnrengelman.shadow' version '6.1.0'
+  id 'com.gorylenko.gradle-git-properties' version '2.4.1'
+  id 'com.github.johnrengelman.shadow' version '8.1.1' apply false
   id 'com.palantir.docker' version '0.35.0' apply false
   id "com.diffplug.spotless" version "6.23.3"
   // https://blog.ltgt.net/javax-jakarta-mess-and-gradle-solution/
@@ -149,19 +152,20 @@ project.ext.externalDependency = [
     'log4jApi': "org.apache.logging.log4j:log4j-api:$log4jVersion",
     'log4j12Api': "org.slf4j:log4j-over-slf4j:$slf4jVersion",
     'log4j2Api': "org.apache.logging.log4j:log4j-to-slf4j:$log4jVersion",
-    'lombok': 'org.projectlombok:lombok:1.18.16',
+    'lombok': 'org.projectlombok:lombok:1.18.30',
     'mariadbConnector': 'org.mariadb.jdbc:mariadb-java-client:2.6.0',
     'mavenArtifact': "org.apache.maven:maven-artifact:$mavenVersion",
     'mixpanel': 'com.mixpanel:mixpanel-java:1.4.4',
-    'mockito': 'org.mockito:mockito-core:3.0.0',
-    'mockitoInline': 'org.mockito:mockito-inline:3.0.0',
+    'mockito': 'org.mockito:mockito-core:4.11.0',
+    'mockitoInline': 'org.mockito:mockito-inline:4.11.0',
     'mockServer': 'org.mock-server:mockserver-netty:5.11.2',
     'mockServerClient': 'org.mock-server:mockserver-client-java:5.11.2',
     'mysqlConnector': 'mysql:mysql-connector-java:8.0.20',
     'neo4jHarness': 'org.neo4j.test:neo4j-harness:' + neo4jTestVersion,
     'neo4jJavaDriver': 'org.neo4j.driver:neo4j-java-driver:' + neo4jVersion,
     'neo4jTestJavaDriver': 'org.neo4j.driver:neo4j-java-driver:' + neo4jTestVersion,
-    'neo4jApoc': 'org.neo4j.procedure:apoc:' + neo4jApocVersion,
+    'neo4jApocCore': 'org.neo4j.procedure:apoc-core:' + neo4jApocVersion,
+    'neo4jApocCommon': 'org.neo4j.procedure:apoc-common:' + neo4jApocVersion,
     'opentelemetryApi': 'io.opentelemetry:opentelemetry-api:' + openTelemetryVersion,
     'opentelemetryAnnotations': 'io.opentelemetry:opentelemetry-extension-annotations:' + openTelemetryVersion,
     'opentracingJdbc':'io.opentracing.contrib:opentracing-jdbc:0.2.15',
@@ -190,8 +194,8 @@ project.ext.externalDependency = [
     'servletApi': 'javax.servlet:javax.servlet-api:3.1.0',
     'shiroCore': 'org.apache.shiro:shiro-core:1.11.0',
     'snakeYaml': 'org.yaml:snakeyaml:2.0',
-    'sparkSql' : 'org.apache.spark:spark-sql_2.11:2.4.8',
-    'sparkHive' : 'org.apache.spark:spark-hive_2.11:2.4.8',
+    'sparkSql' : 'org.apache.spark:spark-sql_2.12:3.0.3',
+    'sparkHive' : 'org.apache.spark:spark-hive_2.12:3.0.3',
     'springBeans': "org.springframework:spring-beans:$springVersion",
     'springContext': "org.springframework:spring-context:$springVersion",
     'springCore': "org.springframework:spring-core:$springVersion",
@@ -210,7 +214,6 @@ project.ext.externalDependency = [
     'springActuator': "org.springframework.boot:spring-boot-starter-actuator:$springBootVersion",
     'swaggerAnnotations': 'io.swagger.core.v3:swagger-annotations:2.2.15',
     'swaggerCli': 'io.swagger.codegen.v3:swagger-codegen-cli:3.0.46',
-    'testngJava8': 'org.testng:testng:7.5.1',
     'testng': 'org.testng:testng:7.8.0',
     'testContainers': 'org.testcontainers:testcontainers:' + testContainersVersion,
     'testContainersJunit': 'org.testcontainers:junit-jupiter:' + testContainersVersion,
@@ -226,13 +229,69 @@ project.ext.externalDependency = [
     'charle':  'com.charleskorn.kaml:kaml:0.53.0',
     'common': 'commons-io:commons-io:2.7',
     'jline':'jline:jline:1.4.1',
-    'jetbrains':' org.jetbrains.kotlin:kotlin-stdlib:1.6.0'
+    'jetbrains':' org.jetbrains.kotlin:kotlin-stdlib:1.6.0',
+    'annotationApi': 'javax.annotation:javax.annotation-api:1.3.2'
 ]
 
 allprojects {
   apply plugin: 'idea'
   apply plugin: 'eclipse'
   // apply plugin: 'org.gradlex.java-ecosystem-capabilities'
+
+  tasks.withType(Test).configureEach {
+    // https://docs.gradle.org/current/userguide/performance.html
+    maxParallelForks = Runtime.runtime.availableProcessors().intdiv(2) ?: 1
+
+    if (project.configurations.getByName("testImplementation").getDependencies()
+            .any{ it.getName().contains("testng") }) {
+      useTestNG()
+    }
+  }
+
+  if (project.plugins.hasPlugin('java')
+          || project.plugins.hasPlugin('java-library')
+          || project.plugins.hasPlugin('application')
+          || project.plugins.hasPlugin('pegasus')) {
+
+    java {
+      toolchain {
+        languageVersion = JavaLanguageVersion.of(jdkVersion)
+      }
+    }
+
+    compileJava {
+      options.release = javaClassVersion
+    }
+    tasks.withType(JavaCompile).configureEach {
+      javaCompiler = javaToolchains.compilerFor {
+        languageVersion = JavaLanguageVersion.of(jdkVersion)
+      }
+    }
+
+    tasks.withType(JavaExec).configureEach {
+      javaLauncher = javaToolchains.launcherFor {
+        languageVersion = JavaLanguageVersion.of(jdkVersion)
+      }
+    }
+
+    // not duplicated, need to set this outside and inside afterEvaluate
+    afterEvaluate {
+      compileJava {
+        options.release = javaClassVersion
+      }
+      tasks.withType(JavaCompile).configureEach {
+        javaCompiler = javaToolchains.compilerFor {
+          languageVersion = JavaLanguageVersion.of(jdkVersion)
+        }
+      }
+
+      tasks.withType(JavaExec).configureEach {
+        javaLauncher = javaToolchains.launcherFor {
+          languageVersion = JavaLanguageVersion.of(jdkVersion)
+        }
+      }
+    }
+  }
 }
 
 configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
@@ -264,8 +323,9 @@ subprojects {
     failOnNoGitDirectory = false
   }
 
-  plugins.withType(JavaPlugin) {
+  plugins.withType(JavaPlugin).configureEach {
     dependencies {
+      implementation externalDependency.annotationApi
       constraints {
         implementation("com.google.googlejavaformat:google-java-format:$googleJavaFormatVersion")
         implementation('io.netty:netty-all:4.1.100.Final')
@@ -276,18 +336,30 @@ subprojects {
         implementation("com.fasterxml.jackson.core:jackson-dataformat-cbor:$jacksonVersion")
       }
     }
+
     spotless {
       java {
         googleJavaFormat()
         target project.fileTree(project.projectDir) {
-            include '**/*.java'
-            exclude 'build/**/*.java'
-            exclude '**/generated/**/*.*'
-            exclude '**/mainGeneratedDataTemplate/**/*.*'
-            exclude '**/mainGeneratedRest/**/*.*'
+          include 'src/**/*.java'
+          exclude 'src/**/resources/'
+          exclude 'src/**/generated/'
+          exclude 'src/**/mainGeneratedDataTemplate/'
+          exclude 'src/**/mainGeneratedRest/'
+          exclude 'src/renamed/avro/'
+          exclude 'src/test/sample-test-plugins/'
         }
       }
     }
+
+    if (project.plugins.hasPlugin('pegasus')) {
+      dependencies {
+        dataTemplateCompile spec.product.pegasus.data
+        dataTemplateCompile externalDependency.annotationApi // support > jdk8
+        restClientCompile spec.product.pegasus.restliClient
+      }
+    }
+
     afterEvaluate {
       def spotlessJavaTask = tasks.findByName('spotlessJava')
       def processTask = tasks.findByName('processResources')
@@ -305,28 +377,11 @@ subprojects {
     }
   }
 
-  tasks.withType(JavaCompile).configureEach {
-    javaCompiler = javaToolchains.compilerFor {
-      languageVersion = JavaLanguageVersion.of(11)
-    }
-  }
-  tasks.withType(Test).configureEach {
-    javaLauncher = javaToolchains.launcherFor {
-      languageVersion = JavaLanguageVersion.of(11)
-    }
-    // https://docs.gradle.org/current/userguide/performance.html
-    maxParallelForks = Runtime.runtime.availableProcessors().intdiv(2) ?: 1
-
-    if (project.configurations.getByName("testImplementation").getDependencies()
-            .any{ it.getName().contains("testng") }) {
-      useTestNG()
-    }
-  }
-
   afterEvaluate {
     if (project.plugins.hasPlugin('pegasus')) {
       dependencies {
         dataTemplateCompile spec.product.pegasus.data
+        dataTemplateCompile externalDependency.annotationApi // support > jdk8
         restClientCompile spec.product.pegasus.restliClient
       }
     }
