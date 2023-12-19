@@ -7,6 +7,7 @@ from datahub.configuration.common import ConfigModel, ConfigurationWarning
 from datahub.configuration.validate_field_deprecation import pydantic_field_deprecated
 from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
+from datahub.configuration.validate_multiline_string import pydantic_multiline_string
 from datahub.utilities.global_warning_util import (
     clear_global_warnings,
     get_global_warnings,
@@ -106,3 +107,16 @@ def test_field_deprecated():
     assert any(["d2 is deprecated" in warning for warning in get_global_warnings()])
 
     clear_global_warnings()
+
+
+def test_multiline_string_fixer():
+    class TestModel(ConfigModel):
+        s: str
+
+        _validate_multiline_string = pydantic_multiline_string("s")
+
+    v = TestModel.parse_obj({"s": "foo\nbar"})
+    assert v.s == "foo\nbar"
+
+    v = TestModel.parse_obj({"s": "foo\\nbar"})
+    assert v.s == "foo\nbar"
