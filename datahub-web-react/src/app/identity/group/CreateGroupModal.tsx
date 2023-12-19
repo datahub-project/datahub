@@ -142,7 +142,12 @@ export default function CreateGroupModal({ onClose, onCreate }: Props) {
                     <Form.Item name="description" rules={[{ whitespace: true }]} hasFeedback>
                         {/* Styled editor for the group description */}
                         <div ref={styledEditorRef}>
-                            <StyledEditor doNotFocus content={stagedDescription} onChange={updateDescription} />
+                            <StyledEditor
+                                doNotFocus
+                                dataTestId="modal-group-description-input"
+                                content={stagedDescription}
+                                onChange={updateDescription}
+                            />
                         </div>
                     </Form.Item>
                 </Form.Item>
