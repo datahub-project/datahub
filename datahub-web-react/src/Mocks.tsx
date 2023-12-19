@@ -1732,7 +1732,6 @@ export const recommendationModules = [
         content: [
             {
                 entity: {
-                    __typename: 'DataPlatform',
                     ...dataset2,
                 },
                 __typename: 'RecommendationContent'
