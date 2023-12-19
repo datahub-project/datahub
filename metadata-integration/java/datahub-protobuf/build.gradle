@@ -31,10 +31,10 @@ dependencies {
     implementation externalDependency.commonsCli
     implementation externalDependency.httpAsyncClient
     implementation externalDependency.slf4jApi
+    implementation externalDependency.jacksonCore
     compileOnly externalDependency.lombok
     annotationProcessor externalDependency.lombok
     testImplementation externalDependency.testng
-    implementation "com.fasterxml.jackson.core:jackson-core:2.15.3"
 }
 
 import java.nio.file.Paths
