@@ -2,14 +2,16 @@ package com.linkedin.datahub.graphql.resolvers.chart;
 
 import static com.linkedin.datahub.graphql.Constants.BROWSE_PATH_V2_DELIMITER;
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
-import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.resolveView;
+import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.*;
 
+import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.BrowseResultGroupV2;
 import com.linkedin.datahub.graphql.generated.BrowseResultMetadata;
 import com.linkedin.datahub.graphql.generated.BrowseResultsV2;
 import com.linkedin.datahub.graphql.generated.BrowseV2Input;
+import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.resolvers.EntityTypeMapper;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.resolvers.search.SearchUtils;
@@ -43,8 +45,8 @@ public class BrowseV2Resolver implements DataFetcher<CompletableFuture<BrowseRes
   public CompletableFuture<BrowseResultsV2> get(DataFetchingEnvironment environment) {
     final QueryContext context = environment.getContext();
     final BrowseV2Input input = bindArgument(environment.getArgument("input"), BrowseV2Input.class);
-    final String entityName = EntityTypeMapper.getName(input.getType());
 
+    final List<String> entityNames = getEntityNames(input);
     final int start = input.getStart() != null ? input.getStart() : DEFAULT_START;
     final int count = input.getCount() != null ? input.getCount() : DEFAULT_COUNT;
     final String query = input.getQuery() != null ? input.getQuery() : "*";
@@ -70,7 +72,7 @@ public class BrowseV2Resolver implements DataFetcher<CompletableFuture<BrowseRes
 
             BrowseResultV2 browseResults =
                 _entityClient.browseV2(
-                    entityName,
+                    entityNames,
                     pathStr,
                     maybeResolvedView != null
                         ? SearchUtils.combineFilters(
@@ -85,6 +87,18 @@ public class BrowseV2Resolver implements DataFetcher<CompletableFuture<BrowseRes
             throw new RuntimeException("Failed to execute browse V2", e);
           }
         });
+  }
+
+  public static List<String> getEntityNames(BrowseV2Input input) {
+    List<EntityType> entityTypes;
+    if (input.getTypes() != null && input.getTypes().size() > 0) {
+      entityTypes = input.getTypes();
+    } else if (input.getType() != null) {
+      entityTypes = ImmutableList.of(input.getType());
+    } else {
+      entityTypes = BROWSE_ENTITY_TYPES;
+    }
+    return entityTypes.stream().map(EntityTypeMapper::getName).collect(Collectors.toList());
   }
 
   private BrowseResultsV2 mapBrowseResults(BrowseResultV2 browseResults) {

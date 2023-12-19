@@ -24,6 +24,7 @@ from datahub.ingestion.source.snowflake.snowflake_query import (
 from datahub.ingestion.source.snowflake.snowflake_usage_v2 import (
     SnowflakeObjectAccessEntry,
 )
+from datahub.ingestion.source.snowflake.snowflake_utils import SnowflakeCommonMixin
 from datahub.ingestion.source.snowflake.snowflake_v2 import SnowflakeV2Source
 from tests.test_helpers import test_connection_helpers
 
@@ -584,3 +585,29 @@ def test_email_filter_query_generation_with_case_insensitive_filter():
         filter_query
         == "AND (rlike(user_name, '.*@example.com','c')) AND NOT (rlike(user_name, '.*@example2.com','c'))"
     )
+
+
+def test_create_snowsight_base_url_us_west():
+    (
+        cloud,
+        cloud_region_id,
+    ) = SnowflakeCommonMixin.get_cloud_region_from_snowflake_region_id("aws_us_west_2")
+
+    result = SnowflakeCommonMixin.create_snowsight_base_url(
+        "account_locator", cloud_region_id, cloud, False
+    )
+    assert result == "https://app.snowflake.com/us-west-2/account_locator/"
+
+
+def test_create_snowsight_base_url_ap_northeast_1():
+    (
+        cloud,
+        cloud_region_id,
+    ) = SnowflakeCommonMixin.get_cloud_region_from_snowflake_region_id(
+        "aws_ap_northeast_1"
+    )
+
+    result = SnowflakeCommonMixin.create_snowsight_base_url(
+        "account_locator", cloud_region_id, cloud, False
+    )
+    assert result == "https://app.snowflake.com/ap-northeast-1.aws/account_locator/"

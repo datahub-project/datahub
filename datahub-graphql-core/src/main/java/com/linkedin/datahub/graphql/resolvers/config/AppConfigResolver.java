@@ -196,6 +196,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
             .setNestedDomainsEnabled(_featureFlags.isNestedDomainsEnabled())
             .setDataContractsEnabled(_featureFlags.isDataContractsEnabled())
             .setDocumentationAiEnabled(_featureFlags.isDocumentationAiEnabled())
+            .setPlatformBrowseV2(_featureFlags.isPlatformBrowseV2())
             .build();
 
     appConfig.setFeatureFlags(featureFlagsConfig);

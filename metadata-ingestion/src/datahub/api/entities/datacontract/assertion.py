@@ -1,7 +1,7 @@
 from typing import Optional
 
-from datahub.configuration import ConfigModel
+from datahub.configuration.pydantic_migration_helpers import v1_ConfigModel
 
 
-class BaseAssertion(ConfigModel):
+class BaseAssertion(v1_ConfigModel):
     description: Optional[str] = None
