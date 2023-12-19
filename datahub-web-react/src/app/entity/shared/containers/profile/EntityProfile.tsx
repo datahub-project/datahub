@@ -4,7 +4,6 @@ import { MutationHookOptions, MutationTuple, QueryHookOptions, QueryResult } fro
 import styled from 'styled-components/macro';
 import { useHistory } from 'react-router';
 import { EntityType, Exact } from '../../../../../types.generated';
-import { Message } from '../../../../shared/Message';
 import {
     getEntityPath,
     getOnboardingStepIdsForEntityType,
@@ -289,7 +288,6 @@ export const EntityProfile = <T, U>({
                 }}
             >
                 <>
-                    {loading && <Message type="loading" content="Loading..." style={{ marginTop: '10%' }} />}
                     {(error && <ErrorSection />) ||
                         (!loading && (
                             <CompactProfile>
@@ -338,7 +336,6 @@ export const EntityProfile = <T, U>({
                         banner
                     />
                 )}
-                {loading && <Message type="loading" content="Loading..." style={{ marginTop: '10%' }} />}
                 {(error && <ErrorSection />) || (
                     <ContentContainer>
                         {isLineageMode ? (

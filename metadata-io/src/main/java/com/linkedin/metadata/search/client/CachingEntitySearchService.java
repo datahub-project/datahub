@@ -16,7 +16,7 @@ import java.util.Optional;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
-import org.javatuples.Quintet;
+import org.javatuples.Septet;
 import org.javatuples.Sextet;
 import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
@@ -154,8 +154,9 @@ public class CachingEntitySearchService {
         batchSize,
         querySize -> getRawSearchResults(entityNames, query, filters, sortCriterion, querySize.getFrom(),
                 querySize.getSize(), flags, facets),
-        querySize -> Sextet.with(entityNames, query, filters != null ? toJsonString(filters) : null,
-            sortCriterion != null ? toJsonString(sortCriterion) : null, facets, querySize), flags, enableCache).getSearchResults(from, size);
+        querySize -> Septet.with(entityNames, query, filters != null ? toJsonString(filters) : null,
+                sortCriterion != null ? toJsonString(sortCriterion) : null, flags != null ? toJsonString(flags) : null,
+                facets, querySize), flags, enableCache).getSearchResults(from, size);
   }
 
 
@@ -175,7 +176,8 @@ public class CachingEntitySearchService {
       if (enableCache(flags)) {
         try (Timer.Context ignored2 = MetricUtils.timer(this.getClass(), "getCachedAutoCompleteResults_cache").time()) {
           Timer.Context cacheAccess = MetricUtils.timer(this.getClass(), "autocomplete_cache_access").time();
-          Object cacheKey = Quintet.with(entityName, input, field, filters != null ? toJsonString(filters) : null, limit);
+          Object cacheKey = Sextet.with(entityName, input, field, filters != null ? toJsonString(filters) : null,
+                  flags != null ?  toJsonString(flags) : null, limit);
           String json = cache.get(cacheKey, String.class);
           result = json != null ? toRecordTemplate(AutoCompleteResult.class, json) : null;
           cacheAccess.stop();
@@ -210,7 +212,8 @@ public class CachingEntitySearchService {
       if (enableCache(flags)) {
         try (Timer.Context ignored2 = MetricUtils.timer(this.getClass(), "getCachedBrowseResults_cache").time()) {
           Timer.Context cacheAccess = MetricUtils.timer(this.getClass(), "browse_cache_access").time();
-          Object cacheKey = Quintet.with(entityName, path, filters != null ? toJsonString(filters) : null, from, size);
+          Object cacheKey = Sextet.with(entityName, path, filters != null ? toJsonString(filters) : null,
+                  flags != null ? toJsonString(flags) : null, from, size);
           String json = cache.get(cacheKey, String.class);
           result = json != null ? toRecordTemplate(BrowseResult.class, json) : null;
           cacheAccess.stop();
@@ -247,22 +250,23 @@ public class CachingEntitySearchService {
       ScrollResult result;
       if (enableCache(flags)) {
         Timer.Context cacheAccess = MetricUtils.timer(this.getClass(), "scroll_cache_access").time();
-        Object cacheKey = Sextet.with(entities, query,
+        Object cacheKey = Septet.with(entities, query,
             filters != null ? toJsonString(filters) : null,
             sortCriterion != null ? toJsonString(sortCriterion) : null,
+            flags != null ?  toJsonString(flags) : null,
             scrollId, size);
         String json = cache.get(cacheKey, String.class);
         result = json != null ? toRecordTemplate(ScrollResult.class, json) : null;
         cacheAccess.stop();
         if (result == null) {
           Timer.Context cacheMiss = MetricUtils.timer(this.getClass(), "scroll_cache_miss").time();
-          result = getRawScrollResults(entities, query, filters, sortCriterion, scrollId, keepAlive, size, isFullText);
+          result = getRawScrollResults(entities, query, filters, sortCriterion, scrollId, keepAlive, size, isFullText, flags);
           cache.put(cacheKey, toJsonString(result));
           cacheMiss.stop();
           MetricUtils.counter(this.getClass(), "scroll_cache_miss_count").inc();
         }
       } else {
-        result = getRawScrollResults(entities, query, filters, sortCriterion, scrollId, keepAlive, size, isFullText);
+        result = getRawScrollResults(entities, query, filters, sortCriterion, scrollId, keepAlive, size, isFullText, flags);
       }
       return result;
     }
@@ -328,7 +332,8 @@ public class CachingEntitySearchService {
       @Nullable final String scrollId,
       @Nullable final String keepAlive,
       final int count,
-      final boolean fulltext) {
+      final boolean fulltext,
+      @Nullable final SearchFlags searchFlags) {
     if (fulltext) {
       return entitySearchService.fullTextScroll(
           entities,
@@ -337,7 +342,8 @@ public class CachingEntitySearchService {
           sortCriterion,
           scrollId,
           keepAlive,
-          count);
+          count,
+          searchFlags);
     } else {
       return entitySearchService.structuredScroll(entities,
           input,
@@ -345,7 +351,8 @@ public class CachingEntitySearchService {
           sortCriterion,
           scrollId,
           keepAlive,
-          count);
+          count,
+          searchFlags);
     }
   }
 

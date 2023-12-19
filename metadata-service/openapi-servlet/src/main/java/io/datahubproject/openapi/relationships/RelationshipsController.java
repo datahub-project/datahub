@@ -8,7 +8,7 @@ import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.AuthorizerChain;
 import com.datahub.authorization.ConjunctivePrivilegeGroup;
 import com.datahub.authorization.DisjunctivePrivilegeGroup;
-import com.datahub.authorization.ResourceSpec;
+import com.datahub.authorization.EntitySpec;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -131,8 +131,8 @@ public class RelationshipsController {
             // Re-using GET_ENTITY_PRIVILEGE here as it doesn't make sense to split the privileges between these APIs.
         )));
 
-    List<Optional<ResourceSpec>> resourceSpecs =
-        Collections.singletonList(Optional.of(new ResourceSpec(entityUrn.getEntityType(), entityUrn.toString())));
+    List<Optional<EntitySpec>> resourceSpecs =
+        Collections.singletonList(Optional.of(new EntitySpec(entityUrn.getEntityType(), entityUrn.toString())));
     if (restApiAuthorizationEnabled && !AuthUtil.isAuthorizedForResources(_authorizerChain, actorUrnStr, resourceSpecs,
         orGroup)) {
       throw new UnauthorizedException(actorUrnStr + " is unauthorized to get relationships.");

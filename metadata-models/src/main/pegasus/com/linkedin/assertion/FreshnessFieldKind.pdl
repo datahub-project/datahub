@@ -1,0 +1,17 @@
+namespace com.linkedin.assertion
+
+enum FreshnessFieldKind {
+  /**
+  * Determine that a change has occurred by inspecting an last modified field which
+  * represents the last time at which a row was changed.
+  */
+  LAST_MODIFIED,
+  /**
+   * Determine that a change has occurred by inspecting a field which should be tracked as the
+   * "high watermark" for the table. This should be an ascending number or date field.
+   *
+   * If rows with this column have not been added since the previous check
+   * then the Freshness Assertion will fail.
+   */
+  HIGH_WATERMARK
+}

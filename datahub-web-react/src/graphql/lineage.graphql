@@ -165,6 +165,9 @@ fragment lineageNodeProperties on EntityWithRelationships {
         status {
             removed
         }
+        subTypes {
+            typeNames
+        }
     }
     ... on Dataset {
         name

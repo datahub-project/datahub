@@ -1,5 +1,5 @@
 {
-    "query_type": "UNKNOWN",
+    "query_type": "SELECT",
     "in_tables": [
         "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_sample_data.tpch_sf10.orders,PROD)",
         "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_sample_data.tpch_sf100.orders,PROD)"
@@ -9,14 +9,26 @@
         {
             "downstream": {
                 "table": null,
-                "column": "label"
+                "column": "label",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                },
+                "native_column_type": "VARCHAR"
             },
             "upstreams": []
         },
         {
             "downstream": {
                 "table": null,
-                "column": "total_agg"
+                "column": "total_agg",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                },
+                "native_column_type": "DOUBLE"
             },
             "upstreams": [
                 {

@@ -5,12 +5,11 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union
 
-import clickhouse_driver  # noqa: F401
+import clickhouse_driver
 import clickhouse_sqlalchemy.types as custom_types
 import pydantic
 from clickhouse_sqlalchemy.drivers import base
 from clickhouse_sqlalchemy.drivers.base import ClickHouseDialect
-from pydantic.class_validators import root_validator
 from pydantic.fields import Field
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import reflection
@@ -19,9 +18,9 @@ from sqlalchemy.sql import sqltypes
 from sqlalchemy.types import BOOLEAN, DATE, DATETIME, INTEGER
 
 import datahub.emitter.mce_builder as builder
-from datahub.configuration.pydantic_field_deprecation import pydantic_field_deprecated
 from datahub.configuration.source_common import DatasetLineageProviderConfigBase
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
+from datahub.configuration.validate_field_deprecation import pydantic_field_deprecated
 from datahub.emitter import mce_builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.decorators import (
@@ -58,6 +57,8 @@ from datahub.metadata.schema_classes import (
     DatasetSnapshotClass,
     UpstreamClass,
 )
+
+assert clickhouse_driver
 
 # adding extra types not handled by clickhouse-sqlalchemy 0.1.8
 base.ischema_names["DateTime64(0)"] = DATETIME
@@ -126,8 +127,8 @@ class ClickHouseConfig(
     TwoTierSQLAlchemyConfig, BaseTimeWindowConfig, DatasetLineageProviderConfigBase
 ):
     # defaults
-    host_port = Field(default="localhost:8123", description="ClickHouse host URL.")
-    scheme = Field(default="clickhouse", description="", hidden_from_docs=True)
+    host_port: str = Field(default="localhost:8123", description="ClickHouse host URL.")
+    scheme: str = Field(default="clickhouse", description="", hidden_from_docs=True)
     password: pydantic.SecretStr = Field(
         default=pydantic.SecretStr(""), description="password"
     )
@@ -165,7 +166,7 @@ class ClickHouseConfig(
         return str(url)
 
     # pre = True because we want to take some decision before pydantic initialize the configuration to default values
-    @root_validator(pre=True)
+    @pydantic.root_validator(pre=True)
     def projects_backward_compatibility(cls, values: Dict) -> Dict:
         secure = values.get("secure")
         protocol = values.get("protocol")
