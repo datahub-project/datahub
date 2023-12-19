@@ -1,5 +1,6 @@
 from typing import Optional
 
+import pydantic
 import pytest
 from pydantic import ValidationError
 
@@ -112,11 +113,19 @@ def test_field_deprecated():
 def test_multiline_string_fixer():
     class TestModel(ConfigModel):
         s: str
+        m: Optional[pydantic.SecretStr] = None
 
-        _validate_multiline_string = pydantic_multiline_string("s")
+        _validate_s = pydantic_multiline_string("s")
+        _validate_m = pydantic_multiline_string("m")
 
     v = TestModel.parse_obj({"s": "foo\nbar"})
     assert v.s == "foo\nbar"
 
     v = TestModel.parse_obj({"s": "foo\\nbar"})
     assert v.s == "foo\nbar"
+
+    v = TestModel.parse_obj({"s": "normal", "m": "foo\\nbar"})
+    assert v.m.get_secret_value() == "foo\nbar"
+
+    v = TestModel.parse_obj({"s": "normal", "m": pydantic.SecretStr("foo\\nbar")})
+    assert v.m.get_secret_value() == "foo\nbar"

@@ -1,4 +1,4 @@
-from typing import Type
+from typing import Optional, Type, Union
 
 import pydantic
 
@@ -14,8 +14,12 @@ def pydantic_multiline_string(field: str) -> classmethod:
     in recipes, without sacrificing correctness across the board.
     """
 
-    def _validate_field(cls: Type, v: str) -> str:
+    def _validate_field(
+        cls: Type, v: Union[None, str, pydantic.SecretStr]
+    ) -> Optional[str]:
         if v is not None:
+            if isinstance(v, pydantic.SecretStr):
+                v = v.get_secret_value()
             v = v.replace(r"\n", "\n")
 
         return v
@@ -24,4 +28,4 @@ def pydantic_multiline_string(field: str) -> classmethod:
     # https://github.com/pydantic/pydantic/blob/v1.10.9/pydantic/main.py#L264
     # This hack ensures that multiple field deprecated do not overwrite each other.
     _validate_field.__name__ = f"{_validate_field.__name__}_{field}"
-    return pydantic.validator(field, allow_reuse=True)(_validate_field)
+    return pydantic.validator(field, pre=True, allow_reuse=True)(_validate_field)
