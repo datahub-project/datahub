@@ -199,6 +199,6 @@ public class EntityDataContractResolverTest {
     DataContract result = resolver.get(mockEnv).get();
 
     assertNull(result);
-    Mockito.verifyZeroInteractions(mockClient);
+    Mockito.verifyNoMoreInteractions(mockClient);
   }
 }
