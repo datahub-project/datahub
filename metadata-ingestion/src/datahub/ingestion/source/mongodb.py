@@ -377,6 +377,8 @@ class MongoDBSource(StatefulIngestionSourceBase):
                     platform_instance=self.config.platform_instance,
                 )
 
+                # Initialize data_platform_instance with a default value
+                data_platform_instance = None
                 if self.config.platform_instance:
                     data_platform_instance = DataPlatformInstanceClass(
                         platform=make_data_platform_urn(platform),
@@ -467,9 +469,13 @@ class MongoDBSource(StatefulIngestionSourceBase):
                     for mcp in MetadataChangeProposalWrapper.construct_many(
                         entityUrn=dataset_urn,
                         aspects=[
-                            schema_metadata,
-                            dataset_properties,
-                            data_platform_instance,
+                            aspect
+                            for aspect in [
+                                schema_metadata,
+                                dataset_properties,
+                                data_platform_instance,
+                            ]
+                            if aspect is not None
                         ],
                     )
                 ]
