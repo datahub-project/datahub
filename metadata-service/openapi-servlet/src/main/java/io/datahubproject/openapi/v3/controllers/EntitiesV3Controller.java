@@ -6,6 +6,7 @@ import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.AuthorizerChain;
 import com.datahub.authorization.ConjunctivePrivilegeGroup;
 import com.datahub.authorization.DisjunctivePrivilegeGroup;
+import com.datahub.util.RecordUtils;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.AuditStamp;
@@ -13,6 +14,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.ByteString;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.UpdateAspectResult;
@@ -31,10 +33,13 @@ import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.SearchUtil;
+import com.linkedin.mxe.SystemMetadata;
+import com.linkedin.util.Pair;
 import io.datahubproject.openapi.exception.UnauthorizedException;
 import io.datahubproject.openapi.v3.models.GenericEntity;
 import io.datahubproject.openapi.v3.models.GenericScrollResult;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.util.HashSet;
 import java.util.List;
@@ -50,11 +55,13 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -81,7 +88,13 @@ public class EntitiesV3Controller {
       @RequestParam(value = "aspectNames", defaultValue = "") Set<String> aspectNames,
       @RequestParam(value = "count", defaultValue = "10") Integer count,
       @RequestParam(value = "query", defaultValue = "*") String query,
-      @RequestParam(value = "scrollId", required = false) String scrollId) {
+      @RequestParam(value = "scrollId", required = false) String scrollId,
+      @RequestParam(value = "sort", required = false, defaultValue = "urn") String sortField,
+      @RequestParam(value = "sortOrder", required = false, defaultValue = "ASCENDING")
+          String sortOrder,
+      @RequestParam(value = "systemMetadata", required = false, defaultValue = "false")
+          Boolean withSystemMetadata)
+      throws URISyntaxException {
     Authentication authentication = AuthenticationContext.getAuthentication();
     EntitySpec entitySpec = entityRegistry.getEntitySpec(entityName);
     checkAuthorized(
@@ -90,7 +103,7 @@ public class EntitiesV3Controller {
         ImmutableList.of(PoliciesConfig.GET_ENTITY_PRIVILEGE.getType()));
 
     // TODO: sort params
-    SortCriterion sortCriterion = SearchUtil.sortBy("urn", SortOrder.ASCENDING);
+    SortCriterion sortCriterion = SearchUtil.sortBy(sortField, SortOrder.valueOf(sortOrder));
 
     ScrollResult result =
         searchService.scrollAcrossEntities(
@@ -105,7 +118,7 @@ public class EntitiesV3Controller {
 
     return ResponseEntity.ok(
         GenericScrollResult.builder()
-            .entities(toRecordTemplates(result.getEntities(), aspectNames))
+            .entities(toRecordTemplates(result.getEntities(), aspectNames, withSystemMetadata))
             .scrollId(result.getScrollId())
             .build());
   }
@@ -114,7 +127,10 @@ public class EntitiesV3Controller {
   public ResponseEntity<GenericEntity> getEntity(
       @PathVariable("entityName") String entityName,
       @PathVariable("entityUrn") String entityUrn,
-      @RequestParam(value = "aspectNames", defaultValue = "") Set<String> aspectNames) {
+      @RequestParam(value = "aspectNames", defaultValue = "") Set<String> aspectNames,
+      @RequestParam(value = "systemMetadata", required = false, defaultValue = "false")
+          Boolean withSystemMetadata)
+      throws URISyntaxException {
     Authentication authentication = AuthenticationContext.getAuthentication();
     EntitySpec entitySpec = entityRegistry.getEntitySpec(entityName);
     checkAuthorized(
@@ -124,13 +140,55 @@ public class EntitiesV3Controller {
         ImmutableList.of(PoliciesConfig.GET_ENTITY_PRIVILEGE.getType()));
 
     return ResponseEntity.of(
-        toRecordTemplates(List.of(UrnUtils.getUrn(entityUrn)), aspectNames).stream().findFirst());
+        toRecordTemplates(List.of(UrnUtils.getUrn(entityUrn)), aspectNames, withSystemMetadata)
+            .stream()
+            .findFirst());
+  }
+
+  @RequestMapping(
+      value = "/{entityName}/{entityUrn}",
+      method = {RequestMethod.HEAD})
+  public ResponseEntity<Object> headEntity(
+      @PathVariable("entityName") String entityName, @PathVariable("entityUrn") String entityUrn) {
+    Authentication authentication = AuthenticationContext.getAuthentication();
+    EntitySpec entitySpec = entityRegistry.getEntitySpec(entityName);
+    checkAuthorized(
+        authentication,
+        entitySpec,
+        entityUrn,
+        ImmutableList.of(PoliciesConfig.GET_ENTITY_PRIVILEGE.getType()));
+
+    return exists(UrnUtils.getUrn(entityUrn), null)
+        ? ResponseEntity.noContent().build()
+        : ResponseEntity.notFound().build();
   }
 
   @GetMapping(
       value = "/{entityName}/{entityUrn}/{aspectName}",
       produces = MediaType.APPLICATION_JSON_VALUE)
   public ResponseEntity<Object> getAspect(
+      @PathVariable("entityName") String entityName,
+      @PathVariable("entityUrn") String entityUrn,
+      @PathVariable("aspectName") String aspectName)
+      throws URISyntaxException {
+    Authentication authentication = AuthenticationContext.getAuthentication();
+    EntitySpec entitySpec = entityRegistry.getEntitySpec(entityName);
+    checkAuthorized(
+        authentication,
+        entitySpec,
+        entityUrn,
+        ImmutableList.of(PoliciesConfig.GET_ENTITY_PRIVILEGE.getType()));
+
+    return ResponseEntity.of(
+        toRecordTemplates(List.of(UrnUtils.getUrn(entityUrn)), Set.of(aspectName), true).stream()
+            .findFirst()
+            .flatMap(e -> e.getAspects().values().stream().findFirst()));
+  }
+
+  @RequestMapping(
+      value = "/{entityName}/{entityUrn}/{aspectName}",
+      method = {RequestMethod.HEAD})
+  public ResponseEntity<Object> headAspect(
       @PathVariable("entityName") String entityName,
       @PathVariable("entityUrn") String entityUrn,
       @PathVariable("aspectName") String aspectName) {
@@ -142,10 +200,39 @@ public class EntitiesV3Controller {
         entityUrn,
         ImmutableList.of(PoliciesConfig.GET_ENTITY_PRIVILEGE.getType()));
 
-    return ResponseEntity.of(
-        toRecordTemplates(List.of(UrnUtils.getUrn(entityUrn)), Set.of(aspectName)).stream()
-            .findFirst()
-            .flatMap(e -> e.getAspects().values().stream().findFirst()));
+    return exists(UrnUtils.getUrn(entityUrn), aspectName)
+        ? ResponseEntity.noContent().build()
+        : ResponseEntity.notFound().build();
+  }
+
+  @DeleteMapping(value = "/{entityName}/{entityUrn}")
+  public void deleteEntity(
+      @PathVariable("entityName") String entityName, @PathVariable("entityUrn") String entityUrn) {
+    Authentication authentication = AuthenticationContext.getAuthentication();
+    EntitySpec entitySpec = entityRegistry.getEntitySpec(entityName);
+    checkAuthorized(
+        authentication,
+        entitySpec,
+        entityUrn,
+        ImmutableList.of(PoliciesConfig.DELETE_ENTITY_PRIVILEGE.getType()));
+
+    entityService.deleteAspect(entityUrn, entitySpec.getKeyAspectName(), Map.of(), true);
+  }
+
+  @DeleteMapping(value = "/{entityName}/{entityUrn}/{aspectName}")
+  public void deleteAspect(
+      @PathVariable("entityName") String entityName,
+      @PathVariable("entityUrn") String entityUrn,
+      @PathVariable("aspectName") String aspectName) {
+    Authentication authentication = AuthenticationContext.getAuthentication();
+    EntitySpec entitySpec = entityRegistry.getEntitySpec(entityName);
+    checkAuthorized(
+        authentication,
+        entitySpec,
+        entityUrn,
+        ImmutableList.of(PoliciesConfig.DELETE_ENTITY_PRIVILEGE.getType()));
+
+    entityService.deleteAspect(entityUrn, aspectName, Map.of(), true);
   }
 
   @PostMapping(
@@ -155,6 +242,8 @@ public class EntitiesV3Controller {
       @PathVariable("entityName") String entityName,
       @PathVariable("entityUrn") String entityUrn,
       @PathVariable("aspectName") String aspectName,
+      @RequestParam(value = "systemMetadata", required = false, defaultValue = "true")
+          Boolean withSystemMetadata,
       @RequestBody @Nonnull String jsonAspect) {
     Authentication authentication = AuthenticationContext.getAuthentication();
     EntitySpec entitySpec = entityRegistry.getEntitySpec(entityName);
@@ -179,7 +268,13 @@ public class EntitiesV3Controller {
                 result ->
                     GenericEntity.builder()
                         .urn(result.getUrn().toString())
-                        .build(objectMapper, Map.of(aspectName, result.getNewValue()))));
+                        .build(
+                            objectMapper,
+                            Map.of(
+                                aspectName,
+                                Pair.of(
+                                    result.getNewValue(),
+                                    withSystemMetadata ? result.getNewSystemMetadata() : null)))));
   }
 
   private void checkAuthorized(
@@ -209,41 +304,78 @@ public class EntitiesV3Controller {
   }
 
   private List<GenericEntity> toRecordTemplates(
-      SearchEntityArray searchEntities, Set<String> aspectNames) {
+      SearchEntityArray searchEntities, Set<String> aspectNames, boolean withSystemMetadata)
+      throws URISyntaxException {
     return toRecordTemplates(
         searchEntities.stream().map(SearchEntity::getEntity).collect(Collectors.toList()),
-        aspectNames);
+        aspectNames,
+        withSystemMetadata);
   }
 
-  private List<GenericEntity> toRecordTemplates(List<Urn> urns, Set<String> aspectNames) {
+  private Boolean exists(Urn urn, @Nullable String aspect) {
+    return aspect == null ? entityService.exists(urn) : entityService.exists(urn, aspect);
+  }
+
+  private List<GenericEntity> toRecordTemplates(
+      List<Urn> urns, Set<String> aspectNames, boolean withSystemMetadata)
+      throws URISyntaxException {
     if (urns.isEmpty()) {
       return List.of();
     } else {
       Set<Urn> urnsSet = new HashSet<>(urns);
-      Set<String> aspectNamesWithKey =
-          Stream.concat(
-                  aspectNames.stream(),
-                  urns.stream()
-                      .map(u -> entityRegistry.getEntitySpec(u.getEntityType()).getKeyAspectName()))
-              .collect(Collectors.toSet());
 
-      Map<Urn, List<RecordTemplate>> aspects =
-          entityService.getLatestAspects(urnsSet, aspectNamesWithKey);
+      Map<Urn, List<EnvelopedAspect>> aspects =
+          entityService.getLatestEnvelopedAspects(
+              null, urnsSet, resolveAspectNames(urnsSet, aspectNames));
 
       return urns.stream()
           .map(
               u ->
                   GenericEntity.builder()
                       .urn(u.toString())
-                      .build(objectMapper, toAspectMap(aspects.getOrDefault(u, List.of()))))
+                      .build(
+                          objectMapper,
+                          toAspectMap(u, aspects.getOrDefault(u, List.of()), withSystemMetadata)))
           .collect(Collectors.toList());
     }
   }
 
-  private static Map<String, RecordTemplate> toAspectMap(List<RecordTemplate> aspects) {
+  private Set<String> resolveAspectNames(Set<Urn> urns, Set<String> requestedNames) {
+    if (requestedNames.isEmpty()) {
+      return urns.stream()
+          .flatMap(u -> entityRegistry.getEntitySpec(u.getEntityType()).getAspectSpecs().stream())
+          .map(AspectSpec::getName)
+          .collect(Collectors.toSet());
+    } else {
+      // ensure key is always present
+      return Stream.concat(
+              requestedNames.stream(),
+              urns.stream()
+                  .map(u -> entityRegistry.getEntitySpec(u.getEntityType()).getKeyAspectName()))
+          .collect(Collectors.toSet());
+    }
+  }
+
+  private Map<String, Pair<RecordTemplate, SystemMetadata>> toAspectMap(
+      Urn urn, List<EnvelopedAspect> aspects, boolean withSystemMetadata) {
     return aspects.stream()
-        .map(a -> Map.entry(a.schema().getName(), a))
+        .map(
+            a ->
+                Map.entry(
+                    a.getName(),
+                    Pair.of(
+                        toRecordTemplate(lookupAspectSpec(urn, a.getName()), a),
+                        withSystemMetadata ? a.getSystemMetadata() : null)))
         .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+  }
+
+  private AspectSpec lookupAspectSpec(Urn urn, String aspectName) {
+    return entityRegistry.getEntitySpec(urn.getEntityType()).getAspectSpec(aspectName);
+  }
+
+  private RecordTemplate toRecordTemplate(AspectSpec aspectSpec, EnvelopedAspect envelopedAspect) {
+    return RecordUtils.toRecordTemplate(
+        aspectSpec.getDataTemplateClass(), envelopedAspect.getValue().data());
   }
 
   private UpsertBatchItem toUpsertItem(Urn entityUrn, AspectSpec aspectSpec, String jsonAspect) {

@@ -126,7 +126,7 @@ public interface EntityService {
    */
   Map<Urn, List<EnvelopedAspect>> getLatestEnvelopedAspects(
       // TODO: entityName is unused, can we remove this as a param?
-      @Nonnull String entityName, @Nonnull Set<Urn> urns, @Nonnull Set<String> aspectNames)
+      String entityName, @Nonnull Set<Urn> urns, @Nonnull Set<String> aspectNames)
       throws URISyntaxException;
 
   /**

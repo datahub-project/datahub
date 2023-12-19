@@ -362,7 +362,7 @@ public class EntityServiceImpl implements EntityService {
   @Override
   public Map<Urn, List<EnvelopedAspect>> getLatestEnvelopedAspects(
       // TODO: entityName is unused, can we remove this as a param?
-      @Nonnull String entityName, @Nonnull Set<Urn> urns, @Nonnull Set<String> aspectNames)
+      String entityName, @Nonnull Set<Urn> urns, @Nonnull Set<String> aspectNames)
       throws URISyntaxException {
 
     final Set<EntityAspectIdentifier> dbKeys =
