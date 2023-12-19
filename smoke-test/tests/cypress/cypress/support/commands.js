@@ -171,7 +171,7 @@ Cypress.Commands.add("deleteFromDropdown", () => {
 
 Cypress.Commands.add("addViaFormModal", (text, modelHeader) => {
   cy.waitTextVisible(modelHeader);
-  cy.get(".ant-form-item-control-input-content > input[type='text']").first().type(text);
+  cy.get('.ProseMirror-focused').type(text);
   cy.get(".ant-modal-footer > button:nth-child(2)").click();
 });
 

@@ -95,6 +95,7 @@ class Constant:
     TITLE = "title"
     EMBED_URL = "embedUrl"
     ACCESS_TOKEN = "access_token"
+    ACCESS_TOKEN_EXPIRY = "expires_in"
     IS_READ_ONLY = "isReadOnly"
     WEB_URL = "webUrl"
     ODATA_COUNT = "@odata.count"

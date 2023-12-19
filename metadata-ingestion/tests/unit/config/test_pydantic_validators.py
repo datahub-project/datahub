@@ -7,7 +7,10 @@ from datahub.configuration.common import ConfigModel
 from datahub.configuration.validate_field_deprecation import pydantic_field_deprecated
 from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
-from datahub.utilities.global_warning_util import get_global_warnings
+from datahub.utilities.global_warning_util import (
+    clear_global_warnings,
+    get_global_warnings,
+)
 
 
 def test_field_rename():
@@ -76,9 +79,11 @@ def test_field_remove():
 
 
 def test_field_deprecated():
+    clear_global_warnings()
+
     class TestModel(ConfigModel):
-        d1: Optional[str]
-        d2: Optional[str]
+        d1: Optional[str] = None
+        d2: Optional[str] = None
         b: str
 
         _validate_deprecated_d1 = pydantic_field_deprecated("d1")
@@ -93,3 +98,5 @@ def test_field_deprecated():
     assert v.d2 == "deprecated"
     assert any(["d1 is deprecated" in warning for warning in get_global_warnings()])
     assert any(["d2 is deprecated" in warning for warning in get_global_warnings()])
+
+    clear_global_warnings()

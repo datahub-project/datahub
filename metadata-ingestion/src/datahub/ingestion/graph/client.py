@@ -787,9 +787,11 @@ class DataHubGraph(DatahubRestEmitter):
 
     def execute_graphql(self, query: str, variables: Optional[Dict] = None) -> Dict:
         url = f"{self.config.server}/api/graphql"
+
         body: Dict = {
             "query": query,
         }
+
         if variables:
             body["variables"] = variables
 
@@ -1064,6 +1066,28 @@ class DataHubGraph(DatahubRestEmitter):
             default_db=default_db,
             default_schema=default_schema,
         )
+
+    def create_tag(self, tag_name: str) -> str:
+        graph_query: str = """
+            mutation($tag_detail: CreateTagInput!) {
+                createTag(input: $tag_detail)
+            }
+        """
+
+        variables = {
+            "tag_detail": {
+                "name": tag_name,
+                "id": tag_name,
+            },
+        }
+
+        res = self.execute_graphql(
+            query=graph_query,
+            variables=variables,
+        )
+
+        # return urn
+        return res["createTag"]
 
     def close(self) -> None:
         self._make_schema_resolver.cache_clear()
