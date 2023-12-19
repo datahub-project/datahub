@@ -75,7 +75,19 @@ export function computeLines(chartData: TimeSeriesChartType, insertBlankPoints: 
             });
 
             if (pointOverlap.length === 0) {
-                insertBlankAt(i.getTime(), newLine);
+                if (chartData.title === 'Monthly Active Users') {
+                    const dateInDateRange = new Date(i.getTime()).toISOString();
+                    const inputDate = new Date(dateInDateRange);
+                    const currentDate = new Date();
+                    const isCurrentMonth =
+                        inputDate.getUTCMonth() === currentDate.getUTCMonth() &&
+                        inputDate.getUTCFullYear() === currentDate.getUTCFullYear();
+
+                    if (!isCurrentMonth) insertBlankAt(i.getTime(), newLine);
+                
+                } else {
+                    insertBlankAt(i.getTime(), newLine);
+                }
             }
         }
 
