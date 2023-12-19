@@ -60,13 +60,18 @@
     }
     .card__body {
       text-align: center;
-      font-size: 12px;
-      line-height: 14px;
+      font-size: 13px;
+      line-height: 16px;
     }
     .card__footer {
       display: flex;
       align-items: center;
       justify-content: center;
+
+      .logo:hover {
+        opacity: 0.7;
+      }
+
       svg {
         width: 26px;
         height: 26px;
@@ -74,10 +79,6 @@
 
         path {
           fill: var(--ifm-font-color-secondary);
-          &:hover {
-            fill: var(--ifm-link-color);
-            pointer-events: all; 
-          }
         }
       }
 

@@ -3,6 +3,7 @@ import Layout from "@theme/Layout";
 import useDocusaurusContext from "@docusaurus/useDocusaurusContext";
 import { useColorMode } from "@docusaurus/theme-common";
 import Link from "@docusaurus/Link";
+import ChampionQualityCardsSection from "./_components/ChampionQualityCardsSection"
 
 import ChampionSection from "./_components/ChampionSection";
 
@@ -11,8 +12,7 @@ const championSections = [
     people: [
       {
         name: "Piotr Skrydalewicz",
-        position: "Data Engineer, Adevinta",
-        image: "https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/data-practitioners-guild/aezo-teo.jpg",
+        position: "Data Engineer",
         bio: (
           <>
             <p>
@@ -21,87 +21,82 @@ const championSections = [
           </>
         ),
         social: {
-          linkedin: "https://www.linkedin.com/in/aezomz",
-          twitter: "https://twitter.com/morning_teofee",
-          github: "https://github.com/aezomz",
+          linkedin: "https://www.linkedin.com/in/skrydal",
         },
-        location: "Barcelona, Spain"
+        location: "Lodz, Poland"
       },
       {
-        name: "Arun Vasudevan",
-        image: "https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/data-practitioners-guild/arun-vasudevan.jpg",
+        name: "Siladitya Chakraborty",
+        position: "Data Engineer, Adevinta",
         bio: (
           <>
-            <b>Staff Software Engineer, Peloton</b>
             <p>
-              <p> </p>
-              Contributed 9 commits in 2022 to the main DataHub Project, DataHub Actions; improvements to Kafka Connect
+              Driving DataHub adoption at Adevinta            
             </p>
           </>
         ),
         social: {
-          linkedin: "https://www.linkedin.com/in/arun-vasudevan-55117368/",
-          github: "https://github.com/arunvasudevan",
+          linkedin: "https://www.linkedin.com/in/aditya-0bab9a84/",
+          github: "https://github.com/siladitya2",
         },
+        locataion: "Barcelona, Spain"
       },
       {
-        name: "Boyuan Zhang",
-        image: "https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/data-practitioners-guild/initials/bz_white.jpg",
+        name: "Sergio Gómez Villamor",
+        image: "https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/data-practitioners-guild/sergio-gomez-villamor.jpeg",
+        position: "Tech Lead, Adevinta",
         bio: (
           <>
-            <b>Data Engineer, Credit Karma</b>
             <p>
-              <p> </p>
-              Contributed 8 commits in 2022, including improvements to dbt & Kafka ingestion and support for Glue profiling
+            Submitted 26 pull requests and 4 issues in total and featured in Humans of DataHub
             </p>
           </>
         ),
         social: {
-          linkedin: "https://www.linkedin.com/in/bbbzhang",
+          linkedin: "https://www.linkedin.com/in/sgomezvillamor/",
+          github: "https://github.com/sgomezvillamor/",
           },
+        location: "Barcelona,Spain"
         },
       {
-        name: "Bumsoo Kim",
-        image: "https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/data-practitioners-guild/bumsoo-kim.jpg",
+        name: "Amanda Ng",
+        image: "https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/data-practitioners-guild/amanda-ng.png",
+        position: "Lead Software Engineer, Grab",
         bio: (
           <>
-            <b>Software Engineer</b>
             <p>
-              <p> </p>
-              Contributed 4 commits in 2022, including improvements to Airflow logging and DataHub Helm charts
+            Submitted 9 pull requests and shared Grab's expereince adopting and implementing DataHub during October 2022 Town Hall
             </p>
           </>
         ),
         social: {
-          linkedin: "https://www.linkedin.com/in/bumsoo",
-          github: "https://github.com/bskim45",
+          linkedin: "https://sg.linkedin.com/in/amandang19",
+          github: "https://github.com/ngamanda",
           },
+        location: "Singapore"
         },
       {
-        name: "David Haglund",
-        image: "https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/data-practitioners-guild/david-haglund.jpeg",
+        name: "Harvey Li",
+        position: "Lead Data Engineer, Grab",
         bio: (
           <>
-            <b>Data Engineer, SSAB</b>
             <p>
-              <p> </p>
-              Contributed 15 commits in 2022, including improvements to DataHub Helm Charts, DataHub docs, and more
+            Shared Grab's expereince adopting and implementing DataHub during October 2022 Town Hall and featured in Humans of datahub
             </p>
           </>
         ),        
         social: {
-          github: "https://github.com/daha",
+          linkedin: "https://www.linkedin.com/in/li-haihui",
+          github: "https://github.com/HarveyLeo",
           },
         },
       {
-        name: "David Sánchez",
-        image: "https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/data-practitioners-guild/david-sanchez.jpg",      
+        name: "Fredrik Sannholm",
+        position: "",
         bio: (
           <>
-            <b>Principal Data Engineer, Cabify</b>
             <p>
-              <p> </p>
-              Contributed 7 commits in 2022, improving BigQuery and Tableau connectors and expanding MLFeatureTable functionality
+              Driving DataHub adoption at Wolt and featured in Humans of DataHub            
             </p>
           </>
         ),        
@@ -109,186 +104,198 @@ const championSections = [
           },
         },
       {
-        name: "Djordje Mijatovic",
-        image: "https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/data-practitioners-guild/initials/dm_white.jpg",
+        name: "Tim Bossenmaier",
+        position: "Data & Software Engineer, Bytefabrik.AI",
         bio: (
           <>
-            <b>Senior Java Developer</b>
             <p>
-              <p> </p>
-              Contributed 6 commits in 2022, including building support for Neo4j multi-hop queries
+            Reliably provides direction to Community Members across all support channels in Slack
             </p>
           </>
         ),
         social: {
-          linkedin: "https://www.linkedin.com/in/djordje-mijatovic-aa22bb76/",
+          linkedin: "https://www.linkedin.com/in/tim-bossenmaier/",
+          github: "https://github.com/bossenti",
+          },
+        location: "Sigmaringen, Germany"
+        },
+      {
+        name: "Nikola Kasev",
+        position: "Data Engineer, KPN",
+        bio: (
+          <>
+            <p>
+            Reliably provides direction to Community Members across all support channels in Slack
+            </p>
+          </>
+        ),
+        social: {
+          linkedin: "https://www.linkedin.com/in/nikolakasev",
+          github: "https://github.com/nikolakasev",
+          },
+        location: "Haarlem, Noord-holland"
+        },
+      {
+        name: "Nidhin Nandhakumar",
+        bio: (
+          <>
+            <p>
+            </p>
+          </>
+        ),
+        social: {
           },
         },
       {
-        name: "Ebu",
-        image: "https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/data-practitioners-guild/initials/e_white.jpg",
+        name: "Patrick Braz",
+        image: "https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/data-practitioners-guild/patrick-franco-braz.jpeg",
+        position: "Data Engineering Specialist, Grupo Boticário",
         bio: (
           <>
-            <b>Core Staff, KDDI</b>
             <p>
-              <p> </p>
-              Contributed 5 commits in 2022, including a new Vertica ingestion source and animated DataHub logos
+            Submitted 16 pull requests and 3 issues and regularly provides guidance to Community Members in Slack channels
             </p>
           </>
         ),
         social: {
-          github: "https://github.com/eburairu",
+          linkedin: "https://www.linkedin.com/in/patrick-franco-braz/",
+          github: "https://github.com/PatrickfBraz",
           },
-        },
-      {
-        name: "Eric Ladouceur",
-        image: "https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/data-practitioners-guild/initials/el_white.jpg",
-        bio: (
-          <>
-            <b>Technical Advisor, Canadian Centre for Cyber Security</b>
-            <p>
-              <p> </p>
-              Contributed 6 commits in 2022, including the Iceberg ingestion source
-            </p>
-          </>
-        ),
-        social: {
-          github: "https://github.com/cccs-eric",
-          },
-        },
-      {
-        name: "Felix Lüdin",
-        image: "https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/data-practitioners-guild/initials/fl_white.jpg",
-        bio: (
-          <>
-            <b>Process Consultant Business Analytics, Endress+Hauser</b>
-            <p>
-              <p> </p>
-              Contributed 15 commits in 2022 to the main DataHub Project, DataHub Helm chart, and DataHub Actions repos
-            </p>
-          </>
-        ),
-        social: {
-          linkedin: "https://www.linkedin.com/in/felix-l%C3%BCdin-222304209/",
-          github: "https://github.com/Masterchen09",
-          },
-        },
-      {
-        name: "Jordan Wolinsky",
-        image: "https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/data-practitioners-guild/jordan-wolinsky.jpeg",
-        bio: (
-          <>
-            <b>Senior Software Engineer, Zephyr AI</b>
-            <p>
-              <p> </p>
-              Contributed 5 commits in 2022, including improvements to data profiling functionality
-            </p>
-          </>
-        ),
-        social: {
-          linkedin: "https://www.linkedin.com/in/jordan-wolinsky/",
-          github: "https://github.com/jiafi",
-          },
-        },
-      {
-        name: "Marcin Szymanski",
-        image: "https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/data-practitioners-guild/marcin-szymanski.JPG",
-        bio: (
-          <>
-            <b>Data Engineering Manager, Esure</b>
-            <p>
-              <p> </p>
-              Contributed 5 commits in 2022, including improvements to Trino and Unity Catalog ingestion
-            </p>
-          </>
-        ),
-        social: {
-          linkedin: "https://www.linkedin.com/in/marcinszymanskipl/",
-          github: "https://github.com/ms32035",
-          web: "www.marcinszymanski.pl",
-        },
+        location: "Rio de Janeiro, Brazil"
       },
-        {
-        name: "Mert Tunc",
-        image: "https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/data-practitioners-guild/mert-tunc.png",
+      {
+        name: "Steve Pham",
+        image: "https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/data-practitioners-guild/cuong-pham.jpeg",
         bio: (
           <>
-            <b>Staff Software Engineer, Udemy</b>
             <p>
-              <p> </p>
-              Contributed 6 commits in 2022, including improvements to Kafka and MySQL ingestion
-            </p>
-          </>
-        ),
-        social: {
-          linkedin: "https://www.linkedin.com/in/merttunc96/",
-          },
-        },
-        {
-        name: "Mike Schlosser",
-        image: "https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/data-practitioners-guild/mike-schlosser.jpeg",
-        bio: (
-          <>
-            <b>Lead Software Engineer, Kyros</b>
-            <p>
-              <p> </p>
-              Contributed 6 commits in 2022, including support for Snowflake auth and fixes to Docker Compose
-            </p>
-          </>
-        ),
-        social: {
-          linkedin: "https://www.linkedin.com/in/michael-schlosser",
-          twitter: "https://twitter.com/Mikeschlosser16",
-          github: "https://github.com/Mikeschlosser16",
-          },
-        },
-        {
-        name: "Parham Ghazanfari",
-        image: "https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/data-practitioners-guild/initials/pg_white.jpg",
-        bio: (
-          <>
-            <b>Software Development Engineer, Amazon</b>
-            <p>
-              <p> </p>
-              Contributed 4 commits in 2022, including support for MSK IAM authentication
-            </p>
-          </>
-        ), 
-        social: {
-          linkedin: "https://www.linkedin.com/in/parham-ghazanfari-a8b40b89/",
-          github: "https://github.com/pghazanfari",
-          },
-        },
-        {
-        name: "Piotr Skrydalewicz",
-        image: "https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/data-practitioners-guild/initials/ps_white.jpg",
-        bio: (
-          <>
-            <b>Data Engineering Consultant</b>
-            <p>
-              <p> </p>
-              Contributed 5 commits in 2022, including improvements to dbt and Glue ingestion sources and support for SparkSQL dialect
+            Submitted 4 pull requests and reliably provides direction to Community Members across all support channels in Slack
             </p>
           </>
         ),
         social: {
           },
-        },
-        {
-        name: "Xu Wang",
-        image: "https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/data-practitioners-guild/xu-wang.jpeg",
+      },
+      {
+        name: "Wu Teng",
         bio: (
           <>
-            <b>Staff Software Engineer, Included Health</b>
             <p>
-              <p> </p>
-              Contributed 6 commits in 2022, including metadata model changes to support Notebook entities
+              Reliably provides direction to Community Members across all support channels in Slack
             </p>
           </>
         ),
         social: {
           },
-        },
+      },
+      {
+        name: "Felipe Gusmao",
+        bio: (
+          <>
+            <p>
+            Shared Zynga's expereince adopting and implementing DataHub during September 2023 Town Hall
+            </p>
+          </>
+        ),
+        social: {
+          },
+       },
+       {
+        name: "Sudhakara",
+        position: "Engineer, Zynga",
+        bio: (
+          <>
+            <p>
+            Reliably provides direction to Community Members across all support channels in Slack and 
+            shared Zynga's expereince adopting and implementing DataHub during September 2023 Town Hall
+            </p>
+          </>
+        ),
+        social: {
+          linkedin: "https://www.linkedin.com/in/sudhakara-st/",
+          },
+        location: "Bengaluru, India"
+      },
+      {
+        name: "Bobbie-Jean Nowak",
+        position: "Technical Product Manager,	Optum ",
+        bio: (
+          <>
+            <p>
+            Submitted 16 pull requests and 3 issues and regularly provides guidance to Community Members in the #troubleshoot and #ingestion Slack channels"
+            </p>
+          </>
+        ),
+        social: {
+          linkedin: "https://www.linkedin.com/in/bobbie-jean-nowak-a0076b77/",
+          },
+        location: "Minnesota, USA"
+      },
+      {
+        name: "Dima Korendovych",
+        bio: (
+          <>
+            <p>
+            </p>
+          </>
+        ),
+        social: {
+          },
+      },
+      {
+        name: "Tim Drahn",
+        position: "Solution Architect, Optum Technologies",
+        bio: (
+          <>
+            <p>
+            Submitted 2 pull requests and 1 issue while reliably provides direction to Community Members across all support channels in Slack
+            </p>
+          </>
+        ),
+        social: {
+          linkedin: "https://www.linkedin.com/in/tim-drahn-a873532b/",
+          github: "https://github.com/tkdrahn",
+          },
+        location: "MA, USA"
+      },
+      {
+        name: "Kate Koy",
+        bio: (
+          <>
+            <p>
+            </p>
+          </>
+        ),
+        social: {
+          },
+      },
+      {
+        name: "Anjali Arora",
+        bio: (
+          <>
+            <p>
+            </p>
+          </>
+        ),
+        social: {
+          },
+      },
+      {
+        name: "Raj Tekal",
+        position: "Lead Software Engineer, Optum Technologies",
+        bio: (
+          <>
+            <p>
+            Submitted 4 pull requests 
+            </p>
+          </>
+        ),
+        social: {
+          linkedin: "https://www.linkedin.com/in/patrick-franco-braz/",
+          github: "https://github.com/PatrickfBraz",
+          },
+        location: "PA, USA"
+      },
     ],
   },
 ];
@@ -320,6 +327,7 @@ function Champion() {
               <p className="hero__subtitle">
                 Recognizing community members who have made exceptional contributions to further the collective success of DataHub.              
               </p>
+              <ChampionQualityCardsSection />
             </div>
             <h1>Meet Our Champions</h1>
             <div style={{ textAlign: "right" }}>
