@@ -1,6 +1,7 @@
 package com.linkedin.metadata.kafka.hook.incident;
 
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.kafka.hook.EntityRegistryTestUtil.*;
 import static com.linkedin.metadata.kafka.hook.EntityRegistryTestUtil.ENTITY_REGISTRY;
 
 import com.google.common.collect.ImmutableList;
@@ -44,7 +45,7 @@ public class IncidentsSummaryHookTest {
         mockIncidentInfo(
             ImmutableList.of(TEST_DATASET_URN, TEST_DATASET_2_URN), IncidentState.ACTIVE);
     IncidentService service = mockIncidentService(new IncidentsSummary(), incidentInfo);
-    IncidentsSummaryHook hook = new IncidentsSummaryHook(ENTITY_REGISTRY, service, false);
+    IncidentsSummaryHook hook = new IncidentsSummaryHook(ENTITY_REGISTRY, service, false, 100);
     final MetadataChangeLog event =
         buildMetadataChangeLog(
             TEST_INCIDENT_URN, INCIDENT_INFO_ASPECT_NAME, ChangeType.UPSERT, incidentInfo);
@@ -58,7 +59,7 @@ public class IncidentsSummaryHookTest {
         mockIncidentInfo(
             ImmutableList.of(TEST_DATASET_URN, TEST_DATASET_2_URN), IncidentState.ACTIVE);
     IncidentService service = mockIncidentService(new IncidentsSummary(), info);
-    IncidentsSummaryHook hook = new IncidentsSummaryHook(ENTITY_REGISTRY, service, true);
+    IncidentsSummaryHook hook = new IncidentsSummaryHook(ENTITY_REGISTRY, service, true, 100);
 
     // Case 1: Incorrect aspect
     MetadataChangeLog event =
@@ -132,7 +133,7 @@ public class IncidentsSummaryHookTest {
         mockIncidentInfo(
             ImmutableList.of(TEST_DATASET_URN, TEST_DATASET_2_URN), IncidentState.ACTIVE);
     IncidentService service = mockIncidentService(summary, info);
-    IncidentsSummaryHook hook = new IncidentsSummaryHook(ENTITY_REGISTRY, service, true);
+    IncidentsSummaryHook hook = new IncidentsSummaryHook(ENTITY_REGISTRY, service, true, 100);
     final MetadataChangeLog event =
         buildMetadataChangeLog(
             TEST_INCIDENT_URN, INCIDENT_INFO_ASPECT_NAME, ChangeType.UPSERT, info);
@@ -172,7 +173,7 @@ public class IncidentsSummaryHookTest {
         mockIncidentInfo(
             ImmutableList.of(TEST_DATASET_URN, TEST_DATASET_2_URN), IncidentState.RESOLVED);
     IncidentService service = mockIncidentService(summary, info);
-    IncidentsSummaryHook hook = new IncidentsSummaryHook(ENTITY_REGISTRY, service, true);
+    IncidentsSummaryHook hook = new IncidentsSummaryHook(ENTITY_REGISTRY, service, true, 100);
     final MetadataChangeLog event =
         buildMetadataChangeLog(
             TEST_INCIDENT_URN, INCIDENT_INFO_ASPECT_NAME, ChangeType.UPSERT, info);
@@ -212,7 +213,7 @@ public class IncidentsSummaryHookTest {
         mockIncidentInfo(
             ImmutableList.of(TEST_DATASET_URN, TEST_DATASET_2_URN), IncidentState.RESOLVED);
     IncidentService service = mockIncidentService(summary, info);
-    IncidentsSummaryHook hook = new IncidentsSummaryHook(ENTITY_REGISTRY, service, true);
+    IncidentsSummaryHook hook = new IncidentsSummaryHook(ENTITY_REGISTRY, service, true, 100);
     final MetadataChangeLog event =
         buildMetadataChangeLog(
             TEST_INCIDENT_URN, STATUS_ASPECT_NAME, ChangeType.UPSERT, mockIncidentSoftDeleted());

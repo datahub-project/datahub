@@ -68,6 +68,8 @@ export const ORDERED_FIELDS = [
     TYPE_NAMES_FILTER_NAME,
     ORIGIN_FILTER_NAME,
     DEGREE_FILTER_NAME,
+    HAS_ACTIVE_INCIDENTS_FILTER_NAME,
+    HAS_FAILING_ASSERTIONS_FILTER_NAME
 ];
 
 export const FIELD_TO_LABEL = {
@@ -90,6 +92,8 @@ export const FIELD_TO_LABEL = {
     origin: 'Environment',
     degree: 'Degree',
     [BROWSE_PATH_V2_FILTER_NAME]: 'Browse',
+    hasActiveIncidents: 'Incidents',
+    hasFailingAssertions: 'Assertions'
 };
 
 export const FIELDS_THAT_USE_CONTAINS_OPERATOR = [

@@ -45,8 +45,6 @@ FROM base AS dev-install
 
 FROM ${APP_ENV}-install AS final
 
-RUN curl -sL https://sentry.io/get-cli/ | bash
-
 CMD if [ "$ELASTICSEARCH_USE_SSL" == "true" ]; then ELASTICSEARCH_PROTOCOL=https; else ELASTICSEARCH_PROTOCOL=http; fi \
     && if [[ -n "$ELASTICSEARCH_USERNAME" ]]; then ELASTICSEARCH_HTTP_HEADERS="Authorization: Basic $(echo -ne "$ELASTICSEARCH_USERNAME:$ELASTICSEARCH_PASSWORD" | base64)"; else ELASTICSEARCH_HTTP_HEADERS="Accept: */*"; fi \
     && if [[ "$SKIP_ELASTICSEARCH_CHECK" != "true" ]]; then \

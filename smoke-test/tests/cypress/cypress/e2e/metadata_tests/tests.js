@@ -33,6 +33,7 @@ describe("create, edit and remove metadata test", () => {
         //select data assets
         cy.contains("Datasets, Dashboards, Charts...").prev().click();
         cy.get(".rc-virtual-list").find("div").contains("Datasets").click();
+        cy.get('body').click()
         cy.clickOptionWithText("+ Add");
         cy.clickOptionWithText("Property");
         cy.get('[role="dialog"] [type="search"]').eq(1).click();
@@ -80,6 +81,7 @@ describe("create, edit and remove metadata test", () => {
         cy.get('[role="dialog"] [type="search"]').eq(2).click();
         cy.get(".rc-virtual-list").find("div").contains("Cypress").click();
         cy.get(".rc-virtual-list").find("div").contains("TagToPropose").click();
+        cy.get('body').click()
         //test conditions, verify that test fails
         cy.clickOptionWithText("Test Conditions");
         cy.get('[role="dialog"] [data-testid="search-input"]').type("hdfs");
