@@ -13,6 +13,7 @@ import com.linkedin.metadata.search.EntitySearchService;
 import io.ebean.Database;
 import java.util.ArrayList;
 import java.util.List;
+import javax.annotation.Nullable;
 
 public class RestoreIndices implements Upgrade {
   public static final String BATCH_SIZE_ARG_NAME = "batchSize";
@@ -29,12 +30,16 @@ public class RestoreIndices implements Upgrade {
   private final List<UpgradeStep> _steps;
 
   public RestoreIndices(
-      final Database server,
+      @Nullable final Database server,
       final EntityService entityService,
       final EntityRegistry entityRegistry,
       final EntitySearchService entitySearchService,
       final GraphService graphService) {
-    _steps = buildSteps(server, entityService, entityRegistry, entitySearchService, graphService);
+    if (server != null) {
+      _steps = buildSteps(server, entityService, entityRegistry, entitySearchService, graphService);
+    } else {
+      _steps = List.of();
+    }
   }
 
   @Override
