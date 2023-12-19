@@ -24,7 +24,7 @@ services:
     - JAVA_TOOL_OPTIONS=-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5002
     - DATAHUB_ANALYTICS_ENABLED=${DATAHUB_ANALYTICS_ENABLED:-true}
     volumes:
-    - ../datahub-frontend/build/stage/playBinary:/datahub-frontend
+    - ../datahub-frontend/build/stage/main:/datahub-frontend
   datahub-gms:
     image: linkedin/datahub-gms:debug
     ports:
