@@ -11,27 +11,13 @@ const championSections = [
   {
     people: [
       {
-        name: "Piotr Skrydalewicz",
-        position: "Data Engineer",
-        bio: (
-          <>
-            <p>
-              Contributed 5 commits in 2022 to the main DataHub Project & Helm repos, including Stateful Ingestion support for Presto-on-Hive
-            </p>
-          </>
-        ),
-        social: {
-          linkedin: "https://www.linkedin.com/in/skrydal",
-        },
-        location: "Lodz, Poland"
-      },
-      {
         name: "Siladitya Chakraborty",
+        image: "https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/datahub-champions/siladitya_chakraborty.jpeg",
         position: "Data Engineer, Adevinta",
         bio: (
           <>
             <p>
-              Driving DataHub adoption at Adevinta            
+              Drove the adoption of DataHub at Adevinta.
             </p>
           </>
         ),
@@ -48,7 +34,7 @@ const championSections = [
         bio: (
           <>
             <p>
-            Submitted 26 pull requests and 4 issues in total and featured in Humans of DataHub
+            Submitted 26 pull requests and raised 4 issues, also featured in "Humans of DataHub."
             </p>
           </>
         ),
@@ -65,7 +51,7 @@ const championSections = [
         bio: (
           <>
             <p>
-            Submitted 9 pull requests and shared Grab's expereince adopting and implementing DataHub during October 2022 Town Hall
+            Submitted 9 pull requests and shared Grab's experience adopting and implementing DataHub during the October 2022 Town Hall.
             </p>
           </>
         ),
@@ -75,13 +61,60 @@ const championSections = [
           },
         location: "Singapore"
         },
+        {
+          name: "Patrick Braz",
+          image: "https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/data-practitioners-guild/patrick-franco-braz.jpeg",
+          position: "Data Engineering Specialist, Grupo Boticário",
+          bio: (
+            <>
+              <p>
+              Submitted 16 pull requests and 3 issues and regularly provided guidance to Community Members in Slack channels.
+              </p>
+            </>
+          ),
+          social: {
+            linkedin: "https://www.linkedin.com/in/patrick-franco-braz/",
+            github: "https://github.com/PatrickfBraz",
+            },
+          location: "Rio de Janeiro, Brazil"
+        },
+        {
+          name: "Steve Pham",
+          image: "https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/data-practitioners-guild/cuong-pham.jpeg",
+          bio: (
+            <>
+              <p>
+              Submitted 4 pull requests and reliably provided direction to Community Members across all support channels in Slack.
+              </p>
+            </>
+          ),
+          social: {
+            },
+        },
+        {
+          name: "Piotr Skrydalewicz",
+          image: "https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/data-practitioners-guild/initials/ps_white.jpg",
+          position: "Data Engineer",
+          bio: (
+            <>
+              <p>
+                Contributed 5 commits in 2022 to the main DataHub Project and Helm repositories, including Stateful Ingestion support for Presto-on-Hive.
+              </p>
+            </>
+          ),
+          social: {
+            linkedin: "https://www.linkedin.com/in/skrydal",
+          },
+          location: "Lodz, Poland"
+        },
       {
         name: "Harvey Li",
+        image: "https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/data-practitioners-guild/initials/hl_black.jpg",
         position: "Lead Data Engineer, Grab",
         bio: (
           <>
             <p>
-            Shared Grab's expereince adopting and implementing DataHub during October 2022 Town Hall and featured in Humans of datahub
+            Shared Grab's experience adopting and implementing DataHub during the October 2022 Town Hall and featured in Humans of DataHub.
             </p>
           </>
         ),        
@@ -92,11 +125,12 @@ const championSections = [
         },
       {
         name: "Fredrik Sannholm",
+        image: "https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/data-practitioners-guild/initials/fs_black.jpg",
         position: "",
         bio: (
           <>
             <p>
-              Driving DataHub adoption at Wolt and featured in Humans of DataHub            
+            Drove DataHub adoption at Wolt and featured in Humans of DataHub.           
             </p>
           </>
         ),        
@@ -105,11 +139,12 @@ const championSections = [
         },
       {
         name: "Tim Bossenmaier",
+        image: "https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/datahub-champions/initials/tb.jpg",
         position: "Data & Software Engineer, Bytefabrik.AI",
         bio: (
           <>
             <p>
-            Reliably provides direction to Community Members across all support channels in Slack
+            Reliably provided direction to Community Members across all support channels in Slack.
             </p>
           </>
         ),
@@ -121,11 +156,12 @@ const championSections = [
         },
       {
         name: "Nikola Kasev",
+        image: "https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/datahub-champions/initials/nk.jpg",
         position: "Data Engineer, KPN",
         bio: (
           <>
             <p>
-            Reliably provides direction to Community Members across all support channels in Slack
+            Reliably provided direction to Community Members across all support channels in Slack.
             </p>
           </>
         ),
@@ -137,6 +173,7 @@ const championSections = [
         },
       {
         name: "Nidhin Nandhakumar",
+        image: "https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/datahub-champions/initials/nn.jpg",
         bio: (
           <>
             <p>
@@ -147,41 +184,12 @@ const championSections = [
           },
         },
       {
-        name: "Patrick Braz",
-        image: "https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/data-practitioners-guild/patrick-franco-braz.jpeg",
-        position: "Data Engineering Specialist, Grupo Boticário",
-        bio: (
-          <>
-            <p>
-            Submitted 16 pull requests and 3 issues and regularly provides guidance to Community Members in Slack channels
-            </p>
-          </>
-        ),
-        social: {
-          linkedin: "https://www.linkedin.com/in/patrick-franco-braz/",
-          github: "https://github.com/PatrickfBraz",
-          },
-        location: "Rio de Janeiro, Brazil"
-      },
-      {
-        name: "Steve Pham",
-        image: "https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/data-practitioners-guild/cuong-pham.jpeg",
-        bio: (
-          <>
-            <p>
-            Submitted 4 pull requests and reliably provides direction to Community Members across all support channels in Slack
-            </p>
-          </>
-        ),
-        social: {
-          },
-      },
-      {
         name: "Wu Teng",
+        image: "https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/datahub-champions/initials/wt.jpg",
         bio: (
           <>
             <p>
-              Reliably provides direction to Community Members across all support channels in Slack
+              Reliably provided direction to Community Members across all support channels in Slack.
             </p>
           </>
         ),
@@ -190,10 +198,11 @@ const championSections = [
       },
       {
         name: "Felipe Gusmao",
+        image: "https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/datahub-champions/initials/fg.jpg",
         bio: (
           <>
             <p>
-            Shared Zynga's expereince adopting and implementing DataHub during September 2023 Town Hall
+            Shared Zynga's experience adopting and implementing DataHub during the September 2023 Town Hall.
             </p>
           </>
         ),
@@ -201,14 +210,14 @@ const championSections = [
           },
        },
        {
-        name: "Sudhakara",
+        name: "Sudhakara ST",
+        image: "https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/datahub-champions/initials/ss.jpg",
         position: "Engineer, Zynga",
         bio: (
           <>
             <p>
-            Reliably provides direction to Community Members across all support channels in Slack and 
-            shared Zynga's expereince adopting and implementing DataHub during September 2023 Town Hall
-            </p>
+            Reliably provided direction to Community Members across all support channels in Slack and shared Zynga's experience adopting and implementing DataHub during the September 2023 Town Hall.
+           </p>
           </>
         ),
         social: {
@@ -218,11 +227,11 @@ const championSections = [
       },
       {
         name: "Bobbie-Jean Nowak",
+        image: "https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/datahub-champions/initials/bn.jpg",
         position: "Technical Product Manager,	Optum ",
         bio: (
           <>
             <p>
-            Submitted 16 pull requests and 3 issues and regularly provides guidance to Community Members in the #troubleshoot and #ingestion Slack channels"
             </p>
           </>
         ),
@@ -233,6 +242,7 @@ const championSections = [
       },
       {
         name: "Dima Korendovych",
+        image: "https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/datahub-champions/initials/dk.jpg",
         bio: (
           <>
             <p>
@@ -244,11 +254,12 @@ const championSections = [
       },
       {
         name: "Tim Drahn",
+        image: "https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/datahub-champions/initials/td.jpg",
         position: "Solution Architect, Optum Technologies",
         bio: (
           <>
             <p>
-            Submitted 2 pull requests and 1 issue while reliably provides direction to Community Members across all support channels in Slack
+            Submitted 2 pull requests and 1 issue while reliably providing direction to Community Members across all support channels in Slack.
             </p>
           </>
         ),
@@ -260,6 +271,7 @@ const championSections = [
       },
       {
         name: "Kate Koy",
+        image: "https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/datahub-champions/initials/kk.jpg",
         bio: (
           <>
             <p>
@@ -271,6 +283,7 @@ const championSections = [
       },
       {
         name: "Anjali Arora",
+        image: "https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/datahub-champions/initials/aa.jpg",
         bio: (
           <>
             <p>
@@ -282,18 +295,17 @@ const championSections = [
       },
       {
         name: "Raj Tekal",
+        image: "https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/datahub-champions/initials/rt.jpg",
         position: "Lead Software Engineer, Optum Technologies",
         bio: (
           <>
             <p>
-            Submitted 4 pull requests 
+            Submitted 4 pull requests.
             </p>
           </>
         ),
         social: {
-          linkedin: "https://www.linkedin.com/in/patrick-franco-braz/",
-          github: "https://github.com/PatrickfBraz",
-          },
+             },
         location: "PA, USA"
       },
     ],
