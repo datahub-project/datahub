@@ -1,5 +1,5 @@
 import logging
-from typing import Callable, Dict, List, Optional, cast
+from typing import Callable, Dict, List, Optional, Union
 
 from datahub.configuration.common import TransformerSemanticsConfigModel
 from datahub.configuration.import_resolver import pydantic_resolve_key
@@ -9,10 +9,8 @@ from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.transformer.dataset_transformer import (
     DatasetDataproductsTransformer,
 )
-from datahub.metadata.schema_classes import (
-    DataProductAssociationClass,
-    DataProductPropertiesClass,
-)
+from datahub.metadata.schema_classes import MetadataChangeProposalClass
+from datahub.specific.dataproduct import DataProductPatchBuilder
 
 logger = logging.getLogger(__name__)
 
@@ -47,34 +45,30 @@ class AddDatasetDataProducts(DatasetDataproductsTransformer):
     ) -> Optional[Aspect]:
         return None
 
-    def handle_end_of_stream(self) -> List[MetadataChangeProposalWrapper]:
-        data_products_mcps: Dict[str, MetadataChangeProposalWrapper] = {}
+    def handle_end_of_stream(
+        self,
+    ) -> List[Union[MetadataChangeProposalWrapper, MetadataChangeProposalClass]]:
+        data_products: Dict[str, DataProductPatchBuilder] = {}
 
         logger.debug("Generating dataproducts")
         for entity_urn in self.entity_map.keys():
             data_product_urn = self.config.get_data_products_to_add(entity_urn)
             if data_product_urn:
-                if data_product_urn not in data_products_mcps:
-                    data_products_mcps[
+                if data_product_urn not in data_products:
+                    data_products[data_product_urn] = DataProductPatchBuilder(
                         data_product_urn
-                    ] = MetadataChangeProposalWrapper(
-                        entityUrn=data_product_urn,
-                        aspect=DataProductPropertiesClass(
-                            assets=[
-                                DataProductAssociationClass(destinationUrn=entity_urn)
-                            ],
-                        ),
-                    )
+                    ).add_asset(entity_urn)
                 else:
-                    aspect = cast(
-                        DataProductPropertiesClass,
-                        data_products_mcps[data_product_urn].aspect,
-                    )
-                    if aspect.assets:
-                        aspect.assets.append(
-                            DataProductAssociationClass(destinationUrn=entity_urn)
-                        )
-        return list(data_products_mcps.values())
+                    data_products[data_product_urn] = data_products[
+                        data_product_urn
+                    ].add_asset(entity_urn)
+
+        mcps: List[
+            Union[MetadataChangeProposalWrapper, MetadataChangeProposalClass]
+        ] = []
+        for data_product in data_products.values():
+            mcps.extend(list(data_product.build()))
+        return mcps
 
 
 class SimpleDatasetDataProductConfig(TransformerSemanticsConfigModel):

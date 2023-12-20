@@ -28,7 +28,9 @@ def _update_work_unit_id(
 
 
 class HandleEndOfStreamTransformer:
-    def handle_end_of_stream(self) -> List[MetadataChangeProposalWrapper]:
+    def handle_end_of_stream(
+        self,
+    ) -> List[Union[MetadataChangeProposalWrapper, MetadataChangeProposalClass]]:
         return []
 
 
@@ -206,15 +208,19 @@ class BaseTransformer(Transformer, metaclass=ABCMeta):
         ):
             return
 
-        mcps: List[MetadataChangeProposalWrapper] = self.handle_end_of_stream()
+        mcps: List[
+            Union[MetadataChangeProposalWrapper, MetadataChangeProposalClass]
+        ] = self.handle_end_of_stream()
 
         for mcp in mcps:
-            if mcp.aspect is None or mcp.entityUrn is None:  # to silent the lint error
+            if (
+                mcp.aspect is None or mcp.aspectName is None or mcp.entityUrn is None
+            ):  # to silent the lint error
                 continue
 
             record_metadata = _update_work_unit_id(
                 envelope=envelope,
-                aspect_name=mcp.aspect.get_aspect_name(),  # type: ignore
+                aspect_name=mcp.aspectName,
                 urn=mcp.entityUrn,
             )
 
