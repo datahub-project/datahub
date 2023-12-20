@@ -1,0 +1,31 @@
+namespace com.datahub.test
+
+
+/**
+ * Additional properties associated with a RefEntity
+ */
+@Aspect = {
+  "name": "refEntityProperties"
+}
+record RefEntityProperties {
+  /**
+   * Display name of the RefEntity
+   */
+  @Searchable = {
+    "fieldType": "WORD_GRAM",
+    "enableAutocomplete": true,
+    "boostScore": 10.0,
+    "fieldName": "displayName"
+  }
+  name: string
+
+  /**
+   * Description of the RefEntity
+   */
+  @Searchable = {
+  "fieldName": "editedFieldDescriptions",
+          "fieldType": "TEXT",
+          "boostScore": 0.1
+  }
+  description: optional string
+}
