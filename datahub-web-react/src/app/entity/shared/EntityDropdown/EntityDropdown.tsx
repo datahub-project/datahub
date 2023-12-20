@@ -177,6 +177,7 @@ function EntityDropdown(props: Props) {
                         )}
                         {menuItems.has(EntityMenuItems.ADD_TERM) && (
                             <StyledMenuItem
+                                data-testid="entity-menu-add-term-button"
                                 key="2"
                                 disabled={!canCreateGlossaryEntity}
                                 onClick={() => setIsCreateTermModalVisible(true)}
