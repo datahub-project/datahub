@@ -8,6 +8,7 @@ from pydantic import validator
 from pydantic.fields import Field
 
 from datahub.configuration.common import ConfigModel
+from datahub.configuration.pydantic_migration_helpers import PYDANTIC_VERSION_2
 from datahub.ingestion.glossary.classifier import Classifier
 
 
@@ -50,7 +51,10 @@ class ValuesFactorConfig(ConfigModel):
 
 class PredictionFactorsAndWeights(ConfigModel):
     class Config:
-        allow_population_by_field_name = True
+        if PYDANTIC_VERSION_2:
+            populate_by_name = True
+        else:
+            allow_population_by_field_name = True
 
     Name: float = Field(alias="name")
     Description: float = Field(alias="description")
@@ -60,7 +64,10 @@ class PredictionFactorsAndWeights(ConfigModel):
 
 class InfoTypeConfig(ConfigModel):
     class Config:
-        allow_population_by_field_name = True
+        if PYDANTIC_VERSION_2:
+            populate_by_name = True
+        else:
+            allow_population_by_field_name = True
 
     Prediction_Factors_and_Weights: PredictionFactorsAndWeights = Field(
         description="Factors and their weights to consider when predicting info types",

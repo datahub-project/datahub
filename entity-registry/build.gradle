@@ -1,21 +1,13 @@
-apply plugin: 'pegasus'
-apply plugin: 'java-library'
-tasks.withType(JavaCompile).configureEach {
-    javaCompiler = javaToolchains.compilerFor {
-        languageVersion = JavaLanguageVersion.of(8)
-    }
+plugins {
+  id 'pegasus'
+  id 'java-library'
 }
-tasks.withType(Test).configureEach {
-    javaLauncher = javaToolchains.launcherFor {
-        languageVersion = JavaLanguageVersion.of(8)
-    }
-}
-
 
 dependencies {
   implementation spec.product.pegasus.data
   implementation spec.product.pegasus.generator
   api project(path: ':metadata-models')
+  api project(path: ':metadata-models', configuration: "dataTemplate")
   implementation externalDependency.slf4jApi
   compileOnly externalDependency.lombok
   implementation externalDependency.guava
@@ -35,7 +27,7 @@ dependencies {
 
   testImplementation project(':test-models')
   testImplementation project(path: ':test-models', configuration: 'testDataTemplate')
-  testImplementation externalDependency.testngJava8
+  testImplementation externalDependency.testng
   testImplementation externalDependency.mockito
   testImplementation externalDependency.mockitoInline
 

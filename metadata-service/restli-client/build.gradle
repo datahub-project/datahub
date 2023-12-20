@@ -1,5 +1,7 @@
-apply plugin: 'pegasus'
-apply plugin: 'java-library'
+plugins {
+  id 'pegasus'
+  id 'java-library'
+}
 
 dependencies {
   api project(':metadata-service:restli-api')

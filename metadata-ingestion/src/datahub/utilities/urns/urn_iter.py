@@ -150,7 +150,7 @@ def lowercase_dataset_urns(
         if guess_entity_type(urn) == "dataset":
             return _lowercase_dataset_urn(urn)
         elif guess_entity_type(urn) == "schemaField":
-            cur_urn = Urn.create_from_string(urn)
+            cur_urn = Urn.from_string(urn)
             cur_urn._entity_ids[0] = _lowercase_dataset_urn(cur_urn._entity_ids[0])
             return str(cur_urn)
         return urn

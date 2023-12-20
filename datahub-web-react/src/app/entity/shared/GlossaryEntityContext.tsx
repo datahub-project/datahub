@@ -10,6 +10,8 @@ export interface GlossaryEntityContextType {
     // This will happen when you edit a name, move a term/group, create a new term/group, and delete a term/group
     urnsToUpdate: string[];
     setUrnsToUpdate: (updatdUrns: string[]) => void;
+    isSidebarOpen: boolean;
+    setIsSidebarOpen: (isOpen: boolean) => void;
 }
 
 export const GlossaryEntityContext = React.createContext<GlossaryEntityContextType>({
@@ -18,10 +20,27 @@ export const GlossaryEntityContext = React.createContext<GlossaryEntityContextTy
     setEntityData: () => {},
     urnsToUpdate: [],
     setUrnsToUpdate: () => {},
+    isSidebarOpen: true,
+    setIsSidebarOpen: () => {},
 });
 
 export const useGlossaryEntityData = () => {
-    const { isInGlossaryContext, entityData, setEntityData, urnsToUpdate, setUrnsToUpdate } =
-        useContext(GlossaryEntityContext);
-    return { isInGlossaryContext, entityData, setEntityData, urnsToUpdate, setUrnsToUpdate };
+    const {
+        isInGlossaryContext,
+        entityData,
+        setEntityData,
+        urnsToUpdate,
+        setUrnsToUpdate,
+        isSidebarOpen,
+        setIsSidebarOpen,
+    } = useContext(GlossaryEntityContext);
+    return {
+        isInGlossaryContext,
+        entityData,
+        setEntityData,
+        urnsToUpdate,
+        setUrnsToUpdate,
+        isSidebarOpen,
+        setIsSidebarOpen,
+    };
 };

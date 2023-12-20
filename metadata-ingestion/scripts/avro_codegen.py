@@ -252,34 +252,12 @@ def annotate_aspects(aspects: List[dict], schema_class_file: Path) -> None:
     schema_classes_lines = schema_class_file.read_text().splitlines()
     line_lookup_table = {line: i for i, line in enumerate(schema_classes_lines)}
 
-    # Create the Aspect class.
-    # We ensure that it cannot be instantiated directly, as
-    # per https://stackoverflow.com/a/7989101/5004662.
+    # Import the _Aspect class.
     schema_classes_lines[
         line_lookup_table["__SCHEMAS: Dict[str, RecordSchema] = {}"]
     ] += """
 
-class _Aspect(DictWrapper):
-    ASPECT_NAME: ClassVar[str] = None  # type: ignore
-    ASPECT_TYPE: ClassVar[str] = "default"
-    ASPECT_INFO: ClassVar[dict] = None  # type: ignore
-
-    def __init__(self):
-        if type(self) is _Aspect:
-            raise TypeError("_Aspect is an abstract class, and cannot be instantiated directly.")
-        super().__init__()
-
-    @classmethod
-    def get_aspect_name(cls) -> str:
-        return cls.ASPECT_NAME  # type: ignore
-
-    @classmethod
-    def get_aspect_type(cls) -> str:
-        return cls.ASPECT_TYPE
-
-    @classmethod
-    def get_aspect_info(cls) -> dict:
-        return cls.ASPECT_INFO
+from datahub._codegen.aspect import _Aspect
 """
 
     for aspect in aspects:
@@ -776,6 +754,7 @@ def generate(
 import importlib
 from typing import TYPE_CHECKING
 
+from datahub._codegen.aspect import _Aspect
 from datahub.utilities.docs_build import IS_SPHINX_BUILD
 from datahub.utilities._custom_package_loader import get_custom_models_package
 
@@ -785,7 +764,7 @@ if TYPE_CHECKING or not _custom_package_path:
     from ._schema_classes import *
 
     # Required explicitly because __all__ doesn't include _ prefixed names.
-    from ._schema_classes import _Aspect, __SCHEMA_TYPES
+    from ._schema_classes import __SCHEMA_TYPES
 
     if IS_SPHINX_BUILD:
         # Set __module__ to the current module so that Sphinx will document the

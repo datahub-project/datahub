@@ -47,6 +47,7 @@ public class CreateDataProductResolver implements DataFetcher<CompletableFuture<
           try {
             final Urn dataProductUrn =
                 _dataProductService.createDataProduct(
+                    input.getId(),
                     input.getProperties().getName(),
                     input.getProperties().getDescription(),
                     authentication);

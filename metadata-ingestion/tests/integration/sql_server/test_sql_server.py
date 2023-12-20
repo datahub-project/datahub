@@ -1,5 +1,6 @@
 import os
 import subprocess
+import sys
 import time
 
 import pytest
@@ -7,6 +8,10 @@ import pytest
 from tests.test_helpers import mce_helpers
 from tests.test_helpers.click_helpers import run_datahub_cmd
 from tests.test_helpers.docker_helpers import cleanup_image, wait_for_port
+
+pytestmark = pytest.mark.skipif(
+    sys.version_info < (3, 8), reason="requires python 3.8 or higher"
+)
 
 
 @pytest.fixture(scope="module")

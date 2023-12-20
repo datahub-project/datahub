@@ -1,3 +1,13 @@
+query getQuery($urn: String!) {
+    entity(urn: $urn) {
+        urn
+        type
+        ... on QueryEntity {
+            ...query
+        }
+    }
+}
+
 fragment query on QueryEntity {
     urn
     properties {

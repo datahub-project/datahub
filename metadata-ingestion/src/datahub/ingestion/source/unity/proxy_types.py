@@ -4,7 +4,8 @@ import dataclasses
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Dict, FrozenSet, List, Optional, Set
+from enum import Enum
+from typing import Dict, FrozenSet, List, Optional, Set, Union
 
 from databricks.sdk.service.catalog import (
     CatalogType,
@@ -75,6 +76,17 @@ ALLOWED_STATEMENT_TYPES = {*OPERATION_STATEMENT_TYPES.keys(), QueryStatementType
 NotebookId = int
 
 
+class CustomCatalogType(Enum):
+    HIVE_METASTORE_CATALOG = "HIVE_METASTORE_CATALOG"
+
+
+class HiveTableType(Enum):
+    HIVE_MANAGED_TABLE = "HIVE_MANAGED_TABLE"
+    HIVE_EXTERNAL_TABLE = "HIVE_EXTERNAL_TABLE"
+    HIVE_VIEW = "HIVE_VIEW"
+    UNKNOWN = "UNKNOWN"
+
+
 @dataclass
 class CommonProperty:
     id: str
@@ -95,7 +107,7 @@ class Metastore(CommonProperty):
 class Catalog(CommonProperty):
     metastore: Optional[Metastore]
     owner: Optional[str]
-    type: CatalogType
+    type: Union[CatalogType, CustomCatalogType]
 
 
 @dataclass
@@ -107,11 +119,11 @@ class Schema(CommonProperty):
 @dataclass
 class Column(CommonProperty):
     type_text: str
-    type_name: ColumnTypeName
-    type_precision: int
-    type_scale: int
-    position: int
-    nullable: bool
+    type_name: Optional[ColumnTypeName]
+    type_precision: Optional[int]
+    type_scale: Optional[int]
+    position: Optional[int]
+    nullable: Optional[bool]
     comment: Optional[str]
 
 
@@ -212,11 +224,11 @@ class Table(CommonProperty):
     columns: List[Column]
     storage_location: Optional[str]
     data_source_format: Optional[DataSourceFormat]
-    table_type: TableType
+    table_type: Union[TableType, HiveTableType]
     owner: Optional[str]
     generation: Optional[int]
-    created_at: datetime
-    created_by: str
+    created_at: Optional[datetime]
+    created_by: Optional[str]
     updated_at: Optional[datetime]
     updated_by: Optional[str]
     table_id: str
@@ -231,7 +243,11 @@ class Table(CommonProperty):
 
     def __post_init__(self):
         self.ref = TableReference.create(self)
-        self.is_view = self.table_type in [TableType.VIEW, TableType.MATERIALIZED_VIEW]
+        self.is_view = self.table_type in [
+            TableType.VIEW,
+            TableType.MATERIALIZED_VIEW,
+            HiveTableType.HIVE_VIEW,
+        ]
 
 
 @dataclass

@@ -72,6 +72,7 @@ query appConfig {
             showAcrylInfo
             showAccessManagement
             nestedDomainsEnabled
+            platformBrowseV2
             dataContractsEnabled
             documentationAiEnabled
         }

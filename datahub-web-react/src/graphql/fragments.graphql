@@ -243,6 +243,10 @@ fragment nonRecursiveDatasetFields on Dataset {
             value
         }
         externalUrl
+        lastModified {
+            time
+            actor
+        }
     }
     editableProperties {
         description

@@ -1,5 +1,7 @@
-apply plugin: 'java-library'
-apply plugin: 'org.hidetake.swagger.generator'
+plugins {
+    id 'org.hidetake.swagger.generator'
+    id 'java-library'
+}
 
 configurations {
     enhance

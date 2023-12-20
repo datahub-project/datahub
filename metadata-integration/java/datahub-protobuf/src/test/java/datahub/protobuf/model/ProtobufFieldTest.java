@@ -1,7 +1,7 @@
 package datahub.protobuf.model;
 
 import static datahub.protobuf.TestFixtures.*;
-import static org.junit.jupiter.api.Assertions.*;
+import static org.testng.Assert.*;
 
 import com.google.protobuf.DescriptorProtos.DescriptorProto;
 import com.google.protobuf.DescriptorProtos.FieldDescriptorProto;
@@ -22,7 +22,7 @@ import datahub.protobuf.ProtobufDataset;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Set;
-import org.junit.jupiter.api.Test;
+import org.testng.annotations.Test;
 
 public class ProtobufFieldTest {
   private static final DescriptorProto EXPECTED_MESSAGE_PROTO =

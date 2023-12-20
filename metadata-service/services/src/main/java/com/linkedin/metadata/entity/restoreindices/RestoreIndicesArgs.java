@@ -11,6 +11,9 @@ public class RestoreIndicesArgs implements Cloneable {
   public String aspectName;
   public String urn;
   public String urnLike;
+  public Boolean urnBasedPagination = false;
+  public String lastUrn = "";
+  public String lastAspect = "";
 
   @Override
   public RestoreIndicesArgs clone() {
@@ -49,6 +52,11 @@ public class RestoreIndicesArgs implements Cloneable {
     if (batchSize != null) {
       this.batchSize = batchSize;
     }
+    return this;
+  }
+
+  public RestoreIndicesArgs setUrnBasedPagination(Boolean urnBasedPagination) {
+    this.urnBasedPagination = urnBasedPagination;
     return this;
   }
 }

@@ -10,6 +10,7 @@ import {
     MoreOutlined,
     PlusOutlined,
     WarningOutlined,
+    CopyOutlined,
 } from '@ant-design/icons';
 import { Redirect, useHistory } from 'react-router';
 import { EntityType } from '../../../../types.generated';
@@ -38,6 +39,7 @@ export enum EntityMenuItems {
     MOVE,
     // acryl-main only
     RAISE_INCIDENT,
+    CLONE,
 }
 
 export const MenuIcon = styled(MoreOutlined)<{ fontSize?: number }>`
@@ -116,6 +118,7 @@ function EntityDropdown(props: Props) {
 
     const [isCreateTermModalVisible, setIsCreateTermModalVisible] = useState(false);
     const [isCreateNodeModalVisible, setIsCreateNodeModalVisible] = useState(false);
+    const [isCloneEntityModalVisible, setIsCloneEntityModalVisible] = useState<boolean>(false);
     const [isDeprecationModalVisible, setIsDeprecationModalVisible] = useState(false);
     const [isMoveModalVisible, setIsMoveModalVisible] = useState(false);
     // acryl-main only
@@ -249,6 +252,17 @@ function EntityDropdown(props: Props) {
                                 </MenuItem>
                             </StyledMenuItem>
                         )}
+                        {menuItems.has(EntityMenuItems.CLONE) && (
+                            <StyledMenuItem
+                                key="6"
+                                disabled={!entityData?.privileges?.canManageEntity}
+                                onClick={() => setIsCloneEntityModalVisible(true)}
+                            >
+                                <MenuItem>
+                                    <CopyOutlined /> &nbsp;Clone
+                                </MenuItem>
+                            </StyledMenuItem>
+                        )}
                     </Menu>
                 }
                 trigger={['click']}
@@ -269,6 +283,15 @@ function EntityDropdown(props: Props) {
                     canCreateGlossaryEntity={canCreateGlossaryEntity}
                     onClose={() => setIsCreateNodeModalVisible(false)}
                     refetchData={refetchForNodes}
+                />
+            )}
+            {isCloneEntityModalVisible && (
+                <CreateGlossaryEntityModal
+                    entityType={entityType}
+                    canCreateGlossaryEntity={canCreateGlossaryEntity}
+                    onClose={() => setIsCloneEntityModalVisible(false)}
+                    refetchData={entityType === EntityType.GlossaryTerm ? refetchForTerms : refetchForNodes}
+                    isCloning
                 />
             )}
             {isDeprecationModalVisible && (

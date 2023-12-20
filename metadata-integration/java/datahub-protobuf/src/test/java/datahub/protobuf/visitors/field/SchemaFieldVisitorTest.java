@@ -2,7 +2,7 @@ package datahub.protobuf.visitors.field;
 
 import static datahub.protobuf.TestFixtures.getTestProtobufGraph;
 import static datahub.protobuf.TestFixtures.getVisitContextBuilder;
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.testng.Assert.assertEquals;
 
 import com.linkedin.schema.NumberType;
 import com.linkedin.schema.SchemaField;
@@ -15,7 +15,7 @@ import java.io.IOException;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import org.junit.jupiter.api.Test;
+import org.testng.annotations.Test;
 
 public class SchemaFieldVisitorTest {
 

@@ -33,7 +33,7 @@ docker {
         i -> (!i.file.name.endsWith(".dockerignore") && i.file.isHidden())
     }
     
-    def dockerBuildArgs = [DOCKER_VERSION: version, RELEASE_VERSION: version.replace('-SNAPSHOT', '').replace('v', '').replace("-slim", '')]
+    def dockerBuildArgs = [DOCKER_VERSION: version, RELEASE_VERSION: version.replace('-SNAPSHOT', '').replace('v', '').replace("-slim", ''), BASE_IMAGE: "${docker_registry}/datahub-ingestion-base"]
 
     // Add build args if they are defined (needed for some CI or enterprise environments)
     if (project.hasProperty('pipMirrorUrl')) {
@@ -45,9 +45,9 @@ docker {
 
     buildArgs(dockerBuildArgs)
 }
-tasks.getByName('docker').dependsOn(['build',
-                                     ':docker:datahub-ingestion-base:docker',
-                                     ':metadata-ingestion:codegen'])
+tasks.getByName('dockerPrepare').dependsOn(['build',
+                                            ':docker:datahub-ingestion-base:docker',
+                                            ':metadata-ingestion:codegen'])
 
 task mkdirBuildDocker {
     doFirst {

@@ -206,10 +206,10 @@ public class ElasticSearchTimeseriesAspectService
                   elemResult.setEntityName(indexEntityAndAspect.get().getFirst());
                   elemResult.setAspectName(indexEntityAndAspect.get().getSecond());
                 }
-                int sizeBytes =
-                    entry.getValue().get("primaries").get("store").get("size_in_bytes").asInt();
-                float sizeMb = (float) sizeBytes / 1000;
-                elemResult.setSizeMb(sizeMb);
+                long sizeBytes =
+                    entry.getValue().get("primaries").get("store").get("size_in_bytes").asLong();
+                double sizeMb = (double) sizeBytes / 1000000;
+                elemResult.setSizeInMb(sizeMb);
                 res.add(elemResult);
               });
       return res;

@@ -11,20 +11,26 @@ const TownhallButton = () => {
 
   const daysUntilLastThursday = lastThursday - currentDay;
 
-  let showButton = false;
-  let currentMonth = '';
+  let buttonText = '';
+  let buttonLink = '';
+  let townhallSeasonClass = '';
 
   if (daysUntilLastThursday > 0 && daysUntilLastThursday <= 14) {
-    showButton = true;
-    currentMonth = new Intl.DateTimeFormat('en-US', { month: 'long' }).format(today);
+    const currentMonth = new Intl.DateTimeFormat('en-US', { month: 'long' }).format(today);
+    buttonText = `Join ${currentMonth} Townhall! ✨`;
+    buttonLink = 'http://rsvp.datahubproject.io';
+    townhallSeasonClass = 'townhall-season'
+  } else {
+    buttonText = 'Watch Our Latest Townhall! 👀';
+    buttonLink = 'https://www.youtube.com/playlist?list=PLdCtLs64vZvHTXGqybmOfyxXbGDn2Reb9';
+    townhallSeasonClass = 'non-townhall-season'
   }
 
+
   return (
-    showButton && (
-      <Link to="http://rsvp.datahubproject.io" className={clsx('button button--primary button--md', styles.feature)}>
-        Join {currentMonth} Townhall!&nbsp;✨
-      </Link>
-    )
+    <Link to={buttonLink} className={clsx('button button--primary button--md', styles[townhallSeasonClass])}>
+      {buttonText}
+    </Link>
   );
 };
 
