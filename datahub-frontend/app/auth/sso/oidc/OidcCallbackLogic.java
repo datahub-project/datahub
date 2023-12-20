@@ -66,13 +66,6 @@ import org.pac4j.core.profile.UserProfile;
 import org.pac4j.core.util.Pac4jConstants;
 import org.pac4j.play.PlayWebContext;
 import play.mvc.Result;
-import auth.sso.SsoManager;
-
-import static auth.AuthUtils.*;
-import static com.linkedin.metadata.Constants.CORP_USER_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.GROUP_MEMBERSHIP_ASPECT_NAME;
-import static org.pac4j.play.store.PlayCookieSessionStore.*;
-import static play.mvc.Results.internalServerError;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import java.lang.reflect.Type;
@@ -312,12 +305,9 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
   }
 
   public static List<String> getGroupsClaimNames (OidcConfigs configs) {
-    final List<CorpGroupSnapshot> extractedGroups = new ArrayList<>();
-    final Collection<String> groupNames;
     List<String> groupsClaimNames = new ArrayList<>();
     String rawGroupClaimsNames = configs.getGroupsClaimName();
     if (rawGroupClaimsNames.startsWith("[") && rawGroupClaimsNames.endsWith("]")){
-      // parse the JSON into a collection
       Type listType = new TypeToken<Collection<String>>(){}.getType();
       groupsClaimNames = new Gson().fromJson(rawGroupClaimsNames, listType);
     } else {
@@ -346,16 +336,15 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
           final Object groupAttribute = profile.getAttribute(groupsClaimName);
           if (groupAttribute instanceof Collection) {
             // List of group names
-            groupNames =
-                    (Collection<String>) profile.getAttribute(groupsClaimName, Collection.class);
+            groupNames = (Collection<String>) profile.getAttribute(groupsClaimName, Collection.class);
           } else if (groupAttribute instanceof String) {
             // Single group name
             groupNames = Collections.singleton(profile.getAttribute(groupsClaimName, String.class));
           } else {
             log.error(
-                    String.format(
-                            "Fail to parse OIDC group claim with name %s. Unknown type %s provided.",
-                            groupsClaimName, groupAttribute.getClass()));
+                String.format(
+                    "Fail to parse OIDC group claim with name %s. Unknown type %s provided.",
+                    groupsClaimName, groupAttribute.getClass()));
             // Skip over group attribute. Do not throw.
             groupNames = Collections.emptyList();
           }
@@ -373,7 +362,7 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
 
               // To deal with the possibility of spaces, we url encode the URN group name.
               final String urlEncodedGroupName =
-                      URLEncoder.encode(groupName, StandardCharsets.UTF_8.toString());
+                  URLEncoder.encode(groupName, StandardCharsets.UTF_8.toString());
               final CorpGroupUrn groupUrn = new CorpGroupUrn(urlEncodedGroupName);
               final CorpGroupSnapshot corpGroupSnapshot = new CorpGroupSnapshot();
               corpGroupSnapshot.setUrn(groupUrn);
@@ -383,22 +372,22 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
               groupSnapshots.add(corpGroupSnapshot);
             } catch (UnsupportedEncodingException ex) {
               log.error(
-                      String.format(
-                              "Failed to URL encoded extracted group name %s. Skipping", groupName));
+                  String.format(
+                          "Failed to URL encoded extracted group name %s. Skipping", groupName));
             }
           }
           if (groupSnapshots.isEmpty()) {
             log.warn(
-                    String.format(
-                            "Failed to extract groups: No OIDC claim with name %s found", groupsClaimName));
+                String.format(
+                    "Failed to extract groups: No OIDC claim with name %s found", groupsClaimName));
           } else {
             extractedGroups.addAll(groupSnapshots);
           }
         } catch (Exception e) {
           log.error(
-                  String.format(
-                          "Failed to extract groups: Expected to find a list of strings for attribute with name %s, found %s",
-                          groupsClaimName, profile.getAttribute(groupsClaimName).getClass()));
+              String.format(
+                  "Failed to extract groups: Expected to find a list of strings for attribute with name %s, found %s",
+                  groupsClaimName, profile.getAttribute(groupsClaimName).getClass()));
         }
       }
     }
@@ -575,11 +564,5 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
       return Optional.of(extractedValue);
     }
     return Optional.empty();
-  }
-
-  private Collection<String> jsonStringToCollection(String jsonString) {
-    Gson gson = new Gson();
-    Type collectionType = new TypeToken<Collection<String>>(){}.getType();
-    return gson.fromJson(jsonString, collectionType);
   }
 }
