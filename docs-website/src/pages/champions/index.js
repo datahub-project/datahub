@@ -25,11 +25,11 @@ const championSections = [
           linkedin: "https://www.linkedin.com/in/aditya-0bab9a84/",
           github: "https://github.com/siladitya2",
         },
-        locataion: "Barcelona, Spain"
+        location: "Barcelona, Spain"
       },
       {
         name: "Sergio Gómez Villamor",
-        image: "https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/data-practitioners-guild/sergio-gomez-villamor.jpeg",
+        image: "https://raw.githubusercontent.com/datahub-project/static-assets/champ-img/imgs/datahub-champions/sergio_gomez_villamor.jpg",
         position: "Tech Lead, Adevinta",
         bio: (
           <>
@@ -125,6 +125,7 @@ const championSections = [
         },
       {
         name: "Fredrik Sannholm",
+        position: "Wolt",
         image: "https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/data-practitioners-guild/initials/fs_black.jpg",
         position: "",
         bio: (
@@ -139,12 +140,12 @@ const championSections = [
         },
       {
         name: "Tim Bossenmaier",
-        image: "https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/datahub-champions/initials/tb.jpg",
+        image: "https://raw.githubusercontent.com/datahub-project/static-assets/champ-img/imgs/datahub-champions/tim_bossenmaier.jpeg",
         position: "Data & Software Engineer, Bytefabrik.AI",
         bio: (
           <>
             <p>
-            Reliably provided direction to Community Members across all support channels in Slack.
+            Reliably provided dirxection to Community Members across all support channels in Slack.
             </p>
           </>
         ),
@@ -156,7 +157,7 @@ const championSections = [
         },
       {
         name: "Nikola Kasev",
-        image: "https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/datahub-champions/initials/nk.jpg",
+        image: "https://raw.githubusercontent.com/datahub-project/static-assets/champ-img/imgs/datahub-champions/nikola_kasev.jpeg",
         position: "Data Engineer, KPN",
         bio: (
           <>
@@ -173,6 +174,7 @@ const championSections = [
         },
       {
         name: "Nidhin Nandhakumar",
+        position: "Coursera",
         image: "https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/datahub-champions/initials/nn.jpg",
         bio: (
           <>
@@ -185,6 +187,7 @@ const championSections = [
         },
       {
         name: "Wu Teng",
+        position: "CashApp",
         image: "https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/datahub-champions/initials/wt.jpg",
         bio: (
           <>
@@ -198,6 +201,7 @@ const championSections = [
       },
       {
         name: "Felipe Gusmao",
+        position: "Zynga",
         image: "https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/datahub-champions/initials/fg.jpg",
         bio: (
           <>
@@ -242,6 +246,7 @@ const championSections = [
       },
       {
         name: "Dima Korendovych",
+        position: "Optum",
         image: "https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/datahub-champions/initials/dk.jpg",
         bio: (
           <>
@@ -254,6 +259,7 @@ const championSections = [
       },
       {
         name: "Tim Drahn",
+        position: "Optum",
         image: "https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/datahub-champions/initials/td.jpg",
         position: "Solution Architect, Optum Technologies",
         bio: (
@@ -271,6 +277,7 @@ const championSections = [
       },
       {
         name: "Kate Koy",
+        position: "Optum",
         image: "https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/datahub-champions/initials/kk.jpg",
         bio: (
           <>
@@ -283,6 +290,7 @@ const championSections = [
       },
       {
         name: "Anjali Arora",
+        position: "Optum",
         image: "https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/datahub-champions/initials/aa.jpg",
         bio: (
           <>
