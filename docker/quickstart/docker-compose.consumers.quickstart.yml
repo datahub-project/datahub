@@ -25,6 +25,7 @@ services:
     - NEO4J_PASSWORD=datahub
     - GRAPH_SERVICE_IMPL=neo4j
     - ENTITY_REGISTRY_CONFIG_PATH=/datahub/datahub-mae-consumer/resources/entity-registry.yml
+    - KAFKA_CONSUMER_STOP_ON_DESERIALIZATION_ERROR=${KAFKA_CONSUMER_STOP_ON_DESERIALIZATION_ERROR:-true}
     hostname: datahub-mae-consumer
     image: ${DATAHUB_MAE_CONSUMER_IMAGE:-linkedin/datahub-mae-consumer}:${DATAHUB_VERSION:-head}
     ports:
@@ -54,6 +55,7 @@ services:
     - GRAPH_SERVICE_IMPL=neo4j
     - JAVA_OPTS=-Xms1g -Xmx1g
     - KAFKA_BOOTSTRAP_SERVER=broker:29092
+    - KAFKA_CONSUMER_STOP_ON_DESERIALIZATION_ERROR=${KAFKA_CONSUMER_STOP_ON_DESERIALIZATION_ERROR:-true}
     - KAFKA_SCHEMAREGISTRY_URL=http://schema-registry:8081
     - MAE_CONSUMER_ENABLED=false
     - MCE_CONSUMER_ENABLED=true
