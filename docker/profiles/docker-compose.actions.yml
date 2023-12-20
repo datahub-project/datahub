@@ -1,0 +1,45 @@
+
+x-datahub-actions-service: &datahub-actions-service
+  hostname: actions
+  image: ${DATAHUB_ACTIONS_IMAGE:-acryldata/datahub-actions}:${ACTIONS_VERSION:-head}
+  env_file: datahub-actions/env/docker.env
+  environment:
+    ACTIONS_EXTRA_PACKAGES: ${ACTIONS_EXTRA_PACKAGES:-}
+    ACTIONS_CONFIG: ${ACTIONS_CONFIG:-}
+    KAFKA_BOOTSTRAP_SERVER: kafka-broker:29092
+    SCHEMA_REGISTRY_URL: http://datahub-gms:8080/schema-registry/api/
+
+services:
+  datahub-actions-quickstart:
+    <<: *datahub-actions-service
+    container_name: actions
+    profiles:
+      - quickstart
+      - quickstart-backend
+    depends_on:
+      datahub-gms-quickstart:
+        condition: service_healthy
+  datahub-actions-quickstart-cassandra:
+    <<: *datahub-actions-service
+    container_name: actions
+    profiles:
+      - quickstart-cassandra
+    depends_on:
+      datahub-gms-quickstart-cassandra:
+        condition: service_healthy
+  datahub-actions-quickstart-postgres:
+    <<: *datahub-actions-service
+    container_name: actions
+    profiles:
+      - quickstart-postgres
+    depends_on:
+      datahub-gms-quickstart-postgres:
+        condition: service_healthy
+  datahub-actions-quickstart-consumers:
+    <<: *datahub-actions-service
+    container_name: actions
+    profiles:
+      - quickstart-consumers
+    depends_on:
+      datahub-gms-quickstart-consumers:
+        condition: service_healthy

@@ -85,15 +85,18 @@ REDSHIFT_OPERATION_ASPECT_QUERY_TEMPLATE: str = """
       sq.endtime AS endtime,
       'insert' AS operation_type
     FROM
-      stl_insert si
+      (select userid, query, sum(rows) as rows, tbl
+        from stl_insert si
+        where si.rows > 0
+        AND si.starttime >= '{start_time}'
+        AND si.starttime < '{end_time}'
+        group by userid, query, tbl
+      ) as si
       JOIN svv_table_info sti ON si.tbl = sti.table_id
       JOIN stl_query sq ON si.query = sq.query
       JOIN svl_user_info sui ON sq.userid = sui.usesysid
     WHERE
-      si.starttime >= '{start_time}'
-      AND si.starttime < '{end_time}'
-      AND si.rows > 0
-      AND sq.aborted = 0)
+      sq.aborted = 0)
 UNION
   (SELECT
       DISTINCT sd.userid AS userid,
@@ -109,15 +112,18 @@ UNION
       sq.endtime AS endtime,
       'delete' AS operation_type
     FROM
-      stl_delete sd
+      (select userid, query, sum(rows) as rows, tbl
+        from stl_delete sd
+        where sd.rows > 0
+        AND sd.starttime >= '{start_time}'
+        AND sd.starttime < '{end_time}'
+        group by userid, query, tbl
+      ) as sd
       JOIN svv_table_info sti ON sd.tbl = sti.table_id
       JOIN stl_query sq ON sd.query = sq.query
       JOIN svl_user_info sui ON sq.userid = sui.usesysid
     WHERE
-      sd.starttime >= '{start_time}'
-      AND sd.starttime < '{end_time}'
-      AND sd.rows > 0
-      AND sq.aborted = 0)
+      sq.aborted = 0)
 ORDER BY
   endtime DESC
 """.strip()

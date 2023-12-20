@@ -3,7 +3,7 @@ package datahub.protobuf.visitors.dataset;
 import static datahub.protobuf.TestFixtures.getTestProtobufGraph;
 import static datahub.protobuf.TestFixtures.getVisitContextBuilder;
 import static java.util.Map.entry;
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.testng.Assert.assertEquals;
 
 import com.linkedin.data.template.StringMap;
 import com.linkedin.dataset.DatasetProperties;
@@ -11,7 +11,7 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
-import org.junit.jupiter.api.Test;
+import org.testng.annotations.Test;
 
 public class PropertyVisitorTest {
 
