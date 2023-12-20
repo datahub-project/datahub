@@ -373,7 +373,7 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
             } catch (UnsupportedEncodingException ex) {
               log.error(
                   String.format(
-                          "Failed to URL encoded extracted group name %s. Skipping", groupName));
+                      "Failed to URL encoded extracted group name %s. Skipping", groupName));
             }
           }
           if (groupSnapshots.isEmpty()) {
