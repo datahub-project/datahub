@@ -311,6 +311,78 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
     return corpUserSnapshot;
   }
 
+  public static GroupParsingResult parseGroupsFromProfile(CommonProfile profile, OidcConfigs configs) {
+    final Collection<String> groupNames;
+    final GroupParsingResult extractedGroups = new GroupParsingResult(new ArrayList<>(), null);
+    List<String> groupsClaimNames = new ArrayList<>();
+    String rawGroupClaimsNames = configs.getGroupsClaimName();
+    if (rawGroupClaimsNames.startsWith("[") && rawGroupClaimsNames.endsWith("]")){
+      // parse the JSON into a collection
+      Type listType = new TypeToken<Collection<String>>(){}.getType();
+      groupsClaimNames = new Gson().fromJson(rawGroupClaimsNames, listType);
+    } else {
+      groupsClaimNames = new ArrayList<String>(Arrays.asList(rawGroupClaimsNames.split(",")))
+            .stream().map(String::trim).collect(Collectors.toList());
+    }
+    for (final String groupsClaimName : groupsClaimNames) {
+
+      if (profile.containsAttribute(groupsClaimName)) {
+        try {
+          //final Collection<String> groupNames;
+          final Object groupAttribute = profile.getAttribute(groupsClaimName);
+          if (groupAttribute instanceof Collection) {
+            // List of group names
+            groupNames =
+                    (Collection<String>) profile.getAttribute(groupsClaimName, Collection.class);
+          } else if (groupAttribute instanceof String) {
+            groupNames = Collections.singleton(profile.getAttribute(groupsClaimName, String.class));
+          } else {
+            String errorString =
+                    String.format(
+                            "Fail to parse OIDC group claim with name %s. Unknown type %s provided.",
+                            groupsClaimName, groupAttribute.getClass());
+            extractedGroups.setErrorMessage(errorString);
+            return extractedGroups;
+          }
+        } catch (Exception e) {
+            String errorString =
+                    String.format(
+                            "Failed to extract groups: Expected to find a list of strings for attribute with name %s, found %s",
+                            groupsClaimName, profile.getAttribute(groupsClaimName).getClass());
+            extractedGroups.setErrorMessage(errorString);
+            return extractedGroups;
+        }
+        final List<CorpGroupSnapshot> groupSnapshots = new ArrayList<>();
+        for (String groupName : groupNames) {
+          try {
+            final CorpGroupInfo corpGroupInfo = new CorpGroupInfo();
+            corpGroupInfo.setAdmins(new CorpuserUrnArray());
+            corpGroupInfo.setGroups(new CorpGroupUrnArray());
+            corpGroupInfo.setMembers(new CorpuserUrnArray());
+            corpGroupInfo.setEmail("");
+            corpGroupInfo.setDisplayName(groupName);
+
+            // To deal with the possibility of spaces, we url encode the URN group name.
+            final String urlEncodedGroupName =
+                    URLEncoder.encode(groupName, StandardCharsets.UTF_8.toString());
+            final CorpGroupUrn groupUrn = new CorpGroupUrn(urlEncodedGroupName);
+            final CorpGroupSnapshot corpGroupSnapshot = new CorpGroupSnapshot();
+            corpGroupSnapshot.setUrn(groupUrn);
+            final CorpGroupAspectArray aspects = new CorpGroupAspectArray();
+            aspects.add(CorpGroupAspect.create(corpGroupInfo));
+            corpGroupSnapshot.setAspects(aspects);
+            groupSnapshots.add(corpGroupSnapshot);
+          } catch {
+
+          }
+
+    
+      }
+
+
+    return extractedGroups;
+  }
+
   private List<CorpGroupSnapshot> extractGroups(CommonProfile profile) {
 
     log.debug(
@@ -318,14 +390,7 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
             "Attempting to extract groups from OIDC profile %s",
             profile.getAttributes().toString()));
     final OidcConfigs configs = (OidcConfigs) _ssoManager.getSsoProvider().configs();
-
-    // First, attempt to extract a list of groups from the profile, using the group name attribute
-    // config.
-    final List<CorpGroupSnapshot> extractedGroups = new ArrayList<>();
-    final List<String> groupsClaimNames =
-        new ArrayList<String>(Arrays.asList(configs.getGroupsClaimName().split(",")))
-            .stream().map(String::trim).collect(Collectors.toList());
-
+    //parseGroupsFromProfile(profile, configs);
     for (final String groupsClaimName : groupsClaimNames) {
 
       if (profile.containsAttribute(groupsClaimName)) {
@@ -338,13 +403,7 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
             groupNames =
                 (Collection<String>) profile.getAttribute(groupsClaimName, Collection.class);
           } else if (groupAttribute instanceof String) {
-            String groupString = (String) groupAttribute;
-            if (groupString.startsWith("[") && groupString.endsWith("]")){
-              groupNames = jsonStringToCollection(groupString);
-            } else {
-              // Single group name
-              groupNames = Collections.singleton(profile.getAttribute(groupsClaimName, String.class));
-            }
+            groupNames = Collections.singleton(profile.getAttribute(groupsClaimName, String.class));
           } else {
             log.error(
                 String.format(
