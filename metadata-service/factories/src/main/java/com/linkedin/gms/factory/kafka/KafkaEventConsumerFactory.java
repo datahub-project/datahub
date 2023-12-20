@@ -23,12 +23,9 @@ import org.springframework.kafka.config.KafkaListenerContainerFactory;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 import org.springframework.kafka.listener.CommonContainerStoppingErrorHandler;
 import org.springframework.kafka.listener.CommonDelegatingErrorHandler;
-import org.springframework.kafka.listener.CommonLoggingErrorHandler;
 import org.springframework.kafka.listener.DefaultErrorHandler;
-import org.springframework.kafka.listener.ListenerExecutionFailedException;
 import org.springframework.kafka.support.serializer.DeserializationException;
 import org.springframework.kafka.support.serializer.ErrorHandlingDeserializer;
-
 
 @Slf4j
 @Configuration
@@ -86,8 +83,10 @@ public class KafkaEventConsumerFactory {
     } // else we rely on KafkaProperties which defaults to localhost:9092
 
     Map<String, Object> customizedProperties = baseKafkaProperties.buildConsumerProperties();
-    customizedProperties.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, ErrorHandlingDeserializer.class);
-    customizedProperties.put(ErrorHandlingDeserializer.KEY_DESERIALIZER_CLASS, StringDeserializer.class);
+    customizedProperties.put(
+        ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, ErrorHandlingDeserializer.class);
+    customizedProperties.put(
+        ErrorHandlingDeserializer.KEY_DESERIALIZER_CLASS, StringDeserializer.class);
     customizedProperties.put(
         ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, ErrorHandlingDeserializer.class);
     customizedProperties.put(
@@ -118,12 +117,14 @@ public class KafkaEventConsumerFactory {
     factory.setConcurrency(kafkaEventConsumerConcurrency);
 
     /* Sets up a delegating error handler for Deserialization errors, if disabled will
-      use DefaultErrorHandler (does back-off retry and then logs) rather than stopping the container. Stopping the container
-      prevents lost messages until the error can be examined, disabling this will allow progress, but may lose data
-     */
+     use DefaultErrorHandler (does back-off retry and then logs) rather than stopping the container. Stopping the container
+     prevents lost messages until the error can be examined, disabling this will allow progress, but may lose data
+    */
     if (configurationProvider.getKafka().getConsumer().isStopOnDeserializationError()) {
-      CommonDelegatingErrorHandler delegatingErrorHandler = new CommonDelegatingErrorHandler(new DefaultErrorHandler());
-      delegatingErrorHandler.addDelegate(DeserializationException.class, new CommonContainerStoppingErrorHandler());
+      CommonDelegatingErrorHandler delegatingErrorHandler =
+          new CommonDelegatingErrorHandler(new DefaultErrorHandler());
+      delegatingErrorHandler.addDelegate(
+          DeserializationException.class, new CommonContainerStoppingErrorHandler());
       factory.setCommonErrorHandler(delegatingErrorHandler);
     }
 
