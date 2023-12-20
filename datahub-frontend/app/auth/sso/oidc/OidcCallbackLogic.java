@@ -311,9 +311,9 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
     return corpUserSnapshot;
   }
 
-  public static GroupParsingResult parseGroupsFromProfile(CommonProfile profile, OidcConfigs configs) {
+  public static List<String> getGroupsClaimNames (OidcConfigs configs) {
+    final List<CorpGroupSnapshot> extractedGroups = new ArrayList<>();
     final Collection<String> groupNames;
-    final GroupParsingResult extractedGroups = new GroupParsingResult(new ArrayList<>(), null);
     List<String> groupsClaimNames = new ArrayList<>();
     String rawGroupClaimsNames = configs.getGroupsClaimName();
     if (rawGroupClaimsNames.startsWith("[") && rawGroupClaimsNames.endsWith("]")){
@@ -324,63 +324,7 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
       groupsClaimNames = new ArrayList<String>(Arrays.asList(rawGroupClaimsNames.split(",")))
             .stream().map(String::trim).collect(Collectors.toList());
     }
-    for (final String groupsClaimName : groupsClaimNames) {
-
-      if (profile.containsAttribute(groupsClaimName)) {
-        try {
-          //final Collection<String> groupNames;
-          final Object groupAttribute = profile.getAttribute(groupsClaimName);
-          if (groupAttribute instanceof Collection) {
-            // List of group names
-            groupNames =
-                    (Collection<String>) profile.getAttribute(groupsClaimName, Collection.class);
-          } else if (groupAttribute instanceof String) {
-            groupNames = Collections.singleton(profile.getAttribute(groupsClaimName, String.class));
-          } else {
-            String errorString =
-                    String.format(
-                            "Fail to parse OIDC group claim with name %s. Unknown type %s provided.",
-                            groupsClaimName, groupAttribute.getClass());
-            extractedGroups.setErrorMessage(errorString);
-            return extractedGroups;
-          }
-        } catch (Exception e) {
-            String errorString =
-                    String.format(
-                            "Failed to extract groups: Expected to find a list of strings for attribute with name %s, found %s",
-                            groupsClaimName, profile.getAttribute(groupsClaimName).getClass());
-            extractedGroups.setErrorMessage(errorString);
-            return extractedGroups;
-        }
-        final List<CorpGroupSnapshot> groupSnapshots = new ArrayList<>();
-        for (String groupName : groupNames) {
-          try {
-            final CorpGroupInfo corpGroupInfo = new CorpGroupInfo();
-            corpGroupInfo.setAdmins(new CorpuserUrnArray());
-            corpGroupInfo.setGroups(new CorpGroupUrnArray());
-            corpGroupInfo.setMembers(new CorpuserUrnArray());
-            corpGroupInfo.setEmail("");
-            corpGroupInfo.setDisplayName(groupName);
-
-            // To deal with the possibility of spaces, we url encode the URN group name.
-            final String urlEncodedGroupName =
-                    URLEncoder.encode(groupName, StandardCharsets.UTF_8.toString());
-            final CorpGroupUrn groupUrn = new CorpGroupUrn(urlEncodedGroupName);
-            final CorpGroupSnapshot corpGroupSnapshot = new CorpGroupSnapshot();
-            corpGroupSnapshot.setUrn(groupUrn);
-            final CorpGroupAspectArray aspects = new CorpGroupAspectArray();
-            aspects.add(CorpGroupAspect.create(corpGroupInfo));
-            corpGroupSnapshot.setAspects(aspects);
-            groupSnapshots.add(corpGroupSnapshot);
-          } catch {
-
-          }
-
-    
-      }
-
-
-    return extractedGroups;
+    return groupsClaimNames;
   }
 
   private List<CorpGroupSnapshot> extractGroups(CommonProfile profile) {
@@ -390,7 +334,9 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
             "Attempting to extract groups from OIDC profile %s",
             profile.getAttributes().toString()));
     final OidcConfigs configs = (OidcConfigs) _ssoManager.getSsoProvider().configs();
-    //parseGroupsFromProfile(profile, configs);
+    final List<String> groupsClaimNames = getGroupsClaimNames(configs);
+    final List<CorpGroupSnapshot> extractedGroups = new ArrayList<>();
+
     for (final String groupsClaimName : groupsClaimNames) {
 
       if (profile.containsAttribute(groupsClaimName)) {
@@ -401,14 +347,15 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
           if (groupAttribute instanceof Collection) {
             // List of group names
             groupNames =
-                (Collection<String>) profile.getAttribute(groupsClaimName, Collection.class);
+                    (Collection<String>) profile.getAttribute(groupsClaimName, Collection.class);
           } else if (groupAttribute instanceof String) {
+            // Single group name
             groupNames = Collections.singleton(profile.getAttribute(groupsClaimName, String.class));
           } else {
             log.error(
-                String.format(
-                    "Fail to parse OIDC group claim with name %s. Unknown type %s provided.",
-                    groupsClaimName, groupAttribute.getClass()));
+                    String.format(
+                            "Fail to parse OIDC group claim with name %s. Unknown type %s provided.",
+                            groupsClaimName, groupAttribute.getClass()));
             // Skip over group attribute. Do not throw.
             groupNames = Collections.emptyList();
           }
@@ -426,7 +373,7 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
 
               // To deal with the possibility of spaces, we url encode the URN group name.
               final String urlEncodedGroupName =
-                  URLEncoder.encode(groupName, StandardCharsets.UTF_8.toString());
+                      URLEncoder.encode(groupName, StandardCharsets.UTF_8.toString());
               final CorpGroupUrn groupUrn = new CorpGroupUrn(urlEncodedGroupName);
               final CorpGroupSnapshot corpGroupSnapshot = new CorpGroupSnapshot();
               corpGroupSnapshot.setUrn(groupUrn);
@@ -436,22 +383,22 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
               groupSnapshots.add(corpGroupSnapshot);
             } catch (UnsupportedEncodingException ex) {
               log.error(
-                  String.format(
-                      "Failed to URL encoded extracted group name %s. Skipping", groupName));
+                      String.format(
+                              "Failed to URL encoded extracted group name %s. Skipping", groupName));
             }
           }
           if (groupSnapshots.isEmpty()) {
             log.warn(
-                String.format(
-                    "Failed to extract groups: No OIDC claim with name %s found", groupsClaimName));
+                    String.format(
+                            "Failed to extract groups: No OIDC claim with name %s found", groupsClaimName));
           } else {
             extractedGroups.addAll(groupSnapshots);
           }
         } catch (Exception e) {
           log.error(
-              String.format(
-                  "Failed to extract groups: Expected to find a list of strings for attribute with name %s, found %s",
-                  groupsClaimName, profile.getAttribute(groupsClaimName).getClass()));
+                  String.format(
+                          "Failed to extract groups: Expected to find a list of strings for attribute with name %s, found %s",
+                          groupsClaimName, profile.getAttribute(groupsClaimName).getClass()));
         }
       }
     }

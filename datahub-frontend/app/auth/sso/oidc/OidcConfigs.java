@@ -119,4 +119,8 @@ public class OidcConfigs extends SsoConfigs {
     preferredJwsAlgorithm =
         Optional.ofNullable(getOptional(configs, OIDC_PREFERRED_JWS_ALGORITHM, null));
   }
+  public String getGroupsClaimName() {
+    return groupsClaimName;
+  }
+
 }
