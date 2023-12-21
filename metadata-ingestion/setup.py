@@ -274,7 +274,7 @@ powerbi_report_server = {"requests", "requests_ntlm"}
 
 databricks = {
     # 0.1.11 appears to have authentication issues with azure databricks
-    "databricks-sdk>=0.9.0",
+    "databricks-sdk>=0.9.0,<0.16.0",
     "pyspark~=3.3.0",
     "requests",
     # Version 2.4.0 includes sqlalchemy dialect, 2.8.0 includes some bug fixes
