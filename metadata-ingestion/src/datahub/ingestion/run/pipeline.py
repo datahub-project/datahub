@@ -528,6 +528,9 @@ class Pipeline:
             {
                 "source_type": self.config.source.type,
                 "sink_type": self.config.sink.type,
+                "transformer_types": [
+                    transformer.type for transformer in self.config.transformers or []
+                ],
                 "records_written": stats.discretize(
                     self.sink.get_report().total_records_written
                 ),
