@@ -332,9 +332,6 @@ eventSinks:
           eventBus: ${AWS_EVENT_BRIDGE_BUS_ARN}
           region: ${AWS_EVENT_BRIDGE_BUS_REGION}
 
-  # experimental siblings config
-  enabled: ${METADATA_TESTS_ENABLED:false}
-
 siblings:
   enabled: ${ENABLE_SIBLING_HOOK:true} # enable to turn on automatic sibling associations for dbt
 updateIndices:
