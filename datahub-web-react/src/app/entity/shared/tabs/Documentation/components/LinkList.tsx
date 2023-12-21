@@ -36,10 +36,6 @@ type LinkListProps = {
 
 export const LinkList = ({ refetch }: LinkListProps) => {
     const [editModalVisble, setEditModalVisible] = useState(false);
-    const [initialValues, setInitialValues] = useState({
-        url: '',
-        label: '',
-    });
     const [linkDetails, setLinkDetails] = useState<InstitutionalMemoryMetadata | undefined>(undefined);
     const { urn: entityUrn, entityData, entityType } = useEntityData();
     const entityRegistry = useEntityRegistry();
@@ -66,15 +62,16 @@ export const LinkList = ({ refetch }: LinkListProps) => {
     };
 
     const handleEditLink = (metadata: InstitutionalMemoryMetadata) => {
-        setInitialValues({
+        form.setFieldsValue({
             url: metadata.url,
-            label: metadata.description,
+            label: metadata.description
         });
         setLinkDetails(metadata);
         setEditModalVisible(true);
     };
 
     const handleClose = () => {
+        form.resetFields();
         setEditModalVisible(false);
     };
 
@@ -135,7 +132,6 @@ export const LinkList = ({ refetch }: LinkListProps) => {
                     name="editLinkForm"
                     onFinish={handleEdit}
                     layout="vertical"
-                    initialValues={initialValues}
                 >
                     <Form.Item
                         name="url"
