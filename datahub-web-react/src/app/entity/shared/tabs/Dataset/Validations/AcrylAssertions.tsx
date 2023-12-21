@@ -9,7 +9,6 @@ import { combineEntityDataWithSiblings, useIsSeparateSiblingsMode } from '../../
 import { useAppConfig } from '../../../../../useAppConfig';
 import { AssertionMonitorBuilderModal } from './assertion/builder/AssertionMonitorBuilderModal';
 import TabToolbar from '../../../components/styled/TabToolbar';
-import { isEntityEligibleForAssertionMonitoring } from './assertion/builder/utils';
 import { createAssertionGroups, getLegacyAssertionsSummary } from './acrylUtils';
 import { AssertionGroupTable } from './AssertionGroupTable';
 import {
@@ -52,7 +51,7 @@ export const AcrylAssertions = () => {
         (data?.dataset?.privileges?.canEditMonitors || false);
     return (
         <>
-            {assertionMonitorsEnabled && isEntityEligibleForAssertionMonitoring(entityData?.platform?.urn) && (
+            {assertionMonitorsEnabled && (
                 <TabToolbar>
                     <Tooltip
                         title={

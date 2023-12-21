@@ -68,7 +68,7 @@ export function AssertionTypeOption({ name, description, icon, enabled = true, o
     };
 
     return (
-        <Tooltip title={!enabled ? 'Coming soon!' : undefined}>
+        <Tooltip title={!enabled ? 'This option is not available for this data asset.' : undefined}>
             <Container onClick={handleOnClick} enabled={enabled} key={name}>
                 <Header>
                     {icon}

@@ -827,12 +827,14 @@ class Assertion(PermissiveBaseModel):
             table_name = (
                 graphql_entity["properties"]["name"]
                 if "properties" in graphql_entity
+                and graphql_entity["properties"] is not None
                 and "name" in graphql_entity["properties"]
                 else None
             )
             qualified_name = (
                 graphql_entity["properties"]["qualifiedName"]
                 if "properties" in graphql_entity
+                and graphql_entity["properties"] is not None
                 and "qualifiedName" in graphql_entity["properties"]
                 else None
             )
