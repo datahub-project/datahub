@@ -10,6 +10,9 @@ import auth.CookieConfigs;
 import auth.sso.SsoManager;
 import client.AuthServiceClient;
 import com.datahub.authentication.Authentication;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.CorpGroupUrnArray;
 import com.linkedin.common.CorpuserUrnArray;
@@ -66,9 +69,6 @@ import org.pac4j.core.profile.UserProfile;
 import org.pac4j.core.util.Pac4jConstants;
 import org.pac4j.play.PlayWebContext;
 import play.mvc.Result;
-import com.google.gson.Gson;
-import com.google.gson.reflect.TypeToken;
-import java.lang.reflect.Type;
 
 
 /**
@@ -304,16 +304,19 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
     return corpUserSnapshot;
   }
 
-  public static List<String> getGroupsClaimNames (OidcConfigs configs) {
-    List<String> groupsClaimNames = new ArrayList<>();
+  public static List<String> getGroupsClaimNames(OidcConfigs configs) {
+    List<String> groupsClaimNames;
     String rawGroupClaimsNames = configs.getGroupsClaimName();
-    if (rawGroupClaimsNames.startsWith("[") && rawGroupClaimsNames.endsWith("]")){
-      Type listType = new TypeToken<Collection<String>>(){}.getType();
-      groupsClaimNames = new Gson().fromJson(rawGroupClaimsNames, listType);
-    } else {
-      groupsClaimNames = new ArrayList<String>(Arrays.asList(rawGroupClaimsNames.split(",")))
-            .stream().map(String::trim).collect(Collectors.toList());
+    ObjectMapper objectMapper = new ObjectMapper();
+
+    try {
+      groupsClaimNames = objectMapper.readValue(rawGroupClaimsNames, new TypeReference<List<String>>(){});
+    } catch (JsonProcessingException e) {
+      groupsClaimNames = Arrays.stream(rawGroupClaimsNames.split(","))
+              .map(String::trim)
+              .collect(Collectors.toList());
     }
+
     return groupsClaimNames;
   }
 
