@@ -66,8 +66,12 @@ class InfoTypeConfig(ConfigModel):
         description="Factors and their weights to consider when predicting info types",
         alias="prediction_factors_and_weights",
     )
+    StripExclusionFormatting: bool = Field(
+        default=True, alias="strip_exclusion_formatting"
+    )
     ExcludeName: Optional[List[str]] = Field(
         default=None,
+        alias="exclude_name",
         description="List of exact column names to exclude from classification for this info type",
     )
     Name: Optional[NameFactorConfig] = Field(default=None, alias="name")
