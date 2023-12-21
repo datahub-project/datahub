@@ -5,6 +5,7 @@ import UserContextProvider from './context/UserContextProvider';
 import QuickFiltersProvider from '../providers/QuickFiltersProvider';
 import SearchContextProvider from './search/context/SearchContextProvider';
 import EntityRegistryProvider from './EntityRegistryProvider';
+import { BrowserTitleProvider } from './shared/BrowserTabTitleContext';
 
 interface Props {
     children: React.ReactNode;
@@ -15,11 +16,13 @@ export default function AppProviders({ children }: Props) {
         <AppConfigProvider>
             <UserContextProvider>
                 <EntityRegistryProvider>
-                    <EducationStepsProvider>
-                        <QuickFiltersProvider>
-                            <SearchContextProvider>{children}</SearchContextProvider>
-                        </QuickFiltersProvider>
-                    </EducationStepsProvider>
+                    <BrowserTitleProvider>
+                        <EducationStepsProvider>
+                            <QuickFiltersProvider>
+                                <SearchContextProvider>{children}</SearchContextProvider>
+                            </QuickFiltersProvider>
+                        </EducationStepsProvider>
+                    </BrowserTitleProvider>
                 </EntityRegistryProvider>
             </UserContextProvider>
         </AppConfigProvider>
