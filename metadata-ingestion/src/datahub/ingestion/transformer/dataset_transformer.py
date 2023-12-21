@@ -120,6 +120,6 @@ class DatasetSchemaMetadataTransformer(DatasetTransformer, metaclass=ABCMeta):
         return "schemaMetadata"
 
 
-class DatasetDataproductsTransformer(DatasetTransformer, metaclass=ABCMeta):
+class DatasetDataproductTransformer(DatasetTransformer, metaclass=ABCMeta):
     def aspect_name(self) -> str:
         return "dataProductProperties"

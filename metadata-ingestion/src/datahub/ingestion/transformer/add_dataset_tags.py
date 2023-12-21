@@ -126,7 +126,6 @@ class PatternAddDatasetTags(AddDatasetTags):
     """Transformer that adds a specified set of tags to each dataset."""
 
     def __init__(self, config: PatternDatasetTagsConfig, ctx: PipelineContext):
-        config.tag_pattern.all
         tag_pattern = config.tag_pattern
         generic_config = AddDatasetTagsConfig(
             get_tags_to_add=lambda _: [

@@ -266,7 +266,7 @@ class KeyValuePattern(ConfigModel):
     For example, you can use it to map a table name to a list of tags to apply to it.
     """
 
-    rules: Dict[str, List[str]] = {".*": []}
+    rules: Dict[str, Union[str, List[str]]] = {".*": []}
     first_match_only: bool = Field(
         default=True,
         description="Whether to stop after the first match. If false, all matching rules will be applied.",
@@ -276,7 +276,7 @@ class KeyValuePattern(ConfigModel):
     def all(cls) -> "KeyValuePattern":
         return KeyValuePattern()
 
-    def value(self, string: str) -> List[str]:
+    def value(self, string: str) -> Union[str, List[str]]:
         matching_keys = [key for key in self.rules.keys() if re.match(key, string)]
         if not matching_keys:
             return []

@@ -1,13 +1,16 @@
 import logging
 from typing import Callable, Dict, List, Optional, Union
 
-from datahub.configuration.common import TransformerSemanticsConfigModel
+from datahub.configuration.common import (
+    KeyValuePattern,
+    TransformerSemanticsConfigModel,
+)
 from datahub.configuration.import_resolver import pydantic_resolve_key
 from datahub.emitter.mce_builder import Aspect
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.transformer.dataset_transformer import (
-    DatasetDataproductsTransformer,
+    DatasetDataproductTransformer,
 )
 from datahub.metadata.schema_classes import MetadataChangeProposalClass
 from datahub.specific.dataproduct import DataProductPatchBuilder
@@ -15,29 +18,27 @@ from datahub.specific.dataproduct import DataProductPatchBuilder
 logger = logging.getLogger(__name__)
 
 
-class AddDatasetDataProductsConfig(TransformerSemanticsConfigModel):
+class AddDatasetDataProductConfig(TransformerSemanticsConfigModel):
     # dataset_urn -> data product urn
-    get_data_products_to_add: Callable[[str], Optional[str]]
+    get_data_product_to_add: Callable[[str], Optional[str]]
 
-    _resolve_data_product_fn = pydantic_resolve_key("get_data_products_to_add")
+    _resolve_data_product_fn = pydantic_resolve_key("get_data_product_to_add")
 
 
-class AddDatasetDataProducts(DatasetDataproductsTransformer):
+class AddDatasetDataProduct(DatasetDataproductTransformer):
     """Transformer that adds dataproduct entity for provided dataset as its asset according to a callback function."""
 
     ctx: PipelineContext
-    config: AddDatasetDataProductsConfig
+    config: AddDatasetDataProductConfig
 
-    def __init__(self, config: AddDatasetDataProductsConfig, ctx: PipelineContext):
+    def __init__(self, config: AddDatasetDataProductConfig, ctx: PipelineContext):
         super().__init__()
         self.ctx = ctx
         self.config = config
 
     @classmethod
-    def create(
-        cls, config_dict: dict, ctx: PipelineContext
-    ) -> "AddDatasetDataProducts":
-        config = AddDatasetDataProductsConfig.parse_obj(config_dict)
+    def create(cls, config_dict: dict, ctx: PipelineContext) -> "AddDatasetDataProduct":
+        config = AddDatasetDataProductConfig.parse_obj(config_dict)
         return cls(config, ctx)
 
     def transform_aspect(
@@ -52,7 +53,7 @@ class AddDatasetDataProducts(DatasetDataproductsTransformer):
 
         logger.debug("Generating dataproducts")
         for entity_urn in self.entity_map.keys():
-            data_product_urn = self.config.get_data_products_to_add(entity_urn)
+            data_product_urn = self.config.get_data_product_to_add(entity_urn)
             if data_product_urn:
                 if data_product_urn not in data_products:
                     data_products[data_product_urn] = DataProductPatchBuilder(
@@ -75,13 +76,13 @@ class SimpleDatasetDataProductConfig(TransformerSemanticsConfigModel):
     dataset_to_data_product_urns: Dict[str, str]
 
 
-class SimpleAddDatasetDataProducts(AddDatasetDataProducts):
+class SimpleAddDatasetDataProduct(AddDatasetDataProduct):
     """Transformer that adds a specified dataproduct entity for provided dataset as its asset."""
 
     def __init__(self, config: SimpleDatasetDataProductConfig, ctx: PipelineContext):
 
-        generic_config = AddDatasetDataProductsConfig(
-            get_data_products_to_add=lambda dataset_urn: config.dataset_to_data_product_urns.get(
+        generic_config = AddDatasetDataProductConfig(
+            get_data_product_to_add=lambda dataset_urn: config.dataset_to_data_product_urns.get(
                 dataset_urn
             ),
             replace_existing=config.replace_existing,
@@ -92,6 +93,34 @@ class SimpleAddDatasetDataProducts(AddDatasetDataProducts):
     @classmethod
     def create(
         cls, config_dict: dict, ctx: PipelineContext
-    ) -> "SimpleAddDatasetDataProducts":
+    ) -> "SimpleAddDatasetDataProduct":
         config = SimpleDatasetDataProductConfig.parse_obj(config_dict)
+        return cls(config, ctx)
+
+
+class PatternDatasetDataProductConfig(TransformerSemanticsConfigModel):
+    dataset_to_data_product_urns_pattern: KeyValuePattern = KeyValuePattern.all()
+
+
+class PatternAddDatasetDataProduct(AddDatasetDataProduct):
+    """Transformer that adds a specified dataproduct entity for provided dataset as its asset."""
+
+    def __init__(self, config: PatternDatasetDataProductConfig, ctx: PipelineContext):
+        dataset_to_data_product = config.dataset_to_data_product_urns_pattern
+        generic_config = AddDatasetDataProductConfig(
+            get_data_product_to_add=lambda dataset_urn: dataset_to_data_product.value(
+                dataset_urn
+            )
+            if dataset_to_data_product.value(dataset_urn)
+            else None,
+            replace_existing=config.replace_existing,
+            semantics=config.semantics,
+        )
+        super().__init__(generic_config, ctx)
+
+    @classmethod
+    def create(
+        cls, config_dict: dict, ctx: PipelineContext
+    ) -> "PatternAddDatasetDataProduct":
+        config = PatternDatasetDataProductConfig.parse_obj(config_dict)
         return cls(config, ctx)
