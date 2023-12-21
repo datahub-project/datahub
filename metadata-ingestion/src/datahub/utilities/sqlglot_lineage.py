@@ -152,7 +152,11 @@ class _TableName(_FrozenModel):
 
     def as_sqlglot_table(self) -> sqlglot.exp.Table:
         return sqlglot.exp.Table(
-            catalog=self.database, db=self.db_schema, this=self.table
+            catalog=sqlglot.exp.Identifier(this=self.database)
+            if self.database
+            else None,
+            db=sqlglot.exp.Identifier(this=self.db_schema) if self.db_schema else None,
+            this=sqlglot.exp.Identifier(this=self.table),
         )
 
     def qualified(
@@ -502,10 +506,11 @@ DIALECTS_WITH_CASE_INSENSITIVE_COLS = {
     "mysql",
 }
 DIALECTS_WITH_DEFAULT_UPPERCASE_COLS = {
-    # Unquoted snowflake column identifiers are effectively case insensitive
+    # In some dialects, column identifiers are effectively case insensitive
     # because they are automatically converted to uppercase. Most other systems
     # automatically lowercase unquoted identifiers.
     "snowflake",
+    "mysql",
 }
 
 
@@ -522,7 +527,7 @@ class SqlUnderstandingError(Exception):
 def _column_level_lineage(  # noqa: C901
     statement: sqlglot.exp.Expression,
     dialect: str,
-    input_tables: Dict[_TableName, SchemaInfo],
+    table_schemas: Dict[_TableName, SchemaInfo],
     output_table: Optional[_TableName],
     default_db: Optional[str],
     default_schema: Optional[str],
@@ -551,7 +556,7 @@ def _column_level_lineage(  # noqa: C901
     table_schema_normalized_mapping: Dict[_TableName, Dict[str, str]] = defaultdict(
         dict
     )
-    for table, table_schema in input_tables.items():
+    for table, table_schema in table_schemas.items():
         normalized_table_schema: SchemaInfo = {}
         for col, col_type in table_schema.items():
             if use_case_insensitive_cols:
@@ -609,8 +614,10 @@ def _column_level_lineage(  # noqa: C901
 
     # Optimize the statement + qualify column references.
     logger.debug(
-        "Prior to qualification sql %s", statement.sql(pretty=True, dialect=dialect)
+        "Prior to column qualification sql %s",
+        statement.sql(pretty=True, dialect=dialect),
     )
+    breakpoint()
     try:
         # Second time running qualify, this time with:
         # - the select instead of the full outer statement
@@ -1078,7 +1085,7 @@ def _sqlglot_lineage_inner(
             column_lineage = _column_level_lineage(
                 select_statement,
                 dialect=dialect,
-                input_tables=table_name_schema_mapping,
+                table_schemas=table_name_schema_mapping,
                 output_table=downstream_table,
                 default_db=default_db,
                 default_schema=default_schema,
