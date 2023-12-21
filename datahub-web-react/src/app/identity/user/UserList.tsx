@@ -77,7 +77,7 @@ export const UserList = () => {
                 query: (query?.length && query) || undefined,
             },
         },
-        fetchPolicy: (query?.length || 0) > 0 ? 'no-cache' : 'cache-first',
+        fetchPolicy: 'no-cache',
     });
 
     const totalUsers = usersData?.listUsers?.total || 0;

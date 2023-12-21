@@ -1,14 +1,14 @@
 package datahub.protobuf.visitors.dataset;
 
 import static datahub.protobuf.TestFixtures.*;
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.testng.Assert.assertEquals;
 
 import datahub.protobuf.model.ProtobufGraph;
 import java.io.IOException;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
-import org.junit.jupiter.api.Test;
+import org.testng.annotations.Test;
 
 public class DescriptionVisitorTest {
 
