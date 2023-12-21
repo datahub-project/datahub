@@ -189,13 +189,11 @@ def test_exclude_name_config():
             },
         }
     ).config
-    if config.info_types_config["Email_Address"].ExcludeName is not None:
-        assert config.info_types_config["Email_Address"].ExcludeName.names == [
-            "email_sent",
-            "email_received",
-        ]
-    else:
-        raise AssertionError("ExcludeName is None")
+    assert config.info_types_config["Email_Address"].ExcludeName is not None
+    assert config.info_types_config["Email_Address"].ExcludeName == [
+        "email_sent",
+        "email_received",
+    ]
 
 
 def test_no_exclude_name_config():
