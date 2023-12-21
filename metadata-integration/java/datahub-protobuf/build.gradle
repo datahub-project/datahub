@@ -31,10 +31,10 @@ dependencies {
     implementation externalDependency.commonsCli
     implementation externalDependency.httpAsyncClient
     implementation externalDependency.slf4jApi
+    implementation externalDependency.jacksonCore
     compileOnly externalDependency.lombok
     annotationProcessor externalDependency.lombok
-    testImplementation externalDependency.junitJupiterApi
-    testRuntimeOnly externalDependency.junitJupiterEngine
+    testImplementation externalDependency.testng
 }
 
 import java.nio.file.Paths
@@ -61,10 +61,7 @@ jacocoTestReport {
     dependsOn test // tests are required to run before generating the report
 }
 
-test {
-    useJUnit()
-    finalizedBy jacocoTestReport
-}
+test.finalizedBy jacocoTestReport
 
 
 task checkShadowJar(type: Exec) {
