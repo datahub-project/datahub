@@ -52,7 +52,11 @@ class OpenApiConfig(ConfigModel):
     ignore_endpoints: list = Field(default=[], description="")
     username: str = Field(default="", description="")
     password: str = Field(default="", description="")
-    proxies: dict = Field(default={"http": None, "https": None}, description="")
+    proxies: dict = Field(default=None, description="Eg. "
+                                                    "'http': 'http://10.10.1.10:3128'"
+                                                    "'https': 'http://10.10.1.10:1080'"
+                                                    "If authentication is required, add it to the Url itself as "
+                                                    "http://user:pass@10.10.1.10:3128/")
     forced_examples: dict = Field(default={}, description="")
     token: Optional[str] = Field(default=None, description="")
     get_token: dict = Field(default={}, description="")

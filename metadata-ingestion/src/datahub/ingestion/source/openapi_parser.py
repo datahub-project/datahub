@@ -368,7 +368,7 @@ def get_tok(
             if "token" in cont:  # other authentication scheme
                 token = cont["token"]
             else:  # works only for bearer authentication scheme
-                token = "Bearer" + cont["tokens"]["access"]
+                token = f"Bearer {cont['tokens']['access']}"
     elif method == "get":
         # this will make a GET call with username and password
         response = requests.get(url4req)
