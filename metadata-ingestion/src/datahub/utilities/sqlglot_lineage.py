@@ -60,6 +60,8 @@ RULES_BEFORE_TYPE_ANNOTATION: tuple = tuple(
         ),
     )
 )
+# Quick check that the rules were loaded correctly.
+assert 0 < len(RULES_BEFORE_TYPE_ANNOTATION) < len(sqlglot.optimizer.optimizer.RULES)
 
 
 class GraphQLSchemaField(TypedDict):
@@ -482,6 +484,30 @@ _SupportedColumnLineageTypes = Union[
 ]
 _SupportedColumnLineageTypesTuple = (sqlglot.exp.Subqueryable, sqlglot.exp.DerivedTable)
 
+DIALECTS_WITH_CASE_INSENSITIVE_COLS = {
+    # Column identifiers are case-insensitive in BigQuery, so we need to
+    # do a normalization step beforehand to make sure it's resolved correctly.
+    "bigquery",
+    # Our snowflake source lowercases column identifiers, so we are forced
+    # to do fuzzy (case-insensitive) resolution instead of exact resolution.
+    "snowflake",
+    # Teradata column names are case-insensitive.
+    # A name, even when enclosed in double quotation marks, is not case sensitive. For example, CUSTOMER and Customer are the same.
+    # See more below:
+    # https://documentation.sas.com/doc/en/pgmsascdc/9.4_3.5/acreldb/n0ejgx4895bofnn14rlguktfx5r3.htm
+    "teradata",
+    # In sqlglot v20+, MySQL is now case-sensitive by default.
+    # However, MySQL's case sensitivity actually depends on the underlying OS.
+    # For us, it's simpler to just assume that it's case-insensitive.
+    "mysql",
+}
+DIALECTS_WITH_DEFAULT_UPPERCASE_COLS = {
+    # Unquoted snowflake column identifiers are effectively case insensitive
+    # because they are automatically converted to uppercase. Most other systems
+    # automatically lowercase unquoted identifiers.
+    "snowflake",
+}
+
 
 class UnsupportedStatementTypeError(TypeError):
     pass
@@ -515,19 +541,7 @@ def _column_level_lineage(  # noqa: C901
 
     column_lineage: List[_ColumnLineageInfo] = []
 
-    use_case_insensitive_cols = dialect in {
-        # Column identifiers are case-insensitive in BigQuery, so we need to
-        # do a normalization step beforehand to make sure it's resolved correctly.
-        "bigquery",
-        # Our snowflake source lowercases column identifiers, so we are forced
-        # to do fuzzy (case-insensitive) resolution instead of exact resolution.
-        "snowflake",
-        # Teradata column names are case-insensitive.
-        # A name, even when enclosed in double quotation marks, is not case sensitive. For example, CUSTOMER and Customer are the same.
-        # See more below:
-        # https://documentation.sas.com/doc/en/pgmsascdc/9.4_3.5/acreldb/n0ejgx4895bofnn14rlguktfx5r3.htm
-        "teradata",
-    }
+    use_case_insensitive_cols = dialect in DIALECTS_WITH_CASE_INSENSITIVE_COLS
 
     sqlglot_db_schema = sqlglot.MappingSchema(
         dialect=dialect,
@@ -544,7 +558,7 @@ def _column_level_lineage(  # noqa: C901
                 col_normalized = (
                     # This is required to match Sqlglot's behavior.
                     col.upper()
-                    if dialect in {"snowflake"}
+                    if dialect in DIALECTS_WITH_DEFAULT_UPPERCASE_COLS
                     else col.lower()
                 )
             else:
@@ -1204,13 +1218,13 @@ def detach_ctes(
                 full_new_name, dialect=dialect, into=sqlglot.exp.Table
             )
 
-            # We expect node.parent to be a Table or Column.
-            # Either way, it should support catalog/db/name.
             parent = node.parent
 
-            if "catalog" in parent.arg_types:
+            # We expect node.parent to be a Table or Column, both of which support catalog/db/name.
+            # However, we check the parent's arg_types to be safe.
+            if "catalog" in parent.arg_types and table_expr.catalog:
                 parent.set("catalog", table_expr.catalog)
-            if "db" in parent.arg_types:
+            if "db" in parent.arg_types and table_expr.db:
                 parent.set("db", table_expr.db)
 
             new_node = sqlglot.exp.Identifier(this=table_expr.name)

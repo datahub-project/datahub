@@ -975,3 +975,25 @@ UPDATE accounts SET (contact_first_name, contact_last_name) =
         },
         expected_file=RESOURCE_DIR / "test_postgres_complex_update.json",
     )
+
+
+def test_redshift_materialized_view_auto_refresh():
+    # Example query from the redshift docs: https://docs.aws.amazon.com/prescriptive-guidance/latest/materialized-views-redshift/refreshing-materialized-views.html
+    assert_sql_result(
+        """
+CREATE MATERIALIZED VIEW mv_total_orders
+AUTO REFRESH YES -- Add this clause to auto refresh the MV
+AS
+ SELECT c.cust_id,
+        c.first_name,
+        sum(o.amount) as total_amount
+ FROM orders o
+ JOIN customer c
+    ON c.cust_id = o.customer_id
+ GROUP BY c.cust_id,
+          c.first_name;
+""",
+        dialect="redshift",
+        expected_file=RESOURCE_DIR
+        / "test_redshift_materialized_view_auto_refresh.json",
+    )
