@@ -27,10 +27,5 @@ dependencies {
   testImplementation externalDependency.testng
   testImplementation externalDependency.mockito
   testImplementation externalDependency.mockitoInline
-  testImplementation externalDependency.swaggerCore
-  testImplementation spec.product.pegasus.dataAvro1_6
-  testImplementation('io.acryl:json-schema-avro:0.2.2') {
-    exclude group: 'com.fasterxml.jackson.core', module: 'jackson-databind'
-  }
 }
 compileTestJava.dependsOn tasks.getByPath(':entity-registry:custom-test-model:modelDeploy')

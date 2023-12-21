@@ -1,9 +1,13 @@
 package io.datahubproject.openapi.config;
 
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import io.datahubproject.openapi.converter.StringToChangeCategoryConverter;
+import io.datahubproject.openapi.v3.OpenAPIV3Generator;
 import io.swagger.v3.oas.annotations.OpenAPIDefinition;
 import io.swagger.v3.oas.annotations.info.Info;
 import io.swagger.v3.oas.annotations.servers.Server;
+import io.swagger.v3.oas.models.OpenAPI;
+import java.util.Collections;
 import java.util.List;
 import org.springdoc.core.GroupedOpenApi;
 import org.springframework.context.annotation.Bean;
@@ -42,7 +46,9 @@ public class SpringWebConfig implements WebMvcConfigurer {
     return GroupedOpenApi.builder()
         .group("default")
         .packagesToExclude(
-            "io.datahubproject.openapi.operations", "io.datahubproject.openapi.health")
+            "io.datahubproject.openapi.operations",
+            "io.datahubproject.openapi.health",
+            "io.datahubproject.openapi.v3")
         .build();
   }
 
@@ -51,6 +57,21 @@ public class SpringWebConfig implements WebMvcConfigurer {
     return GroupedOpenApi.builder()
         .group("operations")
         .packagesToScan("io.datahubproject.openapi.operations", "io.datahubproject.openapi.health")
+        .build();
+  }
+
+  @Bean
+  public GroupedOpenApi v3OpenApiGroup(final EntityRegistry entityRegistry) {
+    return GroupedOpenApi.builder()
+        .group("v3")
+        .addOpenApiCustomiser(
+            openApi -> {
+              OpenAPI v3OpenApi = OpenAPIV3Generator.generateOpenApiSpec(entityRegistry);
+              openApi.setInfo(v3OpenApi.getInfo());
+              openApi.setTags(Collections.emptyList());
+              openApi.setPaths(v3OpenApi.getPaths());
+              openApi.setComponents(v3OpenApi.getComponents());
+            })
         .build();
   }
 }
