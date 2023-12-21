@@ -1,0 +1,6 @@
+namespace com.linkedin.businessattribute
+import com.linkedin.common.Edge
+
+record BusinessAttributeAssociation includes Edge {
+
+}

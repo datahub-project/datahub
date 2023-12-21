@@ -724,6 +724,16 @@ type Mutation {
           urn: String!,
           "Inputs required to create a new Business Attribute."
           input: UpdateBusinessAttributeInput!): BusinessAttribute
+
+    """
+    Add Business Attribute
+    """
+    addBusinessAttribute(input: AddBusinessAttributeInput!): Boolean
+
+    """
+    Remove Business Attribute
+    """
+    removeBusinessAttribute(input: AddBusinessAttributeInput!): Boolean
 }
 
 """
@@ -11403,4 +11413,20 @@ input UpdateBusinessAttributeInput {
 	type
     """
     type: SchemaFieldDataType
+}
+
+"""
+Input required to attach Business Attribute
+If businessAttributeUrn is null, then it will remove the business attribute from the resource
+"""
+input AddBusinessAttributeInput {
+    """
+    The urn of the business attribute to add
+    """
+    businessAttributeUrn: String
+
+    """
+    resource urns to add the business attribute to
+    """
+    resourceUrn: ResourceRefInput!
 }

@@ -1,5 +1,79 @@
 {
   "models" : [ {
+    "type" : "record",
+    "name" : "BusinessAttributeAssociation",
+    "namespace" : "com.linkedin.businessattribute",
+    "include" : [ {
+      "type" : "record",
+      "name" : "Edge",
+      "namespace" : "com.linkedin.common",
+      "doc" : "A common structure to represent all edges to entities when used inside aspects as collections\nThis ensures that all edges have common structure around audit-stamps and will support PATCH, time-travel automatically.\n",
+      "fields" : [ {
+        "name" : "sourceUrn",
+        "type" : {
+          "type" : "typeref",
+          "name" : "Urn",
+          "ref" : "string",
+          "java" : {
+            "class" : "com.linkedin.common.urn.Urn"
+          }
+        },
+        "doc" : "Urn of the source of this relationship edge.\nIf not specified, assumed to be the entity that this aspect belongs to.",
+        "optional" : true
+      }, {
+        "name" : "destinationUrn",
+        "type" : "Urn",
+        "doc" : "Urn of the destination of this relationship edge."
+      }, {
+        "name" : "created",
+        "type" : {
+          "type" : "record",
+          "name" : "AuditStamp",
+          "doc" : "Data captured on a resource/association/sub-resource level giving insight into when that resource/association/sub-resource moved into a particular lifecycle stage, and who acted to move it into that specific lifecycle stage.",
+          "fields" : [ {
+            "name" : "time",
+            "type" : {
+              "type" : "typeref",
+              "name" : "Time",
+              "doc" : "Number of milliseconds since midnight, January 1, 1970 UTC. It must be a positive number",
+              "ref" : "long"
+            },
+            "doc" : "When did the resource/association/sub-resource move into the specific lifecycle stage represented by this AuditEvent."
+          }, {
+            "name" : "actor",
+            "type" : "Urn",
+            "doc" : "The entity (e.g. a member URN) which will be credited for moving the resource/association/sub-resource into the specific lifecycle stage. It is also the one used to authorize the change."
+          }, {
+            "name" : "impersonator",
+            "type" : "Urn",
+            "doc" : "The entity (e.g. a service URN) which performs the change on behalf of the Actor and must be authorized to act as the Actor.",
+            "optional" : true
+          }, {
+            "name" : "message",
+            "type" : "string",
+            "doc" : "Additional context around how DataHub was informed of the particular change. For example: was the change created by an automated process, or manually.",
+            "optional" : true
+          } ]
+        },
+        "doc" : "Audit stamp containing who created this relationship edge and when",
+        "optional" : true
+      }, {
+        "name" : "lastModified",
+        "type" : "AuditStamp",
+        "doc" : "Audit stamp containing who last modified this relationship edge and when",
+        "optional" : true
+      }, {
+        "name" : "properties",
+        "type" : {
+          "type" : "map",
+          "values" : "string"
+        },
+        "doc" : "A generic properties bag that allows us to store specific information on this graph edge.",
+        "optional" : true
+      } ]
+    } ],
+    "fields" : [ ]
+  }, {
     "type" : "typeref",
     "name" : "ChartDataSourceType",
     "namespace" : "com.linkedin.chart",
@@ -111,42 +185,7 @@
         "doc" : "Data captured on a resource/association/sub-resource level giving insight into when that resource/association/sub-resource moved into various lifecycle stages, and who acted to move it into those lifecycle stages. The recommended best practice is to include this record in your record schema, and annotate its fields as @readOnly in your resource. See https://github.com/linkedin/rest.li/wiki/Validation-in-Rest.li#restli-validation-annotations",
         "fields" : [ {
           "name" : "created",
-          "type" : {
-            "type" : "record",
-            "name" : "AuditStamp",
-            "doc" : "Data captured on a resource/association/sub-resource level giving insight into when that resource/association/sub-resource moved into a particular lifecycle stage, and who acted to move it into that specific lifecycle stage.",
-            "fields" : [ {
-              "name" : "time",
-              "type" : {
-                "type" : "typeref",
-                "name" : "Time",
-                "doc" : "Number of milliseconds since midnight, January 1, 1970 UTC. It must be a positive number",
-                "ref" : "long"
-              },
-              "doc" : "When did the resource/association/sub-resource move into the specific lifecycle stage represented by this AuditEvent."
-            }, {
-              "name" : "actor",
-              "type" : {
-                "type" : "typeref",
-                "name" : "Urn",
-                "ref" : "string",
-                "java" : {
-                  "class" : "com.linkedin.common.urn.Urn"
-                }
-              },
-              "doc" : "The entity (e.g. a member URN) which will be credited for moving the resource/association/sub-resource into the specific lifecycle stage. It is also the one used to authorize the change."
-            }, {
-              "name" : "impersonator",
-              "type" : "Urn",
-              "doc" : "The entity (e.g. a service URN) which performs the change on behalf of the Actor and must be authorized to act as the Actor.",
-              "optional" : true
-            }, {
-              "name" : "message",
-              "type" : "string",
-              "doc" : "Additional context around how DataHub was informed of the particular change. For example: was the change created by an automated process, or manually.",
-              "optional" : true
-            } ]
-          },
+          "type" : "AuditStamp",
           "doc" : "An AuditStamp corresponding to the creation of this resource/association/sub-resource. A value of 0 for time indicates missing data.",
           "default" : {
             "actor" : "urn:li:corpuser:unknown",
@@ -196,40 +235,7 @@
       "name" : "inputEdges",
       "type" : {
         "type" : "array",
-        "items" : {
-          "type" : "record",
-          "name" : "Edge",
-          "namespace" : "com.linkedin.common",
-          "doc" : "A common structure to represent all edges to entities when used inside aspects as collections\nThis ensures that all edges have common structure around audit-stamps and will support PATCH, time-travel automatically.\n",
-          "fields" : [ {
-            "name" : "sourceUrn",
-            "type" : "Urn",
-            "doc" : "Urn of the source of this relationship edge.\nIf not specified, assumed to be the entity that this aspect belongs to.",
-            "optional" : true
-          }, {
-            "name" : "destinationUrn",
-            "type" : "Urn",
-            "doc" : "Urn of the destination of this relationship edge."
-          }, {
-            "name" : "created",
-            "type" : "AuditStamp",
-            "doc" : "Audit stamp containing who created this relationship edge and when",
-            "optional" : true
-          }, {
-            "name" : "lastModified",
-            "type" : "AuditStamp",
-            "doc" : "Audit stamp containing who last modified this relationship edge and when",
-            "optional" : true
-          }, {
-            "name" : "properties",
-            "type" : {
-              "type" : "map",
-              "values" : "string"
-            },
-            "doc" : "A generic properties bag that allows us to store specific information on this graph edge.",
-            "optional" : true
-          } ]
-        }
+        "items" : "com.linkedin.common.Edge"
       },
       "doc" : "Data sources for the chart",
       "optional" : true,
@@ -3511,54 +3517,75 @@
                         "type" : "record",
                         "name" : "EditableSchemaFieldInfo",
                         "doc" : "SchemaField to describe metadata related to dataset schema.",
+                        "include" : [ {
+                          "type" : "record",
+                          "name" : "EditableSchemaFieldBase",
+                          "doc" : "Base class to describe metadata related to dataset schema.",
+                          "fields" : [ {
+                            "name" : "fieldPath",
+                            "type" : "string",
+                            "doc" : "FieldPath uniquely identifying the SchemaField this metadata is associated with"
+                          }, {
+                            "name" : "description",
+                            "type" : "string",
+                            "doc" : "Description",
+                            "optional" : true,
+                            "Searchable" : {
+                              "boostScore" : 0.1,
+                              "fieldName" : "editedFieldDescriptions",
+                              "fieldType" : "TEXT"
+                            }
+                          }, {
+                            "name" : "globalTags",
+                            "type" : "com.linkedin.common.GlobalTags",
+                            "doc" : "Tags associated with the field",
+                            "optional" : true,
+                            "Relationship" : {
+                              "/tags/*/tag" : {
+                                "entityTypes" : [ "tag" ],
+                                "name" : "EditableSchemaFieldTaggedWith"
+                              }
+                            },
+                            "Searchable" : {
+                              "/tags/*/tag" : {
+                                "boostScore" : 0.5,
+                                "fieldName" : "editedFieldTags",
+                                "fieldType" : "URN"
+                              }
+                            }
+                          }, {
+                            "name" : "glossaryTerms",
+                            "type" : "com.linkedin.common.GlossaryTerms",
+                            "doc" : "Glossary terms associated with the field",
+                            "optional" : true,
+                            "Relationship" : {
+                              "/terms/*/urn" : {
+                                "entityTypes" : [ "glossaryTerm" ],
+                                "name" : "EditableSchemaFieldWithGlossaryTerm"
+                              }
+                            },
+                            "Searchable" : {
+                              "/terms/*/urn" : {
+                                "boostScore" : 0.5,
+                                "fieldName" : "editedFieldGlossaryTerms",
+                                "fieldType" : "URN"
+                              }
+                            }
+                          } ]
+                        } ],
                         "fields" : [ {
-                          "name" : "fieldPath",
-                          "type" : "string",
-                          "doc" : "FieldPath uniquely identifying the SchemaField this metadata is associated with"
-                        }, {
-                          "name" : "description",
-                          "type" : "string",
-                          "doc" : "Description",
-                          "optional" : true,
-                          "Searchable" : {
-                            "boostScore" : 0.1,
-                            "fieldName" : "editedFieldDescriptions",
-                            "fieldType" : "TEXT"
-                          }
-                        }, {
-                          "name" : "globalTags",
-                          "type" : "com.linkedin.common.GlobalTags",
-                          "doc" : "Tags associated with the field",
+                          "name" : "businessAttribute",
+                          "type" : "com.linkedin.businessattribute.BusinessAttributeAssociation",
+                          "doc" : "Business Attribute for this field.",
                           "optional" : true,
                           "Relationship" : {
-                            "/tags/*/tag" : {
-                              "entityTypes" : [ "tag" ],
-                              "name" : "EditableSchemaFieldTaggedWith"
-                            }
-                          },
-                          "Searchable" : {
-                            "/tags/*/tag" : {
-                              "boostScore" : 0.5,
-                              "fieldName" : "editedFieldTags",
-                              "fieldType" : "URN"
-                            }
-                          }
-                        }, {
-                          "name" : "glossaryTerms",
-                          "type" : "com.linkedin.common.GlossaryTerms",
-                          "doc" : "Glossary terms associated with the field",
-                          "optional" : true,
-                          "Relationship" : {
-                            "/terms/*/urn" : {
-                              "entityTypes" : [ "glossaryTerm" ],
-                              "name" : "EditableSchemaFieldWithGlossaryTerm"
-                            }
-                          },
-                          "Searchable" : {
-                            "/terms/*/urn" : {
-                              "boostScore" : 0.5,
-                              "fieldName" : "editedFieldGlossaryTerms",
-                              "fieldType" : "URN"
+                            "/destinationUrn" : {
+                              "createdActor" : "businessAttribute/created/actor",
+                              "createdOn" : "businessAttribute/created/time",
+                              "entityTypes" : [ "businessAttribute" ],
+                              "name" : "EditableSchemaFieldWithBusinessAttribute",
+                              "updatedActor" : "businessAttribute/lastModified/actor",
+                              "updatedOn" : "businessAttribute/lastModified/time"
                             }
                           }
                         } ]
@@ -6282,13 +6309,14 @@
       "doc" : "Additional properties",
       "optional" : true
     } ]
-  }, "com.linkedin.policy.DataHubActorFilter", "com.linkedin.policy.DataHubPolicyInfo", "com.linkedin.policy.DataHubResourceFilter", "com.linkedin.policy.PolicyMatchCondition", "com.linkedin.policy.PolicyMatchCriterion", "com.linkedin.policy.PolicyMatchFilter", "com.linkedin.retention.DataHubRetentionConfig", "com.linkedin.retention.Retention", "com.linkedin.retention.TimeBasedRetention", "com.linkedin.retention.VersionBasedRetention", "com.linkedin.schema.ArrayType", "com.linkedin.schema.BinaryJsonSchema", "com.linkedin.schema.BooleanType", "com.linkedin.schema.BytesType", "com.linkedin.schema.DatasetFieldForeignKey", "com.linkedin.schema.DateType", "com.linkedin.schema.EditableSchemaFieldInfo", "com.linkedin.schema.EditableSchemaMetadata", "com.linkedin.schema.EnumType", "com.linkedin.schema.EspressoSchema", "com.linkedin.schema.FixedType", "com.linkedin.schema.ForeignKeyConstraint", "com.linkedin.schema.ForeignKeySpec", "com.linkedin.schema.KafkaSchema", "com.linkedin.schema.KeyValueSchema", "com.linkedin.schema.MapType", "com.linkedin.schema.MySqlDDL", "com.linkedin.schema.NullType", "com.linkedin.schema.NumberType", "com.linkedin.schema.OracleDDL", "com.linkedin.schema.OrcSchema", "com.linkedin.schema.OtherSchema", "com.linkedin.schema.PrestoDDL", "com.linkedin.schema.RecordType", "com.linkedin.schema.SchemaField", "com.linkedin.schema.SchemaFieldDataType", "com.linkedin.schema.SchemaMetadata", "com.linkedin.schema.SchemaMetadataKey", "com.linkedin.schema.Schemaless", "com.linkedin.schema.StringType", "com.linkedin.schema.TimeType", "com.linkedin.schema.UnionType", "com.linkedin.schema.UrnForeignKey", "com.linkedin.tag.TagProperties" ],
+  }, "com.linkedin.policy.DataHubActorFilter", "com.linkedin.policy.DataHubPolicyInfo", "com.linkedin.policy.DataHubResourceFilter", "com.linkedin.policy.PolicyMatchCondition", "com.linkedin.policy.PolicyMatchCriterion", "com.linkedin.policy.PolicyMatchFilter", "com.linkedin.retention.DataHubRetentionConfig", "com.linkedin.retention.Retention", "com.linkedin.retention.TimeBasedRetention", "com.linkedin.retention.VersionBasedRetention", "com.linkedin.schema.ArrayType", "com.linkedin.schema.BinaryJsonSchema", "com.linkedin.schema.BooleanType", "com.linkedin.schema.BytesType", "com.linkedin.schema.DatasetFieldForeignKey", "com.linkedin.schema.DateType", "com.linkedin.schema.EditableSchemaFieldBase", "com.linkedin.schema.EditableSchemaFieldInfo", "com.linkedin.schema.EditableSchemaMetadata", "com.linkedin.schema.EnumType", "com.linkedin.schema.EspressoSchema", "com.linkedin.schema.FixedType", "com.linkedin.schema.ForeignKeyConstraint", "com.linkedin.schema.ForeignKeySpec", "com.linkedin.schema.KafkaSchema", "com.linkedin.schema.KeyValueSchema", "com.linkedin.schema.MapType", "com.linkedin.schema.MySqlDDL", "com.linkedin.schema.NullType", "com.linkedin.schema.NumberType", "com.linkedin.schema.OracleDDL", "com.linkedin.schema.OrcSchema", "com.linkedin.schema.OtherSchema", "com.linkedin.schema.PrestoDDL", "com.linkedin.schema.RecordType", "com.linkedin.schema.SchemaField", "com.linkedin.schema.SchemaFieldDataType", "com.linkedin.schema.SchemaMetadata", "com.linkedin.schema.SchemaMetadataKey", "com.linkedin.schema.Schemaless", "com.linkedin.schema.StringType", "com.linkedin.schema.TimeType", "com.linkedin.schema.UnionType", "com.linkedin.schema.UrnForeignKey", "com.linkedin.tag.TagProperties" ],
   "schema" : {
     "name" : "entities",
     "namespace" : "com.linkedin.entity",
     "path" : "/entities",
     "schema" : "com.linkedin.entity.Entity",
     "doc" : "Single unified resource for fetching, updating, searching, & browsing DataHub entities\n\ngenerated from: com.linkedin.metadata.resources.entity.EntityResource",
+    "resourceClass" : "com.linkedin.metadata.resources.entity.EntityResource",
     "collection" : {
       "identifier" : {
         "name" : "entitiesId",
@@ -6297,6 +6325,7 @@
       "supports" : [ "batch_get", "get" ],
       "methods" : [ {
         "method" : "get",
+        "javaMethodName" : "get",
         "doc" : "Retrieves the value for an entity that is made up of latest versions of specified aspects.",
         "parameters" : [ {
           "name" : "aspects",
@@ -6305,6 +6334,7 @@
         } ]
       }, {
         "method" : "batch_get",
+        "javaMethodName" : "batchGet",
         "parameters" : [ {
           "name" : "aspects",
           "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }",
@@ -6313,6 +6343,7 @@
       } ],
       "actions" : [ {
         "name" : "applyRetention",
+        "javaMethodName" : "applyRetention",
         "parameters" : [ {
           "name" : "start",
           "type" : "int",
@@ -6337,6 +6368,7 @@
         "returns" : "string"
       }, {
         "name" : "autocomplete",
+        "javaMethodName" : "autocomplete",
         "parameters" : [ {
           "name" : "entity",
           "type" : "string"
@@ -6358,6 +6390,7 @@
         "returns" : "com.linkedin.metadata.query.AutoCompleteResult"
       }, {
         "name" : "batchGetTotalEntityCount",
+        "javaMethodName" : "batchGetTotalEntityCount",
         "parameters" : [ {
           "name" : "entities",
           "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }"
@@ -6365,6 +6398,7 @@
         "returns" : "{ \"type\" : \"map\", \"values\" : \"long\" }"
       }, {
         "name" : "batchIngest",
+        "javaMethodName" : "batchIngest",
         "parameters" : [ {
           "name" : "entities",
           "type" : "{ \"type\" : \"array\", \"items\" : \"com.linkedin.entity.Entity\" }"
@@ -6375,6 +6409,7 @@
         } ]
       }, {
         "name" : "browse",
+        "javaMethodName" : "browse",
         "parameters" : [ {
           "name" : "entity",
           "type" : "string"
@@ -6395,6 +6430,7 @@
         "returns" : "com.linkedin.metadata.browse.BrowseResult"
       }, {
         "name" : "delete",
+        "javaMethodName" : "deleteEntity",
         "doc" : "Deletes all data related to an individual urn(entity).\nService Returns: - a DeleteEntityResponse object.",
         "parameters" : [ {
           "name" : "urn",
@@ -6419,6 +6455,7 @@
         "returns" : "com.linkedin.metadata.run.DeleteEntityResponse"
       }, {
         "name" : "deleteAll",
+        "javaMethodName" : "deleteEntities",
         "parameters" : [ {
           "name" : "registryId",
           "type" : "string",
@@ -6431,6 +6468,7 @@
         "returns" : "com.linkedin.metadata.run.RollbackResponse"
       }, {
         "name" : "deleteReferences",
+        "javaMethodName" : "deleteReferencesTo",
         "parameters" : [ {
           "name" : "urn",
           "type" : "string"
@@ -6442,6 +6480,7 @@
         "returns" : "com.linkedin.metadata.run.DeleteReferencesResponse"
       }, {
         "name" : "exists",
+        "javaMethodName" : "exists",
         "parameters" : [ {
           "name" : "urn",
           "type" : "string"
@@ -6449,6 +6488,7 @@
         "returns" : "boolean"
       }, {
         "name" : "filter",
+        "javaMethodName" : "filter",
         "parameters" : [ {
           "name" : "entity",
           "type" : "string"
@@ -6469,6 +6509,7 @@
         "returns" : "com.linkedin.metadata.search.SearchResult"
       }, {
         "name" : "getBrowsePaths",
+        "javaMethodName" : "getBrowsePaths",
         "parameters" : [ {
           "name" : "urn",
           "type" : "com.linkedin.common.Urn"
@@ -6476,6 +6517,7 @@
         "returns" : "{ \"type\" : \"array\", \"items\" : \"string\" }"
       }, {
         "name" : "getTotalEntityCount",
+        "javaMethodName" : "getTotalEntityCount",
         "parameters" : [ {
           "name" : "entity",
           "type" : "string"
@@ -6483,6 +6525,7 @@
         "returns" : "long"
       }, {
         "name" : "ingest",
+        "javaMethodName" : "ingest",
         "parameters" : [ {
           "name" : "entity",
           "type" : "com.linkedin.entity.Entity"
@@ -6493,6 +6536,7 @@
         } ]
       }, {
         "name" : "list",
+        "javaMethodName" : "list",
         "parameters" : [ {
           "name" : "entity",
           "type" : "string"
@@ -6514,6 +6558,7 @@
         "returns" : "com.linkedin.metadata.query.ListResult"
       }, {
         "name" : "listUrns",
+        "javaMethodName" : "listUrns",
         "parameters" : [ {
           "name" : "entity",
           "type" : "string"
@@ -6527,6 +6572,7 @@
         "returns" : "com.linkedin.metadata.query.ListUrnsResult"
       }, {
         "name" : "scrollAcrossEntities",
+        "javaMethodName" : "scrollAcrossEntities",
         "parameters" : [ {
           "name" : "entities",
           "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }",
@@ -6559,6 +6605,7 @@
         "returns" : "com.linkedin.metadata.search.ScrollResult"
       }, {
         "name" : "scrollAcrossLineage",
+        "javaMethodName" : "scrollAcrossLineage",
         "parameters" : [ {
           "name" : "urn",
           "type" : "string"
@@ -6610,6 +6657,7 @@
         "returns" : "com.linkedin.metadata.search.LineageScrollResult"
       }, {
         "name" : "search",
+        "javaMethodName" : "search",
         "parameters" : [ {
           "name" : "entity",
           "type" : "string"
@@ -6645,6 +6693,7 @@
         "returns" : "com.linkedin.metadata.search.SearchResult"
       }, {
         "name" : "searchAcrossEntities",
+        "javaMethodName" : "searchAcrossEntities",
         "parameters" : [ {
           "name" : "entities",
           "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }",
@@ -6674,6 +6723,7 @@
         "returns" : "com.linkedin.metadata.search.SearchResult"
       }, {
         "name" : "searchAcrossLineage",
+        "javaMethodName" : "searchAcrossLineage",
         "parameters" : [ {
           "name" : "urn",
           "type" : "string"
@@ -6722,6 +6772,7 @@
         "returns" : "com.linkedin.metadata.search.LineageSearchResult"
       }, {
         "name" : "setWritable",
+        "javaMethodName" : "setWriteable",
         "parameters" : [ {
           "name" : "value",
           "type" : "boolean",

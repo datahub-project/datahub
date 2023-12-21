@@ -105,9 +105,11 @@ import com.linkedin.datahub.graphql.resolvers.auth.RevokeAccessTokenResolver;
 import com.linkedin.datahub.graphql.resolvers.browse.BrowsePathsResolver;
 import com.linkedin.datahub.graphql.resolvers.browse.BrowseResolver;
 import com.linkedin.datahub.graphql.resolvers.browse.EntityBrowsePathsResolver;
+import com.linkedin.datahub.graphql.resolvers.businessattribute.AddBusinessAttributeResolver;
 import com.linkedin.datahub.graphql.resolvers.businessattribute.CreateBusinessAttributeResolver;
 import com.linkedin.datahub.graphql.resolvers.businessattribute.DeleteBusinessAttributeResolver;
 import com.linkedin.datahub.graphql.resolvers.businessattribute.ListBusinessAttributesResolver;
+import com.linkedin.datahub.graphql.resolvers.businessattribute.RemoveBusinessAttributeResolver;
 import com.linkedin.datahub.graphql.resolvers.businessattribute.UpdateBusinessAttributeResolver;
 import com.linkedin.datahub.graphql.resolvers.chart.BrowseV2Resolver;
 import com.linkedin.datahub.graphql.resolvers.chart.ChartStatsSummaryResolver;
@@ -1042,6 +1044,8 @@ public class GmsGraphQLEngine {
             .dataFetcher("createBusinessAttribute", new CreateBusinessAttributeResolver(this.entityClient, this.entityService, this.businessAttributeService))
             .dataFetcher("updateBusinessAttribute", new UpdateBusinessAttributeResolver(this.entityClient, this.businessAttributeService))
             .dataFetcher("deleteBusinessAttribute", new DeleteBusinessAttributeResolver(this.entityClient))
+            .dataFetcher("addBusinessAttribute", new AddBusinessAttributeResolver(this.entityClient, this.entityService))
+            .dataFetcher("removeBusinessAttribute", new RemoveBusinessAttributeResolver(this.entityClient, this.entityService))
         );
     }
 

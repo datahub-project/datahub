@@ -1,8 +1,19 @@
 namespace com.linkedin.schema
+import com.linkedin.businessattribute.BusinessAttributeAssociation
 
 /**
  * SchemaField to describe metadata related to dataset schema.
  */
 record EditableSchemaFieldInfo includes EditableSchemaFieldBase {
 
+      /**
+       * Business Attribute for this field.
+       */
+      @Relationship = {
+        "/destinationUrn": {
+          "name": "EditableSchemaFieldWithBusinessAttribute",
+          "entityTypes": [ "businessAttribute" ]
+        }
+      }
+    businessAttribute: optional BusinessAttributeAssociation
 }
