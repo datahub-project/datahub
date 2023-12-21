@@ -122,6 +122,7 @@ const championSections = [
           linkedin: "https://www.linkedin.com/in/li-haihui",
           github: "https://github.com/HarveyLeo",
           },
+        location: "Singapore"
         },
       {
         name: "Fredrik Sannholm",
@@ -137,7 +138,22 @@ const championSections = [
         ),        
         social: {
           },
+        location: "Finland"
         },
+        {
+          name: "Scott Maciej",
+          position: "Optum",
+          image: "https://raw.githubusercontent.com/datahub-project/static-assets/champ-img/imgs/datahub-champions/initials/sm.jpg",
+          bio: (
+            <>
+              <p>
+              </p>
+            </>
+          ),
+          social: {
+            },
+          location: "USA"
+      },
       {
         name: "Tim Bossenmaier",
         image: "https://raw.githubusercontent.com/datahub-project/static-assets/champ-img/imgs/datahub-champions/tim_bossenmaier.jpeg",
@@ -198,6 +214,7 @@ const championSections = [
         ),
         social: {
           },
+        location: "Australia"
       },
       {
         name: "Felipe Gusmao",
@@ -212,6 +229,7 @@ const championSections = [
         ),
         social: {
           },
+        location: "Toronto, Canada"
        },
        {
         name: "Sudhakara ST",
@@ -256,6 +274,7 @@ const championSections = [
         ),
         social: {
           },
+        location: "USA"
       },
       {
         name: "Tim Drahn",
@@ -287,6 +306,7 @@ const championSections = [
         ),
         social: {
           },
+        location: "USA"
       },
       {
         name: "Anjali Arora",
@@ -300,6 +320,7 @@ const championSections = [
         ),
         social: {
           },
+          location: "USA"
       },
       {
         name: "Raj Tekal",
