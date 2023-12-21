@@ -62,7 +62,7 @@ def generate(
         entity_registry=entity_registry,
         pdl_path=pdl_path,
         schemas_path=schemas_path,
-        outdir=str(src_path / "models"),
+        outdir=str(src_path / "metadata"),
         enable_custom_loader=False,
     )
 
@@ -91,13 +91,13 @@ setup(
     ],
     package_data={{
         "{python_package_name}": ["py.typed"],
-        "{python_package_name}.models": ["schema.avsc"],
-        "{python_package_name}.models.schemas": ["*.avsc"],
+        "{python_package_name}.metadata": ["schema.avsc"],
+        "{python_package_name}.metadata.schemas": ["*.avsc"],
     }},
     entry_points={{
         "datahub.custom_packages": [
-            "models={python_package_name}.models.schema_classes",
-            "urns={python_package_name}.models._urns.urn_defs",
+            "models={python_package_name}.metadata.schema_classes",
+            "urns={python_package_name}.metadata._urns.urn_defs",
         ],
     }},
 )
