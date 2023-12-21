@@ -50,6 +50,7 @@ export const DEFAULT_APP_CONFIG = {
         showAcrylInfo: false,
         showAccessManagement: false,
         nestedDomainsEnabled: true,
+        platformBrowseV2: false,
     },
 };
 

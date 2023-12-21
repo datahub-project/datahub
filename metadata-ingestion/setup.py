@@ -14,9 +14,10 @@ base_requirements = {
     "mypy_extensions>=0.4.3",
     # Actual dependencies.
     "typing-inspect",
+    # pydantic 1.8.2 is incompatible with mypy 0.910.
+    # See https://github.com/samuelcolvin/pydantic/pull/3175#issuecomment-995382910.
     # pydantic 1.10.3 is incompatible with typing-extensions 4.1.1 - https://github.com/pydantic/pydantic/issues/4885
-    # pydantic 2 makes major, backwards-incompatible changes - https://github.com/pydantic/pydantic/issues/4887
-    "pydantic>=1.5.1,!=1.10.3,<2",
+    "pydantic>=1.10.0,!=1.10.3",
     "mixpanel>=4.9.0",
     "sentry-sdk",
 }
@@ -51,6 +52,18 @@ framework_common = {
     "jsonschema<=4.17.3; python_version < '3.8'",
     "jsonschema; python_version >= '3.8'",
     "ruamel.yaml",
+}
+
+pydantic_no_v2 = {
+    # pydantic 2 makes major, backwards-incompatible changes - https://github.com/pydantic/pydantic/issues/4887
+    # Tags sources that require the pydantic v2 API.
+    "pydantic<2",
+}
+
+plugin_common = {
+    # While pydantic v2 support is experimental, require that all plugins
+    # continue to use v1. This will ensure that no ingestion recipes break.
+    *pydantic_no_v2,
 }
 
 rest_common = {"requests", "requests_file"}
@@ -118,6 +131,7 @@ sql_common = (
         "sqlalchemy>=1.4.39, <2",
         # Required for SQL profiling.
         "great-expectations>=0.15.12, <=0.15.50",
+        *pydantic_no_v2,  # because of great-expectations
         # scipy version restricted to reduce backtracking, used by great-expectations,
         "scipy>=1.7.2",
         # GE added handling for higher version of jinja2
@@ -229,6 +243,7 @@ microsoft_common = {"msal==1.22.0"}
 iceberg_common = {
     # Iceberg Python SDK
     "pyiceberg",
+    *pydantic_no_v2,  # because of pyiceberg
     "pyarrow>=9.0.0, <13.0.0",
 }
 
@@ -354,7 +369,11 @@ plugins: Dict[str, Set[str]] = {
     "mlflow": {"mlflow-skinny>=2.3.0"},
     "mode": {"requests", "tenacity>=8.0.1"} | sqllineage_lib,
     "mongodb": {"pymongo[srv]>=3.11", "packaging"},
-    "mssql": sql_common | {"sqlalchemy-pytds>=0.3", "pyOpenSSL"},
+    "mssql": sql_common
+    | {
+        "sqlalchemy-pytds>=0.3",
+        "pyOpenSSL",
+    },
     "mssql-odbc": sql_common | {"pyodbc"},
     "mysql": mysql,
     # mariadb should have same dependency as mysql
@@ -368,7 +387,11 @@ plugins: Dict[str, Set[str]] = {
     | {"psycopg2-binary", "pymysql>=1.0.2"},
     "pulsar": {"requests"},
     "redash": {"redash-toolbelt", "sql-metadata"} | sqllineage_lib,
-    "redshift": sql_common | redshift_common | usage_common | sqlglot_lib,
+    "redshift": sql_common
+    | redshift_common
+    | usage_common
+    | sqlglot_lib
+    | {"cachetools"},
     "s3": {*s3_base, *data_lake_profiling},
     "gcs": {*s3_base, *data_lake_profiling},
     "sagemaker": aws_common,
@@ -469,9 +492,6 @@ base_dev_requirements = {
     "flake8-bugbear==23.3.12",
     "isort>=5.7.0",
     "mypy==1.0.0",
-    # pydantic 1.8.2 is incompatible with mypy 0.910.
-    # See https://github.com/samuelcolvin/pydantic/pull/3175#issuecomment-995382910.
-    "pydantic>=1.10.0",
     *test_api_requirements,
     pytest_dep,
     "pytest-asyncio>=0.16.0",
@@ -555,7 +575,7 @@ full_test_dev_requirements = {
             "kafka-connect",
             "ldap",
             "mongodb",
-            "mssql",
+            "mssql" if sys.version_info >= (3, 8) else None,
             "mysql",
             "mariadb",
             "redash",
@@ -735,7 +755,22 @@ See the [DataHub docs](https://datahubproject.io/docs/metadata-ingestion).
     extras_require={
         "base": list(framework_common),
         **{
-            plugin: list(framework_common | dependencies)
+            plugin: list(
+                framework_common
+                | (
+                    plugin_common
+                    if plugin
+                    not in {
+                        "airflow",
+                        "datahub-rest",
+                        "datahub-kafka",
+                        "sync-file-emitter",
+                        "sql-parser",
+                    }
+                    else set()
+                )
+                | dependencies
+            )
             for (plugin, dependencies) in plugins.items()
         },
         "all": list(
