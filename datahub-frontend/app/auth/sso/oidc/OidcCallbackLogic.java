@@ -539,7 +539,7 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
         throw new RuntimeException(
             String.format(
                 "User with urn %s has not yet been provisioned in DataHub. "
-                        + "Please contact your DataHub admin to provision an account.",
+                    + "Please contact your DataHub admin to provision an account.",
                 urn));
       }
       // Otherwise, the user exists.
