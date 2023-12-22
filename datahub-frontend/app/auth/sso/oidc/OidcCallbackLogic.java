@@ -307,7 +307,6 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
         if (groupAttribute instanceof Collection) {
           // List of group names
           groupNames = (Collection<String>) profile.getAttribute(groupsClaimName, Collection.class);
-          log.error("groupNames: " + groupNames);
         } else if (groupAttribute instanceof String) {
           String groupString = (String) groupAttribute;
           ObjectMapper objectMapper = new ObjectMapper();
@@ -325,9 +324,9 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
           }
         }
       } catch (Exception e) {
-        String.format(
+        log.error(String.format(
                 "Failed to parse group names: Expected to find a list of strings for attribute with name %s, found %s",
-                groupsClaimName, profile.getAttribute(groupsClaimName).getClass());
+                groupsClaimName, profile.getAttribute(groupsClaimName).getClass()));
       }
       return groupNames;
   }
