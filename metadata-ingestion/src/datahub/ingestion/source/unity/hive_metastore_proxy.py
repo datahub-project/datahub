@@ -38,6 +38,21 @@ type_map = {
     "binary": ColumnTypeName.BINARY,
 }
 
+column_stat_property_map = {
+    "num_nulls": "spark.sql.statistics.colStats.{column}.nullCount",
+    "distinct_count": "spark.sql.statistics.colStats.{column}.distinctCount",
+    "min": "spark.sql.statistics.colStats.{column}.min",
+    "max": "spark.sql.statistics.colStats.{column}.max",
+    "avg_col_len": "spark.sql.statistics.colStats.{column}.avgLen",
+    "max_col_len": "spark.sql.statistics.colStats.{column}.maxLen",
+    "version": "spark.sql.statistics.colStats.{column}.version",
+}
+
+table_stats_property_map = {
+    "rows": "spark.sql.statistics.numRows",
+    "bytes": "spark.sql.statistics.totalSize",
+}
+
 
 class HiveMetastoreProxy(Closeable):
     # TODO: Support for view lineage using SQL parsing
@@ -67,7 +82,7 @@ class HiveMetastoreProxy(Closeable):
 
     def hive_metastore_catalog(self, metastore: Optional[Metastore]) -> Catalog:
         return Catalog(
-            id=HIVE_METASTORE,
+            id=f"{metastore.id}.{HIVE_METASTORE}" if metastore else HIVE_METASTORE,
             name=HIVE_METASTORE,
             comment=None,
             metastore=metastore,
@@ -95,7 +110,13 @@ class HiveMetastoreProxy(Closeable):
                 continue
             yield self._get_table(schema, table_name, False)
 
-    def _get_table(self, schema: Schema, table_name: str, is_view: bool) -> Table:
+    def _get_table(
+        self,
+        schema: Schema,
+        table_name: str,
+        is_view: bool = False,
+        include_column_stats: bool = False,
+    ) -> Table:
         columns = self._get_columns(schema, table_name)
         detailed_info = self._get_table_info(schema, table_name)
 
@@ -104,6 +125,18 @@ class HiveMetastoreProxy(Closeable):
         datasource_format = self._get_datasource_format(
             detailed_info.pop("Provider", None)
         )
+
+        if detailed_info.get("Statistics"):
+            table_stats = self._get_cached_table_statistics(
+                detailed_info.pop("Statistics")
+            )
+            detailed_info.update(table_stats)
+
+        if include_column_stats:
+            column_stats = self._get_cached_column_statistics(
+                schema, table_name, columns
+            )
+            detailed_info.update(column_stats)
 
         created_at = self._get_created_at(detailed_info.pop("Created Time", None))
 
@@ -128,6 +161,36 @@ class HiveMetastoreProxy(Closeable):
             table_id=f"{schema.id}.{table_name}",
             comment=comment,
         )
+
+    def _get_cached_table_statistics(self, statistics: str) -> dict:
+        # statistics is in format "xx bytes" OR "1382 bytes, 2 rows"
+        table_stats = dict()
+        for prop in statistics.split(","):
+            value_key_list = prop.split(" ")  # value_key_list -> [value, key]
+            if (
+                len(value_key_list) == 2
+                and value_key_list[1] in table_stats_property_map
+            ):
+                table_stats[
+                    table_stats_property_map[value_key_list[1]]
+                ] = value_key_list[0]
+
+        return table_stats
+
+    def _get_cached_column_statistics(
+        self, schema: Schema, table_name: str, columns: List[Column]
+    ) -> dict:
+        col_stats = dict()
+        for col in columns:
+            props = self._column_describe_extended(schema.name, table_name, col.name)
+            for prop in props:
+                # prop[0]->info_name, prop[1]->info_value
+                if prop[0] in column_stat_property_map:
+                    col_stats[
+                        column_stat_property_map[prop[0]].format(column=col.name)
+                    ] = prop[1]
+
+        return col_stats
 
     def _get_created_at(self, created_at: Optional[str]) -> Optional[datetime]:
         return (
@@ -234,6 +297,17 @@ class HiveMetastoreProxy(Closeable):
         https://docs.databricks.com/en/sql/language-manual/sql-ref-syntax-aux-describe-table.html#examples
         """
         return self._execute_sql(f"DESCRIBE EXTENDED `{schema_name}`.`{table_name}`")
+
+    def _column_describe_extended(
+        self, schema_name: str, table_name: str, column_name: str
+    ) -> List[Row]:
+        """
+        Rows are structured as shown in examples here
+        https://docs.databricks.com/en/sql/language-manual/sql-ref-syntax-aux-describe-table.html#examples
+        """
+        return self._execute_sql(
+            f"DESCRIBE EXTENDED `{schema_name}`.`{table_name}` {column_name}"
+        )
 
     def _execute_sql(self, sql: str) -> List[Row]:
         return self.inspector.bind.execute(sql).fetchall()
