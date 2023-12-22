@@ -176,7 +176,7 @@ class SnowflakeV2Config(
             )
         return v
 
-    @root_validator(pre=False)
+    @root_validator(pre=False, skip_on_failure=True)
     def validate_unsupported_configs(cls, values: Dict) -> Dict:
         value = values.get("include_read_operational_stats")
         if value is not None and value:

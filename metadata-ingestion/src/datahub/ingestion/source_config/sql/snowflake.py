@@ -107,7 +107,7 @@ class BaseSnowflakeConfig(ConfigModel):
         return account_id
 
     @pydantic.validator("authentication_type", always=True)
-    def authenticator_type_is_valid(cls, v, values, field):
+    def authenticator_type_is_valid(cls, v, values):
         if v not in VALID_AUTH_TYPES.keys():
             raise ValueError(
                 f"unsupported authenticator type '{v}' was provided,"
