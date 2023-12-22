@@ -2060,10 +2060,9 @@ class LookMLSource(StatefulIngestionSourceBase):
                         )
                         logger.debug("Failed to process explore", exc_info=e)
 
-            processed_view_files = processed_view_map.get(model.connection)
-            if processed_view_files is None:
-                processed_view_map[model.connection] = set()
-                processed_view_files = processed_view_map[model.connection]
+            processed_view_files = processed_view_map.setdefault(
+                model.connection, set()
+            )
 
             project_name = self.get_project_name(model_name)
             logger.debug(f"Model: {model_name}; Includes: {model.resolved_includes}")
