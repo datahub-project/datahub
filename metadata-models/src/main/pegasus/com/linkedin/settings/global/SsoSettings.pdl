@@ -1,0 +1,16 @@
+namespace com.linkedin.settings.global
+
+/**
+ * SSO Integrations, supported on the UI.
+ */
+record SsoSettings {
+  /**
+   * Auth base URL.
+   */
+  baseUrl: string
+
+  /**
+   * Optional OIDC SSO settings.
+   */
+  oidcSettings: optional OidcSettings
+}
