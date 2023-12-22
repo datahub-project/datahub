@@ -28,7 +28,7 @@ public class OidcCallbackLogicTest {
     public void testGetGroupNamesWithSingleGroup() {
         CommonProfile profile = createMockProfileWithAttribute("group1", "groupsClaimName");
         Collection<String> result = getGroupNames(profile, "group1", "groupsClaimName");
-        assertEquals(Collections.singleton("group1"), result);
+        assertEquals(Arrays.asList("group1"), result);
     }
 
     @Test

@@ -315,13 +315,7 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
             // Json list of group names
             groupNames = objectMapper.readValue(groupString, new TypeReference<List<String>>(){});
           } catch (Exception e) {
-            if (groupString.contains(",")) {
-              // Comma separated list of group names
-              groupNames = Arrays.asList(groupString.split(","));
-            } else {
-              // Single group name
-              groupNames = Collections.singleton(groupString);
-            }
+            groupNames = Arrays.asList(groupString.split(","));
           }
         }
       } catch (Exception e) {
