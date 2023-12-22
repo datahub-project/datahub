@@ -301,6 +301,7 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
 
     return corpUserSnapshot;
   }
+
   public static Collection<String> getGroupNames(CommonProfile profile, Object groupAttribute, String groupsClaimName) {
       Collection<String> groupNames = Collections.emptyList();
       try {
