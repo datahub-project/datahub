@@ -105,7 +105,7 @@ export const SecretsList = () => {
                     {
                         urn: res.data?.createSecret || '',
                         name: state.name,
-                        description: state.description,
+                        description: state.description || null,
                     },
                     client,
                     pageSize,
