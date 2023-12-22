@@ -255,39 +255,39 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             "max_results": max_results,  # Max batch size
         }
 
-        response: dict = self._workspace_client.api_client.do(
+        response: dict = self._workspace_client.api_client.do(  # type: ignore
             method, path, body={**body, "filter_by": filter_by.as_dict()}
-        )  # type: ignore
+        )
         # we use default raw=False in above request, therefore will always get dict
         while True:
             if "res" not in response or not response["res"]:
                 return
             for v in response["res"]:
                 yield QueryInfo.from_dict(v)
-            response = self._workspace_client.api_client.do(
+            response = self._workspace_client.api_client.do(  # type: ignore
                 method, path, body={**body, "page_token": response["next_page_token"]}
-            )  # type: ignore
+            )
 
     def list_lineages_by_table(
         self, table_name: str, include_entity_lineage: bool
     ) -> dict:
         """List table lineage by table name."""
-        return self._workspace_client.api_client.do(
+        return self._workspace_client.api_client.do(  # type: ignore
             method="GET",
             path="/api/2.0/lineage-tracking/table-lineage",
             body={
                 "table_name": table_name,
                 "include_entity_lineage": include_entity_lineage,
             },
-        )  # type: ignore
+        )
 
     def list_lineages_by_column(self, table_name: str, column_name: str) -> dict:
         """List column lineage by table name and column name."""
-        return self._workspace_client.api_client.do(
+        return self._workspace_client.api_client.do(  # type: ignore
             "GET",
             "/api/2.0/lineage-tracking/column-lineage",
             body={"table_name": table_name, "column_name": column_name},
-        )  # type: ignore
+        )
 
     def table_lineage(self, table: Table, include_entity_lineage: bool) -> None:
         if table.schema.catalog.type == CustomCatalogType.HIVE_METASTORE_CATALOG:

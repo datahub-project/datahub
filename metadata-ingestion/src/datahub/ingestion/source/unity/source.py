@@ -304,17 +304,17 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             yield from self._gen_notebook_workunits(notebook)
 
     def _gen_notebook_workunits(self, notebook: Notebook) -> Iterable[MetadataWorkUnit]:
+
+        properties = {"path": notebook.path}
+        if notebook.language:
+            properties["language"] = notebook.language.value
+
         mcps = MetadataChangeProposalWrapper.construct_many(
             entityUrn=self.gen_notebook_urn(notebook),
             aspects=[
                 DatasetPropertiesClass(
                     name=notebook.path.rsplit("/", 1)[-1],
-                    customProperties={"path": notebook.path}
-                    | (
-                        {"language": notebook.language.value}
-                        if notebook.language
-                        else {}
-                    ),
+                    customProperties=properties,
                     externalUrl=urljoin(
                         self.config.workspace_url, f"#notebook/{notebook.id}"
                     ),
