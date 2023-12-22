@@ -9,7 +9,6 @@ import { useEntityRegistry } from '../../../../../useEntityRegistry';
 import { ANTD_GRAY } from '../../../constants';
 import { formatDateString } from '../../../containers/profile/utils';
 import { useAddLinkMutation, useRemoveLinkMutation } from '../../../../../../graphql/mutations.generated';
-import { useUserContext } from '../../../../../context/useUserContext';
 import analytics, { EntityActionType, EventType } from '../../../../../analytics';
 
 const LinkListItem = styled(List.Item)`
@@ -42,7 +41,6 @@ export const LinkList = ({ refetch }: LinkListProps) => {
     const [removeLinkMutation] = useRemoveLinkMutation();
     const links = entityData?.institutionalMemory?.elements || [];
     const [form] = Form.useForm();
-    const user = useUserContext();
     const [addLinkMutation] = useAddLinkMutation();
     const mutationUrn = useMutationUrn();
 
@@ -64,7 +62,7 @@ export const LinkList = ({ refetch }: LinkListProps) => {
     const handleEditLink = (metadata: InstitutionalMemoryMetadata) => {
         form.setFieldsValue({
             url: metadata.url,
-            label: metadata.description
+            label: metadata.description,
         });
         setLinkDetails(metadata);
         setEditModalVisible(true);
@@ -77,31 +75,25 @@ export const LinkList = ({ refetch }: LinkListProps) => {
 
     const handleEdit = async (formData: any) => {
         if (!linkDetails) return;
-
         try {
             await removeLinkMutation({
                 variables: { input: { linkUrl: linkDetails.url, resourceUrn: linkDetails.associatedUrn || entityUrn } },
             });
+            await addLinkMutation({
+                variables: { input: { linkUrl: formData.url, label: formData.label, resourceUrn: mutationUrn } },
+            });
 
-            if (user?.urn) {
-                await addLinkMutation({
-                    variables: { input: { linkUrl: formData.url, label: formData.label, resourceUrn: mutationUrn } },
-                });
+            message.success({ content: 'Link Updated', duration: 2 });
 
-                message.success({ content: 'Link Updated', duration: 2 });
+            analytics.event({
+                type: EventType.EntityActionEvent,
+                entityType,
+                entityUrn: mutationUrn,
+                actionType: EntityActionType.UpdateLinks,
+            });
 
-                analytics.event({
-                    type: EventType.EntityActionEvent,
-                    entityType,
-                    entityUrn: mutationUrn,
-                    actionType: EntityActionType.UpdateLinks,
-                });
-
-                refetch?.();
-                handleClose();
-            } else {
-                message.error({ content: 'Error updating link: no user', duration: 2 });
-            }
+            refetch?.();
+            handleClose();
         } catch (e: unknown) {
             message.destroy();
 
@@ -127,12 +119,7 @@ export const LinkList = ({ refetch }: LinkListProps) => {
                     </Button>,
                 ]}
             >
-                <Form
-                    form={form}
-                    name="editLinkForm"
-                    onFinish={handleEdit}
-                    layout="vertical"
-                >
+                <Form form={form} name="editLinkForm" onFinish={handleEdit} layout="vertical">
                     <Form.Item
                         name="url"
                         label="URL"
