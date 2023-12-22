@@ -193,7 +193,7 @@ class _ColumnRef(_FrozenModel):
     column: str
 
 
-class ColumnRef(_ParserBaseModel):
+class ColumnRef(_FrozenModel):
     table: Urn
     column: str
 
@@ -929,6 +929,7 @@ def _translate_sqlglot_type(
         TypeClass = ArrayTypeClass
     elif sqlglot_type in {
         sqlglot.exp.DataType.Type.UNKNOWN,
+        sqlglot.exp.DataType.Type.NULL,
     }:
         return None
     else:
@@ -1090,7 +1091,7 @@ def _sqlglot_lineage_inner(
         table_schemas_resolved=total_schemas_resolved,
     )
     logger.debug(
-        f"Resolved {len(table_name_schema_mapping)} of {len(tables)} table schemas"
+        f"Resolved {total_schemas_resolved} of {total_tables_discovered} table schemas"
     )
 
     # Simplify the input statement for column-level lineage generation.
