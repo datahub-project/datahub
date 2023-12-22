@@ -1,44 +1,64 @@
 package oidc;
 
 import auth.sso.oidc.OidcConfigs;
+
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 
-import static auth.sso.oidc.OidcCallbackLogic.getGroupsClaimNames;
+import static auth.sso.oidc.OidcCallbackLogic.getGroupNames;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
+import org.pac4j.core.profile.CommonProfile;
+
 public class OidcCallbackLogicTest {
 
     @Test
-    public void testGetGroupsClaimNamesJson1() {
-
-        OidcConfigs mockConfigs = Mockito.mock(OidcConfigs.class);
-        Mockito.when(mockConfigs.getGroupsClaimName()).thenReturn("[\"group1\"]");
-        List<String> result = getGroupsClaimNames(mockConfigs);
-        assertEquals(List.of("group1"), result);
+    public void testGetGroupsClaimNamesJsonArray() {
+        CommonProfile profile = createMockProfileWithAttribute("[\"group1\", \"group2\"]", "groupsClaimName");
+        Collection<String> result = getGroupNames(profile, "[\"group1\", \"group2\"]", "groupsClaimName");
+        assertEquals(Arrays.asList("group1", "group2"), result);
     }
     @Test
-    public void testGetGroupsClaimNamesJson2() {
-
-        OidcConfigs mockConfigs = Mockito.mock(OidcConfigs.class);
-        Mockito.when(mockConfigs.getGroupsClaimName()).thenReturn("[\"group1\",\"group2\"]");
-        List<String> result = getGroupsClaimNames(mockConfigs);
-        assertEquals(List.of("group1", "group2"), result);
+    public void testGetGroupNamesWithSingleGroup() {
+        CommonProfile profile = createMockProfileWithAttribute("group1", "groupsClaimName");
+        Collection<String> result = getGroupNames(profile, "group1", "groupsClaimName");
+        assertEquals(Collections.singleton("group1"), result);
     }
-    @Test
-    public void testGetGroupsClaimNamesCommaSeparated1() {
 
-        OidcConfigs mockConfigs = Mockito.mock(OidcConfigs.class);
-        Mockito.when(mockConfigs.getGroupsClaimName()).thenReturn("group1");
-        List<String> result = getGroupsClaimNames(mockConfigs);
-        assertEquals(List.of("group1"), result);
+    @Test
+    public void testGetGroupNamesWithCommaSeparated() {
+        CommonProfile profile = createMockProfileWithAttribute("group1,group2", "groupsClaimName");
+        Collection<String> result = getGroupNames(profile, "group1,group2", "groupsClaimName");
+        assertEquals(Arrays.asList("group1", "group2"), result);
     }
-    @Test
-    public void testGetGroupsClaimNamesCommaSeparated2() {
 
-        OidcConfigs mockConfigs = Mockito.mock(OidcConfigs.class);
-        Mockito.when(mockConfigs.getGroupsClaimName()).thenReturn("group1, group2");
-        List<String> result = getGroupsClaimNames(mockConfigs);
-        assertEquals(List.of("group1", "group2"), result);
+    @Test
+    public void testGetGroupNamesWithCollection() {
+        CommonProfile profile = createMockProfileWithAttribute(Arrays.asList("group1", "group2"), "groupsClaimName");
+        Collection<String> result = getGroupNames(profile, Arrays.asList("group1", "group2"), "groupsClaimName");
+        assertEquals(Arrays.asList("group1", "group2"), result);
+    }
+    // Helper method to create a mock CommonProfile with given attribute
+    private CommonProfile createMockProfileWithAttribute(Object attribute, String attributeName) {
+        CommonProfile profile = mock(CommonProfile.class);
+
+        // Mock for getAttribute(String)
+        when(profile.getAttribute(attributeName)).thenReturn(attribute);
+
+        // Mock for getAttribute(String, Class<T>)
+        if (attribute instanceof Collection) {
+            when(profile.getAttribute(attributeName, Collection.class)).thenReturn((Collection) attribute);
+        } else if (attribute instanceof String) {
+            when(profile.getAttribute(attributeName, String.class)).thenReturn((String) attribute);
+        }
+        // Add more conditions here if needed for other types
+
+        return profile;
     }
 }
