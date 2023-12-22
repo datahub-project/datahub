@@ -16,6 +16,8 @@ services:
       context: ../
       dockerfile: docker/datahub-mae-consumer/Dockerfile
     env_file: datahub-mae-consumer/env/docker.env
+    environment:
+      - KAFKA_CONSUMER_STOP_ON_DESERIALIZATION_ERROR=${KAFKA_CONSUMER_STOP_ON_DESERIALIZATION_ERROR:-true}
     depends_on:
       neo4j:
         condition: service_healthy
@@ -29,3 +31,15 @@ services:
       context: ../
       dockerfile: docker/datahub-mce-consumer/Dockerfile
     env_file: datahub-mce-consumer/env/docker.env
+    environment:
+    - DATAHUB_SERVER_TYPE=${DATAHUB_SERVER_TYPE:-quickstart}
+    - DATAHUB_TELEMETRY_ENABLED=${DATAHUB_TELEMETRY_ENABLED:-true}
+    - NEO4J_HOST=http://neo4j:7474
+    - NEO4J_URI=bolt://neo4j
+    - NEO4J_USERNAME=neo4j
+    - NEO4J_PASSWORD=datahub
+    - GRAPH_SERVICE_IMPL=neo4j
+    - KAFKA_CONSUMER_STOP_ON_DESERIALIZATION_ERROR=${KAFKA_CONSUMER_STOP_ON_DESERIALIZATION_ERROR:-true}
+    depends_on:
+      neo4j:
+        condition: service_healthy

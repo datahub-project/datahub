@@ -191,6 +191,7 @@ function EntityDropdown(props: Props) {
                         )}
                         {menuItems.has(EntityMenuItems.ADD_TERM) && (
                             <StyledMenuItem
+                                data-testid="entity-menu-add-term-button"
                                 key="2"
                                 // can not be disabled on acryl-main due to ability to propose
                                 onClick={() => setIsCreateTermModalVisible(true)}

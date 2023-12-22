@@ -37,9 +37,9 @@ def fetch_urls(
         except Exception as e:
             if attempt < max_retries:
                 print(f"Attempt {attempt + 1}/{max_retries}: {e}")
-                time.sleep(retry_delay)
+                time.sleep(retry_delay * 2**attempt)
             else:
-                print(f"Max retries reached. Unable to fetch data.")
+                print("Max retries reached. Unable to fetch data.")
                 raise
 
 

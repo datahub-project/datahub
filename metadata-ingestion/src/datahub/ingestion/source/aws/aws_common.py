@@ -167,7 +167,7 @@ class AwsConnectionConfig(ConfigModel):
 
         return session
 
-    def get_credentials(self) -> Dict[str, str]:
+    def get_credentials(self) -> Dict[str, Optional[str]]:
         credentials = self.get_session().get_credentials()
         if credentials is not None:
             return {

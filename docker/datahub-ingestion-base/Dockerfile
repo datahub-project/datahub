@@ -30,9 +30,6 @@ ARG DEBIAN_REPO_URL
 ARG PIP_MIRROR_URL
 ARG GITHUB_REPO_URL
 
-ENV LIBRDKAFKA_VERSION=1.6.2
-ENV CONFLUENT_KAFKA_VERSION=1.6.1
-
 ENV DEBIAN_FRONTEND noninteractive
 
 # Optionally set corporate mirror for apk and pip
@@ -40,7 +37,6 @@ RUN if [ "${DEBIAN_REPO_URL}" != "http://deb.debian.org/debian" ] ; then sed -i 
 RUN if [ "${PIP_MIRROR_URL}" != "null" ] ; then pip config set global.index-url ${PIP_MIRROR_URL} ; fi
 
 RUN apt-get update && apt-get install -y -qq \
-    make \
     python3-ldap \
     libldap2-dev \
     libsasl2-dev \
@@ -53,11 +49,6 @@ RUN apt-get update && apt-get install -y -qq \
     unzip \
     ldap-utils \
     && python -m pip install --no-cache --upgrade pip wheel setuptools \
-    && wget -q ${GITHUB_REPO_URL}/edenhill/librdkafka/archive/v${LIBRDKAFKA_VERSION}.tar.gz -O - | \
-          tar -xz -C /root \
-    && cd /root/librdkafka-${LIBRDKAFKA_VERSION} \
-    && ./configure --prefix /usr && make && make install && cd .. && rm -rf /root/librdkafka-${LIBRDKAFKA_VERSION} \
-    && apt-get remove -y make \
     && rm -rf /var/lib/apt/lists/* /var/cache/apk/*
 
 # compiled against newer golang for security fixes
