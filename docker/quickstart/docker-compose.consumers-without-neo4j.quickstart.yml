@@ -6,6 +6,7 @@ services:
   datahub-mae-consumer:
     container_name: datahub-mae-consumer
     environment:
+    - KAFKA_CONSUMER_STOP_ON_DESERIALIZATION_ERROR=${KAFKA_CONSUMER_STOP_ON_DESERIALIZATION_ERROR:-true}
     - DATAHUB_UPGRADE_HISTORY_KAFKA_CONSUMER_GROUP_ID=generic-duhe-consumer-job-client-mcl
     - DATAHUB_GMS_HOST=datahub-gms
     - DATAHUB_GMS_PORT=8080
@@ -46,6 +47,7 @@ services:
     - DATAHUB_SYSTEM_CLIENT_ID=__datahub_system
     - DATAHUB_SYSTEM_CLIENT_SECRET=JohnSnowKnowsNothing
     - ENTITY_SERVICE_ENABLE_RETENTION=true
+    - KAFKA_CONSUMER_STOP_ON_DESERIALIZATION_ERROR=${KAFKA_CONSUMER_STOP_ON_DESERIALIZATION_ERROR:-true}
     - MAE_CONSUMER_ENABLED=false
     - PE_CONSUMER_ENABLED=false
     - UI_INGESTION_ENABLED=false

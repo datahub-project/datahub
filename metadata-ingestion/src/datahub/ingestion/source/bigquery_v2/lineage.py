@@ -175,7 +175,7 @@ def make_lineage_edges_from_parsing_result(
             table_name = str(
                 BigQueryTableRef.from_bigquery_table(
                     BigqueryTableIdentifier.from_string_name(
-                        DatasetUrn.create_from_string(table_urn).get_dataset_name()
+                        DatasetUrn.from_string(table_urn).name
                     )
                 )
             )

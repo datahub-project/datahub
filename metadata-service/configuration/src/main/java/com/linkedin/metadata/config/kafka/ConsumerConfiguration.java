@@ -6,4 +6,5 @@ import lombok.Data;
 public class ConsumerConfiguration {
 
   private int maxPartitionFetchBytes;
+  private boolean stopOnDeserializationError;
 }

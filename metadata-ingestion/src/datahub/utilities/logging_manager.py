@@ -199,6 +199,7 @@ def configure_logging(debug: bool, log_file: Optional[str] = None) -> Iterator[N
         for handler in handlers:
             root_logger.removeHandler(handler)
             for lib in DATAHUB_PACKAGES:
+                lib_logger = logging.getLogger(lib)
                 lib_logger.removeHandler(handler)
                 lib_logger.propagate = True
 

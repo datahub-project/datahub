@@ -17,10 +17,8 @@ title: "Local Development"
 On macOS, these can be installed using [Homebrew](https://brew.sh/).
 
 ```shell
-# Install Java 8 and 11
-brew tap homebrew/cask-versions
-brew install java11
-brew install --cask zulu8
+# Install Java
+brew install openjdk@17
 
 # Install Python
 brew install python@3.10  # you may need to add this to your PATH
