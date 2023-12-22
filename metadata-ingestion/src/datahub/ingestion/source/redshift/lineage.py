@@ -93,18 +93,19 @@ class LineageItem:
     ) -> None:
         self.upstreams = self.upstreams.union(upstreams)
 
-        # merge CLL using the output column name as the merge key
+        # Merge CLL using the output column name as the merge key.
         self.cll = self.cll or []
         existing_cll: Dict[str, sqlglot_l.ColumnLineageInfo] = {
             c.downstream.column: c for c in self.cll
         }
         for c in cll or []:
             if c.downstream.column in existing_cll:
-                # merge using upstream + column name as the merge key
-                existing_cll[c.downstream.column] = deduplicate_list(
+                # Merge using upstream + column name as the merge key.
+                existing_cll[c.downstream.column].upstreams = deduplicate_list(
                     [*existing_cll[c.downstream.column].upstreams, *c.upstreams]
                 )
             else:
+                # New output column, just add it as is.
                 self.cll.append(c)
 
         self.cll = self.cll or None
