@@ -5,7 +5,7 @@ import itertools
 import logging
 import pathlib
 from collections import defaultdict
-from typing import Any, Dict, List, Optional, Set, Tuple, Union
+from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union
 
 import pydantic.dataclasses
 import sqlglot
@@ -161,7 +161,7 @@ class _TableName(_FrozenModel):
 
     def qualified(
         self,
-        dialect: str,
+        dialect: sqlglot.Dialect,
         default_db: Optional[str] = None,
         default_schema: Optional[str] = None,
     ) -> "_TableName":
@@ -277,7 +277,9 @@ class SqlParsingResult(_ParserBaseModel):
         )
 
 
-def _parse_statement(sql: sqlglot.exp.ExpOrStr, dialect: str) -> sqlglot.Expression:
+def _parse_statement(
+    sql: sqlglot.exp.ExpOrStr, dialect: sqlglot.Dialect
+) -> sqlglot.Expression:
     statement: sqlglot.Expression = sqlglot.maybe_parse(
         sql, dialect=dialect, error_level=sqlglot.ErrorLevel.RAISE
     )
@@ -285,8 +287,7 @@ def _parse_statement(sql: sqlglot.exp.ExpOrStr, dialect: str) -> sqlglot.Express
 
 
 def _table_level_lineage(
-    statement: sqlglot.Expression,
-    dialect: str,
+    statement: sqlglot.Expression, dialect: sqlglot.Dialect
 ) -> Tuple[Set[_TableName], Set[_TableName]]:
     # Generate table-level lineage.
     modified = {
@@ -500,17 +501,12 @@ DIALECTS_WITH_CASE_INSENSITIVE_COLS = {
     # See more below:
     # https://documentation.sas.com/doc/en/pgmsascdc/9.4_3.5/acreldb/n0ejgx4895bofnn14rlguktfx5r3.htm
     "teradata",
-    # In sqlglot v20+, MySQL is now case-sensitive by default.
-    # However, MySQL's case sensitivity actually depends on the underlying OS.
-    # For us, it's simpler to just assume that it's case-insensitive.
-    "mysql",
 }
 DIALECTS_WITH_DEFAULT_UPPERCASE_COLS = {
     # In some dialects, column identifiers are effectively case insensitive
     # because they are automatically converted to uppercase. Most other systems
     # automatically lowercase unquoted identifiers.
     "snowflake",
-    "mysql",
 }
 
 
@@ -526,7 +522,7 @@ class SqlUnderstandingError(Exception):
 # TODO: Break this up into smaller functions.
 def _column_level_lineage(  # noqa: C901
     statement: sqlglot.exp.Expression,
-    dialect: str,
+    dialect: sqlglot.Dialect,
     table_schemas: Dict[_TableName, SchemaInfo],
     output_table: Optional[_TableName],
     default_db: Optional[str],
@@ -546,7 +542,9 @@ def _column_level_lineage(  # noqa: C901
 
     column_lineage: List[_ColumnLineageInfo] = []
 
-    use_case_insensitive_cols = dialect in DIALECTS_WITH_CASE_INSENSITIVE_COLS
+    use_case_insensitive_cols = _is_dialect_instance(
+        dialect, DIALECTS_WITH_CASE_INSENSITIVE_COLS
+    )
 
     sqlglot_db_schema = sqlglot.MappingSchema(
         dialect=dialect,
@@ -563,7 +561,9 @@ def _column_level_lineage(  # noqa: C901
                 col_normalized = (
                     # This is required to match Sqlglot's behavior.
                     col.upper()
-                    if dialect in DIALECTS_WITH_DEFAULT_UPPERCASE_COLS
+                    if _is_dialect_instance(
+                        dialect, DIALECTS_WITH_DEFAULT_UPPERCASE_COLS
+                    )
                     else col.lower()
                 )
             else:
@@ -580,7 +580,7 @@ def _column_level_lineage(  # noqa: C901
     if use_case_insensitive_cols:
 
         def _sqlglot_force_column_normalizer(
-            node: sqlglot.exp.Expression, dialect: "sqlglot.DialectType" = None
+            node: sqlglot.exp.Expression,
         ) -> sqlglot.exp.Expression:
             if isinstance(node, sqlglot.exp.Column):
                 node.this.set("quoted", False)
@@ -591,9 +591,7 @@ def _column_level_lineage(  # noqa: C901
         #     "Prior to case normalization sql %s",
         #     statement.sql(pretty=True, dialect=dialect),
         # )
-        statement = statement.transform(
-            _sqlglot_force_column_normalizer, dialect, copy=False
-        )
+        statement = statement.transform(_sqlglot_force_column_normalizer, copy=False)
         # logger.debug(
         #     "Sql after casing normalization %s",
         #     statement.sql(pretty=True, dialect=dialect),
@@ -617,7 +615,6 @@ def _column_level_lineage(  # noqa: C901
         "Prior to column qualification sql %s",
         statement.sql(pretty=True, dialect=dialect),
     )
-    breakpoint()
     try:
         # Second time running qualify, this time with:
         # - the select instead of the full outer statement
@@ -699,7 +696,7 @@ def _column_level_lineage(  # noqa: C901
                 # Otherwise, we can't process it.
                 continue
 
-            if dialect == "bigquery" and output_col.lower() in {
+            if _is_dialect_instance(dialect, "bigquery") and output_col.lower() in {
                 "_partitiontime",
                 "_partitiondate",
             }:
@@ -944,7 +941,7 @@ def _translate_sqlglot_type(
 def _translate_internal_column_lineage(
     table_name_urn_mapping: Dict[_TableName, str],
     raw_column_lineage: _ColumnLineageInfo,
-    dialect: str,
+    dialect: sqlglot.Dialect,
 ) -> ColumnLineageInfo:
     downstream_urn = None
     if raw_column_lineage.downstream.table:
@@ -977,16 +974,42 @@ def _translate_internal_column_lineage(
     )
 
 
-def _get_dialect(platform: str) -> str:
+def _get_dialect_str(platform: str) -> str:
     # TODO: convert datahub platform names to sqlglot dialect
     if platform == "presto-on-hive":
         return "hive"
-    if platform == "mssql":
+    elif platform == "mssql":
         return "tsql"
-    if platform == "athena":
+    elif platform == "athena":
         return "trino"
+    elif platform == "mysql":
+        # In sqlglot v20+, MySQL is now case-sensitive by default, which is the
+        # default behavior on Linux. However, MySQL's default case sensitivity
+        # actually depends on the underlying OS.
+        # For us, it's simpler to just assume that it's case-insensitive, and
+        # let the fuzzy resolution logic handle it.
+        return "mysql, normalization_strategy = lowercase"
     else:
         return platform
+
+
+def _get_dialect(platform: str) -> sqlglot.Dialect:
+    return sqlglot.Dialect.get_or_raise(_get_dialect_str(platform))
+
+
+def _is_dialect_instance(
+    dialect: sqlglot.Dialect, platforms: Union[str, Iterable[str]]
+) -> bool:
+    if isinstance(platforms, str):
+        platforms = [platforms]
+    else:
+        platforms = list(platforms)
+
+    dialects = [sqlglot.Dialect.get_or_raise(platform) for platform in platforms]
+
+    if any(isinstance(dialect, dialect_class.__class__) for dialect_class in dialects):
+        return True
+    return False
 
 
 def _sqlglot_lineage_inner(
@@ -996,7 +1019,7 @@ def _sqlglot_lineage_inner(
     default_schema: Optional[str] = None,
 ) -> SqlParsingResult:
     dialect = _get_dialect(schema_resolver.platform)
-    if dialect == "snowflake":
+    if _is_dialect_instance(dialect, "snowflake"):
         # in snowflake, table identifiers must be uppercased to match sqlglot's behavior.
         if default_db:
             default_db = default_db.upper()
