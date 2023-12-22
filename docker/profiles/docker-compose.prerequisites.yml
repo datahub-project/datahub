@@ -128,7 +128,7 @@ services:
     container_name: mysql-setup
     profiles: *mysql-profiles-quickstart
     hostname: mysql-setup
-    image: ${DATAHUB_MYSQL_SETUP_IMAGE:-acryldata/datahub-mysql-setup}:${DATAHUB_VERSION:-head}
+    image: ${DATAHUB_MYSQL_SETUP_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-mysql-setup}:${DATAHUB_VERSION:-head}
     env_file: mysql-setup/env/docker.env
     depends_on:
       mysql:
@@ -139,7 +139,7 @@ services:
     <<: *mysql-setup
     container_name: mysql-setup-dev
     profiles: *mysql-profiles-dev
-    image: ${DATAHUB_MYSQL_SETUP_IMAGE:-acryldata/datahub-mysql-setup}:debug
+    image: ${DATAHUB_MYSQL_SETUP_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-mysql-setup}:debug
   postgres:
     container_name: postgres
     profiles: *postgres-profiles
@@ -162,7 +162,7 @@ services:
     container_name: postgres-setup
     profiles: *postgres-profiles-quickstart
     hostname: postgres-setup
-    image: ${DATAHUB_POSTGRES_SETUP_IMAGE:-acryldata/datahub-postgres-setup}:${DATAHUB_VERSION:-head}
+    image: ${DATAHUB_POSTGRES_SETUP_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-postgres-setup}:${DATAHUB_VERSION:-head}
     env_file: postgres-setup/env/docker.env
     depends_on:
       postgres:
@@ -173,7 +173,7 @@ services:
     <<: *postgres-setup
     container_name: postgres-setup-dev
     profiles: *postgres-profiles-dev
-    image: ${DATAHUB_POSTGRES_SETUP_IMAGE:-acryldata/datahub-postgres-setup}:debug
+    image: ${DATAHUB_POSTGRES_SETUP_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-postgres-setup}:debug
   cassandra:
     container_name: cassandra
     profiles: *cassandra-profiles
@@ -267,7 +267,7 @@ services:
     container_name: kafka-setup
     profiles: *profiles-quickstart
     hostname: kafka-setup
-    image: ${DATAHUB_KAFKA_SETUP_IMAGE:-linkedin/datahub-kafka-setup}:${DATAHUB_VERSION:-head}
+    image: ${DATAHUB_KAFKA_SETUP_IMAGE:-${DATAHUB_REPO:-linkedin}/datahub-kafka-setup}:${DATAHUB_VERSION:-head}
     env_file: kafka-setup/env/docker.env
     environment: &kafka-setup-env
       DATAHUB_PRECREATE_TOPICS: ${DATAHUB_PRECREATE_TOPICS:-false}
@@ -285,7 +285,7 @@ services:
     environment:
       <<: *kafka-setup-env
       DATAHUB_PRECREATE_TOPICS: ${DATAHUB_PRECREATE_TOPICS:-true}
-    image: ${DATAHUB_KAFKA_SETUP_IMAGE:-linkedin/datahub-kafka-setup}:debug
+    image: ${DATAHUB_KAFKA_SETUP_IMAGE:-${DATAHUB_REPO:-linkedin}/datahub-kafka-setup}:debug
   elasticsearch:
     container_name: elasticsearch
     profiles: *elasticsearch-profiles
@@ -311,7 +311,7 @@ services:
       - esdata:/usr/share/elasticsearch/data
   elasticsearch-setup-dev: &elasticsearch-setup-dev
     container_name: elasticsearch-setup-dev
-    image: ${DATAHUB_ELASTIC_SETUP_IMAGE:-linkedin/datahub-elasticsearch-setup}:debug
+    image: ${DATAHUB_ELASTIC_SETUP_IMAGE:-${DATAHUB_REPO:-linkedin}/datahub-elasticsearch-setup}:debug
     profiles: *elasticsearch-profiles
     hostname: elasticsearch-setup
     env_file: elasticsearch-setup/env/docker.env
@@ -351,7 +351,7 @@ services:
     container_name: opensearch-setup
     profiles: *opensearch-profiles-quickstart
     hostname: opensearch-setup
-    image: ${DATAHUB_ELASTIC_SETUP_IMAGE:-linkedin/datahub-elasticsearch-setup}:${DATAHUB_VERSION:-head}
+    image: ${DATAHUB_ELASTIC_SETUP_IMAGE:-${DATAHUB_REPO:-linkedin}/datahub-elasticsearch-setup}:${DATAHUB_VERSION:-head}
     environment:
       <<: *search-datastore-environment
       USE_AWS_ELASTICSEARCH: ${USE_AWS_ELASTICSEARCH:-true}
@@ -365,7 +365,7 @@ services:
     container_name: opensearch-setup-dev
     profiles: *opensearch-profiles-dev
     hostname: opensearch-setup-dev
-    image: ${DATAHUB_ELASTIC_SETUP_IMAGE:-linkedin/datahub-elasticsearch-setup}:debug
+    image: ${DATAHUB_ELASTIC_SETUP_IMAGE:-${DATAHUB_REPO:-linkedin}/datahub-elasticsearch-setup}:debug
     environment:
       <<: *search-datastore-environment
       USE_AWS_ELASTICSEARCH: ${USE_AWS_ELASTICSEARCH:-true}

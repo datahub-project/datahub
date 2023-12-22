@@ -31,6 +31,11 @@ ext {
     pg_quickstart_modules = quickstart_modules - [':docker:mysql-setup'] + [':docker:postgres-setup']
 }
 
+tasks.register('minDockerCompose2.20', Exec) {
+    executable 'bash'
+    args '-c', 'echo -e "$(docker compose version --short)\n2.20"|sort --version-sort --check=quiet --reverse'
+}
+
 tasks.register('quickstart') {}
 tasks.register('quickstartSlim') {}
 tasks.register('quickstartDebug') {}
@@ -118,8 +123,8 @@ tasks.getByName('quickstartDebugComposeUp').dependsOn(
 )
 tasks.withType(ComposeUp).configureEach {
     shouldRunAfter('quickstartNuke')
+    dependsOn tasks.named("minDockerCompose2.20")
 }
-
 
 task debugReload(type: Exec) {
     def cmd = ['docker compose -p datahub --profile debug'] + compose_args + ['restart'] + debug_reloadable
