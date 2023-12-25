@@ -79,6 +79,11 @@ jobs:
     runs-on: ubuntu-latest
     needs: setup
     steps:
+      - name: Set up JDK 17
+        uses: actions/setup-java@v3
+        with:
+          distribution: "zulu"
+          java-version: 17
       - name: Check out the repo
         uses: hsheth2/sane-checkout-action@v1
       - name: Pre-build artifacts for docker image
@@ -135,6 +140,11 @@ jobs:
     runs-on: ubuntu-latest
     needs: setup
     steps:
+      - name: Set up JDK 17
+        uses: actions/setup-java@v3
+        with:
+          distribution: "zulu"
+          java-version: 17
       - name: Check out the repo
         uses: hsheth2/sane-checkout-action@v1
       - name: Pre-build artifacts for docker image
@@ -191,6 +201,11 @@ jobs:
     runs-on: ubuntu-latest
     needs: setup
     steps:
+      - name: Set up JDK 17
+        uses: actions/setup-java@v3
+        with:
+          distribution: "zulu"
+          java-version: 17
       - name: Check out the repo
         uses: hsheth2/sane-checkout-action@v1
       - name: Pre-build artifacts for docker image
@@ -247,6 +262,11 @@ jobs:
     runs-on: ubuntu-latest
     needs: setup
     steps:
+      - name: Set up JDK 17
+        uses: actions/setup-java@v3
+        with:
+          distribution: "zulu"
+          java-version: 17
       - name: Check out the repo
         uses: hsheth2/sane-checkout-action@v1
       - name: Pre-build artifacts for docker image
@@ -303,6 +323,11 @@ jobs:
     runs-on: ubuntu-latest
     needs: setup
     steps:
+      - name: Set up JDK 17
+        uses: actions/setup-java@v3
+        with:
+          distribution: "zulu"
+          java-version: 17
       - name: Check out the repo
         uses: hsheth2/sane-checkout-action@v1
       - name: Pre-build artifacts for docker image
@@ -537,6 +562,11 @@ jobs:
       needs_artifact_download: ${{ (steps.filter.outputs.datahub-ingestion-base == 'true' || steps.filter.outputs.datahub-ingestion == 'true') && needs.setup.outputs.publish != 'true' }}
     needs: [setup, datahub_ingestion_base_slim_build]
     steps:
+      - name: Set up JDK 17
+        uses: actions/setup-java@v3
+        with:
+          distribution: "zulu"
+          java-version: 17
       - name: Check out the repo
         uses: hsheth2/sane-checkout-action@v1
       - uses: dorny/paths-filter@v2
@@ -618,6 +648,11 @@ jobs:
       needs_artifact_download: ${{ (steps.filter.outputs.datahub-ingestion-base == 'true' || steps.filter.outputs.datahub-ingestion == 'true') && needs.setup.outputs.publish != 'true' }}
     needs: [setup, datahub_ingestion_base_full_build]
     steps:
+      - name: Set up JDK 17
+        uses: actions/setup-java@v3
+        with:
+          distribution: "zulu"
+          java-version: 17
       - name: Check out the repo
         uses: hsheth2/sane-checkout-action@v1
       - uses: dorny/paths-filter@v2
@@ -696,7 +731,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        test_strategy: ["no_cypress", "cypress_suite1", "cypress_rest"]
+        test_strategy: [
+          "no_cypress_suite0",
+          "no_cypress_suite1",
+          "cypress_suite1", 
+          "cypress_rest"
+        ]
     needs:
       [
         setup,
@@ -715,11 +755,11 @@ jobs:
         run: df -h . && docker images
       - name: Check out the repo
         uses: actions/checkout@v3
-      - name: Set up JDK 11
+      - name: Set up JDK 17
         uses: actions/setup-java@v3
         with:
           distribution: "zulu"
-          java-version: 11
+          java-version: 17
       - uses: actions/setup-python@v4
         with:
           python-version: "3.10"
@@ -792,11 +832,6 @@ jobs:
           ACTIONS_CONFIG: "https://raw.githubusercontent.com/acryldata/datahub-actions/main/docker/config/executor.yaml"
         run: |
           ./smoke-test/run-quickstart.sh
-      - name: sleep 60s
-        run: |
-          # we are doing this because gms takes time to get ready
-          # and we don't have a better readiness check when bootstrap is done
-          sleep 60s
       - name: Disk Check
         run: df -h . && docker images
       - name: Disable ES Disk Threshold
@@ -876,13 +911,13 @@ jobs:
       ]
     steps:
       - uses: aws-actions/configure-aws-credentials@v1
-        if: ${{ needs.setup.outputs.publish != 'false' }}
+        if: ${{ needs.setup.outputs.publish != 'false' && github.repository_owner == 'datahub-project' && needs.setup.outputs.repository_name == 'datahub' }}
         with:
           aws-access-key-id: ${{ secrets.AWS_SQS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SQS_ACCESS_KEY }}
           aws-region: us-west-2
       - uses: isbang/sqs-action@v0.2.0
-        if: ${{ needs.setup.outputs.publish != 'false' }}
+        if: ${{ needs.setup.outputs.publish != 'false' && github.repository_owner == 'datahub-project' && needs.setup.outputs.repository_name == 'datahub' }}
         with:
           sqs-url: ${{ secrets.DATAHUB_HEAD_SYNC_QUEUE }}
           message: '{ "command": "git-sync", "args" : {"repoName": "${{ needs.setup.outputs.repository_name }}", "repoOrg": "${{ github.repository_owner }}", "repoBranch": "${{ needs.setup.outputs.branch_name }}", "repoShaShort": "${{ needs.setup.outputs.short_sha }}" }}'

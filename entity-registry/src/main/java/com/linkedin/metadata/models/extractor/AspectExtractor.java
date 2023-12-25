@@ -10,29 +10,31 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 
-
-/**
- * Extracts fields from a RecordTemplate based on the appropriate {@link FieldSpec}.
- */
+/** Extracts fields from a RecordTemplate based on the appropriate {@link FieldSpec}. */
 @Slf4j
 public class AspectExtractor {
 
-  private AspectExtractor() {
-  }
+  private AspectExtractor() {}
 
   public static Map<String, RecordTemplate> extractAspectRecords(RecordTemplate snapshot) {
-    return ModelUtils.getAspectsFromSnapshot(snapshot)
-        .stream()
-        .collect(Collectors.toMap(record -> getAspectNameFromSchema(record.schema()), Function.identity()));
+    return ModelUtils.getAspectsFromSnapshot(snapshot).stream()
+        .collect(
+            Collectors.toMap(
+                record -> getAspectNameFromSchema(record.schema()), Function.identity()));
   }
 
   private static String getAspectNameFromSchema(final RecordDataSchema aspectSchema) {
-    final Object aspectAnnotationObj = aspectSchema.getProperties().get(AspectAnnotation.ANNOTATION_NAME);
+    final Object aspectAnnotationObj =
+        aspectSchema.getProperties().get(AspectAnnotation.ANNOTATION_NAME);
     if (aspectAnnotationObj != null) {
-      return AspectAnnotation.fromSchemaProperty(aspectAnnotationObj, aspectSchema.getFullName()).getName();
+      return AspectAnnotation.fromSchemaProperty(aspectAnnotationObj, aspectSchema.getFullName())
+          .getName();
     }
-    log.error(String.format("Failed to extract aspect name from provided schema %s", aspectSchema.getName()));
+    log.error(
+        String.format(
+            "Failed to extract aspect name from provided schema %s", aspectSchema.getName()));
     throw new IllegalArgumentException(
-        String.format("Failed to extract aspect name from provided schema %s", aspectSchema.getName()));
+        String.format(
+            "Failed to extract aspect name from provided schema %s", aspectSchema.getName()));
   }
 }

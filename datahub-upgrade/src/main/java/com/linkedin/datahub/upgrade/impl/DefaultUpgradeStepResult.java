@@ -2,7 +2,6 @@ package com.linkedin.datahub.upgrade.impl;
 
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 
-
 public class DefaultUpgradeStepResult implements UpgradeStepResult {
 
   private final String _stepId;

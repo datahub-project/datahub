@@ -13,6 +13,7 @@ import io.ebean.Database;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import javax.annotation.Nullable;
 
 public class NoCodeUpgrade implements Upgrade {
 
@@ -26,15 +27,17 @@ public class NoCodeUpgrade implements Upgrade {
 
   // Upgrade requires the Database.
   public NoCodeUpgrade(
-      final Database server,
+      @Nullable final Database server,
       final EntityService entityService,
       final EntityRegistry entityRegistry,
       final SystemRestliEntityClient entityClient) {
-    _steps = buildUpgradeSteps(
-        server, entityService,
-        entityRegistry,
-        entityClient);
-    _cleanupSteps = buildCleanupSteps();
+    if (server != null) {
+      _steps = buildUpgradeSteps(server, entityService, entityRegistry, entityClient);
+      _cleanupSteps = buildCleanupSteps();
+    } else {
+      _steps = List.of();
+      _cleanupSteps = List.of();
+    }
   }
 
   @Override
