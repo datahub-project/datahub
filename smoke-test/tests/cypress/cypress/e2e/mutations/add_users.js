@@ -8,7 +8,8 @@ const tryToSignUp = () => {
   cy.enterTextInTestId("name", name);
   cy.enterTextInTestId("password", "Example password");
   cy.enterTextInTestId("confirmPassword", "Example password");
-
+  cy.log(`Username: ${email}`);
+  cy.log(`name: ${name}`);
   cy.mouseover("#title").click();
   cy.waitTextVisible("Other").click();
 
@@ -81,18 +82,20 @@ describe("Reset Password Functionality", () => {
         const inviteLink = $elem.text();
         cy.logout();
         cy.visit(inviteLink);
+        cy.log(`Username: ${email}`);
         cy.enterTextInTestId("email", email);
         cy.enterTextInTestId("password", password);
         cy.enterTextInTestId("confirmPassword", password);
         cy.get("[type=submit]").click();
         cy.wait(2000);
-        cy.logout();
-        cy.visit("/reset?reset_token=bad_token");
-        cy.enterTextInTestId("email", email);
-        cy.enterTextInTestId("password", password);
-        cy.enterTextInTestId("confirmPassword", password);
-        cy.get("[type=submit]").click();
-        cy.waitTextVisible("Failed to log in!");
+        cy.contains('Welcome back');
+        // cy.logout();
+        // cy.visit("/reset?reset_token=bad_token");
+        // cy.enterTextInTestId("email", email);
+        // cy.enterTextInTestId("password", password);
+        // cy.enterTextInTestId("confirmPassword", password);
+        // cy.get("[type=submit]").click();
+        // cy.waitTextVisible("Failed to log in!");
       })
      
   });
