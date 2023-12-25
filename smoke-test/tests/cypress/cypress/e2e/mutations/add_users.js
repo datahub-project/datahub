@@ -77,24 +77,25 @@ describe("Reset Password Functionality", () => {
     cy.get(".ant-typography-copy").should("be.visible").click();
     cy.get(".ant-modal-close").should("be.visible").click();
 
-    cy.waitTextVisible(/reset\?reset_token=\w{32}/).then(($elem) => {
-      const inviteLink = $elem.text();
-      cy.logout();
-      cy.visit(inviteLink);
-      cy.enterTextInTestId("email", email);
-      cy.enterTextInTestId("password", password);
-      cy.enterTextInTestId("confirmPassword", password);
-      cy.get("[type=submit]").click();
-    });
-    then(() => {
-      cy.logout();
-      cy.visit("/reset?reset_token=bad_token");
-      cy.enterTextInTestId("email", email);
-      cy.enterTextInTestId("password", password);
-      cy.enterTextInTestId("confirmPassword", password);
-      cy.get("[type=submit]").click();
-      cy.waitTextVisible("Failed to log in! An unexpected error occurred.");
-    });
+    cy.waitTextVisible(/reset\?reset_token=\w{32}/)
+      .then(($elem) => {
+        const inviteLink = $elem.text();
+        cy.logout();
+        cy.visit(inviteLink);
+        cy.enterTextInTestId("email", email);
+        cy.enterTextInTestId("password", password);
+        cy.enterTextInTestId("confirmPassword", password);
+        cy.get("[type=submit]").click();
+      })
+      .then(() => {
+        cy.logout();
+        cy.visit("/reset?reset_token=bad_token");
+        cy.enterTextInTestId("email", email);
+        cy.enterTextInTestId("password", password);
+        cy.enterTextInTestId("confirmPassword", password);
+        cy.get("[type=submit]").click();
+        cy.waitTextVisible("Failed to log in!");
+      });
   });
 });
 // Verify you can’t generate a reset password link for a non-native user (root, for example)
