@@ -17,13 +17,6 @@ const tryToSignUp = () => {
   return name;
 };
 
-const tryToResetPassword = () => {
-  cy.enterTextInTestId("email", email);
-  cy.enterTextInTestId("password", password);
-  cy.enterTextInTestId("confirmPassword", password);
-  cy.get("[type=submit]").click();
-};
-
 describe("add_user", () => {
   it("go to user link and invite a user", () => {
     cy.login();
@@ -72,32 +65,35 @@ describe("Reset Password Functionality", () => {
     cy.login();
     cy.visit("/settings/identities/users");
     cy.wait(2000);
-    cy.get("[data-testid=userItem-native]").then(($element) => {
-      cy.get("[data-testid=userItem-native]").first().click();
-      cy.get("[data-testid=resetButton]").first().click();
-      cy.get("[data-testid=refreshButton]").click();
-      cy.waitTextVisible("Generated new link to reset credentials");
-      cy.wait(2000);
+    cy.get("[data-testid=userItem-native]").first().click();
+    cy.get("[data-testid=resetButton]").first().click();
+    cy.get("[data-testid=refreshButton]").click();
+    cy.waitTextVisible("Generated new link to reset credentials");
+    cy.wait(2000);
 
-      cy.window().then((win) => {
-        cy.stub(win, "prompt");
-      });
-      cy.get(".ant-typography-copy").should("be.visible").click();
-      cy.get(".ant-modal-close").should("be.visible").click();
+    cy.window().then((win) => {
+      cy.stub(win, "prompt");
+    });
+    cy.get(".ant-typography-copy").should("be.visible").click();
+    cy.get(".ant-modal-close").should("be.visible").click();
 
-      cy.waitTextVisible(/reset\?reset_token=\w{32}/).then(($elem) => {
-        const inviteLink = $elem.text();
-        cy.logout();
-        cy.visit(inviteLink);
-        tryToResetPassword()
-       
-      });
-      then(() => {
-        cy.logout();
-        cy.visit("/reset?reset_token=bad_token");
-        tryToResetPassword()
-        cy.waitTextVisible("Failed to log in! An unexpected error occurred.");
-      });
+    cy.waitTextVisible(/reset\?reset_token=\w{32}/).then(($elem) => {
+      const inviteLink = $elem.text();
+      cy.logout();
+      cy.visit(inviteLink);
+      cy.enterTextInTestId("email", email);
+      cy.enterTextInTestId("password", password);
+      cy.enterTextInTestId("confirmPassword", password);
+      cy.get("[type=submit]").click();
+    });
+    then(() => {
+      cy.logout();
+      cy.visit("/reset?reset_token=bad_token");
+      cy.enterTextInTestId("email", email);
+      cy.enterTextInTestId("password", password);
+      cy.enterTextInTestId("confirmPassword", password);
+      cy.get("[type=submit]").click();
+      cy.waitTextVisible("Failed to log in! An unexpected error occurred.");
     });
   });
 });
