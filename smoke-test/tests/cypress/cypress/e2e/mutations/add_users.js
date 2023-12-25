@@ -1,11 +1,10 @@
 const test_id = Math.floor(Math.random() * 100000);
 const email = `example${test_id}@example.com`;
-const password = "Example password";
+const password = "Example password Reset";
 
 const tryToSignUp = () => {
-  let number = Math.floor(Math.random() * 100000);
-  let name = `Example Name ${number}`;
-  cy.enterTextInTestId("email", `example${number}@example.com`);
+  let name = `Example Name ${test_id}`;
+  cy.enterTextInTestId("email", email);
   cy.enterTextInTestId("name", name);
   cy.enterTextInTestId("password", "Example password");
   cy.enterTextInTestId("confirmPassword", "Example password");
