@@ -121,8 +121,12 @@ export default function UserListItem({ user, canManageUserCredentials, selectRol
                     trigger={['click']}
                     overlay={
                         <Menu>
-                            <Menu.Item disabled={!shouldShowPasswordReset} onClick={() => setIsViewingResetToken(true)}>
-                                <UnlockOutlined /> &nbsp; Reset user password
+                            <Menu.Item
+                                disabled={!shouldShowPasswordReset}
+                                onClick={() => setIsViewingResetToken(true)}
+                                data-testid="resetButtonClick"
+                            >
+                                <UnlockOutlined data-testid="resetButton" /> &nbsp; Reset user password
                             </Menu.Item>
                             <Menu.Item onClick={onDeleteEntity}>
                                 <DeleteOutlined /> &nbsp;Delete
@@ -130,7 +134,10 @@ export default function UserListItem({ user, canManageUserCredentials, selectRol
                         </Menu>
                     }
                 >
-                    <MenuIcon fontSize={20} />
+                    <MenuIcon
+                        fontSize={20}
+                        data-testid={`userItem-${shouldShowPasswordReset ? 'native' : 'non-native'}`}
+                    />
                 </Dropdown>
             </ButtonGroup>
             <ViewResetTokenModal
