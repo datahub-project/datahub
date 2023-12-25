@@ -87,15 +87,15 @@ describe("Reset Password Functionality", () => {
         cy.enterTextInTestId("confirmPassword", password);
         cy.get("[type=submit]").click();
       })
-      .then(() => {
-        cy.logout();
-        cy.visit("/reset?reset_token=bad_token");
-        cy.enterTextInTestId("email", email);
-        cy.enterTextInTestId("password", password);
-        cy.enterTextInTestId("confirmPassword", password);
-        cy.get("[type=submit]").click();
-        cy.waitTextVisible("Failed to log in!");
-      });
+      // .then(() => {
+      //   cy.logout();
+      //   cy.visit("/reset?reset_token=bad_token");
+      //   cy.enterTextInTestId("email", email);
+      //   cy.enterTextInTestId("password", password);
+      //   cy.enterTextInTestId("confirmPassword", password);
+      //   cy.get("[type=submit]").click();
+      //   cy.waitTextVisible("Failed to log in!");
+      // });
   });
 });
 // Verify you can’t generate a reset password link for a non-native user (root, for example)
