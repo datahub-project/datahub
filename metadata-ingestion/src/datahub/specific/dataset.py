@@ -344,7 +344,7 @@ class DatasetPatchBuilder(MetadataPatchProposal):
         if qualified_name is not None:
             self._add_patch(
                 DatasetProperties.ASPECT_NAME,
-                "replace",
+                "add",
                 path="/qualifiedName",
                 value=qualified_name,
             )
@@ -364,7 +364,7 @@ class DatasetPatchBuilder(MetadataPatchProposal):
         if timestamp is not None:
             self._add_patch(
                 DatasetProperties.ASPECT_NAME,
-                "replace",
+                "add",
                 path="/lastModified",
                 value=timestamp,
             )

@@ -3,9 +3,7 @@ from typing import cast
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.redshift.config import RedshiftConfig
 from datahub.ingestion.source.redshift.redshift import RedshiftSource
-from datahub.ingestion.source.redshift.redshift_schema import (
-    RedshiftTable,
-)
+from datahub.ingestion.source.redshift.redshift_schema import RedshiftTable
 from datahub.metadata.schema_classes import MetadataChangeProposalClass
 
 

@@ -19,6 +19,8 @@ from datahub.emitter.mce_builder import make_dataplatform_instance_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import entity_supports_aspect
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.sql.sql_generic import BaseTable
+from datahub.metadata.com.linkedin.pegasus2avro.common import TimeStamp
 from datahub.metadata.schema_classes import (
     BrowsePathEntryClass,
     BrowsePathsClass,
@@ -32,6 +34,7 @@ from datahub.metadata.schema_classes import (
     TagKeyClass,
     TimeWindowSizeClass,
 )
+from datahub.specific.dataset import DatasetPatchBuilder
 from datahub.telemetry import telemetry
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 from datahub.utilities.urns.tag_urn import TagUrn
@@ -57,6 +60,39 @@ def auto_workunit(
             yield MetadataWorkUnit(id=f"{item.proposedSnapshot.urn}/mce", mce=item)
         else:
             yield item.as_workunit()
+
+
+def create_dataset_props_patch_builder(
+    datahub_dataset_name: str,
+    dataset_urn: str,
+    table: BaseTable,
+    custom_properties: Optional[Dict[str, str]] = None,
+) -> DatasetPatchBuilder:
+    """Creates a patch builder with a table's or view's attributes and dataset properties"""
+    patch_builder = DatasetPatchBuilder(dataset_urn)
+    if table.name:
+        patch_builder.set_display_name(table.name)
+    if table.comment:
+        patch_builder.set_description(table.comment)
+    if table.created:
+        patch_builder.set_created(
+            timestamp=TimeStamp(time=int(table.created.timestamp() * 1000))
+        )
+
+    if table.last_altered:
+        patch_builder.set_last_modified(
+            timestamp=TimeStamp(time=int(table.last_altered.timestamp() * 1000))
+        )
+    elif table.created:
+        patch_builder.set_last_modified(
+            timestamp=TimeStamp(time=int(table.created.timestamp() * 1000))
+        )
+    patch_builder.set_qualified_name(str(datahub_dataset_name))
+
+    if custom_properties:
+        patch_builder.add_custom_properties(custom_properties)
+
+    return patch_builder
 
 
 def auto_status_aspect(

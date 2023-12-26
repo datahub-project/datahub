@@ -32,6 +32,7 @@ from datahub.ingestion.api.source import (
     TestableSource,
     TestConnectionReport,
 )
+from datahub.ingestion.api.source_helpers import create_dataset_props_patch_builder
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
@@ -77,11 +78,8 @@ from datahub.ingestion.source_report.ingestion_stage import (
     METADATA_EXTRACTION,
     PROFILING,
 )
-from datahub.metadata.com.linkedin.pegasus2avro.common import SubTypes, TimeStamp
-from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
-    DatasetProperties,
-    ViewProperties,
-)
+from datahub.metadata.com.linkedin.pegasus2avro.common import SubTypes
+from datahub.metadata.com.linkedin.pegasus2avro.dataset import ViewProperties
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     ArrayType,
     BooleanType,
@@ -97,7 +95,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     TimeType,
 )
 from datahub.metadata.schema_classes import GlobalTagsClass, TagAssociationClass
-from datahub.specific.dataset import DatasetPatchBuilder
 from datahub.utilities import memory_footprint
 from datahub.utilities.mapping import Constants
 from datahub.utilities.perf_timer import PerfTimer
@@ -725,29 +722,12 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
             dataset_urn, table, str(datahub_dataset_name)
         )
 
-        patch_builder = DatasetPatchBuilder(dataset_urn)
-        patch_builder.set_display_name(table.name)
-        patch_builder.set_description(table.comment)
-        patch_builder.set_created(
-            timestamp=TimeStamp(time=int(table.created.timestamp() * 1000))
-            if table.created
-            else None
+        patch_builder = create_dataset_props_patch_builder(
+            datahub_dataset_name, dataset_urn, table, custom_properties
         )
-        patch_builder.set_last_modified(
-            timestamp=TimeStamp(time=int(table.last_altered.timestamp() * 1000))
-            if table.last_altered
-            else TimeStamp(time=int(table.created.timestamp() * 1000))
-            if table.created
-            else None
-        )
-        patch_builder.set_qualified_name(str(datahub_dataset_name))
-
-        if custom_properties:
-            patch_builder.add_custom_properties(custom_properties)
-
         for patch_mcp in patch_builder.build():
             yield MetadataWorkUnit(
-                id=f"{dataset_urn}-{patch_mcp.aspectName}", mcp=patch_mcp
+                id=f"{dataset_urn}-{patch_mcp.aspectName}", mcp_raw=patch_mcp
             )
 
         schema_container_key = gen_schema_key(
