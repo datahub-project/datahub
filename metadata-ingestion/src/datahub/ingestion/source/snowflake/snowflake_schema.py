@@ -115,25 +115,6 @@ class SnowflakeDatabase:
     tags: Optional[List[SnowflakeTag]] = None
 
 
-@dataclass
-class SnowflakeRole:
-    name: str  # Role name
-    database_name: str
-    schema_name: str
-    dataset_name: str
-    privilege: str
-
-    @staticmethod
-    def create(row: Dict[Any, Any]) -> "SnowflakeRole":
-        return SnowflakeRole(
-            name=row["ROLE_NAME"],
-            database_name=row["DATABASE_NAME"],
-            schema_name=row["SCHEMA_NAME"],
-            dataset_name=row["DATASET_NAME"],
-            privilege=row["PRIVILEGE"],
-        )
-
-
 class _SnowflakeTagCache:
     def __init__(self) -> None:
         # self._database_tags[<database_name>] = list of tags applied to database
@@ -572,3 +553,60 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin):
             tags[column_name].append(snowflake_tag)
 
         return tags
+
+
+@dataclass
+class SnowflakeRole:
+    name: str  # Role name
+    database_name: str
+    schema_name: str
+    dataset_name: str
+    privilege: str
+    granted_on: str
+
+    @staticmethod
+    def create(row: Dict[Any, Any]) -> "SnowflakeRole":
+        return SnowflakeRole(
+            name=row["ROLE_NAME"],
+            database_name=row["DATABASE_NAME"],
+            schema_name=row["SCHEMA_NAME"],
+            dataset_name=row["DATASET_NAME"],
+            privilege=row["PRIVILEGE"],
+            granted_on=row["GRANTED_ON"],
+        )
+
+
+@dataclass
+class SnowflakeUser:
+    name: str
+    login_name: str
+    display_name: str
+    email: str
+    disabled: bool
+
+    @staticmethod
+    def create(row: Dict[Any, Any]) -> "SnowflakeUser":
+        return SnowflakeUser(
+            name=row["name"],
+            login_name=row["login_name"],
+            display_name=row["display_name"],
+            email=row["email"],
+            disabled=row["disabled"],
+        )
+
+
+@dataclass
+class SnowflakeUserGrant:
+    role: str
+    granted_to: str
+    grantee_name: str
+    granted_by: Optional[str]
+
+    @staticmethod
+    def crate(row: Dict[Any, Any]) -> "SnowflakeUserGrant":
+        return SnowflakeUserGrant(
+            role=row["role"],
+            granted_to=row["granted_role"],
+            grantee_name=row["grantee_name"],
+            granted_by=row["granted_by"],
+        )

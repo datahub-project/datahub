@@ -1,5 +1,7 @@
 namespace com.linkedin.identity
 
+import com.linkedin.common.Urn
+
 import com.linkedin.common.AuditStamp
 
 /**
@@ -17,5 +19,15 @@ record OverProvisionedCorpUser {
   "fieldType": "BOOLEAN"
   }
   status: boolean = false
+
+/**
+  * Identity to apply the policy
+  * Possible values are CorpUserUrn or CorpGroupUrn or RoleUrn
+  */
+  @Relationship = {
+      "name": "GrantedRole",
+      "entityTypes": [ "role" ]
+  }
+  roles: optional array[Urn]
 }
  

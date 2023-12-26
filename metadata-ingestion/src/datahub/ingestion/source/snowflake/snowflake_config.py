@@ -150,25 +150,30 @@ class SnowflakeV2Config(
     shares: Optional[Dict[str, SnowflakeShareConfig]] = Field(
         default=None,
         description="Required if current account owns or consumes snowflake share."
-        " If specified, connector creates lineage and siblings relationship between current account's database tables and consumer/producer account's database tables."
+        "If specified, connector creates lineage and siblings relationship between current account's database tables "
+        "and consumer/producer account's database tables."
         " Map of share name -> details of share.",
     )
 
     email_as_user_identifier: bool = Field(
         default=True,
-        description="Format user urns as an email, if the snowflake user's email is set. If `email_domain` is provided, generates email addresses for snowflake users with unset emails, based on their username.",
+        description="Format user urns as an email, if the snowflake user's email is set. If `email_domain` is "
+        "provided, generates email addresses for snowflake users with unset emails, based on their "
+        "username.",
     )
 
     extract_access_control: bool = Field(
         default=False,
-        description="Whether to extract snowflake access control metadata.",
+        description="Whether to extract snowflake access control metadata. It will ingest the Role, User, "
+        "and Privileges",
     )
 
     @validator("convert_urns_to_lowercase")
     def validate_convert_urns_to_lowercase(cls, v):
         if not v:
             add_global_warning(
-                "Please use `convert_urns_to_lowercase: True`, otherwise lineage to other sources may not work correctly."
+                "Please use `convert_urns_to_lowercase: True`, otherwise lineage to other sources may not work "
+                "correctly."
             )
 
         return v

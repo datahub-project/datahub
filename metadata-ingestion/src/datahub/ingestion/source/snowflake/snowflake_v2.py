@@ -61,6 +61,7 @@ from datahub.ingestion.source.snowflake.snowflake_lineage_v2 import (
     SnowflakeLineageExtractor,
 )
 from datahub.ingestion.source.snowflake.snowflake_profiler import SnowflakeProfiler
+from datahub.ingestion.source.snowflake.snowflake_query import SnowflakeQueryExecutor
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
 from datahub.ingestion.source.snowflake.snowflake_schema import (
     SnowflakeColumn,
@@ -293,14 +294,16 @@ class SnowflakeV2Source(
                 run_id=self.ctx.run_id,
             )
 
-        self.snowflake_access_control_extractor: Optional[SnowflakeAccessControl] = None
-        if self.config.extract_access_control:
-            self.snowflake_access_control_extractor = SnowflakeAccessControl(
+        self.snowflake_access_control_extractor = SnowflakeAccessControl(
+            config=self.config,
+            report=self.report,
+            snowflake_query_executor=SnowflakeQueryExecutor(
                 config=self.config,
                 report=self.report,
-                dataset_urn_builder=self.gen_dataset_urn,
-                datapolicy_urn_builder=self.gen_datapolicy_urn,
-            )
+            ),
+            dataset_urn_builder=self.gen_dataset_urn,
+            datapolicy_urn_builder=self.gen_datapolicy_urn,
+        )
 
         if config.is_profiling_enabled():
             # For profiling
@@ -623,7 +626,7 @@ class SnowflakeV2Source(
         ) and self.usage_extractor:
             yield from self.usage_extractor.get_usage_workunits(discovered_datasets)
 
-        if self.snowflake_access_control_extractor is not None:
+        if self.config.extract_access_control:
             yield from self.snowflake_access_control_extractor.get_workunits(
                 databases=databases
             )
