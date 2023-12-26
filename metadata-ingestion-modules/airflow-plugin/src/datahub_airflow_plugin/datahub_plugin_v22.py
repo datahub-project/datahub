@@ -18,6 +18,10 @@ from datahub_airflow_plugin._airflow_shims import (
 )
 from datahub_airflow_plugin._config import get_lineage_config
 from datahub_airflow_plugin.client.airflow_generator import AirflowGenerator
+from datahub_airflow_plugin.entities import (
+    entities_to_datajob_urn_list,
+    entities_to_dataset_urn_list,
+)
 from datahub_airflow_plugin.hooks.datahub import DatahubGenericHook
 from datahub_airflow_plugin.lineage.datahub import DatahubLineageConfig
 
@@ -94,7 +98,8 @@ def datahub_task_status_callback(context, status):
 
     # This code is from the original airflow lineage code ->
     # https://github.com/apache/airflow/blob/main/airflow/lineage/__init__.py
-    inlets = get_task_inlets_advanced(task, context)
+    task_inlets = get_task_inlets_advanced(task, context)
+    task_outlets = get_task_outlets(task)
 
     emitter = (
         DatahubGenericHook(config.datahub_conn_id).get_underlying_hook().make_emitter()
@@ -116,13 +121,15 @@ def datahub_task_status_callback(context, status):
         capture_tags=config.capture_tags_info,
         capture_owner=config.capture_ownership_info,
     )
-
-    for inlet in inlets:
-        datajob.inlets.append(inlet.urn)
-
-    task_outlets = get_task_outlets(task)
-    for outlet in task_outlets:
-        datajob.outlets.append(outlet.urn)
+    datajob.inlets.extend(
+        entities_to_dataset_urn_list([let.urn for let in task_inlets])
+    )
+    datajob.outlets.extend(
+        entities_to_dataset_urn_list([let.urn for let in task_outlets])
+    )
+    datajob.upstream_urns.extend(
+        entities_to_datajob_urn_list([let.urn for let in task_inlets])
+    )
 
     task.log.info(f"Emitting Datahub Datajob: {datajob}")
     datajob.emit(emitter, callback=_make_emit_callback(task.log))
@@ -169,7 +176,8 @@ def datahub_pre_execution(context):
 
     # This code is from the original airflow lineage code ->
     # https://github.com/apache/airflow/blob/main/airflow/lineage/__init__.py
-    inlets = get_task_inlets_advanced(task, context)
+    task_inlets = get_task_inlets_advanced(task, context)
+    task_outlets = get_task_outlets(task)
 
     datajob = AirflowGenerator.generate_datajob(
         cluster=config.cluster,
@@ -178,14 +186,15 @@ def datahub_pre_execution(context):
         capture_tags=config.capture_tags_info,
         capture_owner=config.capture_ownership_info,
     )
-
-    for inlet in inlets:
-        datajob.inlets.append(inlet.urn)
-
-    task_outlets = get_task_outlets(task)
-
-    for outlet in task_outlets:
-        datajob.outlets.append(outlet.urn)
+    datajob.inlets.extend(
+        entities_to_dataset_urn_list([let.urn for let in task_inlets])
+    )
+    datajob.outlets.extend(
+        entities_to_dataset_urn_list([let.urn for let in task_outlets])
+    )
+    datajob.upstream_urns.extend(
+        entities_to_datajob_urn_list([let.urn for let in task_inlets])
+    )
 
     task.log.info(f"Emitting Datahub dataJob {datajob}")
     datajob.emit(emitter, callback=_make_emit_callback(task.log))

@@ -11,7 +11,6 @@ import { capitalizeFirstLetterOnly } from '../../../shared/textUtil';
 export const StyledList = styled(List)`
     overflow-y: auto;
     height: 100%;
-    margin-top: -1px;
     box-shadow: ${(props) => props.theme.styles['box-shadow']};
     flex: 1;
     .ant-list-items > .ant-list-item {

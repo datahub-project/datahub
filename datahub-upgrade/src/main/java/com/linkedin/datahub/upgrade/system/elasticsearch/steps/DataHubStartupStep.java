@@ -6,11 +6,9 @@ import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
 import com.linkedin.metadata.dao.producer.KafkaEventProducer;
 import com.linkedin.mxe.DataHubUpgradeHistoryEvent;
+import java.util.function.Function;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-
-import java.util.function.Function;
-
 
 @RequiredArgsConstructor
 @Slf4j
@@ -32,8 +30,8 @@ public class DataHubStartupStep implements UpgradeStep {
   public Function<UpgradeContext, UpgradeStepResult> executable() {
     return (context) -> {
       try {
-        DataHubUpgradeHistoryEvent dataHubUpgradeHistoryEvent = new DataHubUpgradeHistoryEvent()
-            .setVersion(_version);
+        DataHubUpgradeHistoryEvent dataHubUpgradeHistoryEvent =
+            new DataHubUpgradeHistoryEvent().setVersion(_version);
         _kafkaEventProducer.produceDataHubUpgradeHistoryEvent(dataHubUpgradeHistoryEvent);
         log.info("Initiating startup for version: {}", _version);
       } catch (Exception e) {

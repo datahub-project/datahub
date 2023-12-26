@@ -198,6 +198,21 @@ def auto_lowercase_urns(
             yield wu
 
 
+def re_emit_browse_path_v2(
+    stream: Iterable[MetadataWorkUnit],
+) -> Iterable[MetadataWorkUnit]:
+    """Re-emit browse paths v2 aspects, to avoid race condition where server overwrites with default."""
+    browse_path_v2_workunits = []
+
+    for wu in stream:
+        yield wu
+        if wu.is_primary_source and wu.get_aspect_of_type(BrowsePathsV2Class):
+            browse_path_v2_workunits.append(wu)
+
+    for wu in browse_path_v2_workunits:
+        yield wu
+
+
 def auto_browse_path_v2(
     stream: Iterable[MetadataWorkUnit],
     *,

@@ -1,17 +1,18 @@
 package com.linkedin.metadata.graph.search;
 
 import com.google.common.io.Resources;
+import com.linkedin.metadata.graph.elastic.TimeFilterUtils;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
-
-import com.linkedin.metadata.graph.elastic.TimeFilterUtils;
 import org.opensearch.index.query.QueryBuilder;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
 public class TimeFilterUtilsTest {
 
-  private static final String TEST_QUERY_FILE = "elasticsearch/sample_filters/lineage_time_query_filters_1.json";
+  private static final String TEST_QUERY_FILE =
+      "elasticsearch/sample_filters/lineage_time_query_filters_1.json";
+
   @Test
   private static void testGetEdgeTimeFilterQuery() throws Exception {
     URL url = Resources.getResource(TEST_QUERY_FILE);

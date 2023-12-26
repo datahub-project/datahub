@@ -15,6 +15,8 @@ services:
       context: ../
       dockerfile: docker/datahub-mae-consumer/Dockerfile
     env_file: datahub-mae-consumer/env/docker-without-neo4j.env
+    environment:
+      - KAFKA_CONSUMER_STOP_ON_DESERIALIZATION_ERROR=${KAFKA_CONSUMER_STOP_ON_DESERIALIZATION_ERROR:-true}
   datahub-mce-consumer:
     container_name: datahub-mce-consumer
     hostname: datahub-mce-consumer
@@ -28,3 +30,4 @@ services:
     environment:
     - DATAHUB_SERVER_TYPE=${DATAHUB_SERVER_TYPE:-quickstart}
     - DATAHUB_TELEMETRY_ENABLED=${DATAHUB_TELEMETRY_ENABLED:-true}
+    - KAFKA_CONSUMER_STOP_ON_DESERIALIZATION_ERROR=${KAFKA_CONSUMER_STOP_ON_DESERIALIZATION_ERROR:-true}
