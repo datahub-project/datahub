@@ -42,7 +42,7 @@ class MSSQLJob:
 
     @property
     def formatted_name(self) -> str:
-        return f"{self.formatted_platform_instance}.{self.name.replace(',', '-')}"
+        return self.name.replace(',', '-')
 
     @property
     def full_type(self) -> str:
@@ -54,7 +54,7 @@ class MSSQLJob:
 
     @property
     def formatted_platform_instance(self) -> str:
-        return self.platform_instance.replace(".", "/")
+        return self.platform_instance
 
     @property
     def cluster(self) -> str:
@@ -72,7 +72,7 @@ class MSSQLProceduresContainer:
 
     @property
     def formatted_name(self) -> str:
-        return f"{self.formatted_platform_instance}.{self.name.replace(',', '-')}"
+        return self.name.replace(',', '-')
 
     @property
     def orchestrator(self) -> str:
@@ -80,7 +80,7 @@ class MSSQLProceduresContainer:
 
     @property
     def formatted_platform_instance(self) -> str:
-        return self.platform_instance.replace(".", "/")
+        return self.platform_instance
 
     @property
     def cluster(self) -> str:
@@ -149,7 +149,7 @@ class JobStep:
 
     @property
     def full_name(self) -> str:
-        return f"{self.formatted_name}.{self.formatted_name}"
+        return self.formatted_name
 
 
 @dataclass
@@ -172,12 +172,14 @@ class MSSQLDataJob:
             flow_id=self.entity.flow.formatted_name,
             job_id=self.entity.formatted_name,
             cluster=self.entity.flow.cluster,
+            platform_instance=self.entity.flow.formatted_platform_instance if
+            self.entity.flow.formatted_platform_instance else None
         )
 
     def add_property(
-        self,
-        name: str,
-        value: str,
+            self,
+            name: str,
+            value: str,
     ) -> None:
         self.job_properties[name] = value
 
@@ -216,9 +218,9 @@ class MSSQLDataFlow:
     flow_properties: Dict[str, str] = field(default_factory=dict)
 
     def add_property(
-        self,
-        name: str,
-        value: str,
+            self,
+            name: str,
+            value: str,
     ) -> None:
         self.flow_properties[name] = value
 
@@ -228,6 +230,8 @@ class MSSQLDataFlow:
             orchestrator=self.entity.orchestrator,
             flow_id=self.entity.formatted_name,
             cluster=self.entity.cluster,
+            platform_instance=self.entity.formatted_platform_instance if
+            self.entity.formatted_platform_instance else None
         )
 
     @property
