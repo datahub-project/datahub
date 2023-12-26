@@ -246,7 +246,7 @@ class UnityCatalogSourceConfig(
         description="Generate usage statistics.",
     )
 
-    # TODO: Remove `type:ignore` by refractoring config
+    # TODO: Remove `type:ignore` by refactoring config
     profiling: Union[UnityCatalogGEProfilerConfig, UnityCatalogAnalyzeProfilerConfig] = Field(  # type: ignore
         default=UnityCatalogGEProfilerConfig(),
         description="Data profiling configuration",

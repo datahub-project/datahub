@@ -202,7 +202,7 @@ def register_mock_data(workspace_client):
         )
     ]
 
-    workspace_client.tables.get = lambda *args, **kawargs: databricks.sdk.service.catalog.TableInfo.from_dict(
+    workspace_client.tables.get = lambda *args, **kwargs: databricks.sdk.service.catalog.TableInfo.from_dict(
         {
             "name": "quickstart_table",
             "catalog_name": "quickstart_catalog",
@@ -273,7 +273,50 @@ def register_mock_data(workspace_client):
 
 
 def mock_hive_sql(query):
-    if query == "DESCRIBE EXTENDED `bronze_kambi`.`bet`":
+
+    if query == "DESCRIBE EXTENDED `bronze_kambi`.`bet` betStatusId":
+        return [
+            ("col_name", "betStatusId"),
+            ("data_type", "bigint"),
+            ("comment", None),
+            ("min", None),
+            ("max", None),
+            ("num_nulls", 0),
+            ("distinct_count", 1),
+            ("avg_col_len", 8),
+            ("max_col_len", 8),
+            ("histogram", None),
+        ]
+    elif query == "DESCRIBE EXTENDED `bronze_kambi`.`bet` channelId":
+        return [
+            ("col_name", "channelId"),
+            ("data_type", "bigint"),
+            ("comment", None),
+            ("min", None),
+            ("max", None),
+            ("num_nulls", 0),
+            ("distinct_count", 1),
+            ("avg_col_len", 8),
+            ("max_col_len", 8),
+            ("histogram", None),
+        ]
+    elif query == "DESCRIBE EXTENDED `bronze_kambi`.`bet` combination":
+        return [
+            ("col_name", "combination"),
+            (
+                "data_type",
+                "struct<combinationRef:bigint,currentOdds:double,eachWay:boolean,liveBetting:boolean,odds:double,outcomes:array<struct<betOfferTypeId:bigint,criterionId:bigint,criterionName:string,currentOdds:double,eventGroupId:bigint,eventGroupPath:array<struct<id:bigint,name:string>>,eventId:bigint,eventName:string,eventStartDate:string,live:boolean,odds:double,outcomeIds:array<bigint>,outcomeLabel:string,sportId:string,status:string,voidReason:string>>,payout:double,rewardExtraPayout:double,stake:double>",
+            ),
+            ("comment", None),
+            ("min", None),
+            ("max", None),
+            ("num_nulls", None),
+            ("distinct_count", None),
+            ("avg_col_len", None),
+            ("max_col_len", None),
+            ("histogram", None),
+        ]
+    elif query == "DESCRIBE EXTENDED `bronze_kambi`.`bet`":
         return [
             ("betStatusId", "bigint", None),
             ("channelId", "bigint", None),
@@ -370,7 +413,6 @@ def test_ingestion(pytestconfig, tmp_path, requests_mock):
                         "enabled": True,
                         "method": "analyze",
                         "call_analyze": False,
-                        "profile_table_level_only": True,
                     },
                 },
             },

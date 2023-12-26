@@ -20,8 +20,6 @@ from datahub.ingestion.source.unity.hive_metastore_proxy import (
 )
 from datahub.ingestion.source.unity.proxy_types import (
     ColumnProfile,
-    Schema,
-    Table,
     TableProfile,
     TableReference,
 )
@@ -168,32 +166,13 @@ class UnityCatalogProxyProfilingMixin:
     def _get_table_profile(
         self, ref: TableReference, include_columns: bool
     ) -> TableProfile:
-        table_info = self._get_table_info(ref, include_columns)
+        if self.hive_metastore_proxy and ref.catalog == HIVE_METASTORE:
+            return self.hive_metastore_proxy.get_table_profile(ref, include_columns)
+        table_info = self._workspace_client.tables.get(ref.qualified_table_name)
         return self._create_table_profile(table_info, include_columns=include_columns)
 
-    def _get_table_info(
-        self, ref: TableReference, include_columns: bool
-    ) -> Union[TableInfo, Table]:
-        table_info: Union[TableInfo, Table]
-        if self.hive_metastore_proxy and ref.catalog == HIVE_METASTORE:
-            table_info = self.hive_metastore_proxy._get_table(
-                Schema(
-                    id=ref.schema,
-                    name=ref.schema,
-                    # This is okay, as none of this is used in profiling
-                    catalog=self.hive_metastore_proxy.hive_metastore_catalog(None),
-                    comment=None,
-                    owner=None,
-                ),
-                ref.table,
-                include_column_stats=include_columns,
-            )
-        else:
-            table_info = self._workspace_client.tables.get(ref.qualified_table_name)
-        return table_info
-
     def _create_table_profile(
-        self, table_info: Union[TableInfo, Table], include_columns: bool
+        self, table_info: TableInfo, include_columns: bool
     ) -> TableProfile:
         # Warning: this implementation is brittle -- dependent on properties that can change
         columns_names = (
@@ -215,7 +194,7 @@ class UnityCatalogProxyProfilingMixin:
         )
 
     def _create_column_profile(
-        self, column: str, table_info: Union[TableInfo, Table]
+        self, column: str, table_info: TableInfo
     ) -> ColumnProfile:
         tblproperties = table_info.properties or {}
         return ColumnProfile(
@@ -235,9 +214,7 @@ class UnityCatalogProxyProfilingMixin:
             ),
         )
 
-    def _get_int(
-        self, table_info: Union[TableInfo, Table], field: str
-    ) -> Optional[int]:
+    def _get_int(self, table_info: TableInfo, field: str) -> Optional[int]:
         tblproperties = table_info.properties or {}
         value = tblproperties.get(field)
         if value is not None:
