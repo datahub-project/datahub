@@ -67,6 +67,7 @@ public class EntityChangeEventGeneratorHook implements MetadataChangeLogHook {
           // SaaS only
           Constants.ACTION_REQUEST_STATUS_ASPECT_NAME,
           Constants.ACTION_REQUEST_INFO_ASPECT_NAME,
+          Constants.INCIDENT_INFO_ASPECT_NAME,
 
           // Entity Lifecycle Event
           Constants.DATASET_KEY_ASPECT_NAME,
