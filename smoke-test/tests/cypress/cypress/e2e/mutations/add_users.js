@@ -8,11 +8,8 @@ const tryToSignUp = () => {
   cy.enterTextInTestId("name", name);
   cy.enterTextInTestId("password", "Example password");
   cy.enterTextInTestId("confirmPassword", "Example password");
-  cy.log(`Username: ${email}`);
-  cy.log(`name: ${name}`);
   cy.mouseover("#title").click();
   cy.waitTextVisible("Other").click();
-
   cy.get("[type=submit]").click();
   return name;
 };
@@ -20,16 +17,12 @@ const tryToSignUp = () => {
 describe("add_user", () => {
   it("go to user link and invite a user", () => {
     cy.login();
-
     cy.visit("/settings/identities/users");
     cy.waitTextVisible("Invite Users");
-
     cy.clickOptionWithText("Invite Users");
-
     cy.waitTextVisible(/signup\?invite_token=\w{32}/)
       .then(($elem) => {
         const inviteLink = $elem.text();
-        cy.log(inviteLink);
         cy.visit("/settings/identities/users");
         cy.logout();
         cy.visit(inviteLink);
@@ -47,8 +40,8 @@ describe("add_user", () => {
   });
 });
 
-describe("Reset Password Functionality", () => {
-  it("Verify you can’t generate a reset password link for a non-native user (root, for example)", () => {
+describe("Reset Password", () => {
+  it("Verify you can’t generate a reset password link for a non-native user", () => {
     cy.login();
     cy.visit("/settings/identities/users");
     cy.wait(2000);
@@ -82,7 +75,6 @@ describe("Reset Password Functionality", () => {
         const inviteLink = $elem.text();
         cy.logout();
         cy.visit(inviteLink);
-        cy.log(`Username: ${email}`);
         cy.enterTextInTestId("email", email);
         cy.enterTextInTestId("password", password);
         cy.enterTextInTestId("confirmPassword", password);
