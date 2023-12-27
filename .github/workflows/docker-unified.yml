@@ -84,6 +84,7 @@ jobs:
         with:
           distribution: "zulu"
           java-version: 17
+      - uses: gradle/gradle-build-action@v2
       - name: Check out the repo
         uses: hsheth2/sane-checkout-action@v1
       - name: Pre-build artifacts for docker image
@@ -145,6 +146,7 @@ jobs:
         with:
           distribution: "zulu"
           java-version: 17
+      - uses: gradle/gradle-build-action@v2
       - name: Check out the repo
         uses: hsheth2/sane-checkout-action@v1
       - name: Pre-build artifacts for docker image
@@ -731,12 +733,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        test_strategy: [
-          "no_cypress_suite0",
-          "no_cypress_suite1",
-          "cypress_suite1", 
-          "cypress_rest"
-        ]
+        test_strategy:
+          [
+            "no_cypress_suite0",
+            "no_cypress_suite1",
+            "cypress_suite1",
+            "cypress_rest",
+          ]
     needs:
       [
         setup,
@@ -904,11 +907,7 @@ jobs:
   deploy_datahub_head:
     name: Deploy to Datahub HEAD
     runs-on: ubuntu-latest
-    needs:
-      [
-        setup,
-        smoke_test
-      ]
+    needs: [setup, smoke_test]
     steps:
       - uses: aws-actions/configure-aws-credentials@v1
         if: ${{ needs.setup.outputs.publish != 'false' && github.repository_owner == 'datahub-project' && needs.setup.outputs.repository_name == 'datahub' }}
