@@ -1,5 +1,7 @@
 package com.linkedin.metadata.timeline.eventgenerator;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
@@ -14,10 +16,11 @@ import com.linkedin.metadata.timeline.data.ChangeOperation;
 import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
 import java.util.List;
+import java.util.Map;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
-import org.testcontainers.shaded.com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
+import static com.linkedin.metadata.Constants.*;
 import static org.testng.AssertJUnit.*;
 
 public class IncidentInfoChangeEventGeneratorTest extends AbstractTestNGSpringContextTests {
@@ -33,7 +36,9 @@ public class IncidentInfoChangeEventGeneratorTest extends AbstractTestNGSpringCo
     final IncidentInfo info = new IncidentInfo();
     info.setStatus(new IncidentStatus().setState(IncidentState.ACTIVE));
     info.setEntities(new UrnArray(ImmutableList.of(
-        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleHdfsDataset,PROD)"))));
+        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleHdfsDataset,PROD)"),
+        UrnUtils.getUrn("urn:li:dataset:abc")
+        )));
     info.setCreated(AuditStampUtils.createDefaultAuditStamp());
     final Aspect<IncidentInfo> newIncident = new Aspect<>(info, SystemMetadataUtils.createDefaultSystemMetadata());
     final AuditStamp auditStamp = AuditStampUtils.createDefaultAuditStamp();
@@ -44,6 +49,9 @@ public class IncidentInfoChangeEventGeneratorTest extends AbstractTestNGSpringCo
     ChangeEvent changeEvent = actual.get(0);
     assertEquals(ChangeCategory.INCIDENT, changeEvent.getCategory());
     assertEquals(ChangeOperation.ACTIVE, changeEvent.getOperation());
+
+    Map<String, Object> expectedParameters = ImmutableMap.of(ENTITY_REF,info.getEntities());
+    assertEquals(expectedParameters, changeEvent.getParameters());
   }
 
   @Test
@@ -67,6 +75,9 @@ public class IncidentInfoChangeEventGeneratorTest extends AbstractTestNGSpringCo
     ChangeEvent changeEvent = actual.get(0);
     assertEquals(ChangeCategory.INCIDENT, changeEvent.getCategory());
     assertEquals(ChangeOperation.RESOLVED, changeEvent.getOperation());
+
+    Map<String, Object> expectedParameters = ImmutableMap.of(ENTITY_REF, newInfo.getEntities());
+    assertEquals(expectedParameters, changeEvent.getParameters());
   }
 
   @Test
