@@ -1,6 +1,6 @@
 import logging
 from abc import ABCMeta, abstractmethod
-from typing import Any, Dict, Iterable, List, Optional, Union
+from typing import Any, Dict, Iterable, List, Optional, Sequence, Union
 
 import datahub.emitter.mce_builder as builder
 from datahub.emitter.aspect import ASPECT_MAP
@@ -30,7 +30,7 @@ def _update_work_unit_id(
 class HandleEndOfStreamTransformer:
     def handle_end_of_stream(
         self,
-    ) -> List[Union[MetadataChangeProposalWrapper, MetadataChangeProposalClass]]:
+    ) -> Sequence[Union[MetadataChangeProposalWrapper, MetadataChangeProposalClass]]:
         return []
 
 
@@ -208,7 +208,7 @@ class BaseTransformer(Transformer, metaclass=ABCMeta):
         ):
             return
 
-        mcps: List[
+        mcps: Sequence[
             Union[MetadataChangeProposalWrapper, MetadataChangeProposalClass]
         ] = self.handle_end_of_stream()
 

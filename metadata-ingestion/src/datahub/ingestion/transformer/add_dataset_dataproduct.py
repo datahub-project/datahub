@@ -1,7 +1,10 @@
 import logging
 from typing import Callable, Dict, List, Optional, Union
 
+import pydantic
+
 from datahub.configuration.common import (
+    ConfigurationError,
     KeyValuePattern,
     TransformerSemanticsConfigModel,
 )
@@ -20,7 +23,7 @@ logger = logging.getLogger(__name__)
 
 class AddDatasetDataProductConfig(TransformerSemanticsConfigModel):
     # dataset_urn -> data product urn
-    get_data_product_to_add: Callable[[str], Optional[str]]
+    get_data_product_to_add: Callable[[str], Optional[Union[str, List[str]]]]
 
     _resolve_data_product_fn = pydantic_resolve_key("get_data_product_to_add")
 
@@ -55,13 +58,15 @@ class AddDatasetDataProduct(DatasetDataproductTransformer):
         for entity_urn in self.entity_map.keys():
             data_product_urn = self.config.get_data_product_to_add(entity_urn)
             if data_product_urn:
-                if data_product_urn not in data_products:
-                    data_products[data_product_urn] = DataProductPatchBuilder(
-                        data_product_urn
+                if isinstance(data_product_urn, str):
+                    data_product_urn = [data_product_urn]
+                if data_product_urn[0] not in data_products:
+                    data_products[data_product_urn[0]] = DataProductPatchBuilder(
+                        data_product_urn[0]
                     ).add_asset(entity_urn)
                 else:
-                    data_products[data_product_urn] = data_products[
-                        data_product_urn
+                    data_products[data_product_urn[0]] = data_products[
+                        data_product_urn[0]
                     ].add_asset(entity_urn)
 
         mcps: List[
@@ -101,6 +106,18 @@ class SimpleAddDatasetDataProduct(AddDatasetDataProduct):
 class PatternDatasetDataProductConfig(TransformerSemanticsConfigModel):
     dataset_to_data_product_urns_pattern: KeyValuePattern = KeyValuePattern.all()
 
+    @pydantic.root_validator(pre=True)
+    def validate_pattern_value(cls, values: Dict) -> Dict:
+        rules = values["dataset_to_data_product_urns_pattern"]["rules"]
+        for key, value in rules.items():
+            if isinstance(value, list) and len(value) > 1:
+                raise ConfigurationError(
+                    "Same dataset cannot be an asset of two different data product."
+                )
+            elif isinstance(value, str):
+                rules[key] = [rules[key]]
+        return values
+
 
 class PatternAddDatasetDataProduct(AddDatasetDataProduct):
     """Transformer that adds a specified dataproduct entity for provided dataset as its asset."""
@@ -110,9 +127,7 @@ class PatternAddDatasetDataProduct(AddDatasetDataProduct):
         generic_config = AddDatasetDataProductConfig(
             get_data_product_to_add=lambda dataset_urn: dataset_to_data_product.value(
                 dataset_urn
-            )
-            if dataset_to_data_product.value(dataset_urn)
-            else None,
+            ),
             replace_existing=config.replace_existing,
             semantics=config.semantics,
         )
