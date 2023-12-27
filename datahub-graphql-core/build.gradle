@@ -1,7 +1,8 @@
 plugins {
+    id 'java'
     id "io.github.kobylynskyi.graphql.codegen" version "4.1.1"
 }
-apply plugin: 'java'
+
 
 dependencies {
     implementation project(':metadata-service:restli-client')

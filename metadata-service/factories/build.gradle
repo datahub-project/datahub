@@ -1,5 +1,6 @@
-apply plugin: 'java-library'
-apply from: "../../gradle/versioning/versioning.gradle"
+plugins {
+  id 'java-library'
+}
 
 dependencies {
   api project(':metadata-io')
@@ -64,8 +65,5 @@ dependencies {
 configurations.all{
   exclude group: "commons-io", module:"commons-io"
   exclude group: "jline", module:"jline"
-}
-
-processResources.configure {
-  finalizedBy printVersionDetails // always print version details
+  exclude group: 'software.amazon.awssdk', module: 'third-party-jackson-core'
 }

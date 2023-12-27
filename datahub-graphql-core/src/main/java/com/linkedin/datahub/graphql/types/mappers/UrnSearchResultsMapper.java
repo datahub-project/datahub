@@ -6,7 +6,6 @@ import com.linkedin.datahub.graphql.generated.SearchResults;
 import com.linkedin.metadata.search.SearchResultMetadata;
 import java.util.stream.Collectors;
 
-
 public class UrnSearchResultsMapper<T extends RecordTemplate, E extends Entity> {
   public static <T extends RecordTemplate, E extends Entity> SearchResults map(
       com.linkedin.metadata.search.SearchResult searchResult) {
@@ -25,9 +24,16 @@ public class UrnSearchResultsMapper<T extends RecordTemplate, E extends Entity> 
     result.setTotal(input.getNumEntities());
 
     final SearchResultMetadata searchResultMetadata = input.getMetadata();
-    result.setSearchResults(input.getEntities().stream().map(MapperUtils::mapResult).collect(Collectors.toList()));
-    result.setFacets(searchResultMetadata.getAggregations().stream().map(MapperUtils::mapFacet).collect(Collectors.toList()));
-    result.setSuggestions(searchResultMetadata.getSuggestions().stream().map(MapperUtils::mapSearchSuggestion).collect(Collectors.toList()));
+    result.setSearchResults(
+        input.getEntities().stream().map(MapperUtils::mapResult).collect(Collectors.toList()));
+    result.setFacets(
+        searchResultMetadata.getAggregations().stream()
+            .map(MapperUtils::mapFacet)
+            .collect(Collectors.toList()));
+    result.setSuggestions(
+        searchResultMetadata.getSuggestions().stream()
+            .map(MapperUtils::mapSearchSuggestion)
+            .collect(Collectors.toList()));
 
     return result;
   }

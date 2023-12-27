@@ -14,9 +14,10 @@ base_requirements = {
     "mypy_extensions>=0.4.3",
     # Actual dependencies.
     "typing-inspect",
+    # pydantic 1.8.2 is incompatible with mypy 0.910.
+    # See https://github.com/samuelcolvin/pydantic/pull/3175#issuecomment-995382910.
     # pydantic 1.10.3 is incompatible with typing-extensions 4.1.1 - https://github.com/pydantic/pydantic/issues/4885
-    # pydantic 2 makes major, backwards-incompatible changes - https://github.com/pydantic/pydantic/issues/4887
-    "pydantic>=1.5.1,!=1.10.3,<2",
+    "pydantic>=1.10.0,!=1.10.3",
     "mixpanel>=4.9.0",
     "sentry-sdk",
 }
@@ -53,38 +54,27 @@ framework_common = {
     "ruamel.yaml",
 }
 
+pydantic_no_v2 = {
+    # pydantic 2 makes major, backwards-incompatible changes - https://github.com/pydantic/pydantic/issues/4887
+    # Tags sources that require the pydantic v2 API.
+    "pydantic<2",
+}
+
+plugin_common = {
+    # While pydantic v2 support is experimental, require that all plugins
+    # continue to use v1. This will ensure that no ingestion recipes break.
+    *pydantic_no_v2,
+}
+
 rest_common = {"requests", "requests_file"}
 
 kafka_common = {
-    # The confluent_kafka package provides a number of pre-built wheels for
-    # various platforms and architectures. However, it does not provide wheels
-    # for arm64 (including M1 Macs) or aarch64 (Docker's linux/arm64). This has
-    # remained an open issue on the confluent_kafka project for a year:
-    #   - https://github.com/confluentinc/confluent-kafka-python/issues/1182
-    #   - https://github.com/confluentinc/confluent-kafka-python/pull/1161
-    #
-    # When a wheel is not available, we must build from source instead.
-    # Building from source requires librdkafka to be installed.
-    # Most platforms have an easy way to install librdkafka:
-    #   - MacOS: `brew install librdkafka` gives latest, which is 1.9.x or newer.
-    #   - Debian: `apt install librdkafka` gives 1.6.0 (https://packages.debian.org/bullseye/librdkafka-dev).
-    #   - Ubuntu: `apt install librdkafka` gives 1.8.0 (https://launchpad.net/ubuntu/+source/librdkafka).
-    #
-    # Moreover, confluent_kafka 1.9.0 introduced a hard compatibility break, and
-    # requires librdkafka >=1.9.0. As such, installing confluent_kafka 1.9.x on
-    # most arm64 Linux machines will fail, since it will build from source but then
-    # fail because librdkafka is too old. Hence, we have added an extra requirement
-    # that requires confluent_kafka<1.9.0 on non-MacOS arm64/aarch64 machines, which
-    # should ideally allow the builds to succeed in default conditions. We still
-    # want to allow confluent_kafka >= 1.9.0 for M1 Macs, which is why we can't
-    # broadly restrict confluent_kafka to <1.9.0.
-    #
-    # Note that this is somewhat of a hack, since we don't actually require the
-    # older version of confluent_kafka on those machines. Additionally, we will
-    # need monitor the Debian/Ubuntu PPAs and modify this rule if they start to
-    # support librdkafka >= 1.9.0.
-    "confluent_kafka>=1.5.0",
-    'confluent_kafka<1.9.0; platform_system != "Darwin" and (platform_machine == "aarch64" or platform_machine == "arm64")',
+    # Note that confluent_kafka 1.9.0 introduced a hard compatibility break, and
+    # requires librdkafka >=1.9.0. This is generally not an issue, since they
+    # now provide prebuilt wheels for most platforms, including M1 Macs and
+    # Linux aarch64 (e.g. Docker's linux/arm64). Installing confluent_kafka
+    # from source remains a pain.
+    "confluent_kafka>=1.9.0",
     # We currently require both Avro libraries. The codegen uses avro-python3 (above)
     # schema parsers at runtime for generating and reading JSON into Python objects.
     # At the same time, we use Kafka's AvroSerializer, which internally relies on
@@ -108,7 +98,7 @@ usage_common = {
 sqlglot_lib = {
     # Using an Acryl fork of sqlglot.
     # https://github.com/tobymao/sqlglot/compare/main...hsheth2:sqlglot:hsheth?expand=1
-    "acryl-sqlglot==18.5.2.dev45",
+    "acryl-sqlglot==20.4.1.dev14",
 }
 
 sql_common = (
@@ -118,6 +108,7 @@ sql_common = (
         "sqlalchemy>=1.4.39, <2",
         # Required for SQL profiling.
         "great-expectations>=0.15.12, <=0.15.50",
+        *pydantic_no_v2,  # because of great-expectations
         # scipy version restricted to reduce backtracking, used by great-expectations,
         "scipy>=1.7.2",
         # GE added handling for higher version of jinja2
@@ -173,14 +164,16 @@ bigquery_common = {
 
 clickhouse_common = {
     # Clickhouse 0.2.0 adds support for SQLAlchemy 1.4.x
-    "clickhouse-sqlalchemy>=0.2.0",
+    # Disallow 0.2.5 because of https://github.com/xzkostyan/clickhouse-sqlalchemy/issues/272.
+    # Note that there's also a known issue around nested map types: https://github.com/xzkostyan/clickhouse-sqlalchemy/issues/269.
+    "clickhouse-sqlalchemy>=0.2.0,<0.2.5",
 }
 
 redshift_common = {
     # Clickhouse 0.8.3 adds support for SQLAlchemy 1.4.x
     "sqlalchemy-redshift>=0.8.3",
-    "psycopg2-binary",
     "GeoAlchemy2",
+    "redshift-connector",
     *sqllineage_lib,
     *path_spec_common,
 }
@@ -211,11 +204,15 @@ pyhive_common = {
     # - 0.6.12 adds support for Spark Thrift Server
     # - 0.6.13 adds a small fix for Databricks
     # - 0.6.14 uses pure-sasl instead of sasl so it builds on Python 3.11
-    "acryl-pyhive[hive_pure_sasl]==0.6.14",
+    # - 0.6.15 adds support for thrift > 0.14 (cherry-picked from https://github.com/apache/thrift/pull/2491)
+    # - 0.6.16 fixes a regression in 0.6.15 (https://github.com/acryldata/PyHive/pull/9)
+    "acryl-pyhive[hive-pure-sasl]==0.6.16",
     # As per https://github.com/datahub-project/datahub/issues/8405
-    # and https://github.com/dropbox/PyHive/issues/417, new versions
-    # of thrift break PyHive's hive+http transport.
-    "thrift<0.14.0",
+    # and https://github.com/dropbox/PyHive/issues/417, version 0.14.0
+    # of thrift broke PyHive's hive+http transport.
+    # Fixed by https://github.com/apache/thrift/pull/2491 in version 0.17.0
+    # which is unfortunately not on PyPi.
+    # Instead, we put the fix in our PyHive fork, so no thrift pin is needed.
 }
 
 microsoft_common = {"msal==1.22.0"}
@@ -223,6 +220,7 @@ microsoft_common = {"msal==1.22.0"}
 iceberg_common = {
     # Iceberg Python SDK
     "pyiceberg",
+    *pydantic_no_v2,  # because of pyiceberg
     "pyarrow>=9.0.0, <13.0.0",
 }
 
@@ -240,7 +238,7 @@ s3_base = {
 }
 
 data_lake_profiling = {
-    "pydeequ==1.1.0",
+    "pydeequ~=1.1.0",
     "pyspark~=3.3.0",
 }
 
@@ -253,9 +251,14 @@ powerbi_report_server = {"requests", "requests_ntlm"}
 
 databricks = {
     # 0.1.11 appears to have authentication issues with azure databricks
-    "databricks-sdk>=0.9.0",
-    "pyspark",
+    # 0.16.0 added py.typed support which caused mypy to fail. The databricks sdk is pinned until we resolve mypy issues.
+    # https://github.com/databricks/databricks-sdk-py/pull/483
+    "databricks-sdk>=0.9.0,<0.16.0",
+    "pyspark~=3.3.0",
     "requests",
+    # Version 2.4.0 includes sqlalchemy dialect, 2.8.0 includes some bug fixes
+    # Version 3.0.0 required SQLAlchemy > 2.0.21
+    "databricks-sql-connector>=2.8.0,<3.0.0",
 }
 
 mysql = sql_common | {"pymysql>=1.0.2"}
@@ -303,8 +306,8 @@ plugins: Dict[str, Set[str]] = {
     "datahub-lineage-file": set(),
     "datahub-business-glossary": set(),
     "delta-lake": {*data_lake_profiling, *delta_lake},
-    "dbt": {"requests"} | aws_common,
-    "dbt-cloud": {"requests"},
+    "dbt": {"requests"} | sqlglot_lib | aws_common,
+    "dbt-cloud": {"requests"} | sqlglot_lib,
     "druid": sql_common | {"pydruid>=0.6.2"},
     "dynamodb": aws_common,
     # Starting with 7.14.0 python client is checking if it is connected to elasticsearch client. If its not it throws
@@ -345,7 +348,11 @@ plugins: Dict[str, Set[str]] = {
     "mlflow": {"mlflow-skinny>=2.3.0"},
     "mode": {"requests", "tenacity>=8.0.1"} | sqllineage_lib,
     "mongodb": {"pymongo[srv]>=3.11", "packaging"},
-    "mssql": sql_common | {"sqlalchemy-pytds>=0.3"},
+    "mssql": sql_common
+    | {
+        "sqlalchemy-pytds>=0.3",
+        "pyOpenSSL",
+    },
     "mssql-odbc": sql_common | {"pyodbc"},
     "mysql": mysql,
     # mariadb should have same dependency as mysql
@@ -362,10 +369,8 @@ plugins: Dict[str, Set[str]] = {
     "redshift": sql_common
     | redshift_common
     | usage_common
-    | {"redshift-connector"}
-    | sqlglot_lib,
-    "redshift-legacy": sql_common | redshift_common | sqlglot_lib,
-    "redshift-usage-legacy": sql_common | redshift_common | sqlglot_lib | usage_common,
+    | sqlglot_lib
+    | {"cachetools"},
     "s3": {*s3_base, *data_lake_profiling},
     "gcs": {*s3_base, *data_lake_profiling},
     "sagemaker": aws_common,
@@ -392,7 +397,10 @@ plugins: Dict[str, Set[str]] = {
     "powerbi": microsoft_common | {"lark[regex]==1.1.4", "sqlparse"} | sqlglot_lib,
     "powerbi-report-server": powerbi_report_server,
     "vertica": sql_common | {"vertica-sqlalchemy-dialect[vertica-python]==0.0.8.1"},
-    "unity-catalog": databricks | sqllineage_lib,
+    "unity-catalog": databricks | sql_common | sqllineage_lib,
+    # databricks is alias for unity-catalog and needs to be kept in sync
+    "databricks": databricks | sql_common | sqllineage_lib,
+    "fivetran": snowflake_common,
 }
 
 # This is mainly used to exclude plugins from the Docker image.
@@ -463,9 +471,6 @@ base_dev_requirements = {
     "flake8-bugbear==23.3.12",
     "isort>=5.7.0",
     "mypy==1.0.0",
-    # pydantic 1.8.2 is incompatible with mypy 0.910.
-    # See https://github.com/samuelcolvin/pydantic/pull/3175#issuecomment-995382910.
-    "pydantic>=1.10.0",
     *test_api_requirements,
     pytest_dep,
     "pytest-asyncio>=0.16.0",
@@ -507,8 +512,6 @@ base_dev_requirements = {
             "presto",
             "redash",
             "redshift",
-            "redshift-legacy",
-            "redshift-usage-legacy",
             "s3",
             "snowflake",
             "tableau",
@@ -523,6 +526,7 @@ base_dev_requirements = {
             "nifi",
             "vertica",
             "mode",
+            "fivetran",
             "kafka-connect",
         ]
         if plugin
@@ -550,7 +554,7 @@ full_test_dev_requirements = {
             "kafka-connect",
             "ldap",
             "mongodb",
-            "mssql",
+            "mssql" if sys.version_info >= (3, 8) else None,
             "mysql",
             "mariadb",
             "redash",
@@ -604,8 +608,6 @@ entry_points = {
         "postgres = datahub.ingestion.source.sql.postgres:PostgresSource",
         "redash = datahub.ingestion.source.redash:RedashSource",
         "redshift = datahub.ingestion.source.redshift.redshift:RedshiftSource",
-        "redshift-legacy = datahub.ingestion.source.sql.redshift:RedshiftSource",
-        "redshift-usage-legacy = datahub.ingestion.source.usage.redshift_usage:RedshiftUsageSource",
         "snowflake = datahub.ingestion.source.snowflake.snowflake_v2:SnowflakeV2Source",
         "superset = datahub.ingestion.source.superset:SupersetSource",
         "tableau = datahub.ingestion.source.tableau:TableauSource",
@@ -627,6 +629,7 @@ entry_points = {
         "unity-catalog = datahub.ingestion.source.unity.source:UnityCatalogSource",
         "gcs = datahub.ingestion.source.gcs.gcs_source:GCSSource",
         "sql-queries = datahub.ingestion.source.sql_queries:SqlQueriesSource",
+        "fivetran = datahub.ingestion.source.fivetran.fivetran:FivetranSource",
     ],
     "datahub.ingestion.transformer.plugins": [
         "simple_remove_dataset_ownership = datahub.ingestion.transformer.remove_dataset_ownership:SimpleRemoveDatasetOwnership",
@@ -649,7 +652,7 @@ entry_points = {
         "simple_add_dataset_properties = datahub.ingestion.transformer.add_dataset_properties:SimpleAddDatasetProperties",
         "pattern_add_dataset_schema_terms = datahub.ingestion.transformer.add_dataset_schema_terms:PatternAddDatasetSchemaTerms",
         "pattern_add_dataset_schema_tags = datahub.ingestion.transformer.add_dataset_schema_tags:PatternAddDatasetSchemaTags",
-        "extract_owners_from_tags = datahub.ingestion.transformer.extract_ownership_from_tags:ExtractOwnersFromTagsTransformer",
+        "extract_ownership_from_tags = datahub.ingestion.transformer.extract_ownership_from_tags:ExtractOwnersFromTagsTransformer",
     ],
     "datahub.ingestion.sink.plugins": [
         "file = datahub.ingestion.sink.file:FileSink",
@@ -661,6 +664,7 @@ entry_points = {
     ],
     "datahub.ingestion.checkpointing_provider.plugins": [
         "datahub = datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider:DatahubIngestionCheckpointingProvider",
+        "file = datahub.ingestion.source.state_provider.file_ingestion_checkpointing_provider:FileIngestionCheckpointingProvider",
     ],
     "datahub.ingestion.reporting_provider.plugins": [
         "datahub = datahub.ingestion.reporting.datahub_ingestion_run_summary_provider:DatahubIngestionRunSummaryProvider",
@@ -727,7 +731,22 @@ See the [DataHub docs](https://datahubproject.io/docs/metadata-ingestion).
     extras_require={
         "base": list(framework_common),
         **{
-            plugin: list(framework_common | dependencies)
+            plugin: list(
+                framework_common
+                | (
+                    plugin_common
+                    if plugin
+                    not in {
+                        "airflow",
+                        "datahub-rest",
+                        "datahub-kafka",
+                        "sync-file-emitter",
+                        "sql-parser",
+                    }
+                    else set()
+                )
+                | dependencies
+            )
             for (plugin, dependencies) in plugins.items()
         },
         "all": list(

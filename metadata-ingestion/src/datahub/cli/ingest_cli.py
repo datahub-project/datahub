@@ -27,7 +27,6 @@ from datahub.ingestion.run.connection import ConnectionManager
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.telemetry import telemetry
 from datahub.upgrade import upgrade
-from datahub.utilities import memory_leak_detector
 
 logger = logging.getLogger(__name__)
 
@@ -98,7 +97,13 @@ def ingest() -> None:
 @click.option(
     "--no-spinner", type=bool, is_flag=True, default=False, help="Turn off spinner"
 )
-@click.pass_context
+@click.option(
+    "--no-progress",
+    type=bool,
+    is_flag=True,
+    default=False,
+    help="If enabled, mute intermediate progress ingestion reports",
+)
 @telemetry.with_telemetry(
     capture_kwargs=[
         "dry_run",
@@ -107,11 +112,10 @@ def ingest() -> None:
         "test_source_connection",
         "no_default_report",
         "no_spinner",
+        "no_progress",
     ]
 )
-@memory_leak_detector.with_leak_detection
 def run(
-    ctx: click.Context,
     config: str,
     dry_run: bool,
     preview: bool,
@@ -121,6 +125,7 @@ def run(
     report_to: str,
     no_default_report: bool,
     no_spinner: bool,
+    no_progress: bool,
 ) -> None:
     """Ingest metadata into DataHub."""
 
@@ -151,6 +156,9 @@ def run(
         squirrel_original_config=True,
         squirrel_field="__raw_config",
         allow_stdin=True,
+        allow_remote=True,
+        process_directives=True,
+        resolve_env_vars=True,
     )
     raw_pipeline_config = pipeline_config.pop("__raw_config")
 
@@ -171,6 +179,7 @@ def run(
             preview_workunits,
             report_to,
             no_default_report,
+            no_progress,
             raw_pipeline_config,
         )
 
@@ -272,6 +281,7 @@ def deploy(
     pipeline_config = load_config_file(
         config,
         allow_stdin=True,
+        allow_remote=True,
         resolve_env_vars=False,
     )
 

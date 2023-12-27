@@ -72,8 +72,10 @@ describe("create and manage group", () => {
         cy.focused().clear().type(`Test group EDITED ${test_id}{enter}`);
         cy.waitTextVisible("Name Updated");
         cy.contains(`Test group EDITED ${test_id}`).should("be.visible");
-        cy.contains("Test group description").find('[aria-label="edit"]').click();
-        cy.focused().type(" EDITED{enter}");
+        cy.get('[data-testid="edit-icon"]').click();
+        cy.waitTextVisible("Edit Description");
+        cy.get("#description").should("be.visible").type(" EDITED");
+        cy.get("#updateGroupButton").click();
         cy.waitTextVisible("Changes saved.");
         cy.contains("Test group description EDITED").should("be.visible");
         cy.clickOptionWithText("Add Owners");
@@ -81,7 +83,7 @@ describe("create and manage group", () => {
         cy.focused().type(expected_name);
         cy.get(".ant-select-item-option").contains(expected_name, { matchCase: false }).click();
         cy.focused().blur();
-        cy.contains(expected_name).should("have.length", 1);
+        cy.contains(expected_name, { matchCase: false }).should("have.length", 1);
         cy.get('[role="dialog"] button').contains("Done").click();
         cy.waitTextVisible("Owners Added");
         cy.contains(expected_name, { matchCase: false }).should("be.visible");
@@ -96,7 +98,7 @@ describe("create and manage group", () => {
     });
 
     it("test user verify group participation", () => {
-        cy.loginWithCredentials(email,password);
+        cy.loginWithCredentials();
         cy.visit("/settings/identities/groups");
         cy.hideOnboardingTour();
         cy.clickOptionWithText(`Test group EDITED ${test_id}`);

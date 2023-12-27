@@ -388,7 +388,7 @@ class LookerUtil:
 
         # if still not found, log and continue
         if type_class is None:
-            logger.info(
+            logger.debug(
                 f"The type '{native_type}' is not recognized for field type, setting as NullTypeClass.",
             )
             type_class = NullTypeClass
@@ -828,7 +828,7 @@ class LookerExplore:
                 )
             else:
                 logger.warning(
-                    f"Failed to extract explore {explore_name} from model {model}.", e
+                    f"Failed to extract explore {explore_name} from model {model}: {e}"
                 )
 
         except AssertionError:
@@ -1015,7 +1015,7 @@ class LookerExploreRegistry:
         self.report = report
         self.source_config = source_config
 
-    @lru_cache()
+    @lru_cache(maxsize=200)
     def get_explore(self, model: str, explore: str) -> Optional[LookerExplore]:
         looker_explore = LookerExplore.from_api(
             model,

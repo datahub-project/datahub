@@ -15,6 +15,7 @@ from confluent_kafka.admin import (
     ConfigResource,
     TopicMetadata,
 )
+from confluent_kafka.schema_registry.schema_registry_client import SchemaRegistryClient
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.kafka import KafkaConsumerConnectionConfig
@@ -40,7 +41,13 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.registry import import_path
-from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceCapability
+from datahub.ingestion.api.source import (
+    CapabilityReport,
+    MetadataWorkUnitProcessor,
+    SourceCapability,
+    TestableSource,
+    TestConnectionReport,
+)
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.kafka_schema_registry_base import KafkaSchemaRegistryBase
@@ -100,11 +107,11 @@ class KafkaSourceConfig(
         default="datahub.ingestion.source.confluent_schema_registry.ConfluentSchemaRegistry",
         description="The fully qualified implementation class(custom) that implements the KafkaSchemaRegistryBase interface.",
     )
-    schema_tags_field = pydantic.Field(
+    schema_tags_field: str = pydantic.Field(
         default="tags",
         description="The field name in the schema metadata that contains the tags to be added to the dataset.",
     )
-    enable_meta_mapping = pydantic.Field(
+    enable_meta_mapping: bool = pydantic.Field(
         default=True,
         description="When enabled, applies the mappings that are defined through the meta_mapping directives.",
     )
@@ -133,6 +140,18 @@ class KafkaSourceConfig(
     )
 
 
+def get_kafka_consumer(
+    connection: KafkaConsumerConnectionConfig,
+) -> confluent_kafka.Consumer:
+    return confluent_kafka.Consumer(
+        {
+            "group.id": "test",
+            "bootstrap.servers": connection.bootstrap,
+            **connection.consumer_config,
+        }
+    )
+
+
 @dataclass
 class KafkaSourceReport(StaleEntityRemovalSourceReport):
     topics_scanned: int = 0
@@ -143,6 +162,45 @@ class KafkaSourceReport(StaleEntityRemovalSourceReport):
 
     def report_dropped(self, topic: str) -> None:
         self.filtered.append(topic)
+
+
+class KafkaConnectionTest:
+    def __init__(self, config_dict: dict):
+        self.config = KafkaSourceConfig.parse_obj_allow_extras(config_dict)
+        self.report = KafkaSourceReport()
+        self.consumer: confluent_kafka.Consumer = get_kafka_consumer(
+            self.config.connection
+        )
+
+    def get_connection_test(self) -> TestConnectionReport:
+        capability_report = {
+            SourceCapability.SCHEMA_METADATA: self.schema_registry_connectivity(),
+        }
+        return TestConnectionReport(
+            basic_connectivity=self.basic_connectivity(),
+            capability_report={
+                k: v for k, v in capability_report.items() if v is not None
+            },
+        )
+
+    def basic_connectivity(self) -> CapabilityReport:
+        try:
+            self.consumer.list_topics(timeout=10)
+            return CapabilityReport(capable=True)
+        except Exception as e:
+            return CapabilityReport(capable=False, failure_reason=str(e))
+
+    def schema_registry_connectivity(self) -> CapabilityReport:
+        try:
+            SchemaRegistryClient(
+                {
+                    "url": self.config.connection.schema_registry_url,
+                    **self.config.connection.schema_registry_config,
+                }
+            ).get_subjects()
+            return CapabilityReport(capable=True)
+        except Exception as e:
+            return CapabilityReport(capable=False, failure_reason=str(e))
 
 
 @platform_name("Kafka")
@@ -160,7 +218,7 @@ class KafkaSourceReport(StaleEntityRemovalSourceReport):
     SourceCapability.SCHEMA_METADATA,
     "Schemas associated with each topic are extracted from the schema registry. Avro and Protobuf (certified), JSON (incubating). Schema references are supported.",
 )
-class KafkaSource(StatefulIngestionSourceBase):
+class KafkaSource(StatefulIngestionSourceBase, TestableSource):
     """
     This plugin extracts the following:
     - Topics from the Kafka broker
@@ -183,12 +241,8 @@ class KafkaSource(StatefulIngestionSourceBase):
     def __init__(self, config: KafkaSourceConfig, ctx: PipelineContext):
         super().__init__(config, ctx)
         self.source_config: KafkaSourceConfig = config
-        self.consumer: confluent_kafka.Consumer = confluent_kafka.Consumer(
-            {
-                "group.id": "test",
-                "bootstrap.servers": self.source_config.connection.bootstrap,
-                **self.source_config.connection.consumer_config,
-            }
+        self.consumer: confluent_kafka.Consumer = get_kafka_consumer(
+            self.source_config.connection
         )
         self.init_kafka_admin_client()
         self.report: KafkaSourceReport = KafkaSourceReport()
@@ -225,6 +279,10 @@ class KafkaSource(StatefulIngestionSourceBase):
                 "kafka-admin-client",
                 f"Failed to create Kafka Admin Client due to error {e}.",
             )
+
+    @staticmethod
+    def test_connection(config_dict: dict) -> TestConnectionReport:
+        return KafkaConnectionTest(config_dict).get_connection_test()
 
     @classmethod
     def create(cls, config_dict: Dict, ctx: PipelineContext) -> "KafkaSource":

@@ -1,9 +1,9 @@
 import React, { useMemo } from 'react';
 import { Popover } from 'antd';
-import { Bar } from '@vx/shape';
-import { Group } from '@vx/group';
-import { AxisBottom } from '@vx/axis';
-import { scaleUtc } from '@vx/scale';
+import { Bar } from '@visx/shape';
+import { Group } from '@visx/group';
+import { AxisBottom } from '@visx/axis';
+import { scaleUtc } from '@visx/scale';
 import { ANTD_GRAY } from '../../../constants';
 
 export type BooleanResult = {

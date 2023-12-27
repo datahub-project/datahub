@@ -16,7 +16,6 @@ from datahub.emitter import mce_builder
 from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.aws.s3_util import strip_s3_prefix
-from datahub.ingestion.source.redshift.common import get_db_name
 from datahub.ingestion.source.redshift.config import LineageMode, RedshiftConfig
 from datahub.ingestion.source.redshift.query import RedshiftQuery
 from datahub.ingestion.source.redshift.redshift_schema import (
@@ -42,6 +41,7 @@ from datahub.metadata.schema_classes import (
     UpstreamLineageClass,
 )
 from datahub.utilities import memory_footprint
+from datahub.utilities.dedup_list import deduplicate_list
 from datahub.utilities.urns import dataset_urn
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -85,6 +85,30 @@ class LineageItem:
             self.dataset_lineage_type = DatasetLineageTypeClass.VIEW
         else:
             self.dataset_lineage_type = DatasetLineageTypeClass.TRANSFORMED
+
+    def merge_lineage(
+        self,
+        upstreams: Set[LineageDataset],
+        cll: Optional[List[sqlglot_l.ColumnLineageInfo]],
+    ) -> None:
+        self.upstreams = self.upstreams.union(upstreams)
+
+        # Merge CLL using the output column name as the merge key.
+        self.cll = self.cll or []
+        existing_cll: Dict[str, sqlglot_l.ColumnLineageInfo] = {
+            c.downstream.column: c for c in self.cll
+        }
+        for c in cll or []:
+            if c.downstream.column in existing_cll:
+                # Merge using upstream + column name as the merge key.
+                existing_cll[c.downstream.column].upstreams = deduplicate_list(
+                    [*existing_cll[c.downstream.column].upstreams, *c.upstreams]
+                )
+            else:
+                # New output column, just add it as is.
+                self.cll.append(c)
+
+        self.cll = self.cll or None
 
 
 class RedshiftLineageExtractor:
@@ -162,7 +186,12 @@ class RedshiftLineageExtractor:
             )
             sources.append(source)
 
-        return sources, parsed_result.column_lineage
+        return (
+            sources,
+            parsed_result.column_lineage
+            if self.config.include_view_column_lineage
+            else None,
+        )
 
     def _build_s3_path_from_row(self, filename: str) -> str:
         path = filename.strip()
@@ -209,7 +238,7 @@ class RedshiftLineageExtractor:
                         "Only s3 source supported with copy. The source was: {path}."
                     )
                     self.report.num_lineage_dropped_not_support_copy_path += 1
-                    return sources, cll
+                    return [], None
                 path = strip_s3_prefix(self._get_s3_path(path))
                 urn = make_dataset_urn_with_platform_instance(
                     platform=platform.value,
@@ -266,7 +295,7 @@ class RedshiftLineageExtractor:
         try:
             cll: Optional[List[sqlglot_l.ColumnLineageInfo]] = None
             raw_db_name = database
-            alias_db_name = get_db_name(self.config)
+            alias_db_name = self.config.database
 
             for lineage_row in RedshiftDataDictionary.get_lineage_rows(
                 conn=connection, query=query
@@ -285,7 +314,6 @@ class RedshiftLineageExtractor:
                     ddl=lineage_row.ddl,
                     filename=lineage_row.filename,
                 )
-                target.cll = cll
 
                 target.upstreams.update(
                     self._get_upstream_lineages(
@@ -295,13 +323,13 @@ class RedshiftLineageExtractor:
                         raw_db_name=raw_db_name,
                     )
                 )
+                target.cll = cll
 
-                # Merging downstreams if dataset already exists and has downstreams
+                # Merging upstreams if dataset already exists and has upstreams
                 if target.dataset.urn in self._lineage_map:
-                    self._lineage_map[target.dataset.urn].upstreams = self._lineage_map[
-                        target.dataset.urn
-                    ].upstreams.union(target.upstreams)
-
+                    self._lineage_map[target.dataset.urn].merge_lineage(
+                        upstreams=target.upstreams, cll=target.cll
+                    )
                 else:
                     self._lineage_map[target.dataset.urn] = target
 
@@ -382,7 +410,8 @@ class RedshiftLineageExtractor:
                 qualified_table_name = dataset_urn.DatasetUrn.create_from_string(
                     source.urn
                 ).get_entity_id()[1]
-                db, schema, table = qualified_table_name.split(".")
+                # -3 because platform instance is optional and that can cause the split to have more than 3 elements
+                db, schema, table = qualified_table_name.split(".")[-3:]
                 if db == raw_db_name:
                     db = alias_db_name
                     path = f"{db}.{schema}.{table}"
@@ -420,7 +449,10 @@ class RedshiftLineageExtractor:
     ) -> None:
         populate_calls: List[Tuple[str, LineageCollectorType]] = []
 
-        if self.config.table_lineage_mode == LineageMode.STL_SCAN_BASED:
+        if self.config.table_lineage_mode in {
+            LineageMode.STL_SCAN_BASED,
+            LineageMode.MIXED,
+        }:
             # Populate table level lineage by getting upstream tables from stl_scan redshift table
             query = RedshiftQuery.stl_scan_based_lineage_query(
                 self.config.database,
@@ -428,15 +460,10 @@ class RedshiftLineageExtractor:
                 self.end_time,
             )
             populate_calls.append((query, LineageCollectorType.QUERY_SCAN))
-        elif self.config.table_lineage_mode == LineageMode.SQL_BASED:
-            # Populate table level lineage by parsing table creating sqls
-            query = RedshiftQuery.list_insert_create_queries_sql(
-                db_name=database,
-                start_time=self.start_time,
-                end_time=self.end_time,
-            )
-            populate_calls.append((query, LineageCollectorType.QUERY_SQL_PARSER))
-        elif self.config.table_lineage_mode == LineageMode.MIXED:
+        if self.config.table_lineage_mode in {
+            LineageMode.SQL_BASED,
+            LineageMode.MIXED,
+        }:
             # Populate table level lineage by parsing table creating sqls
             query = RedshiftQuery.list_insert_create_queries_sql(
                 db_name=database,
@@ -445,15 +472,7 @@ class RedshiftLineageExtractor:
             )
             populate_calls.append((query, LineageCollectorType.QUERY_SQL_PARSER))
 
-            # Populate table level lineage by getting upstream tables from stl_scan redshift table
-            query = RedshiftQuery.stl_scan_based_lineage_query(
-                db_name=database,
-                start_time=self.start_time,
-                end_time=self.end_time,
-            )
-            populate_calls.append((query, LineageCollectorType.QUERY_SCAN))
-
-        if self.config.include_views:
+        if self.config.include_views and self.config.include_view_lineage:
             # Populate table level lineage for views
             query = RedshiftQuery.view_lineage_query()
             populate_calls.append((query, LineageCollectorType.VIEW))
@@ -540,7 +559,6 @@ class RedshiftLineageExtractor:
         dataset_urn: str,
         schema: RedshiftSchema,
     ) -> Optional[Tuple[UpstreamLineageClass, Dict[str, str]]]:
-
         upstream_lineage: List[UpstreamClass] = []
 
         cll_lineage: List[FineGrainedLineage] = []

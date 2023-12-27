@@ -25,9 +25,16 @@ import { useUpdateEducationStepIdsAllowlist } from '../../onboarding/useUpdateEd
 import { DEFAULT_USER_LIST_PAGE_SIZE, removeUserFromListUsersCache } from './cacheUtils';
 import { useUserContext } from '../../context/useUserContext';
 
-const UserContainer = styled.div``;
+const UserContainer = styled.div`
+    display: flex;
+    flex-direction: column;
+    overflow: auto;
+`;
 
 const UserStyledList = styled(List)`
+    display: flex;
+    flex-direction: column;
+    overflow: auto;
     &&& {
         width: 100%;
         border-color: ${(props) => props.theme.styles['border-color-base']};
@@ -70,7 +77,7 @@ export const UserList = () => {
                 query: (query?.length && query) || undefined,
             },
         },
-        fetchPolicy: (query?.length || 0) > 0 ? 'no-cache' : 'cache-first',
+        fetchPolicy: 'no-cache',
     });
 
     const totalUsers = usersData?.listUsers?.total || 0;
@@ -135,7 +142,10 @@ export const UserList = () => {
                             fontSize: 12,
                         }}
                         onSearch={() => null}
-                        onQueryChange={(q) => setQuery(q)}
+                        onQueryChange={(q) => {
+                            setPage(1);
+                            setQuery(q);
+                        }}
                         entityRegistry={entityRegistry}
                         hideRecommendations
                     />
