@@ -15,11 +15,15 @@ import java.util.List;
 import java.util.Map;
 import javax.annotation.Nonnull;
 
-
-public class IncidentInfoChangeEventGenerator extends EntityChangeEventGenerator<IncidentInfo>{
+public class IncidentInfoChangeEventGenerator extends EntityChangeEventGenerator<IncidentInfo> {
   @Override
-  public List<ChangeEvent> getChangeEvents(@Nonnull Urn urn, @Nonnull String entity, @Nonnull String aspect,
-      @Nonnull Aspect<IncidentInfo> from, @Nonnull Aspect<IncidentInfo> to, @Nonnull AuditStamp auditStamp) {
+  public List<ChangeEvent> getChangeEvents(
+      @Nonnull Urn urn,
+      @Nonnull String entity,
+      @Nonnull String aspect,
+      @Nonnull Aspect<IncidentInfo> from,
+      @Nonnull Aspect<IncidentInfo> to,
+      @Nonnull AuditStamp auditStamp) {
     return computeDiffs(from.getValue(), to.getValue(), urn.toString(), auditStamp);
   }
 
@@ -30,24 +34,26 @@ public class IncidentInfoChangeEventGenerator extends EntityChangeEventGenerator
       @Nonnull final AuditStamp auditStamp) {
 
     if (isIncidentCreated(previousAspect, newAspect)) {
-      return Collections.singletonList(ChangeEvent.builder()
-          .category(ChangeCategory.INCIDENT)
-          .operation(ChangeOperation.ACTIVE)
-          .auditStamp(auditStamp)
-          .parameters(buildParameters(newAspect))
-          .entityUrn(entityUrn)
-          .build());
+      return Collections.singletonList(
+          ChangeEvent.builder()
+              .category(ChangeCategory.INCIDENT)
+              .operation(ChangeOperation.ACTIVE)
+              .auditStamp(auditStamp)
+              .parameters(buildParameters(newAspect))
+              .entityUrn(entityUrn)
+              .build());
     }
-    
+
     if (isIncidentUpdated(previousAspect, newAspect)) {
-      ChangeEvent.ChangeEventBuilder changeEventBuilder = ChangeEvent.builder()
-          .category(ChangeCategory.INCIDENT)
-          .auditStamp(auditStamp)
-          .entityUrn(entityUrn)
-          .parameters(buildParameters(newAspect));
+      ChangeEvent.ChangeEventBuilder changeEventBuilder =
+          ChangeEvent.builder()
+              .category(ChangeCategory.INCIDENT)
+              .auditStamp(auditStamp)
+              .entityUrn(entityUrn)
+              .parameters(buildParameters(newAspect));
 
       // Change was in status
-      if(isIncidentStatusChanged(previousAspect, newAspect)) {
+      if (isIncidentStatusChanged(previousAspect, newAspect)) {
         if (newAspect.getStatus().getState().equals(IncidentState.RESOLVED)) {
           changeEventBuilder.operation(ChangeOperation.RESOLVED);
         }
@@ -68,7 +74,9 @@ public class IncidentInfoChangeEventGenerator extends EntityChangeEventGenerator
   private static boolean isIncidentUpdated(IncidentInfo previousAspect, IncidentInfo newAspect) {
     return previousAspect != null && newAspect != null && !previousAspect.equals(newAspect);
   }
-  private static boolean isIncidentStatusChanged(IncidentInfo previousAspect, IncidentInfo newAspect) {
+
+  private static boolean isIncidentStatusChanged(
+      IncidentInfo previousAspect, IncidentInfo newAspect) {
     return previousAspect.getStatus().getState() != newAspect.getStatus().getState();
   }
 
@@ -78,5 +86,4 @@ public class IncidentInfoChangeEventGenerator extends EntityChangeEventGenerator
     parameters.put(Constants.ENTITY_REF, incidentInfo.getEntities());
     return ImmutableSortedMap.copyOf(parameters);
   }
-
 }

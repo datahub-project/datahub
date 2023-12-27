@@ -433,7 +433,6 @@ public class Constants {
   // Incidents
   public static final String ENTITY_REF = "entities";
 
-
   // Config
   public static final String ELASTICSEARCH_IMPLEMENTATION_OPENSEARCH = "opensearch";
   public static final String ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH = "elasticsearch";
