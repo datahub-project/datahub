@@ -208,6 +208,7 @@ jobs:
         with:
           distribution: "zulu"
           java-version: 17
+      - uses: gradle/gradle-build-action@v2
       - name: Check out the repo
         uses: hsheth2/sane-checkout-action@v1
       - name: Pre-build artifacts for docker image
@@ -269,6 +270,7 @@ jobs:
         with:
           distribution: "zulu"
           java-version: 17
+      - uses: gradle/gradle-build-action@v2
       - name: Check out the repo
         uses: hsheth2/sane-checkout-action@v1
       - name: Pre-build artifacts for docker image
@@ -330,6 +332,7 @@ jobs:
         with:
           distribution: "zulu"
           java-version: 17
+      - uses: gradle/gradle-build-action@v2
       - name: Check out the repo
         uses: hsheth2/sane-checkout-action@v1
       - name: Pre-build artifacts for docker image
@@ -569,6 +572,7 @@ jobs:
         with:
           distribution: "zulu"
           java-version: 17
+      - uses: gradle/gradle-build-action@v2
       - name: Check out the repo
         uses: hsheth2/sane-checkout-action@v1
       - uses: dorny/paths-filter@v2
@@ -655,6 +659,7 @@ jobs:
         with:
           distribution: "zulu"
           java-version: 17
+      - uses: gradle/gradle-build-action@v2
       - name: Check out the repo
         uses: hsheth2/sane-checkout-action@v1
       - uses: dorny/paths-filter@v2
@@ -763,6 +768,7 @@ jobs:
         with:
           distribution: "zulu"
           java-version: 17
+      - uses: gradle/gradle-build-action@v2
       - uses: actions/setup-python@v4
         with:
           python-version: "3.10"
