@@ -51,7 +51,7 @@ def request_call(
     token: Optional[str] = None,
     username: Optional[str] = None,
     password: Optional[str] = None,
-    proxies: Optional[dict] = None
+    proxies: Optional[dict] = None,
 ) -> requests.Response:
     headers = {"accept": "application/json"}
 
@@ -73,13 +73,15 @@ def get_swag_json(
     username: Optional[str] = None,
     password: Optional[str] = None,
     swagger_file: str = "",
-    proxies: Optional[dict] = None
+    proxies: Optional[dict] = None,
 ) -> Dict:
     tot_url = url + swagger_file
     if token is not None:
         response = request_call(url=tot_url, token=token, proxies=proxies)
     else:
-        response = request_call(url=tot_url, username=username, password=password, proxies=proxies)
+        response = request_call(
+            url=tot_url, username=username, password=password, proxies=proxies
+        )
 
     if response.status_code != 200:
         raise Exception(f"Unable to retrieve {tot_url}, error {response.status_code}")
@@ -351,7 +353,7 @@ def get_tok(
     password: str = "",
     tok_url: str = "",
     method: str = "post",
-    proxies: Optional[dict] = None
+    proxies: Optional[dict] = None,
 ) -> str:
     """
     Trying to post username/password to get auth.
