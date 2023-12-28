@@ -49,6 +49,10 @@ grant select on all tables in SCHEMA "<fivetran-log-database>"."<fivetran-log-sc
 grant role fivetran_datahub to user snowflake_user;
 ```
 
+## Bigquery destination Configuration Guide
+1. If your fivetran platform connector destination is bigquery, you need to setup a ServiceAccount as per [BigQuery docs](https://cloud.google.com/iam/docs/creating-managing-service-accounts#iam-service-accounts-create-console) and select BigQuery Data Viewer and BigQuery Job User IAM roles. 
+2. Create and Download a service account JSON keyfile and provide bigquery connection credential in bigquery destination config.
+
 ## Advanced Configurations
 
 ### Working with Platform Instances

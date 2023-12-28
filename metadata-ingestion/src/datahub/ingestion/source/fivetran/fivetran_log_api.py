@@ -20,27 +20,44 @@ class FivetranLogAPI:
     def __init__(self, fivetran_log_config: FivetranLogConfig) -> None:
         self.fivetran_log_database: Optional[str] = None
         self.fivetran_log_config = fivetran_log_config
+        self.fivetran_log_query = FivetranLogQuery()
         self.engine = self._get_log_destination_engine()
 
     def _get_log_destination_engine(self) -> Any:
         destination_platform = self.fivetran_log_config.destination_platform
         engine = None
         # For every destination, create sqlalchemy engine,
-        # select the database and schema and set fivetran_log_database class variable
+        # set db_clause to generate select queries and set fivetran_log_database class variable
         if destination_platform == "snowflake":
-            snowflake_destination_config = self.fivetran_log_config.destination_config
+            snowflake_destination_config = (
+                self.fivetran_log_config.snowflake_destination_config
+            )
             if snowflake_destination_config is not None:
                 engine = create_engine(
                     snowflake_destination_config.get_sql_alchemy_url(),
                     **snowflake_destination_config.get_options(),
                 )
                 engine.execute(
-                    FivetranLogQuery.use_schema(
+                    self.fivetran_log_query.use_database(
                         snowflake_destination_config.database,
-                        snowflake_destination_config.log_schema,
                     )
                 )
+                self.fivetran_log_query.set_db_clause(
+                    snowflake_destination_config.log_schema,
+                )
                 self.fivetran_log_database = snowflake_destination_config.database
+        if destination_platform == "bigquery":
+            bigquery_destination_config = (
+                self.fivetran_log_config.bigquery_destination_config
+            )
+            if bigquery_destination_config is not None:
+                engine = create_engine(
+                    bigquery_destination_config.get_sql_alchemy_url(),
+                )
+                self.fivetran_log_query.set_db_clause(
+                    bigquery_destination_config.dataset
+                )
+                self.fivetran_log_database = bigquery_destination_config.dataset
         return engine
 
     def _query(self, query: str) -> List[Dict]:
@@ -50,12 +67,12 @@ class FivetranLogAPI:
 
     def _get_table_lineage(self, connector_id: str) -> List[TableLineage]:
         table_lineage_result = self._query(
-            FivetranLogQuery.get_table_lineage_query(connector_id=connector_id)
+            self.fivetran_log_query.get_table_lineage_query(connector_id=connector_id)
         )
         table_lineage_list: List[TableLineage] = []
         for table_lineage in table_lineage_result:
             column_lineage_result = self._query(
-                FivetranLogQuery.get_column_lineage_query(
+                self.fivetran_log_query.get_column_lineage_query(
                     source_table_id=table_lineage[Constant.SOURCE_TABLE_ID],
                     destination_table_id=table_lineage[Constant.DESTINATION_TABLE_ID],
                 )
@@ -82,13 +99,17 @@ class FivetranLogAPI:
         sync_start_logs = {
             row[Constant.SYNC_ID]: row
             for row in self._query(
-                FivetranLogQuery.get_sync_start_logs_query(connector_id=connector_id)
+                self.fivetran_log_query.get_sync_start_logs_query(
+                    connector_id=connector_id
+                )
             )
         }
         sync_end_logs = {
             row[Constant.SYNC_ID]: row
             for row in self._query(
-                FivetranLogQuery.get_sync_end_logs_query(connector_id=connector_id)
+                self.fivetran_log_query.get_sync_end_logs_query(
+                    connector_id=connector_id
+                )
             )
         }
         for sync_id in sync_start_logs.keys():
@@ -118,14 +139,16 @@ class FivetranLogAPI:
         return jobs
 
     def _get_user_name(self, user_id: str) -> str:
-        user_details = self._query(FivetranLogQuery.get_user_query(user_id=user_id))[0]
+        user_details = self._query(
+            self.fivetran_log_query.get_user_query(user_id=user_id)
+        )[0]
         return (
             f"{user_details[Constant.GIVEN_NAME]} {user_details[Constant.FAMILY_NAME]}"
         )
 
     def get_connectors_list(self) -> List[Connector]:
         connectors: List[Connector] = []
-        connector_list = self._query(FivetranLogQuery.get_connectors_query())
+        connector_list = self._query(self.fivetran_log_query.get_connectors_query())
         for connector in connector_list:
             connectors.append(
                 Connector(
