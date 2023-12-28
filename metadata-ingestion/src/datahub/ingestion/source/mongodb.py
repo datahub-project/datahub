@@ -469,13 +469,9 @@ class MongoDBSource(StatefulIngestionSourceBase):
                     for mcp in MetadataChangeProposalWrapper.construct_many(
                         entityUrn=dataset_urn,
                         aspects=[
-                            aspect
-                            for aspect in [
-                                schema_metadata,
-                                dataset_properties,
-                                data_platform_instance,
-                            ]
-                            if aspect is not None
+                            schema_metadata,
+                            dataset_properties,
+                            data_platform_instance,
                         ],
                     )
                 ]
