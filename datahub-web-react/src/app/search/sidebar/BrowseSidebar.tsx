@@ -9,7 +9,6 @@ import useSidebarEntities from './useSidebarEntities';
 import { ANTD_GRAY_V2 } from '../../entity/shared/constants';
 import { ProfileSidebarResizer } from '../../entity/shared/containers/profile/sidebar/ProfileSidebarResizer';
 
-
 export const MAX_BROWSER_WIDTH = 500;
 export const MIN_BROWSWER_WIDTH = 200;
 
@@ -18,7 +17,6 @@ export const SidebarWrapper = styled.div<{ visible: boolean; width: number }>`
     width: ${(props) => (props.visible ? `${props.width}px` : '0')};
     min-width: ${(props) => (props.visible ? `${props.width}px` : '0')};
     transition: width 250ms ease-in-out;
-    border-right: 1px solid ${(props) => props.theme.styles['border-color-base']};
     background-color: ${ANTD_GRAY_V2[1]};
     background: white;
 `;
@@ -53,7 +51,12 @@ const BrowseSidebar = ({ visible }: Props) => {
 
     return (
         <>
-            <SidebarWrapper visible={visible} width={browserWidth} id={SEARCH_RESULTS_BROWSE_SIDEBAR_ID} data-testid="browse-v2">
+            <SidebarWrapper
+                visible={visible}
+                width={browserWidth}
+                id={SEARCH_RESULTS_BROWSE_SIDEBAR_ID}
+                data-testid="browse-v2"
+            >
                 <SidebarHeader>
                     <Typography.Text strong>Navigate</Typography.Text>
                 </SidebarHeader>
