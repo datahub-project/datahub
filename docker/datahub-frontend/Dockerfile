@@ -17,7 +17,7 @@ RUN if [ "${ALPINE_REPO_URL}" != "http://dl-cdn.alpinelinux.org/alpine" ] ; then
 # PFP-260: Upgrade Sqlite to >=3.28.0-r0 to fix https://security.snyk.io/vuln/SNYK-ALPINE39-SQLITE-449762
 RUN apk --no-cache --update-cache --available upgrade \
     && apk --no-cache add curl sqlite libc6-compat java-snappy \
-    && apk --no-cache add openjdk11-jre-headless --repository=${ALPINE_REPO_URL}/edge/community \
+    && apk --no-cache add openjdk17-jre-headless --repository=${ALPINE_REPO_URL}/edge/community \
     && apk --no-cache add jattach --repository ${ALPINE_REPO_URL}/edge/community/
 
 ENV LD_LIBRARY_PATH="/lib:/lib64"
@@ -25,7 +25,10 @@ ENV LD_LIBRARY_PATH="/lib:/lib64"
 FROM base as prod-install
 
 COPY ./datahub-frontend.zip /
-RUN unzip datahub-frontend.zip && rm datahub-frontend.zip
+RUN unzip datahub-frontend.zip -d /datahub-frontend \
+   && mv /datahub-frontend/main/* /datahub-frontend \
+   && rmdir /datahub-frontend/main \
+   && rm datahub-frontend.zip
 COPY ./docker/monitoring/client-prometheus-config.yaml /datahub-frontend/
 RUN chown -R datahub:datahub /datahub-frontend && chmod 755 /datahub-frontend
 

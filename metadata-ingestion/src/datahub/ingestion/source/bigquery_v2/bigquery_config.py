@@ -102,6 +102,11 @@ class BigQueryV2Config(
         description="Regex patterns for project_id to filter in ingestion.",
     )
 
+    include_schema_metadata: bool = Field(
+        default=True,
+        description="Whether to ingest the BigQuery schema, i.e. projects, schemas, tables, and views.",
+    )
+
     usage: BigQueryUsageConfig = Field(
         default=BigQueryUsageConfig(), description="Usage related configs"
     )
@@ -292,7 +297,7 @@ class BigQueryV2Config(
 
         return v
 
-    @root_validator(pre=False)
+    @root_validator(pre=False, skip_on_failure=True)
     def backward_compatibility_configs_set(cls, values: Dict) -> Dict:
         project_id = values.get("project_id")
         project_id_pattern = values.get("project_id_pattern")
