@@ -81,6 +81,10 @@ class SnowflakeQuery:
         return f'use database "{db_name}"'
 
     @staticmethod
+    def use_schema(schema_name: str) -> str:
+        return f'use schema "{schema_name}"'
+
+    @staticmethod
     def get_databases(db_name: Optional[str]) -> str:
         db_clause = f'"{db_name}".' if db_name is not None else ""
         return f"""

@@ -24,6 +24,8 @@ snowdialect.ischema_names["GEOMETRY"] = sqltypes.NullType
 
 logger = logging.getLogger(__name__)
 
+PUBLIC_SCHEMA = "PUBLIC"
+
 
 class SnowflakeProfiler(GenericProfiler, SnowflakeCommonMixin):
     def __init__(
@@ -36,6 +38,7 @@ class SnowflakeProfiler(GenericProfiler, SnowflakeCommonMixin):
         self.config: SnowflakeV2Config = config
         self.report: SnowflakeV2Report = report
         self.logger = logger
+        self.database_default_schema: Dict[str, str] = dict()
 
     def get_workunits(
         self, database: SnowflakeDatabase, db_tables: Dict[str, List[SnowflakeTable]]
@@ -46,6 +49,10 @@ class SnowflakeProfiler(GenericProfiler, SnowflakeCommonMixin):
             self.config.options.setdefault(
                 "max_overflow", self.config.profiling.max_workers
             )
+
+        if PUBLIC_SCHEMA not in db_tables:
+            # If PUBLIC schema is absent, we use any one of schemas as default schema
+            self.database_default_schema[database.name] = list(db_tables.keys())[0]
 
         profile_requests = []
         for schema in database.schemas:
@@ -136,9 +143,16 @@ class SnowflakeProfiler(GenericProfiler, SnowflakeCommonMixin):
         )
 
     def callable_for_db_connection(self, db_name: str) -> Callable:
+        schema_name = self.database_default_schema.get(db_name)
+
         def get_db_connection():
             conn = self.config.get_connection()
             conn.cursor().execute(SnowflakeQuery.use_database(db_name))
+
+            # As mentioned here - https://docs.snowflake.com/en/sql-reference/sql/use-database#usage-notes
+            # no schema is selected if PUBLIC schema is absent. We need to explicitly call `USE SCHEMA <schema>`
+            if schema_name:
+                conn.cursor().execute(SnowflakeQuery.use_schema(schema_name))
             return conn
 
         return get_db_connection

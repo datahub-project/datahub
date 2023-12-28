@@ -99,6 +99,7 @@ public class ApplicationTest extends WithBrowser {
   @BeforeAll
   public void init() throws IOException {
     _gmsServer = new MockWebServer();
+<<<<<<< HEAD
     /* Start Saas Only */
     _gmsServer.enqueue(new MockResponse().setResponseCode(404)); // dynamic settings - not tested
     _gmsServer.enqueue(new MockResponse().setResponseCode(404)); // dynamic settings - not tested
@@ -108,6 +109,11 @@ public class ApplicationTest extends WithBrowser {
         new MockResponse().setBody(String.format("{\"proxyResponse\":\"%s\"}", "test")));
     _integrationsServer.start(integrationsServerPort());
     /* End Saas Only */
+=======
+    _gmsServer.enqueue(new MockResponse().setResponseCode(404)); // dynamic settings - not tested
+    _gmsServer.enqueue(new MockResponse().setResponseCode(404)); // dynamic settings - not tested
+    _gmsServer.enqueue(new MockResponse().setResponseCode(404)); // dynamic settings - not tested
+>>>>>>> oss_master
     _gmsServer.enqueue(new MockResponse().setBody(String.format("{\"value\":\"%s\"}", TEST_USER)));
     _gmsServer.enqueue(
         new MockResponse().setBody(String.format("{\"accessToken\":\"%s\"}", TEST_TOKEN)));

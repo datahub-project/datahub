@@ -852,7 +852,7 @@ class GlueSource(StatefulIngestionSourceBase):
                 partition_keys = [k["Name"] for k in partition_keys]
 
                 for p in partitions:
-                    table_stats = p["Parameters"]
+                    table_stats = p.get("Parameters", {})
                     column_stats = p["StorageDescriptor"]["Columns"]
 
                     # only support single partition key

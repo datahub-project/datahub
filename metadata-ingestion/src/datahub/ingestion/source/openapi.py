@@ -52,6 +52,13 @@ class OpenApiConfig(ConfigModel):
     ignore_endpoints: list = Field(default=[], description="")
     username: str = Field(default="", description="")
     password: str = Field(default="", description="")
+    proxies: Optional[dict] = Field(
+        default=None,
+        description="Eg. "
+        "`{'http': 'http://10.10.1.10:3128', 'https': 'http://10.10.1.10:1080'}`."
+        "If authentication is required, add it to the proxy url directly e.g. "
+        "`http://user:pass@10.10.1.10:3128/`.",
+    )
     forced_examples: dict = Field(default={}, description="")
     token: Optional[str] = Field(default=None, description="")
     get_token: dict = Field(default={}, description="")
@@ -87,9 +94,13 @@ class OpenApiConfig(ConfigModel):
                     password=self.password,
                     tok_url=url4req,
                     method=self.get_token["request_type"],
+                    proxies=self.proxies,
                 )
             sw_dict = get_swag_json(
-                self.url, token=self.token, swagger_file=self.swagger_file
+                self.url,
+                token=self.token,
+                swagger_file=self.swagger_file,
+                proxies=self.proxies,
             )  # load the swagger file
 
         else:  # using basic auth for accessing endpoints
@@ -98,6 +109,7 @@ class OpenApiConfig(ConfigModel):
                 username=self.username,
                 password=self.password,
                 swagger_file=self.swagger_file,
+                proxies=self.proxies,
             )
         return sw_dict
 
@@ -258,10 +270,15 @@ class APISource(Source, ABC):
                 tot_url = clean_url(config.url + self.url_basepath + endpoint_k)
 
                 if config.token:
-                    response = request_call(tot_url, token=config.token)
+                    response = request_call(
+                        tot_url, token=config.token, proxies=config.proxies
+                    )
                 else:
                     response = request_call(
-                        tot_url, username=config.username, password=config.password
+                        tot_url,
+                        username=config.username,
+                        password=config.password,
+                        proxies=config.proxies,
                     )
                 if response.status_code == 200:
                     fields2add, root_dataset_samples[dataset_name] = extract_fields(
@@ -281,10 +298,15 @@ class APISource(Source, ABC):
                     url_guess = try_guessing(endpoint_k, root_dataset_samples)
                     tot_url = clean_url(config.url + self.url_basepath + url_guess)
                     if config.token:
-                        response = request_call(tot_url, token=config.token)
+                        response = request_call(
+                            tot_url, token=config.token, proxies=config.proxies
+                        )
                     else:
                         response = request_call(
-                            tot_url, username=config.username, password=config.password
+                            tot_url,
+                            username=config.username,
+                            password=config.password,
+                            proxies=config.proxies,
                         )
                     if response.status_code == 200:
                         fields2add, _ = extract_fields(response, dataset_name)
@@ -304,10 +326,15 @@ class APISource(Source, ABC):
                     )
                     tot_url = clean_url(config.url + self.url_basepath + composed_url)
                     if config.token:
-                        response = request_call(tot_url, token=config.token)
+                        response = request_call(
+                            tot_url, token=config.token, proxies=config.proxies
+                        )
                     else:
                         response = request_call(
-                            tot_url, username=config.username, password=config.password
+                            tot_url,
+                            username=config.username,
+                            password=config.password,
+                            proxies=config.proxies,
                         )
                     if response.status_code == 200:
                         fields2add, _ = extract_fields(response, dataset_name)

@@ -114,7 +114,12 @@ export default function ViewResetTokenModal({ visible, userUrn, username, onClos
                 <ModalSectionParagraph>
                     Generate a new reset link! Note, any old links will <b>cease to be active</b>.
                 </ModalSectionParagraph>
-                <CreateResetTokenButton onClick={createNativeUserResetToken} size="small" type="text">
+                <CreateResetTokenButton
+                    onClick={createNativeUserResetToken}
+                    size="small"
+                    type="text"
+                    data-testid="refreshButton"
+                >
                     <RedoOutlined style={{}} />
                 </CreateResetTokenButton>
             </ModalSection>
