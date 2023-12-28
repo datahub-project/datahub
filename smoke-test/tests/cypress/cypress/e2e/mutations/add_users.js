@@ -1,7 +1,8 @@
 const tryToSignUp = () => {
   let number = Math.floor(Math.random() * 100000);
   let name = `Example Name ${number}`;
-  cy.enterTextInTestId("email", `example${number}@example.com`);
+  let email = `example${number}@example.com`;
+  cy.enterTextInTestId("email", email);
   cy.enterTextInTestId("name", name);
   cy.enterTextInTestId("password", "Example password");
   cy.enterTextInTestId("confirmPassword", "Example password");
@@ -10,10 +11,11 @@ const tryToSignUp = () => {
   cy.waitTextVisible("Other").click();
 
   cy.get("[type=submit]").click();
-  return name;
+  return { name, email };
 };
 
 describe("add_user", () => {
+  let registeredEmail = ""; 
   it("go to user link and invite a user", () => {
     cy.login();
 
@@ -29,7 +31,8 @@ describe("add_user", () => {
         cy.visit("/settings/identities/users");
         cy.logout();
         cy.visit(inviteLink);
-        let name = tryToSignUp();
+        const { name, email } = tryToSignUp();
+        registeredEmail = email;
         cy.waitTextVisible("Welcome to DataHub");
         cy.hideOnboardingTour();
         cy.waitTextVisible(name);
@@ -41,9 +44,7 @@ describe("add_user", () => {
         cy.waitTextVisible("Failed to log in! An unexpected error occurred.");
       });
   });
-});
 
-describe("Reset Password", () => {
   it("Verify you can’t generate a reset password link for a non-native user", () => {
     cy.login();
     cy.visit("/settings/identities/users");
@@ -60,14 +61,13 @@ describe("Reset Password", () => {
     cy.login();
     cy.visit("/settings/identities/users");
     cy.waitTextVisible("Invite Users");
-    cy.get("[data-testid=userItem-native]").first().click();
-    // Capture the email of the selected native user required for reset password
-    cy.get("[data-testid=email-native]")
-      .first()
-      .invoke("text")
-      .then((email) => {
-        cy.wrap(email).as("capturedEmail");
-      });
+    cy.get(`[data-testid="email-native"]`)
+      .contains(registeredEmail)
+      .should("exist")
+      .parents(".ant-list-item")
+      .find('[data-testid="userItem-native"]')
+      .should("be.visible")
+      .click();
 
     cy.get("[data-testid=resetButton]").first().click();
     cy.get("[data-testid=refreshButton]").click();
@@ -84,26 +84,21 @@ describe("Reset Password", () => {
         const inviteLink = $elem.text();
         cy.logout();
         cy.visit(inviteLink);
-        // Enter the captured email and set a new password for the user
-        cy.get("@capturedEmail").then((capturedEmail) => {
-          cy.enterTextInTestId("email", capturedEmail);
-          cy.enterTextInTestId("password", "Example Reset Password");
-          cy.enterTextInTestId("confirmPassword", "Example Reset Password");
-          cy.get("[type=submit]").click();
-          cy.waitTextVisible("Welcome back");
-          cy.hideOnboardingTour();
-        });
+        cy.enterTextInTestId("email", registeredEmail);
+        cy.enterTextInTestId("password", "Example Reset Password");
+        cy.enterTextInTestId("confirmPassword", "Example Reset Password");
+        cy.get("[type=submit]").click();
+        cy.waitTextVisible("Welcome back");
+        cy.hideOnboardingTour();
       })
       .then(() => {
         cy.logout();
         cy.visit("/reset?reset_token=bad_token");
-        cy.get("@capturedEmail").then((capturedEmail) => {
-          cy.enterTextInTestId("email", capturedEmail);
-          cy.enterTextInTestId("password", "Example Reset Password");
-          cy.enterTextInTestId("confirmPassword", "Example Reset Password");
-          cy.get("[type=submit]").click();
-          cy.waitTextVisible("Failed to log in!");
-        });
+        cy.enterTextInTestId("email", registeredEmail);
+        cy.enterTextInTestId("password", "Example Reset Password");
+        cy.enterTextInTestId("confirmPassword", "Example Reset Password");
+        cy.get("[type=submit]").click();
+        cy.waitTextVisible("Failed to log in!");
       });
   });
 });
