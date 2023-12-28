@@ -35,7 +35,6 @@ from datahub.ingestion.source.bigquery_v2.bigquery_audit import (
     AuditEvent,
     AuditLogEntry,
     BigQueryAuditMetadata,
-    BigqueryTableIdentifier,
     BigQueryTableRef,
     QueryEvent,
     ReadEvent,
@@ -60,9 +59,9 @@ from datahub.ingestion.source_report.ingestion_stage import (
     USAGE_EXTRACTION_USAGE_AGGREGATION,
 )
 from datahub.metadata.schema_classes import OperationClass, OperationTypeClass
-from datahub.utilities.bigquery_sql_parser import BigQuerySQLParser
 from datahub.utilities.file_backed_collections import ConnectionWrapper, FileBackedDict
 from datahub.utilities.perf_timer import PerfTimer
+from datahub.utilities.sqlglot_lineage import SchemaResolver, sqlglot_lineage
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -284,7 +283,7 @@ class BigQueryUsageState(Closeable):
         )
 
     def report_disk_usage(self, report: BigQueryV2Report) -> None:
-        report.usage_state_size = str(
+        report.processing_perf.usage_state_size = str(
             {
                 "main": humanfriendly.format_size(os.path.getsize(self.conn.filename)),
                 "queries": humanfriendly.format_size(
@@ -310,11 +309,14 @@ class BigQueryUsageExtractor:
         self,
         config: BigQueryV2Config,
         report: BigQueryV2Report,
+        *,
+        schema_resolver: SchemaResolver,
         dataset_urn_builder: Callable[[BigQueryTableRef], str],
         redundant_run_skip_handler: Optional[RedundantUsageRunSkipHandler] = None,
     ):
         self.config: BigQueryV2Config = config
         self.report: BigQueryV2Report = report
+        self.schema_resolver = schema_resolver
         self.dataset_urn_builder = dataset_urn_builder
         # Replace hash of query with uuid if there are hash conflicts
         self.uuid_to_query: Dict[str, str] = {}
@@ -415,10 +417,11 @@ class BigQueryUsageExtractor:
     ) -> Iterable[AuditEvent]:
         try:
             tables = self.get_tables_from_query(
-                query_event_on_view.project_id,
                 query_event_on_view.query,
+                default_project=query_event_on_view.project_id,
+                default_dataset=query_event_on_view.default_dataset,
             )
-            assert tables is not None and len(tables) != 0
+            assert len(tables) != 0
             for table in tables:
                 yield AuditEvent.create(
                     ReadEvent.from_query_event(table, query_event_on_view)
@@ -462,12 +465,15 @@ class BigQueryUsageExtractor:
                     self.report.num_view_query_events += 1
 
                     for new_event in self.generate_read_events_from_query(query_event):
-                        num_generated += self._store_usage_event(
-                            new_event, usage_state, table_refs
-                        )
-                num_aggregated += self._store_usage_event(
-                    audit_event, usage_state, table_refs
-                )
+                        with self.report.processing_perf.store_usage_event_sec:
+                            num_generated += self._store_usage_event(
+                                new_event, usage_state, table_refs
+                            )
+                with self.report.processing_perf.store_usage_event_sec:
+                    num_aggregated += self._store_usage_event(
+                        audit_event, usage_state, table_refs
+                    )
+
             except Exception as e:
                 logger.warning(
                     f"Unable to store usage event {audit_event}", exc_info=True
@@ -905,54 +911,38 @@ class BigQueryUsageExtractor:
         )
 
     def get_tables_from_query(
-        self, default_project: str, query: str
-    ) -> Optional[List[BigQueryTableRef]]:
+        self, query: str, default_project: str, default_dataset: Optional[str] = None
+    ) -> List[BigQueryTableRef]:
         """
         This method attempts to parse bigquery objects read in the query
         """
         if not query:
-            return None
+            return []
 
-        parsed_tables = set()
         try:
-            parser = BigQuerySQLParser(
-                query,
-                self.config.sql_parser_use_external_process,
-                use_raw_names=self.config.lineage_sql_parser_use_raw_names,
-            )
-            tables = parser.get_tables()
-        except Exception as ex:
+            with self.report.processing_perf.sql_parsing_sec:
+                result = sqlglot_lineage(
+                    query,
+                    self.schema_resolver,
+                    default_db=default_project,
+                    default_schema=default_dataset,
+                )
+        except Exception:
             logger.debug(
-                f"Sql parsing failed on this query on view: {query}. "
-                f"Usage won't be added. The error was {ex}."
+                f"Sql parsing failed on this query on view: {query}. Usage won't be added."
             )
-            return None
+            logger.debug(result.debug_info)
+            return []
 
-        for table in tables:
-            parts = table.split(".")
-            if len(parts) == 2:
-                parsed_tables.add(
-                    BigQueryTableRef(
-                        BigqueryTableIdentifier(
-                            project_id=default_project, dataset=parts[0], table=parts[1]
-                        )
-                    ).get_sanitized_table_ref()
-                )
-            elif len(parts) == 3:
-                parsed_tables.add(
-                    BigQueryTableRef(
-                        BigqueryTableIdentifier(
-                            project_id=parts[0], dataset=parts[1], table=parts[2]
-                        )
-                    ).get_sanitized_table_ref()
-                )
-            else:
-                logger.debug(
-                    f"Invalid table identifier {table} when parsing query on view {query}"
-                )
+        parsed_table_refs = []
+        for urn in result.in_tables:
+            try:
+                parsed_table_refs.append(BigQueryTableRef.from_urn(urn))
+            except ValueError:
+                logger.debug(f"Invalid urn {urn} when parsing query on view {query}")
                 self.report.num_view_query_events_failed_table_identification += 1
 
-        return list(parsed_tables)
+        return parsed_table_refs
 
     def _report_error(
         self, label: str, e: Exception, group: Optional[str] = None

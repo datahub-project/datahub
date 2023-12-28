@@ -333,6 +333,9 @@ def _table_level_lineage(
     return tables, modified
 
 
+TABLE_CASE_SENSITIVE_PLATFORMS = {"bigquery"}
+
+
 class SchemaResolver(Closeable):
     def __init__(
         self,
@@ -402,7 +405,10 @@ class SchemaResolver(Closeable):
             if schema_info:
                 return urn_lower, schema_info
 
-        return urn_lower, None
+        if self.platform in TABLE_CASE_SENSITIVE_PLATFORMS:
+            return urn, None
+        else:
+            return urn_lower, None
 
     def _resolve_schema_info(self, urn: str) -> Optional[SchemaInfo]:
         if urn in self._schema_cache:
