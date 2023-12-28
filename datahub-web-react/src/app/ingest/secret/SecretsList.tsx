@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Button, Empty, message, Modal, Pagination, Typography } from 'antd';
+import { debounce } from 'lodash';
 import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
 import * as QueryString from 'query-string';
 import { useLocation } from 'react-router';
@@ -18,6 +19,7 @@ import { SearchBar } from '../../search/SearchBar';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { scrollToTop } from '../../shared/searchUtils';
 import { addSecretToListSecretsCache, removeSecretFromListSecretsCache } from './cacheUtils';
+import { ONE_SECOND_IN_MS } from '../../entity/shared/tabs/Dataset/Queries/utils/constants';
 
 const DeleteButtonContainer = styled.div`
     display: flex;
@@ -83,6 +85,10 @@ export const SecretsList = () => {
         scrollToTop();
         setPage(newPage);
     };
+
+    const debouncedSetQuery = debounce((newQuery: string | undefined) => {
+        setQuery(newQuery);
+    }, ONE_SECOND_IN_MS);
 
     const onSubmit = (state: SecretBuilderState, resetBuilderState: () => void) => {
         createSecretMutation({
@@ -199,7 +205,7 @@ export const SecretsList = () => {
                         onSearch={() => null}
                         onQueryChange={(q) => {
                             setPage(1);
-                            setQuery(q);
+                            debouncedSetQuery(q);
                         }}
                         entityRegistry={entityRegistry}
                         hideRecommendations
