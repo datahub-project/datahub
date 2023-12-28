@@ -1000,7 +1000,7 @@ public class ProposalUtils {
           (com.linkedin.schema.EditableSchemaMetadata)
               EntityUtils.getAspectFromEntity(
                   targetUrn.toString(),
-                  GLOSSARY_TERMS_ASPECT_NAME,
+                  EDITABLE_SCHEMA_METADATA_ASPECT_NAME,
                   entityService,
                   new EditableSchemaMetadata());
 
