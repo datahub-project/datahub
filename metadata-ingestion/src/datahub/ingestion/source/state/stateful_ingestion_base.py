@@ -98,7 +98,7 @@ class StatefulIngestionConfigBase(GenericModel, Generic[CustomConfig]):
     )
 
 
-class StatefulLineageConfigMixin:
+class StatefulLineageConfigMixin(ConfigModel):
     enable_stateful_lineage_ingestion: bool = Field(
         default=True,
         description="Enable stateful lineage ingestion."

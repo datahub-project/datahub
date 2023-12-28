@@ -16,8 +16,8 @@ buildscript {
 plugins {
     id 'base'
     id 'maven-publish'
+    id 'pegasus'
 }
-apply plugin: 'pegasus'
 
 if (project.hasProperty('projVersion')) {
   project.version = project.projVersion

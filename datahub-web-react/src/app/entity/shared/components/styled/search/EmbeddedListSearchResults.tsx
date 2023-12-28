@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pagination, Typography } from 'antd';
+import { Pagination, Spin, Typography } from 'antd';
 import { LoadingOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
 import { FacetFilterInput, FacetMetadata, SearchResults as SearchResultType } from '../../../../../../types.generated';
@@ -61,7 +61,7 @@ const LoadingContainer = styled.div`
 `;
 
 const StyledLoading = styled(LoadingOutlined)`
-    font-size: 36px;
+    font-size: 32px;
     color: ${ANTD_GRAY[7]};
     padding-bottom: 18px;
 ]`;
@@ -128,7 +128,7 @@ export const EmbeddedListSearchResults = ({
                 <ResultContainer>
                     {loading && (
                         <LoadingContainer>
-                            <StyledLoading />
+                            <Spin indicator={<StyledLoading />} />
                         </LoadingContainer>
                     )}
                     {!loading && (

@@ -236,6 +236,7 @@ kafka:
     maxRequestSize: ${KAFKA_PRODUCER_MAX_REQUEST_SIZE:5242880} # the max bytes sent by the producer, also see kafka-setup MAX_MESSAGE_BYTES for matching value
   consumer:
     maxPartitionFetchBytes: ${KAFKA_CONSUMER_MAX_PARTITION_FETCH_BYTES:5242880} # the max bytes consumed per partition
+    stopOnDeserializationError: ${KAFKA_CONSUMER_STOP_ON_DESERIALIZATION_ERROR:true} # Stops kafka listener container on deserialization error, allows user to fix problems before moving past problematic offset. If false will log and move forward past the offset
   schemaRegistry:
     type: ${SCHEMA_REGISTRY_TYPE:KAFKA} # INTERNAL or KAFKA or AWS_GLUE
     url: ${KAFKA_SCHEMAREGISTRY_URL:http://localhost:8081}
@@ -317,6 +318,7 @@ featureFlags:
   showAccessManagement: ${SHOW_ACCESS_MANAGEMENT:false} #Whether we should show AccessManagement tab in the datahub UI.
   showSearchFiltersV2: ${SHOW_SEARCH_FILTERS_V2:true} # Enables showing the search filters V2 experience.
   showBrowseV2: ${SHOW_BROWSE_V2:true} # Enables showing the browse v2 sidebar experience.
+  platformBrowseV2: ${PLATFORM_BROWSE_V2:false} # Enables the platform browse experience, instead of the entity-oriented browse default.
   preProcessHooks:
     uiEnabled: ${PRE_PROCESS_HOOKS_UI_ENABLED:true} # Circumvents Kafka for processing index updates for UI changes sourced from GraphQL to avoid processing delays
   showAcrylInfo: ${SHOW_ACRYL_INFO:false} # Show different CTAs within DataHub around moving to Managed DataHub. Set to true for the demo site.

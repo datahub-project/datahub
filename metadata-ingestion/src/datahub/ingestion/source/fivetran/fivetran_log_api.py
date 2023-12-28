@@ -117,7 +117,9 @@ class FivetranLogAPI:
             )
         return jobs
 
-    def _get_user_name(self, user_id: str) -> str:
+    def _get_user_name(self, user_id: Optional[str]) -> Optional[str]:
+        if not user_id:
+            return None
         user_details = self._query(FivetranLogQuery.get_user_query(user_id=user_id))[0]
         return (
             f"{user_details[Constant.GIVEN_NAME]} {user_details[Constant.FAMILY_NAME]}"

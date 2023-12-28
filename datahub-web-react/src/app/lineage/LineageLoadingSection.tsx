@@ -1,5 +1,6 @@
 import * as React from 'react';
 import styled from 'styled-components';
+import { Spin } from 'antd';
 import { LoadingOutlined } from '@ant-design/icons';
 import { ANTD_GRAY } from '../entity/shared/constants';
 
@@ -13,7 +14,7 @@ const Container = styled.div`
 `;
 
 const StyledLoading = styled(LoadingOutlined)`
-    font-size: 36px;
+    font-size: 32px;
     color: ${ANTD_GRAY[7]};
     padding-bottom: 18px;
 ]`;
@@ -21,7 +22,7 @@ const StyledLoading = styled(LoadingOutlined)`
 export default function LineageLoadingSection() {
     return (
         <Container>
-            <StyledLoading />
+            <Spin indicator={<StyledLoading />} />
         </Container>
     );
 }
