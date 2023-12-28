@@ -98,8 +98,8 @@ export default function UserListItem({ user, canManageUserCredentials, selectRol
                             <div>
                                 <Typography.Text>{displayName}</Typography.Text>
                             </div>
-                            <div>
-                                <Typography.Text type="secondary">{user.username}</Typography.Text>
+                            <div   data-testid={`email-${shouldShowPasswordReset ? 'native' : 'non-native'}`}>
+                                <Typography.Text type="secondary"   >{user.username}</Typography.Text>
                             </div>
                         </div>
                         {userStatus && (
@@ -124,7 +124,7 @@ export default function UserListItem({ user, canManageUserCredentials, selectRol
                             <Menu.Item
                                 disabled={!shouldShowPasswordReset}
                                 onClick={() => setIsViewingResetToken(true)}
-                                data-testid="resetButtonClick"
+                                data-testid="reset-menu-item"
                             >
                                 <UnlockOutlined data-testid="resetButton" /> &nbsp; Reset user password
                             </Menu.Item>
