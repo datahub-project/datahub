@@ -63,7 +63,7 @@ services:
       - ../metadata-service/war/build/libs/:/datahub/datahub-gms/bin
       - ${HOME}/.datahub/plugins:/etc/datahub/plugins
   datahub-upgrade:
-    image: acryldata/datahub-upgrade:debug
+    image: 795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-upgrade:debug
     ports:
       - ${DATAHUB_MAPPED_UPGRADE_DEBUG_PORT:-5003}:5003
     build:

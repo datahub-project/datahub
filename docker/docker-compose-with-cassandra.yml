@@ -56,7 +56,7 @@ services:
   datahub-upgrade:
     container_name: datahub-upgrade
     hostname: datahub-upgrade
-    image: ${DATAHUB_UPGRADE_IMAGE:-acryldata/datahub-upgrade}:${DATAHUB_VERSION:-head}
+    image: ${DATAHUB_UPGRADE_IMAGE:-795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-upgrade}:${DATAHUB_VERSION:-head}
     command:
       - -u
       - SystemUpdate
