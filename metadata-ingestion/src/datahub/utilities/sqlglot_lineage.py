@@ -333,7 +333,7 @@ def _table_level_lineage(
     return tables, modified
 
 
-CASE_SENSITIVE_PLATFORMS = {"bigquery"}
+TABLE_CASE_SENSITIVE_PLATFORMS = {"bigquery"}
 
 
 class SchemaResolver(Closeable):
@@ -405,7 +405,7 @@ class SchemaResolver(Closeable):
             if schema_info:
                 return urn_lower, schema_info
 
-        if self.platform in CASE_SENSITIVE_PLATFORMS:
+        if self.platform in TABLE_CASE_SENSITIVE_PLATFORMS:
             return urn, None
         else:
             return urn_lower, None
