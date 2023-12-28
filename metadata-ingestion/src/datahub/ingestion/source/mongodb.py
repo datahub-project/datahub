@@ -102,7 +102,7 @@ class MongoDBConfig(
     )
     schemaSamplingSize: Optional[PositiveInt] = Field(
         default=1000,
-        description="Number of documents to use when inferring schema size. If set to `0`, all documents will be scanned.",
+        description="Number of documents to use when inferring schema size. If set to `null`, all documents will be scanned.",
     )
     useRandomSampling: bool = Field(
         default=True,
@@ -225,13 +225,15 @@ def construct_schema_pymongo(
         ]
     if use_random_sampling:
         # get sample documents in collection
-        aggregations.append({"$sample": {"size": sample_size}})
+        if sample_size:
+            aggregations.append({"$sample": {"size": sample_size}})
         documents = collection.aggregate(
             aggregations,
             allowDiskUse=True,
         )
     else:
-        aggregations.append({"$limit": sample_size})
+        if sample_size:
+            aggregations.append({"$limit": sample_size})
         documents = collection.aggregate(aggregations, allowDiskUse=True)
 
     return construct_schema(list(documents), delimiter)
