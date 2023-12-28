@@ -1,48 +1,26 @@
-import time
-import logging
 import uuid
+from datetime import datetime as dt
 from typing import Dict, Optional
 
-from datahub.utilities.time import datetime_to_ts_millis
-from datetime import datetime as dt
-from datahub.metadata.com.linkedin.pegasus2avro.common import TimeStamp
-from datahub.emitter.mce_builder import (
-    make_dataset_urn,
-    make_tag_urn,
-    make_term_urn,
-    make_user_urn,
-)
+from datahub.emitter.mce_builder import (make_dataset_urn, make_tag_urn,
+                                         make_term_urn)
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DataHubGraph, DataHubGraphConfig
-from datahub.metadata.schema_classes import (
-    AuditStampClass,
-    DatasetLineageTypeClass,
-    DatasetPropertiesClass,
-    EditableSchemaFieldInfoClass,
-    EditableSchemaMetadataClass,
-    GlobalTagsClass,
-    GlossaryTermAssociationClass,
-    GlossaryTermsClass,
-    OwnerClass,
-    OwnershipClass,
-    OwnershipTypeClass,
-    TagAssociationClass,
-    UpstreamClass,
-    UpstreamLineageClass,
-)
+from datahub.metadata.com.linkedin.pegasus2avro.common import TimeStamp
+from datahub.metadata.schema_classes import (DatasetLineageTypeClass,
+                                             DatasetPropertiesClass,
+                                             EditableSchemaFieldInfoClass,
+                                             EditableSchemaMetadataClass,
+                                             GlossaryTermAssociationClass,
+                                             TagAssociationClass,
+                                             UpstreamClass,
+                                             UpstreamLineageClass)
 from datahub.specific.dataset import DatasetPatchBuilder
-
+from datahub.utilities.time import datetime_to_ts_millis
 from tests.patch.common_patch_tests import (
-    get_dataset_property,
-    helper_test_custom_properties_patch,
-    helper_test_dataset_tags_patch,
-    helper_test_entity_terms_patch,
-    helper_test_ownership_patch,
-)
-
-
-log = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO)
+    get_dataset_property, helper_test_custom_properties_patch,
+    helper_test_dataset_tags_patch, helper_test_entity_terms_patch,
+    helper_test_ownership_patch)
 
 
 # Common Aspect Patch Tests
@@ -375,7 +353,6 @@ def test_qualified_name_patch(wait_for_healthchecks):
 def test_created_patch(wait_for_healthchecks):
     test_time = datetime_to_ts_millis(dt.now())
 
-    log.error("hello world above")
     dataset_urn = make_dataset_urn(
         platform="hive", name=f"SampleHiveDataset-{uuid.uuid4()}", env="PROD"
     )
@@ -389,7 +366,6 @@ def test_created_patch(wait_for_healthchecks):
 
     with DataHubGraph(DataHubGraphConfig()) as graph:
         graph.emit(mcpw)
-    log.error("hello world above")
     test_time = datetime_to_ts_millis(dt.now())
     with DataHubGraph(DataHubGraphConfig()) as graph:
         for patch_mcp in (
