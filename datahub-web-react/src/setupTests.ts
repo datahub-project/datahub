@@ -19,11 +19,7 @@ global.matchMedia =
         };
     });
 
-const { location } = window;
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-ignore
-delete window.location;
-window.location = { ...location, replace: () => {} };
+window.location = { ...window.location, replace: () => {} };
 sinon.stub(window.location, 'replace');
 
 vi.mock('js-cookie', () => ({
