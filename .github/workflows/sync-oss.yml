@@ -22,3 +22,4 @@ jobs:
           # PRs created by GitHub Actions don't trigger CI, so we need to use
           # a PAT here instead.
           GH_TOKEN: ${{ secrets.PAT_FOR_NIGHTLY_OSS_SYNC }}
+          SHOULD_MIRROR_MASTER: "false"

@@ -12,6 +12,7 @@ set -euxo pipefail
 # Once the PR is manually approved, it should automatically get merged in once CI passes.
 
 OSS_MASTER_BRANCH=master
+SHOULD_MIRROR_MASTER=${SHOULD_MIRROR_MASTER:-true}
 FORK_TARGET_BRANCH=acryl-main
 SYNC_BRANCH=hs--merge-oss-into-acryl-main
 
@@ -19,11 +20,19 @@ SYNC_BRANCH=hs--merge-oss-into-acryl-main
 git status
 git checkout $FORK_TARGET_BRANCH
 
+# Validate assumption that origin is datahub-fork.
+ORIGIN_URL=$(git remote get-url origin)
+if ! echo "$ORIGIN_URL" | grep -q "datahub-fork"; then
+    echo "Error: The origin remote is not datahub-fork, exiting."
+    exit 1
+fi
+
 # Add the oss remote.
 if ! git remote | grep -q oss; then
     git remote add oss https://github.com/datahub-project/datahub
 fi
 git remote -v
+git fetch origin master
 git fetch oss $OSS_MASTER_BRANCH
 
 # Sync fork master with oss/master.
@@ -32,7 +41,9 @@ if git show-ref --verify --quiet refs/heads/master; then
 fi
 git checkout -b master origin/master
 git reset --hard oss/$OSS_MASTER_BRANCH
-git push origin master  # Needs admin to bypass branch protections.
+if [ "$SHOULD_MIRROR_MASTER" = true ]; then
+    git push origin master  # Needs admin to bypass branch protections.
+fi
 
 # Helper for adding comments to the PR.
 function pr_number() {
