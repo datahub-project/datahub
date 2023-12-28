@@ -379,6 +379,8 @@ class MongoDBSource(StatefulIngestionSourceBase):
                     platform_instance=self.config.platform_instance,
                 )
 
+                # Initialize data_platform_instance with a default value
+                data_platform_instance = None
                 if self.config.platform_instance:
                     data_platform_instance = DataPlatformInstanceClass(
                         platform=make_data_platform_urn(platform),
