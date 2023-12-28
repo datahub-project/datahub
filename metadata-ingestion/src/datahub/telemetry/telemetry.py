@@ -94,6 +94,9 @@ if any(var in os.environ for var in CI_ENV_VARS):
 if _custom_package_path:
     ENV_ENABLED = False
 
+# SaaS-only disable all telemetry
+ENV_ENABLED = False
+
 TIMEOUT = int(os.environ.get("DATAHUB_TELEMETRY_TIMEOUT", "10"))
 MIXPANEL_ENDPOINT = "track.datahubproject.io/mp"
 MIXPANEL_TOKEN = "5ee83d940754d63cacbf7d34daa6f44a"
@@ -195,7 +198,6 @@ class Telemetry:
         """
         Enable telemetry.
         """
-
         self.enabled = True
         self.update_config()
 
