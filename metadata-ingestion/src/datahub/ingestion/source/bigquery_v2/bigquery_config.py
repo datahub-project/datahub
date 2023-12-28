@@ -289,7 +289,7 @@ class BigQueryV2Config(
 
         return v
 
-    @root_validator(pre=False)
+    @root_validator(pre=False, skip_on_failure=True)
     def backward_compatibility_configs_set(cls, values: Dict) -> Dict:
         project_id = values.get("project_id")
         project_id_pattern = values.get("project_id_pattern")

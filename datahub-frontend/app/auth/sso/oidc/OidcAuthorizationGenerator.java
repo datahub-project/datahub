@@ -1,9 +1,9 @@
 package auth.sso.oidc;
 
+import com.nimbusds.jwt.JWT;
+import com.nimbusds.jwt.JWTParser;
 import java.util.Map.Entry;
 import java.util.Optional;
-
-import com.nimbusds.jwt.JWTParser;
 import org.pac4j.core.authorization.generator.AuthorizationGenerator;
 import org.pac4j.core.context.WebContext;
 import org.pac4j.core.profile.AttributeLocation;
@@ -14,44 +14,43 @@ import org.pac4j.oidc.profile.OidcProfile;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.nimbusds.jwt.JWT;
-
 public class OidcAuthorizationGenerator implements AuthorizationGenerator {
 
-    private static final Logger logger = LoggerFactory.getLogger(OidcAuthorizationGenerator.class);
-    
-    private final ProfileDefinition<?> profileDef;
+  private static final Logger logger = LoggerFactory.getLogger(OidcAuthorizationGenerator.class);
 
-    private final OidcConfigs oidcConfigs;
+  private final ProfileDefinition<?> profileDef;
 
-    public OidcAuthorizationGenerator(final ProfileDefinition<?> profileDef, final OidcConfigs oidcConfigs) {
-        this.profileDef = profileDef;
-        this.oidcConfigs = oidcConfigs;
-    }
+  private final OidcConfigs oidcConfigs;
 
-    @Override
-    public Optional<UserProfile> generate(WebContext context, UserProfile profile) {
-        if (oidcConfigs.getExtractJwtAccessTokenClaims().orElse(false)) {
-            try {
-                final JWT jwt = JWTParser.parse(((OidcProfile) profile).getAccessToken().getValue());
+  public OidcAuthorizationGenerator(
+      final ProfileDefinition<?> profileDef, final OidcConfigs oidcConfigs) {
+    this.profileDef = profileDef;
+    this.oidcConfigs = oidcConfigs;
+  }
 
-                CommonProfile commonProfile = new CommonProfile();
-    
-                for (final Entry<String, Object> entry : jwt.getJWTClaimsSet().getClaims().entrySet()) {
-                    final String claimName = entry.getKey();
+  @Override
+  public Optional<UserProfile> generate(WebContext context, UserProfile profile) {
+    if (oidcConfigs.getExtractJwtAccessTokenClaims().orElse(false)) {
+      try {
+        final JWT jwt = JWTParser.parse(((OidcProfile) profile).getAccessToken().getValue());
 
-                    if (profile.getAttribute(claimName) == null) {
-                        profileDef.convertAndAdd(commonProfile, AttributeLocation.PROFILE_ATTRIBUTE, claimName, entry.getValue());
-                    }
-                }
+        CommonProfile commonProfile = new CommonProfile();
 
-                return Optional.of(commonProfile);
-            } catch (Exception e) {
-                logger.warn("Cannot parse access token claims", e);
-            }
+        for (final Entry<String, Object> entry : jwt.getJWTClaimsSet().getClaims().entrySet()) {
+          final String claimName = entry.getKey();
+
+          if (profile.getAttribute(claimName) == null) {
+            profileDef.convertAndAdd(
+                commonProfile, AttributeLocation.PROFILE_ATTRIBUTE, claimName, entry.getValue());
+          }
         }
-        
-        return Optional.ofNullable(profile);
+
+        return Optional.of(commonProfile);
+      } catch (Exception e) {
+        logger.warn("Cannot parse access token claims", e);
+      }
     }
-    
+
+    return Optional.ofNullable(profile);
+  }
 }

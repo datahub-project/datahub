@@ -1,4 +1,4 @@
-import { Button, Form, Switch, Typography } from 'antd';
+import { Button, Checkbox, Form, Input, Switch, Typography } from 'antd';
 import React, { useMemo, useState } from 'react';
 import { Cron } from 'react-js-cron';
 import 'react-js-cron/dist/styles.css';
@@ -31,6 +31,10 @@ const CronText = styled(Typography.Paragraph)`
     color: ${ANTD_GRAY[7]};
 `;
 
+const AdvancedCheckBox = styled(Typography.Text)`
+    margin-right: 10px;
+    margin-bottom: 8px;
+`;
 const CronSuccessCheck = styled(CheckCircleOutlined)`
     color: ${REDESIGN_COLORS.BLUE};
     margin-right: 4px;
@@ -68,8 +72,8 @@ export const CreateScheduleStep = ({ state, updateState, goTo, prev }: StepProps
     const { schedule } = state;
     const interval = schedule?.interval?.replaceAll(', ', ' ') || DAILY_MIDNIGHT_CRON_INTERVAL;
     const timezone = schedule?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
-
     const [scheduleEnabled, setScheduleEnabled] = useState(!!schedule);
+    const [advancedCronCheck, setAdvancedCronCheck] = useState(false);
     const [scheduleCronInterval, setScheduleCronInterval] = useState(interval);
     const [scheduleTimezone, setScheduleTimezone] = useState(timezone);
 
@@ -137,13 +141,29 @@ export const CreateScheduleStep = ({ state, updateState, goTo, prev }: StepProps
                     )}
                 </Form.Item>
                 <StyledFormItem required label={<Typography.Text strong>Schedule</Typography.Text>}>
-                    <Cron
-                        value={scheduleCronInterval}
-                        setValue={setScheduleCronInterval}
-                        clearButton={false}
-                        className="cron-builder"
-                        leadingZero
-                    />
+                    <div style={{ paddingBottom: 10, paddingLeft: 10 }}>
+                        <AdvancedCheckBox type="secondary">Advanced</AdvancedCheckBox>
+                        <Checkbox
+                            checked={advancedCronCheck}
+                            onChange={(event) => setAdvancedCronCheck(event.target.checked)}
+                        />
+                    </div>
+                    {advancedCronCheck ? (
+                        <Input
+                            placeholder={DAILY_MIDNIGHT_CRON_INTERVAL}
+                            autoFocus
+                            value={scheduleCronInterval}
+                            onChange={(e) => setScheduleCronInterval(e.target.value)}
+                        />
+                    ) : (
+                        <Cron
+                            value={scheduleCronInterval}
+                            setValue={setScheduleCronInterval}
+                            clearButton={false}
+                            className="cron-builder"
+                            leadingZero
+                        />
+                    )}
                     <CronText>
                         {cronAsText.error && <>Invalid cron schedule. Cron must be of UNIX form:</>}
                         {!cronAsText.text && (

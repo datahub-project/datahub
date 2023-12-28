@@ -1,5 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.mutate;
 
+import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
+
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -14,9 +16,6 @@ import java.util.concurrent.CompletableFuture;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
-
-
 @Slf4j
 @RequiredArgsConstructor
 public class BatchUpdateSoftDeletedResolver implements DataFetcher<CompletableFuture<Boolean>> {
@@ -26,24 +25,32 @@ public class BatchUpdateSoftDeletedResolver implements DataFetcher<CompletableFu
   @Override
   public CompletableFuture<Boolean> get(DataFetchingEnvironment environment) throws Exception {
     final QueryContext context = environment.getContext();
-    final BatchUpdateSoftDeletedInput input = bindArgument(environment.getArgument("input"), BatchUpdateSoftDeletedInput.class);
+    final BatchUpdateSoftDeletedInput input =
+        bindArgument(environment.getArgument("input"), BatchUpdateSoftDeletedInput.class);
     final List<String> urns = input.getUrns();
     final boolean deleted = input.getDeleted();
 
-    return CompletableFuture.supplyAsync(() -> {
+    return CompletableFuture.supplyAsync(
+        () -> {
 
-      // First, validate the entities exist
-      validateInputUrns(urns, context);
+          // First, validate the entities exist
+          validateInputUrns(urns, context);
 
-      try {
-        // Then execute the bulk soft delete
-        batchUpdateSoftDeleted(deleted, urns, context);
-        return true;
-      } catch (Exception e) {
-        log.error("Failed to perform batch soft delete against input {}, {}", input.toString(), e.getMessage());
-        throw new RuntimeException(String.format("Failed to perform batch soft delete against input %s", input.toString()), e);
-      }
-    });
+          try {
+            // Then execute the bulk soft delete
+            batchUpdateSoftDeleted(deleted, urns, context);
+            return true;
+          } catch (Exception e) {
+            log.error(
+                "Failed to perform batch soft delete against input {}, {}",
+                input.toString(),
+                e.getMessage());
+            throw new RuntimeException(
+                String.format(
+                    "Failed to perform batch soft delete against input %s", input.toString()),
+                e);
+          }
+        });
   }
 
   private void validateInputUrns(List<String> urnStrs, QueryContext context) {
@@ -55,10 +62,12 @@ public class BatchUpdateSoftDeletedResolver implements DataFetcher<CompletableFu
   private void validateInputUrn(String urnStr, QueryContext context) {
     final Urn urn = UrnUtils.getUrn(urnStr);
     if (!DeleteUtils.isAuthorizedToDeleteEntity(context, urn)) {
-      throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
+      throw new AuthorizationException(
+          "Unauthorized to perform this action. Please contact your DataHub administrator.");
     }
     if (!_entityService.exists(urn)) {
-      throw new IllegalArgumentException(String.format("Failed to soft delete entity with urn %s. Entity does not exist.", urn));
+      throw new IllegalArgumentException(
+          String.format("Failed to soft delete entity with urn %s. Entity does not exist.", urn));
     }
   }
 
@@ -66,13 +75,11 @@ public class BatchUpdateSoftDeletedResolver implements DataFetcher<CompletableFu
     log.debug("Batch soft deleting assets. urns: {}", urnStrs);
     try {
       DeleteUtils.updateStatusForResources(
-          removed,
-          urnStrs,
-          UrnUtils.getUrn(context.getActorUrn()),
-          _entityService);
+          removed, urnStrs, UrnUtils.getUrn(context.getActorUrn()), _entityService);
     } catch (Exception e) {
       throw new RuntimeException(
-          String.format("Failed to batch update soft deleted status entities with urns %s!", urnStrs),
+          String.format(
+              "Failed to batch update soft deleted status entities with urns %s!", urnStrs),
           e);
     }
   }

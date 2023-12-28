@@ -1037,6 +1037,10 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
     def gen_schema_fields(self, columns: List[BigqueryColumn]) -> List[SchemaField]:
         schema_fields: List[SchemaField] = []
 
+        # Below line affects HiveColumnToAvroConverter._STRUCT_TYPE_SEPARATOR in global scope
+        # TODO: Refractor this such that
+        # converter = HiveColumnToAvroConverter(struct_type_separator=" ");
+        # converter.get_schema_fields_for_hive_column(...)
         HiveColumnToAvroConverter._STRUCT_TYPE_SEPARATOR = " "
         _COMPLEX_TYPE = re.compile("^(struct|array)")
         last_id = -1

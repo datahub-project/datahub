@@ -27,9 +27,7 @@ query getDomain($urn: String!) {
                 }
             }
         }
-        children: relationships(input: { types: ["IsPartOf"], direction: INCOMING, start: 0, count: 0 }) {
-            total
-        }
+        ...domainEntitiesFields
     }
 }
 

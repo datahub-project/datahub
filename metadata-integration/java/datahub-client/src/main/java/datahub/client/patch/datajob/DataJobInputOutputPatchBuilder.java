@@ -1,5 +1,8 @@
 package datahub.client.patch.datajob;
 
+import static com.fasterxml.jackson.databind.node.JsonNodeFactory.*;
+import static com.linkedin.metadata.Constants.*;
+
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.node.TextNode;
 import com.linkedin.common.Edge;
@@ -12,11 +15,8 @@ import datahub.client.patch.PatchOperationType;
 import javax.annotation.Nonnull;
 import org.apache.commons.lang3.tuple.ImmutableTriple;
 
-import static com.fasterxml.jackson.databind.node.JsonNodeFactory.*;
-import static com.linkedin.metadata.Constants.*;
-
-
-public class DataJobInputOutputPatchBuilder extends AbstractMultiFieldPatchBuilder<DataJobInputOutputPatchBuilder> {
+public class DataJobInputOutputPatchBuilder
+    extends AbstractMultiFieldPatchBuilder<DataJobInputOutputPatchBuilder> {
   private static final String INPUT_DATA_JOB_EDGES_PATH_START = "/inputDatajobEdges/";
   private static final String INPUT_DATASET_EDGES_PATH_START = "/inputDatasetEdges/";
   private static final String OUTPUT_DATASET_EDGES_PATH_START = "/outputDatasetEdges/";
@@ -39,65 +39,96 @@ public class DataJobInputOutputPatchBuilder extends AbstractMultiFieldPatchBuild
   public DataJobInputOutputPatchBuilder addInputDatajobEdge(@Nonnull DataJobUrn dataJobUrn) {
     ObjectNode value = createEdgeValue(dataJobUrn);
 
-    pathValues.add(ImmutableTriple.of(PatchOperationType.ADD.getValue(), INPUT_DATA_JOB_EDGES_PATH_START + dataJobUrn, value));
+    pathValues.add(
+        ImmutableTriple.of(
+            PatchOperationType.ADD.getValue(),
+            INPUT_DATA_JOB_EDGES_PATH_START + dataJobUrn,
+            value));
     return this;
   }
 
   public DataJobInputOutputPatchBuilder removeInputDatajobEdge(@Nonnull DataJobUrn dataJobUrn) {
-    pathValues.add(ImmutableTriple.of(PatchOperationType.REMOVE.getValue(), INPUT_DATA_JOB_EDGES_PATH_START + dataJobUrn, null));
+    pathValues.add(
+        ImmutableTriple.of(
+            PatchOperationType.REMOVE.getValue(),
+            INPUT_DATA_JOB_EDGES_PATH_START + dataJobUrn,
+            null));
     return this;
   }
 
   public DataJobInputOutputPatchBuilder addInputDatasetEdge(@Nonnull DatasetUrn datasetUrn) {
     ObjectNode value = createEdgeValue(datasetUrn);
 
-    pathValues.add(ImmutableTriple.of(PatchOperationType.ADD.getValue(), INPUT_DATASET_EDGES_PATH_START + datasetUrn, value));
+    pathValues.add(
+        ImmutableTriple.of(
+            PatchOperationType.ADD.getValue(), INPUT_DATASET_EDGES_PATH_START + datasetUrn, value));
     return this;
   }
 
   public DataJobInputOutputPatchBuilder removeInputDatasetEdge(@Nonnull DatasetUrn datasetUrn) {
-    pathValues.add(ImmutableTriple.of(PatchOperationType.REMOVE.getValue(), INPUT_DATASET_EDGES_PATH_START + datasetUrn, null));
+    pathValues.add(
+        ImmutableTriple.of(
+            PatchOperationType.REMOVE.getValue(),
+            INPUT_DATASET_EDGES_PATH_START + datasetUrn,
+            null));
     return this;
   }
 
   public DataJobInputOutputPatchBuilder addOutputDatasetEdge(@Nonnull DatasetUrn datasetUrn) {
     ObjectNode value = createEdgeValue(datasetUrn);
 
-    pathValues.add(ImmutableTriple.of(PatchOperationType.ADD.getValue(), OUTPUT_DATASET_EDGES_PATH_START + datasetUrn, value));
+    pathValues.add(
+        ImmutableTriple.of(
+            PatchOperationType.ADD.getValue(),
+            OUTPUT_DATASET_EDGES_PATH_START + datasetUrn,
+            value));
     return this;
   }
 
   public DataJobInputOutputPatchBuilder removeOutputDatasetEdge(@Nonnull DatasetUrn datasetUrn) {
-    pathValues.add(ImmutableTriple.of(PatchOperationType.REMOVE.getValue(), OUTPUT_DATASET_EDGES_PATH_START + datasetUrn, null));
+    pathValues.add(
+        ImmutableTriple.of(
+            PatchOperationType.REMOVE.getValue(),
+            OUTPUT_DATASET_EDGES_PATH_START + datasetUrn,
+            null));
     return this;
   }
 
   public DataJobInputOutputPatchBuilder addInputDatasetField(@Nonnull Urn urn) {
     TextNode textNode = instance.textNode(urn.toString());
-    pathValues.add(ImmutableTriple.of(PatchOperationType.ADD.getValue(), INPUT_DATASET_FIELDS_PATH_START + urn, textNode));
+    pathValues.add(
+        ImmutableTriple.of(
+            PatchOperationType.ADD.getValue(), INPUT_DATASET_FIELDS_PATH_START + urn, textNode));
 
     return this;
   }
 
   public DataJobInputOutputPatchBuilder removeInputDatasetField(@Nonnull Urn urn) {
-    pathValues.add(ImmutableTriple.of(PatchOperationType.REMOVE.getValue(), INPUT_DATASET_FIELDS_PATH_START + urn, null));
+    pathValues.add(
+        ImmutableTriple.of(
+            PatchOperationType.REMOVE.getValue(), INPUT_DATASET_FIELDS_PATH_START + urn, null));
     return this;
   }
 
   public DataJobInputOutputPatchBuilder addOutputDatasetField(@Nonnull Urn urn) {
     TextNode textNode = instance.textNode(urn.toString());
-    pathValues.add(ImmutableTriple.of(PatchOperationType.ADD.getValue(), OUTPUT_DATASET_FIELDS_PATH_START + urn, textNode));
+    pathValues.add(
+        ImmutableTriple.of(
+            PatchOperationType.ADD.getValue(), OUTPUT_DATASET_FIELDS_PATH_START + urn, textNode));
 
     return this;
   }
 
   public DataJobInputOutputPatchBuilder removeOutputDatasetField(@Nonnull Urn urn) {
-    pathValues.add(ImmutableTriple.of(PatchOperationType.REMOVE.getValue(), OUTPUT_DATASET_FIELDS_PATH_START + urn, null));
+    pathValues.add(
+        ImmutableTriple.of(
+            PatchOperationType.REMOVE.getValue(), OUTPUT_DATASET_FIELDS_PATH_START + urn, null));
     return this;
   }
 
   // Full Edge modification
-  public DataJobInputOutputPatchBuilder addEdge(@Nonnull Edge edge, @Nonnull LineageDirection direction) {
+  public DataJobInputOutputPatchBuilder addEdge(
+      @Nonnull Edge edge, @Nonnull LineageDirection direction) {
     ObjectNode value = createEdgeValue(edge);
     String path = getEdgePath(edge, direction);
 
@@ -105,7 +136,8 @@ public class DataJobInputOutputPatchBuilder extends AbstractMultiFieldPatchBuild
     return this;
   }
 
-  public DataJobInputOutputPatchBuilder removeEdge(@Nonnull Edge edge, @Nonnull LineageDirection direction) {
+  public DataJobInputOutputPatchBuilder removeEdge(
+      @Nonnull Edge edge, @Nonnull LineageDirection direction) {
     String path = getEdgePath(edge, direction);
 
     pathValues.add(ImmutableTriple.of(PatchOperationType.REMOVE.getValue(), path, null));
@@ -115,11 +147,9 @@ public class DataJobInputOutputPatchBuilder extends AbstractMultiFieldPatchBuild
   private ObjectNode createEdgeValue(@Nonnull Urn urn) {
     ObjectNode value = instance.objectNode();
     ObjectNode auditStamp = instance.objectNode();
-    auditStamp.put(TIME_KEY, System.currentTimeMillis())
-        .put(ACTOR_KEY, UNKNOWN_ACTOR);
+    auditStamp.put(TIME_KEY, System.currentTimeMillis()).put(ACTOR_KEY, UNKNOWN_ACTOR);
 
-    value.put(DESTINATION_URN_KEY, urn.toString())
-        .set(LAST_MODIFIED_KEY, auditStamp);
+    value.put(DESTINATION_URN_KEY, urn.toString()).set(LAST_MODIFIED_KEY, auditStamp);
     value.set(CREATED_KEY, auditStamp);
 
     return value;
@@ -151,11 +181,11 @@ public class DataJobInputOutputPatchBuilder extends AbstractMultiFieldPatchBuild
       lastModified
           .put(TIME_KEY, edge.getLastModified().getTime())
           .put(ACTOR_KEY, edge.getLastModified().getActor().toString());
-      if (edge.getLastModified() .getImpersonator() != null) {
+      if (edge.getLastModified().getImpersonator() != null) {
         lastModified.put(IMPERSONATOR_KEY, edge.getLastModified().getImpersonator().toString());
       }
-      if (edge.getLastModified() .getMessage() != null) {
-        lastModified.put(MESSAGE_KEY, edge.getLastModified() .getMessage());
+      if (edge.getLastModified().getMessage() != null) {
+        lastModified.put(MESSAGE_KEY, edge.getLastModified().getMessage());
       }
     }
     value.set(LAST_MODIFIED_KEY, lastModified);
@@ -171,12 +201,13 @@ public class DataJobInputOutputPatchBuilder extends AbstractMultiFieldPatchBuild
       value.put(SOURCE_URN_KEY, edge.getSourceUrn().toString());
     }
 
-
     return value;
   }
 
   /**
-   * Determines Edge path based on supplied Urn, if not a valid entity type throws IllegalArgumentException
+   * Determines Edge path based on supplied Urn, if not a valid entity type throws
+   * IllegalArgumentException
+   *
    * @param edge
    * @return
    * @throws IllegalArgumentException if destinationUrn is an invalid entity type
@@ -184,21 +215,25 @@ public class DataJobInputOutputPatchBuilder extends AbstractMultiFieldPatchBuild
   private String getEdgePath(@Nonnull Edge edge, LineageDirection direction) {
     Urn destinationUrn = edge.getDestinationUrn();
 
-    if (DATASET_ENTITY_NAME.equals(destinationUrn.getEntityType()) && LineageDirection.UPSTREAM.equals(direction)) {
+    if (DATASET_ENTITY_NAME.equals(destinationUrn.getEntityType())
+        && LineageDirection.UPSTREAM.equals(direction)) {
       return INPUT_DATASET_EDGES_PATH_START + destinationUrn;
     }
 
-    if (DATASET_ENTITY_NAME.equals(destinationUrn.getEntityType()) && LineageDirection.DOWNSTREAM.equals(direction)) {
+    if (DATASET_ENTITY_NAME.equals(destinationUrn.getEntityType())
+        && LineageDirection.DOWNSTREAM.equals(direction)) {
       return INPUT_DATASET_EDGES_PATH_START + destinationUrn;
     }
 
-    if (DATA_JOB_ENTITY_NAME.equals(destinationUrn.getEntityType()) && LineageDirection.UPSTREAM.equals(direction)) {
+    if (DATA_JOB_ENTITY_NAME.equals(destinationUrn.getEntityType())
+        && LineageDirection.UPSTREAM.equals(direction)) {
       return INPUT_DATA_JOB_EDGES_PATH_START + destinationUrn;
     }
 
     // TODO: Output Data Jobs not supported by aspect, add here if this changes
 
-    throw new IllegalArgumentException(String.format("Unsupported entity type: %s", destinationUrn.getEntityType()));
+    throw new IllegalArgumentException(
+        String.format("Unsupported entity type: %s", destinationUrn.getEntityType()));
   }
 
   @Override
@@ -210,5 +245,4 @@ public class DataJobInputOutputPatchBuilder extends AbstractMultiFieldPatchBuild
   protected String getEntityType() {
     return DATA_JOB_ENTITY_NAME;
   }
-
 }

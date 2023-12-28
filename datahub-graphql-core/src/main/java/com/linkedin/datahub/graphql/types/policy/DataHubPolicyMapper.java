@@ -1,5 +1,7 @@
 package com.linkedin.datahub.graphql.types.policy;
 
+import static com.linkedin.metadata.Constants.*;
+
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
@@ -24,9 +26,6 @@ import com.linkedin.policy.DataHubResourceFilter;
 import java.net.URISyntaxException;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
-
-import static com.linkedin.metadata.Constants.*;
-
 
 public class DataHubPolicyMapper implements ModelMapper<EntityResponse, DataHubPolicy> {
 
@@ -71,16 +70,20 @@ public class DataHubPolicyMapper implements ModelMapper<EntityResponse, DataHubP
     // Change here is not executed at the moment - leaving it for the future
     UrnArray resourceOwnersTypes = actorFilter.getResourceOwnersTypes();
     if (resourceOwnersTypes != null) {
-      result.setResourceOwnersTypes(resourceOwnersTypes.stream().map(Urn::toString).collect(Collectors.toList()));
+      result.setResourceOwnersTypes(
+          resourceOwnersTypes.stream().map(Urn::toString).collect(Collectors.toList()));
     }
     if (actorFilter.hasGroups()) {
-      result.setGroups(actorFilter.getGroups().stream().map(Urn::toString).collect(Collectors.toList()));
+      result.setGroups(
+          actorFilter.getGroups().stream().map(Urn::toString).collect(Collectors.toList()));
     }
     if (actorFilter.hasUsers()) {
-      result.setUsers(actorFilter.getUsers().stream().map(Urn::toString).collect(Collectors.toList()));
+      result.setUsers(
+          actorFilter.getUsers().stream().map(Urn::toString).collect(Collectors.toList()));
     }
     if (actorFilter.hasRoles()) {
-      result.setRoles(actorFilter.getRoles().stream().map(Urn::toString).collect(Collectors.toList()));
+      result.setRoles(
+          actorFilter.getRoles().stream().map(Urn::toString).collect(Collectors.toList()));
     }
     return result;
   }
@@ -102,14 +105,20 @@ public class DataHubPolicyMapper implements ModelMapper<EntityResponse, DataHubP
 
   private PolicyMatchFilter mapFilter(final com.linkedin.policy.PolicyMatchFilter filter) {
     return PolicyMatchFilter.builder()
-        .setCriteria(filter.getCriteria()
-            .stream()
-            .map(criterion -> PolicyMatchCriterion.builder()
-                .setField(criterion.getField())
-                .setValues(criterion.getValues().stream().map(this::mapValue).collect(Collectors.toList()))
-                .setCondition(PolicyMatchCondition.valueOf(criterion.getCondition().name()))
-                .build())
-            .collect(Collectors.toList()))
+        .setCriteria(
+            filter.getCriteria().stream()
+                .map(
+                    criterion ->
+                        PolicyMatchCriterion.builder()
+                            .setField(criterion.getField())
+                            .setValues(
+                                criterion.getValues().stream()
+                                    .map(this::mapValue)
+                                    .collect(Collectors.toList()))
+                            .setCondition(
+                                PolicyMatchCondition.valueOf(criterion.getCondition().name()))
+                            .build())
+                .collect(Collectors.toList()))
         .build();
   }
 
@@ -117,7 +126,10 @@ public class DataHubPolicyMapper implements ModelMapper<EntityResponse, DataHubP
     try {
       // If value is urn, set entity field
       Urn urn = Urn.createFromString(value);
-      return PolicyMatchCriterionValue.builder().setValue(value).setEntity(UrnToEntityMapper.map(urn)).build();
+      return PolicyMatchCriterionValue.builder()
+          .setValue(value)
+          .setEntity(UrnToEntityMapper.map(urn))
+          .build();
     } catch (URISyntaxException e) {
       // Value is not an urn. Just set value
       return PolicyMatchCriterionValue.builder().setValue(value).build();

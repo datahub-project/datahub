@@ -168,6 +168,7 @@ export class ChartEntity implements Entity<Chart> {
         return (
             <ChartPreview
                 urn={data.urn}
+                subType={data.subTypes?.typeNames?.[0]}
                 platform={data?.platform?.properties?.displayName || capitalizeFirstLetterOnly(data?.platform?.name)}
                 name={data.properties?.name}
                 description={data.editableProperties?.description || data.properties?.description}

@@ -10,10 +10,7 @@ import graphql.schema.DataFetchingEnvironment;
 import java.util.concurrent.CompletableFuture;
 import lombok.extern.slf4j.Slf4j;
 
-
-/**
- * Resolver responsible for hard deleting a particular DataHub Corp Group
- */
+/** Resolver responsible for hard deleting a particular DataHub Corp Group */
 @Slf4j
 public class RemoveGroupResolver implements DataFetcher<CompletableFuture<Boolean>> {
 
@@ -24,30 +21,39 @@ public class RemoveGroupResolver implements DataFetcher<CompletableFuture<Boolea
   }
 
   @Override
-  public CompletableFuture<Boolean> get(final DataFetchingEnvironment environment) throws Exception {
+  public CompletableFuture<Boolean> get(final DataFetchingEnvironment environment)
+      throws Exception {
     final QueryContext context = environment.getContext();
     if (AuthorizationUtils.canManageUsersAndGroups(context)) {
       final String groupUrn = environment.getArgument("urn");
       final Urn urn = Urn.createFromString(groupUrn);
-      return CompletableFuture.supplyAsync(() -> {
-        try {
-          _entityClient.deleteEntity(urn, context.getAuthentication());
-
-          // Asynchronously Delete all references to the entity (to return quickly)
-          CompletableFuture.runAsync(() -> {
+      return CompletableFuture.supplyAsync(
+          () -> {
             try {
-              _entityClient.deleteEntityReferences(urn, context.getAuthentication());
+              _entityClient.deleteEntity(urn, context.getAuthentication());
+
+              // Asynchronously Delete all references to the entity (to return quickly)
+              CompletableFuture.runAsync(
+                  () -> {
+                    try {
+                      _entityClient.deleteEntityReferences(urn, context.getAuthentication());
+                    } catch (Exception e) {
+                      log.error(
+                          String.format(
+                              "Caught exception while attempting to clear all entity references for group with urn %s",
+                              urn),
+                          e);
+                    }
+                  });
+
+              return true;
             } catch (Exception e) {
-              log.error(String.format("Caught exception while attempting to clear all entity references for group with urn %s", urn), e);
+              throw new RuntimeException(
+                  String.format("Failed to perform delete against group with urn %s", groupUrn), e);
             }
           });
-
-          return true;
-        } catch (Exception e) {
-          throw new RuntimeException(String.format("Failed to perform delete against group with urn %s", groupUrn), e);
-        }
-      });
     }
-    throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
+    throw new AuthorizationException(
+        "Unauthorized to perform this action. Please contact your DataHub administrator.");
   }
 }

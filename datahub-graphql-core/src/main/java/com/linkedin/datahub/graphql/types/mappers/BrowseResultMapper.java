@@ -9,10 +9,8 @@ import java.util.List;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 
-
 public class BrowseResultMapper {
-  private BrowseResultMapper() {
-  }
+  private BrowseResultMapper() {}
 
   public static BrowseResults map(com.linkedin.metadata.browse.BrowseResult input) {
     final BrowseResults result = new BrowseResults();
@@ -31,7 +29,9 @@ public class BrowseResultMapper {
     result.setMetadata(browseResultMetadata);
 
     List<Entity> entities =
-        input.getEntities().stream().map(entity -> UrnToEntityMapper.map(entity.getUrn())).collect(Collectors.toList());
+        input.getEntities().stream()
+            .map(entity -> UrnToEntityMapper.map(entity.getUrn()))
+            .collect(Collectors.toList());
     result.setEntities(entities);
 
     List<BrowseResultGroup> groups =
@@ -41,7 +41,8 @@ public class BrowseResultMapper {
     return result;
   }
 
-  private static BrowseResultGroup mapGroup(@Nonnull final com.linkedin.metadata.browse.BrowseResultGroup group) {
+  private static BrowseResultGroup mapGroup(
+      @Nonnull final com.linkedin.metadata.browse.BrowseResultGroup group) {
     final BrowseResultGroup result = new BrowseResultGroup();
     result.setName(group.getName());
     result.setCount(group.getCount());
