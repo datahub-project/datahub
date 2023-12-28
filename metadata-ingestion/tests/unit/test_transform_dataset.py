@@ -2714,28 +2714,23 @@ def test_simple_dataset_data_product_transformation(mock_time):
     assert len(outputs) == 6
 
     # Check new dataproduct entity should be there
-    assert outputs[3].record.entityType == "dataProduct"
     assert outputs[3].record.entityUrn == "urn:li:dataProduct:first"
     assert outputs[3].record.aspectName == "dataProductProperties"
 
     first_data_product_aspect = json.loads(
         outputs[3].record.aspect.value.decode("utf-8")
     )
-    assert len(first_data_product_aspect) == 2
-    assert first_data_product_aspect[0]["value"][
-        "destinationUrn"
-    ] == builder.make_dataset_urn("bigquery", "example1")
-    assert first_data_product_aspect[1]["value"][
-        "destinationUrn"
-    ] == builder.make_dataset_urn("bigquery", "example3")
+    assert [item["value"]["destinationUrn"] for item in first_data_product_aspect] == [
+        builder.make_dataset_urn("bigquery", "example1"),
+        builder.make_dataset_urn("bigquery", "example3"),
+    ]
 
     second_data_product_aspect = json.loads(
         outputs[4].record.aspect.value.decode("utf-8")
     )
-    assert len(second_data_product_aspect) == 1
-    assert second_data_product_aspect[0]["value"][
-        "destinationUrn"
-    ] == builder.make_dataset_urn("bigquery", "example2")
+    assert [item["value"]["destinationUrn"] for item in second_data_product_aspect] == [
+        builder.make_dataset_urn("bigquery", "example2")
+    ]
 
     assert isinstance(outputs[5].record, EndOfStream)
 
@@ -2776,36 +2771,32 @@ def test_pattern_dataset_data_product_transformation(mock_time):
     assert len(outputs) == 6
 
     # Check new dataproduct entity should be there
-    assert outputs[3].record.entityType == "dataProduct"
     assert outputs[3].record.entityUrn == "urn:li:dataProduct:first"
     assert outputs[3].record.aspectName == "dataProductProperties"
 
     first_data_product_aspect = json.loads(
         outputs[3].record.aspect.value.decode("utf-8")
     )
-    assert len(first_data_product_aspect) == 1
-    assert first_data_product_aspect[0]["value"][
-        "destinationUrn"
-    ] == builder.make_dataset_urn("bigquery", "example1")
+    assert [item["value"]["destinationUrn"] for item in first_data_product_aspect] == [
+        builder.make_dataset_urn("bigquery", "example1")
+    ]
 
     second_data_product_aspect = json.loads(
         outputs[4].record.aspect.value.decode("utf-8")
     )
-    assert len(second_data_product_aspect) == 2
-    assert second_data_product_aspect[0]["value"][
-        "destinationUrn"
-    ] == builder.make_dataset_urn("bigquery", "example2")
-    assert second_data_product_aspect[1]["value"][
-        "destinationUrn"
-    ] == builder.make_dataset_urn("bigquery", "example3")
+    assert [item["value"]["destinationUrn"] for item in second_data_product_aspect] == [
+        builder.make_dataset_urn("bigquery", "example2"),
+        builder.make_dataset_urn("bigquery", "example3"),
+    ]
 
     assert isinstance(outputs[5].record, EndOfStream)
 
 
 def dummy_data_product_resolver_method(dataset_urn):
-    if dataset_urn == builder.make_dataset_urn("bigquery", "example1"):
-        return "urn:li:dataProduct:first"
-    return None
+    dataset_to_data_product_map = {
+        builder.make_dataset_urn("bigquery", "example1"): "urn:li:dataProduct:first"
+    }
+    return dataset_to_data_product_map.get(dataset_urn)
 
 
 def test_add_dataset_data_product_transformation():
@@ -2824,14 +2815,12 @@ def test_add_dataset_data_product_transformation():
         )
     )
     # Check new dataproduct entity should be there
-    assert outputs[1].record.entityType == "dataProduct"
     assert outputs[1].record.entityUrn == "urn:li:dataProduct:first"
     assert outputs[1].record.aspectName == "dataProductProperties"
 
     first_data_product_aspect = json.loads(
         outputs[1].record.aspect.value.decode("utf-8")
     )
-    assert len(first_data_product_aspect) == 1
-    assert first_data_product_aspect[0]["value"][
-        "destinationUrn"
-    ] == builder.make_dataset_urn("bigquery", "example1")
+    assert [item["value"]["destinationUrn"] for item in first_data_product_aspect] == [
+        builder.make_dataset_urn("bigquery", "example1")
+    ]

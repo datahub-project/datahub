@@ -4,9 +4,9 @@ from typing import Callable, Dict, List, Optional, Union
 import pydantic
 
 from datahub.configuration.common import (
+    ConfigModel,
     ConfigurationError,
     KeyValuePattern,
-    TransformerSemanticsConfigModel,
 )
 from datahub.configuration.import_resolver import pydantic_resolve_key
 from datahub.emitter.mce_builder import Aspect
@@ -21,9 +21,9 @@ from datahub.specific.dataproduct import DataProductPatchBuilder
 logger = logging.getLogger(__name__)
 
 
-class AddDatasetDataProductConfig(TransformerSemanticsConfigModel):
+class AddDatasetDataProductConfig(ConfigModel):
     # dataset_urn -> data product urn
-    get_data_product_to_add: Callable[[str], Optional[Union[str, List[str]]]]
+    get_data_product_to_add: Callable[[str], Optional[str]]
 
     _resolve_data_product_fn = pydantic_resolve_key("get_data_product_to_add")
 
@@ -58,15 +58,13 @@ class AddDatasetDataProduct(DatasetDataproductTransformer):
         for entity_urn in self.entity_map.keys():
             data_product_urn = self.config.get_data_product_to_add(entity_urn)
             if data_product_urn:
-                if isinstance(data_product_urn, str):
-                    data_product_urn = [data_product_urn]
-                if data_product_urn[0] not in data_products:
-                    data_products[data_product_urn[0]] = DataProductPatchBuilder(
-                        data_product_urn[0]
+                if data_product_urn not in data_products:
+                    data_products[data_product_urn] = DataProductPatchBuilder(
+                        data_product_urn
                     ).add_asset(entity_urn)
                 else:
-                    data_products[data_product_urn[0]] = data_products[
-                        data_product_urn[0]
+                    data_products[data_product_urn] = data_products[
+                        data_product_urn
                     ].add_asset(entity_urn)
 
         mcps: List[
@@ -77,7 +75,7 @@ class AddDatasetDataProduct(DatasetDataproductTransformer):
         return mcps
 
 
-class SimpleDatasetDataProductConfig(TransformerSemanticsConfigModel):
+class SimpleDatasetDataProductConfig(ConfigModel):
     dataset_to_data_product_urns: Dict[str, str]
 
 
@@ -90,8 +88,6 @@ class SimpleAddDatasetDataProduct(AddDatasetDataProduct):
             get_data_product_to_add=lambda dataset_urn: config.dataset_to_data_product_urns.get(
                 dataset_urn
             ),
-            replace_existing=config.replace_existing,
-            semantics=config.semantics,
         )
         super().__init__(generic_config, ctx)
 
@@ -103,7 +99,7 @@ class SimpleAddDatasetDataProduct(AddDatasetDataProduct):
         return cls(config, ctx)
 
 
-class PatternDatasetDataProductConfig(TransformerSemanticsConfigModel):
+class PatternDatasetDataProductConfig(ConfigModel):
     dataset_to_data_product_urns_pattern: KeyValuePattern = KeyValuePattern.all()
 
     @pydantic.root_validator(pre=True)
@@ -127,9 +123,9 @@ class PatternAddDatasetDataProduct(AddDatasetDataProduct):
         generic_config = AddDatasetDataProductConfig(
             get_data_product_to_add=lambda dataset_urn: dataset_to_data_product.value(
                 dataset_urn
-            ),
-            replace_existing=config.replace_existing,
-            semantics=config.semantics,
+            )[0]
+            if dataset_to_data_product.value(dataset_urn)
+            else None,
         )
         super().__init__(generic_config, ctx)
 
