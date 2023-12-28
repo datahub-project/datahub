@@ -7,10 +7,14 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 ### Breaking Changes
 
 - Updating MySQL version for quickstarts to 8.2, may cause quickstart issues for existing instances.
+- Neo4j 5.x, may require migration from 4.x
+- Build now requires JDK17 (Runtime Java 11)
 
 ### Potential Downtime
 
 ### Deprecations
+
+- Spark 2.x (including previous JDK8 build requirements)
 
 ### Other Notable Changes
 

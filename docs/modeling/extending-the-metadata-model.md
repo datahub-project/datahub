@@ -289,6 +289,14 @@ Alternatively, publish it to PyPI with `twine upload custom-package/my-company-d
 This will generate some Python build artifacts, which you can distribute within your team or publish to PyPI.
 The command output contains additional details and exact CLI commands you can use.
 
+Once this package is installed, you can use the DataHub CLI as normal, and it will use your custom models.
+You'll also be able to import those models, with IDE support, by changing your imports.
+
+```diff
+- from datahub.metadata.schema_classes import DatasetPropertiesClass
++ from my_company_datahub_models.metadata.schema_classes import DatasetPropertiesClass
+```
+
 </TabItem>
 </Tabs>
 

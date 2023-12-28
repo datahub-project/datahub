@@ -1,6 +1,6 @@
 package datahub.protobuf.model;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.testng.Assert.*;
 
 import com.google.protobuf.DescriptorProtos.DescriptorProto;
 import com.google.protobuf.DescriptorProtos.EnumDescriptorProto;
@@ -11,7 +11,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import org.junit.jupiter.api.Test;
+import org.testng.annotations.Test;
 
 public class ProtobufEnumTest {
 
