@@ -17,6 +17,8 @@ export default defineConfig(({ mode }) => {
     let proxyOptions = {};
     const mockServer = process.env.REACT_APP_MOCK;
     if (mockServer !== 'true' && mockServer !== 'cy') {
+        // When in mock mode, MirageJS will intercept requests.
+
         const frontendProxy = {
             target: process.env.REACT_APP_PROXY_TARGET || 'http://localhost:9002',
             changeOrigin: true,

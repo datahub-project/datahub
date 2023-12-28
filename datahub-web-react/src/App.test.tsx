@@ -5,7 +5,7 @@ import App from './App';
 
 // eslint-disable-next-line vitest/expect-expect
 test('renders the app', async () => {
-    const promise = Promise.resolve();
-    render(<App />);
-    await act(() => promise);
+    await act(() => {
+        render(<App />);
+    });
 });
