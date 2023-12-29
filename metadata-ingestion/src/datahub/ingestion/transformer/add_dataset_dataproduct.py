@@ -107,7 +107,7 @@ class PatternDatasetDataProductConfig(ConfigModel):
         rules = values["dataset_to_data_product_urns_pattern"]["rules"]
         for key, value in rules.items():
             if isinstance(value, list) and len(value) > 1:
-                raise ConfigurationError(
+                raise ValueError(
                     "Same dataset cannot be an asset of two different data product."
                 )
             elif isinstance(value, str):
