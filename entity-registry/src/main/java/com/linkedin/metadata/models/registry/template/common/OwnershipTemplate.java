@@ -7,7 +7,6 @@ import com.linkedin.common.AuditStamp;
 import com.linkedin.common.OwnerArray;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.urn.UrnUtils;
-import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.models.registry.template.CompoundKeyTemplate;
 import java.util.Arrays;
 import javax.annotation.Nonnull;
@@ -17,19 +16,6 @@ public class OwnershipTemplate extends CompoundKeyTemplate<Ownership> {
   private static final String OWNERS_FIELD_NAME = "owners";
   private static final String OWNER_FIELD_NAME = "owner";
   private static final String TYPE_FIELD_NAME = "type";
-
-  @Override
-  public Ownership getSubtype(RecordTemplate recordTemplate) throws ClassCastException {
-    if (recordTemplate instanceof Ownership) {
-      return (Ownership) recordTemplate;
-    }
-    throw new ClassCastException("Unable to cast RecordTemplate to Ownership");
-  }
-
-  @Override
-  public Class<Ownership> getTemplateType() {
-    return Ownership.class;
-  }
 
   @Nonnull
   @Override

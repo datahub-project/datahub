@@ -9,7 +9,6 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.collect.Streams;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
-import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.dataset.FineGrainedLineageArray;
 import com.linkedin.dataset.UpstreamArray;
 import com.linkedin.dataset.UpstreamLineage;
@@ -36,19 +35,6 @@ public class UpstreamLineageTemplate extends CompoundKeyTemplate<UpstreamLineage
   // Template support
   private static final String NONE_TRANSFORMATION_TYPE = "NONE";
   private static final Float DEFAULT_CONFIDENCE_SCORE = 1.0f;
-
-  @Override
-  public UpstreamLineage getSubtype(RecordTemplate recordTemplate) throws ClassCastException {
-    if (recordTemplate instanceof UpstreamLineage) {
-      return (UpstreamLineage) recordTemplate;
-    }
-    throw new ClassCastException("Unable to cast RecordTemplate to UpstreamLineage");
-  }
-
-  @Override
-  public Class<UpstreamLineage> getTemplateType() {
-    return UpstreamLineage.class;
-  }
 
   @Nonnull
   @Override

@@ -6,7 +6,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.UrnUtils;
-import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.models.registry.template.CompoundKeyTemplate;
 import com.linkedin.metadata.models.registry.template.common.GlobalTagsTemplate;
 import com.linkedin.metadata.models.registry.template.common.GlossaryTermsTemplate;
@@ -21,20 +20,6 @@ public class EditableSchemaMetadataTemplate extends CompoundKeyTemplate<Editable
   private static final String FIELDPATH_FIELD_NAME = "fieldPath";
   private static final String GLOBAL_TAGS_FIELD_NAME = "globalTags";
   private static final String GLOSSARY_TERMS_FIELD_NAME = "glossaryTerms";
-
-  @Override
-  public EditableSchemaMetadata getSubtype(RecordTemplate recordTemplate)
-      throws ClassCastException {
-    if (recordTemplate instanceof EditableSchemaMetadata) {
-      return (EditableSchemaMetadata) recordTemplate;
-    }
-    throw new ClassCastException("Unable to cast RecordTemplate to EditableSchemaMetadata");
-  }
-
-  @Override
-  public Class<EditableSchemaMetadata> getTemplateType() {
-    return EditableSchemaMetadata.class;
-  }
 
   @Nonnull
   @Override

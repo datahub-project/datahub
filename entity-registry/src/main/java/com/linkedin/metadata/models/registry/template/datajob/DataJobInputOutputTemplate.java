@@ -5,7 +5,6 @@ import com.linkedin.common.DataJobUrnArray;
 import com.linkedin.common.DatasetUrnArray;
 import com.linkedin.common.EdgeArray;
 import com.linkedin.common.UrnArray;
-import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.datajob.DataJobInputOutput;
 import com.linkedin.dataset.FineGrainedLineageArray;
 import com.linkedin.metadata.models.registry.template.ArrayMergingTemplate;
@@ -24,19 +23,6 @@ public class DataJobInputOutputTemplate implements ArrayMergingTemplate<DataJobI
   private static final String OUTPUT_DATASET_FIELDS_FIELD_NAME = "outputDatasetFields";
 
   // TODO: Fine Grained Lineages not patchable at this time, they don't have a well established key
-
-  @Override
-  public DataJobInputOutput getSubtype(RecordTemplate recordTemplate) throws ClassCastException {
-    if (recordTemplate instanceof DataJobInputOutput) {
-      return (DataJobInputOutput) recordTemplate;
-    }
-    throw new ClassCastException("Unable to cast RecordTemplate to DataJobInputOutput");
-  }
-
-  @Override
-  public Class<DataJobInputOutput> getTemplateType() {
-    return DataJobInputOutput.class;
-  }
 
   @Nonnull
   @Override

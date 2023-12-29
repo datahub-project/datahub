@@ -9,7 +9,6 @@ import com.linkedin.common.AuditStamp;
 import com.linkedin.common.GlossaryTermAssociationArray;
 import com.linkedin.common.GlossaryTerms;
 import com.linkedin.common.urn.UrnUtils;
-import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.models.registry.template.ArrayMergingTemplate;
 import java.util.Collections;
 import javax.annotation.Nonnull;
@@ -21,19 +20,6 @@ public class GlossaryTermsTemplate implements ArrayMergingTemplate<GlossaryTerms
   private static final String AUDIT_STAMP_FIELD = "auditStamp";
   private static final String TIME_FIELD = "time";
   private static final String ACTOR_FIELD = "actor";
-
-  @Override
-  public GlossaryTerms getSubtype(RecordTemplate recordTemplate) throws ClassCastException {
-    if (recordTemplate instanceof GlossaryTerms) {
-      return (GlossaryTerms) recordTemplate;
-    }
-    throw new ClassCastException("Unable to cast RecordTemplate to GlossaryTerms");
-  }
-
-  @Override
-  public Class<GlossaryTerms> getTemplateType() {
-    return GlossaryTerms.class;
-  }
 
   @Nonnull
   @Override

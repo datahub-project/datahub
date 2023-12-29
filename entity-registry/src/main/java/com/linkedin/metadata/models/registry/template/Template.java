@@ -8,6 +8,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.github.fge.jsonpatch.JsonPatchException;
 import com.github.fge.jsonpatch.Patch;
 import com.linkedin.data.template.RecordTemplate;
+import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.Type;
 import javax.annotation.Nonnull;
 
 public interface Template<T extends RecordTemplate> {
@@ -19,10 +21,22 @@ public interface Template<T extends RecordTemplate> {
    * @return specific type for this template
    * @throws {@link ClassCastException} when recordTemplate is not the correct type for the template
    */
-  T getSubtype(RecordTemplate recordTemplate) throws ClassCastException;
+  default T getSubtype(RecordTemplate recordTemplate) throws ClassCastException {
+    Class<T> subtypeClass = getTemplateType();
+    if (subtypeClass.isInstance(recordTemplate)) {
+      return subtypeClass.cast(recordTemplate);
+    }
+    throw new ClassCastException(
+        "Unable to cast RecordTemplate to " + subtypeClass.getSimpleName());
+  }
 
-  /** Get the template clas type */
-  Class<T> getTemplateType();
+  /** Get the template class type */
+  @SuppressWarnings("unchecked")
+  default Class<T> getTemplateType() {
+    Type genericInterface = getClass().getGenericInterfaces()[0];
+    Type[] typeArguments = ((ParameterizedType) genericInterface).getActualTypeArguments();
+    return (Class<T>) typeArguments[0];
+  }
 
   /**
    * Get a template aspect with defaults set

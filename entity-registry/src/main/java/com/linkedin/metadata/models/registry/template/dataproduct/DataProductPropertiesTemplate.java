@@ -1,7 +1,6 @@
 package com.linkedin.metadata.models.registry.template.dataproduct;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.dataproduct.DataProductAssociationArray;
 import com.linkedin.dataproduct.DataProductProperties;
 import com.linkedin.metadata.models.registry.template.ArrayMergingTemplate;
@@ -12,19 +11,6 @@ public class DataProductPropertiesTemplate implements ArrayMergingTemplate<DataP
 
   private static final String ASSETS_FIELD_NAME = "assets";
   private static final String KEY_FIELD_NAME = "destinationUrn";
-
-  @Override
-  public DataProductProperties getSubtype(RecordTemplate recordTemplate) throws ClassCastException {
-    if (recordTemplate instanceof DataProductProperties) {
-      return (DataProductProperties) recordTemplate;
-    }
-    throw new ClassCastException("Unable to cast RecordTemplate to DataProductProperties");
-  }
-
-  @Override
-  public Class<DataProductProperties> getTemplateType() {
-    return DataProductProperties.class;
-  }
 
   @Nonnull
   @Override
