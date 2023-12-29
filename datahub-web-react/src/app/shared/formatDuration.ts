@@ -4,14 +4,14 @@ export const formatDuration = (durationMs: number): string => {
     const seconds = durationMs / 1000;
 
     if (seconds < 60) {
-        return `${seconds.toFixed(1)}sec`;
+        return `${seconds.toFixed(1)} s`;
     }
 
     const minutes = Math.floor(seconds / 60);
     const remainingSeconds = Math.round(seconds % 60);
 
     if (minutes < 60) {
-        return `${minutes} min ${remainingSeconds}sec`;
+        return `${minutes} min ${remainingSeconds} s`;
     }
 
     const hours = Math.floor(minutes / 60);
