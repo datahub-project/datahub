@@ -1,6 +1,5 @@
 package datahub.client.patch.chart;
 
-
 import static com.linkedin.metadata.Constants.*;
 import static datahub.client.patch.common.PatchUtil.*;
 
@@ -11,30 +10,22 @@ import datahub.client.patch.PatchOperationType;
 import javax.annotation.Nonnull;
 import org.apache.commons.lang3.tuple.ImmutableTriple;
 
-public class ChartInfoPatchBuilder
-    extends AbstractMultiFieldPatchBuilder<ChartInfoPatchBuilder> {
+public class ChartInfoPatchBuilder extends AbstractMultiFieldPatchBuilder<ChartInfoPatchBuilder> {
   private static final String INPUT_EDGES_PATH_START = "/inputEdges/";
-
-
 
   // Simplified with just Urn
   public ChartInfoPatchBuilder addInputEdge(@Nonnull Urn urn) {
     ObjectNode value = createEdgeValue(urn);
 
     pathValues.add(
-        ImmutableTriple.of(
-            PatchOperationType.ADD.getValue(),
-            INPUT_EDGES_PATH_START + urn,
-            value));
+        ImmutableTriple.of(PatchOperationType.ADD.getValue(), INPUT_EDGES_PATH_START + urn, value));
     return this;
   }
 
   public ChartInfoPatchBuilder removeInputEdge(@Nonnull Urn urn) {
     pathValues.add(
         ImmutableTriple.of(
-            PatchOperationType.REMOVE.getValue(),
-            INPUT_EDGES_PATH_START + urn,
-            null));
+            PatchOperationType.REMOVE.getValue(), INPUT_EDGES_PATH_START + urn, null));
     return this;
   }
 

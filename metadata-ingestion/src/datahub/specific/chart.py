@@ -26,10 +26,10 @@ T = TypeVar("T", bound=MetadataPatchProposal)
 
 class ChartPatchBuilder(MetadataPatchProposal):
     def __init__(
-            self,
-            urn: str,
-            system_metadata: Optional[SystemMetadataClass] = None,
-            audit_header: Optional[KafkaAuditHeaderClass] = None,
+        self,
+        urn: str,
+        system_metadata: Optional[SystemMetadataClass] = None,
+        audit_header: Optional[KafkaAuditHeaderClass] = None,
     ) -> None:
         """
         Initializes a ChartPatchBuilder instance.
@@ -64,7 +64,7 @@ class ChartPatchBuilder(MetadataPatchProposal):
         )
 
     def _ensure_urn_type(
-            self, entity_type: str, edges: List[Edge], context: str
+        self, entity_type: str, edges: List[Edge], context: str
     ) -> None:
         """
         Ensures that the destination URNs in the given edges have the specified entity type.
@@ -98,7 +98,7 @@ class ChartPatchBuilder(MetadataPatchProposal):
         return self
 
     def remove_owner(
-            self, owner: str, owner_type: Optional[OwnershipTypeClass] = None
+        self, owner: str, owner_type: Optional[OwnershipTypeClass] = None
     ) -> "ChartPatchBuilder":
         """
         Removes an owner from the ChartPatchBuilder.
@@ -266,7 +266,7 @@ class ChartPatchBuilder(MetadataPatchProposal):
         return self
 
     def set_custom_properties(
-            self, custom_properties: Dict[str, str]
+        self, custom_properties: Dict[str, str]
     ) -> "ChartPatchBuilder":
         """
         Sets the custom properties for the ChartPatchBuilder.

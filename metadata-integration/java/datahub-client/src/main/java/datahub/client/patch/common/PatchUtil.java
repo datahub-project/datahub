@@ -1,18 +1,15 @@
 package datahub.client.patch.common;
 
+import static com.fasterxml.jackson.databind.node.JsonNodeFactory.*;
+import static com.linkedin.metadata.Constants.*;
+
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.common.Edge;
 import com.linkedin.common.urn.Urn;
 import javax.annotation.Nonnull;
 
-import static com.fasterxml.jackson.databind.node.JsonNodeFactory.*;
-import static com.linkedin.metadata.Constants.*;
-
-
 public class PatchUtil {
-  private PatchUtil() {
-
-  }
+  private PatchUtil() {}
 
   private static final String TIME_KEY = "time";
   private static final String ACTOR_KEY = "actor";
@@ -24,6 +21,7 @@ public class PatchUtil {
   private static final String SOURCE_URN_KEY = "sourceUrn";
 
   private static final String PROPERTIES_KEY = "properties";
+
   public static ObjectNode createEdgeValue(@Nonnull Edge edge) {
     ObjectNode value = instance.objectNode();
 

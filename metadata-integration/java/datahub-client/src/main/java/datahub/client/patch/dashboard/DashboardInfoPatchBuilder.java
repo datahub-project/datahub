@@ -4,8 +4,8 @@ import static com.linkedin.metadata.Constants.*;
 import static datahub.client.patch.common.PatchUtil.*;
 
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.linkedin.common.urn.ChartUrn;
 import com.linkedin.common.Edge;
+import com.linkedin.common.urn.ChartUrn;
 import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.common.urn.Urn;
 import datahub.client.patch.AbstractMultiFieldPatchBuilder;
@@ -18,26 +18,19 @@ public class DashboardInfoPatchBuilder
   private static final String CHART_EDGES_PATH_START = "/chartEdges/";
   private static final String DATASET_EDGES_PATH_START = "/datasetEdges/";
 
-
-
   // Simplified with just Urn
   public DashboardInfoPatchBuilder addChartEdge(@Nonnull ChartUrn urn) {
     ObjectNode value = createEdgeValue(urn);
 
     pathValues.add(
-        ImmutableTriple.of(
-            PatchOperationType.ADD.getValue(),
-            CHART_EDGES_PATH_START + urn,
-            value));
+        ImmutableTriple.of(PatchOperationType.ADD.getValue(), CHART_EDGES_PATH_START + urn, value));
     return this;
   }
 
   public DashboardInfoPatchBuilder removeChartEdge(@Nonnull ChartUrn urn) {
     pathValues.add(
         ImmutableTriple.of(
-            PatchOperationType.REMOVE.getValue(),
-            CHART_EDGES_PATH_START + urn,
-            null));
+            PatchOperationType.REMOVE.getValue(), CHART_EDGES_PATH_START + urn, null));
     return this;
   }
 
@@ -46,18 +39,14 @@ public class DashboardInfoPatchBuilder
 
     pathValues.add(
         ImmutableTriple.of(
-            PatchOperationType.ADD.getValue(),
-            DATASET_EDGES_PATH_START + urn,
-            value));
+            PatchOperationType.ADD.getValue(), DATASET_EDGES_PATH_START + urn, value));
     return this;
   }
 
   public DashboardInfoPatchBuilder removeDatasetEdge(@Nonnull DatasetUrn urn) {
     pathValues.add(
         ImmutableTriple.of(
-            PatchOperationType.REMOVE.getValue(),
-            DATASET_EDGES_PATH_START + urn,
-            null));
+            PatchOperationType.REMOVE.getValue(), DATASET_EDGES_PATH_START + urn, null));
     return this;
   }
 

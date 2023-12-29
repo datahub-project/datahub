@@ -2,7 +2,6 @@ package datahub.client.patch;
 
 import static com.linkedin.metadata.Constants.*;
 
-import com.linkedin.chart.ChartDataSourceType;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.Edge;
 import com.linkedin.common.FabricType;
@@ -563,9 +562,7 @@ public class PatchTest {
     try {
       MetadataChangeProposal chartInfoPatch =
           new ChartInfoPatchBuilder()
-              .urn(
-                  UrnUtils.getUrn(
-                      "urn:li:chart:(dashboardTool,chartId)"))
+              .urn(UrnUtils.getUrn("urn:li:chart:(dashboardTool,chartId)"))
               .addInputEdge(
                   DatasetUrn.createFromString(
                       "urn:li:dataset:(urn:li:dataPlatform:kafka,SampleHiveDataset,PROD)"))
@@ -586,9 +583,7 @@ public class PatchTest {
     try {
       MetadataChangeProposal chartInfoPatch =
           new ChartInfoPatchBuilder()
-              .urn(
-                  UrnUtils.getUrn(
-                      "urn:li:chart:(dashboardTool,chartId)"))
+              .urn(UrnUtils.getUrn("urn:li:chart:(dashboardTool,chartId)"))
               .removeInputEdge(
                   DatasetUrn.createFromString(
                       "urn:li:dataset:(urn:li:dataPlatform:kafka,SampleHiveDataset,PROD)"))
@@ -609,15 +604,11 @@ public class PatchTest {
     try {
       MetadataChangeProposal dashboardInfoPatch =
           new DashboardInfoPatchBuilder()
-              .urn(
-                  UrnUtils.getUrn(
-                      "urn:li:dashboard:(dashboardTool,dashboardId)"))
+              .urn(UrnUtils.getUrn("urn:li:dashboard:(dashboardTool,dashboardId)"))
               .addDatasetEdge(
                   DatasetUrn.createFromString(
                       "urn:li:dataset:(urn:li:dataPlatform:kafka,SampleHiveDataset,PROD)"))
-              .addChartEdge(ChartUrn.createFromString(
-                  "urn:li:chart:(dashboartTool, chartId)"
-              ))
+              .addChartEdge(ChartUrn.createFromString("urn:li:chart:(dashboartTool, chartId)"))
               .build();
       Future<MetadataWriteResponse> response = restEmitter.emit(dashboardInfoPatch);
 
@@ -635,14 +626,11 @@ public class PatchTest {
     try {
       MetadataChangeProposal dashboardInfoPatch =
           new DashboardInfoPatchBuilder()
-              .urn(
-                  UrnUtils.getUrn(
-                      "urn:li:dashboard:(dashboardTool,dashboardId)"))
+              .urn(UrnUtils.getUrn("urn:li:dashboard:(dashboardTool,dashboardId)"))
               .removeDatasetEdge(
                   DatasetUrn.createFromString(
                       "urn:li:dataset:(urn:li:dataPlatform:kafka,SampleHiveDataset,PROD)"))
-              .removeChartEdge(ChartUrn.createFromString(
-                  "urn:li:chart:(dashboardTool, chartId)"))
+              .removeChartEdge(ChartUrn.createFromString("urn:li:chart:(dashboardTool, chartId)"))
               .build();
       Future<MetadataWriteResponse> response = restEmitter.emit(dashboardInfoPatch);
 

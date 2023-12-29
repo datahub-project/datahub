@@ -1,24 +1,19 @@
 package com.linkedin.metadata.models.registry.template.dashboard;
 
+import static com.linkedin.metadata.Constants.*;
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.ChangeAuditStamps;
 import com.linkedin.common.ChartUrnArray;
-import com.linkedin.common.DataJobUrnArray;
-import com.linkedin.common.DatasetUrnArray;
 import com.linkedin.common.EdgeArray;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.dashboard.DashboardInfo;
 import com.linkedin.data.template.RecordTemplate;
-import com.linkedin.datajob.DataJobInputOutput;
-import com.linkedin.dataset.FineGrainedLineageArray;
 import com.linkedin.metadata.models.registry.template.ArrayMergingTemplate;
 import java.util.Collections;
 import javax.annotation.Nonnull;
-
-import static com.linkedin.metadata.Constants.*;
-
 
 public class DashboardInfoTemplate implements ArrayMergingTemplate<DashboardInfo> {
 
@@ -48,11 +43,11 @@ public class DashboardInfoTemplate implements ArrayMergingTemplate<DashboardInfo
     dashboardInfo.setTitle("");
     dashboardInfo.setDescription("");
     ChangeAuditStamps changeAuditStamps = new ChangeAuditStamps();
-    AuditStamp auditStamp = new AuditStamp()
-        .setActor(UrnUtils.getUrn(SYSTEM_ACTOR))
-        .setTime(System.currentTimeMillis());
-    changeAuditStamps.setCreated(auditStamp)
-        .setLastModified(auditStamp);
+    AuditStamp auditStamp =
+        new AuditStamp()
+            .setActor(UrnUtils.getUrn(SYSTEM_ACTOR))
+            .setTime(System.currentTimeMillis());
+    changeAuditStamps.setCreated(auditStamp).setLastModified(auditStamp);
     dashboardInfo.setLastModified(changeAuditStamps);
     dashboardInfo.setChartEdges(new EdgeArray());
     dashboardInfo.setDatasetEdges(new EdgeArray());
@@ -80,16 +75,9 @@ public class DashboardInfoTemplate implements ArrayMergingTemplate<DashboardInfo
             Collections.singletonList(DESTINATION_URN_FIELD_NAME));
 
     transformedNode =
-        arrayFieldToMap(
-            transformedNode,
-            DATASETS_FIELD_NAME,
-            Collections.emptyList());
+        arrayFieldToMap(transformedNode, DATASETS_FIELD_NAME, Collections.emptyList());
 
-    transformedNode =
-        arrayFieldToMap(
-            transformedNode,
-            CHARTS_FIELD_NAME,
-            Collections.emptyList());
+    transformedNode = arrayFieldToMap(transformedNode, CHARTS_FIELD_NAME, Collections.emptyList());
 
     return transformedNode;
   }
@@ -109,12 +97,8 @@ public class DashboardInfoTemplate implements ArrayMergingTemplate<DashboardInfo
             CHART_EDGES_FIELD_NAME,
             Collections.singletonList(DESTINATION_URN_FIELD_NAME));
 
-    rebasedNode =
-        transformedMapToArray(
-            rebasedNode, DATASETS_FIELD_NAME, Collections.emptyList());
-    rebasedNode =
-        transformedMapToArray(
-            rebasedNode, CHARTS_FIELD_NAME, Collections.emptyList());
+    rebasedNode = transformedMapToArray(rebasedNode, DATASETS_FIELD_NAME, Collections.emptyList());
+    rebasedNode = transformedMapToArray(rebasedNode, CHARTS_FIELD_NAME, Collections.emptyList());
 
     return rebasedNode;
   }

@@ -3,7 +3,12 @@ import pathlib
 
 import pytest
 
-from datahub.emitter.mce_builder import make_dataset_urn, make_tag_urn, make_chart_urn, make_dashboard_urn
+from datahub.emitter.mce_builder import (
+    make_chart_urn,
+    make_dashboard_urn,
+    make_dataset_urn,
+    make_tag_urn,
+)
 from datahub.ingestion.sink.file import write_metadata_file
 from datahub.metadata.schema_classes import (
     DatasetLineageTypeClass,
@@ -15,9 +20,9 @@ from datahub.metadata.schema_classes import (
     TagAssociationClass,
     UpstreamClass,
 )
-from datahub.specific.dataset import DatasetPatchBuilder
 from datahub.specific.chart import ChartPatchBuilder
 from datahub.specific.dashboard import DashboardPatchBuilder
+from datahub.specific.dataset import DatasetPatchBuilder
 
 
 def test_basic_dataset_patch_builder():

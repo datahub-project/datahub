@@ -1,24 +1,18 @@
 package com.linkedin.metadata.models.registry.template.chart;
 
+import static com.linkedin.metadata.Constants.*;
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.linkedin.chart.ChartDataSourceTypeArray;
 import com.linkedin.chart.ChartInfo;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.ChangeAuditStamps;
-import com.linkedin.common.DataJobUrnArray;
-import com.linkedin.common.DatasetUrnArray;
 import com.linkedin.common.EdgeArray;
-import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
-import com.linkedin.datajob.DataJobInputOutput;
-import com.linkedin.dataset.FineGrainedLineageArray;
 import com.linkedin.metadata.models.registry.template.ArrayMergingTemplate;
 import java.util.Collections;
 import javax.annotation.Nonnull;
-
-import static com.linkedin.metadata.Constants.*;
-
 
 public class ChartInfoTemplate implements ArrayMergingTemplate<ChartInfo> {
 
@@ -46,11 +40,11 @@ public class ChartInfoTemplate implements ArrayMergingTemplate<ChartInfo> {
     chartInfo.setDescription("");
     chartInfo.setTitle("");
     ChangeAuditStamps changeAuditStamps = new ChangeAuditStamps();
-    AuditStamp auditStamp = new AuditStamp()
-        .setActor(UrnUtils.getUrn(SYSTEM_ACTOR))
-        .setTime(System.currentTimeMillis());
-    changeAuditStamps.setCreated(auditStamp)
-        .setLastModified(auditStamp);
+    AuditStamp auditStamp =
+        new AuditStamp()
+            .setActor(UrnUtils.getUrn(SYSTEM_ACTOR))
+            .setTime(System.currentTimeMillis());
+    changeAuditStamps.setCreated(auditStamp).setLastModified(auditStamp);
     chartInfo.setLastModified(changeAuditStamps);
     chartInfo.setInputEdges(new EdgeArray());
 
@@ -69,12 +63,7 @@ public class ChartInfoTemplate implements ArrayMergingTemplate<ChartInfo> {
             INPUT_EDGES_FIELD_NAME,
             Collections.singletonList(DESTINATION_URN_FIELD_NAME));
 
-    transformedNode =
-        arrayFieldToMap(
-            transformedNode,
-            INPUTS_FIELD_NAME,
-            Collections.emptyList());
-
+    transformedNode = arrayFieldToMap(transformedNode, INPUTS_FIELD_NAME, Collections.emptyList());
 
     return transformedNode;
   }
@@ -84,15 +73,9 @@ public class ChartInfoTemplate implements ArrayMergingTemplate<ChartInfo> {
   public JsonNode rebaseFields(JsonNode patched) {
     JsonNode rebasedNode =
         transformedMapToArray(
-            patched,
-            INPUT_EDGES_FIELD_NAME,
-            Collections.singletonList(DESTINATION_URN_FIELD_NAME));
+            patched, INPUT_EDGES_FIELD_NAME, Collections.singletonList(DESTINATION_URN_FIELD_NAME));
 
-    rebasedNode =
-        transformedMapToArray(
-            rebasedNode,
-            INPUTS_FIELD_NAME,
-            Collections.emptyList());
+    rebasedNode = transformedMapToArray(rebasedNode, INPUTS_FIELD_NAME, Collections.emptyList());
 
     return rebasedNode;
   }

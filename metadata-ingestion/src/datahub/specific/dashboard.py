@@ -26,10 +26,10 @@ T = TypeVar("T", bound=MetadataPatchProposal)
 
 class DashboardPatchBuilder(MetadataPatchProposal):
     def __init__(
-            self,
-            urn: str,
-            system_metadata: Optional[SystemMetadataClass] = None,
-            audit_header: Optional[KafkaAuditHeaderClass] = None,
+        self,
+        urn: str,
+        system_metadata: Optional[SystemMetadataClass] = None,
+        audit_header: Optional[KafkaAuditHeaderClass] = None,
     ) -> None:
         """
         Initializes a DashboardPatchBuilder instance.
@@ -64,7 +64,7 @@ class DashboardPatchBuilder(MetadataPatchProposal):
         )
 
     def _ensure_urn_type(
-            self, entity_type: str, edges: List[Edge], context: str
+        self, entity_type: str, edges: List[Edge], context: str
     ) -> None:
         """
         Ensures that the destination URNs in the given edges have the specified entity type.
@@ -98,7 +98,7 @@ class DashboardPatchBuilder(MetadataPatchProposal):
         return self
 
     def remove_owner(
-            self, owner: str, owner_type: Optional[OwnershipTypeClass] = None
+        self, owner: str, owner_type: Optional[OwnershipTypeClass] = None
     ) -> "DashboardPatchBuilder":
         """
         Removes an owner from the DashboardPatchBuilder.
@@ -129,7 +129,9 @@ class DashboardPatchBuilder(MetadataPatchProposal):
         self.ownership_patch_helper.set_owners(owners)
         return self
 
-    def add_dataset_edge(self, dataset: Union[Edge, Urn, str]) -> "DashboardPatchBuilder":
+    def add_dataset_edge(
+        self, dataset: Union[Edge, Urn, str]
+    ) -> "DashboardPatchBuilder":
         """
         Adds an dataset to the DashboardPatchBuilder.
 
@@ -212,9 +214,7 @@ class DashboardPatchBuilder(MetadataPatchProposal):
         )
         return self
 
-    def add_chart_edge(
-            self, chart: Union[Edge, Urn, str]
-    ) -> "DashboardPatchBuilder":
+    def add_chart_edge(self, chart: Union[Edge, Urn, str]) -> "DashboardPatchBuilder":
         """
         Adds a chart edge to the DashboardPatchBuilder.
 
@@ -360,7 +360,7 @@ class DashboardPatchBuilder(MetadataPatchProposal):
         return self
 
     def set_custom_properties(
-            self, custom_properties: Dict[str, str]
+        self, custom_properties: Dict[str, str]
     ) -> "DashboardPatchBuilder":
         """
         Sets the custom properties for the DashboardPatchBuilder.
