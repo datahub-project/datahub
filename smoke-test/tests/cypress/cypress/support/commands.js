@@ -361,6 +361,35 @@ Cypress.Commands.add('typeSearchDisableCache', {prevSubject: 'element'}, (subjec
   const combinedStr = `${input} | ${randomStr}{enter}`
   cy.get(subject.selector).type(combinedStr);
 });
+
+Cypress.Commands.add('searchNotCachedContainsDataset', (searchTerm, datasetName) => {
+  cy.visit('/');
+  cy.get('input[data-testid=search-input]').typeSearchDisableCache(searchTerm);
+  cy.contains(datasetName);
+  cy.contains(searchTerm);
+});
+
+Cypress.Commands.add('searchNotCachedDoesNotContainDataset', (searchTerm, datasetName) => {
+  cy.visit('/');
+  cy.get('input[data-testid=search-input]').typeSearchDisableCache(searchTerm);
+  cy.contains(datasetName).should('not.exist');
+});
+
+Cypress.Commands.add('doInInbox', (action) => {
+  cy.contains('Inbox').click({force: true});
+  cy.get('.action-request-test-id').should('have.length', 1)
+  cy.contains(action).first().click({force: true});
+  cy.contains('Yes').click({force: true});
+  cy.get('.action-request-test-id').should('have.length', 0);
+});
+
+Cypress.Commands.add('acceptProposalInbox', () => {
+  cy.doInInbox('Approve');
+});
+
+Cypress.Commands.add('rejectProposalInbox', () => {
+  cy.doInInbox('Decline');
+});
 //
 //
 // -- This is a child command --
