@@ -52,8 +52,11 @@ class OverProvisionedUserExtractor(WorkUnitGenerator):
         logger.info("Generating over provisioned user aspects")
 
         for user in self.snowflake_users:
+
+            logger.debug(f"Processing user {user.name}")
+
             response = self.snowflake_query_executor.execute_query(
-                query=SnowflakeQuery.user_grants(user.login_name)
+                query=SnowflakeQuery.user_grants(user.name)
             )
 
             if response is None:

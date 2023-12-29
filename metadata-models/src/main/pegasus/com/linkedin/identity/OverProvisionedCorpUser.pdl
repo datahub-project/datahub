@@ -20,13 +20,14 @@ record OverProvisionedCorpUser {
   }
   status: boolean = false
 
-/**
-  * Identity to apply the policy
-  * Possible values are CorpUserUrn or CorpGroupUrn or RoleUrn
-  */
+  /**
+    * Roles on which user has over provisioned privileges
+    */
   @Relationship = {
-      "name": "GrantedRole",
-      "entityTypes": [ "role" ]
+      "/*": {
+        "name": "assigned",
+        "entityTypes": [ "role" ],
+      }
   }
   roles: optional array[Urn]
 }

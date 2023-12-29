@@ -606,7 +606,7 @@ class SnowflakeUserGrant:
     def crate(row: Dict[Any, Any]) -> "SnowflakeUserGrant":
         return SnowflakeUserGrant(
             role=row["role"],
-            granted_to=row["granted_role"],
+            granted_to=row["granted_to"],
             grantee_name=row["grantee_name"],
             granted_by=row["granted_by"],
         )
