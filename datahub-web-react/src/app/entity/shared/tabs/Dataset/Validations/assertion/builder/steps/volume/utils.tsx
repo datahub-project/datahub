@@ -355,7 +355,7 @@ export const getVolumeSourceTypeOptions = (platformUrn: string, connectionForEnt
 };
 
 export const getVolumeSourceTypeDetails = (platformUrn: string, sourceType: DatasetVolumeSourceType) => {
-    return PLATFORM_ASSERTION_CONFIGS[platformUrn].sourceTypeDetails[sourceType];
+    return PLATFORM_ASSERTION_CONFIGS[platformUrn]?.sourceTypeDetails[sourceType];
 };
 
 export const getDefaultVolumeSourceType = (platformUrn: string, connectionForEntityExists: boolean) => {

@@ -585,7 +585,7 @@ export const getDatasetProfileDisabledMessage = (
 ) => {
     if (!sourceRequiresConnection) return null;
     if (!isEntityEligibleForAssertionMonitoring(platformUrn))
-        return 'This option is not currently supported for this entity. Not supported for this data platform.';
+        return 'This option is not currently supported for this entity.';
 
     return !connectionForEntityExists
         ? 'This option is not currently supported for this entity. No connection found.'
