@@ -3,7 +3,7 @@ ARG APP_ENV=full
 ARG BASE_IMAGE=acryldata/datahub-ingestion-base
 ARG DOCKER_VERSION=head
 ARG PIP_MIRROR_URL=null
-ARG DEBIAN_REPO_URL=http://deb.debian.org/debian
+ARG DEBIAN_REPO_URL=https://deb.debian.org/debian
 
 FROM $BASE_IMAGE:$DOCKER_VERSION as base
 USER 0
