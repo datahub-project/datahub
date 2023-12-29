@@ -1,420 +1,213 @@
-let datasetUrn = 'urn:li:dataset:(urn:li:dataPlatform:hive,DatasetToProposeOn,PROD)';
 let datasetName = 'DatasetToProposeOn';
+let addDescription = "Description to propose";
+let updateDescription = "Description to proposes";
+
+let datasetUrn = {
+  dataPlatform: 'urn:li:dataset:(urn:li:dataPlatform:hive,DatasetToProposeOn,PROD)',
+  dataPlatformDocument: '/dataset/urn:li:dataset:(urn:li:dataPlatform:hive,DatasetToProposeOn,PROD)/Documentation',
+  dataGlossaryTerm:"/glossaryTerm/urn:li:glossaryTerm:CypressNode.CypressTermToProposeOn/Documentation",
+  datasetToProposeOn:"/dataset/urn:li:dataset:(urn:li:dataPlatform:hive,DatasetToProposeOn,PROD)",
+  datadashboard :"/dashboard/urn:li:dashboard:(looker,cypress_baz)",
+  dataFlow: "/tasks/urn:li:dataJob:(urn:li:dataFlow:(airflow,cypress_dag_abc,PROD),cypress_task_123)", 
+};
 
 describe("proposals", () => {
+  beforeEach(() => {
+    cy.login();
+  });
+
   Cypress.on("uncaught:exception", (err, runnable) => {
     return false;
   });
 
-  function proposeDatasetDescription() {
-    cy.login();
-
-    cy.visit(
-      "/dataset/urn:li:dataset:(urn:li:dataPlatform:hive,DatasetToProposeOn,PROD)/Documentation"
-    );
-
+  let proposeDatasetDescription = () => {
+    cy.visit(datasetUrn.dataPlatformDocument);
     cy.get('[data-testid="empty-tab-description"]').should("exist");
     cy.get('[data-testid="add-documentation"]').click({ force: true });
-
-    cy.focused().type("Description to propose");
+    cy.focused().type(addDescription);
     cy.get('[data-testid="propose-description"]').click({ force: true });
-
-    cy.wait(2000);
+    cy.contains('Proposed description update!').should('be.visible')
+    cy.contains('Proposed description update!').should('not.exist');
   }
 
-  function proposeGlossaryDescription() {
-    cy.login();
-
-    cy.visit(
-      "/glossaryTerm/urn:li:glossaryTerm:CypressNode.CypressTermToProposeOn/Documentation"
-    );
-
-    //cy.get('[data-testid="edit-documentation-button"]').click({ force: true });
+  let proposeGlossaryDescription = () => {
+    cy.visit(datasetUrn.dataPlatformDocument);
     cy.get('[data-testid="add-documentation"]').click({ force: true });
-
-    cy.focused().clear().type("Description to propose");
+    cy.focused().clear().type(updateDescription);
     cy.get('[data-testid="propose-description"]').click({ force: true });
-
-    cy.wait(2000);
+    cy.contains('Proposed description update!').should('be.visible')
+    cy.contains('Proposed description update!').should('not.exist');
   }
+
+  let proposeTagOrTerm = (entityRoute, tagNameOrTermName, dataTestId) => {
+    cy.visit(entityRoute);
+    cy.get(`[data-testid="proposed-${dataTestId}-${tagNameOrTermName}"]`).should("not.exist");
+    // Click "Add Tags" or "Add Terms" based on the dataTestId
+    cy.contains(`Add ${dataTestId.charAt(0).toUpperCase() + dataTestId.slice(1)}`).click({ force: true });
+    // Type the tag or term name
+    cy.get('[data-testid="tag-term-modal-input"]').should('be.visible').type(tagNameOrTermName);
+    // Select the tag or term
+    cy.get('.ant-select-item-option-content').should('be.visible').within(() =>
+      cy.contains(tagNameOrTermName).click({ force: true })
+    );
+    // Click the create proposal button
+    cy.get('[data-testid="create-proposal-btn"]').click({ force: true });
+    // Verify the proposed tag or term is visible
+    cy.get(`[data-testid="proposed-${dataTestId}-${tagNameOrTermName}"]`).should('be.visible');
+  };
+
+  
+  let acceptProposalDatasetPage = (to_type, thing) => {
+    cy.waitTextVisible(to_type);
+    cy.get('[data-testid="proposed-' + thing + '-' + to_type + '"]').should('be.visible').click({ force: true });
+    cy.get('[data-testid="proposal-accept-button-' + to_type + '"]').click({ force: true });
+    cy.get('[data-testid="proposed-' + thing + '-' + to_type + '"]').should('not.exist');
+  };
+  
+  let rejectProposalDatasetPage = (to_type, thing) => {
+    cy.waitTextVisible(to_type);
+    cy.get('[data-testid="proposed-' + thing + '-' + to_type + '"]').should('be.visible').click({ force: true });
+    cy.get('[data-testid="proposal-reject-button-' + to_type + '"]').click({ force: true });
+    cy.get('[data-testid="proposed-' + thing + '-' + to_type + '"]').should('not.exist');
+  };
+  
+  let removeTagSchemaLevel = (field_id, tag) => {
+    cy.get('[data-testid=' + field_id + ']').within(() => {
+      cy.contains('[data-testid=tag-' + tag + ']', tag)
+        .find('.ant-tag-close-icon')
+        .click({ force: true }  );
+    }); 
+    cy.contains('Yes').click();
+    cy.contains(tag).should('not.exist');
+  };
+
 
   it("can propose description to dataset and then reject description proposal from the my requests tab", () => {
     proposeDatasetDescription();
-
     cy.rejectProposalInbox();
-
-    cy.visit(
-      "/dataset/urn:li:dataset:(urn:li:dataPlatform:hive,DatasetToProposeOn,PROD)/Documentation"
-    );
+    cy.visit(datasetUrn.dataPlatformDocument);
     cy.get('[data-testid="empty-tab-description"]').should("exist");
-    cy.wait(1000);
   });
 
   it("can propose description to dataset and then accept description proposal from the my requests tab", () => {
     proposeDatasetDescription();
-
     cy.acceptProposalInbox();
-
-    cy.visit(
-      "/dataset/urn:li:dataset:(urn:li:dataPlatform:hive,DatasetToProposeOn,PROD)/Documentation"
-    );
-    cy.contains("Description to propose");
-
-    cy.wait(1000);
+    cy.visit(datasetUrn.dataPlatformDocument);
+    cy.contains(addDescription);
   });
 
   it("can propose description to glossary term and then reject description proposal from the my requests tab", () => {
     proposeGlossaryDescription();
-
     cy.rejectProposalInbox();
-
-    cy.visit(
-      "/glossaryTerm/urn:li:glossaryTerm:CypressNode.CypressTermToProposeOn/Documentation"
-    );
-    cy.contains("Description to propose").should("not.exist");
-
-    cy.wait(1000);
+    cy.visit(datasetUrn.dataGlossaryTerm);
+    cy.contains(updateDescription).should("not.exist");
   });
 
   it("can propose description to glossary term and then accept description proposal from the my requests tab", () => {
     proposeGlossaryDescription();
-
     cy.acceptProposalInbox();
-
-    cy.visit(
-      "/glossaryTerm/urn:li:glossaryTerm:CypressNode.CypressTermToProposeOn/Documentation"
-    );
-    cy.contains("Description to propose");
-
-    cy.wait(1000);
-
-    cy.get('[data-testid="edit-documentation-button"]').click({ force: true });
-
+    cy.visit(datasetUrn.dataGlossaryTerm);
+    cy.get('[data-testid="edit-documentation-button"]').should('be.visible').click({ force: true });
     // clean up from the test so its idempotent
     cy.focused().clear().type("This description has not been proposed on yet.");
     cy.get('[data-testid="description-editor-save-button"]').click({ force: true });
   });
 
-  function proposeTagAndDeclineOnProfile(entityRoute) {
-    cy.login();
-
-    // Proposing the tag
-    cy.visit(entityRoute);
-
-    cy.get('[data-testid="proposed-tag-TagToPropose"]').should("not.exist");
-
-    cy.contains("Add Tags").click({ force: true });
-    cy.wait(1000);
-
-    // cy.focused().type('TagToPropose');
-    cy.get('[data-testid="tag-term-modal-input"]').type("TagToPropose");
-    cy.wait(3000);
-
-    cy.get(".ant-select-item-option-content").within(() =>
-      cy.contains("TagToPropose").click({ force: true })
-    );
-    cy.get('[data-testid="create-proposal-btn"]').click({ force: true });
-    cy.wait(5000);
-    cy.reload();
-
-    // Rejecting the proposal
-    cy.get('[data-testid="proposed-tag-TagToPropose"]').click({ force: true });
-    cy.get('[data-testid="proposal-reject-button-TagToPropose"]').click({
-      force: true,
-    });
-    cy.wait(1000);
-
-    cy.get('[data-testid="proposed-tag-TagToPropose"]').should("not.exist");
-  }
-
   it("can propose tag to dataset and then decline tag proposal from the dataset page", () => {
-    proposeTagAndDeclineOnProfile(
-      "/dataset/urn:li:dataset:(urn:li:dataPlatform:hive,DatasetToProposeOn,PROD)"
-    );
+    proposeTagOrTerm(datasetUrn.datasetToProposeOn, 'TagToPropose', 'tag');
+    rejectProposalDatasetPage('TagToPropose', 'tag');
   });
 
   it("can propose tag to dashboard and then decline tag proposal from the dashboard page", () => {
-    proposeTagAndDeclineOnProfile(
-      "/dashboard/urn:li:dashboard:(looker,cypress_baz)"
-    );
+    proposeTagOrTerm(datasetUrn.datadashboard, 'TagToPropose', 'tag');
+    rejectProposalDatasetPage('TagToPropose', 'tag');
   });
 
   it("can propose tag to dataJob and then decline tag proposal from the dataJob page", () => {
-    proposeTagAndDeclineOnProfile(
-      "/tasks/urn:li:dataJob:(urn:li:dataFlow:(airflow,cypress_dag_abc,PROD),cypress_task_123)"
-    );
+    proposeTagOrTerm(datasetUrn.dataFlow, 'TagToPropose', 'tag');
+    rejectProposalDatasetPage('TagToPropose', 'tag');
   });
 
-  function proposeTermAndDeclineOnProfile(entityRoute) {
-    cy.login();
-
-    // Proposing the term
-    cy.visit(entityRoute);
-
-    cy.get('[data-testid="proposed-term-TermToPropose"]').should("not.exist");
-    cy.contains("Add Terms").click({ force: true });
-    cy.wait(1000);
-
-    cy.get('[data-testid="tag-term-modal-input"]').type("TermToPropose");
-    cy.wait(3000);
-
-    cy.contains("TermToPropose").click({ force: true });
-
-    cy.get(".ant-select-item-option-content").within(() =>
-      cy.contains("TermToPropose").click({ force: true })
-    );
-    cy.get('[data-testid="create-proposal-btn"]').click({ force: true });
-    cy.wait(5000);
-    cy.reload();
-
-    // Rejecting the proposal
-    cy.get('[data-testid="proposed-term-TermToPropose"]').click({
-      force: true,
-    });
-    cy.get('[data-testid="proposal-reject-button-TermToPropose"]').click({
-      force: true,
-    });
-    cy.wait(1000);
-
-    cy.get('[data-testid="proposed-term-TermToPropose"]').should("not.exist");
-  }
-
   it("can propose term to dataset and then decline term proposal from the dataset page", () => {
-    proposeTermAndDeclineOnProfile(
-      "/dataset/urn:li:dataset:(urn:li:dataPlatform:hive,DatasetToProposeOn,PROD)"
-    );
+    proposeTagOrTerm(datasetUrn.datasetToProposeOn, 'TermToPropose', 'term');
+    rejectProposalDatasetPage('TermToPropose', 'term');
   });
 
   it("can propose term to dashboard and then decline term proposal from the dashboard page", () => {
-    proposeTermAndDeclineOnProfile(
-      "/dashboard/urn:li:dashboard:(looker,cypress_baz)"
-    );
+    proposeTagOrTerm(datasetUrn.datadashboard, 'TermToPropose', 'term');
+    rejectProposalDatasetPage('TermToPropose', 'term');
   });
 
   it("can propose term to dataJob and then decline term proposal from the dataJob page", () => {
-    proposeTermAndDeclineOnProfile(
-      "/tasks/urn:li:dataJob:(urn:li:dataFlow:(airflow,cypress_dag_abc,PROD),cypress_task_123)"
-    );
+    proposeTagOrTerm(datasetUrn.dataFlow, 'TermToPropose', 'term');
+    rejectProposalDatasetPage('TermToPropose', 'term');
   });
 
   it("can propose tag to dataset and then accept tag proposal from the dataset page", () => {
-    cy.login();
-
     // Proposing the tag
-    cy.goToDataset(datasetUrn, datasetName);
-    cy.contains("Add Tags").click({ force: true });
-
-    cy.get('[data-testid="tag-term-modal-input"]').type("TagToPropose");
-    cy.wait(3000);
-
-    cy.get(".ant-select-item-option-content").within(() =>
-      cy.contains("TagToPropose").click({ force: true })
-    );
-
-    cy.get('[data-testid="create-proposal-btn"]').click({ force: true });
-    cy.wait(5000);
-    cy.reload();
-
+    proposeTagOrTerm(datasetUrn.datasetToProposeOn, 'TagToPropose', 'tag');    
+    cy.waitTextPresent(datasetName)
     // Accepting the proposal
-    cy.get('[data-testid="proposed-tag-TagToPropose"]').click({ force: true });
-    cy.get('[data-testid="proposal-accept-button-TagToPropose"]').click({
-      force: true,
-    });
-    cy.wait(3000);
-
-    cy.get('[data-testid="proposed-tag-TagToPropose"]').should("not.exist");
-    cy.wait(1000);
-
+    acceptProposalDatasetPage('TagToPropose', 'tag');
+   
     // Deleting the tag (data cleanup)
-    cy.get('[data-testid="tag-TagToPropose"]').within(() =>
-      cy.get("span[aria-label=close]").click({ force: true })
-    );
-    cy.wait(1000);
-
-    cy.contains("Yes").click({ force: true });
-    cy.wait(1000);
+    removeTagSchemaLevel('tag-TagToPropose','TagToPropose' )
   });
 
   it("can propose term to dataset and then accept term proposal from the dataset page", () => {
-    cy.login();
-
     // Proposing the term
-    cy.goToDataset(datasetUrn, datasetName);
-
-    cy.get('[data-testid="proposed-term-TermToPropose"]').should("not.exist");
-    cy.contains("Add Terms").click({ force: true });
-    cy.wait(1000);
-
-    cy.get('[data-testid="tag-term-modal-input"]').type("TermToPropose");
-    cy.wait(3000);
-
-    cy.contains("TermToPropose").click({ force: true });
-
-    cy.get(".ant-select-item-option-content").within(() =>
-      cy.contains("TermToPropose").click({ force: true })
-    );
-    cy.get('[data-testid="create-proposal-btn"]').click({ force: true });
-    cy.wait(5000);
-    cy.reload();
-
+    proposeTagOrTerm(datasetUrn.datasetToProposeOn, 'TermToPropose', 'term');    
+    cy.waitTextPresent(datasetName)
     // Accepting the proposal
-    cy.get('[data-testid="proposed-term-TermToPropose"]').click({
-      force: true,
-    });
-    cy.get('[data-testid="proposal-accept-button-TermToPropose"]').click({
-      force: true,
-    });
-    cy.wait(3000);
-
-    cy.get('[data-testid="proposed-term-TermToPropose"]').should("not.exist");
-    cy.wait(1000);
-
-    // Deleting the term (data cleanup)
+    acceptProposalDatasetPage('TermToPropose', 'term');
     cy.contains("TermToPropose").within(() =>
       cy.get("span[aria-label=close]").click()
     );
     cy.contains("Yes").click({ force: true });
-    cy.wait(1000);
   });
 
   it("can propose tag to dataset and then decline tag proposal from the my requests tab", () => {
-    cy.login();
-
     // Proposing the tag
-    cy.goToDataset(datasetUrn, datasetName);
-
-    cy.get('[data-testid="proposed-tag-TagToPropose"]').should("not.exist");
-
-    cy.contains("Add Tags").click({ force: true });
-
-    cy.get('[data-testid="tag-term-modal-input"]').type("TagToPropose");
-    cy.wait(3000);
-
-    cy.get(".ant-select-item-option-content").within(() =>
-      cy.contains("TagToPropose").click({ force: true })
-    );
-
-    cy.get('[data-testid="create-proposal-btn"]').click({ force: true });
-    cy.wait(5000);
-    cy.reload();
-
-    cy.get('[data-testid="proposed-tag-TagToPropose"]').should("exist");
-
+    proposeTagOrTerm(datasetUrn.datasetToProposeOn, 'TagToPropose', 'tag');    
+    cy.waitTextPresent(datasetName)
     cy.searchNotCachedContainsDataset("TagToPropose", datasetName);
-
     cy.rejectProposalInbox();
     cy.searchNotCachedDoesNotContainDataset("TagToPropose", datasetName);
-
-    cy.goToDataset(datasetUrn, datasetName);
+    cy.goToDataset(datasetUrn.dataPlatform, datasetName);
     cy.get('[data-testid="proposed-tag-TagToPropose"]').should("not.exist");
   });
 
   it("can propose term to dataset and then decline term proposal from the my requests tab", () => {
-    cy.login();
-
     // Proposing the term
-    cy.goToDataset(datasetUrn, datasetName);
-
-    cy.get('[data-testid="proposed-term-TermToPropose"]').should("not.exist");
-    cy.contains("Add Terms").click({ force: true });
-
-    cy.get('[data-testid="tag-term-modal-input"]').type("TermToPropose");
-    cy.wait(3000);
-
-    cy.contains("TermToPropose").click({ force: true });
-
-    cy.get(".ant-select-item-option-content").within(() =>
-      cy.contains("TermToPropose").click({ force: true })
-    );
-    cy.get('[data-testid="create-proposal-btn"]').click({ force: true });
-    cy.wait(5000);
-    cy.reload();
-
-    cy.get('[data-testid="proposed-term-TermToPropose"]').should("exist");
-
+    proposeTagOrTerm(datasetUrn.datasetToProposeOn, 'TermToPropose', 'term');    
+    cy.waitTextPresent(datasetName)
     cy.searchNotCachedContainsDataset("TermToPropose", datasetName);
-
     cy.rejectProposalInbox();
     cy.searchNotCachedDoesNotContainDataset("TermToPropose", datasetName);
-
-    cy.goToDataset(datasetUrn, datasetName);
+    cy.goToDataset(datasetUrn.dataPlatform, datasetName);
     cy.get('[data-testid="proposed-term-TermToPropose"]').should("not.exist");
   });
 
   it("can propose tag to dataset and then accept tag proposal from the my requests tab", () => {
-    cy.login();
-
     // Proposing the tag
-    cy.goToDataset(datasetUrn, datasetName);
-    cy.contains("Add Tags").click({ force: true });
-
-    cy.get('[data-testid="tag-term-modal-input"]').type("TagToPropose");
-    cy.wait(3000);
-
-    cy.get(".ant-select-item-option-content").within(() =>
-      cy.contains("TagToPropose").click({ force: true })
-    );
-
-    cy.get('[data-testid="create-proposal-btn"]').click({ force: true });
-    cy.wait(5000);
-    cy.reload();
-
-    cy.get('[data-testid="proposed-tag-TagToPropose"]').should("exist");
-
+    proposeTagOrTerm(datasetUrn.datasetToProposeOn, 'TagToPropose', 'tag');    
+    cy.waitTextPresent(datasetName)
     cy.acceptProposalInbox();
-
     cy.searchNotCachedContainsDataset("TagToPropose", datasetName);
-
-    cy.goToDataset(datasetUrn, datasetName);
-    cy.get('[data-testid="proposed-tag-TagToPropose"]').should("not.exist");
-
-    cy.get('[data-testid="tag-TagToPropose"]').within(() =>
-      cy.get("span[aria-label=close]").click({ force: true })
-    );
-    // cy.contains('TagToPropose').within(() => cy.get('span[aria-label=close]').click({force: true}));
-    cy.wait(1000);
-
-    cy.contains("Yes").click({ force: true });
-    cy.wait(1000);
+    cy.goToDataset(datasetUrn.dataPlatform, datasetName);
+    removeTagSchemaLevel('tag-TagToPropose','TagToPropose' )
   });
 
   it("can propose term to dataset and then accept term proposal from the my requests tab", () => {
-    cy.login();
-
     // Proposing the term
-    cy.goToDataset(datasetUrn, datasetName);
-
-    cy.get('[data-testid="proposed-term-TermToPropose"]').should("not.exist");
-    cy.contains("Add Terms").click({ force: true });
-
-    cy.get('[data-testid="tag-term-modal-input"]').type("TermToPropose");
-    cy.wait(3000);
-
-    cy.contains("TermToPropose").click({ force: true });
-
-    cy.get(".ant-select-item-option-content").within(() =>
-      cy.contains("TermToPropose").click({ force: true })
-    );
-    cy.get('[data-testid="create-proposal-btn"]').click({ force: true });
-    cy.wait(5000);
-    cy.reload();
-
-    cy.get('[data-testid="proposed-term-TermToPropose"]').should("exist");
-
-    cy.wait(1000);
-
+    proposeTagOrTerm(datasetUrn.datasetToProposeOn, 'TermToPropose', 'term');    
+    cy.waitTextPresent(datasetName)
     cy.acceptProposalInbox();
-
     cy.searchNotCachedContainsDataset("TermToPropose", datasetName);
-
-    cy.goToDataset(datasetUrn, datasetName);
-    cy.get('[data-testid="proposed-term-TermToPropose"]').should("not.exist");
-    cy.wait(1000);
-
+    cy.goToDataset(datasetUrn.dataPlatform, datasetName);
     cy.contains("TermToPropose").within(() =>
       cy.get("span[aria-label=close]").click()
     );
     cy.contains("Yes").click({ force: true });
-    cy.wait(1000);
   });
 });
