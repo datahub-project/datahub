@@ -15,7 +15,7 @@ def test_services_up():
 
 
 @pytest.mark.read_only
-def test_gms_config_accessible():
+def test_gms_config_accessible() -> None:
     gms_config = requests.get(f"{get_gms_url()}/config").json()
     assert gms_config is not None
 
