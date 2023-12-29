@@ -33,9 +33,19 @@ public interface Template<T extends RecordTemplate> {
   /** Get the template class type */
   @SuppressWarnings("unchecked")
   default Class<T> getTemplateType() {
-    Type genericInterface = getClass().getGenericInterfaces()[0];
-    Type[] typeArguments = ((ParameterizedType) genericInterface).getActualTypeArguments();
-    return (Class<T>) typeArguments[0];
+    Class<?> currentClass = getClass();
+    while (currentClass != Object.class) {
+      Type genericSuperclass = currentClass.getGenericSuperclass();
+      if (genericSuperclass instanceof ParameterizedType parameterizedType) {
+        Type rawType = parameterizedType.getRawType();
+        if (rawType instanceof Class && Template.class.isAssignableFrom((Class<?>) rawType)) {
+          Type[] typeArguments = parameterizedType.getActualTypeArguments();
+          return (Class<T>) typeArguments[0];
+        }
+      }
+      currentClass = currentClass.getSuperclass();
+    }
+    throw new IllegalStateException("Unable to determine template type");
   }
 
   /**
