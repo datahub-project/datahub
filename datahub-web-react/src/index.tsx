@@ -1,6 +1,5 @@
 import React from 'react';
 import ReactDOM from 'react-dom';
-import './graphql-mock/createServer';
 import { App } from './App';
 import reportWebVitals from './reportWebVitals';
 

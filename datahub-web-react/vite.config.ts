@@ -14,23 +14,17 @@ export default defineConfig(({ mode }) => {
     // eslint-disable-next-line global-require, import/no-dynamic-require, @typescript-eslint/no-var-requires
     const themeConfig = require(`./src/conf/theme/${process.env.REACT_APP_THEME_CONFIG}`);
 
-    let proxyOptions = {};
-    const mockServer = process.env.REACT_APP_MOCK;
-    if (mockServer !== 'true' && mockServer !== 'cy') {
-        // When in mock mode, MirageJS will intercept requests.
-
-        const frontendProxy = {
-            target: process.env.REACT_APP_PROXY_TARGET || 'http://localhost:9002',
-            changeOrigin: true,
-        };
-
-        proxyOptions = {
-            '/logIn': frontendProxy,
-            '/authenticate': frontendProxy,
-            '/api/v2/graphql': frontendProxy,
-            '/track': frontendProxy,
-        };
-    }
+    // Setup proxy to the datahub-frontend service.
+    const frontendProxy = {
+        target: process.env.REACT_APP_PROXY_TARGET || 'http://localhost:9002',
+        changeOrigin: true,
+    };
+    const proxyOptions = {
+        '/logIn': frontendProxy,
+        '/authenticate': frontendProxy,
+        '/api/v2/graphql': frontendProxy,
+        '/track': frontendProxy,
+    };
 
     return {
         plugins: [

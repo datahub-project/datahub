@@ -1,5 +1,3 @@
-import sinon from 'sinon';
-
 // jest-dom adds custom jest matchers for asserting on DOM nodes.
 // allows you to do things like:
 // expect(element).toHaveTextContent(/react/i)
@@ -20,7 +18,6 @@ global.matchMedia =
     });
 
 window.location = { ...window.location, replace: () => {} };
-sinon.stub(window.location, 'replace');
 
 vi.mock('js-cookie', () => ({
     default: {
