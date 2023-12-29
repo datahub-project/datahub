@@ -34,6 +34,13 @@ class BigQueryAuditLogApiPerfReport(Report):
 
 
 @dataclass
+class BigQueryProcessingPerfReport(Report):
+    sql_parsing_sec: PerfTimer = field(default_factory=PerfTimer)
+    store_usage_event_sec: PerfTimer = field(default_factory=PerfTimer)
+    usage_state_size: Optional[str] = None
+
+
+@dataclass
 class BigQueryV2Report(ProfilingSqlReport, IngestionStageReport, BaseTimeWindowReport):
     num_total_lineage_entries: TopKDict[str, int] = field(default_factory=TopKDict)
     num_skipped_lineage_entries_missing_data: TopKDict[str, int] = field(
@@ -120,8 +127,6 @@ class BigQueryV2Report(ProfilingSqlReport, IngestionStageReport, BaseTimeWindowR
     read_reasons_stat: Counter[str] = field(default_factory=collections.Counter)
     operation_types_stat: Counter[str] = field(default_factory=collections.Counter)
 
-    usage_state_size: Optional[str] = None
-
     exclude_empty_projects: Optional[bool] = None
 
     schema_api_perf: BigQuerySchemaApiPerfReport = field(
@@ -129,6 +134,9 @@ class BigQueryV2Report(ProfilingSqlReport, IngestionStageReport, BaseTimeWindowR
     )
     audit_log_api_perf: BigQueryAuditLogApiPerfReport = field(
         default_factory=BigQueryAuditLogApiPerfReport
+    )
+    processing_perf: BigQueryProcessingPerfReport = field(
+        default_factory=BigQueryProcessingPerfReport
     )
 
     lineage_start_time: Optional[datetime] = None

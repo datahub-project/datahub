@@ -95,13 +95,13 @@ jobs:
       - name: Download image
         uses: ishworkh/docker-image-artifact-download@v1
         with:
-          image: acryldata/datahub-integrations-service:latest
+          image: 795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-integrations-service:latest
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@0.8.0
         env:
           TRIVY_OFFLINE_SCAN: true
         with:
-          image-ref: acryldata/datahub-integrations-service:latest
+          image-ref: 795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-integrations-service:latest
           format: "template"
           template: "@/contrib/sarif.tpl"
           output: "trivy-results.sarif"

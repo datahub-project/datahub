@@ -85,7 +85,7 @@ dockerCompose {
         composeAdditionalArgs = ['--profile', 'quickstart-consumers']
 
         environment.put 'DATAHUB_VERSION', "v${version}"
-        environment.put "DATAHUB_ACTIONS_IMAGE", "acryldata/datahub-ingestion"
+        environment.put "DATAHUB_ACTIONS_IMAGE", "795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-ingestion"
         environment.put "ACTIONS_VERSION", "v${version}-slim"
         environment.put "ACTIONS_EXTRA_PACKAGES", 'acryl-datahub-actions[executor] acryl-datahub-actions'
         environment.put "ACTIONS_CONFIG", 'https://raw.githubusercontent.com/acryldata/datahub-actions/main/docker/config/executor.yaml'

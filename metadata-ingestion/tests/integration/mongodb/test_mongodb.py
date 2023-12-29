@@ -26,6 +26,7 @@ def test_mongodb_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time
                         "password": "examplepass",
                         "maxDocumentSize": 25000,
                         "platform_instance": "instance",
+                        "schemaSamplingSize": None,
                     },
                 },
                 "sink": {
