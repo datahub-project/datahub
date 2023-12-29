@@ -7,11 +7,6 @@ namespace com.linkedin.settings.global
   "name": "globalSettingsInfo"
 }
 record GlobalSettingsInfo {
-
-  /**
-   * SSO integrations between DataHub and identity providers
-   */
-  sso: optional SsoSettings
   /**
    * Integrations between DataHub & other platforms.
    */
