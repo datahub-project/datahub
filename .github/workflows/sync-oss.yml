@@ -14,6 +14,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
+        with:
+          # We need to fetch the full history so that merges work correctly.
+          fetch-depth: 0
 
       - name: Set test version
         shell: bash

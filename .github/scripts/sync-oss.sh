@@ -78,9 +78,19 @@ else
     git checkout $FORK_TARGET_BRANCH
     git checkout -b $SYNC_BRANCH
 fi
-git merge master --no-edit
-# TODO detect conflicts and abort if there are any.
-# We'd also want to add a comment to the PR if this happens
+git merge master --no-edit || {
+    # There's a merge conflict.
+    echo 'Files with merge conflicts:'
+    git ls-files --unmerged | cut -f2
+
+    PR_NUMBER=$(pr_number)  # will be "null" if there is no PR
+    if [ "$PR_NUMBER" != "null" ]; then
+        # If there's already a PR, we should add a comment to it.
+        add_comment "There was a merge conflict when syncing with oss/master at $(date). Please resolve the conflict and merge the PR manually."
+    fi
+
+    exit 1;
+}
 
 git push origin $SYNC_BRANCH
 
