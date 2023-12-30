@@ -12,6 +12,7 @@ import com.linkedin.data.schema.annotation.PegasusSchemaAnnotationHandlerImpl;
 import com.linkedin.data.schema.annotation.SchemaAnnotationHandler;
 import com.linkedin.data.schema.annotation.SchemaAnnotationProcessor;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.metadata.aspect.plugins.PluginFactory;
 import com.linkedin.metadata.models.annotation.AspectAnnotation;
 import com.linkedin.metadata.models.annotation.EntityAnnotation;
 import com.linkedin.metadata.models.annotation.RelationshipAnnotation;
@@ -124,8 +125,8 @@ public class EntitySpecBuilder {
               buildAspectSpec(
                   member.getType(),
                   (Class<RecordTemplate>)
-                      Class.forName(namedDataSchema.getFullName())
-                          .asSubclass(RecordTemplate.class));
+                      Class.forName(namedDataSchema.getFullName()).asSubclass(RecordTemplate.class),
+                  PluginFactory.getInstance());
           aspectSpecs.add(spec);
         } catch (ClassNotFoundException ce) {
           log.warn("Failed to find class for {}", member.getType(), ce);
@@ -200,7 +201,9 @@ public class EntitySpecBuilder {
   }
 
   public AspectSpec buildAspectSpec(
-      @Nonnull final DataSchema aspectDataSchema, final Class<RecordTemplate> aspectClass) {
+      @Nonnull final DataSchema aspectDataSchema,
+      final Class<RecordTemplate> aspectClass,
+      final PluginFactory pluginFactory) {
 
     final RecordDataSchema aspectRecordSchema = validateAspect(aspectDataSchema);
 
@@ -223,7 +226,9 @@ public class EntitySpecBuilder {
             Collections.emptyList(),
             Collections.emptyList(),
             aspectRecordSchema,
-            aspectClass);
+            aspectClass,
+            pluginFactory.buildAspectPayloadValidators(),
+            pluginFactory.buildMutationHooks());
       }
 
       final SchemaAnnotationProcessor.SchemaAnnotationProcessResult processedSearchResult =
@@ -290,7 +295,9 @@ public class EntitySpecBuilder {
           timeseriesFieldSpecExtractor.getTimeseriesFieldSpecs(),
           timeseriesFieldSpecExtractor.getTimeseriesFieldCollectionSpecs(),
           aspectRecordSchema,
-          aspectClass);
+          aspectClass,
+          pluginFactory.buildAspectPayloadValidators(),
+          pluginFactory.buildMutationHooks());
     }
 
     failValidation(

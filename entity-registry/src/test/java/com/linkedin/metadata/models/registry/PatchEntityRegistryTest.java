@@ -2,9 +2,11 @@ package com.linkedin.metadata.models.registry;
 
 import static org.testng.Assert.*;
 
+import com.linkedin.metadata.aspect.plugins.PluginFactory;
 import com.linkedin.metadata.models.DataSchemaFactory;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.EventSpec;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Map;
 import org.testng.annotations.Test;
@@ -47,18 +49,21 @@ public class PatchEntityRegistryTest {
    */
   @Test
   public void testEntityRegistryWithKeyLoad() throws Exception, EntityRegistryException {
-    DataSchemaFactory dataSchemaFactory =
-        DataSchemaFactory.withCustomClasspath(
-            Paths.get(
-                TestConstants.BASE_DIRECTORY
-                    + "/"
-                    + TestConstants.TEST_REGISTRY
-                    + "/"
-                    + TestConstants.TEST_VERSION.toString()));
+    Path pluginLocation =
+        Paths.get(
+            TestConstants.BASE_DIRECTORY
+                + "/"
+                + TestConstants.TEST_REGISTRY
+                + "/"
+                + TestConstants.TEST_VERSION.toString());
+
+    DataSchemaFactory dataSchemaFactory = DataSchemaFactory.withCustomClasspath(pluginLocation);
+    PluginFactory pluginFactory = PluginFactory.withCustomClasspath(pluginLocation);
 
     PatchEntityRegistry patchEntityRegistry =
         new PatchEntityRegistry(
             dataSchemaFactory,
+            pluginFactory,
             Paths.get("src/test_plugins/mycompany-full-model/0.0.1/entity-registry.yaml"),
             TestConstants.TEST_REGISTRY,
             TestConstants.TEST_VERSION);

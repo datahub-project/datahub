@@ -47,6 +47,7 @@ import net.datafaker.Faker;
 import net.datafaker.providers.base.Animal;
 import net.datafaker.providers.base.Cat;
 import org.apache.commons.lang3.NotImplementedException;
+import org.mockito.Mockito;
 
 public class DataGenerator {
   private static final Faker FAKER = new Faker();
@@ -66,7 +67,8 @@ public class DataGenerator {
             entityRegistry,
             false,
             mock(UpdateIndicesService.class),
-            mock(PreProcessHooks.class));
+            mock(PreProcessHooks.class),
+            Mockito.eq(List.of()));
     return new DataGenerator(mockEntityServiceImpl);
   }
 

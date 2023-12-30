@@ -1,6 +1,8 @@
-package com.linkedin.metadata.entity.ebean.transactions;
+package com.linkedin.metadata.entity.ebean.batch;
 
-import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.Constants.INGESTION_MAX_SERIALIZED_STRING_LENGTH;
+import static com.linkedin.metadata.Constants.MAX_JACKSON_STRING_SIZE;
+import static com.linkedin.metadata.entity.AspectUtils.validateAspect;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.StreamReadConstraints;
@@ -9,17 +11,20 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.fge.jsonpatch.JsonPatch;
 import com.github.fge.jsonpatch.JsonPatchException;
 import com.github.fge.jsonpatch.Patch;
+import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.metadata.aspect.batch.PatchItem;
+import com.linkedin.metadata.aspect.plugins.validation.AspectRetriever;
 import com.linkedin.metadata.entity.EntityUtils;
-import com.linkedin.metadata.entity.transactions.AbstractBatchItem;
 import com.linkedin.metadata.entity.validation.ValidationUtils;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.models.registry.template.AspectTemplateEngine;
 import com.linkedin.metadata.utils.EntityKeyUtils;
+import com.linkedin.metadata.utils.SystemMetadataUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
 import java.io.IOException;
@@ -32,7 +37,7 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 @Getter
 @Builder(toBuilder = true)
-public class PatchBatchItem extends AbstractBatchItem {
+public class MCPPatchBatchItem extends PatchItem {
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
   static {
@@ -50,6 +55,7 @@ public class PatchBatchItem extends AbstractBatchItem {
   // aspectName name of the aspect being inserted
   private final String aspectName;
   private final SystemMetadata systemMetadata;
+  private final AuditStamp auditStamp;
 
   private final Patch patch;
 
@@ -64,17 +70,16 @@ public class PatchBatchItem extends AbstractBatchItem {
     return ChangeType.PATCH;
   }
 
-  @Override
-  public void validateUrn(EntityRegistry entityRegistry, Urn urn) {
-    EntityUtils.validateUrn(entityRegistry, urn);
-  }
-
-  public UpsertBatchItem applyPatch(EntityRegistry entityRegistry, RecordTemplate recordTemplate) {
-    UpsertBatchItem.UpsertBatchItemBuilder builder =
-        UpsertBatchItem.builder()
+  public MCPUpsertBatchItem applyPatch(
+      EntityRegistry entityRegistry,
+      RecordTemplate recordTemplate,
+      AspectRetriever aspectRetriever) {
+    MCPUpsertBatchItem.MCPUpsertBatchItemBuilder builder =
+        MCPUpsertBatchItem.builder()
             .urn(getUrn())
             .aspectName(getAspectName())
             .metadataChangeProposal(getMetadataChangeProposal())
+            .auditStamp(auditStamp)
             .systemMetadata(getSystemMetadata());
 
     AspectTemplateEngine aspectTemplateEngine = entityRegistry.getAspectTemplateEngine();
@@ -99,12 +104,18 @@ public class PatchBatchItem extends AbstractBatchItem {
       throw new RuntimeException(e);
     }
 
-    return builder.build(entityRegistry);
+    return builder.build(entityRegistry, aspectRetriever);
   }
 
-  public static class PatchBatchItemBuilder {
+  public static class MCPPatchBatchItemBuilder {
 
-    public PatchBatchItem build(EntityRegistry entityRegistry) {
+    public MCPPatchBatchItem.MCPPatchBatchItemBuilder systemMetadata(
+        SystemMetadata systemMetadata) {
+      this.systemMetadata = SystemMetadataUtils.generateSystemMetadataIfEmpty(systemMetadata);
+      return this;
+    }
+
+    public MCPPatchBatchItem build(EntityRegistry entityRegistry) {
       EntityUtils.validateUrn(entityRegistry, this.urn);
       log.debug("entity type = {}", this.urn.getEntityType());
 
@@ -119,22 +130,24 @@ public class PatchBatchItem extends AbstractBatchItem {
             String.format("Missing patch to apply. Aspect: %s", this.aspectSpec.getName()));
       }
 
-      return new PatchBatchItem(
+      return new MCPPatchBatchItem(
           this.urn,
           this.aspectName,
-          generateSystemMetadataIfEmpty(this.systemMetadata),
+          SystemMetadataUtils.generateSystemMetadataIfEmpty(this.systemMetadata),
+          this.auditStamp,
           this.patch,
           this.metadataChangeProposal,
           this.entitySpec,
           this.aspectSpec);
     }
 
-    public static PatchBatchItem build(MetadataChangeProposal mcp, EntityRegistry entityRegistry) {
+    public static MCPPatchBatchItem build(
+        MetadataChangeProposal mcp, AuditStamp auditStamp, EntityRegistry entityRegistry) {
       log.debug("entity type = {}", mcp.getEntityType());
       EntitySpec entitySpec = entityRegistry.getEntitySpec(mcp.getEntityType());
       AspectSpec aspectSpec = validateAspect(mcp, entitySpec);
 
-      if (!isValidChangeType(ChangeType.PATCH, aspectSpec)) {
+      if (!PatchItem.isValidChangeType(ChangeType.PATCH, aspectSpec)) {
         throw new UnsupportedOperationException(
             "ChangeType not supported: "
                 + mcp.getChangeType()
@@ -147,23 +160,23 @@ public class PatchBatchItem extends AbstractBatchItem {
         urn = EntityKeyUtils.getUrnFromProposal(mcp, entitySpec.getKeyAspectSpec());
       }
 
-      PatchBatchItemBuilder builder =
-          PatchBatchItem.builder()
-              .urn(urn)
-              .aspectName(mcp.getAspectName())
-              .systemMetadata(mcp.getSystemMetadata())
-              .metadataChangeProposal(mcp)
-              .patch(convertToJsonPatch(mcp));
-
-      return builder.build(entityRegistry);
+      return MCPPatchBatchItem.builder()
+          .urn(urn)
+          .aspectName(mcp.getAspectName())
+          .systemMetadata(
+              SystemMetadataUtils.generateSystemMetadataIfEmpty(mcp.getSystemMetadata()))
+          .metadataChangeProposal(mcp)
+          .auditStamp(auditStamp)
+          .patch(convertToJsonPatch(mcp))
+          .build(entityRegistry);
     }
 
-    private PatchBatchItemBuilder entitySpec(EntitySpec entitySpec) {
+    private MCPPatchBatchItemBuilder entitySpec(EntitySpec entitySpec) {
       this.entitySpec = entitySpec;
       return this;
     }
 
-    private PatchBatchItemBuilder aspectSpec(AspectSpec aspectSpec) {
+    private MCPPatchBatchItemBuilder aspectSpec(AspectSpec aspectSpec) {
       this.aspectSpec = aspectSpec;
       return this;
     }
@@ -187,7 +200,7 @@ public class PatchBatchItem extends AbstractBatchItem {
     if (o == null || getClass() != o.getClass()) {
       return false;
     }
-    PatchBatchItem that = (PatchBatchItem) o;
+    MCPPatchBatchItem that = (MCPPatchBatchItem) o;
     return urn.equals(that.urn)
         && aspectName.equals(that.aspectName)
         && Objects.equals(systemMetadata, that.systemMetadata)

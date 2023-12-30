@@ -7,6 +7,7 @@ import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import com.linkedin.data.schema.DataSchema;
+import com.linkedin.metadata.aspect.plugins.PluginFactory;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.DataSchemaFactory;
 import com.linkedin.metadata.models.EntitySpec;
@@ -44,6 +45,8 @@ import org.apache.maven.artifact.versioning.ComparableVersion;
 public class PatchEntityRegistry implements EntityRegistry {
 
   private final DataSchemaFactory dataSchemaFactory;
+
+  private final PluginFactory pluginFactory;
   private final Map<String, EntitySpec> entityNameToSpec;
   private final Map<String, EventSpec> eventNameToSpec;
   private final Map<String, AspectSpec> _aspectNameToSpec;
@@ -90,6 +93,7 @@ public class PatchEntityRegistry implements EntityRegistry {
       throws IOException, EntityRegistryException {
     this(
         DataSchemaFactory.withCustomClasspath(configFileClassPathPair.getSecond()),
+        PluginFactory.withCustomClasspath(configFileClassPathPair.getSecond()),
         configFileClassPathPair.getFirst(),
         registryName,
         registryVersion);
@@ -138,12 +142,14 @@ public class PatchEntityRegistry implements EntityRegistry {
 
   public PatchEntityRegistry(
       DataSchemaFactory dataSchemaFactory,
+      PluginFactory pluginFactory,
       Path configFilePath,
       String registryName,
       ComparableVersion registryVersion)
       throws FileNotFoundException, EntityRegistryException {
     this(
         dataSchemaFactory,
+        pluginFactory,
         new FileInputStream(configFilePath.toString()),
         registryName,
         registryVersion);
@@ -151,17 +157,20 @@ public class PatchEntityRegistry implements EntityRegistry {
 
   private PatchEntityRegistry(
       DataSchemaFactory dataSchemaFactory,
+      PluginFactory pluginFactory,
       InputStream configFileStream,
       String registryName,
       ComparableVersion registryVersion)
       throws EntityRegistryException {
     this.dataSchemaFactory = dataSchemaFactory;
+    this.pluginFactory = pluginFactory;
     this.registryName = registryName;
     this.registryVersion = registryVersion;
     entityNameToSpec = new HashMap<>();
     Entities entities;
     try {
       entities = OBJECT_MAPPER.readValue(configFileStream, Entities.class);
+      pluginFactory.setDefaultPluginConfiguration(entities.getPlugins());
     } catch (IOException e) {
       e.printStackTrace();
       throw new IllegalArgumentException(
@@ -276,7 +285,7 @@ public class PatchEntityRegistry implements EntityRegistry {
       throw new IllegalArgumentException(String.format("Aspect %s does not exist", aspectName));
     }
     AspectSpec aspectSpec =
-        entitySpecBuilder.buildAspectSpec(aspectSchema.get(), aspectClass.get());
+        entitySpecBuilder.buildAspectSpec(aspectSchema.get(), aspectClass.get(), pluginFactory);
     aspectSpec.setRegistryName(this.registryName);
     aspectSpec.setRegistryVersion(this.registryVersion);
     return aspectSpec;

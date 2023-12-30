@@ -7,6 +7,7 @@ import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import com.linkedin.data.schema.DataSchema;
+import com.linkedin.metadata.aspect.plugins.PluginFactory;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.DataSchemaFactory;
 import com.linkedin.metadata.models.DefaultEntitySpec;
@@ -49,6 +50,8 @@ public class ConfigEntityRegistry implements EntityRegistry {
   private final String identifier;
   private final Map<String, AspectSpec> _aspectNameToSpec;
 
+  private final PluginFactory pluginFactory;
+
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper(new YAMLFactory());
 
   static {
@@ -64,6 +67,7 @@ public class ConfigEntityRegistry implements EntityRegistry {
   public ConfigEntityRegistry(Pair<Path, Path> configFileClassPathPair) throws IOException {
     this(
         DataSchemaFactory.withCustomClasspath(configFileClassPathPair.getSecond()),
+        PluginFactory.withCustomClasspath(configFileClassPathPair.getSecond()),
         configFileClassPathPair.getFirst());
   }
 
@@ -108,24 +112,30 @@ public class ConfigEntityRegistry implements EntityRegistry {
   }
 
   public ConfigEntityRegistry(InputStream configFileInputStream) {
-    this(DataSchemaFactory.getInstance(), configFileInputStream);
+    this(DataSchemaFactory.getInstance(), PluginFactory.getInstance(), configFileInputStream);
   }
 
-  public ConfigEntityRegistry(DataSchemaFactory dataSchemaFactory, Path configFilePath)
+  public ConfigEntityRegistry(
+      DataSchemaFactory dataSchemaFactory, PluginFactory pluginFactory, Path configFilePath)
       throws FileNotFoundException {
-    this(dataSchemaFactory, new FileInputStream(configFilePath.toString()));
+    this(dataSchemaFactory, pluginFactory, new FileInputStream(configFilePath.toString()));
   }
 
-  public ConfigEntityRegistry(DataSchemaFactory dataSchemaFactory, InputStream configFileStream) {
+  public ConfigEntityRegistry(
+      DataSchemaFactory dataSchemaFactory,
+      PluginFactory pluginFactory,
+      InputStream configFileStream) {
     this.dataSchemaFactory = dataSchemaFactory;
+    this.pluginFactory = pluginFactory;
     Entities entities;
     try {
       entities = OBJECT_MAPPER.readValue(configFileStream, Entities.class);
+      this.pluginFactory.setDefaultPluginConfiguration(entities.getPlugins());
     } catch (IOException e) {
-      e.printStackTrace();
       throw new IllegalArgumentException(
           String.format(
-              "Error while reading config file in path %s: %s", configFileStream, e.getMessage()));
+              "Error while reading config file in path %s: %s", configFileStream, e.getMessage()),
+          e);
     }
     if (entities.getId() != null) {
       identifier = entities.getId();
@@ -178,7 +188,7 @@ public class ConfigEntityRegistry implements EntityRegistry {
     if (!aspectSchema.isPresent()) {
       throw new IllegalArgumentException(String.format("Aspect %s does not exist", aspectName));
     }
-    return entitySpecBuilder.buildAspectSpec(aspectSchema.get(), aspectClass.get());
+    return entitySpecBuilder.buildAspectSpec(aspectSchema.get(), aspectClass.get(), pluginFactory);
   }
 
   private EventSpec buildEventSpec(String eventName) {

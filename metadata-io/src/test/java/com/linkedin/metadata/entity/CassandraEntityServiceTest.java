@@ -75,9 +75,10 @@ public class CassandraEntityServiceTest
             _aspectDao,
             _mockProducer,
             _testEntityRegistry,
-            true,
+            false,
             _mockUpdateIndicesService,
-            preProcessHooks);
+            preProcessHooks,
+            List.of());
     _retentionService = new CassandraRetentionService(_entityServiceImpl, session, 1000);
     _entityServiceImpl.setRetentionService(_retentionService);
   }

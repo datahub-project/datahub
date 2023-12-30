@@ -10,6 +10,7 @@ import com.linkedin.metadata.entity.cassandra.CassandraRetentionService;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.models.registry.EntityRegistryException;
 import com.linkedin.metadata.service.UpdateIndicesService;
+import java.util.List;
 import org.testcontainers.containers.CassandraContainer;
 import org.testng.Assert;
 import org.testng.annotations.AfterClass;
@@ -54,7 +55,8 @@ public class CassandraAspectMigrationsDaoTest extends AspectMigrationsDaoTest<Ca
             _testEntityRegistry,
             true,
             _mockUpdateIndicesService,
-            preProcessHooks);
+            preProcessHooks,
+            List.of());
     _retentionService = new CassandraRetentionService(_entityServiceImpl, session, 1000);
     _entityServiceImpl.setRetentionService(_retentionService);
 

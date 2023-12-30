@@ -38,6 +38,7 @@ import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import com.linkedin.metadata.version.GitVersion;
 import io.datahubproject.test.search.config.SearchCommonTestConfiguration;
 import java.io.IOException;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import javax.annotation.Nonnull;
@@ -281,7 +282,8 @@ public class SampleDataFixtureConfiguration {
     PreProcessHooks preProcessHooks = new PreProcessHooks();
     preProcessHooks.setUiEnabled(true);
     return new JavaEntityClient(
-        new EntityServiceImpl(mockAspectDao, null, entityRegistry, true, null, preProcessHooks),
+        new EntityServiceImpl(
+            mockAspectDao, null, entityRegistry, true, null, preProcessHooks, List.of()),
         null,
         entitySearchService,
         cachingEntitySearchService,

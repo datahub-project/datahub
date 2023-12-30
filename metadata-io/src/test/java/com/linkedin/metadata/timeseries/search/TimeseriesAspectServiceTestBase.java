@@ -25,6 +25,7 @@ import com.linkedin.data.template.StringArrayArray;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.data.template.StringMapArray;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
+import com.linkedin.metadata.aspect.plugins.PluginFactory;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.DataSchemaFactory;
 import com.linkedin.metadata.models.EntitySpec;
@@ -116,6 +117,7 @@ public abstract class TimeseriesAspectServiceTestBase extends AbstractTestNGSpri
     _entityRegistry =
         new ConfigEntityRegistry(
             new DataSchemaFactory("com.datahub.test"),
+            PluginFactory.getInstance(),
             TestEntityProfile.class
                 .getClassLoader()
                 .getResourceAsStream("test-entity-registry.yml"));

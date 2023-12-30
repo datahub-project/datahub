@@ -6,3 +6,8 @@ entities:
     keyAspect: testDataQualityRules
     aspects:
       - testDataQualityRules
+plugins:
+  aspectPayloadValidators: []
+  mutationHooks: []
+  mclSideEffects: []
+  mcpSideEffects: []

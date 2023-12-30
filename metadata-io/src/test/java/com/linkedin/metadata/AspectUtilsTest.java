@@ -46,7 +46,7 @@ public class AspectUtilsTest {
     preProcessHooks.setUiEnabled(true);
     EntityServiceImpl entityServiceImpl =
         new EntityServiceImpl(
-            aspectDao, mockProducer, _testEntityRegistry, true, null, preProcessHooks);
+            aspectDao, mockProducer, _testEntityRegistry, true, null, preProcessHooks, List.of());
 
     MetadataChangeProposal proposal1 = new MetadataChangeProposal();
     proposal1.setEntityUrn(

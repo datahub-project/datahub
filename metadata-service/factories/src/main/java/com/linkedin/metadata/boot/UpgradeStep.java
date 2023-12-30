@@ -6,7 +6,9 @@ import com.linkedin.data.DataMap;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.entity.EntityAspect;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.ebean.batch.MCPUpsertBatchItem;
 import com.linkedin.metadata.key.DataHubUpgradeKey;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
@@ -20,7 +22,7 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public abstract class UpgradeStep implements BootstrapStep {
 
-  protected final EntityService _entityService;
+  protected final EntityService<MCPUpsertBatchItem, EntityAspect.EntitySystemAspect> _entityService;
   private final String _version;
   private final String _upgradeId;
   private final Urn _upgradeUrn;

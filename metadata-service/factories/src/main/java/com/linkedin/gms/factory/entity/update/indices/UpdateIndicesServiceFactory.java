@@ -10,6 +10,7 @@ import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.service.UpdateIndicesService;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
+import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationContext;
@@ -42,7 +43,8 @@ public class UpdateIndicesServiceFactory {
             systemMetadataService,
             entityRegistry,
             searchDocumentTransformer,
-            entityIndexBuilders);
+            entityIndexBuilders,
+            List.of());
 
     if ("restli".equals(entityClientImpl)) {
       updateIndicesService.setSystemEntityClient(context.getBean(SystemRestliEntityClient.class));

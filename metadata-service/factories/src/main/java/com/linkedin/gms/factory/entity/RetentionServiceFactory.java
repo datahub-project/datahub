@@ -1,10 +1,12 @@
 package com.linkedin.gms.factory.entity;
 
 import com.datastax.oss.driver.api.core.CqlSession;
+import com.linkedin.metadata.entity.EntityAspect;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.RetentionService;
 import com.linkedin.metadata.entity.cassandra.CassandraRetentionService;
 import com.linkedin.metadata.entity.ebean.EbeanRetentionService;
+import com.linkedin.metadata.entity.ebean.batch.MCPUpsertBatchItem;
 import com.linkedin.metadata.spring.YamlPropertySourceFactory;
 import io.ebean.Database;
 import javax.annotation.Nonnull;
@@ -23,7 +25,7 @@ public class RetentionServiceFactory {
 
   @Autowired
   @Qualifier("entityService")
-  private EntityService _entityService;
+  private EntityService<MCPUpsertBatchItem, EntityAspect.EntitySystemAspect> _entityService;
 
   @Value("${RETENTION_APPLICATION_BATCH_SIZE:1000}")
   private Integer _batchSize;

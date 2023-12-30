@@ -23,14 +23,17 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.aspect.EnvelopedAspectArray;
 import com.linkedin.metadata.aspect.VersionedAspect;
+import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.browse.BrowseResultV2;
 import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.entity.DeleteEntityService;
+import com.linkedin.metadata.entity.EntityAspect;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.IngestResult;
-import com.linkedin.metadata.entity.ebean.transactions.AspectsBatchImpl;
-import com.linkedin.metadata.entity.transactions.AspectsBatch;
+import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
+import com.linkedin.metadata.entity.ebean.batch.MCLBatchItemImpl;
+import com.linkedin.metadata.entity.ebean.batch.MCPUpsertBatchItem;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.graph.LineageDirection;
 import com.linkedin.metadata.query.AutoCompleteResult;
@@ -84,7 +87,7 @@ public class JavaEntityClient implements EntityClient {
 
   private final Clock _clock = Clock.systemUTC();
 
-  private final EntityService _entityService;
+  private final EntityService<MCPUpsertBatchItem, EntityAspect.EntitySystemAspect> _entityService;
   private final DeleteEntityService _deleteEntityService;
   private final EntitySearchService _entitySearchService;
   private final CachingEntitySearchService _cachingEntitySearchService;
@@ -710,13 +713,16 @@ public class JavaEntityClient implements EntityClient {
 
     Stream<MetadataChangeProposal> proposalStream =
         Stream.concat(Stream.of(metadataChangeProposal), additionalChanges.stream());
-    AspectsBatch batch =
+    AspectsBatch<MCLBatchItemImpl, MCPUpsertBatchItem, EntityAspect.EntitySystemAspect> batch =
         AspectsBatchImpl.builder()
-            .mcps(proposalStream.collect(Collectors.toList()), _entityService.getEntityRegistry())
+            .mcps(
+                proposalStream.collect(Collectors.toList()),
+                auditStamp,
+                _entityService.getEntityRegistry(),
+                this)
             .build();
 
-    IngestResult one =
-        _entityService.ingestProposal(batch, auditStamp, async).stream().findFirst().get();
+    IngestResult one = _entityService.ingestProposal(batch, async).stream().findFirst().get();
 
     Urn urn = one.getUrn();
     tryIndexRunId(urn, metadataChangeProposal.getSystemMetadata());

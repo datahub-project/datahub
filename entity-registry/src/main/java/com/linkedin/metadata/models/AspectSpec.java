@@ -3,6 +3,8 @@ package com.linkedin.metadata.models;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.schema.RecordDataSchema;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.metadata.aspect.plugins.hooks.MutationHook;
+import com.linkedin.metadata.aspect.plugins.validation.AspectPayloadValidator;
 import com.linkedin.metadata.models.annotation.AspectAnnotation;
 import java.util.ArrayList;
 import java.util.List;
@@ -30,6 +32,11 @@ public class AspectSpec {
   @Setter @Getter private String registryName = "unknownRegistry";
   @Setter @Getter private ComparableVersion registryVersion = new ComparableVersion("0.0.0.0-dev");
 
+  @Nonnull @Getter private final List<AspectPayloadValidator> aspectPayloadValidators;
+
+  /** List of functions which modify incoming aspects */
+  @Nonnull @Getter private final List<MutationHook> mutationHooks;
+
   public AspectSpec(
       @Nonnull final AspectAnnotation aspectAnnotation,
       @Nonnull final List<SearchableFieldSpec> searchableFieldSpecs,
@@ -38,7 +45,9 @@ public class AspectSpec {
       @Nonnull final List<TimeseriesFieldSpec> timeseriesFieldSpecs,
       @Nonnull final List<TimeseriesFieldCollectionSpec> timeseriesFieldCollectionSpecs,
       final RecordDataSchema schema,
-      final Class<RecordTemplate> aspectClass) {
+      final Class<RecordTemplate> aspectClass,
+      @Nonnull final List<AspectPayloadValidator> aspectPayloadValidators,
+      @Nonnull final List<MutationHook> mutationHooks) {
     _aspectAnnotation = aspectAnnotation;
     _searchableFieldSpecs =
         searchableFieldSpecs.stream()
@@ -71,6 +80,14 @@ public class AspectSpec {
                     (val1, val2) -> val1));
     _schema = schema;
     _aspectClass = aspectClass;
+    this.aspectPayloadValidators =
+        aspectPayloadValidators.stream()
+            .filter(validator -> validator.shouldApply(_aspectAnnotation.getName()))
+            .collect(Collectors.toList());
+    this.mutationHooks =
+        mutationHooks.stream()
+            .filter(mutationHook -> mutationHook.shouldApply(_aspectAnnotation.getName()))
+            .collect(Collectors.toList());
   }
 
   public String getName() {

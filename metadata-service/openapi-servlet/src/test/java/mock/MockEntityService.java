@@ -58,7 +58,14 @@ public class MockEntityService extends EntityServiceImpl {
       @Nonnull EntityRegistry entityRegistry,
       @Nonnull UpdateIndicesService updateIndicesService,
       PreProcessHooks preProcessHooks) {
-    super(aspectDao, producer, entityRegistry, true, updateIndicesService, preProcessHooks);
+    super(
+        aspectDao,
+        producer,
+        entityRegistry,
+        true,
+        updateIndicesService,
+        preProcessHooks,
+        List.of());
   }
 
   @Override
@@ -80,8 +87,7 @@ public class MockEntityService extends EntityServiceImpl {
 
   @Override
   public Map<Urn, List<EnvelopedAspect>> getLatestEnvelopedAspects(
-      @Nonnull String entityName, @Nonnull Set<Urn> urns, @Nonnull Set<String> aspectNames)
-      throws URISyntaxException {
+      @Nonnull Set<Urn> urns, @Nonnull Set<String> aspectNames) throws URISyntaxException {
     Urn urn = UrnUtils.getUrn(DATASET_URN);
     Map<Urn, List<EnvelopedAspect>> envelopedAspectMap = new HashMap<>();
     List<EnvelopedAspect> aspects = new ArrayList<>();

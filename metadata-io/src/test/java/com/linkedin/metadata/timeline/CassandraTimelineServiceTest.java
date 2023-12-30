@@ -9,6 +9,7 @@ import com.linkedin.metadata.entity.EntityServiceImpl;
 import com.linkedin.metadata.entity.cassandra.CassandraAspectDao;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.models.registry.EntityRegistryException;
+import java.util.List;
 import org.testcontainers.containers.CassandraContainer;
 import org.testng.Assert;
 import org.testng.annotations.AfterClass;
@@ -61,7 +62,8 @@ public class CassandraTimelineServiceTest extends TimelineServiceTest<CassandraA
             _testEntityRegistry,
             true,
             _mockUpdateIndicesService,
-            preProcessHooks);
+            preProcessHooks,
+            List.of());
   }
 
   /**

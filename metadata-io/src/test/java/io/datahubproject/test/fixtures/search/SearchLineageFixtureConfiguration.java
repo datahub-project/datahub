@@ -37,6 +37,7 @@ import com.linkedin.metadata.version.GitVersion;
 import io.datahubproject.test.search.config.SearchCommonTestConfiguration;
 import io.datahubproject.test.search.config.SearchTestContainerConfiguration;
 import java.io.IOException;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import javax.annotation.Nonnull;
@@ -234,7 +235,7 @@ public class SearchLineageFixtureConfiguration {
     PreProcessHooks preProcessHooks = new PreProcessHooks();
     preProcessHooks.setUiEnabled(true);
     return new JavaEntityClient(
-        new EntityServiceImpl(null, null, entityRegistry, true, null, preProcessHooks),
+        new EntityServiceImpl(null, null, entityRegistry, true, null, preProcessHooks, List.of()),
         null,
         entitySearchService,
         cachingEntitySearchService,
