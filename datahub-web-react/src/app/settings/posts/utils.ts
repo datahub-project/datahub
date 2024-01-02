@@ -16,7 +16,7 @@ export const addToListPostCache = (client, newPost, pageSize) => {
     });
 
     // Add our new post into the existing list.
-    const newPosts = [newPost, ...(currData?.listPosts?.posts || [])];
+    const newPosts = [...(currData?.listPosts?.posts || [])];
 
     // Write our data back to the cache.
     client.writeQuery({

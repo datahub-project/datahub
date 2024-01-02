@@ -92,6 +92,20 @@ public class SearchUtils {
           EntityType.NOTEBOOK,
           EntityType.DATA_PRODUCT);
 
+  /** Entities that are part of browse by default */
+  public static final List<EntityType> BROWSE_ENTITY_TYPES =
+      ImmutableList.of(
+          EntityType.DATASET,
+          EntityType.DASHBOARD,
+          EntityType.CHART,
+          EntityType.CONTAINER,
+          EntityType.MLMODEL,
+          EntityType.MLMODEL_GROUP,
+          EntityType.MLFEATURE_TABLE,
+          EntityType.DATA_FLOW,
+          EntityType.DATA_JOB,
+          EntityType.NOTEBOOK);
+
   /** A prioritized list of source filter types used to generate quick filters */
   public static final List<String> PRIORITIZED_SOURCE_ENTITY_TYPES =
       Stream.of(
