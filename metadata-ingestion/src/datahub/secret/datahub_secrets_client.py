@@ -3,8 +3,9 @@ from typing import Dict, List, Optional
 from datahub.ingestion.graph.client import DataHubGraph
 
 
-# Class used to fetch Secrets from DataHub.
 class DataHubSecretsClient:
+    """Class used to fetch secrets from DataHub."""
+
     graph: DataHubGraph
 
     def __init__(self, graph: DataHubGraph):
@@ -23,6 +24,7 @@ class DataHubSecretsClient:
             }""",
             "variables": {"input": {"secrets": secret_names}},
         }
+        # TODO: Use graph.execute_graphql() instead.
 
         # Fetch secrets using GraphQL API f
         response = self.graph._session.post(
