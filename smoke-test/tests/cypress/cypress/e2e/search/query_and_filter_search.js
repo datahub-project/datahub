@@ -8,7 +8,7 @@ const datasetNames = {
   hivePlatform: "datahub_db",
   airflowPlatform: "User Creations",
   awsPlatform: "project/root/events/logging_events_bckp",
-  hdfsPlatform: "SampleHdfsDataset",
+  hdfsPlatform: "SampleHdfsDataset"
 };
 
 const searchToExecute = (value) => {
