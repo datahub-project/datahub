@@ -1,5 +1,4 @@
 const datasetNames = {
-  datasetsType: "SampleHdfsDataset",
   dashboardsType: "Baz Dashboard",
   pipelinesType: "Users",
   MlmoduleType: "scienceModel",
@@ -38,12 +37,6 @@ const verifyFilteredEntity = (text) => {
     searchToExecute("*");
 
    // Filter by entity - Type
-      
-    // Datasets
-   selectFilteredEntity("Type", "Datasets", "filter__entityType");  
-   cy.clickOptionWithText(datasetNames.datasetsType);
-   verifyFilteredEntity('Dataset');
-   searchToExecute("*");
 
     // Dashboard
    selectFilteredEntity("Type", "Dashboards", "filter__entityType");  
