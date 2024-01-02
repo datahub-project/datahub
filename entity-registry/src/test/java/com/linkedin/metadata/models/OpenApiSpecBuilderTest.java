@@ -106,7 +106,7 @@ public class OpenApiSpecBuilderTest {
         Path.of(getClass().getResource("/").getPath(), "open-api.yaml"),
         openapiYaml.getBytes(StandardCharsets.UTF_8));
 
-    assertEquals(openAPI.getComponents().getSchemas().size(), 820);
+    assertEquals(openAPI.getComponents().getSchemas().size(), 822);
     assertEquals(openAPI.getComponents().getParameters().size(), 50);
     assertEquals(openAPI.getPaths().size(), 90);
   }
