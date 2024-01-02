@@ -35,6 +35,8 @@ export default defineConfig(({ mode }) => {
                 targets: [
                     // Self-host images by copying them to the build directory
                     { src: path.resolve(__dirname, 'src/images/*'), dest: 'assets/platforms' },
+                    // Also keep the theme json files in the build directory
+                    { src: path.resolve(__dirname, 'src/conf/theme/*.json'), dest: 'assets/conf/theme' },
                 ],
             }),
             viteStaticCopy({

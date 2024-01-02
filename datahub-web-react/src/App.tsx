@@ -73,9 +73,18 @@ export const InnerApp: React.VFC = () => {
     const [dynamicThemeConfig, setDynamicThemeConfig] = useState<Theme>(defaultThemeConfig);
 
     useEffect(() => {
-        import(/* @vite-ignore */ `./conf/theme/${import.meta.env.REACT_APP_THEME_CONFIG}`).then((theme) => {
-            setDynamicThemeConfig(theme);
-        });
+        if (import.meta.env.DEV) {
+            import(/* @vite-ignore */ `./conf/theme/${import.meta.env.REACT_APP_THEME_CONFIG}`).then((theme) => {
+                setDynamicThemeConfig(theme);
+            });
+        } else {
+            // Send a request to the server to get the theme config.
+            fetch(`/assets/conf/theme/${import.meta.env.REACT_APP_THEME_CONFIG}`)
+                .then((response) => response.json())
+                .then((theme) => {
+                    setDynamicThemeConfig(theme);
+                });
+        }
     }, []);
 
     return (
