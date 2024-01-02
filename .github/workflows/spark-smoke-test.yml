@@ -51,8 +51,7 @@ jobs:
              -x :datahub-web-react:yarnLint \
              -x :datahub-web-react:yarnGenerate \
              -x :datahub-web-react:yarnInstall \
-             -x :datahub-web-react:yarnQuickBuild \
-             -x :datahub-web-react:copyAssets \
+             -x :datahub-web-react:yarnBuild \
              -x :datahub-web-react:distZip \
              -x :datahub-web-react:jar
       - uses: actions/upload-artifact@v3

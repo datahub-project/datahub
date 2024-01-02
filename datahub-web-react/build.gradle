@@ -92,11 +92,7 @@ task yarnLintFix(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
   args = ['run', 'lint-fix']
 }
 
-task yarnBuild(type: YarnTask, dependsOn: [yarnInstall, yarnTest, yarnLint]) {
-  args = ['run', 'build']
-}
-
-task yarnQuickBuild(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
+task yarnBuild(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
   environment = [NODE_OPTIONS: "--max-old-space-size=3072 --openssl-legacy-provider"]
   args = ['run', 'build']
 
@@ -131,24 +127,16 @@ configurations {
 }
 
 distZip {
-  dependsOn yarnQuickBuild
+  dependsOn yarnBuild
   archiveFileName = "datahub-web-react-${archiveVersion}.${archiveExtension}"
   from 'dist'
 }
 
-task copyAssets(dependsOn: distZip) {
-  doLast {
-    copy {
-      from zipTree(distZip.outputs.files.first())
-      into "../datahub-frontend/public"
-    }
-  }
-}
-
 jar {
-  dependsOn distZip, copyAssets
+  dependsOn distZip
   into('public') {
     from zipTree(distZip.outputs.files.first())
   }
   archiveClassifier = 'assets'
 }
+build.dependsOn jar
