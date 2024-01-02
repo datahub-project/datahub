@@ -1,57 +1,104 @@
-describe("auto-complete dropdown, filter plus query search test", () => {
+const datasetNames = {
+  datasetsType: "SampleHdfsDataset",
+  dashboardsType: "Baz Dashboard",
+  pipelinesType: "Users",
+  MlmoduleType: "scienceModel",
+  glossaryTermsType: "AccountBalance",
+  tags: "Baz Chart 1",
+  hivePlatform: "datahub_db",
+  airflowPlatform: "User Creations",
+  awsPlatform: "project/root/events/logging_events_bckp",
+  hdfsPlatform: "SampleHdfsDataset",
+};
 
-  const platformQuerySearch = (query,test_id,active_filter) => {
-    cy.visit("/");
-    cy.get("input[data-testid=search-input]").type(query);
-    cy.get(`[data-testid="quick-filter-urn:li:dataPlatform:${test_id}"]`).click();
-    cy.focused().type("{enter}").wait(3000);
-    cy.url().should(
-      "include",
-      `?filter_platform___false___EQUAL___0=urn%3Ali%3AdataPlatform%3A${test_id}`
-    );
-    cy.get('[data-testid="search-input"]').should("have.value", query);
-    cy.get(`[data-testid="active-filter-${active_filter}"]`).should("be.visible");
-    cy.contains("of 0 results").should("not.exist");
-    cy.contains(/of [0-9]+ results/);
-  }
+const searchToExecute = (value) => {
+  cy.get("input[data-testid=search-input]").eq(0).type(`${value}{enter}`);
+  cy.waitTextPresent("Type");
+};
 
-  const entityQuerySearch = (query,test_id,active_filter) => {
-    cy.visit("/");
-    cy.get("input[data-testid=search-input]").type(query);
-    cy.get(`[data-testid="quick-filter-${test_id}"]`).click();
-    cy.focused().type("{enter}").wait(3000);
-    cy.url().should(
-      "include",
-      `?filter__entityType___false___EQUAL___0=${test_id}`
-    );
-    cy.get('[data-testid="search-input"]').should("have.value", query);
-    cy.get(`[data-testid="active-filter-${active_filter}"]`).should("be.visible");
-    cy.contains("of 0 results").should("not.exist");
-    cy.contains(/of [0-9]+ results/);
-  }
+const selectFilteredEntity = (textToClick, entity, url) => {
+  cy.get(`[data-testid=filter-dropdown-${textToClick}]`).click({ force: true });
+  cy.get(`[data-testid="filter-option-${entity}"]`).click({ force: true });
+  cy.get("[data-testid=update-filters]").click({ force: true });
+  cy.url().should("include", `${url}`);
+  cy.get("[data-testid=update-filters]").should("not.be.visible");
+  cy.get('.ant-pagination-next').scrollIntoView().should('be.visible');
+};
 
+const verifyFilteredEntity = (text) => {
+  cy.get('.ant-typography').contains(text).should('be.visible');
+};
+
+ describe("auto-complete dropdown, filter plus query search test", () => {
   it("verify the 'filter by' section + query (result in search page with query applied + filter applied)", () => {
-    // Platform query plus filter test
-    cy.loginWithCredentials();
-    // Airflow
-    platformQuerySearch ("cypress","airflow","Airflow");
-    // BigQuery
-    platformQuerySearch ("cypress","bigquery","BigQuery");
-    // dbt
-    platformQuerySearch ("cypress","dbt","dbt");
-    // Hive 
-    platformQuerySearch ("cypress","hive","Hive");
+  
+   // Platform query plus filter test
+    cy.loginWithCredentials();      
+    cy.visit('/');
+    searchToExecute("*");
 
-    // Entity type query plus filter test
+   // Filter by entity - Type
+      
     // Datasets
-    entityQuerySearch ("cypress","DATASET","Datasets");
-    // Dashboards
-    entityQuerySearch ("cypress","DASHBOARD","Dashboards");
-    // Pipelines
-    entityQuerySearch ("cypress","DATA_FLOW","Pipelines");
-    // Domains
-    entityQuerySearch ("Marketing","DOMAIN","Domains");
+   selectFilteredEntity("Type", "Datasets", "filter__entityType");  
+   cy.clickOptionWithText(datasetNames.datasetsType);
+   verifyFilteredEntity('Dataset');
+   searchToExecute("*");
+
+    // Dashboard
+   selectFilteredEntity("Type", "Dashboards", "filter__entityType");  
+   cy.clickOptionWithText(datasetNames.dashboardsType);
+   verifyFilteredEntity('Dashboard');
+   searchToExecute("*");
+
+    // Ml models
+   selectFilteredEntity("Type", "ML Models", "filter__entityType");  
+   cy.clickOptionWithText(datasetNames.MlmoduleType);
+   verifyFilteredEntity('ML Model');
+   searchToExecute("*");
+
+   // Pipeline
+   selectFilteredEntity("Type", "Pipelines", "filter__entityType");  
+   cy.clickOptionWithText(datasetNames.pipelinesType);
+   verifyFilteredEntity('Pipeline');
+   searchToExecute('*')
+
+   // Filter by entity - Platform
+
+   // Hive
+   selectFilteredEntity("Platform", "Hive", "filter_platform");
+    cy.clickOptionWithText(datasetNames.hivePlatform);
+    verifyFilteredEntity('Hive');
+    searchToExecute('*')
+  
+    // Airflow
+    selectFilteredEntity("Platform", "Airflow", "filter_platform");
+    cy.clickOptionWithText(datasetNames.airflowPlatform);
+    verifyFilteredEntity('Airflow');
+    searchToExecute('*')
+
+    // AWS S3
+    selectFilteredEntity("Platform", "AWS S3", "filter_platform");
+    cy.clickOptionWithText(datasetNames.awsPlatform);
+    verifyFilteredEntity('AWS S3');
+    searchToExecute('*')
+
+    // HDFS
+    selectFilteredEntity("Platform", "HDFS", "filter_platform");
+    cy.clickOptionWithText(datasetNames.hdfsPlatform);
+    verifyFilteredEntity('HDFS');
+    searchToExecute('*')
+
     // Glossary Terms
-    entityQuerySearch ("cypress","GLOSSARY_TERM","Glossary Terms");
-  });
+    selectFilteredEntity("Type", "Glossary Terms", "filter__entityType");
+    cy.clickOptionWithText(datasetNames.glossaryTermsType);
+    verifyFilteredEntity('Glossary Term');
+    searchToExecute('*')
+    
+    // Tag
+    selectFilteredEntity("Tag", "Legacy", "filter_tags");
+    cy.clickOptionWithText(datasetNames.tags);
+    cy.mouseover('[data-testid="tag-Legacy"]');
+    verifyFilteredEntity('Legacy');
+   });
 });
