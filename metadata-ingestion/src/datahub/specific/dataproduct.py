@@ -152,7 +152,7 @@ class DataProductPatchBuilder(MetadataPatchProposal):
         self._add_patch(
             DataProductProperties.ASPECT_NAME,
             "replace",
-            path="/external_url",
+            path="/externalUrl",
             value=external_url,
         )
         return self
