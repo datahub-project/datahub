@@ -51,7 +51,7 @@ export default function SelectRole({ user, userRoleUrn, selectRoleOptions, refet
 
     useEffect(() => {
         setCurrentRoleUrn(defaultRoleUrn);
-    }, [defaultRoleUrn])
+    }, [defaultRoleUrn]);
 
     const onSelectRole = (roleUrn: string) => {
         setCurrentRoleUrn(roleUrn);
