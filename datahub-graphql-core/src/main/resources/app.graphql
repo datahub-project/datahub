@@ -438,6 +438,11 @@ type FeatureFlagsConfig {
   showBrowseV2: Boolean!
 
   """
+  Whether browse v2 is platform mode, which means that platforms are displayed instead of entity types at the root.
+  """
+  platformBrowseV2: Boolean!
+
+  """
   Whether we should show CTAs in the UI related to moving to Managed DataHub by Acryl.
   """
   showAcrylInfo: Boolean!

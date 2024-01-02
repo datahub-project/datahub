@@ -94,7 +94,7 @@ class QuickstartVersionMappingConfig(BaseModel):
             try:
                 release = cls._fetch_latest_version()
                 config.quickstart_version_map["stable"] = QuickstartExecutionPlan(
-                    composefile_git_ref=release, docker_tag=release, mysql_tag=release
+                    composefile_git_ref=release, docker_tag=release, mysql_tag="5.7"
                 )
             except Exception:
                 click.echo(
@@ -123,7 +123,7 @@ class QuickstartVersionMappingConfig(BaseModel):
             QuickstartExecutionPlan(
                 composefile_git_ref=composefile_git_ref,
                 docker_tag=docker_tag,
-                mysql_tag=mysql_tag,
+                mysql_tag=str(mysql_tag),
             ),
         )
         # new CLI version is downloading the composefile corresponding to the requested version

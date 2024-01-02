@@ -1,13 +1,9 @@
 package auth;
 
 import static auth.AuthUtils.*;
-import static auth.sso.oidc.OidcConfigs.*;
 import static utils.ConfigUtil.*;
 
-import auth.sso.SsoConfigs;
 import auth.sso.SsoManager;
-import auth.sso.oidc.OidcConfigs;
-import auth.sso.oidc.OidcProvider;
 import client.AuthServiceClient;
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
@@ -23,14 +19,11 @@ import com.linkedin.util.Configuration;
 import config.ConfigurationProvider;
 import controllers.SsoCallbackController;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
 import java.util.Collections;
-import java.util.List;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
-import org.pac4j.core.client.Client;
-import org.pac4j.core.client.Clients;
 import org.pac4j.core.config.Config;
 import org.pac4j.core.context.session.SessionStore;
 import org.pac4j.play.LogoutController;
@@ -45,6 +38,7 @@ import play.cache.SyncCacheApi;
 import utils.ConfigUtil;
 
 /** Responsible for configuring, validating, and providing authentication related components. */
+@Slf4j
 public class AuthModule extends AbstractModule {
 
   /**
@@ -58,6 +52,7 @@ public class AuthModule extends AbstractModule {
   private static final String PAC4J_SESSIONSTORE_PROVIDER_CONF = "pac4j.sessionStore.provider";
   private static final String ENTITY_CLIENT_RETRY_INTERVAL = "entityClient.retryInterval";
   private static final String ENTITY_CLIENT_NUM_RETRIES = "entityClient.numRetries";
+  private static final String GET_SSO_SETTINGS_ENDPOINT = "auth/getSsoSettings";
 
   private final com.typesafe.config.Config _configs;
 
@@ -111,6 +106,7 @@ public class AuthModule extends AbstractModule {
                   Authentication.class,
                   SystemEntityClient.class,
                   AuthServiceClient.class,
+                  org.pac4j.core.config.Config.class,
                   com.typesafe.config.Config.class));
     } catch (NoSuchMethodException | SecurityException e) {
       throw new RuntimeException(
@@ -124,34 +120,20 @@ public class AuthModule extends AbstractModule {
 
   @Provides
   @Singleton
-  protected Config provideConfig(SsoManager ssoManager) {
-    if (ssoManager.isSsoEnabled()) {
-      final Clients clients = new Clients();
-      final List<Client> clientList = new ArrayList<>();
-      clientList.add(ssoManager.getSsoProvider().client());
-      clients.setClients(clientList);
-      final Config config = new Config(clients);
-      config.setHttpActionAdapter(new PlayHttpActionAdapter());
-      return config;
-    }
-    return new Config();
+  protected Config provideConfig() {
+    Config config = new Config();
+    config.setHttpActionAdapter(new PlayHttpActionAdapter());
+    return config;
   }
 
   @Provides
   @Singleton
-  protected SsoManager provideSsoManager() {
-    SsoManager manager = new SsoManager();
-    // Seed the SSO manager with a default SSO provider.
-    if (isSsoEnabled(_configs)) {
-      SsoConfigs ssoConfigs = new SsoConfigs(_configs);
-      if (ssoConfigs.isOidcEnabled()) {
-        // Register OIDC Provider, add to list of managers.
-        OidcConfigs oidcConfigs = new OidcConfigs(_configs);
-        OidcProvider oidcProvider = new OidcProvider(oidcConfigs);
-        // Set the default SSO provider to this OIDC client.
-        manager.setSsoProvider(oidcProvider);
-      }
-    }
+  protected SsoManager provideSsoManager(
+      Authentication systemAuthentication, CloseableHttpClient httpClient) {
+    SsoManager manager =
+        new SsoManager(
+            _configs, systemAuthentication, getSsoSettingsRequestUrl(_configs), httpClient);
+    manager.initializeSsoProvider();
     return manager;
   }
 
@@ -193,31 +175,14 @@ public class AuthModule extends AbstractModule {
 
   @Provides
   @Singleton
-  protected CloseableHttpClient provideHttpClient() {
-    return HttpClients.createDefault();
-  }
-
-  @Provides
-  @Singleton
   protected AuthServiceClient provideAuthClient(
       Authentication systemAuthentication, CloseableHttpClient httpClient) {
     // Init a GMS auth client
-    final String metadataServiceHost =
-        _configs.hasPath(METADATA_SERVICE_HOST_CONFIG_PATH)
-            ? _configs.getString(METADATA_SERVICE_HOST_CONFIG_PATH)
-            : Configuration.getEnvironmentVariable(GMS_HOST_ENV_VAR, DEFAULT_GMS_HOST);
+    final String metadataServiceHost = getMetadataServiceHost(_configs);
 
-    final int metadataServicePort =
-        _configs.hasPath(METADATA_SERVICE_PORT_CONFIG_PATH)
-            ? _configs.getInt(METADATA_SERVICE_PORT_CONFIG_PATH)
-            : Integer.parseInt(
-                Configuration.getEnvironmentVariable(GMS_PORT_ENV_VAR, DEFAULT_GMS_PORT));
+    final int metadataServicePort = getMetadataServicePort(_configs);
 
-    final Boolean metadataServiceUseSsl =
-        _configs.hasPath(METADATA_SERVICE_USE_SSL_CONFIG_PATH)
-            ? _configs.getBoolean(METADATA_SERVICE_USE_SSL_CONFIG_PATH)
-            : Boolean.parseBoolean(
-                Configuration.getEnvironmentVariable(GMS_USE_SSL_ENV_VAR, DEFAULT_GMS_USE_SSL));
+    final boolean metadataServiceUseSsl = doesMetadataServiceUseSsl(_configs);
 
     return new AuthServiceClient(
         metadataServiceHost,
@@ -225,6 +190,12 @@ public class AuthModule extends AbstractModule {
         metadataServiceUseSsl,
         systemAuthentication,
         httpClient);
+  }
+
+  @Provides
+  @Singleton
+  protected CloseableHttpClient provideHttpClient() {
+    return HttpClients.createDefault();
   }
 
   private com.linkedin.restli.client.Client buildRestliClient() {
@@ -255,16 +226,33 @@ public class AuthModule extends AbstractModule {
         metadataServiceSslProtocol);
   }
 
-  protected boolean isSsoEnabled(com.typesafe.config.Config configs) {
-    // If OIDC is enabled, we infer SSO to be enabled.
-    return configs.hasPath(OIDC_ENABLED_CONFIG_PATH)
-        && Boolean.TRUE.equals(Boolean.parseBoolean(configs.getString(OIDC_ENABLED_CONFIG_PATH)));
+  protected boolean doesMetadataServiceUseSsl(com.typesafe.config.Config configs) {
+    return configs.hasPath(METADATA_SERVICE_USE_SSL_CONFIG_PATH)
+        ? configs.getBoolean(METADATA_SERVICE_USE_SSL_CONFIG_PATH)
+        : Boolean.parseBoolean(
+            Configuration.getEnvironmentVariable(GMS_USE_SSL_ENV_VAR, DEFAULT_GMS_USE_SSL));
   }
 
-  protected boolean isMetadataServiceAuthEnabled(com.typesafe.config.Config configs) {
-    // If OIDC is enabled, we infer SSO to be enabled.
-    return configs.hasPath(METADATA_SERVICE_AUTH_ENABLED_CONFIG_PATH)
-        && Boolean.TRUE.equals(
-            Boolean.parseBoolean(configs.getString(METADATA_SERVICE_AUTH_ENABLED_CONFIG_PATH)));
+  protected String getMetadataServiceHost(com.typesafe.config.Config configs) {
+    return configs.hasPath(METADATA_SERVICE_HOST_CONFIG_PATH)
+        ? configs.getString(METADATA_SERVICE_HOST_CONFIG_PATH)
+        : Configuration.getEnvironmentVariable(GMS_HOST_ENV_VAR, DEFAULT_GMS_HOST);
+  }
+
+  protected Integer getMetadataServicePort(com.typesafe.config.Config configs) {
+    return configs.hasPath(METADATA_SERVICE_PORT_CONFIG_PATH)
+        ? configs.getInt(METADATA_SERVICE_PORT_CONFIG_PATH)
+        : Integer.parseInt(
+            Configuration.getEnvironmentVariable(GMS_PORT_ENV_VAR, DEFAULT_GMS_PORT));
+  }
+
+  protected String getSsoSettingsRequestUrl(com.typesafe.config.Config configs) {
+    final String protocol = doesMetadataServiceUseSsl(configs) ? "https" : "http";
+    final String metadataServiceHost = getMetadataServiceHost(configs);
+    final Integer metadataServicePort = getMetadataServicePort(configs);
+
+    return String.format(
+        "%s://%s:%s/%s",
+        protocol, metadataServiceHost, metadataServicePort, GET_SSO_SETTINGS_ENDPOINT);
   }
 }
