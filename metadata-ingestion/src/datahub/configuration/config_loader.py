@@ -5,7 +5,7 @@ import re
 import sys
 import tempfile
 import unittest.mock
-from typing import Any, Dict, Mapping, Set, Union
+from typing import Any, Dict, Mapping, Optional, Set, Union
 from urllib import parse
 
 import requests
@@ -65,8 +65,10 @@ def list_referenced_env_variables(config: dict) -> Set[str]:
 
     vars = set()
 
-    def mock_get_env(key: str) -> str:
+    def mock_get_env(key: str, default: Optional[str] = None) -> str:
         vars.add(key)
+        if default is not None:
+            return default
         return "mocked_value"
 
     mock = unittest.mock.MagicMock()
