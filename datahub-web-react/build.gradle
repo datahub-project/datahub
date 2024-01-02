@@ -65,10 +65,11 @@ task yarnGenerate(type: YarnTask, dependsOn: yarnInstall) {
     yarnInstall.inputs.files,
     file('codegen.yml'),
     project.fileTree(dir: "../datahub-graphql-core/src/main/resources/", include: "*.graphql"),
+    project.fileTree(dir: "src", include: "**/*.graphql"),
   )
 
   outputs.files(
-    project.fileTree(dir: "src/", include: "**/*.generated.ts"),
+    project.fileTree(dir: "src", include: "**/*.generated.ts"),
   )
 }
 
