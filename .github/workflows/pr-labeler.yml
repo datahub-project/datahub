@@ -14,3 +14,18 @@ jobs:
         with:
           repo-token: "${{ secrets.GITHUB_TOKEN }}"
           configuration-path: ".github/pr-labeler-config.yml"
+      - uses: actions-ecosystem/action-add-labels@v1.1.0
+        if: 
+          ${{ 
+            contains(
+              fromJson('[
+                "anshbansal",
+                "some-username-2"
+              ]'), 
+              github.actor
+            ) 
+          }}
+        with:
+          github_token: ${{ github.token }}
+          labels: |
+            priority +1
