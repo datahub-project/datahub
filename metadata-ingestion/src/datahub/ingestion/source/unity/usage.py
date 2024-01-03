@@ -117,7 +117,10 @@ class UnityCatalogUsageExtractor:
     def _generate_operation_workunit(
         self, query: Query, table_info: QueryTableInfo
     ) -> Iterable[MetadataWorkUnit]:
-        if query.statement_type not in OPERATION_STATEMENT_TYPES:
+        if (
+            not query.statement_type
+            or query.statement_type not in OPERATION_STATEMENT_TYPES
+        ):
             return None
 
         # Not sure about behavior when there are multiple target tables. This is a best attempt.

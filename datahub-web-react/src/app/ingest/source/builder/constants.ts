@@ -103,6 +103,8 @@ export const CUSTOM = 'custom';
 export const CUSTOM_URN = `urn:li:dataPlatform:${CUSTOM}`;
 export const UNITY_CATALOG = 'unity-catalog';
 export const UNITY_CATALOG_URN = `urn:li:dataPlatform:${UNITY_CATALOG}`;
+export const DATABRICKS = 'databricks';
+export const DATABRICKS_URN = `urn:li:dataPlatform:${DATABRICKS}`;
 export const DBT_CLOUD = 'dbt-cloud';
 export const DBT_CLOUD_URN = `urn:li:dataPlatform:dbt`;
 export const VERTICA = 'vertica';
@@ -143,6 +145,7 @@ export const PLATFORM_URN_TO_LOGO = {
     [TRINO_URN]: trinoLogo,
     [SUPERSET_URN]: supersetLogo,
     [UNITY_CATALOG_URN]: databricksLogo,
+    [DATABRICKS_URN]: databricksLogo,
     [VERTICA_URN]: verticaLogo,
     [FIVETRAN_URN]: fivetranLogo,
     [CSV_URN]: csvLogo,
