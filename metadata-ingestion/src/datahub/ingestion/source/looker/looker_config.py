@@ -160,11 +160,6 @@ class LookerDashboardSourceConfig(
         description="When enabled, extracts ownership from Looker directly. When disabled, ownership is left empty "
         "for dashboards and charts.",
     )
-    actor: Optional[str] = Field(
-        None,
-        description="This config is deprecated in favor of `extract_owners`. Previously, was the actor to use in "
-        "ownership properties of ingested metadata.",
-    )
     strip_user_ids_from_email: bool = Field(
         False,
         description="When enabled, converts Looker user emails of the form name@domain.com to urn:li:corpuser:name "

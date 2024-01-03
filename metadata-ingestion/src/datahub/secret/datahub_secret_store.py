@@ -9,10 +9,6 @@ from datahub.secret.secret_store import SecretStore
 
 logger = logging.getLogger(__name__)
 
-"""
-The following was borrowed from the acryl-executor repository.
-"""
-
 
 class DataHubSecretStoreConfig(BaseModel):
     graph_client: Optional[DataHubGraph] = None

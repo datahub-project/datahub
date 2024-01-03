@@ -1,15 +1,14 @@
 import json
 import logging
-import re
 from typing import List
 
+from datahub.configuration.config_loader import (
+    list_referenced_env_variables,
+    resolve_env_variables,
+)
 from datahub.secret.secret_store import SecretStore
 
 logger = logging.getLogger(__name__)
-
-"""
-The following was borrowed from the acryl-executor repository.
-"""
 
 
 def resolve_secrets(secret_names: List[str], secret_stores: List[SecretStore]) -> dict:
@@ -23,6 +22,18 @@ def resolve_secrets(secret_names: List[str], secret_stores: List[SecretStore]) -
             # Overlay secret values from each store, if not None.
             for secret_name, secret_value in secret_values_dict.items():
                 if secret_value is not None:
+                    # HACK: We previously, incorrectly replaced newline characters with
+                    # a r'\n' string. This was a lossy conversion, since we can no longer
+                    # distinguish between a newline character and the literal '\n' in
+                    # the secret value. For now, we assume that all r'\n' strings are
+                    # actually newline characters. This will break if a secret value
+                    # genuinely contains the string r'\n'.
+                    # Once this PR https://github.com/datahub-project/datahub/pull/9484
+                    # has baked for a while, we should be able to remove this hack.
+                    # TODO: This logic should live in the DataHub secret client/store,
+                    # not the general secret resolution logic.
+                    secret_value = secret_value.replace(r"\n", "\n")
+
                     final_secret_values[secret_name] = secret_value
         except Exception:
             logger.exception(
@@ -32,34 +43,17 @@ def resolve_secrets(secret_names: List[str], secret_stores: List[SecretStore]) -
 
 
 def resolve_recipe(recipe: str, secret_stores: List[SecretStore]) -> dict:
-    # Now attempt to find and replace all secrets inside the recipe.
-    secret_pattern = re.compile(".*?\\${(\\w+)}.*?")
-
-    resolved_recipe = recipe
-    secret_matches = secret_pattern.findall(resolved_recipe)
+    json_recipe_raw = json.loads(recipe)
 
     # 1. Extract all secrets needing resolved.
-    secrets_to_resolve = []
-    if secret_matches:
-        for match in secret_matches:
-            secrets_to_resolve.append(match)
+    secrets_to_resolve = list_referenced_env_variables(json_recipe_raw)
 
     # 2. Resolve secret values
-    secret_values_dict = resolve_secrets(secrets_to_resolve, secret_stores)
+    secret_values_dict = resolve_secrets(list(secrets_to_resolve), secret_stores)
 
     # 3. Substitute secrets into recipe file
-    if secret_matches:
-        for match in secret_matches:
-            # a. Check if secret was successfully resolved.
-            secret_value = secret_values_dict.get(match)
-            if secret_value is None:
-                # Failed to resolve secret.
-                raise Exception(
-                    f"Failed to resolve secret with name {match}. Aborting recipe execution."
-                )
+    json_recipe_resolved = resolve_env_variables(
+        json_recipe_raw, environ=secret_values_dict
+    )
 
-            # b. Substitute secret value.
-            resolved_recipe = resolved_recipe.replace(f"${{{match}}}", secret_value)
-
-    json_recipe = json.loads(resolved_recipe, strict=False)
-    return json_recipe
+    return json_recipe_resolved
