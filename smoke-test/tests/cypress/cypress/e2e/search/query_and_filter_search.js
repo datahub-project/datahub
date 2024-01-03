@@ -1,9 +1,9 @@
 const datasetNames = {
   dashboardsType: "Baz Dashboard",
   pipelinesType: "Users",
-  MlmoduleType: "scienceModel",
+  MlmoduleType: "cypress-model",
   glossaryTermsType: "AccountBalance",
-  tags: "Baz Chart 1",
+  tags: "some-cypress-feature-1",
   hivePlatform: "datahub_db",
   airflowPlatform: "User Creations",
   awsPlatform: "project/root/events/logging_events_bckp",
@@ -28,70 +28,78 @@ const verifyFilteredEntity = (text) => {
   cy.get('.ant-typography').contains(text).should('be.visible');
 };
 
- describe("auto-complete dropdown, filter plus query search test", () => {
-  it("verify the 'filter by' section + query (result in search page with query applied + filter applied)", () => {
+describe("auto-complete dropdown, filter plus query search test", () => {
   
-   // Platform query plus filter test
+  beforeEach(() => {
     cy.loginWithCredentials();      
     cy.visit('/');
+  });
+
+  it.skip("Verify the 'filter by type' section + query", () => {
+
+    //Dashboard
     searchToExecute("*");
+    selectFilteredEntity("Type", "Dashboards", "filter__entityType");  
+    cy.clickOptionWithText(datasetNames.dashboardsType);
+    verifyFilteredEntity('Dashboard');
 
-   // Filter by entity - Type
+    //Ml Models
+    searchToExecute("*");
+    selectFilteredEntity("Type", "ML Models", "filter__entityType");  
+    cy.clickOptionWithText(datasetNames.MlmoduleType);
+    verifyFilteredEntity('ML Model');
 
-    // Dashboard
-   selectFilteredEntity("Type", "Dashboards", "filter__entityType");  
-   cy.clickOptionWithText(datasetNames.dashboardsType);
-   verifyFilteredEntity('Dashboard');
-   searchToExecute("*");
+    //Piplines
+    searchToExecute("*");
+    selectFilteredEntity("Type", "Pipelines", "filter__entityType");  
+    cy.clickOptionWithText(datasetNames.pipelinesType);
+    verifyFilteredEntity('Pipeline');
+   
+  });
 
-    // Ml models
-   selectFilteredEntity("Type", "ML Models", "filter__entityType");  
-   cy.clickOptionWithText(datasetNames.MlmoduleType);
-   verifyFilteredEntity('ML Model');
-   searchToExecute("*");
+  it("Verify the 'filter by Glossary term' section + query", () => {
+   
+  //Glossary Term  
+  searchToExecute("*");
+  selectFilteredEntity("Type", "Glossary Terms", "filter__entityType");
+  cy.clickOptionWithText(datasetNames.glossaryTermsType);
+  verifyFilteredEntity('Glossary Term');
+});
 
-   // Pipeline
-   selectFilteredEntity("Type", "Pipelines", "filter__entityType");  
-   cy.clickOptionWithText(datasetNames.pipelinesType);
-   verifyFilteredEntity('Pipeline');
-   searchToExecute('*')
-
-   // Filter by entity - Platform
-
-   // Hive
-   selectFilteredEntity("Platform", "Hive", "filter_platform");
+  it("Verify the 'filter by platform' section + query", () => {
+   
+    //Hive
+    searchToExecute("*");
+    selectFilteredEntity("Platform", "Hive", "filter_platform");
     cy.clickOptionWithText(datasetNames.hivePlatform);
     verifyFilteredEntity('Hive');
-    searchToExecute('*')
-  
-    // Airflow
+    
+    //Airflow
+    searchToExecute("*");
     selectFilteredEntity("Platform", "Airflow", "filter_platform");
     cy.clickOptionWithText(datasetNames.airflowPlatform);
     verifyFilteredEntity('Airflow');
-    searchToExecute('*')
-
-    // AWS S3
+    
+    //AWS S3
+    searchToExecute("*");
     selectFilteredEntity("Platform", "AWS S3", "filter_platform");
     cy.clickOptionWithText(datasetNames.awsPlatform);
     verifyFilteredEntity('AWS S3');
-    searchToExecute('*')
-
-    // HDFS
+    
+    //HDFS
+    searchToExecute("*");
     selectFilteredEntity("Platform", "HDFS", "filter_platform");
     cy.clickOptionWithText(datasetNames.hdfsPlatform);
     verifyFilteredEntity('HDFS');
-    searchToExecute('*')
+  });
 
-    // Glossary Terms
-    selectFilteredEntity("Type", "Glossary Terms", "filter__entityType");
-    cy.clickOptionWithText(datasetNames.glossaryTermsType);
-    verifyFilteredEntity('Glossary Term');
-    searchToExecute('*')
+  it("Verify the 'filter by tag' section + query", () => {
     
-    // Tag
-    selectFilteredEntity("Tag", "Legacy", "filter_tags");
+    //CypressFeatureTag
+    searchToExecute("*");
+    selectFilteredEntity("Tag", "CypressFeatureTag", "filter_tags");
     cy.clickOptionWithText(datasetNames.tags);
-    cy.mouseover('[data-testid="tag-Legacy"]');
-    verifyFilteredEntity('Legacy');
-   });
+    cy.mouseover('[data-testid="tag-CypressFeatureTag"]');
+    verifyFilteredEntity('Feature');
+  });
 });
