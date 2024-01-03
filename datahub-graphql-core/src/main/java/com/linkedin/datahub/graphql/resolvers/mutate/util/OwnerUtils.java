@@ -148,21 +148,23 @@ public class OwnerUtils {
     ownerArray.removeIf(
         owner -> {
           // Remove old ownership if it exists (check ownerUrn + type (entity & deprecated type))
-
-          // Owner is not what we are looking for
-          if (!owner.getOwner().equals(ownerUrn)) {
-            return false;
-          }
-
-          // Check custom entity type urn if exists
-          if (owner.getTypeUrn() != null) {
-            return owner.getTypeUrn().equals(ownershipTypeUrn);
-          }
-
-          // Fall back to mapping deprecated type to the new ownership entity, if it matches remove
-          return mapOwnershipTypeToEntity(OwnershipType.valueOf(owner.getType().toString()).name())
-              .equals(ownershipTypeUrn.toString());
+          return isEqual(owner, ownerUrn, ownershipTypeUrn);
         });
+  }
+
+  public static boolean isEqual(Owner owner, Urn ownerUrn, Urn ownershipTypeUrn) {
+    if (!owner.getOwner().equals(ownerUrn)) {
+      return false;
+    }
+    if (owner.getTypeUrn() != null) {
+      return owner.getTypeUrn().equals(ownershipTypeUrn);
+    }
+    if (ownershipTypeUrn == null) {
+      return false;
+    }
+    // Fall back to mapping deprecated type to the new ownership entity
+    return mapOwnershipTypeToEntity(OwnershipType.valueOf(owner.getType().toString()).name())
+        .equals(ownershipTypeUrn.toString());
   }
 
   private static void removeOwnersIfExists(
