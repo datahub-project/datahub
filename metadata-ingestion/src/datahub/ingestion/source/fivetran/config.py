@@ -4,6 +4,7 @@ from typing import Dict, List, Optional
 
 import pydantic
 from pydantic import Field, root_validator
+from typing_extensions import Literal
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.source_common import DEFAULT_ENV, DatasetSourceConfigMixin
@@ -73,7 +74,7 @@ class BigQueryDestinationConfig(BigQueryConnectionConfig):
 
 
 class FivetranLogConfig(ConfigModel):
-    destination_platform: str = pydantic.Field(
+    destination_platform: Literal["snowflake", "bigquery"] = pydantic.Field(
         default="snowflake",
         description="The destination platform where fivetran connector log tables are dumped.",
     )

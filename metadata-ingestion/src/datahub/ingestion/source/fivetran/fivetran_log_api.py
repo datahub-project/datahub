@@ -1,6 +1,6 @@
 import json
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 from sqlalchemy import create_engine
 
@@ -18,14 +18,18 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 class FivetranLogAPI:
     def __init__(self, fivetran_log_config: FivetranLogConfig) -> None:
-        self.fivetran_log_database: Optional[str] = None
         self.fivetran_log_config = fivetran_log_config
-        self.fivetran_log_query = FivetranLogQuery()
-        self.engine = self._get_log_destination_engine()
+        (
+            self.engine,
+            self.fivetran_log_query,
+            self.fivetran_log_database,
+        ) = self._initialize_fivetran_variables()
 
-    def _get_log_destination_engine(self) -> Any:
-        destination_platform = self.fivetran_log_config.destination_platform
+    def _initialize_fivetran_variables(self) -> Tuple:
         engine = None
+        fivetran_log_database = None
+        fivetran_log_query = FivetranLogQuery()
+        destination_platform = self.fivetran_log_config.destination_platform
         # For every destination, create sqlalchemy engine,
         # set db_clause to generate select queries and set fivetran_log_database class variable
         if destination_platform == "snowflake":
@@ -38,15 +42,15 @@ class FivetranLogAPI:
                     **snowflake_destination_config.get_options(),
                 )
                 engine.execute(
-                    self.fivetran_log_query.use_database(
+                    fivetran_log_query.use_database(
                         snowflake_destination_config.database,
                     )
                 )
-                self.fivetran_log_query.set_db_clause(
+                fivetran_log_query.set_db(
                     snowflake_destination_config.log_schema,
                 )
-                self.fivetran_log_database = snowflake_destination_config.database
-        if destination_platform == "bigquery":
+                fivetran_log_database = snowflake_destination_config.database
+        elif destination_platform == "bigquery":
             bigquery_destination_config = (
                 self.fivetran_log_config.bigquery_destination_config
             )
@@ -54,11 +58,13 @@ class FivetranLogAPI:
                 engine = create_engine(
                     bigquery_destination_config.get_sql_alchemy_url(),
                 )
-                self.fivetran_log_query.set_db_clause(
-                    bigquery_destination_config.dataset
-                )
-                self.fivetran_log_database = bigquery_destination_config.dataset
-        return engine
+                fivetran_log_query.set_db(bigquery_destination_config.dataset)
+                fivetran_log_database = bigquery_destination_config.dataset
+        return (
+            engine,
+            fivetran_log_query,
+            fivetran_log_database,
+        )
 
     def _query(self, query: str) -> List[Dict]:
         logger.debug("Query : {}".format(query))

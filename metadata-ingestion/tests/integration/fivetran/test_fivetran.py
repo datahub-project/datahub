@@ -19,7 +19,7 @@ FROZEN_TIME = "2022-06-07 17:00:00"
 
 def default_query_results(query):
     fivetran_log_query = FivetranLogQuery()
-    fivetran_log_query.set_db_clause("test")
+    fivetran_log_query.set_db("test")
     if query == fivetran_log_query.use_database("test_database"):
         return []
     elif query == fivetran_log_query.get_connectors_query():

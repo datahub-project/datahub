@@ -3,7 +3,7 @@ class FivetranLogQuery:
         # Select query db clause
         self.db_clause: str = ""
 
-    def set_db_clause(self, db_name: str) -> None:
+    def set_db(self, db_name: str) -> None:
         self.db_clause = f"{db_name}."
 
     def use_database(self, db_name: str) -> str:
