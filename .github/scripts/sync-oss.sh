@@ -27,6 +27,12 @@ if ! echo "$ORIGIN_URL" | grep -q "datahub-fork"; then
     exit 1
 fi
 
+# If there's no git user set, set it.
+if ! git config --get user.name; then
+    git config --global user.name "Acryl Bot"
+    git config --global user.email "git@acryl.io"
+fi
+
 # Add the oss remote.
 if ! git remote | grep -q oss; then
     git remote add oss https://github.com/datahub-project/datahub
@@ -79,6 +85,8 @@ else
     git checkout -b $SYNC_BRANCH
 fi
 git merge master --no-edit || {
+    set +x
+
     # There's a merge conflict.
     echo 'Files with merge conflicts:'
     git ls-files --unmerged | cut -f2
@@ -87,6 +95,8 @@ git merge master --no-edit || {
     if [ "$PR_NUMBER" != "null" ]; then
         # If there's already a PR, we should add a comment to it.
         add_comment "There was a merge conflict when syncing with oss/master at $(date). Please resolve the conflict and merge the PR manually."
+    else
+        echo "There was a merge conflict when syncing with oss/master at $(date). Please resolve the conflict and create a PR manually."
     fi
 
     exit 1;
