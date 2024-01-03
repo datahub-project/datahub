@@ -3,11 +3,7 @@ from typing import Callable, Dict, List, Optional, Union
 
 import pydantic
 
-from datahub.configuration.common import (
-    ConfigModel,
-    ConfigurationError,
-    KeyValuePattern,
-)
+from datahub.configuration.common import ConfigModel, KeyValuePattern
 from datahub.configuration.import_resolver import pydantic_resolve_key
 from datahub.emitter.mce_builder import Aspect
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
