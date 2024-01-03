@@ -167,7 +167,7 @@ export const EntityProfile = <T, U>({
     subHeader,
 }: Props<T, U>): JSX.Element => {
     const { config } = useAppConfig();
-    const { joinFeatureEnabled } = config.featureFlags;
+    const { ermodelrelationFeatureEnabled } = config.featureFlags;
     const isLineageMode = useIsLineageMode();
     const isHideSiblingMode = useIsSeparateSiblingsMode();
     const entityRegistry = useEntityRegistry();
@@ -176,7 +176,7 @@ export const EntityProfile = <T, U>({
     const isCompact = React.useContext(CompactContext);
     const tabsWithDefaults = tabs.map((tab) => ({ ...tab, display: { ...defaultTabDisplayConfig, ...tab.display } }));
 
-    if (joinFeatureEnabled) {
+    if (ermodelrelationFeatureEnabled) {
         const relationIndex = tabsWithDefaults.findIndex((tab) => {
             return tab.name === 'Relationships';
         });

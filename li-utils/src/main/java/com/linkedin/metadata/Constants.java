@@ -56,7 +56,7 @@ public class Constants {
   public static final String TAG_ENTITY_NAME = "tag";
   public static final String CONTAINER_ENTITY_NAME = "container";
   public static final String DOMAIN_ENTITY_NAME = "domain";
-  public static final String JOIN_ENTITY_NAME = "join";
+  public static final String ERMODELRELATION_ENTITY_NAME = "ermodelrelation";
   public static final String ASSERTION_ENTITY_NAME = "assertion";
   public static final String INGESTION_SOURCE_ENTITY_NAME = "dataHubIngestionSource";
   public static final String SECRETS_ENTITY_NAME = "dataHubSecret";
@@ -239,10 +239,10 @@ public class Constants {
 
   public static final String DOMAIN_CREATED_TIME_INDEX_FIELD_NAME = "createdTime";
 
-  // Join
-  public static final String JOIN_KEY_ASPECT_NAME = "joinKey";
-  public static final String JOIN_PROPERTIES_ASPECT_NAME = "joinProperties";
-  public static final String EDITABLE_JOIN_PROPERTIES_ASPECT_NAME = "editableJoinProperties";
+  // ERModelRelation
+  public static final String ERMODELRELATION_KEY_ASPECT_NAME = "ermodelrelationKey";
+  public static final String ERMODELRELATION_PROPERTIES_ASPECT_NAME = "ermodelrelationProperties";
+  public static final String EDITABLE_ERMODELRELATION_PROPERTIES_ASPECT_NAME = "editableERModelRelationProperties";
 
   // Assertion
   public static final String ASSERTION_KEY_ASPECT_NAME = "assertionKey";

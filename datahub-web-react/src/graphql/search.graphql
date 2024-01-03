@@ -801,15 +801,15 @@ fragment searchResultFields on Entity {
     ... on DataProduct {
         ...dataProductSearchFields
     }
-    ... on Join {
+    ... on ERModelRelation {
         urn
         type
-        joinId
+        ermodelrelationId
         properties {
-            ...joinPropertiesFields
+            ...ermodelrelationPropertiesFields
         }
         editableProperties {
-            ...joinEditablePropertiesFields
+            ...ermodelrelationEditablePropertiesFields
         }
         ownership {
             ...ownershipFields

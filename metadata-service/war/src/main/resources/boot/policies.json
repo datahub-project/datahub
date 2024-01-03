@@ -226,7 +226,7 @@
         "GET_TIMELINE_PRIVILEGE",
         "PRODUCE_PLATFORM_EVENT_PRIVILEGE",
         "MANAGE_DATA_PRODUCTS",
-        "CREATE_JOIN_PRIVILEGE",
+        "CREATE_ERMODELRELATION_PRIVILEGE",
         "DELETE_ENTITY"
       ],
       "displayName":"Admins - Metadata Policy",

@@ -434,12 +434,12 @@ entities:
     keyAspect: dataHubViewKey
     aspects:
       - dataHubViewInfo
-  - name: join
-    doc: Join Dataset Fields
-    keyAspect: joinKey
+  - name: ermodelrelation
+    doc: ER Model Relation of  Dataset Fields
+    keyAspect: ermodelrelationKey
     aspects:
-      - joinProperties
-      - editableJoinProperties
+      - erModelRelationProperties
+      - editableERModelRelationProperties
       - institutionalMemory
       - ownership
       - status

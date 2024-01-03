@@ -28,7 +28,7 @@ import com.linkedin.metadata.service.DataProductService;
 import com.linkedin.metadata.service.LineageService;
 import com.linkedin.metadata.service.OwnershipTypeService;
 import com.linkedin.metadata.service.QueryService;
-import com.linkedin.metadata.service.JoinService;
+import com.linkedin.metadata.service.ERModelRelationService;
 import com.linkedin.metadata.service.SettingsService;
 import com.linkedin.metadata.service.ViewService;
 import com.linkedin.metadata.timeline.TimelineService;
@@ -74,6 +74,6 @@ public class GmsGraphQLEngineArgs {
     QueryService queryService;
     FeatureFlags featureFlags;
     DataProductService dataProductService;
-    JoinService joinService;
+    ERModelRelationService ermodelrelationService;
     //any fork specific args should go below this line
 }

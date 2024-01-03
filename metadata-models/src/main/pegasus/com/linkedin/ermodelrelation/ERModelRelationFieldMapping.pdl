@@ -1,0 +1,15 @@
+namespace com.linkedin.ermodelrelation
+
+import com.linkedin.dataset.SchemaFieldPath
+
+/**
+ * Field Mapping about a ermodelrelation between two datasets
+ */
+record ERModelRelationFieldMapping {
+
+  /**
+   * All fields from dataset A that are required for the ermodelrelation to dataset B
+   */
+  fieldMappings: array[FieldMap]
+
+}

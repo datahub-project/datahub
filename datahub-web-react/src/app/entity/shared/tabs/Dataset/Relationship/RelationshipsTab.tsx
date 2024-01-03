@@ -4,7 +4,7 @@ import styled from 'styled-components';
 import { ExclamationCircleFilled, LoadingOutlined, PlusOutlined, SearchOutlined } from '@ant-design/icons';
 import { useBaseEntity } from '../../../EntityContext';
 import './RelationshipsTab.less';
-import { EntityType, Join } from '../../../../../../types.generated';
+import { EntityType, ErModelRelation } from '../../../../../../types.generated';
 import { useGetSearchResultsQuery } from '../../../../../../graphql/search.generated';
 import {
     GetDatasetQuery,
@@ -13,8 +13,8 @@ import {
 } from '../../../../../../graphql/dataset.generated';
 import { useGetEntityWithSchema } from '../Schema/useGetEntitySchema';
 import closeIcon from '../../../../../../images/close_dark.svg';
-import { CreateJoinModal } from '../../../components/styled/Join/CreateJoinModal';
-import { JoinPreview } from '../../../components/styled/Join/JoinPreview';
+import { CreateERModelRelationModal } from '../../../components/styled/ERModelRelation/CreateERModelRelationModal';
+import { ERModelRelationPreview } from '../../../components/styled/ERModelRelation/ERModelRelationPreview';
 import { SearchSelectModal } from '../../../components/styled/search/SearchSelectModal';
 import { ANTD_GRAY } from '../../../constants';
 
@@ -36,7 +36,7 @@ const ThinDivider = styled(Divider)`
     margin-left: -70px;
     margin-bottom: 0px;
 `;
-const NoJoins = styled(Empty)`
+const NoERModelRelations = styled(Empty)`
     color: ${ANTD_GRAY[6]};
     padding-top: 60px;
 `;
@@ -48,22 +48,22 @@ export const RelationshipsTab = () => {
     // Dynamically load the schema + editable schema information.
     const { entityWithSchema } = useGetEntityWithSchema();
     const [modalVisible, setModalVisible] = useState(false);
-    const [joinModalVisible, setjoinModalVisible] = useState(false);
+    const [ermodelrelationModalVisible, setermodelrelationModalVisible] = useState(false);
     const tabs = [
         {
-            key: 'joinsTab',
-            tab: 'Joins',
+            key: 'ermodelrelationsTab',
+            tab: 'ERModelRelations',
         },
     ];
     const {
-        data: joins,
-        loading: loadingJoin,
-        error: errorJoin,
+        data: ermodelrelations,
+        loading: loadingERModelRelation,
+        error: errorERModelRelation,
         refetch,
     } = useGetSearchResultsQuery({
         variables: {
             input: {
-                type: EntityType.Join,
+                type: EntityType.Ermodelrelation,
                 query: `${filterText ? `${filterText}` : ''}`,
                 orFilters: [
                     {
@@ -84,29 +84,29 @@ export const RelationshipsTab = () => {
                     },
                 ],
                 start: currentPage * pageSize,
-                count: pageSize, // all matched joins
+                count: pageSize, // all matched ermodelrelations
             },
         },
     });
-    const totalResults = joins?.search?.total || 0;
-    let joinData: Join[] = [];
-    if (loadingJoin) {
-        joinData = [{}] as Join[];
+    const totalResults = ermodelrelations?.search?.total || 0;
+    let ermodelrelationData: ErModelRelation[] = [];
+    if (loadingERModelRelation) {
+        ermodelrelationData = [{}] as ErModelRelation[];
     }
 
-    if (!loadingJoin && joins?.search && joins?.search?.searchResults?.length > 0 && !errorJoin) {
-        joinData = joins.search.searchResults.map((r) => r.entity as Join);
+    if (!loadingERModelRelation && ermodelrelations?.search && ermodelrelations?.search?.searchResults?.length > 0 && !errorERModelRelation) {
+        ermodelrelationData = ermodelrelations.search.searchResults.map((r) => r.entity as ErModelRelation);
     }
 
     const contentListNoTitle: Record<string, React.ReactNode> = {
-        joinsTab:
-            joinData.length > 0 && !loadingJoin ? (
-                joinData.map((record) => {
+        ermodelrelationsTab:
+            ermodelrelationData.length > 0 && !loadingERModelRelation ? (
+                ermodelrelationData.map((record) => {
                     return (
                         <>
                             <div>
-                                <JoinPreview
-                                    joinData={record}
+                                <ERModelRelationPreview
+                                    ermodelrelationData={record}
                                     baseEntityUrn={baseEntity?.dataset?.urn}
                                     prePageType="Dataset"
                                     refetch={refetch}
@@ -118,20 +118,20 @@ export const RelationshipsTab = () => {
                 })
             ) : (
                 <>
-                    {!loadingJoin && (
+                    {!loadingERModelRelation && (
                         <div>
-                            <NoJoins />
+                            <NoERModelRelations />
                         </div>
                     )}
-                    {loadingJoin && (
+                    {loadingERModelRelation && (
                         <div>
-                            Joins <LoadingOutlined />
+                            ERModelRelations <LoadingOutlined />
                         </div>
                     )}
                 </>
             ),
     };
-    const [activeTabKey, setActiveTabKey] = useState<string>('joinsTab');
+    const [activeTabKey, setActiveTabKey] = useState<string>('ermodelrelationsTab');
     const onTabChange = (key: string) => {
         setActiveTabKey(key);
     };
@@ -156,7 +156,7 @@ export const RelationshipsTab = () => {
                 <div>
                     <ThinDivider />
                     <p className="msg-div-inner">
-                        A schema was not ingested for the dataset selected. Join cannot be created.
+                        A schema was not ingested for the dataset selected. ERModelRelation cannot be created.
                     </p>
                     <ThinDivider />
                 </div>
@@ -180,13 +180,13 @@ export const RelationshipsTab = () => {
             table2LazySchema?.dataset !== undefined &&
             table2LazySchema?.dataset?.schemaMetadata?.fields !== undefined
         ) {
-            setjoinModalVisible(false);
+            setermodelrelationModalVisible(false);
             setModalVisible(true);
         }
     }, [table2LazySchema]);
     return (
         <>
-            {joinModalVisible && (
+            {ermodelrelationModalVisible && (
                 <SearchSelectModal
                     titleText="Select Table 2"
                     continueText="Submit"
@@ -202,14 +202,14 @@ export const RelationshipsTab = () => {
                             },
                         });
                     }}
-                    onCancel={() => setjoinModalVisible(false)}
+                    onCancel={() => setermodelrelationModalVisible(false)}
                     fixedEntityTypes={[EntityType.Dataset]}
                     singleSelect
                     hideToolbar
                 />
             )}
             {baseEntity !== undefined && (
-                <CreateJoinModal
+                <CreateERModelRelationModal
                     table1={baseEntity}
                     table1Schema={entityWithSchema}
                     table2={table2LazyDataset}
@@ -234,7 +234,7 @@ export const RelationshipsTab = () => {
                 <div className="search-header-div">
                     <StyledInput
                         defaultValue={filterText}
-                        placeholder="Find join..."
+                        placeholder="Find ermodelrelation..."
                         onChange={(e) => setFilterText(e.target.value)}
                         allowClear
                         autoFocus
@@ -245,10 +245,10 @@ export const RelationshipsTab = () => {
                         className="add-btn-link"
                         hidden={entityWithSchema?.schemaMetadata?.fields === undefined}
                         onClick={() => {
-                            setjoinModalVisible(true);
+                            setermodelrelationModalVisible(true);
                         }}
                     >
-                        <PlusOutlined /> Add Join
+                        <PlusOutlined /> Add ERModelRelation
                     </Button>
                 </div>{' '}
                 <br />

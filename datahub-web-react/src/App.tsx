@@ -34,7 +34,7 @@ import { ContainerEntity } from './app/entity/container/ContainerEntity';
 import GlossaryNodeEntity from './app/entity/glossaryNode/GlossaryNodeEntity';
 import { DataPlatformEntity } from './app/entity/dataPlatform/DataPlatformEntity';
 import { DataProductEntity } from './app/entity/dataProduct/DataProductEntity';
-import { JoinEntity } from './app/entity/joins/JoinEntity';
+import { ERModelRelationEntity } from './app/entity/ermodelrelations/ERModelRelationEntity';
 import { DataPlatformInstanceEntity } from './app/entity/dataPlatformInstance/DataPlatformInstanceEntity';
 import { RoleEntity } from './app/entity/Access/RoleEntity';
 import possibleTypesResult from './possibleTypes.generated';
@@ -124,7 +124,7 @@ const App: React.VFC = () => {
         register.register(new RoleEntity());
         register.register(new DataPlatformEntity());
         register.register(new DataProductEntity());
-        register.register(new JoinEntity());
+        register.register(new ERModelRelationEntity());
         register.register(new DataPlatformInstanceEntity());
         return register;
     }, []);
