@@ -15,6 +15,7 @@ jobs:
           repo-token: "${{ secrets.GITHUB_TOKEN }}"
           configuration-path: ".github/pr-labeler-config.yml"
       - uses: actions-ecosystem/action-add-labels@v1.1.0
+        # only add names of Acryl Data team members here
         if: 
           ${{ 
             !contains(
