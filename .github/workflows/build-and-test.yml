@@ -66,15 +66,9 @@ jobs:
             **/build/reports/tests/test/**
             **/build/test-results/test/**
             **/junit.*.xml
+            !**/binary/**
       - name: Ensure codegen is updated
         uses: ./.github/actions/ensure-codegen-updated
-      - name: Slack failure notification
-        if: failure() && github.event_name == 'push'
-        uses: kpritam/slack-job-status-action@v1
-        with:
-          job-status: ${{ job.status }}
-          slack-bot-token: ${{ secrets.SLACK_BOT_TOKEN }}
-          channel: github-activities
 
   quickstart-compose-validation:
     runs-on: ubuntu-latest
