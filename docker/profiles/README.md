@@ -5,7 +5,7 @@ for quickstart use-cases as well as development use-cases. These configurations 
 infrastructure configurations that DataHub can operate on.
 
 Requirements:
-* (docker compose >= 1.20) Use the profiles requires a modern version of docker compose.
+* Using profiles requires docker compose >= 2.20.
 * If using the debug/development profiles, you will need to have built the `debug` docker images locally. See the Development Profiles section for more details.
 
 ```bash
