@@ -95,14 +95,6 @@ class UnityCatalogAnalyzeProfilerConfig(UnityCatalogProfilerConfig):
         description="Number of worker threads to use for profiling. Set to 1 to disable.",
     )
 
-    @pydantic.root_validator(skip_on_failure=True)
-    def warehouse_id_required_for_profiling(
-        cls, values: Dict[str, Any]
-    ) -> Dict[str, Any]:
-        if values.get("enabled") and not values.get("warehouse_id"):
-            raise ValueError("warehouse_id must be set when profiling is enabled.")
-        return values
-
     @property
     def include_columns(self):
         return not self.profile_table_level_only
@@ -254,6 +246,7 @@ class UnityCatalogSourceConfig(
         description="Generate usage statistics.",
     )
 
+    # TODO: Remove `type:ignore` by refactoring config
     profiling: Union[UnityCatalogGEProfilerConfig, UnityCatalogAnalyzeProfilerConfig] = Field(  # type: ignore
         default=UnityCatalogGEProfilerConfig(),
         description="Data profiling configuration",
@@ -316,7 +309,9 @@ class UnityCatalogSourceConfig(
 
     @pydantic.root_validator(skip_on_failure=True)
     def set_warehouse_id_from_profiling(cls, values: Dict[str, Any]) -> Dict[str, Any]:
-        profiling: Optional[UnityCatalogProfilerConfig] = values.get("profiling")
+        profiling: Optional[
+            Union[UnityCatalogGEProfilerConfig, UnityCatalogAnalyzeProfilerConfig]
+        ] = values.get("profiling")
         if not values.get("warehouse_id") and profiling and profiling.warehouse_id:
             values["warehouse_id"] = profiling.warehouse_id
         if (
@@ -336,6 +331,9 @@ class UnityCatalogSourceConfig(
 
         if values.get("warehouse_id") and profiling and not profiling.warehouse_id:
             profiling.warehouse_id = values["warehouse_id"]
+
+        if profiling and profiling.enabled and not profiling.warehouse_id:
+            raise ValueError("warehouse_id must be set when profiling is enabled.")
 
         return values
 

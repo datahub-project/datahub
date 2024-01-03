@@ -13,8 +13,6 @@ type Props = {
     onSubmit?: (source: SecretBuilderState, resetState: () => void) => void;
     onCancel?: () => void;
 };
-/** Regex Validations */
-export const SECRET_NAME_ALPHANUMERIC = new RegExp('^[a-zA-Z0-9_/]+(?:[w·-]*[a-zA-Z0-9/]+)*$');
 
 export const SecretBuilderModal = ({ initialState, visible, onSubmit, onCancel }: Props) => {
     const [createButtonEnabled, setCreateButtonEnabled] = useState(false);
@@ -83,11 +81,7 @@ export const SecretBuilderModal = ({ initialState, visible, onSubmit, onCancel }
                             },
                             { whitespace: false },
                             { min: 1, max: 50 },
-                            {
-                                pattern: SECRET_NAME_ALPHANUMERIC,
-                                message: '',
-                            },
-                            { pattern: /^[^\s\t${}\\,'"]+$/, message: 'This secret name is not allowed.' },
+                            { pattern: /^[a-zA-Z_]+[a-zA-Z0-9_]*$/, message: 'Please start the secret name with a letter, followed by letters, digits, or underscores only.' },
                         ]}
                         hasFeedback
                     >
