@@ -186,6 +186,8 @@ def register_mock_data(workspace_client):
                     "delta.lastUpdateVersion": "1",
                     "delta.minReaderVersion": "1",
                     "delta.minWriterVersion": "2",
+                    "spark.sql.statistics.numRows": "10",
+                    "spark.sql.statistics.totalSize": "512",
                 },
                 "generation": 2,
                 "metastore_id": "2c983545-d403-4f87-9063-5b7e3b6d3736",
@@ -199,6 +201,57 @@ def register_mock_data(workspace_client):
             }
         )
     ]
+
+    workspace_client.tables.get = lambda *args, **kwargs: databricks.sdk.service.catalog.TableInfo.from_dict(
+        {
+            "name": "quickstart_table",
+            "catalog_name": "quickstart_catalog",
+            "schema_name": "quickstart_schema",
+            "table_type": "MANAGED",
+            "data_source_format": "DELTA",
+            "columns": [
+                {
+                    "name": "columnA",
+                    "type_text": "int",
+                    "type_json": '{"name":"columnA","type":"integer","nullable":true,"metadata":{}}',
+                    "type_name": "INT",
+                    "type_precision": 0,
+                    "type_scale": 0,
+                    "position": 0,
+                    "nullable": True,
+                },
+                {
+                    "name": "columnB",
+                    "type_text": "string",
+                    "type_json": '{"name":"columnB","type":"string","nullable":true,"metadata":{}}',
+                    "type_name": "STRING",
+                    "type_precision": 0,
+                    "type_scale": 0,
+                    "position": 1,
+                    "nullable": True,
+                },
+            ],
+            "storage_location": "s3://db-02eec1f70bfe4115445be9fdb1aac6ac-s3-root-bucket/metastore/2c983545-d403-4f87-9063-5b7e3b6d3736/tables/cff27aa1-1c6a-4d78-b713-562c660c2896",
+            "owner": "account users",
+            "properties": {
+                "delta.lastCommitTimestamp": "1666185711000",
+                "delta.lastUpdateVersion": "1",
+                "delta.minReaderVersion": "1",
+                "delta.minWriterVersion": "2",
+                "spark.sql.statistics.numRows": "10",
+                "spark.sql.statistics.totalSize": "512",
+            },
+            "generation": 2,
+            "metastore_id": "2c983545-d403-4f87-9063-5b7e3b6d3736",
+            "full_name": "quickstart_catalog.quickstart_schema.quickstart_table",
+            "data_access_configuration_id": "00000000-0000-0000-0000-000000000000",
+            "created_at": 1666185698688,
+            "created_by": "abc@acryl.io",
+            "updated_at": 1666186049633,
+            "updated_by": "abc@acryl.io",
+            "table_id": "cff27aa1-1c6a-4d78-b713-562c660c2896",
+        }
+    )
 
     workspace_client.service_principals.list.return_value = [
         ServicePrincipal.from_dict(d)
@@ -220,7 +273,50 @@ def register_mock_data(workspace_client):
 
 
 def mock_hive_sql(query):
-    if query == "DESCRIBE EXTENDED `bronze_kambi`.`bet`":
+
+    if query == "DESCRIBE EXTENDED `bronze_kambi`.`bet` betStatusId":
+        return [
+            ("col_name", "betStatusId"),
+            ("data_type", "bigint"),
+            ("comment", None),
+            ("min", None),
+            ("max", None),
+            ("num_nulls", 0),
+            ("distinct_count", 1),
+            ("avg_col_len", 8),
+            ("max_col_len", 8),
+            ("histogram", None),
+        ]
+    elif query == "DESCRIBE EXTENDED `bronze_kambi`.`bet` channelId":
+        return [
+            ("col_name", "channelId"),
+            ("data_type", "bigint"),
+            ("comment", None),
+            ("min", None),
+            ("max", None),
+            ("num_nulls", 0),
+            ("distinct_count", 1),
+            ("avg_col_len", 8),
+            ("max_col_len", 8),
+            ("histogram", None),
+        ]
+    elif query == "DESCRIBE EXTENDED `bronze_kambi`.`bet` combination":
+        return [
+            ("col_name", "combination"),
+            (
+                "data_type",
+                "struct<combinationRef:bigint,currentOdds:double,eachWay:boolean,liveBetting:boolean,odds:double,outcomes:array<struct<betOfferTypeId:bigint,criterionId:bigint,criterionName:string,currentOdds:double,eventGroupId:bigint,eventGroupPath:array<struct<id:bigint,name:string>>,eventId:bigint,eventName:string,eventStartDate:string,live:boolean,odds:double,outcomeIds:array<bigint>,outcomeLabel:string,sportId:string,status:string,voidReason:string>>,payout:double,rewardExtraPayout:double,stake:double>",
+            ),
+            ("comment", None),
+            ("min", None),
+            ("max", None),
+            ("num_nulls", None),
+            ("distinct_count", None),
+            ("avg_col_len", None),
+            ("max_col_len", None),
+            ("histogram", None),
+        ]
+    elif query == "DESCRIBE EXTENDED `bronze_kambi`.`bet`":
         return [
             ("betStatusId", "bigint", None),
             ("channelId", "bigint", None),
@@ -237,6 +333,7 @@ def mock_hive_sql(query):
             ("Created Time", "Wed Jun 22 05:14:56 UTC 2022", ""),
             ("Last Access", "UNKNOWN", ""),
             ("Created By", "Spark 3.2.1", ""),
+            ("Statistics", "1024 bytes, 3 rows", ""),
             ("Type", "MANAGED", ""),
             ("Location", "dbfs:/user/hive/warehouse/bronze_kambi.db/bet", ""),
             ("Provider", "delta", ""),
@@ -312,6 +409,11 @@ def test_ingestion(pytestconfig, tmp_path, requests_mock):
                     "include_ownership": True,
                     "include_hive_metastore": True,
                     "warehouse_id": "test",
+                    "profiling": {
+                        "enabled": True,
+                        "method": "analyze",
+                        "call_analyze": False,
+                    },
                 },
             },
             "sink": {

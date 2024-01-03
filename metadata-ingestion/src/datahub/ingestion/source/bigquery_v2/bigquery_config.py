@@ -94,6 +94,11 @@ class BigQueryV2Config(
         description="Regex patterns for project_id to filter in ingestion.",
     )
 
+    include_schema_metadata: bool = Field(
+        default=True,
+        description="Whether to ingest the BigQuery schema, i.e. projects, schemas, tables, and views.",
+    )
+
     usage: BigQueryUsageConfig = Field(
         default=BigQueryUsageConfig(), description="Usage related configs"
     )

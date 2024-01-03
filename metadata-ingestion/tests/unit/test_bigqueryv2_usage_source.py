@@ -10,6 +10,7 @@ from datahub.ingestion.source.bigquery_v2.bigquery_audit import (
 from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
 from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Report
 from datahub.ingestion.source.bigquery_v2.usage import BigQueryUsageExtractor
+from datahub.utilities.sqlglot_lineage import SchemaResolver
 
 FROZEN_TIME = "2021-07-20 00:00:00"
 
@@ -114,7 +115,10 @@ AND
     corrected_start_time = config.start_time - config.max_query_duration
     corrected_end_time = config.end_time + config.max_query_duration
     filter: str = BigQueryUsageExtractor(
-        config, BigQueryV2Report(), lambda x: ""
+        config,
+        BigQueryV2Report(),
+        schema_resolver=SchemaResolver(platform="bigquery"),
+        dataset_urn_builder=lambda x: "",
     )._generate_filter(corrected_start_time, corrected_end_time)
     assert filter == expected_filter
 
