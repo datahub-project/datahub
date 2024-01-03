@@ -17,10 +17,26 @@ jobs:
       - uses: actions-ecosystem/action-add-labels@v1.1.0
         if: 
           ${{ 
-            contains(
+            !contains(
               fromJson('[
                 "anshbansal",
-                "some-username-2"
+                "asikowitz",
+                "chriscollins3456",
+                "david-leifker",
+                "shirshanka",
+                "sid-acryl",
+                "swaroopjagadish",
+                "treff7es",
+                "yoonhyejin",
+                "eboneil",
+                "ethan-cartwright",
+                "gabe-lyons",
+                "hsheth2",
+                "jjoyce0510",
+                "maggiehays",
+                "mrjefflewis",
+                "pedro93",
+                "RyanHolstien"
               ]'), 
               github.actor
             ) 
@@ -28,4 +44,4 @@ jobs:
         with:
           github_token: ${{ github.token }}
           labels: |
-            priority +1
+            community-contribution
