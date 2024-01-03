@@ -2,9 +2,9 @@ const datasetNames = {
   dashboardsType: "Baz Dashboard",
   pipelinesType: "Users",
   MlmoduleType: "cypress-model",
-  glossaryTermsType: "AccountBalance",
+  glossaryTermsType: "CypressColumnInfoType",
   tags: "some-cypress-feature-1",
-  hivePlatform: "datahub_db",
+  hivePlatform: "cypress_logging_events",
   airflowPlatform: "User Creations",
   awsPlatform: "project/root/events/logging_events_bckp",
   hdfsPlatform: "SampleHdfsDataset"
@@ -74,12 +74,6 @@ describe("auto-complete dropdown, filter plus query search test", () => {
     cy.clickOptionWithText(datasetNames.hivePlatform);
     verifyFilteredEntity('Hive');
     
-    //Airflow
-    searchToExecute("*");
-    selectFilteredEntity("Platform", "Airflow", "filter_platform");
-    cy.clickOptionWithText(datasetNames.airflowPlatform);
-    verifyFilteredEntity('Airflow');
-    
     //AWS S3
     searchToExecute("*");
     selectFilteredEntity("Platform", "AWS S3", "filter_platform");
@@ -91,6 +85,12 @@ describe("auto-complete dropdown, filter plus query search test", () => {
     selectFilteredEntity("Platform", "HDFS", "filter_platform");
     cy.clickOptionWithText(datasetNames.hdfsPlatform);
     verifyFilteredEntity('HDFS');
+
+    //Airflow
+    searchToExecute("*");
+    selectFilteredEntity("Platform", "Airflow", "filter_platform");
+    cy.clickOptionWithText(datasetNames.airflowPlatform);
+    verifyFilteredEntity('Airflow');
   });
 
   it("Verify the 'filter by tag' section + query", () => {
