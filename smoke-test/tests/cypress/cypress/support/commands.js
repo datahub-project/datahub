@@ -331,40 +331,6 @@ Cypress.Commands.add("addGroupMember", (group_name, group_urn, member_name) => {
   cy.contains(member_name, {timeout: 10000}).should("be.visible");
 })
 
-Cypress.Commands.add("createTerm", (glossary_term) => {
-  cy.waitTextVisible("Create Glossary Term");
-  cy.enterTextInTestId("create-glossary-entity-modal-name", glossary_term);
-  cy.clickOptionWithTestId("glossary-entity-modal-create-button").wait(3000);
-})
-
-Cypress.Commands.add("deleteGlossaryTerm", (parent_group, term_group, term) => {
-  cy.goToGlossaryList();
-  cy.clickOptionWithText(parent_group);
-  cy.clickOptionWithText(term_group);
-  cy.clickOptionWithText(term).wait(3000);
-  cy.deleteFromDropdown();
-  cy.waitTextVisible("Deleted Glossary Term!");
-});
-
-Cypress.Commands.add("deleteTermGroup", (parent_group, term_group) => {
-  cy.goToGlossaryList();
-  cy.clickOptionWithText(parent_group);
-  cy.clickOptionWithText(term_group).wait(3000);
-  cy.deleteFromDropdown();
-  cy.waitTextVisible("Deleted Term Group!");
-});
-
-Cypress.Commands.add("moveGlossaryEntityToGroup", (source_group, targe_group, confirmation_msg) => {
-  cy.clickOptionWithText(source_group);
-  cy.wait(3000);
-  cy.openThreeDotDropdown();
-  cy.clickOptionWithText("Move");
-  cy.get('[data-testid="move-glossary-entity-modal"]').contains(targe_group).click({ force: true });
-  cy.get('[data-testid="move-glossary-entity-modal"]').contains(targe_group).should("be.visible");
-  cy.clickOptionWithTestId("glossary-entity-modal-move-button");
-  cy.waitTextVisible(confirmation_msg);
-});
-
 Cypress.Commands.add("createGlossaryTermGroup", (term_group_name) => {
   cy.goToGlossaryList();
   cy.clickOptionWithTestId("add-term-group-button");
@@ -375,63 +341,6 @@ Cypress.Commands.add("createGlossaryTermGroup", (term_group_name) => {
   cy.waitTextVisible(`Created Term Group!`);
 });
 
-Cypress.Commands.add("navigateToParentAndCheckTermGroup", (parentGroup, termGroup) => {
-  cy.get('[data-testid="glossary-browser-sidebar"]').contains(parentGroup).click().wait(3000);
-  cy.get('*[class^="GlossaryEntitiesList"]').contains(termGroup).should("be.visible");
-});
-
-
-Cypress.Commands.add("loginAndVisitRelatedEntities", () => {
-  cy.login();
-  cy.visit("/glossaryTerm/urn:li:glossaryTerm:CypressNode.CypressColumnInfoType/Related%20Entities");
-  cy.wait(5000);
-});
-
-Cypress.Commands.add("applyTagFilter", (tag) => {
-  cy.contains("Filters").click().wait(3000);
-  cy.get(`[data-testid="facet-tags-${tag}"]`).click({ force: true });
-  cy.wait(3000);
-});
-
-Cypress.Commands.add("applyAdvancedSearchFilter", (filterType, value) => {
-  cy.contains("Filters").click();
-  cy.contains("Advanced").click();
-  cy.contains("Add Filter").click();
-  
-  if (filterType === "Tag") {
-      cy.contains(/^Tag$/).click({ force: true });
-      cy.selectOptionInTagTermModal(value);
-  } else if (filterType === "Description") {
-      cy.get('[data-testid="adv-search-add-filter-description"]').click({ force: true });
-      cy.get('[data-testid="edit-text-input"]').type(value);
-      cy.get('[data-testid="edit-text-done-btn"]').click({ force: true });
-  }
-
-  cy.wait(2000);
-});
-
-Cypress.Commands.add("applyBasicSearchFilter", (filterType, value) => {
-  cy.contains("Basic").should("be.visible")
-  cy.contains("Add Filter").click();
-
-});
-
-Cypress.Commands.add("searchByConceptsWithLogicalOperator", (concept1, concept2, operator) => {
-  cy.contains("Filters")
-  cy.contains("Basic").should("be.visible")
-  cy.contains("Add Filter").click();
-  
-  cy.contains(/^Tag$/).click({ force: true });
-  cy.selectOptionInTagTermModal(concept1);
-
-  cy.contains("Add Filter").click();
-  cy.get('[data-testid="adv-search-add-filter-description"]').click({ force: true });
-  cy.get('[data-testid="edit-text-input"]').type(concept2);
-  cy.get('[data-testid="edit-text-done-btn"]').click({ force: true });
-
-  cy.contains("all filters").click();
-  cy.contains(operator).click({ force: true });
-});
 
 //
 //
