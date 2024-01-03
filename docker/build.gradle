@@ -36,10 +36,17 @@ tasks.register('quickstartSlim') {}
 tasks.register('quickstartDebug') {}
 tasks.register('quickstartPg') {}
 
-tasks.withType(ComposeDownForced) {
-    removeVolumes = true
+tasks.register('quickstartNuke') {
+    doFirst {
+        dockerCompose.quickstart.removeVolumes = true
+        dockerCompose.quickstartPg.removeVolumes = true
+        dockerCompose.quickstartSlim.removeVolumes = true
+        dockerCompose.quickstartDebug.removeVolumes = true
+    }
+    finalizedBy(tasks.withType(ComposeDownForced))
 }
-task quickstartNuke {
+
+tasks.register('quickstartDown') {
     finalizedBy(tasks.withType(ComposeDownForced))
 }
 
