@@ -3633,4 +3633,6 @@ export const platformPrivileges: PlatformPrivileges = {
     manageGlobalViews: true,
     manageOwnershipTypes: true,
     manageGlobalAnnouncements: true,
+    createBusinessAttributes: true,
+    manageBusinessAttributes: true,
 };

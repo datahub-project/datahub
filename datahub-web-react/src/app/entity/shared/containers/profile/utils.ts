@@ -221,3 +221,7 @@ export function sortEntityProfileTabs(appConfig: AppConfig, entityType: EntityTy
 
     return sortedTabs;
 }
+
+export function getNestedValue(obj: any, path: string) {
+    return path.split('.').reduce((o, p) => (o || {})[p], obj);
+}
