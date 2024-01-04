@@ -1,23 +1,17 @@
-const glossaryTerms = {
-  glossaryTermUrl: "/glossaryTerm/urn:li:glossaryTerm:CypressNode.CypressColumnInfoType/Related%20Entities",
-  SampleCypressHdfsDataset: "SampleCypressHdfsDataset"
-};
-
-const loginAndVisitRelatedEntities = () => {
-  cy.loginWithCredentials();
-  cy.visit(glossaryTerms.glossaryTermUrl);
-};
+const glossaryTermUrl =
+  "/glossaryTerm/urn:li:glossaryTerm:CypressNode.CypressColumnInfoType/Related%20Entities";
+const SampleCypressHdfsDataset = "SampleCypressHdfsDataset";
 
 const applyTagFilter = (tag) => {
-  cy.contains("Filters").click()
-  cy.contains("Filter").should('be.visible')
+  cy.get('[data-icon="filter"]').click();
+  cy.contains("Filter").should("be.visible");
   cy.get(`[data-testid="facet-tags-${tag}"]`).click({ force: true });
 };
 
 const applyAdvancedSearchFilter = (filterType, value) => {
-  cy.contains("Filters").click();
-  cy.contains("Advanced").click();
-  cy.contains("Add Filter").click();
+  cy.get('[aria-label="filter"]').click();
+  cy.get('[id="search-results-advanced-search"]').click();
+  cy.get('[class="anticon anticon-plus sc-dvXYtj iduHXF"]').click();
 
   if (filterType === "Tag") {
     applyTagFilterInSearch(value);
@@ -28,7 +22,7 @@ const applyAdvancedSearchFilter = (filterType, value) => {
 
 const applyBasicSearchFilter = () => {
   cy.contains("Basic").should("be.visible");
-  cy.contains("Add Filter").click();
+  cy.get('[class="anticon anticon-plus sc-dvXYtj iduHXF"]').click();
 };
 
 const searchByConceptsWithLogicalOperator = (concept1, concept2, operator) => {
@@ -37,10 +31,10 @@ const searchByConceptsWithLogicalOperator = (concept1, concept2, operator) => {
 
   applyTagFilterInSearch(concept1);
 
-  cy.contains("Add Filter").click();
+  cy.get('[class="anticon anticon-plus sc-dvXYtj iduHXF"]').click();
   applyDescriptionFilterInAdvancedSearch(concept2);
 
-  cy.contains("all filters").click();
+  cy.get('[title="all filters"]').click();
   cy.contains(operator).click({ force: true });
 };
 
@@ -52,14 +46,17 @@ const applyTagFilterInSearch = (tag) => {
 
 // Helper function to apply description filter in advanced search
 const applyDescriptionFilterInAdvancedSearch = (value) => {
-  cy.get('[data-testid="adv-search-add-filter-description"]').click({ force: true });
+  cy.get('[data-testid="adv-search-add-filter-description"]').click({
+    force: true,
+  });
   cy.get('[data-testid="edit-text-input"]').type(value);
   cy.get('[data-testid="edit-text-done-btn"]').click({ force: true });
 };
 
 describe("glossaryTerm", () => {
   beforeEach(() => {
-    loginAndVisitRelatedEntities();
+   cy.loginWithCredentials();
+   cy.visit(glossaryTermUrl);
   });
 
   it("can visit related entities", () => {
@@ -72,30 +69,31 @@ describe("glossaryTerm", () => {
     cy.contains("of 0").should("not.exist");
     cy.contains(/of 1/);
     cy.contains("cypress_logging_events");
-    cy.contains(glossaryTerms.SampleCypressHdfsDataset).should("not.exist");
+    cy.contains(SampleCypressHdfsDataset).should("not.exist");
   });
 
   it("can apply filters on related entities", () => {
     applyTagFilter("urn:li:tag:Cypress2");
     cy.contains("cypress_logging_events").should("not.exist");
-    cy.contains(glossaryTerms.SampleCypressHdfsDataset);
+    cy.contains(SampleCypressHdfsDataset);
   });
 
   it("can search related entities by a specific tag using advanced search", () => {
     applyAdvancedSearchFilter("Tag", "Cypress2");
-    cy.contains(glossaryTerms.SampleCypressHdfsDataset);
+    cy.contains(SampleCypressHdfsDataset);
     cy.contains("of 1");
   });
 
   it("can search related entities by AND-ing two concepts using search", () => {
     applyAdvancedSearchFilter();
-    cy.contains("Add Filter").click()
+
+    cy.get('[class="anticon anticon-plus sc-dvXYtj iduHXF"]').click();
     cy.get('[data-testid="adv-search-add-filter-description"]').click({
       force: true,
     });
     cy.get('[data-testid="edit-text-input"]').type("my hdfs");
     cy.get('[data-testid="edit-text-done-btn"]').click({ force: true });
-    cy.contains(glossaryTerms.SampleCypressHdfsDataset);
+    cy.contains(SampleCypressHdfsDataset);
     cy.contains("of 1");
   });
 
@@ -103,7 +101,7 @@ describe("glossaryTerm", () => {
     applyAdvancedSearchFilter("Description", "single log event");
     applyBasicSearchFilter("Tag", "Cypress2");
     searchByConceptsWithLogicalOperator("Cypress", "Tag", "any filter");
-    cy.contains(glossaryTerms.SampleCypressHdfsDataset);
+    cy.contains(SampleCypressHdfsDataset);
     cy.contains("cypress_logging_events");
   });
 });
