@@ -41,7 +41,7 @@ public class RunTestDefinitionResolver
                   .evaluateTests(
                       Set.of(urn),
                       ImmutableSet.of(parsedDefinition),
-                      TestEngine.EvaluationMode.DEFAULT)
+                      TestEngine.EvaluationMode.EVALUATE_ONLY)
                   .get(urn);
           return mapToResult(testResults);
         });
