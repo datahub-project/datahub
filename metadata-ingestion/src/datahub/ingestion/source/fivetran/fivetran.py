@@ -280,11 +280,10 @@ class FivetranSource(StatefulIngestionSourceBase):
         Datahub Ingestion framework invoke this method
         """
         logger.info("Fivetran plugin execution is started")
-        connectors = self.audit_log.get_connectors_list()
+        connectors = self.audit_log.get_connectors_list(
+            self.config.connector_patterns, self.report
+        )
         for connector in connectors:
-            if not self.config.connector_patterns.allowed(connector.connector_name):
-                self.report.report_connectors_dropped(connector.connector_name)
-                continue
             logger.info(f"Processing connector id: {connector.connector_id}")
             yield from self._get_connector_workunits(connector)
 

@@ -4,7 +4,12 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from sqlalchemy import create_engine
 
-from datahub.ingestion.source.fivetran.config import Constant, FivetranLogConfig
+from datahub.configuration.common import AllowDenyPattern
+from datahub.ingestion.source.fivetran.config import (
+    Constant,
+    FivetranLogConfig,
+    FivetranSourceReport,
+)
 from datahub.ingestion.source.fivetran.data_classes import (
     ColumnLineage,
     Connector,
@@ -154,10 +159,15 @@ class FivetranLogAPI:
             f"{user_details[Constant.GIVEN_NAME]} {user_details[Constant.FAMILY_NAME]}"
         )
 
-    def get_connectors_list(self) -> List[Connector]:
+    def get_connectors_list(
+        self, connector_patterns: AllowDenyPattern, report: FivetranSourceReport
+    ) -> List[Connector]:
         connectors: List[Connector] = []
         connector_list = self._query(self.fivetran_log_query.get_connectors_query())
         for connector in connector_list:
+            if not connector_patterns.allowed(connector[Constant.CONNECTOR_NAME]):
+                report.report_connectors_dropped(connector[Constant.CONNECTOR_NAME])
+                continue
             connectors.append(
                 Connector(
                     connector_id=connector[Constant.CONNECTOR_ID],
