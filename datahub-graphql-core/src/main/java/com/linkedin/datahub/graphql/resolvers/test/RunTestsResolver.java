@@ -29,7 +29,7 @@ public class RunTestsResolver implements DataFetcher<CompletableFuture<Boolean>>
                   ? TestEngine.EvaluationMode.valueOf(environment.getArgument(MODE_ARG_NAME))
                   : TestEngine.EvaluationMode.DEFAULT;
 
-          TestResults testResults = _testEngine.evaluateTestsForEntity(urn, evaluationMode);
+          TestResults testResults = _testEngine.evaluateTests(urn, evaluationMode);
 
           return testResults.getFailing().isEmpty();
         });

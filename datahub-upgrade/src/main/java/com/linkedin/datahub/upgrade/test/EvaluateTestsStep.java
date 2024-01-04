@@ -118,10 +118,10 @@ public class EvaluateTestsStep implements UpgradeStep {
             context
                 .report()
                 .addLine(String.format("Processing batch %d of %s entities", batch, entityType));
-            List<Urn> entitiesInBatch =
+            Set<Urn> entitiesInBatch =
                 scrollResult.getEntities().stream()
                     .map(SearchEntity::getEntity)
-                    .collect(Collectors.toList());
+                    .collect(Collectors.toSet());
             final int batchNumber = batch;
             futures.add(
                 _executorService.submit(
@@ -162,7 +162,7 @@ public class EvaluateTestsStep implements UpgradeStep {
   }
 
   private Map<Urn, TestResults> processBatch(
-      List<Urn> entitiesInBatch,
+      Set<Urn> entitiesInBatch,
       int batchNumber,
       String entityType,
       BatchTestResultAggregator resultAggregator,
@@ -170,9 +170,7 @@ public class EvaluateTestsStep implements UpgradeStep {
     {
       Map<Urn, TestResults> result;
       try {
-        result =
-            _testEngine.batchEvaluateTestsForEntities(
-                entitiesInBatch, TestEngine.EvaluationMode.DEFAULT);
+        result = _testEngine.evaluateTests(entitiesInBatch, TestEngine.EvaluationMode.DEFAULT);
         context
             .report()
             .addLine(
@@ -195,7 +193,7 @@ public class EvaluateTestsStep implements UpgradeStep {
 
   /** Increment the counters used to report results for the metadata test */
   private void incrementBatchCounters(
-      @Nonnull final List<Urn> entitiesInBatch,
+      @Nonnull final Set<Urn> entitiesInBatch,
       @Nonnull final Map<Urn, TestResults> results,
       @Nonnull final BatchTestResultAggregator resultAggregator) {
     for (Urn entityUrn : entitiesInBatch) {

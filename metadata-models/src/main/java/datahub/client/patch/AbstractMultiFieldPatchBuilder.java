@@ -95,7 +95,7 @@ public abstract class AbstractMultiFieldPatchBuilder<T extends AbstractMultiFiel
 
   /**
    * Constructs a list of Op, Path, Value triples to create as patches. Not idempotent and should
-   * not be called more than once
+   * not be called more than once (JsonNode is mutable)
    *
    * @return list of patch precursor triples
    */

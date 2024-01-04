@@ -1,0 +1,7 @@
+on:
+  types:
+    - dataset
+rules:
+  and:
+    - property: status.removed
+      operator: is_true

@@ -125,8 +125,8 @@ public class MetadataTestsDelegateImpl implements MetadataTestApiDelegate {
       final TestEngine engine = testRuntime.getSecond();
 
       Map<Urn, com.linkedin.test.TestResults> testResultsMap =
-          engine.batchEvaluateTestsForEntities(
-              List.of(entityUrn),
+          engine.evaluateTests(
+              Set.of(entityUrn),
               Optional.ofNullable(evaluateOnly).orElse(true)
                   ? TestEngine.EvaluationMode.EVALUATE_ONLY
                   : TestEngine.EvaluationMode.DEFAULT);
@@ -157,7 +157,7 @@ public class MetadataTestsDelegateImpl implements MetadataTestApiDelegate {
           Optional.ofNullable(testRuntime.getFirst().get(testUrn))
               .map(
                   info -> {
-                    List<Urn> targetUrns =
+                    Set<Urn> targetUrns =
                         entityUrnStrings.stream()
                             .map(
                                 urnStr -> {
@@ -167,10 +167,10 @@ public class MetadataTestsDelegateImpl implements MetadataTestApiDelegate {
                                     throw new RuntimeException(e);
                                   }
                                 })
-                            .collect(Collectors.toList());
+                            .collect(Collectors.toSet());
 
                     Map<Urn, com.linkedin.test.TestResults> testResultsMap =
-                        engine.batchEvaluateTestsForEntities(
+                        engine.evaluateTests(
                             targetUrns,
                             Optional.ofNullable(evaluateOnly).orElse(true)
                                 ? TestEngine.EvaluationMode.EVALUATE_ONLY
@@ -361,6 +361,11 @@ public class MetadataTestsDelegateImpl implements MetadataTestApiDelegate {
           testInfo.entrySet().stream()
               .map(entry -> new Test(entry.getKey(), entry.getValue()))
               .collect(Collectors.toList());
+    }
+
+    @Override
+    public boolean isPartial() {
+      return true;
     }
 
     @Override

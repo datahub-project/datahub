@@ -258,12 +258,12 @@ public class TestDefinitionParserTest {
         TestDefinitionParsingException.class, () -> PARSER.deserialize(TEST_URN, jsonTest));
   }
 
-  private String loadTest(String resourceName) throws Exception {
+  static String loadTest(String resourceName) throws Exception {
     URL url = Resources.getResource(resourceName);
     return convertYamlToJson(Resources.toString(url, StandardCharsets.UTF_8));
   }
 
-  String convertYamlToJson(String yaml) throws Exception {
+  static String convertYamlToJson(String yaml) throws Exception {
     ObjectMapper yamlReader = new ObjectMapper(new YAMLFactory());
     int maxSize =
         Integer.parseInt(

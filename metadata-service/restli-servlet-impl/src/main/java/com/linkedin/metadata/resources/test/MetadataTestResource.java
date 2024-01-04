@@ -21,7 +21,7 @@ import com.linkedin.test.TestResultsMap;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.net.URISyntaxException;
 import java.util.Arrays;
-import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -53,20 +53,20 @@ public class MetadataTestResource extends SimpleResourceTaskTemplate<TestInfo> {
       throws URISyntaxException {
     log.debug("Evaluate tests {} for entity {}", Arrays.toString(testUrns), urnStr);
     final Urn urn = Urn.createFromString(urnStr);
-    final List<Urn> tests =
+    final Set<Urn> tests =
         testUrns == null
             ? null
-            : Arrays.stream(testUrns).map(UrnUtils::getUrn).collect(Collectors.toList());
+            : Arrays.stream(testUrns).map(UrnUtils::getUrn).collect(Collectors.toSet());
     return RestliUtil.toTask(
         () -> {
           if (tests == null) {
-            return _testEngine.evaluateTestsForEntity(
+            return _testEngine.evaluateTests(
                 urn,
                 shouldPush != null && shouldPush
                     ? TestEngine.EvaluationMode.DEFAULT
                     : TestEngine.EvaluationMode.EVALUATE_ONLY);
           }
-          return _testEngine.evaluateTests(
+          return _testEngine.evaluateTestUrns(
               urn,
               tests,
               shouldPush != null && shouldPush
@@ -86,18 +86,18 @@ public class MetadataTestResource extends SimpleResourceTaskTemplate<TestInfo> {
       throws URISyntaxException {
     log.debug("Evaluate tests {} for entity {}", Arrays.toString(testUrns), urnStrs);
 
-    final List<Urn> urns =
-        Arrays.stream(urnStrs).map(UrnUtils::getUrn).collect(Collectors.toList());
-    final List<Urn> tests =
+    final Set<Urn> urns =
+        Arrays.stream(urnStrs).map(UrnUtils::getUrn).collect(Collectors.toSet());
+    final Set<Urn> tests =
         testUrns == null
             ? null
-            : Arrays.stream(testUrns).map(UrnUtils::getUrn).collect(Collectors.toList());
+            : Arrays.stream(testUrns).map(UrnUtils::getUrn).collect(Collectors.toSet());
     return RestliUtil.toTask(
         () -> {
           BatchedTestResults results = new BatchedTestResults().setResults(new TestResultsMap());
           if (tests == null) {
             _testEngine
-                .batchEvaluateTestsForEntities(
+                .evaluateTests(
                     urns,
                     shouldPush != null && shouldPush
                         ? TestEngine.EvaluationMode.DEFAULT
@@ -105,7 +105,7 @@ public class MetadataTestResource extends SimpleResourceTaskTemplate<TestInfo> {
                 .forEach((urn, result) -> results.getResults().put(urn.toString(), result));
           } else {
             _testEngine
-                .batchEvaluateTests(
+                .evaluateTestUrns(
                     urns,
                     tests,
                     shouldPush != null && shouldPush

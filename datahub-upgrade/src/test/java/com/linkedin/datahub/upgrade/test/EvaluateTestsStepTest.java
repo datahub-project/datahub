@@ -92,9 +92,7 @@ public class EvaluateTestsStepTest {
         .thenReturn(Set.of(Constants.DATASET_ENTITY_NAME, Constants.CHART_ENTITY_NAME));
 
     for (Urn urn : List.of(DATASET_URN, CHART_URN1, CHART_URN2)) {
-      Mockito.when(
-              mockTestEngine.batchEvaluateTestsForEntities(
-                  List.of(urn), TestEngine.EvaluationMode.DEFAULT))
+      Mockito.when(mockTestEngine.evaluateTests(Set.of(urn), TestEngine.EvaluationMode.DEFAULT))
           .thenReturn(Map.of(urn, new TestResults()));
     }
   }

@@ -67,4 +67,8 @@ public class TestResultsPatchBuilder
     }
     return this.targetEntityUrn.getEntityType();
   }
+
+  public boolean hasPatchOperations() {
+    return !pathValues.isEmpty();
+  }
 }

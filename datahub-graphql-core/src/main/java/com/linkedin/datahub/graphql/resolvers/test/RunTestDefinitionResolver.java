@@ -2,7 +2,7 @@ package com.linkedin.datahub.graphql.resolvers.test;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 
-import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.generated.RunTestDefinitionResult;
@@ -13,6 +13,7 @@ import com.linkedin.metadata.test.definition.TestDefinition;
 import com.linkedin.test.TestResults;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import lombok.RequiredArgsConstructor;
 
@@ -36,7 +37,12 @@ public class RunTestDefinitionResolver
           final TestDefinition parsedDefinition =
               _testEngine.getParser().deserialize(TEST_URN, test.getJson());
           final TestResults testResults =
-              _testEngine.evaluateTests(urn, ImmutableList.of(parsedDefinition));
+              _testEngine
+                  .evaluateTests(
+                      Set.of(urn),
+                      ImmutableSet.of(parsedDefinition),
+                      TestEngine.EvaluationMode.DEFAULT)
+                  .get(urn);
           return mapToResult(testResults);
         });
   }

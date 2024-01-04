@@ -38,6 +38,15 @@ public class TestFetcher {
   private static final SortCriterion SORT_CRITERION =
       new SortCriterion().setField(LAST_UPDATED_TIME_FIELD).setOrder(SortOrder.DESCENDING);
 
+  /**
+   * Returns less than all tests
+   *
+   * @return
+   */
+  public boolean isPartial() {
+    return false;
+  }
+
   public TestFetchResult fetch(int start, int count)
       throws RemoteInvocationException, URISyntaxException {
     return fetch(start, count, "");
