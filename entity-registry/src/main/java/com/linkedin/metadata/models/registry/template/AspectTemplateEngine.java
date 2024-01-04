@@ -21,23 +21,23 @@ import javax.annotation.Nullable;
  */
 public class AspectTemplateEngine {
 
-  public static final Stream<String> SUPPORTED_TEMPLATES_SAAS =
-      Stream.of(MONITOR_INFO_ASPECT_NAME, TEST_RESULTS_ASPECT_NAME);
-
   public static final Set<String> SUPPORTED_TEMPLATES =
-      Stream.concat(
-              SUPPORTED_TEMPLATES_SAAS,
-              Stream.of(
-                  DATASET_PROPERTIES_ASPECT_NAME,
-                  EDITABLE_SCHEMA_METADATA_ASPECT_NAME,
-                  GLOBAL_TAGS_ASPECT_NAME,
-                  GLOSSARY_TERMS_ASPECT_NAME,
-                  OWNERSHIP_ASPECT_NAME,
-                  UPSTREAM_LINEAGE_ASPECT_NAME,
-                  DATA_FLOW_INFO_ASPECT_NAME,
-                  DATA_JOB_INFO_ASPECT_NAME,
-                  DATA_PRODUCT_PROPERTIES_ASPECT_NAME,
-                  DATA_JOB_INPUT_OUTPUT_ASPECT_NAME))
+      Stream.of(
+              MONITOR_INFO_ASPECT_NAME,
+              TEST_RESULTS_ASPECT_NAME,
+              // Saas aspects before this line
+              DATASET_PROPERTIES_ASPECT_NAME,
+              EDITABLE_SCHEMA_METADATA_ASPECT_NAME,
+              GLOBAL_TAGS_ASPECT_NAME,
+              GLOSSARY_TERMS_ASPECT_NAME,
+              OWNERSHIP_ASPECT_NAME,
+              UPSTREAM_LINEAGE_ASPECT_NAME,
+              DATA_FLOW_INFO_ASPECT_NAME,
+              DATA_JOB_INFO_ASPECT_NAME,
+              DATA_PRODUCT_PROPERTIES_ASPECT_NAME,
+              DATA_JOB_INPUT_OUTPUT_ASPECT_NAME,
+              CHART_INFO_ASPECT_NAME,
+              DASHBOARD_INFO_ASPECT_NAME)
           .collect(Collectors.toSet());
 
   private final Map<String, Template<? extends RecordTemplate>> _aspectTemplateMap;

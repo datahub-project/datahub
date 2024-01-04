@@ -207,7 +207,7 @@ class DataJobPatchBuilder(MetadataPatchProposal):
         self._ensure_urn_type("dataJob", inputs, "input datajobs")
         self._add_patch(
             DataJobInputOutput.ASPECT_NAME,
-            "replace",
+            "add",
             path="/inputDatajobEdges",
             value=inputs,
         )
@@ -290,7 +290,7 @@ class DataJobPatchBuilder(MetadataPatchProposal):
         self._ensure_urn_type("dataset", inputs, "set_input_datasets")
         self._add_patch(
             DataJobInputOutput.ASPECT_NAME,
-            "replace",
+            "add",
             path="/inputDatasetEdges",
             value=inputs,
         )
@@ -375,7 +375,7 @@ class DataJobPatchBuilder(MetadataPatchProposal):
         self._ensure_urn_type("dataset", outputs, "set_output_datasets")
         self._add_patch(
             DataJobInputOutput.ASPECT_NAME,
-            "replace",
+            "add",
             path="/outputDatasetEdges",
             value=outputs,
         )
@@ -463,7 +463,7 @@ class DataJobPatchBuilder(MetadataPatchProposal):
         self._ensure_urn_type("schemaField", inputs, "set_input_dataset_fields")
         self._add_patch(
             DataJobInputOutput.ASPECT_NAME,
-            "replace",
+            "add",
             path="/inputDatasetFields",
             value=inputs,
         )
@@ -551,7 +551,7 @@ class DataJobPatchBuilder(MetadataPatchProposal):
         self._ensure_urn_type("schemaField", outputs, "set_output_dataset_fields")
         self._add_patch(
             DataJobInputOutput.ASPECT_NAME,
-            "replace",
+            "add",
             path="/outputDatasetFields",
             value=outputs,
         )
@@ -636,7 +636,7 @@ class DataJobPatchBuilder(MetadataPatchProposal):
         """
         self._add_patch(
             DataJobInfo.ASPECT_NAME,
-            "replace",
+            "add",
             path="/customProperties",
             value=custom_properties,
         )

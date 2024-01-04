@@ -43,6 +43,6 @@ class OwnershipPatchHelper(Generic[T]):
 
     def set_owners(self, owners: List[OwnerClass]) -> "OwnershipPatchHelper":
         self._parent._add_patch(
-            OwnershipClass.ASPECT_NAME, "replace", path="/owners", value=owners
+            OwnershipClass.ASPECT_NAME, "add", path="/owners", value=owners
         )
         return self

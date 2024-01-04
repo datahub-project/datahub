@@ -7,7 +7,7 @@
     "aspect": {
         "json": [
             {
-                "op": "replace",
+                "op": "add",
                 "path": "/description",
                 "value": "test description"
             },
