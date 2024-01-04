@@ -1,6 +1,6 @@
 import json
 import logging
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from sqlalchemy import create_engine
 
@@ -25,9 +25,9 @@ class FivetranLogAPI:
             self.fivetran_log_database,
         ) = self._initialize_fivetran_variables()
 
-    def _initialize_fivetran_variables(self) -> Tuple:
-        engine = None
-        fivetran_log_database = None
+    def _initialize_fivetran_variables(
+        self,
+    ) -> Tuple[Any, FivetranLogQuery, str]:
         fivetran_log_query = FivetranLogQuery()
         destination_platform = self.fivetran_log_config.destination_platform
         # For every destination, create sqlalchemy engine,

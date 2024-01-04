@@ -74,7 +74,7 @@ class FivetranSource(StatefulIngestionSourceBase):
 
         # Create and register the stateful ingestion use-case handler.
         self.stale_entity_removal_handler = StaleEntityRemovalHandler.create(
-            self, self.config, self.ctx
+            self, self.config, ctx
         )
 
     def _extend_lineage(self, connector: Connector, datajob: DataJob) -> None:
@@ -119,15 +119,13 @@ class FivetranSource(StatefulIngestionSourceBase):
             )
             input_dataset_urn_list.append(input_dataset_urn)
 
-            output_dataset_urn: Optional[DatasetUrn] = None
-            if self.audit_log.fivetran_log_database:
-                output_dataset_urn = DatasetUrn.create_from_ids(
-                    platform_id=self.config.fivetran_log_config.destination_platform,
-                    table_name=f"{self.audit_log.fivetran_log_database.lower()}.{table_lineage.destination_table}",
-                    env=destination_platform_detail.env,
-                    platform_instance=destination_platform_detail.platform_instance,
-                )
-                output_dataset_urn_list.append(output_dataset_urn)
+            output_dataset_urn = DatasetUrn.create_from_ids(
+                platform_id=self.config.fivetran_log_config.destination_platform,
+                table_name=f"{self.audit_log.fivetran_log_database.lower()}.{table_lineage.destination_table}",
+                env=destination_platform_detail.env,
+                platform_instance=destination_platform_detail.platform_instance,
+            )
+            output_dataset_urn_list.append(output_dataset_urn)
 
             if self.config.include_column_lineage:
                 for column_lineage in table_lineage.column_lineage:

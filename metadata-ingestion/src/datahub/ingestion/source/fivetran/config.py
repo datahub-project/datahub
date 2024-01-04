@@ -8,6 +8,7 @@ from typing_extensions import Literal
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.source_common import DEFAULT_ENV, DatasetSourceConfigMixin
+from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.ingestion.source.bigquery_v2.bigquery_config import (
     BigQueryConnectionConfig,
 )
@@ -85,6 +86,9 @@ class FivetranLogConfig(ConfigModel):
     bigquery_destination_config: Optional[BigQueryDestinationConfig] = pydantic.Field(
         default=None,
         description="If destination platform is 'bigquery', provide bigquery configuration.",
+    )
+    _rename_destination_config = pydantic_renamed_field(
+        "destination_config", "snowflake_destination_config"
     )
 
     @root_validator(pre=True)

@@ -5,9 +5,11 @@ from unittest.mock import MagicMock
 import pytest
 from freezegun import freeze_time
 
+from datahub.configuration.common import ConfigurationWarning
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.fivetran.config import (
     BigQueryDestinationConfig,
+    FivetranSourceConfig,
     SnowflakeDestinationConfig,
 )
 from datahub.ingestion.source.fivetran.fivetran_query import FivetranLogQuery
@@ -280,3 +282,22 @@ def test_fivetran_bigquery_destination_config():
         dataset="test_dataset",
     )
     assert bigquery_dest.get_sql_alchemy_url() == "bigquery://"
+
+
+@freeze_time(FROZEN_TIME)
+def test_rename_destination_config():
+    config_dict = {
+        "fivetran_log_config": {
+            "destination_platform": "snowflake",
+            "destination_config": {
+                "account_id": "testid",
+                "database": "test_database",
+                "log_schema": "test",
+            },
+        },
+    }
+    with pytest.warns(
+        ConfigurationWarning,
+        match="destination_config is deprecated, please use snowflake_destination_config instead.",
+    ):
+        FivetranSourceConfig.parse_obj(config_dict)
