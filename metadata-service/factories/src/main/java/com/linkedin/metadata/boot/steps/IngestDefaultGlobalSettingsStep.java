@@ -26,7 +26,7 @@ import com.linkedin.settings.global.GlobalSettingsInfo;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.util.Objects;
-import javax.annotation.Nonnull;
+import jakarta.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.ClassPathResource;
 

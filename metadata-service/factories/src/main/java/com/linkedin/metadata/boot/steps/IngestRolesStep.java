@@ -22,7 +22,7 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.policy.DataHubRoleInfo;
 import java.net.URISyntaxException;
 import java.util.List;
-import javax.annotation.Nonnull;
+import jakarta.annotation.Nonnull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.ClassPathResource;

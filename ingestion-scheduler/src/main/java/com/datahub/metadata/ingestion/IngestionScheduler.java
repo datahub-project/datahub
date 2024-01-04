@@ -24,6 +24,8 @@ import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.IngestionUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
@@ -43,7 +45,8 @@ import java.util.function.BiConsumer;
 import javax.annotation.Nonnull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.scheduling.support.CronSequenceGenerator;
+import org.springframework.scheduling.support.CronExpression;
+
 
 /**
  * This class serves as a stateful scheduler of Ingestion Runs for Ingestion Sources defined within
@@ -153,14 +156,20 @@ public class IngestionScheduler {
 
       // Construct the new cron expression
       final String modifiedCronInterval = adjustCronInterval(schedule.getInterval());
-      if (CronSequenceGenerator.isValidExpression(modifiedCronInterval)) {
+      if (CronExpression.isValidExpression(modifiedCronInterval)) {
 
         final String timezone = schedule.hasTimezone() ? schedule.getTimezone() : "UTC";
-        final CronSequenceGenerator generator =
-            new CronSequenceGenerator(modifiedCronInterval, TimeZone.getTimeZone(timezone));
-        final Date currentDate = new Date();
-        final Date nextExecDate = generator.next(currentDate);
-        final long scheduleTime = nextExecDate.getTime() - currentDate.getTime();
+        final CronExpression generator = CronExpression.parse(modifiedCronInterval);
+        final ZonedDateTime currentDate = ZonedDateTime.now(ZoneId.of(timezone));
+        final ZonedDateTime nextExecDate = generator.next(currentDate);
+        if (nextExecDate == null) {
+          log.info(
+              String.format(
+                  "Unable to determine next execution time for ingestion source with urn %s. Not scheduling.",
+                  ingestionSourceUrn));
+          return;
+        }
+        final long scheduleTime = nextExecDate.toEpochSecond() - currentDate.toEpochSecond();
 
         // Schedule the ingestion source to run some time in the future.
         final ExecutionRequestRunnable executionRequestRunnable =

@@ -27,7 +27,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Future;
-import javax.annotation.Nonnull;
+import jakarta.annotation.Nonnull;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 

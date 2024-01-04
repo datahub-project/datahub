@@ -1,4 +1,4 @@
-package com.linkedin.gms.factory.timeline;
+package com.linkedin.gms.factory.timeline.eventgenerator;
 
 import static com.linkedin.metadata.Constants.*;
 
@@ -10,6 +10,7 @@ import com.linkedin.metadata.timeline.eventgenerator.DatasetPropertiesChangeEven
 import com.linkedin.metadata.timeline.eventgenerator.DeprecationChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.EditableDatasetPropertiesChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.EditableSchemaMetadataChangeEventGenerator;
+import com.linkedin.metadata.timeline.eventgenerator.EntityChangeEventGeneratorRegistry;
 import com.linkedin.metadata.timeline.eventgenerator.EntityKeyChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.GlobalTagsChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.GlossaryTermInfoChangeEventGenerator;
@@ -33,17 +34,12 @@ public class EntityChangeEventGeneratorRegistryFactory {
 
   @Bean(name = "entityChangeEventGeneratorRegistry")
   @DependsOn({"restliEntityClient", "systemAuthentication"})
-  @Singleton
   @Nonnull
-  protected com.linkedin.metadata.timeline.eventgenerator.EntityChangeEventGeneratorRegistry
-      entityChangeEventGeneratorRegistry() {
+  protected EntityChangeEventGeneratorRegistry entityChangeEventGeneratorRegistry() {
     final SystemRestliEntityClient entityClient =
         applicationContext.getBean(SystemRestliEntityClient.class);
     final Authentication systemAuthentication = applicationContext.getBean(Authentication.class);
-
-    final com.linkedin.metadata.timeline.eventgenerator.EntityChangeEventGeneratorRegistry
-        registry =
-            new com.linkedin.metadata.timeline.eventgenerator.EntityChangeEventGeneratorRegistry();
+    final EntityChangeEventGeneratorRegistry registry = new EntityChangeEventGeneratorRegistry();
     registry.register(SCHEMA_METADATA_ASPECT_NAME, new SchemaMetadataChangeEventGenerator());
     registry.register(
         EDITABLE_SCHEMA_METADATA_ASPECT_NAME, new EditableSchemaMetadataChangeEventGenerator());
