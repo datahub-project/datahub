@@ -8,6 +8,7 @@ import {
     AssertionStdParameterType,
     DatasetAssertionInfo,
     StringMapEntry,
+    Maybe
 } from '../../../../../../types.generated';
 
 /**
@@ -82,36 +83,10 @@ export const getResultIcon = (result: AssertionResultType, color?: string) => {
     }
 };
 
-export const getResultErrorMessage = (result: AssertionResult) => {
-    if (result.type !== AssertionResultType.Error) {
-        return undefined;
-    }
-
-    const errorType = result.error?.type;
-    switch (errorType) {
-        case AssertionResultErrorType.SourceConnectionError:
-            return 'Unable to connect to dataset. Please check the dataset connection.';
-        case AssertionResultErrorType.SourceQueryFailed:
-            return 'Unable to evaluate assertion. Please check the assertion configuration.';
-        case AssertionResultErrorType.InsufficientData:
-            return 'Not enough data to evaluate assertion.';
-        case AssertionResultErrorType.InvalidParameters:
-            return 'Invalid parameters. Please check the assertion configuration.';
-        case AssertionResultErrorType.InvalidSourceType:
-            return 'Invalid source type selected.';
-        case AssertionResultErrorType.UnsupportedPlatform:
-            return 'Unsupported platform.';
-        case AssertionResultErrorType.CustomSqlError:
-            return 'Custom SQL returned an error.';
-        default:
-            return 'An unknown error occurred.';
-    }
-};
-
 /**
  * Convert an array of StringMapEntry into a map, for easy retrieval.
  */
-export const convertNativeParametersArrayToMap = (nativeParameters: Array<StringMapEntry> | undefined) => {
+export const convertNativeParametersArrayToMap = (nativeParameters: Maybe<Array<StringMapEntry>> | undefined) => {
     if (nativeParameters) {
         const map = new Map();
         nativeParameters.forEach((parameter) => {
@@ -121,6 +96,40 @@ export const convertNativeParametersArrayToMap = (nativeParameters: Array<String
     }
     return undefined;
 };
+
+export const getResultErrorMessage = (result: AssertionResult) => {
+    if (result.type !== AssertionResultType.Error) {
+        return undefined;
+    }
+
+    const errorType = result.error?.type;
+    const errorProperties = convertNativeParametersArrayToMap(result.error?.properties)
+    const errorMessage = errorProperties?.get('message')
+
+    switch (errorType) {
+        case AssertionResultErrorType.SourceConnectionError:
+            return 'Unable to connect to dataset. Please check the dataset connection.';
+        case AssertionResultErrorType.SourceQueryFailed:
+            return 'Unable to evaluate assertion. Please check the assertion configuration.';
+        case AssertionResultErrorType.InsufficientData:
+            return 'Not enough data to evaluate assertion.';
+        case AssertionResultErrorType.InvalidParameters:
+            return 'Invalid parameters. Please check the assertion configuration.';
+        case AssertionResultErrorType.InvalidSourceType:{
+            if (errorMessage?.includes('not supported for Non-Delta tables')) {
+                return 'Selected source type is not supported for Non-Delta tables. Please select different source type in assertion configuration.'
+            }
+            return 'Invalid source type selected. Please select different source type in assertion configuration.';
+        }
+        case AssertionResultErrorType.UnsupportedPlatform:
+            return 'Unsupported platform.';
+        case AssertionResultErrorType.CustomSqlError:
+            return 'Custom SQL returned an error.';
+        default:
+            return 'An unknown error occurred.';
+    }
+};
+
 
 /**
  * Returns the value of an AssertionStdParameter suitable for display

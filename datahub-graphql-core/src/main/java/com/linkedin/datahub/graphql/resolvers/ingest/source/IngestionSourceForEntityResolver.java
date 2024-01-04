@@ -44,6 +44,11 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class IngestionSourceForEntityResolver
     implements DataFetcher<CompletableFuture<IngestionSource>> {
+
+  private static final String DATABRICKS_INGESTION_SOURCE_TYPE = "databricks";
+  private static final String UNITY_CATALOG_INGESTION_SOURCE_TYPE = "unity-catalog";
+  private static final String HIVE_PLATFORM_URN = "urn:li:dataPlatform:hive";
+  private static final String DATABRICKS_PLATFORM_URN = "urn:li:dataPlatform:databricks";
   private final EntityClient _entityClient;
   private final Cache<Urn, IngestionSource> _ingestionSourceCache;
   private static final String REMOTE_EXECUTOR_ID = "remote";
@@ -173,8 +178,6 @@ public class IngestionSourceForEntityResolver
       return null;
     }
 
-    System.out.println(ingestionSourceEntityResponse);
-
     final EnvelopedAspectMap ingestionInfoAspects = ingestionSourceEntityResponse.getAspects();
     if (!ingestionInfoAspects.containsKey(Constants.INGESTION_INFO_ASPECT_NAME)) {
       return null;
@@ -207,8 +210,17 @@ public class IngestionSourceForEntityResolver
       // e.g. for DBT. here we check the data platform urn and compare it to the ingestion source
       // type.
       Urn dataPlatformUrn = UrnUtils.getUrn(entityUrn.getEntityKey().get(0));
-      return type.equalsIgnoreCase(dataPlatformUrn.getId());
+      return type.equalsIgnoreCase(dataPlatformUrn.getId()) || isDatabricksEntity(entityUrn, type);
     }
     return true;
+  }
+
+  // For databricks entities, the data platform URN will not necessarily match the ingestion source
+  // type.
+  private boolean isDatabricksEntity(@Nonnull final Urn entityUrn, @Nonnull final String type) {
+    return (type.equalsIgnoreCase(DATABRICKS_INGESTION_SOURCE_TYPE)
+            || type.equalsIgnoreCase(UNITY_CATALOG_INGESTION_SOURCE_TYPE))
+        && (entityUrn.toString().contains(DATABRICKS_PLATFORM_URN)
+            || entityUrn.toString().contains(HIVE_PLATFORM_URN));
   }
 }

@@ -7,7 +7,12 @@ import {
     DatasetVolumeSourceType,
     AssertionEvaluationParametersType,
 } from '../../../../../../../../../../types.generated';
-import { BIGQUERY_URN, REDSHIFT_URN, SNOWFLAKE_URN } from '../../../../../../../../../ingest/source/builder/constants';
+import {
+    BIGQUERY_URN,
+    REDSHIFT_URN,
+    SNOWFLAKE_URN,
+    DATABRICKS_URN,
+} from '../../../../../../../../../ingest/source/builder/constants';
 
 // Source type config
 export type VolumeSourceType = {
@@ -125,6 +130,23 @@ export const PLATFORM_ASSERTION_CONFIGS = {
                     <>
                         We&apos;ll query the Redshift Table or View to determine whether it has changed. <br />
                         This requires that the configured user account has read access to the asset.
+                    </>
+                ),
+            },
+        },
+    },
+    [DATABRICKS_URN]: {
+        defaultSourceType: DatasetVolumeSourceType.Query,
+        sourceTypes: [
+            DatasetVolumeSourceType.Query,
+            DatasetVolumeSourceType.DatahubDatasetProfile,
+        ],
+        sourceTypeDetails: {
+            [DatasetVolumeSourceType.Query]: {
+                description: (
+                    <>
+                        We&apos;ll query the Databricks Table or View to determine the row count. <br />
+                        This requires that the configured service principal (token) has read access to the asset.
                     </>
                 ),
             },
