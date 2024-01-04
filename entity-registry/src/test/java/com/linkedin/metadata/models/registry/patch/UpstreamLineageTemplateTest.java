@@ -1,4 +1,4 @@
-package com.linkedin.metadata.models.registry;
+package com.linkedin.metadata.models.registry.patch;
 
 import static com.fasterxml.jackson.databind.node.JsonNodeFactory.*;
 

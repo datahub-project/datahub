@@ -23,8 +23,6 @@ public class DataJobInputOutputTemplate implements ArrayMergingTemplate<DataJobI
   private static final String INPUT_DATASET_FIELDS_FIELD_NAME = "inputDatasetFields";
   private static final String OUTPUT_DATASET_FIELDS_FIELD_NAME = "outputDatasetFields";
 
-  // TODO: Fine Grained Lineages not patchable at this time, they don't have a well established key
-
   @Override
   public DataJobInputOutput getSubtype(RecordTemplate recordTemplate) throws ClassCastException {
     if (recordTemplate instanceof DataJobInputOutput) {
