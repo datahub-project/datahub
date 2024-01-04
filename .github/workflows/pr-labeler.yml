@@ -20,24 +20,20 @@ jobs:
           ${{ 
             !contains(
               fromJson('[
-                "anshbansal",
-                "asikowitz",
-                "chriscollins3456",
-                "david-leifker",
-                "shirshanka",
-                "sid-acryl",
-                "swaroopjagadish",
-                "treff7es",
-                "yoonhyejin",
-                "eboneil",
-                "ethan-cartwright",
-                "gabe-lyons",
-                "hsheth2",
-                "jjoyce0510",
-                "maggiehays",
-                "mrjefflewis",
-                "pedro93",
-                "RyanHolstien"
+                "skrydal",
+                "siladitya2",
+                "sgomezvillamor",
+                "ngamanda",
+                "HarveyLeo",
+                "frsann",
+                "bossenti",
+                "nikolakasev",
+                "PatrickfBraz",
+                "cuong-pham",
+                "sudhakarast",
+                "tkdrahn",
+                "rtekal",
+                "sgm44"
               ]'), 
               github.actor
             ) 
@@ -45,4 +41,4 @@ jobs:
         with:
           github_token: ${{ github.token }}
           labels: |
-            community-contribution
+            datahub-community-champion
