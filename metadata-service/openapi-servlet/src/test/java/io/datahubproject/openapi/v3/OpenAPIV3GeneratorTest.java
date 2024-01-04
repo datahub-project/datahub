@@ -37,7 +37,7 @@ public class OpenAPIV3GeneratorTest {
         Path.of(getClass().getResource("/").getPath(), "open-api.yaml"),
         openapiYaml.getBytes(StandardCharsets.UTF_8));
 
-    assertEquals(openAPI.getComponents().getSchemas().size(), 816);
+    assertEquals(openAPI.getComponents().getSchemas().size(), 818);
     assertEquals(openAPI.getComponents().getParameters().size(), 50);
     assertEquals(openAPI.getPaths().size(), 418);
   }
