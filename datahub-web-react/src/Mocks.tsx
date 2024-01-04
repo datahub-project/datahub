@@ -39,6 +39,7 @@ import { GetMeDocument } from './graphql/me.generated';
 import { ListRecommendationsDocument } from './graphql/recommendations.generated';
 import { FetchedEntity } from './app/lineage/types';
 import { DEFAULT_APP_CONFIG } from './appConfigContext';
+import { GetQuickFiltersDocument } from './graphql/quickFilters.generated';
 
 export const user1 = {
     __typename: 'CorpUser',
@@ -3699,6 +3700,17 @@ export const mocks = [
                     ],
                 },
             } as GetSearchResultsForMultipleQuery,
+        },
+    },
+    {
+        request: {
+            query: GetQuickFiltersDocument,
+            variables: {
+                input: {},
+            },
+        },
+        result: {
+            data: [],
         },
     },
 ];

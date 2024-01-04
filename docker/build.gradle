@@ -31,15 +31,27 @@ ext {
     pg_quickstart_modules = quickstart_modules - [':docker:mysql-setup'] + [':docker:postgres-setup']
 }
 
+tasks.register('minDockerCompose2.20', Exec) {
+    executable 'bash'
+    args '-c', 'echo -e "$(docker compose version --short)\n2.20"|sort --version-sort --check=quiet --reverse'
+}
+
 tasks.register('quickstart') {}
 tasks.register('quickstartSlim') {}
 tasks.register('quickstartDebug') {}
 tasks.register('quickstartPg') {}
 
-tasks.withType(ComposeDownForced) {
-    removeVolumes = true
+tasks.register('quickstartNuke') {
+    doFirst {
+        dockerCompose.quickstart.removeVolumes = true
+        dockerCompose.quickstartPg.removeVolumes = true
+        dockerCompose.quickstartSlim.removeVolumes = true
+        dockerCompose.quickstartDebug.removeVolumes = true
+    }
+    finalizedBy(tasks.withType(ComposeDownForced))
 }
-task quickstartNuke {
+
+tasks.register('quickstartDown') {
     finalizedBy(tasks.withType(ComposeDownForced))
 }
 
@@ -57,6 +69,8 @@ dockerCompose {
         buildBeforePull = false
         stopContainers = false
         removeVolumes = false
+        captureContainersOutput = true
+        captureContainersOutputToFiles = project.file('build/container-logs')
     }
 
     quickstartPg {
@@ -91,6 +105,8 @@ dockerCompose {
         buildBeforePull = false
         stopContainers = false
         removeVolumes = false
+        captureContainersOutput = true
+        captureContainersOutputToFiles = project.file('build/container-logs')
     }
 
     quickstartDebug {
@@ -118,8 +134,8 @@ tasks.getByName('quickstartDebugComposeUp').dependsOn(
 )
 tasks.withType(ComposeUp).configureEach {
     shouldRunAfter('quickstartNuke')
+    dependsOn tasks.named("minDockerCompose2.20")
 }
-
 
 task debugReload(type: Exec) {
     def cmd = ['docker compose -p datahub --profile debug'] + compose_args + ['restart'] + debug_reloadable

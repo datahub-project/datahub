@@ -1,6 +1,62 @@
 {
   "bool" : {
-    "must" : [
+    "filter" : [
+      {
+        "bool" : {
+          "should" : [
+            {
+              "bool" : {
+                "should" : [
+                  {
+                    "bool" : {
+                      "must" : [
+                        {
+                          "terms" : {
+                            "destination.urn" : [
+                              "urn:li:dataset:test-urn"
+                            ],
+                            "boost" : 1.0
+                          }
+                        },
+                        {
+                          "terms" : {
+                            "relationshipType" : [
+                              "DownstreamOf"
+                            ],
+                            "boost" : 1.0
+                          }
+                        }
+                      ],
+                      "adjust_pure_negative" : true,
+                      "boost" : 1.0
+                    }
+                  }
+                ],
+                "adjust_pure_negative" : true,
+                "boost" : 1.0
+              }
+            }
+          ],
+          "adjust_pure_negative" : true,
+          "boost" : 1.0
+        }
+      },
+      {
+        "terms" : {
+          "source.entityType" : [
+            "dataset"
+          ],
+          "boost" : 1.0
+        }
+      },
+      {
+        "terms" : {
+          "destination.entityType" : [
+            "dataset"
+          ],
+          "boost" : 1.0
+        }
+      },
       {
         "bool" : {
           "should" : [
@@ -152,46 +208,6 @@
                   "value" : "UI",
                   "boost" : 1.0
                 }
-              }
-            }
-          ],
-          "adjust_pure_negative" : true,
-          "boost" : 1.0
-        }
-      }
-    ],
-    "should" : [
-      {
-        "bool" : {
-          "must" : [
-            {
-              "terms" : {
-                "destination.urn" : [ ],
-                "boost" : 1.0
-              }
-            },
-            {
-              "terms" : {
-                "relationshipType" : [
-                  "DownstreamOf"
-                ],
-                "boost" : 1.0
-              }
-            },
-            {
-              "terms" : {
-                "source.entityType" : [
-                  "dataset"
-                ],
-                "boost" : 1.0
-              }
-            },
-            {
-              "terms" : {
-                "destination.entityType" : [
-                  "dataset"
-                ],
-                "boost" : 1.0
               }
             }
           ],
