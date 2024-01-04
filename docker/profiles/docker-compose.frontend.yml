@@ -1,7 +1,7 @@
 
 x-datahub-frontend-service: &datahub-frontend-service
   hostname: datahub-frontend-react
-  image: ${DATAHUB_FRONTEND_IMAGE:-linkedin/datahub-frontend-react}:${DATAHUB_VERSION:-head}
+  image: ${DATAHUB_FRONTEND_IMAGE:-${DATAHUB_REPO:-linkedin}/datahub-frontend-react}:${DATAHUB_VERSION:-head}
   ports:
     - ${DATAHUB_MAPPED_FRONTEND_PORT:-9002}:9002
   env_file: datahub-frontend/env/docker.env
@@ -12,7 +12,7 @@ x-datahub-frontend-service: &datahub-frontend-service
 
 x-datahub-frontend-service-dev: &datahub-frontend-service-dev
   <<: *datahub-frontend-service
-  image: linkedin/datahub-frontend-react:debug
+  image: ${DATAHUB_FRONTEND_IMAGE:-${DATAHUB_REPO:-linkedin}/datahub-frontend-react}:debug
   ports:
     - ${DATAHUB_MAPPED_FRONTEND_DEBUG_PORT:-5002}:5002
     - ${DATAHUB_MAPPED_FRONTEND_PORT:-9002}:9002

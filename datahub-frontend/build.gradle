@@ -1,5 +1,4 @@
 plugins {
-  id "io.github.kobylynskyi.graphql.codegen" version "4.1.1"
   id 'scala'
   id 'com.palantir.docker'
   id 'org.gradle.playframework'
@@ -38,23 +37,6 @@ task myTar(type: Tar) {
 artifacts {
   archives myTar
 }
-
-graphqlCodegen {
-  // For options: https://github.com/kobylynskyi/graphql-java-codegen/blob/master/docs/codegen-options.md
-  graphqlSchemaPaths = ["$projectDir/conf/datahub-frontend.graphql".toString()]
-  outputDir = new File("$projectDir/app/graphql")
-  packageName = "generated"
-  generateApis = true
-  modelValidationAnnotation = ""
-  customTypesMapping = [
-          Long: "Long",
-  ]
-}
-
-tasks.withType(Checkstyle) {
-  exclude "**/generated/**"
-}
-
 
 /*
 PLAY UPGRADE NOTE

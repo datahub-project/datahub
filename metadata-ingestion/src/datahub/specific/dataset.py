@@ -143,7 +143,7 @@ class DatasetPatchBuilder(MetadataPatchProposal):
 
     def set_upstream_lineages(self, upstreams: List[Upstream]) -> "DatasetPatchBuilder":
         self._add_patch(
-            UpstreamLineage.ASPECT_NAME, "replace", path="/upstreams", value=upstreams
+            UpstreamLineage.ASPECT_NAME, "add", path="/upstreams", value=upstreams
         )
         return self
 
@@ -297,7 +297,7 @@ class DatasetPatchBuilder(MetadataPatchProposal):
             DatasetProperties.ASPECT_NAME
             if not editable
             else EditableDatasetProperties.ASPECT_NAME,
-            "replace",
+            "add",
             path="/description",
             value=description,
         )
@@ -308,7 +308,7 @@ class DatasetPatchBuilder(MetadataPatchProposal):
     ) -> "DatasetPatchBuilder":
         self._add_patch(
             DatasetProperties.ASPECT_NAME,
-            "replace",
+            "add",
             path="/customProperties",
             value=custom_properties,
         )
@@ -326,7 +326,7 @@ class DatasetPatchBuilder(MetadataPatchProposal):
         if display_name is not None:
             self._add_patch(
                 DatasetProperties.ASPECT_NAME,
-                "replace",
+                "add",
                 path="/name",
                 value=display_name,
             )
