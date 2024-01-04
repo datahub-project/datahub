@@ -54,6 +54,12 @@ jobs:
              -x :datahub-web-react:yarnBuild \
              -x :datahub-web-react:distZip \
              -x :datahub-web-react:jar
+      - name: Upload logs
+        uses: actions/upload-artifact@v3
+        if: failure()
+        with:
+          name: docker logs
+          path: "docker/build/container-logs/*.log"
       - uses: actions/upload-artifact@v3
         if: always()
         with:

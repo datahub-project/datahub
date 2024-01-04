@@ -69,6 +69,8 @@ dockerCompose {
         buildBeforePull = false
         stopContainers = false
         removeVolumes = false
+        captureContainersOutput = true
+        captureContainersOutputToFiles = project.file('build/container-logs')
     }
 
     quickstartPg {
@@ -103,6 +105,8 @@ dockerCompose {
         buildBeforePull = false
         stopContainers = false
         removeVolumes = false
+        captureContainersOutput = true
+        captureContainersOutputToFiles = project.file('build/container-logs')
     }
 
     quickstartDebug {
