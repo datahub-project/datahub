@@ -5,12 +5,14 @@ on:
     branches:
       - acryl-main
     paths-ignore:
+      - "docs-website/**"
       - "docs/**"
       - "**.md"
   pull_request:
     branches:
       - "**"
     paths-ignore:
+      - "docs-website/**"
       - "docs/**"
       - "**.md"
   release:
