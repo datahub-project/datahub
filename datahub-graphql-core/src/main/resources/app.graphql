@@ -678,6 +678,10 @@ enum NotificationScenarioType {
   Notification when an ingestion run changes.
   """
   INGESTION_RUN_CHANGE
+  """
+  Notification when an ingestion fails.
+  """
+  INGESTION_FAILURE
 
   """
   Notification when an assertion's status changes.

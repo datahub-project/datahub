@@ -72,6 +72,10 @@ const INGESTION_NOTIFICATIONS = [
         type: NotificationScenarioType.IngestionRunChange,
         description: 'An ingestion source execution starts or finishes',
     },
+    {
+        type: NotificationScenarioType.IngestionFailure,
+        description: 'An ingestion source execution fails',
+    }
 ];
 
 const INCIDENT_NOTIFICATIONS = [

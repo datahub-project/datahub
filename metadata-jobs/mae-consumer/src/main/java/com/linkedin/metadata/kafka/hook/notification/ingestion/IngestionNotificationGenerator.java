@@ -59,9 +59,7 @@ public class IngestionNotificationGenerator extends BaseMclNotificationGenerator
       return;
     }
 
-    log.debug(
-        String.format(
-            "Found eligible ingestion Execution Request MCL. urn: %s", event.getEntityUrn()));
+    log.debug("Found eligible ingestion Execution Request MCL. urn: {}", event.getEntityUrn());
 
     generateIngestionRunChangeNotifications(
         event.getEntityUrn(),
@@ -118,18 +116,6 @@ public class IngestionNotificationGenerator extends BaseMclNotificationGenerator
       return;
     }
 
-    Set<NotificationRecipient> recipients =
-        new HashSet<>(
-            buildRecipients(
-                NotificationScenarioType.INGESTION_RUN_CHANGE, ingestionSourceUrn, null));
-    if (recipients.isEmpty()) {
-      log.warn(
-          String.format(
-              "Found empty recipients for ingestion source notification for urn %s. Skipping sending..",
-              ingestionSourceUrn));
-      return;
-    }
-
     final Map<String, String> templateParams = new HashMap<>();
     templateParams.put("sourceName", ingestionSourceInfo.getName());
     templateParams.put("sourceType", ingestionSourceInfo.getType());
@@ -137,16 +123,36 @@ public class IngestionNotificationGenerator extends BaseMclNotificationGenerator
     templateParams.put("executionRequestUrn", urn.toString()); // For future.
     templateParams.put("ingestionSourceUrn", ingestionSourceUrn.toString()); // For future.
 
+    sendForIngestionRunChange(
+        templateParams, ingestionSourceUrn, urn, NotificationScenarioType.INGESTION_RUN_CHANGE);
+    if (Constants.EXECUTION_REQUEST_STATUS_FAILURE.equals(result.getStatus())) {
+      sendForIngestionRunChange(
+          templateParams, ingestionSourceUrn, urn, NotificationScenarioType.INGESTION_FAILURE);
+    }
+  }
+
+  private void sendForIngestionRunChange(
+      final Map<String, String> templateParams,
+      Urn ingestionSourceUrn,
+      Urn executionRequestUrn,
+      NotificationScenarioType scenarioType) {
+    Set<NotificationRecipient> recipients =
+        new HashSet<>(buildRecipients(scenarioType, ingestionSourceUrn, null));
+    if (recipients.isEmpty()) {
+      log.warn(
+          "Found empty recipients for ingestion source notification for urn {}. Skipping sending..",
+          ingestionSourceUrn);
+      return;
+    }
     final NotificationRequest notificationRequest =
         buildNotificationRequest(
             NotificationTemplateType.BROADCAST_INGESTION_RUN_CHANGE.name(),
             templateParams,
             recipients);
-
     log.debug(
-        String.format(
-            "Broadcasting ingestion run change for execution request %s, ingestion source %s...",
-            urn, ingestionSourceUrn));
+        "Broadcasting ingestion run change for execution request {}, ingestion source {}...",
+        executionRequestUrn,
+        ingestionSourceUrn);
     sendNotificationRequest(notificationRequest);
   }
 
