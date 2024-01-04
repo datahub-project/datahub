@@ -25,7 +25,7 @@ public class AspectTemplateEngine {
       Stream.of(
               MONITOR_INFO_ASPECT_NAME,
               TEST_RESULTS_ASPECT_NAME,
-              //Saas aspects before this line
+              // Saas aspects before this line
               DATASET_PROPERTIES_ASPECT_NAME,
               EDITABLE_SCHEMA_METADATA_ASPECT_NAME,
               GLOBAL_TAGS_ASPECT_NAME,
