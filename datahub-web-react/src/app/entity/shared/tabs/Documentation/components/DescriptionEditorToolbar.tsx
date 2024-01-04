@@ -3,7 +3,7 @@ import styled from 'styled-components';
 import { Button } from 'antd';
 import React from 'react';
 import TabToolbar from '../../../components/styled/TabToolbar';
-import { ReactComponent as SparklesIcon } from '../../../../../../images/sparkles.svg';
+import SparklesIcon from '../../../../../../images/sparkles.svg?react';
 
 const ProposeButton = styled(Button)`
     margin-right: 10px;

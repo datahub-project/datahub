@@ -23,9 +23,9 @@ describe('DataJobFlowTab', () => {
                                 getOverrideProperties: () => ({}),
                             }),
                             baseEntity: { dataJob: dataJob1 },
-                            updateEntity: jest.fn(),
-                            routeToTab: jest.fn(),
-                            refetch: jest.fn(),
+                            updateEntity: vi.fn(),
+                            routeToTab: vi.fn(),
+                            refetch: vi.fn(),
                             lineage: undefined,
                         }}
                     >

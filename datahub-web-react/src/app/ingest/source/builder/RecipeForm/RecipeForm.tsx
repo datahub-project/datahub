@@ -1,5 +1,5 @@
 import { Button, Collapse, Form, message, Tooltip, Typography } from 'antd';
-import React from 'react';
+import React, { Fragment } from 'react';
 import { get } from 'lodash';
 import YAML from 'yamljs';
 import { ApiOutlined, FilterOutlined, QuestionCircleOutlined, SettingOutlined } from '@ant-design/icons';
@@ -151,6 +151,7 @@ function RecipeForm(props: Props) {
                 <Collapse.Panel forceRender header={<SectionHeader icon={<ApiOutlined />} text="Connection" />} key="0">
                     {fields.map((field, i) => (
                         <FormField
+                            key={field.name}
                             field={field}
                             secrets={secrets}
                             refetchSecrets={refetchSecrets}
@@ -183,7 +184,7 @@ function RecipeForm(props: Props) {
                         key="1"
                     >
                         {filterFields.map((field, i) => (
-                            <>
+                            <Fragment key={field.name}>
                                 {shouldRenderFilterSectionHeader(field, i, filterFields) && (
                                     <Typography.Title level={4}>{field.section}</Typography.Title>
                                 )}
@@ -196,7 +197,7 @@ function RecipeForm(props: Props) {
                                         updateFormValue={updateFormValue}
                                     />
                                 </MarginWrapper>
-                            </>
+                            </Fragment>
                         ))}
                     </Collapse.Panel>
                 </StyledCollapse>
@@ -215,6 +216,7 @@ function RecipeForm(props: Props) {
                 >
                     {advancedFields.map((field, i) => (
                         <FormField
+                            key={field.name}
                             field={field}
                             secrets={secrets}
                             refetchSecrets={refetchSecrets}

@@ -16,7 +16,7 @@ import { useEntityData, useRefetch, useRouteToTab } from '../../EntityContext';
 import { EDITED_DESCRIPTIONS_CACHE_NAME } from '../../utils';
 import { Editor } from './components/editor/Editor';
 import { DescriptionPreviewModal } from './components/DescriptionPreviewModal';
-import { ReactComponent as SparklesIcon } from '../../../../../images/sparkles.svg';
+import SparklesIcon from '../../../../../images/sparkles.svg?react';
 
 const DocumentationContainer = styled.div`
     margin: 0 32px;

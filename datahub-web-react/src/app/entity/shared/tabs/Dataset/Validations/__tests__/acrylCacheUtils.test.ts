@@ -4,8 +4,8 @@ import { updateDatasetAssertionsCache, removeFromDatasetAssertionsCache } from '
 describe('test cache add, update, removal', () => {
     const mockAssertion = { urn: 'test:assertion:urn', field: 'value' };
     const mockApolloClient = {
-        readQuery: jest.fn(),
-        writeQuery: jest.fn(),
+        readQuery: vi.fn(),
+        writeQuery: vi.fn(),
     } as unknown as ApolloClient<unknown>;
 
     beforeEach(() => {

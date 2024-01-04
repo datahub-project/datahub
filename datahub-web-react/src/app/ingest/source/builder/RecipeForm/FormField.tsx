@@ -60,7 +60,7 @@ function SelectField({ field, removeMargin }: CommonFieldProps) {
             name={field.name}
             label={field.label}
             tooltip={field.tooltip}
-            removeMargin={!!removeMargin}
+            $removeMargin={!!removeMargin}
             rules={field.rules || undefined}
         >
             {field.options && (
@@ -81,7 +81,7 @@ function DateField({ field, removeMargin }: CommonFieldProps) {
             name={field.name}
             label={field.label}
             tooltip={field.tooltip}
-            removeMargin={!!removeMargin}
+            $removeMargin={!!removeMargin}
             rules={field.rules || undefined}
         >
             <DatePicker showTime />
@@ -137,8 +137,8 @@ function FormField(props: Props) {
             rules={field.rules || undefined}
             valuePropName={valuePropName}
             getValueFromEvent={getValueFromEvent}
-            alignLeft={isBoolean}
-            removeMargin={!!removeMargin}
+            $alignLeft={isBoolean}
+            $removeMargin={!!removeMargin}
         >
             {input}
         </StyledFormItem>

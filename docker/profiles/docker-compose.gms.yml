@@ -36,7 +36,7 @@ x-search-datastore-elasticsearch-env: &search-datastore-env
   ELASTICSEARCH_USE_SSL: ${ELASTICSEARCH_USE_SSL:-false}
 
 x-kafka-env: &kafka-env
-  KAFKA_BOOTSTRAP_SERVER: kafka-broker:29092
+  KAFKA_BOOTSTRAP_SERVER: broker:29092
   # KAFKA_SCHEMAREGISTRY_URL=http://schema-registry:8081
   SCHEMA_REGISTRY_TYPE: INTERNAL
   KAFKA_SCHEMAREGISTRY_URL: http://datahub-gms:8080/schema-registry/api/

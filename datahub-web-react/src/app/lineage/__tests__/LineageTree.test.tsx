@@ -86,16 +86,16 @@ describe('LineageTree', () => {
                                     upstreamData={upstreamData}
                                     downstreamData={downstreamData}
                                     zoom={zoom}
-                                    onEntityClick={jest.fn()}
-                                    onLineageExpand={jest.fn()}
+                                    onEntityClick={vi.fn()}
+                                    onLineageExpand={vi.fn()}
                                     canvasHeight={yMax}
                                     margin={margin}
                                     direction={Direction.Upstream}
-                                    setIsDraggingNode={jest.fn()}
+                                    setIsDraggingNode={vi.fn()}
                                     draggedNodes={{}}
-                                    setDraggedNodes={jest.fn()}
-                                    onEntityCenter={jest.fn()}
-                                    setHoveredEntity={jest.fn()}
+                                    setDraggedNodes={vi.fn()}
+                                    onEntityCenter={vi.fn()}
+                                    setHoveredEntity={vi.fn()}
                                     fetchedEntities={mockFetchedEntities}
                                 />
                             </svg>

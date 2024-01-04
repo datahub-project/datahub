@@ -5,7 +5,7 @@ import { Pagination, Table, Typography } from 'antd';
 import { ColumnsType } from 'antd/lib/table';
 import { ANTD_GRAY } from '../../../entity/shared/constants';
 import { useListSubscriptionsQuery } from '../../../../graphql/subscriptions.generated';
-import { ReactComponent as EmptySimpleSvg } from '../../../../images/empty-simple.svg';
+import EmptySimpleSvg from '../../../../images/empty-simple.svg?react';
 import { EntityColumn } from './table/EntityColumn';
 import { UpstreamsColumn } from './table/UpstreamsColumn';
 import { EditSubscriptionColumn } from './table/EditSubscriptionColumn';

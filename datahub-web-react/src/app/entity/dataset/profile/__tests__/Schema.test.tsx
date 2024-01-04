@@ -13,13 +13,12 @@ import { mocks } from '../../../../../Mocks';
 import { SchemaTab } from '../../../shared/tabs/Dataset/Schema/SchemaTab';
 import EntityContext from '../../../shared/EntityContext';
 import { EntityType, SchemaMetadata } from '../../../../../types.generated';
+import { SchemaRow }  from'../../../shared/tabs/Dataset/Schema/components/SchemaRow';
 
-jest.mock('virtualizedtableforantd4', () => {
-    /* eslint-disable-next-line */
-    const { SchemaRow } = require('../../../shared/tabs/Dataset/Schema/components/SchemaRow');
+vi.mock('virtualizedtableforantd4', async () => {
     return {
-        ...jest.requireActual('virtualizedtableforantd4'),
-        useVT: () => [{ body: { row: SchemaRow } }, jest.fn()],
+        ...await vi.importActual<object>('virtualizedtableforantd4'),
+        useVT: () => [{ body: { row: SchemaRow } }, vi.fn()],
     };
 });
 
@@ -33,13 +32,12 @@ describe('Schema', () => {
                             urn: 'urn:li:dataset:123',
                             entityType: EntityType.Dataset,
                             entityData: {
-                                description: 'This is a description',
                                 schemaMetadata: sampleSchema as SchemaMetadata,
                             },
                             baseEntity: {},
-                            updateEntity: jest.fn(),
-                            routeToTab: jest.fn(),
-                            refetch: jest.fn(),
+                            updateEntity: vi.fn(),
+                            routeToTab: vi.fn(),
+                            refetch: vi.fn(),
                         }}
                     >
                         <SchemaTab />
@@ -66,9 +64,9 @@ describe('Schema', () => {
                                 schemaMetadata: sampleSchema as SchemaMetadata,
                             },
                             baseEntity: {},
-                            updateEntity: jest.fn(),
-                            routeToTab: jest.fn(),
-                            refetch: jest.fn(),
+                            updateEntity: vi.fn(),
+                            routeToTab: vi.fn(),
+                            refetch: vi.fn(),
                         }}
                     >
                         <SchemaTab />
@@ -103,9 +101,9 @@ describe('Schema', () => {
                                 schemaMetadata: sampleSchemaWithTags as SchemaMetadata,
                             },
                             baseEntity: {},
-                            updateEntity: jest.fn(),
-                            routeToTab: jest.fn(),
-                            refetch: jest.fn(),
+                            updateEntity: vi.fn(),
+                            routeToTab: vi.fn(),
+                            refetch: vi.fn(),
                         }}
                     >
                         <SchemaTab />
@@ -130,9 +128,9 @@ describe('Schema', () => {
                                 schemaMetadata: sampleSchemaWithTags as SchemaMetadata,
                             },
                             baseEntity: {},
-                            updateEntity: jest.fn(),
-                            routeToTab: jest.fn(),
-                            refetch: jest.fn(),
+                            updateEntity: vi.fn(),
+                            routeToTab: vi.fn(),
+                            refetch: vi.fn(),
                         }}
                     >
                         <SchemaTab />
@@ -156,9 +154,9 @@ describe('Schema', () => {
                                 schemaMetadata: sampleSchemaWithTags as SchemaMetadata,
                             },
                             baseEntity: {},
-                            updateEntity: jest.fn(),
-                            routeToTab: jest.fn(),
-                            refetch: jest.fn(),
+                            updateEntity: vi.fn(),
+                            routeToTab: vi.fn(),
+                            refetch: vi.fn(),
                         }}
                     >
                         <SchemaTab />
@@ -182,9 +180,9 @@ describe('Schema', () => {
                                 schemaMetadata: sampleSchemaWithPkFk as SchemaMetadata,
                             },
                             baseEntity: {},
-                            updateEntity: jest.fn(),
-                            routeToTab: jest.fn(),
-                            refetch: jest.fn(),
+                            updateEntity: vi.fn(),
+                            routeToTab: vi.fn(),
+                            refetch: vi.fn(),
                         }}
                     >
                         <SchemaTab />
@@ -208,9 +206,9 @@ describe('Schema', () => {
                                 schemaMetadata: sampleSchemaWithPkFk as SchemaMetadata,
                             },
                             baseEntity: {},
-                            updateEntity: jest.fn(),
-                            routeToTab: jest.fn(),
-                            refetch: jest.fn(),
+                            updateEntity: vi.fn(),
+                            routeToTab: vi.fn(),
+                            refetch: vi.fn(),
                         }}
                     >
                         <SchemaTab />
@@ -240,9 +238,9 @@ describe('Schema', () => {
                                 schemaMetadata: sampleSchemaWithKeyValueFields as SchemaMetadata,
                             },
                             baseEntity: {},
-                            updateEntity: jest.fn(),
-                            routeToTab: jest.fn(),
-                            refetch: jest.fn(),
+                            updateEntity: vi.fn(),
+                            routeToTab: vi.fn(),
+                            refetch: vi.fn(),
                         }}
                     >
                         <SchemaTab />
@@ -279,9 +277,9 @@ describe('Schema', () => {
                                 schemaMetadata: sampleSchemaWithoutFields as SchemaMetadata,
                             },
                             baseEntity: {},
-                            updateEntity: jest.fn(),
-                            routeToTab: jest.fn(),
-                            refetch: jest.fn(),
+                            updateEntity: vi.fn(),
+                            routeToTab: vi.fn(),
+                            refetch: vi.fn(),
                         }}
                     >
                         <SchemaTab />
@@ -336,9 +334,9 @@ describe('Schema', () => {
                                     usageStats,
                                 },
                             },
-                            updateEntity: jest.fn(),
-                            routeToTab: jest.fn(),
-                            refetch: jest.fn(),
+                            updateEntity: vi.fn(),
+                            routeToTab: vi.fn(),
+                            refetch: vi.fn(),
                         }}
                     >
                         <SchemaTab />

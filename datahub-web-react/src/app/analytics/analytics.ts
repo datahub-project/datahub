@@ -14,7 +14,7 @@ const analytics = Analytics({
     plugins: plugins.filter((plugin) => plugin.isEnabled).map((plugin) => plugin.plugin),
 });
 
-const { NODE_ENV } = process.env;
+const { NODE_ENV } = import.meta.env;
 
 export function getMergedTrackingOptions(options?: any) {
     const isThirdPartyLoggingEnabled = JSON.parse(localStorage.getItem(THIRD_PARTY_LOGGING_KEY) || 'false');
