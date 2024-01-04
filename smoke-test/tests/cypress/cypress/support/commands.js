@@ -331,6 +331,17 @@ Cypress.Commands.add("addGroupMember", (group_name, group_urn, member_name) => {
   cy.contains(member_name, {timeout: 10000}).should("be.visible");
 })
 
+Cypress.Commands.add("createGlossaryTermGroup", (term_group_name) => {
+  cy.goToGlossaryList();
+  cy.clickOptionWithTestId("add-term-group-button");
+  cy.waitTextVisible("Create Term Group");
+  cy.enterTextInTestId("create-glossary-entity-modal-name", term_group_name);
+  cy.clickOptionWithTestId("glossary-entity-modal-create-button");
+  cy.get('[data-testid="glossary-browser-sidebar"]').contains(term_group_name).should("be.visible");
+  cy.waitTextVisible(`Created Term Group!`);
+});
+
+
 //
 //
 // -- This is a child command --
