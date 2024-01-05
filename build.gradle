@@ -326,6 +326,10 @@ subprojects {
   }
 
   plugins.withType(JavaPlugin).configureEach {
+    if (project.name == 'datahub-web-react') {
+      return
+    }
+
     dependencies {
       implementation externalDependency.annotationApi
       constraints {

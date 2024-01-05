@@ -193,7 +193,7 @@ class _ColumnRef(_FrozenModel):
     column: str
 
 
-class ColumnRef(_ParserBaseModel):
+class ColumnRef(_FrozenModel):
     table: Urn
     column: str
 
@@ -333,6 +333,9 @@ def _table_level_lineage(
     return tables, modified
 
 
+TABLE_CASE_SENSITIVE_PLATFORMS = {"bigquery"}
+
+
 class SchemaResolver(Closeable):
     def __init__(
         self,
@@ -402,7 +405,10 @@ class SchemaResolver(Closeable):
             if schema_info:
                 return urn_lower, schema_info
 
-        return urn_lower, None
+        if self.platform in TABLE_CASE_SENSITIVE_PLATFORMS:
+            return urn, None
+        else:
+            return urn_lower, None
 
     def _resolve_schema_info(self, urn: str) -> Optional[SchemaInfo]:
         if urn in self._schema_cache:
@@ -929,6 +935,7 @@ def _translate_sqlglot_type(
         TypeClass = ArrayTypeClass
     elif sqlglot_type in {
         sqlglot.exp.DataType.Type.UNKNOWN,
+        sqlglot.exp.DataType.Type.NULL,
     }:
         return None
     else:
@@ -1090,7 +1097,7 @@ def _sqlglot_lineage_inner(
         table_schemas_resolved=total_schemas_resolved,
     )
     logger.debug(
-        f"Resolved {len(table_name_schema_mapping)} of {len(tables)} table schemas"
+        f"Resolved {total_schemas_resolved} of {total_tables_discovered} table schemas"
     )
 
     # Simplify the input statement for column-level lineage generation.

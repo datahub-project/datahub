@@ -8,6 +8,7 @@ import com.linkedin.common.FabricType;
 import com.linkedin.common.GlossaryTermAssociation;
 import com.linkedin.common.OwnershipType;
 import com.linkedin.common.TagAssociation;
+import com.linkedin.common.urn.ChartUrn;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.DataJobUrn;
 import com.linkedin.common.urn.DataPlatformUrn;
@@ -22,7 +23,9 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import datahub.client.MetadataWriteResponse;
 import datahub.client.file.FileEmitter;
 import datahub.client.file.FileEmitterConfig;
+import datahub.client.patch.chart.ChartInfoPatchBuilder;
 import datahub.client.patch.common.OwnershipPatchBuilder;
+import datahub.client.patch.dashboard.DashboardInfoPatchBuilder;
 import datahub.client.patch.dataflow.DataFlowInfoPatchBuilder;
 import datahub.client.patch.datajob.DataJobInfoPatchBuilder;
 import datahub.client.patch.datajob.DataJobInputOutputPatchBuilder;
@@ -544,6 +547,92 @@ public class PatchTest {
               .addEdge(inputDataJob, LineageDirection.UPSTREAM)
               .build();
       Future<MetadataWriteResponse> response = restEmitter.emit(dataJobIOPatch);
+
+      System.out.println(response.get().getResponseContent());
+
+    } catch (URISyntaxException | IOException | ExecutionException | InterruptedException e) {
+      System.out.println(Arrays.asList(e.getStackTrace()));
+    }
+  }
+
+  @Test
+  @Ignore
+  public void testLocalChartInfoAdd() {
+    RestEmitter restEmitter = new RestEmitter(RestEmitterConfig.builder().build());
+    try {
+      MetadataChangeProposal chartInfoPatch =
+          new ChartInfoPatchBuilder()
+              .urn(UrnUtils.getUrn("urn:li:chart:(dashboardTool,chartId)"))
+              .addInputEdge(
+                  DatasetUrn.createFromString(
+                      "urn:li:dataset:(urn:li:dataPlatform:kafka,SampleHiveDataset,PROD)"))
+              .build();
+      Future<MetadataWriteResponse> response = restEmitter.emit(chartInfoPatch);
+
+      System.out.println(response.get().getResponseContent());
+
+    } catch (URISyntaxException | IOException | ExecutionException | InterruptedException e) {
+      System.out.println(Arrays.asList(e.getStackTrace()));
+    }
+  }
+
+  @Test
+  @Ignore
+  public void testLocalChartInfoRemove() {
+    RestEmitter restEmitter = new RestEmitter(RestEmitterConfig.builder().build());
+    try {
+      MetadataChangeProposal chartInfoPatch =
+          new ChartInfoPatchBuilder()
+              .urn(UrnUtils.getUrn("urn:li:chart:(dashboardTool,chartId)"))
+              .removeInputEdge(
+                  DatasetUrn.createFromString(
+                      "urn:li:dataset:(urn:li:dataPlatform:kafka,SampleHiveDataset,PROD)"))
+              .build();
+      Future<MetadataWriteResponse> response = restEmitter.emit(chartInfoPatch);
+
+      System.out.println(response.get().getResponseContent());
+
+    } catch (URISyntaxException | IOException | ExecutionException | InterruptedException e) {
+      System.out.println(Arrays.asList(e.getStackTrace()));
+    }
+  }
+
+  @Test
+  @Ignore
+  public void testLocalDashboardInfoAdd() {
+    RestEmitter restEmitter = new RestEmitter(RestEmitterConfig.builder().build());
+    try {
+      MetadataChangeProposal dashboardInfoPatch =
+          new DashboardInfoPatchBuilder()
+              .urn(UrnUtils.getUrn("urn:li:dashboard:(dashboardTool,dashboardId)"))
+              .addDatasetEdge(
+                  DatasetUrn.createFromString(
+                      "urn:li:dataset:(urn:li:dataPlatform:kafka,SampleHiveDataset,PROD)"))
+              .addChartEdge(ChartUrn.createFromString("urn:li:chart:(dashboartTool, chartId)"))
+              .build();
+      Future<MetadataWriteResponse> response = restEmitter.emit(dashboardInfoPatch);
+
+      System.out.println(response.get().getResponseContent());
+
+    } catch (URISyntaxException | IOException | ExecutionException | InterruptedException e) {
+      System.out.println(Arrays.asList(e.getStackTrace()));
+    }
+  }
+
+  @Test
+  @Ignore
+  public void testLocalDashboardInfoRemove() {
+    RestEmitter restEmitter = new RestEmitter(RestEmitterConfig.builder().build());
+    try {
+      MetadataChangeProposal dashboardInfoPatch =
+          new DashboardInfoPatchBuilder()
+              .urn(UrnUtils.getUrn("urn:li:dashboard:(dashboardTool,dashboardId)"))
+              .removeDatasetEdge(
+                  DatasetUrn.createFromString(
+                      "urn:li:dataset:(urn:li:dataPlatform:kafka,SampleHiveDataset,PROD)"))
+              .removeChartEdge(ChartUrn.createFromString("urn:li:chart:(dashboardTool, chartId)"))
+              .build();
+      Future<MetadataWriteResponse> response = restEmitter.emit(dashboardInfoPatch);
 
       System.out.println(response.get().getResponseContent());
 

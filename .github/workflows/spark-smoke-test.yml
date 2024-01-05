@@ -35,9 +35,11 @@ jobs:
         with:
           distribution: "zulu"
           java-version: 17
+      - uses: gradle/gradle-build-action@v2
       - uses: actions/setup-python@v4
         with:
           python-version: "3.10"
+          cache: "pip"
       - name: Install dependencies
         run: ./metadata-ingestion/scripts/install_deps.sh
       - name: Remove images
@@ -49,10 +51,15 @@ jobs:
              -x :datahub-web-react:yarnLint \
              -x :datahub-web-react:yarnGenerate \
              -x :datahub-web-react:yarnInstall \
-             -x :datahub-web-react:yarnQuickBuild \
-             -x :datahub-web-react:copyAssets \
+             -x :datahub-web-react:yarnBuild \
              -x :datahub-web-react:distZip \
              -x :datahub-web-react:jar
+      - name: Upload logs
+        uses: actions/upload-artifact@v3
+        if: failure()
+        with:
+          name: docker logs
+          path: "docker/build/container-logs/*.log"
       - uses: actions/upload-artifact@v3
         if: always()
         with:

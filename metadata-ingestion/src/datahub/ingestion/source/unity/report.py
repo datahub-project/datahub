@@ -39,3 +39,9 @@ class UnityCatalogReport(IngestionStageReport, ProfilingSqlReport):
     num_profile_missing_size_in_bytes: int = 0
     num_profile_failed_unsupported_column_type: int = 0
     num_profile_failed_int_casts: int = 0
+
+    num_catalogs_missing_name: int = 0
+    num_schemas_missing_name: int = 0
+    num_tables_missing_name: int = 0
+    num_columns_missing_name: int = 0
+    num_queries_missing_info: int = 0
