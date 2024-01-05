@@ -801,6 +801,9 @@ fragment searchResultFields on Entity {
     ... on DataProduct {
         ...dataProductSearchFields
     }
+    ... on BusinessAttribute {
+        ...businessAttributeFields
+    }
 }
 
 fragment facetFields on FacetMetadata {

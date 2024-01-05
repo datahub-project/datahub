@@ -68,7 +68,7 @@ public class BusinessAttributeMapper implements ModelMapper<EntityResponse, Busi
         if (businessAttributeInfo.hasType()) {
             attributeInfo.setType(mapSchemaFieldDataType(businessAttributeInfo.getType()));
         }
-        businessAttribute.setBusinessAttributeInfo(attributeInfo);
+        businessAttribute.setProperties(attributeInfo);
     }
 
     private SchemaFieldDataType mapSchemaFieldDataType(@Nonnull final com.linkedin.schema.SchemaFieldDataType dataTypeUnion) {

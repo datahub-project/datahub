@@ -37,6 +37,7 @@ import { DataProductEntity } from './app/entity/dataProduct/DataProductEntity';
 import { DataPlatformInstanceEntity } from './app/entity/dataPlatformInstance/DataPlatformInstanceEntity';
 import { RoleEntity } from './app/entity/Access/RoleEntity';
 import possibleTypesResult from './possibleTypes.generated';
+import { BusinessAttributeEntity } from './app/entity/businessAttribute/BusinessAttributeEntity';
 
 /*
     Construct Apollo Client
@@ -124,6 +125,7 @@ const App: React.VFC = () => {
         register.register(new DataPlatformEntity());
         register.register(new DataProductEntity());
         register.register(new DataPlatformInstanceEntity());
+        register.register(new BusinessAttributeEntity());
         return register;
     }, []);
 
