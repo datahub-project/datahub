@@ -26,7 +26,10 @@ Source and destination are mapped to Dataset as an Input and Output of Connector
 
 ## Current limitations
 
-Works only for Snowflake destination for now.
+Works only for
+
+- Snowflake destination
+- Bigquery destination
 
 ## Snowflake destination Configuration Guide
 1. If your fivetran platform connector destination is snowflake, you need to provide user details and its role with correct privileges in order to fetch metadata.

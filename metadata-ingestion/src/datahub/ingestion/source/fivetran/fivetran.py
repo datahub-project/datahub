@@ -74,7 +74,7 @@ class FivetranSource(StatefulIngestionSourceBase):
 
         # Create and register the stateful ingestion use-case handler.
         self.stale_entity_removal_handler = StaleEntityRemovalHandler.create(
-            self, self.config, ctx
+            self, self.config, self.ctx
         )
 
     def _extend_lineage(self, connector: Connector, datajob: DataJob) -> None:
@@ -280,7 +280,7 @@ class FivetranSource(StatefulIngestionSourceBase):
         Datahub Ingestion framework invoke this method
         """
         logger.info("Fivetran plugin execution is started")
-        connectors = self.audit_log.get_connectors_list(
+        connectors = self.audit_log.get_allowed_connectors_list(
             self.config.connector_patterns, self.report
         )
         for connector in connectors:

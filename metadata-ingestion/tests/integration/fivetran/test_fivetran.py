@@ -209,11 +209,11 @@ def test_fivetran_with_bigquery_dest(pytestconfig, tmp_path):
                             "destination_platform": "bigquery",
                             "bigquery_destination_config": {
                                 "credential": {
-                                    "private_key_id": "3b76ebdbbe3ee53f9851930e8a974c43cf118b0e",
-                                    "project_id": "harshal-playground-306419",
-                                    "client_email": "fivetran-connector@harshal-playground-306419.iam.gserviceaccount.com",
-                                    "client_id": "117962137286607512764",
-                                    "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQCtLSE4hpsvigMq\nVGevfg+ZU60O1JYQ+PbkVXxgCLRwL48vzavphgQ/0L8F0u1X3daHiXAgqpID0Y8H\nAbV6u0igfADVNNngyQZ5XmDdMgSQ0B3xuVH4xOs6YodyaDbhRm2fpEf04tw5LzMG\nzGbcDlmXUu0gxl/D3fPbZ6Uo2o2yrh+3N8M5OptOuNbybFrjzi81wY/ZfRJ/lU8F\nQusTBAEN8uYXZ4nrPOvASeGDSgKpcjSuzmRRDk5d95P6YUvFut8bVO5DOVRJibC8\neVfKm8qZlNkWpeUtd8QUQLQ3QfPsAeBDpv0f3svNlZomw+jBBnQ+KQf7X2DXnfrf\ncBk51UCBAgMBAAECggEAKREyNxros0HZ1VB11C6jWVt4BzPPsI+x0N0a5RU7YP1O\nSepOsc7HtDB3FFT8VuFzLeogTobUoJYyAlnb5RKDuxcdBXKGlqFlaSPB+cKSRZss\n9rVZZJKiK9LQxwdCuHKAraKCM+cWjXMNeTfAzr+SbGnMdQDGFgdM/INcLc+CWdQ/\nv+JK5oF/RCzfTLueepL8P8Jw9ka/g+r5bwDFNx75PJAOXaK1pKOKuDzied/wP/jh\nU/xX9G5EaGnR2W0IU88euNl/7uf6948AxB4heNmV5D+1+EjldFpl9Yn1kQqlupMZ\nNzdAyA17xMSoITN7zaKkop0sshW555LEaSji4ix9DwKBgQDnUwNcGSok3L6gw9gB\nU/2y/0r1N+TARPzHt9sWrODlc6eR/aUPWp0+uYAdEyMY1h4Lw07sckQyGagZotJg\nlcHCrZzSw8DiVCS+b4nvVM04vO1HH7Hmi1WpcGOF8OvNwoObeGuOujoaLpUDdh6H\n8lr7XUOV4tVbdk5D4tZBD8AQywKBgQC/pjc05aoXwMCopw6msnSl+Tm0C0J0uhCU\nP++0LnVla+d57OvtEIJuoDkuO9BEulSO92ExkkX1P/dhlJ0hQE5UHN7tZO97epAb\nKEt8NeDGjwUtVk269k7FY+E29JtmuHTw1sms63lkTjVPHPjwz+Giz+JA1P0YQqd0\nC60bkz4GYwKBgQCVKuXOvPd9P8+5cbDX4maFx7R5fqqHBbWPwFKKQ77el37mWI7Y\n4NDngs1HcnC+ckx7v10kgebR+9N3fJR27fs9Y6DuFIdMK4BqQRjMeX3A6auEor6g\ncRczJSM4Wwxj6dveJIAPUK1o9sLmsYOsnK7oytJrVBPLX/XGNv98gwCSkwKBgF+i\nEsRbomAN+FVwX3hBbsHvtqKoR7Y1rtY7fWK9GCnPCYgm+KeoaF3JqB7xDAFvtYhN\n23tAEZbLH6fa3/nau/tvGLL/fh1w0H4swlYuEIckkSHJgio8hJwtNhIVR4KfowMX\nOzYFnuK1wBZFT9fi9CYpdC6D2fQENslKlkw/UmEfAoGBAN7pJxXRF7kgpjBVrf3h\nMSsOOtHiOI+aVVg74zZsOvAXYZpHMRG1Oeqi8OapjVA4d9I65G1yrk84PIII9xsx\nabqMYIWvInyL4mpIRRSanKLzrrD+6SpR/GPk6+Fh46guQaFm6FwVYT8kWceA+MJI\nAjkZAB2pZpLeBZRWATZ5vdjQ\n-----END PRIVATE KEY-----\n",
+                                    "private_key_id": "testprivatekey",
+                                    "project_id": "test-project",
+                                    "client_email": "fivetran-connector@test-project.iam.gserviceaccount.com",
+                                    "client_id": "1234567",
+                                    "private_key": "private-key",
                                 },
                                 "dataset": "test",
                             },

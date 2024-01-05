@@ -4,7 +4,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from sqlalchemy import create_engine
 
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, ConfigurationError
 from datahub.ingestion.source.fivetran.config import (
     Constant,
     FivetranLogConfig,
@@ -65,6 +65,10 @@ class FivetranLogAPI:
                 )
                 fivetran_log_query.set_db(bigquery_destination_config.dataset)
                 fivetran_log_database = bigquery_destination_config.dataset
+        else:
+            raise ConfigurationError(
+                f"Destination platform '{destination_platform}' is not yet supported."
+            )
         return (
             engine,
             fivetran_log_query,
@@ -159,7 +163,7 @@ class FivetranLogAPI:
             f"{user_details[Constant.GIVEN_NAME]} {user_details[Constant.FAMILY_NAME]}"
         )
 
-    def get_connectors_list(
+    def get_allowed_connectors_list(
         self, connector_patterns: AllowDenyPattern, report: FivetranSourceReport
     ) -> List[Connector]:
         connectors: List[Connector] = []
