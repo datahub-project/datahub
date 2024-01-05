@@ -53,7 +53,7 @@ RULES_BEFORE_TYPE_ANNOTATION: tuple = tuple(
     filter(
         # Skip pushdown_predicates because it sometimes throws exceptions, and we
         # don't actually need it for anything.
-        lambda func: func.__name__ not in {"pushdown_predicates"},
+        lambda func: func.__name__ not in {"normalize", "pushdown_predicates"},
         itertools.takewhile(
             lambda func: func != sqlglot.optimizer.annotate_types.annotate_types,
             sqlglot.optimizer.optimizer.RULES,
