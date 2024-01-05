@@ -12,9 +12,11 @@ import com.linkedin.metadata.models.EntitySpecBuilder;
 import com.linkedin.metadata.models.EventSpec;
 import com.linkedin.metadata.models.registry.template.AspectTemplateEngine;
 import com.linkedin.metadata.models.registry.template.Template;
+import com.linkedin.metadata.models.registry.template.chart.ChartInfoTemplate;
 import com.linkedin.metadata.models.registry.template.common.GlobalTagsTemplate;
 import com.linkedin.metadata.models.registry.template.common.GlossaryTermsTemplate;
 import com.linkedin.metadata.models.registry.template.common.OwnershipTemplate;
+import com.linkedin.metadata.models.registry.template.dashboard.DashboardInfoTemplate;
 import com.linkedin.metadata.models.registry.template.dataflow.DataFlowInfoTemplate;
 import com.linkedin.metadata.models.registry.template.datajob.DataJobInfoTemplate;
 import com.linkedin.metadata.models.registry.template.datajob.DataJobInputOutputTemplate;
@@ -79,6 +81,8 @@ public class SnapshotEntityRegistry implements EntityRegistry {
     aspectSpecTemplateMap.put(DATA_JOB_INFO_ASPECT_NAME, new DataJobInfoTemplate());
     aspectSpecTemplateMap.put(
         DATA_PRODUCT_PROPERTIES_ASPECT_NAME, new DataProductPropertiesTemplate());
+    aspectSpecTemplateMap.put(CHART_INFO_ASPECT_NAME, new ChartInfoTemplate());
+    aspectSpecTemplateMap.put(DASHBOARD_INFO_ASPECT_NAME, new DashboardInfoTemplate());
     aspectSpecTemplateMap.put(DATA_JOB_INPUT_OUTPUT_ASPECT_NAME, new DataJobInputOutputTemplate());
     return new AspectTemplateEngine(aspectSpecTemplateMap);
   }

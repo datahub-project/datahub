@@ -55,6 +55,7 @@ jobs:
         with:
           distribution: "zulu"
           java-version: 17
+      - uses: gradle/gradle-build-action@v2
       - uses: actions/checkout@v3
       - uses: actions/setup-python@v4
         with:
@@ -75,6 +76,7 @@ jobs:
             **/build/reports/tests/test/**
             **/build/test-results/test/**
             **/junit.*.xml
+            !**/binary/**
       - name: Upload coverage to Codecov
         if: always()
         uses: codecov/codecov-action@v3

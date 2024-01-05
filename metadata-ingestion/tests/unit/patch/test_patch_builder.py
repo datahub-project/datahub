@@ -3,7 +3,12 @@ import pathlib
 
 import pytest
 
-from datahub.emitter.mce_builder import make_dataset_urn, make_tag_urn
+from datahub.emitter.mce_builder import (
+    make_chart_urn,
+    make_dashboard_urn,
+    make_dataset_urn,
+    make_tag_urn,
+)
 from datahub.ingestion.sink.file import write_metadata_file
 from datahub.metadata.schema_classes import (
     DatasetLineageTypeClass,
@@ -15,6 +20,8 @@ from datahub.metadata.schema_classes import (
     TagAssociationClass,
     UpstreamClass,
 )
+from datahub.specific.chart import ChartPatchBuilder
+from datahub.specific.dashboard import DashboardPatchBuilder
 from datahub.specific.dataset import DatasetPatchBuilder
 
 
@@ -80,3 +87,41 @@ def test_complex_dataset_patch(
             pytestconfig.rootpath / "tests/unit/patch/complex_dataset_patch.json"
         ).read_text()
     )
+
+
+def test_basic_chart_patch_builder():
+    patcher = ChartPatchBuilder(
+        make_chart_urn(platform="hive", name="fct_users_created")
+    ).add_tag(TagAssociationClass(tag=make_tag_urn("test_tag")))
+
+    assert patcher.build() == [
+        MetadataChangeProposalClass(
+            entityType="chart",
+            entityUrn="urn:li:chart:(hive,fct_users_created)",
+            changeType="PATCH",
+            aspectName="globalTags",
+            aspect=GenericAspectClass(
+                value=b'[{"op": "add", "path": "/tags/urn:li:tag:test_tag", "value": {"tag": "urn:li:tag:test_tag"}}]',
+                contentType="application/json-patch+json",
+            ),
+        ),
+    ]
+
+
+def test_basic_dashboard_patch_builder():
+    patcher = DashboardPatchBuilder(
+        make_dashboard_urn(platform="hive", name="fct_users_created")
+    ).add_tag(TagAssociationClass(tag=make_tag_urn("test_tag")))
+
+    assert patcher.build() == [
+        MetadataChangeProposalClass(
+            entityType="dashboard",
+            entityUrn="urn:li:dashboard:(hive,fct_users_created)",
+            changeType="PATCH",
+            aspectName="globalTags",
+            aspect=GenericAspectClass(
+                value=b'[{"op": "add", "path": "/tags/urn:li:tag:test_tag", "value": {"tag": "urn:li:tag:test_tag"}}]',
+                contentType="application/json-patch+json",
+            ),
+        ),
+    ]
