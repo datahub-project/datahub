@@ -1237,11 +1237,11 @@ class SnowflakeV2Source(
         foreign_keys = []
         for fk in table.foreign_keys:
             foreign_dataset = make_dataset_urn_with_platform_instance(
-                self.platform,
-                self.get_dataset_identifier(
+                platform=self.platform,
+                name=self.get_dataset_identifier(
                     fk.referred_table, fk.referred_schema, fk.referred_database
                 ),
-                self.config.env,
+                env=self.config.env,
                 platform_instance=self.config.platform_instance,
             )
             foreign_keys.append(
