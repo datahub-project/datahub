@@ -257,7 +257,7 @@ pyasn1-modules==0.3.0
 pyathena==2.25.2
 pycountry==23.12.11
 pycparser==2.21
-pycryptodome==3.19.0
+pycryptodome==3.19.1
 pydantic==1.10.13
 pydantic_core==2.14.6
 pydash==7.0.6
