@@ -23,7 +23,8 @@ import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 @ComponentScan(
     basePackages = {
       "com.linkedin.metadata.kafka",
-      "com.linkedin.gms.factory.entity.update.indices"
+      "com.linkedin.gms.factory.entity.update.indices",
+      "com.linkedin.gms.factory.timeline.eventgenerator"
     })
 public class MCLSpringTestConfiguration {
 
