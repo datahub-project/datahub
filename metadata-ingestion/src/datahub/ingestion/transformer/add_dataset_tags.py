@@ -1,5 +1,5 @@
 import logging
-from typing import Callable, List, Optional, cast
+from typing import Callable, List, Optional, Union, cast
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import (
@@ -13,6 +13,7 @@ from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.transformer.dataset_transformer import DatasetTagsTransformer
 from datahub.metadata.schema_classes import (
     GlobalTagsClass,
+    MetadataChangeProposalClass,
     TagAssociationClass,
     TagKeyClass,
 )
@@ -65,9 +66,13 @@ class AddDatasetTags(DatasetTagsTransformer):
             self.config, self.ctx.graph, entity_urn, out_global_tags_aspect
         )
 
-    def handle_end_of_stream(self) -> List[MetadataChangeProposalWrapper]:
+    def handle_end_of_stream(
+        self,
+    ) -> List[Union[MetadataChangeProposalWrapper, MetadataChangeProposalClass]]:
 
-        mcps: List[MetadataChangeProposalWrapper] = []
+        mcps: List[
+            Union[MetadataChangeProposalWrapper, MetadataChangeProposalClass]
+        ] = []
 
         logger.debug("Generating tags")
 
@@ -121,7 +126,6 @@ class PatternAddDatasetTags(AddDatasetTags):
     """Transformer that adds a specified set of tags to each dataset."""
 
     def __init__(self, config: PatternDatasetTagsConfig, ctx: PipelineContext):
-        config.tag_pattern.all
         tag_pattern = config.tag_pattern
         generic_config = AddDatasetTagsConfig(
             get_tags_to_add=lambda _: [
