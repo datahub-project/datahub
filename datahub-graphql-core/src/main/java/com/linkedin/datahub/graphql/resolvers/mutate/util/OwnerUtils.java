@@ -28,6 +28,7 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import java.util.ArrayList;
 import java.util.List;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
 // TODO: Move to consuming from OwnerService
@@ -57,7 +58,7 @@ public class OwnerUtils {
 
   public static void removeOwnersFromResources(
       List<Urn> ownerUrns,
-      Urn ownershipTypeUrn,
+      @Nullable Urn ownershipTypeUrn,
       List<ResourceRefInput> resources,
       Urn actor,
       EntityService entityService) {
@@ -83,7 +84,6 @@ public class OwnerUtils {
                 Constants.OWNERSHIP_ASPECT_NAME,
                 entityService,
                 new Ownership());
-    assert ownershipAspect != null;
     ownershipAspect.setLastModified(EntityUtils.getAuditStamp(actor));
     for (OwnerInput input : owners) {
       addOwnerToAspect(
@@ -98,7 +98,7 @@ public class OwnerUtils {
 
   public static MetadataChangeProposal buildRemoveOwnersProposal(
       List<Urn> ownerUrns,
-      Urn ownershipTypeUrn,
+      @Nullable Urn ownershipTypeUrn,
       Urn resourceUrn,
       Urn actor,
       EntityService entityService) {
@@ -109,7 +109,6 @@ public class OwnerUtils {
                 Constants.OWNERSHIP_ASPECT_NAME,
                 entityService,
                 new Ownership());
-    assert ownershipAspect != null;
     ownershipAspect.setLastModified(EntityUtils.getAuditStamp(actor));
     removeOwnersIfExists(ownershipAspect, ownerUrns, ownershipTypeUrn);
     return buildMetadataChangeProposalWithUrn(
@@ -148,11 +147,12 @@ public class OwnerUtils {
     ownerArray.removeIf(
         owner -> {
           // Remove old ownership if it exists (check ownerUrn + type (entity & deprecated type))
-          return isEqual(owner, ownerUrn, ownershipTypeUrn);
+          return isOwnerEqual(owner, ownerUrn, ownershipTypeUrn);
         });
   }
 
-  public static boolean isEqual(Owner owner, Urn ownerUrn, Urn ownershipTypeUrn) {
+  public static boolean isOwnerEqual(
+      @Nonnull Owner owner, @Nonnull Urn ownerUrn, @Nullable Urn ownershipTypeUrn) {
     if (!owner.getOwner().equals(ownerUrn)) {
       return false;
     }
@@ -160,7 +160,7 @@ public class OwnerUtils {
       return owner.getTypeUrn().equals(ownershipTypeUrn);
     }
     if (ownershipTypeUrn == null) {
-      return false;
+      return true;
     }
     // Fall back to mapping deprecated type to the new ownership entity
     return mapOwnershipTypeToEntity(OwnershipType.valueOf(owner.getType().toString()).name())
