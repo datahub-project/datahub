@@ -398,7 +398,7 @@ plugins: Dict[str, Set[str]] = {
     "unity-catalog": databricks | sql_common | sqllineage_lib,
     # databricks is alias for unity-catalog and needs to be kept in sync
     "databricks": databricks | sql_common | sqllineage_lib,
-    "fivetran": snowflake_common,
+    "fivetran": snowflake_common | bigquery_common,
 }
 
 # This is mainly used to exclude plugins from the Docker image.
