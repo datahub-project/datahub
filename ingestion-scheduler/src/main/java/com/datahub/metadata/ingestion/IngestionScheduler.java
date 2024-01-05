@@ -34,6 +34,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.TimeZone;
 import java.util.UUID;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -157,7 +158,8 @@ public class IngestionScheduler {
 
         final String timezone = schedule.hasTimezone() ? schedule.getTimezone() : "UTC";
         final CronExpression generator = CronExpression.parse(modifiedCronInterval);
-        final ZonedDateTime currentDate = ZonedDateTime.now(ZoneId.of(timezone));
+        final TimeZone timeZone = TimeZone.getTimeZone(timezone);
+        final ZonedDateTime currentDate = ZonedDateTime.now(timeZone.toZoneId());
         final ZonedDateTime nextExecDate = generator.next(currentDate);
         if (nextExecDate == null) {
           log.info(
