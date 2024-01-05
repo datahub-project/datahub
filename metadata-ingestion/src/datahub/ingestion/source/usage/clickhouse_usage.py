@@ -153,8 +153,8 @@ class ClickHouseUsageSource(Source):
 
             if (
                     not self.config.database_pattern.allowed(event_dict.get("database")) or
-                    not self.config.table_pattern.allowed(event_dict.get("full_table_name")) or
-                    not self.config.view_pattern.allowed(event_dict.get("full_table_name"))
+                    not (self.config.table_pattern.allowed(event_dict.get("full_table_name")) or
+                   self.config.view_pattern.allowed(event_dict.get("full_table_name")))
             ):
                 logger.debug(f"Dropping usage event for {event_dict.get('full_table_name')}")
                 continue
