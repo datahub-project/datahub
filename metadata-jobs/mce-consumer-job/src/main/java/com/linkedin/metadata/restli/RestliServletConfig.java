@@ -38,7 +38,8 @@ public class RestliServletConfig {
   }
 
   @Bean("restliServletRegistration")
-  public ServletRegistrationBean<RestliHandlerServlet> restliServletRegistration(RestliHandlerServlet servlet) {
+  public ServletRegistrationBean<RestliHandlerServlet> restliServletRegistration(
+      RestliHandlerServlet servlet) {
 
     ServletRegistrationBean<RestliHandlerServlet> registrationBean =
         new ServletRegistrationBean<>(servlet, "/gms/*");

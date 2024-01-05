@@ -13,7 +13,7 @@ import org.springframework.context.annotation.PropertySource;
 
 @SuppressWarnings("checkstyle:HideUtilityClassConstructor")
 @SpringBootApplication(
-    exclude = { ElasticsearchRestClientAutoConfiguration.class, CassandraAutoConfiguration.class })
+    exclude = {ElasticsearchRestClientAutoConfiguration.class, CassandraAutoConfiguration.class})
 @ComponentScan(
     basePackages = {
       "com.linkedin.metadata.boot.kafka",
