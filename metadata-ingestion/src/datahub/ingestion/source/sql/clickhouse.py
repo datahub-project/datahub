@@ -511,7 +511,7 @@ class ClickHouseSource(TwoTierSQLAlchemySource):
                 # Target
                 target_path = (
                     f'{self.config.platform_instance+"." if self.config.platform_instance else ""}'
-                    f'{dataset_name}'
+                    f"{dataset_name}"
                 )
                 target = LineageItem(
                     dataset=LineageDataset(
