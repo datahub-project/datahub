@@ -7,7 +7,6 @@ import com.linkedin.common.DataPlatformInstance;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.entity.AspectMigrationsDao;
-import com.linkedin.metadata.entity.EntityAspect;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ebean.batch.MCPUpsertBatchItem;
 import com.linkedin.metadata.models.AspectSpec;
@@ -97,8 +96,7 @@ public class IngestDataPlatformInstancesStepTest {
   @Test
   public void testExecuteWhenSomeEntitiesShouldReceiveDataPlatformInstance() throws Exception {
     final EntityRegistry entityRegistry = getTestEntityRegistry();
-    final EntityService<MCPUpsertBatchItem, EntityAspect.EntitySystemAspect> entityService =
-        mock(EntityService.class);
+    final EntityService<MCPUpsertBatchItem> entityService = mock(EntityService.class);
     final AspectMigrationsDao migrationsDao = mock(AspectMigrationsDao.class);
     final int countOfCorpUserEntities = 5;
     final int countOfChartEntities = 7;

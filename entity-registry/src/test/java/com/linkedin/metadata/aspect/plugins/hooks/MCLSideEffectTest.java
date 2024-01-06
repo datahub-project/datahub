@@ -7,9 +7,12 @@ import com.linkedin.data.schema.annotation.PathSpecBasedSchemaAnnotationVisitor;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.batch.MCLBatchItem;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
+import com.linkedin.metadata.aspect.plugins.validation.AspectRetriever;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import java.util.List;
 import java.util.stream.Stream;
+import javax.annotation.Nonnull;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
@@ -29,7 +32,7 @@ public class MCLSideEffectTest {
         new ConfigEntityRegistry(
             TestEntityProfile.class.getClassLoader().getResourceAsStream(REGISTRY_FILE));
 
-    List<MCLSideEffect<?>> mclSideEffects =
+    List<MCLSideEffect> mclSideEffects =
         configEntityRegistry.getMCLSideEffects(ChangeType.UPSERT, "chart", "chartInfo");
     assertEquals(
         mclSideEffects,
@@ -49,14 +52,17 @@ public class MCLSideEffectTest {
                     .build())));
   }
 
-  public static class TestMCLSideEffect<T extends MCLBatchItem> extends MCLSideEffect<T> {
+  public static class TestMCLSideEffect extends MCLSideEffect {
 
     public TestMCLSideEffect(AspectPluginConfig aspectPluginConfig) {
       super(aspectPluginConfig);
     }
 
     @Override
-    protected Stream<T> applyMCLSideEffect(T input) {
+    protected Stream<MCLBatchItem> applyMCLSideEffect(
+        @Nonnull MCLBatchItem input,
+        @Nonnull EntityRegistry entityRegistry,
+        @Nonnull AspectRetriever aspectRetriever) {
       return Stream.of(input);
     }
   }

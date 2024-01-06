@@ -28,11 +28,9 @@ import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.browse.BrowseResultV2;
 import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.entity.DeleteEntityService;
-import com.linkedin.metadata.entity.EntityAspect;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.IngestResult;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
-import com.linkedin.metadata.entity.ebean.batch.MCLBatchItemImpl;
 import com.linkedin.metadata.entity.ebean.batch.MCPUpsertBatchItem;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.graph.LineageDirection;
@@ -87,7 +85,7 @@ public class JavaEntityClient implements EntityClient {
 
   private final Clock _clock = Clock.systemUTC();
 
-  private final EntityService<MCPUpsertBatchItem, EntityAspect.EntitySystemAspect> _entityService;
+  private final EntityService<MCPUpsertBatchItem> _entityService;
   private final DeleteEntityService _deleteEntityService;
   private final EntitySearchService _entitySearchService;
   private final CachingEntitySearchService _cachingEntitySearchService;
@@ -713,7 +711,7 @@ public class JavaEntityClient implements EntityClient {
 
     Stream<MetadataChangeProposal> proposalStream =
         Stream.concat(Stream.of(metadataChangeProposal), additionalChanges.stream());
-    AspectsBatch<MCLBatchItemImpl, MCPUpsertBatchItem, EntityAspect.EntitySystemAspect> batch =
+    AspectsBatch batch =
         AspectsBatchImpl.builder()
             .mcps(
                 proposalStream.collect(Collectors.toList()),

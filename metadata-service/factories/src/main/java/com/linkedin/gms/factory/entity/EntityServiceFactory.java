@@ -3,18 +3,15 @@ package com.linkedin.gms.factory.entity;
 import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.gms.factory.common.TopicConventionFactory;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
-import com.linkedin.metadata.aspect.plugins.hooks.MCPSideEffect;
 import com.linkedin.metadata.dao.producer.KafkaEventProducer;
 import com.linkedin.metadata.dao.producer.KafkaHealthChecker;
 import com.linkedin.metadata.entity.AspectDao;
-import com.linkedin.metadata.entity.EntityAspect;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.EntityServiceImpl;
 import com.linkedin.metadata.entity.ebean.batch.MCPUpsertBatchItem;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.service.UpdateIndicesService;
 import com.linkedin.mxe.TopicConvention;
-import java.util.List;
 import javax.annotation.Nonnull;
 import org.apache.avro.generic.IndexedRecord;
 import org.apache.kafka.clients.producer.Producer;
@@ -39,16 +36,14 @@ public class EntityServiceFactory {
     "entityRegistry"
   })
   @Nonnull
-  protected EntityService<MCPUpsertBatchItem, EntityAspect.EntitySystemAspect> createInstance(
+  protected EntityService<MCPUpsertBatchItem> createInstance(
       Producer<String, ? extends IndexedRecord> producer,
       TopicConvention convention,
       KafkaHealthChecker kafkaHealthChecker,
       @Qualifier("entityAspectDao") AspectDao aspectDao,
       EntityRegistry entityRegistry,
       ConfigurationProvider configurationProvider,
-      UpdateIndicesService updateIndicesService,
-      final List<MCPSideEffect<MCPUpsertBatchItem, EntityAspect.EntitySystemAspect>>
-          mcpSideEffects) {
+      UpdateIndicesService updateIndicesService) {
 
     final KafkaEventProducer eventProducer =
         new KafkaEventProducer(producer, convention, kafkaHealthChecker);
@@ -61,8 +56,7 @@ public class EntityServiceFactory {
             featureFlags.isAlwaysEmitChangeLog(),
             updateIndicesService,
             featureFlags.getPreProcessHooks(),
-            _ebeanMaxTransactionRetry,
-            mcpSideEffects);
+            _ebeanMaxTransactionRetry);
 
     return entityService;
   }

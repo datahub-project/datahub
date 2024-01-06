@@ -8,6 +8,7 @@ import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.metadata.aspect.batch.SystemAspect;
 import com.linkedin.metadata.aspect.batch.UpsertItem;
 import com.linkedin.metadata.aspect.plugins.hooks.MutationHook;
 import com.linkedin.metadata.aspect.plugins.validation.AspectPayloadValidator;
@@ -25,7 +26,6 @@ import com.linkedin.metadata.utils.SystemMetadataUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
 import java.sql.Timestamp;
-import java.util.List;
 import java.util.Objects;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -37,7 +37,7 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 @Getter
 @Builder(toBuilder = true)
-public class MCPUpsertBatchItem extends UpsertItem<EntityAspect.EntitySystemAspect> {
+public class MCPUpsertBatchItem extends UpsertItem {
 
   // urn an urn associated with the new aspect
   @Nonnull private final Urn urn;
@@ -56,9 +56,8 @@ public class MCPUpsertBatchItem extends UpsertItem<EntityAspect.EntitySystemAspe
   // derived
   @Nonnull private final EntitySpec entitySpec;
   @Nonnull private final AspectSpec aspectSpec;
-  @Nonnull private final List<MutationHook> mutationHooks;
-  @Nonnull private final List<AspectPayloadValidator> aspectPayloadValidators;
 
+  @Nonnull
   @Override
   public ChangeType getChangeType() {
     return ChangeType.UPSERT;
@@ -67,11 +66,14 @@ public class MCPUpsertBatchItem extends UpsertItem<EntityAspect.EntitySystemAspe
   public void applyMutationHooks(
       @Nullable RecordTemplate oldAspectValue,
       @Nullable SystemMetadata oldSystemMetadata,
+      @Nonnull EntityRegistry entityRegistry,
       @Nonnull AspectRetriever aspectRetriever) {
     // add audit stamp/system meta if needed
-    for (MutationHook mutationHook : mutationHooks) {
+    for (MutationHook mutationHook :
+        entityRegistry.getMutationHooks(
+            getChangeType(), entitySpec.getName(), aspectSpec.getName())) {
       mutationHook.applyMutation(
-          ChangeType.UPSERT,
+          getChangeType(),
           entitySpec,
           aspectSpec,
           oldAspectValue,
@@ -84,7 +86,7 @@ public class MCPUpsertBatchItem extends UpsertItem<EntityAspect.EntitySystemAspe
   }
 
   @Override
-  public EntityAspect.EntitySystemAspect toLatestEntityAspect() {
+  public SystemAspect toLatestEntityAspect() {
     EntityAspect latest = new EntityAspect();
     latest.setAspect(getAspectName());
     latest.setMetadata(EntityUtils.toJsonAspect(getAspect()));
@@ -95,17 +97,27 @@ public class MCPUpsertBatchItem extends UpsertItem<EntityAspect.EntitySystemAspe
     return latest.asSystemAspect();
   }
 
+  @Override
   public void validatePreCommit(
-      @Nullable RecordTemplate previous, @Nonnull AspectRetriever aspectRetriever)
+      @Nullable RecordTemplate previous,
+      @Nonnull EntityRegistry entityRegistry,
+      @Nonnull AspectRetriever aspectRetriever)
       throws AspectValidationException {
 
-    for (AspectPayloadValidator validator : aspectPayloadValidators) {
+    for (AspectPayloadValidator validator :
+        entityRegistry.getAspectPayloadValidators(
+            getChangeType(), entitySpec.getName(), aspectSpec.getName())) {
       validator.validatePreCommit(
           getChangeType(), urn, getAspectSpec(), previous, this.aspect, aspectRetriever);
     }
   }
 
   public static class MCPUpsertBatchItemBuilder {
+
+    // Ensure use of other builders
+    private MCPUpsertBatchItem build() {
+      return null;
+    }
 
     public MCPUpsertBatchItemBuilder systemMetadata(SystemMetadata systemMetadata) {
       this.systemMetadata = SystemMetadataUtils.generateSystemMetadataIfEmpty(systemMetadata);
@@ -141,10 +153,7 @@ public class MCPUpsertBatchItem extends UpsertItem<EntityAspect.EntitySystemAspe
           this.auditStamp,
           this.metadataChangeProposal,
           this.entitySpec,
-          this.aspectSpec,
-          entityRegistry.getMutationHooks(ChangeType.UPSERT, entitySpec.getName(), aspectName),
-          entityRegistry.getAspectPayloadValidators(
-              ChangeType.UPSERT, entitySpec.getName(), aspectName));
+          this.aspectSpec);
     }
 
     public static MCPUpsertBatchItem build(

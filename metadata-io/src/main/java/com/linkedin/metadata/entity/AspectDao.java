@@ -150,7 +150,7 @@ public interface AspectDao {
   @Nonnull
   default <T> T runInTransactionWithRetry(
       @Nonnull final Function<Transaction, T> block,
-      AspectsBatch<?, ?, ?> batch,
+      AspectsBatch batch,
       final int maxTransactionRetry) {
     return runInTransactionWithRetry(block, maxTransactionRetry);
   }

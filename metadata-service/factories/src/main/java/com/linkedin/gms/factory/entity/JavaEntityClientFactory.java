@@ -7,7 +7,6 @@ import com.linkedin.gms.factory.kafka.DataHubKafkaProducerFactory;
 import com.linkedin.metadata.client.JavaEntityClient;
 import com.linkedin.metadata.client.SystemJavaEntityClient;
 import com.linkedin.metadata.entity.DeleteEntityService;
-import com.linkedin.metadata.entity.EntityAspect;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ebean.batch.MCPUpsertBatchItem;
 import com.linkedin.metadata.event.EventProducer;
@@ -30,7 +29,7 @@ public class JavaEntityClientFactory {
 
   @Autowired
   @Qualifier("entityService")
-  private EntityService<MCPUpsertBatchItem, EntityAspect.EntitySystemAspect> _entityService;
+  private EntityService<MCPUpsertBatchItem> _entityService;
 
   @Autowired
   @Qualifier("deleteEntityService")

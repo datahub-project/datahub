@@ -6,9 +6,8 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.SystemAspect;
-import com.linkedin.metadata.aspect.plugins.hooks.MCPSideEffect;
+import com.linkedin.metadata.aspect.batch.UpsertItem;
 import com.linkedin.metadata.aspect.plugins.validation.AspectRetriever;
-import com.linkedin.metadata.entity.EntityAspect;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
@@ -26,8 +25,7 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 @Getter
 @Builder(toBuilder = true)
-public class AspectsBatchImpl
-    implements AspectsBatch<MCLBatchItemImpl, MCPUpsertBatchItem, EntityAspect.EntitySystemAspect> {
+public class AspectsBatchImpl implements AspectsBatch {
 
   private final List<? extends BatchItem> items;
 
@@ -40,12 +38,12 @@ public class AspectsBatchImpl
    *     various hooks
    */
   @Override
-  public Pair<Map<String, Set<String>>, List<MCPUpsertBatchItem>> toUpsertBatchItems(
-      final Map<String, Map<String, EntityAspect.EntitySystemAspect>> latestAspects,
-      List<MCPSideEffect<MCPUpsertBatchItem, EntityAspect.EntitySystemAspect>> mcpSideEffects,
+  public Pair<Map<String, Set<String>>, List<UpsertItem>> toUpsertBatchItems(
+      final Map<String, Map<String, SystemAspect>> latestAspects,
       EntityRegistry entityRegistry,
       AspectRetriever aspectRetriever) {
-    LinkedList<MCPUpsertBatchItem> upsertBatchItems =
+
+    LinkedList<UpsertItem> upsertBatchItems =
         items.stream()
             .map(
                 item -> {
@@ -71,14 +69,15 @@ public class AspectsBatchImpl
                       latest != null ? latest.getSystemMetadata() : null;
                   final RecordTemplate oldAspectValue =
                       latest != null ? latest.getRecordTemplate(entityRegistry) : null;
-                  upsertItem.applyMutationHooks(oldAspectValue, oldSystemMetadata, aspectRetriever);
+                  upsertItem.applyMutationHooks(
+                      oldAspectValue, oldSystemMetadata, entityRegistry, aspectRetriever);
 
                   return upsertItem;
                 })
             .collect(Collectors.toCollection(LinkedList::new));
 
-    LinkedList<MCPUpsertBatchItem> newItems =
-        applyMCPSideEffects(mcpSideEffects, upsertBatchItems)
+    LinkedList<UpsertItem> newItems =
+        applyMCPSideEffects(upsertBatchItems, entityRegistry, aspectRetriever)
             .collect(Collectors.toCollection(LinkedList::new));
     Map<String, Set<String>> newUrnAspectNames = getNewUrnAspectsMap(getUrnAspectsMap(), newItems);
     upsertBatchItems.addAll(newItems);

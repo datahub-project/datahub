@@ -9,7 +9,6 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.boot.BootstrapStep;
 import com.linkedin.metadata.entity.AspectMigrationsDao;
-import com.linkedin.metadata.entity.EntityAspect;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.entity.ebean.batch.MCPUpsertBatchItem;
@@ -29,7 +28,7 @@ public class IngestDataPlatformInstancesStep implements BootstrapStep {
 
   private static final int BATCH_SIZE = 1000;
 
-  private final EntityService<MCPUpsertBatchItem, EntityAspect.EntitySystemAspect> _entityService;
+  private final EntityService<MCPUpsertBatchItem> _entityService;
   private final AspectMigrationsDao _migrationsDao;
 
   @Override

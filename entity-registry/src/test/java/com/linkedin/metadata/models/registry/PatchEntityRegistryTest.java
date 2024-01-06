@@ -7,7 +7,6 @@ import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.EventSpec;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.List;
 import java.util.Map;
 import org.testng.annotations.Test;
 
@@ -62,7 +61,7 @@ public class PatchEntityRegistryTest {
     PatchEntityRegistry patchEntityRegistry =
         new PatchEntityRegistry(
             dataSchemaFactory,
-            List.of(pluginLocation),
+            DataSchemaFactory.getClassLoader(pluginLocation).stream().toList(),
             Paths.get("src/test_plugins/mycompany-full-model/0.0.1/entity-registry.yaml"),
             TestConstants.TEST_REGISTRY,
             TestConstants.TEST_VERSION);

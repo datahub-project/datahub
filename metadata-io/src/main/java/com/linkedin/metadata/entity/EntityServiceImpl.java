@@ -56,7 +56,6 @@ import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.MCPBatchItem;
 import com.linkedin.metadata.aspect.batch.SystemAspect;
 import com.linkedin.metadata.aspect.batch.UpsertItem;
-import com.linkedin.metadata.aspect.plugins.hooks.MCPSideEffect;
 import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
 import com.linkedin.metadata.config.PreProcessHooks;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
@@ -146,8 +145,7 @@ import lombok.extern.slf4j.Slf4j;
  * class.
  */
 @Slf4j
-public class EntityServiceImpl
-    implements EntityService<MCPUpsertBatchItem, EntityAspect.EntitySystemAspect> {
+public class EntityServiceImpl implements EntityService<MCPUpsertBatchItem> {
 
   /**
    * As described above, the latest version of an aspect should <b>always</b> take the value 0, with
@@ -159,7 +157,7 @@ public class EntityServiceImpl
   private final EventProducer _producer;
   private final EntityRegistry _entityRegistry;
   private final Map<String, Set<String>> _entityToValidAspects;
-  private RetentionService<MCPUpsertBatchItem, EntityAspect.EntitySystemAspect> _retentionService;
+  private RetentionService<MCPUpsertBatchItem> _retentionService;
   private final Boolean _alwaysEmitChangeLog;
   @Getter private final UpdateIndicesService _updateIndicesService;
   private final PreProcessHooks _preProcessHooks;
@@ -169,18 +167,13 @@ public class EntityServiceImpl
 
   private SystemEntityClient systemEntityClient;
 
-  private final List<MCPSideEffect<MCPUpsertBatchItem, EntityAspect.EntitySystemAspect>>
-      mcpSideEffects;
-
   public EntityServiceImpl(
       @Nonnull final AspectDao aspectDao,
       @Nonnull final EventProducer producer,
       @Nonnull final EntityRegistry entityRegistry,
       final boolean alwaysEmitChangeLog,
       final UpdateIndicesService updateIndicesService,
-      final PreProcessHooks preProcessHooks,
-      final List<MCPSideEffect<MCPUpsertBatchItem, EntityAspect.EntitySystemAspect>>
-          mcpSideEffects) {
+      final PreProcessHooks preProcessHooks) {
     this(
         aspectDao,
         producer,
@@ -188,8 +181,7 @@ public class EntityServiceImpl
         alwaysEmitChangeLog,
         updateIndicesService,
         preProcessHooks,
-        DEFAULT_MAX_TRANSACTION_RETRY,
-        mcpSideEffects);
+        DEFAULT_MAX_TRANSACTION_RETRY);
   }
 
   public EntityServiceImpl(
@@ -199,9 +191,7 @@ public class EntityServiceImpl
       final boolean alwaysEmitChangeLog,
       final UpdateIndicesService updateIndicesService,
       final PreProcessHooks preProcessHooks,
-      final Integer retry,
-      final List<MCPSideEffect<MCPUpsertBatchItem, EntityAspect.EntitySystemAspect>>
-          mcpSideEffects) {
+      final Integer retry) {
 
     _aspectDao = aspectDao;
     _producer = producer;
@@ -211,7 +201,6 @@ public class EntityServiceImpl
     _updateIndicesService = updateIndicesService;
     _preProcessHooks = preProcessHooks;
     ebeanMaxTransactionRetry = retry != null ? retry : DEFAULT_MAX_TRANSACTION_RETRY;
-    this.mcpSideEffects = mcpSideEffects;
   }
 
   @Override
@@ -660,10 +649,7 @@ public class EntityServiceImpl
    */
   @Override
   public List<UpdateAspectResult> ingestAspects(
-      @Nonnull
-          final AspectsBatch<?, MCPUpsertBatchItem, EntityAspect.EntitySystemAspect> aspectsBatch,
-      boolean emitMCL,
-      boolean overwrite) {
+      @Nonnull final AspectsBatch aspectsBatch, boolean emitMCL, boolean overwrite) {
 
     Timer.Context ingestToLocalDBTimer =
         MetricUtils.timer(this.getClass(), "ingestAspectsToLocalDB").time();
@@ -686,9 +672,7 @@ public class EntityServiceImpl
    */
   @Nonnull
   private List<UpdateAspectResult> ingestAspectsToLocalDB(
-      @Nonnull
-          final AspectsBatch<?, MCPUpsertBatchItem, EntityAspect.EntitySystemAspect> aspectsBatch,
-      boolean overwrite) {
+      @Nonnull final AspectsBatch aspectsBatch, boolean overwrite) {
 
     if (aspectsBatch.containsDuplicateAspects()) {
       log.warn(String.format("Batch contains duplicates: %s", aspectsBatch));
@@ -699,7 +683,7 @@ public class EntityServiceImpl
           // Read before write is unfortunate, however batch it
           final Map<String, Set<String>> urnAspects = aspectsBatch.getUrnAspectsMap();
           // read #1
-          final Map<String, Map<String, EntityAspect.EntitySystemAspect>> latestAspects =
+          final Map<String, Map<String, SystemAspect>> latestAspects =
               toSystemEntityAspects(_aspectDao.getLatestAspects(urnAspects));
           // read #2
           final Map<String, Map<String, Long>> nextVersions =
@@ -707,15 +691,14 @@ public class EntityServiceImpl
 
           // 1. Convert patches to full upserts
           // 2. Run any entity/aspect level hooks
-          Pair<Map<String, Set<String>>, List<MCPUpsertBatchItem>> updatedItems =
-              aspectsBatch.toUpsertBatchItems(
-                  latestAspects, mcpSideEffects, _entityRegistry, systemEntityClient);
+          Pair<Map<String, Set<String>>, List<UpsertItem>> updatedItems =
+              aspectsBatch.toUpsertBatchItems(latestAspects, _entityRegistry, systemEntityClient);
 
           // Fetch additional information if needed
-          final Map<String, Map<String, EntityAspect.EntitySystemAspect>> updatedLatestAspects;
+          final Map<String, Map<String, SystemAspect>> updatedLatestAspects;
           final Map<String, Map<String, Long>> updatedNextVersions;
           if (!updatedItems.getFirst().isEmpty()) {
-            Map<String, Map<String, EntityAspect.EntitySystemAspect>> newLatestAspects =
+            Map<String, Map<String, SystemAspect>> newLatestAspects =
                 toSystemEntityAspects(_aspectDao.getLatestAspects(updatedItems.getFirst()));
             Map<String, Map<String, Long>> newNextVersions =
                 _aspectDao.getNextVersions(updatedItems.getFirst());
@@ -732,7 +715,7 @@ public class EntityServiceImpl
               .getSecond()
               .forEach(
                   item -> {
-                    EntityAspect.EntitySystemAspect previousAspect =
+                    SystemAspect previousAspect =
                         updatedLatestAspects
                             .getOrDefault(item.getUrn().toString(), Map.of())
                             .get(item.getAspectSpec().getName());
@@ -741,6 +724,7 @@ public class EntityServiceImpl
                           previousAspect == null
                               ? null
                               : previousAspect.getRecordTemplate(_entityRegistry),
+                          _entityRegistry,
                           systemEntityClient);
                     } catch (AspectValidationException e) {
                       throw new RuntimeException(e);
@@ -753,7 +737,7 @@ public class EntityServiceImpl
                   .map(
                       item -> {
                         final String urnStr = item.getUrn().toString();
-                        final EntityAspect.EntitySystemAspect latest =
+                        final SystemAspect latest =
                             updatedLatestAspects
                                 .getOrDefault(urnStr, Map.of())
                                 .get(item.getAspectName());
@@ -772,7 +756,9 @@ public class EntityServiceImpl
                                       item.getAspect(),
                                       item.getAuditStamp(),
                                       item.getSystemMetadata(),
-                                      latest == null ? null : latest.asRaw(),
+                                      latest == null
+                                          ? null
+                                          : ((EntityAspect.EntitySystemAspect) latest).asRaw(),
                                       nextVersion)
                                   .toBuilder()
                                   .request(item)
@@ -857,7 +843,7 @@ public class EntityServiceImpl
    * @param latestAspects latest aspect map
    * @return map with converted values
    */
-  private static Map<String, Map<String, EntityAspect.EntitySystemAspect>> toSystemEntityAspects(
+  private static Map<String, Map<String, SystemAspect>> toSystemEntityAspects(
       Map<String, Map<String, EntityAspect>> latestAspects) {
     return latestAspects.entrySet().stream()
         .map(
@@ -990,9 +976,7 @@ public class EntityServiceImpl
    * @return an {@link IngestResult} containing the results
    */
   @Override
-  public Set<IngestResult> ingestProposal(
-      AspectsBatch<?, MCPUpsertBatchItem, EntityAspect.EntitySystemAspect> aspectsBatch,
-      final boolean async) {
+  public Set<IngestResult> ingestProposal(AspectsBatch aspectsBatch, final boolean async) {
 
     Stream<IngestResult> timeseriesIngestResults = ingestTimeseriesProposal(aspectsBatch);
     Stream<IngestResult> nonTimeseriesIngestResults =
@@ -1008,8 +992,7 @@ public class EntityServiceImpl
    * @param aspectsBatch timeseries upserts batch
    * @return returns ingest proposal result, however was never in the MCP topic
    */
-  private Stream<IngestResult> ingestTimeseriesProposal(
-      AspectsBatch<?, MCPUpsertBatchItem, EntityAspect.EntitySystemAspect> aspectsBatch) {
+  private Stream<IngestResult> ingestTimeseriesProposal(AspectsBatch aspectsBatch) {
     List<? extends BatchItem> unsupported =
         aspectsBatch.getItems().stream()
             .filter(
@@ -1073,8 +1056,7 @@ public class EntityServiceImpl
    * @param aspectsBatch non-timeseries ingest aspects
    * @return produced items to the MCP topic
    */
-  private Stream<IngestResult> ingestProposalAsync(
-      AspectsBatch<?, MCPUpsertBatchItem, EntityAspect.EntitySystemAspect> aspectsBatch) {
+  private Stream<IngestResult> ingestProposalAsync(AspectsBatch aspectsBatch) {
     List<? extends MCPBatchItem> nonTimeseries =
         aspectsBatch.getMCPItems().stream()
             .filter(item -> !item.getAspectSpec().isTimeseries())
@@ -1111,8 +1093,7 @@ public class EntityServiceImpl
     }
   }
 
-  private Stream<IngestResult> ingestProposalSync(
-      AspectsBatch<?, MCPUpsertBatchItem, EntityAspect.EntitySystemAspect> aspectsBatch) {
+  private Stream<IngestResult> ingestProposalSync(AspectsBatch aspectsBatch) {
     AspectsBatchImpl nonTimeseries =
         AspectsBatchImpl.builder()
             .items(
@@ -1141,7 +1122,7 @@ public class EntityServiceImpl
     return upsertResults.stream()
         .map(
             result -> {
-              UpsertItem<?> item = result.getRequest();
+              UpsertItem item = result.getRequest();
 
               return IngestResult.builder()
                   .urn(item.getUrn())
@@ -1486,7 +1467,7 @@ public class EntityServiceImpl
   }
 
   private UpdateAspectResult conditionallyProduceMCLAsync(UpdateAspectResult result) {
-    UpsertItem<? extends SystemAspect> request = result.getRequest();
+    UpsertItem request = result.getRequest();
     Optional<Pair<Future<?>, Boolean>> emissionStatus =
         conditionallyProduceMCLAsync(
             result.getOldValue(),
@@ -1818,8 +1799,7 @@ public class EntityServiceImpl
   }
 
   @Override
-  public void setRetentionService(
-      RetentionService<MCPUpsertBatchItem, EntityAspect.EntitySystemAspect> retentionService) {
+  public void setRetentionService(RetentionService<MCPUpsertBatchItem> retentionService) {
     _retentionService = retentionService;
   }
 

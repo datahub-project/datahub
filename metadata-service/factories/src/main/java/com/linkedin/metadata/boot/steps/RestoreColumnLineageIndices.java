@@ -8,7 +8,6 @@ import com.linkedin.dataset.UpstreamLineage;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.boot.UpgradeStep;
-import com.linkedin.metadata.entity.EntityAspect;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ListResult;
 import com.linkedin.metadata.entity.ebean.batch.MCPUpsertBatchItem;
@@ -32,8 +31,7 @@ public class RestoreColumnLineageIndices extends UpgradeStep {
   private final EntityRegistry _entityRegistry;
 
   public RestoreColumnLineageIndices(
-      @Nonnull
-          final EntityService<MCPUpsertBatchItem, EntityAspect.EntitySystemAspect> entityService,
+      @Nonnull final EntityService<MCPUpsertBatchItem> entityService,
       @Nonnull final EntityRegistry entityRegistry) {
     super(entityService, VERSION, UPGRADE_ID);
     _entityRegistry = Objects.requireNonNull(entityRegistry, "entityRegistry must not be null");

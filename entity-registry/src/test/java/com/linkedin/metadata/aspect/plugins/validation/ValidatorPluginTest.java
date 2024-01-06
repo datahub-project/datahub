@@ -72,26 +72,26 @@ public class ValidatorPluginTest {
     }
 
     @Override
-    protected boolean validateProposedAspect(
+    protected void validateProposedAspect(
         @Nonnull ChangeType changeType,
         @Nonnull Urn entityUrn,
         @Nonnull AspectSpec aspectSpec,
         @Nonnull RecordTemplate aspectPayload,
         AspectRetriever aspectRetriever)
         throws AspectValidationException {
-      return entityUrn.toString().contains("dataset") ? false : true;
+      if (entityUrn.toString().contains("dataset")) {
+        throw new AspectValidationException("test error");
+      }
     }
 
     @Override
-    protected boolean validatePreCommitAspect(
+    protected void validatePreCommitAspect(
         @Nonnull ChangeType changeType,
         @Nonnull Urn entityUrn,
         @Nonnull AspectSpec aspectSpec,
         @Nullable RecordTemplate previousAspect,
         @Nonnull RecordTemplate proposedAspect,
         AspectRetriever aspectRetriever)
-        throws AspectValidationException {
-      return true;
-    }
+        throws AspectValidationException {}
   }
 }

@@ -57,7 +57,6 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.List;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Value;
 import org.testng.annotations.BeforeMethod;
@@ -124,8 +123,7 @@ public class UpdateIndicesHookTest {
             _mockSystemMetadataService,
             ENTITY_REGISTRY,
             _searchDocumentTransformer,
-            _mockEntityIndexBuilders,
-            List.of());
+            _mockEntityIndexBuilders);
     _updateIndicesHook = new UpdateIndicesHook(_updateIndicesService, true);
   }
 
@@ -202,8 +200,7 @@ public class UpdateIndicesHookTest {
             _mockSystemMetadataService,
             mockEntityRegistry,
             _searchDocumentTransformer,
-            _mockEntityIndexBuilders,
-            List.of());
+            _mockEntityIndexBuilders);
     _updateIndicesHook = new UpdateIndicesHook(_updateIndicesService, true);
 
     _updateIndicesHook.invoke(event);

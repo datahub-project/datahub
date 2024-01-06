@@ -12,7 +12,6 @@ import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.boot.BootstrapStep;
-import com.linkedin.metadata.entity.EntityAspect;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ebean.batch.MCPUpsertBatchItem;
 import com.linkedin.metadata.key.DataHubUpgradeKey;
@@ -48,7 +47,7 @@ public class RestoreDbtSiblingsIndices implements BootstrapStep {
   private static final Integer BATCH_SIZE = 1000;
   private static final Integer SLEEP_SECONDS = 120;
 
-  private final EntityService<MCPUpsertBatchItem, EntityAspect.EntitySystemAspect> _entityService;
+  private final EntityService<MCPUpsertBatchItem> _entityService;
   private final EntityRegistry _entityRegistry;
 
   @Override

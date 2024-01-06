@@ -7,11 +7,11 @@ import com.linkedin.metadata.aspect.plugins.hooks.MCLSideEffect;
 import com.linkedin.metadata.aspect.plugins.hooks.MCPSideEffect;
 import com.linkedin.metadata.aspect.plugins.hooks.MutationHook;
 import com.linkedin.metadata.aspect.plugins.validation.AspectPayloadValidator;
+import com.linkedin.metadata.models.registry.config.EntityRegistryLoadResult;
 import io.github.classgraph.ClassGraph;
 import io.github.classgraph.ClassInfo;
 import io.github.classgraph.MethodInfo;
 import io.github.classgraph.ScanResult;
-import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -26,8 +26,8 @@ import lombok.extern.slf4j.Slf4j;
 public class PluginFactory {
 
   public static PluginFactory withCustomClasspath(
-      @Nullable PluginConfiguration pluginConfiguration, @Nonnull List<Path> pluginLocations) {
-    return new PluginFactory(pluginConfiguration, pluginLocations);
+      @Nullable PluginConfiguration pluginConfiguration, @Nonnull List<ClassLoader> classLoaders) {
+    return new PluginFactory(pluginConfiguration, classLoaders);
   }
 
   public static PluginFactory withConfig(@Nullable PluginConfiguration pluginConfiguration) {
@@ -41,21 +41,21 @@ public class PluginFactory {
   public static PluginFactory merge(PluginFactory a, PluginFactory b) {
     return PluginFactory.withCustomClasspath(
         PluginConfiguration.merge(a.getPluginConfiguration(), b.getPluginConfiguration()),
-        Stream.concat(a.getClassPathLocations().stream(), b.getClassPathLocations().stream())
+        Stream.concat(a.getClassLoaders().stream(), b.getClassLoaders().stream())
             .collect(Collectors.toList()));
   }
 
   @Getter private final PluginConfiguration pluginConfiguration;
-  @Nonnull @Getter private final List<Path> classPathLocations;
+  @Nonnull @Getter private final List<ClassLoader> classLoaders;
   @Getter private final List<AspectPayloadValidator> aspectPayloadValidators;
   @Getter private final List<MutationHook> mutationHooks;
-  @Getter private final List<MCLSideEffect<?>> mclSideEffects;
-  @Getter private final List<MCPSideEffect<?, ?>> mcpSideEffects;
+  @Getter private final List<MCLSideEffect> mclSideEffects;
+  @Getter private final List<MCPSideEffect> mcpSideEffects;
 
   private final ClassGraph classGraph;
 
   public PluginFactory(
-      @Nullable PluginConfiguration pluginConfiguration, @Nonnull List<Path> classPathLocations) {
+      @Nullable PluginConfiguration pluginConfiguration, @Nonnull List<ClassLoader> classLoaders) {
     this.classGraph =
         new ClassGraph()
             .enableRemoteJarScanning()
@@ -63,10 +63,10 @@ public class PluginFactory {
             .enableClassInfo()
             .enableMethodInfo();
 
-    this.classPathLocations = classPathLocations;
+    this.classLoaders = classLoaders;
 
-    if (!this.classPathLocations.isEmpty()) {
-      this.classGraph.overrideClasspath(classPathLocations);
+    if (!this.classLoaders.isEmpty()) {
+      classLoaders.forEach(this.classGraph::addClassLoader);
     }
 
     this.pluginConfiguration =
@@ -120,7 +120,7 @@ public class PluginFactory {
    * @return MCP side effects
    */
   @Nonnull
-  public List<MCPSideEffect<?, ?>> getMCPSideEffects(
+  public List<MCPSideEffect> getMCPSideEffects(
       @Nonnull ChangeType changeType, @Nonnull String entityName, @Nonnull String aspectName) {
     return mcpSideEffects.stream()
         .filter(plugin -> plugin.shouldApply(changeType, entityName, aspectName))
@@ -137,11 +137,35 @@ public class PluginFactory {
    * @return MCL side effects
    */
   @Nonnull
-  public List<MCLSideEffect<?>> getMCLSideEffects(
+  public List<MCLSideEffect> getMCLSideEffects(
       @Nonnull ChangeType changeType, @Nonnull String entityName, @Nonnull String aspectName) {
     return mclSideEffects.stream()
         .filter(plugin -> plugin.shouldApply(changeType, entityName, aspectName))
         .collect(Collectors.toList());
+  }
+
+  @Nonnull
+  public EntityRegistryLoadResult.PluginLoadResult getPluginLoadResult() {
+    return EntityRegistryLoadResult.PluginLoadResult.builder()
+        .validatorCount(aspectPayloadValidators.size())
+        .mutationHookCount(mutationHooks.size())
+        .mcpSideEffectCount(mcpSideEffects.size())
+        .mclSideEffectCount(mclSideEffects.size())
+        .validatorClasses(
+            aspectPayloadValidators.stream()
+                .map(cls -> cls.getClass().getName())
+                .collect(Collectors.toSet()))
+        .mutationHookClasses(
+            mutationHooks.stream().map(cls -> cls.getClass().getName()).collect(Collectors.toSet()))
+        .mcpSideEffectClasses(
+            mcpSideEffects.stream()
+                .map(cls -> cls.getClass().getName())
+                .collect(Collectors.toSet()))
+        .mclSideEffectClasses(
+            mclSideEffects.stream()
+                .map(cls -> cls.getClass().getName())
+                .collect(Collectors.toSet()))
+        .build();
   }
 
   private List<AspectPayloadValidator> buildAspectPayloadValidators(
@@ -163,7 +187,7 @@ public class PluginFactory {
             "com.linkedin.metadata.aspect.plugins.hooks");
   }
 
-  private List<MCLSideEffect<?>> buildMCLSideEffects(
+  private List<MCLSideEffect> buildMCLSideEffects(
       @Nullable PluginConfiguration pluginConfiguration) {
     return pluginConfiguration == null
         ? List.of()
@@ -173,7 +197,7 @@ public class PluginFactory {
             "com.linkedin.metadata.aspect.plugins.hooks");
   }
 
-  private List<MCPSideEffect<?, ?>> buildMCPSideEffects(
+  private List<MCPSideEffect> buildMCPSideEffects(
       @Nullable PluginConfiguration pluginConfiguration) {
     return pluginConfiguration == null
         ? List.of()

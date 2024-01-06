@@ -11,7 +11,6 @@ import java.sql.Timestamp;
  * primary storage.
  */
 public interface SystemAspect {
-
   Urn getUrn();
 
   String getAspectName();

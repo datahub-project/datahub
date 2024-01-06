@@ -16,7 +16,6 @@ import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.authorization.PoliciesConfig;
-import com.linkedin.metadata.entity.EntityAspect;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ebean.batch.MCPUpsertBatchItem;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
@@ -66,7 +65,7 @@ import org.springframework.web.bind.annotation.RestController;
     description = "APIs for ingesting and accessing entities and their constituent aspects")
 public class EntitiesController {
 
-  private final EntityService<MCPUpsertBatchItem, EntityAspect.EntitySystemAspect> _entityService;
+  private final EntityService<MCPUpsertBatchItem> _entityService;
   private final ObjectMapper _objectMapper;
   private final AuthorizerChain _authorizerChain;
 

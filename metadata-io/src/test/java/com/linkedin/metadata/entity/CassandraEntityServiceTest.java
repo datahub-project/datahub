@@ -77,8 +77,7 @@ public class CassandraEntityServiceTest
             _testEntityRegistry,
             false,
             _mockUpdateIndicesService,
-            preProcessHooks,
-            List.of());
+            preProcessHooks);
     _retentionService = new CassandraRetentionService(_entityServiceImpl, session, 1000);
     _entityServiceImpl.setRetentionService(_retentionService);
   }

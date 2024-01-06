@@ -26,7 +26,7 @@ public abstract class AspectPayloadValidator extends PluginSpec {
    * @return whether the aspect proposal is valid
    * @throws AspectValidationException
    */
-  public final boolean validateProposed(
+  public final void validateProposed(
       @Nonnull ChangeType changeType,
       @Nonnull Urn entityUrn,
       @Nonnull AspectSpec aspectSpec,
@@ -34,11 +34,8 @@ public abstract class AspectPayloadValidator extends PluginSpec {
       @Nonnull AspectRetriever aspectRetriever)
       throws AspectValidationException {
     if (shouldApply(changeType, entityUrn, aspectSpec)) {
-      return validateProposedAspect(
-          changeType, entityUrn, aspectSpec, aspectPayload, aspectRetriever);
+      validateProposedAspect(changeType, entityUrn, aspectSpec, aspectPayload, aspectRetriever);
     }
-
-    return true;
   }
 
   /**
@@ -53,7 +50,7 @@ public abstract class AspectPayloadValidator extends PluginSpec {
    * @return whether the aspect proposal is valid
    * @throws AspectValidationException
    */
-  public final boolean validatePreCommit(
+  public final void validatePreCommit(
       @Nonnull ChangeType changeType,
       @Nonnull Urn entityUrn,
       @Nonnull AspectSpec aspectSpec,
@@ -62,14 +59,12 @@ public abstract class AspectPayloadValidator extends PluginSpec {
       AspectRetriever aspectRetriever)
       throws AspectValidationException {
     if (shouldApply(changeType, entityUrn, aspectSpec)) {
-      return validatePreCommitAspect(
+      validatePreCommitAspect(
           changeType, entityUrn, aspectSpec, previousAspect, proposedAspect, aspectRetriever);
     }
-
-    return true;
   }
 
-  protected abstract boolean validateProposedAspect(
+  protected abstract void validateProposedAspect(
       @Nonnull ChangeType changeType,
       @Nonnull Urn entityUrn,
       @Nonnull AspectSpec aspectSpec,
@@ -77,7 +72,7 @@ public abstract class AspectPayloadValidator extends PluginSpec {
       @Nonnull AspectRetriever aspectRetriever)
       throws AspectValidationException;
 
-  protected abstract boolean validatePreCommitAspect(
+  protected abstract void validatePreCommitAspect(
       @Nonnull ChangeType changeType,
       @Nonnull Urn entityUrn,
       @Nonnull AspectSpec aspectSpec,

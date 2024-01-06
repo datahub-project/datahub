@@ -4,7 +4,6 @@ import com.linkedin.chart.ChartInfo;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.identity.CorpUserInfo;
-import com.linkedin.metadata.entity.EntityAspect;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.entity.ebean.batch.MCPUpsertBatchItem;
@@ -27,9 +26,7 @@ public class AspectIngestionUtils {
 
   @Nonnull
   public static Map<Urn, CorpUserKey> ingestCorpUserKeyAspects(
-      EntityService<MCPUpsertBatchItem, EntityAspect.EntitySystemAspect> entityService,
-      int aspectCount,
-      int startIndex) {
+      EntityService<MCPUpsertBatchItem> entityService, int aspectCount, int startIndex) {
     String aspectName = AspectGenerationUtils.getAspectName(new CorpUserKey());
     Map<Urn, CorpUserKey> aspects = new HashMap<>();
     List<MCPUpsertBatchItem> items = new LinkedList<>();

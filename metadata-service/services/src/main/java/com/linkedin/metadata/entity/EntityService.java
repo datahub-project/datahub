@@ -13,7 +13,6 @@ import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
-import com.linkedin.metadata.aspect.batch.SystemAspect;
 import com.linkedin.metadata.aspect.batch.UpsertItem;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesResult;
@@ -35,7 +34,7 @@ import java.util.function.Consumer;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
-public interface EntityService<U extends UpsertItem<S>, S extends SystemAspect> {
+public interface EntityService<U extends UpsertItem> {
 
   /**
    * Just whether the entity/aspect exists
@@ -168,7 +167,7 @@ public interface EntityService<U extends UpsertItem<S>, S extends SystemAspect> 
       @Nullable SystemMetadata systemMetadata);
 
   List<UpdateAspectResult> ingestAspects(
-      @Nonnull final AspectsBatch<?, U, S> aspectsBatch, boolean emitMCL, boolean overwrite);
+      @Nonnull final AspectsBatch aspectsBatch, boolean emitMCL, boolean overwrite);
 
   /**
    * Ingests (inserts) a new version of an entity aspect & emits a {@link
@@ -246,7 +245,7 @@ public interface EntityService<U extends UpsertItem<S>, S extends SystemAspect> 
       @Nonnull AuditStamp auditStamp,
       @Nonnull SystemMetadata systemMetadata);
 
-  void setRetentionService(RetentionService<U, S> retentionService);
+  void setRetentionService(RetentionService<U> retentionService);
 
   AspectSpec getKeyAspectSpec(@Nonnull final Urn urn);
 
@@ -300,7 +299,7 @@ public interface EntityService<U extends UpsertItem<S>, S extends SystemAspect> 
   RollbackRunResult rollbackWithConditions(
       List<AspectRowSummary> aspectRows, Map<String, String> conditions, boolean hardDelete);
 
-  Set<IngestResult> ingestProposal(AspectsBatch<?, U, S> aspectsBatch, final boolean async);
+  Set<IngestResult> ingestProposal(AspectsBatch aspectsBatch, final boolean async);
 
   /**
    * If you have more than 1 proposal use the {AspectsBatch} method

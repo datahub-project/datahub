@@ -83,10 +83,10 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
 
   @Inject
   @Named("entityService")
-  private EntityService<MCPUpsertBatchItem, EntityAspect.EntitySystemAspect> _entityService;
+  private EntityService<MCPUpsertBatchItem> _entityService;
 
   @VisibleForTesting
-  void setEntityService(EntityService<MCPUpsertBatchItem, EntityAspect.EntitySystemAspect> entityService) {
+  void setEntityService(EntityService<MCPUpsertBatchItem> entityService) {
     _entityService = entityService;
   }
 
@@ -248,7 +248,7 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
     return RestliUtil.toTask(() -> {
       log.debug("Proposal: {}", metadataChangeProposal);
       try {
-        final AspectsBatch<MCLBatchItemImpl, MCPUpsertBatchItem, EntityAspect.EntitySystemAspect> batch;
+        final AspectsBatch batch;
         if (asyncBool) {
           // if async we'll expand the getAdditionalChanges later, no need to do this early
           batch = AspectsBatchImpl.builder()

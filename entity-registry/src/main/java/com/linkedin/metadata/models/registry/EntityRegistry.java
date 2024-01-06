@@ -1,6 +1,7 @@
 package com.linkedin.metadata.models.registry;
 
 import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.metadata.aspect.plugins.PluginFactory;
 import com.linkedin.metadata.aspect.plugins.hooks.MCLSideEffect;
 import com.linkedin.metadata.aspect.plugins.hooks.MCPSideEffect;
 import com.linkedin.metadata.aspect.plugins.hooks.MutationHook;
@@ -12,6 +13,7 @@ import com.linkedin.metadata.models.EventSpec;
 import com.linkedin.metadata.models.registry.template.AspectTemplateEngine;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
@@ -87,7 +89,16 @@ public interface EntityRegistry {
   @Nonnull
   default List<AspectPayloadValidator> getAspectPayloadValidators(
       @Nonnull ChangeType changeType, @Nonnull String entityName, @Nonnull String aspectName) {
-    return List.of();
+    return getAllAspectPayloadValidators().stream()
+        .filter(
+            aspectPayloadValidator ->
+                aspectPayloadValidator.shouldApply(changeType, entityName, aspectName))
+        .collect(Collectors.toList());
+  }
+
+  @Nonnull
+  default List<AspectPayloadValidator> getAllAspectPayloadValidators() {
+    return getPluginFactory().getAspectPayloadValidators();
   }
 
   /**
@@ -101,7 +112,14 @@ public interface EntityRegistry {
   @Nonnull
   default List<MutationHook> getMutationHooks(
       @Nonnull ChangeType changeType, @Nonnull String entityName, @Nonnull String aspectName) {
-    return List.of();
+    return getAllMutationHooks().stream()
+        .filter(mutationHook -> mutationHook.shouldApply(changeType, entityName, aspectName))
+        .collect(Collectors.toList());
+  }
+
+  @Nonnull
+  default List<MutationHook> getAllMutationHooks() {
+    return getPluginFactory().getMutationHooks();
   }
 
   /**
@@ -114,9 +132,16 @@ public interface EntityRegistry {
    * @return MCP side effects
    */
   @Nonnull
-  default List<MCPSideEffect<?, ?>> getMCPSideEffects(
+  default List<MCPSideEffect> getMCPSideEffects(
       @Nonnull ChangeType changeType, @Nonnull String entityName, @Nonnull String aspectName) {
-    return List.of();
+    return getAllMCPSideEffects().stream()
+        .filter(mcpSideEffect -> mcpSideEffect.shouldApply(changeType, entityName, aspectName))
+        .collect(Collectors.toList());
+  }
+
+  @Nonnull
+  default List<MCPSideEffect> getAllMCPSideEffects() {
+    return getPluginFactory().getMcpSideEffects();
   }
 
   /**
@@ -129,8 +154,25 @@ public interface EntityRegistry {
    * @return MCL side effects
    */
   @Nonnull
-  default List<MCLSideEffect<?>> getMCLSideEffects(
+  default List<MCLSideEffect> getMCLSideEffects(
       @Nonnull ChangeType changeType, @Nonnull String entityName, @Nonnull String aspectName) {
-    return List.of();
+    return getAllMCLSideEffects().stream()
+        .filter(mclSideEffect -> mclSideEffect.shouldApply(changeType, entityName, aspectName))
+        .collect(Collectors.toList());
+  }
+
+  @Nonnull
+  default List<MCLSideEffect> getAllMCLSideEffects() {
+    return getPluginFactory().getMclSideEffects();
+  }
+
+  /**
+   * Returns underlying plugin factory
+   *
+   * @return the plugin factory
+   */
+  @Nonnull
+  default PluginFactory getPluginFactory() {
+    return PluginFactory.empty();
   }
 }

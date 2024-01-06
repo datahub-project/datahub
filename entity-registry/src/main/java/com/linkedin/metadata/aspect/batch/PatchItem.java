@@ -17,7 +17,7 @@ public abstract class PatchItem extends MCPBatchItem {
    * @param recordTemplate the current value record template
    * @return the upsert
    */
-  public abstract UpsertItem<? extends SystemAspect> applyPatch(
+  public abstract UpsertItem applyPatch(
       EntityRegistry entityRegistry,
       RecordTemplate recordTemplate,
       AspectRetriever aspectRetriever);

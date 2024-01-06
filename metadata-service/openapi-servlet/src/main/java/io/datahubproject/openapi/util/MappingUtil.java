@@ -27,7 +27,6 @@ import com.linkedin.entity.Aspect;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.entity.AspectUtils;
-import com.linkedin.metadata.entity.EntityAspect;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.IngestResult;
 import com.linkedin.metadata.entity.RollbackRunResult;
@@ -443,7 +442,7 @@ public class MappingUtil {
   public static Pair<String, Boolean> ingestProposal(
       com.linkedin.mxe.MetadataChangeProposal serviceProposal,
       String actorUrn,
-      EntityService<MCPUpsertBatchItem, EntityAspect.EntitySystemAspect> entityService,
+      EntityService<MCPUpsertBatchItem> entityService,
       boolean async) {
 
     // TODO: Use the actor present in the IC.
@@ -464,7 +463,7 @@ public class MappingUtil {
               Stream.of(serviceProposal),
               AspectUtils.getAdditionalChanges(serviceProposal, entityService).stream());
 
-      AspectsBatch<?, MCPUpsertBatchItem, EntityAspect.EntitySystemAspect> batch =
+      AspectsBatch batch =
           AspectsBatchImpl.builder()
               .mcps(
                   proposalStream.collect(Collectors.toList()),

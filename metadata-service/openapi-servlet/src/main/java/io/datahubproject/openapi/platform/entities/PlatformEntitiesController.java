@@ -8,7 +8,6 @@ import com.datahub.authorization.DisjunctivePrivilegeGroup;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.metadata.authorization.PoliciesConfig;
-import com.linkedin.metadata.entity.EntityAspect;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ebean.batch.MCPUpsertBatchItem;
 import com.linkedin.metadata.search.client.CachingEntitySearchService;
@@ -46,7 +45,7 @@ import org.springframework.web.bind.annotation.RestController;
     description = "Platform level APIs intended for lower level access to entities")
 public class PlatformEntitiesController {
 
-  private final EntityService<MCPUpsertBatchItem, EntityAspect.EntitySystemAspect> _entityService;
+  private final EntityService<MCPUpsertBatchItem> _entityService;
   private final CachingEntitySearchService _cachingEntitySearchService;
   private final ObjectMapper _objectMapper;
   private final AuthorizerChain _authorizerChain;

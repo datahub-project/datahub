@@ -1,7 +1,6 @@
 package com.linkedin.gms.factory.entity;
 
 import com.datastax.oss.driver.api.core.CqlSession;
-import com.linkedin.metadata.entity.EntityAspect;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.RetentionService;
 import com.linkedin.metadata.entity.cassandra.CassandraRetentionService;
@@ -25,7 +24,7 @@ public class RetentionServiceFactory {
 
   @Autowired
   @Qualifier("entityService")
-  private EntityService<MCPUpsertBatchItem, EntityAspect.EntitySystemAspect> _entityService;
+  private EntityService<MCPUpsertBatchItem> _entityService;
 
   @Value("${RETENTION_APPLICATION_BATCH_SIZE:1000}")
   private Integer _batchSize;

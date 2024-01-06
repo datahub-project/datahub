@@ -20,6 +20,7 @@ public interface MCLBatchItem extends BatchItem {
     return getMetadataChangeLog().getEntityUrn();
   }
 
+  @Nonnull
   @Override
   default String getAspectName() {
     if (getMetadataChangeLog().getAspectName() != null) {

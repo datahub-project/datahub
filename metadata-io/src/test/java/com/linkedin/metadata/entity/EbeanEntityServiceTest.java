@@ -75,8 +75,7 @@ public class EbeanEntityServiceTest
             _testEntityRegistry,
             false,
             _mockUpdateIndicesService,
-            preProcessHooks,
-            List.of());
+            preProcessHooks);
     _retentionService = new EbeanRetentionService(_entityServiceImpl, server, 1000);
     _entityServiceImpl.setRetentionService(_retentionService);
   }

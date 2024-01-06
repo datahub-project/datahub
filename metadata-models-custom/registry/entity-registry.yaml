@@ -3,6 +3,7 @@ entities:
   - name: dataset
     aspects:
       - customDataQualityRules
+      - customDataQualityRuleEvent
   - name: container
     aspects:
       - customDataQualityRules
@@ -13,5 +14,29 @@ plugins:
       supportedOperations:
         - UPSERT
       supportedEntityAspectNames:
-        - entityName: '*'
+        - entityName: 'dataset'
+          aspectName: customDataQualityRules
+  mutationHooks:
+    - className: 'com.linkedin.metadata.aspect.plugins.hooks.CustomDataQualityRulesMutator'
+      enabled: true
+      supportedOperations:
+        - UPSERT
+      supportedEntityAspectNames:
+        - entityName: 'dataset'
+          aspectName: customDataQualityRules
+  mclSideEffects:
+    - className: 'com.linkedin.metadata.aspect.plugins.hooks.CustomDataQualityRulesMCLSideEffect'
+      enabled: true
+      supportedOperations:
+        - UPSERT
+      supportedEntityAspectNames:
+        - entityName: 'dataset'
+          aspectName: customDataQualityRules
+  mcpSideEffects:
+    - className: 'com.linkedin.metadata.aspect.plugins.hooks.CustomDataQualityRulesMCPSideEffect'
+      enabled: true
+      supportedOperations:
+        - UPSERT
+      supportedEntityAspectNames:
+        - entityName: 'dataset'
           aspectName: customDataQualityRules

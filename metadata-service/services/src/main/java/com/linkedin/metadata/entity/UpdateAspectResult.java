@@ -14,7 +14,7 @@ import lombok.Value;
 @Value
 public class UpdateAspectResult {
   Urn urn;
-  UpsertItem<?> request;
+  UpsertItem request;
   RecordTemplate oldValue;
   RecordTemplate newValue;
   SystemMetadata oldSystemMetadata;

@@ -30,6 +30,7 @@ import com.linkedin.mxe.SystemMetadata;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Objects;
+import javax.annotation.Nonnull;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
@@ -65,6 +66,7 @@ public class MCPPatchBatchItem extends PatchItem {
   private final EntitySpec entitySpec;
   private final AspectSpec aspectSpec;
 
+  @Nonnull
   @Override
   public ChangeType getChangeType() {
     return ChangeType.PATCH;

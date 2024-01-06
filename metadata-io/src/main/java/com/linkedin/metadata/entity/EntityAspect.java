@@ -49,7 +49,7 @@ public class EntityAspect {
   }
 
   @Nonnull
-  public EntityAspect.EntitySystemAspect asSystemAspect() {
+  public SystemAspect asSystemAspect() {
     return EntitySystemAspect.from(this);
   }
 

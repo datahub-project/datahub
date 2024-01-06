@@ -18,7 +18,7 @@ import com.linkedin.dataset.UpstreamLineage;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
-import com.linkedin.metadata.aspect.plugins.hooks.MCLSideEffect;
+import com.linkedin.metadata.aspect.batch.MCLBatchItem;
 import com.linkedin.metadata.entity.ebean.batch.MCLBatchItemImpl;
 import com.linkedin.metadata.graph.Edge;
 import com.linkedin.metadata.graph.GraphIndexUtils;
@@ -85,8 +85,6 @@ public class UpdateIndicesService {
   private static final Set<ChangeType> UPDATE_CHANGE_TYPES =
       ImmutableSet.of(ChangeType.UPSERT, ChangeType.RESTATE, ChangeType.PATCH);
 
-  private final List<MCLSideEffect<MCLBatchItemImpl>> mclSideEffects;
-
   @VisibleForTesting
   public void setGraphDiffMode(boolean graphDiffMode) {
     _graphDiffMode = graphDiffMode;
@@ -104,8 +102,7 @@ public class UpdateIndicesService {
       SystemMetadataService systemMetadataService,
       EntityRegistry entityRegistry,
       SearchDocumentTransformer searchDocumentTransformer,
-      EntityIndexBuilders entityIndexBuilders,
-      final List<MCLSideEffect<MCLBatchItemImpl>> mclSideEffects) {
+      EntityIndexBuilders entityIndexBuilders) {
     _graphService = graphService;
     _entitySearchService = entitySearchService;
     _timeseriesAspectService = timeseriesAspectService;
@@ -113,7 +110,6 @@ public class UpdateIndicesService {
     _entityRegistry = entityRegistry;
     _searchDocumentTransformer = searchDocumentTransformer;
     _entityIndexBuilders = entityIndexBuilders;
-    this.mclSideEffects = mclSideEffects;
   }
 
   public void handleChangeEvent(@Nonnull final MetadataChangeLog event) {
@@ -121,12 +117,16 @@ public class UpdateIndicesService {
       MCLBatchItemImpl batch =
           MCLBatchItemImpl.builder().build(event, _entityRegistry, systemEntityClient);
 
-      Stream<MCLBatchItemImpl> sideEffects =
-          Stream.concat(
-              Stream.of(batch),
-              mclSideEffects.stream().flatMap(sideEffect -> sideEffect.apply(List.of(batch))));
+      Stream<MCLBatchItem> sideEffects =
+          _entityRegistry
+              .getMCLSideEffects(
+                  event.getChangeType(), event.getEntityType(), event.getAspectName())
+              .stream()
+              .flatMap(
+                  mclSideEffect ->
+                      mclSideEffect.apply(List.of(batch), _entityRegistry, systemEntityClient));
 
-      for (MCLBatchItemImpl mclBatchItem : sideEffects.collect(Collectors.toList())) {
+      for (MCLBatchItem mclBatchItem : Stream.concat(Stream.of(batch), sideEffects).toList()) {
         MetadataChangeLog hookEvent = mclBatchItem.getMetadataChangeLog();
         if (UPDATE_CHANGE_TYPES.contains(hookEvent.getChangeType())) {
           handleUpdateChangeEvent(mclBatchItem);
@@ -148,7 +148,7 @@ public class UpdateIndicesService {
    *
    * @param event the change event to be processed.
    */
-  private void handleUpdateChangeEvent(@Nonnull final MCLBatchItemImpl event) throws IOException {
+  private void handleUpdateChangeEvent(@Nonnull final MCLBatchItem event) throws IOException {
 
     final EntitySpec entitySpec = event.getEntitySpec();
     final AspectSpec aspectSpec = event.getAspectSpec();
@@ -202,7 +202,7 @@ public class UpdateIndicesService {
    *
    * @param event the change event to be processed.
    */
-  private void handleDeleteChangeEvent(@Nonnull final MCLBatchItemImpl event) {
+  private void handleDeleteChangeEvent(@Nonnull final MCLBatchItem event) {
 
     final EntitySpec entitySpec = event.getEntitySpec();
     final Urn urn = event.getUrn();

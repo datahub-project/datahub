@@ -9,7 +9,6 @@ import com.linkedin.metadata.entity.ebean.EbeanAspectDao;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.models.registry.EntityRegistryException;
 import io.ebean.Database;
-import java.util.List;
 import org.testng.Assert;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -43,8 +42,7 @@ public class EbeanTimelineServiceTest extends TimelineServiceTest<EbeanAspectDao
             _testEntityRegistry,
             true,
             _mockUpdateIndicesService,
-            preProcessHooks,
-            List.of());
+            preProcessHooks);
   }
 
   /**

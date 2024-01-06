@@ -11,7 +11,6 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.AspectUtils;
-import com.linkedin.metadata.entity.EntityAspect;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.entity.ebean.batch.MCPUpsertBatchItem;
@@ -42,7 +41,7 @@ import org.apache.commons.lang.ArrayUtils;
 @Slf4j
 public class StatefulTokenService extends StatelessTokenService {
 
-  private final EntityService<MCPUpsertBatchItem, EntityAspect.EntitySystemAspect> _entityService;
+  private final EntityService<MCPUpsertBatchItem> _entityService;
   private final LoadingCache<String, Boolean> _revokedTokenCache;
   private final String salt;
 
@@ -50,8 +49,7 @@ public class StatefulTokenService extends StatelessTokenService {
       @Nonnull final String signingKey,
       @Nonnull final String signingAlgorithm,
       @Nullable final String iss,
-      @Nonnull
-          final EntityService<MCPUpsertBatchItem, EntityAspect.EntitySystemAspect> entityService,
+      @Nonnull final EntityService<MCPUpsertBatchItem> entityService,
       @Nonnull final String salt) {
     super(signingKey, signingAlgorithm, iss);
     this._entityService = entityService;

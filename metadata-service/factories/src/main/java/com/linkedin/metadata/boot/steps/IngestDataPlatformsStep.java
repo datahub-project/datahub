@@ -11,7 +11,6 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.dataplatform.DataPlatformInfo;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.boot.BootstrapStep;
-import com.linkedin.metadata.entity.EntityAspect;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.entity.ebean.batch.MCPUpsertBatchItem;
@@ -32,7 +31,7 @@ public class IngestDataPlatformsStep implements BootstrapStep {
 
   private static final String PLATFORM_ASPECT_NAME = "dataPlatformInfo";
 
-  private final EntityService<MCPUpsertBatchItem, EntityAspect.EntitySystemAspect> _entityService;
+  private final EntityService<MCPUpsertBatchItem> _entityService;
 
   @Override
   public String name() {

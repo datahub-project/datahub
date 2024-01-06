@@ -19,25 +19,23 @@ public class CustomDataQualityRulesValidator extends AspectPayloadValidator {
   }
 
   @Override
-  protected boolean validateProposedAspect(
+  protected void validateProposedAspect(
       @Nonnull ChangeType changeType,
       @Nonnull Urn entityUrn,
       @Nonnull AspectSpec aspectSpec,
       @Nonnull RecordTemplate aspectPayload,
       @Nonnull AspectRetriever aspectRetriever)
       throws AspectValidationException {
-
-    DataQualityRules rules = (DataQualityRules) aspectPayload;
+    DataQualityRules rules = new DataQualityRules(aspectPayload.data());
 
     // Enforce at least 1 rule
     if (rules.getRules().isEmpty()) {
       throw new AspectValidationException("At least one rule is required.");
     }
-    return true;
   }
 
   @Override
-  protected boolean validatePreCommitAspect(
+  protected void validatePreCommitAspect(
       @Nonnull ChangeType changeType,
       @Nonnull Urn entityUrn,
       @Nonnull AspectSpec aspectSpec,
@@ -47,8 +45,8 @@ public class CustomDataQualityRulesValidator extends AspectPayloadValidator {
       throws AspectValidationException {
 
     if (previousAspect != null) {
-      DataQualityRules oldRules = (DataQualityRules) previousAspect;
-      DataQualityRules newRules = (DataQualityRules) proposedAspect;
+      DataQualityRules oldRules = new DataQualityRules(previousAspect.data());
+      DataQualityRules newRules = new DataQualityRules(proposedAspect.data());
 
       Map<String, String> newFieldTypeMap =
           newRules.getRules().stream()
@@ -68,7 +66,5 @@ public class CustomDataQualityRulesValidator extends AspectPayloadValidator {
         }
       }
     }
-
-    return true;
   }
 }

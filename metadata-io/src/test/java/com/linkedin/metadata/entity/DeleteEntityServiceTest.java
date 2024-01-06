@@ -28,7 +28,6 @@ import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
 import java.sql.Timestamp;
-import java.util.List;
 import java.util.Map;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
@@ -60,8 +59,7 @@ public class DeleteEntityServiceTest {
             _entityRegistry,
             true,
             _mockUpdateIndicesService,
-            preProcessHooks,
-            List.of());
+            preProcessHooks);
     _deleteEntityService = new DeleteEntityService(_entityServiceImpl, _graphService);
   }
 

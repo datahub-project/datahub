@@ -1,7 +1,5 @@
 package com.linkedin.metadata.aspect.batch;
 
-import com.linkedin.metadata.aspect.plugins.hooks.MCLSideEffect;
-import com.linkedin.metadata.aspect.plugins.hooks.MCPSideEffect;
 import com.linkedin.metadata.aspect.plugins.validation.AspectRetriever;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.mxe.SystemMetadata;
@@ -18,16 +16,15 @@ import javax.annotation.Nonnull;
  * A batch of aspects in the context of either an MCP or MCL write path to a data store. The item is
  * a record that encapsulates the change type, raw aspect and ancillary information like {@link
  * SystemMetadata} and record/message created time
- *
- * @param <L> The type of MCL items within this batch
- * @param <U> The type of MCP items within this batch
- * @param <S> The type that represents the aspect plus related information like the {@link
- *     SystemMetadata}
  */
-public interface AspectsBatch<
-    L extends MCLBatchItem, U extends UpsertItem<S>, S extends SystemAspect> {
+public interface AspectsBatch {
   List<? extends BatchItem> getItems();
 
+  /**
+   * Returns MCP items. Can be patch, upsert, etc.
+   *
+   * @return batch items
+   */
   default List<? extends MCPBatchItem> getMCPItems() {
     return getItems().stream()
         .filter(item -> item instanceof MCPBatchItem)
@@ -35,18 +32,15 @@ public interface AspectsBatch<
         .collect(Collectors.toList());
   }
 
-  Pair<Map<String, Set<String>>, List<U>> toUpsertBatchItems(
-      Map<String, Map<String, S>> latestAspects,
-      List<MCPSideEffect<U, S>> mcpSideEffects,
+  Pair<Map<String, Set<String>>, List<UpsertItem>> toUpsertBatchItems(
+      Map<String, Map<String, SystemAspect>> latestAspects,
       EntityRegistry entityRegistry,
       AspectRetriever aspectRetriever);
 
-  default Stream<U> applyMCPSideEffects(List<MCPSideEffect<U, S>> mcpSideEffects, List<U> items) {
-    return mcpSideEffects.stream().flatMap(sideEffect -> sideEffect.apply(items));
-  }
-
-  default Stream<L> applyMCLSideEffects(List<MCLSideEffect<L>> mclSideEffects, List<L> items) {
-    return mclSideEffects.stream().flatMap(sideEffect -> sideEffect.apply(items));
+  default Stream<UpsertItem> applyMCPSideEffects(
+      List<UpsertItem> items, EntityRegistry entityRegistry, AspectRetriever aspectRetriever) {
+    return entityRegistry.getAllMCPSideEffects().stream()
+        .flatMap(mcpSideEffect -> mcpSideEffect.apply(items, entityRegistry, aspectRetriever));
   }
 
   default boolean containsDuplicateAspects() {

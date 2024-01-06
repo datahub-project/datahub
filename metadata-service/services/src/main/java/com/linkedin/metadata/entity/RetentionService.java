@@ -8,7 +8,6 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
-import com.linkedin.metadata.aspect.batch.SystemAspect;
 import com.linkedin.metadata.aspect.batch.UpsertItem;
 import com.linkedin.metadata.entity.retention.BulkApplyRetentionArgs;
 import com.linkedin.metadata.entity.retention.BulkApplyRetentionResult;
@@ -38,10 +37,10 @@ import lombok.Value;
  * storage and retention concerns apart, let AspectDaos deal with storage, and merge all retention
  * concerns into a single class.
  */
-public abstract class RetentionService<U extends UpsertItem<S>, S extends SystemAspect> {
+public abstract class RetentionService<U extends UpsertItem> {
   protected static final String ALL = "*";
 
-  protected abstract EntityService<U, S> getEntityService();
+  protected abstract EntityService<U> getEntityService();
 
   /**
    * Fetch retention policies given the entityName and aspectName Uses the entity service to fetch
@@ -122,14 +121,13 @@ public abstract class RetentionService<U extends UpsertItem<S>, S extends System
         new AuditStamp()
             .setActor(Urn.createFromString(Constants.SYSTEM_ACTOR))
             .setTime(System.currentTimeMillis());
-    AspectsBatch<?, U, S> batch =
-        buildAspectsBatch(List.of(keyProposal, aspectProposal), auditStamp);
+    AspectsBatch batch = buildAspectsBatch(List.of(keyProposal, aspectProposal), auditStamp);
 
     return getEntityService().ingestProposal(batch, false).stream()
         .anyMatch(IngestResult::isSqlCommitted);
   }
 
-  protected abstract AspectsBatch<?, U, S> buildAspectsBatch(
+  protected abstract AspectsBatch buildAspectsBatch(
       List<MetadataChangeProposal> mcps, @Nonnull AuditStamp auditStamp);
 
   /**

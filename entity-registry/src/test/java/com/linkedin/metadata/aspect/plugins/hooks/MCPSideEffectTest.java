@@ -5,12 +5,14 @@ import static org.testng.Assert.assertEquals;
 import com.datahub.test.TestEntityProfile;
 import com.linkedin.data.schema.annotation.PathSpecBasedSchemaAnnotationVisitor;
 import com.linkedin.events.metadata.ChangeType;
-import com.linkedin.metadata.aspect.batch.SystemAspect;
 import com.linkedin.metadata.aspect.batch.UpsertItem;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
+import com.linkedin.metadata.aspect.plugins.validation.AspectRetriever;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import java.util.List;
 import java.util.stream.Stream;
+import javax.annotation.Nonnull;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
@@ -30,7 +32,7 @@ public class MCPSideEffectTest {
         new ConfigEntityRegistry(
             TestEntityProfile.class.getClassLoader().getResourceAsStream(REGISTRY_FILE));
 
-    List<MCPSideEffect<?, ?>> mcpSideEffects =
+    List<MCPSideEffect> mcpSideEffects =
         configEntityRegistry.getMCPSideEffects(ChangeType.UPSERT, "dataset", "datasetKey");
     assertEquals(
         mcpSideEffects,
@@ -50,15 +52,15 @@ public class MCPSideEffectTest {
                     .build())));
   }
 
-  public static class TestMCPSideEffect<U extends UpsertItem<S>, S extends SystemAspect>
-      extends MCPSideEffect<U, S> {
+  public static class TestMCPSideEffect extends MCPSideEffect {
 
     public TestMCPSideEffect(AspectPluginConfig aspectPluginConfig) {
       super(aspectPluginConfig);
     }
 
     @Override
-    protected Stream<U> applyMCPSideEffect(U input) {
+    protected Stream<UpsertItem> applyMCPSideEffect(
+        UpsertItem input, EntityRegistry entityRegistry, @Nonnull AspectRetriever aspectRetriever) {
       return Stream.of(input);
     }
   }

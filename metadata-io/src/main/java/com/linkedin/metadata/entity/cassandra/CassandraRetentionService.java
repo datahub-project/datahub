@@ -22,7 +22,6 @@ import com.linkedin.metadata.entity.EntityAspectIdentifier;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.RetentionService;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
-import com.linkedin.metadata.entity.ebean.batch.MCLBatchItemImpl;
 import com.linkedin.metadata.entity.ebean.batch.MCPUpsertBatchItem;
 import com.linkedin.metadata.entity.retention.BulkApplyRetentionArgs;
 import com.linkedin.metadata.entity.retention.BulkApplyRetentionResult;
@@ -46,22 +45,21 @@ import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @RequiredArgsConstructor
-public class CassandraRetentionService
-    extends RetentionService<MCPUpsertBatchItem, EntityAspect.EntitySystemAspect> {
-  private final EntityService<MCPUpsertBatchItem, EntityAspect.EntitySystemAspect> _entityService;
+public class CassandraRetentionService extends RetentionService<MCPUpsertBatchItem> {
+  private final EntityService<MCPUpsertBatchItem> _entityService;
   private final CqlSession _cqlSession;
   private final int _batchSize;
 
   private final Clock _clock = Clock.systemUTC();
 
   @Override
-  public EntityService<MCPUpsertBatchItem, EntityAspect.EntitySystemAspect> getEntityService() {
+  public EntityService<MCPUpsertBatchItem> getEntityService() {
     return _entityService;
   }
 
   @Override
-  protected AspectsBatch<MCLBatchItemImpl, MCPUpsertBatchItem, EntityAspect.EntitySystemAspect>
-      buildAspectsBatch(List<MetadataChangeProposal> mcps, @Nonnull AuditStamp auditStamp) {
+  protected AspectsBatch buildAspectsBatch(
+      List<MetadataChangeProposal> mcps, @Nonnull AuditStamp auditStamp) {
     return AspectsBatchImpl.builder()
         .mcps(
             mcps,

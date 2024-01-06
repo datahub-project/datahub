@@ -58,14 +58,7 @@ public class MockEntityService extends EntityServiceImpl {
       @Nonnull EntityRegistry entityRegistry,
       @Nonnull UpdateIndicesService updateIndicesService,
       PreProcessHooks preProcessHooks) {
-    super(
-        aspectDao,
-        producer,
-        entityRegistry,
-        true,
-        updateIndicesService,
-        preProcessHooks,
-        List.of());
+    super(aspectDao, producer, entityRegistry, true, updateIndicesService, preProcessHooks);
   }
 
   @Override

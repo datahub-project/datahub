@@ -595,7 +595,7 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
   @Nonnull
   public <T> T runInTransactionWithRetry(
       @Nonnull final Function<Transaction, T> block,
-      @Nullable AspectsBatch<?, ?, ?> batch,
+      @Nullable AspectsBatch batch,
       final int maxTransactionRetry) {
     validateConnection();
     int retryCount = 0;

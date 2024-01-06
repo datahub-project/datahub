@@ -53,7 +53,7 @@ public class AspectResourceTest {
     _updateIndicesService = mock(UpdateIndicesService.class);
     _preProcessHooks = mock(PreProcessHooks.class);
     _entityService = new EntityServiceImpl(_aspectDao, _producer, _entityRegistry, false,
-            _updateIndicesService, _preProcessHooks, List.of());
+            _updateIndicesService, _preProcessHooks);
     _authorizer = mock(Authorizer.class);
     _aspectResource.setAuthorizer(_authorizer);
     _aspectResource.setEntityService(_entityService);
