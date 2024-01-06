@@ -1,20 +1,16 @@
 package com.linkedin.metadata.aspect.plugins.hooks;
 
 import com.linkedin.metadata.aspect.batch.MCLBatchItem;
-import com.linkedin.metadata.aspect.plugins.ConfigurableEntityAspectPlugin;
+import com.linkedin.metadata.aspect.plugins.PluginSpec;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import java.util.List;
 import java.util.stream.Stream;
-import lombok.Getter;
 
 /** Given an MCL produce additional MCLs for writing */
-@Getter
-public abstract class MCLSideEffect<L extends MCLBatchItem>
-    implements ConfigurableEntityAspectPlugin {
-  private final AspectPluginConfig config;
+public abstract class MCLSideEffect<L extends MCLBatchItem> extends PluginSpec {
 
-  protected MCLSideEffect(AspectPluginConfig config) {
-    this.config = config;
+  public MCLSideEffect(AspectPluginConfig aspectPluginConfig) {
+    super(aspectPluginConfig);
   }
 
   /**
@@ -29,5 +25,5 @@ public abstract class MCLSideEffect<L extends MCLBatchItem>
         .flatMap(this::applyMCLSideEffect);
   }
 
-  abstract Stream<L> applyMCLSideEffect(L input);
+  protected abstract Stream<L> applyMCLSideEffect(L input);
 }

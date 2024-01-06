@@ -71,7 +71,7 @@ public class AspectsBatchImpl
                       latest != null ? latest.getSystemMetadata() : null;
                   final RecordTemplate oldAspectValue =
                       latest != null ? latest.getRecordTemplate(entityRegistry) : null;
-                  upsertItem.applyMutationHooks(oldAspectValue, oldSystemMetadata);
+                  upsertItem.applyMutationHooks(oldAspectValue, oldSystemMetadata, aspectRetriever);
 
                   return upsertItem;
                 })

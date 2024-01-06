@@ -3,6 +3,12 @@ package com.linkedin.metadata.models.registry;
 import com.linkedin.data.schema.compatibility.CompatibilityChecker;
 import com.linkedin.data.schema.compatibility.CompatibilityOptions;
 import com.linkedin.data.schema.compatibility.CompatibilityResult;
+import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.metadata.aspect.plugins.PluginFactory;
+import com.linkedin.metadata.aspect.plugins.hooks.MCLSideEffect;
+import com.linkedin.metadata.aspect.plugins.hooks.MCPSideEffect;
+import com.linkedin.metadata.aspect.plugins.hooks.MutationHook;
+import com.linkedin.metadata.aspect.plugins.validation.AspectPayloadValidator;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.ConfigEntitySpec;
 import com.linkedin.metadata.models.DefaultEntitySpec;
@@ -27,6 +33,7 @@ public class MergedEntityRegistry implements EntityRegistry {
   private final Map<String, EventSpec> eventNameToSpec;
   private final AspectTemplateEngine _aspectTemplateEngine;
   private final Map<String, AspectSpec> _aspectNameToSpec;
+  @Nonnull private PluginFactory pluginFactory;
 
   public MergedEntityRegistry(EntityRegistry baseEntityRegistry) {
     // baseEntityRegistry.get*Specs() can return immutable Collections.emptyMap() which fails
@@ -42,6 +49,13 @@ public class MergedEntityRegistry implements EntityRegistry {
     baseEntityRegistry.getAspectTemplateEngine();
     _aspectTemplateEngine = baseEntityRegistry.getAspectTemplateEngine();
     _aspectNameToSpec = baseEntityRegistry.getAspectSpecs();
+    if (baseEntityRegistry instanceof ConfigEntityRegistry) {
+      this.pluginFactory = ((ConfigEntityRegistry) baseEntityRegistry).getPluginFactory();
+    } else if (baseEntityRegistry instanceof PatchEntityRegistry) {
+      this.pluginFactory = ((PatchEntityRegistry) baseEntityRegistry).getPluginFactory();
+    } else {
+      this.pluginFactory = PluginFactory.empty();
+    }
   }
 
   private void validateEntitySpec(EntitySpec entitySpec, final ValidationResult validationResult) {
@@ -81,6 +95,18 @@ public class MergedEntityRegistry implements EntityRegistry {
       eventNameToSpec.putAll(patchEntityRegistry.getEventSpecs());
     }
     // TODO: Validate that the entity registries don't have conflicts among each other
+
+    // Merge Plugins
+    final PluginFactory patchPluginFactory;
+    if (patchEntityRegistry instanceof ConfigEntityRegistry) {
+      patchPluginFactory = ((ConfigEntityRegistry) patchEntityRegistry).getPluginFactory();
+    } else if (patchEntityRegistry instanceof PatchEntityRegistry) {
+      patchPluginFactory = ((PatchEntityRegistry) patchEntityRegistry).getPluginFactory();
+    } else {
+      patchPluginFactory = PluginFactory.empty();
+    }
+    this.pluginFactory = PluginFactory.merge(this.pluginFactory, patchPluginFactory);
+
     return this;
   }
 
@@ -198,6 +224,34 @@ public class MergedEntityRegistry implements EntityRegistry {
   @Override
   public AspectTemplateEngine getAspectTemplateEngine() {
     return _aspectTemplateEngine;
+  }
+
+  @Nonnull
+  @Override
+  public List<AspectPayloadValidator> getAspectPayloadValidators(
+      @Nonnull ChangeType changeType, @Nonnull String entityName, @Nonnull String aspectName) {
+    return pluginFactory.getAspectPayloadValidators(changeType, entityName, aspectName);
+  }
+
+  @Nonnull
+  @Override
+  public List<MutationHook> getMutationHooks(
+      @Nonnull ChangeType changeType, @Nonnull String entityName, @Nonnull String aspectName) {
+    return pluginFactory.getMutationHooks(changeType, entityName, aspectName);
+  }
+
+  @Nonnull
+  @Override
+  public List<MCPSideEffect<?, ?>> getMCPSideEffects(
+      @Nonnull ChangeType changeType, @Nonnull String entityName, @Nonnull String aspectName) {
+    return pluginFactory.getMCPSideEffects(changeType, entityName, aspectName);
+  }
+
+  @Nonnull
+  @Override
+  public List<MCLSideEffect<?>> getMCLSideEffects(
+      @Nonnull ChangeType changeType, @Nonnull String entityName, @Nonnull String aspectName) {
+    return pluginFactory.getMCLSideEffects(changeType, entityName, aspectName);
   }
 
   @Setter

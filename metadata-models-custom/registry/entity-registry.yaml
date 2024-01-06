@@ -6,3 +6,12 @@ entities:
   - name: container
     aspects:
       - customDataQualityRules
+plugins:
+  aspectPayloadValidators:
+    - className: 'com.linkedin.metadata.aspect.plugins.validation.CustomDataQualityRulesValidator'
+      enabled: true
+      supportedOperations:
+        - UPSERT
+      supportedEntityAspectNames:
+        - entityName: '*'
+          aspectName: customDataQualityRules

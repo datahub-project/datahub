@@ -2,20 +2,17 @@ package com.linkedin.metadata.aspect.plugins.hooks;
 
 import com.linkedin.metadata.aspect.batch.SystemAspect;
 import com.linkedin.metadata.aspect.batch.UpsertItem;
-import com.linkedin.metadata.aspect.plugins.ConfigurableEntityAspectPlugin;
+import com.linkedin.metadata.aspect.plugins.PluginSpec;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import java.util.List;
 import java.util.stream.Stream;
-import lombok.Getter;
 
 /** Given an MCP produce additional MCPs to write */
-@Getter
 public abstract class MCPSideEffect<U extends UpsertItem<S>, S extends SystemAspect>
-    implements ConfigurableEntityAspectPlugin {
-  private final AspectPluginConfig config;
+    extends PluginSpec {
 
-  protected MCPSideEffect(AspectPluginConfig config) {
-    this.config = config;
+  public MCPSideEffect(AspectPluginConfig aspectPluginConfig) {
+    super(aspectPluginConfig);
   }
 
   /**

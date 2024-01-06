@@ -151,6 +151,84 @@ results in
 Successfully wrote to DataHub
 ```
 
+##  Custom Plugins
+
+Adding custom models to DataHub's existing data model is a powerful way to extend DataHub without forking the entire repo. While doing so it may be desire-able to add additional code
+customizations for certain use-cases. Towards this end there are a handful of classes that can be extended to control how data is persisted.
+
+### Custom Validators
+
+Custom aspects might require that instances of those aspects adhere to specific conditions. These conditions could vary wildly depending on the use case however they could be as simple
+as a null or range check for one or more fields within the custom aspect. Additionally, a lookup can be done on other aspects in order to validate the current aspect using the `AspectRetriever`.
+
+There are two integration points for validation. The first integration point is `on request` via the `validateProposedAspect` method where the aspect is validated independent of the previous value. This validation is performed
+outside of any kind of database transaction and can perform more intensive checks without introducing added latency within a transaction.
+
+The second integration point for validation occurs within the database transaction using the `validatePreCommitAspect` and has access to both the new aspect as well as the old aspect. See the included
+example in [`CustomDataQualityRulesValidator.java`](src/main/java/com/linkedin/metadata/aspect/plugins/validation/CustomDataQualityRulesValidator.java)
+
+```java
+  package com.linkedin.metadata.aspect.plugins.validation;
+
+  import com.linkedin.metadata.aspect.plugins.validation.AspectPayloadValidator;
+  import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
+
+  public class CustomValidator extends AspectPayloadValidator {
+
+    public TestValidator(AspectPluginConfig config) {
+      super(config);
+    }
+
+    @Override
+    protected boolean validateProposedAspect(
+        @Nonnull ChangeType changeType,
+        @Nonnull Urn entityUrn,
+        @Nonnull AspectSpec aspectSpec,
+        @Nonnull RecordTemplate aspectPayload,
+        AspectRetriever aspectRetriever)
+        throws AspectValidationException {
+      return true;
+    }
+
+    @Override
+    protected boolean validatePreCommitAspect(
+        @Nonnull ChangeType changeType,
+        @Nonnull Urn entityUrn,
+        @Nonnull AspectSpec aspectSpec,
+        @Nullable RecordTemplate previousAspect,
+        @Nonnull RecordTemplate proposedAspect,
+        AspectRetriever aspectRetriever)
+        throws AspectValidationException {
+      return true;
+    }
+  }
+```
+
+In order to registry this custom validator add the following to your `entity-registry.yml` file. This will activate
+the validator to run on upsert operations for any entity with the custom aspect `customDataQualityRules`. Alternatively separate
+validators could be written within the context of specific entities, in this case simply specify the entity name instead of `*`.
+
+```yaml
+
+plugins:
+  aspectPayloadValidators:
+    - className: 'com.linkedin.metadata.aspect.plugins.validation.CustomDataQualityRulesValidator'
+      enabled: true
+      supportedOperations:
+        - UPSERT
+      supportedEntityAspectNames:
+        - entityName: '*'
+          aspectName: customDataQualityRules
+```
+
+### Custom Mutators
+
+### MetadataChangeProposal (MCP) Hooks
+
+### MetadataChangeLog (MCL) Hooks
+
+
+
 ## Advanced Guide
 
 A few things that you will likely do as you start creating new models and creating metadata that conforms to those models. 

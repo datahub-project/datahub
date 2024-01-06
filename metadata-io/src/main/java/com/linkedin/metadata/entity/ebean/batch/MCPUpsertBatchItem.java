@@ -25,6 +25,7 @@ import com.linkedin.metadata.utils.SystemMetadataUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
 import java.sql.Timestamp;
+import java.util.List;
 import java.util.Objects;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -55,6 +56,8 @@ public class MCPUpsertBatchItem extends UpsertItem<EntityAspect.EntitySystemAspe
   // derived
   @Nonnull private final EntitySpec entitySpec;
   @Nonnull private final AspectSpec aspectSpec;
+  @Nonnull private final List<MutationHook> mutationHooks;
+  @Nonnull private final List<AspectPayloadValidator> aspectPayloadValidators;
 
   @Override
   public ChangeType getChangeType() {
@@ -62,9 +65,11 @@ public class MCPUpsertBatchItem extends UpsertItem<EntityAspect.EntitySystemAspe
   }
 
   public void applyMutationHooks(
-      @Nullable RecordTemplate oldAspectValue, @Nullable SystemMetadata oldSystemMetadata) {
+      @Nullable RecordTemplate oldAspectValue,
+      @Nullable SystemMetadata oldSystemMetadata,
+      @Nonnull AspectRetriever aspectRetriever) {
     // add audit stamp/system meta if needed
-    for (MutationHook mutationHook : aspectSpec.getMutationHooks()) {
+    for (MutationHook mutationHook : mutationHooks) {
       mutationHook.applyMutation(
           ChangeType.UPSERT,
           entitySpec,
@@ -73,7 +78,8 @@ public class MCPUpsertBatchItem extends UpsertItem<EntityAspect.EntitySystemAspe
           aspect,
           oldSystemMetadata,
           systemMetadata,
-          auditStamp);
+          auditStamp,
+          aspectRetriever);
     }
   }
 
@@ -93,7 +99,7 @@ public class MCPUpsertBatchItem extends UpsertItem<EntityAspect.EntitySystemAspe
       @Nullable RecordTemplate previous, @Nonnull AspectRetriever aspectRetriever)
       throws AspectValidationException {
 
-    for (AspectPayloadValidator validator : aspectSpec.getAspectPayloadValidators()) {
+    for (AspectPayloadValidator validator : aspectPayloadValidators) {
       validator.validatePreCommit(
           getChangeType(), urn, getAspectSpec(), previous, this.aspect, aspectRetriever);
     }
@@ -135,7 +141,10 @@ public class MCPUpsertBatchItem extends UpsertItem<EntityAspect.EntitySystemAspe
           this.auditStamp,
           this.metadataChangeProposal,
           this.entitySpec,
-          this.aspectSpec);
+          this.aspectSpec,
+          entityRegistry.getMutationHooks(ChangeType.UPSERT, entitySpec.getName(), aspectName),
+          entityRegistry.getAspectPayloadValidators(
+              ChangeType.UPSERT, entitySpec.getName(), aspectName));
     }
 
     public static MCPUpsertBatchItem build(

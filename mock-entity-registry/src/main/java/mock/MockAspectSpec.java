@@ -30,8 +30,6 @@ public class MockAspectSpec extends AspectSpec {
         timeseriesFieldSpecs,
         timeseriesFieldCollectionSpecs,
         schema,
-        aspectClass,
-        List.of(),
-        List.of());
+        aspectClass);
   }
 }

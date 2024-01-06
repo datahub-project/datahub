@@ -7,7 +7,12 @@ import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import com.linkedin.data.schema.DataSchema;
+import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.plugins.PluginFactory;
+import com.linkedin.metadata.aspect.plugins.hooks.MCLSideEffect;
+import com.linkedin.metadata.aspect.plugins.hooks.MCPSideEffect;
+import com.linkedin.metadata.aspect.plugins.hooks.MutationHook;
+import com.linkedin.metadata.aspect.plugins.validation.AspectPayloadValidator;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.DataSchemaFactory;
 import com.linkedin.metadata.models.DefaultEntitySpec;
@@ -34,6 +39,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -44,13 +50,12 @@ import lombok.extern.slf4j.Slf4j;
 public class ConfigEntityRegistry implements EntityRegistry {
 
   private final DataSchemaFactory dataSchemaFactory;
+  @Getter private final PluginFactory pluginFactory;
   private final Map<String, EntitySpec> entityNameToSpec;
   private final Map<String, EventSpec> eventNameToSpec;
   private final List<EntitySpec> entitySpecs;
   private final String identifier;
   private final Map<String, AspectSpec> _aspectNameToSpec;
-
-  private final PluginFactory pluginFactory;
 
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper(new YAMLFactory());
 
@@ -67,7 +72,9 @@ public class ConfigEntityRegistry implements EntityRegistry {
   public ConfigEntityRegistry(Pair<Path, Path> configFileClassPathPair) throws IOException {
     this(
         DataSchemaFactory.withCustomClasspath(configFileClassPathPair.getSecond()),
-        PluginFactory.withCustomClasspath(configFileClassPathPair.getSecond()),
+        configFileClassPathPair.getSecond() == null
+            ? List.of()
+            : List.of(configFileClassPathPair.getSecond()),
         configFileClassPathPair.getFirst());
   }
 
@@ -112,25 +119,25 @@ public class ConfigEntityRegistry implements EntityRegistry {
   }
 
   public ConfigEntityRegistry(InputStream configFileInputStream) {
-    this(DataSchemaFactory.getInstance(), PluginFactory.getInstance(), configFileInputStream);
+    this(DataSchemaFactory.getInstance(), List.of(), configFileInputStream);
   }
 
   public ConfigEntityRegistry(
-      DataSchemaFactory dataSchemaFactory, PluginFactory pluginFactory, Path configFilePath)
+      DataSchemaFactory dataSchemaFactory, List<Path> pluginLocations, Path configFilePath)
       throws FileNotFoundException {
-    this(dataSchemaFactory, pluginFactory, new FileInputStream(configFilePath.toString()));
+    this(dataSchemaFactory, pluginLocations, new FileInputStream(configFilePath.toString()));
   }
 
   public ConfigEntityRegistry(
       DataSchemaFactory dataSchemaFactory,
-      PluginFactory pluginFactory,
+      List<Path> pluginLocations,
       InputStream configFileStream) {
     this.dataSchemaFactory = dataSchemaFactory;
-    this.pluginFactory = pluginFactory;
     Entities entities;
     try {
       entities = OBJECT_MAPPER.readValue(configFileStream, Entities.class);
-      this.pluginFactory.setDefaultPluginConfiguration(entities.getPlugins());
+      this.pluginFactory =
+          PluginFactory.withCustomClasspath(entities.getPlugins(), pluginLocations);
     } catch (IOException e) {
       throw new IllegalArgumentException(
           String.format(
@@ -188,7 +195,7 @@ public class ConfigEntityRegistry implements EntityRegistry {
     if (!aspectSchema.isPresent()) {
       throw new IllegalArgumentException(String.format("Aspect %s does not exist", aspectName));
     }
-    return entitySpecBuilder.buildAspectSpec(aspectSchema.get(), aspectClass.get(), pluginFactory);
+    return entitySpecBuilder.buildAspectSpec(aspectSchema.get(), aspectClass.get());
   }
 
   private EventSpec buildEventSpec(String eventName) {
@@ -245,5 +252,33 @@ public class ConfigEntityRegistry implements EntityRegistry {
 
     // TODO: add support for config based aspect templates
     return new AspectTemplateEngine();
+  }
+
+  @Nonnull
+  @Override
+  public List<AspectPayloadValidator> getAspectPayloadValidators(
+      @Nonnull ChangeType changeType, @Nonnull String entityName, @Nonnull String aspectName) {
+    return pluginFactory.getAspectPayloadValidators(changeType, entityName, aspectName);
+  }
+
+  @Nonnull
+  @Override
+  public List<MutationHook> getMutationHooks(
+      @Nonnull ChangeType changeType, @Nonnull String entityName, @Nonnull String aspectName) {
+    return pluginFactory.getMutationHooks(changeType, entityName, aspectName);
+  }
+
+  @Nonnull
+  @Override
+  public List<MCPSideEffect<?, ?>> getMCPSideEffects(
+      @Nonnull ChangeType changeType, @Nonnull String entityName, @Nonnull String aspectName) {
+    return pluginFactory.getMCPSideEffects(changeType, entityName, aspectName);
+  }
+
+  @Nonnull
+  @Override
+  public List<MCLSideEffect<?>> getMCLSideEffects(
+      @Nonnull ChangeType changeType, @Nonnull String entityName, @Nonnull String aspectName) {
+    return pluginFactory.getMCLSideEffects(changeType, entityName, aspectName);
   }
 }

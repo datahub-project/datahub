@@ -34,6 +34,8 @@ dependencies {
   //implementation project(':metadata-models')
   //dataModel project(':metadata-models')
 
+  // Required for custom code plugins
+  implementation project(':entity-registry')
 }
 def deployBaseDir = findProperty('pluginModelsDir') ?: file(project.gradle.gradleUserHomeDir.parent + "/.datahub/plugins/models")
 

@@ -1,5 +1,6 @@
 package com.linkedin.metadata.aspect.plugins;
 
+import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.config.PluginConfiguration;
 import com.linkedin.metadata.aspect.plugins.hooks.MCLSideEffect;
@@ -16,28 +17,45 @@ import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.Getter;
-import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 public class PluginFactory {
-  public static PluginFactory getInstance() {
-    return INSTANCE;
+
+  public static PluginFactory withCustomClasspath(
+      @Nullable PluginConfiguration pluginConfiguration, @Nonnull List<Path> pluginLocations) {
+    return new PluginFactory(pluginConfiguration, pluginLocations);
   }
 
-  public static PluginFactory withCustomClasspath(@Nullable Path pluginLocation) {
-    return new PluginFactory(pluginLocation);
+  public static PluginFactory withConfig(@Nullable PluginConfiguration pluginConfiguration) {
+    return PluginFactory.withCustomClasspath(pluginConfiguration, List.of());
   }
 
-  private static final PluginFactory INSTANCE = new PluginFactory(null);
+  public static PluginFactory empty() {
+    return PluginFactory.withConfig(PluginConfiguration.EMPTY);
+  }
 
-  @Setter @Getter private PluginConfiguration defaultPluginConfiguration;
+  public static PluginFactory merge(PluginFactory a, PluginFactory b) {
+    return PluginFactory.withCustomClasspath(
+        PluginConfiguration.merge(a.getPluginConfiguration(), b.getPluginConfiguration()),
+        Stream.concat(a.getClassPathLocations().stream(), b.getClassPathLocations().stream())
+            .collect(Collectors.toList()));
+  }
+
+  @Getter private final PluginConfiguration pluginConfiguration;
+  @Nonnull @Getter private final List<Path> classPathLocations;
+  @Getter private final List<AspectPayloadValidator> aspectPayloadValidators;
+  @Getter private final List<MutationHook> mutationHooks;
+  @Getter private final List<MCLSideEffect<?>> mclSideEffects;
+  @Getter private final List<MCPSideEffect<?, ?>> mcpSideEffects;
 
   private final ClassGraph classGraph;
 
-  public PluginFactory(@Nullable Path pluginLocation) {
+  public PluginFactory(
+      @Nullable PluginConfiguration pluginConfiguration, @Nonnull List<Path> classPathLocations) {
     this.classGraph =
         new ClassGraph()
             .enableRemoteJarScanning()
@@ -45,16 +63,88 @@ public class PluginFactory {
             .enableClassInfo()
             .enableMethodInfo();
 
-    if (pluginLocation != null) {
-      this.classGraph.overrideClasspath(pluginLocation);
+    this.classPathLocations = classPathLocations;
+
+    if (!this.classPathLocations.isEmpty()) {
+      this.classGraph.overrideClasspath(classPathLocations);
     }
+
+    this.pluginConfiguration =
+        pluginConfiguration == null ? PluginConfiguration.EMPTY : pluginConfiguration;
+    this.aspectPayloadValidators = buildAspectPayloadValidators(this.pluginConfiguration);
+    this.mutationHooks = buildMutationHooks(this.pluginConfiguration);
+    this.mclSideEffects = buildMCLSideEffects(this.pluginConfiguration);
+    this.mcpSideEffects = buildMCPSideEffects(this.pluginConfiguration);
   }
 
-  public List<AspectPayloadValidator> buildAspectPayloadValidators() {
-    return buildAspectPayloadValidators(defaultPluginConfiguration);
+  /**
+   * Returns applicable {@link AspectPayloadValidator} implementations given the change type and
+   * entity/aspect information.
+   *
+   * @param changeType The type of change to be validated
+   * @param entityName The entity name
+   * @param aspectName The aspect name
+   * @return List of validator implementations
+   */
+  @Nonnull
+  public List<AspectPayloadValidator> getAspectPayloadValidators(
+      @Nonnull ChangeType changeType, @Nonnull String entityName, @Nonnull String aspectName) {
+    return aspectPayloadValidators.stream()
+        .filter(plugin -> plugin.shouldApply(changeType, entityName, aspectName))
+        .collect(Collectors.toList());
   }
 
-  public List<AspectPayloadValidator> buildAspectPayloadValidators(
+  /**
+   * Return mutation hooks for {@link com.linkedin.data.template.RecordTemplate}
+   *
+   * @param changeType The type of change
+   * @param entityName The entity name
+   * @param aspectName The aspect name
+   * @return Mutation hooks
+   */
+  @Nonnull
+  public List<MutationHook> getMutationHooks(
+      @Nonnull ChangeType changeType, @Nonnull String entityName, @Nonnull String aspectName) {
+    return mutationHooks.stream()
+        .filter(plugin -> plugin.shouldApply(changeType, entityName, aspectName))
+        .collect(Collectors.toList());
+  }
+
+  /**
+   * Returns the side effects to apply to {@link com.linkedin.mxe.MetadataChangeProposal}. Side
+   * effects can generate one or more additional MCPs during write operations.
+   *
+   * @param changeType The type of change
+   * @param entityName The entity name
+   * @param aspectName The aspect name
+   * @return MCP side effects
+   */
+  @Nonnull
+  public List<MCPSideEffect<?, ?>> getMCPSideEffects(
+      @Nonnull ChangeType changeType, @Nonnull String entityName, @Nonnull String aspectName) {
+    return mcpSideEffects.stream()
+        .filter(plugin -> plugin.shouldApply(changeType, entityName, aspectName))
+        .collect(Collectors.toList());
+  }
+
+  /**
+   * Returns the side effects to apply to {@link com.linkedin.mxe.MetadataChangeLog}. Side effects
+   * can generate one or more additional MCLs during write operations.
+   *
+   * @param changeType The type of change
+   * @param entityName The entity name
+   * @param aspectName The aspect name
+   * @return MCL side effects
+   */
+  @Nonnull
+  public List<MCLSideEffect<?>> getMCLSideEffects(
+      @Nonnull ChangeType changeType, @Nonnull String entityName, @Nonnull String aspectName) {
+    return mclSideEffects.stream()
+        .filter(plugin -> plugin.shouldApply(changeType, entityName, aspectName))
+        .collect(Collectors.toList());
+  }
+
+  private List<AspectPayloadValidator> buildAspectPayloadValidators(
       @Nullable PluginConfiguration pluginConfiguration) {
     return pluginConfiguration == null
         ? List.of()
@@ -64,11 +154,7 @@ public class PluginFactory {
             "com.linkedin.metadata.aspect.plugins.validation");
   }
 
-  public List<MutationHook> buildMutationHooks() {
-    return buildMutationHooks(defaultPluginConfiguration);
-  }
-
-  public List<MutationHook> buildMutationHooks(@Nullable PluginConfiguration pluginConfiguration) {
+  private List<MutationHook> buildMutationHooks(@Nullable PluginConfiguration pluginConfiguration) {
     return pluginConfiguration == null
         ? List.of()
         : build(
@@ -77,11 +163,7 @@ public class PluginFactory {
             "com.linkedin.metadata.aspect.plugins.hooks");
   }
 
-  public List<MCLSideEffect<?>> buildMCLSideEffects() {
-    return buildMCLSideEffects(defaultPluginConfiguration);
-  }
-
-  public List<MCLSideEffect<?>> buildMCLSideEffects(
+  private List<MCLSideEffect<?>> buildMCLSideEffects(
       @Nullable PluginConfiguration pluginConfiguration) {
     return pluginConfiguration == null
         ? List.of()
@@ -91,11 +173,7 @@ public class PluginFactory {
             "com.linkedin.metadata.aspect.plugins.hooks");
   }
 
-  public List<MCPSideEffect<?, ?>> buildMCPSideEffects() {
-    return buildMCPSideEffects(defaultPluginConfiguration);
-  }
-
-  public List<MCPSideEffect<?, ?>> buildMCPSideEffects(
+  private List<MCPSideEffect<?, ?>> buildMCPSideEffects(
       @Nullable PluginConfiguration pluginConfiguration) {
     return pluginConfiguration == null
         ? List.of()

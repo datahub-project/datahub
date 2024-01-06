@@ -7,7 +7,12 @@ import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import com.linkedin.data.schema.DataSchema;
+import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.plugins.PluginFactory;
+import com.linkedin.metadata.aspect.plugins.hooks.MCLSideEffect;
+import com.linkedin.metadata.aspect.plugins.hooks.MCPSideEffect;
+import com.linkedin.metadata.aspect.plugins.hooks.MutationHook;
+import com.linkedin.metadata.aspect.plugins.validation.AspectPayloadValidator;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.DataSchemaFactory;
 import com.linkedin.metadata.models.EntitySpec;
@@ -33,6 +38,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.maven.artifact.versioning.ComparableVersion;
 
@@ -45,8 +51,7 @@ import org.apache.maven.artifact.versioning.ComparableVersion;
 public class PatchEntityRegistry implements EntityRegistry {
 
   private final DataSchemaFactory dataSchemaFactory;
-
-  private final PluginFactory pluginFactory;
+  @Getter private final PluginFactory pluginFactory;
   private final Map<String, EntitySpec> entityNameToSpec;
   private final Map<String, EventSpec> eventNameToSpec;
   private final Map<String, AspectSpec> _aspectNameToSpec;
@@ -93,7 +98,7 @@ public class PatchEntityRegistry implements EntityRegistry {
       throws IOException, EntityRegistryException {
     this(
         DataSchemaFactory.withCustomClasspath(configFileClassPathPair.getSecond()),
-        PluginFactory.withCustomClasspath(configFileClassPathPair.getSecond()),
+        List.of(configFileClassPathPair.getSecond()),
         configFileClassPathPair.getFirst(),
         registryName,
         registryVersion);
@@ -142,14 +147,14 @@ public class PatchEntityRegistry implements EntityRegistry {
 
   public PatchEntityRegistry(
       DataSchemaFactory dataSchemaFactory,
-      PluginFactory pluginFactory,
+      List<Path> pluginLocations,
       Path configFilePath,
       String registryName,
       ComparableVersion registryVersion)
       throws FileNotFoundException, EntityRegistryException {
     this(
         dataSchemaFactory,
-        pluginFactory,
+        pluginLocations,
         new FileInputStream(configFilePath.toString()),
         registryName,
         registryVersion);
@@ -157,20 +162,20 @@ public class PatchEntityRegistry implements EntityRegistry {
 
   private PatchEntityRegistry(
       DataSchemaFactory dataSchemaFactory,
-      PluginFactory pluginFactory,
+      List<Path> pluginLocations,
       InputStream configFileStream,
       String registryName,
       ComparableVersion registryVersion)
       throws EntityRegistryException {
     this.dataSchemaFactory = dataSchemaFactory;
-    this.pluginFactory = pluginFactory;
     this.registryName = registryName;
     this.registryVersion = registryVersion;
     entityNameToSpec = new HashMap<>();
     Entities entities;
     try {
       entities = OBJECT_MAPPER.readValue(configFileStream, Entities.class);
-      pluginFactory.setDefaultPluginConfiguration(entities.getPlugins());
+      this.pluginFactory =
+          PluginFactory.withCustomClasspath(entities.getPlugins(), pluginLocations);
     } catch (IOException e) {
       e.printStackTrace();
       throw new IllegalArgumentException(
@@ -278,6 +283,34 @@ public class PatchEntityRegistry implements EntityRegistry {
     return new AspectTemplateEngine();
   }
 
+  @Nonnull
+  @Override
+  public List<AspectPayloadValidator> getAspectPayloadValidators(
+      @Nonnull ChangeType changeType, @Nonnull String entityName, @Nonnull String aspectName) {
+    return pluginFactory.getAspectPayloadValidators(changeType, entityName, aspectName);
+  }
+
+  @Nonnull
+  @Override
+  public List<MutationHook> getMutationHooks(
+      @Nonnull ChangeType changeType, @Nonnull String entityName, @Nonnull String aspectName) {
+    return pluginFactory.getMutationHooks(changeType, entityName, aspectName);
+  }
+
+  @Nonnull
+  @Override
+  public List<MCPSideEffect<?, ?>> getMCPSideEffects(
+      @Nonnull ChangeType changeType, @Nonnull String entityName, @Nonnull String aspectName) {
+    return pluginFactory.getMCPSideEffects(changeType, entityName, aspectName);
+  }
+
+  @Nonnull
+  @Override
+  public List<MCLSideEffect<?>> getMCLSideEffects(
+      @Nonnull ChangeType changeType, @Nonnull String entityName, @Nonnull String aspectName) {
+    return pluginFactory.getMCLSideEffects(changeType, entityName, aspectName);
+  }
+
   private AspectSpec buildAspectSpec(String aspectName, EntitySpecBuilder entitySpecBuilder) {
     Optional<DataSchema> aspectSchema = dataSchemaFactory.getAspectSchema(aspectName);
     Optional<Class> aspectClass = dataSchemaFactory.getAspectClass(aspectName);
@@ -285,7 +318,7 @@ public class PatchEntityRegistry implements EntityRegistry {
       throw new IllegalArgumentException(String.format("Aspect %s does not exist", aspectName));
     }
     AspectSpec aspectSpec =
-        entitySpecBuilder.buildAspectSpec(aspectSchema.get(), aspectClass.get(), pluginFactory);
+        entitySpecBuilder.buildAspectSpec(aspectSchema.get(), aspectClass.get());
     aspectSpec.setRegistryName(this.registryName);
     aspectSpec.setRegistryVersion(this.registryVersion);
     return aspectSpec;

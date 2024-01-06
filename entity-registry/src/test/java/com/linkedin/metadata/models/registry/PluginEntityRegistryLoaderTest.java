@@ -100,9 +100,7 @@ public class PluginEntityRegistryLoaderTest {
             Collections.emptyList(),
             Collections.emptyList(),
             (RecordDataSchema) DataSchemaFactory.getInstance().getAspectSchema("datasetKey").get(),
-            DataSchemaFactory.getInstance().getAspectClass("datasetKey").get(),
-            Collections.emptyList(),
-            Collections.emptyList());
+            DataSchemaFactory.getInstance().getAspectClass("datasetKey").get());
 
     final Map<String, EntitySpec> entitySpecMap = new HashMap<>(1);
     List<AspectSpec> aspectSpecList = new ArrayList<>(1);

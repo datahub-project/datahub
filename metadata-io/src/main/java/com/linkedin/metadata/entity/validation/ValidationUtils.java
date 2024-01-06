@@ -89,7 +89,9 @@ public class ValidationUtils {
     if (aspect != null) {
       RecordTemplateValidator.validate(aspect, resultFunction, validator);
 
-      for (AspectPayloadValidator aspectValidator : aspectSpec.getAspectPayloadValidators()) {
+      for (AspectPayloadValidator aspectValidator :
+          entityRegistry.getAspectPayloadValidators(
+              changeType, entitySpec.getName(), aspectSpec.getName())) {
         try {
           aspectValidator.validateProposed(changeType, urn, aspectSpec, aspect, aspectRetriever);
         } catch (AspectValidationException e) {

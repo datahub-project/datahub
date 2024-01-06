@@ -3,27 +3,20 @@ package com.linkedin.metadata.aspect.plugins.hooks;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.events.metadata.ChangeType;
-import com.linkedin.metadata.aspect.plugins.ConfigurableEntityAspectPlugin;
+import com.linkedin.metadata.aspect.plugins.PluginSpec;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
+import com.linkedin.metadata.aspect.plugins.validation.AspectRetriever;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.mxe.SystemMetadata;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import lombok.Getter;
 
 /** Applies changes to the RecordTemplate prior to write */
-@Getter
-public abstract class MutationHook implements ConfigurableEntityAspectPlugin {
+public abstract class MutationHook extends PluginSpec {
 
-  private final AspectPluginConfig config;
-
-  public MutationHook(AspectPluginConfig config) {
-    this.config = config;
-  }
-
-  public boolean shouldApply(@Nonnull String aspectName) {
-    return config.isEnabled() && isAspectSupported(aspectName);
+  public MutationHook(AspectPluginConfig aspectPluginConfig) {
+    super(aspectPluginConfig);
   }
 
   /**
@@ -46,7 +39,8 @@ public abstract class MutationHook implements ConfigurableEntityAspectPlugin {
       @Nullable final RecordTemplate newAspectValue,
       @Nullable final SystemMetadata oldSystemMetadata,
       @Nullable final SystemMetadata newSystemMetadata,
-      @Nonnull AuditStamp auditStamp) {
+      @Nonnull AuditStamp auditStamp,
+      @Nonnull AspectRetriever aspectRetriever) {
     if (shouldApply(changeType, entitySpec.getName(), aspectSpec)) {
       mutate(
           changeType,
@@ -56,11 +50,12 @@ public abstract class MutationHook implements ConfigurableEntityAspectPlugin {
           newAspectValue,
           oldSystemMetadata,
           newSystemMetadata,
-          auditStamp);
+          auditStamp,
+          aspectRetriever);
     }
   }
 
-  abstract void mutate(
+  protected abstract void mutate(
       @Nonnull final ChangeType changeType,
       @Nonnull EntitySpec entitySpec,
       @Nonnull final AspectSpec aspectSpec,
@@ -68,5 +63,6 @@ public abstract class MutationHook implements ConfigurableEntityAspectPlugin {
       @Nullable final RecordTemplate newAspectValue,
       @Nullable final SystemMetadata oldSystemMetadata,
       @Nullable final SystemMetadata newSystemMetadata,
-      @Nonnull AuditStamp auditStamp);
+      @Nonnull AuditStamp auditStamp,
+      @Nonnull AspectRetriever aspectRetriever);
 }

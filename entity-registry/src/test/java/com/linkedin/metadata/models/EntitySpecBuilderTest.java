@@ -17,7 +17,6 @@ import com.datahub.test.invalid.NonNumericSearchScoreField;
 import com.datahub.test.invalid.NonSingularSearchScoreField;
 import com.linkedin.data.schema.PathSpec;
 import com.linkedin.data.template.RecordTemplate;
-import com.linkedin.metadata.aspect.plugins.PluginFactory;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
 import java.util.List;
 import java.util.Map;
@@ -32,10 +31,7 @@ public class EntitySpecBuilderTest {
         ModelValidationException.class,
         () ->
             new EntitySpecBuilder()
-                .buildAspectSpec(
-                    new MissingAspectAnnotation().schema(),
-                    RecordTemplate.class,
-                    PluginFactory.getInstance()));
+                .buildAspectSpec(new MissingAspectAnnotation().schema(), RecordTemplate.class));
   }
 
   @Test
@@ -44,20 +40,14 @@ public class EntitySpecBuilderTest {
         ModelValidationException.class,
         () ->
             new EntitySpecBuilder()
-                .buildAspectSpec(
-                    new InvalidSearchableFieldType().schema(),
-                    RecordTemplate.class,
-                    PluginFactory.getInstance()));
+                .buildAspectSpec(new InvalidSearchableFieldType().schema(), RecordTemplate.class));
   }
 
   @Test
   public void testBuildAspectSpecValidationDuplicateSearchableFields() {
     AspectSpec aspectSpec =
         new EntitySpecBuilder()
-            .buildAspectSpec(
-                new DuplicateSearchableFields().schema(),
-                RecordTemplate.class,
-                PluginFactory.getInstance());
+            .buildAspectSpec(new DuplicateSearchableFields().schema(), RecordTemplate.class);
 
     aspectSpec
         .getSearchableFieldSpecs()
@@ -74,10 +64,7 @@ public class EntitySpecBuilderTest {
         ModelValidationException.class,
         () ->
             new EntitySpecBuilder()
-                .buildAspectSpec(
-                    new MissingRelationshipName().schema(),
-                    RecordTemplate.class,
-                    PluginFactory.getInstance()));
+                .buildAspectSpec(new MissingRelationshipName().schema(), RecordTemplate.class));
   }
 
   @Test
@@ -86,10 +73,7 @@ public class EntitySpecBuilderTest {
         ModelValidationException.class,
         () ->
             new EntitySpecBuilder()
-                .buildAspectSpec(
-                    new NonNumericSearchScoreField().schema(),
-                    RecordTemplate.class,
-                    PluginFactory.getInstance()));
+                .buildAspectSpec(new NonNumericSearchScoreField().schema(), RecordTemplate.class));
   }
 
   @Test
@@ -98,10 +82,7 @@ public class EntitySpecBuilderTest {
         ModelValidationException.class,
         () ->
             new EntitySpecBuilder()
-                .buildAspectSpec(
-                    new NonSingularSearchScoreField().schema(),
-                    RecordTemplate.class,
-                    PluginFactory.getInstance()));
+                .buildAspectSpec(new NonSingularSearchScoreField().schema(), RecordTemplate.class));
   }
 
   @Test

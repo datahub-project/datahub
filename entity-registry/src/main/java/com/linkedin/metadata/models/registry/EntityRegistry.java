@@ -1,10 +1,16 @@
 package com.linkedin.metadata.models.registry;
 
+import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.metadata.aspect.plugins.hooks.MCLSideEffect;
+import com.linkedin.metadata.aspect.plugins.hooks.MCPSideEffect;
+import com.linkedin.metadata.aspect.plugins.hooks.MutationHook;
+import com.linkedin.metadata.aspect.plugins.validation.AspectPayloadValidator;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.DefaultEntitySpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.EventSpec;
 import com.linkedin.metadata.models.registry.template.AspectTemplateEngine;
+import java.util.List;
 import java.util.Map;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -68,4 +74,63 @@ public interface EntityRegistry {
    */
   @Nonnull
   AspectTemplateEngine getAspectTemplateEngine();
+
+  /**
+   * Returns applicable {@link AspectPayloadValidator} implementations given the change type and
+   * entity/aspect information.
+   *
+   * @param changeType The type of change to be validated
+   * @param entityName The entity name
+   * @param aspectName The aspect name
+   * @return List of validator implementations
+   */
+  @Nonnull
+  default List<AspectPayloadValidator> getAspectPayloadValidators(
+      @Nonnull ChangeType changeType, @Nonnull String entityName, @Nonnull String aspectName) {
+    return List.of();
+  }
+
+  /**
+   * Return mutation hooks for {@link com.linkedin.data.template.RecordTemplate}
+   *
+   * @param changeType The type of change
+   * @param entityName The entity name
+   * @param aspectName The aspect name
+   * @return Mutation hooks
+   */
+  @Nonnull
+  default List<MutationHook> getMutationHooks(
+      @Nonnull ChangeType changeType, @Nonnull String entityName, @Nonnull String aspectName) {
+    return List.of();
+  }
+
+  /**
+   * Returns the side effects to apply to {@link com.linkedin.mxe.MetadataChangeProposal}. Side
+   * effects can generate one or more additional MCPs during write operations.
+   *
+   * @param changeType The type of change
+   * @param entityName The entity name
+   * @param aspectName The aspect name
+   * @return MCP side effects
+   */
+  @Nonnull
+  default List<MCPSideEffect<?, ?>> getMCPSideEffects(
+      @Nonnull ChangeType changeType, @Nonnull String entityName, @Nonnull String aspectName) {
+    return List.of();
+  }
+
+  /**
+   * Returns the side effects to apply to {@link com.linkedin.mxe.MetadataChangeLog}. Side effects
+   * can generate one or more additional MCLs during write operations.
+   *
+   * @param changeType The type of change
+   * @param entityName The entity name
+   * @param aspectName The aspect name
+   * @return MCL side effects
+   */
+  @Nonnull
+  default List<MCLSideEffect<?>> getMCLSideEffects(
+      @Nonnull ChangeType changeType, @Nonnull String entityName, @Nonnull String aspectName) {
+    return List.of();
+  }
 }

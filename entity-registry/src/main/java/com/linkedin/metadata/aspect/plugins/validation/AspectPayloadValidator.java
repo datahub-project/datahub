@@ -3,26 +3,16 @@ package com.linkedin.metadata.aspect.plugins.validation;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.events.metadata.ChangeType;
-import com.linkedin.metadata.aspect.plugins.ConfigurableEntityAspectPlugin;
+import com.linkedin.metadata.aspect.plugins.PluginSpec;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.models.AspectSpec;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import lombok.EqualsAndHashCode;
-import lombok.Getter;
 
-@Getter
-@EqualsAndHashCode
-public abstract class AspectPayloadValidator implements ConfigurableEntityAspectPlugin {
+public abstract class AspectPayloadValidator extends PluginSpec {
 
-  private final AspectPluginConfig config;
-
-  public AspectPayloadValidator(AspectPluginConfig config) {
-    this.config = config;
-  }
-
-  public boolean shouldApply(@Nonnull String aspectName) {
-    return config.isEnabled() && isAspectSupported(aspectName);
+  public AspectPayloadValidator(AspectPluginConfig aspectPluginConfig) {
+    super(aspectPluginConfig);
   }
 
   /**
@@ -41,7 +31,7 @@ public abstract class AspectPayloadValidator implements ConfigurableEntityAspect
       @Nonnull Urn entityUrn,
       @Nonnull AspectSpec aspectSpec,
       @Nonnull RecordTemplate aspectPayload,
-      AspectRetriever aspectRetriever)
+      @Nonnull AspectRetriever aspectRetriever)
       throws AspectValidationException {
     if (shouldApply(changeType, entityUrn, aspectSpec)) {
       return validateProposedAspect(
@@ -50,14 +40,6 @@ public abstract class AspectPayloadValidator implements ConfigurableEntityAspect
 
     return true;
   }
-
-  protected abstract boolean validateProposedAspect(
-      @Nonnull ChangeType changeType,
-      @Nonnull Urn entityUrn,
-      @Nonnull AspectSpec aspectSpec,
-      @Nonnull RecordTemplate aspectPayload,
-      AspectRetriever aspectRetriever)
-      throws AspectValidationException;
 
   /**
    * Validate the proposed aspect as its about to be written with the context of the previous
@@ -86,6 +68,14 @@ public abstract class AspectPayloadValidator implements ConfigurableEntityAspect
 
     return true;
   }
+
+  protected abstract boolean validateProposedAspect(
+      @Nonnull ChangeType changeType,
+      @Nonnull Urn entityUrn,
+      @Nonnull AspectSpec aspectSpec,
+      @Nonnull RecordTemplate aspectPayload,
+      @Nonnull AspectRetriever aspectRetriever)
+      throws AspectValidationException;
 
   protected abstract boolean validatePreCommitAspect(
       @Nonnull ChangeType changeType,
