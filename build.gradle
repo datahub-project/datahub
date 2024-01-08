@@ -270,7 +270,7 @@ allprojects {
         languageVersion = JavaLanguageVersion.of(jdkVersion)
       }
       // Puts parameter names into compiled class files, necessary for Spring 6
-      options.compilerArgs << '-parameters'
+      options.compilerArgs.add("-parameters")
     }
 
     tasks.withType(JavaExec).configureEach {
