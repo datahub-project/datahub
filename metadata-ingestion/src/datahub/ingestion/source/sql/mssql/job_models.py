@@ -42,7 +42,7 @@ class MSSQLJob:
 
     @property
     def formatted_name(self) -> str:
-        return self.name.replace(',', '-')
+        return self.name.replace(",", "-")
 
     @property
     def full_type(self) -> str:
@@ -68,7 +68,7 @@ class MSSQLProceduresContainer:
 
     @property
     def formatted_name(self) -> str:
-        return self.name.replace(',', '-')
+        return self.name.replace(",", "-")
 
     @property
     def orchestrator(self) -> str:
@@ -164,14 +164,13 @@ class MSSQLDataJob:
             flow_id=self.entity.flow.formatted_name,
             job_id=self.entity.formatted_name,
             cluster=self.entity.flow.cluster,
-            platform_instance=self.entity.flow.platform_instance if
-            self.entity.flow.platform_instance else None
+            platform_instance=self.entity.flow.platform_instance,
         )
 
     def add_property(
-            self,
-            name: str,
-            value: str,
+        self,
+        name: str,
+        value: str,
     ) -> None:
         self.job_properties[name] = value
 
@@ -210,9 +209,9 @@ class MSSQLDataFlow:
     flow_properties: Dict[str, str] = field(default_factory=dict)
 
     def add_property(
-            self,
-            name: str,
-            value: str,
+        self,
+        name: str,
+        value: str,
     ) -> None:
         self.flow_properties[name] = value
 
@@ -222,8 +221,7 @@ class MSSQLDataFlow:
             orchestrator=self.entity.orchestrator,
             flow_id=self.entity.formatted_name,
             cluster=self.entity.cluster,
-            platform_instance=self.entity.platform_instance if
-            self.entity.platform_instance else None
+            platform_instance=self.entity.platform_instance,
         )
 
     @property
