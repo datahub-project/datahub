@@ -274,7 +274,7 @@ It is not intended for a production environment. This recommendation is based on
 
 #### Default Credentials
 
-`quickstart` uses docker-compose configuration which includes default credentials for both DataHub, and it's underlying
+`quickstart` uses docker compose configuration which includes default credentials for both DataHub, and it's underlying
 prerequisite data stores, such as MySQL. Additionally, other components are unauthenticated out of the box. This is a
 design choice to make development easier and is not best practice for a production environment.
 

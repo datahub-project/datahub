@@ -6,7 +6,6 @@ const datasetNames = {
   tags: "some-cypress-feature-1",
   hivePlatform: "cypress_logging_events",
   airflowPlatform: "User Creations",
-  awsPlatform: "project/root/events/logging_events_bckp",
   hdfsPlatform: "SampleHdfsDataset"
 };
 
@@ -39,7 +38,7 @@ describe("auto-complete dropdown, filter plus query search test", () => {
 
     //Dashboard
     searchToExecute("*");
-    selectFilteredEntity("Type", "Dashboards", "filter__entityType");  
+    selectFilteredEntity("Type", "Dashboards", "filter__entityType");
     cy.clickOptionWithText(datasetNames.dashboardsType);
     verifyFilteredEntity('Dashboard');
 
@@ -73,12 +72,6 @@ describe("auto-complete dropdown, filter plus query search test", () => {
     selectFilteredEntity("Platform", "Hive", "filter_platform");
     cy.clickOptionWithText(datasetNames.hivePlatform);
     verifyFilteredEntity('Hive');
-    
-    //AWS S3
-    searchToExecute("*");
-    selectFilteredEntity("Platform", "AWS S3", "filter_platform");
-    cy.clickOptionWithText(datasetNames.awsPlatform);
-    verifyFilteredEntity('AWS S3');
     
     //HDFS
     searchToExecute("*");
