@@ -3,6 +3,7 @@ package com.linkedin.metadata.models.registry;
 import com.linkedin.data.schema.compatibility.CompatibilityChecker;
 import com.linkedin.data.schema.compatibility.CompatibilityOptions;
 import com.linkedin.data.schema.compatibility.CompatibilityResult;
+import com.linkedin.metadata.aspect.plugins.PluginFactory;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.ConfigEntitySpec;
 import com.linkedin.metadata.models.DefaultEntitySpec;
@@ -27,6 +28,7 @@ public class MergedEntityRegistry implements EntityRegistry {
   private final Map<String, EventSpec> eventNameToSpec;
   private final AspectTemplateEngine _aspectTemplateEngine;
   private final Map<String, AspectSpec> _aspectNameToSpec;
+  @Nonnull private PluginFactory pluginFactory;
 
   public MergedEntityRegistry(EntityRegistry baseEntityRegistry) {
     // baseEntityRegistry.get*Specs() can return immutable Collections.emptyMap() which fails
@@ -42,6 +44,13 @@ public class MergedEntityRegistry implements EntityRegistry {
     baseEntityRegistry.getAspectTemplateEngine();
     _aspectTemplateEngine = baseEntityRegistry.getAspectTemplateEngine();
     _aspectNameToSpec = baseEntityRegistry.getAspectSpecs();
+    if (baseEntityRegistry instanceof ConfigEntityRegistry) {
+      this.pluginFactory = ((ConfigEntityRegistry) baseEntityRegistry).getPluginFactory();
+    } else if (baseEntityRegistry instanceof PatchEntityRegistry) {
+      this.pluginFactory = ((PatchEntityRegistry) baseEntityRegistry).getPluginFactory();
+    } else {
+      this.pluginFactory = PluginFactory.empty();
+    }
   }
 
   private void validateEntitySpec(EntitySpec entitySpec, final ValidationResult validationResult) {
@@ -81,6 +90,11 @@ public class MergedEntityRegistry implements EntityRegistry {
       eventNameToSpec.putAll(patchEntityRegistry.getEventSpecs());
     }
     // TODO: Validate that the entity registries don't have conflicts among each other
+
+    // Merge Plugins
+    this.pluginFactory =
+        PluginFactory.merge(this.pluginFactory, patchEntityRegistry.getPluginFactory());
+
     return this;
   }
 
@@ -198,6 +212,12 @@ public class MergedEntityRegistry implements EntityRegistry {
   @Override
   public AspectTemplateEngine getAspectTemplateEngine() {
     return _aspectTemplateEngine;
+  }
+
+  @Nonnull
+  @Override
+  public PluginFactory getPluginFactory() {
+    return this.pluginFactory;
   }
 
   @Setter

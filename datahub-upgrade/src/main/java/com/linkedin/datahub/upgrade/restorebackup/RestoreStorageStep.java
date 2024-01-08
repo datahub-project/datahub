@@ -39,7 +39,7 @@ public class RestoreStorageStep implements UpgradeStep {
   private static final int REPORT_BATCH_SIZE = 1000;
   private static final int DEFAULT_THREAD_POOL = 4;
 
-  private final EntityService _entityService;
+  private final EntityService<?> _entityService;
   private final EntityRegistry _entityRegistry;
   private final Map<String, Class<? extends BackupReader<? extends ReaderWrapper<?>>>>
       _backupReaders;
