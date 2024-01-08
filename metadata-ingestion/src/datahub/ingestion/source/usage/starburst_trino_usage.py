@@ -192,11 +192,11 @@ class TrinoUsageSource(Source):
         for event_dict in events:
             if event_dict.get("create_time"):
                 event_dict["create_time"] = self._convert_str_to_datetime(
-                    event_dict.get("create_time")
+                    event_dict["create_time"]
                 )
             else:
-                # To avoid raising type error exception
-                event_dict["create_time"] = datetime.now()
+                logging.info("The create_time parameter is missing. Skipping ....")
+                continue
 
             event_dict["end_time"] = self._convert_str_to_datetime(
                 event_dict.get("end_time")
