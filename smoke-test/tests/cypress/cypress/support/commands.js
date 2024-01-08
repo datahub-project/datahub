@@ -27,8 +27,8 @@ Cypress.Commands.add('login', () => {
       method: 'POST',
       url: '/logIn',
       body: {
-         username: Cypress.env('ADMIN_USERNAME'),
-         password: Cypress.env('ADMIN_PASSWORD'),
+        username: Cypress.env('ADMIN_USERNAME'),
+        password: Cypress.env('ADMIN_PASSWORD'),
       },
       retryOnStatusCodeFailure: true,
     });
@@ -66,7 +66,6 @@ Cypress.Commands.add("logout", () => {
 Cypress.Commands.add("goToGlossaryList", () => {
   cy.visit("/glossary");
   cy.waitTextVisible("Glossary");
-  cy.wait(3000);
 });
 
 Cypress.Commands.add("goToDomainList", () => {
@@ -160,7 +159,7 @@ Cypress.Commands.add("openThreeDotDropdown", () => {
 });
 
 Cypress.Commands.add("clickOptionWithText", (text) => {
-  cy.contains(text).click();
+  cy.contains(text).should('be.visible').click();
 });
 
 Cypress.Commands.add("deleteFromDropdown", () => {
@@ -175,10 +174,11 @@ Cypress.Commands.add("addViaFormModal", (text, modelHeader) => {
   cy.get(".ant-modal-footer > button:nth-child(2)").click();
 });
 
-Cypress.Commands.add("addViaModal", (text, modelHeader) => {
+Cypress.Commands.add("addViaModal", (text, modelHeader,verifyMessage) => {
   cy.waitTextVisible(modelHeader);
   cy.get(".ant-input-affix-wrapper > input[type='text']").first().type(text);
   cy.get(".ant-modal-footer > button:nth-child(2)").click();
+  cy.contains(verifyMessage).should('be.visible');
 });
 
 Cypress.Commands.add("ensureTextNotPresent", (text) => {
@@ -333,7 +333,7 @@ Cypress.Commands.add("addGroupMember", (group_name, group_urn, member_name) => {
 
 Cypress.Commands.add("createGlossaryTermGroup", (term_group_name) => {
   cy.goToGlossaryList();
-  cy.clickOptionWithTestId("add-term-group-button");
+  cy.clickOptionWithText('Add Term Group');
   cy.waitTextVisible("Create Term Group");
   cy.enterTextInTestId("create-glossary-entity-modal-name", term_group_name);
   cy.clickOptionWithTestId("glossary-entity-modal-create-button");
