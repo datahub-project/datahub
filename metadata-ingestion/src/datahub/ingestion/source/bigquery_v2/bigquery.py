@@ -1018,7 +1018,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             columns=columns,
             project_id=project_id,
             dataset_name=dataset_name,
-            sub_types=[DatasetSubTypes.BIGQUERY_TABLE_SNAPSHOT],
+            sub_types=[DatasetSubTypes.TABLE],
         )
 
     def gen_dataset_workunits(
