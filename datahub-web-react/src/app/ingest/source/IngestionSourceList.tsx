@@ -1,5 +1,6 @@
 import { PlusOutlined, RedoOutlined } from '@ant-design/icons';
 import React, { useCallback, useEffect, useState } from 'react';
+import { debounce } from 'lodash';
 import * as QueryString from 'query-string';
 import { useLocation } from 'react-router';
 import { Button, message, Modal, Pagination, Select } from 'antd';
@@ -30,6 +31,7 @@ import {
     INGESTION_CREATE_SOURCE_ID,
     INGESTION_REFRESH_SOURCES_ID,
 } from '../../onboarding/config/IngestionOnboardingConfig';
+import { ONE_SECOND_IN_MS } from '../../entity/shared/tabs/Dataset/Queries/utils/constants';
 
 const PLACEHOLDER_URN = 'placeholder-urn';
 
@@ -132,6 +134,10 @@ export const IngestionSourceList = () => {
         // Used to force a re-render of the child execution request list.
         setLastRefresh(new Date().getTime());
     }, [refetch]);
+
+    const debouncedSetQuery = debounce((newQuery: string | undefined) => {
+        setQuery(newQuery);
+    }, ONE_SECOND_IN_MS);
 
     function hasActiveExecution() {
         return !!filteredSources.find((source) =>
@@ -401,7 +407,7 @@ export const IngestionSourceList = () => {
                             onSearch={() => null}
                             onQueryChange={(q) => {
                                 setPage(1);
-                                setQuery(q);
+                                debouncedSetQuery(q);
                             }}
                             entityRegistry={entityRegistry}
                             hideRecommendations
