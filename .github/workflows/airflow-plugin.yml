@@ -76,6 +76,7 @@ jobs:
             **/build/reports/tests/test/**
             **/build/test-results/test/**
             **/junit.*.xml
+            !**/binary/**
       - name: Upload coverage to Codecov
         if: always()
         uses: codecov/codecov-action@v3

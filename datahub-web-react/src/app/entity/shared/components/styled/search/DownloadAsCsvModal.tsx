@@ -21,7 +21,7 @@ type Props = {
     setShowDownloadAsCsvModal: (showDownloadAsCsvModal: boolean) => any;
 };
 
-const SEARCH_PAGE_SIZE_FOR_DOWNLOAD = 500;
+const SEARCH_PAGE_SIZE_FOR_DOWNLOAD = 200;
 
 export default function DownloadAsCsvModal({
     downloadSearchResults,

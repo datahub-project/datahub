@@ -219,8 +219,8 @@ services:
     volumes:
       - neo4jdata:/data
   kafka-broker:
-    container_name: kafka-broker
-    hostname: kafka-broker
+    container_name: broker
+    hostname: broker
     image: confluentinc/cp-kafka:7.4.0
     command:
       - /bin/bash
@@ -245,18 +245,18 @@ services:
     env_file: kafka-broker/env/docker.env
     environment:
       KAFKA_NODE_ID: 1
-      KAFKA_ADVERTISED_LISTENERS: BROKER://kafka-broker:29092,EXTERNAL://kafka-broker:9092
-      KAFKA_LISTENERS: BROKER://kafka-broker:29092,EXTERNAL://kafka-broker:9092,CONTROLLER://kafka-broker:39092
+      KAFKA_ADVERTISED_LISTENERS: BROKER://broker:29092,EXTERNAL://broker:9092
+      KAFKA_LISTENERS: BROKER://broker:29092,EXTERNAL://broker:9092,CONTROLLER://broker:39092
       KAFKA_INTER_BROKER_LISTENER_NAME: BROKER
       KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,BROKER:PLAINTEXT,EXTERNAL:PLAINTEXT
       KAFKA_PROCESS_ROLES: controller, broker
-      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka-broker:39092
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@broker:39092
       # https://github.com/confluentinc/cp-all-in-one/issues/120
       KAFKA_LOG4J_LOGGERS: 'org.apache.kafka.image.loader.MetadataLoader=WARN'
       KAFKA_ZOOKEEPER_CONNECT: null
     healthcheck:
-      test: nc -z kafka-broker $${DATAHUB_KAFKA_BROKER_PORT:-9092}
+      test: nc -z broker $${DATAHUB_KAFKA_BROKER_PORT:-9092}
       start_period: 60s
       interval: 1s
       retries: 5
@@ -271,7 +271,7 @@ services:
     env_file: kafka-setup/env/docker.env
     environment: &kafka-setup-env
       DATAHUB_PRECREATE_TOPICS: ${DATAHUB_PRECREATE_TOPICS:-false}
-      KAFKA_BOOTSTRAP_SERVER: kafka-broker:29092
+      KAFKA_BOOTSTRAP_SERVER: broker:29092
       USE_CONFLUENT_SCHEMA_REGISTRY: false
     depends_on:
       kafka-broker:

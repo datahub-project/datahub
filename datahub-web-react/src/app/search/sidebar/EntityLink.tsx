@@ -5,7 +5,7 @@ import styled from 'styled-components';
 import Icon from '@ant-design/icons/lib/components/Icon';
 import { useBrowseDisplayName, useIsBrowsePathSelected } from './BrowseContext';
 import ExpandableNode from './ExpandableNode';
-import { ReactComponent as ExternalLink } from '../../../images/link-out.svg';
+import ExternalLink from '../../../images/link-out.svg?react';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { Entity, Maybe } from '../../../types.generated';
 import useSidebarAnalytics from './useSidebarAnalytics';

@@ -5,7 +5,7 @@ import styled from 'styled-components/macro';
 import { useEntityRegistry } from '../../../../useEntityRegistry';
 import { getEntityPath } from '../../../../entity/shared/containers/profile/utils';
 import { EntityType } from '../../../../../types.generated';
-import { ReactComponent as LinkOut } from '../../../../../images/link-out.svg';
+import LinkOut from '../../../../../images/link-out.svg?react';
 import { useDrawerState } from '../state/context';
 import useDrawerActions from '../state/actions';
 

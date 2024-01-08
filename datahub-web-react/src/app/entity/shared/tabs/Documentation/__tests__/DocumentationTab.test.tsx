@@ -24,8 +24,8 @@ describe('SchemaDescriptionField', () => {
                                 },
                             },
                             baseEntity: {},
-                            updateEntity: jest.fn(),
-                            routeToTab: jest.fn(),
+                            updateEntity: vi.fn(),
+                            routeToTab: vi.fn(),
                         }}
                     >
                         <DocumentationTab />
@@ -51,8 +51,8 @@ describe('SchemaDescriptionField', () => {
                                 },
                             },
                             baseEntity: {},
-                            updateEntity: jest.fn(),
-                            routeToTab: jest.fn(),
+                            updateEntity: vi.fn(),
+                            routeToTab: vi.fn(),
                         }}
                     >
                         <DocumentationTab />

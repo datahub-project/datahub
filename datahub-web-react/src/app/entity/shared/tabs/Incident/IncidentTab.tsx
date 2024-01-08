@@ -6,7 +6,7 @@ import { PlusOutlined } from '@ant-design/icons';
 import { useGetIncidentsQuery } from '../../../../../graphql/dataset.generated';
 import TabToolbar from '../../components/styled/TabToolbar';
 import { useEntityData } from '../../EntityContext';
-import { ReactComponent as LoadingSvg } from '../../../../../images/datahub-logo-color-loading_pendulum.svg';
+import LoadingSvg from '../../../../../images/datahub-logo-color-loading_pendulum.svg?react';
 import IncidentListItem from './components/IncidentListItem';
 import { INCIDENT_DISPLAY_STATES } from './incidentUtils';
 import { Incident, IncidentState } from '../../../../../types.generated';

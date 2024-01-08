@@ -18,7 +18,7 @@ def looks_like_a_short_sha(sha: str) -> bool:
     return len(sha) == 7 and re.match(r"[0-9a-f]{7}", sha) is not None
 
 @pytest.mark.read_only
-def test_gms_config_accessible():
+def test_gms_config_accessible() -> None:
     gms_config = requests.get(f"{get_gms_url()}/config").json()
     assert gms_config is not None
 
