@@ -2,17 +2,22 @@ from typing import cast
 
 from datahub_monitors.connection.bigquery.bigquery_connection import BigQueryConnection
 from datahub_monitors.connection.connection import Connection
+from datahub_monitors.connection.databricks.databricks_connection import (
+    DatabricksConnection,
+)
 from datahub_monitors.connection.redshift.redshift_connection import RedshiftConnection
 from datahub_monitors.connection.snowflake.snowflake_connection import (
     SnowflakeConnection,
 )
 from datahub_monitors.constants import (
     BIGQUERY_PLATFORM_URN,
+    DATABRICKS_PLATFORM_URN,
     REDSHIFT_PLATFORM_URN,
     SNOWFLAKE_PLATFORM_URN,
 )
 from datahub_monitors.exceptions import UnsupportedPlatformException
 from datahub_monitors.source.bigquery.bigquery import BigQuerySource
+from datahub_monitors.source.databricks.databricks import DatabricksSource
 from datahub_monitors.source.redshift.redshift import RedshiftSource
 from datahub_monitors.source.snowflake.snowflake import SnowflakeSource
 from datahub_monitors.source.source import Source
@@ -30,6 +35,8 @@ class SourceProvider:
             return RedshiftSource(cast(RedshiftConnection, connection))
         elif connection.platform_urn == BIGQUERY_PLATFORM_URN:
             return BigQuerySource(cast(BigQueryConnection, connection))
+        elif connection.platform_urn == DATABRICKS_PLATFORM_URN:
+            return DatabricksSource(cast(DatabricksConnection, connection))
         else:
             raise UnsupportedPlatformException(
                 message=f"No source class registered for connection with platform urn {connection.platform_urn}",

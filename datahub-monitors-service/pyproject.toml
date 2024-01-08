@@ -11,7 +11,7 @@ packages = [{include = "datahub_monitors", from = "src"}]
 
 [tool.poetry.dependencies]
 python = ">=3.9.0,<3.12" 
-acryl-datahub = { path = "../metadata-ingestion", develop = true, extras = ["snowflake", "redshift", "s3", "bigquery"] }
+acryl-datahub = { path = "../metadata-ingestion", develop = true, extras = ["snowflake", "redshift", "s3", "bigquery", "unity-catalog"] }
 fastapi = "^0.95.1"
 uvicorn = {extras = ["standard"], version = "^0.22.0"}
 loguru = "^0.7.0"

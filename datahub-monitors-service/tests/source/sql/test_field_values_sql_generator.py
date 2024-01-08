@@ -1,6 +1,9 @@
 from datahub_monitors.source.bigquery.sql.field_values_sql_generator import (
     BigQueryFieldValuesSQLGenerator,
 )
+from datahub_monitors.source.databricks.sql.field_values_sql_generator import (
+    DatabricksFieldValuesSQLGenerator,
+)
 from datahub_monitors.source.redshift.sql.field_values_sql_generator import (
     RedshiftFieldValuesSQLGenerator,
 )
@@ -25,6 +28,7 @@ class TestFieldValuesSQLGenerator:
         self.bigquery_sql_generator = BigQueryFieldValuesSQLGenerator()
         self.redshift_sql_generator = RedshiftFieldValuesSQLGenerator()
         self.snowflake_sql_generator = SnowflakeFieldValuesSQLGenerator()
+        self.databricks_sql_generator = DatabricksFieldValuesSQLGenerator()
 
         self.field = SchemaFieldSpec(
             path="test_column",
@@ -360,6 +364,24 @@ class TestFieldValuesSQLGenerator:
         """
         assert query == expected_query
 
+    def test_ends_with_databricks(self) -> None:
+        query = self.databricks_sql_generator.setup_query(
+            DATABASE_STRING,
+            self.field,
+            AssertionStdOperator.END_WITH,
+            self.value_parameters,
+            True,
+            None,
+            None,
+            None,
+        )
+        expected_query = f"""
+            SELECT COUNT(*)
+            FROM {DATABASE_STRING}
+            WHERE NOT ENDSWITH(test_column, '77')
+        """
+        assert query == expected_query
+
     def test_starts_with(self) -> None:
         query = self.snowflake_sql_generator.setup_query(
             DATABASE_STRING,
@@ -393,6 +415,24 @@ class TestFieldValuesSQLGenerator:
             SELECT COUNT(*)
             FROM {DATABASE_STRING}
             WHERE NOT STARTS_WITH(test_column, '77')
+        """
+        assert query == expected_query
+
+    def test_starts_with_databricks(self) -> None:
+        query = self.databricks_sql_generator.setup_query(
+            DATABASE_STRING,
+            self.field,
+            AssertionStdOperator.START_WITH,
+            self.value_parameters,
+            True,
+            None,
+            None,
+            None,
+        )
+        expected_query = f"""
+            SELECT COUNT(*)
+            FROM {DATABASE_STRING}
+            WHERE NOT STARTSWITH(test_column, '77')
         """
         assert query == expected_query
 
@@ -447,6 +487,24 @@ class TestFieldValuesSQLGenerator:
             SELECT COUNT(*)
             FROM {DATABASE_STRING}
             WHERE NOT REGEXP_CONTAINS(test_column, r'77')
+        """
+        assert query == expected_query
+
+    def test_regex_match_databricks(self) -> None:
+        query = self.databricks_sql_generator.setup_query(
+            DATABASE_STRING,
+            self.field,
+            AssertionStdOperator.REGEX_MATCH,
+            self.value_parameters,
+            True,
+            None,
+            None,
+            None,
+        )
+        expected_query = f"""
+            SELECT COUNT(*)
+            FROM {DATABASE_STRING}
+            WHERE test_column NOT RLIKE r'77'
         """
         assert query == expected_query
 

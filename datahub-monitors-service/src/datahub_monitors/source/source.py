@@ -379,7 +379,7 @@ class Source:
                 )
 
             if (
-                changed_rows_field.native_type
+                changed_rows_field.native_type.upper()
                 in self._get_supported_high_watermark_date_and_time_types()
                 and prev_high_watermark_value
             ):

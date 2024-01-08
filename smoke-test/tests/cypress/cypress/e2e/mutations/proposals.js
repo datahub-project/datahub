@@ -47,7 +47,7 @@ describe("proposals", () => {
     // Type the tag or term name
     cy.get('[data-testid="tag-term-modal-input"]').should('be.visible').type(tagNameOrTermName);
     // Select the tag or term
-    cy.get('.ant-select-item-option-content').should('be.visible').within(() =>
+    cy.get('[data-testid="tag-term-option"]').should('be.visible').within(() =>
       cy.contains(tagNameOrTermName).click({ force: true })
     );
     // Click the create proposal button

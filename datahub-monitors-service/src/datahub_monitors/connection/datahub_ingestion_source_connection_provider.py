@@ -10,6 +10,9 @@ from datahub_monitors.connection.connection import Connection
 from datahub_monitors.connection.ingest.bigquery import (
     extract_connection_from_bigquery_recipe,
 )
+from datahub_monitors.connection.ingest.databricks import (
+    extract_connection_from_databricks_recipe,
+)
 from datahub_monitors.connection.ingest.redshift import (
     extract_connection_from_redshift_recipe,
 )
@@ -20,6 +23,7 @@ from datahub_monitors.connection.provider import ConnectionProvider
 from datahub_monitors.constants import (
     BIGQUERY_PLATFORM_NAME,
     CLI_EXECUTOR_ID,
+    DATABRICKS_PLATFORM_NAME,
     REDSHIFT_PLATFORM_NAME,
     SNOWFLAKE_PLATFORM_NAME,
 )
@@ -39,12 +43,14 @@ SUPPORTED_DATA_PLATFORM_TYPES = {
     SNOWFLAKE_PLATFORM_NAME,
     REDSHIFT_PLATFORM_NAME,
     BIGQUERY_PLATFORM_NAME,
+    DATABRICKS_PLATFORM_NAME,
 }
 
 PLATFORM_TO_CONNECTION_SUPPLIER = {
     SNOWFLAKE_PLATFORM_NAME: extract_connection_from_snowflake_recipe,
     BIGQUERY_PLATFORM_NAME: extract_connection_from_bigquery_recipe,
     REDSHIFT_PLATFORM_NAME: extract_connection_from_redshift_recipe,
+    DATABRICKS_PLATFORM_NAME: extract_connection_from_databricks_recipe,
 }
 
 

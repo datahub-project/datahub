@@ -20,7 +20,12 @@ import {
     FieldAssertionType,
     SchemaField,
 } from '../../../../../../../../types.generated';
-import { BIGQUERY_URN, REDSHIFT_URN, SNOWFLAKE_URN } from '../../../../../../../ingest/source/builder/constants';
+import {
+    BIGQUERY_URN,
+    REDSHIFT_URN,
+    SNOWFLAKE_URN,
+    DATABRICKS_URN,
+} from '../../../../../../../ingest/source/builder/constants';
 import { AssertionMonitorBuilderState, AssertionActionsFormState, AssertionActionsBuilderState } from './types';
 import { ASSERTION_TYPES, HIGH_WATERMARK_FIELD_TYPES, LAST_MODIFIED_FIELD_TYPES } from './constants';
 
@@ -190,6 +195,73 @@ const PLATFORM_ASSERTION_CONFIGS = {
             },
         },
     },
+    [DATABRICKS_URN]: {
+        freshness: {
+            defaultSourceType: DatasetFreshnessSourceType.AuditLog,
+            sourceTypes: [
+                DatasetFreshnessSourceType.AuditLog,
+                DatasetFreshnessSourceType.InformationSchema,
+                DatasetFreshnessSourceType.FieldValue,
+                DatasetFreshnessSourceType.DatahubOperation,
+            ],
+            sourceTypeDetails: {
+                [DatasetFreshnessSourceType.AuditLog]: {
+                    description: (
+                        <>
+                            We&apos;ll use Databricks{' '}
+                            <b>
+                                <a
+                                    href="https://docs.databricks.com/en/delta/history.html"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                >
+                                    Delta Lake Table History
+                                </a>
+                            </b>{' '}
+                            to determine whether a Table has changed.{' '}
+                            <b>
+                                Note that this is only supported for tables stored in delta format.
+                            </b>{' '}
+                            Refer `data_source_format` in properties to verify table&apos;s format.
+                            Table history retention is determined by the table setting delta.logRetentionDuration,
+                            which is 30 days by default.
+                        </>
+                    ),
+                },
+                [DatasetFreshnessSourceType.InformationSchema]: {
+                    // TODO: "Gray out" the options based on which format the current table is in. 
+                    description: (
+                        <>
+                            We&apos;ll use Databricks{' '}
+                            <b>
+                                <a
+                                    href="https://docs.databricks.com/en/delta/table-details.html"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                >
+                                    Delta Lake Describe Detail
+                                </a>
+                            </b>{' '}
+                            query to determine whether the Table has changed.{' '}
+                            <b>
+                                Note that this is only supported for tables stored in delta format.
+                            </b>{' '}
+                            Refer `data_source_format` in properties to verify table&apos;s format.
+                        </>
+                    ),
+                },
+                [DatasetFreshnessSourceType.FieldValue]: {
+                    description: (
+                        <>
+                            We&apos;ll query a specific column of the Databricks Table or View to determine whether it
+                            has changed.
+                            <br /> This requires that the configured service principal (token) has read access to the asset.
+                        </>
+                    ),
+                },
+            },
+        },
+    },
 };
 
 /** Configuration object for all possible source options */
@@ -261,21 +333,21 @@ export const builderStateToUpdateFreshnessAssertionVariables = (builderState: As
                         : undefined,
                 fixedInterval:
                     builderState.assertion?.freshnessAssertion?.schedule?.type ===
-                    FreshnessAssertionScheduleType.FixedInterval
+                        FreshnessAssertionScheduleType.FixedInterval
                         ? builderState.assertion?.freshnessAssertion?.schedule?.fixedInterval
                         : undefined,
             },
             filter: builderState.assertion?.freshnessAssertion?.filter
                 ? {
-                      type: builderState.assertion?.freshnessAssertion?.filter.type as DatasetFilterType,
-                      sql: builderState.assertion?.freshnessAssertion?.filter.sql,
-                  }
+                    type: builderState.assertion?.freshnessAssertion?.filter.type as DatasetFilterType,
+                    sql: builderState.assertion?.freshnessAssertion?.filter.sql,
+                }
                 : undefined,
             actions: builderState.assertion?.actions
                 ? {
-                      onSuccess: builderState.assertion?.actions?.onSuccess || [],
-                      onFailure: builderState.assertion?.actions?.onFailure || [],
-                  }
+                    onSuccess: builderState.assertion?.actions?.onSuccess || [],
+                    onFailure: builderState.assertion?.actions?.onFailure || [],
+                }
                 : undefined,
         },
     };
@@ -333,15 +405,15 @@ export const builderStateToUpdateVolumeAssertionVariables = (builderState: Asser
             type: builderState.assertion?.volumeAssertion?.type as VolumeAssertionType,
             filter: builderState.assertion?.volumeAssertion?.filter
                 ? {
-                      type: builderState.assertion?.volumeAssertion?.filter.type as DatasetFilterType,
-                      sql: builderState.assertion?.volumeAssertion?.filter.sql,
-                  }
+                    type: builderState.assertion?.volumeAssertion?.filter.type as DatasetFilterType,
+                    sql: builderState.assertion?.volumeAssertion?.filter.sql,
+                }
                 : undefined,
             actions: builderState.assertion?.actions
                 ? {
-                      onSuccess: builderState.assertion?.actions?.onSuccess || [],
-                      onFailure: builderState.assertion?.actions?.onFailure || [],
-                  }
+                    onSuccess: builderState.assertion?.actions?.onSuccess || [],
+                    onFailure: builderState.assertion?.actions?.onFailure || [],
+                }
                 : undefined,
             ...volumeTypeVariables,
         },
@@ -359,17 +431,17 @@ export const builderStateToUpdateSqlAssertionVariables = (builderState: Assertio
             parameters:
                 builderState.assertion?.sqlAssertion?.operator === AssertionStdOperator.Between
                     ? {
-                          minValue: builderState.assertion.sqlAssertion.parameters?.minValue,
-                          maxValue: builderState.assertion.sqlAssertion.parameters?.maxValue,
-                      }
+                        minValue: builderState.assertion.sqlAssertion.parameters?.minValue,
+                        maxValue: builderState.assertion.sqlAssertion.parameters?.maxValue,
+                    }
                     : {
-                          value: builderState.assertion?.sqlAssertion?.parameters?.value,
-                      },
+                        value: builderState.assertion?.sqlAssertion?.parameters?.value,
+                    },
             actions: builderState.assertion?.actions
                 ? {
-                      onSuccess: builderState.assertion?.actions?.onSuccess || [],
-                      onFailure: builderState.assertion?.actions?.onFailure || [],
-                  }
+                    onSuccess: builderState.assertion?.actions?.onSuccess || [],
+                    onFailure: builderState.assertion?.actions?.onFailure || [],
+                }
                 : undefined,
         },
     };
@@ -389,15 +461,15 @@ export const builderStateToUpdateFieldAssertionVariables = (builderState: Assert
                     : undefined,
             filter: builderState.assertion?.fieldAssertion?.filter
                 ? {
-                      type: builderState.assertion?.fieldAssertion?.filter.type as DatasetFilterType,
-                      sql: builderState.assertion?.fieldAssertion?.filter.sql,
-                  }
+                    type: builderState.assertion?.fieldAssertion?.filter.type as DatasetFilterType,
+                    sql: builderState.assertion?.fieldAssertion?.filter.sql,
+                }
                 : undefined,
             actions: builderState.assertion?.actions
                 ? {
-                      onSuccess: builderState.assertion?.actions?.onSuccess || [],
-                      onFailure: builderState.assertion?.actions?.onFailure || [],
-                  }
+                    onSuccess: builderState.assertion?.actions?.onSuccess || [],
+                    onFailure: builderState.assertion?.actions?.onFailure || [],
+                }
                 : undefined,
         },
     };
@@ -497,7 +569,7 @@ export const getFreshnessSourceOption = (type: DatasetFreshnessSourceType, kind?
  * Returns true if the entity is eligible for online assertion monitoring.
  * Currently limited to Snowflake, Redshift, and BigQuery.
  */
-const ASSERTION_SUPPORTED_PLATFORM_URNS = [SNOWFLAKE_URN, REDSHIFT_URN, BIGQUERY_URN];
+const ASSERTION_SUPPORTED_PLATFORM_URNS = [SNOWFLAKE_URN, REDSHIFT_URN, BIGQUERY_URN, DATABRICKS_URN];
 export const isEntityEligibleForAssertionMonitoring = (platformUrn) => {
     if (!platformUrn) {
         return false;

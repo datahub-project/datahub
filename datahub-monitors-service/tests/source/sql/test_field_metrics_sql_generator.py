@@ -1,6 +1,9 @@
 from datahub_monitors.source.bigquery.sql.field_metrics_sql_generator import (
     BigQueryFieldMetricsSQLGenerator,
 )
+from datahub_monitors.source.databricks.sql.field_metrics_sql_generator import (
+    DatabricksFieldMetricsSQLGenerator,
+)
 from datahub_monitors.source.redshift.sql.field_metrics_sql_generator import (
     RedshiftFieldMetricsSQLGenerator,
 )
@@ -17,6 +20,7 @@ class TestFieldMetricsSQLGenerator:
         self.bigquery_sql_generator = BigQueryFieldMetricsSQLGenerator()
         self.redshift_sql_generator = RedshiftFieldMetricsSQLGenerator()
         self.snowflake_sql_generator = SnowflakeFieldMetricsSQLGenerator()
+        self.databricks_sql_generator = DatabricksFieldMetricsSQLGenerator()
 
         self.field = SchemaFieldSpec(
             path="test_column",
@@ -191,6 +195,17 @@ class TestFieldMetricsSQLGenerator:
             None,
         )
         expected_query = f"SELECT PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY {self.field.path}) FROM {DATABASE_STRING}"
+        assert query == expected_query
+
+    def test_median_databricks(self) -> None:
+        query = self.databricks_sql_generator.setup_query(
+            DATABASE_STRING,
+            self.field,
+            FieldMetricType.MEDIAN,
+            None,
+            None,
+        )
+        expected_query = f"SELECT PERCENTILE_APPROX({self.field.path}, 0.5, 100) FROM {DATABASE_STRING}"
         assert query == expected_query
 
     def test_stddev(self) -> None:

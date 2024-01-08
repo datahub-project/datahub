@@ -218,7 +218,8 @@ class RedshiftSource(Source):
                 operation_params.end_time_millis, column_type
             )
 
-            # The goal is to basically extract the high watermark for the column identified here.
+            # The goal is to filter for any rows which have changed within this boundary of time.
+            # If there are greater than 0 rows, then the table is considered to have changed.
             query = f"""
                 SELECT {date_column} as last_altered_date
                 FROM {self._get_database_string(operation_params)}
