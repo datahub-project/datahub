@@ -8,6 +8,7 @@ import {
     FilterOutlined,
     TeamOutlined,
     PushpinOutlined,
+    LoginOutlined,
 } from '@ant-design/icons';
 import { Redirect, Route, useHistory, useLocation, useRouteMatch, Switch } from 'react-router';
 import styled from 'styled-components';
@@ -21,6 +22,7 @@ import { ManageViews } from '../entity/view/ManageViews';
 import { useUserContext } from '../context/useUserContext';
 import { ManageOwnership } from '../entity/ownership/ManageOwnership';
 import ManagePosts from './posts/ManagePosts';
+import { PlatformSsoIntegrations } from './platform/PlatformSsoIntegrations';
 
 const PageContainer = styled.div`
     display: flex;
@@ -58,6 +60,9 @@ const ItemTitle = styled.span`
 `;
 
 const menuStyle = { width: 256, 'margin-top': 8, overflow: 'hidden auto' };
+// const ACRYL_PATHS = [
+//     { path: 'sso', content: <PlatformSsoIntegrations /> },   
+// ];
 
 /**
  * URL Paths for each settings page.
@@ -66,6 +71,7 @@ const PATHS = [
     { path: 'tokens', content: <AccessTokens /> },
     { path: 'identities', content: <ManageIdentities /> },
     { path: 'permissions', content: <ManagePermissions /> },
+    { path: 'sso', content: <PlatformSsoIntegrations /> },
     { path: 'preferences', content: <Preferences /> },
     { path: 'views', content: <ManageViews /> },
     { path: 'ownership', content: <ManageOwnership /> },
@@ -141,6 +147,12 @@ export const SettingsPage = () => {
                             )}
                         </Menu.ItemGroup>
                     )}
+                    <Menu.ItemGroup title="Platform">
+                        <Menu.Item key="sso">
+                            <LoginOutlined />
+                            <ItemTitle>SSO</ItemTitle>
+                        </Menu.Item>
+                    </Menu.ItemGroup>
                     {(showViews || showOwnershipTypes || showHomePagePosts) && (
                         <Menu.ItemGroup title="Manage">
                             {showViews && (
