@@ -34,7 +34,7 @@ class ProcedureLineageStream:
 @dataclass
 class MSSQLJob:
     db: str
-    platform_instance: str
+    platform_instance: Optional[str]
     name: str
     env: str
     source: str = "mssql"
@@ -53,10 +53,6 @@ class MSSQLJob:
         return self.source
 
     @property
-    def formatted_platform_instance(self) -> str:
-        return self.platform_instance
-
-    @property
     def cluster(self) -> str:
         return f"{self.env}"
 
@@ -64,7 +60,7 @@ class MSSQLJob:
 @dataclass
 class MSSQLProceduresContainer:
     db: str
-    platform_instance: str
+    platform_instance: Optional[str]
     name: str
     env: str
     source: str = "mssql"
@@ -77,10 +73,6 @@ class MSSQLProceduresContainer:
     @property
     def orchestrator(self) -> str:
         return self.source
-
-    @property
-    def formatted_platform_instance(self) -> str:
-        return self.platform_instance
 
     @property
     def cluster(self) -> str:
@@ -172,8 +164,8 @@ class MSSQLDataJob:
             flow_id=self.entity.flow.formatted_name,
             job_id=self.entity.formatted_name,
             cluster=self.entity.flow.cluster,
-            platform_instance=self.entity.flow.formatted_platform_instance if
-            self.entity.flow.formatted_platform_instance else None
+            platform_instance=self.entity.flow.platform_instance if
+            self.entity.flow.platform_instance else None
         )
 
     def add_property(
@@ -230,8 +222,8 @@ class MSSQLDataFlow:
             orchestrator=self.entity.orchestrator,
             flow_id=self.entity.formatted_name,
             cluster=self.entity.cluster,
-            platform_instance=self.entity.formatted_platform_instance if
-            self.entity.formatted_platform_instance else None
+            platform_instance=self.entity.platform_instance if
+            self.entity.platform_instance else None
         )
 
     @property
