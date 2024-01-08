@@ -1,0 +1,63 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "globalTags"
+  },
+  "name": "GlobalTags",
+  "namespace": "com.linkedin.pegasus2avro.common",
+  "fields": [
+    {
+      "Relationship": {
+        "/*/tag": {
+          "entityTypes": [
+            "tag"
+          ],
+          "name": "TaggedWith"
+        }
+      },
+      "Searchable": {
+        "/*/tag": {
+          "addToFilters": true,
+          "boostScore": 0.5,
+          "fieldName": "tags",
+          "fieldType": "URN",
+          "filterNameOverride": "Tag",
+          "hasValuesFieldName": "hasTags",
+          "queryByDefault": true
+        }
+      },
+      "type": {
+        "type": "array",
+        "items": {
+          "type": "record",
+          "name": "TagAssociation",
+          "namespace": "com.linkedin.pegasus2avro.common",
+          "fields": [
+            {
+              "java": {
+                "class": "com.linkedin.pegasus2avro.common.urn.TagUrn"
+              },
+              "type": "string",
+              "name": "tag",
+              "doc": "Urn of the applied tag",
+              "Urn": "TagUrn"
+            },
+            {
+              "type": [
+                "null",
+                "string"
+              ],
+              "name": "context",
+              "default": null,
+              "doc": "Additional context about the association"
+            }
+          ],
+          "doc": "Properties of an applied tag. For now, just an Urn. In the future we can extend this with other properties, e.g.\npropagation parameters."
+        }
+      },
+      "name": "tags",
+      "doc": "Tags associated with a given entity"
+    }
+  ],
+  "doc": "Tag aspect used for applying tags to an entity"
+}

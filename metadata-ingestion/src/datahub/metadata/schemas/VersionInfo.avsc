@@ -1,0 +1,51 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "versionInfo"
+  },
+  "name": "VersionInfo",
+  "namespace": "com.linkedin.pegasus2avro.datajob",
+  "fields": [
+    {
+      "Searchable": {
+        "/*": {
+          "queryByDefault": true
+        }
+      },
+      "type": {
+        "type": "map",
+        "values": "string"
+      },
+      "name": "customProperties",
+      "default": {},
+      "doc": "Custom property bag."
+    },
+    {
+      "Searchable": {
+        "fieldType": "KEYWORD"
+      },
+      "java": {
+        "class": "com.linkedin.pegasus2avro.common.url.Url",
+        "coercerClass": "com.linkedin.pegasus2avro.common.url.UrlCoercer"
+      },
+      "type": [
+        "null",
+        "string"
+      ],
+      "name": "externalUrl",
+      "default": null,
+      "doc": "URL where the reference exist"
+    },
+    {
+      "type": "string",
+      "name": "version",
+      "doc": "The version which can indentify a job version like a commit hash or md5 hash"
+    },
+    {
+      "type": "string",
+      "name": "versionType",
+      "doc": "The type of the version like git hash or md5 hash"
+    }
+  ],
+  "doc": "Information about a Data processing job"
+}

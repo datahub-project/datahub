@@ -1,0 +1,93 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "dataPlatformInfo"
+  },
+  "name": "DataPlatformInfo",
+  "namespace": "com.linkedin.pegasus2avro.dataplatform",
+  "fields": [
+    {
+      "Searchable": {
+        "boostScore": 10.0,
+        "enableAutocomplete": false,
+        "fieldNameAliases": [
+          "_entityName"
+        ],
+        "fieldType": "WORD_GRAM"
+      },
+      "validate": {
+        "strlen": {
+          "max": 15
+        }
+      },
+      "type": "string",
+      "name": "name",
+      "doc": "Name of the data platform"
+    },
+    {
+      "Searchable": {
+        "boostScore": 10.0,
+        "enableAutocomplete": true,
+        "fieldType": "WORD_GRAM"
+      },
+      "type": [
+        "null",
+        "string"
+      ],
+      "name": "displayName",
+      "default": null,
+      "doc": "The name that will be used for displaying a platform type."
+    },
+    {
+      "type": {
+        "type": "enum",
+        "symbolDocs": {
+          "FILE_SYSTEM": "Value for a file system, e.g. hdfs",
+          "KEY_VALUE_STORE": "Value for a key value store, e.g. espresso, voldemort",
+          "MESSAGE_BROKER": "Value for a message broker, e.g. kafka",
+          "OBJECT_STORE": "Value for an object store, e.g. ambry",
+          "OLAP_DATASTORE": "Value for an OLAP datastore, e.g. pinot",
+          "OTHERS": "Value for other platforms, e.g salesforce, dovetail",
+          "QUERY_ENGINE": "Value for a query engine, e.g. presto",
+          "RELATIONAL_DB": "Value for a relational database, e.g. oracle, mysql",
+          "SEARCH_ENGINE": "Value for a search engine, e.g seas"
+        },
+        "name": "PlatformType",
+        "namespace": "com.linkedin.pegasus2avro.dataplatform",
+        "symbols": [
+          "FILE_SYSTEM",
+          "KEY_VALUE_STORE",
+          "MESSAGE_BROKER",
+          "OBJECT_STORE",
+          "OLAP_DATASTORE",
+          "OTHERS",
+          "QUERY_ENGINE",
+          "RELATIONAL_DB",
+          "SEARCH_ENGINE"
+        ],
+        "doc": "Platform types available at LinkedIn"
+      },
+      "name": "type",
+      "doc": "Platform type this data platform describes"
+    },
+    {
+      "type": "string",
+      "name": "datasetNameDelimiter",
+      "doc": "The delimiter in the dataset names on the data platform, e.g. '/' for HDFS and '.' for Oracle"
+    },
+    {
+      "java": {
+        "class": "com.linkedin.pegasus2avro.common.url.Url",
+        "coercerClass": "com.linkedin.pegasus2avro.common.url.UrlCoercer"
+      },
+      "type": [
+        "null",
+        "string"
+      ],
+      "name": "logoUrl",
+      "default": null,
+      "doc": "The URL for a logo associated with the platform"
+    }
+  ],
+  "doc": "Information about a data platform"
+}

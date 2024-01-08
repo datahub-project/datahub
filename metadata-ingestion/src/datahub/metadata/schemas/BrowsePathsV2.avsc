@@ -1,0 +1,50 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "browsePathsV2"
+  },
+  "name": "BrowsePathsV2",
+  "namespace": "com.linkedin.pegasus2avro.common",
+  "fields": [
+    {
+      "Searchable": {
+        "/*/id": {
+          "fieldName": "browsePathV2",
+          "fieldType": "BROWSE_PATH_V2"
+        }
+      },
+      "type": {
+        "type": "array",
+        "items": {
+          "type": "record",
+          "name": "BrowsePathEntry",
+          "namespace": "com.linkedin.pegasus2avro.common",
+          "fields": [
+            {
+              "type": "string",
+              "name": "id",
+              "doc": "The ID of the browse path entry. This is what gets stored in the index.\nIf there's an urn associated with this entry, id and urn will be the same"
+            },
+            {
+              "java": {
+                "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+              },
+              "type": [
+                "null",
+                "string"
+              ],
+              "name": "urn",
+              "default": null,
+              "doc": "Optional urn pointing to some entity in DataHub",
+              "Urn": "Urn"
+            }
+          ],
+          "doc": "Represents a single level in an entity's browsePathV2"
+        }
+      },
+      "name": "path",
+      "doc": "A valid browse path for the entity. This field is provided by DataHub by default.\nThis aspect is a newer version of browsePaths where we can encode more information in the path.\nThis path is also based on containers for a given entity if it has containers.\n\nThis is stored in elasticsearch as unit-separator delimited strings and only includes platform specific folders or containers.\nThese paths should not include high level info captured elsewhere ie. Platform and Environment."
+    }
+  ],
+  "doc": "Shared aspect containing a Browse Path to be indexed for an entity."
+}

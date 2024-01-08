@@ -1,0 +1,22 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "globalSettingsKey",
+    "keyForEntity": "globalSettings",
+    "entityCategory": "internal",
+    "entityAspects": [
+      "globalSettingsInfo"
+    ],
+    "entityDoc": "Global settings for an the platform"
+  },
+  "name": "GlobalSettingsKey",
+  "namespace": "com.linkedin.pegasus2avro.metadata.key",
+  "fields": [
+    {
+      "type": "string",
+      "name": "id",
+      "doc": "Id for the settings. There should be only 1 global settings urn: urn:li:globalSettings:0"
+    }
+  ],
+  "doc": "Key for a Global Settings"
+}

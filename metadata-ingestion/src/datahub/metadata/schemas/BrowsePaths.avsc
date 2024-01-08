@@ -1,0 +1,25 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "browsePaths"
+  },
+  "name": "BrowsePaths",
+  "namespace": "com.linkedin.pegasus2avro.common",
+  "fields": [
+    {
+      "Searchable": {
+        "/*": {
+          "fieldName": "browsePaths",
+          "fieldType": "BROWSE_PATH"
+        }
+      },
+      "type": {
+        "type": "array",
+        "items": "string"
+      },
+      "name": "paths",
+      "doc": "A list of valid browse paths for the entity.\n\nBrowse paths are expected to be forward slash-separated strings. For example: 'prod/snowflake/datasetName'"
+    }
+  ],
+  "doc": "Shared aspect containing Browse Paths to be indexed for an entity."
+}

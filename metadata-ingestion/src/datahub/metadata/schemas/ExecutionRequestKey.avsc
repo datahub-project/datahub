@@ -1,0 +1,23 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "dataHubExecutionRequestKey",
+    "keyForEntity": "dataHubExecutionRequest",
+    "entityCategory": "internal",
+    "entityAspects": [
+      "dataHubExecutionRequestInput",
+      "dataHubExecutionRequestSignal",
+      "dataHubExecutionRequestResult"
+    ]
+  },
+  "name": "ExecutionRequestKey",
+  "namespace": "com.linkedin.pegasus2avro.metadata.key",
+  "fields": [
+    {
+      "type": "string",
+      "name": "id",
+      "doc": "A unique id for the DataHub execution request."
+    }
+  ],
+  "doc": "Key for an DataHub Execution Request"
+}

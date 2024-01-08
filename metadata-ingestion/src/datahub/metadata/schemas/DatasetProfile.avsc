@@ -1,0 +1,355 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "datasetProfile",
+    "type": "timeseries"
+  },
+  "name": "DatasetProfile",
+  "namespace": "com.linkedin.pegasus2avro.dataset",
+  "fields": [
+    {
+      "type": "long",
+      "name": "timestampMillis",
+      "doc": "The event timestamp field as epoch at UTC in milli seconds."
+    },
+    {
+      "type": [
+        "null",
+        {
+          "type": "record",
+          "name": "TimeWindowSize",
+          "namespace": "com.linkedin.pegasus2avro.timeseries",
+          "fields": [
+            {
+              "type": {
+                "type": "enum",
+                "name": "CalendarInterval",
+                "namespace": "com.linkedin.pegasus2avro.timeseries",
+                "symbols": [
+                  "SECOND",
+                  "MINUTE",
+                  "HOUR",
+                  "DAY",
+                  "WEEK",
+                  "MONTH",
+                  "QUARTER",
+                  "YEAR"
+                ]
+              },
+              "name": "unit",
+              "doc": "Interval unit such as minute/hour/day etc."
+            },
+            {
+              "type": "int",
+              "name": "multiple",
+              "default": 1,
+              "doc": "How many units. Defaults to 1."
+            }
+          ],
+          "doc": "Defines the size of a time window."
+        }
+      ],
+      "name": "eventGranularity",
+      "default": null,
+      "doc": "Granularity of the event if applicable"
+    },
+    {
+      "type": [
+        {
+          "type": "record",
+          "name": "PartitionSpec",
+          "namespace": "com.linkedin.pegasus2avro.timeseries",
+          "fields": [
+            {
+              "type": {
+                "type": "enum",
+                "name": "PartitionType",
+                "namespace": "com.linkedin.pegasus2avro.timeseries",
+                "symbols": [
+                  "FULL_TABLE",
+                  "QUERY",
+                  "PARTITION"
+                ]
+              },
+              "name": "type",
+              "default": "PARTITION"
+            },
+            {
+              "TimeseriesField": {},
+              "type": "string",
+              "name": "partition",
+              "doc": "String representation of the partition"
+            },
+            {
+              "type": [
+                "null",
+                {
+                  "type": "record",
+                  "name": "TimeWindow",
+                  "namespace": "com.linkedin.pegasus2avro.timeseries",
+                  "fields": [
+                    {
+                      "type": "long",
+                      "name": "startTimeMillis",
+                      "doc": "Start time as epoch at UTC."
+                    },
+                    {
+                      "type": "com.linkedin.pegasus2avro.timeseries.TimeWindowSize",
+                      "name": "length",
+                      "doc": "The length of the window."
+                    }
+                  ]
+                }
+              ],
+              "name": "timePartition",
+              "default": null,
+              "doc": "Time window of the partition if applicable"
+            }
+          ],
+          "doc": "Defines how the data is partitioned"
+        },
+        "null"
+      ],
+      "name": "partitionSpec",
+      "default": {
+        "partition": "FULL_TABLE_SNAPSHOT",
+        "type": "FULL_TABLE",
+        "timePartition": null
+      },
+      "doc": "The optional partition specification."
+    },
+    {
+      "type": [
+        "null",
+        "string"
+      ],
+      "name": "messageId",
+      "default": null,
+      "doc": "The optional messageId, if provided serves as a custom user-defined unique identifier for an aspect value."
+    },
+    {
+      "Searchable": {
+        "fieldType": "COUNT",
+        "hasValuesFieldName": "hasRowCount"
+      },
+      "type": [
+        "null",
+        "long"
+      ],
+      "name": "rowCount",
+      "default": null,
+      "doc": "The total number of rows"
+    },
+    {
+      "Searchable": {
+        "fieldType": "COUNT",
+        "hasValuesFieldName": "hasColumnCount"
+      },
+      "type": [
+        "null",
+        "long"
+      ],
+      "name": "columnCount",
+      "default": null,
+      "doc": "The total number of columns (or schema fields)"
+    },
+    {
+      "type": [
+        "null",
+        {
+          "type": "array",
+          "items": {
+            "type": "record",
+            "name": "DatasetFieldProfile",
+            "namespace": "com.linkedin.pegasus2avro.dataset",
+            "fields": [
+              {
+                "type": "string",
+                "name": "fieldPath"
+              },
+              {
+                "type": [
+                  "null",
+                  "long"
+                ],
+                "name": "uniqueCount",
+                "default": null
+              },
+              {
+                "type": [
+                  "null",
+                  "float"
+                ],
+                "name": "uniqueProportion",
+                "default": null
+              },
+              {
+                "type": [
+                  "null",
+                  "long"
+                ],
+                "name": "nullCount",
+                "default": null
+              },
+              {
+                "type": [
+                  "null",
+                  "float"
+                ],
+                "name": "nullProportion",
+                "default": null
+              },
+              {
+                "type": [
+                  "null",
+                  "string"
+                ],
+                "name": "min",
+                "default": null
+              },
+              {
+                "type": [
+                  "null",
+                  "string"
+                ],
+                "name": "max",
+                "default": null
+              },
+              {
+                "type": [
+                  "null",
+                  "string"
+                ],
+                "name": "mean",
+                "default": null
+              },
+              {
+                "type": [
+                  "null",
+                  "string"
+                ],
+                "name": "median",
+                "default": null
+              },
+              {
+                "type": [
+                  "null",
+                  "string"
+                ],
+                "name": "stdev",
+                "default": null
+              },
+              {
+                "type": [
+                  "null",
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "record",
+                      "name": "Quantile",
+                      "namespace": "com.linkedin.pegasus2avro.dataset",
+                      "fields": [
+                        {
+                          "type": "string",
+                          "name": "quantile"
+                        },
+                        {
+                          "type": "string",
+                          "name": "value"
+                        }
+                      ]
+                    }
+                  }
+                ],
+                "name": "quantiles",
+                "default": null
+              },
+              {
+                "type": [
+                  "null",
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "record",
+                      "name": "ValueFrequency",
+                      "namespace": "com.linkedin.pegasus2avro.dataset",
+                      "fields": [
+                        {
+                          "type": "string",
+                          "name": "value"
+                        },
+                        {
+                          "type": "long",
+                          "name": "frequency"
+                        }
+                      ]
+                    }
+                  }
+                ],
+                "name": "distinctValueFrequencies",
+                "default": null
+              },
+              {
+                "type": [
+                  "null",
+                  {
+                    "type": "record",
+                    "name": "Histogram",
+                    "namespace": "com.linkedin.pegasus2avro.dataset",
+                    "fields": [
+                      {
+                        "type": {
+                          "type": "array",
+                          "items": "string"
+                        },
+                        "name": "boundaries"
+                      },
+                      {
+                        "type": {
+                          "type": "array",
+                          "items": "float"
+                        },
+                        "name": "heights"
+                      }
+                    ]
+                  }
+                ],
+                "name": "histogram",
+                "default": null
+              },
+              {
+                "type": [
+                  "null",
+                  {
+                    "type": "array",
+                    "items": "string"
+                  }
+                ],
+                "name": "sampleValues",
+                "default": null
+              }
+            ],
+            "doc": "Stats corresponding to fields in a dataset"
+          }
+        }
+      ],
+      "name": "fieldProfiles",
+      "default": null,
+      "doc": "Profiles for each column (or schema field)"
+    },
+    {
+      "Searchable": {
+        "fieldType": "COUNT",
+        "hasValuesFieldName": "hasSizeInBytes"
+      },
+      "type": [
+        "null",
+        "long"
+      ],
+      "name": "sizeInBytes",
+      "default": null,
+      "doc": "Storage size in bytes"
+    }
+  ],
+  "doc": "Stats corresponding to datasets"
+}

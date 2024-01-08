@@ -1,0 +1,79 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "dataHubExecutionRequestResult"
+  },
+  "name": "ExecutionRequestResult",
+  "namespace": "com.linkedin.pegasus2avro.execution",
+  "fields": [
+    {
+      "type": "string",
+      "name": "status",
+      "doc": "The status of the execution request"
+    },
+    {
+      "type": [
+        "null",
+        "string"
+      ],
+      "name": "report",
+      "default": null,
+      "doc": "The pretty-printed execution report."
+    },
+    {
+      "type": [
+        "null",
+        {
+          "type": "record",
+          "name": "StructuredExecutionReport",
+          "namespace": "com.linkedin.pegasus2avro.execution",
+          "fields": [
+            {
+              "type": "string",
+              "name": "type",
+              "doc": "The type of the structured report. (e.g. INGESTION_REPORT, TEST_CONNECTION_REPORT, etc.)"
+            },
+            {
+              "type": "string",
+              "name": "serializedValue",
+              "doc": "The serialized value of the structured report"
+            },
+            {
+              "type": "string",
+              "name": "contentType",
+              "doc": "The content-type of the serialized value (e.g. application/json, application/json;gzip etc.)"
+            }
+          ],
+          "doc": "A flexible carrier for structured results of an execution request.\nThe goal is to allow for free flow of structured responses from execution tasks to the orchestrator or observer.\nThe full spectrum of different execution report types is not intended to be modeled by this object."
+        }
+      ],
+      "name": "structuredReport",
+      "default": null,
+      "doc": "A structured report if available."
+    },
+    {
+      "Searchable": {
+        "fieldName": "startTimeMs",
+        "fieldType": "COUNT",
+        "queryByDefault": false
+      },
+      "type": [
+        "null",
+        "long"
+      ],
+      "name": "startTimeMs",
+      "default": null,
+      "doc": "Time at which the request was created"
+    },
+    {
+      "type": [
+        "null",
+        "long"
+      ],
+      "name": "durationMs",
+      "default": null,
+      "doc": "Duration in milliseconds"
+    }
+  ],
+  "doc": "The result of an execution request"
+}

@@ -1,0 +1,146 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "dataContractProperties"
+  },
+  "name": "DataContractProperties",
+  "namespace": "com.linkedin.pegasus2avro.datacontract",
+  "fields": [
+    {
+      "Relationship": {
+        "entityTypes": [
+          "dataset"
+        ],
+        "name": "ContractFor"
+      },
+      "java": {
+        "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+      },
+      "type": "string",
+      "name": "entity",
+      "doc": "The entity that this contract is associated with. Currently, we only support Dataset contracts, but\nin the future we may also support Data Product level contracts.",
+      "Urn": "Urn",
+      "entityTypes": [
+        "dataset"
+      ]
+    },
+    {
+      "Relationship": {
+        "/*/assertion": {
+          "entityTypes": [
+            "assertion"
+          ],
+          "name": "IncludesSchemaAssertion"
+        }
+      },
+      "type": [
+        "null",
+        {
+          "type": "array",
+          "items": {
+            "type": "record",
+            "name": "SchemaContract",
+            "namespace": "com.linkedin.pegasus2avro.datacontract",
+            "fields": [
+              {
+                "java": {
+                  "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+                },
+                "type": "string",
+                "name": "assertion",
+                "doc": "The assertion representing the schema contract.",
+                "Urn": "Urn"
+              }
+            ],
+            "doc": "Expectations for a logical schema"
+          }
+        }
+      ],
+      "name": "schema",
+      "default": null,
+      "doc": "An optional set of schema contracts. If this is a dataset contract, there will only be one."
+    },
+    {
+      "Relationship": {
+        "/*/assertion": {
+          "entityTypes": [
+            "assertion"
+          ],
+          "name": "IncludesFreshnessAssertion"
+        }
+      },
+      "type": [
+        "null",
+        {
+          "type": "array",
+          "items": {
+            "type": "record",
+            "name": "FreshnessContract",
+            "namespace": "com.linkedin.pegasus2avro.datacontract",
+            "fields": [
+              {
+                "java": {
+                  "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+                },
+                "type": "string",
+                "name": "assertion",
+                "doc": "The assertion representing the SLA contract.",
+                "Urn": "Urn"
+              }
+            ],
+            "doc": "A contract pertaining to the operational SLAs of a physical data asset"
+          }
+        }
+      ],
+      "name": "freshness",
+      "default": null,
+      "doc": "An optional set of FRESHNESS contracts. If this is a dataset contract, there will only be one."
+    },
+    {
+      "Relationship": {
+        "/*/assertion": {
+          "entityTypes": [
+            "assertion"
+          ],
+          "name": "IncludesDataQualityAssertion"
+        }
+      },
+      "type": [
+        "null",
+        {
+          "type": "array",
+          "items": {
+            "type": "record",
+            "name": "DataQualityContract",
+            "namespace": "com.linkedin.pegasus2avro.datacontract",
+            "fields": [
+              {
+                "java": {
+                  "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+                },
+                "type": "string",
+                "name": "assertion",
+                "doc": "The assertion representing the Data Quality contract.\nE.g. a table or column-level assertion.",
+                "Urn": "Urn"
+              }
+            ],
+            "doc": "A data quality contract pertaining to a physical data asset\nData Quality contracts are used to make assertions about data quality metrics for a physical data asset"
+          }
+        }
+      ],
+      "name": "dataQuality",
+      "default": null,
+      "doc": "An optional set of Data Quality contracts, e.g. table and column level contract constraints."
+    },
+    {
+      "type": [
+        "null",
+        "string"
+      ],
+      "name": "rawContract",
+      "default": null,
+      "doc": "YAML-formatted contract definition"
+    }
+  ],
+  "doc": "Information about a data contract"
+}

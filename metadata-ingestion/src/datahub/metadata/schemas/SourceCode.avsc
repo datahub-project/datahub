@@ -1,0 +1,49 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "sourceCode"
+  },
+  "name": "SourceCode",
+  "namespace": "com.linkedin.pegasus2avro.ml.metadata",
+  "fields": [
+    {
+      "type": {
+        "type": "array",
+        "items": {
+          "type": "record",
+          "name": "SourceCodeUrl",
+          "namespace": "com.linkedin.pegasus2avro.ml.metadata",
+          "fields": [
+            {
+              "type": {
+                "type": "enum",
+                "name": "SourceCodeUrlType",
+                "namespace": "com.linkedin.pegasus2avro.ml.metadata",
+                "symbols": [
+                  "ML_MODEL_SOURCE_CODE",
+                  "TRAINING_PIPELINE_SOURCE_CODE",
+                  "EVALUATION_PIPELINE_SOURCE_CODE"
+                ]
+              },
+              "name": "type",
+              "doc": "Source Code Url Types"
+            },
+            {
+              "java": {
+                "class": "com.linkedin.pegasus2avro.common.url.Url",
+                "coercerClass": "com.linkedin.pegasus2avro.common.url.UrlCoercer"
+              },
+              "type": "string",
+              "name": "sourceCodeUrl",
+              "doc": "Source Code Url"
+            }
+          ],
+          "doc": "Source Code Url Entity"
+        }
+      },
+      "name": "sourceCode",
+      "doc": "Source Code along with types"
+    }
+  ],
+  "doc": "Source Code"
+}

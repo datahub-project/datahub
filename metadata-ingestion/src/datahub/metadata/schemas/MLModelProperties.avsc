@@ -1,0 +1,362 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "mlModelProperties"
+  },
+  "name": "MLModelProperties",
+  "namespace": "com.linkedin.pegasus2avro.ml.metadata",
+  "fields": [
+    {
+      "Searchable": {
+        "/*": {
+          "queryByDefault": true
+        }
+      },
+      "type": {
+        "type": "map",
+        "values": "string"
+      },
+      "name": "customProperties",
+      "default": {},
+      "doc": "Custom property bag."
+    },
+    {
+      "Searchable": {
+        "fieldType": "KEYWORD"
+      },
+      "java": {
+        "class": "com.linkedin.pegasus2avro.common.url.Url",
+        "coercerClass": "com.linkedin.pegasus2avro.common.url.UrlCoercer"
+      },
+      "type": [
+        "null",
+        "string"
+      ],
+      "name": "externalUrl",
+      "default": null,
+      "doc": "URL where the reference exist"
+    },
+    {
+      "Searchable": {
+        "fieldType": "TEXT",
+        "hasValuesFieldName": "hasDescription"
+      },
+      "type": [
+        "null",
+        "string"
+      ],
+      "name": "description",
+      "default": null,
+      "doc": "Documentation of the MLModel"
+    },
+    {
+      "type": [
+        "null",
+        "long"
+      ],
+      "name": "date",
+      "default": null,
+      "doc": "Date when the MLModel was developed"
+    },
+    {
+      "type": [
+        "null",
+        {
+          "type": "record",
+          "name": "VersionTag",
+          "namespace": "com.linkedin.pegasus2avro.common",
+          "fields": [
+            {
+              "type": [
+                "null",
+                "string"
+              ],
+              "name": "versionTag",
+              "default": null
+            }
+          ],
+          "doc": "A resource-defined string representing the resource state for the purpose of concurrency control"
+        }
+      ],
+      "name": "version",
+      "default": null,
+      "doc": "Version of the MLModel"
+    },
+    {
+      "Searchable": {
+        "fieldType": "TEXT_PARTIAL"
+      },
+      "type": [
+        "null",
+        "string"
+      ],
+      "name": "type",
+      "default": null,
+      "doc": "Type of Algorithm or MLModel such as whether it is a Naive Bayes classifier, Convolutional Neural Network, etc"
+    },
+    {
+      "type": [
+        "null",
+        {
+          "type": "map",
+          "values": [
+            "string",
+            "int",
+            "float",
+            "double",
+            "boolean"
+          ]
+        }
+      ],
+      "name": "hyperParameters",
+      "default": null,
+      "doc": "Hyper Parameters of the MLModel\n\nNOTE: these are deprecated in favor of hyperParams"
+    },
+    {
+      "type": [
+        "null",
+        {
+          "type": "array",
+          "items": {
+            "type": "record",
+            "Aspect": {
+              "name": "mlHyperParam"
+            },
+            "name": "MLHyperParam",
+            "namespace": "com.linkedin.pegasus2avro.ml.metadata",
+            "fields": [
+              {
+                "type": "string",
+                "name": "name",
+                "doc": "Name of the MLHyperParam"
+              },
+              {
+                "type": [
+                  "null",
+                  "string"
+                ],
+                "name": "description",
+                "default": null,
+                "doc": "Documentation of the MLHyperParam"
+              },
+              {
+                "type": [
+                  "null",
+                  "string"
+                ],
+                "name": "value",
+                "default": null,
+                "doc": "The value of the MLHyperParam"
+              },
+              {
+                "type": [
+                  "null",
+                  "long"
+                ],
+                "name": "createdAt",
+                "default": null,
+                "doc": "Date when the MLHyperParam was developed"
+              }
+            ],
+            "doc": "Properties associated with an ML Hyper Param"
+          }
+        }
+      ],
+      "name": "hyperParams",
+      "default": null,
+      "doc": "Hyperparameters of the MLModel"
+    },
+    {
+      "type": [
+        "null",
+        {
+          "type": "array",
+          "items": {
+            "type": "record",
+            "Aspect": {
+              "name": "mlMetric"
+            },
+            "name": "MLMetric",
+            "namespace": "com.linkedin.pegasus2avro.ml.metadata",
+            "fields": [
+              {
+                "type": "string",
+                "name": "name",
+                "doc": "Name of the mlMetric"
+              },
+              {
+                "type": [
+                  "null",
+                  "string"
+                ],
+                "name": "description",
+                "default": null,
+                "doc": "Documentation of the mlMetric"
+              },
+              {
+                "type": [
+                  "null",
+                  "string"
+                ],
+                "name": "value",
+                "default": null,
+                "doc": "The value of the mlMetric"
+              },
+              {
+                "type": [
+                  "null",
+                  "long"
+                ],
+                "name": "createdAt",
+                "default": null,
+                "doc": "Date when the mlMetric was developed"
+              }
+            ],
+            "doc": "Properties associated with an ML Metric"
+          }
+        }
+      ],
+      "name": "trainingMetrics",
+      "default": null,
+      "doc": "Metrics of the MLModel used in training"
+    },
+    {
+      "type": [
+        "null",
+        {
+          "type": "array",
+          "items": "com.linkedin.pegasus2avro.ml.metadata.MLMetric"
+        }
+      ],
+      "name": "onlineMetrics",
+      "default": null,
+      "doc": "Metrics of the MLModel used in production"
+    },
+    {
+      "Relationship": {
+        "/*": {
+          "entityTypes": [
+            "mlFeature"
+          ],
+          "isLineage": true,
+          "name": "Consumes"
+        }
+      },
+      "type": [
+        "null",
+        {
+          "type": "array",
+          "items": "string"
+        }
+      ],
+      "name": "mlFeatures",
+      "default": null,
+      "doc": "List of features used for MLModel training",
+      "Urn": "MLFeatureUrn",
+      "urn_is_array": true
+    },
+    {
+      "type": {
+        "type": "array",
+        "items": "string"
+      },
+      "name": "tags",
+      "default": [],
+      "doc": "Tags for the MLModel"
+    },
+    {
+      "Relationship": {
+        "/*": {
+          "entityTypes": [
+            "mlModelDeployment"
+          ],
+          "name": "DeployedTo"
+        }
+      },
+      "type": [
+        "null",
+        {
+          "type": "array",
+          "items": "string"
+        }
+      ],
+      "name": "deployments",
+      "default": null,
+      "doc": "Deployments for the MLModel",
+      "Urn": "Urn",
+      "urn_is_array": true
+    },
+    {
+      "Relationship": {
+        "/*": {
+          "entityTypes": [
+            "dataJob"
+          ],
+          "isLineage": true,
+          "name": "TrainedBy"
+        }
+      },
+      "type": [
+        "null",
+        {
+          "type": "array",
+          "items": "string"
+        }
+      ],
+      "name": "trainingJobs",
+      "default": null,
+      "doc": "List of jobs (if any) used to train the model",
+      "Urn": "Urn",
+      "urn_is_array": true
+    },
+    {
+      "Relationship": {
+        "/*": {
+          "entityTypes": [
+            "dataJob"
+          ],
+          "isLineage": true,
+          "isUpstream": false,
+          "name": "UsedBy"
+        }
+      },
+      "type": [
+        "null",
+        {
+          "type": "array",
+          "items": "string"
+        }
+      ],
+      "name": "downstreamJobs",
+      "default": null,
+      "doc": "List of jobs (if any) that use the model",
+      "Urn": "Urn",
+      "urn_is_array": true
+    },
+    {
+      "Relationship": {
+        "/*": {
+          "entityTypes": [
+            "mlModelGroup"
+          ],
+          "isLineage": true,
+          "isUpstream": false,
+          "name": "MemberOf"
+        }
+      },
+      "type": [
+        "null",
+        {
+          "type": "array",
+          "items": "string"
+        }
+      ],
+      "name": "groups",
+      "default": null,
+      "doc": "Groups the model belongs to",
+      "Urn": "Urn",
+      "urn_is_array": true
+    }
+  ],
+  "doc": "Properties associated with a ML Model"
+}

@@ -1,0 +1,39 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "notebookKey",
+    "keyForEntity": "notebook",
+    "entityCategory": "_unset_",
+    "entityAspects": [
+      "notebookInfo",
+      "notebookContent",
+      "editableNotebookProperties",
+      "ownership",
+      "status",
+      "globalTags",
+      "glossaryTerms",
+      "browsePaths",
+      "institutionalMemory",
+      "domains",
+      "subTypes",
+      "dataPlatformInstance",
+      "browsePathsV2"
+    ],
+    "entityDoc": "Notebook represents a combination of query, text, chart and etc. This is in BETA version"
+  },
+  "name": "NotebookKey",
+  "namespace": "com.linkedin.pegasus2avro.metadata.key",
+  "fields": [
+    {
+      "type": "string",
+      "name": "notebookTool",
+      "doc": "The name of the Notebook tool such as QueryBook, etc."
+    },
+    {
+      "type": "string",
+      "name": "notebookId",
+      "doc": "Unique id for the Notebook. This id should be globally unique for a Notebook tool even when there are multiple deployments of it. As an example, Notebook URL could be used here for QueryBook such as 'querybook.com/notebook/773'"
+    }
+  ],
+  "doc": "Key for a Notebook"
+}

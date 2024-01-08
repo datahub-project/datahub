@@ -1,0 +1,259 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "upstreamLineage"
+  },
+  "name": "UpstreamLineage",
+  "namespace": "com.linkedin.pegasus2avro.dataset",
+  "fields": [
+    {
+      "type": {
+        "type": "array",
+        "items": {
+          "type": "record",
+          "name": "Upstream",
+          "namespace": "com.linkedin.pegasus2avro.dataset",
+          "fields": [
+            {
+              "type": {
+                "type": "record",
+                "name": "AuditStamp",
+                "namespace": "com.linkedin.pegasus2avro.common",
+                "fields": [
+                  {
+                    "type": "long",
+                    "name": "time",
+                    "doc": "When did the resource/association/sub-resource move into the specific lifecycle stage represented by this AuditEvent."
+                  },
+                  {
+                    "java": {
+                      "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+                    },
+                    "type": "string",
+                    "name": "actor",
+                    "doc": "The entity (e.g. a member URN) which will be credited for moving the resource/association/sub-resource into the specific lifecycle stage. It is also the one used to authorize the change.",
+                    "Urn": "Urn"
+                  },
+                  {
+                    "java": {
+                      "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+                    },
+                    "type": [
+                      "null",
+                      "string"
+                    ],
+                    "name": "impersonator",
+                    "default": null,
+                    "doc": "The entity (e.g. a service URN) which performs the change on behalf of the Actor and must be authorized to act as the Actor.",
+                    "Urn": "Urn"
+                  },
+                  {
+                    "type": [
+                      "null",
+                      "string"
+                    ],
+                    "name": "message",
+                    "default": null,
+                    "doc": "Additional context around how DataHub was informed of the particular change. For example: was the change created by an automated process, or manually."
+                  }
+                ],
+                "doc": "Data captured on a resource/association/sub-resource level giving insight into when that resource/association/sub-resource moved into a particular lifecycle stage, and who acted to move it into that specific lifecycle stage."
+              },
+              "name": "auditStamp",
+              "default": {
+                "actor": "urn:li:corpuser:unknown",
+                "impersonator": null,
+                "time": 0,
+                "message": null
+              },
+              "doc": "Audit stamp containing who reported the lineage and when."
+            },
+            {
+              "type": [
+                "null",
+                "com.linkedin.pegasus2avro.common.AuditStamp"
+              ],
+              "name": "created",
+              "default": null,
+              "doc": "Audit stamp containing who created the lineage and when."
+            },
+            {
+              "Relationship": {
+                "createdActor": "upstreams/*/created/actor",
+                "createdOn": "upstreams/*/created/time",
+                "entityTypes": [
+                  "dataset"
+                ],
+                "isLineage": true,
+                "name": "DownstreamOf",
+                "properties": "upstreams/*/properties",
+                "updatedActor": "upstreams/*/auditStamp/actor",
+                "updatedOn": "upstreams/*/auditStamp/time"
+              },
+              "Searchable": {
+                "fieldName": "upstreams",
+                "fieldType": "URN",
+                "queryByDefault": false
+              },
+              "java": {
+                "class": "com.linkedin.pegasus2avro.common.urn.DatasetUrn"
+              },
+              "type": "string",
+              "name": "dataset",
+              "doc": "The upstream dataset the lineage points to",
+              "Urn": "DatasetUrn",
+              "entityTypes": [
+                "dataset"
+              ]
+            },
+            {
+              "type": {
+                "type": "enum",
+                "symbolDocs": {
+                  "COPY": "Direct copy without modification",
+                  "TRANSFORMED": "Transformed data with modification (format or content change)",
+                  "VIEW": "Represents a view defined on the sources e.g. Hive view defined on underlying hive tables or a Hive table pointing to a HDFS dataset or DALI view defined on multiple sources"
+                },
+                "name": "DatasetLineageType",
+                "namespace": "com.linkedin.pegasus2avro.dataset",
+                "symbols": [
+                  "COPY",
+                  "TRANSFORMED",
+                  "VIEW"
+                ],
+                "doc": "The various types of supported dataset lineage"
+              },
+              "name": "type",
+              "doc": "The type of the lineage"
+            },
+            {
+              "type": [
+                "null",
+                {
+                  "type": "map",
+                  "values": "string"
+                }
+              ],
+              "name": "properties",
+              "default": null,
+              "doc": "A generic properties bag that allows us to store specific information on this graph edge."
+            }
+          ],
+          "doc": "Upstream lineage information about a dataset including the source reporting the lineage"
+        }
+      },
+      "name": "upstreams",
+      "doc": "List of upstream dataset lineage information"
+    },
+    {
+      "Relationship": {
+        "/*/upstreams/*": {
+          "entityTypes": [
+            "dataset",
+            "schemaField"
+          ],
+          "name": "DownstreamOf"
+        }
+      },
+      "type": [
+        "null",
+        {
+          "type": "array",
+          "items": {
+            "type": "record",
+            "name": "FineGrainedLineage",
+            "namespace": "com.linkedin.pegasus2avro.dataset",
+            "fields": [
+              {
+                "type": {
+                  "type": "enum",
+                  "symbolDocs": {
+                    "DATASET": " Indicates that this lineage is originating from upstream dataset(s)",
+                    "FIELD_SET": " Indicates that this lineage is originating from upstream field(s)",
+                    "NONE": " Indicates that there is no upstream lineage i.e. the downstream field is not a derived field"
+                  },
+                  "name": "FineGrainedLineageUpstreamType",
+                  "namespace": "com.linkedin.pegasus2avro.dataset",
+                  "symbols": [
+                    "FIELD_SET",
+                    "DATASET",
+                    "NONE"
+                  ],
+                  "doc": "The type of upstream entity in a fine-grained lineage"
+                },
+                "name": "upstreamType",
+                "doc": "The type of upstream entity"
+              },
+              {
+                "type": [
+                  "null",
+                  {
+                    "type": "array",
+                    "items": "string"
+                  }
+                ],
+                "name": "upstreams",
+                "default": null,
+                "doc": "Upstream entities in the lineage",
+                "Urn": "Urn",
+                "urn_is_array": true
+              },
+              {
+                "type": {
+                  "type": "enum",
+                  "symbolDocs": {
+                    "FIELD": " Indicates that the lineage is for a single, specific, downstream field",
+                    "FIELD_SET": " Indicates that the lineage is for a set of downstream fields"
+                  },
+                  "name": "FineGrainedLineageDownstreamType",
+                  "namespace": "com.linkedin.pegasus2avro.dataset",
+                  "symbols": [
+                    "FIELD",
+                    "FIELD_SET"
+                  ],
+                  "doc": "The type of downstream field(s) in a fine-grained lineage"
+                },
+                "name": "downstreamType",
+                "doc": "The type of downstream field(s)"
+              },
+              {
+                "type": [
+                  "null",
+                  {
+                    "type": "array",
+                    "items": "string"
+                  }
+                ],
+                "name": "downstreams",
+                "default": null,
+                "doc": "Downstream fields in the lineage",
+                "Urn": "Urn",
+                "urn_is_array": true
+              },
+              {
+                "type": [
+                  "null",
+                  "string"
+                ],
+                "name": "transformOperation",
+                "default": null,
+                "doc": "The transform operation applied to the upstream entities to produce the downstream field(s)"
+              },
+              {
+                "type": "float",
+                "name": "confidenceScore",
+                "default": 1.0,
+                "doc": "The confidence in this lineage between 0 (low confidence) and 1 (high confidence)"
+              }
+            ],
+            "doc": "A fine-grained lineage from upstream fields/datasets to downstream field(s)"
+          }
+        }
+      ],
+      "name": "fineGrainedLineages",
+      "default": null,
+      "doc": " List of fine-grained lineage information, including field-level lineage"
+    }
+  ],
+  "doc": "Upstream lineage of a dataset"
+}

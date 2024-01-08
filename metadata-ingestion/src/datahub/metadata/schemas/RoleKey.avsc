@@ -1,0 +1,22 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "roleKey",
+    "keyForEntity": "role",
+    "entityCategory": "core",
+    "entityAspects": [
+      "roleProperties",
+      "actors"
+    ]
+  },
+  "name": "RoleKey",
+  "namespace": "com.linkedin.pegasus2avro.metadata.key",
+  "fields": [
+    {
+      "type": "string",
+      "name": "id",
+      "doc": "A unique id for the access management IAM."
+    }
+  ],
+  "doc": "Key for a External AccessManagement"
+}

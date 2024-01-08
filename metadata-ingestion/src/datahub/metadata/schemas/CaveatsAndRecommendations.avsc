@@ -1,0 +1,78 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "mlModelCaveatsAndRecommendations"
+  },
+  "name": "CaveatsAndRecommendations",
+  "namespace": "com.linkedin.pegasus2avro.ml.metadata",
+  "fields": [
+    {
+      "type": [
+        "null",
+        {
+          "type": "record",
+          "name": "CaveatDetails",
+          "namespace": "com.linkedin.pegasus2avro.ml.metadata",
+          "fields": [
+            {
+              "type": [
+                "null",
+                "boolean"
+              ],
+              "name": "needsFurtherTesting",
+              "default": null,
+              "doc": "Did the results suggest any further testing?"
+            },
+            {
+              "type": [
+                "null",
+                "string"
+              ],
+              "name": "caveatDescription",
+              "default": null,
+              "doc": "Caveat Description\nFor ex: Given gender classes are binary (male/not male), which we include as male/female. Further work needed to evaluate across a spectrum of genders."
+            },
+            {
+              "type": [
+                "null",
+                {
+                  "type": "array",
+                  "items": "string"
+                }
+              ],
+              "name": "groupsNotRepresented",
+              "default": null,
+              "doc": "Relevant groups that were not represented in the evaluation dataset?"
+            }
+          ],
+          "doc": "This section should list additional concerns that were not covered in the previous sections. For example, did the results suggest any further testing? Were there any relevant groups that were not represented in the evaluation dataset? Are there additional recommendations for model use?"
+        }
+      ],
+      "name": "caveats",
+      "default": null,
+      "doc": "This section should list additional concerns that were not covered in the previous sections. For example, did the results suggest any further testing? Were there any relevant groups that were not represented in the evaluation dataset?"
+    },
+    {
+      "type": [
+        "null",
+        "string"
+      ],
+      "name": "recommendations",
+      "default": null,
+      "doc": "Recommendations on where this MLModel should be used."
+    },
+    {
+      "type": [
+        "null",
+        {
+          "type": "array",
+          "items": "string"
+        }
+      ],
+      "name": "idealDatasetCharacteristics",
+      "default": null,
+      "doc": "Ideal characteristics of an evaluation dataset for this MLModel"
+    }
+  ],
+  "doc": "This section should list additional concerns that were not covered in the previous sections. For example, did the results suggest any further testing? Were there any relevant groups that were not represented in the evaluation dataset? Are there additional recommendations for model use?"
+}

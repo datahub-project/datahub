@@ -1,0 +1,33 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "dataHubRoleInfo"
+  },
+  "name": "DataHubRoleInfo",
+  "namespace": "com.linkedin.pegasus2avro.policy",
+  "fields": [
+    {
+      "Searchable": {
+        "fieldType": "TEXT_PARTIAL"
+      },
+      "type": "string",
+      "name": "name",
+      "doc": "Name of the Role"
+    },
+    {
+      "Searchable": {
+        "fieldType": "TEXT"
+      },
+      "type": "string",
+      "name": "description",
+      "doc": "Description of the Role"
+    },
+    {
+      "type": "boolean",
+      "name": "editable",
+      "default": false,
+      "doc": "Whether the role should be editable via the UI"
+    }
+  ],
+  "doc": "Information about a DataHub Role."
+}

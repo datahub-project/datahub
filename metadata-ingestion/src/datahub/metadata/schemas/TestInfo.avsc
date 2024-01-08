@@ -1,0 +1,74 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "testInfo"
+  },
+  "name": "TestInfo",
+  "namespace": "com.linkedin.pegasus2avro.test",
+  "fields": [
+    {
+      "Searchable": {
+        "fieldType": "TEXT_PARTIAL"
+      },
+      "type": "string",
+      "name": "name",
+      "doc": "The name of the test"
+    },
+    {
+      "Searchable": {
+        "fieldType": "KEYWORD"
+      },
+      "type": "string",
+      "name": "category",
+      "doc": "Category of the test"
+    },
+    {
+      "Searchable": {
+        "fieldType": "TEXT"
+      },
+      "type": [
+        "null",
+        "string"
+      ],
+      "name": "description",
+      "default": null,
+      "doc": "Description of the test"
+    },
+    {
+      "type": {
+        "type": "record",
+        "name": "TestDefinition",
+        "namespace": "com.linkedin.pegasus2avro.test",
+        "fields": [
+          {
+            "type": {
+              "type": "enum",
+              "symbolDocs": {
+                "JSON": "JSON / YAML test def"
+              },
+              "name": "TestDefinitionType",
+              "namespace": "com.linkedin.pegasus2avro.test",
+              "symbols": [
+                "JSON"
+              ]
+            },
+            "name": "type",
+            "doc": "The Test Definition Type"
+          },
+          {
+            "type": [
+              "null",
+              "string"
+            ],
+            "name": "json",
+            "default": null,
+            "doc": "JSON format configuration for the test"
+          }
+        ]
+      },
+      "name": "definition",
+      "doc": "Configuration for the Test"
+    }
+  ],
+  "doc": "Information about a DataHub Test"
+}

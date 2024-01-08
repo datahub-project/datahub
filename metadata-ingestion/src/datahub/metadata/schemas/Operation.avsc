@@ -1,0 +1,258 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "operation",
+    "type": "timeseries"
+  },
+  "name": "Operation",
+  "namespace": "com.linkedin.pegasus2avro.common",
+  "fields": [
+    {
+      "type": "long",
+      "name": "timestampMillis",
+      "doc": "The event timestamp field as epoch at UTC in milli seconds."
+    },
+    {
+      "type": [
+        "null",
+        {
+          "type": "record",
+          "name": "TimeWindowSize",
+          "namespace": "com.linkedin.pegasus2avro.timeseries",
+          "fields": [
+            {
+              "type": {
+                "type": "enum",
+                "name": "CalendarInterval",
+                "namespace": "com.linkedin.pegasus2avro.timeseries",
+                "symbols": [
+                  "SECOND",
+                  "MINUTE",
+                  "HOUR",
+                  "DAY",
+                  "WEEK",
+                  "MONTH",
+                  "QUARTER",
+                  "YEAR"
+                ]
+              },
+              "name": "unit",
+              "doc": "Interval unit such as minute/hour/day etc."
+            },
+            {
+              "type": "int",
+              "name": "multiple",
+              "default": 1,
+              "doc": "How many units. Defaults to 1."
+            }
+          ],
+          "doc": "Defines the size of a time window."
+        }
+      ],
+      "name": "eventGranularity",
+      "default": null,
+      "doc": "Granularity of the event if applicable"
+    },
+    {
+      "type": [
+        {
+          "type": "record",
+          "name": "PartitionSpec",
+          "namespace": "com.linkedin.pegasus2avro.timeseries",
+          "fields": [
+            {
+              "type": {
+                "type": "enum",
+                "name": "PartitionType",
+                "namespace": "com.linkedin.pegasus2avro.timeseries",
+                "symbols": [
+                  "FULL_TABLE",
+                  "QUERY",
+                  "PARTITION"
+                ]
+              },
+              "name": "type",
+              "default": "PARTITION"
+            },
+            {
+              "TimeseriesField": {},
+              "type": "string",
+              "name": "partition",
+              "doc": "String representation of the partition"
+            },
+            {
+              "type": [
+                "null",
+                {
+                  "type": "record",
+                  "name": "TimeWindow",
+                  "namespace": "com.linkedin.pegasus2avro.timeseries",
+                  "fields": [
+                    {
+                      "type": "long",
+                      "name": "startTimeMillis",
+                      "doc": "Start time as epoch at UTC."
+                    },
+                    {
+                      "type": "com.linkedin.pegasus2avro.timeseries.TimeWindowSize",
+                      "name": "length",
+                      "doc": "The length of the window."
+                    }
+                  ]
+                }
+              ],
+              "name": "timePartition",
+              "default": null,
+              "doc": "Time window of the partition if applicable"
+            }
+          ],
+          "doc": "Defines how the data is partitioned"
+        },
+        "null"
+      ],
+      "name": "partitionSpec",
+      "default": {
+        "partition": "FULL_TABLE_SNAPSHOT",
+        "type": "FULL_TABLE",
+        "timePartition": null
+      },
+      "doc": "The optional partition specification."
+    },
+    {
+      "type": [
+        "null",
+        "string"
+      ],
+      "name": "messageId",
+      "default": null,
+      "doc": "The optional messageId, if provided serves as a custom user-defined unique identifier for an aspect value."
+    },
+    {
+      "TimeseriesField": {},
+      "java": {
+        "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+      },
+      "type": [
+        "null",
+        "string"
+      ],
+      "name": "actor",
+      "default": null,
+      "doc": "Actor who issued this operation.",
+      "Urn": "Urn"
+    },
+    {
+      "TimeseriesField": {},
+      "type": {
+        "type": "enum",
+        "symbolDocs": {
+          "ALTER": "Asset was altered",
+          "CREATE": "Asset was created",
+          "CUSTOM": "Custom asset operation",
+          "DELETE": "Rows were deleted",
+          "DROP": "Asset was dropped",
+          "INSERT": "Rows were inserted",
+          "UPDATE": "Rows were updated"
+        },
+        "name": "OperationType",
+        "namespace": "com.linkedin.pegasus2avro.common",
+        "symbols": [
+          "INSERT",
+          "UPDATE",
+          "DELETE",
+          "CREATE",
+          "ALTER",
+          "DROP",
+          "CUSTOM",
+          "UNKNOWN"
+        ],
+        "doc": "Enum to define the operation type when an entity changes."
+      },
+      "name": "operationType",
+      "doc": "Operation type of change."
+    },
+    {
+      "TimeseriesField": {},
+      "type": [
+        "null",
+        "string"
+      ],
+      "name": "customOperationType",
+      "default": null,
+      "doc": "A custom type of operation. Required if operationType is CUSTOM."
+    },
+    {
+      "TimeseriesField": {},
+      "type": [
+        "null",
+        "long"
+      ],
+      "name": "numAffectedRows",
+      "default": null,
+      "doc": "How many rows were affected by this operation."
+    },
+    {
+      "TimeseriesFieldCollection": {
+        "key": "datasetName"
+      },
+      "type": [
+        "null",
+        {
+          "type": "array",
+          "items": "string"
+        }
+      ],
+      "name": "affectedDatasets",
+      "default": null,
+      "doc": "Which other datasets were affected by this operation.",
+      "Urn": "Urn",
+      "urn_is_array": true
+    },
+    {
+      "TimeseriesField": {},
+      "type": [
+        "null",
+        {
+          "type": "enum",
+          "symbolDocs": {
+            "DATA_PLATFORM": "Rows were updated",
+            "DATA_PROCESS": "Provided by a Data Process"
+          },
+          "name": "OperationSourceType",
+          "namespace": "com.linkedin.pegasus2avro.common",
+          "symbols": [
+            "DATA_PROCESS",
+            "DATA_PLATFORM"
+          ],
+          "doc": "The source of an operation"
+        }
+      ],
+      "name": "sourceType",
+      "default": null,
+      "doc": "Source Type"
+    },
+    {
+      "type": [
+        "null",
+        {
+          "type": "map",
+          "values": "string"
+        }
+      ],
+      "name": "customProperties",
+      "default": null,
+      "doc": "Custom properties"
+    },
+    {
+      "Searchable": {
+        "fieldName": "lastOperationTime",
+        "fieldType": "DATETIME"
+      },
+      "TimeseriesField": {},
+      "type": "long",
+      "name": "lastUpdatedTimestamp",
+      "doc": "The time at which the operation occurred. Would be better named 'operationTime'"
+    }
+  ],
+  "doc": "Operational info for an entity."
+}

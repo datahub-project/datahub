@@ -1,0 +1,40 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "globalSettingsInfo"
+  },
+  "name": "GlobalSettingsInfo",
+  "namespace": "com.linkedin.pegasus2avro.settings.global",
+  "fields": [
+    {
+      "type": [
+        "null",
+        {
+          "type": "record",
+          "name": "GlobalViewsSettings",
+          "namespace": "com.linkedin.pegasus2avro.settings.global",
+          "fields": [
+            {
+              "java": {
+                "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+              },
+              "type": [
+                "null",
+                "string"
+              ],
+              "name": "defaultView",
+              "default": null,
+              "doc": "The default View for the instance, or organization.",
+              "Urn": "Urn"
+            }
+          ],
+          "doc": "Settings for DataHub Views feature."
+        }
+      ],
+      "name": "views",
+      "default": null,
+      "doc": "Settings related to the Views Feature"
+    }
+  ],
+  "doc": "DataHub Global platform settings. Careful - these should not be modified by the outside world!"
+}

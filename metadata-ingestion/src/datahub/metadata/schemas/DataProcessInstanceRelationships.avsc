@@ -1,0 +1,97 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "dataProcessInstanceRelationships"
+  },
+  "name": "DataProcessInstanceRelationships",
+  "namespace": "com.linkedin.pegasus2avro.dataprocess",
+  "fields": [
+    {
+      "Relationship": {
+        "entityTypes": [
+          "dataJob",
+          "dataFlow"
+        ],
+        "name": "InstanceOf"
+      },
+      "Searchable": {
+        "/*": {
+          "fieldName": "parentTemplate",
+          "fieldType": "URN",
+          "queryByDefault": false
+        }
+      },
+      "java": {
+        "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+      },
+      "type": [
+        "null",
+        "string"
+      ],
+      "name": "parentTemplate",
+      "default": null,
+      "doc": "The parent entity whose run instance it is",
+      "Urn": "Urn",
+      "entityTypes": [
+        "dataJob",
+        "dataFlow"
+      ]
+    },
+    {
+      "Relationship": {
+        "entityTypes": [
+          "dataProcessInstance"
+        ],
+        "name": "ChildOf"
+      },
+      "Searchable": {
+        "/*": {
+          "fieldName": "parentInstance",
+          "fieldType": "URN",
+          "queryByDefault": false
+        }
+      },
+      "java": {
+        "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+      },
+      "type": [
+        "null",
+        "string"
+      ],
+      "name": "parentInstance",
+      "default": null,
+      "doc": "The parent DataProcessInstance where it belongs to.\nIf it is a Airflow Task then it should belong to an Airflow Dag run as well\nwhich will be another DataProcessInstance",
+      "Urn": "Urn",
+      "entityTypes": [
+        "dataProcessInstance"
+      ]
+    },
+    {
+      "Relationship": {
+        "/*": {
+          "entityTypes": [
+            "dataProcessInstance"
+          ],
+          "name": "UpstreamOf"
+        }
+      },
+      "Searchable": {
+        "/*": {
+          "fieldName": "upstream",
+          "fieldType": "URN",
+          "numValuesFieldName": "numUpstreams",
+          "queryByDefault": false
+        }
+      },
+      "type": {
+        "type": "array",
+        "items": "string"
+      },
+      "name": "upstreamInstances",
+      "doc": "Input DataProcessInstance which triggered this dataprocess instance",
+      "Urn": "Urn",
+      "urn_is_array": true
+    }
+  ],
+  "doc": "Information about Data process relationships"
+}

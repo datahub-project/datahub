@@ -1,0 +1,52 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "corpGroupEditableInfo"
+  },
+  "name": "CorpGroupEditableInfo",
+  "namespace": "com.linkedin.pegasus2avro.identity",
+  "fields": [
+    {
+      "Searchable": {
+        "fieldName": "editedDescription",
+        "fieldType": "TEXT"
+      },
+      "type": [
+        "null",
+        "string"
+      ],
+      "name": "description",
+      "default": null,
+      "doc": "A description of the group"
+    },
+    {
+      "java": {
+        "class": "com.linkedin.pegasus2avro.common.url.Url",
+        "coercerClass": "com.linkedin.pegasus2avro.common.url.UrlCoercer"
+      },
+      "type": "string",
+      "name": "pictureLink",
+      "default": "https://raw.githubusercontent.com/datahub-project/datahub/master/datahub-web-react/src/images/default_avatar.png",
+      "doc": "A URL which points to a picture which user wants to set as the photo for the group"
+    },
+    {
+      "type": [
+        "null",
+        "string"
+      ],
+      "name": "slack",
+      "default": null,
+      "doc": "Slack channel for the group"
+    },
+    {
+      "type": [
+        "null",
+        "string"
+      ],
+      "name": "email",
+      "default": null,
+      "doc": "Email address to contact the group"
+    }
+  ],
+  "doc": "Group information that can be edited from UI"
+}

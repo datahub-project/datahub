@@ -1,0 +1,27 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "subTypes"
+  },
+  "name": "SubTypes",
+  "namespace": "com.linkedin.pegasus2avro.common",
+  "fields": [
+    {
+      "Searchable": {
+        "/*": {
+          "addToFilters": true,
+          "fieldType": "KEYWORD",
+          "filterNameOverride": "Sub Type",
+          "queryByDefault": true
+        }
+      },
+      "type": {
+        "type": "array",
+        "items": "string"
+      },
+      "name": "typeNames",
+      "doc": "The names of the specific types."
+    }
+  ],
+  "doc": "Sub Types. Use this aspect to specialize a generic Entity\ne.g. Making a Dataset also be a View or also be a LookerExplore"
+}

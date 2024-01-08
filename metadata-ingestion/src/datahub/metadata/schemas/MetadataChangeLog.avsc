@@ -1,0 +1,337 @@
+{
+  "type": "record",
+  "name": "MetadataChangeLog",
+  "namespace": "com.linkedin.pegasus2avro.mxe",
+  "fields": [
+    {
+      "type": [
+        "null",
+        {
+          "type": "record",
+          "name": "KafkaAuditHeader",
+          "namespace": "com.linkedin.events",
+          "fields": [
+            {
+              "compliance": [
+                {
+                  "policy": "EVENT_TIME"
+                }
+              ],
+              "type": "long",
+              "name": "time",
+              "doc": "The time at which the event was emitted into kafka."
+            },
+            {
+              "compliance": "NONE",
+              "type": "string",
+              "name": "server",
+              "doc": "The fully qualified name of the host from which the event is being emitted."
+            },
+            {
+              "compliance": "NONE",
+              "type": [
+                "null",
+                "string"
+              ],
+              "name": "instance",
+              "default": null,
+              "doc": "The instance on the server from which the event is being emitted. e.g. i001"
+            },
+            {
+              "compliance": "NONE",
+              "type": "string",
+              "name": "appName",
+              "doc": "The name of the application from which the event is being emitted. see go/appname"
+            },
+            {
+              "compliance": "NONE",
+              "type": {
+                "type": "fixed",
+                "name": "UUID",
+                "namespace": "com.linkedin.events",
+                "size": 16
+              },
+              "name": "messageId",
+              "doc": "A unique identifier for the message"
+            },
+            {
+              "compliance": "NONE",
+              "type": [
+                "null",
+                "int"
+              ],
+              "name": "auditVersion",
+              "default": null,
+              "doc": "The version that is being used for auditing. In version 0, the audit trail buckets events into 10 minute audit windows based on the EventHeader timestamp. In version 1, the audit trail buckets events as follows: if the schema has an outer KafkaAuditHeader, use the outer audit header timestamp for bucketing; else if the EventHeader has an inner KafkaAuditHeader use that inner audit header's timestamp for bucketing"
+            },
+            {
+              "compliance": "NONE",
+              "type": [
+                "null",
+                "string"
+              ],
+              "name": "fabricUrn",
+              "default": null,
+              "doc": "The fabricUrn of the host from which the event is being emitted. Fabric Urn in the format of urn:li:fabric:{fabric_name}. See go/fabric."
+            },
+            {
+              "compliance": "NONE",
+              "type": [
+                "null",
+                "string"
+              ],
+              "name": "clusterConnectionString",
+              "default": null,
+              "doc": "This is a String that the client uses to establish some kind of connection with the Kafka cluster. The exact format of it depends on specific versions of clients and brokers. This information could potentially identify the fabric and cluster with which the client is producing to or consuming from."
+            }
+          ],
+          "doc": "This header records information about the context of an event as it is emitted into kafka and is intended to be used by the kafka audit application.  For more information see go/kafkaauditheader"
+        }
+      ],
+      "name": "auditHeader",
+      "default": null,
+      "doc": "Kafka audit header. Currently remains unused in the open source."
+    },
+    {
+      "type": "string",
+      "name": "entityType",
+      "doc": "Type of the entity being written to"
+    },
+    {
+      "java": {
+        "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+      },
+      "type": [
+        "null",
+        "string"
+      ],
+      "name": "entityUrn",
+      "default": null,
+      "doc": "Urn of the entity being written",
+      "Urn": "Urn"
+    },
+    {
+      "type": [
+        "null",
+        {
+          "type": "record",
+          "name": "GenericAspect",
+          "namespace": "com.linkedin.pegasus2avro.mxe",
+          "fields": [
+            {
+              "type": "bytes",
+              "name": "value",
+              "doc": "The value of the aspect, serialized as bytes."
+            },
+            {
+              "type": "string",
+              "name": "contentType",
+              "doc": "The content type, which represents the fashion in which the aspect was serialized.\nThe only type currently supported is application/json."
+            }
+          ],
+          "doc": "Generic record structure for serializing an Aspect"
+        }
+      ],
+      "name": "entityKeyAspect",
+      "default": null,
+      "doc": "Key aspect of the entity being written"
+    },
+    {
+      "type": {
+        "type": "enum",
+        "symbolDocs": {
+          "CREATE": "NOT SUPPORTED YET\ninsert if not exists. otherwise fail",
+          "DELETE": "NOT SUPPORTED YET\ndelete action",
+          "PATCH": "NOT SUPPORTED YET\npatch the changes instead of full replace",
+          "RESTATE": "Restate an aspect, eg. in a index refresh.",
+          "UPDATE": "NOT SUPPORTED YET\nupdate if exists. otherwise fail",
+          "UPSERT": "insert if not exists. otherwise update"
+        },
+        "name": "ChangeType",
+        "namespace": "com.linkedin.pegasus2avro.events.metadata",
+        "symbols": [
+          "UPSERT",
+          "CREATE",
+          "UPDATE",
+          "DELETE",
+          "PATCH",
+          "RESTATE"
+        ],
+        "doc": "Descriptor for a change action"
+      },
+      "name": "changeType",
+      "doc": "Type of change being proposed"
+    },
+    {
+      "type": [
+        "null",
+        "string"
+      ],
+      "name": "aspectName",
+      "default": null,
+      "doc": "Aspect of the entity being written to\nNot filling this out implies that the writer wants to affect the entire entity\nNote: This is only valid for CREATE, UPSERT, and DELETE operations."
+    },
+    {
+      "type": [
+        "null",
+        "com.linkedin.pegasus2avro.mxe.GenericAspect"
+      ],
+      "name": "aspect",
+      "default": null,
+      "doc": "The value of the new aspect."
+    },
+    {
+      "type": [
+        "null",
+        {
+          "type": "record",
+          "name": "SystemMetadata",
+          "namespace": "com.linkedin.pegasus2avro.mxe",
+          "fields": [
+            {
+              "type": [
+                "long",
+                "null"
+              ],
+              "name": "lastObserved",
+              "default": 0,
+              "doc": "The timestamp the metadata was observed at"
+            },
+            {
+              "type": [
+                "string",
+                "null"
+              ],
+              "name": "runId",
+              "default": "no-run-id-provided",
+              "doc": "The original run id that produced the metadata. Populated in case of batch-ingestion."
+            },
+            {
+              "type": [
+                "string",
+                "null"
+              ],
+              "name": "lastRunId",
+              "default": "no-run-id-provided",
+              "doc": "The last run id that produced the metadata. Populated in case of batch-ingestion."
+            },
+            {
+              "type": [
+                "null",
+                "string"
+              ],
+              "name": "pipelineName",
+              "default": null,
+              "doc": "The ingestion pipeline id that produced the metadata. Populated in case of batch ingestion."
+            },
+            {
+              "type": [
+                "null",
+                "string"
+              ],
+              "name": "registryName",
+              "default": null,
+              "doc": "The model registry name that was used to process this event"
+            },
+            {
+              "type": [
+                "null",
+                "string"
+              ],
+              "name": "registryVersion",
+              "default": null,
+              "doc": "The model registry version that was used to process this event"
+            },
+            {
+              "type": [
+                "null",
+                {
+                  "type": "map",
+                  "values": "string"
+                }
+              ],
+              "name": "properties",
+              "default": null,
+              "doc": "Additional properties"
+            }
+          ],
+          "doc": "Metadata associated with each metadata change that is processed by the system"
+        }
+      ],
+      "name": "systemMetadata",
+      "default": null,
+      "doc": "A string->string map of custom properties that one might want to attach to an event"
+    },
+    {
+      "type": [
+        "null",
+        "com.linkedin.pegasus2avro.mxe.GenericAspect"
+      ],
+      "name": "previousAspectValue",
+      "default": null,
+      "doc": "The previous value of the aspect that has changed."
+    },
+    {
+      "type": [
+        "null",
+        "com.linkedin.pegasus2avro.mxe.SystemMetadata"
+      ],
+      "name": "previousSystemMetadata",
+      "default": null,
+      "doc": "The previous value of the system metadata field that has changed."
+    },
+    {
+      "type": [
+        "null",
+        {
+          "type": "record",
+          "name": "AuditStamp",
+          "namespace": "com.linkedin.pegasus2avro.common",
+          "fields": [
+            {
+              "type": "long",
+              "name": "time",
+              "doc": "When did the resource/association/sub-resource move into the specific lifecycle stage represented by this AuditEvent."
+            },
+            {
+              "java": {
+                "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+              },
+              "type": "string",
+              "name": "actor",
+              "doc": "The entity (e.g. a member URN) which will be credited for moving the resource/association/sub-resource into the specific lifecycle stage. It is also the one used to authorize the change.",
+              "Urn": "Urn"
+            },
+            {
+              "java": {
+                "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+              },
+              "type": [
+                "null",
+                "string"
+              ],
+              "name": "impersonator",
+              "default": null,
+              "doc": "The entity (e.g. a service URN) which performs the change on behalf of the Actor and must be authorized to act as the Actor.",
+              "Urn": "Urn"
+            },
+            {
+              "type": [
+                "null",
+                "string"
+              ],
+              "name": "message",
+              "default": null,
+              "doc": "Additional context around how DataHub was informed of the particular change. For example: was the change created by an automated process, or manually."
+            }
+          ],
+          "doc": "Data captured on a resource/association/sub-resource level giving insight into when that resource/association/sub-resource moved into a particular lifecycle stage, and who acted to move it into that specific lifecycle stage."
+        }
+      ],
+      "name": "created",
+      "default": null,
+      "doc": "An audit stamp detailing who and when the aspect was changed by. Required for all intents and purposes."
+    }
+  ],
+  "doc": "Kafka event for capturing update made to an entity's metadata."
+}

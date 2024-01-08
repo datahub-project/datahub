@@ -1,0 +1,28 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "dataHubUpgradeResult"
+  },
+  "name": "DataHubUpgradeResult",
+  "namespace": "com.linkedin.pegasus2avro.upgrade",
+  "fields": [
+    {
+      "type": "long",
+      "name": "timestampMs",
+      "doc": "Timestamp when we started this DataHubUpgrade"
+    },
+    {
+      "type": [
+        "null",
+        {
+          "type": "map",
+          "values": "string"
+        }
+      ],
+      "name": "result",
+      "default": null,
+      "doc": "Result map to place helpful information about this upgrade job"
+    }
+  ],
+  "doc": "Information collected when a DataHubUpgrade successfully finishes"
+}

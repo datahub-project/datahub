@@ -1,0 +1,21 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "inviteTokenKey",
+    "keyForEntity": "inviteToken",
+    "entityCategory": "internal",
+    "entityAspects": [
+      "inviteToken"
+    ]
+  },
+  "name": "InviteTokenKey",
+  "namespace": "com.linkedin.pegasus2avro.metadata.key",
+  "fields": [
+    {
+      "type": "string",
+      "name": "id",
+      "doc": "A unique id for the invite token."
+    }
+  ],
+  "doc": "Key for an InviteToken."
+}

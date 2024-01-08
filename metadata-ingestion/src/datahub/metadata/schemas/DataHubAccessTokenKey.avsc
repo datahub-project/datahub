@@ -1,0 +1,21 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "dataHubAccessTokenKey",
+    "keyForEntity": "dataHubAccessToken",
+    "entityCategory": "internal",
+    "entityAspects": [
+      "dataHubAccessTokenInfo"
+    ]
+  },
+  "name": "DataHubAccessTokenKey",
+  "namespace": "com.linkedin.pegasus2avro.metadata.key",
+  "fields": [
+    {
+      "type": "string",
+      "name": "id",
+      "doc": "Access token's SHA-256 hashed JWT signature"
+    }
+  ],
+  "doc": "Key for a DataHub Access Token"
+}

@@ -1,0 +1,201 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "dataJobInfo"
+  },
+  "name": "DataJobInfo",
+  "namespace": "com.linkedin.pegasus2avro.datajob",
+  "fields": [
+    {
+      "Searchable": {
+        "/*": {
+          "queryByDefault": true
+        }
+      },
+      "type": {
+        "type": "map",
+        "values": "string"
+      },
+      "name": "customProperties",
+      "default": {},
+      "doc": "Custom property bag."
+    },
+    {
+      "Searchable": {
+        "fieldType": "KEYWORD"
+      },
+      "java": {
+        "class": "com.linkedin.pegasus2avro.common.url.Url",
+        "coercerClass": "com.linkedin.pegasus2avro.common.url.UrlCoercer"
+      },
+      "type": [
+        "null",
+        "string"
+      ],
+      "name": "externalUrl",
+      "default": null,
+      "doc": "URL where the reference exist"
+    },
+    {
+      "Searchable": {
+        "boostScore": 10.0,
+        "enableAutocomplete": true,
+        "fieldNameAliases": [
+          "_entityName"
+        ],
+        "fieldType": "WORD_GRAM"
+      },
+      "type": "string",
+      "name": "name",
+      "doc": "Job name"
+    },
+    {
+      "Searchable": {
+        "fieldType": "TEXT",
+        "hasValuesFieldName": "hasDescription"
+      },
+      "type": [
+        "null",
+        "string"
+      ],
+      "name": "description",
+      "default": null,
+      "doc": "Job description"
+    },
+    {
+      "type": [
+        {
+          "type": "enum",
+          "symbolDocs": {
+            "COMMAND": "The command job type is one of the basic built-in types. It runs multiple UNIX commands using java processbuilder.\nUpon execution, Azkaban spawns off a process to run the command.",
+            "GLUE": "Glue type is for running AWS Glue job transforms.",
+            "HADOOP_JAVA": "Runs a java program with ability to access Hadoop cluster.\nhttps://azkaban.readthedocs.io/en/latest/jobTypes.html#java-job-type",
+            "HADOOP_SHELL": "In large part, this is the same Command type. The difference is its ability to talk to a Hadoop cluster\nsecurely, via Hadoop tokens.",
+            "HIVE": "Hive type is for running Hive jobs.",
+            "PIG": "Pig type is for running Pig jobs.",
+            "SQL": "SQL is for running Presto, mysql queries etc"
+          },
+          "name": "AzkabanJobType",
+          "namespace": "com.linkedin.pegasus2avro.datajob.azkaban",
+          "symbols": [
+            "COMMAND",
+            "HADOOP_JAVA",
+            "HADOOP_SHELL",
+            "HIVE",
+            "PIG",
+            "SQL",
+            "GLUE"
+          ],
+          "doc": "The various types of support azkaban jobs"
+        },
+        "string"
+      ],
+      "name": "type",
+      "doc": "Datajob type\n*NOTE**: AzkabanJobType is deprecated. Please use strings instead."
+    },
+    {
+      "java": {
+        "class": "com.linkedin.pegasus2avro.common.urn.DataFlowUrn"
+      },
+      "type": [
+        "null",
+        "string"
+      ],
+      "name": "flowUrn",
+      "default": null,
+      "doc": "DataFlow urn that this job is part of",
+      "Urn": "DataFlowUrn"
+    },
+    {
+      "Searchable": {
+        "/time": {
+          "fieldName": "createdAt",
+          "fieldType": "DATETIME"
+        }
+      },
+      "type": [
+        "null",
+        {
+          "type": "record",
+          "name": "TimeStamp",
+          "namespace": "com.linkedin.pegasus2avro.common",
+          "fields": [
+            {
+              "type": "long",
+              "name": "time",
+              "doc": "When did the event occur"
+            },
+            {
+              "java": {
+                "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+              },
+              "type": [
+                "null",
+                "string"
+              ],
+              "name": "actor",
+              "default": null,
+              "doc": "Optional: The actor urn involved in the event.",
+              "Urn": "Urn"
+            }
+          ],
+          "doc": "A standard event timestamp"
+        }
+      ],
+      "name": "created",
+      "default": null,
+      "doc": "A timestamp documenting when the asset was created in the source Data Platform (not on DataHub)"
+    },
+    {
+      "Searchable": {
+        "/time": {
+          "fieldName": "lastModifiedAt",
+          "fieldType": "DATETIME"
+        }
+      },
+      "type": [
+        "null",
+        "com.linkedin.pegasus2avro.common.TimeStamp"
+      ],
+      "name": "lastModified",
+      "default": null,
+      "doc": "A timestamp documenting when the asset was last modified in the source Data Platform (not on DataHub)"
+    },
+    {
+      "deprecated": "Use Data Process Instance model, instead",
+      "type": [
+        "null",
+        {
+          "type": "enum",
+          "symbolDocs": {
+            "COMPLETED": "Jobs with successful completion.",
+            "FAILED": "Jobs that have failed.",
+            "IN_PROGRESS": "Jobs currently running.",
+            "SKIPPED": "Jobs that have been skipped.",
+            "STARTING": "Jobs being initialized.",
+            "STOPPED": "Jobs that have stopped.",
+            "STOPPING": "Jobs being stopped.",
+            "UNKNOWN": "Jobs with unknown status (either unmappable or unavailable)"
+          },
+          "name": "JobStatus",
+          "namespace": "com.linkedin.pegasus2avro.datajob",
+          "symbols": [
+            "STARTING",
+            "IN_PROGRESS",
+            "STOPPING",
+            "STOPPED",
+            "COMPLETED",
+            "FAILED",
+            "UNKNOWN",
+            "SKIPPED"
+          ],
+          "doc": "Job statuses"
+        }
+      ],
+      "name": "status",
+      "default": null,
+      "doc": "Status of the job - Deprecated for Data Process Instance model."
+    }
+  ],
+  "doc": "Information about a Data processing job"
+}

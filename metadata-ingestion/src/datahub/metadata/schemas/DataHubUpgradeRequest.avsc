@@ -1,0 +1,21 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "dataHubUpgradeRequest"
+  },
+  "name": "DataHubUpgradeRequest",
+  "namespace": "com.linkedin.pegasus2avro.upgrade",
+  "fields": [
+    {
+      "type": "long",
+      "name": "timestampMs",
+      "doc": "Timestamp when we started this DataHubUpgrade"
+    },
+    {
+      "type": "string",
+      "name": "version",
+      "doc": "Version of this upgrade"
+    }
+  ],
+  "doc": "Information collected when kicking off a DataHubUpgrade"
+}

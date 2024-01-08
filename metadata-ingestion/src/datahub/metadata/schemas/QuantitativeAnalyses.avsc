@@ -1,0 +1,29 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "mlModelQuantitativeAnalyses"
+  },
+  "name": "QuantitativeAnalyses",
+  "namespace": "com.linkedin.pegasus2avro.ml.metadata",
+  "fields": [
+    {
+      "type": [
+        "null",
+        "string"
+      ],
+      "name": "unitaryResults",
+      "default": null,
+      "doc": "Link to a dashboard with results showing how the MLModel performed with respect to each factor"
+    },
+    {
+      "type": [
+        "null",
+        "string"
+      ],
+      "name": "intersectionalResults",
+      "default": null,
+      "doc": "Link to a dashboard with results showing how the MLModel performed with respect to the intersection of evaluated factors?"
+    }
+  ],
+  "doc": "Quantitative analyses should be disaggregated, that is, broken down by the chosen factors. Quantitative analyses should provide the results of evaluating the MLModel according to the chosen metrics, providing confidence interval values when possible."
+}

@@ -1,0 +1,58 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "mlFeatureTableKey",
+    "keyForEntity": "mlFeatureTable",
+    "entityCategory": "core",
+    "entityAspects": [
+      "glossaryTerms",
+      "editableMlFeatureTableProperties",
+      "domains",
+      "mlFeatureTableProperties",
+      "ownership",
+      "institutionalMemory",
+      "status",
+      "deprecation",
+      "browsePaths",
+      "globalTags",
+      "dataPlatformInstance",
+      "browsePathsV2"
+    ]
+  },
+  "name": "MLFeatureTableKey",
+  "namespace": "com.linkedin.pegasus2avro.metadata.key",
+  "fields": [
+    {
+      "Relationship": {
+        "entityTypes": [
+          "dataPlatform"
+        ],
+        "name": "SourcePlatform"
+      },
+      "java": {
+        "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+      },
+      "type": "string",
+      "name": "platform",
+      "doc": "Data platform urn associated with the feature table",
+      "Urn": "Urn",
+      "entityTypes": [
+        "dataPlatform"
+      ]
+    },
+    {
+      "Searchable": {
+        "boostScore": 8.0,
+        "enableAutocomplete": true,
+        "fieldNameAliases": [
+          "_entityName"
+        ],
+        "fieldType": "WORD_GRAM"
+      },
+      "type": "string",
+      "name": "name",
+      "doc": "Name of the feature table"
+    }
+  ],
+  "doc": "Key for an MLFeatureTable"
+}
