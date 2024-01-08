@@ -1,0 +1,71 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "mlModelEthicalConsiderations"
+  },
+  "name": "EthicalConsiderations",
+  "namespace": "com.linkedin.pegasus2avro.ml.metadata",
+  "fields": [
+    {
+      "type": [
+        "null",
+        {
+          "type": "array",
+          "items": "string"
+        }
+      ],
+      "name": "data",
+      "default": null,
+      "doc": "Does the MLModel use any sensitive data (e.g., protected classes)?"
+    },
+    {
+      "type": [
+        "null",
+        {
+          "type": "array",
+          "items": "string"
+        }
+      ],
+      "name": "humanLife",
+      "default": null,
+      "doc": " Is the MLModel intended to inform decisions about matters central to human life or flourishing - e.g., health or safety? Or could it be used in such a way?"
+    },
+    {
+      "type": [
+        "null",
+        {
+          "type": "array",
+          "items": "string"
+        }
+      ],
+      "name": "mitigations",
+      "default": null,
+      "doc": "What risk mitigation strategies were used during MLModel development?"
+    },
+    {
+      "type": [
+        "null",
+        {
+          "type": "array",
+          "items": "string"
+        }
+      ],
+      "name": "risksAndHarms",
+      "default": null,
+      "doc": "What risks may be present in MLModel usage? Try to identify the potential recipients, likelihood, and magnitude of harms. If these cannot be determined, note that they were considered but remain unknown."
+    },
+    {
+      "type": [
+        "null",
+        {
+          "type": "array",
+          "items": "string"
+        }
+      ],
+      "name": "useCases",
+      "default": null,
+      "doc": "Are there any known MLModel use cases that are especially fraught? This may connect directly to the intended use section"
+    }
+  ],
+  "doc": "This section is intended to demonstrate the ethical considerations that went into MLModel development, surfacing ethical challenges and solutions to stakeholders."
+}

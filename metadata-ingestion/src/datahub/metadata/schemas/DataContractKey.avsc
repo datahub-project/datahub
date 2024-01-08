@@ -1,0 +1,23 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "dataContractKey",
+    "keyForEntity": "dataContract",
+    "entityCategory": "core",
+    "entityAspects": [
+      "dataContractProperties",
+      "dataContractStatus",
+      "status"
+    ]
+  },
+  "name": "DataContractKey",
+  "namespace": "com.linkedin.pegasus2avro.metadata.key",
+  "fields": [
+    {
+      "type": "string",
+      "name": "id",
+      "doc": "Unique id for the contract"
+    }
+  ],
+  "doc": "Key for a Data Contract"
+}

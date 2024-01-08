@@ -1,0 +1,22 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "dataHubPolicyKey",
+    "keyForEntity": "dataHubPolicy",
+    "entityCategory": "internal",
+    "entityAspects": [
+      "dataHubPolicyInfo"
+    ],
+    "entityDoc": "DataHub Policies represent access policies granted to users or groups on metadata operations like edit, view etc."
+  },
+  "name": "DataHubPolicyKey",
+  "namespace": "com.linkedin.pegasus2avro.metadata.key",
+  "fields": [
+    {
+      "type": "string",
+      "name": "id",
+      "doc": "A unique id for the DataHub access policy record. Generated on the server side at policy creation time."
+    }
+  ],
+  "doc": "Key for a DataHub Policy"
+}

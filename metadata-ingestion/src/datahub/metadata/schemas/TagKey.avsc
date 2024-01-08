@@ -1,0 +1,30 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "tagKey",
+    "keyForEntity": "tag",
+    "entityCategory": "core",
+    "entityAspects": [
+      "tagProperties",
+      "ownership",
+      "deprecation",
+      "status"
+    ]
+  },
+  "name": "TagKey",
+  "namespace": "com.linkedin.pegasus2avro.metadata.key",
+  "fields": [
+    {
+      "Searchable": {
+        "boostScore": 10.0,
+        "enableAutocomplete": true,
+        "fieldName": "id",
+        "fieldType": "WORD_GRAM"
+      },
+      "type": "string",
+      "name": "name",
+      "doc": "The tag name, which serves as a unique id"
+    }
+  ],
+  "doc": "Key for a Tag"
+}

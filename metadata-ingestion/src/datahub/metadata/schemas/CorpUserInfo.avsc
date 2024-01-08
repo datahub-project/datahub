@@ -1,0 +1,170 @@
+{
+  "type": "record",
+  "Aspect": {
+    "EntityUrns": [
+      "com.linkedin.pegasus2avro.common.CorpuserUrn"
+    ],
+    "name": "corpUserInfo"
+  },
+  "name": "CorpUserInfo",
+  "namespace": "com.linkedin.pegasus2avro.identity",
+  "fields": [
+    {
+      "Searchable": {
+        "/*": {
+          "queryByDefault": true
+        }
+      },
+      "type": {
+        "type": "map",
+        "values": "string"
+      },
+      "name": "customProperties",
+      "default": {},
+      "doc": "Custom property bag."
+    },
+    {
+      "Searchable": {
+        "fieldType": "BOOLEAN",
+        "weightsPerFieldValue": {
+          "true": 2.0
+        }
+      },
+      "type": "boolean",
+      "name": "active",
+      "doc": "Deprecated! Use CorpUserStatus instead. Whether the corpUser is active, ref: https://iwww.corp.linkedin.com/wiki/cf/display/GTSD/Accessing+Active+Directory+via+LDAP+tools"
+    },
+    {
+      "Searchable": {
+        "boostScore": 10.0,
+        "enableAutocomplete": true,
+        "fieldNameAliases": [
+          "_entityName"
+        ],
+        "fieldType": "WORD_GRAM",
+        "queryByDefault": true
+      },
+      "type": [
+        "null",
+        "string"
+      ],
+      "name": "displayName",
+      "default": null,
+      "doc": "displayName of this user ,  e.g.  Hang Zhang(DataHQ)"
+    },
+    {
+      "Searchable": {
+        "fieldType": "KEYWORD",
+        "queryByDefault": true
+      },
+      "type": [
+        "null",
+        "string"
+      ],
+      "name": "email",
+      "default": null,
+      "doc": "email address of this user"
+    },
+    {
+      "Searchable": {
+        "fieldType": "KEYWORD",
+        "queryByDefault": true
+      },
+      "type": [
+        "null",
+        "string"
+      ],
+      "name": "title",
+      "default": null,
+      "doc": "title of this user"
+    },
+    {
+      "Relationship": {
+        "entityTypes": [
+          "corpuser"
+        ],
+        "name": "ReportsTo"
+      },
+      "Searchable": {
+        "fieldName": "managerLdap",
+        "fieldType": "URN",
+        "queryByDefault": true
+      },
+      "java": {
+        "class": "com.linkedin.pegasus2avro.common.urn.CorpuserUrn"
+      },
+      "type": [
+        "null",
+        "string"
+      ],
+      "name": "managerUrn",
+      "default": null,
+      "doc": "direct manager of this user",
+      "Urn": "CorpuserUrn",
+      "entityTypes": [
+        "corpuser"
+      ]
+    },
+    {
+      "type": [
+        "null",
+        "long"
+      ],
+      "name": "departmentId",
+      "default": null,
+      "doc": "department id this user belong to"
+    },
+    {
+      "type": [
+        "null",
+        "string"
+      ],
+      "name": "departmentName",
+      "default": null,
+      "doc": "department name this user belong to"
+    },
+    {
+      "type": [
+        "null",
+        "string"
+      ],
+      "name": "firstName",
+      "default": null,
+      "doc": "first name of this user"
+    },
+    {
+      "type": [
+        "null",
+        "string"
+      ],
+      "name": "lastName",
+      "default": null,
+      "doc": "last name of this user"
+    },
+    {
+      "Searchable": {
+        "boostScore": 10.0,
+        "enableAutocomplete": true,
+        "fieldType": "WORD_GRAM",
+        "queryByDefault": true
+      },
+      "type": [
+        "null",
+        "string"
+      ],
+      "name": "fullName",
+      "default": null,
+      "doc": "Common name of this user, format is firstName + lastName (split by a whitespace)"
+    },
+    {
+      "type": [
+        "null",
+        "string"
+      ],
+      "name": "countryCode",
+      "default": null,
+      "doc": "two uppercase letters country code. e.g.  US"
+    }
+  ],
+  "doc": "Linkedin corp user information"
+}

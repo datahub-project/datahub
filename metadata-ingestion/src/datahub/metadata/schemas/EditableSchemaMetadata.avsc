@@ -1,0 +1,293 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "editableSchemaMetadata"
+  },
+  "name": "EditableSchemaMetadata",
+  "namespace": "com.linkedin.pegasus2avro.schema",
+  "fields": [
+    {
+      "type": {
+        "type": "record",
+        "name": "AuditStamp",
+        "namespace": "com.linkedin.pegasus2avro.common",
+        "fields": [
+          {
+            "type": "long",
+            "name": "time",
+            "doc": "When did the resource/association/sub-resource move into the specific lifecycle stage represented by this AuditEvent."
+          },
+          {
+            "java": {
+              "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+            },
+            "type": "string",
+            "name": "actor",
+            "doc": "The entity (e.g. a member URN) which will be credited for moving the resource/association/sub-resource into the specific lifecycle stage. It is also the one used to authorize the change.",
+            "Urn": "Urn"
+          },
+          {
+            "java": {
+              "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+            },
+            "type": [
+              "null",
+              "string"
+            ],
+            "name": "impersonator",
+            "default": null,
+            "doc": "The entity (e.g. a service URN) which performs the change on behalf of the Actor and must be authorized to act as the Actor.",
+            "Urn": "Urn"
+          },
+          {
+            "type": [
+              "null",
+              "string"
+            ],
+            "name": "message",
+            "default": null,
+            "doc": "Additional context around how DataHub was informed of the particular change. For example: was the change created by an automated process, or manually."
+          }
+        ],
+        "doc": "Data captured on a resource/association/sub-resource level giving insight into when that resource/association/sub-resource moved into a particular lifecycle stage, and who acted to move it into that specific lifecycle stage."
+      },
+      "name": "created",
+      "default": {
+        "actor": "urn:li:corpuser:unknown",
+        "impersonator": null,
+        "time": 0,
+        "message": null
+      },
+      "doc": "An AuditStamp corresponding to the creation of this resource/association/sub-resource. A value of 0 for time indicates missing data."
+    },
+    {
+      "type": "com.linkedin.pegasus2avro.common.AuditStamp",
+      "name": "lastModified",
+      "default": {
+        "actor": "urn:li:corpuser:unknown",
+        "impersonator": null,
+        "time": 0,
+        "message": null
+      },
+      "doc": "An AuditStamp corresponding to the last modification of this resource/association/sub-resource. If no modification has happened since creation, lastModified should be the same as created. A value of 0 for time indicates missing data."
+    },
+    {
+      "type": [
+        "null",
+        "com.linkedin.pegasus2avro.common.AuditStamp"
+      ],
+      "name": "deleted",
+      "default": null,
+      "doc": "An AuditStamp corresponding to the deletion of this resource/association/sub-resource. Logically, deleted MUST have a later timestamp than creation. It may or may not have the same time as lastModified depending upon the resource/association/sub-resource semantics."
+    },
+    {
+      "type": {
+        "type": "array",
+        "items": {
+          "type": "record",
+          "name": "EditableSchemaFieldInfo",
+          "namespace": "com.linkedin.pegasus2avro.schema",
+          "fields": [
+            {
+              "type": "string",
+              "name": "fieldPath",
+              "doc": "FieldPath uniquely identifying the SchemaField this metadata is associated with"
+            },
+            {
+              "Searchable": {
+                "boostScore": 0.1,
+                "fieldName": "editedFieldDescriptions",
+                "fieldType": "TEXT"
+              },
+              "type": [
+                "null",
+                "string"
+              ],
+              "name": "description",
+              "default": null,
+              "doc": "Description"
+            },
+            {
+              "Relationship": {
+                "/tags/*/tag": {
+                  "entityTypes": [
+                    "tag"
+                  ],
+                  "name": "EditableSchemaFieldTaggedWith"
+                }
+              },
+              "Searchable": {
+                "/tags/*/tag": {
+                  "boostScore": 0.5,
+                  "fieldName": "editedFieldTags",
+                  "fieldType": "URN"
+                }
+              },
+              "type": [
+                "null",
+                {
+                  "type": "record",
+                  "Aspect": {
+                    "name": "globalTags"
+                  },
+                  "name": "GlobalTags",
+                  "namespace": "com.linkedin.pegasus2avro.common",
+                  "fields": [
+                    {
+                      "Relationship": {
+                        "/*/tag": {
+                          "entityTypes": [
+                            "tag"
+                          ],
+                          "name": "TaggedWith"
+                        }
+                      },
+                      "Searchable": {
+                        "/*/tag": {
+                          "addToFilters": true,
+                          "boostScore": 0.5,
+                          "fieldName": "tags",
+                          "fieldType": "URN",
+                          "filterNameOverride": "Tag",
+                          "hasValuesFieldName": "hasTags",
+                          "queryByDefault": true
+                        }
+                      },
+                      "type": {
+                        "type": "array",
+                        "items": {
+                          "type": "record",
+                          "name": "TagAssociation",
+                          "namespace": "com.linkedin.pegasus2avro.common",
+                          "fields": [
+                            {
+                              "java": {
+                                "class": "com.linkedin.pegasus2avro.common.urn.TagUrn"
+                              },
+                              "type": "string",
+                              "name": "tag",
+                              "doc": "Urn of the applied tag",
+                              "Urn": "TagUrn"
+                            },
+                            {
+                              "type": [
+                                "null",
+                                "string"
+                              ],
+                              "name": "context",
+                              "default": null,
+                              "doc": "Additional context about the association"
+                            }
+                          ],
+                          "doc": "Properties of an applied tag. For now, just an Urn. In the future we can extend this with other properties, e.g.\npropagation parameters."
+                        }
+                      },
+                      "name": "tags",
+                      "doc": "Tags associated with a given entity"
+                    }
+                  ],
+                  "doc": "Tag aspect used for applying tags to an entity"
+                }
+              ],
+              "name": "globalTags",
+              "default": null,
+              "doc": "Tags associated with the field"
+            },
+            {
+              "Relationship": {
+                "/terms/*/urn": {
+                  "entityTypes": [
+                    "glossaryTerm"
+                  ],
+                  "name": "EditableSchemaFieldWithGlossaryTerm"
+                }
+              },
+              "Searchable": {
+                "/terms/*/urn": {
+                  "boostScore": 0.5,
+                  "fieldName": "editedFieldGlossaryTerms",
+                  "fieldType": "URN"
+                }
+              },
+              "type": [
+                "null",
+                {
+                  "type": "record",
+                  "Aspect": {
+                    "name": "glossaryTerms"
+                  },
+                  "name": "GlossaryTerms",
+                  "namespace": "com.linkedin.pegasus2avro.common",
+                  "fields": [
+                    {
+                      "type": {
+                        "type": "array",
+                        "items": {
+                          "type": "record",
+                          "name": "GlossaryTermAssociation",
+                          "namespace": "com.linkedin.pegasus2avro.common",
+                          "fields": [
+                            {
+                              "Relationship": {
+                                "entityTypes": [
+                                  "glossaryTerm"
+                                ],
+                                "name": "TermedWith"
+                              },
+                              "Searchable": {
+                                "addToFilters": true,
+                                "fieldName": "glossaryTerms",
+                                "fieldType": "URN",
+                                "filterNameOverride": "Glossary Term",
+                                "hasValuesFieldName": "hasGlossaryTerms"
+                              },
+                              "java": {
+                                "class": "com.linkedin.pegasus2avro.common.urn.GlossaryTermUrn"
+                              },
+                              "type": "string",
+                              "name": "urn",
+                              "doc": "Urn of the applied glossary term",
+                              "Urn": "GlossaryTermUrn",
+                              "entityTypes": [
+                                "glossaryTerm"
+                              ]
+                            },
+                            {
+                              "type": [
+                                "null",
+                                "string"
+                              ],
+                              "name": "context",
+                              "default": null,
+                              "doc": "Additional context about the association"
+                            }
+                          ],
+                          "doc": "Properties of an applied glossary term."
+                        }
+                      },
+                      "name": "terms",
+                      "doc": "The related business terms"
+                    },
+                    {
+                      "type": "com.linkedin.pegasus2avro.common.AuditStamp",
+                      "name": "auditStamp",
+                      "doc": "Audit stamp containing who reported the related business term"
+                    }
+                  ],
+                  "doc": "Related business terms information"
+                }
+              ],
+              "name": "glossaryTerms",
+              "default": null,
+              "doc": "Glossary terms associated with the field"
+            }
+          ],
+          "doc": "SchemaField to describe metadata related to dataset schema."
+        }
+      },
+      "name": "editableSchemaFieldInfo",
+      "doc": "Client provided a list of fields from document schema."
+    }
+  ],
+  "doc": "EditableSchemaMetadata stores editable changes made to schema metadata. This separates changes made from\ningestion pipelines and edits in the UI to avoid accidental overwrites of user-provided data by ingestion pipelines."
+}

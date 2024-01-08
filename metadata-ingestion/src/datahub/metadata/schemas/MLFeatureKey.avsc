@@ -1,0 +1,48 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "mlFeatureKey",
+    "keyForEntity": "mlFeature",
+    "entityCategory": "core",
+    "entityAspects": [
+      "glossaryTerms",
+      "editableMlFeatureProperties",
+      "domains",
+      "mlFeatureProperties",
+      "ownership",
+      "institutionalMemory",
+      "status",
+      "deprecation",
+      "browsePaths",
+      "globalTags",
+      "dataPlatformInstance",
+      "browsePathsV2"
+    ]
+  },
+  "name": "MLFeatureKey",
+  "namespace": "com.linkedin.pegasus2avro.metadata.key",
+  "fields": [
+    {
+      "Searchable": {
+        "fieldType": "TEXT_PARTIAL"
+      },
+      "type": "string",
+      "name": "featureNamespace",
+      "doc": "Namespace for the feature"
+    },
+    {
+      "Searchable": {
+        "boostScore": 8.0,
+        "enableAutocomplete": true,
+        "fieldNameAliases": [
+          "_entityName"
+        ],
+        "fieldType": "WORD_GRAM"
+      },
+      "type": "string",
+      "name": "name",
+      "doc": "Name of the feature"
+    }
+  ],
+  "doc": "Key for an MLFeature"
+}

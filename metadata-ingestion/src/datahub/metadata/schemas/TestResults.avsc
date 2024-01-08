@@ -1,0 +1,90 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "testResults"
+  },
+  "name": "TestResults",
+  "namespace": "com.linkedin.pegasus2avro.test",
+  "fields": [
+    {
+      "Relationship": {
+        "/*/test": {
+          "entityTypes": [
+            "test"
+          ],
+          "name": "IsFailing"
+        }
+      },
+      "Searchable": {
+        "/*/test": {
+          "fieldName": "failingTests",
+          "fieldType": "URN",
+          "hasValuesFieldName": "hasFailingTests"
+        }
+      },
+      "type": {
+        "type": "array",
+        "items": {
+          "type": "record",
+          "name": "TestResult",
+          "namespace": "com.linkedin.pegasus2avro.test",
+          "fields": [
+            {
+              "java": {
+                "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+              },
+              "type": "string",
+              "name": "test",
+              "doc": "The urn of the test",
+              "Urn": "Urn"
+            },
+            {
+              "type": {
+                "type": "enum",
+                "symbolDocs": {
+                  "FAILURE": " The Test Failed",
+                  "SUCCESS": " The Test Succeeded"
+                },
+                "name": "TestResultType",
+                "namespace": "com.linkedin.pegasus2avro.test",
+                "symbols": [
+                  "SUCCESS",
+                  "FAILURE"
+                ]
+              },
+              "name": "type",
+              "doc": "The type of the result"
+            }
+          ],
+          "doc": "Information about a Test Result"
+        }
+      },
+      "name": "failing",
+      "doc": "Results that are failing"
+    },
+    {
+      "Relationship": {
+        "/*/test": {
+          "entityTypes": [
+            "test"
+          ],
+          "name": "IsPassing"
+        }
+      },
+      "Searchable": {
+        "/*/test": {
+          "fieldName": "passingTests",
+          "fieldType": "URN",
+          "hasValuesFieldName": "hasPassingTests"
+        }
+      },
+      "type": {
+        "type": "array",
+        "items": "com.linkedin.pegasus2avro.test.TestResult"
+      },
+      "name": "passing",
+      "doc": "Results that are passing"
+    }
+  ],
+  "doc": "Information about a Test Result"
+}

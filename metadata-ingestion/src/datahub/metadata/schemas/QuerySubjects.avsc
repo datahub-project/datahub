@@ -1,0 +1,50 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "querySubjects"
+  },
+  "name": "QuerySubjects",
+  "namespace": "com.linkedin.pegasus2avro.query",
+  "fields": [
+    {
+      "type": {
+        "type": "array",
+        "items": {
+          "type": "record",
+          "name": "QuerySubject",
+          "namespace": "com.linkedin.pegasus2avro.query",
+          "fields": [
+            {
+              "Relationship": {
+                "entityTypes": [
+                  "dataset",
+                  "schemaField"
+                ],
+                "name": "IsAssociatedWith"
+              },
+              "Searchable": {
+                "fieldName": "entities",
+                "fieldType": "URN"
+              },
+              "java": {
+                "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+              },
+              "type": "string",
+              "name": "entity",
+              "doc": "An entity which is the subject of a query.",
+              "Urn": "Urn",
+              "entityTypes": [
+                "dataset",
+                "schemaField"
+              ]
+            }
+          ],
+          "doc": "A single subject of a particular query.\nIn the future, we may evolve this model to include richer details\nabout the Query Subject in relation to the query."
+        }
+      },
+      "name": "subjects",
+      "doc": "One or more subjects of the query.\n\nIn single-asset queries (e.g. table select), this will contain the Table reference\nand optionally schema field references.\n\nIn multi-asset queries (e.g. table joins), this may contain multiple Table references\nand optionally schema field references."
+    }
+  ],
+  "doc": "Information about the subjects of a particular Query, i.e. the assets\nbeing queried."
+}

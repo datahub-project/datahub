@@ -1,0 +1,78 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "mlModelFactorPrompts"
+  },
+  "name": "MLModelFactorPrompts",
+  "namespace": "com.linkedin.pegasus2avro.ml.metadata",
+  "fields": [
+    {
+      "type": [
+        "null",
+        {
+          "type": "array",
+          "items": {
+            "type": "record",
+            "name": "MLModelFactors",
+            "namespace": "com.linkedin.pegasus2avro.ml.metadata",
+            "fields": [
+              {
+                "type": [
+                  "null",
+                  {
+                    "type": "array",
+                    "items": "string"
+                  }
+                ],
+                "name": "groups",
+                "default": null,
+                "doc": "Groups refers to distinct categories with similar characteristics that are present in the evaluation data instances.\nFor human-centric machine learning MLModels, groups are people who share one or multiple characteristics."
+              },
+              {
+                "type": [
+                  "null",
+                  {
+                    "type": "array",
+                    "items": "string"
+                  }
+                ],
+                "name": "instrumentation",
+                "default": null,
+                "doc": "The performance of a MLModel can vary depending on what instruments were used to capture the input to the MLModel.\nFor example, a face detection model may perform differently depending on the camera's hardware and software,\nincluding lens, image stabilization, high dynamic range techniques, and background blurring for portrait mode."
+              },
+              {
+                "type": [
+                  "null",
+                  {
+                    "type": "array",
+                    "items": "string"
+                  }
+                ],
+                "name": "environment",
+                "default": null,
+                "doc": "A further factor affecting MLModel performance is the environment in which it is deployed."
+              }
+            ],
+            "doc": "Factors affecting the performance of the MLModel."
+          }
+        }
+      ],
+      "name": "relevantFactors",
+      "default": null,
+      "doc": "What are foreseeable salient factors for which MLModel performance may vary, and how were these determined?"
+    },
+    {
+      "type": [
+        "null",
+        {
+          "type": "array",
+          "items": "com.linkedin.pegasus2avro.ml.metadata.MLModelFactors"
+        }
+      ],
+      "name": "evaluationFactors",
+      "default": null,
+      "doc": "Which factors are being reported, and why were these chosen?"
+    }
+  ],
+  "doc": "Prompts which affect the performance of the MLModel"
+}

@@ -1,0 +1,71 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "mlModelGroupProperties"
+  },
+  "name": "MLModelGroupProperties",
+  "namespace": "com.linkedin.pegasus2avro.ml.metadata",
+  "fields": [
+    {
+      "Searchable": {
+        "/*": {
+          "queryByDefault": true
+        }
+      },
+      "type": {
+        "type": "map",
+        "values": "string"
+      },
+      "name": "customProperties",
+      "default": {},
+      "doc": "Custom property bag."
+    },
+    {
+      "Searchable": {
+        "fieldType": "TEXT",
+        "hasValuesFieldName": "hasDescription"
+      },
+      "type": [
+        "null",
+        "string"
+      ],
+      "name": "description",
+      "default": null,
+      "doc": "Documentation of the MLModelGroup"
+    },
+    {
+      "type": [
+        "null",
+        "long"
+      ],
+      "name": "createdAt",
+      "default": null,
+      "doc": "Date when the MLModelGroup was developed"
+    },
+    {
+      "type": [
+        "null",
+        {
+          "type": "record",
+          "name": "VersionTag",
+          "namespace": "com.linkedin.pegasus2avro.common",
+          "fields": [
+            {
+              "type": [
+                "null",
+                "string"
+              ],
+              "name": "versionTag",
+              "default": null
+            }
+          ],
+          "doc": "A resource-defined string representing the resource state for the purpose of concurrency control"
+        }
+      ],
+      "name": "version",
+      "default": null,
+      "doc": "Version of the MLModelGroup"
+    }
+  ],
+  "doc": "Properties associated with an ML Model Group"
+}

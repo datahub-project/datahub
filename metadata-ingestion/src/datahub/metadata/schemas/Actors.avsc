@@ -1,0 +1,48 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "actors"
+  },
+  "name": "Actors",
+  "namespace": "com.linkedin.pegasus2avro.role",
+  "fields": [
+    {
+      "type": [
+        "null",
+        {
+          "type": "array",
+          "items": {
+            "type": "record",
+            "name": "RoleUser",
+            "namespace": "com.linkedin.pegasus2avro.role",
+            "fields": [
+              {
+                "Relationship": {
+                  "entityTypes": [
+                    "corpuser"
+                  ],
+                  "name": "Has"
+                },
+                "java": {
+                  "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+                },
+                "type": "string",
+                "name": "user",
+                "doc": "Link provisioned corp user for a role",
+                "Urn": "Urn",
+                "entityTypes": [
+                  "corpuser"
+                ]
+              }
+            ],
+            "doc": "Provisioned users of a role"
+          }
+        }
+      ],
+      "name": "users",
+      "default": null,
+      "doc": "List of provisioned users of a role"
+    }
+  ],
+  "doc": "Provisioned users of a role"
+}

@@ -1,0 +1,53 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "assertionActions"
+  },
+  "name": "AssertionActions",
+  "namespace": "com.linkedin.pegasus2avro.assertion",
+  "fields": [
+    {
+      "type": {
+        "type": "array",
+        "items": {
+          "type": "record",
+          "name": "AssertionAction",
+          "namespace": "com.linkedin.pegasus2avro.assertion",
+          "fields": [
+            {
+              "type": {
+                "type": "enum",
+                "symbolDocs": {
+                  "RAISE_INCIDENT": "Raise an incident.",
+                  "RESOLVE_INCIDENT": "Resolve open incidents related to the assertion."
+                },
+                "name": "AssertionActionType",
+                "namespace": "com.linkedin.pegasus2avro.assertion",
+                "symbols": [
+                  "RAISE_INCIDENT",
+                  "RESOLVE_INCIDENT"
+                ]
+              },
+              "name": "type",
+              "doc": "The type of the Action"
+            }
+          ],
+          "doc": "The Actions about an Assertion.\nIn the future, we'll likely extend this model to support additional\nparameters or options related to the assertion actions."
+        }
+      },
+      "name": "onSuccess",
+      "default": [],
+      "doc": "Actions to be executed on successful assertion run."
+    },
+    {
+      "type": {
+        "type": "array",
+        "items": "com.linkedin.pegasus2avro.assertion.AssertionAction"
+      },
+      "name": "onFailure",
+      "default": [],
+      "doc": "Actions to be executed on failed assertion run."
+    }
+  ],
+  "doc": "The Actions about an Assertion"
+}

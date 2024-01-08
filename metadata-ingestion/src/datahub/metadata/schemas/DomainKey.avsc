@@ -1,0 +1,24 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "domainKey",
+    "keyForEntity": "domain",
+    "entityCategory": "core",
+    "entityAspects": [
+      "domainProperties",
+      "institutionalMemory",
+      "ownership"
+    ],
+    "entityDoc": "A data domain within an organization."
+  },
+  "name": "DomainKey",
+  "namespace": "com.linkedin.pegasus2avro.metadata.key",
+  "fields": [
+    {
+      "type": "string",
+      "name": "id",
+      "doc": "A unique id for the domain. Should be separate from the name used for displaying a Domain."
+    }
+  ],
+  "doc": "Key for an Asset Domain"
+}

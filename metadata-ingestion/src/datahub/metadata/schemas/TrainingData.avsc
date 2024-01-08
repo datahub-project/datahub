@@ -1,0 +1,56 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "mlModelTrainingData"
+  },
+  "name": "TrainingData",
+  "namespace": "com.linkedin.pegasus2avro.ml.metadata",
+  "fields": [
+    {
+      "type": {
+        "type": "array",
+        "items": {
+          "type": "record",
+          "name": "BaseData",
+          "namespace": "com.linkedin.pegasus2avro.ml.metadata",
+          "fields": [
+            {
+              "java": {
+                "class": "com.linkedin.pegasus2avro.common.urn.DatasetUrn"
+              },
+              "type": "string",
+              "name": "dataset",
+              "doc": "What dataset were used in the MLModel?",
+              "Urn": "DatasetUrn"
+            },
+            {
+              "type": [
+                "null",
+                "string"
+              ],
+              "name": "motivation",
+              "default": null,
+              "doc": "Why was this dataset chosen?"
+            },
+            {
+              "type": [
+                "null",
+                {
+                  "type": "array",
+                  "items": "string"
+                }
+              ],
+              "name": "preProcessing",
+              "default": null,
+              "doc": "How was the data preprocessed (e.g., tokenization of sentences, cropping of images, any filtering such as dropping images without faces)?"
+            }
+          ],
+          "doc": "BaseData record"
+        }
+      },
+      "name": "trainingData",
+      "doc": "Details on the dataset(s) used for training the MLModel"
+    }
+  ],
+  "doc": "Ideally, the MLModel card would contain as much information about the training data as the evaluation data. However, there might be cases where it is not feasible to provide this level of detailed information about the training data. For example, the data may be proprietary, or require a non-disclosure agreement. In these cases, we advocate for basic details about the distributions over groups in the data, as well as any other details that could inform stakeholders on the kinds of biases the model may have encoded."
+}

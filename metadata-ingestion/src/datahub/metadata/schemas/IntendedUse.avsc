@@ -1,0 +1,56 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "intendedUse"
+  },
+  "name": "IntendedUse",
+  "namespace": "com.linkedin.pegasus2avro.ml.metadata",
+  "fields": [
+    {
+      "type": [
+        "null",
+        {
+          "type": "array",
+          "items": "string"
+        }
+      ],
+      "name": "primaryUses",
+      "default": null,
+      "doc": "Primary Use cases for the MLModel."
+    },
+    {
+      "type": [
+        "null",
+        {
+          "type": "array",
+          "items": {
+            "type": "enum",
+            "name": "IntendedUserType",
+            "namespace": "com.linkedin.pegasus2avro.ml.metadata",
+            "symbols": [
+              "ENTERPRISE",
+              "HOBBY",
+              "ENTERTAINMENT"
+            ]
+          }
+        }
+      ],
+      "name": "primaryUsers",
+      "default": null,
+      "doc": "Primary Intended Users - For example, was the MLModel developed for entertainment purposes, for hobbyists, or enterprise solutions?"
+    },
+    {
+      "type": [
+        "null",
+        {
+          "type": "array",
+          "items": "string"
+        }
+      ],
+      "name": "outOfScopeUses",
+      "default": null,
+      "doc": "Highlight technology that the MLModel might easily be confused with, or related contexts that users could try to apply the MLModel to."
+    }
+  ],
+  "doc": "Intended Use for the ML Model"
+}

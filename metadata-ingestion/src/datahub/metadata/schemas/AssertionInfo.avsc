@@ -1,0 +1,1918 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "assertionInfo"
+  },
+  "name": "AssertionInfo",
+  "namespace": "com.linkedin.pegasus2avro.assertion",
+  "fields": [
+    {
+      "Searchable": {
+        "/*": {
+          "queryByDefault": true
+        }
+      },
+      "type": {
+        "type": "map",
+        "values": "string"
+      },
+      "name": "customProperties",
+      "default": {},
+      "doc": "Custom property bag."
+    },
+    {
+      "Searchable": {
+        "fieldType": "KEYWORD"
+      },
+      "java": {
+        "class": "com.linkedin.pegasus2avro.common.url.Url",
+        "coercerClass": "com.linkedin.pegasus2avro.common.url.UrlCoercer"
+      },
+      "type": [
+        "null",
+        "string"
+      ],
+      "name": "externalUrl",
+      "default": null,
+      "doc": "URL where the reference exist"
+    },
+    {
+      "Searchable": {},
+      "type": {
+        "type": "enum",
+        "symbolDocs": {
+          "DATASET": "A single-dataset assertion. When this is the value, the datasetAssertion field will be populated.",
+          "DATA_SCHEMA": "A schema or structural assertion.\n\nWould have named this SCHEMA but the codegen for PDL does not allow this (reserved word).",
+          "FRESHNESS": "A freshness assertion, or an assertion which indicates when a particular operation should occur\nto an asset.",
+          "SQL": "A raw SQL-statement based assertion",
+          "VOLUME": "A volume assertion, or an assertion which indicates how much data should be available for a\nparticular asset."
+        },
+        "name": "AssertionType",
+        "namespace": "com.linkedin.pegasus2avro.assertion",
+        "symbols": [
+          "DATASET",
+          "FRESHNESS",
+          "VOLUME",
+          "SQL",
+          "DATA_SCHEMA"
+        ]
+      },
+      "name": "type",
+      "doc": "Type of assertion. Assertion types can evolve to span Datasets, Flows (Pipelines), Models, Features etc."
+    },
+    {
+      "type": [
+        "null",
+        {
+          "type": "record",
+          "name": "DatasetAssertionInfo",
+          "namespace": "com.linkedin.pegasus2avro.assertion",
+          "fields": [
+            {
+              "Relationship": {
+                "entityTypes": [
+                  "dataset"
+                ],
+                "name": "Asserts"
+              },
+              "java": {
+                "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+              },
+              "type": "string",
+              "name": "dataset",
+              "doc": "The dataset targeted by this assertion.",
+              "Urn": "Urn",
+              "entityTypes": [
+                "dataset"
+              ]
+            },
+            {
+              "Searchable": {},
+              "type": {
+                "type": "enum",
+                "symbolDocs": {
+                  "DATASET_COLUMN": "This assertion applies to dataset column(s)",
+                  "DATASET_ROWS": "This assertion applies to entire rows of the dataset",
+                  "DATASET_SCHEMA": "This assertion applies to the schema of the dataset",
+                  "DATASET_STORAGE_SIZE": "This assertion applies to the storage size of the dataset",
+                  "UNKNOWN": "The scope of the assertion is unknown"
+                },
+                "name": "DatasetAssertionScope",
+                "namespace": "com.linkedin.pegasus2avro.assertion",
+                "symbols": [
+                  "DATASET_COLUMN",
+                  "DATASET_ROWS",
+                  "DATASET_STORAGE_SIZE",
+                  "DATASET_SCHEMA",
+                  "UNKNOWN"
+                ]
+              },
+              "name": "scope",
+              "doc": "Scope of the Assertion. What part of the dataset does this assertion apply to?"
+            },
+            {
+              "Relationship": {
+                "/*": {
+                  "entityTypes": [
+                    "schemaField"
+                  ],
+                  "name": "Asserts"
+                }
+              },
+              "Searchable": {
+                "/*": {
+                  "fieldType": "URN"
+                }
+              },
+              "type": [
+                "null",
+                {
+                  "type": "array",
+                  "items": "string"
+                }
+              ],
+              "name": "fields",
+              "default": null,
+              "doc": "One or more dataset schema fields that are targeted by this assertion.\n\nThis field is expected to be provided if the assertion scope is DATASET_COLUMN.",
+              "Urn": "Urn",
+              "urn_is_array": true
+            },
+            {
+              "Searchable": {},
+              "type": [
+                "null",
+                {
+                  "type": "enum",
+                  "symbolDocs": {
+                    "COLUMNS": "Assertion is applied on all columns.",
+                    "COLUMN_COUNT": "Assertion is applied on number of columns.",
+                    "IDENTITY": "Assertion is applied on individual column value. (No aggregation)",
+                    "MAX": "Assertion is applied on column std deviation",
+                    "MEAN": "Assertion is applied on column mean",
+                    "MEDIAN": "Assertion is applied on column median",
+                    "MIN": "Assertion is applied on column min",
+                    "NULL_COUNT": "Assertion is applied on number of null values in column",
+                    "NULL_PROPORTION": "Assertion is applied on proportion of null values in column",
+                    "ROW_COUNT": "Assertion is applied on number of rows.",
+                    "STDDEV": "Assertion is applied on column std deviation",
+                    "SUM": "Assertion is applied on column sum",
+                    "UNIQUE_COUNT": "Assertion is applied on number of distinct values in column",
+                    "UNIQUE_PROPORTION": "Assertion is applied on proportion of distinct values in column",
+                    "UNIQUE_PROPOTION": "Assertion is applied on proportion of distinct values in column\n\nDeprecated! Use UNIQUE_PROPORTION instead.",
+                    "_NATIVE_": "Other"
+                  },
+                  "name": "AssertionStdAggregation",
+                  "namespace": "com.linkedin.pegasus2avro.assertion",
+                  "symbols": [
+                    "ROW_COUNT",
+                    "COLUMNS",
+                    "COLUMN_COUNT",
+                    "IDENTITY",
+                    "MEAN",
+                    "MEDIAN",
+                    "UNIQUE_COUNT",
+                    "UNIQUE_PROPORTION",
+                    "UNIQUE_PROPOTION",
+                    "NULL_COUNT",
+                    "NULL_PROPORTION",
+                    "STDDEV",
+                    "MIN",
+                    "MAX",
+                    "SUM",
+                    "_NATIVE_"
+                  ],
+                  "doc": "The function that is applied to the aggregation input (schema, rows, column values) before evaluating an operator."
+                }
+              ],
+              "name": "aggregation",
+              "default": null,
+              "doc": "Standardized assertion operator\nThis field is left blank if there is no selected aggregation or metric for a particular column."
+            },
+            {
+              "type": {
+                "type": "enum",
+                "symbolDocs": {
+                  "BETWEEN": "Value being asserted is between min_value and max_value.  Requires 'minValue' & 'maxValue' parameters.",
+                  "CONTAIN": "Value being asserted contains value. Requires 'value' parameter.",
+                  "END_WITH": "Value being asserted ends with value. Requires 'value' parameter.",
+                  "EQUAL_TO": "Value being asserted is equal to value. Requires 'value' parameter.",
+                  "GREATER_THAN": "Value being asserted is greater than some value. Requires 'value' parameter.",
+                  "GREATER_THAN_OR_EQUAL_TO": "Value being asserted is greater than or equal to some value. Requires 'value' parameter.",
+                  "IN": "Value being asserted is one of the array values. Requires 'value' parameter.",
+                  "LESS_THAN": "Value being asserted is less than a max value. Requires 'value' parameter.",
+                  "LESS_THAN_OR_EQUAL_TO": "Value being asserted is less than or equal to some value. Requires 'value' parameter.",
+                  "NOT_IN": "Value being asserted is not in one of the array values. Requires 'value' parameter.",
+                  "NOT_NULL": "Value being asserted is not null. Requires no parameters.",
+                  "REGEX_MATCH": "Value being asserted matches the regex value. Requires 'value' parameter.",
+                  "START_WITH": "Value being asserted starts with value. Requires 'value' parameter.",
+                  "_NATIVE_": "Other"
+                },
+                "name": "AssertionStdOperator",
+                "namespace": "com.linkedin.pegasus2avro.assertion",
+                "symbols": [
+                  "BETWEEN",
+                  "LESS_THAN",
+                  "LESS_THAN_OR_EQUAL_TO",
+                  "GREATER_THAN",
+                  "GREATER_THAN_OR_EQUAL_TO",
+                  "EQUAL_TO",
+                  "NOT_NULL",
+                  "CONTAIN",
+                  "END_WITH",
+                  "START_WITH",
+                  "REGEX_MATCH",
+                  "IN",
+                  "NOT_IN",
+                  "_NATIVE_"
+                ],
+                "doc": "A boolean operator that is applied on the input to an assertion, after an aggregation function has been applied."
+              },
+              "name": "operator",
+              "doc": "Standardized assertion operator"
+            },
+            {
+              "type": [
+                "null",
+                {
+                  "type": "record",
+                  "name": "AssertionStdParameters",
+                  "namespace": "com.linkedin.pegasus2avro.assertion",
+                  "fields": [
+                    {
+                      "type": [
+                        "null",
+                        {
+                          "type": "record",
+                          "name": "AssertionStdParameter",
+                          "namespace": "com.linkedin.pegasus2avro.assertion",
+                          "fields": [
+                            {
+                              "type": "string",
+                              "name": "value",
+                              "doc": "The parameter value"
+                            },
+                            {
+                              "type": {
+                                "type": "enum",
+                                "name": "AssertionStdParameterType",
+                                "namespace": "com.linkedin.pegasus2avro.assertion",
+                                "symbols": [
+                                  "STRING",
+                                  "NUMBER",
+                                  "LIST",
+                                  "SET",
+                                  "UNKNOWN"
+                                ]
+                              },
+                              "name": "type",
+                              "doc": "The type of the parameter"
+                            }
+                          ],
+                          "doc": "Single parameter for AssertionStdOperators."
+                        }
+                      ],
+                      "name": "value",
+                      "default": null,
+                      "doc": "The value parameter of an assertion"
+                    },
+                    {
+                      "type": [
+                        "null",
+                        "com.linkedin.pegasus2avro.assertion.AssertionStdParameter"
+                      ],
+                      "name": "maxValue",
+                      "default": null,
+                      "doc": "The maxValue parameter of an assertion"
+                    },
+                    {
+                      "type": [
+                        "null",
+                        "com.linkedin.pegasus2avro.assertion.AssertionStdParameter"
+                      ],
+                      "name": "minValue",
+                      "default": null,
+                      "doc": "The minValue parameter of an assertion"
+                    }
+                  ],
+                  "doc": "Parameters for AssertionStdOperators."
+                }
+              ],
+              "name": "parameters",
+              "default": null,
+              "doc": "Standard parameters required for the assertion. e.g. min_value, max_value, value, columns"
+            },
+            {
+              "type": [
+                "null",
+                "string"
+              ],
+              "name": "nativeType",
+              "default": null,
+              "doc": "Native assertion type"
+            },
+            {
+              "type": [
+                "null",
+                {
+                  "type": "map",
+                  "values": "string"
+                }
+              ],
+              "name": "nativeParameters",
+              "default": null,
+              "doc": "Native parameters required for the assertion."
+            },
+            {
+              "type": [
+                "null",
+                "string"
+              ],
+              "name": "logic",
+              "default": null
+            }
+          ],
+          "doc": "Attributes that are applicable to single-Dataset Assertions"
+        }
+      ],
+      "name": "datasetAssertion",
+      "default": null,
+      "doc": "A Dataset Assertion definition. This field is populated when the type is DATASET."
+    },
+    {
+      "type": [
+        "null",
+        {
+          "type": "record",
+          "name": "FreshnessAssertionInfo",
+          "namespace": "com.linkedin.pegasus2avro.assertion",
+          "fields": [
+            {
+              "Searchable": {},
+              "type": {
+                "type": "enum",
+                "symbolDocs": {
+                  "DATASET_CHANGE": "An Freshness based on Operations performed on a particular Dataset (insert, update, delete, etc) and sourced from an audit log, as\nopposed to based on the highest watermark in a timestamp column (e.g. a query). Only valid when entity is of type \"dataset\".",
+                  "DATA_JOB_RUN": "An Freshness based on a successful execution of a Data Job."
+                },
+                "name": "FreshnessAssertionType",
+                "namespace": "com.linkedin.pegasus2avro.assertion",
+                "symbols": [
+                  "DATASET_CHANGE",
+                  "DATA_JOB_RUN"
+                ]
+              },
+              "name": "type",
+              "doc": "The type of the freshness assertion being monitored."
+            },
+            {
+              "Relationship": {
+                "entityTypes": [
+                  "dataset",
+                  "dataJob"
+                ],
+                "name": "Asserts"
+              },
+              "Searchable": {
+                "fieldType": "URN"
+              },
+              "java": {
+                "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+              },
+              "type": "string",
+              "name": "entity",
+              "doc": "The entity targeted by this Freshness check.",
+              "Urn": "Urn",
+              "entityTypes": [
+                "dataset",
+                "dataJob"
+              ]
+            },
+            {
+              "Searchable": {
+                "/type": {
+                  "fieldName": "scheduleType"
+                }
+              },
+              "type": {
+                "type": "record",
+                "name": "FreshnessAssertionSchedule",
+                "namespace": "com.linkedin.pegasus2avro.assertion",
+                "fields": [
+                  {
+                    "type": {
+                      "type": "enum",
+                      "symbolDocs": {
+                        "CRON": "An highly configurable recurring schedule which describes the times of events described\nby a CRON schedule, with the evaluation schedule assuming to be matching the cron schedule.\n\nIn a CRON schedule type, we compute the look-back window to be the time between the last scheduled event\nand the current event (evaluation time). This means that the evaluation schedule must match exactly\nthe schedule defined inside the cron schedule.\n\nFor example, a CRON schedule defined as \"0 8 * * *\" would represent a schedule of \"every day by 8am\". Assuming\nthat the assertion evaluation schedule is defined to match this, the freshness assertion would be evaluated in the following way:\n\n    1. Compute the \"last scheduled occurrence\" of the event using the CRON schedule. For example, yesterday at 8am.\n    2. Compute the bounds of a time window between the \"last scheduled occurrence\" (yesterday at 8am) until the \"current occurrence\" (today at 8am)\n    3. Verify that the target event has occurred within the CRON-interval window.\n    4. If the target event has occurred within the time window, then assertion passes.\n    5. If the target event has not occurred within the time window, then the assertion fails.",
+                        "FIXED_INTERVAL": "A fixed interval which is used to compute a look-back window for use when evaluating the assertion relative\nto the Evaluation Time of the Assertion.\n\nTo compute the valid look-back window, we subtract the fixed interval from the evaluation time. Then, we verify\nthat the target event has occurred within that window.\n\nFor example, a fixed interval of \"24h\" would represent a schedule of \"in the last 24 hours\".\nThe 24 hour interval is relative to the evaluation time of the assertion. For example if we schedule the assertion\nto be evaluated each hour, we'd compute the result as follows:\n\n    1. Subtract the fixed interval from the current time (Evaluation time) to compute the bounds of a fixed look-back window.\n    2. Verify that the target event has occurred within the CRON-interval window.\n    3. If the target event has occurred within the time window, then assertion passes.\n    4. If the target event has not occurred within the time window, then the assertion fails."
+                      },
+                      "name": "FreshnessAssertionScheduleType",
+                      "namespace": "com.linkedin.pegasus2avro.assertion",
+                      "symbols": [
+                        "CRON",
+                        "FIXED_INTERVAL"
+                      ]
+                    },
+                    "name": "type",
+                    "doc": "The type of a Freshness Assertion Schedule.\n\nOnce we support data-time-relative schedules (e.g. schedules relative to time partitions),\nwe will add those schedule types here."
+                  },
+                  {
+                    "type": [
+                      "null",
+                      {
+                        "type": "record",
+                        "name": "FreshnessCronSchedule",
+                        "namespace": "com.linkedin.pegasus2avro.assertion",
+                        "fields": [
+                          {
+                            "type": "string",
+                            "name": "cron",
+                            "doc": "A cron-formatted execution interval, as a cron string, e.g. 1 * * * *"
+                          },
+                          {
+                            "type": "string",
+                            "name": "timezone",
+                            "doc": "Timezone in which the cron interval applies, e.g. America/Los Angeles"
+                          },
+                          {
+                            "type": [
+                              "null",
+                              "long"
+                            ],
+                            "name": "windowStartOffsetMs",
+                            "default": null,
+                            "doc": "An optional offset in milliseconds to SUBTRACT from the timestamp generated by the cron schedule\nto generate the lower bounds of the \"freshness window\", or the window of time in which an event must have occurred in order for the Freshness check\nto be considering passing.\n\nIf left empty, the start of the SLA window will be the _end_ of the previously evaluated Freshness window."
+                          }
+                        ],
+                        "doc": "Attributes defining a CRON-formatted schedule used for defining a freshness assertion."
+                      }
+                    ],
+                    "name": "cron",
+                    "default": null,
+                    "doc": "A cron schedule. This field is required when type is CRON."
+                  },
+                  {
+                    "type": [
+                      "null",
+                      {
+                        "type": "record",
+                        "name": "FixedIntervalSchedule",
+                        "namespace": "com.linkedin.pegasus2avro.assertion",
+                        "fields": [
+                          {
+                            "type": {
+                              "type": "enum",
+                              "name": "CalendarInterval",
+                              "namespace": "com.linkedin.pegasus2avro.timeseries",
+                              "symbols": [
+                                "SECOND",
+                                "MINUTE",
+                                "HOUR",
+                                "DAY",
+                                "WEEK",
+                                "MONTH",
+                                "QUARTER",
+                                "YEAR"
+                              ]
+                            },
+                            "name": "unit",
+                            "doc": "Interval unit such as minute/hour/day etc."
+                          },
+                          {
+                            "type": "int",
+                            "name": "multiple",
+                            "default": 1,
+                            "doc": "How many units. Defaults to 1."
+                          }
+                        ],
+                        "doc": "Attributes defining a relative fixed interval SLA schedule."
+                      }
+                    ],
+                    "name": "fixedInterval",
+                    "default": null,
+                    "doc": "A fixed interval schedule. This field is required when type is FIXED_INTERVAL."
+                  }
+                ],
+                "doc": "Attributes defining a single Freshness schedule."
+              },
+              "name": "schedule",
+              "doc": "Produce FAILURE Assertion Result if the asset is not updated on the cadence and within the time range described by the schedule."
+            },
+            {
+              "type": [
+                "null",
+                {
+                  "type": "record",
+                  "name": "DatasetFilter",
+                  "namespace": "com.linkedin.pegasus2avro.dataset",
+                  "fields": [
+                    {
+                      "type": {
+                        "type": "enum",
+                        "symbolDocs": {
+                          "SQL": "The partition is represented as a an opaque, raw SQL\nclause."
+                        },
+                        "name": "DatasetFilterType",
+                        "namespace": "com.linkedin.pegasus2avro.dataset",
+                        "symbols": [
+                          "SQL"
+                        ]
+                      },
+                      "name": "type",
+                      "doc": "How the partition will be represented in this model.\n\nIn the future, we'll likely add support for more structured\npredicates."
+                    },
+                    {
+                      "type": [
+                        "null",
+                        "string"
+                      ],
+                      "name": "sql",
+                      "default": null,
+                      "doc": "The raw where clause string which will be used for monitoring.\nRequired if the type is SQL."
+                    }
+                  ],
+                  "doc": "A definition of filters that should be used when\nquerying an external Dataset or Table.\n\nNote that this models should NOT be used for working with\nsearch / filter on DataHub Platform itself."
+                }
+              ],
+              "name": "filter",
+              "default": null,
+              "doc": "A definition of the specific filters that should be applied, when performing monitoring.\nIf not provided, there is no filter, and the full table is under consideration."
+            }
+          ],
+          "doc": "Attributes defining a Freshness Assertion."
+        }
+      ],
+      "name": "freshnessAssertion",
+      "default": null,
+      "doc": "An Freshness Assertion definition. This field is populated when the type is FRESHNESS."
+    },
+    {
+      "type": [
+        "null",
+        {
+          "type": "record",
+          "name": "VolumeAssertionInfo",
+          "namespace": "com.linkedin.pegasus2avro.assertion",
+          "fields": [
+            {
+              "Searchable": {},
+              "type": {
+                "type": "enum",
+                "symbolDocs": {
+                  "INCREMENTING_SEGMENT_ROW_COUNT_CHANGE": "A volume assertion that compares the row counts in neighboring \"segments\" or \"partitions\"\nof an incrementing column.\nThis can be used to track changes between subsequent date partition\nin a table, for example.",
+                  "INCREMENTING_SEGMENT_ROW_COUNT_TOTAL": "A volume assertion that checks the latest \"segment\" in a table based on an incrementing\ncolumn to check whether it's row count falls into a particular range.\n\nThis can be used to monitor the row count of an incrementing date-partition column segment.",
+                  "ROW_COUNT_CHANGE": "A volume assertion that is evaluated against an incremental row count of a dataset,\nor a row count change.",
+                  "ROW_COUNT_TOTAL": "A volume assertion that is evaluated against the total row count of a dataset."
+                },
+                "name": "VolumeAssertionType",
+                "namespace": "com.linkedin.pegasus2avro.assertion",
+                "symbols": [
+                  "ROW_COUNT_TOTAL",
+                  "ROW_COUNT_CHANGE",
+                  "INCREMENTING_SEGMENT_ROW_COUNT_TOTAL",
+                  "INCREMENTING_SEGMENT_ROW_COUNT_CHANGE"
+                ]
+              },
+              "name": "type",
+              "doc": "The type of the freshness assertion being monitored."
+            },
+            {
+              "Relationship": {
+                "entityTypes": [
+                  "dataset"
+                ],
+                "name": "Asserts"
+              },
+              "Searchable": {
+                "fieldType": "URN"
+              },
+              "java": {
+                "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+              },
+              "type": "string",
+              "name": "entity",
+              "doc": "The entity targeted by this Volume check.",
+              "Urn": "Urn",
+              "entityTypes": [
+                "dataset"
+              ]
+            },
+            {
+              "type": [
+                "null",
+                {
+                  "type": "record",
+                  "name": "RowCountTotal",
+                  "namespace": "com.linkedin.pegasus2avro.assertion",
+                  "fields": [
+                    {
+                      "type": "com.linkedin.pegasus2avro.assertion.AssertionStdOperator",
+                      "name": "operator",
+                      "doc": "The operator you'd like to apply.\n\nNote that only numeric operators are valid inputs:\nGREATER_THAN, GREATER_THAN_OR_EQUAL_TO, EQUAL_TO, LESS_THAN, LESS_THAN_OR_EQUAL_TO,\nBETWEEN."
+                    },
+                    {
+                      "type": "com.linkedin.pegasus2avro.assertion.AssertionStdParameters",
+                      "name": "parameters",
+                      "doc": "The parameters you'd like to provide as input to the operator.\n\nNote that only numeric parameter types are valid inputs: NUMBER."
+                    }
+                  ],
+                  "doc": "Attributes defining a ROW_COUNT_TOTAL volume assertion."
+                }
+              ],
+              "name": "rowCountTotal",
+              "default": null,
+              "doc": "Produce FAILURE Assertion Result if the row count of the asset does not meet specific requirements.\nRequired if type is 'ROW_COUNT_TOTAL'"
+            },
+            {
+              "type": [
+                "null",
+                {
+                  "type": "record",
+                  "name": "RowCountChange",
+                  "namespace": "com.linkedin.pegasus2avro.assertion",
+                  "fields": [
+                    {
+                      "type": {
+                        "type": "enum",
+                        "symbolDocs": {
+                          "ABSOLUTE": "A change that is defined in absolute terms.",
+                          "PERCENTAGE": "A change that is defined in relative terms using percentage change\nfrom the original value."
+                        },
+                        "name": "AssertionValueChangeType",
+                        "namespace": "com.linkedin.pegasus2avro.assertion",
+                        "symbols": [
+                          "ABSOLUTE",
+                          "PERCENTAGE"
+                        ],
+                        "doc": "An enum to represent a type of change in an assertion value, metric, or measurement."
+                      },
+                      "name": "type",
+                      "doc": "The type of the value used to evaluate the assertion: a fixed absolute value or a relative percentage."
+                    },
+                    {
+                      "type": "com.linkedin.pegasus2avro.assertion.AssertionStdOperator",
+                      "name": "operator",
+                      "doc": "The operator you'd like to apply.\n\nNote that only numeric operators are valid inputs:\nGREATER_THAN, GREATER_THAN_OR_EQUAL_TO, EQUAL_TO, LESS_THAN, LESS_THAN_OR_EQUAL_TO,\nBETWEEN."
+                    },
+                    {
+                      "type": "com.linkedin.pegasus2avro.assertion.AssertionStdParameters",
+                      "name": "parameters",
+                      "doc": "The parameters you'd like to provide as input to the operator.\n\nNote that only numeric parameter types are valid inputs: NUMBER."
+                    }
+                  ],
+                  "doc": "Attributes defining a ROW_COUNT_CHANGE volume assertion."
+                }
+              ],
+              "name": "rowCountChange",
+              "default": null,
+              "doc": "Produce FAILURE Assertion Result if the delta row count of the asset does not meet specific requirements\nwithin a given period of time.\nRequired if type is 'ROW_COUNT_CHANGE'"
+            },
+            {
+              "type": [
+                "null",
+                {
+                  "type": "record",
+                  "name": "IncrementingSegmentRowCountTotal",
+                  "namespace": "com.linkedin.pegasus2avro.assertion",
+                  "fields": [
+                    {
+                      "type": {
+                        "type": "record",
+                        "name": "IncrementingSegmentSpec",
+                        "namespace": "com.linkedin.pegasus2avro.assertion",
+                        "fields": [
+                          {
+                            "type": {
+                              "type": "record",
+                              "name": "SchemaFieldSpec",
+                              "namespace": "com.linkedin.pegasus2avro.schema",
+                              "fields": [
+                                {
+                                  "type": "string",
+                                  "name": "path",
+                                  "doc": "The field path"
+                                },
+                                {
+                                  "type": "string",
+                                  "name": "type",
+                                  "doc": "The DataHub standard schema field type."
+                                },
+                                {
+                                  "type": "string",
+                                  "name": "nativeType",
+                                  "doc": "The native field type"
+                                }
+                              ],
+                              "doc": "Lightweight spec used for referencing a particular schema field."
+                            },
+                            "name": "field",
+                            "doc": "The field to use to generate segments. It must be constantly incrementing as new rows are inserted."
+                          },
+                          {
+                            "type": [
+                              "null",
+                              {
+                                "type": "record",
+                                "name": "IncrementingSegmentFieldTransformer",
+                                "namespace": "com.linkedin.pegasus2avro.assertion",
+                                "fields": [
+                                  {
+                                    "type": {
+                                      "type": "enum",
+                                      "symbolDocs": {
+                                        "CEILING": "Rounds a numeric value up to the nearest integer.",
+                                        "FLOOR": "Rounds a numeric value down to the nearest integer.",
+                                        "NATIVE": "A backdoor to provide a native operator type specific to a given source system like\nSnowflake, Redshift, BQ, etc.",
+                                        "TIMESTAMP_MS_TO_DATE": "Rounds a timestamp (in milliseconds) down to the start of the day.",
+                                        "TIMESTAMP_MS_TO_HOUR": "Rounds a timestamp (in milliseconds) down to the nearest hour.",
+                                        "TIMESTAMP_MS_TO_MINUTE": "Rounds a timestamp (in seconds) down to the start of the month.",
+                                        "TIMESTAMP_MS_TO_MONTH": "Rounds a timestamp (in milliseconds) down to the start of the month",
+                                        "TIMESTAMP_MS_TO_YEAR": "Rounds a timestamp (in milliseconds) down to the start of the year"
+                                      },
+                                      "name": "IncrementingSegmentFieldTransformerType",
+                                      "namespace": "com.linkedin.pegasus2avro.assertion",
+                                      "symbols": [
+                                        "TIMESTAMP_MS_TO_MINUTE",
+                                        "TIMESTAMP_MS_TO_HOUR",
+                                        "TIMESTAMP_MS_TO_DATE",
+                                        "TIMESTAMP_MS_TO_MONTH",
+                                        "TIMESTAMP_MS_TO_YEAR",
+                                        "FLOOR",
+                                        "CEILING",
+                                        "NATIVE"
+                                      ]
+                                    },
+                                    "name": "type",
+                                    "doc": "A 'standard' transformer type. Note that not all source systems will support all operators."
+                                  },
+                                  {
+                                    "type": [
+                                      "null",
+                                      "string"
+                                    ],
+                                    "name": "nativeType",
+                                    "default": null,
+                                    "doc": "The 'native' transformer type, useful as a back door if a custom operator is required.\nThis field is required if the type is NATIVE."
+                                  }
+                                ],
+                                "doc": "The definition of the transformer function  that should be applied to a given field / column value in a dataset\nin order to determine the segment or bucket that it belongs to, which in turn is used to evaluate\nvolume assertions."
+                              }
+                            ],
+                            "name": "transformer",
+                            "default": null,
+                            "doc": "Optional transformer function to apply to the field in order to obtain the final segment or bucket identifier.\nIf not provided, then no operator will be applied to the field. (identity function)"
+                          }
+                        ],
+                        "doc": "Core attributes required to identify an incrementing segment in a table. This type is mainly useful\nfor tables that constantly increase with new rows being added on a particular cadence (e.g. fact or event tables)\n\nAn incrementing segment represents a logical chunk of data which is INSERTED\ninto a dataset on a regular interval, along with the presence of a constantly-incrementing column\nvalue such as an event time, date partition, or last modified column.\n\nAn incrementing segment is principally identified by 2 key attributes combined:\n\n 1. A field or column that represents the incrementing value. New rows that are inserted will be identified using this column.\n    Note that the value of this column may not by itself represent the \"bucket\" or the \"segment\" in which the row falls.\n\n 2. [Optional] An transformer function that may be applied to the selected column value in order\n    to obtain the final \"segment identifier\" or \"bucket identifier\". Rows that have the same value after applying the transformation\n    will be grouped into the same segment, using which the final value (e.g. row count) will be determined."
+                      },
+                      "name": "segment",
+                      "doc": "A specification of how the 'segment' can be derived using a column and an optional transformer function."
+                    },
+                    {
+                      "type": "com.linkedin.pegasus2avro.assertion.AssertionStdOperator",
+                      "name": "operator",
+                      "doc": "The operator you'd like to apply.\n\nNote that only numeric operators are valid inputs:\nGREATER_THAN, GREATER_THAN_OR_EQUAL_TO, EQUAL_TO, LESS_THAN, LESS_THAN_OR_EQUAL_TO,\nBETWEEN."
+                    },
+                    {
+                      "type": "com.linkedin.pegasus2avro.assertion.AssertionStdParameters",
+                      "name": "parameters",
+                      "doc": "The parameters you'd like to provide as input to the operator.\n\nNote that only numeric parameter types are valid inputs: NUMBER."
+                    }
+                  ],
+                  "doc": "Attributes defining an INCREMENTING_SEGMENT_ROW_COUNT_TOTAL volume assertion."
+                }
+              ],
+              "name": "incrementingSegmentRowCountTotal",
+              "default": null,
+              "doc": "Produce FAILURE Assertion Result if the asset's latest incrementing segment row count total\ndoes not meet specific requirements. Required if type is 'INCREMENTING_SEGMENT_ROW_COUNT_TOTAL'"
+            },
+            {
+              "type": [
+                "null",
+                {
+                  "type": "record",
+                  "name": "IncrementingSegmentRowCountChange",
+                  "namespace": "com.linkedin.pegasus2avro.assertion",
+                  "fields": [
+                    {
+                      "type": "com.linkedin.pegasus2avro.assertion.IncrementingSegmentSpec",
+                      "name": "segment",
+                      "doc": "A specification of how the 'segment' can be derived using a column and an optional transformer function."
+                    },
+                    {
+                      "type": "com.linkedin.pegasus2avro.assertion.AssertionValueChangeType",
+                      "name": "type",
+                      "doc": "The type of the value used to evaluate the assertion: a fixed absolute value or a relative percentage."
+                    },
+                    {
+                      "type": "com.linkedin.pegasus2avro.assertion.AssertionStdOperator",
+                      "name": "operator",
+                      "doc": "The operator you'd like to apply to the row count value\n\nNote that only numeric operators are valid inputs:\nGREATER_THAN, GREATER_THAN_OR_EQUAL_TO, EQUAL_TO, LESS_THAN, LESS_THAN_OR_EQUAL_TO,\nBETWEEN."
+                    },
+                    {
+                      "type": "com.linkedin.pegasus2avro.assertion.AssertionStdParameters",
+                      "name": "parameters",
+                      "doc": "The parameters you'd like to provide as input to the operator.\n\nNote that only numeric parameter types are valid inputs: NUMBER."
+                    }
+                  ],
+                  "doc": "Attributes defining an INCREMENTING_SEGMENT_ROW_COUNT_CHANGE volume assertion."
+                }
+              ],
+              "name": "incrementingSegmentRowCountChange",
+              "default": null,
+              "doc": "Produce FAILURE Assertion Result if the asset's incrementing segment row count delta\ndoes not meet specific requirements. Required if type is 'INCREMENTING_SEGMENT_ROW_COUNT_CHANGE'"
+            },
+            {
+              "type": [
+                "null",
+                "com.linkedin.pegasus2avro.dataset.DatasetFilter"
+              ],
+              "name": "filter",
+              "default": null,
+              "doc": "A definition of the specific filters that should be applied, when performing monitoring.\nIf not provided, there is no filter, and the full table is under consideration."
+            }
+          ],
+          "doc": "Attributes defining a dataset Volume Assertion"
+        }
+      ],
+      "name": "volumeAssertion",
+      "default": null,
+      "doc": "An Volume Assertion definition. This field is populated when the type is VOLUME."
+    },
+    {
+      "type": [
+        "null",
+        {
+          "type": "record",
+          "name": "SqlAssertionInfo",
+          "namespace": "com.linkedin.pegasus2avro.assertion",
+          "fields": [
+            {
+              "Searchable": {},
+              "type": {
+                "type": "enum",
+                "symbolDocs": {
+                  "METRIC": "A SQL Metric Assertion, e.g. one based on a numeric value returned by an arbitrary SQL query.",
+                  "METRIC_CHANGE": "A SQL assertion that is evaluated against the CHANGE in a metric assertion\nover time."
+                },
+                "name": "SqlAssertionType",
+                "namespace": "com.linkedin.pegasus2avro.assertion",
+                "symbols": [
+                  "METRIC",
+                  "METRIC_CHANGE"
+                ]
+              },
+              "name": "type",
+              "doc": "The type of the SQL assertion being monitored."
+            },
+            {
+              "Relationship": {
+                "entityTypes": [
+                  "dataset"
+                ],
+                "name": "Asserts"
+              },
+              "Searchable": {
+                "fieldType": "URN"
+              },
+              "java": {
+                "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+              },
+              "type": "string",
+              "name": "entity",
+              "doc": "The entity targeted by this SQL check.",
+              "Urn": "Urn",
+              "entityTypes": [
+                "dataset"
+              ]
+            },
+            {
+              "type": "string",
+              "name": "statement",
+              "doc": "The SQL statement to be executed when evaluating the assertion (or computing the metric).\nThis should be a valid and complete statement, executable by itself.\n\nUsually this should be a SELECT query statement."
+            },
+            {
+              "type": [
+                "null",
+                "com.linkedin.pegasus2avro.assertion.AssertionValueChangeType"
+              ],
+              "name": "changeType",
+              "default": null,
+              "doc": "The type of the value used to evaluate the assertion: a fixed absolute value or a relative percentage.\nThis value is required if the type is METRIC_CHANGE."
+            },
+            {
+              "type": "com.linkedin.pegasus2avro.assertion.AssertionStdOperator",
+              "name": "operator",
+              "doc": "The operator you'd like to apply to the result of the SQL query.\n\nNote that at this time, only numeric operators are valid inputs:\nGREATER_THAN, GREATER_THAN_OR_EQUAL_TO, EQUAL_TO, LESS_THAN, LESS_THAN_OR_EQUAL_TO,\nBETWEEN."
+            },
+            {
+              "type": "com.linkedin.pegasus2avro.assertion.AssertionStdParameters",
+              "name": "parameters",
+              "doc": "The parameters you'd like to provide as input to the operator.\n\nNote that only numeric parameter types are valid inputs: NUMBER."
+            }
+          ],
+          "doc": "Attributes defining a SQL Assertion"
+        }
+      ],
+      "name": "sqlAssertion",
+      "default": null,
+      "doc": "A SQL Assertion definition. This field is populated when the type is SQL."
+    },
+    {
+      "type": [
+        "null",
+        {
+          "type": "record",
+          "name": "SchemaAssertionInfo",
+          "namespace": "com.linkedin.pegasus2avro.assertion",
+          "fields": [
+            {
+              "Relationship": {
+                "entityTypes": [
+                  "dataset",
+                  "dataJob"
+                ],
+                "name": "Asserts"
+              },
+              "Searchable": {
+                "fieldType": "URN"
+              },
+              "java": {
+                "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+              },
+              "type": "string",
+              "name": "entity",
+              "doc": "The entity targeted by the assertion",
+              "Urn": "Urn",
+              "entityTypes": [
+                "dataset",
+                "dataJob"
+              ]
+            },
+            {
+              "type": {
+                "type": "record",
+                "Aspect": {
+                  "name": "schemaMetadata"
+                },
+                "name": "SchemaMetadata",
+                "namespace": "com.linkedin.pegasus2avro.schema",
+                "fields": [
+                  {
+                    "validate": {
+                      "strlen": {
+                        "max": 500,
+                        "min": 1
+                      }
+                    },
+                    "type": "string",
+                    "name": "schemaName",
+                    "doc": "Schema name e.g. PageViewEvent, identity.Profile, ams.account_management_tracking"
+                  },
+                  {
+                    "java": {
+                      "class": "com.linkedin.pegasus2avro.common.urn.DataPlatformUrn"
+                    },
+                    "type": "string",
+                    "name": "platform",
+                    "doc": "Standardized platform urn where schema is defined. The data platform Urn (urn:li:platform:{platform_name})",
+                    "Urn": "DataPlatformUrn"
+                  },
+                  {
+                    "type": "long",
+                    "name": "version",
+                    "doc": "Every change to SchemaMetadata in the resource results in a new version. Version is server assigned. This version is differ from platform native schema version."
+                  },
+                  {
+                    "type": {
+                      "type": "record",
+                      "name": "AuditStamp",
+                      "namespace": "com.linkedin.pegasus2avro.common",
+                      "fields": [
+                        {
+                          "type": "long",
+                          "name": "time",
+                          "doc": "When did the resource/association/sub-resource move into the specific lifecycle stage represented by this AuditEvent."
+                        },
+                        {
+                          "java": {
+                            "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+                          },
+                          "type": "string",
+                          "name": "actor",
+                          "doc": "The entity (e.g. a member URN) which will be credited for moving the resource/association/sub-resource into the specific lifecycle stage. It is also the one used to authorize the change.",
+                          "Urn": "Urn"
+                        },
+                        {
+                          "java": {
+                            "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+                          },
+                          "type": [
+                            "null",
+                            "string"
+                          ],
+                          "name": "impersonator",
+                          "default": null,
+                          "doc": "The entity (e.g. a service URN) which performs the change on behalf of the Actor and must be authorized to act as the Actor.",
+                          "Urn": "Urn"
+                        },
+                        {
+                          "type": [
+                            "null",
+                            "string"
+                          ],
+                          "name": "message",
+                          "default": null,
+                          "doc": "Additional context around how DataHub was informed of the particular change. For example: was the change created by an automated process, or manually."
+                        }
+                      ],
+                      "doc": "Data captured on a resource/association/sub-resource level giving insight into when that resource/association/sub-resource moved into a particular lifecycle stage, and who acted to move it into that specific lifecycle stage."
+                    },
+                    "name": "created",
+                    "default": {
+                      "actor": "urn:li:corpuser:unknown",
+                      "impersonator": null,
+                      "time": 0,
+                      "message": null
+                    },
+                    "doc": "An AuditStamp corresponding to the creation of this resource/association/sub-resource. A value of 0 for time indicates missing data."
+                  },
+                  {
+                    "type": "com.linkedin.pegasus2avro.common.AuditStamp",
+                    "name": "lastModified",
+                    "default": {
+                      "actor": "urn:li:corpuser:unknown",
+                      "impersonator": null,
+                      "time": 0,
+                      "message": null
+                    },
+                    "doc": "An AuditStamp corresponding to the last modification of this resource/association/sub-resource. If no modification has happened since creation, lastModified should be the same as created. A value of 0 for time indicates missing data."
+                  },
+                  {
+                    "type": [
+                      "null",
+                      "com.linkedin.pegasus2avro.common.AuditStamp"
+                    ],
+                    "name": "deleted",
+                    "default": null,
+                    "doc": "An AuditStamp corresponding to the deletion of this resource/association/sub-resource. Logically, deleted MUST have a later timestamp than creation. It may or may not have the same time as lastModified depending upon the resource/association/sub-resource semantics."
+                  },
+                  {
+                    "java": {
+                      "class": "com.linkedin.pegasus2avro.common.urn.DatasetUrn"
+                    },
+                    "type": [
+                      "null",
+                      "string"
+                    ],
+                    "name": "dataset",
+                    "default": null,
+                    "doc": "Dataset this schema metadata is associated with.",
+                    "Urn": "DatasetUrn"
+                  },
+                  {
+                    "type": [
+                      "null",
+                      "string"
+                    ],
+                    "name": "cluster",
+                    "default": null,
+                    "doc": "The cluster this schema metadata resides from"
+                  },
+                  {
+                    "type": "string",
+                    "name": "hash",
+                    "doc": "the SHA1 hash of the schema content"
+                  },
+                  {
+                    "type": [
+                      {
+                        "type": "record",
+                        "name": "EspressoSchema",
+                        "namespace": "com.linkedin.pegasus2avro.schema",
+                        "fields": [
+                          {
+                            "type": "string",
+                            "name": "documentSchema",
+                            "doc": "The native espresso document schema."
+                          },
+                          {
+                            "type": "string",
+                            "name": "tableSchema",
+                            "doc": "The espresso table schema definition."
+                          }
+                        ],
+                        "doc": "Schema text of an espresso table schema."
+                      },
+                      {
+                        "type": "record",
+                        "name": "OracleDDL",
+                        "namespace": "com.linkedin.pegasus2avro.schema",
+                        "fields": [
+                          {
+                            "type": "string",
+                            "name": "tableSchema",
+                            "doc": "The native schema in the dataset's platform. This is a human readable (json blob) table schema."
+                          }
+                        ],
+                        "doc": "Schema holder for oracle data definition language that describes an oracle table."
+                      },
+                      {
+                        "type": "record",
+                        "name": "MySqlDDL",
+                        "namespace": "com.linkedin.pegasus2avro.schema",
+                        "fields": [
+                          {
+                            "type": "string",
+                            "name": "tableSchema",
+                            "doc": "The native schema in the dataset's platform. This is a human readable (json blob) table schema."
+                          }
+                        ],
+                        "doc": "Schema holder for MySql data definition language that describes an MySql table."
+                      },
+                      {
+                        "type": "record",
+                        "name": "PrestoDDL",
+                        "namespace": "com.linkedin.pegasus2avro.schema",
+                        "fields": [
+                          {
+                            "type": "string",
+                            "name": "rawSchema",
+                            "doc": "The raw schema in the dataset's platform. This includes the DDL and the columns extracted from DDL."
+                          }
+                        ],
+                        "doc": "Schema holder for presto data definition language that describes a presto view."
+                      },
+                      {
+                        "type": "record",
+                        "name": "KafkaSchema",
+                        "namespace": "com.linkedin.pegasus2avro.schema",
+                        "fields": [
+                          {
+                            "type": "string",
+                            "name": "documentSchema",
+                            "doc": "The native kafka document schema. This is a human readable avro document schema."
+                          },
+                          {
+                            "type": [
+                              "null",
+                              "string"
+                            ],
+                            "name": "documentSchemaType",
+                            "default": null,
+                            "doc": "The native kafka document schema type. This can be AVRO/PROTOBUF/JSON."
+                          },
+                          {
+                            "type": [
+                              "null",
+                              "string"
+                            ],
+                            "name": "keySchema",
+                            "default": null,
+                            "doc": "The native kafka key schema as retrieved from Schema Registry"
+                          },
+                          {
+                            "type": [
+                              "null",
+                              "string"
+                            ],
+                            "name": "keySchemaType",
+                            "default": null,
+                            "doc": "The native kafka key schema type. This can be AVRO/PROTOBUF/JSON."
+                          }
+                        ],
+                        "doc": "Schema holder for kafka schema."
+                      },
+                      {
+                        "type": "record",
+                        "name": "BinaryJsonSchema",
+                        "namespace": "com.linkedin.pegasus2avro.schema",
+                        "fields": [
+                          {
+                            "type": "string",
+                            "name": "schema",
+                            "doc": "The native schema text for binary JSON file format."
+                          }
+                        ],
+                        "doc": "Schema text of binary JSON schema."
+                      },
+                      {
+                        "type": "record",
+                        "name": "OrcSchema",
+                        "namespace": "com.linkedin.pegasus2avro.schema",
+                        "fields": [
+                          {
+                            "type": "string",
+                            "name": "schema",
+                            "doc": "The native schema for ORC file format."
+                          }
+                        ],
+                        "doc": "Schema text of an ORC schema."
+                      },
+                      {
+                        "type": "record",
+                        "name": "Schemaless",
+                        "namespace": "com.linkedin.pegasus2avro.schema",
+                        "fields": [],
+                        "doc": "The dataset has no specific schema associated with it"
+                      },
+                      {
+                        "type": "record",
+                        "name": "KeyValueSchema",
+                        "namespace": "com.linkedin.pegasus2avro.schema",
+                        "fields": [
+                          {
+                            "type": "string",
+                            "name": "keySchema",
+                            "doc": "The raw schema for the key in the key-value store."
+                          },
+                          {
+                            "type": "string",
+                            "name": "valueSchema",
+                            "doc": "The raw schema for the value in the key-value store."
+                          }
+                        ],
+                        "doc": "Schema text of a key-value store schema."
+                      },
+                      {
+                        "type": "record",
+                        "name": "OtherSchema",
+                        "namespace": "com.linkedin.pegasus2avro.schema",
+                        "fields": [
+                          {
+                            "type": "string",
+                            "name": "rawSchema",
+                            "doc": "The native schema in the dataset's platform."
+                          }
+                        ],
+                        "doc": "Schema holder for undefined schema types."
+                      }
+                    ],
+                    "name": "platformSchema",
+                    "doc": "The native schema in the dataset's platform."
+                  },
+                  {
+                    "type": {
+                      "type": "array",
+                      "items": {
+                        "type": "record",
+                        "name": "SchemaField",
+                        "namespace": "com.linkedin.pegasus2avro.schema",
+                        "fields": [
+                          {
+                            "Searchable": {
+                              "boostScore": 5.0,
+                              "fieldName": "fieldPaths",
+                              "fieldType": "TEXT",
+                              "queryByDefault": "true"
+                            },
+                            "type": "string",
+                            "name": "fieldPath",
+                            "doc": "Flattened name of the field. Field is computed from jsonPath field."
+                          },
+                          {
+                            "Deprecated": true,
+                            "type": [
+                              "null",
+                              "string"
+                            ],
+                            "name": "jsonPath",
+                            "default": null,
+                            "doc": "Flattened name of a field in JSON Path notation."
+                          },
+                          {
+                            "type": "boolean",
+                            "name": "nullable",
+                            "default": false,
+                            "doc": "Indicates if this field is optional or nullable"
+                          },
+                          {
+                            "Searchable": {
+                              "boostScore": 0.1,
+                              "fieldName": "fieldDescriptions",
+                              "fieldType": "TEXT"
+                            },
+                            "type": [
+                              "null",
+                              "string"
+                            ],
+                            "name": "description",
+                            "default": null,
+                            "doc": "Description"
+                          },
+                          {
+                            "Searchable": {
+                              "boostScore": 0.2,
+                              "fieldName": "fieldLabels",
+                              "fieldType": "TEXT"
+                            },
+                            "type": [
+                              "null",
+                              "string"
+                            ],
+                            "name": "label",
+                            "default": null,
+                            "doc": "Label of the field. Provides a more human-readable name for the field than field path. Some sources will\nprovide this metadata but not all sources have the concept of a label. If just one string is associated with\na field in a source, that is most likely a description."
+                          },
+                          {
+                            "type": [
+                              "null",
+                              "com.linkedin.pegasus2avro.common.AuditStamp"
+                            ],
+                            "name": "created",
+                            "default": null,
+                            "doc": "An AuditStamp corresponding to the creation of this schema field."
+                          },
+                          {
+                            "type": [
+                              "null",
+                              "com.linkedin.pegasus2avro.common.AuditStamp"
+                            ],
+                            "name": "lastModified",
+                            "default": null,
+                            "doc": "An AuditStamp corresponding to the last modification of this schema field."
+                          },
+                          {
+                            "type": {
+                              "type": "record",
+                              "name": "SchemaFieldDataType",
+                              "namespace": "com.linkedin.pegasus2avro.schema",
+                              "fields": [
+                                {
+                                  "type": [
+                                    {
+                                      "type": "record",
+                                      "name": "BooleanType",
+                                      "namespace": "com.linkedin.pegasus2avro.schema",
+                                      "fields": [],
+                                      "doc": "Boolean field type."
+                                    },
+                                    {
+                                      "type": "record",
+                                      "name": "FixedType",
+                                      "namespace": "com.linkedin.pegasus2avro.schema",
+                                      "fields": [],
+                                      "doc": "Fixed field type."
+                                    },
+                                    {
+                                      "type": "record",
+                                      "name": "StringType",
+                                      "namespace": "com.linkedin.pegasus2avro.schema",
+                                      "fields": [],
+                                      "doc": "String field type."
+                                    },
+                                    {
+                                      "type": "record",
+                                      "name": "BytesType",
+                                      "namespace": "com.linkedin.pegasus2avro.schema",
+                                      "fields": [],
+                                      "doc": "Bytes field type."
+                                    },
+                                    {
+                                      "type": "record",
+                                      "name": "NumberType",
+                                      "namespace": "com.linkedin.pegasus2avro.schema",
+                                      "fields": [],
+                                      "doc": "Number data type: long, integer, short, etc.."
+                                    },
+                                    {
+                                      "type": "record",
+                                      "name": "DateType",
+                                      "namespace": "com.linkedin.pegasus2avro.schema",
+                                      "fields": [],
+                                      "doc": "Date field type."
+                                    },
+                                    {
+                                      "type": "record",
+                                      "name": "TimeType",
+                                      "namespace": "com.linkedin.pegasus2avro.schema",
+                                      "fields": [],
+                                      "doc": "Time field type. This should also be used for datetimes."
+                                    },
+                                    {
+                                      "type": "record",
+                                      "name": "EnumType",
+                                      "namespace": "com.linkedin.pegasus2avro.schema",
+                                      "fields": [],
+                                      "doc": "Enum field type."
+                                    },
+                                    {
+                                      "type": "record",
+                                      "name": "NullType",
+                                      "namespace": "com.linkedin.pegasus2avro.schema",
+                                      "fields": [],
+                                      "doc": "Null field type."
+                                    },
+                                    {
+                                      "type": "record",
+                                      "name": "MapType",
+                                      "namespace": "com.linkedin.pegasus2avro.schema",
+                                      "fields": [
+                                        {
+                                          "type": [
+                                            "null",
+                                            "string"
+                                          ],
+                                          "name": "keyType",
+                                          "default": null,
+                                          "doc": "Key type in a map"
+                                        },
+                                        {
+                                          "type": [
+                                            "null",
+                                            "string"
+                                          ],
+                                          "name": "valueType",
+                                          "default": null,
+                                          "doc": "Type of the value in a map"
+                                        }
+                                      ],
+                                      "doc": "Map field type."
+                                    },
+                                    {
+                                      "type": "record",
+                                      "name": "ArrayType",
+                                      "namespace": "com.linkedin.pegasus2avro.schema",
+                                      "fields": [
+                                        {
+                                          "type": [
+                                            "null",
+                                            {
+                                              "type": "array",
+                                              "items": "string"
+                                            }
+                                          ],
+                                          "name": "nestedType",
+                                          "default": null,
+                                          "doc": "List of types this array holds."
+                                        }
+                                      ],
+                                      "doc": "Array field type."
+                                    },
+                                    {
+                                      "type": "record",
+                                      "name": "UnionType",
+                                      "namespace": "com.linkedin.pegasus2avro.schema",
+                                      "fields": [
+                                        {
+                                          "type": [
+                                            "null",
+                                            {
+                                              "type": "array",
+                                              "items": "string"
+                                            }
+                                          ],
+                                          "name": "nestedTypes",
+                                          "default": null,
+                                          "doc": "List of types in union type."
+                                        }
+                                      ],
+                                      "doc": "Union field type."
+                                    },
+                                    {
+                                      "type": "record",
+                                      "name": "RecordType",
+                                      "namespace": "com.linkedin.pegasus2avro.schema",
+                                      "fields": [],
+                                      "doc": "Record field type."
+                                    }
+                                  ],
+                                  "name": "type",
+                                  "doc": "Data platform specific types"
+                                }
+                              ],
+                              "doc": "Schema field data types"
+                            },
+                            "name": "type",
+                            "doc": "Platform independent field type of the field."
+                          },
+                          {
+                            "type": "string",
+                            "name": "nativeDataType",
+                            "doc": "The native type of the field in the dataset's platform as declared by platform schema."
+                          },
+                          {
+                            "type": "boolean",
+                            "name": "recursive",
+                            "default": false,
+                            "doc": "There are use cases when a field in type B references type A. A field in A references field of type B. In such cases, we will mark the first field as recursive."
+                          },
+                          {
+                            "Relationship": {
+                              "/tags/*/tag": {
+                                "entityTypes": [
+                                  "tag"
+                                ],
+                                "name": "SchemaFieldTaggedWith"
+                              }
+                            },
+                            "Searchable": {
+                              "/tags/*/tag": {
+                                "boostScore": 0.5,
+                                "fieldName": "fieldTags",
+                                "fieldType": "URN"
+                              }
+                            },
+                            "type": [
+                              "null",
+                              {
+                                "type": "record",
+                                "Aspect": {
+                                  "name": "globalTags"
+                                },
+                                "name": "GlobalTags",
+                                "namespace": "com.linkedin.pegasus2avro.common",
+                                "fields": [
+                                  {
+                                    "Relationship": {
+                                      "/*/tag": {
+                                        "entityTypes": [
+                                          "tag"
+                                        ],
+                                        "name": "TaggedWith"
+                                      }
+                                    },
+                                    "Searchable": {
+                                      "/*/tag": {
+                                        "addToFilters": true,
+                                        "boostScore": 0.5,
+                                        "fieldName": "tags",
+                                        "fieldType": "URN",
+                                        "filterNameOverride": "Tag",
+                                        "hasValuesFieldName": "hasTags",
+                                        "queryByDefault": true
+                                      }
+                                    },
+                                    "type": {
+                                      "type": "array",
+                                      "items": {
+                                        "type": "record",
+                                        "name": "TagAssociation",
+                                        "namespace": "com.linkedin.pegasus2avro.common",
+                                        "fields": [
+                                          {
+                                            "java": {
+                                              "class": "com.linkedin.pegasus2avro.common.urn.TagUrn"
+                                            },
+                                            "type": "string",
+                                            "name": "tag",
+                                            "doc": "Urn of the applied tag",
+                                            "Urn": "TagUrn"
+                                          },
+                                          {
+                                            "type": [
+                                              "null",
+                                              "string"
+                                            ],
+                                            "name": "context",
+                                            "default": null,
+                                            "doc": "Additional context about the association"
+                                          }
+                                        ],
+                                        "doc": "Properties of an applied tag. For now, just an Urn. In the future we can extend this with other properties, e.g.\npropagation parameters."
+                                      }
+                                    },
+                                    "name": "tags",
+                                    "doc": "Tags associated with a given entity"
+                                  }
+                                ],
+                                "doc": "Tag aspect used for applying tags to an entity"
+                              }
+                            ],
+                            "name": "globalTags",
+                            "default": null,
+                            "doc": "Tags associated with the field"
+                          },
+                          {
+                            "Relationship": {
+                              "/terms/*/urn": {
+                                "entityTypes": [
+                                  "glossaryTerm"
+                                ],
+                                "name": "SchemaFieldWithGlossaryTerm"
+                              }
+                            },
+                            "Searchable": {
+                              "/terms/*/urn": {
+                                "boostScore": 0.5,
+                                "fieldName": "fieldGlossaryTerms",
+                                "fieldType": "URN"
+                              }
+                            },
+                            "type": [
+                              "null",
+                              {
+                                "type": "record",
+                                "Aspect": {
+                                  "name": "glossaryTerms"
+                                },
+                                "name": "GlossaryTerms",
+                                "namespace": "com.linkedin.pegasus2avro.common",
+                                "fields": [
+                                  {
+                                    "type": {
+                                      "type": "array",
+                                      "items": {
+                                        "type": "record",
+                                        "name": "GlossaryTermAssociation",
+                                        "namespace": "com.linkedin.pegasus2avro.common",
+                                        "fields": [
+                                          {
+                                            "Relationship": {
+                                              "entityTypes": [
+                                                "glossaryTerm"
+                                              ],
+                                              "name": "TermedWith"
+                                            },
+                                            "Searchable": {
+                                              "addToFilters": true,
+                                              "fieldName": "glossaryTerms",
+                                              "fieldType": "URN",
+                                              "filterNameOverride": "Glossary Term",
+                                              "hasValuesFieldName": "hasGlossaryTerms"
+                                            },
+                                            "java": {
+                                              "class": "com.linkedin.pegasus2avro.common.urn.GlossaryTermUrn"
+                                            },
+                                            "type": "string",
+                                            "name": "urn",
+                                            "doc": "Urn of the applied glossary term",
+                                            "Urn": "GlossaryTermUrn",
+                                            "entityTypes": [
+                                              "glossaryTerm"
+                                            ]
+                                          },
+                                          {
+                                            "type": [
+                                              "null",
+                                              "string"
+                                            ],
+                                            "name": "context",
+                                            "default": null,
+                                            "doc": "Additional context about the association"
+                                          }
+                                        ],
+                                        "doc": "Properties of an applied glossary term."
+                                      }
+                                    },
+                                    "name": "terms",
+                                    "doc": "The related business terms"
+                                  },
+                                  {
+                                    "type": "com.linkedin.pegasus2avro.common.AuditStamp",
+                                    "name": "auditStamp",
+                                    "doc": "Audit stamp containing who reported the related business term"
+                                  }
+                                ],
+                                "doc": "Related business terms information"
+                              }
+                            ],
+                            "name": "glossaryTerms",
+                            "default": null,
+                            "doc": "Glossary terms associated with the field"
+                          },
+                          {
+                            "type": "boolean",
+                            "name": "isPartOfKey",
+                            "default": false,
+                            "doc": "For schema fields that are part of complex keys, set this field to true\nWe do this to easily distinguish between value and key fields"
+                          },
+                          {
+                            "type": [
+                              "null",
+                              "boolean"
+                            ],
+                            "name": "isPartitioningKey",
+                            "default": null,
+                            "doc": "For Datasets which are partitioned, this determines the partitioning key."
+                          },
+                          {
+                            "type": [
+                              "null",
+                              "string"
+                            ],
+                            "name": "jsonProps",
+                            "default": null,
+                            "doc": "For schema fields that have other properties that are not modeled explicitly,\nuse this field to serialize those properties into a JSON string"
+                          }
+                        ],
+                        "doc": "SchemaField to describe metadata related to dataset schema."
+                      }
+                    },
+                    "name": "fields",
+                    "doc": "Client provided a list of fields from document schema."
+                  },
+                  {
+                    "type": [
+                      "null",
+                      {
+                        "type": "array",
+                        "items": "string"
+                      }
+                    ],
+                    "name": "primaryKeys",
+                    "default": null,
+                    "doc": "Client provided list of fields that define primary keys to access record. Field order defines hierarchical espresso keys. Empty lists indicates absence of primary key access patter. Value is a SchemaField@fieldPath."
+                  },
+                  {
+                    "deprecated": "Use foreignKeys instead.",
+                    "type": [
+                      "null",
+                      {
+                        "type": "map",
+                        "values": {
+                          "type": "record",
+                          "name": "ForeignKeySpec",
+                          "namespace": "com.linkedin.pegasus2avro.schema",
+                          "fields": [
+                            {
+                              "type": [
+                                {
+                                  "type": "record",
+                                  "name": "DatasetFieldForeignKey",
+                                  "namespace": "com.linkedin.pegasus2avro.schema",
+                                  "fields": [
+                                    {
+                                      "java": {
+                                        "class": "com.linkedin.pegasus2avro.common.urn.DatasetUrn"
+                                      },
+                                      "type": "string",
+                                      "name": "parentDataset",
+                                      "doc": "dataset that stores the resource.",
+                                      "Urn": "DatasetUrn"
+                                    },
+                                    {
+                                      "type": {
+                                        "type": "array",
+                                        "items": "string"
+                                      },
+                                      "name": "currentFieldPaths",
+                                      "doc": "List of fields in hosting(current) SchemaMetadata that conform a foreign key. List can contain a single entry or multiple entries if several entries in hosting schema conform a foreign key in a single parent dataset."
+                                    },
+                                    {
+                                      "type": "string",
+                                      "name": "parentField",
+                                      "doc": "SchemaField@fieldPath that uniquely identify field in parent dataset that this field references."
+                                    }
+                                  ],
+                                  "doc": "For non-urn based foregin keys."
+                                },
+                                {
+                                  "type": "record",
+                                  "name": "UrnForeignKey",
+                                  "namespace": "com.linkedin.pegasus2avro.schema",
+                                  "fields": [
+                                    {
+                                      "type": "string",
+                                      "name": "currentFieldPath",
+                                      "doc": "Field in hosting(current) SchemaMetadata."
+                                    }
+                                  ],
+                                  "doc": "If SchemaMetadata fields make any external references and references are of type com.linkedin.pegasus2avro.common.Urn or any children, this models can be used to mark it."
+                                }
+                              ],
+                              "name": "foreignKey",
+                              "doc": "Foreign key definition in metadata schema."
+                            }
+                          ],
+                          "doc": "Description of a foreign key in a schema."
+                        }
+                      }
+                    ],
+                    "name": "foreignKeysSpecs",
+                    "default": null,
+                    "doc": "Map captures all the references schema makes to external datasets. Map key is ForeignKeySpecName typeref."
+                  },
+                  {
+                    "type": [
+                      "null",
+                      {
+                        "type": "array",
+                        "items": {
+                          "type": "record",
+                          "name": "ForeignKeyConstraint",
+                          "namespace": "com.linkedin.pegasus2avro.schema",
+                          "fields": [
+                            {
+                              "type": "string",
+                              "name": "name",
+                              "doc": "Name of the constraint, likely provided from the source"
+                            },
+                            {
+                              "Relationship": {
+                                "/*": {
+                                  "entityTypes": [
+                                    "schemaField"
+                                  ],
+                                  "name": "ForeignKeyTo"
+                                }
+                              },
+                              "type": {
+                                "type": "array",
+                                "items": "string"
+                              },
+                              "name": "foreignFields",
+                              "doc": "Fields the constraint maps to on the foreign dataset",
+                              "Urn": "Urn",
+                              "urn_is_array": true
+                            },
+                            {
+                              "type": {
+                                "type": "array",
+                                "items": "string"
+                              },
+                              "name": "sourceFields",
+                              "doc": "Fields the constraint maps to on the source dataset",
+                              "Urn": "Urn",
+                              "urn_is_array": true
+                            },
+                            {
+                              "Relationship": {
+                                "entityTypes": [
+                                  "dataset"
+                                ],
+                                "name": "ForeignKeyToDataset"
+                              },
+                              "java": {
+                                "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+                              },
+                              "type": "string",
+                              "name": "foreignDataset",
+                              "doc": "Reference to the foreign dataset for ease of lookup",
+                              "Urn": "Urn",
+                              "entityTypes": [
+                                "dataset"
+                              ]
+                            }
+                          ],
+                          "doc": "Description of a foreign key constraint in a schema."
+                        }
+                      }
+                    ],
+                    "name": "foreignKeys",
+                    "default": null,
+                    "doc": "List of foreign key constraints for the schema"
+                  }
+                ],
+                "doc": "SchemaMetadata to describe metadata related to store schema"
+              },
+              "name": "schema",
+              "doc": "A definition of the expected structure for the asset\n\nNote that many of the fields of this model, especially those related to metadata (tags, terms)\nwill go unused in this context."
+            }
+          ],
+          "doc": "Attributes that are applicable to schema assertions"
+        }
+      ],
+      "name": "schemaAssertion",
+      "default": null,
+      "doc": "An schema Assertion definition. This field is populated when the type is DATA_SCHEMA"
+    },
+    {
+      "type": [
+        "null",
+        {
+          "type": "record",
+          "name": "AssertionSource",
+          "namespace": "com.linkedin.pegasus2avro.assertion",
+          "fields": [
+            {
+              "Searchable": {
+                "fieldName": "sourceType"
+              },
+              "type": {
+                "type": "enum",
+                "symbolDocs": {
+                  "EXTERNAL": "The assertion was defined and managed externally of DataHub.",
+                  "INFERRED": "The assertion was inferred, e.g. from offline AI / ML models.",
+                  "NATIVE": "The assertion was defined natively on DataHub by a user."
+                },
+                "name": "AssertionSourceType",
+                "namespace": "com.linkedin.pegasus2avro.assertion",
+                "symbols": [
+                  "NATIVE",
+                  "EXTERNAL",
+                  "INFERRED"
+                ]
+              },
+              "name": "type",
+              "doc": "The type of the Assertion Source"
+            }
+          ],
+          "doc": "The source of an assertion"
+        }
+      ],
+      "name": "source",
+      "default": null,
+      "doc": "The source or origin of the Assertion definition.\n\nIf the source type of the Assertion is EXTERNAL, it is expected to have a corresponding dataPlatformInstance aspect detailing\nthe platform where it was ingested from."
+    },
+    {
+      "type": [
+        "null",
+        "string"
+      ],
+      "name": "description",
+      "default": null,
+      "doc": "An optional human-readable description of the assertion"
+    }
+  ],
+  "doc": "Information about an assertion"
+}

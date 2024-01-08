@@ -1,0 +1,38 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "dataProcessInstanceOutput"
+  },
+  "name": "DataProcessInstanceOutput",
+  "namespace": "com.linkedin.pegasus2avro.dataprocess",
+  "fields": [
+    {
+      "Relationship": {
+        "/*": {
+          "entityTypes": [
+            "dataset"
+          ],
+          "name": "Produces"
+        }
+      },
+      "Searchable": {
+        "/*": {
+          "addToFilters": true,
+          "fieldName": "outputs",
+          "fieldType": "URN",
+          "numValuesFieldName": "numOutputs",
+          "queryByDefault": false
+        }
+      },
+      "type": {
+        "type": "array",
+        "items": "string"
+      },
+      "name": "outputs",
+      "doc": "Output datasets to be produced",
+      "Urn": "Urn",
+      "urn_is_array": true
+    }
+  ],
+  "doc": "Information about the outputs of a Data process"
+}

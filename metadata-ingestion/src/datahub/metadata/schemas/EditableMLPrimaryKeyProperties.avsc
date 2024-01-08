@@ -1,0 +1,20 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "editableMlPrimaryKeyProperties"
+  },
+  "name": "EditableMLPrimaryKeyProperties",
+  "namespace": "com.linkedin.pegasus2avro.ml.metadata",
+  "fields": [
+    {
+      "type": [
+        "null",
+        "string"
+      ],
+      "name": "description",
+      "default": null,
+      "doc": "Documentation of the MLPrimaryKey"
+    }
+  ],
+  "doc": "Properties associated with a MLPrimaryKey editable from the UI"
+}

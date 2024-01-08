@@ -1,0 +1,32 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "viewProperties"
+  },
+  "name": "ViewProperties",
+  "namespace": "com.linkedin.pegasus2avro.dataset",
+  "fields": [
+    {
+      "Searchable": {
+        "fieldType": "BOOLEAN",
+        "weightsPerFieldValue": {
+          "true": 0.5
+        }
+      },
+      "type": "boolean",
+      "name": "materialized",
+      "doc": "Whether the view is materialized"
+    },
+    {
+      "type": "string",
+      "name": "viewLogic",
+      "doc": "The view logic"
+    },
+    {
+      "type": "string",
+      "name": "viewLanguage",
+      "doc": "The view logic language / dialect"
+    }
+  ],
+  "doc": "Details about a View. \ne.g. Gets activated when subTypes is view"
+}

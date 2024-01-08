@@ -1,0 +1,45 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "deprecation"
+  },
+  "name": "Deprecation",
+  "namespace": "com.linkedin.pegasus2avro.common",
+  "fields": [
+    {
+      "Searchable": {
+        "fieldType": "BOOLEAN",
+        "weightsPerFieldValue": {
+          "true": 0.5
+        }
+      },
+      "type": "boolean",
+      "name": "deprecated",
+      "doc": "Whether the entity is deprecated."
+    },
+    {
+      "type": [
+        "null",
+        "long"
+      ],
+      "name": "decommissionTime",
+      "default": null,
+      "doc": "The time user plan to decommission this entity."
+    },
+    {
+      "type": "string",
+      "name": "note",
+      "doc": "Additional information about the entity deprecation plan, such as the wiki, doc, RB."
+    },
+    {
+      "java": {
+        "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+      },
+      "type": "string",
+      "name": "actor",
+      "doc": "The user URN which will be credited for modifying this deprecation content.",
+      "Urn": "Urn"
+    }
+  ],
+  "doc": "Deprecation status of an entity"
+}

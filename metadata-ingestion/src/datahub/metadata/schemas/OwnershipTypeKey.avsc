@@ -1,0 +1,23 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "ownershipTypeKey",
+    "keyForEntity": "ownershipType",
+    "entityCategory": "core",
+    "entityAspects": [
+      "ownershipTypeInfo",
+      "status"
+    ],
+    "entityDoc": "Ownership Type represents a user-created ownership category for a person or group who is responsible for an asset."
+  },
+  "name": "OwnershipTypeKey",
+  "namespace": "com.linkedin.pegasus2avro.metadata.key",
+  "fields": [
+    {
+      "type": "string",
+      "name": "id",
+      "doc": "Unique ID for the data ownership type name i.e. Business Owner, Data Steward, Technical Owner, etc..\nShould be separate from the name used for displaying an Ownership Type."
+    }
+  ],
+  "doc": "Key for a Ownership Type"
+}

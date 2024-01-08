@@ -1,0 +1,47 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "dashboardKey",
+    "keyForEntity": "dashboard",
+    "entityCategory": "_unset_",
+    "entityAspects": [
+      "domains",
+      "container",
+      "deprecation",
+      "dashboardUsageStatistics",
+      "inputFields",
+      "subTypes",
+      "embed",
+      "dashboardInfo",
+      "editableDashboardProperties",
+      "ownership",
+      "status",
+      "globalTags",
+      "browsePaths",
+      "glossaryTerms",
+      "institutionalMemory",
+      "dataPlatformInstance",
+      "browsePathsV2"
+    ]
+  },
+  "name": "DashboardKey",
+  "namespace": "com.linkedin.pegasus2avro.metadata.key",
+  "fields": [
+    {
+      "Searchable": {
+        "boostScore": 4.0,
+        "fieldName": "tool",
+        "fieldType": "TEXT_PARTIAL"
+      },
+      "type": "string",
+      "name": "dashboardTool",
+      "doc": "The name of the dashboard tool such as looker, redash etc."
+    },
+    {
+      "type": "string",
+      "name": "dashboardId",
+      "doc": "Unique id for the dashboard. This id should be globally unique for a dashboarding tool even when there are multiple deployments of it. As an example, dashboard URL could be used here for Looker such as 'looker.linkedin.com/dashboards/1234'"
+    }
+  ],
+  "doc": "Key for a Dashboard"
+}

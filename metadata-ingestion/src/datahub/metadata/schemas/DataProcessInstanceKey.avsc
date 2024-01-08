@@ -1,0 +1,26 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "dataProcessInstanceKey",
+    "keyForEntity": "dataProcessInstance",
+    "entityCategory": "_unset_",
+    "entityAspects": [
+      "dataProcessInstanceInput",
+      "dataProcessInstanceOutput",
+      "dataProcessInstanceProperties",
+      "dataProcessInstanceRelationships",
+      "dataProcessInstanceRunEvent"
+    ],
+    "entityDoc": "DataProcessInstance represents an instance of a datajob/jobflow run"
+  },
+  "name": "DataProcessInstanceKey",
+  "namespace": "com.linkedin.pegasus2avro.metadata.key",
+  "fields": [
+    {
+      "type": "string",
+      "name": "id",
+      "doc": "A unique id for the DataProcessInstance . Should be separate from the name used for displaying a DataProcessInstance."
+    }
+  ],
+  "doc": "Key for an Asset DataProcessInstance"
+}

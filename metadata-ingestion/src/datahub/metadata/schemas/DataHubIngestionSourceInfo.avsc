@@ -1,0 +1,118 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "dataHubIngestionSourceInfo"
+  },
+  "name": "DataHubIngestionSourceInfo",
+  "namespace": "com.linkedin.pegasus2avro.ingestion",
+  "fields": [
+    {
+      "Searchable": {
+        "fieldType": "TEXT_PARTIAL"
+      },
+      "type": "string",
+      "name": "name",
+      "doc": "The display name of the ingestion source"
+    },
+    {
+      "type": "string",
+      "name": "type",
+      "doc": "The type of the source itself, e.g. mysql, bigquery, bigquery-usage. Should match the recipe."
+    },
+    {
+      "java": {
+        "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+      },
+      "type": [
+        "null",
+        "string"
+      ],
+      "name": "platform",
+      "default": null,
+      "doc": "Data Platform URN associated with the source",
+      "Urn": "Urn"
+    },
+    {
+      "type": [
+        "null",
+        {
+          "type": "record",
+          "name": "DataHubIngestionSourceSchedule",
+          "namespace": "com.linkedin.pegasus2avro.ingestion",
+          "fields": [
+            {
+              "type": "string",
+              "name": "interval",
+              "doc": "A cron-formatted execution interval, as a cron string, e.g. * * * * *"
+            },
+            {
+              "type": "string",
+              "name": "timezone",
+              "doc": "Timezone in which the cron interval applies, e.g. America/Los Angeles"
+            }
+          ],
+          "doc": "The schedule associated with an ingestion source."
+        }
+      ],
+      "name": "schedule",
+      "default": null,
+      "doc": "The schedule on which the ingestion source is executed"
+    },
+    {
+      "type": {
+        "type": "record",
+        "name": "DataHubIngestionSourceConfig",
+        "namespace": "com.linkedin.pegasus2avro.ingestion",
+        "fields": [
+          {
+            "type": "string",
+            "name": "recipe",
+            "doc": "The JSON recipe to use for ingestion"
+          },
+          {
+            "type": [
+              "null",
+              "string"
+            ],
+            "name": "version",
+            "default": null,
+            "doc": "The PyPI version of the datahub CLI to use when executing a recipe"
+          },
+          {
+            "type": [
+              "null",
+              "string"
+            ],
+            "name": "executorId",
+            "default": null,
+            "doc": "The id of the executor to use to execute the ingestion run"
+          },
+          {
+            "type": [
+              "null",
+              "boolean"
+            ],
+            "name": "debugMode",
+            "default": null,
+            "doc": "Whether or not to run this ingestion source in debug mode"
+          },
+          {
+            "type": [
+              "null",
+              {
+                "type": "map",
+                "values": "string"
+              }
+            ],
+            "name": "extraArgs",
+            "default": null,
+            "doc": "Extra arguments for the ingestion run."
+          }
+        ]
+      },
+      "name": "config",
+      "doc": "Parameters associated with the Ingestion Source"
+    }
+  ],
+  "doc": "Info about a DataHub ingestion source"
+}

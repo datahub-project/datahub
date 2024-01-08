@@ -1,0 +1,111 @@
+{
+  "type": "record",
+  "Aspect": {
+    "EntityUrns": [
+      "com.linkedin.pegasus2avro.common.CorpuserUrn"
+    ],
+    "name": "corpUserEditableInfo"
+  },
+  "name": "CorpUserEditableInfo",
+  "namespace": "com.linkedin.pegasus2avro.identity",
+  "fields": [
+    {
+      "type": [
+        "null",
+        "string"
+      ],
+      "name": "aboutMe",
+      "default": null,
+      "doc": "About me section of the user"
+    },
+    {
+      "Searchable": {
+        "/*": {
+          "fieldType": "TEXT"
+        }
+      },
+      "type": {
+        "type": "array",
+        "items": "string"
+      },
+      "name": "teams",
+      "default": [],
+      "doc": "Teams that the user belongs to e.g. Metadata"
+    },
+    {
+      "Searchable": {
+        "/*": {
+          "fieldType": "TEXT"
+        }
+      },
+      "type": {
+        "type": "array",
+        "items": "string"
+      },
+      "name": "skills",
+      "default": [],
+      "doc": "Skills that the user possesses e.g. Machine Learning"
+    },
+    {
+      "java": {
+        "class": "com.linkedin.pegasus2avro.common.url.Url",
+        "coercerClass": "com.linkedin.pegasus2avro.common.url.UrlCoercer"
+      },
+      "type": "string",
+      "name": "pictureLink",
+      "default": "https://raw.githubusercontent.com/datahub-project/datahub/master/datahub-web-react/src/images/default_avatar.png",
+      "doc": "A URL which points to a picture which user wants to set as a profile photo"
+    },
+    {
+      "Searchable": {
+        "boostScore": 10.0,
+        "fieldType": "WORD_GRAM",
+        "queryByDefault": true
+      },
+      "type": [
+        "null",
+        "string"
+      ],
+      "name": "displayName",
+      "default": null,
+      "doc": "DataHub-native display name"
+    },
+    {
+      "type": [
+        "null",
+        "string"
+      ],
+      "name": "title",
+      "default": null,
+      "doc": "DataHub-native Title, e.g. 'Software Engineer'"
+    },
+    {
+      "type": [
+        "null",
+        "string"
+      ],
+      "name": "slack",
+      "default": null,
+      "doc": "Slack handle for the user"
+    },
+    {
+      "type": [
+        "null",
+        "string"
+      ],
+      "name": "phone",
+      "default": null,
+      "doc": "Phone number to contact the user"
+    },
+    {
+      "type": [
+        "null",
+        "string"
+      ],
+      "name": "email",
+      "default": null,
+      "doc": "Email address to contact the user"
+    }
+  ],
+  "doc": "Linkedin corp user information that can be edited from UI"
+}

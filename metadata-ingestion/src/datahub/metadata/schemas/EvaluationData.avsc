@@ -1,0 +1,56 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "mlModelEvaluationData"
+  },
+  "name": "EvaluationData",
+  "namespace": "com.linkedin.pegasus2avro.ml.metadata",
+  "fields": [
+    {
+      "type": {
+        "type": "array",
+        "items": {
+          "type": "record",
+          "name": "BaseData",
+          "namespace": "com.linkedin.pegasus2avro.ml.metadata",
+          "fields": [
+            {
+              "java": {
+                "class": "com.linkedin.pegasus2avro.common.urn.DatasetUrn"
+              },
+              "type": "string",
+              "name": "dataset",
+              "doc": "What dataset were used in the MLModel?",
+              "Urn": "DatasetUrn"
+            },
+            {
+              "type": [
+                "null",
+                "string"
+              ],
+              "name": "motivation",
+              "default": null,
+              "doc": "Why was this dataset chosen?"
+            },
+            {
+              "type": [
+                "null",
+                {
+                  "type": "array",
+                  "items": "string"
+                }
+              ],
+              "name": "preProcessing",
+              "default": null,
+              "doc": "How was the data preprocessed (e.g., tokenization of sentences, cropping of images, any filtering such as dropping images without faces)?"
+            }
+          ],
+          "doc": "BaseData record"
+        }
+      },
+      "name": "evaluationData",
+      "doc": "Details on the dataset(s) used for the quantitative analyses in the MLModel"
+    }
+  ],
+  "doc": "All referenced datasets would ideally point to any set of documents that provide visibility into the source and composition of the dataset."
+}
