@@ -66,7 +66,6 @@ Cypress.Commands.add("logout", () => {
 Cypress.Commands.add("goToGlossaryList", () => {
   cy.visit("/glossary");
   cy.waitTextVisible("Glossary");
-  //cy.wait(3000);
 });
 
 Cypress.Commands.add("goToDomainList", () => {
@@ -334,7 +333,6 @@ Cypress.Commands.add("addGroupMember", (group_name, group_urn, member_name) => {
 
 Cypress.Commands.add("createGlossaryTermGroup", (term_group_name) => {
   cy.goToGlossaryList();
-  //cy.clickOptionWithTestId("add-term-group-button");
   cy.clickOptionWithText('Add Term Group');
   cy.waitTextVisible("Create Term Group");
   cy.enterTextInTestId("create-glossary-entity-modal-name", term_group_name);
