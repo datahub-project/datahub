@@ -58,7 +58,7 @@ AggregatedDataset = GenericAggregatedDataset[TrinoTableRef]
 
 class TrinoConnectorInfo(BaseModel):
     partitionIds: List[str]
-    truncated: bool
+    truncated: Optional[bool]
 
 
 class TrinoAccessedMetadata(BaseModel):
@@ -78,7 +78,7 @@ class TrinoJoinedAccessEvent(BaseModel):
     table: Optional[str] = None
     accessed_metadata: List[TrinoAccessedMetadata]
     starttime: datetime = Field(alias="create_time")
-    endtime: datetime = Field(alias="end_time")
+    endtime: Optional[datetime] = Field(alias="end_time")
 
 
 class EnvBasedSourceBaseConfig:
@@ -190,9 +190,13 @@ class TrinoUsageSource(Source):
     def _get_joined_access_event(self, events):
         joined_access_events = []
         for event_dict in events:
-            event_dict["create_time"] = self._convert_str_to_datetime(
-                event_dict.get("create_time")
-            )
+            if event_dict.get("create_time"):
+                event_dict["create_time"] = self._convert_str_to_datetime(
+                    event_dict.get("create_time")
+                )
+            else:
+                # To avoid raising type error exception
+                event_dict["create_time"] = datetime.now()
 
             event_dict["end_time"] = self._convert_str_to_datetime(
                 event_dict.get("end_time")
