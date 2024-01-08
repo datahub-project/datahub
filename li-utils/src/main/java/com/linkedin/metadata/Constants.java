@@ -430,6 +430,9 @@ public class Constants {
   public static final String DATA_FLOW_URN_KEY = "dataFlowUrn";
   public static final String DATA_JOB_URN_KEY = "dataJobUrn";
 
+  // Incidents
+  public static final String ENTITY_REF = "entities";
+
   // Config
   public static final String ELASTICSEARCH_IMPLEMENTATION_OPENSEARCH = "opensearch";
   public static final String ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH = "elasticsearch";

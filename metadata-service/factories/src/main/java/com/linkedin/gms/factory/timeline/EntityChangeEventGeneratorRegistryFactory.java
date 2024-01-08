@@ -16,6 +16,7 @@ import com.linkedin.metadata.timeline.eventgenerator.EntityKeyChangeEventGenerat
 import com.linkedin.metadata.timeline.eventgenerator.GlobalTagsChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.GlossaryTermInfoChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.GlossaryTermsChangeEventGenerator;
+import com.linkedin.metadata.timeline.eventgenerator.IncidentInfoChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.InstitutionalMemoryChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.OwnershipChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.SchemaMetadataChangeEventGenerator;
@@ -88,6 +89,9 @@ public class EntityChangeEventGeneratorRegistryFactory {
     registry.register(
         ACTION_REQUEST_STATUS_ASPECT_NAME, new ActionRequestStatusChangeEventGenerator());
     registry.register(ACTION_REQUEST_INFO_ASPECT_NAME, new ActionRequestInfoChangeEventGenerator());
+
+    // Incidents change event generator
+    registry.register(INCIDENT_INFO_ASPECT_NAME, new IncidentInfoChangeEventGenerator());
 
     // TODO: Add ML models.
 

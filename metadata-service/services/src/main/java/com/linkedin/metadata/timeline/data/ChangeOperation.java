@@ -21,4 +21,8 @@ public enum ChangeOperation {
   COMPLETED,
   /** Proposal is pending */
   PENDING,
+  /** Incident is active */
+  ACTIVE,
+  /** Incident is resolved */
+  RESOLVED,
 }
