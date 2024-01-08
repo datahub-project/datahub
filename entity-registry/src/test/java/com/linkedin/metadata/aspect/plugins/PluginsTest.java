@@ -19,6 +19,7 @@ import org.testng.annotations.Test;
 public class PluginsTest {
   public static String REGISTRY_FILE_1 = "test-entity-registry-plugins-1.yml";
   public static String REGISTRY_FILE_2 = "test-entity-registry-plugins-2.yml";
+  public static String REGISTRY_FILE_3 = "test-entity-registry-plugins-3.yml";
 
   @BeforeTest
   public void disableAssert() {
@@ -145,5 +146,66 @@ public class PluginsTest {
         mergedEntityRegistry.getMutationHooks(ChangeType.UPSERT, "*", "schemaMetadata").size(), 2);
     assertEquals(
         mergedEntityRegistry.getMutationHooks(ChangeType.DELETE, "*", "schemaMetadata").size(), 1);
+  }
+
+  @Test
+  public void tripleMergeWithDisabled() throws EntityRegistryException {
+    ConfigEntityRegistry configEntityRegistry1 =
+        new ConfigEntityRegistry(
+            TestEntityProfile.class.getClassLoader().getResourceAsStream(REGISTRY_FILE_1));
+    ConfigEntityRegistry configEntityRegistry2 =
+        new ConfigEntityRegistry(
+            TestEntityProfile.class.getClassLoader().getResourceAsStream(REGISTRY_FILE_2));
+    ConfigEntityRegistry configEntityRegistry3 =
+        new ConfigEntityRegistry(
+            TestEntityProfile.class.getClassLoader().getResourceAsStream(REGISTRY_FILE_3));
+
+    MergedEntityRegistry mergedEntityRegistry = new MergedEntityRegistry(configEntityRegistry1);
+    mergedEntityRegistry.apply(configEntityRegistry2);
+
+    assertEquals(
+        mergedEntityRegistry.getAllAspectPayloadValidators().stream()
+            .filter(p -> p.getConfig().getSupportedOperations().contains("DELETE"))
+            .count(),
+        1);
+    assertEquals(
+        mergedEntityRegistry.getAllMutationHooks().stream()
+            .filter(p -> p.getConfig().getSupportedOperations().contains("DELETE"))
+            .count(),
+        1);
+    assertEquals(
+        mergedEntityRegistry.getAllMCLSideEffects().stream()
+            .filter(p -> p.getConfig().getSupportedOperations().contains("DELETE"))
+            .count(),
+        1);
+    assertEquals(
+        mergedEntityRegistry.getAllMCPSideEffects().stream()
+            .filter(p -> p.getConfig().getSupportedOperations().contains("DELETE"))
+            .count(),
+        1);
+
+    // This one disables earlier plugins that are delete
+    mergedEntityRegistry.apply(configEntityRegistry3);
+
+    assertEquals(
+        mergedEntityRegistry.getAllAspectPayloadValidators().stream()
+            .filter(p -> p.getConfig().getSupportedOperations().contains("DELETE"))
+            .count(),
+        0);
+    assertEquals(
+        mergedEntityRegistry.getAllMutationHooks().stream()
+            .filter(p -> p.getConfig().getSupportedOperations().contains("DELETE"))
+            .count(),
+        0);
+    assertEquals(
+        mergedEntityRegistry.getAllMCLSideEffects().stream()
+            .filter(p -> p.getConfig().getSupportedOperations().contains("DELETE"))
+            .count(),
+        0);
+    assertEquals(
+        mergedEntityRegistry.getAllMCPSideEffects().stream()
+            .filter(p -> p.getConfig().getSupportedOperations().contains("DELETE"))
+            .count(),
+        0);
   }
 }

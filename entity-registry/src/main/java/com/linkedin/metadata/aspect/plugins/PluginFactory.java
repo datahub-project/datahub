@@ -14,8 +14,10 @@ import io.github.classgraph.MethodInfo;
 import io.github.classgraph.ScanResult;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -172,39 +174,43 @@ public class PluginFactory {
       @Nullable PluginConfiguration pluginConfiguration) {
     return pluginConfiguration == null
         ? List.of()
-        : build(
-            AspectPayloadValidator.class,
-            pluginConfiguration.getAspectPayloadValidators(),
-            "com.linkedin.metadata.aspect.plugins.validation");
+        : applyDisable(
+            build(
+                AspectPayloadValidator.class,
+                pluginConfiguration.getAspectPayloadValidators(),
+                "com.linkedin.metadata.aspect.plugins.validation"));
   }
 
   private List<MutationHook> buildMutationHooks(@Nullable PluginConfiguration pluginConfiguration) {
     return pluginConfiguration == null
         ? List.of()
-        : build(
-            MutationHook.class,
-            pluginConfiguration.getMutationHooks(),
-            "com.linkedin.metadata.aspect.plugins.hooks");
+        : applyDisable(
+            build(
+                MutationHook.class,
+                pluginConfiguration.getMutationHooks(),
+                "com.linkedin.metadata.aspect.plugins.hooks"));
   }
 
   private List<MCLSideEffect> buildMCLSideEffects(
       @Nullable PluginConfiguration pluginConfiguration) {
     return pluginConfiguration == null
         ? List.of()
-        : build(
-            MCLSideEffect.class,
-            pluginConfiguration.getMclSideEffects(),
-            "com.linkedin.metadata.aspect.plugins.hooks");
+        : applyDisable(
+            build(
+                MCLSideEffect.class,
+                pluginConfiguration.getMclSideEffects(),
+                "com.linkedin.metadata.aspect.plugins.hooks"));
   }
 
   private List<MCPSideEffect> buildMCPSideEffects(
       @Nullable PluginConfiguration pluginConfiguration) {
     return pluginConfiguration == null
         ? List.of()
-        : build(
-            MCPSideEffect.class,
-            pluginConfiguration.getMcpSideEffects(),
-            "com.linkedin.metadata.aspect.plugins.hooks");
+        : applyDisable(
+            build(
+                MCPSideEffect.class,
+                pluginConfiguration.getMcpSideEffects(),
+                "com.linkedin.metadata.aspect.plugins.hooks"));
   }
 
   private <T> List<T> build(
@@ -237,5 +243,27 @@ public class PluginFactory {
       throw new IllegalArgumentException(
           String.format("Failed to load entity registry plugins: %s.", baseClazz.getName()), e);
     }
+  }
+
+  @Nonnull
+  private static <T extends PluginSpec> List<T> applyDisable(@Nonnull List<T> plugins) {
+    return IntStream.range(0, plugins.size())
+        .mapToObj(
+            idx -> {
+              List<T> subsequentPlugins = plugins.subList(idx + 1, plugins.size());
+              T thisPlugin = plugins.get(idx);
+              AspectPluginConfig thisPluginConfig = thisPlugin.getConfig();
+
+              if (subsequentPlugins.stream()
+                  .anyMatch(
+                      otherPlugin -> thisPluginConfig.isDisabledBy(otherPlugin.getConfig()))) {
+                return null;
+              }
+
+              return thisPlugin;
+            })
+        .filter(Objects::nonNull)
+        .filter(p -> p.getConfig().isEnabled())
+        .collect(Collectors.toList());
   }
 }
