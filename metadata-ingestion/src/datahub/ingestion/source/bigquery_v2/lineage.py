@@ -256,11 +256,14 @@ class BigqueryLineageExtractor:
         sql_parser_schema_resolver: SchemaResolver,
         view_refs_by_project: Dict[str, Set[str]],
         view_definitions: FileBackedDict[str],
+        snapshot_refs_by_project: Dict[str, Set[str]],
+        snapshot_definitions: FileBackedDict[str],
         table_refs: Set[str],
     ) -> Iterable[MetadataWorkUnit]:
         if not self._should_ingest_lineage():
             return
         views_skip_audit_log_lineage: Set[str] = set()
+        snapshots_skip_audit_log_lineage: Set[str] = set()
         if self.config.lineage_parse_view_ddl:
             view_lineage: Dict[str, Set[LineageEdge]] = {}
             for project in projects:
@@ -278,6 +281,23 @@ class BigqueryLineageExtractor:
                         view_lineage, BigQueryTableRef.from_string_name(lineage_key)
                     )
 
+        if self.config.lineage_parse_snapshot_ddl:
+            snapshot_lineage: Dict[str, Set[LineageEdge]] = {}
+            for project in projects:
+                self.populate_snapshot_lineage_with_sql_parsing(
+                    snapshot_lineage,
+                    snapshot_refs_by_project[project],
+                    snapshot_definitions,
+                    sql_parser_schema_resolver,
+                    project,
+                )
+
+                snapshots_skip_audit_log_lineage.update(snapshot_lineage.keys())
+                for lineage_key in snapshot_lineage.keys():
+                    yield from self.gen_lineage_workunits_for_table(
+                        snapshot_lineage, BigQueryTableRef.from_string_name(lineage_key)
+                    )
+
         if self.config.use_exported_bigquery_audit_metadata:
             projects = ["*"]  # project_id not used when using exported metadata
 
@@ -287,6 +307,7 @@ class BigqueryLineageExtractor:
                 project,
                 sql_parser_schema_resolver,
                 views_skip_audit_log_lineage,
+                snapshots_skip_audit_log_lineage,
                 table_refs,
             )
 
@@ -301,6 +322,7 @@ class BigqueryLineageExtractor:
         project_id: str,
         sql_parser_schema_resolver: SchemaResolver,
         views_skip_audit_log_lineage: Set[str],
+        snapshots_skip_audit_log_lineage: Set[str],
         table_refs: Set[str],
     ) -> Iterable[MetadataWorkUnit]:
         logger.info(f"Generate lineage for {project_id}")
@@ -339,6 +361,7 @@ class BigqueryLineageExtractor:
             if (
                 lineage_key not in table_refs
                 or lineage_key in views_skip_audit_log_lineage
+                or lineage_key in snapshots_skip_audit_log_lineage
             ):
                 continue
 
@@ -384,6 +407,47 @@ class BigqueryLineageExtractor:
                     raw_view_lineage,
                     audit_stamp=ts,
                     lineage_type=DatasetLineageTypeClass.VIEW,
+                )
+            )
+
+    def populate_snapshot_lineage_with_sql_parsing(
+        self,
+        snapshot_lineage: Dict[str, Set[LineageEdge]],
+        snapshot_refs: Set[str],
+        snapshot_definitions: FileBackedDict[str],
+        sql_parser_schema_resolver: SchemaResolver,
+        default_project: str,
+    ) -> None:
+        for snapshot in snapshot_refs:
+            snapshot_definition = snapshot_definitions[snapshot]
+            raw_snapshot_lineage = sqlglot_lineage(
+                snapshot_definition,
+                schema_resolver=sql_parser_schema_resolver,
+                default_db=default_project,
+            )
+            if raw_snapshot_lineage.debug_info.table_error:
+                logger.debug(
+                    f"Failed to parse lineage for snapshot {snapshot}: {raw_snapshot_lineage.debug_info.table_error}"
+                )
+                self.report.num_snapshot_definitions_failed_parsing += 1
+                self.report.snapshot_definitions_parsing_failures.append(
+                    f"Table-level sql parsing error for snapshot {snapshot}: {raw_snapshot_lineage.debug_info.table_error}"
+                )
+                continue
+            elif raw_snapshot_lineage.debug_info.column_error:
+                self.report.num_snapshot_definitions_failed_column_parsing += 1
+                self.report.snapshot_definitions_parsing_failures.append(
+                    f"Column-level sql parsing error for snapshot {snapshot}: {raw_snapshot_lineage.debug_info.column_error}"
+                )
+            else:
+                self.report.num_snapshot_definitions_parsed += 1
+
+            ts = datetime.now(timezone.utc)
+            snapshot_lineage[snapshot] = set(
+                make_lineage_edges_from_parsing_result(
+                    raw_snapshot_lineage,
+                    audit_stamp=ts,
+                    lineage_type=DatasetLineageTypeClass.COPY,
                 )
             )
 
