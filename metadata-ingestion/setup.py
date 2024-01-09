@@ -160,6 +160,7 @@ bigquery_common = {
     "google-cloud-logging<=3.5.0",
     "google-cloud-bigquery",
     "more-itertools>=8.12.0",
+    "sqlalchemy-bigquery>=1.4.1",
 }
 
 clickhouse_common = {
@@ -296,7 +297,6 @@ plugins: Dict[str, Set[str]] = {
     | bigquery_common
     | {
         *sqlglot_lib,
-        "sqlalchemy-bigquery>=1.4.1",
         "google-cloud-datacatalog-lineage==0.2.2",
     },
     "clickhouse": sql_common | clickhouse_common,
@@ -398,7 +398,7 @@ plugins: Dict[str, Set[str]] = {
     "unity-catalog": databricks | sql_common | sqllineage_lib,
     # databricks is alias for unity-catalog and needs to be kept in sync
     "databricks": databricks | sql_common | sqllineage_lib,
-    "fivetran": snowflake_common | bigquery_common | {"sqlalchemy-bigquery>=1.4.1"},
+    "fivetran": snowflake_common | bigquery_common,
 }
 
 # This is mainly used to exclude plugins from the Docker image.
