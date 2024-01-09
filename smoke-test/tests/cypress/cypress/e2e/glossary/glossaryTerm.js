@@ -4,7 +4,7 @@ const glossaryTerms = {
 };
 
 const applyTagFilter = (tag) => {
-  cy.get('[data-icon="filter"]').click()
+  cy.get('[aria-label="filter"]').should('be.visible').click()
   cy.waitTextVisible("Filter");
   cy.get(`[data-testid="facet-tags-${tag}"]`).click({ force: true });
 };
