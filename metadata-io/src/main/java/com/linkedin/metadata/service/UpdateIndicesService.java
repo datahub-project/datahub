@@ -18,6 +18,8 @@ import com.linkedin.dataset.UpstreamLineage;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.aspect.batch.MCLBatchItem;
+import com.linkedin.metadata.entity.ebean.batch.MCLBatchItemImpl;
 import com.linkedin.metadata.graph.Edge;
 import com.linkedin.metadata.graph.GraphIndexUtils;
 import com.linkedin.metadata.graph.GraphService;
@@ -39,8 +41,6 @@ import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.timeseries.transformer.TimeseriesAspectTransformer;
 import com.linkedin.metadata.utils.EntityKeyUtils;
-import com.linkedin.metadata.utils.GenericRecordUtils;
-import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
@@ -56,6 +56,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
@@ -72,6 +73,8 @@ public class UpdateIndicesService {
   private final EntityRegistry _entityRegistry;
   private final SearchDocumentTransformer _searchDocumentTransformer;
   private final EntityIndexBuilders _entityIndexBuilders;
+
+  private SystemEntityClient systemEntityClient;
 
   @Value("${featureFlags.graphServiceDiffModeEnabled:true}")
   private boolean _graphDiffMode;
@@ -111,10 +114,25 @@ public class UpdateIndicesService {
 
   public void handleChangeEvent(@Nonnull final MetadataChangeLog event) {
     try {
-      if (UPDATE_CHANGE_TYPES.contains(event.getChangeType())) {
-        handleUpdateChangeEvent(event);
-      } else if (event.getChangeType() == ChangeType.DELETE) {
-        handleDeleteChangeEvent(event);
+      MCLBatchItemImpl batch =
+          MCLBatchItemImpl.builder().build(event, _entityRegistry, systemEntityClient);
+
+      Stream<MCLBatchItem> sideEffects =
+          _entityRegistry
+              .getMCLSideEffects(
+                  event.getChangeType(), event.getEntityType(), event.getAspectName())
+              .stream()
+              .flatMap(
+                  mclSideEffect ->
+                      mclSideEffect.apply(List.of(batch), _entityRegistry, systemEntityClient));
+
+      for (MCLBatchItem mclBatchItem : Stream.concat(Stream.of(batch), sideEffects).toList()) {
+        MetadataChangeLog hookEvent = mclBatchItem.getMetadataChangeLog();
+        if (UPDATE_CHANGE_TYPES.contains(hookEvent.getChangeType())) {
+          handleUpdateChangeEvent(mclBatchItem);
+        } else if (hookEvent.getChangeType() == ChangeType.DELETE) {
+          handleDeleteChangeEvent(mclBatchItem);
+        }
       }
     } catch (IOException e) {
       throw new RuntimeException(e);
@@ -130,38 +148,19 @@ public class UpdateIndicesService {
    *
    * @param event the change event to be processed.
    */
-  public void handleUpdateChangeEvent(@Nonnull final MetadataChangeLog event) throws IOException {
+  private void handleUpdateChangeEvent(@Nonnull final MCLBatchItem event) throws IOException {
 
-    final EntitySpec entitySpec = getEventEntitySpec(event);
-    final Urn urn = EntityKeyUtils.getUrnFromLog(event, entitySpec.getKeyAspectSpec());
+    final EntitySpec entitySpec = event.getEntitySpec();
+    final AspectSpec aspectSpec = event.getAspectSpec();
+    final Urn urn = event.getUrn();
 
-    if (!event.hasAspectName() || !event.hasAspect()) {
-      log.error("Aspect or aspect name is missing. Skipping aspect processing...");
-      return;
-    }
-
-    AspectSpec aspectSpec = entitySpec.getAspectSpec(event.getAspectName());
-    if (aspectSpec == null) {
-      throw new RuntimeException(
-          String.format(
-              "Failed to retrieve Aspect Spec for entity with name %s, aspect with name %s. Cannot update indices for MCL.",
-              event.getEntityType(), event.getAspectName()));
-    }
-
-    RecordTemplate aspect =
-        GenericRecordUtils.deserializeAspect(
-            event.getAspect().getValue(), event.getAspect().getContentType(), aspectSpec);
-    GenericAspect previousAspectValue = event.getPreviousAspectValue();
-    RecordTemplate previousAspect =
-        previousAspectValue != null
-            ? GenericRecordUtils.deserializeAspect(
-                previousAspectValue.getValue(), previousAspectValue.getContentType(), aspectSpec)
-            : null;
+    RecordTemplate aspect = event.getAspect();
+    RecordTemplate previousAspect = event.getPreviousAspect();
 
     // Step 0. If the aspect is timeseries, add to its timeseries index.
     if (aspectSpec.isTimeseries()) {
       updateTimeseriesFields(
-          event.getEntityType(),
+          urn.getEntityType(),
           event.getAspectName(),
           urn,
           aspect,
@@ -185,9 +184,9 @@ public class UpdateIndicesService {
         && (systemMetadata == null
             || systemMetadata.getProperties() == null
             || !Boolean.parseBoolean(systemMetadata.getProperties().get(FORCE_INDEXING_KEY)))) {
-      updateGraphServiceDiff(urn, aspectSpec, previousAspect, aspect, event);
+      updateGraphServiceDiff(urn, aspectSpec, previousAspect, aspect, event.getMetadataChangeLog());
     } else {
-      updateGraphService(urn, aspectSpec, aspect, event);
+      updateGraphService(urn, aspectSpec, aspect, event.getMetadataChangeLog());
     }
   }
 
@@ -203,34 +202,25 @@ public class UpdateIndicesService {
    *
    * @param event the change event to be processed.
    */
-  public void handleDeleteChangeEvent(@Nonnull final MetadataChangeLog event) {
+  private void handleDeleteChangeEvent(@Nonnull final MCLBatchItem event) {
 
-    final EntitySpec entitySpec = getEventEntitySpec(event);
-    final Urn urn = EntityKeyUtils.getUrnFromLog(event, entitySpec.getKeyAspectSpec());
-
-    if (!event.hasAspectName() || !event.hasPreviousAspectValue()) {
-      log.error("Previous aspect or aspect name is missing. Skipping aspect processing...");
-      return;
-    }
+    final EntitySpec entitySpec = event.getEntitySpec();
+    final Urn urn = event.getUrn();
 
     AspectSpec aspectSpec = entitySpec.getAspectSpec(event.getAspectName());
     if (aspectSpec == null) {
       throw new RuntimeException(
           String.format(
               "Failed to retrieve Aspect Spec for entity with name %s, aspect with name %s. Cannot update indices for MCL.",
-              event.getEntityType(), event.getAspectName()));
+              urn.getEntityType(), event.getAspectName()));
     }
 
-    RecordTemplate aspect =
-        GenericRecordUtils.deserializeAspect(
-            event.getPreviousAspectValue().getValue(),
-            event.getPreviousAspectValue().getContentType(),
-            aspectSpec);
+    RecordTemplate aspect = event.getAspect();
     Boolean isDeletingKey = event.getAspectName().equals(entitySpec.getKeyAspectName());
 
     if (!aspectSpec.isTimeseries()) {
       deleteSystemMetadata(urn, aspectSpec, isDeletingKey);
-      deleteGraphData(urn, aspectSpec, aspect, isDeletingKey, event);
+      deleteGraphData(urn, aspectSpec, aspect, isDeletingKey, event.getMetadataChangeLog());
       deleteSearchData(
           _entitySearchService, urn, entitySpec.getName(), aspectSpec, aspect, isDeletingKey);
     }
@@ -633,6 +623,7 @@ public class UpdateIndicesService {
    * @param systemEntityClient system entity client
    */
   public void setSystemEntityClient(SystemEntityClient systemEntityClient) {
+    this.systemEntityClient = systemEntityClient;
     _searchDocumentTransformer.setEntityClient(systemEntityClient);
   }
 }

@@ -46,7 +46,7 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class DeleteEntityService {
 
-  private final EntityService _entityService;
+  private final EntityService<?> _entityService;
   private final GraphService _graphService;
 
   private static final Integer ELASTIC_BATCH_DELETE_SLEEP_SEC = 5;

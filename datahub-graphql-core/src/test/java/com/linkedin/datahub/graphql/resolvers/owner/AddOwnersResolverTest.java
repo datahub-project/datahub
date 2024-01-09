@@ -4,7 +4,6 @@ import static com.linkedin.datahub.graphql.TestUtils.*;
 import static org.testng.Assert.*;
 
 import com.google.common.collect.ImmutableList;
-import com.linkedin.common.AuditStamp;
 import com.linkedin.common.Owner;
 import com.linkedin.common.OwnerArray;
 import com.linkedin.common.Ownership;
@@ -21,7 +20,7 @@ import com.linkedin.datahub.graphql.resolvers.mutate.AddOwnersResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.OwnerUtils;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.entity.ebean.transactions.AspectsBatchImpl;
+import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.concurrent.CompletionException;
 import org.mockito.Mockito;
@@ -399,10 +398,7 @@ public class AddOwnersResolverTest {
 
     Mockito.doThrow(RuntimeException.class)
         .when(mockService)
-        .ingestProposal(
-            Mockito.any(AspectsBatchImpl.class),
-            Mockito.any(AuditStamp.class),
-            Mockito.anyBoolean());
+        .ingestProposal(Mockito.any(AspectsBatchImpl.class), Mockito.anyBoolean());
 
     AddOwnersResolver resolver = new AddOwnersResolver(Mockito.mock(EntityService.class));
 

@@ -7,7 +7,6 @@ import static org.testng.Assert.*;
 import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.linkedin.common.AuditStamp;
 import com.linkedin.common.Embed;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.Urn;
@@ -19,7 +18,7 @@ import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.entity.ebean.transactions.AspectsBatchImpl;
+import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetchingEnvironment;
@@ -142,8 +141,7 @@ public class UpdateEmbedResolverTest {
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
     Mockito.verify(mockService, Mockito.times(0))
-        .ingestProposal(
-            Mockito.any(AspectsBatchImpl.class), Mockito.any(AuditStamp.class), Mockito.eq(false));
+        .ingestProposal(Mockito.any(AspectsBatchImpl.class), Mockito.eq(false));
     ;
   }
 
@@ -161,8 +159,7 @@ public class UpdateEmbedResolverTest {
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
     Mockito.verify(mockService, Mockito.times(0))
-        .ingestProposal(
-            Mockito.any(AspectsBatchImpl.class), Mockito.any(AuditStamp.class), Mockito.eq(false));
+        .ingestProposal(Mockito.any(AspectsBatchImpl.class), Mockito.eq(false));
   }
 
   @Test
