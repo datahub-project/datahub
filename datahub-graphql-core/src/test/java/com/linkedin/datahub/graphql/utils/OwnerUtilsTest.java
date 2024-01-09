@@ -70,6 +70,7 @@ public class OwnerUtilsTest {
 
     Owner ownerWithoutOwnershipType = new Owner();
     ownerWithoutOwnershipType.setOwner(ownerUrn1);
+    ownerWithoutOwnershipType.setType(OwnershipType.NONE);
 
     assertTrue(
         OwnerUtils.isOwnerEqual(ownerWithTechnicalOwnership, ownerUrn1, technicalOwnershipTypeUrn));
