@@ -304,22 +304,28 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             yield from self._gen_notebook_workunits(notebook)
 
     def _gen_notebook_workunits(self, notebook: Notebook) -> Iterable[MetadataWorkUnit]:
+
+        properties = {"path": notebook.path}
+        if notebook.language:
+            properties["language"] = notebook.language.value
+
         mcps = MetadataChangeProposalWrapper.construct_many(
             entityUrn=self.gen_notebook_urn(notebook),
             aspects=[
                 DatasetPropertiesClass(
                     name=notebook.path.rsplit("/", 1)[-1],
-                    customProperties={
-                        "path": notebook.path,
-                        "language": notebook.language.value,
-                    },
+                    customProperties=properties,
                     externalUrl=urljoin(
                         self.config.workspace_url, f"#notebook/{notebook.id}"
                     ),
-                    created=TimeStampClass(int(notebook.created_at.timestamp() * 1000)),
+                    created=TimeStampClass(int(notebook.created_at.timestamp() * 1000))
+                    if notebook.created_at
+                    else None,
                     lastModified=TimeStampClass(
                         int(notebook.modified_at.timestamp() * 1000)
-                    ),
+                    )
+                    if notebook.modified_at
+                    else None,
                 ),
                 SubTypesClass(typeNames=[DatasetSubTypes.NOTEBOOK]),
                 BrowsePathsClass(paths=notebook.path.split("/")),
@@ -352,6 +358,9 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         metastore: Optional[Metastore] = None
         if self.config.include_metastore:
             metastore = self.unity_catalog_api_proxy.assigned_metastore()
+            if not metastore:
+                self.report.report_failure("Metastore", "Not found")
+                return
             yield from self.gen_metastore_containers(metastore)
         yield from self.process_catalogs(metastore)
         if metastore and self.config.include_metastore:
@@ -705,13 +714,15 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         if table.generation is not None:
             custom_properties["generation"] = str(table.generation)
 
-        custom_properties["table_type"] = table.table_type.value
+        if table.table_type:
+            custom_properties["table_type"] = table.table_type.value
 
         if table.created_by:
             custom_properties["created_by"] = table.created_by
         if table.properties:
             custom_properties.update({k: str(v) for k, v in table.properties.items()})
-        custom_properties["table_id"] = table.table_id
+        if table.table_id:
+            custom_properties["table_id"] = table.table_id
         if table.owner:
             custom_properties["owner"] = table.owner
         if table.updated_by:

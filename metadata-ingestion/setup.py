@@ -69,35 +69,12 @@ plugin_common = {
 rest_common = {"requests", "requests_file"}
 
 kafka_common = {
-    # The confluent_kafka package provides a number of pre-built wheels for
-    # various platforms and architectures. However, it does not provide wheels
-    # for arm64 (including M1 Macs) or aarch64 (Docker's linux/arm64). This has
-    # remained an open issue on the confluent_kafka project for a year:
-    #   - https://github.com/confluentinc/confluent-kafka-python/issues/1182
-    #   - https://github.com/confluentinc/confluent-kafka-python/pull/1161
-    #
-    # When a wheel is not available, we must build from source instead.
-    # Building from source requires librdkafka to be installed.
-    # Most platforms have an easy way to install librdkafka:
-    #   - MacOS: `brew install librdkafka` gives latest, which is 1.9.x or newer.
-    #   - Debian: `apt install librdkafka` gives 1.6.0 (https://packages.debian.org/bullseye/librdkafka-dev).
-    #   - Ubuntu: `apt install librdkafka` gives 1.8.0 (https://launchpad.net/ubuntu/+source/librdkafka).
-    #
-    # Moreover, confluent_kafka 1.9.0 introduced a hard compatibility break, and
-    # requires librdkafka >=1.9.0. As such, installing confluent_kafka 1.9.x on
-    # most arm64 Linux machines will fail, since it will build from source but then
-    # fail because librdkafka is too old. Hence, we have added an extra requirement
-    # that requires confluent_kafka<1.9.0 on non-MacOS arm64/aarch64 machines, which
-    # should ideally allow the builds to succeed in default conditions. We still
-    # want to allow confluent_kafka >= 1.9.0 for M1 Macs, which is why we can't
-    # broadly restrict confluent_kafka to <1.9.0.
-    #
-    # Note that this is somewhat of a hack, since we don't actually require the
-    # older version of confluent_kafka on those machines. Additionally, we will
-    # need monitor the Debian/Ubuntu PPAs and modify this rule if they start to
-    # support librdkafka >= 1.9.0.
-    "confluent_kafka>=1.5.0",
-    'confluent_kafka<1.9.0; platform_system != "Darwin" and (platform_machine == "aarch64" or platform_machine == "arm64")',
+    # Note that confluent_kafka 1.9.0 introduced a hard compatibility break, and
+    # requires librdkafka >=1.9.0. This is generally not an issue, since they
+    # now provide prebuilt wheels for most platforms, including M1 Macs and
+    # Linux aarch64 (e.g. Docker's linux/arm64). Installing confluent_kafka
+    # from source remains a pain.
+    "confluent_kafka>=1.9.0",
     # We currently require both Avro libraries. The codegen uses avro-python3 (above)
     # schema parsers at runtime for generating and reading JSON into Python objects.
     # At the same time, we use Kafka's AvroSerializer, which internally relies on
@@ -121,7 +98,7 @@ usage_common = {
 sqlglot_lib = {
     # Using an Acryl fork of sqlglot.
     # https://github.com/tobymao/sqlglot/compare/main...hsheth2:sqlglot:hsheth?expand=1
-    "acryl-sqlglot==19.0.2.dev10",
+    "acryl-sqlglot==20.4.1.dev14",
 }
 
 sql_common = (
@@ -316,8 +293,6 @@ plugins: Dict[str, Set[str]] = {
     "bigquery": sql_common
     | bigquery_common
     | {
-        # TODO: I doubt we need all three sql parsing libraries.
-        *sqllineage_lib,
         *sqlglot_lib,
         "sqlalchemy-bigquery>=1.4.1",
         "google-cloud-datacatalog-lineage==0.2.2",
@@ -337,7 +312,7 @@ plugins: Dict[str, Set[str]] = {
     # https://github.com/elastic/elasticsearch-py/issues/1639#issuecomment-883587433
     "elasticsearch": {"elasticsearch==7.13.4"},
     "feast": {
-        "feast~=0.31.1",
+        "feast~=0.34.1",
         "flask-openid>=1.3.0",
         # typeguard 3.x, released on 2023-03-14, seems to cause issues with Feast.
         "typeguard<3",

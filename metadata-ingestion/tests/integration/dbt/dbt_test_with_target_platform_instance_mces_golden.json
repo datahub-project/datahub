@@ -118,7 +118,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "VARCHAR",
+                                "nativeDataType": "TEXT",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
