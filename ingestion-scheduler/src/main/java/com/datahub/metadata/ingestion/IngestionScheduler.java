@@ -167,7 +167,7 @@ public class IngestionScheduler {
                   ingestionSourceUrn));
           return;
         }
-        final long scheduleTime = nextExecDate.toEpochSecond() - currentDate.toEpochSecond();
+        final long scheduleTime = nextExecDate.toInstant().toEpochMilli() - currentDate.toInstant().toEpochMilli();
 
         // Schedule the ingestion source to run some time in the future.
         final ExecutionRequestRunnable executionRequestRunnable =
