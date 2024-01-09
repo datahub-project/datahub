@@ -12,9 +12,10 @@ import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.VersionedAspect;
+import com.linkedin.metadata.aspect.batch.AspectsBatch;
+import com.linkedin.metadata.aspect.batch.UpsertItem;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesResult;
-import com.linkedin.metadata.entity.transactions.AspectsBatch;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.ListUrnsResult;
@@ -33,7 +34,7 @@ import java.util.function.Consumer;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
-public interface EntityService {
+public interface EntityService<U extends UpsertItem> {
 
   /**
    * Just whether the entity/aspect exists
@@ -119,15 +120,12 @@ public interface EntityService {
   /**
    * Retrieves the latest aspects for the given set of urns as a list of enveloped aspects
    *
-   * @param entityName name of the entity to fetch
    * @param urns set of urns to fetch
    * @param aspectNames set of aspects to fetch
    * @return a map of {@link Urn} to {@link EnvelopedAspect} object
    */
   Map<Urn, List<EnvelopedAspect>> getLatestEnvelopedAspects(
-      // TODO: entityName is unused, can we remove this as a param?
-      @Nonnull String entityName, @Nonnull Set<Urn> urns, @Nonnull Set<String> aspectNames)
-      throws URISyntaxException;
+      @Nonnull Set<Urn> urns, @Nonnull Set<String> aspectNames) throws URISyntaxException;
 
   /**
    * Retrieves the latest aspects for the given set of urns as a list of enveloped aspects
@@ -169,10 +167,7 @@ public interface EntityService {
       @Nullable SystemMetadata systemMetadata);
 
   List<UpdateAspectResult> ingestAspects(
-      @Nonnull final AspectsBatch aspectsBatch,
-      @Nonnull final AuditStamp auditStamp,
-      boolean emitMCL,
-      boolean overwrite);
+      @Nonnull final AspectsBatch aspectsBatch, boolean emitMCL, boolean overwrite);
 
   /**
    * Ingests (inserts) a new version of an entity aspect & emits a {@link
@@ -233,7 +228,7 @@ public interface EntityService {
       @Nonnull AuditStamp auditStamp,
       @Nonnull final ChangeType changeType);
 
-  RecordTemplate getLatestAspect(@Nonnull final Urn urn, @Nonnull final String aspectName);
+  // RecordTemplate getLatestAspect(@Nonnull final Urn urn, @Nonnull final String aspectName);
 
   @Deprecated
   void ingestEntities(
@@ -250,7 +245,7 @@ public interface EntityService {
       @Nonnull AuditStamp auditStamp,
       @Nonnull SystemMetadata systemMetadata);
 
-  void setRetentionService(RetentionService retentionService);
+  void setRetentionService(RetentionService<U> retentionService);
 
   AspectSpec getKeyAspectSpec(@Nonnull final Urn urn);
 
@@ -304,8 +299,7 @@ public interface EntityService {
   RollbackRunResult rollbackWithConditions(
       List<AspectRowSummary> aspectRows, Map<String, String> conditions, boolean hardDelete);
 
-  Set<IngestResult> ingestProposal(
-      AspectsBatch aspectsBatch, AuditStamp auditStamp, final boolean async);
+  Set<IngestResult> ingestProposal(AspectsBatch aspectsBatch, final boolean async);
 
   /**
    * If you have more than 1 proposal use the {AspectsBatch} method
@@ -343,4 +337,8 @@ public interface EntityService {
    * @param systemEntityClient system entity client
    */
   void setSystemEntityClient(SystemEntityClient systemEntityClient);
+
+  SystemEntityClient getSystemEntityClient();
+
+  RecordTemplate getLatestAspect(@Nonnull final Urn urn, @Nonnull final String aspectName);
 }

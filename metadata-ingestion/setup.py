@@ -252,9 +252,7 @@ powerbi_report_server = {"requests", "requests_ntlm"}
 
 databricks = {
     # 0.1.11 appears to have authentication issues with azure databricks
-    # 0.16.0 added py.typed support which caused mypy to fail. The databricks sdk is pinned until we resolve mypy issues.
-    # https://github.com/databricks/databricks-sdk-py/pull/483
-    "databricks-sdk>=0.9.0,<0.16.0",
+    "databricks-sdk>=0.9.0",
     "pyspark~=3.3.0",
     "requests",
     # Version 2.4.0 includes sqlalchemy dialect, 2.8.0 includes some bug fixes
@@ -651,6 +649,9 @@ entry_points = {
         "pattern_add_dataset_schema_terms = datahub.ingestion.transformer.add_dataset_schema_terms:PatternAddDatasetSchemaTerms",
         "pattern_add_dataset_schema_tags = datahub.ingestion.transformer.add_dataset_schema_tags:PatternAddDatasetSchemaTags",
         "extract_ownership_from_tags = datahub.ingestion.transformer.extract_ownership_from_tags:ExtractOwnersFromTagsTransformer",
+        "add_dataset_dataproduct = datahub.ingestion.transformer.add_dataset_dataproduct:AddDatasetDataProduct",
+        "simple_add_dataset_dataproduct = datahub.ingestion.transformer.add_dataset_dataproduct:SimpleAddDatasetDataProduct",
+        "pattern_add_dataset_dataproduct = datahub.ingestion.transformer.add_dataset_dataproduct:PatternAddDatasetDataProduct",
     ],
     "datahub.ingestion.sink.plugins": [
         "file = datahub.ingestion.sink.file:FileSink",
