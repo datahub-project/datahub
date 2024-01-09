@@ -8,6 +8,7 @@ import com.linkedin.metadata.dao.producer.KafkaHealthChecker;
 import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.EntityServiceImpl;
+import com.linkedin.metadata.entity.ebean.batch.MCPUpsertBatchItem;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.service.UpdateIndicesService;
 import com.linkedin.mxe.TopicConvention;
@@ -35,7 +36,7 @@ public class EntityServiceFactory {
     "entityRegistry"
   })
   @Nonnull
-  protected EntityService createInstance(
+  protected EntityService<MCPUpsertBatchItem> createInstance(
       Producer<String, ? extends IndexedRecord> producer,
       TopicConvention convention,
       KafkaHealthChecker kafkaHealthChecker,

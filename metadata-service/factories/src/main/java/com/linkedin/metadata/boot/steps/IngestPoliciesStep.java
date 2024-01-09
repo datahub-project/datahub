@@ -15,7 +15,7 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.boot.BootstrapStep;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.entity.ebean.transactions.AspectsBatchImpl;
+import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.ListUrnsResult;
@@ -205,11 +205,14 @@ public class IngestPoliciesStep implements BootstrapStep {
 
     _entityService.ingestProposal(
         AspectsBatchImpl.builder()
-            .mcps(List.of(keyAspectProposal, proposal), _entityRegistry)
+            .mcps(
+                List.of(keyAspectProposal, proposal),
+                new AuditStamp()
+                    .setActor(Urn.createFromString(Constants.SYSTEM_ACTOR))
+                    .setTime(System.currentTimeMillis()),
+                _entityRegistry,
+                _entityService.getSystemEntityClient())
             .build(),
-        new AuditStamp()
-            .setActor(Urn.createFromString(Constants.SYSTEM_ACTOR))
-            .setTime(System.currentTimeMillis()),
         false);
   }
 

@@ -7,6 +7,7 @@ import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import com.linkedin.data.schema.DataSchema;
+import com.linkedin.metadata.aspect.plugins.PluginFactory;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.DataSchemaFactory;
 import com.linkedin.metadata.models.DefaultEntitySpec;
@@ -33,6 +34,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -43,6 +45,7 @@ import lombok.extern.slf4j.Slf4j;
 public class ConfigEntityRegistry implements EntityRegistry {
 
   private final DataSchemaFactory dataSchemaFactory;
+  @Getter private final PluginFactory pluginFactory;
   private final Map<String, EntitySpec> entityNameToSpec;
   private final Map<String, EventSpec> eventNameToSpec;
   private final List<EntitySpec> entitySpecs;
@@ -64,6 +67,7 @@ public class ConfigEntityRegistry implements EntityRegistry {
   public ConfigEntityRegistry(Pair<Path, Path> configFileClassPathPair) throws IOException {
     this(
         DataSchemaFactory.withCustomClasspath(configFileClassPathPair.getSecond()),
+        DataSchemaFactory.getClassLoader(configFileClassPathPair.getSecond()).stream().toList(),
         configFileClassPathPair.getFirst());
   }
 
@@ -108,24 +112,29 @@ public class ConfigEntityRegistry implements EntityRegistry {
   }
 
   public ConfigEntityRegistry(InputStream configFileInputStream) {
-    this(DataSchemaFactory.getInstance(), configFileInputStream);
+    this(DataSchemaFactory.getInstance(), List.of(), configFileInputStream);
   }
 
-  public ConfigEntityRegistry(DataSchemaFactory dataSchemaFactory, Path configFilePath)
+  public ConfigEntityRegistry(
+      DataSchemaFactory dataSchemaFactory, List<ClassLoader> classLoaders, Path configFilePath)
       throws FileNotFoundException {
-    this(dataSchemaFactory, new FileInputStream(configFilePath.toString()));
+    this(dataSchemaFactory, classLoaders, new FileInputStream(configFilePath.toString()));
   }
 
-  public ConfigEntityRegistry(DataSchemaFactory dataSchemaFactory, InputStream configFileStream) {
+  public ConfigEntityRegistry(
+      DataSchemaFactory dataSchemaFactory,
+      List<ClassLoader> classLoaders,
+      InputStream configFileStream) {
     this.dataSchemaFactory = dataSchemaFactory;
     Entities entities;
     try {
       entities = OBJECT_MAPPER.readValue(configFileStream, Entities.class);
+      this.pluginFactory = PluginFactory.withCustomClasspath(entities.getPlugins(), classLoaders);
     } catch (IOException e) {
-      e.printStackTrace();
       throw new IllegalArgumentException(
           String.format(
-              "Error while reading config file in path %s: %s", configFileStream, e.getMessage()));
+              "Error while reading config file in path %s: %s", configFileStream, e.getMessage()),
+          e);
     }
     if (entities.getId() != null) {
       identifier = entities.getId();

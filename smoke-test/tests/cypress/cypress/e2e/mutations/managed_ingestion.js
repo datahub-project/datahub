@@ -11,12 +11,11 @@ describe("run managed ingestion", () => {
         cy.login();
         cy.goToIngestionPage();
         cy.clickOptionWithText("Create new source");
-        cy.clickOptionWithText("Other");
+        cy.clickOptionWithTextToScrollintoView("Other");
 
         cy.waitTextVisible("source-type");
         readyToTypeEditor().type('{ctrl}a').clear()
-        readyToTypeEditor().type("source:");
-        readyToTypeEditor().type("{enter}");
+        readyToTypeEditor().type("source:{enter}");
         readyToTypeEditor().type("    type: demo-data");
         readyToTypeEditor().type("{enter}");
         // no space because the editor starts new line at same indentation

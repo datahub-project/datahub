@@ -11,7 +11,7 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.boot.BootstrapStep;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.entity.ebean.transactions.AspectsBatchImpl;
+import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
@@ -100,9 +100,12 @@ public class IngestOwnershipTypesStep implements BootstrapStep {
 
     _entityService.ingestProposal(
         AspectsBatchImpl.builder()
-            .mcps(List.of(keyAspectProposal, proposal), _entityService.getEntityRegistry())
+            .mcps(
+                List.of(keyAspectProposal, proposal),
+                auditStamp,
+                _entityService.getEntityRegistry(),
+                _entityService.getSystemEntityClient())
             .build(),
-        auditStamp,
         false);
   }
 }

@@ -13,16 +13,18 @@ import com.datastax.oss.driver.api.core.metadata.schema.ClusteringOrder;
 import com.datastax.oss.driver.api.querybuilder.select.Select;
 import com.datastax.oss.driver.api.querybuilder.select.Selector;
 import com.google.common.collect.ImmutableList;
+import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.entity.EntityAspect;
 import com.linkedin.metadata.entity.EntityAspectIdentifier;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.RetentionService;
-import com.linkedin.metadata.entity.ebean.transactions.AspectsBatchImpl;
+import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
+import com.linkedin.metadata.entity.ebean.batch.MCPUpsertBatchItem;
 import com.linkedin.metadata.entity.retention.BulkApplyRetentionArgs;
 import com.linkedin.metadata.entity.retention.BulkApplyRetentionResult;
-import com.linkedin.metadata.entity.transactions.AspectsBatch;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.retention.DataHubRetentionConfig;
 import com.linkedin.retention.Retention;
@@ -43,21 +45,28 @@ import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @RequiredArgsConstructor
-public class CassandraRetentionService extends RetentionService {
-  private final EntityService _entityService;
+public class CassandraRetentionService extends RetentionService<MCPUpsertBatchItem> {
+  private final EntityService<MCPUpsertBatchItem> _entityService;
   private final CqlSession _cqlSession;
   private final int _batchSize;
 
   private final Clock _clock = Clock.systemUTC();
 
   @Override
-  public EntityService getEntityService() {
+  public EntityService<MCPUpsertBatchItem> getEntityService() {
     return _entityService;
   }
 
   @Override
-  protected AspectsBatch buildAspectsBatch(List<MetadataChangeProposal> mcps) {
-    return AspectsBatchImpl.builder().mcps(mcps, _entityService.getEntityRegistry()).build();
+  protected AspectsBatch buildAspectsBatch(
+      List<MetadataChangeProposal> mcps, @Nonnull AuditStamp auditStamp) {
+    return AspectsBatchImpl.builder()
+        .mcps(
+            mcps,
+            auditStamp,
+            _entityService.getEntityRegistry(),
+            _entityService.getSystemEntityClient())
+        .build();
   }
 
   @Override

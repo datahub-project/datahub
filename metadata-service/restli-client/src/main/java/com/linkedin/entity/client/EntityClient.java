@@ -6,10 +6,12 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.StringArray;
+import com.linkedin.entity.Aspect;
 import com.linkedin.entity.Entity;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.aspect.VersionedAspect;
+import com.linkedin.metadata.aspect.plugins.validation.AspectRetriever;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.browse.BrowseResultV2;
 import com.linkedin.metadata.graph.LineageDirection;
@@ -38,7 +40,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 // Consider renaming this to datahub client.
-public interface EntityClient {
+public interface EntityClient extends AspectRetriever {
 
   @Nullable
   public EntityResponse getV2(
@@ -623,4 +625,12 @@ public interface EntityClient {
 
   public void rollbackIngestion(@Nonnull String runId, @Nonnull Authentication authentication)
       throws Exception;
+
+  default Aspect getLatestAspectObject(@Nonnull Urn urn, @Nonnull String aspectName)
+      throws RemoteInvocationException, URISyntaxException {
+    return getV2(urn.getEntityType(), urn, Set.of(aspectName), null)
+        .getAspects()
+        .get(aspectName)
+        .getValue();
+  }
 }
