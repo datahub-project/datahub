@@ -74,7 +74,7 @@ module.exports = {
               label: "Roadmap",
             },
             {
-              href: "https://slack.datahubproject.io",
+              to: "/slacksurvey",
               label: "Slack",
             },
             {
