@@ -4,17 +4,18 @@ describe("glossary", () => {
         const urn = "urn:li:dataset:(urn:li:dataPlatform:hive,cypress_logging_events,PROD)";
         const datasetName = "cypress_logging_events";
         const glossaryTerm = "CypressGlosssaryTerm";
-        const glossaryTermGroup = "CypressGlosssaryGroup";
-        cy.login();
+        const glossaryTermGroup = "CypressGlossaryGroup";
+        cy.loginWithCredentials();
         cy.goToGlossaryList();
-
+        
         cy.clickOptionWithText("Add Term");
-        cy.addViaModal(glossaryTerm, "Create Glossary Term");
+        cy.addViaModal(glossaryTerm, "Create Glossary Term", "Created Glossary Term!");
 
         cy.clickOptionWithText("Add Term Group");
-        cy.addViaModal(glossaryTermGroup, "Create Term Group");
+        cy.addViaModal(glossaryTermGroup, "Create Term Group", "Created Term Group!");
 
         cy.addTermToDataset(urn, datasetName, glossaryTerm);
+        cy.waitTextVisible('Added Terms!')
 
         cy.goToGlossaryList();
         cy.clickOptionWithText(glossaryTerm);
