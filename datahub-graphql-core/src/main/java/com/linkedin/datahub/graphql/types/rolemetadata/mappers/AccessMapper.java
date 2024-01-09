@@ -20,7 +20,8 @@ public class AccessMapper {
       @Nonnull final com.linkedin.common.Access access, @Nonnull final Urn entityUrn) {
     com.linkedin.datahub.graphql.generated.Access result =
         new com.linkedin.datahub.graphql.generated.Access();
-    RoleAssociationArray roles = access.getRoles() != null ? access.getRoles() : new RoleAssociationArray();
+    RoleAssociationArray roles =
+        access.getRoles() != null ? access.getRoles() : new RoleAssociationArray();
     result.setRoles(
         roles.stream()
             .map(association -> this.mapRoleAssociation(association, entityUrn))
