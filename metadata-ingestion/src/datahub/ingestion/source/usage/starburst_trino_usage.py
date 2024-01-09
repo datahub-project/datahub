@@ -102,6 +102,11 @@ class TrinoUsageConfig(TrinoConfig, BaseUsageConfig, EnvBasedSourceBaseConfig):
         return super().get_sql_alchemy_url()
 
 
+@dataclasses.dataclass
+class TrinoUsageReport(SourceReport):
+    num_joined_access_events_skipped: int = 0
+
+
 @platform_name("Trino")
 @config_class(TrinoUsageConfig)
 @support_status(SupportStatus.CERTIFIED)
@@ -119,7 +124,7 @@ class TrinoUsageSource(Source):
     """
 
     config: TrinoUsageConfig
-    report: SourceReport = dataclasses.field(default_factory=SourceReport)
+    report: TrinoUsageReport = dataclasses.field(default_factory=TrinoUsageReport)
 
     @classmethod
     def create(cls, config_dict, ctx):
@@ -195,6 +200,7 @@ class TrinoUsageSource(Source):
                     event_dict["create_time"]
                 )
             else:
+                self.report.num_joined_access_events_skipped += 1
                 logging.info("The create_time parameter is missing. Skipping ....")
                 continue
 
@@ -203,6 +209,7 @@ class TrinoUsageSource(Source):
             )
 
             if not event_dict["accessed_metadata"]:
+                self.report.num_joined_access_events_skipped += 1
                 logging.info("Field accessed_metadata is empty. Skipping ....")
                 continue
 
@@ -211,10 +218,16 @@ class TrinoUsageSource(Source):
             )
 
             if not event_dict.get("usr"):
+                self.report.num_joined_access_events_skipped += 1
                 logging.info("The username parameter is missing. Skipping ....")
                 continue
 
-            joined_access_events.append(TrinoJoinedAccessEvent(**event_dict))
+            try:
+                joined_access_events.append(TrinoJoinedAccessEvent(**event_dict))
+            except Exception as e:
+                self.report.num_joined_access_events_skipped += 1
+                logger.error("Error while parsing TrinoJoinedAccessEvent.", e)
+
         return joined_access_events
 
     def _aggregate_access_events(
