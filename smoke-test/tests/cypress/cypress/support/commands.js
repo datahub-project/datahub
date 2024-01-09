@@ -162,6 +162,10 @@ Cypress.Commands.add("clickOptionWithText", (text) => {
   cy.contains(text).should('be.visible').click();
 });
 
+Cypress.Commands.add("clickOptionWithTextToScrollintoView", (text) => {
+  cy.contains(text).scrollIntoView().click();
+});
+
 Cypress.Commands.add("deleteFromDropdown", () => {
   cy.openThreeDotDropdown();
   cy.clickOptionWithText("Delete");
