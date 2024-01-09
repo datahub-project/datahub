@@ -16,8 +16,8 @@ import com.linkedin.metadata.EbeanTestUtils;
 import com.linkedin.metadata.config.PreProcessHooks;
 import com.linkedin.metadata.entity.ebean.EbeanAspectDao;
 import com.linkedin.metadata.entity.ebean.EbeanRetentionService;
-import com.linkedin.metadata.entity.ebean.transactions.AspectsBatchImpl;
-import com.linkedin.metadata.entity.ebean.transactions.UpsertBatchItem;
+import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
+import com.linkedin.metadata.entity.ebean.batch.MCPUpsertBatchItem;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.key.CorpUserKey;
 import com.linkedin.metadata.models.registry.EntityRegistryException;
@@ -73,7 +73,7 @@ public class EbeanEntityServiceTest
             _aspectDao,
             _mockProducer,
             _testEntityRegistry,
-            true,
+            false,
             _mockUpdateIndicesService,
             preProcessHooks);
     _retentionService = new EbeanRetentionService(_entityServiceImpl, server, 1000);
@@ -116,28 +116,30 @@ public class EbeanEntityServiceTest
     // Ingest CorpUserInfo Aspect #3
     CorpUserInfo writeAspect3 = AspectGenerationUtils.createCorpUserInfo("email3@test.com");
 
-    List<UpsertBatchItem> items =
+    List<MCPUpsertBatchItem> items =
         List.of(
-            UpsertBatchItem.builder()
+            MCPUpsertBatchItem.builder()
                 .urn(entityUrn1)
                 .aspectName(aspectName)
                 .aspect(writeAspect1)
                 .systemMetadata(metadata1)
-                .build(_testEntityRegistry),
-            UpsertBatchItem.builder()
+                .auditStamp(TEST_AUDIT_STAMP)
+                .build(_testEntityRegistry, _entityServiceImpl.getSystemEntityClient()),
+            MCPUpsertBatchItem.builder()
                 .urn(entityUrn2)
                 .aspectName(aspectName)
                 .aspect(writeAspect2)
                 .systemMetadata(metadata1)
-                .build(_testEntityRegistry),
-            UpsertBatchItem.builder()
+                .auditStamp(TEST_AUDIT_STAMP)
+                .build(_testEntityRegistry, _entityServiceImpl.getSystemEntityClient()),
+            MCPUpsertBatchItem.builder()
                 .urn(entityUrn3)
                 .aspectName(aspectName)
                 .aspect(writeAspect3)
                 .systemMetadata(metadata1)
-                .build(_testEntityRegistry));
-    _entityServiceImpl.ingestAspects(
-        AspectsBatchImpl.builder().items(items).build(), TEST_AUDIT_STAMP, true, true);
+                .auditStamp(TEST_AUDIT_STAMP)
+                .build(_testEntityRegistry, _entityServiceImpl.getSystemEntityClient()));
+    _entityServiceImpl.ingestAspects(AspectsBatchImpl.builder().items(items).build(), true, true);
 
     // List aspects
     ListResult<RecordTemplate> batch1 =
@@ -183,28 +185,30 @@ public class EbeanEntityServiceTest
     // Ingest CorpUserInfo Aspect #3
     RecordTemplate writeAspect3 = AspectGenerationUtils.createCorpUserKey(entityUrn3);
 
-    List<UpsertBatchItem> items =
+    List<MCPUpsertBatchItem> items =
         List.of(
-            UpsertBatchItem.builder()
+            MCPUpsertBatchItem.builder()
                 .urn(entityUrn1)
                 .aspectName(aspectName)
                 .aspect(writeAspect1)
                 .systemMetadata(metadata1)
-                .build(_testEntityRegistry),
-            UpsertBatchItem.builder()
+                .auditStamp(TEST_AUDIT_STAMP)
+                .build(_testEntityRegistry, _entityServiceImpl.getSystemEntityClient()),
+            MCPUpsertBatchItem.builder()
                 .urn(entityUrn2)
                 .aspectName(aspectName)
                 .aspect(writeAspect2)
                 .systemMetadata(metadata1)
-                .build(_testEntityRegistry),
-            UpsertBatchItem.builder()
+                .auditStamp(TEST_AUDIT_STAMP)
+                .build(_testEntityRegistry, _entityServiceImpl.getSystemEntityClient()),
+            MCPUpsertBatchItem.builder()
                 .urn(entityUrn3)
                 .aspectName(aspectName)
                 .aspect(writeAspect3)
                 .systemMetadata(metadata1)
-                .build(_testEntityRegistry));
-    _entityServiceImpl.ingestAspects(
-        AspectsBatchImpl.builder().items(items).build(), TEST_AUDIT_STAMP, true, true);
+                .auditStamp(TEST_AUDIT_STAMP)
+                .build(_testEntityRegistry, _entityServiceImpl.getSystemEntityClient()));
+    _entityServiceImpl.ingestAspects(AspectsBatchImpl.builder().items(items).build(), true, true);
 
     // List aspects urns
     ListUrnsResult batch1 = _entityServiceImpl.listUrns(entityUrn1.getEntityType(), 0, 2);
@@ -447,8 +451,14 @@ public class EbeanEntityServiceTest
           auditStamp.setActor(Urn.createFromString(Constants.DATAHUB_ACTOR));
           auditStamp.setTime(System.currentTimeMillis());
           AspectsBatchImpl batch =
-              AspectsBatchImpl.builder().mcps(mcps, entityService.getEntityRegistry()).build();
-          entityService.ingestProposal(batch, auditStamp, false);
+              AspectsBatchImpl.builder()
+                  .mcps(
+                      mcps,
+                      auditStamp,
+                      entityService.getEntityRegistry(),
+                      entityService.getSystemEntityClient())
+                  .build();
+          entityService.ingestProposal(batch, false);
         }
       } catch (InterruptedException | URISyntaxException ie) {
         throw new RuntimeException(ie);
