@@ -4,6 +4,7 @@ from typing import Any, List, Optional, Tuple, Union
 
 from datahub.utilities.urns.urn import Urn
 from tenacity import retry, stop_after_attempt, wait_exponential
+from tenacity.before_sleep import before_sleep_log
 
 from datahub_monitors.assertion.engine.evaluator.filter_builder import FilterBuilder
 from datahub_monitors.assertion.types import AssertionDatabaseParams
@@ -222,6 +223,7 @@ class Source:
         stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=2, min=4, max=10),
         reraise=True,
+        before_sleep=before_sleep_log(logger, logging.ERROR, True),
     )
     def _try_get_entity_events(
         self,
@@ -258,6 +260,7 @@ class Source:
         stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=2, min=4, max=10),
         reraise=True,
+        before_sleep=before_sleep_log(logger, logging.ERROR, True),
     )
     def _try_get_current_high_watermark_for_column(
         self,
@@ -293,6 +296,7 @@ class Source:
         stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=2, min=4, max=10),
         reraise=True,
+        before_sleep=before_sleep_log(logger, logging.ERROR, True),
     )
     def _get_row_count(
         self,
@@ -325,6 +329,7 @@ class Source:
         stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=2, min=4, max=10),
         reraise=True,
+        before_sleep=before_sleep_log(logger, logging.ERROR, True),
     )
     def _execute_custom_sql(
         self,
@@ -424,6 +429,7 @@ class Source:
         stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=2, min=4, max=10),
         reraise=True,
+        before_sleep=before_sleep_log(logger, logging.ERROR, True),
     )
     def _get_field_values_count(
         self,
@@ -496,6 +502,7 @@ class Source:
         stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=2, min=4, max=10),
         reraise=True,
+        before_sleep=before_sleep_log(logger, logging.ERROR, True),
     )
     def _get_field_metric_value(
         self,

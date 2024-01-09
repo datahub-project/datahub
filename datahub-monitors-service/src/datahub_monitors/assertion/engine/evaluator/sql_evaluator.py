@@ -168,7 +168,7 @@ class SQLAssertionEvaluator(AssertionEvaluator):
         assert assertion.sql_assertion is not None
         assert assertion.connection_urn
         connection = self.connection_provider.get_connection(
-            cast(str, assertion.connection_urn)
+            cast(str, assertion.entity.urn)
         )
 
         if connection is None:

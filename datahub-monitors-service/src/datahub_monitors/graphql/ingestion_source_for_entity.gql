@@ -3,8 +3,8 @@ query ingestionSourceForEntity($urn: String!) {
         urn
         type
         config {
-        recipe
-        executorId
+            recipe
+            executorId
         }
     }
 }

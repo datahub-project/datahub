@@ -394,7 +394,7 @@ class FieldAssertionEvaluator(AssertionEvaluator):
             )
 
         connection = self.connection_provider.get_connection(
-            cast(str, assertion.connection_urn)
+            cast(str, assertion.entity.urn)
         )
         if connection is None:
             raise SourceConnectionErrorException(

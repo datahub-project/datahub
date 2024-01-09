@@ -6,6 +6,7 @@ import pytz
 from datahub.ingestion.source.bigquery_v2.common import BQ_DATETIME_FORMAT
 from google.api_core.exceptions import BadRequest, Forbidden, NotFound
 from tenacity import retry, stop_after_attempt, wait_exponential
+from tenacity.before_sleep import before_sleep_log
 
 from datahub_monitors.assertion.engine.evaluator.filter_builder import FilterBuilder
 from datahub_monitors.connection.bigquery.bigquery_connection import BigQueryConnection
@@ -394,6 +395,7 @@ class BigQuerySource(Source):
         stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=2, min=4, max=10),
         reraise=True,
+        before_sleep=before_sleep_log(logger, logging.ERROR, True),
     )
     def _execute_custom_sql(
         self,
@@ -427,6 +429,7 @@ class BigQuerySource(Source):
         stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=2, min=4, max=10),
         reraise=True,
+        before_sleep=before_sleep_log(logger, logging.ERROR, True),
     )
     def _get_field_values_count(
         self,
@@ -479,6 +482,7 @@ class BigQuerySource(Source):
         stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=2, min=4, max=10),
         reraise=True,
+        before_sleep=before_sleep_log(logger, logging.ERROR, True),
     )
     def _get_field_metric_value(
         self,

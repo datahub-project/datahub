@@ -35,6 +35,7 @@ from datahub_monitors.graphql.query import (
 logger = logging.getLogger(__name__)
 
 DATA_PLATFORM_ENTITY_TYPE = "dataPlatform"
+DATASET_ENTITY_TYPE = "dataset"
 INGESTION_SOURCE_ENTITY_TYPE = "dataHubIngestionSource"
 DATA_PLATFORM_INSTANCE_ENTITY_TYPE = "dataPlatformInstance"
 INGESTION_SOURCES_BATCH_SIZE = 10000
@@ -103,8 +104,12 @@ class DataHubIngestionSourceConnectionProvider(ConnectionProvider):
         )
 
         if "error" in result:
-            # TODO: add either logging or throwing here.
-            pass
+            raise Exception(
+                "Cannot connect to data source! Failed to resolve ingestion source for entity with urn "
+                + entity_urn
+                + ": "
+                + result["error"]
+            )
 
         if "ingestionSourceForEntity" not in result:
             return None
@@ -173,14 +178,14 @@ class DataHubIngestionSourceConnectionProvider(ConnectionProvider):
             source_type, ingestion_source
         )
 
+    def get_connection_for_entity(self, urn: str) -> Optional[Connection]:
+        return self.get_connection_from_entity(urn)
+
     def get_connection(self, urn: str) -> Optional[Connection]:
         # First, determine which type of urn we are working with.
         entity_type = urn_to_entity_type(urn)
         if entity_type == DATA_PLATFORM_ENTITY_TYPE:
             return self.get_connection_from_data_platform(urn)
-        # TODO: Allow users to provide a connection along with the
-        # monitor / assertion definition.
-        raise NotImplementedError()
-
-    def get_connection_for_entity(self, urn: str) -> Optional[Connection]:
-        return self.get_connection_from_entity(urn)
+        elif entity_type == DATASET_ENTITY_TYPE:
+            return self.get_connection_for_entity(urn)
+        raise Exception("Failed to receive connection for urn " + urn)

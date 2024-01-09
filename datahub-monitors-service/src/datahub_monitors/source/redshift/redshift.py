@@ -91,21 +91,23 @@ class RedshiftSource(Source):
         return convert_value_for_comparison(column_value, column_type)
 
     def _execute_fetchall_query(self, query: str) -> List[Any]:
+        cur = self.connection.get_client().cursor()
         try:
-            cur = self.connection.get_client().cursor()
             cur.execute(query)
             return cur.fetchall()
         except Exception as e:
+            cur.execute("rollback")
             raise SourceQueryFailedException(
                 message=f"Source query (Redshift) failed with error: {e}", query=query
             )
 
     def _execute_fetchone_query(self, query: str) -> List[Any]:
+        cur = self.connection.get_client().cursor()
         try:
-            cur = self.connection.get_client().cursor()
             cur.execute(query)
             return cur.fetchone()
         except Exception as e:
+            cur.execute("rollback")
             raise SourceQueryFailedException(
                 message=f"Source query (Redshift) failed with error: {e}", query=query
             )

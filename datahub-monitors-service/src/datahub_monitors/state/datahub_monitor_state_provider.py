@@ -6,6 +6,7 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.schema_classes import MonitorTimeseriesStateClass
 from tenacity import retry, stop_after_attempt, wait_exponential
+from tenacity.before_sleep import before_sleep_log
 
 from datahub_monitors.assertion.types import AssertionState, AssertionStateType
 from datahub_monitors.exceptions import InvalidParametersException
@@ -23,6 +24,7 @@ class DataHubMonitorStateProvider(AssertionStateProvider):
         stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=2, min=4, max=10),
         reraise=True,
+        before_sleep=before_sleep_log(logger, logging.ERROR, True),
     )
     def _get_latest_monitor_time_series_state(
         self,
@@ -46,6 +48,7 @@ class DataHubMonitorStateProvider(AssertionStateProvider):
         stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=2, min=4, max=10),
         reraise=True,
+        before_sleep=before_sleep_log(logger, logging.ERROR, True),
     )
     def _save_monitor_time_series_state(
         self, entity_urn: str, state: AssertionState

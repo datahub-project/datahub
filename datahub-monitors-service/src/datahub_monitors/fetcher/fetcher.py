@@ -3,6 +3,7 @@ from typing import List
 
 from datahub.ingestion.graph.client import DataHubGraph
 from tenacity import retry, stop_after_attempt, wait_exponential
+from tenacity.before_sleep import before_sleep_log
 
 from datahub_monitors.constants import LIST_MONITORS_BATCH_SIZE
 from datahub_monitors.fetcher.mapper import graphql_to_monitors
@@ -27,7 +28,9 @@ class MonitorFetcher:
         self.config = config
 
     @retry(
-        stop=stop_after_attempt(3), wait=wait_exponential(multiplier=2, min=4, max=10)
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=2, min=4, max=10),
+        before_sleep=before_sleep_log(logger, logging.ERROR, True),
     )
     def fetch_monitors(self) -> List[Monitor]:
         """
