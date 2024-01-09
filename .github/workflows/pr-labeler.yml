@@ -20,6 +20,38 @@ jobs:
           ${{ 
             !contains(
               fromJson('[
+                "anshbansal",
+                "asikowitz",
+                "chriscollins3456",
+                "david-leifker",
+                "shirshanka",
+                "sid-acryl",
+                "swaroopjagadish",
+                "treff7es",
+                "yoonhyejin",
+                "eboneil",
+                "ethan-cartwright",
+                "gabe-lyons",
+                "hsheth2",
+                "jjoyce0510",
+                "maggiehays",
+                "mrjefflewis",
+                "pedro93",
+                "RyanHolstien"
+              ]'), 
+              github.actor
+            ) 
+          }}
+        with:
+          github_token: ${{ github.token }}
+          labels: |
+            community-contribution
+      - uses: actions-ecosystem/action-add-labels@v1.1.0
+        # only add names of champions here. Confirm with DevRel Team
+        if: 
+          ${{ 
+            contains(
+              fromJson('[
                 "skrydal",
                 "siladitya2",
                 "sgomezvillamor",

@@ -34,7 +34,7 @@ public class SendMAEStep implements UpgradeStep {
   private static final boolean DEFAULT_URN_BASED_PAGINATION = false;
 
   private final Database _server;
-  private final EntityService _entityService;
+  private final EntityService<?> _entityService;
 
   public class KafkaJob implements Callable<RestoreIndicesResult> {
     UpgradeContext context;
