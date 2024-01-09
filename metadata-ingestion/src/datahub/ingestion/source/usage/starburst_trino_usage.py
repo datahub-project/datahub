@@ -226,7 +226,7 @@ class TrinoUsageSource(Source):
                 joined_access_events.append(TrinoJoinedAccessEvent(**event_dict))
             except Exception as e:
                 self.report.num_joined_access_events_skipped += 1
-                logger.error("Error while parsing TrinoJoinedAccessEvent.", e)
+                logger.info(f"Error while parsing TrinoJoinedAccessEvent: {e}")
 
         return joined_access_events
 
