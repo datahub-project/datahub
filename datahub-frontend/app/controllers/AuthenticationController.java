@@ -97,6 +97,7 @@ public class AuthenticationController extends Controller {
             + "redirect to other domains: " + redirectPath, redirectPath);
       }
     } catch (URISyntaxException | InvalidRedirectLocationException e) {
+      _logger.warn(e.getMessage());
       redirectPath = "/";
     }
 
