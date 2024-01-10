@@ -177,6 +177,7 @@ module.exports = {
         },
         {
           "Managed DataHub Release History": [
+            "docs/managed-datahub/release-notes/v_0_2_14",
             "docs/managed-datahub/release-notes/v_0_2_13",
             "docs/managed-datahub/release-notes/v_0_2_12",
             "docs/managed-datahub/release-notes/v_0_2_11",

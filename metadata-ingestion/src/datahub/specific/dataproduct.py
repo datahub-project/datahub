@@ -85,7 +85,7 @@ class DataProductPatchBuilder(MetadataPatchProposal):
     def set_name(self, name: str) -> "DataProductPatchBuilder":
         self._add_patch(
             DataProductProperties.ASPECT_NAME,
-            "replace",
+            "add",
             path="/name",
             value=name,
         )
@@ -94,7 +94,7 @@ class DataProductPatchBuilder(MetadataPatchProposal):
     def set_description(self, description: str) -> "DataProductPatchBuilder":
         self._add_patch(
             DataProductProperties.ASPECT_NAME,
-            "replace",
+            "add",
             path="/description",
             value=description,
         )
@@ -105,7 +105,7 @@ class DataProductPatchBuilder(MetadataPatchProposal):
     ) -> "DataProductPatchBuilder":
         self._add_patch(
             DataProductProperties.ASPECT_NAME,
-            "replace",
+            "add",
             path="/customProperties",
             value=custom_properties,
         )
@@ -124,7 +124,7 @@ class DataProductPatchBuilder(MetadataPatchProposal):
     ) -> "DataProductPatchBuilder":
         self._add_patch(
             DataProductProperties.ASPECT_NAME,
-            "replace",
+            "add",
             path="/assets",
             value=assets,
         )
@@ -151,7 +151,7 @@ class DataProductPatchBuilder(MetadataPatchProposal):
     def set_external_url(self, external_url: str) -> "DataProductPatchBuilder":
         self._add_patch(
             DataProductProperties.ASPECT_NAME,
-            "replace",
+            "add",
             path="/externalUrl",
             value=external_url,
         )

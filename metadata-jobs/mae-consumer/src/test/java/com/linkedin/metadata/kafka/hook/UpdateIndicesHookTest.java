@@ -19,6 +19,8 @@ import com.linkedin.data.template.StringMap;
 import com.linkedin.dataset.DatasetLineageType;
 import com.linkedin.dataset.FineGrainedLineage;
 import com.linkedin.dataset.FineGrainedLineageArray;
+import com.linkedin.dataset.FineGrainedLineageDownstreamType;
+import com.linkedin.dataset.FineGrainedLineageUpstreamType;
 import com.linkedin.dataset.Upstream;
 import com.linkedin.dataset.UpstreamArray;
 import com.linkedin.dataset.UpstreamLineage;
@@ -47,7 +49,9 @@ import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.SystemMetadata;
+import com.linkedin.schema.NumberType;
 import com.linkedin.schema.SchemaField;
+import com.linkedin.schema.SchemaFieldDataType;
 import java.net.URISyntaxException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
@@ -425,6 +429,9 @@ public class UpdateIndicesHookTest {
         .thenReturn(entitySpec);
     Mockito.when(mockEntityRegistry.getEntitySpec(Constants.DATASET_ENTITY_NAME))
         .thenReturn(entitySpec);
+    Mockito.when(mockEntityRegistry.getEntitySpec(SCHEMA_FIELD_ENTITY_NAME)).thenReturn(entitySpec);
+    Mockito.when(mockEntityRegistry.getEntitySpec(DATA_PLATFORM_ENTITY_NAME))
+        .thenReturn(entitySpec);
     Mockito.when(entitySpec.getAspectSpec(Constants.INPUT_FIELDS_ASPECT_NAME))
         .thenReturn(aspectSpec);
     Mockito.when(entitySpec.getAspectSpec(Constants.UPSTREAM_LINEAGE_ASPECT_NAME))
@@ -462,6 +469,8 @@ public class UpdateIndicesHookTest {
     UpstreamLineage upstreamLineage = new UpstreamLineage();
     FineGrainedLineageArray fineGrainedLineages = new FineGrainedLineageArray();
     FineGrainedLineage fineGrainedLineage = new FineGrainedLineage();
+    fineGrainedLineage.setDownstreamType(FineGrainedLineageDownstreamType.FIELD);
+    fineGrainedLineage.setUpstreamType(FineGrainedLineageUpstreamType.DATASET);
     UrnArray upstreamUrns = new UrnArray();
     upstreamUrns.add(upstreamUrn);
     fineGrainedLineage.setUpstreams(upstreamUrns);
@@ -509,6 +518,9 @@ public class UpdateIndicesHookTest {
     inputField.setSchemaFieldUrn(upstreamUrn);
     SchemaField schemaField = new SchemaField();
     schemaField.setFieldPath(downstreamFieldPath);
+    schemaField.setNativeDataType("int");
+    schemaField.setType(
+        new SchemaFieldDataType().setType(SchemaFieldDataType.Type.create(new NumberType())));
     inputField.setSchemaField(schemaField);
     inputFieldsArray.add(inputField);
     inputFields.setFields(inputFieldsArray);
