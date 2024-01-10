@@ -1283,9 +1283,13 @@ def create_bigquery_temp_table(
         # temporary table dance. However, that would require either a) upgrading to
         # use GE's batch v3 API or b) bypassing GE altogether.
 
-        query_job: Optional[
-            "google.cloud.bigquery.job.query.QueryJob"
-        ] = cursor._query_job
+        query_job: Optional["google.cloud.bigquery.job.query.QueryJob"] = (
+            # In google-cloud-bigquery 3.15.0, the _query_job attribute was
+            # made public and renamed to query_job.
+            cursor.query_job
+            if hasattr(cursor, "query_job")
+            else cursor._query_job  # type: ignore[attr-defined]
+        )
         assert query_job
         temp_destination_table = query_job.destination
         bigquery_temp_table = f"{temp_destination_table.project}.{temp_destination_table.dataset_id}.{temp_destination_table.table_id}"

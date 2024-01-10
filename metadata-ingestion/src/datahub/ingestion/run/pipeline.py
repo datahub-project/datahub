@@ -137,6 +137,7 @@ class CliReport(Report):
 
     disk_info: Optional[dict] = None
     peak_disk_usage: Optional[str] = None
+    _initial_disk_usage: int = -1
     _peak_disk_usage: int = 0
 
     thread_count: Optional[int] = None
@@ -156,12 +157,15 @@ class CliReport(Report):
 
         try:
             disk_usage = shutil.disk_usage("/")
+            if self._initial_disk_usage < 0:
+                self._initial_disk_usage = disk_usage.used
             if self._peak_disk_usage < disk_usage.used:
                 self._peak_disk_usage = disk_usage.used
                 self.peak_disk_usage = humanfriendly.format_size(self._peak_disk_usage)
             self.disk_info = {
                 "total": humanfriendly.format_size(disk_usage.total),
                 "used": humanfriendly.format_size(disk_usage.used),
+                "used_initally": humanfriendly.format_size(self._initial_disk_usage),
                 "free": humanfriendly.format_size(disk_usage.free),
             }
         except Exception as e:
