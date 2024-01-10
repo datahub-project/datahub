@@ -292,6 +292,8 @@ class RedshiftLineageExtractor:
         return: The method does not return with anything as it directly modify the self._lineage_map property.
         :rtype: None
         """
+
+        logger.debug(f"Extracting {lineage_type.name} lineage for db {database}")
         try:
             cll: Optional[List[sqlglot_l.ColumnLineageInfo]] = None
             raw_db_name = database
