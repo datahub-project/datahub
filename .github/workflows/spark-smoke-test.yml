@@ -51,10 +51,15 @@ jobs:
              -x :datahub-web-react:yarnLint \
              -x :datahub-web-react:yarnGenerate \
              -x :datahub-web-react:yarnInstall \
-             -x :datahub-web-react:yarnQuickBuild \
-             -x :datahub-web-react:copyAssets \
+             -x :datahub-web-react:yarnBuild \
              -x :datahub-web-react:distZip \
              -x :datahub-web-react:jar
+      - name: Upload logs
+        uses: actions/upload-artifact@v3
+        if: failure()
+        with:
+          name: docker logs
+          path: "docker/build/container-logs/*.log"
       - uses: actions/upload-artifact@v3
         if: always()
         with:
@@ -63,10 +68,4 @@ jobs:
             **/build/reports/tests/test/**
             **/build/test-results/test/**
             **/junit.*.xml
-      - name: Slack failure notification
-        if: failure() && github.event_name == 'push'
-        uses: kpritam/slack-job-status-action@v1
-        with:
-          job-status: ${{ job.status }}
-          slack-bot-token: ${{ secrets.SLACK_BOT_TOKEN }}
-          channel: github-activities
+            !**/binary/**
