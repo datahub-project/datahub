@@ -47,7 +47,7 @@ public class RestoreFromParquetStep implements UpgradeStep {
   private static final int DEFAULT_BATCH_SIZE = 1000;
   private static final int DEFAULT_THREAD_POOL = 4;
 
-  private final EntityService _entityService;
+  private final EntityService<?> _entityService;
   private final EntityRegistry _entityRegistry;
   private final Map<String, Class<? extends BackupReader<ParquetReaderWrapper>>> _backupReaders;
   private final ExecutorService _fileReaderThreadPool;
@@ -55,7 +55,7 @@ public class RestoreFromParquetStep implements UpgradeStep {
   private ConcurrentHashMap<String, AtomicInteger> _entityCounts = new ConcurrentHashMap<>();
 
   public RestoreFromParquetStep(
-      final EntityService entityService, final EntityRegistry entityRegistry) {
+      final EntityService<?> entityService, final EntityRegistry entityRegistry) {
     _entityService = entityService;
     _entityRegistry = entityRegistry;
     _backupReaders =

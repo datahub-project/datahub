@@ -14,8 +14,8 @@ import com.linkedin.datahub.upgrade.restoreindices.RestoreIndices;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.EntityUtils;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
-import com.linkedin.metadata.entity.ebean.transactions.AspectsBatchImpl;
-import com.linkedin.metadata.entity.ebean.transactions.UpsertBatchItem;
+import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
+import com.linkedin.metadata.entity.ebean.batch.MCPUpsertBatchItem;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -32,13 +32,14 @@ import java.util.function.Function;
 
 public class RestoreAspectStep implements UpgradeStep {
 
-  private final EntityService _entityService;
+  private final EntityService<?> _entityService;
   private final EntityRegistry _entityRegistry;
   private final ExecutorService _fileReaderThreadPool;
 
   private static final int DEFAULT_THREAD_POOL = 4;
 
-  public RestoreAspectStep(final EntityService entityService, final EntityRegistry entityRegistry) {
+  public RestoreAspectStep(
+      final EntityService<?> entityService, final EntityRegistry entityRegistry) {
     _entityService = entityService;
     _entityRegistry = entityRegistry;
     String poolSize = System.getenv(RestoreIndices.READER_POOL_SIZE);
@@ -181,16 +182,17 @@ public class RestoreAspectStep implements UpgradeStep {
 
         boolean emitMae = aspect.getKey().getVersion() == 0L;
 
-        List<UpsertBatchItem> items =
+        List<MCPUpsertBatchItem> items =
             List.of(
-                UpsertBatchItem.builder()
+                MCPUpsertBatchItem.builder()
                     .urn(urn)
                     .aspectName(aspectName)
                     .aspect(aspectRecord)
-                    .build(_entityRegistry));
+                    .auditStamp(toAuditStamp(aspect))
+                    .build(_entityRegistry, _entityService.getSystemEntityClient()));
 
         _entityService.ingestAspects(
-            AspectsBatchImpl.builder().items(items).build(), toAuditStamp(aspect), emitMae, true);
+            AspectsBatchImpl.builder().items(items).build(), emitMae, true);
       }
     }
     return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.SUCCEEDED);

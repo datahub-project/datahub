@@ -227,7 +227,8 @@ public class AspectUtils {
     final EntityResponse entityResponse = new EntityResponse();
     entityResponse.setAspects(aspectMap);
     return entityResponse;
-      }
+  }
+
   public static AspectSpec validateAspect(MetadataChangeLog mcl, EntitySpec entitySpec) {
     if (!mcl.hasAspectName()
         || (!ChangeType.DELETE.equals(mcl.getChangeType()) && !mcl.hasAspect())) {

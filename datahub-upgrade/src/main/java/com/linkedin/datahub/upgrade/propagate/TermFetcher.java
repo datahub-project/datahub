@@ -20,7 +20,7 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 @RequiredArgsConstructor
 class TermFetcher {
-  private final EntityService _entityService;
+  private final EntityService<?> _entityService;
   private final EntitySearchService _entitySearchService;
   private final Set<String> allowedGlossaryNodes;
 

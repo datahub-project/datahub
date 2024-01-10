@@ -545,14 +545,21 @@ public class TestEngine {
     }
 
     if (!mcps.isEmpty()) {
-      AspectsBatchImpl batch =
-          AspectsBatchImpl.builder().mcps(mcps, _entityService.getEntityRegistry()).build();
-
       AuditStamp auditStamp =
           new AuditStamp()
               .setActor(UrnUtils.getUrn(Constants.SYSTEM_ACTOR))
               .setTime(System.currentTimeMillis());
-      _entityService.ingestProposal(batch, auditStamp, mode != EvaluationMode.SYNC);
+
+      AspectsBatchImpl batch =
+          AspectsBatchImpl.builder()
+              .mcps(
+                  mcps,
+                  auditStamp,
+                  _entityService.getEntityRegistry(),
+                  _entityService.getSystemEntityClient())
+              .build();
+
+      _entityService.ingestProposal(batch, mode != EvaluationMode.SYNC);
     }
   }
 

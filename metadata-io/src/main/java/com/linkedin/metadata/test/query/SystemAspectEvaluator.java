@@ -15,6 +15,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
@@ -82,18 +83,19 @@ public class SystemAspectEvaluator extends BaseQueryEvaluator {
         entityService
             .getEntitiesV2(entityType, urns, aspectSpecNames)
             .forEach(
-                (urn, response) -> {
-                  result.putIfAbsent(urn, new HashMap<>());
-                  try {
-                    result.get(urn).put(query, buildSystemQueryResponse(query, urn, response));
-                  } catch (RuntimeException e) {
-                    log.error(
-                        "RuntimeException for urn: {} for query {}. Skipping running test for urn",
-                        urn,
-                        query,
-                        e);
-                  }
-                });
+                (BiConsumer<Urn, EntityResponse>)
+                    (urn, response) -> {
+                      result.putIfAbsent(urn, new HashMap<>());
+                      try {
+                        result.get(urn).put(query, buildSystemQueryResponse(query, urn, response));
+                      } catch (RuntimeException e) {
+                        log.error(
+                            "RuntimeException for urn: {} for query {}. Skipping running test for urn",
+                            urn,
+                            query,
+                            e);
+                      }
+                    });
       } catch (URISyntaxException e) {
         log.error("Error while fetching aspects for urns {}", urns, e);
         throw new RuntimeException(String.format("Error while fetching aspects for urns %s", urns));
