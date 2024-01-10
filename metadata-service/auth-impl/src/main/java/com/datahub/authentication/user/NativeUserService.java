@@ -30,7 +30,7 @@ import lombok.extern.slf4j.Slf4j;
 public class NativeUserService {
   private static final long ONE_DAY_MILLIS = TimeUnit.DAYS.toMillis(1);
 
-  private final EntityService _entityService;
+  private final EntityService<?> _entityService;
   private final EntityClient _entityClient;
   private final SecretService _secretService;
   private final AuthenticationConfiguration _authConfig;

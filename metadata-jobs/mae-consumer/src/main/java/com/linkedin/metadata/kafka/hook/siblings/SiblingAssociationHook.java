@@ -14,9 +14,9 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.dataset.UpstreamArray;
 import com.linkedin.dataset.UpstreamLineage;
 import com.linkedin.entity.EntityResponse;
-import com.linkedin.entity.client.SystemRestliEntityClient;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.events.metadata.ChangeType;
-import com.linkedin.gms.factory.entity.RestliEntityClientFactory;
+import com.linkedin.gms.factory.entityclient.EntityClientFactory;
 import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
 import com.linkedin.gms.factory.search.EntitySearchServiceFactory;
 import com.linkedin.metadata.Constants;
@@ -54,11 +54,7 @@ import org.springframework.stereotype.Component;
 @Slf4j
 @Component
 @Singleton
-@Import({
-  EntityRegistryFactory.class,
-  RestliEntityClientFactory.class,
-  EntitySearchServiceFactory.class
-})
+@Import({EntityRegistryFactory.class, EntityClientFactory.class, EntitySearchServiceFactory.class})
 public class SiblingAssociationHook implements MetadataChangeLogHook {
 
   public static final String SIBLING_ASSOCIATION_SYSTEM_ACTOR =
@@ -72,14 +68,14 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
   public static final String SOURCE_SUBTYPE_V2 = "Source";
 
   private final EntityRegistry _entityRegistry;
-  private final SystemRestliEntityClient _entityClient;
+  private final SystemEntityClient _entityClient;
   private final EntitySearchService _searchService;
   private final boolean _isEnabled;
 
   @Autowired
   public SiblingAssociationHook(
       @Nonnull final EntityRegistry entityRegistry,
-      @Nonnull final SystemRestliEntityClient entityClient,
+      @Nonnull final SystemEntityClient entityClient,
       @Nonnull final EntitySearchService searchService,
       @Nonnull @Value("${siblings.enabled:true}") Boolean isEnabled) {
     _entityRegistry = entityRegistry;

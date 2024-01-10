@@ -4,6 +4,7 @@ import static com.linkedin.metadata.search.utils.QueryUtils.*;
 import static com.linkedin.metadata.search.utils.SearchUtils.*;
 
 import com.datahub.authentication.Authentication;
+import com.datahub.plugins.auth.authorization.Authorizer;
 import com.datahub.util.RecordUtils;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -18,7 +19,6 @@ import com.linkedin.data.template.StringArray;
 import com.linkedin.entity.Entity;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
-import com.linkedin.entity.client.RestliEntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.aspect.EnvelopedAspectArray;
@@ -31,7 +31,6 @@ import com.linkedin.metadata.entity.DeleteEntityService;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.IngestResult;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
-import com.linkedin.metadata.entity.ebean.batch.MCPUpsertBatchItem;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.graph.LineageDirection;
 import com.linkedin.metadata.query.AutoCompleteResult;
@@ -48,6 +47,7 @@ import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.client.CachingEntitySearchService;
+import com.linkedin.metadata.service.RollbackService;
 import com.linkedin.metadata.shared.ValidationUtils;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
@@ -85,15 +85,15 @@ public class JavaEntityClient implements EntityClient {
 
   private final Clock _clock = Clock.systemUTC();
 
-  private final EntityService<MCPUpsertBatchItem> _entityService;
+  private final EntityService<?> _entityService;
   private final DeleteEntityService _deleteEntityService;
   private final EntitySearchService _entitySearchService;
   private final CachingEntitySearchService _cachingEntitySearchService;
   private final SearchService _searchService;
   private final LineageSearchService _lineageSearchService;
   private final TimeseriesAspectService _timeseriesAspectService;
+  private final RollbackService rollbackService;
   private final EventProducer _eventProducer;
-  private final RestliEntityClient _restliEntityClient;
 
   @Nullable
   public EntityResponse getV2(
@@ -713,11 +713,7 @@ public class JavaEntityClient implements EntityClient {
         Stream.concat(Stream.of(metadataChangeProposal), additionalChanges.stream());
     AspectsBatch batch =
         AspectsBatchImpl.builder()
-            .mcps(
-                proposalStream.collect(Collectors.toList()),
-                auditStamp,
-                _entityService.getEntityRegistry(),
-                this)
+            .mcps(proposalStream.collect(Collectors.toList()), auditStamp, _entityService)
             .build();
 
     IngestResult one = _entityService.ingestProposal(batch, async).stream().findFirst().get();
@@ -780,9 +776,10 @@ public class JavaEntityClient implements EntityClient {
   }
 
   @Override
-  public void rollbackIngestion(@Nonnull String runId, @Nonnull Authentication authentication)
+  public void rollbackIngestion(
+      @Nonnull String runId, @Nonnull Authorizer authorizer, @Nonnull Authentication authentication)
       throws Exception {
-    _restliEntityClient.rollbackIngestion(runId, authentication);
+    rollbackService.rollbackIngestion(runId, false, true, authorizer, authentication);
   }
 
   private void tryIndexRunId(Urn entityUrn, @Nullable SystemMetadata systemMetadata) {

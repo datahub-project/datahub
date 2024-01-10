@@ -5,6 +5,7 @@ import io.swagger.v3.oas.annotations.OpenAPIDefinition;
 import io.swagger.v3.oas.annotations.info.Info;
 import io.swagger.v3.oas.annotations.servers.Server;
 import java.util.List;
+import java.util.Set;
 import org.springdoc.core.GroupedOpenApi;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -24,6 +25,9 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 @Configuration
 public class SpringWebConfig implements WebMvcConfigurer {
 
+  public static final Set<String> OPENAPI_PACKAGES =
+      Set.of("io.datahubproject.openapi.operations", "io.datahubproject.openapi.health");
+
   @Override
   public void configureMessageConverters(List<HttpMessageConverter<?>> messageConverters) {
     messageConverters.add(new StringHttpMessageConverter());
@@ -41,16 +45,22 @@ public class SpringWebConfig implements WebMvcConfigurer {
   public GroupedOpenApi defaultOpenApiGroup() {
     return GroupedOpenApi.builder()
         .group("default")
-        .packagesToExclude(
-            "io.datahubproject.openapi.operations", "io.datahubproject.openapi.health")
+        .packagesToExclude(OPENAPI_PACKAGES.toArray(String[]::new))
         .build();
   }
 
   @Bean
   public GroupedOpenApi operationsOpenApiGroup() {
+    Set<String> groupPackages =
+        Set.of("io.datahubproject.openapi.operations", "io.datahubproject.openapi.health");
+
     return GroupedOpenApi.builder()
         .group("operations")
-        .packagesToScan("io.datahubproject.openapi.operations", "io.datahubproject.openapi.health")
+        .packagesToScan(groupPackages.toArray(String[]::new))
+        .packagesToExclude(
+            OPENAPI_PACKAGES.stream()
+                .filter(pkg -> !groupPackages.contains(pkg))
+                .toArray(String[]::new))
         .build();
   }
 }

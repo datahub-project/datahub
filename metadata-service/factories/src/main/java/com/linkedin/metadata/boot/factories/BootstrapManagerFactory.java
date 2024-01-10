@@ -54,7 +54,7 @@ public class BootstrapManagerFactory {
 
   @Autowired
   @Qualifier("entityService")
-  private EntityService _entityService;
+  private EntityService<?> _entityService;
 
   @Autowired
   @Qualifier("entityRegistry")

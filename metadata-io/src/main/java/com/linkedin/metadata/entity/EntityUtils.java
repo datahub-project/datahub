@@ -60,17 +60,11 @@ public class EntityUtils {
 
   public static void ingestChangeProposals(
       @Nonnull List<MetadataChangeProposal> changes,
-      @Nonnull EntityService entityService,
+      @Nonnull EntityService<?> entityService,
       @Nonnull Urn actor,
       @Nonnull Boolean async) {
     entityService.ingestProposal(
-        AspectsBatchImpl.builder()
-            .mcps(
-                changes,
-                getAuditStamp(actor),
-                entityService.getEntityRegistry(),
-                entityService.getSystemEntityClient())
-            .build(),
+        AspectsBatchImpl.builder().mcps(changes, getAuditStamp(actor), entityService).build(),
         async);
   }
 
@@ -87,7 +81,7 @@ public class EntityUtils {
   public static RecordTemplate getAspectFromEntity(
       String entityUrn,
       String aspectName,
-      EntityService entityService,
+      EntityService<?> entityService,
       RecordTemplate defaultValue) {
     Urn urn = getUrnFromString(entityUrn);
     if (urn == null) {

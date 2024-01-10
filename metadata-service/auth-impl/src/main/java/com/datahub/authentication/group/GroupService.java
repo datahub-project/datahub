@@ -28,6 +28,9 @@ import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
+import com.linkedin.r2.RemoteInvocationException;
+import java.net.URISyntaxException;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -175,6 +178,17 @@ public class GroupService {
     userUrnList.forEach(userUrn -> addUserToNativeGroup(userUrn, groupUrn, authentication));
   }
 
+  public List<Urn> getGroupsForUser(
+      @Nonnull final Urn userUrn, @Nonnull final Authentication authentication) throws Exception {
+    final NativeGroupMembership nativeGroupMembership =
+        getExistingNativeGroupMembership(userUrn, authentication);
+    final GroupMembership groupMembership = getExistingGroupMembership(userUrn, authentication);
+    final List<Urn> allGroups = new ArrayList<>();
+    allGroups.addAll(nativeGroupMembership.getNativeGroups());
+    allGroups.addAll(groupMembership.getGroups());
+    return allGroups;
+  }
+
   NativeGroupMembership getExistingNativeGroupMembership(
       @Nonnull final Urn userUrn, final Authentication authentication) throws Exception {
     final EntityResponse entityResponse =
@@ -186,7 +200,7 @@ public class GroupService {
                 authentication)
             .get(userUrn);
 
-    NativeGroupMembership nativeGroupMembership;
+    final NativeGroupMembership nativeGroupMembership;
     if (entityResponse == null
         || !entityResponse.getAspects().containsKey(NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME)) {
       // If the user doesn't have the NativeGroupMembership aspect, create one.
@@ -202,6 +216,32 @@ public class GroupService {
                   .data());
     }
     return nativeGroupMembership;
+  }
+
+  GroupMembership getExistingGroupMembership(
+      @Nonnull final Urn userUrn, @Nonnull final Authentication authentication)
+      throws RemoteInvocationException, URISyntaxException {
+    final EntityResponse entityResponse =
+        _entityClient
+            .batchGetV2(
+                CORP_USER_ENTITY_NAME,
+                Collections.singleton(userUrn),
+                Collections.singleton(GROUP_MEMBERSHIP_ASPECT_NAME),
+                authentication)
+            .get(userUrn);
+
+    final GroupMembership groupMembership;
+    if (entityResponse == null
+        || !entityResponse.getAspects().containsKey(GROUP_MEMBERSHIP_ASPECT_NAME)) {
+      // If the user doesn't have the GroupMembership aspect, create one.
+      groupMembership = new GroupMembership();
+      groupMembership.setGroups(new UrnArray());
+    } else {
+      groupMembership =
+          new GroupMembership(
+              entityResponse.getAspects().get(GROUP_MEMBERSHIP_ASPECT_NAME).getValue().data());
+    }
+    return groupMembership;
   }
 
   String createGroupInfo(

@@ -19,7 +19,6 @@ import com.linkedin.metadata.entity.EntityUtils;
 import com.linkedin.metadata.entity.validation.ValidationUtils;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
-import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
@@ -66,12 +65,12 @@ public class MCPUpsertBatchItem extends UpsertItem {
   public void applyMutationHooks(
       @Nullable RecordTemplate oldAspectValue,
       @Nullable SystemMetadata oldSystemMetadata,
-      @Nonnull EntityRegistry entityRegistry,
       @Nonnull AspectRetriever aspectRetriever) {
     // add audit stamp/system meta if needed
     for (MutationHook mutationHook :
-        entityRegistry.getMutationHooks(
-            getChangeType(), entitySpec.getName(), aspectSpec.getName())) {
+        aspectRetriever
+            .getEntityRegistry()
+            .getMutationHooks(getChangeType(), entitySpec.getName(), aspectSpec.getName())) {
       mutationHook.applyMutation(
           getChangeType(),
           entitySpec,
@@ -99,14 +98,14 @@ public class MCPUpsertBatchItem extends UpsertItem {
 
   @Override
   public void validatePreCommit(
-      @Nullable RecordTemplate previous,
-      @Nonnull EntityRegistry entityRegistry,
-      @Nonnull AspectRetriever aspectRetriever)
+      @Nullable RecordTemplate previous, @Nonnull AspectRetriever aspectRetriever)
       throws AspectValidationException {
 
     for (AspectPayloadValidator validator :
-        entityRegistry.getAspectPayloadValidators(
-            getChangeType(), entitySpec.getName(), aspectSpec.getName())) {
+        aspectRetriever
+            .getEntityRegistry()
+            .getAspectPayloadValidators(
+                getChangeType(), entitySpec.getName(), aspectSpec.getName())) {
       validator.validatePreCommit(
           getChangeType(), urn, getAspectSpec(), previous, this.aspect, aspectRetriever);
     }
@@ -125,12 +124,11 @@ public class MCPUpsertBatchItem extends UpsertItem {
     }
 
     @SneakyThrows
-    public MCPUpsertBatchItem build(
-        EntityRegistry entityRegistry, AspectRetriever aspectRetriever) {
-      EntityUtils.validateUrn(entityRegistry, this.urn);
+    public MCPUpsertBatchItem build(AspectRetriever aspectRetriever) {
+      EntityUtils.validateUrn(aspectRetriever.getEntityRegistry(), this.urn);
       log.debug("entity type = {}", this.urn.getEntityType());
 
-      entitySpec(entityRegistry.getEntitySpec(this.urn.getEntityType()));
+      entitySpec(aspectRetriever.getEntityRegistry().getEntitySpec(this.urn.getEntityType()));
       log.debug("entity spec = {}", this.entitySpec);
 
       aspectSpec(ValidationUtils.validate(this.entitySpec, this.aspectName));
@@ -138,7 +136,6 @@ public class MCPUpsertBatchItem extends UpsertItem {
 
       ValidationUtils.validateRecordTemplate(
           ChangeType.UPSERT,
-          entityRegistry,
           this.entitySpec,
           this.aspectSpec,
           this.urn,
@@ -157,17 +154,15 @@ public class MCPUpsertBatchItem extends UpsertItem {
     }
 
     public static MCPUpsertBatchItem build(
-        MetadataChangeProposal mcp,
-        AuditStamp auditStamp,
-        EntityRegistry entityRegistry,
-        AspectRetriever aspectRetriever) {
+        MetadataChangeProposal mcp, AuditStamp auditStamp, AspectRetriever aspectRetriever) {
       if (!mcp.getChangeType().equals(ChangeType.UPSERT)) {
         throw new IllegalArgumentException(
             "Invalid MCP, this class only supports change type of UPSERT.");
       }
 
       log.debug("entity type = {}", mcp.getEntityType());
-      EntitySpec entitySpec = entityRegistry.getEntitySpec(mcp.getEntityType());
+      EntitySpec entitySpec =
+          aspectRetriever.getEntityRegistry().getEntitySpec(mcp.getEntityType());
       AspectSpec aspectSpec = validateAspect(mcp, entitySpec);
 
       if (!isValidChangeType(ChangeType.UPSERT, aspectSpec)) {
@@ -191,7 +186,7 @@ public class MCPUpsertBatchItem extends UpsertItem {
           .metadataChangeProposal(mcp)
           .auditStamp(auditStamp)
           .aspect(convertToRecordTemplate(mcp, aspectSpec))
-          .build(entityRegistry, aspectRetriever);
+          .build(aspectRetriever);
     }
 
     private MCPUpsertBatchItemBuilder entitySpec(EntitySpec entitySpec) {

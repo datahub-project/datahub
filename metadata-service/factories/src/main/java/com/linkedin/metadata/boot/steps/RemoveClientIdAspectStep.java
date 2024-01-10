@@ -13,7 +13,7 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class RemoveClientIdAspectStep implements BootstrapStep {
 
-  private final EntityService _entityService;
+  private final EntityService<?> _entityService;
 
   private static final String UPGRADE_ID = "remove-unknown-aspects";
   private static final String INVALID_TELEMETRY_ASPECT_NAME = "clientId";

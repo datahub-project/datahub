@@ -1,5 +1,7 @@
 package com.linkedin.metadata.search.utils;
 
+import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder.*;
 import static com.linkedin.metadata.search.elasticsearch.query.request.SearchFieldConfig.KEYWORD_FIELDS;
 import static com.linkedin.metadata.search.elasticsearch.query.request.SearchFieldConfig.PATH_HIERARCHY_FIELDS;
 import static com.linkedin.metadata.search.utils.SearchUtils.isUrn;
@@ -8,6 +10,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.SearchableFieldSpec;
+import com.linkedin.metadata.models.StructuredPropertyUtils;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
@@ -97,6 +100,7 @@ public class ESUtils {
         }
       };
 
+  // TODO - This has been expanded for has* in another branch
   public static final Set<String> BOOLEAN_FIELDS = ImmutableSet.of("removed");
 
   /*
@@ -203,6 +207,9 @@ public class ESUtils {
   public static QueryBuilder getQueryBuilderFromCriterion(
       @Nonnull final Criterion criterion, boolean isTimeseries) {
     final String fieldName = toFacetField(criterion.getField());
+    if (fieldName.startsWith(STRUCTURED_PROPERTY_MAPPING_FIELD)) {
+      criterion.setField(fieldName);
+    }
 
     /*
      * Check the field-name for a "sibling" field, or one which should ALWAYS
@@ -335,7 +342,15 @@ public class ESUtils {
 
   @Nonnull
   public static String toFacetField(@Nonnull final String filterField) {
-    return filterField.replace(ESUtils.KEYWORD_SUFFIX, "");
+    String fieldName = filterField;
+    if (fieldName.startsWith(STRUCTURED_PROPERTY_MAPPING_FIELD + ".")) {
+      fieldName =
+          STRUCTURED_PROPERTY_MAPPING_FIELD
+              + "."
+              + StructuredPropertyUtils.sanitizeStructuredPropertyFQN(
+                  fieldName.substring(STRUCTURED_PROPERTY_MAPPING_FIELD.length() + 1));
+    }
+    return fieldName.replace(ESUtils.KEYWORD_SUFFIX, "");
   }
 
   @Nonnull

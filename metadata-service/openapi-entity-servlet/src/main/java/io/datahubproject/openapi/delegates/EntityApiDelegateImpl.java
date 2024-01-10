@@ -66,7 +66,7 @@ import org.springframework.http.ResponseEntity;
 
 public class EntityApiDelegateImpl<I, O, S> {
   private final EntityRegistry _entityRegistry;
-  private final EntityService _entityService;
+  private final EntityService<?> _entityService;
   private final SearchService _searchService;
   private final EntitiesController _v1Controller;
   private final AuthorizerChain _authorizationChain;
@@ -79,7 +79,7 @@ public class EntityApiDelegateImpl<I, O, S> {
   private final StackWalker walker = StackWalker.getInstance();
 
   public EntityApiDelegateImpl(
-      EntityService entityService,
+      EntityService<?> entityService,
       SearchService searchService,
       EntitiesController entitiesController,
       boolean restApiAuthorizationEnabled,

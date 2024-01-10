@@ -1,3 +1,6 @@
+# The base URL where DataHub is accessible to users.
+baseUrl: ${DATAHUB_BASE_URL:http://localhost:9002}
+
 # App Layer
 authentication:
   # Enable if you want all requests to the Metadata Service to be authenticated. Disabled by default.
@@ -112,8 +115,10 @@ visualConfig:
     # overhaul coming.
     queriesTabResultSize: ${REACT_APP_QUERIES_TAB_RESULT_SIZE:5}
   assets:
-    logoUrl: ${REACT_APP_LOGO_URL:/assets/platforms/datahublogo.png}
-    faviconUrl: ${REACT_APP_FAVICON_URL:/assets/favicon.ico}
+    logoUrl: ${REACT_APP_LOGO_URL:/assets/logos/datahub-logo.png}
+    faviconUrl: ${REACT_APP_FAVICON_URL:/assets/icons/favicon.ico}
+  appTitle: ${REACT_APP_TITLE:}
+  hideGlossary: ${REACT_APP_HIDE_GLOSSARY:false}
   entityProfile:
     # we only support default tab for domains right now. In order to implement for other entities, update React code
     domainDefaultTab: ${DOMAIN_DEFAULT_TAB:} # set to DOCUMENTATION_TAB to show documentation tab first
@@ -304,6 +309,11 @@ systemUpdate:
   backOffFactor: ${BOOTSTRAP_SYSTEM_UPDATE_BACK_OFF_FACTOR:2} # Multiplicative factor for back off, default values will result in waiting 5min 15s
   waitForSystemUpdate: ${BOOTSTRAP_SYSTEM_UPDATE_WAIT_FOR_SYSTEM_UPDATE:true}
 
+structuredProperties:
+  enabled: ${ENABLE_STRUCTURED_PROPERTIES_HOOK:true} # applies structured properties mappings
+  writeEnabled: ${ENABLE_STRUCTURED_PROPERTIES_WRITE:true} # write structured property values
+  systemUpdateEnabled: ${ENABLE_STRUCTURED_PROPERTIES_SYSTEM_UPDATE:false} # applies structured property mappings in system update job
+
 healthCheck:
   cacheDurationSeconds: ${HEALTH_CHECK_CACHE_DURATION_SECONDS:5}
 
@@ -323,6 +333,7 @@ featureFlags:
     uiEnabled: ${PRE_PROCESS_HOOKS_UI_ENABLED:true} # Circumvents Kafka for processing index updates for UI changes sourced from GraphQL to avoid processing delays
   showAcrylInfo: ${SHOW_ACRYL_INFO:false} # Show different CTAs within DataHub around moving to Managed DataHub. Set to true for the demo site.
   nestedDomainsEnabled: ${NESTED_DOMAINS_ENABLED:true} # Enables the nested Domains feature that allows users to have sub-Domains. If this is off, Domains appear "flat" again
+  schemaFieldEntityFetchEnabled: ${SCHEMA_FIELD_ENTITY_FETCH_ENABLED:true} # Enables fetching for schema field entities from the database when we hydrate them on schema fields
 
 entityChangeEvents:
   enabled: ${ENABLE_ENTITY_CHANGE_EVENTS_HOOK:true}
@@ -374,5 +385,12 @@ cache:
           status: 20
           corpUserCredentials: 20
           corpUserSettings: 20
+        structuredProperty:
+          propertyDefinition: 86400 # 1 day
+          structuredPropertyKey: 86400 # 1 day
 
 springdoc.api-docs.groups.enabled: true
+
+forms:
+  hook:
+    enabled: {$FORMS_HOOK_ENABLED:true}

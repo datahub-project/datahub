@@ -768,6 +768,7 @@ module.exports = {
     // "docs/how/add-user-data",
     // "docs/_feature-guide-template"
     // - "metadata-service/services/README"
+    // "metadata-ingestion/examples/structured_properties/README"
     // ],
   ],
 };

@@ -45,7 +45,7 @@ public class PlatformEventProcessor {
       containerFactory = "kafkaEventConsumer")
   public void consume(final ConsumerRecord<String, GenericRecord> consumerRecord) {
 
-    log.info("Consuming a Platform Event");
+    log.debug("Consuming a Platform Event");
 
     kafkaLagStats.update(System.currentTimeMillis() - consumerRecord.timestamp());
     final GenericRecord record = consumerRecord.value();

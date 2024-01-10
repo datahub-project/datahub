@@ -6,6 +6,9 @@
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.glossary.GlossaryNodeInfo": {
+                        "customProperties": {
+                            "is_confidential": "True"
+                        },
                         "definition": "A set of terms related to Data Classification",
                         "name": "Classification"
                     }

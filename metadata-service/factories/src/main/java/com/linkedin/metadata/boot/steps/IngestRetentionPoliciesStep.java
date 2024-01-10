@@ -28,8 +28,8 @@ import org.springframework.core.io.ClassPathResource;
 @RequiredArgsConstructor
 public class IngestRetentionPoliciesStep implements BootstrapStep {
 
-  private final RetentionService _retentionService;
-  private final EntityService _entityService;
+  private final RetentionService<?> _retentionService;
+  private final EntityService<?> _entityService;
   private final boolean _enableRetention;
   private final boolean _applyOnBootstrap;
   private final String pluginPath;

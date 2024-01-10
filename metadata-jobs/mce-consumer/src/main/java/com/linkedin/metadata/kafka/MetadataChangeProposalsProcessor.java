@@ -2,8 +2,8 @@ package com.linkedin.metadata.kafka;
 
 import com.codahale.metrics.Histogram;
 import com.codahale.metrics.MetricRegistry;
-import com.linkedin.entity.client.SystemRestliEntityClient;
-import com.linkedin.gms.factory.entity.RestliEntityClientFactory;
+import com.linkedin.entity.client.SystemEntityClient;
+import com.linkedin.gms.factory.entityclient.EntityClientFactory;
 import com.linkedin.gms.factory.kafka.DataHubKafkaProducerFactory;
 import com.linkedin.gms.factory.kafka.KafkaEventConsumerFactory;
 import com.linkedin.metadata.EventUtils;
@@ -32,7 +32,7 @@ import org.springframework.stereotype.Component;
 @Slf4j
 @Component
 @Import({
-  RestliEntityClientFactory.class,
+  EntityClientFactory.class,
   KafkaEventConsumerFactory.class,
   DataHubKafkaProducerFactory.class
 })
@@ -41,7 +41,7 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class MetadataChangeProposalsProcessor {
 
-  private final SystemRestliEntityClient entityClient;
+  private final SystemEntityClient entityClient;
   private final Producer<String, IndexedRecord> kafkaProducer;
 
   private final Histogram kafkaLagStats =

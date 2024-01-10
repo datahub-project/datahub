@@ -1,20 +1,9 @@
 package com.linkedin.metadata.entity;
 
-import static com.linkedin.metadata.Constants.APP_SOURCE;
-import static com.linkedin.metadata.Constants.ASPECT_LATEST_VERSION;
-import static com.linkedin.metadata.Constants.BROWSE_PATHS_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.BROWSE_PATHS_V2_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.DATA_PLATFORM_INSTANCE_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.DEFAULT_RUN_ID;
-import static com.linkedin.metadata.Constants.FORCE_INDEXING_KEY;
-import static com.linkedin.metadata.Constants.STATUS_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.SYSTEM_ACTOR;
-import static com.linkedin.metadata.Constants.UI_SOURCE;
-import static com.linkedin.metadata.search.utils.BrowsePathUtils.buildDataPlatformUrn;
-import static com.linkedin.metadata.search.utils.BrowsePathUtils.getDefaultBrowsePath;
-import static com.linkedin.metadata.utils.PegasusUtils.constructMCL;
-import static com.linkedin.metadata.utils.PegasusUtils.getDataTemplateClassFromSchema;
-import static com.linkedin.metadata.utils.PegasusUtils.urnToEntityName;
+import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.search.utils.BrowsePathUtils.*;
+import static com.linkedin.metadata.utils.GenericRecordUtils.entityResponseToAspectMap;
+import static com.linkedin.metadata.utils.PegasusUtils.*;
 
 import com.codahale.metrics.Timer;
 import com.datahub.util.RecordUtils;
@@ -46,7 +35,6 @@ import com.linkedin.entity.Entity;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
-import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.Aspect;
@@ -84,6 +72,7 @@ import com.linkedin.mxe.MetadataAuditOperation;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
+import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.util.Pair;
 import io.ebean.PagedList;
 import io.ebean.Transaction;
@@ -165,14 +154,12 @@ public class EntityServiceImpl implements EntityService<MCPUpsertBatchItem> {
 
   private final Integer ebeanMaxTransactionRetry;
 
-  private SystemEntityClient systemEntityClient;
-
   public EntityServiceImpl(
       @Nonnull final AspectDao aspectDao,
       @Nonnull final EventProducer producer,
       @Nonnull final EntityRegistry entityRegistry,
       final boolean alwaysEmitChangeLog,
-      final UpdateIndicesService updateIndicesService,
+      @Nullable final UpdateIndicesService updateIndicesService,
       final PreProcessHooks preProcessHooks) {
     this(
         aspectDao,
@@ -189,9 +176,9 @@ public class EntityServiceImpl implements EntityService<MCPUpsertBatchItem> {
       @Nonnull final EventProducer producer,
       @Nonnull final EntityRegistry entityRegistry,
       final boolean alwaysEmitChangeLog,
-      final UpdateIndicesService updateIndicesService,
+      @Nullable final UpdateIndicesService updateIndicesService,
       final PreProcessHooks preProcessHooks,
-      final Integer retry) {
+      @Nullable final Integer retry) {
 
     _aspectDao = aspectDao;
     _producer = producer;
@@ -199,19 +186,11 @@ public class EntityServiceImpl implements EntityService<MCPUpsertBatchItem> {
     _entityToValidAspects = buildEntityToValidAspects(entityRegistry);
     _alwaysEmitChangeLog = alwaysEmitChangeLog;
     _updateIndicesService = updateIndicesService;
+    if (_updateIndicesService != null) {
+      _updateIndicesService.initializeAspectRetriever(this);
+    }
     _preProcessHooks = preProcessHooks;
     ebeanMaxTransactionRetry = retry != null ? retry : DEFAULT_MAX_TRANSACTION_RETRY;
-  }
-
-  @Override
-  public void setSystemEntityClient(SystemEntityClient systemEntityClient) {
-    this.systemEntityClient = systemEntityClient;
-    this._updateIndicesService.setSystemEntityClient(systemEntityClient);
-  }
-
-  @Override
-  public SystemEntityClient getSystemEntityClient() {
-    return this.systemEntityClient;
   }
 
   @Override
@@ -633,7 +612,7 @@ public class EntityServiceImpl implements EntityService<MCPUpsertBatchItem> {
                         .aspect(pair.getValue())
                         .systemMetadata(systemMetadata)
                         .auditStamp(auditStamp)
-                        .build(_entityRegistry, systemEntityClient))
+                        .build(this))
             .collect(Collectors.toList());
     return ingestAspects(AspectsBatchImpl.builder().items(items).build(), true, true);
   }
@@ -692,7 +671,7 @@ public class EntityServiceImpl implements EntityService<MCPUpsertBatchItem> {
           // 1. Convert patches to full upserts
           // 2. Run any entity/aspect level hooks
           Pair<Map<String, Set<String>>, List<UpsertItem>> updatedItems =
-              aspectsBatch.toUpsertBatchItems(latestAspects, _entityRegistry, systemEntityClient);
+              aspectsBatch.toUpsertBatchItems(latestAspects, this);
 
           // Fetch additional information if needed
           final Map<String, Map<String, SystemAspect>> updatedLatestAspects;
@@ -724,8 +703,7 @@ public class EntityServiceImpl implements EntityService<MCPUpsertBatchItem> {
                           previousAspect == null
                               ? null
                               : previousAspect.getRecordTemplate(_entityRegistry),
-                          _entityRegistry,
-                          systemEntityClient);
+                          this);
                     } catch (AspectValidationException e) {
                       throw new RuntimeException(e);
                     }
@@ -933,7 +911,7 @@ public class EntityServiceImpl implements EntityService<MCPUpsertBatchItem> {
                     .aspect(newValue)
                     .systemMetadata(systemMetadata)
                     .auditStamp(auditStamp)
-                    .build(_entityRegistry, systemEntityClient))
+                    .build(this))
             .build();
     List<UpdateAspectResult> ingested = ingestAspects(aspectsBatch, true, false);
 
@@ -953,10 +931,7 @@ public class EntityServiceImpl implements EntityService<MCPUpsertBatchItem> {
   public IngestResult ingestProposal(
       MetadataChangeProposal proposal, AuditStamp auditStamp, final boolean async) {
     return ingestProposal(
-            AspectsBatchImpl.builder()
-                .mcps(List.of(proposal), auditStamp, getEntityRegistry(), systemEntityClient)
-                .build(),
-            async)
+            AspectsBatchImpl.builder().mcps(List.of(proposal), auditStamp, this).build(), async)
         .stream()
         .findFirst()
         .get();
@@ -1544,7 +1519,7 @@ public class EntityServiceImpl implements EntityService<MCPUpsertBatchItem> {
   @Nonnull
   protected Map<Urn, List<UnionTemplate>> getLatestAspectUnions(
       @Nonnull final Set<Urn> urns, @Nonnull final Set<String> aspectNames) {
-    return getLatestAspects(urns, aspectNames).entrySet().stream()
+    return this.getLatestAspects(urns, aspectNames).entrySet().stream()
         .collect(
             Collectors.toMap(
                 Map.Entry::getKey,
@@ -1693,7 +1668,7 @@ public class EntityServiceImpl implements EntityService<MCPUpsertBatchItem> {
                                 .aspect(pair.getValue())
                                 .auditStamp(auditStamp)
                                 .systemMetadata(systemMetadata)
-                                .build(_entityRegistry, systemEntityClient))
+                                .build(this))
                     .collect(Collectors.toList()))
             .build();
 
@@ -1794,6 +1769,7 @@ public class EntityServiceImpl implements EntityService<MCPUpsertBatchItem> {
   }
 
   @Override
+  @Nonnull
   public EntityRegistry getEntityRegistry() {
     return _entityRegistry;
   }
@@ -2466,5 +2442,13 @@ public class EntityServiceImpl implements EntityService<MCPUpsertBatchItem> {
     final List<RelationshipFieldSpec> relationshipFieldSpecs =
         aspectSpec.getRelationshipFieldSpecs();
     return relationshipFieldSpecs.stream().anyMatch(RelationshipFieldSpec::isLineageRelationship);
+  }
+
+  @Nonnull
+  @Override
+  public Map<Urn, Map<String, com.linkedin.entity.Aspect>> getLatestAspectObjects(
+      Set<Urn> urns, Set<String> aspectNames) throws RemoteInvocationException, URISyntaxException {
+    String entityName = urns.stream().findFirst().map(Urn::getEntityType).get();
+    return entityResponseToAspectMap(getEntitiesV2(entityName, urns, aspectNames));
   }
 }

@@ -27,6 +27,13 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class PluginFactory {
 
+  private static final String[] VALIDATOR_PACKAGES = {
+    "com.linkedin.metadata.aspect.plugins.validation", "com.linkedin.metadata.aspect.validation"
+  };
+  private static final String[] HOOK_PACKAGES = {
+    "com.linkedin.metadata.aspect.plugins.hooks", "com.linkedin.metadata.aspect.hooks"
+  };
+
   public static PluginFactory withCustomClasspath(
       @Nullable PluginConfiguration pluginConfiguration, @Nonnull List<ClassLoader> classLoaders) {
     return new PluginFactory(pluginConfiguration, classLoaders);
@@ -178,7 +185,7 @@ public class PluginFactory {
             build(
                 AspectPayloadValidator.class,
                 pluginConfiguration.getAspectPayloadValidators(),
-                "com.linkedin.metadata.aspect.plugins.validation"));
+                VALIDATOR_PACKAGES));
   }
 
   private List<MutationHook> buildMutationHooks(@Nullable PluginConfiguration pluginConfiguration) {
@@ -188,7 +195,8 @@ public class PluginFactory {
             build(
                 MutationHook.class,
                 pluginConfiguration.getMutationHooks(),
-                "com.linkedin.metadata.aspect.plugins.hooks"));
+                "com.linkedin.metadata.aspect.plugins.hooks",
+                "com.linkedin.metadata.aspect.hooks"));
   }
 
   private List<MCLSideEffect> buildMCLSideEffects(
@@ -196,10 +204,7 @@ public class PluginFactory {
     return pluginConfiguration == null
         ? List.of()
         : applyDisable(
-            build(
-                MCLSideEffect.class,
-                pluginConfiguration.getMclSideEffects(),
-                "com.linkedin.metadata.aspect.plugins.hooks"));
+            build(MCLSideEffect.class, pluginConfiguration.getMclSideEffects(), HOOK_PACKAGES));
   }
 
   private List<MCPSideEffect> buildMCPSideEffects(
@@ -207,10 +212,7 @@ public class PluginFactory {
     return pluginConfiguration == null
         ? List.of()
         : applyDisable(
-            build(
-                MCPSideEffect.class,
-                pluginConfiguration.getMcpSideEffects(),
-                "com.linkedin.metadata.aspect.plugins.hooks"));
+            build(MCPSideEffect.class, pluginConfiguration.getMcpSideEffects(), HOOK_PACKAGES));
   }
 
   private <T> List<T> build(
@@ -226,6 +228,11 @@ public class PluginFactory {
               config -> {
                 try {
                   ClassInfo classInfo = classMap.get(config.getClassName());
+                  if (classInfo == null) {
+                    throw new IllegalStateException(
+                        String.format(
+                            "The following class cannot be loaded: %s", config.getClassName()));
+                  }
                   MethodInfo constructorMethod = classInfo.getConstructorInfo().get(0);
                   return Stream.of(
                       (T) constructorMethod.loadClassAndGetConstructor().newInstance(config));
