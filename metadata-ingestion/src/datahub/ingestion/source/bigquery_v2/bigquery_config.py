@@ -80,6 +80,14 @@ class BigQueryConnectionConfig(ConfigModel):
         else:
             return GCPLoggingClient(**client_options)
 
+    def get_sql_alchemy_url(self) -> str:
+        if self.project_on_behalf:
+            return f"bigquery://{self.project_on_behalf}"
+        # When project_id is not set, we will attempt to detect the project ID
+        # based on the credentials or environment variables.
+        # See https://github.com/mxmzdlv/pybigquery#authentication.
+        return "bigquery://"
+
 
 class BigQueryV2Config(
     BigQueryConnectionConfig,
@@ -355,14 +363,6 @@ class BigQueryV2Config(
 
     def get_table_pattern(self, pattern: List[str]) -> str:
         return "|".join(pattern) if pattern else ""
-
-    def get_sql_alchemy_url(self) -> str:
-        if self.project_on_behalf:
-            return f"bigquery://{self.project_on_behalf}"
-        # When project_id is not set, we will attempt to detect the project ID
-        # based on the credentials or environment variables.
-        # See https://github.com/mxmzdlv/pybigquery#authentication.
-        return "bigquery://"
 
     platform_instance_not_supported_for_bigquery = pydantic_removed_field(
         "platform_instance"
