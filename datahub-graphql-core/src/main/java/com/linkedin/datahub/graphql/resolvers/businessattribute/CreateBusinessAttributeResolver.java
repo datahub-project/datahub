@@ -47,12 +47,10 @@ public class CreateBusinessAttributeResolver implements DataFetcher<CompletableF
     public CompletableFuture<BusinessAttribute> get(DataFetchingEnvironment environment) throws Exception {
         final QueryContext context = environment.getContext();
         CreateBusinessAttributeInput input = bindArgument(environment.getArgument("input"), CreateBusinessAttributeInput.class);
-
+        if (!BusinessAttributeAuthorizationUtils.canCreateBusinessAttribute(context)) {
+            throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
+        }
         return CompletableFuture.supplyAsync(() -> {
-            if (!BusinessAttributeAuthorizationUtils.canCreateBusinessAttribute(context)) {
-                throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
-            }
-
             try {
                 final BusinessAttributeKey businessAttributeKey = new BusinessAttributeKey();
                 businessAttributeKey.setId(UUID.randomUUID().toString());
@@ -63,10 +61,10 @@ public class CreateBusinessAttributeResolver implements DataFetcher<CompletableF
                     throw new IllegalArgumentException("This Business Attribute already exists!");
                 }
 
-                if (BusinessAttributeUtils.hasNameConflict(input.getBusinessAttributeInfo().getName(), context, _entityClient)) {
+                if (BusinessAttributeUtils.hasNameConflict(input.getName(), context, _entityClient)) {
                     throw new DataHubGraphQLException(
                             String.format("\"%s\" already exists as Business Attribute. Please pick a unique name.",
-                                    input.getBusinessAttributeInfo().getName()), DataHubGraphQLErrorCode.CONFLICT);
+                                    input.getName()), DataHubGraphQLErrorCode.CONFLICT);
                 }
 
                 // Create the MCP
@@ -88,19 +86,20 @@ public class CreateBusinessAttributeResolver implements DataFetcher<CompletableF
             } catch (DataHubGraphQLException e) {
                 throw e;
             } catch (Exception e) {
-                log.error("Failed to create Business Attribute with name: {}: {}", input.getBusinessAttributeInfo().getName(), e.getMessage());
-                throw new RuntimeException(String.format("Failed to create Business Attribute with name: %s", input.getBusinessAttributeInfo().getName()), e);
+                log.error("Failed to create Business Attribute with name: {}: {}", input.getName(), e.getMessage());
+                throw new RuntimeException(String.format("Failed to create Business Attribute with name: %s", input.getName()), e);
             }
         });
     }
 
     private BusinessAttributeInfo mapBusinessAttributeInfo(CreateBusinessAttributeInput input, QueryContext context) {
         final BusinessAttributeInfo info = new BusinessAttributeInfo();
-        info.setFieldPath(input.getBusinessAttributeInfo().getName(), SetMode.DISALLOW_NULL);
-        info.setName(input.getBusinessAttributeInfo().getName(), SetMode.DISALLOW_NULL);
-        info.setDescription(input.getBusinessAttributeInfo().getDescription(), SetMode.IGNORE_NULL);
-        info.setType(BusinessAttributeUtils.mapSchemaFieldDataType(input.getBusinessAttributeInfo().getType()), SetMode.IGNORE_NULL);
+        info.setFieldPath(input.getName(), SetMode.DISALLOW_NULL);
+        info.setName(input.getName(), SetMode.DISALLOW_NULL);
+        info.setDescription(input.getDescription(), SetMode.IGNORE_NULL);
+        info.setType(BusinessAttributeUtils.mapSchemaFieldDataType(input.getType()), SetMode.IGNORE_NULL);
         info.setCreated(new AuditStamp().setActor(UrnUtils.getUrn(context.getActorUrn())).setTime(System.currentTimeMillis()));
+        info.setLastModified(new AuditStamp().setActor(UrnUtils.getUrn(context.getActorUrn())).setTime(System.currentTimeMillis()));
         return info;
     }
 

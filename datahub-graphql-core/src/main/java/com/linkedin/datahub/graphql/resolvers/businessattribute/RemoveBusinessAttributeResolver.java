@@ -38,12 +38,12 @@ public class RemoveBusinessAttributeResolver implements DataFetcher<CompletableF
         AddBusinessAttributeInput input = bindArgument(environment.getArgument("input"), AddBusinessAttributeInput.class);
         Urn businessAttributeUrn = UrnUtils.getUrn(input.getBusinessAttributeUrn());
         ResourceRefInput resourceRefInput = input.getResourceUrn();
-
+        //TODO: add authorization check
+        if (!_entityClient.exists(businessAttributeUrn, context.getAuthentication())) {
+            throw new RuntimeException(String.format("This urn does not exist: %s", businessAttributeUrn));
+        }
         return CompletableFuture.supplyAsync(() -> {
             try {
-                if (!_entityClient.exists(businessAttributeUrn, context.getAuthentication())) {
-                    throw new IllegalArgumentException("The Business Attribute provided dos not exist");
-                }
                 validateInputResource(resourceRefInput, context);
 
                 removeBusinessAttribute(resourceRefInput, context);

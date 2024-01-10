@@ -24,14 +24,14 @@ public class DeleteBusinessAttributeResolver implements DataFetcher<CompletableF
     public CompletableFuture<Boolean> get(DataFetchingEnvironment environment) throws Exception {
         final QueryContext context = environment.getContext();
         final Urn businessAttributeUrn = UrnUtils.getUrn(environment.getArgument("urn"));
+        if (!BusinessAttributeAuthorizationUtils.canManageBusinessAttribute(context)) {
+            throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
+        }
+        if (!_entityClient.exists(businessAttributeUrn, context.getAuthentication())) {
+            throw new RuntimeException(String.format("This urn does not exist: %s", businessAttributeUrn));
+        }
         return CompletableFuture.supplyAsync(() -> {
-            if (!BusinessAttributeAuthorizationUtils.canManageBusinessAttribute(context)) {
-                throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
-            }
             try {
-                if (!_entityClient.exists(businessAttributeUrn, context.getAuthentication())) {
-                    throw new IllegalArgumentException("The Business Attribute provided dos not exist");
-                }
                 _entityClient.deleteEntity(businessAttributeUrn, context.getAuthentication());
                 CompletableFuture.runAsync(() -> {
                     try {

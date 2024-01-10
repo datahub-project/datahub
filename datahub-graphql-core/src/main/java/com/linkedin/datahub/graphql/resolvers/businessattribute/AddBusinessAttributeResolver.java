@@ -30,26 +30,22 @@ import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.getFie
 @Slf4j
 @RequiredArgsConstructor
 public class AddBusinessAttributeResolver implements DataFetcher<CompletableFuture<Boolean>> {
-
     private final EntityClient _entityClient;
     private final EntityService _entityService;
-
     @Override
     public CompletableFuture<Boolean> get(DataFetchingEnvironment environment) throws Exception {
         final QueryContext context = environment.getContext();
         AddBusinessAttributeInput input = bindArgument(environment.getArgument("input"), AddBusinessAttributeInput.class);
         Urn businessAttributeUrn = UrnUtils.getUrn(input.getBusinessAttributeUrn());
         ResourceRefInput resourceRefInput = input.getResourceUrn();
-
+        //TODO: add authorization check
+        if (!_entityClient.exists(businessAttributeUrn, context.getAuthentication())) {
+            throw new RuntimeException(String.format("This urn does not exist: %s", businessAttributeUrn));
+        }
         return CompletableFuture.supplyAsync(() -> {
             try {
-                if (!_entityClient.exists(businessAttributeUrn, context.getAuthentication())) {
-                    throw new IllegalArgumentException("The Business Attribute provided dos not exist");
-                }
                 validateInputResource(resourceRefInput);
-
                 addBusinessAttribute(businessAttributeUrn, resourceRefInput, context);
-
                 return true;
             } catch (Exception e) {
                 throw new RuntimeException(String.format("Failed to add Business Attribute with urn %s to dataset with urn %s",

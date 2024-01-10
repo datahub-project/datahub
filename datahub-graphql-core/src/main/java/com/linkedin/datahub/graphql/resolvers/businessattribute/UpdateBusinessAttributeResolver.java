@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.resolvers.businessattribute;
 
 import com.datahub.authentication.Authentication;
 import com.linkedin.businessattribute.BusinessAttributeInfo;
+import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -44,11 +45,11 @@ public class UpdateBusinessAttributeResolver implements DataFetcher<CompletableF
         if (!BusinessAttributeAuthorizationUtils.canCreateBusinessAttribute(context)) {
             throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
         }
+        if (!_entityClient.exists(businessAttributeUrn, context.getAuthentication())) {
+            throw new RuntimeException(String.format("This urn does not exist: %s", businessAttributeUrn));
+        }
         return CompletableFuture.supplyAsync(() -> {
             try {
-                if (!_entityClient.exists(businessAttributeUrn, context.getAuthentication())) {
-                    throw new IllegalArgumentException("The Business Attribute provided dos not exist");
-                }
                 Urn updatedBusinessAttributeUrn = updateBusinessAttribute(input, businessAttributeUrn, context);
                 return BusinessAttributeMapper.map(
                         businessAttributeService.getBusinessAttributeEntityResponse(updatedBusinessAttributeUrn, context.getAuthentication()));
@@ -85,6 +86,7 @@ public class UpdateBusinessAttributeResolver implements DataFetcher<CompletableF
             if (Objects.nonNull(input.getType())) {
                 businessAttributeInfo.setType(BusinessAttributeUtils.mapSchemaFieldDataType(input.getType()));
             }
+            businessAttributeInfo.setLastModified(new AuditStamp().setActor(UrnUtils.getUrn(context.getActorUrn())).setTime(System.currentTimeMillis()));
             // 3. Write changes to GMS
             return UrnUtils.getUrn(_entityClient.ingestProposal(
                             AspectUtils.buildMetadataChangeProposal(

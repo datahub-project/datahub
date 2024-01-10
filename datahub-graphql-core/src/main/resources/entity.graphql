@@ -11375,28 +11375,21 @@ type BusinessAttributeInfo {
 Input required for creating a BusinessAttribute.
 """
 input CreateBusinessAttributeInput {
-    """
-    Input required for creating a BusinessAttributeInfo
-    """
-    businessAttributeInfo: BusinessAttributeInfoInput!
+     """
+        name of the business attribute
+        """
+        name: String!
 
-}
+        """
+        description of business attribute
+        """
+        description: String
 
-input BusinessAttributeInfoInput {
-    """
-    name of the business attribute
-    """
-    name: String!
+        """
+        Platform independent field type of the field
+        """
+        type: SchemaFieldDataType
 
-    """
-    description of business attribute
-    """
-    description: String
-
-    """
-    Platform independent field type of the field
-    """
-    type: SchemaFieldDataType
 }
 
 """
