@@ -1,3 +1,25 @@
+
+
+#### Advanced
+
+##### Multiple Databricks Workspaces
+
+If you have multiple databricks workspaces <b>that point to the same UC metastore</b>, our suggestion is to use separate recipes for ingesting Hive Metastore catalog and Unity Catalog information schema.
+
+To ingest Hive metastore information schema
+- Setup one ingestion recipe per workspace
+- Use platform instance equivalent to workspace name
+- Ingest only hive_metastore catalog in the recipe using config `catalogs: ["hive_metastore"]`
+
+To ingest Unity Catalog information schema
+- Disable hive metastore catalog ingestion in the recipe using config `include_hive_metastore: False`
+- Ideally, just ingest from one workspace
+- To ingest from both workspaces (e.g. if each workspace has different permissions and therefore restricted view of catalogs):
+    - Use same platform instance for all workspaces using same UC metastore
+    - Ingest usage from only one workspace (you lose usage from other workspace)
+    - Use filters to only ingest each catalog once, but shouldn’t be necessary
+
+
 #### Troubleshooting
 
 ##### No data lineage captured or missing lineage

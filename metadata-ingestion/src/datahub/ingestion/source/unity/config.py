@@ -126,7 +126,7 @@ class UnityCatalogSourceConfig(
         description="SQL Warehouse id, for running queries. If not set, will use the default warehouse.",
     )
     include_hive_metastore: bool = pydantic.Field(
-        default=False,
+        default=True,
         description="Whether to ingest legacy `hive_metastore` catalog. This requires executing queries on SQL warehouse.",
     )
     workspace_name: Optional[str] = pydantic.Field(
@@ -135,7 +135,7 @@ class UnityCatalogSourceConfig(
     )
 
     include_metastore: bool = pydantic.Field(
-        default=True,
+        default=False,
         description=(
             "Whether to ingest the workspace's metastore as a container and include it in all urns."
             " Changing this will affect the urns of all entities in the workspace."
