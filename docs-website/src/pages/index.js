@@ -44,10 +44,14 @@ function Home() {
         <div className="container">
           <div className="row row--centered">
             <iframe
-              style={{ display: 'block', margin: '0 auto', borderRadius: '0.4rem' }}
+              style={{
+                display: "block",
+                margin: "0 auto",
+                borderRadius: "0.4rem",
+              }}
               width="720"
               height="420"
-              src="https://www.youtube.com/embed/C8PHkTjSKoE" // should be replaced to the actual video 
+              src="https://www.youtube.com/embed/C8PHkTjSKoE" // should be replaced to the actual video
               frameBorder="0"
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
               allowFullScreen
