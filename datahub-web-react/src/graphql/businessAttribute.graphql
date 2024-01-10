@@ -26,6 +26,12 @@ fragment businessAttributeFields on BusinessAttribute {
         name
         description
         businessAttributeDataType: type
+        lastModified {
+            time
+        }
+        created {
+            time
+        }
         tags {
             tags {
                 tag {
