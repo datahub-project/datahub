@@ -831,7 +831,7 @@ def query_metadata(
     first: int,
     offset: int,
     qry_filter: str = "",
-):
+) -> dict:
     query = """{{
         {connection_name} (first:{first}, offset:{offset}, filter:{{{filter}}})
         {{

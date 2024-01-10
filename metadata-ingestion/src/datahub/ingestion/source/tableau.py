@@ -740,6 +740,7 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
             f"Query {connection_type} to get {count} objects with offset {offset}"
         )
         try:
+            assert self.server is not None
             query_data = query_metadata(
                 self.server, query, connection_type, count, offset, query_filter
             )
