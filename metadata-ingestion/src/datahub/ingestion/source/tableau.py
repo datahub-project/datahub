@@ -792,11 +792,7 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
             else:
                 raise RuntimeError(f"Query {connection_type} error: {errors}")
 
-        connection_object = (
-            query_data.get(c.DATA).get(connection_type, {})
-            if query_data.get(c.DATA)
-            else {}
-        )
+        connection_object = query_data.get(c.DATA, {}).get(connection_type, {})
 
         total_count = connection_object.get(c.TOTAL_COUNT, 0)
         has_next_page = connection_object.get(c.PAGE_INFO, {}).get(
