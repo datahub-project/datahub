@@ -11,14 +11,13 @@ function SlackSurvey() {
         const script = document.createElement('script');
         script.src = '//js.hsforms.net/forms/embed/v2.js';
         script.async = true;
-        script.charset = 'utf-8';
         script.type = 'text/javascript';
         script.onload = () => {
             if (window.hbspt) {
                 window.hbspt.forms.create({
                     region: 'na1',
                     portalId: '14552909',
-                    formId: '835d0abb-ab93-447b-9fb7-3a22702e9ebb',
+                    formId: '91357965-a8dc-4e20-875e-5f87e6b9defb',
                 });
             }
         };
@@ -26,7 +25,9 @@ function SlackSurvey() {
         scriptContainerRef.current.appendChild(script);
 
         return () => {
-            scriptContainerRef.current.removeChild(script);
+            if (scriptContainerRef.current) {
+                scriptContainerRef.current.removeChild(script);
+            }
         };
     }, []);
 
