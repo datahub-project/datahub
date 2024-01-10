@@ -10,7 +10,7 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.entity.ebean.transactions.AspectsBatchImpl;
+import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.test.action.ActionApplier;
 import com.linkedin.metadata.test.action.ActionParameters;
 import com.linkedin.metadata.test.definition.TestAction;

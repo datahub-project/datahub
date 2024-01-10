@@ -5,7 +5,6 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
-import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.BatchAddOwnersInput;
 import com.linkedin.datahub.graphql.generated.OwnerInput;
 import com.linkedin.datahub.graphql.generated.ResourceRefInput;
@@ -74,10 +73,7 @@ public class BatchAddOwnersResolver implements DataFetcher<CompletableFuture<Boo
           "Malformed input provided: owners cannot be applied to subresources.");
     }
 
-    if (!OwnerUtils.isAuthorizedToUpdateOwners(context, resourceUrn)) {
-      throw new AuthorizationException(
-          "Unauthorized to perform this action. Please contact your DataHub administrator.");
-    }
+    OwnerUtils.validateAuthorizedToUpdateOwners(context, resourceUrn);
     LabelUtils.validateResource(
         resourceUrn, resource.getSubResource(), resource.getSubResourceType(), _entityService);
   }

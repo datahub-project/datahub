@@ -15,12 +15,15 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.Urn;
 import com.typesafe.config.Config;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.Optional;
 import javax.annotation.Nonnull;
 import javax.inject.Inject;
+import org.apache.commons.httpclient.InvalidRedirectLocationException;
 import org.apache.commons.lang3.StringUtils;
 import org.pac4j.core.client.Client;
 import org.pac4j.core.context.Cookie;
@@ -86,7 +89,17 @@ public class AuthenticationController extends Controller {
 
     final Optional<String> maybeRedirectPath =
         Optional.ofNullable(request.getQueryString(AUTH_REDIRECT_URI_PARAM));
-    final String redirectPath = maybeRedirectPath.orElse("/");
+    String redirectPath = maybeRedirectPath.orElse("/");
+    try {
+      URI redirectUri = new URI(redirectPath);
+      if (redirectUri.getScheme() != null || redirectUri.getAuthority() != null) {
+        throw new InvalidRedirectLocationException("Redirect location must be relative to the base url, cannot "
+            + "redirect to other domains: " + redirectPath, redirectPath);
+      }
+    } catch (URISyntaxException | InvalidRedirectLocationException e) {
+      _logger.warn(e.getMessage());
+      redirectPath = "/";
+    }
 
     if (AuthUtils.hasValidSessionCookie(request)) {
       return Results.redirect(redirectPath);

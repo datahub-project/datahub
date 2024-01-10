@@ -2,7 +2,6 @@ package com.linkedin.datahub.graphql.resolvers.domain;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
-import static com.linkedin.datahub.graphql.resolvers.mutate.util.OwnerUtils.*;
 import static com.linkedin.metadata.Constants.*;
 
 import com.linkedin.common.AuditStamp;
@@ -16,7 +15,6 @@ import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
 import com.linkedin.datahub.graphql.generated.CreateDomainInput;
 import com.linkedin.datahub.graphql.generated.OwnerEntityType;
-import com.linkedin.datahub.graphql.generated.OwnershipType;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.DomainUtils;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.OwnerUtils;
 import com.linkedin.domain.DomainProperties;
@@ -100,14 +98,8 @@ public class CreateDomainResolver implements DataFetcher<CompletableFuture<Strin
 
             String domainUrn =
                 _entityClient.ingestProposal(proposal, context.getAuthentication(), false);
-            OwnershipType ownershipType = OwnershipType.TECHNICAL_OWNER;
-            if (!_entityService.exists(
-                UrnUtils.getUrn(mapOwnershipTypeToEntity(ownershipType.name())))) {
-              log.warn("Technical owner does not exist, defaulting to None ownership.");
-              ownershipType = OwnershipType.NONE;
-            }
             OwnerUtils.addCreatorAsOwner(
-                context, domainUrn, OwnerEntityType.CORP_USER, ownershipType, _entityService);
+                context, domainUrn, OwnerEntityType.CORP_USER, _entityService);
             return domainUrn;
           } catch (DataHubGraphQLException e) {
             throw e;
