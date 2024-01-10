@@ -353,13 +353,13 @@ class SnowflakeLineageExtractor(
 
             self._populate_external_lineage_from_copy_history(discovered_tables)
             logger.info(
-                "Done populating external lineage from copy history."
+                "Done populating external lineage from copy history. "
                 f"Found {self.report.num_external_table_edges_scanned} external lineage edges so far."
             )
 
             self._populate_external_lineage_from_show_query(discovered_tables)
             logger.info(
-                "Done populating external lineage from show external tables."
+                "Done populating external lineage from show external tables. "
                 f"Found {self.report.num_external_table_edges_scanned} external lineage edges so far."
             )
 
