@@ -14,7 +14,7 @@ To ingest Hive metastore information schema
 To ingest Unity Catalog information schema
 - Disable hive metastore catalog ingestion in the recipe using config `include_hive_metastore: False`
 - Ideally, just ingest from one workspace
-- To ingest from both workspaces (e.g. if each workspace has different permissions and therefore restricted view of catalogs):
+- To ingest from both workspaces (e.g. if each workspace has different permissions and therefore restricted view of the UC metastore):
     - Use same platform instance for all workspaces using same UC metastore
     - Ingest usage from only one workspace (you lose usage from other workspace)
     - Use filters to only ingest each catalog once, but shouldn’t be necessary
