@@ -11,7 +11,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.data.schema.RecordDataSchema;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.entity.EnvelopedAspect;
-import com.linkedin.metadata.entity.ebean.transactions.AspectsBatchImpl;
+import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.entity.validation.EntityRegistryUrnValidator;
 import com.linkedin.metadata.entity.validation.RecordTemplateValidator;
 import com.linkedin.metadata.models.AspectSpec;
@@ -64,8 +64,13 @@ public class EntityUtils {
       @Nonnull Urn actor,
       @Nonnull Boolean async) {
     entityService.ingestProposal(
-        AspectsBatchImpl.builder().mcps(changes, entityService.getEntityRegistry()).build(),
-        getAuditStamp(actor),
+        AspectsBatchImpl.builder()
+            .mcps(
+                changes,
+                getAuditStamp(actor),
+                entityService.getEntityRegistry(),
+                entityService.getSystemEntityClient())
+            .build(),
         async);
   }
 

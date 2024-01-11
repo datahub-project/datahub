@@ -159,7 +159,7 @@ export const LinkList = ({ refetch }: LinkListProps) => {
                         <LinkListItem
                             extra={
                                 <>
-                                    <Button onClick={() => handleEditLink(link)} type="text" shape="circle" danger>
+                                    <Button onClick={() => handleEditLink(link)} type="text" shape="circle">
                                         <EditOutlined />
                                     </Button>
                                     <Button onClick={() => handleDeleteLink(link)} type="text" shape="circle" danger>
