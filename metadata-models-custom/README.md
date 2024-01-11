@@ -165,6 +165,252 @@ e.g. `datahub delete by-registry --registry-id=mycompany-dq-model:0.0.1 --hard` 
 
 As you evolve the metadata model, you can publish new versions of the repository and deploy it into DataHub as well using the same steps outlined above. DataHub will check whether your new models are backwards compatible with the previous versioned model and decline loading models that are backwards incompatible. 
 
+###  Custom Plugins
+
+Adding custom aspects to DataHub's existing data model is a powerful way to extend DataHub without forking the entire repo. Often however extending
+just the data model is not enough and additional custom code might be required. For a few of these use cases a plugin framework was developed
+to control how instances of custom aspects can be validated, mutated, and generate side effects (additional aspects).
+
+It should be noted that validation, mutation, and generation of the *core* DataHub aspects can lead to system corruption and should be used
+by advanced users only.
+
+The `/config` endpoint documented above has been extended to return information on the instances of the various plugins as well as the classes
+that were loaded for debugging purposes.
+
+```json
+{
+  "mycompany-dq-model": {
+    "0.0.0-dev": {
+      "plugins": {
+        "validatorCount": 1,
+        "mutationHookCount": 1,
+        "mcpSideEffectCount": 1,
+        "mclSideEffectCount": 1,
+        "validatorClasses": [
+          "com.linkedin.metadata.aspect.plugins.validation.CustomDataQualityRulesValidator"
+        ],
+        "mutationHookClasses": [
+          "com.linkedin.metadata.aspect.plugins.hooks.CustomDataQualityRulesMutator"
+        ],
+        "mcpSideEffectClasses": [
+          "com.linkedin.metadata.aspect.plugins.hooks.CustomDataQualityRulesMCPSideEffect"
+        ],
+        "mclSideEffectClasses": [
+          "com.linkedin.metadata.aspect.plugins.hooks.CustomDataQualityRulesMCLSideEffect"
+        ]
+      }
+    }
+  }
+}
+```
+
+#### Custom Validators
+
+Custom aspects might require that instances of those aspects adhere to specific conditions or rules. These conditions could vary wildly depending on the use case however they could be as simple
+as a null or range check for one or more fields within the custom aspect. Additionally, a lookup can be done on other aspects in order to validate the current aspect using the `AspectRetriever`.
+
+There are two integration points for validation. The first integration point is `on request` via the `validateProposedAspect` method where the aspect is validated independent of the previous value. This validation is performed
+outside of any kind of database transaction and can perform more intensive checks without introducing added latency within a transaction.
+
+The second integration point for validation occurs within the database transaction using the `validatePreCommitAspect` and has access to the new aspect as well as the old aspect. See the included
+example in [`CustomDataQualityRulesValidator.java`](src/main/java/com/linkedin/metadata/aspect/plugins/validation/CustomDataQualityRulesValidator.java).
+
+Shown below is the interface to be implemented for a custom validator.
+
+```java
+public class CustomDataQualityRulesValidator extends AspectPayloadValidator {
+    @Override
+    protected void validateProposedAspect(
+            @Nonnull ChangeType changeType,
+            @Nonnull Urn entityUrn,
+            @Nonnull AspectSpec aspectSpec,
+            @Nonnull RecordTemplate aspectPayload,
+            @Nonnull AspectRetriever aspectRetriever)
+            throws AspectValidationException {
+
+    }
+
+    @Override
+    protected void validatePreCommitAspect(
+            @Nonnull ChangeType changeType,
+            @Nonnull Urn entityUrn,
+            @Nonnull AspectSpec aspectSpec,
+            @Nullable RecordTemplate previousAspect,
+            @Nonnull RecordTemplate proposedAspect,
+            @Nonnull AspectRetriever aspectRetriever)
+            throws AspectValidationException {
+
+    }
+}
+```
+
+In order to register this custom validator add the following to your `entity-registry.yml` file. This will activate
+the validator to run on upsert operations for any entity with the custom aspect `customDataQualityRules`. Alternatively separate
+validators could be written within the context of specific entities, in this case simply specify the entity name instead of `*`.
+
+```yaml
+
+plugins:
+  aspectPayloadValidators:
+    - className: 'com.linkedin.metadata.aspect.plugins.validation.CustomDataQualityRulesValidator'
+      enabled: true
+      supportedOperations:
+        - UPSERT
+      supportedEntityAspectNames:
+        - entityName: '*'
+          aspectName: customDataQualityRules
+```
+
+#### Custom Mutator
+
+**Warning: This hook is for advanced users only. It is possible to corrupt data and render your system inoperable.**
+
+In this example, we want to make sure that the field type is always lowercase regardless of the string being provided
+by ingestion. The full example can be found in [`CustomDataQualityMutator.java`](src/main/java/com/linkedin/metadata/aspect/plugins/hooks/CustomDataQualityRulesMutator.java).
+
+```java
+public class CustomDataQualityRulesMutator extends MutationHook {
+    @Override
+    protected void mutate(
+            @Nonnull ChangeType changeType,
+            @Nonnull EntitySpec entitySpec,
+            @Nonnull AspectSpec aspectSpec,
+            @Nullable RecordTemplate oldAspectValue,
+            @Nullable RecordTemplate newAspectValue,
+            @Nullable SystemMetadata oldSystemMetadata,
+            @Nullable SystemMetadata newSystemMetadata,
+            @Nonnull AuditStamp auditStamp,
+            @Nonnull AspectRetriever aspectRetriever) {
+
+        if (newAspectValue != null) {
+            DataQualityRules newDataQualityRules = new DataQualityRules(newAspectValue.data());
+
+            for (DataQualityRule rule : newDataQualityRules.getRules()) {
+                // Ensure uniform lowercase
+                if (!rule.getType().toLowerCase().equals(rule.getType())) {
+                    rule.setType(rule.getType().toLowerCase());
+                }
+            }
+        }
+    }
+}
+```
+
+```yaml
+plugins:
+  mutationHooks:
+    - className: 'com.linkedin.metadata.aspect.plugins.hooks.CustomDataQualityRulesMutator'
+      enabled: true
+      supportedOperations:
+        - UPSERT
+      supportedEntityAspectNames:
+        - entityName: '*'
+          aspectName: customDataQualityRules
+```
+
+#### MetadataChangeProposal (MCP) Side Effects
+
+**Warning: This hook is for advanced users only. It is possible to corrupt data and render your system inoperable.**
+
+MCP Side Effects allow for the creation of new aspects based on an input aspect.
+
+Notes:
+* MCPs will write aspects to the primary data store (SQL for example) as well as the search indices.
+* Side effects in general must include a dependency on the `metadata-io` module since it deals with lower level storage primitives.
+
+The full example can be found in [`CustomDataQualityRulesMCPSideEffect.java`](src/main/java/com/linkedin/metadata/aspect/plugins/hooks/CustomDataQualityRulesMCPSideEffect.java).
+
+```java
+public class CustomDataQualityRulesMCPSideEffect extends MCPSideEffect {
+    @Override
+    protected Stream<UpsertItem> applyMCPSideEffect(
+            UpsertItem input, EntityRegistry entityRegistry, @Nonnull AspectRetriever aspectRetriever) {
+        // Mirror aspects to another URN in SQL & Search
+        Urn mirror = UrnUtils.getUrn(input.getUrn().toString().replace(",PROD)", ",DEV)"));
+        return Stream.of(
+                MCPUpsertBatchItem.builder()
+                        .urn(mirror)
+                        .aspectName(input.getAspectName())
+                        .aspect(input.getAspect())
+                        .auditStamp(input.getAuditStamp())
+                        .systemMetadata(input.getSystemMetadata())
+                        .build(entityRegistry, aspectRetriever));
+    }
+}
+```
+
+```yaml
+plugins:
+  mcpSideEffects:
+    - className: 'com.linkedin.metadata.aspect.plugins.hooks.CustomDataQualityRulesMCPSideEffect'
+      enabled: true
+      supportedOperations:
+        - UPSERT
+      supportedEntityAspectNames:
+        - entityName: '*'
+          aspectName: customDataQualityRules
+```
+
+#### MetadataChangeLog (MCL) Side Effects
+
+**Warning: This hook is for advanced users only. It is possible to corrupt data and render your system inoperable.**
+
+MCL Side Effects allow for the creation of new aspects based on an input aspect. In this example, we are generating a timeseries aspect to represent an event. When a DataQualityRule is created
+or modified we'll record the actor, event type, and timestamp in a timeseries aspect index.
+
+Notes:
+* MCLs are only persisted to the search indices which allows for adding to the search documents only.
+* Dependency on the `metadata-io` module since it deals with lower level storage primitives.
+
+The full example can be found in [`CustomDataQualityRulesMCLSideEffect.java`](src/main/java/com/linkedin/metadata/aspect/plugins/hooks/CustomDataQualityRulesMCLSideEffect.java).
+
+```java
+public class CustomDataQualityRulesMCLSideEffect extends MCLSideEffect {
+    @Override
+    protected Stream<MCLBatchItem> applyMCLSideEffect(
+            @Nonnull MCLBatchItem input,
+            @Nonnull EntityRegistry entityRegistry,
+            @Nonnull AspectRetriever aspectRetriever) {
+
+        // Generate Timeseries event aspect based on non-Timeseries aspect
+        MetadataChangeLog originMCP = input.getMetadataChangeLog();
+
+        Optional<MCLBatchItem> timeseriesOptional =
+                buildEvent(originMCP)
+                        .map(
+                                event -> {
+                                    try {
+                                        MetadataChangeLog eventMCP = originMCP.clone();
+                                        eventMCP.setAspect(GenericRecordUtils.serializeAspect(event));
+                                        eventMCP.setAspectName("customDataQualityRuleEvent");
+                                        return eventMCP;
+                                    } catch (CloneNotSupportedException e) {
+                                        throw new RuntimeException(e);
+                                    }
+                                })
+                        .map(
+                                eventMCP ->
+                                        MCLBatchItemImpl.builder()
+                                                .metadataChangeLog(eventMCP)
+                                                .build(entityRegistry, aspectRetriever));
+
+        return timeseriesOptional.stream();
+    }
+}
+```
+
+```yaml
+plugins:
+  mclSideEffects:
+    - className: 'com.linkedin.metadata.aspect.plugins.hooks.CustomDataQualityRulesMCLSideEffect'
+      enabled: true
+      supportedOperations:
+        - UPSERT
+      supportedEntityAspectNames:
+        - entityName: 'dataset'
+          aspectName: customDataQualityRules
+```
+
 ## The Future
 
 Hopefully this repository shows you how easily you can extend and customize DataHub's metadata model!

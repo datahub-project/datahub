@@ -7,9 +7,10 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.aspect.batch.AspectsBatch;
+import com.linkedin.metadata.aspect.batch.UpsertItem;
 import com.linkedin.metadata.entity.retention.BulkApplyRetentionArgs;
 import com.linkedin.metadata.entity.retention.BulkApplyRetentionResult;
-import com.linkedin.metadata.entity.transactions.AspectsBatch;
 import com.linkedin.metadata.key.DataHubRetentionKey;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
@@ -30,16 +31,16 @@ import lombok.SneakyThrows;
 import lombok.Value;
 
 /**
- * Service coupled with an {@link EntityServiceImpl} to handle aspect record retention.
+ * Service coupled with an {@link EntityService} to handle aspect record retention.
  *
  * <p>TODO: This class is abstract with storage-specific implementations. It'd be nice to pull
- * storage and retention concerns apart, let (into {@link AspectDao}) deal with storage, and merge
- * all retention concerns into a single class.
+ * storage and retention concerns apart, let AspectDaos deal with storage, and merge all retention
+ * concerns into a single class.
  */
-public abstract class RetentionService {
+public abstract class RetentionService<U extends UpsertItem> {
   protected static final String ALL = "*";
 
-  protected abstract EntityService getEntityService();
+  protected abstract EntityService<U> getEntityService();
 
   /**
    * Fetch retention policies given the entityName and aspectName Uses the entity service to fetch
@@ -120,13 +121,14 @@ public abstract class RetentionService {
         new AuditStamp()
             .setActor(Urn.createFromString(Constants.SYSTEM_ACTOR))
             .setTime(System.currentTimeMillis());
-    AspectsBatch batch = buildAspectsBatch(List.of(keyProposal, aspectProposal));
+    AspectsBatch batch = buildAspectsBatch(List.of(keyProposal, aspectProposal), auditStamp);
 
-    return getEntityService().ingestProposal(batch, auditStamp, false).stream()
+    return getEntityService().ingestProposal(batch, false).stream()
         .anyMatch(IngestResult::isSqlCommitted);
   }
 
-  protected abstract AspectsBatch buildAspectsBatch(List<MetadataChangeProposal> mcps);
+  protected abstract AspectsBatch buildAspectsBatch(
+      List<MetadataChangeProposal> mcps, @Nonnull AuditStamp auditStamp);
 
   /**
    * Delete the retention policy set for given entity and aspect.

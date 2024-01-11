@@ -20,6 +20,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.reflections.Reflections;
 
@@ -64,37 +65,48 @@ public class DataSchemaFactory {
       // no custom classpath, just return the default factory
       return INSTANCE;
     }
-    // first we load up classes from the classpath
-    File pluginDir = pluginLocation.toFile();
-    if (!pluginDir.exists()) {
-      throw new RuntimeException(
-          "Failed to find plugin directory "
-              + pluginDir.getAbsolutePath()
-              + ". Current directory is "
-              + new File(".").getAbsolutePath());
-    }
-    List<URL> urls = new ArrayList<URL>();
-    if (pluginDir.isDirectory()) {
-      List<Path> jarFiles =
-          Files.walk(pluginLocation)
-              .filter(Files::isRegularFile)
-              .filter(p -> p.toString().endsWith(".jar"))
-              .collect(Collectors.toList());
-      for (Path f : jarFiles) {
-        URL url = f.toUri().toURL();
-        if (url != null) {
-          urls.add(url);
-        }
-      }
+
+    return new DataSchemaFactory(
+        DEFAULT_TOP_LEVEL_NAMESPACES, getClassLoader(pluginLocation).get());
+  }
+
+  public static Optional<ClassLoader> getClassLoader(@Nullable Path pluginLocation)
+      throws IOException {
+    if (pluginLocation == null) {
+      return Optional.empty();
     } else {
-      URL url = (pluginLocation.toUri().toURL());
-      urls.add(url);
+      // first we load up classes from the classpath
+      File pluginDir = pluginLocation.toFile();
+      if (!pluginDir.exists()) {
+        throw new RuntimeException(
+            "Failed to find plugin directory "
+                + pluginDir.getAbsolutePath()
+                + ". Current directory is "
+                + new File(".").getAbsolutePath());
+      }
+      List<URL> urls = new ArrayList<URL>();
+      if (pluginDir.isDirectory()) {
+        List<Path> jarFiles =
+            Files.walk(pluginLocation)
+                .filter(Files::isRegularFile)
+                .filter(p -> p.toString().endsWith(".jar"))
+                .collect(Collectors.toList());
+        for (Path f : jarFiles) {
+          URL url = f.toUri().toURL();
+          if (url != null) {
+            urls.add(url);
+          }
+        }
+      } else {
+        URL url = (pluginLocation.toUri().toURL());
+        urls.add(url);
+      }
+      URL[] urlsArray = new URL[urls.size()];
+      urls.toArray(urlsArray);
+      URLClassLoader classLoader =
+          new URLClassLoader(urlsArray, Thread.currentThread().getContextClassLoader());
+      return Optional.of(classLoader);
     }
-    URL[] urlsArray = new URL[urls.size()];
-    urls.toArray(urlsArray);
-    URLClassLoader classLoader =
-        new URLClassLoader(urlsArray, Thread.currentThread().getContextClassLoader());
-    return new DataSchemaFactory(DEFAULT_TOP_LEVEL_NAMESPACES, classLoader);
   }
 
   /**

@@ -80,8 +80,7 @@ public class MockEntityService extends EntityServiceImpl {
 
   @Override
   public Map<Urn, List<EnvelopedAspect>> getLatestEnvelopedAspects(
-      @Nonnull String entityName, @Nonnull Set<Urn> urns, @Nonnull Set<String> aspectNames)
-      throws URISyntaxException {
+      @Nonnull Set<Urn> urns, @Nonnull Set<String> aspectNames) throws URISyntaxException {
     Urn urn = UrnUtils.getUrn(DATASET_URN);
     Map<Urn, List<EnvelopedAspect>> envelopedAspectMap = new HashMap<>();
     List<EnvelopedAspect> aspects = new ArrayList<>();

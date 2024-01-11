@@ -2,7 +2,9 @@ package com.linkedin.entity.client;
 
 import com.datahub.authentication.Authentication;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
+import com.linkedin.metadata.aspect.plugins.validation.AspectRetriever;
 import com.linkedin.metadata.config.cache.client.EntityClientCacheConfig;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.PlatformEvent;
@@ -14,7 +16,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 /** Adds entity/aspect cache and assumes system authentication */
-public interface SystemEntityClient extends EntityClient {
+public interface SystemEntityClient extends EntityClient, AspectRetriever {
 
   EntityClientCache getEntityClientCache();
 
@@ -97,5 +99,13 @@ public interface SystemEntityClient extends EntityClient {
 
   default void setWritable(boolean canWrite) throws RemoteInvocationException {
     setWritable(canWrite, getSystemAuthentication());
+  }
+
+  default Aspect getLatestAspectObject(@Nonnull Urn urn, @Nonnull String aspectName)
+      throws RemoteInvocationException, URISyntaxException {
+    return getV2(urn.getEntityType(), urn, Set.of(aspectName), getSystemAuthentication())
+        .getAspects()
+        .get(aspectName)
+        .getValue();
   }
 }

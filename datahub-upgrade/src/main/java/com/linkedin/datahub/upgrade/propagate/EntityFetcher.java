@@ -18,7 +18,7 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 @RequiredArgsConstructor
 class EntityFetcher {
-  private final EntityService _entityService;
+  private final EntityService<?> _entityService;
 
   private static final Set<String> ASPECTS_TO_FETCH =
       ImmutableSet.of(

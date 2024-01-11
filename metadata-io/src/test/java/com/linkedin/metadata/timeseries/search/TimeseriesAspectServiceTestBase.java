@@ -116,6 +116,7 @@ public abstract class TimeseriesAspectServiceTestBase extends AbstractTestNGSpri
     _entityRegistry =
         new ConfigEntityRegistry(
             new DataSchemaFactory("com.datahub.test"),
+            List.of(),
             TestEntityProfile.class
                 .getClassLoader()
                 .getResourceAsStream("test-entity-registry.yml"));

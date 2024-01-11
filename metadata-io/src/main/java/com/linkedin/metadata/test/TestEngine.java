@@ -10,7 +10,7 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.entity.ebean.transactions.AspectsBatchImpl;
+import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.test.action.ActionApplier;
 import com.linkedin.metadata.test.action.ActionParameters;
 import com.linkedin.metadata.test.definition.TestAction;
@@ -545,14 +545,21 @@ public class TestEngine {
     }
 
     if (!mcps.isEmpty()) {
-      AspectsBatchImpl batch =
-          AspectsBatchImpl.builder().mcps(mcps, _entityService.getEntityRegistry()).build();
-
       AuditStamp auditStamp =
           new AuditStamp()
               .setActor(UrnUtils.getUrn(Constants.SYSTEM_ACTOR))
               .setTime(System.currentTimeMillis());
-      _entityService.ingestProposal(batch, auditStamp, mode != EvaluationMode.SYNC);
+
+      AspectsBatchImpl batch =
+          AspectsBatchImpl.builder()
+              .mcps(
+                  mcps,
+                  auditStamp,
+                  _entityService.getEntityRegistry(),
+                  _entityService.getSystemEntityClient())
+              .build();
+
+      _entityService.ingestProposal(batch, mode != EvaluationMode.SYNC);
     }
   }
 

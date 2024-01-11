@@ -121,7 +121,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
 
   @Inject
   @Named("entityService")
-  private EntityService _entityService;
+  private EntityService<?> _entityService;
 
   @Inject
   @Named("searchService")

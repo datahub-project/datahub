@@ -20,7 +20,7 @@ import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.EntityServiceImpl;
 import com.linkedin.metadata.entity.UpdateAspectResult;
-import com.linkedin.metadata.entity.ebean.transactions.UpsertBatchItem;
+import com.linkedin.metadata.entity.ebean.batch.MCPUpsertBatchItem;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -52,9 +52,8 @@ public class AspectResourceTest {
     _entityRegistry = new MockEntityRegistry();
     _updateIndicesService = mock(UpdateIndicesService.class);
     _preProcessHooks = mock(PreProcessHooks.class);
-    _entityService =
-        new EntityServiceImpl(
-            _aspectDao, _producer, _entityRegistry, false, _updateIndicesService, _preProcessHooks);
+    _entityService = new EntityServiceImpl(_aspectDao, _producer, _entityRegistry, false,
+            _updateIndicesService, _preProcessHooks);
     _authorizer = mock(Authorizer.class);
     _aspectResource.setAuthorizer(_authorizer);
     _aspectResource.setEntityService(_entityService);
@@ -82,13 +81,13 @@ public class AspectResourceTest {
 
     reset(_producer, _aspectDao);
 
-    UpsertBatchItem req =
-        UpsertBatchItem.builder()
+    MCPUpsertBatchItem req = MCPUpsertBatchItem.builder()
             .urn(urn)
             .aspectName(mcp.getAspectName())
             .aspect(mcp.getAspect())
+            .auditStamp(new AuditStamp())
             .metadataChangeProposal(mcp)
-            .build(_entityRegistry);
+            .build(_entityRegistry, _entityService.getSystemEntityClient());
     when(_aspectDao.runInTransactionWithRetry(any(), any(), anyInt()))
         .thenReturn(
             List.of(

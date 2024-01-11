@@ -8,6 +8,7 @@ dependencies {
   implementation spec.product.pegasus.generator
   api project(path: ':metadata-models')
   api project(path: ':metadata-models', configuration: "dataTemplate")
+  api externalDependency.classGraph
   implementation externalDependency.slf4jApi
   compileOnly externalDependency.lombok
   implementation externalDependency.guava
@@ -30,6 +31,8 @@ dependencies {
   testImplementation externalDependency.testng
   testImplementation externalDependency.mockito
   testImplementation externalDependency.mockitoInline
+  testCompileOnly externalDependency.lombok
+  testImplementation externalDependency.classGraph
 
 }
 compileTestJava.dependsOn tasks.getByPath(':entity-registry:custom-test-model:modelDeploy')

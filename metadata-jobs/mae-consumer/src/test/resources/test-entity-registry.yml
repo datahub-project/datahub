@@ -1,4 +1,9 @@
 entities:
+  - name: dataPlatform
+    category: core
+    keyAspect: dataPlatformKey
+    aspects:
+      - dataPlatformInfo
   - name: dataHubIngestionSource
     keyAspect: dataHubIngestionSourceKey
     aspects:
@@ -33,5 +38,9 @@ entities:
     aspects:
       - incidentInfo
       - status
+  - name: schemaField
+    category: core
+    keyAspect: schemaFieldKey
+    aspects: []
 events:
   - name: entityChangeEvent

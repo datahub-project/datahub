@@ -6,6 +6,7 @@ import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.metadata.Constants;
 import com.linkedin.mxe.SystemMetadata;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -35,5 +36,10 @@ public class SystemMetadataUtils {
       }
     }
     return lastIngested;
+  }
+
+  public static SystemMetadata generateSystemMetadataIfEmpty(
+      @Nullable SystemMetadata systemMetadata) {
+    return systemMetadata == null ? createDefaultSystemMetadata() : systemMetadata;
   }
 }
