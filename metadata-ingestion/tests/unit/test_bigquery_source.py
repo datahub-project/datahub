@@ -11,6 +11,7 @@ from google.api_core.exceptions import GoogleAPICallError
 from google.cloud.bigquery.table import Row, TableListItem
 
 from datahub.configuration.common import AllowDenyPattern
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.bigquery_v2.bigquery import BigqueryV2Source
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import (
@@ -27,6 +28,7 @@ from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
     BigqueryDataset,
     BigqueryProject,
     BigQuerySchemaApi,
+    BigqueryTableSnapshot,
     BigqueryView,
 )
 from datahub.ingestion.source.bigquery_v2.lineage import (
@@ -34,7 +36,10 @@ from datahub.ingestion.source.bigquery_v2.lineage import (
     LineageEdgeColumnMapping,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import ViewProperties
-from datahub.metadata.schema_classes import MetadataChangeProposalClass
+from datahub.metadata.schema_classes import (
+    DatasetPropertiesClass,
+    MetadataChangeProposalClass,
+)
 
 
 def test_bigquery_uri():
@@ -769,6 +774,7 @@ def test_get_views_for_dataset(
         project_id="test-project",
         dataset_name="test-dataset",
         has_data_read=False,
+        report=BigQueryV2Report(),
     )
     assert list(views) == [bigquery_view_1, bigquery_view_2]
 
@@ -807,6 +813,81 @@ def test_gen_view_dataset_workunits(
         materialized=bigquery_view_2.materialized,
         viewLanguage="SQL",
         viewLogic=bigquery_view_2.view_definition,
+    )
+
+
+@pytest.fixture
+def bigquery_snapshot_1() -> BigqueryTableSnapshot:
+    now = datetime.now(tz=timezone.utc)
+    return BigqueryTableSnapshot(
+        name="table_snapshot_1",
+        created=now - timedelta(days=10),
+        last_altered=now - timedelta(hours=1),
+        comment="comment1",
+        snapshot_definition="CREATE SNAPSHOT TABLE 1",
+        snapshot_time=now - timedelta(days=10),
+    )
+
+
+@patch.object(BigQuerySchemaApi, "get_query_result")
+@patch.object(BigQueryV2Config, "get_bigquery_client")
+def test_get_snapshots_for_dataset(
+    get_bq_client_mock: Mock,
+    query_mock: Mock,
+    bigquery_snapshot_1: BigqueryTableSnapshot,
+) -> None:
+    client_mock = MagicMock()
+    get_bq_client_mock.return_value = client_mock
+    assert bigquery_snapshot_1.last_altered
+    row1 = create_row(
+        dict(
+            table_name=bigquery_snapshot_1.name,
+            created=bigquery_snapshot_1.created,
+            last_altered=bigquery_snapshot_1.last_altered.timestamp() * 1000,
+            comment=bigquery_snapshot_1.comment,
+            snapshot_definition=bigquery_snapshot_1.snapshot_definition,
+            snapshot_time=bigquery_snapshot_1.snapshot_time,
+            table_type="SNAPSHOT",
+        )
+    )
+    query_mock.return_value = [row1]
+    bigquery_data_dictionary = BigQuerySchemaApi(
+        BigQueryV2Report().schema_api_perf, client_mock
+    )
+
+    snapshots = bigquery_data_dictionary.get_snapshots_for_dataset(
+        project_id="test-project",
+        dataset_name="test-dataset",
+        has_data_read=False,
+        report=BigQueryV2Report(),
+    )
+    assert list(snapshots) == [bigquery_snapshot_1]
+
+
+@patch.object(BigQueryV2Config, "get_bigquery_client")
+def test_gen_snapshot_dataset_workunits(get_bq_client_mock, bigquery_snapshot_1):
+    project_id = "test-project"
+    dataset_name = "test-dataset"
+    config = BigQueryV2Config.parse_obj(
+        {
+            "project_id": project_id,
+        }
+    )
+    source: BigqueryV2Source = BigqueryV2Source(
+        config=config, ctx=PipelineContext(run_id="test")
+    )
+
+    gen = source.gen_snapshot_dataset_workunits(
+        bigquery_snapshot_1, [], project_id, dataset_name
+    )
+    mcp = cast(MetadataChangeProposalWrapper, list(gen)[2].metadata)
+    dataset_properties = cast(DatasetPropertiesClass, mcp.aspect)
+    assert (
+        dataset_properties.customProperties["snapshot_definition"]
+        == bigquery_snapshot_1.snapshot_definition
+    )
+    assert dataset_properties.customProperties["snapshot_time"] == str(
+        bigquery_snapshot_1.snapshot_time
     )
 
 
