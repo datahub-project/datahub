@@ -28,10 +28,33 @@ export const yamlToJson = (yaml: string): string => {
     const jsonStr = JSON.stringify(obj);
     return jsonStr;
 };
+export const removeEmptyArrays = (obj) => {
+    if (Array.isArray(obj)) {
+        // Filter out empty arrays
+        return obj.filter((item) => !(Array.isArray(item) && item.length === 0));
+    }
+    if (typeof obj === 'object' && obj !== null) {
+        // Recursively remove empty arrays from object properties
+        const cleanedObj = Object.fromEntries(
+        Object.entries(obj).map(([key, value]) => [key, removeEmptyArrays(value)]));
+        if (cleanedObj.conditions) {
+            const propertiesToDelete = Object.keys(cleanedObj.conditions);
+            if (propertiesToDelete.some(prop => cleanedObj.conditions[prop]?.length === 0)) {
+              delete cleanedObj.conditions;
+            }
+          }
+        // Filter out undefined properties
+        return Object.fromEntries(
+            Object.entries(cleanedObj).filter(([_, v]) => v !== undefined && v !== null));
+    }
+    // Return non-array, non-object values as it is
+    return obj;
+  }
 
 export const jsonToYaml = (json: string): string => {
     const obj = JSON.parse(json);
-    const yamlStr = YAML.stringify(obj, 6);
+    const result = removeEmptyArrays(obj);
+    const yamlStr = YAML.stringify(result, 6);
     return yamlStr;
 };
 
