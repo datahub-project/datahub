@@ -36,8 +36,9 @@ const moveDomaintoParent = () => {
 const deleteDomain = () => {
     cy.clickOptionWithText(domainName).waitTextVisible('Domains');
     deleteFromDomainDropdown()
-    }
+  }
 
+//Delete Unecessary Existing Domains
  const deleteExisitingDomain = () => {
     cy.get('a[href*="urn:li"] span[class^="ant-typography"]')
           .should('be.visible')
