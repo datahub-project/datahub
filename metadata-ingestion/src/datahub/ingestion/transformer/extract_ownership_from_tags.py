@@ -65,7 +65,7 @@ class ExtractOwnersFromTagsTransformer(DatasetTagsTransformer):
         tags = in_tags_aspect.tags
         owners: List[OwnerClass] = []
         for tag_class in tags:
-            tag_urn = TagUrn.create_from_string(tag_class.tag)
+            tag_urn = TagUrn.from_string(tag_class.tag)
             tag_str = tag_urn.get_entity_id()[0]
             re_match = re.search(self.config.tag_prefix, tag_str)
             if re_match:

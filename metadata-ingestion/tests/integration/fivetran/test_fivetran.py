@@ -5,18 +5,26 @@ from unittest.mock import MagicMock
 import pytest
 from freezegun import freeze_time
 
+from datahub.configuration.common import ConfigurationWarning
 from datahub.ingestion.run.pipeline import Pipeline
-from datahub.ingestion.source.fivetran.config import DestinationConfig
+from datahub.ingestion.source.fivetran.config import (
+    BigQueryDestinationConfig,
+    FivetranSourceConfig,
+    SnowflakeDestinationConfig,
+)
 from datahub.ingestion.source.fivetran.fivetran_query import FivetranLogQuery
+from datahub.ingestion.source_config.usage.bigquery_usage import BigQueryCredential
 from tests.test_helpers import mce_helpers
 
 FROZEN_TIME = "2022-06-07 17:00:00"
 
 
 def default_query_results(query):
-    if query == FivetranLogQuery.use_schema("TEST_DATABASE", "TEST_SCHEMA"):
+    fivetran_log_query = FivetranLogQuery()
+    fivetran_log_query.set_db("test")
+    if query == fivetran_log_query.use_database("test_database"):
         return []
-    elif query == FivetranLogQuery.get_connectors_query():
+    elif query == fivetran_log_query.get_connectors_query():
         return [
             {
                 "connector_id": "calendar_elected",
@@ -28,7 +36,7 @@ def default_query_results(query):
                 "destination_id": "interval_unconstitutional",
             },
         ]
-    elif query == FivetranLogQuery.get_table_lineage_query("calendar_elected"):
+    elif query == fivetran_log_query.get_table_lineage_query("calendar_elected"):
         return [
             {
                 "source_table_id": "10040",
@@ -47,9 +55,9 @@ def default_query_results(query):
                 "destination_schema_name": "postgres_public",
             },
         ]
-    elif query == FivetranLogQuery.get_column_lineage_query(
+    elif query == fivetran_log_query.get_column_lineage_query(
         "10040", "7779"
-    ) or query == FivetranLogQuery.get_column_lineage_query("10041", "7780"):
+    ) or query == fivetran_log_query.get_column_lineage_query("10041", "7780"):
         return [
             {
                 "source_column_name": "id",
@@ -60,7 +68,7 @@ def default_query_results(query):
                 "destination_column_name": "name",
             },
         ]
-    elif query == FivetranLogQuery.get_user_query("reapply_phone"):
+    elif query == fivetran_log_query.get_user_query("reapply_phone"):
         return [
             {
                 "user_id": "reapply_phone",
@@ -68,7 +76,7 @@ def default_query_results(query):
                 "family_name": "Jagtap",
             }
         ]
-    elif query == FivetranLogQuery.get_sync_start_logs_query("calendar_elected"):
+    elif query == fivetran_log_query.get_sync_start_logs_query("calendar_elected"):
         return [
             {
                 "time_stamp": datetime.datetime(2023, 9, 20, 6, 37, 32, 606000),
@@ -83,7 +91,7 @@ def default_query_results(query):
                 "sync_id": "63c2fc85-600b-455f-9ba0-f576522465be",
             },
         ]
-    elif query == FivetranLogQuery.get_sync_end_logs_query("calendar_elected"):
+    elif query == fivetran_log_query.get_sync_end_logs_query("calendar_elected"):
         return [
             {
                 "time_stamp": datetime.datetime(2023, 9, 20, 6, 38, 5, 56000),
@@ -107,12 +115,12 @@ def default_query_results(query):
 
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration
-def test_fivetran_basic(pytestconfig, tmp_path):
+def test_fivetran_with_snowflake_dest(pytestconfig, tmp_path):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/fivetran"
 
     # Run the metadata ingestion pipeline.
     output_file = tmp_path / "fivetran_test_events.json"
-    golden_file = test_resources_dir / "fivetran_golden.json"
+    golden_file = test_resources_dir / "fivetran_snowflake_golden.json"
 
     with mock.patch(
         "datahub.ingestion.source.fivetran.fivetran_log_api.create_engine"
@@ -130,14 +138,14 @@ def test_fivetran_basic(pytestconfig, tmp_path):
                     "config": {
                         "fivetran_log_config": {
                             "destination_platform": "snowflake",
-                            "destination_config": {
-                                "account_id": "TESTID",
-                                "warehouse": "TEST_WH",
+                            "snowflake_destination_config": {
+                                "account_id": "testid",
+                                "warehouse": "test_wh",
                                 "username": "test",
                                 "password": "test@123",
-                                "database": "TEST_DATABASE",
-                                "role": "TESTROLE",
-                                "log_schema": "TEST_SCHEMA",
+                                "database": "test_database",
+                                "role": "testrole",
+                                "log_schema": "test",
                             },
                         },
                         "connector_patterns": {
@@ -166,18 +174,87 @@ def test_fivetran_basic(pytestconfig, tmp_path):
 
     pipeline.run()
     pipeline.raise_from_status()
-    golden_file = "fivetran_golden.json"
 
     mce_helpers.check_golden_file(
         pytestconfig,
         output_path=f"{output_file}",
-        golden_path=f"{test_resources_dir}/{golden_file}",
+        golden_path=f"{golden_file}",
     )
 
 
 @freeze_time(FROZEN_TIME)
-def test_fivetran_snowflake_destination_config(pytestconfig, tmp_path):
-    snowflake_dest = DestinationConfig(
+@pytest.mark.integration
+def test_fivetran_with_bigquery_dest(pytestconfig, tmp_path):
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/fivetran"
+
+    # Run the metadata ingestion pipeline.
+    output_file = tmp_path / "fivetran_test_events.json"
+    golden_file = test_resources_dir / "fivetran_bigquery_golden.json"
+
+    with mock.patch(
+        "datahub.ingestion.source.fivetran.fivetran_log_api.create_engine"
+    ) as mock_create_engine:
+        connection_magic_mock = MagicMock()
+        connection_magic_mock.execute.side_effect = default_query_results
+
+        mock_create_engine.return_value = connection_magic_mock
+
+        pipeline = Pipeline.create(
+            {
+                "run_id": "powerbi-test",
+                "source": {
+                    "type": "fivetran",
+                    "config": {
+                        "fivetran_log_config": {
+                            "destination_platform": "bigquery",
+                            "bigquery_destination_config": {
+                                "credential": {
+                                    "private_key_id": "testprivatekey",
+                                    "project_id": "test-project",
+                                    "client_email": "fivetran-connector@test-project.iam.gserviceaccount.com",
+                                    "client_id": "1234567",
+                                    "private_key": "private-key",
+                                },
+                                "dataset": "test",
+                            },
+                        },
+                        "connector_patterns": {
+                            "allow": [
+                                "postgres",
+                            ]
+                        },
+                        "sources_to_database": {
+                            "calendar_elected": "postgres_db",
+                        },
+                        "sources_to_platform_instance": {
+                            "calendar_elected": {
+                                "env": "DEV",
+                            }
+                        },
+                    },
+                },
+                "sink": {
+                    "type": "file",
+                    "config": {
+                        "filename": f"{output_file}",
+                    },
+                },
+            }
+        )
+
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=f"{output_file}",
+        golden_path=f"{golden_file}",
+    )
+
+
+@freeze_time(FROZEN_TIME)
+def test_fivetran_snowflake_destination_config():
+    snowflake_dest = SnowflakeDestinationConfig(
         account_id="TESTID",
         warehouse="TEST_WH",
         username="test",
@@ -190,3 +267,37 @@ def test_fivetran_snowflake_destination_config(pytestconfig, tmp_path):
         snowflake_dest.get_sql_alchemy_url()
         == "snowflake://test:test%40123@TESTID?application=acryl_datahub&authenticator=SNOWFLAKE&role=TESTROLE&warehouse=TEST_WH"
     )
+
+
+@freeze_time(FROZEN_TIME)
+def test_fivetran_bigquery_destination_config():
+    bigquery_dest = BigQueryDestinationConfig(
+        credential=BigQueryCredential(
+            private_key_id="testprivatekey",
+            project_id="test-project",
+            client_email="fivetran-connector@test-project.iam.gserviceaccount.com",
+            client_id="1234567",
+            private_key="private-key",
+        ),
+        dataset="test_dataset",
+    )
+    assert bigquery_dest.get_sql_alchemy_url() == "bigquery://"
+
+
+@freeze_time(FROZEN_TIME)
+def test_rename_destination_config():
+    config_dict = {
+        "fivetran_log_config": {
+            "destination_platform": "snowflake",
+            "destination_config": {
+                "account_id": "testid",
+                "database": "test_database",
+                "log_schema": "test",
+            },
+        },
+    }
+    with pytest.warns(
+        ConfigurationWarning,
+        match="destination_config is deprecated, please use snowflake_destination_config instead.",
+    ):
+        FivetranSourceConfig.parse_obj(config_dict)

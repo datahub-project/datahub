@@ -26,7 +26,10 @@ Source and destination are mapped to Dataset as an Input and Output of Connector
 
 ## Current limitations
 
-Works only for Snowflake destination for now.
+Works only for
+
+- Snowflake destination
+- Bigquery destination
 
 ## Snowflake destination Configuration Guide
 1. If your fivetran platform connector destination is snowflake, you need to provide user details and its role with correct privileges in order to fetch metadata.
@@ -48,6 +51,10 @@ grant select on all tables in SCHEMA "<fivetran-log-database>"."<fivetran-log-sc
 // Grant the fivetran_datahub to the snowflake user.
 grant role fivetran_datahub to user snowflake_user;
 ```
+
+## Bigquery destination Configuration Guide
+1. If your fivetran platform connector destination is bigquery, you need to setup a ServiceAccount as per [BigQuery docs](https://cloud.google.com/iam/docs/creating-managing-service-accounts#iam-service-accounts-create-console) and select BigQuery Data Viewer and BigQuery Job User IAM roles. 
+2. Create and Download a service account JSON keyfile and provide bigquery connection credential in bigquery destination config.
 
 ## Advanced Configurations
 
