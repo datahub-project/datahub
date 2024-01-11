@@ -113,11 +113,11 @@ class BigqueryTableSnapshot:
     created: Optional[datetime]
     last_altered: Optional[datetime]
     snapshot_definition: Optional[str]
+    snapshot_time: Optional[datetime]
     size_in_bytes: Optional[int] = None
     rows_count: Optional[int] = None
     column_count: Optional[int] = None
     columns: List[BigqueryColumn] = field(default_factory=list)
-    snapshot_time: bool = False
 
 
 @dataclass
@@ -304,10 +304,11 @@ class BigQuerySchemaApi:
         project_id: str,
         dataset_name: str,
         has_data_read: bool,
-        report: Optional[BigQueryV2Report] = None,
+        report: BigQueryV2Report,
     ) -> Iterator[BigqueryView]:
         with self.report.get_views_for_dataset as current_timer:
             if has_data_read:
+                # If profiling is enabled
                 cur = self.get_query_result(
                     BigqueryQuery.views_for_dataset.format(
                         project_id=project_id, dataset_name=dataset_name
@@ -330,11 +331,10 @@ class BigQuerySchemaApi:
                         f"Error while processing view {view_name}",
                         exc_info=True,
                     )
-                    if report:
-                        report.report_warning(
-                            "metadata-extraction",
-                            f"Failed to get view {view_name}: {e}",
-                        )
+                    report.report_warning(
+                        "metadata-extraction",
+                        f"Failed to get view {view_name}: {e}",
+                    )
 
     @staticmethod
     def _make_bigquery_view(view: bigquery.Row) -> BigqueryView:
@@ -349,6 +349,8 @@ class BigQuerySchemaApi:
             comment=view.comment,
             view_definition=view.view_definition,
             materialized=view.table_type == BigqueryTableType.MATERIALIZED_VIEW,
+            size_in_bytes=view.get("size_bytes"),
+            rows_count=view.get("row_count"),
         )
 
     def get_columns_for_dataset(
@@ -450,10 +452,11 @@ class BigQuerySchemaApi:
         project_id: str,
         dataset_name: str,
         has_data_read: bool,
-        report: Optional[BigQueryV2Report] = None,
+        report: BigQueryV2Report,
     ) -> Iterator[BigqueryTableSnapshot]:
         with self.report.get_snapshots_for_dataset as current_timer:
             if has_data_read:
+                # If profiling is enabled
                 cur = self.get_query_result(
                     BigqueryQuery.snapshots_for_dataset.format(
                         project_id=project_id, dataset_name=dataset_name
@@ -476,11 +479,10 @@ class BigQuerySchemaApi:
                         f"Error while processing view {snapshot_name}",
                         exc_info=True,
                     )
-                    if report:
-                        report.report_warning(
-                            "metadata-extraction",
-                            f"Failed to get view {snapshot_name}: {e}",
-                        )
+                    report.report_warning(
+                        "metadata-extraction",
+                        f"Failed to get view {snapshot_name}: {e}",
+                    )
 
     @staticmethod
     def _make_bigquery_table_snapshot(snapshot: bigquery.Row) -> BigqueryTableSnapshot:
@@ -495,4 +497,6 @@ class BigQuerySchemaApi:
             comment=snapshot.comment,
             snapshot_definition=snapshot.snapshot_definition,
             snapshot_time=snapshot.snapshot_time,
+            size_in_bytes=snapshot.get("size_bytes"),
+            rows_count=snapshot.get("row_count"),
         )

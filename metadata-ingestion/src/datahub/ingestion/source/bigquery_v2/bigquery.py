@@ -308,6 +308,10 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         else:
             return CapabilityReport(capable=True)
 
+    @property
+    def store_table_refs(self):
+        return self.config.include_table_lineage or self.config.include_usage_statistics
+
     @staticmethod
     def metadata_read_capability_test(
         project_ids: List[str], config: BigQueryV2Config
@@ -729,7 +733,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                     project_id=project_id,
                     dataset_name=dataset_name,
                 )
-        elif self.config.include_table_lineage or self.config.include_usage_statistics:
+        elif self.store_table_refs:
             # Need table_refs to calculate lineage and usage
             for table_item in self.bigquery_data_dictionary.list_tables(
                 dataset_name, project_id
@@ -754,7 +758,10 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         if self.config.include_views:
             db_views[dataset_name] = list(
                 self.bigquery_data_dictionary.get_views_for_dataset(
-                    project_id, dataset_name, self.config.is_profiling_enabled()
+                    project_id,
+                    dataset_name,
+                    self.config.is_profiling_enabled(),
+                    self.report,
                 )
             )
 
@@ -770,7 +777,10 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         if self.config.include_table_snapshots:
             db_snapshots[dataset_name] = list(
                 self.bigquery_data_dictionary.get_snapshots_for_dataset(
-                    project_id, dataset_name, self.config.is_profiling_enabled()
+                    project_id,
+                    dataset_name,
+                    self.config.is_profiling_enabled(),
+                    self.report,
                 )
             )
 
@@ -810,7 +820,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             self.report.report_dropped(table_identifier.raw_table_name())
             return
 
-        if self.config.include_table_lineage or self.config.include_usage_statistics:
+        if self.store_table_refs:
             self.table_refs.add(
                 str(BigQueryTableRef(table_identifier).get_sanitized_table_ref())
             )
@@ -859,7 +869,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             self.report.report_dropped(table_identifier.raw_table_name())
             return
 
-        if self.config.include_table_lineage or self.config.include_usage_statistics:
+        if self.store_table_refs:
             table_ref = str(
                 BigQueryTableRef(table_identifier).get_sanitized_table_ref()
             )
@@ -900,7 +910,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             self.report.report_dropped(table_identifier.raw_table_name())
             return
 
-        if self.config.include_table_lineage or self.config.include_usage_statistics:
+        if self.store_table_refs:
             table_ref = str(
                 BigQueryTableRef(table_identifier).get_sanitized_table_ref()
             )
@@ -1013,12 +1023,22 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         project_id: str,
         dataset_name: str,
     ) -> Iterable[MetadataWorkUnit]:
+        custom_properties: Dict[str, str] = {}
+        if table.snapshot_definition:
+            custom_properties["snapshot_definition"] = table.snapshot_definition
+        if table.snapshot_time:
+            custom_properties["snapshot_time"] = str(table.snapshot_time)
+        if table.size_in_bytes:
+            custom_properties["size_in_bytes"] = str(table.size_in_bytes)
+        if table.rows_count:
+            custom_properties["rows_count"] = str(table.rows_count)
         yield from self.gen_dataset_workunits(
             table=table,
             columns=columns,
             project_id=project_id,
             dataset_name=dataset_name,
-            sub_types=[DatasetSubTypes.TABLE],
+            sub_types=[DatasetSubTypes.BIGQUERY_TABLE_SNAPSHOT],
+            custom_properties=custom_properties,
         )
 
     def gen_dataset_workunits(
