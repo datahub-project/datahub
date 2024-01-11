@@ -99,7 +99,7 @@ logger = logging.getLogger(__name__)
 @support_status(SupportStatus.CERTIFIED)
 @config_class(LookerDashboardSourceConfig)
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
-@capability(SourceCapability.PLATFORM_INSTANCE, "Not supported", supported=False)
+@capability(SourceCapability.PLATFORM_INSTANCE, "Use the `platform_instance` field")
 @capability(
     SourceCapability.OWNERSHIP, "Enabled by default, configured using `extract_owners`"
 )
@@ -129,9 +129,6 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
     source_config: LookerDashboardSourceConfig
     reporter: LookerDashboardSourceReport
     user_registry: LookerUserRegistry
-    accessed_dashboards: int = 0
-    resolved_user_ids: int = 0
-    email_ids_missing: int = 0  # resolved users with missing email addresses
     reachable_look_registry: Set[
         str
     ]  # Keep track of look-id which are reachable from Dashboard
@@ -866,7 +863,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
     def _get_looker_dashboard(
         self, dashboard: Dashboard, client: LookerAPI
     ) -> LookerDashboard:
-        self.accessed_dashboards += 1
+        self.reporter.accessed_dashboards += 1
         if dashboard.folder is None:
             logger.debug(f"{dashboard.id} has no folder")
         dashboard_folder_path = None
@@ -928,9 +925,9 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
 
         if user is not None and self.source_config.extract_owners:
             # Keep track of how many user ids we were able to resolve
-            self.resolved_user_ids += 1
+            self.reporter.resolved_user_ids += 1
             if user.email is None:
-                self.email_ids_missing += 1
+                self.reporter.email_ids_missing += 1
 
         return user
 
@@ -1047,7 +1044,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         self, dashboard_id: str, fields: List[str]
     ) -> Tuple[
         List[MetadataWorkUnit],
-        Optional[Dashboard],
+        Optional[looker_usage.LookerDashboardForUsage],
         str,
         datetime.datetime,
         datetime.datetime,
@@ -1098,9 +1095,15 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         )
         workunits.extend(metric_dim_workunits)
         self.reporter.report_dashboards_scanned()
+
+        # generate usage tracking object
+        dashboard_usage = looker_usage.LookerDashboardForUsage.from_dashboard(
+            dashboard_object
+        )
+
         return (
             workunits,
-            dashboard_object,
+            dashboard_usage,
             dashboard_id,
             start_time,
             datetime.datetime.now(),
@@ -1290,7 +1293,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
             for job in concurrent.futures.as_completed(async_workunits):
                 (
                     work_units,
-                    dashboard_object,
+                    dashboard_usage,
                     dashboard_id,
                     start_time,
                     end_time,
@@ -1302,19 +1305,15 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                 self.reporter.report_upstream_latency(start_time, end_time)
 
                 yield from work_units
-                if dashboard_object is not None:
-                    looker_dashboards_for_usage.append(
-                        looker_usage.LookerDashboardForUsage.from_dashboard(
-                            dashboard_object
-                        )
-                    )
+                if dashboard_usage is not None:
+                    looker_dashboards_for_usage.append(dashboard_usage)
 
         self.reporter.report_stage_end("dashboard_chart_metadata")
 
         if (
             self.source_config.extract_owners
-            and self.resolved_user_ids > 0
-            and self.email_ids_missing == self.resolved_user_ids
+            and self.reporter.resolved_user_ids > 0
+            and self.reporter.email_ids_missing == self.reporter.resolved_user_ids
         ):
             # Looks like we tried to extract owners and could not find their email addresses. This is likely a permissions issue
             self.reporter.report_warning(

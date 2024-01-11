@@ -59,6 +59,7 @@ describe('Recommendations', () => {
     });
 
     // TODO: Uncomment once entity sidebar recs are fully supported.
+    // eslint-disable-next-line vitest/no-commented-out-tests
     // it('renders entity page sidebar recommendations', async () => {
     //     const { getByText } = render(
     //         <MockedProvider

@@ -5,7 +5,7 @@ import itertools
 import logging
 import pathlib
 from collections import defaultdict
-from typing import Any, Dict, List, Optional, Set, Tuple, Union
+from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union
 
 import pydantic.dataclasses
 import sqlglot
@@ -37,7 +37,7 @@ from datahub.metadata.schema_classes import (
     TimeTypeClass,
 )
 from datahub.utilities.file_backed_collections import ConnectionWrapper, FileBackedDict
-from datahub.utilities.urns.dataset_urn import DatasetUrn
+from datahub.utilities.urns.field_paths import get_simple_field_path_from_v2_field_path
 
 logger = logging.getLogger(__name__)
 
@@ -60,6 +60,8 @@ RULES_BEFORE_TYPE_ANNOTATION: tuple = tuple(
         ),
     )
 )
+# Quick check that the rules were loaded correctly.
+assert 0 < len(RULES_BEFORE_TYPE_ANNOTATION) < len(sqlglot.optimizer.optimizer.RULES)
 
 
 class GraphQLSchemaField(TypedDict):
@@ -150,12 +152,16 @@ class _TableName(_FrozenModel):
 
     def as_sqlglot_table(self) -> sqlglot.exp.Table:
         return sqlglot.exp.Table(
-            catalog=self.database, db=self.db_schema, this=self.table
+            catalog=sqlglot.exp.Identifier(this=self.database)
+            if self.database
+            else None,
+            db=sqlglot.exp.Identifier(this=self.db_schema) if self.db_schema else None,
+            this=sqlglot.exp.Identifier(this=self.table),
         )
 
     def qualified(
         self,
-        dialect: str,
+        dialect: sqlglot.Dialect,
         default_db: Optional[str] = None,
         default_schema: Optional[str] = None,
     ) -> "_TableName":
@@ -187,7 +193,7 @@ class _ColumnRef(_FrozenModel):
     column: str
 
 
-class ColumnRef(_ParserBaseModel):
+class ColumnRef(_FrozenModel):
     table: Urn
     column: str
 
@@ -271,7 +277,9 @@ class SqlParsingResult(_ParserBaseModel):
         )
 
 
-def _parse_statement(sql: sqlglot.exp.ExpOrStr, dialect: str) -> sqlglot.Expression:
+def _parse_statement(
+    sql: sqlglot.exp.ExpOrStr, dialect: sqlglot.Dialect
+) -> sqlglot.Expression:
     statement: sqlglot.Expression = sqlglot.maybe_parse(
         sql, dialect=dialect, error_level=sqlglot.ErrorLevel.RAISE
     )
@@ -279,8 +287,7 @@ def _parse_statement(sql: sqlglot.exp.ExpOrStr, dialect: str) -> sqlglot.Express
 
 
 def _table_level_lineage(
-    statement: sqlglot.Expression,
-    dialect: str,
+    statement: sqlglot.Expression, dialect: sqlglot.Dialect
 ) -> Tuple[Set[_TableName], Set[_TableName]]:
     # Generate table-level lineage.
     modified = {
@@ -324,6 +331,9 @@ def _table_level_lineage(
         tables = tables | modified
 
     return tables, modified
+
+
+TABLE_CASE_SENSITIVE_PLATFORMS = {"bigquery"}
 
 
 class SchemaResolver(Closeable):
@@ -395,7 +405,10 @@ class SchemaResolver(Closeable):
             if schema_info:
                 return urn_lower, schema_info
 
-        return urn_lower, None
+        if self.platform in TABLE_CASE_SENSITIVE_PLATFORMS:
+            return urn, None
+        else:
+            return urn_lower, None
 
     def _resolve_schema_info(self, urn: str) -> Optional[SchemaInfo]:
         if urn in self._schema_cache:
@@ -443,15 +456,14 @@ class SchemaResolver(Closeable):
         cls, schema_metadata: SchemaMetadataClass
     ) -> SchemaInfo:
         return {
-            DatasetUrn.get_simple_field_path_from_v2_field_path(col.fieldPath): (
+            get_simple_field_path_from_v2_field_path(col.fieldPath): (
                 # The actual types are more of a "nice to have".
                 col.nativeDataType
                 or "str"
             )
             for col in schema_metadata.fields
             # TODO: We can't generate lineage to columns nested within structs yet.
-            if "."
-            not in DatasetUrn.get_simple_field_path_from_v2_field_path(col.fieldPath)
+            if "." not in get_simple_field_path_from_v2_field_path(col.fieldPath)
         }
 
     @classmethod
@@ -459,17 +471,14 @@ class SchemaResolver(Closeable):
         cls, schema: GraphQLSchemaMetadata
     ) -> SchemaInfo:
         return {
-            DatasetUrn.get_simple_field_path_from_v2_field_path(field["fieldPath"]): (
+            get_simple_field_path_from_v2_field_path(field["fieldPath"]): (
                 # The actual types are more of a "nice to have".
                 field["nativeDataType"]
                 or "str"
             )
             for field in schema["fields"]
             # TODO: We can't generate lineage to columns nested within structs yet.
-            if "."
-            not in DatasetUrn.get_simple_field_path_from_v2_field_path(
-                field["fieldPath"]
-            )
+            if "." not in get_simple_field_path_from_v2_field_path(field["fieldPath"])
         }
 
     def close(self) -> None:
@@ -486,6 +495,26 @@ _SupportedColumnLineageTypes = Union[
 ]
 _SupportedColumnLineageTypesTuple = (sqlglot.exp.Subqueryable, sqlglot.exp.DerivedTable)
 
+DIALECTS_WITH_CASE_INSENSITIVE_COLS = {
+    # Column identifiers are case-insensitive in BigQuery, so we need to
+    # do a normalization step beforehand to make sure it's resolved correctly.
+    "bigquery",
+    # Our snowflake source lowercases column identifiers, so we are forced
+    # to do fuzzy (case-insensitive) resolution instead of exact resolution.
+    "snowflake",
+    # Teradata column names are case-insensitive.
+    # A name, even when enclosed in double quotation marks, is not case sensitive. For example, CUSTOMER and Customer are the same.
+    # See more below:
+    # https://documentation.sas.com/doc/en/pgmsascdc/9.4_3.5/acreldb/n0ejgx4895bofnn14rlguktfx5r3.htm
+    "teradata",
+}
+DIALECTS_WITH_DEFAULT_UPPERCASE_COLS = {
+    # In some dialects, column identifiers are effectively case insensitive
+    # because they are automatically converted to uppercase. Most other systems
+    # automatically lowercase unquoted identifiers.
+    "snowflake",
+}
+
 
 class UnsupportedStatementTypeError(TypeError):
     pass
@@ -499,8 +528,8 @@ class SqlUnderstandingError(Exception):
 # TODO: Break this up into smaller functions.
 def _column_level_lineage(  # noqa: C901
     statement: sqlglot.exp.Expression,
-    dialect: str,
-    input_tables: Dict[_TableName, SchemaInfo],
+    dialect: sqlglot.Dialect,
+    table_schemas: Dict[_TableName, SchemaInfo],
     output_table: Optional[_TableName],
     default_db: Optional[str],
     default_schema: Optional[str],
@@ -519,19 +548,9 @@ def _column_level_lineage(  # noqa: C901
 
     column_lineage: List[_ColumnLineageInfo] = []
 
-    use_case_insensitive_cols = dialect in {
-        # Column identifiers are case-insensitive in BigQuery, so we need to
-        # do a normalization step beforehand to make sure it's resolved correctly.
-        "bigquery",
-        # Our snowflake source lowercases column identifiers, so we are forced
-        # to do fuzzy (case-insensitive) resolution instead of exact resolution.
-        "snowflake",
-        # Teradata column names are case-insensitive.
-        # A name, even when enclosed in double quotation marks, is not case sensitive. For example, CUSTOMER and Customer are the same.
-        # See more below:
-        # https://documentation.sas.com/doc/en/pgmsascdc/9.4_3.5/acreldb/n0ejgx4895bofnn14rlguktfx5r3.htm
-        "teradata",
-    }
+    use_case_insensitive_cols = _is_dialect_instance(
+        dialect, DIALECTS_WITH_CASE_INSENSITIVE_COLS
+    )
 
     sqlglot_db_schema = sqlglot.MappingSchema(
         dialect=dialect,
@@ -541,14 +560,16 @@ def _column_level_lineage(  # noqa: C901
     table_schema_normalized_mapping: Dict[_TableName, Dict[str, str]] = defaultdict(
         dict
     )
-    for table, table_schema in input_tables.items():
+    for table, table_schema in table_schemas.items():
         normalized_table_schema: SchemaInfo = {}
         for col, col_type in table_schema.items():
             if use_case_insensitive_cols:
                 col_normalized = (
                     # This is required to match Sqlglot's behavior.
                     col.upper()
-                    if dialect in {"snowflake"}
+                    if _is_dialect_instance(
+                        dialect, DIALECTS_WITH_DEFAULT_UPPERCASE_COLS
+                    )
                     else col.lower()
                 )
             else:
@@ -565,7 +586,7 @@ def _column_level_lineage(  # noqa: C901
     if use_case_insensitive_cols:
 
         def _sqlglot_force_column_normalizer(
-            node: sqlglot.exp.Expression, dialect: "sqlglot.DialectType" = None
+            node: sqlglot.exp.Expression,
         ) -> sqlglot.exp.Expression:
             if isinstance(node, sqlglot.exp.Column):
                 node.this.set("quoted", False)
@@ -576,9 +597,7 @@ def _column_level_lineage(  # noqa: C901
         #     "Prior to case normalization sql %s",
         #     statement.sql(pretty=True, dialect=dialect),
         # )
-        statement = statement.transform(
-            _sqlglot_force_column_normalizer, dialect, copy=False
-        )
+        statement = statement.transform(_sqlglot_force_column_normalizer, copy=False)
         # logger.debug(
         #     "Sql after casing normalization %s",
         #     statement.sql(pretty=True, dialect=dialect),
@@ -599,7 +618,8 @@ def _column_level_lineage(  # noqa: C901
 
     # Optimize the statement + qualify column references.
     logger.debug(
-        "Prior to qualification sql %s", statement.sql(pretty=True, dialect=dialect)
+        "Prior to column qualification sql %s",
+        statement.sql(pretty=True, dialect=dialect),
     )
     try:
         # Second time running qualify, this time with:
@@ -682,7 +702,7 @@ def _column_level_lineage(  # noqa: C901
                 # Otherwise, we can't process it.
                 continue
 
-            if dialect == "bigquery" and output_col.lower() in {
+            if _is_dialect_instance(dialect, "bigquery") and output_col.lower() in {
                 "_partitiontime",
                 "_partitiondate",
             }:
@@ -915,6 +935,7 @@ def _translate_sqlglot_type(
         TypeClass = ArrayTypeClass
     elif sqlglot_type in {
         sqlglot.exp.DataType.Type.UNKNOWN,
+        sqlglot.exp.DataType.Type.NULL,
     }:
         return None
     else:
@@ -927,7 +948,7 @@ def _translate_sqlglot_type(
 def _translate_internal_column_lineage(
     table_name_urn_mapping: Dict[_TableName, str],
     raw_column_lineage: _ColumnLineageInfo,
-    dialect: str,
+    dialect: sqlglot.Dialect,
 ) -> ColumnLineageInfo:
     downstream_urn = None
     if raw_column_lineage.downstream.table:
@@ -960,14 +981,42 @@ def _translate_internal_column_lineage(
     )
 
 
-def _get_dialect(platform: str) -> str:
+def _get_dialect_str(platform: str) -> str:
     # TODO: convert datahub platform names to sqlglot dialect
     if platform == "presto-on-hive":
         return "hive"
-    if platform == "mssql":
+    elif platform == "mssql":
         return "tsql"
+    elif platform == "athena":
+        return "trino"
+    elif platform == "mysql":
+        # In sqlglot v20+, MySQL is now case-sensitive by default, which is the
+        # default behavior on Linux. However, MySQL's default case sensitivity
+        # actually depends on the underlying OS.
+        # For us, it's simpler to just assume that it's case-insensitive, and
+        # let the fuzzy resolution logic handle it.
+        return "mysql, normalization_strategy = lowercase"
     else:
         return platform
+
+
+def _get_dialect(platform: str) -> sqlglot.Dialect:
+    return sqlglot.Dialect.get_or_raise(_get_dialect_str(platform))
+
+
+def _is_dialect_instance(
+    dialect: sqlglot.Dialect, platforms: Union[str, Iterable[str]]
+) -> bool:
+    if isinstance(platforms, str):
+        platforms = [platforms]
+    else:
+        platforms = list(platforms)
+
+    dialects = [sqlglot.Dialect.get_or_raise(platform) for platform in platforms]
+
+    if any(isinstance(dialect, dialect_class.__class__) for dialect_class in dialects):
+        return True
+    return False
 
 
 def _sqlglot_lineage_inner(
@@ -977,7 +1026,7 @@ def _sqlglot_lineage_inner(
     default_schema: Optional[str] = None,
 ) -> SqlParsingResult:
     dialect = _get_dialect(schema_resolver.platform)
-    if dialect == "snowflake":
+    if _is_dialect_instance(dialect, "snowflake"):
         # in snowflake, table identifiers must be uppercased to match sqlglot's behavior.
         if default_db:
             default_db = default_db.upper()
@@ -1048,7 +1097,7 @@ def _sqlglot_lineage_inner(
         table_schemas_resolved=total_schemas_resolved,
     )
     logger.debug(
-        f"Resolved {len(table_name_schema_mapping)} of {len(tables)} table schemas"
+        f"Resolved {total_schemas_resolved} of {total_tables_discovered} table schemas"
     )
 
     # Simplify the input statement for column-level lineage generation.
@@ -1066,7 +1115,7 @@ def _sqlglot_lineage_inner(
             column_lineage = _column_level_lineage(
                 select_statement,
                 dialect=dialect,
-                input_tables=table_name_schema_mapping,
+                table_schemas=table_name_schema_mapping,
                 output_table=downstream_table,
                 default_db=default_db,
                 default_schema=default_schema,
@@ -1206,13 +1255,13 @@ def detach_ctes(
                 full_new_name, dialect=dialect, into=sqlglot.exp.Table
             )
 
-            # We expect node.parent to be a Table or Column.
-            # Either way, it should support catalog/db/name.
             parent = node.parent
 
-            if "catalog" in parent.arg_types:
+            # We expect node.parent to be a Table or Column, both of which support catalog/db/name.
+            # However, we check the parent's arg_types to be safe.
+            if "catalog" in parent.arg_types and table_expr.catalog:
                 parent.set("catalog", table_expr.catalog)
-            if "db" in parent.arg_types:
+            if "db" in parent.arg_types and table_expr.db:
                 parent.set("db", table_expr.db)
 
             new_node = sqlglot.exp.Identifier(this=table_expr.name)

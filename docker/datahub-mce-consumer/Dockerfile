@@ -23,7 +23,7 @@ WORKDIR /go/src/github.com/jwilder/dockerize
 
 RUN go install github.com/jwilder/dockerize@$DOCKERIZE_VERSION
 
-FROM alpine:3 AS base
+FROM alpine:3.18 AS base
 
 # Re-declaring args from above to make them available in this stage (will inherit default values)
 ARG ALPINE_REPO_URL
@@ -38,11 +38,11 @@ ENV JMX_VERSION=0.18.0
 # PFP-260: Upgrade Sqlite to >=3.28.0-r0 to fix https://security.snyk.io/vuln/SNYK-ALPINE39-SQLITE-449762
 RUN apk --no-cache --update-cache --available upgrade \
     && apk --no-cache add curl bash sqlite libc6-compat java-snappy \
-    && apk --no-cache add openjdk11-jre-headless --repository=${ALPINE_REPO_URL}/edge/community \
+    && apk --no-cache add openjdk17-jre-headless --repository=${ALPINE_REPO_URL}/edge/community \
     && apk --no-cache add jattach --repository ${ALPINE_REPO_URL}/edge/community/ \
     && wget --no-verbose ${GITHUB_REPO_URL}/open-telemetry/opentelemetry-java-instrumentation/releases/download/v1.24.0/opentelemetry-javaagent.jar \
     && wget --no-verbose ${MAVEN_CENTRAL_REPO_URL}/io/prometheus/jmx/jmx_prometheus_javaagent/${JMX_VERSION}/jmx_prometheus_javaagent-${JMX_VERSION}.jar -O jmx_prometheus_javaagent.jar \
-    && cp /usr/lib/jvm/java-11-openjdk/jre/lib/security/cacerts /tmp/kafka.client.truststore.jks
+    && cp /usr/lib/jvm/java-17-openjdk/jre/lib/security/cacerts /tmp/kafka.client.truststore.jks
 COPY --from=binary /go/bin/dockerize /usr/local/bin
 
 FROM base as prod-install

@@ -1,5 +1,7 @@
 package com.linkedin.metadata.timeline.eventgenerator;
 
+import static com.linkedin.metadata.Constants.*;
+
 import com.google.common.collect.ImmutableSortedMap;
 import com.linkedin.assertion.AssertionResult;
 import com.linkedin.assertion.AssertionRunEvent;
@@ -14,10 +16,8 @@ import java.util.List;
 import java.util.Map;
 import javax.annotation.Nonnull;
 
-import static com.linkedin.metadata.Constants.*;
-
-
-public class AssertionRunEventChangeEventGenerator extends EntityChangeEventGenerator<AssertionRunEvent> {
+public class AssertionRunEventChangeEventGenerator
+    extends EntityChangeEventGenerator<AssertionRunEvent> {
   @Override
   public List<ChangeEvent> getChangeEvents(
       @Nonnull Urn urn,
@@ -39,22 +39,22 @@ public class AssertionRunEventChangeEventGenerator extends EntityChangeEventGene
     boolean isNewCompleted = isCompleted(newAspect);
 
     if (isNewCompleted && !isPreviousCompleted) {
-      return Collections.singletonList(ChangeEvent.builder()
-          .category(ChangeCategory.RUN)
-          .operation(ChangeOperation.COMPLETED)
-          .auditStamp(auditStamp)
-          .entityUrn(entityUrn)
-          .parameters(buildParameters(newAspect))
-          .build());
+      return Collections.singletonList(
+          ChangeEvent.builder()
+              .category(ChangeCategory.RUN)
+              .operation(ChangeOperation.COMPLETED)
+              .auditStamp(auditStamp)
+              .entityUrn(entityUrn)
+              .parameters(buildParameters(newAspect))
+              .build());
     }
 
     return Collections.emptyList();
   }
 
   private boolean isCompleted(final AssertionRunEvent assertionRunEvent) {
-    return assertionRunEvent != null && assertionRunEvent.getStatus()
-        .toString()
-        .equals(ASSERTION_RUN_EVENT_STATUS_COMPLETE);
+    return assertionRunEvent != null
+        && assertionRunEvent.getStatus().toString().equals(ASSERTION_RUN_EVENT_STATUS_COMPLETE);
   }
 
   @Nonnull

@@ -29,7 +29,6 @@ from datahub.metadata.schema_classes import (
     MetadataChangeEventClass,
     MetadataChangeProposalClass,
     StatusClass,
-    TagKeyClass,
     TimeWindowSizeClass,
 )
 from datahub.telemetry import telemetry
@@ -173,11 +172,11 @@ def auto_materialize_referenced_tags(
         yield wu
 
     for urn in sorted(referenced_tags - tags_with_aspects):
-        tag_urn = TagUrn.create_from_string(urn)
+        tag_urn = TagUrn.from_string(urn)
 
         yield MetadataChangeProposalWrapper(
             entityUrn=urn,
-            aspect=TagKeyClass(name=tag_urn.get_entity_id()[0]),
+            aspect=tag_urn.to_key_aspect(),
         ).as_workunit()
 
 
@@ -196,6 +195,21 @@ def auto_lowercase_urns(
         except Exception as e:
             logger.warning(f"Failed to lowercase urns for {wu}: {e}", exc_info=True)
             yield wu
+
+
+def re_emit_browse_path_v2(
+    stream: Iterable[MetadataWorkUnit],
+) -> Iterable[MetadataWorkUnit]:
+    """Re-emit browse paths v2 aspects, to avoid race condition where server overwrites with default."""
+    browse_path_v2_workunits = []
+
+    for wu in stream:
+        yield wu
+        if wu.is_primary_source and wu.get_aspect_of_type(BrowsePathsV2Class):
+            browse_path_v2_workunits.append(wu)
+
+    for wu in browse_path_v2_workunits:
+        yield wu
 
 
 def auto_browse_path_v2(

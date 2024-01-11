@@ -1015,7 +1015,7 @@ class LookerExploreRegistry:
         self.report = report
         self.source_config = source_config
 
-    @lru_cache()
+    @lru_cache(maxsize=200)
     def get_explore(self, model: str, explore: str) -> Optional[LookerExplore]:
         looker_explore = LookerExplore.from_api(
             model,
@@ -1059,6 +1059,7 @@ class LookerDashboardSourceReport(StaleEntityRemovalSourceReport):
     dashboards_scanned_for_usage: int = 0
     charts_scanned_for_usage: int = 0
     charts_with_activity: LossySet[str] = dataclasses_field(default_factory=LossySet)
+    accessed_dashboards: int = 0
     dashboards_with_activity: LossySet[str] = dataclasses_field(
         default_factory=LossySet
     )
@@ -1066,6 +1067,10 @@ class LookerDashboardSourceReport(StaleEntityRemovalSourceReport):
     _looker_explore_registry: Optional[LookerExploreRegistry] = None
     total_explores: int = 0
     explores_scanned: int = 0
+
+    resolved_user_ids: int = 0
+    email_ids_missing: int = 0  # resolved users with missing email addresses
+
     _looker_api: Optional[LookerAPI] = None
     query_latency: Dict[str, datetime.timedelta] = dataclasses_field(
         default_factory=dict

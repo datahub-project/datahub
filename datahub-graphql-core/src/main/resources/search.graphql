@@ -1176,9 +1176,14 @@ Input required for browse queries
 """
 input BrowseV2Input {
   """
-  The browse entity type
+  The browse entity type - deprecated use types instead
   """
-  type: EntityType!
+  type: EntityType
+
+  """
+  The browse entity type - deprecated use types instead. If not provided, all types will be used.
+  """
+  types: [EntityType!]
 
   """
   The browse path V2 - a list with each entry being part of the browse path V2

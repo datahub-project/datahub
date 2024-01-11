@@ -30,10 +30,9 @@ import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 
-
 /**
- * IsolatedClassLoader to load custom implementation of DataHub Plugins.
- * Override methods behave as per Java ClassLoader documentation.
+ * IsolatedClassLoader to load custom implementation of DataHub Plugins. Override methods behave as
+ * per Java ClassLoader documentation.
  */
 @Slf4j
 public class IsolatedClassLoader extends ClassLoader {
@@ -50,22 +49,30 @@ public class IsolatedClassLoader extends ClassLoader {
 
   private final Path _executionDirectory;
 
-  public IsolatedClassLoader(@Nonnull PluginPermissionManager pluginPermissionManager,
-      @Nonnull PluginConfig pluginToLoad, @Nonnull ClassLoader... applicationClassLoaders) {
+  public IsolatedClassLoader(
+      @Nonnull PluginPermissionManager pluginPermissionManager,
+      @Nonnull PluginConfig pluginToLoad,
+      @Nonnull ClassLoader... applicationClassLoaders) {
     this._pluginPermissionManager = pluginPermissionManager;
     this._pluginConfig = pluginToLoad;
     this._classLoaders.add(this.getClass().getClassLoader()); // then application class-loader
     this._classLoaders.addAll(Arrays.asList(applicationClassLoaders)); // if any extra class loaders
     this._executionDirectory =
-        Paths.get("/tmp", pluginToLoad.getPluginHomeDirectory().toString(), EXECUTION_DIR); // to store .so files i.e. libraries
+        Paths.get(
+            "/tmp",
+            pluginToLoad.getPluginHomeDirectory().toString(),
+            EXECUTION_DIR); // to store .so files i.e. libraries
     try {
       this.createJarEntryMap();
     } catch (IOException e) {
-      // This would occur if we don't have permission on directory and chances of this is close to zero, hence catching
+      // This would occur if we don't have permission on directory and chances of this is close to
+      // zero, hence catching
       // this checked exception and throwing runtime exception
       // to make caller code more readable
-      String message = String.format("Unable to load jar file %s for plugin %s", pluginToLoad.getPluginJarPath(),
-          pluginToLoad.getName());
+      String message =
+          String.format(
+              "Unable to load jar file %s for plugin %s",
+              pluginToLoad.getPluginJarPath(), pluginToLoad.getName());
       throw new RuntimeException(message, e);
     }
   }
@@ -85,15 +92,18 @@ public class IsolatedClassLoader extends ClassLoader {
   }
 
   /**
-   * Load plugin class from jar given in pluginToLoad parameter and return instance of class which implements Plugin
-   * interface.
-   * This method verifies whether loaded plugin is assignable to expectedInstanceOf class
+   * Load plugin class from jar given in pluginToLoad parameter and return instance of class which
+   * implements Plugin interface. This method verifies whether loaded plugin is assignable to
+   * expectedInstanceOf class
+   *
    * @param expectedInstanceOf class instance of interface caller is expecting
    * @return Instance of Plugin
-   * @throws ClassNotFoundException className parameter available in Plugin configuration is not found
+   * @throws ClassNotFoundException className parameter available in Plugin configuration is not
+   *     found
    */
   @Nonnull
-  public Plugin instantiatePlugin(@Nonnull Class<? extends Plugin> expectedInstanceOf) throws ClassNotFoundException {
+  public Plugin instantiatePlugin(@Nonnull Class<? extends Plugin> expectedInstanceOf)
+      throws ClassNotFoundException {
     Class<?> clazz = this.loadClass(this._pluginConfig.getClassName(), true);
 
     try {
@@ -102,14 +112,17 @@ public class IsolatedClassLoader extends ClassLoader {
       // Check loaded plugin has implemented the proper implementation of child interface
       if (!expectedInstanceOf.isAssignableFrom(clazz)) {
         throw new InstantiationException(
-            String.format("In plugin %s, the class %s has not implemented the interface %s",
-                this._pluginConfig.getName(), plugin.getClass().getCanonicalName(),
+            String.format(
+                "In plugin %s, the class %s has not implemented the interface %s",
+                this._pluginConfig.getName(),
+                plugin.getClass().getCanonicalName(),
                 expectedInstanceOf.getCanonicalName()));
       }
       log.debug("Successfully created instance of plugin {}", this._pluginConfig.getClassName());
       return plugin;
     } catch (InstantiationException | IllegalAccessException e) {
-      throw new RuntimeException(String.format("Failed to instantiate the plugin %s", this._pluginConfig.getName()), e);
+      throw new RuntimeException(
+          String.format("Failed to instantiate the plugin %s", this._pluginConfig.getName()), e);
     }
   }
 
@@ -157,7 +170,8 @@ public class IsolatedClassLoader extends ClassLoader {
     byte[] classBytes = getClassData(this._classPathVsZipEntry.get(path));
 
     ProtectionDomain protectionDomain =
-        this._pluginPermissionManager.createProtectionDomain(this._pluginConfig.getPluginHomeDirectory());
+        this._pluginPermissionManager.createProtectionDomain(
+            this._pluginConfig.getPluginHomeDirectory());
     return defineClass(s, classBytes, 0, classBytes.length, protectionDomain);
   }
 
@@ -210,8 +224,11 @@ public class IsolatedClassLoader extends ClassLoader {
 
   private Optional<URL> findResourceInPluginHome(String resource) {
     try {
-      try (Stream<Path> stream = Files.find(this._pluginConfig.getPluginHomeDirectory(), 1,
-          ((path, basicFileAttributes) -> path.toFile().getName().equals(resource)))) {
+      try (Stream<Path> stream =
+          Files.find(
+              this._pluginConfig.getPluginHomeDirectory(),
+              1,
+              ((path, basicFileAttributes) -> path.toFile().getName().equals(resource)))) {
         List<Path> resources = stream.collect(Collectors.toList());
         if (resources.size() > 0) {
           log.debug("Number of resources found {}", resources.size());
@@ -227,9 +244,9 @@ public class IsolatedClassLoader extends ClassLoader {
   }
 
   /**
-   * Look for resource in below order
-   * - First search in plugin jar if not found
-   * - then search in plugin directory if not found then return null
+   * Look for resource in below order - First search in plugin jar if not found - then search in
+   * plugin directory if not found then return null
+   *
    * @param resource Resource to find
    * @return URL of the resource
    */

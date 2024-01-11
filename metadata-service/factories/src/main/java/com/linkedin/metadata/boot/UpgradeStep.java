@@ -7,6 +7,7 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.ebean.batch.MCPUpsertBatchItem;
 import com.linkedin.metadata.key.DataHubUpgradeKey;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
@@ -17,11 +18,10 @@ import java.net.URISyntaxException;
 import java.util.Collections;
 import lombok.extern.slf4j.Slf4j;
 
-
 @Slf4j
 public abstract class UpgradeStep implements BootstrapStep {
 
-  protected final EntityService _entityService;
+  protected final EntityService<MCPUpsertBatchItem> _entityService;
   private final String _version;
   private final String _upgradeId;
   private final Urn _upgradeUrn;
@@ -30,8 +30,9 @@ public abstract class UpgradeStep implements BootstrapStep {
     this._entityService = entityService;
     this._version = version;
     this._upgradeId = upgradeId;
-    this._upgradeUrn = EntityKeyUtils.convertEntityKeyToUrn(new DataHubUpgradeKey().setId(upgradeId),
-        Constants.DATA_HUB_UPGRADE_ENTITY_NAME);
+    this._upgradeUrn =
+        EntityKeyUtils.convertEntityKeyToUrn(
+            new DataHubUpgradeKey().setId(upgradeId), Constants.DATA_HUB_UPGRADE_ENTITY_NAME);
   }
 
   @Override
@@ -47,7 +48,8 @@ public abstract class UpgradeStep implements BootstrapStep {
       upgrade();
       ingestUpgradeResultAspect();
     } catch (Exception e) {
-      String errorMessage = String.format("Error when running %s for version %s", _upgradeId, _version);
+      String errorMessage =
+          String.format("Error when running %s for version %s", _upgradeId, _version);
       cleanUpgradeAfterError(e, errorMessage);
       throw new RuntimeException(errorMessage, e);
     }
@@ -62,18 +64,29 @@ public abstract class UpgradeStep implements BootstrapStep {
 
   private boolean hasUpgradeRan() {
     try {
-      EntityResponse response = _entityService.getEntityV2(Constants.DATA_HUB_UPGRADE_ENTITY_NAME, _upgradeUrn,
-          Collections.singleton(Constants.DATA_HUB_UPGRADE_REQUEST_ASPECT_NAME));
+      EntityResponse response =
+          _entityService.getEntityV2(
+              Constants.DATA_HUB_UPGRADE_ENTITY_NAME,
+              _upgradeUrn,
+              Collections.singleton(Constants.DATA_HUB_UPGRADE_REQUEST_ASPECT_NAME));
 
-      if (response != null && response.getAspects().containsKey(Constants.DATA_HUB_UPGRADE_REQUEST_ASPECT_NAME)) {
-        DataMap dataMap = response.getAspects().get(Constants.DATA_HUB_UPGRADE_REQUEST_ASPECT_NAME).getValue().data();
+      if (response != null
+          && response.getAspects().containsKey(Constants.DATA_HUB_UPGRADE_REQUEST_ASPECT_NAME)) {
+        DataMap dataMap =
+            response
+                .getAspects()
+                .get(Constants.DATA_HUB_UPGRADE_REQUEST_ASPECT_NAME)
+                .getValue()
+                .data();
         DataHubUpgradeRequest request = new DataHubUpgradeRequest(dataMap);
         if (request.hasVersion() && request.getVersion().equals(_version)) {
           return true;
         }
       }
     } catch (Exception e) {
-      log.error("Error when checking to see if datahubUpgrade entity exists. Commencing with upgrade...", e);
+      log.error(
+          "Error when checking to see if datahubUpgrade entity exists. Commencing with upgrade...",
+          e);
       return false;
     }
     return false;
@@ -81,7 +94,9 @@ public abstract class UpgradeStep implements BootstrapStep {
 
   private void ingestUpgradeRequestAspect() throws URISyntaxException {
     final AuditStamp auditStamp =
-        new AuditStamp().setActor(Urn.createFromString(Constants.SYSTEM_ACTOR)).setTime(System.currentTimeMillis());
+        new AuditStamp()
+            .setActor(Urn.createFromString(Constants.SYSTEM_ACTOR))
+            .setTime(System.currentTimeMillis());
     final DataHubUpgradeRequest upgradeRequest =
         new DataHubUpgradeRequest().setTimestampMs(System.currentTimeMillis()).setVersion(_version);
 
@@ -97,8 +112,11 @@ public abstract class UpgradeStep implements BootstrapStep {
 
   private void ingestUpgradeResultAspect() throws URISyntaxException {
     final AuditStamp auditStamp =
-        new AuditStamp().setActor(Urn.createFromString(Constants.SYSTEM_ACTOR)).setTime(System.currentTimeMillis());
-    final DataHubUpgradeResult upgradeResult = new DataHubUpgradeResult().setTimestampMs(System.currentTimeMillis());
+        new AuditStamp()
+            .setActor(Urn.createFromString(Constants.SYSTEM_ACTOR))
+            .setTime(System.currentTimeMillis());
+    final DataHubUpgradeResult upgradeResult =
+        new DataHubUpgradeResult().setTimestampMs(System.currentTimeMillis());
 
     final MetadataChangeProposal upgradeProposal = new MetadataChangeProposal();
     upgradeProposal.setEntityUrn(_upgradeUrn);

@@ -11,8 +11,7 @@ Also take a look at the guide to [adding a source](./adding-source.md).
 
 1. Python 3.7+ must be installed in your host environment.
 2. Java8 (gradle won't work with newer versions)
-3. On MacOS: `brew install librdkafka`
-4. On Debian/Ubuntu: `sudo apt install librdkafka-dev python3-dev python3-venv`
+4. On Debian/Ubuntu: `sudo apt install python3-dev python3-venv`
 5. On Fedora (if using LDAP source integration): `sudo yum install openldap-devel`
 
 ### Set up your Python environment
