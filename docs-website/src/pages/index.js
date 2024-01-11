@@ -61,10 +61,18 @@ function Home() {
               </div>
             </div>
             <div className="col col--5 col--offset-1">
-              <h1 style={{ borderBottom: "3px solid black", paddingBottom:"0.7rem", width: "18rem"}}>What Is DataHub?</h1>
+              <h1
+                style={{
+                  borderBottom: "3px solid black",
+                  paddingBottom: "0.7rem",
+                  width: "18rem",
+                }}
+              >
+                What Is DataHub?
+              </h1>
               {/* <hr style={{ border: "2px solid black", width: "20rem" }}></hr> */}
-              <p style={{ fontSize: "18px"}}>
-                Explore DataHub's journey from start to present, <br></br> 
+              <p style={{ fontSize: "18px" }}>
+                Explore DataHub's journey from start to present, <br></br>
                 and learn how we empower leaders in today's data-driven world.
               </p>
             </div>
