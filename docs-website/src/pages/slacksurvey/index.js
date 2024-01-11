@@ -3,32 +3,33 @@ import Layout from '@theme/Layout';
 import useDocusaurusContext from '@docusaurus/useDocusaurusContext';
 
 function SlackSurvey() {
-    const context = useDocusaurusContext();
-    const { siteConfig = {} } = context;
-    const scriptContainerRef = useRef(null); 
+    const { siteConfig = {} } = useDocusaurusContext();
+    const scriptContainerRef = useRef(null);
 
     useEffect(() => {
-        const script = document.createElement('script');
-        script.src = '//js.hsforms.net/forms/embed/v2.js';
-        script.async = true;
-        script.type = 'text/javascript';
-        script.onload = () => {
-            if (window.hbspt) {
-                window.hbspt.forms.create({
-                    region: 'na1',
-                    portalId: '14552909',
-                    formId: '91357965-a8dc-4e20-875e-5f87e6b9defb',
-                });
-            }
-        };
+        if (scriptContainerRef.current) {
+            const script = document.createElement('script');
+            script.src = '//js.hsforms.net/forms/embed/v2.js';
+            script.async = true;
+            script.type = 'text/javascript';
+            script.onload = () => {
+                if (window.hbspt) {
+                    window.hbspt.forms.create({
+                        region: 'na1',
+                        portalId: '14552909',
+                        formId: '91357965-a8dc-4e20-875e-5f87e6b9defb',
+                    });
+                }
+            };
 
-        scriptContainerRef.current.appendChild(script);
+            scriptContainerRef.current.appendChild(script);
 
-        return () => {
-            if (scriptContainerRef.current) {
-                scriptContainerRef.current.removeChild(script);
-            }
-        };
+            return () => {
+                if (scriptContainerRef.current) {
+                    scriptContainerRef.current.removeChild(script);
+                }
+            };
+        }
     }, []);
 
     return (
