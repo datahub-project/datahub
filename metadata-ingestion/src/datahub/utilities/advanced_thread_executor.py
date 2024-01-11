@@ -11,7 +11,7 @@ from typing import (
     Deque,
     Dict,
     Iterable,
-    List,
+    Iterator,
     Optional,
     Set,
     Tuple,
@@ -156,10 +156,10 @@ class BackpressureAwareExecutor:
     def map(
         cls,
         fn: Callable[..., _R],
-        args_list: List[Tuple[Any, ...]],
+        args_list: Iterable[Tuple[Any, ...]],
         max_workers: int,
         max_pending: Optional[int] = None,
-    ) -> Iterable[Future[_R]]:
+    ) -> Iterator[Future[_R]]:
         """Similar to concurrent.futures.ThreadPoolExecutor#map, except that it won't run ahead of the consumer.
 
         The main benefit is that the ThreadPoolExecutor isn't stuck holding a ton of result
