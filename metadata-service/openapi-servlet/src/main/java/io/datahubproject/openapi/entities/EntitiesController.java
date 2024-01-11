@@ -17,6 +17,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.ebean.batch.MCPUpsertBatchItem;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.util.Pair;
 import io.datahubproject.openapi.dto.RollbackRunResultDto;
@@ -32,6 +33,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -63,7 +65,7 @@ import org.springframework.web.bind.annotation.RestController;
     description = "APIs for ingesting and accessing entities and their constituent aspects")
 public class EntitiesController {
 
-  private final EntityService _entityService;
+  private final EntityService<MCPUpsertBatchItem> _entityService;
   private final ObjectMapper _objectMapper;
   private final AuthorizerChain _authorizerChain;
 
@@ -152,7 +154,8 @@ public class EntitiesController {
 
   @PostMapping(value = "/", produces = MediaType.APPLICATION_JSON_VALUE)
   public ResponseEntity<List<String>> postEntities(
-      @RequestBody @Nonnull List<UpsertAspectRequest> aspectRequests) {
+      @RequestBody @Nonnull List<UpsertAspectRequest> aspectRequests,
+      @RequestParam(required = false, name = "async") Boolean async) {
     log.info("INGEST PROPOSAL proposal: {}", aspectRequests);
 
     Authentication authentication = AuthenticationContext.getAuthentication();
@@ -174,9 +177,14 @@ public class EntitiesController {
       throw new UnauthorizedException(actorUrnStr + " is unauthorized to edit entities.");
     }
 
+    boolean asyncBool =
+        Objects.requireNonNullElseGet(
+            async, () -> Boolean.parseBoolean(System.getenv("ASYNC_INGEST_DEFAULT")));
     List<Pair<String, Boolean>> responses =
         proposals.stream()
-            .map(proposal -> MappingUtil.ingestProposal(proposal, actorUrnStr, _entityService))
+            .map(
+                proposal ->
+                    MappingUtil.ingestProposal(proposal, actorUrnStr, _entityService, asyncBool))
             .collect(Collectors.toList());
     if (responses.stream().anyMatch(Pair::getSecond)) {
       return ResponseEntity.status(HttpStatus.CREATED)
@@ -205,7 +213,8 @@ public class EntitiesController {
               description =
                   "Determines whether the delete will be soft or hard, defaults to true for soft delete")
           @RequestParam(value = "soft", defaultValue = "true")
-          boolean soft) {
+          boolean soft,
+      @RequestParam(required = false, name = "async") Boolean async) {
     Throwable exceptionally = null;
     try (Timer.Context context = MetricUtils.timer("deleteEntities").time()) {
       Authentication authentication = AuthenticationContext.getAuthentication();
@@ -250,6 +259,9 @@ public class EntitiesController {
                 .map(entityUrn -> MappingUtil.createStatusRemoval(entityUrn, _entityService))
                 .collect(Collectors.toList());
 
+        boolean asyncBool =
+            Objects.requireNonNullElseGet(
+                async, () -> Boolean.parseBoolean(System.getenv("ASYNC_INGEST_DEFAULT")));
         return ResponseEntity.ok(
             Collections.singletonList(
                 RollbackRunResultDto.builder()
@@ -262,7 +274,7 @@ public class EntitiesController {
                             .map(
                                 proposal ->
                                     MappingUtil.ingestProposal(
-                                        proposal, actorUrnStr, _entityService))
+                                        proposal, actorUrnStr, _entityService, asyncBool))
                             .filter(Pair::getSecond)
                             .map(Pair::getFirst)
                             .map(urnString -> AspectRowSummary.builder().urn(urnString).build())

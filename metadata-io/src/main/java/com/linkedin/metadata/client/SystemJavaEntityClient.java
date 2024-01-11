@@ -7,6 +7,7 @@ import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.config.cache.client.EntityClientCacheConfig;
 import com.linkedin.metadata.entity.DeleteEntityService;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.ebean.batch.MCPUpsertBatchItem;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.LineageSearchService;
@@ -23,7 +24,7 @@ public class SystemJavaEntityClient extends JavaEntityClient implements SystemEn
   private final Authentication systemAuthentication;
 
   public SystemJavaEntityClient(
-      EntityService entityService,
+      EntityService<MCPUpsertBatchItem> entityService,
       DeleteEntityService deleteEntityService,
       EntitySearchService entitySearchService,
       CachingEntitySearchService cachingEntitySearchService,

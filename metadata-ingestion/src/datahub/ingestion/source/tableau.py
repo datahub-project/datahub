@@ -541,6 +541,23 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
             self.server = None
         super().close()
 
+    @property
+    def no_env_browse_prefix(self) -> str:
+        # Prefix to use with browse path (v1)
+        # This is for charts and dashboards.
+
+        platform_with_instance = (
+            f"{self.platform}/{self.config.platform_instance}"
+            if self.config.platform_instance
+            else self.platform
+        )
+        return f"/{platform_with_instance}"
+
+    @property
+    def dataset_browse_prefix(self) -> str:
+        # datasets also have the env in the browse path
+        return f"/{self.config.env.lower()}{self.no_env_browse_prefix}"
+
     def _populate_usage_stat_registry(self) -> None:
         if self.server is None:
             return
@@ -1118,7 +1135,7 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
 
     def is_snowflake_urn(self, urn: str) -> bool:
         return (
-            DatasetUrn.create_from_string(urn).get_data_platform_urn().platform_name
+            DatasetUrn.from_string(urn).get_data_platform_urn().platform_name
             == "snowflake"
         )
 
@@ -1328,7 +1345,7 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
             if project and datasource_name:
                 browse_paths = BrowsePathsClass(
                     paths=[
-                        f"/{self.config.env.lower()}/{self.platform}/{project}/{datasource[c.NAME]}"
+                        f"{self.dataset_browse_prefix}/{project}/{datasource[c.NAME]}"
                     ]
                 )
                 dataset_snapshot.aspects.append(browse_paths)
@@ -1708,7 +1725,7 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
 
         if browse_path:
             browse_paths = BrowsePathsClass(
-                paths=[f"/{self.config.env.lower()}/{self.platform}/{browse_path}"]
+                paths=[f"{self.dataset_browse_prefix}/{browse_path}"]
             )
             dataset_snapshot.aspects.append(browse_paths)
 
@@ -1869,7 +1886,7 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
             # Browse path
             browse_paths = BrowsePathsClass(
                 paths=[
-                    f"/{self.config.env.lower()}/{self.platform}/{path}"
+                    f"{self.dataset_browse_prefix}/{path}"
                     for path in sorted(database_table.paths, key=lambda p: (len(p), p))
                 ]
             )
@@ -2372,7 +2389,7 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
             if project_luid in self.tableau_project_registry:
                 browse_paths = BrowsePathsClass(
                     paths=[
-                        f"/{self.platform}/{self._project_luid_to_browse_path_name(project_luid)}"
+                        f"{self.no_env_browse_prefix}/{self._project_luid_to_browse_path_name(project_luid)}"
                         f"/{workbook[c.NAME].replace('/', REPLACE_SLASH_CHAR)}"
                     ]
                 )
@@ -2381,7 +2398,7 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
                 # browse path
                 browse_paths = BrowsePathsClass(
                     paths=[
-                        f"/{self.platform}/{workbook[c.PROJECT_NAME].replace('/', REPLACE_SLASH_CHAR)}"
+                        f"{self.no_env_browse_prefix}/{workbook[c.PROJECT_NAME].replace('/', REPLACE_SLASH_CHAR)}"
                         f"/{workbook[c.NAME].replace('/', REPLACE_SLASH_CHAR)}"
                     ]
                 )
