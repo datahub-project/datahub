@@ -37,6 +37,9 @@ function SlackSurvey() {
             title={siteConfig.tagline}
             description="DataHub is a data discovery application built on an extensible metadata platform that helps you tame the complexity of diverse data ecosystems."
         >
+            <Helmet>
+                <script src="//js.hsforms.net/forms/embed/v2.js" async type="text/javascript" />
+            </Helmet>
             <header className={"hero"}>
                 <div className="container">
                     <div className="hero__content">
