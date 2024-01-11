@@ -5,7 +5,7 @@ import useDocusaurusContext from '@docusaurus/useDocusaurusContext';
 function SlackSurvey() {
     const context = useDocusaurusContext();
     const { siteConfig = {} } = context;
-    const scriptContainerRef = useRef(null); // Create a ref for the script container
+    const scriptContainerRef = useRef(null); 
 
     useEffect(() => {
         const script = document.createElement('script');
@@ -40,11 +40,10 @@ function SlackSurvey() {
                 <div className="container">
                     <div className="hero__content">
                         <div>
-                            <h1>Join Our Slack Community!</h1>
-                        </div> 
-                        <div>
-                            <div style={{ width:"50%", margin:"3rem auto" }}ref={scriptContainerRef}>
-                        </div> 
+                            <h1>Join the DataHub Slack Community!</h1>
+                            <div style={{ fontSize: "18px" }}>We will send the link to join our Slack community to your email.</div>
+                        </div>
+                        <div style={{ width: "50%", margin: "3rem auto" }} ref={scriptContainerRef}>
                         </div>
                     </div>
                 </div>
