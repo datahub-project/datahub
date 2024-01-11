@@ -19,6 +19,7 @@ jar -tvf $jarFile |\
       grep -v " com/$" |\
       grep -v " org/$" |\
       grep -v " io/$" |\
+      grep -v "io/micrometer/" |\
       grep -v "git.properties" |\
       grep -v "org/aopalliance" |\
       grep -v "javax/" |\
