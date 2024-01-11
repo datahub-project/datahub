@@ -4,7 +4,7 @@
 
 ##### Multiple Databricks Workspaces
 
-If you have multiple databricks workspaces <b>that point to the same UC metastore</b>, our suggestion is to use separate recipes for ingesting Hive Metastore catalog and Unity Catalog information schema.
+If you have multiple databricks workspaces **that point to the same Unity Catalog metastore**, our suggestion is to use separate recipes for ingesting the workspace-specific Hive Metastore catalog and Unity Catalog metastore's information schema.
 
 To ingest Hive metastore information schema
 - Setup one ingestion recipe per workspace
