@@ -114,7 +114,9 @@ class PartitionExecutor(Closeable):
             time.sleep(_PARTITION_EXECUTOR_FLUSH_SLEEP_INTERVAL)
 
         # Now allow new requests to be submitted.
-        self._semaphore.release(self.max_pending)
+        # TODO: With Python 3.9, release() can take a count argument.
+        for _i in range(self.max_pending):
+            self._semaphore.release()
 
     def shutdown(self) -> None:
         """See concurrent.futures.Executor#shutdown. Behaves as if wait=True."""

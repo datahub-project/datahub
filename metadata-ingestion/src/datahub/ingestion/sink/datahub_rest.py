@@ -69,7 +69,7 @@ def _get_partition_key(record_envelope: RecordEnvelope) -> str:
 
     # This shouldn't happen super frequently, but just adding a fallback of generating
     # a UUID so that we don't do any partitioning.
-    return uuid.uuid4()
+    return str(uuid.uuid4())
 
 
 class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
