@@ -4,9 +4,14 @@ from typing import Dict, List, Optional
 
 import pydantic
 from pydantic import Field, root_validator
+from typing_extensions import Literal
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.source_common import DEFAULT_ENV, DatasetSourceConfigMixin
+from datahub.configuration.validate_field_rename import pydantic_renamed_field
+from datahub.ingestion.source.bigquery_v2.bigquery_config import (
+    BigQueryConnectionConfig,
+)
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
     StatefulStaleMetadataRemovalConfig,
@@ -60,28 +65,44 @@ KNOWN_DATA_PLATFORM_MAPPING = {
 }
 
 
-class DestinationConfig(BaseSnowflakeConfig):
+class SnowflakeDestinationConfig(BaseSnowflakeConfig):
     database: str = Field(description="The fivetran connector log database.")
     log_schema: str = Field(description="The fivetran connector log schema.")
 
 
+class BigQueryDestinationConfig(BigQueryConnectionConfig):
+    dataset: str = Field(description="The fivetran connector log dataset.")
+
+
 class FivetranLogConfig(ConfigModel):
-    destination_platform: str = pydantic.Field(
+    destination_platform: Literal["snowflake", "bigquery"] = pydantic.Field(
         default="snowflake",
         description="The destination platform where fivetran connector log tables are dumped.",
     )
-    destination_config: Optional[DestinationConfig] = pydantic.Field(
+    snowflake_destination_config: Optional[SnowflakeDestinationConfig] = pydantic.Field(
         default=None,
         description="If destination platform is 'snowflake', provide snowflake configuration.",
+    )
+    bigquery_destination_config: Optional[BigQueryDestinationConfig] = pydantic.Field(
+        default=None,
+        description="If destination platform is 'bigquery', provide bigquery configuration.",
+    )
+    _rename_destination_config = pydantic_renamed_field(
+        "destination_config", "snowflake_destination_config"
     )
 
     @root_validator(pre=True)
     def validate_destination_platfrom_and_config(cls, values: Dict) -> Dict:
         destination_platform = values["destination_platform"]
         if destination_platform == "snowflake":
-            if "destination_config" not in values:
+            if "snowflake_destination_config" not in values:
                 raise ValueError(
                     "If destination platform is 'snowflake', user must provide snowflake destination configuration in the recipe."
+                )
+        elif destination_platform == "bigquery":
+            if "bigquery_destination_config" not in values:
+                raise ValueError(
+                    "If destination platform is 'bigquery', user must provide bigquery destination configuration in the recipe."
                 )
         else:
             raise ValueError(

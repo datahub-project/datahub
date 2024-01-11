@@ -31,6 +31,7 @@ class TwoTierSQLAlchemyConfig(BasicSQLAlchemyConfig):
         # The superclass contains a `schema_pattern` field, so we need this here
         # to override the documentation.
         default=AllowDenyPattern.allow_all(),
+        hidden_from_docs=True,
         description="Deprecated in favour of database_pattern.",
     )
 
