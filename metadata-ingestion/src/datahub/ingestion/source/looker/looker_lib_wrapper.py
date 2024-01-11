@@ -82,14 +82,18 @@ class LookerAPI:
 
         # Somewhat hacky mechanism for enabling retries on the Looker SDK.
         # Unfortunately, it doesn't expose a cleaner way to do this.
-        assert isinstance(
+        if isinstance(
             self.client.transport, looker_requests_transport.RequestsTransport
-        )
-        adapter = HTTPAdapter(
-            max_retries=self.config.max_retries,
-        )
-        self.client.transport.session.mount("http://", adapter)
-        self.client.transport.session.mount("https://", adapter)
+        ):
+            adapter = HTTPAdapter(
+                max_retries=self.config.max_retries,
+            )
+            self.client.transport.session.mount("http://", adapter)
+            self.client.transport.session.mount("https://", adapter)
+        elif self.config.max_retries > 0:
+            raise ConfigurationError(
+                "Unable to configure retries on the Looker SDK transport."
+            )
 
         self.transport_options = (
             config.transport_options.get_transport_options()
