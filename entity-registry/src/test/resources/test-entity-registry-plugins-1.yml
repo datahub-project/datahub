@@ -1,0 +1,67 @@
+id: test-registry-1
+entities:
+  - name: dataset
+    keyAspect: datasetKey
+    category: core
+    aspects:
+      - datasetProperties
+      - schemaMetadata
+      - status
+  - name: chart
+    keyAspect: chartKey
+    aspects:
+      - chartInfo
+      - status
+events:
+  - name: testEvent
+
+plugins:
+  aspectPayloadValidators:
+    # All status aspects on any entity
+    - className: 'com.linkedin.metadata.aspect.plugins.validation.ValidatorPluginTest$TestValidator'
+      enabled: true
+      supportedOperations:
+        - UPSERT
+      supportedEntityAspectNames:
+        - entityName: '*'
+          aspectName: status
+    # Chart status only
+    - className: 'com.linkedin.metadata.aspect.plugins.validation.ValidatorPluginTest$TestValidator'
+      enabled: true
+      supportedOperations:
+        - UPSERT
+      supportedEntityAspectNames:
+        - entityName: chart
+          aspectName: status
+    # Disabled
+    - className: 'com.linkedin.metadata.aspect.plugins.validation.ValidatorPluginTest$TestValidator'
+      enabled: false
+      supportedOperations:
+        - DELETE
+      supportedEntityAspectNames:
+        - entityName: '*'
+          aspectName: status
+  mutationHooks:
+    - className: 'com.linkedin.metadata.aspect.plugins.hooks.MutationPluginTest$TestMutator'
+      enabled: true
+      supportedOperations:
+        - UPSERT
+      supportedEntityAspectNames:
+        - entityName: '*'
+          aspectName: schemaMetadata
+  mclSideEffects:
+    - className: 'com.linkedin.metadata.aspect.plugins.hooks.MCLSideEffectTest$TestMCLSideEffect'
+      enabled: true
+      supportedOperations:
+        - UPSERT
+      supportedEntityAspectNames:
+        - entityName: chart
+          aspectName: chartInfo
+  mcpSideEffects:
+    - className: 'com.linkedin.metadata.aspect.plugins.hooks.MCPSideEffectTest$TestMCPSideEffect'
+      enabled: true
+      supportedOperations:
+        - UPSERT
+      supportedEntityAspectNames:
+        - entityName: dataset
+          aspectName: datasetKey

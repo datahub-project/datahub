@@ -500,8 +500,30 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
   @Nonnull
   @Override
   public Stream<EntityAspect> streamAspects(String entityName, String aspectName) {
-    // Not implemented
-    return null;
+    SimpleStatement ss =
+        selectFrom(CassandraAspect.TABLE_NAME)
+            .all()
+            // assumes alpha characters after the entityType prefix
+            .whereColumn(CassandraAspect.URN_COLUMN)
+            .isGreaterThan(literal(String.join(":", List.of("urn", "li", entityName, ""))))
+            .whereColumn(CassandraAspect.URN_COLUMN)
+            .isLessThan(
+                literal(
+                    String.join(
+                        ":",
+                        List.of(
+                            "urn",
+                            "li",
+                            entityName,
+                            "|")))) // this is used for slicing prefixes with alpha characters
+            .whereColumn(CassandraAspect.ASPECT_COLUMN)
+            .isEqualTo(literal(aspectName))
+            .allowFiltering() // performance impact, however # of properties expected to be
+            // relatively small
+            .build();
+
+    ResultSet rs = _cqlSession.execute(ss);
+    return rs.all().stream().map(CassandraAspect::rowToEntityAspect);
   }
 
   @Override

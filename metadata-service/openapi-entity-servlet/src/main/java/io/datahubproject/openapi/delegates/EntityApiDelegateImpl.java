@@ -120,7 +120,7 @@ public class EntityApiDelegateImpl<I, O, S> {
                     OpenApiEntitiesUtil.convertEntityToUpsert(b, _reqClazz, _entityRegistry)
                         .stream())
             .collect(Collectors.toList());
-    _v1Controller.postEntities(aspects);
+    _v1Controller.postEntities(aspects, false);
     List<O> responses =
         body.stream()
             .map(req -> OpenApiEntitiesUtil.convertToResponse(req, _respClazz, _entityRegistry))
@@ -129,7 +129,7 @@ public class EntityApiDelegateImpl<I, O, S> {
   }
 
   public ResponseEntity<Void> delete(String urn) {
-    _v1Controller.deleteEntities(new String[] {urn}, false);
+    _v1Controller.deleteEntities(new String[] {urn}, false, false);
     return new ResponseEntity<>(HttpStatus.OK);
   }
 
@@ -165,7 +165,7 @@ public class EntityApiDelegateImpl<I, O, S> {
     UpsertAspectRequest aspectUpsert =
         OpenApiEntitiesUtil.convertAspectToUpsert(urn, body, reqClazz);
     _v1Controller.postEntities(
-        Stream.of(aspectUpsert).filter(Objects::nonNull).collect(Collectors.toList()));
+        Stream.of(aspectUpsert).filter(Objects::nonNull).collect(Collectors.toList()), false);
     AR response = OpenApiEntitiesUtil.convertToResponseAspect(body, respClazz);
     return ResponseEntity.ok(response);
   }
@@ -185,7 +185,7 @@ public class EntityApiDelegateImpl<I, O, S> {
 
   public ResponseEntity<Void> deleteAspect(String urn, String aspect) {
     _entityService.deleteAspect(urn, aspect, Map.of(), false);
-    _v1Controller.deleteEntities(new String[] {urn}, false);
+    _v1Controller.deleteEntities(new String[] {urn}, false, false);
     return new ResponseEntity<>(HttpStatus.OK);
   }
 
