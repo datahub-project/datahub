@@ -120,7 +120,7 @@ def test_backpressure_aware_executor_advanced():
 
         # Finally, consume the rest of the results.
         assert set(r.result() for r in results) == {
-            i for i in range(1, 10) if i != first_result.result()
+            i for i in range(10) if i != first_result.result()
         }
 
         # Validate that the entire process took about 5-10x the task duration.
