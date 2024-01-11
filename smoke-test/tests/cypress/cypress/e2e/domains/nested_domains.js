@@ -6,6 +6,7 @@ const createDomain = () => {
     cy.get('[data-testid="create-domain-name"]').click().type(domainName);
     cy.get('[data-testid="create-domain-description"]').click().type(domainDescription);
     cy.clickOptionWithTestId("create-domain-button");
+    cy.waitTextVisible("Created domain!");
     }
 
 const moveDomaintoRootLevel = () => {
@@ -20,6 +21,7 @@ const moveDomaintoRootLevel = () => {
 const moveDomaintoParent = () => {
     cy.get('[data-testid="domain-list-item"]').contains("Marketing").prev().click();
     cy.clickOptionWithText(domainName);
+    cy.waitTextVisible(domainName)
     cy.openThreeDotDropdown();
     cy.clickOptionWithTestId("entity-menu-move-button");
     cy.clickOptionWithTestId("move-domain-modal-move-button")
@@ -56,7 +58,6 @@ const deleteDomain = () => {
  }   
 
 describe("nested domains test", () => {
-  
     beforeEach (() => {
     cy.loginWithCredentials();
     cy.goToDomainList();
@@ -65,11 +66,11 @@ describe("nested domains test", () => {
     it("Create a new domain", () => {
         deleteExisitingDomain()      
         createDomain();
-        cy.waitTextVisible("Created domain!");
         cy.waitTextVisible("Domains");
     });
         
     it("Move domain root level to parent level", () => {
+        cy.waitTextVisible(domainName)
         moveDomaintoRootLevel();
         cy.waitTextVisible("Moved Domain!")
         cy.goToDomainList();
