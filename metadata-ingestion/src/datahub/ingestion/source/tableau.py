@@ -749,11 +749,15 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
         count: int = 0,
         offset: int = 0,
         retry_on_auth_error: bool = True,
+        retries_remaining: Optional[int] = None,
     ) -> Tuple[dict, int, int]:
+        retries_remaining = retries_remaining or self.config.max_retries
+
         logger.debug(
             f"Query {connection_type} to get {count} objects with offset {offset}"
         )
         try:
+            assert self.server is not None
             query_data = query_metadata(
                 self.server, query, connection_type, count, offset, query_filter
             )
@@ -766,7 +770,31 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
             # will be thrown and we need to re-authenticate and retry.
             self._authenticate()
             return self.get_connection_object_page(
-                query, connection_type, query_filter, count, offset, False
+                query,
+                connection_type,
+                query_filter,
+                count,
+                offset,
+                retry_on_auth_error=False,
+                retries_remaining=retries_remaining,
+            )
+        except OSError:
+            # In tableauseverclient 0.26 (which was yanked and released in 0.28 on 2023-10-04),
+            # the request logic was changed to use threads.
+            # https://github.com/tableau/server-client-python/commit/307d8a20a30f32c1ce615cca7c6a78b9b9bff081
+            # I'm not exactly sure why, but since then, we now occasionally see
+            # `OSError: Response is not a http response?` for some requests. This
+            # retry logic is basically a bandaid for that.
+            if retries_remaining <= 0:
+                raise
+            return self.get_connection_object_page(
+                query,
+                connection_type,
+                query_filter,
+                count,
+                offset,
+                retry_on_auth_error=False,
+                retries_remaining=retries_remaining - 1,
             )
 
         if c.ERRORS in query_data:
@@ -781,11 +809,7 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
             else:
                 raise RuntimeError(f"Query {connection_type} error: {errors}")
 
-        connection_object = (
-            query_data.get(c.DATA).get(connection_type, {})
-            if query_data.get(c.DATA)
-            else {}
-        )
+        connection_object = query_data.get(c.DATA, {}).get(connection_type, {})
 
         total_count = connection_object.get(c.TOTAL_COUNT, 0)
         has_next_page = connection_object.get(c.PAGE_INFO, {}).get(
@@ -2519,4 +2543,5 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
             )
 
     def get_report(self) -> TableauSourceReport:
+        return self.report
         return self.report
