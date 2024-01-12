@@ -11,20 +11,24 @@ const homePageRedirection = () => {
 
 const addAnnouncement = (title, description) => {
     cy.get('[id="posts-create-post"]').click({ force: true });
+    cy.waitTextPresent('Create new Post')
     cy.enterTextInTestId("create-post-title", title);
     cy.get('[id="description"]').type(description)
     cy.get('[data-testid="create-post-button"]').click({ force: true });
+    cy.reload()
     homePageRedirection();
     cy.waitTextPresent(announcementTitle);
 }
 
 const addLink = (linkTitle, linkURL, imageURL) => {
     cy.get('[id="posts-create-post"]').click({ force: true });
+    cy.waitTextPresent('Create new Post')
     cy.clickOptionWithText('Link');
     cy.enterTextInTestId('create-post-title', linkTitle);
     cy.enterTextInTestId('create-post-link', linkURL);
     cy.enterTextInTestId('create-post-media-location', imageURL)
     cy.get('[data-testid="create-post-button"]').click({ force: true });
+    cy.reload()
     homePageRedirection();
     cy.waitTextPresent(linkTitle)
 }
