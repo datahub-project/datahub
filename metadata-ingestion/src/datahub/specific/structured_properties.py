@@ -39,14 +39,15 @@ class StructuredPropertiesPatchHelper(Generic[T]):
         return self
 
     def add_property(
-        self, key: str, value: Union[str, float]
+        self, key: str, value: Union[str, float, List[Union[str, float]]]
     ) -> "StructuredPropertiesPatchHelper":
         self._parent._add_patch(
             self.aspect_name,
             "add",
             path=f"/{self.aspect_field}/{make_structured_property_urn(key)}",
             value=StructuredPropertyValueAssignmentClass(
-                propertyUrn=make_structured_property_urn(key), values=[value]
+                propertyUrn=make_structured_property_urn(key),
+                values=value if isinstance(value, list) else [value],
             ),
         )
         return self
