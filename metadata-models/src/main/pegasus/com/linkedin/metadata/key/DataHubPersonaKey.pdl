@@ -1,0 +1,14 @@
+namespace com.linkedin.metadata.key
+
+/**
+ * Key for a persona type
+ */
+@Aspect = {
+  "name": "dataHubPersonaKey"
+}
+record DataHubPersonaKey {
+  /**
+  * A unique id for the persona type
+  */
+  id: string
+}

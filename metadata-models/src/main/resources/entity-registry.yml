@@ -467,5 +467,9 @@ entities:
       - dataContractProperties
       - dataContractStatus
       - status
-
+  - name: dataHubPersona
+    category: internal
+    keyAspect: dataHubPersonaKey
+    aspects:
+      - dataHubPersonaInfo
 events:
