@@ -17,7 +17,7 @@ const championSections = [
         bio: (
           <>
             <p>
-              Drove the adoption of DataHub at Adevinta.
+              Submiitted 6 pull requests including improvements on graphQL and search API.
             </p>
           </>
         ),
@@ -58,6 +58,7 @@ const championSections = [
         social: {
           linkedin: "https://sg.linkedin.com/in/amandang19",
           github: "https://github.com/ngamanda",
+          web: "https://ngamanda.com/",
           },
         location: "Singapore"
         },
@@ -147,10 +148,14 @@ const championSections = [
           bio: (
             <>
               <p>
+              Drove DataHub's adaptation and implementation at Optum.
               </p>
             </>
           ),
           social: {
+            linkedin: "https://www.linkedin.com/in/scottmaciej/",
+            github: "https://github.com/sgm44",
+            web: "https://www.badhabitbeer.com/",
             },
           location: "USA"
       },
@@ -195,6 +200,7 @@ const championSections = [
         bio: (
           <>
             <p>
+              Drove DataHub's adaptation and implementation on Coursera.
             </p>
           </>
         ),
@@ -254,6 +260,7 @@ const championSections = [
         bio: (
           <>
             <p>
+            Drove DataHub's adaptation and implementation at Optum.
             </p>
           </>
         ),
@@ -269,6 +276,7 @@ const championSections = [
         bio: (
           <>
             <p>
+            Drove DataHub's adaptation and implementation at Optum.
             </p>
           </>
         ),
@@ -301,6 +309,7 @@ const championSections = [
         bio: (
           <>
             <p>
+            Drove DataHub's adaptation and implementation at Optum.
             </p>
           </>
         ),
@@ -315,6 +324,7 @@ const championSections = [
         bio: (
           <>
             <p>
+            Drove DataHub's adaptation and implementation at Optum.
             </p>
           </>
         ),
