@@ -91,9 +91,7 @@ class LookerAPI:
             self.client.transport.session.mount("http://", adapter)
             self.client.transport.session.mount("https://", adapter)
         elif self.config.max_retries > 0:
-            raise ConfigurationError(
-                "Unable to configure retries on the Looker SDK transport."
-            )
+            logger.warning("Unable to configure retries on the Looker SDK transport.")
 
         self.transport_options = (
             config.transport_options.get_transport_options()

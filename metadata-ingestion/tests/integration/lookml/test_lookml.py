@@ -482,7 +482,6 @@ def ingestion_test(
                             "client_id": "fake_client_id",
                             "client_secret": "fake_secret",
                             "base_url": "fake_account.looker.com",
-                            "max_retries": 0,
                         },
                         "parse_table_names_from_sql": True,
                         "model_pattern": {"deny": ["data2"]},
