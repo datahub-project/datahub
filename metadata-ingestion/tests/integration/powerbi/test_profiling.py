@@ -38,7 +38,7 @@ def admin_datasets_response(request, context):
 
 def execute_queries_response(request, context):
     query = request.json()["queries"][0]["query"]
-    if "COLUMNSTATISTICS" in query:
+    if "unique_count" in query:
         return {
             "results": [
                 {
@@ -46,44 +46,9 @@ def execute_queries_response(request, context):
                         {
                             "rows": [
                                 {
-                                    "[Table Name]": "articles",
-                                    "[Column Name]": "link",
-                                    "[Min]": 0,
-                                    "[Max]": 1,
-                                    "[Cardinality]": 2,
-                                    "[Max Length]": None,
-                                },
-                                {
-                                    "[Table Name]": "articles",
-                                    "[Column Name]": "description",
-                                    "[Min]": "0",
-                                    "[Max]": "1",
-                                    "[Cardinality]": 2,
-                                    "[Max Length]": 1,
-                                },
-                                {
-                                    "[Table Name]": "articles",
-                                    "[Column Name]": "RowNumber-aabb11",
-                                    "[Min]": "0",
-                                    "[Max]": "1",
-                                    "[Cardinality]": 2,
-                                    "[Max Length]": 1,
-                                },
-                                {
-                                    "[Table Name]": "articles",
-                                    "[Column Name]": "topic",
-                                    "[Min]": 0,
-                                    "[Max]": 1,
-                                    "[Cardinality]": 2,
-                                    "[Max Length]": None,
-                                },
-                                {
-                                    "[Table Name]": "articles",
-                                    "[Column Name]": "view_count",
-                                    "[Min]": 0,
-                                    "[Max]": 9993334,
-                                    "[Cardinality]": 23444,
-                                    "[Max Length]": None,
+                                    "[min]": 3,
+                                    "[max]": 34333,
+                                    "[unique_count]": 15,
                                 },
                             ]
                         }
@@ -142,12 +107,12 @@ def execute_queries_response(request, context):
 
 def register_mock_admin_api(request_mock: Any, override_data: dict = {}) -> None:
     api_vs_response = {
-        "https://api.powerbi.com/v1.0/myorg/admin/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets": {
+        "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets": {
             "method": "GET",
             "status_code": 200,
             "json": admin_datasets_response,
         },
-        "https://api.powerbi.com/v1.0/myorg/admin/groups": {
+        "https://api.powerbi.com/v1.0/myorg/groups?%24top=1000&%24skip=0&%24filter=type+eq+%27Workspace%27": {
             "method": "GET",
             "status_code": 200,
             "json": {
@@ -162,7 +127,7 @@ def register_mock_admin_api(request_mock: Any, override_data: dict = {}) -> None
                 ],
             },
         },
-        "https://api.powerbi.com/v1.0/myorg/admin/groups/64ED5CAD-7C10-4684-8180-826122881108/dashboards": {
+        "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C10-4684-8180-826122881108/dashboards": {
             "method": "GET",
             "status_code": 200,
             "json": {"value": []},
@@ -275,6 +240,16 @@ def register_mock_admin_api(request_mock: Any, override_data: dict = {}) -> None
             "status_code": 200,
             "json": scan_init_response,
         },
+        "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/05169CD2-E713-41E6-9600-1D8066D95445": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "id": "05169CD2-E713-41E6-9600-1D8066D95445",
+                "name": "library-dataset",
+                "description": "Library Dataset",
+                "webUrl": "http://localhost/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/05169CD2-E713-41E6-9600-1D8066D95445",
+            },
+        },
     }
 
     api_vs_response.update(override_data)
@@ -312,12 +287,11 @@ def default_source_config():
         "workspace_id": "64ED5CAD-7C10-4684-8180-826122881108",
         "extract_lineage": True,
         "extract_reports": False,
-        "admin_apis_only": True,
+        "admin_apis_only": False,
         "extract_ownership": True,
         "convert_lineage_urns_to_lowercase": False,
         "extract_independent_datasets": True,
         "workspace_id_pattern": {"allow": ["64ED5CAD-7C10-4684-8180-826122881108"]},
-        "env": "DEV",
         "extract_workspaces_to_containers": False,
         "profiling": {
             "enabled": True,

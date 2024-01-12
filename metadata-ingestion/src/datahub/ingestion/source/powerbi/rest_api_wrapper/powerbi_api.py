@@ -26,9 +26,6 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.data_resolver import (
     AdminAPIResolver,
     RegularAPIResolver,
 )
-from datahub.ingestion.source.powerbi.rest_api_wrapper.powerbi_profiler import (
-    PowerBiDatasetProfilingResolver,
-)
 
 # Logger instance
 logger = logging.getLogger(__name__)
@@ -48,13 +45,6 @@ class PowerBiAPI:
             client_id=self.__config.client_id,
             client_secret=self.__config.client_secret,
             tenant_id=self.__config.tenant_id,
-        )
-
-        self.__profiling_resolver = PowerBiDatasetProfilingResolver(
-            client_id=self.__config.client_id,
-            client_secret=self.__config.client_secret,
-            tenant_id=self.__config.tenant_id,
-            config=self.__config,
         )
 
     def log_http_error(self, message: str) -> Any:
@@ -378,9 +368,13 @@ class PowerBiAPI:
                     row_count=None,
                     column_count=None,
                 )
-                self.__profiling_resolver.profile_dataset(
-                    dataset_instance, table, workspace.name
-                )
+                if self.__config.profiling.enabled:
+                    self._get_resolver().profile_dataset(
+                        dataset_instance,
+                        table,
+                        workspace.name,
+                        self.__config.profile_pattern,
+                    )
                 dataset_instance.tables.append(table)
         return dataset_map
 

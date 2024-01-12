@@ -514,12 +514,14 @@ class Mapper:
             if column.isHidden or not allowed_column:
                 logger.info(f"Column {column.name} not allowed for profiling")
                 continue
-            field_profile = DatasetFieldProfileClass(column.name or "")
-            field_profile.sampleValues = column.sample_values
-            field_profile.min = column.min
-            field_profile.max = column.max
-            field_profile.uniqueCount = column.unique_count
-            profile.fieldProfiles.append(field_profile)
+            measure_profile = column.measure_profile
+            if measure_profile:
+                field_profile = DatasetFieldProfileClass(column.name or "")
+                field_profile.sampleValues = measure_profile.sample_values
+                field_profile.min = measure_profile.min
+                field_profile.max = measure_profile.max
+                field_profile.uniqueCount = measure_profile.unique_count
+                profile.fieldProfiles.append(field_profile)
 
         profile.columnCount = table.column_count
 
