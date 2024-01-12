@@ -27,7 +27,7 @@ import org.springframework.context.annotation.PropertySource;
 @Configuration
 @PropertySource(value = "classpath:/application.yml", factory = YamlPropertySourceFactory.class)
 @ConditionalOnProperty(name = "entityClient.impl", havingValue = "java", matchIfMissing = true)
-public class SystemEntityClientFactory {
+public class JavaEntityClientFactory {
 
   @Bean("entityClient")
   @Singleton

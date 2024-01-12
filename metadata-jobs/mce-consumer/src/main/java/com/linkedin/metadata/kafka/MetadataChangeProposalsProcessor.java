@@ -3,7 +3,7 @@ package com.linkedin.metadata.kafka;
 import com.codahale.metrics.Histogram;
 import com.codahale.metrics.MetricRegistry;
 import com.linkedin.entity.client.SystemEntityClient;
-import com.linkedin.gms.factory.entityclient.EntityClientFactory;
+import com.linkedin.gms.factory.entityclient.RestliEntityClientFactory;
 import com.linkedin.gms.factory.kafka.DataHubKafkaProducerFactory;
 import com.linkedin.gms.factory.kafka.KafkaEventConsumerFactory;
 import com.linkedin.metadata.EventUtils;
@@ -32,7 +32,7 @@ import org.springframework.stereotype.Component;
 @Slf4j
 @Component
 @Import({
-  EntityClientFactory.class,
+  RestliEntityClientFactory.class,
   KafkaEventConsumerFactory.class,
   DataHubKafkaProducerFactory.class
 })

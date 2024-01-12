@@ -16,7 +16,7 @@ import com.linkedin.dataset.UpstreamLineage;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.events.metadata.ChangeType;
-import com.linkedin.gms.factory.entityclient.EntityClientFactory;
+import com.linkedin.gms.factory.entityclient.RestliEntityClientFactory;
 import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
 import com.linkedin.gms.factory.search.EntitySearchServiceFactory;
 import com.linkedin.metadata.Constants;
@@ -54,7 +54,7 @@ import org.springframework.stereotype.Component;
 @Slf4j
 @Component
 @Singleton
-@Import({EntityRegistryFactory.class, EntityClientFactory.class, EntitySearchServiceFactory.class})
+@Import({EntityRegistryFactory.class, RestliEntityClientFactory.class, EntitySearchServiceFactory.class})
 public class SiblingAssociationHook implements MetadataChangeLogHook {
 
   public static final String SIBLING_ASSOCIATION_SYSTEM_ACTOR =

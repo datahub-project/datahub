@@ -5,7 +5,7 @@ import com.codahale.metrics.MetricRegistry;
 import com.datahub.authentication.Authentication;
 import com.linkedin.entity.Entity;
 import com.linkedin.entity.client.SystemEntityClient;
-import com.linkedin.gms.factory.entityclient.EntityClientFactory;
+import com.linkedin.gms.factory.entityclient.RestliEntityClientFactory;
 import com.linkedin.gms.factory.kafka.DataHubKafkaProducerFactory;
 import com.linkedin.gms.factory.kafka.KafkaEventConsumerFactory;
 import com.linkedin.metadata.EventUtils;
@@ -38,7 +38,7 @@ import org.springframework.stereotype.Component;
 @Component
 @Conditional(MetadataChangeProposalProcessorCondition.class)
 @Import({
-  EntityClientFactory.class,
+  RestliEntityClientFactory.class,
   KafkaEventConsumerFactory.class,
   DataHubKafkaProducerFactory.class
 })

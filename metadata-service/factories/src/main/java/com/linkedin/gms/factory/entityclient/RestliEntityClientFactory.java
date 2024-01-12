@@ -23,7 +23,7 @@ import org.springframework.context.annotation.PropertySource;
 @Configuration
 @PropertySource(value = "classpath:/application.yml", factory = YamlPropertySourceFactory.class)
 @ConditionalOnProperty(name = "entityClient.impl", havingValue = "restli")
-public class EntityClientFactory {
+public class RestliEntityClientFactory {
 
   @Bean("entityClient")
   @Singleton

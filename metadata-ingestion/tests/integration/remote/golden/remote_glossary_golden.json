@@ -229,6 +229,7 @@
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.glossary.GlossaryNodeInfo": {
+                        "customProperties": {},
                         "definition": "All terms related to personal information",
                         "name": "Personal Information"
                     }
@@ -390,6 +391,7 @@
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.glossary.GlossaryNodeInfo": {
+                        "customProperties": {},
                         "definition": "Provides basic concepts such as account, account holder, account provider, relationship manager that are commonly used by financial services providers to describe customers and to determine counterparty identities",
                         "name": "Clients And Accounts"
                     }
@@ -509,6 +511,7 @@
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.glossary.GlossaryNodeInfo": {
+                        "customProperties": {},
                         "definition": "Common Business KPIs",
                         "name": "KPIs"
                     }
