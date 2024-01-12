@@ -58,10 +58,10 @@ public class TimelineController {
   @GetMapping(path = "/{urn}", produces = MediaType.APPLICATION_JSON_VALUE)
   public ResponseEntity<List<ChangeTransaction>> getTimeline(
       @PathVariable("urn") String rawUrn,
-      @RequestParam(defaultValue = "-1") long startTime,
-      @RequestParam(defaultValue = "0") long endTime,
-      @RequestParam(defaultValue = "false") boolean raw,
-      @RequestParam Set<ChangeCategory> categories)
+      @RequestParam(name = "startTime", defaultValue = "-1") long startTime,
+      @RequestParam(name = "endTime", defaultValue = "0") long endTime,
+      @RequestParam(name = "raw", defaultValue = "false") boolean raw,
+      @RequestParam(name = "categories") Set<ChangeCategory> categories)
       throws URISyntaxException, JsonProcessingException {
     // Make request params when implemented
     String startVersionStamp = null;

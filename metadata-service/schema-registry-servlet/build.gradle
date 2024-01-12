@@ -17,6 +17,7 @@ dependencies {
     implementation externalDependency.springBeans
     implementation externalDependency.springContext
     implementation externalDependency.springBootAutoconfigure
+    implementation externalDependency.servletApi
     implementation externalDependency.slf4jApi
     compileOnly externalDependency.lombok
     implementation externalDependency.antlr4Runtime

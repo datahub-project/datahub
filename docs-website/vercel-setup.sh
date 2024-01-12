@@ -29,3 +29,6 @@ rm "$py3"
 ln "$(which python3.10)" "$py3"
 python3 --version
 
+# Set up java version for gradle
+yum install java-17-amazon-corretto
+java --version

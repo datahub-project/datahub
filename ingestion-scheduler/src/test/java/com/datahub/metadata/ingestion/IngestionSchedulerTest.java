@@ -45,7 +45,7 @@ public class IngestionSchedulerTest {
     info1.setConfig(
         new DataHubIngestionSourceConfig()
             .setExecutorId("default")
-            .setRecipe("{ type }")
+            .setRecipe("{ type: \"type\" }")
             .setVersion("0.8.18"));
 
     final EnvelopedAspect envelopedAspect1 = new EnvelopedAspect();
@@ -72,7 +72,7 @@ public class IngestionSchedulerTest {
     info2.setConfig(
         new DataHubIngestionSourceConfig()
             .setExecutorId("default")
-            .setRecipe("{ type }")
+            .setRecipe("{ type: \"type\" }")
             .setVersion("0.8.18"));
 
     final EnvelopedAspect envelopedAspect2 = new EnvelopedAspect();
@@ -144,7 +144,7 @@ public class IngestionSchedulerTest {
     newInfo.setConfig(
         new DataHubIngestionSourceConfig()
             .setExecutorId("default")
-            .setRecipe("{ type }")
+            .setRecipe("{ type: \"type\" }")
             .setVersion("0.8.18"));
 
     // Assert that the new source has been scheduled successfully.
@@ -172,7 +172,7 @@ public class IngestionSchedulerTest {
     newInfo.setConfig(
         new DataHubIngestionSourceConfig()
             .setExecutorId("default")
-            .setRecipe("{ type }")
+            .setRecipe("{ type: \"type\" }")
             .setVersion("0.8.18"));
 
     // Assert that the new source has been scheduled successfully.
@@ -196,7 +196,7 @@ public class IngestionSchedulerTest {
     newInfo.setConfig(
         new DataHubIngestionSourceConfig()
             .setExecutorId("default")
-            .setRecipe("{ type }")
+            .setRecipe("{ type: \"type\" }")
             .setVersion("0.8.18"));
 
     // Assert that no changes have been made to next execution cache.
@@ -216,7 +216,7 @@ public class IngestionSchedulerTest {
     newInfo.setConfig(
         new DataHubIngestionSourceConfig()
             .setExecutorId("default")
-            .setRecipe("{ type }")
+            .setRecipe("{ type: \"type\" }")
             .setVersion("0.8.18"));
 
     // Assert that the schedule has been removed.
@@ -254,7 +254,7 @@ public class IngestionSchedulerTest {
     newInfo.setConfig(
         new DataHubIngestionSourceConfig()
             .setExecutorId("default")
-            .setRecipe("{ type }")
+            .setRecipe("{ type: \"type\" }")
             .setVersion("0.8.18"));
 
     _ingestionScheduler.scheduleNextIngestionSourceExecution(urn, newInfo);
@@ -280,7 +280,7 @@ public class IngestionSchedulerTest {
     newInfo.setConfig(
         new DataHubIngestionSourceConfig()
             .setExecutorId("default")
-            .setRecipe("{ type }")
+            .setRecipe("{ type: \"type\" }")
             .setVersion("0.8.18"));
     _ingestionScheduler.scheduleNextIngestionSourceExecution(urn, newInfo);
 

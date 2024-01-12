@@ -4,7 +4,6 @@ import com.linkedin.gms.factory.entity.RestliEntityClientFactory;
 import com.linkedin.gms.factory.telemetry.ScheduledAnalyticsFactory;
 import com.linkedin.metadata.spring.YamlPropertySourceFactory;
 import org.springframework.boot.SpringApplication;
-import org.springframework.boot.actuate.autoconfigure.solr.SolrHealthContributorAutoConfiguration;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.cassandra.CassandraAutoConfiguration;
 import org.springframework.boot.autoconfigure.elasticsearch.ElasticsearchRestClientAutoConfiguration;
@@ -14,11 +13,7 @@ import org.springframework.context.annotation.PropertySource;
 
 @SuppressWarnings("checkstyle:HideUtilityClassConstructor")
 @SpringBootApplication(
-    exclude = {
-      ElasticsearchRestClientAutoConfiguration.class,
-      CassandraAutoConfiguration.class,
-      SolrHealthContributorAutoConfiguration.class
-    })
+    exclude = {ElasticsearchRestClientAutoConfiguration.class, CassandraAutoConfiguration.class})
 @ComponentScan(
     basePackages = {
       "com.linkedin.metadata.boot.kafka",

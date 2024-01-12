@@ -10,7 +10,7 @@ import com.linkedin.gms.factory.search.SearchDocumentTransformerFactory;
 import com.linkedin.gms.factory.timeseries.TimeseriesAspectServiceFactory;
 import com.linkedin.metadata.service.UpdateIndicesService;
 import com.linkedin.mxe.MetadataChangeLog;
-import javax.annotation.Nonnull;
+import jakarta.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Import;

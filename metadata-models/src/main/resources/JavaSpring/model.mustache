@@ -9,9 +9,9 @@ import java.io.Serializable;
 {{/serializableModel}}
 {{#useBeanValidation}}
 import org.springframework.validation.annotation.Validated;
-import javax.validation.Valid;
+import jakarta.validation.Valid;
 import com.fasterxml.jackson.annotation.JsonInclude;
-import javax.validation.constraints.*;
+import jakarta.validation.constraints.*;
 {{/useBeanValidation}}
 {{#jackson}}
 {{#withXml}}
@@ -20,7 +20,7 @@ import com.fasterxml.jackson.dataformat.xml.annotation.JacksonXmlProperty;
 {{/withXml}}
 {{/jackson}}
 {{#withXml}}
-import javax.xml.bind.annotation.*;
+import jakarta.xml.bind.annotation.*;
 {{/withXml}}
 {{/x-is-composed-model}}
 

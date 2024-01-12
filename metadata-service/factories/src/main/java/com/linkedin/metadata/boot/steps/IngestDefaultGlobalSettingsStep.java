@@ -23,10 +23,10 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.settings.global.GlobalSettingsInfo;
+import jakarta.annotation.Nonnull;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.util.Objects;
-import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.ClassPathResource;
 
