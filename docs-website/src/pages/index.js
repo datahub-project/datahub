@@ -63,8 +63,6 @@ function Home() {
             <div className="col col--5 col--offset-1">
               <h1
                 style={{
-                  borderBottom: "3px solid black",
-                  paddingBottom: "0.7rem",
                   width: "18rem",
                 }}
               >
