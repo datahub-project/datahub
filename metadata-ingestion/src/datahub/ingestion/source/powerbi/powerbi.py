@@ -1200,6 +1200,10 @@ class Mapper:
     SourceCapability.LINEAGE_FINE,
     "Disabled by default, configured using `extract_column_level_lineage`. ",
 )
+@capability(
+    SourceCapability.DATA_PROFILING,
+    "Optionally enabled via configuration profiling.enabled",
+)
 class PowerBiDashboardSource(StatefulIngestionSourceBase):
     """
     This plugin extracts the following:

@@ -613,9 +613,7 @@ class RegularAPIResolver(DataResolverBase):
         profile_pattern: Optional[AllowDenyPattern],
     ) -> None:
         if not profile_pattern:
-            logger.info(
-                f"Profile pattern not configured, not profiling"
-            )
+            logger.info(f"Profile pattern not configured, not profiling")
             return
 
         if not profile_pattern.allowed(f"{workspace_name}.{dataset.name}.{table.name}"):
