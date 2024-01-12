@@ -1,9 +1,21 @@
 package com.linkedin.metadata.entity;
 
-import static com.linkedin.metadata.Constants.*;
-import static com.linkedin.metadata.search.utils.BrowsePathUtils.*;
+import static com.linkedin.metadata.Constants.APP_SOURCE;
+import static com.linkedin.metadata.Constants.ASPECT_LATEST_VERSION;
+import static com.linkedin.metadata.Constants.BROWSE_PATHS_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.BROWSE_PATHS_V2_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.DATA_PLATFORM_INSTANCE_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.DEFAULT_RUN_ID;
+import static com.linkedin.metadata.Constants.FORCE_INDEXING_KEY;
+import static com.linkedin.metadata.Constants.STATUS_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.SYSTEM_ACTOR;
+import static com.linkedin.metadata.Constants.UI_SOURCE;
+import static com.linkedin.metadata.search.utils.BrowsePathUtils.buildDataPlatformUrn;
+import static com.linkedin.metadata.search.utils.BrowsePathUtils.getDefaultBrowsePath;
 import static com.linkedin.metadata.utils.GenericRecordUtils.entityResponseToAspectMap;
-import static com.linkedin.metadata.utils.PegasusUtils.*;
+import static com.linkedin.metadata.utils.PegasusUtils.constructMCL;
+import static com.linkedin.metadata.utils.PegasusUtils.getDataTemplateClassFromSchema;
+import static com.linkedin.metadata.utils.PegasusUtils.urnToEntityName;
 
 import com.codahale.metrics.Timer;
 import com.datahub.util.RecordUtils;

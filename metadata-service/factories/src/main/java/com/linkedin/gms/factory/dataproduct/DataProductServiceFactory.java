@@ -23,7 +23,8 @@ public class DataProductServiceFactory {
   @Bean(name = "dataProductService")
   @Scope("singleton")
   @Nonnull
-  protected DataProductService getInstance(final EntityClient entityClient) throws Exception {
+  protected DataProductService getInstance(
+      @Qualifier("entityClient") final EntityClient entityClient) throws Exception {
     return new DataProductService(entityClient, _graphClient);
   }
 }

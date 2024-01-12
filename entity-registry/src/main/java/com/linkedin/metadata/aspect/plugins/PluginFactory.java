@@ -192,11 +192,7 @@ public class PluginFactory {
     return pluginConfiguration == null
         ? List.of()
         : applyDisable(
-            build(
-                MutationHook.class,
-                pluginConfiguration.getMutationHooks(),
-                "com.linkedin.metadata.aspect.plugins.hooks",
-                "com.linkedin.metadata.aspect.hooks"));
+            build(MutationHook.class, pluginConfiguration.getMutationHooks(), HOOK_PACKAGES));
   }
 
   private List<MCLSideEffect> buildMCLSideEffects(

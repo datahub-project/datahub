@@ -6,6 +6,7 @@ import com.linkedin.metadata.aspect.plugins.validation.AspectRetriever;
 import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
 import com.linkedin.metadata.aspect.validation.StructuredPropertiesValidator;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.structured.PrimitivePropertyValue;
 import com.linkedin.structured.PrimitivePropertyValueArray;
 import com.linkedin.structured.StructuredProperties;
@@ -13,8 +14,9 @@ import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.structured.StructuredPropertyValueAssignment;
 import com.linkedin.structured.StructuredPropertyValueAssignmentArray;
 import java.net.URISyntaxException;
+import java.util.Map;
+import java.util.Set;
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
@@ -27,10 +29,14 @@ public class StructuredPropertiesValidatorTest {
       this._propertyDefinition = defToReturn;
     }
 
-    @Nullable
+    @Nonnull
     @Override
-    public Aspect getLatestAspectObject(@Nonnull Urn urn, @Nonnull String aspectName) {
-      return new Aspect(_propertyDefinition.data());
+    public Map<Urn, Map<String, Aspect>> getLatestAspectObjects(
+        Set<Urn> urns, Set<String> aspectNames)
+        throws RemoteInvocationException, URISyntaxException {
+      return Map.of(
+          urns.stream().findFirst().get(),
+          Map.of(aspectNames.stream().findFirst().get(), new Aspect(_propertyDefinition.data())));
     }
 
     @Nonnull

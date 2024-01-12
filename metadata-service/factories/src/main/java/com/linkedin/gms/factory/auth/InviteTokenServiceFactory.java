@@ -23,7 +23,8 @@ public class InviteTokenServiceFactory {
   @Bean(name = "inviteTokenService")
   @Scope("singleton")
   @Nonnull
-  protected InviteTokenService getInstance(final EntityClient entityClient) throws Exception {
+  protected InviteTokenService getInstance(
+      @Qualifier("entityClient") final EntityClient entityClient) throws Exception {
     return new InviteTokenService(entityClient, _secretService);
   }
 }

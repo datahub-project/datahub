@@ -39,6 +39,7 @@ public class SchemaFieldMapper {
     }
     result.setIsPartOfKey(input.isIsPartOfKey());
     result.setIsPartitioningKey(input.isIsPartitioningKey());
+    result.setJsonProps(input.getJsonProps());
     result.setSchemaFieldEntity(this.createSchemaFieldEntity(input, entityUrn));
     return result;
   }

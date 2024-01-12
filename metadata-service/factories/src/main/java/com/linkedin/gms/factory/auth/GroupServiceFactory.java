@@ -27,7 +27,8 @@ public class GroupServiceFactory {
   @Bean(name = "groupService")
   @Scope("singleton")
   @Nonnull
-  protected GroupService getInstance(final EntityClient entityClient) throws Exception {
+  protected GroupService getInstance(@Qualifier("entityClient") final EntityClient entityClient)
+      throws Exception {
     return new GroupService(entityClient, _entityService, _graphClient);
   }
 }

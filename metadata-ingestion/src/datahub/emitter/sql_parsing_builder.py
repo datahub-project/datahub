@@ -92,7 +92,7 @@ class SqlParsingBuilder:
     def __post_init__(self) -> None:
         if self.usage_config:
             self._usage_aggregator = UsageAggregator(self.usage_config)
-        else:
+        elif self.generate_usage_statistics:
             logger.info("No usage config provided, not generating usage statistics")
             self.generate_usage_statistics = False
 

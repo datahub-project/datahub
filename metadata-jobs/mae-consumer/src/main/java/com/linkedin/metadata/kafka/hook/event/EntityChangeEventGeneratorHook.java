@@ -31,6 +31,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Import;
 import org.springframework.stereotype.Component;
@@ -41,7 +42,7 @@ import org.springframework.stereotype.Component;
  */
 @Slf4j
 @Component
-@Import({EntityChangeEventGeneratorRegistry.class, EntityRegistryFactory.class})
+@Import({EntityRegistryFactory.class})
 public class EntityChangeEventGeneratorHook implements MetadataChangeLogHook {
 
   /** The list of aspects that are supported for generating semantic change events. */
@@ -82,7 +83,8 @@ public class EntityChangeEventGeneratorHook implements MetadataChangeLogHook {
 
   @Autowired
   public EntityChangeEventGeneratorHook(
-      @Nonnull final EntityChangeEventGeneratorRegistry entityChangeEventGeneratorRegistry,
+      @Nonnull @Qualifier("entityChangeEventGeneratorRegistry")
+          final EntityChangeEventGeneratorRegistry entityChangeEventGeneratorRegistry,
       @Nonnull final SystemEntityClient entityClient,
       @Nonnull final EntityRegistry entityRegistry,
       @Nonnull @Value("${entityChangeEvents.enabled:true}") Boolean isEnabled) {

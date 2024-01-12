@@ -79,11 +79,9 @@ public class PluginsTest {
         0);
 
     assertEquals(
-        configEntityRegistry.getMutationHooks(ChangeType.UPSERT, "xyz", "schemaMetadata").size(),
-        1);
+        configEntityRegistry.getMutationHooks(ChangeType.UPSERT, "*", "schemaMetadata").size(), 1);
     assertEquals(
-        configEntityRegistry.getMutationHooks(ChangeType.DELETE, "xyz", "schemaMetadata").size(),
-        0);
+        configEntityRegistry.getMutationHooks(ChangeType.DELETE, "*", "schemaMetadata").size(), 0);
   }
 
   @Test
@@ -143,11 +141,9 @@ public class PluginsTest {
         1);
 
     assertEquals(
-        mergedEntityRegistry.getMutationHooks(ChangeType.UPSERT, "xyz", "schemaMetadata").size(),
-        2);
+        mergedEntityRegistry.getMutationHooks(ChangeType.UPSERT, "*", "schemaMetadata").size(), 2);
     assertEquals(
-        mergedEntityRegistry.getMutationHooks(ChangeType.DELETE, "xyz", "schemaMetadata").size(),
-        1);
+        mergedEntityRegistry.getMutationHooks(ChangeType.DELETE, "*", "schemaMetadata").size(), 1);
   }
 
   @Test

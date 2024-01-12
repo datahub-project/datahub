@@ -1,7 +1,7 @@
 package com.linkedin.gms.factory.auth;
 
 import com.datahub.authentication.user.NativeUserService;
-import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.secret.SecretService;
@@ -30,7 +30,7 @@ public class NativeUserServiceFactory {
   @Bean(name = "nativeUserService")
   @Scope("singleton")
   @Nonnull
-  protected NativeUserService getInstance(final EntityClient entityClient) throws Exception {
+  protected NativeUserService getInstance(final SystemEntityClient entityClient) throws Exception {
     return new NativeUserService(
         _entityService, entityClient, _secretService, _configurationProvider.getAuthentication());
   }

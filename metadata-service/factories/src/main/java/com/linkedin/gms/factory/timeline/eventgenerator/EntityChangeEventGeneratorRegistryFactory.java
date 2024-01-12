@@ -1,4 +1,4 @@
-package com.linkedin.gms.factory.timeline;
+package com.linkedin.gms.factory.timeline.eventgenerator;
 
 import static com.linkedin.metadata.Constants.*;
 
@@ -9,6 +9,7 @@ import com.linkedin.metadata.timeline.eventgenerator.DatasetPropertiesChangeEven
 import com.linkedin.metadata.timeline.eventgenerator.DeprecationChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.EditableDatasetPropertiesChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.EditableSchemaMetadataChangeEventGenerator;
+import com.linkedin.metadata.timeline.eventgenerator.EntityChangeEventGeneratorRegistry;
 import com.linkedin.metadata.timeline.eventgenerator.EntityKeyChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.GlobalTagsChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.GlossaryTermInfoChangeEventGenerator;
@@ -19,7 +20,6 @@ import com.linkedin.metadata.timeline.eventgenerator.SchemaMetadataChangeEventGe
 import com.linkedin.metadata.timeline.eventgenerator.SingleDomainChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.StatusChangeEventGenerator;
 import javax.annotation.Nonnull;
-import javax.inject.Singleton;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
@@ -32,15 +32,10 @@ public class EntityChangeEventGeneratorRegistryFactory {
 
   @Bean(name = "entityChangeEventGeneratorRegistry")
   @DependsOn({"systemEntityClient"})
-  @Singleton
   @Nonnull
-  protected com.linkedin.metadata.timeline.eventgenerator.EntityChangeEventGeneratorRegistry
-      entityChangeEventGeneratorRegistry() {
+  protected EntityChangeEventGeneratorRegistry entityChangeEventGeneratorRegistry() {
     final SystemEntityClient entityClient = applicationContext.getBean(SystemEntityClient.class);
-
-    final com.linkedin.metadata.timeline.eventgenerator.EntityChangeEventGeneratorRegistry
-        registry =
-            new com.linkedin.metadata.timeline.eventgenerator.EntityChangeEventGeneratorRegistry();
+    final EntityChangeEventGeneratorRegistry registry = new EntityChangeEventGeneratorRegistry();
     registry.register(SCHEMA_METADATA_ASPECT_NAME, new SchemaMetadataChangeEventGenerator());
     registry.register(
         EDITABLE_SCHEMA_METADATA_ASPECT_NAME, new EditableSchemaMetadataChangeEventGenerator());
