@@ -73,6 +73,7 @@ describe("glossaryTerm", () => {
     cy.waitTextVisible(glossaryTerms.hdfsDataset);
     applyAdvancedSearchFilter("Tag", "Cypress2");
     cy.waitTextVisible(glossaryTerms.hdfsDataset);
+    cy.clickOptionWithText(glossaryTerms.hdfsDataset)
     cy.waitTextVisible("Cypress 2");
   });
 
@@ -83,10 +84,11 @@ describe("glossaryTerm", () => {
     cy.get('[data-testid="adv-search-add-filter-description"]').click({
       force: true,
     });
-    cy.get('[data-testid="edit-text-input"]').type("my hdfs");
+    cy.get('[data-testid="edit-text-input"]').type("my hdfs dataset");
     cy.get('[data-testid="edit-text-done-btn"]').click({ force: true });
     cy.waitTextVisible(glossaryTerms.hdfsDataset);
-    cy.waitTextVisible("my hdfs");
+    cy.clickOptionWithText(glossaryTerms.hdfsDataset)
+    cy.waitTextVisible("my hdfs dataset");
   });
 
   it("can search related entities by OR-ing two concepts using search", () => {
