@@ -16,8 +16,9 @@ public class RedirectController extends Controller {
     if (config.getVisualConfig().getAssets().getFaviconUrl().startsWith("http")) {
       return permanentRedirect(config.getVisualConfig().getAssets().getFaviconUrl());
     } else {
+      final String prefix = config.getVisualConfig().getAssets().getFaviconUrl().startsWith("/") ? "/public" : "/public/";
       return ok(Application.class.getResourceAsStream(
-              config.getVisualConfig().getAssets().getFaviconUrl().replace("/assets/", "/public/")))
+              prefix + config.getVisualConfig().getAssets().getFaviconUrl()))
           .as("image/x-icon");
     }
   }

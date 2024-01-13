@@ -115,7 +115,7 @@ visualConfig:
     # overhaul coming.
     queriesTabResultSize: ${REACT_APP_QUERIES_TAB_RESULT_SIZE:5}
   assets:
-    logoUrl: ${REACT_APP_LOGO_URL:/assets/platforms/datahublogo.png}
+    logoUrl: ${REACT_APP_LOGO_URL:/assets/logos/datahub-logo.png}
     faviconUrl: ${REACT_APP_FAVICON_URL:/assets/icons/favicon.ico}
   appTitle: ${REACT_APP_TITLE:}
   hideGlossary: ${REACT_APP_HIDE_GLOSSARY:false}
