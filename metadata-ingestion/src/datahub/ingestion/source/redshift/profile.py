@@ -48,6 +48,15 @@ class RedshiftProfiler(GenericProfiler):
                 if not self.config.schema_pattern.allowed(schema):
                     continue
                 for table in tables[db].get(schema, {}):
+                    if (
+                        not self.config.profiling.profile_external_tables
+                        and table.type == "EXTERNAL_TABLE"
+                    ):
+                        self.report.profiling_skipped_other[schema] += 1
+                        logger.info(
+                            f"Skipping profiling of external table {db}.{schema}.{table.name}"
+                        )
+                        continue
                     # Emit the profile work unit
                     profile_request = self.get_profile_request(table, schema, db)
                     if profile_request is not None:
@@ -59,8 +68,8 @@ class RedshiftProfiler(GenericProfiler):
 
             yield from self.generate_profile_workunits(
                 profile_requests,
-                self.config.profiling.max_workers,
-                db,
+                max_workers=self.config.profiling.max_workers,
+                db_name=db,
                 platform=self.platform,
                 profiler_args=self.get_profile_args(),
             )

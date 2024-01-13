@@ -1,12 +1,11 @@
 package com.linkedin.metadata.search.cache;
 
-import com.linkedin.metadata.graph.EntityLineageResult;
-import java.io.Serializable;
-import lombok.Data;
-
 import static com.datahub.util.RecordUtils.*;
 import static com.linkedin.metadata.search.utils.GZIPUtil.*;
 
+import com.linkedin.metadata.graph.EntityLineageResult;
+import java.io.Serializable;
+import lombok.Data;
 
 @Data
 public class CachedEntityLineageResult implements Serializable {

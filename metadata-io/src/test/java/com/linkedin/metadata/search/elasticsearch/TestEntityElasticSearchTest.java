@@ -14,19 +14,18 @@ import org.springframework.context.annotation.Import;
 import org.testng.AssertJUnit;
 import org.testng.annotations.Test;
 
-@Import({ElasticSearchSuite.class, SearchCommonTestConfiguration.class, SearchTestContainerConfiguration.class})
+@Import({
+  ElasticSearchSuite.class,
+  SearchCommonTestConfiguration.class,
+  SearchTestContainerConfiguration.class
+})
 public class TestEntityElasticSearchTest extends TestEntityTestBase {
 
-  @Autowired
-  private RestHighLevelClient _searchClient;
-  @Autowired
-  private ESBulkProcessor _bulkProcessor;
-  @Autowired
-  private ESIndexBuilder _esIndexBuilder;
-  @Autowired
-  private SearchConfiguration _searchConfiguration;
-  @Autowired
-  private CustomSearchConfiguration _customSearchConfiguration;
+  @Autowired private RestHighLevelClient _searchClient;
+  @Autowired private ESBulkProcessor _bulkProcessor;
+  @Autowired private ESIndexBuilder _esIndexBuilder;
+  @Autowired private SearchConfiguration _searchConfiguration;
+  @Autowired private CustomSearchConfiguration _customSearchConfiguration;
 
   @NotNull
   @Override

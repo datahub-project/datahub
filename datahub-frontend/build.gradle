@@ -1,7 +1,7 @@
 plugins {
-  id "io.github.kobylynskyi.graphql.codegen" version "4.1.1"
   id 'scala'
   id 'com.palantir.docker'
+  id 'org.gradle.playframework'
 }
 
 apply from: "../gradle/versioning/versioning.gradle"
@@ -20,7 +20,6 @@ model {
 }
 
 task myTar(type: Tar) {
-  extension = "tgz"
   compression = Compression.GZIP
 
   from("${buildDir}/stage")
@@ -38,25 +37,6 @@ task myTar(type: Tar) {
 artifacts {
   archives myTar
 }
-
-graphqlCodegen {
-  // For options: https://github.com/kobylynskyi/graphql-java-codegen/blob/master/docs/codegen-options.md
-  graphqlSchemaPaths = ["$projectDir/conf/datahub-frontend.graphql".toString()]
-  outputDir = new File("$projectDir/app/graphql")
-  packageName = "generated"
-  generateApis = true
-  modelValidationAnnotation = ""
-  customTypesMapping = [
-          Long: "Long",
-  ]
-}
-
-tasks.withType(Checkstyle) {
-  exclude "**/generated/**"
-}
-
-checkstyleMain.source = "app/"
-
 
 /*
 PLAY UPGRADE NOTE
@@ -121,3 +101,23 @@ task cleanLocalDockerImages {
   }
 }
 dockerClean.finalizedBy(cleanLocalDockerImages)
+
+// gradle 8 fixes
+tasks.getByName('createDatahub-frontendTarDist').dependsOn 'stageMainDist'
+tasks.getByName('createDatahub-frontendZipDist').dependsOn 'stageMainDist'
+stagePlayBinaryDist.dependsOn tasks.getByName('createDatahub-frontendStartScripts')
+playBinaryDistTar.dependsOn tasks.getByName('createDatahub-frontendStartScripts')
+playBinaryDistZip.dependsOn tasks.getByName('createDatahub-frontendStartScripts')
+tasks.getByName('stageDatahub-frontendDist').dependsOn stagePlayBinaryDist
+tasks.getByName('stageDatahub-frontendDist').dependsOn createPlayBinaryStartScripts
+tasks.getByName('datahub-frontendDistTar').dependsOn createPlayBinaryStartScripts
+tasks.getByName('datahub-frontendDistTar').dependsOn createMainStartScripts
+tasks.getByName('datahub-frontendDistZip').dependsOn createPlayBinaryStartScripts
+tasks.getByName('datahub-frontendDistZip').dependsOn createMainStartScripts
+playBinaryDistTar.dependsOn createMainStartScripts
+playBinaryDistZip.dependsOn createMainStartScripts
+createMainStartScripts.dependsOn 'stageDatahub-frontendDist'
+createPlayBinaryTarDist.dependsOn 'stageDatahub-frontendDist'
+createPlayBinaryZipDist.dependsOn 'stageDatahub-frontendDist'
+createPlayBinaryTarDist.dependsOn 'stageMainDist'
+createPlayBinaryZipDist.dependsOn 'stageMainDist'

@@ -147,7 +147,7 @@ class LineageFileSource(Source):
 
     @staticmethod
     def load_lineage_config(file_name: str) -> LineageConfig:
-        config = load_config_file(file_name)
+        config = load_config_file(file_name, resolve_env_vars=True)
         lineage_config = LineageConfig.parse_obj(config)
         return lineage_config
 

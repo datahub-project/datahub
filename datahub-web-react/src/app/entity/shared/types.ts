@@ -50,6 +50,7 @@ export type EntityTab = {
     };
     properties?: any;
     id?: string;
+    getDynamicName?: (GenericEntityProperties, T) => string;
 };
 
 export type EntitySidebarSection = {
@@ -69,6 +70,7 @@ export type GenericEntityProperties = {
     type?: EntityType;
     name?: Maybe<string>;
     properties?: Maybe<{
+        name?: Maybe<string>;
         description?: Maybe<string>;
         qualifiedName?: Maybe<string>;
         sourceUrl?: Maybe<string>;

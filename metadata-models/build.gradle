@@ -1,19 +1,11 @@
 import io.datahubproject.GenerateJsonSchemaTask
 
-apply plugin: 'java-library'
-apply plugin: 'pegasus'
-apply plugin: 'org.hidetake.swagger.generator'
+plugins {
+  id 'pegasus'
+  id 'java-library'
+  id 'org.hidetake.swagger.generator'
+}
 
-tasks.withType(JavaCompile).configureEach {
-  javaCompiler = javaToolchains.compilerFor {
-    languageVersion = JavaLanguageVersion.of(8)
-  }
-}
-tasks.withType(Test).configureEach {
-  javaLauncher = javaToolchains.launcherFor {
-    languageVersion = JavaLanguageVersion.of(8)
-  }
-}
 
 dependencies {
   api spec.product.pegasus.data
@@ -35,7 +27,7 @@ dependencies {
 
   swaggerCodegen externalDependency.swaggerCli
   testImplementation externalDependency.guava
-  testImplementation externalDependency.testngJava8
+  testImplementation externalDependency.testng
 }
 
 sourceSets {
@@ -75,11 +67,7 @@ task openApiGenerate(type: GenerateSwaggerCode, dependsOn: 'generateJsonSchema')
 }
 tasks.getByName("compileJava").dependsOn(openApiGenerate)
 
-checkstyleMain.exclude '**/generated/**'
-
 task cleanExtraDirs {
   delete "$projectDir/src/generatedJsonSchema"
 }
 clean.finalizedBy(cleanExtraDirs)
-
-checkstyleMain.exclude '**/generated/**'

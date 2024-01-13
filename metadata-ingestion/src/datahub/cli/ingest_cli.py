@@ -97,6 +97,13 @@ def ingest() -> None:
 @click.option(
     "--no-spinner", type=bool, is_flag=True, default=False, help="Turn off spinner"
 )
+@click.option(
+    "--no-progress",
+    type=bool,
+    is_flag=True,
+    default=False,
+    help="If enabled, mute intermediate progress ingestion reports",
+)
 @telemetry.with_telemetry(
     capture_kwargs=[
         "dry_run",
@@ -105,6 +112,7 @@ def ingest() -> None:
         "test_source_connection",
         "no_default_report",
         "no_spinner",
+        "no_progress",
     ]
 )
 def run(
@@ -117,6 +125,7 @@ def run(
     report_to: str,
     no_default_report: bool,
     no_spinner: bool,
+    no_progress: bool,
 ) -> None:
     """Ingest metadata into DataHub."""
 
@@ -147,6 +156,9 @@ def run(
         squirrel_original_config=True,
         squirrel_field="__raw_config",
         allow_stdin=True,
+        allow_remote=True,
+        process_directives=True,
+        resolve_env_vars=True,
     )
     raw_pipeline_config = pipeline_config.pop("__raw_config")
 
@@ -167,6 +179,7 @@ def run(
             preview_workunits,
             report_to,
             no_default_report,
+            no_progress,
             raw_pipeline_config,
         )
 
@@ -268,6 +281,7 @@ def deploy(
     pipeline_config = load_config_file(
         config,
         allow_stdin=True,
+        allow_remote=True,
         resolve_env_vars=False,
     )
 
