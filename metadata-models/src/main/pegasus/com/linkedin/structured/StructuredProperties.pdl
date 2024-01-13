@@ -5,7 +5,6 @@ namespace com.linkedin.structured
  */
 @Aspect = {
    "name": "structuredProperties"
-   "validator": "com.linkedin.metadata.models.registry.validators.StructuredPropertiesValidator"
 }
 record StructuredProperties {
   /**

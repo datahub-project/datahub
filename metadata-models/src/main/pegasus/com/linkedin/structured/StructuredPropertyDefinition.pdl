@@ -4,8 +4,7 @@ import com.linkedin.common.Urn
 import com.linkedin.datahub.DataHubSearchConfig
 
 @Aspect = {
-   "name": "propertyDefinition",
-   "validator": "com.linkedin.metadata.models.registry.validators.PropertyDefinitionValidator"
+   "name": "propertyDefinition"
 }
 record StructuredPropertyDefinition {
     /**

@@ -54,7 +54,11 @@ import org.springframework.stereotype.Component;
 @Slf4j
 @Component
 @Singleton
-@Import({EntityRegistryFactory.class, RestliEntityClientFactory.class, EntitySearchServiceFactory.class})
+@Import({
+  EntityRegistryFactory.class,
+  RestliEntityClientFactory.class,
+  EntitySearchServiceFactory.class
+})
 public class SiblingAssociationHook implements MetadataChangeLogHook {
 
   public static final String SIBLING_ASSOCIATION_SYSTEM_ACTOR =
