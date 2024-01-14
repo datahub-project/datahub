@@ -39,6 +39,7 @@ import { GetMeDocument } from './graphql/me.generated';
 import { ListRecommendationsDocument } from './graphql/recommendations.generated';
 import { FetchedEntity } from './app/lineage/types';
 import { DEFAULT_APP_CONFIG } from './appConfigContext';
+import { GetQuickFiltersDocument } from './graphql/quickFilters.generated';
 
 export const user1 = {
     __typename: 'CorpUser',
@@ -437,6 +438,11 @@ export const dataset3 = {
             },
         ],
         externalUrl: 'https://data.hub',
+        lastModified: {
+            __typename: 'AuditStamp',
+            time: 0,
+            actor: null,
+        },
     },
     parentContainers: {
         __typename: 'ParentContainersResult',
@@ -702,6 +708,7 @@ export const dataset5 = {
         origin: 'PROD',
         customProperties: [{ key: 'propertyAKey', value: 'propertyAValue', associatedUrn: 'urn:li:dataset:5' }],
         externalUrl: 'https://data.hub',
+        lastModified: dataset3.properties?.lastModified,
     },
 };
 
@@ -716,6 +723,7 @@ export const dataset6 = {
         origin: 'PROD',
         customProperties: [{ key: 'propertyAKey', value: 'propertyAValue', associatedUrn: 'urn:li:dataset:6' }],
         externalUrl: 'https://data.hub',
+        lastModified: dataset3.properties?.lastModified,
     },
 };
 
@@ -3692,6 +3700,17 @@ export const mocks = [
                     ],
                 },
             } as GetSearchResultsForMultipleQuery,
+        },
+    },
+    {
+        request: {
+            query: GetQuickFiltersDocument,
+            variables: {
+                input: {},
+            },
+        },
+        result: {
+            data: [],
         },
     },
 ];

@@ -21,7 +21,7 @@ import dateutil.parser as dp
 import tableauserverclient as TSC
 from pydantic import root_validator, validator
 from pydantic.fields import Field
-from requests.adapters import ConnectionError
+from requests.adapters import ConnectionError, HTTPAdapter
 from tableauserverclient import (
     PersonalAccessTokenAuth,
     Server,
@@ -29,6 +29,7 @@ from tableauserverclient import (
     TableauAuth,
 )
 from tableauserverclient.server.endpoint.exceptions import NonXMLResponseError
+from urllib3 import Retry
 
 import datahub.emitter.mce_builder as builder
 import datahub.utilities.sqlglot_lineage as sqlglot_l
@@ -57,7 +58,13 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import MetadataWorkUnitProcessor, Source
+from datahub.ingestion.api.source import (
+    CapabilityReport,
+    MetadataWorkUnitProcessor,
+    Source,
+    TestableSource,
+    TestConnectionReport,
+)
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source import tableau_constant as c
 from datahub.ingestion.source.common.subtypes import (
@@ -174,6 +181,7 @@ class TableauConnectionConfig(ConfigModel):
         description="Unique relationship between the Tableau Server and site",
     )
 
+    max_retries: int = Field(3, description="Number of retries for failed requests.")
     ssl_verify: Union[bool, str] = Field(
         default=True,
         description="Whether to verify SSL certificates. If using self-signed certificates, set to false or provide the path to the .pem certificate bundle.",
@@ -223,6 +231,17 @@ class TableauConnectionConfig(ConfigModel):
 
             # From https://stackoverflow.com/a/50159273/5004662.
             server._session.trust_env = False
+
+            # Setup request retries.
+            adapter = HTTPAdapter(
+                max_retries=Retry(
+                    total=self.max_retries,
+                    backoff_factor=1,
+                    status_forcelist=[429, 500, 502, 503, 504],
+                )
+            )
+            server._session.mount("http://", adapter)
+            server._session.mount("https://", adapter)
 
             server.auth.sign_in(authentication)
             return server
@@ -456,7 +475,7 @@ class TableauSourceReport(StaleEntityRemovalSourceReport):
     SourceCapability.LINEAGE_FINE,
     "Enabled by default, configure using `extract_column_level_lineage`",
 )
-class TableauSource(StatefulIngestionSourceBase):
+class TableauSource(StatefulIngestionSourceBase, TestableSource):
     platform = "tableau"
 
     def __hash__(self):
@@ -496,6 +515,19 @@ class TableauSource(StatefulIngestionSourceBase):
 
         self._authenticate()
 
+    @staticmethod
+    def test_connection(config_dict: dict) -> TestConnectionReport:
+        test_report = TestConnectionReport()
+        try:
+            source_config = TableauConfig.parse_obj_allow_extras(config_dict)
+            source_config.make_tableau_client()
+            test_report.basic_connectivity = CapabilityReport(capable=True)
+        except Exception as e:
+            test_report.basic_connectivity = CapabilityReport(
+                capable=False, failure_reason=str(e)
+            )
+        return test_report
+
     def close(self) -> None:
         try:
             if self.server is not None:
@@ -508,6 +540,23 @@ class TableauSource(StatefulIngestionSourceBase):
             )
             self.server = None
         super().close()
+
+    @property
+    def no_env_browse_prefix(self) -> str:
+        # Prefix to use with browse path (v1)
+        # This is for charts and dashboards.
+
+        platform_with_instance = (
+            f"{self.platform}/{self.config.platform_instance}"
+            if self.config.platform_instance
+            else self.platform
+        )
+        return f"/{platform_with_instance}"
+
+    @property
+    def dataset_browse_prefix(self) -> str:
+        # datasets also have the env in the browse path
+        return f"/{self.config.env.lower()}{self.no_env_browse_prefix}"
 
     def _populate_usage_stat_registry(self) -> None:
         if self.server is None:
@@ -700,11 +749,15 @@ class TableauSource(StatefulIngestionSourceBase):
         count: int = 0,
         offset: int = 0,
         retry_on_auth_error: bool = True,
+        retries_remaining: Optional[int] = None,
     ) -> Tuple[dict, int, int]:
+        retries_remaining = retries_remaining or self.config.max_retries
+
         logger.debug(
             f"Query {connection_type} to get {count} objects with offset {offset}"
         )
         try:
+            assert self.server is not None
             query_data = query_metadata(
                 self.server, query, connection_type, count, offset, query_filter
             )
@@ -717,7 +770,31 @@ class TableauSource(StatefulIngestionSourceBase):
             # will be thrown and we need to re-authenticate and retry.
             self._authenticate()
             return self.get_connection_object_page(
-                query, connection_type, query_filter, count, offset, False
+                query,
+                connection_type,
+                query_filter,
+                count,
+                offset,
+                retry_on_auth_error=False,
+                retries_remaining=retries_remaining,
+            )
+        except OSError:
+            # In tableauseverclient 0.26 (which was yanked and released in 0.28 on 2023-10-04),
+            # the request logic was changed to use threads.
+            # https://github.com/tableau/server-client-python/commit/307d8a20a30f32c1ce615cca7c6a78b9b9bff081
+            # I'm not exactly sure why, but since then, we now occasionally see
+            # `OSError: Response is not a http response?` for some requests. This
+            # retry logic is basically a bandaid for that.
+            if retries_remaining <= 0:
+                raise
+            return self.get_connection_object_page(
+                query,
+                connection_type,
+                query_filter,
+                count,
+                offset,
+                retry_on_auth_error=False,
+                retries_remaining=retries_remaining - 1,
             )
 
         if c.ERRORS in query_data:
@@ -732,11 +809,7 @@ class TableauSource(StatefulIngestionSourceBase):
             else:
                 raise RuntimeError(f"Query {connection_type} error: {errors}")
 
-        connection_object = (
-            query_data.get(c.DATA).get(connection_type, {})
-            if query_data.get(c.DATA)
-            else {}
-        )
+        connection_object = query_data.get(c.DATA, {}).get(connection_type, {})
 
         total_count = connection_object.get(c.TOTAL_COUNT, 0)
         has_next_page = connection_object.get(c.PAGE_INFO, {}).get(
@@ -1086,7 +1159,7 @@ class TableauSource(StatefulIngestionSourceBase):
 
     def is_snowflake_urn(self, urn: str) -> bool:
         return (
-            DatasetUrn.create_from_string(urn).get_data_platform_urn().platform_name
+            DatasetUrn.from_string(urn).get_data_platform_urn().platform_name
             == "snowflake"
         )
 
@@ -1296,7 +1369,7 @@ class TableauSource(StatefulIngestionSourceBase):
             if project and datasource_name:
                 browse_paths = BrowsePathsClass(
                     paths=[
-                        f"/{self.config.env.lower()}/{self.platform}/{project}/{datasource[c.NAME]}"
+                        f"{self.dataset_browse_prefix}/{project}/{datasource[c.NAME]}"
                     ]
                 )
                 dataset_snapshot.aspects.append(browse_paths)
@@ -1676,7 +1749,7 @@ class TableauSource(StatefulIngestionSourceBase):
 
         if browse_path:
             browse_paths = BrowsePathsClass(
-                paths=[f"/{self.config.env.lower()}/{self.platform}/{browse_path}"]
+                paths=[f"{self.dataset_browse_prefix}/{browse_path}"]
             )
             dataset_snapshot.aspects.append(browse_paths)
 
@@ -1837,7 +1910,7 @@ class TableauSource(StatefulIngestionSourceBase):
             # Browse path
             browse_paths = BrowsePathsClass(
                 paths=[
-                    f"/{self.config.env.lower()}/{self.platform}/{path}"
+                    f"{self.dataset_browse_prefix}/{path}"
                     for path in sorted(database_table.paths, key=lambda p: (len(p), p))
                 ]
             )
@@ -2340,7 +2413,7 @@ class TableauSource(StatefulIngestionSourceBase):
             if project_luid in self.tableau_project_registry:
                 browse_paths = BrowsePathsClass(
                     paths=[
-                        f"/{self.platform}/{self._project_luid_to_browse_path_name(project_luid)}"
+                        f"{self.no_env_browse_prefix}/{self._project_luid_to_browse_path_name(project_luid)}"
                         f"/{workbook[c.NAME].replace('/', REPLACE_SLASH_CHAR)}"
                     ]
                 )
@@ -2349,7 +2422,7 @@ class TableauSource(StatefulIngestionSourceBase):
                 # browse path
                 browse_paths = BrowsePathsClass(
                     paths=[
-                        f"/{self.platform}/{workbook[c.PROJECT_NAME].replace('/', REPLACE_SLASH_CHAR)}"
+                        f"{self.no_env_browse_prefix}/{workbook[c.PROJECT_NAME].replace('/', REPLACE_SLASH_CHAR)}"
                         f"/{workbook[c.NAME].replace('/', REPLACE_SLASH_CHAR)}"
                     ]
                 )
@@ -2470,4 +2543,5 @@ class TableauSource(StatefulIngestionSourceBase):
             )
 
     def get_report(self) -> TableauSourceReport:
+        return self.report
         return self.report

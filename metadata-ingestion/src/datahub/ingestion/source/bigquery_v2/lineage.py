@@ -175,7 +175,7 @@ def make_lineage_edges_from_parsing_result(
             table_name = str(
                 BigQueryTableRef.from_bigquery_table(
                     BigqueryTableIdentifier.from_string_name(
-                        DatasetUrn.create_from_string(table_urn).get_dataset_name()
+                        DatasetUrn.from_string(table_urn).name
                     )
                 )
             )
@@ -894,8 +894,8 @@ class BigqueryLineageExtractor:
             for entry in self.audit_log_api.get_bigquery_log_entries_via_gcp_logging(
                 gcp_logging_client,
                 filter=BQ_FILTER_RULE_TEMPLATE_V2_LINEAGE.format(
-                    self.start_time.strftime(BQ_DATETIME_FORMAT),
-                    self.end_time.strftime(BQ_DATETIME_FORMAT),
+                    start_time=self.start_time.strftime(BQ_DATETIME_FORMAT),
+                    end_time=self.end_time.strftime(BQ_DATETIME_FORMAT),
                 ),
                 log_page_size=self.config.log_page_size,
                 limit=1,

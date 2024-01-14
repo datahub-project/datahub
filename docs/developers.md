@@ -6,25 +6,19 @@ title: "Local Development"
 
 ## Requirements
 
-- Both [Java 11 JDK](https://openjdk.org/projects/jdk/11/) and [Java 8 JDK](https://openjdk.java.net/projects/jdk8/)
+- [Java 17 JDK](https://openjdk.org/projects/jdk/17/)
 - [Python 3.10](https://www.python.org/downloads/release/python-3100/)
 - [Docker](https://www.docker.com/)
-- [Docker Compose](https://docs.docker.com/compose/)
+- [Docker Compose >=2.20](https://docs.docker.com/compose/)
 - Docker engine with at least 8GB of memory to run tests.
-
-:::caution
-
-Do not try to use a JDK newer than JDK 11. The build process does not currently work with newer JDKs versions.
 
 :::
 
 On macOS, these can be installed using [Homebrew](https://brew.sh/).
 
 ```shell
-# Install Java 8 and 11
-brew tap homebrew/cask-versions
-brew install java11
-brew install --cask zulu8
+# Install Java
+brew install openjdk@17
 
 # Install Python
 brew install python@3.10  # you may need to add this to your PATH
@@ -107,13 +101,13 @@ Replace whatever container you want in the existing deployment.
 I.e, replacing datahub's backend (GMS):
 
 ```shell
-(cd docker && COMPOSE_DOCKER_CLI_BUILD=1 DOCKER_BUILDKIT=1 docker-compose -p datahub -f docker-compose-without-neo4j.yml -f docker-compose-without-neo4j.override.yml -f docker-compose.dev.yml up -d --no-deps --force-recreate --build datahub-gms)
+(cd docker && COMPOSE_DOCKER_CLI_BUILD=1 DOCKER_BUILDKIT=1 docker compose -p datahub -f docker-compose-without-neo4j.yml -f docker-compose-without-neo4j.override.yml -f docker-compose.dev.yml up -d --no-deps --force-recreate --build datahub-gms)
 ```
 
 Running the local version of the frontend
 
 ```shell
-(cd docker && COMPOSE_DOCKER_CLI_BUILD=1 DOCKER_BUILDKIT=1 docker-compose -p datahub -f docker-compose-without-neo4j.yml -f docker-compose-without-neo4j.override.yml -f docker-compose.dev.yml up -d --no-deps --force-recreate --build datahub-frontend-react)
+(cd docker && COMPOSE_DOCKER_CLI_BUILD=1 DOCKER_BUILDKIT=1 docker compose -p datahub -f docker-compose-without-neo4j.yml -f docker-compose-without-neo4j.override.yml -f docker-compose.dev.yml up -d --no-deps --force-recreate --build datahub-frontend-react)
 ```
 
 ## IDE Support
@@ -147,11 +141,11 @@ You're probably using a Java version that's too new for gradle. Run the followin
 java --version
 ```
 
-While it may be possible to build and run DataHub using newer versions of Java, we currently only support [Java 11](https://openjdk.org/projects/jdk/11/) (aka Java 11).
+While it may be possible to build and run DataHub using newer versions of Java, we currently only support [Java 17](https://openjdk.org/projects/jdk/17/) (aka Java 17).
 
 #### Getting `cannot find symbol` error for `javax.annotation.Generated`
 
-Similar to the previous issue, please use Java 1.8 to build the project.
+Similar to the previous issue, please use Java 17 to build the project.
 You can install multiple version of Java on a single machine and switch between them using the `JAVA_HOME` environment variable. See [this document](https://docs.oracle.com/cd/E21454_01/html/821-2531/inst_jdk_javahome_t.html) for more details.
 
 #### `:metadata-models:generateDataTemplate` task fails with `java.nio.file.InvalidPathException: Illegal char <:> at index XX` or `Caused by: java.lang.IllegalArgumentException: 'other' has different root` error

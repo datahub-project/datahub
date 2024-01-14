@@ -8,7 +8,6 @@ import java.util.List;
 import java.util.Map;
 import org.testng.annotations.Test;
 
-
 @Test
 public class TestConfig {
   @Test
@@ -16,8 +15,12 @@ public class TestConfig {
     PluginConfig authorizerConfig = new PluginConfig();
     authorizerConfig.setName("apache-ranger-authorizer");
     authorizerConfig.setType(PluginType.AUTHORIZER);
-    authorizerConfig.setParams(Map.of("className", "com.datahub.authorization.ranger.RangerAuthorizer", "configs",
-        Map.of("username", "foo", "password", "root123")));
+    authorizerConfig.setParams(
+        Map.of(
+            "className",
+            "com.datahub.authorization.ranger.RangerAuthorizer",
+            "configs",
+            Map.of("username", "foo", "password", "root123")));
 
     PluginConfig authenticatorConfig = new PluginConfig();
     authorizerConfig.setName("sample-authenticator");

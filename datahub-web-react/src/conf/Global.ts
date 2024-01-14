@@ -15,7 +15,6 @@ export enum PageRoutes {
     BROWSE = '/browse',
     BROWSE_RESULTS = '/browse/:type',
     DATASETS = '/datasets',
-    ASSETS = '/assets',
     ANALYTICS = '/analytics',
     POLICIES = '/policies',
     SETTINGS_POLICIES = '/settings/policies',

@@ -13,7 +13,7 @@ import {
 import { CompactEntityNameList } from '../../../recommendations/renderer/component/CompactEntityNameList';
 import { ANTD_GRAY } from '../../shared/constants';
 import { useEntityData } from '../../shared/EntityContext';
-import { ReactComponent as LoadingSvg } from '../../../../images/datahub-logo-color-loading_pendulum.svg';
+import LoadingSvg from '../../../../images/datahub-logo-color-loading_pendulum.svg?react';
 import { scrollToTop } from '../../../shared/searchUtils';
 
 const ExternalUrlLink = styled.a`

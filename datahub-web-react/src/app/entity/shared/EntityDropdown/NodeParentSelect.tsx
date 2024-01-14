@@ -21,6 +21,7 @@ interface Props {
     selectedParentUrn: string;
     setSelectedParentUrn: (parent: string) => void;
     isMoving?: boolean;
+    autofocus?: boolean;
 }
 
 function NodeParentSelect(props: Props) {
@@ -65,6 +66,7 @@ function NodeParentSelect(props: Props) {
                 onClear={clearSelectedParent}
                 onFocus={() => setIsFocusedOnInput(true)}
                 dropdownStyle={isShowingGlossaryBrowser || !searchQuery ? { display: 'none' } : {}}
+                autoFocus={props.autofocus}
             >
                 {nodeSearchResults?.map((result) => (
                     <Select.Option key={result?.entity?.urn} value={result.entity.urn}>
