@@ -89,7 +89,7 @@ class MetabaseSource(Source):
     on PostgreSQL and H2 database.
     ### Dashboard
 
-    [/api/dashboard](https://www.metabase.com/docs/latest/api-documentation.html#dashboard) endpoint is used to
+    [/api/dashboard/public](https://www.metabase.com/docs/latest/api/dashboard) endpoint is used to
     retrieve the following dashboard information.
 
     - Title and description
@@ -185,7 +185,7 @@ class MetabaseSource(Source):
     def emit_dashboard_mces(self) -> Iterable[MetadataWorkUnit]:
         try:
             dashboard_response = self.session.get(
-                f"{self.config.connect_uri}/api/dashboard"
+                f"{self.config.connect_uri}/api/dashboard/public"
             )
             dashboard_response.raise_for_status()
             dashboards = dashboard_response.json()

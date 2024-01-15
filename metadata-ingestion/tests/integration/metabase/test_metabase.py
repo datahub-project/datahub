@@ -14,7 +14,7 @@ FROZEN_TIME = "2021-11-11 07:00:00"
 JSON_RESPONSE_MAP = {
     "http://localhost:3000/api/session": "session.json",
     "http://localhost:3000/api/user/current": "user.json",
-    "http://localhost:3000/api/dashboard": "dashboard.json",
+    "http://localhost:3000/api/dashboard/public": "dashboard.json",
     "http://localhost:3000/api/dashboard/1": "dashboard_1.json",
     "http://localhost:3000/api/user/1": "user.json",
     "http://localhost:3000/api/card": "card.json",
@@ -26,7 +26,7 @@ JSON_RESPONSE_MAP = {
     "http://localhost:3000/api/card/3": "card_3.json",
 }
 
-RESPONSE_ERROR_LIST = ["http://localhost:3000/api/dashboard"]
+RESPONSE_ERROR_LIST = ["http://localhost:3000/api/dashboard/public"]
 
 test_resources_dir = pathlib.Path(__file__).parent
 
