@@ -10,6 +10,25 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 - Neo4j 5.x, may require migration from 4.x
 - Build requires JDK17 (Runtime Java 11)
 - Build requires Docker Compose > 2.20
+- #9601 - The Unity Catalog(UC) ingestion source config `include_metastore` is now disabled by default. This change will affect the urns of all entities in the workspace.<br/>
+  Entity Hierarchy with `include_metastore: true`  (Old)
+  ```
+  - UC Metastore
+    - Catalog
+      - Schema
+        - Table
+  ```
+
+  Entity Hierarchy with `include_metastore: false`  (New)
+  ```
+  - Catalog
+    - Schema
+      - Table
+  ```
+  We recommend using `platform_instance` for differentiating across metastores.
+
+  If stateful ingestion is enabled, running ingestion with latest cli version will perform all required cleanup. Otherwise, we recommend soft deleting all databricks data via the DataHub CLI:
+    `datahub delete --platform databricks --soft` and then reingesting with latest cli version.
 
 ### Potential Downtime
 
