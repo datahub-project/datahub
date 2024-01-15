@@ -15,7 +15,7 @@ dependencies {
     implementation externalDependency.springContext
     implementation externalDependency.antlr4Runtime
     implementation externalDependency.antlr4
-    implementation externalDependency.javaxValidation
+    implementation externalDependency.springBootStarterValidation
     implementation externalDependency.servletApi
     implementation group: 'javax.annotation', name: 'javax.annotation-api', version: '1.3.2'
     implementation externalDependency.jacksonDataBind
