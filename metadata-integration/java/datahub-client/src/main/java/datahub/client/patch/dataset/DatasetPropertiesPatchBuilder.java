@@ -1,5 +1,8 @@
 package datahub.client.patch.dataset;
 
+import static com.fasterxml.jackson.databind.node.JsonNodeFactory.*;
+import static com.linkedin.metadata.Constants.*;
+
 import com.fasterxml.jackson.databind.JsonNode;
 import datahub.client.patch.AbstractMultiFieldPatchBuilder;
 import datahub.client.patch.PatchOperationType;
@@ -11,11 +14,8 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import org.apache.commons.lang3.tuple.ImmutableTriple;
 
-import static com.fasterxml.jackson.databind.node.JsonNodeFactory.*;
-import static com.linkedin.metadata.Constants.*;
-
-
-public class DatasetPropertiesPatchBuilder extends AbstractMultiFieldPatchBuilder<DatasetPropertiesPatchBuilder>
+public class DatasetPropertiesPatchBuilder
+    extends AbstractMultiFieldPatchBuilder<DatasetPropertiesPatchBuilder>
     implements CustomPropertiesPatchBuilderSupport<DatasetPropertiesPatchBuilder> {
 
   public static final String BASE_PATH = "/";
@@ -29,62 +29,78 @@ public class DatasetPropertiesPatchBuilder extends AbstractMultiFieldPatchBuilde
   private CustomPropertiesPatchBuilder<DatasetPropertiesPatchBuilder> customPropertiesPatchBuilder =
       new CustomPropertiesPatchBuilder<>(this);
 
-
   public DatasetPropertiesPatchBuilder setExternalUrl(@Nullable String externalUrl) {
     if (externalUrl == null) {
-      this.pathValues.add(ImmutableTriple.of(PatchOperationType.REMOVE.getValue(),
-          BASE_PATH + EXTERNAL_URL_KEY, null));
+      this.pathValues.add(
+          ImmutableTriple.of(
+              PatchOperationType.REMOVE.getValue(), BASE_PATH + EXTERNAL_URL_KEY, null));
     } else {
-      this.pathValues.add(ImmutableTriple.of(PatchOperationType.ADD.getValue(), BASE_PATH + EXTERNAL_URL_KEY,
-          instance.textNode(externalUrl)));
+      this.pathValues.add(
+          ImmutableTriple.of(
+              PatchOperationType.ADD.getValue(),
+              BASE_PATH + EXTERNAL_URL_KEY,
+              instance.textNode(externalUrl)));
     }
     return this;
   }
 
   public DatasetPropertiesPatchBuilder setName(@Nullable String name) {
     if (name == null) {
-      this.pathValues.add(ImmutableTriple.of(PatchOperationType.REMOVE.getValue(),
-          BASE_PATH + NAME_KEY, null));
+      this.pathValues.add(
+          ImmutableTriple.of(PatchOperationType.REMOVE.getValue(), BASE_PATH + NAME_KEY, null));
     } else {
-      this.pathValues.add(ImmutableTriple.of(PatchOperationType.ADD.getValue(), BASE_PATH + NAME_KEY, instance.textNode(name)));
+      this.pathValues.add(
+          ImmutableTriple.of(
+              PatchOperationType.ADD.getValue(), BASE_PATH + NAME_KEY, instance.textNode(name)));
     }
     return this;
   }
 
   public DatasetPropertiesPatchBuilder setQualifiedName(@Nullable String qualifiedName) {
     if (qualifiedName == null) {
-      this.pathValues.add(ImmutableTriple.of(PatchOperationType.REMOVE.getValue(),
-          BASE_PATH + QUALIFIED_NAME_KEY, null));
+      this.pathValues.add(
+          ImmutableTriple.of(
+              PatchOperationType.REMOVE.getValue(), BASE_PATH + QUALIFIED_NAME_KEY, null));
     } else {
-      this.pathValues.add(ImmutableTriple.of(PatchOperationType.ADD.getValue(), BASE_PATH + QUALIFIED_NAME_KEY,
-          instance.textNode(qualifiedName)));
+      this.pathValues.add(
+          ImmutableTriple.of(
+              PatchOperationType.ADD.getValue(),
+              BASE_PATH + QUALIFIED_NAME_KEY,
+              instance.textNode(qualifiedName)));
     }
     return this;
   }
 
   public DatasetPropertiesPatchBuilder setDescription(@Nullable String description) {
     if (description == null) {
-      this.pathValues.add(ImmutableTriple.of(PatchOperationType.REMOVE.getValue(),
-          BASE_PATH + DESCRIPTION_KEY, null));
+      this.pathValues.add(
+          ImmutableTriple.of(
+              PatchOperationType.REMOVE.getValue(), BASE_PATH + DESCRIPTION_KEY, null));
     } else {
-      this.pathValues.add(ImmutableTriple.of(PatchOperationType.ADD.getValue(), BASE_PATH + DESCRIPTION_KEY,
-          instance.textNode(description)));
+      this.pathValues.add(
+          ImmutableTriple.of(
+              PatchOperationType.ADD.getValue(),
+              BASE_PATH + DESCRIPTION_KEY,
+              instance.textNode(description)));
     }
     return this;
   }
 
   public DatasetPropertiesPatchBuilder setUri(@Nullable String uri) {
     if (uri == null) {
-      this.pathValues.add(ImmutableTriple.of(PatchOperationType.REMOVE.getValue(),
-          BASE_PATH + URI_KEY, null));
+      this.pathValues.add(
+          ImmutableTriple.of(PatchOperationType.REMOVE.getValue(), BASE_PATH + URI_KEY, null));
     } else {
-      this.pathValues.add(ImmutableTriple.of(PatchOperationType.ADD.getValue(), BASE_PATH + URI_KEY, instance.textNode(uri)));
+      this.pathValues.add(
+          ImmutableTriple.of(
+              PatchOperationType.ADD.getValue(), BASE_PATH + URI_KEY, instance.textNode(uri)));
     }
     return this;
   }
 
   @Override
-  public DatasetPropertiesPatchBuilder addCustomProperty(@Nonnull String key, @Nonnull String value) {
+  public DatasetPropertiesPatchBuilder addCustomProperty(
+      @Nonnull String key, @Nonnull String value) {
     this.customPropertiesPatchBuilder.addProperty(key, value);
     return this;
   }

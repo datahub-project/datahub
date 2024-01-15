@@ -1,6 +1,7 @@
 import logging
 import math
 from abc import ABC, abstractmethod
+from datetime import datetime, timedelta
 from time import sleep
 from typing import Any, Dict, List, Optional
 
@@ -59,6 +60,7 @@ class DataResolverBase(ABC):
         tenant_id: str,
     ):
         self.__access_token: Optional[str] = None
+        self.__access_token_expiry_time: Optional[datetime] = None
         self.__tenant_id = tenant_id
         # Test connection by generating access token
         logger.info("Trying to connect to {}".format(self._get_authority_url()))
@@ -128,7 +130,7 @@ class DataResolverBase(ABC):
         return {Constant.Authorization: self.get_access_token()}
 
     def get_access_token(self):
-        if self.__access_token is not None:
+        if self.__access_token is not None and not self._is_access_token_expired():
             return self.__access_token
 
         logger.info("Generating PowerBi access token")
@@ -150,10 +152,21 @@ class DataResolverBase(ABC):
         self.__access_token = "Bearer {}".format(
             auth_response.get(Constant.ACCESS_TOKEN)
         )
+        safety_gap = 300
+        self.__access_token_expiry_time = datetime.now() + timedelta(
+            seconds=(
+                max(auth_response.get(Constant.ACCESS_TOKEN_EXPIRY, 0) - safety_gap, 0)
+            )
+        )
 
         logger.debug(f"{Constant.PBIAccessToken}={self.__access_token}")
 
         return self.__access_token
+
+    def _is_access_token_expired(self) -> bool:
+        if not self.__access_token_expiry_time:
+            return True
+        return self.__access_token_expiry_time < datetime.now()
 
     def get_dashboards(self, workspace: Workspace) -> List[Dashboard]:
         """

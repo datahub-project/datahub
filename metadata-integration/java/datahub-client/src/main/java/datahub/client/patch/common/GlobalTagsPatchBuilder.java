@@ -1,5 +1,8 @@
 package datahub.client.patch.common;
 
+import static com.fasterxml.jackson.databind.node.JsonNodeFactory.*;
+import static com.linkedin.metadata.Constants.*;
+
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.common.TagUrn;
 import datahub.client.patch.AbstractMultiFieldPatchBuilder;
@@ -7,10 +10,6 @@ import datahub.client.patch.PatchOperationType;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import org.apache.commons.lang3.tuple.ImmutableTriple;
-
-import static com.fasterxml.jackson.databind.node.JsonNodeFactory.*;
-import static com.linkedin.metadata.Constants.*;
-
 
 public class GlobalTagsPatchBuilder extends AbstractMultiFieldPatchBuilder<GlobalTagsPatchBuilder> {
 
@@ -20,6 +19,7 @@ public class GlobalTagsPatchBuilder extends AbstractMultiFieldPatchBuilder<Globa
 
   /**
    * Adds a tag with an optional context string
+   *
    * @param urn required
    * @param context optional
    * @return
@@ -49,7 +49,8 @@ public class GlobalTagsPatchBuilder extends AbstractMultiFieldPatchBuilder<Globa
   @Override
   protected String getEntityType() {
     if (this.targetEntityUrn == null) {
-      throw new IllegalStateException("Target Entity Urn must be set to determine entity type before building Patch.");
+      throw new IllegalStateException(
+          "Target Entity Urn must be set to determine entity type before building Patch.");
     }
     return this.targetEntityUrn.getEntityType();
   }

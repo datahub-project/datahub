@@ -6,7 +6,6 @@ from typing import Dict, Iterable, List, Optional, Type, Union
 import humanfriendly
 
 # These imports verify that the dependencies are available.
-import psycopg2  # noqa: F401
 import pydantic
 import redshift_connector
 
@@ -166,7 +165,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
 
     #### sql_based
     The sql_based based collector uses Redshift's [stl_insert](https://docs.aws.amazon.com/redshift/latest/dg/r_STL_INSERT.html) to discover all the insert queries
-    and uses sql parsing to discover the dependecies.
+    and uses sql parsing to discover the dependencies.
 
     Pros:
     - Works with Spectrum tables
@@ -190,7 +189,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
 
     :::note
 
-    The redshift stl redshift tables which are used for getting data lineage only retain approximately two to five days of log history. This means you cannot extract lineage from queries issued outside that window.
+    The redshift stl redshift tables which are used for getting data lineage retain at most seven days of log history, and sometimes closer to 2-5 days. This means you cannot extract lineage from queries issued outside that window.
 
     :::
 
@@ -352,7 +351,6 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
     def get_redshift_connection(
         config: RedshiftConfig,
     ) -> redshift_connector.Connection:
-        client_options = config.extra_client_options
         host, port = config.host_port.split(":")
         conn = redshift_connector.connect(
             host=host,
@@ -360,7 +358,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
             user=config.username,
             database=config.database,
             password=config.password.get_secret_value() if config.password else None,
-            **client_options,
+            **config.extra_client_options,
         )
 
         conn.autocommit = True
@@ -594,6 +592,9 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
     ) -> Iterable[MetadataWorkUnit]:
         custom_properties = {}
 
+        if table.type:
+            custom_properties["table_type"] = table.type
+
         if table.location:
             custom_properties["location"] = table.location
 
@@ -641,7 +642,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
         dataset_urn = self.gen_dataset_urn(datahub_dataset_name)
         if view.ddl:
             view_properties_aspect = ViewProperties(
-                materialized=view.type == "VIEW_MATERIALIZED",
+                materialized=view.materialized,
                 viewLanguage="SQL",
                 viewLogic=view.ddl,
             )

@@ -1,4 +1,5 @@
 import json
+import pytest
 from time import sleep
 
 from datahub.cli import timeline_cli
@@ -7,6 +8,7 @@ from datahub.cli.cli_utils import guess_entity_type, post_entity
 from tests.utils import (get_datahub_graph, ingest_file_via_rest,
                          wait_for_writes_to_sync)
 
+pytestmark = pytest.mark.no_cypress_suite1
 
 def test_all():
     platform = "urn:li:dataPlatform:kafka"

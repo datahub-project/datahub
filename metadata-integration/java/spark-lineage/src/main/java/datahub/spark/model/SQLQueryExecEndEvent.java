@@ -9,7 +9,6 @@ import java.util.List;
 import lombok.Getter;
 import lombok.ToString;
 
-
 @ToString
 @Getter
 public class SQLQueryExecEndEvent extends LineageEvent {
@@ -17,7 +16,12 @@ public class SQLQueryExecEndEvent extends LineageEvent {
   private final long sqlQueryExecId;
   private final SQLQueryExecStartEvent start;
 
-  public SQLQueryExecEndEvent(String master, String appName, String appId, long time, long sqlQueryExecId,
+  public SQLQueryExecEndEvent(
+      String master,
+      String appName,
+      String appId,
+      long time,
+      long sqlQueryExecId,
       SQLQueryExecStartEvent start) {
     super(master, appName, appId, time);
     this.sqlQueryExecId = sqlQueryExecId;
@@ -33,6 +37,7 @@ public class SQLQueryExecEndEvent extends LineageEvent {
     DataJobInfo jobInfo = start.jobInfo().setCustomProperties(customProps);
 
     return Collections.singletonList(
-        MetadataChangeProposalWrapper.create(b -> b.entityType("dataJob").entityUrn(jobUrn).upsert().aspect(jobInfo)));
+        MetadataChangeProposalWrapper.create(
+            b -> b.entityType("dataJob").entityUrn(jobUrn).upsert().aspect(jobInfo)));
   }
 }

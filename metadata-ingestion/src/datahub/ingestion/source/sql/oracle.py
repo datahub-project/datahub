@@ -567,7 +567,7 @@ class OracleInspectorObjectWrapper:
 
 @platform_name("Oracle")
 @config_class(OracleConfig)
-@support_status(SupportStatus.CERTIFIED)
+@support_status(SupportStatus.INCUBATING)
 @capability(SourceCapability.DOMAINS, "Enabled by default")
 class OracleSource(SQLAlchemySource):
     """
