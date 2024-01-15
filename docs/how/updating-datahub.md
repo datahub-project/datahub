@@ -29,6 +29,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
   If stateful ingestion is enabled, running ingestion with latest cli version will perform all required cleanup. Otherwise, we recommend soft deleting all databricks data via the DataHub CLI:
     `datahub delete --platform databricks --soft` and then reingesting with latest cli version.
+- #9601 - The Unity Catalog(UC) ingestion source config `include_hive_metastore` is now enabled by default. This requires config `warehouse_id` to be set. You can disable `include_hive_metastore` by setting it to `False` to avoid ingesting legacy hive metastore catalog in Databricks.
 
 ### Potential Downtime
 
