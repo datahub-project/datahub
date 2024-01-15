@@ -184,19 +184,29 @@ class MetabaseSource(Source):
 
     def emit_dashboard_mces(self) -> Iterable[MetadataWorkUnit]:
         try:
-            dashboard_response = self.session.get(
-                f"{self.config.connect_uri}/api/dashboard/public"
+            collections_response = self.session.get(
+                f"{self.config.connect_uri}/api/collection/"
             )
-            dashboard_response.raise_for_status()
-            dashboards = dashboard_response.json()
+            collections_response.raise_for_status()
+            collections = collections_response.json()
 
-            for dashboard_info in dashboards:
-                dashboard_snapshot = self.construct_dashboard_from_api_data(
-                    dashboard_info
+            for collection in collections:
+                collection_dashboards_response = self.session.get(
+                    f"{self.config.connect_uri}/api/collection/{collection['id']}/items?models=dashboard"
                 )
-                if dashboard_snapshot is not None:
-                    mce = MetadataChangeEvent(proposedSnapshot=dashboard_snapshot)
-                    yield MetadataWorkUnit(id=dashboard_snapshot.urn, mce=mce)
+                collection_dashboards_response.raise_for_status()
+                collection_dashboards = collection_dashboards_response.json()
+
+                if not collection_dashboards["data"]:
+                    continue
+
+                for dashboard_info in collection_dashboards["data"]:
+                    dashboard_snapshot = self.construct_dashboard_from_api_data(
+                        dashboard_info
+                    )
+                    if dashboard_snapshot is not None:
+                        mce = MetadataChangeEvent(proposedSnapshot=dashboard_snapshot)
+                        yield MetadataWorkUnit(id=dashboard_snapshot.urn, mce=mce)
 
         except HTTPError as http_error:
             self.report.report_failure(

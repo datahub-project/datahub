@@ -14,7 +14,8 @@ FROZEN_TIME = "2021-11-11 07:00:00"
 JSON_RESPONSE_MAP = {
     "http://localhost:3000/api/session": "session.json",
     "http://localhost:3000/api/user/current": "user.json",
-    "http://localhost:3000/api/dashboard/public": "dashboard.json",
+    "http://localhost:3000/api/collection": "collections.json",
+    "http://localhost:3000/api/collection/1/items?models=dashboard ": "collection_dashboards.json",
     "http://localhost:3000/api/dashboard/1": "dashboard_1.json",
     "http://localhost:3000/api/user/1": "user.json",
     "http://localhost:3000/api/card": "card.json",
