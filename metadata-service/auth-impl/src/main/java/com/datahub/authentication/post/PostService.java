@@ -8,7 +8,9 @@ import com.linkedin.common.Media;
 import com.linkedin.common.MediaType;
 import com.linkedin.common.url.Url;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.DataMap;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.entity.validation.ValidationException;
 import com.linkedin.metadata.key.PostKey;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.post.PostContent;
@@ -16,12 +18,15 @@ import com.linkedin.post.PostContentType;
 import com.linkedin.post.PostInfo;
 import com.linkedin.post.PostType;
 import com.linkedin.r2.RemoteInvocationException;
+import java.net.URISyntaxException;
 import java.time.Instant;
+import java.util.Set;
 import java.util.UUID;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import lombok.val;
 
 @Slf4j
 @RequiredArgsConstructor
@@ -85,6 +90,37 @@ public class PostService {
       throw new RuntimeException("Post does not exist");
     }
     _entityClient.deleteEntity(postUrn, authentication);
+    return true;
+  }
+
+  public boolean updatePost(
+      @Nonnull Urn postUrn,
+      @Nonnull String postType,
+      @Nonnull PostContent updatedContent,
+      @Nonnull Authentication authentication)
+      throws RemoteInvocationException, URISyntaxException {
+
+    val response =
+        _entityClient.getV2(
+            postUrn.getEntityType(), postUrn, Set.of(POST_INFO_ASPECT_NAME), authentication);
+    if (response == null || !response.getAspects().containsKey(POST_INFO_ASPECT_NAME)) {
+      throw new ValidationException(
+          String.format("Failed to edit/update post for urn %s as post doesn't exist", postUrn));
+    }
+
+    DataMap dataMap = response.getAspects().get(POST_INFO_ASPECT_NAME).getValue().data();
+    PostInfo existingPost = new PostInfo(dataMap);
+
+    // update/edit existing post
+    existingPost.setContent(updatedContent);
+    existingPost.setType(PostType.valueOf(postType));
+    final long currentTimeMillis = Instant.now().toEpochMilli();
+    existingPost.setLastModified(currentTimeMillis);
+
+    final MetadataChangeProposal proposal =
+        buildMetadataChangeProposal(postUrn, POST_INFO_ASPECT_NAME, existingPost);
+    _entityClient.ingestProposal(proposal, authentication, false);
+
     return true;
   }
 }
