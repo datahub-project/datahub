@@ -42,7 +42,7 @@ public class KafkaEventConsumerFactory {
   protected DefaultKafkaConsumerFactory<String, GenericRecord> createConsumerFactory(
       @Qualifier("configurationProvider") ConfigurationProvider provider,
       KafkaProperties baseKafkaProperties,
-      SchemaRegistryConfig schemaRegistryConfig) {
+      @Qualifier("schemaRegistryConfig") SchemaRegistryConfig schemaRegistryConfig) {
     kafkaEventConsumerConcurrency = provider.getKafka().getListener().getConcurrency();
 
     KafkaConfiguration kafkaConfiguration = provider.getKafka();
