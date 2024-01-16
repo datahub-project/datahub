@@ -14,12 +14,9 @@ import org.testng.annotations.Test;
 @Import({OpenSearchSuite.class, SearchTestContainerConfiguration.class})
 public class TimeseriesAspectServiceOpenSearchTest extends TimeseriesAspectServiceTestBase {
 
-  @Autowired
-  private RestHighLevelClient _searchClient;
-  @Autowired
-  private ESBulkProcessor _bulkProcessor;
-  @Autowired
-  private ESIndexBuilder _esIndexBuilder;
+  @Autowired private RestHighLevelClient _searchClient;
+  @Autowired private ESBulkProcessor _bulkProcessor;
+  @Autowired private ESIndexBuilder _esIndexBuilder;
 
   @NotNull
   @Override

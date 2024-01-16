@@ -9,7 +9,6 @@ import java.util.List;
 import lombok.Getter;
 import lombok.ToString;
 
-
 @ToString
 @Getter
 public class AppEndEvent extends LineageEvent {
@@ -28,9 +27,11 @@ public class AppEndEvent extends LineageEvent {
     StringMap customProps = start.customProps();
     customProps.put("completedAt", timeStr());
 
-    DataFlowInfo flowInfo = new DataFlowInfo().setName(getAppName()).setCustomProperties(customProps);
+    DataFlowInfo flowInfo =
+        new DataFlowInfo().setName(getAppName()).setCustomProperties(customProps);
 
-    return Collections.singletonList(MetadataChangeProposalWrapper.create(
-        b -> b.entityType("dataFlow").entityUrn(flowUrn).upsert().aspect(flowInfo)));
+    return Collections.singletonList(
+        MetadataChangeProposalWrapper.create(
+            b -> b.entityType("dataFlow").entityUrn(flowUrn).upsert().aspect(flowInfo)));
   }
 }

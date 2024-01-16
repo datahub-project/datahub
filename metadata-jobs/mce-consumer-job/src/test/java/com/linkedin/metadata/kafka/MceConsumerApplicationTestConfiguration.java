@@ -13,6 +13,7 @@ import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.parseq.retry.backoff.ExponentialBackoff;
 import com.linkedin.restli.client.Client;
 import io.ebean.Database;
+import java.net.URI;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.test.mock.mockito.MockBean;
@@ -21,44 +22,33 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 
-import java.net.URI;
-
 @TestConfiguration
 @Import(value = {SystemAuthenticationFactory.class})
 public class MceConsumerApplicationTestConfiguration {
 
-    @Autowired
-    private TestRestTemplate restTemplate;
+  @Autowired private TestRestTemplate restTemplate;
 
-    @MockBean
-    public KafkaHealthChecker kafkaHealthChecker;
+  @MockBean public KafkaHealthChecker kafkaHealthChecker;
 
-    @MockBean
-    public EntityService _entityService;
+  @MockBean public EntityService _entityService;
 
-    @Bean("restliEntityClient")
-    @Primary
-    public RestliEntityClient restliEntityClient() {
-        String selfUri = restTemplate.getRootUri();
-        final Client restClient = DefaultRestliClientFactory.getRestLiClient(URI.create(selfUri), null);
-        return new RestliEntityClient(restClient, new ExponentialBackoff(1), 1);
-    }
+  @Bean("restliEntityClient")
+  @Primary
+  public RestliEntityClient restliEntityClient() {
+    String selfUri = restTemplate.getRootUri();
+    final Client restClient = DefaultRestliClientFactory.getRestLiClient(URI.create(selfUri), null);
+    return new RestliEntityClient(restClient, new ExponentialBackoff(1), 1);
+  }
 
-    @MockBean
-    public Database ebeanServer;
+  @MockBean public Database ebeanServer;
 
-    @MockBean
-    protected TimeseriesAspectService timeseriesAspectService;
+  @MockBean protected TimeseriesAspectService timeseriesAspectService;
 
-    @MockBean
-    protected EntityRegistry entityRegistry;
+  @MockBean protected EntityRegistry entityRegistry;
 
-    @MockBean
-    protected ConfigEntityRegistry configEntityRegistry;
+  @MockBean protected ConfigEntityRegistry configEntityRegistry;
 
-    @MockBean
-    protected SiblingGraphService siblingGraphService;
+  @MockBean protected SiblingGraphService siblingGraphService;
 
-    @MockBean
-    public EntityIndexBuilders entityIndexBuilders;
+  @MockBean public EntityIndexBuilders entityIndexBuilders;
 }

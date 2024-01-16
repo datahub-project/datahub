@@ -98,6 +98,7 @@ Command Options:
   --preview-workunits       The number of workunits to produce for preview
   --strict-warnings         If enabled, ingestion runs with warnings will yield a non-zero error code
   --test-source-connection  When set, ingestion will only test the source connection details from the recipe
+  --no-progress             If enabled, mute intermediate progress ingestion reports
 ```
 #### ingest --dry-run
 

@@ -5,10 +5,10 @@ import PlatformContentView, { getParentContainerNames } from '../header/Platform
 import { EntityType } from '../../../../../../types.generated';
 import { container1, container2 } from '../../../../../../Mocks';
 
-jest.mock('../../../../../useEntityRegistry', () => ({
+vi.mock('../../../../../useEntityRegistry', () => ({
     useEntityRegistry: () => ({
-        getEntityUrl: jest.fn(() => 'test'),
-        getDisplayName: jest.fn(() => 'database1'),
+        getEntityUrl: vi.fn(() => 'test'),
+        getDisplayName: vi.fn(() => 'database1'),
     }),
 }));
 

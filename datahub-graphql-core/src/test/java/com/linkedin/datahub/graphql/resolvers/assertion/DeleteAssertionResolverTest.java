@@ -1,5 +1,8 @@
 package com.linkedin.datahub.graphql.resolvers.assertion;
 
+import static com.linkedin.datahub.graphql.TestUtils.*;
+import static org.testng.Assert.*;
+
 import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.assertion.AssertionInfo;
@@ -18,10 +21,6 @@ import java.util.concurrent.CompletionException;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
-import static com.linkedin.datahub.graphql.TestUtils.*;
-import static org.testng.Assert.*;
-
-
 public class DeleteAssertionResolverTest {
 
   private static final String TEST_ASSERTION_URN = "urn:li:assertion:test-guid";
@@ -33,20 +32,17 @@ public class DeleteAssertionResolverTest {
 
     EntityService mockService = getMockEntityService();
     Mockito.when(mockService.exists(Urn.createFromString(TEST_ASSERTION_URN))).thenReturn(true);
-    Mockito.when(mockService.getAspect(
-        Urn.createFromString(TEST_ASSERTION_URN),
-        Constants.ASSERTION_INFO_ASPECT_NAME,
-        0L
-    )).thenReturn(
-        new AssertionInfo()
-            .setType(AssertionType.DATASET)
-            .setDatasetAssertion(
-                new DatasetAssertionInfo()
-                    .setDataset(Urn.createFromString(TEST_DATASET_URN))
-                    .setScope(DatasetAssertionScope.DATASET_COLUMN)
-                    .setOperator(AssertionStdOperator.BETWEEN)
-            )
-    );
+    Mockito.when(
+            mockService.getAspect(
+                Urn.createFromString(TEST_ASSERTION_URN), Constants.ASSERTION_INFO_ASPECT_NAME, 0L))
+        .thenReturn(
+            new AssertionInfo()
+                .setType(AssertionType.DATASET)
+                .setDatasetAssertion(
+                    new DatasetAssertionInfo()
+                        .setDataset(Urn.createFromString(TEST_DATASET_URN))
+                        .setScope(DatasetAssertionScope.DATASET_COLUMN)
+                        .setOperator(AssertionStdOperator.BETWEEN)));
 
     DeleteAssertionResolver resolver = new DeleteAssertionResolver(mockClient, mockService);
 
@@ -58,20 +54,19 @@ public class DeleteAssertionResolverTest {
 
     assertTrue(resolver.get(mockEnv).get());
 
-    Mockito.verify(mockClient, Mockito.times(1)).deleteEntity(
-        Mockito.eq(Urn.createFromString(TEST_ASSERTION_URN)),
-        Mockito.any(Authentication.class)
-    );
+    Mockito.verify(mockClient, Mockito.times(1))
+        .deleteEntity(
+            Mockito.eq(Urn.createFromString(TEST_ASSERTION_URN)),
+            Mockito.any(Authentication.class));
 
-    Mockito.verify(mockService, Mockito.times(1)).getAspect(
-        Mockito.eq(Urn.createFromString(TEST_ASSERTION_URN)),
-        Mockito.eq(Constants.ASSERTION_INFO_ASPECT_NAME),
-        Mockito.eq(0L)
-    );
+    Mockito.verify(mockService, Mockito.times(1))
+        .getAspect(
+            Mockito.eq(Urn.createFromString(TEST_ASSERTION_URN)),
+            Mockito.eq(Constants.ASSERTION_INFO_ASPECT_NAME),
+            Mockito.eq(0L));
 
-    Mockito.verify(mockService, Mockito.times(1)).exists(
-        Mockito.eq(Urn.createFromString(TEST_ASSERTION_URN))
-    );
+    Mockito.verify(mockService, Mockito.times(1))
+        .exists(Mockito.eq(Urn.createFromString(TEST_ASSERTION_URN)));
   }
 
   @Test
@@ -80,11 +75,10 @@ public class DeleteAssertionResolverTest {
 
     EntityService mockService = getMockEntityService();
     Mockito.when(mockService.exists(Urn.createFromString(TEST_ASSERTION_URN))).thenReturn(true);
-    Mockito.when(mockService.getAspect(
-        Urn.createFromString(TEST_ASSERTION_URN),
-        Constants.ASSERTION_INFO_ASPECT_NAME,
-        0L
-    )).thenReturn(null);
+    Mockito.when(
+            mockService.getAspect(
+                Urn.createFromString(TEST_ASSERTION_URN), Constants.ASSERTION_INFO_ASPECT_NAME, 0L))
+        .thenReturn(null);
 
     DeleteAssertionResolver resolver = new DeleteAssertionResolver(mockClient, mockService);
 
@@ -96,20 +90,19 @@ public class DeleteAssertionResolverTest {
 
     assertTrue(resolver.get(mockEnv).get());
 
-    Mockito.verify(mockClient, Mockito.times(1)).deleteEntity(
-        Mockito.eq(Urn.createFromString(TEST_ASSERTION_URN)),
-        Mockito.any(Authentication.class)
-    );
+    Mockito.verify(mockClient, Mockito.times(1))
+        .deleteEntity(
+            Mockito.eq(Urn.createFromString(TEST_ASSERTION_URN)),
+            Mockito.any(Authentication.class));
 
-    Mockito.verify(mockService, Mockito.times(1)).getAspect(
-        Mockito.eq(Urn.createFromString(TEST_ASSERTION_URN)),
-        Mockito.eq(Constants.ASSERTION_INFO_ASPECT_NAME),
-        Mockito.eq(0L)
-    );
+    Mockito.verify(mockService, Mockito.times(1))
+        .getAspect(
+            Mockito.eq(Urn.createFromString(TEST_ASSERTION_URN)),
+            Mockito.eq(Constants.ASSERTION_INFO_ASPECT_NAME),
+            Mockito.eq(0L));
 
-    Mockito.verify(mockService, Mockito.times(1)).exists(
-        Mockito.eq(Urn.createFromString(TEST_ASSERTION_URN))
-    );
+    Mockito.verify(mockService, Mockito.times(1))
+        .exists(Mockito.eq(Urn.createFromString(TEST_ASSERTION_URN)));
   }
 
   @Test
@@ -130,21 +123,20 @@ public class DeleteAssertionResolverTest {
 
     assertTrue(resolver.get(mockEnv).get());
 
-    Mockito.verify(mockClient, Mockito.times(0)).deleteEntity(
-        Mockito.eq(Urn.createFromString(TEST_ASSERTION_URN)),
-        Mockito.any(Authentication.class)
-    );
+    Mockito.verify(mockClient, Mockito.times(0))
+        .deleteEntity(
+            Mockito.eq(Urn.createFromString(TEST_ASSERTION_URN)),
+            Mockito.any(Authentication.class));
 
-    Mockito.verify(mockClient, Mockito.times(0)).batchGetV2(
-        Mockito.eq(Constants.ASSERTION_ENTITY_NAME),
-        Mockito.eq(ImmutableSet.of(Urn.createFromString(TEST_ASSERTION_URN))),
-        Mockito.eq(ImmutableSet.of(Constants.ASSERTION_INFO_ASPECT_NAME)),
-        Mockito.any(Authentication.class)
-    );
+    Mockito.verify(mockClient, Mockito.times(0))
+        .batchGetV2(
+            Mockito.eq(Constants.ASSERTION_ENTITY_NAME),
+            Mockito.eq(ImmutableSet.of(Urn.createFromString(TEST_ASSERTION_URN))),
+            Mockito.eq(ImmutableSet.of(Constants.ASSERTION_INFO_ASPECT_NAME)),
+            Mockito.any(Authentication.class));
 
-    Mockito.verify(mockService, Mockito.times(1)).exists(
-        Mockito.eq(Urn.createFromString(TEST_ASSERTION_URN))
-    );
+    Mockito.verify(mockService, Mockito.times(1))
+        .exists(Mockito.eq(Urn.createFromString(TEST_ASSERTION_URN)));
   }
 
   @Test
@@ -153,20 +145,17 @@ public class DeleteAssertionResolverTest {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     EntityService mockService = getMockEntityService();
     Mockito.when(mockService.exists(Urn.createFromString(TEST_ASSERTION_URN))).thenReturn(true);
-    Mockito.when(mockService.getAspect(
-        Urn.createFromString(TEST_ASSERTION_URN),
-        Constants.ASSERTION_INFO_ASPECT_NAME,
-        0L
-    )).thenReturn(
-        new AssertionInfo()
-          .setType(AssertionType.DATASET)
-          .setDatasetAssertion(
-              new DatasetAssertionInfo()
-                .setDataset(Urn.createFromString(TEST_DATASET_URN))
-                .setScope(DatasetAssertionScope.DATASET_COLUMN)
-                .setOperator(AssertionStdOperator.BETWEEN)
-          )
-    );
+    Mockito.when(
+            mockService.getAspect(
+                Urn.createFromString(TEST_ASSERTION_URN), Constants.ASSERTION_INFO_ASPECT_NAME, 0L))
+        .thenReturn(
+            new AssertionInfo()
+                .setType(AssertionType.DATASET)
+                .setDatasetAssertion(
+                    new DatasetAssertionInfo()
+                        .setDataset(Urn.createFromString(TEST_DATASET_URN))
+                        .setScope(DatasetAssertionScope.DATASET_COLUMN)
+                        .setOperator(AssertionStdOperator.BETWEEN)));
 
     DeleteAssertionResolver resolver = new DeleteAssertionResolver(mockClient, mockService);
 
@@ -177,17 +166,16 @@ public class DeleteAssertionResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
-    Mockito.verify(mockClient, Mockito.times(0)).deleteEntity(
-        Mockito.any(),
-        Mockito.any(Authentication.class));
+    Mockito.verify(mockClient, Mockito.times(0))
+        .deleteEntity(Mockito.any(), Mockito.any(Authentication.class));
   }
 
   @Test
   public void testGetEntityClientException() throws Exception {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
-    Mockito.doThrow(RemoteInvocationException.class).when(mockClient).deleteEntity(
-        Mockito.any(),
-        Mockito.any(Authentication.class));
+    Mockito.doThrow(RemoteInvocationException.class)
+        .when(mockClient)
+        .deleteEntity(Mockito.any(), Mockito.any(Authentication.class));
 
     EntityService mockService = getMockEntityService();
     Mockito.when(mockService.exists(Urn.createFromString(TEST_ASSERTION_URN))).thenReturn(true);

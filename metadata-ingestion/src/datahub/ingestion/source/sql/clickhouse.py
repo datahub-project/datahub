@@ -501,15 +501,17 @@ class ClickHouseSource(TwoTierSQLAlchemySource):
 
         try:
             for db_row in engine.execute(text(query)):
-                if not self.config.schema_pattern.allowed(
+                dataset_name = f'{db_row["target_schema"]}.{db_row["target_table"]}'
+                if not self.config.database_pattern.allowed(
                     db_row["target_schema"]
-                ) or not self.config.table_pattern.allowed(db_row["target_table"]):
+                ) or not self.config.table_pattern.allowed(dataset_name):
+                    self.report.report_dropped(dataset_name)
                     continue
 
                 # Target
                 target_path = (
                     f'{self.config.platform_instance+"." if self.config.platform_instance else ""}'
-                    f'{db_row["target_schema"]}.{db_row["target_table"]}'
+                    f"{dataset_name}"
                 )
                 target = LineageItem(
                     dataset=LineageDataset(

@@ -1,8 +1,11 @@
-apply plugin: 'java-library'
+plugins {
+  id 'java-library'
+}
 
 dependencies {
   api project(':metadata-events:mxe-avro')
   api project(':metadata-models')
+  api project(path: ':metadata-models', configuration: "dataTemplate")
   api spec.product.pegasus.dataAvro
 
   testImplementation externalDependency.testng
