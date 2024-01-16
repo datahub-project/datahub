@@ -419,7 +419,12 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                 self.dataset.engine.execute(get_estimate_script).scalar()
             )
         else:
-            dataset_profile.rowCount = self.dataset.get_row_count()
+            if (self.config.limit or self.config.offset) and not self.custom_sql:
+                # We don't want limit and offset to get applied to the row count
+                # This is kinda hacky way to do it, but every other way would require major refactoring
+                dataset_profile.rowCount = self.dataset.get_row_count(self.dataset_name.split(".")[-1])
+            else:
+                dataset_profile.rowCount = self.dataset.get_row_count()
 
     @_run_with_query_combiner
     def _get_dataset_column_min(
@@ -1127,7 +1132,7 @@ class DatahubGEProfiler:
                     pretty_name=pretty_name,
                     platform=platform,
                 )
-
+                config = self.config
                 profile = _SingleDatasetProfiler(
                     batch,
                     pretty_name,
