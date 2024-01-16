@@ -3,11 +3,17 @@ package com.linkedin.metadata.entity.validation;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.schema.validation.ValidationResult;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.metadata.aspect.plugins.validation.AspectPayloadValidator;
+import com.linkedin.metadata.aspect.plugins.validation.AspectRetriever;
+import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
 import com.linkedin.metadata.entity.EntityUtils;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import java.util.function.Consumer;
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -60,7 +66,13 @@ public class ValidationUtils {
   }
 
   public static void validateRecordTemplate(
-      EntityRegistry entityRegistry, EntitySpec entitySpec, Urn urn, RecordTemplate aspect) {
+      ChangeType changeType,
+      EntityRegistry entityRegistry,
+      EntitySpec entitySpec,
+      AspectSpec aspectSpec,
+      Urn urn,
+      @Nullable RecordTemplate aspect,
+      @Nonnull AspectRetriever aspectRetriever) {
     EntityRegistryUrnValidator validator = new EntityRegistryUrnValidator(entityRegistry);
     validator.setCurrentEntitySpec(entitySpec);
     Consumer<ValidationResult> resultFunction =
@@ -73,13 +85,21 @@ public class ValidationUtils {
         };
     RecordTemplateValidator.validate(
         EntityUtils.buildKeyAspect(entityRegistry, urn), resultFunction, validator);
-    RecordTemplateValidator.validate(aspect, resultFunction, validator);
-  }
 
-  public static void validateRecordTemplate(
-      EntityRegistry entityRegistry, Urn urn, RecordTemplate aspect) {
-    EntitySpec entitySpec = entityRegistry.getEntitySpec(urn.getEntityType());
-    validateRecordTemplate(entityRegistry, entitySpec, urn, aspect);
+    if (aspect != null) {
+      RecordTemplateValidator.validate(aspect, resultFunction, validator);
+
+      for (AspectPayloadValidator aspectValidator :
+          entityRegistry.getAspectPayloadValidators(
+              changeType, entitySpec.getName(), aspectSpec.getName())) {
+        try {
+          aspectValidator.validateProposed(changeType, urn, aspectSpec, aspect, aspectRetriever);
+        } catch (AspectValidationException e) {
+          throw new IllegalArgumentException(
+              "Failed to validate aspect due to: " + e.getMessage(), e);
+        }
+      }
+    }
   }
 
   private ValidationUtils() {}
