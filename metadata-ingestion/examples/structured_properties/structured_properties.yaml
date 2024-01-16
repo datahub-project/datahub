@@ -31,7 +31,7 @@
 - id: io.acryl.dataManagement.steward
   type: urn
   type_qualifier:
-    entity_types: # only user and group urns are allowed
+    allowed_types: # only user and group urns are allowed
       - corpuser
       - corpGroup
   display_name: Steward
