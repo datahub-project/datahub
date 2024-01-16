@@ -6,6 +6,7 @@ import static com.linkedin.metadata.Constants.*;
 import com.datahub.authorization.ConjunctivePrivilegeGroup;
 import com.datahub.authorization.DisjunctivePrivilegeGroup;
 import com.google.common.collect.ImmutableList;
+import com.linkedin.common.UrnArray;
 import com.linkedin.common.url.Url;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -247,7 +248,15 @@ public class CorpUserType
     if (input.getEmail() != null) {
       result.setEmail(input.getEmail());
     }
-
+    if (input.getPlatformUrns() != null) {
+      result.setPlatforms(
+          new UrnArray(
+              input.getPlatformUrns().stream().map(UrnUtils::getUrn).collect(Collectors.toList())));
+    }
+    if (input.getPersonaUrn() != null) {
+      // TODO: Verify that the persona exists before accepting.
+      result.setPersona(UrnUtils.getUrn(input.getPersonaUrn()));
+    }
     return result;
   }
 }

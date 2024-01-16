@@ -3692,6 +3692,16 @@ type CorpUserEditableProperties {
     Email address for the user
     """
     email: String
+
+    """
+    User persona, if present
+    """
+    persona: DataHubPersona
+
+    """
+    Platforms commonly used by the user, if present.
+    """
+    platforms: [DataPlatform!]
 }
 
 """
@@ -3742,6 +3752,16 @@ input CorpUserUpdateInput {
     Email address for the user
     """
     email: String
+
+    """
+    The platforms that the user frequently works with
+    """
+    platformUrns: [String!]
+
+    """
+    The user's persona urn"
+    """
+    personaUrn: String
 }
 
 """
@@ -11244,4 +11264,14 @@ input UpdateOwnershipTypeInput {
     The description of the Custom Ownership Type
     """
     description: String
+}
+
+"""
+A standardized type of a user
+"""
+type DataHubPersona {
+    """
+    The urn of the persona type
+    """
+    urn: String!
 }
