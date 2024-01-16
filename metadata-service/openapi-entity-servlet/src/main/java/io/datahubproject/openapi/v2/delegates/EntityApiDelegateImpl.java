@@ -1,4 +1,4 @@
-package io.datahubproject.openapi.delegates;
+package io.datahubproject.openapi.v2.delegates;
 
 import static io.datahubproject.openapi.util.ReflectionCache.toLowerFirst;
 
@@ -35,10 +35,16 @@ import io.datahubproject.openapi.generated.DeprecationAspectRequestV2;
 import io.datahubproject.openapi.generated.DeprecationAspectResponseV2;
 import io.datahubproject.openapi.generated.DomainsAspectRequestV2;
 import io.datahubproject.openapi.generated.DomainsAspectResponseV2;
+import io.datahubproject.openapi.generated.DynamicFormAssignmentAspectRequestV2;
+import io.datahubproject.openapi.generated.DynamicFormAssignmentAspectResponseV2;
 import io.datahubproject.openapi.generated.EditableChartPropertiesAspectRequestV2;
 import io.datahubproject.openapi.generated.EditableChartPropertiesAspectResponseV2;
 import io.datahubproject.openapi.generated.EditableDatasetPropertiesAspectRequestV2;
 import io.datahubproject.openapi.generated.EditableDatasetPropertiesAspectResponseV2;
+import io.datahubproject.openapi.generated.FormInfoAspectRequestV2;
+import io.datahubproject.openapi.generated.FormInfoAspectResponseV2;
+import io.datahubproject.openapi.generated.FormsAspectRequestV2;
+import io.datahubproject.openapi.generated.FormsAspectResponseV2;
 import io.datahubproject.openapi.generated.GlobalTagsAspectRequestV2;
 import io.datahubproject.openapi.generated.GlobalTagsAspectResponseV2;
 import io.datahubproject.openapi.generated.GlossaryTermsAspectRequestV2;
@@ -728,6 +734,113 @@ public class EntityApiDelegateImpl<I, O, S> {
   }
 
   public ResponseEntity<Void> deleteDataProductProperties(String urn) {
+    String methodName =
+        walker.walk(frames -> frames.findFirst().map(StackWalker.StackFrame::getMethodName)).get();
+    return deleteAspect(urn, methodNameToAspectName(methodName));
+  }
+
+  public ResponseEntity<FormsAspectResponseV2> createForms(FormsAspectRequestV2 body, String urn) {
+    String methodName =
+        walker.walk(frames -> frames.findFirst().map(StackWalker.StackFrame::getMethodName)).get();
+    return createAspect(
+        urn,
+        methodNameToAspectName(methodName),
+        body,
+        FormsAspectRequestV2.class,
+        FormsAspectResponseV2.class);
+  }
+
+  public ResponseEntity<Void> deleteForms(String urn) {
+    String methodName =
+        walker.walk(frames -> frames.findFirst().map(StackWalker.StackFrame::getMethodName)).get();
+    return deleteAspect(urn, methodNameToAspectName(methodName));
+  }
+
+  public ResponseEntity<FormsAspectResponseV2> getForms(
+      String urn, @jakarta.validation.Valid Boolean systemMetadata) {
+    String methodName =
+        walker.walk(frames -> frames.findFirst().map(StackWalker.StackFrame::getMethodName)).get();
+    return getAspect(
+        urn,
+        systemMetadata,
+        methodNameToAspectName(methodName),
+        _respClazz,
+        FormsAspectResponseV2.class);
+  }
+
+  public ResponseEntity<Void> headForms(String urn) {
+    String methodName =
+        walker.walk(frames -> frames.findFirst().map(StackWalker.StackFrame::getMethodName)).get();
+    return headAspect(urn, methodNameToAspectName(methodName));
+  }
+
+  public ResponseEntity<DynamicFormAssignmentAspectResponseV2> createDynamicFormAssignment(
+      DynamicFormAssignmentAspectRequestV2 body, String urn) {
+    String methodName =
+        walker.walk(frames -> frames.findFirst().map(StackWalker.StackFrame::getMethodName)).get();
+    return createAspect(
+        urn,
+        methodNameToAspectName(methodName),
+        body,
+        DynamicFormAssignmentAspectRequestV2.class,
+        DynamicFormAssignmentAspectResponseV2.class);
+  }
+
+  public ResponseEntity<FormInfoAspectResponseV2> createFormInfo(
+      FormInfoAspectRequestV2 body, String urn) {
+    String methodName =
+        walker.walk(frames -> frames.findFirst().map(StackWalker.StackFrame::getMethodName)).get();
+    return createAspect(
+        urn,
+        methodNameToAspectName(methodName),
+        body,
+        FormInfoAspectRequestV2.class,
+        FormInfoAspectResponseV2.class);
+  }
+
+  public ResponseEntity<Void> deleteDynamicFormAssignment(String urn) {
+    String methodName =
+        walker.walk(frames -> frames.findFirst().map(StackWalker.StackFrame::getMethodName)).get();
+    return deleteAspect(urn, methodNameToAspectName(methodName));
+  }
+
+  public ResponseEntity<Void> headDynamicFormAssignment(String urn) {
+    String methodName =
+        walker.walk(frames -> frames.findFirst().map(StackWalker.StackFrame::getMethodName)).get();
+    return headAspect(urn, methodNameToAspectName(methodName));
+  }
+
+  public ResponseEntity<Void> headFormInfo(String urn) {
+    String methodName =
+        walker.walk(frames -> frames.findFirst().map(StackWalker.StackFrame::getMethodName)).get();
+    return headAspect(urn, methodNameToAspectName(methodName));
+  }
+
+  public ResponseEntity<FormInfoAspectResponseV2> getFormInfo(
+      String urn, @jakarta.validation.Valid Boolean systemMetadata) {
+    String methodName =
+        walker.walk(frames -> frames.findFirst().map(StackWalker.StackFrame::getMethodName)).get();
+    return getAspect(
+        urn,
+        systemMetadata,
+        methodNameToAspectName(methodName),
+        _respClazz,
+        FormInfoAspectResponseV2.class);
+  }
+
+  public ResponseEntity<DynamicFormAssignmentAspectResponseV2> getDynamicFormAssignment(
+      String urn, @jakarta.validation.Valid Boolean systemMetadata) {
+    String methodName =
+        walker.walk(frames -> frames.findFirst().map(StackWalker.StackFrame::getMethodName)).get();
+    return getAspect(
+        urn,
+        systemMetadata,
+        methodNameToAspectName(methodName),
+        _respClazz,
+        DynamicFormAssignmentAspectResponseV2.class);
+  }
+
+  public ResponseEntity<Void> deleteFormInfo(String urn) {
     String methodName =
         walker.walk(frames -> frames.findFirst().map(StackWalker.StackFrame::getMethodName)).get();
     return deleteAspect(urn, methodNameToAspectName(methodName));

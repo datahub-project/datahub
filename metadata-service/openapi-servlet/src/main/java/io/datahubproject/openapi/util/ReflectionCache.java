@@ -135,10 +135,18 @@ public class ReflectionCache {
   }
 
   public static String toLowerFirst(String s) {
-    return s.substring(0, 1).toLowerCase() + s.substring(1);
+    if (s.length() > 2 && s.substring(2, 3).equals(s.substring(2, 3).toUpperCase())) {
+      return s.substring(0, 2).toLowerCase() + s.substring(2);
+    } else {
+      return s.substring(0, 1).toLowerCase() + s.substring(1);
+    }
   }
 
   public static String toUpperFirst(String s) {
-    return s.substring(0, 1).toUpperCase() + s.substring(1);
+    if (s.length() > 2 && s.substring(2, 3).equals(s.substring(2, 3).toUpperCase())) {
+      return s.substring(0, 2).toUpperCase() + s.substring(2);
+    } else {
+      return s.substring(0, 1).toUpperCase() + s.substring(1);
+    }
   }
 }

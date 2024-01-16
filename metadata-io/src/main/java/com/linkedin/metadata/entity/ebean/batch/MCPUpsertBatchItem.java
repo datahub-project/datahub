@@ -4,12 +4,14 @@ import static com.linkedin.metadata.Constants.ASPECT_LATEST_VERSION;
 import static com.linkedin.metadata.entity.AspectUtils.validateAspect;
 
 import com.datahub.util.exception.ModelConversionException;
+import com.github.fge.jsonpatch.JsonPatchException;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.batch.SystemAspect;
 import com.linkedin.metadata.aspect.batch.UpsertItem;
+import com.linkedin.metadata.aspect.patch.template.common.GenericPatchTemplate;
 import com.linkedin.metadata.aspect.plugins.hooks.MutationHook;
 import com.linkedin.metadata.aspect.plugins.validation.AspectPayloadValidator;
 import com.linkedin.metadata.aspect.plugins.validation.AspectRetriever;
@@ -24,6 +26,7 @@ import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
+import java.io.IOException;
 import java.sql.Timestamp;
 import java.util.Objects;
 import javax.annotation.Nonnull;
@@ -37,6 +40,31 @@ import lombok.extern.slf4j.Slf4j;
 @Getter
 @Builder(toBuilder = true)
 public class MCPUpsertBatchItem extends UpsertItem {
+
+  public static MCPUpsertBatchItem fromPatch(
+      @Nonnull Urn urn,
+      @Nonnull AspectSpec aspectSpec,
+      @Nullable RecordTemplate recordTemplate,
+      GenericPatchTemplate<? extends RecordTemplate> genericPatchTemplate,
+      @Nonnull AuditStamp auditStamp,
+      AspectRetriever aspectRetriever) {
+    MCPUpsertBatchItem.MCPUpsertBatchItemBuilder builder =
+        MCPUpsertBatchItem.builder()
+            .urn(urn)
+            .auditStamp(auditStamp)
+            .aspectName(aspectSpec.getName());
+
+    RecordTemplate currentValue =
+        recordTemplate != null ? recordTemplate : genericPatchTemplate.getDefault();
+
+    try {
+      builder.aspect(genericPatchTemplate.applyPatch(currentValue));
+    } catch (JsonPatchException | IOException e) {
+      throw new RuntimeException(e);
+    }
+
+    return builder.build(aspectRetriever);
+  }
 
   // urn an urn associated with the new aspect
   @Nonnull private final Urn urn;
