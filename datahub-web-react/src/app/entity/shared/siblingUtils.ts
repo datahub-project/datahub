@@ -126,7 +126,7 @@ const customMerge = (isPrimary, key) => {
     if (key === 'testResults') {
         return (_secondary, primary) => primary;
     }
-    if (key === 'totalIncidents') {
+    if (key === 'activeIncidents') {
         return (secondary, primary) => ({ ...primary, total: primary.total + secondary.total });
     }
     if (
