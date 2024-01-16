@@ -1,7 +1,5 @@
-const announcementTitle = 'Test Announcement Title'
-const linkTitle = 'Test Link Title'
-const description = 'Add Description to post announcement'
-const linkURL = 'https://www.example.com'
+const title = 'Test Link Title'
+const url = 'https://www.example.com'
 const imagesURL = 'https://www.example.com/images/example-image.jpg'
 
 const homePageRedirection = () => {
@@ -9,36 +7,36 @@ const homePageRedirection = () => {
     cy.waitTextPresent("Welcome back,")
 }
 
-const addAnnouncement = (title, description) => {
+const addAnnouncement = () => {
     cy.get('[id="posts-create-post"]').click({ force: true });
     cy.waitTextPresent('Create new Post')
-    cy.enterTextInTestId("create-post-title", title);
-    cy.get('[id="description"]').type(description)
+    cy.enterTextInTestId("create-post-title", "Test Announcement Title");
+    cy.get('[id="description"]').type("Add Description to post announcement")
     cy.get('[data-testid="create-post-button"]').click({ force: true });
     cy.reload()
     homePageRedirection();
-    cy.waitTextPresent(announcementTitle);
+    cy.waitTextPresent("Test Announcement Title");
 }
 
-const addLink = (linkTitle, linkURL, imageURL) => {
+const addLink = (title,url,imagesURL) => {
     cy.get('[id="posts-create-post"]').click({ force: true });
     cy.waitTextPresent('Create new Post')
     cy.clickOptionWithText('Link');
-    cy.enterTextInTestId('create-post-title', linkTitle);
-    cy.enterTextInTestId('create-post-link', linkURL);
-    cy.enterTextInTestId('create-post-media-location', imageURL)
+    cy.enterTextInTestId('create-post-title', title);
+    cy.enterTextInTestId('create-post-link', url);
+    cy.enterTextInTestId('create-post-media-location', imagesURL)
     cy.get('[data-testid="create-post-button"]').click({ force: true });
     cy.reload()
     homePageRedirection();
-    cy.waitTextPresent(linkTitle)
+    cy.waitTextPresent(title)
 }
 
-const deleteFromPostDropdown = (text) => {
+const deleteFromPostDropdown = () => {
     cy.get('[aria-label="more"]').first().click()
     cy.clickOptionWithText("Delete");
     cy.clickOptionWithText("Yes");
+    cy.reload()
     homePageRedirection();
-    cy.ensureTextNotPresent(text)
 }
 
 describe("Create announcement and link posts", () => {
@@ -48,18 +46,20 @@ describe("Create announcement and link posts", () => {
     });
 
     it("Create and Verify Announcement Post", () => {
-        addAnnouncement(announcementTitle, description);
+        addAnnouncement();
     })
 
     it("Delete and Verify Announcement Post", () => {
-        deleteFromPostDropdown(announcementTitle);
+        deleteFromPostDropdown();
+        cy.ensureTextNotPresent("Test Announcement Title")
     })
 
     it("Create and Verify Link Post", () => {
-        addLink(linkTitle, linkURL, imagesURL)
+        addLink(title,url,imagesURL)
     })
 
     it("Delete and Verify Link Post", () => {
-        deleteFromPostDropdown(linkTitle);
+        deleteFromPostDropdown();
+        cy.ensureTextNotPresent(title);
     })
 })
