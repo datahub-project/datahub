@@ -452,7 +452,9 @@ SELECT  schemaname as schema_name,
     @staticmethod
     def get_temp_table_clause(table_name: str) -> List[str]:
         if table_name.startswith("#"):
-            return [f"{RedshiftQuery.CREATE_TEMPORARY_TABLE_HASH_CLAUSE}{table_name}"]
+            return [
+                f"{RedshiftQuery.CREATE_TEMPORARY_TABLE_HASH_CLAUSE}{table_name[1:]}"
+            ]
 
         return [
             f"{RedshiftQuery.CREATE_TEMP_TABLE_CLAUSE} {table_name}",

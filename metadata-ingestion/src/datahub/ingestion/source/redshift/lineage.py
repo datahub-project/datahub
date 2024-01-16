@@ -409,7 +409,7 @@ class RedshiftLineageExtractor:
         connection: redshift_connector.Connection,
     ) -> List[LineageDataset]:
         targe_source = []
-        probable_temp_tables: List[str] = ["a_posative"]
+        probable_temp_tables: List[str] = []
         for source in sources:
             if source.platform == LineageDatasetPlatform.REDSHIFT:
                 qualified_table_name = dataset_urn.DatasetUrn.create_from_string(
@@ -449,13 +449,16 @@ class RedshiftLineageExtractor:
 
         if probable_temp_tables and self.config.resolve_temp_table_in_lineage:
             # Generate lineage dataset from temporary tables
-            targe_source.extend(
-                self.get_permanent_datasets(
-                    db_name=raw_db_name,
-                    connection=connection,
-                    temp_table_names=probable_temp_tables,
-                )
+            lineage_datasets: List[LineageDataset] = self.get_permanent_datasets(
+                db_name=raw_db_name,
+                connection=connection,
+                temp_table_names=probable_temp_tables,
             )
+
+            targe_source.extend(lineage_datasets)
+
+            # correct the table drop count
+            self.report.num_lineage_tables_dropped -= len(lineage_datasets)
 
         return targe_source
 
