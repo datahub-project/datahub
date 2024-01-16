@@ -1,9 +1,8 @@
-from __future__ import print_function
-
 import datetime
 import itertools
 import logging
 import re
+from contextlib import contextmanager
 from dataclasses import dataclass, field as dataclasses_field
 from enum import Enum
 from functools import lru_cache
@@ -11,6 +10,7 @@ from typing import (
     TYPE_CHECKING,
     Dict,
     Iterable,
+    Iterator,
     List,
     Optional,
     Sequence,
@@ -1125,6 +1125,14 @@ class LookerDashboardSourceReport(StaleEntityRemovalSourceReport):
     def report_stage_end(self, stage_name: str) -> None:
         if self.stage_latency[-1].name == stage_name:
             self.stage_latency[-1].end_time = datetime.datetime.now()
+
+    @contextmanager
+    def report_stage(self, stage_name: str) -> Iterator[None]:
+        try:
+            self.report_stage_start(stage_name)
+            yield
+        finally:
+            self.report_stage_end(stage_name)
 
     def compute_stats(self) -> None:
         if self.total_dashboards:

@@ -33,7 +33,7 @@ describe("auto-complete dropdown, filter plus query search test", () => {
     cy.visit('/');
   });
   
-  it.skip("Verify the 'filter by type' section + query", () => {
+  it("Verify the 'filter by type' section + query", () => {
 
     //Dashboard
     searchToExecute("*");
@@ -48,8 +48,7 @@ describe("auto-complete dropdown, filter plus query search test", () => {
     //Piplines
     searchToExecute("*");
     selectFilteredEntity("Type", "Pipelines", "filter__entityType");
-    clickAndVerifyEntity('Pipeline');
-   
+    clickAndVerifyEntity('Pipeline');  
   });
 
   it("Verify the 'filter by Glossary term' section + query", () => {
@@ -58,7 +57,6 @@ describe("auto-complete dropdown, filter plus query search test", () => {
   searchToExecute("*");
   selectFilteredEntity("Type", "Glossary Terms", "filter__entityType");
   clickAndVerifyEntity('Glossary Term')
-
 });
 
   it("Verify the 'filter by platform' section + query", () => {

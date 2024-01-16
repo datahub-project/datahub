@@ -421,7 +421,7 @@ class MongoDBSource(StatefulIngestionSourceBase):
                         )
                         collection_fields = sorted(
                             collection_schema.values(),
-                            key=lambda x: x["count"],
+                            key=lambda x: (x["count"], x["delimited_name"]),
                             reverse=True,
                         )[0:max_schema_size]
                         # Add this information to the custom properties so user can know they are looking at downsampled schema

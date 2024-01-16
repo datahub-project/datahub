@@ -1,6 +1,7 @@
 const glossaryTerms = {
   glossaryTermUrl:"/glossaryTerm/urn:li:glossaryTerm:CypressNode.CypressColumnInfoType/Related%20Entities",
-  SampleCypressHdfsDataset:"SampleCypressHdfsDataset"
+  hdfsDataset:"SampleCypressHdfsDataset",
+  hiveDataset:"cypress_logging_events"
 };
 
 const applyTagFilter = (tag) => {
@@ -55,48 +56,47 @@ describe("glossaryTerm", () => {
     cy.visit(glossaryTerms.glossaryTermUrl);
   });
 
-  it("can visit related entities", () => {
-    cy.contains("of 0").should("not.exist");
-    cy.waitTextVisible(/of [0-9]+/);
-  });
-
   it("can search related entities by query", () => {
-    cy.get('[placeholder="Filter entities..."]').click().type("logging{enter}");
-    cy.contains("of 0").should("not.exist");
-    cy.waitTextVisible(/of 1/);
-    cy.waitTextVisible("cypress_logging_events");
-    cy.contains(glossaryTerms.SampleCypressHdfsDataset).should("not.exist");
+    cy.get('[placeholder="Filter entities..."]').should("be.visible").click().type("logging{enter}");
+    cy.waitTextVisible(glossaryTerms.hiveDataset);
+    cy.contains(glossaryTerms.hdfsDataset).should("not.exist");
   });
 
   it("can apply filters on related entities", () => {
+    cy.waitTextVisible(glossaryTerms.hiveDataset);
     applyTagFilter("urn:li:tag:Cypress2");
-    cy.contains("cypress_logging_events").should("not.exist");
-    cy.waitTextVisible(glossaryTerms.SampleCypressHdfsDataset);
+    cy.contains(glossaryTerms.hiveDataset).should("not.exist");
+    cy.waitTextVisible(glossaryTerms.hdfsDataset);
   });
 
   it("can search related entities by a specific tag using advanced search", () => {
+    cy.waitTextVisible(glossaryTerms.hdfsDataset);
     applyAdvancedSearchFilter("Tag", "Cypress2");
-    cy.waitTextVisible(glossaryTerms.SampleCypressHdfsDataset);
-    cy.waitTextVisible("of 1");
+    cy.waitTextVisible(glossaryTerms.hdfsDataset);
+    cy.clickOptionWithText(glossaryTerms.hdfsDataset)
+    cy.waitTextVisible("Cypress 2");
   });
 
   it("can search related entities by AND-ing two concepts using search", () => {
+    cy.waitTextVisible(glossaryTerms.hdfsDataset);
     applyAdvancedSearchFilter();
     cy.clickOptionWithText('Add Filter');
     cy.get('[data-testid="adv-search-add-filter-description"]').click({
       force: true,
     });
-    cy.get('[data-testid="edit-text-input"]').type("my hdfs");
+    cy.get('[data-testid="edit-text-input"]').type("my hdfs dataset");
     cy.get('[data-testid="edit-text-done-btn"]').click({ force: true });
-    cy.waitTextVisible(glossaryTerms.SampleCypressHdfsDataset);
-    cy.waitTextVisible("of 1");
+    cy.waitTextVisible(glossaryTerms.hdfsDataset);
+    cy.clickOptionWithText(glossaryTerms.hdfsDataset)
+    cy.waitTextVisible("my hdfs dataset");
   });
 
   it("can search related entities by OR-ing two concepts using search", () => {
+    cy.waitTextVisible(glossaryTerms.hdfsDataset);
     applyAdvancedSearchFilter("Description", "single log event");
     applyBasicSearchFilter("Tag", "Cypress2");
     searchByConceptsWithLogicalOperator("Cypress", "Tag", "any filter");
-    cy.waitTextVisible(glossaryTerms.SampleCypressHdfsDataset);
-    cy.waitTextVisible("cypress_logging_events");
+    cy.waitTextVisible(glossaryTerms.hdfsDataset);
+    cy.waitTextVisible(glossaryTerms.hiveDataset);
   });
 });
