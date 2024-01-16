@@ -1,9 +1,14 @@
 from datetime import datetime
+from typing import List
 
 redshift_datetime_format = "%Y-%m-%d %H:%M:%S"
 
 
 class RedshiftQuery:
+    CREATE_TEMP_TABLE_CLAUSE = "create temp table"
+    CREATE_TEMPORARY_TABLE_CLAUSE = "create temporary table"
+    CREATE_TEMPORARY_TABLE_HASH_CLAUSE = "create table #"
+
     list_databases: str = """SELECT datname FROM pg_database
         WHERE (datname <> ('padb_harvest')::name)
         AND (datname <> ('template0')::name)
@@ -97,7 +102,8 @@ SELECT  schemaname as schema_name,
             NULL as table_description
         FROM pg_catalog.svv_external_tables
         ORDER BY "schema",
-                "relname";
+                "relname"
+        
 """
     list_columns: str = """
             SELECT
@@ -211,7 +217,7 @@ SELECT  schemaname as schema_name,
 
     @staticmethod
     def stl_scan_based_lineage_query(
-        db_name: str, start_time: datetime, end_time: datetime
+            db_name: str, start_time: datetime, end_time: datetime
     ) -> str:
         return """
                         select
@@ -339,7 +345,7 @@ SELECT  schemaname as schema_name,
 
     @staticmethod
     def list_unload_commands_sql(
-        db_name: str, start_time: datetime, end_time: datetime
+            db_name: str, start_time: datetime, end_time: datetime
     ) -> str:
         return """
             select
@@ -371,7 +377,7 @@ SELECT  schemaname as schema_name,
 
     @staticmethod
     def list_insert_create_queries_sql(
-        db_name: str, start_time: datetime, end_time: datetime
+            db_name: str, start_time: datetime, end_time: datetime
     ) -> str:
         return """
                 select
@@ -418,7 +424,7 @@ SELECT  schemaname as schema_name,
 
     @staticmethod
     def list_copy_commands_sql(
-        db_name: str, start_time: datetime, end_time: datetime
+            db_name: str, start_time: datetime, end_time: datetime
     ) -> str:
         return """
                 select
@@ -443,3 +449,54 @@ SELECT  schemaname as schema_name,
             start_time=start_time.strftime(redshift_datetime_format),
             end_time=end_time.strftime(redshift_datetime_format),
         )
+
+    @staticmethod
+    def get_temp_table_clause(table_name: str) -> List[str]:
+        if table_name.startswith("#"):
+            return [f"{RedshiftQuery.CREATE_TEMPORARY_TABLE_HASH_CLAUSE}{table_name}"]
+
+        return [
+            f"{RedshiftQuery.CREATE_TEMP_TABLE_CLAUSE} {table_name}",
+            f"{RedshiftQuery.CREATE_TEMPORARY_TABLE_CLAUSE} {table_name}",
+        ]
+
+    @staticmethod
+    def _like_statement(column_name: str, value: str) -> str:
+        return f"{column_name} ILIKE '{value}%'"
+
+    @staticmethod
+    def temp_table_ddl_query(tables: List[str]) -> str:
+        like_statements: List[str] = []
+        for table_name in tables:
+            like_statements.extend(
+                [
+                    RedshiftQuery._like_statement(
+                        column_name="SYS.query_text",
+                        value=temp_clause)
+                    for temp_clause in RedshiftQuery.get_temp_table_clause(table_name)
+                ]
+            )
+
+        temp_table_condition: str = " OR ".join(like_statements)
+
+        return f"""
+        SELECT  SVL.pid, 
+                SVL.xid, 
+                SVL.sequence, 
+                SVL.text AS query_text
+    
+        FROM     svl_statementtext SVL 
+    
+        WHERE    SVL.xid IN 
+                 ( 
+                    SELECT     SVL.xid AS TRANSACTION_ID 
+                    FROM       svl_statementtext SVL 
+                    INNER JOIN sys_query_history SYS 
+                    ON         SVL.xid = SYS.transaction_id 
+                    WHERE      SYS.database_name='dev' 
+                    AND        {temp_table_condition} 
+                ) 
+    
+        ORDER BY SVL.xid, 
+                 SVL.sequence
+        """

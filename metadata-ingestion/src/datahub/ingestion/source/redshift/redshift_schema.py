@@ -80,6 +80,14 @@ class LineageRow:
     filename: Optional[str]
 
 
+@dataclass
+class TempTableRow:
+    process_identifier: str
+    transaction_id: str
+    sequence: int
+    query_text: str
+
+
 # this is a class to be a proxy to query Redshift
 class RedshiftDataDictionary:
     @staticmethod
@@ -363,5 +371,27 @@ class RedshiftDataDictionary:
                     filename=row[field_names.index("filename")]
                     if "filename" in field_names
                     else None,
+                )
+            rows = cursor.fetchmany()
+
+    @staticmethod
+    def get_temporary_rows(
+        conn: redshift_connector.Connection,
+        query: str,
+    ) -> Iterable[TempTableRow]:
+        cursor = conn.cursor()
+
+        cursor.execute(query)
+
+        field_names = [i[0] for i in cursor.description]
+
+        rows = cursor.fetchmany()
+        while rows:
+            for row in rows:
+                yield TempTableRow(
+                    process_identifier=row[field_names.index("pid")],
+                    transaction_id=row[field_names.index("xid")],
+                    sequence=row[field_names.index("sequence")],
+                    query_text=row[field_names.index("query_text")],
                 )
             rows = cursor.fetchmany()

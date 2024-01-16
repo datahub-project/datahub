@@ -4,7 +4,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Dict, List, Optional, Set, Tuple, Union
+from typing import Dict, List, Optional, Set, Tuple, Union, Callable
 from urllib.parse import urlparse
 
 import humanfriendly
@@ -23,7 +23,7 @@ from datahub.ingestion.source.redshift.redshift_schema import (
     RedshiftDataDictionary,
     RedshiftSchema,
     RedshiftTable,
-    RedshiftView,
+    RedshiftView, TempTableRow,
 )
 from datahub.ingestion.source.redshift.report import RedshiftReport
 from datahub.ingestion.source.state.redundant_run_skip_handler import (
@@ -87,9 +87,9 @@ class LineageItem:
             self.dataset_lineage_type = DatasetLineageTypeClass.TRANSFORMED
 
     def merge_lineage(
-        self,
-        upstreams: Set[LineageDataset],
-        cll: Optional[List[sqlglot_l.ColumnLineageInfo]],
+            self,
+            upstreams: Set[LineageDataset],
+            cll: Optional[List[sqlglot_l.ColumnLineageInfo]],
     ) -> None:
         self.upstreams = self.upstreams.union(upstreams)
 
@@ -111,13 +111,43 @@ class LineageItem:
         self.cll = self.cll or None
 
 
+def create_lineage_dataset(
+        urn: str,
+        raw_db_name: str,
+        alias_db_name: str,
+        platform_instance: str,
+        env: str = "PROD",
+) -> LineageDataset:
+    qualified_table_name = dataset_urn.DatasetUrn.create_from_string(
+        urn
+    ).get_entity_id()[1]
+    # -3 because platform instance is optional and that can cause the split to have more than 3 elements
+
+    db, schema, table = qualified_table_name.split(".")[-3:]
+
+    if db == raw_db_name:
+        db = alias_db_name
+
+    path = f"{db}.{schema}.{table}"
+
+    return LineageDataset(
+        platform=LineageDatasetPlatform.REDSHIFT,
+        urn=make_dataset_urn_with_platform_instance(
+            platform=LineageDatasetPlatform.REDSHIFT.value,
+            platform_instance=platform_instance,
+            name=path,
+            env=env,
+        ),
+    )
+
+
 class RedshiftLineageExtractor:
     def __init__(
-        self,
-        config: RedshiftConfig,
-        report: RedshiftReport,
-        context: PipelineContext,
-        redundant_run_skip_handler: Optional[RedundantLineageRunSkipHandler] = None,
+            self,
+            config: RedshiftConfig,
+            report: RedshiftReport,
+            context: PipelineContext,
+            redundant_run_skip_handler: Optional[RedundantLineageRunSkipHandler] = None,
     ):
         self.config = config
         self.report = report
@@ -157,7 +187,7 @@ class RedshiftLineageExtractor:
         return path
 
     def _get_sources_from_query(
-        self, db_name: str, query: str
+            self, db_name: str, query: str
     ) -> Tuple[List[LineageDataset], Optional[List[sqlglot_l.ColumnLineageInfo]]]:
         sources: List[LineageDataset] = list()
 
@@ -202,25 +232,25 @@ class RedshiftLineageExtractor:
         return strip_s3_prefix(self._get_s3_path(path))
 
     def _get_sources(
-        self,
-        lineage_type: LineageCollectorType,
-        db_name: str,
-        source_schema: Optional[str],
-        source_table: Optional[str],
-        ddl: Optional[str],
-        filename: Optional[str],
+            self,
+            lineage_type: LineageCollectorType,
+            db_name: str,
+            source_schema: Optional[str],
+            source_table: Optional[str],
+            ddl: Optional[str],
+            filename: Optional[str],
     ) -> Tuple[List[LineageDataset], Optional[List[sqlglot_l.ColumnLineageInfo]]]:
         sources: List[LineageDataset] = list()
         # Source
         cll: Optional[List[sqlglot_l.ColumnLineageInfo]] = None
 
         if (
-            lineage_type
-            in {
-                lineage_type.QUERY_SQL_PARSER,
-                lineage_type.VIEW_DDL_SQL_PARSING,
-            }
-            and ddl is not None
+                lineage_type
+                in {
+            lineage_type.QUERY_SQL_PARSER,
+            lineage_type.VIEW_DDL_SQL_PARSING,
+        }
+                and ddl is not None
         ):
             try:
                 sources, cll = self._get_sources_from_query(db_name=db_name, query=ddl)
@@ -272,12 +302,12 @@ class RedshiftLineageExtractor:
         return sources, cll
 
     def _populate_lineage_map(
-        self,
-        query: str,
-        database: str,
-        lineage_type: LineageCollectorType,
-        connection: redshift_connector.Connection,
-        all_tables: Dict[str, Dict[str, List[Union[RedshiftView, RedshiftTable]]]],
+            self,
+            query: str,
+            database: str,
+            lineage_type: LineageCollectorType,
+            connection: redshift_connector.Connection,
+            all_tables: Dict[str, Dict[str, List[Union[RedshiftView, RedshiftTable]]]],
     ) -> None:
         """
         This method generate table level lineage based with the given query.
@@ -293,12 +323,13 @@ class RedshiftLineageExtractor:
         :rtype: None
         """
         try:
+            logger.debug(f"Processing lineage query: {query}")
             cll: Optional[List[sqlglot_l.ColumnLineageInfo]] = None
             raw_db_name = database
             alias_db_name = self.config.database
 
             for lineage_row in RedshiftDataDictionary.get_lineage_rows(
-                conn=connection, query=query
+                    conn=connection, query=query
             ):
                 target = self._get_target_lineage(
                     alias_db_name, lineage_row, lineage_type
@@ -321,6 +352,7 @@ class RedshiftLineageExtractor:
                         all_tables=all_tables,
                         alias_db_name=alias_db_name,
                         raw_db_name=raw_db_name,
+                        connection=connection,
                     )
                 )
                 target.cll = cll
@@ -345,18 +377,18 @@ class RedshiftLineageExtractor:
             self.report_status(f"extract-{lineage_type.name}", False)
 
     def _get_target_lineage(
-        self,
-        alias_db_name: str,
-        lineage_row: LineageRow,
-        lineage_type: LineageCollectorType,
+            self,
+            alias_db_name: str,
+            lineage_row: LineageRow,
+            lineage_type: LineageCollectorType,
     ) -> Optional[LineageItem]:
         if (
-            lineage_type != LineageCollectorType.UNLOAD
-            and lineage_row.target_schema
-            and lineage_row.target_table
+                lineage_type != LineageCollectorType.UNLOAD
+                and lineage_row.target_schema
+                and lineage_row.target_table
         ):
             if not self.config.schema_pattern.allowed(
-                lineage_row.target_schema
+                    lineage_row.target_schema
             ) or not self.config.table_pattern.allowed(
                 f"{alias_db_name}.{lineage_row.target_schema}.{lineage_row.target_table}"
             ):
@@ -398,13 +430,15 @@ class RedshiftLineageExtractor:
         )
 
     def _get_upstream_lineages(
-        self,
-        sources: List[LineageDataset],
-        all_tables: Dict[str, Dict[str, List[Union[RedshiftView, RedshiftTable]]]],
-        alias_db_name: str,
-        raw_db_name: str,
+            self,
+            sources: List[LineageDataset],
+            all_tables: Dict[str, Dict[str, List[Union[RedshiftView, RedshiftTable]]]],
+            alias_db_name: str,
+            raw_db_name: str,
+            connection: redshift_connector.Connection,
     ) -> List[LineageDataset]:
         targe_source = []
+        probable_temp_tables: List[str] = ["a_posative"]
         for source in sources:
             if source.platform == LineageDatasetPlatform.REDSHIFT:
                 qualified_table_name = dataset_urn.DatasetUrn.create_from_string(
@@ -427,25 +461,38 @@ class RedshiftLineageExtractor:
 
                 # Filtering out tables which does not exist in Redshift
                 # It was deleted in the meantime or query parser did not capture well the table name
+                # Or it might be a temp table
                 if (
-                    db not in all_tables
-                    or schema not in all_tables[db]
-                    or not any(table == t.name for t in all_tables[db][schema])
+                        db not in all_tables
+                        or schema not in all_tables[db]
+                        or not any(table == t.name for t in all_tables[db][schema])
                 ):
                     logger.debug(
                         f"{source.urn} missing table, dropping from lineage.",
                     )
+                    probable_temp_tables.append(table)
                     self.report.num_lineage_tables_dropped += 1
                     continue
 
             targe_source.append(source)
+
+        if probable_temp_tables and self.config.resolve_temp_table_in_lineage:
+            # Generate lineage dataset from temporary tables
+            targe_source.extend(
+                self.get_permanent_datasets(
+                    db_name=raw_db_name,
+                    connection=connection,
+                    temp_table_names=probable_temp_tables,
+                )
+            )
+
         return targe_source
 
     def populate_lineage(
-        self,
-        database: str,
-        connection: redshift_connector.Connection,
-        all_tables: Dict[str, Dict[str, List[Union[RedshiftView, RedshiftTable]]]],
+            self,
+            database: str,
+            connection: redshift_connector.Connection,
+            all_tables: Dict[str, Dict[str, List[Union[RedshiftView, RedshiftTable]]]],
     ) -> None:
         populate_calls: List[Tuple[str, LineageCollectorType]] = []
 
@@ -512,13 +559,13 @@ class RedshiftLineageExtractor:
         )
 
     def make_fine_grained_lineage_class(
-        self, lineage_item: LineageItem, dataset_urn: str
+            self, lineage_item: LineageItem, dataset_urn: str
     ) -> List[FineGrainedLineage]:
         fine_grained_lineages: List[FineGrainedLineage] = []
 
         if (
-            self.config.extract_column_level_lineage is False
-            or lineage_item.cll is None
+                self.config.extract_column_level_lineage is False
+                or lineage_item.cll is None
         ):
             logger.debug("CLL extraction is disabled")
             return fine_grained_lineages
@@ -531,7 +578,7 @@ class RedshiftLineageExtractor:
             downstream = (
                 [builder.make_schema_field_urn(dataset_urn, cll_info.downstream.column)]
                 if cll_info.downstream is not None
-                and cll_info.downstream.column is not None
+                   and cll_info.downstream.column is not None
                 else []
             )
 
@@ -554,10 +601,10 @@ class RedshiftLineageExtractor:
         return fine_grained_lineages
 
     def get_lineage(
-        self,
-        table: Union[RedshiftTable, RedshiftView],
-        dataset_urn: str,
-        schema: RedshiftSchema,
+            self,
+            table: Union[RedshiftTable, RedshiftView],
+            dataset_urn: str,
+            schema: RedshiftSchema,
     ) -> Optional[Tuple[UpstreamLineageClass, Dict[str, str]]]:
         upstream_lineage: List[UpstreamClass] = []
 
@@ -613,3 +660,52 @@ class RedshiftLineageExtractor:
     def report_status(self, step: str, status: bool) -> None:
         if self.redundant_run_skip_handler:
             self.redundant_run_skip_handler.report_current_run_status(step, status)
+
+    @staticmethod
+    def form_full_sql(temp_table_rows: List[TempTableRow]) -> List[TempTableRow]:
+        temp_tables: List[TempTableRow] = []
+
+        for row in temp_table_rows:
+            if any(row.query_text.startswith(prefix) for prefix in [
+                RedshiftQuery.CREATE_TEMPORARY_TABLE_CLAUSE,
+                RedshiftQuery.CREATE_TEMP_TABLE_CLAUSE,
+                RedshiftQuery.CREATE_TEMPORARY_TABLE_HASH_CLAUSE
+            ]):
+                temp_tables.append(row)
+
+        return temp_tables
+
+    def get_permanent_datasets(
+            self,
+            db_name: str,
+            temp_table_names: List[str],
+            connection: redshift_connector.Connection,
+    ) -> List[LineageDataset]:
+        # TODO: In-case temp table is created from another temp table then recursively find out the permanent tables
+
+        ddl_query: str = RedshiftQuery.temp_table_ddl_query(tables=temp_table_names)
+
+        logger.debug(f"Temporary table ddl query = {ddl_query}")
+
+        temp_table_rows: List[TempTableRow] = [
+            row for row in RedshiftDataDictionary.get_temporary_rows(
+                    conn=connection,
+                    query=ddl_query,
+            )
+        ]
+
+        full_sql_temp_tables: List[TempTableRow] = RedshiftLineageExtractor.form_full_sql(temp_table_rows)
+
+        lineage_datasets: List[LineageDataset] = []
+
+        for temp_table in full_sql_temp_tables:
+            lineage_dataset, _ = self._get_sources_from_query(
+                db_name=db_name,
+                query=temp_table.query_text,
+            )
+
+            lineage_datasets.extend(
+                lineage_dataset
+            )
+
+        return lineage_datasets
