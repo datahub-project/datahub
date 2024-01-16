@@ -103,7 +103,6 @@ SELECT  schemaname as schema_name,
         FROM pg_catalog.svv_external_tables
         ORDER BY "schema",
                 "relname"
-        
 """
     list_columns: str = """
             SELECT
@@ -217,7 +216,7 @@ SELECT  schemaname as schema_name,
 
     @staticmethod
     def stl_scan_based_lineage_query(
-            db_name: str, start_time: datetime, end_time: datetime
+        db_name: str, start_time: datetime, end_time: datetime
     ) -> str:
         return """
                         select
@@ -345,7 +344,7 @@ SELECT  schemaname as schema_name,
 
     @staticmethod
     def list_unload_commands_sql(
-            db_name: str, start_time: datetime, end_time: datetime
+        db_name: str, start_time: datetime, end_time: datetime
     ) -> str:
         return """
             select
@@ -377,7 +376,7 @@ SELECT  schemaname as schema_name,
 
     @staticmethod
     def list_insert_create_queries_sql(
-            db_name: str, start_time: datetime, end_time: datetime
+        db_name: str, start_time: datetime, end_time: datetime
     ) -> str:
         return """
                 select
@@ -424,7 +423,7 @@ SELECT  schemaname as schema_name,
 
     @staticmethod
     def list_copy_commands_sql(
-            db_name: str, start_time: datetime, end_time: datetime
+        db_name: str, start_time: datetime, end_time: datetime
     ) -> str:
         return """
                 select
@@ -471,8 +470,8 @@ SELECT  schemaname as schema_name,
             like_statements.extend(
                 [
                     RedshiftQuery._like_statement(
-                        column_name="SYS.query_text",
-                        value=temp_clause)
+                        column_name="SYS.query_text", value=temp_clause
+                    )
                     for temp_clause in RedshiftQuery.get_temp_table_clause(table_name)
                 ]
             )
@@ -480,23 +479,20 @@ SELECT  schemaname as schema_name,
         temp_table_condition: str = " OR ".join(like_statements)
 
         return f"""
-        SELECT  SVL.pid, 
-                SVL.xid, 
-                SVL.sequence, 
+        SELECT  SVL.pid,
+                SVL.xid,
+                SVL.sequence,
                 SVL.text AS query_text
-    
-        FROM     svl_statementtext SVL 
-    
-        WHERE    SVL.xid IN 
-                 ( 
-                    SELECT     SVL.xid AS TRANSACTION_ID 
-                    FROM       svl_statementtext SVL 
-                    INNER JOIN sys_query_history SYS 
-                    ON         SVL.xid = SYS.transaction_id 
-                    WHERE      SYS.database_name='dev' 
-                    AND        {temp_table_condition} 
-                ) 
-    
-        ORDER BY SVL.xid, 
+        FROM    svl_statementtext SVL
+        WHERE    SVL.xid IN
+                 (
+                    SELECT     SVL.xid AS TRANSACTION_ID
+                    FROM       svl_statementtext SVL
+                    INNER JOIN sys_query_history SYS
+                    ON         SVL.xid = SYS.transaction_id
+                    WHERE      SYS.database_name='dev'
+                    AND        {temp_table_condition}
+                )
+        ORDER BY SVL.xid,
                  SVL.sequence
         """
