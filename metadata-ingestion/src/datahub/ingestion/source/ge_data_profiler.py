@@ -1132,7 +1132,7 @@ class DatahubGEProfiler:
                     pretty_name=pretty_name,
                     platform=platform,
                 )
-                config = self.config
+
                 profile = _SingleDatasetProfiler(
                     batch,
                     pretty_name,
