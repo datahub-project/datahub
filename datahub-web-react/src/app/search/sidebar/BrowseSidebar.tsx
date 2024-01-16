@@ -1,13 +1,12 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
 import { Typography } from 'antd';
-import EntityNode from './EntityNode';
-import { BrowseProvider } from './BrowseContext';
-import SidebarLoadingError from './SidebarLoadingError';
+import EntityBrowse from './EntityBrowse';
 import { SEARCH_RESULTS_BROWSE_SIDEBAR_ID } from '../../onboarding/config/SearchOnboardingConfig';
-import useSidebarEntities from './useSidebarEntities';
 import { ANTD_GRAY_V2 } from '../../entity/shared/constants';
 import { ProfileSidebarResizer } from '../../entity/shared/containers/profile/sidebar/ProfileSidebarResizer';
+import PlatformBrowse from './PlatformBrowse';
+import { useIsPlatformBrowseMode } from './BrowseContext';
 
 export const MAX_BROWSER_WIDTH = 500;
 export const MIN_BROWSWER_WIDTH = 200;
@@ -30,13 +29,19 @@ const SidebarHeader = styled.div`
     white-space: nowrap;
 `;
 
-const SidebarBody = styled.div<{ visible: boolean }>`
+const SidebarBody = styled.div`
     height: calc(100% - 47px);
-    padding-left: 16px;
-    padding-right: 12px;
-    padding-bottom: 200px;
-    overflow: ${(props) => (props.visible ? 'auto' : 'hidden')};
+    padding-left: 8px;
+    padding-right: 8px;
+    overflow: auto;
     white-space: nowrap;
+`;
+
+const SidebarHeaderTitle = styled(Typography.Title)`
+    && {
+        margin: 0px;
+        padding: 0px;
+    }
 `;
 
 type Props = {
@@ -44,32 +49,18 @@ type Props = {
 };
 
 const BrowseSidebar = ({ visible }: Props) => {
-    const { error, entityAggregations, retry } = useSidebarEntities({
-        skip: !visible,
-    });
+    const isPlatformBrowseMode = useIsPlatformBrowseMode();
     const [browserWidth, setBrowserWith] = useState(window.innerWidth * 0.2);
-
     return (
         <>
-            <SidebarWrapper
-                visible={visible}
-                width={browserWidth}
-                id={SEARCH_RESULTS_BROWSE_SIDEBAR_ID}
-                data-testid="browse-v2"
-            >
+            <Sidebar visible={visible} width={browserWidth} id={SEARCH_RESULTS_BROWSE_SIDEBAR_ID} data-testid="browse-v2">
                 <SidebarHeader>
-                    <Typography.Text strong>Navigate</Typography.Text>
+                    <SidebarHeaderTitle level={5}>Navigate</SidebarHeaderTitle>
                 </SidebarHeader>
-                <SidebarBody visible={visible}>
-                    {entityAggregations && !entityAggregations.length && <div>No results found</div>}
-                    {entityAggregations?.map((entityAggregation) => (
-                        <BrowseProvider key={entityAggregation.value} entityAggregation={entityAggregation}>
-                            <EntityNode />
-                        </BrowseProvider>
-                    ))}
-                    {error && <SidebarLoadingError onClickRetry={retry} />}
+                <SidebarBody>
+                    {!isPlatformBrowseMode ? <EntityBrowse visible={visible} /> : <PlatformBrowse visible={visible} />}
                 </SidebarBody>
-            </SidebarWrapper>
+            </Sidebar>
             <ProfileSidebarResizer
                 setSidePanelWidth={(widthProp) =>
                     setBrowserWith(Math.min(Math.max(widthProp, MIN_BROWSWER_WIDTH), MAX_BROWSER_WIDTH))
