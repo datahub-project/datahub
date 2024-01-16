@@ -29,6 +29,6 @@ mutation deletePost($urn: String!) {
     deletePost(urn: $urn)
 }
 
-mutation updatePost($urn: String!, $input: UpdatePostInput!) {
-    updatePost(urn: $urn, input: $input)
+mutation updatePost($input: UpdatePostInput!) {
+    updatePost(input: $input)
 }
