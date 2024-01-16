@@ -422,7 +422,9 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
             if (self.config.limit or self.config.offset) and not self.custom_sql:
                 # We don't want limit and offset to get applied to the row count
                 # This is kinda hacky way to do it, but every other way would require major refactoring
-                dataset_profile.rowCount = self.dataset.get_row_count(self.dataset_name.split(".")[-1])
+                dataset_profile.rowCount = self.dataset.get_row_count(
+                    self.dataset_name.split(".")[-1]
+                )
             else:
                 dataset_profile.rowCount = self.dataset.get_row_count()
 
