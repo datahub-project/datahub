@@ -249,7 +249,7 @@ class MetabaseSource(Source):
             return None
 
         dashboard_urn = builder.make_dashboard_urn(
-            self.platform, dashboard_details.get("id", "")
+            self.platform, f"dashboard-{dashboard_details.get('id', '')}"
         )
         dashboard_snapshot = DashboardSnapshot(
             urn=dashboard_urn,
@@ -268,10 +268,10 @@ class MetabaseSource(Source):
         )
 
         chart_urns = []
-        cards_data = dashboard_details.get("ordered_cards", "{}")
+        cards_data = dashboard_details.get("dashcards", {})
         for card_info in cards_data:
             chart_urn = builder.make_chart_urn(
-                self.platform, card_info.get("card_id", "")
+                self.platform, f"card-{card_info['card'].get('id', '')}"
             )
             chart_urns.append(chart_urn)
 
