@@ -17,7 +17,6 @@ import {
     createCachedAssertionWithMonitor,
 } from './acrylCacheUtils';
 import { useGetDatasetContractQuery } from '../../../../../../graphql/contract.generated';
-
 /**
  * Component used for rendering the Assertions Sub Tab on the Validations Tab
  */

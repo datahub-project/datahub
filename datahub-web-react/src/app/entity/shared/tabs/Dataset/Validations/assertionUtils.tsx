@@ -103,8 +103,6 @@ export const getResultErrorMessage = (result: AssertionResult) => {
     }
 
     const errorType = result.error?.type;
-    const errorProperties = convertNativeParametersArrayToMap(result.error?.properties)
-    const errorMessage = errorProperties?.get('message')
 
     switch (errorType) {
         case AssertionResultErrorType.SourceConnectionError:
@@ -115,12 +113,8 @@ export const getResultErrorMessage = (result: AssertionResult) => {
             return 'Not enough data to evaluate assertion.';
         case AssertionResultErrorType.InvalidParameters:
             return 'Invalid parameters. Please check the assertion configuration.';
-        case AssertionResultErrorType.InvalidSourceType:{
-            if (errorMessage?.includes('not supported for Non-Delta tables')) {
-                return 'Selected source type is not supported for Non-Delta tables. Please select different source type in assertion configuration.'
-            }
+        case AssertionResultErrorType.InvalidSourceType:
             return 'Invalid source type selected. Please select different source type in assertion configuration.';
-        }
         case AssertionResultErrorType.UnsupportedPlatform:
             return 'Unsupported platform.';
         case AssertionResultErrorType.CustomSqlError:

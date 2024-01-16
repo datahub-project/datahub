@@ -1,8 +1,7 @@
 import React from 'react';
 import Typography from 'antd/lib/typography';
 import styled from 'styled-components';
-import { Select, Tooltip } from 'antd';
-import useFormInstance from 'antd/lib/form/hooks/useFormInstance';
+import { Form, Select, Tooltip } from 'antd';
 import { AssertionMonitorBuilderState } from '../../types';
 import {
     getDatasetProfileDisabledMessage,
@@ -41,7 +40,7 @@ type Props = {
 };
 
 export const FieldTypeBuilder = ({ value, onChange, disabled }: Props) => {
-    const form = useFormInstance();
+    const form = Form.useFormInstance();
     const options = getFieldTypeOptions();
     const connectionForEntityExists = useConnectionForEntityExists(value.entityUrn as string);
     const defaultAssertionState = getDefaultDatasetFieldAssertionState(connectionForEntityExists);

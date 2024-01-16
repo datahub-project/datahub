@@ -1,4 +1,4 @@
-import useFormInstance from 'antd/lib/form/hooks/useFormInstance';
+import { Form } from 'antd';
 import { useState } from 'react';
 import { AssertionActionType, AssertionType } from '../../../../../../../../../types.generated';
 import { AssertionMonitorBuilderState } from '../types';
@@ -88,7 +88,7 @@ export const getEvaluationScheduleTitle = (assertionType: AssertionType) => {
 
 export const useTestAssertionModal = () => {
     const [isTestAssertionModalVisible, setTestAssertionModalVisible] = useState(false);
-    const form = useFormInstance();
+    const form = Form.useFormInstance();
 
     const handleTestAssertionSubmit = async () => {
         try {
