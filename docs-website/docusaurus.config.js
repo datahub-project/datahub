@@ -58,6 +58,21 @@ module.exports = {
         },
         {
           type: "dropdown",
+          label: "Community",
+          position: "right",
+          items: [
+            {
+              href: "https://slack.datahubproject.io",
+              label: "Slack",
+            },
+            {
+              to: "/champions",
+              label: "Champions",
+            },
+          ],
+        },
+        {
+          type: "dropdown",
           label: "Resources",
           position: "right",
           items: [
@@ -66,16 +81,12 @@ module.exports = {
               label: "Demo",
             },
             {
-              href: "https://blog.datahubproject.io/",
+              href: "https://www.acryldata.io/blog",
               label: "Blog",
             },
             {
               href: "https://feature-requests.datahubproject.io/roadmap",
               label: "Roadmap",
-            },
-            {
-              href: "https://slack.datahubproject.io",
-              label: "Slack",
             },
             {
               href: "https://github.com/datahub-project/datahub",
