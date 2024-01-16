@@ -9,6 +9,7 @@ import com.linkedin.common.MediaType;
 import com.linkedin.common.url.Url;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
+import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.entity.validation.ValidationException;
 import com.linkedin.metadata.key.PostKey;
@@ -100,7 +101,7 @@ public class PostService {
       @Nonnull Authentication authentication)
       throws RemoteInvocationException, URISyntaxException {
 
-    val response =
+    final EntityResponse response =
         _entityClient.getV2(
             postUrn.getEntityType(), postUrn, Set.of(POST_INFO_ASPECT_NAME), authentication);
     if (response == null || !response.getAspects().containsKey(POST_INFO_ASPECT_NAME)) {
@@ -108,8 +109,8 @@ public class PostService {
           String.format("Failed to edit/update post for urn %s as post doesn't exist", postUrn));
     }
 
-    DataMap dataMap = response.getAspects().get(POST_INFO_ASPECT_NAME).getValue().data();
-    PostInfo existingPost = new PostInfo(dataMap);
+    final DataMap dataMap = response.getAspects().get(POST_INFO_ASPECT_NAME).getValue().data();
+    final PostInfo existingPost = new PostInfo(dataMap);
 
     // update/edit existing post
     existingPost.setContent(updatedContent);

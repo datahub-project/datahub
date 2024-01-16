@@ -37,9 +37,9 @@ public class UpdatePostResolver implements DataFetcher<CompletableFuture<Boolean
           "Unauthorized to update posts. Please contact your DataHub administrator if this needs corrective action.");
     }
 
-    final Urn postUrn = Urn.createFromString(environment.getArgument("urn"));
     final UpdatePostInput input =
         bindArgument(environment.getArgument("input"), UpdatePostInput.class);
+    final Urn postUrn = Urn.createFromString(input.getUrn());
 
     final PostType type = input.getPostType();
     final UpdatePostContentInput content = input.getContent();

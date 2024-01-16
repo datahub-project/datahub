@@ -583,13 +583,9 @@ type Mutation {
     createPost(input: CreatePostInput!): Boolean
 
     """
-    Update a post
+    Update or edit a post
     """
-    updatePost(
-        "The urn of the View to update"
-        urn: String!,
-        "Input required to update an existing post"
-        input: UpdatePostInput!): Boolean
+    updatePost(input: UpdatePostInput!): Boolean
 
     """
     Delete a post
@@ -10229,6 +10225,11 @@ input CreatePostInput {
 Input provided when creating a Post
 """
 input UpdatePostInput {
+    """
+    The urn of the post to edit or update
+    """
+    urn: String!,
+
     """
     The type of post
     """

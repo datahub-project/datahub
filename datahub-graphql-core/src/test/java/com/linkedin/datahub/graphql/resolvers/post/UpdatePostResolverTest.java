@@ -101,10 +101,10 @@ public class UpdatePostResolverTest {
         .thenReturn(postContentObj);
 
     UpdatePostInput input = new UpdatePostInput();
+    input.setUrn(TEST_URN.toString());
     input.setPostType(PostType.HOME_PAGE_ANNOUNCEMENT);
     input.setContent(content);
     when(dataFetchingEnvironment.getArgument("input")).thenReturn(input);
-    when(dataFetchingEnvironment.getArgument("urn")).thenReturn(TEST_URN.toString());
     when(postService.updatePost(
             TEST_URN, PostType.HOME_PAGE_ANNOUNCEMENT.toString(), postContentObj, authentication))
         .thenReturn(true);
