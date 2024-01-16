@@ -1,7 +1,7 @@
 import logging
-from typing import Any, Iterable, List, Dict, NoReturn, Optional, Tuple, cast
-from unittest.mock import patch
 import re
+from typing import Any, Dict, Iterable, List, NoReturn, Optional, Tuple, cast
+from unittest.mock import patch
 
 # This import verifies that the dependencies are available.
 import cx_Oracle
@@ -11,9 +11,9 @@ from pydantic.fields import Field
 from sqlalchemy import event, sql
 from sqlalchemy.dialects.oracle.base import ischema_names
 from sqlalchemy.engine.reflection import Inspector
-from sqlalchemy.util import warn, defaultdict, py2k, compat
 from sqlalchemy.sql import sqltypes
-from sqlalchemy.types import INTEGER, FLOAT, TIMESTAMP
+from sqlalchemy.types import FLOAT, INTEGER, TIMESTAMP
+from sqlalchemy.util import compat, defaultdict, py2k, warn
 
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -83,9 +83,9 @@ class OracleConfig(BasicSQLAlchemyConfig):
     )
     # custom
     data_dictionary_mode: Optional[str] = Field(
-        default='ALL',
+        default="ALL",
         description="The data dictionary views mode, to extract information about schema objects "
-                    "('ALL' and 'DBA' views are supported). (https://docs.oracle.com/cd/E11882_01/nav/catalog_views.htm)"
+        "('ALL' and 'DBA' views are supported). (https://docs.oracle.com/cd/E11882_01/nav/catalog_views.htm)",
     )
 
     @pydantic.validator("service_name")
@@ -98,10 +98,8 @@ class OracleConfig(BasicSQLAlchemyConfig):
 
     @pydantic.validator("data_dictionary_mode")
     def check_data_dictionary_mode(cls, values):
-        if values not in ('ALL', 'DBA'):
-            raise ValueError(
-                "Specify one of data dictionary views mode: 'ALL', 'DBA'."
-            )
+        if values not in ("ALL", "DBA"):
+            raise ValueError("Specify one of data dictionary views mode: 'ALL', 'DBA'.")
         return values
 
     def get_sql_alchemy_url(self):
@@ -166,7 +164,9 @@ class OracleInspectorObjectWrapper:
         return identity
 
     def get_schema_names(self) -> List[str]:
-        cursor = self._inspector_instance.bind.execute(sql.text("SELECT username FROM dba_users ORDER BY username"))
+        cursor = self._inspector_instance.bind.execute(
+            sql.text("SELECT username FROM dba_users ORDER BY username")
+        )
 
         return [
             self._inspector_instance.dialect.normalize_name(row[0])
@@ -174,13 +174,13 @@ class OracleInspectorObjectWrapper:
             for row in cursor
         ]
 
-    def get_table_names(
-            self, schema: Optional[str] = None
-    ) -> List[str]:
+    def get_table_names(self, schema: Optional[str] = None) -> List[str]:
         """
         skip order_by, we are not using order_by
         """
-        schema = self._inspector_instance.dialect.denormalize_name(schema or self.default_schema_name)
+        schema = self._inspector_instance.dialect.denormalize_name(
+            schema or self.default_schema_name
+        )
 
         if schema is None:
             schema = self._inspector_instance.dialect.default_schema_name
@@ -202,18 +202,18 @@ class OracleInspectorObjectWrapper:
             for row in cursor
         ]
 
-    def get_view_names(
-            self, schema: Optional[str] = None
-    ) -> List[str]:
+    def get_view_names(self, schema: Optional[str] = None) -> List[str]:
 
-        schema = self._inspector_instance.dialect.denormalize_name(schema or self.default_schema_name)
+        schema = self._inspector_instance.dialect.denormalize_name(
+            schema or self.default_schema_name
+        )
 
         if schema is None:
             schema = self._inspector_instance.dialect.default_schema_name
 
         cursor = self._inspector_instance.bind.execute(
             sql.text("SELECT view_name FROM dba_views WHERE owner = :owner"),
-            dict(owner=self._inspector_instance.dialect.denormalize_name(schema))
+            dict(owner=self._inspector_instance.dialect.denormalize_name(schema)),
         )
 
         return [
@@ -223,25 +223,31 @@ class OracleInspectorObjectWrapper:
         ]
 
     def get_columns(
-            self, table_name: Optional[str], schema: Optional[str] = None, dblink: str = ''
+        self, table_name: Optional[str], schema: Optional[str] = None, dblink: str = ""
     ) -> List[dict]:
 
         table_name = self._inspector_instance.dialect.denormalize_name(table_name)
-        schema = self._inspector_instance.dialect.denormalize_name(schema or self.default_schema_name)
+        schema = self._inspector_instance.dialect.denormalize_name(
+            schema or self.default_schema_name
+        )
 
         if schema is None:
             schema = self._inspector_instance.dialect.default_schema_name
 
         columns = []
-        if not (self._inspector_instance.dialect.server_version_info and
-                self._inspector_instance.dialect.server_version_info < (9,)):
+        if not (
+            self._inspector_instance.dialect.server_version_info
+            and self._inspector_instance.dialect.server_version_info < (9,)
+        ):
             # _supports_char_length --> not self._is_oracle_8
             char_length_col = "char_length"
         else:
             char_length_col = "data_length"
 
-        if self._inspector_instance.dialect.server_version_info and \
-                self._inspector_instance.dialect.server_version_info >= (12,):
+        if (
+            self._inspector_instance.dialect.server_version_info
+            and self._inspector_instance.dialect.server_version_info >= (12,)
+        ):
             identity_cols = """\
                 col.default_on_null,
                 (
@@ -358,10 +364,12 @@ class OracleInspectorObjectWrapper:
         return columns
 
     def get_table_comment(
-            self, table_name: Optional[str], schema: Optional[str] = None
+        self, table_name: Optional[str], schema: Optional[str] = None
     ) -> Dict:
         table_name = self._inspector_instance.dialect.denormalize_name(table_name)
-        schema = self._inspector_instance.dialect.denormalize_name(schema or self.default_schema_name)
+        schema = self._inspector_instance.dialect.denormalize_name(
+            schema or self.default_schema_name
+        )
 
         if schema is None:
             schema = self._inspector_instance.dialect.default_schema_name
@@ -374,14 +382,13 @@ class OracleInspectorObjectWrapper:
         """
 
         c = self._inspector_instance.bind.execute(
-            sql.text(COMMENT_SQL),
-            dict(table_name=table_name, schema_name=schema)
+            sql.text(COMMENT_SQL), dict(table_name=table_name, schema_name=schema)
         )
 
         return {"text": c.scalar()}
 
     def _get_constraint_data(
-            self, table_name: Optional[str], schema: Optional[str] = None, dblink: str = ''
+        self, table_name: Optional[str], schema: Optional[str] = None, dblink: str = ""
     ) -> List[sqlalchemy.engine.Row]:
         params = {"table_name": table_name}
 
@@ -423,21 +430,19 @@ class OracleInspectorObjectWrapper:
         return constraint_data
 
     def get_pk_constraint(
-            self, table_name: Optional[str], schema: Optional[str] = None, dblink: str = ''
+        self, table_name: Optional[str], schema: Optional[str] = None, dblink: str = ""
     ) -> Dict:
         table_name = self._inspector_instance.dialect.denormalize_name(table_name)
-        schema = self._inspector_instance.dialect.denormalize_name(schema or self.default_schema_name)
+        schema = self._inspector_instance.dialect.denormalize_name(
+            schema or self.default_schema_name
+        )
 
         if schema is None:
             schema = self._inspector_instance.dialect.default_schema_name
 
         pkeys = []
         constraint_name = None
-        constraint_data = self._get_constraint_data(
-            table_name,
-            schema,
-            dblink
-        )
+        constraint_data = self._get_constraint_data(table_name, schema, dblink)
 
         for row in constraint_data:
             (
@@ -447,31 +452,33 @@ class OracleInspectorObjectWrapper:
                 remote_table,
                 remote_column,
                 remote_owner,
-            ) = row[0:2] + tuple([self._inspector_instance.dialect.normalize_name(x) for x in row[2:6]])
+            ) = row[0:2] + tuple(
+                [self._inspector_instance.dialect.normalize_name(x) for x in row[2:6]]
+            )
             if cons_type == "P":
                 if constraint_name is None:
-                    constraint_name = self._inspector_instance.dialect.normalize_name(cons_name)
+                    constraint_name = self._inspector_instance.dialect.normalize_name(
+                        cons_name
+                    )
                 pkeys.append(local_column)
 
         return {"constrained_columns": pkeys, "name": constraint_name}
 
     def get_foreign_keys(
-            self, table_name: Optional[str], schema: Optional[str] = None, dblink: str = ''
+        self, table_name: Optional[str], schema: Optional[str] = None, dblink: str = ""
     ) -> List:
 
         table_name = self._inspector_instance.dialect.denormalize_name(table_name)
-        schema = self._inspector_instance.dialect.denormalize_name(schema or self.default_schema_name)
+        schema = self._inspector_instance.dialect.denormalize_name(
+            schema or self.default_schema_name
+        )
 
         if schema is None:
             schema = self._inspector_instance.dialect.default_schema_name
 
         requested_schema = schema  # to check later on
 
-        constraint_data = self._get_constraint_data(
-            table_name,
-            schema,
-            dblink
-        )
+        constraint_data = self._get_constraint_data(table_name, schema, dblink)
 
         def fkey_rec():
             return {
@@ -493,7 +500,9 @@ class OracleInspectorObjectWrapper:
                 remote_table,
                 remote_column,
                 remote_owner,
-            ) = row[0:2] + tuple([self._inspector_instance.dialect.normalize_name(x) for x in row[2:6]])
+            ) = row[0:2] + tuple(
+                [self._inspector_instance.dialect.normalize_name(x) for x in row[2:6]]
+            )
 
             cons_name = self._inspector_instance.dialect.normalize_name(cons_name)
 
@@ -520,8 +529,11 @@ class OracleInspectorObjectWrapper:
                 if not rec["referred_table"]:
                     rec["referred_table"] = remote_table
                     if (
-                            requested_schema is not None
-                            or self._inspector_instance.dialect.denormalize_name(remote_owner) != schema
+                        requested_schema is not None
+                        or self._inspector_instance.dialect.denormalize_name(
+                            remote_owner
+                        )
+                        != schema
                     ):
                         rec["referred_schema"] = remote_owner
 
@@ -534,10 +546,12 @@ class OracleInspectorObjectWrapper:
         return list(fkeys.values())
 
     def get_view_definition(
-            self, view_name: Optional[str], schema: Optional[str] = None
+        self, view_name: Optional[str], schema: Optional[str] = None
     ) -> str | None:
         view_name = self._inspector_instance.dialect.denormalize_name(view_name)
-        schema = self._inspector_instance.dialect.denormalize_name(schema or self.default_schema_name)
+        schema = self._inspector_instance.dialect.denormalize_name(
+            schema or self.default_schema_name
+        )
 
         if schema is None:
             schema = self._inspector_instance.dialect.default_schema_name
@@ -594,7 +608,9 @@ class OracleSource(SQLAlchemySource):
             event.listen(
                 inspector.engine, "before_cursor_execute", before_cursor_execute
             )
-            logger.info(f'Data dictionary mode is: "{self.config.data_dictionary_mode}".')
+            logger.info(
+                f'Data dictionary mode is: "{self.config.data_dictionary_mode}".'
+            )
             # Sqlalchemy inspector uses ALL_* tables as per oracle dialect implementation.
             # OracleInspectorObjectWrapper provides alternate implementation using DBA_* tables.
             if self.config.data_dictionary_mode != "ALL":
@@ -605,8 +621,8 @@ class OracleSource(SQLAlchemySource):
 
     def get_workunits(self):
         with patch.dict(
-                "sqlalchemy.dialects.oracle.base.OracleDialect.ischema_names",
-                {klass.__name__: klass for klass in extra_oracle_types},
-                clear=False,
+            "sqlalchemy.dialects.oracle.base.OracleDialect.ischema_names",
+            {klass.__name__: klass for klass in extra_oracle_types},
+            clear=False,
         ):
             return super().get_workunits()
