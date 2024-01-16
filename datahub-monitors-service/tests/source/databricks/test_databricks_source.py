@@ -79,6 +79,12 @@ TEST_DESCRIBE_DETAIL_UPDATE_QUERY = (
     "DESCRIBE DETAIL `hive_metastore`.`default`.`base_table`;"
 )
 
+TEST_FILE_METADATA_UPDATE_QUERY = f"""
+            SELECT MAX(_metadata.file_modification_time)
+            FROM `hive_metastore`.`default`.`base_table`
+            WHERE _metadata.file_modification_time >= (TO_TIMESTAMP(FROM_UNIXTIME({TEST_START}/1000)))
+            AND _metadata.file_modification_time <= (TO_TIMESTAMP(FROM_UNIXTIME({TEST_END}/1000)));
+        """
 
 TEST_FIELD_UPDATE_QUERY = f"""
                 SELECT timestamp as last_altered_date
@@ -224,6 +230,22 @@ class TestDatabricksSource:
                 [TEST_START, TEST_END],
                 {},
             )
+
+    @patch.object(DatabricksSource, "_build_file_last_updated_results")
+    @patch.object(DatabricksSource, "_execute_fetchone_query")
+    def test_get_entity_events_file_metadata_update(
+        self, execute_query_mock: Mock, build_mock: Mock
+    ) -> None:
+        self.databricks_source.get_entity_events(
+            TEST_ENTITY_URN,
+            EntityEventType.FILE_METADATA_UPDATE,
+            [TEST_START, TEST_END],
+            {},
+        )
+        execute_query_mock.assert_called_once_with(
+            TEST_FILE_METADATA_UPDATE_QUERY,
+        )
+        build_mock.assert_called_once()
 
     @patch.object(DatabricksSource, "_build_field_update_results")
     @patch.object(DatabricksSource, "_execute_fetchall_query")
@@ -535,6 +557,16 @@ class TestDatabricksSource:
         assert len(results) == 1
         assert results[0].event_time == TEST_END
         assert results[0].event_type == EntityEventType.INFORMATION_SCHEMA_UPDATE
+
+    def test_build_file_last_updated_results(self) -> None:
+        results = list(
+            self.databricks_source._build_file_last_updated_results(
+                [ts_millis_to_datetime(TEST_END)],
+            )
+        )
+        assert len(results) == 1
+        assert results[0].event_time == TEST_END
+        assert results[0].event_type == EntityEventType.FILE_METADATA_UPDATE
 
     def test_build_field_update_results_date(self) -> None:
         results = self.databricks_source._build_field_update_results([JAN_1_DATE])

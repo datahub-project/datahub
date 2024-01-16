@@ -123,11 +123,11 @@ class DatabricksSource(Source):
         # This would work for only delta tables.
         # This would throw error for non-delta tables.
 
-        # TODO: Investigate unity catalog audit log based freshness if it tracks updates to unity catalog
-        # external(non-delta) tables that are not covered in current implementation.
-        # https://docs.databricks.com/en/data-governance/unity-catalog/index.html#external-tables
-        # Unity Catalog Table Events - createTable, deleteTable, updateTables
+        # Notes on Unity Catalog Audit Log (As of Jan 2024)
         # https://docs.databricks.com/en/administration-guide/account-settings/audit-logs.html#unity-catalog-events
+        # Based on investigative tests done on UC audit log for managed as well as external table, audit table
+        # `system.access.audit` does not reliably capture `unityCatalog->updateTables` event required for freshness
+        # checks. This may change in future and we should build UC audit log based freshness checks at that point.
 
         return self._delta_table_audit_log_operation_events(
             operation_params, parameters
@@ -345,3 +345,69 @@ class DatabricksSource(Source):
 
     def _convert_value_for_comparison(self, column_value: str, column_type: str) -> str:
         return convert_value_for_comparison(column_value, column_type.upper())
+
+    def _try_get_source_specific_entity_events(
+        self,
+        event_type: EntityEventType,
+        operation_params: SourceOperationParams,
+        parameters: dict,
+    ) -> List[EntityEvent]:
+        if event_type == EntityEventType.FILE_METADATA_UPDATE:
+            # only supported for databricks
+            return self._get_dataset_file_last_updated_events(operation_params)
+        return super()._try_get_source_specific_entity_events(
+            event_type, operation_params, parameters
+        )
+
+    def _get_dataset_file_last_updated_events(
+        self, operation_params: SourceOperationParams
+    ) -> List[EntityEvent]:
+        # Convert the window timestamps into values that are suitable for comparison.
+        start_datetime = convert_millis_to_timestamp_type(
+            operation_params.start_time_millis, "TIMESTAMP"
+        )
+        end_datetime = convert_millis_to_timestamp_type(
+            operation_params.end_time_millis, "TIMESTAMP"
+        )
+
+        date_column = "_metadata.file_modification_time"
+        # The goal is to filter for any files which have changed within this boundary of time.
+        query = f"""
+            SELECT MAX({date_column})
+            FROM {self._get_database_string(operation_params)}
+            WHERE {date_column} >= ({start_datetime})
+            AND {date_column} <= ({end_datetime});
+        """
+
+        logger.debug(query)
+
+        # Note for tables with "hive" format -
+        # As per databricks file metadata docs - https://docs.databricks.com/en/ingestion/file-metadata-column.html
+        # The column _metadata is available for all input file formats.
+        # However, this is not working for hive metastore tables created with hive format using
+        # https://docs.databricks.com/en/sql/language-manual/sql-ref-syntax-ddl-create-table-hiveformat.html
+        # The query throws below error:
+        # [UNRESOLVED_COLUMN.WITH_SUGGESTION] A column, variable, or function parameter with
+        # name `_metadata`.`file_modification_time` cannot be resolved.
+        #
+        # As a workaround, it is possible to query the same details using table's storage location
+        # and inferred format name. (accessible via describe extended <table> query. Also available in DatasetProperties aspect)
+        # For example, if table `hive_metastore.default.student_parquet` is stored at location
+        # `dbfs:/user/hive/warehouse/student_parquet` with Serde Library org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe
+        # Below query can be used to achieve same result.
+        # select max(_metadata.file_modification_time) from parquet.`dbfs:/user/hive/warehouse/student_parquet`
+        # However, this is not done to start with, as this seems to be relatively less used format in databricks.
+        #
+        # Also, currently there is no clear way to identify such tables in DataHub, except that `data_source_format` property
+        # is not present in properties of such table. This is an ingestion bug and should be fixed.
+
+        return list(
+            self._build_file_last_updated_results(self._execute_fetchone_query(query))
+        )
+
+    def _build_file_last_updated_results(self, row: List[Any]) -> Iterable[EntityEvent]:
+        # If no files have changed within this boundary, row[0] is NULL
+        if row[0]:
+            yield EntityEvent(
+                EntityEventType.FILE_METADATA_UPDATE, datetime_to_ts_millis(row[0])
+            )

@@ -241,10 +241,20 @@ class Source:
             # Build and issue a query!
             return self._get_field_last_updated_events(operation_params, parameters)
         else:
-            raise InvalidSourceTypeException(
-                message=f"Unsupported entity event type {event_type} provided. {self.source_name} connector does not support retrieving these events.",
-                source_type=event_type,
+            return self._try_get_source_specific_entity_events(
+                event_type, operation_params, parameters
             )
+
+    def _try_get_source_specific_entity_events(
+        self,
+        event_type: EntityEventType,
+        operation_params: SourceOperationParams,
+        parameters: dict,
+    ) -> List[EntityEvent]:
+        raise InvalidSourceTypeException(
+            message=f"Unsupported entity event type {event_type} provided. {self.source_name} connector does not support retrieving these events.",
+            source_type=event_type,
+        )
 
     def get_entity_events(
         self,

@@ -52,6 +52,9 @@ def get_event_type_parameters_from_parameters(
         elif source_type == DatasetFreshnessSourceType.INFORMATION_SCHEMA:
             entity_event_type = EntityEventType.INFORMATION_SCHEMA_UPDATE
             return (entity_event_type, {"database": database_params})
+        elif source_type == DatasetFreshnessSourceType.FILE_METADATA:
+            entity_event_type = EntityEventType.FILE_METADATA_UPDATE
+            return (entity_event_type, {"database": database_params})
         elif source_type == DatasetFreshnessSourceType.AUDIT_LOG:
             entity_event_type = EntityEventType.AUDIT_LOG_OPERATION
             if dataset_freshness_parameters.audit_log:
