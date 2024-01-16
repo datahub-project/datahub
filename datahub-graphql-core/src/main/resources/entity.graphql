@@ -3546,7 +3546,7 @@ type CorpUser implements Entity {
 
     """
     Experimental API.
-    For fetching extra entities that do not have custom UI code yet
+    For fetching extra aspects that do not have custom UI code yet
     """
     aspects(input: AspectParams): [RawAspect!]
 }
