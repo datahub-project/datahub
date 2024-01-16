@@ -88,7 +88,7 @@ export const IncidentTab = () => {
     const { urn } = useEntityData();
     const [page, setPage] = useState(1);
     const incidentStates = INCIDENT_DISPLAY_STATES;
-    const [selectedIncidentState, setSelectedIncidentState] = useState<string>('All');
+    const [selectedIncidentState, setSelectedIncidentState] = useState<string>('ACTIVE');
     const [isRaiseIncidentModalVisible, setIsRaiseIncidentModalVisible] = useState(false);
 
     // Fetching the incidents data using Incidents Query

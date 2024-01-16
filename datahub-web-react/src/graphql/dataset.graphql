@@ -191,7 +191,7 @@ fragment nonSiblingDatasetFields on Dataset {
             }
         }
     }
-    totalIncidents: incidents(start: 0, count: 1) {
+    activeIncidents: incidents(start: 0, count: 1, state: ACTIVE) {
         total
     }
     privileges {

@@ -187,6 +187,9 @@ export class DatasetEntity implements Entity<Dataset> {
                 {
                     name: 'Incidents',
                     component: IncidentTab,
+                    getDynamicName: (_, dataset) => {
+                        return `Incidents (${dataset?.dataset?.activeIncidents.total})`;
+                    },
                 },
             ]}
             sidebarSections={[

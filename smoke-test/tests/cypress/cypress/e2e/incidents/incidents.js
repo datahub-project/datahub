@@ -8,6 +8,8 @@ describe("incidents", () => {
     cy.clickOptionWithTestId("resolve-incident");
     cy.waitTextVisible("Resolve Incident");
     cy.clickOptionWithTestId("confirm-resolve");
+    cy.clickOptionWithText('Active');
+    cy.get('.ant-typography').contains('All').click({force:true});
     cy.waitTextVisible("0 active incidents, 1 resolved incidents");
   });
 
@@ -16,6 +18,8 @@ describe("incidents", () => {
     cy.visit(
       "/dataset/urn:li:dataset:(urn:li:dataPlatform:kafka,incidents-sample-dataset,PROD)/Incidents"
     );
+    cy.clickOptionWithText('Active');
+    cy.get('.ant-typography').contains('All').click({force:true});
     cy.waitTextVisible("0 active incidents, 1 resolved incidents");
     cy.clickOptionWithTestId("incident-menu");
     cy.clickOptionWithTestId("reopen-incident");
