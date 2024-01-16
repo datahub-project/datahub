@@ -112,36 +112,6 @@ class LineageItem:
         self.cll = self.cll or None
 
 
-def create_lineage_dataset(
-    urn: str,
-    raw_db_name: str,
-    alias_db_name: str,
-    platform_instance: str,
-    env: str = "PROD",
-) -> LineageDataset:
-    qualified_table_name = dataset_urn.DatasetUrn.create_from_string(
-        urn
-    ).get_entity_id()[1]
-    # -3 because platform instance is optional and that can cause the split to have more than 3 elements
-
-    db, schema, table = qualified_table_name.split(".")[-3:]
-
-    if db == raw_db_name:
-        db = alias_db_name
-
-    path = f"{db}.{schema}.{table}"
-
-    return LineageDataset(
-        platform=LineageDatasetPlatform.REDSHIFT,
-        urn=make_dataset_urn_with_platform_instance(
-            platform=LineageDatasetPlatform.REDSHIFT.value,
-            platform_instance=platform_instance,
-            name=path,
-            env=env,
-        ),
-    )
-
-
 class RedshiftLineageExtractor:
     def __init__(
         self,
