@@ -311,8 +311,9 @@ public class SchemaRegistryController
         .map(
             schema -> {
               SchemaString result = new SchemaString();
-              result.setMaxId(id);
-              result.setSchemaType("AVRO");
+              if (fetchMaxId) {
+                result.setMaxId(id);
+              }
               result.setSchema(schema.toString());
               return new ResponseEntity<>(result, HttpStatus.OK);
             })
