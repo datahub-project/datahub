@@ -74,9 +74,9 @@ public class SearchUtils {
           EntityType.CONTAINER,
           EntityType.DOMAIN,
           EntityType.DATA_PRODUCT,
-          EntityType.NOTEBOOK);
+          EntityType.NOTEBOOK,
+          EntityType.BUSINESS_ATTRIBUTE);
 
-  //TODO: add business attributes to the list of searchable fields
 
 
   /**
@@ -99,7 +99,8 @@ public class SearchUtils {
           EntityType.CORP_GROUP,
           EntityType.ROLE,
           EntityType.NOTEBOOK,
-          EntityType.DATA_PRODUCT);
+          EntityType.DATA_PRODUCT,
+          EntityType.BUSINESS_ATTRIBUTE);
 
   /**
    * A prioritized list of source filter types used to generate quick filters

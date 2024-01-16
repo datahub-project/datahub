@@ -96,6 +96,7 @@ import com.linkedin.datahub.graphql.generated.Test;
 import com.linkedin.datahub.graphql.generated.TestResult;
 import com.linkedin.datahub.graphql.generated.UserUsageCounts;
 import com.linkedin.datahub.graphql.generated.BusinessAttribute;
+import com.linkedin.datahub.graphql.generated.BusinessAttributeAssociation;
 import com.linkedin.datahub.graphql.resolvers.MeResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.AssertionRunEventResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.DeleteAssertionResolver;
@@ -699,6 +700,7 @@ public class GmsGraphQLEngine {
         configureOwnershipTypeResolver(builder);
         configurePluginResolvers(builder);
         configureBusinessAttributeResolver(builder);
+        configureBusinessAttributeAssociationResolver(builder);
     }
 
     private void configureOrganisationRoleResolvers(RuntimeWiring.Builder builder) {
@@ -1163,6 +1165,7 @@ public class GmsGraphQLEngine {
                 .dataFetcher("ownershipType", new EntityTypeResolver(entityTypes,
                     (env) -> ((Owner) env.getSource()).getOwnershipType()))
             );
+        // TODO add business attribute list resolver
     }
 
     /**
@@ -1900,5 +1903,12 @@ public class GmsGraphQLEngine {
                         .map(BusinessAttribute::getUrn)
                         .collect(Collectors.toList())))
             );
+    }
+    private void configureBusinessAttributeAssociationResolver(final RuntimeWiring.Builder builder) {
+        builder.type("BusinessAttributeAssociation", typeWiring -> typeWiring
+                .dataFetcher("businessAttribute",
+                        new LoadableTypeResolver<>(businessAttributeType,
+                                (env) -> ((BusinessAttributeAssociation) env.getSource()).getBusinessAttribute().getUrn()))
+        );
     }
 }

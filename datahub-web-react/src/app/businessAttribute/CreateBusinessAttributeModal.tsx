@@ -72,7 +72,9 @@ export default function CreateBusinessAttributeModal({ visible, onClose, onCreat
         const { name, dataType } = form.getFieldsValue();
         const sanitizedDescription = DOMPurify.sanitize(documentation);
         const input: CreateBusinessAttributeInput = {
-            businessAttributeInfo: { name, description: sanitizedDescription, type: dataType },
+            name,
+            description: sanitizedDescription,
+            type: dataType,
         };
         createBusinessAttribute({ variables: { input } })
             .then(() => {
