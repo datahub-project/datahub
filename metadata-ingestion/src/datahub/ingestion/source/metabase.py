@@ -87,10 +87,17 @@ class MetabaseSource(Source):
     """
     This plugin extracts Charts, dashboards, and associated metadata. This plugin is in beta and has only been tested
     on PostgreSQL and H2 database.
-    ### Dashboard
 
-    [/api/dashboard/public](https://www.metabase.com/docs/latest/api/dashboard) endpoint is used to
-    retrieve the following dashboard information.
+    ### Collection
+
+    [/api/collection](https://www.metabase.com/docs/latest/api/collection) endpoint is used to
+    retrieve the available collections.
+
+    [/api/collection/<COLLECTION_ID>/items?models=dashboard](https://www.metabase.com/docs/latest/api/collection#get-apicollectioniditems) endpoint is used to retrieve a given collection and list their dashboards.
+
+     ### Dashboard
+
+    [/api/dashboard/<DASHBOARD_ID>](https://www.metabase.com/docs/latest/api/dashboard) endpoint is used to retrieve a given Dashboard and grab its information.
 
     - Title and description
     - Last edited by
