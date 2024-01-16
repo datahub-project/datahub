@@ -308,6 +308,8 @@ class RedshiftLineageExtractor:
                 if not target:
                     continue
 
+                logger.debug(f"Processing lineage row: {lineage_row}")
+
                 sources, cll = self._get_sources(
                     lineage_type,
                     alias_db_name,
@@ -320,6 +322,7 @@ class RedshiftLineageExtractor:
                 target.upstreams.update(
                     self._get_upstream_lineages(
                         sources=sources,
+                        target_table=lineage_row.target_table,
                         all_tables=all_tables,
                         alias_db_name=alias_db_name,
                         raw_db_name=raw_db_name,
@@ -403,6 +406,7 @@ class RedshiftLineageExtractor:
     def _get_upstream_lineages(
         self,
         sources: List[LineageDataset],
+        target_table: Optional[str],
         all_tables: Dict[str, Dict[str, List[Union[RedshiftView, RedshiftTable]]]],
         alias_db_name: str,
         raw_db_name: str,
@@ -410,6 +414,7 @@ class RedshiftLineageExtractor:
     ) -> List[LineageDataset]:
         targe_source = []
         probable_temp_tables: List[str] = []
+
         for source in sources:
             if source.platform == LineageDatasetPlatform.REDSHIFT:
                 qualified_table_name = dataset_urn.DatasetUrn.create_from_string(
@@ -439,7 +444,7 @@ class RedshiftLineageExtractor:
                     or not any(table == t.name for t in all_tables[db][schema])
                 ):
                     logger.debug(
-                        f"{source.urn} missing table, dropping from lineage.",
+                        f"{source.urn} missing table, dropping from lineage for target table {target_table}.",
                     )
                     probable_temp_tables.append(table)
                     self.report.num_lineage_tables_dropped += 1
@@ -641,7 +646,7 @@ class RedshiftLineageExtractor:
 
         for row in temp_table_rows:
             if any(
-                row.query_text.startswith(prefix)
+                row.query_text.lower().startswith(prefix)
                 for prefix in [
                     RedshiftQuery.CREATE_TEMPORARY_TABLE_CLAUSE,
                     RedshiftQuery.CREATE_TEMP_TABLE_CLAUSE,
