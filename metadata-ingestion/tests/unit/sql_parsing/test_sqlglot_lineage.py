@@ -3,7 +3,6 @@ import pathlib
 import pytest
 
 from datahub.testing.check_sql_parser_result import assert_sql_result
-from datahub.utilities.sqlglot_lineage import _UPDATE_ARGS_NOT_SUPPORTED_BY_SELECT
 
 RESOURCE_DIR = pathlib.Path(__file__).parent / "goldens"
 
@@ -800,10 +799,6 @@ WHERE orderkey = 3
         },
         expected_file=RESOURCE_DIR / "test_snowflake_update_hardcoded.json",
     )
-
-
-def test_update_from_select():
-    assert _UPDATE_ARGS_NOT_SUPPORTED_BY_SELECT == {"returning", "this"}
 
 
 def test_snowflake_update_from_table():
