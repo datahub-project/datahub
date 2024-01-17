@@ -294,10 +294,10 @@ def test_structured_property_string_allowed_values(
             "Should not be able to attach a value not in allowed values"
         )
     except Exception as e:
-        if not isinstance(e, AssertionError):
-            raise e
-        else:
+        if "value: {string=baz} should be one of [" in str(e):
             pass
+        else:
+            raise e
 
 
 @pytest.mark.dependency(depends=["test_healthchecks"])
