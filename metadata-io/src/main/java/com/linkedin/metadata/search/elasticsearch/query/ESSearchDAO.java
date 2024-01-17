@@ -333,7 +333,7 @@ public class ESSearchDAO {
         MetricUtils.timer(this.getClass(), "aggregateByValue_search").time()) {
       final SearchResponse searchResponse = client.search(searchRequest, RequestOptions.DEFAULT);
       // extract results, validated against document model as well
-      return SearchRequestHandler.extractTermAggregations(searchResponse, field);
+      return SearchRequestHandler.extractAggregationsFromResponse(searchResponse, field);
     } catch (Exception e) {
       log.error("Aggregation query failed", e);
       throw new ESQueryException("Aggregation query failed:", e);
