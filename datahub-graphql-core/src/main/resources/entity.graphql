@@ -1539,7 +1539,7 @@ type RoleUser {
 
 type RoleProperties {
     """
-    Name of the Role in an organisation 
+    Name of the Role in an organisation
     """
     name: String!
 
@@ -2980,6 +2980,11 @@ type EditableSchemaFieldInfo {
     Glossary terms associated with the field
     """
     glossaryTerms: GlossaryTerms
+
+    """
+    Business Attribute associated with the field
+    """
+    businessAttributes: BusinessAttributes
 }
 
 """
@@ -11375,21 +11380,38 @@ type BusinessAttributeInfo {
 Input required for creating a BusinessAttribute.
 """
 input CreateBusinessAttributeInput {
-     """
-        name of the business attribute
-        """
-        name: String!
+    """
+    name of the business attribute
+    """
+    name: String!
 
-        """
-        description of business attribute
-        """
-        description: String
+    """
+    description of business attribute
+    """
+    description: String
 
-        """
-        Platform independent field type of the field
-        """
-        type: SchemaFieldDataType
+    """
+    Platform independent field type of the field
+    """
+    type: SchemaFieldDataType
 
+}
+
+input BusinessAttributeInfoInput {
+    """
+    name of the business attribute
+    """
+    name: String!
+
+    """
+    description of business attribute
+    """
+    description: String
+
+    """
+    Platform independent field type of the field
+    """
+    type: SchemaFieldDataType
 }
 
 """
@@ -11426,6 +11448,31 @@ input AddBusinessAttributeInput {
     resource urns to add the business attribute to
     """
     resourceUrn: ResourceRefInput!
+}
+
+"""
+Business attributes attached to the metadata
+"""
+type BusinessAttributes {
+    """
+    Business Attribute attached to the Metadata Entity
+    """
+    businessAttribute: BusinessAttributeAssociation!
+}
+
+"""
+Input required to attach business attribute to an entity
+"""
+type BusinessAttributeAssociation {
+    """
+    Business Attribute itself
+    """
+    businessAttribute: BusinessAttribute!
+
+    """
+    Reference back to the associated urn for tracking purposes e.g. when sibling nodes are merged together
+    """
+    associatedUrn: String!
 }
 
 """

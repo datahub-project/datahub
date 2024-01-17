@@ -26,21 +26,54 @@ export default function useTagsAndTermsRenderer(
             (candidateEditableFieldInfo) => pathMatchesNewPath(candidateEditableFieldInfo.fieldPath, record.fieldPath),
         );
 
+        const newRecord = { ...record };
+
+        if (!newRecord.glossaryTerms) {
+            newRecord.glossaryTerms = { terms: [] };
+        }
+
+        if (!newRecord.glossaryTerms.terms) {
+            newRecord.glossaryTerms.terms = [];
+        }
+
+        if (
+            relevantEditableFieldInfo?.businessAttributes?.businessAttribute?.businessAttribute?.properties
+                ?.glossaryTerms?.terms
+        ) {
+            newRecord.glossaryTerms.terms = [
+                ...newRecord.glossaryTerms.terms,
+                ...relevantEditableFieldInfo.businessAttributes.businessAttribute.businessAttribute.properties
+                    .glossaryTerms.terms,
+            ];
+        }
+        let newTags = {};
+        if (
+            relevantEditableFieldInfo?.businessAttributes?.businessAttribute?.businessAttribute?.properties?.tags?.tags
+        ) {
+            newTags = {
+                ...tags,
+                tags: [
+                    ...(tags?.tags || []),
+                    ...relevantEditableFieldInfo?.businessAttributes?.businessAttribute?.businessAttribute?.properties
+                        ?.tags?.tags,
+                ],
+            };
+        }
         return (
-            <div data-testid={`schema-field-${record.fieldPath}-${options.showTags ? 'tags' : 'terms'}`}>
+            <div data-testid={`schema-field-${newRecord.fieldPath}-${options.showTags ? 'tags' : 'terms'}`}>
                 <TagTermGroup
-                    uneditableTags={options.showTags ? tags : null}
+                    uneditableTags={options.showTags ? newTags : null}
                     editableTags={options.showTags ? relevantEditableFieldInfo?.globalTags : null}
-                    uneditableGlossaryTerms={options.showTerms ? record.glossaryTerms : null}
+                    uneditableGlossaryTerms={options.showTerms ? newRecord.glossaryTerms : null}
                     editableGlossaryTerms={options.showTerms ? relevantEditableFieldInfo?.glossaryTerms : null}
                     canRemove
                     buttonProps={{ size: 'small' }}
-                    canAddTag={tagHoveredIndex === record.fieldPath && options.showTags}
-                    canAddTerm={tagHoveredIndex === record.fieldPath && options.showTerms}
+                    canAddTag={tagHoveredIndex === newRecord.fieldPath && options.showTags}
+                    canAddTerm={tagHoveredIndex === newRecord.fieldPath && options.showTerms}
                     onOpenModal={() => setTagHoveredIndex(undefined)}
                     entityUrn={urn}
                     entityType={EntityType.Dataset}
-                    entitySubresource={record.fieldPath}
+                    entitySubresource={newRecord.fieldPath}
                     highlightText={filterText}
                     refetch={refresh}
                 />

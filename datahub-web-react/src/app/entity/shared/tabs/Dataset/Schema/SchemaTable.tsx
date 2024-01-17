@@ -24,6 +24,7 @@ import useSchemaBlameRenderer from './utils/useSchemaBlameRenderer';
 import { ANTD_GRAY } from '../../../constants';
 import MenuColumn from './components/MenuColumn';
 import translateFieldPath from '../../../../dataset/profile/schema/utils/translateFieldPath';
+import useBusinessAttributeRenderer from './utils/useBusinessAttributeRenderer';
 
 const TableContainer = styled.div`
     overflow: inherit;
@@ -72,6 +73,7 @@ export default function SchemaTable({
     const hasUsageStats = useMemo(() => (usageStats?.aggregations?.fields?.length || 0) > 0, [usageStats]);
     const [tableHeight, setTableHeight] = useState(0);
     const [tagHoveredIndex, setTagHoveredIndex] = useState<string | undefined>(undefined);
+    const [attributeHoveredIndex, setAttributeHoveredIndex] = useState<string | undefined>(undefined);
     const [selectedFkFieldPath, setSelectedFkFieldPath] =
         useState<null | { fieldPath: string; constraint?: ForeignKeyConstraint | null }>(null);
 
@@ -97,6 +99,12 @@ export default function SchemaTable({
         },
         filterText,
     );
+    const businessAttributeRenderer = useBusinessAttributeRenderer(
+        editableSchemaMetadata,
+        attributeHoveredIndex,
+        setAttributeHoveredIndex,
+        filterText,
+    );
     const schemaTitleRenderer = useSchemaTitleRenderer(schemaMetadata, setSelectedFkFieldPath, filterText);
     const schemaBlameRenderer = useSchemaBlameRenderer(schemaFieldBlameList);
 
@@ -109,6 +117,19 @@ export default function SchemaTable({
         onMouseLeave: () => {
             if (editMode) {
                 setTagHoveredIndex(undefined);
+            }
+        },
+    });
+
+    const onAttributeCell = (record: SchemaField) => ({
+        onMouseEnter: () => {
+            if (editMode) {
+                setAttributeHoveredIndex(record.fieldPath);
+            }
+        },
+        onMouseLeave: () => {
+            if (editMode) {
+                setAttributeHoveredIndex(undefined);
             }
         },
     });
@@ -149,6 +170,15 @@ export default function SchemaTable({
         key: 'tag',
         render: termRenderer,
         onCell: onTagTermCell,
+    };
+
+    const businessAttributeColumn = {
+        width: '13%',
+        title: 'Business Attributes',
+        dataIndex: 'businessAttribute',
+        key: 'businessAttribute',
+        render: businessAttributeRenderer,
+        onCell: onAttributeCell,
     };
 
     const blameColumn = {
@@ -192,7 +222,13 @@ export default function SchemaTable({
         render: (field: SchemaField) => <MenuColumn field={field} />,
     };
 
-    let allColumns: ColumnsType<ExtendedSchemaFields> = [fieldColumn, descriptionColumn, tagColumn, termColumn];
+    let allColumns: ColumnsType<ExtendedSchemaFields> = [
+        fieldColumn,
+        descriptionColumn,
+        tagColumn,
+        termColumn,
+        businessAttributeColumn,
+    ];
 
     if (hasUsageStats) {
         allColumns = [...allColumns, usageColumn];

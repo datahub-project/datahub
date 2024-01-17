@@ -1,14 +1,18 @@
 package com.linkedin.datahub.graphql.types.dataset.mappers;
 
 import com.linkedin.common.urn.Urn;
+import com.linkedin.datahub.graphql.types.businessattribute.mappers.BusinessAttributesMapper;
 import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
 import com.linkedin.schema.EditableSchemaFieldInfo;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 
 
 public class EditableSchemaFieldInfoMapper {
+    private static final Logger _logger = LoggerFactory.getLogger(EditableSchemaFieldInfoMapper.class.getName());
 
     public static final EditableSchemaFieldInfoMapper INSTANCE = new EditableSchemaFieldInfoMapper();
 
@@ -36,6 +40,11 @@ public class EditableSchemaFieldInfoMapper {
         }
         if (input.hasGlossaryTerms()) {
             result.setGlossaryTerms(GlossaryTermsMapper.map(input.getGlossaryTerms(), entityUrn));
+        }
+        _logger.info("inside info mapper before");
+        if (input.hasBusinessAttribute()) {
+            _logger.info("inside info mapper after: {}, entity urn: {}", input.getBusinessAttribute().getDestinationUrn(), entityUrn);
+            result.setBusinessAttributes(BusinessAttributesMapper.map(input.getBusinessAttribute(), entityUrn));
         }
         return result;
     }

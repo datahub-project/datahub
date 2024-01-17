@@ -292,6 +292,11 @@ fragment datasetSchema on Dataset {
             glossaryTerms {
                 ...glossaryTerms
             }
+            businessAttributes {
+                businessAttribute {
+                    ...businessAttribute
+                }
+            }
         }
     }
 }

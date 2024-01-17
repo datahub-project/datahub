@@ -7,13 +7,13 @@ import { EntityProfile } from '../shared/containers/profile/EntityProfile';
 import { useGetBusinessAttributeQuery } from '../../../graphql/businessAttribute.generated';
 import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
 import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
-// import GlossaryRelatedEntity from './profile/GlossaryRelatedEntity';
 import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
 import { SidebarAboutSection } from '../shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
 import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
 import { SidebarTagsSection } from '../shared/containers/profile/sidebar/SidebarTagsSection';
 import { Preview } from './preview/Preview';
 import { PageRoutes } from '../../../conf/Global';
+import BusinessAttributeRelatedEntity from './profile/BusinessAttributeRelatedEntity';
 
 /**
  *  Definition of datahub Business Attribute Entity
@@ -49,7 +49,6 @@ export class BusinessAttributeEntity implements Entity<BusinessAttribute> {
     };
 
     displayName = (data: BusinessAttribute) => {
-        console.log('displayName:::', data?.properties);
         return data?.properties?.name || data?.urn;
     };
 
@@ -81,9 +80,10 @@ export class BusinessAttributeEntity implements Entity<BusinessAttribute> {
         });
     };
 
-    renderPreview = (_: PreviewType, data: BusinessAttribute) => {
+    renderPreview = (previewType: PreviewType, data: BusinessAttribute) => {
         return (
             <Preview
+                previewType={previewType}
                 urn={data.urn}
                 name={this.displayName(data)}
                 description={data.properties?.description || ''}
@@ -108,7 +108,7 @@ export class BusinessAttributeEntity implements Entity<BusinessAttribute> {
                     },
                     {
                         name: 'Related Entities',
-                        component: PropertiesTab,
+                        component: BusinessAttributeRelatedEntity,
                     },
                     {
                         name: 'Properties',
