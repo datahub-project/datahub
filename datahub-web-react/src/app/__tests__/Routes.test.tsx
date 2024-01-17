@@ -3,7 +3,7 @@ import { render, waitFor } from '@testing-library/react';
 import { MockedProvider } from '@apollo/client/testing';
 import { mocks } from '../../Mocks';
 import TestPageContainer from '../../utils/test-utils/TestPageContainer';
-import { Routes } from '../../app/Routes';
+import { Routes } from '../Routes';
 
 test('renders embed page properly', async () => {
     const { getByText } = render(
