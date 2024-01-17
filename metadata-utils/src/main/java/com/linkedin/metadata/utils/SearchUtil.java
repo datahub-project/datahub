@@ -24,6 +24,9 @@ import org.opensearch.index.query.QueryBuilders;
 @Slf4j
 public class SearchUtil {
   public static final String AGGREGATION_SEPARATOR_CHAR = "␞";
+  // Currently used to delimit missing fields, leaving naming open to extend to other use cases
+  public static final String AGGREGATION_SPECIAL_TYPE_DELIMITER = "␝";
+  public static final String MISSING_SPECIAL_TYPE = "missing";
   public static final String INDEX_VIRTUAL_FIELD = "_entityType";
   public static final String KEYWORD_SUFFIX = ".keyword";
   private static final String URN_PREFIX = "urn:";
@@ -39,10 +42,9 @@ public class SearchUtil {
       Map<String, Long> aggregations, Set<String> filteredValues) {
     return aggregations.entrySet().stream()
         .map(
-            entry -> {
-              return createFilterValue(
-                  entry.getKey(), entry.getValue(), filteredValues.contains(entry.getKey()));
-            })
+            entry ->
+                createFilterValue(
+                    entry.getKey(), entry.getValue(), filteredValues.contains(entry.getKey())))
         .sorted(Comparator.comparingLong(value -> -value.getFacetCount()))
         .collect(Collectors.toList());
   }
