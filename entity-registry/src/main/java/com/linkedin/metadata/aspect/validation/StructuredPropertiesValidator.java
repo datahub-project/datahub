@@ -16,6 +16,7 @@ import com.linkedin.metadata.models.StructuredPropertyUtils;
 import com.linkedin.structured.PrimitivePropertyValue;
 import com.linkedin.structured.PrimitivePropertyValueArray;
 import com.linkedin.structured.PropertyCardinality;
+import com.linkedin.structured.PropertyValue;
 import com.linkedin.structured.StructuredProperties;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.structured.StructuredPropertyValueAssignment;
@@ -136,91 +137,109 @@ public class StructuredPropertiesValidator extends AspectPayloadValidator {
                     + values);
           }
         }
-        // Check types
+        // Check values
         for (PrimitivePropertyValue value : values) {
-          Urn valueType = structuredPropertyDefinition.getValueType();
-          LogicalValueType logicalValueType = getLogicalValueType(valueType);
-          if (VALID_VALUE_STORED_AS_STRING.contains(logicalValueType)) {
-            log.debug(
-                "Property definition demands a string value. {}, {}",
-                value.isString(),
-                value.isDouble());
-            if (value.getString() == null) {
-              throw new AspectValidationException(
-                  "Property: " + property + ", value: " + value + " should be a string");
-            } else if (logicalValueType.equals(LogicalValueType.DATE)) {
-              if (!StructuredPropertyUtils.isValidDate(value)) {
-                throw new AspectValidationException(
-                    "Property: "
-                        + property
-                        + ", value: "
-                        + value
-                        + " should be a date with format YYYY-MM-DD");
-              }
-            } else if (logicalValueType.equals(LogicalValueType.URN)) {
-              StringArrayMap valueTypeQualifier = structuredPropertyDefinition.getTypeQualifier();
-              Urn typeValue;
-              try {
-                typeValue = Urn.createFromString(value.getString());
-              } catch (URISyntaxException e) {
-                throw new AspectValidationException(
-                    "Property: " + property + ", value: " + value + " should be an urn", e);
-              }
-              if (valueTypeQualifier != null) {
-                if (valueTypeQualifier.containsKey("allowedTypes")) {
-                  // Let's get the allowed types and validate that the value is one of those types
-                  StringArray allowedTypes = valueTypeQualifier.get("allowedTypes");
-                  boolean matchedAny = false;
-                  for (String type : allowedTypes) {
-                    Urn typeUrn = null;
-                    try {
-                      typeUrn = Urn.createFromString(type);
-                    } catch (URISyntaxException e) {
-
-                      // we don't expect to have types that we allowed to be written that aren't
-                      // urns
-                      throw new RuntimeException(e);
-                    }
-                    String allowedEntityName = getValueTypeId(typeUrn);
-                    if (typeValue.getEntityType().equals(allowedEntityName)) {
-                      matchedAny = true;
-                    }
-                  }
-                  if (!matchedAny) {
-                    throw new AspectValidationException(
-                        "Property: "
-                            + property
-                            + ", value: "
-                            + value
-                            + " is not of any supported urn types:"
-                            + allowedTypes);
-                  }
-                }
-              }
-            }
-          } else if (logicalValueType.equals(LogicalValueType.NUMBER)) {
-            log.debug(
-                "Property definition demands a numeric value. {}, {}", value.isString(), value);
-            try {
-              Double doubleValue =
-                  value.getDouble() != null
-                      ? value.getDouble()
-                      : Double.parseDouble(value.getString());
-            } catch (NumberFormatException | NullPointerException e) {
-              throw new AspectValidationException(
-                  "Property: " + property + ", value: " + value + " should be a number");
-            }
-          } else {
-            throw new AspectValidationException(
-                "Validation support for type "
-                    + structuredPropertyDefinition.getValueType()
-                    + " is not yet implemented.");
-          }
+          validateType(propertyUrn, structuredPropertyDefinition, value);
+          validateAllowedValues(propertyUrn, structuredPropertyDefinition, value);
         }
       }
     }
 
     return true;
+  }
+
+  private static void validateAllowedValues(
+      Urn propertyUrn, StructuredPropertyDefinition definition, PrimitivePropertyValue value)
+      throws AspectValidationException {
+    if (definition.getAllowedValues() != null) {
+      Set<PrimitivePropertyValue> definedValues =
+          definition.getAllowedValues().stream()
+              .map(PropertyValue::getValue)
+              .collect(Collectors.toSet());
+      if (definedValues.stream().noneMatch(definedPrimitive -> definedPrimitive.equals(value))) {
+        throw new AspectValidationException(
+            String.format(
+                "Property: %s, value: %s should be one of %s", propertyUrn, value, definedValues));
+      }
+    }
+  }
+
+  private static void validateType(
+      Urn propertyUrn, StructuredPropertyDefinition definition, PrimitivePropertyValue value)
+      throws AspectValidationException {
+    Urn valueType = definition.getValueType();
+    LogicalValueType typeDefinition = getLogicalValueType(valueType);
+
+    // Primitive Type Validation
+    if (VALID_VALUE_STORED_AS_STRING.contains(typeDefinition)) {
+      log.debug(
+          "Property definition demands a string value. {}, {}", value.isString(), value.isDouble());
+      if (value.getString() == null) {
+        throw new AspectValidationException(
+            "Property: " + propertyUrn.toString() + ", value: " + value + " should be a string");
+      } else if (typeDefinition.equals(LogicalValueType.DATE)) {
+        if (!StructuredPropertyUtils.isValidDate(value)) {
+          throw new AspectValidationException(
+              "Property: "
+                  + propertyUrn.toString()
+                  + ", value: "
+                  + value
+                  + " should be a date with format YYYY-MM-DD");
+        }
+      } else if (typeDefinition.equals(LogicalValueType.URN)) {
+        StringArrayMap valueTypeQualifier = definition.getTypeQualifier();
+        Urn typeValue;
+        try {
+          typeValue = Urn.createFromString(value.getString());
+        } catch (URISyntaxException e) {
+          throw new AspectValidationException(
+              "Property: " + propertyUrn.toString() + ", value: " + value + " should be an urn", e);
+        }
+        if (valueTypeQualifier != null) {
+          if (valueTypeQualifier.containsKey("allowedTypes")) {
+            // Let's get the allowed types and validate that the value is one of those types
+            StringArray allowedTypes = valueTypeQualifier.get("allowedTypes");
+            boolean matchedAny = false;
+            for (String type : allowedTypes) {
+              Urn typeUrn = null;
+              try {
+                typeUrn = Urn.createFromString(type);
+              } catch (URISyntaxException e) {
+
+                // we don't expect to have types that we allowed to be written that aren't
+                // urns
+                throw new RuntimeException(e);
+              }
+              String allowedEntityName = getValueTypeId(typeUrn);
+              if (typeValue.getEntityType().equals(allowedEntityName)) {
+                matchedAny = true;
+              }
+            }
+            if (!matchedAny) {
+              throw new AspectValidationException(
+                  "Property: "
+                      + propertyUrn.toString()
+                      + ", value: "
+                      + value
+                      + " is not of any supported urn types:"
+                      + allowedTypes);
+            }
+          }
+        }
+      }
+    } else if (typeDefinition.equals(LogicalValueType.NUMBER)) {
+      log.debug("Property definition demands a numeric value. {}, {}", value.isString(), value);
+      try {
+        Double doubleValue =
+            value.getDouble() != null ? value.getDouble() : Double.parseDouble(value.getString());
+      } catch (NumberFormatException | NullPointerException e) {
+        throw new AspectValidationException(
+            "Property: " + propertyUrn.toString() + ", value: " + value + " should be a number");
+      }
+    } else {
+      throw new AspectValidationException(
+          "Validation support for type " + definition.getValueType() + " is not yet implemented.");
+    }
   }
 
   private static String getValueTypeId(@Nonnull final Urn valueType) {

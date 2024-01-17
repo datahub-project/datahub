@@ -24,7 +24,7 @@ record Forms {
       "fieldName": "incompleteFormsIncompletePromptIds",
     },
     "/*/completedPrompts/*/lastModified/time" : {
-      "fieldType": "KEYWORD",
+      "fieldType": "DATETIME",
       "fieldName": "incompleteFormsCompletedPromptResponseTimes",
     }
   }
@@ -47,7 +47,7 @@ record Forms {
       "fieldName": "completedFormsIncompletePromptIds",
     },
     "/*/completedPrompts/*/lastModified/time" : {
-      "fieldType": "KEYWORD",
+      "fieldType": "DATETIME",
       "fieldName": "completedFormsCompletedPromptResponseTimes",
     }
   }
