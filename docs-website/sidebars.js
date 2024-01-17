@@ -561,9 +561,18 @@ module.exports = {
           ],
         },
         {
-          type: "doc",
-          label: "OpenAPI",
-          id: "docs/api/openapi/openapi-usage-guide",
+          "OpenAPI": [
+            {
+              type: "doc",
+              label: "OpenAPI",
+              id: "docs/api/openapi/openapi-usage-guide",
+            },
+            {
+              type: "doc",
+              label: "Structured Properties",
+              id: "docs/api/openapi/openapi-structured-properties",
+            },
+          ]
         },
         "docs/dev-guides/timeline",
         {
