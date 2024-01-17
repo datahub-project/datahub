@@ -1406,25 +1406,30 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             owner_list = meta_owner_aspects.owners
         elif node.owner:
             owner: str = node.owner
-            if self.compiled_owner_extraction_pattern:
-                match: Optional[Any] = re.match(
-                    self.compiled_owner_extraction_pattern, owner
-                )
-                if match:
-                    owner = match.group("owner")
-                    logger.debug(
-                        f"Owner after applying owner extraction pattern:'{self.config.owner_extraction_pattern}' is '{owner}'."
+            if "," in owner:
+                owners = owner.split(",")
+            else:
+                owners = [owner]
+            for owner in owners:
+                if self.compiled_owner_extraction_pattern:
+                    match: Optional[Any] = re.match(
+                        self.compiled_owner_extraction_pattern, owner
                     )
-            if self.config.strip_user_ids_from_email:
-                owner = owner.split("@")[0]
-                logger.debug(f"Owner (after stripping email):{owner}")
+                    if match:
+                        owner = match.group("owner")
+                        logger.debug(
+                            f"Owner after applying owner extraction pattern:'{self.config.owner_extraction_pattern}' is '{owner}'."
+                        )
+                if self.config.strip_user_ids_from_email:
+                    owner = owner.split("@")[0]
+                    logger.debug(f"Owner (after stripping email):{owner}")
 
-            owner_list.append(
-                OwnerClass(
-                    owner=mce_builder.make_user_urn(owner),
-                    type=OwnershipTypeClass.DATAOWNER,
+                owner_list.append(
+                    OwnerClass(
+                        owner=mce_builder.make_user_urn(owner),
+                        type=OwnershipTypeClass.DATAOWNER,
+                    )
                 )
-            )
 
         owner_list = sorted(owner_list, key=lambda x: x.owner)
         return owner_list
