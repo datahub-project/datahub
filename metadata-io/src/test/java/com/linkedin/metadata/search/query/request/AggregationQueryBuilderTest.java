@@ -1,5 +1,7 @@
 package com.linkedin.metadata.search.query.request;
 
+import static com.linkedin.metadata.utils.SearchUtil.*;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.metadata.config.search.SearchConfiguration;
@@ -33,7 +35,8 @@ public class AggregationQueryBuilderTest {
             Optional.of("hasTest"),
             Optional.empty(),
             Collections.emptyMap(),
-            Collections.emptyList());
+            Collections.emptyList(),
+            false);
 
     SearchConfiguration config = new SearchConfiguration();
     config.setMaxTermBucketSize(25);
@@ -63,7 +66,8 @@ public class AggregationQueryBuilderTest {
             Optional.empty(),
             Optional.empty(),
             Collections.emptyMap(),
-            Collections.emptyList());
+            Collections.emptyList(),
+            false);
 
     SearchConfiguration config = new SearchConfiguration();
     config.setMaxTermBucketSize(25);
@@ -92,7 +96,8 @@ public class AggregationQueryBuilderTest {
             Optional.of("hasTest1"),
             Optional.empty(),
             Collections.emptyMap(),
-            Collections.emptyList());
+            Collections.emptyList(),
+            false);
 
     SearchableAnnotation annotation2 =
         new SearchableAnnotation(
@@ -108,7 +113,8 @@ public class AggregationQueryBuilderTest {
             Optional.empty(),
             Optional.empty(),
             Collections.emptyMap(),
-            Collections.emptyList());
+            Collections.emptyList(),
+            false);
 
     SearchConfiguration config = new SearchConfiguration();
     config.setMaxTermBucketSize(25);
@@ -172,7 +178,8 @@ public class AggregationQueryBuilderTest {
             Optional.of("hasTest1"),
             Optional.empty(),
             Collections.emptyMap(),
-            Collections.emptyList());
+            Collections.emptyList(),
+            false);
 
     SearchableAnnotation annotation2 =
         new SearchableAnnotation(
@@ -188,7 +195,8 @@ public class AggregationQueryBuilderTest {
             Optional.empty(),
             Optional.empty(),
             Collections.emptyMap(),
-            Collections.emptyList());
+            Collections.emptyList(),
+            false);
 
     SearchConfiguration config = new SearchConfiguration();
     config.setMaxTermBucketSize(25);
@@ -218,5 +226,43 @@ public class AggregationQueryBuilderTest {
             "hasTest1",
             "structuredProperties.ab_fgh_ten",
             "structuredProperties.hello"));
+  }
+
+  @Test
+  public void testMissingAggregation() {
+
+    SearchableAnnotation annotation =
+        new SearchableAnnotation(
+            "test",
+            SearchableAnnotation.FieldType.KEYWORD,
+            true,
+            true,
+            false,
+            true,
+            Optional.empty(),
+            Optional.of("Has Test"),
+            1.0,
+            Optional.of("hasTest"),
+            Optional.empty(),
+            Collections.emptyMap(),
+            Collections.emptyList(),
+            true);
+
+    SearchConfiguration config = new SearchConfiguration();
+    config.setMaxTermBucketSize(25);
+
+    AggregationQueryBuilder builder =
+        new AggregationQueryBuilder(config, ImmutableList.of(annotation));
+
+    List<AggregationBuilder> aggs = builder.getAggregations();
+
+    Assert.assertTrue(aggs.stream().anyMatch(agg -> agg.getName().equals("hasTest")));
+    Assert.assertTrue(
+        aggs.stream()
+            .anyMatch(
+                agg ->
+                    agg.getName()
+                        .equals(
+                            MISSING_SPECIAL_TYPE + AGGREGATION_SPECIAL_TYPE_DELIMITER + "test")));
   }
 }

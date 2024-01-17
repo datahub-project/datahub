@@ -426,7 +426,8 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
                         Optional.empty(),
                         Optional.empty(),
                         Map.of(),
-                        List.of()),
+                        List.of(),
+                        false),
                     Mockito.mock(DataSchema.class)),
                 new SearchableFieldSpec(
                     Mockito.mock(PathSpec.class),
@@ -443,7 +444,8 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
                         Optional.empty(),
                         Optional.empty(),
                         Map.of(),
-                        List.of()),
+                        List.of(),
+                        false),
                     Mockito.mock(DataSchema.class)),
                 new SearchableFieldSpec(
                     Mockito.mock(PathSpec.class),
@@ -460,7 +462,8 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
                         Optional.empty(),
                         Optional.empty(),
                         Map.of(),
-                        List.of()),
+                        List.of(),
+                        false),
                     Mockito.mock(DataSchema.class))));
 
     fieldConfigs =
