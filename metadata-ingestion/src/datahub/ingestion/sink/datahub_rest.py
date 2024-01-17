@@ -44,7 +44,7 @@ class DatahubRestSinkConfig(DatahubClientConfig):
 
 @dataclass
 class DataHubRestSinkReport(SinkReport):
-    max_threads: int = 15
+    max_threads: int = -1
     gms_version: str = ""
     pending_requests: int = 0
 
