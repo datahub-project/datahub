@@ -68,8 +68,7 @@ public class MetadataChangeEventsProcessor {
               + "}}",
       containerFactory = "kafkaEventConsumer")
   public void consume(final ConsumerRecord<String, GenericRecord> consumerRecord) {
-    try (Timer.Context i =
-                 MetricUtils.timer(this.getClass(), "consume").time()) {
+    try (Timer.Context i = MetricUtils.timer(this.getClass(), "consume").time()) {
       kafkaLagStats.update(System.currentTimeMillis() - consumerRecord.timestamp());
       final GenericRecord record = consumerRecord.value();
       log.debug("Record {}", record);

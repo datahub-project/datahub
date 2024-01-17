@@ -59,8 +59,7 @@ public class MetadataChangeProposalsProcessor {
       topics = "${METADATA_CHANGE_PROPOSAL_TOPIC_NAME:" + Topics.METADATA_CHANGE_PROPOSAL + "}",
       containerFactory = "kafkaEventConsumer")
   public void consume(final ConsumerRecord<String, GenericRecord> consumerRecord) {
-    try (Timer.Context ignored =
-                 MetricUtils.timer(this.getClass(), "consume").time()) {
+    try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "consume").time()) {
       kafkaLagStats.update(System.currentTimeMillis() - consumerRecord.timestamp());
       final GenericRecord record = consumerRecord.value();
       log.debug("Record {}", record);
