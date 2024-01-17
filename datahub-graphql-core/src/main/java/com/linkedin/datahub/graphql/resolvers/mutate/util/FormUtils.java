@@ -1,12 +1,9 @@
 package com.linkedin.datahub.graphql.resolvers.mutate.util;
 
 import com.linkedin.common.urn.Urn;
-import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.generated.CreateDynamicFormAssignmentInput;
-import com.linkedin.datahub.graphql.generated.FormFilter;
 import com.linkedin.datahub.graphql.generated.SubmitFormPromptInput;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
-import com.linkedin.datahub.graphql.resolvers.search.SearchUtils;
 import com.linkedin.form.DynamicFormAssignment;
 import com.linkedin.form.FormInfo;
 import com.linkedin.metadata.query.filter.Condition;
@@ -19,7 +16,6 @@ import com.linkedin.structured.PrimitivePropertyValue;
 import com.linkedin.structured.PrimitivePropertyValueArray;
 import java.util.Objects;
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 
 public class FormUtils {
 
@@ -68,93 +64,6 @@ public class FormUtils {
   }
 
   /**
-   * Creates the filter based on the FormFilter input from the graphql endpoint to filter entities
-   * by Form related fields.
-   */
-  public static Filter buildFormFilter(
-      @Nonnull final FormFilter formFilter, @Nonnull final FormInfo formInfo) throws Exception {
-    final CriterionArray andArray = new CriterionArray();
-    final String formUrn = formFilter.getFormUrn();
-
-    Criterion assignedActorCriterion = getAssignedActorCriterion(formFilter, formInfo);
-    if (assignedActorCriterion != null) {
-      andArray.add(assignedActorCriterion);
-    }
-
-    Filter promptFilter = null;
-    if (formFilter.getPromptId() != null && formFilter.getIsPromptComplete() != null) {
-      promptFilter = generatePromptFilter(formFilter);
-    }
-
-    if (formFilter.getIsFormVerified() != null) {
-      andArray.add(generateVerifiedCriterion(formFilter, formUrn));
-    }
-
-    // if isFormComplete is not specified, get either completed or incomplete forms
-    Filter completeOrIncompleteFilter = null;
-    if (formFilter.getIsFormComplete() == null) {
-      completeOrIncompleteFilter = generateCompleteOrIncompleteFilter(formUrn);
-    } else {
-      andArray.add(
-          buildFormCriterion(
-              formUrn, formFilter.getIsFormComplete() ? COMPLETED_FORMS : INCOMPLETE_FORMS));
-    }
-
-    Filter finalFilter =
-        new Filter()
-            .setOr(new ConjunctiveCriterionArray(new ConjunctiveCriterion().setAnd(andArray)));
-    if (promptFilter != null) {
-      finalFilter = SearchUtils.combineFilters(finalFilter, promptFilter);
-    }
-    if (completeOrIncompleteFilter != null) {
-      finalFilter = SearchUtils.combineFilters(finalFilter, completeOrIncompleteFilter);
-    }
-
-    return finalFilter;
-  }
-
-  private static Filter generatePromptCompleteFilter(@Nonnull final FormFilter formFilter) {
-    final CriterionArray completedFormsPromptIdsAndArray = new CriterionArray();
-    final CriterionArray incompleteFormsPromptIdsAndArray = new CriterionArray();
-    // if the prompt is complete, it will be in one of these fields
-    completedFormsPromptIdsAndArray.add(
-        buildFormCriterion(formFilter.getPromptId(), COMPLETED_FORMS_COMPLETED_PROMPT_IDS));
-    incompleteFormsPromptIdsAndArray.add(
-        buildFormCriterion(formFilter.getPromptId(), INCOMPLETE_FORMS_COMPLETED_PROMPT_IDS));
-    return new Filter()
-        .setOr(
-            new ConjunctiveCriterionArray(
-                new ConjunctiveCriterion().setAnd(completedFormsPromptIdsAndArray),
-                new ConjunctiveCriterion().setAnd(incompleteFormsPromptIdsAndArray)));
-  }
-
-  private static Filter generatePromptIncompleteFilter(@Nonnull final FormFilter formFilter) {
-    final CriterionArray andArray = new CriterionArray();
-    // if it's not complete, it should not be in any of these fields
-    andArray.add(
-        buildFormCriterion(formFilter.getPromptId(), COMPLETED_FORMS_COMPLETED_PROMPT_IDS, true));
-    andArray.add(
-        buildFormCriterion(formFilter.getPromptId(), INCOMPLETE_FORMS_COMPLETED_PROMPT_IDS, true));
-    return new Filter()
-        .setOr(new ConjunctiveCriterionArray(new ConjunctiveCriterion().setAnd(andArray)));
-  }
-
-  private static Filter generatePromptFilter(@Nonnull final FormFilter formFilter) {
-    if (formFilter.getIsPromptComplete()) {
-      return generatePromptCompleteFilter(formFilter);
-    }
-    return generatePromptIncompleteFilter(formFilter);
-  }
-
-  private static Criterion generateVerifiedCriterion(
-      @Nonnull final FormFilter formFilter, @Nonnull final String formUrn) {
-    if (formFilter.getIsFormVerified()) {
-      return buildFormCriterion(formUrn, VERIFIED_FORMS);
-    }
-    return buildFormCriterion(formUrn, VERIFIED_FORMS, true);
-  }
-
-  /**
    * Creates a Filter where the provided formUrn is either in completedForms or incompleteForms for
    * an entity
    */
@@ -184,29 +93,6 @@ public class FormUtils {
         .setValue(formUrn)
         .setCondition(Condition.EQUAL)
         .setNegated(negated);
-  }
-
-  /**
-   * Creates an owners filter if the form is based on owners for the given assigned actor.
-   * Otherwise, check if the given actor is explicitly assigned on the form, otherwise throw an
-   * error since this actor can't be assigned to fill out this form for any entities.
-   */
-  @Nullable
-  private static Criterion getAssignedActorCriterion(
-      @Nonnull final FormFilter formFilter, @Nonnull final FormInfo formInfo) {
-    final String assignedActor = formFilter.getAssignedActor();
-    if (assignedActor == null) {
-      return null;
-    }
-
-    final Urn actorUrn = UrnUtils.getUrn(assignedActor);
-    if (isActorExplicitlyAssigned(actorUrn, formInfo)) {
-      return null;
-    }
-    if (formInfo.getActors().isOwners()) {
-      return new Criterion().setField(OWNERS).setValue(assignedActor).setCondition(Condition.EQUAL);
-    }
-    throw new RuntimeException("This form is not assigned to the provided assignedActor");
   }
 
   private static boolean isActorExplicitlyAssigned(

@@ -1,16 +1,3 @@
-extend type Mutation {
-    """
-    Batch submit a form prompt response for a set of entities
-    """
-    batchSubmitFormPrompt(input: BatchSubmitFormPromptInput!): Boolean
-
-    """
-    Batch verify a form for a group of entities
-    """
-    batchVerifyForm(input: BatchVerifyFormInput!): Boolean
-}
-
-
 """
 Requirements forms that are assigned to an entity.
 """

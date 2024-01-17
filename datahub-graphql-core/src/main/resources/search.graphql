@@ -67,12 +67,6 @@ extend type Query {
   browse endpoint.
   """
   browseV2(input: BrowseV2Input!): BrowseResultsV2
-
-  """
-  Search across entities by form information. Used in order to get entities assigned to specific
-  forms as well as other details about the form and prompt states.
-  """
-  searchForEntitiesByForm(input: SearchForEntitiesByFormInput!): SearchResults
 }
 
 """
@@ -237,11 +231,6 @@ input AggregateAcrossEntitiesInput {
   Flags controlling search options
   """
   searchFlags: SearchFlags
-
-  """
-  Optional: Form filter on how to search for entities by form
-  """
-  formFilter: FormFilter
 }
 
 """
@@ -1225,11 +1214,6 @@ input BrowseV2Input {
   The search query string
   """
   query: String
-
-  """
-  Optional: Form filter on how to search for entities by form
-  """
-  formFilter: FormFilter
 }
 
 """
@@ -1319,79 +1303,4 @@ input SortCriterion {
   The order in which we will be sorting
   """
   sortOrder: SortOrder!
-}
-
-"""
-Input arguments for a search across entities filtered by form information.
-"""
-input SearchForEntitiesByFormInput {
-  """
-  The optional query string. If not provided, a * search will be executed.
-  """
-  query: String
-
-  """
-  The starting point of paginated results
-  """
-  start: Int
-
-  """
-  The number of elements included in the results
-  """
-  count: Int
-
-  """
-  A list of disjunctive criterion for the filter. (or operation to combine filters)
-  """
-  orFilters: [AndFilterInput!]
-
-  """
-  Flags controlling search options
-  """
-  searchFlags: SearchFlags
-
-  """
-  Form filter on how to search for entities by form
-  """
-  formFilter: FormFilter!
-}
-
-"""
-Input arguments for a full text search query across entities
-"""
-input FormFilter {
-  """
-  The urn of the form to get only entities that have this form on them
-  """
-  formUrn: String!
-
-  """
-  The urn of the actor that we want to filter by. If supplied, filter entities
-  down to only those where this actor is assigned to fill them out.
-  """
-  assignedActor: String
-
-  """
-  Optional filter to get only entities that have this form complete or not.
-  If omitted, get entities whether they have this form complete or not.
-  """
-  isFormComplete: Boolean
-
-  """
-  Optional filter to get only entities that have this form verified or not.
-  If omitted, get entities whether they have this form verified or not.
-  """
-  isFormVerified: Boolean
-
-  """
-  Optional filter input to fetch entities based on the state of a specific prompt.
-  This is required if providing the isPromptComplete input.
-  """
-  promptId: String
-
-  """
-  Optional filter to get only entities with a certain prompt complete or not.
-  If left empty, get entities regardless of whether a specific prompt is complete.
-  """
-  isPromptComplete: Boolean
 }

@@ -77,13 +77,7 @@ public class AggregateAcrossEntitiesResolverTest {
 
     final AggregateAcrossEntitiesInput testInput =
         new AggregateAcrossEntitiesInput(
-            ImmutableList.of(EntityType.DATASET),
-            "",
-            facets,
-            null,
-            TEST_VIEW_URN.toString(),
-            null,
-            null);
+            ImmutableList.of(EntityType.DATASET), "", facets, null, TEST_VIEW_URN.toString(), null);
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     QueryContext mockContext = getMockAllowContext();
     Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(testInput);
@@ -148,7 +142,6 @@ public class AggregateAcrossEntitiesResolverTest {
                             false,
                             FilterOperator.EQUAL)))),
             TEST_VIEW_URN.toString(),
-            null,
             null);
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     QueryContext mockContext = getMockAllowContext();
@@ -198,8 +191,7 @@ public class AggregateAcrossEntitiesResolverTest {
         new AggregateAcrossEntitiesResolver(mockClient, mockService, mockFormService);
 
     final AggregateAcrossEntitiesInput testInput =
-        new AggregateAcrossEntitiesInput(
-            null, "", facets, null, TEST_VIEW_URN.toString(), null, null);
+        new AggregateAcrossEntitiesInput(null, "", facets, null, TEST_VIEW_URN.toString(), null);
 
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     QueryContext mockContext = getMockAllowContext();
@@ -252,7 +244,7 @@ public class AggregateAcrossEntitiesResolverTest {
 
     final AggregateAcrossEntitiesInput testInput =
         new AggregateAcrossEntitiesInput(
-            Collections.emptyList(), "", facets, null, TEST_VIEW_URN.toString(), null, null);
+            Collections.emptyList(), "", facets, null, TEST_VIEW_URN.toString(), null);
 
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     QueryContext mockContext = getMockAllowContext();
@@ -307,7 +299,7 @@ public class AggregateAcrossEntitiesResolverTest {
         new AggregateAcrossEntitiesResolver(mockClient, mockService, mockFormService);
     final AggregateAcrossEntitiesInput testInput =
         new AggregateAcrossEntitiesInput(
-            Collections.emptyList(), "", null, null, TEST_VIEW_URN.toString(), null, null);
+            Collections.emptyList(), "", null, null, TEST_VIEW_URN.toString(), null);
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     QueryContext mockContext = getMockAllowContext();
     Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(testInput);
@@ -340,7 +332,7 @@ public class AggregateAcrossEntitiesResolverTest {
         new AggregateAcrossEntitiesResolver(mockClient, mockService, mockFormService);
     final AggregateAcrossEntitiesInput testInput =
         new AggregateAcrossEntitiesInput(
-            Collections.emptyList(), "", null, null, TEST_VIEW_URN.toString(), null, null);
+            Collections.emptyList(), "", null, null, TEST_VIEW_URN.toString(), null);
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     QueryContext mockContext = getMockAllowContext();
     Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(testInput);

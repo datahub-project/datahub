@@ -71,13 +71,6 @@ public class BrowseV2Resolver implements DataFetcher<CompletableFuture<BrowseRes
                         + String.join(BROWSE_PATH_V2_DELIMITER, input.getPath())
                     : "";
             final Filter inputFilter = ResolverUtils.buildFilter(null, input.getOrFilters());
-            final Filter formFilter =
-                SearchUtils.getFormFilter(
-                    input.getFormFilter(), _formService, context.getAuthentication());
-            final Filter filter =
-                formFilter != null
-                    ? SearchUtils.combineFilters(inputFilter, formFilter)
-                    : inputFilter;
 
             BrowseResultV2 browseResults =
                 _entityClient.browseV2(
@@ -85,8 +78,8 @@ public class BrowseV2Resolver implements DataFetcher<CompletableFuture<BrowseRes
                     pathStr,
                     maybeResolvedView != null
                         ? SearchUtils.combineFilters(
-                            filter, maybeResolvedView.getDefinition().getFilter())
-                        : filter,
+                            inputFilter, maybeResolvedView.getDefinition().getFilter())
+                        : inputFilter,
                     sanitizedQuery,
                     start,
                     count,

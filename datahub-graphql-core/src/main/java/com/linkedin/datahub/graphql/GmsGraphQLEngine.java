@@ -244,7 +244,6 @@ import com.linkedin.datahub.graphql.resolvers.search.ScrollAcrossEntitiesResolve
 import com.linkedin.datahub.graphql.resolvers.search.ScrollAcrossLineageResolver;
 import com.linkedin.datahub.graphql.resolvers.search.SearchAcrossEntitiesResolver;
 import com.linkedin.datahub.graphql.resolvers.search.SearchAcrossLineageResolver;
-import com.linkedin.datahub.graphql.resolvers.search.SearchForEntitiesByFormResolver;
 import com.linkedin.datahub.graphql.resolvers.search.SearchResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.user.UpdateCorpUserViewsSettingsResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.view.GlobalViewsSettingsResolver;
@@ -686,6 +685,7 @@ public class GmsGraphQLEngine {
     configureRoleResolvers(builder);
     configureSchemaFieldResolvers(builder);
     configureEntityPathResolvers(builder);
+    configureResolvedAuditStampResolvers(builder);
     configureViewResolvers(builder);
     configureQueryEntityResolvers(builder);
     configureOwnershipTypeResolver(builder);
@@ -970,10 +970,7 @@ public class GmsGraphQLEngine {
                     "listOwnershipTypes", new ListOwnershipTypesResolver(this.entityClient))
                 .dataFetcher(
                     "browseV2",
-                    new BrowseV2Resolver(this.entityClient, this.viewService, this.formService))
-                .dataFetcher(
-                    "searchForEntitiesByForm",
-                    new SearchForEntitiesByFormResolver(this.entityClient, this.formService)));
+                    new BrowseV2Resolver(this.entityClient, this.viewService, this.formService)));
   }
 
   private DataFetcher getEntitiesResolver() {
@@ -1630,6 +1627,16 @@ public class GmsGraphQLEngine {
                 "path",
                 new BatchGetEntitiesResolver(
                     entityTypes, (env) -> ((EntityPath) env.getSource()).getPath())));
+  }
+
+  private void configureResolvedAuditStampResolvers(final RuntimeWiring.Builder builder) {
+    builder.type(
+        "ResolvedAuditStamp",
+        typeWiring ->
+            typeWiring.dataFetcher(
+                "actor",
+                new LoadableTypeResolver<>(
+                    corpUserType, (env) -> ((CorpUser) env.getSource()).getUrn())));
   }
 
   /**
