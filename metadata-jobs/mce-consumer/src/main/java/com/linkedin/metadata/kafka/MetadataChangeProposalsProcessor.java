@@ -2,6 +2,7 @@ package com.linkedin.metadata.kafka;
 
 import com.codahale.metrics.Histogram;
 import com.codahale.metrics.MetricRegistry;
+import com.codahale.metrics.Timer;
 import com.linkedin.entity.client.SystemRestliEntityClient;
 import com.linkedin.gms.factory.entity.RestliEntityClientFactory;
 import com.linkedin.gms.factory.kafka.DataHubKafkaProducerFactory;
@@ -58,20 +59,23 @@ public class MetadataChangeProposalsProcessor {
       topics = "${METADATA_CHANGE_PROPOSAL_TOPIC_NAME:" + Topics.METADATA_CHANGE_PROPOSAL + "}",
       containerFactory = "kafkaEventConsumer")
   public void consume(final ConsumerRecord<String, GenericRecord> consumerRecord) {
-    kafkaLagStats.update(System.currentTimeMillis() - consumerRecord.timestamp());
-    final GenericRecord record = consumerRecord.value();
-    log.debug("Record {}", record);
+    try (Timer.Context ignored =
+                 MetricUtils.timer(this.getClass(), "consume").time()) {
+      kafkaLagStats.update(System.currentTimeMillis() - consumerRecord.timestamp());
+      final GenericRecord record = consumerRecord.value();
+      log.debug("Record {}", record);
 
-    MetadataChangeProposal event = new MetadataChangeProposal();
-    try {
-      event = EventUtils.avroToPegasusMCP(record);
-      log.debug("MetadataChangeProposal {}", event);
-      // TODO: Get this from the event itself.
-      entityClient.ingestProposal(event, false);
-    } catch (Throwable throwable) {
-      log.error("MCP Processor Error", throwable);
-      log.error("Message: {}", record);
-      sendFailedMCP(event, throwable);
+      MetadataChangeProposal event = new MetadataChangeProposal();
+      try {
+        event = EventUtils.avroToPegasusMCP(record);
+        log.debug("MetadataChangeProposal {}", event);
+        // TODO: Get this from the event itself.
+        entityClient.ingestProposal(event, false);
+      } catch (Throwable throwable) {
+        log.error("MCP Processor Error", throwable);
+        log.error("Message: {}", record);
+        sendFailedMCP(event, throwable);
+      }
     }
   }
 
