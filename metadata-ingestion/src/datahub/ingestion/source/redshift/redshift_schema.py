@@ -82,9 +82,8 @@ class LineageRow:
 
 @dataclass
 class TempTableRow:
-    process_identifier: str
     transaction_id: int
-    sequence: int
+    session_id: str
     query_text: str
     start_time: datetime
 
@@ -390,11 +389,10 @@ class RedshiftDataDictionary:
         while rows:
             for row in rows:
                 yield TempTableRow(
-                    process_identifier=row[field_names.index("pid")],
-                    transaction_id=row[field_names.index("xid")],
-                    sequence=row[field_names.index("sequence")],
+                    transaction_id=row[field_names.index("transaction_id")],
+                    session_id=row[field_names.index("session_id")],
                     query_text=row[field_names.index("query_text")],
-                    start_time=row[field_names.index("starttime")],
+                    start_time=row[field_names.index("start_time")],
                 )
             rows = cursor.fetchmany()
 

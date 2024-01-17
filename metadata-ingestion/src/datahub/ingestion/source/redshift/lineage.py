@@ -4,6 +4,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
+from functools import lru_cache
 from typing import Dict, List, Optional, Set, Tuple, Union
 from urllib.parse import urlparse
 
@@ -649,77 +650,11 @@ class RedshiftLineageExtractor:
         if self.redundant_run_skip_handler:
             self.redundant_run_skip_handler.report_current_run_status(step, status)
 
-    @staticmethod
-    def _concat_sql_part(transaction_entry: Dict[int, str]) -> str:
-        sequence: int = 0
-
-        full_sql: str = ""
-
-        while sequence in transaction_entry:
-            full_sql = full_sql + transaction_entry[sequence]
-            sequence += 1
-
-        return full_sql
-
-    @staticmethod
-    def form_full_sql(temp_table_rows: List[TempTableRow]) -> List[TempTableRow]:
-        if len(temp_table_rows) == 0:
-            return []
-
-        temp_tables: List[TempTableRow] = []
-
-        # Arrange row as per transaction id and start time
-        sql_parts: Dict[Tuple[int, datetime], Dict[int, str]] = {}
-
-        for row in temp_table_rows:
-            if (row.transaction_id, row.start_time) not in sql_parts:
-                sql_parts[(row.transaction_id, row.start_time)] = {}
-            # Each part of sql has same transaction_id and start_time and unique sequence number
-            sql_parts[(row.transaction_id, row.start_time)][
-                row.sequence
-            ] = row.query_text
-
-        for row in temp_table_rows:
-            # filter out "create temp|temporary|#<table-name>" statements rows for the transaction
-            if not any(
-                row.query_text.lower().startswith(prefix)
-                for prefix in [
-                    RedshiftQuery.CREATE_TEMPORARY_TABLE_CLAUSE,
-                    RedshiftQuery.CREATE_TEMP_TABLE_CLAUSE,
-                    RedshiftQuery.CREATE_TEMPORARY_TABLE_HASH_CLAUSE,
-                ]
-            ):
-                continue
-
-            transaction_entry: Dict[int, str] = sql_parts[
-                (row.transaction_id, row.start_time)
-            ]
-
-            full_sql: str = RedshiftLineageExtractor._concat_sql_part(transaction_entry)
-
-            temp_tables.append(
-                TempTableRow(
-                    start_time=row.start_time,
-                    sequence=row.sequence,
-                    query_text=full_sql,
-                    transaction_id=row.transaction_id,
-                    process_identifier=row.process_identifier,
-                )
-            )
-
-        return temp_tables
-
-    def _add_permanent_datasets_recursively(
-        self,
-        db_name: str,
-        temp_table_names: List[str],
-        connection: redshift_connector.Connection,
-        permanent_lineage_datasets: List[LineageDataset],
-    ) -> None:
-
+    @lru_cache(maxsize=64)
+    def get_temp_tables(
+        self, connection: redshift_connector.Connection
+    ) -> List[TempTableRow]:
         ddl_query: str = RedshiftQuery.temp_table_ddl_query(
-            tables=temp_table_names,
-            db_name=db_name,
             start_time=self.config.start_time,
             end_time=self.config.end_time,
         )
@@ -734,13 +669,37 @@ class RedshiftLineageExtractor:
             )
         ]
 
-        full_sql_temp_tables: List[
-            TempTableRow
-        ] = RedshiftLineageExtractor.form_full_sql(temp_table_rows)
+        logger.debug(f"Number of temp tables = {len(temp_table_rows)}")
 
-        transitive_temp_tables: List[str] = []
+        return temp_table_rows
 
-        for temp_table in full_sql_temp_tables:
+    def find_temp_tables(
+        self, connection: redshift_connector.Connection, temp_table_names: List[str]
+    ) -> List[TempTableRow]:
+
+        matched_temp_tables: List[TempTableRow] = []
+
+        for table_name in temp_table_names:
+            for row in self.get_temp_tables(connection=connection):
+                if any(
+                    row.query_text.lower().startswith(prefix)
+                    for prefix in RedshiftQuery.get_temp_table_clause(table_name)
+                ):
+                    matched_temp_tables.append(row)
+
+        return matched_temp_tables
+
+    def _add_permanent_datasets_recursively(
+        self,
+        db_name: str,
+        temp_table_rows: List[TempTableRow],
+        connection: redshift_connector.Connection,
+        permanent_lineage_datasets: List[LineageDataset],
+    ) -> None:
+
+        transitive_temp_tables: List[TempTableRow] = []
+
+        for temp_table in temp_table_rows:
             intermediate_l_datasets, _ = self._get_sources_from_query(
                 db_name=db_name,
                 query=temp_table.query_text,
@@ -753,11 +712,13 @@ class RedshiftLineageExtractor:
                 db, schema, table = split_qualified_table_name(lineage_dataset.urn)
 
                 # Check if table found is again a temp table
-                if not RedshiftDataDictionary.is_empty(
-                    conn=connection,
-                    query=RedshiftQuery.is_temp_table_query(table=table),
-                ):
-                    transitive_temp_tables.append(table)
+                repeated_temp_table: List[TempTableRow] = self.find_temp_tables(
+                    connection=connection,
+                    temp_table_names=[table],
+                )
+
+                if repeated_temp_table:
+                    transitive_temp_tables.extend(repeated_temp_table)
                     continue
 
                 permanent_lineage_datasets.append(lineage_dataset)
@@ -766,7 +727,7 @@ class RedshiftLineageExtractor:
             # recursive call
             self._add_permanent_datasets_recursively(
                 db_name=db_name,
-                temp_table_names=transitive_temp_tables,
+                temp_table_rows=transitive_temp_tables,
                 connection=connection,
                 permanent_lineage_datasets=permanent_lineage_datasets,
             )
@@ -780,9 +741,14 @@ class RedshiftLineageExtractor:
 
         permanent_lineage_datasets: List[LineageDataset] = []
 
+        temp_table_rows: List[TempTableRow] = self.find_temp_tables(
+            connection=connection,
+            temp_table_names=temp_table_names,
+        )
+
         self._add_permanent_datasets_recursively(
             db_name=db_name,
-            temp_table_names=temp_table_names,
+            temp_table_rows=temp_table_rows,
             connection=connection,
             permanent_lineage_datasets=permanent_lineage_datasets,
         )
