@@ -4,10 +4,12 @@ import { Button, Dropdown, List, Menu, message, Popover, Tag, Tooltip, Typograph
 import { CheckCircleFilled, CheckOutlined, MoreOutlined, WarningFilled } from '@ant-design/icons';
 import { Link } from 'react-router-dom';
 import moment from 'moment';
+import { useApolloClient } from '@apollo/client';
+
 
 import CustomAvatar from '../../../../../shared/avatar/CustomAvatar';
 import { EntityType, IncidentState, IncidentType } from '../../../../../../types.generated';
-import { FAILURE_COLOR_HEX, getNameFromType, SUCCESS_COLOR_HEX } from '../incidentUtils';
+import { FAILURE_COLOR_HEX, getNameFromType, PAGE_SIZE, SUCCESS_COLOR_HEX, updateListIncidentsCache } from '../incidentUtils';
 import { useGetUserQuery } from '../../../../../../graphql/user.generated';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
 import { getLocaleTimezone } from '../../../../../shared/time/timeUtils';
@@ -147,6 +149,8 @@ export default function IncidentListItem({ incident, refetch }: Props) {
     const [updateIncidentStatusMutation] = useUpdateIncidentStatusMutation();
     const [isResolvedModalVisible, setIsResolvedModalVisible] = useState(false);
 
+    const client = useApolloClient();
+
     // Fetching the user's data
     const { data: createdActor } = useGetUserQuery({ variables: { urn: incident.created.actor } });
     const { data: resolvedActor } = useGetUserQuery({ variables: { urn: incident.status.lastUpdated.actor } });
@@ -168,26 +172,33 @@ export default function IncidentListItem({ incident, refetch }: Props) {
         try {
             await updateIncidentStatusMutation({
                 variables: { urn: incident.urn, input: { state, message: resolvedMessage } },
-            });
-            message.destroy();
-            analytics.event({
-                type: EventType.EntityActionEvent,
-                entityType,
-                entityUrn: incident.urn,
-                actionType: EntityActionType.ResolvedIncident,
-            });
-            message.success({ content: 'Incident updated successfully! .', duration: 2 });
-            setTimeout(() => {
-                refetchEntity?.();
-            }, 2000);
+            }).then(()=>{
+                const newIncident={
+                    urn: incident.urn,
+                    message: resolvedMessage,
+                    state
+                }
+                message.destroy();
+                analytics.event({
+                    type: EventType.EntityActionEvent,
+                    entityType,
+                    entityUrn: incident.urn,
+                    actionType: EntityActionType.ResolvedIncident,
+                });
+                message.success({ content: 'Incident updated successfully! .', duration: 2 });
+                updateListIncidentsCache(client,newIncident,PAGE_SIZE)
+                setTimeout(() => { 
+                    refetchEntity?.();
+                    refetch?.();
+                }, 1000);
+                setIsResolvedModalVisible(false);
+            })
         } catch (e: unknown) {
             message.destroy();
             if (e instanceof Error) {
                 message.error({ content: `Failed to update incident: \n ${e.message || ''}`, duration: 3 });
             }
         }
-        refetch?.();
-        setIsResolvedModalVisible(false);
     };
 
     // Handle the Resolved Modal visibility

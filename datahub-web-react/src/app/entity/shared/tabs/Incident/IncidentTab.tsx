@@ -8,7 +8,7 @@ import TabToolbar from '../../components/styled/TabToolbar';
 import { useEntityData } from '../../EntityContext';
 import LoadingSvg from '../../../../../images/datahub-logo-color-loading_pendulum.svg?react';
 import IncidentListItem from './components/IncidentListItem';
-import { INCIDENT_DISPLAY_STATES } from './incidentUtils';
+import { INCIDENT_DISPLAY_STATES, PAGE_SIZE } from './incidentUtils';
 import { Incident, IncidentState } from '../../../../../types.generated';
 import { IncidentSummary } from './components/IncidentSummary';
 import { AddIncidentModal } from './components/AddIncidentModal';
@@ -43,7 +43,6 @@ const IncidentStateSelect = styled(Select)`
     width: 100px;
 `;
 
-const PAGE_SIZE = 10;
 
 /**
  * Returns a status summary for the incidents
