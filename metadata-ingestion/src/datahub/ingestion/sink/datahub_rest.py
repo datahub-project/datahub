@@ -103,6 +103,7 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
             .get("linkedin/datahub", {})
             .get("version", "")
         )
+        self.report.max_threads = self.config.max_threads
         logger.debug("Setting env variables to override config")
         set_env_variables_override_config(self.config.server, self.config.token)
         logger.debug("Setting gms config")
