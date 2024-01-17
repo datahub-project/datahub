@@ -312,7 +312,7 @@ plugins: Dict[str, Set[str]] = {
     # https://github.com/elastic/elasticsearch-py/issues/1639#issuecomment-883587433
     "elasticsearch": {"elasticsearch==7.13.4"},
     "cassandra": {
-        "cassandra-driver"
+        "cassandra-driver~=3.28.0"
     },
     "feast": {
         "feast~=0.34.1",
