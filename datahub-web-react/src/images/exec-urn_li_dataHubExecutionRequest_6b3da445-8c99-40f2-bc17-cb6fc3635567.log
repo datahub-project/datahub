@@ -1,0 +1,47 @@
+~~~~ Execution Summary - RUN_INGEST ~~~~
+Execution finished with errors.
+{'exec_id': '6b3da445-8c99-40f2-bc17-cb6fc3635567',
+ 'infos': ['2024-01-17 03:57:18.948074 INFO: Starting execution for task with name=RUN_INGEST',
+           "2024-01-17 03:57:25.212025 INFO: Failed to execute 'datahub ingest', exit code 1",
+           '2024-01-17 03:57:25.214518 INFO: Caught exception EXECUTING task_id=6b3da445-8c99-40f2-bc17-cb6fc3635567, name=RUN_INGEST, '
+           'stacktrace=Traceback (most recent call last):\n'
+           '  File "/usr/local/lib/python3.10/site-packages/acryl/executor/execution/default_executor.py", line 140, in execute_task\n'
+           '    task_event_loop.run_until_complete(task_future)\n'
+           '  File "/usr/local/lib/python3.10/asyncio/base_events.py", line 649, in run_until_complete\n'
+           '    return future.result()\n'
+           '  File "/usr/local/lib/python3.10/site-packages/acryl/executor/execution/sub_process_ingestion_task.py", line 282, in execute\n'
+           '    raise TaskError("Failed to execute \'datahub ingest\'")\n'
+           "acryl.executor.execution.task.TaskError: Failed to execute 'datahub ingest'\n"],
+ 'errors': []}
+
+~~~~ Ingestion Logs ~~~~
+Obtaining venv creation lock...
+Acquired venv creation lock
+venv doesn't exist.. minting..
+Requirement already satisfied: pip in /tmp/datahub/ingest/venv-cassandra-f15c0b0cd8160cc4/lib/python3.10/site-packages (23.0.1)
+Collecting pip
+  Downloading pip-23.3.2-py3-none-any.whl (2.1 MB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2.1/2.1 MB 17.6 MB/s eta 0:00:00
+Collecting wheel
+  Downloading wheel-0.42.0-py3-none-any.whl (65 kB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 65.4/65.4 kB 17.2 MB/s eta 0:00:00
+Requirement already satisfied: setuptools in /tmp/datahub/ingest/venv-cassandra-f15c0b0cd8160cc4/lib/python3.10/site-packages (65.5.0)
+Collecting setuptools
+  Downloading setuptools-69.0.3-py3-none-any.whl (819 kB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 819.5/819.5 kB 29.0 MB/s eta 0:00:00
+Installing collected packages: wheel, setuptools, pip
+  Attempting uninstall: setuptools
+    Found existing installation: setuptools 65.5.0
+    Uninstalling setuptools-65.5.0:
+      Successfully uninstalled setuptools-65.5.0
+  Attempting uninstall: pip
+    Found existing installation: pip 23.0.1
+    Uninstalling pip-23.0.1:
+      Successfully uninstalled pip-23.0.1
+Successfully installed pip-23.3.2 setuptools-69.0.3 wheel-0.42.0
++ pip install 'acryl-datahub[datahub-rest,datahub-kafka,cassandra]==9f3d125'
+ERROR: Ignored the following yanked versions: 0.8.18, 0.8.29.1, 0.8.33.2, 0.8.34, 0.8.44rc0, 0.8.44rc1, 0.8.44.3rc4, 0.9.4, 0.10.5.3
+ERROR: Ignored the following versions that require a different python version: 0.8.24.1 Requires-Python >=3.6, <=3.9.9; 0.8.24.2 Requires-Python >=3.6, <=3.9.9; 0.8.24.3 Requires-Python >=3.6, <=3.9.9; 0.8.25 Requires-Python >=3.6, <=3.9.9; 0.8.25.0 Requires-Python >=3.6, <=3.9.9; 0.8.25.1 Requires-Python >=3.6, <=3.9.9; 0.8.25.2 Requires-Python >=3.6, <=3.9.9; 0.8.26.0 Requires-Python >=3.6, <=3.9.9; 0.8.26.1 Requires-Python >=3.6, <=3.9.9; 0.8.26.2 Requires-Python >=3.6, <=3.9.9; 0.8.26.3 Requires-Python >=3.6, <=3.9.9; 0.8.26.4 Requires-Python >=3.6, <=3.9.9; 0.8.26.5 Requires-Python >=3.6, <=3.9.9; 0.8.26.6 Requires-Python >=3.6, <=3.9.9; 0.8.26.7 Requires-Python >=3.6, <=3.9.9; 0.8.26.7rc1 Requires-Python >=3.6, <=3.9.9; 0.8.26.7rc2 Requires-Python >=3.6, <=3.9.9; 0.8.26.8 Requires-Python >=3.6, <=3.9.9; 0.8.26.8rc1 Requires-Python >=3.6, <=3.9.9; 0.8.27 Requires-Python >=3.6, <=3.9.9; 0.8.27.1 Requires-Python >=3.6, <=3.9.9; 0.8.27.1rc1 Requires-Python >=3.6, <=3.9.9; 0.8.27.2 Requires-Python >=3.6, <=3.9.9; 0.8.27.2rc1 Requires-Python >=3.6, <=3.9.9; 0.8.27.2rc2 Requires-Python >=3.6, <=3.9.9; 0.8.27.2rc3 Requires-Python >=3.6, <=3.9.9
+ERROR: Could not find a version that satisfies the requirement acryl-datahub==9f3d125 (from versions: 0.0.2, 0.0.3, 0.0.4, 0.0.5, 0.1.0, 0.1.1, 0.1.2, 0.1.3, 0.2.0, 0.2.1, 0.2.2, 0.2.3, 0.3.0, 0.3.1, 0.3.2, 0.3.3, 0.3.4, 0.4.0, 0.8.1.0, 0.8.1.1, 0.8.1.2, 0.8.3.0, 0.8.3.1, 0.8.3.2, 0.8.3.3, 0.8.4.0, 0.8.5.0, 0.8.5.1, 0.8.5.2, 0.8.6.0, 0.8.6.1, 0.8.6.2, 0.8.6.3, 0.8.6.4, 0.8.6.5, 0.8.7.0, 0.8.8.0, 0.8.8.1, 0.8.8.2, 0.8.8.3, 0.8.8.4, 0.8.9.0, 0.8.10.0, 0.8.10.1, 0.8.10.2, 0.8.11.0, 0.8.11.1, 0.8.12.0, 0.8.13.0, 0.8.13.1, 0.8.14.0, 0.8.14.1, 0.8.14.2, 0.8.15.0, 0.8.15.1, 0.8.15.2, 0.8.15.3, 0.8.15.4, 0.8.15.5, 0.8.15.6, 0.8.15.7, 0.8.15.8, 0.8.15.9, 0.8.15.10, 0.8.16.0, 0.8.16.1, 0.8.16.2, 0.8.16.3, 0.8.16.4, 0.8.16.5, 0.8.16.6, 0.8.16.7, 0.8.16.8, 0.8.16.9, 0.8.16.11, 0.8.16.12, 0.8.17.0, 0.8.17.1, 0.8.17.2, 0.8.17.3, 0.8.17.4, 0.8.17.5, 0.8.17.6, 0.8.17.7, 0.8.18.1, 0.8.19.0, 0.8.19.1, 0.8.20.0, 0.8.21.0, 0.8.22.1, 0.8.23.0, 0.8.23.1, 0.8.24.0, 0.8.28.0rc1, 0.8.28.0, 0.8.28.1, 0.8.29, 0.8.29.2, 0.8.30.0, 0.8.31, 0.8.31.1rc1, 0.8.31.1, 0.8.31.2, 0.8.31.3rc1, 0.8.31.3, 0.8.31.4rc1, 0.8.31.4, 0.8.31.5rc1, 0.8.31.5, 0.8.31.6rc1, 0.8.31.6rc2, 0.8.31.6, 0.8.32rc1, 0.8.32rc2, 0.8.32rc3, 0.8.32rc4, 0.8.32, 0.8.32.1, 0.8.32.2rc1, 0.8.32.2, 0.8.32.3rc1, 0.8.32.3, 0.8.32.4rc1, 0.8.32.4rc2, 0.8.32.4, 0.8.32.5rc1, 0.8.32.5, 0.8.32.6rc2, 0.8.32.6rc3, 0.8.32.6, 0.8.32.7, 0.8.33rc1, 0.8.33, 0.8.33.1, 0.8.33.2rc1, 0.8.33.2rc2, 0.8.33.3rc2, 0.8.33.3rc3, 0.8.33.3, 0.8.34.1rc1, 0.8.34.1rc2, 0.8.34.1rc3, 0.8.34.1, 0.8.34.2rc1, 0.8.34.2rc2, 0.8.34.2rc3, 0.8.34.2rc4, 0.8.34.2, 0.8.34.3rc1, 0.8.35.0rc2, 0.8.35, 0.8.35.1rc1, 0.8.35.1, 0.8.35.2rc1, 0.8.35.2, 0.8.35.3rc1, 0.8.35.3, 0.8.35.4rc1, 0.8.35.4, 0.8.35.5rc1, 0.8.35.5, 0.8.35.6rc1, 0.8.35.6rc2, 0.8.35.6, 0.8.35.7rc1, 0.8.35.7, 0.8.35.8rc1, 0.8.35.8rc2, 0.8.35.8rc3, 0.8.36.0rc0, 0.8.36rc1, 0.8.36, 0.8.36.1rc1, 0.8.36.1rc2, 0.8.36.1rc6, 0.8.36.1rc7, 0.8.36.1rc8, 0.8.36.1rc9, 0.8.36.1rc10, 0.8.37rc0, 0.8.37, 0.8.38, 0.8.38.1rc0, 0.8.38.1rc1, 0.8.38.1, 0.8.38.2rc1, 0.8.38.2, 0.8.38.3rc1, 0.8.38.3, 0.8.38.4rc0, 0.8.38.4rc2, 0.8.38.4rc3, 0.8.38.4, 0.8.38.5rc0, 0.8.38.5, 0.8.39rc0, 0.8.39, 0.8.39.1rc1, 0.8.39.1rc2, 0.8.39.1rc3, 0.8.39.1rc4, 0.8.39.1rc5, 0.8.39.1rc6, 0.8.39.1rc7, 0.8.39.1rc8, 0.8.40rc1, 0.8.40, 0.8.40.1, 0.8.40.2rc0, 0.8.40.2, 0.8.40.3rc0, 0.8.40.3rc1, 0.8.40.3rc2, 0.8.40.3rc3, 0.8.40.3, 0.8.40.4rc1, 0.8.40.4rc2, 0.8.41rc2, 0.8.41, 0.8.41.1rc0, 0.8.41.1rc1, 0.8.41.1rc2, 0.8.41.1rc3, 0.8.41.1rc4, 0.8.41.1, 0.8.41.2rc0, 0.8.41.2rc1, 0.8.41.2, 0.8.41.3rc1, 0.8.41.3rc2, 0.8.41.3rc3, 0.8.42rc1, 0.8.42rc2, 0.8.42, 0.8.43rc2, 0.8.43rc3, 0.8.43rc4, 0.8.43, 0.8.43.1rc0, 0.8.43.1rc1, 0.8.43.1, 0.8.43.2rc0, 0.8.43.2rc1, 0.8.43.2, 0.8.43.3rc0, 0.8.43.3rc1, 0.8.43.3rc2, 0.8.43.3rc3, 0.8.43.3rc5, 0.8.43.3, 0.8.43.4rc1, 0.8.43.4rc2, 0.8.43.4, 0.8.43.5rc1, 0.8.43.5rc2, 0.8.43.5rc3, 0.8.43.5, 0.8.43.6rc0, 0.8.43.6rc1, 0.8.43.6, 0.8.44rc3, 0.8.44rc4, 0.8.44rc5, 0.8.44, 0.8.44.1rc0, 0.8.44.1rc1, 0.8.44.1rc2, 0.8.44.1rc3, 0.8.44.1rc4, 0.8.44.1, 0.8.44.2rc0, 0.8.44.2rc1, 0.8.44.2rc2, 0.8.44.2, 0.8.44.3rc0, 0.8.44.3rc1, 0.8.44.3rc2, 0.8.44.3rc3, 0.8.44.3, 0.8.44.4rc0, 0.8.44.4rc1, 0.8.44.4, 0.8.44.5rc0, 0.8.44.5rc1, 0.8.44.5rc2, 0.8.44.5rc3, 0.8.44.5, 0.8.44.6rc0, 0.8.45rc1, 0.8.45, 0.8.45.1rc0, 0.8.45.1rc2, 0.8.45.1rc3, 0.8.45.1rc4, 0.8.45.1rc5, 0.8.45.1, 0.8.45.2rc0, 0.8.45.2rc1, 0.8.45.2rc2, 0.8.45.2, 0.8.45.3rc0, 0.8.45.3rc1, 0.8.45.3rc2, 0.8.45.3rc3, 0.8.45.3rc4, 0.8.45.3rc5, 0.9.0rc4, 0.9.0rc5, 0.9.0rc6, 0.9.0, 0.9.0.1rc0, 0.9.0.1, 0.9.0.2rc0, 0.9.0.2rc1, 0.9.0.2rc2, 0.9.0.2rc3, 0.9.0.2rc4, 0.9.0.2, 0.9.0.3rc0, 0.9.0.3, 0.9.0.4rc0, 0.9.0.4, 0.9.0.5rc0, 0.9.0.5rc1, 0.9.0.5rc2, 0.9.0.5, 0.9.1rc0, 0.9.1, 0.9.1.1rc0, 0.9.1.1rc1, 0.9.1.1rc2, 0.9.2, 0.9.2.1rc0, 0.9.2.1rc1, 0.9.2.1rc2, 0.9.2.1, 0.9.2.2rc0, 0.9.2.2rc1, 0.9.2.2rc2, 0.9.2.2rc3, 0.9.2.2, 0.9.2.3rc1, 0.9.2.3rc2, 0.9.2.3rc3, 0.9.2.3rc4, 0.9.2.3, 0.9.2.4rc1, 0.9.2.4rc2, 0.9.2.4, 0.9.2.5rc1, 0.9.2.5rc3, 0.9.2.5rc4, 0.9.2.5rc5, 0.9.2.5rc8, 0.9.2.5, 0.9.3, 0.9.3.1rc0, 0.9.3.1rc1, 0.9.3.1, 0.9.3.2rc0, 0.9.3.2rc2, 0.9.3.2rc3, 0.9.3.2, 0.9.3.3rc0, 0.9 [...truncated]
+ERROR: No matching distribution found for acryl-datahub==9f3d125
+
