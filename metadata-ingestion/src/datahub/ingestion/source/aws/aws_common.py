@@ -93,7 +93,7 @@ class AwsConnectionConfig(ConfigModel):
         default=None,
         description="Named AWS profile to use. Only used if access key / secret are unset. If not set the default will be used",
     )
-    aws_region: str = Field(description="AWS region code.")
+    aws_region: Optional[str] = Field(None, description="AWS region code.")
 
     aws_endpoint_url: Optional[str] = Field(
         default=None,

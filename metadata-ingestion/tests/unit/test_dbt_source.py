@@ -1,6 +1,7 @@
 from typing import Dict, List, Union
 from unittest import mock
 
+import pytest
 from pydantic import ValidationError
 
 from datahub.emitter import mce_builder
@@ -180,20 +181,38 @@ def test_dbt_entity_emission_configuration():
         "target_platform": "dummy_platform",
         "entities_enabled": {"models": "Only", "seeds": "Only"},
     }
-    try:
+    with pytest.raises(
+        ValidationError,
+        match="Cannot have more than 1 type of entity emission set to ONLY",
+    ):
         DBTCoreConfig.parse_obj(config_dict)
-    except ValidationError as ve:
-        assert len(ve.errors()) == 1
-        assert (
-            "Cannot have more than 1 type of entity emission set to ONLY"
-            in ve.errors()[0]["msg"]
-        )
+
     # valid config
     config_dict = {
         "manifest_path": "dummy_path",
         "catalog_path": "dummy_path",
         "target_platform": "dummy_platform",
         "entities_enabled": {"models": "Yes", "seeds": "Only"},
+    }
+    DBTCoreConfig.parse_obj(config_dict)
+
+
+def test_dbt_s3_config():
+    # test missing aws config
+    config_dict = {
+        "manifest_path": "s3://dummy_path",
+        "catalog_path": "s3://dummy_path",
+        "target_platform": "dummy_platform",
+    }
+    with pytest.raises(ValidationError, match="provide aws_connection"):
+        DBTCoreConfig.parse_obj(config_dict)
+
+    # valid config
+    config_dict = {
+        "manifest_path": "s3://dummy_path",
+        "catalog_path": "s3://dummy_path",
+        "target_platform": "dummy_platform",
+        "aws_connection": {},
     }
     DBTCoreConfig.parse_obj(config_dict)
 
