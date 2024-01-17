@@ -83,9 +83,10 @@ class LineageRow:
 @dataclass
 class TempTableRow:
     process_identifier: str
-    transaction_id: str
+    transaction_id: int
     sequence: int
     query_text: str
+    start_time: datetime
 
 
 # this is a class to be a proxy to query Redshift
@@ -393,5 +394,22 @@ class RedshiftDataDictionary:
                     transaction_id=row[field_names.index("xid")],
                     sequence=row[field_names.index("sequence")],
                     query_text=row[field_names.index("query_text")],
+                    start_time=row[field_names.index("starttime")],
                 )
             rows = cursor.fetchmany()
+
+    @staticmethod
+    def is_empty(
+        conn: redshift_connector.Connection,
+        query: str,
+    ) -> bool:
+        cursor = conn.cursor()
+
+        cursor.execute(query)
+
+        row = cursor.fetchone()
+
+        if row[0] == 0:
+            return True
+
+        return False

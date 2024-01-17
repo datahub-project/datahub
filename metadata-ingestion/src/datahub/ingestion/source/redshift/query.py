@@ -466,7 +466,7 @@ SELECT  schemaname as schema_name,
         return f"{column_name} ILIKE '{value}%'"
 
     @staticmethod
-    def temp_table_ddl_query(tables: List[str]) -> str:
+    def _temp_table_condition(tables: List[str]) -> str:
         like_statements: List[str] = []
         for table_name in tables:
             like_statements.extend(
@@ -478,13 +478,47 @@ SELECT  schemaname as schema_name,
                 ]
             )
 
-        temp_table_condition: str = " OR ".join(like_statements)
+        return " OR ".join(like_statements)
+
+    @staticmethod
+    def temp_table_ddl_query(
+        tables: List[str], db_name: str, start_time: datetime, end_time: datetime
+    ) -> str:
+        temp_table_condition: str = RedshiftQuery._temp_table_condition(tables=tables)
+
+        start_time_str: str = start_time.strftime(redshift_datetime_format)
+
+        end_time_str: str = end_time.strftime(redshift_datetime_format)
 
         return f"""
         SELECT  SVL.pid,
                 SVL.xid,
                 SVL.sequence,
+                SVL.starttime,
                 SVL.text AS query_text
+        FROM    svl_statementtext SVL
+        WHERE    SVL.xid IN
+                 (
+                    SELECT     SVL.xid AS TRANSACTION_ID
+                    FROM       svl_statementtext SVL
+                    INNER JOIN sys_query_history SYS
+                    ON         SVL.xid = SYS.transaction_id
+                    WHERE      SYS.database_name='{db_name}'
+                    AND        SYS.status = 'success'
+                    AND        SYS.query_type in ('DDL', 'CTAS')
+                    AND        SYS.start_time >= '{start_time_str}'
+                    AND        SYS.end_time < '{end_time_str}'
+                    AND        {temp_table_condition}
+                )
+        ORDER BY SVL.starttime
+        """
+
+    @staticmethod
+    def is_temp_table_query(table: str) -> str:
+        temp_table_condition: str = RedshiftQuery._temp_table_condition(tables=[table])
+
+        return f"""
+        SELECT  count(*) AS TEMP_TRANSACTION_COUNT
         FROM    svl_statementtext SVL
         WHERE    SVL.xid IN
                  (
@@ -495,6 +529,4 @@ SELECT  schemaname as schema_name,
                     WHERE      SYS.database_name='dev'
                     AND        {temp_table_condition}
                 )
-        ORDER BY SVL.xid,
-                 SVL.sequence
         """

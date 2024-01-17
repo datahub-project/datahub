@@ -112,6 +112,17 @@ class LineageItem:
         self.cll = self.cll or None
 
 
+def split_qualified_table_name(urn: str) -> Tuple[str, str, str]:
+    qualified_table_name = dataset_urn.DatasetUrn.create_from_string(
+        urn
+    ).get_entity_id()[1]
+
+    # -3 because platform instance is optional and that can cause the split to have more than 3 elements
+    db, schema, table = qualified_table_name.split(".")[-3:]
+
+    return db, schema, table
+
+
 class RedshiftLineageExtractor:
     def __init__(
         self,
@@ -417,11 +428,7 @@ class RedshiftLineageExtractor:
 
         for source in sources:
             if source.platform == LineageDatasetPlatform.REDSHIFT:
-                qualified_table_name = dataset_urn.DatasetUrn.create_from_string(
-                    source.urn
-                ).get_entity_id()[1]
-                # -3 because platform instance is optional and that can cause the split to have more than 3 elements
-                db, schema, table = qualified_table_name.split(".")[-3:]
+                db, schema, table = split_qualified_table_name(source.urn)
                 if db == raw_db_name:
                     db = alias_db_name
                     path = f"{db}.{schema}.{table}"
@@ -444,7 +451,7 @@ class RedshiftLineageExtractor:
                     or not any(table == t.name for t in all_tables[db][schema])
                 ):
                     logger.debug(
-                        f"{source.urn} missing table, dropping from lineage for target table {target_table}.",
+                        f"{source.urn} missing table. Adding it to temp table list for target table {target_table}.",
                     )
                     probable_temp_tables.append(table)
                     self.report.num_lineage_tables_dropped += 1
@@ -459,7 +466,9 @@ class RedshiftLineageExtractor:
                 connection=connection,
                 temp_table_names=probable_temp_tables,
             )
-
+            logger.debug(
+                f"Number of permanent datasets found for {target_table} = {len(lineage_datasets)}"
+            )
             targe_source.extend(lineage_datasets)
 
             # correct the table drop count
@@ -641,11 +650,38 @@ class RedshiftLineageExtractor:
             self.redundant_run_skip_handler.report_current_run_status(step, status)
 
     @staticmethod
+    def _concat_sql_part(transaction_entry: Dict[int, str]) -> str:
+        sequence: int = 0
+
+        full_sql: str = ""
+
+        while sequence in transaction_entry:
+            full_sql = full_sql + transaction_entry[sequence]
+            sequence += 1
+
+        return full_sql
+
+    @staticmethod
     def form_full_sql(temp_table_rows: List[TempTableRow]) -> List[TempTableRow]:
+        if len(temp_table_rows) == 0:
+            return []
+
         temp_tables: List[TempTableRow] = []
 
+        # Arrange row as per transaction id and start time
+        sql_parts: Dict[Tuple[int, datetime], Dict[int, str]] = {}
+
         for row in temp_table_rows:
-            if any(
+            if (row.transaction_id, row.start_time) not in sql_parts:
+                sql_parts[(row.transaction_id, row.start_time)] = {}
+            # Each part of sql has same transaction_id and start_time and unique sequence number
+            sql_parts[(row.transaction_id, row.start_time)][
+                row.sequence
+            ] = row.query_text
+
+        for row in temp_table_rows:
+            # filter out "create temp|temporary|#<table-name>" statements rows for the transaction
+            if not any(
                 row.query_text.lower().startswith(prefix)
                 for prefix in [
                     RedshiftQuery.CREATE_TEMPORARY_TABLE_CLAUSE,
@@ -653,19 +689,40 @@ class RedshiftLineageExtractor:
                     RedshiftQuery.CREATE_TEMPORARY_TABLE_HASH_CLAUSE,
                 ]
             ):
-                temp_tables.append(row)
+                continue
+
+            transaction_entry: Dict[int, str] = sql_parts[
+                (row.transaction_id, row.start_time)
+            ]
+
+            full_sql: str = RedshiftLineageExtractor._concat_sql_part(transaction_entry)
+
+            temp_tables.append(
+                TempTableRow(
+                    start_time=row.start_time,
+                    sequence=row.sequence,
+                    query_text=full_sql,
+                    transaction_id=row.transaction_id,
+                    process_identifier=row.process_identifier,
+                )
+            )
 
         return temp_tables
 
-    def get_permanent_datasets(
+    def _add_permanent_datasets_recursively(
         self,
         db_name: str,
         temp_table_names: List[str],
         connection: redshift_connector.Connection,
-    ) -> List[LineageDataset]:
-        # TODO: In-case temp table is created from another temp table then recursively find out the permanent tables
+        permanent_lineage_datasets: List[LineageDataset],
+    ) -> None:
 
-        ddl_query: str = RedshiftQuery.temp_table_ddl_query(tables=temp_table_names)
+        ddl_query: str = RedshiftQuery.temp_table_ddl_query(
+            tables=temp_table_names,
+            db_name=db_name,
+            start_time=self.config.start_time,
+            end_time=self.config.end_time,
+        )
 
         logger.debug(f"Temporary table ddl query = {ddl_query}")
 
@@ -681,14 +738,53 @@ class RedshiftLineageExtractor:
             TempTableRow
         ] = RedshiftLineageExtractor.form_full_sql(temp_table_rows)
 
-        lineage_datasets: List[LineageDataset] = []
+        transitive_temp_tables: List[str] = []
 
         for temp_table in full_sql_temp_tables:
-            lineage_dataset, _ = self._get_sources_from_query(
+            intermediate_l_datasets, _ = self._get_sources_from_query(
                 db_name=db_name,
                 query=temp_table.query_text,
             )
 
-            lineage_datasets.extend(lineage_dataset)
+            # make sure lineage dataset should not contain a temp table
+            # if such dataset is present then add it to transitive_temp_tables to resolve it to original permanent table
+            for lineage_dataset in intermediate_l_datasets:
 
-        return lineage_datasets
+                db, schema, table = split_qualified_table_name(lineage_dataset.urn)
+
+                # Check if table found is again a temp table
+                if not RedshiftDataDictionary.is_empty(
+                    conn=connection,
+                    query=RedshiftQuery.is_temp_table_query(table=table),
+                ):
+                    transitive_temp_tables.append(table)
+                    continue
+
+                permanent_lineage_datasets.append(lineage_dataset)
+
+        if transitive_temp_tables:
+            # recursive call
+            self._add_permanent_datasets_recursively(
+                db_name=db_name,
+                temp_table_names=transitive_temp_tables,
+                connection=connection,
+                permanent_lineage_datasets=permanent_lineage_datasets,
+            )
+
+    def get_permanent_datasets(
+        self,
+        db_name: str,
+        temp_table_names: List[str],
+        connection: redshift_connector.Connection,
+    ) -> List[LineageDataset]:
+
+        permanent_lineage_datasets: List[LineageDataset] = []
+
+        self._add_permanent_datasets_recursively(
+            db_name=db_name,
+            temp_table_names=temp_table_names,
+            connection=connection,
+            permanent_lineage_datasets=permanent_lineage_datasets,
+        )
+
+        return permanent_lineage_datasets
