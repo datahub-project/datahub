@@ -9,7 +9,9 @@ from pydantic.class_validators import root_validator, validator
 from pydantic.fields import Field
 
 from datahub.configuration import ConfigModel
-from datahub.emitter.mce_builder import DEFAULT_ENV
+from datahub.configuration.common import AllowDenyPattern
+from datahub.emitter.mce_builder import DEFAULT_ENV, make_domain_urn
+from datahub.emitter.mcp_builder import add_domain_to_entity_wu
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -81,6 +83,10 @@ class SupersetConfig(StatefulIngestionConfigBase, ConfigModel):
     display_uri: Optional[str] = Field(
         default=None,
         description="optional URL to use in links (if `connect_uri` is only for ingestion)",
+    )
+    domain: Dict[str, AllowDenyPattern] = Field(
+        default=dict(),
+        description="regex patterns for tables to filter to assign domain_key. ",
     )
     username: Optional[str] = Field(default=None, description="Superset username.")
     password: Optional[str] = Field(default=None, description="Superset password.")
@@ -305,6 +311,10 @@ class SupersetSource(StatefulIngestionSourceBase):
                 )
                 mce = MetadataChangeEvent(proposedSnapshot=dashboard_snapshot)
                 yield MetadataWorkUnit(id=dashboard_snapshot.urn, mce=mce)
+                yield from self._get_domain_wu(
+                    title=dashboard_data.get("dashboard_title", ""),
+                    entity_urn=dashboard_snapshot.urn,
+                )
 
     def construct_chart_from_chart_data(self, chart_data):
         chart_urn = f"urn:li:chart:({self.platform},{chart_data['id']})"
@@ -404,6 +414,10 @@ class SupersetSource(StatefulIngestionSourceBase):
 
                 mce = MetadataChangeEvent(proposedSnapshot=chart_snapshot)
                 yield MetadataWorkUnit(id=chart_snapshot.urn, mce=mce)
+                yield from self._get_domain_wu(
+                    title=chart_data.get("slice_name", ""),
+                    entity_urn=chart_snapshot.urn,
+                )
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         yield from self.emit_dashboard_mces()
@@ -419,3 +433,20 @@ class SupersetSource(StatefulIngestionSourceBase):
 
     def get_report(self) -> StaleEntityRemovalSourceReport:
         return self.report
+
+    def _gen_domain_urn(self, title: str) -> Optional[str]:
+        for domain, pattern in self.config.domain.items():
+            if pattern.allowed(title):
+                return make_domain_urn(domain)
+
+        return None
+
+    def _get_domain_wu(
+        self, title: str, entity_urn: str
+    ) -> Iterable[MetadataWorkUnit]:
+        domain_urn = self._gen_domain_urn(title)
+        if domain_urn:
+            yield from add_domain_to_entity_wu(
+                entity_urn=entity_urn,
+                domain_urn=domain_urn,
+            )
