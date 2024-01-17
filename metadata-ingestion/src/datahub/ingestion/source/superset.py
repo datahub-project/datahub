@@ -441,9 +441,7 @@ class SupersetSource(StatefulIngestionSourceBase):
 
         return None
 
-    def _get_domain_wu(
-        self, title: str, entity_urn: str
-    ) -> Iterable[MetadataWorkUnit]:
+    def _get_domain_wu(self, title: str, entity_urn: str) -> Iterable[MetadataWorkUnit]:
         domain_urn = self._gen_domain_urn(title)
         if domain_urn:
             yield from add_domain_to_entity_wu(
