@@ -1,6 +1,7 @@
 import json
 import logging
 from functools import lru_cache
+import re
 from typing import Dict, Iterable, List, Optional
 
 import dateutil.parser as dp
@@ -103,6 +104,11 @@ class SupersetConfig(StatefulIngestionConfigBase, ConfigModel):
     database_alias: Dict[str, str] = Field(
         default={},
         description="Can be used to change mapping for database names in superset to what you have in datahub",
+    )
+
+    reserved_characters_replacement: str = Field(
+        default=None,
+        description=f"Can be used to replace reserved characters {RESERVED_CHARACTERS} in tables name so they can be ingested",
     )
 
     @validator("connect_uri", "display_uri")
@@ -219,10 +225,19 @@ class SupersetSource(StatefulIngestionSourceBase):
         schema_name = dataset_response.get("result", {}).get("schema")
         table_name = dataset_response.get("result", {}).get("table_name")
         if RESERVED_CHARACTERS.intersection(table_name):
-            logger.warning(
-                f"Failed to ingest following dataset due to a reserved character {RESERVED_CHARACTERS} in table name: {schema_name}.{table_name}"
+            if not self.config.reserved_characters_replacement:
+                logger.warning(
+                    f"Failed to ingest following dataset due to a reserved character {RESERVED_CHARACTERS} in table name: {schema_name}.{table_name}."
+                    "Consider using 'reserved_characters_replacement' argument to ingest dataset"
+                )
+                return None
+
+            table_name = re.sub(
+                rf"[{''.join(RESERVED_CHARACTERS)}]",
+                self.config.reserved_characters_replacement,
+                table_name,
             )
-            return None
+
         database_id = dataset_response.get("result", {}).get("database", {}).get("id")
         database_name = (
             dataset_response.get("result", {}).get("database", {}).get("database_name")
