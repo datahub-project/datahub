@@ -224,10 +224,10 @@ class SupersetSource(StatefulIngestionSourceBase):
         ).json()
         schema_name = dataset_response.get("result", {}).get("schema")
         table_name = dataset_response.get("result", {}).get("table_name")
-        if RESERVED_CHARACTERS.intersection(table_name):
+        if table_name and RESERVED_CHARACTERS.intersection(table_name):
             if not self.config.reserved_characters_replacement:
                 logger.warning(
-                    f"Failed to ingest following dataset due to a reserved character {RESERVED_CHARACTERS} in table name: {schema_name}.{table_name}."
+                    f"Failed to ingest following dataset due to a reserved character {RESERVED_CHARACTERS} in table name: {schema_name}.{table_name}. "
                     "Consider using 'reserved_characters_replacement' argument to ingest dataset"
                 )
                 return None
