@@ -781,12 +781,12 @@ class RedshiftLineageExtractor:
         return temp_table_rows
 
     def find_temp_tables(
-        self, connection: redshift_connector.Connection, temp_table_names: List[str]
+        self, temp_tables: List[TempTableRow], temp_table_names: List[str]
     ) -> List[TempTableRow]:
         matched_temp_tables: List[TempTableRow] = []
 
         for table_name in temp_table_names:
-            for row in self.get_temp_tables(connection=connection):
+            for row in temp_tables:
                 if any(
                     row.query_text.lower().startswith(prefix)
                     for prefix in RedshiftQuery.get_temp_table_clause(table_name)
@@ -799,6 +799,7 @@ class RedshiftLineageExtractor:
         self,
         db_name: str,
         temp_table_rows: List[TempTableRow],
+        visited_tables: Set[str],
         connection: redshift_connector.Connection,
         permanent_lineage_datasets: List[LineageDataset],
     ) -> None:
@@ -815,14 +816,19 @@ class RedshiftLineageExtractor:
             for lineage_dataset in intermediate_l_datasets:
                 db, schema, table = split_qualified_table_name(lineage_dataset.urn)
 
+                if table in visited_tables:
+                    # The table is already processed
+                    continue
+
                 # Check if table found is again a temp table
                 repeated_temp_table: List[TempTableRow] = self.find_temp_tables(
-                    connection=connection,
+                    temp_tables=self.get_temp_tables(connection=connection),
                     temp_table_names=[table],
                 )
 
                 if repeated_temp_table:
                     transitive_temp_tables.extend(repeated_temp_table)
+                    visited_tables.add(table)
                     continue
 
                 permanent_lineage_datasets.append(lineage_dataset)
@@ -832,6 +838,7 @@ class RedshiftLineageExtractor:
             self._add_permanent_datasets_recursively(
                 db_name=db_name,
                 temp_table_rows=transitive_temp_tables,
+                visited_tables=visited_tables,
                 connection=connection,
                 permanent_lineage_datasets=permanent_lineage_datasets,
             )
@@ -845,13 +852,16 @@ class RedshiftLineageExtractor:
         permanent_lineage_datasets: List[LineageDataset] = []
 
         temp_table_rows: List[TempTableRow] = self.find_temp_tables(
-            connection=connection,
+            temp_tables=self.get_temp_tables(connection=connection),
             temp_table_names=temp_table_names,
         )
+
+        visited_tables: Set[str] = set(temp_table_names)
 
         self._add_permanent_datasets_recursively(
             db_name=db_name,
             temp_table_rows=temp_table_rows,
+            visited_tables=visited_tables,
             connection=connection,
             permanent_lineage_datasets=permanent_lineage_datasets,
         )
