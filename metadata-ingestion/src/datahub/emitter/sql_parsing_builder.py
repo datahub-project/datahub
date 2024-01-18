@@ -129,13 +129,14 @@ class SqlParsingBuilder:
 
         if self.generate_lineage:
             for downstream_urn in downstreams_to_ingest:
+                # Set explicitly so that FileBackedDict registers any mutations
                 self._lineage_map[downstream_urn] = _merge_lineage_data(
                     downstream_urn=downstream_urn,
                     upstream_urns=result.in_tables,
                     column_lineage=result.column_lineage
                     if include_column_lineage
                     else None,
-                    upstream_edges=self._lineage_map.setdefault(downstream_urn, {}),
+                    upstream_edges=self._lineage_map.get(downstream_urn, {}),
                     query_timestamp=query_timestamp,
                     is_view_ddl=is_view_ddl,
                     user=user,
@@ -171,11 +172,12 @@ class SqlParsingBuilder:
         user: Optional[UserUrn] = None,
     ) -> None:
         """Manually add a single upstream -> downstream lineage edge, e.g. if sql parsing fails."""
+        # Set explicitly so that FileBackedDict registers any mutations
         self._lineage_map[downstream_urn] = _merge_lineage_data(
             downstream_urn=downstream_urn,
             upstream_urns=upstream_urns,
             column_lineage=None,
-            upstream_edges=self._lineage_map.setdefault(downstream_urn, {}),
+            upstream_edges=self._lineage_map.get(downstream_urn, {}),
             query_timestamp=timestamp,
             is_view_ddl=is_view_ddl,
             user=user,
