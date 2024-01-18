@@ -118,13 +118,19 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
     // Filters
     Collection<AggregationBuilder> aggBuilders =
         sourceBuilder.aggregations().getAggregatorFactories();
-    // Expect 2 aggregations: textFieldOverride and _index
-    assertEquals(aggBuilders.size(), 2);
+    // Expect 3 aggregations: textFieldOverride, missing␝textFieldOverride, and _index
+    assertEquals(aggBuilders.size(), 3);
     for (AggregationBuilder aggBuilder : aggBuilders) {
       if (aggBuilder.getName().equals("textFieldOverride")) {
         TermsAggregationBuilder filterPanelBuilder = (TermsAggregationBuilder) aggBuilder;
         assertEquals(filterPanelBuilder.field(), "textFieldOverride.keyword");
-      } else if (!aggBuilder.getName().equals("_entityType")) {
+      } else if (!aggBuilder.getName().equals("_entityType")
+          && !aggBuilder
+              .getName()
+              .equals(
+                  MISSING_SPECIAL_TYPE
+                      + AGGREGATION_SPECIAL_TYPE_DELIMITER
+                      + "textFieldOverride")) {
         fail("Found unexepected aggregation: " + aggBuilder.getName());
       }
     }
@@ -146,12 +152,18 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
     Collection<AggregationBuilder> aggBuilders =
         sourceBuilder.aggregations().getAggregatorFactories();
     // Expect 2 aggregations: textFieldOverride and _index
-    assertEquals(aggBuilders.size(), 2);
+    assertEquals(aggBuilders.size(), 3);
     for (AggregationBuilder aggBuilder : aggBuilders) {
       if (aggBuilder.getName().equals("textFieldOverride")) {
         TermsAggregationBuilder filterPanelBuilder = (TermsAggregationBuilder) aggBuilder;
         assertEquals(filterPanelBuilder.field(), "textFieldOverride.keyword");
-      } else if (!aggBuilder.getName().equals("_entityType")) {
+      } else if (!aggBuilder.getName().equals("_entityType")
+          && !aggBuilder
+              .getName()
+              .equals(
+                  MISSING_SPECIAL_TYPE
+                      + AGGREGATION_SPECIAL_TYPE_DELIMITER
+                      + "textFieldOverride")) {
         fail("Found unexepected aggregation: " + aggBuilder.getName());
       }
     }

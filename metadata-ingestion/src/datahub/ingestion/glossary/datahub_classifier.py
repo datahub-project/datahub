@@ -73,6 +73,11 @@ class InfoTypeConfig(ConfigModel):
         description="Factors and their weights to consider when predicting info types",
         alias="prediction_factors_and_weights",
     )
+    ExcludeName: Optional[List[str]] = Field(
+        default=None,
+        alias="exclude_name",
+        description="List of exact column names to exclude from classification for this info type",
+    )
     Name: Optional[NameFactorConfig] = Field(default=None, alias="name")
 
     Description: Optional[DescriptionFactorConfig] = Field(
@@ -95,6 +100,7 @@ class DataHubClassifierConfig(ConfigModel):
         default=0.68,
         description="The confidence threshold above which the prediction is considered as a proposal",
     )
+    strip_exclusion_formatting: bool = Field(default=True)
     info_types: Optional[List[str]] = Field(
         default=None,
         description="List of infotypes to be predicted. By default, all supported infotypes are considered, along with any custom infotypes configured in `info_types_config`.",

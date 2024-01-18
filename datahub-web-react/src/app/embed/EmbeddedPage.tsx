@@ -39,7 +39,7 @@ export default function EmbeddedPage({ entityType }: Props) {
         });
     }, [entityType, urn]);
 
-    const { urn : authenticatedUserUrn } = useUserContext();
+    const { urn: authenticatedUserUrn } = useUserContext();
     const { data } = useGetGrantedPrivilegesQuery({
         variables: {
             input: {
@@ -48,6 +48,7 @@ export default function EmbeddedPage({ entityType }: Props) {
             },
         },
         fetchPolicy: 'cache-first',
+        skip: !authenticatedUserUrn,
     });
 
     const privileges = data?.getGrantedPrivileges?.privileges || [];

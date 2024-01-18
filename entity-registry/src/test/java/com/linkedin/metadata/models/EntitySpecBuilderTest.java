@@ -218,6 +218,12 @@ public class EntitySpecBuilderTest {
             .get(new PathSpec("textField").toString())
             .getSearchableAnnotation()
             .getFieldType());
+    assertTrue(
+        testEntityInfo
+            .getSearchableFieldSpecMap()
+            .get(new PathSpec("textField").toString())
+            .getSearchableAnnotation()
+            .isIncludeQueryEmptyAggregation());
     assertEquals(
         "textArrayField",
         testEntityInfo

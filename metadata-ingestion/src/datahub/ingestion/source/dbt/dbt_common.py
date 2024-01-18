@@ -902,6 +902,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             ),
         ):
             node = all_nodes_map[dbt_name]
+            logger.debug(f"Processing CLL/schemas for {node.dbt_name}")
 
             target_node_urn = None
             should_fetch_target_node_schema = False

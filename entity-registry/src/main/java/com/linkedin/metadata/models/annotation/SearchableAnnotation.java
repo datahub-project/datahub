@@ -54,6 +54,9 @@ public class SearchableAnnotation {
   Map<Object, Double> weightsPerFieldValue;
   // (Optional) Aliases for this given field that can be used for sorting etc.
   List<String> fieldNameAliases;
+  // Whether to create a missing field aggregation when querying the corresponding field,
+  // only adds to query time not mapping
+  boolean includeQueryEmptyAggregation;
 
   public enum FieldType {
     KEYWORD,
@@ -114,6 +117,8 @@ public class SearchableAnnotation {
     final Optional<Map> weightsPerFieldValueMap =
         AnnotationUtils.getField(map, "weightsPerFieldValue", Map.class)
             .map(m -> (Map<Object, Double>) m);
+    final Optional<Boolean> includeQueryEmptyAggregation =
+        AnnotationUtils.getField(map, "includeQueryEmptyAggregation", Boolean.class);
     final List<String> fieldNameAliases = getFieldNameAliases(map);
 
     final FieldType resolvedFieldType = getFieldType(fieldType, schemaDataType);
@@ -130,7 +135,8 @@ public class SearchableAnnotation {
         hasValuesFieldName,
         numValuesFieldName,
         weightsPerFieldValueMap.orElse(ImmutableMap.of()),
-        fieldNameAliases);
+        fieldNameAliases,
+        includeQueryEmptyAggregation.orElse(false));
   }
 
   private static FieldType getFieldType(

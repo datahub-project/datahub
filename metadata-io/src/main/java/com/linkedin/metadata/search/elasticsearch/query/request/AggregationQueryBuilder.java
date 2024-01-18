@@ -43,15 +43,6 @@ public class AggregationQueryBuilder {
   public List<AggregationBuilder> getAggregations(@Nullable List<String> facets) {
     final Set<String> facetsToAggregate;
     if (facets != null) {
-      facets.stream()
-          .filter(f -> !isValidAggregate(f))
-          .forEach(
-              facet -> {
-                log.warn(
-                    String.format(
-                        "Requested facet for search filter aggregations that isn't part of the default filters. Provided: %s; Available: %s",
-                        facet, _defaultFacetFields));
-              });
       facetsToAggregate =
           facets.stream().filter(this::isValidAggregate).collect(Collectors.toSet());
     } else {
@@ -82,7 +73,15 @@ public class AggregationQueryBuilder {
 
   private boolean isValidAggregate(final String inputFacet) {
     Set<String> facets = Set.of(inputFacet.split(AGGREGATION_SEPARATOR_CHAR));
-    return facets.size() > 0 && _allFacetFields.containsAll(facets);
+    boolean isValid = !facets.isEmpty() && _allFacetFields.containsAll(facets);
+    if (!isValid) {
+      log.warn(
+          String.format(
+              "Requested facet for search filter aggregations that isn't part of the filters. "
+                  + "Provided: %s; Available: %s",
+              inputFacet, _allFacetFields));
+    }
+    return isValid;
   }
 
   private AggregationBuilder facetToAggregationBuilder(final String inputFacet) {
@@ -90,15 +89,29 @@ public class AggregationQueryBuilder {
     AggregationBuilder lastAggBuilder = null;
     for (int i = facets.size() - 1; i >= 0; i--) {
       String facet = facets.get(i);
-      AggregationBuilder aggBuilder =
-          facet.equalsIgnoreCase(INDEX_VIRTUAL_FIELD)
-              ? AggregationBuilders.terms(inputFacet)
-                  .field(getAggregationField("_index"))
-                  .size(_configs.getMaxTermBucketSize())
-                  .minDocCount(0)
-              : AggregationBuilders.terms(inputFacet)
-                  .field(getAggregationField(facet))
-                  .size(_configs.getMaxTermBucketSize());
+      AggregationBuilder aggBuilder;
+      if (facet.contains(AGGREGATION_SPECIAL_TYPE_DELIMITER)) {
+        List<String> specialTypeFields = List.of(facet.split(AGGREGATION_SPECIAL_TYPE_DELIMITER));
+        switch (specialTypeFields.get(0)) {
+          case MISSING_SPECIAL_TYPE -> aggBuilder =
+              INDEX_VIRTUAL_FIELD.equalsIgnoreCase(specialTypeFields.get(1))
+                  ? AggregationBuilders.missing(inputFacet).field(getAggregationField("_index"))
+                  : AggregationBuilders.missing(inputFacet)
+                      .field(getAggregationField(specialTypeFields.get(1)));
+          default -> throw new UnsupportedOperationException(
+              "Unknown special type: " + specialTypeFields.get(0));
+        }
+      } else {
+        aggBuilder =
+            facet.equalsIgnoreCase(INDEX_VIRTUAL_FIELD)
+                ? AggregationBuilders.terms(inputFacet)
+                    .field(getAggregationField("_index"))
+                    .size(_configs.getMaxTermBucketSize())
+                    .minDocCount(0)
+                : AggregationBuilders.terms(inputFacet)
+                    .field(getAggregationField(facet))
+                    .size(_configs.getMaxTermBucketSize());
+      }
       if (lastAggBuilder != null) {
         aggBuilder = aggBuilder.subAggregation(lastAggBuilder);
       }
@@ -125,6 +138,10 @@ public class AggregationQueryBuilder {
     if (annotation.isAddHasValuesToFilters() && annotation.getHasValuesFieldName().isPresent()) {
       facetsFromAnnotation.add(annotation.getHasValuesFieldName().get());
     }
+    if (annotation.isIncludeQueryEmptyAggregation()) {
+      facetsFromAnnotation.add(
+          MISSING_SPECIAL_TYPE + AGGREGATION_SPECIAL_TYPE_DELIMITER + annotation.getFieldName());
+    }
     return facetsFromAnnotation;
   }
 
@@ -133,6 +150,10 @@ public class AggregationQueryBuilder {
     facetsFromAnnotation.add(annotation.getFieldName());
     if (annotation.getHasValuesFieldName().isPresent()) {
       facetsFromAnnotation.add(annotation.getHasValuesFieldName().get());
+    }
+    if (annotation.isIncludeQueryEmptyAggregation()) {
+      facetsFromAnnotation.add(
+          MISSING_SPECIAL_TYPE + AGGREGATION_SPECIAL_TYPE_DELIMITER + annotation.getFieldName());
     }
     return facetsFromAnnotation;
   }

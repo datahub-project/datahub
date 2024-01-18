@@ -88,7 +88,6 @@ public class SearchUtils {
           EntityType.TAG,
           EntityType.CORP_USER,
           EntityType.CORP_GROUP,
-          EntityType.ROLE,
           EntityType.NOTEBOOK,
           EntityType.DATA_PRODUCT);
 

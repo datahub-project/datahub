@@ -15,7 +15,8 @@ record TestEntityInfo includes CustomProperties {
     "fieldName": "textFieldOverride",
     "fieldType": "TEXT",
     "addToFilters": true,
-    "fieldNameAliases": [ "_entityName" ]
+    "fieldNameAliases": [ "_entityName" ],
+    "includeQueryEmptyAggregation": true
   }
   textField: optional string
 

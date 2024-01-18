@@ -5,6 +5,7 @@ from pydantic import ValidationError
 
 from datahub.emitter import mce_builder
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.source.dbt.dbt_cloud import DBTCloudConfig
 from datahub.ingestion.source.dbt.dbt_core import DBTCoreConfig, DBTCoreSource
 from datahub.metadata.schema_classes import (
     OwnerClass,
@@ -278,3 +279,37 @@ def test_dbt_entity_emission_configuration_helpers():
     assert not config.entities_enabled.can_emit_node_type("source")
     assert config.entities_enabled.can_emit_node_type("test")
     assert config.entities_enabled.can_emit_test_results
+
+
+def test_dbt_cloud_config_access_url():
+    config_dict = {
+        "access_url": "https://my-dbt-cloud.dbt.com",
+        "token": "dummy_token",
+        "account_id": "123456",
+        "project_id": "1234567",
+        "job_id": "12345678",
+        "run_id": "123456789",
+        "target_platform": "dummy_platform",
+    }
+    config = DBTCloudConfig.parse_obj(config_dict)
+    assert config.access_url == "https://my-dbt-cloud.dbt.com"
+    assert config.metadata_endpoint == "https://metadata.my-dbt-cloud.dbt.com/graphql"
+
+
+def test_dbt_cloud_config_with_defined_metadata_endpoint():
+    config_dict = {
+        "access_url": "https://my-dbt-cloud.dbt.com",
+        "token": "dummy_token",
+        "account_id": "123456",
+        "project_id": "1234567",
+        "job_id": "12345678",
+        "run_id": "123456789",
+        "target_platform": "dummy_platform",
+        "metadata_endpoint": "https://my-metadata-endpoint.my-dbt-cloud.dbt.com/graphql",
+    }
+    config = DBTCloudConfig.parse_obj(config_dict)
+    assert config.access_url == "https://my-dbt-cloud.dbt.com"
+    assert (
+        config.metadata_endpoint
+        == "https://my-metadata-endpoint.my-dbt-cloud.dbt.com/graphql"
+    )

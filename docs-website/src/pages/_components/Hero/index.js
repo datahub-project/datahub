@@ -51,7 +51,6 @@ const Hero = ({}) => {
           </div>
         </div>
         <CardCTAs />
-        <Image className="hero__image" img={require(`/img/diagrams/datahub-flow-diagram-${colorMode}.png`)} alt="DataHub Flow Diagram" />
         <div className={styles.quickstartContent}>
           <h1 className={styles.quickstartTitle}>Get Started Now</h1>
           <p className={styles.quickstartSubtitle}>Run the following command to get started with DataHub.</p>
