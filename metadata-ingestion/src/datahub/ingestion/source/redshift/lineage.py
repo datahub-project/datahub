@@ -207,6 +207,11 @@ class RedshiftLineageExtractor:
         if parsed_result is None:
             logger.debug(f"native query parsing failed for {query}")
             return sources, None
+        elif parsed_result.debug_info.table_error:
+            logger.debug(
+                f"native query parsing failed for {query} with error: {parsed_result.debug_info.table_error}"
+            )
+            return sources, None
 
         logger.debug(f"parsed_result = {parsed_result}")
 
