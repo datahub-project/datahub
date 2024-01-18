@@ -1022,5 +1022,5 @@ SELECT * FROM cte
                 "col2": "INTEGER",
             },
         },
-        expected_file=RESOURCE_DIR / "test_redshift_temp_table.json",
+        expected_file=RESOURCE_DIR / "test_redshift_temp_table_shortcut.json",
     )
